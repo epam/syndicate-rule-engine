@@ -1,0 +1,62 @@
+{
+  "version": "1.0",
+  "name": "caas-configuration-api-handler",
+  "func_name": "handler.lambda_handler",
+  "resource_type": "lambda",
+  "iam_role_name": "configuration-api-handler-role",
+  "runtime": "python3.8",
+  "memory": 256,
+  "timeout": 100,
+  "lambda_path": "/lambdas/custodian_configuration_api_handler",
+  "dependencies": [
+    {
+      "resource_name": "CaaSCredentialsManager",
+      "resource_type": "dynamodb_table"
+    },
+    {
+      "resource_name": "CaaSRules",
+      "resource_type": "dynamodb_table"
+    },
+    {
+      "resource_name": "CaaSJobs",
+      "resource_type": "dynamodb_table"
+    },
+    {
+      "resource_name": "CaaSSettings",
+      "resource_type": "dynamodb_table"
+    },
+    {
+      "resource_name": "CaaSRoles",
+      "resource_type": "dynamodb_table"
+    },
+    {
+      "resource_name": "CaaSPolicies",
+      "resource_type": "dynamodb_table"
+    },
+    {
+      "resource_name": "CaaSLicenses",
+      "resource_type": "dynamodb_table"
+    }
+  ],
+  "event_sources": [],
+  "env_variables": {
+    "caas_user_pool_name": "custodian_as_a_service",
+    "not_invoke_ruleset_compiler": "${not_invoke_ruleset_compiler}",
+    "modular_assume_role_arn": "${modular_assume_role_arn}",
+    "MODULAR_AWS_REGION": "${MODULAR_AWS_REGION}",
+    "caas_rulesets_bucket": "${caas_rulesets_bucket}",
+    "stats_s3_bucket_name": "${stats_s3_bucket_name}",
+    "lambdas_alias_name": "${lambdas_alias_name}"
+  },
+  "publish_version": true,
+  "alias": "${lambdas_alias_name}",
+  "subnet_ids": [
+    "${lambda_private_subnet_id_1}"
+  ],
+  "security_group_ids": [
+    "${lambda_security_group_1}"
+  ],
+  "layers": [
+    "custodian_common_dependencies_layer"
+  ]
+}

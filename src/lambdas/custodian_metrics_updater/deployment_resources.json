@@ -1,0 +1,48 @@
+{
+  "metrics-updater-policy": {
+    "resource_type": "iam_policy",
+    "policy_content": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Action": [
+            "dynamodb:GetItem",
+            "dynamodb:BatchGetItem",
+            "logs:GetLogEvents",
+            "s3:*"
+          ],
+          "Resource": "*",
+          "Effect": "Allow"
+        },
+        {
+          "Action": [
+            "lambda:InvokeFunction"
+          ],
+          "Effect": "Allow",
+          "Resource": [
+            "arn:aws:lambda:${region}:${account_id}:function:caas-metrics-updater:${lambdas_alias_name}"
+          ]
+        }
+      ]
+    }
+  },
+  "metrics-updater-role": {
+    "predefined_policies": [],
+    "principal_service": "lambda",
+    "custom_policies": [
+      "lambda-basic-execution",
+      "metrics-updater-policy"
+    ],
+    "resource_type": "iam_role"
+  },
+  "caas-metrics-updater-trigger": {
+    "resource_type": "cloudwatch_rule",
+    "rule_type": "schedule",
+    "expression": "cron(0 1 * * ? *)"
+  },
+  "caas-findings-updater-trigger": {
+    "resource_type": "cloudwatch_rule",
+    "rule_type": "schedule",
+    "expression": "cron(0 0 * * ? *)"
+  }
+}

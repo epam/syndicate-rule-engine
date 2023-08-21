@@ -1,0 +1,41 @@
+{
+  "report-api-handler-policy": {
+    "resource_type": "iam_policy",
+    "policy_content": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Action": [
+            "dynamodb:GetItem",
+            "dynamodb:BatchGetItem",
+            "s3:Get*",
+            "s3:List*",
+            "batch:DescribeJobs",
+            "logs:GetLogEvents",
+            "cognito-idp:AdminInitiateAuth",
+            "cognito-idp:SignUp",
+            "cognito-idp:AdminCreateUser",
+            "cognito-idp:AdminSetUserPassword",
+            "cognito-idp:ListUserPools",
+            "cognito-idp:AdminRespondToAuthChallenge",
+            "cognito-idp:ListUserPoolClients",
+            "cognito-idp:ListUsers",
+            "securityhub:BatchImportFindings",
+            "sts:AssumeRole"
+          ],
+          "Resource": "*",
+          "Effect": "Allow"
+        }
+      ]
+    }
+  },
+  "report-api-handler-role": {
+    "predefined_policies": [],
+    "principal_service": "lambda",
+    "custom_policies": [
+      "lambda-basic-execution",
+      "report-api-handler-policy"
+    ],
+    "resource_type": "iam_role"
+  }
+}

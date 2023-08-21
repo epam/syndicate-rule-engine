@@ -1,0 +1,32 @@
+{
+  "rule-meta-updater-policy": {
+    "resource_type": "iam_policy",
+    "policy_content": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Action": [
+            "s3:GetObject",
+            "s3:PutObject"
+          ],
+          "Resource": "*",
+          "Effect": "Allow"
+        }
+      ]
+    }
+  },
+  "rule-meta-updater-role": {
+    "predefined_policies": [],
+    "principal_service": "lambda",
+    "custom_policies": [
+      "rule-meta-updater-policy",
+      "lambda-basic-execution"
+    ],
+    "resource_type": "iam_role"
+  },
+  "caas-rule-meta-updater-event-trigger": {
+    "resource_type": "cloudwatch_rule",
+    "rule_type": "schedule",
+    "expression": "cron(0 8 * * ? *)"
+  }
+}

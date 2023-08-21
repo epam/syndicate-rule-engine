@@ -1,0 +1,37 @@
+{
+  "version": "1.0",
+  "name": "caas-rule-meta-updater",
+  "func_name": "handler.lambda_handler",
+  "resource_type": "lambda",
+  "iam_role_name": "rule-meta-updater-role",
+  "runtime": "python3.8",
+  "memory": 512,
+  "timeout": 900,
+  "lambda_path": "/lambdas/custodian_rule_meta_updater",
+  "dependencies": [
+    {
+      "resource_name": "CaaSRules",
+      "resource_type": "dynamodb_table"
+    }
+  ],
+  "event_sources": [
+    {
+      "resource_type": "cloudwatch_rule_trigger",
+      "target_rule": "caas-rule-meta-updater-event-trigger"
+    }
+  ],
+  "env_variables": {
+    "caas_rulesets_bucket": "${caas_rulesets_bucket}"
+  },
+  "publish_version": true,
+  "alias": "${lambdas_alias_name}",
+  "subnet_ids": [
+    "${lambda_private_subnet_id_1}"
+  ],
+  "security_group_ids": [
+    "${lambda_security_group_1}"
+  ],
+  "layers": [
+    "custodian_common_dependencies_layer"
+  ]
+}
