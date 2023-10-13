@@ -1,16 +1,7 @@
-### Custodian Service
+### Syndicate Rule Engine
 
-The application provides ability to
-perform [custodian](https://cloudcustodian.io)
-scans for AWS, Azure and GCP accounts.
-
-[Custodian](https://cloudcustodian.io) is a tool for automation cloud security
-compliance. It is based on open-source tool Cloud Custodian enhanced by EPAM
-Team. The tool allows users to check their infrastructure resources for
-compliance to the security policies and standards. Custodian applies the defined
-sets of rules against the infrastructure and provides information on the
-resources that break the policies. The rulesets are designed specifically for
-each of the clouds – AWS, Azure, and GCP.
+Syndicate Rule Engine is a solution that allows checking and assessing virtual infrastructures in AWS, Azure, GCP infrastructures against different types of standards, requirements and rulesets.
+By default, the solution covers hundreds of security, compliance, utilization and cost effectiveness rules, which cover world-known standards like GDPR, PCI DSS, CIS Benchmark, and a bunch of others.
 
 ### Notice
 
