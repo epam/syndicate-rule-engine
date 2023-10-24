@@ -1,8 +1,8 @@
 #!/bin/bash
 
-DEFAULT_CUSTOMER_NAME="EPAM Systems"
-DEFAULT_CUSTOMER_OWNER=demo@epam.com
-DEFAULT_USERNAME=demouser
+DEFAULT_CUSTOMER_NAME=ADMIN_CUSTOMER
+DEFAULT_CUSTOMER_OWNER=admin@gmail.com
+DEFAULT_USERNAME=admin
 
 echo "Creating the necessary buckets in Minio"
 python main.py create_buckets

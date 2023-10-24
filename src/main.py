@@ -22,9 +22,6 @@ from dateutil.relativedelta import relativedelta, SU
 from dotenv import load_dotenv
 from modular_sdk.models.customer import Customer
 
-from exported_module.scripts.rules_table_generator import \
-    main as generate_rules_table, \
-    init_parser as init_rules_table_generator_cli_parser
 from helpers.time_helper import utc_iso, utc_datetime
 from services import SERVICE_PROVIDER
 from services.clients.xlsx_standard_parser import \
@@ -45,7 +42,6 @@ CREATE_BUCKETS_ACTION = 'create_buckets'
 INIT_VAULT_ACTION = 'init_vault'
 UPDATE_API_GATEWAY_MODELS_ACTION = 'update_api_models'
 PARSE_XLSX_STANDARD_ACTION = 'parse_standards'
-GENERATE_RULES_TABLE_ACTION = 'generate_rules_table'
 ENV_ACTION = 'env'
 
 UPDATE_SETTINGS_ENV_ACTION = 'update_settings'
@@ -127,10 +123,6 @@ def build_parser() -> argparse.ArgumentParser:
     init_xlsx_cli_parser(sub_parsers.add_parser(
         PARSE_XLSX_STANDARD_ACTION,
         help='Parses Custom Core\'s xlsx with standards'
-    ))
-    init_rules_table_generator_cli_parser(sub_parsers.add_parser(
-        GENERATE_RULES_TABLE_ACTION,
-        help='Generates xlsx table with rules data from local dir with rules'
     ))
     parser_run = sub_parsers.add_parser(RUN_ACTION, help='Run on-prem server')
     parser_run.add_argument(
@@ -671,7 +663,6 @@ def main(args: Optional[List[str]] = None):
         (CREATE_BUCKETS_ACTION,): InitSubService({'minio'}),
         (RUN_ACTION,): Run(),
         (PARSE_XLSX_STANDARD_ACTION,): parse_xlsx_standard,
-        (GENERATE_RULES_TABLE_ACTION,): generate_rules_table,
 
         (UPDATE_API_GATEWAY_MODELS_ACTION,): UpdateApiGatewayModels(),
         (ENV_ACTION, UPDATE_SETTINGS_ENV_ACTION): UpdateSettings(),
