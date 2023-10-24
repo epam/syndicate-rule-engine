@@ -1,0 +1,2 @@
+XlsxWriter==3.0.3
+# pytablewriter==0.64.2

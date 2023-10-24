@@ -1,0 +1,2 @@
+XlsxWriter==3.0.3
+cryptography==3.4.7

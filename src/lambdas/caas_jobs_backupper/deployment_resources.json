@@ -1,0 +1,13 @@
+{
+  "caas-jobs-backupper-role": {
+    "predefined_policies": [
+      "AWSLambdaDynamoDBExecutionRole",
+      "AmazonKinesisFirehoseFullAccess"
+    ],
+    "principal_service": "lambda",
+    "custom_policies": [
+      "lambda-basic-execution"
+    ],
+    "resource_type": "iam_role"
+  }
+}

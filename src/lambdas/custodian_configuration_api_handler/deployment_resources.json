@@ -1,0 +1,56 @@
+{
+  "configuration-api-handler-policy": {
+    "resource_type": "iam_policy",
+    "policy_content": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Action": [
+            "dynamodb:GetItem",
+            "s3:Get*",
+            "s3:List*",
+            "s3:PutObject",
+            "s3:DeleteObject",
+            "cognito-idp:AdminInitiateAuth",
+            "cognito-idp:SignUp",
+            "cognito-idp:AdminCreateUser",
+            "cognito-idp:AdminSetUserPassword",
+            "cognito-idp:ListUserPools",
+            "cognito-idp:AdminRespondToAuthChallenge",
+            "cognito-idp:ListUserPoolClients",
+            "cognito-idp:ListUsers",
+            "cognito-idp:AdminUpdateUserAttributes",
+            "cognito-idp:AdminDeleteUserAttributes",
+            "ssm:PutParameter",
+            "ssm:DeleteParameter",
+            "sts:AssumeRole"
+          ],
+          "Resource": "*",
+          "Effect": "Allow"
+        },
+        {
+          "Action": [
+            "lambda:InvokeFunction"
+          ],
+          "Effect": "Allow",
+          "Resource": [
+            "arn:aws:lambda:${region}:${account_id}:function:caas-ruleset-compiler:${lambdas_alias_name}",
+            "arn:aws:lambda:${region}:${account_id}:function:caas-metrics-updater:${lambdas_alias_name}",
+            "arn:aws:lambda:${region}:${account_id}:function:caas-rule-meta-updater:${lambdas_alias_name}",
+            "arn:aws:lambda:${region}:${account_id}:function:caas-configuration-backupper:${lambdas_alias_name}",
+            "arn:aws:lambda:${region}:${account_id}:function:caas-license-updater:${lambdas_alias_name}"
+          ]
+        }
+      ]
+    }
+  },
+  "configuration-api-handler-role": {
+    "predefined_policies": [],
+    "principal_service": "lambda",
+    "custom_policies": [
+      "lambda-basic-execution",
+      "configuration-api-handler-policy"
+    ],
+    "resource_type": "iam_role"
+  }
+}

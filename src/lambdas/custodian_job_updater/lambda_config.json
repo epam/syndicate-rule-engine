@@ -1,0 +1,42 @@
+{
+  "version": "1.0",
+  "name": "caas-job-updater",
+  "func_name": "handler.lambda_handler",
+  "resource_type": "lambda",
+  "iam_role_name": "job-updater-role",
+  "runtime": "python3.10",
+  "memory": 128,
+  "timeout": 100,
+  "lambda_path": "/lambdas/custodian_job_updater",
+  "dependencies": [
+    {
+      "resource_name": "caas-job-state-update",
+      "resource_type": "cloudwatch_rule_trigger"
+    },
+    {
+      "resource_name": "CaaSJobs",
+      "resource_type": "dynamodb_table"
+    }
+  ],
+  "event_sources": [
+    {
+      "target_rule": "caas-job-state-update",
+      "resource_type": "cloudwatch_rule_trigger"
+    }
+  ],
+  "env_variables": {
+    "modular_assume_role_arn": "${modular_assume_role_arn}",
+    "MODULAR_AWS_REGION": "${MODULAR_AWS_REGION}"
+  },
+  "publish_version": true,
+  "alias": "${lambdas_alias_name}",
+  "subnet_ids": [
+    "${lambda_private_subnet_id_1}"
+  ],
+  "security_group_ids": [
+    "${lambda_security_group_1}"
+  ],
+  "layers": [
+    "custodian_common_dependencies_layer"
+  ]
+}

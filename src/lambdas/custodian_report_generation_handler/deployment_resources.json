@@ -1,0 +1,42 @@
+{
+  "report-generation-handler-policy": {
+    "resource_type": "iam_policy",
+    "policy_content": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Action": [
+            "dynamodb:GetItem",
+            "dynamodb:BatchGetItem",
+            "s3:Get*",
+            "s3:List*",
+            "logs:GetLogEvents",
+            "cognito-idp:AdminInitiateAuth",
+            "cognito-idp:SignUp",
+            "cognito-idp:ListUserPools",
+            "cognito-idp:AdminRespondToAuthChallenge",
+            "cognito-idp:ListUserPoolClients",
+            "cognito-idp:ListUsers",
+            "ssm:GetParameter"
+          ],
+          "Resource": "*",
+          "Effect": "Allow"
+        }
+      ]
+    }
+  },
+  "report-generation-handler-role": {
+    "predefined_policies": [],
+    "principal_service": "lambda",
+    "custom_policies": [
+      "lambda-basic-execution",
+      "report-generation-handler-policy"
+    ],
+    "resource_type": "iam_role"
+  },
+  "caas-event-driven-sender-trigger": {
+    "resource_type": "cloudwatch_rule",
+    "rule_type": "schedule",
+    "expression": "cron(0/15 * * * ? *)"
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "version": "1.0",
+  "name": "caas-api-handler",
+  "func_name": "handler.lambda_handler",
+  "resource_type": "lambda",
+  "iam_role_name": "api-handler-role",
+  "runtime": "python3.10",
+  "memory": 512,
+  "timeout": 100,
+  "lambda_path": "/lambdas/custodian_api_handler",
+  "dependencies": [
+    {
+      "resource_name": "CaaSRules",
+      "resource_type": "dynamodb_table"
+    },
+    {
+      "resource_name": "CaaSJobs",
+      "resource_type": "dynamodb_table"
+    },
+    {
+      "resource_name": "CaaSSettings",
+      "resource_type": "dynamodb_table"
+    },
+    {
+      "resource_name": "CaaSRoles",
+      "resource_type": "dynamodb_table"
+    },
+    {
+      "resource_name": "CaaSPolicies",
+      "resource_type": "dynamodb_table"
+    }
+  ],
+  "event_sources": [],
+  "env_variables": {
+    "account_id": "${account_id}",
+    "batch_job_def_name": "${reports-submit-job-definition}",
+    "batch_job_queue_name": "${reports-submit-job-queue}",
+    "reports_bucket_name": "${reports-bucket}",
+    "caas_rulesets_bucket": "${caas_rulesets_bucket}",
+    "batch_job_log_level": "DEBUG",
+    "caas_user_pool_name": "${caas_user_pool_name}",
+    "last_scan_threshold": "${last_scan_threshold}",
+    "feature_skip_cloud_identifier_validation": "${feature_skip_cloud_identifier_validation}",
+    "job_lifetime_min": "${job_lifetime_min}",
+    "feature_filter_jobs_request": "${feature_filter_jobs_request}",
+    "feature_allow_only_temp_aws_credentials": "${feature_allow_only_temp_aws_credentials}",
+    "event_bridge_service_role_to_invoke_batch": "${event-bridge-service-role-to-invoke-batch}",
+    "modular_assume_role_arn": "${modular_assume_role_arn}",
+    "MODULAR_AWS_REGION": "${MODULAR_AWS_REGION}",
+    "JOBS_TIME_TO_LIVE_DAYS": "${JOBS_TIME_TO_LIVE_DAYS}",
+    "stats_s3_bucket_name": "${stats_s3_bucket_name}",
+    "caas_ssm_backup_bucket": "${caas_ssm_backup_bucket}",
+    "templates_s3_bucket_name": "${templates_s3_bucket_name}",
+    "metrics_bucket_name": "${caas_metrics_bucket_name}",
+    "component_name": "custodian-as-a-service"
+  },
+  "publish_version": true,
+  "alias": "${lambdas_alias_name}",
+  "subnet_ids": [
+    "${lambda_private_subnet_id_1}"
+  ],
+  "security_group_ids": [
+    "${lambda_security_group_1}"
+  ],
+  "layers": [
+    "custodian_common_dependencies_layer"
+  ]
+}

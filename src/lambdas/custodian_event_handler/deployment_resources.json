@@ -1,0 +1,40 @@
+{
+  "event-handler-policy": {
+    "resource_type": "iam_policy",
+    "policy_content": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Action": [
+            "batch:SubmitJob",
+            "batch:DescribeJobDefinitions",
+            "sts:AssumeRole",
+            "ssm:PutParameter",
+            "s3:GetObject"
+          ],
+          "Resource": "*",
+          "Effect": "Allow"
+        }
+      ]
+    }
+  },
+  "event-handler-role": {
+    "predefined_policies": [],
+    "principal_service": "lambda",
+    "custom_policies": [
+      "lambda-basic-execution",
+      "event-handler-policy"
+    ],
+    "resource_type": "iam_role"
+  },
+  "caas-event-assembler-trigger": {
+    "resource_type": "cloudwatch_rule",
+    "rule_type": "schedule",
+    "expression": "rate(5 minutes)"
+  },
+  "caas-event-remover-trigger": {
+    "resource_type": "cloudwatch_rule",
+    "rule_type": "schedule",
+    "expression": "cron(0 0 * * ? *)"
+  }
+}

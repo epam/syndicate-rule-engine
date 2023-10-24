@@ -1,0 +1,37 @@
+{
+  "license-updater-policy": {
+    "resource_type": "iam_policy",
+    "policy_content": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Action": [
+            "dynamodb:GetItem",
+            "dynamodb:PutItem",
+            "s3:Get*",
+            "s3:List*",
+            "s3:PutObject",
+            "sts:AssumeRole"
+          ],
+          "Resource": "*",
+          "Effect": "Allow"
+        }
+      ]
+    }
+  },
+
+  "license-updater-role": {
+    "predefined_policies": [],
+    "principal_service": "lambda",
+    "custom_policies": [
+      "lambda-basic-execution",
+      "license-updater-policy"
+    ],
+    "resource_type": "iam_role"
+  },
+  "caas-license-update-trigger": {
+    "resource_type": "cloudwatch_rule",
+    "rule_type": "schedule",
+    "expression": "cron(0 0/3 * * ? *)"
+  }
+}

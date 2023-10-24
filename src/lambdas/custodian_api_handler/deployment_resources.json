@@ -1,0 +1,57 @@
+{
+  "api-handler-policy": {
+    "resource_type": "iam_policy",
+    "policy_content": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Action": [
+            "dynamodb:GetItem",
+            "batch:SubmitJob",
+            "batch:TerminateJob",
+            "batch:DescribeJobDefinitions",
+            "s3:Get*",
+            "s3:List*",
+            "cognito-idp:AdminInitiateAuth",
+            "cognito-idp:SignUp",
+            "cognito-idp:AdminCreateUser",
+            "cognito-idp:AdminSetUserPassword",
+            "cognito-idp:ListUserPools",
+            "cognito-idp:AdminRespondToAuthChallenge",
+            "cognito-idp:AdminUpdateUserAttributes",
+            "cognito-idp:ListUserPoolClients",
+            "cognito-idp:ListUsers",
+            "cognito-idp:AdminUpdateUserAttributes",
+            "cognito-idp:AdminDeleteUser",
+            "ssm:PutParameter",
+            "ssm:DeleteParameter",
+            "sts:AssumeRole",
+            "events:DescribeRule",
+            "events:PutRule",
+            "events:PutTargets",
+            "events:RemoveTargets",
+            "events:DeleteRule",
+            "events:EnableRule",
+            "events:DisableRule"
+          ],
+          "Resource": "*",
+          "Effect": "Allow"
+        },
+        {
+          "Action": ["iam:PassRole"],
+          "Resource": "*",
+          "Effect": "Allow"
+        }
+      ]
+    }
+  },
+  "api-handler-role": {
+    "predefined_policies": [],
+    "principal_service": "lambda",
+    "custom_policies": [
+      "lambda-basic-execution",
+      "api-handler-policy"
+    ],
+    "resource_type": "iam_role"
+  }
+}
