@@ -9,7 +9,8 @@
             "batch:SubmitJob",
             "batch:DescribeJobDefinitions",
             "sts:AssumeRole",
-            "ssm:PutParameter"
+            "ssm:PutParameter",
+            "s3:GetObject"
           ],
           "Resource": "*",
           "Effect": "Allow"

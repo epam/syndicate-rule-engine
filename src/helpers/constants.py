@@ -1,3 +1,16 @@
+from enum import Enum
+
+try:
+    from http import HTTPMethod  # python3.11+
+except ImportError:
+    class HTTPMethod(str, Enum):
+        HEAD = 'HEAD'
+        GET = 'GET'
+        POST = 'POST'
+        PATCH = 'PATCH'
+        DELETE = 'DELETE'
+        PUT = 'PUT'
+
 DEFAULT_SYSTEM_CUSTOMER: str = 'SYSTEM'
 
 TESTING_MODE_ENV = 'CUSTODIAN_TESTING'
@@ -7,76 +20,28 @@ ACTION_PARAM = 'action'
 ACTION_PARAM_ERROR = 'There is no handler for the endpoint {endpoint}'
 
 CUSTOMER_ACTION = 'customer'
-TENANT_ACTION = 'tenant'
-ACCOUNT_ACTION = 'account'
-RULE_ACTION = 'rules'
-INVOKE_META_UPDATER_ACTION = 'update-meta'
-BACKUP_ACTION = 'backup'
-POLICY_ACTION = 'policy'
-POLICY_CACHE_ACTION = 'policy-cache'
-ROLE_ACTION = 'role'
-ROLE_CACHE_ACTION = 'role-cache'
-RULESET_ACTION = 'ruleset'
-RULE_SOURCE_ACTION = 'rule_source'
-RULESET_CONTENT_ACTION = 'ruleset-content'
-LICENSE_ACTION = 'license'
-LICENSE_SYNC_ACTION = 'license-sync'
-USER_DETAILED_REPORT_ACTION = 'user_detailed_report'
 
 STANDARD = 'standard'
 MITRE = 'mitre'
-STANDARDS_COVERAGE = 'standards_coverage'
-FULL_CLOUD_RULESET = 'full_cloud'
 SERVICE_SECTION = 'service_section'
 
-CREDENTIALS_MANAGER_ACTION = 'credentials-manager'
-
-USER_CUSTOMER_ATTR_ACTION = 'user-customer'
-USER_ROLE_ATTR_ACTION = 'user-role'
-USER_ID_ATTR = 'user_id'
-
-GET_METHOD = 'GET'
-POST_METHOD = 'POST'
-PATCH_METHOD = 'PATCH'
-DELETE_METHOD = 'DELETE'
 HTTP_METHOD_ERROR = 'The server does not support the HTTP method {method} ' \
                     'for the resource {resource}'
 
 # Modular:Parent related attributes and types
 CUSTODIAN_TYPE = 'CUSTODIAN'  # application that contains access to CUSTODIAN
-CUSTODIAN_LICENSES_TYPE = 'CUSTODIAN_LICENSES'  # contains licenses
-APPLICATION_ENTITY_TYPE = 'APPLICATION'
 SCHEDULED_JOB_TYPE = 'SCHEDULED_JOB'
 PARENT_ID_ATTR = 'parent_id'
 APPLICATION_ID_ATTR = 'application_id'
 META_ATTR = 'meta'
-IS_DELETED_ATTR = 'is_deleted'
-ADMINS_ATTR = 'admins_attr'
-PARENT_TYPE_ATTR = 'type'
 TENANT_ENTITY_TYPE = 'TENANT'
 VALUE_ATTR = 'value'
-
-# RBAC: Governance attributes
-GOVERNANCE_TYPE_ATTR = 'GOVERNANCE'
-GOVERNANCE_ENTITY_ID_ATTR = 'governance_entity_id'
-GOVERNANCE_ENTITY_TYPE_ATTR = 'governance_entity_type'
-RULESET_ATTR = 'ruleset'
-ALLOWED_GOVERNANCE_ENTITY_TYPE_ATTRS = (RULESET_ATTR,)
-PERMITTED_ATTR = 'permitted'
-PROHIBITED_ATTR = 'prohibited'
-ALLOWED_ATTACHMENT_ATTRS = (PERMITTED_ATTR, PROHIBITED_ATTR)
-
-# Modular: Complement attributes and types
-LICENSE_PRIORITY_TYPE_ATTR = 'LICENSE_PRIORITY'
 
 SCHEDULE_ATTR = 'schedule'
 SCOPE_ATTR = 'scope'
 ID_ATTR = 'id'
-CUSTOMER_ID_ATTR = 'customer_id'
 CUSTOMER_ATTR = 'customer'
 USER_CUSTOMER_ATTR = 'user_customer'
-USER_TENANTS_ATTR = 'user_tenants'
-TENANT_ID_ATTR = 'tenant_id'
 TENANT_ATTR = 'tenant'
 TENANTS_ATTR = 'tenants'
 TENANT_NAMES_ATTR = 'tenant_names'
@@ -86,20 +51,15 @@ CUSTOMER_DISPLAY_NAME_ATTR = 'customer_display_name'
 TENANT_DISPLAY_NAME_ATTR = 'tenant_display_name'
 TENANT_DISPLAY_NAMES_ATTR = 'tenant_display_names'
 TENANT_NAME_ATTR = 'tenant_name'
-ACCOUNT_DISPLAY_NAME_ATTR = 'account_display_name'
 CUSTOMER_NAME_ATTR = "customer_name"
 RULE_ID_ATTR = 'rule_id'
 DISPLAY_NAME_ATTR = 'display_name'
 LATEST_LOGIN_ATTR = 'latest_login'
-OWNER_ATTR = 'owner'
-CONFIGURATION_ATTR = 'configuration'
-CONTACTS_ATTR = 'contacts'
 PRIMARY_CONTACTS_ATTR = 'primary_contacts'
 SECONDARY_CONTACTS_ATTR = 'secondary_contacts'
 TENANT_MANAGER_CONTACTS_ATTR = 'tenant_manager_contacts'
 DEFAULT_OWNER_ATTR = 'default_owner'
 ACTIVATION_DATE_ATTR = 'activation_date'
-IS_LOCKED_ATTR = 'is_locked'
 INHERIT_ATTR = 'inherit'
 CLOUD_ATTR = 'cloud'
 CLOUDS_ATTR = 'clouds'
@@ -107,23 +67,16 @@ ACCESS_APPLICATION_ID_ATTR = 'access_application_id'
 CLOUD_IDENTIFIER_ATTR = 'cloud_identifier'
 RULES_TO_EXCLUDE_ATTR = 'rules_to_exclude'
 RULES_TO_INCLUDE_ATTR = 'rules_to_include'
-SEND_SCAN_RESULT_ATTR = 'send_scan_result'
-REGIONS_ATTR = 'regions'
 REGION_ATTR = 'region'
-ALL_REGIONS_ATTR = 'all_regions'
-DESCENDANTS_ATTR = 'descendants'
 JOB_ID_ATTR = 'job_id'
 LIMIT_ATTR = 'limit'
-OFFSET_ATTR = 'offset'
 NEXT_TOKEN_ATTR = 'next_token'
 RULE_VERSION_ATTR = 'rule_version'
-SCHEDULED_RULE_NAME_ATTR = 'scheduled_rule_name'
 AWS_CLOUD_ATTR = 'AWS'
 AZURE_CLOUD_ATTR = 'AZURE'
 # the same, but first is obsolete, second is the one from Maestro's tenants
 GCP_CLOUD_ATTR, GOOGLE_CLOUD_ATTR = 'GCP', 'GOOGLE'
-KUBERNETES_CLOUD_ATTR = 'Kubernetes'  # from rules metadata
-ALLOWED_CLOUDS = {AWS_CLOUD_ATTR, AZURE_CLOUD_ATTR, GOOGLE_CLOUD_ATTR}
+KUBERNETES_CLOUD_ATTR = 'KUBERNETES'  # from rules metadata
 
 AZURE_ULTIMATE_REGION = 'AzureCloud'
 GOOGLE_ULTIMATE_REGION = 'us-central1'
@@ -131,7 +84,6 @@ GOOGLE_ULTIMATE_REGION = 'us-central1'
 PERMISSIONS_ATTR = 'permissions'
 EXP_ATTR = 'exp'
 EXPIRATION_ATTR = 'expiration'
-PERMISSIONS_ADMIN_ATTR = 'permissions_admin'
 
 POLICIES_ATTR = 'policies'
 NAME_ATTR = 'name'
@@ -142,7 +94,7 @@ SEVERITY_ATTR = 'severity'
 VERSION_ATTR = 'version'
 FILTERS_ATTR = 'filters'
 LOCATION_ATTR = 'location'
-CREATOR_ATTR = 'creator'
+COMMENT_ATTR = 'comment'
 UPDATED_DATE_ATTR = 'updated_date'
 LATEST_SYNC_ATTR = 'latest_sync'
 COMMIT_HASH_ATTR = 'commit_hash'
@@ -152,12 +104,10 @@ RULES_ATTR = 'rules'
 GET_RULES_ATTR = 'get_rules'
 RULESETS_ATTR = 'rulesets'
 RULES_TO_SCAN_ATTR = 'rules_to_scan'
-RULE_SOURCES_ATTR = 'rule_sources'
 RULE_SOURCE_ID_ATTR = 'rule_source_id'
 S3_PATH_ATTR = 's3_path'
 RULES_NUMBER = 'rules_number'
 STATUS_ATTR = 'status'
-REPO_ATTR = 'repo'
 ALL_ATTR = 'all'
 GIT_ACCESS_SECRET_ATTR = 'git_access_secret'
 GIT_ACCESS_TYPE_ATTR = 'git_access_type'
@@ -171,13 +121,10 @@ STATUS_SYNCED = 'SYNCED'
 STATUS_SYNCING_FAILED = 'SYNCING_FAILED'
 
 ROLE_ATTR = 'role'
-RESOURCES_AMOUNT_ATTR = 'resources_amount'
-STATE_ATTR = 'state'
 ACTIVE_ATTR = 'active'
 EVENT_DRIVEN_ATTR = 'event_driven'
 ACTIVE_REGION_STATE = 'ACTIVE'
 INACTIVE_REGION_STATE = 'INACTIVE'
-AVAILABLE_REGION_STATES = {ACTIVE_REGION_STATE, INACTIVE_REGION_STATE}
 POLICIES_TO_ATTACH = 'policies_to_attach'
 POLICIES_TO_DETACH = 'policies_to_detach'
 PERMISSIONS_TO_ATTACH = 'permissions_to_attach'
@@ -188,14 +135,10 @@ RULES_TO_DETACH = 'rules_to_detach'
 
 DATA_ATTR = 'data'
 CONTENT_ATTR = 'content'
-CREDENTIALS_KEY_ATTR = 'credentials_key'
 ENABLED = 'enabled'
 TRUSTED_ROLE_ARN = 'trusted_role_arn'
 
 TYPE_ATTR = 'type'
-DISPLAY_ALL_FIELDS_ATTR = 'display_all_fields'
-UPLOAD_FILES_ATTR = 'upload_files'
-RESOURCE_PER_FINDING_ATTR = 'resource_per_finding'
 
 ENTITIES_MAPPING_ATTR = 'entities_mapping'
 CLEAR_EXISTING_MAPPING_ATTR = 'clear_existing_mapping'
@@ -208,10 +151,8 @@ ENTITIES_MAPPING_POSSIBLE_PARAMS = {PRODUCT_TYPE_NAME_ATTR, PRODUCT_NAME_ATTR,
 
 ALLOWED_FOR_ATTR = 'allowed_for'
 RESTRICT_FROM_ATTR = 'restrict_from'
-ALLOW_TENANT_ACCOUNT_ATTR = 'tenant_account_allowance'
 TENANT_ALLOWANCE = 'tenant_allowance'
 TENANT_RESTRICTION = 'tenant_restriction'
-EXCLUDE_TENANT_ACCOUNT_ATTR = 'tenant_account_exclusion'
 LICENSED_ATTR = 'licensed'
 LICENSE_KEY_ATTR = 'license_key'
 LICENSE_KEYS_ATTR = 'license_keys'
@@ -222,8 +163,6 @@ TENANT_LICENSE_KEY_ATTR = 'tenant_license_key'
 TENANT_LICENSE_KEYS_ATTR = 'tenant_license_keys'
 ATTACHMENT_MODEL_ATTR = 'attachment_model'
 CUSTOMERS_ATTR = 'customers'
-REMOVE_CUSTOMERS_ATTR = 'remove_customers'
-ADD_CUSTOMERS_ATTR = 'add_customers'
 
 MAESTRO_USER_ATTR = 'maestro_user'
 RABBIT_EXCHANGE_ATTR = 'rabbit_exchange'
@@ -256,7 +195,6 @@ TYP_ATTR = 'typ'
 START_ATTR = 'start'
 END_ATTR = 'end'
 
-TOKEN_DATE_ATTR = 'token_date'
 CLIENT_TOKEN_ATTR = 'client-token'
 
 GET_URL_ATTR = 'get_url'
@@ -270,7 +208,6 @@ PARAM_HTTP_METHOD = 'httpMethod'
 PARAM_CUSTOMER = 'customer'
 PARAM_USER_ROLE = 'user_role'
 PARAM_USER_CUSTOMER = 'user_customer'
-PARAM_USER_TENANTS = 'user_tenants'
 
 PARAM_ITEMS = 'items'
 PARAM_MESSAGE = 'message'
@@ -278,26 +215,11 @@ PARAM_TRACE_ID = 'trace_id'
 AUTHORIZATION_PARAM = 'authorization'
 
 PARAM_COMPLETE = 'complete'
-
-# Attrs that are hidden each request
-RULE_ATTRS_HIDE_PERMANENTLY = {
-    COMMIT_HASH_ATTR, SOURCE_ATTR, MIN_CORE_VERSION
-}
-# Attrs that are hidden if 'complete': False
-RULE_ATTRS_HIDE = {
-    NAME_ATTR, IMPACT_ATTR, STANDARD, VERSION_ATTR,
-    UPDATED_DATE_ATTR, GIT_PROJECT_ID_ATTR, SEVERITY_ATTR
-}
-
-RULESET_REQUIRED_ATTRS = [NAME_ATTR, CUSTOMER_ATTR, RULES_ATTR, VERSION_ATTR]
+IDENTIFIER_ATTR = 'identifier'
 
 RULE_SOURCE_REQUIRED_ATTRS = {GIT_PROJECT_ID_ATTR, GIT_URL_ATTR, GIT_REF_ATTR,
                               GIT_RULES_PREFIX_ATTR, GIT_ACCESS_TYPE_ATTR,
                               GIT_ACCESS_SECRET_ATTR}
-RULE_SOURCE_TO_UPDATE_ATTRS = (
-    GIT_ACCESS_TYPE_ATTR, GIT_ACCESS_SECRET_ATTR,
-    TENANT_ALLOWANCE, TENANT_RESTRICTION
-)
 
 ENV_VAR_REGION = 'AWS_REGION'
 
@@ -325,7 +247,6 @@ ENV_MAX_NUMBER_OF_JOBS_ON_PREM = 'MAX_NUMBER_OF_JOBS'
 # Tenant
 MODULAR_MANAGEMENT_ID_ATTR = 'management_parent_id'
 MODULAR_CLOUD_ATTR = CLOUD_ATTR
-MODULAR_REGIONS_ATTR = 'regions'
 MODULAR_DISPLAY_NAME_ATTR = 'display_name'
 MODULAR_READ_ONLY_ATTR = 'read_only'
 MODULAR_DISPLAY_NAME_TO_LOWER = 'display_name_to_lower'
@@ -339,6 +260,7 @@ MODULAR_TYPE = 'type'
 
 # Batch
 BATCH_ENV_TENANT_NAME = 'TENANT_NAME'
+BATCH_ENV_PLATFORM_ID = 'PLATFORM_ID'
 BATCH_ENV_DEFAULT_REPORTS_BUCKET_NAME = 'DEFAULT_REPORTS_BUCKET_NAME'
 BATCH_ENV_AWS_REGION = 'AWS_REGION'
 BATCH_ENV_CREDENTIALS_KEY = 'CREDENTIALS_KEY'
@@ -381,12 +303,14 @@ DEFAULT_NUMBER_OF_PARTITIONS_FOR_EVENTS = 10
 ENV_NUMBER_OF_EVENTS_IN_EVENT_ITEM = 'number_of_native_events_in_event_item'
 DEFAULT_NUMBER_OF_EVENTS_IN_EVENT_ITEM: int = 100
 DEFAULT_EVENTS_TTL_HOURS = 48
+DEFAULT_INNER_CACHE_TTL_SECONDS: int = 300
 
 ENV_API_GATEWAY_HOST = 'API_GATEWAY_HOST'
 ENV_API_GATEWAY_STAGE = 'API_GATEWAY_STAGE'
 
 ENV_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT = \
     'ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT'
+ENV_INNER_CACHE_TTL_SECONDS = 'INNER_CACHE_TTL_SECONDS'
 
 # Batch envs
 PARAM_TARGET_RULESETS = 'target_rulesets'
@@ -442,6 +366,7 @@ DEFAULT_RECOMMENDATION_BUCKET_NAME = 'recommendation'
 
 PROTOCOL_ATTR = 'protocol'
 STAGE_ATTR = 'stage'
+API_VERSION_ATTR = 'api_version'
 HTTP_ATTR, HTTPS_ATTR = 'HTTP', 'HTTPS'
 
 # reports
@@ -458,6 +383,7 @@ RULE_TYPE = 'rule'
 OVERVIEW_TYPE = 'overview'
 RESOURCES_TYPE = 'resources'
 ATTACK_VECTOR_TYPE = 'attack_vector'
+FINOPS_TYPE = 'finops'
 OPERATIONAL_REPORT_TYPE = 'operational'
 PROJECT_REPORT_TYPE = 'project'
 DEPARTMENT_REPORT_TYPE = 'department'
@@ -469,6 +395,7 @@ SEVERITY_DATA_ATTR = 'severity_data'
 ACTIVATED_REGIONS_ATTR = 'activated_regions'
 AVERAGE_DATA_ATTR = 'average_data'
 END_DATE = 'end_date'
+OUTDATED_TENANTS = 'outdated_tenants'
 
 # job status
 JOB_SUCCEEDED_STATUS = 'SUCCEEDED'
@@ -504,9 +431,12 @@ CLOUD_TO_APP_TYPE = {
 
 MULTIREGION = 'multiregion'
 
-HC_STATUS_OK = 'OK'
-HC_STATUS_UNKNOWN = 'UNKNOWN'
-HC_STATUS_NOT_OK = 'NOT_OK'
+
+class HealthCheckStatus(str, Enum):
+    OK = 'OK'
+    UNKNOWN = 'UNKNOWN'
+    NOT_OK = 'NOT_OK'
+
 
 SPECIFIC_TENANT_SCOPE = 'SPECIFIC_TENANT'
 ALL_SCOPE = 'ALL'
@@ -543,16 +473,18 @@ COMPONENT_NAME_ATTR = 'component_name'
 
 START_DATE = 'start_date'
 ARTICLE_ATTR = 'article'
-IMPACT_ATTR = 'impact'
 
 COMPOUND_KEYS_SEPARATOR = '#'
 
 ED_AWS_RULESET_NAME = '_ED_AWS'
 ED_AZURE_RULESET_NAME = '_ED_AZURE'
 ED_GOOGLE_RULESET_NAME = '_ED_GOOGLE'
+ED_KUBERNETES_RULESET_NAME = '_ED_KUBERNETES'
 
-GITHUB_SERVICE = 'GITHUB'
-GITLAB_SERVICE = 'GITLAB'
+
+class RuleSourceType(str, Enum):
+    GITHUB = 'GITHUB'
+    GITLAB = 'GITLAB'
 
 
 # the next settings are updated automatically when rules meta is pulled.
@@ -564,9 +496,16 @@ KEY_RULES_TO_STANDARDS = 'RULES_TO_STANDARDS'
 KEY_RULES_TO_MITRE = 'RULES_TO_MITRE'
 KEY_CLOUD_TO_RULES = 'CLOUD_TO_RULES'
 KEY_HUMAN_DATA = 'HUMAN_DATA'
+KEY_RULES_TO_SERVICE = 'RULES_TO_SERVICE'
+KEY_RULES_TO_CATEGORY = 'RULES_TO_CATEGORY'
 KEY_AWS_STANDARDS_COVERAGE = 'AWS_STANDARDS_COVERAGE'
 KEY_AZURE_STANDARDS_COVERAGE = 'AZURE_STANDARDS_COVERAGE'
 KEY_GOOGLE_STANDARDS_COVERAGE = 'GOOGLE_STANDARDS_COVERAGE'
 KEY_AWS_EVENTS = 'AWS_EVENTS'
 KEY_AZURE_EVENTS = 'AZURE_EVENTS'
 KEY_GOOGLE_EVENTS = 'GOOGLE_EVENTS'
+
+
+class PlatformType(str, Enum):
+    EKS = 'EKS'
+    NATIVE = 'NATIVE'

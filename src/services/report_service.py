@@ -89,22 +89,6 @@ class ReportService:
             data = None
         return data
 
-    # def pull_job_findings(self, job_id: str):
-    #     # todo thread-safe.
-    #     reports_bucket_name = self.job_report_bucket
-    #     findings_key = str(PurePosixPath(job_id, 'findings'))
-    #     keys = (
-    #         k for k in
-    #     self.s3_client.list_dir(reports_bucket_name, findings_key)
-    #         if k.endswith('.json') or k.endswith('.json.gz')
-    #     )
-    #     findings = []
-    #     for _, file in self.s3_client.get_json_batch(
-    #         reports_bucket_name, keys
-    #     ):
-    #         findings.extend(file)
-    #     return findings
-
     def put_job_report(self, data: dict, path: str):
         bucket_name = self.environment_service.default_reports_bucket_name()
         path = path.replace(':', '_')
@@ -321,9 +305,7 @@ class ReportService:
         return str(PurePosixPath(job_id, typ))
 
     @staticmethod
-    def derive_findings_from_report(
-            report: dict, user_detailed: bool
-    ):
+    def derive_findings_from_report(report: dict, user_detailed: bool):
         kte = None if user_detailed else list(KEYS_TO_EXCLUDE_FOR_USER)
         return FindingsCollection.from_detailed_report(
             report=report, only_report_fields=False,

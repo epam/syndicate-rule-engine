@@ -1,7 +1,7 @@
 import os
 
 from pynamodb.attributes import UnicodeAttribute, NumberAttribute, \
-    JSONAttribute
+    JSONAttribute, ListAttribute
 from pynamodb.indexes import AllProjection
 
 from helpers.constants import ENV_VAR_REGION
@@ -13,6 +13,7 @@ TM_DATE_ATTR = 'd'
 TM_TYPE_ATTR = 't'
 TM_CUSTOMER_ATTR = 'c'
 TM_DEFINING_ATTRIBUTE_ATTR = 'da'
+TM_OUTDATED_TENANTS_ATTR = 'ot'
 
 
 class CustomerDateIndex(BaseGSI):
@@ -53,6 +54,8 @@ class TenantMetrics(BaseModel):
     google = JSONAttribute(null=True, default='{}')
     defining_attribute = NumberAttribute(null=True,
                                          attr_name=TM_DEFINING_ATTRIBUTE_ATTR)
+    outdated_tenants = ListAttribute(null=True, default=[],
+                                     attr_name=TM_OUTDATED_TENANTS_ATTR)
 
     customer_date_index = CustomerDateIndex()
     tenant_date_index = TenantDateIndex()

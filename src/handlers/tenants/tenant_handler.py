@@ -1,4 +1,5 @@
 import uuid
+from http import HTTPStatus
 from typing import Iterable, Optional, Callable, Dict, Union, Type, List, \
     Any
 
@@ -12,21 +13,19 @@ from modular_sdk.models.region import RegionModel
 from handlers.abstracts.abstract_handler import AbstractComposedHandler
 from handlers.abstracts.abstract_modular_entity_handler import \
     ModularService, AbstractModularEntityHandler
-from helpers import build_response, RESPONSE_CONFLICT, RESPONSE_CREATED, \
-    RESPONSE_FORBIDDEN_CODE, RESPONSE_RESOURCE_NOT_FOUND_CODE, \
-    RESPONSE_BAD_REQUEST_CODE
+from helpers import build_response
 from helpers import validate_params
-from helpers.constants import GET_METHOD, POST_METHOD, \
-    CUSTOMER_ATTR, TENANT_ATTR, TENANTS_ATTR, LIMIT_ATTR, NEXT_TOKEN_ATTR, \
+from helpers.constants import CUSTOMER_ATTR, TENANT_ATTR, TENANTS_ATTR, \
+    LIMIT_ATTR, NEXT_TOKEN_ATTR, \
     CLOUD_IDENTIFIER_ATTR, NAME_ATTR, DISPLAY_NAME_ATTR, CLOUD_ATTR, \
     PRIMARY_CONTACTS_ATTR, SECONDARY_CONTACTS_ATTR, DEFAULT_OWNER_ATTR, \
     TENANT_MANAGER_CONTACTS_ATTR, REGION_ATTR, \
-    ALLOWED_CLOUDS, PATCH_METHOD, RULES_TO_EXCLUDE_ATTR, \
-    RULES_TO_INCLUDE_ATTR, PARAM_COMPLETE
+    RULES_TO_EXCLUDE_ATTR, RULES_TO_INCLUDE_ATTR, PARAM_COMPLETE, \
+    HTTPMethod
 from helpers.log_helper import get_logger
-from helpers.regions import get_region_by_cloud
+from helpers.regions import get_region_by_cloud, CLOUD_REGIONS
 from helpers.time_helper import utc_iso
-from models.modular.tenants import Tenant
+from modular_sdk.models.tenant import Tenant
 from services.environment_service import EnvironmentService
 
 _LOG = get_logger(__name__)
@@ -75,7 +74,7 @@ class GetTenantHandler(BaseTenantHandler):
     def define_action_mapping(self):
         return {
             TENANTS_PATH: {
-                GET_METHOD: self.get_tenants,
+                HTTPMethod.GET: self.get_tenants,
             },
         }
 
@@ -83,8 +82,7 @@ class GetTenantHandler(BaseTenantHandler):
         return {}
 
     def get_tenants(self, event):
-        action = GET_METHOD.capitalize()
-        return self._process_action(event=event, action=action)
+        return self._process_action(event=event, action=HTTPMethod.GET)
 
     @property
     def attributes_to_log(self) -> Dict[Union[str, Type[None]], Iterable[str]]:
@@ -234,7 +232,7 @@ class PostTenantHandler:
     def define_action_mapping(self) -> dict:
         return {
             TENANTS_PATH: {
-                POST_METHOD: self.post_tenant,
+                HTTPMethod.POST: self.post_tenant,
             },
         }
 
@@ -255,12 +253,12 @@ class PostTenantHandler:
         }
         by_name = self._modular_service.get_tenant(name)
         if by_name:
-            return build_response(code=RESPONSE_CONFLICT,
+            return build_response(code=HTTPStatus.CONFLICT,
                                   content=f'Tenant `{name}` already exists')
         by_acc = next(self._modular_service.i_get_tenants_by_acc(acc), None)
         if by_acc:
             return build_response(
-                code=RESPONSE_CONFLICT,
+                code=HTTPStatus.CONFLICT,
                 content=f'Cloud id `{acc}` already exists in db'
             )
         tenant_service = self._modular_service.modular_client.tenant_service()
@@ -281,16 +279,16 @@ class PostTenantHandler:
                 _LOG.info(f'Expected client error occurred trying '
                           f'to save tenant: {e}')
                 return build_response(
-                    code=RESPONSE_FORBIDDEN_CODE,
+                    code=HTTPStatus.FORBIDDEN,
                     content='You cannot activate a new tenant on the '
                             'current env'
                 )
-            return build_response(code=RESPONSE_CREATED,
+            return build_response(code=HTTPStatus.CREATED,
                                   content=self._modular_service.get_dto(item))
         # no create method
         if not self._environment_service.is_docker():
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content='Currently the action is not available'
             )
         # kludge for on-prem
@@ -307,7 +305,7 @@ class PostTenantHandler:
             contacts=contacts
         )
         item.save()
-        return build_response(code=RESPONSE_CREATED,
+        return build_response(code=HTTPStatus.CREATED,
                               content=self._modular_service.get_dto(item))
 
 
@@ -320,7 +318,7 @@ class TenantRegionHandler:
     def define_action_mapping(self) -> dict:
         return {
             TENANTS_REGIONS_PATH: {
-                POST_METHOD: self.post_tenant_region,
+                HTTPMethod.POST: self.post_tenant_region,
             },
         }
 
@@ -330,23 +328,23 @@ class TenantRegionHandler:
         tenant = self._modular_service.get_tenant(tenant_name)
         if not tenant:
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=f'Tenant {tenant_name} not found'
             )
         if region_nn in self._modular_service.get_tenant_regions(tenant):
             return build_response(
-                code=RESPONSE_CONFLICT,
+                code=HTTPStatus.CONFLICT,
                 content=f'Region: {region_nn} already active for tenant'
             )
-        if tenant.cloud not in ALLOWED_CLOUDS:
+        if tenant.cloud not in CLOUD_REGIONS:
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=f'Tenant {tenant_name} belongs to {tenant.cloud}. '
-                        f'Allowed clouds: {", ".join(ALLOWED_CLOUDS)}'
+                        f'Allowed clouds: {", ".join(CLOUD_REGIONS)}'
             )
         if region_nn not in get_region_by_cloud(tenant.cloud):
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=f'Region {region_nn} does not belong to '
                         f'{tenant.cloud} cloud.'
             )
@@ -375,16 +373,16 @@ class TenantRegionHandler:
                 _LOG.info(f'Expected client error occurred trying '
                           f'to save tenant: {e}')
                 return build_response(
-                    code=RESPONSE_FORBIDDEN_CODE,
+                    code=HTTPStatus.FORBIDDEN,
                     content='You cannot activate tenant region on the current env'
                 )
-            return build_response(code=RESPONSE_CREATED,
+            return build_response(code=HTTPStatus.CREATED,
                                   content=self._modular_service.get_dto(
                                       tenant))
         # no create_light
         if not self._environment_service.is_docker():
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content='Currently the action is not available'
             )
         region = region_service.get_region_by_native_name(
@@ -399,7 +397,7 @@ class TenantRegionHandler:
             )
         tenant.regions.append(region)
         tenant.save()
-        return build_response(code=RESPONSE_CREATED,
+        return build_response(code=HTTPStatus.CREATED,
                               content=self._modular_service.get_dto(tenant))
 
 
@@ -414,7 +412,7 @@ class PatchTenantHandler:
     def define_action_mapping(self) -> dict:
         return {
             TENANTS_PATH: {
-                PATCH_METHOD: self.patch_tenant,
+                HTTPMethod.PATCH: self.patch_tenant,
             },
         }
 
@@ -453,14 +451,15 @@ def instantiate_tenant_handler(modular_service: ModularService,
     return TenantHandler(
         resource_map={
             TENANTS_PATH: {
-                GET_METHOD: GetTenantHandler(modular_service=modular_service),
-                POST_METHOD: PostTenantHandler(
+                HTTPMethod.GET: GetTenantHandler(
+                    modular_service=modular_service),
+                HTTPMethod.POST: PostTenantHandler(
                     modular_service=modular_service,
                     environment_service=environment_service),
-                PATCH_METHOD: patch_handler
+                HTTPMethod.PATCH: patch_handler
             },
             TENANTS_REGIONS_PATH: {
-                POST_METHOD: TenantRegionHandler(
+                HTTPMethod.POST: TenantRegionHandler(
                     modular_service=modular_service,
                     environment_service=environment_service
                 )

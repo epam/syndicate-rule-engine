@@ -7,14 +7,13 @@ from helpers.constants import ENV_DEFAULT_BUCKET_NAME, ENV_JOB_ID, \
     ENV_AFFECTED_LICENSES, ENV_LICENSED_RULESETS, ENV_TARGET_REGIONS, \
     ENV_SUBMITTED_AT, ENV_SERVICE_MODE, DOCKER_SERVICE_MODE, \
     AWS_DEFAULT_REGION, ENV_EXECUTOR_MODE, CONCURRENT_EXECUTOR_MODE, \
-    CONSISTENT_EXECUTOR_MODE, MIN_CUSTOM_CORE_VERSION, \
-    CURRENT_CUSTOM_CORE_VERSION, DEFAULT_JOB_LIFETIME_MIN, \
+    CONSISTENT_EXECUTOR_MODE, DEFAULT_JOB_LIFETIME_MIN, \
     ENVS_TO_HIDE, HIDDEN_ENV_PLACEHOLDER, ENV_SCHEDULED_JOB_NAME, \
-    ENV_JOB_TYPE, STANDARD_JOB_TYPE, EVENT_DRIVEN_JOB_TYPE, \
-    SCHEDULED_JOB_TYPE_FOR_ENV, ENV_BATCH_RESULTS_ID, ENV_BATCH_RESULTS_IDS, \
+    ENV_JOB_TYPE, STANDARD_JOB_TYPE, SCHEDULED_JOB_TYPE_FOR_ENV, \
+    ENV_BATCH_RESULTS_ID, ENV_BATCH_RESULTS_IDS, \
     MULTI_ACCOUNT_EVENT_DRIVEN_JOB_TYPE, ENV_SYSTEM_CUSTOMER_NAME, \
     ENV_TENANT_NAME, ENV_VAR_STATS_S3_BUCKET_NAME, ENV_ALLOW_MANAGEMENT_CREDS, \
-    ENV_VAR_RULESETS_BUCKET_NAME
+    ENV_VAR_RULESETS_BUCKET_NAME, ENV_PLATFORM_ID
 
 
 class EnvironmentService:
@@ -71,11 +70,6 @@ class EnvironmentService:
         rulesets_view = self._environment.get(ENV_TARGET_RULESETS_VIEW)
         if not isinstance(rulesets_view, str):
             return self.target_rulesets()
-        # result = []
-        # for ruleset in rulesets_view.split(','):
-        #     name, version = ruleset.split(':')
-        #     result.append(f'{name}, v{version}')
-        # return result
         return rulesets_view.split(',')
 
     def licensed_ruleset_map(self, license_key_list: list):
@@ -130,12 +124,6 @@ class EnvironmentService:
         return int(self._environment.get(
             ENV_VAR_JOB_LIFETIME_MIN, DEFAULT_JOB_LIFETIME_MIN))
 
-    def min_custom_core_version(self):
-        return self._environment.get(MIN_CUSTOM_CORE_VERSION)
-
-    def current_custom_core_version(self):
-        return self._environment.get(CURRENT_CUSTOM_CORE_VERSION)
-
     def is_docker(self):
         return self._environment.get(ENV_SERVICE_MODE) == DOCKER_SERVICE_MODE
 
@@ -147,9 +135,6 @@ class EnvironmentService:
 
     def is_standard(self) -> bool:
         return self.job_type() == STANDARD_JOB_TYPE
-
-    def is_event_driven(self) -> bool:
-        return self.job_type() == EVENT_DRIVEN_JOB_TYPE
 
     def is_multi_account_event_driven(self) -> bool:
         return self.job_type() == MULTI_ACCOUNT_EVENT_DRIVEN_JOB_TYPE
@@ -181,6 +166,14 @@ class EnvironmentService:
         This env contains this tenant's name
         """
         return self._environment.get(ENV_TENANT_NAME)
+
+    def platform_id(self) -> Optional[str]:
+        """
+        We can scan platforms within tenants. In case platform id is
+        provided, this specific platform must be scanned
+        :return:
+        """
+        return self._environment.get(ENV_PLATFORM_ID)
 
     def is_management_creds_allowed(self) -> bool:
         """

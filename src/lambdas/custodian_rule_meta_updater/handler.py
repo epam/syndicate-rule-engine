@@ -14,13 +14,13 @@ from ruamel.yaml import YAML, YAMLError, __with_libyaml__
 
 from helpers import (RequestContext)
 from helpers import build_response
-from helpers.constants import GITHUB_SERVICE, \
-    GITLAB_SERVICE, STATUS_SYNCING, STATUS_SYNCING_FAILED, STATUS_SYNCED, \
-    KEY_RULES_TO_MITRE, \
-    KEY_RULES_TO_SERVICE_SECTION, KEY_RULES_TO_STANDARDS, \
+from helpers.constants import RuleSourceType, STATUS_SYNCING, \
+    STATUS_SYNCING_FAILED, STATUS_SYNCED, \
+    KEY_RULES_TO_MITRE, KEY_RULES_TO_SERVICE_SECTION, KEY_RULES_TO_STANDARDS, \
     KEY_RULES_TO_SEVERITY, KEY_CLOUD_TO_RULES, KEY_AWS_EVENTS, \
     KEY_AZURE_EVENTS, KEY_GOOGLE_EVENTS, KEY_AWS_STANDARDS_COVERAGE, \
-    KEY_AZURE_STANDARDS_COVERAGE, KEY_GOOGLE_STANDARDS_COVERAGE, KEY_HUMAN_DATA
+    KEY_AZURE_STANDARDS_COVERAGE, KEY_GOOGLE_STANDARDS_COVERAGE, \
+    KEY_HUMAN_DATA, KEY_RULES_TO_SERVICE, KEY_RULES_TO_CATEGORY
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_iso
 from models.rule import Rule
@@ -57,9 +57,6 @@ class StandardsSetting(TypedDict):
 
 
 class RuleMetaUpdaterLambdaHandler(AbstractLambda):
-    def validate_request(self, event) -> dict:
-        pass
-
     def __init__(self, rule_service: RuleService,
                  rule_meta_service: RuleMetaService,
                  rule_source_service: RuleSourceService,
@@ -186,42 +183,25 @@ class RuleMetaUpdaterLambdaHandler(AbstractLambda):
             key=KEY_HUMAN_DATA,
             data=collector.human_data
         )
+        self._s3_settings_service.set(
+            key=KEY_RULES_TO_SERVICE,
+            data=collector.service
+        )
+        self._s3_settings_service.set(
+            key=KEY_RULES_TO_CATEGORY,
+            data=collector.category
+        )
         # self._settings_service.create(
         #     name=KEY_RULES_TO_STANDARDS,
         #     value=collector.compressed(collector.standard)
-        # ).save()
-        # self._settings_service.create(
-        #     name=KEY_RULES_TO_SEVERITY,
-        #     value=collector.compressed(collector.severity)
-        # ).save()
-        # self._settings_service.create(
-        #     name=KEY_RULES_TO_MITRE,
-        #     value=collector.compressed(collector.mitre)
-        # ).save()
-        # self._settings_service.create(
-        #     name=KEY_RULES_TO_SERVICE_SECTION,
-        #     value=collector.compressed(collector.service_section)
-        # ).save()
-        # self._settings_service.create(
-        #     name=KEY_CLOUD_TO_RULES,
-        #     value=collector.compressed(collector.cloud_rules)
-        # ).save()
-        # self._settings_service.create(
-        #     name=KEY_AWS_EVENTS,
-        #     value=collector.compressed(collector.aws_events)
-        # ).save()
-        # self._settings_service.create(
-        #     name=KEY_AZURE_EVENTS,
-        #     value=collector.compressed(collector.azure_events)
-        # ).save()
-        # self._settings_service.create(
-        #     name=KEY_GOOGLE_EVENTS,
-        #     value=collector.compressed(collector.google_events)
         # ).save()
         _LOG.debug('Mappings were saved')
 
     @staticmethod
     def is_yaml(filename: str) -> bool:
+        exception_names = ['.gitlab-ci.yml']
+        if filename in exception_names:
+            return False
         return filename.endswith('.yaml') or filename.endswith('.yml')
 
     @staticmethod
@@ -294,7 +274,7 @@ class RuleMetaUpdaterLambdaHandler(AbstractLambda):
             secret_value = [secret_value]
         return [MetaAccess.from_dict(item) for item in secret_value]
 
-    def pull_meta(self):
+    def pull_meta(self, only_mappings: bool = False):
         _LOG.debug('Pulling rules meta')
         metas = self.get_metadata_data()
         collector = MappingsCollector()
@@ -326,8 +306,9 @@ class RuleMetaUpdaterLambdaHandler(AbstractLambda):
                     except ValidationError as e:
                         _LOG.warning(f'Invalid meta: {content}, {e}')
                         continue
-        _LOG.debug(f'Saving {len(rule_metas)} metas')
-        self._rule_meta_service.batch_save(rule_metas)
+        if not only_mappings:
+            _LOG.debug(f'Saving {len(rule_metas)} metas')
+            self._rule_meta_service.batch_save(rule_metas)
         self.save_mappings(collector)
 
     def pull_rules(self, ids: List[str]):
@@ -336,9 +317,9 @@ class RuleMetaUpdaterLambdaHandler(AbstractLambda):
             self._rule_source_service.update_latest_sync(
                 rule_source, STATUS_SYNCING
             )
-            if rule_source.type == GITLAB_SERVICE:
+            if rule_source.type == RuleSourceType.GITLAB:
                 _class = GitLabClient
-            elif rule_source.type == GITHUB_SERVICE:
+            elif rule_source.type == RuleSourceType.GITHUB:
                 _class = GitHubClient
             else:
                 _LOG.warning(f'Not known rule_source type: '
@@ -461,11 +442,13 @@ class RuleMetaUpdaterLambdaHandler(AbstractLambda):
         action = event.get('action')
         if action == 'standards':
             self.update_standards()
+        elif action == 'mappings':
+            self.pull_meta(only_mappings=True)
         elif ids:
             _LOG.debug(f'Pulling rules for ids: {ids}')
             self.pull_rules(ids)
         else:
-            _LOG.debug('Pulling meta')
+            _LOG.debug('Pulling meta and mappings')
             self.pull_meta()
 
         return build_response()

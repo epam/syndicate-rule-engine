@@ -1,11 +1,11 @@
+from http import HTTPStatus
+
 from handlers.abstracts.abstract_handler import AbstractHandler
-from helpers import build_response, RESPONSE_OK_CODE, RESPONSE_CONFLICT, \
-    RESPONSE_RESOURCE_NOT_FOUND_CODE, RESPONSE_INTERNAL_SERVER_ERROR, \
-    RESPONSE_BAD_REQUEST_CODE
-from helpers.constants import GET_METHOD, POST_METHOD, DELETE_METHOD, \
-    PORT_ATTR, HOST_ATTR, VERSION_ATTR, KEY_ID_ATTR, PRIVATE_KEY_ATTR, \
+from helpers import build_response
+from helpers.constants import PORT_ATTR, HOST_ATTR, KEY_ID_ATTR, \
+    PRIVATE_KEY_ATTR, \
     ALGORITHM_ATTR, FORMAT_ATTR, KID_ATTR, ALG_ATTR, PUBLIC_KEY_ATTR, \
-    VALUE_ATTR, PROTOCOL_ATTR, STAGE_ATTR
+    VALUE_ATTR, PROTOCOL_ATTR, STAGE_ATTR, API_VERSION_ATTR, HTTPMethod
 from helpers.log_helper import get_logger
 from services.key_management_service import KeyManagementService, IKey
 from services.license_manager_service import LicenseManagerService
@@ -32,9 +32,9 @@ class LicenseManagerClientHandler(AbstractHandler):
     """
 
     def __init__(
-        self, settings_service: SettingsService,
-        key_management_service: KeyManagementService,
-        license_manager_service: LicenseManagerService
+            self, settings_service: SettingsService,
+            key_management_service: KeyManagementService,
+            license_manager_service: LicenseManagerService
     ):
         self.settings_service = settings_service
         self.key_management_service = key_management_service
@@ -42,15 +42,16 @@ class LicenseManagerClientHandler(AbstractHandler):
 
     def define_action_mapping(self):
         return {
-            LM_SETTINGS_PATH+CLIENT_PATH: {
-                GET_METHOD: self.get,
-                POST_METHOD: self.post,
-                DELETE_METHOD: self.delete,
+            LM_SETTINGS_PATH + CLIENT_PATH: {
+                HTTPMethod.GET: self.get,
+                HTTPMethod.POST: self.post,
+                HTTPMethod.DELETE: self.delete,
             }
         }
 
     def get(self, event: dict):
-        _LOG.info(f'{GET_METHOD} License Manager Client-Key event: {event}')
+        _LOG.info(
+            f'{HTTPMethod.GET} License Manager Client-Key event: {event}')
 
         fmt = event.get(FORMAT_ATTR) or PEM_ATTR
 
@@ -80,8 +81,8 @@ class LicenseManagerClientHandler(AbstractHandler):
                 if puk:
                     managed = self.key_management_service. \
                         instantiate_managed_key(
-                            kid=kid, key=puk, alg=alg
-                        )
+                        kid=kid, key=puk, alg=alg
+                    )
                     _LOG.info(f'Going to export the \'{kid}\' public-key.')
                     response = self._response_dto(
                         exported_key=managed.export_key(frmt=fmt),
@@ -89,14 +90,14 @@ class LicenseManagerClientHandler(AbstractHandler):
                     )
 
         return build_response(
-            code=RESPONSE_OK_CODE,
+            code=HTTPStatus.OK,
             content=response or []
         )
 
     def post(self, event: dict):
         # Validation is taken care of, on the gateway/abstract-handler layer.
         _LOG.info(
-            f'{POST_METHOD} License Manager Client-Key event: {event}'
+            f'{HTTPMethod.POST} License Manager Client-Key event: {event}'
         )
         kid = event.get(KEY_ID_ATTR)
         alg = event.get(ALGORITHM_ATTR)
@@ -105,10 +106,10 @@ class LicenseManagerClientHandler(AbstractHandler):
 
         # Decoding is taking care of within the validation layer.
 
-        if self.settings_service.\
+        if self.settings_service. \
                 get_license_manager_client_key_data(value=False):
             return build_response(
-                code=RESPONSE_CONFLICT,
+                code=HTTPStatus.CONFLICT,
                 content='License Manager Client-Key already exists.'
             )
 
@@ -119,14 +120,14 @@ class LicenseManagerClientHandler(AbstractHandler):
         puk = self._derive_puk(prk=prk)
         if not puk:
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content='Improper private-key.'
             )
 
         if not prk:
             return build_response(
                 content=UNSUPPORTED_ALG_TEMPLATE.format(alg=alg),
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE
+                code=HTTPStatus.NOT_FOUND
             )
 
         prk = self.key_management_service.instantiate_managed_key(
@@ -143,11 +144,11 @@ class LicenseManagerClientHandler(AbstractHandler):
         _LOG.info(message + ' has been instantiated.')
 
         if not self.key_management_service.save_key(
-            kid=prk.kid, key=prk.key, frmt=frmt
+                kid=prk.kid, key=prk.key, frmt=frmt
         ):
             return build_response(
                 content=UNRESOLVABLE_ERROR,
-                code=RESPONSE_INTERNAL_SERVER_ERROR
+                code=HTTPStatus.INTERNAL_SERVER_ERROR
             )
 
         managed_puk = self.key_management_service.instantiate_managed_key(
@@ -164,7 +165,7 @@ class LicenseManagerClientHandler(AbstractHandler):
         self.settings_service.save(setting=setting)
 
         return build_response(
-            code=RESPONSE_OK_CODE,
+            code=HTTPStatus.OK,
             content=self._response_dto(
                 exported_key=managed_puk.export_key(frmt=frmt),
                 value_attr=PUBLIC_KEY_ATTR
@@ -172,13 +173,14 @@ class LicenseManagerClientHandler(AbstractHandler):
         )
 
     def delete(self, event: dict):
-        _LOG.info(f'{DELETE_METHOD} License Manager Client-Key event: {event}')
+        _LOG.info(
+            f'{HTTPMethod.DELETE} License Manager Client-Key event: {event}')
 
         requested_kid = event.get(KEY_ID_ATTR)
 
         head = 'License Manager Client-Key'
         unretained = ' does not exist'
-        code = RESPONSE_RESOURCE_NOT_FOUND_CODE
+        code = HTTPStatus.NOT_FOUND
         # Default 404 error-response.
         content = head + unretained
 
@@ -200,7 +202,8 @@ class LicenseManagerClientHandler(AbstractHandler):
             return build_response(code=code, content=content)
 
         if kid != requested_kid:
-            _LOG.warning(head + f' does not contain {requested_kid} \'kid\' data.')
+            _LOG.warning(
+                head + f' does not contain {requested_kid} \'kid\' data.')
             return build_response(code=code, content=content)
 
         is_key_data_removed = False
@@ -226,7 +229,7 @@ class LicenseManagerClientHandler(AbstractHandler):
         if self.settings_service.delete(setting=setting):
             committed = 'completely ' if is_key_data_removed else ''
             committed += 'removed'
-            code = RESPONSE_OK_CODE
+            code = HTTPStatus.OK
             content = head + f' has been {committed}'
 
         return build_response(code=code, content=content)
@@ -255,55 +258,57 @@ class LicenseManagerConfigHandler(AbstractHandler):
     """
 
     def __init__(
-        self, settings_service: SettingsService
+            self, settings_service: SettingsService
     ):
         self.settings_service = settings_service
 
     def define_action_mapping(self):
         return {
-            LM_SETTINGS_PATH+CONFIG_PATH: {
-                GET_METHOD: self.get,
-                POST_METHOD: self.post,
-                DELETE_METHOD: self.delete,
+            LM_SETTINGS_PATH + CONFIG_PATH: {
+                HTTPMethod.GET: self.get,
+                HTTPMethod.POST: self.post,
+                HTTPMethod.DELETE: self.delete,
             }
         }
 
     def get(self, event: dict):
-        _LOG.info(f'{GET_METHOD} License Manager access-config event: {event}')
+        _LOG.info(
+            f'{HTTPMethod.GET} License Manager access-config event: {event}')
 
-        configuration: dict = self.settings_service.\
+        configuration: dict = self.settings_service. \
             get_license_manager_access_data()
         return build_response(
-            code=RESPONSE_OK_CODE,
+            code=HTTPStatus.OK,
             content=configuration or []
         )
 
     def post(self, event: dict):
         _LOG.info(
-            f'{POST_METHOD} License Manager access-config event: {event}'
+            f'{HTTPMethod.POST} License Manager access-config event: {event}'
         )
         if self.settings_service.get_license_manager_access_data():
             return build_response(
-                code=RESPONSE_CONFLICT,
+                code=HTTPStatus.CONFLICT,
                 content='License Manager config-data already exists.'
             )
         # TODO check access ?
-        setting = self.settings_service.\
+        setting = self.settings_service. \
             create_license_manager_access_data_configuration(
-                host=event[HOST_ATTR],
-                port=event.get(PORT_ATTR),
-                protocol=event.get(PROTOCOL_ATTR),
-                stage=event.get(STAGE_ATTR)
-            )
+            host=event[HOST_ATTR],
+            port=event.get(PORT_ATTR),
+            protocol=event.get(PROTOCOL_ATTR),
+            stage=event.get(STAGE_ATTR),
+            api_version=event.get(API_VERSION_ATTR)
+        )
 
         _LOG.info(f'Persisting License Manager config-data: {setting.value}.')
         self.settings_service.save(setting=setting)
         return build_response(
-            code=RESPONSE_OK_CODE, content=setting.value
+            code=HTTPStatus.OK, content=setting.value
         )
 
     def delete(self, event: dict):
-        _LOG.info(f'{DELETE_METHOD} License Manager access-config event:'
+        _LOG.info(f'{HTTPMethod.DELETE} License Manager access-config event:'
                   f' {event}')
 
         configuration: Setting = \
@@ -312,13 +317,13 @@ class LicenseManagerConfigHandler(AbstractHandler):
             )
         if not configuration:
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content='License Manager config-data does not exist.'
             )
         _LOG.info(f'Removing License Manager config-data:'
                   f' {configuration.value}.')
         self.settings_service.delete(setting=configuration)
         return build_response(
-            code=RESPONSE_OK_CODE,
+            code=HTTPStatus.OK,
             content='License Manager config-data has been removed.'
         )

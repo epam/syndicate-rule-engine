@@ -1,7 +1,8 @@
+from http import HTTPStatus
+
 from handlers.abstracts.abstract_handler import AbstractHandler
-from helpers import build_response, RESPONSE_OK_CODE, RESPONSE_CONFLICT, \
-    RESPONSE_RESOURCE_NOT_FOUND_CODE, RESPONSE_BAD_REQUEST_CODE
-from helpers.constants import GET_METHOD, POST_METHOD, DELETE_METHOD, \
+from helpers import build_response
+from helpers.constants import HTTPMethod, \
     USERNAME_ATTR, PORT_ATTR, HOST_ATTR, PASSWORD_ATTR, DEFAULT_SENDER_ATTR, \
     USE_TLS_ATTR, MAX_EMAILS_ATTR
 from helpers.log_helper import get_logger
@@ -23,8 +24,8 @@ class MailSettingHandler(AbstractHandler):
     """
 
     def __init__(
-        self, settings_service: SettingsService,
-        smtp_client: SMTPClient, ssm_client: SSMClient
+            self, settings_service: SettingsService,
+            smtp_client: SMTPClient, ssm_client: SSMClient
     ):
         self.settings_service = settings_service
         self.smtp_client = smtp_client
@@ -33,14 +34,14 @@ class MailSettingHandler(AbstractHandler):
     def define_action_mapping(self):
         return {
             MAIL_SETTINGS_PATH: {
-                GET_METHOD: self.get,
-                POST_METHOD: self.post,
-                DELETE_METHOD: self.delete,
+                HTTPMethod.GET: self.get,
+                HTTPMethod.POST: self.post,
+                HTTPMethod.DELETE: self.delete,
             }
         }
 
     def get(self, event: dict):
-        _LOG.info(f'{GET_METHOD} Mail Configuration event: {event}')
+        _LOG.info(f'{HTTPMethod.GET} Mail Configuration event: {event}')
         disclose: bool = event.get(DISCLOSE_ATTR)
 
         configuration: dict = self.settings_service.get_mail_configuration()
@@ -51,12 +52,12 @@ class MailSettingHandler(AbstractHandler):
                 message = f'Password:\'{alias}\' could not be retrieved.'
                 _LOG.error(message)
                 return build_response(
-                    code=RESPONSE_RESOURCE_NOT_FOUND_CODE, content=message
+                    code=HTTPStatus.NOT_FOUND, content=message
                 )
             configuration[PASSWORD_ATTR] = password
 
         return build_response(
-            code=RESPONSE_OK_CODE,
+            code=HTTPStatus.OK,
             content=configuration or []
         )
 
@@ -65,10 +66,10 @@ class MailSettingHandler(AbstractHandler):
 
         username = event.get(USERNAME_ATTR)
         password = event.get(PASSWORD_ATTR)
-        _LOG.info(f'{POST_METHOD} Mail Configuration event: {event}')
+        _LOG.info(f'{HTTPMethod.POST} Mail Configuration event: {event}')
         if self.settings_service.get_mail_configuration():
             return build_response(
-                code=RESPONSE_CONFLICT,
+                code=HTTPStatus.CONFLICT,
                 content='Mail configuration already exists.'
             )
 
@@ -81,13 +82,13 @@ class MailSettingHandler(AbstractHandler):
                 issue = 'TLS could not be established.'
 
             if not issue and not client.authenticate(
-                username=username, password=password
+                    username=username, password=password
             ):
                 issue = 'Improper mail credentials.'
 
         if issue:
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE, content=issue
+                code=HTTPStatus.BAD_REQUEST, content=issue
             )
 
         name = event[PASSWORD_ALIAS_ATTR]
@@ -104,17 +105,17 @@ class MailSettingHandler(AbstractHandler):
         _LOG.info(f'Persisting mail-configuration data: {payload}.')
         self.settings_service.save(setting=setting)
         return build_response(
-            code=RESPONSE_OK_CODE, content=setting.value
+            code=HTTPStatus.OK, content=setting.value
         )
 
     def delete(self, event: dict):
-        _LOG.info(f'{DELETE_METHOD} Mail Configuration event: {event}')
+        _LOG.info(f'{HTTPMethod.DELETE} Mail Configuration event: {event}')
         configuration: Setting = self.settings_service.get_mail_configuration(
             value=False
         )
         if not configuration:
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content='Mail configuration does not exist.'
             )
         name = configuration.value.get(PASSWORD_ATTR)
@@ -125,7 +126,7 @@ class MailSettingHandler(AbstractHandler):
             secret_name=name
         )
         return build_response(
-            code=RESPONSE_OK_CODE,
+            code=HTTPStatus.OK,
             content='Mail configuration has been removed.'
         )
 

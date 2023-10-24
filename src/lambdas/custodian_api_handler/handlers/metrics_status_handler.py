@@ -3,7 +3,7 @@ from functools import cached_property
 from modular_sdk.models.job import Job
 
 from helpers import build_response
-from helpers.constants import GET_METHOD
+from helpers.constants import HTTPMethod
 from helpers.log_helper import get_logger
 from lambdas.custodian_api_handler.handlers import Mapping
 from services import SERVICE_PROVIDER
@@ -30,7 +30,7 @@ class MetricsStatusHandler:
     def mapping(self) -> Mapping:
         return {
             '/metrics/status': {
-                GET_METHOD: self.get
+                HTTPMethod.GET: self.get
             }
         }
 

@@ -7,19 +7,19 @@ from uuid import uuid4
 
 from dateutil.relativedelta import relativedelta, SU
 from modular_sdk.commons import ModularException
+from modular_sdk.commons.constants import ApplicationType
 from modular_sdk.commons.constants import RABBITMQ_TYPE
 from modular_sdk.services.impl.maestro_rabbit_transport_service import \
     MaestroRabbitMQTransport
-
-from helpers import raise_error_response, RESPONSE_BAD_REQUEST_CODE, \
-    get_logger, build_response, RESPONSE_INTERNAL_SERVER_ERROR, \
-    RESPONSE_SERVICE_UNAVAILABLE_CODE, filter_dict
+from http import HTTPStatus
+from helpers import raise_error_response, get_logger, build_response, \
+    filter_dict
 from helpers.constants import HTTP_METHOD_ERROR, CUSTOMER_ATTR, END_DATE, \
-    PARAM_REQUEST_PATH, PARAM_HTTP_METHOD, GET_METHOD, ACTION_PARAM_ERROR, \
+    PARAM_REQUEST_PATH, PARAM_HTTP_METHOD, ACTION_PARAM_ERROR, \
     RULE_TYPE, OVERVIEW_TYPE, RESOURCES_TYPE, COMPLIANCE_TYPE, \
     TENANT_DISPLAY_NAME_ATTR, DATA_ATTR, ATTACK_VECTOR_TYPE, START_DATE, \
     TENANT_NAMES_ATTR, TENANT_DISPLAY_NAMES_ATTR, TACTICS_ID_MAPPING, \
-    CUSTODIAN_LICENSES_TYPE
+    FINOPS_TYPE, HTTPMethod, OUTDATED_TENANTS
 from helpers.difference import calculate_dict_diff
 from helpers.time_helper import utc_datetime
 from models.licenses import License
@@ -31,18 +31,19 @@ from services.batch_results_service import BatchResultsService
 from services.clients.s3 import S3Client
 from services.environment_service import EnvironmentService
 from services.license_service import LicenseService
-from services.modular_service import ModularService
 from services.metrics_service import CustomerMetricsService
 from services.metrics_service import TenantMetricsService
+from services.modular_service import ModularService
 from services.rabbitmq_service import RabbitMQService
-from services.rule_meta_service import RuleMetaService
+from services.rule_meta_service import LazyLoadedMappingsCollector
 from services.setting_service import SettingsService
 
 ACCOUNT_METRICS_PATH = '{customer}/accounts/{date}/{account_id}.json'
 TENANT_METRICS_PATH = '{customer}/tenants/{date}/{tenant_dn}.json'
 
 COMMAND_NAME = 'SEND_MAIL'
-TYPE_ATTR = 'type'
+TYPES_ATTR = 'types'
+RECIEVERS_ATTR = 'recievers'
 
 EVENT_DRIVEN_TYPE = {'maestro': 'CUSTODIAN_EVENT_DRIVEN_RESOURCES_REPORT',
                      'custodian': 'EVENT_DRIVEN'}
@@ -56,6 +57,8 @@ RESOURCES_REPORT_TYPE = {'maestro': 'CUSTODIAN_RESOURCES_REPORT',
                          'custodian': 'RESOURCES'}
 ATTACK_REPORT_TYPE = {'maestro': 'CUSTODIAN_ATTACKS_REPORT',
                       'custodian': 'ATTACK_VECTOR'}
+FINOPS_REPORT_TYPE = {'maestro': 'CUSTODIAN_FINOPS_REPORT',
+                      'custodian': 'FINOPS'}
 PROJECT_OVERVIEW_REPORT_TYPE = {'maestro': 'CUSTODIAN_PROJECT_OVERVIEW_REPORT',
                                 'custodian': 'OVERVIEW'}
 PROJECT_RESOURCES_REPORT_TYPE = {
@@ -66,6 +69,8 @@ PROJECT_COMPLIANCE_REPORT_TYPE = {
     'custodian': 'COMPLIANCE'}
 PROJECT_ATTACK_REPORT_TYPE = {'maestro': 'CUSTODIAN_PROJECT_ATTACKS_REPORT',
                               'custodian': 'ATTACK_VECTOR'}
+PROJECT_FINOPS_REPORT_TYPE = {'maestro': 'CUSTODIAN_PROJECT_FINOPS_REPORT',
+                              'custodian': 'FINOPS'}
 TOP_RESOURCES_BY_CLOUD_REPORT_TYPE = {
     'maestro': 'CUSTODIAN_TOP_RESOURCES_BY_CLOUD_REPORT',
     'custodian': 'TOP_RESOURCES_BY_CLOUD'}
@@ -103,7 +108,7 @@ class ReportGenerator(AbstractApiHandlerLambda):
                  license_service: LicenseService,
                  batch_results_service: BatchResultsService,
                  rabbitmq_service: RabbitMQService,
-                 rule_meta_service: RuleMetaService):
+                 mappings_collector: LazyLoadedMappingsCollector):
         self.s3_service = s3_service
         self.environment_service = environment_service
         self.settings_service = settings_service
@@ -113,33 +118,29 @@ class ReportGenerator(AbstractApiHandlerLambda):
         self.license_service = license_service
         self.batch_results_service = batch_results_service
         self.rabbitmq_service = rabbitmq_service
-        self.rule_meta_service = rule_meta_service
+        self.mappings_collector = mappings_collector
 
         self.REQUEST_PATH_HANDLER_MAPPING = {
             '/reports/operational': {
-                GET_METHOD: self.generate_operational_reports
+                HTTPMethod.GET: self.generate_operational_reports
             },
             '/reports/project': {
-                GET_METHOD: self.generate_project_reports
+                HTTPMethod.GET: self.generate_project_reports
             },
             '/reports/department': {
-                GET_METHOD: self.generate_department_reports
+                HTTPMethod.GET: self.generate_department_reports
             },
             '/reports/clevel': {
-                GET_METHOD: self.generate_c_level_reports
+                HTTPMethod.GET: self.generate_c_level_reports
             },
             '/reports/event_driven': {
-                GET_METHOD: self.generate_event_driven_reports
+                HTTPMethod.GET: self.generate_event_driven_reports
             }
         }
 
         self.customer_license_mapping = {}
         self.customer_tenant_mapping = {}
         self.current_month = datetime.today().replace(day=1).date()
-        self.meta_policy_mapping = {}
-
-    def validate_request(self, event) -> dict:
-        pass
 
     def handle_request(self, event, context):
         request_path = event[PARAM_REQUEST_PATH]
@@ -147,7 +148,7 @@ class ReportGenerator(AbstractApiHandlerLambda):
         handler_function = self.REQUEST_PATH_HANDLER_MAPPING.get(request_path)
         if not handler_function:
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST.value,
                 content=ACTION_PARAM_ERROR.format(endpoint=request_path)
             )
         handler_func = handler_function.get(method_name)
@@ -155,7 +156,7 @@ class ReportGenerator(AbstractApiHandlerLambda):
         if handler_func:
             response = handler_func(event=event)
         return response or build_response(
-            code=RESPONSE_BAD_REQUEST_CODE,
+            code=HTTPStatus.BAD_REQUEST.value,
             content=HTTP_METHOD_ERROR.format(
                 method=method_name, resource=request_path
             )
@@ -175,9 +176,9 @@ class ReportGenerator(AbstractApiHandlerLambda):
                     f'\'{l.license_key}\'. Cannot send emails')
                 continue
             start_date, end_date = self._get_period(quota)
-            if datetime.now().timestamp() < end_date.timestamp() or (
+            if datetime.utcnow().timestamp() < end_date.timestamp() or (
                     l.event_driven.last_execution and
-                    start_date <= l.event_driven.last_execution <= end_date):
+                    start_date.isoformat() <= l.event_driven.last_execution <= end_date.isoformat()):
                 _LOG.debug(f'Skipping ED report for license {l.license_key}: '
                            f'timestamp now: {datetime.now().isoformat()}; '
                            f'expected end timestamp: {end_date.isoformat()}')
@@ -221,15 +222,8 @@ class ReportGenerator(AbstractApiHandlerLambda):
                 f'{start_date.isoformat()} to {end_date.isoformat()}')
 
         for customer, tenants in self.customer_tenant_mapping.items():
-            application = self.rabbitmq_service.get_rabbitmq_application(customer)
-            if not application:
-                _LOG.warning(f'No application with type {RABBITMQ_TYPE} found '
-                             f'for customer {customer}')
-                continue
-            rabbitmq = self.rabbitmq_service.build_maestro_mq_transport(application)
+            rabbitmq = self.get_customer_rabbitmq(customer)
             if not rabbitmq:
-                _LOG.warning(f'Could not build rabbit client from application '
-                             f'for customer {customer}')
                 continue
 
             bucket_name = self.environment_service.default_reports_bucket_name()
@@ -268,20 +262,10 @@ class ReportGenerator(AbstractApiHandlerLambda):
                                 END_DATE]
                         }
                         _LOG.debug(f'Data: {data}')
-                        json_model = {
-                            'viewType': 'm3',
-                            'model': {
-                                "uuid": str(uuid4()),
-                                "notificationType": EVENT_DRIVEN_TYPE[
-                                    'maestro'],
-                                "notificationAsJson": json.dumps({
-                                    **data,
-                                    'report_type': EVENT_DRIVEN_TYPE[
-                                        'custodian']},
-                                    separators=(",", ":")),
-                                "notificationProcessorTypes": ["MAIL"]
-                            }
-                        }
+                        json_model = self._build_json_model(
+                            EVENT_DRIVEN_TYPE['maestro'],
+                            {**data,
+                             'report_type': EVENT_DRIVEN_TYPE['custodian']})
                         self._send_notification_to_m3(json_model, rabbitmq)
                         _LOG.debug(f'Notification for {tenant} tenant was '
                                    f'successfully send')
@@ -308,13 +292,23 @@ class ReportGenerator(AbstractApiHandlerLambda):
                 weekday=SU(0))).date().isoformat()
 
         metrics_bucket = self.environment_service.get_metrics_bucket_name()
-        tenant_names = event.get(TENANT_NAMES_ATTR)
-        report_type = event.get(TYPE_ATTR)
+        tenant_names = list(filter(
+            None, event.get(TENANT_NAMES_ATTR, '').split(', ')))
+        report_types = list(filter(
+            None, event.get(TYPES_ATTR, '').split(', ')))
+        receivers = list(filter(
+            None, event.get(RECIEVERS_ATTR, '').split(', ')))
+
+        if not tenant_names:
+            return raise_error_response(
+                code=HTTPStatus.INTERNAL_SERVER_ERROR.value,
+                content='"tenant_names" parameter cannot be empty'
+            )
 
         json_model = []
         errors = []
-        _LOG.debug(f'Report type: {report_type if report_type else "ALL"}')
-        for tenant_name in tenant_names.split(', '):
+        _LOG.debug(f'Report type: {report_types if report_types else "ALL"}')
+        for tenant_name in tenant_names:
             _LOG.debug(f'Retrieving tenant with name {tenant_name}')
             tenant = self.modular_service.get_tenant(tenant_name)
             if not tenant:
@@ -335,52 +329,43 @@ class ReportGenerator(AbstractApiHandlerLambda):
 
             _LOG.debug('Retrieving tenant data')
             tenant_metrics = json.loads(tenant_metrics)
-            overview_data = tenant_metrics.pop(OVERVIEW_TYPE)
-            rule_data = tenant_metrics.pop(RULE_TYPE)
-            resources_data = tenant_metrics.pop(RESOURCES_TYPE)
-            compliance_data = tenant_metrics.pop(COMPLIANCE_TYPE)
-            attack_data = tenant_metrics.pop(ATTACK_VECTOR_TYPE)
+            tenant_metrics[OUTDATED_TENANTS] = self._process_outdated_tenants(
+                tenant_metrics.pop(OUTDATED_TENANTS, {}))
+
+            overview_data = tenant_metrics.pop(OVERVIEW_TYPE, None)
+            rule_data = tenant_metrics.pop(RULE_TYPE, None)
+            resources_data = tenant_metrics.pop(RESOURCES_TYPE, None)
+            compliance_data = tenant_metrics.pop(COMPLIANCE_TYPE, None)
+            attack_data = tenant_metrics.pop(ATTACK_VECTOR_TYPE, None)
+            finops_data = tenant_metrics.pop(FINOPS_TYPE, None)
             for _type, data in [(ATTACK_REPORT_TYPE, attack_data),
                                 (COMPLIANCE_REPORT_TYPE, compliance_data),
                                 (OVERVIEW_REPORT_TYPE, overview_data),
                                 (RESOURCES_REPORT_TYPE, resources_data),
-                                (RULES_REPORT_TYPE, rule_data)]:
-                if report_type and not report_type == _type['custodian']:
+                                (RULES_REPORT_TYPE, rule_data),
+                                (FINOPS_REPORT_TYPE, finops_data)]:
+                if report_types and _type['custodian'] not in report_types:
                     continue
-                json_model.append({
-                    'viewType': 'm3',
-                    'model': {
-                        "uuid": str(uuid4()),
-                        "notificationType": _type['maestro'],
-                        "notificationAsJson": json.dumps(
-                            {**tenant_metrics, DATA_ATTR: data,
-                             'report_type': _type['custodian']},
-                            separators=(",", ":")),
-                        "notificationProcessorTypes": ["MAIL"]
-                    }
-                })
+                json_model.append(self._build_json_model(
+                    _type['maestro'], {RECIEVERS_ATTR: receivers,
+                                       **tenant_metrics, DATA_ATTR: data,
+                                       'report_type': _type['custodian']}))
         if errors:
             _LOG.error(f"Found errors: {os.linesep.join(errors)}")
         if not json_model:
             return build_response(
                 content=os.linesep.join(errors)
             )
-        application = self.rabbitmq_service.get_rabbitmq_application(
-            event[CUSTOMER_ATTR])
-        if not application:
-            _LOG.warning(f'No application with type {RABBITMQ_TYPE} found')
-            return self.rabbitmq_service.no_rabbit_configuration()
-        rabbitmq = self.rabbitmq_service.build_maestro_mq_transport(
-            application)
+
+        rabbitmq = self.get_customer_rabbitmq(event[CUSTOMER_ATTR])
         if not rabbitmq:
-            _LOG.warning('Could not build rabbit client from application')
             return self.rabbitmq_service.no_rabbit_configuration()
         self._send_notification_to_m3(json_model, rabbitmq)
         return build_response(
             content=f'The request to send report'
-                    f'{"s" if not report_type else ""} for '
+                    f'{"s" if not report_types else ""} for '
                     f'{tenant_names} tenant'
-                    f'{" was" if report_type else "s were"} '
+                    f'{" was" if report_types else " were"} '
                     f'successfully created'
         )
 
@@ -388,25 +373,37 @@ class ReportGenerator(AbstractApiHandlerLambda):
         if not (date := self.settings_service.get_report_date_marker().get(
                 'current_week_date')):
             return raise_error_response(
-                code=RESPONSE_INTERNAL_SERVER_ERROR,
+                code=HTTPStatus.INTERNAL_SERVER_ERROR.value,
                 content='Cannot send reports: '
                         'missing \'current_week_date\' section in '
                         '\'REPORT_DATE_MARKER\' setting.'
             )
 
         metrics_bucket = self.environment_service.get_metrics_bucket_name()
-        report_type = event.get(TYPE_ATTR)
-        tenant_display_names = event.get(TENANT_DISPLAY_NAMES_ATTR)
+        tenant_display_names = list(filter(
+            None, event.get(TENANT_DISPLAY_NAMES_ATTR, '').split(', ')))
+        report_types = list(filter(
+            None, event.get(TYPES_ATTR, '').split(', ')))
+        receivers = list(filter(
+            None, event.get(RECIEVERS_ATTR, '').split(', ')))
+
+        if not tenant_display_names:
+            return raise_error_response(
+                code=HTTPStatus.INTERNAL_SERVER_ERROR.value,
+                content='"tenant_display_names" parameter cannot be empty'
+            )
+
         json_model = []
         errors = []
-        for display_name in tenant_display_names.split(', '):
+        for display_name in tenant_display_names:
             _LOG.debug(
                 f'Retrieving tenants with display name \'{display_name}\'')
             tenants = list(
                 self.modular_service.i_get_tenant_by_display_name_to_lower(
                     display_name.lower()))
             if not tenants:
-                _msg = f'Cannot find tenants with display name \'{display_name}\''
+                _msg = \
+                    f'Cannot find tenants with display name \'{display_name}\''
                 _LOG.error(_msg)
                 errors.append(_msg)
                 continue
@@ -425,44 +422,34 @@ class ReportGenerator(AbstractApiHandlerLambda):
                 continue
 
             tenant_group_metrics = json.loads(tenant_group_metrics)
-            overview_data = tenant_group_metrics.pop(OVERVIEW_TYPE)
-            resources_data = tenant_group_metrics.pop(RESOURCES_TYPE)
-            compliance_data = tenant_group_metrics.pop(COMPLIANCE_TYPE)
-            attack_data = tenant_group_metrics.pop(ATTACK_VECTOR_TYPE)
+            tenant_group_metrics[OUTDATED_TENANTS] = self._process_outdated_tenants(
+                tenant_group_metrics.pop(OUTDATED_TENANTS, {}))
+
+            overview_data = tenant_group_metrics.pop(OVERVIEW_TYPE, None)
+            resources_data = tenant_group_metrics.pop(RESOURCES_TYPE, None)
+            compliance_data = tenant_group_metrics.pop(COMPLIANCE_TYPE, None)
+            attack_data = tenant_group_metrics.pop(ATTACK_VECTOR_TYPE, None)
+            finops_data = tenant_group_metrics.pop(FINOPS_TYPE, None)
             for _type, data in [
-                (PROJECT_ATTACK_REPORT_TYPE, attack_data),
-                (PROJECT_COMPLIANCE_REPORT_TYPE, compliance_data),
-                (PROJECT_OVERVIEW_REPORT_TYPE, overview_data),
-                (PROJECT_RESOURCES_REPORT_TYPE, resources_data)]:
-                if report_type and not _type['custodian'] == report_type:
+                    (PROJECT_ATTACK_REPORT_TYPE, attack_data),
+                    (PROJECT_COMPLIANCE_REPORT_TYPE, compliance_data),
+                    (PROJECT_OVERVIEW_REPORT_TYPE, overview_data),
+                    (PROJECT_RESOURCES_REPORT_TYPE, resources_data),
+                    (PROJECT_FINOPS_REPORT_TYPE, finops_data)]:
+                if report_types and _type['custodian'] not in report_types:
                     continue
-                json_model.append({
-                    'viewType': 'm3',
-                    'model': {
-                        "uuid": str(uuid4()),
-                        "notificationType": _type['maestro'],
-                        "notificationAsJson": json.dumps(
-                            {**tenant_group_metrics, DATA_ATTR: data,
-                             'report_type': _type['custodian']},
-                            separators=(",", ":")),
-                        "notificationProcessorTypes": ["MAIL"]
-                    }
-                })
+                json_model.append(self._build_json_model(
+                    _type['maestro'], {RECIEVERS_ATTR: receivers,
+                                       **tenant_group_metrics, DATA_ATTR: data,
+                                       'report_type': _type['custodian']}))
 
         if not json_model:
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST.value,
                 content=';\n'.join(errors)
             )
-        application = self.rabbitmq_service.get_rabbitmq_application(
-            event[CUSTOMER_ATTR])
-        if not application:
-            _LOG.warning(f'No application with type {RABBITMQ_TYPE} found')
-            return self.rabbitmq_service.no_rabbit_configuration()
-        rabbitmq = self.rabbitmq_service.build_maestro_mq_transport(
-            application)
+        rabbitmq = self.get_customer_rabbitmq(event[CUSTOMER_ATTR])
         if not rabbitmq:
-            _LOG.warning('Could not build rabbit client from application')
             return self.rabbitmq_service.no_rabbit_configuration()
         self._send_notification_to_m3(json_model, rabbitmq)
         return build_response(
@@ -480,27 +467,40 @@ class ReportGenerator(AbstractApiHandlerLambda):
         report_type_mapping = {
             'RESOURCES_BY_CLOUD': {
                 'report_type': TOP_RESOURCES_BY_CLOUD_REPORT_TYPE,
-                'container': top_resource_by_cloud
+                'container': top_resource_by_cloud,
+                OUTDATED_TENANTS: []
             },
             'COMPLIANCE_BY_TENANT': {
                 'report_type': TOP_TENANTS_COMPLIANCE_REPORT_TYPE,
-                'container': top_compliance_by_tenant},
+                'container': top_compliance_by_tenant,
+                OUTDATED_TENANTS: []
+            },
             'RESOURCES_BY_TENANT': {
                 'report_type': TOP_TENANTS_RESOURCES_REPORT_TYPE,
-                'container': top_resource_by_tenant},
+                'container': top_resource_by_tenant,
+                OUTDATED_TENANTS: []
+            },
             'COMPLIANCE_BY_CLOUD': {
                 'report_type': TOP_COMPLIANCE_BY_CLOUD_REPORT_TYPE,
-                'container': top_compliance_by_cloud},
+                'container': top_compliance_by_cloud,
+                OUTDATED_TENANTS: []
+            },
             'ATTACK_BY_TENANT': {
                 'report_type': TOP_TENANTS_ATTACK_REPORT_TYPE,
-                'container': top_attack_by_tenant},
+                'container': top_attack_by_tenant,
+                OUTDATED_TENANTS: []
+            },
             'ATTACK_BY_CLOUD': {
                 'report_type': TOP_ATTACK_BY_CLOUD_REPORT_TYPE,
-                'container': top_attack_by_cloud}
+                'container': top_attack_by_cloud,
+                OUTDATED_TENANTS: []
+            }
         }
-        previous_month = (self.current_month - timedelta(days=1)).replace(day=1)
+        previous_month = (self.current_month - timedelta(days=1)).replace(
+            day=1)
         customer = event[CUSTOMER_ATTR]
-        report_type = event.get(TYPE_ATTR)
+        report_types = list(filter(
+            None, event.get(TYPES_ATTR, '').split(', ')))
 
         top_tenants = self.tenant_metrics_service.list_by_date_and_customer(
             date=self.current_month.isoformat(), customer=customer)
@@ -549,77 +549,37 @@ class ReportGenerator(AbstractApiHandlerLambda):
                                                      prev_cloud_attrs)
 
             # Process the item
-            if item_type in ('RESOURCES_BY_CLOUD', 'COMPLIANCE_BY_CLOUD',
-                             'ATTACK_BY_CLOUD'):
-                if all(not attribute_diff.get(c) for c in CLOUDS):
-                    report_type_mapping.get(item_type).pop('container')
-                    continue
-                for cloud, value in attribute_diff.items():
-                    value = json.loads(value) if \
-                        isinstance(value, str) else value
-                    if value:
-                        data = attribute_diff[cloud]['average_data'] \
-                            if item_type == 'COMPLIANCE_BY_CLOUD' else \
-                            attribute_diff[cloud]
-                        if item_type == 'ATTACK_BY_CLOUD':
-                            report_type_mapping[item_type]['container'][
-                                cloud].append({
-                                TENANT_DISPLAY_NAME_ATTR: tenant.pop(
-                                    TENANT_DISPLAY_NAME_ATTR),
-                                'sort_by': tenant.pop('defining_attribute'),
-                                **data
-                            })
-                        else:
-                            report_type_mapping[item_type]['container'][
-                                cloud].append({
-                                TENANT_DISPLAY_NAME_ATTR: tenant.pop(
-                                    TENANT_DISPLAY_NAME_ATTR),
-                                'sort_by': tenant.pop('defining_attribute'),
-                                DATA_ATTR: data
-                            })
+            if '_BY_CLOUD' in item_type:
+                self.process_department_item_by_cloud(
+                    item_type, attribute_diff, report_type_mapping, tenant)
             else:
+                report_type_mapping[item_type][OUTDATED_TENANTS].extend(
+                    tenant.get(OUTDATED_TENANTS, []))
                 report_type_mapping[item_type]['container'].append({
                     TENANT_DISPLAY_NAME_ATTR: tenant.pop(
                         TENANT_DISPLAY_NAME_ATTR),
                     'sort_by': tenant.pop('defining_attribute'),
                     DATA_ATTR: attribute_diff
                 })
-        application = self.rabbitmq_service.get_rabbitmq_application(
-            event[CUSTOMER_ATTR])
-        if not application:
-            _LOG.warning(f'No application with type {RABBITMQ_TYPE} found')
-            return self.rabbitmq_service.no_rabbit_configuration()
-        rabbitmq = self.rabbitmq_service.build_maestro_mq_transport(
-            application)
+        rabbitmq = self.get_customer_rabbitmq(event[CUSTOMER_ATTR])
         if not rabbitmq:
-            _LOG.warning('Could not build rabbit client from application')
             return self.rabbitmq_service.no_rabbit_configuration()
         for _type, values in report_type_mapping.items():
-            if report_type and \
-                    not report_type == \
-                        report_type_mapping[_type]['report_type']['custodian']:
+            if report_types and report_type_mapping[_type]['report_type'][
+                'custodian'] not in report_types:
                 continue
             container = values['container']
             if (isinstance(container, list) and not container) or (
-                    isinstance(container, dict) and not any(container.values())):
+                    isinstance(container, dict) and not any(
+                container.values())):
                 _LOG.warning(f'No data for report type {_type}')
                 continue
-            json_model = {
-                'viewType': 'm3',
-                'model': {
-                    "uuid": str(uuid4()),
-                    "notificationType":
-                        report_type_mapping[_type]['report_type']['maestro'],
-                    "notificationAsJson": json.dumps({
-                        CUSTOMER_ATTR: customer,
-                        'from': previous_month.isoformat(),
-                        'to': self.current_month.isoformat(),
-                        'report_type': _type,
-                        DATA_ATTR: values['container']},
-                        separators=(",", ":")),
-                    "notificationProcessorTypes": ["MAIL"]
-                }
-            }
+            json_model = self._build_json_model(
+                report_type_mapping[_type]['report_type']['maestro'],
+                {CUSTOMER_ATTR: customer, 'from': previous_month.isoformat(),
+                 'to': self.current_month.isoformat(),
+                 OUTDATED_TENANTS: values[OUTDATED_TENANTS],
+                 'report_type': _type, DATA_ATTR: values['container']})
             self._send_notification_to_m3(json_model, rabbitmq)
             _LOG.debug(f'Notifications for {customer} customer have been '
                        f'sent successfully')
@@ -634,10 +594,12 @@ class ReportGenerator(AbstractApiHandlerLambda):
             COMPLIANCE_TYPE.upper(): CUSTOMER_COMPLIANCE_REPORT_TYPE,
             ATTACK_VECTOR_TYPE.upper(): CUSTOMER_ATTACKS_REPORT_TYPE
         }
-        previous_month = (self.current_month - timedelta(days=1)).replace(day=1)
+        previous_month = (self.current_month - timedelta(days=1)).replace(
+            day=1)
 
         customer = event[CUSTOMER_ATTR]
-        report_type = event.get(TYPE_ATTR)
+        report_types = list(filter(
+            None, event.get(TYPES_ATTR, '').split(', ')))
 
         customer_metrics = self.customer_metrics_service.list_by_date_and_customer(
             date=self.current_month.isoformat(), customer=customer)
@@ -648,18 +610,12 @@ class ReportGenerator(AbstractApiHandlerLambda):
                                   f'{customer} for the period from '
                                   f'{self.current_month.isoformat()} to '
                                   f'{previous_month}')
-        application = self.rabbitmq_service.get_rabbitmq_application(customer)
-        if not application:
-            _LOG.warning(f'No application with type {RABBITMQ_TYPE} found')
-            return self.rabbitmq_service.no_rabbit_configuration()
-        rabbitmq = self.rabbitmq_service.build_maestro_mq_transport(
-            application)
+        rabbitmq = self.get_customer_rabbitmq(customer)
         if not rabbitmq:
-            _LOG.warning('Could not build rabbit client from application')
             return self.rabbitmq_service.no_rabbit_configuration()
         for item in customer_metrics:
             item = item.attribute_values
-            if report_type and not item.get(TYPE_ATTR) == report_type:
+            if report_types and item.get(TYPES_ATTR) not in report_types:
                 continue
 
             if item.get('type') != ATTACK_VECTOR_TYPE.upper():
@@ -691,7 +647,7 @@ class ReportGenerator(AbstractApiHandlerLambda):
                     exclude=['total_scanned_tenants'])
                 applications = list(self.modular_service.get_applications(
                     customer=customer,
-                    _type=CUSTODIAN_LICENSES_TYPE
+                    _type=ApplicationType.CUSTODIAN_LICENSES.value
                 ))
             else:
                 # attack report should not contain license info
@@ -711,21 +667,13 @@ class ReportGenerator(AbstractApiHandlerLambda):
                 DATA_ATTR: attribute_diff,
                 CUSTOMER_ATTR: item.get(CUSTOMER_ATTR),
                 'from': previous_month.isoformat(),
-                'to': self.current_month.isoformat()
+                'to': self.current_month.isoformat(),
+                OUTDATED_TENANTS: item.get(OUTDATED_TENANTS, [])
             }
 
             model.update({'report_type': item.get('type')})
-            json_model = {
-                'viewType': 'm3',
-                'model': {
-                    "uuid": str(uuid4()),
-                    "notificationType": report_type_mapping.get(item.get(
-                        'type')),
-                    "notificationAsJson": json.dumps(model,
-                                                     separators=(",", ":")),
-                    "notificationProcessorTypes": ["MAIL"]
-                }
-            }
+            json_model = self._build_json_model(
+                report_type_mapping.get(item.get('type')), model)
             self._send_notification_to_m3(json_model, rabbitmq)
 
         _LOG.debug(f'Reports sending for {customer} customer have been '
@@ -763,7 +711,7 @@ class ReportGenerator(AbstractApiHandlerLambda):
         except ModularException as e:
             _LOG.error(f'Modular error: {e}')
             return build_response(
-                code=RESPONSE_SERVICE_UNAVAILABLE_CODE,
+                code=HTTPStatus.SERVICE_UNAVAILABLE.value,
                 content='An error occurred while sending the report. '
                         'Please contact the support team.'
             )
@@ -771,16 +719,10 @@ class ReportGenerator(AbstractApiHandlerLambda):
             _LOG.error(
                 f'An error occurred trying to send a message to rabbit: {e}')
             return build_response(
-                code=RESPONSE_SERVICE_UNAVAILABLE_CODE,
+                code=HTTPStatus.SERVICE_UNAVAILABLE.value,
                 content='An error occurred while sending the report. '
                         'Please contact the support team.'
             )
-
-    def _get_rule_meta(self, rule_name):
-        if not self.meta_policy_mapping.get(rule_name):
-            self.meta_policy_mapping[rule_name] = \
-                self.rule_meta_service.get_latest_meta(rule_name) or None
-        return self.meta_policy_mapping.get(rule_name)
 
     def _process(self, bucket_name, items):
         """Merges differences"""
@@ -792,20 +734,23 @@ class ReportGenerator(AbstractApiHandlerLambda):
         for file in differences:
             _LOG.debug(f'Processing file {file[0]}')
             for rule, resource in file[1].items():
-                rule_meta = self._get_rule_meta(rule)
-                if not rule_meta:
-                    continue
+                report_fields = self.mappings_collector.human_data.get(
+                    rule, {}).get('report_fields') or set()
 
-                resource['severity'] = rule_meta.severity
+                resource['severity'] = self.mappings_collector.severity.get(
+                    rule, 'Unknown')
                 resource.pop('report_fields', None)
                 resource.pop('standard_points', None)
+                resource.pop('resourceType', None)
                 resource['regions_data'] = resource.pop('resources', {})
-                resource['resource_type'] = resource.pop('resourceType', None)
+                resource[
+                    'resource_type'] = self.mappings_collector.service.get(
+                    rule)
 
                 filtered_resources = {}
                 for region, data in resource['regions_data'].items():
                     filtered_resources.setdefault(region, []).extend(
-                        filter_dict(d, rule_meta.report_fields) for d in data)
+                        filter_dict(d, report_fields) for d in data)
                 if filtered_resources:
                     resource['regions_data'] = filtered_resources
 
@@ -814,7 +759,7 @@ class ReportGenerator(AbstractApiHandlerLambda):
                 else:
                     for region, data in resource['regions_data'].items():
                         content[rule]['regions_data'].setdefault(
-                            region, []).append(data)
+                            region, []).extend(data)
         return [{'policy': k, **v} for k, v in content.items()]
 
     @staticmethod
@@ -837,16 +782,15 @@ class ReportGenerator(AbstractApiHandlerLambda):
         mitre = {}
         result = []
         for resource in resources:
-            meta = self._get_rule_meta(resource['policy'])
-            if not meta:
-                continue
-
-            attack_vector = meta.mitre
+            severity = self.mappings_collector.severity.get(resource['policy'],
+                                                            [])
+            attack_vector = self.mappings_collector.mitre.get(
+                resource['policy'], [])
             for attack in attack_vector:
                 resources = sum(
                     [len(data) for data in resource['regions_data'].values()])
                 severity_data = mitre.setdefault(attack, {}).setdefault(
-                    meta.severity, {'value': 0, 'diff': -1})
+                    severity, {'value': 0, 'diff': -1})
                 severity_data['value'] += resources
 
         for tactic, data in mitre.items():
@@ -877,6 +821,84 @@ class ReportGenerator(AbstractApiHandlerLambda):
     def _get_attr_values(item, default={}):
         return item.attribute_values if item else default
 
+    @staticmethod
+    def _build_json_model(notification_type, data):
+        return {
+            'viewType': 'm3',
+            'model': {
+                "uuid": str(uuid4()),
+                "notificationType": notification_type,
+                "notificationAsJson": json.dumps(data,
+                                                 separators=(",", ":")),
+                "notificationProcessorTypes": ["MAIL"]
+            }
+        }
+
+    def process_department_item_by_cloud(self, item_type, attribute_diff,
+                                         report_type_mapping,
+                                         tenant):
+        if all(not attribute_diff.get(c) for c in CLOUDS):
+            report_type_mapping.get(item_type).pop('container')
+            return
+
+        for cloud, value in attribute_diff.items():
+            self.process_cloud_data(item_type, attribute_diff, cloud, value,
+                                    report_type_mapping, tenant)
+
+    def process_cloud_data(self, item_type, attribute_diff, cloud, value,
+                           report_type_mapping, tenant):
+        value = json.loads(value) if isinstance(value, str) else value
+        if value:
+            report_type_mapping[item_type][OUTDATED_TENANTS].extend(
+                tenant.get(OUTDATED_TENANTS, []))
+            data = attribute_diff[cloud]['average_data'] \
+                if item_type == 'COMPLIANCE_BY_CLOUD' else attribute_diff[
+                cloud]
+            if item_type == 'ATTACK_BY_CLOUD':
+                self.add_attack_by_cloud_data(report_type_mapping, tenant,
+                                              cloud, data)
+            else:
+                self.add_other_data(report_type_mapping, tenant, item_type,
+                                    cloud, data)
+
+    @staticmethod
+    def add_attack_by_cloud_data(report_type_mapping, tenant, cloud, data):
+        report_type_mapping['ATTACK_BY_CLOUD']['container'][cloud].append({
+            TENANT_DISPLAY_NAME_ATTR: tenant.pop(TENANT_DISPLAY_NAME_ATTR),
+            'sort_by': tenant.pop('defining_attribute'),
+            **data
+        })
+
+    @staticmethod
+    def add_other_data(report_type_mapping, tenant, item_type, cloud, data):
+        report_type_mapping[item_type]['container'][cloud].append({
+            TENANT_DISPLAY_NAME_ATTR: tenant.pop(TENANT_DISPLAY_NAME_ATTR),
+            'sort_by': tenant.pop('defining_attribute'),
+            DATA_ATTR: data
+        })
+
+    def get_customer_rabbitmq(self, customer):
+        application = self.rabbitmq_service.get_rabbitmq_application(
+            customer)
+        if not application:
+            _LOG.warning(f'No application with type {RABBITMQ_TYPE} found '
+                         f'for customer {customer}')
+            return
+        rabbitmq = self.rabbitmq_service.build_maestro_mq_transport(
+            application)
+        if not rabbitmq:
+            _LOG.warning(f'Could not build rabbit client from application '
+                         f'for customer {customer}')
+            return
+        return rabbitmq
+
+    @staticmethod
+    def _process_outdated_tenants(outdated_tenants: dict):
+        tenants = []
+        for cloud, data in outdated_tenants.items():
+            tenants.extend(list(data.keys()))
+        return tenants
+
 
 HANDLER = ReportGenerator(
     environment_service=SERVICE_PROVIDER.environment_service(),
@@ -888,7 +910,7 @@ HANDLER = ReportGenerator(
     license_service=SERVICE_PROVIDER.license_service(),
     batch_results_service=SERVICE_PROVIDER.batch_results_service(),
     rabbitmq_service=SERVICE_PROVIDER.rabbitmq_service(),
-    rule_meta_service=SERVICE_PROVIDER.rule_meta_service()
+    mappings_collector=SERVICE_PROVIDER.mappings_collector()
 )
 
 

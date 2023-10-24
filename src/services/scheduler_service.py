@@ -3,7 +3,7 @@ from typing import Iterable, Set, Optional
 from helpers.constants import NAME_ATTR, \
     ID_ATTR
 from helpers.log_helper import get_logger
-from models.modular.tenants import Tenant
+from modular_sdk.models.tenant import Tenant
 from models.scheduled_job import ScheduledJob
 from services.clients.scheduler import AbstractJobScheduler
 

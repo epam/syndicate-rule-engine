@@ -1,9 +1,8 @@
 from abc import abstractmethod
+from http import HTTPStatus
 
 from handlers.abstracts.abstract_handler import AbstractHandler
-from helpers import validate_params, build_response, RESPONSE_OK_CODE, \
-    RESPONSE_BAD_REQUEST_CODE, RESPONSE_RESOURCE_NOT_FOUND_CODE, \
-    RESPONSE_CREATED, RESPONSE_CONFLICT
+from helpers import validate_params, build_response
 from helpers.log_helper import get_logger
 
 _LOG = get_logger(__name__)
@@ -50,7 +49,7 @@ class AbstractUserHandler(AbstractHandler):
         attribute_value = self.get_attribute_value(target_user)
 
         return build_response(
-            code=RESPONSE_OK_CODE,
+            code=HTTPStatus.OK,
             content={self.attribute_name: attribute_value})
 
     def _basic_set_user_attribute_handler(self, event: dict):
@@ -68,7 +67,7 @@ class AbstractUserHandler(AbstractHandler):
             _LOG.error(f'Attribute {self.attribute_name} for user '
                        f'{target_user} already exists')
             return build_response(
-                code=RESPONSE_CONFLICT,
+                code=HTTPStatus.CONFLICT,
                 content=f'Attribute {self.attribute_name} for user '
                         f'{target_user} already exists')
 
@@ -78,7 +77,7 @@ class AbstractUserHandler(AbstractHandler):
                 f'Attribute value for the {self.attribute_name} attribute '
                 f'is not specified')
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=f'Attribute value for the {self.attribute_name} '
                         f'attribute is not specified')
         # return True if value is valid
@@ -88,7 +87,7 @@ class AbstractUserHandler(AbstractHandler):
         self.update_attribute(target_user, attribute_value)
 
         return build_response(
-            code=RESPONSE_CREATED,
+            code=HTTPStatus.CREATED,
             content={self.attribute_name: attribute_value})
 
     def _basic_update_user_attribute_handler(self, event: dict):
@@ -108,7 +107,7 @@ class AbstractUserHandler(AbstractHandler):
                 f'Attribute {self.attribute_name} for user {target_user} '
                 f'does not exist')
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=f'Attribute {self.attribute_name} for user '
                         f'{target_user} does not exist')
 
@@ -118,7 +117,7 @@ class AbstractUserHandler(AbstractHandler):
                 f'Attribute value for the {self.attribute_name} attribute '
                 f'is not specified')
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=f'Attribute value for the {self.attribute_name} '
                         f'attribute is not specified')
 
@@ -128,7 +127,7 @@ class AbstractUserHandler(AbstractHandler):
         self.update_attribute(target_user, attribute_value)
 
         return build_response(
-            code=RESPONSE_OK_CODE,
+            code=HTTPStatus.OK,
             content={self.attribute_name: attribute_value})
 
     def _basic_delete_user_attribute_handler(self, event: dict):
@@ -147,7 +146,7 @@ class AbstractUserHandler(AbstractHandler):
                 f'Attribute {self.attribute_name} for user {target_user} '
                 f'does not exist')
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=f'Attribute {self.attribute_name} for user '
                         f'{target_user} does not exist')
 
@@ -162,13 +161,13 @@ class AbstractUserHandler(AbstractHandler):
         if not self.check_user_exist(username):
             _LOG.debug(f'{username} does not exist')
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=f'{username} does not exist')
 
     def _validate_target_user_attr_presence(self, target_user):
         if not target_user:
             _LOG.error('Target user is missing')
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=f'Can not update attribute {self.attribute_name}: '
                         f'target user is missing.')

@@ -4,19 +4,19 @@ from pathlib import Path
 from typing import Tuple, Optional
 
 import click
-
-from c7ncli.group import cli_response, ViewCommand, response, ContextObj, \
-    customer_option
-from c7ncli.group import tenant_option, limit_option, next_option
-from c7ncli.group.job_scheduled import scheduled
 from c7ncli.service.constants import C7NCLI_DEVELOPER_MODE_ENV_NAME
 from c7ncli.service.constants import PARAM_JOB_ID, PARAM_STARTED_AT, \
     PARAM_JOB_OWNER, PARAM_STATUS, \
     PARAM_STOPPED_AT, PARAM_SCAN_REGIONS, PARAM_SUBMITTED_AT, \
     PARAM_SCAN_RULESETS, PARAM_CREATED_AT, AWS, AZURE, GOOGLE
+from c7ncli.service.logger import get_user_logger
+
+from c7ncli.group import cli_response, ViewCommand, response, ContextObj, \
+    customer_option
+from c7ncli.group import tenant_option, limit_option, next_option
+from c7ncli.group.job_scheduled import scheduled
 from c7ncli.service.credentials import EnvCredentialsResolver
 from c7ncli.service.helpers import Color
-from c7ncli.service.logger import get_user_logger
 
 USER_LOG = get_user_logger(__name__)
 
@@ -68,10 +68,6 @@ def describe(ctx: ContextObj, job_id: str, tenant_name: str, customer_id: str,
               multiple=True,
               help='Regions to scan. If not specified, '
                    'all active regions will be used')
-@click.option('--not_check_permission', '-ncp', is_flag=True, default=False,
-              help='Force the server not to check execution permissions. '
-                   'Job that is not permitted but has started will '
-                   'eventually fail')
 @click.option('--cloud', '-c', type=click.Choice(AVAILABLE_CLOUDS),
               required=False, help='Cloud to scan. Required, if '
                                    '`--credentials_from_env` flag is set.')
@@ -91,7 +87,7 @@ def describe(ctx: ContextObj, job_id: str, tenant_name: str, customer_id: str,
 )
 def submit(ctx: ContextObj, cloud: str, tenant_name: str,
            ruleset: Tuple[str, ...], region: Tuple[str, ...],
-           not_check_permission: bool, credentials_from_env: bool,
+           credentials_from_env: bool,
            customer_id: Optional[str], rules_to_scan: Optional[Tuple[str]]):
     """
     Submits a job to scan an infrastructure
@@ -112,10 +108,29 @@ def submit(ctx: ContextObj, cloud: str, tenant_name: str,
         tenant_name=tenant_name,
         target_rulesets=ruleset,
         target_regions=region,
-        check_permission=not not_check_permission,
         credentials=credentials,
         customer=customer_id,
         rules_to_scan=load_rules_to_scan(rules_to_scan)
+    )
+
+
+@job.command(cls=ViewCommand, name='submit_k8s')
+@click.option('-pid', '--platform_id', required=True, type=str)
+@click.option('--ruleset', '-rs', type=str, required=False,
+              multiple=True,
+              help='Rulesets to scan. If not specified, all available by '
+                   'license rulesets will be used')
+@click.option('--token', '-t', type=str, required=False,
+              help='Short-lived token to perform k8s scan with')
+@customer_option
+@cli_response()
+def submit_k8s(ctx: ContextObj, platform_id: str, ruleset: tuple,
+               customer_id: Optional[str], token: Optional[str]):
+    return ctx['api_client'].k8s_job_post(
+        platform_id=platform_id,
+        target_rulesets=ruleset,
+        customer=customer_id,
+        token=token
     )
 
 

@@ -1,14 +1,14 @@
+from functools import cached_property
+from http import HTTPStatus
 from typing import Optional, List, Callable, Tuple, Iterable, Union, Dict, Set
 
-from helpers import build_response, RESPONSE_FORBIDDEN_CODE, \
-    RESPONSE_RESOURCE_NOT_FOUND_CODE, RESPONSE_BAD_REQUEST_CODE
+from helpers import build_response
 from helpers.constants import PARAM_CUSTOMER, \
     TENANT_NAME_ATTR, TENANTS_ATTR, \
     TENANT_ATTR
-from functools import cached_property
 from helpers.log_helper import get_logger
-from services.modular_service import ModularService
 from helpers.system_customer import SYSTEM_CUSTOMER
+from services.modular_service import ModularService
 
 NOT_ALLOWED_TO_ACCESS_ENTITY = 'You are not allowed to access this entity'
 NOT_ENOUGH_DATA = 'Not enough data to proceed the request. '
@@ -109,8 +109,8 @@ class RestrictionService:
             ('/applications/{application_id}', 'DELETE'),
             ('/license', 'DELETE'),
 
-            ('/jobs', 'POST'),
-            ('/jobs/standard', 'POST'),
+            # ('/jobs', 'POST'),
+            # ('/jobs/standard', 'POST'),
 
             ('/customers/rabbitmq', 'POST'),
             ('/customers/rabbitmq', 'GET'),
@@ -120,6 +120,8 @@ class RestrictionService:
             ('/reports/project', 'GET'),
             ('/reports/department', 'GET'),
             ('/reports/clevel', 'GET'),
+
+            ('/platforms/k8s', 'GET')
         }
 
     @cached_property
@@ -270,7 +272,8 @@ class RestrictionService:
                                                self._check_required),
             ('/parents/tenant-link', 'DELETE'): (self._sole_tenant,
                                                  self._check_required),
-            ('/rules/update-meta', 'POST'): (self._multiple_tenants, )
+            ('/rules/update-meta', 'POST'): (self._multiple_tenants, ),
+
         }
 
     @cached_property
@@ -302,7 +305,7 @@ class RestrictionService:
                 _LOG.warning(
                     f'Customer \'{self._user_customer}\' tried '
                     f'to access \'{event.get(PARAM_CUSTOMER)}\'')
-                return build_response(code=RESPONSE_FORBIDDEN_CODE,
+                return build_response(code=HTTPStatus.FORBIDDEN,
                                       content=NOT_ALLOWED_TO_ACCESS_ENTITY)
         else:  # user_customer == SYSTEM_CUSTOMER
             customer = event.get(PARAM_CUSTOMER)
@@ -316,14 +319,14 @@ class RestrictionService:
                 message = f'Customer \'{customer}\' was not found'
                 _LOG.warning(message)
                 return build_response(
-                    code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                    code=HTTPStatus.NOT_FOUND,
                     content=message
                 )
             if not customer and require_for_system:
                 message = f'System did not specify \'{customer}\''
                 _LOG.warning(message)
                 return build_response(
-                    code=RESPONSE_BAD_REQUEST_CODE,
+                    code=HTTPStatus.BAD_REQUEST,
                     content='Specify customer to make a request on his behalf'
                 )
 
@@ -345,7 +348,7 @@ class RestrictionService:
             if tenant in self._user_tenants:
                 event[_attr] = [tenant, ]
             else:
-                return build_response(code=RESPONSE_FORBIDDEN_CODE,
+                return build_response(code=HTTPStatus.FORBIDDEN,
                                       content=NOT_ALLOWED_TO_ACCESS_ENTITY)
         else:  # self._user_tenants and not tenant
             event[_attr] = list(self._user_tenants)
@@ -370,7 +373,7 @@ class RestrictionService:
             if tenant in self._user_tenants:
                 event[_attr] = tenant
             else:
-                return build_response(code=RESPONSE_FORBIDDEN_CODE,
+                return build_response(code=HTTPStatus.FORBIDDEN,
                                       content=NOT_ALLOWED_TO_ACCESS_ENTITY)
         else:  # self._user_tenants and not tenant
             if len(self._user_tenants) == 1:
@@ -387,7 +390,7 @@ class RestrictionService:
         """
         for _attr in self._required:
             if not event.get(_attr):
-                return build_response(code=RESPONSE_BAD_REQUEST_CODE,
+                return build_response(code=HTTPStatus.BAD_REQUEST,
                                       content=self.not_enough_data(_attr))
         self._required.clear()
 

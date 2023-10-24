@@ -1,15 +1,24 @@
-from modular_sdk.commons.constants import SIEM_DEFECT_DOJO_TYPE, CUSTODIAN_TYPE, \
-    CUSTODIAN_LICENSES_TYPE, CUSTODIAN_ACCESS_TYPE
+from modular_sdk.commons.constants import ParentType as _ParentType
 
 from helpers import Enum as CustomEnum
-from helpers.constants import HC_STATUS_NOT_OK, HC_STATUS_OK, HC_STATUS_UNKNOWN
+from helpers.constants import AWS_CLOUD_ATTR, AZURE_CLOUD_ATTR, \
+    GCP_CLOUD_ATTR, KUBERNETES_CLOUD_ATTR
 
 # These enums are used for pydantic models and just to keep related data
-HealthCheckStatus = CustomEnum.build(
-    'HealthCheckStatus', [HC_STATUS_OK, HC_STATUS_UNKNOWN, HC_STATUS_NOT_OK]
-)
 ParentType = CustomEnum.build(
-    'ParentType',
-    [CUSTODIAN_TYPE, CUSTODIAN_LICENSES_TYPE, SIEM_DEFECT_DOJO_TYPE,
-     CUSTODIAN_ACCESS_TYPE]
+    'ParentType', [
+        _ParentType.CUSTODIAN.value,
+        _ParentType.CUSTODIAN_LICENSES.value,
+        _ParentType.SIEM_DEFECT_DOJO.value,
+        _ParentType.CUSTODIAN_ACCESS.value
+    ]
 )
+
+
+# The values of this enum represent what Custom core can scan, i.e. what
+# type of rules and ruleset(s) we can have. These are not tenant clouds
+class RuleDomain(CustomEnum):
+    AWS = AWS_CLOUD_ATTR
+    AZURE = AZURE_CLOUD_ATTR
+    GCP = GCP_CLOUD_ATTR
+    KUBERNETES = KUBERNETES_CLOUD_ATTR

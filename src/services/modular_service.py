@@ -1,31 +1,29 @@
 from functools import cached_property
+from http import HTTPStatus
 from typing import Union, Type, Any, Set, Callable, Iterator, Dict, Optional, \
     List
 
-from helpers import raise_error_response, RESPONSE_RESOURCE_NOT_FOUND_CODE
+from modular_sdk.commons.constants import CUSTODIAN_TYPE, ParentType
+from modular_sdk.commons.exception import ModularException
+from modular_sdk.models.customer import Customer
+from modular_sdk.models.tenant import Tenant
+from modular_sdk.models.tenant_settings import TenantSettings
+from pynamodb.expressions.condition import Condition
+
+from helpers import raise_error_response
 from helpers.constants import (
-    META_ATTR, ACTIVATION_DATE_ATTR, INHERIT_ATTR, VALUE_ATTR, CLOUDS_ATTR,
+    META_ATTR, ACTIVATION_DATE_ATTR, INHERIT_ATTR, VALUE_ATTR,
     MODULAR_MANAGEMENT_ID_ATTR, MODULAR_CLOUD_ATTR, MODULAR_DISPLAY_NAME_ATTR,
     MODULAR_READ_ONLY_ATTR, MODULAR_DISPLAY_NAME_TO_LOWER, MODULAR_CONTACTS,
     MODULAR_SECRET, MODULAR_IS_DELETED, MODULAR_TYPE, MODULAR_DELETION_DATE,
-    MODULAR_PARENT_MAP, ALL_SCOPE, SCOPE_ATTR, TENANT_ENTITY_TYPE
+    MODULAR_PARENT_MAP, TENANT_ENTITY_TYPE
 )
-from modular_sdk.commons.constants import CUSTODIAN_TYPE, \
-    TENANT_PARENT_MAP_CUSTODIAN_TYPE, \
-    TENANT_PARENT_MAP_CUSTODIAN_LICENSES_TYPE, \
-    TENANT_PARENT_MAP_SIEM_DEFECT_DOJO_TYPE
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_iso
 from models.modular import BaseModel
-from models.modular.parents import ScopeParentMeta
-from modular_sdk.commons.exception import ModularException
 from models.modular.application import Application
-from models.modular.customer import Customer
 from models.modular.parents import Parent
-from models.modular.tenant_settings import TenantSettings
-from models.modular.tenants import Tenant
 from services.clients.modular import ModularClient
-from pynamodb.expressions.condition import Condition
 
 _LOG = get_logger(__name__)
 
@@ -70,7 +68,7 @@ IS_ACTIVE_ATTR = 'is_active'
 
 class Complemented:
     """
-    Mandates Modular Entity infusion.
+    Mandates MaestroCommonDomainModel Entity infusion.
     """
 
     def __init__(self, entity: Optional[Union[Customer, Tenant]] = None,
@@ -275,7 +273,8 @@ class ModularService:
                 dto[attribute] = source[attribute]
         return dto
 
-    def save(self, entity: Union[Parent, TenantSettings, Application, Complemented]):
+    def save(self,
+             entity: Union[Parent, TenantSettings, Application, Complemented]):
         """
         Mandates persistence of Maestro Common Domain Model complementary
         entities such as Parent and TenantSettings.
@@ -285,7 +284,8 @@ class ModularService:
         retainer: Callable = self._persistence_map.get(entity.__class__)
         return retainer(entity) if retainer else False
 
-    def delete(self, entity: Union[Parent, TenantSettings, Application, Complemented]):
+    def delete(self, entity: Union[
+        Parent, TenantSettings, Application, Complemented]):  # noqa
         """
         Mandates persistence-based removal of Maestro Common Domain Model
         complementary entities such as Parent and TenantSettings.
@@ -408,40 +408,6 @@ class ModularService:
             if isinstance(application, Application):
                 yield application.customer_id
 
-    # Public Tenant related actions
-    def get_tenant_parent(self, tenant: Tenant,
-                          _type: str) -> Optional[Parent]:
-        """
-        Returns parent that is linked to the tenant
-        :param _type: type from PID
-        :param tenant:
-        :return:
-        """
-        # tenant parent map type resembles parent type currently
-        assert _type in [TENANT_PARENT_MAP_CUSTODIAN_LICENSES_TYPE,
-                         TENANT_PARENT_MAP_CUSTODIAN_TYPE,
-                         TENANT_PARENT_MAP_SIEM_DEFECT_DOJO_TYPE], \
-            'Not available parent type'
-        parent_id = tenant.get_parent_id(_type)
-        if not parent_id:
-            _LOG.info(f'Tenant {tenant.name} does not have specific '
-                      f'"{_type}" parent. Going from another side...')
-            return next(self.get_customer_bound_parents(
-                customer=tenant.customer_name,
-                parent_type=_type,  # parents currently only CUSTODIAN
-                is_deleted=False,
-                meta_conditions=(Parent.meta[SCOPE_ATTR] == ALL_SCOPE) & Parent.meta[CLOUDS_ATTR].contains(tenant.cloud),
-                limit=1
-            ), None)  # hopefully there is only one. It must be one
-        # parent_id exists
-        _LOG.info(f'Tenant {tenant.name} contains {_type} parent')
-        parent = self.get_parent(parent_id)
-        if parent and not parent.is_deleted:
-            meta = ScopeParentMeta.from_dict(parent.meta.as_dict())
-            if meta.clouds and tenant.cloud not in meta.clouds:
-                return
-            return parent  # meta.scope == SPECIFIC_TENANT_SCOPE or ALL_SCOPE
-
     def get_parent_application(self, parent: Parent) -> Optional[Application]:
         if not parent.application_id:
             return
@@ -450,14 +416,15 @@ class ModularService:
             return
         return application
 
-    def get_tenant_application(self, tenant: Tenant, _type: str) -> Optional[Application]:
+    def get_tenant_application(self, tenant: Tenant, _type: ParentType
+                               ) -> Optional[Application]:
         """
         Resolved application from tenant
         :param tenant:
         :param _type: parent type, not tenant type
         :return:
         """
-        parent = self.get_tenant_parent(tenant, _type)
+        parent = self.modular_client.parent_service().get_linked_parent_by_tenant(tenant, _type)  # noqa
         if not parent:
             return
         return self.get_parent_application(parent)
@@ -597,6 +564,14 @@ class ModularService:
         return self._client.tenant_service().i_get_by_acc(
             acc, active, limit, last_evaluated_key, attrs_to_get)
 
+    def i_get_tenants_by_accN(self, accN: str, active: Optional[bool] = None,
+                              limit: int = None,
+                              last_evaluated_key: Union[dict, str] = None,
+                              attrs_to_get: List[str] = None
+                              ) -> Iterator[Tenant]:
+        return self._client.tenant_service().i_get_by_accN(
+            accN, active, limit, last_evaluated_key, attrs_to_get)
+
     @staticmethod
     def is_tenant_valid(tenant: Optional[Tenant] = None,
                         customer: Optional[str] = None) -> bool:
@@ -610,9 +585,10 @@ class ModularService:
         if not self.is_tenant_valid(tenant, customer):
             generic = 'No active tenant could be found.'
             template = 'Active tenant \'{tdn}\' not found'
-            issue = template.format(tdn=tenant.display_name) if tenant else generic
+            issue = template.format(
+                tdn=tenant.name) if tenant else generic
             raise_error_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE, content=issue
+                code=HTTPStatus.NOT_FOUND, content=issue
             )
 
     def i_get_tenant_by_display_name_to_lower(
@@ -644,7 +620,8 @@ class ModularService:
         return self._fetch_customer_bound_parent(customer=customer)
 
     def get_customer_bound_parents(self, customer: Union[str, Customer],
-                                   parent_type: Optional[Union[str, List[str]]] = None,
+                                   parent_type: Optional[
+                                       Union[str, List[str]]] = None,
                                    is_deleted: Optional[bool] = None,
                                    meta_conditions: Optional[Condition] = None,
                                    limit: Optional[int] = None
@@ -821,7 +798,8 @@ class ModularService:
         return self._i_fetch_entity(iterator=iterator, key=Application)
 
     def create_application(self, customer: str, _type: Optional[str] = None,
-                           description: Optional[str] = 'Custodian management application',
+                           description: Optional[
+                               str] = 'Custodian management application',
                            meta: Optional[dict] = None,
                            secret: Optional[str] = None):
         return self.modular_client.application_service().create(

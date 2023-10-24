@@ -58,8 +58,8 @@ class BatchToSubprocessAdapter:
         """
         Priorities
         1. VENV_PATH env
-        2. custodian-as-a-service/docker/.executor_venv/bin/python
-        3. custodian-as-a-service/docker/venv/bin/python
+        2. custodian-as-a-service/executor/.executor_venv/bin/python
+        3. custodian-as-a-service/executor/venv/bin/python
         4. sys.executable
         """
         from_env = os.environ.get('VENV_PATH')

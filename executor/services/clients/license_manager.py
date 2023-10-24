@@ -1,14 +1,17 @@
+from functools import cached_property
 from json import JSONDecodeError
+from typing import Union, List, Type, Dict, Optional
+
+from modular_sdk.services.impl.maestro_credentials_service import AccessMeta
 from requests import request, Response
 from requests.exceptions import RequestException
-from typing import Union, List, Type, Dict, Optional
+
+from helpers.constants import JobState
 from helpers.constants import POST_METHOD, PATCH_METHOD, \
     RULESETS_ATTR, CUSTOMER_ATTR, AUTHORIZATION_PARAM, TENANT_ATTR
 from helpers.log_helper import get_logger
 from services.environment_service import EnvironmentService
 from services.setting_service import SettingService
-from functools import cached_property
-from modular_sdk.services.impl.maestro_credentials_service import AccessMeta
 
 JOB_PATH = '/jobs'
 
@@ -22,7 +25,6 @@ STATUS_ATTR = 'status'
 
 SERVICE_TYPE_ATTR = 'service_type'
 SERVICE_TYPE_CUSTODIAN = 'CUSTODIAN'
-
 
 _LOG = get_logger(__name__)
 
@@ -92,7 +94,7 @@ class LicenseManagerClient:
 
     def patch_job(self, job_id: str, auth: str, created_at: str = None,
                   started_at: str = None, stopped_at: str = None,
-                  status: str = None):
+                  status: JobState = None):
         host = self.host
         if not any([created_at, started_at, stopped_at, status]):
             _LOG.warning('No attributes to update provided. Skipping')
@@ -121,10 +123,8 @@ class LicenseManagerClient:
         )
 
     @classmethod
-    def _send_request(
-        cls, url: str, method: str, payload: dict,
-        headers: Optional[dict] = None
-    ) -> Optional[Response]:
+    def _send_request(cls, url: str, method: str, payload: dict,
+                      headers: Optional[dict] = None) -> Optional[Response]:
         """
         Meant to commence a request to a given url, by deriving a
         proper delegated handler. Apart from that, catches any risen

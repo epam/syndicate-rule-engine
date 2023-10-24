@@ -1,5 +1,6 @@
 import importlib
 from functools import cached_property
+from http import HTTPStatus
 from typing import Tuple, Optional
 
 from bottle import Bottle, request, Route, HTTPResponse
@@ -8,7 +9,7 @@ from connections.auth_extension.cognito_to_jwt_adapter import \
     UNAUTHORIZED_MESSAGE
 from exported_module.api.deployment_resources_parser import \
     DeploymentResourcesParser
-from helpers import CustodianException, RequestContext, RESPONSE_UNAUTHORIZED
+from helpers import CustodianException, RequestContext
 from helpers.constants import CUSTOM_CUSTOMER_ATTR, CUSTOM_ROLE_ATTR, \
     CUSTOM_TENANTS_ATTR, COGNITO_USERNAME
 from helpers.constants import PARAM_HTTP_METHOD, \
@@ -66,7 +67,7 @@ class DynamicAPI:
         token = self.get_token_from_header(header)
         if not token:
             raise CustodianException(
-                code=RESPONSE_UNAUTHORIZED,
+                code=HTTPStatus.UNAUTHORIZED,
                 content=UNAUTHORIZED_MESSAGE
             )
         return SERVICE_PROVIDER.cognito().decode_token(token)
@@ -113,7 +114,8 @@ class DynamicAPI:
             'headers': dict(request.headers),
             'requestContext': {
                 'stage': stage.strip('/'),
-                'path': '/' + stage.strip('/') + '/' + resource_path.strip('/'),
+                'path': '/' + stage.strip('/') + '/' + resource_path.strip(
+                    '/'),
                 PARAM_RESOURCE_PATH: resource_path,
                 'authorizer': {
                     'claims': {

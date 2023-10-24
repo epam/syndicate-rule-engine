@@ -1,10 +1,10 @@
 import io
+from http import HTTPStatus
 
 import requests
 
-from helpers import RESPONSE_FORBIDDEN_CODE
-from helpers.time_helper import utc_datetime
 from helpers.log_helper import get_logger
+from helpers.time_helper import utc_datetime
 
 DOJO_CAAS_SCAN_TYPE = 'Cloud Custodian Scan'
 
@@ -111,7 +111,7 @@ class DojoClient:
             _LOG.error(e)
             error = f'An error {e.response.status_code} occurred ' \
                     f'while making a request to DefectDojo server.'
-            if e.response.status_code == RESPONSE_FORBIDDEN_CODE:
+            if e.response.status_code == HTTPStatus.FORBIDDEN:
                 error = f'{error} Forbidden.'
             raise requests.RequestException(error)
         except requests.exceptions.ConnectionError as e:

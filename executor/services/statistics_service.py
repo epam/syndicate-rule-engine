@@ -4,14 +4,14 @@ from collections import Counter
 from datetime import datetime
 from pathlib import PurePosixPath
 
+from modular_sdk.models.tenant import Tenant
+
 from helpers.constants import STEP_COLLECT_STATISTICS, FINDINGS_FOLDER
 from helpers.exception import ExecutorException
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_iso
-from models.modular.tenants import Tenant
 from services.environment_service import EnvironmentService
 from services.s3_service import S3Service
-from services.setting_service import SettingService
 
 _LOG = get_logger(__name__)
 STATISTICS_FILE = 'statistics.json'
@@ -221,4 +221,3 @@ class StatisticsService:
                 else:
                     api_calls[key] = value
         return api_calls
-

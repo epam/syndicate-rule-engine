@@ -1,18 +1,18 @@
 from datetime import datetime
+from http import HTTPStatus
 from typing import List, Optional, Dict
 
 from modular_sdk.models.tenant import Tenant
 
-from helpers import RESPONSE_RESOURCE_NOT_FOUND_CODE, RESPONSE_OK_CODE
+from handlers.base_handler import BaseReportHandler, SourceReportDerivation, \
+    EntitySourcedReportDerivation, SourcedReport, Report, EntityToReport
 from helpers.constants import (
     CUSTOMER_ATTR, TENANT_ATTR, START_ISO_ATTR, END_ISO_ATTR, HREF_ATTR,
     CONTENT_ATTR, ID_ATTR, FORMAT_ATTR, JSON_ATTR, RULE_ATTR
 )
 from helpers.log_helper import get_logger
-from handlers.base_handler import BaseReportHandler, SourceReportDerivation, \
-    EntitySourcedReportDerivation, SourcedReport, Report, EntityToReport
-from services.report_service import STATISTICS_FILE
 from services.ambiguous_job_service import Source
+from services.report_service import STATISTICS_FILE
 
 DEFAULT_UNRESOLVABLE_RESPONSE = 'Request has run into an unresolvable issue.'
 
@@ -254,7 +254,7 @@ class RuleReportService(BaseRulesReportHandler):
             *self._modular_service.i_get_tenant(iterator=iter([tenant_name]))
         ]
         if not tenants:
-            self._code = RESPONSE_RESOURCE_NOT_FOUND_CODE
+            self._code = HTTPStatus.NOT_FOUND
             self._content = head + ' does not exist'
             return self.response
 
@@ -269,7 +269,7 @@ class RuleReportService(BaseRulesReportHandler):
 
         if referenced_reports:
             ref_attr = HREF_ATTR if href else CONTENT_ATTR
-            self._code = RESPONSE_OK_CODE
+            self._code = HTTPStatus.OK
             self._content = [
                 self.dto(
                     entity_attr=TENANT_ATTR, entity_value=entity,
@@ -286,7 +286,6 @@ class RuleReportService(BaseRulesReportHandler):
             customer: Optional[str] = None,
             tenants: Optional[List[str]] = None,
             cloud_ids: Optional[List[str]] = None,
-            account_dn: Optional[str] = None,
             typ: Optional[str] = None,
             href: bool = False, frmt: Optional[str] = None,
             entity_value: Optional[str] = None,
@@ -328,7 +327,6 @@ class RuleReportService(BaseRulesReportHandler):
         typ_params_map = ajs.derive_typ_param_map(
             typ=typ, tenants=tenants,
             cloud_ids=cloud_ids,
-            account_dn=account_dn
         )
         if not source_list:
             source_list = ajs.batch_list(
@@ -338,7 +336,7 @@ class RuleReportService(BaseRulesReportHandler):
             if not source_list:
                 message = f' - no source-data of {job_scope} could be derived.'
                 _LOG.warning(head + message)
-                self._code = RESPONSE_RESOURCE_NOT_FOUND_CODE
+                self._code = HTTPStatus.NOT_FOUND
                 self._content = head + NO_RESOURCES_FOR_REPORT
                 return self.response
 
@@ -354,7 +352,7 @@ class RuleReportService(BaseRulesReportHandler):
         if not source_to_report:
             message = f' - no reports of {job_scope} could be derived.'
             _LOG.warning(head + message)
-            self._code = RESPONSE_RESOURCE_NOT_FOUND_CODE
+            self._code = HTTPStatus.NOT_FOUND
             self._content = head + NO_RESOURCES_FOR_REPORT
             return self.response
 
@@ -369,7 +367,7 @@ class RuleReportService(BaseRulesReportHandler):
             message = f' - no reports of {job_scope} could be mapped '
             message += f' to {entity_scope}.'
             _LOG.warning(head + message)
-            self._code = RESPONSE_RESOURCE_NOT_FOUND_CODE
+            self._code = HTTPStatus.NOT_FOUND
             self._content = head + NO_RESOURCES_FOR_REPORT
             return self.response
 
@@ -386,7 +384,7 @@ class RuleReportService(BaseRulesReportHandler):
             message = f' - no reports of {job_scope} could be derived'
             message += f' based on {entity_scope}.'
             _LOG.warning(head + message)
-            self._code = RESPONSE_RESOURCE_NOT_FOUND_CODE
+            self._code = HTTPStatus.NOT_FOUND
             self._content = head + NO_RESOURCES_FOR_REPORT
             return self.response
 

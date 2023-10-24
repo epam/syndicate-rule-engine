@@ -1,9 +1,8 @@
 from typing import Union, Optional
 
-from cachetools import TTLCache
-from modular_sdk.services.impl.maestro_credentials_service import AccessMeta
 from pynamodb.exceptions import PynamoDBException
 
+import services.cache as cache
 from helpers.constants import DEFAULT_SYSTEM_CUSTOMER, \
     DEFAULT_METRICS_BUCKET_NAME, \
     DEFAULT_TEMPLATES_BUCKET_NAME, DEFAULT_STATISTICS_BUCKET_NAME, \
@@ -69,12 +68,9 @@ class SettingsService:
             return setting
 
     def delete(self, setting: Union[Setting, str]) -> bool:
-        setting = setting if isinstance(setting, Setting) else \
-            Setting.get_nullable(hash_key=setting)
-        if setting:
-            setting.delete()
-            return True
-        return False
+        name = setting if isinstance(setting, str) else setting.name
+        Setting(name=name).delete()
+        return True
 
     def save(self, setting: Setting):
         return setting.save()
@@ -90,9 +86,12 @@ class SettingsService:
             self, host: str,
             port: Optional[int] = None,
             protocol: Optional[str] = None,
-            stage: Optional[str] = None) -> Setting:
-        model = AccessMeta.from_dict({})
+            stage: Optional[str] = None,
+            api_version: Optional[str] = None) -> Setting:
+        from services.clients.license_manager import LMAccessData
+        model = LMAccessData.from_dict({})
         model.update_host(host=host, port=port, protocol=protocol, stage=stage)
+        model.api_version = api_version
         return self.create(
             name=KEY_ACCESS_DATA_LM, value=model.dict()
         )
@@ -282,9 +281,10 @@ class CachedSettingsService(SettingsService):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # name to Setting instance
-        self._cache = TTLCache(maxsize=30, ttl=900)
+        self._cache = cache.factory()
 
-    def get(self, name, value: bool = True) -> Optional[Union[Setting, dict]]:
+    def get(self, name: str, value: bool = True
+            ) -> Optional[Union[Setting, dict]]:
         if name in self._cache:
             setting = self._cache[name]
             return setting.value if value else setting

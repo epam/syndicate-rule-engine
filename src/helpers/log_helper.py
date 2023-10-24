@@ -32,8 +32,11 @@ class SensitiveFormatter(logging.Formatter):
         If param is "password" the string '{"password": "blabla"}' will be
         printed as '{"password": "****"}'
         [\'"] - single or double quote; [ ]* - zero or more spaces
+        (\[(.*?)\]) - value in braces
+        | or
         """
-        return re.compile(f'[\'"]{param}[\'"]:[ ]*[\'"](.*?)[\'"]')
+        return re.compile(
+            f'[\'"]{param}[\'"]:[ ]*(?:(\[(.*?)\])|[\'"](.*?)[\'"])')
 
     def get_param_regex(self, param: str) -> re.Pattern:
         if param not in self._param_to_regex:

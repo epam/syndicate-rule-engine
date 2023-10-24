@@ -1,15 +1,15 @@
-from helpers import RESPONSE_RESOURCE_NOT_FOUND_CODE, \
-    build_response, RESPONSE_OK_CODE, \
-    RESPONSE_CONFLICT, RESPONSE_BAD_REQUEST_CODE
+from http import HTTPStatus
+from typing import Iterable
+
+from helpers import build_response
 from helpers.constants import CUSTOMER_ATTR, NAME_ATTR, \
-    PERMISSIONS_ATTR, DELETE_METHOD, POST_METHOD, \
-    GET_METHOD, PATCH_METHOD, PERMISSIONS_TO_ATTACH, PERMISSIONS_TO_DETACH, \
+    PERMISSIONS_ATTR, HTTPMethod, \
+    PERMISSIONS_TO_ATTACH, PERMISSIONS_TO_DETACH, \
     PARAM_USER_CUSTOMER
 from helpers.log_helper import get_logger
 from helpers.system_customer import SYSTEM_CUSTOMER
-from services.rbac.iam_cache_service import CachedIamService
 from services.rbac.access_control_service import AccessControlService
-from typing import Iterable
+from services.rbac.iam_cache_service import CachedIamService
 
 _LOG = get_logger(__name__)
 
@@ -27,13 +27,13 @@ class PolicyHandler:
     def define_action_mapping(self):
         return {
             '/policies': {
-                GET_METHOD: self.get_policy,
-                POST_METHOD: self.create_policy,
-                PATCH_METHOD: self.update_policy,
-                DELETE_METHOD: self.delete_policy,
+                HTTPMethod.GET: self.get_policy,
+                HTTPMethod.POST: self.create_policy,
+                HTTPMethod.PATCH: self.update_policy,
+                HTTPMethod.DELETE: self.delete_policy,
             },
             '/policies/cache': {
-                DELETE_METHOD: self.delete_policy_cache
+                HTTPMethod.DELETE: self.delete_policy_cache
             },
         }
 
@@ -56,7 +56,7 @@ class PolicyHandler:
         existing = self._iam_service.get_policy(customer, name)
         if existing:
             return build_response(
-                code=RESPONSE_CONFLICT,
+                code=HTTPStatus.CONFLICT,
                 content=f'Policy with name {name} already exists'
             )
         policy = self._iam_service.create_policy({
@@ -76,7 +76,7 @@ class PolicyHandler:
                 not_allowed.append(permission)
         if not_allowed:
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=f'Such permissions not allowed: {", ".join(not_allowed)}'
             )
 
@@ -90,7 +90,7 @@ class PolicyHandler:
         policy = self._iam_service.get_policy(customer, name)
         if not policy:
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=f'Policy with name {name} already not found'
             )
         permission = set(policy.permissions or [])
@@ -100,7 +100,7 @@ class PolicyHandler:
         self._iam_service.save(policy)
 
         return build_response(
-            code=RESPONSE_OK_CODE,
+            code=HTTPStatus.OK,
             content=self._iam_service.get_dto(policy)
         )
 

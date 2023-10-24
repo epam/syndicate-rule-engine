@@ -650,6 +650,18 @@ class AdapterClient:  # why not ApiClient?
         return self.__make_request(resource=API_METRICS_UPDATER,
                                    method=HTTP_POST, payload={})
 
+    def update_standards(self):
+        return self.__make_request(resource=API_META_STANDARDS,
+                                   method=HTTP_POST, payload={})
+
+    def update_mappings(self):
+        return self.__make_request(resource=API_META_MAPPINGS,
+                                   method=HTTP_POST, payload={})
+
+    def update_meta(self):
+        return self.__make_request(resource=API_META_META,
+                                   method=HTTP_POST, payload={})
+
     def trigger_rule_meta_updater(self, **kwargs):
         return self.__make_request(
             resource=API_RULE_META_UPDATER, method=HTTP_POST,
@@ -753,11 +765,11 @@ class AdapterClient:  # why not ApiClient?
             payload=self.sifted(request)
         )
 
-    def operational_report_get(self, tenant_name: str, report_type: str,
+    def operational_report_get(self, tenant_name: str, report_types: list,
                                customer: str):
         request = {
             PARAM_TENANT_NAMES: tenant_name,
-            PARAM_TYPE: report_type,
+            PARAM_TYPES: report_types,
             PARAM_CUSTOMER: customer
         }
         return self.__make_request(
@@ -766,11 +778,11 @@ class AdapterClient:  # why not ApiClient?
             payload=self.sifted(request)
         )
 
-    def project_report_get(self, tenant_display_name: str, report_type: str,
+    def project_report_get(self, tenant_display_name: str, report_types: list,
                            customer: str):
         request = {
             PARAM_TENANT_DISPLAY_NAMES: tenant_display_name,
-            PARAM_TYPE: report_type,
+            PARAM_TYPES: report_types,
             PARAM_CUSTOMER: customer
         }
         return self.__make_request(
@@ -779,9 +791,9 @@ class AdapterClient:  # why not ApiClient?
             payload=self.sifted(request)
         )
 
-    def department_report_get(self, report_type: str, customer: str):
+    def department_report_get(self, report_types: list, customer: str):
         request = {
-            PARAM_TYPE: report_type,
+            PARAM_TYPES: report_types,
             PARAM_CUSTOMER: customer
         }
         return self.__make_request(
@@ -790,9 +802,9 @@ class AdapterClient:  # why not ApiClient?
             payload=self.sifted(request)
         )
 
-    def c_level_report_get(self, report_type: str, customer: str):
+    def c_level_report_get(self, report_types: list, customer: str):
         request = {
-            PARAM_TYPE: report_type,
+            PARAM_TYPES: report_types,
             PARAM_CUSTOMER: customer
         }
         return self.__make_request(
@@ -858,7 +870,7 @@ class AdapterClient:  # why not ApiClient?
         return response.get('items')[0].get('id_token')
 
     def signup(self, username: str, password: str, customer: str, role: str,
-               tenants: list) -> dict:
+               tenants: tuple) -> dict:
         return self.__make_request(
             resource=API_SIGNUP,
             method=HTTP_POST,
@@ -1047,7 +1059,7 @@ class AdapterClient:  # why not ApiClient?
             payload=self.sifted(_payload)
         )
 
-    def user_assign_tenants(self, username: str, tenants: list):
+    def user_assign_tenants(self, username: str, tenants: tuple):
         request = {
             PARAM_TARGET_USER: username,
             PARAM_TENANTS: tenants
@@ -1055,7 +1067,7 @@ class AdapterClient:  # why not ApiClient?
         return self.__make_request(resource=API_USER_TENANTS,
                                    method=HTTP_PATCH, payload=request)
 
-    def user_unassign_tenants(self, username: str, tenants: list,
+    def user_unassign_tenants(self, username: str, tenants: tuple,
                               all_tenants: bool):
         request = {
             PARAM_TARGET_USER: username,
@@ -1416,6 +1428,32 @@ class AdapterClient:  # why not ApiClient?
             resource=resource, method=HTTP_GET, payload=self.sifted(payload)
         )
 
+    def report_resource_latest(self, **kwargs):
+        tenant_name = kwargs.pop('tenant_name')
+        return self.__make_request(
+            resource=API_REPORTS_RESOURCES_LATEST.format(
+                tenant_name=tenant_name),
+            method=HTTP_GET,
+            payload=self.sifted(kwargs)
+        )
+
+    def report_resource_jobs(self, **kwargs):
+        tenant_name = kwargs.pop('tenant_name')
+        return self.__make_request(
+            resource=API_REPORTS_RESOURCES_JOBS.format(
+                tenant_name=tenant_name),
+            method=HTTP_GET,
+            payload=self.sifted(kwargs)
+        )
+
+    def report_resource_job(self, **kwargs):
+        job_id = kwargs.pop('id')
+        return self.__make_request(
+            resource=API_REPORTS_RESOURCES_JOB.format(job_id=job_id),
+            method=HTTP_GET,
+            payload=self.sifted(kwargs)
+        )
+
     def rabbitmq_get(self, **kwargs):
         return self.__make_request(
             resource=API_RABBITMQ,
@@ -1434,5 +1472,47 @@ class AdapterClient:  # why not ApiClient?
         return self.__make_request(
             resource=API_RABBITMQ,
             method=HTTP_DELETE,
+            payload=self.sifted(kwargs)
+        )
+
+    def platform_k8s_create_native(self, **kwargs):
+        return self.__make_request(
+            resource=API_PLATFORM_K8S_NATIVE,
+            method=HTTP_POST,
+            payload=self.sifted(kwargs)
+        )
+
+    def platform_eks_create_native(self, **kwargs):
+        return self.__make_request(
+            resource=API_PLATFORM_K8S_EKS,
+            method=HTTP_POST,
+            payload=self.sifted(kwargs)
+        )
+
+    def platform_k8s_delete_eks(self, platform_id: str):
+        return self.__make_request(
+            resource=API_PLATFORM_K8S_EKS + '/' + platform_id,
+            method=HTTP_DELETE,
+            payload={}
+        )
+
+    def platform_k8s_delete_native(self, platform_id: str):
+        return self.__make_request(
+            resource=API_PLATFORM_K8S_NATIVE + '/' + platform_id,
+            method=HTTP_DELETE,
+            payload={}
+        )
+
+    def platform_k8s_list(self, **kwargs):
+        return self.__make_request(
+            resource=API_PLATFORM_K8S,
+            method=HTTP_GET,
+            payload=self.sifted(kwargs)
+        )
+
+    def k8s_job_post(self, **kwargs):
+        return self.__make_request(
+            resource=API_K8S_JOBS,
+            method=HTTP_POST,
             payload=self.sifted(kwargs)
         )

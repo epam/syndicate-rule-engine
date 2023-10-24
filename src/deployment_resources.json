@@ -666,43 +666,6 @@
           "lambda_name": "caas-api-handler"
         }
       },
-      "/reports/event-driven": {
-        "policy_statement_singleton": true,
-        "enable_cors": true,
-        "GET": {
-          "integration_type": "lambda",
-          "enable_proxy": true,
-          "lambda_alias": "${lambdas_alias_name}",
-          "authorization_type": "authorizer",
-          "request_validator": {
-            "validate_request_parameters": true
-          },
-          "method_request_parameters": {
-            "method.request.querystring.start": false,
-            "method.request.querystring.end": false,
-            "method.request.querystring.tenant_name": true,
-            "method.request.querystring.customer": false
-          },
-          "method_request_models": {
-            "application/json": "ReportEventDrivenModel"
-          },
-          "responses": [
-            {
-              "status_code": "200",
-              "response_models": {
-                "application/json": "BaseMessageResponseModel"
-              }
-            },
-            {
-              "status_code": "401",
-              "response_models": {
-                "application/json": "UnauthorizedResponseModel"
-              }
-            }
-          ],
-          "lambda_name": "caas-notification-handler"
-        }
-      },
       "/jobs/standard": {
         "policy_statement_singleton": true,
         "enable_cors": true,
@@ -718,6 +681,48 @@
           },
           "method_request_models": {
             "application/json": "StandardJobPostModel"
+          },
+          "responses": [
+            {
+              "status_code": "202",
+              "response_models": {
+                "application/json": "JobDTO"
+              }
+            },
+            {
+              "status_code": "401",
+              "response_models": {
+                "application/json": "UnauthorizedResponseModel"
+              }
+            },
+            {
+              "status_code": "409",
+              "response_models": {
+                "application/json": "BaseMessageResponseModel"
+              }
+            },
+            {
+              "status_code": "400",
+              "response_models": {
+                "application/json": "BaseMessageResponseModel"
+              }
+            }
+          ],
+          "lambda_name": "caas-api-handler"
+        }
+      },
+      "/jobs/k8s": {
+        "policy_statement_singleton": true,
+        "enable_cors": true,
+        "POST": {
+          "integration_type": "lambda",
+          "enable_proxy": true,
+          "lambda_alias": "${lambdas_alias_name}",
+          "authorization_type": "authorizer",
+          "method_request_parameters": {},
+          "request_validator": {
+            "validate_request_body": false,
+            "validate_request_parameters": false
           },
           "responses": [
             {
@@ -6179,20 +6184,220 @@
           "lambda_name": "caas-configuration-api-handler"
         }
       },
-      "/parents/tenant-link": {
-        "DELETE": {
+      "/rule-meta/standards": {
+        "POST": {
+          "integration_type": "lambda",
+          "enable_proxy": true,
+          "lambda_alias": "${lambdas_alias_name}",
+          "authorization_type": "authorizer",
+          "method_request_parameters": {},
+          "responses": [
+            {
+              "status_code": "202",
+              "response_models": {
+                "application/json": "BaseMessageResponseModel"
+              }
+            }
+          ],
+          "lambda_name": "caas-configuration-api-handler"
+        }
+      },
+      "/rule-meta/mappings": {
+        "POST": {
+          "integration_type": "lambda",
+          "enable_proxy": true,
+          "lambda_alias": "${lambdas_alias_name}",
+          "authorization_type": "authorizer",
+          "method_request_parameters": {},
+          "responses": [
+            {
+              "status_code": "202",
+              "response_models": {
+                "application/json": "BaseMessageResponseModel"
+              }
+            }
+          ],
+          "lambda_name": "caas-configuration-api-handler"
+        }
+      },
+      "/rule-meta/meta": {
+        "POST": {
+          "integration_type": "lambda",
+          "enable_proxy": true,
+          "lambda_alias": "${lambdas_alias_name}",
+          "authorization_type": "authorizer",
+          "method_request_parameters": {},
+          "responses": [
+            {
+              "status_code": "202",
+              "response_models": {
+                "application/json": "BaseMessageResponseModel"
+              }
+            }
+          ],
+          "lambda_name": "caas-configuration-api-handler"
+        }
+      },
+      "/reports/resources/tenants/{tenant_name}/state/latest": {
+        "GET": {
           "integration_type": "lambda",
           "enable_proxy": true,
           "lambda_alias": "${lambdas_alias_name}",
           "authorization_type": "authorizer",
           "method_request_parameters": {},
           "request_validator": {
-            "validate_request_body": false,
             "validate_request_parameters": false
           },
-          "method_request_models": {
-            "application/json": "ParentTenantLinkDeleteModel"
+          "responses": [
+            {
+              "status_code": "200",
+              "response_models": {
+                "application/json": "ResourceReportDTO"
+              }
+            },
+            {
+              "status_code": "400",
+              "response_models": {
+                "application/json": "BaseMessageResponseModel"
+              }
+            }
+          ],
+          "lambda_name": "caas-report-generator"
+        }
+      },
+      "/reports/resources/tenants/{tenant_name}/jobs": {
+        "GET": {
+          "integration_type": "lambda",
+          "enable_proxy": true,
+          "lambda_alias": "${lambdas_alias_name}",
+          "authorization_type": "authorizer",
+          "method_request_parameters": {},
+          "request_validator": {
+            "validate_request_parameters": false
           },
+          "responses": [
+            {
+              "status_code": "200",
+              "response_models": {
+                "application/json": "ResourceReportJobsDTO"
+              }
+            },
+            {
+              "status_code": "400",
+              "response_models": {
+                "application/json": "BaseMessageResponseModel"
+              }
+            }
+          ],
+          "lambda_name": "caas-report-generator"
+        }
+      },
+      "/reports/resources/jobs/{id}": {
+        "GET": {
+          "integration_type": "lambda",
+          "enable_proxy": true,
+          "lambda_alias": "${lambdas_alias_name}",
+          "authorization_type": "authorizer",
+          "method_request_parameters": {},
+          "request_validator": {
+            "validate_request_parameters": false
+          },
+          "responses": [
+            {
+              "status_code": "200",
+              "response_models": {
+                "application/json": "ResourceReportJobsDTO"
+              }
+            },
+            {
+              "status_code": "400",
+              "response_models": {
+                "application/json": "BaseMessageResponseModel"
+              }
+            }
+          ],
+          "lambda_name": "caas-report-generator"
+        }
+      },
+      "/platforms/k8s": {
+        "policy_statement_singleton": true,
+        "enable_cors": true,
+        "GET": {
+          "integration_type": "lambda",
+          "enable_proxy": true,
+          "lambda_alias": "${lambdas_alias_name}",
+          "authorization_type": "authorizer",
+          "method_request_parameters": {},
+          "request_validator": {
+            "validate_request_parameters": false
+          },
+          "responses": [
+            {
+              "status_code": "200",
+              "response_models": {
+                "application/json": "PlatformK8SDTO"
+              }
+            },
+            {
+              "status_code": "400",
+              "response_models": {
+                "application/json": "BaseMessageResponseModel"
+              }
+            }
+          ],
+          "lambda_name": "caas-configuration-api-handler"
+        }
+      },
+      "/platforms/k8s/eks": {
+        "policy_statement_singleton": true,
+        "enable_cors": true,
+        "POST": {
+          "integration_type": "lambda",
+          "enable_proxy": true,
+          "lambda_alias": "${lambdas_alias_name}",
+          "authorization_type": "authorizer",
+          "method_request_parameters": {},
+          "request_validator": {
+            "validate_request_body": false
+          },
+          "responses": [
+            {
+              "status_code": "200",
+              "response_models": {
+                "application/json": "PlatformK8SDTO"
+              }
+            },
+            {
+              "status_code": "401",
+              "response_models": {
+                "application/json": "BaseMessageResponseModel"
+              }
+            },
+            {
+              "status_code": "404",
+              "response_models": {
+                "application/json": "BaseMessageResponseModel"
+              }
+            },
+            {
+              "status_code": "400",
+              "response_models": {
+                "application/json": "BaseMessageResponseModel"
+              }
+            }
+          ],
+          "lambda_name": "caas-configuration-api-handler"
+        }
+      },
+      "/platforms/k8s/eks/{id}": {
+        "policy_statement_singleton": true,
+        "enable_cors": true,
+        "DELETE": {
+          "integration_type": "lambda",
+          "enable_proxy": true,
+          "lambda_alias": "${lambdas_alias_name}",
+          "authorization_type": "authorizer",
+          "method_request_parameters": {},
           "responses": [
             {
               "status_code": "204",
@@ -6220,16 +6425,17 @@
             }
           ],
           "lambda_name": "caas-configuration-api-handler"
-        },
+        }
+      },
+      "/platforms/k8s/native": {
+        "policy_statement_singleton": true,
+        "enable_cors": true,
         "POST": {
           "integration_type": "lambda",
           "enable_proxy": true,
           "lambda_alias": "${lambdas_alias_name}",
           "authorization_type": "authorizer",
           "method_request_parameters": {},
-          "method_request_models": {
-            "application/json": "ParentTenantLinkPostModel"
-          },
           "request_validator": {
             "validate_request_body": false
           },
@@ -6237,13 +6443,51 @@
             {
               "status_code": "200",
               "response_models": {
-                "application/json": "BaseMessageResponseModel"
+                "application/json": "PlatformK8SDTO"
               }
             },
             {
               "status_code": "401",
               "response_models": {
                 "application/json": "BaseMessageResponseModel"
+              }
+            },
+            {
+              "status_code": "404",
+              "response_models": {
+                "application/json": "BaseMessageResponseModel"
+              }
+            },
+            {
+              "status_code": "400",
+              "response_models": {
+                "application/json": "BaseMessageResponseModel"
+              }
+            }
+          ],
+          "lambda_name": "caas-configuration-api-handler"
+        }
+      },
+      "/platforms/k8s/native/{id}": {
+        "policy_statement_singleton": true,
+        "enable_cors": true,
+        "DELETE": {
+          "integration_type": "lambda",
+          "enable_proxy": true,
+          "lambda_alias": "${lambdas_alias_name}",
+          "authorization_type": "authorizer",
+          "method_request_parameters": {},
+          "responses": [
+            {
+              "status_code": "204",
+              "response_models": {
+                "application/json": "BaseMessageResponseModel"
+              }
+            },
+            {
+              "status_code": "401",
+              "response_models": {
+                "application/json": "UnauthorizedResponseModel"
               }
             },
             {

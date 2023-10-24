@@ -1,13 +1,9 @@
 import abc
+from http import HTTPStatus
 from typing import Callable, Dict, Optional, Any
 
-from helpers import build_response, RESPONSE_RESOURCE_NOT_FOUND_CODE, \
-    RESPONSE_BAD_REQUEST_CODE, RESPONSE_CONFLICT
+from helpers import build_response
 from helpers.log_helper import get_logger
-from helpers.constants import AWS_CLOUD_ATTR, AZURE_CLOUD_ATTR, GCP_CLOUD_ATTR
-
-
-CLOUDS = (AWS_CLOUD_ATTR, AZURE_CLOUD_ATTR, GCP_CLOUD_ATTR)
 
 _LOG = get_logger(__name__)
 
@@ -28,21 +24,6 @@ class AbstractHandler:
         }
         """
         raise NotImplementedError()
-
-    @staticmethod
-    def _validate_type(var_name, var_value, required_type, required=True):
-        if required:
-            error = not isinstance(var_value, required_type)
-        else:
-            error = var_value and not isinstance(
-                var_value, required_type)
-
-        if error:
-            _LOG.debug(f'{var_name} must be a valid '
-                       f'{required_type.__name__}')
-            return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
-                content=f'\'{var_name}\' must be a {required_type.__name__}')
 
     @staticmethod
     def _replace_dict_params(event,
@@ -73,7 +54,7 @@ class AbstractHandler:
                        f'{entity.get_json()}')
             save_func(entity)
         except (ValueError, TypeError) as e:
-            return build_response(code=RESPONSE_BAD_REQUEST_CODE,
+            return build_response(code=HTTPStatus.BAD_REQUEST,
                                   content=str(e))
         return get_dto_func(entity)
 
@@ -102,42 +83,32 @@ class AbstractHandler:
 
             save_func(entity)
         except (TypeError, ValueError) as e:
-            return build_response(code=RESPONSE_BAD_REQUEST_CODE,
+            return build_response(code=HTTPStatus.BAD_REQUEST,
                                   content=str(e))
         return entity
-
-    @staticmethod
-    def _validate_cloud(cloud: str):
-        if cloud.upper() not in CLOUDS:
-            _LOG.debug(f'Unsupported cloud: {cloud}. '
-                       f'Available clouds: {CLOUDS}')
-            return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
-                content=f'Unsupported cloud: {cloud}. '
-                        f'Available clouds: {CLOUDS}')
 
     def _assert_exists(self, entity: Optional[Any] = None,
                        message: str = None, **kwargs) -> None:
         if not entity:
-            _message = (message or ENTITY_DOES_NOT_EXIST_MESSAGE).format(**kwargs)
+            _message = (message or ENTITY_DOES_NOT_EXIST_MESSAGE).format(
+                **kwargs)
             _LOG.info(_message)
-            return build_response(code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+            return build_response(code=HTTPStatus.NOT_FOUND,
                                   content=_message)
 
     def _assert_does_not_exist(self, entity: Optional[Any] = None,
                                message: str = None, **kwargs) -> None:
         if entity:
-            _message = (message or ENTITY_ALREADY_EXISTS_MESSAGE).format(**kwargs)
+            _message = (message or ENTITY_ALREADY_EXISTS_MESSAGE).format(
+                **kwargs)
             _LOG.info(_message)
-            return build_response(code=RESPONSE_CONFLICT,
+            return build_response(code=HTTPStatus.CONFLICT,
                                   content=_message)
 
 
 class AbstractComposedHandler(AbstractHandler):
 
-    def __init__(
-        self, resource_map: Dict[str, Dict[str, AbstractHandler]]
-    ):
+    def __init__(self, resource_map: Dict[str, Dict[str, AbstractHandler]]):
         self._action_mapping = resource_map
 
     def define_action_mapping(self):
@@ -152,4 +123,3 @@ class AbstractComposedHandler(AbstractHandler):
 
     def define_handler_mapping(self) -> Dict[str, Dict[str, AbstractHandler]]:
         return self._action_mapping
-

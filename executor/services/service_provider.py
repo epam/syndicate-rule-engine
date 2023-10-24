@@ -1,7 +1,6 @@
 from helpers import SingletonMeta
 from services.batch_service import BatchService
 from services.clients.event_bridge import EventBridgeClient
-from services.clients.iam import IAMClient
 from services.clients.license_manager import LicenseManagerClient
 from services.clients.modular import ModularClient
 from services.clients.s3 import S3Client
@@ -14,7 +13,6 @@ from services.job_updater_service import JobUpdaterService
 from services.license_manager_service import LicenseManagerService
 from services.modular_service import ModularService, TenantService
 from services.notification_service import NotificationService
-from services.os_service import OSService
 from services.policy_service import PolicyService
 from services.report_service import ReportService
 from services.ruleset_service import RulesetService
@@ -32,7 +30,6 @@ class ServiceProvider(metaclass=SingletonMeta):
     __s3_conn = None
     __sts_conn = None
     __modular_conn = None
-    __iam_conn = None
 
     __license_manager_client = None
     __event_bridge_client = None
@@ -45,7 +42,6 @@ class ServiceProvider(metaclass=SingletonMeta):
     __modular_service = None
     __ssm_service = None
     __credentials_service = None
-    __os_service = None
     __s3_service = None
     __ruleset_service = None
     __policy_service = None
@@ -65,11 +61,6 @@ class ServiceProvider(metaclass=SingletonMeta):
     def __str__(self):
         return id(self)
 
-    def iam(self) -> IAMClient:
-        if not self.__iam_conn:
-            self.__iam_conn = IAMClient(sts_client=self.sts_client())
-        return self.__iam_conn
-
     def ssm(self) -> AbstractSSMClient:
         if not self.__ssm_conn:
             _env = self.environment_service()
@@ -87,8 +78,9 @@ class ServiceProvider(metaclass=SingletonMeta):
 
     def sts_client(self) -> StsClient:
         if not self.__sts_conn:
-            self.__sts_conn = StsClient(
-                environment_service=self.environment_service())
+            self.__sts_conn = StsClient.factory().build(
+                region_name=self.environment_service().aws_region()
+            )
         return self.__sts_conn
 
     def modular_client(self) -> ModularClient:
@@ -108,7 +100,6 @@ class ServiceProvider(metaclass=SingletonMeta):
         if not self.__event_bridge_client:
             self.__event_bridge_client = EventBridgeClient(
                 environment_service=self.environment_service(),
-                sts_client=self.sts_client()
             )
         return self.__event_bridge_client
 
@@ -160,11 +151,6 @@ class ServiceProvider(metaclass=SingletonMeta):
                 sts_client=self.sts_client())
         return self.__credentials_service
 
-    def os_service(self) -> OSService:
-        if not self.__os_service:
-            self.__os_service = OSService()
-        return self.__os_service
-
     def s3_service(self) -> S3Service:
         if not self.__s3_service:
             self.__s3_service = S3Service(client=self.s3())
@@ -195,9 +181,6 @@ class ServiceProvider(metaclass=SingletonMeta):
     def report_service(self) -> ReportService:
         if not self.__report_service:
             self.__report_service = ReportService(
-                os_service=self.os_service(),
-                s3_client=self.s3(),
-                environment_service=self.environment_service(),
                 s3_settings_service=self.s3_setting_service()
             )
         return self.__report_service

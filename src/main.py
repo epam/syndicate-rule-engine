@@ -700,9 +700,9 @@ class CreateUser(EntitiesRelatedActions, ActionHandler):
                                        password=password or '[password]'))
 
 
-def main():
+def main(args: Optional[List[str]] = None):
     parser = build_parser()
-    arguments = parser.parse_args()
+    arguments = parser.parse_args(args)
     key = tuple(
         getattr(arguments, dest) for dest in ALL_NESTING
         if hasattr(arguments, dest)

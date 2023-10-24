@@ -4,7 +4,8 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import SU, relativedelta
 
 from helpers import get_logger
-from helpers.constants import ATTACK_VECTOR_TYPE, START_DATE, DATA_TYPE
+from helpers.constants import ATTACK_VECTOR_TYPE, START_DATE, DATA_TYPE, \
+    END_DATE
 from helpers.time_helper import utc_datetime
 from helpers.utils import get_last_element
 from helpers.difference import calculate_dict_diff
@@ -44,19 +45,29 @@ class TenantMetricsDifference:
             ).date().isoformat(), utc=False)
 
     def process_data(self, event):
-        today = datetime.utcnow().today()
-        s3_object_date = self.current_week_date
-        if self.current_week_date <= self.yesterday.isoformat():
-            self.TO_UPDATE_MARKER = True
-
+        end_date = event.get(END_DATE)
         date = self.settings_service.get_report_date_marker()
-        last_week_date = date.get('last_week_date')
+
+        if end_date and (end_datetime := utc_datetime(end_date, utc=False).date()) < self.today_date:
+            end_date_datetime = utc_datetime(end_date, utc=False)
+            weekday = end_date_datetime.weekday()
+            if weekday == 6:
+                s3_object_date = utc_datetime(end_date).date().isoformat()
+            else:
+                s3_object_date = (end_date_datetime + timedelta(days=6 - weekday)).date().isoformat()
+            last_week_date = None
+        else:
+            end_datetime = datetime.utcnow().today().date()
+            s3_object_date = self.current_week_date
+            if self.current_week_date <= self.yesterday.isoformat():
+                self.TO_UPDATE_MARKER = True
+            last_week_date = date.get('last_week_date')
+
         if not last_week_date:
             _LOG.error('Cannot get \'last_week_date\' param from report date '
                        'market setting. Resolving...')
-            sun_offset = (today.weekday() - 6) % 7
-            last_week_date = str((today - timedelta(days=sun_offset)).date().
-                                 isoformat())
+            sun_offset = (end_datetime.weekday() - 6) % 7
+            last_week_date = (end_datetime - timedelta(days=sun_offset)).isoformat()
 
         _LOG.debug(f'Last week date: {last_week_date}')
         metrics_bucket = self.environment_service.get_metrics_bucket_name()

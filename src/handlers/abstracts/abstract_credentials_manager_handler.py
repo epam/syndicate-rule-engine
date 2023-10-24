@@ -1,12 +1,11 @@
 from abc import abstractmethod
+from http import HTTPStatus
 from typing import Optional, List
 
 from botocore.exceptions import ClientError
 
 from handlers.abstracts.abstract_handler import AbstractHandler
-from helpers import build_response, RESPONSE_CONFLICT, \
-    RESPONSE_RESOURCE_NOT_FOUND_CODE, RESPONSE_OK_CODE, \
-    RESPONSE_BAD_REQUEST_CODE, RESPONSE_CREATED
+from helpers import build_response
 from helpers.constants import CLOUD_IDENTIFIER_ATTR, CLOUD_ATTR, \
     TRUSTED_ROLE_ARN, TENANTS_ATTR, CUSTOMER_ATTR, TENANT_ATTR
 from helpers.log_helper import get_logger
@@ -165,7 +164,7 @@ class AbstractCredentialsManagerHandler(AbstractHandler):
             )
 
         return build_response(
-            code=RESPONSE_OK_CODE,
+            code=HTTPStatus.OK,
             content=(
                 self.get_configuration_object_dto(entity)
                 for entity in entities
@@ -213,7 +212,7 @@ class AbstractCredentialsManagerHandler(AbstractHandler):
             get_dto_func=self.get_configuration_object_dto
         )
 
-        return build_response(code=RESPONSE_CREATED, content=result)
+        return build_response(code=HTTPStatus.CREATED, content=result)
 
     def _basic_update_handler(self, event: dict):
         """
@@ -249,7 +248,7 @@ class AbstractCredentialsManagerHandler(AbstractHandler):
 
         if not entity:
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=f'Credentials configuration for {cloud} cloud and '
                         f'{cloud_identifier} does not exist.'
             )
@@ -263,7 +262,7 @@ class AbstractCredentialsManagerHandler(AbstractHandler):
         )
 
         return build_response(
-            code=RESPONSE_OK_CODE,
+            code=HTTPStatus.OK,
             content=self.get_configuration_object_dto(entity)
         )
 
@@ -293,7 +292,7 @@ class AbstractCredentialsManagerHandler(AbstractHandler):
 
         if not entity:
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=f'Credentials configuration for {cloud} cloud and '
                         f'{cloud_identifier} does not exist.'
             )
@@ -301,7 +300,7 @@ class AbstractCredentialsManagerHandler(AbstractHandler):
         self.delete_configuration_object(entity)
 
         return build_response(
-            code=RESPONSE_OK_CODE,
+            code=HTTPStatus.OK,
             content=f'Credentials configuration for {cloud} cloud and '
                     f'{cloud_identifier} cloud identifier has been deleted')
 
@@ -338,7 +337,7 @@ class AbstractCredentialsManagerHandler(AbstractHandler):
 
                 _LOG.warning(debug_message)
                 return build_response(
-                    code=RESPONSE_CONFLICT,
+                    code=HTTPStatus.CONFLICT,
                     content=debug_message)
 
         if reverse_existence:
@@ -350,7 +349,7 @@ class AbstractCredentialsManagerHandler(AbstractHandler):
 
                 _LOG.warning(debug_message)
                 return build_response(
-                    code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                    code=HTTPStatus.NOT_FOUND,
                     content=debug_message)
 
         if validate_account_with_specified_id:
@@ -370,7 +369,7 @@ class AbstractCredentialsManagerHandler(AbstractHandler):
 
                 if not tenant:
                     return build_response(
-                        code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                        code=HTTPStatus.NOT_FOUND,
                         content=persistence_issue
                     )
 
@@ -379,7 +378,7 @@ class AbstractCredentialsManagerHandler(AbstractHandler):
                               f" does not exist within \'{cloud.upper()}\'" \
                               f" cloud."
                     return build_response(
-                        code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                        code=HTTPStatus.NOT_FOUND,
                         content=message
                     )
 
@@ -391,7 +390,7 @@ class AbstractCredentialsManagerHandler(AbstractHandler):
                 ):
                     # Generic, non-leaking response.
                     return build_response(
-                        code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                        code=HTTPStatus.NOT_FOUND,
                         content=persistence_issue
                     )
 
@@ -408,7 +407,7 @@ class AbstractCredentialsManagerHandler(AbstractHandler):
                                   f"than parameter '{TRUSTED_ROLE_ARN}' should " \
                                   f"be in request"
                         return build_response(
-                            code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                            code=HTTPStatus.NOT_FOUND,
                             content=message)
 
         if assume_role:
@@ -433,7 +432,7 @@ class AbstractCredentialsManagerHandler(AbstractHandler):
                       f"'{role_arn}'"
             _LOG.warning(f'{message}, due to - {e}')
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=message
             )
 

@@ -1,29 +1,31 @@
 from datetime import datetime
+from http import HTTPStatus
 from itertools import chain
 from pathlib import PurePosixPath
 from typing import Optional, Dict, List, Iterable
 
 import requests
-from modular_sdk.commons.constants import TENANT_PARENT_MAP_SIEM_DEFECT_DOJO_TYPE
+from modular_sdk.commons.constants import \
+    TENANT_PARENT_MAP_SIEM_DEFECT_DOJO_TYPE, ParentType
+from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.impl.maestro_credentials_service import \
     DefectDojoApplicationMeta, DefectDojoApplicationSecret
-from models.modular.tenants import Tenant
-from models.modular.parents import DefectDojoParentMeta
+
 from handlers.base_handler import \
     BaseReportHandler, Source, AmbiguousJobService, \
     ModularService, ReportService, \
     SourceReportDerivation
-from helpers import RESPONSE_RESOURCE_NOT_FOUND_CODE, RESPONSE_OK_CODE, \
-    build_response, RESPONSE_BAD_REQUEST_CODE
+from helpers import build_response
 from helpers.constants import CUSTOMER_ATTR, TENANT_ATTR, TENANTS_ATTR, \
-    POST_METHOD, ID_ATTR, TYPE_ATTR, START_ISO_ATTR, END_ISO_ATTR, \
+    HTTPMethod, ID_ATTR, TYPE_ATTR, START_ISO_ATTR, END_ISO_ATTR, \
     JOB_ID_ATTR
 from helpers.log_helper import get_logger
 from integrations.defect_dojo_adapter import DefectDojoAdapter
 from integrations.security_hub_adapter import SecurityHubAdapter
+from models.modular.parents import DefectDojoParentMeta
 from services.clients.ssm import SSMClient
 from services.report_service import DETAILED_REPORT_FILE
-
+from modular_sdk.services.parent_service import ParentService
 _LOG = get_logger(__name__)
 
 TENANTS_TO_SKIP = 'tenants_to_skip'
@@ -120,14 +122,13 @@ class SiemPushHandler(BaseReportHandler):
             customer: Optional[str] = None,
             tenants: Optional[List[str]] = None,
             cloud_ids: Optional[List[str]] = None,
-            account_dn: Optional[str] = None,
             typ: Optional[str] = None
     ) -> Optional[List[Source]]:
 
         cloud_ids = cloud_ids or []
         ajs = self._ambiguous_job_service
 
-        head = f'Account:\'{account_dn}\'' if account_dn else ''
+        head = ''
 
         # Log-Header.
         if tenants:
@@ -162,7 +163,7 @@ class SiemPushHandler(BaseReportHandler):
         if not sources:
             message = f' - no source-data of {job_scope} could be derived.'
             _LOG.warning(head + message)
-            self._code = RESPONSE_RESOURCE_NOT_FOUND_CODE
+            self._code = HTTPStatus.NOT_FOUND
             self._content = head + message
 
         return sources
@@ -170,26 +171,30 @@ class SiemPushHandler(BaseReportHandler):
     def define_action_mapping(self) -> dict:
         return {
             '/reports/push/dojo/{job_id}': {
-                POST_METHOD: self.push_dojo_by_job_id
+                HTTPMethod.POST: self.push_dojo_by_job_id
             },
             '/reports/push/security-hub/{job_id}': {
-                POST_METHOD: self.push_security_hub_by_job_id
+                HTTPMethod.POST: self.push_security_hub_by_job_id
             },
             '/reports/push/dojo': {
-                POST_METHOD: self.push_dojo_multiple_jobs
+                HTTPMethod.POST: self.push_dojo_multiple_jobs
             },
             '/reports/push/security-hub': {
-                POST_METHOD: self.push_security_hub_multiple_jobs
+                HTTPMethod.POST: self.push_security_hub_multiple_jobs
             }
         }
 
+    @property
+    def ps(self) -> ParentService:
+        return self._modular_service.modular_client.parent_service()
+
     def initialize_dojo_adapter(self, tenant: Tenant) -> DefectDojoAdapter:
         _not_configured = lambda: build_response(
-            code=RESPONSE_BAD_REQUEST_CODE,
+            code=HTTPStatus.BAD_REQUEST,
             content=f'Tenant {tenant.name} does not have dojo configuration'
         )
-        parent = self._modular_service.get_tenant_parent(
-            tenant, TENANT_PARENT_MAP_SIEM_DEFECT_DOJO_TYPE
+        parent = self.ps.get_linked_parent_by_tenant(
+            tenant, ParentType.SIEM_DEFECT_DOJO
         )
         if not parent:
             _LOG.debug('Parent does not exist')
@@ -217,7 +222,7 @@ class SiemPushHandler(BaseReportHandler):
             )
         except requests.RequestException as e:
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=f'Could not init dojo client: {e}'
             )
 
@@ -243,7 +248,7 @@ class SiemPushHandler(BaseReportHandler):
 
         report = self._dojo_report_sourced_derivation(item)
         if not report:
-            return build_response(code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+            return build_response(code=HTTPStatus.NOT_FOUND,
                                   content='Could not retrieve job report')
         adapter.add_entity(
             job_id=self.ajs.get_attribute(item=item, attr=ID_ATTR),
@@ -278,7 +283,7 @@ class SiemPushHandler(BaseReportHandler):
         if not tenant:
             return self.response
         _not_configured = lambda: build_response(
-            code=RESPONSE_BAD_REQUEST_CODE,
+            code=HTTPStatus.BAD_REQUEST,
             content=f'Tenant {tenant_name} does not have SH configuration'
         )
         application = self._modular_service.get_application('mock')  # AWS_ROLE
@@ -288,7 +293,7 @@ class SiemPushHandler(BaseReportHandler):
         creds = mcs.get_by_application(application)
         if not creds:
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content='Cannot get credentials to push to SH'
             )
         findings = self._download_finding_for_one_job(
@@ -340,7 +345,7 @@ class SiemPushHandler(BaseReportHandler):
         )
         if not source_to_reports:
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content='No reports found'
             )
         self._source_report_derivation_attr = None
@@ -357,7 +362,7 @@ class SiemPushHandler(BaseReportHandler):
                 job_type=self.ajs.get_type(item=source)
             )
         self._content = adapter.upload_all_entities()
-        self._code = RESPONSE_OK_CODE
+        self._code = HTTPStatus.OK
         return self.response
 
     def push_security_hub_multiple_jobs(self, event: dict) -> dict:
@@ -380,7 +385,7 @@ class SiemPushHandler(BaseReportHandler):
         if not tenant_item:
             return self.response
         _not_configured = lambda: build_response(
-            code=RESPONSE_BAD_REQUEST_CODE,
+            code=HTTPStatus.BAD_REQUEST,
             content=f'Tenant {tenant} does not have SH configuration'
         )
         application = self._modular_service.get_application('mock')
@@ -390,7 +395,7 @@ class SiemPushHandler(BaseReportHandler):
         creds = mcs.get_by_application(application)
         if not creds:
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content='Cannot get credentials to push to SH'
             )
         adapter = SecurityHubAdapter(
@@ -410,5 +415,5 @@ class SiemPushHandler(BaseReportHandler):
                 findings=findings
             )
         self._content = adapter.upload_all_entities()
-        self._code = RESPONSE_OK_CODE
+        self._code = HTTPStatus.OK
         return self.response

@@ -15,7 +15,6 @@
       ]
     }
   },
-
   "job-updater-role": {
     "predefined_policies": [],
     "principal_service": "lambda",

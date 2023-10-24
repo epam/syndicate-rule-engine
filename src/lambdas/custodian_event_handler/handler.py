@@ -1,9 +1,9 @@
 from functools import cached_property
 from typing import Union, Dict, Type, Optional
-
+from http import HTTPStatus
 from handlers.event_assembler_handler import EventAssemblerHandler, \
     EventRemoverHandler
-from helpers import build_response, RESPONSE_BAD_REQUEST_CODE
+from helpers import build_response
 from helpers.constants import ACTION_PARAM
 from helpers.log_helper import get_logger
 from services.abstract_lambda import AbstractLambda
@@ -18,9 +18,6 @@ Handler = Union[EventRemoverHandler, EventAssemblerHandler]
 
 class EventHandler(AbstractLambda):
 
-    def validate_request(self, event) -> dict:
-        """No request validation needed"""
-
     def __init__(self):
         self._action_handler: Dict[str, Handler] = {}
 
@@ -34,7 +31,7 @@ class EventHandler(AbstractLambda):
                 f'Not available action: {event_action}. ' \
                 f'Available: {", ".join(self.action_handler_map.keys())}'
             _LOG.warning(message)
-            return build_response(code=RESPONSE_BAD_REQUEST_CODE,
+            return build_response(code=HTTPStatus.BAD_REQUEST,
                                   content=message)
         return handler.handler(event)
 

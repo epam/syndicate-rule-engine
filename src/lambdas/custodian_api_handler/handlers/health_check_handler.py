@@ -1,9 +1,9 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import cached_property
 from typing import List, Type, Dict, Iterable, Generator
-
-from helpers import build_response, RESPONSE_RESOURCE_NOT_FOUND_CODE
-from helpers.constants import GET_METHOD, ID_ATTR, STATUS_ATTR, CUSTOMER_ATTR
+from http import HTTPStatus
+from helpers import build_response
+from helpers.constants import ID_ATTR, STATUS_ATTR, CUSTOMER_ATTR, HTTPMethod
 from helpers.log_helper import get_logger
 from lambdas.custodian_api_handler.handlers import AbstractHandler, Mapping
 from services import SERVICE_PROVIDER
@@ -15,7 +15,7 @@ from services.health_check_service import AbstractHealthCheck, \
     VaultConnectionCheck, AllS3BucketsExist, MongoConnectionCheck, \
     MinioConnectionCheck, ReportDateMarkerSettingCheck, \
     RabbitMQConnectionCheck, EventDrivenRulesetsExist, DefectDojoCheck, \
-    RulesMetaAccessDataCheck
+    RulesMetaAccessDataCheck, RulesMetaCheck
 
 _LOG = get_logger(__name__)
 
@@ -34,10 +34,10 @@ class HealthCheckHandler(AbstractHandler):
     def mapping(self) -> Mapping:
         return {
             '/health': {
-                GET_METHOD: self.list
+                HTTPMethod.GET: self.list
             },
             '/health/{id}': {
-                GET_METHOD: self.get
+                HTTPMethod.GET: self.get
             }
         }
 
@@ -53,7 +53,9 @@ class HealthCheckHandler(AbstractHandler):
     @cached_property
     def saas_specific_checks(self) -> List[Type[AbstractHealthCheck]]:
         return [
-            RulesMetaAccessDataCheck
+            RulesMetaAccessDataCheck,
+            RulesMetaCheck,
+            EventDrivenRulesetsExist,
         ]
 
     @cached_property
@@ -64,7 +66,6 @@ class HealthCheckHandler(AbstractHandler):
             LicenseManagerClientKeyCheck,
             AllS3BucketsExist,
             ReportDateMarkerSettingCheck,
-            EventDrivenRulesetsExist,
             RabbitMQConnectionCheck,
             DefectDojoCheck
         ]
@@ -143,7 +144,7 @@ class HealthCheckHandler(AbstractHandler):
         _id = event.get(ID_ATTR)
         instance = self.identifier_to_instance.get(_id)
         if not instance:
-            return build_response(code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+            return build_response(code=HTTPStatus.NOT_FOUND,
                                   content=f'Not available check: {_id}')
         result = self._execute_check(
             instance,

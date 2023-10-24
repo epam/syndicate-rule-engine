@@ -1,12 +1,12 @@
 """
 Azure from here https://azuretracks.com/2021/04/current-azure-region-names-reference/
 """
+from itertools import chain
 from typing import Set
 
-from helpers.constants import AWS_CLOUD_ATTR, AZURE_CLOUD_ATTR, \
-    GOOGLE_CLOUD_ATTR
 from helpers import Enum
-from itertools import chain
+from helpers.constants import AWS_CLOUD_ATTR, AZURE_CLOUD_ATTR, \
+    GOOGLE_CLOUD_ATTR, MULTIREGION
 
 AWS_REGIONS = {
     'ap-northeast-3', 'ap-southeast-1', 'ap-south-1',
@@ -60,10 +60,20 @@ CLOUD_REGIONS = {
     GOOGLE_CLOUD_ATTR: GOOGLE_REGIONS
 }
 
-AllRegions = Enum.build('AllRegions',
-                        chain.from_iterable(CLOUD_REGIONS.values()))
+AWSRegion = Enum.build('AWSRegion', AWS_REGIONS)
+AZURERegion = Enum.build('AZURERegion', AZURE_REGIONS)
+GOOGLERegion = Enum.build('GOOGLERegion', GOOGLE_REGIONS)
+
+AllRegions = Enum.build(
+    'AllRegions',
+    chain(AWSRegion.iter(), AZURERegion.iter(), GOOGLERegion.iter())
+)
+
+AllRegionsWithMultiregional = Enum.build(
+    'AllRegionsWithMultiregional',
+    chain(AllRegions.iter(), iter([MULTIREGION]))
+)
 
 
 def get_region_by_cloud(cloud: str) -> Set[str]:
-    assert cloud in {AWS_CLOUD_ATTR, AZURE_CLOUD_ATTR, GOOGLE_CLOUD_ATTR}
-    return CLOUD_REGIONS[cloud]
+    return CLOUD_REGIONS.get(cloud) or set()

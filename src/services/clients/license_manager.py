@@ -1,25 +1,22 @@
-from json import JSONDecodeError
-from typing import Optional
-from typing import Union, List, Type, Dict
+import dataclasses
+import json
+from abc import ABC, abstractmethod
+from typing import List, Optional
 
-from requests import request, Response
-from requests.exceptions import RequestException
+import requests
 from modular_sdk.services.impl.maestro_credentials_service import AccessMeta
-from functools import cached_property
 
-from helpers.constants import POST_METHOD, PATCH_METHOD, \
-    LICENSE_KEY_ATTR, STATUS_ATTR, TENANT_ATTR, TENANT_LICENSE_KEY_ATTR,\
-    AUTHORIZATION_PARAM, CUSTOMER_ATTR, TENANT_LICENSE_KEYS_ATTR
+from helpers.constants import HTTPMethod, \
+    LICENSE_KEY_ATTR, STATUS_ATTR, TENANT_LICENSE_KEY_ATTR, \
+    AUTHORIZATION_PARAM, CUSTOMER_ATTR, TENANT_LICENSE_KEYS_ATTR, \
+    TENANTS_ATTR, TENANT_ATTR
 from helpers.log_helper import get_logger
 from services.setting_service import SettingsService
 
-SET_TENANT_ACTIVATION_DATE_PATH = '/tenants/set-activation-date'
 SET_CUSTOMER_ACTIVATION_DATE_PATH = '/customers/set-activation-date'
 JOB_CHECK_PERMISSION_PATH = '/jobs/check-permission'
 SYNC_LICENSE_PATH = '/license/sync'
 JOBS_PATH = '/jobs'
-
-HOST_KEY = 'host'
 
 JOB_ID = 'job_id'
 CREATED_AT_ATTR = 'created_at'
@@ -29,30 +26,27 @@ STOPPED_AT_ATTR = 'stopped_at'
 _LOG = get_logger(__name__)
 
 
-class LicenseManagerClient:
+@dataclasses.dataclass()
+class LMAccessData(AccessMeta):
+    api_version: Optional[str]
 
-    def __init__(self, setting_service: SettingsService):
-        self.setting_service = setting_service
-        self._access_data = None
-        self._client_key_data = None
 
-    @cached_property
-    def access_data(self) -> dict:
-        return self.setting_service.get_license_manager_access_data() or {}
+class LicenseManagerClientInterface(ABC):
+    def __init__(self, host: str, client_key_data: str):
+        self._host = host
+        self._client_key_data = client_key_data
 
     @property
-    def host(self) -> str:
-        return AccessMeta.from_dict(self.access_data).url
+    def host(self):
+        return self._host
 
     @property
     def client_key_data(self):
-        if not self._client_key_data:
-            self._client_key_data = \
-                self.setting_service.get_license_manager_client_key_data()
-            self._client_key_data = self._client_key_data or {}
         return self._client_key_data
 
-    def license_sync(self, license_key: str, auth: str):
+    @abstractmethod
+    def license_sync(self, license_key: str, auth: str
+                     ) -> Optional[requests.Response]:
         """
         Delegated to commence license-synchronization, bound to a list
         of tenant licenses accessible to a client, authorized by a respective
@@ -61,25 +55,12 @@ class LicenseManagerClient:
         :parameter auth: Union[Type[None], str]
         :return: Union[Response, Type[None]]
         """
-        if not self.host:
-            _LOG.warning('CustodianLicenceManager access data has not been'
-                         ' provided.')
-            return None
-        url = self.host + SYNC_LICENSE_PATH
-        payload = {
-            LICENSE_KEY_ATTR: license_key
-        }
-        headers = {
-            AUTHORIZATION_PARAM: auth
-        }
-        return self._send_request(
-            url=url, method=POST_METHOD, payload=payload, headers=headers
-        )
 
-    def job_check_permission(
-        self, customer: str, tenant: str,
-        tenant_license_keys: List[str], auth: str
-    ):
+    @abstractmethod
+    def job_check_permission(self, customer: str,
+                             tenant: str,
+                             tenant_license_keys: List[str], auth: str
+                             ) -> bool:
         """
         Delegated to check for permission to license Job,
         bound to a tenant within a customer, exhausting balance derived by
@@ -88,30 +69,8 @@ class LicenseManagerClient:
         :parameter tenant: str
         :parameter auth: str, authorization token
         :parameter tenant_license_keys: List[str]
-        :return: Union[Response, Type[None]]
+        :return: bool
         """
-        host, method = self.host, POST_METHOD
-        if not host:
-            _LOG.error('CustodianLicenceManager access data has not been'
-                       ' provided.')
-            return None
-
-        host = host.strip('/')
-        url = host + JOB_CHECK_PERMISSION_PATH
-
-        payload = {
-            CUSTOMER_ATTR: customer,
-            TENANT_ATTR: tenant,
-            TENANT_LICENSE_KEYS_ATTR: tenant_license_keys
-        }
-
-        headers = {
-            AUTHORIZATION_PARAM: auth
-        }
-
-        return self._send_request(
-            url=url, method=method, payload=payload, headers=headers
-        )
 
     def update_job(self, job_id: str, created_at: str, started_at: str,
                    stopped_at: str, status: str, auth: str):
@@ -126,106 +85,173 @@ class LicenseManagerClient:
         :parameter auth: str, authorization token
         :return: Union[Response, Type[None]]
         """
-        host, method = self.host, PATCH_METHOD
+
+    def activate_customer(self, customer: str, tlk: str, auth: str
+                          ) -> Optional[requests.Response]:
+        pass
+
+    @classmethod
+    def _send_request(cls, url: str, method: str,
+                      params: Optional[dict] = None,
+                      payload: Optional[dict] = None,
+                      headers: Optional[dict] = None
+                      ) -> Optional[requests.Response]:
+        try:
+            _LOG.debug(f'Going to send \'{method}\' request to \'{url}\'')
+            response = requests.request(
+                url=url, method=method, headers=headers, params=params or {},
+                json=payload or {}
+            )
+            _LOG.debug(f'Response from {url}: {response}')
+            return response
+        except (requests.RequestException, Exception) as e:
+            _LOG.error(f'Error occurred while executing request. Error: {e}')
+            return
+
+    @staticmethod
+    def retrieve_json(response: requests.Response) -> Optional[dict]:
+        try:
+            return response.json()
+        except json.JSONDecodeError as je:
+            _LOG.warning(f'JSON response from \'{response.url}\' not be '
+                         f'decoded. An exception has occurred: {je}')
+
+
+class LicenseManagerClientMain(LicenseManagerClientInterface):
+    """
+    Main LM client -> the one that is used by default (in case desired
+    version is not specified). The one that has base implementations for
+    all the necessary endpoints. Other clients represent some api deviations
+    """
+
+    def license_sync(self, license_key: str, auth: str
+                     ) -> Optional[requests.Response]:
+        if not self.host:
+            _LOG.warning('CustodianLicenceManager access data has not been'
+                         ' provided.')
+            return None
+        return self._send_request(
+            url=self.host + SYNC_LICENSE_PATH,
+            method=HTTPMethod.POST,
+            payload={LICENSE_KEY_ATTR: license_key},
+            headers={AUTHORIZATION_PARAM: auth}
+        )
+
+    def job_check_permission(self, customer: str,
+                             tenant: str,
+                             tenant_license_keys: List[str], auth: str
+                             ) -> bool:
+        """
+        Currently only one tenant_license_key valid for business logic
+        :param customer:
+        :param tenant:
+        :param tenant_license_keys:
+        :param auth:
+        :return:
+        """
+        host = self.host
+        if not host:
+            _LOG.error('CustodianLicenceManager access data has not been'
+                       ' provided.')
+            return False
+
+        resp = self._send_request(
+            url=host.strip('/') + JOB_CHECK_PERMISSION_PATH,
+            method=HTTPMethod.POST,
+            payload={
+                CUSTOMER_ATTR: customer,
+                TENANTS_ATTR: [tenant],
+                TENANT_LICENSE_KEYS_ATTR: tenant_license_keys
+            },
+            headers={AUTHORIZATION_PARAM: auth}
+        )
+        if not resp or not resp.ok:
+            return False
+        return tenant in \
+            resp.json().get('items')[0][tenant_license_keys[0]]['allowed']
+
+    def update_job(self, job_id: str, created_at: str, started_at: str,
+                   stopped_at: str, status: str, auth: str):
+        host = self.host
         if not host:
             _LOG.error('CustodianLicenceManager access data has not been'
                        ' provided.')
             return None
-        url = host.strip('/') + JOBS_PATH
-        payload = {
-            JOB_ID: job_id,
-            CREATED_AT_ATTR: created_at,
-            STARTED_AT_ATTR: started_at,
-            STOPPED_AT_ATTR: stopped_at,
-            STATUS_ATTR: status
-        }
-        headers = {
-            AUTHORIZATION_PARAM: auth
-        }
         return self._send_request(
-            url=url, method=method, payload=payload, headers=headers
-        )
-
-    def activate_tenant(
-        self, tenant: str, tlk: str, auth: str
-    ) -> Optional[Response]:
-        if not self.host:
-            _LOG.warning('CustodianLicenceManager access data has not been'
-                         ' provided.')
-            return None
-        url = self.host + SET_TENANT_ACTIVATION_DATE_PATH
-        payload = {TENANT_ATTR: tenant, TENANT_LICENSE_KEY_ATTR: tlk}
-        headers = {
-            AUTHORIZATION_PARAM: auth
-        }
-        return self._send_request(
-            url=url, method=POST_METHOD, payload=payload, headers=headers
+            url=host.strip('/') + JOBS_PATH,
+            method=HTTPMethod.PATCH,
+            payload={
+                JOB_ID: job_id,
+                CREATED_AT_ATTR: created_at,
+                STARTED_AT_ATTR: started_at,
+                STOPPED_AT_ATTR: stopped_at,
+                STATUS_ATTR: status
+            },
+            headers={AUTHORIZATION_PARAM: auth}
         )
 
     def activate_customer(self, customer: str, tlk: str, auth: str
-                          ) -> Optional[Response]:
+                          ) -> Optional[requests.Response]:
         if not self.host:
             _LOG.warning('CustodianLicenceManager access data has not been'
                          ' provided.')
             return None
-        url = self.host + SET_CUSTOMER_ACTIVATION_DATE_PATH
-        payload = {CUSTOMER_ATTR: customer, TENANT_LICENSE_KEY_ATTR: tlk}
-        headers = {
-            AUTHORIZATION_PARAM: auth
-        }
         return self._send_request(
-            url=url, method=POST_METHOD, payload=payload, headers=headers
+            url=self.host.strip('/') + SET_CUSTOMER_ACTIVATION_DATE_PATH,
+            method=HTTPMethod.POST,
+            payload={CUSTOMER_ATTR: customer, TENANT_LICENSE_KEY_ATTR: tlk},
+            headers={AUTHORIZATION_PARAM: auth}
         )
 
-    @classmethod
-    def _send_request(
-        cls, url: str, method: str, payload: dict,
-        headers: Optional[dict] = None
-    ) -> Optional[Response]:
-        """
-        Meant to commence a request to a given url, by deriving a
-        proper delegated handler. Apart from that, catches any risen
-        request related exception.
-        :parameter url: str
-        :parameter method:str
-        :parameter payload: dict
-        :return: Union[Response, Type[None]]
-        """
-        _injectable_payload = cls._request_payload_injector(method, payload)
-        try:
-            _input = f'data - {_injectable_payload}'
-            if headers:
-                _input += f', headers: {headers}'
 
-            _LOG.debug(f'Going to send \'{method}\' request to \'{url}\''
-                       f' with the following {_input}.')
+class LicenseManagerClientLess2p7(LicenseManagerClientMain):
+    """
+    License manager client for <2.7.x version where check permissions
+    endpoint slightly differ
+    """
 
-            response = request(
-                url=url, method=method, headers=headers, **_injectable_payload
-            )
-            _LOG.debug(f'Response from {url}: {response}')
-            return response
-        except (RequestException, Exception) as e:
-            _LOG.error(f'Error occurred while executing request. Error: {e}')
-            return
+    def job_check_permission(self, customer: str,
+                             tenant: str,
+                             tenant_license_keys: List[str], auth: str
+                             ) -> bool:
+        host = self.host
+        if not host:
+            _LOG.error('CustodianLicenceManager access data has not been'
+                       ' provided.')
+            return False
 
-    @classmethod
-    def _request_payload_injector(cls, method: str, payload: dict):
-        _map = cls._define_method_injection_map(payload)
-        return _map.get(method, payload) if method in _map else None
+        return bool(self._send_request(
+            url=host.strip('/') + JOB_CHECK_PERMISSION_PATH,
+            method=HTTPMethod.POST,
+            payload={
+                CUSTOMER_ATTR: customer,
+                TENANT_ATTR: tenant,
+                TENANT_LICENSE_KEYS_ATTR: tenant_license_keys
+            },
+            headers={AUTHORIZATION_PARAM: auth}
+        ))
 
-    @staticmethod
-    def retrieve_json(response: Response) -> Union[Dict, Type[None]]:
-        _json = None
-        try:
-            _json = response.json()
-            _LOG.debug(f'JSON data has been decoded: {_json}.')
-        except JSONDecodeError as je:
-            _LOG.warning(f'JSON response from \'{response.url}\' not be '
-                         f'decoded. An exception has occurred: {je}')
-        return _json
 
-    @staticmethod
-    def _define_method_injection_map(payload):
-        json_payload = dict(json=payload)
-        return {POST_METHOD: json_payload, PATCH_METHOD: json_payload}
+class LicenseManagerClientFactory:
+    def __init__(self, settings_service: SettingsService):
+        self._settings_service = settings_service
+
+    def create(self) -> LicenseManagerClientInterface:
+        _LOG.info('Going to build license manager client')
+        ad = LMAccessData.from_dict(
+            self._settings_service.get_license_manager_access_data() or {}
+        )
+        ck = self._settings_service.get_license_manager_client_key_data() or {}
+
+        # todo implement a more smart dispatch if necessary
+        if not ad.api_version:
+            _LOG.info('No desired api version supplied. Using default')
+            return LicenseManagerClientMain(host=ad.url, client_key_data=ck)
+        if ad.api_version >= '2.7.0':
+            _LOG.info(f'Desired version is {ad.api_version}. '
+                      f'Using client for 2.7.0+')
+            return LicenseManagerClientMain(host=ad.url, client_key_data=ck)
+        # < 2.7.0
+        _LOG.info(f'Desired version is {ad.api_version}. '
+                  f'Using client for <2.7.0')
+        return LicenseManagerClientLess2p7(host=ad.url, client_key_data=ck)

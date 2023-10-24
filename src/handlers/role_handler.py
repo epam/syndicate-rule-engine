@@ -1,10 +1,10 @@
 from datetime import datetime
+from http import HTTPStatus
 from typing import Iterable
-from helpers import build_response, \
-    RESPONSE_RESOURCE_NOT_FOUND_CODE, RESPONSE_OK_CODE, RESPONSE_CONFLICT
+
+from helpers import build_response
 from helpers.constants import CUSTOMER_ATTR, NAME_ATTR, EXPIRATION_ATTR, \
-    POLICIES_ATTR, POLICIES_TO_ATTACH, POLICIES_TO_DETACH, \
-    GET_METHOD, POST_METHOD, PATCH_METHOD, DELETE_METHOD
+    POLICIES_ATTR, POLICIES_TO_ATTACH, POLICIES_TO_DETACH, HTTPMethod
 from helpers.log_helper import get_logger
 from helpers.system_customer import SYSTEM_CUSTOMER
 from helpers.time_helper import utc_iso
@@ -18,19 +18,19 @@ class RoleHandler:
     Manage Role API
     """
 
-    def __init__(self,cached_iam_service: CachedIamService):
+    def __init__(self, cached_iam_service: CachedIamService):
         self._iam_service = cached_iam_service
 
     def define_action_mapping(self):
         return {
             '/roles': {
-                GET_METHOD: self.get_role,
-                POST_METHOD: self.create_role,
-                PATCH_METHOD: self.update_role,
-                DELETE_METHOD: self.delete_role,
+                HTTPMethod.GET: self.get_role,
+                HTTPMethod.POST: self.create_role,
+                HTTPMethod.PATCH: self.update_role,
+                HTTPMethod.DELETE: self.delete_role,
             },
             '/roles/cache': {
-                DELETE_METHOD: self.delete_role_cache
+                HTTPMethod.DELETE: self.delete_role_cache
             },
         }
 
@@ -53,7 +53,7 @@ class RoleHandler:
         existing = self._iam_service.get_role(customer, name)
         if existing:
             return build_response(
-                code=RESPONSE_CONFLICT,
+                code=HTTPStatus.CONFLICT,
                 content=f'Role with name {name} already exists'
             )
         self.ensure_policies_exist(customer, policies)
@@ -71,7 +71,7 @@ class RoleHandler:
             item = self._iam_service.get_policy(customer, name)
             if not item:
                 return build_response(
-                    code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                    code=HTTPStatus.NOT_FOUND,
                     content=f'Policy \'{name}\' not found'
                 )
 
@@ -86,7 +86,7 @@ class RoleHandler:
         role = self._iam_service.get_role(customer, name)
         if not role:
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=f'Role with name {name} already not found'
             )
         self.ensure_policies_exist(customer, to_attach)
@@ -101,7 +101,7 @@ class RoleHandler:
         self._iam_service.save(role)
 
         return build_response(
-            code=RESPONSE_OK_CODE,
+            code=HTTPStatus.OK,
             content=self._iam_service.get_dto(role)
         )
 

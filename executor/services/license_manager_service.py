@@ -1,14 +1,14 @@
+from datetime import timedelta
+from http import HTTPStatus
 from typing import List, Dict, Optional
 
-from helpers.constants import RESPONSE_OK_CODE, RULESET_CONTENT_ATTR, \
+from helpers.constants import RULESET_CONTENT_ATTR, \
     READY_TO_SCAN_CODE, ITEMS_PARAM, MESSAGE_PARAM, CLIENT_TOKEN_ATTR, \
-    KID_ATTR, ALG_ATTR, RESPONSE_FORBIDDEN_CODE,\
-    RESPONSE_RESOURCE_NOT_FOUND_CODE
+    KID_ATTR, ALG_ATTR, JobState
 from helpers.log_helper import get_logger
+from helpers.time_helper import utc_datetime
 from services.clients.license_manager import LicenseManagerClient
 from services.token_service import TokenService
-from helpers.time_helper import utc_datetime
-from datetime import timedelta
 
 _LOG = get_logger(__name__)
 
@@ -26,8 +26,8 @@ class BalanceExhaustion(Exception):
 
 class InaccessibleAssets(Exception):
     def __init__(
-        self, message: str, assets: Dict[str, List[str]],
-        hr_sep: str, ei_sep: str, i_sep: str, i_wrap: Optional[str] = None
+            self, message: str, assets: Dict[str, List[str]],
+            hr_sep: str, ei_sep: str, i_sep: str, i_wrap: Optional[str] = None
     ):
         self._assets = self._dissect(
             message=message, assets=assets, hr_sep=hr_sep, ei_sep=ei_sep,
@@ -36,8 +36,8 @@ class InaccessibleAssets(Exception):
 
     @staticmethod
     def _dissect(
-        message: str, assets: Dict[str, List[str]],
-        hr_sep: str, ei_sep: str, i_sep: str, i_wrap: Optional[str] = None
+            message: str, assets: Dict[str, List[str]],
+            hr_sep: str, ei_sep: str, i_sep: str, i_wrap: Optional[str] = None
     ):
         """
         Dissects License Manager response of entity(ies)-not-found message.
@@ -60,7 +60,7 @@ class InaccessibleAssets(Exception):
 
         entity, *ids = head.split(ei_sep, maxsplit=1)
         ids = ids[0] if len(ids) == 1 else ''
-        if 's' in entity and entity.index('s') == len(entity)-1:
+        if 's' in entity and entity.index('s') == len(entity) - 1:
             ids = ids.split(i_sep)
 
         ids = [each.strip(i_wrap or '') for each in ids.split(i_sep)]
@@ -80,7 +80,7 @@ class InaccessibleAssets(Exception):
 
         if len(self._assets) > 1:
             head += 's'
-        scope = ', ' .join(f'"{each}"' for each in self._assets)
+        scope = ', '.join(f'"{each}"' for each in self._assets)
         reason = 'are' if len(self._assets) > 1 else 'is'
         reason += ' no longer accessible'
         return f'{head}:{scope} - {reason}.'
@@ -92,16 +92,16 @@ class InaccessibleAssets(Exception):
 class LicenseManagerService:
 
     def __init__(
-        self, license_manager_client: LicenseManagerClient,
-        token_service: TokenService
+            self, license_manager_client: LicenseManagerClient,
+            token_service: TokenService
     ):
         self.license_manager_client = license_manager_client
         self.token_service = token_service
 
     def update_job_in_license_manager(
-        self, job_id: str, created_at: str = None, started_at: str = None,
-        stopped_at: str = None, status: str = None, expires: dict = None
-    ):
+            self, job_id: str, created_at: str = None, started_at: str = None,
+            stopped_at: str = None, status: JobState = None,
+            expires: dict = None):
 
         auth = self._get_client_token(expires or dict(hours=1))
         if not auth:
@@ -113,13 +113,13 @@ class LicenseManagerService:
             stopped_at=stopped_at, status=status, auth=auth
         )
 
-        if response and response.status_code == RESPONSE_OK_CODE:
+        if response and response.status_code == HTTPStatus.OK.value:
             return self.license_manager_client.retrieve_json(response)
         return
 
     def instantiate_licensed_job_dto(
-        self, job_id: str, customer: str, tenant: str,
-        ruleset_map: Dict[str, List[str]], expires: dict = None
+            self, job_id: str, customer: str, tenant: str,
+            ruleset_map: Dict[str, List[str]], expires: dict = None
     ):
         """
         Mandates licensed Job data transfer object retrieval,
@@ -149,7 +149,7 @@ class LicenseManagerService:
             return
 
         decoded = self.license_manager_client.retrieve_json(response) or {}
-        if response.status_code == RESPONSE_OK_CODE:
+        if response.status_code == HTTPStatus.OK.value:
             items = decoded.get(ITEMS_PARAM, [])
             if len(items) != 1:
                 _LOG.warning(f'Unexpected License Manager response: {items}.')
@@ -160,12 +160,12 @@ class LicenseManagerService:
 
         else:
             message = decoded.get(MESSAGE_PARAM)
-            if response.status_code == RESPONSE_RESOURCE_NOT_FOUND_CODE:
+            if response.status_code == HTTPStatus.NOT_FOUND.value:
                 raise InaccessibleAssets(
                     message=message, assets=ruleset_map,
                     hr_sep='-', ei_sep=':', i_sep=', ', i_wrap='\''
                 )
-            elif response.status_code == RESPONSE_FORBIDDEN_CODE:
+            elif response.status_code == HTTPStatus.FORBIDDEN.value:
                 raise BalanceExhaustion(message)
 
     def instantiate_job_sourced_ruleset_list(self, licensed_job_dto: dict):

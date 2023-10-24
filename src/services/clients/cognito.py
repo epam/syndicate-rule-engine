@@ -1,18 +1,18 @@
+from http import HTTPStatus
 from typing import Optional, Union
 
 import boto3
 
 from connections.auth_extension.base_auth_client import BaseAuthClient
-from helpers import CustodianException, RESPONSE_INTERNAL_SERVER_ERROR
-from helpers.log_helper import get_logger
-from helpers.time_helper import utc_iso, utc_datetime
-from services.environment_service import EnvironmentService
-from helpers.system_customer import SYSTEM_CUSTOMER
+from helpers import CustodianException
 from helpers.constants import CUSTOM_CUSTOMER_ATTR, CUSTOM_ROLE_ATTR, \
     CUSTOM_TENANTS_ATTR, CUSTOM_LATEST_LOGIN_ATTR
+from helpers.log_helper import get_logger
+from helpers.system_customer import SYSTEM_CUSTOMER
+from helpers.time_helper import utc_iso, utc_datetime
+from services.environment_service import EnvironmentService
 
 _LOG = get_logger(__name__)
-
 
 PARAM_USER_POOLS = 'UserPools'
 
@@ -48,7 +48,7 @@ class CognitoClient(BaseAuthClient):
                            'not configured properly.'
                 _LOG.error(f'User pool \'{self.user_pool_name}\' does '
                            f'not exists. {_message}')
-                raise CustodianException(code=RESPONSE_INTERNAL_SERVER_ERROR,
+                raise CustodianException(code=HTTPStatus.INTERNAL_SERVER_ERROR,
                                          content=_message)
             self._user_pool_id = _id
         return self._user_pool_id
@@ -63,7 +63,7 @@ class CognitoClient(BaseAuthClient):
                            'configured properly: no client applications found'
                 _LOG.error(_message)
                 raise CustodianException(
-                    code=RESPONSE_INTERNAL_SERVER_ERROR,
+                    code=HTTPStatus.INTERNAL_SERVER_ERROR,
                     content=_message)
             self._client_id = client[0]['ClientId']
         return self._client_id

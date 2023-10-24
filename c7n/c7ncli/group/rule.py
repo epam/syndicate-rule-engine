@@ -4,9 +4,8 @@ from c7ncli.group import cli_response, ViewCommand, response, ContextObj, \
     customer_option, build_rule_source_id_option
 from c7ncli.group import limit_option, next_option
 from c7ncli.service.constants import PARAM_NAME, PARAM_VERSION, PARAM_ID, \
-    PARAM_CLOUD, PARAM_DESCRIPTION, PARAM_UPDATED_DATE, AVAILABLE_CLOUDS, \
-    PARAM_SERVICE_SECTION
-from typing import Optional
+    PARAM_CLOUD, PARAM_DESCRIPTION, PARAM_UPDATED_DATE, \
+    PARAM_SERVICE_SECTION, RULE_CLOUDS
 
 
 @click.group(name='rule')
@@ -17,7 +16,7 @@ def rule():
 @rule.command(cls=ViewCommand, name='describe')
 @click.option('--rule_name', '-r', type=str, required=False,
               help='Rule id to describe')
-@click.option('--cloud', '-c', type=click.Choice(AVAILABLE_CLOUDS),
+@click.option('--cloud', '-c', type=click.Choice(RULE_CLOUDS),
               required=False,
               help='Display only rules of specific cloud.')
 @click.option('--git_project_id', '-pid', required=False, type=str,
@@ -67,7 +66,7 @@ def update(ctx: ContextObj, rule_source_id, customer_id):
 @rule.command(cls=ViewCommand, name='delete')
 @click.option('--rule_name', '-r', type=str, required=False,
               help='Rule id to delete')
-@click.option('--cloud', '-c', type=click.Choice(AVAILABLE_CLOUDS),
+@click.option('--cloud', '-c', type=click.Choice(RULE_CLOUDS),
               required=False,
               help='Delete only rules of specific cloud.')
 @click.option('--git_project_id', '-pid', required=False, type=str,

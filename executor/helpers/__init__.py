@@ -1,6 +1,7 @@
+import re
 from functools import reduce
 from itertools import islice
-from typing import Union, Generator, Iterable, List
+from typing import Union, Generator, Iterable, List, Optional, Any
 
 
 def filter_dict(d: dict, keys: set) -> dict:
@@ -62,3 +63,37 @@ class SingletonMeta(type):
             instance = super().__call__(*args, **kwargs)
             cls._instances[cls] = instance
         return cls._instances[cls]
+
+
+JSON_PATH_LIST_INDEXES = re.compile(r'\w*\[(-?\d+)\]')
+
+
+def json_path_get(d: Union[dict, list], path: Optional[str] = None) -> Any:
+    """
+    Simple json paths with only basic operations supported
+    >>> json_path_get({'a': 'b', 'c': [1,2,3, [{'b': 'c'}]]}, 'c[-1][0].b')
+    'c'
+    >>> json_path_get([-1, {'one': 'two'}], 'c[-1][0].b') is None
+    True
+    >>> json_path_get([-1, {'one': 'two'}], '[-1].one')
+    'two'
+    """
+    if path.startswith('$'):
+        path = path[1:]
+    if path.startswith('.'):
+        path = path[1:]
+    parts = path.split('.')
+
+    item = d
+    for part in parts:
+        try:
+            _key = part.split('[')[0]
+            _indexes = re.findall(JSON_PATH_LIST_INDEXES, part)
+            if _key:
+                item = item.get(_key)
+            for i in _indexes:
+                item = item[int(i)]
+        except (IndexError, TypeError, AttributeError):
+            item = None
+            break
+    return item

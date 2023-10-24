@@ -14,9 +14,11 @@ Exit codes:
 - 126: Job is event-driven and cannot be executed in consequence of invalid
   credentials or conceivably some other temporal reason. Retry is allowed.
 """
+import gzip
+import io
 import json
 import os
-import subprocess
+import shutil
 import sys
 import threading
 import traceback
@@ -33,40 +35,46 @@ from c7n.config import Config
 from c7n.policy import Policy
 from google.auth.exceptions import GoogleAuthError
 from googleapiclient.errors import HttpError
-from modular_sdk.commons.constants import \
-    TENANT_PARENT_MAP_CUSTODIAN_LICENSES_TYPE, \
-    TENANT_PARENT_MAP_CUSTODIAN_ACCESS_TYPE
+from modular_sdk.commons.constants import ENV_KUBECONFIG, ParentType, \
+    ApplicationType
+from modular_sdk.models.parent import Parent
+from modular_sdk.models.customer import Customer
+
+from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.environment_service import EnvironmentContext
+from modular_sdk.services.impl.maestro_credentials_service import \
+    K8SServiceAccountCredentials, K8SServiceAccountApplicationMeta
 from msrestazure.azure_exceptions import CloudError
 
 from helpers.constants import *
 from helpers.exception import ExecutorException
 from helpers.log_helper import get_logger
+from helpers.profiling import xray_recorder as _XRAY, BytesEmitter
 from helpers.time_helper import utc_datetime, utc_iso
-from helpers.timeit import timeit
 from integrations.security_hub.dump_findings_policy import DumpFindingsPolicy
 from models.batch_results import BatchResults
 from models.job import Job
 from models.modular.application import CustodianLicensesApplicationMeta
-from models.modular.customer import Customer
 from models.modular.parents import ParentMeta
-from models.modular.tenants import Tenant
-from services import SERVICE_PROVIDER as SP
+from services import SP
 from services.batch_service import BatchService
+from services.clients import Boto3ClientFactory
+from services.clients.eks_client import EKSClient
+from services.clients.sts import TokenGenerator
 from services.credentials_service import CredentialsService
 from services.environment_service import EnvironmentService
 from services.integration_service import IntegrationService
-from services.job_updater_service import JobUpdaterService
+from services.job_updater_service import JobUpdaterService, \
+    TenantSettingJobLock
 from services.license_manager_service import LicenseManagerService, \
     BalanceExhaustion, InaccessibleAssets
 from services.modular_service import ModularService
 from services.modular_service import TenantService
 from services.notification_service import NotificationService
-from services.os_service import OSService
 from services.policy_service import PolicyService
 from services.report_service import FindingsCollection, DETAILED_REPORT_FILE, \
     REPORT_FILE, DIFFERENCE_FILE
-from services.report_service import ReportService
+from services.report_service import ReportService, JobResult
 from services.ruleset_service import RulesetService
 from services.s3_service import S3Service
 from services.scheduler_service import SchedulerService
@@ -78,7 +86,6 @@ from services.statistics_service import StatisticsService, \
 environment_service: Optional[EnvironmentService] = None
 ssm_service: Optional[SSMService] = None
 credentials_service: Optional[CredentialsService] = None
-os_service: Optional[OSService] = None
 policy_service: Optional[PolicyService] = None
 ruleset_service: Optional[RulesetService] = None
 s3_service: Optional[S3Service] = None
@@ -94,7 +101,7 @@ setting_service: Optional[SettingService] = None
 notification_service: Optional[NotificationService] = None
 integration_service: Optional[IntegrationService] = None
 SERVICES = {'environment_service', 'ssm_service', 'credentials_service',
-            'os_service', 'policy_service', 'ruleset_service', 's3_service',
+            'policy_service', 'ruleset_service', 's3_service',
             'batch_service', 'report_service', 'statistics_service',
             'job_updater_service',
             'notification_service', 'license_manager_service',
@@ -103,6 +110,7 @@ SERVICES = {'environment_service', 'ssm_service', 'credentials_service',
             'integration_service'}
 
 _LOG = get_logger(__name__)
+CACHE_FILE = 'cloud-custodian.cache'
 
 
 def init_services(services: Optional[set] = None):
@@ -130,7 +138,8 @@ WORK_DIR: Optional[str] = None
 CLOUD_COMMON_REGION = {
     AWS: environment_service.aws_default_region(),
     AZURE: AZURE_COMMON_REGION,
-    GOOGLE: GCP_COMMON_REGION
+    GOOGLE: GCP_COMMON_REGION,
+    KUBERNETES: None
 }
 ERROR_WHILE_LOADING_POLICIES_MESSAGE = 'unexpected error occurred while ' \
                                        'loading policies files: {policies}'
@@ -324,12 +333,27 @@ class GCPRunner(Runner):
             self._add_failed_item(region, name, error)
 
 
+class K8SRunner(Runner):
+    @property
+    def cloud(self) -> str:
+        return KUBERNETES
+
+    def _handle_errors(self, policy: Policy, future: Future = None):
+        name, region = policy.name, self.get_policy_region(policy)
+        try:
+            future.result() if future else self._call_policy(policy)
+        except Exception as error:
+            _LOG.error(f'Policy \'{name}\' has failed. Unexpected '
+                       f'error has occurred: \'{error}\'')
+            self._add_failed_item(region, name, error)
+
+
 class Scan:
     def __init__(self, policies_files: list, cloud: str,
-                 work_dir: str = None, findings_dir: str = None,
+                 work_dir: str, findings_dir: str = None,
                  cache_period: int = 30):
         self._job_id = environment_service.batch_job_id()
-        self._work_dir = work_dir or os_service.create_workdir(self._job_id)
+        self._work_dir = work_dir
         self._policies_files = policies_files
         self._cloud = cloud
         self._cache_period = cache_period
@@ -356,6 +380,7 @@ class Scan:
                 _LOG.warning(_message[0].upper() + _message[1:] + f'; {error}')
         return _all_policies
 
+    @_XRAY.capture('Load policies files')
     @staticmethod
     def _load_policies(config: Config) -> List[Policy]:
         _LOG.info('Loading all the policies files at once')
@@ -475,7 +500,8 @@ class Scan:
             _cloud_to_runner_class = {
                 AWS: AWSRunner,
                 AZURE: AZURERunner,
-                GOOGLE: GCPRunner
+                GOOGLE: GCPRunner,
+                KUBERNETES: K8SRunner
             }
             runner_class = _cloud_to_runner_class.get(self._cloud)
             self._runner = runner_class(
@@ -486,18 +512,9 @@ class Scan:
     @property
     def regions(self) -> list:
         regions = environment_service.target_regions()
-        _LOG.debug(f'Regions to scan before making changes: {regions}')
-        if self._cloud == GOOGLE:
-            # apparently, there is no difference what region(s) we set here :)
-            regions = []
-        elif self._cloud == AZURE:
-            # the same thing :)
-            regions = []
-            # later the whole report will be restricted to only those regions
-            # that are activated by user. They are
-            # in environment_service.target_regions()
-        _LOG.debug(f'Regions to scan after making changes: {regions}')
-        return regions
+        if self._cloud == AWS:
+            return regions
+        return []  # GOOGLE, AZURE, KUBERNETES
 
     def _output_dir(self, region: str = None) -> str:
         """
@@ -509,7 +526,7 @@ class Scan:
         options = {
             'region': CLOUD_COMMON_REGION.get(self._cloud),
             'regions': regions or self.regions,
-            'cache': 'cloud-custodian.cache',
+            'cache': CACHE_FILE,
             'cache_period': self._cache_period,
             'command': 'c7n.commands.run',
             'config': None,
@@ -526,7 +543,7 @@ class Scan:
         }
         return Config.empty(**options)
 
-    @timeit
+    @_XRAY.capture('Execute scan')
     def execute(self) -> Tuple[Dict, Dict]:
         is_concurrent = environment_service.is_concurrent()
         _LOG.info(f'Starting {"concurrent" if is_concurrent else ""} '
@@ -632,19 +649,7 @@ def fetch_licensed_ruleset_list(tenant: Tenant, licensed: dict):
     )
 
 
-def log_requirements():
-    """
-    Logs all the installed requirements. Can be useful for debug
-    """
-    p = subprocess.run('pip freeze'.split(), capture_output=True)
-    if p.returncode == 0:
-        _LOG.debug('Installed requirements: ')
-        _LOG.debug(p.stdout.decode())
-
-
-# just common hunks of code for scan flows (three functions below)
-
-
+@_XRAY.capture('Fetch licensed ruleset')
 def get_licensed_ruleset_dto_list(tenant: Tenant) -> list:
     """
     Preliminary step, given an affected license and respective ruleset(s)
@@ -661,6 +666,7 @@ def get_licensed_ruleset_dto_list(tenant: Tenant) -> list:
     return licensed_ruleset_dto_list
 
 
+@_XRAY.capture('Upload to SIEM')
 def upload_to_siem(tenant: Tenant, started_at: str,
                    detailed_report: Dict[str, List[Dict]],
                    findings_dir: str, job_id: str):
@@ -694,8 +700,9 @@ def upload_to_siem(tenant: Tenant, started_at: str,
                 f'Unexpected error occurred pushing findings to SH {e}')
 
 
+@_XRAY.capture('Generate reports')
 def load_reports(work_dir: str, skipped_policies: dict,
-                 failed_policies: dict, tenant: Tenant
+                 failed_policies: dict, tenant: Tenant, cloud: str
                  ) -> Tuple[Dict, Dict, Dict, Dict]:
     """
     Just common hunk of code. Maybe someday it will be refactored
@@ -703,36 +710,18 @@ def load_reports(work_dir: str, skipped_policies: dict,
     :param work_dir:
     :param skipped_policies:
     :param failed_policies:ram cloud:
+    :param cloud
     :return:
     """
-    cloud = tenant.cloud
     statistics, api_calls = statistics_service.collect_statistics(
         work_dir=work_dir,
         failed_policies=failed_policies,
         skipped_policies=skipped_policies,
         tenant=tenant
     )
-    raw_detailed_report = report_service.generate_detailed_report(
-        work_dir=work_dir
-    )
-    if cloud == AZURE:
-        raw_detailed_report[MULTIREGION] = raw_detailed_report.pop(
-            AZURE_COMMON_REGION)
-        # ----- this code can be commented -----
-        raw_detailed_report = report_service.reformat_azure_report(
-            detailed_report=raw_detailed_report,
-            target_regions=set(environment_service.target_regions())
-            # TODO get target regions from BatchResult for ED jobs?
-        )
-        # ----- this code can be commented -----
-
-    _LOG.debug('Reformatting detailed report')
-    detailed_report = report_service.format_detailed_report(
-        detailed_report=raw_detailed_report,
-        cloud_name=cloud
-    )
-    report = report_service.generate_report(
-        detailed_report=raw_detailed_report)
+    res = JobResult(work_dir, cloud)
+    detailed_report = res.detailed_report()
+    report = res.digest_report(detailed_report)
     return report, detailed_report, statistics, api_calls
 
 
@@ -746,7 +735,7 @@ def retrieve_batch_result(br_uuid: str) -> BatchResults:
             reason=f'BatchResults item with id {br_uuid} not found '
                    f'for the event-driven job'
         )
-    elif _batch_results.status == STATUS_SUCCEEDED:
+    elif _batch_results.status == JobState.SUCCEEDED.value:
         raise ExecutorException(
             step_name=STEP_BATCH_RESULT_ALREADY_SUCCEEDED,
             reason=f'BatchResults item with id {br_uuid} has status `SUCCEEDED`'
@@ -754,15 +743,16 @@ def retrieve_batch_result(br_uuid: str) -> BatchResults:
     return _batch_results
 
 
+@_XRAY.capture('Get credentials')
 def get_credentials(tenant: Tenant,
                     batch_results: Optional[BatchResults] = None) -> dict:
     """
     Tries to retrieve credentials to scan the given tenant with such
     priorities:
-    1. env "CREDENTIALS_KEY" - gets key name and then gets credentials from SSM.
-       This is the oldest solution, in can sometimes be used if the job is
-       standard and a user has given credentials directly; The SSM parameter
-       is removed after the creds are received.
+    1. env "CREDENTIALS_KEY" - gets key name and then gets credentials
+       from SSM. This is the oldest solution, in can sometimes be used if
+       the job is standard and a user has given credentials directly;
+       The SSM parameter is removed after the creds are received.
     2. Only for event-driven jobs. Gets credentials_key (SSM parameter name)
        from "batch_result.credentials_key". Currently, the option is obsolete.
        API in no way will set credentials key there. But maybe some time...
@@ -803,7 +793,7 @@ def get_credentials(tenant: Tenant,
     if not credentials:
         _LOG.info(_log_start + '`CUSTODIAN_ACCESS` parent')
         application = modular_service.get_tenant_application(
-            tenant, TENANT_PARENT_MAP_CUSTODIAN_ACCESS_TYPE
+            tenant, ParentType.CUSTODIAN_ACCESS
         )
         if application:
             _creds = mcs.get_by_application(application, tenant)
@@ -813,7 +803,7 @@ def get_credentials(tenant: Tenant,
     if not credentials:
         _LOG.info(_log_start + 'customer`s access_application_id for cloud')
         application = modular_service.get_tenant_application(
-            tenant, TENANT_PARENT_MAP_CUSTODIAN_LICENSES_TYPE
+            tenant, ParentType.CUSTODIAN_LICENSES
         )
         if application:
             assert application.type == CUSTODIAN_LICENSES_TYPE, \
@@ -847,6 +837,54 @@ def get_credentials(tenant: Tenant,
     return credentials
 
 
+def get_platform_credentials(platform: Parent) -> dict:
+    """
+    Credentials for platform (k8s) only. This should be refactored somehow
+    :param platform:
+    :return:
+    """
+    mcs = modular_service.modular_client.maestro_credentials_service()
+    app = modular_service.get_application(platform.application_id)
+    _eks = app.type == ApplicationType.AWS_CREDENTIALS or app.type == ApplicationType.AWS_ROLE
+    token = credentials_service.get_credentials_from_ssm()
+    if token and app.type == ApplicationType.K8S_SERVICE_ACCOUNT:
+        meta = K8SServiceAccountApplicationMeta.from_dict(app.meta.as_dict())
+        creds = K8SServiceAccountCredentials(
+            endpoint=meta.endpoint, ca=meta.ca, token=token
+        )
+        return {ENV_KUBECONFIG: str(creds.save())}
+    elif token and _eks:
+        pass
+    elif app.type == ApplicationType.K8S_SERVICE_ACCOUNT:
+        return {ENV_KUBECONFIG: str(mcs.get_by_application(app).save())}
+    elif _eks:
+        mcs = modular_service.modular_client.maestro_credentials_service()
+        creds = mcs.get_by_application(platform.application_id)
+        name, region = platform.meta['name'], platform.meta['region']
+        cluster = EKSClient.factory().from_keys(
+            aws_access_key_id=creds.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=creds.AWS_SECRET_ACCESS_KEY,
+            region_name=platform.meta['region']
+        ).describe_cluster(name)
+        if not cluster:
+            _LOG.error(f'No cluster with name: {name} in region: {region}')
+            return {}
+        sts = Boto3ClientFactory('sts').from_keys(
+            aws_access_key_id=creds.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=creds.AWS_SECRET_ACCESS_KEY,
+            aws_session_token=creds.AWS_SESSION_TOKEN,
+            region_name=AWS_DEFAULT_REGION
+        )
+        creds = K8SServiceAccountCredentials(
+            endpoint=cluster['endpoint'],
+            ca=cluster['certificateAuthority']['data'],
+            token=TokenGenerator(sts).get_token(name)
+        )
+        return {ENV_KUBECONFIG: str(creds.save())}
+    return {}
+
+
+@_XRAY.capture('Get rules to exclude')
 def get_rules_to_exclude(tenant: Tenant) -> Set[str]:
     """
     Returns a set of rules to exclude for the given tenant.
@@ -860,8 +898,8 @@ def get_rules_to_exclude(tenant: Tenant) -> Set[str]:
         exclude.update(
             tenant_setting.value.as_dict().get(RULES_TO_EXCLUDE) or []
         )
-    parent = modular_service.get_tenant_parent(
-        tenant, TENANT_PARENT_MAP_CUSTODIAN_LICENSES_TYPE
+    parent = modular_service.modular_client.parent_service().get_linked_parent_by_tenant(  # noqa
+        tenant=tenant, type_=ParentType.CUSTODIAN_LICENSES
     )
     if parent:
         meta = ParentMeta.from_dict(parent.meta.as_dict())
@@ -869,7 +907,10 @@ def get_rules_to_exclude(tenant: Tenant) -> Set[str]:
     return exclude
 
 
+@_XRAY.capture('Batch results job')
 def batch_results_job(batch_results: BatchResults):
+    _XRAY.put_annotation('batch_results_id', batch_results.id)
+
     started_at = utc_iso()
     work_dir = Path(WORK_DIR, batch_results.id)
     work_dir.mkdir(parents=True, exist_ok=True)
@@ -904,15 +945,14 @@ def batch_results_job(batch_results: BatchResults):
         skipped_policies, failed_policies = scan.execute()
 
     report, detailed_report, statistics, api_calls = load_reports(
-        str(work_dir), skipped_policies, failed_policies, tenant
+        str(work_dir), skipped_policies, failed_policies, tenant, cloud
     )
     _LOG.debug('Preparing a user detailed report.')
-    findings_stash_path = str(PurePosixPath(
-        FINDINGS_FOLDER, utc_datetime().date().isoformat(),
-        f'{tenant.project}.json'))
+    findings_path = report_service.tenant_findings_path(tenant)
     saved_findings = s3_service.get_json_file_content(
         bucket_name=environment_service.statistics_bucket_name(),
-        path=str(findings_stash_path))
+        path=findings_path
+    )
     received_findings = FindingsCollection.from_detailed_report(
         detailed_report)
 
@@ -927,55 +967,46 @@ def batch_results_job(batch_results: BatchResults):
     _LOG.debug('Retrieving difference between received and saved findings')
     difference: FindingsCollection = received_findings - saved_findings
     _LOG.debug(f'Difference received with {len(difference)} items')
-    # if 'standard_points' in difference.keys_to_keep:
-    #     difference.keys_to_keep.remove('standard_points')
     _LOG.debug('Updating the existing findings with the received ones')
     saved_findings.update(received_findings)
 
-    _LOG.debug('------------ Uploading to S3 block begins ------------')
-    # force 10 workers because the used node has 1 vCPU, but we need
-    # more of them in order to upload multiple files concurrently
     executor = ThreadPoolExecutor(max_workers=10)
-    _LOG.debug(f'ThreadPoolExecutor for uploading s3 files was created. '
-               f'Number of workers: {executor._max_workers}')
     statistics_b = environment_service.statistics_bucket_name()
     reports_b = environment_service.reports_bucket_name()
     _LOG.debug(f'Statistics bucket: {statistics_b}\n'
                f'Reports bucket: {reports_b}')
-    _upload = s3_service.client.put_object
+
+    def _upload(bucket, key, body, trace):
+        _XRAY.set_trace_entity(trace)
+        s3_service.client.put_object(bucket, key, body)
+        _XRAY.clear_trace_entities()
+
     _path = lambda *_files: str(PurePosixPath(batch_results.id, *_files))
 
     _LOG.debug('Submitting thread pool executor jobs')
-    executor.submit(_upload, statistics_b, findings_stash_path,
-                    saved_findings.json())
+    current_trace = _XRAY.get_trace_entity()
+    executor.submit(_upload, statistics_b, findings_path,
+                    saved_findings.json(), current_trace)
     executor.submit(_upload, reports_b, _path(DETAILED_REPORT_FILE),
-                    json.dumps(detailed_report, separators=(',', ':')))
+                    json.dumps(detailed_report, separators=(',', ':')),
+                    current_trace)
     executor.submit(_upload, reports_b, _path(DIFFERENCE_FILE),
-                    difference.json())
+                    difference.json(), current_trace)
     executor.submit(_upload, reports_b, _path(REPORT_FILE),
-                    json.dumps(report, separators=(',', ':')))
+                    json.dumps(report, separators=(',', ':')),
+                    current_trace)
     executor.submit(_upload, statistics_b, _path(STATISTICS_FILE),
-                    json.dumps(statistics, separators=(',', ':')))
+                    json.dumps(statistics, separators=(',', ':')),
+                    current_trace)
     executor.submit(_upload, statistics_b, _path(API_CALLS_FILE),
-                    json.dumps(api_calls, separators=(',', ':')))
-    for root, dirs, files in os.walk(findings_dir):
-        for file in files:
-            full_path = Path(root, file)
-            with open(full_path, 'r') as obj:
-                body = obj.read()
-            relative_path = full_path.relative_to(findings_dir)
-            executor.submit(_upload, reports_b,
-                            _path(FINDINGS_FOLDER, relative_path), body)
+                    json.dumps(api_calls, separators=(',', ':')),
+                    current_trace)
     _LOG.info('All "upload to s3" threads were submitted. Moving on '
               'keeping the executor open. We will wait for '
               'it to finish in the end')
-    _LOG.debug('------------ Uploading to S3 block ends ------------')
-    _LOG.debug('------------ Uploading to SIEMs block begins ------------')
     upload_to_siem(
         tenant, started_at, detailed_report, findings_dir, batch_results.id
     )
-    _LOG.debug('------------ Uploading to SIEMs block ends ------------')
-
     _LOG.debug('Waiting for "upload to S3" executor to finish')
     executor.shutdown(wait=True)
     _LOG.debug('Executor was shutdown')
@@ -993,28 +1024,31 @@ def multi_account_event_driven_job() -> int:
             batch_results.rules = {}  # in order to reduce the size of the item
             batch_results.rulesets = []
             batch_results.credentials_key = None
-            batch_results.status = STATUS_SUCCEEDED  # is set in job-updater
+            batch_results.status = JobState.SUCCEEDED.value  # is set in job-updater
         except ExecutorException as ex_exception:
             _LOG.error(f'An error \'{ex_exception}\' occurred during the job. '
                        f'Setting job failure reason.')
             if isinstance(batch_results, BatchResults):  # may be none
-                batch_results.status = STATUS_FAILED
+                batch_results.status = JobState.FAILED.value
                 batch_results.reason = _exception_to_str(ex_exception)
         except Exception as exception:
             _LOG.error(f'An unexpected error \'{exception}\' occurred during '
                        f'the job. Setting job failure reason.')
             if isinstance(batch_results, BatchResults):
-                batch_results.status = STATUS_FAILED
+                batch_results.status = JobState.FAILED.value
                 batch_results.reason = _exception_to_str(exception)
         if isinstance(batch_results, BatchResults):
             _LOG.info('Saving batch results item')
             batch_results.stopped_at = utc_iso()
             batch_results.save()
     if environment_service.is_docker() and WORK_DIR:
-        os_service.clean_workdir(work_dir=WORK_DIR)
+        shutil.rmtree(WORK_DIR, ignore_errors=True)
+        _LOG.debug(f'Workdir for {WORK_DIR} successfully cleaned')
+    Path(CACHE_FILE).unlink(missing_ok=True)
     return 0
 
 
+@_XRAY.capture('Standard job')
 def standard_job() -> int:
     work_dir = WORK_DIR
     exit_code: int = 0
@@ -1023,18 +1057,29 @@ def standard_job() -> int:
         job_updater_service.set_created_at()
 
         _tenant: Tenant = tenant_service.get_tenant()
-        _cloud: str = _tenant.cloud.upper()
+        platform = None
+        _cloud: str  # not cloud but rather domain
+        if environment_service.platform_id():  # platform scan
+            platform = modular_service.modular_client.parent_service(). \
+                get_parent_by_id(environment_service.platform_id())
+            if platform.type == ParentType.PLATFORM_K8S:
+                _cloud = KUBERNETES
+            else:
+                raise RuntimeError('Something is wrong. Not supported '
+                                   'platform type')
+        else:  # tenant scan
+            _cloud: str = _tenant.cloud.upper()
         _job: Job = job_updater_service.job
         _LOG.info(
-            f'{environment_service.job_type().capitalize()} job \'{_job.job_id}\' has started;\n'
-            f'Cloud: \'{_cloud.upper()}\';\n'
+            f'{environment_service.job_type().capitalize()} job '
+            f'\'{_job.job_id}\' has started;\n'
+            f'Cloud: \'{_cloud}\';\n'
             f'Tenant: \'{_tenant.name}\';\n'
-            f'Current custodian custom core version: '
-            f'\'{environment_service.current_custom_core_version()}\';\n'
-            f'Minimum custodian custom core version: '
-            f'\'{environment_service.min_custom_core_version()}\';')
+            f'Platform: \'{platform.parent_id if platform else "-"}\';')
         _LOG.debug(f'Entire sys.argv: {sys.argv}\n'
                    f'Environment: {environment_service}')
+        _XRAY.put_annotation('tenant_name', _tenant.name)
+        _XRAY.put_metadata('cloud', _cloud)
 
         job_updater_service.set_started_at()
 
@@ -1043,11 +1088,16 @@ def standard_job() -> int:
             r.get_json() for r in ruleset_service.target_rulesets())
 
         job_updater_service.update_scheduled_job()
-        credentials = get_credentials(_tenant)
+
+        if platform:
+            credentials = get_platform_credentials(platform)
+        else:
+            credentials = get_credentials(_tenant)
         if not credentials:
             raise ExecutorException(
                 step_name=STEP_ASSERT_CREDENTIALS,
-                reason=f'Could not resolve credentials for account: {_tenant.project}'
+                reason=f'Could not resolve credentials for account: '
+                       f'{_tenant.project}'
             )
         policies_files = policy_service.get_policies(
             work_dir=work_dir,
@@ -1057,25 +1107,25 @@ def standard_job() -> int:
         )
 
         scan = Scan(policies_files=policies_files, cloud=_cloud,
-                    findings_dir=findings_dir)
+                    work_dir=work_dir, findings_dir=findings_dir)
 
         with EnvironmentContext(credentials, reset_all=False):
             skipped_policies, failed_policies = scan.execute()
 
         report, detailed_report, statistics, api_calls = load_reports(
-            str(work_dir), skipped_policies, failed_policies, _tenant
+            str(work_dir), skipped_policies, failed_policies, _tenant, _cloud
         )
-
-        findings_stash_path = str(PurePosixPath(
-            FINDINGS_FOLDER, utc_datetime().date().isoformat(),
-            f'{_tenant.project}.json'))
+        if platform:
+            findings_path = report_service.platform_findings_path(platform)
+        else:
+            findings_path = report_service.tenant_findings_path(_tenant)
 
         received_findings = FindingsCollection.from_detailed_report(
             detailed_report
         )
         saved_findings = s3_service.get_json_file_content(
             bucket_name=environment_service.statistics_bucket_name(),
-            path=str(findings_stash_path)
+            path=findings_path
         )
         if saved_findings:
             _LOG.info('Saved findings were found. '
@@ -1092,35 +1142,34 @@ def standard_job() -> int:
         # force 10 workers because the used node has 1 vCPU, but we need
         # more of them in order to upload multiple files concurrently
         executor = ThreadPoolExecutor(max_workers=10)
-        _LOG.debug(f'ThreadPoolExecutor for uploading s3 files was created. '
-                   f'Number of workers: {executor._max_workers}')
         statistics_b = environment_service.statistics_bucket_name()
         reports_b = environment_service.reports_bucket_name()
         _LOG.debug(f'Statistics bucket: {statistics_b}\n'
                    f'Reports bucket: {reports_b}')
-        _upload = s3_service.client.put_object
+
+        def _upload(bucket, key, body, trace):
+            _XRAY.set_trace_entity(trace)
+            s3_service.client.put_object(bucket, key, body)
+            _XRAY.clear_trace_entities()
+
         _path = lambda *_files: str(PurePosixPath(_job.job_id, *_files))
 
         _LOG.debug('Submitting thread pool executor jobs')
-        executor.submit(_upload, statistics_b, findings_stash_path,
-                        saved_findings.json())
+        current_trace = _XRAY.get_trace_entity()
+        executor.submit(_upload, statistics_b, findings_path,
+                        saved_findings.json(), current_trace)
         executor.submit(_upload, statistics_b, _path(STATISTICS_FILE),
-                        json.dumps(statistics, separators=(',', ':')))
+                        json.dumps(statistics, separators=(',', ':')),
+                        current_trace)
         executor.submit(_upload, statistics_b, _path(API_CALLS_FILE),
-                        json.dumps(api_calls, separators=(',', ':')))
+                        json.dumps(api_calls, separators=(',', ':')),
+                        current_trace)
         executor.submit(_upload, reports_b, _path(DETAILED_REPORT_FILE),
-                        json.dumps(detailed_report, separators=(',', ':')))
+                        json.dumps(detailed_report, separators=(',', ':')),
+                        current_trace)
         executor.submit(_upload, reports_b, _path(REPORT_FILE),
-                        json.dumps(report, separators=(',', ':')))
-        for root, dirs, files in os.walk(findings_dir):
-            for file in files:
-                full_path = Path(root, file)
-                with open(full_path, 'r') as obj:
-                    body = obj.read()
-                relative_path = full_path.relative_to(findings_dir)
-                executor.submit(
-                    _upload, reports_b, _path(
-                        FINDINGS_FOLDER, relative_path), body)
+                        json.dumps(report, separators=(',', ':')),
+                        current_trace)
         _LOG.info('All "upload to s3" threads were submitted. Moving on '
                   'keeping the executor open.')
 
@@ -1138,25 +1187,29 @@ def standard_job() -> int:
         job_updater_service.set_succeeded_at()
         _LOG.info(f'Job \'{_job.job_id}\' has ended')
     except ExecutorException as ex_exception:
-        _LOG.error(f'An error \'{ex_exception}\' occurred during the job. '
-                   f'Setting job failure reason.')
+        _LOG.exception(f'ExecutorException occurred during the job. '
+                       f'Setting job failure reason.')
         reason = _exception_to_str(ex_exception)
         job_updater_service.set_failed_at(reason)
 
         exit_code = 1
-        _log = 'An error occurred on step `{step}`. Setting error code to {code}'
+        _log = 'An error occurred on step `{step}`. ' \
+               'Setting error code to {code}'
         if ex_exception.step_name == STEP_GRANT_JOB:
             exit_code = 2
             _LOG.debug(_log.format(step=STEP_GRANT_JOB, code=str(exit_code)))
     except Exception as exception:
-        _LOG.error(f'An unexpected error \'{exception}\' occurred during '
-                   f'the job. Setting job failure reason.')
+        _LOG.exception(f'Unexpected error occurred during '
+                       f'the job. Setting job failure reason.')
         reason = _exception_to_str(exception)
         job_updater_service.set_failed_at(reason)
         exit_code = 1
     finally:
         if environment_service.is_docker() and work_dir:
-            os_service.clean_workdir(work_dir=work_dir)
+            shutil.rmtree(work_dir, ignore_errors=True)
+            _LOG.debug(f'Workdir for {work_dir} successfully cleaned')
+        Path(CACHE_FILE).unlink(missing_ok=True)
+        TenantSettingJobLock(environment_service.tenant_name()).release()
     return exit_code
 
 
@@ -1166,23 +1219,41 @@ def main(command: Optional[list] = None, environment: Optional[dict] = None):
     :parameter environment: Optional[dict]
     :return: None
     """
-    log_requirements()
+    buffer = io.BytesIO()
+    _XRAY.configure(emitter=BytesEmitter(buffer))  # noqa
+
+    _XRAY.begin_segment('AWS Batch job')
+    sampled = _XRAY.is_sampled()
+    _LOG.info(f'Batch job is {"" if sampled else "NOT "}sampled')
+    _XRAY.put_annotation('job_id', environment_service.batch_job_id())
+
     global TIME_THRESHOLD, WORK_DIR
     command = command or []
     environment = environment or {}
     environment_service.override_environment(environment)
     init_services()
     TIME_THRESHOLD = batch_service.get_time_left()
-    WORK_DIR = os_service.create_workdir(environment_service.batch_job_id())
+    WORK_DIR = Path(__file__).parent / environment_service.batch_job_id()
+    WORK_DIR.mkdir(parents=True, exist_ok=True)
 
     function = standard_job
     if environment_service.is_multi_account_event_driven():
         function = multi_account_event_driven_job
 
-    exit_code = function()
-    _LOG.info(
-        f'Function: \'{function.__name__}\' finished with code {exit_code}')
-    sys.exit(exit_code)
+    code = function()
+    _LOG.info(f'Function: \'{function.__name__}\' finished with code {code}')
+    _XRAY.end_segment()
+
+    if sampled:
+        now = utc_datetime()
+        _LOG.debug('Writing xray data to S3')
+        s3_service.client.client.put_object(
+            Bucket=environment_service.statistics_bucket_name(),
+            Key=f'xray/executor/{now.year}/{now.month}/{now.day}/{environment_service.batch_job_id()}.log.gz',  # noqa
+            Body=gzip.compress(buffer.getbuffer())
+        )
+    _LOG.info('Finished')
+    sys.exit(code)
 
 
 if __name__ == '__main__':

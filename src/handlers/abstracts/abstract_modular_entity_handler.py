@@ -1,12 +1,13 @@
 from abc import abstractmethod
+from http import HTTPStatus
 from typing import Iterable, Callable, Dict, Union, Type, List, Optional
 
+from modular_sdk.models.pynamodb_extension.base_model import LastEvaluatedKey
+
 from handlers.abstracts.abstract_handler import AbstractHandler
-from helpers import build_response, RESPONSE_INTERNAL_SERVER_ERROR, \
-    RESPONSE_OK_CODE
+from helpers import build_response
 from helpers.constants import NEXT_TOKEN_ATTR
 from helpers.log_helper import get_logger
-from modular_sdk.models.pynamodb_extension.base_model import LastEvaluatedKey
 from services.modular_service import ModularService
 
 _LOG = get_logger(__name__)
@@ -25,7 +26,7 @@ ENTITY_TEMPLATE = '{entity}:\'{id}\''
 
 class AbstractModularEntityHandler(AbstractHandler):
     """
-    Provides abstract behaviour of Modular Entities.
+    Provides abstract behaviour of Maestro Common Domain Model Entities.
     """
 
     _code: Optional[int]
@@ -52,7 +53,7 @@ class AbstractModularEntityHandler(AbstractHandler):
         :raises: ApplicationException
         :return: Dict
         """
-        _code = self._code or RESPONSE_INTERNAL_SERVER_ERROR
+        _code = self._code or HTTPStatus.INTERNAL_SERVER_ERROR
         _content = UNRESOLVABLE_ERROR if self._content is None else \
             self._content
         _meta = self._meta or {}
@@ -148,7 +149,7 @@ class AbstractModularEntityHandler(AbstractHandler):
         if event:
             dto = self._produce_response_dto(event=event)
 
-            self._code = RESPONSE_OK_CODE if dto is not None else self._code
+            self._code = HTTPStatus.OK if dto is not None else self._code
             self._content = dto if dto is not None else self._content
             _lek = self.last_evaluated_key()
             self._meta = {

@@ -1,8 +1,8 @@
+from http import HTTPStatus
+
 from handlers.abstracts.abstract_user_handler import AbstractUserHandler
-from helpers import build_response, RESPONSE_BAD_REQUEST_CODE, \
-    validate_params, RESPONSE_RESOURCE_NOT_FOUND_CODE, RESPONSE_OK_CODE
-from helpers.constants import GET_METHOD, PATCH_METHOD, \
-    DELETE_METHOD, TENANTS_ATTR
+from helpers import build_response, validate_params
+from helpers.constants import HTTPMethod, TENANTS_ATTR
 from helpers.log_helper import get_logger
 from services.modular_service import ModularService
 from services.user_service import CognitoUserService
@@ -23,9 +23,9 @@ class UserTenantsHandler(AbstractUserHandler):
     def define_action_mapping(self):
         return {
             '/users/tenants': {
-                GET_METHOD: self.get_tenants_attribute,
-                PATCH_METHOD: self.update_tenants_attribute,
-                DELETE_METHOD: self.delete_tenants_attribute
+                HTTPMethod.GET: self.get_tenants_attribute,
+                HTTPMethod.PATCH: self.update_tenants_attribute,
+                HTTPMethod.DELETE: self.delete_tenants_attribute
             }
         }
 
@@ -58,7 +58,7 @@ class UserTenantsHandler(AbstractUserHandler):
                 result_value.remove(t)
             if len(result_value) == 0:
                 return build_response(
-                    code=RESPONSE_BAD_REQUEST_CODE,
+                    code=HTTPStatus.BAD_REQUEST,
                     content=f'Invalid value for attribute '
                             f'{self.attribute_name}: {attribute_value}')
         return result_value
@@ -81,13 +81,11 @@ class UserTenantsHandler(AbstractUserHandler):
         if not target_user:
             target_user = event.get('user_id')
 
-        self._validate_user_existence(username=target_user)
-
         if self.get_attribute_value(target_user):
             _LOG.error(f'Attribute {self.attribute_name} for user '
                        f'{target_user} already exists')
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=f'Attribute {self.attribute_name} for user '
                         f'{target_user} already exists')
 
@@ -97,7 +95,7 @@ class UserTenantsHandler(AbstractUserHandler):
                 f'Attribute value for the {self.attribute_name} attribute '
                 f'is not specified')
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=f'Attribute value for the {self.attribute_name} '
                         f'attribute is not specified')
         # return True if value is valid
@@ -107,7 +105,7 @@ class UserTenantsHandler(AbstractUserHandler):
         self.update_attribute(target_user, attribute_value)
 
         return build_response(
-            code=RESPONSE_OK_CODE,
+            code=HTTPStatus.OK,
             content=f'Attribute {self.attribute_name} has been added to user '
                     f'{target_user}.')
 
@@ -116,6 +114,7 @@ class UserTenantsHandler(AbstractUserHandler):
         target_user = event.get('target_user')
         if not target_user:
             target_user = event.get('user_id')
+        self._validate_user_existence(username=target_user)
 
         existing_tenants = self.user_service.get_user_tenants(target_user)
         if not existing_tenants:
@@ -126,16 +125,17 @@ class UserTenantsHandler(AbstractUserHandler):
         event[TENANTS_ATTR] = list(set(existing_tenants))
         _LOG.debug(f'Update {self.attribute_name} attribute for user: '
                    f'{event}')
-        validate_params(event=event, required_params_list=['user_id'])
-
-        self._validate_user_existence(username=target_user)
+        # for what????
+        # validate_params(event=event, required_params_list=['user_id'])
+        #
+        # self._validate_user_existence(username=target_user)
 
         if not self.get_attribute_value(target_user):
             _LOG.error(
                 f'Attribute {self.attribute_name} for user {target_user} '
                 f'does not exist')
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=f'Attribute {self.attribute_name} for user '
                         f'{target_user} does not exist')
 
@@ -145,7 +145,7 @@ class UserTenantsHandler(AbstractUserHandler):
                 f'Attribute value for the {self.attribute_name} attribute '
                 f'is not specified')
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=f'Attribute value for the {self.attribute_name} '
                         f'attribute is not specified')
 
@@ -155,7 +155,7 @@ class UserTenantsHandler(AbstractUserHandler):
         self.update_attribute(target_user, attribute_value)
 
         return build_response(
-            code=RESPONSE_OK_CODE,
+            code=HTTPStatus.OK,
             content={self.attribute_name: attribute_value})
 
     def delete_tenants_attribute(self, event):
@@ -173,7 +173,7 @@ class UserTenantsHandler(AbstractUserHandler):
             existing_tenants = self.user_service.get_user_tenants(target_user)
             if not existing_tenants:
                 return build_response(
-                    code=RESPONSE_OK_CODE,
+                    code=HTTPStatus.OK,
                     content=f'Attribute {self.attribute_name} for user '
                             f'{target_user} is already empty.')
 
@@ -188,7 +188,7 @@ class UserTenantsHandler(AbstractUserHandler):
             self.delete_attribute(target_user)
             self.update_attribute(target_user, existing_tenants)
             return build_response(
-                code=RESPONSE_OK_CODE,
+                code=HTTPStatus.OK,
                 content=f'Attribute {self.attribute_name} for user '
                         f'{target_user} has been updated.')
 
@@ -197,13 +197,13 @@ class UserTenantsHandler(AbstractUserHandler):
                 f'Attribute {self.attribute_name} for user {target_user} '
                 f'does not exist')
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=f'Attribute {self.attribute_name} for user '
                         f'{target_user} does not exist')
 
         _LOG.debug(f'Removing {self.attribute_name} attribute')
         self.delete_attribute(target_user)
         return build_response(
-            code=RESPONSE_OK_CODE,
+            code=HTTPStatus.OK,
             content=f'Attribute {self.attribute_name} for user '
                     f'{target_user} has been deleted.')

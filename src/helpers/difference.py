@@ -1,7 +1,10 @@
+from collections import defaultdict
 from dataclasses import dataclass, field, asdict
 from typing import Dict, List, Optional, Union
 
 from dacite import from_dict
+
+CLOUD_DATA_TO_EXCLUDE = []
 
 
 @dataclass
@@ -48,6 +51,8 @@ class RegionData:
 
     def __sub__(self, other):
         if isinstance(other, RegionData):
+            if isinstance(self.total_violated_resources, ValueDiffData):
+                self.total_violated_resources = self.total_violated_resources.value
             if isinstance(other.total_violated_resources, int):
                 return RegionData(ValueDiffData(
                     self.total_violated_resources,
@@ -56,6 +61,54 @@ class RegionData:
                 return RegionData(ValueDiffData(
                     self.total_violated_resources,
                     self.total_violated_resources - other.total_violated_resources.value))
+        return RegionData(ValueDiffData(
+                    self.total_violated_resources, None))
+
+
+@dataclass
+class ServicePolicyData:
+    rule: str
+    service: str
+    category: str
+    severity: str
+    resource_type: str
+    regions_data: Dict[str, RegionData] = field(default_factory=dict)
+
+    def __sub__(self, other):
+        if isinstance(other, ServicePolicyData):
+            regions_data = {}
+            for region, region_data in self.regions_data.items():
+                if region in other.regions_data:
+                    regions_data[region] = region_data - other.regions_data[region]
+                else:
+                    regions_data[region] = region_data - RegionData(None)
+            return ServicePolicyData(
+                rule=self.rule, service=self.service, category=self.category,
+                severity=self.severity, resource_type=self.resource_type,
+                regions_data=regions_data)
+        return self
+
+
+@dataclass
+class ServiceSectionData:
+    service_section: str
+    rules_data: List[ServicePolicyData] = field(default_factory=list)
+
+    def __sub__(self, other):
+        if isinstance(other, ServiceSectionData):
+            data = []
+            for rule in self.rules_data:
+                diff = None
+                for other_rule in other.rules_data:
+                    if rule.rule == other_rule.rule:
+                        diff = rule - other_rule
+                        break
+
+                if not diff:
+                    diff = rule - ServicePolicyData(None, None, None, None, None, {})
+                data.append(diff)
+
+            return ServiceSectionData(self.service_section, data)
         return self
 
 
@@ -103,8 +156,8 @@ class RegionsComplianceData:
 
 @dataclass
 class RegionsOverviewData:
-    severity_data: Optional[Dict[str, Union[ValueDiffData, int, None]]]
-    resource_types_data: Optional[Dict[str, Union[ValueDiffData, int, None]]]
+    severity_data: Optional[Dict[str, Union[ValueDiffData, int, None]]] = field(default_factory=lambda: defaultdict(dict))
+    resource_types_data: Optional[Dict[str, Union[ValueDiffData, int, None]]] = field(default_factory=lambda: defaultdict(dict))
 
     def __sub__(self, other):
         if isinstance(other, RegionsOverviewData):
@@ -148,18 +201,23 @@ class CloudData:
     failed_scans: Optional[int]
     succeeded_scans: Optional[int]
     resources_violated: Optional[int]
+    outdated_tenants: Dict[str, Dict[str, str]] = field(default_factory=dict)
 
     regions_data: Union[Dict[str, RegionsOverviewData], List[RegionsComplianceData]] = field(default_factory=dict)
     data: List[PolicyData] = field(default_factory=list)
+    service_data: List[ServiceSectionData] = field(default_factory=list)
     average_data: List[NameValueDiffData] = field(default_factory=list)
 
-    def as_dict(self):
-        return {k: v for k, v in self.__dict__.items() if v not in (None, [])
-                or k == 'activated_regions'}
+    def as_dict(self, to_exclude: list = None):
+        exclude = ['activated_regions', 'outdated_tenants']
+        exclude = to_exclude + exclude if to_exclude else exclude
+        return {k: v for k, v in self.__dict__.items() if k in exclude or
+                v not in (None, [], {})}
 
     def __sub__(self, other):
         if isinstance(other, CloudData):
             data = []
+            service_data = []
             regions_data = []
             average_data = []
             for policy in self.data:
@@ -172,6 +230,17 @@ class CloudData:
                 if not diff_policy:
                     diff_policy = policy - PolicyData(None, None, None, None, {})
                 data.append(diff_policy)
+
+            for service in self.service_data:
+                diff_service = None
+                for other_service in other.service_data:
+                    if service.service_section == other_service.service_section:
+                        diff_service = service - other_service
+                        break
+
+                if not diff_service:
+                    diff_service = service - ServiceSectionData(None, [])
+                service_data.append(diff_service)
 
             if isinstance(self.regions_data, list):
                 for r_data in self.regions_data:
@@ -205,11 +274,17 @@ class CloudData:
                         None, None, None)
                 average_data.append(diff_average_data)
             return CloudData(self.account_id, self.tenant_name,
-                             self.last_scan_date, self.activated_regions,
-                             self.total_scans, self.failed_scans,
-                             self.succeeded_scans, self.resources_violated,
-                             regions_data if regions_data else None,
-                             data, average_data).as_dict()
+                             last_scan_date=self.last_scan_date,
+                             activated_regions=self.activated_regions,
+                             total_scans=self.total_scans,
+                             failed_scans=self.failed_scans,
+                             succeeded_scans=self.succeeded_scans,
+                             resources_violated=self.resources_violated,
+                             outdated_tenants=self.outdated_tenants,
+                             regions_data=regions_data if regions_data else None,
+                             data=data, service_data=service_data,
+                             average_data=average_data).as_dict(
+                to_exclude=CLOUD_DATA_TO_EXCLUDE)
         return self
 
 
@@ -257,7 +332,13 @@ class BaseData:
             return BaseData(aws_result, azure_result, google_result)
 
 
-def report_difference(current, prev):
+def report_difference(current, prev, report_type):
+    global CLOUD_DATA_TO_EXCLUDE
+
+    if report_type == 'finops':
+        CLOUD_DATA_TO_EXCLUDE = ['service_data']
+    else:
+        CLOUD_DATA_TO_EXCLUDE = []
     current_data = from_dict(data_class=BaseData, data=current)
     prev_data = from_dict(data_class=BaseData, data=prev if prev else {})
     diff = current_data-prev_data
@@ -273,9 +354,9 @@ def calculate_dict_diff(current: dict, previous: dict, exclude=None):
         prev_v = previous.get(k)
         if exclude and k in exclude:
             result[k] = v
-        elif k in ('resources', 'compliance', 'overview') and isinstance(
-                    v, dict):
-            result[k] = report_difference(v, prev_v)
+        elif k in ('resources', 'compliance', 'overview', 'finops') and \
+                isinstance(v, dict):
+            result[k] = report_difference(v, prev_v, k)
         elif not prev_v and not isinstance(v, bool) and isinstance(
                     v, (int, float)):
             result[k] = {'value': v, 'diff': None}

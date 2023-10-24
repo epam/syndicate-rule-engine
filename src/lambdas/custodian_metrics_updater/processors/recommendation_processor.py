@@ -2,11 +2,11 @@ import io
 import json
 import uuid
 from datetime import datetime, timezone
+from http import HTTPStatus
 
 from modular_sdk.commons.constants import RABBITMQ_TYPE
 
-from helpers import get_logger, CustodianException, \
-    RESPONSE_INTERNAL_SERVER_ERROR
+from helpers import get_logger, CustodianException
 from helpers.constants import ARTICLE_ATTR, IMPACT_ATTR
 from helpers.recommendations import RULE_RECOMMENDATION_MAPPING
 from helpers.time_helper import utc_datetime, make_timestamp_java_compatible
@@ -16,7 +16,8 @@ from services.environment_service import EnvironmentService
 from services.findings_service import FindingsService
 from services.modular_service import ModularService
 from services.rabbitmq_service import RabbitMQService
-from services.rule_meta_service import RuleMetaService
+from services.rule_meta_service import RuleMetaService, \
+    LazyLoadedMappingsCollector
 
 _LOG = get_logger(__name__)
 
@@ -42,7 +43,8 @@ class Recommendation:
                  modular_service: ModularService,
                  rabbitmq_service: RabbitMQService,
                  assume_role_s3: ModularAssumeRoleS3Service,
-                 rule_meta_service: RuleMetaService):
+                 rule_meta_service: RuleMetaService,
+                 mappings_collector: LazyLoadedMappingsCollector):
         self.findings_service = findings_service
         self.environment_service = environment_service
         self.s3_client = s3_client
@@ -50,6 +52,7 @@ class Recommendation:
         self.modular_service = modular_service
         self.rabbitmq_service = rabbitmq_service
         self.rule_meta_service = rule_meta_service
+        self.mappings_collector = mappings_collector
 
         self.today = utc_datetime(utc=False).date().isoformat()
 
@@ -87,7 +90,8 @@ class Recommendation:
 
             project_id = file.split(prefix)[-1].split('.json')[0]
             tenant = next(
-                self.modular_service.i_get_tenants_by_acc(project_id, True), None
+                self.modular_service.i_get_tenants_by_acc(project_id, True),
+                None
             )
             if not tenant:
                 _LOG.warning(
@@ -101,14 +105,12 @@ class Recommendation:
                     continue
 
                 if not self.recommendation_to_article_impact.get(rule):
-                    data = self.rule_meta_service.get_latest_meta(
-                        rule, attributes_to_get=['a', 'i'])
-                    if not data:
-                        _LOG.debug(f'No metadata for rule {rule}')
-                        continue
+                    data = self.mappings_collector.human_data.get(rule, {})
+                    article = data.get('article') or ''
+                    impact = data.get('impact') or ''
                     self.recommendation_to_article_impact[rule] = {
-                        ARTICLE_ATTR: data.article,
-                        IMPACT_ATTR: data.impact
+                        ARTICLE_ATTR: article,
+                        IMPACT_ATTR: impact
                     }
                 item['recommendation'][ARTICLE_ATTR] = \
                     self.recommendation_to_article_impact[rule][ARTICLE_ATTR]
@@ -130,7 +132,7 @@ class Recommendation:
             for region, recommend in recommendations.items():
                 contents = self._json_to_jsonl(recommend)
                 _LOG.debug(f'Saving file {file}, region {region}')
-                recommendation_bucket = self.environment_service.\
+                recommendation_bucket = self.environment_service. \
                     get_recommendation_bucket()
                 result = self.assume_role_s3.put_object(
                     bucket_name=recommendation_bucket,
@@ -141,7 +143,7 @@ class Recommendation:
                     is_zipped=False)
                 if not result:
                     raise CustodianException(
-                        code=RESPONSE_INTERNAL_SERVER_ERROR,
+                        code=HTTPStatus.INTERNAL_SERVER_ERROR.value,
                         content='There is no recommendations bucket'
                     )
             if not recommendations:
@@ -163,22 +165,22 @@ class Recommendation:
             CADF_EVENT['id'] = str(uuid.uuid4().hex)
             CADF_EVENT['eventTime'] = now.astimezone().isoformat()
             CADF_EVENT['attachments'] = [
-                    {
-                        "contentType": "map",
-                        "content": {
-                            "tenant": tenant.name,
-                            "timestamp": timestamp
-                        },
-                        "name": "collectCustodianRecommendations"
-                    }
-                ]
-            code, status, response = self.customer_rabbit_mapping[customer].\
+                {
+                    "contentType": "map",
+                    "content": {
+                        "tenant": tenant.name,
+                        "timestamp": timestamp
+                    },
+                    "name": "collectCustodianRecommendations"
+                }
+            ]
+            code, status, response = self.customer_rabbit_mapping[customer]. \
                 send_sync(
-                    command_name=COMMAND_NAME,
-                    parameters={'event': CADF_EVENT,
-                                'qualifier': 'custodian_data'},
-                    is_flat_request=False, async_request=False,
-                    secure_parameters=None, compressed=True)
+                command_name=COMMAND_NAME,
+                parameters={'event': CADF_EVENT,
+                            'qualifier': 'custodian_data'},
+                is_flat_request=False, async_request=False,
+                secure_parameters=None, compressed=True)
             _LOG.debug(f'Response code: {code}, response message: {response}')
         return {}
 
@@ -201,5 +203,6 @@ RECOMMENDATION_METRICS = Recommendation(
     modular_service=SERVICE_PROVIDER.modular_service(),
     rabbitmq_service=SERVICE_PROVIDER.rabbitmq_service(),
     assume_role_s3=SERVICE_PROVIDER.assume_role_s3(),
-    rule_meta_service=SERVICE_PROVIDER.rule_meta_service()
+    rule_meta_service=SERVICE_PROVIDER.rule_meta_service(),
+    mappings_collector=SERVICE_PROVIDER.mappings_collector()
 )

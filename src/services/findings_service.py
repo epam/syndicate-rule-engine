@@ -1,7 +1,10 @@
+import os
+from datetime import timedelta, datetime, date
 from json import JSONDecodeError, dumps
 from pathlib import PurePosixPath
 from re import compile, escape, error, Pattern
-from typing import Dict, Union, Callable, Iterator, Type, List
+from typing import Dict, Union, Callable, Iterator, Type, List, Optional, \
+    Generator
 
 from botocore.exceptions import ClientError
 
@@ -42,7 +45,104 @@ class FindingsService:
         """
         return self._environment_service.get_statistics_bucket_name()
 
-    def get_findings_content(self, identifier: str, path: str = '') -> Dict:
+    def get_findings_keys(self, from_: Optional[date] = None,
+                          until: Optional[date] = None,
+                          days: Optional[int] = 365
+                          ) -> Generator[str, None, None]:
+        """
+        Return an iterator over all the finding's keys:
+        from <= [keys] < until
+        If not parameters are specified, a year back is returned
+        :param from_:
+        :param until:
+        :param days:
+        :return:
+        """
+        if from_ and until:
+            start, end = from_.isoformat(), until.isoformat()
+        elif from_:
+            start = from_.isoformat()
+            end = (from_ + timedelta(days=days)).isoformat()
+        elif until:
+            start = (until - timedelta(days=days)).isoformat()
+            end = until.isoformat()
+        else:  # nothing
+            start = (date.today() - timedelta(days=days)).isoformat()
+            end = date.today().isoformat()
+        _LOG.debug(f'Retrieving findings keys from {start} until {end}')
+        start_after = str(PurePosixPath(FINDINGS_KEY, start))
+        end_when = str(PurePosixPath(FINDINGS_KEY, end))
+
+        prefix = str(PurePosixPath(FINDINGS_KEY,
+                                   os.path.commonprefix([start, end])))
+        keys = self._s3_client.list_dir(
+            bucket_name=self._bucket_name,
+            key=prefix,
+            start_after=start_after,
+        )  # list_dir performs pagination
+
+        def _check(key: str) -> bool:
+            """Checks whether the folder is vaid"""
+            try:
+                datetime.fromisoformat(key.strip('/').split('/')[1])
+                return True
+            except (ValueError, IndexError):
+                return False
+
+        for k in filter(_check, keys):
+            if k >= end_when:  # we've reached the latest
+                break
+            yield k
+
+    def get_findings_for_period(self, until_date, days, account_id) -> \
+            Optional[dict]:
+        """
+        Retrieves last available findings for a specific period
+        """
+        it = self.get_findings_keys(
+            until=until_date,  # not including
+            days=days
+        )
+        key = self.get_latest_key(it, account_id)
+        if not key:
+            return
+        return self._s3_client.get_json_file_content(
+            bucket_name=self._environment_service.get_statistics_bucket_name(),
+            full_file_name=key
+        )
+
+    @staticmethod
+    def get_latest_key(it: Iterator[str], identifier: str) -> Optional[str]:
+        for key in reversed(list(it)):
+            _json = key.endswith(f'{identifier}.json.gz')
+            _gz = key.endswith(f'{identifier}.json')
+            if _json or _gz:
+                return key
+
+    def get_latest_findings_key(self, identifier: str) -> Optional[str]:
+        """
+        Findings are updated daily. The structure is:
+            finding/2023-08-17/<identifier>.json.gz
+            finding/2023-08-18/<identifier>.json.gz
+        In case today's findings have not been created yet, we must return
+        the nearest old finding. And here we have a problem: AWS Api does
+        not allow to list keys in descending order
+        (https://github.com/boto/boto3/issues/2248) (we could've requested a
+        list in descending order and limit 1), but we cannot.
+        Considering that s3 listing api can return up to 1000 keys per request
+        and since we save folders daily, we can return up to 1000 previous
+        days using only one request. After that we look for the latest day,
+        where identifier exists
+        Also, findings folder can contain some other junk except data
+        folders. We should skip them
+        :param identifier:
+        :return:
+        """
+        return self.get_latest_key(self.get_findings_keys(), identifier)
+
+    def get_findings_content(
+            self, identifier: str, path: str = '',
+            findings_date: str = utc_datetime().date().isoformat()) -> Dict:
         """
         Retrieves the content of a Findings file, which maintains
         the latest, respective vulnerability state, bound to the account.
@@ -50,14 +150,20 @@ class FindingsService:
         be sourced out or simply does not exist, returns an empty Dict.
         :parameter identifier: str
         :parameter path: str
+        :parameter findings_date: str
         :returns: Dict
         """
+        _findings: Dict = {}
         _name, _key = self._bucket_name, self._get_key(
-            identifier, FINDINGS_KEY, utc_datetime().date().isoformat(), path
+            identifier, FINDINGS_KEY, findings_date, path
         )
         if not self._s3_client.file_exists(bucket_name=_name, key=_key):
-            _key = self._get_key(identifier, FINDINGS_KEY, path)
-        _findings: Dict = {}
+            _LOG.info(f'Findings for the account {identifier} for '
+                      f'{findings_date} were not found. Looking for older')
+            _key = self.get_latest_findings_key(identifier)
+            if not _key:
+                _LOG.warning(f'Old findings for {identifier} not found')
+                return _findings
         try:
             _LOG.debug(f'Pulling Findings state, from \'{_name}\' bucket '
                        f'sourced by \'{_key}\' key.')
@@ -102,7 +208,7 @@ class FindingsService:
         _LOG.debug(f'Generating presigned Findings state URL, for a '
                    f'\'{_name}\' bucket driven by \'{_key}\' key.')
         _url = self._s3_client.generate_presigned_url(
-                bucket_name=_name, full_file_name=_key, expires_in_sec=3600)
+            bucket_name=_name, full_file_name=_key, expires_in_sec=3600)
         _LOG.info(f'Presigned Findings state URL has been generated for a '
                   f'\'{_name}\' bucket driven by \'{_key}\' key.')
         return _url
@@ -335,10 +441,6 @@ class FindingsService:
             MAP_TYPE_ATTR: cls._i_map_formatter
         }
 
-    @classmethod
-    def is_pattern_compilable(cls, string: str):
-        return bool(cls._get_include_pattern(string))
-
     @staticmethod
     def _get_include_pattern(string: str) -> Union[Pattern, Type[None]]:
         try:
@@ -371,35 +473,6 @@ class FindingsService:
         return value if isinstance(value, _type) else _type(*args, **kwargs)
 
     @staticmethod
-    def group_findings_by_region(content: dict) -> dict:
-        result = {}
-        for policy, value in content.items():
-            resources = value.get('resources', {})
-            for region, resource in resources.items():
-                if not resource:
-                    continue
-                policy_content = value.copy()
-                policy_content.pop('resources')
-                policy_content['resources'] = resource
-                result.setdefault(region, {}).update({policy: policy_content})
-        return result
-
-    @staticmethod
-    def retrieve_unique_resources(content: dict) -> set:
-        """
-        Returns set of unique resources
-        """
-        result = set()
-        for _, policy in content.items():
-            for region, resources in policy.get('regions_data', {}).items():
-                if not resources:
-                    continue
-                for i in resources['resources']:
-                    result.add(':'.join(f'{k}:{v}:' for k, v in i.items()))
-
-        return result
-
-    @staticmethod
     def unique_resources_from_raw_findings(content: dict) -> set:
         result = set()
         for _, policy in content.items():
@@ -412,17 +485,4 @@ class FindingsService:
                         name += f'{k}:{v}:'
                     if name:
                         result.add(name)
-        return result
-
-    @staticmethod
-    def retrieve_resources_by_region_and_severity(content: dict) -> dict:
-        result = {}
-        for policy, value in content.items():
-            resources = value.get('resources', {})
-            severity = value.get('severity', 'null')
-            for region, resource in resources.items():
-                if not resource:
-                    continue
-                result.setdefault(region, {}).setdefault(severity, []).append(
-                    resource)
         return result

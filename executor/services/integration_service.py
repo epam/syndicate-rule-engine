@@ -1,14 +1,15 @@
 from typing import List
 
 import requests
-from modular_sdk.commons.constants import TENANT_PARENT_MAP_SIEM_DEFECT_DOJO_TYPE
+from modular_sdk.commons.constants import ParentType
+from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.impl.maestro_credentials_service import \
     DefectDojoApplicationSecret, DefectDojoApplicationMeta
-from models.modular.parents import DefectDojoParentMeta
+
 from helpers.log_helper import get_logger
 from integrations.defect_dojo_adapter import DefectDojoAdapter
 from integrations.security_hub.security_hub_adapter import SecurityHubAdapter
-from models.modular.tenants import Tenant
+from models.modular.parents import DefectDojoParentMeta
 from services.modular_service import ModularService
 from services.ssm_service import SSMService
 
@@ -25,8 +26,8 @@ class IntegrationService:
         adapters = []
         # todo maybe in future we will be able to have multiple dojo
         #  integrations for one tenant
-        parent = self._modular_service.get_tenant_parent(
-            tenant, TENANT_PARENT_MAP_SIEM_DEFECT_DOJO_TYPE
+        parent = self._modular_service.modular_client.parent_service().get_linked_parent_by_tenant(  # noqa
+            tenant, ParentType.SIEM_DEFECT_DOJO
         )
         if not parent:
             return adapters

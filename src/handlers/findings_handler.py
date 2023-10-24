@@ -1,17 +1,16 @@
+from http import HTTPStatus
 from typing import Dict, Union, List, Optional
 
+from modular_sdk.models.tenant import Tenant
+
 from handlers.abstracts.abstract_handler import AbstractHandler
-from helpers import RESPONSE_OK_CODE, RESPONSE_BAD_REQUEST_CODE, \
-    RESPONSE_RESOURCE_NOT_FOUND_CODE, RESPONSE_INTERNAL_SERVER_ERROR
 from helpers import build_response
 from helpers.constants import (
-    ACCOUNT_ATTR, GET_METHOD, GET_URL_ATTR,
-    DELETE_METHOD, CUSTOMER_ATTR, TENANT_ATTR
+    ACCOUNT_ATTR, GET_URL_ATTR,
+    HTTPMethod, CUSTOMER_ATTR, TENANT_ATTR
 )
 from helpers.log_helper import get_logger
-from models.modular.tenants import Tenant
-from services.findings_service import FindingsService, MAP_TYPE_ATTR, \
-    MAP_KEY_ATTR
+from services.findings_service import FindingsService, MAP_KEY_ATTR
 from services.modular_service import ModularService
 
 FINDINGS_PATH = '/findings'
@@ -27,7 +26,7 @@ RESOURCE_TYPES_TO_INCLUDE_ATTR = 'resource_types_to_include'
 SEVERITIES_TO_INCLUDE_ATTR = 'severities_to_include'
 DEPENDENT_INCLUSION_ATTR = 'dependent_inclusion'
 
-FINDINGS_PERSISTENCE_ERROR = 'Tenant: \'{identifier}\' has no persisted '\
+FINDINGS_PERSISTENCE_ERROR = 'Tenant: \'{identifier}\' has no persisted ' \
                              'findings state.'
 
 FINDINGS_DEMAND_STORE_INACCESSIBLE = 'Request to store \'{identifier}\' ' \
@@ -68,8 +67,8 @@ class FindingsHandler(AbstractHandler):
     def define_action_mapping(self):
         return {
             FINDINGS_PATH: {
-                GET_METHOD: self.get_findings,
-                DELETE_METHOD: self.delete_findings
+                HTTPMethod.GET: self.get_findings,
+                HTTPMethod.DELETE: self.delete_findings
             }
         }
 
@@ -90,7 +89,7 @@ class FindingsHandler(AbstractHandler):
 
         self._handle_consequence(
             commenced=bool(_tenant), identifier=_tenant_name,
-            code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+            code=HTTPStatus.NOT_FOUND,
             respond=ACCOUNT_PERSISTENCE_ERROR
         )
 
@@ -134,7 +133,7 @@ class FindingsHandler(AbstractHandler):
                     content=_content, identifier=_identifier, name=_tenant_name
                 )
 
-        return build_response(code=RESPONSE_OK_CODE, content=_content)
+        return build_response(code=HTTPStatus.OK, content=_content)
 
     def delete_findings(self, event):
         """
@@ -147,13 +146,13 @@ class FindingsHandler(AbstractHandler):
         _tenant = self._get_entity(event)
         self._handle_consequence(
             commenced=bool(_tenant), identifier=tenant_name,
-            code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+            code=HTTPStatus.NOT_FOUND,
             respond=ACCOUNT_PERSISTENCE_ERROR
         )
         _removed = self._service.delete_findings(_tenant.project)
         self._handle_consequence(
             commenced=bool(_removed), identifier=tenant_name,
-            code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+            code=HTTPStatus.NOT_FOUND,
             respond=FINDINGS_PERSISTENCE_ERROR
         )
         _message = FINDINGS_CLEARED.format(identifier=tenant_name)
@@ -189,7 +188,7 @@ class FindingsHandler(AbstractHandler):
 
         self._handle_consequence(
             commenced=bool(_put), identifier=name,
-            code=RESPONSE_INTERNAL_SERVER_ERROR,
+            code=HTTPStatus.INTERNAL_SERVER_ERROR,
             respond=GENERIC_DEMAND_URL_INACCESSIBLE,
             log=FINDINGS_DEMAND_STORE_INACCESSIBLE,
             error=True
@@ -199,7 +198,7 @@ class FindingsHandler(AbstractHandler):
 
         self._handle_consequence(
             commenced=bool(_url), identifier=name,
-            code=RESPONSE_INTERNAL_SERVER_ERROR,
+            code=HTTPStatus.INTERNAL_SERVER_ERROR,
             respond=GENERIC_DEMAND_URL_INACCESSIBLE,
             log=FINDINGS_DEMAND_URL_INACCESSIBLE,
             error=True
@@ -255,9 +254,3 @@ class FindingsHandler(AbstractHandler):
     @staticmethod
     def _map_key_requirement_map(required: bool):
         return {MAP_KEY_ATTR: dict(required_type=str, required=required)}
-
-    @classmethod
-    def _validate_requirement_map(cls, subject: Dict,
-                                  requirement_map: Dict[str, Dict]):
-        for attr, requirement in requirement_map.items():
-            cls._validate_type(attr, subject.get(attr), **requirement)

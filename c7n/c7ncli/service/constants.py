@@ -1,3 +1,4 @@
+from enum import Enum
 PARAM_CUSTOMER_ID = 'customer_id'
 PARAM_TENANT_ID = 'tenant_id'
 PARAM_NAME = 'name'
@@ -162,6 +163,9 @@ API_RULE_META_UPDATER = 'rules/update-meta'
 API_BACKUPPER = 'backup'
 API_METRICS_UPDATER = 'metrics/update'
 API_METRICS_STATUS = 'metrics/status'
+API_META_STANDARDS = 'rule-meta/standards'
+API_META_MAPPINGS = 'rule-meta/mappings'
+API_META_META = 'rule-meta/meta'
 API_JOB = 'jobs'
 API_SIGNIN = 'signin'
 API_SIGNUP = 'signup'
@@ -191,6 +195,9 @@ API_DETAILS_REPORTS = 'reports/details'
 API_COMPLIANCE_REPORTS = 'reports/compliance'
 API_ERROR_REPORTS = 'reports/errors'
 API_RULES_REPORTS = 'reports/rules'
+API_REPORTS_RESOURCES_LATEST = 'reports/resources/tenants/{tenant_name}/state/latest'
+API_REPORTS_RESOURCES_JOBS = 'reports/resources/tenants/{tenant_name}/jobs'
+API_REPORTS_RESOURCES_JOB = 'reports/resources/jobs/{job_id}'
 
 API_OPERATIONAL_REPORT = 'reports/operational'
 API_DEPARTMENT_REPORT = 'reports/department'
@@ -198,7 +205,10 @@ API_PROJECT_REPORT = 'reports/project'
 API_C_LEVEL_REPORT = 'reports/clevel'
 
 API_RABBITMQ = 'customers/rabbitmq'
-
+API_PLATFORM_K8S = 'platforms/k8s'
+API_PLATFORM_K8S_NATIVE = 'platforms/k8s/native'
+API_PLATFORM_K8S_EKS = 'platforms/k8s/eks'
+API_K8S_JOBS = 'jobs/k8s'
 
 PARAM_ID = 'id'
 PARAM_RULE_SOURCE_ID = 'rule_source_id'
@@ -218,10 +228,25 @@ RULES_TO_DETACH = 'rules_to_detach'
 
 GIT_ACCESS_TOKEN = 'TOKEN'
 AVAILABLE_GIT_ACCESS_TYPES = (GIT_ACCESS_TOKEN,)
-ALL = 'ALL'
-SPECIFIC_TENANT = 'SPECIFIC_TENANT'
+
+
+class ParentScope(str, Enum):
+    ALL = 'ALL'
+    DISABLED = 'DISABLED'
+    SPECIFIC = 'SPECIFIC'
+
+    @classmethod
+    def iter(cls):
+        """
+        Iterates over values, not enum items
+        """
+        return map(lambda x: x.value, cls)
+
+
 AWS, AZURE, GCP, GOOGLE = 'AWS', 'AZURE', 'GCP', 'GOOGLE'
-AVAILABLE_CLOUDS = (AWS, AZURE, GCP)
+KUBERNETES = 'KUBERNETES'
+# This tuple represent clouds types of rules/rulesets, not tenants or jobs
+RULE_CLOUDS = (AWS, AZURE, GCP, KUBERNETES)
 REGION_STATE_ACTIVE = 'ACTIVE'
 REGION_STATE_INACTIVE = 'INACTIVE'
 AVAILABLE_REGION_STATES = (REGION_STATE_ACTIVE, REGION_STATE_INACTIVE)
@@ -288,6 +313,7 @@ PARAM_START_ISO = 'start_iso'
 PARAM_END_ISO = 'end_iso'
 PARAM_HREF = 'href'
 PARAM_TYPE = 'type'
+PARAM_TYPES = 'types'
 PARAM_JOBS = 'jobs'
 PARAM_RULE = 'rule'
 MANUAL_JOB_TYPE = 'manual'

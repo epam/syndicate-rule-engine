@@ -1,35 +1,33 @@
-from helpers import RESPONSE_OK_CODE
-from helpers.constants import KID_ATTR, ALG_ATTR, CLIENT_TOKEN_ATTR
-from helpers.log_helper import get_logger
-from services.clients.license_manager import LicenseManagerClient
-from services.token_service import TokenService
+from datetime import timedelta
+from functools import cached_property
 from typing import Optional, List
 
-from helpers.time_helper import utc_datetime
-from datetime import timedelta
 from requests.exceptions import RequestException, ConnectionError, Timeout
-
-
-CHECK_PERMISSION_PATH = '/jobs/check-permission'
-JOB_PATH = '/jobs'
-SET_CUSTOMER_ACTIVATION_DATE_PATH = '/customers/set-activation-date'
+from http import HTTPStatus
+from helpers.constants import KID_ATTR, ALG_ATTR, CLIENT_TOKEN_ATTR
+from helpers.log_helper import get_logger
+from helpers.time_helper import utc_datetime
+from services.clients.license_manager import LicenseManagerClientInterface, \
+    LicenseManagerClientFactory
+from services.setting_service import SettingsService
+from services.token_service import TokenService
 
 CONNECTION_ERROR_MESSAGE = 'Can\'t establish connection with ' \
                            'License Manager. Please contact the support team.'
-
-CLIENT_TYPE_SAAS = 'SAAS'
-CLIENT_TYPE_ONPREM = 'ONPREM'
-
-STATUS_CODE_ATTR = 'status_code'
 
 _LOG = get_logger(__name__)
 
 
 class LicenseManagerService:
-    def __init__(self, license_manager_client: LicenseManagerClient,
+    def __init__(self, settings_service: SettingsService,
                  token_service: TokenService):
-        self.license_manager_client = license_manager_client
+        self.settings_service = settings_service
         self.token_service = token_service
+
+    @cached_property
+    def client(self) -> LicenseManagerClientInterface:
+        _LOG.debug('Creating license manager client inside LM service')
+        return LicenseManagerClientFactory(self.settings_service).create()
 
     def synchronize_license(self, license_key: str, expires: dict = None):
         """
@@ -48,7 +46,7 @@ class LicenseManagerService:
             return None
 
         try:
-            response = self.license_manager_client.license_sync(
+            response = self.client.license_sync(
                 license_key=license_key, auth=auth
             )
 
@@ -63,59 +61,43 @@ class LicenseManagerService:
 
         return response
 
-    def is_allowed_to_license_a_job(
-        self, customer: str, tenant: str, tenant_license_keys: List[str],
-        expires: dict = None
-    ):
+    def is_allowed_to_license_a_job(self, customer: str, tenant: str,
+                                    tenant_license_keys: List[str],
+                                    expires: dict = None) -> bool:
+        """
+        License manager allows to check whether the job is allowed for
+        multiple tenants. But currently for custodian we just need to check
+        one tenant
+        :param customer:
+        :param tenant:
+        :param tenant_license_keys:
+        :param expires:
+        :return:
+        """
         auth = self._get_client_token(expires or dict(hours=1))
         if not auth:
             _LOG.warning('Client authorization token could be established.')
-            return None
+            return False
 
-        response = self.license_manager_client.job_check_permission(
+        return self.client.job_check_permission(
             customer=customer, tenant=tenant,
             tenant_license_keys=tenant_license_keys, auth=auth
         )
-        # Given 200 - returns True, otherwise False.
-        return bool(response)
 
-    def update_job_in_license_manager(
-        self, job_id, created_at, started_at,
-        stopped_at, status, expires: dict = None
-    ):
+    def update_job_in_license_manager(self, job_id, created_at, started_at,
+                                      stopped_at, status,
+                                      expires: dict = None) -> Optional[int]:
 
         auth = self._get_client_token(expires or dict(hours=1))
         if not auth:
             _LOG.warning('Client authorization token could be established.')
             return None
 
-        response = self.license_manager_client.update_job(
+        response = self.client.update_job(
             job_id=job_id, created_at=created_at, started_at=started_at,
             stopped_at=stopped_at, status=status, auth=auth
         )
-
-        return getattr(response, STATUS_CODE_ATTR, None)
-
-    def activate_tenant(
-        self, tenant: str, tlk: str, expires: dict = None
-    ) -> Optional[dict]:
-
-        auth = self._get_client_token(expires or dict(hours=1))
-        if not auth:
-            _LOG.warning('Client authorization token could be established.')
-            return None
-
-        _empty_response = {}
-        response = self.license_manager_client.activate_tenant(
-            tenant=tenant, tlk=tlk, auth=auth
-        )
-        if getattr(response, STATUS_CODE_ATTR, None) != RESPONSE_OK_CODE:
-            return _empty_response
-
-        _json = self.license_manager_client.retrieve_json(response=response)
-        _json = _json or dict()
-        response = _json.get('items') or []
-        return response[0] if len(response) == 1 else {}
+        return getattr(response, 'status_code', None)
 
     def activate_customer(self, customer: str, tlk: str, expires: dict = None
                           ) -> Optional[dict]:
@@ -124,13 +106,13 @@ class LicenseManagerService:
             _LOG.warning('Client authorization token could be established.')
             return None
         _empty_response = {}
-        response = self.license_manager_client.activate_customer(
+        response = self.client.activate_customer(
             customer=customer, tlk=tlk, auth=auth
         )
-        if getattr(response, STATUS_CODE_ATTR, None) != RESPONSE_OK_CODE:
+        if getattr(response, 'status_code', None) != HTTPStatus.OK:
             return _empty_response
 
-        _json = self.license_manager_client.retrieve_json(response=response)
+        _json = self.client.retrieve_json(response=response)
         _json = _json or dict()
         response = _json.get('items') or []
         return response[0] if len(response) == 1 else {}
@@ -144,7 +126,7 @@ class LicenseManagerService:
         :return: Union[str, Type[None]]
         """
         token_type = CLIENT_TOKEN_ATTR
-        key_data = self.license_manager_client.client_key_data
+        key_data = self.client.client_key_data
         kid, alg = key_data.get(KID_ATTR), key_data.get(ALG_ATTR)
         if not (kid and alg):
             _LOG.warning('LicenseManager Client-Key data is missing.')

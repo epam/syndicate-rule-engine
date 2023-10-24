@@ -1,14 +1,12 @@
 import boto3
-from services.environment_service import EnvironmentService
-from services.clients.sts import StsClient
 from botocore.exceptions import ClientError
+
+from services.environment_service import EnvironmentService
 
 
 class EventBridgeClient:
-    def __init__(self, environment_service: EnvironmentService,
-                 sts_client: StsClient):
+    def __init__(self, environment_service: EnvironmentService):
         self._environment = environment_service
-        self._sts_client = sts_client
         self._client = None
 
     @staticmethod

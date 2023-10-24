@@ -1,21 +1,21 @@
 from concurrent.futures import (
     ThreadPoolExecutor, as_completed, CancelledError, TimeoutError
 )
+from http import HTTPStatus
 from json.decoder import JSONDecodeError
 from typing import List, Any, Dict, Tuple
 from typing import Union, Type, Callable, Optional
 
+from modular_sdk.commons.constants import ApplicationType
 from requests import Response, ConnectionError, RequestException
 
 from helpers import (
-    raise_error_response, RESPONSE_INTERNAL_SERVER_ERROR,
-    build_response, RESPONSE_OK_CODE, RESPONSE_RESOURCE_NOT_FOUND_CODE,
-    get_missing_parameters, CustodianException, RESPONSE_BAD_REQUEST_CODE,
+    raise_error_response, build_response, get_missing_parameters,
+    CustodianException
 )
 from helpers.constants import CUSTOMERS_ATTR, RULESETS_ATTR, \
     NAME_ATTR, VERSION_ATTR, CLOUD_ATTR, ID_ATTR, RULES_ATTR, \
-    EXPIRATION_ATTR, LATEST_SYNC_ATTR, CUSTODIAN_LICENSES_TYPE, \
-    LICENSE_KEYS_ATTR, EVENT_DRIVEN_ATTR
+    EXPIRATION_ATTR, LATEST_SYNC_ATTR, LICENSE_KEYS_ATTR, EVENT_DRIVEN_ATTR
 from helpers.log_helper import get_logger
 from helpers.system_customer import SYSTEM_CUSTOMER
 from helpers.time_helper import utc_iso
@@ -117,26 +117,6 @@ class LicenseUpdater(AbstractLambda):
 
         self._default_response_handler = self._handle_unknown_response
 
-    def validate_request(self, event) -> Type[Union[None, Dict]]:
-        """
-        Validates event payload, by adhering to the following condition:
-            - event[`license_key`]:Union[List[str], Type[None]]
-        Note:Assigns default list value, given Type[None].
-        :raises: CustodianException
-        :return: Union[Type[None], Dict]
-        """
-        _licenses = event.get(LICENSE_HASH_KEY, [])
-        if not isinstance(_licenses, list):
-            raise CustodianException(
-                code=RESPONSE_BAD_REQUEST_CODE,
-                content=IMPROPER_TYPE_CONTENT
-            )
-        if not all(map(lambda l: isinstance(l, str), _licenses)):
-            raise CustodianException(
-                code=RESPONSE_BAD_REQUEST_CODE,
-                content=IMPROPER_SUBTYPE_CONTENT
-            )
-
     def handle_request(self, event, context):
         """
         Handles synchronization action for a given list
@@ -170,7 +150,7 @@ class LicenseUpdater(AbstractLambda):
                 _LOG.error(
                     LICENSE_BOUND.format(key=_invalid_key) + LICENSE_NOT_FOUND
                 )
-                raise_error_response(RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                raise_error_response(HTTPStatus.NOT_FOUND,
                                      GENERIC_LICENSE_ABSENCE)
         else:
             _licenses: List[License] = \
@@ -186,13 +166,13 @@ class LicenseUpdater(AbstractLambda):
             message = SYNC_RESPONSE_OK.format(_key_stream)
             _LOG.info(message)
             return build_response(
-                code=RESPONSE_OK_CODE,
+                code=HTTPStatus.OK,
                 content=message
             )
         else:
             _LOG.warning(SYNC_NOT_COMMENCED)
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=SYNC_NOT_COMMENCED
             )
 
@@ -550,7 +530,7 @@ class LicenseUpdater(AbstractLambda):
             for customer in _license.customers.as_dict():
                 apps = self.modular_service.get_applications(
                     customer=customer,
-                    _type=CUSTODIAN_LICENSES_TYPE
+                    _type=ApplicationType.CUSTODIAN_LICENSES.value
                 )
                 for app in apps:
                     meta = CustodianLicensesApplicationMeta(
@@ -611,7 +591,7 @@ class LicenseUpdater(AbstractLambda):
         _license_bound = LICENSE_BOUND.format(key=_license.license_key)
         content = _license_bound + CONFOUNDING_RESPONSE.format(_response)
         raise CustodianException(
-            code=RESPONSE_INTERNAL_SERVER_ERROR, content=content
+            code=HTTPStatus.INTERNAL_SERVER_ERROR, content=content
         )
 
     @staticmethod
@@ -629,7 +609,7 @@ class LicenseUpdater(AbstractLambda):
         _license_bound = LICENSE_BOUND.format(key=_license.license_key)
         content = _license_bound + REQUEST_ERROR.format(_response)
         raise CustodianException(
-            code=RESPONSE_INTERNAL_SERVER_ERROR,
+            code=HTTPStatus.INTERNAL_SERVER_ERROR,
             content=content + HALTING_CONSEQUENCE
         )
 
@@ -670,16 +650,16 @@ class LicenseUpdater(AbstractLambda):
         except JSONDecodeError as _je:
             content = _license_bound + DECODING_ERROR.format(_je)
             raise CustodianException(
-                code=RESPONSE_INTERNAL_SERVER_ERROR,
+                code=HTTPStatus.INTERNAL_SERVER_ERROR,
                 content=content + HALTING_CONSEQUENCE
             )
 
         _LOG.debug(
-            _validation_template.format(STATUS_CODE.format(RESPONSE_OK_CODE))
+            _validation_template.format(STATUS_CODE.format(HTTPStatus.OK))
         )
 
         _code = response.status_code
-        if _code != RESPONSE_OK_CODE:
+        if _code != HTTPStatus.OK:
             _formatted = dict(
                 customers=', '.join(license_entity.customers),
                 response=items.get('message', '')
@@ -722,7 +702,7 @@ class LicenseUpdater(AbstractLambda):
         if _missing:
             _missing_stream = ', '.join(_missing)
             raise CustodianException(
-                code=RESPONSE_INTERNAL_SERVER_ERROR,
+                code=HTTPStatus.INTERNAL_SERVER_ERROR,
                 content=_bound + MISSING_PARAMETER_ERROR.format(
                     keys=_missing_stream
                 )

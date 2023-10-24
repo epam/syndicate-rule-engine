@@ -1,9 +1,10 @@
 import re
 import secrets
+from http import HTTPStatus
 from typing import Optional
 
 from connections.auth_extension.base_auth_client import BaseAuthClient
-from helpers import CustodianException, RESPONSE_BAD_REQUEST_CODE
+from helpers import CustodianException
 from helpers.log_helper import get_logger
 
 _LOG = get_logger(__name__)
@@ -20,7 +21,7 @@ class CognitoUserService:
         _LOG.debug(f'Validating password for user {username}')
         if self.client.is_user_exists(username):
             raise CustodianException(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=f'The user with name {username} already exists.')
 
         _LOG.debug(f'Creating the user with username {username}')

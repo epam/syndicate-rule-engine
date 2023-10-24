@@ -1,7 +1,8 @@
 from hashlib import md5
+from http import HTTPStatus
 from typing import List, Optional, Generator, Iterable, Tuple
 
-from helpers import build_response, RESPONSE_BAD_REQUEST_CODE, list_update
+from helpers import build_response, list_update
 from helpers.constants import GIT_ACCESS_SECRET_ATTR, CUSTOMER_ATTR, \
     ID_ATTR, GIT_PROJECT_ID_ATTR, GIT_RULES_PREFIX_ATTR, STATUS_SYNCING, \
     STATUS_SYNCED, GIT_ACCESS_TYPE_ATTR, LATEST_SYNC_ATTR, \
@@ -326,7 +327,7 @@ class RuleSourceService(AbstractRuleService):
         if not pr:
             _LOG.warning(f'Cannot access project: {project}')
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=f'Cannot access {"GitLab" if is_gitlab else "GitHub"} '
                         f'project {project}'
             )

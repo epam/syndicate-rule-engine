@@ -1,13 +1,13 @@
+from http import HTTPStatus
 from typing import Optional
 
 from handlers.base_handler import \
     BaseReportHandler, SourceReportDerivation, \
     Report, ModularService, AmbiguousJobService, Source
-from helpers import RESPONSE_RESOURCE_NOT_FOUND_CODE, RESPONSE_OK_CODE
-from helpers.constants import (
-    GET_METHOD, CUSTOMER_ATTR, TENANTS_ATTR,
-    TENANT_ATTR, HREF_ATTR, CONTENT_ATTR, ID_ATTR, AWS_CLOUD_ATTR,
-    AZURE_CLOUD_ATTR)
+from helpers.constants import (HTTPMethod, CUSTOMER_ATTR, TENANTS_ATTR,
+                               TENANT_ATTR, HREF_ATTR, CONTENT_ATTR, ID_ATTR,
+                               AWS_CLOUD_ATTR,
+                               AZURE_CLOUD_ATTR)
 from helpers.log_helper import get_logger
 from services.coverage_service import CoverageService, RegionPoints
 from services.findings_service import FindingsService
@@ -146,7 +146,7 @@ class JobsComplianceHandler(BaseComplianceReportHandler):
     def define_action_mapping(self):
         return {
             JOB_ENDPOINT: {
-                GET_METHOD: self.get_by_job
+                HTTPMethod.GET: self.get_by_job
             }
         }
 
@@ -187,7 +187,7 @@ class JobsComplianceHandler(BaseComplianceReportHandler):
         )
         if referenced_reports:
             ref_attr = HREF_ATTR if href else CONTENT_ATTR
-            self._code = RESPONSE_OK_CODE
+            self._code = HTTPStatus.OK
             self._content = [
                 self.dto(source=source, report=report, ref_attr=ref_attr)
                 for source, report in referenced_reports.items()
@@ -195,7 +195,7 @@ class JobsComplianceHandler(BaseComplianceReportHandler):
         else:
             message = f' - no report could be derived.'
             _LOG.warning(head + message)
-            self._code = RESPONSE_RESOURCE_NOT_FOUND_CODE
+            self._code = HTTPStatus.NOT_FOUND
             self._content = head + NO_RESOURCES_FOR_REPORT
 
         return self.response
@@ -228,7 +228,7 @@ class EntityComplianceHandler(BaseComplianceReportHandler):
     def define_action_mapping(self):
         return {
             TENANT_ENDPOINT: {
-                GET_METHOD: self.get_by_tenant
+                HTTPMethod.GET: self.get_by_tenant
             }
         }
 
@@ -255,7 +255,7 @@ class EntityComplianceHandler(BaseComplianceReportHandler):
 
         if report:
             ref_attr = HREF_ATTR if href else CONTENT_ATTR
-            self._code = RESPONSE_OK_CODE
+            self._code = HTTPStatus.OK
             self._content = [
                 self.dto(
                     entity_attr=TENANT_ATTR, entity_value=tenant_name,
@@ -265,7 +265,7 @@ class EntityComplianceHandler(BaseComplianceReportHandler):
         else:
             message = f' - accumulated report could not be derived.'
             _LOG.warning(head + message)
-            self._code = RESPONSE_RESOURCE_NOT_FOUND_CODE
+            self._code = HTTPStatus.NOT_FOUND
             self._content = head + NO_RESOURCES_FOR_REPORT
 
         return self.response

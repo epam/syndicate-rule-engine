@@ -1,27 +1,23 @@
+from http import HTTPStatus
 from typing import Optional
 
-from modular_sdk.commons.constants import DEFECT_DOJO_TYPE, CUSTODIAN_TYPE
 from modular_sdk.services.impl.maestro_credentials_service import \
     CustodianApplicationMeta, DefectDojoApplicationMeta, \
     DefectDojoApplicationSecret
 from pydantic import HttpUrl
 
 from handlers.abstracts.abstract_handler import AbstractHandler
-from helpers import build_response, RESPONSE_BAD_REQUEST_CODE, \
-    RESPONSE_RESOURCE_NOT_FOUND_CODE, \
-    RESPONSE_FORBIDDEN_CODE, RESPONSE_CONFLICT, RESPONSE_NO_CONTENT
+from helpers import build_response
 from helpers import setdefault
-from helpers.constants import CUSTOMER_ATTR, USERNAME_ATTR, \
-    CLOUD_ATTR, \
+from helpers.constants import CLOUD_TO_APP_TYPE
+from helpers.constants import CUSTOMER_ATTR, USERNAME_ATTR, CLOUD_ATTR, \
     ACCESS_APPLICATION_ID_ATTR, TENANT_LICENSE_KEY_ATTR, LICENSE_KEY_ATTR, \
-    DESCRIPTION_ATTR, PASSWORD_ATTR, APPLICATION_ID_ATTR, \
-    CUSTODIAN_LICENSES_TYPE, URL_ATTR, AUTO_RESOLVE_ACCESS_ATTR, \
-    RESULTS_STORAGE_ATTR, API_KEY_ATTR
-from helpers.constants import POST_METHOD, GET_METHOD, DELETE_METHOD, \
-    CLOUD_TO_APP_TYPE, PATCH_METHOD
+    DESCRIPTION_ATTR, PASSWORD_ATTR, APPLICATION_ID_ATTR, URL_ATTR, \
+    AUTO_RESOLVE_ACCESS_ATTR, RESULTS_STORAGE_ATTR, API_KEY_ATTR, HTTPMethod
 from helpers.log_helper import get_logger
 from models.modular.application import Application, \
     CustodianLicensesApplicationMeta
+from modular_sdk.commons.constants import ApplicationType
 from services import SERVICE_PROVIDER
 from services.clients.lambda_func import LambdaClient, \
     LICENSE_UPDATER_LAMBDA_NAME
@@ -70,31 +66,31 @@ class ApplicationsHandler(AbstractHandler):
     def define_action_mapping(self) -> dict:
         return {
             '/applications/dojo': {
-                POST_METHOD: self.dojo_post,
-                GET_METHOD: self.dojo_list,
+                HTTPMethod.POST: self.dojo_post,
+                HTTPMethod.GET: self.dojo_list,
             },
             '/applications/dojo/{application_id}': {
-                PATCH_METHOD: self.dojo_patch,
-                DELETE_METHOD: self.dojo_delete,
-                GET_METHOD: self.dojo_get
+                HTTPMethod.PATCH: self.dojo_patch,
+                HTTPMethod.DELETE: self.dojo_delete,
+                HTTPMethod.GET: self.dojo_get
             },
             '/applications/access': {
-                POST_METHOD: self.access_post,
-                GET_METHOD: self.access_list,
+                HTTPMethod.POST: self.access_post,
+                HTTPMethod.GET: self.access_list,
             },
             '/applications/access/{application_id}': {
-                PATCH_METHOD: self.access_patch,
-                DELETE_METHOD: self.access_delete,
-                GET_METHOD: self.access_get
+                HTTPMethod.PATCH: self.access_patch,
+                HTTPMethod.DELETE: self.access_delete,
+                HTTPMethod.GET: self.access_get
             },
             '/applications': {
-                POST_METHOD: self.post,
-                GET_METHOD: self.list,
+                HTTPMethod.POST: self.post,
+                HTTPMethod.GET: self.list,
             },
             '/applications/{application_id}': {
-                PATCH_METHOD: self.patch,
-                DELETE_METHOD: self.delete,
-                GET_METHOD: self.get
+                HTTPMethod.PATCH: self.patch,
+                HTTPMethod.DELETE: self.delete,
+                HTTPMethod.GET: self.get
             }
         }
 
@@ -139,17 +135,18 @@ class ApplicationsHandler(AbstractHandler):
         application = self._modular_service.create_application(
             customer=customer,
             description=description,
-            _type=DEFECT_DOJO_TYPE,
+            _type=ApplicationType.DEFECT_DOJO.value,
             meta=meta.dict(),
         )
         self.set_dojo_api_key(application, api_key)
         self._modular_service.save(application)
-        return build_response(content=self._modular_service.get_dto(application))
+        return build_response(
+            content=self._modular_service.get_dto(application))
 
     def dojo_list(self, event: dict) -> dict:
         res = self._modular_service.get_applications(
             customer=event.get(CUSTOMER_ATTR),
-            _type=DEFECT_DOJO_TYPE
+            _type=ApplicationType.DEFECT_DOJO.value
         )
         return build_response(
             content=(self._modular_service.get_dto(app) for app in res)
@@ -158,7 +155,8 @@ class ApplicationsHandler(AbstractHandler):
     def dojo_get(self, event: dict) -> dict:
         customer = event.get(CUSTOMER_ATTR)
         application_id = event.get(APPLICATION_ID_ATTR)
-        item = self.get_application(application_id, customer, DEFECT_DOJO_TYPE)
+        item = self.get_application(application_id, customer,
+                                    ApplicationType.DEFECT_DOJO.value)
         if not item:
             return build_response(content=[])
         return build_response(content=[self._modular_service.get_dto(item)])
@@ -171,11 +169,11 @@ class ApplicationsHandler(AbstractHandler):
         api_key: str = event.get(API_KEY_ATTR)
 
         application = self.get_application(application_id, customer,
-                                           DEFECT_DOJO_TYPE)
+                                           ApplicationType.DEFECT_DOJO)
 
         if not application:
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=f'Defect Dojo application with id {application_id} '
                         f'not found in customer {customer}'
             )
@@ -193,22 +191,26 @@ class ApplicationsHandler(AbstractHandler):
         if api_key:
             self.set_dojo_api_key(application, api_key)
         self._modular_service.save(application)
-        return build_response(content=self._modular_service.get_dto(application))
+        return build_response(
+            content=self._modular_service.get_dto(application))
 
     def dojo_delete(self, event: dict) -> dict:
         customer = event.get(CUSTOMER_ATTR)
         application_id = event.get(APPLICATION_ID_ATTR)
-        application = self.get_application(application_id,
-                                           customer, DEFECT_DOJO_TYPE)
+        application = self.get_application(
+            application_id,
+            customer,
+            ApplicationType.DEFECT_DOJO
+        )
         if not application:
             return build_response(
-                code=RESPONSE_NO_CONTENT,
+                code=HTTPStatus.NO_CONTENT,
             )
 
         erased = self._modular_service.delete(application)
         if not erased:
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content='Could not remove the application. '
                         'Probably it\'s used by some parents.'
             )
@@ -218,9 +220,7 @@ class ApplicationsHandler(AbstractHandler):
             assume_role_ssm = self._modular_client.assume_role_ssm_service()
             if not assume_role_ssm.delete_parameter(application.secret):
                 _LOG.warning(f'Could not remove secret: {application.secret}')
-        # modular sdk does not remove the app, just sets is_deleted
-        self._modular_service.save(application)
-        return build_response(code=RESPONSE_NO_CONTENT)
+        return build_response(code=HTTPStatus.NO_CONTENT)
 
     def access_post(self, event: dict) -> dict:
         customer: str = event[CUSTOMER_ATTR]
@@ -233,19 +233,19 @@ class ApplicationsHandler(AbstractHandler):
 
         existing = next(self._modular_service.get_applications(
             customer=customer,
-            _type=CUSTODIAN_TYPE,
+            _type=ApplicationType.CUSTODIAN.value,
             limit=1,
             deleted=False
         ), None)
         if existing:
             return build_response(
-                code=RESPONSE_CONFLICT,
+                code=HTTPStatus.CONFLICT,
                 content=f'Access application already '
                         f'exists in customer {customer}'
             )
         application = self._modular_service.create_application(
             customer=customer,
-            _type=CUSTODIAN_TYPE,
+            _type=ApplicationType.CUSTODIAN.value,
         )
 
         if username:
@@ -282,7 +282,7 @@ class ApplicationsHandler(AbstractHandler):
     def access_list(self, event: dict) -> dict:
         res = self._modular_service.get_applications(
             customer=event.get(CUSTOMER_ATTR),
-            _type=CUSTODIAN_TYPE
+            _type=ApplicationType.CUSTODIAN.value
         )
         return build_response(
             content=(self._modular_service.get_dto(app) for app in res)
@@ -299,11 +299,11 @@ class ApplicationsHandler(AbstractHandler):
         results_storage: str = event.get(RESULTS_STORAGE_ATTR)
 
         application = self.get_application(application_id, customer,
-                                           CUSTODIAN_TYPE)
+                                           ApplicationType.CUSTODIAN.value)
 
         if not application:
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=f'Custodian access application not found in customer '
                         f'{customer}'
             )
@@ -341,17 +341,20 @@ class ApplicationsHandler(AbstractHandler):
     def access_delete(self, event: dict) -> dict:
         customer = event.get(CUSTOMER_ATTR)
         application_id = event.get(APPLICATION_ID_ATTR)
-        application = self.get_application(application_id,
-                                           customer, CUSTODIAN_TYPE)
+        application = self.get_application(
+            application_id,
+            customer,
+            ApplicationType.CUSTODIAN.value
+        )
         if not application:
             return build_response(
-                code=RESPONSE_NO_CONTENT,
+                code=HTTPStatus.NO_CONTENT,
             )
 
         erased = self._modular_service.delete(application)
         if not erased:
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content='Could not remove the application. '
                         'Probably it\'s used by some parents.'
             )
@@ -361,14 +364,13 @@ class ApplicationsHandler(AbstractHandler):
             assume_role_ssm = self._modular_client.assume_role_ssm_service()
             if not assume_role_ssm.delete_parameter(application.secret):
                 _LOG.warning(f'Could not remove secret: {application.secret}')
-        # modular sdk does not remove the app, just sets is_deleted
-        self._modular_service.save(application)
-        return build_response(code=RESPONSE_NO_CONTENT)
+        return build_response(code=HTTPStatus.NO_CONTENT)
 
     def access_get(self, event: dict) -> dict:
         customer = event.get(CUSTOMER_ATTR)
         application_id = event.get(APPLICATION_ID_ATTR)
-        item = self.get_application(application_id, customer, CUSTODIAN_TYPE)
+        item = self.get_application(application_id, customer,
+                                    ApplicationType.CUSTODIAN)
         if not item:
             return build_response(content=[])
         return build_response(content=[self._modular_service.get_dto(item)])
@@ -385,7 +387,7 @@ class ApplicationsHandler(AbstractHandler):
     def list(self, event: dict) -> dict:
         res = self._modular_service.get_applications(
             customer=event.get(CUSTOMER_ATTR),
-            _type=CUSTODIAN_LICENSES_TYPE
+            _type=ApplicationType.CUSTODIAN_LICENSES.value
         )
         return build_response(
             content=(self._modular_service.get_dto(app) for app in res)
@@ -395,7 +397,7 @@ class ApplicationsHandler(AbstractHandler):
         customer = event.get(CUSTOMER_ATTR)
         application_id = event.get(APPLICATION_ID_ATTR)
         item = self.get_application(application_id, customer,
-                                    CUSTODIAN_LICENSES_TYPE)
+                                    ApplicationType.CUSTODIAN_LICENSES.value)
         if not item:
             return build_response(content=[])
         return build_response(content=[self._modular_service.get_dto(item)])
@@ -410,7 +412,7 @@ class ApplicationsHandler(AbstractHandler):
         _exists = self._user_service.is_user_exists(username)
         if not _exists:
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=f'User {username} not found in customer: {customer}'
             )
         _customer_match = \
@@ -420,7 +422,7 @@ class ApplicationsHandler(AbstractHandler):
         # get_user_customer(), if user does not exist
         if not _customer_match:
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=f'User {username} not found in customer: {customer}'
             )
 
@@ -432,13 +434,13 @@ class ApplicationsHandler(AbstractHandler):
         tenant_license_key = event.get(TENANT_LICENSE_KEY_ATTR)
         application = self._modular_service.create_application(
             customer=customer,
-            _type=CUSTODIAN_LICENSES_TYPE,
+            _type=ApplicationType.CUSTODIAN_LICENSES.value,
         )
 
         meta = CustodianLicensesApplicationMeta()
         application.description = description
 
-        if cloud:  # either "AWS" or "AZURE" or "GOOGLE", validated by pydentic
+        if cloud:
             # either access_application_id or tenant_license_key or both
             if access_application_id:
                 self.set_access_application_id(
@@ -478,11 +480,14 @@ class ApplicationsHandler(AbstractHandler):
         cloud: str = event.get(CLOUD_ATTR)
         access_application_id = event.get(ACCESS_APPLICATION_ID_ATTR)
         tenant_license_key = event.get(TENANT_LICENSE_KEY_ATTR)
-        application = self.get_application(application_id, customer,
-                                           CUSTODIAN_LICENSES_TYPE)
+        application = self.get_application(
+            application_id,
+            customer,
+            ApplicationType.CUSTODIAN_LICENSES.value
+        )
         if not application:
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=
                 f'Custodian application not found in customer {customer}'
             )
@@ -525,17 +530,17 @@ class ApplicationsHandler(AbstractHandler):
     def delete(self, event: dict) -> dict:
         customer = event.get(CUSTOMER_ATTR)
         application_id = event.get(APPLICATION_ID_ATTR)
-        application = self.get_application(application_id, customer,
-                                           CUSTODIAN_LICENSES_TYPE)
+        application = self.get_application(
+            application_id, customer, ApplicationType.CUSTODIAN_LICENSES.value)
         if not application:
             return build_response(
-                code=RESPONSE_NO_CONTENT,
+                code=HTTPStatus.NO_CONTENT,
             )
 
         erased = self._modular_service.delete(application)
         if not erased:
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content='Could not remove the application. '
                         'Probably it\'s used by some parents.'
             )
@@ -554,11 +559,7 @@ class ApplicationsHandler(AbstractHandler):
             self._license_service.remove_for_customer(
                 license_key, customer
             )
-            meta.update_license_key(cloud, None)
-        # modular sdk does not remove the app, just sets is_deleted
-        application.meta = meta.dict()
-        self._modular_service.save(application)
-        return build_response(code=RESPONSE_NO_CONTENT)
+        return build_response(code=HTTPStatus.NO_CONTENT)
 
     def set_user_password(self, application: Application, password: str):
         """
@@ -599,13 +600,13 @@ class ApplicationsHandler(AbstractHandler):
             access_application_id)
         if not _access_app or _access_app.customer_id != customer:
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=f'Application {access_application_id}'
                         f' not found within {customer}'
             )
         if _access_app.type not in CLOUD_TO_APP_TYPE.get(cloud, set()):
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=f'Application \'{access_application_id}\' '
                         f'has type {_access_app.type} that is not '
                         f'supported for cloud {cloud}'
@@ -622,7 +623,7 @@ class ApplicationsHandler(AbstractHandler):
                        f'tenant license \'{tenant_license_key}\'' \
                        f' for customer \'{customer}\''
             _LOG.warning(_message)
-            return build_response(code=RESPONSE_FORBIDDEN_CODE,
+            return build_response(code=HTTPStatus.FORBIDDEN,
                                   content=_message)
         license_key = _response.get(LICENSE_KEY_ATTR)
         license_obj = self._license_service.get_license(license_key)

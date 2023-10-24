@@ -1,31 +1,28 @@
 from functools import cached_property
+from http import HTTPStatus
 from itertools import chain
 from typing import Optional, Dict, Set
 
-from botocore.exceptions import ClientError
-from modular_sdk.commons.constants import CUSTODIAN_TYPE, \
-    CUSTODIAN_LICENSES_TYPE, SIEM_DEFECT_DOJO_TYPE, DEFECT_DOJO_TYPE, \
-    CUSTODIAN_ACCESS_TYPE
+from modular_sdk.commons.constants import ApplicationType, ParentType, \
+    ParentScope
 from modular_sdk.models.application import Application
 from modular_sdk.models.tenant import Tenant
+from modular_sdk.services.parent_service import ParentService
 
 from handlers.abstracts.abstract_handler import AbstractHandler
-from helpers import build_response, RESPONSE_BAD_REQUEST_CODE, \
-    RESPONSE_RESOURCE_NOT_FOUND_CODE, RESPONSE_NO_CONTENT, \
-    RESPONSE_FORBIDDEN_CODE
-from helpers.constants import CUSTOMER_ATTR, APPLICATION_ID_ATTR, \
-    DESCRIPTION_ATTR, CLOUDS_ATTR, SCOPE_ATTR, PARENT_ID_ATTR, \
-    DELETE_METHOD, RULES_TO_EXCLUDE_ATTR, PATCH_METHOD, \
-    RULES_TO_INCLUDE_ATTR, TENANT_ATTR, SPECIFIC_TENANT_SCOPE, \
-    CUSTODIAN_LICENSES_TYPE, TYPE_ATTR, POST_METHOD, GET_METHOD, \
-    CLOUD_TO_APP_TYPE
+from helpers import adjust_cloud
+from helpers import build_response
+from helpers.constants import CUSTOMER_ATTR, PARENT_ID_ATTR, \
+    SPECIFIC_TENANT_SCOPE, \
+    CLOUD_TO_APP_TYPE, HTTPMethod
 from helpers.enums import ParentType
 from helpers.log_helper import get_logger
-from models.modular.parents import Parent, ParentMeta, ScopeParentMeta
+from models.modular.parents import Parent, ParentMeta
 from services import SERVICE_PROVIDER
 from services.modular_service import ModularService
 from services.rule_meta_service import RuleService
-from helpers import adjust_cloud
+from validators.request_validation import ParentPostModel, ParentPatchModel
+from validators.utils import validate_kwargs
 
 _LOG = get_logger(__name__)
 
@@ -44,65 +41,33 @@ class ParentsHandler(AbstractHandler):
             rule_service=SERVICE_PROVIDER.rule_service()
         )
 
+    @property
+    def ps(self) -> ParentService:
+        return self._modular_service.modular_client.parent_service()
+
     def define_action_mapping(self) -> dict:
         return {
             '/parents': {
-                POST_METHOD: self.post,
-                GET_METHOD: self.list
+                HTTPMethod.POST: self.post,
+                HTTPMethod.GET: self.list
             },
             '/parents/{parent_id}': {
-                GET_METHOD: self.get,
-                DELETE_METHOD: self.delete,
-                PATCH_METHOD: self.patch
+                HTTPMethod.GET: self.get,
+                HTTPMethod.DELETE: self.delete,
+                HTTPMethod.PATCH: self.patch
             },
-            '/parents/tenant-link': {
-                POST_METHOD: self.post_tenant_link,
-                DELETE_METHOD: self.delete_tenant_link
-            }
         }
-
-    def post_tenant_link(self, event: dict) -> dict:
-        parent_id = event.get(PARENT_ID_ATTR)
-        tenant = event.get(TENANT_ATTR)
-        # type_ = event.get(TYPE_ATTR)  # type for parent_map
-        customer = event.get(CUSTOMER_ATTR)
-        parent = self.get_parent(parent_id, customer)
-        if not parent:
-            return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
-                content=f'Parent with id '
-                        f'{parent_id} within your customer not found'
-            )
-        tenant_item = self._modular_service.get_tenant(tenant)
-        if not self._modular_service.is_tenant_valid(tenant_item, customer):
-            return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
-                content=f'Tenant {tenant} not found'
-            )
-        self._assert_allowed_to_link(tenant_item, parent, parent.type)
-        try:
-            self._modular_service.modular_client.tenant_service().add_to_parent_map(
-                tenant=tenant_item, parent=parent, type_=parent.type
-            )  # we catch ModularException in abstract_api_handler_lambda
-        except ClientError:  # we used to have no rights to write to Tenants...
-            return build_response(
-                code=RESPONSE_FORBIDDEN_CODE,
-                content='You are not allowed to change the tenant'
-            )
-        return build_response(
-            content=f'Tenant {tenant} was successfully linked '
-                    f'to parent {parent_id}'
-        )
 
     def _is_allowed_to_link_custodian(self, tenant: Tenant, parent: Parent,
                                       application: Application) -> bool:
-        if parent.type != CUSTODIAN_TYPE:
-            self._content = f'parent type must be {CUSTODIAN_TYPE} ' \
-                            f'for {CUSTODIAN_TYPE} linkage'
+        if parent.type != ParentType.CUSTODIAN:
+            self._content = f'parent type must be {ParentType.CUSTODIAN} ' \
+                            f'for {ParentType.CUSTODIAN} linkage'
             return False
-        if application.type != CUSTODIAN_TYPE:
-            self._content = f'application type must be {CUSTODIAN_TYPE} ' \
-                            f'for {CUSTODIAN_TYPE} linkage'
+        if application.type != ApplicationType.CUSTODIAN:
+            self._content = f'application type must be ' \
+                            f'{ApplicationType.CUSTODIAN} ' \
+                            f'for {ParentType.CUSTODIAN} linkage'
             return False
         meta = ParentMeta.from_dict(parent.meta.as_dict())
         if meta.scope != SPECIFIC_TENANT_SCOPE:
@@ -117,14 +82,15 @@ class ParentsHandler(AbstractHandler):
                                                parent: Parent,
                                                application: Application
                                                ) -> bool:
-        if parent.type != CUSTODIAN_LICENSES_TYPE:
-            self._content = f'parent type must be {CUSTODIAN_LICENSES_TYPE} ' \
-                            f'for {CUSTODIAN_LICENSES_TYPE} linkage'
+        if parent.type != ParentType.CUSTODIAN_LICENSES:
+            self._content = f'parent type must be ' \
+                            f'{ParentType.CUSTODIAN_LICENSES} ' \
+                            f'for {ParentType.CUSTODIAN_LICENSES} linkage'
             return False
-        if application.type != CUSTODIAN_LICENSES_TYPE:
+        if application.type != ApplicationType.CUSTODIAN_LICENSES:
             self._content = f'application type must be ' \
-                            f'{CUSTODIAN_LICENSES_TYPE} ' \
-                            f'for {CUSTODIAN_LICENSES_TYPE} linkage'
+                            f'{ApplicationType.CUSTODIAN_LICENSES} ' \
+                            f'for {ApplicationType.CUSTODIAN_LICENSES} linkage'
             return False
         meta = ParentMeta.from_dict(parent.meta.as_dict())
         if meta.scope != SPECIFIC_TENANT_SCOPE:
@@ -139,14 +105,15 @@ class ParentsHandler(AbstractHandler):
                                              parent: Parent,
                                              application: Application
                                              ) -> bool:
-        if parent.type != SIEM_DEFECT_DOJO_TYPE:
-            self._content = f'parent type must be {SIEM_DEFECT_DOJO_TYPE} ' \
-                            f'for {SIEM_DEFECT_DOJO_TYPE} linkage'
+        if parent.type != ParentType.SIEM_DEFECT_DOJO:
+            self._content = f'parent type must be ' \
+                            f'{ParentType.SIEM_DEFECT_DOJO} ' \
+                            f'for {ParentType.SIEM_DEFECT_DOJO} linkage'
             return False
-        if application.type != DEFECT_DOJO_TYPE:
+        if application.type != ApplicationType.DEFECT_DOJO:
             self._content = f'application type must be ' \
-                            f'{SIEM_DEFECT_DOJO_TYPE} ' \
-                            f'for {SIEM_DEFECT_DOJO_TYPE} linkage'
+                            f'{ApplicationType.DEFECT_DOJO} ' \
+                            f'for {ParentType.SIEM_DEFECT_DOJO} linkage'
             return False
         meta = ParentMeta.from_dict(parent.meta.as_dict())
         if meta.scope != SPECIFIC_TENANT_SCOPE:
@@ -161,9 +128,10 @@ class ParentsHandler(AbstractHandler):
                                              parent: Parent,
                                              application: Application
                                              ) -> bool:
-        if parent.type != CUSTODIAN_ACCESS_TYPE:
-            self._content = f'parent type must be {CUSTODIAN_ACCESS_TYPE} ' \
-                            f'for {CUSTODIAN_ACCESS_TYPE} linkage'
+        if parent.type != ParentType.CUSTODIAN_ACCESS:
+            self._content = f'parent type must be ' \
+                            f'{ParentType.CUSTODIAN_ACCESS} ' \
+                            f'for {ParentType.CUSTODIAN_ACCESS} linkage'
             return False
         if application.type not in CLOUD_TO_APP_TYPE.get(tenant.cloud):
             self._content = f'application must provide credentials ' \
@@ -180,7 +148,7 @@ class ParentsHandler(AbstractHandler):
         CUSTODIAN          -> CUSTODIAN          -> CUSTODIAN
         CUSTODIAN_LICENSES -> CUSTODIAN_LICENSES -> CUSTODIAN_LICENSES
         SIEM_DEFECT_DOJO   -> SIEM_DEFECT_DOJO   -> DEFECT_DOJO
-        CUSTODIAN_ACCESS   -> CUSTODIAN_ACCESS   -> [creds application for tenant's cloud]
+        CUSTODIAN_ACCESS   -> CUSTODIAN_ACCESS   -> [creds application for tenant's cloud]  # noqa
         For the first three rows scope must be SPECIFIC_TENANT, cloud be valid
         :param tenant:
         :param parent:
@@ -190,43 +158,25 @@ class ParentsHandler(AbstractHandler):
         application = self._modular_service.get_parent_application(parent)
         if not application:
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content='Parent`s application not found'
             )
         type_method = {
-            CUSTODIAN_TYPE: self._is_allowed_to_link_custodian,
-            CUSTODIAN_LICENSES_TYPE: self._is_allowed_to_link_custodian_licenses,
-            SIEM_DEFECT_DOJO_TYPE: self._is_allowed_to_link_siem_defect_dojo,
-            CUSTODIAN_ACCESS_TYPE: self._is_allowed_to_link_custodian_access
+            ParentType.CUSTODIAN.value: self._is_allowed_to_link_custodian,
+            ParentType.CUSTODIAN_LICENSES.value: self._is_allowed_to_link_custodian_licenses,
+            # noqa
+            ParentType.SIEM_DEFECT_DOJO.value: self._is_allowed_to_link_siem_defect_dojo,
+            # noqa
+            ParentType.CUSTODIAN_ACCESS.value: self._is_allowed_to_link_custodian_access
+            # noqa
         }
         method = type_method[type_]  # type_ is validated before
         if not method(tenant, parent, application):
             _LOG.warning(f'Cannot link: {self._content}')
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=f'Cannot link: {self._content}'
             )
-
-    def delete_tenant_link(self, event: dict) -> dict:
-        tenant = event.get(TENANT_ATTR)
-        customer = event.get(CUSTOMER_ATTR)
-        type_ = event.get(TYPE_ATTR)
-        tenant_item = self._modular_service.get_tenant(tenant)
-        if not self._modular_service.is_tenant_valid(tenant_item, customer):
-            return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
-                content=f'Tenant {tenant} not found'
-            )
-        try:
-            self._modular_service.modular_client.tenant_service().remove_from_parent_map(
-                tenant=tenant_item, type_=type_
-            )
-        except ClientError:  # we used to have no rights to write to Tenants...
-            return build_response(
-                code=RESPONSE_FORBIDDEN_CODE,
-                content='You are not allowed to change tenant'
-            )
-        return build_response(code=RESPONSE_NO_CONTENT)
 
     def list(self, event: dict) -> dict:
         customer = event.get(CUSTOMER_ATTR)
@@ -236,7 +186,7 @@ class ParentsHandler(AbstractHandler):
             is_deleted=False
         )
         return build_response(
-            content=(self._modular_service.get_dto(parent) for parent in items)
+            content=(self.ps.get_dto(parent) for parent in items)
         )
 
     def get(self, event: dict):
@@ -245,7 +195,7 @@ class ParentsHandler(AbstractHandler):
         item = self.get_parent(parent_id, customer)
         if not item:
             return build_response(content=[])
-        return build_response(content=self._modular_service.get_dto(item))
+        return build_response(content=self.ps.get_dto(item))
 
     def delete(self, event: dict):
         customer = event.get(CUSTOMER_ATTR)
@@ -253,19 +203,13 @@ class ParentsHandler(AbstractHandler):
         item = self.get_parent(parent_id, customer)
         if not item:
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=f'Parent with id '
                         f'{parent_id} within your customer not found'
             )
-        erased = self._modular_service.delete(item)
-        if erased:  # Modular sdk does not remove the parent, just sets is_deleted
-            self._modular_service.save(item)
-            return build_response(code=RESPONSE_NO_CONTENT)
-        return build_response(
-            code=RESPONSE_BAD_REQUEST_CODE,
-            content='Could not remove the parent. '
-                    'Probably it\'s used by some tenants.'
-        )
+        self._modular_service.modular_client.parent_service().mark_deleted(
+            item)
+        return build_response(code=HTTPStatus.NO_CONTENT)
 
     def get_parent(self, parent_id: str,
                    customer: Optional[str]) -> Optional[Parent]:
@@ -278,122 +222,119 @@ class ParentsHandler(AbstractHandler):
     @cached_property
     def parent_type_to_application_type_map(self) -> Dict[str, Set[str]]:
         return {
-            SIEM_DEFECT_DOJO_TYPE: {DEFECT_DOJO_TYPE},
-            CUSTODIAN_LICENSES_TYPE: {CUSTODIAN_LICENSES_TYPE},
-            CUSTODIAN_TYPE: {CUSTODIAN_TYPE},
-            CUSTODIAN_ACCESS_TYPE: set(
-                chain.from_iterable(CLOUD_TO_APP_TYPE.values()))
+            ParentType.SIEM_DEFECT_DOJO.value: {
+                ApplicationType.DEFECT_DOJO.value},
+            ParentType.CUSTODIAN_LICENSES.value: {
+                ApplicationType.CUSTODIAN_LICENSES.value},
+            ParentType.CUSTODIAN.value: {ApplicationType.CUSTODIAN.value},
+            ParentType.CUSTODIAN_ACCESS.value: set(
+                chain.from_iterable(CLOUD_TO_APP_TYPE.values())),
             # any creds application
         }
 
-    def post(self, event: dict) -> dict:
-        customer = event.get(CUSTOMER_ATTR)
-        application_id = event.get(APPLICATION_ID_ATTR)
-        description: str = event.get(DESCRIPTION_ATTR)
-        clouds: set = event.get(CLOUDS_ATTR)
-        scope: str = event.get(SCOPE_ATTR)
-        rules_to_exclude: set = event.get(RULES_TO_EXCLUDE_ATTR)
-        type_ = event.get(TYPE_ATTR)
-
-        app = self._modular_service.get_application(application_id)
-        _required_types = self.parent_type_to_application_type_map.get(type_)
-        if not app or app.is_deleted or app.customer_id != customer or app.type not in _required_types:
+    @validate_kwargs
+    def post(self, event: ParentPostModel) -> dict:
+        app = self._modular_service.get_application(event.application_id)
+        _required_types = self.parent_type_to_application_type_map.get(
+            event.type)
+        if not app or app.is_deleted or app.customer_id != event.customer or \
+                app.type not in _required_types:
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
-                content=f'Application {application_id} with type: '
+                code=HTTPStatus.NOT_FOUND,
+                content=f'Application {event.application_id} with type: '
                         f'{", ".join(_required_types)} not found in '
-                        f'customer {customer}'
+                        f'customer {event.customer}'
             )
+        tenant = None
+        if event.tenant_name:
+            tenant = self._modular_service.get_tenant(event.tenant_name)
+            self._modular_service.assert_tenant_valid(tenant, event.customer)
 
         meta = {}
-        if type_ == CUSTODIAN_LICENSES_TYPE:
-            _LOG.debug(f'Parent is {CUSTODIAN_LICENSES_TYPE}. '
-                       f'Resolving rule ids')
+        if event.type == ParentType.CUSTODIAN_LICENSES:
+            _LOG.debug(f'Parent is {event.type}. Resolving rule ids')
+            clouds = set()
+            if tenant:
+                clouds.add(adjust_cloud(tenant.cloud))
+            elif event.cloud:  # scope all
+                clouds.add(adjust_cloud(event.cloud))
             meta = ParentMeta(
-                scope=scope,
-                clouds=list(clouds),
                 rules_to_exclude=list(
                     self._rule_service.resolved_names(
-                        names=rules_to_exclude,
-                        clouds=set(adjust_cloud(cl) for cl in clouds)
+                        names=event.rules_to_exclude,
+                        clouds=clouds
                     )
                 )
             ).dict()
-        elif type_ != CUSTODIAN_ACCESS_TYPE:
-            _LOG.debug(f'Parent is {type_}. Setting scope and clouds')
-            meta = ScopeParentMeta(scope=scope, clouds=list(clouds)).dict()
-        parent = self._modular_service.create_parent(
-            customer_id=customer,
-            parent_type=type_,
-            application_id=application_id,
-            description=description,
-            meta=meta
-        )
+        if event.scope == ParentScope.ALL:
+            parent = self.ps.create_all_scope(
+                application_id=event.application_id,
+                customer_id=event.customer,
+                type_=event.type,
+                description=event.description,
+                meta=meta,
+                cloud=event.cloud
+            )
+        else:
+            parent = self.ps.create_tenant_scope(
+                application_id=event.application_id,
+                customer_id=event.customer,
+                type_=event.type,
+                tenant_name=event.tenant_name,
+                disabled=event.scope == ParentScope.DISABLED,
+                description=event.description,
+                meta=meta
+            )
         self._modular_service.save(parent)
 
         return build_response(
-            content=self._modular_service.get_dto(parent)
+            content=self.ps.get_dto(parent)
         )
 
-    def patch(self, event: dict) -> dict:
-        customer = event.get(CUSTOMER_ATTR)
-        parent_id = event.get(PARENT_ID_ATTR)
-        application_id = event.get(APPLICATION_ID_ATTR)
-        description: str = event.get(DESCRIPTION_ATTR)
-        clouds: set = event.get(CLOUDS_ATTR)
-        scope: str = event.get(SCOPE_ATTR)
-        rules_to_exclude: set = event.get(RULES_TO_EXCLUDE_ATTR)
-        rules_to_include: set = event.get(RULES_TO_INCLUDE_ATTR)
+    @validate_kwargs
+    def patch(self, event: ParentPatchModel) -> dict:
 
-        parent = self.get_parent(parent_id, customer)
+        parent = self.get_parent(event.parent_id, event.customer)
         if not parent:
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
-                content=f'Parent with id {parent_id} not found'
+                code=HTTPStatus.NOT_FOUND,
+                content=f'Parent with id {event.parent_id} not found'
             )
-        if description:
-            parent.description = description
-        if application_id:
-            app = self._modular_service.get_application(application_id)
+        actions = []
+        if event.description:
+            actions.append(Parent.description.set(event.description))
+        if event.application_id:
+            app = self._modular_service.get_application(event.application_id)
             _required_types = self.parent_type_to_application_type_map.get(
                 parent.type)
-            if not app or app.is_deleted or app.customer_id != customer or app.type not in _required_types:
+            if not app or app.is_deleted or app.customer_id != event.customer or app.type not in _required_types:  # noqa
                 return build_response(
-                    code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
-                    content=f'Application {application_id} with type: '
+                    code=HTTPStatus.NOT_FOUND,
+                    content=f'Application {event.application_id} with type: '
                             f'{", ".join(_required_types)} not found in '
-                            f'customer {customer}'
+                            f'customer {event.customer}'
                 )
-            parent.application_id = application_id
-        if parent.type == CUSTODIAN_ACCESS_TYPE:
+            actions.append(Parent.application_id.set(event.application_id))
+        if parent.type == ParentType.CUSTODIAN_ACCESS.value:
             _LOG.debug('Custodian access parent has no meta. All possible '
                        'updates are done. Saving')
-            self._modular_service.save(parent)
+            parent.update(actions)
             return build_response(
-                content=self._modular_service.get_dto(parent)
+                content=self.ps.get_dto(parent)
             )
 
         # updating meta for CUSTODIAN, CUSTODIAN_LICENSES, SIEM_DEFECT_DOJO
-        if parent.type == CUSTODIAN_LICENSES_TYPE:
+        if parent.type == ParentType.CUSTODIAN_LICENSES.value:
             meta = ParentMeta.from_dict(parent.meta.as_dict())
             resolved_to_exclude = set(self._rule_service.resolved_names(
-                names=rules_to_exclude,
-                clouds=set(adjust_cloud(cl) for cl in clouds or meta.clouds)
+                names=event.rules_to_exclude,
             ))
             existing_rules_to_exclude = set(meta.rules_to_exclude)
-            existing_rules_to_exclude -= rules_to_include
+            existing_rules_to_exclude -= event.rules_to_include
             existing_rules_to_exclude |= resolved_to_exclude
             meta.rules_to_exclude = list(existing_rules_to_exclude)
-
-        else:  # CUSTODIAN or SIEM_DEFECT_DOJO
-            meta = ScopeParentMeta.from_dict(parent.meta.as_dict())
-        if clouds:
-            meta.clouds = list(clouds)
-        if scope:
-            meta.scope = scope
-
-        parent.meta = meta.dict()
-        self._modular_service.save(parent)
+            actions.append(Parent.meta.set(meta.dict()))
+        parent.update(actions)
         return build_response(
             content=self._modular_service.get_dto(parent)
         )

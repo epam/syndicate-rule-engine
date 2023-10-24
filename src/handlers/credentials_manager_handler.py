@@ -1,15 +1,15 @@
+from typing import Optional, List
+
 from handlers.abstracts.abstract_credentials_manager_handler import \
     AbstractCredentialsManagerHandler
-from helpers.constants import GET_METHOD, POST_METHOD, PATCH_METHOD, \
-    DELETE_METHOD, TRUSTED_ROLE_ARN, \
-    CLOUD_IDENTIFIER_ATTR, CREDENTIALS_MANAGER_ACTION, CLOUD_ATTR, ENABLED, \
+from helpers.constants import HTTPMethod, TRUSTED_ROLE_ARN, \
+    CLOUD_IDENTIFIER_ATTR, CLOUD_ATTR, ENABLED, \
     TENANT_ATTR, CUSTOMER_ATTR
 from helpers.log_helper import get_logger
 from models.credentials_manager import CredentialsManager
 from services.credentials_manager_service import CredentialsManagerService
-from services.user_service import CognitoUserService
-from typing import Optional, List
 from services.modular_service import ModularService
+from services.user_service import CognitoUserService
 
 _LOG = get_logger(__name__)
 
@@ -31,10 +31,10 @@ class CredentialsManagerHandler(AbstractCredentialsManagerHandler):
     def define_action_mapping(self):
         return {
             '/accounts/credential_manager': {
-                GET_METHOD: self.get_credentials_manager,
-                POST_METHOD: self.add_credentials_manager,
-                PATCH_METHOD: self.update_credentials_manager,
-                DELETE_METHOD: self.remove_credentials_manager
+                HTTPMethod.GET: self.get_credentials_manager,
+                HTTPMethod.POST: self.add_credentials_manager,
+                HTTPMethod.PATCH: self.update_credentials_manager,
+                HTTPMethod.DELETE: self.remove_credentials_manager
             }
         }
 
@@ -90,7 +90,7 @@ class CredentialsManagerHandler(AbstractCredentialsManagerHandler):
 
     @property
     def entity_name(self):
-        return CREDENTIALS_MANAGER_ACTION
+        return 'credentials-manager'
 
     @property
     def hash_key_attr_name(self):

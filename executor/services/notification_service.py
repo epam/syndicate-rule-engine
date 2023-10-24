@@ -1,24 +1,18 @@
-import base64
-import io
 import smtplib
-from typing import Optional
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import List
-from jinja2 import Environment, BaseLoader
+from typing import Optional
 
-import matplotlib.pyplot as plt
-from models.modular.tenants import Tenant
+from jinja2 import Environment, BaseLoader
+from modular_sdk.models.tenant import Tenant
 
 from helpers.log_helper import get_logger
+from services.s3_service import S3Service
 from services.setting_service import SettingService
 from services.ssm_service import SSMService
-from services.s3_service import S3Service
-
-RED_COLOR_HASH = '#D10000'
-GREEN_COLOR_HASH = '#00E400'
 
 DEFAULT_SENDER_ATTR = 'default_sender'
 USE_TLS_ATTR = 'use_tls'
@@ -81,26 +75,6 @@ class NotificationService:
 
     def __del__(self):
         self._close_session()
-
-    @staticmethod
-    def build_circle_plot(succeeded: int, failed: int):
-        label = f'{succeeded}/{succeeded + failed}'
-        size_of_groups = [failed, succeeded]
-        plt.pie(size_of_groups, startangle=60,
-                colors=[RED_COLOR_HASH, GREEN_COLOR_HASH])
-
-        # circle to create donut chart from pie chart
-        circle = plt.Circle((0, 0), 0.8, color='white')
-        plt.gca().add_artist(circle)
-
-        # label at the center of chart
-        plt.rcParams.update({'font.size': 24})
-        plt.text(0, 0, label, ha='center', va='center')
-
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', transparent=True,
-                    bbox_inches='tight', pad_inches=0)
-        return base64.b64encode(buf.getvalue()).decode('utf-8')
 
     @staticmethod
     def build_message(sender_email: str, recipients: list, subject: str,
@@ -171,35 +145,6 @@ class NotificationService:
                 pass
         self._client = None
         self._num_emails = 0
-
-    def send_findings_notification(
-            self, recipients: list, subject: str, account_id: str,
-            scan_id: str, started_at: str, scan_mode: str, job_owner: str,
-            account_name: str, customer: str, contact: str,
-            attachment_data: bool = None, sender_email: str = None
-    ):
-        sender_email = sender_email or self.default_sender or self.username
-        _LOG.debug(f'Going to push email notifications from {sender_email} to '
-                   f'{recipients}. Subject: \'{subject}\'')
-        template_content = self._get_findings_template()
-        if template_content:
-            _body = self._render_template(
-                template_content=template_content,
-                data={'customer': customer,
-                      'account_id': account_id,
-                      'contact': contact,
-                      'account_name': account_name,
-                      'scan_id': scan_id,
-                      'started_at': started_at,
-                      'scan_mode': scan_mode,
-                      'job_owner': job_owner})
-            message = self.build_message(
-                sender_email, recipients, subject,
-                html=_body,
-                attachment=attachment_data,
-                attachment_filename=f'result_scan_{scan_id}'
-            )
-            self.send_email(sender_email, recipients, message)
 
     def send_rescheduling_notice_notification(
             self, recipients: list, subject: str, tenant: Tenant,

@@ -40,11 +40,12 @@ def delete(ctx: ContextObj, username):
 @build_customer_option(required=True)
 @click.option('--role', '-r', required=True, type=str,
               help='User`s role')
-@click.option('--tenants', '-t', 'tenants_', required=False, multiple=True,
+@click.option('--tenant', '-t', required=False, multiple=True,
               type=str,
-              help='Tenants within the customer the user need access to')
+              help='Tenants within the customer the user need access to. '
+                   'Multiple names can be specified')
 @cli_response(secured_params=['password'])
-def signup(ctx: ContextObj, username, password, customer_id, role, tenants_):
+def signup(ctx: ContextObj, username, password, customer_id, role, tenant):
     """
     Signs up a new Cognito user
     """
@@ -57,12 +58,11 @@ def signup(ctx: ContextObj, username, password, customer_id, role, tenants_):
         password=password,
         customer=customer_id,
         role=role,
-        tenants=list(tenants_)
+        tenants=tenant
     )
 
 
 if str(os.getenv(C7NCLI_DEVELOPER_MODE_ENV_NAME)).lower() == 'true':
     user.command(cls=ViewCommand, name='delete')(delete)
-
 
 user.add_command(tenants)
