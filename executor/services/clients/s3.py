@@ -1,19 +1,19 @@
-import gzip
-from gzip import GzipFile
 import io
 import json
 import os
-from typing import Union, Iterable, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from gzip import GzipFile
+from typing import Union, Iterable, Tuple
 
 import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
-from helpers.constants import  ENV_MINIO_HOST, ENV_MINIO_PORT, \
+from helpers.constants import ENV_MINIO_HOST, ENV_MINIO_PORT, \
     ENV_MINIO_ACCESS_KEY, ENV_MINIO_SECRET_ACCESS_KEY
-from services.environment_service import EnvironmentService
 from helpers.log_helper import get_logger
+from helpers.profiling import xray_recorder as _XRAY
+from services.environment_service import EnvironmentService
 
 GZIP_EXTENSION = '.gz'
 UTF_8_ENCODING = 'utf-8'
@@ -130,9 +130,12 @@ class S3Client:
         buf.seek(0)
         return buf
 
+    @_XRAY.capture('Put object to S3')
     def put_object(self, bucket_name: str, object_name: str,
                    body: Union[str, bytes]):
+        _XRAY.put_annotation('bucket_name', bucket_name)
         object_name = self._gz_key(object_name)
+        _XRAY.put_metadata('key', object_name)
         s3_object = self.resource.Object(bucket_name, object_name)
         buf = io.BytesIO()
         with GzipFile(fileobj=buf, mode='wb') as f:
@@ -205,12 +208,15 @@ class S3Client:
             return response_stream.read().decode(UTF_8_ENCODING)
         return response_stream.read()
 
+    @_XRAY.capture('Get object from S3')
     def get_file_stream(self, bucket_name: str,
                         full_file_name: str) -> Union[io.IOBase, None]:
         """Returns boto3 stream with file content. If the file is not found,
         returns None. The given file name is not converted to gz.
         Use this method as a raw version based on which you build your
         own logic"""
+        _XRAY.put_annotation('bucket_name', bucket_name)
+        _XRAY.put_metadata('key', full_file_name)
         try:
             response = self.client.get_object(
                 Bucket=bucket_name,
@@ -221,14 +227,6 @@ class S3Client:
             if e.response['Error']['Code'] == 'NoSuchKey':
                 return None
             raise e
-
-    def put_object_encrypted(self, bucket_name, object_name, body):
-        body = gzip.compress(body.encode())
-        return self.client.put_object(
-            Body=body,
-            Bucket=bucket_name,
-            Key=self._gz_key(object_name),
-            ServerSideEncryption='AES256')
 
     def list_objects(self, bucket_name, prefix=None):
         result_keys = []

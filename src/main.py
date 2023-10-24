@@ -22,12 +22,6 @@ from dateutil.relativedelta import relativedelta, SU
 from dotenv import load_dotenv
 from modular_sdk.models.customer import Customer
 
-from exported_module.scripts.parse_rule_source import \
-    main as parse_rule_source, \
-    init_parser as init_parser_rule_source_cli_parser
-from exported_module.scripts.rules_table_generator import \
-    main as generate_rules_table, \
-    init_parser as init_rules_table_generator_cli_parser
 from helpers.time_helper import utc_iso, utc_datetime
 from services import SERVICE_PROVIDER
 from services.clients.xlsx_standard_parser import \
@@ -48,8 +42,6 @@ CREATE_BUCKETS_ACTION = 'create_buckets'
 INIT_VAULT_ACTION = 'init_vault'
 UPDATE_API_GATEWAY_MODELS_ACTION = 'update_api_models'
 PARSE_XLSX_STANDARD_ACTION = 'parse_standards'
-PARSE_RULE_SOURCE_ACTION = 'parse_rule_source'
-GENERATE_RULES_TABLE_ACTION = 'generate_rules_table'
 ENV_ACTION = 'env'
 
 UPDATE_SETTINGS_ENV_ACTION = 'update_settings'
@@ -131,14 +123,6 @@ def build_parser() -> argparse.ArgumentParser:
     init_xlsx_cli_parser(sub_parsers.add_parser(
         PARSE_XLSX_STANDARD_ACTION,
         help='Parses Custom Core\'s xlsx with standards'
-    ))
-    init_parser_rule_source_cli_parser(sub_parsers.add_parser(
-        PARSE_RULE_SOURCE_ACTION,
-        help='Parses Rule source and extracts some data'
-    ))
-    init_rules_table_generator_cli_parser(sub_parsers.add_parser(
-        GENERATE_RULES_TABLE_ACTION,
-        help='Generates xlsx table with rules data from local dir with rules'
     ))
     parser_run = sub_parsers.add_parser(RUN_ACTION, help='Run on-prem server')
     parser_run.add_argument(
@@ -373,24 +357,6 @@ class UpdateApiGatewayModels(ActionHandler):
 class UpdateSettings(ActionHandler):
 
     @cached_property
-    def temp_dir(self) -> Path:
-        return Path.cwd() / '.tmp'
-
-    def read_temp_json_file(self, filename: str) -> Optional[dict]:
-        """
-        By default, such scripts ad parse_xlsx_standard, parse_rule_source
-        generate their meta to ./.tmp. This method reads from there
-        """
-        file = self.temp_dir / filename
-        if not file.exists():
-            return
-        with open(file, 'r') as fp:
-            try:
-                return json.load(fp)
-            except json.JSONDecodeError:
-                return
-
-    @cached_property
     def access_data_lm(self) -> dict:
         from services.setting_service import KEY_ACCESS_DATA_LM
         return {
@@ -400,15 +366,6 @@ class UpdateSettings(ActionHandler):
                 "port": None,
                 "version": "1"
             }
-        }
-
-    @cached_property
-    def current_ccc_version(self) -> dict:
-        from services.setting_service import \
-            KEY_CURRENT_CUSTODIAN_CUSTOM_CORE_VERSION
-        return {
-            "name": KEY_CURRENT_CUSTODIAN_CUSTOM_CORE_VERSION,
-            "value": "0.9.8.20211013_030000"
         }
 
     @cached_property
@@ -442,10 +399,6 @@ class UpdateSettings(ActionHandler):
         setting['value'] = model.dict()
         Setting(**setting).save()
 
-    def set_current_ccc_version(self):
-        from models.setting import Setting
-        Setting(**self.current_ccc_version).save()
-
     def set_system_customer_name_setting(self):
         from models.setting import Setting
         Setting(**self.system_customer_name).save()
@@ -459,9 +412,6 @@ class UpdateSettings(ActionHandler):
         if lm_api_link:
             _LOG.info('LM API link was given. Setting lm access data')
             self.set_access_data_lm_setting(lm_api_link)
-        _LOG.info('Setting current Custodian custom core version')
-        self.set_current_ccc_version()
-        _LOG.info('Setting CloudTrail resources mapping')
         _LOG.info('Setting system customer name')
         self.set_system_customer_name_setting()
         _LOG.info('Setting report date marker')
@@ -700,9 +650,9 @@ class CreateUser(EntitiesRelatedActions, ActionHandler):
                                        password=password or '[password]'))
 
 
-def main():
+def main(args: Optional[List[str]] = None):
     parser = build_parser()
-    arguments = parser.parse_args()
+    arguments = parser.parse_args(args)
     key = tuple(
         getattr(arguments, dest) for dest in ALL_NESTING
         if hasattr(arguments, dest)
@@ -713,8 +663,6 @@ def main():
         (CREATE_BUCKETS_ACTION,): InitSubService({'minio'}),
         (RUN_ACTION,): Run(),
         (PARSE_XLSX_STANDARD_ACTION,): parse_xlsx_standard,
-        (PARSE_RULE_SOURCE_ACTION,): parse_rule_source,
-        (GENERATE_RULES_TABLE_ACTION,): generate_rules_table,
 
         (UPDATE_API_GATEWAY_MODELS_ACTION,): UpdateApiGatewayModels(),
         (ENV_ACTION, UPDATE_SETTINGS_ENV_ACTION): UpdateSettings(),

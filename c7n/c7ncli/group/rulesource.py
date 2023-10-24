@@ -17,11 +17,6 @@ response_attributes_order = [
     PARAM_LAST_SYNC_CURRENT_STATUS,
 ]
 
-mapped_notation_template = 'Value of \'{}\' parameter' \
-                           ' must adhere to the following notation: ' \
-                           '$tenant:$account1,$account2'
-NULL_KEY = ''
-
 
 @click.group(name='rulesource')
 def rulesource():
@@ -57,9 +52,6 @@ def describe(ctx: ContextObj, rule_source_id: Optional[str] = None,
 @click.option('--git_rules_prefix', '-gprefix', type=str, default='/',
               help='Rules path prefix', show_default=True)
 # todo uncomment when other access types are available
-# @click.option('--git_access_type', '-gtype',
-#               type=click.Choice(AVAILABLE_GIT_ACCESS_TYPES),
-#               default=GIT_ACCESS_TOKEN, show_default=True)
 @click.option('--git_access_secret', '-gsecret', type=str,
               help='Secret token to be able to access the repository')
 @click.option('--allow_tenant', '-at', type=str, multiple=True,

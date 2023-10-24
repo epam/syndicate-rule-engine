@@ -1,13 +1,12 @@
 import json
+from pathlib import Path
 from re import finditer
 from typing import Union, Optional, List, Dict
-from pathlib import Path
-from helpers.constants import GET_METHOD, POST_METHOD, PATCH_METHOD, \
-    DELETE_METHOD
+
+from helpers.constants import HTTPMethod
 
 API_GATEWAY_RESOURCE_TYPE = 'api_gateway'
 S3_BUCKET_RESOURCE_TYPE = 's3_bucket'
-HTTP_METHODS = [GET_METHOD, POST_METHOD, PATCH_METHOD, DELETE_METHOD]
 
 
 class DeploymentResourcesParser:
@@ -50,7 +49,7 @@ class DeploymentResourcesParser:
     def get_endpoint_methods(ig_resource_meta: dict) -> List:
         methods = [key for key in ig_resource_meta.keys() if key.isupper()]
         if 'ANY' in methods:
-            return HTTP_METHODS
+            return list(HTTPMethod())
         return methods
 
     @staticmethod
@@ -83,4 +82,3 @@ class DeploymentResourcesParser:
             path_input = path_input.strip('{+')
             resource += f'<{path_input}>' + suffix
         return resource
-

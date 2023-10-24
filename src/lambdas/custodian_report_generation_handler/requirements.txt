@@ -1,3 +1,1 @@
-# pytablereader==0.31.3
-# pytablewriter==0.64.2
 cryptography==3.4.7

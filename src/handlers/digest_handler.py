@@ -1,22 +1,22 @@
 from datetime import datetime
+from http import HTTPStatus
 from typing import List, Optional, Dict
 
-from helpers import RESPONSE_RESOURCE_NOT_FOUND_CODE, RESPONSE_OK_CODE
-from helpers.constants import (
-    GET_METHOD, CUSTOMER_ATTR, TENANTS_ATTR, TENANT_ATTR,
-    START_ISO_ATTR, END_ISO_ATTR, HREF_ATTR, CONTENT_ATTR,
-    ID_ATTR
-)
-from helpers.log_helper import get_logger
 from handlers.base_handler import \
     BaseReportHandler, \
     SourceReportDerivation, \
     EntitySourcedReportDerivation, SourcedReport, Report, EntityToReport, \
     SourceToReport
+from helpers.constants import (
+    HTTPMethod, CUSTOMER_ATTR, TENANTS_ATTR, TENANT_ATTR,
+    START_ISO_ATTR, END_ISO_ATTR, HREF_ATTR, CONTENT_ATTR,
+    ID_ATTR
+)
+from helpers.log_helper import get_logger
+from services.ambiguous_job_service import Source
 from services.report_service import \
     DIGEST_REPORT_FILE, \
     DETAILED_REPORT_FILE
-from services.ambiguous_job_service import Source
 
 DEFAULT_UNRESOLVABLE_RESPONSE = 'Request has run into an unresolvable issue.'
 
@@ -220,13 +220,13 @@ class JobsDigestHandler(BaseDigestReportHandler):
     def define_action_mapping(self):
         return {
             JOB_ENDPOINT: {
-                GET_METHOD: self.get_by_job
+                HTTPMethod.GET: self.get_by_job
             },
             TENANT_JOBS_ENDPOINT: {
-                GET_METHOD: self.get_by_tenant
+                HTTPMethod.GET: self.get_by_tenant
             },
             TENANTS_JOBS_ENDPOINT: {
-                GET_METHOD: self.query_by_tenant
+                HTTPMethod.GET: self.query_by_tenant
             },
         }
 
@@ -252,7 +252,7 @@ class JobsDigestHandler(BaseDigestReportHandler):
         )
         if referenced_reports:
             ref_attr = HREF_ATTR if href else CONTENT_ATTR
-            self._code = RESPONSE_OK_CODE
+            self._code = HTTPStatus.OK
             self._content = [
                 self.dto(source=source, report=report, ref_attr=ref_attr)
                 for source, report in referenced_reports.items()
@@ -260,7 +260,7 @@ class JobsDigestHandler(BaseDigestReportHandler):
         else:
             message = f' - no report could be derived.'
             _LOG.warning(head + message)
-            self._code = RESPONSE_RESOURCE_NOT_FOUND_CODE
+            self._code = HTTPStatus.NOT_FOUND
             self._content = head + NO_RESOURCES_FOR_REPORT
 
         return self.response
@@ -290,7 +290,7 @@ class JobsDigestHandler(BaseDigestReportHandler):
 
         if referenced_reports:
             ref_attr = HREF_ATTR if href else CONTENT_ATTR
-            self._code = RESPONSE_OK_CODE
+            self._code = HTTPStatus.OK
             self._content = [
                 self.dto(source=source, report=report, ref_attr=ref_attr)
                 for source, report in referenced_reports.items()
@@ -316,7 +316,7 @@ class JobsDigestHandler(BaseDigestReportHandler):
 
         if referenced_reports:
             ref_attr = HREF_ATTR if href else CONTENT_ATTR
-            self._code = RESPONSE_OK_CODE
+            self._code = HTTPStatus.OK
             self._content = [
                 self.dto(source=source, report=report, ref_attr=ref_attr)
                 for source, report in referenced_reports.items()
@@ -329,17 +329,12 @@ class JobsDigestHandler(BaseDigestReportHandler):
             customer: Optional[str] = None,
             tenants: Optional[List[str]] = None,
             cloud_ids: Optional[List[str]] = None,
-            account_dn: Optional[str] = None,
             typ: Optional[str] = None, href: bool = False
     ) -> Optional[SourceToReport]:
-        """
-        account_dn here is obsolete
-        """
-
         cloud_ids = cloud_ids or []
         ajs = self._ambiguous_job_service
 
-        head = f'Account:\'{account_dn}\'' if account_dn else ''
+        head = ''
 
         # Log-Header.
         if tenants:
@@ -374,7 +369,7 @@ class JobsDigestHandler(BaseDigestReportHandler):
         if not source_list:
             message = f' - no source-data of {job_scope} could be derived.'
             _LOG.warning(head + message)
-            self._code = RESPONSE_RESOURCE_NOT_FOUND_CODE
+            self._code = HTTPStatus.NOT_FOUND
             self._content = head + NO_RESOURCES_FOR_REPORT
             return
 
@@ -389,7 +384,7 @@ class JobsDigestHandler(BaseDigestReportHandler):
         if not source_to_report:
             message = f' - no reports of {job_scope} could be derived.'
             _LOG.warning(head + message)
-            self._code = RESPONSE_RESOURCE_NOT_FOUND_CODE
+            self._code = HTTPStatus.NOT_FOUND
             self._content = head + NO_RESOURCES_FOR_REPORT
             return
 
@@ -410,10 +405,10 @@ class EntityDigestHandler(BaseDigestReportHandler):
     def define_action_mapping(self):
         return {
             TENANT_ENDPOINT: {
-                GET_METHOD: self.get_by_tenant
+                HTTPMethod.GET: self.get_by_tenant
             },
             TENANTS_ENDPOINT: {
-                GET_METHOD: self.query_by_tenant
+                HTTPMethod.GET: self.query_by_tenant
             },
         }
 
@@ -442,7 +437,7 @@ class EntityDigestHandler(BaseDigestReportHandler):
         )
         if referenced_reports:
             ref_attr = HREF_ATTR if href else CONTENT_ATTR
-            self._code = RESPONSE_OK_CODE
+            self._code = HTTPStatus.OK
             self._content = [
                 self.dto(
                     entity_attr=TENANT_ATTR, entity_value=entity,
@@ -472,7 +467,7 @@ class EntityDigestHandler(BaseDigestReportHandler):
 
         if referenced_reports:
             ref_attr = HREF_ATTR if href else CONTENT_ATTR
-            self._code = RESPONSE_OK_CODE
+            self._code = HTTPStatus.OK
             self._content = [
                 self.dto(
                     entity_attr=TENANT_ATTR, entity_value=entity,
@@ -489,18 +484,13 @@ class EntityDigestHandler(BaseDigestReportHandler):
             customer: Optional[str] = None,
             tenants: Optional[List[str]] = None,
             cloud_ids: Optional[List[str]] = None,
-            account_dn: Optional[str] = None,
             typ: Optional[str] = None, href: bool = False,
             entity_value: Optional[str] = None
     ) -> EntityToReport:
-        """
-        account_dn here is obsolete
-        """
-
         cloud_ids = cloud_ids or []
         ajs = self._ambiguous_job_service
 
-        head = f'Account:\'{account_dn}\'' if account_dn else ''
+        head = ''
 
         # Log-Header.
         if tenants:
@@ -539,7 +529,7 @@ class EntityDigestHandler(BaseDigestReportHandler):
         if not source_list:
             message = f' - no source-data of {job_scope} could be derived.'
             _LOG.warning(head + message)
-            self._code = RESPONSE_RESOURCE_NOT_FOUND_CODE
+            self._code = HTTPStatus.NOT_FOUND
             self._content = head + NO_RESOURCES_FOR_REPORT
             return self.response
 
@@ -554,7 +544,7 @@ class EntityDigestHandler(BaseDigestReportHandler):
         if not source_to_report:
             message = f' - no reports of {job_scope} could be derived.'
             _LOG.warning(head + message)
-            self._code = RESPONSE_RESOURCE_NOT_FOUND_CODE
+            self._code = HTTPStatus.NOT_FOUND
             self._content = head + NO_RESOURCES_FOR_REPORT
             return self.response
 
@@ -569,7 +559,7 @@ class EntityDigestHandler(BaseDigestReportHandler):
             message = f' - no reports of {job_scope} could be mapped '
             message += f' to {entity_scope}.'
             _LOG.warning(head + message)
-            self._code = RESPONSE_RESOURCE_NOT_FOUND_CODE
+            self._code = HTTPStatus.NOT_FOUND
             self._content = head + NO_RESOURCES_FOR_REPORT
             return self.response
 
@@ -584,7 +574,7 @@ class EntityDigestHandler(BaseDigestReportHandler):
             message = f' - no reports of {job_scope} could be derived'
             message += f' based on {entity_scope}.'
             _LOG.warning(head + message)
-            self._code = RESPONSE_RESOURCE_NOT_FOUND_CODE
+            self._code = HTTPStatus.NOT_FOUND
             self._content = head + NO_RESOURCES_FOR_REPORT
             return self.response
 

@@ -1,11 +1,10 @@
+import operator
 from datetime import timedelta
 from functools import cached_property
-from typing import Callable, Union, Optional, Iterable, Generator, Type, Dict, \
-    Tuple, TypedDict, List
+from typing import Callable, Union, Optional, Iterable, Generator, Type, \
+    Dict, Tuple, TypedDict, List
 
-from cachetools import TTLCache, cachedmethod
-
-from helpers.constants import DEFAULT_CACHE_LIFETIME
+import services.cache as cache
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime, utc_iso
 from models.policy import Policy
@@ -166,18 +165,15 @@ class CachedIamService(IamService):
     the methods. ...
     """
 
-    def __init__(self, cache_lifetime: Optional[int] = DEFAULT_CACHE_LIFETIME):
-        """
-        :param cache_lifetime: cache lifetime in seconds
-        """
-        self._roles_cache = TTLCache(maxsize=50, ttl=cache_lifetime)
-        self._policies_cache = TTLCache(maxsize=50, ttl=cache_lifetime)
+    def __init__(self):
+        self._roles_cache = cache.factory()
+        self._policies_cache = cache.factory()
 
-    @cachedmethod(cache=lambda self: self._policies_cache)
+    @cache.cachedmethod(operator.attrgetter('_policies_cache'))
     def get_policy(self, customer: str, name: str) -> Optional[Policy]:
         return super().get_policy(customer, name)
 
-    @cachedmethod(cache=lambda self: self._roles_cache)
+    @cache.cachedmethod(operator.attrgetter('_roles_cache'))
     def get_role(self, customer: str, name: str) -> Optional[Role]:
         return super().get_role(customer, name)
 

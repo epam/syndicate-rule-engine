@@ -1,24 +1,25 @@
 from datetime import datetime
+from http import HTTPStatus
 from typing import Dict
 
 from modular_sdk.commons.trace_helper import tracer_decorator
 
-from helpers import raise_error_response, RESPONSE_BAD_REQUEST_CODE, \
-    get_logger, build_response, RESPONSE_INTERNAL_SERVER_ERROR
+from helpers import raise_error_response, \
+    get_logger, build_response
 from helpers.constants import DATA_TYPE
 from helpers.exception import MetricsUpdateException, CustodianException
-from lambdas.custodian_metrics_updater.processors.customer_metrics_processor \
-    import CUSTOMER_METRICS_DIFF
 from lambdas.custodian_metrics_updater.processors.findings_processor \
     import FINDINGS_UPDATER
+from lambdas.custodian_metrics_updater.processors. \
+    metric_difference_processor import TENANT_METRICS_DIFF
 from lambdas.custodian_metrics_updater.processors.recommendation_processor \
     import RECOMMENDATION_METRICS
-from lambdas.custodian_metrics_updater.processors.\
-    tenant_metrics_processor import TENANT_METRICS
-from lambdas.custodian_metrics_updater.processors.\
-    metric_difference_processor import TENANT_METRICS_DIFF
-from lambdas.custodian_metrics_updater.processors.\
+from lambdas.custodian_metrics_updater.processors. \
     tenant_group_metrics_processor import TENANT_GROUP_METRICS
+from lambdas.custodian_metrics_updater.processors. \
+    tenant_metrics_processor import TENANT_METRICS
+from lambdas.custodian_metrics_updater.processors.top_metrics_processor import \
+    CUSTOMER_METRICS
 from services import SERVICE_PROVIDER
 from services.abstract_lambda import AbstractLambda
 from services.clients.lambda_func import LambdaClient
@@ -34,7 +35,7 @@ class MetricsUpdater(AbstractLambda):
         self.PIPELINE_TYPE_MAPPING = {
             'tenants': TENANT_METRICS,
             'tenant_groups': TENANT_GROUP_METRICS,
-            'customer': CUSTOMER_METRICS_DIFF,
+            'customer': CUSTOMER_METRICS,
             'difference': TENANT_METRICS_DIFF,
             'findings': FINDINGS_UPDATER,
             'recommendations': RECOMMENDATION_METRICS
@@ -44,15 +45,12 @@ class MetricsUpdater(AbstractLambda):
         self.compressed_info = {}
         self.customer = None
 
-    def validate_request(self, event) -> dict:
-        pass
-
     def handle_request(self, event, context):
         data_pipeline_type = event.get(DATA_TYPE)
         handler_function = self.PIPELINE_TYPE_MAPPING.get(data_pipeline_type)
         if not handler_function:
             raise_error_response(
-                RESPONSE_BAD_REQUEST_CODE,
+                HTTPStatus.BAD_REQUEST.value,
                 f'Cannot resolve pipeline type {data_pipeline_type}')
         try:
             next_lambda_event = handler_function.process_data(event)
@@ -65,7 +63,7 @@ class MetricsUpdater(AbstractLambda):
                 content=f'Stage {data_pipeline_type}: {e.content}')
         except Exception as e:
             raise MetricsUpdateException(
-                code=RESPONSE_INTERNAL_SERVER_ERROR,
+                code=HTTPStatus.INTERNAL_SERVER_ERROR.value,
                 content=f'Stage {data_pipeline_type}: {e}')
 
         return build_response(

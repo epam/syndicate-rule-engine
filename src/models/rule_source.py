@@ -5,7 +5,7 @@ from pynamodb.attributes import UnicodeAttribute, MapAttribute, ListAttribute
 from pynamodb.indexes import AllProjection
 
 from helpers.constants import ENV_VAR_REGION, CUSTOMER_ATTR, \
-    GIT_PROJECT_ID_ATTR, GITHUB_SERVICE, GITLAB_SERVICE
+    GIT_PROJECT_ID_ATTR, RuleSourceType
 from models.modular import BaseModel, BaseGSI
 
 
@@ -48,16 +48,17 @@ class RuleSource(BaseModel):
     customer_git_project_id_index = CustomerGitProjectIdIndex()
 
     @property
-    def type(self) -> Optional[str]:
+    def type(self) -> Optional[RuleSourceType]:
         """
         In case None is returned, we cannot know.
         This property looks into
         :return:
         """
         if self.git_project_id.count('/') == 1:
-            return GITHUB_SERVICE  # GitHub project full name: "owner/repo"
+            # GitHub project full name: "owner/repo"
+            return RuleSourceType.GITHUB
         if self.git_project_id.isdigit():
-            return GITLAB_SERVICE
+            return RuleSourceType.GITLAB
 
     @property
     def has_secret(self) -> bool:

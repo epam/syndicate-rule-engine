@@ -1,14 +1,13 @@
+from http import HTTPStatus
 from typing import Iterable, Callable, Dict, Union, Type, List, Iterator, \
     Optional
 
 from handlers.abstracts.abstract_handler import AbstractComposedHandler
 from handlers.abstracts.abstract_modular_entity_handler import \
     ModularService, AbstractModularEntityHandler, ENTITY_TEMPLATE
-from helpers import RESPONSE_FORBIDDEN_CODE, RESPONSE_BAD_REQUEST_CODE, \
-    retrieve_invalid_parameter_types
-from helpers.constants import GET_METHOD, PATCH_METHOD, \
-    CUSTOMER_ATTR, NAME_ATTR, CUSTOMER_ACTION, PARAM_COMPLETE, \
-    LATEST_LOGIN_ATTR, INHERIT_ATTR
+from helpers import retrieve_invalid_parameter_types
+from helpers.constants import CUSTOMER_ATTR, NAME_ATTR, CUSTOMER_ACTION, \
+    PARAM_COMPLETE, LATEST_LOGIN_ATTR, INHERIT_ATTR, HTTPMethod
 from helpers.log_helper import get_logger
 from services.modular_service import Customer, Complemented
 from services.user_service import CognitoUserService
@@ -63,10 +62,10 @@ class GetCustomerHandler(BaseCustomerHandler):
         self.i_source = None
 
     def define_action_mapping(self):
-        return {CUSTOMERS_PATH: {GET_METHOD: self.get_customer}}
+        return {CUSTOMERS_PATH: {HTTPMethod.GET: self.get_customer}}
 
     def get_customer(self, event):
-        action = GET_METHOD.capitalize()
+        action = HTTPMethod.GET.capitalize()
         return self._process_action(event=event, action=action)
 
     @property
@@ -112,7 +111,7 @@ class GetCustomerHandler(BaseCustomerHandler):
             name: Union[str, Type[None]] = event.get(NAME_ATTR, None)
             if name and name != customer:
                 event = None
-                self._code = RESPONSE_FORBIDDEN_CODE
+                self._code = HTTPStatus.FORBIDDEN
                 self._content = FORBIDDEN_ACCESS.format(self.entity)
         return event
 
@@ -205,10 +204,10 @@ class PatchCustomerHandler(BaseCustomerHandler):
         self.customer_entity = None
 
     def define_action_mapping(self):
-        return {CUSTOMERS_PATH: {PATCH_METHOD: self.patch_customer}}
+        return {CUSTOMERS_PATH: {HTTPMethod.PATCH: self.patch_customer}}
 
     def patch_customer(self, event):
-        action = PATCH_METHOD.capitalize()
+        action = HTTPMethod.PATCH.capitalize()
         return self._process_action(event=event, action=action)
 
     @property
@@ -269,7 +268,7 @@ class PatchCustomerHandler(BaseCustomerHandler):
         )
         if content:
             event = None
-            self._code = RESPONSE_BAD_REQUEST_CODE
+            self._code = HTTPStatus.BAD_REQUEST
             self._content = content
 
         return event
@@ -290,7 +289,7 @@ class PatchCustomerHandler(BaseCustomerHandler):
         parent = self.modular_service.get_customer_bound_parent(name)
         if not parent:
             event = None
-            self._code = RESPONSE_FORBIDDEN_CODE
+            self._code = HTTPStatus.FORBIDDEN
             self._content = 'Custodian customer parent does not exist. ' \
                             'Cannot set inherit'
             return
@@ -366,15 +365,15 @@ class CustomerHandler(AbstractComposedHandler):
 
 def instantiate_customer_handler(modular_service: ModularService,
                                  user_service: CognitoUserService):
-    patch_customer_handler = PatchCustomerHandler(modular_service=modular_service)
+    patch_customer_handler = PatchCustomerHandler(
+        modular_service=modular_service)
     get_customer_handler = GetCustomerHandler(
         modular_service=modular_service, user_service=user_service
     )
     return CustomerHandler(
         resource_map={
             CUSTOMERS_PATH: {
-                GET_METHOD: get_customer_handler,
-                # PATCH_METHOD: patch_customer_handler
+                HTTPMethod.GET: get_customer_handler,
             }
         }
     )

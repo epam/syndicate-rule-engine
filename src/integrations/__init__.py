@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
+from http import HTTPStatus
 from typing import TypedDict, Optional, List
 
 import requests
 from botocore.exceptions import ClientError
 
-from helpers import RESPONSE_OK_CODE, RESPONSE_SERVICE_UNAVAILABLE_CODE
 from helpers.log_helper import get_logger
 
 _LOG = get_logger(__name__)
@@ -60,12 +60,12 @@ class AbstractAdapter(ABC):
                error=None) -> Result:
         result = {
             'job_id': job_id, 'job_type': job_type, 'type': cls.siem_type,
-            'status': RESPONSE_OK_CODE, 'message': message
+            'status': HTTPStatus.OK, 'message': message
         }
         if error:
             result.pop('message')
             result.update({
-                'status': RESPONSE_SERVICE_UNAVAILABLE_CODE,
+                'status': HTTPStatus.SERVICE_UNAVAILABLE,
                 'error': error
             })
         return result

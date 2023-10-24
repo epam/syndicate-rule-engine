@@ -1,14 +1,15 @@
 from datetime import datetime
 from functools import cached_property
+from http import HTTPStatus
 from typing import List, Optional, Union
 
-from modular_sdk.models.pynamodb_extension.base_model import LastEvaluatedKey as Lek
+from modular_sdk.models.pynamodb_extension.base_model import \
+    LastEvaluatedKey as Lek
 
-from helpers import build_response, RESPONSE_INTERNAL_SERVER_ERROR, \
-    RESPONSE_RESOURCE_NOT_FOUND_CODE, RESPONSE_OK_CODE
+from helpers import build_response
 from helpers.constants import (
-    GET_METHOD, CUSTOMER_ATTR, TENANTS_ATTR, LIMIT_ATTR,
-    NEXT_TOKEN_ATTR, START_ATTR, END_ATTR
+    CUSTOMER_ATTR, TENANTS_ATTR, LIMIT_ATTR, NEXT_TOKEN_ATTR, START_ATTR,
+    END_ATTR, HTTPMethod
 )
 from helpers.log_helper import get_logger
 from lambdas.custodian_api_handler.handlers import AbstractHandler, Mapping
@@ -44,10 +45,10 @@ class BatchResultsHandler(AbstractHandler):
     def mapping(self) -> Mapping:
         return {
             BATCH_RESULT_ENDPOINT: {
-                GET_METHOD: self.get
+                HTTPMethod.GET: self.get
             },
             BATCH_RESULTS_ENDPOINT: {
-                GET_METHOD: self.query
+                HTTPMethod.GET: self.query
             }
         }
 
@@ -60,7 +61,7 @@ class BatchResultsHandler(AbstractHandler):
         return build_response(code=_code, content=_content, meta=_meta)
 
     def _reset(self):
-        self._code: Optional[int] = RESPONSE_INTERNAL_SERVER_ERROR
+        self._code: Optional[int] = HTTPStatus.INTERNAL_SERVER_ERROR.value
         self._content: Optional[str] = DEFAULT_UNRESOLVABLE_RESPONSE
         self._meta: Optional[dict] = None
 
@@ -73,7 +74,7 @@ class BatchResultsHandler(AbstractHandler):
             brid=brid, customer=customer, tenants=tenants
         )
         if entity:
-            self._code = RESPONSE_OK_CODE
+            self._code = HTTPStatus.OK.valueT
             self._content = self._batch_results_service.dto(entity=entity)
         return self.response
 
@@ -101,7 +102,7 @@ class BatchResultsHandler(AbstractHandler):
             limit=limit
         )
 
-        self._code = RESPONSE_OK_CODE
+        self._code = HTTPStatus.OK.value
         self._content = [
             self._batch_results_service.dto(each) for each in i_entities
         ]
@@ -140,7 +141,7 @@ class BatchResultsHandler(AbstractHandler):
             entity = None
 
         if not entity:
-            self._code = RESPONSE_RESOURCE_NOT_FOUND_CODE
+            self._code = HTTPStatus.NOT_FOUND.value
             self._content = _default_404
 
         return entity

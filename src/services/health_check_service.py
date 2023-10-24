@@ -11,9 +11,14 @@ from modular_sdk.services.impl.maestro_credentials_service import \
 from pydantic import BaseModel, Field, ValidationError
 
 from helpers.constants import AWS_CLOUD_ATTR, AZURE_CLOUD_ATTR, \
-    GCP_CLOUD_ATTR, DEFAULT_SYSTEM_CUSTOMER, HOST_ATTR, HC_STATUS_OK, \
-    HC_STATUS_NOT_OK, HC_STATUS_UNKNOWN, CUSTOMER_ATTR, ED_AWS_RULESET_NAME, \
-    ED_AZURE_RULESET_NAME, ED_GOOGLE_RULESET_NAME
+    GCP_CLOUD_ATTR, DEFAULT_SYSTEM_CUSTOMER, HOST_ATTR, CUSTOMER_ATTR, \
+    ED_AWS_RULESET_NAME, \
+    ED_AZURE_RULESET_NAME, ED_GOOGLE_RULESET_NAME, \
+    KEY_RULES_TO_SERVICE_SECTION, KEY_RULES_TO_SEVERITY, \
+    KEY_RULES_TO_STANDARDS, KEY_RULES_TO_MITRE, KEY_CLOUD_TO_RULES, \
+    KEY_HUMAN_DATA, KEY_AWS_STANDARDS_COVERAGE, KEY_AZURE_STANDARDS_COVERAGE, \
+    KEY_GOOGLE_STANDARDS_COVERAGE, KEY_AWS_EVENTS, KEY_AZURE_EVENTS, \
+    KEY_GOOGLE_EVENTS, HealthCheckStatus
 from helpers.log_helper import get_logger
 from helpers.system_customer import SYSTEM_CUSTOMER
 from integrations.defect_dojo_adapter import DefectDojoAdapter
@@ -28,14 +33,13 @@ from services.ruleset_service import RulesetService
 from services.setting_service import SettingsService, KEY_SYSTEM_CUSTOMER, \
     KEY_REPORT_DATE_MARKER
 from services.ssm_service import SSMService
-from validators.request_validation import HealthCheckStatus
 
 _LOG = get_logger(__name__)
 
 
 class CheckResult(BaseModel):
     id: str
-    status: HealthCheckStatus = HC_STATUS_OK
+    status: HealthCheckStatus = HealthCheckStatus.OK
     details: Optional[Dict] = Field(default_factory=dict)
     remediation: Optional[str]
     impact: Optional[str]
@@ -44,7 +48,7 @@ class CheckResult(BaseModel):
         use_enum_values = True
 
     def is_ok(self) -> bool:
-        return self.status == HC_STATUS_OK
+        return self.status == HealthCheckStatus.OK
 
 
 class AbstractHealthCheck(ABC):
@@ -82,14 +86,14 @@ class AbstractHealthCheck(ABC):
     def ok_result(self, details: Optional[dict] = None) -> CheckResult:
         return CheckResult(
             id=self.identifier(),
-            status=HC_STATUS_OK,
+            status=HealthCheckStatus.OK,
             details=details,
         )
 
     def not_ok_result(self, details: Optional[dict] = None) -> CheckResult:
         return CheckResult(
             id=self.identifier(),
-            status=HC_STATUS_NOT_OK,
+            status=HealthCheckStatus.NOT_OK,
             details=details,
             remediation=self.remediation(),
             impact=self.impact()
@@ -98,7 +102,7 @@ class AbstractHealthCheck(ABC):
     def unknown_result(self, details: Optional[dict] = None) -> CheckResult:
         return CheckResult(
             id=self.identifier(),
-            status=HC_STATUS_UNKNOWN,
+            status=HealthCheckStatus.UNKNOWN,
             details=details
         )
 
@@ -501,7 +505,8 @@ class DefectDojoCheck(AbstractHealthCheck):
                 result[aid], ok = 'Application not found', False
 
             else:
-                result[aid], ok = self._check_application(app)
+                result[aid], _ok = self._check_application(app)
+                ok &= _ok
         return {customer: result}, ok
 
     def check(self, **kwargs) -> CheckResult:
@@ -564,6 +569,47 @@ class RulesMetaAccessDataCheck(AbstractHealthCheck):
         if isinstance(secret_value, dict):
             secret_value = [secret_value]
         return self.ok_result()
+
+
+class RulesMetaCheck(AbstractHealthCheck):
+    def __init__(self, s3_settings_service):
+        self._s3_settings_service = s3_settings_service
+
+    @classmethod
+    def build(cls) -> 'RulesMetaCheck':
+        return cls(
+            s3_settings_service=SERVICE_PROVIDER.s3_settings_service()
+        )
+
+    @classmethod
+    def remediation(cls) -> Optional[str]:
+        return 'Configure rule-meta access data and invoke rule-meta-updater ' \
+               'with an empty event to wait for cron invoke'
+
+    @classmethod
+    def impact(cls) -> Optional[str]:
+        return 'Some features will not be available'
+
+    @classmethod
+    def identifier(cls) -> str:
+        return 'rule_meta'
+
+    def check(self, **kwargs) -> CheckResult:
+        _all = set(self._s3_settings_service.ls())
+        _required = {
+            KEY_RULES_TO_SERVICE_SECTION, KEY_RULES_TO_SEVERITY,
+            KEY_RULES_TO_STANDARDS, KEY_RULES_TO_MITRE, KEY_CLOUD_TO_RULES,
+            KEY_HUMAN_DATA, KEY_AWS_STANDARDS_COVERAGE,
+            KEY_AZURE_STANDARDS_COVERAGE, KEY_GOOGLE_STANDARDS_COVERAGE,
+            KEY_AWS_EVENTS, KEY_AZURE_EVENTS, KEY_GOOGLE_EVENTS
+        }
+        missing = _required - _all
+        present = _required & _all
+        if not missing:
+            return self.ok_result({key: True for key in present})
+        res = {key: True for key in present}
+        res.update({key: False for key in missing})
+        return self.not_ok_result(res)
 
 
 # on-prem specific checks -----

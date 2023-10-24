@@ -33,11 +33,10 @@ def describe(ctx: ContextObj, customer_id, policy_name=None):
 @click.option('--policy_name', '-name', type=str, required=True,
               help='Policy name to create')
 @click.option('--permission', '-p', multiple=True,
-              required=True,
               help='List of permissions to attach to the policy')
 @click.option('--path_to_permissions', '-path', required=False,
-              help='Local path to .json file that contains list of permissions to '
-                   'attach to the policy')
+              help='Local path to .json file that contains list of '
+                   'permissions to attach to the policy')
 @customer_option
 @cli_response(attributes_order=[PARAM_CUSTOMER, PARAM_NAME, PARAM_PERMISSIONS])
 def add(ctx: ContextObj, customer_id, policy_name, permission,
@@ -45,6 +44,9 @@ def add(ctx: ContextObj, customer_id, policy_name, permission,
     """
     Creates a Custodian Service policy for a customer
     """
+    if not permission and not path_to_permissions:
+        return response('--permission or --path_to_permissions '
+                        'must be provided')
     permissions = list(permission)
     if path_to_permissions:
         path = Path(path_to_permissions)

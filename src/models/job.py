@@ -58,6 +58,7 @@ class Job(BaseModel):
     scheduled_rule_name = UnicodeAttribute(null=True)
     ttl = TTLAttribute(null=True)
     rules_to_scan = ListAttribute(default=list)
+    platform_id = UnicodeAttribute(null=True)
 
     customer_display_name_index = CustomerDisplayNameIndex()
     tenant_display_name_index = TenantDisplayNameSubmittedAtIndex()

@@ -1,7 +1,7 @@
 from handlers.abstracts.abstract_user_handler import AbstractUserHandler
-from helpers import build_response, RESPONSE_BAD_REQUEST_CODE
-from helpers.constants import CUSTOMER_ATTR, GET_METHOD, POST_METHOD, \
-    PATCH_METHOD, DELETE_METHOD
+from helpers import build_response
+from http import HTTPStatus
+from helpers.constants import CUSTOMER_ATTR, HTTPMethod
 from helpers.log_helper import get_logger
 from services.modular_service import ModularService
 from services.user_service import CognitoUserService
@@ -22,10 +22,10 @@ class UserCustomerHandler(AbstractUserHandler):
     def define_action_mapping(self):
         return {
             '/users/customer': {
-                GET_METHOD: self.get_customer_attribute,
-                POST_METHOD: self.set_customer_attribute,
-                PATCH_METHOD: self.update_customer_attribute,
-                DELETE_METHOD: self.delete_customer_attribute
+                HTTPMethod.GET: self.get_customer_attribute,
+                HTTPMethod.POST: self.set_customer_attribute,
+                HTTPMethod.PATCH: self.update_customer_attribute,
+                HTTPMethod.DELETE: self.delete_customer_attribute
             }
         }
 
@@ -46,7 +46,7 @@ class UserCustomerHandler(AbstractUserHandler):
             _LOG.error(f'Invalid value for attribute {self.attribute_name}: '
                        f'{attribute_value}')
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=f'Invalid value for attribute {self.attribute_name}: '
                         f'{attribute_value}')
 

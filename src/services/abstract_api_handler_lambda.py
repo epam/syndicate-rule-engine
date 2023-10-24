@@ -1,15 +1,15 @@
 import json
 from abc import abstractmethod
-from typing import Optional, TypedDict, List
+from http import HTTPStatus
+from typing import Optional
 
 from modular_sdk.commons.exception import ModularException
 
-from helpers import build_response, CustodianException, \
-    RESPONSE_INTERNAL_SERVER_ERROR, RESPONSE_FORBIDDEN_CODE, \
-    RESPONSE_BAD_REQUEST_CODE, deep_get
+from helpers import build_response, CustodianException, deep_get
 from helpers.constants import PARAM_USER_ID, PARAM_USER_ROLE, \
     PARAM_REQUEST_PATH, PARAM_HTTP_METHOD, PARAM_USER_CUSTOMER, \
-    PARAM_RESOURCE_PATH, ENV_API_GATEWAY_STAGE, ENV_API_GATEWAY_HOST
+    PARAM_RESOURCE_PATH, ENV_API_GATEWAY_STAGE, ENV_API_GATEWAY_HOST, \
+    HTTPMethod
 from helpers.log_helper import get_logger
 from services import SERVICE_PROVIDER
 
@@ -26,33 +26,7 @@ NOT_ALLOWED_TO_ACCESS_ENTITY = 'You are not allowed to access this entity'
 NOT_ENOUGH_DATA = 'Not enough data to proceed the request'
 
 
-class PreparedEvent(TypedDict, total=False):
-    """
-    Prepared event historically contains both some request meta and incoming
-    body on one level.
-    """
-    httpMethod: str  # GET, POST, ...
-    path: str  # without prefix (stage)
-    user_id: str  # cognito user id
-    user_role: str  # user role
-    user_customer: str  # customer of the user making the request
-    customer: Optional[str]  # customer of the user on whose behalf the request must be done. For standard users it's the same as user_customer
-    tenant: Optional[str]  # for some endpoints defined in restriction_service
-    tenants: Optional[List[str]]  # the same as one above
-    # ... body attributes validated by pydantic.
-
-
 class AbstractApiHandlerLambda:
-
-    @abstractmethod
-    def validate_request(self, event) -> dict:
-        """
-        Validates event attributes
-        :param event: lambda incoming event
-        :return: dict with attribute_name in key and error_message in value
-        """
-        pass
-
     @abstractmethod
     def handle_request(self, event, context):
         """
@@ -85,12 +59,14 @@ class AbstractApiHandlerLambda:
         _env.override_environment({
             ENV_API_GATEWAY_HOST: deep_get(event, ('headers', 'Host')),
             ENV_API_GATEWAY_STAGE: self._resolve_stage(
-                deep_get(event, ('requestContext', 'resourcePath')).format_map(path_params),
-                deep_get(event, ('requestContext', 'path')).format_map(path_params)
+                deep_get(event, ('requestContext', 'resourcePath')).format_map(
+                    path_params),
+                deep_get(event, ('requestContext', 'path')).format_map(
+                    path_params)
             )
         })
         try:
-            _LOG.debug(f'Request: {event}, '
+            _LOG.debug(f'Request: {json.dumps(event)}, '
                        f'request id: \'{context.aws_request_id}\'')
             _LOG.debug('Checking user permissions')
 
@@ -136,15 +112,17 @@ class AbstractApiHandlerLambda:
                 event[PARAM_USER_CUSTOMER] = user_customer
                 if target_permission:
                     _LOG.info('Restricting access by RBAC')
-                    if not SERVICE_PROVIDER.access_control_service().is_allowed_to_access(
-                        customer=user_customer, role_name=user_role, target_permission=target_permission):
+                    if not SERVICE_PROVIDER.access_control_service().is_allowed_to_access(  # noqa
+                            customer=user_customer, role_name=user_role,
+                            target_permission=target_permission):
                         message = f'User \'{event.get(PARAM_USER_ID)}\' ' \
                                   f'is not allowed to access the resource: ' \
                                   f'\'{target_permission}\''
                         _LOG.info(message)
                         return build_response(
-                            code=RESPONSE_FORBIDDEN_CODE,
-                            content=message)
+                            code=HTTPStatus.FORBIDDEN.value,
+                            content=message
+                        )
                 _LOG.info(
                     f'Restricting access by entities: '
                     f'user_customer={user_customer}, '
@@ -160,51 +138,27 @@ class AbstractApiHandlerLambda:
                 _LOG.debug(f'Authorizer is not provided for '
                            f'endpoint: {request_path}. Allowing...')
 
-            errors = self.validate_request(event)
-            if errors:
-                return build_response(code=400,
-                                      content=errors)
-            execution_result = self.handle_request(event=event,
-                                                   context=context)
+            execution_result = self.handle_request(
+                event=event,
+                context=context
+            )
             _LOG.debug(f'Response: {execution_result}')
             return execution_result
         except ModularException as e:
-            _LOG.warning(f'Modular exception occurred; Error: {e}')
+            _LOG.warning(f'Modular exception occurred: {e}')
             return CustodianException(
                 code=e.code,
                 content=e.content
             ).response()
         except CustodianException as e:
-            _LOG.warning(f'Error occurred; Error: {e}')
+            _LOG.warning(f'Custodian exception occurred: {e}')
             return e.response()
-        except Exception as e:
-            _LOG.error(
-                f'Unexpected error occurred; Event: {event}; Error: {e}')
+        except Exception:
+            _LOG.exception('Unexpected error occurred')
             return CustodianException(
-                code=RESPONSE_INTERNAL_SERVER_ERROR,
-                content='Internal server error').response()
-
-    def skip_auth(self, event, context):
-        global REQUEST_CONTEXT
-        REQUEST_CONTEXT = context
-        errors = self.validate_request(event=event)
-        if errors:
-            return build_response(code=400,
-                                  content=errors)
-        try:
-            execution_result = self.handle_request(event=event,
-                                                   context=context)
-            _LOG.debug(f'Response: {execution_result}')
-            return execution_result
-        except CustodianException as e:
-            _LOG.warning(f'Error occurred; Event: {event}; Error: {e}')
-            return e.response()
-        except Exception as e:
-            _LOG.error(
-                f'Unexpected error occurred; Event: {event}; Error: {e}')
-            return CustodianException(
-                code=RESPONSE_INTERNAL_SERVER_ERROR,
-                content='Internal server error').response()
+                code=HTTPStatus.INTERNAL_SERVER_ERROR.value,
+                content='Internal server error'
+            ).response()
 
     def _get_target_permission(self, request_path: str,
                                http_method: str) -> Optional[str]:
@@ -225,9 +179,9 @@ class AbstractApiHandlerLambda:
         :param body: dict
         :return: dict
         """
-        from pydantic import ValidationError
         from services.rbac.endpoint_to_permission_mapping import \
             ENDPOINT_PERMISSION_MAPPING, VALIDATION
+        from validators.utils import validate_pydantic
         validation = ENDPOINT_PERMISSION_MAPPING.get(
             self._reformat_request_path(request_path), {}
         ).get(http_method, {}).get(VALIDATION)
@@ -236,21 +190,10 @@ class AbstractApiHandlerLambda:
             _LOG.warning(f'Validator is not found for endpoint: '
                          f'{http_method}, {request_path}. Skipping...')
             return body
-        try:
-            return validation(**body).dict(exclude_none=True)
-        except ValidationError as e:
-            errors = {}
-            for error in e.errors():
-                loc = error.get("loc")[-1]
-                if loc == '__root__':
-                    loc = f'{http_method} action at {request_path}'
-                msg = error.get("msg")
-                errors.update({loc: msg})
-            errors = '; '.join([f"{k} - {v}" for k, v in errors.items()])
-            return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
-                content=f'The following parameters do not match '
-                        f'the schema requirements: {errors}')
+        return validate_pydantic(
+            model=validation,
+            value=body
+        ).dict(exclude_none=True)
 
     @staticmethod
     def _split_stage_and_resource(path: str) -> tuple:
@@ -274,9 +217,10 @@ class AbstractApiHandlerLambda:
         try:
             body = json.loads(event.pop('body', None) or '{}')
         except json.JSONDecodeError as e:
-            return build_response(code=RESPONSE_BAD_REQUEST_CODE,
+            return build_response(code=HTTPStatus.BAD_REQUEST.value,
                                   content=f'Invalid request body: \'{e}\'')
-        body.update(event.pop('queryStringParameters', None) or {})
+        if method == HTTPMethod.GET or method == HTTPMethod.HEAD:
+            body.update(event.pop('queryStringParameters', None) or {})
         body.update(event.pop('pathParameters', None) or {})
         event.update(self._validate_event(path, method, body))
 

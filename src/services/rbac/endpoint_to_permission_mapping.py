@@ -1,11 +1,9 @@
+from helpers.constants import HTTPMethod
 from validators.request_validation import JobGetModel, SoloJobGetModel, \
-    JobPostModel, JobDeleteModel, TenantGetModel, LicensePriorityGetModel, \
-    LicensePriorityPostModel, LicensePriorityPatchModel, CustomerGetModel, \
+    JobPostModel, JobDeleteModel, TenantGetModel, CustomerGetModel, \
     PolicyGetModel, PolicyPostModel, PolicyPatchModel, PolicyDeleteModel, \
     PolicyCacheDeleteModel, RoleGetModel, RolePostModel, RolePatchModel, \
-    RoleDeleteModel, RoleCacheDeleteModel, RuleGetModel, RuleDeleteModel, \
-    RuleUpdateMetaPostModel, RulesetGetModel, RulesetPostModel, \
-    RulesetPatchModel, RulesetDeleteModel, RulesetContentGetModel, \
+    RoleDeleteModel, RoleCacheDeleteModel, RuleUpdateMetaPostModel, \
     RuleSourceGetModel, RuleSourcePostModel, RuleSourcePatchModel, \
     RuleSourceDeleteModel, CredentialsManagerGetModel, \
     CredentialsManagerPostModel, CredentialsManagerPatchModel, \
@@ -19,7 +17,7 @@ from validators.request_validation import JobGetModel, SoloJobGetModel, \
     FindingsDeleteModel, ScheduledJobGetModel, SoloScheduledJobGetModel, \
     ScheduledJobPostModel, \
     ScheduledJobDeleteModel, ScheduledJobPatchModel, \
-    MailSettingGetModel, MailSettingPostModel, LicensePriorityDeleteModel, \
+    MailSettingGetModel, MailSettingPostModel, \
     LicenseManagerConfigSettingPostModel, TenantErrorReportGetModel, \
     LicenseManagerClientSettingPostModel, JobRuleReportGetModel, \
     SoleBatchResultsGetModel, BatchResultsGetModel, CLevelGetReportModel, \
@@ -28,14 +26,12 @@ from validators.request_validation import JobGetModel, SoloJobGetModel, \
     JobErrorReportGetModel, TenantsErrorReportGetModel, \
     TenantsRuleReportGetModel, TenantRuleReportGetModel, \
     JobComplianceReportGetModel, TenantComplianceReportGetModel, \
-    EventDrivenRulesetGetModel, EventDrivenRulesetDeleteModel, \
-    EventDrivenRulesetPostModel, TenantPostModel, TenantRegionPostModel, \
+    TenantPostModel, TenantRegionPostModel, \
     TenantPatchModel, OperationalGetReportModel, DepartmentGetReportModel, \
     ProjectGetReportModel, ApplicationPostModel, ApplicationGetModel, \
-    ApplicationPatchModel,  ApplicationDeleteModel, \
-    ParentPostModel, ParentGetModel, ParentListModel, ParentDeleteModel, \
+    ApplicationPatchModel, ApplicationDeleteModel, \
+    ParentGetModel, ParentListModel, ParentDeleteModel, \
     ParentPatchModel, HealthCheckGetModel, SoleHealthCheckGetModel, \
-    ParentTenantLinkDeleteModel, ParentTenantLinkPostModel, \
     StandardJobPostModel, LicenseManagerClientSettingDeleteModel, \
     ApplicationListModel, RabbitMQGetModel, RabbitMQPostModel, \
     RabbitMQDeleteModel, AccessApplicationDeleteModel, \
@@ -44,759 +40,773 @@ from validators.request_validation import JobGetModel, SoloJobGetModel, \
     ReportPushByJobIdModel, ReportPushMultipleModel, \
     DojoApplicationDeleteModel, DojoApplicationGetModel, \
     DojoApplicationListModel, DojoApplicationPostModel, \
-    DojoApplicationPatchModel
-
-
-GET_METHOD = 'GET'
-POST_METHOD = 'POST'
-PATCH_METHOD = 'PATCH'
-DELETE_METHOD = 'DELETE'
+    DojoApplicationPatchModel, ResourcesReportGet, ResourceReportJobsGet, \
+    ResourceReportJobGet
 
 PERMISSIONS = 'permissions'
 VALIDATION = 'validation'
 
+# You can specify a validator for an endpoint in two different ways:
+# - you can specify it below using VALIDATION key. You must provide a
+#   pydantic model which contains query params/json body validation and
+#   optionally expected types for path params
+# - you can leave VALIDATION empty and specify a Pydantic model as type hint
+#   for event inside the corresponding handler. Such validation models must
+#   be inherited from PreparedEvent model. See
+#   validators.request_validation.PlatformK8sPost and the place where it's used
 ENDPOINT_PERMISSION_MAPPING = {
     '/reports/push/dojo/{job_id}/': {
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'report:push_report_to_dojo',
             VALIDATION: ReportPushByJobIdModel
         }
     },
     '/reports/push/security-hub/{job_id}/': {
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'report:push_report_to_security_hub',
             VALIDATION: ReportPushByJobIdModel
         }
     },
     '/reports/push/dojo/': {
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'report:push_report_to_dojo',
             VALIDATION: ReportPushMultipleModel
         }
     },
     '/reports/push/security-hub/': {
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'report:push_report_to_security_hub',
             VALIDATION: ReportPushMultipleModel
         }
     },
     '/reports/operational/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report:operational',
             VALIDATION: OperationalGetReportModel
         }
     },
     '/reports/project/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report:project',
             VALIDATION: ProjectGetReportModel
         }
     },
     '/reports/department/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report:department',
             VALIDATION: DepartmentGetReportModel
         }
     },
     '/reports/clevel/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report:clevel',
             VALIDATION: CLevelGetReportModel
         }
     },
     '/jobs/standard/': {
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'run:initiate_standard_run',
             VALIDATION: StandardJobPostModel
         },
     },
     '/jobs/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'run:describe_job',
             VALIDATION: JobGetModel
         },
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'run:initiate_run',
             VALIDATION: JobPostModel
         },
     },
     '/jobs/{job_id}/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'run:describe_job',
             VALIDATION: SoloJobGetModel
         },
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'run:terminate_run',
             VALIDATION: JobDeleteModel
         }
     },
     '/customers/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'customer:describe_customer',
             VALIDATION: CustomerGetModel
         },
-        # PATCH_METHOD: {
+        # HTTPMethod.PATCH: {
         #     PERMISSIONS: 'customer:update_customer',
         #     VALIDATION: CustomerPatchModel
         # },
     },
     '/tenants/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'tenant:describe_tenant',
             VALIDATION: TenantGetModel
         },
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'tenant:activate_tenant',
             VALIDATION: TenantPostModel
         },
-        PATCH_METHOD: {
+        HTTPMethod.PATCH: {
             PERMISSIONS: 'tenant:update_tenant',
             VALIDATION: TenantPatchModel
         }
     },
     '/tenants/regions/': {
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'tenant:activate_region',
             VALIDATION: TenantRegionPostModel
         }
     },
-    '/tenants/license-priorities/': {
-        GET_METHOD: {
-            PERMISSIONS: 'tenant:describe_license_priority',
-            VALIDATION: LicensePriorityGetModel
-        },
-        POST_METHOD: {
-            PERMISSIONS: 'tenant:create_license_priority',
-            VALIDATION: LicensePriorityPostModel
-        },
-        PATCH_METHOD: {
-            PERMISSIONS: 'tenant:update_license_priority',
-            VALIDATION: LicensePriorityPatchModel
-        },
-        DELETE_METHOD: {
-            PERMISSIONS: 'tenant:remove_license_priority',
-            VALIDATION: LicensePriorityDeleteModel
-        }
-    },
     '/policies/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'iam:describe_policy',
             VALIDATION: PolicyGetModel
         },
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'iam:create_policy',
             VALIDATION: PolicyPostModel
         },
-        PATCH_METHOD: {
+        HTTPMethod.PATCH: {
             PERMISSIONS: 'iam:update_policy',
             VALIDATION: PolicyPatchModel
         },
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'iam:remove_policy',
             VALIDATION: PolicyDeleteModel
         }
     },
     '/policies/cache/': {
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'iam:remove_policy_cache',  # todo system:
             VALIDATION: PolicyCacheDeleteModel
         }
     },
     '/roles/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'iam:describe_role',
             VALIDATION: RoleGetModel
         },
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'iam:create_role',
             VALIDATION: RolePostModel
         },
-        PATCH_METHOD: {
+        HTTPMethod.PATCH: {
             PERMISSIONS: 'iam:update_role',
             VALIDATION: RolePatchModel
         },
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'iam:remove_role',
             VALIDATION: RoleDeleteModel
         }
     },
     '/roles/cache/': {
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'iam:remove_role_cache',  # todo system:
             VALIDATION: RoleCacheDeleteModel
         }
     },
     '/rules/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'rule:describe_rule',
-            VALIDATION: RuleGetModel
         },
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'rule:remove_rule',
-            VALIDATION: RuleDeleteModel
         }
     },
     '/rules/update-meta/': {
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'system:update_meta',
             VALIDATION: RuleUpdateMetaPostModel
         }
     },
     '/backup/': {
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'system:create_backup',
             VALIDATION: None
         }
     },
     '/metrics/update': {
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'system:update_metrics',
             VALIDATION: None
         }
     },
     '/metrics/status': {
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'system:metrics_status',
             VALIDATION: None
         }
     },
     '/rulesets/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'ruleset:describe_ruleset',
-            VALIDATION: RulesetGetModel
         },
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'ruleset:create_ruleset',
-            VALIDATION: RulesetPostModel
         },
-        PATCH_METHOD: {
+        HTTPMethod.PATCH: {
             PERMISSIONS: 'ruleset:update_ruleset',
-            VALIDATION: RulesetPatchModel
         },
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'ruleset:remove_ruleset',
-            VALIDATION: RulesetDeleteModel
         },
     },
     '/rulesets/content/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'ruleset:get_content',
-            VALIDATION: RulesetContentGetModel
         }
     },
     '/rulesets/event-driven/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'ruleset:describe_event_driven',
-            VALIDATION: EventDrivenRulesetGetModel
         },
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'ruleset:create_event_driven',
-            VALIDATION: EventDrivenRulesetPostModel
         },
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'ruleset:delete_event_driven',
-            VALIDATION: EventDrivenRulesetDeleteModel
         },
     },
     '/rule-sources/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'rule_source:describe_rule_source',
             VALIDATION: RuleSourceGetModel
         },
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'rule_source:create_rule_source',
             VALIDATION: RuleSourcePostModel
         },
-        PATCH_METHOD: {
+        HTTPMethod.PATCH: {
             PERMISSIONS: 'rule_source:update_rule_source',
             VALIDATION: RuleSourcePatchModel
         },
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'rule_source:remove_rule_source',
             VALIDATION: RuleSourceDeleteModel
         }
     },
     '/accounts/credential_manager/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'account:describe_credential_manager',
             VALIDATION: CredentialsManagerGetModel
         },
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'account:create_credential_manager',
             VALIDATION: CredentialsManagerPostModel
         },
-        PATCH_METHOD: {
+        HTTPMethod.PATCH: {
             PERMISSIONS: 'account:update_credential_manager',
             VALIDATION: CredentialsManagerPatchModel
         },
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'account:remove_credential_manager',
             VALIDATION: CredentialsManagerDeleteModel
         }
     },
     '/signup/': {
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'user:signup',
             VALIDATION: SignUpPostModel
         }
     },
     '/signin/': {
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: None,
             VALIDATION: SignInPostModel
         }
     },
     '/users/': {
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'user:delete_users',
             VALIDATION: UserDeleteModel
         }
     },
     '/users/password-reset/': {
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'user:reset_password',
             VALIDATION: UserPasswordResetPostModel
         }
     },
     '/users/customer/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'user:describe_customer',
             VALIDATION: UserCustomerGetModel
         },
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'user:assign_customer',
             VALIDATION: UserCustomerPostModel
         },
-        PATCH_METHOD: {
+        HTTPMethod.PATCH: {
             PERMISSIONS: 'user:update_customer',
             VALIDATION: UserCustomerPatchModel
         },
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'user:unassign_customer',
             VALIDATION: UserCustomerDeleteModel
         }
     },
     '/users/role/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'user:describe_role',
             VALIDATION: UserRoleGetModel
         },
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'user:assign_role',
             VALIDATION: UserRolePostModel
         },
-        PATCH_METHOD: {
+        HTTPMethod.PATCH: {
             PERMISSIONS: 'user:update_role',
             VALIDATION: UserRolePatchModel
         },
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'user:unassign_role',
             VALIDATION: UserRoleDeleteModel
         }
     },
     '/users/tenants/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'user:describe_tenants',
             VALIDATION: UserTenantsGetModel
         },
-        PATCH_METHOD: {
+        HTTPMethod.PATCH: {
             PERMISSIONS: 'user:update_tenants',
             VALIDATION: UserTenantsPatchModel
         },
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'user:unassign_tenants',
             VALIDATION: UserTenantsDeleteModel
         }
     },
     '/event/': {
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'run:initiate_event_run',
             VALIDATION: EventPostModel
         }
     },
     '/license/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'license:describe_license',
             VALIDATION: LicenseGetModel
         },
-        # POST_METHOD: {
+        # HTTPMethod.POST: {
         #     PERMISSIONS: 'license:create_license',
         #     VALIDATION: LicensePostModel
         # },
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'license:remove_license',
             VALIDATION: LicenseDeleteModel
         }
     },
     '/license/sync/': {
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'license:create_license_sync',
             VALIDATION: LicenseSyncPostModel
         }
     },
     '/findings/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'findings:describe_findings',
             VALIDATION: FindingsGetModel
         },
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'findings:remove_findings',
             VALIDATION: FindingsDeleteModel
         }
     },
     '/scheduled-job/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'scheduled-job:describe',
             VALIDATION: ScheduledJobGetModel
         },
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'scheduled-job:register',
             VALIDATION: ScheduledJobPostModel
         },
 
     },
     '/scheduled-job/{name}/': {
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'scheduled-job:deregister',
             VALIDATION: ScheduledJobDeleteModel
         },
-        PATCH_METHOD: {
+        HTTPMethod.PATCH: {
             PERMISSIONS: 'scheduled-job:update',
             VALIDATION: ScheduledJobPatchModel
         },
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'scheduled-job:describe',
             VALIDATION: SoloScheduledJobGetModel
         },
     },
     '/settings/mail/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'settings:describe_mail',
             VALIDATION: MailSettingGetModel
         },
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'settings:create_mail',
             VALIDATION: MailSettingPostModel
         },
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'settings:delete_mail'
         }
     },
     '/settings/license-manager/config/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'settings:describe_lm_config'
         },
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'settings:create_lm_config',
             VALIDATION: LicenseManagerConfigSettingPostModel
         },
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'settings:delete_lm_config'
         }
     },
     '/settings/license-manager/client/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'settings:describe_lm_client',
             VALIDATION: LicenseManagerClientSettingsGetModel
         },
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'settings:create_lm_client',
             VALIDATION: LicenseManagerClientSettingPostModel
         },
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'settings:delete_lm_client',
             VALIDATION: LicenseManagerClientSettingDeleteModel
         }
     },
     '/batch_results/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'batch_results:describe',
             VALIDATION: BatchResultsGetModel
         }
     },
     '/batch_results/{batch_results_id}/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'batch_results:describe',
             VALIDATION: SoleBatchResultsGetModel
         }
     },
 
     '/reports/digests/jobs/{id}/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report_digests:describe',
             VALIDATION: JobReportGetModel
         }
     },
     '/reports/digests/tenants/jobs/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report_digests:describe',
             VALIDATION: TimeRangedTenantsReportGetModel
         }
     },
     '/reports/digests/tenants/{tenant_name}/jobs/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report_digests:describe',
             VALIDATION: TimeRangedTenantReportGetModel
         }
     },
     '/reports/digests/tenants/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report_digests:describe',
             VALIDATION: TimeRangedTenantsReportGetModel
         }
     },
     '/reports/digests/tenants/{tenant_name}/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report_digests:describe',
             VALIDATION: TimeRangedTenantReportGetModel
         }
     },
     '/reports/details/jobs/{id}/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report_details:describe',
             VALIDATION: JobReportGetModel
         }
     },
     '/reports/details/tenants/jobs/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report_details:describe',
             VALIDATION: TimeRangedTenantsReportGetModel
         }
     },
     '/reports/details/tenants/{tenant_name}/jobs/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report_details:describe',
             VALIDATION: TimeRangedTenantReportGetModel
         }
     },
     '/reports/details/tenants/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report_details:describe',
             VALIDATION: TimeRangedTenantsReportGetModel
         }
     },
     '/reports/details/tenants/{tenant_name}/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report_details:describe',
             VALIDATION: TimeRangedTenantReportGetModel
         }
     },
     '/reports/compliance/jobs/{id}/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report_compliance:describe',
             VALIDATION: JobComplianceReportGetModel
         }
     },
     '/reports/compliance/tenants/{tenant_name}/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report_compliance:describe',
             VALIDATION: TenantComplianceReportGetModel
         }
     },
     '/reports/errors/jobs/{id}/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report_errors:describe',
             VALIDATION: JobErrorReportGetModel
         }
     },
     '/reports/errors/access/jobs/{id}/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report_errors:describe',
             VALIDATION: JobErrorReportGetModel
         }
     },
     '/reports/errors/core/jobs/{id}/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report_errors:describe',
             VALIDATION: JobErrorReportGetModel
         }
     },
 
     '/reports/errors/tenants/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report_errors:describe',
             VALIDATION: TenantsErrorReportGetModel
         }
     },
     '/reports/errors/access/tenants/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report_errors:describe',
             VALIDATION: TenantsErrorReportGetModel
         }
     },
     '/reports/errors/core/tenants/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report_errors:describe',
             VALIDATION: TenantsErrorReportGetModel
         }
     },
 
     '/reports/errors/tenants/{tenant_name}/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report_errors:describe',
             VALIDATION: TenantErrorReportGetModel
         }
     },
     '/reports/errors/access/tenants/{tenant_name}/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report_errors:describe',
             VALIDATION: TenantErrorReportGetModel
         }
     },
     '/reports/errors/core/tenants/{tenant_name}/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report_errors:describe',
             VALIDATION: TenantErrorReportGetModel
         }
     },
     '/reports/rules/jobs/{id}/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report_rules:describe',
             VALIDATION: JobRuleReportGetModel
         }
     },
     '/reports/rules/tenants/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report_rules:describe',
             VALIDATION: TenantsRuleReportGetModel
         }
     },
     '/reports/rules/tenants/{tenant_name}/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'report_rules:describe',
             VALIDATION: TenantRuleReportGetModel
         }
     },
     '/applications/': {
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'application:activate',
             VALIDATION: ApplicationPostModel
         },
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'application:describe',
             VALIDATION: ApplicationListModel
         },
     },
     '/applications/{application_id}/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'application:describe',
             VALIDATION: ApplicationGetModel
         },
-        PATCH_METHOD: {
+        HTTPMethod.PATCH: {
             PERMISSIONS: 'application:update',
             VALIDATION: ApplicationPatchModel
         },
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'application:delete',
             VALIDATION: ApplicationDeleteModel
         }
     },
     '/applications/access/{application_id}/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'access_application:describe',
             VALIDATION: AccessApplicationGetModel
         },
-        PATCH_METHOD: {
+        HTTPMethod.PATCH: {
             PERMISSIONS: 'access_application:update',
             VALIDATION: AccessApplicationPatchModel
         },
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'access_application:delete',
             VALIDATION: AccessApplicationDeleteModel
         }
     },
     '/applications/access/': {
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'access_application:activate',
             VALIDATION: AccessApplicationPostModel
         },
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'access_application:describe',
             VALIDATION: AccessApplicationListModel
         },
     },
     '/applications/dojo/{application_id}/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'dojo_application:describe',
             VALIDATION: DojoApplicationGetModel
         },
-        PATCH_METHOD: {
+        HTTPMethod.PATCH: {
             PERMISSIONS: 'dojo_application:update',
             VALIDATION: DojoApplicationPatchModel
         },
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'dojo_application:delete',
             VALIDATION: DojoApplicationDeleteModel
         }
     },
     '/applications/dojo/': {
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'dojo_application:activate',
             VALIDATION: DojoApplicationPostModel
         },
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'dojo_application:describe',
             VALIDATION: DojoApplicationListModel
         },
     },
     '/parents/': {
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'parent:activate',
-            VALIDATION: ParentPostModel
         },
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'parent:describe',
             VALIDATION: ParentListModel
         }
     },
     '/parents/{parent_id}/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'parent:describe',
             VALIDATION: ParentGetModel
         },
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'parent:delete',
             VALIDATION: ParentDeleteModel
         },
-        PATCH_METHOD: {
+        HTTPMethod.PATCH: {
             PERMISSIONS: 'parent:update',
-            VALIDATION: ParentPatchModel
         }
     },
-    '/parents/tenant-link/': {
-        POST_METHOD: {
-            PERMISSIONS: 'tenant:link_parent',
-            VALIDATION: ParentTenantLinkPostModel
-        },
-        DELETE_METHOD: {
-            PERMISSIONS: 'tenant:unlink_parent',
-            VALIDATION: ParentTenantLinkDeleteModel
-        },
-    },
     '/health/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: None,
             VALIDATION: HealthCheckGetModel
         }
     },
     '/health/{id}/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: None,
             VALIDATION: SoleHealthCheckGetModel
         }
     },
     '/customers/rabbitmq/': {
-        GET_METHOD: {
+        HTTPMethod.GET: {
             PERMISSIONS: 'rabbitmq:describe',
             VALIDATION: RabbitMQGetModel
         },
-        POST_METHOD: {
+        HTTPMethod.POST: {
             PERMISSIONS: 'rabbitmq:create',
             VALIDATION: RabbitMQPostModel
         },
-        DELETE_METHOD: {
+        HTTPMethod.DELETE: {
             PERMISSIONS: 'rabbitmq:delete',
             VALIDATION: RabbitMQDeleteModel
         }
+    },
+    '/rule-meta/standards/': {
+        HTTPMethod.POST: {
+            PERMISSIONS: 'meta:update_standards'
+        }
+    },
+    '/rule-meta/mappings/': {
+        HTTPMethod.POST: {
+            PERMISSIONS: 'meta:update_mappings'
+        }
+    },
+    '/rule-meta/meta/': {
+        HTTPMethod.POST: {
+            PERMISSIONS: 'meta:update_meta'
+        }
+    },
+    '/reports/resources/tenants/{tenant_name}/state/latest/': {
+        HTTPMethod.GET: {
+            PERMISSIONS: 'report_resources:get_latest',
+            VALIDATION: ResourcesReportGet
+        }
+    },
+    '/reports/resources/tenants/{tenant_name}/jobs/': {
+        HTTPMethod.GET: {
+            PERMISSIONS: 'report_resources:get_jobs',
+            VALIDATION: ResourceReportJobsGet
+        }
+    },
+    '/reports/resources/jobs/{id}/': {
+        HTTPMethod.GET: {
+            PERMISSIONS: 'report_resources:get_jobs',
+            VALIDATION: ResourceReportJobGet
+        }
+    },
+    '/platforms/k8s/': {
+        HTTPMethod.GET: {PERMISSIONS: 'platform:list_k8s'}
+    },
+    '/platforms/k8s/native/': {
+        HTTPMethod.POST: {PERMISSIONS: 'platform:create_k8s_native'},
+    },
+    '/platforms/k8s/eks/': {
+        HTTPMethod.POST: {PERMISSIONS: 'platform:create_k8s_eks'},
+    },
+    '/platforms/k8s/native/{id}/': {
+        HTTPMethod.DELETE: {PERMISSIONS: 'platform:delete_k8s_native'}
+    },
+    '/platforms/k8s/eks/{id}/': {
+        HTTPMethod.DELETE: {PERMISSIONS: 'platform:delete_k8s_eks'}
+    },
+    '/jobs/k8s/': {
+        HTTPMethod.POST: {PERMISSIONS: 'run:initiate_k8s_run'}
     }
 }

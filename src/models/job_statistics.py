@@ -1,7 +1,7 @@
 import os
 
 from pynamodb.attributes import UnicodeAttribute, NumberAttribute, \
-    ListAttribute
+    MapAttribute
 from pynamodb.indexes import AllProjection
 
 from helpers.constants import ENV_VAR_REGION
@@ -36,6 +36,6 @@ class JobStatistics(BaseModel):
     succeeded = NumberAttribute(null=True, default=0)
     failed = NumberAttribute(null=True, default=0)
     last_scan_date = UnicodeAttribute(null=True)
-    tenants = ListAttribute(null=True)
+    tenants = MapAttribute(null=True)
 
     customer_name_from_date_index = CustomerNameFromDateIndex()

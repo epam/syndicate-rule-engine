@@ -1,22 +1,23 @@
+import re
 from abc import ABC, abstractmethod
+from http import HTTPStatus
 from secrets import token_hex
 from typing import Optional
-import re
 
 from botocore.exceptions import ClientError
+from modular_sdk.models.tenant import Tenant
+
 from connections.batch_extension.base_job_client import BaseBatchClient
+from helpers import build_response
 from helpers.constants import BATCH_ENV_SUBMITTED_AT, \
-    BATCH_ENV_TARGET_REGIONS, BATCH_ENV_TARGET_RULESETS, \
-    BATCH_ENV_SCHEDULED_JOB_NAME, BATCH_ENV_TARGET_RULESETS_VIEW, \
+    BATCH_ENV_TARGET_REGIONS, BATCH_ENV_SCHEDULED_JOB_NAME, \
+    BATCH_ENV_TARGET_RULESETS_VIEW, \
     BATCH_ENV_LICENSED_RULESETS, ALL_ATTR
 from helpers.log_helper import get_logger
 from models.scheduled_job import ScheduledJob
 from services.clients.event_bridge import EventBridgeClient, BatchRuleTarget
 from services.clients.iam import IAMClient
 from services.environment_service import EnvironmentService
-from helpers import build_response, RESPONSE_BAD_REQUEST_CODE, \
-    RESPONSE_RESOURCE_NOT_FOUND_CODE
-from models.modular.tenants import Tenant
 
 _LOG = get_logger(__name__)
 
@@ -132,7 +133,7 @@ class EventBridgeJobScheduler(AbstractJobScheduler):
                 message = e.response['Error']['Message']
                 _LOG.warning(f'User has sent invalid schedule '
                              f'expression: {args}, {kwargs}')
-                return build_response(code=RESPONSE_BAD_REQUEST_CODE,
+                return build_response(code=HTTPStatus.BAD_REQUEST,
                                       content=f'Validation error: {message}')
             raise
 
@@ -200,7 +201,7 @@ class EventBridgeJobScheduler(AbstractJobScheduler):
         if not existing_rule:
             _LOG.error('The EventBridge rule somehow disparaged')
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=f'Cannot find rule for scheduled job \'{_id}\'. '
                         f'Please recreate the job')
 

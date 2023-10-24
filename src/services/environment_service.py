@@ -6,8 +6,8 @@ from typing import Optional
 from helpers.constants import ENV_SERVICE_MODE, DOCKER_SERVICE_MODE, \
     ENV_VAR_REGION, TESTING_MODE_ENV, TESTING_MODE_ENV_TRUE, \
     ENV_VAR_JOBS_TIME_TO_LIVE_DAYS, ENV_NUMBER_OF_EVENTS_IN_EVENT_ITEM, \
-    DEFAULT_NUMBER_OF_EVENTS_IN_EVENT_ITEM, DEFAULT_CACHE_LIFETIME, \
-    ENV_VAR_EVENTS_TTL, EVENT_STATISTICS_TYPE_VERBOSE, COMPONENT_NAME_ATTR, \
+    DEFAULT_NUMBER_OF_EVENTS_IN_EVENT_ITEM, ENV_VAR_EVENTS_TTL, \
+    EVENT_STATISTICS_TYPE_VERBOSE, COMPONENT_NAME_ATTR, \
     EVENT_STATISTICS_TYPE_SHORT, ENV_EVENT_STATISTICS_TYPE, \
     AZURE_CLOUD_ATTR, ENV_API_GATEWAY_HOST, ENV_API_GATEWAY_STAGE, \
     AWS_CLOUD_ATTR, GOOGLE_CLOUD_ATTR, DEFAULT_STATISTICS_BUCKET_NAME, \
@@ -15,7 +15,9 @@ from helpers.constants import ENV_SERVICE_MODE, DOCKER_SERVICE_MODE, \
     DEFAULT_SSM_BACKUP_BUCKET_NAME, DEFAULT_TEMPLATES_BUCKET_NAME, \
     DEFAULT_METRICS_BUCKET_NAME, ENV_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT, \
     DEFAULT_EVENTS_TTL_HOURS, ENV_VAR_NUMBER_OF_PARTITIONS_FOR_EVENTS, \
-    DEFAULT_NUMBER_OF_PARTITIONS_FOR_EVENTS, DEFAULT_RECOMMENDATION_BUCKET_NAME
+    DEFAULT_NUMBER_OF_PARTITIONS_FOR_EVENTS, \
+    DEFAULT_RECOMMENDATION_BUCKET_NAME, DEFAULT_INNER_CACHE_TTL_SECONDS, \
+    ENV_INNER_CACHE_TTL_SECONDS
 
 ALLOWED_CLOUDS = {AWS_CLOUD_ATTR, AZURE_CLOUD_ATTR, GOOGLE_CLOUD_ATTR}
 
@@ -147,11 +149,6 @@ class EnvironmentService:
         """
         return self._environment.get('caas_user_pool_id')
 
-    def get_iam_cache_lifetime(self) -> int:
-        from_env = self._environment.get(
-            'iam_cache_lifetime') or DEFAULT_CACHE_LIFETIME  # in seconds
-        return int(from_env)
-
     def get_last_scan_threshold(self) -> int:
         """
         Threshold in seconds
@@ -206,13 +203,6 @@ class EnvironmentService:
 
     def is_docker(self) -> bool:
         return self._environment.get(ENV_SERVICE_MODE) == DOCKER_SERVICE_MODE
-
-    def not_invoke_ruleset_compiler(self) -> bool:
-        """In case we want to enable DynamoDB streams like it used to be"""
-        from_env = self._environment.get('not_invoke_ruleset_compiler')
-        if not from_env:
-            return False
-        return str(from_env).lower() in ENV_TRUE
 
     def event_bridge_service_role(self):
         return self._environment.get(
@@ -318,3 +308,13 @@ class EnvironmentService:
         if from_env:
             return int(from_env)
         return DEFAULT_NUMBER_OF_PARTITIONS_FOR_EVENTS
+
+    def inner_cache_ttl_seconds(self) -> int:
+        """
+        Used for time to live cache
+        :return:
+        """
+        from_env = str(self._environment.get(ENV_INNER_CACHE_TTL_SECONDS))
+        if from_env.isdigit():
+            return int(from_env)
+        return DEFAULT_INNER_CACHE_TTL_SECONDS

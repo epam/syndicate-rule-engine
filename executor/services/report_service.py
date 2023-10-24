@@ -1,29 +1,30 @@
-import csv
 import json
-import os
-from typing import Dict, Generator, List, Optional, TypedDict
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import cached_property
+from itertools import chain
+from pathlib import Path, PurePosixPath
+from typing import Dict, Generator, List, Optional, TypedDict, Tuple, Iterable
 
-from helpers import deep_get, filter_dict, hashable
-from helpers.constants import POLICY_KEYS_MAPPING, CLOUD_TO_FOLDER_MAPPING, \
-    PATTERN_FOR_JSON_SUBSTRING, FINDINGS_FOLDER, \
-    AZURE_COMMON_REGION, MULTIREGION
+from c7n.provider import get_resource_class
+from c7n.resources import load_resources
+from modular_sdk.models.parent import Parent
+from modular_sdk.models.tenant import Tenant
+
+from helpers import filter_dict, hashable, json_path_get
+from helpers.constants import FINDINGS_FOLDER, \
+    AZURE_COMMON_REGION, MULTIREGION, AWS, AZURE, GOOGLE, KUBERNETES
 from helpers.log_helper import get_logger
-from services.clients.s3 import S3Client
+from helpers.time_helper import utc_datetime
 from services.environment_service import EnvironmentService
-from services.os_service import OSService
 from services.s3_settings_service import S3SettingsService
 
 _LOG = get_logger(__name__)
 
-RESOURCE_NAME_HEADER = 'Resource Name'
-RESOURCE_TYPE_HEADER = 'Resource Type'
-REGION_HEADER = 'Region'
-RULE_NAME_HEADER = 'Rule Name'
-RULE_DESCRIPTION_HEADER = 'Rule Description'
-
 DETAILED_REPORT_FILE = 'detailed_report.json'
 REPORT_FILE = 'report.json'  # `digest-report`
 DIFFERENCE_FILE = 'difference.json'
+
+REPORT_FIELDS = {'id', 'name', 'arn'}  # + date
 
 
 class PolicyReportItem(TypedDict):
@@ -41,236 +42,197 @@ class PolicyReportItem(TypedDict):
     tags: List[str]
 
 
-class ReportService:
-    def __init__(self, os_service: OSService, s3_client: S3Client,
-                 environment_service: EnvironmentService,
-                 s3_settings_service: S3SettingsService):
-        self.os_service = os_service
-        self.s3_client = s3_client
-        self.environment_service = environment_service
-        self.s3_settings_service = s3_settings_service
-        self._resources_mapping = {}
+class ReportFieldsLoader:
+    """
+    Each resource type has its own class in Custom Core. That class has
+    resource_type inner class with some resource_type meta attributes.
+    There is always `id` attribute which points to the fields that is ID for
+    this particular type. Also, there are such attributes as: name, arn
+    (for aws).
+    """
+    _fields = REPORT_FIELDS
+    _mapping = {}
 
-    def resources_mapping(self, cloud: str) -> dict:
-        if cloud not in self._resources_mapping:
-            self._resources_mapping[cloud] = \
-                self.os_service.get_resource_mapping(cloud)
-        return self._resources_mapping[cloud]
-
-    @staticmethod
-    def generate_report(detailed_report):
-        total_checks_performed = 0
-        failed_checks = 0
-        successful_checks = 0
-        total_resources_violated_rules = 0
-        for region, reports in detailed_report.items():
-            region_total = len(reports)
-            failed_summaries = [summary for summary in reports if
-                                summary.get('resources')]
-            region_failed = len(failed_summaries)
-            region_successful = region_total - region_failed
-            total_checks_performed += region_total
-            failed_checks += region_failed
-            successful_checks += region_successful
-            total_resources_violated_rules += sum(
-                len(summary.get('resources'))
-                for summary in failed_summaries)
-        return {
-            'total_checks_performed': total_checks_performed,
-            'successful_checks': successful_checks,
-            'failed_checks': failed_checks,
-            'total_resources_violated_rules': total_resources_violated_rules
-        }
-
-    def generate_detailed_report(self, work_dir):
+    @classmethod
+    def _load_for_resource_type(cls, rt: str) -> Optional[dict]:
         """
-        Produces region-specific object of un-formatted custodian detailed
-        reports, found within a working directory.
-        Note: does not retain error (failed to execute) reports.
-        :param work_dir: str
-        :return: Dict[str, List[Dict]] {
-            $region: [
-                {
-                    'custodian-run': str,
-                    'metadata': Dict,
-                    'resources': List[Dict]
-                }
-            ]
-        }
+        Updates mapping for the given resource type.
+        It must be loaded beforehand
+        :param rt:
+        :return:
         """
-        _LOG.debug(f'Generating detailed report. Workdir: {work_dir};')
-        detailed_report_map = {}
-        region_folders = (folder for folder in os.listdir(work_dir)
-                          if folder != FINDINGS_FOLDER)
-
-        for region_folder in region_folders:
-            if os.path.isfile(os.path.join(work_dir, region_folder)):
+        try:
+            factory = get_resource_class(rt)
+        except (KeyError, AssertionError) as e:
+            _LOG.warning(f'Could not load resource type: {rt}')
+            return
+        resource_type = getattr(factory, 'resource_type', None)
+        if not resource_type:
+            _LOG.warning('Somehow resource type factory does not contain '
+                         'inner resource_type class')
+            return
+        kwargs = {}
+        for field in cls._fields:
+            f = getattr(resource_type, field, None)
+            if not f:
                 continue
-            region_detailed_report = self._generate_region_report(
-                region_folder=region_folder,
-                work_dir=work_dir
-            )
-            detailed_report_map[region_folder] = region_detailed_report
+            kwargs[field] = f
+        return kwargs
 
-        return detailed_report_map
+    @classmethod
+    def get(cls, rt: str) -> dict:
+        if rt not in cls._mapping:
+            fields = cls._load_for_resource_type(rt)
+            if not isinstance(fields, dict):
+                return {}
+            cls._mapping[rt] = fields
+        return cls._mapping[rt]
 
-    def _generate_region_report(self, region_folder, work_dir):
-        _LOG.debug(f'Processing region \'{region_folder}\'')
-        region_detailed_report = []
-        region_work_dir = os.path.join(work_dir, region_folder)
-
-        for policy_folder in os.listdir(region_work_dir):
-            entity = self._format_region_report_item(
-                policy_folder=policy_folder,
-                region_work_dir=region_work_dir
-            )
-            if entity:
-                region_detailed_report.append(entity)
-        return region_detailed_report
-
-    def format_detailed_report(self, detailed_report: dict, cloud_name: str):
-        result_report = {region: list() for region in detailed_report}
-
-        for region, report_items in detailed_report.items():
-            _LOG.debug(f'Processing region: {region}')
-            result_report[region] = list(self._format_region(
-                report_items, cloud_name
-            ))
-        return result_report
-
-    def _format_region(self, region_report: list, cloud: str) -> Generator[
-        Dict, None, None
-    ]:
+    @classmethod
+    def load(cls, resource_types: tuple = ('*',)):
         """
-        :param region_report: List[Dict] - [
-            {
-                'custodian-run': custodian_run,
-                'metadata': metadata,
-                'resources': resources
-            }
-        ]
-        :return: Generator[Dict, None, None]
+        Loads all the modules. In theory, we must use this class after
+        performing scan. Till that moment all the necessary resources must be
+        already loaded
+        :param resource_types:
+        :return:
         """
-        return (
-            self._format_item(item, cloud)
-            for item in region_report
-        )
+        load_resources(set(resource_types))
 
-    def _format_item(self, item: dict, cloud: str):
-        """
-        :param item: {
-            'custodian-run': custodian_run,
-            'metadata': metadata,
-            'resources': resources
-        }
-        :return: Dict
-        """
-        formatted_item = {'policy': {}, 'resources': []}
 
-        policy_meta = item['metadata']['policy']
-        for target_key, report_key in POLICY_KEYS_MAPPING.items():
-            keys = report_key.split('__')
-            report_value = deep_get(policy_meta, keys)
-            if report_value:
-                if isinstance(report_value, str):
-                    report_value = report_value.strip()
-                formatted_item['policy'][target_key] = report_value
+class JobResult:
+    class RuleRawOutput(TypedDict):
+        metadata: dict
+        resources: List[Dict]
 
-        resources = item.get('resources')
-        if not resources:
-            return formatted_item
-        item_resources = []
-        resources_mapping = self.resources_mapping(cloud)
-        for resource in resources:
-            resource_type = formatted_item['policy'].get('resourceType')
-            if '.' in resource_type:
-                resource_type = resource_type[resource_type.index('.') + 1:]
+    class FormattedItem(TypedDict):  # our detailed report item
+        policy: dict
+        resources: List[Dict]
 
-            cloud_folder = CLOUD_TO_FOLDER_MAPPING.get(cloud)
-            resource_map_key = f'{cloud_folder}.{resource_type}'
-            resource_keys_mapping = resources_mapping.get(resource_map_key)
+    class DigestReport(TypedDict):
+        total_checks_performed: int
+        successful_checks: int
+        failed_checks: int
+        total_resources_violated_rules: int
 
-            if resource_keys_mapping:
-                item_resource = {target_key: resource.get(report_key)
-                                 for target_key, report_key
-                                 in resource_keys_mapping.items()
-                                 if resource.get(report_key)}
-                resource.update(item_resource)
-            else:
-                _LOG.warning(f'{cloud} resource: \'{resource_type}\' doesn\'t '
-                             f'have an associated value in ResourceMap. Make '
-                             f'sure resource_mappings files are up-to-date!')
-            item_resources.append(resource)
-        formatted_item['resources'] = item_resources
-        return formatted_item
+    RegionRuleOutput = Tuple[str, str, RuleRawOutput]
 
-    def _format_region_report_item(
-            self, policy_folder, region_work_dir
-    ):
+    def __init__(self, work_dir: str, cloud: str):
+        self._work_dir = Path(work_dir)
+        self._cloud = cloud
 
-        _LOG.debug(f'Processing {policy_folder}')
-        policy_path = os.path.join(region_work_dir, policy_folder)
-
-        run_path = os.path.join(policy_path, 'custodian-run.log')
-        metadata_path = os.path.join(policy_path, 'metadata.json')
-        resources_path = os.path.join(policy_path, 'resources.json')
-
-        entity = None
-
-        if (os.path.exists(run_path) and os.path.exists(metadata_path)
-                and os.path.exists(resources_path)):
-            custodian_run = self.os_service.read_file(
-                file_path=run_path,
-                json_content=False
-            )
-            metadata = self.os_service.read_file(file_path=metadata_path)
-            resources = self.os_service.read_file(file_path=resources_path)
-            entity = {
-                'custodian-run': custodian_run,
-                'metadata': metadata,
-                'resources': resources
-            }
-
-        # v3.3.1 Error data is unreachable, see - _assemble_report_errors.
-        return entity
+    @cached_property
+    def environment_service(self) -> EnvironmentService:
+        from services import SP
+        return SP.environment_service()
 
     @staticmethod
-    def _assemble_report_errors(policy_name, region_run_output):
-        # v3.3.1
-        # todo obsolete, as policy-run output is not attainable separately.
-        #  Given error reports are required, has to:
-        #   - persist each policy specific output
-        #   - mention failed-to-execute policy name
-
-        _LOG.debug(f'Assembling errors of \'{policy_name}\' policy execution.')
-        output = region_run_output[policy_name]
-        policy_strings = PATTERN_FOR_JSON_SUBSTRING.findall(output)
-
-        policy = {"name": policy_name}
-        if len(policy_strings) > 0:
-            try:
-                policy = json.loads(policy_strings[0])
-            except (BaseException, Exception) as e:
-                _LOG.warning(f'Output of \'{policy_name}\' policy is not'
-                             f' JSON serializable, due to {e}.')
-        if len(policy_strings) > 0:
-            output = output.replace(policy_strings[0], '')
-
-        output_list = output.split("\n")
-        output_list = [output for output in output_list if
-                       output.strip() != ""]
-
-        entity = {
-            "custodian-run": "\n".join(output_list),
-            "metadata": {'policy': policy},
-            "resources": [],
-            "errors": output_list
+    def cloud_to_resource_type_prefix() -> dict:
+        return {
+            AWS: 'aws',
+            AZURE: 'azure',
+            GOOGLE: 'gcp',
+            KUBERNETES: 'k8s'
         }
 
-        return entity
+    def adjust_resource_type(self, rt: str) -> str:
+        rt = rt.split('.', maxsplit=1)[-1]
+        return '.'.join((
+            self.cloud_to_resource_type_prefix()[self._cloud], rt
+        ))
 
-    def reformat_azure_report(self, detailed_report: dict,
-                              target_regions: Optional[set] = None):
+    @staticmethod
+    def _load_raw_rule_output(root: Path) -> Optional[RuleRawOutput]:
+        """
+        Folder with rule output contains three files:
+        'custodian-run.log' -> logs in text
+        'metadata.json' -> dict
+        'resources.json' -> list or resources
+        In case resources.json files does not exist we deem this execution
+        invalid and do not load it
+        :param root:
+        :return:
+        """
+        logs = root / 'custodian-run.log'
+        metadata = root / 'metadata.json'
+        resources = root / 'resources.json'
+
+        if not all(map(Path.exists, [logs, metadata, resources])):
+            _LOG.debug(f'{root} will not be loaded. Its execution '
+                       f'is invalid: {list(map(str, root.iterdir()))}')
+            return
+        with open(metadata, 'r') as file:
+            metadata_data = json.load(file)
+        with open(resources, 'r') as file:
+            resources_data = json.load(file)
+        return {
+            'metadata': metadata_data,
+            'resources': resources_data
+        }
+
+    def _format_item(self, item: RuleRawOutput) -> FormattedItem:
+        """
+        Keeps only description, name and resource type from metadata.
+        Inserts Custom Core report fields in resources (id, name, arn)
+        :param item:
+        :return:
+        """
+        policy = item['metadata'].get('policy')
+        rt = self.adjust_resource_type(policy.get('resource'))
+        ReportFieldsLoader.load((rt,))  # should be loaded before
+        fields = ReportFieldsLoader.get(rt)
+        updated_resources = []
+        for res in item['resources']:
+            report_fields = {
+                field: json_path_get(res, path)
+                for field, path in fields.items()
+            }
+            updated_resources.append({**res, **report_fields})
+        return {
+            'policy': {
+                'name': policy.get('name'),
+                'resourceType': policy.get('resource'),
+                'description': policy.get('description')
+            },
+            'resources': updated_resources
+        }
+
+    def iter_raw(self) -> Generator[RegionRuleOutput, None, None]:
+        dirs = filter(
+            lambda x: x.name != FINDINGS_FOLDER,
+            filter(Path.is_dir, self._work_dir.iterdir())
+        )
+        for region in dirs:
+            for rule in filter(Path.is_dir, region.iterdir()):
+                loaded = self._load_raw_rule_output(rule)
+                if not loaded:
+                    continue
+                yield region.name, rule.name, loaded
+
+    def iter_raw_threads(self) -> Generator[RegionRuleOutput, None, None]:
+        """
+        The same as previous but reads file in multiple threads
+        :return:
+        """
+        dirs = filter(
+            lambda x: x.name != FINDINGS_FOLDER,
+            filter(Path.is_dir, self._work_dir.iterdir())
+        )
+        with ThreadPoolExecutor() as executor:
+            futures = {}
+            for region in dirs:
+                for rule in filter(Path.is_dir, region.iterdir()):
+                    fut = executor.submit(self._load_raw_rule_output, rule)
+                    futures[fut] = (region, rule)
+            for future in as_completed(futures):
+                output = future.result()
+                if output:
+                    region, rule = futures[future]
+                    yield region.name, rule.name, output
+
+    @staticmethod
+    def resolve_azure_locations(it: Iterable[RegionRuleOutput]
+                                ) -> Generator[RegionRuleOutput, None, None]:
         """
         The thing is: Custodian Custom Core cannot scan Azure
         region-dependently. A rule covers the whole subscription
@@ -285,85 +247,91 @@ class ReportService:
         there are regions). With the current scanner implementation
         (3.3.1) incoming `detailed_report` will always have one key:
         `AzureCloud` with a list of all the scanned rules. We must remap it.
-        :param detailed_report:
-        {
-            'AzureCloud': [{..., 'resources': [{'location': 'eastus'}]}, {}]
-        }
-        :param target_regions: {'eastus', 'westus2'}. If empty, all the
-        location are kept. All the resources that does not contain
-        'location' will be congested to 'multiregion' region. Multiregion
-        resources are always kept
+        All the resources that does not contain
+        'location' will be congested to 'multiregion' region.
         :return:
         """
-        assert len(
-            detailed_report) == 1, f'Azure scans must embrace ' \
-                                   f'one "region" ({AZURE_COMMON_REGION})'
-        key = list(detailed_report)[0]
-        if key != AZURE_COMMON_REGION:
-            _LOG.warning(
-                f'Common region somehow became {key} '
-                f'instead of {AZURE_COMMON_REGION}')
-
-        result = {}
-        for rule in detailed_report[key]:
-            metadata = rule.get('metadata') or {}
-            custodian_run = rule.get('custodian-run') or ''
-            resources = rule.get('resources') or []
-            if not resources:  # to multi-region
-                result.setdefault(MULTIREGION, []).append({
-                    'metadata': metadata,
-                    'custodian-run': custodian_run,
-                    'resources': resources
-                })
+        for _, rule, item in it:
+            if not item['resources']:  # we cannot know
+                yield MULTIREGION, rule, item
                 continue
-            # some resources found. Dispatching them to different locations
-            _loc_resources = {}  # location to resources for the current rule
-            for res in resources:
-                res_loc = res.get('location') or MULTIREGION
-                if res_loc != MULTIREGION and target_regions \
-                        and res_loc not in target_regions:
-                    _LOG.info(f'Skipping resource with loc: {res_loc}')
-                    continue
-                _loc_resources.setdefault(res_loc, []).append(res)
-            for _loc, _resources in _loc_resources.items():
-                result.setdefault(_loc, []).append({
-                    'metadata': metadata,
-                    'custodian-run': custodian_run,
-                    'resources': _resources
-                })
-        return result
+            # resources exist
+            _loc_res = {}
+            for res in item['resources']:
+                loc = res.get('location') or MULTIREGION
+                _loc_res.setdefault(loc, []).append(res)
+            for location, resources in _loc_res.items():
+                yield location, rule, {
+                    'metadata': item['metadata'], 'resources': resources
+                }
+
+    def build_default_iterator(self) -> Iterable[RegionRuleOutput]:
+        it = self.iter_raw_threads()
+        if self._cloud == AZURE:
+            it = self.resolve_azure_locations(it)
+            regions = self.environment_service.target_regions()
+            if regions:
+                it = filter(lambda x: x[0] in regions, it)
+        return it
+
+    def raw_detailed_report(self) -> dict:
+        """
+        Produces region-specific object of un-formatted custodian detailed
+        reports, found within a working directory.
+        Note: does not retain error (failed to execute) reports.
+        :return: Dict[str, List[Dict]] {
+            $region: [
+                {
+                    'metadata': Dict,
+                    'resources': List[Dict]
+                }
+            ]
+        }
+        """
+        it = self.build_default_iterator()  # get iterator from outside
+        res = {}
+        for region, rule, output in it:
+            res.setdefault(region, []).append(output)
+        return res
+
+    def detailed_report(self) -> dict:
+        it = self.build_default_iterator()  # get iterator from outside
+        res = {}
+        for region, rule, output in it:
+            res.setdefault(region, []).append(self._format_item(output))
+        return res
 
     @staticmethod
-    def findings_to_csv(findings: 'FindingsCollection'):
-        data = []
+    def digest_report(detailed_report: dict) -> DigestReport:
+        total_checks = 0
+        failed_checks = 0
+        successful_checks = 0
+        total_resources = set()
+        for region, items in detailed_report.items():
+            _total = len(items)
+            _failed = len(list(
+                item for item in items if item.get('resources')
+            ))
+            total_checks += _total
+            failed_checks += _failed
+            successful_checks += (_total - _failed)
 
-        for rule, v in findings.serialize().items():
-            description = v.get('description')
-            resource_type = v.get('resourceType')
-            for region, resources in v.get('resources', {}).items():
-                for resource_name in resources:
-                    _name = ', '.join([v for v in resource_name.values()
-                                       if isinstance(v, str)])
-                    if not _name:
-                        _LOG.warning(f'Report fields not found in in rule: '
-                                     f'\'{rule}\';\n'
-                                     f'Resources: \'{resources}\'')
-                    data.append({
-                        RESOURCE_NAME_HEADER: _name,
-                        RESOURCE_TYPE_HEADER: resource_type,
-                        REGION_HEADER: region,
-                        RULE_NAME_HEADER: rule,
-                        RULE_DESCRIPTION_HEADER: description})
-        data = sorted(data, key=lambda d: d[RESOURCE_NAME_HEADER])
+            resources = chain.from_iterable(
+                item.get('resources') or [] for item in items
+            )
+            for res in resources:
+                total_resources.add(hashable(filter_dict(res, REPORT_FIELDS)))
+        return {
+            'total_checks_performed': total_checks,
+            'successful_checks': successful_checks,
+            'failed_checks': failed_checks,
+            'total_resources_violated_rules': len(total_resources)
+        }
 
-        with open('temp_workbook.csv', 'w', newline='') as csvfile:
-            _LOG.debug('CSV-file assembling')
-            headers = [
-                RESOURCE_NAME_HEADER, RESOURCE_TYPE_HEADER, REGION_HEADER,
-                RULE_NAME_HEADER, RULE_DESCRIPTION_HEADER]
-            writer = csv.DictWriter(csvfile, fieldnames=headers)
-            writer.writeheader()
-            writer.writerows(data)
+
+class ReportService:
+    def __init__(self, s3_settings_service: S3SettingsService):
+        self.s3_settings_service = s3_settings_service
 
     @classmethod
     def raw_to_dojo_policy_reports(
@@ -545,6 +513,29 @@ class ReportService:
             _resources.append(_resource or resource)
 
         return _resources
+
+    @staticmethod
+    def tenant_findings_path(tenant: Tenant) -> str:
+        return str(PurePosixPath(
+            FINDINGS_FOLDER, utc_datetime().date().isoformat(),
+            f'{tenant.project}.json'
+        ))
+
+    @staticmethod
+    def platform_findings_path(platform: Parent) -> str:
+        """
+        Platform is a parent with type PLATFORM_K8S currently. It's meta
+        can contain name and possibly region in case we talk about EKS
+        :param platform:
+        :return:
+        """
+        meta = platform.meta.as_dict()
+        name = meta.get('name')
+        region = meta.get('region') or 'no-region'
+        return str(PurePosixPath(
+            FINDINGS_FOLDER, utc_datetime().date().isoformat(), 'k8s',
+            region, f'{name}.json'
+        ))
 
 
 class FindingsCollection:

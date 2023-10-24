@@ -13,13 +13,13 @@ def tenants():
 @click.option('--username', '-u', required=True, type=str,
               help='User to update')
 @click.option('--tenant', '-t', type=str, multiple=True, required=True,
-              help='Tenant names to assign to user')
+              help='Tenant name to assign to user. '
+                   'Multiple names can be specified')
 @cli_response()
 def assign(ctx: ContextObj, username, tenant):
     """
     Assigns tenants to a user
     """
-    tenant = cast_to_list(tenant)
     return ctx['api_client'].user_assign_tenants(username=username,
                                                  tenants=tenant)
 
@@ -28,7 +28,8 @@ def assign(ctx: ContextObj, username, tenant):
 @click.option('--username', '-u', required=True, type=str,
               help='User to update')
 @click.option('--tenant', '-t', type=str, multiple=True,
-              help='Tenant names to unassign from user')
+              help='Tenant names to unassign from user. '
+                   'Multiple names can be specified')
 @click.option('--all_tenants', '-ALL', is_flag=True, required=False,
               help='Remove all tenants from user. This will allow the user to '
                    'interact with all tenants within the customer.')
@@ -42,14 +43,14 @@ def unassign(ctx: ContextObj, username, tenant, all_tenants=False):
             'You must specify either \'--tenant\' or '
             '\'--all_tenants\' parameter')
 
-    tenant = cast_to_list(tenant)
     return ctx['api_client'].user_unassign_tenants(
         username=username, tenants=tenant, all_tenants=all_tenants)
 
 
 @tenants.command(cls=ViewCommand, name='describe')
 @click.option('--username', '-u', required=True, type=str,
-              help='The name of the user for whom the available tenants information is to be provided')
+              help='The name of the user for whom the available '
+                   'tenants information is to be provided')
 @cli_response()
 def describe(ctx: ContextObj, username):
     """

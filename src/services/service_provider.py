@@ -10,12 +10,10 @@ class ServiceProvider(metaclass=SingletonMeta):
     __batch_conn = None
     __ssm_conn = None
     __cognito_conn = None
-    __cloudwatch_conn = None
     __ecr_conn = None
     __lambda_conn = None
     __sts_conn = None
     __modular_conn = None
-    __license_manager_conn = None
     __standalone_key_management = None
     __event_bridge_client = None
     __iam_client = None
@@ -49,7 +47,6 @@ class ServiceProvider(metaclass=SingletonMeta):
     __token_service = None
     __scheduler_service = None
     __restriction_service = None
-    __priority_governance_service = None
     __notification_service = None
     __key_management_service = None
     __event_service = None
@@ -58,6 +55,7 @@ class ServiceProvider(metaclass=SingletonMeta):
     __ambiguous_job_service = None
     __report_service = None
     __rule_report_service = None
+    __metrics_service = None
     __tenant_metrics_service = None
     __customer_metrics_service = None
     __rabbitmq_service = None
@@ -115,14 +113,6 @@ class ServiceProvider(metaclass=SingletonMeta):
                     environment_service=self.environment_service())
         return self.__cognito_conn
 
-    def cloudwatch(self):
-        if not self.__cloudwatch_conn:
-            from connections.logs_extension.base_logs_client import \
-                BaseLogsClient
-            self.__cloudwatch_conn = BaseLogsClient(
-                region=self.environment_service().aws_region())
-        return self.__cloudwatch_conn
-
     def ecr(self):
         if not self.__ecr_conn:
             from services.clients.ecr import ECRClient
@@ -142,15 +132,6 @@ class ServiceProvider(metaclass=SingletonMeta):
             from services.clients.modular import ModularClient
             self.__modular_conn = ModularClient()
         return self.__modular_conn
-
-    def license_manager_client(self):
-        if not self.__license_manager_conn:
-            from services.clients.license_manager import \
-                LicenseManagerClient
-            self.__license_manager_conn = LicenseManagerClient(
-                setting_service=self.settings_service()
-            )
-        return self.__license_manager_conn
 
     def standalone_key_management(self):
         if not self.__standalone_key_management:
@@ -321,11 +302,7 @@ class ServiceProvider(metaclass=SingletonMeta):
     def iam_cache_service(self):
         if not self.__iam_cache_service:
             from services.rbac.iam_cache_service import CachedIamService
-            cache_lifetime = self.environment_service() \
-                .get_iam_cache_lifetime()
-            self.__iam_cache_service = CachedIamService(
-                cache_lifetime=cache_lifetime
-            )
+            self.__iam_cache_service = CachedIamService()
         return self.__iam_cache_service
 
     def event_processor_service(self):
@@ -379,7 +356,7 @@ class ServiceProvider(metaclass=SingletonMeta):
             from services.license_manager_service import \
                 LicenseManagerService
             self.__license_manager_service = LicenseManagerService(
-                license_manager_client=self.license_manager_client(),
+                settings_service=self.settings_service(),
                 token_service=self.token_service()
             )
         return self.__license_manager_service
@@ -428,15 +405,6 @@ class ServiceProvider(metaclass=SingletonMeta):
                 modular_service=self.modular_service()
             )
         return self.__restriction_service
-
-    def priority_governance_service(self):
-        if not self.__priority_governance_service:
-            from services.rbac.governance.priority_governance_service import \
-                PriorityGovernanceService
-            self.__priority_governance_service = PriorityGovernanceService(
-                modular_service=self.modular_service()
-            )
-        return self.__priority_governance_service
 
     def notification_service(self):
         if not self.__notification_service:
@@ -508,16 +476,27 @@ class ServiceProvider(metaclass=SingletonMeta):
             )
         return self.__rule_report_service
 
+    def metrics_service(self):
+        if not self.__metrics_service:
+            from services.metrics_service import MetricsService
+            self.__metrics_service = MetricsService(
+                mappings_collector=self.__mappings_collector)
+        return self.__metrics_service
+
     def tenant_metrics_service(self):
         if not self.__tenant_metrics_service:
             from services.metrics_service import TenantMetricsService
-            self.__tenant_metrics_service = TenantMetricsService()
+            self.__tenant_metrics_service = TenantMetricsService(
+                mappings_collector=self.__mappings_collector
+            )
         return self.__tenant_metrics_service
 
     def customer_metrics_service(self):
         if not self.__customer_metrics_service:
             from services.metrics_service import CustomerMetricsService
-            self.__customer_metrics_service = CustomerMetricsService()
+            self.__customer_metrics_service = CustomerMetricsService(
+                mappings_collector=self.__mappings_collector
+            )
         return self.__customer_metrics_service
 
     def rabbitmq_service(self):

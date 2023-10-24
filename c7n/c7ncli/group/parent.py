@@ -3,8 +3,8 @@ from typing import Optional, Tuple
 import click
 
 from c7ncli.group import cli_response, ViewCommand, ContextObj, \
-    tenant_option, customer_option
-from c7ncli.service.constants import AWS, AZURE, GOOGLE, ALL, SPECIFIC_TENANT
+    customer_option, tenant_option
+from c7ncli.service.constants import AWS, AZURE, GOOGLE, ParentScope
 
 parent_type_option = click.option(
     '--type', '-t',
@@ -12,6 +12,8 @@ parent_type_option = click.option(
                        'CUSTODIAN_ACCESS']),
     required=True, help='Parent type'
 )
+
+ORDER = ['parent_id', 'application_id', 'customer_id']
 
 
 @click.group(name='parent')
@@ -27,22 +29,22 @@ def parent():
               help='Description for the parent')
 @click.option('--cloud', '-c',
               type=click.Choice([AWS, AZURE, GOOGLE]),
-              multiple=True,
               help='Cloud to connect the parent to')
 @click.option('--scope', '-sc',
-              type=click.Choice([ALL, SPECIFIC_TENANT]),
+              type=click.Choice(ParentScope.iter()),
               help='Tenants scope for the parent')
 @click.option('--rules_to_exclude', '-rte', multiple=True,
               help='Rules to exclude for the scope of tenants')
+@tenant_option
 @customer_option
-@cli_response()
+@cli_response(ORDER)
 def add(ctx: ContextObj, customer_id: Optional[str],
-        cloud: Tuple[str, ...], **kwargs):
+        cloud: Optional[str], **kwargs):
     """
     Creates parent within the customer
     """
     kwargs.update(customer=customer_id)
-    kwargs.update(clouds=cloud)
+    kwargs.update(cloud=cloud)
     return ctx['api_client'].parent_post(**kwargs)
 
 
@@ -53,26 +55,17 @@ def add(ctx: ContextObj, customer_id: Optional[str],
               help='Id of an application to connect to the parent')
 @click.option('--description', '-d', type=str,
               help='Description for the parent')
-@click.option('--cloud', '-c',
-              type=click.Choice([AWS, AZURE, GOOGLE]),
-              multiple=True,
-              help='Cloud to connect the parent to')
-@click.option('--scope', '-sc',
-              type=click.Choice([ALL, SPECIFIC_TENANT]),
-              help='Tenants scope for the parent')
 @click.option('--rules_to_exclude', '-rte', type=str, multiple=True,
               help='Rules to exclude for tenant')
 @click.option('--rules_to_include', '-rti', type=str, multiple=True,
               help='Rules to include for tenant')
 @customer_option
-@cli_response()
-def update(ctx: ContextObj, customer_id: Optional[str],
-           cloud: Tuple[str, ...], **kwargs):
+@cli_response(ORDER)
+def update(ctx: ContextObj, customer_id: Optional[str], **kwargs):
     """
     Updates parent within the customer
     """
     kwargs.update(customer=customer_id)
-    kwargs.update(clouds=cloud)
     return ctx['api_client'].parent_patch(**kwargs)
 
 
@@ -80,7 +73,7 @@ def update(ctx: ContextObj, customer_id: Optional[str],
 @click.option('--parent_id', '-pid', type=str,
               help='Parent id to describe a concrete parent')
 @customer_option
-@cli_response()
+@cli_response(ORDER)
 def describe(ctx: ContextObj, parent_id, customer_id):
     """
     Describes customer's parents
@@ -101,33 +94,3 @@ def delete(ctx: ContextObj, parent_id):
     Deletes customer's parent by id
     """
     return ctx['api_client'].parent_delete(parent_id)
-
-
-@parent.command(cls=ViewCommand, name='link_tenant')
-@tenant_option
-# @parent_type_option
-@click.option('--parent_id', '-pid', type=str, required=True,
-              help='Maestro Parent id to link to tenant.')
-@cli_response()
-def link_tenant(ctx: ContextObj, parent_id, tenant_name):
-    """
-    Links tenant to custodian parent
-    """
-    return ctx['api_client'].parent_link_tenant(
-        parent_id=parent_id,
-        tenant_name=tenant_name,
-    )
-
-
-@parent.command(cls=ViewCommand, name='unlink_tenant')
-@parent_type_option
-@tenant_option
-@cli_response()
-def unlink_tenant(ctx: ContextObj, tenant_name: str, type):
-    """
-    Unlinks custodian parent from tenant
-    """
-    return ctx['api_client'].parent_unlink_tenant(
-        tenant_name=tenant_name,
-        type=type
-    )

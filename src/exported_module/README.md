@@ -57,8 +57,8 @@ MINIO_SECRET_ACCESS_KEY=
 # </Custodian secrets>
 
 # <On-prem executor>
-# EXECUTOR_PATH: /custodian-as-a-service/executor/executor.py
-# VENV_PATH: /custodian-as-a-service/executor/.executor_venv/bin/python
+# EXECUTOR_PATH: /custodian-as-a-service/docker/executor.py
+# VENV_PATH: /custodian-as-a-service/docker/.executor_venv/bin/python
 # </On-prem executor>
 
 # <MODULAR SDK>

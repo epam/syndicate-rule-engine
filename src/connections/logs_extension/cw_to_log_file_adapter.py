@@ -8,7 +8,7 @@ class CWToLogFileAdapter:
 
         src = file_path.parent.parent
         root = src.parent
-        self.logs_path = f'{root}/docker/logs'
+        self.logs_path = f'{root}/executor/logs'
 
     def get_log_events(self, job_id):
         logs_path = f'{self.logs_path}/{job_id}/error.log'

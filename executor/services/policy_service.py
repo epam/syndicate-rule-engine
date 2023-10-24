@@ -1,15 +1,14 @@
-import os
-from typing import Union, Optional, List, Dict, Set
-from pathlib import Path
-import tempfile
 import json
+import os
+import tempfile
+from pathlib import Path
+from typing import Union, Optional, List, Dict, Set
 from uuid import uuid4
 
 from ruamel.yaml import YAML
 from ruamel.yaml import __with_libyaml__
 
-from helpers.constants import STEP_DOWNLOAD_RULES, READY_TO_SCAN_CODE, \
-    UTF_8_ENCODING, AWS, AZURE, GOOGLE
+from helpers.constants import AWS, AZURE, GOOGLE
 from helpers.log_helper import get_logger
 from services.environment_service import EnvironmentService
 from services.ruleset_service import RulesetService
@@ -181,7 +180,7 @@ class PolicyService:
         :parameter path: str
         :return: Union[str, Type[None]]
         """
-        return self.ruleset_service.pull_ruleset_content(path, UTF_8_ENCODING)
+        return self.ruleset_service.pull_ruleset_content(path, 'utf-8')
 
     def _instantiate_ruleset_collector(self) -> dict:
         return {

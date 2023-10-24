@@ -1,4 +1,2 @@
 XlsxWriter==3.0.3
-pytablereader==0.31.3
-pytablewriter==0.64.2
-# pycryptodome==3.15.0
+# pytablewriter==0.64.2

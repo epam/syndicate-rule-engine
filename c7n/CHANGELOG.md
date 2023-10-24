@@ -4,6 +4,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+# [4.15.0] - 2023-10-16
+- added new commands to manage k8s platforms:
+  - `c7n platform k8s create_eks`
+  - `c7n platform k8s create_native`
+  - `c7n platform k8s delete_eks`
+  - `c7n platform k8s delete_native`
+  - `c7n platform k8s describe`
+
+
+# [4.14.0] - 2023-10-04
+* Update libraries to support Python 3.10
+  * tabulate from 0.8.9 to 0.9.0
+  * requests from 2.27.1 to 2.31.0
+* Make python3.10 a min required version
+
+# [4.13.2] - 2023-10-04
+* added `FINOPS` report type to the commands:
+  * `c7n report operational`
+  * `c7n report project`
+
+# [4.13.1] - 2023-09-28
+* changed format of the `--report_types` parameter at the time of sending the request in commands:
+  * `c7n report operational`
+  * `c7n report project`
+  * `c7n report department`
+  * `c7n report clevel`
+
+# [4.13.0] - 2023-09-28
+* made the `--report_types` parameter multiple in commands:
+  * `c7n report operational`
+  * `c7n report project`
+  * `c7n report department`
+  * `c7n report clevel`
+
+# [4.12.0] - 2023-09-05
+- added `c7n report resource latest` command to allow to retrieve resource 
+  specific info
+- added `c7n report resource jobs` command
+- added `c7n report resource job`
+
+# [4.11.0] - 2023-09-01
+- added `c7n meta udpate_mappings`, `c7n meta update_standards`, 
+  `c7n meta update_meta` commands
+
+# [4.10.1] - 2023-08-23
+- rename `--tenants` to '--tenant' in `c7n user signup` command
+- update some descriptions
+
+# [4.10.0] - 2023-08-23
+- add `--api_version` param to `c7n setting lm config add`
+
 # [4.9.3] - 2023-08-15
 - fix typo in constant name (from `RULES` to `RULE`) in the `c7n report operational` command
 

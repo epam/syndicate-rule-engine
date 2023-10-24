@@ -1,47 +1,49 @@
 from datetime import timedelta
 from functools import cached_property
+from http import HTTPStatus
 from itertools import chain
 from typing import Optional, Set, Tuple, List, Iterable
 
 from botocore.exceptions import ClientError
-from modular_sdk.commons.constants import TENANT_PARENT_MAP_CUSTODIAN_LICENSES_TYPE
-from modular_sdk.commons.error_helper import RESPONSE_SERVICE_UNAVAILABLE_CODE
-from modular_sdk.models.pynamodb_extension.base_model import LastEvaluatedKey as Lek
+from modular_sdk.commons.constants import \
+    ParentType
+from modular_sdk.models.pynamodb_extension.base_model import \
+    LastEvaluatedKey as Lek
+from modular_sdk.models.tenant import Tenant
 
-from helpers import build_response, RESPONSE_RESOURCE_NOT_FOUND_CODE, \
-    RESPONSE_FORBIDDEN_CODE, RESPONSE_BAD_REQUEST_CODE, adjust_cloud, \
-    RESPONSE_CREATED, \
-    RESPONSE_NO_CONTENT
-from helpers.constants import POST_METHOD, GET_METHOD, DELETE_METHOD, \
-    TENANT_ATTR, PARAM_TARGET_RULESETS, PARAM_TARGET_REGIONS, \
-    CHECK_PERMISSION_ATTR, CUSTOMER_ATTR, TENANT_LICENSE_KEY_ATTR, \
+from helpers import build_response, adjust_cloud
+from helpers.constants import TENANT_ATTR, PARAM_TARGET_RULESETS, \
+    PARAM_TARGET_REGIONS, CUSTOMER_ATTR, TENANT_LICENSE_KEY_ATTR, \
     BATCH_ENV_SUBMITTED_AT, \
     PARAM_USER_ID, JOB_ID_ATTR, TENANTS_ATTR, LIMIT_ATTR, NEXT_TOKEN_ATTR, \
     CUSTOMER_DISPLAY_NAME_ATTR, JOB_SUCCEEDED_STATUS, JOB_FAILED_STATUS, \
     PARAM_CREDENTIALS, AWS_CLOUD_ATTR, AZURE_CLOUD_ATTR, GOOGLE_CLOUD_ATTR, \
-    MULTIREGION, PATCH_METHOD, SCHEDULE_ATTR, NAME_ATTR, \
-    BATCH_SCHEDULED_JOB_TYPE, ENABLED, GCP_CLOUD_ATTR, RULES_TO_SCAN_ATTR
+    MULTIREGION, SCHEDULE_ATTR, NAME_ATTR, \
+    BATCH_SCHEDULED_JOB_TYPE, ENABLED, GCP_CLOUD_ATTR, RULES_TO_SCAN_ATTR, \
+    HTTPMethod
+from helpers.enums import RuleDomain
 from helpers.log_helper import get_logger
 from helpers.system_customer import SYSTEM_CUSTOMER
 from helpers.time_helper import utc_datetime
 from lambdas.custodian_api_handler.handlers import AbstractHandler, Mapping
 from models.licenses import License
 from models.modular.application import CustodianLicensesApplicationMeta
-from models.modular.tenants import Tenant
 from models.ruleset import Ruleset
 from services import SERVICE_PROVIDER
 from services.assemble_service import AssembleService
 from services.clients.batch import BatchClient
 from services.clients.sts import StsClient
 from services.environment_service import EnvironmentService
-from services.job_service import JobService, JOB_PENDING_STATUSES
+from services.job_service import JobService, TenantSettingJobLock
 from services.license_manager_service import LicenseManagerService
 from services.license_service import LicenseService
-from services.rule_meta_service import RuleService
 from services.modular_service import ModularService
+from services.rule_meta_service import RuleService, RuleNamesResolver
 from services.ruleset_service import RulesetService
 from services.scheduler_service import SchedulerService
 from services.ssm_service import SSMService
+from validators.request_validation import K8sJobPostModel
+from validators.utils import validate_kwargs
 
 _LOG = get_logger(__name__)
 
@@ -98,24 +100,27 @@ class JobHandler(AbstractHandler):
         """
         return {
             '/jobs': {
-                POST_METHOD: self.post,
-                GET_METHOD: self.query,
+                HTTPMethod.POST: self.post,
+                HTTPMethod.GET: self.query,
             },
             '/jobs/standard': {
-                POST_METHOD: self.post_standard,
+                HTTPMethod.POST: self.post_standard,
+            },
+            '/jobs/k8s': {
+                HTTPMethod.POST: self.post_k8s
             },
             '/jobs/{job_id}': {
-                GET_METHOD: self.get,
-                DELETE_METHOD: self.delete
+                HTTPMethod.GET: self.get,
+                HTTPMethod.DELETE: self.delete
             },
             '/scheduled-job': {
-                POST_METHOD: self.post_scheduled,
-                GET_METHOD: self.query_scheduled,
+                HTTPMethod.POST: self.post_scheduled,
+                HTTPMethod.GET: self.query_scheduled,
             },
             '/scheduled-job/{name}': {
-                GET_METHOD: self.get_scheduled,
-                DELETE_METHOD: self.delete_scheduled,
-                PATCH_METHOD: self.patch_scheduled
+                HTTPMethod.GET: self.get_scheduled,
+                HTTPMethod.DELETE: self.delete_scheduled,
+                HTTPMethod.PATCH: self.patch_scheduled
             }
         }
 
@@ -125,7 +130,7 @@ class JobHandler(AbstractHandler):
         if not self._modular_service.is_tenant_valid(tenant, customer):
             _message = f'Active tenant `{tenant_name}` not found'
             _LOG.info(_message)
-            return build_response(code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+            return build_response(code=HTTPStatus.NOT_FOUND,
                                   content=_message)
         return tenant
 
@@ -156,21 +161,20 @@ class JobHandler(AbstractHandler):
         if tenant.cloud not in self._environment_service.allowed_clouds_to_scan():
             _message = f'Scan for `{tenant.cloud}` is not allowed'
             _LOG.info(_message)
-            return build_response(code=RESPONSE_FORBIDDEN_CODE,
+            return build_response(code=HTTPStatus.FORBIDDEN,
                                   content=_message)
         if not self._environment_service.allow_simultaneous_jobs_for_one_tenant():
-            latest = self._job_service.get_last_tenant_job(
-                tenant_name, JOB_PENDING_STATUSES)
-            if latest:
+            lock = TenantSettingJobLock(tenant_name)
+            if lock.locked():
                 return build_response(
-                    code=RESPONSE_FORBIDDEN_CODE,
-                    content=f'Job {latest.job_id} is already running '
+                    code=HTTPStatus.FORBIDDEN,
+                    content=f'Job {lock.job_id} is already running '
                             f'for tenant {tenant_name}'
                 )
         left = self._validate_tenant_last_scan(tenant.name)
         if left:
             return build_response(
-                code=RESPONSE_FORBIDDEN_CODE,
+                code=HTTPStatus.FORBIDDEN,
                 content=f'This tenant can be scanned after {left}'
             )
 
@@ -183,7 +187,7 @@ class JobHandler(AbstractHandler):
             self.retrieve_standard_rulesets(tenant, target_rulesets)
         )
         if not ids:
-            return build_response(code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+            return build_response(code=HTTPStatus.NOT_FOUND,
                                   content='No standard rule-sets found')
         # todo add rules_to_scan here. Currently business does not need this
         envs = self._assemble_service.build_job_envs(
@@ -219,9 +223,8 @@ class JobHandler(AbstractHandler):
         tenant_name: str = event.get(TENANT_ATTR)
         target_rulesets: set = event.get(PARAM_TARGET_RULESETS)
         target_regions: set = event.get(PARAM_TARGET_REGIONS)
-        check_permission: bool = event.get(CHECK_PERMISSION_ATTR)
         credentials: dict = event.get(PARAM_CREDENTIALS)
-        rules_to_scan: set = event.get(RULES_TO_SCAN_ATTR)
+        rules_to_scan = event.get(RULES_TO_SCAN_ATTR)
 
         tenant = self._obtain_tenant(tenant_name, customer)
 
@@ -241,22 +244,20 @@ class JobHandler(AbstractHandler):
         if tenant.cloud not in self._environment_service.allowed_clouds_to_scan():
             _message = f'Scan for `{tenant.cloud}` is not allowed'
             _LOG.info(_message)
-            return build_response(code=RESPONSE_FORBIDDEN_CODE,
+            return build_response(code=HTTPStatus.FORBIDDEN,
                                   content=_message)
         if not self._environment_service.allow_simultaneous_jobs_for_one_tenant():
-            latest = self._job_service.get_last_tenant_job(
-                tenant_name, JOB_PENDING_STATUSES)
-            if latest:
+            lock = TenantSettingJobLock(tenant_name)
+            if lock.locked():
                 return build_response(
-                    code=RESPONSE_FORBIDDEN_CODE,
-                    content=f'Job {latest.job_id} is already running '
+                    code=HTTPStatus.FORBIDDEN,
+                    content=f'Job {lock.job_id} is already running '
                             f'for tenant {tenant_name}'
                 )
-
         left = self._validate_tenant_last_scan(tenant.name)
         if left:
             return build_response(
-                code=RESPONSE_FORBIDDEN_CODE,
+                code=HTTPStatus.FORBIDDEN,
                 content=f'This tenant can be scanned after {left}'
             )
 
@@ -265,11 +266,11 @@ class JobHandler(AbstractHandler):
             tenant=tenant
         )
         application = self._modular_service.get_tenant_application(
-            tenant, TENANT_PARENT_MAP_CUSTODIAN_LICENSES_TYPE
+            tenant, ParentType.CUSTODIAN_LICENSES
         )
         if not application:
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=f'Custodian application has not been '
                         f'linked to tenant: {tenant.name}'
             )
@@ -277,32 +278,56 @@ class JobHandler(AbstractHandler):
         license_key = meta.license_key(tenant.cloud)
         if not license_key:
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=f'Customer {customer} has not been assigned an '
                         f'AWS License yet'
             )
         _license = self._license_service.get_license(license_key)
         if not _license or self._license_service.is_expired(_license):
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content='Affected license has expired'
             )
         tenant_license_key = _license.customers.as_dict().get(
             customer, {}).get(TENANT_LICENSE_KEY_ATTR)
 
-        if check_permission:
-            self.ensure_job_is_allowed(tenant, tenant_license_key)
+        self.ensure_job_is_allowed(tenant, tenant_license_key)
 
-        # TODO put here custom-core version resolving/updating logic
-        affected_licensed, licensed_rulesets = self.retrieve_rulesets_v1(
-            _license, tenant, target_rulesets
+        affected_licensed, licensed_rulesets, rule_sets = self.retrieve_rulesets(
+            _license=_license,
+            customer=tenant.customer_name,
+            cloud=tenant.cloud,
+            target_rulesets=target_rulesets
         )
         if not licensed_rulesets:
             # actually is this block is executed, something really wrong
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content='No rule-sets found in license'
             )
+        if rules_to_scan:
+            _LOG.info('Rules to scan were provided. Resolving them')
+            available = set(chain.from_iterable(r.rules for r in rule_sets))
+            resolver = RuleNamesResolver(
+                resolve_from=list(available),
+                allow_ambiguous=True
+            )
+            resolved, not_resolved = [], []
+            for rule, is_resolved in resolver.resolve_multiple_names(
+                    rules_to_scan):
+                if is_resolved:
+                    resolved.append(rule)
+                else:
+                    not_resolved.append(rule)
+            if not_resolved:
+                return build_response(
+                    code=HTTPStatus.BAD_REQUEST,
+                    content=f'These rules are not allowed by your '
+                            f'{tenant.cloud} '
+                            f'license: {", ".join(not_resolved)}'
+                )
+            rules_to_scan = resolved
+
         envs = self._assemble_service.build_job_envs(
             tenant=tenant,
             target_regions=list(regions_to_scan),
@@ -314,13 +339,11 @@ class JobHandler(AbstractHandler):
             event=event,
             tenant=tenant,
             envs=envs,
-            rules_to_scan=self._rule_service.resolved_names(
-                names=rules_to_scan,
-                clouds={adjust_cloud(tenant.cloud)}
-            )
+            rules_to_scan=rules_to_scan
         )
 
     def _submit_batch_job(self, event: dict, tenant: Tenant, envs: dict,
+                          platform_id: Optional[str] = None,
                           rules_to_scan: Optional[Iterable[str]] = None):
         submitted_at = envs.get(BATCH_ENV_SUBMITTED_AT)
         job_owner = event.get(PARAM_USER_ID)
@@ -338,7 +361,7 @@ class JobHandler(AbstractHandler):
         )
         _LOG.debug(f'Batch response: {response}')
         if not response:
-            return build_response(code=RESPONSE_SERVICE_UNAVAILABLE_CODE,
+            return build_response(code=HTTPStatus.SERVICE_UNAVAILABLE,
                                   content='AWS Batch failed to respond')
         ttl_days = self._environment_service.jobs_time_to_live_days()
         ttl = None
@@ -351,17 +374,19 @@ class JobHandler(AbstractHandler):
             customer_display_name=tenant.customer_name,
             submitted_at=submitted_at,
             ttl=ttl,
+            platform_id=platform_id,
             rules_to_scan=list(rules_to_scan or [])
         ))
         self._job_service.save(job)
+        TenantSettingJobLock(tenant.name).acquire(job.job_id)
         return build_response(
-            code=RESPONSE_CREATED,
+            code=HTTPStatus.CREATED,
             content=self._job_service.get_job_dto(job=job)
         )
 
-    def retrieve_rulesets_v1(self, _license: License, tenant: Tenant,
-                             target_rulesets: Set[str]
-                             ) -> Tuple[List, List]:
+    def retrieve_rulesets(self, _license: License, customer: str, cloud: str,
+                          target_rulesets: Set[str]
+                          ) -> Tuple[List, List, List[Ruleset]]:
         """
         This option is written based on our old logic of rule-sets resolving.
         It also checks whether the licensed rule-sets belongs to tenant's
@@ -374,7 +399,7 @@ class JobHandler(AbstractHandler):
         # cloud filter just in case business logic changes. By default, a
         # licensed is not supposed to contain rule-sets from different clouds
         it = filter(
-            lambda ruleset: ruleset.cloud == adjust_cloud(tenant.cloud), it
+            lambda ruleset: ruleset.cloud == adjust_cloud(cloud), it
         )
         it = filter(
             lambda ruleset: ruleset.name in target_rulesets if
@@ -383,31 +408,10 @@ class JobHandler(AbstractHandler):
         rule_sets = list(it)
         licensed_rulesets = [f'0:{rs.license_manager_id}' for rs in rule_sets]
         affected_licenses = [
-            _license.customers.as_dict().get(tenant.customer_name, {}).get(
+            _license.customers.as_dict().get(customer, {}).get(
                 TENANT_LICENSE_KEY_ATTR)
         ]
-        return affected_licenses, licensed_rulesets
-
-    def retrieve_rulesets_v2(self, _license: License, tenant: Tenant,
-                             target_rulesets: Set[str]
-                             ) -> Tuple[List, List]:
-        """
-        This option is faster, makes fewer requests to DB and a bit less safe.
-        It expects that each ruleset in license belong to one cloud
-        (which is correct, but who knows when it will be changed). Also,
-        this method does not filter rule-sets by given names, expecting that
-        all the licensed rule-sets must be used.
-        It's kind of equivalent to the method above, but this is more
-        straightforward, much more optimized and covers business
-        requirements as of 20 March as well.
-        It uses our old format to transfer licensed rule-sets to docker
-        """
-        licensed_rulesets = [f'0:{_id}' for _id in _license.ruleset_ids]
-        affected_licenses = [
-            _license.customers.as_dict().get(tenant.customer_name, {}).get(
-                TENANT_LICENSE_KEY_ATTR)
-        ]
-        return affected_licenses, licensed_rulesets
+        return affected_licenses, licensed_rulesets, rule_sets
 
     def ensure_job_is_allowed(self, tenant: Tenant, tlk: str):
         _LOG.info(f'Going to check for permission to exhaust'
@@ -418,7 +422,7 @@ class JobHandler(AbstractHandler):
             message = f'Tenant:\'{tenant.name}\' could not be granted ' \
                       f'to start a licensed job.'
             return build_response(
-                content=message, code=RESPONSE_FORBIDDEN_CODE
+                content=message, code=HTTPStatus.FORBIDDEN
             )
         _LOG.info(f'Tenant:\'{tenant.name}\' has been granted '
                   f'permission to submit a licensed job.')
@@ -431,7 +435,7 @@ class JobHandler(AbstractHandler):
         missing = target_regions - tenant_region
         if missing:
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=f'Regions: {", ".join(missing)} not active '
                         f'in tenant: {tenant.name}'
             )
@@ -506,7 +510,7 @@ class JobHandler(AbstractHandler):
         job = self._job_service.get_job(job_id)
         if not job or not self._job_service.is_allowed(job, customer, tenants):
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=f'Job with id \'{job_id}\' was not found'
             )
 
@@ -515,12 +519,13 @@ class JobHandler(AbstractHandler):
             message = f'Can not terminate job with status {job.status}'
             _LOG.warning(message)
             return build_response(content=message,
-                                  code=RESPONSE_BAD_REQUEST_CODE)
+                                  code=HTTPStatus.BAD_REQUEST)
 
         reason = f'Initiated by user \'{user}\' ' \
                  f'(customer \'{customer or SYSTEM_CUSTOMER}\')'
         self._job_service.set_job_failed_status(job, reason)
         self._job_service.save(job)
+        TenantSettingJobLock(job.tenant_display_name).release()
 
         _LOG.info(f"Going to terminate job with id '{job_id}'")
         self._batch_client.terminate_job(
@@ -529,6 +534,86 @@ class JobHandler(AbstractHandler):
         )  # reason is just for AWS BatchClient here
         return build_response(
             content=f'The job with id \'{job_id}\' will be terminated'
+        )
+
+    @validate_kwargs
+    def post_k8s(self, event: K8sJobPostModel) -> dict:
+        ps = self._modular_service.modular_client.parent_service()
+        platform = ps.get_parent_by_id(event.platform_id)
+        if not platform or platform.is_deleted or event.customer and platform.customer_id != event.customer:
+            return build_response(
+                code=HTTPStatus.NOT_FOUND,
+                content=f'Active platform: {event.platform_id} not found'
+            )
+        tenant = self._obtain_tenant(platform.tenant_name, event.customer)
+        customer = tenant.customer_name
+        if not self._environment_service.allow_simultaneous_jobs_for_one_tenant():
+            lock = TenantSettingJobLock(tenant.name)
+            if lock.locked():
+                return build_response(
+                    code=HTTPStatus.FORBIDDEN,
+                    content=f'Job {lock.job_id} is already running '
+                            f'for tenant {tenant.name}'
+                )
+
+        application = self._modular_service.get_tenant_application(
+            tenant, ParentType.CUSTODIAN_LICENSES
+        )
+        if not application:
+            return build_response(
+                code=HTTPStatus.BAD_REQUEST,
+                content=f'Custodian application has not been '
+                        f'linked to tenant: {tenant.name}'
+            )
+        meta = CustodianLicensesApplicationMeta(**application.meta.as_dict())
+        license_key = meta.license_key(RuleDomain.KUBERNETES.value)
+        if not license_key:
+            return build_response(
+                code=HTTPStatus.BAD_REQUEST,
+                content=f'Customer {customer} has not been assigned an '
+                        f'KUBERNETES License yet'
+            )
+        _license = self._license_service.get_license(license_key)
+        if not _license or self._license_service.is_expired(_license):
+            return build_response(
+                code=HTTPStatus.BAD_REQUEST,
+                content='Affected license has expired'
+            )
+        tenant_license_key = _license.customers.as_dict().get(
+            customer, {}).get(TENANT_LICENSE_KEY_ATTR)
+
+        self.ensure_job_is_allowed(tenant, tenant_license_key)
+
+        affected_licensed, licensed_rulesets, rule_sets = self.retrieve_rulesets(
+            _license=_license,
+            customer=customer,
+            cloud=RuleDomain.KUBERNETES.value,
+            target_rulesets=event.target_rulesets,
+        )
+        if not licensed_rulesets:
+            # actually is this block is executed, something really wrong
+            return build_response(
+                code=HTTPStatus.BAD_REQUEST,
+                content='No rule-sets found in license'
+            )
+        credentials_key = None  # TODO K8S validate whether long-lived token exists, validate whether it belongs to a cluster?
+        if event.token:
+            _LOG.debug('Temp token was provided. Saving to ssm')
+            credentials_key = self._ssm_service.save_data(
+                name=tenant.name, value=event.token
+            )
+        envs = self._assemble_service.build_job_envs(
+            tenant=tenant,
+            platform_id=platform.parent_id,
+            affected_licenses=affected_licensed,
+            licensed_rulesets=licensed_rulesets,
+            credentials_key=credentials_key
+        )
+        return self._submit_batch_job(
+            event=event.dict(),
+            tenant=tenant,
+            envs=envs,
+            platform_id=platform.parent_id,
         )
 
     def post_scheduled(self, event: dict) -> dict:
@@ -543,7 +628,7 @@ class JobHandler(AbstractHandler):
         if tenant.cloud not in self._environment_service.allowed_clouds_to_scan():
             _message = f'Scan for `{tenant.cloud}` is not allowed'
             _LOG.info(_message)
-            return build_response(code=RESPONSE_FORBIDDEN_CODE,
+            return build_response(code=HTTPStatus.FORBIDDEN,
                                   content=_message)
         # the same flow as for not scheduled jobs
         regions_to_scan = self._resolve_regions_to_scan(
@@ -551,11 +636,11 @@ class JobHandler(AbstractHandler):
             tenant=tenant
         )
         application = self._modular_service.get_tenant_application(
-            tenant, TENANT_PARENT_MAP_CUSTODIAN_LICENSES_TYPE
+            tenant, ParentType.CUSTODIAN_LICENSES
         )
         if not application:
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=f'Custodian application has not been '
                         f'activated for customer: {customer}'
             )
@@ -563,24 +648,26 @@ class JobHandler(AbstractHandler):
         license_key = meta.license_key(tenant.cloud)
         if not license_key:
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=f'Customer {customer} has not been assigned an '
                         f'AWS License yet'
             )
         _license = self._license_service.get_license(license_key)
         if self._license_service.is_expired(_license):
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content='Affected license has expired'
             )
-        # TODO put here custom-core version resolving/updating logic
-        affected_licensed, licensed_rulesets = self.retrieve_rulesets_v1(
-            _license, tenant, target_rulesets
+        affected_licensed, licensed_rulesets, _ = self.retrieve_rulesets(
+            _license=_license,
+            customer=tenant.customer_name,
+            cloud=tenant.cloud,
+            target_rulesets=target_rulesets
         )
         if not licensed_rulesets:
             # actually is this block is executed, something really wrong
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content='No rule-sets found in license'
             )
         envs = self._assemble_service.build_job_envs(
@@ -595,7 +682,7 @@ class JobHandler(AbstractHandler):
             tenant, schedule, envs, name
         )
         return build_response(
-            code=RESPONSE_CREATED,
+            code=HTTPStatus.CREATED,
             content=self._scheduler_service.dto(job)
         )
 
@@ -630,11 +717,11 @@ class JobHandler(AbstractHandler):
         item = self._scheduler_service.get(name, customer, set(tenants))
         if not item:
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=f'Scheduled job {name} not found'
             )
         self._scheduler_service.deregister_job(name)
-        return build_response(code=RESPONSE_NO_CONTENT)
+        return build_response(code=HTTPStatus.NO_CONTENT)
 
     def patch_scheduled(self, event: dict) -> dict:
         _LOG.info(f'Update scheduled-job action: {event}')
@@ -647,7 +734,7 @@ class JobHandler(AbstractHandler):
         item = self._scheduler_service.get(name, customer, set(tenants))
         if not item:
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=f'Scheduled job {name} not found'
             )
 
@@ -660,7 +747,7 @@ class JobHandler(AbstractHandler):
                                    credentials: dict, cloud: str):
         identifier_validators_mapping = {
             AWS_CLOUD_ATTR: self._validate_aws_account_id,
-            AZURE_CLOUD_ATTR: self._validate_azure_subscription_id,
+            AZURE_CLOUD_ATTR: None,
             GOOGLE_CLOUD_ATTR: self._validate_gcp_project_id
         }
         validator = identifier_validators_mapping.get(cloud)
@@ -668,7 +755,7 @@ class JobHandler(AbstractHandler):
             return
         if not validator(credentials, cloud_identifier):
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content='Target account identifier didn\'t match with'
                         ' one provided in the credentials. Check your '
                         'credentials and try again.'
@@ -688,29 +775,9 @@ class JobHandler(AbstractHandler):
             message = 'Invalid AWS credentials provided.'
             _LOG.warning(message)
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=message
             )
-
-    def _validate_azure_subscription_id(self, credentials: dict,
-                                        target_subscription_id: int):
-        # try:
-        #     self.azure_subscriptions_service.validate_credentials(
-        #         tenant_id=credentials.get(AZURE_TENANT_ID),
-        #         client_id=credentials.get(AZURE_CLIENT_ID),
-        #         client_secret=credentials.get(AZURE_CLIENT_SECRET),
-        #         subscription_id=credentials.get(AZURE_SUBSCRIPTION_ID)
-        #     )
-        # except CustodianException as e:
-        #     return build_response(
-        #         code=e.code,
-        #         content=e.content
-        #     )
-        # subscription_id = credentials.get(AZURE_SUBSCRIPTION_ID)
-        # return subscription_id == target_subscription_id
-        # todo commented due to heavy dependency
-        #  to azure packages (lambda size is 30+mb)
-        return True
 
     @staticmethod
     def _validate_gcp_project_id(credentials: dict, target_project_id: int):

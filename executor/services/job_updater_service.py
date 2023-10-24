@@ -1,7 +1,12 @@
+import time
+from abc import ABC, abstractmethod
 from typing import Optional
 
-from helpers.constants import STATUS_STARTING, STATUS_RUNNING, STATUS_FAILED, \
-    STATUS_SUCCEEDED
+from modular_sdk.models.tenant_settings import TenantSettings
+from modular_sdk.services.tenant_settings_service import TenantSettingsService
+from pynamodb.exceptions import UpdateError
+
+from helpers.constants import JobState
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_iso
 from models.job import Job
@@ -22,11 +27,121 @@ SCAN_REGIONS_ATTR = 'scan_regions'
 ALLOWED_TIMESTAMP_ATTRIBUTES = (
     CREATED_AT_ATTR, STARTED_AT_ATTR, STOPPED_AT_ATTR)
 
-ALLOWED_STATUSES = (
-    STATUS_STARTING, STATUS_RUNNING, STATUS_FAILED, STATUS_SUCCEEDED
-)
-
 _LOG = get_logger(__name__)
+
+
+class AbstractJobLock(ABC):
+
+    @abstractmethod
+    def acquire(self, *args, **kwargs):
+        pass
+
+    @abstractmethod
+    def release(self):
+        pass
+
+    @abstractmethod
+    def locked(self) -> bool:
+        pass
+
+
+class TenantSettingJobLock(AbstractJobLock):
+    TYPE = 'CUSTODIAN_JOB_LOCK'  # tenant_setting type
+    EXPIRATION = 3600 * 1.5  # in seconds, 1.5h
+
+    def __init__(self, tenant_name: str):
+        """
+        >>> lock = TenantSettingJobLock('MY_TENANT')
+        >>> lock.locked()
+        False
+        >>> lock.acquire('job-1')
+        >>> lock.locked()
+        True
+        >>> lock.job_id
+        'job-1'
+        >>> lock.release()
+        >>> lock.locked()
+        False
+        >>> lock.release()
+        >>> lock.locked()
+        False
+        :param tenant_name:
+        """
+        self._tenant_name = tenant_name
+
+        self._item = None  # just cache
+
+    @property
+    def tss(self) -> TenantSettingsService:
+        """
+        Tenant settings service
+        :return:
+        """
+        from services import SP
+        return SP.modular_service().modular_client.tenant_settings_service()
+
+    @property
+    def job_id(self) -> Optional[str]:
+        """
+        ID of a job the lock is locked with
+        :return:
+        """
+        if not self._item:
+            return
+        return self._item.value.as_dict().get('jid')
+
+    @property
+    def tenant_name(self) -> str:
+        return self._tenant_name
+
+    def acquire(self, job_id: str):
+        """
+        You must check whether the lock is locked before calling acquire().
+        :param job_id:
+        :return:
+        """
+        item = self.tss.create(
+            tenant_name=self._tenant_name,
+            key=self.TYPE
+        )
+        self.tss.update(item, actions=[
+            TenantSettings.value.set({
+                'exp': time.time() + self.EXPIRATION,
+                'jid': job_id,
+                'locked': True
+            })
+        ])
+        self._item = item
+
+    def release(self):
+        item = self.tss.create(
+            tenant_name=self._tenant_name,
+            key=self.TYPE
+        )
+        try:
+            self.tss.update(item, actions=[
+                TenantSettings.value['locked'].set(False)
+            ])
+        except UpdateError:
+            # it's normal. It means that item.value['locked'] simply
+            # does not exist and update action cannot perform its update.
+            # DynamoDB raises UpdateError if you try to update not existing
+            # nested key
+            pass
+        self._item = item
+
+    def locked(self) -> bool:
+        item = self.tss.get(self._tenant_name, self.TYPE)
+        if not item:
+            return False
+        self._item = item
+        value = item.value.as_dict()
+        if not value.get('locked'):
+            return False
+        # locked = True
+        if not value.get('exp'):
+            return True  # no expiration, we locked
+        return value.get('exp') > time.time()
 
 
 class JobUpdaterService:
@@ -75,14 +190,14 @@ class JobUpdaterService:
         if self.is_docker:
             self.job.update(actions=[
                 Job.created_at.set(utc_iso()),
-                Job.status.set(STATUS_STARTING)
+                Job.status.set(JobState.STARTING.value)
             ])
 
     def set_started_at(self):
         if self.is_docker:
             self.job.update(actions=[
                 Job.started_at.set(utc_iso()),
-                Job.status.set(STATUS_RUNNING),
+                Job.status.set(JobState.RUNNING.value),
                 Job.scan_rulesets.set(
                     (self._environment_service.target_rulesets_view() or [] +
                      self._environment_service.licensed_ruleset_list())
@@ -92,15 +207,15 @@ class JobUpdaterService:
             ])
 
     def set_failed_at(self, reason):
-        self._set_stopped_at(STATUS_FAILED, reason)
+        self._set_stopped_at(JobState.FAILED, reason)
 
     def set_succeeded_at(self):
         if self.is_docker:
-            self._set_stopped_at(STATUS_SUCCEEDED)
+            self._set_stopped_at(JobState.SUCCEEDED)
 
-    def _set_stopped_at(self, status: str, reason: str = None):
-        assert status in {STATUS_SUCCEEDED, STATUS_FAILED}
-        actions = [Job.stopped_at.set(utc_iso()), Job.status.set(status)]
+    def _set_stopped_at(self, status: JobState, reason: str = None):
+        assert status in {JobState.SUCCEEDED, JobState.FAILED}
+        actions = [Job.stopped_at.set(utc_iso()), Job.status.set(status.value)]
         if reason:
             actions.append(Job.reason.set(reason))
         self.job.update(actions=actions)
@@ -116,7 +231,7 @@ class JobUpdaterService:
     def update_job_in_lm(self, job_id: str, created_at: Optional[str] = None,
                          started_at: Optional[str] = None,
                          stopped_at: Optional[str] = None,
-                         status: Optional[str] = None):
+                         status: Optional[JobState] = None):
         # for saas the job in LM will be updated in caas-job-updater
         if (self._environment_service.is_licensed_job() and
                 self._environment_service.is_docker()):

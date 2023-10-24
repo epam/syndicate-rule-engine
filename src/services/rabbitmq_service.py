@@ -1,3 +1,4 @@
+from http import HTTPStatus
 from typing import Optional
 
 from modular_sdk.commons.constants import RABBITMQ_TYPE
@@ -6,8 +7,7 @@ from modular_sdk.services.impl.maestro_credentials_service import \
 from modular_sdk.services.impl.maestro_rabbit_transport_service import \
     MaestroRabbitMQTransport, MaestroRabbitConfig
 
-from helpers import get_logger, build_response, \
-    RESPONSE_SERVICE_UNAVAILABLE_CODE
+from helpers import get_logger, build_response
 from models.modular.application import Application
 from services.modular_service import ModularService
 
@@ -30,7 +30,7 @@ class RabbitMQService:
     @staticmethod
     def no_rabbit_configuration() -> dict:
         return build_response(
-            code=RESPONSE_SERVICE_UNAVAILABLE_CODE,
+            code=HTTPStatus.SERVICE_UNAVAILABLE,
             content='No valid RabbitMq configuration found'
         )
 

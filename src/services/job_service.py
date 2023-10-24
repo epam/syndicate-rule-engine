@@ -1,36 +1,148 @@
 import datetime
+import time
+from abc import ABC, abstractmethod
+from typing import Iterable, Optional, List, Union, Generator, Callable
 
 from botocore.exceptions import ClientError
-
-from helpers import time_helper
-from models.job import Job
-from helpers.constants import JOB_STARTED_STATUS, JOB_RUNNABLE_STATUS, \
-    JOB_RUNNING_STATUS, JOB_SUCCEEDED_STATUS, JOB_FAILED_STATUS
-from helpers.time_helper import utc_iso
-from helpers.log_helper import get_logger
-from typing import Iterable, Optional, List, Union, Generator, Callable
-from pynamodb.pagination import ResultIterator
-from pynamodb.indexes import Condition
-from modular_sdk.models.pynamodb_extension.pynamodb_to_pymongo_adapter import \
-    Result
 from modular_sdk.models.pynamodb_extension.base_model import \
     LastEvaluatedKey as Lek
+from modular_sdk.models.pynamodb_extension.pynamodb_to_pymongo_adapter import \
+    Result
+from pymongo.collection import Collection
+from modular_sdk.models.tenant_settings import TenantSettings
+from modular_sdk.services.tenant_settings_service import TenantSettingsService
+from pynamodb.indexes import Condition
+from pynamodb.pagination import ResultIterator
+from pynamodb.exceptions import UpdateError
+from helpers import time_helper
+from helpers.constants import JOB_STARTED_STATUS, JOB_RUNNABLE_STATUS, \
+    JOB_RUNNING_STATUS, JOB_SUCCEEDED_STATUS, JOB_FAILED_STATUS
+from helpers.log_helper import get_logger
+from helpers.time_helper import utc_iso
+from models.job import Job
+from services import SP
 from services.rbac.restriction_service import RestrictionService
 
 JOB_PENDING_STATUSES = (JOB_STARTED_STATUS, JOB_RUNNABLE_STATUS,
                         JOB_RUNNING_STATUS)
 JOB_DTO_SKIP_ATTRS = {'job_definition', 'job_queue', 'reason', 'created_at',
                       'rules_to_scan', 'ttl'}
-ISO_TIMESTAMP_ATTRS = ('submitted_at',
-                       'stopped_at', 'started_at')
-JOB_SUBMITTED_AT = 'submitted_at'
-JOB_STARTED_AT = 'started_at'
-JOB_STOPPED_AT = 'stopped_at'
-JOB_SCAN_RULESETS = 'scan_rulesets'
-JOB_ID = 'job_id'
 DEFAULT_LIMIT = 30
 
 _LOG = get_logger(__name__)
+
+
+class AbstractJobLock(ABC):
+
+    @abstractmethod
+    def acquire(self, *args, **kwargs):
+        pass
+
+    @abstractmethod
+    def release(self):
+        pass
+
+    @abstractmethod
+    def locked(self) -> bool:
+        pass
+
+
+class TenantSettingJobLock(AbstractJobLock):
+    TYPE = 'CUSTODIAN_JOB_LOCK'  # tenant_setting type
+    EXPIRATION = 3600 * 1.5  # in seconds, 1.5h
+
+    def __init__(self, tenant_name: str):
+        """
+        >>> lock = TenantSettingJobLock('MY_TENANT')
+        >>> lock.locked()
+        False
+        >>> lock.acquire('job-1')
+        >>> lock.locked()
+        True
+        >>> lock.job_id
+        'job-1'
+        >>> lock.release()
+        >>> lock.locked()
+        False
+        >>> lock.release()
+        >>> lock.locked()
+        False
+        :param tenant_name:
+        """
+        self._tenant_name = tenant_name
+
+        self._item = None  # just cache
+
+    @property
+    def tss(self) -> TenantSettingsService:
+        """
+        Tenant settings service
+        :return:
+        """
+        return SP.modular_service().modular_client.tenant_settings_service()
+
+    @property
+    def job_id(self) -> Optional[str]:
+        """
+        ID of a job the lock is locked with
+        :return:
+        """
+        if not self._item:
+            return
+        return self._item.value.as_dict().get('jid')
+
+    @property
+    def tenant_name(self) -> str:
+        return self._tenant_name
+
+    def acquire(self, job_id: str):
+        """
+        You must check whether the lock is locked before calling acquire().
+        :param job_id:
+        :return:
+        """
+        item = self.tss.create(
+            tenant_name=self._tenant_name,
+            key=self.TYPE
+        )
+        self.tss.update(item, actions=[
+            TenantSettings.value.set({
+                'exp': time.time() + self.EXPIRATION,
+                'jid': job_id,
+                'locked': True
+            })
+        ])
+        self._item = item
+
+    def release(self):
+        item = self.tss.create(
+            tenant_name=self._tenant_name,
+            key=self.TYPE
+        )
+        try:
+            self.tss.update(item, actions=[
+                TenantSettings.value['locked'].set(False)
+            ])
+        except UpdateError:
+            # it's normal. It means that item.value['locked'] simply
+            # does not exist and update action cannot perform its update.
+            # DynamoDB raises UpdateError if you try to update not existing
+            # nested key
+            pass
+        self._item = item
+
+    def locked(self) -> bool:
+        item = self.tss.get(self._tenant_name, self.TYPE)
+        if not item:
+            return False
+        self._item = item
+        value = item.value.as_dict()
+        if not value.get('locked'):
+            return False
+        # locked = True
+        if not value.get('exp'):
+            return True  # no expiration, we locked
+        return value.get('exp') > time.time()
 
 
 class JobService:
@@ -38,16 +150,19 @@ class JobService:
         self._restriction_service = restriction_service
 
     def get_last_tenant_job(self, tenant_name: str,
-                            status: Optional[Iterable] = None) -> Optional[Job]:
+                            status: Optional[Iterable] = None
+                            ) -> Optional[Job]:
         """
         Returns the latest job made by tenant
         """
+        condition = None
         if isinstance(status, Iterable):
             condition = Job.status.is_in(*list(status))
         return next(
             Job.tenant_display_name_index.query(
                 hash_key=tenant_name,
                 scan_index_forward=False,
+                limit=1,
                 filter_condition=condition
             ), None
         )
@@ -68,13 +183,13 @@ class JobService:
 
     @classmethod
     def inquery(
-        cls, customer: Optional[str] = None,
-        tenants: Optional[List[str]] = None, limit: Optional[int] = 10,
-        last_evaluated_key: Optional[Union[str, dict]] = None,
-        attributes_to_get: Optional[list] = None,
-        filter_condition: Optional[Condition] = None,
-        range_condition: Optional[Condition] = None,
-        ascending: bool = False
+            cls, customer: Optional[str] = None,
+            tenants: Optional[List[str]] = None, limit: Optional[int] = 10,
+            last_evaluated_key: Optional[Union[str, dict]] = None,
+            attributes_to_get: Optional[list] = None,
+            filter_condition: Optional[Condition] = None,
+            range_condition: Optional[Condition] = None,
+            ascending: bool = False
     ):
         query: Callable = Job.scan
         last_evaluated_key = last_evaluated_key or ''
@@ -138,21 +253,18 @@ class JobService:
         return op(JOB_SUCCEEDED_STATUS)
 
     @staticmethod
-    def get_submitted_scope_condition(
-        start: Optional[str] = None, end: Optional[str] = None
-    ):
+    def get_submitted_scope_condition(start: Optional[str] = None,
+                                      end: Optional[str] = None):
         """
         :param start: Optional[str], the lower bound
         :param end: Optional[str], the upper bound
         """
-        cdn = None
         if start and end:
-            cdn = Job.submitted_at.between(lower=start, upper=end)
+            return Job.submitted_at.between(lower=start, upper=end)
         elif start:
-            cdn = Job.submitted_at >= start
-        elif end:
-            cdn = Job.submitted_at <= end
-        return cdn
+            return Job.submitted_at >= start
+        else:  # only end
+            return Job.submitted_at <= end
 
     @staticmethod
     def get_tenant_related_condition(tenant: str):
@@ -164,7 +276,8 @@ class JobService:
 
     @staticmethod
     def _get_query_hash_key_ref_params(
-        last_evaluated_key: dict, partition_key_list: List[str], params: dict
+            last_evaluated_key: dict, partition_key_list: List[str],
+            params: dict
     ):
         """
         Returns `hash_key_ref` payload, digesting a last_evaluated_key,
@@ -186,7 +299,7 @@ class JobService:
              attributes_to_get: Optional[list] = None,
              limit: Optional[int] = 10,
              lek: Optional[Union[str, dict]] = None) -> Union[ResultIterator,
-                                                              Result]:
+    Result]:
         """
         Describes all the jobs based on the given params. Make sure that
         the given tenants are available for the user making the request
@@ -263,23 +376,6 @@ class JobService:
             return False
         return True
 
-    # old services
-
-    @staticmethod
-    def get_jobs():
-        jobs = []
-        response = Job.scan()
-        jobs.extend(list(response))
-        last_evaluated_key = response.last_evaluated_key
-
-        while last_evaluated_key:
-            response = Job.scan(
-                last_evaluated_key=last_evaluated_key
-            )
-            jobs.extend(list(jobs))
-            last_evaluated_key = response.last_evaluated_key
-        return jobs
-
     @staticmethod
     def get_customer_jobs(customer_display_name, limit=None, offset=None):
         jobs = []
@@ -326,133 +422,8 @@ class JobService:
         return jobs
 
     @staticmethod
-    def get_succeeded_job(job_id):
-        job = Job.get_nullable(job_id)
-        if job and job.status == JOB_SUCCEEDED_STATUS:
-            return job
-
-    @staticmethod
-    def get_job_by_tenant(tenant, succeeded_only=True):
-        condition = None
-        if succeeded_only:
-            condition &= Job.status == JOB_SUCCEEDED_STATUS
-
-        jobs = []
-        response = Job.tenant_display_name_index.query(
-            hash_key=tenant,
-            filter_condition=condition)
-
-        jobs.extend(list(response))
-        last_evaluated_key = response.last_evaluated_key
-
-        while last_evaluated_key:
-            response = Job.tenant_display_name_index.query(
-                hash_key=tenant,
-                last_evaluated_key=last_evaluated_key,
-                filter_condition=condition)
-            jobs.extend(list(response))
-            last_evaluated_key = response.last_evaluated_key
-        return jobs
-
-    @staticmethod
-    def get_tenant_job_by_date(tenant, date_timestamp, succeeded_only=True):
-        # TODO refactor
-        target_datetime = datetime.datetime.fromtimestamp(
-            date_timestamp / 1000)
-
-        timestamp_from = datetime.datetime.timestamp(
-            target_datetime.replace(hour=0, minute=0, second=0, microsecond=0))
-        timestamp_from = int(timestamp_from * 1000)
-
-        timestamp_to = datetime.datetime.timestamp(
-            target_datetime.replace(hour=0, minute=0, second=0,
-                                    microsecond=0) + datetime.timedelta(
-                days=1))
-        timestamp_to = int(timestamp_to * 1000)
-
-        if succeeded_only:
-            return list(Job.tenant_display_name_index.query(
-                hash_key=tenant,
-                filter_condition=(Job.submitted_at >= timestamp_from) & (
-                        Job.submitted_at < timestamp_to) & (
-                                         Job.status == JOB_SUCCEEDED_STATUS)))
-        return list(Job.tenant_display_name_index.query(
-            hash_key=tenant,
-            filter_condition=(Job.submitted_at >= timestamp_from) & (
-                    Job.submitted_at < timestamp_to)))
-
-    @staticmethod
-    def get_latest_tenant_job(tenant, succeeded_only=True):
-        if succeeded_only:
-            tenant_jobs = list(Job.tenant_display_name_index.query(
-                hash_key=tenant,
-                scan_index_forward=True,
-                limit=1,
-                filter_condition=Job.status == JOB_SUCCEEDED_STATUS))
-        else:
-            tenant_jobs = list(Job.tenant_display_name_index.query(
-                hash_key=tenant,
-                scan_index_forward=True,
-                limit=1))
-        if tenant_jobs:
-            return tenant_jobs[0]
-
-    @staticmethod
     def save(job: Job):
         job.save()
-
-    def filter_jobs(self, job_id=None, tenant=None, date=None,
-                    latest=None, succeeded_only=True,
-                    customer=None, event_driven=None, limit=10,
-                    offset=0,
-                    **kwargs):
-        # TODO refactor this method completely because if you pass,
-        #  for instance, customer and account, and date here,
-        #  you expect to receive jobs filtered by all these params together.
-        #  + it must use indexes
-        if job_id:
-            if succeeded_only:
-                jobs = [self.get_succeeded_job(job_id=job_id)]
-            else:
-                jobs = [self.get_job(job_id=job_id)]
-            if customer:
-                jobs = [jobs[0], ] if jobs[0].customer_display_name == customer else []
-        elif tenant:
-            if latest:
-                jobs = [self.get_latest_tenant_job(
-                    tenant=tenant,
-                    succeeded_only=succeeded_only)]
-            elif date:
-                jobs = self.get_tenant_job_by_date(
-                    tenant=tenant,
-                    date_timestamp=date,
-                    succeeded_only=succeeded_only)
-            elif customer:
-                jobs = self.filter_jobs(
-                    tenant=tenant, customer=customer,
-                )
-            else:
-                jobs = self.get_job_by_tenant(
-                    tenant=tenant,
-                    succeeded_only=succeeded_only)
-        elif customer:
-            jobs = self.get_customer_jobs(
-                customer_display_name=customer, limit=limit, offset=offset)
-        else:
-            jobs = self.get_jobs()
-
-        jobs = [job for job in jobs if job]
-        if event_driven is not None:
-            jobs = [job for job in jobs if
-                    (getattr(job, 'is_event_driven') or False) == event_driven]
-
-        if len(jobs) > 1:
-            jobs.sort(
-                key=lambda item: item.submitted_at,
-                reverse=True)
-        if len(jobs) >= limit + offset:
-            return jobs[offset:limit + offset]
-        return jobs[-limit:]
 
     @staticmethod
     def get_job_dto(job: Job, params_to_exclude: set = None):
@@ -466,52 +437,6 @@ class JobService:
             else:
                 job_dto[attr_name] = attr_value
         return job_dto
-
-    @staticmethod
-    def get_tenant_jobs_between_period(tenant: str, start_period=None,
-                                       end_period=None,
-                                       only_succeeded: bool = True,
-                                       limit: int = None,
-                                       attributes_to_get: list = None):
-        conditions = None
-        range_key_condition = None
-        if only_succeeded:
-            conditions = (Job.status == JOB_SUCCEEDED_STATUS)
-        if start_period and end_period:
-            range_key_condition &= (
-                Job.submitted_at.between(start_period.isoformat(),
-                                         end_period.isoformat()))
-        elif end_period:
-            range_key_condition &= (Job.submitted_at <=
-                                    end_period.isoformat())
-        elif start_period:
-            range_key_condition &= (Job.submitted_at >=
-                                    start_period.isoformat())
-        _cursor = Job.tenant_display_name_index.query(
-            hash_key=tenant, range_key_condition=range_key_condition,
-            filter_condition=conditions, limit=limit,
-            attributes_to_get=attributes_to_get)
-        items = list(_cursor)
-        last_evaluated_key = _cursor.last_evaluated_key
-        while last_evaluated_key:
-            try:
-                _cursor = Job.tenant_display_name_index.query(
-                    hash_key=tenant,
-                    last_evaluated_key=last_evaluated_key,
-                    range_key_condition=range_key_condition,
-                    filter_condition=conditions, limit=limit,
-                    attributes_to_get=attributes_to_get
-                )
-                items.extend(list(_cursor))
-                last_evaluated_key = _cursor.last_evaluated_key
-            except ClientError as e:
-                if e.response['Error']['Code'] == \
-                        'ProvisionedThroughputExceededException':
-                    _LOG.warning('Request rate on CaaSJobs table is too high!')
-                    time_helper.wait(5)
-                else:
-                    raise e
-        return items
 
     @staticmethod
     def get_customer_jobs_between_period(
@@ -531,10 +456,10 @@ class JobService:
                                              end_period.isoformat()))
             elif end_period:
                 range_key_condition &= (
-                            Job.submitted_at <= end_period.isoformat())
+                        Job.submitted_at <= end_period.isoformat())
             elif start_period:
                 range_key_condition &= (
-                            Job.submitted_at >= start_period.isoformat())
+                        Job.submitted_at >= start_period.isoformat())
             _cursor = Job.customer_display_name_index.query(
                 hash_key=customer, range_key_condition=range_key_condition,
                 filter_condition=conditions, limit=limit,

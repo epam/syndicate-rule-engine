@@ -1,10 +1,11 @@
+from http import HTTPStatus
+
 from handlers.abstracts.abstract_user_handler import AbstractUserHandler
-from helpers import build_response, RESPONSE_BAD_REQUEST_CODE
-from helpers.constants import GET_METHOD, POST_METHOD, PATCH_METHOD, \
-    DELETE_METHOD, ROLE_ATTR
+from helpers import build_response
+from helpers.constants import HTTPMethod, ROLE_ATTR
 from helpers.log_helper import get_logger
-from services.user_service import CognitoUserService
 from services.rbac.iam_cache_service import CachedIamService
+from services.user_service import CognitoUserService
 
 _LOG = get_logger(__name__)
 
@@ -21,10 +22,10 @@ class UserRoleHandler(AbstractUserHandler):
     def define_action_mapping(self):
         return {
             '/users/role': {
-                GET_METHOD: self.get_role_attribute,
-                POST_METHOD: self.set_role_attribute,
-                PATCH_METHOD: self.update_role_attribute,
-                DELETE_METHOD: self.delete_role_attribute
+                HTTPMethod.GET: self.get_role_attribute,
+                HTTPMethod.POST: self.set_role_attribute,
+                HTTPMethod.PATCH: self.update_role_attribute,
+                HTTPMethod.DELETE: self.delete_role_attribute
             }
         }
 
@@ -49,7 +50,7 @@ class UserRoleHandler(AbstractUserHandler):
             _LOG.error(f'Invalid value for attribute {self.attribute_name}: '
                        f'{attribute_value}')
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=f'Invalid value for attribute {self.attribute_name}: '
                         f'{attribute_value}')
 

@@ -8,7 +8,8 @@ from helpers.constants import KEY_AWS_EVENTS, KEY_GOOGLE_EVENTS, \
     KEY_AZURE_EVENTS, KEY_GOOGLE_STANDARDS_COVERAGE, KEY_RULES_TO_STANDARDS, \
     KEY_RULES_TO_SERVICE_SECTION, KEY_RULES_TO_MITRE, KEY_CLOUD_TO_RULES, \
     KEY_RULES_TO_SEVERITY, KEY_AZURE_STANDARDS_COVERAGE, \
-    KEY_AWS_STANDARDS_COVERAGE, KEY_HUMAN_DATA
+    KEY_AWS_STANDARDS_COVERAGE, KEY_HUMAN_DATA, KEY_RULES_TO_SERVICE, \
+    KEY_RULES_TO_CATEGORY
 from services.clients.s3 import S3Client
 from services.environment_service import EnvironmentService
 
@@ -84,6 +85,12 @@ class S3SettingsService:
 
     def human_data(self) -> Optional[dict]:
         return self.get(KEY_HUMAN_DATA)
+
+    def rules_to_service(self) -> Optional[dict]:
+        return self.get(KEY_RULES_TO_SERVICE)
+
+    def rules_to_category(self) -> Optional[dict]:
+        return self.get(KEY_RULES_TO_CATEGORY)
 
     def aws_standards_coverage(self) -> Optional[dict]:
         return self.get(KEY_AWS_STANDARDS_COVERAGE)

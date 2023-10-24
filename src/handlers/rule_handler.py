@@ -1,17 +1,18 @@
+from http import HTTPStatus
+
 from modular_sdk.models.pynamodb_extension.base_model import \
     LastEvaluatedKey as Lek
 
 from handlers.abstracts.abstract_handler import AbstractHandler
-from helpers import build_response, RESPONSE_NO_CONTENT, \
-    RESPONSE_RESOURCE_NOT_FOUND_CODE
-from helpers.constants import GET_METHOD, LIMIT_ATTR, DELETE_METHOD, \
-    CLOUD_ATTR, NEXT_TOKEN_ATTR, RULE_ATTR, CUSTOMER_ATTR, GIT_REF_ATTR, \
-    GIT_PROJECT_ID_ATTR
+from helpers import build_response
+from helpers.constants import HTTPMethod, NEXT_TOKEN_ATTR
 from helpers.log_helper import get_logger
 from helpers.system_customer import SYSTEM_CUSTOMER
 from services.modular_service import ModularService
 from services.rule_meta_service import RuleService
 from services.rule_source_service import RuleSourceService
+from validators.request_validation import RuleGetModel, RuleDeleteModel
+from validators.utils import validate_kwargs
 
 _LOG = get_logger(__name__)
 
@@ -31,27 +32,23 @@ class RuleHandler(AbstractHandler):
     def define_action_mapping(self):
         return {
             '/rules': {
-                GET_METHOD: self.get_rule,
-                DELETE_METHOD: self.delete_rule
+                HTTPMethod.GET: self.get_rule,
+                HTTPMethod.DELETE: self.delete_rule
             }
         }
 
-    def get_rule(self, event: dict) -> dict:
+    @validate_kwargs
+    def get_rule(self, event: RuleGetModel) -> dict:
         _LOG.debug(f'Get rules action')
-        rule_name = event.get(RULE_ATTR)
-        git_project_id = event.get(GIT_PROJECT_ID_ATTR)
-        git_ref = event.get(GIT_REF_ATTR)
-        customer = event.get(CUSTOMER_ATTR) or SYSTEM_CUSTOMER
-        cloud = event.get(CLOUD_ATTR)
-        limit = event.get(LIMIT_ATTR)
-        lek = Lek.deserialize(event.get(NEXT_TOKEN_ATTR) or None)
-        if rule_name:
+        customer = event.customer or SYSTEM_CUSTOMER
+        lek = Lek.deserialize(event.next_token or None)
+        if event.rule:
             # TODO split to get and list endpoints
             _LOG.debug('Rule id was given. Trying to resolve one rule')
             rule = self.rule_service.resolve_rule(
                 customer=customer,
-                name_prefix=rule_name,
-                cloud=cloud
+                name_prefix=event.rule,
+                cloud=event.cloud
             )
             if rule:
                 return build_response(
@@ -59,20 +56,20 @@ class RuleHandler(AbstractHandler):
                 )
             return build_response(content=[])
         _LOG.debug('Going to list rules')
-        if git_project_id:
+        if event.git_project_id:
             cursor = self.rule_service.get_by(
                 customer=customer,
-                project=git_project_id,
-                ref=git_ref,
-                cloud=cloud,
-                limit=limit,
+                project=event.git_project_id,
+                ref=event.git_ref,
+                cloud=event.cloud,
+                limit=event.limit,
                 last_evaluated_key=lek.value
             )
         else:  # no git_project_id & git_ref
             cursor = self.rule_service.get_by_id_index(
                 customer=customer,
-                cloud=cloud,
-                limit=limit,
+                cloud=event.cloud,
+                limit=event.limit,
                 last_evaluated_key=lek.value
             )
         dto = list(self.rule_service.dto(rule) for rule in cursor)
@@ -82,41 +79,38 @@ class RuleHandler(AbstractHandler):
             meta={NEXT_TOKEN_ATTR: lek.serialize()} if lek else None
         )
 
-    def delete_rule(self, event):
+    @validate_kwargs
+    def delete_rule(self, event: RuleDeleteModel):
         _LOG.debug(f'Delete rule action')
-        customer = event.get(CUSTOMER_ATTR) or SYSTEM_CUSTOMER
-        rule_name = event.get(RULE_ATTR)
-        cloud = event.get(CLOUD_ATTR)
-        git_project_id = event.get(GIT_PROJECT_ID_ATTR)
-        git_ref = event.get(GIT_REF_ATTR)
+        customer = event.customer or SYSTEM_CUSTOMER
 
-        if rule_name:
+        if event.rule:
             _LOG.debug('Rule name given. Removing one rule')
             item = self.rule_service.get_latest_rule(
                 customer=customer,
-                name=rule_name
+                name=event.rule
             )
             if not item:
                 return build_response(
-                    code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
-                    content=self.rule_service.not_found_message(rule_name)
+                    code=HTTPStatus.NOT_FOUND,
+                    content=self.rule_service.not_found_message(event.rule)
                 )
             if item:
                 self.rule_service.delete(item)
-            return build_response(code=RESPONSE_NO_CONTENT)
+            return build_response(code=HTTPStatus.NO_CONTENT)
 
         _LOG.debug('Going to list rules')
-        if git_project_id:
+        if event.git_project_id:
             cursor = self.rule_service.get_by(
                 customer=customer,
-                project=git_project_id,
-                ref=git_ref,
-                cloud=cloud,
+                project=event.git_project_id,
+                ref=event.git_ref,
+                cloud=event.cloud,
             )
         else:  # no git_project_id & git_ref
             cursor = self.rule_service.get_by_id_index(
                 customer=customer,
-                cloud=cloud,
+                cloud=event.cloud,
             )
         self.rule_service.batch_delete(cursor)
-        return build_response(code=RESPONSE_NO_CONTENT)
+        return build_response(code=HTTPStatus.NO_CONTENT)

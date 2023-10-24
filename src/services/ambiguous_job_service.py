@@ -185,9 +185,6 @@ class AmbiguousJobService:
         rk_condition = _service.get_submitted_scope_condition(
             start=start.isoformat(), end=end.isoformat()
         )
-        if tenants:
-            f_condition &= _service.get_tenant_related_condition(
-                tenant=tenants[0])
 
         if not any((tenants, customer)):
             # Issued scan.
@@ -262,10 +259,9 @@ class AmbiguousJobService:
     @staticmethod
     def _expand_manual_attainment_params(
             tenants: Optional[List[str]] = None,
-            account_dn: Optional[str] = None
-    ):
+            cloud_ids: Optional[List[str]] = None):
         param_list = []
-        kwargs = dict(account_dn=account_dn)
+        kwargs = dict()
         for tn in tenants or (None,):
             _kwargs = kwargs.copy()
             _kwargs.update(tenants=[tn] if tn else None)
@@ -277,7 +273,6 @@ class AmbiguousJobService:
         cls, typ: Optional[str] = None,
         tenants: Optional[List[str]] = None,
         cloud_ids: Optional[List[str]] = None,
-        account_dn: Optional[str] = None
     ) -> Dict[str, List[Dict]]:
 
         output = {}
@@ -286,7 +281,7 @@ class AmbiguousJobService:
 
         typ_arg_expander_ref = {
             (REACTIVE_TYPE_ATTR, tuple(cloud_ids)): _expand_reactive,
-            (MANUAL_TYPE_ATTR, account_dn): _expand_manual
+            (MANUAL_TYPE_ATTR, tuple(cloud_ids)): _expand_manual
         }
         for ta, expander in typ_arg_expander_ref.items():
             _typ, arg = ta

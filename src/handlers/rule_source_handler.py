@@ -1,11 +1,9 @@
-from typing import Optional, Any, Iterable, List
+from http import HTTPStatus
+from typing import Optional, Iterable, List
 
 from handlers.abstracts.abstract_handler import AbstractHandler
-from helpers import build_response, RESPONSE_RESOURCE_NOT_FOUND_CODE, \
-    RESPONSE_OK_CODE, RESPONSE_UNAUTHORIZED, \
-    RESPONSE_CONFLICT, RESPONSE_NO_CONTENT
-from helpers.constants import CUSTOMER_ATTR, GET_METHOD, \
-    POST_METHOD, PATCH_METHOD, DELETE_METHOD, \
+from helpers import build_response
+from helpers.constants import CUSTOMER_ATTR, HTTPMethod, \
     RULE_SOURCE_REQUIRED_ATTRS, GIT_PROJECT_ID_ATTR, \
     ID_ATTR, ALLOWED_FOR_ATTR, TENANTS_ATTR, TENANT_RESTRICTION, \
     TENANT_ALLOWANCE, DESCRIPTION_ATTR, GIT_URL_ATTR, GIT_REF_ATTR, \
@@ -41,10 +39,10 @@ class RuleSourceHandler(AbstractHandler):
     def define_action_mapping(self):
         return {
             '/rule-sources': {
-                GET_METHOD: self.get_rule_source,
-                POST_METHOD: self.create_rule_source,
-                PATCH_METHOD: self.update_rule_source,
-                DELETE_METHOD: self.delete_rule_source
+                HTTPMethod.GET: self.get_rule_source,
+                HTTPMethod.POST: self.create_rule_source,
+                HTTPMethod.PATCH: self.update_rule_source,
+                HTTPMethod.DELETE: self.delete_rule_source
             }
         }
 
@@ -63,7 +61,7 @@ class RuleSourceHandler(AbstractHandler):
             if not entity:
                 return build_response(
                     content=f'Rule-source:{rule_source_id!r} does not exist.',
-                    code=RESPONSE_RESOURCE_NOT_FOUND_CODE
+                    code=HTTPStatus.NOT_FOUND
                 )
             rule_sources = [entity]
         else:
@@ -85,7 +83,7 @@ class RuleSourceHandler(AbstractHandler):
 
         _LOG.debug(f'Rule-sources to return: {rule_sources}')
         return build_response(
-            code=RESPONSE_OK_CODE,
+            code=HTTPStatus.OK,
             content=[
                 service.get_rule_source_dto(rule_source=rule_source)
                 for rule_source in rule_sources
@@ -116,14 +114,15 @@ class RuleSourceHandler(AbstractHandler):
         repo_conf[CUSTOMER_ATTR] = customer
 
         # Given no explicit tenants to allow access for - refer to user's
-        allowed_tenants = (event.get(TENANT_ALLOWANCE) or event.get(TENANTS_ATTR))
+        allowed_tenants = (
+                    event.get(TENANT_ALLOWANCE) or event.get(TENANTS_ATTR))
 
         service = self.rule_source_service
 
         errors = self._check_tenants(allowed_tenants)
         if errors:
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content='\n'.join(errors)
             )
         rsid = service.derive_rule_source_id(
@@ -172,14 +171,15 @@ class RuleSourceHandler(AbstractHandler):
 
         else:
             repo_conf[ALLOWED_FOR_ATTR] = allowed_tenants
-            _LOG.info(f'{title} does not exist, creating one, based on - {repo_conf}.')
+            _LOG.info(
+                f'{title} does not exist, creating one, based on - {repo_conf}.')
             entity = service.create_rule_source(rule_source_data=repo_conf)
 
         entity.description = description
         service.save_rule_source(entity)
 
         return build_response(
-            code=RESPONSE_OK_CODE,
+            code=HTTPStatus.OK,
             content=service.get_rule_source_dto(rule_source=entity)
         )
 
@@ -201,7 +201,7 @@ class RuleSourceHandler(AbstractHandler):
 
         if not entity:
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=f'{title} does not exist.'
             )
 
@@ -217,7 +217,7 @@ class RuleSourceHandler(AbstractHandler):
         )
         if errors:
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content='\n'.join(errors)
             )
 
@@ -248,7 +248,7 @@ class RuleSourceHandler(AbstractHandler):
             entity.description = description
         service.save_rule_source(rule_source=entity)
         return build_response(
-            code=RESPONSE_OK_CODE,
+            code=HTTPStatus.OK,
             content=service.get_rule_source_dto(rule_source=entity)
         )
 
@@ -271,7 +271,7 @@ class RuleSourceHandler(AbstractHandler):
 
         if not entity:
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=f'{title} does not exist.'
             )
 
@@ -305,12 +305,12 @@ class RuleSourceHandler(AbstractHandler):
             # * set(user-tenants) intersects set(rule_source.allowed_for)
             raise RuntimeError(f'{title} tenant-access has not changed.')
 
-        return build_response(code=RESPONSE_NO_CONTENT)
+        return build_response(code=HTTPStatus.NO_CONTENT)
 
     def _attain_rule_source(
-        self, rule_source_id: str,
-        customer: Optional[str] = None,
-        tenants: Optional[List[str]] = None
+            self, rule_source_id: str,
+            customer: Optional[str] = None,
+            tenants: Optional[List[str]] = None
     ):
         """
         Returns a rule-source entity, on a given identifier,
@@ -330,7 +330,8 @@ class RuleSourceHandler(AbstractHandler):
         entity = service.get(rule_source_id=rule_source_id)
         if not entity:
             _LOG.warning(f'{log_head} - does not exist.')
-        elif not is_subject_applicable(rule_source=entity, customer=customer, tenants=tenants):
+        elif not is_subject_applicable(rule_source=entity, customer=customer,
+                                       tenants=tenants):
             entity = None
         return entity
 
@@ -347,7 +348,7 @@ class RuleSourceHandler(AbstractHandler):
         title = cls._get_response_title(entity=entity)
         message = f'{title} - already exists'
         return build_response(
-            code=RESPONSE_CONFLICT,
+            code=HTTPStatus.CONFLICT,
             content=message
         )
 
@@ -356,7 +357,7 @@ class RuleSourceHandler(AbstractHandler):
         title = cls._get_response_title(entity=entity)
         message = f'{title} access could not be authorized.'
         return build_response(
-            code=RESPONSE_UNAUTHORIZED,
+            code=HTTPStatus.UNAUTHORIZED,
             content=message
         )
 

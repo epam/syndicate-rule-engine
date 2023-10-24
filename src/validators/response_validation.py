@@ -5,6 +5,8 @@ from typing import Dict, List, Optional, Union, Literal
 
 from pydantic import BaseModel
 
+from helpers.constants import PlatformType
+
 
 class BaseResponseModel(BaseModel):
     trace_id: str
@@ -75,14 +77,12 @@ class ActivationState(Enum):
 
 # TODO remove Optional everywhere
 
-
 class Customer(BaseModel):
     name: str
-    display_name: Optional[str]
-    admins: Optional[List[str]]
-    latest_login: Optional[str]
-    activation_date: Optional[str]
-    inherit: Optional[bool]
+    display_name: str
+    admins: List[str]
+    latest_login: str
+    activation_date: str
 
 
 class Tenant(BaseModel):
@@ -216,30 +216,6 @@ class SiemPush(BaseModel):
     status: int
     message: Optional[str]
     error: Optional[str]
-
-
-# class JobReport(BaseModel):
-#     job_id: str
-#     account_display_name: str
-#     total_checks_performed: Optional[int]
-#     successful_checks: Optional[int]
-#     failed_checks: Optional[int]
-#     total_resources_violated_rules: Optional[int]
-#     rules_to_scan: Optional[List[str]]
-#     created_at: Optional[datetime]
-#     submitted_at: Optional[datetime]
-#     stopped_at: Optional[datetime]
-#     customer_display_name: Optional[str]
-#     job_definition: Optional[str]
-#     job_owner: Optional[str]
-#     job_queue: Optional[str]
-#     tenant_display_name: Optional[str]
-#     detailed_report_content: Optional[Dict[str, List]]
-#     standard_points: Optional[Dict[str, List]]
-#     resources: Optional[List]
-#     is_event_driven: Optional[bool]
-#     scan_regions: List[str]
-#     status: str
 
 
 class TenantLicensePriority(BaseModel):
@@ -517,6 +493,39 @@ class BatchResult(BaseModel):
     submitted_at: str
 
 
+class ViolatedRule(BaseModel):
+    name: str
+    description: Optional[str]
+    severity: str
+
+
+class ResourceReport(BaseModel):
+    account_id: str
+    input_identifier: str  # one user provided
+    identifier: str  # one that was matched by user's
+    last_scan_date: Optional[str]
+    violated_rules: List[ViolatedRule]
+    data: Dict
+    region: str
+    resource_type: str
+
+
+class K8sPlatform(BaseModel):
+    description: str
+    endpoint: Optional[str]
+    has_token: bool
+    id: str
+    name: str
+    tenant_name: str
+    type: PlatformType
+
+
+class ResourceReportJobs(ResourceReport):
+    job_id: str
+    submitted_at: str
+    type: str
+
+
 class BatchResultDTO(BaseResponseModel):
     items: List[BatchResult]
 
@@ -531,6 +540,18 @@ class RuleReportDTO(BaseResponseModel):
     items: List[
         Union[JobRuleReport, TenantRuleReport]
     ]
+
+
+class ResourceReportDTO(BaseResponseModel):
+    items: List[ResourceReport]
+
+
+class ResourceReportJobsDTO(BaseResponseModel):
+    items: List[ResourceReportJobs]
+
+
+class PlatformK8SDTO(BaseResponseModel):
+    items: List[K8sPlatform]
 
 
 ALL_MODELS = set(

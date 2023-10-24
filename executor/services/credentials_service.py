@@ -3,9 +3,10 @@ import re
 import tempfile
 from datetime import datetime, timedelta, timezone
 from functools import cached_property
-from typing import Tuple, Dict, Callable, Optional
+from typing import Tuple, Dict, Callable, Optional, Union
 
 from botocore.exceptions import ClientError
+from modular_sdk.models.tenant import Tenant
 
 from helpers.constants import AWS, GOOGLE, AZURE, \
     ENV_AWS_ACCESS_KEY_ID, ENV_AWS_SECRET_ACCESS_KEY, \
@@ -14,7 +15,6 @@ from helpers.constants import AWS, GOOGLE, AZURE, \
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime
 from models.credentials_manager import CredentialsManager
-from models.modular.tenants import Tenant
 from services.clients.sts import StsClient
 from services.environment_service import EnvironmentService
 from services.ssm_service import SSMService
@@ -22,11 +22,6 @@ from services.ssm_service import SSMService
 _LOG = get_logger(__name__)
 
 VALID_CREDENTIALS_THRESHOLD_MINUTES = 15
-CREDENTIALS = 'Credentials'
-EXPIRATION = 'Expiration'
-ACCESS_KEY_ID = 'AccessKeyId'
-SECRET_ACCESS_KEY = 'SecretAccessKey'
-SESSION_TOKEN = 'SessionToken'
 
 
 class CredentialsService:
@@ -121,13 +116,13 @@ class CredentialsService:
         except ClientError as e:
             _LOG.exception(f"Can't assume role with specified {role_arn}:")
             return {}, None
-        credentials = assume_role_result.get(CREDENTIALS, {})
+        credentials = assume_role_result['Credentials']
         return {
-            ENV_AWS_ACCESS_KEY_ID: credentials.get(ACCESS_KEY_ID),
-            ENV_AWS_SECRET_ACCESS_KEY: credentials.get(SECRET_ACCESS_KEY),
-            ENV_AWS_SESSION_TOKEN: credentials.get(SESSION_TOKEN),
+            ENV_AWS_ACCESS_KEY_ID: credentials['AccessKeyId'],
+            ENV_AWS_SECRET_ACCESS_KEY: credentials['SecretAccessKey'],
+            ENV_AWS_SESSION_TOKEN: credentials['SessionToken'],
             ENV_AWS_DEFAULT_REGION: self.environment_service.aws_region()
-        }, credentials.get(EXPIRATION)
+        }, credentials['Expiration']
 
     def _save_temp_credentials(self, credentials, cloud_identifier):
         not_available = r'[^a-zA-Z0-9\/_.-]'
@@ -176,9 +171,10 @@ class CredentialsService:
         return getter(configuration)
 
     def get_credentials_from_ssm(self, credentials_key: Optional[str] = None,
-                                 remove: Optional[bool] = True) -> Dict:
+                                 remove: Optional[bool] = True
+                                 ) -> Union[str, dict]:
         """
-        Get credentials from ssm. For AWS and AZURE
+        Get our (not maestro) credentials from ssm. For AWS and AZURE
         these are already valid credentials envs. Must be just exported.
         For GOOGLE a file must be created additionally.
         :param credentials_key:

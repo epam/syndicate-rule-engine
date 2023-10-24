@@ -1,14 +1,13 @@
 import collections.abc
 import functools
 import json
-import secrets
-import string
 import uuid
 from enum import Enum as _Enum
 from functools import reduce
-from itertools import islice
+from http import HTTPStatus
+from itertools import islice, chain
 from typing import Dict, Type, Any, Union, TypeVar, Optional, List, Tuple, \
-    Iterable, Generator, Callable
+    Iterable, Generator, Callable, Hashable
 from uuid import uuid4
 
 from helpers.constants import PARAM_MESSAGE, PARAM_ITEMS, PARAM_TRACE_ID, \
@@ -20,50 +19,21 @@ T = TypeVar('T')
 
 _LOG = get_logger(__name__)
 
-RESPONSE_BAD_REQUEST_CODE = 400
-RESPONSE_UNAUTHORIZED = 401
-RESPONSE_FORBIDDEN_CODE = 403
-RESPONSE_RESOURCE_NOT_FOUND_CODE = 404
-RESPONSE_CONFLICT = 409
-RESPONSE_OK_CODE = 200
-RESPONSE_CREATED = 201
-RESPONSE_ACCEPTED_STATUS = 202
-RESPONSE_NO_CONTENT = 204
-RESPONSE_MULTI_STATUS = 207
-RESPONSE_INTERNAL_SERVER_ERROR = 500
-RESPONSE_NOT_IMPLEMENTED = 501
-RESPONSE_SERVICE_UNAVAILABLE_CODE = 503
-
 PARAM_USER_ID = 'user_id'
-PARAM_PASSWORD = 'password'
-PARAM_USER_DESCRIPTION = 'description'
 
 LINE_SEP = '/'
 REPO_DYNAMODB_ROOT = 'dynamodb'
-REPO_SSM_ROOT = 'ssm'
 REPO_S3_ROOT = 's3'
 
-REPO_CUSTOMERS_FOLDER = 'Customers'
-REPO_TENANTS_FOLDER = 'Tenants'
-REPO_RULE_META_FOLDER = 'Rules'
 REPO_ROLES_FOLDER = 'Roles'
 REPO_POLICIES_FOLDER = 'Policies'
-REPO_SECRETS_FOLDER = 'Secrets'
 REPO_SETTINGS_FOLDER = 'Settings'
 REPO_LICENSES_FOLDER = 'Licenses'
 REPO_SIEM_FOLDER = 'SIEMManager'
 
-REPO_CUSTOMERS_PATH = LINE_SEP.join(
-    (REPO_DYNAMODB_ROOT, REPO_CUSTOMERS_FOLDER))
-REPO_TENANTS_PATH = LINE_SEP.join((REPO_DYNAMODB_ROOT, REPO_TENANTS_FOLDER))
-REPO_RULE_META_PATH = LINE_SEP.join(
-    (REPO_DYNAMODB_ROOT, REPO_RULE_META_FOLDER))
 REPO_SETTINGS_PATH = LINE_SEP.join((REPO_DYNAMODB_ROOT, REPO_SETTINGS_FOLDER))
-REPO_SECRETS_PATH = LINE_SEP.join((REPO_SSM_ROOT, REPO_SECRETS_FOLDER))
 
 STATUS_READY_TO_SCAN = 'READY_TO_SCAN'
-STATUS_ASSEMBLING = 'ASSEMBLING'
-STATUS_FAILED_TO_ASSEMBLE = 'FAILED_TO_ASSEMBLE'
 
 BAD_REQUEST_IMPROPER_TYPES = 'Bad Request. The following parameters ' \
                              'don\'t adhere to the respective types: {0}'
@@ -72,7 +42,8 @@ BAD_REQUEST_MISSING_PARAMETERS = 'Bad Request. The following parameters ' \
 
 
 def build_response(content: Optional[Union[str, dict, list, Iterable]] = None,
-                   code: int = RESPONSE_OK_CODE, meta: Optional[dict] = None):
+                   code: int = HTTPStatus.OK.value,
+                   meta: Optional[dict] = None):
     context = _import_request_context()
     meta = meta or {}
     _body = {
@@ -101,7 +72,7 @@ def build_response(content: Optional[Union[str, dict, list, Iterable]] = None,
             },
             'isBase64Encoded': False,
             'multiValueHeaders': {},
-            'body': json.dumps(_body, sort_keys=True, separators=(",", ":"))
+            'body': json.dumps(_body, sort_keys=True, separators=(',', ':'))
         }
     raise CustodianException(
         code=code,
@@ -178,13 +149,9 @@ def validate_params(event, required_params_list):
 
     if missing_params_list:
         raise_error_response(
-            RESPONSE_BAD_REQUEST_CODE,
+            HTTPStatus.BAD_REQUEST.value,
             BAD_REQUEST_MISSING_PARAMETERS.format(missing_params_list)
         )
-
-
-def generate_password(size=8, chars=string.ascii_letters + string.digits):
-    return ''.join(secrets.choice(chars) for _ in range(size))
 
 
 def deep_update(source, overrides):
@@ -311,7 +278,8 @@ class HashableDict(dict):
         return hash(frozenset(self.items()))
 
 
-def hashable(item: Union[dict, list, str, float, int, type(None)]):
+def hashable(item: Union[dict, list, str, float, int, type(None)]
+             ) -> Hashable:
     """Makes hashable from the given item
         >>> d = {'q': [1,3,5, {'h': 34, 'c': ['1', '2']}], 'v': {1: [1,2,3]}}
         >>> d1 = {'v': {1: [1,2,3]}, 'q': [1,3,5, {'h': 34, 'c': ['1', '2']}]}
@@ -421,4 +389,37 @@ def coroutine(func):
         gen = func(*args, **kwargs)
         next(gen)
         return gen
+
     return start
+
+
+def nested_items(item: Union[dict, list, str, float, int, type(None)]
+                 ) -> Generator[Tuple[str, Any], None, bool]:
+    """
+    Recursively iterates over nested key-values
+    >>> d = {'key': 'value', 'key2': [{1: 2, 3: 4, 'k': 'v'}, {5: 6}, 1, 2, 3]}
+    >>> print(list(nested_items(d)))
+    [('key', 'value'), (1, 2), (3, 4), ('k', 'v'), (5, 6)]
+    :param item:
+    :return:
+    """
+    if isinstance(item, (str, float, int, type(None))):
+        return False  # means not iterated, because it's a leaf
+    # list or dict -> can be iterated over
+    if isinstance(item, dict):
+        for k, v in item.items():
+            # if iterated over nested, we don't need to yield it
+            if not (yield from nested_items(v)):
+                yield k, v
+    else:  # isinstance(item, list)
+        for i in item:
+            yield from nested_items(i)
+    return True
+
+
+def peek(iterable) -> Optional[Tuple[Any, chain]]:
+    try:
+        first = next(iterable)
+    except StopIteration:
+        return
+    return first, chain([first], iterable)

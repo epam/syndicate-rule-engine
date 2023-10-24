@@ -1,13 +1,13 @@
 import heapq
+import operator
+from http import HTTPStatus
 from itertools import chain
 from typing import Optional, List, Dict, Tuple, Set, Union, Generator
 
-from cachetools import cachedmethod, TTLCache
-from modular_sdk.commons.constants import \
-    TENANT_PARENT_MAP_CUSTODIAN_LICENSES_TYPE
+from modular_sdk.commons.constants import ParentType
 
-from helpers import build_response, RESPONSE_RESOURCE_NOT_FOUND_CODE, \
-    RESPONSE_INTERNAL_SERVER_ERROR, adjust_cloud
+import services.cache as cache
+from helpers import build_response, adjust_cloud
 from helpers.constants import (
     BATCH_ENV_DEFAULT_REPORTS_BUCKET_NAME, BATCH_ENV_AWS_REGION,
     BATCH_ENV_JOB_LIFETIME_MIN, BATCH_ENV_MIN_CUSTOM_CORE_VERSION,
@@ -76,10 +76,11 @@ class EventAssemblerHandler:
         self._raw_stats: Stats = {}  # account_id-region stats
         self._tenant_stats: TenantStats = {}
 
-        self._tenants_cache = TTLCache(maxsize=50, ttl=300)
-        self._licenses_cache = TTLCache(maxsize=50, ttl=900)
-        self._rulesets_cache = TTLCache(maxsize=50, ttl=900)
-        self._applications_cache = TTLCache(maxsize=50, ttl=900)
+        ttu = lambda k, v, now: now + 900
+        # this cache does not affect user directly, so we can put custom
+        # ttl that does not depend on env
+        self._licenses_cache = cache.factory(ttu=ttu)
+        self._rulesets_cache = cache.factory(ttu=ttu)
         self._reset()
 
     def _log_cache(self) -> None:
@@ -93,13 +94,13 @@ class EventAssemblerHandler:
         for attr in attrs:
             _LOG.debug(f'{attr}: {getattr(self, attr)}')
 
-    @cachedmethod(cache=lambda self: self._licenses_cache)
+    @cache.cachedmethod(operator.attrgetter('_licenses_cache'))
     def get_license(self, license_key: str) -> Optional[License]:
         item = self._license_service.get_license(license_key)
         if not self._license_service.is_expired(item):
             return item
 
-    @cachedmethod(cache=lambda self: self._rulesets_cache)
+    @cache.cachedmethod(operator.attrgetter('_rulesets_cache'))
     def get_ruleset(self, _id: str) -> Optional[Ruleset]:
         """
         Supposed to be used with licensed rule-sets.
@@ -124,7 +125,7 @@ class EventAssemblerHandler:
     def response(self):
         _unresolved = DEFAULT_UNRESOLVED_RESPONSE
         _def_code_map = {
-            RESPONSE_RESOURCE_NOT_FOUND_CODE: DEFAULT_NOT_FOUND_RESPONSE
+            HTTPStatus.NOT_FOUND: DEFAULT_NOT_FOUND_RESPONSE
         }
         _code, _content = self._code, self._content
         if not _content:
@@ -133,7 +134,7 @@ class EventAssemblerHandler:
         return build_response(code=_code, content=_content)
 
     def _reset(self):
-        self._code: Optional[int] = RESPONSE_INTERNAL_SERVER_ERROR
+        self._code: Optional[int] = HTTPStatus.INTERNAL_SERVER_ERROR
         self._content: Optional[str] = None
         self._raw_stats.clear()
         self._tenant_stats.clear()
@@ -145,7 +146,7 @@ class EventAssemblerHandler:
         allows event-driven for the given tenant is such a license exists
         """
         application = self._modular_service.get_tenant_application(
-            tenant, TENANT_PARENT_MAP_CUSTODIAN_LICENSES_TYPE
+            tenant, ParentType.CUSTODIAN_LICENSES
         )
         if not application:
             _LOG.info(f'Tenant {tenant} does not have custodian '
@@ -197,7 +198,7 @@ class EventAssemblerHandler:
         if not events:
             _LOG.info('No events have been collected.')
 
-            self._code = RESPONSE_RESOURCE_NOT_FOUND_CODE
+            self._code = HTTPStatus.NOT_FOUND
             return self.response
 
         start_event = events[0]
@@ -291,8 +292,7 @@ class EventAssemblerHandler:
         return self.response
 
     def handle_aws_vendor(self, cid_rg_rl_map: AccountRegionRuleMap
-                          ) -> Generator[
-        Tuple[Tenant, BatchResults], None, None]:
+                          ) -> Generator[Tuple[Tenant, BatchResults], None, None]:  # noqa
         """
         cid_rg_rl_map = {
             '12424123423': {
@@ -323,8 +323,7 @@ class EventAssemblerHandler:
             yield tenant, batch_result
 
     def handle_maestro_vendor(self, cl_tn_rg_rl_map: CloudTenantRegionRulesMap
-                              ) -> Generator[
-        Tuple[Tenant, BatchResults], None, None]:
+                              ) -> Generator[Tuple[Tenant, BatchResults], None, None]:  # noqa
         """
         Separate logic for maestro audit events
         {
@@ -402,7 +401,6 @@ class EventAssemblerHandler:
         result[AWS_VENDOR] = aws_proc.account_region_rule_map(it)
         return result
 
-    @cachedmethod(cache=lambda self: self._tenants_cache)
     def _obtain_tenant(self, name: str) -> Optional[Tenant]:
         _LOG.info(f'Going to retrieve Tenant by \'{name}\' name.')
         _head = f'Tenant:\'{name}\''
@@ -412,10 +410,10 @@ class EventAssemblerHandler:
             _tenant = None
         return _tenant
 
-    @cachedmethod(cache=lambda self: self._tenants_cache)
     def _obtain_tenant_by_acc(self, acc: str) -> Optional[Tenant]:
         _LOG.info(f'Going to retrieve Tenant by \'{acc}\' cloud id')
-        return next(self._modular_service.i_get_tenants_by_acc(acc, True), None)
+        return next(self._modular_service.i_get_tenants_by_acc(acc, True),
+                    None)
 
     def _obtain_tenant_based_region_rule_map(
             self, tenant: Tenant, region_rule_map: RegionRuleMap):

@@ -7,13 +7,13 @@ from itertools import chain
 from typing import Dict, List, Optional, Literal, Set, Union
 
 from pydantic import BaseModel as BaseModelPydantic, validator, constr, \
-    root_validator, AmqpDsn, AnyUrl
+    root_validator, AmqpDsn, AnyUrl, HttpUrl
 from pydantic.fields import Field
 from typing_extensions import TypedDict
-
-from helpers import Enum as CustomEnum
-from helpers.enums import HealthCheckStatus, ParentType
-from helpers.regions import AllRegions
+from modular_sdk.commons.constants import ParentScope
+from helpers.constants import HealthCheckStatus
+from helpers.enums import ParentType, RuleDomain
+from helpers.regions import AllRegions, AllRegionsWithMultiregional, AWSRegion
 from helpers.reports import Standard
 from helpers.time_helper import utc_datetime
 from services import SERVICE_PROVIDER
@@ -65,12 +65,36 @@ class BaseModel(BaseModelPydantic):
         extra = 'forbid'
 
 
+class PreparedEvent(BaseModel):
+    """
+    Prepared event historically contains both some request meta and incoming
+    body on one level.
+    You can inherit your models from this one and use them directly as type
+    annotations inside handlers (with validate_kwargs) decorator
+    """
+    class Config:
+        use_enum_values = True
+        extra = 'allow'
+
+    httpMethod: str  # GET, POST, ...
+    path: str  # without prefix (stage)
+    queryStringParameters: Optional[dict]
+    user_id: str  # cognito user id
+    user_role: str  # user role
+    user_customer: str  # customer of the user making the request
+    # customer of the user on whose behalf the request must be done.
+    # For standard users it's the same as user_customer
+    customer: Optional[str]
+    tenant: Optional[str]  # for some endpoints defined in restriction_service
+    tenants: Optional[List[str]]  # the same as one above
+
+    # other validators can inherit this model and contain body attributes
+
+
 # FYI: if you are to add a new model, name it according to the pattern:
 # "{YOU_NAME}Model". But all the middleware configurations must be
 # named without "Model" in the end. In case the class name contains
 # "Get", it will be considered as a model for GET request
-
-Cloud = CustomEnum.build('Cloud', ('AWS', 'AZURE', 'GCP'))
 
 
 class RegionState(str, Enum):
@@ -94,61 +118,10 @@ class CustomerGetModel(BaseModel):
     complete: Optional[bool] = False
 
 
-# class CustomerPatchModel(BaseModel):
-#     customer: Optional[str]
-#     inherit: bool
-
-
-# Tenant/License-Priority
-class GovernanceType(str, Enum):
-    ruleset = 'ruleset'
-
-
-class LicensePriorityGetModel(BaseModel):
-    governance_entity_type: GovernanceType
-    governance_entity_id: Optional[str]
-    tenant_name: Optional[str]
-    customer: Optional[str]
-    management_id: Optional[str]
-
-
-class LicensePriorityPostModel(BaseModel):
-    governance_entity_type: GovernanceType
-    governance_entity_id: str
-    tenant_name: Optional[str]
-    customer: Optional[str]
-    license_keys: List[str]
-    management_id: Optional[str]
-
-
-class LicensePriorityPatchModel(BaseModel):
-    governance_entity_type: GovernanceType
-    governance_entity_id: str
-    management_id: str
-    tenant_name: str
-    customer: Optional[str]
-    license_keys_to_prepend: Optional[List[str]]
-    license_keys_to_append: Optional[List[str]]
-    license_keys_to_detach: Optional[List[str]]
-
-
-class LicensePriorityDeleteModel(BaseModel):
-    tenant_name: str
-    governance_entity_type: GovernanceType
-    governance_entity_id: Optional[str]
-    management_id: Optional[str]
-    customer: Optional[str]
-
-
 # License
 class LicenseGetModel(BaseModel):
     license_key: Optional[str]
     customer: Optional[str]
-
-
-# class LicensePostModel(BaseModel):
-#     tenant_name: str
-#     tenant_license_key: str
 
 
 class LicenseDeleteModel(BaseModel):
@@ -160,10 +133,10 @@ class LicenseSyncPostModel(BaseModel):
     license_key: str
 
 
-class RulesetPostModel(BaseModel):
+class RulesetPostModel(PreparedEvent):
     name: str
     version: str
-    cloud: Literal['AWS', 'AZURE', 'GCP']
+    cloud: RuleDomain
     active: bool = True
     tenant_allowance: Optional[List] = []
     customer: Optional[str]
@@ -178,7 +151,7 @@ class RulesetPostModel(BaseModel):
     mitre: Set[str] = set()
     standard: Set[str] = set()
 
-    @root_validator(pre=False, skip_on_failure=True)
+    @root_validator(pre=False, skip_on_failure=True, allow_reuse=True)
     def validate_filters(cls, values: dict) -> dict:
         if values.get('git_ref') and not values.get('git_project_id'):
             raise ValueError('git_project_id must be specified with git_ref')
@@ -228,7 +201,7 @@ class RulesetPostModel(BaseModel):
         return values
 
 
-class RulesetPatchModel(BaseModel):
+class RulesetPatchModel(PreparedEvent):
     name: str
     version: str
     customer: Optional[str]
@@ -250,16 +223,16 @@ class RulesetPatchModel(BaseModel):
         return values
 
 
-class RulesetDeleteModel(BaseModel):
+class RulesetDeleteModel(PreparedEvent):
     name: str
     version: str
     customer: Optional[str]
 
 
-class RulesetGetModel(BaseModel):
+class RulesetGetModel(PreparedEvent):
     name: Optional[str]
     version: Optional[str]
-    cloud: Optional[Cloud]
+    cloud: Optional[RuleDomain]
     customer: Optional[str]
     get_rules: Optional[bool] = False
     active: Optional[bool]
@@ -277,17 +250,17 @@ class RulesetGetModel(BaseModel):
         return values
 
 
-class RulesetContentGetModel(BaseModel):
+class RulesetContentGetModel(PreparedEvent):
     name: str
     version: str
     customer: Optional[str]
 
 
 # Rules
-class RuleDeleteModel(BaseModel):
+class RuleDeleteModel(PreparedEvent):
     rule: Optional[str]
     customer: Optional[str]
-    cloud: Optional[Cloud]
+    cloud: Optional[RuleDomain]
     git_project_id: Optional[str]
     git_ref: Optional[str]
 
@@ -298,9 +271,9 @@ class RuleDeleteModel(BaseModel):
         return values
 
 
-class RuleGetModel(BaseModel):
+class RuleGetModel(PreparedEvent):
     rule: Optional[str]
-    cloud: Optional[Cloud]
+    cloud: Optional[RuleDomain]
     git_project_id: Optional[str]
     git_ref: Optional[str]
     customer: Optional[str]
@@ -493,25 +466,25 @@ class FindingsDeleteModel(BaseModel):
 class CredentialsManagerPostModel(BaseModel):
     cloud_identifier: str
     trusted_role_arn: str
-    cloud: Cloud
+    cloud: Literal['AWS', 'AZURE', 'GCP']
     enabled: bool = True
 
 
 class CredentialsManagerDeleteModel(BaseModel):
     cloud_identifier: str
-    cloud: Cloud
+    cloud: Literal['AWS', 'AZURE', 'GCP']
 
 
 class CredentialsManagerPatchModel(BaseModel):
     cloud_identifier: str
-    cloud: Cloud
+    cloud: Literal['AWS', 'AZURE', 'GCP']
     trusted_role_arn: Optional[str]
     enabled: Optional[bool]
 
 
 class CredentialsManagerGetModel(BaseModel):
     cloud_identifier: Optional[str]
-    cloud: Optional[Cloud]
+    cloud: Optional[Literal['AWS', 'AZURE', 'GCP']]
 
 
 # Role
@@ -555,7 +528,7 @@ class RoleCacheDeleteModel(BaseModel):
     name: Optional[str]
 
 
-PermissionType = constr(regex=r'^(\w+|\*):(\w+|\*)$')
+PermissionType = constr(regex=r'^([\w-]+|\*):([\w-]+|\*)$')
 
 
 # Policy
@@ -665,7 +638,7 @@ class JobPostModel(BaseModel):
     target_regions: Optional[Set[str]] = Field(default_factory=set)
     rules_to_scan: Optional[Set[str]] = Field(default_factory=set)
     # ruleset_license_priority: Optional[Dict[str, List[str]]]
-    check_permission: Optional[bool] = True
+    # check_permission: Optional[bool] = True
     customer: Optional[str]
 
 
@@ -735,9 +708,15 @@ class EventVendor(str, Enum):
 
 
 class EventPostModel(BaseModel):
-    version: Literal['1.0.0']
+    version: constr(strip_whitespace=True) = '1.0.0'
     vendor: EventVendor
     events: List[Dict]
+
+    @validator('version', pre=False)
+    def allowed_version(cls, value: str) -> str:
+        if value not in ('1.0.0',):
+            raise ValueError(f'Not allowed event version: {value}')
+        return value
 
 
 class UserPasswordResetPostModel(BaseModel):
@@ -879,42 +858,12 @@ class MailSettingPostModel(BaseModel):
     use_tls: bool = False
 
 
-# class SiemGetModel(BaseModel):
-#     tenant_name: Optional[str]
-#
-#
-# class SiemDojoPostModel(BaseModel):
-#     configuration: DojoConfiguration
-#     tenant_name: Optional[str]
-#     entities_mapping: Optional[EntitiesMapping] = {}
-#
-#
-# class SiemSecurityHubPostModel(BaseModel):
-#     configuration: SecurityHubConfiguration
-#     tenant_name: Optional[str]
-#
-#
-# class SiemDojoPatchModel(BaseModel):
-#     tenant_name: Optional[str]
-#     configuration: Optional[DojoConfigurationPatch]
-#     entities_mapping: Optional[EntitiesMapping] = {}
-#     clear_existing_mapping: Optional[bool] = False
-#
-#
-# class SiemSecurityHubPatchModel(BaseModel):
-#     tenant_name: Optional[str]
-#     configuration: SecurityHubConfigurationPatch
-#
-#
-# class SiemDeleteModel(BaseModel):
-#     tenant_name: Optional[str]
-
-
 class LicenseManagerConfigSettingPostModel(BaseModel):
     host: str
     port: Optional[int]
     protocol: Optional[Literal['HTTP', 'HTTPS']]
     stage: Optional[str]
+    api_version: Optional[str]
 
     @root_validator(pre=True)
     def _(cls, values: dict) -> dict:
@@ -996,6 +945,9 @@ class RuleReportFormat(str, Enum):
     xlsx = 'xlsx'
 
 
+RANGE_DAYS = 7
+
+
 class TimeRangedReportModel(BaseModel):
     """
     Base model which provides time-range constraint
@@ -1008,16 +960,16 @@ class TimeRangedReportModel(BaseModel):
         """
         :key values[end]: str, upper bound
         :key values[start]: str, lower bound
-        Enforces a constraint of 30 day range.
+        Enforces a constraint of 7 day range.
         """
         now = datetime.utcnow()
         end: Optional[datetime] = values.get('end_iso')
         start: Optional[datetime] = values.get('start_iso')
 
         if not start:
-            # Shifts by 30 days, by default.
+            # Shifts by RANGE_DAYS days, by default.
             start = get_day_captured_utc(
-                _from=end, shift=dict(days=30),
+                _from=end, shift=dict(days=RANGE_DAYS),
                 reset=dict(hour=0, minute=0, second=0, microsecond=0),
                 now=now
             )
@@ -1026,8 +978,8 @@ class TimeRangedReportModel(BaseModel):
 
         if not end:
             rem = (now - start).days
-            if rem > 30:
-                rem = 30
+            if rem > RANGE_DAYS:
+                rem = RANGE_DAYS
             # rem would not be < 0, due to assertion.
             end = get_day_captured_utc(
                 _from=start, _back=False, shift=dict(days=rem + 1),
@@ -1041,10 +993,10 @@ class TimeRangedReportModel(BaseModel):
             raise ValueError(
                 'Value of \'end_iso\' must be >= \'start_iso\' date.'
             )
-        elif values.get('end_iso') and (end - start).days > 30:
+        elif values.get('end_iso') and (end - start).days > RANGE_DAYS:
             raise ValueError(
                 'Range of days between \'start_iso\' and \'end_iso\' must '
-                'not overflow 30.'
+                f'not overflow {RANGE_DAYS}.'
             )
 
         values['end_iso'] = end
@@ -1154,22 +1106,22 @@ class ReportPushMultipleModel(TimeRangedReportModel):
     type: Optional[JobType]
 
 
-class EventDrivenRulesetGetModel(BaseModel):
-    cloud: Optional[Cloud]
+class EventDrivenRulesetGetModel(PreparedEvent):
+    cloud: Optional[RuleDomain]
     get_rules: Optional[bool] = False
 
 
-class EventDrivenRulesetPostModel(BaseModel):
+class EventDrivenRulesetPostModel(PreparedEvent):
     # name: str
-    cloud: Cloud
+    cloud: RuleDomain
     version: float
     rules: Optional[list] = []
     # rule_version: Optional[float]
 
 
-class EventDrivenRulesetDeleteModel(BaseModel):
+class EventDrivenRulesetDeleteModel(PreparedEvent):
     # name: str
-    cloud: Cloud
+    cloud: RuleDomain
     version: float
 
 
@@ -1267,7 +1219,7 @@ class DojoApplicationDeleteModel(BaseModel):
 class ApplicationPostModel(BaseModel):
     customer: Optional[str]
     description: Optional[str] = 'Custodian application'
-    cloud: Optional[Literal['AWS', 'AZURE', 'GOOGLE']]
+    cloud: Optional[RuleDomain]
     access_application_id: Optional[str]
     tenant_license_key: Optional[str]
 
@@ -1289,7 +1241,7 @@ class ApplicationPatchModel(BaseModel):
     application_id: str
     customer: Optional[str]
     description: Optional[str]
-    cloud: Optional[Literal['AWS', 'AZURE', 'GOOGLE']]
+    cloud: Optional[RuleDomain]
     access_application_id: Optional[str]
     tenant_license_key: Optional[str]
 
@@ -1321,34 +1273,29 @@ class ApplicationDeleteModel(BaseModel):
     customer: Optional[str]
 
 
-class ParentPostModel(BaseModel):
+class ParentPostModel(PreparedEvent):
     customer: Optional[str]
     application_id: str
     description: Optional[str] = 'Custodian parent'
-    clouds: Set[Literal['AWS', 'AZURE', 'GOOGLE']] = {}
-    scope: Optional[Literal['SPECIFIC_TENANT', 'ALL']]
+    cloud: Optional[Literal['AWS', 'AZURE', 'GOOGLE']]
+    scope: ParentScope
     rules_to_exclude: Set[str] = Field(default_factory=set)
     type: ParentType
+    tenant_name: Optional[str]
 
-    @root_validator()
+    @root_validator(pre=False)
     def _(cls, values: dict) -> dict:
-        if values['type'] == ParentType.CUSTODIAN_ACCESS.value:
-            return values
-        # if CUSTODIAN_TYPE, CUSTODIAN_LICENSES_TYPE, SIEM_DEFECT_DOJO_TYPE
-        # we require scope and clouds
-        if not values['clouds']:
-            raise ValueError('At least one cloud must be provided')
-        if not values['scope']:
-            raise ValueError('Scope must be provided')
+        if (values['scope'] != ParentScope.ALL and
+                not values.get('tenant_name')):
+            raise ValueError(f'tenant_name is required if scope '
+                             f'is {values["scope"]}')
         return values
 
 
-class ParentPatchModel(BaseModel):
+class ParentPatchModel(PreparedEvent):
     parent_id: str
     application_id: Optional[str]
     description: Optional[str]
-    clouds: Optional[Set[Literal['AWS', 'AZURE', 'GOOGLE']]]
-    scope: Optional[Literal['SPECIFIC_TENANT', 'ALL']]
     rules_to_exclude: Optional[Set[str]] = Field(default_factory=set)
     rules_to_include: Optional[Set[str]] = Field(default_factory=set)
     customer: Optional[str]
@@ -1376,36 +1323,27 @@ class ParentListModel(BaseModel):
     customer: Optional[str]
 
 
-class ParentTenantLinkDeleteModel(BaseModel):
-    tenant_name: Optional[str]
-    type: ParentType
-
-
-class ParentTenantLinkPostModel(BaseModel):
-    tenant_name: Optional[str]
-    parent_id: str
-    # type: ParentType
-
-
 class ProjectGetReportModel(BaseModel):
     tenant_display_names: str
-    type: Optional[str]
+    types: Optional[str]
     customer: Optional[str]
+    receivers: Optional[str]
 
 
 class OperationalGetReportModel(BaseModel):
     tenant_names: str
-    type: Optional[str]
+    types: Optional[str]
+    receivers: Optional[str]
     customer: Optional[str]
 
 
 class DepartmentGetReportModel(BaseModel):
-    type: Optional[str]
+    types: Optional[str]
     customer: Optional[str]
 
 
 class CLevelGetReportModel(BaseModel):
-    type: Optional[str]
+    types: Optional[str]
     customer: Optional[str]
 
 
@@ -1436,9 +1374,115 @@ class RabbitMQDeleteModel(BaseModel):
     customer: Optional[str]
 
 
+class ResourcesReportGet(BaseModel):
+    tenant_name: str
+    identifier: str
+    exact_match: bool = True
+    search_by: Optional[List[str]] = []
+    search_by_all: bool = False
+    resource_type: Optional[constr(to_lower=True,
+                                   strip_whitespace=True)]  # choice
+    region: Optional[AllRegionsWithMultiregional]
+
+    @validator('tenant_name')
+    def upper(cls, value: str) -> str:
+        return value.upper()
+
+    @validator('search_by', pre=True)
+    def to_list(cls, value: str) -> List[str]:
+        if not isinstance(value, str):
+            raise ValueError('search_by must be a string')
+        return value.lower().split(',')
+
+    @validator('region', pre=False)
+    def region_to_lover(cls, value: Optional[str]) -> str:
+        if value:
+            value = value.strip().lower()
+        return value
+
+    @root_validator(pre=False, skip_on_failure=True)
+    def root(cls, values: dict) -> dict:
+        search_by = values.get('search_by')
+        search_by_all = values.get('search_by_all')
+        if search_by_all and search_by:
+            raise ValueError('search_by must not be specified if '
+                             'search_by_all')
+        return values
+
+
+class ResourceReportJobsGet(TimeRangedReportModel, TenantReportGetModel):
+    identifier: str
+
+    exact_match: bool = True
+    search_by: Optional[List[str]] = []
+    search_by_all: bool = False
+    resource_type: Optional[str]  # choice
+    region: Optional[AllRegionsWithMultiregional]
+
+    @validator('tenant_name')
+    def upper(cls, value: str) -> str:
+        return value.upper()
+
+    @validator('search_by', pre=True)
+    def to_list(cls, value: str) -> List[str]:
+        if not isinstance(value, str):
+            raise ValueError('search_by must be a string')
+        return value.lower().split(',')
+
+
+class ResourceReportJobGet(JobReportGetModel):
+    identifier: str
+
+    exact_match: bool = True
+    search_by: Optional[List[str]] = []
+    search_by_all: bool = False
+    resource_type: Optional[str]  # choice
+    region: Optional[AllRegionsWithMultiregional]
+
+    @validator('search_by', pre=True)
+    def to_list(cls, value: str) -> List[str]:
+        if not isinstance(value, str):
+            raise ValueError('search_by must be a string')
+        return value.lower().split(',')
+
+
+class PlatformK8sNativePost(PreparedEvent):
+    tenant_name: str
+    name: str
+    endpoint: HttpUrl
+    certificate_authority: str  # base64 encoded
+    token: Optional[str]
+    description: Optional[str]
+
+
+class PlatformK8sEksPost(PreparedEvent):
+    tenant_name: str
+    name: str
+    region: AWSRegion
+    application_id: str
+    description: Optional[str]
+
+
+class PlatformK8sDelete(PreparedEvent):
+    id: str
+
+
+class PlatformK8sQuery(PreparedEvent):
+    tenant_name: Optional[str]
+
+
+class K8sJobPostModel(PreparedEvent):
+    """
+    K8s platform job
+    """
+    platform_id: str
+    target_rulesets: Optional[Set[str]] = Field(default_factory=set)
+    token: Optional[str]  # temp jwt token
+
+
 ALL_MODELS = set(
     obj for name, obj in getmembers(sys.modules[__name__])
-    if (name.endswith('Model') and isinstance(obj, type) and
+    if (not name.startswith('_') and isinstance(obj, type) and
         issubclass(obj, BaseModel))
 )
 ALL_MODELS.remove(BaseModel)

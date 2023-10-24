@@ -1,3 +1,4 @@
+from http import HTTPStatus
 from typing import List
 
 from handlers.abstracts.abstract_handler import AbstractHandler
@@ -7,8 +8,9 @@ from handlers.details_handler import JobsDetailsHandler, EntityDetailsHandler
 from handlers.digest_handler import JobsDigestHandler, EntityDigestHandler
 from handlers.errors_handler import JobsErrorsHandler, EntityErrorsHandler
 from handlers.push_handler import SiemPushHandler
+from handlers.resource_report_handler import ResourceReportHandler
 from handlers.rules_handler import JobsRulesHandler, EntityRulesHandler
-from helpers import build_response, RESPONSE_BAD_REQUEST_CODE
+from helpers import build_response
 from helpers.constants import ACTION_PARAM_ERROR, HTTP_METHOD_ERROR, \
     PARAM_REQUEST_PATH, PARAM_HTTP_METHOD
 from helpers.log_helper import get_logger
@@ -23,9 +25,6 @@ _LOG = get_logger('custodian-report-generator')
 
 class ReportGenerator(AbstractApiHandlerLambda):
 
-    def validate_request(self, event) -> dict:
-        """No request validation needed"""
-
     def __init__(self, handlers: List[AbstractHandler]):
         self.REQUEST_PATH_HANDLER_MAPPING = {}
         for handler in handlers:
@@ -39,7 +38,7 @@ class ReportGenerator(AbstractApiHandlerLambda):
         handler_functions = self.REQUEST_PATH_HANDLER_MAPPING.get(request_path)
         if not handler_functions:
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=ACTION_PARAM_ERROR.format(endpoint=request_path)
             )
         handler_func = handler_functions.get(method_name)
@@ -47,7 +46,7 @@ class ReportGenerator(AbstractApiHandlerLambda):
         if handler_func:
             response = handler_func(event=event)
         return response or build_response(
-            code=RESPONSE_BAD_REQUEST_CODE,
+            code=HTTPStatus.BAD_REQUEST,
             content=HTTP_METHOD_ERROR.format(
                 method=method_name, resource=request_path
             )
@@ -82,7 +81,8 @@ HANDLERS.extend(
             modular_service=SERVICE_PROVIDER.modular_service(),
             report_service=SERVICE_PROVIDER.report_service(),
             coverage_service=SERVICE_PROVIDER.coverage_service(),
-        )
+        ),
+        ResourceReportHandler.build()
     ]
 )
 
@@ -100,7 +100,3 @@ REPORT_GENERATOR = ReportGenerator(handlers=HANDLERS)
 
 def lambda_handler(event, context):
     return REPORT_GENERATOR.lambda_handler(event=event, context=context)
-
-
-def skip_auth(event, context):
-    return REPORT_GENERATOR.skip_auth(event=event, context=context)

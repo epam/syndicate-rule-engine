@@ -6,7 +6,7 @@ from c7ncli.group import cli_response, ViewCommand, response, ContextObj, \
     customer_option
 from c7ncli.group.application_access import access
 from c7ncli.group.application_dojo import dojo
-from c7ncli.service.constants import AWS, AZURE, GOOGLE
+from c7ncli.service.constants import RULE_CLOUDS
 
 
 @click.group(name='application')
@@ -19,7 +19,7 @@ def application():
 @click.option('--description', '-d', type=str,
               help='Application description')
 @click.option('--cloud', '-c', required=False,
-              type=click.Choice([AWS, AZURE, GOOGLE]),
+              type=click.Choice(RULE_CLOUDS),
               help='Cloud to activate the application for')
 @click.option('--cloud_application_id', '-caid', required=False, type=str,
               help='Application id containing creds to access the cloud')
@@ -50,7 +50,7 @@ def add(ctx: ContextObj, customer_id: Optional[str], **kwargs):
 @click.option('--description', '-d', type=str,
               help='Application description')
 @click.option('--cloud', '-c',
-              type=click.Choice([AWS, AZURE, GOOGLE]),
+              type=click.Choice(RULE_CLOUDS),
               help='Cloud to activate the application for')
 @click.option('--cloud_application_id', '-caid',
               type=str, help='Application id containing creds to '

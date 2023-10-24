@@ -4,7 +4,7 @@
   "func_name": "handler.lambda_handler",
   "resource_type": "lambda",
   "iam_role_name": "report-generation-handler-role",
-  "runtime": "python3.8",
+  "runtime": "python3.10",
   "memory": 512,
   "timeout": 300,
   "lambda_path": "/lambdas/custodian_report_generation_handler",
@@ -27,7 +27,8 @@
     "modular_assume_role_arn": "${modular_assume_role_arn}",
     "MODULAR_AWS_REGION": "${MODULAR_AWS_REGION}",
     "metrics_bucket_name": "${caas_metrics_bucket_name}",
-    "reports_bucket_name": "${reports-bucket}"
+    "reports_bucket_name": "${reports-bucket}",
+    "caas_rulesets_bucket": "${caas_rulesets_bucket}"
   },
   "publish_version": true,
   "alias": "${lambdas_alias_name}",

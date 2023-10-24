@@ -1,12 +1,13 @@
 import json
 import time
+from http import HTTPStatus
 from typing import Union, Optional, Any, TypedDict
 
 import bcrypt
 import jwt
 
 from connections.auth_extension.base_auth_client import BaseAuthClient
-from helpers import CustodianException, RESPONSE_UNAUTHORIZED
+from helpers import CustodianException
 from helpers.constants import EXP_ATTR, COGNITO_USERNAME, CUSTOM_ROLE_ATTR, \
     CUSTOM_TENANTS_ATTR, CUSTOM_CUSTOMER_ATTR, CUSTOM_LATEST_LOGIN_ATTR
 from helpers.log_helper import get_logger
@@ -39,7 +40,7 @@ class MongoAndSSMAuthClient(BaseAuthClient):
         if not jwt_secret:
             _LOG.error('Can not find jwt-secret')
             raise CustodianException(
-                code=RESPONSE_UNAUTHORIZED,
+                code=HTTPStatus.UNAUTHORIZED,
                 content=WRONG_USER_CREDENTIALS_MESSAGE)
         if isinstance(jwt_secret, dict):
             return jwt_secret
@@ -49,7 +50,7 @@ class MongoAndSSMAuthClient(BaseAuthClient):
         except json.JSONDecodeError:
             _LOG.error('Invalid jwt-secret format')
             raise CustodianException(
-                code=RESPONSE_UNAUTHORIZED,
+                code=HTTPStatus.UNAUTHORIZED,
                 content=WRONG_USER_CREDENTIALS_MESSAGE)
 
     def decode_token(self, token: str) -> dict:
@@ -62,12 +63,12 @@ class MongoAndSSMAuthClient(BaseAuthClient):
             )
         except jwt.exceptions.ExpiredSignatureError:
             raise CustodianException(
-                code=RESPONSE_UNAUTHORIZED,
+                code=HTTPStatus.UNAUTHORIZED,
                 content=TOKEN_EXPIRED_MESSAGE,
             )
         except jwt.exceptions.PyJWTError:
             raise CustodianException(
-                code=RESPONSE_UNAUTHORIZED,
+                code=HTTPStatus.UNAUTHORIZED,
                 content=UNAUTHORIZED_MESSAGE
             )
 
@@ -79,7 +80,7 @@ class MongoAndSSMAuthClient(BaseAuthClient):
                 password.encode(), user_item.password) != user_item.password:
             _LOG.error(WRONG_USER_CREDENTIALS_MESSAGE)
             raise CustodianException(
-                code=RESPONSE_UNAUTHORIZED,
+                code=HTTPStatus.UNAUTHORIZED,
                 content=WRONG_USER_CREDENTIALS_MESSAGE)
 
         jwt_secret = self._get_jwt_secret()

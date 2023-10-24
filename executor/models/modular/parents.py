@@ -1,5 +1,5 @@
 import dataclasses
-from typing import List, Literal, Dict
+from typing import List, Dict
 
 from modular_sdk.commons import DataclassBase
 from modular_sdk.models.parent import Parent
@@ -8,16 +8,7 @@ Parent = Parent
 
 
 @dataclasses.dataclass(frozen=True)
-class ScopeParentMeta(DataclassBase):
-    """
-    Common parent meta
-    """
-    scope: Literal['SPECIFIC_TENANT', 'ALL']
-    clouds: List[Literal['AWS', 'AZURE', 'GOOGLE']]
-
-
-@dataclasses.dataclass(frozen=True)
-class ParentMeta(ScopeParentMeta):
+class ParentMeta(DataclassBase):
     """
     Common meta
     """
@@ -25,7 +16,7 @@ class ParentMeta(ScopeParentMeta):
 
 
 @dataclasses.dataclass(frozen=True)
-class DefectDojoParentMeta(ScopeParentMeta):
+class DefectDojoParentMeta(DataclassBase):
     entities_mapping: Dict[str, str] = dataclasses.field(default_factory=dict)
     display_all_fields: bool = False
     upload_files: bool = False

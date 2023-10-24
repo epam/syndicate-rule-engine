@@ -1,9 +1,12 @@
 import json
 from datetime import datetime
+from http import HTTPStatus
 
-from helpers import build_response, RESPONSE_OK_CODE, \
+from services.gitlab_service import GitlabService
+
+from helpers import build_response, \
     LINE_SEP, REPO_S3_ROOT, REPO_DYNAMODB_ROOT, REPO_SETTINGS_FOLDER, \
-    RESPONSE_BAD_REQUEST_CODE, REPO_POLICIES_FOLDER, REPO_ROLES_FOLDER, \
+    REPO_POLICIES_FOLDER, REPO_ROLES_FOLDER, \
     CustodianException, REPO_LICENSES_FOLDER, REPO_SIEM_FOLDER
 from helpers.log_helper import get_logger
 from services import SERVICE_PROVIDER
@@ -11,7 +14,6 @@ from services.abstract_lambda import AbstractLambda
 from services.clients.kms import KMSClient
 from services.clients.s3 import S3Client
 from services.environment_service import EnvironmentService
-from services.gitlab_service import GitlabService
 from services.license_service import LicenseService
 from services.modular_service import ModularService
 from services.rbac.iam_cache_service import CachedIamService
@@ -148,7 +150,7 @@ class ConfigurationBackupper(AbstractLambda):
             'git_files_created': files_created,
             'ssm_params_created': ssm_params_backed_up
         }
-        return build_response(code=RESPONSE_OK_CODE, content=response_content)
+        return build_response(code=HTTPStatus.OK, content=response_content)
 
     def validate_request(self, event):
 
@@ -333,7 +335,7 @@ class ConfigurationBackupper(AbstractLambda):
                 content={"message": "Cannot backup SSM parameters because no "
                                     "model has the 'git_access_secret' and "
                                     "'credentials' fields"},
-                code=RESPONSE_BAD_REQUEST_CODE
+                code=HTTPStatus.BAD_REQUEST
             )
 
     @staticmethod
@@ -344,7 +346,7 @@ class ConfigurationBackupper(AbstractLambda):
         if not secret_name:
             build_response(
                 content=error_message,
-                code=RESPONSE_BAD_REQUEST_CODE
+                code=HTTPStatus.BAD_REQUEST
             )
 
     @staticmethod
@@ -358,7 +360,7 @@ class ConfigurationBackupper(AbstractLambda):
                             "provide keys and values"
             build_response(
                 content=error_message,
-                code=RESPONSE_BAD_REQUEST_CODE
+                code=HTTPStatus.BAD_REQUEST
             )
 
         for key in ["git_ref", "git_access_type", "git_url",
@@ -368,7 +370,7 @@ class ConfigurationBackupper(AbstractLambda):
                                 f"first - {_required_fields}"
                 build_response(
                     content=error_message,
-                    code=RESPONSE_BAD_REQUEST_CODE
+                    code=HTTPStatus.BAD_REQUEST
                 )
 
     @staticmethod

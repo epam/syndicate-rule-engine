@@ -1,11 +1,11 @@
 import click
 
-from c7ncli.service.helpers import validate_api_link
 from c7ncli.group import cli_response, ViewCommand, response, ContextObj
 from c7ncli.group.application import application
 from c7ncli.group.customer import customer
 from c7ncli.group.job import job
 from c7ncli.group.license import license
+from c7ncli.group.meta import meta
 from c7ncli.group.metrics import metrics
 from c7ncli.group.parent import parent
 from c7ncli.group.policy import policy
@@ -17,8 +17,9 @@ from c7ncli.group.ruleset import ruleset
 from c7ncli.group.rulesource import rulesource
 from c7ncli.group.setting import setting
 from c7ncli.group.tenant import tenant
-from c7ncli.group.trigger import trigger
+from c7ncli.group.platform import platform
 from c7ncli.group.user import user
+from c7ncli.service.helpers import validate_api_link
 from c7ncli.service.logger import get_logger
 from c7ncli.version import __version__
 
@@ -133,3 +134,5 @@ c7n.add_command(results)
 c7n.add_command(application)
 c7n.add_command(parent)
 c7n.add_command(metrics)
+c7n.add_command(meta)
+c7n.add_command(platform)

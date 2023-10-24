@@ -4,13 +4,164 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-# [4.10.0] - 2023-08-18 (hotfix)
+
+# [4.15.0] - 2023-10-16
+- removed a lot of not used code
+- use python built-in enums for HTTP methods and statuses instead of constants
+- added k8s scans support:
+  - `GET /platforms/k8s`: describe platforms
+  - `POST /platforms/k8s/eks`: add EKS platform
+  - `DELETE /platforms/k8s/eks/{id}`: delete EKS platform
+  - `POST /platforms/k8s/native`: add native platform
+  - `DELETE /platforms/k8s/native/{id}`: delete native platform
+- refactored a lot
+- moved to new parent scopes (modular-sdk 3.3.0+)
+
+# [4.14.2] - 2023-10-13
+* changed the logic for duplicating metrics for those tenants that have not been scanned for a week+ - 
+now duplicated only once per week
+
+# [4.14.1] - 2023-10-12
+* added a new field to the model of each report, which will display a list of tenants with outdated data
+
+# [4.14.0] - 2023-10-09
+- moved to python3.10
+- updated dependencies versions:
+  - pymongo: `3.12.0` -> `4.5.0`
+  - requests `2.25.1` -> `2.31.0`
+  - pycryptodome `3.15.0` -> `3.19.0`
+  - modular-sdk `2.2.6` -> `3.2.0`
+  - PyJWT `2.3.0` -> `2.8.0`
+  - bcrypt `3.2.0` -> `4.0.1`
+  - hvac `0.11.0` -> `0.11.2`
+  - typing-extensions `4.5.0` -> `4.8.0`
+  - APScheduler `3.9.1` -> `3.10.4`
+- removed dependecies
+  - importlib-metadata
+  - importlib-resources
+  - requests-toolbelt
+  - tabulate
+  - pytablereader
+  - zzip
+- removed not used lambdas: `caas-jobs-backupper`, `caas-notification-handler
+- add env `INNER_CACHE_TTL_SECONDS` which controls inner cache
+
+
+# [4.13.7] - 2023-10-05
+* fixed invalid data format for finops metrics after difference calculation
+
+# [4.13.6] - 2023-10-05
+* fixed invalid time range when calculating weekly scan statistics
+
+# [4.13.5] - 2023-10-04
+* fixed bug when google accounts were not being added to MITRE high-level reports
+* fixed bug when empty service section in FinOps metrics was skipped
+
+# [4.13.4] - 2023-10-04
+* updated `modular-sdk` version to `2.2.6a0`
+* fixed bug when `end_date` is string not datetime at the `tenant_groups` metrics stage
+
+# [4.13.3] - 2023-10-03
+* fixed metrics difference calculation for finops project report
+
+# [4.13.2] - 2023-09-28
+* added optional `recievers` parameter for the following endpoints:
+  * `/reports/operational GET`
+  * `/reports/project GET`
+* changed type of `types` parameter from list to str for the following endpoints:
+  * `/reports/operational GET`
+  * `/reports/project GET`
+  * `/reports/department GET`
+  * `/reports/clevel GET`
+
+# [4.13.1] - 2023-09-28
+* Fixed a bug where failed event-driven scans were skipped when aggregating metrics and collecting weekly scan statistics 
+
+# [4.13.0] - 2023-09-28
+* added finops metrics for operational and project reports
+* removed optional `type` parameter for the following endpoints:
+  * `/reports/operational GET`
+  * `/reports/project GET`
+  * `/reports/department GET`
+  * `/reports/clevel GET`
+* added optional `types` parameter of list type for the following endpoints:
+  * `/reports/operational GET`
+  * `/reports/project GET`
+  * `/reports/department GET`
+  * `/reports/clevel GET`
+
+# [4.12.7] - 2023-09-25
+* fixed a bug when resources in the event-driven report were displayed on one line instead of several
+* make cloud not required in rule-meta model, add platform
+
+# [4.12.6] - 2023-09-22
+* added new field with rule description to operational MITRE report
+
+# [4.12.5] - 2023-09-21
+* refactored metrics aggregation sequence and moved department metrics aggregation to a separate step. The new 
+sequence provides the same data source for the department and chief levels:
+  * Old sequence: operational(tenant) -> project(tenant_group) + department level + mitre, compliance chief level) -> overview chief level -> difference
+  * New sequence: operational(tenant) -> project(tenant_group) -> top(department + chief level) -> difference
+* The summation of weekly statistics on the number of scans has been moved from the project level to the operational level.
+
+# [4.12.4] - 2023-09-21
+* added tenant job lock to allow only one job per tenant in a certain moment
+
+# [4.12.3] - 2023-09-15
+* fixed copying of findings files to a folder with a new date if the files are already there
+* severity deduplication moved to the `helpers/utils.py`
+* look up resources by only top-level attributes
+
+# [4.12.2] - 2023-09-13
+* fixed metrics for tenants that were not scanned for current week and do not remove resources severity from overview type
+* reset attack customer variable for each customer
+
+# [4.12.1] - 2023-09-12
+* fixed collecting metrics for a specific date
+* fix retrieving the latest findings for metrics
+
+# [4.12.0] - 2023-09-05
+* added `GET /reports/resources/tenants/{tenant_name}/state/latest` endpoint to
+  allow to retrieve specific resource report
+* added `GET /reports/resources/tenants/{tenant_name}/jobs` endpoint to 
+  retrieve a list of the latest jobs where the resource was found
+* added `GET /reports/resources/jobs/{id}` endpoint
+* added rules_to_scan validation
+
+# [4.11.2] - 2023-09-05
+* fix querying tenants by its account number only for google tenants
+
+# [4.11.1] - 2023-09-01
+* refactor `customer_metrics_processor`, move common code to the metrics service
+* add ability to query tenants by its account number (NOT project id)
+
+# [4.11.0] - 2023-09-01
+* added `POST /rule-meta/standards`, `POST /rule-meta/meta`, `POST /rule-meta/mappings`;
+* fix accumulated reports;
+
+# [4.10.2] - 2023-08-31
+* reduce items limit for batch_save() method and catch PutError when saving department and c-level metrics
+* change the `report_type` field in metrics to more human-readable names
+* add `service` field to policy metadata
+* fix Internal in case user does not exist when you try to change its tenants
+
+# [4.10.1] - 2023-08-28
+* fix bug that occurs when selecting tenants for an event-driven report 
+* resources in overview reports are now saved with the highest severity level
+* fix resources number for tenant_metrics_updater. Refactor and optimize tenant_metrics_updater
+
+# [4.10.0] - 2023-08-23 (hotfix)
 * change the interface for interacting with the Tenants table when generating event-driven report
 (from customer-index to query)
 * remove duplicates from operational and project OVERVIEW report when splitting resources by 
 severity and by resource_type
 * fix monthly metrics storage path from current month to next month (so the metrics for recreating 
 reports from 01-08 to 01-09 will be stored in 01-09 folder and will be overwritten only in August)
+* return the nearest found findings in case today's do not exist
+* fix a bug with caas-job-updater when it did not send status to LM
+* add an ability to specify LM api version
+* add a missing changelog
+* fix permissions POST validator
 
 # [4.9.4] - 2023-08-15
 * fix `last_scan_date` comparison in c-level OVERVIEW report

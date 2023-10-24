@@ -51,19 +51,6 @@ class JobUpdater(AbstractLambda):
         self.batch_result_service = batch_results_service
         self.modular_service = modular_service
 
-    def validate_request(self, event) -> dict:
-        errors = {}
-        if event.get('source') != 'aws.batch':
-            errors['source'] = 'Only \'aws.batch\' events supported'
-        detail = event.get('detail')
-        if not detail:
-            errors['detail'] = 'Attribute \'detail\' is required'
-        else:
-            if not detail.get(PARAM_NATIVE_JOB_ID):
-                errors[f'detail.{PARAM_NATIVE_JOB_ID}'] = \
-                    f'Attribute \'detail.{PARAM_NATIVE_JOB_ID}\' is required'
-        return errors
-
     def _update_job_in_lm(self, job: Union[str, Job], detail: dict) -> int:
         """
         Updates the job in License Manager. Returns alteration's status code.
@@ -118,12 +105,6 @@ class JobUpdater(AbstractLambda):
                 actions.append(
                     Job.stopped_at.set(self.timestamp_to_iso(detail[PARAM_STOPPED_AT]))
                 )
-            if self.is_licensed_job(environment):
-                code = self._update_job_in_lm(job=job_item, detail=detail)
-                if code == 404:
-                    _LOG.warning(
-                        f'No jobs with id \'{job_id}\' found on license '
-                        f'manager side.')
         if not job_item.job_queue:
             actions.append(
                 Job.job_queue.set(detail['jobQueue'])
@@ -148,6 +129,13 @@ class JobUpdater(AbstractLambda):
         if detail['status'] in (PARAM_FAILED, PARAM_SUCCEEDED):
             self._delete_temporary_credentials(detail=detail)
         job_item.update(actions)
+
+        if detail.get(PARAM_STOPPED_AT) and self.is_licensed_job(environment):
+            code = self._update_job_in_lm(job=job_item, detail=detail)
+            if code == 404:
+                _LOG.warning(
+                    f'No jobs with id \'{job_id}\' found on license '
+                    f'manager side.')
         _LOG.info('Processing has finished')
 
     def process_event_driven_job(self, job_id: str, detail: dict,

@@ -1,4 +1,5 @@
-__version__ = '4.9.3'
+__version__ = '4.15.0'
+
 import sys
 from distutils.version import LooseVersion
 
@@ -11,7 +12,8 @@ def check_version_compatibility(api_version):
     api_version = LooseVersion(api_version)
     if cli_version > api_version:
         print(f'Consider that you C7N CLI version {cli_version} is '
-              f'higher than the API version {api_version}')
+              f'higher than the API version {api_version}',
+              file=sys.stderr)
         return
     if cli_version.version[0] < api_version.version[0]:  # Major
         print(f'CLI Major version {cli_version} is lower than '
@@ -21,4 +23,5 @@ def check_version_compatibility(api_version):
     if cli_version.version[1] < api_version.version[1]:  # Minor
         print(f'CLI Minor version {cli_version} is lower than the '
               f'API version {api_version}. Some features may not '
-              f'work. Consider updating the C7N CLI')
+              f'work. Consider updating the C7N CLI',
+              file=sys.stderr)

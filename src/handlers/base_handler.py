@@ -1,14 +1,15 @@
+from abc import abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from http import HTTPStatus
 from json import dumps
 from sys import getsizeof
 from typing import List, Optional, Union, Callable, Dict, Any, Tuple
 
-from helpers.constants import MANUAL_TYPE_ATTR
-from models.modular.tenants import Tenant
+from modular_sdk.models.tenant import Tenant
 
 from handlers.abstracts.abstract_handler import AbstractHandler
-from helpers import build_response, RESPONSE_INTERNAL_SERVER_ERROR, \
-    RESPONSE_RESOURCE_NOT_FOUND_CODE, RESPONSE_BAD_REQUEST_CODE
+from helpers import build_response
+from helpers.constants import MANUAL_TYPE_ATTR
 from helpers.log_helper import get_logger
 from services.ambiguous_job_service import AmbiguousJobService
 from services.batch_results_service import BatchResults
@@ -16,7 +17,6 @@ from services.job_service import Job, JOB_SUCCEEDED_STATUS
 from services.modular_service import ModularService
 from services.report_service import \
     ReportService
-from abc import abstractmethod
 
 RESPONSE_SIZE_LIMIT = 6291456
 ITEM_SIZE_RESPONSE = 'Item size is too large, please use \'href\' parameter.'
@@ -24,10 +24,6 @@ DEFAULT_UNRESOLVABLE_RESPONSE = 'Request has run into an unresolvable issue.'
 
 REACTIVE_TYPE_ATTR = 'reactive'
 ID_ATTR = 'id'
-
-# Sort attributes.
-REACTIVE_SORT_KEY_ATTR = 'registration_start'
-MANUAL_SORT_KEY_ATTR = 'submitted_at'
 
 _LOG = get_logger(__name__)
 
@@ -73,7 +69,7 @@ class BaseReportHandler(AbstractHandler):
             if size > RESPONSE_SIZE_LIMIT:
                 _response = None
                 _LOG.warning(f'Response size of {size} bytes is too large.')
-                _code = RESPONSE_BAD_REQUEST_CODE
+                _code = HTTPStatus.BAD_REQUEST
                 _content = ITEM_SIZE_RESPONSE
 
         _LOG.info(f'Going to respond with the following '
@@ -82,24 +78,19 @@ class BaseReportHandler(AbstractHandler):
         return _response or build_response(code=_code, content=_content)
 
     @property
-    def _source_report_derivation_function(self) -> Optional[
-        SourceReportDerivation
-    ]:
-        return ...
-
-    @property
     def _entity_sourced_report_derivation_function(self) -> Optional[
         EntitySourcedReportDerivation
     ]:
         return ...
 
     def _reset(self):
-        self._code: Optional[int] = RESPONSE_INTERNAL_SERVER_ERROR
+        self._code: Optional[int] = HTTPStatus.INTERNAL_SERVER_ERROR
         self._content: Optional[str] = DEFAULT_UNRESOLVABLE_RESPONSE
 
     def _attain_source(self, uid: str, typ: Optional[str] = None,
                        customer: Optional[str] = None,
-                       tenants: Optional[List[str]] = None) -> Optional[Source]:
+                       tenants: Optional[List[str]] = None) -> Optional[
+        Source]:
         """
         Mediates report job source attainment, based on the requested,
         previously verified `typ` attribute.
@@ -158,7 +149,7 @@ class BaseReportHandler(AbstractHandler):
             entity = None
 
         if not entity:
-            self._code = RESPONSE_RESOURCE_NOT_FOUND_CODE
+            self._code = HTTPStatus.NOT_FOUND
             self._content = _default_404
 
         return entity
@@ -196,7 +187,7 @@ class BaseReportHandler(AbstractHandler):
             entity = None
 
         if not entity:
-            self._code = RESPONSE_RESOURCE_NOT_FOUND_CODE
+            self._code = HTTPStatus.NOT_FOUND
             self._content = _default_404
 
         return entity
@@ -225,7 +216,7 @@ class BaseReportHandler(AbstractHandler):
             entity = None
 
         if not entity:
-            self._code = RESPONSE_RESOURCE_NOT_FOUND_CODE
+            self._code = HTTPStatus.NOT_FOUND
             self._content = _default_404
 
         return entity

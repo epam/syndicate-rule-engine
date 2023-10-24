@@ -3,12 +3,12 @@ from typing import Optional
 
 from modular_sdk.models.application import Application
 
-from helpers.constants import AWS, AZURE, GOOGLE
+from helpers.constants import AWS, AZURE, GOOGLE, KUBERNETES
 
 Application = Application
 
-ALLOWED_CLOUDS = set(map(str.lower, (AWS, AZURE, GOOGLE))) | \
-                 {AWS, AZURE, GOOGLE}
+ALLOWED_CLOUDS = set(map(str.lower, (AWS, AZURE, GOOGLE, KUBERNETES))) | \
+                 {AWS, AZURE, GOOGLE, KUBERNETES}
 
 
 # use dataclass instead of pydantic in order not to add Pydantic to docker's
@@ -21,9 +21,11 @@ class CustodianLicensesApplicationMeta:
     awsAid: Optional[str] = None
     azureAid: Optional[str] = None
     googleAid: Optional[str] = None
+    kubernetesAid: Optional[str] = None
     awsLk: Optional[str] = None
     azureLk: Optional[str] = None
     googleLk: Optional[str] = None
+    kubernetesLk: Optional[str] = None
 
     @classmethod
     def from_dict(cls, dct: dict) -> 'CustodianLicensesApplicationMeta':

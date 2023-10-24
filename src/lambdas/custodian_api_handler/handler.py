@@ -1,18 +1,16 @@
 from functools import cached_property
+from http import HTTPStatus
 from typing import List, Type
 
 from modular_sdk.commons.error_helper import RESPONSE_SERVICE_UNAVAILABLE_CODE
 
 from helpers import (
-    raise_error_response, RESPONSE_BAD_REQUEST_CODE, validate_params,
-    build_response, PARAM_USER_ID, RESPONSE_OK_CODE, RESPONSE_CREATED,
-    RESPONSE_INTERNAL_SERVER_ERROR, RESPONSE_RESOURCE_NOT_FOUND_CODE,
-    CustodianException,
+    raise_error_response, validate_params,
+    build_response, PARAM_USER_ID, CustodianException,
     batches, KeepValueGenerator)
 from helpers.__version__ import __version__
 from helpers.constants import PARAM_HTTP_METHOD, PARAM_REQUEST_PATH, \
-    USER_CUSTOMER_ATTR, \
-    DELETE_METHOD, POST_METHOD
+    USER_CUSTOMER_ATTR, HTTPMethod
 from helpers.log_helper import get_logger
 from helpers.system_customer import SYSTEM_CUSTOMER
 from lambdas.custodian_api_handler.handlers import AbstractHandler, Mapping
@@ -60,10 +58,6 @@ UNABLE_TO_START_SCAN_ERROR_MESSAGE = \
 
 class ApiHandler(AbstractApiHandlerLambda):
 
-    def validate_request(self, event) -> dict:
-        """No request validation needed."""
-        pass
-
     def __init__(self, batch_client, modular_service,
                  environment_service, user_service,
                  cached_iam_service, settings_service,
@@ -97,19 +91,19 @@ class ApiHandler(AbstractApiHandlerLambda):
         # todo use only additional handlers
         res = {
             '/users': {
-                DELETE_METHOD: self.user_delete
+                HTTPMethod.DELETE: self.user_delete
             },
             '/users/password-reset': {
-                POST_METHOD: self.user_reset_password
+                HTTPMethod.POST: self.user_reset_password
             },
             '/signup': {
-                POST_METHOD: self.signup_action
+                HTTPMethod.POST: self.signup_action
             },
             '/signin': {
-                POST_METHOD: self.signin_action
+                HTTPMethod.POST: self.signin_action
             },
             '/event': {
-                POST_METHOD: self.event_action
+                HTTPMethod.POST: self.event_action
             }
         }
         for handler in self.additional_handlers:
@@ -124,12 +118,12 @@ class ApiHandler(AbstractApiHandlerLambda):
         handler_functions = self.mapping.get(request_path)
         if not handler_functions:
             raise_error_response(
-                RESPONSE_BAD_REQUEST_CODE,
+                HTTPStatus.BAD_REQUEST,
                 ACTION_PARAM_ERROR.format(endpoint=request_path))
         handler_func = handler_functions.get(method_name)
         if not handler_func:
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=HTTP_METHOD_ERROR.format(method=method_name,
                                                  resource=request_path))
         return handler_func(event=event)
@@ -142,25 +136,25 @@ class ApiHandler(AbstractApiHandlerLambda):
         role = event.get(PARAM_ROLE)
         if not all([username, password, customer, role]):
             raise CustodianException(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content='You must specify all required parameters: username, '
                         'password, customer, role.')
         tenants = event.get(PARAM_TENANTS)
         if not self.modular_service.get_customer(customer):
             raise CustodianException(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=f'Invalid customer: {customer}')
         _LOG.debug(f'Customer \'{customer}\' exists')
         if not self.cached_iam_service.get_role(customer, role):
             raise CustodianException(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=f'Invalid role name: {role}')
         _LOG.debug(f'Role \'{role}\' exists')
         _LOG.info(f'Saving user: {username}:{customer}')
         self.user_service.save(username=username, password=password,
                                customer=customer, role=role, tenants=tenants)
         return build_response(
-            code=RESPONSE_CREATED,
+            code=HTTPStatus.CREATED,
             content={PARAM_USERNAME: username, PARAM_CUSTOMER: customer,
                      PARAM_ROLE: role, PARAM_TENANTS: tenants})
 
@@ -169,7 +163,7 @@ class ApiHandler(AbstractApiHandlerLambda):
         password = event.get(PARAM_PASSWORD)
         if not username or not password:
             raise CustodianException(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content='You must specify both username and password')
 
         _LOG.info('Going to initiate the authentication flow')
@@ -178,7 +172,7 @@ class ApiHandler(AbstractApiHandlerLambda):
             password=password)
         if not auth_result:
             raise CustodianException(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content='Incorrect username and/or password')
 
         _state = "contains" if auth_result.get(
@@ -195,7 +189,7 @@ class ApiHandler(AbstractApiHandlerLambda):
         id_token = auth_result['AuthenticationResult']['IdToken']
 
         return build_response(
-            code=RESPONSE_OK_CODE,
+            code=HTTPStatus.OK,
             content={'id_token': id_token, 'refresh_token': refresh_token,
                      'api_version': __version__})
 
@@ -210,7 +204,7 @@ class ApiHandler(AbstractApiHandlerLambda):
             user_id = _target_user_id
         if not self.user_service.is_user_exists(user_id):
             return build_response(f'User \'{user_id}\' does not exist',
-                                  code=RESPONSE_RESOURCE_NOT_FOUND_CODE)
+                                  code=HTTPStatus.NOT_FOUND)
         self.user_service.admin_delete_user(user_id)
         return build_response(content=f'User \'{user_id}\' has been deleted')
 
@@ -223,7 +217,7 @@ class ApiHandler(AbstractApiHandlerLambda):
             user_id = event.get(PARAM_USERNAME)
         if not self.user_service.is_user_exists(user_id):
             return build_response(f'User \'{user_id}\' does not exist',
-                                  code=RESPONSE_RESOURCE_NOT_FOUND_CODE)
+                                  code=HTTPStatus.NOT_FOUND)
         self.user_service.set_password(user_id, event[PARAM_PASSWORD])
         return build_response(content=f'Password was reset for '
                                       f'user \'{user_id}\'')
@@ -248,7 +242,7 @@ class ApiHandler(AbstractApiHandlerLambda):
         self.event_service.batch_save(entities)
 
         return build_response(
-            code=RESPONSE_CREATED, content={
+            code=HTTPStatus.CREATED, content={
                 'received': n_received,
                 'saved': gen.value
             }
@@ -289,7 +283,7 @@ class ApiHandler(AbstractApiHandlerLambda):
             _LOG.error('Invalid configuration. Last job definition is empty, '
                        'cannot update job definition.')
             return build_response(
-                code=RESPONSE_INTERNAL_SERVER_ERROR,
+                code=HTTPStatus.INTERNAL_SERVER_ERROR,
                 content=UNABLE_TO_START_SCAN_ERROR_MESSAGE.format(ccc_version))
         last_job_def = last_job_def[0]
         image_url = self._get_image_url(version=ccc_version)
@@ -307,7 +301,7 @@ class ApiHandler(AbstractApiHandlerLambda):
         if not image_folder_url:
             _LOG.error('Missing property \'image_folder_url\'')
             return build_response(
-                code=RESPONSE_INTERNAL_SERVER_ERROR,
+                code=HTTPStatus.INTERNAL_SERVER_ERROR,
                 content=UNABLE_TO_START_SCAN_ERROR_MESSAGE.format(version))
 
         image_url = f'{image_folder_url}:{version}'
@@ -319,7 +313,7 @@ class ApiHandler(AbstractApiHandlerLambda):
             _LOG.error(f'Image with URL {image_url} does not exist. Unable '
                        f'to update job definition.')
             return build_response(
-                code=RESPONSE_INTERNAL_SERVER_ERROR,
+                code=HTTPStatus.INTERNAL_SERVER_ERROR,
                 content=UNABLE_TO_START_SCAN_ERROR_MESSAGE.format(version))
         return image_url
 
@@ -370,7 +364,3 @@ API_HANDLER = ApiHandler(
 
 def lambda_handler(event, context):
     return API_HANDLER.lambda_handler(event=event, context=context)
-
-
-def skip_auth(event, context):
-    return API_HANDLER.skip_auth(event=event, context=context)

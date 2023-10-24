@@ -1,4 +1,5 @@
 import os
+from http import HTTPStatus
 from typing import Optional
 
 from apscheduler.jobstores.base import ConflictingIdError, JobLookupError
@@ -10,14 +11,13 @@ from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.util import datetime_to_utc_timestamp
 from bson.binary import Binary
 from modular_sdk.models.pynamodb_extension.base_model import build_mongodb_uri
-from models.modular.tenants import Tenant
+from modular_sdk.models.tenant import Tenant
 from pymongo import ASCENDING, MongoClient
 from pymongo.collection import Collection
 from pymongo.errors import DuplicateKeyError
 
 from connections.batch_extension.base_job_client import SUBPROCESS_HANDLER
-from helpers import build_response, RESPONSE_BAD_REQUEST_CODE, \
-    RESPONSE_RESOURCE_NOT_FOUND_CODE
+from helpers import build_response
 from helpers.constants import BATCH_ENV_SCHEDULED_JOB_NAME
 from helpers.constants import CUSTODIAN_TYPE, SCHEDULED_JOB_TYPE
 from helpers.constants import ENV_MONGODB_DATABASE, ENV_MONGODB_USER, \
@@ -193,7 +193,7 @@ class APJobScheduler(AbstractJobScheduler):
             _LOG.warning(f'User has sent invalid schedule '
                          f'expression: \'{schedule}\'')
             return build_response(
-                code=RESPONSE_BAD_REQUEST_CODE,
+                code=HTTPStatus.BAD_REQUEST,
                 content=f'Schedule expression validation error: {error}')
 
     def register_job(self, tenant: Tenant, schedule: str,
@@ -235,7 +235,7 @@ class APJobScheduler(AbstractJobScheduler):
         if not job:
             _LOG.warning(f'Job with id \'{_id}\' was not found')
             return build_response(
-                code=RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                code=HTTPStatus.NOT_FOUND,
                 content=f'Cannot find rule for scheduled job \'{_id}\'. '
                         f'Recreate the job')
         # first update item in DB and second scheduler item. Not vice versa

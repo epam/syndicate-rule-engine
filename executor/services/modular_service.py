@@ -1,23 +1,19 @@
 from functools import cached_property
 from typing import Union, Callable, Optional, Dict, Set, Iterator
 
-from modular_sdk.commons.constants import TENANT_PARENT_MAP_CUSTODIAN_TYPE, \
-    TENANT_PARENT_MAP_CUSTODIAN_LICENSES_TYPE, \
-    TENANT_PARENT_MAP_SIEM_DEFECT_DOJO_TYPE, \
-    TENANT_PARENT_MAP_CUSTODIAN_ACCESS_TYPE
+from modular_sdk.commons.constants import ParentType
+from modular_sdk.models.customer import Customer
+from modular_sdk.models.tenant import Tenant
+from modular_sdk.models.tenant_settings import TenantSettings
 from pynamodb.expressions.condition import Condition
 
 from helpers.constants import CUSTODIAN_TYPE, \
-    TENANT_ENTITY_TYPE, ALL, SCOPE_ATTR, CLOUDS_ATTR
+    TENANT_ENTITY_TYPE
 from helpers.constants import STEP_GET_TENANT
 from helpers.exception import ExecutorException
 from helpers.log_helper import get_logger
 from models.modular.application import Application
-from models.modular.customer import Customer
 from models.modular.parents import Parent
-from models.modular.parents import ScopeParentMeta
-from models.modular.tenant_settings import TenantSettings
-from models.modular.tenants import Tenant
 from services.clients.modular import ModularClient
 from services.environment_service import EnvironmentService
 
@@ -125,40 +121,6 @@ class ModularService:
             tenant=name, complement_type=complemented_type
         )
 
-    def get_tenant_parent(self, tenant: Tenant,
-                          _type: str) -> Optional[Parent]:
-        """
-        Returns parent that is linked to the tenant
-        :param _type:
-        :param tenant:
-        :return:
-        """
-        # not using `ALLOWED_TENANT_PARENT_MAP_KEYS` to restrict more
-        assert _type in [TENANT_PARENT_MAP_SIEM_DEFECT_DOJO_TYPE,
-                         TENANT_PARENT_MAP_CUSTODIAN_TYPE,
-                         TENANT_PARENT_MAP_CUSTODIAN_LICENSES_TYPE,
-                         TENANT_PARENT_MAP_CUSTODIAN_ACCESS_TYPE], \
-            'Not available parent type'
-        parent_id = tenant.get_parent_id(_type)
-        if not parent_id:
-            _LOG.info(f'Tenant does not have specific "{_type}" parent. '
-                      f'Going from another side...')
-            return next(self.get_customer_bound_parents(
-                customer=tenant.customer_name,
-                parent_type=_type,
-                is_deleted=False,
-                meta_conditions=(Parent.meta[SCOPE_ATTR] == ALL) & Parent.meta[CLOUDS_ATTR].contains(tenant.cloud),
-                limit=1
-            ), None)  # hopefully there is only one. It must be one
-        # parent_id exists
-        _LOG.info(f'Tenant contains {_type} parent')
-        parent = self.get_parent(parent_id)
-        if parent and not parent.is_deleted:
-            meta = ScopeParentMeta.from_dict(parent.meta.as_dict())
-            if meta.clouds and tenant.cloud not in meta.clouds:
-                return
-            return parent  # meta.scope == SPECIFIC_TENANT_SCOPE or ALL_SCOPE
-
     def get_parent_application(self, parent: Parent) -> Optional[Application]:
         if not parent.application_id:
             return
@@ -167,14 +129,15 @@ class ModularService:
             return
         return application
 
-    def get_tenant_application(self, tenant: Tenant, _type: str) -> Optional[Application]:
+    def get_tenant_application(self, tenant: Tenant, _type: ParentType
+                               ) -> Optional[Application]:
         """
         Resolved application from tenant
         :param tenant:
         :param _type: parent type, not tenant type
         :return:
         """
-        parent = self.get_tenant_parent(tenant, _type)
+        parent = self.modular_client.parent_service().get_linked_parent_by_tenant(tenant, _type)  # noqa
         if not parent:
             return
         return self.get_parent_application(parent)

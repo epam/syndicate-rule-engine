@@ -2,6 +2,7 @@ import base64
 import gzip
 import json
 from datetime import datetime
+from http import HTTPStatus
 from itertools import chain
 from typing import Optional, List, Dict, Union, Iterator, Generator, \
     Iterable, Tuple, Any, Set, Callable, TypedDict
@@ -11,11 +12,11 @@ from modular_sdk.models.pynamodb_extension.pynamodb_to_pymongo_adapter import \
 from pydantic import BaseModel, Field, validator, root_validator
 from pynamodb.expressions.condition import Condition
 
-from helpers import RESPONSE_SERVICE_UNAVAILABLE_CODE, build_response, \
-    adjust_cloud, Enum
-from helpers.constants import COMPOUND_KEYS_SEPARATOR, AWS_CLOUD_ATTR, \
-    AZURE_CLOUD_ATTR, GCP_CLOUD_ATTR, KUBERNETES_CLOUD_ATTR, ID_ATTR, \
-    NAME_ATTR, VERSION_ATTR, FILTERS_ATTR, LOCATION_ATTR, CLOUD_ATTR
+from helpers import build_response, adjust_cloud
+from helpers.constants import COMPOUND_KEYS_SEPARATOR, ID_ATTR, NAME_ATTR, \
+    VERSION_ATTR, FILTERS_ATTR, LOCATION_ATTR, CLOUD_ATTR, \
+    COMMENT_ATTR
+from helpers.enums import RuleDomain
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_iso
 from models.rule import Rule
@@ -27,10 +28,6 @@ from services.setting_service import SettingsService
 
 _LOG = get_logger(__name__)
 
-RuleMetaCloud = Enum.build('RuleMetaCloud', (
-    AWS_CLOUD_ATTR, AZURE_CLOUD_ATTR, GCP_CLOUD_ATTR, KUBERNETES_CLOUD_ATTR
-))
-
 
 class RuleMetaModel(BaseModel):
     class Config:
@@ -40,7 +37,8 @@ class RuleMetaModel(BaseModel):
 
     name: str
     version: str
-    cloud: RuleMetaCloud
+    cloud: Optional[str]  # AWS, AZURE, GCP,  currently not important for us
+    platform: Optional[List[str]] = []  # Kubernetes, as well not so important
     source: str  # "EPAM"
     service: Optional[str]
     category: Optional[str]
@@ -67,9 +65,25 @@ class RuleMetaModel(BaseModel):
 
     @root_validator(pre=False)
     def validate_multiregional(cls, values: dict) -> dict:
-        if values['cloud'] != AWS_CLOUD_ATTR:
+        if values['cloud'] != RuleDomain.AWS.value:
             values['multiregional'] = True
         return values
+
+    def get_domain(self) -> Optional[RuleDomain]:
+        """
+        Returns the value which represents the Custom Core domain
+        (adapter or plugin) which this rule uses. In case it's a cloud, it's
+        kept in cloud attribute. In case it's platform, it's kept in platform
+        attribute, though from Core's prospective they are the same
+        :return:
+        """
+        if self.cloud:
+            try:
+                return RuleDomain[self.cloud]
+            except KeyError:
+                return
+        elif 'Kubernetes' in self.platform:
+            return RuleDomain.KUBERNETES
 
 
 class RuleModel(BaseModel):
@@ -81,6 +95,7 @@ class RuleModel(BaseModel):
     resource: str
     description: str
     filters: List[Dict]
+    comment: Optional[str]  # index
 
 
 class RuleName:
@@ -138,25 +153,20 @@ class RuleName:
         return self._resolved[1]
 
     @property
-    def cloud(self) -> Optional[str]:
+    def cloud(self) -> Optional[RuleDomain]:
         """
-        Returns cloud name which will be set to Rule's ID. The same cloud
-        which is present in rule's metadata.
-        For example: when self.cloud_raw returns 'aws', this method returns
-        'AWS', because cloud_raw is just a lowercase value from rule name
-        whereas 'AWS' is cloud name from rule's metadata.
-        This method is probably a temp solution.
+        Tries to resolve cloud from rule name
         :return:
         """
         _raw = self.cloud_raw
         if _raw == 'aws':
-            return AWS_CLOUD_ATTR
+            return RuleDomain.AWS
         if _raw == 'azure':
-            return AZURE_CLOUD_ATTR
+            return RuleDomain.AZURE
         if _raw == 'gcp':
-            return GCP_CLOUD_ATTR
+            return RuleDomain.GCP
         if _raw == 'k8s':
-            return KUBERNETES_CLOUD_ATTR
+            return RuleDomain.KUBERNETES
 
     @property
     def number(self) -> Optional[str]:
@@ -169,6 +179,92 @@ class RuleName:
     @property
     def raw(self) -> str:
         return self._raw
+
+
+class RuleNamesResolver:
+    Payload = Tuple[str, bool]
+
+    def __init__(self, resolve_from: List[str],
+                 allow_multiple: Optional[bool] = False,
+                 allow_ambiguous: Optional[bool] = False):
+        """
+        :param allow_multiple: whether to allow to resolve multiple rules
+        from one provided name (in case the name is ambiguous)
+        :param allow_ambiguous: whether to allow to yield an ambiguous rule
+        in case allow_multiple is False. See description below
+        :param resolve_from: list of rules to resolve from
+        """
+        if allow_ambiguous and allow_multiple:
+            raise AssertionError('If allow_multiple is True, '
+                                 'allow_ambiguous must not be provided')
+        self._available_ids = resolve_from
+        self._allow_multiple = allow_multiple
+        self._allow_ambiguous = allow_ambiguous
+
+    def resolve_one_name(self, name: str) -> Generator[Payload, None, None]:
+        resolved = set()
+        for sample in self._available_ids:
+            if name not in sample:
+                continue
+            resolved.add(sample)
+            if self._allow_ambiguous and not self._allow_multiple:
+                # allow ambiguous means that even if the provided name
+                # to resolve is too fuzzy and can be interpreted as
+                # multiple different rules, we anyway resolve the first
+                # similar. If allow_ambiguous is False, we resolve the
+                # name only if it represents only one rule without doubt.
+                break
+        if not resolved:
+            _LOG.warning(f'Could not resolve any rule from: {name}')
+            yield name, False
+            return
+        # resolved rules exist
+        if self._allow_multiple:
+            _LOG.debug(f'Multiple rules from one name are allowed. '
+                       f'Resolving all from {name}')
+            for rule in resolved:
+                yield rule, True
+            return
+        # multiple not allowed. But something is resolved.
+        # Either one ambiguous or just one certain. Anyway yielding
+        if len(resolved) == 1:
+            _LOG.debug(f'One rule resolved from {name}')
+            yield resolved.pop(), True
+            return
+        # multiple not allowed
+        _LOG.warning(f'Cannot certainly resolve name: {name}')
+        yield name, False
+
+    def resolve_multiple_names(self, names: Iterable[str]
+                               ) -> Generator[Payload, None, None]:
+        """
+        Yields tuples there the first element is either resolved or not
+        resolved rule name. If it's not resolved, the same value as came
+        will be returned (no exceptions or etc.). The second element of the
+        tuple if boolean pointing whether the rule name was resolved or not:
+            003 -> (vendor-aws-003-valid, True)
+            vendor-aws-qwert-invalid -> (vendor-aws-qwert-invalid, False)
+
+        Some info:
+        names of rules we work with adhere to such a format (fully lowercase):
+        "[vendor]-[cloud]-[number]-[human name]". These names are used in
+        rule repositories.
+        :param names: list or names to resolve
+        :return:
+        """
+        for name in names:
+            yield from self.resolve_one_name(name)
+
+    def resolved_names(self, names: Iterable[str]
+                       ) -> Generator[str, None, None]:
+        """
+        Ignores whether the rule was resolved or not. Just tries to do it
+        :param names:
+        :return:
+        """
+        yield from (
+            name for name, _ in self.resolve_multiple_names(names)
+        )
 
 
 class RuleService(BaseDataService[Rule]):
@@ -194,7 +290,7 @@ class RuleService(BaseDataService[Rule]):
         if name and not cloud:
             _LOG.warning('Cloud was not provided but name was. '
                          'Trying to resolve cloud from name')
-            cloud = RuleName(name).cloud
+            cloud = RuleName(name).cloud.value
         if name and not cloud or version and not name:
             raise AssertionError('Invalid usage')
 
@@ -233,6 +329,7 @@ class RuleService(BaseDataService[Rule]):
     def create(self, customer: str, name: str, resource: str, description: str,
                cloud: Optional[str] = None,
                filters: Optional[List[Dict]] = None,
+               comment: Optional[str] = None,
                version: Optional[str] = None,
                path: Optional[str] = None,
                ref: Optional[str] = None,
@@ -248,6 +345,7 @@ class RuleService(BaseDataService[Rule]):
             resource=resource,
             description=description,
             filters=filters,
+            comment=comment,
             location=self.gen_location(git_project, ref, path),
             commit_hash=commit_hash,
             updated_date=updated_date,
@@ -282,7 +380,7 @@ class RuleService(BaseDataService[Rule]):
             # custom behaviour for this method if cloud not given
             _LOG.warning('Cloud was not provided but name was. '
                          'Trying to resolve cloud from name')
-            cloud = RuleName(name).cloud
+            cloud = RuleName(name).cloud.value
             if not cloud:
                 return Result(iter([]))
         sort_key = self.gen_rule_id(customer, cloud, name, version)
@@ -326,7 +424,7 @@ class RuleService(BaseDataService[Rule]):
         if not cloud:
             _LOG.warning('Cloud was not given to get_fuzzy_by. '
                          'Trying to resolve from name')
-            cloud = RuleName(name_prefix).cloud
+            cloud = RuleName(name_prefix).cloud.value
             if not cloud:
                 return Result(iter([]))
         sort_key = f'{customer}{COMPOUND_KEYS_SEPARATOR}{cloud}' \
@@ -391,6 +489,7 @@ class RuleService(BaseDataService[Rule]):
         dct.pop(ID_ATTR, None)
         dct.pop(FILTERS_ATTR, None)
         dct.pop(LOCATION_ATTR, None)
+        dct.pop(COMMENT_ATTR, None)
         dct[NAME_ATTR] = item.name
         dct[CLOUD_ATTR] = item.cloud
         if item.version:
@@ -486,78 +585,23 @@ class RuleService(BaseDataService[Rule]):
         )
 
     def resolve_names_from_map(self, names: Union[List[str], Set[str]],
-                               clouds: Set[str] = None,
+                               clouds: Set[RuleDomain] = None,
                                allow_multiple: Optional[bool] = False,
                                allow_ambiguous: Optional[bool] = False
                                ) -> Generator[Tuple[str, bool], None, None]:
         """
-        Yields tuples there the first element is either resolved or not
-        resolved rule name. If it's not resolved, the same value as came
-        will be returned (no exceptions or etc.). The second element of the
-        tuple if boolean pointing whether the rule name was resolved or not:
-            003 -> (vendor-aws-003-valid, True)
-            vendor-aws-qwert-invalid -> (vendor-aws-qwert-invalid, False)
-
-        Some info:
-        names of rules we work with adhere to such a format (fully lowercase):
-        "[vendor]-[cloud]-[number]-[human name]". These names are used in
-        rule repositories.
-        :param names: list or names to resolve
-        :param clouds: list of clouds to resolve the rules from.
-        If not provided, all the available clouds are used
-        :param allow_multiple: whether to allow to resolve multiple rules
-        from one provided name (in case the name is ambiguous)
-        :param allow_ambiguous: whether to allow to yield an ambiguous rule
-        in case allow_multiple is False. See description below
-        :return:
+        Resolves rules using mappings from meta
         """
-        if allow_ambiguous and allow_multiple:
-            raise AssertionError('If allow_multiple is True, '
-                                 'allow_ambiguous must not be provided')
-        clouds = clouds or {AWS_CLOUD_ATTR, AZURE_CLOUD_ATTR, GCP_CLOUD_ATTR}
-        # + KUBERNETES_CLOUD_ATTR
-        col = self._mappings_collector
-        if not col.cloud_rules:
-            _LOG.warning('Cloud to rules mapping is not available. '
-                         'Proxying not resolved rules')
-            for name in names:
-                yield name, False
-            return
-        available_ids = lambda: chain.from_iterable(
-            col.cloud_rules.get(cloud) or [] for cloud in clouds
+        clouds = clouds or set(RuleDomain.iter())
+        cloud_rules = self._mappings_collector.cloud_rules or {}
+        resolver = RuleNamesResolver(
+            resolve_from=list(chain.from_iterable(
+                cloud_rules.get(str(cloud)) or [] for cloud in clouds
+            )),
+            allow_ambiguous=allow_ambiguous,
+            allow_multiple=allow_multiple
         )
-        for name in names:
-            resolved = set()
-            for sample in available_ids():
-                if name not in sample:
-                    continue
-                resolved.add(sample)
-                if allow_ambiguous and not allow_multiple:
-                    # allow ambiguous means that even if the provided name
-                    # to resolve is too fuzzy and can be interpreted as
-                    # multiple different rules, we anyway resolve the first
-                    # similar. If allow_ambiguous is False, we resolve the
-                    # name only if it represents only one rule without doubt.
-                    break
-            if not resolved:
-                _LOG.warning(f'Could not resolve any rule from: {name}')
-                yield name, False
-                continue
-            # resolved rules exist
-            if allow_multiple:
-                _LOG.debug(f'Multiple rules resolved from {name}')
-                for rule in resolved:
-                    yield rule, True
-                continue
-            # multiple not allowed. But something is resolved.
-            # Either one ambiguous or just one certain. Anyway yielding
-            if len(resolved) == 1:
-                _LOG.debug(f'One rule resolved from {name}')
-                yield resolved.pop(), True
-                continue
-            # multiple not allowed
-            _LOG.warning(f'Cannot certainly resolve name: {name}')
-            yield name, False
+        yield from resolver.resolve_multiple_names(names)
 
     def resolved_names(self, *args, **kwargs) -> Generator[str, None, None]:
         """
@@ -634,6 +678,7 @@ class HumanData(TypedDict):
     impact: str
     report_fields: List[str]
     remediation: str
+    multiregional: bool
 
 
 class MappingsCollector:
@@ -645,6 +690,8 @@ class MappingsCollector:
     StandardType = Dict[str, Dict]  # rule to standards map
     MitreType = Dict[str, Dict]  # rule to mitre map
     ServiceSectionType = Dict[str, str]  # rule to service section
+    ServiceType = Dict[str, str]  # rule to service section
+    CategoryType = Dict[str, str]  # rule to category
     CloudRulesType = Dict[str, Set[str]]  # cloud to rules
     Events = Dict[str, Dict[str, List[str]]]
     HumanDataType = Dict[str, HumanData]
@@ -661,6 +708,8 @@ class MappingsCollector:
         self._service_section = {}
         self._cloud_rules = {}
         self._human_data = {}
+        self._category = {}
+        self._service = {}
 
         self._aws_standards_coverage = {}
         self._azure_standards_coverage = {}
@@ -673,27 +722,35 @@ class MappingsCollector:
         self._compressor = compressor
 
     def event_map(self, cloud: str) -> Optional[dict]:
-        if cloud == AWS_CLOUD_ATTR:
+        if cloud == RuleDomain.AWS:
             return self._aws_events
-        if cloud == AZURE_CLOUD_ATTR:
+        if cloud == RuleDomain.AZURE:
             return self._azure_events
-        if cloud == GCP_CLOUD_ATTR:
+        if cloud == RuleDomain.GCP:
             return self._google_events
 
     def add_meta(self, meta: RuleMetaModel):
         self._severity[meta.name] = meta.severity
         self._mitre[meta.name] = meta.mitre
         self._service_section[meta.name] = meta.service_section
+        self._category[meta.name] = meta.category
+        self._service[meta.name] = meta.service
         self._standard[meta.name] = meta.standard
-        self._cloud_rules.setdefault(meta.cloud, []).append(meta.name)
+        domain = meta.get_domain()
+        if domain:
+            self._cloud_rules.setdefault(domain, []).append(meta.name)
+        if meta.cloud:
+            self._cloud_rules.setdefault(meta.cloud, []).append(meta.name)
         self._human_data[meta.name] = {
             'article': meta.article,
             'impact': meta.impact,
             'report_fields': meta.report_fields,
-            'remediation': meta.remediation
+            'remediation': meta.remediation,
+            'multiregional': meta.multiregional,
+            'service': meta.service
         }
 
-        _map = self.event_map(meta.cloud)
+        _map = self.event_map(domain)
         if isinstance(_map, dict):
             for source, names in meta.events.items():
                 _map.setdefault(source, {})
@@ -759,6 +816,22 @@ class MappingsCollector:
     @human_data.setter
     def human_data(self, value: HumanDataType):
         self._human_data = value
+
+    @property
+    def service(self) -> ServiceType:
+        return self._service
+
+    @service.setter
+    def service(self, value: ServiceType):
+        self._service = value
+
+    @property
+    def category(self) -> CategoryType:
+        return self._category
+
+    @category.setter
+    def category(self, value: CategoryType):
+        self._category = value
 
     @property
     def aws_standards_coverage(self) -> dict:
@@ -842,7 +915,7 @@ class LazyLoadedMappingsCollector:
     @staticmethod
     def abort(domain: str = 'mapping'):
         return build_response(
-            code=RESPONSE_SERVICE_UNAVAILABLE_CODE,
+            code=HTTPStatus.SERVICE_UNAVAILABLE,
             content=f'Cannot access {domain} data'
         )
 
@@ -885,6 +958,16 @@ class LazyLoadedMappingsCollector:
         return getattr(self._collector, name, {}) or {}
 
     _load = _load_s3
+
+    @property
+    def category(self) -> dict:
+        return self._load('category',
+                          self._s3_settings_service.rules_to_category)
+
+    @property
+    def service(self) -> dict:
+        return self._load('service',
+                          self._s3_settings_service.rules_to_service)
 
     @property
     def severity(self) -> dict:
@@ -997,6 +1080,7 @@ class RuleMetaService(BaseDataService[RuleMeta]):
                last_evaluated_key: Optional[dict] = None,
                filter_condition: Optional[Condition] = None,
                attributes_to_get: Optional[list] = None) -> Iterator[RuleMeta]:
+        assert False, 'Currently not allowed. Mappings must be used'
         rkc = None
         if version:
             rkc = self.model_class.version.startswith(version)

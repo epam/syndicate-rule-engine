@@ -1,8 +1,7 @@
 import json
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Optional
-from typing import Union, Set
+from typing import Dict, List, Optional, Union, Set, TypeVar
 
 from helpers import filter_dict, hashable
 from helpers.log_helper import get_logger
@@ -16,13 +15,15 @@ DIGEST_REPORT_FILE = 'report.json'
 STATISTICS_FILE = 'statistics.json'
 API_CALLS_FILE = 'api_calls.json'
 
-KEYS_TO_EXCLUDE_FOR_USER = {'standard_points',}
+KEYS_TO_EXCLUDE_FOR_USER = {'standard_points', }
 
 Coverage = Dict[str, Dict[str, float]]
 
 # Failed rule types.
 ACCESS_TYPE = 'access'
 CORE_TYPE = 'core'
+
+T = TypeVar('T')
 
 
 @dataclass
@@ -160,7 +161,7 @@ class FindingsCollection:
         return result
 
     def json(self) -> str:
-        return json.dumps(self.serialize())
+        return json.dumps(self.serialize(), separators=(',', ':'))
 
     def update(self, other: 'FindingsCollection') -> None:
         self._data.update(other._data)
@@ -264,3 +265,22 @@ class Standard:
         if return_strings:
             return {standard.full_name for standard in result}
         return result
+
+
+def keep_highest(*args: Set[T]):
+    """
+    >>> a, b, c = {0,1,2,3}, {2,3,4}, {1, 2, 3, 4, 5}
+    >>> keep_highest(a, b, c)
+    >>> a, b, c
+    ({0}, {}, {1,2,3,4,5})
+    """
+    _last = len(args) - 1
+    for i in range(_last):
+        cur: set = args[i]
+        for j in range(i + 1, _last + 1):
+            ne: set = args[j]
+            to_remove = []
+            for item in cur:
+                if item in ne:
+                    to_remove.append(item)
+            cur.difference_update(to_remove)

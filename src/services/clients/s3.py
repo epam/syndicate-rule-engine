@@ -280,7 +280,8 @@ class S3Client:
 
     def list_objects(self, bucket_name: str, prefix: Optional[str] = None,
                      max_keys: Optional[int] = None,
-                     delimiter: Optional[str] = None
+                     delimiter: Optional[str] = None,
+                     start_after: Optional[str] = None,
                      ) -> Generator[ObjectMetadata, None, None]:
         params = dict(Bucket=bucket_name)
         if max_keys:
@@ -289,9 +290,13 @@ class S3Client:
             params.update(Prefix=prefix)
         if delimiter:
             params.update(Delimiter=delimiter)
+        if start_after:
+            params.update(StartAfter=start_after)
         is_truncated = True
         while is_truncated:
+            _LOG.debug('Making list_objects_v2 request')
             response = self.client.list_objects_v2(**params)
+            params.pop('StartAfter', None)
             yield from response.get('Contents') or []
             limit = params.get('MaxKeys')
             n_returned = len(response.get('Contents') or [])
@@ -348,7 +353,8 @@ class S3Client:
     def list_dir(self, bucket_name: str,
                  key: Optional[str] = None,
                  max_keys: Optional[int] = None,
-                 delimiter: Optional[str] = None
+                 delimiter: Optional[str] = None,
+                 start_after: Optional[str] = None
                  ) -> Generator[str, None, None]:
         """
         Yields just keys
@@ -356,13 +362,15 @@ class S3Client:
         :param bucket_name:
         :param key:
         :param delimiter:
+        :param start_after:
         :return:
         """
         yield from (obj['Key'] for obj in self.list_objects(
             bucket_name=bucket_name,
             prefix=key,
             max_keys=max_keys,
-            delimiter=delimiter
+            delimiter=delimiter,
+            start_after=start_after
         ))
 
     @staticmethod

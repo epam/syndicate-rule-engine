@@ -1,4 +1,4 @@
-FROM public.ecr.aws/docker/library/python:3.8 as executor-compile-image
+FROM public.ecr.aws/docker/library/python:3.10 as executor-compile-image
 
 # default values expect that user have cloned core to the Custodian's
 # root and execute build with build context pointing to Custodian's root:
@@ -9,7 +9,7 @@ ARG custodian=.
 ARG core=custodian-custom-core
 # ARG mcdm=maestro-common-domain-model
 # it's not enough to just add a provider here, you must copy its files below
-ARG providers="gcp azure"
+ARG providers="gcp azure kube"
 
 ARG POETRY_VERSION="1.4.0"
 # to import c7n_azure.resources.insights.DiagnosticSettings
@@ -27,7 +27,8 @@ RUN . /root/.local/bin/activate && poetry install --no-interaction --without dev
 # Core's providers
 COPY $core/tools/c7n_gcp/pyproject.toml $core/tools/c7n_gcp/poetry.lock tools/c7n_gcp/
 COPY $core/tools/c7n_azure/pyproject.toml $core/tools/c7n_azure/poetry.lock tools/c7n_azure/
-# COPY $core/tools/c7n_azure/pyproject.toml tools/c7n_azure/
+COPY $core/tools/c7n_kube/pyproject.toml $core/tools/c7n_kube/poetry.lock tools/c7n_kube/
+
 RUN for pkg in $providers; do . /root/.local/bin/activate && cd tools/c7n_$pkg && poetry install --no-interaction --without dev --no-root && cd ../..; done
 
 # executor requirements
@@ -45,6 +46,7 @@ RUN . /root/.local/bin/activate && pip install --no-deps .
 
 COPY $core/tools/c7n_gcp tools/c7n_gcp/
 COPY $core/tools/c7n_azure tools/c7n_azure/
+COPY $core/tools/c7n_kube tools/c7n_kube/
 RUN for pkg in $providers; do . /root/.local/bin/activate && cd tools/c7n_$pkg && pip install --no-deps . && cd ../..; done
 
 
@@ -52,11 +54,10 @@ RUN for pkg in $providers; do . /root/.local/bin/activate && cd tools/c7n_$pkg &
 # RUN . /root/.local/bin/activate && pip install ../mcdm_sdk
 
 COPY $custodian/executor ../executor
-RUN . /root/.local/bin/activate && python ../executor/helpers/resource_map_generator.py
 # by here we have executor built in /root/.local
 
-# 3.8-alpine works as well
-FROM public.ecr.aws/docker/library/python:3.8-slim AS build-image
+# 3.10-alpine works as well
+FROM public.ecr.aws/docker/library/python:3.10-slim AS build-image
 
 COPY --from=executor-compile-image /root/.local /root/.local
 COPY --from=executor-compile-image /build/executor /executor
