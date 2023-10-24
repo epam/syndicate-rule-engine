@@ -204,13 +204,6 @@ class EnvironmentService:
     def is_docker(self) -> bool:
         return self._environment.get(ENV_SERVICE_MODE) == DOCKER_SERVICE_MODE
 
-    def not_invoke_ruleset_compiler(self) -> bool:
-        """In case we want to enable DynamoDB streams like it used to be"""
-        from_env = self._environment.get('not_invoke_ruleset_compiler')
-        if not from_env:
-            return False
-        return str(from_env).lower() in ENV_TRUE
-
     def event_bridge_service_role(self):
         return self._environment.get(
             'event_bridge_service_role_to_invoke_batch')
