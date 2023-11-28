@@ -37,5 +37,5 @@ python-dotenv==1.0.0
 dacite==1.8.1
 et-xmlfile==1.1.0
 openpyxl==3.0.10
-cryptography==3.4.7
+cryptography==41.0.6
 modular-sdk==3.3.2
