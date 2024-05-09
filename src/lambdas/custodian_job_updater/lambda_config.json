@@ -8,6 +8,7 @@
   "memory": 128,
   "timeout": 100,
   "lambda_path": "/lambdas/custodian_job_updater",
+  "logs_expiration": "${logs_expiration}",
   "dependencies": [
     {
       "resource_name": "caas-job-state-update",
@@ -38,5 +39,8 @@
   ],
   "layers": [
     "custodian_common_dependencies_layer"
+  ],
+  "platforms": [
+    "manylinux2014_x86_64"
   ]
 }

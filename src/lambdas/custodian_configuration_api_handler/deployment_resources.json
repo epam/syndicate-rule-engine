@@ -21,6 +21,8 @@
             "cognito-idp:ListUsers",
             "cognito-idp:AdminUpdateUserAttributes",
             "cognito-idp:AdminDeleteUserAttributes",
+            "cognito-idp:AdminDeleteUser",
+            "cognito-idp:AdminGetUser",
             "ssm:PutParameter",
             "ssm:DeleteParameter",
             "sts:AssumeRole"
@@ -40,6 +42,15 @@
             "arn:aws:lambda:${region}:${account_id}:function:caas-configuration-backupper:${lambdas_alias_name}",
             "arn:aws:lambda:${region}:${account_id}:function:caas-license-updater:${lambdas_alias_name}"
           ]
+        },
+        {
+            "Action": [
+                "states:StartExecution"
+            ],
+            "Effect": "Allow",
+            "Resource": [
+                "arn:aws:states:${region}:${account_id}:stateMachine:retry_send_reports"
+            ]
         }
       ]
     }

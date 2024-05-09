@@ -1,24 +1,23 @@
+import copy
 import heapq
 from datetime import datetime, date
 from functools import cmp_to_key
-from typing import List
 
 from dateutil.relativedelta import relativedelta
+from modular_sdk.modular import Modular
 
 from helpers import get_logger, hashable
 from helpers.constants import CUSTOMER_ATTR, NAME_ATTR, VALUE_ATTR, END_DATE, \
     OVERVIEW_TYPE, COMPLIANCE_TYPE, RESOURCES_TYPE, TENANT_ATTR, DATA_TYPE, \
     TENANT_DISPLAY_NAME_ATTR, AVERAGE_DATA_ATTR, ATTACK_VECTOR_TYPE, \
     FINOPS_TYPE, OUTDATED_TENANTS
-from helpers.reports import keep_highest
+from helpers.reports import keep_highest, severity_cmp
 from helpers.time_helper import utc_datetime
-from helpers.utils import severity_cmp
 from services import SERVICE_PROVIDER
 from services.clients.s3 import S3Client
+from services.environment_service import EnvironmentService
 from services.job_statistics_service import JobStatisticsService
 from services.metrics_service import CustomerMetricsService
-from services.environment_service import EnvironmentService
-from services.modular_service import ModularService
 from services.metrics_service import TenantMetricsService
 
 _LOG = get_logger(__name__)
@@ -41,13 +40,13 @@ class TopMetrics:
                  environment_service: EnvironmentService,
                  tenant_metrics_service: TenantMetricsService,
                  customer_metrics_service: CustomerMetricsService,
-                 modular_service: ModularService,
+                 modular_client: Modular,
                  job_statistics_service: JobStatisticsService):
         self.s3_client = s3_client
         self.environment_service = environment_service
         self.tenant_metrics_service = tenant_metrics_service
         self.customer_metrics_service = customer_metrics_service
-        self.modular_service = modular_service
+        self.modular_client = modular_client
         self.job_statistics_service = job_statistics_service
 
         self.TOP_RESOURCES_BY_TENANT = []
@@ -79,24 +78,24 @@ class TopMetrics:
         self.today_date = datetime.utcnow().today()
         self.month_first_day = self.today_date.date().replace(
             day=1).isoformat()
-        self.prev_month_first_day = (
-                self.today_date - relativedelta(months=1)).replace(day=1).date()
-
+        self.prev_month_first_day = (self.today_date + relativedelta(months=-1, day=1)).date()
         self.attack_overall_severity = {}
         self._tenant_metrics_exists = None
         self._cust_metrics_exists = None
         self.tenant_scan_mapping = {}
+        self.ggl_tenant_obj_mapping = {}
         self.metrics_bucket = self.environment_service.get_metrics_bucket_name()
+        self.customer_scanned_tenant_list = {}
 
     @classmethod
     def build(cls) -> 'TopMetrics':
         return cls(
-            s3_client=SERVICE_PROVIDER.s3(),
-            environment_service=SERVICE_PROVIDER.environment_service(),
-            tenant_metrics_service=SERVICE_PROVIDER.tenant_metrics_service(),
-            customer_metrics_service=SERVICE_PROVIDER.customer_metrics_service(),
-            modular_service=SERVICE_PROVIDER.modular_service(),
-            job_statistics_service=SERVICE_PROVIDER.job_statistics_service()
+            s3_client=SERVICE_PROVIDER.s3,
+            environment_service=SERVICE_PROVIDER.environment_service,
+            tenant_metrics_service=SERVICE_PROVIDER.tenant_metrics_service,
+            customer_metrics_service=SERVICE_PROVIDER.customer_metrics_service,
+            modular_client=SERVICE_PROVIDER.modular_client,
+            job_statistics_service=SERVICE_PROVIDER.job_statistics_service
         )
 
     def process_data(self, event):
@@ -135,13 +134,10 @@ class TopMetrics:
                     continue
 
                 _LOG.debug(f'Processing tenant group {filename}')
-                tenant_group_content = self.s3_client.get_json_file_content(
-                    bucket_name=self.metrics_bucket, full_file_name=filename)
+                tenant_group_content = self.s3_client.gz_get_json(
+                    bucket=self.metrics_bucket, key=filename)
+                tenant_group_content = copy.deepcopy(tenant_group_content)
                 customer = tenant_group_content.get(CUSTOMER_ATTR)
-                outdated_tenants = tenant_group_content.get(OUTDATED_TENANTS, {})
-                for c in CLOUDS:
-                    self.CUSTOMER_GENERAL[OUTDATED_TENANTS].setdefault(c, {}).\
-                        update(outdated_tenants.get(c, {}))
 
                 resource_data = tenant_group_content.get(RESOURCES_TYPE, {})
                 attack_data = tenant_group_content.get(ATTACK_VECTOR_TYPE, {})
@@ -236,10 +232,6 @@ class TopMetrics:
 
     def add_department_metrics(self, tenant_group_content, customer,
                                attack_by_tenant):
-        if self.current_month_tenant_metrics_exist(customer):
-            _LOG.debug('Department metrics already exist for this month')
-            return
-
         tenant_dn = tenant_group_content.get('tenant_display_name')
         general_tenant_info = {
             CUSTOMER_ATTR: customer,
@@ -247,27 +239,22 @@ class TopMetrics:
             'to': tenant_group_content['to'],
             'tenant_display_name': tenant_group_content['tenant_display_name']
         }
-        outdated_tenants = tenant_group_content.get(OUTDATED_TENANTS, {})
 
         self._process_department_overview_metrics(tenant_dn,
                                                   tenant_group_content,
-                                                  general_tenant_info,
-                                                  outdated_tenants)
+                                                  general_tenant_info)
         self._process_department_compliance_metrics(tenant_dn,
                                                     tenant_group_content,
-                                                    general_tenant_info,
-                                                    outdated_tenants)
+                                                    general_tenant_info)
         self._process_department_attack_metrics(tenant_dn,
                                                 attack_by_tenant,
-                                                general_tenant_info,
-                                                outdated_tenants)
+                                                general_tenant_info)
         # self._process_department_finops_metrics(tenant_dn,
         #                                         tenant_group_content,
         #                                         general_tenant_info)
 
     def _process_department_overview_metrics(self, tenant_dn, metrics,
-                                             general_tenant_info,
-                                             outdated_tenants):
+                                             general_tenant_info):
         customer = metrics[CUSTOMER_ATTR]
         resources_sum = 0
         for cloud in CLOUDS:
@@ -275,6 +262,9 @@ class TopMetrics:
                 continue
 
             acc_id = overview_metrics.get('account_id')
+            if cloud == 'google':
+                acc_id = self.get_google_project_id(acc_id) or acc_id
+
             if self.tenant_scan_mapping.get(customer, {}).get(acc_id):
                 scans = self.tenant_scan_mapping[customer][acc_id]
             else:
@@ -300,8 +290,7 @@ class TopMetrics:
             overview_metrics.update(sum_regions_data)
             if overview_metrics.get('resources_violated'):
                 tenant_data = {
-                    **general_tenant_info, cloud: overview_metrics,
-                    OUTDATED_TENANTS: self._get_actual_outdated_tenants(outdated_tenants, [cloud])
+                    **general_tenant_info, cloud: overview_metrics
                 }
                 self.add_tenant_to_top_by_resources_by_cloud(
                     tenant_name=tenant_dn,
@@ -311,16 +300,14 @@ class TopMetrics:
                 resources_sum += overview_metrics.get('resources_violated', 0)
 
         tenant_data = {
-            **general_tenant_info, **metrics[OVERVIEW_TYPE],
-            OUTDATED_TENANTS: self._get_actual_outdated_tenants(outdated_tenants)
+            **general_tenant_info, **metrics[OVERVIEW_TYPE]
         }
         self.add_tenant_to_top_by_resources(tenant_display_name=tenant_dn,
                                             amount=resources_sum,
                                             tenant_data=tenant_data)
 
     def _process_department_compliance_metrics(self, tenant_dn, metrics,
-                                               general_tenant_info,
-                                               outdated_tenants):
+                                               general_tenant_info):
         tenant_mean_coverage = []
         for cloud in CLOUDS:
             if not (compliance_metrics := metrics[COMPLIANCE_TYPE].get(cloud)):
@@ -338,13 +325,15 @@ class TopMetrics:
 
             coverages = [percent['value'] for percent in
                          compliance_metrics[AVERAGE_DATA_ATTR]]
+            if not coverages:
+                _LOG.warning(f'Skipping {compliance_metrics["tenant_name"]} '
+                             f'because there is no coverage')
+                continue
 
             tenant_mean_coverage.extend(coverages)
 
             tenant_data = {
-                **general_tenant_info, cloud: compliance_metrics,
-                OUTDATED_TENANTS: self._get_actual_outdated_tenants(
-                    outdated_tenants, [cloud])
+                **general_tenant_info, cloud: compliance_metrics
             }
             self.add_tenant_to_top_by_compliance_by_cloud(
                 tenant_name=tenant_dn,
@@ -354,8 +343,7 @@ class TopMetrics:
 
         tenant_coverage = sum(tenant_mean_coverage) / len(tenant_mean_coverage)
         tenant_data = {
-            **general_tenant_info, **metrics[COMPLIANCE_TYPE],
-            OUTDATED_TENANTS: self._get_actual_outdated_tenants(outdated_tenants)
+            **general_tenant_info, **metrics[COMPLIANCE_TYPE]
         }
         self.add_tenant_to_top_by_compliance(tenant_display_name=tenant_dn,
                                              coverage=tenant_coverage,
@@ -383,7 +371,6 @@ class TopMetrics:
                     'severity_data': severity_sum
                 })
 
-            self.CUSTOMER_FINOPS
             tenant_data = {**general_tenant_info, cloud: new_finops_metrics[cloud]}
             self.add_tenant_to_top_by_finops_by_cloud(
                 tenant_name=tenant_dn, amount=resources_cloud_sum,
@@ -397,13 +384,10 @@ class TopMetrics:
                                          tenant_data=tenant_data)
 
     def _process_department_attack_metrics(self, tenant_dn, attack_by_tenant,
-                                           general_tenant_info,
-                                           outdated_tenants):
+                                           general_tenant_info):
         for cloud in CLOUDS:
             tenant_data = {
-                **general_tenant_info, cloud: {'data': attack_by_tenant[cloud]},
-                OUTDATED_TENANTS: self._get_actual_outdated_tenants(
-                    outdated_tenants, [cloud])
+                **general_tenant_info, cloud: {'data': attack_by_tenant[cloud]}
             }
             tenant_attack_severity = {}
             for tactic in attack_by_tenant[cloud]:
@@ -417,8 +401,7 @@ class TopMetrics:
         self.TOP_ATTACK_BY_TENANT.append(
             {TENANT_ATTR: tenant_dn, **general_tenant_info,
              'sort_by': self.attack_overall_severity.copy(),
-             **attack_by_tenant,
-             OUTDATED_TENANTS: self._get_actual_outdated_tenants(outdated_tenants)})
+             **attack_by_tenant})
 
     @staticmethod
     def _sort_key(item, key):
@@ -567,8 +550,10 @@ class TopMetrics:
         """
         Updates last scan date and calculates amount of customer tenants
         """
-        if data.get('succeeded', 0) or data.get('failed', 0):
-            self.CUSTOMER_GENERAL[cloud]['total_scanned_tenants'] += 1
+        if data.get('succeeded') or data.get('failed'):
+            if tenants := data.get('tenants', {}):
+                self.customer_scanned_tenant_list.setdefault(cloud, set()).\
+                    update(tenants.as_dict().keys())
         last_scan_date = self.CUSTOMER_GENERAL[cloud]['last_scan_date']
         self.CUSTOMER_GENERAL[cloud]['last_scan_date'] = \
             self._get_last_scan_date(data.get('last_scan_date'),
@@ -592,34 +577,28 @@ class TopMetrics:
         if not self._cust_metrics_exists.get(ATTACK_VECTOR_TYPE.upper()):
             attack_vector_item = self.create_attack_vector_item(customer)
             if attack_vector_item:
-                attack_vector_item.update({
-                    OUTDATED_TENANTS: self._get_actual_outdated_tenants(
-                        self.CUSTOMER_GENERAL[OUTDATED_TENANTS])
-                })
                 items.append(self.customer_metrics_service.create(
                     attack_vector_item))
 
         if not self._cust_metrics_exists.get(COMPLIANCE_TYPE.upper()):
             compliance_item = self.create_compliance_item(customer)
-            compliance_item.update({
-                OUTDATED_TENANTS: self._get_actual_outdated_tenants(
-                    self.CUSTOMER_GENERAL[OUTDATED_TENANTS])
-            })
-            for cloud in CLOUDS:
-                if compliance_item[cloud]:
-                    compliance_item[cloud].update(self.CUSTOMER_GENERAL[cloud])
-            items.append(self.customer_metrics_service.create(compliance_item))
+            if any(compliance_item[cloud] for cloud in CLOUDS):
+                for cloud in CLOUDS:
+                    if compliance_item[cloud]:
+                        compliance_item[cloud].update(
+                            self.CUSTOMER_GENERAL[cloud])
+                items.append(self.customer_metrics_service.create(
+                    compliance_item))
 
         if not self._cust_metrics_exists.get(OVERVIEW_TYPE.upper()):
             overview_item = self.create_overview_item(customer)
-            overview_item.update({
-                OUTDATED_TENANTS: self._get_actual_outdated_tenants(
-                    self.CUSTOMER_GENERAL[OUTDATED_TENANTS])
-            })
-            for cloud in CLOUDS:
-                if overview_item[cloud]:
-                    overview_item[cloud].update(self.CUSTOMER_GENERAL[cloud])
-            items.append(self.customer_metrics_service.create(overview_item))
+            if any(overview_item[cloud] for cloud in CLOUDS):
+                for cloud in CLOUDS:
+                    if overview_item[cloud]:
+                        overview_item[cloud].update(
+                            self.CUSTOMER_GENERAL[cloud])
+                items.append(
+                    self.customer_metrics_service.create(overview_item))
         #
         # if not self._cust_metrics_exists.get(FINOPS_TYPE.upper()):
         #     finops_item = self.create_finops_item(customer)
@@ -740,6 +719,10 @@ class TopMetrics:
                     'succeeded_scans'])
 
             self._update_general_customer_data(i.cloud, i.attribute_values)
+
+        for cloud in CLOUDS:
+            self.CUSTOMER_GENERAL[cloud]['total_scanned_tenants'] = \
+                len(self.customer_scanned_tenant_list.get(cloud, []))
         return tenant_scan_mapping
 
     def _reset_variables(self):
@@ -772,6 +755,7 @@ class TopMetrics:
         self._cust_metrics_exists = None
         self.mean_coverage = {**{c: [] for c in CLOUDS}}
         self.attack_overall_severity = {}
+        self.customer_scanned_tenant_list = {}
 
     @staticmethod
     def _unpack_metrics(data):
@@ -826,8 +810,8 @@ class TopMetrics:
                     self.CUSTOMER_OVERVIEW[cloud]['resource_types_data'][
                         _type] += value
 
-    def _process_account_mitre(self, mitre_content: list, cloud: str) -> \
-            List[dict]:
+    def _process_account_mitre(self, mitre_content: list, cloud: str
+                               ) -> list[dict]:
         """
         :param mitre_content: Example:
         [{
@@ -856,7 +840,6 @@ class TopMetrics:
         """
         _LOG.debug('Process metrics for attack vector report')
         reduced_attack_metrics = []
-        self.attack_overall_severity = {}
 
         for tactic in mitre_content:
             tactic_name = tactic.get('tactic')
@@ -902,16 +885,6 @@ class TopMetrics:
             return True
         return False
 
-    def _get_actual_outdated_tenants(self, outdated_tenants: dict,
-                                     clouds: list = CLOUDS) -> list:
-        tenants = []
-        for cloud in clouds:
-            for tenant, last_active_date in outdated_tenants.get(
-                    cloud, {}).items():
-                if last_active_date < self.month_first_day:
-                    tenants.append(tenant)
-        return tenants
-
     def _process_customer_mitre(self, metrics, customer, s3_object_date):
         attack_by_tenant = {c: [] for c in CLOUDS}
         for cloud in CLOUDS:
@@ -920,22 +893,28 @@ class TopMetrics:
 
             account_id = metrics[cloud].get('account_id')
             if cloud == 'google':
-                # todo redo acc to accN in metrics filenames for google accounts
-                tenant = next(self.modular_service.i_get_tenants_by_accN(
-                    metrics[cloud].get('account_id')), None)
-                if tenant:
-                    account_id = tenant.project
+                account_id = self.get_google_project_id(account_id) or account_id
 
             account_path = TENANT_METRICS_PATH.format(
                 customer=customer,
                 date=s3_object_date) + '/' + account_id + '.json.gz'
-            account_data = self.s3_client.get_json_file_content(
+            account_data = self.s3_client.gz_get_json(
                 self.metrics_bucket, account_path).pop(ATTACK_VECTOR_TYPE, {})
             attack_metrics = self._process_account_mitre(account_data, cloud)
             attack_by_tenant[cloud] = attack_metrics
             if not attack_metrics:
                 continue
         return attack_by_tenant
+
+    def get_google_project_id(self, account_number):
+        if not (tenant := self.ggl_tenant_obj_mapping.get(account_number)):
+            tenant = next(self.modular_client.tenant_service().i_get_by_accN(
+                account_number
+            ), None)
+            self.ggl_tenant_obj_mapping[account_number] = tenant
+        if tenant:
+            return tenant.project
+        return
 
 
 CUSTOMER_METRICS = TopMetrics.build()

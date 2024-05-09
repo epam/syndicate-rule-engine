@@ -1,14 +1,24 @@
-import click
 from typing import Optional
 
-from c7ncli.group import cli_response, ViewCommand, limit_option, \
-    next_option, ContextObj, tenant_option, build_tenant_option, \
-    account_option, build_account_option, customer_option
-from c7ncli.group.tenant_findings import findings
-from c7ncli.group.tenant_region import region_group
+import click
+
+from c7ncli.group import (
+    ContextObj,
+    ViewCommand,
+    account_option,
+    build_limit_option,
+    build_tenant_option,
+    cli_response,
+    limit_option,
+    next_option,
+    response,
+    tenant_option,
+)
+from c7ncli.service.constants import ModularCloud
 from c7ncli.group.tenant_credentials import credentials
-from c7ncli.service.constants import PARAM_CUSTOMER_DISPLAY_NAME, \
-    PARAM_ACTIVATION_DATE, PARAM_INHERIT, PARAM_NAME, AWS, GOOGLE, AZURE
+
+
+attributes_order = 'name', 'account_id', 'id_active', 'regions'
 
 
 @click.group(name='tenant')
@@ -19,86 +29,85 @@ def tenant():
 @tenant.command(cls=ViewCommand, name='describe')
 @tenant_option
 @account_option
-@customer_option
-@click.option('--full', '-f', is_flag=True,
-              help='Show full command output.')
+@click.option('--active', '-act', type=bool, required=False,
+              help='Type of tenants to return')
+@click.option('--cloud', '-c', type=click.Choice(tuple(ModularCloud.iter())),
+              required=False, help='Specific cloud to describe tenants')
 @limit_option
 @next_option
-@cli_response(attributes_order=[PARAM_NAME, PARAM_CUSTOMER_DISPLAY_NAME,
-                                PARAM_ACTIVATION_DATE, PARAM_INHERIT])
-def describe(ctx: ContextObj, tenant_name, customer_id, account_number,
-             full, limit, next_token):
+@cli_response(attributes_order=attributes_order)
+def describe(ctx: ContextObj, tenant_name, account_number, active, cloud,
+             limit, next_token, customer_id):
     """
-    Describes your user's tenant(s)
+    Describes tenants within your customer
     """
-    return ctx['api_client'].tenant_get(
-        tenant_name=tenant_name,
-        customer_name=customer_id,
-        cloud_identifier=account_number,
-        complete=full,
-        limit=limit,
-        next_token=next_token
-    )
-
-
-@tenant.command(cls=ViewCommand, name='create')
-@build_tenant_option(required=True, help='Name of the tenant')
-@click.option('--display_name', '-dn', type=str,
-              help='Tenant display name. If not specified, the '
-                   'value from --name is used')
-@click.option('--cloud', '-c', type=click.Choice([AWS, AZURE, GOOGLE]),
-              required=True, help='Cloud of the tenant')
-@build_account_option(required=True)
-@click.option('--primary_contacts', '-pc', type=str, multiple=True,
-              help='Primary emails')
-@click.option('--secondary_contacts', '-sc', type=str, multiple=True,
-              help='Secondary emails')
-@click.option('--tenant_manager_contacts', '-tmc', type=str, multiple=True,
-              help='Tenant manager emails')
-@click.option('--default_owner', '-do', type=str,
-              help='Owner email')
-@cli_response()
-def create(ctx: ContextObj, tenant_name: str, display_name: Optional[str], cloud: str,
-           account_number: str, primary_contacts: tuple,
-           secondary_contacts: tuple, tenant_manager_contacts: tuple,
-           default_owner: Optional[str]):
-    """
-    Activates a tenant, if the environment does not restrict it.
-    """
-    return ctx['api_client'].tenant_post(
-        name=tenant_name,
-        display_name=display_name,
+    if tenant_name and account_number:
+        return response(
+            'Either --tenant_name or --account_number can be given'
+        )
+    if tenant_name:
+        return ctx['api_client'].tenant_get(tenant_name or account_number,
+                                            customer_id=customer_id)
+    return ctx['api_client'].tenant_query(
+        active=active,
         cloud=cloud,
-        cloud_identifier=account_number,
-        primary_contacts=list(primary_contacts),
-        secondary_contacts=list(secondary_contacts),
-        tenant_manager_contacts=list(tenant_manager_contacts),
-        default_owner=default_owner
+        limit=limit,
+        next_token=next_token,
+        customer_id=customer_id
     )
 
 
-@tenant.command(cls=ViewCommand, name='update')
-@tenant_option
-@click.option('--rules_to_exclude', '-rte', type=str, multiple=True,
-              help='Rules to exclude for tenant')
-@click.option('--rules_to_include', '-rti', type=str, multiple=True,
-              help='Rules to include for tenant')
-# @click.option('--send_scan_result', '-ssr', type=bool,
-#               help='Specify whether to send scan results. Obsolete')
+@tenant.command(cls=ViewCommand, name='active_licenses')
+@build_tenant_option(required=True)
+@build_limit_option(default=1, show_default=True)
 @cli_response()
-def update(ctx: ContextObj, tenant_name: Optional[str],
-           rules_to_exclude: tuple,
-           rules_to_include: tuple):
+def active_licenses(ctx: ContextObj, tenant_name: str, limit: Optional[int],
+                    customer_id):
     """
-    Updates settings of your user's tenant
+    Get tenant active licenses
     """
-    return ctx['api_client'].tenant_patch(
-        tenant_name=tenant_name,
-        rules_to_exclude=list(rules_to_exclude),
-        rules_to_include=list(rules_to_include),
+    return ctx['api_client'].tenant_get_active_licenses(
+        tenant_name,
+        limit=limit,
+        customer_id=customer_id
     )
 
 
-tenant.add_command(findings)
-tenant.add_command(region_group)
+@tenant.command(cls=ViewCommand, name='set_excluded_rules')
+@build_tenant_option(required=True)
+@click.option('--rules', '-r', type=str, multiple=True,
+              help='Rules that you want to exclude for a tenant')
+@click.option('--empty', is_flag=True, help='Whether to reset the '
+                                            'list of excluded rules')
+@cli_response()
+def set_excluded_rules(ctx: ContextObj, tenant_name: str,
+                       rules: tuple[str, ...], empty: bool,
+                       customer_id):
+    """
+    Excludes rules for a tenant
+    """
+    if not rules and not empty:
+        return response('Specify either --rules '' or --empty')
+    if empty:
+        rules = ()
+    return ctx['api_client'].tenant_set_excluded_rules(
+        tenant_name=tenant_name,
+        rules=rules,
+        customer_id=customer_id
+    )
+
+
+@tenant.command(cls=ViewCommand, name='get_excluded_rules')
+@build_tenant_option(required=True)
+@cli_response()
+def get_excluded_rules(ctx: ContextObj, tenant_name: str, customer_id):
+    """
+    Returns excluded rules for a tenant
+    """
+    return ctx['api_client'].tenant_get_excluded_rules(
+        tenant_name=tenant_name,
+        customer_id=customer_id
+    )
+
+
 tenant.add_command(credentials)

@@ -3,47 +3,19 @@ from typing import Union, Optional
 from pynamodb.exceptions import PynamoDBException
 
 import services.cache as cache
-from helpers.constants import DEFAULT_SYSTEM_CUSTOMER, \
-    DEFAULT_METRICS_BUCKET_NAME, \
-    DEFAULT_TEMPLATES_BUCKET_NAME, DEFAULT_STATISTICS_BUCKET_NAME, \
-    DEFAULT_RULESETS_BUCKET_NAME, DEFAULT_REPORTS_BUCKET_NAME, \
-    DEFAULT_SSM_BACKUP_BUCKET_NAME, KEY_AWS_EVENTS, KEY_GOOGLE_EVENTS, \
-    KEY_AZURE_EVENTS, KEY_GOOGLE_STANDARDS_COVERAGE, KEY_RULES_TO_STANDARDS, \
-    KEY_RULES_TO_SERVICE_SECTION, KEY_RULES_TO_MITRE, KEY_CLOUD_TO_RULES, \
-    KEY_RULES_TO_SEVERITY, KEY_AZURE_STANDARDS_COVERAGE, \
-    KEY_AWS_STANDARDS_COVERAGE
+from helpers.constants import (DEFAULT_SYSTEM_CUSTOMER, SettingKey,
+                               DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME)
 from helpers.log_helper import get_logger
 from models.setting import Setting
 from services.environment_service import EnvironmentService
 
-KEY_SYSTEM_CUSTOMER = 'SYSTEM_CUSTOMER_NAME'
-KEY_BACKUP_REPO_CONFIGURATION = 'BACKUP_REPO_ACCESS_INFO'
-KEY_STATS_S3_BUCKET_NAME = 'STATS_S3_BUCKET_NAME'
-KEY_TEMPLATE_BUCKET = 'TEMPLATES_S3_BUCKET_NAME'
-KEY_CURRENT_CUSTODIAN_CUSTOM_CORE_VERSION = 'CURRENT_CCC_VERSION'
-KEY_ACCESS_DATA_LM = 'ACCESS_DATA_LM'
-KEY_MAIL_CONFIGURATION = 'MAIL_CONFIGURATION'
-KEY_CONTACTS = 'CONTACTS'
-KEY_LM_CLIENT_KEY = 'LM_CLIENT_KEY'
-KEY_EVENT_ASSEMBLER = 'EVENT_ASSEMBLER'
-KEY_REPORT_DATE_MARKER = 'REPORT_DATE_MARKER'
-KEY_RULES_METADATA_REPO_ACCESS_SSM_NAME = 'RULES_METADATA_REPO_ACCESS_SSM_NAME'
-DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME = \
-    'custodian.rules-metadata-repo-access'
-
-KEY_BUCKET_NAMES = 'BUCKET_NAMES'
-RULESETS_BUCKET = 'rulesets'
-REPORTS_BUCKET = 'reports'
-SSM_BACKUP_BUCKET = 'ssm-backup'
-STATISTICS_BUCKET = 'statistics'
-TEMPLATES_BUCKET = 'templates'
-METRICS_BUCKET = 'metrics'
 
 EVENT_CURSOR_TIMESTAMP_ATTR = 'ect'
 
 _LOG = get_logger(__name__)
 
 
+# TODO do not retrieve items from db before updating
 class SettingsService:
     def __init__(self, environment_service: EnvironmentService):
         self._environment = environment_service
@@ -52,35 +24,40 @@ class SettingsService:
     def get_all_settings():
         return Setting.scan()
 
-    def get_backup_repo_settings(self):
-        return self.get(name=KEY_BACKUP_REPO_CONFIGURATION)
-
     @staticmethod
-    def create(name, value) -> Setting:
+    def create(name: SettingKey | str,
+               value: float | str | list | dict) -> Setting:
+        if isinstance(name, SettingKey):
+            name = name.value
         return Setting(name=name, value=value)
 
-    def get(self, name, value: bool = True) -> Optional[Union[Setting, dict]]:
+    def get(self, name: SettingKey | str, value: bool = True,
+            consistent_read: bool = False) -> Setting | dict | None:
+        if isinstance(name, SettingKey):
+            name = name.value
         _LOG.debug(f'Querying {name} setting')
-        setting = Setting.get_nullable(hash_key=name)
+        setting = Setting.get_nullable(hash_key=name,
+                                       consistent_read=consistent_read)
         if setting and value:
             return setting.value
         elif setting:
             return setting
 
-    def delete(self, setting: Union[Setting, str]) -> bool:
-        name = setting if isinstance(setting, str) else setting.name
+    def delete(self, setting: Union[Setting, str, SettingKey]) -> bool:
+        if isinstance(setting, Setting):
+            name = setting.name
+        elif isinstance(setting, SettingKey):
+            name = setting.value
+        else:
+            name = setting
         Setting(name=name).delete()
         return True
 
     def save(self, setting: Setting):
         return setting.save()
 
-    def get_current_ccc_version(self):
-        return self.get(
-            name=KEY_CURRENT_CUSTODIAN_CUSTOM_CORE_VERSION)
-
     def get_license_manager_access_data(self, value: bool = True):
-        return self.get(name=KEY_ACCESS_DATA_LM, value=value)
+        return self.get(name=SettingKey.ACCESS_DATA_LM, value=value)
 
     def create_license_manager_access_data_configuration(
             self, host: str,
@@ -93,11 +70,11 @@ class SettingsService:
         model.update_host(host=host, port=port, protocol=protocol, stage=stage)
         model.api_version = api_version
         return self.create(
-            name=KEY_ACCESS_DATA_LM, value=model.dict()
+            name=SettingKey.ACCESS_DATA_LM.value, value=model.dict()
         )
 
     def get_license_manager_client_key_data(self, value: bool = True):
-        return self.get(name=KEY_LM_CLIENT_KEY, value=value)
+        return self.get(name=SettingKey.LM_CLIENT_KEY, value=value)
 
     def create_license_manager_client_key_data(self, kid: str, alg: str
                                                ) -> Setting:
@@ -110,7 +87,7 @@ class SettingsService:
         Ergo, kid is used to derive reference to the persisted data.
         """
         return self.create(
-            name=KEY_LM_CLIENT_KEY, value=dict(
+            name=SettingKey.LM_CLIENT_KEY, value=dict(
                 kid=kid,
                 alg=alg
             )
@@ -122,7 +99,7 @@ class SettingsService:
             max_emails: Optional[int] = None
     ):
         return self.create(
-            name=KEY_MAIL_CONFIGURATION, value=dict(
+            name=SettingKey.MAIL_CONFIGURATION, value=dict(
                 username=username,
                 password=password_alias,
                 default_sender=default_sender,
@@ -135,7 +112,7 @@ class SettingsService:
     def get_mail_configuration(self, value: bool = True
                                ) -> Optional[Union[Setting, dict]]:
         return self.get(
-            name=KEY_MAIL_CONFIGURATION, value=value
+            name=SettingKey.MAIL_CONFIGURATION, value=value
         )
 
     def get_system_customer_name(self) -> str:
@@ -149,89 +126,42 @@ class SettingsService:
         _LOG.info('Querying CaaSSettings in order to get SYSTEM Customer name')
         name: Optional[str] = None
         try:
-            name = self.get(KEY_SYSTEM_CUSTOMER)
+            name = self.get(SettingKey.SYSTEM_CUSTOMER)
         except PynamoDBException as e:
-            _LOG.warning(f'Could not query {KEY_SYSTEM_CUSTOMER} setting: {e}.'
+            _LOG.warning(f'Could not query {SettingKey.SYSTEM_CUSTOMER} '
+                         f'setting: {e}.'
                          f' Using the default SYSTEM customer name')
         except Exception as e:
             _LOG.warning(f'Unexpected error occurred trying querying '
-                         f'{KEY_SYSTEM_CUSTOMER} setting: {e}. Using the '
+                         f'{SettingKey.SYSTEM_CUSTOMER} setting: {e}. Using the '
                          f'default SYSTEM customer name')
         return name or DEFAULT_SYSTEM_CUSTOMER
 
     def create_event_assembler_configuration(self, cursor: float) -> Setting:
         return self.create(
-            name=KEY_EVENT_ASSEMBLER, value={
+            name=SettingKey.EVENT_ASSEMBLER, value={
                 EVENT_CURSOR_TIMESTAMP_ATTR: cursor
             }
         )
 
     def get_event_assembler_configuration(self, value: bool = True
                                           ) -> Optional[Union[Setting, dict]]:
-        return self.get(name=KEY_EVENT_ASSEMBLER, value=value)
-
-    def get_template_bucket(self):
-        bucket = self.get(name=KEY_TEMPLATE_BUCKET)
-        return bucket if bucket else ''
-
-    def get_custodian_contacts(self):
-        contacts = self.get(name=KEY_CONTACTS)
-        return contacts if contacts else ''
+        return self.get(name=SettingKey.EVENT_ASSEMBLER, value=value)
 
     def get_report_date_marker(self) -> dict:
-        marker = self.get(name=KEY_REPORT_DATE_MARKER)
+        marker = self.get(name=SettingKey.REPORT_DATE_MARKER)
         return marker or {}
 
     def set_report_date_marker(self, current_week_date: str = None,
                                last_week_date: str = None):
-        marker = self.get(name=KEY_REPORT_DATE_MARKER)
+        marker = self.get(name=SettingKey.REPORT_DATE_MARKER)
         if current_week_date:
             marker.update({'current_week_date': current_week_date})
         if last_week_date:
             marker.update({'last_week_date': last_week_date})
-        new_marker = self.create(name=KEY_REPORT_DATE_MARKER, value=marker)
+        new_marker = self.create(name=SettingKey.REPORT_DATE_MARKER,
+                                 value=marker)
         new_marker.save()
-
-    def get_bucket_names(self) -> dict:
-        """
-        Such a dict is returned. Default values is used in case the
-        values are not set
-        {
-            "rulesets": "",
-            "reports": "",
-            "ssm-backup": "",
-            "statistics": "",
-            "templates": "",
-            "metrics": ""
-        }
-        :return:
-        """
-        value = self.get(KEY_BUCKET_NAMES) or {}
-        value.setdefault(RULESETS_BUCKET, DEFAULT_RULESETS_BUCKET_NAME)
-        value.setdefault(REPORTS_BUCKET, DEFAULT_REPORTS_BUCKET_NAME)
-        value.setdefault(STATISTICS_BUCKET, DEFAULT_STATISTICS_BUCKET_NAME)
-        value.setdefault(TEMPLATES_BUCKET, DEFAULT_TEMPLATES_BUCKET_NAME)
-        value.setdefault(METRICS_BUCKET, DEFAULT_METRICS_BUCKET_NAME)
-        value.setdefault(SSM_BACKUP_BUCKET, DEFAULT_SSM_BACKUP_BUCKET_NAME)
-        return value
-
-    def rulesets_bucket(self) -> str:
-        return self.get_bucket_names().get(RULESETS_BUCKET)
-
-    def reports_bucket(self) -> str:
-        return self.get_bucket_names().get(REPORTS_BUCKET)
-
-    def statistics_bucket(self) -> str:
-        return self.get_bucket_names().get(REPORTS_BUCKET)
-
-    def templates_bucket(self) -> str:
-        return self.get_bucket_names().get(TEMPLATES_BUCKET)
-
-    def metrics_bucket(self) -> str:
-        return self.get_bucket_names().get(METRICS_BUCKET)
-
-    def ssm_backup_bucket(self) -> str:
-        return self.get_bucket_names().get(SSM_BACKUP_BUCKET)
 
     # metadata
     def rules_metadata_repo_access_data(self) -> str:
@@ -240,41 +170,55 @@ class SettingsService:
         repository with rules metadata
         :return:
         """
-        return self.get(KEY_RULES_METADATA_REPO_ACCESS_SSM_NAME) or \
+        return self.get(SettingKey.RULES_METADATA_REPO_ACCESS_SSM_NAME) or \
             DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME
 
-    def rules_to_service_section(self) -> Optional[str]:
-        return self.get(KEY_RULES_TO_SERVICE_SECTION)
-
-    def rules_to_severity(self) -> Optional[str]:
-        return self.get(KEY_RULES_TO_SEVERITY)
-
-    def rules_to_standards(self) -> Optional[str]:
-        return self.get(KEY_RULES_TO_STANDARDS)
-
-    def rules_to_mitre(self) -> Optional[str]:
-        return self.get(KEY_RULES_TO_MITRE)
-
-    def cloud_to_rules(self) -> Optional[str]:
-        return self.get(KEY_CLOUD_TO_RULES)
-
     def aws_standards_coverage(self) -> Optional[Setting]:
-        return self.get(KEY_AWS_STANDARDS_COVERAGE, value=False)
+        return self.get(SettingKey.AWS_STANDARDS_COVERAGE, value=False)
 
     def azure_standards_coverage(self) -> Optional[Setting]:
-        return self.get(KEY_AZURE_STANDARDS_COVERAGE, value=False)
+        return self.get(SettingKey.AZURE_STANDARDS_COVERAGE, value=False)
 
     def google_standards_coverage(self) -> Optional[Setting]:
-        return self.get(KEY_GOOGLE_STANDARDS_COVERAGE, value=False)
+        return self.get(SettingKey.GOOGLE_STANDARDS_COVERAGE, value=False)
 
-    def aws_events(self) -> Optional[str]:
-        return self.get(KEY_AWS_EVENTS)
+    def max_cron_number(self) -> Optional[int]:
+        value = self.get(SettingKey.MAX_CRON_NUMBER)
+        if isinstance(value, str) and value.isdigit():
+            value = int(value)
+            return value if 2 <= value <= 20 else 10
+        else:
+            return 10
 
-    def azure_events(self) -> Optional[str]:
-        return self.get(KEY_AZURE_EVENTS)
+    def get_retry_interval(self) -> Optional[int]:
+        value = self.get('retry_interval')
+        if isinstance(value, str) and value.isdigit():
+            value = int(value) if int(value) <= 60 else 60
+            return value if value >= 0 else 30
+        return 30
 
-    def google_events(self) -> Optional[str]:
-        return self.get(KEY_GOOGLE_EVENTS)
+    def disable_send_reports(self):
+        value = self.get(name=SettingKey.SEND_REPORTS, value=False)
+        value.value = False
+        value.save()
+
+    def enable_send_reports(self):
+        value = self.get(name=SettingKey.SEND_REPORTS, value=False)
+        value.value = True
+        value.save()
+
+    def get_send_reports(self) -> bool:
+        value = self.get(name=SettingKey.SEND_REPORTS,
+                         consistent_read=True)
+        return value if value else False
+
+    def get_max_attempt_number(self) -> int:
+        value = self.get(name=SettingKey.MAX_ATTEMPT)
+        return value if value else 4
+
+    def get_max_rabbitmq_size(self) -> int:
+        value = self.get(name=SettingKey.MAX_RABBITMQ_REQUEST_SIZE)
+        return int(value) if value else 5000000  # 5 MB
 
 
 class CachedSettingsService(SettingsService):
@@ -283,13 +227,16 @@ class CachedSettingsService(SettingsService):
         # name to Setting instance
         self._cache = cache.factory()
 
-    def get(self, name: str, value: bool = True
+    def get(self, name: str, value: bool = True, consistent_read: bool = False
             ) -> Optional[Union[Setting, dict]]:
-        if name in self._cache:
+        if name in self._cache and not consistent_read:
             setting = self._cache[name]
+            _LOG.debug(f'Getting setting {name} from cache')
             return setting.value if value else setting
         # not in cache
-        setting = super().get(name, value=False)
+        _LOG.debug(f'{name} setting value is missing from cache')
+        setting = super().get(name, value=False,
+                              consistent_read=consistent_read)
         if not setting:
             return
         self._cache[name] = setting
@@ -302,4 +249,5 @@ class CachedSettingsService(SettingsService):
 
     def save(self, setting: Setting):
         self._cache[setting.name] = setting
+        _LOG.debug(f'{setting.name} setting was saved to cache')
         return super().save(setting)

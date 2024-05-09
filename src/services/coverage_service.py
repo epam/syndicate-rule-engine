@@ -1,28 +1,26 @@
-import io
-import json
+from enum import Enum
 from statistics import mean
-from typing import Union, Dict, List, Set, Optional
 
-from helpers import adjust_cloud
-from helpers.constants import AWS_CLOUD_ATTR, GCP_CLOUD_ATTR, \
-    AZURE_CLOUD_ATTR, MULTIREGION
+from helpers.constants import GLOBAL_REGION, Cloud
 from helpers.log_helper import get_logger
 from helpers.reports import Standard
-from services.rule_meta_service import LazyLoadedMappingsCollector
+from services.mappings_collector import LazyLoadedMappingsCollector
+from services.sharding import ShardsCollection
 
-COVERAGE_POINTS_KEY, COVERAGE_PERCENTAGES_KEY = 'P', '%'
+
+class CoverageKey(str, Enum):
+    POINTS = 'P'
+    PERCENTAGES = '%'
+
+
 _LOG = get_logger(__name__)
 
-# region to standard to set of points
-
-Points = Dict[Standard, Set[str]]  # standard to set of points
-RegionPoints = Dict[str, Points]
-
-Coverage = Dict[Union[Standard, str], float]
-RegionCoverage = Dict[str, Coverage]
+Points = dict[Standard, set[str]]
+RegionPoints = dict[str, Points]
+Coverage = dict[Standard, float]
 
 
-class CoverageCalculator:
+class CoverageCalculator:  # todo test
     def __init__(self, standards_coverage: dict):
         self._standards_coverage = standards_coverage
 
@@ -49,25 +47,23 @@ class CoverageCalculator:
         """
         if not coverage:
             return 0
-        percents: List[float] = []
+        percents: list[float] = []
         for point, data in coverage.items():
             if point in points:
-                percents.append(data.get(COVERAGE_PERCENTAGES_KEY, 0))
-            elif data.get(COVERAGE_PERCENTAGES_KEY, 0):
+                percents.append(data.get(CoverageKey.PERCENTAGES, 0))
+            elif data.get(CoverageKey.PERCENTAGES, 0):
                 percents.append(
-                    cls._calculate(data.get(COVERAGE_POINTS_KEY, {}), points))
+                    cls._calculate(data.get(CoverageKey.POINTS, {}), points))
             else:
                 percents.append(0)
         return mean(percents)
 
-    def get_coverage(self, points: Points,
-                     to_percents: bool) -> Coverage:
+    def get_coverage(self, points: Points) -> Coverage:
         """
         Accepts a dict where keys are Standard instances and values are sets
         of points within this standard. Returns a dict of standard
         instances to calculated coverages
         :param points:
-        :param to_percents: indicates to parse coverage results as percents:
         [0 - 100]
         :return:
         """
@@ -81,8 +77,6 @@ class CoverageCalculator:
                 continue
             standard_coverage = self._calculate(
                 self._coverages_value(standard_params), standard_points)
-            if to_percents:
-                standard_coverage = round(standard_coverage * 100, 2)
             coverages[standard] = standard_coverage
         return coverages
 
@@ -94,10 +88,10 @@ class CoverageCalculator:
         """
         keys = list(d)
         if len(keys) == 0 or \
-                (len(keys) == 1 and keys[0] == COVERAGE_PERCENTAGES_KEY):
+                (len(keys) == 1 and keys[0] == CoverageKey.PERCENTAGES):
             return {}
         for key in keys:
-            if key != COVERAGE_PERCENTAGES_KEY:
+            if key != CoverageKey.PERCENTAGES:
                 return d[key]
 
 
@@ -105,89 +99,45 @@ class CoverageService:
     def __init__(self, mappings_collector: LazyLoadedMappingsCollector):
         self._mappings_collector = mappings_collector
 
-    @staticmethod
-    def _load_if_stream(obj: Union[io.IOBase, Dict]) -> dict:
-        if isinstance(obj, io.IOBase):
-            _LOG.debug('The given object is stream. Loading to json')
-            return json.load(obj)
-        return obj
-
-    def derive_points_from_detailed_report(
-            self, detailed_report: Union[io.IOBase, Dict],
-            regions: Optional[List[str]] = None) -> RegionPoints:
+    def points_from_collection(self, collection: ShardsCollection
+                               ) -> RegionPoints:
         """
-        Derives points from detailed_report format into a dict with
-        the following format:
+        Derives points from shards collection to the following format:
         {'region': {Standard: {'point1', 'point2', 'point3'}}}
-        :param detailed_report: Union[io.IOBase, Dict]
-        :param regions: Optional[List[str]], denotes regions to derive for,
-         given None - assumes to calculate for any region.
+        :param collection:
         :return: Points
         """
-        _LOG.info('Deriving points from detailed_report')
-        detailed_report = self._load_if_stream(detailed_report)
+        remapped = {}  # policy to its parts
+        for part in collection.iter_parts():
+            remapped.setdefault(part.policy, []).append(part)
         points = {}
-        for region, region_policies in detailed_report.items():
-            if region != MULTIREGION and regions and region not in regions:
-                continue
-
-            points.setdefault(region, {})
-            for policy in region_policies:
-                if policy.get('resources'):
-                    continue
-                name = policy.get('policy', {}).get('name')
-                policy_standards = Standard.deserialize(
-                    self._mappings_collector.standard.get(name) or {}
-                )
-                for standard in policy_standards:
-                    points[region].setdefault(
-                        standard, set()
-                    ).update(standard.points)
+        for policy, parts in remapped.items():
+            standards = Standard.deserialize(
+                self._mappings_collector.standard.get(policy) or {}
+            )
+            for part in parts:
+                points.setdefault(part.location, {})
+                for standard in standards:
+                    points[part.location].setdefault(standard, set())
+                    if not part.resources:
+                        points[part.location][standard].update(standard.points)
         return points
 
-    def derive_points_from_findings(self, findings: Dict,
-                                    regions: Optional[List[str]] = None
-                                    ) -> RegionPoints:
-        """
-        Derives points from findings format into a dict with
-        the following format:
-        {'region': {Standard: {'point1', 'point2', 'point3'}}}
-        :param findings: Dict
-        :param regions: Optional[List[str]], denotes regions to derive for,
-         given None - assumes to calculate for any region.
-        :return: Points
-        """
-        _LOG.info('Loading points from findings')
-        points = {}
-        for name, policy_data in findings.items():
-            for region, resources in policy_data.get('resources', {}).items():
-                if resources:
-                    continue
-                if regions and region != MULTIREGION and region not in regions:
-                    continue
-                points.setdefault(region, {})
-                policy_standards = Standard.deserialize(
-                    self._mappings_collector.standard.get(name) or {}
-                )
-                for standard in policy_standards:
-                    points[region].setdefault(standard, set()).update(
-                        standard.points)
-        return points
-
-    def standards_coverage(self, cloud: str) -> dict:
-        cloud = adjust_cloud(cloud)
-        if cloud == AWS_CLOUD_ATTR:
-            return self._mappings_collector.aws_standards_coverage
-        if cloud == AZURE_CLOUD_ATTR:
-            return self._mappings_collector.azure_standards_coverage
-        if cloud == GCP_CLOUD_ATTR:
-            return self._mappings_collector.google_standards_coverage
-        raise AssertionError(f'Not available cloud: {cloud}')
+    def standards_coverage(self, cloud: Cloud) -> dict:
+        match cloud:
+            case Cloud.AWS:
+                return self._mappings_collector.aws_standards_coverage
+            case Cloud.AZURE:
+                return self._mappings_collector.azure_standards_coverage
+            case Cloud.GOOGLE:
+                return self._mappings_collector.google_standards_coverage
+            case _:
+                return {}
 
     @staticmethod
-    def distribute_multiregion(points: RegionPoints) -> RegionPoints:
+    def distribute_global(points: RegionPoints) -> RegionPoints:
         """
-        Updates each region's points with multi-region's points.
+        Updates each region's points with global points.
         The method updates the given object and returns it as well,
         (just to keep +- similar interface)
         :param points:
@@ -195,7 +145,7 @@ class CoverageService:
         """
         if len(points) == 1:  # only one region in dict
             return points
-        multi_region = points.pop(MULTIREGION, None)
+        multi_region = points.pop(GLOBAL_REGION, None)
         if not multi_region:
             return points
         for region, region_result in points.items():
@@ -204,27 +154,43 @@ class CoverageService:
         return points
 
     @staticmethod
-    def congest_to_multiregion(points: RegionPoints) -> RegionPoints:
+    def congest_to_global(points: RegionPoints) -> RegionPoints:
         """
-        Merges all the points to multi-region
+        Merges all the points to global ones
         :param points:
         :return:
         """
-        standards: Dict[Standard, Set] = {}
+        standards = {}
         for region_data in points.values():
             for standard, points in region_data.items():
                 standards.setdefault(standard, set()).update(points)
-        return {MULTIREGION: standards}
+        return {GLOBAL_REGION: standards}
 
-    def calculate_region_coverages(self, points: RegionPoints, cloud: str,
-                                   to_percents: bool = True) -> RegionCoverage:
-        calculator = CoverageCalculator(self.standards_coverage(cloud))
-        result = {}
-        for region, region_points in points.items():
-            result[region] = {
-                st.full_name: cov
-                for st, cov in calculator.get_coverage(
-                    points=region_points,
-                    to_percents=to_percents).items()
-            }
-        return result
+    @staticmethod
+    def format_coverage(coverage: Coverage) -> dict[str, float]:
+        """
+        Replaces Standard instances with strings, transforms 0-1 to percents
+        """
+        return {k.full_name: round(v * 100, 2) for k, v in coverage.items()}
+
+    def calculate_region_coverages(self, points: RegionPoints, cloud: Cloud,
+                                   ) -> dict[str, Coverage]:
+        calc = CoverageCalculator(self.standards_coverage(cloud))
+        return {
+            region: calc.get_coverage(region_points)
+            for region, region_points in points.items()
+        }
+
+    def format_region_coverages(self, coverages: dict[str, Coverage]
+                                ) -> dict[str, float]:
+        return {k: self.format_coverage(v) for k, v in coverages.items()}
+
+    def coverage_from_collection(self, collection: ShardsCollection,
+                                 cloud: Cloud) -> dict:
+        points = self.points_from_collection(collection)
+        if cloud == Cloud.AWS:
+            points = self.distribute_global(points)
+        if cloud == Cloud.AZURE:
+            points = self.congest_to_global(points)
+        coverages = self.calculate_region_coverages(points, cloud)
+        return self.format_region_coverages(coverages)

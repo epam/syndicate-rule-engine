@@ -3,8 +3,8 @@ import os
 from pynamodb.attributes import UnicodeAttribute, MapAttribute, \
     ListAttribute, NumberAttribute
 
-from helpers.constants import ENV_VAR_REGION
-from models.modular import BaseModel
+from helpers.constants import CAASEnv
+from models import BaseModel
 
 E_PARTITION_ATTR = 'p'
 E_TIMESTAMP_ATTR = 't'
@@ -20,7 +20,7 @@ class Event(BaseModel):
 
     class Meta:
         table_name = "CaaSEvents"
-        region = os.environ.get(ENV_VAR_REGION)
+        region = os.environ.get(CAASEnv.AWS_REGION)
 
     partition = NumberAttribute(hash_key=True,
                                 attr_name=E_PARTITION_ATTR)  # random 0..N

@@ -10,7 +10,7 @@ _LOG = get_logger(__name__)
 class JobStatisticsService:
 
     @staticmethod
-    def create(data: dict) -> JobStatistics:
+    def save(data: dict):
         result_data = {}
         for attribute in JobStatistics.get_attributes():
             value = data.get(attribute)
@@ -19,7 +19,7 @@ class JobStatisticsService:
             result_data[attribute] = value
         if not result_data.get('id'):
             result_data['id'] = str(uuid.uuid4())
-        return JobStatistics(**result_data)
+        JobStatistics(**result_data).save()
 
     @staticmethod
     def get(item_id: str) -> Optional[JobStatistics]:

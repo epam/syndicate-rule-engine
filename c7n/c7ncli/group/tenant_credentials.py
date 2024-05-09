@@ -1,95 +1,108 @@
 import click
 
-from c7ncli.group import cli_response, ViewCommand, ContextObj, \
-    account_option, build_account_option
-from c7ncli.service.constants import PARAM_CLOUD, PARAM_CLOUD_IDENTIFIER, \
-    PARAM_ENABLED, PARAM_TRUSTED_ROLE_ARN
+from c7ncli.group import ViewCommand, cli_response, ContextObj, limit_option, \
+    next_option, build_tenant_option
+from c7ncli.service.constants import AWS, AZURE, GOOGLE
+from c7ncli.service.adapter_client import CustodianResponse
 
 
 @click.group(name='credentials')
 def credentials():
-    """Manages Custodian Service Credentials Manager configs"""
+    """
+    Allows to bind existing credentials applications to tenants
+    :return:
+    """
 
 
 @credentials.command(cls=ViewCommand, name='describe')
-@click.option('--cloud', '-c', type=str,
-              help='The cloud to which the credentials configuration belongs.')
-@account_option
-@cli_response(attributes_order=[PARAM_CLOUD_IDENTIFIER,
-                                PARAM_CLOUD,
-                                PARAM_ENABLED,
-                                PARAM_TRUSTED_ROLE_ARN])
-def describe(ctx: ContextObj, cloud, account_number):
-    """
-    Describes Custodian Service Credentials Manager configurations.
-    """
-    return ctx['api_client'].credentials_manager_get(
-        cloud=cloud,
-        cloud_identifier=account_number
-    )
-
-
-@credentials.command(cls=ViewCommand, name='add')
-@click.option('--cloud', '-c', type=click.Choice(['AWS', 'AZURE', 'GCP']),
-              required=True,
-              help='The cloud to which the credentials configuration belongs.')
-@build_account_option(required=True)
-@click.option('--trusted_role_arn', '-tra', type=str, required=False,
-              help='Account role to assume')
-@click.option('--enabled', '-e', type=bool, required=False,
-              default=False, show_default=True,
-              help="Enable or disable credentials, if not specified: disabled")
-@cli_response(attributes_order=[PARAM_CLOUD_IDENTIFIER,
-                                PARAM_CLOUD,
-                                PARAM_ENABLED,
-                                PARAM_TRUSTED_ROLE_ARN])
-def add(ctx: ContextObj, cloud, account_number, trusted_role_arn, enabled):
-    """
-    Creates Custodian Service Credentials Manager configuration.
-    """
-
-    return ctx['api_client'].credentials_manager_post(
-        cloud=cloud,
-        cloud_identifier=account_number,
-        trusted_role_arn=trusted_role_arn,
-        enabled=enabled
-    )
-
-
-@credentials.command(cls=ViewCommand, name='update')
-@click.option('--cloud', '-c', type=str, required=True,
-              help='The cloud to which the credentials configuration belongs.')
-@build_account_option(required=True)
-@click.option('--trusted_role_arn', '-tra', type=str, required=False,
-              help=f'Account role to assume')
-@click.option('--enabled', '-e', type=bool, default=False,
-              help='Enable or disable credentials actuality')
-@cli_response(attributes_order=[PARAM_CLOUD_IDENTIFIER,
-                                PARAM_CLOUD,
-                                PARAM_ENABLED,
-                                PARAM_TRUSTED_ROLE_ARN])
-def update(ctx: ContextObj, cloud, account_number,
-           trusted_role_arn, enabled):
-    """
-    Updates Custodian Service Credentials Manager configuration.
-    """
-    return ctx['api_client'].credentials_manager_patch(
-        cloud=cloud.lower(),
-        cloud_identifier=account_number,
-        trusted_role_arn=trusted_role_arn,
-        enabled=enabled)
-
-
-@credentials.command(cls=ViewCommand, name='delete')
-@click.option('--cloud', '-c', type=str, required=True,
-              help='The cloud to which the credentials configuration belongs.')
-@build_account_option(required=True)
+@click.option('--cloud', '-cl', type=click.Choice((AWS, AZURE, GOOGLE)),
+              help='Cloud to describe credentials by')
+@click.option('--application_id', '-aid', type=str,
+              help='Application id to describe a concrete credentials item')
+@limit_option
+@next_option
 @cli_response()
-def delete(ctx: ContextObj, cloud, account_number):
+def describe(ctx: ContextObj, application_id, limit, next_token, cloud,
+             customer_id):
     """
-    Deletes Custodian Service Credentials Manager configuration.
+    Lists all available applications with credentials
     """
-    return ctx['api_client'].credentials_manager_delete(
+    if not any((cloud, application_id)):
+        return CustodianResponse.build(
+            'Provide either --application_id or --cloud'
+        )
+    if application_id:
+        return ctx['api_client'].get_credentials(application_id)
+    return ctx['api_client'].query_credentials(
         cloud=cloud,
-        cloud_identifier=account_number
+        limit=limit,
+        next_token=next_token,
+        customer_id=customer_id,
+    )
+
+
+@credentials.command(cls=ViewCommand, name='link')
+@click.option('--application_id', '-aid', type=str, required=True,
+              help='Application id to describe a concrete credentials item')
+@build_tenant_option(multiple=True)
+@click.option('--all_tenants', is_flag=True,
+              help='Whether to activate integration for all tenants')
+@click.option('--exclude_tenant', '-et', type=str, multiple=True,
+              help='Tenants to exclude for this integration. '
+                   'Can be specified together with --all_tenants flag')
+@cli_response()
+def link(ctx: ContextObj, application_id: str, tenant_name: tuple[str, ...],
+         all_tenants: bool, exclude_tenant: tuple[str, ...],
+         customer_id: str | None):
+    """
+    Links credentials to a specific set of tenants.
+    Each activation overrides the existing one
+    """
+    if tenant_name and any((all_tenants, exclude_tenant)):
+        return CustodianResponse.build(
+            'Do not provide --all_tenants or '
+            '--exclude_tenants if --tenant_name given'
+        )
+    if not all_tenants and not tenant_name:
+        return CustodianResponse.build(
+            'Either --all_tenants or --tenant_name must be given'
+        )
+    if exclude_tenant and not all_tenants:
+        return CustodianResponse.build(
+            'set --all_tenants if you provide --clouds or --exclude_tenants'
+        )
+    return ctx['api_client'].credentials_bind(
+        application_id=application_id,
+        tenant_names=tenant_name,
+        all_tenants=all_tenants,
+        exclude_tenants=exclude_tenant,
+        customer_id=customer_id
+    )
+
+
+@credentials.command(cls=ViewCommand, name='unlink')
+@click.option('--application_id', '-aid', type=str, required=True,
+              help='Application id to describe a concrete credentials item')
+@cli_response()
+def unlink(ctx: ContextObj, application_id: str, customer_id):
+    """
+    Unlinks credentials from tenants
+    """
+    return ctx['api_client'].credentials_unbind(
+        application_id=application_id,
+        customer_id=customer_id
+    )
+
+
+@credentials.command(cls=ViewCommand, name='get_linked_tenants')
+@click.option('--application_id', '-aid', type=str, required=True,
+              help='Application id to describe a concrete credentials item')
+@cli_response()
+def get_linked_tenants(ctx: ContextObj, application_id: str, customer_id):
+    """
+    Returns all the tenants the credentials is linked to
+    """
+    return ctx['api_client'].credentials_get_binding(
+        application_id=application_id,
+        customer_id=customer_id
     )

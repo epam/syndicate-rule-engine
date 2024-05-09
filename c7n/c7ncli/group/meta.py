@@ -1,5 +1,6 @@
 import click
-from c7ncli.group import cli_response, ViewCommand, ContextObj
+
+from c7ncli.group import ContextObj, ViewCommand, cli_response
 
 
 @click.group(name='meta')
@@ -9,7 +10,7 @@ def meta():
 
 @meta.command(cls=ViewCommand, name='update_standards')
 @cli_response()
-def update_standards(ctx: ContextObj):
+def update_standards(ctx: ContextObj, customer_id):
     """
     Triggers a metrics update for Custodian Service reports. Report data will
     contain data up to the time when the trigger was executed
@@ -19,7 +20,7 @@ def update_standards(ctx: ContextObj):
 
 @meta.command(cls=ViewCommand, name='update_mappings')
 @cli_response()
-def update_mappings(ctx: ContextObj):
+def update_mappings(ctx: ContextObj, customer_id):
     """
     Execution status of the last metrics update
     """
@@ -28,7 +29,7 @@ def update_mappings(ctx: ContextObj):
 
 @meta.command(cls=ViewCommand, name='update_meta')
 @cli_response()
-def update_meta(ctx: ContextObj):
+def update_meta(ctx: ContextObj, customer_id):
     """
     Execution status of the last metrics update
     """

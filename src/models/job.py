@@ -3,62 +3,87 @@ import os
 from pynamodb.attributes import UnicodeAttribute, ListAttribute, TTLAttribute
 from pynamodb.indexes import AllProjection
 
-from helpers.constants import ENV_VAR_REGION
-from models.modular import BaseModel, BaseGSI
+from helpers.constants import CAASEnv, JobState
+from helpers.time_helper import utc_iso
+from models import BaseModel, BaseGSI
 
-TENANT_DISPLAY_NAME_ATTR = 'tenant_display_name'
-SUBMITTED_AT_ATTR = 'submitted_at'
+JOB_ID = 'i'
+JOB_BATCH_JOB_ID = 'b'
+JOB_TENANT_NAME = 't'
+JOB_CUSTOMER_NAME = 'c'
+JOB_STATUS = 's'
+JOB_SUBMITTED_AT = 'sa'
+JOB_CREATED_AT = 'cr'
+JOB_STARTED_AT = 'sta'
+JOB_STOPPED_AT = 'sto'
+JOB_QUEUE = 'q'
+JOB_DEFINITION = 'd'
+JOB_OWNER = 'o'
+JOB_REGIONS = 'rg'
+JOB_RULESETS = 'rs'
+JOB_REASON = 'r'
+JOB_SCHEDULED_RULE_NAME = 'sr'
+JOB_RULES_TO_SCAN = 'ru'
+JOB_PLATFORM_ID = 'p'
+JOB_TTL = 'ttl'
 
 
-class TenantDisplayNameSubmittedAtIndex(BaseGSI):
+class TenantNameSubmittedAtIndex(BaseGSI):
     class Meta:
-        index_name = f'{TENANT_DISPLAY_NAME_ATTR}-{SUBMITTED_AT_ATTR}-index'
+        index_name = f'{JOB_TENANT_NAME}-{JOB_SUBMITTED_AT}-index'
         read_capacity_units = 1
         write_capacity_units = 1
         projection = AllProjection()
 
-    tenant_display_name = UnicodeAttribute(hash_key=True)
-    submitted_at = UnicodeAttribute(range_key=True)
+    tenant_name = UnicodeAttribute(hash_key=True, attr_name=JOB_TENANT_NAME)
+    submitted_at = UnicodeAttribute(range_key=True, attr_name=JOB_SUBMITTED_AT)
 
 
-class CustomerDisplayNameIndex(BaseGSI):
+class CustomerNameSubmittedAtIndex(BaseGSI):
     class Meta:
-        index_name = "customer-display-name"
+        index_name = f'{JOB_CUSTOMER_NAME}-{JOB_SUBMITTED_AT}-index'
         read_capacity_units = 1
         write_capacity_units = 1
         projection = AllProjection()
 
-    customer_display_name = UnicodeAttribute(hash_key=True)
-    submitted_at = UnicodeAttribute(range_key=True)
+    customer_name = UnicodeAttribute(hash_key=True,
+                                     attr_name=JOB_CUSTOMER_NAME)
+    submitted_at = UnicodeAttribute(range_key=True, attr_name=JOB_SUBMITTED_AT)
 
 
 class Job(BaseModel):
-    """
-    Model that represents job entity.
-    """
-
     class Meta:
-        table_name = "CaaSJobs"
-        region = os.environ.get(ENV_VAR_REGION)
+        table_name = 'CaaSJobs'
+        region = os.environ.get(CAASEnv.AWS_REGION)
 
-    job_id = UnicodeAttribute(hash_key=True)
-    tenant_display_name = UnicodeAttribute(null=True)
-    customer_display_name = UnicodeAttribute(null=True)
-    created_at = UnicodeAttribute(null=True)
-    started_at = UnicodeAttribute(null=True)
-    stopped_at = UnicodeAttribute(null=True)
-    submitted_at = UnicodeAttribute(null=True)
-    status = UnicodeAttribute(null=True)
-    job_queue = UnicodeAttribute(null=True)
-    job_definition = UnicodeAttribute(null=True)
-    job_owner = UnicodeAttribute(null=True)
-    scan_regions = ListAttribute(null=True, default=list)
-    scan_rulesets = ListAttribute(null=True, default=list)
-    reason = UnicodeAttribute(null=True)
-    scheduled_rule_name = UnicodeAttribute(null=True)
-    ttl = TTLAttribute(null=True)
-    rules_to_scan = ListAttribute(default=list)
-    platform_id = UnicodeAttribute(null=True)
+    id = UnicodeAttribute(hash_key=True, attr_name=JOB_ID)
+    batch_job_id = UnicodeAttribute(null=True, attr_name=JOB_BATCH_JOB_ID)
+    tenant_name = UnicodeAttribute(attr_name=JOB_TENANT_NAME)
+    customer_name = UnicodeAttribute(attr_name=JOB_CUSTOMER_NAME)
 
-    customer_display_name_index = CustomerDisplayNameIndex()
-    tenant_display_name_index = TenantDisplayNameSubmittedAtIndex()
+    submitted_at = UnicodeAttribute(attr_name=JOB_SUBMITTED_AT,
+                                    default=utc_iso)
+    status = UnicodeAttribute(attr_name=JOB_STATUS,
+                              default=JobState.SUBMITTED.value)
+
+    created_at = UnicodeAttribute(null=True, attr_name=JOB_CREATED_AT)
+    started_at = UnicodeAttribute(null=True, attr_name=JOB_STARTED_AT)
+    stopped_at = UnicodeAttribute(null=True, attr_name=JOB_STOPPED_AT)
+
+    queue = UnicodeAttribute(null=True, attr_name=JOB_QUEUE)
+    definition = UnicodeAttribute(null=True, attr_name=JOB_DEFINITION)
+    owner = UnicodeAttribute(null=True, attr_name=JOB_OWNER)
+
+    regions = ListAttribute(default=list, attr_name=JOB_REGIONS)
+    rulesets = ListAttribute(default=list, attr_name=JOB_RULESETS)
+    reason = UnicodeAttribute(null=True, attr_name=JOB_REASON)
+    scheduled_rule_name = UnicodeAttribute(null=True,
+                                           attr_name=JOB_SCHEDULED_RULE_NAME)
+    rules_to_scan = ListAttribute(default=list, attr_name=JOB_RULES_TO_SCAN,
+                                  of=UnicodeAttribute)
+    platform_id = UnicodeAttribute(null=True, attr_name=JOB_PLATFORM_ID)
+
+    ttl = TTLAttribute(null=True, attr_name=JOB_TTL)
+
+    customer_name_submitted_at_index = CustomerNameSubmittedAtIndex()
+    tenant_name_submitted_at_index = TenantNameSubmittedAtIndex()

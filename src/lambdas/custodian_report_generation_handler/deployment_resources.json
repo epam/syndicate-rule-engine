@@ -21,6 +21,15 @@
           ],
           "Resource": "*",
           "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "s3:PutObject"
+            ],
+            "Effect": "Allow",
+            "Resource": [
+              "arn:aws:s3:::${caas_recommendations_bucket}"
+            ]
         }
       ]
     }
@@ -30,6 +39,7 @@
     "principal_service": "lambda",
     "custom_policies": [
       "lambda-basic-execution",
+      "execute-step-function",
       "report-generation-handler-policy"
     ],
     "resource_type": "iam_role"

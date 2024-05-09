@@ -39,7 +39,7 @@ class EventService:
         :param till:
         :return:
         """
-        limit = self._environment_service.event_assembler_pull_item_limit()
+        page_size = self._environment_service.event_assembler_pull_item_limit()
         rkc = None
         if since and till:
             rkc = Event.timestamp.between(since, till)
@@ -47,49 +47,22 @@ class EventService:
             rkc = (Event.timestamp > since)
         elif till:
             rkc = (Event.timestamp <= till)
-        cursor = Event.query(hash_key=partition,
-                             range_key_condition=rkc,
-                             scan_index_forward=True,
-                             limit=limit)
-        events = list(cursor)
-        lek = cursor.last_evaluated_key
-        while lek:
-            _LOG.info(f'Going to query for {limit} events more.')
-            cursor = Event.query(
-                hash_key=partition,
-                range_key_condition=rkc,
-                scan_index_forward=True,
-                limit=limit,
-                last_evaluated_key=lek,
-            )
-            events.extend(cursor)
-            lek = cursor.last_evaluated_key
-        return events
-
-    @staticmethod
-    def get_dto(entity: Event):
-        _json = entity.get_json()
-        _json.pop('partition', None)
-        _json.pop('ttl', None)
-        return _json
+        return Event.query(
+            hash_key=partition,
+            range_key_condition=rkc,
+            scan_index_forward=True,
+            page_size=page_size
+        )
 
     @classmethod
     def save(cls, event: Event):
-        try:
-            event.save()
-            return True
-        except (Exception, BaseException) as e:
-            _LOG.warning(f'{event} could not be persisted, due to: {e}.')
-        return False
+        event.save()
+        return True
 
     @classmethod
     def delete(cls, event: Event):
-        try:
-            event.delete()
-            return True
-        except (Exception, BaseException) as e:
-            _LOG.warning(f'{event} could not be removed, due to: {e}.')
-        return False
+        event.delete()
+        return True
 
     @classmethod
     def batch_save(cls, events: Iterable[Event]):

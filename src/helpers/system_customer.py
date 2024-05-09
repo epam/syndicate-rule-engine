@@ -4,10 +4,17 @@ For on-prem it's important that all the necessary envs (at least MongoDB's)
 are set before importing from here. Otherwise, it could lead to timeout or
 an undesirable request to AWS.
 """
-from services import SERVICE_PROVIDER
+import os
 
-# One and sole and onliest SYSTEM customer variable. Don't you dare use
-# somewhere string: 'SYSTEM' or define one more such a variable :)
-SYSTEM_CUSTOMER = SERVICE_PROVIDER.settings_service(). \
-    get_system_customer_name()
-print(f'SYSTEM Customer name: \'{SYSTEM_CUSTOMER}\'')
+from helpers.constants import CAASEnv
+from helpers.log_helper import get_logger
+from services import SERVICE_PROVIDER
+from typing import Final
+
+_LOG = get_logger(__name__)
+
+if CAASEnv.SYSTEM_CUSTOMER_NAME in os.environ:
+    SYSTEM_CUSTOMER: Final[str] = os.getenv(CAASEnv.SYSTEM_CUSTOMER_NAME)
+else:
+    SYSTEM_CUSTOMER: Final[str] = SERVICE_PROVIDER.settings_service.get_system_customer_name()  # noqa
+_LOG.info(f'SYSTEM Customer name: \'{SYSTEM_CUSTOMER}\'')

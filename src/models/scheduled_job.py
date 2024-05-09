@@ -1,20 +1,19 @@
 import os
-
-from pynamodb.attributes import UnicodeAttribute, ListAttribute, \
-    MapAttribute, BinaryAttribute, BooleanAttribute
-from pynamodb.indexes import AllProjection
 from typing import Optional
 
-from helpers.constants import ENV_VAR_REGION, CUSTODIAN_TYPE, \
+from pynamodb.attributes import UnicodeAttribute, ListAttribute, \
+    MapAttribute, BooleanAttribute
+from pynamodb.indexes import AllProjection
+
+from helpers.constants import CAASEnv, CUSTODIAN_TYPE, \
     SCHEDULED_JOB_TYPE
 from helpers.time_helper import utc_iso
-from models.modular import BaseGSI, BaseSafeUpdateModel
+from models import BaseGSI, BaseSafeUpdateModel
 
 SCHEDULED_JOBS_TABLE_NAME = 'CaaSScheduledJobs'
 
 SJ_ID_ATTR = 'id'
 SJ_TYPE_ATTR = 'type'
-# SJ_PRINCIPAL_ATTR = 'principal'
 SJ_TENANT_NAME = 'tenant_name'
 SJ_CREATION_DATE_ATTR = 'creation_date'
 SJ_LAST_EXECUTION_TIME_ATTR = 'last_execution_time'
@@ -50,7 +49,7 @@ class ScheduledJob(BaseSafeUpdateModel):
 
     class Meta:
         table_name = SCHEDULED_JOBS_TABLE_NAME
-        region = os.environ.get(ENV_VAR_REGION)
+        region = os.environ.get(CAASEnv.AWS_REGION)
 
     id = UnicodeAttribute(hash_key=True, attr_name=SJ_ID_ATTR)
     type = UnicodeAttribute(range_key=True, default=default_type,
@@ -71,23 +70,3 @@ class ScheduledJob(BaseSafeUpdateModel):
                      ) -> Optional['ScheduledJob']:
         return super().get_nullable(
             hash_key, range_key or cls.default_type, attributes_to_get)
-
-    def update_with(self, customer: str = None, tenant: str = None,
-                    schedule: str = None, scan_regions: list = None,
-                    scan_rulesets: list = None,
-                    is_enabled: bool = True):
-        """
-        Sets some common parameters to the object
-        """
-        if customer:
-            self.customer_name = customer
-        if tenant:
-            self.tenant_name = tenant
-        if schedule:
-            self.context.schedule = schedule
-        if scan_regions:
-            self.context.scan_regions = scan_regions
-        if scan_rulesets:
-            self.context.scan_rulesets = scan_rulesets
-        if is_enabled is not None:
-            self.context.is_enabled = is_enabled

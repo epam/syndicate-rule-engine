@@ -1,5 +1,4 @@
 import re
-from typing import Optional
 
 from services.clients.sts import StsClient
 
@@ -9,7 +8,7 @@ class IAMClient:
         self._sts_client = sts_client
 
     def build_role_arn(self, maybe_arn: str,
-                       account_id: Optional[str] = None) -> str:
+                       account_id: str | None = None) -> str:
         if self.is_role_arn(maybe_arn):
             return maybe_arn
         account_id = account_id or self._sts_client.get_account_id()

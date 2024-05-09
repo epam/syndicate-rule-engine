@@ -1,8 +1,0 @@
-{
-  "name": "matplotlib_layer",
-  "resource_type": "lambda_layer",
-  "runtimes": [
-    "python3.8"
-  ],
-  "deployment_package": "matplotlib_layer.zip"
-}

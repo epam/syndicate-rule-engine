@@ -1488,3 +1488,24 @@ RULE_RECOMMENDATION_MAPPING = {
         }
     }
 }
+
+K8S_RECOMMENDATION_MODEL = {
+        "resource_id": "{cluster_id}",
+        "resource_type": "K8S_CLUSTER",
+        "source": "CUSTODIAN",
+        "severity": "HIGH",
+        "stats": {
+            "scan_date": None,
+            "status": "OK",
+            "message": "Processed successfully"
+        },
+        "meta": None,
+        "general_actions": [],  # ROLE, POD CONFIG
+        "recommendation": {
+            "resource_id": "{id}",
+            "resource_type": "{type}",
+            "article": "{article}",
+            "impact": "{impact}",
+            "description": "{description}"
+        }
+    }

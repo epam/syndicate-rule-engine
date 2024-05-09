@@ -1,6 +1,7 @@
 import click
-from c7ncli.group.setting_lm_config import config
+
 from c7ncli.group.setting_lm_client import client
+from c7ncli.group.setting_lm_config import config
 
 
 @click.group(name='lm')

@@ -1,256 +1,162 @@
+from functools import cached_property
 from http import HTTPStatus
-from typing import Dict, Union, List, Optional
 
-from modular_sdk.models.tenant import Tenant
+from modular_sdk.services.tenant_service import TenantService
 
-from handlers.abstracts.abstract_handler import AbstractHandler
-from helpers import build_response
-from helpers.constants import (
-    ACCOUNT_ATTR, GET_URL_ATTR,
-    HTTPMethod, CUSTOMER_ATTR, TENANT_ATTR
+from handlers import AbstractHandler, Mapping
+from helpers.constants import CustodianEndpoint, HTTPMethod, JobState, \
+    ReportFormat
+from helpers.lambda_response import build_response
+from services import SP
+from services import modular_helpers
+from services.ambiguous_job_service import AmbiguousJob, AmbiguousJobService
+from services.platform_service import PlatformService
+from services.report_convertors import ShardsCollectionFindingsConvertor
+from services import obfuscation
+from services.report_service import ReportResponse, ReportService
+from services.sharding import ShardsCollection
+from validators.swagger_request_models import (
+    JobFindingsReportGetModel,
+    TenantJobsFindingsReportGetModel,
 )
-from helpers.log_helper import get_logger
-from services.findings_service import FindingsService, MAP_KEY_ATTR
-from services.modular_service import ModularService
-
-FINDINGS_PATH = '/findings'
-
-EXPAND_ON_ATTR = 'expand_on'
-RAW_ATTR = 'raw'
-FILTER_ATTR = 'filter'
-DATA_TYPE_ATTR = 'data_type'
-
-REGIONS_TO_INCLUDE_ATTR = 'regions_to_include'
-RULES_TO_INCLUDE_ATTR = 'rules_to_include'
-RESOURCE_TYPES_TO_INCLUDE_ATTR = 'resource_types_to_include'
-SEVERITIES_TO_INCLUDE_ATTR = 'severities_to_include'
-DEPENDENT_INCLUSION_ATTR = 'dependent_inclusion'
-
-FINDINGS_PERSISTENCE_ERROR = 'Tenant: \'{identifier}\' has no persisted ' \
-                             'findings state.'
-
-FINDINGS_DEMAND_STORE_INACCESSIBLE = 'Request to store \'{identifier}\' ' \
-                                     'Account Findings state has not been' \
-                                     ' successful.'
-FINDINGS_DEMAND_URL_INACCESSIBLE = 'Request to generate \'{identifier}\' ' \
-                                   'Account Findings state has not been' \
-                                   ' successful.'
-GENERIC_DEMAND_URL_INACCESSIBLE = 'URL to retrieve Findings state of' \
-                                  ' \'{identifier}\' account could not' \
-                                  ' be provided.'
-
-FINDINGS_CLEARED = 'Findings state bound to \'{identifier}\' tenant ' \
-                   'has been cleared.'
-
-ACCOUNT_PERSISTENCE_ERROR = 'Tenant \'{identifier}\' not found.'
-
-MAP_VALIDATION_KEYS = ('required_type', 'required')
-
-PRESIGNED_URL_PARAM = 'presigned_url'
-
-_LOG = get_logger(__name__)
+from validators.utils import validate_kwargs
 
 
-class FindingsHandler(AbstractHandler):
-    """Handles the latest Findings, bound to account """
+class FindingsReportHandler(AbstractHandler):
+    def __init__(self, ambiguous_job_service: AmbiguousJobService,
+                 report_service: ReportService,
+                 tenant_service: TenantService,
+                 platform_service: PlatformService):
+        self._ambiguous_job_service = ambiguous_job_service
+        self._rs = report_service
+        self._ts = tenant_service
+        self._platform_service = platform_service
 
-    FILTER_KEYS: tuple = (
-        RULES_TO_INCLUDE_ATTR, REGIONS_TO_INCLUDE_ATTR,
-        RESOURCE_TYPES_TO_INCLUDE_ATTR, SEVERITIES_TO_INCLUDE_ATTR
-    )
+    @classmethod
+    def build(cls) -> 'AbstractHandler':
+        return cls(
+            ambiguous_job_service=SP.ambiguous_job_service,
+            report_service=SP.report_service,
+            tenant_service=SP.modular_client.tenant_service(),
+            platform_service=SP.platform_service
+        )
 
-    def __init__(self, service: FindingsService,
-                 modular_service: ModularService):
-        self._service = service
-        self._modular_service = modular_service
-
-    def define_action_mapping(self):
+    @cached_property
+    def mapping(self) -> Mapping:
         return {
-            FINDINGS_PATH: {
-                HTTPMethod.GET: self.get_findings,
-                HTTPMethod.DELETE: self.delete_findings
-            }
+            CustodianEndpoint.REPORTS_FINDINGS_JOBS_JOB_ID: {
+                HTTPMethod.GET: self.get_by_job
+            },
+            CustodianEndpoint.REPORTS_FINDINGS_TENANTS_TENANT_NAME_JOBS: {
+                HTTPMethod.GET: self.get_by_tenant_jobs
+            },
+            # '/reports/findings/platforms/k8s/{platform_id}/state/latest': {
+            #     HTTPMethod.GET: self.k8s_platform_get_latest
+            # },
+            # '/reports/findings/tenants/{tenant_name}/state/latest': {
+            #     HTTPMethod.GET: self.get_latest
+            # },
         }
 
-    def get_findings(self, event):
-        """
-        Retrieves Findings state bound to an account, driven by
-        an event. An `account` field, with a respective value, must
-        derive an entity, cloud identifier of which is used to get the latest
-        related state, mapped content of which is inverted and expanded
-        according to the `expand_on` parameter, default value of which is
-        `resources`.
-        """
-        # self._validate_get_findings(event)
-        _tenant_name = event.get(TENANT_ATTR)
-        _expansion = event.get(EXPAND_ON_ATTR)
-        _raw = event.get(RAW_ATTR)
-        _tenant = self._get_entity(event)
+    def k8s_platform_get_latest(self, event):
+        pass
 
-        self._handle_consequence(
-            commenced=bool(_tenant), identifier=_tenant_name,
-            code=HTTPStatus.NOT_FOUND,
-            respond=ACCOUNT_PERSISTENCE_ERROR
+    def get_latest(self, event):
+        pass
+
+    @validate_kwargs
+    def get_by_job(self, event: JobFindingsReportGetModel, job_id: str):
+        job = self._ambiguous_job_service.get_job(
+            job_id=job_id,
+            typ=event.job_type,
+            customer=event.customer
         )
+        if not job:
+            return build_response(
+                content='The request job not found',
+                code=HTTPStatus.NOT_FOUND
+            )
 
-        _identifier = _tenant.project
-        _findings = self._service.get_findings_content(_identifier)
-        if _raw:
-            _content = _findings
-            _LOG.info('Returning raw findings content')
+        if job.is_platform_job:
+            platform = self._platform_service.get_nullable(job.platform_id)
+            if not platform:
+                return build_response(
+                    content='Job platform not found',
+                    code=HTTPStatus.NOT_FOUND
+                )
+            collection = self._rs.platform_job_collection(platform, job.job)
+            collection.meta = self._rs.fetch_meta(platform)
         else:
-            # Expands collection into an iterable sequence of vulnerability items
-            _iterator = self._service.expand_content(_findings, _expansion)
-
-            # Instantiate a filterable iterator
-            _filter_relation = self._get_filter_key_relation()
-            _filters = self._get_map_from_reference(event, _filter_relation)
-
-            # Injects dependency (given any has been given) among provided filters
-            _dependent = bool(event.get(DEPENDENT_INCLUSION_ATTR))
-
-            _iterator = self._service.filter_iterator(
-                iterator=_iterator, dependent=_dependent, **_filters
-            )
-
-            # Formats expanded Findings, filtered state in on-demand collection
-            _map_key = event.get(MAP_KEY_ATTR)
-            if _map_key:
-                # Map collection type has been chosen
-                # Instantiates an extractive iterator
-                _iterator = self._service.extractive_iterator(
-                    iterator=_iterator, key=_map_key
-                )
-
-            # Formats items in the derived iterator
-            _data_type = event.get(DATA_TYPE_ATTR)
-            _content = self._service.format_iterator(
-                iterator=_iterator, key=_data_type
-            )
-
-            if event.get(GET_URL_ATTR):
-                _content = self._get_content_url(
-                    content=_content, identifier=_identifier, name=_tenant_name
-                )
-
-        return build_response(code=HTTPStatus.OK, content=_content)
-
-    def delete_findings(self, event):
-        """
-        Removes the latest Findings state, bound to an account, driven by
-        an event. An `account` field, with a respective value, must
-        derive an entity, cloud identifier of which is used to get the latest
-        related state.
-        """
-        tenant_name = event.get(TENANT_ATTR)
-        _tenant = self._get_entity(event)
-        self._handle_consequence(
-            commenced=bool(_tenant), identifier=tenant_name,
-            code=HTTPStatus.NOT_FOUND,
-            respond=ACCOUNT_PERSISTENCE_ERROR
-        )
-        _removed = self._service.delete_findings(_tenant.project)
-        self._handle_consequence(
-            commenced=bool(_removed), identifier=tenant_name,
-            code=HTTPStatus.NOT_FOUND,
-            respond=FINDINGS_PERSISTENCE_ERROR
-        )
-        _message = FINDINGS_CLEARED.format(identifier=tenant_name)
-        return build_response(content=_message)
-
-    def _get_entity(self, event: Dict) -> Optional[Tenant]:
-        """
-        Retrieves Account entity, restricting respective access for non
-        bound customers.
-        :return: Optional[Tenant]
-        """
-        customer = event.get(CUSTOMER_ATTR)
-        entity = self._modular_service.get_tenant(
-            event.get(TENANT_ATTR)
-        )
-        if not entity or not entity.is_active or \
-                customer and entity.customer_name != customer:
-            return
-        return entity
-
-    def _get_content_url(self, content: Union[Dict, List],
-                         identifier: str, name: str) -> Dict:
-        """
-        Mandates Findings state retrieval, driven by designated storage and
-        presigned URL reference, having previously outsourced the given
-        content.
-        :param content:Union[Dict, List]
-        :param identifier:str
-        :param name:str
-        """
-        _demand = self._service.get_demand_folder()
-        _put = self._service.put_findings(content, identifier, _demand)
-
-        self._handle_consequence(
-            commenced=bool(_put), identifier=name,
-            code=HTTPStatus.INTERNAL_SERVER_ERROR,
-            respond=GENERIC_DEMAND_URL_INACCESSIBLE,
-            log=FINDINGS_DEMAND_STORE_INACCESSIBLE,
-            error=True
+            tenant = self._ts.get(job.tenant_name)
+            modular_helpers.assert_tenant_valid(tenant, event.customer)
+            collection = self._rs.ambiguous_job_collection(tenant, job)
+            collection.meta = self._rs.fetch_meta(tenant)
+        return build_response(
+            content=self._collection_response(job, collection, event.href,
+                                              event.obfuscated)
         )
 
-        _url = self._service.get_findings_url(identifier, _demand)
-
-        self._handle_consequence(
-            commenced=bool(_url), identifier=name,
-            code=HTTPStatus.INTERNAL_SERVER_ERROR,
-            respond=GENERIC_DEMAND_URL_INACCESSIBLE,
-            log=FINDINGS_DEMAND_URL_INACCESSIBLE,
-            error=True
-        )
-
-        return {PRESIGNED_URL_PARAM: _url}
-
-    @staticmethod
-    def _handle_consequence(commenced: bool, identifier: str, code: int,
-                            respond: str, log: str = None,
-                            error: bool = False):
+    def _collection_response(self, job: AmbiguousJob,
+                             collection: ShardsCollection,
+                             href: bool = False,
+                             obfuscated: bool = False
+                             ) -> dict:
         """
-        Mandates the consequences of actions, bound to an Account
-        entity, derived by a given identifier. Raises a CustodianException
-        with provided `code`, `log` and `respond` messages,
-        given the action has not successfully `commenced`.
-        :parameter commenced:bool
-        :parameter identifier:str
-        :parameter code: int
-        :parameter respond:str
-        :parameter log:str
-        :raises: CustodianException
-        :return None:
+        Builds response for the given collection
+        :param collection:
+        :param job:
+        :param href:
+        :return:
         """
-        log = log or respond
-        if not commenced:
-            respond = respond.format(identifier=identifier)
-            log = log.format(identifier=identifier)
-            _log_action = _LOG.error if error else _LOG.warning
-            _log_action(log)
-            return build_response(code=code, content=respond)
+        collection.fetch_all()
 
-    @staticmethod
-    def _delete_requirement_map() -> Dict[str, Dict]:
-        return {ACCOUNT_ATTR: dict(required_type=str, required=True)}
+        dictionary_url = None
+        if obfuscated:
+            dct = obfuscation.get_obfuscation_dictionary(collection)
+            dictionary_url = self._rs.one_time_url_json(dct,
+                                                        'dictionary.json')
+        report = ShardsCollectionFindingsConvertor().convert(collection)
+        if href:
+            return ReportResponse(
+                job,
+                self._rs.one_time_url_json(report, f'{job.id}.json'),
+                dictionary_url,
+                ReportFormat.JSON
+            ).dict()
 
-    @staticmethod
-    def _filter_requirement_map():
-        return {attr: dict(required_type=str, required=False)
-                for attr in FindingsHandler.FILTER_KEYS}
+        else:
+            return ReportResponse(
+                job,
+                report,
+                dictionary_url,
+                ReportFormat.JSON
+            ).dict()
 
-    @staticmethod
-    def _get_map_from_reference(subject: Dict, reference: Dict):
-        return {(_sub or _target): subject[_target]
-                for _target, _sub in reference.items() if _target in subject}
+    @validate_kwargs
+    def get_by_tenant_jobs(self, event: TenantJobsFindingsReportGetModel,
+                           tenant_name: str):
+        tenant = self._ts.get(tenant_name)
+        modular_helpers.assert_tenant_valid(tenant, event.customer)
 
-    @staticmethod
-    def _get_filter_key_relation():
-        return dict(
-            zip(FindingsHandler.FILTER_KEYS, FindingsService.FILTER_KEYS)
+        jobs = self._ambiguous_job_service.get_by_tenant_name(
+            tenant_name=tenant_name,
+            job_type=event.job_type,
+            status=JobState.SUCCEEDED,
+            start=event.start_iso,
+            end=event.end_iso
         )
+        jobs = filter(lambda x: not x.is_platform_job,
+                      self._ambiguous_job_service.to_ambiguous(jobs))
 
-    @staticmethod
-    def _map_key_requirement_map(required: bool):
-        return {MAP_KEY_ATTR: dict(required_type=str, required=required)}
+        meta = self._rs.fetch_meta(tenant)
+        job_collection = []
+        for job in jobs:
+            col = self._rs.ambiguous_job_collection(tenant, job)
+            col.meta = meta
+            job_collection.append((job, col))
+        # TODO _collection_response to threads?
+        return build_response(content=map(
+            lambda pair: self._collection_response(*pair, href=event.href,
+                                                   obfuscated=event.obfuscated),
+            job_collection
+        ))

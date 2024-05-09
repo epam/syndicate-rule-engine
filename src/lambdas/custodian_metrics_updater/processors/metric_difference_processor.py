@@ -1,14 +1,13 @@
-import json
 from datetime import datetime, timedelta
 
 from dateutil.relativedelta import SU, relativedelta
 
+from helpers import get_last_element
 from helpers import get_logger
 from helpers.constants import ATTACK_VECTOR_TYPE, START_DATE, DATA_TYPE, \
     END_DATE
-from helpers.time_helper import utc_datetime
-from helpers.utils import get_last_element
 from helpers.difference import calculate_dict_diff
+from helpers.time_helper import utc_datetime
 from services import SERVICE_PROVIDER
 from services.clients.s3 import S3Client
 from services.environment_service import EnvironmentService
@@ -42,7 +41,7 @@ class TenantMetricsDifference:
         self.last_week_date = utc_datetime(
             self.last_week_date if self.last_week_date else (
                 self.today_date - relativedelta(weekday=SU(-1))
-            ).date().isoformat(), utc=False)
+            ).isoformat(), utc=False)
 
     def process_data(self, event):
         end_date = event.get(END_DATE)
@@ -100,28 +99,31 @@ class TenantMetricsDifference:
                 if (tenant_file := get_last_element(file, DELIMITER)) in \
                         previous_metric_filenames:
                     index = previous_metric_filenames.index(tenant_file)
-                    previous = self.s3_client.get_json_file_content(
-                        bucket_name=metrics_bucket,
-                        full_file_name=previous_metric_full_filenames[index])
+                    previous = self.s3_client.gz_get_json(
+                        bucket=metrics_bucket,
+                        key=previous_metric_full_filenames[index])
                     previous_metric_filenames.pop(index)
                 else:
                     _LOG.debug(f'Previous metrics for tenant {tenant_file} '
                                f'were not found')
                     previous = {}
-                current = self.s3_client.get_json_file_content(
-                    bucket_name=metrics_bucket, full_file_name=file)
+                current = self.s3_client.gz_get_json(
+                    bucket=metrics_bucket, key=file)
                 diff = calculate_dict_diff(current, previous,
                                            exclude=ATTACK_VECTOR_TYPE)
-                self.s3_client.put_object(bucket_name=metrics_bucket,
-                                          object_name=file,
-                                          body=json.dumps(diff))
+                self.s3_client.gz_put_json(
+                    bucket=metrics_bucket,
+                    key=file,
+                    obj=diff
+                )
                 if self.TO_UPDATE_MARKER:
                     obj_name = TENANT_METRICS_PATH.format(
                         customer=customer, date=last_week_date)
-                    self.s3_client.put_object(
-                        bucket_name=metrics_bucket,
-                        object_name=f'{obj_name}/{tenant_file}',
-                        body=json.dumps(diff))
+                    self.s3_client.gz_put_json(
+                        bucket=metrics_bucket,
+                        key=f'{obj_name}/{tenant_file}',
+                        obj=diff
+                    )
 
         # Monday
         if self.TO_UPDATE_MARKER:
@@ -145,7 +147,7 @@ class TenantMetricsDifference:
 
 
 TENANT_METRICS_DIFF = TenantMetricsDifference(
-    s3_client=SERVICE_PROVIDER.s3(),
-    environment_service=SERVICE_PROVIDER.environment_service(),
-    settings_service=SERVICE_PROVIDER.settings_service()
+    s3_client=SERVICE_PROVIDER.s3,
+    environment_service=SERVICE_PROVIDER.environment_service,
+    settings_service=SERVICE_PROVIDER.settings_service
 )

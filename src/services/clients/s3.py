@@ -1,40 +1,31 @@
+import gzip
 import io
-import ipaddress
-import json
-import os.path
+import mimetypes
+import os
 import re
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
-from gzip import GzipFile
-from subprocess import PIPE, Popen
-from typing import Union, Generator, Iterable, Dict, Tuple, Optional, \
-    TypedDict, List
-from urllib.parse import urlparse
-from urllib3.util import Url, parse_url
+import shutil
+from datetime import datetime, timedelta
+from typing import Generator, Iterable, Optional, TypedDict, BinaryIO, cast
 
-import boto3
+import msgspec
 from botocore.config import Config
 from botocore.exceptions import ClientError
-from botocore.response import StreamingBody
-from botocore.utils import IMDSFetcher, _RetriesExceededError
+from modular_sdk.services.aws_creds_provider import ModularAssumeRoleClient
+from urllib3.util import Url, parse_url
 
-from helpers import coroutine
-from helpers.constants import ENV_SERVICE_MODE, ENV_MINIO_HOST, \
-    ENV_MINIO_PORT, DOCKER_SERVICE_MODE, \
-    ENV_MINIO_ACCESS_KEY, ENV_MINIO_SECRET_ACCESS_KEY
+from helpers.constants import CAASEnv
 from helpers.log_helper import get_logger
-
-UTF_8_ENCODING = 'utf-8'
-MINIKUBE_IP_PARAM = 'MINIKUBE_IP'
-DEFAULT_MINIO_PORT = 30103  # hard-coded from minio-config.yaml
-GZIP_EXTENSION = '.gz'
+from services.clients import (Boto3ClientWrapperFactory, Boto3ClientFactory,
+                              Boto3ClientWrapper)
 
 _LOG = get_logger(__name__)
 
-S3_NOT_AVAILABLE = re.compile(r'[^a-zA-Z0-9!-_.*()]')
+Json = dict | list | str | int | float | tuple
 
 
 class S3Url:
+    __slots__ = ('_parsed',)
+
     def __init__(self, s3_url: str):
         self._parsed: Url = parse_url(s3_url)
 
@@ -51,409 +42,416 @@ class S3Url:
         return self._parsed.url
 
 
-class S3Client:
-    IS_DOCKER = os.getenv(ENV_SERVICE_MODE) == DOCKER_SERVICE_MODE
-
-    class ObjectMetadata(TypedDict):
-        Key: str
-        LastModified: datetime
-        ETag: str
-        ChecksumAlgorithm: List[str]
-        Size: int
-        StorageClass: str
-        Owner: Dict[str, str]
-        RestoreStatus: Dict
-
-    @staticmethod
-    def safe_key(key: str) -> str:
-        return re.sub(S3_NOT_AVAILABLE, '-', key)
-
-    def __init__(self, region):
-        self.region = region
-        self._client = None
-
-    def build_config(self) -> Config:
-        config = Config(retries={
+class S3ClientWrapperFactory(Boto3ClientWrapperFactory['S3Client']):
+    @classmethod
+    def _base_config(cls) -> Config:
+        return Config(retries={
             'max_attempts': 10,
             'mode': 'standard'
         })
-        if self.IS_DOCKER:
-            config = config.merge(Config(s3={
-                'signature_version': 's3v4',
-                'addressing_style': 'path'
-            }))
-        return config
 
-    def _init_clients(self):
-        config = self.build_config()
-        if self.IS_DOCKER:
-            host, port = os.getenv(ENV_MINIO_HOST), os.getenv(ENV_MINIO_PORT)
-            access_key = os.getenv(ENV_MINIO_ACCESS_KEY)
-            secret_access_key = os.getenv(ENV_MINIO_SECRET_ACCESS_KEY)
-            assert (host and port and access_key and secret_access_key), \
-                f"\'{ENV_MINIO_HOST}\', \'{ENV_MINIO_PORT}\', " \
-                f"\'{ENV_MINIO_ACCESS_KEY}\', " \
-                f"\'{ENV_MINIO_SECRET_ACCESS_KEY}\' envs must be specified " \
-                f"for on-prem"
-            url = f'http://{host}:{port}'
-            session = boto3.Session(
-                aws_access_key_id=access_key,
-                aws_secret_access_key=secret_access_key
-            )
-            self._client = session.client('s3', endpoint_url=url,
-                                          config=config)
-            _LOG.info('Minio connection was successfully initialized')
-        else:  # saas
-            self._client = boto3.client('s3', self.region, config=config)
-            _LOG.info('S3 connection was successfully initialized')
+    @classmethod
+    def _minio_config(cls) -> Config:
+        return cls._base_config().merge(Config(s3={
+            'signature_version': 's3v4',
+            'addressing_style': 'path'
+        }))
 
-    @property
-    def client(self):
-        if not self._client:
-            self._init_clients()
-        return self._client
+    def build_s3(self, region_name: str) -> 'S3Client':
+        instance = self._wrapper.build()
+        instance.resource = Boto3ClientFactory(
+            instance.service_name).build_resource(
+            region_name=region_name,
+            config=self._base_config()
+        )
+        instance.client = instance.resource.meta.client
+        _LOG.info('S3 connection was successfully initialized')
+        return instance
+
+    def build_minio(self) -> 'S3Client':
+        endpoint = os.getenv(CAASEnv.MINIO_ENDPOINT)
+        access_key = os.getenv(CAASEnv.MINIO_ACCESS_KEY_ID)
+        secret_key = os.getenv(CAASEnv.MINIO_SECRET_ACCESS_KEY)
+        assert endpoint and access_key and secret_key, \
+            ('Minio endpoint, access key and secret key must be '
+             'provided for on-prem')
+
+        instance = self._wrapper.build()
+        instance.resource = Boto3ClientFactory(
+            instance.service_name).build_resource(
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
+            endpoint_url=endpoint,
+            config=self._minio_config()
+        )
+        instance.client = instance.resource.meta.client
+        _LOG.info('Minio connection was successfully initialized')
+        return instance
+
+
+class S3Client(Boto3ClientWrapper):
+    """
+    Most methods have their gz equivalent with prefix gz_. Such methods
+    add .gz to bucket key, compress/decompress content (if the method
+    interacts with content) and add gzip ContentEncoding to metadata
+    """
+    service_name = 's3'
+    s3_not_available = re.compile(r'[^a-zA-Z0-9!-_.*()]')
+
+    def __init__(self):
+        self._enc = msgspec.json.Encoder()
+        self._dec = msgspec.json.Decoder()
+
+    class Bucket(TypedDict):
+        Name: str
+        CreationDate: datetime
+
+    @classmethod
+    def safe_key(cls, key: str) -> str:
+        return re.sub(cls.s3_not_available, '-', key)
 
     @staticmethod
-    def _gz_key(key: str, is_zipped: bool = True) -> str:
-        if not is_zipped:
-            return key
-        if not key.endswith(GZIP_EXTENSION):
-            key = key.strip('.') + GZIP_EXTENSION
+    def _gz_key(key: str) -> str:
+        if not key.endswith('.gz'):
+            key = key.strip('.') + '.gz'
         return key
 
-    def create_bucket(self, bucket_name, region=None):
-        region = region or self.region
-        self.client.create_bucket(
-            Bucket=bucket_name, CreateBucketConfiguration={
-                'LocationConstraint': region
-            }
+    @classmethod
+    def factory(cls) -> S3ClientWrapperFactory:
+        return S3ClientWrapperFactory(cls)
+
+    @staticmethod
+    def _resolve_content_type(key: str, ct: str = None, ce: str = None
+                              ) -> tuple[str | None, str | None]:
+        """
+        Returns user provided content type and encoding. If something is not
+        provided -> tries to resolve from key
+        :param key:
+        :param ct:
+        :param ce:
+        :return: (content_type, content_encoding)
+        """
+        if ct and ce:
+            return ct, ce
+        resolved_ct, resolved_ce = mimetypes.guess_type(key)
+        ct = ct or resolved_ct
+        ce = ce or resolved_ce
+        return ct, ce
+
+    def put_object(self, bucket: str, key: str, body: bytes | BinaryIO,
+                   content_type: str = None, content_encoding: str = None):
+        """
+        Uploads the provided stream of bytes or raw bytes.
+        :param bucket:
+        :param key:
+        :param body:
+        :param content_type:
+        :param content_encoding:
+        :return:
+        """
+        ct, ce = self._resolve_content_type(key, content_type,
+                                            content_encoding)
+        params = {}
+        if ct:
+            params.update(ContentType=ct)
+        if ce:
+            params.update(ContentEncoding=ce)
+        if isinstance(body, bytes):
+            body = io.BytesIO(body)
+        return self.resource.Bucket(bucket).upload_fileobj(
+            Fileobj=body, Key=key, ExtraArgs=params
         )
 
-    def file_exists(self, bucket_name, key):
-        """Checks if object with the given key exists in bucket, if not
-        compressed version exists, compresses and rewrites"""
+    def gz_put_object(self, bucket: str, key: str, body: bytes | BinaryIO,
+                      gz_buffer: BinaryIO = None, content_type: str = None,
+                      content_encoding: str = None):
+        """
+        Uploads the file adding .gz to the file extension and compressing the
+        body
+        :param bucket:
+        :param key:
+        :param body:
+        :param gz_buffer: optional buffer to use for compression.
+        Otherwise - in memory. Argument can be used for large files
+        :param content_type:
+        :param content_encoding:
+        :return:
+        """
+        if not gz_buffer:
+            gz_buffer = io.BytesIO()
+        with gzip.GzipFile(fileobj=gz_buffer, mode='wb') as gz:
+            if isinstance(body, bytes):
+                gz.write(body)
+            else:
+                shutil.copyfileobj(body, gz)
+        gz_buffer.seek(0)
+        return self.put_object(bucket, self._gz_key(key), gz_buffer,
+                               content_type, content_encoding)
 
-        if self._file_exists(bucket_name, self._gz_key(key)):
-            _LOG.info(f'Gzipped version of the file \'{key}\' exists')
-            return True
-        elif self._file_exists(bucket_name, key):
-            _LOG.warning(f'Not gzipped version of file \'{key}\' exists. '
-                         f'Compressing')
-            self._gzip_object(bucket_name, key)
-            return True
-        else:
-            return False
-
-    def _file_exists(self, bucket_name: str, key: str) -> bool:
-        obj = next(
-            self.list_objects(bucket_name=bucket_name, prefix=key, max_keys=1),
-            None
-        )
-        if not obj:
-            return False
-        return obj['Key'] == key
-
-    def _gzip_object(self, bucket_name: str, key: str) -> io.BytesIO:
-        """Replaces a file with gzipped version.
-        And incidentally returns file's content"""
+    def get_object(self, bucket: str, key: str,
+                   buffer: BinaryIO = None) -> BinaryIO | None:
+        """
+        Downloads object to memory by default. Optional buffer can be provided.
+        In case the key does not exist, None is returned
+        :param bucket:
+        :param key:
+        :param buffer:
+        :return:
+        """
+        if not buffer:
+            buffer = io.BytesIO()
         try:
-            response = self.client.get_object(
-                Bucket=bucket_name,
-                Key=key
+            self.resource.Bucket(bucket).download_fileobj(
+                Key=key, Fileobj=buffer
             )
         except ClientError as e:
-            if isinstance(e, ClientError) and \
-                    e.response['Error']['Code'] == 'NoSuchKey':
-                _LOG.warning(
-                    f'There is no \'{key}\' file in bucket {bucket_name}')
+            if e.response['Error']['Code'] in ('NoSuchKey', '404'):
+                return
+            _LOG.exception(f'Unexpected error occurred in '
+                           f'get_object: s3://{bucket}/{key}')
+            raise e
+        buffer.seek(0)
+        return buffer
+
+    def gz_get_object(self, bucket: str, key: str,
+                      buffer: BinaryIO = None,
+                      gz_buffer: BinaryIO = None) -> BinaryIO | None:
+        """
+        :param bucket:
+        :param key:
+        :param buffer:
+        :param gz_buffer: can be optionally provided to use as a buffer for
+        compression. You can provide some temp file in case the size of body
+        is expected to be large
+        :return:
+        """
+        if not gz_buffer:
+            gz_buffer = io.BytesIO()
+        stream = self.get_object(bucket, self._gz_key(key), gz_buffer)
+        if not stream:
+            return
+        gz_buffer.seek(0)
+        if not buffer:
+            buffer = io.BytesIO()
+        with gzip.GzipFile(fileobj=gz_buffer, mode='rb') as gz:
+            shutil.copyfileobj(gz, buffer)
+        buffer.seek(0)
+        return buffer
+
+    def put_json(self, bucket: str, key: str, obj: Json):
+        return self.put_object(
+            bucket=bucket,
+            key=key,
+            body=self._enc.encode(obj),
+            content_type='application/json'
+        )
+
+    def gz_put_json(self, bucket: str, key: str, obj: Json):
+        # ignoring key, cause you specifically used this method.
+        # So it must be json and gzip
+        return self.gz_put_object(
+            bucket=bucket,
+            key=key,
+            body=self._enc.encode(obj),
+            content_type='application/json',
+            content_encoding='gzip'
+        )
+
+    def get_json(self, bucket: str, key: str) -> Json:
+        body = self.get_object(bucket, key)
+        if not body:
+            return {}
+        result = self._dec.decode(cast(io.BytesIO, body).getvalue())
+        body.close()
+        return result
+
+    def gz_get_json(self, bucket: str, key: str) -> Json:
+        body = self.gz_get_object(bucket, key)
+        if not body:
+            return {}
+        result = self._dec.decode(cast(io.BytesIO, body).getvalue())
+        body.close()
+        return result
+
+    def delete_object(self, bucket: str, key: str):
+        self.client.delete_object(Bucket=bucket, Key=key)
+
+    def gz_delete_object(self, bucket: str, key: str):
+        self.delete_object(bucket, self._gz_key(key))
+
+    def object_meta(self, bucket: str, key: str):
+        obj = self.resource.Object(bucket, key)
+        try:
+            obj.load()
+            return obj
+        except ClientError as e:
+            if e.response['Error']['Code'] == '404':
                 return
             raise e
-        buf = io.BytesIO(response.get('Body').read())
-        _LOG.info(f'Putting the compressed version of file \'{key}\'')
-        self.put_object(bucket_name, key, buf.read())
-        _LOG.info(f'Removing the old not compressed version of the '
-                  f'file \'{key}\'')
-        self.client.delete_object(Bucket=bucket_name, Key=key)
-        buf.seek(0)
-        return buf
 
-    def put_object(self, bucket_name: str, object_name: str,
-                   body: Union[str, bytes], is_zipped: bool = True):
-        object_name = self._gz_key(object_name, is_zipped)
-        try:
-            if not is_zipped:
-                return self.client.put_object(
-                    Body=body, Bucket=bucket_name, Key=object_name,
-                    ContentEncoding='utf-8')
+    def object_exists(self, bucket: str, key: str) -> bool:
+        # or better use list_objects with limit 1
+        return bool(self.object_meta(bucket, key))
 
-            buf = io.BytesIO()
-            with GzipFile(fileobj=buf, mode='wb') as f:
-                f.write(body.encode() if not isinstance(body, bytes) else body)
-            buf.seek(0)
-            return self.client.put_object(Body=buf, Bucket=bucket_name,
-                                          Key=object_name)
-        except (Exception, BaseException) as e:
-            _LOG.error(f'Putting data inside of an {object_name} object, '
-                       f'within the {bucket_name} bucket, has triggered an'
-                       f' exception - {e}.')
+    def gz_object_exists(self, bucket: str, key: str) -> bool:
+        return self.object_exists(bucket, self._gz_key(key))
 
-    def is_bucket_exists(self, bucket_name: str) -> bool:
+    def list_objects(self, bucket: str, prefix: Optional[str] = None,
+                     page_size: Optional[int] = None,
+                     limit: Optional[int] = None,
+                     start_after: Optional[str] = None,
+                     ) -> Iterable:
+        params = dict()
+        if prefix:
+            params.update(Prefix=prefix)
+        if start_after:
+            params.update(Marker=start_after)
+        it = self.resource.Bucket(bucket).objects.filter(**params)
+        if page_size is not None:
+            it = it.page_size(page_size)
+        if limit is not None:
+            it = it.limit(limit)
+        return it
+
+    def list_dir(self, bucket_name: str,
+                 key: Optional[str] = None,
+                 page_size: Optional[int] = None,
+                 limit: Optional[int] = None,
+                 start_after: Optional[str] = None
+                 ) -> Generator[str, None, None]:
         """
-        Check if specified bucket exists.
-        :param bucket_name: name of the bucket to check;
-        :return: True is exists, otherwise - False
+        Yields just keys
+        :param bucket_name:
+        :param key:
+        :param page_size:
+        :param limit:
+        :param start_after:
+        :return:
         """
+        yield from (obj.key for obj in self.list_objects(
+            bucket=bucket_name,
+            prefix=key,
+            page_size=page_size,
+            limit=limit,
+            start_after=start_after
+        ))
+
+    def common_prefixes(self, bucket: str, delimiter: str,
+                        prefix: Optional[str] = None,
+                        start_after: Optional[str] = None
+                        ) -> Generator[str, None, None]:
+        paginator = self.client.get_paginator('list_objects_v2')
+        params = dict(Bucket=bucket, Delimiter=delimiter)
+        if prefix:
+            params.update(Prefix=prefix)
+        if start_after:
+            params.update(StartAfter=start_after)
+        for item in paginator.paginate(**params):
+            for prefix in item.get('CommonPrefixes') or []:
+                yield prefix.get('Prefix')
+
+    def create_bucket(self, bucket: str, region: str):
+        self.client.create_bucket(
+            Bucket=bucket,
+            CreateBucketConfiguration={'LocationConstraint': region}
+        )
+
+    def bucket_exists(self, bucket: str) -> bool:
         try:
-            self.client.head_bucket(Bucket=bucket_name)
+            self.client.head_bucket(Bucket=bucket)
             return True
         except ClientError as e:
             if e.response['Error']['Code'] != '404':
                 raise e
             return False
 
-    def list_buckets(self):
-        response = self.client.list_buckets()
-        return [bucket['Name'] for bucket in response.get("Buckets")]
+    def list_buckets(self) -> Generator[Bucket, None, None]:
+        yield from (self.client.list_buckets().get('Buckets') or [])
 
-    def get_json_file_content(self, bucket_name: str,
-                              full_file_name: str) -> dict:
-        """
-        Returns content of the object.
-        :param bucket_name: name of the bucket.
-        :param full_file_name: name of the file including its folders.
-            Example: /folder1/folder2/file_name.json
-        :return: content of the file loaded to json
-        """
-        content = self.get_file_content(
-            bucket_name, full_file_name, decode=True)
-        return json.loads(content) if content else {}
-
-    def get_file_content(self, bucket_name: str, full_file_name: str,
-                         decode: bool = False) -> Union[str, bytes]:
-        """
-        Returns content of the object.
-        :param bucket_name: name of the bucket.
-        :param full_file_name: name of the file including its folders.
-            Example: /folder1/folder2/file_name.json
-        :param decode: flag
-        :return: content of the file
-        """
-        response_stream = self.get_decompressed_stream(bucket_name,
-                                                       full_file_name)
-        if not response_stream:
-            _LOG.warning(
-                f'No gzip file found for \'{self._gz_key(full_file_name)}\'. '
-                f'Trying to reach not the gzipped version')
-            response_stream = self._gzip_object(bucket_name, full_file_name)
-            if not response_stream:
-                return
-        _LOG.info(f'Resource stream of {full_file_name} within '
-                  f'{bucket_name} has been established.')
-        if decode:
-            return response_stream.read().decode(UTF_8_ENCODING)
-        return response_stream.read()
-
-    def get_file_stream(self, bucket_name: str,
-                        full_file_name: str) -> Union[StreamingBody, None]:
-        """Returns boto3 stream with file content. If the file is not found,
-        returns None. The given file name is not converted to gz.
-        Use this method as a raw version based on which you build your
-        own logic"""
-        try:
-            response = self.client.get_object(
-                Bucket=bucket_name,
-                Key=full_file_name
-            )
-            return response.get('Body')
-        except ClientError as e:
-            if e.response['Error']['Code'] == 'NoSuchKey':
-                return None
-            raise e
-
-    def get_decompressed_stream(self, bucket_name: str,
-                                full_file_name: str) -> Union[GzipFile, None]:
-        stream = self.get_file_stream(bucket_name,
-                                      self._gz_key(full_file_name))
-        if not stream:
-            return
-        return GzipFile(fileobj=stream)
-
-    def list_objects(self, bucket_name: str, prefix: Optional[str] = None,
-                     max_keys: Optional[int] = None,
-                     delimiter: Optional[str] = None,
-                     start_after: Optional[str] = None,
-                     ) -> Generator[ObjectMetadata, None, None]:
-        params = dict(Bucket=bucket_name)
-        if max_keys:
-            params.update(MaxKeys=max_keys)
-        if prefix:
-            params.update(Prefix=prefix)
-        if delimiter:
-            params.update(Delimiter=delimiter)
-        if start_after:
-            params.update(StartAfter=start_after)
-        is_truncated = True
-        while is_truncated:
-            _LOG.debug('Making list_objects_v2 request')
-            response = self.client.list_objects_v2(**params)
-            params.pop('StartAfter', None)
-            yield from response.get('Contents') or []
-            limit = params.get('MaxKeys')
-            n_returned = len(response.get('Contents') or [])
-            if limit and n_returned == limit:
-                return
-            # either no limit or n_returned < limit
-            if limit:
-                params.update(MaxKeys=limit - n_returned)
-            is_truncated = response['IsTruncated']
-            params['ContinuationToken'] = response.get('NextContinuationToken')
-
-    def delete_file(self, bucket_name: str, file_key: str):
-        # TODO https://github.com/boto/boto3/issues/759, when the bug is
-        #  fixed, use response statusCode instead of client.file_exists
-        gzip_file_key = self._gz_key(file_key)
-        if self._file_exists(bucket_name, gzip_file_key):
-            self.client.delete_object(Bucket=bucket_name, Key=gzip_file_key)
-        else:
-            _LOG.warning(f'File {gzip_file_key} was not found during '
-                         f'removing. Maybe it has not been compressed yet. '
-                         f'Trying to remove the not compressed version')
-            self.client.delete_object(Bucket=bucket_name, Key=gzip_file_key)
-
-    def generate_presigned_url(self, bucket_name, full_file_name,
-                               client_method='get_object', http_method='GET',
-                               expires_in_sec=300, force_private_ip=False):
-        """Do not forget to use client.file_exists before using this method"""
-        url = self.client.generate_presigned_url(
-            ClientMethod=client_method,
-            Params={
-                'Bucket': bucket_name,
-                'Key': self._gz_key(full_file_name),
-            },
-            ExpiresIn=expires_in_sec,
-            HttpMethod=http_method
+    def copy(self, bucket: str, key: str, destination_bucket: str,
+             destination_key: str):
+        self.client.copy(
+            CopySource=dict(Bucket=bucket, Key=key),
+            Bucket=destination_bucket,
+            Key=destination_key
         )
-        if self.IS_DOCKER and not force_private_ip:
-            ipv4 = self._get_public_ipv4()
-            minikube_ip = self._get_minikube_ipv4()
-            if ipv4:
-                _LOG.info(f'Public ip: {ipv4} was received. Replacing the '
-                          f'domain in the presigned url')
-                parsed = urlparse(url)
-                return parsed._replace(netloc=parsed.netloc.replace(
-                    parsed.hostname, ipv4)).geturl()
-            elif minikube_ip:
-                _LOG.info(f'Minikube ip: {minikube_ip} was received. '
-                          f'Replacing the domain in the presigned url')
-                # return url
-                parsed = urlparse(url)
-                return parsed._replace(netloc=minikube_ip).geturl()
-        return url
 
-    def list_dir(self, bucket_name: str,
-                 key: Optional[str] = None,
-                 max_keys: Optional[int] = None,
-                 delimiter: Optional[str] = None,
-                 start_after: Optional[str] = None
-                 ) -> Generator[str, None, None]:
+    def download_url(self, bucket: str, key: str,
+                     expires_in: timedelta = timedelta(seconds=300),
+                     filename: Optional[str] = None,
+                     response_encoding: Optional[str] = None) -> str:
         """
-        Yields just keys
-        :param max_keys:
-        :param bucket_name:
+        :param bucket:
         :param key:
-        :param delimiter:
-        :param start_after:
+        :param expires_in:
+        :param filename: custom filename for the file that will be downloaded
+        :param response_encoding: by default uses encoding from object meta.
         :return:
         """
-        yield from (obj['Key'] for obj in self.list_objects(
-            bucket_name=bucket_name,
-            prefix=key,
-            max_keys=max_keys,
-            delimiter=delimiter,
-            start_after=start_after
-        ))
+        disposition = 'attachment;'
+        if filename:
+            disposition += f';filename="{filename}"'
+        params = {
+            'Bucket': bucket, 'Key': key,
+            'ResponseContentDisposition': disposition,
+        }
+        if response_encoding:
+            params['ResponseContentEncoding'] = response_encoding
+        return self.client.generate_presigned_url(
+            ClientMethod='get_object',
+            Params=params,
+            ExpiresIn=expires_in.seconds,
+        )
 
-    @staticmethod
-    def _get_public_ipv4():
-        """Tries to retrieve a public ipv4 from EC2 instance metadata"""
-        try:
-            _LOG.info('Trying to receive a public IP v4 from EC2 metadata')
-            return IMDSFetcher(timeout=0.5)._get_request(
-                "/latest/meta-data/public-ipv4", None).text
-        except (_RetriesExceededError, Exception) as e:
-            _LOG.warning(f'An IP v4 from EC2 metadata was not received: {e}')
-        # try:
-        #     from requests import get, RequestException
-        #     return get('https://api.ipify.org').content.decode('utf8')
-        # except RequestException:
-        #     pass
-        _LOG.info('No public IP was received. Returning None...')
-        return
-
-    @staticmethod
-    def _get_minikube_ipv4(port=None):
-        """Tries to retrieve the minikubes's api address and port"""
-        port = port or DEFAULT_MINIO_PORT
-        _LOG.info('Trying to receive the minikube`s ip')
-        ip = os.getenv(MINIKUBE_IP_PARAM)
-        if ip:
-            return f'{ip}:{port}'
-        _LOG.info('Minikube ip not found in environ. '
-                  'Maybe the service is running beyond the Cluster?')
-        process = Popen('minikube ip'.split(), stdout=PIPE)
-        output, error = process.communicate()
-        output = output.decode().strip()
-        if not error and ipaddress.ip_address(output):
-            _LOG.info('`minikube ip` has executed successfully. Return result')
-            return f'{output}:{port}'
-
-    @coroutine
-    def get_json_batch(self, bucket_name: str, keys: Iterable[str]
-                       ) -> Generator[Tuple[str, Dict], None, None]:
+    def gz_download_url(self, bucket: str, key: str,
+                        expires_in: timedelta = timedelta(seconds=300),
+                        filename: Optional[str] = None,
+                        response_encoding: str = None) -> str:
         """
-        When you create this generator object it immediately starts
-        downloading items, and you can iterate over results when you need.
-
-        :param bucket_name:
-        :param keys:
+        Prefix gz only impact the key here
+        :param bucket:
+        :param key:
+        :param expires_in:
+        :param filename:
+        :param response_encoding:
         :return:
         """
+        return self.download_url(bucket, self._gz_key(key), expires_in,
+                                 filename, response_encoding)
 
-        def _process(*args, **kwargs):
-            try:
-                return self.get_json_file_content(*args, **kwargs)
-            except ClientError as e:
-                _LOG.warning(f'A client error was caught while getting the '
-                             f'content of a file: {e}')
-                return {}
-
-        with ThreadPoolExecutor() as executor:
-            futures = {
-                executor.submit(_process, bucket_name, key): key
-                for key in keys
-            }
-            yield  # remove this and coroutine decorator in case something wrong
-            for future in as_completed(futures):
-                yield futures[future], future.result()
-
-    def put_objects_batch(self, bucket_name: str,
-                          key_body: Iterable[Tuple[str, Union[str, bytes]]]):
-        with ThreadPoolExecutor() as executor:
-            futures = {
-                executor.submit(self.put_object, bucket_name, *pair): pair[0]
-                for pair in key_body
-            }
-            for future in as_completed(futures):
-                key = futures[future]
-                try:
-                    future.result()
-                except (ClientError, Exception) as e:
-                    _LOG.warning(f'Cloud not upload file \'{key}\': {e}')
+    def put_path_expiration(self, bucket: str, key: str, days: int):
+        """
+        Creates a lifecycle rule with expiration for the given prefix
+        :param bucket:
+        :param key:
+        :param days:
+        :return:
+        """
+        return self.client.put_bucket_lifecycle_configuration(
+            Bucket=bucket,
+            LifecycleConfiguration={'Rules': [{
+                'Expiration': {'Days': days},
+                'Filter': {
+                    'Prefix': key
+                },
+                'Status': 'Enabled'
+            }]}
+        )
 
 
 class ModularAssumeRoleS3Service(S3Client):
-    from modular_sdk.services.aws_creds_provider import ModularAssumeRoleClient
     client = ModularAssumeRoleClient('s3')
 
-    def __init__(self, region):
-        super().__init__(region=region)
+    # probably actions that require resource won't work
+
+    # the implementation in S3Client uses s3 resource to handle multipart
+    # upload if necessary. Currently, we can access only client here, so
+    # this implementation
+    def put_object(self, bucket: str, key: str, body: bytes | BinaryIO):
+        ct, ce = mimetypes.guess_type(key)
+        params = dict(Bucket=bucket, Key=key, Body=body)
+        if ct:
+            params.update(ContentType=ct)
+        if ce:
+            params.update(ContentEncoding=ce)
+        return self.client.put_object(**params)

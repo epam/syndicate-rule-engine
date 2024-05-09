@@ -28,6 +28,9 @@
     "resource_type": "cloudwatch_rule",
     "rule_type": "api_call",
     "custom_pattern": {
+      "detail-type": [
+        "Batch Job State Change"
+      ],
       "source": [
         "aws.batch"
       ]
