@@ -34,14 +34,6 @@ from helpers.constants import (
 )
 from onprem.api.deployment_resources_parser import \
     DeploymentResourcesApiGatewayWrapper
-from onprem.scripts.parse_rule_source import (
-    init_parser as init_parser_rule_source_cli_parser,
-    main as parse_rule_source,
-)
-from onprem.scripts.rules_table_generator import (
-    init_parser as init_rules_table_generator_cli_parser,
-    main as generate_rules_table,
-)
 from services import SP
 from services.clients.xlsx_standard_parser import (
     init_parser as init_xlsx_cli_parser,
@@ -170,14 +162,6 @@ def build_parser() -> argparse.ArgumentParser:
     init_xlsx_cli_parser(sub_parsers.add_parser(
         PARSE_XLSX_STANDARD_ACTION,
         help='Parses Custom Core\'s xlsx with standards'
-    ))
-    init_parser_rule_source_cli_parser(sub_parsers.add_parser(
-        PARSE_RULE_SOURCE_ACTION,
-        help='Parses Rule source and extracts some data'
-    ))
-    init_rules_table_generator_cli_parser(sub_parsers.add_parser(
-        GENERATE_RULES_TABLE_ACTION,
-        help='Generates xlsx table with rules data from local dir with rules'
     ))
     parser_run = sub_parsers.add_parser(RUN_ACTION, help='Run on-prem server')
     parser_run.add_argument(
@@ -692,8 +676,6 @@ def main(args: list[str] | None = None):
         (GENERATE_OPENAPI_ACTION,): GenerateOpenApi(),
         (RUN_ACTION,): Run(),
         (PARSE_XLSX_STANDARD_ACTION,): parse_xlsx_standard,
-        (PARSE_RULE_SOURCE_ACTION,): parse_rule_source,
-        (GENERATE_RULES_TABLE_ACTION,): generate_rules_table,
 
         (UPDATE_API_GATEWAY_MODELS_ACTION,): UpdateApiGatewayModels(),
         (SHOW_PERMISSIONS_ACTION,): ShowPermissions(),
