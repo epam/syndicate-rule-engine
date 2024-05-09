@@ -1,0 +1,2464 @@
+{
+  "RESOURCES_BY_TENANT": {
+    "aws": {
+      "total_scans": 0,
+      "failed_scans": 0,
+      "succeeded_scans": 0,
+      "resources_violated": 484,
+      "last_scan_date": "2023-10-21T11:11:00",
+      "activated_regions": "",
+      "tenant_name": "AWS-TEST",
+      "account_id": "AWS-1234567890123",
+      "resource_types_data": {
+        "AWS Identity and Access Management": 15,
+        "AWS Identity and Access Management Access Analyzer": 1,
+        "Amazon S3": 14,
+        "Amazon CloudFront": 16,
+        "AWS Account": 4,
+        "Amazon Route 53": 6,
+        "AWS Web Application Firewall": 4,
+        "Amazon Virtual Private Cloud": 17,
+        "Amazon Relational Database Service": 68,
+        "Amazon Elastic Load Balancing": 15,
+        "AWS CloudFormation": 3,
+        "Amazon EC2": 50,
+        "Amazon Elastic Block Store": 10,
+        "Amazon Simple Queue Service": 4,
+        "Amazon Elastic Kubernetes Service": 8,
+        "AWS CloudTrail": 9,
+        "AWS Key Management Service": 3,
+        "AWS CodeBuild": 7,
+        "Amazon EC2 Auto Scaling": 11,
+        "Amazon OpenSearch Service": 14,
+        "AWS Lambda": 10,
+        "Amazon Redshift": 15,
+        "Amazon SageMaker": 7,
+        "Amazon Kinesis": 7,
+        "AWS Certificate Manager": 8,
+        "Amazon Elastic Container Service": 13,
+        "Amazon API Gateway": 12,
+        "Amazon DynamoDB": 3,
+        "Amazon Elastic File System": 5,
+        "Amazon ElastiCache": 14,
+        "AWS Database Migration Service": 6,
+        "Amazon DynamoDB Accelerator": 3,
+        "AWS Elastic Beanstalk": 7,
+        "Amazon EMR": 8,
+        "AWS Secrets Manager": 3,
+        "Amazon Simple Notification Service": 4,
+        "Amazon Elastic Container Registry": 4,
+        "AWS Transit Gateway": 4,
+        "Amazon AppFlow": 2,
+        "AWS Glue": 11,
+        "Amazon DocumentDB": 1,
+        "Amazon WorkSpaces Family": 11,
+        "AWS Backup": 2,
+        "Amazon EventBridge": 1,
+        "Amazon S3 Glacier": 2,
+        "AWS Config": 1,
+        "Amazon FSx": 8,
+        "Amazon MQ": 6,
+        "Amazon Managed Streaming for Apache Kafka": 4,
+        "Amazon Managed Workflows for Apache Airflow": 8,
+        "AWS Directory": 1,
+        "Amazon Data Lifecycle Manager": 1,
+        "Amazon Lightsail": 1,
+        "Amazon CloudWatch": 3,
+        "Amazon QLDB": 3,
+        "AWS AppSync": 4,
+        "AWS CodeDeploy": 3,
+        "AWS CodePipeline": 1,
+        "AWS Step Functions": 1
+      },
+      "severity_data": {
+        "Low": 183,
+        "Info": 50,
+        "High": 187,
+        "Medium": 67
+      }
+    },
+    "azure": {
+      "total_scans": 0,
+      "failed_scans": 0,
+      "succeeded_scans": 0,
+      "resources_violated": 258,
+      "last_scan_date": "2023-10-21T11:11:00",
+      "activated_regions": "",
+      "tenant_name": "AZURE-TEST",
+      "account_id": "AZURE-1234567890123",
+      "resource_types_data": {
+        "Azure RBAC": 2,
+        "Microsoft Defender for Cloud": 36,
+        "Azure Storage Accounts": 36,
+        "Azure SQL Database": 32,
+        "Azure Database for PostgreSQL": 40,
+        "Azure Database for MySQL": 28,
+        "Key Vault": 14,
+        "Azure Subscription": 24,
+        "Network security groups": 36,
+        "Azure Disk Storage": 6,
+        "Azure Kubernetes Service": 24,
+        "App Service": 56,
+        "Virtual Machines": 34,
+        "Virtual Network": 10,
+        "API Management": 6,
+        "Azure Cosmos DB": 8,
+        "Cognitive Services": 6,
+        "Azure Container Registry": 12,
+        "Azure Database for MariaDB": 6,
+        "App Configuration": 2,
+        "Azure Cache for Redis": 8,
+        "Event Grid": 4,
+        "Azure Machine Learning": 6,
+        "Azure SignalR Service": 2,
+        "Azure Spring Apps": 2,
+        "Application Gateway": 8,
+        "Azure Front Door": 4,
+        "Azure Service Fabric": 4,
+        "Azure SQL Managed Instance": 6,
+        "Automation": 2,
+        "Azure Data Lake Storage": 2,
+        "Azure Stream Analytics": 2,
+        "Batch": 4,
+        "Data Lake Analytics": 2,
+        "Azure IoT Hub": 4,
+        "Azure Logic Apps": 2,
+        "Azure Cognitive Search": 2,
+        "Service Bus": 2,
+        "Azure Virtual Machine Scale Sets": 14,
+        "Azure Data Explorer": 6,
+        "Azure Data Factory": 4,
+        "Azure Databricks": 2,
+        "Azure Synapse Analytics": 4,
+        "Azure Monitor": 2
+      },
+      "severity_data": {
+        "Low": 316,
+        "Medium": 26,
+        "Info": 68,
+        "High": 106
+      }
+    },
+    "google": {
+      "total_scans": 0,
+      "failed_scans": 0,
+      "succeeded_scans": 0,
+      "resources_violated": 276,
+      "last_scan_date": "2023-10-21T11:11:00",
+      "activated_regions": "",
+      "tenant_name": "GOOGLE-TEST",
+      "account_id": "109876543210",
+      "resource_types_data": {
+        "Cloud IAM": 12,
+        "Cloud KMS": 5,
+        "Cloud APIs": 4,
+        "Cloud Logging": 10,
+        "Cloud Storage": 14,
+        "Virtual Private Cloud": 39,
+        "Cloud DNS": 4,
+        "Compute Engine": 38,
+        "Cloud SQL": 46,
+        "Google Kubernetes Engine": 39,
+        "Secret Manager": 2,
+        "Cloud Load Balancing": 12,
+        "BigQuery": 4,
+        "Cloud Functions": 10,
+        "App Engine": 3,
+        "Cloud Bigtable": 3,
+        "Dataproc": 4,
+        "Cloud Run": 6,
+        "Cloud Armor": 4,
+        "Pub/Sub": 3,
+        "Cloud Spanner": 5,
+        "Cloud Memorystore": 2,
+        "Dataflow": 1,
+        "Vertex AI Workbench": 1,
+        "Cloud Data Fusion": 3,
+        "Access Transparency": 1,
+        "Access Approval": 1,
+        "Cloud Asset Inventory": 1
+      },
+      "severity_data": {
+        "High": 99,
+        "Low": 121,
+        "Medium": 10,
+        "Info": 47
+      }
+    },
+    "outdated_tenants": [],
+    "tenant_display_name": "test",
+    "customer": "EPAM Systems",
+    "date": "2023-10-01",
+    "type": "RESOURCES_BY_TENANT",
+    "defining_attribute": 1018,
+    "id": ""
+  },
+  "COMPLIANCE_BY_TENANT": {
+    "aws": {
+      "regions_data": [
+        {
+          "region": "eu-west-1",
+          "standards_data": [
+            {
+              "name": "Standard7",
+              "value": 0
+            },
+            {
+              "name": "Standard14 27017_2015",
+              "value": 1.69
+            },
+            {
+              "name": "Standard8 v3.2.1",
+              "value": 1.67
+            },
+            {
+              "name": "Standard14 27018_2019",
+              "value": 4.46
+            },
+            {
+              "name": "Standard14 27002_2013",
+              "value": 1.69
+            },
+            {
+              "name": "Standard14 27001_2013",
+              "value": 1.69
+            },
+            {
+              "name": "Standard3 Standard11_800_53_Rev5",
+              "value": 0.0
+            },
+            {
+              "name": "Standard11 800-171 Rev2",
+              "value": 0
+            },
+            {
+              "name": "Standard1 v7",
+              "value": 3.12
+            },
+            {
+              "name": "Standard1 v8",
+              "value": 0.46
+            },
+            {
+              "name": "Standard12",
+              "value": 0.0
+            },
+            {
+              "name": "CIS AWS Foundations Benchmark v1.5.0",
+              "value": 0
+            },
+            {
+              "name": "DA",
+              "value": 0
+            },
+            {
+              "name": "CJIS",
+              "value": 1.43
+            },
+            {
+              "name": "Standard9 v1.1",
+              "value": 0
+            },
+            {
+              "name": "Azure Security Benchmark v3",
+              "value": 1.19
+            },
+            {
+              "name": "Standard2 19",
+              "value": 0
+            },
+            {
+              "name": "SOX 2002 (2017 Trust Services Criteria)",
+              "value": 4.55
+            },
+            {
+              "name": "Standard10",
+              "value": 0.0
+            },
+            {
+              "name": "Standard15",
+              "value": 0.0
+            },
+            {
+              "name": "Standard14 27002_2022",
+              "value": 1.23
+            },
+            {
+              "name": "Standard14 27701_2019",
+              "value": 1.69
+            },
+            {
+              "name": "Standard11 800_53 Rev5",
+              "value": 0.0
+            },
+            {
+              "name": "Standard4 v4",
+              "value": 0.0
+            },
+            {
+              "name": "CMMC v2.0",
+              "value": 0
+            },
+            {
+              "name": "Standard5",
+              "value": 0
+            },
+            {
+              "name": "Standard6 2016_679",
+              "value": 1.04
+            },
+            {
+              "name": "CIS AWS Foundations Benchmark v1.4.0",
+              "value": 0
+            },
+            {
+              "name": "Cyber Essentials v2.2",
+              "value": 0
+            },
+            {
+              "name": "CIS Oracle Database 19 Benchmark v1.0.0",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "region": "us-west-1",
+          "standards_data": [
+            {
+              "name": "Standard7",
+              "value": 0
+            },
+            {
+              "name": "Standard14 27017_2015",
+              "value": 1.69
+            },
+            {
+              "name": "Standard8 v3.2.1",
+              "value": 1.67
+            },
+            {
+              "name": "Standard14 27018_2019",
+              "value": 4.46
+            },
+            {
+              "name": "Standard14 27002_2013",
+              "value": 1.69
+            },
+            {
+              "name": "Standard14 27001_2013",
+              "value": 1.69
+            },
+            {
+              "name": "Standard3 Standard11_800_53_Rev5",
+              "value": 0.0
+            },
+            {
+              "name": "Standard11 800-171 Rev2",
+              "value": 0
+            },
+            {
+              "name": "Standard1 v7",
+              "value": 3.12
+            },
+            {
+              "name": "Standard1 v8",
+              "value": 0.46
+            },
+            {
+              "name": "Standard12",
+              "value": 0.0
+            },
+            {
+              "name": "CIS AWS Foundations Benchmark v1.5.0",
+              "value": 0
+            },
+            {
+              "name": "DA",
+              "value": 0
+            },
+            {
+              "name": "CJIS",
+              "value": 1.43
+            },
+            {
+              "name": "Standard9 v1.1",
+              "value": 0
+            },
+            {
+              "name": "Azure Security Benchmark v3",
+              "value": 1.19
+            },
+            {
+              "name": "Standard2 19",
+              "value": 0
+            },
+            {
+              "name": "SOX 2002 (2017 Trust Services Criteria)",
+              "value": 4.55
+            },
+            {
+              "name": "Standard10",
+              "value": 0.0
+            },
+            {
+              "name": "Standard15",
+              "value": 0.0
+            },
+            {
+              "name": "Standard14 27002_2022",
+              "value": 1.23
+            },
+            {
+              "name": "Standard14 27701_2019",
+              "value": 1.69
+            },
+            {
+              "name": "Standard11 800_53 Rev5",
+              "value": 0.0
+            },
+            {
+              "name": "Standard4 v4",
+              "value": 0.0
+            },
+            {
+              "name": "CMMC v2.0",
+              "value": 0
+            },
+            {
+              "name": "Standard5",
+              "value": 0
+            },
+            {
+              "name": "Standard6 2016_679",
+              "value": 1.04
+            },
+            {
+              "name": "CIS AWS Foundations Benchmark v1.4.0",
+              "value": 0
+            },
+            {
+              "name": "Cyber Essentials v2.2",
+              "value": 0
+            },
+            {
+              "name": "CIS Oracle Database 19 Benchmark v1.0.0",
+              "value": 0
+            }
+          ]
+        }
+      ],
+      "average_data": [
+        {
+          "name": "DA",
+          "value": 0.0
+        },
+        {
+          "name": "CMMC v2.0",
+          "value": 0.0
+        },
+        {
+          "name": "Standard1 v8",
+          "value": 0.21
+        },
+        {
+          "name": "Standard3 Standard11_800_53_Rev5",
+          "value": 0.06
+        },
+        {
+          "name": "Standard11 800_53 Rev5",
+          "value": 0.05
+        },
+        {
+          "name": "Standard7",
+          "value": 0.0
+        },
+        {
+          "name": "Standard2 19",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27001_2013",
+          "value": 0.79
+        },
+        {
+          "name": "Standard8 v3.2.1",
+          "value": 0.78
+        },
+        {
+          "name": "Standard14 27017_2015",
+          "value": 0.79
+        },
+        {
+          "name": "Standard15",
+          "value": 0.02
+        },
+        {
+          "name": "BSA v3",
+          "value": 0.55
+        },
+        {
+          "name": "Standard11 800-171 Rev2",
+          "value": 0.0
+        },
+        {
+          "name": "Standard1 v7",
+          "value": 2.08
+        },
+        {
+          "name": "Standard14 27701_2019",
+          "value": 0.79
+        },
+        {
+          "name": "CIS AWS Foundations Benchmark v1.4.0",
+          "value": 0.0
+        },
+        {
+          "name": "Standard9 v1.1",
+          "value": 0.0
+        },
+        {
+          "name": "s202",
+          "value": 2.12
+        },
+        {
+          "name": "Standard6 2016_679",
+          "value": 0.49
+        },
+        {
+          "name": "Standard12",
+          "value": 0.07
+        },
+        {
+          "name": "CJIS",
+          "value": 0.86
+        },
+        {
+          "name": "Standard5",
+          "value": 0.0
+        },
+        {
+          "name": "CIS AWS Foundations Benchmark v1.5.0",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27002_2013",
+          "value": 0.79
+        },
+        {
+          "name": "Standard10",
+          "value": 0.67
+        },
+        {
+          "name": "Standard14 27018_2019",
+          "value": 2.08
+        },
+        {
+          "name": "Standard14 27002_2022",
+          "value": 0.57
+        },
+        {
+          "name": "Standard4 v4",
+          "value": 0.06
+        },
+        {
+          "name": "CE v2.2",
+          "value": 0.0
+        }
+      ],
+      "last_scan_date": "2023-10-21T11:11:00",
+      "activated_regions": "",
+      "tenant_name": "AWS-TEST",
+      "account_id": "AWS-1234567890123"
+    },
+    "azure": {
+      "average_data": [
+        {
+          "name": "Standard14 27701_2019",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27002_2022",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27002_2013",
+          "value": 0.0
+        },
+        {
+          "name": "Standard11 800_53 Rev5",
+          "value": 0.0
+        },
+        {
+          "name": "CFB v1.4.0",
+          "value": 0.0
+        },
+        {
+          "name": "CMMC v2.0",
+          "value": 0.0
+        },
+        {
+          "name": "CJIS",
+          "value": 0.0
+        },
+        {
+          "name": "Standard11 800-171 Rev2",
+          "value": 0.0
+        },
+        {
+          "name": "Standard15",
+          "value": 0.0
+        },
+        {
+          "name": "BSA v3",
+          "value": 0.0
+        },
+        {
+          "name": "CE v2.2",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27001_2013",
+          "value": 0.0
+        },
+        {
+          "name": "DA",
+          "value": 0.0
+        },
+        {
+          "name": "Standard2 19",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27017_2015",
+          "value": 0.0
+        },
+        {
+          "name": "Standard1 v7",
+          "value": 0.0
+        },
+        {
+          "name": "Standard10",
+          "value": 0.0
+        },
+        {
+          "name": "Standard4 v4",
+          "value": 0.0
+        },
+        {
+          "name": "Standard3 Standard11_800_53_Rev5",
+          "value": 0.0
+        },
+        {
+          "name": "CFB v1.5.0",
+          "value": 0.0
+        },
+        {
+          "name": "Standard1 v8",
+          "value": 0.0
+        },
+        {
+          "name": "Standard6 2016_679",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27018_2019",
+          "value": 0.0
+        },
+        {
+          "name": "Standard9 v1.1",
+          "value": 0.0
+        },
+        {
+          "name": "s202",
+          "value": 0.0
+        },
+        {
+          "name": "Standard7",
+          "value": 0.0
+        },
+        {
+          "name": "Standard12",
+          "value": 0.0
+        },
+        {
+          "name": "Standard5",
+          "value": 0.0
+        }
+      ],
+      "last_scan_date": "2023-10-21T11:11:00",
+      "activated_regions": "",
+      "tenant_name": "AZURE-TEST",
+      "account_id": "AZURE-1234567890123"
+    },
+    "google": {
+      "regions_data": [
+        {
+          "region": "eu-west-1",
+          "standards_data": [
+            {
+              "name": "Standard14 27701_2019",
+              "value": 0
+            },
+            {
+              "name": "Standard1 v8",
+              "value": 0
+            },
+            {
+              "name": "Standard11 800_53 Rev5",
+              "value": 0
+            },
+            {
+              "name": "Standard14 27017_2015",
+              "value": 0
+            },
+            {
+              "name": "Standard14 27018_2019",
+              "value": 0
+            },
+            {
+              "name": "Standard9 v1.1",
+              "value": 0
+            },
+            {
+              "name": "Standard14 27001_2013",
+              "value": 0
+            },
+            {
+              "name": "Standard14 27002_2013",
+              "value": 0
+            },
+            {
+              "name": "Azure Security Benchmark v3",
+              "value": 0
+            },
+            {
+              "name": "Standard3 Standard11_800_53_Rev5",
+              "value": 0
+            },
+            {
+              "name": "SOX 2002 (2017 Trust Services Criteria)",
+              "value": 0
+            },
+            {
+              "name": "Standard10",
+              "value": 0
+            },
+            {
+              "name": "Standard15",
+              "value": 0
+            },
+            {
+              "name": "Standard14 27002_2022",
+              "value": 0
+            },
+            {
+              "name": "Standard1 v7",
+              "value": 0
+            },
+            {
+              "name": "Standard11 800-171 Rev2",
+              "value": 0
+            },
+            {
+              "name": "Standard12",
+              "value": 0
+            },
+            {
+              "name": "Standard2 19",
+              "value": 0
+            },
+            {
+              "name": "Cyber Essentials v2.2",
+              "value": 0
+            },
+            {
+              "name": "Standard4 v4",
+              "value": 0
+            },
+            {
+              "name": "CMMC v2.0",
+              "value": 0
+            },
+            {
+              "name": "Standard6 2016_679",
+              "value": 0
+            },
+            {
+              "name": "Standard7",
+              "value": 0
+            },
+            {
+              "name": "Standard5",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "region": "us-west-1",
+          "standards_data": [
+            {
+              "name": "Standard14 27701_2019",
+              "value": 0
+            },
+            {
+              "name": "Standard1 v8",
+              "value": 0
+            },
+            {
+              "name": "Standard11 800_53 Rev5",
+              "value": 0
+            },
+            {
+              "name": "Standard14 27017_2015",
+              "value": 0
+            },
+            {
+              "name": "Standard14 27018_2019",
+              "value": 0
+            },
+            {
+              "name": "Standard9 v1.1",
+              "value": 0
+            },
+            {
+              "name": "Standard14 27001_2013",
+              "value": 0
+            },
+            {
+              "name": "Standard14 27002_2013",
+              "value": 0
+            },
+            {
+              "name": "Azure Security Benchmark v3",
+              "value": 0
+            },
+            {
+              "name": "Standard3 Standard11_800_53_Rev5",
+              "value": 0
+            },
+            {
+              "name": "SOX 2002 (2017 Trust Services Criteria)",
+              "value": 0
+            },
+            {
+              "name": "Standard10",
+              "value": 0
+            },
+            {
+              "name": "Standard15",
+              "value": 0
+            },
+            {
+              "name": "Standard14 27002_2022",
+              "value": 0
+            },
+            {
+              "name": "Standard1 v7",
+              "value": 0
+            },
+            {
+              "name": "Standard11 800-171 Rev2",
+              "value": 0
+            },
+            {
+              "name": "Standard12",
+              "value": 0
+            },
+            {
+              "name": "Standard2 19",
+              "value": 0
+            },
+            {
+              "name": "Cyber Essentials v2.2",
+              "value": 0
+            },
+            {
+              "name": "Standard4 v4",
+              "value": 0
+            },
+            {
+              "name": "CMMC v2.0",
+              "value": 0
+            },
+            {
+              "name": "Standard6 2016_679",
+              "value": 0
+            },
+            {
+              "name": "Standard7",
+              "value": 0
+            },
+            {
+              "name": "Standard5",
+              "value": 0
+            }
+          ]
+        }
+      ],
+      "average_data": [
+        {
+          "name": "BSA v3",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27701_2019",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27001_2013",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27017_2015",
+          "value": 0.0
+        },
+        {
+          "name": "Standard1 v7",
+          "value": 0.0
+        },
+        {
+          "name": "Standard10",
+          "value": 0.0
+        },
+        {
+          "name": "Standard3 Standard11_800_53_Rev5",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27018_2019",
+          "value": 0.0
+        },
+        {
+          "name": "Standard9 v1.1",
+          "value": 0.0
+        },
+        {
+          "name": "Standard1 v8",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27002_2022",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27002_2013",
+          "value": 0.0
+        },
+        {
+          "name": "Standard11 800_53 Rev5",
+          "value": 0.0
+        },
+        {
+          "name": "s202",
+          "value": 0.0
+        },
+        {
+          "name": "Standard15",
+          "value": 0.0
+        },
+        {
+          "name": "Standard12",
+          "value": 0.0
+        },
+        {
+          "name": "CMMC v2.0",
+          "value": 0.0
+        },
+        {
+          "name": "Standard11 800-171 Rev2",
+          "value": 0.0
+        },
+        {
+          "name": "CE v2.2",
+          "value": 0.0
+        },
+        {
+          "name": "Standard2 19",
+          "value": 0.0
+        },
+        {
+          "name": "Standard4 v4",
+          "value": 0.0
+        },
+        {
+          "name": "Standard6 2016_679",
+          "value": 0.0
+        },
+        {
+          "name": "Standard5",
+          "value": 0.0
+        },
+        {
+          "name": "Standard7",
+          "value": 0.0
+        }
+      ],
+      "last_scan_date": "2023-10-21T11:11:00",
+      "activated_regions": "",
+      "tenant_name": "GOOGLE-TEST",
+      "account_id": "109876543210"
+    },
+    "outdated_tenants": [],
+    "tenant_display_name": "test",
+    "customer": "EPAM Systems",
+    "date": "2023-10-01",
+    "type": "COMPLIANCE_BY_TENANT",
+    "defining_attribute": 0.3159756097560976,
+    "id": ""
+  },
+  "ATTACK_BY_TENANT": {
+    "aws": [
+      {
+        "tactic_id": "TA0006",
+        "tactic": "Credential Access",
+        "severity_data": {
+          "Low": 76,
+          "High": 30,
+          "Info": 6
+        }
+      },
+      {
+        "tactic_id": "TA0007",
+        "tactic": "Discovery",
+        "severity_data": {
+          "Low": 62,
+          "High": 16,
+          "Info": 3
+        }
+      },
+      {
+        "tactic_id": "TA0009",
+        "tactic": "Collection",
+        "severity_data": {
+          "Low": 91,
+          "High": 37,
+          "Info": 6,
+          "Medium": 1
+        }
+      },
+      {
+        "tactic_id": "TA0010",
+        "tactic": "Exfiltration",
+        "severity_data": {
+          "Low": 24,
+          "High": 9,
+          "Info": 2
+        }
+      },
+      {
+        "tactic_id": "TA0040",
+        "tactic": "Impact",
+        "severity_data": {
+          "Low": 116,
+          "High": 72,
+          "Info": 10,
+          "Medium": 2
+        }
+      },
+      {
+        "tactic_id": "TA0001",
+        "tactic": "Initial Access",
+        "severity_data": {
+          "Low": 59,
+          "High": 29,
+          "Info": 5
+        }
+      },
+      {
+        "tactic_id": "TA0003",
+        "tactic": "Persistence",
+        "severity_data": {
+          "Low": 16,
+          "High": 13
+        }
+      },
+      {
+        "tactic_id": "TA0004",
+        "tactic": "Privilege Escalation",
+        "severity_data": {
+          "Low": 14,
+          "High": 10,
+          "Info": 1
+        }
+      },
+      {
+        "tactic_id": "TA0008",
+        "tactic": "Lateral Movement",
+        "severity_data": {
+          "Low": 45,
+          "High": 15,
+          "Info": 6
+        }
+      },
+      {
+        "tactic_id": "TA0002",
+        "tactic": "Execution",
+        "severity_data": {
+          "Low": 12,
+          "High": 10,
+          "Medium": 1
+        }
+      },
+      {
+        "tactic_id": "TA0005",
+        "tactic": "Defense Evasion",
+        "severity_data": {
+          "Low": 12,
+          "High": 12,
+          "Info": 3
+        }
+      },
+      {
+        "tactic_id": "TA0042",
+        "tactic": "Resource Development",
+        "severity_data": {
+          "Low": 2,
+          "High": 2
+        }
+      },
+      {
+        "tactic_id": "TA0043",
+        "tactic": "Reconnaissance",
+        "severity_data": {
+          "High": 2,
+          "Low": 5,
+          "Info": 1
+        }
+      },
+      {
+        "tactic_id": "TA0011",
+        "tactic": "Command and Control",
+        "severity_data": {
+          "Low": 2,
+          "High": 2
+        }
+      }
+    ],
+    "azure": [
+      {
+        "tactic_id": "TA0004",
+        "tactic": "Privilege Escalation",
+        "severity_data": {
+          "Low": 9,
+          "High": 1
+        }
+      },
+      {
+        "tactic_id": "TA0005",
+        "tactic": "Defense Evasion",
+        "severity_data": {
+          "Medium": 1,
+          "High": 1,
+          "Info": 1,
+          "Low": 4
+        }
+      },
+      {
+        "tactic_id": "TA0040",
+        "tactic": "Impact",
+        "severity_data": {
+          "Low": 72,
+          "High": 28,
+          "Info": 4
+        }
+      },
+      {
+        "tactic_id": "TA0009",
+        "tactic": "Collection",
+        "severity_data": {
+          "Low": 18,
+          "High": 1
+        }
+      },
+      {
+        "tactic_id": "TA0007",
+        "tactic": "Discovery",
+        "severity_data": {
+          "Low": 5
+        }
+      },
+      {
+        "tactic_id": "TA0008",
+        "tactic": "Lateral Movement",
+        "severity_data": {
+          "Low": 23,
+          "High": 2,
+          "Medium": 1
+        }
+      },
+      {
+        "tactic_id": "TA0001",
+        "tactic": "Initial Access",
+        "severity_data": {
+          "Low": 28,
+          "High": 2,
+          "Medium": 1
+        }
+      },
+      {
+        "tactic_id": "TA0006",
+        "tactic": "Credential Access",
+        "severity_data": {
+          "Low": 29,
+          "Medium": 1,
+          "High": 1,
+          "Info": 2
+        }
+      },
+      {
+        "tactic_id": "TA0003",
+        "tactic": "Persistence",
+        "severity_data": {
+          "Low": 4,
+          "High": 1
+        }
+      },
+      {
+        "tactic_id": "TA0002",
+        "tactic": "Execution",
+        "severity_data": {
+          "Low": 7
+        }
+      }
+    ],
+    "google": [],
+    "outdated_tenants": [],
+    "tenant_display_name": "test",
+    "customer": "EPAM Systems",
+    "date": "2023-10-01",
+    "type": "ATTACK_BY_TENANT",
+    "defining_attribute": 1,
+    "id": ""
+  },
+  "RESOURCES_BY_CLOUD": {
+    "aws": {
+      "total_scans": 0,
+      "failed_scans": 0,
+      "succeeded_scans": 0,
+      "resources_violated": 484,
+      "last_scan_date": "2023-10-21T11:11:00",
+      "activated_regions": "",
+      "tenant_name": "AWS-TEST",
+      "account_id": "AWS-1234567890123",
+      "resource_types_data": {
+        "AWS Identity and Access Management": 15,
+        "AWS Identity and Access Management Access Analyzer": 1,
+        "Amazon S3": 14,
+        "Amazon CloudFront": 16,
+        "AWS Account": 4,
+        "Amazon Route 53": 6,
+        "AWS Web Application Firewall": 4,
+        "Amazon Virtual Private Cloud": 17,
+        "Amazon Relational Database Service": 68,
+        "Amazon Elastic Load Balancing": 15,
+        "AWS CloudFormation": 3,
+        "Amazon EC2": 50,
+        "Amazon Elastic Block Store": 10,
+        "Amazon Simple Queue Service": 4,
+        "Amazon Elastic Kubernetes Service": 8,
+        "AWS CloudTrail": 9,
+        "AWS Key Management Service": 3,
+        "AWS CodeBuild": 7,
+        "Amazon EC2 Auto Scaling": 11,
+        "Amazon OpenSearch Service": 14,
+        "AWS Lambda": 10,
+        "Amazon Redshift": 15,
+        "Amazon SageMaker": 7,
+        "Amazon Kinesis": 7,
+        "AWS Certificate Manager": 8,
+        "Amazon Elastic Container Service": 13,
+        "Amazon API Gateway": 12,
+        "Amazon DynamoDB": 3,
+        "Amazon Elastic File System": 5,
+        "Amazon ElastiCache": 14,
+        "AWS Database Migration Service": 6,
+        "Amazon DynamoDB Accelerator": 3,
+        "AWS Elastic Beanstalk": 7,
+        "Amazon EMR": 8,
+        "AWS Secrets Manager": 3,
+        "Amazon Simple Notification Service": 4,
+        "Amazon Elastic Container Registry": 4,
+        "AWS Transit Gateway": 4,
+        "Amazon AppFlow": 2,
+        "AWS Glue": 11,
+        "Amazon DocumentDB": 1,
+        "Amazon WorkSpaces Family": 11,
+        "AWS Backup": 2,
+        "Amazon EventBridge": 1,
+        "Amazon S3 Glacier": 2,
+        "AWS Config": 1,
+        "Amazon FSx": 8,
+        "Amazon MQ": 6,
+        "Amazon Managed Streaming for Apache Kafka": 4,
+        "Amazon Managed Workflows for Apache Airflow": 8,
+        "AWS Directory": 1,
+        "Amazon Data Lifecycle Manager": 1,
+        "Amazon Lightsail": 1,
+        "Amazon CloudWatch": 3,
+        "Amazon QLDB": 3,
+        "AWS AppSync": 4,
+        "AWS CodeDeploy": 3,
+        "AWS CodePipeline": 1,
+        "AWS Step Functions": 1
+      },
+      "severity_data": {
+        "Low": 183,
+        "Info": 50,
+        "High": 187,
+        "Medium": 67
+      }
+    },
+    "azure": {
+      "total_scans": 0,
+      "failed_scans": 0,
+      "succeeded_scans": 0,
+      "resources_violated": 258,
+      "last_scan_date": "2023-10-21T11:11:00",
+      "activated_regions": "",
+      "tenant_name": "AZURE-TEST",
+      "account_id": "AZURE-1234567890123",
+      "resource_types_data": {
+        "Azure RBAC": 2,
+        "Microsoft Defender for Cloud": 36,
+        "Azure Storage Accounts": 36,
+        "Azure SQL Database": 32,
+        "Azure Database for PostgreSQL": 40,
+        "Azure Database for MySQL": 28,
+        "Key Vault": 14,
+        "Azure Subscription": 24,
+        "Network security groups": 36,
+        "Azure Disk Storage": 6,
+        "Azure Kubernetes Service": 24,
+        "App Service": 56,
+        "Virtual Machines": 34,
+        "Virtual Network": 10,
+        "API Management": 6,
+        "Azure Cosmos DB": 8,
+        "Cognitive Services": 6,
+        "Azure Container Registry": 12,
+        "Azure Database for MariaDB": 6,
+        "App Configuration": 2,
+        "Azure Cache for Redis": 8,
+        "Event Grid": 4,
+        "Azure Machine Learning": 6,
+        "Azure SignalR Service": 2,
+        "Azure Spring Apps": 2,
+        "Application Gateway": 8,
+        "Azure Front Door": 4,
+        "Azure Service Fabric": 4,
+        "Azure SQL Managed Instance": 6,
+        "Automation": 2,
+        "Azure Data Lake Storage": 2,
+        "Azure Stream Analytics": 2,
+        "Batch": 4,
+        "Data Lake Analytics": 2,
+        "Azure IoT Hub": 4,
+        "Azure Logic Apps": 2,
+        "Azure Cognitive Search": 2,
+        "Service Bus": 2,
+        "Azure Virtual Machine Scale Sets": 14,
+        "Azure Data Explorer": 6,
+        "Azure Data Factory": 4,
+        "Azure Databricks": 2,
+        "Azure Synapse Analytics": 4,
+        "Azure Monitor": 2
+      },
+      "severity_data": {
+        "Low": 316,
+        "Medium": 26,
+        "Info": 68,
+        "High": 106
+      }
+    },
+    "google": {
+      "total_scans": 0,
+      "failed_scans": 0,
+      "succeeded_scans": 0,
+      "resources_violated": 276,
+      "last_scan_date": "2023-10-21T11:11:00",
+      "activated_regions": "",
+      "tenant_name": "GOOGLE-TEST",
+      "account_id": "109876543210",
+      "resource_types_data": {
+        "Cloud IAM": 12,
+        "Cloud KMS": 5,
+        "Cloud APIs": 4,
+        "Cloud Logging": 10,
+        "Cloud Storage": 14,
+        "Virtual Private Cloud": 39,
+        "Cloud DNS": 4,
+        "Compute Engine": 38,
+        "Cloud SQL": 46,
+        "Google Kubernetes Engine": 39,
+        "Secret Manager": 2,
+        "Cloud Load Balancing": 12,
+        "BigQuery": 4,
+        "Cloud Functions": 10,
+        "App Engine": 3,
+        "Cloud Bigtable": 3,
+        "Dataproc": 4,
+        "Cloud Run": 6,
+        "Cloud Armor": 4,
+        "Pub/Sub": 3,
+        "Cloud Spanner": 5,
+        "Cloud Memorystore": 2,
+        "Dataflow": 1,
+        "Vertex AI Workbench": 1,
+        "Cloud Data Fusion": 3,
+        "Access Transparency": 1,
+        "Access Approval": 1,
+        "Cloud Asset Inventory": 1
+      },
+      "severity_data": {
+        "High": 99,
+        "Low": 121,
+        "Medium": 10,
+        "Info": 47
+      }
+    },
+    "outdated_tenants": [],
+    "tenant_display_name": "test",
+    "customer": "EPAM Systems",
+    "date": "2023-10-01",
+    "type": "RESOURCES_BY_CLOUD",
+    "defining_attribute": 276,
+    "id": ""
+  },
+  "COMPLIANCE_BY_CLOUD": {
+    "aws": {
+      "regions_data": [
+        {
+          "region": "eu-west-1",
+          "standards_data": [
+            {
+              "name": "Standard7",
+              "value": 0
+            },
+            {
+              "name": "Standard14 27017_2015",
+              "value": 1.69
+            },
+            {
+              "name": "Standard8 v3.2.1",
+              "value": 1.67
+            },
+            {
+              "name": "Standard14 27018_2019",
+              "value": 4.46
+            },
+            {
+              "name": "Standard14 27002_2013",
+              "value": 1.69
+            },
+            {
+              "name": "Standard14 27001_2013",
+              "value": 1.69
+            },
+            {
+              "name": "Standard3 Standard11_800_53_Rev5",
+              "value": 0.0
+            },
+            {
+              "name": "Standard11 800-171 Rev2",
+              "value": 0
+            },
+            {
+              "name": "Standard1 v7",
+              "value": 3.12
+            },
+            {
+              "name": "Standard1 v8",
+              "value": 0.46
+            },
+            {
+              "name": "Standard12",
+              "value": 0.0
+            },
+            {
+              "name": "CIS AWS Foundations Benchmark v1.5.0",
+              "value": 0
+            },
+            {
+              "name": "DA",
+              "value": 0
+            },
+            {
+              "name": "CJIS",
+              "value": 1.43
+            },
+            {
+              "name": "Standard9 v1.1",
+              "value": 0
+            },
+            {
+              "name": "Azure Security Benchmark v3",
+              "value": 1.19
+            },
+            {
+              "name": "Standard2 19",
+              "value": 0
+            },
+            {
+              "name": "SOX 2002 (2017 Trust Services Criteria)",
+              "value": 4.55
+            },
+            {
+              "name": "Standard10",
+              "value": 0.0
+            },
+            {
+              "name": "Standard15",
+              "value": 0.0
+            },
+            {
+              "name": "Standard14 27002_2022",
+              "value": 1.23
+            },
+            {
+              "name": "Standard14 27701_2019",
+              "value": 1.69
+            },
+            {
+              "name": "Standard11 800_53 Rev5",
+              "value": 0.0
+            },
+            {
+              "name": "Standard4 v4",
+              "value": 0.0
+            },
+            {
+              "name": "CMMC v2.0",
+              "value": 0
+            },
+            {
+              "name": "Standard5",
+              "value": 0
+            },
+            {
+              "name": "Standard6 2016_679",
+              "value": 1.04
+            },
+            {
+              "name": "CIS AWS Foundations Benchmark v1.4.0",
+              "value": 0
+            },
+            {
+              "name": "Cyber Essentials v2.2",
+              "value": 0
+            },
+            {
+              "name": "CIS Oracle Database 19 Benchmark v1.0.0",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "region": "us-west-1",
+          "standards_data": [
+            {
+              "name": "Standard7",
+              "value": 0
+            },
+            {
+              "name": "Standard14 27017_2015",
+              "value": 1.69
+            },
+            {
+              "name": "Standard8 v3.2.1",
+              "value": 1.67
+            },
+            {
+              "name": "Standard14 27018_2019",
+              "value": 4.46
+            },
+            {
+              "name": "Standard14 27002_2013",
+              "value": 1.69
+            },
+            {
+              "name": "Standard14 27001_2013",
+              "value": 1.69
+            },
+            {
+              "name": "Standard3 Standard11_800_53_Rev5",
+              "value": 0.0
+            },
+            {
+              "name": "Standard11 800-171 Rev2",
+              "value": 0
+            },
+            {
+              "name": "Standard1 v7",
+              "value": 3.12
+            },
+            {
+              "name": "Standard1 v8",
+              "value": 0.46
+            },
+            {
+              "name": "Standard12",
+              "value": 0.0
+            },
+            {
+              "name": "CIS AWS Foundations Benchmark v1.5.0",
+              "value": 0
+            },
+            {
+              "name": "DA",
+              "value": 0
+            },
+            {
+              "name": "CJIS",
+              "value": 1.43
+            },
+            {
+              "name": "Standard9 v1.1",
+              "value": 0
+            },
+            {
+              "name": "Azure Security Benchmark v3",
+              "value": 1.19
+            },
+            {
+              "name": "Standard2 19",
+              "value": 0
+            },
+            {
+              "name": "SOX 2002 (2017 Trust Services Criteria)",
+              "value": 4.55
+            },
+            {
+              "name": "Standard10",
+              "value": 0.0
+            },
+            {
+              "name": "Standard15",
+              "value": 0.0
+            },
+            {
+              "name": "Standard14 27002_2022",
+              "value": 1.23
+            },
+            {
+              "name": "Standard14 27701_2019",
+              "value": 1.69
+            },
+            {
+              "name": "Standard11 800_53 Rev5",
+              "value": 0.0
+            },
+            {
+              "name": "Standard4 v4",
+              "value": 0.0
+            },
+            {
+              "name": "CMMC v2.0",
+              "value": 0
+            },
+            {
+              "name": "Standard5",
+              "value": 0
+            },
+            {
+              "name": "Standard6 2016_679",
+              "value": 1.04
+            },
+            {
+              "name": "CIS AWS Foundations Benchmark v1.4.0",
+              "value": 0
+            },
+            {
+              "name": "Cyber Essentials v2.2",
+              "value": 0
+            },
+            {
+              "name": "CIS Oracle Database 19 Benchmark v1.0.0",
+              "value": 0
+            }
+          ]
+        }
+      ],
+      "average_data": [
+        {
+          "name": "Standard11 800-171 Rev2",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27017_2015",
+          "value": 0.79
+        },
+        {
+          "name": "Standard14 27018_2019",
+          "value": 2.08
+        },
+        {
+          "name": "Standard9 v1.1",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27701_2019",
+          "value": 0.79
+        },
+        {
+          "name": "Standard11 800_53 Rev5",
+          "value": 0.05
+        },
+        {
+          "name": "CIS AWS Foundations Benchmark v1.4.0",
+          "value": 0.0
+        },
+        {
+          "name": "Standard4 v4",
+          "value": 0.06
+        },
+        {
+          "name": "Standard5",
+          "value": 0.0
+        },
+        {
+          "name": "Standard6 2016_679",
+          "value": 0.49
+        },
+        {
+          "name": "CIS AWS Foundations Benchmark v1.5.0",
+          "value": 0.0
+        },
+        {
+          "name": "DA",
+          "value": 0.0
+        },
+        {
+          "name": "s202",
+          "value": 2.12
+        },
+        {
+          "name": "Standard1 v7",
+          "value": 2.08
+        },
+        {
+          "name": "Standard15",
+          "value": 0.02
+        },
+        {
+          "name": "BSA v3",
+          "value": 0.55
+        },
+        {
+          "name": "Standard8 v3.2.1",
+          "value": 0.78
+        },
+        {
+          "name": "CJIS",
+          "value": 0.86
+        },
+        {
+          "name": "Standard14 27001_2013",
+          "value": 0.79
+        },
+        {
+          "name": "Standard2 19",
+          "value": 0.0
+        },
+        {
+          "name": "Standard10",
+          "value": 0.67
+        },
+        {
+          "name": "Standard14 27002_2013",
+          "value": 0.79
+        },
+        {
+          "name": "Standard3 Standard11_800_53_Rev5",
+          "value": 0.06
+        },
+        {
+          "name": "CMMC v2.0",
+          "value": 0.0
+        },
+        {
+          "name": "Standard7",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27002_2022",
+          "value": 0.57
+        },
+        {
+          "name": "Standard12",
+          "value": 0.07
+        },
+        {
+          "name": "Standard1 v8",
+          "value": 0.21
+        },
+        {
+          "name": "CE v2.2",
+          "value": 0.0
+        }
+      ],
+      "last_scan_date": "2023-10-21T11:11:00",
+      "activated_regions": "",
+      "tenant_name": "AWS-TEST",
+      "account_id": "AWS-1234567890123"
+    },
+    "azure": {
+      "average_data": [
+        {
+          "name": "CFB v1.5.0",
+          "value": 0.0
+        },
+        {
+          "name": "s202",
+          "value": 0.0
+        },
+        {
+          "name": "Standard2 19",
+          "value": 0.0
+        },
+        {
+          "name": "Standard11 800_53 Rev5",
+          "value": 0.0
+        },
+        {
+          "name": "Standard1 v7",
+          "value": 0.0
+        },
+        {
+          "name": "CMMC v2.0",
+          "value": 0.0
+        },
+        {
+          "name": "CFB v1.4.0",
+          "value": 0.0
+        },
+        {
+          "name": "Standard10",
+          "value": 0.0
+        },
+        {
+          "name": "Standard15",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27017_2015",
+          "value": 0.0
+        },
+        {
+          "name": "Standard9 v1.1",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27001_2013",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27018_2019",
+          "value": 0.0
+        },
+        {
+          "name": "Standard6 2016_679",
+          "value": 0.0
+        },
+        {
+          "name": "Standard1 v8",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27701_2019",
+          "value": 0.0
+        },
+        {
+          "name": "Standard4 v4",
+          "value": 0.0
+        },
+        {
+          "name": "CE v2.2",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27002_2013",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27002_2022",
+          "value": 0.0
+        },
+        {
+          "name": "CJIS",
+          "value": 0.0
+        },
+        {
+          "name": "Standard11 800-171 Rev2",
+          "value": 0.0
+        },
+        {
+          "name": "BSA v3",
+          "value": 0.0
+        },
+        {
+          "name": "Standard3 Standard11_800_53_Rev5",
+          "value": 0.0
+        },
+        {
+          "name": "DA",
+          "value": 0.0
+        },
+        {
+          "name": "Standard7",
+          "value": 0.0
+        },
+        {
+          "name": "Standard12",
+          "value": 0.0
+        },
+        {
+          "name": "Standard5",
+          "value": 0.0
+        }
+      ],
+      "last_scan_date": "2023-10-21T11:11:00",
+      "activated_regions": "",
+      "tenant_name": "AZURE-TEST",
+      "account_id": "AZURE-1234567890123"
+    },
+    "google": {
+      "regions_data": [
+        {
+          "region": "eu-west-1",
+          "standards_data": [
+            {
+              "name": "Standard14 27701_2019",
+              "value": 0
+            },
+            {
+              "name": "Standard1 v8",
+              "value": 0
+            },
+            {
+              "name": "Standard11 800_53 Rev5",
+              "value": 0
+            },
+            {
+              "name": "Standard14 27017_2015",
+              "value": 0
+            },
+            {
+              "name": "Standard14 27018_2019",
+              "value": 0
+            },
+            {
+              "name": "Standard9 v1.1",
+              "value": 0
+            },
+            {
+              "name": "Standard14 27001_2013",
+              "value": 0
+            },
+            {
+              "name": "Standard14 27002_2013",
+              "value": 0
+            },
+            {
+              "name": "Azure Security Benchmark v3",
+              "value": 0
+            },
+            {
+              "name": "Standard3 Standard11_800_53_Rev5",
+              "value": 0
+            },
+            {
+              "name": "SOX 2002 (2017 Trust Services Criteria)",
+              "value": 0
+            },
+            {
+              "name": "Standard10",
+              "value": 0
+            },
+            {
+              "name": "Standard15",
+              "value": 0
+            },
+            {
+              "name": "Standard14 27002_2022",
+              "value": 0
+            },
+            {
+              "name": "Standard1 v7",
+              "value": 0
+            },
+            {
+              "name": "Standard11 800-171 Rev2",
+              "value": 0
+            },
+            {
+              "name": "Standard12",
+              "value": 0
+            },
+            {
+              "name": "Standard2 19",
+              "value": 0
+            },
+            {
+              "name": "Cyber Essentials v2.2",
+              "value": 0
+            },
+            {
+              "name": "Standard4 v4",
+              "value": 0
+            },
+            {
+              "name": "CMMC v2.0",
+              "value": 0
+            },
+            {
+              "name": "Standard6 2016_679",
+              "value": 0
+            },
+            {
+              "name": "Standard7",
+              "value": 0
+            },
+            {
+              "name": "Standard5",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "region": "us-west-1",
+          "standards_data": [
+            {
+              "name": "Standard14 27701_2019",
+              "value": 0
+            },
+            {
+              "name": "Standard1 v8",
+              "value": 0
+            },
+            {
+              "name": "Standard11 800_53 Rev5",
+              "value": 0
+            },
+            {
+              "name": "Standard14 27017_2015",
+              "value": 0
+            },
+            {
+              "name": "Standard14 27018_2019",
+              "value": 0
+            },
+            {
+              "name": "Standard9 v1.1",
+              "value": 0
+            },
+            {
+              "name": "Standard14 27001_2013",
+              "value": 0
+            },
+            {
+              "name": "Standard14 27002_2013",
+              "value": 0
+            },
+            {
+              "name": "Azure Security Benchmark v3",
+              "value": 0
+            },
+            {
+              "name": "Standard3 Standard11_800_53_Rev5",
+              "value": 0
+            },
+            {
+              "name": "SOX 2002 (2017 Trust Services Criteria)",
+              "value": 0
+            },
+            {
+              "name": "Standard10",
+              "value": 0
+            },
+            {
+              "name": "Standard15",
+              "value": 0
+            },
+            {
+              "name": "Standard14 27002_2022",
+              "value": 0
+            },
+            {
+              "name": "Standard1 v7",
+              "value": 0
+            },
+            {
+              "name": "Standard11 800-171 Rev2",
+              "value": 0
+            },
+            {
+              "name": "Standard12",
+              "value": 0
+            },
+            {
+              "name": "Standard2 19",
+              "value": 0
+            },
+            {
+              "name": "Cyber Essentials v2.2",
+              "value": 0
+            },
+            {
+              "name": "Standard4 v4",
+              "value": 0
+            },
+            {
+              "name": "CMMC v2.0",
+              "value": 0
+            },
+            {
+              "name": "Standard6 2016_679",
+              "value": 0
+            },
+            {
+              "name": "Standard7",
+              "value": 0
+            },
+            {
+              "name": "Standard5",
+              "value": 0
+            }
+          ]
+        }
+      ],
+      "average_data": [
+        {
+          "name": "Standard14 27002_2022",
+          "value": 0.0
+        },
+        {
+          "name": "s202",
+          "value": 0.0
+        },
+        {
+          "name": "Standard11 800_53 Rev5",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27018_2019",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27001_2013",
+          "value": 0.0
+        },
+        {
+          "name": "Standard9 v1.1",
+          "value": 0.0
+        },
+        {
+          "name": "BSA v3",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27002_2013",
+          "value": 0.0
+        },
+        {
+          "name": "Standard3 Standard11_800_53_Rev5",
+          "value": 0.0
+        },
+        {
+          "name": "Standard10",
+          "value": 0.0
+        },
+        {
+          "name": "Standard1 v8",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27017_2015",
+          "value": 0.0
+        },
+        {
+          "name": "Standard1 v7",
+          "value": 0.0
+        },
+        {
+          "name": "Standard14 27701_2019",
+          "value": 0.0
+        },
+        {
+          "name": "Standard15",
+          "value": 0.0
+        },
+        {
+          "name": "Standard11 800-171 Rev2",
+          "value": 0.0
+        },
+        {
+          "name": "CMMC v2.0",
+          "value": 0.0
+        },
+        {
+          "name": "Standard2 19",
+          "value": 0.0
+        },
+        {
+          "name": "Standard6 2016_679",
+          "value": 0.0
+        },
+        {
+          "name": "Standard12",
+          "value": 0.0
+        },
+        {
+          "name": "Standard4 v4",
+          "value": 0.0
+        },
+        {
+          "name": "CE v2.2",
+          "value": 0.0
+        },
+        {
+          "name": "Standard5",
+          "value": 0.0
+        },
+        {
+          "name": "Standard7",
+          "value": 0.0
+        }
+      ],
+      "last_scan_date": "2023-10-21T11:11:00",
+      "activated_regions": "",
+      "tenant_name": "GOOGLE-TEST",
+      "account_id": "109876543210"
+    },
+    "outdated_tenants": [],
+    "tenant_display_name": "test",
+    "customer": "EPAM Systems",
+    "date": "2023-10-01",
+    "type": "COMPLIANCE_BY_CLOUD",
+    "defining_attribute": 0.0,
+    "id": ""
+  },
+  "ATTACK_BY_CLOUD": {
+    "aws": [
+      {
+        "tactic_id": "TA0006",
+        "tactic": "Credential Access",
+        "severity_data": {
+          "Low": 76,
+          "High": 30,
+          "Info": 6
+        }
+      },
+      {
+        "tactic_id": "TA0007",
+        "tactic": "Discovery",
+        "severity_data": {
+          "Low": 62,
+          "High": 16,
+          "Info": 3
+        }
+      },
+      {
+        "tactic_id": "TA0009",
+        "tactic": "Collection",
+        "severity_data": {
+          "Low": 91,
+          "High": 37,
+          "Info": 6,
+          "Medium": 1
+        }
+      },
+      {
+        "tactic_id": "TA0010",
+        "tactic": "Exfiltration",
+        "severity_data": {
+          "Low": 24,
+          "High": 9,
+          "Info": 2
+        }
+      },
+      {
+        "tactic_id": "TA0040",
+        "tactic": "Impact",
+        "severity_data": {
+          "Low": 116,
+          "High": 72,
+          "Info": 10,
+          "Medium": 2
+        }
+      },
+      {
+        "tactic_id": "TA0001",
+        "tactic": "Initial Access",
+        "severity_data": {
+          "Low": 59,
+          "High": 29,
+          "Info": 5
+        }
+      },
+      {
+        "tactic_id": "TA0003",
+        "tactic": "Persistence",
+        "severity_data": {
+          "Low": 16,
+          "High": 13
+        }
+      },
+      {
+        "tactic_id": "TA0004",
+        "tactic": "Privilege Escalation",
+        "severity_data": {
+          "Low": 14,
+          "High": 10,
+          "Info": 1
+        }
+      },
+      {
+        "tactic_id": "TA0008",
+        "tactic": "Lateral Movement",
+        "severity_data": {
+          "Low": 45,
+          "High": 15,
+          "Info": 6
+        }
+      },
+      {
+        "tactic_id": "TA0002",
+        "tactic": "Execution",
+        "severity_data": {
+          "Low": 12,
+          "High": 10,
+          "Medium": 1
+        }
+      },
+      {
+        "tactic_id": "TA0005",
+        "tactic": "Defense Evasion",
+        "severity_data": {
+          "Low": 12,
+          "High": 12,
+          "Info": 3
+        }
+      },
+      {
+        "tactic_id": "TA0042",
+        "tactic": "Resource Development",
+        "severity_data": {
+          "Low": 2,
+          "High": 2
+        }
+      },
+      {
+        "tactic_id": "TA0043",
+        "tactic": "Reconnaissance",
+        "severity_data": {
+          "High": 2,
+          "Low": 5,
+          "Info": 1
+        }
+      },
+      {
+        "tactic_id": "TA0011",
+        "tactic": "Command and Control",
+        "severity_data": {
+          "Low": 2,
+          "High": 2
+        }
+      }
+    ],
+    "azure": [
+      {
+        "tactic_id": "TA0004",
+        "tactic": "Privilege Escalation",
+        "severity_data": {
+          "Low": 9,
+          "High": 1
+        }
+      },
+      {
+        "tactic_id": "TA0005",
+        "tactic": "Defense Evasion",
+        "severity_data": {
+          "Medium": 1,
+          "High": 1,
+          "Info": 1,
+          "Low": 4
+        }
+      },
+      {
+        "tactic_id": "TA0040",
+        "tactic": "Impact",
+        "severity_data": {
+          "Low": 72,
+          "High": 28,
+          "Info": 4
+        }
+      },
+      {
+        "tactic_id": "TA0009",
+        "tactic": "Collection",
+        "severity_data": {
+          "Low": 18,
+          "High": 1
+        }
+      },
+      {
+        "tactic_id": "TA0007",
+        "tactic": "Discovery",
+        "severity_data": {
+          "Low": 5
+        }
+      },
+      {
+        "tactic_id": "TA0008",
+        "tactic": "Lateral Movement",
+        "severity_data": {
+          "Low": 23,
+          "High": 2,
+          "Medium": 1
+        }
+      },
+      {
+        "tactic_id": "TA0001",
+        "tactic": "Initial Access",
+        "severity_data": {
+          "Low": 28,
+          "High": 2,
+          "Medium": 1
+        }
+      },
+      {
+        "tactic_id": "TA0006",
+        "tactic": "Credential Access",
+        "severity_data": {
+          "Low": 29,
+          "Medium": 1,
+          "High": 1,
+          "Info": 2
+        }
+      },
+      {
+        "tactic_id": "TA0003",
+        "tactic": "Persistence",
+        "severity_data": {
+          "Low": 4,
+          "High": 1
+        }
+      },
+      {
+        "tactic_id": "TA0002",
+        "tactic": "Execution",
+        "severity_data": {
+          "Low": 7
+        }
+      }
+    ],
+    "google": [],
+    "outdated_tenants": [],
+    "tenant_display_name": "test",
+    "customer": "EPAM Systems",
+    "date": "2023-10-01",
+    "type": "ATTACK_BY_CLOUD",
+    "defining_attribute": 1,
+    "id": ""
+  }
+}
