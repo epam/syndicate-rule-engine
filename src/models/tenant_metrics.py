@@ -4,8 +4,8 @@ from pynamodb.attributes import UnicodeAttribute, NumberAttribute, \
     JSONAttribute, ListAttribute
 from pynamodb.indexes import AllProjection
 
-from helpers.constants import ENV_VAR_REGION
-from models.modular import BaseModel, BaseGSI
+from helpers.constants import CAASEnv
+from models import BaseModel, BaseGSI
 
 TM_ID_ATTR = 'id'
 TM_TENANT_ATTR = 'tn'
@@ -42,7 +42,7 @@ class TenantDateIndex(BaseGSI):
 class TenantMetrics(BaseModel):
     class Meta:
         table_name = 'CaaSTenantMetrics'
-        region = os.environ.get(ENV_VAR_REGION)
+        region = os.environ.get(CAASEnv.AWS_REGION)
     id = UnicodeAttribute(hash_key=True, attr_name=TM_ID_ATTR)
     tenant_display_name = UnicodeAttribute(range_key=True,
                                            attr_name=TM_TENANT_ATTR)

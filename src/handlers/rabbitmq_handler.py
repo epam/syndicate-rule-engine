@@ -1,40 +1,48 @@
+from functools import cached_property
 from http import HTTPStatus
 
 from modular_sdk.commons.constants import ApplicationType
-from modular_sdk.services.impl.maestro_credentials_service import \
-    RabbitMQApplicationMeta, RabbitMQApplicationSecret
+from modular_sdk.models.application import Application
+from modular_sdk.services.application_service import ApplicationService
+from modular_sdk.services.impl.maestro_credentials_service import (
+    RabbitMQApplicationMeta,
+    RabbitMQApplicationSecret,
+)
 
-from handlers.abstracts.abstract_handler import AbstractHandler
-from helpers import build_response
-from helpers.constants import HTTPMethod, \
-    CUSTOMER_ATTR, MAESTRO_USER_ATTR, RABBIT_EXCHANGE_ATTR, \
-    REQUEST_QUEUE_ATTR, RESPONSE_QUEUE_ATTR, SDK_ACCESS_KEY_ATTR, \
-    CONNECTION_URL_ATTR, SDK_SECRET_KEY_ATTR
+from handlers import AbstractHandler, Mapping
+from helpers.constants import CUSTOMER_ATTR, CustodianEndpoint, HTTPMethod
+from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
-from models.modular.application import Application
-from services import SERVICE_PROVIDER
-from services.modular_service import ModularService
+from services import SP
+from services.abs_lambda import ProcessedEvent
 from services.ssm_service import SSMService
+from validators.swagger_request_models import (
+    RabbitMQDeleteModel,
+    RabbitMQGetModel,
+    RabbitMQPostModel,
+)
+from validators.utils import validate_kwargs
 
 _LOG = get_logger(__name__)
 
 
 class RabbitMQHandler(AbstractHandler):
-    def __init__(self, modular_service: ModularService,
+    def __init__(self, application_service: ApplicationService,
                  ssm_service: SSMService):
-        self._modular_service = modular_service
+        self._application_service = application_service
         self._ssm_service = ssm_service
 
     @classmethod
     def build(cls) -> 'RabbitMQHandler':
         return cls(
-            modular_service=SERVICE_PROVIDER.modular_service(),
-            ssm_service=SERVICE_PROVIDER.ssm_service()
+            application_service=SP.modular_client.application_service(),
+            ssm_service=SP.ssm_service
         )
 
-    def define_action_mapping(self) -> dict:
+    @cached_property
+    def mapping(self) -> Mapping:
         return {
-            '/customers/rabbitmq': {
+            CustodianEndpoint.CUSTOMERS_RABBITMQ: {
                 HTTPMethod.POST: self.post,
                 HTTPMethod.GET: self.get,
                 HTTPMethod.DELETE: self.delete
@@ -53,82 +61,78 @@ class RabbitMQHandler(AbstractHandler):
             **application.meta.as_dict()
         }
 
-    def post(self, event: dict) -> dict:
-        customer = event[CUSTOMER_ATTR]
-        item = next(self._modular_service.get_applications(
+    @validate_kwargs
+    def post(self, event: RabbitMQPostModel, _pe: ProcessedEvent):
+        customer = event.customer
+        item = next(self._application_service.list(
             customer=customer,
-            _type=ApplicationType.RABBITMQ,
+            _type=ApplicationType.RABBITMQ.value,
             limit=1,
             deleted=False
         ), None)
         if item:
-            return build_response(
-                code=HTTPStatus.CONFLICT,
-                content='RabbitMQ configuration already exists'
-            )
+            raise ResponseFactory(HTTPStatus.CONFLICT).message(
+                'RabbitMQ configuration already exists'
+            ).exc()
         meta = RabbitMQApplicationMeta(
-            maestro_user=event[MAESTRO_USER_ATTR],
-            rabbit_exchange=event.get(RABBIT_EXCHANGE_ATTR),
-            request_queue=event[REQUEST_QUEUE_ATTR],
-            response_queue=event[RESPONSE_QUEUE_ATTR],
-            sdk_access_key=event[SDK_ACCESS_KEY_ATTR]
+            maestro_user=event.maestro_user,
+            rabbit_exchange=event.rabbit_exchange,
+            request_queue=event.request_queue,
+            response_queue=event.response_queue,
+            sdk_access_key=event.sdk_access_key
         )
         name = self._ssm_service.save_data(
             name=f'{customer}-rabbitmq-configuration',
             value=RabbitMQApplicationSecret(
-                connection_url=event[CONNECTION_URL_ATTR],
-                sdk_secret_key=event[SDK_SECRET_KEY_ATTR]
+                connection_url=str(event.connection_url),
+                sdk_secret_key=event.sdk_secret_key
             ).dict(),
             prefix='caas'
         )
-        application = self._modular_service.create_application(
-            customer=customer,
-            _type=ApplicationType.RABBITMQ,
+        application = self._application_service.build(
+            customer_id=customer,
+            type=ApplicationType.RABBITMQ,
+            created_by=_pe['cognito_user_id'],
+            is_deleted=False,
             description='RabbitMQ configuration for Custodian',
             meta=meta.dict(),
             secret=name
         )
         _LOG.info('Saving application item')
-        self._modular_service.save(application)
+        self._application_service.save(application)
         return build_response(content=self.get_dto(application))
 
-    def get(self, event) -> dict:
-        customer = event[CUSTOMER_ATTR]
-        application = next(self._modular_service.get_applications(
+    @validate_kwargs
+    def get(self, event: RabbitMQGetModel):
+        customer = event.customer
+        application = next(self._application_service.list(
             customer=customer,
             _type=ApplicationType.RABBITMQ,
             limit=1,
             deleted=False
         ), None)
         if not application:
-            return build_response(
-                code=HTTPStatus.NOT_FOUND,
-                content=f'RabbitMQ configuration not found'
-            )
+            raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                'RabbitMQ configuration not found'
+            ).exc()
         return build_response(content=self.get_dto(application))
 
-    def delete(self, event) -> dict:
-        customer = event[CUSTOMER_ATTR]
-        application = next(self._modular_service.get_applications(
+    @validate_kwargs
+    def delete(self, event: RabbitMQDeleteModel):
+        customer = event.customer
+        application = next(self._application_service.list(
             customer=customer,
             _type=ApplicationType.RABBITMQ,
             limit=1,
             deleted=False
         ), None)
         if not application:
-            return build_response(code=HTTPStatus.NO_CONTENT)
-        erased = self._modular_service.delete(application)
-        if not erased:
-            return build_response(
-                code=HTTPStatus.BAD_REQUEST,
-                content='Could not remove the application. '
-                        'Probably it\'s used by some parents.'
-            )
-        # erased
+            raise ResponseFactory(HTTPStatus.NOT_FOUND).default().exc()
+        self._application_service.mark_deleted(application)
         if application.secret:
             _LOG.info(f'Removing application secret: {application.secret}')
             if not self._ssm_service.delete_secret(application.secret):
                 _LOG.warning(f'Could not remove secret: {application.secret}')
         # Modular sdk does not remove the app, just sets is_deleted
-        self._modular_service.save(application)
         return build_response(code=HTTPStatus.NO_CONTENT)
+

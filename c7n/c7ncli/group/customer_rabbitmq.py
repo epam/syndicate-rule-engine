@@ -1,12 +1,12 @@
 import click
 
-from c7ncli.group import ViewCommand, cli_response, ContextObj, customer_option
+from c7ncli.group import ContextObj, ViewCommand, cli_response
 
 
 @click.group(name='rabbitmq')
 def rabbitmq():
     """
-    Manages Job submit action
+    Manages RabbitMQ configuration for a customer
     """
 
 
@@ -25,33 +25,27 @@ def rabbitmq():
               help='Rabbit connection url')
 @click.option('--sdk_secret_key', '-ssk', type=str, required=True,
               help='SDK Secret key')
-@customer_option
-@cli_response(secured_params=['sdk_secret_key'])
+@cli_response()
 def add(ctx: ContextObj, **kwargs):
     """
     Creates rabbitMQ configuration for your customer
     """
-    kwargs['customer'] = kwargs.pop('customer_id', None)
     return ctx['api_client'].rabbitmq_post(**kwargs)
 
 
 @rabbitmq.command(cls=ViewCommand, name='describe')
-@customer_option
 @cli_response()
 def describe(ctx: ContextObj, **kwargs):
     """
     Describes rabbitMQ configuration for your customer
     """
-    kwargs['customer'] = kwargs.pop('customer_id', None)
     return ctx['api_client'].rabbitmq_get(**kwargs)
 
 
 @rabbitmq.command(cls=ViewCommand, name='delete')
-@customer_option
 @cli_response()
 def delete(ctx: ContextObj, **kwargs):
     """
     Removes rabbitMQ configuration for your customer
     """
-    kwargs['customer'] = kwargs.pop('customer_id', None)
     return ctx['api_client'].rabbitmq_delete(**kwargs)

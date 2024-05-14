@@ -1,1 +1,1 @@
-pycryptodome==3.19.0
+cryptography==42.0.2

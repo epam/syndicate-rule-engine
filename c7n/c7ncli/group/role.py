@@ -2,10 +2,9 @@ from datetime import datetime
 
 import click
 
-from c7ncli.group import cli_response, ViewCommand, response, ContextObj, \
-    customer_option
-from c7ncli.service.constants import PARAM_NAME, PARAM_CUSTOMER, \
-    PARAM_POLICIES, PARAM_EXPIRATION
+from c7ncli.group import ContextObj, ViewCommand, cli_response, response
+
+attributes_order = 'name', 'expiration', 'policies'
 
 
 @click.group(name='role')
@@ -15,16 +14,18 @@ def role():
 
 @role.command(cls=ViewCommand, name='describe')
 @click.option('--name', '-n', type=str, help='Role name to describe.')
-@customer_option
-@cli_response(attributes_order=[PARAM_NAME, PARAM_CUSTOMER, PARAM_POLICIES,
-                                PARAM_EXPIRATION])
+@cli_response(attributes_order=attributes_order)
 def describe(ctx: ContextObj, customer_id, name):
     """
     Describes a Custodian Service roles for the given customer.
     """
-    return ctx['api_client'].role_get(
-        customer=customer_id,
-        name=name
+    if name:
+        return ctx['api_client'].role_get(
+            name=name,
+            customer_id=customer_id,
+        )
+    return ctx['api_client'].role_query(
+        customer_id=customer_id,
     )
 
 
@@ -35,10 +36,10 @@ def describe(ctx: ContextObj, customer_id, name):
               help='List of policies to attach to the role')
 @click.option('--expiration', '-e', type=str,
               help='Expiration date, ISO 8601. Example: 2021-08-01T15:30:00')
-@customer_option
-@cli_response(attributes_order=[PARAM_NAME, PARAM_CUSTOMER, PARAM_POLICIES,
-                                PARAM_EXPIRATION])
-def add(ctx: ContextObj, customer_id, name, policies, expiration):
+@click.option('--description', '-d', type=str, required=True,
+              help='Description for the created role')
+@cli_response(attributes_order=attributes_order)
+def add(ctx: ContextObj, customer_id, name, policies, description, expiration):
     """
     Creates the Role entity with the given name from Customer with the given id
     """
@@ -49,10 +50,11 @@ def add(ctx: ContextObj, customer_id, name, policies, expiration):
             return response(f'Invalid value for the \'expiration\' '
                             f'parameter: {expiration}')
     return ctx['api_client'].role_post(
-        customer=customer_id,
+        customer_id=customer_id,
         name=name,
         policies=policies,
-        expiration=expiration
+        expiration=expiration,
+        description=description
     )
 
 
@@ -65,10 +67,10 @@ def add(ctx: ContextObj, customer_id, name, policies, expiration):
               help='List of policies to detach from role')
 @click.option('--expiration', '-e', type=str, required=False,
               help='Expiration date, ISO 8601. Example: 2021-08-01T15:30:00')
-@customer_option
-@cli_response(attributes_order=[PARAM_NAME, PARAM_CUSTOMER, PARAM_POLICIES,
-                                PARAM_EXPIRATION])
-def update(ctx: ContextObj, customer_id, name, attach_policy, detach_policy, expiration):
+@click.option('--description', '-d', type=str,
+              help='Description for the created role')
+@cli_response(attributes_order=attributes_order)
+def update(ctx: ContextObj, customer_id, name, attach_policy, detach_policy, expiration, description):
     """
     Updates role configuration.
     """
@@ -88,35 +90,20 @@ def update(ctx: ContextObj, customer_id, name, attach_policy, detach_policy, exp
         policies_to_attach=attach_policy,
         policies_to_detach=detach_policy,
         expiration=expiration,
-        customer=customer_id
+        customer_id=customer_id,
+        description=description
     )
 
 
 @role.command(cls=ViewCommand, name='delete')
 @click.option('--name', '-n', type=str, required=True,
               help='Role name to delete')
-@customer_option
 @cli_response()
 def delete(ctx: ContextObj, customer_id, name):
     """
     Deletes customers role.
     """
     return ctx['api_client'].role_delete(
-        customer=customer_id,
-        name=name
-    )
-
-
-@role.command(cls=ViewCommand, name='clean_cache')
-@click.option('--name', '-n', type=str,
-              help='Role name to clean from cache')
-@customer_option
-@cli_response()
-def clean_cache(ctx: ContextObj, customer_id, name):
-    """
-    Cleans cached role from lambda.
-    """
-    return ctx['api_client'].role_clean_cache(
-        customer=customer_id,
-        name=name
+        name=name,
+        customer_id=customer_id,
     )

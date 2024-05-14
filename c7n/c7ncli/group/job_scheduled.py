@@ -1,8 +1,8 @@
 import click
-from c7ncli.group import ViewCommand, tenant_option, customer_option, \
-    cli_response, ContextObj, response
-from c7ncli.service.constants import PARAM_NAME, PARAM_CUSTOMER_NAME, \
-    PARAM_TENANT, PARAM_ACCOUNT
+
+from c7ncli.group import ContextObj, ViewCommand, cli_response, response, tenant_option
+
+attributes_order = 'name', 'tenant_name', 'enabled', 'schedule'
 
 
 @click.group(name='scheduled')
@@ -26,21 +26,19 @@ def scheduled():
 @click.option('--name', '-n', type=str, required=False,
               help='Name for the scheduled job. Must be unique. If not '
                    'given, will be generated automatically')
-@customer_option
-@cli_response(attributes_order=[PARAM_NAME, PARAM_CUSTOMER_NAME,
-                                PARAM_TENANT, PARAM_ACCOUNT])
+@cli_response(attributes_order=attributes_order)
 def add(ctx: ContextObj, tenant_name, schedule,
         ruleset, region, name, customer_id):
     """
     Registers a scheduled job
     """
     return ctx['api_client'].scheduled_job_post(
-        tenant=tenant_name,
+        tenant_name=tenant_name,
         schedule=schedule,
-        target_ruleset=ruleset,
-        target_region=region,
+        target_rulesets=ruleset,
+        target_regions=region,
         name=name,
-        customer=customer_id
+        customer_id=customer_id
     )
 
 
@@ -48,9 +46,7 @@ def add(ctx: ContextObj, tenant_name, schedule,
 @click.option('--name', '-n', type=str, required=False,
               help='Scheduled job name to remove')
 @tenant_option
-@customer_option
-@cli_response(attributes_order=[PARAM_NAME, PARAM_CUSTOMER_NAME,
-                                PARAM_TENANT, PARAM_ACCOUNT])
+@cli_response(attributes_order=attributes_order)
 def describe(ctx: ContextObj, name, tenant_name, customer_id):
     """
     Describes registered scheduled jobs
@@ -59,23 +55,23 @@ def describe(ctx: ContextObj, name, tenant_name, customer_id):
         return response('You don`t have to specify other attributes if'
                         ' \'--name\' is specified')
     if name:
-        return ctx['api_client'].scheduled_job_get(name)
+        return ctx['api_client'].scheduled_job_get(name, customer_id=customer_id)
     return ctx['api_client'].scheduled_job_query(
         tenant_name=tenant_name,
-        customer=customer_id
+        customer_id=customer_id
     )
 
 
 @scheduled.command(cls=ViewCommand, name='delete')
 @click.option('--name', '-n', type=str, required=True,
               help='Scheduled job name to remove')
-@customer_option
 @cli_response()
 def delete(ctx: ContextObj, name, customer_id):
     """
     Removes a scheduled job
     """
-    return ctx['api_client'].scheduled_job_delete(name=name)
+    return ctx['api_client'].scheduled_job_delete(name=name,
+                                                  customer_id=customer_id)
 
 
 @scheduled.command(cls=ViewCommand, name='update')
@@ -86,9 +82,7 @@ def delete(ctx: ContextObj, name, customer_id):
                    'rate(2 minutes)')
 @click.option('--enabled', '-e', type=bool, required=False,
               help='Param to enable or disable the job temporarily')
-@customer_option
-@cli_response(attributes_order=[PARAM_NAME, PARAM_CUSTOMER_NAME,
-                                PARAM_TENANT, PARAM_ACCOUNT])
+@cli_response(attributes_order=attributes_order)
 def update(ctx: ContextObj, name, schedule, enabled, customer_id):
     """
     Updates an existing scheduled job
@@ -96,5 +90,8 @@ def update(ctx: ContextObj, name, schedule, enabled, customer_id):
     if all(param is None for param in (enabled, schedule)):
         return response('You must specify at least one parameter to update.')
     return ctx['api_client'].scheduled_job_update(
-        name=name, schedule=schedule, enabled=enabled, customer=customer_id
+        name=name,
+        schedule=schedule,
+        enabled=enabled,
+        customer_id=customer_id
     )

@@ -1,19 +1,23 @@
-import os
-import re
-import traceback
 from datetime import date
 from getpass import getuser
-from logging import DEBUG, getLogger, Formatter, StreamHandler, INFO, \
-    FileHandler, NullHandler
+from logging import (
+    DEBUG,
+    FileHandler,
+    Formatter,
+    INFO,
+    NullHandler,
+    StreamHandler,
+    getLogger,
+)
+import os
 from pathlib import Path
+import re
 
 from c7ncli.service.constants import C7NCLI_LOG_LEVEL_ENV_NAME
 from c7ncli.version import __version__
 
-LOGS_FOLDER = 'c7ncli-logs'
+LOGS_FOLDER = Path('logs/c7ncli')
 LOGS_FILE_NAME = date.today().strftime('%Y-%m-%d-c7n.log')
-# LOGS_FOLDER_PATH = Path(__file__).parent.parent.parent / LOGS_FOLDER
-LOGS_FOLDER_PATH = Path(os.getcwd(), LOGS_FOLDER)
 
 
 SYSTEM_LOG_FORMAT = f'%(asctime)s [USER: {getuser()}] %(message)s'
@@ -23,26 +27,28 @@ VERBOSE_MODE_LOG_FORMAT = f'%(asctime)s [%(levelname)s] ' \
 
 
 class SensitiveFormatter(Formatter):
-    """Formatter that removes sensitive information."""
-    SECURED_PARAMS = {
+    """
+    Formatter that removes sensitive information.
+    """
+    _inner = '|'.join((
         'refresh_token', 'id_token', 'password', 'authorization', 'secret',
         'AWS_SECRET_ACCESS_KEY', 'AWS_SESSION_TOKEN', 'git_access_secret',
         'api_key', 'AZURE_CLIENT_ID', 'AZURE_CLIENT_SECRET',
         'GOOGLE_APPLICATION_CREDENTIALS', 'private_key', 'private_key_id',
-        'Authorization', 'Authentication', 'sdk_secret_key', 'key_id'
-    }
-
-    @staticmethod
-    def _filter(string):
-        for param in SensitiveFormatter.SECURED_PARAMS:
-            # [\'"] - single or double quote; [ ]? - zero or more spaces
-            string = re.sub(f'[\'"]{param}[\'"]:[ ]*[\'"](.*?)[\'"]',
-                            f'\'{param}\': \'****\'', string)
-        return string
+        'Authorization', 'Authentication', 'sdk_secret_key', 'key_id',
+        'certificate', 'access_token', 'refresh_token'
+    ))
+    # assuming that only raw python dicts will be written. This regex won't
+    # catch exposed secured params inside JSON strings. In looks only for
+    # single quotes
+    regex = re.compile(rf"'({_inner})':\s*?'(.*?)'")
 
     def format(self, record):
-        original = Formatter.format(self, record)
-        return self._filter(original)
+        return re.sub(
+            self.regex,
+            r"'\1': '****'",
+            super().format(record)
+        )
 
 
 # SYSTEM logger
@@ -81,14 +87,9 @@ def get_user_logger(log_name, level=INFO):
     return module_logger
 
 
-def exception_handler_formatter(exception_type, exception, exc_traceback):
-    c7n_logger.error('%s: %s', exception_type.__name__, exception)
-    traceback.print_tb(tb=exc_traceback, limit=15)
-
-
 def write_verbose_logs():
-    os.makedirs(LOGS_FOLDER_PATH, exist_ok=True)
-    file_handler = FileHandler(LOGS_FOLDER_PATH / LOGS_FILE_NAME)
+    os.makedirs(LOGS_FOLDER, exist_ok=True)
+    file_handler = FileHandler(LOGS_FOLDER / LOGS_FILE_NAME)
     file_handler.setLevel(DEBUG)
     formatter = SensitiveFormatter(VERBOSE_MODE_LOG_FORMAT)
     file_handler.setFormatter(formatter)

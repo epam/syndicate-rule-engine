@@ -1,10 +1,11 @@
 from functools import wraps
 from http import HTTPStatus
-from typing import Callable, Dict, Any, TypeVar
+from typing import Callable, Any, TypeVar, TypedDict as TypedDict1
+from typing_extensions import TypedDict as TypedDict2
 
 from pydantic import BaseModel, ValidationError
 
-from helpers import build_response
+from helpers.lambda_response import ResponseFactory
 
 T = TypeVar('T')
 
@@ -13,39 +14,32 @@ def validate_pydantic(model: type, value: dict) -> BaseModel:
     try:
         return model(**value)
     except ValidationError as e:
-        # return build_response(
-        #     code=HTTPStatus.BAD_REQUEST,
-        #     content='Validation error',
-        #     meta={
-        #         PARAM_ERRORS: e.errors()
-        #     }
-        # )
-        errors = {}
+        errors = []
         for error in e.errors():
-            loc = error.get("loc")[-1]
-            msg = error.get("msg")
-            errors.update({loc: msg})
-        errors = '; '.join(f"{k} - {v}" for k, v in errors.items())
-        return build_response(
-            code=HTTPStatus.BAD_REQUEST,
-            content=f'The following parameters do not match '
-                    f'the schema requirements: {errors}'
-        )
+            errors.append({
+                'location': error['loc'],
+                'description': error['msg']
+            })
+        raise ResponseFactory(HTTPStatus.BAD_REQUEST).errors(errors).exc()
 
 
-def validate_type(_type: type(T), value: Any) -> T:
+def validate_type(_type: type[T], value: Any) -> T:
+    if next(iter(getattr(_type, '__orig_bases__', ())), None) in (TypedDict1,
+                                                                  TypedDict2):
+        _type = dict  # because TypedDict does not support isinstance
+    if isinstance(value, _type):
+        return value
     try:
-        return _type(value) if not isinstance(value, _type) else value
+        return _type(value)
     except (ValueError, TypeError) as e:
-        return build_response(
-            code=HTTPStatus.BAD_REQUEST,
-            content=f'Validation error: \'{value}\' cannot be casted to '
-                    f'{_type.__name__}'
-        )
+        raise ResponseFactory(HTTPStatus.BAD_REQUEST).errors([{
+            'location': ['path'],
+            'message': f'\'{value}\' should have type {_type.__name__}'
+        }]).exc()
 
 
-def _validate(kwargs: Dict[str, Any], types: Dict[str, type],
-              cast: bool = True) -> Dict[str, Any]:
+def _validate(kwargs: dict[str, Any], types: dict[str, type],
+              cast: bool = True) -> dict[str, Any]:
     """
     Received keys and values in `kwargs`, keys and expected values' types
     in `types`. Returns a dict with keys and validated values
@@ -95,28 +89,3 @@ def validate_kwargs(func: Callable) -> Callable:
         return result
 
     return wrapper
-
-
-def validate_kwargs_by(**types) -> Callable:
-    """
-    The same as a decorator above but instead of func.__annotations__ it
-    uses given by the developer keyword arguments `types`. Also, it
-    does not cast attributes to the required values `cause it's not
-    annotations. It would look odd. If you still want this method to cast
-    attributes just set _cast=True
-    :param types:
-    :return:
-    """
-    _cast = False
-    if types.get('_cast') is True:
-        _cast = types.get('_cast')
-
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            validated = _validate(kwargs, types, cast=_cast)
-            return func(*args, **validated)
-
-        return wrapper
-
-    return decorator

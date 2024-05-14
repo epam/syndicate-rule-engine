@@ -1,27 +1,37 @@
+from functools import cached_property
 from http import HTTPStatus
 
-from handlers.abstracts.abstract_handler import AbstractHandler
-from helpers import build_response
-from helpers.constants import PORT_ATTR, HOST_ATTR, KEY_ID_ATTR, \
-    PRIVATE_KEY_ATTR, \
-    ALGORITHM_ATTR, FORMAT_ATTR, KID_ATTR, ALG_ATTR, PUBLIC_KEY_ATTR, \
-    VALUE_ATTR, PROTOCOL_ATTR, STAGE_ATTR, API_VERSION_ATTR, HTTPMethod
-from helpers.log_helper import get_logger
-from services.key_management_service import KeyManagementService, IKey
-from services.license_manager_service import LicenseManagerService
-from services.setting_service import SettingsService, Setting
+from cryptography.hazmat.primitives.serialization import (
+    Encoding,
+    NoEncryption,
+    PrivateFormat,
+    PublicFormat,
+    load_pem_private_key,
+)
 
-LM_SETTINGS_PATH = '/settings/license-manager'
-CONFIG_PATH = '/config'
-CLIENT_PATH = '/client'
+from handlers import AbstractHandler, Mapping
+from helpers.constants import (
+    ALG_ATTR,
+    CustodianEndpoint,
+    HTTPMethod,
+    KID_ATTR,
+    VALUE_ATTR,
+)
+from helpers.lambda_response import ResponseFactory, build_response
+from helpers.log_helper import get_logger
+from services import SP
+from services.clients.ssm import AbstractSSMClient
+from services.license_manager_service import LicenseManagerService
+from services.setting_service import Setting, SettingsService
+from validators.swagger_request_models import (
+    BaseModel,
+    LicenseManagerClientSettingDeleteModel,
+    LicenseManagerClientSettingPostModel,
+    LicenseManagerConfigSettingPostModel,
+)
+from validators.utils import validate_kwargs 
 
 _LOG = get_logger(__name__)
-
-UNSUPPORTED_ALG_TEMPLATE = 'Algorithm:\'{alg}\' is not supported.'
-KEY_OF_ENTITY_TEMPLATE = '{key}:\'{kid}\' of \'{uid}\' {entity}'
-
-UNRESOLVABLE_ERROR = 'Request has run into an issue, which could not' \
-                     ' be resolved.'
 
 PEM_ATTR = 'PEM'
 
@@ -31,78 +41,65 @@ class LicenseManagerClientHandler(AbstractHandler):
     Manages License Manager Client.
     """
 
-    def __init__(
-            self, settings_service: SettingsService,
-            key_management_service: KeyManagementService,
-            license_manager_service: LicenseManagerService
-    ):
+    def __init__(self, settings_service: SettingsService,
+                 license_manager_service: LicenseManagerService,
+                 ssm_client: AbstractSSMClient):
         self.settings_service = settings_service
-        self.key_management_service = key_management_service
         self.license_manager_service = license_manager_service
+        self._ssm_client = ssm_client
 
-    def define_action_mapping(self):
+    @cached_property
+    def mapping(self) -> Mapping:
         return {
-            LM_SETTINGS_PATH + CLIENT_PATH: {
+            CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CLIENT: {
                 HTTPMethod.GET: self.get,
                 HTTPMethod.POST: self.post,
                 HTTPMethod.DELETE: self.delete,
             }
         }
 
-    def get(self, event: dict):
-        _LOG.info(
-            f'{HTTPMethod.GET} License Manager Client-Key event: {event}')
+    @classmethod
+    def build(cls):
+        return cls(
+            settings_service=SP.settings_service,
+            license_manager_service=SP.license_manager_service,
+            ssm_client=SP.ssm
+        )
 
-        fmt = event.get(FORMAT_ATTR) or PEM_ATTR
-
-        configuration: dict = self.settings_service. \
-                                  get_license_manager_client_key_data() or {}
+    @validate_kwargs
+    def get(self, event: BaseModel):
+        configuration: dict = self.settings_service.get_license_manager_client_key_data() or {}
+        if not configuration:
+            raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                'Configuration is not found'
+            ).exc()
 
         kid = configuration.get(KID_ATTR)
         alg = configuration.get(ALG_ATTR)
+        name = self.license_manager_service.derive_client_private_key_id(
+            kid=kid
+        )
+        data = self._ssm_client.get_secret_value(name)
+        pem = data['value']
+        key = load_pem_private_key(pem.encode(), None)
+        return build_response(content=self.get_dto(
+            kid=kid,
+            alg=alg,
+            public_key=self.get_public(key)
+        ))
 
-        response = None
-
-        if kid and alg:
-            prk_kid = self.license_manager_service.derive_client_private_key_id(
-                kid=kid
-            )
-            _LOG.info(f'Going to retrieve private-key by \'{prk_kid}\'.')
-            prk = self.key_management_service.get_key(kid=prk_kid, alg=alg)
-            if not prk:
-                message = KEY_OF_ENTITY_TEMPLATE.format(
-                    key='PrivateKey', kid=prk_kid, uid=alg,
-                    entity='algorithm'
-                )
-                _LOG.warning(message + ' could not be retrieved.')
-            else:
-                _LOG.info(f'Going to derive a public-key of \'{kid}\'.')
-                puk: IKey = self._derive_puk(prk=prk.key)
-                if puk:
-                    managed = self.key_management_service. \
-                        instantiate_managed_key(
-                        kid=kid, key=puk, alg=alg
-                    )
-                    _LOG.info(f'Going to export the \'{kid}\' public-key.')
-                    response = self._response_dto(
-                        exported_key=managed.export_key(frmt=fmt),
-                        value_attr=PUBLIC_KEY_ATTR
-                    )
-
-        return build_response(
-            code=HTTPStatus.OK,
-            content=response or []
+    @staticmethod
+    def get_public(key) -> bytes:
+        return key.public_key().public_bytes(
+            Encoding.PEM, PublicFormat.SubjectPublicKeyInfo
         )
 
-    def post(self, event: dict):
+    @validate_kwargs
+    def post(self, event: LicenseManagerClientSettingPostModel):
         # Validation is taken care of, on the gateway/abstract-handler layer.
-        _LOG.info(
-            f'{HTTPMethod.POST} License Manager Client-Key event: {event}'
-        )
-        kid = event.get(KEY_ID_ATTR)
-        alg = event.get(ALGORITHM_ATTR)
-        raw_prk = event.get(PRIVATE_KEY_ATTR)
-        frmt = event.get(FORMAT_ATTR)
+        kid = event.key_id
+        alg = event.algorithm
+        raw_prk: str = event.private_key
 
         # Decoding is taking care of within the validation layer.
 
@@ -113,48 +110,26 @@ class LicenseManagerClientHandler(AbstractHandler):
                 content='License Manager Client-Key already exists.'
             )
 
-        prk = self.key_management_service.import_key(
-            alg=alg, key_value=raw_prk
+        try:
+            prk = load_pem_private_key(raw_prk.encode(), None)
+        except (ValueError, Exception):
+            raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
+                'Invalid private key'
+            ).exc()
+        name = self.license_manager_service.derive_client_private_key_id(
+            kid=kid
         )
-
-        puk = self._derive_puk(prk=prk)
-        if not puk:
-            return build_response(
-                code=HTTPStatus.BAD_REQUEST,
-                content='Improper private-key.'
-            )
-
-        if not prk:
-            return build_response(
-                content=UNSUPPORTED_ALG_TEMPLATE.format(alg=alg),
-                code=HTTPStatus.NOT_FOUND
-            )
-
-        prk = self.key_management_service.instantiate_managed_key(
-            alg=alg, key=prk,
-            kid=self.license_manager_service.derive_client_private_key_id(
-                kid=kid
-            )
+        self._ssm_client.create_secret(
+            secret_name=name,
+            secret_value={
+                VALUE_ATTR: prk.private_bytes(
+                    Encoding.PEM,
+                    PrivateFormat.PKCS8,
+                    NoEncryption()
+                )
+            }
         )
-
-        message = KEY_OF_ENTITY_TEMPLATE.format(
-            key='PublicKey', kid=prk.kid, uid=prk.alg, entity='algorithm'
-        )
-
-        _LOG.info(message + ' has been instantiated.')
-
-        if not self.key_management_service.save_key(
-                kid=prk.kid, key=prk.key, frmt=frmt
-        ):
-            return build_response(
-                content=UNRESOLVABLE_ERROR,
-                code=HTTPStatus.INTERNAL_SERVER_ERROR
-            )
-
-        managed_puk = self.key_management_service.instantiate_managed_key(
-            kid=kid, alg=alg, key=puk
-        )
-
+        _LOG.info('Private key was saved to SSM')
         setting = self.settings_service.create_license_manager_client_key_data(
             kid=kid, alg=alg
         )
@@ -165,18 +140,29 @@ class LicenseManagerClientHandler(AbstractHandler):
         self.settings_service.save(setting=setting)
 
         return build_response(
-            code=HTTPStatus.OK,
-            content=self._response_dto(
-                exported_key=managed_puk.export_key(frmt=frmt),
-                value_attr=PUBLIC_KEY_ATTR
+            code=HTTPStatus.CREATED,
+            content=self.get_dto(
+                alg=alg,
+                kid=kid,
+                public_key=self.get_public(prk)
             )
         )
 
-    def delete(self, event: dict):
-        _LOG.info(
-            f'{HTTPMethod.DELETE} License Manager Client-Key event: {event}')
+    @staticmethod
+    def get_dto(alg: str, kid: str, public_key: str | bytes) -> dict:
+        if isinstance(public_key, bytes):
+            public_key = public_key.decode()
+        return {
+            'algorithm': alg,
+            'b64_encoded': False,
+            'format': 'PEM',
+            'key_id': kid,
+            'public_key': public_key
+        }
 
-        requested_kid = event.get(KEY_ID_ATTR)
+    @validate_kwargs
+    def delete(self, event: LicenseManagerClientSettingDeleteModel):
+        requested_kid = event.key_id
 
         head = 'License Manager Client-Key'
         unretained = ' does not exist'
@@ -184,8 +170,7 @@ class LicenseManagerClientHandler(AbstractHandler):
         # Default 404 error-response.
         content = head + unretained
 
-        setting = self.settings_service. \
-            get_license_manager_client_key_data(value=False)
+        setting = self.settings_service.get_license_manager_client_key_data(value=False)
 
         if not setting:
             return build_response(
@@ -206,50 +191,12 @@ class LicenseManagerClientHandler(AbstractHandler):
                 head + f' does not contain {requested_kid} \'kid\' data.')
             return build_response(code=code, content=content)
 
-        is_key_data_removed = False
-
-        prk_kid = self.license_manager_service.derive_client_private_key_id(
+        name = self.license_manager_service.derive_client_private_key_id(
             kid=kid
         )
-
-        _LOG.info(f'Going to retrieve private-key by \'{prk_kid}\'.')
-        prk = self.key_management_service.get_key(kid=prk_kid, alg=alg)
-
-        prk_head = KEY_OF_ENTITY_TEMPLATE.format(
-            key='PrivateKey', kid=prk_kid, uid=alg, entity='algorithm'
-        )
-        if not prk:
-            _LOG.warning(prk_head + ' could not be retrieved.')
-        else:
-            if not self.key_management_service.delete_key(kid=prk.kid):
-                _LOG.warning(prk_head + ' could not be removed.')
-            else:
-                is_key_data_removed = True
-
-        if self.settings_service.delete(setting=setting):
-            committed = 'completely ' if is_key_data_removed else ''
-            committed += 'removed'
-            code = HTTPStatus.OK
-            content = head + f' has been {committed}'
-
-        return build_response(code=code, content=content)
-
-    @staticmethod
-    def _response_dto(exported_key: dict, value_attr: str):
-        if VALUE_ATTR in exported_key:
-            exported_key[value_attr] = exported_key.pop(VALUE_ATTR)
-        return exported_key
-
-    @staticmethod
-    def _derive_puk(prk: IKey):
-        try:
-            puk = prk.public_key()
-        except (Exception, ValueError) as e:
-            message = 'Public-Key could not be derived out of a ' \
-                      f'private one, due to: "{e}".'
-            _LOG.warning(message)
-            puk = None
-        return puk
+        self._ssm_client.delete_parameter(name)
+        self.settings_service.delete(setting=setting)
+        return build_response(code=HTTPStatus.NO_CONTENT)
 
 
 class LicenseManagerConfigHandler(AbstractHandler):
@@ -257,35 +204,33 @@ class LicenseManagerConfigHandler(AbstractHandler):
     Manages License Manager access-configuration.
     """
 
-    def __init__(
-            self, settings_service: SettingsService
-    ):
+    def __init__(self, settings_service: SettingsService):
         self.settings_service = settings_service
 
-    def define_action_mapping(self):
+    @cached_property
+    def mapping(self) -> Mapping:
         return {
-            LM_SETTINGS_PATH + CONFIG_PATH: {
+            CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CONFIG: {
                 HTTPMethod.GET: self.get,
                 HTTPMethod.POST: self.post,
                 HTTPMethod.DELETE: self.delete,
             }
         }
 
-    def get(self, event: dict):
-        _LOG.info(
-            f'{HTTPMethod.GET} License Manager access-config event: {event}')
+    @classmethod
+    def build(cls):
+        return cls(settings_service=SP.settings_service)
 
-        configuration: dict = self.settings_service. \
-            get_license_manager_access_data()
-        return build_response(
-            code=HTTPStatus.OK,
-            content=configuration or []
-        )
+    @validate_kwargs
+    def get(self, event: BaseModel):
+        configuration: dict = self.settings_service.get_license_manager_access_data()
+        if not configuration:
+            raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                'Setting not found').exc()
+        return build_response(content=configuration)
 
-    def post(self, event: dict):
-        _LOG.info(
-            f'{HTTPMethod.POST} License Manager access-config event: {event}'
-        )
+    @validate_kwargs
+    def post(self, event: LicenseManagerConfigSettingPostModel):
         if self.settings_service.get_license_manager_access_data():
             return build_response(
                 code=HTTPStatus.CONFLICT,
@@ -294,27 +239,20 @@ class LicenseManagerConfigHandler(AbstractHandler):
         # TODO check access ?
         setting = self.settings_service. \
             create_license_manager_access_data_configuration(
-            host=event[HOST_ATTR],
-            port=event.get(PORT_ATTR),
-            protocol=event.get(PROTOCOL_ATTR),
-            stage=event.get(STAGE_ATTR),
-            api_version=event.get(API_VERSION_ATTR)
+            host=event.host,
+            port=event.port,
+            protocol=event.protocol,
+            stage=event.stage,
+            api_version=event.api_version
         )
 
         _LOG.info(f'Persisting License Manager config-data: {setting.value}.')
         self.settings_service.save(setting=setting)
-        return build_response(
-            code=HTTPStatus.OK, content=setting.value
-        )
+        return build_response(code=HTTPStatus.CREATED, content=setting.value)
 
-    def delete(self, event: dict):
-        _LOG.info(f'{HTTPMethod.DELETE} License Manager access-config event:'
-                  f' {event}')
-
-        configuration: Setting = \
-            self.settings_service.get_license_manager_access_data(
-                value=False
-            )
+    @validate_kwargs
+    def delete(self, event: BaseModel):
+        configuration: Setting = self.settings_service.get_license_manager_access_data(value=False)
         if not configuration:
             return build_response(
                 code=HTTPStatus.NOT_FOUND,
@@ -323,7 +261,4 @@ class LicenseManagerConfigHandler(AbstractHandler):
         _LOG.info(f'Removing License Manager config-data:'
                   f' {configuration.value}.')
         self.settings_service.delete(setting=configuration)
-        return build_response(
-            code=HTTPStatus.OK,
-            content='License Manager config-data has been removed.'
-        )
+        return build_response(code=HTTPStatus.NO_CONTENT)

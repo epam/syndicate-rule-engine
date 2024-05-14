@@ -1,40 +1,58 @@
+from abc import ABC, abstractmethod
+from datetime import timezone
+from functools import reduce, wraps
+from http import HTTPStatus
+import operator
+from itertools import islice
 import json
 import os
-from datetime import timezone
-from functools import wraps, reduce, cached_property
-from itertools import islice
 from pathlib import Path
-from typing import Union, Dict, Optional, Iterable, List, Callable, TypedDict
+from typing import Any, Callable, TypedDict, cast
+import urllib.error
 
 import click
-import requests.exceptions
 from dateutil.parser import isoparse
-from requests.models import Response
 from tabulate import tabulate
 
-from c7ncli.service.adapter_client import AdapterClient
-from c7ncli.service.config import CustodianCLIConfig, AbstractCustodianConfig, \
-    CustodianWithCliSDKConfig
-from c7ncli.service.constants import MESSAGE_ATTR, TRACE_ID_ATTR, ITEMS_ATTR, \
-    NEXT_TOKEN_ATTR, RESPONSE_NO_CONTENT, NO_CONTENT_RESPONSE_MESSAGE, \
-    MALFORMED_RESPONSE_MESSAGE, NO_ITEMS_TO_DISPLAY_RESPONSE_MESSAGE, \
-    CONTEXT_API_CLIENT, CONTEXT_CONFIG, \
-    AVAILABLE_JOB_TYPES, MODULE_NAME, CONTEXT_MODULAR_ADMIN_USERNAME
-from c7ncli.service.logger import get_logger, get_user_logger, \
-    write_verbose_logs
+from c7ncli.service.adapter_client import CustodianApiClient, CustodianResponse
+from c7ncli.service.config import (
+    AbstractCustodianConfig,
+    CustodianCLIConfig,
+    CustodianWithCliSDKConfig,
+)
+from c7ncli.service.constants import (
+    CONTEXT_MODULAR_ADMIN_USERNAME,
+    DATA_ATTR,
+    ITEMS_ATTR,
+    ERRORS_ATTR,
+    MESSAGE_ATTR,
+    MODULE_NAME,
+    NEXT_TOKEN_ATTR,
+    NO_CONTENT_RESPONSE_MESSAGE,
+    NO_ITEMS_TO_DISPLAY_RESPONSE_MESSAGE,
+    JobType
+)
+from c7ncli.service.logger import get_logger, get_user_logger, write_verbose_logs
+
+CredentialsProvider = None
+try:
+    from modular_cli_sdk.services.credentials_manager import \
+        CredentialsProvider
+except ImportError:
+    pass
+
 
 # modular cli
 MODULAR_ADMIN = 'modules'
 SUCCESS_STATUS = 'SUCCESS'
-FAILED_STATUS = 'FAILED'
+ERROR_STATUS = 'FAILED'
 STATUS_ATTR = 'status'
 CODE_ATTR = 'code'
 TABLE_TITLE_ATTR = 'table_title'
 # -----------
 
-SYSTEM_LOG = get_logger(__name__)
+_LOG = get_logger(__name__)
 USER_LOG = get_user_logger(__name__)
-ApiResponseType = Union[Response, Dict]
 
 REVERT_TO_JSON_MESSAGE = 'The command`s response is pretty huge and the ' \
                          'result table structure can be broken.\nDo you want ' \
@@ -66,22 +84,22 @@ class ContextObj(TypedDict):
     as keys in TypedDict
     class ContextObj(TypedDict):
         CONTEXT_CONFIG: CustodianCLIConfig
-        CONTEXT_API_CLIENT: AdapterClient
+        CONTEXT_API_CLIENT: CustodianApiClient
     - that does not work
     """
     config: AbstractCustodianConfig
-    api_client: AdapterClient
+    api_client: CustodianApiClient
 
 
-class cli_response:
-    def __init__(self, attributes_order: Optional[List[str]] = None,
-                 check_api_link: Optional[bool] = True,
-                 check_access_token: Optional[bool] = True,
-                 secured_params: Optional[List[str]] = None):
+class cli_response:  # noqa
+    __slots__ = ('_attributes_order', '_check_api_link', '_check_access_token')
+
+    def __init__(self, attributes_order: tuple[str, ...] = (),
+                 check_api_link: bool = True,
+                 check_access_token: bool = True):
         self._attributes_order = attributes_order
         self._check_api_link = check_api_link
         self._check_access_token = check_access_token
-        self._secured_params = secured_params  # for what
 
     @staticmethod
     def update_context(ctx: click.Context):
@@ -93,18 +111,15 @@ class cli_response:
         """
         if not isinstance(ctx.obj, dict):
             ctx.obj = {}
-        try:
-            from modular_cli_sdk.services.credentials_manager import \
-                CredentialsProvider
-            SYSTEM_LOG.debug('Cli sdk is installed. '
-                             'Using its credentials provider')
+        if CredentialsProvider:
+            _LOG.debug('Cli sdk is installed. Using its credentials provider')
             config = CustodianWithCliSDKConfig(
                 credentials_manager=CredentialsProvider(
                     module_name=MODULE_NAME, context=ctx
                 ).credentials_manager
             )
-        except ImportError:
-            SYSTEM_LOG.warning(
+        else:
+            _LOG.warning(
                 'Could not import modular_cli_sdk. Using standard '
                 'config instead of the one provided by cli skd'
             )
@@ -113,10 +128,11 @@ class cli_response:
                 config = CustodianCLIConfig(prefix=m3_username)  # modular
             else:
                 config = CustodianCLIConfig()  # standard
-        adapter = AdapterClient(config)
+
+        # ContextObj
         ctx.obj.update({
-            CONTEXT_API_CLIENT: adapter,
-            CONTEXT_CONFIG: config
+            'api_client': CustodianApiClient(config),
+            'config': config
         })
 
     def _check_context(self, ctx: click.Context):
@@ -125,7 +141,7 @@ class cli_response:
         :param ctx:
         :return:
         """
-        obj: ContextObj = ctx.obj
+        obj: ContextObj = cast(ContextObj, ctx.obj)
         config = obj['config']
         if self._check_api_link and not config.api_link:
             raise click.UsageError(
@@ -142,301 +158,236 @@ class cli_response:
         @wraps(func)
         def wrapper(*args, **kwargs):
             modular_mode = False
-            if Path(__file__).parents[3].name == MODULAR_ADMIN:
+            if Path(__file__).parents[3].name == MODULAR_ADMIN:  # TODO check some other way
                 modular_mode = True
 
             json_view = kwargs.pop('json')
             verbose = kwargs.pop('verbose')
             if verbose:
                 write_verbose_logs()
-            ctx = click.get_current_context()
+            ctx = cast(click.Context, click.get_current_context())
             self.update_context(ctx)
             try:
                 self._check_context(ctx)
-                # TODO, add pass_obj to each method?
-                resp: Optional[ApiResponseType] = \
-                    click.pass_obj(func)(*args, **kwargs)
+                resp: CustodianResponse = click.pass_obj(func)(*args, **kwargs)
             except click.ClickException as e:
-                SYSTEM_LOG.info('Click exception has occurred')
+                _LOG.info('Click exception has occurred')
                 resp = response(e.format_message())
             except Exception as e:
-                SYSTEM_LOG.error(f'Unexpected error has occurred: {e}')
+                _LOG.error(f'Unexpected error has occurred: {e}')
                 resp = response(str(e))
 
-            api_response = ApiResponse(resp, ctx.obj['config'],
-                                       self._attributes_order)
-
             if modular_mode:
-                SYSTEM_LOG.info('The cli is installed as a module. '
-                                'Returning m3 modular cli response')
-                js = api_response.to_modular_json()
-                return api_response.json_view(_from=js)
+                _LOG.info('The cli is installed as a module. '
+                          'Returning m3 modular cli response')
+                formatted = ModularResponseProcessor().format(resp)
+                return json.dumps(formatted, separators=(',', ':'))
 
             if not json_view:  # table view
 
-                SYSTEM_LOG.info('Returning table view')
-                js = api_response.to_json()
-                trace_id = js.get(TRACE_ID_ATTR)
-                next_token = js.get(NEXT_TOKEN_ATTR)
+                _LOG.info('Returning table view')
+                prepared = TableResponseProcessor().format(resp)
+                trace_id = resp.trace_id
+                next_token = (resp.data or {}).get(NEXT_TOKEN_ATTR)
 
                 try:
-                    table_kwargs = dict(_from=js, _raise_on_overflow=True)
-                    table_rep = api_response.table_view(**table_kwargs)
-
+                    printer = TablePrinter(
+                        items_per_column=ctx.obj['config'].items_per_column,
+                        attributes_order=self._attributes_order
+                    )
+                    table = printer.print(prepared)
                 except ColumnOverflow as ce:
 
-                    SYSTEM_LOG.info(f'Awaiting user to respond to - {ce!r}.')
+                    _LOG.info(f'Awaiting user to respond to - {ce!r}.')
                     to_revert = click.prompt(
                         REVERT_TO_JSON_MESSAGE,
-                        type=click.Choice(['y', 'n'])
+                        type=click.Choice(('y', 'n'))
                     )
                     if to_revert == 'n':
-                        table_rep = ce.table
+                        table = ce.table
                     else:
-                        table_rep, json_view = None, True
+                        table, json_view = None, True
 
-                except (BaseException, Exception) as e:
-                    serialized = response(content=str(e))
-                    table_rep = api_response.table_view(_from=serialized)
-
-                if table_rep:
+                if table:
                     if verbose:
                         click.echo(f'Trace id: \'{trace_id}\'')
                     if next_token:
                         click.echo(f'Next token: \'{next_token}\'')
-                    click.echo(table_rep)
-                    SYSTEM_LOG.info(f'Finished request: \'{trace_id}\'')
+                    click.echo(table)
+                    _LOG.info(f'Finished request: \'{trace_id}\'')
 
             if json_view:
-                SYSTEM_LOG.info('Returning json view')
-                click.echo(api_response.json_view())
-                return
+                _LOG.info('Returning json view')
+                data = JsonResponseProcessor().format(resp)
+                click.echo(json.dumps(data, indent=4))
 
         return wrapper
 
 
-class ApiResponse:
-    table_datetime_format: str = '%A, %B %d, %Y %I:%M:%S %p'
-    table_format = 'pretty'
+class ResponseProcessor(ABC):
+    @abstractmethod
+    def format(self, resp: CustodianResponse) -> Any:
+        """
+        Returns a dict that can be printed or used for printing
+        :param resp:
+        :return:
+        """
+
+
+class JsonResponseProcessor(ResponseProcessor):
+    """
+    Processes the json before it can be printed
+    """
+
+    def format(self, resp: CustodianResponse) -> dict:
+        if resp.code == HTTPStatus.NO_CONTENT:
+            return {MESSAGE_ATTR: NO_CONTENT_RESPONSE_MESSAGE}
+        elif isinstance(resp.exc, json.JSONDecodeError):
+            return {MESSAGE_ATTR: f'Invalid JSON received: {resp.exc.msg}'}
+        elif isinstance(resp.exc, urllib.error.URLError):
+            return {MESSAGE_ATTR: f'Cannot send a request: {resp.exc.reason}'}
+        return resp.data or {}
+
+
+class TableResponseProcessor(JsonResponseProcessor):
+    """
+    Processes the json before it can be converted to table and printed
+    """
+
+    def format(self, resp: CustodianResponse) -> list[dict]:
+        dct = super().format(resp)
+        if data := dct.get(DATA_ATTR):
+            return [data]
+        if errors := dct.get(ERRORS_ATTR):
+            return errors
+        if items := dct.get(ITEMS_ATTR):
+            return items
+        if ITEMS_ATTR in dct and not dct.get(ITEMS_ATTR):  # empty
+            return [{MESSAGE_ATTR: NO_ITEMS_TO_DISPLAY_RESPONSE_MESSAGE}]
+        return [dct]
+
+
+class ModularResponseProcessor(JsonResponseProcessor):
     modular_table_title = 'Custodian as a service'
 
-    def __init__(self, resp: ApiResponseType, config: CustodianCLIConfig,
-                 attributes_order: Optional[List[str]] = None):
-        self._resp: ApiResponseType = resp
-        self._order = attributes_order
-        self._config = config
+    def format(self, resp: CustodianResponse) -> dict:
+        base = {
+            CODE_ATTR: resp.code,
+            STATUS_ATTR: SUCCESS_STATUS if resp.ok else ERROR_STATUS,
+            TABLE_TITLE_ATTR: self.modular_table_title
+        }
+        dct = super().format(resp)
+        if data := dct.get(DATA_ATTR):
+            base[ITEMS_ATTR] = [data]
+        elif errors := dct.get(ERRORS_ATTR):
+            base[ITEMS_ATTR] = errors
+        elif dct.get(ITEMS_ATTR):
+            base.update(dct)
+        elif ITEMS_ATTR in dct:  # empty
+            base[MESSAGE_ATTR] = NO_ITEMS_TO_DISPLAY_RESPONSE_MESSAGE
+        elif message := dct.get(MESSAGE_ATTR):
+            base[MESSAGE_ATTR] = message
+        else:
+            base[ITEMS_ATTR] = [dct]
+        return base
 
-    @staticmethod
-    def _build_order_func(order: List[str]) -> Callable:
-        """
-        Builds order lambda func for one dict item, i.e a tuple with
-        key and value
-        :param order:
-        :return:
-        """
-        return lambda x: order.index(x[0]) if x[0] in order \
-            else 100 + ord(x[0][0].lower())
 
-    @cached_property
-    def order_key(self) -> Optional[Callable]:
-        """
-        Returns a lambda function to use in sorted(dct.items(), key=...)
-        to sort a dict according to the given order. If the order is not
-        given, returns None
-        :return:
-        """
-        if not self._order:
-            return
-        return self._build_order_func(self._order)
+class TablePrinter:
+    default_datetime_format: str = '%A, %B %d, %Y %I:%M:%S %p'
+    default_format = 'pretty'
 
-    def prepare_value(self, value: Union[str, list, dict, None],
-                      _item_limit: Optional[int] = None) -> str:
+    def __init__(self, format: str = default_format,
+                 datetime_format: str = default_datetime_format,
+                 items_per_column: int | None = None,
+                 attributes_order: tuple[str, ...] = ()):
+        self._format = format
+        self._datetime_format = datetime_format
+        self._items_per_column = items_per_column
+        if attributes_order:
+            self._order = {x: i for i, x in enumerate(attributes_order)}
+        else:
+            self._order = None
+
+    def prepare_value(self, value: str | list | dict | None) -> str:
         """
         Makes the given value human-readable. Should be applied only for
         table view since it can reduce the total amount of useful information
         within the value in favor of better view.
         :param value:
-        :param _item_limit: Optional[int] = None, number of
          items per column.
         :return:
         """
-        limit = _item_limit
-        to_limit = limit is not None
-        f = self.prepare_value
-
         if not value and not isinstance(value, (int, bool)):
             return '—'
 
-        if isinstance(value, list):
-            i_recurse = (f(each, limit) for each in value)
-            result = ', '.join(islice(i_recurse, limit))
-            if to_limit and len(value) > limit:
-                result += f'... ({len(value)})'  # or len(value) - limit
-            return result
+        limit = self._items_per_column
+        to_limit = limit is not None
+        f = self.prepare_value
 
-        elif isinstance(value, dict):
-            i_prepare = (
-                f'{f(value=k)}: {f(value=v, _item_limit=limit)}'
-                for k, v in islice(value.items(), limit)
-            )
-            result = reduce(lambda a, b: f'{a}; {b}', i_prepare)
-            if to_limit and len(value) > limit:
-                result += f'... ({len(value)})'
-            return result
+        # todo, maybe use just list comprehensions instead of iterators
+        match value:
+            case list():
+                i_recurse = map(f, value)
+                result = ', '.join(islice(i_recurse, limit))
+                if to_limit and len(value) > limit:
+                    result += f'... ({len(value)})'  # or len(value) - limit
+                return result
+            case dict():
+                i_prepare = (
+                    f'{f(value=k)}: {f(value=v)}'
+                    for k, v in islice(value.items(), limit)
+                )
+                result = reduce(lambda a, b: f'{a}; {b}', i_prepare)
+                if to_limit and len(value) > limit:
+                    result += f'... ({len(value)})'
+                return result
+            case str():
+                try:
+                    obj = isoparse(value)
+                    # we assume that everything from the server is UTC even
+                    # if it is a naive object
+                    obj.replace(tzinfo=timezone.utc)
+                    return obj.astimezone().strftime(self._datetime_format)
+                except ValueError:
+                    return value
+            case _:  # bool, int
+                return str(value)
 
-        elif isinstance(value, str):
-            try:
-                obj = isoparse(value)
-                # we assume that everything from the server is UTC even
-                # if it is a naive object
-                obj.replace(tzinfo=timezone.utc)
-                return obj.astimezone().strftime(self.table_datetime_format)
-            except ValueError:
-                return value
-        else:  # bool, int, etc
-            return str(value)
-
-    @staticmethod
-    def response_to_json(resp: Response) -> dict:
-        if resp.status_code == RESPONSE_NO_CONTENT:
-            return ApiResponse.response(NO_CONTENT_RESPONSE_MESSAGE)
-        try:
-            return resp.json()
-        except requests.exceptions.JSONDecodeError as e:
-            SYSTEM_LOG.error(
-                f'Error occurred while loading response json: {e}'
-            )
-            return ApiResponse.response(MALFORMED_RESPONSE_MESSAGE)
-
-    def to_json(self) -> dict:
-        raw = self._resp
-        if isinstance(raw, dict):
-            return raw
-        # isinstance(raw, Response):
-        return self.response_to_json(raw)
-
-    def to_modular_json(self) -> dict:
-        """
-        Changed output dict so that it can be read by m3 modular admin
-        :return: dict
-        """
-        code = 200
-        status = SUCCESS_STATUS
-        raw = self._resp
-        if isinstance(raw, Response):
-            code = raw.status_code
-            raw = self.response_to_json(raw)
-        # modular does not accept an empty list in "items". Dict must
-        # contain either "message" or not empty "items"
-        if ITEMS_ATTR in raw and not raw[ITEMS_ATTR]:  # empty
-            raw.pop(ITEMS_ATTR)
-            raw.setdefault(MESSAGE_ATTR, NO_ITEMS_TO_DISPLAY_RESPONSE_MESSAGE)
-        return {
-            **raw,
-            CODE_ATTR: code,
-            STATUS_ATTR: status,
-            TABLE_TITLE_ATTR: self.modular_table_title
-        }
-
-    @staticmethod
-    def response(content: Union[str, List, Dict, Iterable]) -> Dict:
-        body = {}
-        if isinstance(content, str):
-            body.update({MESSAGE_ATTR: content})
-        elif isinstance(content, dict) and content:
-            body.update(content)
-        elif isinstance(content, list):
-            body.update({ITEMS_ATTR: content})
-        elif isinstance(content, Iterable):
-            body.update(({ITEMS_ATTR: list(content)}))
-        return body
-
-    @staticmethod
-    def format_title(title: str) -> str:
-        """
-        Human-readable
-        """
-        return title.replace('_', ' ').capitalize()
-
-    @staticmethod
-    def sorted_dict(dct: dict, key: Optional[Callable] = None) -> dict:
-        return dict(sorted(dct.items(), key=key))
-
-    def json_view(self, _from: Optional[dict] = None) -> str:
-        """
-        Sorts keys before returning
-        :return:
-        """
-        resp = _from or self.to_json()
-        if isinstance(resp.get(ITEMS_ATTR), list):
-            resp[ITEMS_ATTR] = [
-                self.sorted_dict(dct, self.order_key)
-                for dct in resp[ITEMS_ATTR]
-            ]
-        return json.dumps(resp, indent=4)
-
-    def table_view(self, _from: Optional[dict] = None,
-                   _raise_on_overflow: bool = True) -> str:
-        """
-        Currently, the response is kind of valid in case it contains either
-        'message' or 'items'. It sorts keys before returning
-
-        :raise ColumnOverflow: if the column has overflown with
-         respect to the terminal size.
-
-        :return: str
-        """
-
-        bounds = os.get_terminal_size().columns
-
-        resp = _from or self.to_json()
-        if ITEMS_ATTR in resp and isinstance(resp[ITEMS_ATTR], list):
-            _items = resp[ITEMS_ATTR]
-            if _items:  # not empty
-                formatted = self._items_table([
-                    self.sorted_dict(dct, self.order_key) for dct in _items
-                ])
-            else:
-                # empty
-                formatted = self._items_table([
-                    self.response(NO_ITEMS_TO_DISPLAY_RESPONSE_MESSAGE)
-                ])
+    def print(self, data: list[dict], raise_on_overflow: bool = True) -> str:
+        if order := self._order:
+            def key(tpl):
+                return order.get(tpl[0], 4096)  # just some big int
+            formatted = self._items_table([
+                dict(sorted(dct.items(), key=key)) for dct in data
+            ])
         else:
-            # no items in resp, probably some message
-            resp.pop(TRACE_ID_ATTR, None)
-            formatted = self._items_table([resp])
+            formatted = self._items_table(data)
 
-        overflown = formatted.index('\n') > bounds
-
-        if overflown and _raise_on_overflow:
+        overflow = formatted.index('\n') > os.get_terminal_size().columns
+        if overflow and raise_on_overflow:
             raise ColumnOverflow(table=formatted)
         return formatted
 
-    def _items_table(self, items: List) -> str:
+    def _items_table(self, items: list[dict]) -> str:
         prepare_value = self.prepare_value
-        format_title = self.format_title
-        items_per_column = self._config.items_per_column
 
         rows, title_to_key = [], {}
 
         for entry in items:
             for key in entry:
-                title = format_title(title=key)
+                title = key.replace('_', ' ').capitalize()  # title
                 if title not in title_to_key:
                     title_to_key[title] = key
 
         for entry in items:
             rows.append([
-                prepare_value(
-                    value=entry.get(key),
-                    _item_limit=items_per_column
-                )
+                prepare_value(value=entry.get(key))
                 for key in title_to_key.values()
             ])
 
         return tabulate(
             rows, headers=list(title_to_key),
-            tablefmt=self.table_format
+            tablefmt=self._format
         )
 
 
@@ -444,20 +395,37 @@ class ViewCommand(click.core.Command):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.params.append(
-            click.core.Option(('--json',), is_flag=True,
-                              help='Response as a JSON'))
+            click.core.Option(
+                ('--json',),
+                is_flag=True,
+                help='Response as a JSON'
+            )
+        )
         self.params.append(
-            click.core.Option(('--verbose',), is_flag=True,
-                              help='Save detailed information to '
-                                   'the log file'))
+            click.core.Option(
+                ('--verbose',),
+                is_flag=True,
+                help='Save detailed information to the log file'
+            )
+        )
+        self.params.append(
+            click.core.Option(
+                ('--customer_id', '-cid'),
+                type=str,
+                help='Hidden customer option to make a request on other '
+                     'customer`s behalf. Only for system customer',
+                required=False,
+                hidden=True
+            )
+        )
 
 
-response: Callable = ApiResponse.response
+response = CustodianResponse.build
 
 
 # callbacks
 def convert_in_upper_case_if_present(ctx, param, value):
-    if isinstance(value, list):
+    if isinstance(value, list | tuple):
         return [each.upper() for each in value]
     elif value:
         return value.upper()
@@ -468,17 +436,6 @@ def convert_in_lower_case_if_present(ctx, param, value):
         return [each.lower() for each in value]
     elif value:
         return value.lower()
-
-
-def build_customer_option(**kwargs) -> Callable:
-    params = dict(
-        type=str,
-        required=False,
-        help='Customer name which specifies whose entity to manage',
-        hidden=True,  # can be used, but hidden
-    )
-    params.update(kwargs)
-    return click.option('--customer_id', '-cid', **params)
 
 
 def build_tenant_option(**kwargs) -> Callable:
@@ -538,7 +495,7 @@ def build_job_id_option(*args, **kwargs) -> Callable:
 
 def build_job_type_option(*args, **kwargs) -> Callable:
     params = dict(
-        type=click.Choice(AVAILABLE_JOB_TYPES),
+        type=click.Choice(tuple(map(operator.attrgetter('value'), JobType))),
         help='Specify type of jobs to retrieve.',
         required=False
     )
@@ -555,7 +512,16 @@ def build_rule_source_id_option(**kwargs) -> Callable:
     return click.option('--rule_source_id', '-rsid', **params)
 
 
-customer_option = build_customer_option()
+def build_limit_option(**kwargs) -> Callable:
+    params = dict(
+        type=click.IntRange(min=1, max=50),
+        default=10, show_default=True,
+        help='Number of records to show'
+    )
+    params.update(kwargs)
+    return click.option('--limit', '-l', **params)
+
+
 tenant_option = build_tenant_option()
 tenant_display_name_option = build_tenant_display_name_option()
 account_option = build_account_option()
@@ -573,8 +539,6 @@ to_date_report_option = build_iso_date_option(
     help='Generate report TILL date.'
 )
 
-limit_option = click.option('--limit', '-l', type=click.IntRange(min=1),
-                            default=10, show_default=True,
-                            help='Number of records to show')
+limit_option = build_limit_option()
 next_option = click.option('--next_token', '-nt', type=str, required=False,
-                           help=f'Token to start record-pagination from')
+                           help='Token to start record-pagination from')

@@ -1,126 +1,84 @@
-from enum import Enum
+from functools import cached_property
 from http import HTTPStatus
-from typing import Iterator, Generator, Tuple, Optional
 
-from modular_sdk.commons.constants import ParentScope, \
-    ApplicationType, ParentType
-from modular_sdk.models.application import Application
-from modular_sdk.models.parent import Parent
+from modular_sdk.commons.constants import ApplicationType, ParentScope, \
+    ParentType
+from modular_sdk.modular import Modular
 from modular_sdk.services.application_service import ApplicationService
-from modular_sdk.services.impl.maestro_credentials_service import \
-    K8SServiceAccountApplicationMeta, K8SServiceAccountApplicationSecret
-from modular_sdk.services.parent_service import ParentService
+from modular_sdk.services.tenant_service import TenantService
 
-from handlers.abstracts.abstract_handler import AbstractHandler
-from helpers import build_response
-from helpers.constants import HTTPMethod, PlatformType
+from handlers import AbstractHandler, Mapping
+from helpers.constants import CustodianEndpoint, HTTPMethod
+from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
 from services import SP
-from services.modular_service import ModularService
-from validators.request_validation import PlatformK8sNativePost, \
-    PlatformK8sDelete, PlatformK8sEksPost, PreparedEvent, PlatformK8sQuery
+from services.rbac_service import TenantsAccessPayload
+from services import modular_helpers
+from services.abs_lambda import ProcessedEvent
+from services.platform_service import K8STokenKubeconfig, Platform, \
+    PlatformService
+from validators.swagger_request_models import (
+    BaseModel,
+    PlatformK8SPostModel,
+    PlatformK8sQueryModel,
+)
 from validators.utils import validate_kwargs
 
 _LOG = get_logger(__name__)
 
 
 class PlatformsHandler(AbstractHandler):
-    def __init__(self, modular_service: ModularService):
-        self._modular_service = modular_service
+    def __init__(self, modular_client: Modular,
+                 platform_service: PlatformService):
+        self._modular_client = modular_client
+        self._ps = platform_service
 
     @classmethod
     def build(cls) -> 'PlatformsHandler':
         return cls(
-            modular_service=SP.modular_service(),
+            modular_client=SP.modular_client,
+            platform_service=SP.platform_service
         )
-
-    @property
-    def ps(self) -> ParentService:
-        return self._modular_service.modular_client.parent_service()
 
     @property
     def aps(self) -> ApplicationService:
-        return self._modular_service.modular_client.application_service()
+        return self._modular_client.application_service()
 
-    def define_action_mapping(self) -> dict:
+    @property
+    def ts(self) -> TenantService:
+        return self._modular_client.tenant_service()
+
+    @cached_property
+    def mapping(self) -> Mapping:
         return {
-            '/platforms/k8s': {
-                HTTPMethod.GET: self.list_k8s
+            CustodianEndpoint.PLATFORMS_K8S: {
+                HTTPMethod.POST: self.post_k8s,
+                HTTPMethod.GET: self.list_k8s,
             },
-            '/platforms/k8s/native': {
-                HTTPMethod.POST: self.post_k8s_native,
-            },
-            '/platforms/k8s/eks': {
-                HTTPMethod.POST: self.post_k8s_eks,
-            },
-            '/platforms/k8s/native/{id}': {
-                HTTPMethod.DELETE: self.delete_k8s_native
-            },
-            '/platforms/k8s/eks/{id}': {
-                HTTPMethod.DELETE: self.delete_k8s_eks
+            CustodianEndpoint.PLATFORMS_K8S_ID: {
+                HTTPMethod.GET: self.get_k8s,
+                HTTPMethod.DELETE: self.delete_k8s
             }
         }
 
-    def dto(self, parent: Parent,
-            application: Optional[Application] = None) -> dict:
-        native = self.get_type(parent) == PlatformType.NATIVE
-        data = {
-            'id': parent.parent_id,
-            'name': parent.meta.as_dict().get('name'),
-            'tenant_name': parent.tenant_name,
-            'has_token': bool(application and bool(application.secret) and native),
-            'type': PlatformType.NATIVE if native else PlatformType.EKS,
-            'description': parent.description
-        }
-        if not native:
-            data['region'] = parent.meta.as_dict().get('region')
-        else:
-            data['endpoint'] = application.meta.as_dict().get('endpoint')
-        return data
-
     @validate_kwargs
-    def post_k8s_eks(self, event: PlatformK8sEksPost):
-        tenant_item = self._modular_service.get_tenant(event.tenant_name)
-        self._modular_service.assert_tenant_valid(tenant_item, event.customer)
-        application = self._modular_service.get_application(
-            event.application_id)
-        if not application or application.type not in (
-                ApplicationType.AWS_ROLE.value,
-                ApplicationType.AWS_CREDENTIALS.value):
-            return build_response(
-                code=HTTPStatus.NOT_FOUND,
-                content=f'Application with AWS credentials and ID '
-                        f'{event.application_id} not found'
-            )
-        parent = self.ps._create(
-            customer_id=tenant_item.customer_name,
-            application_id=application.application_id,
-            type_=ParentType.PLATFORM_K8S.value,
-            description=event.description or 'Custodian created eks cluster',
-            meta={'name': event.name, 'region': event.region,
-                  'type': PlatformType.EKS.value},
-            scope=ParentScope.SPECIFIC,
-            tenant_name=tenant_item.name
-        )
-        self.ps.save(parent)
-        return build_response(content=self.dto(parent, application))
+    def post_k8s(self, event: PlatformK8SPostModel, _pe: ProcessedEvent,
+                 _tap: TenantsAccessPayload):
+        tenant = self.ts.get(event.tenant_name)
+        if tenant and not _tap.is_allowed_for(tenant.name):
+            tenant = None
+        modular_helpers.assert_tenant_valid(tenant, event.customer)
 
-    @validate_kwargs
-    def post_k8s_native(self, event: PlatformK8sNativePost) -> dict:
-        tenant_item = self._modular_service.get_tenant(event.tenant_name)
-        self._modular_service.assert_tenant_valid(tenant_item, event.customer)
-        application = self.aps.create(
-            customer_id=tenant_item.customer_name,
-            type=ApplicationType.K8S_SERVICE_ACCOUNT.value,
+        application = self.aps.build(
+            customer_id=tenant.customer_name,
+            type=ApplicationType.K8S_KUBE_CONFIG.value,
             description='Custodian auto created k8s application',
-            meta=K8SServiceAccountApplicationMeta(
-                endpoint=str(event.endpoint),
-                ca=event.certificate_authority
-            ).dict()
+            created_by=_pe['cognito_user_id'],
+            meta={}
         )
-        if event.token:
-            _LOG.info('K8s service account token was given. Saving to app')
-            cl = self._modular_service.modular_client.assume_role_ssm_service()
+        if event.endpoint:
+            _LOG.info('K8s endpoint and ca were given creating kubeconfig')
+            cl = self._modular_client.assume_role_ssm_service()
             secret_name = cl.safe_name(
                 name=application.customer_id,
                 prefix='m3.custodian.k8s',
@@ -128,53 +86,53 @@ class PlatformsHandler(AbstractHandler):
             )
             secret = cl.put_parameter(
                 name=secret_name,
-                value=K8SServiceAccountApplicationSecret(event.token).dict()
+                value=K8STokenKubeconfig(
+                    endpoint=str(event.endpoint),
+                    ca=event.certificate_authority,
+                    token=event.token
+                ).build_config()
             )
-            if not secret:
-                _LOG.warning('Something went wrong trying to same token '
-                             'to ssm. Keeping application.secret empty')
             application.secret = secret
-        parent = self.ps._create(
-            customer_id=tenant_item.customer_name,
-            application_id=application.application_id,
-            type_=ParentType.PLATFORM_K8S.value,
-            description=event.description or 'Custodian created native k8s',
-            meta={'name': event.name, 'type': PlatformType.NATIVE.value},
-            scope=ParentScope.SPECIFIC,
-            tenant_name=tenant_item.name
+        platform = self._ps.create(
+            tenant=tenant,
+            application=application,
+            name=event.name,
+            type_=event.type,
+            created_by=_pe['cognito_user_id'],
+            region=event.region.value if event.region else None,
+            description=event.description
         )
-        self.ps.save(parent)
-        self.aps.save(application)
-        return build_response(content=self.dto(parent, application))
-
-    def _with_applications(self, it: Iterator[Parent]
-                           ) -> Generator[Tuple[Parent, Optional[Application]], None, None]:
-        """
-        Yields parent and its application. Skips applications for EKS parents
-        because in such situation they don't contain data
-        :param it:
-        :return:
-        """
-        _cache = {}
-        for parent in it:
-            if self.get_type(parent) == PlatformType.EKS:
-                yield parent, None
-                continue
-            aid = parent.application_id
-            if aid in _cache:
-                yield parent, _cache[aid]
-                continue
-            application = self.aps.get_application_by_id(aid)
-            _cache[aid] = application
-            yield parent, application
-
-    @staticmethod
-    def get_type(platform: Parent) -> PlatformType:
-        return PlatformType[platform.meta.as_dict().get('type')]
+        self._ps.save(platform)
+        return build_response(content=self._ps.dto(platform))
 
     @validate_kwargs
-    def list_k8s(self, event: PlatformK8sQuery) -> dict:
-        it = self.ps.query_by_scope_index(
+    def delete_k8s(self, event: BaseModel, platform_id: str):
+        platform = self._ps.get_nullable(hash_key=platform_id)
+        if not platform:
+            return build_response(
+                code=HTTPStatus.NOT_FOUND,
+                content=self._ps.not_found_message(platform_id)
+            )
+        self._ps.fetch_application(platform)
+        if platform.application.secret:
+            cl = self._modular_client.assume_role_ssm_service()
+            cl.delete_parameter(platform.application.secret)
+        self._ps.delete(platform)
+        return build_response(code=HTTPStatus.NO_CONTENT)
+
+    @validate_kwargs
+    def get_k8s(self, event: BaseModel, platform_id: str):
+        platform = self._ps.get_nullable(hash_key=platform_id)
+        if not platform:
+            raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                self._ps.not_found_message(platform_id)
+            ).exc()
+        return build_response(content=self._ps.dto(platform))
+
+    @validate_kwargs
+    def list_k8s(self, event: PlatformK8sQueryModel):
+        ps = self._modular_client.parent_service()
+        it = ps.query_by_scope_index(
             customer_id=event.customer,
             tenant_or_cloud=event.tenant_name,
             scope=ParentScope.SPECIFIC,
@@ -182,37 +140,5 @@ class PlatformsHandler(AbstractHandler):
             is_deleted=False
         )
         return build_response(content=(
-            self.dto(pair[0], pair[1]) for pair in self._with_applications(it)
+            self._ps.dto(item) for item in map(Platform, it)
         ))
-
-    @validate_kwargs
-    def delete_k8s_native(self, event: PlatformK8sDelete) -> dict:
-        parent = self.ps.get_parent_by_id(event.id)
-        if not parent or parent.is_deleted or self.get_type(
-                parent) != PlatformType.NATIVE:
-            _LOG.debug(f'Parent {parent} not found or already deleted')
-            return build_response(
-                code=HTTPStatus.NOT_FOUND,
-                content=f'Native platform {event.id} not found'
-            )
-
-        application = self.aps.get_application_by_id(parent.application_id)
-        if application.secret:
-            cl = self._modular_service.modular_client.assume_role_ssm_service()
-            cl.delete_parameter(application.secret)
-        self.ps.mark_deleted(parent)
-        self.aps.mark_deleted(application)
-        return build_response(code=HTTPStatus.NO_CONTENT)
-
-    @validate_kwargs
-    def delete_k8s_eks(self, event: PlatformK8sDelete) -> dict:
-        parent = self.ps.get_parent_by_id(event.id)
-        if not parent or parent.is_deleted or self.get_type(
-                parent) != PlatformType.EKS:
-            _LOG.debug(f'Parent {parent} not found or already deleted')
-            return build_response(
-                code=HTTPStatus.NOT_FOUND,
-                content=f'EKS platform {event.id} not found'
-            )
-        self.ps.mark_deleted(parent)
-        return build_response(code=HTTPStatus.NO_CONTENT)

@@ -1,9 +1,9 @@
-from typing import Iterable, Set, Optional
+from typing import Set, Optional, Iterator
 
-from helpers.constants import NAME_ATTR, \
-    ID_ATTR
-from helpers.log_helper import get_logger
 from modular_sdk.models.tenant import Tenant
+
+from helpers.constants import NAME_ATTR, ID_ATTR
+from helpers.log_helper import get_logger
 from models.scheduled_job import ScheduledJob
 from services.clients.scheduler import AbstractJobScheduler
 
@@ -28,7 +28,7 @@ class SchedulerService:
         return item
 
     def list(self, name: Optional[str] = None, customer: Optional[str] = None,
-             tenants: Optional[Set[str]] = None) -> Iterable[ScheduledJob]:
+             tenants: Optional[Set[str]] = None) -> Iterator[ScheduledJob]:
         tenants = tenants or set()
         if name:
             _LOG.info('Scheduled job name is given querying by it')

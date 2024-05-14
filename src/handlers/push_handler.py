@@ -1,419 +1,281 @@
-from datetime import datetime
+from functools import cached_property
 from http import HTTPStatus
-from itertools import chain
-from pathlib import PurePosixPath
-from typing import Optional, Dict, List, Iterable
 
-import requests
-from modular_sdk.commons.constants import \
-    TENANT_PARENT_MAP_SIEM_DEFECT_DOJO_TYPE, ParentType
-from modular_sdk.models.tenant import Tenant
-from modular_sdk.services.impl.maestro_credentials_service import \
-    DefectDojoApplicationMeta, DefectDojoApplicationSecret
-
-from handlers.base_handler import \
-    BaseReportHandler, Source, AmbiguousJobService, \
-    ModularService, ReportService, \
-    SourceReportDerivation
-from helpers import build_response
-from helpers.constants import CUSTOMER_ATTR, TENANT_ATTR, TENANTS_ATTR, \
-    HTTPMethod, ID_ATTR, TYPE_ATTR, START_ISO_ATTR, END_ISO_ATTR, \
-    JOB_ID_ATTR
-from helpers.log_helper import get_logger
-from integrations.defect_dojo_adapter import DefectDojoAdapter
-from integrations.security_hub_adapter import SecurityHubAdapter
-from models.modular.parents import DefectDojoParentMeta
-from services.clients.ssm import SSMClient
-from services.report_service import DETAILED_REPORT_FILE
+from modular_sdk.modular import Modular
 from modular_sdk.services.parent_service import ParentService
-_LOG = get_logger(__name__)
 
-TENANTS_TO_SKIP = 'tenants_to_skip'
+from handlers import AbstractHandler, Mapping
+from helpers.constants import CustodianEndpoint, HTTPMethod, JobState
+from helpers.lambda_response import ResponseFactory, build_response
+from helpers.time_helper import utc_datetime
+from services import SP
+from services import modular_helpers
+from services.ambiguous_job_service import AmbiguousJob, AmbiguousJobService
+from services.clients.dojo_client import DojoV2Client
+from services.defect_dojo_service import (
+    DefectDojoConfiguration,
+    DefectDojoParentMeta,
+    DefectDojoService,
+)
+from services.integration_service import IntegrationService
+from services.platform_service import PlatformService
+from services.report_convertors import ShardCollectionDojoConvertor
+from services.report_service import ReportService
+from services.sharding import ShardsCollection
+from validators.swagger_request_models import (
+    ReportPushByJobIdModel,
+    ReportPushMultipleModel,
+)
+from validators.utils import validate_kwargs
 
 
-class SiemPushHandler(BaseReportHandler):
-    _source_report_derivation_attr: Optional[SourceReportDerivation]
-
+class SiemPushHandler(AbstractHandler):
     def __init__(self, ambiguous_job_service: AmbiguousJobService,
-                 modular_service: ModularService, report_service: ReportService,
-                 ssm_client: SSMClient):
-        super().__init__(
-            ambiguous_job_service=ambiguous_job_service,
-            modular_service=modular_service,
-            report_service=report_service
-        )
-        self._ssm_client = ssm_client
+                 report_service: ReportService,
+                 modular_client: Modular,
+                 platform_service: PlatformService,
+                 integration_service: IntegrationService,
+                 defect_dojo_service: DefectDojoService):
+        self._ambiguous_job_service = ambiguous_job_service
+        self._rs = report_service
+        self._modular_client = modular_client
+        self._platform_service = platform_service
+        self._integration_service = integration_service
+        self._dds = defect_dojo_service
 
-    def _reset(self):
-        super()._reset()
-        self._source_report_derivation_attr = None
-
-    @property
-    def _source_report_derivation_function(self) -> SourceReportDerivation:
-        return self._source_report_derivation_attr
-
-    @property
-    def ajs(self) -> AmbiguousJobService:
-        return self._ambiguous_job_service
-
-    def _dojo_report_sourced_derivation(self, source: Source, **kwargs):
-        """
-        Obtains dojo-compatible report, based on a given source, be it:
-         - manual Job
-         - event-driven Processing
-        :parameter source: Source=Union[Job, BatchResult]
-        :parameter kwargs: Dict
-        :parameter: List[Dict]
-        """
-        ref = None
-        ajs = self._ambiguous_job_service
-        rs = self._report_service
-        path = rs.derive_job_object_path(
-            job_id=self._ambiguous_job_service.get_attribute(source, ID_ATTR),
-            typ=DETAILED_REPORT_FILE
+    @classmethod
+    def build(cls) -> 'AbstractHandler':
+        return cls(
+            ambiguous_job_service=SP.ambiguous_job_service,
+            report_service=SP.report_service,
+            modular_client=SP.modular_client,
+            platform_service=SP.platform_service,
+            integration_service=SP.integration_service,
+            defect_dojo_service=SP.defect_dojo_service
         )
 
-        _typ = ajs.get_type(item=source)
-        _uid = ajs.get_attribute(item=source, attr=ID_ATTR)
-        _tn = ajs.get_attribute(item=source, attr=TENANT_ATTR)
-        _cn = ajs.get_attribute(item=source, attr=CUSTOMER_ATTR)
-        head = f'{_typ.capitalize()} Job:\'{_uid}\' of \'{_tn}\' tenant'
-
-        if _tn in kwargs.get(TENANTS_TO_SKIP, []):
-            _LOG.warning(head + ' is set to skip, due to adapter issues.')
-            return ref
-
-        _LOG.info(head + ' pulling formatted, detailed report.')
-        detailed_report = rs.pull_job_report(path=path)
-        if detailed_report:
-            _LOG.info(head + ' preparing dojo compatible report of policies.')
-            dojo_policy_reports = rs.formatted_to_dojo_policy_report(
-                detailed_report=detailed_report
-            )
-            if dojo_policy_reports:
-                ref = dojo_policy_reports
-
-        return ref
-
-    def _download_finding_for_one_job(self, job_id: str,
-                                      reports_bucket_name: str
-                                      ) -> Iterable[Dict]:
-        findings_key = str(PurePosixPath(job_id, 'findings'))
-        s3 = self._report_service.s3_client
-        keys = (
-            k for k in s3.list_dir(reports_bucket_name, findings_key)
-            if k.endswith('.json') or k.endswith('.json.gz')
-        )
-        return chain.from_iterable(
-            pair[1] for pair in s3.get_json_batch(reports_bucket_name, keys)
-        )
-
-    def _download_findings(self, sources: List[Source],
-                           reports_bucket_name: str) -> Dict[Source, List]:
-        gens = {
-            source: self._download_finding_for_one_job(
-                self.ajs.get_attribute(source, ID_ATTR), reports_bucket_name)
-            for source in sources
-        }
-        return {source: list(findings) for source, findings in gens.items()}
-
-    def _attain_sources_to_push(
-            self, start_iso: datetime, end_iso: datetime,
-            customer: Optional[str] = None,
-            tenants: Optional[List[str]] = None,
-            cloud_ids: Optional[List[str]] = None,
-            typ: Optional[str] = None
-    ) -> Optional[List[Source]]:
-
-        cloud_ids = cloud_ids or []
-        ajs = self._ambiguous_job_service
-
-        head = ''
-
-        # Log-Header.
-        if tenants:
-            multiple = len(tenants) > 1
-            bind = ', '.join(map("'{}'".format, tenants or []))
-            if head:
-                bind = f', bound to {bind}'
-            head += f'{bind} tenant'
-            if multiple:
-                head += 's'
-
-        if customer:
-            head = 'Tenants' if not head else head
-            head += f' of \'{customer}\' customer'
-
-        typ_scope = f'{typ} type' if typ else 'all types'
-        time_scope = f'from {start_iso.isoformat()} till {end_iso.isoformat()}'
-        job_scope = f'job(s) of {typ_scope}, {time_scope}'
-
-        # todo Responsibility chain
-
-        _LOG.info(f'Obtaining {job_scope}, for {head or "tenants"}.')
-        head = head or 'Tenants'
-        typ_params_map = ajs.derive_typ_param_map(
-            typ=typ, tenants=tenants,
-            cloud_ids=cloud_ids
-        )
-        sources = ajs.batch_list(
-            typ_params_map=typ_params_map, customer=customer,
-            start=start_iso, end=end_iso, sort=True
-        )
-        if not sources:
-            message = f' - no source-data of {job_scope} could be derived.'
-            _LOG.warning(head + message)
-            self._code = HTTPStatus.NOT_FOUND
-            self._content = head + message
-
-        return sources
-
-    def define_action_mapping(self) -> dict:
+    @cached_property
+    def mapping(self) -> Mapping:
         return {
-            '/reports/push/dojo/{job_id}': {
+            CustodianEndpoint.REPORTS_PUSH_DOJO_JOB_ID: {
                 HTTPMethod.POST: self.push_dojo_by_job_id
             },
-            '/reports/push/security-hub/{job_id}': {
-                HTTPMethod.POST: self.push_security_hub_by_job_id
-            },
-            '/reports/push/dojo': {
+            CustodianEndpoint.REPORTS_PUSH_DOJO: {
                 HTTPMethod.POST: self.push_dojo_multiple_jobs
             },
-            '/reports/push/security-hub': {
-                HTTPMethod.POST: self.push_security_hub_multiple_jobs
-            }
         }
 
     @property
     def ps(self) -> ParentService:
-        return self._modular_service.modular_client.parent_service()
+        return self._modular_client.parent_service()
 
-    def initialize_dojo_adapter(self, tenant: Tenant) -> DefectDojoAdapter:
-        _not_configured = lambda: build_response(
-            code=HTTPStatus.BAD_REQUEST,
-            content=f'Tenant {tenant.name} does not have dojo configuration'
+    def _push_dojo(self, client: DojoV2Client,
+                   configuration: DefectDojoParentMeta,
+                   job: AmbiguousJob, collection: ShardsCollection
+                   ) -> tuple[HTTPStatus, str]:
+        """
+        All data is provided, just push
+        :param client:
+        :param configuration:
+        :param job:
+        :param collection:
+        :return: return human-readable code and message
+        """
+        convertor = ShardCollectionDojoConvertor.from_scan_type(
+            configuration.scan_type,
+            attachment=configuration.attachment,
         )
-        parent = self.ps.get_linked_parent_by_tenant(
-            tenant, ParentType.SIEM_DEFECT_DOJO
+        resp = client.import_scan(
+            scan_type=configuration.scan_type,
+            scan_date=utc_datetime(job.stopped_at),
+            product_type_name=configuration.product_type,
+            product_name=configuration.product,
+            engagement_name=configuration.engagement,
+            test_title=configuration.test,
+            data=convertor.convert(collection),
+            tags=self._integration_service.job_tags_dojo(job)
         )
-        if not parent:
-            _LOG.debug('Parent does not exist')
-            return _not_configured()
-        parent_meta = DefectDojoParentMeta.from_dict(parent.meta.as_dict())
-        application = self._modular_service.get_parent_application(parent)
-        if not application or not application.secret:
-            _LOG.debug('Application or application.secret do not exist')
-            return _not_configured()
-        raw_secret = self._modular_service.modular_client.assume_role_ssm_service().get_parameter(application.secret)
-        if not raw_secret or not isinstance(raw_secret, dict):
-            _LOG.debug(f'SSM Secret by name {application.secret} not found')
-            return _not_configured()
-        meta = DefectDojoApplicationMeta.from_dict(application.meta.as_dict())
-        secret = DefectDojoApplicationSecret.from_dict(raw_secret)
-        try:
-            _LOG.info('Initializing dojo client')
-            return DefectDojoAdapter(
-                host=meta.url,
-                api_key=secret.api_key,
-                entities_mapping=parent_meta.entities_mapping,
-                display_all_fields=parent_meta.display_all_fields,
-                upload_files=parent_meta.upload_files,
-                resource_per_finding=parent_meta.resource_per_finding
-            )
-        except requests.RequestException as e:
+        match getattr(resp, 'status_code', None):  # handles None
+            case HTTPStatus.CREATED:
+                return HTTPStatus.OK, 'Pushed'
+            case HTTPStatus.FORBIDDEN:
+                return (HTTPStatus.FORBIDDEN,
+                        'Not enough permission to push to dojo')
+            case HTTPStatus.INTERNAL_SERVER_ERROR:
+                return (HTTPStatus.SERVICE_UNAVAILABLE,
+                        'Dojo failed with internal')
+            case _:
+                return (HTTPStatus.SERVICE_UNAVAILABLE,
+                        'Could not make request to dojo server')
+
+    @validate_kwargs
+    def push_dojo_by_job_id(self, event: ReportPushByJobIdModel, job_id: str):
+        job = self._ambiguous_job_service.get_job(
+            job_id=job_id,
+            typ=event.type,
+            customer=event.customer
+        )
+        if not job:
             return build_response(
-                code=HTTPStatus.BAD_REQUEST,
-                content=f'Could not init dojo client: {e}'
+                content='The request job not found',
+                code=HTTPStatus.NOT_FOUND
             )
-
-    def push_dojo_by_job_id(self, event: dict) -> dict:
-        job_id = event[JOB_ID_ATTR]
-        customer = event.get(CUSTOMER_ATTR)
-        tenants = event.get(TENANTS_ATTR) or []
-        item = self._attain_source(
-            uid=job_id,
-            customer=customer,
-            tenants=tenants
-        )
-        if not item:
-            return self.response
-        # retrieve config
-        tenant_name = self.ajs.get_attribute(item, TENANT_ATTR)
-        tenant = self._attain_tenant(
-            name=tenant_name, customer=customer, active=True)
-        if not tenant:
-            return self.response
-
-        adapter = self.initialize_dojo_adapter(tenant)
-
-        report = self._dojo_report_sourced_derivation(item)
-        if not report:
-            return build_response(code=HTTPStatus.NOT_FOUND,
-                                  content='Could not retrieve job report')
-        adapter.add_entity(
-            job_id=self.ajs.get_attribute(item=item, attr=ID_ATTR),
-            started_at=self.ajs.get_attribute(item, 'started_at'),
-            stopped_at=self.ajs.get_attribute(item, 'stopped_at'),
-            tenant_display_name=self.ajs.get_attribute(item=item,
-                                                       attr=TENANT_ATTR),
-            customer_display_name=self.ajs.get_attribute(item=item,
-                                                         attr=CUSTOMER_ATTR),
-            policy_reports=report,
-            job_type=self.ajs.get_type(item=item)
-        )
-        _LOG.info('Uploading entity to DOJO')
-        result = adapter.upload_all_entities()[0]  # always one here
-
-        return build_response(code=result['status'], content=result)
-
-    def push_security_hub_by_job_id(self, event: dict) -> dict:
-        job_id = event[JOB_ID_ATTR]
-        customer = event.get(CUSTOMER_ATTR)
-        tenants = event.get(TENANTS_ATTR) or []
-        item = self._attain_source(
-            uid=job_id,
-            customer=customer,
-            tenants=tenants
-        )
-        if not item:
-            return self.response
-        tenant_name = self.ajs.get_attribute(item, TENANT_ATTR)
-        tenant = self._attain_tenant(
-            name=tenant_name, customer=customer, active=True)
-        if not tenant:
-            return self.response
-        _not_configured = lambda: build_response(
-            code=HTTPStatus.BAD_REQUEST,
-            content=f'Tenant {tenant_name} does not have SH configuration'
-        )
-        application = self._modular_service.get_application('mock')  # AWS_ROLE
-        if not application:
-            return _not_configured()
-        mcs = self._modular_service.modular_client.maestro_credentials_service()
-        creds = mcs.get_by_application(application)
-        if not creds:
+        if not job.is_succeeded:
             return build_response(
-                code=HTTPStatus.BAD_REQUEST,
-                content='Cannot get credentials to push to SH'
+                content='Job has not succeeded yet',
+                code=HTTPStatus.NOT_FOUND
             )
-        findings = self._download_finding_for_one_job(
-            job_id=self.ajs.get_attribute(item, ID_ATTR),
-            reports_bucket_name=self._report_service.job_report_bucket
-        )
-        adapter = SecurityHubAdapter(
-            aws_region=creds.AWS_DEFAULT_REGION,
-            product_arn='',
-            aws_access_key_id=creds.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=creds.AWS_SECRET_ACCESS_KEY,
-            aws_session_token=creds.AWS_SESSION_TOKEN,
-            aws_default_region=creds.AWS_DEFAULT_REGION
-        )
-        adapter.add_entity(
-            job_id=self.ajs.get_attribute(item, ID_ATTR),
-            job_type=self.ajs.get_type(item=item),
-            findings=list(findings)
-        )
-        _LOG.info('Uploading entity to Security Hub')
-        result = adapter.upload_all_entities()[0]  # always one here
+        tenant = self._modular_client.tenant_service().get(job.tenant_name)
+        modular_helpers.assert_tenant_valid(tenant, event.customer)
 
-        return build_response(code=result['status'], content=result)
-
-    def push_dojo_multiple_jobs(self, event: dict) -> dict:
-        tenant = event[TENANT_ATTR]
-        _type = event.get(TYPE_ATTR)
-        customer = event.get(CUSTOMER_ATTR)
-        start_iso: datetime = event.get(START_ISO_ATTR)
-        end_iso: datetime = event.get(END_ISO_ATTR)
-        sources = self._attain_sources_to_push(
-            start_iso=start_iso, end_iso=end_iso,
-            customer=customer, tenants=[tenant],
-            typ=_type
+        dojo, configuration = next(
+            self._integration_service.get_dojo_adapters(tenant),
+            (None, None)
         )
-        if not sources:
-            return self.response
+        if not dojo:
+            raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
+                f'Tenant {tenant.name} does not have linked dojo configuration'
+            ).exc()
 
-        tenant_item = self._attain_tenant(
-            name=tenant, customer=customer, active=True
+        client = DojoV2Client(
+            url=dojo.url,
+            api_key=self._dds.get_api_key(dojo)
         )
-        if not tenant_item:
-            return self.response
-        adapter = self.initialize_dojo_adapter(tenant_item)
-        self._source_report_derivation_attr = self._dojo_report_sourced_derivation
 
-        source_to_reports: Dict[Source, List] = self._attain_source_report_map(
-            source_list=sources
+        platform = None
+        if job.is_platform_job:
+            platform = self._platform_service.get_nullable(job.platform_id)
+            if not platform:
+                return build_response(
+                    content='Job platform not found',
+                    code=HTTPStatus.NOT_FOUND
+                )
+            collection = self._rs.platform_job_collection(platform, job.job)
+            collection.meta = self._rs.fetch_meta(platform)
+        else:
+            collection = self._rs.ambiguous_job_collection(tenant, job)
+            collection.meta = self._rs.fetch_meta(tenant)
+        collection.fetch_all()
+
+        configuration = configuration.substitute_fields(job, platform)
+        code, message = self._push_dojo(
+            client=client,
+            configuration=configuration,
+            job=job,
+            collection=collection,
         )
-        if not source_to_reports:
-            return build_response(
-                code=HTTPStatus.NOT_FOUND,
-                content='No reports found'
+        match code:
+            case HTTPStatus.OK:
+                return build_response(self.get_dto(job, dojo, configuration))
+            case _:
+                return build_response(
+                    content=message,
+                    code=HTTPStatus.SERVICE_UNAVAILABLE,
+                )
+
+    @staticmethod
+    def get_dto(job: AmbiguousJob, dojo: DefectDojoConfiguration,
+                configuration: DefectDojoParentMeta,
+                error: str | None = None) -> dict:
+        data = {
+            'job_id': job.id,
+            'scan_type': configuration.scan_type,
+            'product_type_name': configuration.product_type,
+            'product_name': configuration.product,
+            'engagement_name': configuration.engagement,
+            'test_title': configuration.test,
+            'attachment': configuration.attachment,
+            'tenant_name': job.tenant_name,
+            'dojo_integration_id': dojo.id,
+            'success': not error,
+        }
+        if job.is_platform_job:
+            data['platform_id'] = job.platform_id
+        if error:
+            data['error'] = error
+        return data
+
+    @validate_kwargs
+    def push_dojo_multiple_jobs(self, event: ReportPushMultipleModel):
+
+        tenant = self._modular_client.tenant_service().get(event.tenant_name)
+        modular_helpers.assert_tenant_valid(tenant, event.customer)
+
+        dojo, configuration = next(
+            self._integration_service.get_dojo_adapters(tenant),
+            (None, None)
+        )
+        if not dojo:
+            raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
+                f'Tenant {tenant.name} does not have linked dojo configuration'
+            ).exc()
+        client = DojoV2Client(
+            url=dojo.url,
+            api_key=self._dds.get_api_key(dojo)
+        )
+
+        jobs = self._ambiguous_job_service.get_by_tenant_name(
+            tenant_name=tenant.name,
+            job_type=event.type,
+            status=JobState.SUCCEEDED,
+            start=event.start_iso,
+            end=event.end_iso
+        )
+
+        tenant_meta = self._rs.fetch_meta(tenant)
+        responses = []
+        platforms = {}  # cache locally platform_id to platform and meta
+        for job in self._ambiguous_job_service.to_ambiguous(jobs):
+            platform = None
+            match job.is_platform_job:
+                case True:
+                    # A bit of devilish logic because we need to handle both
+                    # tenant and platforms in one endpoint. I think it will
+                    # be split into two endpoints
+                    pid = job.platform_id
+                    if pid not in platforms:
+                        platform = self._platform_service.get_nullable(pid)
+                        meta = {}
+                        if platform:
+                            meta = self._rs.fetch_meta(platform)
+                        platforms[pid] = (
+                            self._platform_service.get_nullable(pid),
+                            meta
+                        )
+                    platform, meta = platforms[pid]
+                    if not platform:
+                        continue
+                    collection = self._rs.platform_job_collection(platform,
+                                                                  job.job)
+                    collection.meta = meta
+                case _:  # only False can be, but underscore for linter
+                    collection = self._rs.ambiguous_job_collection(tenant, job)
+                    collection.meta = tenant_meta
+            collection.fetch_all()
+
+            _configuration = configuration.substitute_fields(
+                job=job,
+                platform=platform
             )
-        self._source_report_derivation_attr = None
-
-        for source, reports in source_to_reports.items():
-            adapter.add_entity(
-                job_id=self.ajs.get_attribute(item=source, attr=ID_ATTR),
-                started_at=self.ajs.get_attribute(source, 'started_at'),
-                stopped_at=self.ajs.get_attribute(source, 'stopped_at'),
-                tenant_display_name=tenant,
-                customer_display_name=self.ajs.get_attribute(item=source,
-                                                             attr=CUSTOMER_ATTR),
-                policy_reports=reports,
-                job_type=self.ajs.get_type(item=source)
+            code, message = self._push_dojo(
+                client=client,
+                configuration=_configuration,
+                job=job,
+                collection=collection
             )
-        self._content = adapter.upload_all_entities()
-        self._code = HTTPStatus.OK
-        return self.response
-
-    def push_security_hub_multiple_jobs(self, event: dict) -> dict:
-        tenant = event[TENANT_ATTR]
-        _type = event.get(TYPE_ATTR)
-        customer = event.get(CUSTOMER_ATTR)
-        start_iso: datetime = event.get(START_ISO_ATTR)
-        end_iso: datetime = event.get(END_ISO_ATTR)
-        sources = self._attain_sources_to_push(
-            start_iso=start_iso, end_iso=end_iso,
-            customer=customer, tenants=[tenant],
-            typ=_type
-        )
-        if not sources:
-            return self.response
-
-        tenant_item = self._attain_tenant(
-            name=tenant, customer=customer, active=True
-        )
-        if not tenant_item:
-            return self.response
-        _not_configured = lambda: build_response(
-            code=HTTPStatus.BAD_REQUEST,
-            content=f'Tenant {tenant} does not have SH configuration'
-        )
-        application = self._modular_service.get_application('mock')
-        if not application:
-            return _not_configured()
-        mcs = self._modular_service.modular_client.maestro_credentials_service()
-        creds = mcs.get_by_application(application)
-        if not creds:
-            return build_response(
-                code=HTTPStatus.BAD_REQUEST,
-                content='Cannot get credentials to push to SH'
-            )
-        adapter = SecurityHubAdapter(
-            aws_region=creds.AWS_DEFAULT_REGION,
-            product_arn='',  # TODO from parent ?
-            aws_access_key_id=creds.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=creds.AWS_SECRET_ACCESS_KEY,
-            aws_session_token=creds.AWS_SESSION_TOKEN,
-            aws_default_region=creds.AWS_DEFAULT_REGION
-        )
-        reports_bucket_name = self._report_service.job_report_bucket
-        source_findings = self._download_findings(sources, reports_bucket_name)
-        for source, findings in source_findings.items():
-            adapter.add_entity(
-                job_id=self.ajs.get_attribute(item=source, attr=ID_ATTR),
-                job_type=self.ajs.get_type(item=source),
-                findings=findings
-            )
-        self._content = adapter.upload_all_entities()
-        self._code = HTTPStatus.OK
-        return self.response
+            match code:
+                case HTTPStatus.OK:
+                    resp = self.get_dto(
+                        job=job,
+                        dojo=dojo,
+                        configuration=_configuration,
+                    )
+                case _:
+                    resp = self.get_dto(
+                        job=job,
+                        dojo=dojo,
+                        configuration=_configuration,
+                        error=message
+                    )
+            responses.append(resp)
+        return build_response(responses)

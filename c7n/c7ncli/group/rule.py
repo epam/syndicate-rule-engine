@@ -1,11 +1,17 @@
 import click
 
-from c7ncli.group import cli_response, ViewCommand, response, ContextObj, \
-    customer_option, build_rule_source_id_option
+from c7ncli.group import (
+    ContextObj,
+    ViewCommand,
+    build_rule_source_id_option,
+    cli_response,
+    response,
+)
 from c7ncli.group import limit_option, next_option
-from c7ncli.service.constants import PARAM_NAME, PARAM_VERSION, PARAM_ID, \
-    PARAM_CLOUD, PARAM_DESCRIPTION, PARAM_UPDATED_DATE, \
-    PARAM_SERVICE_SECTION, RULE_CLOUDS
+from c7ncli.service.constants import RULE_CLOUDS
+
+attributes_order = ('name', 'cloud', 'resource', 'description', 'branch',
+                    'project')
 
 
 @click.group(name='rule')
@@ -25,11 +31,7 @@ def rule():
               help='Branch of git repo to build a ruleset')
 @limit_option
 @next_option
-@customer_option
-@cli_response(attributes_order=[PARAM_ID, PARAM_DESCRIPTION,
-                                PARAM_SERVICE_SECTION,
-                                PARAM_NAME, PARAM_VERSION,
-                                PARAM_CLOUD, PARAM_UPDATED_DATE])
+@cli_response(attributes_order=attributes_order)
 def describe(ctx: ContextObj, customer_id,
              rule_name, cloud, git_project_id, git_ref,
              limit, next_token):
@@ -40,7 +42,7 @@ def describe(ctx: ContextObj, customer_id,
         return response('--git_project_id must be provided with --git_ref')
     return ctx['api_client'].rule_get(
         rule=rule_name,
-        customer=customer_id,
+        customer_id=customer_id,
         cloud=cloud,
         git_project_id=git_project_id,
         git_ref=git_ref,
@@ -51,7 +53,6 @@ def describe(ctx: ContextObj, customer_id,
 
 @rule.command(cls=ViewCommand, name='update')
 @build_rule_source_id_option(required=False)
-@customer_option
 @cli_response()
 def update(ctx: ContextObj, rule_source_id, customer_id):
     """
@@ -59,7 +60,7 @@ def update(ctx: ContextObj, rule_source_id, customer_id):
     """
     return ctx['api_client'].trigger_rule_meta_updater(
         rule_source_id=rule_source_id,
-        customer=customer_id,
+        customer_id=customer_id,
     )
 
 
@@ -73,7 +74,6 @@ def update(ctx: ContextObj, rule_source_id, customer_id):
               help='Project id of git repo to delete rules')
 @click.option('--git_ref', '-gr', required=False, type=str,
               help='Branch of git repo to delete rules')
-@customer_option
 @cli_response()
 def delete(ctx: ContextObj, customer_id, rule_name, cloud,
            git_project_id, git_ref):
@@ -81,7 +81,7 @@ def delete(ctx: ContextObj, customer_id, rule_name, cloud,
     Deletes rules within your customer
     """
     return ctx['api_client'].rule_delete(
-        customer=customer_id,
+        customer_id=customer_id,
         rule=rule_name,
         cloud=cloud,
         git_project_id=git_project_id,

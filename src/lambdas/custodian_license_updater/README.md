@@ -13,7 +13,6 @@ It will update items in `CaaSLicenses` DynamoDB table and ruleset files in s3 bu
 - Allow: s3:PutObject
 
 #### DynamoDB
-* CaaSLicenses
 * CaaSSettings
 * Customers
 

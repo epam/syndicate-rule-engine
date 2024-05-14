@@ -6,7 +6,7 @@ from typing import Callable
 import boto3
 
 from helpers import RequestContext
-from helpers.exception import CustodianException
+from helpers.lambda_response import CustodianException
 from helpers.log_helper import get_logger
 from services.environment_service import EnvironmentService
 
@@ -110,7 +110,8 @@ class LambdaClient:
     @staticmethod
     def _handle_execution(handler: Callable, *args):
         try:
-            _response = handler(*args)
-        except CustodianException as _ce:
-            _response = dict(code=_ce.code, body=dict(message=_ce.content))
-        return _response
+            response = handler(*args)
+        except CustodianException as e:
+            resp = e.response.build()
+            response = dict(code=resp['statusCode'], body=resp['body'])
+        return response

@@ -2,29 +2,27 @@ from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from itertools import chain
 from pathlib import Path
-from typing import Optional, Union, Dict, List, Generator, Tuple
+from typing import Generator, TYPE_CHECKING
 
 from botocore.credentials import JSONFileCache
-try:
-    # just for typing
-    from modular_cli_sdk.services.credentials_manager import \
-        AbstractCredentialsManager
-except ImportError:
-    pass
+
 from c7ncli.service.constants import CONFIG_FOLDER, CONF_ACCESS_TOKEN, \
-    CONF_API_LINK, CONF_ITEMS_PER_COLUMN
-from c7ncli.service.logger import get_logger, get_user_logger
+    CONF_API_LINK, CONF_ITEMS_PER_COLUMN, CONF_REFRESH_TOKEN
+from c7ncli.service.logger import get_logger
+
+if TYPE_CHECKING:
+    from modular_cli_sdk.services.credentials_manager import (
+        AbstractCredentialsManager)
 
 SYSTEM_LOG = get_logger(__name__)
-USER_LOG = get_user_logger(__name__)
 
-Json = Union[Dict, List, int, str, bool, None]
+Json = dict | list | float | int | str | bool
 
 
 class AbstractCustodianConfig(ABC):
     @property
     @abstractmethod
-    def api_link(self) -> Optional[str]:
+    def api_link(self) -> str | None:
         ...
 
     @api_link.setter
@@ -34,7 +32,7 @@ class AbstractCustodianConfig(ABC):
 
     @property
     @abstractmethod
-    def access_token(self) -> Optional[str]:
+    def access_token(self) -> str | None:
         ...
 
     @access_token.setter
@@ -44,7 +42,17 @@ class AbstractCustodianConfig(ABC):
 
     @property
     @abstractmethod
-    def items_per_column(self) -> Optional[int]:
+    def refresh_token(self) -> str | None:
+        ...
+
+    @refresh_token.setter
+    @abstractmethod
+    def refresh_token(self, value):
+        ...
+
+    @property
+    @abstractmethod
+    def items_per_column(self) -> int | None:
         ...
 
     @items_per_column.setter
@@ -53,11 +61,19 @@ class AbstractCustodianConfig(ABC):
         ...
 
     @abstractmethod
-    def items(self) -> Generator[Tuple[str, Json], None, None]:
+    def items(self) -> Generator[tuple[str, Json], None, None]:
         ...
 
     @abstractmethod
     def clear(self):
+        ...
+
+    @abstractmethod
+    def set(self, key: str, value: Json):
+        ...
+
+    @abstractmethod
+    def update(self, dct: dict):
         ...
 
 
@@ -72,12 +88,19 @@ class CustodianCLIConfig(JSONFileCache, AbstractCustodianConfig):
     def __init__(self, prefix: str = 'root', working_dir: Path = CACHE_DIR):
         super().__init__(working_dir=working_dir / prefix)
 
-    def get(self, cache_key: str) -> Optional[Json]:
+    def get(self, cache_key: str) -> Json | None:
         if cache_key in self:
             return self[cache_key]
 
+    def set(self, key: str, value: Json):
+        self[key] = value
+
+    def update(self, dct: dict):
+        for key, value in dct.items():
+            self.set(key, value)
+
     @property
-    def items_per_column(self) -> Optional[int]:
+    def items_per_column(self) -> int | None:
         """
         If None, all the items is shown. It's the default behaviour
         :return:
@@ -95,7 +118,7 @@ class CustodianCLIConfig(JSONFileCache, AbstractCustodianConfig):
             del self[CONF_ITEMS_PER_COLUMN]
 
     @property
-    def api_link(self) -> Optional[str]:
+    def api_link(self) -> str | None:
         return self.get(CONF_API_LINK)
 
     @api_link.setter
@@ -108,7 +131,7 @@ class CustodianCLIConfig(JSONFileCache, AbstractCustodianConfig):
             del self[CONF_API_LINK]
 
     @property
-    def access_token(self) -> Optional[str]:
+    def access_token(self) -> str | None:
         return self.get(CONF_ACCESS_TOKEN)
 
     @access_token.setter
@@ -120,20 +143,29 @@ class CustodianCLIConfig(JSONFileCache, AbstractCustodianConfig):
         if CONF_ACCESS_TOKEN in self:
             del self[CONF_ACCESS_TOKEN]
 
+    @property
+    def refresh_token(self) -> str | None:
+        return self.get(CONF_REFRESH_TOKEN)
+
+    @refresh_token.setter
+    def refresh_token(self, value: str):
+        self[CONF_REFRESH_TOKEN] = value
+
     @classmethod
-    def public_config_params(cls) -> List[property]:
+    def public_config_params(cls) -> list[property]:
         return [
             cls.api_link,
             cls.items_per_column
         ]
 
     @classmethod
-    def private_config_params(cls) -> List[property]:
+    def private_config_params(cls) -> list[property]:
         return [
-            cls.access_token
+            cls.access_token,
+            cls.refresh_token
         ]
 
-    def items(self) -> Generator[Tuple[str, Json], None, None]:
+    def items(self) -> Generator[tuple[str, Json], None, None]:
         with ThreadPoolExecutor() as executor:  # it reads a lot of files
             futures = {
                 executor.submit(prop.fget, self): prop.fget.__name__
@@ -160,7 +192,8 @@ class CustodianWithCliSDKConfig(AbstractCustodianConfig):
 
     @property
     def config_dict(self) -> dict:
-        from modular_cli_sdk.commons.exception import ModularCliSdkBaseException
+        from modular_cli_sdk.commons.exception import \
+            ModularCliSdkBaseException
         # in order to be able to use other classes from this module
         # without cli_sdk installed
         if not self._config_dict:
@@ -176,8 +209,13 @@ class CustodianWithCliSDKConfig(AbstractCustodianConfig):
         config_dict[key] = value
         self._credentials_manager.store(config_dict)
 
+    def update(self, dct: dict):
+        config_dict = self.config_dict
+        config_dict.update(dct)
+        self._credentials_manager.store(config_dict)
+
     @property
-    def api_link(self) -> Optional[str]:
+    def api_link(self) -> str | None:
         return self.config_dict.get(CONF_API_LINK)
 
     @api_link.setter
@@ -185,7 +223,7 @@ class CustodianWithCliSDKConfig(AbstractCustodianConfig):
         self.set(CONF_API_LINK, value)
 
     @property
-    def access_token(self) -> Optional[str]:
+    def access_token(self) -> str | None:
         return self.config_dict.get(CONF_ACCESS_TOKEN)
 
     @access_token.setter
@@ -193,7 +231,15 @@ class CustodianWithCliSDKConfig(AbstractCustodianConfig):
         self.set(CONF_ACCESS_TOKEN, value)
 
     @property
-    def items_per_column(self) -> Optional[int]:
+    def refresh_token(self) -> str | None:
+        return self.config_dict.get(CONF_REFRESH_TOKEN)
+
+    @refresh_token.setter
+    def refresh_token(self, value: str):
+        self.set(CONF_REFRESH_TOKEN, value)
+
+    @property
+    def items_per_column(self) -> int | None:
         return self.config_dict.get(CONF_ITEMS_PER_COLUMN)
 
     @items_per_column.setter
@@ -201,7 +247,7 @@ class CustodianWithCliSDKConfig(AbstractCustodianConfig):
         assert isinstance(value, (int, type(None)))
         self.set(CONF_ITEMS_PER_COLUMN, value)
 
-    def items(self) -> Generator[Tuple[str, Json], None, None]:
+    def items(self) -> Generator[tuple[str, Json], None, None]:
         yield CONF_API_LINK, self.api_link
         yield CONF_ITEMS_PER_COLUMN, self.items_per_column
 

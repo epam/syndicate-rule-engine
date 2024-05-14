@@ -1,6 +1,6 @@
 import click
 
-from c7ncli.group import cli_response, ViewCommand, ContextObj
+from c7ncli.group import ContextObj, ViewCommand, cli_response
 from c7ncli.service.constants import RULE_CLOUDS
 
 
@@ -24,7 +24,7 @@ def eventdriven():
                    '--full_cloud or --standard flags')
 @cli_response()
 def add(ctx: ContextObj, version: float, cloud: str,
-        rule_id: tuple, rule_version: str):
+        rule_id: tuple, rule_version: str, customer_id):
     """
     Creates Event-driven ruleset with all the rules
     """
@@ -44,11 +44,14 @@ def add(ctx: ContextObj, version: float, cloud: str,
               help='If specified, ruleset\'s rules ids will be returned. '
                    'MAKE SURE to use \'--json\' flag to get a clear output')
 @cli_response()
-def describe(ctx: ContextObj, cloud: str, get_rules: bool):
+def describe(ctx: ContextObj, cloud: str, get_rules: bool, customer_id):
     """
     Describes Event-driven ruleset
     """
-    return ctx['api_client'].ed_ruleset_get(cloud=cloud, get_rules=get_rules)
+    return ctx['api_client'].ed_ruleset_get(
+        cloud=cloud,
+        get_rules=get_rules
+    )
 
 
 @eventdriven.command(cls=ViewCommand, name='delete')
@@ -58,7 +61,7 @@ def describe(ctx: ContextObj, cloud: str, get_rules: bool):
 @click.option('--version', '-v', type=float, default=1.0,
               help='Event-driven ruleset version to delete')
 @cli_response()
-def delete(ctx: ContextObj, cloud: str, version: float, ):
+def delete(ctx: ContextObj, cloud: str, version: float, customer_id):
     """
     Deletes Event-driven ruleset
     """

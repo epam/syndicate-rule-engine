@@ -1,60 +1,53 @@
-import base64
-import gzip
-import json
 from datetime import datetime
-from http import HTTPStatus
 from itertools import chain
-from typing import Optional, List, Dict, Union, Iterator, Generator, \
-    Iterable, Tuple, Any, Set, Callable, TypedDict
+from typing import Optional, Iterator, Generator, Iterable, Any, Literal
 
 from modular_sdk.models.pynamodb_extension.pynamodb_to_pymongo_adapter import \
     Result
-from pydantic import BaseModel, Field, validator, root_validator
+from pydantic import BaseModel, Field, model_validator, field_validator, \
+    ConfigDict
 from pynamodb.expressions.condition import Condition
+from typing_extensions import Self
 
-from helpers import build_response, adjust_cloud
+from helpers import adjust_cloud
 from helpers.constants import COMPOUND_KEYS_SEPARATOR, ID_ATTR, NAME_ATTR, \
-    VERSION_ATTR, FILTERS_ATTR, LOCATION_ATTR, CLOUD_ATTR, \
-    COMMENT_ATTR
-from helpers.enums import RuleDomain
+    VERSION_ATTR, FILTERS_ATTR, LOCATION_ATTR, CLOUD_ATTR, COMMENT_ATTR, \
+    RuleDomain
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_iso
 from models.rule import Rule
-from models.rule_meta import RuleMeta
-from services import SERVICE_PROVIDER
 from services.base_data_service import BaseDataService
-from services.s3_settings_service import S3SettingsService
-from services.setting_service import SettingsService
 
 _LOG = get_logger(__name__)
 
 
 class RuleMetaModel(BaseModel):
-    class Config:
-        use_enum_values = True
-        extra = 'ignore'
-        anystr_strip_whitespace = True
+    model_config = ConfigDict(use_enum_values=True, extra='ignore',
+                              str_strip_whitespace=True,
+                              coerce_numbers_to_str=True)
 
     name: str
     version: str
-    cloud: Optional[str]  # AWS, AZURE, GCP,  currently not important for us
-    platform: Optional[List[str]] = []  # Kubernetes, as well not so important
+    cloud: str | None = None  # AWS, AZURE, GCP,  currently not important for us
+    platform: list[str] = Field(
+        default_factory=list)  # Kubernetes, as well not so important
     source: str  # "EPAM"
-    service: Optional[str]
-    category: Optional[str]
-    article: Optional[str]
+    service: str | None = None
+    category: str | None = None
+    article: str | None = None
     service_section: str
     impact: str
     severity: str  # make choice?
     min_core_version: str
-    report_fields: List[str] = Field(default_factory=list)
+    report_fields: list[str] = Field(default_factory=list)
     multiregional: bool = False  # false by default only for AWS
     events: dict = Field(default_factory=dict)
     standard: dict = Field(default_factory=dict)
     mitre: dict = Field(alias='MITRE', default_factory=dict)
     remediation: str
 
-    @validator('events', pre=False)
+    @field_validator('events', mode='after')
+    @classmethod
     def process_events(cls, value: dict) -> dict:
         processed = {}
         for source, names in value.items():
@@ -63,13 +56,13 @@ class RuleMetaModel(BaseModel):
             ))
         return processed
 
-    @root_validator(pre=False)
-    def validate_multiregional(cls, values: dict) -> dict:
-        if values['cloud'] != RuleDomain.AWS.value:
-            values['multiregional'] = True
-        return values
+    @model_validator(mode='after')
+    def validate_multiregional(self) -> Self:
+        if self.cloud != RuleDomain.AWS.value:
+            self.multiregional = True
+        return self
 
-    def get_domain(self) -> Optional[RuleDomain]:
+    def get_domain(self) -> RuleDomain | None:
         """
         Returns the value which represents the Custom Core domain
         (adapter or plugin) which this rule uses. In case it's a cloud, it's
@@ -87,15 +80,28 @@ class RuleMetaModel(BaseModel):
 
 
 class RuleModel(BaseModel):
-    class Config:
-        extra = 'ignore'
-        anystr_strip_whitespace = True
+    model_config = ConfigDict(extra='ignore', str_strip_whitespace=True)
 
     name: str
     resource: str
     description: str
-    filters: List[Dict]
-    comment: Optional[str]  # index
+    filters: list[dict | str] = Field(default_factory=list)
+    comment: str | None = None  # index
+
+    @property
+    def cloud(self) -> RuleDomain:
+        cl = self.resource.split('.', maxsplit=1)[0]
+        match cl:
+            case 'aws':
+                return RuleDomain.AWS
+            case 'azure':
+                return RuleDomain.AZURE
+            case 'gcp':
+                return RuleDomain.GCP
+            case 'k8s':
+                return RuleDomain.KUBERNETES
+            case _:
+                return RuleDomain.AWS
 
 
 class RuleName:
@@ -103,9 +109,8 @@ class RuleName:
     Represents rule name scheme used by security team.
     """
     known_clouds = {'aws', 'azure', 'gcp', 'k8s'}  # inside rule name
-    Resolved = Tuple[
-        Optional[str], Optional[str], Optional[str], Optional[str]
-    ]
+    Resolved = tuple[str | None, str | None, str | None, str | None]
+    __slots__ = ('_raw', '_resolved')
 
     def __init__(self, raw: str):
         """
@@ -159,14 +164,15 @@ class RuleName:
         :return:
         """
         _raw = self.cloud_raw
-        if _raw == 'aws':
-            return RuleDomain.AWS
-        if _raw == 'azure':
-            return RuleDomain.AZURE
-        if _raw == 'gcp':
-            return RuleDomain.GCP
-        if _raw == 'k8s':
-            return RuleDomain.KUBERNETES
+        match self.cloud_raw:
+            case 'aws':
+                return RuleDomain.AWS
+            case 'azure':
+                return RuleDomain.AZURE
+            case 'gcp':
+                return RuleDomain.GCP
+            case 'k8s':
+                return RuleDomain.KUBERNETES
 
     @property
     def number(self) -> Optional[str]:
@@ -181,12 +187,12 @@ class RuleName:
         return self._raw
 
 
-class RuleNamesResolver:
-    Payload = Tuple[str, bool]
+class RuleNamesResolver:  # TODO test
+    __slots__ = ('_available_ids', '_allow_multiple', '_allow_ambiguous')
+    Payload = tuple[str, bool]
 
-    def __init__(self, resolve_from: List[str],
-                 allow_multiple: Optional[bool] = False,
-                 allow_ambiguous: Optional[bool] = False):
+    def __init__(self, resolve_from: list[str], allow_multiple: bool = False,
+                 allow_ambiguous: bool = False):
         """
         :param allow_multiple: whether to allow to resolve multiple rules
         from one provided name (in case the name is ambiguous)
@@ -268,11 +274,7 @@ class RuleNamesResolver:
 
 
 class RuleService(BaseDataService[Rule]):
-    FilterValue = Union[str, Set[str]]
-
-    def __init__(self, mappings_collector: 'LazyLoadedMappingsCollector'):
-        super().__init__()
-        self._mappings_collector = mappings_collector
+    FilterValue = str | set[str]
 
     @staticmethod
     def gen_rule_id(customer: str, cloud: Optional[str] = None,
@@ -328,13 +330,13 @@ class RuleService(BaseDataService[Rule]):
 
     def create(self, customer: str, name: str, resource: str, description: str,
                cloud: Optional[str] = None,
-               filters: Optional[List[Dict]] = None,
+               filters: Optional[list[dict]] = None,
                comment: Optional[str] = None,
                version: Optional[str] = None,
                path: Optional[str] = None,
                ref: Optional[str] = None,
                commit_hash: Optional[str] = None,
-               updated_date: Optional[Union[datetime, str]] = None,
+               updated_date: Optional[str | datetime] = None,
                git_project: Optional[str] = None) -> Rule:
         if isinstance(updated_date, datetime):
             updated_date = utc_iso(updated_date)
@@ -466,7 +468,7 @@ class RuleService(BaseDataService[Rule]):
         the latest version will be kept. If rules_version is specified,
         it will be preferred in such described cases
         """
-        name_rule: Dict[str, Rule] = {}
+        name_rule: dict[str, Rule] = {}
         for rule in rules:
             _name = rule.name
             if _name not in name_rule:
@@ -484,7 +486,7 @@ class RuleService(BaseDataService[Rule]):
                 name_rule[_name] = rule  # override with the largest version
         yield from name_rule.values()
 
-    def dto(self, item: Rule) -> Dict[str, Any]:
+    def dto(self, item: Rule) -> dict[str, Any]:
         dct = super().dto(item)
         dct.pop(ID_ATTR, None)
         dct.pop(FILTERS_ATTR, None)
@@ -534,7 +536,8 @@ class RuleService(BaseDataService[Rule]):
                version: Optional[str] = None,
                ascending: bool = False, limit: Optional[int] = None,
                last_evaluated_key: Optional[dict] = None,
-               index: Optional[str] = 'c-l-index') -> Result:
+               index: Literal['c-l-index', 'c-id-index'] = 'c-l-index'
+               ) -> Result:
         """
         A hybrid between get_by_id_index and get_by_location_index.
         This method can use either index. Which one will perform more
@@ -582,36 +585,6 @@ class RuleService(BaseDataService[Rule]):
             limit=limit,
             last_evaluated_key=last_evaluated_key,
             filter_condition=condition
-        )
-
-    def resolve_names_from_map(self, names: Union[List[str], Set[str]],
-                               clouds: Set[RuleDomain] = None,
-                               allow_multiple: Optional[bool] = False,
-                               allow_ambiguous: Optional[bool] = False
-                               ) -> Generator[Tuple[str, bool], None, None]:
-        """
-        Resolves rules using mappings from meta
-        """
-        clouds = clouds or set(RuleDomain.iter())
-        cloud_rules = self._mappings_collector.cloud_rules or {}
-        resolver = RuleNamesResolver(
-            resolve_from=list(chain.from_iterable(
-                cloud_rules.get(str(cloud)) or [] for cloud in clouds
-            )),
-            allow_ambiguous=allow_ambiguous,
-            allow_multiple=allow_multiple
-        )
-        yield from resolver.resolve_multiple_names(names)
-
-    def resolved_names(self, *args, **kwargs) -> Generator[str, None, None]:
-        """
-        Ignores whether the rule was resolved or not. Just tries to do it
-        :param args:
-        :param kwargs:
-        :return:
-        """
-        yield from (
-            name for name, _ in self.resolve_names_from_map(*args, **kwargs)
         )
 
     @staticmethod
@@ -668,438 +641,3 @@ class RuleService(BaseDataService[Rule]):
             return True
 
         return filter(_check, rules)
-
-
-class HumanData(TypedDict):
-    """
-    Human-targeted info about rule
-    """
-    article: Optional[str]
-    impact: str
-    report_fields: List[str]
-    remediation: str
-    multiregional: bool
-
-
-class MappingsCollector:
-    """
-    This class helps to retrieve specific projections from rule's meta and
-    keep them as mappings to allow more cost-effective access
-    """
-    SeverityType = Dict[str, str]  # rule to severity
-    StandardType = Dict[str, Dict]  # rule to standards map
-    MitreType = Dict[str, Dict]  # rule to mitre map
-    ServiceSectionType = Dict[str, str]  # rule to service section
-    ServiceType = Dict[str, str]  # rule to service section
-    CategoryType = Dict[str, str]  # rule to category
-    CloudRulesType = Dict[str, Set[str]]  # cloud to rules
-    Events = Dict[str, Dict[str, List[str]]]
-    HumanDataType = Dict[str, HumanData]
-
-    def __init__(self, compressor=gzip):
-        """
-        Compressor must implement compress and decompress. Use something from
-        standard library
-        :param compressor:
-        """
-        self._severity = {}
-        self._standard = {}
-        self._mitre = {}
-        self._service_section = {}
-        self._cloud_rules = {}
-        self._human_data = {}
-        self._category = {}
-        self._service = {}
-
-        self._aws_standards_coverage = {}
-        self._azure_standards_coverage = {}
-        self._google_standards_coverage = {}
-
-        self._aws_events = {}
-        self._azure_events = {}
-        self._google_events = {}
-
-        self._compressor = compressor
-
-    def event_map(self, cloud: str) -> Optional[dict]:
-        if cloud == RuleDomain.AWS:
-            return self._aws_events
-        if cloud == RuleDomain.AZURE:
-            return self._azure_events
-        if cloud == RuleDomain.GCP:
-            return self._google_events
-
-    def add_meta(self, meta: RuleMetaModel):
-        self._severity[meta.name] = meta.severity
-        self._mitre[meta.name] = meta.mitre
-        self._service_section[meta.name] = meta.service_section
-        self._category[meta.name] = meta.category
-        self._service[meta.name] = meta.service
-        self._standard[meta.name] = meta.standard
-        domain = meta.get_domain()
-        if domain:
-            self._cloud_rules.setdefault(domain, []).append(meta.name)
-        if meta.cloud:
-            self._cloud_rules.setdefault(meta.cloud, []).append(meta.name)
-        self._human_data[meta.name] = {
-            'article': meta.article,
-            'impact': meta.impact,
-            'report_fields': meta.report_fields,
-            'remediation': meta.remediation,
-            'multiregional': meta.multiregional,
-            'service': meta.service
-        }
-
-        _map = self.event_map(domain)
-        if isinstance(_map, dict):
-            for source, names in meta.events.items():
-                _map.setdefault(source, {})
-                for name in names:  # here already parsed, without ','
-                    _map[source].setdefault(name, []).append(meta.name)
-
-    def dumps_json(self, data: dict) -> str:
-        _LOG.debug(f'Dumping to JSON and compressing some data')
-        return base64.b64encode(
-            self._compressor.compress(
-                json.dumps(data, separators=(',', ':')).encode()
-            )
-        ).decode()
-
-    def loads_json(self, data: Union[str, bytes]) -> dict:
-        _LOG.debug(f'Un-compressing and loading JSON data')
-        return json.loads(self._compressor.decompress(base64.b64decode(data)))
-
-    @property
-    def severity(self) -> SeverityType:
-        return self._severity
-
-    @severity.setter
-    def severity(self, value: SeverityType):
-        self._severity = value
-
-    @property
-    def standard(self) -> StandardType:
-        return self._standard
-
-    @standard.setter
-    def standard(self, value: StandardType):
-        self._standard = value
-
-    @property
-    def mitre(self) -> MitreType:
-        return self._mitre
-
-    @mitre.setter
-    def mitre(self, value: MitreType):
-        self._mitre = value
-
-    @property
-    def service_section(self) -> ServiceSectionType:
-        return self._service_section
-
-    @service_section.setter
-    def service_section(self, value: ServiceSectionType):
-        self._service_section = value
-
-    @property
-    def cloud_rules(self) -> CloudRulesType:
-        return self._cloud_rules
-
-    @cloud_rules.setter
-    def cloud_rules(self, value: CloudRulesType):
-        self._cloud_rules = value
-
-    @property
-    def human_data(self) -> HumanDataType:
-        return self._human_data
-
-    @human_data.setter
-    def human_data(self, value: HumanDataType):
-        self._human_data = value
-
-    @property
-    def service(self) -> ServiceType:
-        return self._service
-
-    @service.setter
-    def service(self, value: ServiceType):
-        self._service = value
-
-    @property
-    def category(self) -> CategoryType:
-        return self._category
-
-    @category.setter
-    def category(self, value: CategoryType):
-        self._category = value
-
-    @property
-    def aws_standards_coverage(self) -> dict:
-        return self._aws_standards_coverage
-
-    @aws_standards_coverage.setter
-    def aws_standards_coverage(self, value: dict):
-        self._aws_standards_coverage = value
-
-    @property
-    def azure_standards_coverage(self) -> dict:
-        return self._azure_standards_coverage
-
-    @azure_standards_coverage.setter
-    def azure_standards_coverage(self, value: dict):
-        self._azure_standards_coverage = value
-
-    @property
-    def google_standards_coverage(self) -> dict:
-        return self._google_standards_coverage
-
-    @google_standards_coverage.setter
-    def google_standards_coverage(self, value: dict):
-        self._google_standards_coverage = value
-
-    @property
-    def aws_events(self) -> Events:
-        return self._aws_events
-
-    @aws_events.setter
-    def aws_events(self, value: Events):
-        self._aws_events = value
-
-    @property
-    def azure_events(self) -> Events:
-        return self._azure_events
-
-    @azure_events.setter
-    def azure_events(self, value: Events):
-        self._azure_events = value
-
-    @property
-    def google_events(self) -> Events:
-        return self._google_events
-
-    @google_events.setter
-    def google_events(self, value: Events):
-        self._google_events = value
-
-    def compressed(self, value: dict) -> str:
-        return self.dumps_json(value)
-
-    def decompressed(self, value: str) -> dict:
-        return self.loads_json(value)
-
-
-class LazyLoadedMappingsCollector:
-    """
-    Read only class which allows to load mappings lazily. Currently, it
-    loads them from S3
-    """
-
-    def __init__(self, collector: MappingsCollector,
-                 settings_service: SettingsService,
-                 s3_settings_service: S3SettingsService,
-                 abort_if_not_found: bool = True):
-        self._collector = collector
-        self._settings_service = settings_service
-        self._s3_settings_service = s3_settings_service
-        self._abort_if_not_found = abort_if_not_found
-
-    @classmethod
-    def build(cls) -> 'LazyLoadedMappingsCollector':
-        return cls(
-            collector=MappingsCollector(),
-            settings_service=SERVICE_PROVIDER.settings_service(),
-            s3_settings_service=SERVICE_PROVIDER.s3_settings_service(),
-            abort_if_not_found=True
-        )
-
-    @staticmethod
-    def abort(domain: str = 'mapping'):
-        return build_response(
-            code=HTTPStatus.SERVICE_UNAVAILABLE,
-            content=f'Cannot access {domain} data'
-        )
-
-    def _load_setting(self, name: str, get: Callable,
-                      abort: Optional[bool] = None):
-        """
-        :param name: MappingsCollector property name.
-        :param get: method to get value
-        :return:
-        """
-        if abort is None:
-            abort = self._abort_if_not_found
-        if not getattr(self._collector, name, {}):
-            _LOG.debug(f'Loading setting: {name}')
-            _raw = get()
-            if not _raw and abort:
-                return self.abort(name)
-            if _raw:
-                setattr(self._collector, name,
-                        self._collector.decompressed(_raw))
-        return getattr(self._collector, name, {}) or {}
-
-    def _load_s3(self, name: str, get: Callable,
-                 abort: Optional[bool] = None):
-        """
-        From s3 setting services files already decompressed
-        :param name:
-        :param get:
-        :return:
-        """
-        if abort is None:
-            abort = self._abort_if_not_found
-        if not getattr(self._collector, name, {}):
-            _LOG.debug(f'Loading s3: {name}')
-            _raw = get()
-            if not _raw and abort:
-                return self.abort(name)
-            if _raw:
-                setattr(self._collector, name, _raw)
-        return getattr(self._collector, name, {}) or {}
-
-    _load = _load_s3
-
-    @property
-    def category(self) -> dict:
-        return self._load('category',
-                          self._s3_settings_service.rules_to_category)
-
-    @property
-    def service(self) -> dict:
-        return self._load('service',
-                          self._s3_settings_service.rules_to_service)
-
-    @property
-    def severity(self) -> dict:
-        return self._load('severity',
-                          self._s3_settings_service.rules_to_severity)
-
-    @property
-    def service_section(self) -> dict:
-        return self._load('service_section',
-                          self._s3_settings_service.rules_to_service_section)
-
-    @property
-    def standard(self) -> dict:
-        return self._load('standard',
-                          self._s3_settings_service.rules_to_standards)
-
-    @property
-    def mitre(self) -> dict:
-        return self._load('mitre',
-                          self._s3_settings_service.rules_to_mitre)
-
-    @property
-    def cloud_rules(self) -> dict:
-        """
-        This mapping is kind of special. It's just auxiliary. It means that
-        the functions, this mapping is designed for, can be used without the
-        map (obviously they will work worse, but still, they will work),
-        whereas all the other mappings are required for the functional they
-        provided for
-        :return:
-        """
-        return self._load(
-            'cloud_rules',
-            self._s3_settings_service.cloud_to_rules,
-            abort=False
-        )
-
-    @property
-    def human_data(self) -> dict:
-        return self._load(
-            'human_data',
-            self._s3_settings_service.human_data,
-            abort=False
-        )
-
-    @property
-    def aws_standards_coverage(self) -> dict:
-        def get():
-            return self._s3_settings_service.aws_standards_coverage()
-            # if val and isinstance(val.value, dict):
-            #     return val.value.get('value')
-
-        return self._load('aws_standards_coverage', get)
-
-    @property
-    def azure_standards_coverage(self) -> dict:
-        def get():
-            return self._s3_settings_service.azure_standards_coverage()
-            # if val and isinstance(val.value, dict):
-            #     return val.value.get('value')
-
-        return self._load('azure_standards_coverage', get)
-
-    @property
-    def google_standards_coverage(self) -> dict:
-        def get():
-            return self._s3_settings_service.google_standards_coverage()
-            # if val and isinstance(val.value, dict):
-            #     return val.value.get('value')
-
-        return self._load('google_standards_coverage', get)
-
-    @property
-    def aws_events(self) -> dict:
-        return self._load('aws_events',
-                          self._s3_settings_service.aws_events)
-
-    @property
-    def azure_events(self) -> dict:
-        return self._load('azure_events',
-                          self._s3_settings_service.azure_events)
-
-    @property
-    def google_events(self) -> dict:
-        return self._load('google_events',
-                          self._s3_settings_service.google_events)
-
-
-class RuleMetaService(BaseDataService[RuleMeta]):
-    def get_rule_meta(self, rule: Rule) -> Optional[RuleMeta]:
-        """
-        If the rule does not contain version we must receive the latest
-        available meta for this rule
-        :param rule:
-        :return:
-        """
-        name = rule.name
-        version = rule.version
-        _LOG.debug(f'Going to retrieve meta for rule: {name}')
-        if version:
-            _LOG.debug('Rule has version. '
-                       'Retrieving meta of the same version')
-            return next(self.get_by(name, version,
-                                    ascending=False, limit=1), None)
-        _LOG.debug('Rule does not have version. Retrieving the latest meta')
-        return self.get_latest_meta(name)
-
-    def get_by(self, name: str, version: Optional[str] = None,
-               ascending: bool = False, limit: Optional[int] = None,
-               last_evaluated_key: Optional[dict] = None,
-               filter_condition: Optional[Condition] = None,
-               attributes_to_get: Optional[list] = None) -> Iterator[RuleMeta]:
-        assert False, 'Currently not allowed. Mappings must be used'
-        rkc = None
-        if version:
-            rkc = self.model_class.version.startswith(version)
-        return self.model_class.query(
-            hash_key=name,
-            range_key_condition=rkc,
-            scan_index_forward=ascending,
-            limit=limit,
-            last_evaluated_key=last_evaluated_key,
-            filter_condition=filter_condition,
-            attributes_to_get=attributes_to_get
-        )
-
-    def get_latest_meta(self, name: str,
-                        attributes_to_get: Optional[list] = None
-                        ) -> Optional[RuleMeta]:
-        return next(self.get_by(
-            name=name,
-            ascending=False,
-            limit=1,
-            attributes_to_get=attributes_to_get
-        ), None)

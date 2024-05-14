@@ -1,56 +1,42 @@
+import operator
 from concurrent.futures import (
     ThreadPoolExecutor, as_completed, CancelledError, TimeoutError
 )
 from http import HTTPStatus
+from itertools import chain
 from json.decoder import JSONDecodeError
-from typing import List, Any, Dict, Tuple
-from typing import Union, Type, Callable, Optional
+from typing import Dict, Type, Optional
 
 from modular_sdk.commons.constants import ApplicationType
+from modular_sdk.models.application import Application
+from modular_sdk.services.application_service import ApplicationService
+from modular_sdk.services.customer_service import CustomerService
 from requests import Response, ConnectionError, RequestException
 
-from helpers import (
-    raise_error_response, build_response, get_missing_parameters,
-    CustodianException
-)
+from helpers import get_missing_parameters
 from helpers.constants import CUSTOMERS_ATTR, RULESETS_ATTR, \
     NAME_ATTR, VERSION_ATTR, CLOUD_ATTR, ID_ATTR, RULES_ATTR, \
     EXPIRATION_ATTR, LATEST_SYNC_ATTR, LICENSE_KEYS_ATTR, EVENT_DRIVEN_ATTR
+from helpers.lambda_response import build_response, ResponseFactory, \
+    CustodianException
 from helpers.log_helper import get_logger
 from helpers.system_customer import SYSTEM_CUSTOMER
 from helpers.time_helper import utc_iso
-from models.licenses import License
-from models.modular import BaseModel
-from models.modular.application import CustodianLicensesApplicationMeta
 from models.ruleset import Ruleset
 from services import SERVICE_PROVIDER
-from services.abstract_lambda import AbstractLambda
+from services.abs_lambda import EventProcessorLambdaHandler
 from services.clients.s3 import S3Client
 from services.environment_service import EnvironmentService
 from services.license_manager_service import LicenseManagerService
-from services.license_service import LicenseService
-from services.modular_service import ModularService
+from services.license_service import LicenseService, License
 from services.ruleset_service import RulesetService
 
 _LOG = get_logger('custodian-license-updater')
-LICENSE_HASH_KEY = 'license_key'
-VALID_UNTIL_ATTR = 'valid_until'
-RULESET_CONTENT_ATTR = 'ruleset_content'
-LIMITATIONS_ATTR = 'limitations'
-ALLOWANCE_ATTR = 'allowance'
 
 FUTURE_TIMEOUT = COMPLETED_TIMEOUT = None
 
-IMPROPER_TYPE_CONTENT = '\'license_key\' parameter must be ' \
-                        'expressed as a list.'
-IMPROPER_SUBTYPE_CONTENT = '\'license_key\' must only contain string elements.'
-GENERIC_LICENSE_ABSENCE = 'A given license key has not been found.'
 LICENSE_BOUND = 'License:\'{key}\'. '
 RULESET_BOUND = 'Ruleset:\'{_id}\'. '
-LICENSE_NOT_FOUND = 'Could not be found.'
-COMMENCE_SUBJECTION = '{} license(s) has(ve) been subjected to be synced.'
-SYNC_RESPONSE_OK = 'Synchronization for \'{}\' license has been successful.'
-SYNC_NOT_COMMENCED = 'No license has been synchronized.'
 
 SYNC_CANCELLED = 'Synchronization has been cancelled, due to' \
                  ' the following reason. \'{}\'.'
@@ -62,10 +48,6 @@ REQUEST_ERROR = 'Synchronization request to LicenseManager for the' \
 SKIP_CONSEQUENCE = 'Skipping.'
 HALTING_CONSEQUENCE = 'Halting.'
 
-GENERIC_ERROR_RESPONSE = 'Execution has ran into a problem, ' \
-                         'the request has been subdued.'
-HALT_TEMPLATE = 'Lambda invocation has been deemed to halt, due to ' \
-                'the following: {}'
 CONFOUNDING_RESPONSE = 'A synchronization request has encountered an unknown' \
                        ' response: {}.'
 DECODING_ERROR = 'A synchronization response contains a malformed ' \
@@ -90,23 +72,27 @@ MISSING_PARAMETER_ERROR = 'Synchronization response missing {keys}' \
 ATTR_UPDATED = '\'{attr}\' attribute has been updated to \'{value}\'.'
 
 
-class LicenseUpdater(AbstractLambda):
+class LicenseUpdater(EventProcessorLambdaHandler):
+    processors = ()
+
     def __init__(self, license_service: LicenseService,
                  license_manager_service: LicenseManagerService,
                  ruleset_service: RulesetService, s3_client: S3Client,
                  environment_service: EnvironmentService,
-                 modular_service: ModularService):
+                 customer_service: CustomerService,
+                 application_service: ApplicationService):
         self.license_service = license_service
         self.license_manager_service = license_manager_service
         self.ruleset_service = ruleset_service
         self.s3_client = s3_client
         self.ruleset_bucket = environment_service.get_rulesets_bucket_name()
-        self.modular_service = modular_service
+        self.application_service = application_service
+        self.customer_service = customer_service
 
         # Describes required response parameters for respective entities
         self._response_parameters = {
-            License: (LICENSE_HASH_KEY, VALID_UNTIL_ATTR),
-            Ruleset: (ID_ATTR, NAME_ATTR, CLOUD_ATTR, RULESET_CONTENT_ATTR)
+            License: ('license_key', 'valid_until'),
+            Ruleset: (ID_ATTR, NAME_ATTR, CLOUD_ATTR, 'ruleset_content')
         }
 
         self._response_handler_dispatcher = {
@@ -137,47 +123,27 @@ class LicenseUpdater(AbstractLambda):
 
         # Establish the subjected licenses, by accepting if any
         # or retrieving each non expired.
-        _hash_keys = event.get(LICENSE_HASH_KEY, [])
-        if _hash_keys:
+        license_keys = event.get('license_key', [])
+        if license_keys:
             # Retrieve license entities, based on the string license_keys.
-            _licenses: List[License] = list(map(
-                self.license_service.get_license, _hash_keys
+            licenses = list(filter(None, map(
+                self.application_service.get_application_by_id, license_keys
+            )))
+        else:
+            customers = map(operator.attrgetter('name'),
+                            self.customer_service.i_get_customer())
+            licenses = list(chain.from_iterable(
+                self.application_service.i_get_application_by_customer(name,
+                                                                       ApplicationType.CUSTODIAN_LICENSES.value,
+                                                                       deleted=False)
+                for name in customers
             ))
-            _invalid_key_gen = (_hash_keys[index] for index, each
-                                in enumerate(_licenses) if each is None)
-            _invalid_key = next(_invalid_key_gen, None)
-            if _invalid_key:
-                _LOG.error(
-                    LICENSE_BOUND.format(key=_invalid_key) + LICENSE_NOT_FOUND
-                )
-                raise_error_response(HTTPStatus.NOT_FOUND,
-                                     GENERIC_LICENSE_ABSENCE)
-        else:
-            _licenses: List[License] = \
-                self.license_service.get_all_non_expired_licenses()
+        licenses = list(map(License, licenses))
 
-        _LOG.debug(COMMENCE_SUBJECTION.format(len(_licenses)))
+        _processed = self._process_license_list(licenses)
+        return build_response()
 
-        _processed = self._process_license_list(_licenses) \
-            if _licenses else None
-
-        if _processed:
-            _key_stream = ', '.join(each.license_key for each in _processed)
-            message = SYNC_RESPONSE_OK.format(_key_stream)
-            _LOG.info(message)
-            return build_response(
-                code=HTTPStatus.OK,
-                content=message
-            )
-        else:
-            _LOG.warning(SYNC_NOT_COMMENCED)
-            return build_response(
-                code=HTTPStatus.NOT_FOUND,
-                content=SYNC_NOT_COMMENCED
-            )
-
-    def _process_license_list(self, _licenses: List[License]) -> \
-            Union[List[License], List]:
+    def _process_license_list(self, licenses: list[License]):
         """
         Commences the batched license synchronization, awaiting
         respective futures, executed with the ThreadPoolExecutor.
@@ -193,22 +159,20 @@ class LicenseUpdater(AbstractLambda):
         _halt: Optional[CustodianException] = None
 
         # Establish map-references.
-        _license_map: Dict[str, License] = {
-            each.license_key: each for each in _licenses
-        }
+        _license_map = {each.license_key: each for each in licenses}
 
-        _ruleset_map: Dict[str, Ruleset] = {}
+        _ruleset_map: dict[str, Ruleset] = {}
 
         # Establish reference to the previous state of attached rulesets.
-        stale_license_ruleset_map: Dict[str: List[str]] = {
+        stale_license_ruleset_map = {
             each.license_key: (each.ruleset_ids or [])
-            for each in _licenses
+            for each in licenses
         }
 
         # Stores list of obsolete License-Keys.
-        _canceled: List[License] = []
+        _canceled: list[License] = []
         # Stores list of prepared ruleset id(s) to retain.
-        _prepared: List[License] = []
+        _prepared: list[License] = []
 
         ruleset_head = 'Ruleset:\'{}\''
 
@@ -216,7 +180,7 @@ class LicenseUpdater(AbstractLambda):
             # Store could-a-be obsolete ruleset_ids
             _future_licenses = {
                 _executor.submit(self._process_license, _l): _l.license_key
-                for _l in _licenses
+                for _l in licenses
             }
 
             for _future in as_completed(_future_licenses, COMPLETED_TIMEOUT):
@@ -227,7 +191,7 @@ class LicenseUpdater(AbstractLambda):
                     # Updates state of already accessible license objects.
                     # Retrieves ruleset entities with pre-related license-keys.
                     # See prepare ruleset action.
-                    rulesets: List[Ruleset] = _future.result(FUTURE_TIMEOUT)
+                    rulesets: list[Ruleset] = _future.result(FUTURE_TIMEOUT)
                     _prepared.append(_license_map[_key])
                     for ruleset in rulesets:
                         rid = ruleset.id
@@ -317,19 +281,15 @@ class LicenseUpdater(AbstractLambda):
             store = remove_rulesets if no_keys else save_rulesets
             store.append(ruleset)
 
-        synchronized = self._handle_persistence(
+        self._handle_persistence(
             licenses_to_save=_prepared, licenses_to_remove=_canceled,
             rulesets_to_remove=remove_rulesets, rulesets_to_save=save_rulesets
         )
 
         if _halt:
-            _response_content = HALT_TEMPLATE.format(GENERIC_ERROR_RESPONSE)
-            _LOG.error(HALT_TEMPLATE.format(_halt.content))
-            raise_error_response(_halt.code, _response_content)
+            raise _halt
 
-        return synchronized
-
-    def _process_license(self, _license: License) -> Optional[List[Ruleset]]:
+    def _process_license(self, _license: License) -> list[Ruleset] | None:
         """
         Sends a synchronization request to the external resource,
         which response of which is taken on by the designated handlers,
@@ -340,14 +300,14 @@ class LicenseUpdater(AbstractLambda):
         _response = self.license_manager_service.synchronize_license(
             license_key=_license.license_key
         )
-        _dispatcher: Dict[Type, Callable] = self._response_handler_dispatcher
-        _handler: Callable[[License, Any], Any] = _dispatcher.get(
+        _dispatcher = self._response_handler_dispatcher
+        _handler = _dispatcher.get(
             _response.__class__, self._default_response_handler
         )
         return _handler(_license, _response)
 
-    def _handle_license_update(self, _license: License, _response: Response) \
-            -> List[Ruleset]:
+    def _handle_license_update(self, _license: License, _response: Response
+                               ) -> list[Ruleset]:
         """
         Handles License entity synchronization based update, driven by an
         external respective response, by adhering to state and required
@@ -396,15 +356,15 @@ class LicenseUpdater(AbstractLambda):
             attr=RULESETS_ATTR, value=_license.ruleset_ids
         ))
 
-        _license.expiration = item[VALID_UNTIL_ATTR]
+        _license.expiration = item['valid_until']
         _LOG.debug(_license_bound + ATTR_UPDATED.format(
             attr=EXPIRATION_ATTR, value=_license.expiration
         ))
 
-        _allowance = item.get(ALLOWANCE_ATTR)
+        _allowance = item.get('allowance')
         _license.allowance = _allowance
         _LOG.debug(_license_bound + ATTR_UPDATED.format(
-            attr=ALLOWANCE_ATTR, value=_allowance
+            attr='allowance', value=_allowance
         ))
 
         _license.latest_sync = utc_iso()
@@ -421,8 +381,8 @@ class LicenseUpdater(AbstractLambda):
 
         return _ruleset_list
 
-    def _prepare_licensed_ruleset(self, _body: Dict, _license: License) \
-            -> Ruleset:
+    def _prepare_licensed_ruleset(self, _body: Dict, _license: License
+                                  ) -> Ruleset:
         """
         Prepares a licensed Ruleset entity, derived from a given response
         body which is validated for id, name and cloud attributes.
@@ -472,9 +432,8 @@ class LicenseUpdater(AbstractLambda):
             license_manager_id=_body[ID_ATTR]
         )
 
-    def _get_required_response_parameters(
-            self, key: Type[Union[License, Ruleset]]
-    ) -> Tuple[str]:
+    def _get_required_response_parameters(self, key: Type[License | Ruleset]
+                                          ) -> tuple[str]:
         """
         Returns required outbound synchronization response parameters,
         respective of each entity instantiation|update.
@@ -482,102 +441,29 @@ class LicenseUpdater(AbstractLambda):
         """
         return self._response_parameters.get(key, tuple())
 
-    def _handle_persistence(self, licenses_to_save: List[License],
-                            rulesets_to_save: List[Ruleset],
-                            licenses_to_remove: List[License],
-                            rulesets_to_remove: List[Ruleset]):
+    def _handle_persistence(self, licenses_to_save: list[License],
+                            rulesets_to_save: list[Ruleset],
+                            licenses_to_remove: list[License],
+                            rulesets_to_remove: list[Ruleset]):
         """
         Mandates persistence concern of affected license and ruleset entities.
         :return: List[License]
         """
-
-        batch_context = {
-            'delete': {
-                Ruleset: (rulesets_to_remove, 'id'),
-                License: (licenses_to_remove, 'license_key')
-            },
-            'save': {
-                Ruleset: (rulesets_to_save, 'id'),
-                License: (licenses_to_save, 'license_key')
-            }
-        }
-
-        retained = []
-
-        for action, context in batch_context.items():
-            for model, payload in context.items():
-                data, attr = payload
-                if data:
-                    _stringed = ', '.join(getattr(i, attr, None) for i in data)
-                    _type = model.__name__
-                    _LOG.info(f'Going to {action}: {_stringed} {_type}(s).')
-
-                    with model.batch_write() as writer:
-                        _action: Callable = getattr(writer, action)
-                        persisted = self._batch_action(
-                            id_attr=attr, type_attr=_type,
-                            items=data, action=_action,
-                            action_label=f'{action}d'
-                        )
-                    if action == 'save' and model == License:
-                        retained = persisted
-
-        # by now licenses_to_remove already removed with their rule-sets.
-        # We need to remove them from applications. Here I just clean
-        # application in case the license is removed. Maybe this logic
-        # must be rewritten
-        for _license in licenses_to_remove:
-            for customer in _license.customers.as_dict():
-                apps = self.modular_service.get_applications(
-                    customer=customer,
-                    _type=ApplicationType.CUSTODIAN_LICENSES.value
-                )
-                for app in apps:
-                    meta = CustodianLicensesApplicationMeta(
-                        **app.meta.as_dict())
-                    for cloud, lk in meta.cloud_to_license_key().items():
-                        if lk == _license.license_key:
-                            meta.update_license_key(cloud, None)
-                    app.meta = meta.dict()
-                    self.modular_service.save(app)
-        return retained
-
-    @staticmethod
-    def _batch_action(
-            action: Callable[[BaseModel], Any], items: List[BaseModel],
-            id_attr: str, type_attr: str, action_label: str
-    ) -> List[BaseModel]:
-        """
-        Commences given action per each provided entity within `items`,
-        logging out result of each said issue.
-
-        :parameter action: Callable[[BaseModel], Any]
-        :parameter items: List[BaseModel]
-        :parameter id_attr: str
-        :parameter type_attr: str
-        :return: None
-        """
-        head = '{}:\'{}\''
-        _type = type_attr
-        commenced = []
-        for item in items:
-            _id = getattr(item, id_attr, None)
-            if _id is None:
-                _LOG.error(
-                    f'{_type}: could not resolve {id_attr} attribute.'
-                )
-            _head = head.format(_type, _id)
-            try:
-                action(item)
-            except (Exception, BaseException) as e:
-                issue = f' could not be {action_label}, due to - {e}'
-                _LOG.error(_head + issue)
-                continue
-
-            commenced.append(item)
-            _LOG.info(_head + f' has been {action_label}.')
-
-        return commenced
+        with Ruleset.batch_write() as writer:
+            for r in rulesets_to_save:
+                writer.save(r)
+            for r in rulesets_to_remove:
+                writer.delete(r)
+        for lc in licenses_to_remove:
+            # todo add batch operations to modular sdk
+            self.application_service.force_delete(lc.application)
+        for lc in licenses_to_save:
+            # only meta is updated
+            self.application_service.update(
+                application=lc.application,
+                attributes=[Application.meta],
+                updated_by='custodian service'
+            )
 
     @staticmethod
     def _handle_unknown_response(_license: License, _response):
@@ -590,9 +476,8 @@ class LicenseUpdater(AbstractLambda):
         """
         _license_bound = LICENSE_BOUND.format(key=_license.license_key)
         content = _license_bound + CONFOUNDING_RESPONSE.format(_response)
-        raise CustodianException(
-            code=HTTPStatus.INTERNAL_SERVER_ERROR, content=content
-        )
+        raise ResponseFactory(HTTPStatus.INTERNAL_SERVER_ERROR).message(
+            content).exc()
 
     @staticmethod
     def _handle_connection_error(
@@ -608,10 +493,9 @@ class LicenseUpdater(AbstractLambda):
         """
         _license_bound = LICENSE_BOUND.format(key=_license.license_key)
         content = _license_bound + REQUEST_ERROR.format(_response)
-        raise CustodianException(
-            code=HTTPStatus.INTERNAL_SERVER_ERROR,
-            content=content + HALTING_CONSEQUENCE
-        )
+        raise ResponseFactory(HTTPStatus.INTERNAL_SERVER_ERROR).message(
+            content + HALTING_CONSEQUENCE
+        ).exc()
 
     @staticmethod
     def _handle_request_error(_license: License, _response: RequestException):
@@ -628,9 +512,8 @@ class LicenseUpdater(AbstractLambda):
         raise CancelledError(content + SKIP_CONSEQUENCE)
 
     @staticmethod
-    def _attain_response_body(
-            license_entity: License, response: Response
-    ) -> Optional[dict]:
+    def _attain_response_body(license_entity: License, response: Response
+                              ) -> dict | None:
         """
         Provides outbound LicenseManager synchronization response validation
         of:
@@ -649,10 +532,9 @@ class LicenseUpdater(AbstractLambda):
             items = response.json()
         except JSONDecodeError as _je:
             content = _license_bound + DECODING_ERROR.format(_je)
-            raise CustodianException(
-                code=HTTPStatus.INTERNAL_SERVER_ERROR,
-                content=content + HALTING_CONSEQUENCE
-            )
+            raise ResponseFactory(HTTPStatus.INTERNAL_SERVER_ERROR).message(
+                content + HALTING_CONSEQUENCE
+            ).exc()
 
         _LOG.debug(
             _validation_template.format(STATUS_CODE.format(HTTPStatus.OK))
@@ -678,9 +560,9 @@ class LicenseUpdater(AbstractLambda):
         return item if isinstance(item, dict) else {}
 
     @staticmethod
-    def _validate_outbound_response_parameters(
-            _body: Dict, _required: Tuple, _bound: str
-    ) -> Type[None]:
+    def _validate_outbound_response_parameters(_body: dict,
+                                               _required: tuple,
+                                               _bound: str) -> None:
         """
         Provides outbound response validation of required parameters,
         retrieving respective keys. Given any missing key a
@@ -701,12 +583,9 @@ class LicenseUpdater(AbstractLambda):
             if isinstance(_body, dict) else _required
         if _missing:
             _missing_stream = ', '.join(_missing)
-            raise CustodianException(
-                code=HTTPStatus.INTERNAL_SERVER_ERROR,
-                content=_bound + MISSING_PARAMETER_ERROR.format(
-                    keys=_missing_stream
-                )
-            )
+            raise ResponseFactory(HTTPStatus.INTERNAL_SERVER_ERROR).message(
+                _bound + MISSING_PARAMETER_ERROR.format(keys=_missing_stream)
+            ).exc()
 
         _LOG.info(_bound + VALIDATED_RESPONSE.format(
             data=RESPONSE_PARAMETERS.format(parameters=_required_stream)
@@ -714,12 +593,13 @@ class LicenseUpdater(AbstractLambda):
 
 
 HANDLER = LicenseUpdater(
-    license_service=SERVICE_PROVIDER.license_service(),
-    license_manager_service=SERVICE_PROVIDER.license_manager_service(),
-    ruleset_service=SERVICE_PROVIDER.ruleset_service(),
-    s3_client=SERVICE_PROVIDER.s3(),
-    modular_service=SERVICE_PROVIDER.modular_service(),
-    environment_service=SERVICE_PROVIDER.environment_service()
+    license_service=SERVICE_PROVIDER.license_service,
+    license_manager_service=SERVICE_PROVIDER.license_manager_service,
+    ruleset_service=SERVICE_PROVIDER.ruleset_service,
+    s3_client=SERVICE_PROVIDER.s3,
+    environment_service=SERVICE_PROVIDER.environment_service,
+    customer_service=SERVICE_PROVIDER.modular_client.customer_service(),
+    application_service=SERVICE_PROVIDER.modular_client.application_service()
 )
 
 

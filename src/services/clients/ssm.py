@@ -1,19 +1,17 @@
 import json
 import os
 from abc import ABC, abstractmethod
-from typing import Union, Optional, List, Dict
 
 import boto3
 from botocore.client import ClientError
 
-from helpers.constants import ENV_VAULT_HOST, ENV_VAULT_PORT, \
-    ENV_VAULT_TOKEN, ENV_SERVICE_MODE, DOCKER_SERVICE_MODE
+from helpers.constants import CAASEnv
 from helpers.log_helper import get_logger
 from services.environment_service import EnvironmentService
 
 _LOG = get_logger(__name__)
 
-SecretValue = Union[Dict, List, str]
+SecretValue = list | dict | str
 
 
 class AbstractSSMClient(ABC):
@@ -21,7 +19,7 @@ class AbstractSSMClient(ABC):
         self._environment_service = environment_service
 
     @abstractmethod
-    def get_secret_value(self, secret_name: str) -> Optional[SecretValue]:
+    def get_secret_value(self, secret_name: str) -> SecretValue | None:
         ...
 
     @abstractmethod
@@ -31,11 +29,6 @@ class AbstractSSMClient(ABC):
 
     @abstractmethod
     def delete_parameter(self, secret_name: str) -> bool:
-        ...
-
-    @abstractmethod
-    def get_secret_values(self, secret_names: List[str]
-                          ) -> Optional[Dict[str, SecretValue]]:
         ...
 
     @abstractmethod
@@ -56,17 +49,13 @@ class VaultSSMClient(AbstractSSMClient):
         self._client = None  # hvac.Client
 
     def _init_client(self):
-        assert os.getenv(ENV_SERVICE_MODE) == DOCKER_SERVICE_MODE, \
-            "You can init vault handler only if SERVICE_MODE=docker"
         import hvac
-        vault_token = os.getenv(ENV_VAULT_TOKEN)
-        vault_host = os.getenv(ENV_VAULT_HOST)
-        vault_port = os.getenv(ENV_VAULT_PORT)
+        token = os.getenv(CAASEnv.VAULT_TOKEN)
+        endpoint = os.getenv(CAASEnv.VAULT_ENDPOINT)
+        assert token and endpoint, ('Vault endpoint and token must '
+                                    'be specified for on-prem')
         _LOG.info('Initializing hvac client')
-        self._client = hvac.Client(
-            url=f'http://{vault_host}:{vault_port}',
-            token=vault_token
-        )
+        self._client = hvac.Client(url=endpoint, token=token)
         _LOG.info('Hvac client was initialized')
 
     @property
@@ -75,7 +64,7 @@ class VaultSSMClient(AbstractSSMClient):
             self._init_client()
         return self._client
 
-    def get_secret_value(self, secret_name: str) -> Optional[SecretValue]:
+    def get_secret_value(self, secret_name: str) -> SecretValue | None:
         try:
             response = self.client.secrets.kv.v2.read_secret_version(
                 path=secret_name, mount_point=self.mount_point) or {}
@@ -94,10 +83,6 @@ class VaultSSMClient(AbstractSSMClient):
     def delete_parameter(self, secret_name: str) -> bool:
         return bool(self.client.secrets.kv.v2.delete_metadata_and_all_versions(
             path=secret_name, mount_point=self.mount_point))
-
-    def get_secret_values(self, secret_names: List[str]
-                          ) -> Optional[Dict[str, SecretValue]]:
-        return {name: self.get_secret_value(name) for name in secret_names}
 
     def enable_secrets_engine(self, mount_point=None):
         try:
@@ -128,7 +113,7 @@ class SSMClient(AbstractSSMClient):
                 'ssm', self._environment_service.aws_region())
         return self._client
 
-    def get_secret_value(self, secret_name):
+    def get_secret_value(self, secret_name: str):
         try:
             response = self.client.get_parameter(
                 Name=secret_name,
@@ -144,23 +129,8 @@ class SSMClient(AbstractSSMClient):
             _LOG.error(f'Can\'t get secret for name \'{secret_name}\', '
                        f'error code: \'{error_code}\'')
 
-    def get_secret_values(self, secret_names: List[str]
-                          ) -> Optional[Dict[str, SecretValue]]:
-        try:
-            response = self.client.get_parameters(
-                Names=secret_names,
-                WithDecryption=True
-            )
-            parameters = {item.get('Name'): item.get('Value') for item in
-                          response.get('Parameters')}
-            return parameters
-        except ClientError as e:
-            error_code = e.response['Error']['Code']
-            _LOG.error(f'Can\'t get secret for names \'{secret_names}\', '
-                       f'error code: \'{error_code}\'')
-
     def create_secret(self, secret_name: str,
-                      secret_value: Union[str, list, dict],
+                      secret_value: str | list | dict,
                       secret_type='SecureString') -> bool:
         try:
             if isinstance(secret_value, (list, dict)):
@@ -190,7 +160,7 @@ class SSMClient(AbstractSSMClient):
             return False
 
     def enable_secrets_engine(self, mount_point=None):
-        """No need to implement"""
+        pass
 
     def is_secrets_engine_enabled(self, mount_point=None) -> bool:
-        """No need to implement"""
+        return True

@@ -1,26 +1,27 @@
-**/venv
+**/*venv*
 **/*.pyc
 **/__pycache__
+**/.tmp
+**/*.md
+**/.env
 
 .pytest_cache
 .coverage
 htmlcov
-
 .gitlab
 .git
 .cache
 dist
 build
-*.egg-info
+**/*.egg-info
 .idea
 .vscode
-*.md
 
 
 *syndicate*
-c7n/
-docker/logs/
-docs/
-scripts/
-patch_scripts/
-tests/
+c7n
+docs
+deployment
+patch_scripts
+tests
+obfuscation_manager

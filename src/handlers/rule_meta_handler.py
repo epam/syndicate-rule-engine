@@ -1,69 +1,63 @@
-from handlers.abstracts.abstract_handler import AbstractHandler
-from helpers import build_response
+from functools import cached_property
 from http import HTTPStatus
-from helpers.constants import HTTPMethod, USER_CUSTOMER_ATTR
-from helpers.log_helper import get_logger
-from helpers.system_customer import SYSTEM_CUSTOMER
-from services import SERVICE_PROVIDER
-from services.clients.lambda_func import LambdaClient, \
-    RULE_META_UPDATER_LAMBDA_NAME
 
-_LOG = get_logger(__name__)
+from handlers import AbstractHandler, Mapping
+from helpers.constants import CustodianEndpoint, HTTPMethod
+from helpers.lambda_response import build_response
+from services import SERVICE_PROVIDER
+from services.clients.lambda_func import LambdaClient, RULE_META_UPDATER_LAMBDA_NAME
+from validators.swagger_request_models import BaseModel
+from validators.utils import validate_kwargs
 
 
 class RuleMetaHandler(AbstractHandler):
     """
     Manage Rule API
     """
-
-    @staticmethod
-    def _only_for_system(event: dict):
-        if event.get(USER_CUSTOMER_ATTR) != SYSTEM_CUSTOMER:
-            return build_response(code=HTTPStatus.FORBIDDEN,
-                                  content='Not allowed')
-
     def __init__(self, lambda_client: LambdaClient):
         self._lambda_client = lambda_client
 
     @classmethod
     def build(cls) -> 'RuleMetaHandler':
         return cls(
-            lambda_client=SERVICE_PROVIDER.lambda_func()
+            lambda_client=SERVICE_PROVIDER.lambda_client
         )
 
-    def define_action_mapping(self):
+    @cached_property
+    def mapping(self) -> Mapping:
         return {
-            '/rule-meta/standards': {
+            CustodianEndpoint.META_STANDARDS: {
                 HTTPMethod.POST: self.pull_standards,
             },
-            '/rule-meta/mappings': {
+            CustodianEndpoint.META_MAPPINGS: {
                 HTTPMethod.POST: self.pull_mappings,
             },
-            '/rule-meta/meta': {
+            CustodianEndpoint.META_META: {
                 HTTPMethod.POST: self.pull_meta,
             }
         }
 
-    def pull_standards(self, event: dict):
-        self._only_for_system(event)
+    @validate_kwargs
+    def pull_standards(self, event: BaseModel):
         self._lambda_client.invoke_function_async(
             RULE_META_UPDATER_LAMBDA_NAME, {'action': 'standards'})
         return build_response(code=HTTPStatus.ACCEPTED,
                               content='Standards update was triggered')
 
-    def pull_mappings(self, event: dict):
-        self._only_for_system(event)
+    @validate_kwargs
+    def pull_mappings(self, event: BaseModel):
         self._lambda_client.invoke_function_async(
             RULE_META_UPDATER_LAMBDA_NAME, {'action': 'mappings'})
         return build_response(code=HTTPStatus.ACCEPTED,
                               content='Meta mappings update was triggered')
 
-    def pull_meta(self, event: dict):
-        self._only_for_system(event)
+    @validate_kwargs
+    def pull_meta(self, event: BaseModel):
         # Purposefully don't allow to update meta
         # because currently we use only meta from mappings
         self._lambda_client.invoke_function_async(
-            RULE_META_UPDATER_LAMBDA_NAME, {'action': 'mappings'}  # not a mistake
+            RULE_META_UPDATER_LAMBDA_NAME, {'action': 'mappings'}
+            # not a mistake
         )
         return build_response(code=HTTPStatus.ACCEPTED,
                               content='Meta update was triggered')

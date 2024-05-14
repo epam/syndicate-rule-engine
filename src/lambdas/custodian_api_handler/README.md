@@ -45,7 +45,6 @@ This lambda uses the following resources:
 * CaaSSettings - the table used by service to get and store settings data;
 * CaaSUsers - the table used by service to get and store user data: user_id and
   tenant;
-* CaaSLicenses - the table used by service to get and store data about ruleset licenses;
 * CaaSRulesets - the table used by service to get and store data about custom and licensed rulesets.
 
 ### Lambda Configuration
@@ -84,15 +83,8 @@ This lambda uses the following resources:
 * `stats_s3_bucket_name`: name of the bucket to store scan statistics;
 * `job_lifetime_min`: lifetime of the job in minutes. After this time, the job
   will be forcibly stopped;
-* `last_scan_threshold`: time (in hours) that has to elapse since the last
-  account scan in order to start the next one. This parameter is ignored only if
-  the status of the previous job is FAILED. Doesn't affect other accounts;
-* `feature_filter_jobs_request`: name of the cloud to scan. If this variable is
-  not set, then all clouds will be scanned;
 * `feature_skip_cloud_identifier_validation`: choose this option if you 
   want to skip validation of credentials and cloud identifier;
-* `feature_allow_only_temp_aws_credentials`: choose this option if you
-  want to allow initiate scan for AWS only with temporary credentials.
 
 #### Trigger event
 

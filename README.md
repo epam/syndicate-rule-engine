@@ -8,7 +8,7 @@ By default, the solution covers hundreds of security, compliance, utilization an
 All the technical details described below are actual for the particular version,
 or a range of versions of the software.
 
-### Actual for versions: 3.0.0
+### Actual for versions: 5.0.0
 
 ## Lambdas description
 
@@ -16,13 +16,10 @@ or a range of versions of the software.
 
 This lambda is designed as a handler for all API resources:
 
-* `/job POST` - initiates the custodian scan for the requested account;
-* `/job GET` - returns job details for the requested query with the paths to
+* `/jobs POST` - initiates the custodian scan for the requested account;
+* `/jobs GET` - returns job details for the requested query with the paths to
   result reports (if any);
-* `/job DELETE` - terminates the custodian scan;
-* `/report GET` - returns scan details with the result reports contents.
-  With `?detailed=true`
-  returns scan details with the detailed result reports contents;
+* `/jobs DELETE` - terminates the custodian scan;
 * `/signin POST` - returns access and refresh tokens for specific user. This
   user must be in Cognito user pool
   (first go through the signup resource);
@@ -31,14 +28,6 @@ This lambda is designed as a handler for all API resources:
 * `/scheduled-job GET|POST|PATCH|DELETE` - resource for retrieving/registering/updating/deregistering a scheduled job
   which will be executed according to the given cron;
 * `/event POST` - resource for starting job in event-driven;
-
-Possible parameters for GET requests:
-
-* `account (str)` - requested account display name;
-* `job_id (str)` - requested AWS Batch job id;
-* `latest (bool)` - request the latest succeeded job details/report.
-
-Note that either `job_id` or `account` must be provided for GET request.
 
 Refer to [custodian-api-handler](src/lambdas/custodian_api_handler/README.md)
 for more details.
@@ -75,61 +64,6 @@ for more details.
 
 ---
 
-### Lambda `custodian-configuration-backupper`
-
-Back up current service configuration, push configuration data to:
-
-1. Backup repo:
-    - Accounts
-    - Settings
-    - Rules meta
-    - Ruleset files
-
-2. Backup s3 bucket:
-    - encrypted credentials
-
-Refer
-to [custodian-configuration-backupper](src/lambdas/custodian_configuration_backupper/README.md)
-for more details.
-
----
-
-### Lambda `custodian-configuration-updater`
-
-Synchronize configurations according to state stored in git repo Push
-configuration data to:
-
-1. Dynamodb:
-    - Accounts
-    - Rules
-    - Settings
-
-2. S3:
-    - rulesets
-
-3. Secrets:
-    - SSM (Parameter Store)
-
-Refer
-to [custodian-configuration-updater](src/lambdas/custodian_configuration_updater/README.md)
-for more details.
-
----
-
-### Lambda `custodian-ruleset-compiler`
-
-This lambda is designed to assemble all the rules required for the specific scan
-and put resulted `.yml` files into s3 bucket.
-
-While working, lambda will set/change Customer/Tenant/Account rulesets
-configuration `s3_path` and `status` attributes.
-
-Refer
-to [custodian-ruleset-compiler](src/lambdas/custodian_ruleset_compiler/README.md)
-for more details.
-
----
-
 ### Lambda `custodian-report-generator`
 
 This lambda generates statistics reports based on a Batch jobs result.
@@ -148,43 +82,6 @@ Rulesets, Rule Sources and Account Regions configurations
 Refer
 to [custodian-configuration-api-handler](src/lambdas/custodian_configuration_api_handler/README.md)
 for more details.
-
-## Statistics collecting
-Rules statistics are stored in the S3 bucket.
-
-#### Env Variables:
-- `STATS_S3_BUCKET_NAME` - name of s3 bucket to store statistic files. DEV
-  bucket: `caas-statistics-dev2`.
-
-#### Statistics format:
-```text
-[
-  {
-    "id": "rule_id",
-    "region": "region",
-    "started_at": "ISO_time",
-    "finished_at": "ISO_time",
-    "status": "SUCCEEDED|SKIPPED|FAILED",
-    "resourced_scanned": resources_amount,
-    "elapsed_time": "time_in_seconds",
-    "failed_resources": [
-      {
-        resource1_description
-      },
-      {
-        resource2_description
-      },
-      ...
-      {
-        resourceN_description
-      }
-    ]
-    "account_display_name": "account_name",
-    "tenant_display_name": "tenant_name",
-    "customer_display_name": "customer_name"
-  }
-]
-```
 
 ## Rules format
 Each rule file in the repository must be in the following format:
@@ -217,22 +114,8 @@ All fields are required.
 ## Tests
 To run tests use the command below:
 ```bash
-python -m unittest discover -s tests -v
+pytest tests/
 ```
-The unittests are in the folder custodian-as-a-service/tests. If you want to 
-see the coverage install `coverage` library:
-```bash
-pip install coverage
-```
-Execute the following command to run tests with coverage:
-```bash
-coverage run -m unittest discover -s tests -v
-```
-Execute to generate the HTML-report:
-```bash
-coverage html --omit "tests*"
-```
-The generated files are in the `htmlcov` directory that appeared in your working dir. Use the `index.html` from within.
 
 
 ## Event-Driven scans

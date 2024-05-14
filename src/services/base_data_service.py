@@ -1,10 +1,11 @@
-import copy
-from typing import TypeVar, Generic, Optional, Dict, Any, Iterable
+from typing import TypeVar, Generic, Any, Iterable
 
 T = TypeVar('T')
 
 
 class BaseDataService(Generic[T]):
+    __slots__ = '_model_class',
+
     def __init__(self):
         self._model_class = self.__orig_bases__[0].__args__[0]
 
@@ -14,12 +15,13 @@ class BaseDataService(Generic[T]):
     def delete(self, item: T):
         item.delete()
 
-    def get_nullable(self, *args, **kwargs) -> Optional[T]:
+    def get_nullable(self, *args, **kwargs) -> T | None:
         return self._model_class.get_nullable(*args, **kwargs)
 
-    def dto(self, item: T) -> Dict[str, Any]:
-        # TODO correct special cases (datetime, etc) if necessary
-        return copy.deepcopy(item.attribute_values)
+    def dto(self, item: T) -> dict[str, Any]:
+        # i dont think we will save item after mangling its dto
+        return item.attribute_values
+        # return copy.deepcopy(item.attribute_values)
 
     def create(self, **kwargs) -> T:
         return self._model_class(**{
@@ -31,7 +33,7 @@ class BaseDataService(Generic[T]):
     def model_class(self) -> T:
         return self._model_class
 
-    def not_found_message(self, _id: Optional[str] = None) -> str:
+    def not_found_message(self, _id: str | None = None) -> str:
         """
         Let it be here currently
         :return:

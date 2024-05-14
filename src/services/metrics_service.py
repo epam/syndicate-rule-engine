@@ -1,15 +1,19 @@
-from typing import List, Union, Iterable, Generator, Tuple, Set
+import time
+import uuid
+from typing import List, Union, Iterable, Generator
 
 from pynamodb.exceptions import QueryError, PutError
+
 from helpers import batches
-from helpers import get_logger, generate_id, time_helper, hashable, filter_dict
-from helpers.constants import MULTIREGION, AZURE_CLOUD_ATTR
+from helpers import get_logger, hashable, filter_dict
+from helpers.constants import GLOBAL_REGION, REPORT_FIELDS
 from models.customer_metrics import CustomerMetrics
 from models.tenant_metrics import TenantMetrics
-from services.rule_meta_service import LazyLoadedMappingsCollector
+from services.mappings_collector import LazyLoadedMappingsCollector
+from services.sharding import ShardsCollection, BaseShardPart
 
 _LOG = get_logger(__name__)
-ResourcesGenerator = Generator[Tuple[str, str, dict], None, None]
+ResourcesGenerator = Generator[tuple[str, str, dict, float], None, None]
 
 
 class MetricsService:
@@ -38,7 +42,7 @@ class MetricsService:
                             'ProvisionedThroughputExceededException':
                         _LOG.warning('Request rate on CaaSTenantMetrics '
                                      'table is too high!')
-                        time_helper.wait(retry_delay)
+                        time.sleep(retry_delay)
                     else:
                         raise e
 
@@ -49,10 +53,6 @@ class MetricsService:
         with table.batch_write() as batch:
             for m in metrics:
                 batch.save(m)
-
-    def is_multiregional(self, rule: str) -> bool:
-        return self.mappings_collector.human_data.get(
-            rule, {}).get('multiregional')
 
     @staticmethod
     def custom_attr(name: str) -> str:
@@ -68,55 +68,28 @@ class MetricsService:
         return name.startswith('c7n-service:')
 
     @staticmethod
-    def iter_resources(findings: dict
-                       ) -> ResourcesGenerator:
-        """
-        This generator goes through findings and yields a resource, it's rule
-        and region where it was found.
-        :param findings: raw findings
-        :yield: (rule, region, res dto)
-        """
-        for rule, data in findings.items():
-            for region, resources in (data.get('resources') or {}).items():
-                for res in resources:
-                    yield rule, region, res
+    def allow_only_regions(it: ResourcesGenerator, regions: set[str]
+                           ) -> ResourcesGenerator:
+        for rule, region, dto, ts in it:
+            if region in regions:
+                yield rule, region, dto, ts
 
-    def expose_multiregional(self, it: ResourcesGenerator
-                             ) -> ResourcesGenerator:
-        """
-        This generator yields multiregional region in case the rule is
-        multiregional
-        :param it:
-        :return:
-        """
-        for rule, region, dto in it:
-            if self.is_multiregional(rule):
-                _LOG.debug(f'Rule {rule} is multiregional. '
-                           f'Yielding multiregional region')
-                yield rule, MULTIREGION, dto
-            else:
-                yield rule, region, dto
-
-    @staticmethod
-    def allow_only_regions(it: ResourcesGenerator, regions: Set[str]
-                           ) -> Iterable[Tuple[str, str, dict]]:
-        return filter(
-            lambda item: item[1] in regions, it
-        )
-
-    def allow_only_resource_type(self, it: ResourcesGenerator, findings: dict,
+    def allow_only_resource_type(self, it: ResourcesGenerator, meta: dict,
                                  resource_type: str
-                                 ) -> Iterable[Tuple[str, str, dict]]:
-        def _check(item) -> bool:
-            rt = self.adjust_resource_type(
-                findings.get(item[0], {}).get('resourceType')
-            )
-            return rt == resource_type
-        return filter(_check, it)
+                                 ) -> ResourcesGenerator:
+        for rule, region, dto, ts in it:
+            rt = self.adjust_resource_type(meta.get(rule, {}).get('resource'))
+            if rt == self.adjust_resource_type(resource_type):
+                yield rule, region, dto, ts
 
     @staticmethod
-    def deduplicated(it: ResourcesGenerator,
-                     ) -> ResourcesGenerator:
+    def iter_resources(it: Iterable[BaseShardPart]) -> ResourcesGenerator:
+        for part in it:
+            for res in part.resources:
+                yield part.policy, part.location, res, part.timestamp
+
+    @staticmethod
+    def deduplicated(it: ResourcesGenerator) -> ResourcesGenerator:
         """
         This generator goes through resources and yields only unique ones
         within rule and region
@@ -124,17 +97,16 @@ class MetricsService:
         :return:
         """
         emitted = {}
-        for rule, region, dto in it:
+        for rule, region, dto, ts in it:
             _emitted = emitted.setdefault((rule, region), set())
             _hashable = hashable(dto)
             if _hashable in _emitted:
                 _LOG.debug(f'Duplicate found for {rule}:{region}')
                 continue
-            yield rule, region, dto
+            yield rule, region, dto, ts
             _emitted.add(_hashable)
 
-    def custom_modify(self, it: ResourcesGenerator,
-                      findings: dict
+    def custom_modify(self, it: ResourcesGenerator, meta: dict
                       ) -> ResourcesGenerator:
         """
         Some resources require special treatment.
@@ -144,29 +116,29 @@ class MetricsService:
         252 and other glue-catalog rules are not multiregional, but they
         also do not return unique information within region.
         :param it:
-        :param findings:
+        :param meta:
         :return:
         """
         # TODO in case we need more business logic here, redesign this
         #  solution. Maybe move this logic to a separate class
-        for rule, region, dto in it:
-            rt = findings.get(rule).get('resourceType')
+        for rule, region, dto, ts in it:
+            rt = meta.get(rule).get('resource')
             rt = self.adjust_resource_type(rt)
             if rt in ('glue-catalog', 'account'):
                 _LOG.debug(f'Rule with type {rt} found. Adding region '
                            f'attribute to make its dto differ from '
                            f'other regions')
                 dto[self.custom_attr('region')] = region
-                yield rule, region, dto
             elif rt == 'cloudtrail':
-                _region = region
                 if dto.get('IsMultiRegionTrail'):
                     _LOG.debug('Found multiregional trail. '
                                'Moving it to multiregional region')
-                    _region = MULTIREGION
-                yield rule, _region, dto
-            else:  # no changes required
-                yield rule, region, dto
+                    region = GLOBAL_REGION
+            yield rule, region, dto, ts
+
+    def report_fields(self, rule: str) -> set[str]:
+        rf = set(self.mappings_collector.human_data.get(rule, {}).get('report_fields') or [])  # noqa
+        return rf | REPORT_FIELDS
 
     def keep_report_fields(self, it: ResourcesGenerator) -> ResourcesGenerator:
         """
@@ -175,51 +147,31 @@ class MetricsService:
         :param it:
         :return:
         """
-        for rule, region, dto in it:
-            report_fields = self.mappings_collector.human_data.get(
-                rule, {}).get('report_fields') or set()
-            filtered = filter_dict(dto, report_fields)
+        for rule, region, dto, ts in it:
+            filtered = filter_dict(dto, self.report_fields(rule))
             filtered.update({
                 k: v for k, v in dto.items() if self.is_custom_attr(k)
             })
-            yield rule, region, filtered
+            yield rule, region, filtered, ts
 
-    def create_resources_generator(self, findings: dict, cloud: str,
+    def create_resources_generator(self, collection: ShardsCollection,
                                    active_regions: Union[set, list]
-                                   ) -> Iterable[Tuple[str, str, dict]]:
+                                   ) -> ResourcesGenerator:
         # just iterate over resources
-        resources = self.iter_resources(findings)
-
-        # change region to multiregional in case the rule is multiregional
-        if cloud != AZURE_CLOUD_ATTR:
-            # All the AZURE and GCP rules are technically multiregional.
-            # It means that one rule scan all the regions at once whereas
-            # one AWS rule must be executed separately for each region
-            # (except multiregional). So, after the following generator:
-            # - GCP, all the resources become multiregional because GCP meta
-            #   contains multiregional=True
-            # - AZURE is exception, we distribute resources to regions
-            #   manually based on 'location' attribute (this logic is
-            #   currently inside executor). So here we don't need to make
-            #   any changes with azure regions.
-            # - AWS - can contain both global and region-dependent resources.
-            #   In case a global rule was scanned on different regions, the
-            #   resources it finds will be duplicates. So here we must use
-            #   multiregional from meta and perform additional processing
-            resources = self.expose_multiregional(resources)
+        resources = self.iter_resources(collection.iter_parts())
 
         # modify dto for some exceptional rules, see generator's description
-        resources = self.custom_modify(resources, findings)
+        resources = self.custom_modify(resources, collection.meta)
 
         # keeping only report fields
         resources = self.keep_report_fields(resources)
 
-        # removing duplicates within rule-region
+        # removing duplicates within rule-region (probably no need)
         resources = self.deduplicated(resources)
 
-        # keeping only active regions and multiregion
+        # keeping only active regions and global
         return self.allow_only_regions(resources,
-                                       {MULTIREGION, *active_regions})
+                                       {GLOBAL_REGION, *active_regions})
 
 
 class CustomerMetricsService(MetricsService):
@@ -230,8 +182,7 @@ class CustomerMetricsService(MetricsService):
 
     @staticmethod
     def create(data) -> CustomerMetrics:
-        _id = generate_id()
-        return CustomerMetrics(**data, id=_id)
+        return CustomerMetrics(**data, id=str(uuid.uuid4()))
 
     @staticmethod
     def save(metrics: CustomerMetrics):
@@ -295,7 +246,7 @@ class CustomerMetricsService(MetricsService):
                         'ProvisionedThroughputExceededException':
                     _LOG.warning('Request rate on CaaSCustomerMetrics table '
                                  'is too high!')
-                    time_helper.wait(10)
+                    time.sleep(10)
                 else:
                     raise e
         return result
@@ -325,8 +276,7 @@ class TenantMetricsService(MetricsService):
 
     @staticmethod
     def create(data) -> TenantMetrics:
-        _id = generate_id()
-        return TenantMetrics(**data, id=_id)
+        return TenantMetrics(**data, id=str(uuid.uuid4()))
 
     @staticmethod
     def save(metrics: TenantMetrics):
@@ -363,7 +313,7 @@ class TenantMetricsService(MetricsService):
                         'ProvisionedThroughputExceededException':
                     _LOG.warning('Request rate on CaaSJobs table is too '
                                  'high!')
-                    time_helper.wait(10)
+                    time.sleep(10)
                 else:
                     raise e
         return result
@@ -384,7 +334,7 @@ class TenantMetricsService(MetricsService):
                     'ProvisionedThroughputExceededException':
                 _LOG.warning('Request rate on CaaSCustomerMetrics table '
                              'is too high!')
-                time_helper.wait(5)
+                time.sleep(5)
             else:
                 raise e
         if metrics:

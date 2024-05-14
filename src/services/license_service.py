@@ -1,142 +1,238 @@
-from typing import Iterable, Union
+import operator
+from datetime import datetime
+from itertools import chain
+from typing import Iterable, TypedDict, Literal, Iterator, Any, Generator
 
-from helpers.constants import CUSTOMERS_ATTR
-from helpers.constants import TENANTS_ATTR, ATTACHMENT_MODEL_ATTR
+from modular_sdk.models.parent import Parent
+from modular_sdk.commons.constants import ApplicationType, ParentType
+from modular_sdk.models.application import Application
+from modular_sdk.models.tenant import Tenant
+from modular_sdk.services.application_service import ApplicationService
+from modular_sdk.services.customer_service import CustomerService
+from modular_sdk.services.parent_service import ParentService
+from typing_extensions import NotRequired
+
 from helpers.log_helper import get_logger
-from helpers.time_helper import utc_iso
-from models.licenses import License
-from models.licenses import PROHIBITED_ATTACHMENT, \
-    PERMITTED_ATTACHMENT
+from helpers.time_helper import utc_iso, utc_datetime
 from models.ruleset import Ruleset
-from services.setting_service import SettingsService
 from services import SERVICE_PROVIDER
+from services.modular_helpers import LinkedParentsIterator
+from services.base_data_service import BaseDataService
 
 _LOG = get_logger(__name__)
 
+PERMITTED_ATTACHMENT = 'permitted'
+PROHIBITED_ATTACHMENT = 'prohibited'
+ALLOWED_ATTACHMENT_MODELS = (PERMITTED_ATTACHMENT, PERMITTED_ATTACHMENT)
 
-class LicenseService:
-    def __init__(self, settings_service: SettingsService):
-        self.settings_service = settings_service
 
-    @staticmethod
-    def get_license(license_id):
-        return License.get_nullable(hash_key=license_id)
+class Allowance(TypedDict):
+    balance_exhaustion_model: Literal['collective', 'independent']
+    job_balance: int
+    time_range: Literal['DAY', 'WEEK', 'MONTH']
 
-    @staticmethod
-    def dto(_license: License) -> dict:
-        data = _license.get_json()
-        data.pop(CUSTOMERS_ATTR, None)
-        return data
 
-    @staticmethod
-    def scan():
-        return License.scan()
+class EventDriven(TypedDict, total=False):
+    active: bool
+    quota: int
+    last_execution: NotRequired[str]
 
-    @staticmethod
-    def list_licenses(license_key: str = None):
-        if license_key:
-            license_ = LicenseService.get_license(license_key)
-            return iter([license_, ]) if license_ else []
-        return LicenseService.scan()
 
-    @staticmethod
-    def get_all_non_expired_licenses():
-        return list(License.scan(
-            filter_condition=License.expiration > utc_iso()
-        ))
+class Tenants(TypedDict, total=False):
+    tenant_license_key: str
+    tenants: list[str]
+    attachment_model: Literal['permitted', 'prohibited']
 
-    @staticmethod
-    def get_event_driven_licenses():
-        filter_condition = None
-        filter_condition &= License.expiration > utc_iso()
-        filter_condition &= License.event_driven.active == True
-        return list(License.scan(
-            filter_condition=filter_condition
-        ))
 
-    @staticmethod
-    def update_last_ed_report_execution(license: License,
-                                        last_execution_date: str):
-        license.event_driven.last_execution = last_execution_date
-        license.save()
+class License:
+    _allowance = 'a'
+    _customers = 'c'
+    _event_driven = 'ed'
+    _ruleset_ids = 'r'
+    _expiration = 'e'
+    _latest_sync = 's'
+    __slots__ = ('_app', '_meta')
 
-    @staticmethod
-    def validate_customers(_license: License, allowed_customers: list):
-        license_customers = list(_license.customers)
-        if not allowed_customers:
-            return license_customers
-        return list(set(license_customers) & set(allowed_customers))
+    def __init__(self, app: Application):
+        self._app = app
+        self._meta = app.meta.as_dict()
 
-    @staticmethod
-    def create(configuration):
-        return License(**configuration)
+    @property
+    def customer(self) -> str:
+        return self._app.customer_id
 
-    @staticmethod
-    def delete(license_obj: License):
-        return license_obj.delete()
-
-    def is_applicable_for_customer(self, license_key, customer):
-        license_ = self.get_license(license_id=license_key)
-        if not license_:
-            return False
-        return customer in license_.customers
-
-    @staticmethod
-    def is_subject_applicable(
-            entity: License, customer: str, tenant: str = None
-    ):
+    @property
+    def application(self) -> Application:
         """
-        Predicates whether a subject, such a customer or a tenant within
-        said customer has access to provided license entity.
-
-        Note: one must verify whether provided tenant belongs to the
-        provided customer, beforehand.
-        :parameter entity: License
-        :parameter customer: str
-        :parameter tenant: Optional[str]
-        :return: bool
+        Meta will be set when you request the application
+        :return:
         """
-        customers = entity.customers.as_dict()
-        scope: dict = customers.get(customer, dict())
+        self._app.meta = self._meta
+        return self._app
 
-        model = scope.get(ATTACHMENT_MODEL_ATTR)
-        tenants = scope.get(TENANTS_ATTR, [])
-        retained, _all = tenant in tenants, not tenants
-        attachment = (
-            model == PERMITTED_ATTACHMENT and (retained or _all),
-            model == PROHIBITED_ATTACHMENT and not (retained or _all)
-        )
-        return (not tenant) or (tenant and any(attachment)) if scope else False
+    @property
+    def license_key(self) -> str:
+        return self._app.application_id
 
-    @staticmethod
-    def is_expired(entity: License) -> bool:
-        if not entity.expiration:
+    @property
+    def description(self) -> str:
+        return self._app.description
+
+    @description.setter
+    def description(self, value: str):
+        self._app.description = value
+
+    @property
+    def allowance(self) -> Allowance:
+        return self._meta.setdefault(self._allowance, {})
+
+    @allowance.setter
+    def allowance(self, value: Allowance):
+        self._meta[self._allowance] = value
+
+    @property
+    def customers(self) -> dict[str, Tenants]:
+        return self._meta.setdefault(self._customers, {})
+
+    @customers.setter
+    def customers(self, value: dict[str, Tenants]):
+        self._meta[self._customers] = value
+
+    @property
+    def event_driven(self) -> EventDriven:
+        return self._meta.setdefault(self._event_driven, {})
+
+    @event_driven.setter
+    def event_driven(self, value: EventDriven):
+        self._meta[self._event_driven] = value
+
+    @property
+    def ruleset_ids(self) -> list[str]:
+        return self._meta.setdefault(self._ruleset_ids, [])
+
+    @ruleset_ids.setter
+    def ruleset_ids(self, value: list[str]):
+        self._meta[self._ruleset_ids] = value
+
+    @property
+    def expiration(self) -> datetime | None:
+        exp = self._meta.get(self._expiration)
+        if exp:
+            return utc_datetime(exp)
+
+    @expiration.setter
+    def expiration(self, value: str | datetime):
+        if isinstance(value, datetime):
+            value = utc_iso(value)
+        self._meta[self._expiration] = value
+
+    @property
+    def latest_sync(self) -> datetime | None:
+        exp = self._meta.get(self._latest_sync)
+        if exp:
+            return utc_datetime(exp)
+
+    @latest_sync.setter
+    def latest_sync(self, value: str | datetime):
+        if isinstance(value, datetime):
+            value = utc_iso(value)
+        self._meta[self._latest_sync] = value
+
+    def is_expired(self) -> bool:
+        exp = self.expiration
+        if not exp:
             return True
-        return entity.expiration <= utc_iso()
+        return exp <= utc_datetime()
 
-    def remove_rulesets_for_license(self, rulesets_ids: Iterable[str],
-                                    license_key: str):
+
+class LicenseService(BaseDataService[License]):
+    def __init__(self, application_service: ApplicationService,
+                 parent_service: ParentService,
+                 customer_service: CustomerService):
+        super().__init__()
+        self._aps = application_service
+        self._ps = parent_service
+        self._cs = customer_service
+
+    @staticmethod
+    def to_licenses(it: Iterable[Application]) -> Iterator[License]:
+        return map(License, it)
+
+    def create(self, license_key: str, description: str, customer: str,
+               created_by: str, customers: dict | None = None,
+               expiration: str | None = None,
+               ruleset_ids: list[str] | None = None,
+               allowance: Allowance | None = None,
+               event_driven: EventDriven | None = None,
+               ) -> License:
+        app = self._aps.build(
+            customer_id=customer,
+            type=ApplicationType.CUSTODIAN_LICENSES.value,
+            description=description,
+            created_by=created_by,
+            application_id=license_key,
+            is_deleted=False,
+            meta={}
+        )
+        lic = License(app)
+        if expiration:
+            lic.expiration = expiration
+        if customers:
+            lic.customers = customers
+        if ruleset_ids:
+            lic.ruleset_ids = ruleset_ids
+        if allowance:
+            lic.allowance = allowance
+        if event_driven:
+            lic.event_driven = event_driven
+        return lic
+
+    def dto(self, item: License) -> dict[str, Any]:
+        ls = item.latest_sync
+        ex = item.expiration
+        return {
+            'license_key': item.license_key,
+            'expiration': utc_iso(ex) if ex else None,
+            'latest_sync': utc_iso(ls) if ls else None,
+            'description': item.description,
+            'ruleset_ids': item.ruleset_ids,
+            'event_driven': item.event_driven,
+            'allowance': item.allowance
+        }
+
+    def get_nullable(self, license_key: str) -> License | None:
+        app = self._aps.get_application_by_id(license_key)
+        if not app:
+            return
+        return License(app)
+
+    def save(self, lic: License):
+        self._aps.save(lic.application)
+
+    def delete(self, lic: License):
+        self._aps.force_delete(lic.application)
+
+    @staticmethod
+    def remove_rulesets_for_license(lic: License):
         """
         Removes rulesets items from DB completely only if license by
         key `license_key` is the only license by which there rulesets
         were received. In other case just removes the given license_key
         from `license_keys` list
-        :parameter rulesets_ids: List[str]
-        :parameter license_key: str
         """
-        ruleset_service = SERVICE_PROVIDER.ruleset_service()  # circular import
+        ruleset_service = SERVICE_PROVIDER.ruleset_service  # circular import
         delete, update = [], []
-        for _id in rulesets_ids:
+        for _id in lic.ruleset_ids:
             item = ruleset_service.by_lm_id(_id)
             if not item:
                 _LOG.warning('Strangely enough -> ruleset by lm id not found')
                 continue
             if len(item.license_keys) == 1 and \
-                    item.license_keys[0] == license_key:
+                    item.license_keys[0] == lic.license_key:
                 delete.append(item)
             else:
                 item.license_keys = list(set(item.license_keys) -
-                                         {license_key})
+                                         {lic.license_key})
                 update.append(item)
         with Ruleset.batch_write() as batch:
             for item in delete:
@@ -144,35 +240,79 @@ class LicenseService:
             for item in update:
                 batch.save(item)
 
-    def remove_for_customer(self, _license: Union[License, str],
-                            customer: str) -> None:
+    def batch_delete(self, items: Iterable[License]):
+        raise NotImplementedError()
+
+    def batch_save(self, items: Iterable[License]):
+        raise NotImplementedError()
+
+    def get_tenant_license(self, tenant: Tenant) -> License | None:
         """
-        Performs dynamodb writes.
-        It handles both "old" and "new" business logic.
-        Currently, a license is supposed to have only one customer. In
-        such a case, the method will remove the license and its rule-sets
-        from DB whatsoever. But according to old logic, a license can be
-        given to multiple customers. If such a case happens, this method will
-        just remove the given customer from the given license.
+        Retrieves only one license, even though the model allows to have
+        multiple such linked licenses
+        (see services.modular_helpers.LinkedParentsIterator)
+        :param tenant:
+        :return:
         """
-        _LOG.info(f'Removing license: {_license} for customer')
-        license_obj = _license if isinstance(_license, License) \
-            else self.get_license(_license)
-        if not license_obj:
-            return
-        license_key = license_obj.license_key
-        customers = license_obj.customers.as_dict()
-        customers.pop(customer, None)
-        if not customers:  # "new" logic
-            _LOG.info('No customers left in license. Removing it ')
-            self.delete(license_obj)
-            self.remove_rulesets_for_license(
-                rulesets_ids=list(license_obj.ruleset_ids or []),
-                license_key=license_key
-            )
-            return
-        _LOG.warning(f'Somehow the license: {license_key} '
-                     f'has multiple customers. Keeping it..')
-        license_obj.customers = customers  # "old" logic
-        license_obj.save()
-        return
+        pair = next(self.iter_tenant_licenses(tenant, limit=1), None)
+        if pair:
+            return pair[1]
+
+    def iter_tenant_licenses(self, tenant: Tenant, limit: int | None = None
+                             ) -> Generator[tuple[Parent, License], None, None]:
+        """
+        Iterates over all licenses that are active for tenant
+        :param tenant:
+        :param limit:
+        :return:
+        """
+        it = LinkedParentsIterator(
+            parent_service=self._ps,
+            tenant=tenant,
+            type_=ParentType.CUSTODIAN_LICENSES,
+            limit=limit
+        )
+        yielded = set()
+        for parent in it:
+            aid = parent.application_id
+            if aid in yielded:
+                continue
+            app = self._aps.get_application_by_id(aid)
+            if app:
+                yield parent, License(app)
+            yielded.add(aid)
+
+    @staticmethod
+    def is_subject_applicable(lic: License, customer: str,
+                              tenant_name: str | None = None):
+        customers = lic.customers
+        scope: dict = customers.get(customer) or {}
+
+        model = scope.get('attachment_model')
+        tenants = scope.get('tenants') or []
+        retained, _all = tenant_name in tenants, not tenants
+        attachment = (
+            model == PERMITTED_ATTACHMENT and (retained or _all),
+            model == PROHIBITED_ATTACHMENT and not (retained or _all)
+        )
+        return (not tenant_name) or (tenant_name and any(attachment)) if scope else False
+
+    def get_event_driven_licenses(self) -> Iterator[License]:
+        """
+        I strongly object to such a method, i think the whole thing should be
+        refactored.
+        :return:
+        """
+        names = map(operator.attrgetter('name'), self._cs.i_get_customer())
+        licenses = self.to_licenses(chain.from_iterable(
+            self._aps.i_get_application_by_customer(
+                customer_id=name,
+                application_type=ApplicationType.CUSTODIAN_LICENSES,
+                deleted=False
+            ) for name in names
+        ))
+        now = utc_datetime()
+        return filter(
+            lambda lic: lic.event_driven.get('active') and lic.expiration and lic.expiration > now,
+            licenses
+        )

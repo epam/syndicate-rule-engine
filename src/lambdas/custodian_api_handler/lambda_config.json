@@ -8,6 +8,7 @@
   "memory": 512,
   "timeout": 100,
   "lambda_path": "/lambdas/custodian_api_handler",
+  "logs_expiration": "${logs_expiration}",
   "dependencies": [
     {
       "resource_name": "CaaSRules",
@@ -32,27 +33,21 @@
   ],
   "event_sources": [],
   "env_variables": {
-    "account_id": "${account_id}",
-    "batch_job_def_name": "${reports-submit-job-definition}",
-    "batch_job_queue_name": "${reports-submit-job-queue}",
-    "reports_bucket_name": "${reports-bucket}",
-    "caas_rulesets_bucket": "${caas_rulesets_bucket}",
-    "batch_job_log_level": "DEBUG",
-    "caas_user_pool_name": "${caas_user_pool_name}",
-    "last_scan_threshold": "${last_scan_threshold}",
-    "feature_skip_cloud_identifier_validation": "${feature_skip_cloud_identifier_validation}",
-    "job_lifetime_min": "${job_lifetime_min}",
-    "feature_filter_jobs_request": "${feature_filter_jobs_request}",
-    "feature_allow_only_temp_aws_credentials": "${feature_allow_only_temp_aws_credentials}",
-    "event_bridge_service_role_to_invoke_batch": "${event-bridge-service-role-to-invoke-batch}",
+    "CAAS_BATCH_JOB_DEF_NAME": "${reports-submit-job-definition}",
+    "CAAS_BATCH_JOB_QUEUE_NAME": "${reports-submit-job-queue}",
+    "CAAS_REPORTS_BUCKET_NAME": "${reports-bucket}",
+    "CAAS_RULESETS_BUCKET_NAME": "${caas_rulesets_bucket}",
+    "CAAS_BATCH_JOB_LOG_LEVEL": "DEBUG",
+    "CAAS_USER_POOL_NAME": "${caas_user_pool_name}",
+    "CAAS_SKIP_CLOUD_IDENTIFIER_VALIDATION": "${feature_skip_cloud_identifier_validation}",
+    "CAAS_BATCH_JOB_LIFETIME_MINUTES": "${job_lifetime_min}",
+    "CAAS_EB_SERVICE_ROLE_TO_INVOKE_BATCH": "${event-bridge-service-role-to-invoke-batch}",
+    "CAAS_JOBS_TIME_TO_LIVE_DAYS": "${JOBS_TIME_TO_LIVE_DAYS}",
+    "CAAS_STATISTICS_BUCKET_NAME": "${stats_s3_bucket_name}",
+    "CAAS_METRICS_BUCKET_NAME": "${caas_metrics_bucket_name}",
+    "component_name": "custodian-as-a-service",
     "modular_assume_role_arn": "${modular_assume_role_arn}",
-    "MODULAR_AWS_REGION": "${MODULAR_AWS_REGION}",
-    "JOBS_TIME_TO_LIVE_DAYS": "${JOBS_TIME_TO_LIVE_DAYS}",
-    "stats_s3_bucket_name": "${stats_s3_bucket_name}",
-    "caas_ssm_backup_bucket": "${caas_ssm_backup_bucket}",
-    "templates_s3_bucket_name": "${templates_s3_bucket_name}",
-    "metrics_bucket_name": "${caas_metrics_bucket_name}",
-    "component_name": "custodian-as-a-service"
+    "MODULAR_AWS_REGION": "${MODULAR_AWS_REGION}"
   },
   "publish_version": true,
   "alias": "${lambdas_alias_name}",
@@ -64,5 +59,8 @@
   ],
   "layers": [
     "custodian_common_dependencies_layer"
+  ],
+  "platforms": [
+    "manylinux2014_x86_64"
   ]
 }

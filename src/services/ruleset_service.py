@@ -1,54 +1,36 @@
-from typing import Iterator, Optional, Generator, Set
+from typing import BinaryIO, Generator, Iterator, Optional, Iterable
 
-from helpers import STATUS_READY_TO_SCAN
-from helpers.constants import RULES_ATTR, RULES_NUMBER, \
-    LICENSED_ATTR, ALL_ATTR, ALLOWED_FOR_ATTR, COMPOUND_KEYS_SEPARATOR, \
-    ID_ATTR, NAME_ATTR, \
-    VERSION_ATTR
+from helpers.constants import (
+    COMPOUND_KEYS_SEPARATOR,
+    Cloud,
+    ED_AWS_RULESET_NAME,
+    ED_AZURE_RULESET_NAME,
+    ED_GOOGLE_RULESET_NAME,
+    ED_KUBERNETES_RULESET_NAME,
+    ID_ATTR,
+    LICENSED_ATTR,
+    NAME_ATTR,
+    RULES_ATTR,
+    RULES_NUMBER,
+    VERSION_ATTR,
+)
 from helpers.log_helper import get_logger
 from helpers.system_customer import SYSTEM_CUSTOMER
 from helpers.time_helper import utc_iso
-from models.ruleset import Ruleset, RULESET_LICENSES, RULESET_STANDARD
+from models.ruleset import RULESET_LICENSES, RULESET_STANDARD, Ruleset
 from services.base_data_service import BaseDataService
 from services.clients.s3 import S3Client
 from services.license_service import LicenseService
-from services.rbac.restriction_service import RestrictionService
 
 _LOG = get_logger(__name__)
 
 
 class RulesetService(BaseDataService[Ruleset]):
-    def __init__(self, restriction_service: RestrictionService,
-                 license_service: LicenseService, s3_client: S3Client):
+    def __init__(self, license_service: LicenseService,
+                 s3_client: S3Client):
         super().__init__()
-        self._restriction_service = restriction_service
         self._license_service = license_service
         self._s3_client = s3_client
-
-    # TODO maybe remove these two ---------------------------
-    def filter_by_tenants(self, entities: Iterator[Ruleset],
-                          tenants: Optional[Set[str]] = None,
-                          ) -> Generator[Ruleset, None, None]:
-        """
-        Filters the given iterable of entities by the list of allowed
-        tenants using `allowed_for` attribute
-        """
-        _tenants = tenants or self._restriction_service.user_tenants
-        if not _tenants:
-            yield from entities
-            return
-        for entity in entities:
-            allowed_for = list(entity.allowed_for)
-            if not allowed_for or allowed_for & _tenants:
-                yield entity
-
-    def get_ruleset_filtered_by_tenant(self, *args, **kwargs):
-        ruleset = self.get_standard(*args, **kwargs)
-        ruleset = next(
-            self.filter_by_tenants([ruleset, ] if ruleset else []), None)
-        return ruleset
-
-    # -------------------------------------------------------
 
     def iter_licensed(self, name: Optional[str] = None,
                       version: Optional[str] = None,
@@ -106,13 +88,30 @@ class RulesetService(BaseDataService[Ruleset]):
             filter_condition=filter_condition
         )
 
+    def by_id(self, id: str, attributes_to_get: list = None) -> Ruleset | None:
+        return self.get_nullable(hash_key=id,
+                                 attributes_to_get=attributes_to_get)
+
+    def iter_by_id(self, ids: Iterable[str]) -> Generator[Ruleset, None, None]:
+        processed = set()
+        for _id in ids:
+            if _id in processed:
+                continue
+            ruleset = self.by_id(_id)
+            if ruleset:
+                yield ruleset
+            processed.add(_id)
+
     def by_lm_id(self, lm_id: str, attributes_to_get: Optional[list] = None
                  ) -> Optional[Ruleset]:
         return next(self.model_class.license_manager_id_index.query(
-            hash_key=lm_id, attributes_to_get=attributes_to_get
+            hash_key=lm_id,
+            limit=1,
+            attributes_to_get=attributes_to_get
         ), None)
 
-    def iter_by_lm_id(self, lm_ids: Iterator[str]) -> Iterator[Ruleset]:
+    def iter_by_lm_id(self, lm_ids: Iterable[str]
+                      ) -> Generator[Ruleset, None, None]:
         processed = set()
         for _id in lm_ids:
             if _id in processed:
@@ -123,7 +122,7 @@ class RulesetService(BaseDataService[Ruleset]):
             processed.add(_id)
 
     def get_standard(self, customer: str, name: str, version: str
-                     ) -> Optional[Ruleset]:
+                     ) -> Ruleset | None:
         return next(self.iter_standard(
             customer=customer,
             name=name,
@@ -191,26 +190,20 @@ class RulesetService(BaseDataService[Ruleset]):
         super().delete(item)
         s3_path = item.s3_path.as_dict()
         if s3_path:
-            self._s3_client.delete_file(
-                bucket_name=s3_path.get('bucket_name'),
-                file_key=s3_path.get('path')
+            self._s3_client.gz_delete_object(
+                bucket=s3_path.get('bucket_name'),
+                key=s3_path.get('path')
             )
 
     def dto(self, ruleset: Ruleset, params_to_exclude=None) -> dict:
-        tenants = self._restriction_service.user_tenants
         ruleset_json = ruleset.get_json()
         ruleset_json[RULES_NUMBER] = len(ruleset_json.get(RULES_ATTR) or [])
 
         for param in (params_to_exclude or []):
             ruleset_json.pop(param, None)
-        ruleset_json[ALLOWED_FOR_ATTR] = [
-            tenant for tenant in (ruleset.allowed_for or [])
-            if (not tenants or tenant in tenants) or ALL_ATTR.upper()
-        ]
         ruleset_json[NAME_ATTR] = ruleset.name
         ruleset_json[VERSION_ATTR] = ruleset.version
         ruleset_json[LICENSED_ATTR] = ruleset.licensed
-        ruleset_json['code'] = ruleset.status.as_dict().get('code')
         ruleset_json['last_update_time'] = ruleset.status.as_dict().get(
             'last_update_time')
         ruleset_json.pop(ID_ATTR, None)
@@ -226,12 +219,56 @@ class RulesetService(BaseDataService[Ruleset]):
 
     @staticmethod
     def set_ruleset_status(ruleset: Ruleset,
-                           code: Optional[str] = STATUS_READY_TO_SCAN,
                            reason: Optional[str] = None):
-        status = {
-            'code': STATUS_READY_TO_SCAN,
-            'last_update_time': utc_iso(),
-        }
+        status = {'last_update_time': utc_iso()}
         if reason:
             status['reason'] = reason
         ruleset.status = status
+
+    def get_ed_ruleset(self, cloud: Cloud) -> Ruleset | None:
+        """
+        Event driven rule-sets belong to SYSTEM.
+        """
+        name = None
+        match cloud:
+            case Cloud.AWS:
+                name = ED_AWS_RULESET_NAME
+            case Cloud.AZURE:
+                name = ED_AZURE_RULESET_NAME
+            case Cloud.GOOGLE:
+                name = ED_GOOGLE_RULESET_NAME
+            case Cloud.KUBERNETES:
+                name = ED_KUBERNETES_RULESET_NAME
+        sk = self.build_id(
+            customer=SYSTEM_CUSTOMER,
+            licensed=False,
+            name=name,
+            version=''
+        )
+        return next(Ruleset.customer_id_index.query(
+            hash_key=SYSTEM_CUSTOMER,
+            range_key_condition=Ruleset.id.startswith(sk),
+            filter_condition=(Ruleset.event_driven == True),
+            limit=1,
+            scan_index_forward=False
+        ), None)
+
+    def download(self, ruleset: Ruleset, out: BinaryIO = None) -> BinaryIO:
+        return self._s3_client.gz_get_object(
+            bucket=ruleset.s3_path['bucket_name'],
+            key=ruleset.s3_path['path'],
+            buffer=out
+        )
+
+    def download_url(self, ruleset: Ruleset) -> str:
+        """
+        Returns a presigned url to the given file
+        :param ruleset:
+        :return:
+        """
+        return self._s3_client.gz_download_url(
+            bucket=ruleset.s3_path['bucket_name'],
+            key=ruleset.s3_path['path'],
+            filename=ruleset.name,  # not so important
+            response_encoding='gzip',
+        )
