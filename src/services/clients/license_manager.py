@@ -1,34 +1,23 @@
 import dataclasses
 import json
 from abc import ABC, abstractmethod
-from typing import List, Optional
 
 import requests
 from modular_sdk.services.impl.maestro_credentials_service import AccessMeta
 
 from helpers.constants import HTTPMethod, \
-    LICENSE_KEY_ATTR, STATUS_ATTR, TENANT_LICENSE_KEY_ATTR, \
+    LICENSE_KEY_ATTR, TENANT_LICENSE_KEY_ATTR, \
     AUTHORIZATION_PARAM, CUSTOMER_ATTR, TENANT_LICENSE_KEYS_ATTR, \
-    TENANTS_ATTR, TENANT_ATTR
+    TENANTS_ATTR, TENANT_ATTR, JobState
 from helpers.log_helper import get_logger
 from services.setting_service import SettingsService
-
-SET_CUSTOMER_ACTIVATION_DATE_PATH = '/customers/set-activation-date'
-JOB_CHECK_PERMISSION_PATH = '/jobs/check-permission'
-SYNC_LICENSE_PATH = '/license/sync'
-JOBS_PATH = '/jobs'
-
-JOB_ID = 'job_id'
-CREATED_AT_ATTR = 'created_at'
-STARTED_AT_ATTR = 'started_at'
-STOPPED_AT_ATTR = 'stopped_at'
 
 _LOG = get_logger(__name__)
 
 
 @dataclasses.dataclass()
 class LMAccessData(AccessMeta):
-    api_version: Optional[str]
+    api_version: str | None
 
 
 class LicenseManagerClientInterface(ABC):
@@ -46,7 +35,7 @@ class LicenseManagerClientInterface(ABC):
 
     @abstractmethod
     def license_sync(self, license_key: str, auth: str
-                     ) -> Optional[requests.Response]:
+                     ) -> requests.Response | None:
         """
         Delegated to commence license-synchronization, bound to a list
         of tenant licenses accessible to a client, authorized by a respective
@@ -59,7 +48,7 @@ class LicenseManagerClientInterface(ABC):
     @abstractmethod
     def job_check_permission(self, customer: str,
                              tenant: str,
-                             tenant_license_keys: List[str], auth: str
+                             tenant_license_keys: list[str], auth: str
                              ) -> bool:
         """
         Delegated to check for permission to license Job,
@@ -72,8 +61,24 @@ class LicenseManagerClientInterface(ABC):
         :return: bool
         """
 
-    def update_job(self, job_id: str, created_at: str, started_at: str,
-                   stopped_at: str, status: str, auth: str):
+    def post_job(self, job_id: str, customer: str, tenant: str,
+                 ruleset_map: dict[str, list[str]], auth: str
+                 ) -> requests.Response | None:
+        """
+        Delegated to instantiate a licensed Job, bound to a tenant within a
+        customer utilizing rulesets which are grouped by tenant-license-keys,
+        allowing to request for a ruleset-content-source collection.
+        :parameter job_id: str
+        :parameter customer: str
+        :parameter tenant: str
+        :parameter auth: str, authorization token
+        :parameter ruleset_map: Dict[str, List[str]]
+        :return: Union[Response, Type[None]]
+        """
+
+    def update_job(self, job_id: str, auth: str, created_at: str = None,
+                   started_at: str = None, stopped_at: str = None,
+                   status: JobState = None):
         """
         Delegated to update an id-derivable licensed Job entity, providing
         necessary state data.
@@ -87,15 +92,19 @@ class LicenseManagerClientInterface(ABC):
         """
 
     def activate_customer(self, customer: str, tlk: str, auth: str
-                          ) -> Optional[requests.Response]:
-        pass
+                          ) -> requests.Response | None:
+        """
+        Activates customer for the first time
+        :param customer:
+        :param tlk:
+        :param auth:
+        :return:
+        """
 
     @classmethod
-    def _send_request(cls, url: str, method: str,
-                      params: Optional[dict] = None,
-                      payload: Optional[dict] = None,
-                      headers: Optional[dict] = None
-                      ) -> Optional[requests.Response]:
+    def _send_request(cls, url: str, method: str, params: dict = None,
+                      payload: dict = None, headers: dict = None
+                      ) -> requests.Response | None:
         try:
             _LOG.debug(f'Going to send \'{method}\' request to \'{url}\'')
             response = requests.request(
@@ -109,7 +118,7 @@ class LicenseManagerClientInterface(ABC):
             return
 
     @staticmethod
-    def retrieve_json(response: requests.Response) -> Optional[dict]:
+    def retrieve_json(response: requests.Response) -> dict | None:
         try:
             return response.json()
         except json.JSONDecodeError as je:
@@ -125,21 +134,20 @@ class LicenseManagerClientMain(LicenseManagerClientInterface):
     """
 
     def license_sync(self, license_key: str, auth: str
-                     ) -> Optional[requests.Response]:
+                     ) -> requests.Response | None:
         if not self.host:
             _LOG.warning('CustodianLicenceManager access data has not been'
                          ' provided.')
             return None
         return self._send_request(
-            url=self.host + SYNC_LICENSE_PATH,
+            url=self.host + '/license/sync',
             method=HTTPMethod.POST,
             payload={LICENSE_KEY_ATTR: license_key},
             headers={AUTHORIZATION_PARAM: auth}
         )
 
-    def job_check_permission(self, customer: str,
-                             tenant: str,
-                             tenant_license_keys: List[str], auth: str
+    def job_check_permission(self, customer: str, tenant: str,
+                             tenant_license_keys: list[str], auth: str
                              ) -> bool:
         """
         Currently only one tenant_license_key valid for business logic
@@ -156,7 +164,7 @@ class LicenseManagerClientMain(LicenseManagerClientInterface):
             return False
 
         resp = self._send_request(
-            url=host.strip('/') + JOB_CHECK_PERMISSION_PATH,
+            url=host.strip('/') + '/jobs/check-permission',
             method=HTTPMethod.POST,
             payload={
                 CUSTOMER_ATTR: customer,
@@ -170,36 +178,65 @@ class LicenseManagerClientMain(LicenseManagerClientInterface):
         return tenant in \
             resp.json().get('items')[0][tenant_license_keys[0]]['allowed']
 
-    def update_job(self, job_id: str, created_at: str, started_at: str,
-                   stopped_at: str, status: str, auth: str):
+    def update_job(self, job_id: str, auth: str, created_at: str = None,
+                   started_at: str = None, stopped_at: str = None,
+                   status: JobState = None):
         host = self.host
         if not host:
             _LOG.error('CustodianLicenceManager access data has not been'
                        ' provided.')
             return None
+        payload = {
+            'job_id': job_id,
+            'created_at': created_at,
+            'started_at': started_at,
+            'stopped_at': stopped_at,
+            'status': status
+        }
         return self._send_request(
-            url=host.strip('/') + JOBS_PATH,
+            url=host.strip('/') + '/jobs',
             method=HTTPMethod.PATCH,
-            payload={
-                JOB_ID: job_id,
-                CREATED_AT_ATTR: created_at,
-                STARTED_AT_ATTR: started_at,
-                STOPPED_AT_ATTR: stopped_at,
-                STATUS_ATTR: status
-            },
+            payload={k: v for k, v in payload.items() if v is not None},
             headers={AUTHORIZATION_PARAM: auth}
         )
 
     def activate_customer(self, customer: str, tlk: str, auth: str
-                          ) -> Optional[requests.Response]:
+                          ) -> requests.Response | None:
         if not self.host:
             _LOG.warning('CustodianLicenceManager access data has not been'
                          ' provided.')
-            return None
+            return
         return self._send_request(
-            url=self.host.strip('/') + SET_CUSTOMER_ACTIVATION_DATE_PATH,
+            url=self.host.strip('/') + '/customers/set-activation-date',
             method=HTTPMethod.POST,
             payload={CUSTOMER_ATTR: customer, TENANT_LICENSE_KEY_ATTR: tlk},
+            headers={AUTHORIZATION_PARAM: auth}
+        )
+
+    def post_job(self, job_id: str, customer: str, tenant: str,
+                 ruleset_map: dict[str, list[str]], auth: str
+                 ) -> requests.Response | None:
+        host = self.host
+        if not host:
+            _LOG.error('CustodianLicenceManager access data has not been'
+                       ' provided.')
+            return
+
+        host = host.strip('/')
+        url = host + '/jobs'
+
+        payload = {
+            'service_type': 'CUSTODIAN',
+            'job_id': job_id,
+            'customer': customer,
+            'tenant': tenant,
+            'rulesets': ruleset_map
+        }
+
+        return self._send_request(
+            url=url,
+            method=HTTPMethod.POST,
+            payload=payload,
             headers={AUTHORIZATION_PARAM: auth}
         )
 
@@ -210,9 +247,8 @@ class LicenseManagerClientLess2p7(LicenseManagerClientMain):
     endpoint slightly differ
     """
 
-    def job_check_permission(self, customer: str,
-                             tenant: str,
-                             tenant_license_keys: List[str], auth: str
+    def job_check_permission(self, customer: str, tenant: str,
+                             tenant_license_keys: list[str], auth: str
                              ) -> bool:
         host = self.host
         if not host:
@@ -221,7 +257,7 @@ class LicenseManagerClientLess2p7(LicenseManagerClientMain):
             return False
 
         return bool(self._send_request(
-            url=host.strip('/') + JOB_CHECK_PERMISSION_PATH,
+            url=host.strip('/') + '/jobs/check-permission',
             method=HTTPMethod.POST,
             payload={
                 CUSTOMER_ATTR: customer,

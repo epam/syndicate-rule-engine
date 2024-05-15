@@ -1,26 +1,21 @@
 import calendar
-import json
-from datetime import datetime, timedelta
 import copy
-from functools import cmp_to_key
+from datetime import datetime, timedelta
 
 from dateutil.relativedelta import relativedelta, SU
+from modular_sdk.modular import Modular
 
-from helpers import get_logger, hashable
+from helpers import get_logger, hashable, get_last_element
 from helpers.constants import CUSTOMER_ATTR, OVERVIEW_TYPE, COMPLIANCE_TYPE, \
     RESOURCES_TYPE, DATA_TYPE, ACCOUNT_ID_ATTR, ATTACK_VECTOR_TYPE, END_DATE, \
     LAST_SCAN_DATE, SEVERITY_DATA_ATTR, RESOURCE_TYPES_DATA_ATTR, \
     TENANT_NAME_ATTR, ID_ATTR, TENANT_DISPLAY_NAME_ATTR, AVERAGE_DATA_ATTR, \
-    ACTIVATED_REGIONS_ATTR, FINOPS_TYPE, OUTDATED_TENANTS
-from helpers.reports import keep_highest
+    ACTIVATED_REGIONS_ATTR, FINOPS_TYPE, OUTDATED_TENANTS, ARCHIVE_PREFIX
 from helpers.time_helper import utc_datetime
-from helpers.utils import get_last_element, severity_cmp
 from services import SERVICE_PROVIDER
 from services.clients.s3 import S3Client
-from services.job_statistics_service import JobStatisticsService
 from services.environment_service import EnvironmentService
-from services.modular_service import ModularService
-from services.rule_meta_service import LazyLoadedMappingsCollector
+from services.mappings_collector import LazyLoadedMappingsCollector
 from services.setting_service import SettingsService
 
 _LOG = get_logger(__name__)
@@ -35,26 +30,22 @@ class TenantGroupMetrics:
     def __init__(self, s3_client: S3Client,
                  environment_service: EnvironmentService,
                  settings_service: SettingsService,
-                 modular_service: ModularService,
-                 job_statistics_service: JobStatisticsService,
+                 modular_client: Modular,
                  mappings_collector: LazyLoadedMappingsCollector):
         self.s3_client = s3_client
         self.environment_service = environment_service
         self.settings_service = settings_service
-        self.modular_service = modular_service
-        self.job_statistics_service = job_statistics_service
+        self.modular_client = modular_client
         self.mapping = mappings_collector
 
         self.today_date = datetime.utcnow().today()
         self.today_midnight = datetime.combine(self.today_date,
                                                datetime.min.time())
         self.yesterday = (self.today_date - timedelta(days=1)).date()
-        self.next_month_date = (self.today_date.date().replace(day=1) +
-                                relativedelta(months=1)).isoformat()
+        self.next_month_date = (self.today_date.date() + relativedelta(months=+1, day=1)).isoformat()
         self.month_first_day = self.today_date.date().replace(
             day=1).isoformat()
-        self.prev_month_first_day = (
-                self.today_date - relativedelta(months=1)).replace(day=1).date()
+        self.prev_month_first_day = (self.today_date + relativedelta(months=-1, day=1)).date()
         self.TO_UPDATE_MARKER = False
 
         self._date_marker = self.settings_service.get_report_date_marker()
@@ -64,12 +55,11 @@ class TenantGroupMetrics:
     @classmethod
     def build(cls) -> 'TenantGroupMetrics':
         return cls(
-            s3_client=SERVICE_PROVIDER.s3(),
-            environment_service=SERVICE_PROVIDER.environment_service(),
-            settings_service=SERVICE_PROVIDER.settings_service(),
-            modular_service=SERVICE_PROVIDER.modular_service(),
-            job_statistics_service=SERVICE_PROVIDER.job_statistics_service(),
-            mappings_collector=SERVICE_PROVIDER.mappings_collector()
+            s3_client=SERVICE_PROVIDER.s3,
+            environment_service=SERVICE_PROVIDER.environment_service,
+            settings_service=SERVICE_PROVIDER.settings_service,
+            modular_client=SERVICE_PROVIDER.modular_client,
+            mappings_collector=SERVICE_PROVIDER.mappings_collector
         )
 
     def _calculate_resources(self, tenant_metrics: dict, cloud: str) -> dict:
@@ -147,9 +137,14 @@ class TenantGroupMetrics:
                 if not project_id:
                     _LOG.warning(f'Cannot get project id from file {filename}')
                     continue
+                elif project_id.startswith(ARCHIVE_PREFIX):
+                    _LOG.warning(f'Skipping archived tenant {filename}')
+                    continue
 
-                tenant_obj = list(self.modular_service.i_get_tenants_by_acc(
-                    acc=project_id, attrs_to_get=['dntl', 'n']))
+                tenant_obj = list(self.modular_client.tenant_service().i_get_by_acc(
+                    project_id, attributes_to_get=['dntl', 'n']
+                ))
+
                 if not tenant_obj:
                     _LOG.warning(f'Unknown tenant with project id '
                                  f'{project_id}. Skipping...')
@@ -191,9 +186,9 @@ class TenantGroupMetrics:
                     _LOG.debug(
                         f'Processing tenant {get_last_element(tenant, "/")} '
                         f'within tenant group {tenant_dn}')
-                    tenant_content = self.s3_client.get_json_file_content(
-                        bucket_name=metrics_bucket, full_file_name=tenant)
-                    cloud = tenant_content.get('cloud', 'unknown').lower()
+                    tenant_content = self.s3_client.gz_get_json(
+                        bucket=metrics_bucket, key=tenant)
+                    cloud = tenant_content['cloud'].lower()
                     _id = tenant_content.pop(ID_ATTR, None)
                     tenant_name = tenant_content.pop(TENANT_NAME_ATTR, None)
                     last_scan = tenant_content.get(LAST_SCAN_DATE)
@@ -229,7 +224,7 @@ class TenantGroupMetrics:
                     compressed_metrics[COMPLIANCE_TYPE][cloud] = copy.deepcopy(
                         tenant_content[COMPLIANCE_TYPE])
                     if tenant_content.get(FINOPS_TYPE):
-                        # modifies compressed_metrics, does not change overview
+                        # modifies compressed_metrics, does not change finops
                         compressed_metrics[FINOPS_TYPE][cloud]['service_data'] = self._process_finops_metrics(
                             tenant_content[FINOPS_TYPE])
 
@@ -261,12 +256,13 @@ class TenantGroupMetrics:
                     FINOPS_TYPE: tenant_group_finops_mapping
                 }
 
-                self.s3_client.put_object(
-                    bucket_name=metrics_bucket,
-                    object_name=TENANT_GROUP_METRICS_FILE_PATH.format(
+                self.s3_client.gz_put_json(
+                    bucket=metrics_bucket,
+                    key=TENANT_GROUP_METRICS_FILE_PATH.format(
                         customer=customer, date=s3_object_date,
                         tenant=tenant_dn),
-                    body=json.dumps(tenant_group_data, separators=(",", ":")))
+                    obj=tenant_group_data
+                )
 
                 if not event.get(END_DATE) or calendar.monthrange(
                         end_date.year, end_date.month)[1] == end_date.day:
@@ -329,7 +325,7 @@ class TenantGroupMetrics:
     def _process_attack_vector_metrics(tenant_content: dict):
         _LOG.debug('Process metrics for attack vector report')
         reduced_attack_metrics = []
-        for tactic in tenant_content.get(ATTACK_VECTOR_TYPE):
+        for tactic in tenant_content.get(ATTACK_VECTOR_TYPE, []):
             tactic_name = tactic.get('tactic')
             tactic_id = tactic.get('tactic_id')
             tactic_item = {
@@ -337,7 +333,6 @@ class TenantGroupMetrics:
                 'tactic': tactic_name,
                 'techniques_data': []
             }
-            tactic_severity = []
             for tech in tactic.get('techniques_data', []):
                 technique_item = {
                     'technique_id': tech.get('technique_id'),
@@ -345,32 +340,18 @@ class TenantGroupMetrics:
                     'regions_data': {}
                 }
                 for region, resource in tech.get('regions_data', {}).items():
-                    severity_set = {}
+                    severity_list = {}
                     for data in resource.get('resources'):
                         severity = data.get('severity')
-                        severity_set.setdefault(severity, set()).add(
-                            hashable(data['resource']))
+                        for _ in range(len(data['sub_techniques']) if len(data['sub_techniques']) != 0 else 1):
+                            severity_list.setdefault(severity, []).append(
+                                data['resource'])
 
-                    keep_highest(*[
-                        severity_set.get(k) for k in
-                        sorted(severity_set.keys(),
-                               key=cmp_to_key(severity_cmp))
-                    ])
-
-                    severity_sum = {k: len(v) for k, v in severity_set.items()}
+                    severity_sum = {k: len(v) for k, v in severity_list.items()}
                     technique_item['regions_data'].setdefault(
                         region, {'severity_data': {}})[
                         'severity_data'] = severity_sum
-                    tactic_severity.append(severity_set)
                 tactic_item['techniques_data'].append(technique_item)
-
-            severity_data = {}
-            for d in tactic_severity:
-                for key, value_set in d.items():
-                    if key not in severity_data:
-                        severity_data[key] = set()
-
-                    severity_data[key].update(value_set)
 
             reduced_attack_metrics.append(tactic_item)
         return reduced_attack_metrics
@@ -389,7 +370,7 @@ class TenantGroupMetrics:
                 for region, data in rule_item['regions_data'].items():
                     new_item['regions_data'][region].pop('resources', None)
                     new_item['regions_data'][region]['total_violated_resources'] = \
-                        {'value': len(data.get('resources', 0)), 'diff': None}
+                        {'value': len(data.get('resources', 0))}
 
                 service_severity_mapping[service_section]['rules_data'].append(new_item)
 
@@ -410,10 +391,11 @@ class TenantGroupMetrics:
         path = f'{customer}/tenants/monthly/{self.next_month_date}/{group}.json'
         metrics_bucket = self.environment_service.get_metrics_bucket_name()
         _LOG.debug(f'Save monthly metrics for tenant group {group}')
-        self.s3_client.put_object(
-                bucket_name=metrics_bucket,
-                object_name=path,
-                body=json.dumps(data, separators=(",", ":")))
+        self.s3_client.gz_put_json(
+            bucket=metrics_bucket,
+            key=path,
+            obj=data
+        )
 
     @staticmethod
     def deduplication(resources: dict):

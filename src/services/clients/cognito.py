@@ -1,296 +1,409 @@
+from abc import ABC, abstractmethod
+from datetime import datetime
+from functools import cached_property
 from http import HTTPStatus
-from typing import Optional, Union
+from typing import Generator, Iterator, TYPE_CHECKING
+from typing_extensions import NotRequired, Self, TypedDict
 
 import boto3
+from botocore.exceptions import ClientError
+from botocore.paginate import PageIterator
 
-from connections.auth_extension.base_auth_client import BaseAuthClient
-from helpers import CustodianException
-from helpers.constants import CUSTOM_CUSTOMER_ATTR, CUSTOM_ROLE_ATTR, \
-    CUSTOM_TENANTS_ATTR, CUSTOM_LATEST_LOGIN_ATTR
+from helpers.constants import (
+    CUSTOM_CUSTOMER_ATTR,
+    CUSTOM_LATEST_LOGIN_ATTR,
+    CUSTOM_ROLE_ATTR,
+)
+from helpers.lambda_response import ResponseFactory
 from helpers.log_helper import get_logger
-from helpers.system_customer import SYSTEM_CUSTOMER
-from helpers.time_helper import utc_iso, utc_datetime
+from helpers.time_helper import utc_datetime, utc_iso
 from services.environment_service import EnvironmentService
+
+if TYPE_CHECKING:
+    from models.user import User
 
 _LOG = get_logger(__name__)
 
-PARAM_USER_POOLS = 'UserPools'
+
+class _CognitoUserAttr(TypedDict):
+    Name: str
+    Value: str
+
+
+class CognitoUserModel(TypedDict):
+    Username: str
+    UserAttributes: NotRequired[list[_CognitoUserAttr]]  # either this one
+    Attributes: NotRequired[list[_CognitoUserAttr]]  # or this one
+    UserCreateDate: datetime
+    UserLastModifiedDate: datetime
+    Enabled: bool
+
+
+class UserWrapper:
+    __slots__ = ('id', 'username', 'customer', 'role', 'latest_login',
+                 'created_at')
+
+    def __init__(self, username: str, customer: str | None = None,
+                 role: str | None = None, latest_login: datetime | None = None,
+                 created_at: datetime | None = None, sub: str | None = None):
+        """
+        Sub is not used currently, so it's not important. Username represents
+        user id
+        :param username:
+        :param customer:
+        :param role:
+        :param latest_login:
+        :param created_at:
+        :param sub:
+        """
+        self.username = username
+        self.customer = customer
+        self.role = role
+        self.latest_login = latest_login
+        self.created_at = created_at
+        self.id = sub
+
+    @classmethod
+    def from_user_model(cls, user: 'User') -> Self:
+        ll = None
+        if user.latest_login:
+            ll = utc_datetime(user.latest_login)
+        ca = None
+        if user.created_at:
+            ca = utc_datetime(user.created_at)
+        return cls(
+            sub=str(user.mongo_id),  # noqa valid for onprem
+            username=user.user_id,
+            customer=user.customer,
+            role=user.role,
+            latest_login=ll,
+            created_at=ca
+        )
+
+    @classmethod
+    def from_cognito_model(cls, model: CognitoUserModel) -> Self:
+        attrs = model.get('UserAttributes') or model.get('Attributes') or ()
+        attributes = {a['Name']: a['Value'] for a in attrs}
+        ll = None
+        if item := attributes.get(CUSTOM_LATEST_LOGIN_ATTR):
+            ll = utc_datetime(item)
+        return cls(
+            sub=attributes.get('sub'),  # valid for onprem
+            username=model['Username'],
+            customer=attributes.get(CUSTOM_CUSTOMER_ATTR),
+            role=attributes.get(CUSTOM_ROLE_ATTR),
+            latest_login=ll,
+            created_at=model['UserCreateDate']
+        )
+
+    def get_dto(self) -> dict:
+        return {
+            'username': self.username,
+            'customer': self.customer,
+            'role': self.role,
+            'latest_login': utc_iso(
+                self.latest_login) if self.latest_login else None,
+            'created_at': utc_iso(self.created_at) if self.created_at else None
+        }
+
+
+class UsersIterator(Iterator[UserWrapper]):
+    next_token: str | int | None = None
+
+    def __iter__(self):
+        return self
+
+    def __next__(self) -> UserWrapper:
+        raise NotImplementedError
+
+
+class CognitoUsersIterator(UsersIterator):
+    def __init__(self, page_iterator: PageIterator,
+                 customer: str | None = None):
+        """
+        :param page_iterator: cognito-idp list_users pages iterator
+        :param customer: allows to filter the result additionally by custom
+        customer attr
+        """
+        self._page_iterable = page_iterator
+        self._customer = customer
+
+    def __iter__(self):
+        self._it = iter(self._page_iterable)
+        self._page = None
+        return self
+
+    def __next__(self) -> UserWrapper:
+        while 1:
+            if not self._page:
+                dct = self._it.__next__()  # getting next page
+                self.next_token = dct.get('PaginationToken')
+                _users = map(UserWrapper.from_cognito_model,
+                             dct.get('Users') or ())
+                if self._customer:
+                    self._page = filter(
+                        lambda u: u.customer == self._customer, _users
+                    )
+                else:
+                    self._page = _users
+            try:
+                return self._page.__next__()
+            except StopIteration:
+                self._page = None
+
+
+class AuthenticationResult(TypedDict):
+    id_token: str
+    refresh_token: str | None
+    expires_in: int
+
+
+class BaseAuthClient(ABC):
+    @abstractmethod
+    def get_user_by_username(self, username: str) -> UserWrapper | None:
+        pass
+
+    @abstractmethod
+    def query_users(self, customer: str | None = None,
+                    limit: int | None = None,
+                    next_token: str | dict | None = None) -> UsersIterator:
+        pass
+
+    @abstractmethod
+    def set_user_password(self, username: str, password: str) -> bool:
+        pass
+
+    @abstractmethod
+    def update_user_attributes(self, user: UserWrapper):
+        """
+        Updates all the attributes that are not equal to None in user wrapper
+        :param user:
+        :return:
+        """
+
+    @abstractmethod
+    def delete_user(self, username: str) -> None:
+        pass
+
+    @abstractmethod
+    def authenticate_user(self, username: str, password: str
+                          ) -> AuthenticationResult | None:
+        pass
+
+    @abstractmethod
+    def refresh_token(self, refresh_token: str) -> AuthenticationResult | None:
+        pass
+
+    @abstractmethod
+    def signup_user(self, username: str, password: str,
+                    customer: str | None = None, role: str | None = None) -> UserWrapper:
+        pass
+
+    def does_user_exist(self, username: str) -> bool:
+        """
+        Use only if you don't need the user's data
+        :param username:
+        :return:
+        """
+        return not not self.get_user_by_username(username)
 
 
 class CognitoClient(BaseAuthClient):
     def __init__(self, environment_service: EnvironmentService):
-        self._environment = environment_service
-        self._client = None
-        self._user_pool_id, self._client_id = None, None
+        self._env = environment_service
 
-    @property
+    @cached_property
     def client(self):
-        if not self._client:
-            self._client = boto3.client('cognito-idp',
-                                        self._environment.aws_region())
-        return self._client
+        return boto3.client('cognito-idp', region_name=self._env.aws_region())
 
     @property
     def user_pool_name(self) -> str:
-        return self._environment.get_user_pool_name()
+        return self._env.get_user_pool_name()
 
-    @property
+    @cached_property
     def user_pool_id(self) -> str:
-        if not self._user_pool_id:
-            _LOG.info('Retrieving user pool id')
-            _id = self._environment.get_user_pool_id()
-            if not _id:
-                _LOG.warning('User pool id is not found in envs. '
-                             'Scanning all the available pools to get the id')
-                _id = self._pool_id_from_name(self.user_pool_name)
-            if not _id:
-                _message = 'Application Authentication Service is ' \
-                           'not configured properly.'
-                _LOG.error(f'User pool \'{self.user_pool_name}\' does '
-                           f'not exists. {_message}')
-                raise CustodianException(code=HTTPStatus.INTERNAL_SERVER_ERROR,
-                                         content=_message)
-            self._user_pool_id = _id
-        return self._user_pool_id
+        _LOG.info('Retrieving user pool id')
+        _id = self._env.get_user_pool_id()
+        if not _id:
+            _LOG.warning('User pool id is not found in envs. '
+                         'Scanning all the available pools to get the id')
+            _id = self._pool_id_from_name(self.user_pool_name)
+        if not _id:
+            _message = 'Application Authentication Service is ' \
+                       'not configured properly.'
+            _LOG.error(f'User pool \'{self.user_pool_name}\' does '
+                       f'not exists. {_message}')
+            raise ResponseFactory(HTTPStatus.SERVICE_UNAVAILABLE).message(
+                _message).exc()
+        return _id
 
     @property
     def client_id(self) -> str:
-        if not self._client_id:
-            client = self.client.list_user_pool_clients(
-                UserPoolId=self.user_pool_id, MaxResults=1)['UserPoolClients']
-            if not client:
-                _message = 'Application Authentication Service is not ' \
-                           'configured properly: no client applications found'
-                _LOG.error(_message)
-                raise CustodianException(
-                    code=HTTPStatus.INTERNAL_SERVER_ERROR,
-                    content=_message)
-            self._client_id = client[0]['ClientId']
-        return self._client_id
+        client = self.client.list_user_pool_clients(
+            UserPoolId=self.user_pool_id, MaxResults=1)['UserPoolClients']
+        if not client:
+            _message = 'Application Authentication Service is not ' \
+                       'configured properly: no client applications found'
+            _LOG.error(_message)
+            raise ResponseFactory(HTTPStatus.SERVICE_UNAVAILABLE).message(
+                _message
+            ).exc()
+        return client[0]['ClientId']
 
-    def _pool_id_from_name(self, name: str) -> Optional[str]:
+    def _pool_id_from_name(self, name: str) -> str | None:
         """
         Since AWS Cognito can have two different pools with equal names,
         this method returns the first pool id which will be found.
         """
-        pools = (p for p in self._list_user_pools() if p['Name'] == name)
+        for pool in self._list_user_pools():
+            if pool['Name'] == name:
+                return pool['Id']
+
+    def _list_user_pools(self) -> Generator[dict, None, None]:
+        first = True
+        params = dict(MaxResults=10)
+        while params.get('NextToken') or first:
+            pools = self.client.list_user_pools(**params)
+            yield from pools.get('UserPools') or []
+            params['NextToken'] = pools.get('NextToken')
+            if first:
+                first = False
+
+    def get_user_by_username(self, username: str) -> UserWrapper | None:
         try:
-            return next(pools)['Id']
-        except StopIteration:
+            item = self.client.admin_get_user(
+                UserPoolId=self.user_pool_id,
+                Username=username
+            )
+            _LOG.debug(f'Result of admin_get_user: {item}')
+            return UserWrapper.from_cognito_model(item)
+        except ClientError:
+            _LOG.warning('ClientError occurred querying a user', exc_info=True)
             return
 
-    def _list_user_pools(self) -> list:
-        list_user_pools = self.client.list_user_pools(MaxResults=10)
-        pools = []
-        while list_user_pools[PARAM_USER_POOLS]:
-            pools.extend(list_user_pools[PARAM_USER_POOLS])
-            next_token = list_user_pools.get('NextToken')
-            if next_token:
-                list_user_pools = self.client.list_user_pools(
-                    MaxResults=10, NextToken=next_token)
-            else:
-                break
-        return pools
-
-    def _list_users(self, attributes_to_get=None):
-        params = dict(UserPoolId=self.user_pool_id)
-        if attributes_to_get:
-            params['AttributesToGet'] = attributes_to_get
-        return self.client.list_users(**params)
-
-    def admin_initiate_auth(self, username, password):
-        """
-        Initiates the authentication flow. Returns AuthenticationResult if
-        the caller does not need to pass another challenge. If the caller
-        does need to pass another challenge before it gets tokens,
-        ChallengeName, ChallengeParameters, and Session are returned.
-        """
-        auth_params = {
-            'USERNAME': username,
-            'PASSWORD': password
-        }
-        if self.is_user_exists(username):
-            try:
-                result = self.client.admin_initiate_auth(
-                    UserPoolId=self.user_pool_id, ClientId=self.client_id,
-                    AuthFlow='ADMIN_NO_SRP_AUTH', AuthParameters=auth_params)
-                self.update_latest_login(username)
-                return result
-            except self.client.exceptions.NotAuthorizedException:
-                return None
-
-    def admin_delete_user(self, username: str):
-        self.client.admin_delete_user(UserPoolId=self.user_pool_id,
-                                      Username=username)
-
-    def respond_to_auth_challenge(self, challenge_name):
-        """
-        Responds to an authentication challenge.
-        """
-        self.client.respond_to_auth_challenge(ClientId=self.client_id,
-                                              ChallengeName=challenge_name)
-
-    def sign_up(self, username, password, customer, role, tenants=None):
-        custom_attr = [{
-            'Name': 'name',
-            'Value': username
-        }, {
-            'Name': CUSTOM_CUSTOMER_ATTR,
-            'Value': customer
-        }, {
-            'Name': CUSTOM_ROLE_ATTR,
-            'Value': role
-        }]
-        if tenants:
-            custom_attr.append({
-                'Name': CUSTOM_TENANTS_ATTR,
-                'Value': tenants
-            })
-        validation_data = [
-            {
-                'Name': 'name',
-                'Value': username
-            }
-        ]
-        return self.client.sign_up(ClientId=self.client_id,
-                                   Username=username,
-                                   Password=password,
-                                   UserAttributes=custom_attr,
-                                   ValidationData=validation_data)
-
-    def set_password(self, username, password, permanent=True):
-        return self.client.admin_set_user_password(
-            UserPoolId=self.user_pool_id, Username=username,
-            Password=password, Permanent=permanent)
-
-    def _get_user(self, username) -> Optional[dict]:
-        users = self.client.list_users(
+    def query_users(self, customer: str | None = None,
+                    limit: int | None = None,
+                    next_token: str | dict | None = None) -> UsersIterator:
+        conf = {}
+        if limit:
+            conf['MaxItems'] = limit
+        if next_token:
+            conf['StartingToken'] = next_token
+        it = self.client.get_paginator('list_users').paginate(
             UserPoolId=self.user_pool_id,
-            Limit=1,
-            Filter=f'username = "{username}"')['Users']
-        if len(users) >= 1:
-            return users[0]
+            PaginationConfig=conf
+        )
+        return CognitoUsersIterator(it, customer=customer)
 
-    def is_user_exists(self, username) -> bool:
-        return bool(self._get_user(username))
+    def set_user_password(self, username: str, password: str) -> bool:
+        try:
+            self.client.admin_set_user_password(
+                UserPoolId=self.user_pool_id,
+                Username=username,
+                Password=password,
+                Permanent=True
+            )
+            return True
+        except ClientError:
+            _LOG.warning('Could not set user password due to client error',
+                         exc_info=True)
+            return False
 
-    def _get_user_attr(self, user, attr_name, query_user=True):
-        """user attribute can be either a 'username' or a user dict object
-        already fetched from AWS Cognito"""
-        if query_user:
-            user = self._get_user(username=user)
-        for attr in user['Attributes']:
-            if attr['Name'] == attr_name:
-                return attr['Value']
+    def update_user_attributes(self, user: UserWrapper):
+        def attr(n, v):
+            return dict(Name=n, Value=v)
 
-    def get_user_role(self, username):
-        return self._get_user_attr(username, CUSTOM_ROLE_ATTR)
+        attributes = []
+        if user.customer:
+            attributes.append(attr(CUSTOM_CUSTOMER_ATTR, user.customer))
+        if user.role:
+            attributes.append(attr(CUSTOM_ROLE_ATTR, user.customer))
+        if user.latest_login:
+            attributes.append(attr(CUSTOM_LATEST_LOGIN_ATTR,
+                                   utc_iso(user.latest_login)))
+        if attributes:
+            self.client.admin_update_user_attributes(
+                UserPoolId=self.user_pool_id,
+                Username=user.username,
+                UserAttributes=attributes
+            )
 
-    def get_user_customer(self, username):
-        return self._get_user_attr(username, CUSTOM_CUSTOMER_ATTR)
+    def delete_user(self, username: str) -> None:
+        try:
+            self.client.admin_delete_user(
+                UserPoolId=self.user_pool_id,
+                Username=username
+            )
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'UserNotFoundException':
+                pass
+            raise e
 
-    def get_user_tenants(self, username):
-        return self._get_user_attr(username, CUSTOM_TENANTS_ATTR) or ''
-
-    def update_role(self, username, role):
-        role_attribute = [
-            {
-                'Name': CUSTOM_ROLE_ATTR,
-                'Value': role
+    def authenticate_user(self, username: str, password: str
+                          ) -> AuthenticationResult | None:
+        try:
+            r = self.client.admin_initiate_auth(
+                UserPoolId=self.user_pool_id,
+                ClientId=self.client_id,
+                AuthFlow='ADMIN_NO_SRP_AUTH',
+                AuthParameters={'USERNAME': username, 'PASSWORD': password}
+            )
+            return {
+                'id_token': r['AuthenticationResult']['IdToken'],
+                'refresh_token': r['AuthenticationResult'].get('RefreshToken'),
+                'expires_in': r['AuthenticationResult']['ExpiresIn']
             }
-        ]
-        self.client.admin_update_user_attributes(UserPoolId=self.user_pool_id,
-                                                 Username=username,
-                                                 UserAttributes=role_attribute)
+        except self.client.exceptions.UserNotFoundException:
+            return
+        except self.client.exceptions.NotAuthorizedException:
+            return
 
-    def get_user_latest_login(self, username):
-        return self._get_user_attr(username, CUSTOM_LATEST_LOGIN_ATTR)
-
-    def update_latest_login(self, username: str):
-        latest_login_attribute = [
-            {
-                'Name': CUSTOM_LATEST_LOGIN_ATTR,
-                'Value': utc_iso()
+    def refresh_token(self, refresh_token: str) -> AuthenticationResult | None:
+        try:
+            r = self.client.admin_initiate_auth(
+                UserPoolId=self.user_pool_id,
+                ClientId=self.client_id,
+                AuthFlow='REFRESH_TOKEN_AUTH',
+                AuthParameters={'REFRESH_TOKEN': refresh_token}
+            )
+            return {
+                'id_token': r['AuthenticationResult']['IdToken'],
+                'refresh_token': r['AuthenticationResult'].get('RefreshToken'),
+                'expires_in': r['AuthenticationResult']['ExpiresIn']
             }
-        ]
-        self.client.admin_update_user_attributes(
-            UserPoolId=self.user_pool_id, Username=username,
-            UserAttributes=latest_login_attribute)
+        except ClientError:
+            _LOG.warning('Client error occurred trying to refresh token',
+                         exc_info=True)
 
-    def update_customer(self, username, customer):
-        customer_attribute = [
-            {
-                'Name': CUSTOM_CUSTOMER_ATTR,
-                'Value': customer
-            }
-        ]
-        self.client.admin_update_user_attributes(
-            UserPoolId=self.user_pool_id, Username=username,
-            UserAttributes=customer_attribute)
+    def signup_user(self, username: str, password: str,
+                    customer: str | None = None, role: str | None = None
+                    ) -> UserWrapper:
+        def attr(n, v):
+            return dict(Name=n, Value=v)
 
-    def update_tenants(self, username: str, tenants: Union[str, list]):
-        if isinstance(tenants, list):
-            tenants = ','.join(tenants)
-        tenants_attribute = [
-            {
-                'Name': CUSTOM_TENANTS_ATTR,
-                'Value': tenants
-            }
-        ]
-        self.client.admin_update_user_attributes(
-            UserPoolId=self.user_pool_id, Username=username,
-            UserAttributes=tenants_attribute)
-
-    def delete_role(self, username):
-        self.client.admin_delete_user_attributes(
-            UserPoolId=self.user_pool_id, Username=username,
-            UserAttributeNames=[CUSTOM_ROLE_ATTR])
-
-    def delete_customer(self, username):
-        self.client.admin_delete_user_attributes(
-            UserPoolId=self.user_pool_id, Username=username,
-            UserAttributeNames=[CUSTOM_CUSTOMER_ATTR])
-
-    def delete_tenants(self, username):
-        self.client.admin_delete_user_attributes(
-            UserPoolId=self.user_pool_id, Username=username,
-            UserAttributeNames=[CUSTOM_TENANTS_ATTR])
-
-    def is_system_user_exists(self):
-        """Checks whether user with customer=$SYSTEM_CUSTOMER already exists"""
-        users = self._list_users(attributes_to_get=[CUSTOM_CUSTOMER_ATTR, ])
-        for user in users['Users']:
-            if self._get_user_attr(user, CUSTOM_CUSTOMER_ATTR,
-                                   query_user=False) == SYSTEM_CUSTOMER:
-                return True
-        return False
-
-    def get_system_user(self):
-        """
-        Returns the user with customer=$SYSTEM_CUSTOMER
-         if exists, else - None
-         """
-        users = self._list_users(attributes_to_get=[CUSTOM_CUSTOMER_ATTR, ])
-        for user in users['Users']:
-            if self._get_user_attr(user, CUSTOM_CUSTOMER_ATTR,
-                                   query_user=False) == SYSTEM_CUSTOMER:
-                return user['Username']
-
-    def get_customers_latest_logins(self, customers=None):
-        customers = customers or []
-        result = {}
-        users = self._list_users()
-        for user in users.get('Users', []):
-            customer = self._get_user_attr(
-                user, CUSTOM_CUSTOMER_ATTR, query_user=False)
-            # may be either with military prefix or without
-            latest_login = self._get_user_attr(
-                user, CUSTOM_LATEST_LOGIN_ATTR, query_user=False)
-            if not result.get(customer):
-                result[customer] = latest_login
-            elif latest_login and utc_datetime(result[customer]) < \
-                    utc_datetime(latest_login):
-                result[customer] = latest_login
-        if customers:
-            result = {k: v for k, v in result.items() if k in customers}
-        return result
+        attrs = [attr('name', username)]
+        if customer:
+            attrs.append(attr(CUSTOM_CUSTOMER_ATTR, customer))
+        if role:
+            attrs.append(attr(CUSTOM_ROLE_ATTR, role))
+        validation_data = [attr('name', username)]
+        res = self.client.sign_up(
+            ClientId=self.client_id,
+            Username=username,
+            Password=password,
+            UserAttributes=attrs,
+            ValidationData=validation_data
+        )
+        self.client.admin_set_user_password(
+            UserPoolId=self.user_pool_id,
+            Username=username,
+            Password=password,
+            Permanent=True
+        )
+        return UserWrapper(
+            username=username,
+            customer=customer,
+            role=role,
+            created_at=utc_datetime(),
+            sub=res['UserSub'],
+        )

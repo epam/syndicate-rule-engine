@@ -1,14 +1,76 @@
+import base64
+import json
 import secrets
 import string
-from copy import deepcopy
+import time
+import uuid
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
-from re import compile
-from typing import Callable, Dict, Union, List, Iterable
-from typing import Optional
-from uuid import uuid4
-import requests
+from typing import Callable, TypeVar
 
 from dateutil.parser import isoparse
+from urllib3.exceptions import LocationParseError
+from urllib3.util import parse_url
+
+
+def urljoin(*args: str) -> str:
+    """
+    This method somehow differs from urllib.parse.urljoin. See:
+    >>> urljoin('one', 'two', 'three')
+    'one/two/three'
+    >>> urljoin('one/', '/two/', '/three/')
+    'one/two/three'
+    >>> urljoin('https://example.com/', '/prefix', 'path/to/service')
+    'https://example.com/prefix/path/to/service'
+    :param args: list of string
+    :return:
+    """
+    return '/'.join(map(lambda x: str(x).strip('/'), args))
+
+
+def sifted(data: dict) -> dict:
+    """
+    >>> sifted({'k': 'value', 'k1': None, 'k2': '', 'k3': 0, 'k4': False})
+    {'k': 'value', 'k3': 0, 'k4': False}
+    :param data:
+    :return:
+    """
+    return {k: v for k, v in data.items() if isinstance(v, (bool, int)) or v}
+
+
+class JWTToken:
+    """
+    A simple wrapper over jwt token
+    """
+    EXP_THRESHOLD = 300  # in seconds
+    __slots__ = '_token', '_exp_threshold'
+
+    def __init__(self, token: str, exp_threshold: int = EXP_THRESHOLD):
+        self._token = token
+        self._exp_threshold = exp_threshold
+
+    @property
+    def raw(self) -> str:
+        return self._token
+
+    @property
+    def payload(self) -> dict | None:
+        try:
+            return json.loads(
+                base64.b64decode(self._token.split('.')[1] + '==').decode()
+            )
+        except Exception:
+            return
+
+    def is_expired(self) -> bool:
+        p = self.payload
+        if not p:
+            return True
+        exp = p.get('exp')
+        if not exp:
+            return False
+        return exp < time.time() + self._exp_threshold
 
 
 def gen_password(digits: int = 20) -> str:
@@ -23,72 +85,7 @@ def gen_password(digits: int = 20) -> str:
     return password
 
 
-def cast_to_list(input):
-    if type(input) == tuple:
-        list_item = list(input)
-    elif type(input) == str:
-        list_item = [input]
-    else:
-        list_item = input
-    return list_item
-
-
-def cast_to_dict(payload: str, null_key: str = None, deep: bool = False) -> \
-        Dict[str, Union[Dict, List[str]]]:
-    pattern, delimiter = compile(r'([^:]*):([^\s]*)(?=,|$)'), ','
-    casted: dict = dict()
-    for match in pattern.finditer(payload):
-        key, value = match.groups()
-        key = key or null_key
-        if deep and value:
-            value = cast_to_dict(payload=value, deep=deep) or value
-        value = value.split(delimiter) if isinstance(value, str) else value
-
-        value = [*filter(bool, value)] if isinstance(value, list) else value
-
-        default = dict() if deep else list()
-        reference: Union[List, Dict] = casted.setdefault(key, default)
-
-        if isinstance(value, dict):
-            reference.update(value)
-        elif not deep and value:
-            reference.extend(value)
-
-    return casted
-
-
-def merge_dict(resolver: Callable, default: Callable, *subjects):
-    merged = dict()
-    for each in subjects:
-        copied: dict = deepcopy(each)
-        for key, value in copied.items():
-            installed = merged.setdefault(key, default())
-            conflict = isinstance(value, dict) & isinstance(installed, dict)
-
-            if conflict and installed is not value:
-                merged[key] = merge_dict(installed, value)
-            else:
-                resolver(installed, value)
-
-    return merged
-
-
-def invert_dict(
-        subject: dict, default: Callable = None, resolver: Callable = None
-):
-    _output = {}
-    for key, value in subject.items():
-        values = value if isinstance(value, Iterable) else (value,)
-        for each in values:
-            if default and resolver:
-                store = _output.setdefault(each, default())
-                resolver(store, key)
-            else:
-                _output[each] = key
-    return _output
-
-
-def utc_datetime(_from: Optional[str] = None) -> datetime:
+def utc_datetime(_from: str | None = None) -> datetime:
     """
     Returns time-zone aware datetime object in UTC. You can optionally pass
     an existing ISO string. The function will parse it to object and make
@@ -100,7 +97,7 @@ def utc_datetime(_from: Optional[str] = None) -> datetime:
     return obj.astimezone(timezone.utc)
 
 
-def utc_iso(_from: Optional[datetime] = None) -> str:
+def utc_iso(_from: datetime | None = None) -> str:
     """
     Returns time-zone aware datetime ISO string in UTC with military suffix.
     You can optionally pass datetime object. The function will make it
@@ -125,7 +122,7 @@ def build_cloudtrail_record(cloud_identifier: str, region: str,
     }
 
 
-def normalize_lists(lists: List[List[str]]):
+def normalize_lists(lists: list[list[str]]):
     """
     Changes the given lists in place making them all equal length by
     repeating the last attr the necessary number of times.
@@ -165,7 +162,7 @@ def build_eventbridge_record(detail_type: str, source: str,
                              account: str, region: str, detail: dict) -> dict:
     return {
         "version": "0",
-        "id": str(uuid4()),
+        "id": str(uuid.uuid4()),
         "detail-type": detail_type,
         "source": source,
         "account": account,
@@ -188,13 +185,14 @@ def build_maestro_record(event_action: str, group: str, sub_group: str,
     :return:
     """
     return {
-        "_id": str(uuid4()),
+        "_id": str(uuid.uuid4()),
         "eventAction": event_action,
         "group": group,
         "subGroup": sub_group,
         "tenantName": tenant_name,
         "eventMetadata": {
-            "request": {'cloud': cloud},  # todo native maestro events have string here
+            "request": {'cloud': cloud},
+            # todo native maestro events have string here
             "cloud": cloud
         }
     }
@@ -256,16 +254,42 @@ class Color:
         return f'{cls._current}{st}{cls.ENDC}'
 
 
-def validate_api_link(api_link: str) -> Optional[str]:
-    message = None
+def validate_api_link(url: str) -> str | None:
+    url = url.lstrip()
+
+    if "://" in url and not url.lower().startswith("http"):
+        return 'Invalid API link: not supported scheme'
     try:
-        requests.get(api_link)
-    except (requests.exceptions.MissingSchema,
-            requests.exceptions.ConnectionError):
-        message = f'Invalid API link: {api_link}'
-    except requests.exceptions.InvalidURL:
-        message = f'Invalid URL \'{api_link}\': No host specified.'
-    except requests.exceptions.InvalidSchema:
-        message = f'Invalid URL \'{api_link}\': No network protocol specified ' \
-                  f'(http/https).'
-    return message
+        scheme, auth, host, port, path, query, fragment = parse_url(url)
+    except LocationParseError as e:
+        return 'Invalid API link'
+    if not scheme:
+        return 'Invalid API link: missing scheme'
+    if not host:
+        return 'Invalid API link: missing host'
+    try:
+        req = urllib.request.Request(url)
+        urllib.request.urlopen(req)
+    except urllib.error.HTTPError as e:
+        pass
+    except urllib.error.URLError as e:
+        return 'Invalid API link: cannot make a request'
+
+
+RT = TypeVar('RT')  # return type
+ET = TypeVar('ET', bound=Exception)  # exception type
+
+
+def catch(func: Callable[[], RT], exception: type[ET] = Exception
+          ) -> tuple[RT | None, ET | None]:
+    """
+    Calls the provided function and catches the desired exception.
+    Seems useful to me :) ?
+    :param func:
+    :param exception:
+    :return:
+    """
+    try:
+        return func(), None
+    except exception as e:
+        return None, e

@@ -1410,8 +1410,6 @@ This lambda uses the following resource:
 * CaaSJobs - the table used by service to store data about scans;
 * CaaSSettings - the table used by service to get and store settings data;
 * CaaSUsers - the table used by service to store user data;
-* CaaSSIEMManager - the table used to manage SIEM configurations (dojo and security hub);
-* CaaSLicenses - the table used to manage licenses.
 
 #### Systems Manager Parameter Store
 

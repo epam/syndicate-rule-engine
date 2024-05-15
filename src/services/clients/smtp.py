@@ -1,15 +1,12 @@
 from smtplib import SMTP, SMTPConnectError, SMTPException
-from dataclasses import dataclass
 from typing import Optional, List
 
 from helpers.log_helper import get_logger
-
 
 _LOG = get_logger(__name__)
 
 
 class SMTPClient:
-
     host: Optional[str]
     port: Optional[int]
 

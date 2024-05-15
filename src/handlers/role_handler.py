@@ -1,122 +1,140 @@
-from datetime import datetime
+from functools import cached_property
 from http import HTTPStatus
 from typing import Iterable
 
-from helpers import build_response
-from helpers.constants import CUSTOMER_ATTR, NAME_ATTR, EXPIRATION_ATTR, \
-    POLICIES_ATTR, POLICIES_TO_ATTACH, POLICIES_TO_DETACH, HTTPMethod
-from helpers.log_helper import get_logger
-from helpers.system_customer import SYSTEM_CUSTOMER
+from handlers import AbstractHandler, Mapping
+from helpers import NextToken
+from helpers.constants import CustodianEndpoint, HTTPMethod
+from helpers.lambda_response import ResponseFactory, build_response
 from helpers.time_helper import utc_iso
-from services.rbac.iam_cache_service import CachedIamService
+from services import SP
+from services.rbac_service import PolicyService, RoleService
+from validators.swagger_request_models import (
+    BaseModel,
+    BasePaginationModel,
+    RolePatchModel,
+    RolePostModel,
+)
+from validators.utils import validate_kwargs
 
-_LOG = get_logger(__name__)
 
-
-class RoleHandler:
+class RoleHandler(AbstractHandler):
     """
     Manage Role API
     """
 
-    def __init__(self, cached_iam_service: CachedIamService):
-        self._iam_service = cached_iam_service
+    def __init__(self, role_service: RoleService, 
+                 policy_service: PolicyService):
+        self._role_service = role_service
+        self._policy_service = policy_service
 
-    def define_action_mapping(self):
+    @classmethod
+    def build(cls):
+        return cls(role_service=SP.role_service, 
+                   policy_service=SP.policy_service)
+
+    @cached_property
+    def mapping(self) -> Mapping:
         return {
-            '/roles': {
-                HTTPMethod.GET: self.get_role,
+            CustodianEndpoint.ROLES: {
                 HTTPMethod.POST: self.create_role,
-                HTTPMethod.PATCH: self.update_role,
+                HTTPMethod.GET: self.list_roles
+            },
+            CustodianEndpoint.ROLES_NAME: {
+                HTTPMethod.GET: self.get_role,
                 HTTPMethod.DELETE: self.delete_role,
-            },
-            '/roles/cache': {
-                HTTPMethod.DELETE: self.delete_role_cache
-            },
+                HTTPMethod.PATCH: self.update_role
+            }
         }
 
-    def get_role(self, event):
-        name = event.get(NAME_ATTR)
-        customer = event.get(CUSTOMER_ATTR)
-        it = self._iam_service.list_roles(
-            customer=customer, name=name
+    @validate_kwargs
+    def get_role(self, event: BaseModel, name: str):
+        item = self._role_service.get_nullable(event.customer_id, name)
+        if not item:
+            raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                self._role_service.not_found_message(name)
+            ).exc()
+        return build_response(self._role_service.dto(item))
+
+    @validate_kwargs
+    def list_roles(self, event: BasePaginationModel):
+        cursor = self._role_service.query(
+            customer=event.customer_id,
+            limit=event.limit,
+            last_evaluated_key=NextToken.deserialize(event.next_token).value
         )
-        return build_response(content=(
-            self._iam_service.get_dto(entity) for entity in it
-        ))
+        items = tuple(cursor)
+        return ResponseFactory().items(
+            it=map(self._role_service.dto, items),
+            next_token=NextToken(cursor.last_evaluated_key)
+        ).build()
 
-    def create_role(self, event):
-        name = event.get(NAME_ATTR)
-        customer = event.get(CUSTOMER_ATTR) or SYSTEM_CUSTOMER
-        policies: set = event.get(POLICIES_ATTR)
-        expiration: datetime = event.get(EXPIRATION_ATTR)
-
-        existing = self._iam_service.get_role(customer, name)
+    @validate_kwargs
+    def create_role(self, event: RolePostModel):
+        name = event.name
+        customer = event.customer_id
+        existing = self._role_service.get_nullable(customer, name)
         if existing:
-            return build_response(
-                code=HTTPStatus.CONFLICT,
-                content=f'Role with name {name} already exists'
-            )
-        self.ensure_policies_exist(customer, policies)
-        role = self._iam_service.create_role({
-            'name': name,
-            'customer': customer,
-            'policies': list(policies),
-            'expiration': utc_iso(expiration)
-        })
-        self._iam_service.save(role)
-        return build_response(content=self._iam_service.get_dto(role))
+            raise ResponseFactory(HTTPStatus.CONFLICT).message(
+                f'Role with name {name} already exists'
+            ).exc()
+        self.ensure_policies_exist(customer, event.policies)
+        role = self._role_service.create(
+            customer=customer,
+            name=name,
+            policies=tuple(event.policies),
+            expiration=event.expiration,
+            description=event.description
+        )
+        self._role_service.save(role)
+        return build_response(content=self._role_service.dto(role),
+                              code=HTTPStatus.CREATED)
 
     def ensure_policies_exist(self, customer: str, policies: Iterable[str]):
         for name in policies:
-            item = self._iam_service.get_policy(customer, name)
+            item = self._policy_service.get_nullable(customer, name)
             if not item:
-                return build_response(
-                    code=HTTPStatus.NOT_FOUND,
-                    content=f'Policy \'{name}\' not found'
-                )
+                raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
+                    f'Policy {name} not found'
+                ).exc()
 
-    def update_role(self, event):
-        name = event.get(NAME_ATTR)
-        customer = event.get(CUSTOMER_ATTR) or SYSTEM_CUSTOMER
-        # todo validate to_attach
-        to_attach: set = event.get(POLICIES_TO_ATTACH)
-        to_detach: set = event.get(POLICIES_TO_DETACH)
-        expiration: datetime = event.get(EXPIRATION_ATTR)
+    @validate_kwargs
+    def update_role(self, event: RolePatchModel, name: str):
+        customer = event.customer_id
 
-        role = self._iam_service.get_role(customer, name)
+        role = self._role_service.get_nullable(customer, name)
         if not role:
-            return build_response(
-                code=HTTPStatus.NOT_FOUND,
-                content=f'Role with name {name} already not found'
-            )
-        self.ensure_policies_exist(customer, to_attach)
+            raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                f'Role with name {name} already not found'
+            ).exc()
+        self.ensure_policies_exist(customer, event.policies_to_attach)
         policies = set(role.policies or [])
-        policies -= to_detach
-        policies |= to_attach
+        policies -= event.policies_to_attach
+        policies |= event.policies_to_detach
         role.policies = list(policies)
 
-        if expiration:
-            role.expiration = utc_iso(expiration)
+        if event.expiration:
+            role.expiration = utc_iso(event.expiration)
+        if event.description:
+            role.description = event.description
 
-        self._iam_service.save(role)
+        self._role_service.save(role)
 
         return build_response(
             code=HTTPStatus.OK,
-            content=self._iam_service.get_dto(role)
+            content=self._role_service.dto(role)
         )
 
-    def delete_role(self, event):
-        name = event.get(NAME_ATTR)
-        customer = event.get(CUSTOMER_ATTR) or SYSTEM_CUSTOMER
-        role = self._iam_service.get_role(customer, name)
+    @validate_kwargs
+    def delete_role(self, event: BaseModel, name: str):
+        role = self._role_service.get_nullable(event.customer_id, name)
         if role:
-            self._iam_service.delete(role)
-        return build_response(
-            content=f'No traces of role \'{name}\' left in customer {customer}'
-        )
+            self._role_service.delete(role)
+        return build_response(code=HTTPStatus.NO_CONTENT)
 
-    def delete_role_cache(self, event):
-        name = event.get(NAME_ATTR)
-        customer = event.get(CUSTOMER_ATTR) or SYSTEM_CUSTOMER
-        self._iam_service.clean_role_cache(customer=customer, name=name)
-        return build_response(content='Cleaned')
+    # @validate_kwargs
+    # def delete_role_cache(self, event: RoleCacheDeleteModel):
+    #     name = event.name
+    #     customer = event.customer
+    #     self._iam_service.clean_role_cache(customer=customer, name=name)
+    #     return build_response(code=HTTPStatus.NO_CONTENT)

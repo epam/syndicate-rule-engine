@@ -1,9 +1,12 @@
 import click
 
-from c7ncli.group import cli_response, ViewCommand, response, ContextObj
-from c7ncli.service.helpers import build_cloudtrail_records, \
-    build_eventbridge_record, build_maestro_record, \
-    normalize_lists
+from c7ncli.group import ContextObj, ViewCommand, cli_response, response
+from c7ncli.service.helpers import (
+    build_cloudtrail_records,
+    build_eventbridge_record,
+    build_maestro_record,
+    normalize_lists,
+)
 
 
 @click.group(name='event')
@@ -29,7 +32,7 @@ def event():
 @cli_response()
 def cloudtrail(ctx: ContextObj, cloud_identifier: tuple, region: tuple,
                event_source: tuple, event_name: tuple,
-               wrap_in_eventbridge: bool):
+               wrap_in_eventbridge: bool, customer_id):
     """
     Command to simulate event-driven request from CloudTrail-based
     event-listener. Use it just to check whether
@@ -50,33 +53,31 @@ def cloudtrail(ctx: ContextObj, cloud_identifier: tuple, region: tuple,
                 region=region[0],
                 detail=rec
             ))
-    return ctx['api_client'].event_action('AWS', events)
+    return ctx['api_client'].event_action(
+        version='1.0.0',
+        vendor='AWS',
+        events=events,
+        customer_id=customer_id
+    )
 
 
 @event.command(cls=ViewCommand, name='maestro')
 @click.option('--event_action', '-ea',
               type=click.Choice(
-                  ['COMMAND', 'CREATE', 'DELETE', 'DISABLE', 'UPDATE']),
+                  ('COMMAND', 'CREATE', 'DELETE', 'DISABLE', 'UPDATE')),
               required=True, multiple=True)
-@click.option('--group', type=click.Choice(['MANAGEMENT']), required=True,
+@click.option('--group', type=click.Choice(('MANAGEMENT', )), required=True,
               default='MANAGEMENT', show_default=True)
-@click.option('--sub_group', type=click.Choice(['INSTANCE']), required=True,
+@click.option('--sub_group', type=click.Choice(('INSTANCE', )), required=True,
               default='INSTANCE', show_default=True)
 @click.option('--tenant_name', '-tn', type=str, required=True, multiple=True)
-@click.option('--cloud', '-c', type=click.Choice(['AZURE', 'GOOGLE']),
+@click.option('--cloud', '-c', type=click.Choice(('AZURE', 'GOOGLE')),
               required=True)
 @cli_response()
 def maestro(ctx: ContextObj, event_action: tuple, group: str, sub_group: str,
-            tenant_name: tuple, cloud: str):
+            tenant_name: tuple, cloud: str, customer_id):
     """
     Builds maestro audit event
-    :param ctx:
-    :param event_action:
-    :param group:
-    :param sub_group:
-    :param tenant_name:
-    :param cloud:
-    :return:
     """
     lists = [list(event_action), [group, ], [sub_group, ], list(tenant_name),
              [cloud, ]]
@@ -90,7 +91,12 @@ def maestro(ctx: ContextObj, event_action: tuple, group: str, sub_group: str,
             tenant_name=lists[3][i],
             cloud=lists[4][i]
         ))
-    return ctx['api_client'].event_action('MAESTRO', events)
+    return ctx['api_client'].event_action(
+        version='1.0.0',
+        vendor='MAESTRO',
+        events=events,
+        customer_id=customer_id
+    )
 
 
 @event.command(cls=ViewCommand, name='eventbridge')
@@ -108,7 +114,7 @@ def maestro(ctx: ContextObj, event_action: tuple, group: str, sub_group: str,
               help='CloudTrail event name to simulate', multiple=True)
 @cli_response()
 def eventbridge(ctx: ContextObj, account: tuple, region: tuple, source: tuple,
-                detail_type: tuple):
+                detail_type: tuple, customer_id):
     """
     Command to simulate event-driven request from EventBridge-based
     event-listener. Use it just to check whether

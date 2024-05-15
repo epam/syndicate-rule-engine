@@ -2,14 +2,15 @@ import os
 
 from pynamodb.attributes import UnicodeAttribute
 
-from helpers.constants import ENV_VAR_REGION
-from models.modular import BaseModel
+from helpers.constants import CAASEnv
+from models import BaseModel
 
 
+# used only for on-prem
 class User(BaseModel):
     class Meta:
         table_name = 'CaaSUsers'
-        region = os.environ.get(ENV_VAR_REGION)
+        region = os.environ.get(CAASEnv.AWS_REGION)
 
     user_id = UnicodeAttribute(hash_key=True)
     tenants = UnicodeAttribute(null=True)
@@ -17,4 +18,5 @@ class User(BaseModel):
     role = UnicodeAttribute(null=True)
     password = UnicodeAttribute(null=True)
     latest_login = UnicodeAttribute(null=True)
+    created_at = UnicodeAttribute(null=True)
 

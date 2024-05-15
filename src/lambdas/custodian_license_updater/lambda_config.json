@@ -8,14 +8,11 @@
   "memory": 128,
   "timeout": 300,
   "lambda_path": "/lambdas/custodian_license_updater",
+  "logs_expiration": "${logs_expiration}",
   "dependencies": [
     {
       "resource_name": "caas-license-update-trigger",
       "resource_type": "cloudwatch_rule_trigger"
-    },
-    {
-      "resource_name": "CaaSLicenses",
-      "resource_type": "dynamodb_table"
     }
   ],
   "event_sources": [
@@ -25,7 +22,7 @@
     }
   ],
   "env_variables": {
-    "caas_rulesets_bucket": "${caas_rulesets_bucket}",
+    "CAAS_RULESETS_BUCKET_NAME": "${caas_rulesets_bucket}",
     "modular_assume_role_arn": "${modular_assume_role_arn}",
     "MODULAR_AWS_REGION": "${MODULAR_AWS_REGION}"
   },
@@ -39,5 +36,8 @@
   ],
   "layers": [
     "custodian_common_dependencies_layer"
+  ],
+  "platforms": [
+    "manylinux2014_x86_64"
   ]
 }

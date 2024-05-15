@@ -1,9 +1,9 @@
-__version__ = '4.15.0'
+__version__ = '5.1.0'
 
 import sys
 from distutils.version import LooseVersion
 
-
+# todo rewrite
 def check_version_compatibility(api_version):
     if not api_version:
         print('Custodian API did not return the version number!')

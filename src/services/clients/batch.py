@@ -1,102 +1,53 @@
-import boto3
-from typing import Union
+import dataclasses
+import os
+import subprocess
+import sys
+import uuid
+from pathlib import Path
+from typing import TypedDict
 
-from helpers.log_helper import get_logger
 from helpers import title_keys
-from services.environment_service import EnvironmentService
+from helpers.constants import BatchJobEnv
+from helpers.log_helper import get_logger
+from helpers.time_helper import utc_iso, utc_datetime
+from services import SP
+from services.clients import Boto3ClientWrapper
 from services.clients.sts import StsClient
+from services.environment_service import EnvironmentService
 
 _LOG = get_logger(__name__)
 
 
-class BatchClient:
+class BatchJob(TypedDict, total=False):
+    jobArn: str
+    jobName: str
+    jobId: str
+    jobQueue: str
+    status: str
+    createdAt: int
+    startedAt: int
+    stoppedAt: int
+    # ... and other params
+
+
+class BatchClient(Boto3ClientWrapper):
+    service_name = 'batch'
 
     def __init__(self, environment_service: EnvironmentService,
                  sts_client: StsClient):
         self._environment = environment_service
         self._sts_client = sts_client
-        self._client = None
 
-    @property
-    def client(self):
-        if not self._client:
-            self._client = boto3.client(
-                'batch', self._environment.aws_region())
-        return self._client
-
-    def submit_job(self, job_name: str, job_queue: str, job_definition: str,
-                   command: str, size: int = None, depends_on: list = None,
-                   parameters=None, retry_strategy: int = None,
-                   timeout: int = None, environment_variables: dict = None):
-
-        params = {
-            'jobName': job_name,
-            'jobQueue': job_queue,
-            'jobDefinition': job_definition,
-        }
-        if size:
-            params['arrayProperties'] = {'size': size}
-        if depends_on:
-            params['dependsOn'] = depends_on
-        if parameters:
-            params['parameters'] = parameters
-        if retry_strategy:
-            params['retryStrategy'] = {'attempts': retry_strategy}
-        if timeout:
-            params['timeout'] = {'attemptDurationSeconds': timeout}
-        container_overrides = self.build_container_overrides(
-            command, environment_variables)
-        params.update(container_overrides)
-        response = self.client.submit_job(**params)
-        return response
-
-    def terminate_job(self, job_id: str, reason: str = 'Terminating job.'):
-        params = {
-            'jobId': job_id,
-            'reason': reason
-        }
-        response = self.client.terminate_job(**params)
-        return response
-
-    def describe_jobs(self, jobs: list):
-        response = self.client.describe_jobs(jobs=jobs)
-        if response:
-            return response.get('jobs', [])
-        return []
-
-    def get_job_definition_by_name(self, job_def_name):
-        _LOG.debug(f'Retrieving last job definition with name {job_def_name}')
-        return self.client.describe_job_definitions(
-            jobDefinitionName=job_def_name, status='ACTIVE',
-            maxResults=1)['jobDefinitions']
-
-    def create_job_definition(self, job_def_name, image_url, command, platform,
-                              job_role_arn=None, resource_requirements=None):
-        return self.client.register_job_definition(
-            jobDefinitionName=job_def_name, type='container',
-            containerProperties={
-                'image': image_url, 'command': command,
-                'jobRoleArn': job_role_arn,
-                'resourceRequirements': resource_requirements,
-            },
-            platformCapabilities=platform
+    @classmethod
+    def build(cls) -> 'BatchClient':
+        return cls(
+            environment_service=SP.environment_service,
+            sts_client=SP.sts
         )
 
-    def create_job_definition_from_existing_one(self, job_def, image_url):
-        job_def_name = job_def['jobDefinitionName']
-        properties = job_def['containerProperties']
-        if not properties:
-            _LOG.debug('No containerProperties field in the last job '
-                       'definition - cannot specify command, jobRoleArn')
-            return None
-        command = properties['command']
-        job_role_arn = properties['jobRoleArn']
-        resource_requirements = properties['resourceRequirements']
-        platform = job_def['platformCapabilities']
-        return self.create_job_definition(
-            job_def_name=job_def_name, image_url=image_url, command=command,
-            platform=platform, job_role_arn=job_role_arn,
-            resource_requirements=resource_requirements)
+    def get_job(self, job_id: str) -> BatchJob | None:
+        response = self.client.describe_jobs(jobs=[job_id])
+        return next(iter(response.get('jobs') or []), None)
 
     def build_queue_arn(self, queue_name: str) -> str:
         """
@@ -122,8 +73,21 @@ class BatchClient:
         # the service is not properly configured
         return job_definitions[0]['jobDefinitionArn']
 
+    def get_job_definition_by_name(self, job_def_name):
+        _LOG.debug(f'Retrieving last job definition with name {job_def_name}')
+        return self.client.describe_job_definitions(
+            jobDefinitionName=job_def_name, status='ACTIVE',
+            maxResults=1)['jobDefinitions']
+
+    def terminate_job(self, job_id: str, reason: str = 'Terminating job.'):
+        response = self.client.terminate_job(
+            jobId=job_id,
+            reason=reason
+        )
+        return response
+
     @staticmethod
-    def build_container_overrides(command: Union[str, list] = None,
+    def build_container_overrides(command: str | list = None,
                                   environment: dict = None,
                                   titled: bool = False) -> dict:
         """
@@ -145,3 +109,93 @@ class BatchClient:
         if titled:
             result = title_keys(result)
         return result
+
+    def submit_job(self, job_name: str, job_queue: str, job_definition: str,
+                   command: str = None, size: int = None,
+                   depends_on: list = None,
+                   parameters=None, retry_strategy: int = None,
+                   timeout: int = None, environment_variables: dict = None
+                   ) -> BatchJob:
+
+        params = {
+            'jobName': job_name,
+            'jobQueue': job_queue,
+            'jobDefinition': job_definition,
+        }
+        if size:
+            params['arrayProperties'] = {'size': size}
+        if depends_on:
+            params['dependsOn'] = depends_on
+        if parameters:
+            params['parameters'] = parameters
+        if retry_strategy:
+            params['retryStrategy'] = {'attempts': retry_strategy}
+        if timeout:
+            params['timeout'] = {'attemptDurationSeconds': timeout}
+        container_overrides = self.build_container_overrides(
+            command=command,
+            environment=environment_variables
+        )
+        params.update(container_overrides)
+        return self.client.submit_job(**params)
+
+
+@dataclasses.dataclass(slots=True, repr=False, frozen=True)
+class _Job:
+    id: str
+    name: str
+    process: subprocess.Popen
+    started_at: int = dataclasses.field(
+        default_factory=lambda: utc_datetime().timestamp() * 1e3
+    )
+
+    def serialize(self) -> BatchJob:
+        return {
+            'jobId': self.id,
+            'startedAt': self.started_at,
+            'jobName': self.name
+        }
+
+
+class SubprocessBatchClient:
+    def __init__(self):
+        self._jobs: dict[str, _Job] = {}  # job_id to Job
+
+    @classmethod
+    def build(cls) -> 'SubprocessBatchClient':
+        return cls()
+
+    def submit_job(self, environment_variables: dict = None,
+                   job_name: str = None, **kwargs
+                   ) -> BatchJob:
+        environment_variables = environment_variables or {}
+        # self.check_ability_to_start_job()
+
+        # Popen raises TypeError in case there is an env where value is None
+        job_id = str(uuid.uuid4())
+        environment_variables[BatchJobEnv.JOB_ID] = job_id
+        environment_variables[
+            BatchJobEnv.SUBMITTED_AT] = utc_iso()  # for scheduled jobs
+        env = {**os.environ, **environment_variables}
+        process = subprocess.Popen([
+            sys.executable,
+            (Path(__file__).parent.parent.parent / 'run.py').resolve()
+        ], env=env, shell=False)
+        job = _Job(
+            id=job_id,
+            process=process,
+            name=job_name
+        )
+        self._jobs[job_id] = job  # MOVE TODO think how to gc
+        return job.serialize()
+
+    def terminate_job(self, job_id: str, **kwargs):
+        if job_id not in self._jobs:
+            return
+        job = self._jobs.pop(job_id)
+        job.process.kill()
+
+    def get_job(self, job_id: str) -> BatchJob | None:
+        job = self._jobs.get(job_id)
+        if job:
+            return job.serialize()

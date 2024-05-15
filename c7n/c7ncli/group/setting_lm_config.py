@@ -1,5 +1,6 @@
 import click
-from c7ncli.group import cli_response, ViewCommand, ContextObj
+
+from c7ncli.group import ContextObj, ViewCommand, cli_response
 
 
 @click.group(name='config')
@@ -9,7 +10,7 @@ def config():
 
 @config.command(cls=ViewCommand, name='describe')
 @cli_response()
-def describe(ctx: ContextObj):
+def describe(ctx: ContextObj, customer_id):
     """
     Describes current License Manager access configuration data
     """
@@ -23,7 +24,7 @@ def describe(ctx: ContextObj):
               help='License Manager host. You can specify the full url here')
 @click.option('--port', '-p', type=int,
               help='License Manager port.', required=False)
-@click.option('--protocol', '-pr', type=click.Choice(['HTTP', 'HTTPS']),
+@click.option('--protocol', '-pr', type=click.Choice(('HTTP', 'HTTPS')),
               help='License manager protocol')
 @click.option('--stage', '-st', type=str,
               help='Path prefix')
@@ -39,7 +40,7 @@ def add(ctx: ContextObj, **kwargs):
 @config.command(cls=ViewCommand, name='delete')
 @click.option('--confirm', is_flag=True, help='Confirms the action.')
 @cli_response()
-def delete(ctx: ContextObj, confirm: bool):
+def delete(ctx: ContextObj, confirm: bool, customer_id):
     """
     Removes current License Manager access configuration data
     """

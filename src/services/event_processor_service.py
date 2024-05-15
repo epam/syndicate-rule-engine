@@ -2,21 +2,17 @@ import json
 from abc import ABC
 from functools import cached_property
 from typing import Optional, Dict, Iterator, List, Generator, Tuple, Set, \
-    Union, Iterable
+    Iterable
 
 from helpers import deep_get, deep_set
 from helpers.constants import AWS_VENDOR, MAESTRO_VENDOR, AZURE_CLOUD_ATTR, \
-    AZURE_ULTIMATE_REGION, GOOGLE_CLOUD_ATTR, GOOGLE_ULTIMATE_REGION
+    S3SettingKey, GOOGLE_CLOUD_ATTR, GLOBAL_REGION
 from helpers.log_helper import get_logger
 from services.clients.sts import StsClient
 from services.environment_service import EnvironmentService
-from services.rule_meta_service import LazyLoadedMappingsCollector
+from services.mappings_collector import LazyLoadedMappingsCollector
 from services.s3_settings_service import S3SettingsService, \
-    S3_KEY_EVENT_BRIDGE_EVENT_SOURCE_TO_RULES_MAPPING, \
-    S3_KEY_MAESTRO_SUBGROUP_ACTION_TO_AZURE_EVENTS_MAPPING, \
-    S3SettingsServiceLocalWrapper, \
-    S3_KEY_MAESTRO_SUBGROUP_ACTION_TO_GOOGLE_EVENTS_MAPPING
-
+    S3SettingsServiceLocalWrapper
 _LOG = get_logger(__name__)
 
 # CloudTrail event
@@ -48,18 +44,6 @@ MA_TENANT_NAME = 'tenantName'
 MA_REGION_NAME = 'regionName'
 MA_REQUEST = 'request'
 
-# EventBridge does not have "Records" but we still use it to keep a list
-# of EventBridge events.
-RECORDS = CT_RECORDS
-
-STATISTICS_NUMBER_OF_PROCESSED = 'n_pr'
-STATISTICS_NUMBER_OF_SKIPPED = 'n_sk'
-STATISTICS_PROCESSED = 'pr'
-STATISTICS_SKIPPED = 'sk'
-STATISTICS_ACTIVITY = 'a'
-STATISTICS_MAPPING = 's'
-STATISTICS_UNKNOWN = 'unknown'
-
 # --AWS--
 RegionRuleMap = Dict[str, Set[str]]
 AccountRegionRuleMap = Dict[str, RegionRuleMap]  # Account means Tenant.project
@@ -68,9 +52,6 @@ AccountRegionRuleMap = Dict[str, RegionRuleMap]  # Account means Tenant.project
 # --MAESTRO--
 CloudTenantRegionRulesMap = Dict[str, Dict[str, Dict[str, Set[str]]]]
 # --MAESTRO--
-
-
-Stats = Dict[str, Dict[str, Dict[str, Union[int, Dict, List]]]]
 
 DEV = '323549576358'
 
@@ -117,7 +98,6 @@ class BaseEventProcessor(ABC):
         self.mappings_collector = mappings_collector
 
         self._events: List[Dict] = []
-        self._stats: Stats = {}
 
     @property
     def ct_mapping(self) -> dict:
@@ -130,48 +110,11 @@ class BaseEventProcessor(ABC):
         :return:
         """
         return self.s3_settings_service.get(
-            S3_KEY_EVENT_BRIDGE_EVENT_SOURCE_TO_RULES_MAPPING
+            S3SettingKey.EVENT_BRIDGE_EVENT_SOURCE_TO_RULES_MAPPING
         )
-
-    @property
-    def stats(self) -> Stats:
-        return self._stats
-
-    def update_stats(self, account_id: Optional[str] = None,
-                     region: Optional[str] = None,
-                     processed: Optional[List[dict]] = None,
-                     skipped: Optional[List[dict]] = None) -> None:
-        processed = processed or []
-        skipped = skipped or []
-        account_id = account_id or STATISTICS_UNKNOWN
-        region = region or STATISTICS_UNKNOWN
-        self._stats.setdefault(account_id, {})
-        _region_scope = self._stats[account_id].setdefault(region, {
-            STATISTICS_NUMBER_OF_SKIPPED: 0, STATISTICS_NUMBER_OF_PROCESSED: 0,
-            STATISTICS_SKIPPED: [], STATISTICS_PROCESSED: {}
-        })
-        _region_scope[STATISTICS_NUMBER_OF_PROCESSED] += len(processed)
-        _region_scope[STATISTICS_NUMBER_OF_SKIPPED] += len(skipped)
-        if self.environment_service.is_event_statistics_verbose():
-            _region_scope[STATISTICS_SKIPPED].extend(skipped)
-
-            # TODO rethink the code below in order to make a more humane structure ?
-            for record in processed:
-                key = None
-                if EventProcessorService.is_cloudtrail_record(record):
-                    key = f'ct#{record.get(CT_EVENT_SOURCE)}:{record.get(CT_EVENT_NAME)}'
-                elif EventProcessorService.is_eventbridge_record(record):
-                    if CloudTrail.is_cloudtrail_api_call(record):
-                        key = f'eb:ct#{deep_get(record, (EB_DETAIL, CT_EVENT_SOURCE))}:{deep_get(record, (EB_DETAIL, CT_EVENT_NAME))}'
-                    else:
-                        key = f'eb#{record.get(EB_EVENT_SOURCE)}:{record.get(EB_DETAIL_TYPE)}'
-                if key:
-                    _region_scope[STATISTICS_PROCESSED].setdefault(key, 0)
-                    _region_scope[STATISTICS_PROCESSED][key] += 1
 
     def clear(self):
         self._events = []
-        self._stats.clear()
 
     @property
     def events(self) -> List[Dict]:
@@ -235,7 +178,6 @@ class BaseEventProcessor(ABC):
         for i in it:
             d = cls.digest(i)
             if d in emitted:
-                _LOG.warning(f'Omitting the {i} because it`s a duplicate ')
                 continue
             emitted.add(d)
             yield i
@@ -333,7 +275,7 @@ class MaestroEventProcessor(BaseEventProcessor):
     @property
     def maestro_azure_mapping(self) -> dict:
         return self.s3_settings_service.get(
-            S3_KEY_MAESTRO_SUBGROUP_ACTION_TO_AZURE_EVENTS_MAPPING
+            S3SettingKey.MAESTRO_SUBGROUP_ACTION_TO_AZURE_EVENTS_MAPPING
         )
 
     @property
@@ -343,7 +285,7 @@ class MaestroEventProcessor(BaseEventProcessor):
     @property
     def maestro_google_mapping(self) -> dict:
         return self.s3_settings_service.get(
-            S3_KEY_MAESTRO_SUBGROUP_ACTION_TO_GOOGLE_EVENTS_MAPPING
+            S3SettingKey.MAESTRO_SUBGROUP_ACTION_TO_GOOGLE_EVENTS_MAPPING
         )
 
     def cloud_tenant_region_rules(
@@ -362,13 +304,12 @@ class MaestroEventProcessor(BaseEventProcessor):
             #  to process AWS maestro audit events we should remap the
             #  maestro region to native name. For AZURE we can just ignore it
             if cloud == AZURE_CLOUD_ATTR:
-                region = AZURE_ULTIMATE_REGION
+                region = GLOBAL_REGION
             elif cloud == GOOGLE_CLOUD_ATTR:
-                region = GOOGLE_ULTIMATE_REGION
+                region = GLOBAL_REGION
             else:
                 region = deep_get(event, (MA_REGION_NAME,))
-            if not all([cloud, tenant, region]):
-                _LOG.warning(f'Skipping event: {event}')
+            if not all((cloud, tenant, region)):
                 continue
             rules = self.get_rules(event, cloud.upper())
             yield cloud.upper(), tenant, region, rules
@@ -465,14 +406,10 @@ class EventBridgeEventProcessor(BaseEventProcessor):
             account_id = self.get_account_id(record=event)
             region = self.get_region(record=event)
             rules = self.get_rules(record=event)
-            if not all([account_id, region, rules]):
-                self.update_stats(account_id=account_id, region=region,
-                                  skipped=[event])
+            if not all((account_id, region, rules)):
                 continue
             _account_scope = ref.setdefault(account_id, {})
             _account_scope.setdefault(region, set()).update(rules)
-            self.update_stats(account_id=account_id, region=region,
-                              processed=[event])
         return ref
 
     @staticmethod
@@ -501,64 +438,3 @@ class EventBridgeEventProcessor(BaseEventProcessor):
         #  make, but it would be better to use EB detail-type here
         source = record.get(EB_EVENT_SOURCE)
         return set(self.eb_mapping.get(source) or [])
-
-
-class CloudTrailEventProcessor(BaseEventProcessor):
-    params_to_keep = (
-        (CT_REGION,),
-        (CT_USER_IDENTITY, CT_ACCOUNT_ID),
-        (CT_EVENT_SOURCE,),
-        (CT_EVENT_NAME,),
-        (CT_RESOURCES,)
-    )
-
-    def __init__(self, s3_settings_service: S3SettingsService,
-                 environment_service: EnvironmentService,
-                 sts_client: StsClient,
-                 mappings_collector: LazyLoadedMappingsCollector):
-        super().__init__(
-            s3_settings_service,
-            environment_service,
-            sts_client,
-            mappings_collector
-        )
-        self.keep_where = {
-            (CT_EVENT_SOURCE,): set(self.ct_mapping.keys()),
-            (CT_EVENT_NAME,): {
-                name for values in self.ct_mapping.values() for name in values
-            }
-        }
-        account_id = self.sts_client.get_account_id()
-        self.skip_where = {
-            ('readOnly',): {True, },
-            # here we put event sources and names which we cannot process
-        }
-        if account_id != DEV:
-            self.skip_where[(CT_USER_IDENTITY, CT_ACCOUNT_ID)] = {account_id, }
-
-    @property
-    def account_region_rule_map(self) -> AccountRegionRuleMap:
-        ref = {}
-        for record in self.i_records:
-            _skip_record = False
-            account_id = CloudTrail.get_account_id(record=record)
-            if not account_id:
-                _skip_record = True
-
-            region = CloudTrail.get_region(record=record)
-            if not region:
-                _skip_record = True
-
-            rules = CloudTrail.get_rules(record=record,
-                                         mapping=self.ct_mapping)
-            if not rules:
-                _skip_record = True
-            if _skip_record:
-                self.update_stats(account_id=account_id, region=region,
-                                  skipped=[record])
-                continue
-            _account_scope = ref.setdefault(account_id, {})
-            _account_scope.setdefault(region, set()).update(rules)
-            self.update_stats(account_id=account_id, region=region,
-                              processed=[record])
-        return ref

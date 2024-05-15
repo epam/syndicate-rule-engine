@@ -1,7 +1,6 @@
 services
 helpers
 models
-connections
-integrations
 validators
 handlers
+scheduler

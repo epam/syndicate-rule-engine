@@ -1,64 +1,96 @@
-import json
-import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
-from typing import Union, Dict, List, Tuple
-from uuid import uuid4
-
-from dateutil.relativedelta import relativedelta, SU
-from modular_sdk.commons import ModularException
-from modular_sdk.commons.constants import ApplicationType
-from modular_sdk.commons.constants import RABBITMQ_TYPE
-from modular_sdk.services.impl.maestro_rabbit_transport_service import \
-    MaestroRabbitMQTransport
+import inspect
+from functools import cached_property
 from http import HTTPStatus
-from helpers import raise_error_response, get_logger, build_response, \
-    filter_dict
-from helpers.constants import HTTP_METHOD_ERROR, CUSTOMER_ATTR, END_DATE, \
-    PARAM_REQUEST_PATH, PARAM_HTTP_METHOD, ACTION_PARAM_ERROR, \
-    RULE_TYPE, OVERVIEW_TYPE, RESOURCES_TYPE, COMPLIANCE_TYPE, \
-    TENANT_DISPLAY_NAME_ATTR, DATA_ATTR, ATTACK_VECTOR_TYPE, START_DATE, \
-    TENANT_NAMES_ATTR, TENANT_DISPLAY_NAMES_ATTR, TACTICS_ID_MAPPING, \
-    FINOPS_TYPE, HTTPMethod, OUTDATED_TENANTS
+import json
+from typing import Mapping, TYPE_CHECKING
+
+from modular_sdk.commons.constants import ApplicationType
+from modular_sdk.commons.exception import ModularException
+from modular_sdk.models.application import Application
+from modular_sdk.models.tenant import Tenant
+from modular_sdk.modular import Modular
+
+from helpers import RequestContext, filter_dict
+from helpers.constants import (
+    ATTACK_VECTOR_TYPE,
+    COMPLIANCE_TYPE,
+    CUSTOMER_ATTR,
+    CustodianEndpoint,
+    DATA_ATTR,
+    END_DATE,
+    FINOPS_TYPE,
+    HTTPMethod,
+    OUTDATED_TENANTS,
+    OVERVIEW_TYPE,
+    RESOURCES_TYPE,
+    ReportDispatchStatus,
+    RuleDomain,
+    START_DATE,
+    TACTICS_ID_MAPPING,
+    TENANT_DISPLAY_NAME_ATTR,
+)
 from helpers.difference import calculate_dict_diff
+from helpers.lambda_response import (
+    CustodianException,
+    ReportNotSendException,
+    ResponseFactory,
+    build_response,
+)
+from helpers.log_helper import get_logger, hide_secret_values
 from helpers.time_helper import utc_datetime
-from models.licenses import License
-from models.modular.application import CustodianLicensesApplicationMeta
+from lambdas.custodian_report_generation_handler.handlers.diagnostic_handler import (
+    DiagnosticHandler,
+)
+from lambdas.custodian_report_generation_handler.handlers.operational_handler import (
+    OperationalHandler,
+)
+from lambdas.custodian_report_generation_handler.handlers.retry_handler import (
+    RetryHandler,
+)
+from models.batch_results import BatchResults
 from services import SERVICE_PROVIDER
-from services.abstract_api_handler_lambda import AbstractApiHandlerLambda
-from services.abstract_lambda import AbstractLambda
+from services.abs_lambda import (
+    ApiGatewayEventProcessor,
+    CheckPermissionEventProcessor,
+    EventProcessorLambdaHandler,
+    ExpandEnvironmentEventProcessor,
+    ProcessedEvent,
+    RestrictCustomerEventProcessor,
+    RestrictTenantEventProcessor,
+)
 from services.batch_results_service import BatchResultsService
 from services.clients.s3 import S3Client
 from services.environment_service import EnvironmentService
-from services.license_service import LicenseService
+from services.license_service import License, LicenseService
+from services.mappings_collector import LazyLoadedMappingsCollector
 from services.metrics_service import CustomerMetricsService
 from services.metrics_service import TenantMetricsService
-from services.modular_service import ModularService
+from services.modular_helpers import get_tenant_regions
 from services.rabbitmq_service import RabbitMQService
-from services.rule_meta_service import LazyLoadedMappingsCollector
+from services.report_statistics_service import ReportStatisticsService
+from services.reports_bucket import TenantReportsBucketKeysBuilder
+from services.ruleset_service import RulesetService
 from services.setting_service import SettingsService
+from services.sharding import ShardsCollection, ShardsCollectionFactory, ShardsS3IO
+from validators.registry import permissions_mapping
+from validators.swagger_request_models import (
+    CLevelGetReportModel,
+    DepartmentGetReportModel,
+    ProjectGetReportModel,
+)
+from validators.utils import validate_kwargs
 
-ACCOUNT_METRICS_PATH = '{customer}/accounts/{date}/{account_id}.json'
+if TYPE_CHECKING:
+    from scheduler import APJobScheduler
+
 TENANT_METRICS_PATH = '{customer}/tenants/{date}/{tenant_dn}.json'
-
 COMMAND_NAME = 'SEND_MAIL'
-TYPES_ATTR = 'types'
-RECIEVERS_ATTR = 'recievers'
+ED_API_ENDPOINT = '/reports/event_driven'
 
 EVENT_DRIVEN_TYPE = {'maestro': 'CUSTODIAN_EVENT_DRIVEN_RESOURCES_REPORT',
                      'custodian': 'EVENT_DRIVEN'}
-OVERVIEW_REPORT_TYPE = {'maestro': 'CUSTODIAN_OVERVIEW_REPORT',
-                        'custodian': 'OVERVIEW'}
-RULES_REPORT_TYPE = {'maestro': 'CUSTODIAN_RULES_REPORT',
-                     'custodian': 'RULE'}
-COMPLIANCE_REPORT_TYPE = {'maestro': 'CUSTODIAN_COMPLIANCE_REPORT',
-                          'custodian': 'COMPLIANCE'}
-RESOURCES_REPORT_TYPE = {'maestro': 'CUSTODIAN_RESOURCES_REPORT',
-                         'custodian': 'RESOURCES'}
-ATTACK_REPORT_TYPE = {'maestro': 'CUSTODIAN_ATTACKS_REPORT',
-                      'custodian': 'ATTACK_VECTOR'}
-FINOPS_REPORT_TYPE = {'maestro': 'CUSTODIAN_FINOPS_REPORT',
-                      'custodian': 'FINOPS'}
 PROJECT_OVERVIEW_REPORT_TYPE = {'maestro': 'CUSTODIAN_PROJECT_OVERVIEW_REPORT',
                                 'custodian': 'OVERVIEW'}
 PROJECT_RESOURCES_REPORT_TYPE = {
@@ -98,78 +130,188 @@ CLOUDS = ['aws', 'azure', 'google']
 _LOG = get_logger(__name__)
 
 
-class ReportGenerator(AbstractApiHandlerLambda):
+class ReportGenerator(EventProcessorLambdaHandler):
+    handlers = (
+        OperationalHandler,
+        DiagnosticHandler,
+        RetryHandler
+    )
+    processors = (
+        ExpandEnvironmentEventProcessor.build(),
+        ApiGatewayEventProcessor(permissions_mapping),
+        RestrictCustomerEventProcessor.build(),
+        CheckPermissionEventProcessor.build(),
+        RestrictTenantEventProcessor.build()
+    )
+
     def __init__(self, s3_service: S3Client,
                  environment_service: EnvironmentService,
                  settings_service: SettingsService,
-                 modular_service: ModularService,
+                 modular_client: Modular,
                  tenant_metrics_service: TenantMetricsService,
                  customer_metrics_service: CustomerMetricsService,
                  license_service: LicenseService,
-                 batch_results_service: BatchResultsService,
                  rabbitmq_service: RabbitMQService,
-                 mappings_collector: LazyLoadedMappingsCollector):
+                 batch_results_service: BatchResultsService,
+                 mappings_collector: LazyLoadedMappingsCollector,
+                 report_statistics_service: ReportStatisticsService,
+                 ap_job_scheduler: 'APJobScheduler',
+                 ruleset_service: RulesetService):
         self.s3_service = s3_service
         self.environment_service = environment_service
         self.settings_service = settings_service
-        self.modular_service = modular_service
+        self.modular_client = modular_client
         self.tenant_metrics_service = tenant_metrics_service
         self.customer_metrics_service = customer_metrics_service
         self.license_service = license_service
         self.batch_results_service = batch_results_service
         self.rabbitmq_service = rabbitmq_service
+        self.report_statistics_service = report_statistics_service
         self.mappings_collector = mappings_collector
-
-        self.REQUEST_PATH_HANDLER_MAPPING = {
-            '/reports/operational': {
-                HTTPMethod.GET: self.generate_operational_reports
-            },
-            '/reports/project': {
-                HTTPMethod.GET: self.generate_project_reports
-            },
-            '/reports/department': {
-                HTTPMethod.GET: self.generate_department_reports
-            },
-            '/reports/clevel': {
-                HTTPMethod.GET: self.generate_c_level_reports
-            },
-            '/reports/event_driven': {
-                HTTPMethod.GET: self.generate_event_driven_reports
-            }
-        }
+        self.ap_job_scheduler = ap_job_scheduler
+        self.ruleset_service = ruleset_service
 
         self.customer_license_mapping = {}
         self.customer_tenant_mapping = {}
         self.current_month = datetime.today().replace(day=1).date()
 
-    def handle_request(self, event, context):
-        request_path = event[PARAM_REQUEST_PATH]
-        method_name = event[PARAM_HTTP_METHOD]
-        handler_function = self.REQUEST_PATH_HANDLER_MAPPING.get(request_path)
-        if not handler_function:
-            return build_response(
-                code=HTTPStatus.BAD_REQUEST.value,
-                content=ACTION_PARAM_ERROR.format(endpoint=request_path)
-            )
-        handler_func = handler_function.get(method_name)
-        response = None
-        if handler_func:
-            response = handler_func(event=event)
-        return response or build_response(
-            code=HTTPStatus.BAD_REQUEST.value,
-            content=HTTP_METHOD_ERROR.format(
-                method=method_name, resource=request_path
-            )
+    def lambda_handler(self, event: dict, context: RequestContext):
+        """
+        Overriding lambda handler for this specific lambda because it
+        requires some additional exceptions handling logic
+        :param event:
+        :param context:
+        :return:
+        """
+        _LOG.info(f'Starting request: {context.aws_request_id}')
+        # This is the only place where we print the event. Do not print it
+        # somewhere else
+        _LOG.debug('Incoming event')
+        _LOG.debug(json.dumps(hide_secret_values(event)))
+
+        try:
+            processed, context = self._process_event(event, context)
+            return self.handle_request(event=processed, context=context)
+        except ModularException as e:
+            _LOG.warning('Modular exception occurred', exc_info=True)
+            return ResponseFactory(int(e.code)).message(e.content).build()
+        except ReportNotSendException as e:
+            _LOG.warning('Send report error occurred. '
+                         'Re-raising it so that step function could catch',
+                         exc_info=True)
+            # ReportNotSendException won't be raised in _process_event.
+            # Can cast, can be sure it'll exist
+            raise e
+        except TimeoutError as e:
+            _LOG.warning('Timeout error occurred. Probably retry')
+            raise e
+        except CustodianException as e:
+            _LOG.warning(f'Application exception occurred: {e}')
+            return e.build()
+        except Exception:  # noqa
+            _LOG.exception('Unexpected exception occurred')
+            return ResponseFactory(
+                HTTPStatus.INTERNAL_SERVER_ERROR
+            ).default().build()
+
+    @classmethod
+    def build(cls) -> 'ReportGenerator':
+        return cls(
+            environment_service=SERVICE_PROVIDER.environment_service,
+            settings_service=SERVICE_PROVIDER.settings_service,
+            s3_service=SERVICE_PROVIDER.s3,
+            modular_client=SERVICE_PROVIDER.modular_client,
+            tenant_metrics_service=SERVICE_PROVIDER.tenant_metrics_service,
+            customer_metrics_service=SERVICE_PROVIDER.customer_metrics_service,
+            license_service=SERVICE_PROVIDER.license_service,
+            batch_results_service=SERVICE_PROVIDER.batch_results_service,
+            rabbitmq_service=SERVICE_PROVIDER.rabbitmq_service,
+            mappings_collector=SERVICE_PROVIDER.mappings_collector,
+            report_statistics_service=SERVICE_PROVIDER.report_statistics_service,
+            ap_job_scheduler=SERVICE_PROVIDER.ap_job_scheduler,
+            ruleset_service=SERVICE_PROVIDER.ruleset_service
         )
 
-    def generate_event_driven_reports(self, event):
+    @cached_property
+    def mapping(self) -> Mapping:
+        data = {
+            CustodianEndpoint.REPORTS_PROJECT: {
+                HTTPMethod.POST: self.generate_project_reports
+            },
+            CustodianEndpoint.REPORTS_DEPARTMENT: {
+                HTTPMethod.POST: self.generate_department_reports
+            },
+            CustodianEndpoint.REPORTS_CLEVEL: {
+                HTTPMethod.POST: self.generate_c_level_reports
+            },
+            CustodianEndpoint.REPORTS_EVENT_DRIVEN: {
+                HTTPMethod.GET: self.generate_event_driven_reports
+            },
+        }
+        for handler in self.handlers:
+            data.update(handler.build().mapping)
+        return data
+
+    def handle_request(self, event: ProcessedEvent, context: RequestContext):
+        func = self.mapping.get(event['resource'], {}).get(event['method'])
+        if not func:
+            raise ResponseFactory(HTTPStatus.NOT_FOUND).default().exc()
+        stat_item = self.report_statistics_service.create_from_processed_event(
+            event=event
+        )
+        if not self.settings_service.get_send_reports():
+            _LOG.debug('Saving report item with PENDING status because '
+                       'sending reports is disabled')
+            stat_item.status = ReportDispatchStatus.PENDING.value
+            self.report_statistics_service.save(stat_item)
+            return build_response(
+                code=HTTPStatus.OK,
+                content='The ability to send reports is disabled. Your '
+                        'request has been queued and will be sent after a '
+                        'while.'
+            )
+
+        match event['method']:
+            case HTTPMethod.GET:
+                body = event['query']
+            case _:
+                body = event['body']
+        params = dict(event=body, context=context, **event['path_params'])
+        parameters = inspect.signature(func).parameters
+        if '_pe' in parameters:
+            # pe - Processed Event: in case we need to access some raw data
+            # inside a handler.
+            _LOG.debug('Expanding handler payload with raw event')
+            params['_pe'] = event
+        if '_tap' in parameters:
+            # _tap - in case we need to know what tenants are allowed
+            # inside a specific handler
+            _LOG.debug('Expanding handler payload with tenant access data')
+            params['_tap'] = event['tenant_access_payload']
+        # add event['additional_kwargs'] support if needed
+
+        try:
+            response = func(**params)
+            stat_item.status = ReportDispatchStatus.SUCCEEDED.value
+            self.report_statistics_service.save(stat_item)
+            return response
+        except (ReportNotSendException, CustodianException) as e:
+            self.report_statistics_service.create_failed(
+                event=event,
+                exception=e
+            )
+            raise e
+        except Exception as e:
+            stat_item.status = ReportDispatchStatus.FAILED.value
+            stat_item.reason = str(e)
+            self.report_statistics_service.save(stat_item)
+            raise e
+
+    def generate_event_driven_reports(self, event, context):
         licenses = self.license_service.get_event_driven_licenses()
-        if not licenses:
-            return build_response('There are no active event-driven licenses. '
-                                  'Cannot build event-driven report')
         for l in licenses:
             _LOG.debug(f'Processing license {l.license_key}')
-            quota = l.event_driven.quota
+            quota = l.event_driven.get('quota')
             if not quota:
                 _LOG.warning(
                     f'There is no quota for ED notifications in license '
@@ -177,15 +319,15 @@ class ReportGenerator(AbstractApiHandlerLambda):
                 continue
             start_date, end_date = self._get_period(quota)
             if datetime.utcnow().timestamp() < end_date.timestamp() or (
-                    l.event_driven.last_execution and
-                    start_date.isoformat() <= l.event_driven.last_execution <= end_date.isoformat()):
+                    l.event_driven.get('last_execution') and
+                    start_date.isoformat() <= l.event_driven.get('last_execution') <= end_date.isoformat()):
                 _LOG.debug(f'Skipping ED report for license {l.license_key}: '
                            f'timestamp now: {datetime.now().isoformat()}; '
                            f'expected end timestamp: {end_date.isoformat()}')
                 continue
             _LOG.debug(f'Start timestamp: {start_date.isoformat()}; '
                        f'end timestamp {end_date.isoformat()}')
-            for customer, data in l.customers.as_dict().items():
+            for customer, data in l.customers.items():
                 _LOG.debug(f'Processing customer {customer}')
                 tenants = data.get('tenants')
                 if customer not in self.customer_license_mapping:
@@ -195,7 +337,7 @@ class ReportGenerator(AbstractApiHandlerLambda):
                         set(tenants))
                     self.customer_license_mapping[customer][
                         START_DATE] = start_date.replace(
-                        tzinfo=None).isoformat()
+                        tzinfo=None).isoformat()  # SHARDS TODO why?
                     self.customer_license_mapping[customer][
                         END_DATE] = end_date.replace(tzinfo=None).isoformat()
                     self.customer_license_mapping[customer]['license'] = l
@@ -203,204 +345,116 @@ class ReportGenerator(AbstractApiHandlerLambda):
         if not self.customer_license_mapping or not any(
                 self.customer_license_mapping.values()):
             return build_response(
-                f'There are no any active event-driven licenses')
+                f'There are no any active event-driven licenses'
+            )
 
         for customer, info in self.customer_license_mapping.items():
             self.customer_tenant_mapping[customer] = {}
-            results = self.batch_results_service.get_between_period_by_customer(
-                customer_name=customer, tenants=info['tenants'],
-                start=info[START_DATE], end=info[END_DATE], limit=100
+            results = self.batch_results_service.get_by_customer_name(
+                customer_name=customer,
+                start=utc_datetime(info[START_DATE]),
+                end=utc_datetime(info[END_DATE]),
+                limit=100,
+                filter_condition=BatchResults.tenant_name.is_in(*info['tenants'])
             )
             for item in results:
                 self.customer_tenant_mapping[customer].setdefault(
-                    item.tenant_name, []).append(item.id)
-
+                    item.tenant_name, []).append(item)
         if not self.customer_tenant_mapping or not any(
                 self.customer_tenant_mapping.values()):
+            # probably no need
             return build_response(
                 f'There are no event-driven jobs for period '
                 f'{start_date.isoformat()} to {end_date.isoformat()}')
 
         for customer, tenants in self.customer_tenant_mapping.items():
-            rabbitmq = self.get_customer_rabbitmq(customer)
+            rabbitmq = self.rabbitmq_service.get_customer_rabbitmq(customer)
             if not rabbitmq:
                 continue
-
             bucket_name = self.environment_service.default_reports_bucket_name()
-            with ThreadPoolExecutor() as executor:
-                for tenant, items in tenants.items():
-                    _LOG.debug(f'Processing {len(items)} ED scan(s) of '
-                               f'{tenant} tenant')
-                    futures = []
-                    tenant_item = next(self.modular_service.i_get_tenant(
-                        [tenant]), None)
-                    futures.append(executor.submit(self._process, bucket_name,
-                                                   items))
+            for tenant_name, results in tenants.items():
+                _LOG.debug(f'Processing {len(results)} ED scan(s) of '
+                           f'{tenant_name} tenant')
+                tenant_item = self.modular_client.tenant_service().get(tenant_name)
+
+                collections = []
+                with ThreadPoolExecutor() as ex:
+                    futures = [ ex.submit(self._fetch_difference, tenant_item, bucket_name, result) for result in results ]
                     for future in as_completed(futures):
-                        new_resources = future.result()
-                        if not new_resources:
-                            _LOG.warning(
-                                f'No new resources for tenant {tenant}')
-                            continue
-                        mitre_data = self._retrieve_mitre_data(new_resources)
+                        collections.append(future.result())
+                latest = ShardsCollectionFactory.from_tenant(tenant_item)
+                latest.io = ShardsS3IO(
+                    bucket=bucket_name,
+                    key=TenantReportsBucketKeysBuilder(tenant_item).latest_key(),
+                    client=self.s3_service
+                )
+                latest.fetch_meta()
+                new_resources = self.merge_collections(
+                    collections, latest.meta
+                )
+                if not new_resources:
+                    _LOG.warning(
+                        f'No new resources for tenant {tenant_name}')
+                    continue
+                mitre_data = self._retrieve_mitre_data(new_resources)
 
-                        data = {
-                            'customer': customer,
-                            'tenant_name': tenant,
-                            'cloud': tenant_item.cloud,
-                            'id': tenant_item.project,
-                            'activated_regions': list(
-                                self.modular_service.get_tenant_regions(
-                                    tenant_item)),
-                            'data': {
-                                'policy_data': new_resources,
-                                'mitre_data': mitre_data
-                            },
-                            'from': self.customer_license_mapping[customer][
-                                START_DATE],
-                            'to': self.customer_license_mapping[customer][
-                                END_DATE]
-                        }
-                        _LOG.debug(f'Data: {data}')
-                        json_model = self._build_json_model(
-                            EVENT_DRIVEN_TYPE['maestro'],
-                            {**data,
-                             'report_type': EVENT_DRIVEN_TYPE['custodian']})
-                        self._send_notification_to_m3(json_model, rabbitmq)
-                        _LOG.debug(f'Notification for {tenant} tenant was '
-                                   f'successfully send')
+                data = {
+                    'customer': customer,
+                    'tenant_name': tenant_name,
+                    'cloud': tenant_item.cloud,
+                    'id': tenant_item.project,
+                    'activated_regions': list(get_tenant_regions(tenant_item)),
+                    'data': {
+                        'policy_data': new_resources,
+                        'mitre_data': mitre_data
+                    },
+                    'from': self.customer_license_mapping[customer][
+                        START_DATE],
+                    'to': self.customer_license_mapping[customer][
+                        END_DATE]
+                }
+                _LOG.debug(f'Data: {data}')
+                json_model = self.rabbitmq_service.build_m3_json_model(
+                    EVENT_DRIVEN_TYPE['maestro'],
+                    {**data,
+                     'report_type': EVENT_DRIVEN_TYPE['custodian']})
+                self.rabbitmq_service.send_notification_to_m3(
+                    COMMAND_NAME, json_model, rabbitmq)
+                _LOG.debug(f'Notification for {tenant_name} tenant was '
+                           f'successfully send')
 
-                    customer_license = self.customer_license_mapping[customer]
-                    _LOG.debug(
-                        f'Updating last report execution date for license '
-                        f'{customer_license["license"].license_key}')
-                    self.license_service.update_last_ed_report_execution(
-                        customer_license['license'],
-                        last_execution_date=customer_license[END_DATE])
+            customer_license = self.customer_license_mapping[customer]
+            _LOG.debug(
+                f'Updating last report execution date for license '
+                f'{customer_license["license"].license_key}')
+            customer_license['license'].event_driven['last_execution'] = customer_license[END_DATE]
 
         return build_response(
             content='Reports sending was successfully triggered'
         )
 
-    def generate_operational_reports(self, event):
-        date = self.settings_service.get_report_date_marker().get(
-            'current_week_date')
-        if not date:
-            _LOG.warning('Missing \'current_week_date\' section in '
-                         '\'REPORT_DATE_MARKER\' setting.')
-            date = (datetime.today() + relativedelta(
-                weekday=SU(0))).date().isoformat()
-
-        metrics_bucket = self.environment_service.get_metrics_bucket_name()
-        tenant_names = list(filter(
-            None, event.get(TENANT_NAMES_ATTR, '').split(', ')))
-        report_types = list(filter(
-            None, event.get(TYPES_ATTR, '').split(', ')))
-        receivers = list(filter(
-            None, event.get(RECIEVERS_ATTR, '').split(', ')))
-
-        if not tenant_names:
-            return raise_error_response(
-                code=HTTPStatus.INTERNAL_SERVER_ERROR.value,
-                content='"tenant_names" parameter cannot be empty'
-            )
-
-        json_model = []
-        errors = []
-        _LOG.debug(f'Report type: {report_types if report_types else "ALL"}')
-        for tenant_name in tenant_names:
-            _LOG.debug(f'Retrieving tenant with name {tenant_name}')
-            tenant = self.modular_service.get_tenant(tenant_name)
-            if not tenant:
-                _msg = f'Cannot find tenant with name \'{tenant_name}\''
-                errors.append(_msg)
-                continue
-
-            tenant_metrics = self.s3_service.get_file_content(
-                bucket_name=metrics_bucket,
-                full_file_name=ACCOUNT_METRICS_PATH.format(
-                    customer=tenant.customer_name,
-                    date=date, account_id=tenant.project))
-            if not tenant_metrics:
-                _msg = f'There is no data for tenant {tenant_name} for the ' \
-                       f'last week'
-                errors.append(_msg)
-                continue
-
-            _LOG.debug('Retrieving tenant data')
-            tenant_metrics = json.loads(tenant_metrics)
-            tenant_metrics[OUTDATED_TENANTS] = self._process_outdated_tenants(
-                tenant_metrics.pop(OUTDATED_TENANTS, {}))
-
-            overview_data = tenant_metrics.pop(OVERVIEW_TYPE, None)
-            rule_data = tenant_metrics.pop(RULE_TYPE, None)
-            resources_data = tenant_metrics.pop(RESOURCES_TYPE, None)
-            compliance_data = tenant_metrics.pop(COMPLIANCE_TYPE, None)
-            attack_data = tenant_metrics.pop(ATTACK_VECTOR_TYPE, None)
-            finops_data = tenant_metrics.pop(FINOPS_TYPE, None)
-            for _type, data in [(ATTACK_REPORT_TYPE, attack_data),
-                                (COMPLIANCE_REPORT_TYPE, compliance_data),
-                                (OVERVIEW_REPORT_TYPE, overview_data),
-                                (RESOURCES_REPORT_TYPE, resources_data),
-                                (RULES_REPORT_TYPE, rule_data),
-                                (FINOPS_REPORT_TYPE, finops_data)]:
-                if report_types and _type['custodian'] not in report_types:
-                    continue
-                json_model.append(self._build_json_model(
-                    _type['maestro'], {RECIEVERS_ATTR: receivers,
-                                       **tenant_metrics, DATA_ATTR: data,
-                                       'report_type': _type['custodian']}))
-        if errors:
-            _LOG.error(f"Found errors: {os.linesep.join(errors)}")
-        if not json_model:
-            return build_response(
-                content=os.linesep.join(errors)
-            )
-
-        rabbitmq = self.get_customer_rabbitmq(event[CUSTOMER_ATTR])
-        if not rabbitmq:
-            return self.rabbitmq_service.no_rabbit_configuration()
-        self._send_notification_to_m3(json_model, rabbitmq)
-        return build_response(
-            content=f'The request to send report'
-                    f'{"s" if not report_types else ""} for '
-                    f'{tenant_names} tenant'
-                    f'{" was" if report_types else " were"} '
-                    f'successfully created'
-        )
-
-    def generate_project_reports(self, event):
+    @validate_kwargs
+    def generate_project_reports(self, event: ProjectGetReportModel,
+                                 context: RequestContext):
         if not (date := self.settings_service.get_report_date_marker().get(
                 'current_week_date')):
-            return raise_error_response(
-                code=HTTPStatus.INTERNAL_SERVER_ERROR.value,
-                content='Cannot send reports: '
-                        'missing \'current_week_date\' section in '
-                        '\'REPORT_DATE_MARKER\' setting.'
-            )
+            raise ResponseFactory(HTTPStatus.INTERNAL_SERVER_ERROR).message(
+                'Cannot send reports: missing \'current_week_date\' section '
+                'in \'REPORT_DATE_MARKER\' setting.'
+            ).exc()
 
         metrics_bucket = self.environment_service.get_metrics_bucket_name()
-        tenant_display_names = list(filter(
-            None, event.get(TENANT_DISPLAY_NAMES_ATTR, '').split(', ')))
-        report_types = list(filter(
-            None, event.get(TYPES_ATTR, '').split(', ')))
-        receivers = list(filter(
-            None, event.get(RECIEVERS_ATTR, '').split(', ')))
-
-        if not tenant_display_names:
-            return raise_error_response(
-                code=HTTPStatus.INTERNAL_SERVER_ERROR.value,
-                content='"tenant_display_names" parameter cannot be empty'
-            )
+        tenant_display_names = event.tenant_display_names
+        report_types = event.types
+        receivers = event.receivers
 
         json_model = []
         errors = []
         for display_name in tenant_display_names:
             _LOG.debug(
                 f'Retrieving tenants with display name \'{display_name}\'')
-            tenants = list(
-                self.modular_service.i_get_tenant_by_display_name_to_lower(
-                    display_name.lower()))
+            ts = self.modular_client.tenant_service()
+            tenants = list(ts.i_get_by_dntl(display_name.lower()))
             if not tenants:
                 _msg = \
                     f'Cannot find tenants with display name \'{display_name}\''
@@ -409,11 +463,13 @@ class ReportGenerator(AbstractApiHandlerLambda):
                 continue
 
             tenant = list(tenants)[0]
-            tenant_group_metrics = self.s3_service.get_file_content(
-                bucket_name=metrics_bucket,
-                full_file_name=TENANT_METRICS_PATH.format(
+            tenant_group_metrics = self.s3_service.gz_get_object(
+                bucket=metrics_bucket,
+                key=TENANT_METRICS_PATH.format(
                     customer=tenant.customer_name,
-                    date=date, tenant_dn=display_name))
+                    date=date, tenant_dn=display_name
+                )
+            )
             if not tenant_group_metrics:
                 _msg = f'There is no data for \'{display_name}\' tenant ' \
                        f'group for the last week'
@@ -421,8 +477,12 @@ class ReportGenerator(AbstractApiHandlerLambda):
                 errors.append(_msg)
                 continue
 
-            tenant_group_metrics = json.loads(tenant_group_metrics)
-            tenant_group_metrics[OUTDATED_TENANTS] = self._process_outdated_tenants(
+            tenant_group_metrics = json.load(tenant_group_metrics)
+            _LOG.debug('Tenant group metrics')
+            _LOG.debug(json.dumps(tenant_group_metrics))
+
+            tenant_group_metrics[
+                OUTDATED_TENANTS] = self._process_outdated_tenants(
                 tenant_group_metrics.pop(OUTDATED_TENANTS, {}))
 
             overview_data = tenant_group_metrics.pop(OVERVIEW_TYPE, None)
@@ -431,33 +491,38 @@ class ReportGenerator(AbstractApiHandlerLambda):
             attack_data = tenant_group_metrics.pop(ATTACK_VECTOR_TYPE, None)
             finops_data = tenant_group_metrics.pop(FINOPS_TYPE, None)
             for _type, data in [
-                    (PROJECT_ATTACK_REPORT_TYPE, attack_data),
-                    (PROJECT_COMPLIANCE_REPORT_TYPE, compliance_data),
-                    (PROJECT_OVERVIEW_REPORT_TYPE, overview_data),
-                    (PROJECT_RESOURCES_REPORT_TYPE, resources_data),
-                    (PROJECT_FINOPS_REPORT_TYPE, finops_data)]:
+                (PROJECT_ATTACK_REPORT_TYPE, attack_data),
+                (PROJECT_COMPLIANCE_REPORT_TYPE, compliance_data),
+                (PROJECT_OVERVIEW_REPORT_TYPE, overview_data),
+                (PROJECT_RESOURCES_REPORT_TYPE, resources_data),
+                (PROJECT_FINOPS_REPORT_TYPE, finops_data)]:
                 if report_types and _type['custodian'] not in report_types:
                     continue
-                json_model.append(self._build_json_model(
-                    _type['maestro'], {RECIEVERS_ATTR: receivers,
+                json_model.append(self.rabbitmq_service.build_m3_json_model(
+                    _type['maestro'], {'receivers': list(receivers),
                                        **tenant_group_metrics, DATA_ATTR: data,
                                        'report_type': _type['custodian']}))
 
         if not json_model:
             return build_response(
-                code=HTTPStatus.BAD_REQUEST.value,
+                code=HTTPStatus.BAD_REQUEST,
                 content=';\n'.join(errors)
             )
-        rabbitmq = self.get_customer_rabbitmq(event[CUSTOMER_ATTR])
+        rabbitmq = self.rabbitmq_service.get_customer_rabbitmq(
+            event.customer_id
+        )
         if not rabbitmq:
             return self.rabbitmq_service.no_rabbit_configuration()
-        self._send_notification_to_m3(json_model, rabbitmq)
+        self.rabbitmq_service.send_notification_to_m3(
+            COMMAND_NAME, json_model, rabbitmq)
         return build_response(
             content=f'The request to send reports for {tenant_display_names} '
                     f'tenant group were successfully created'
         )
 
-    def generate_department_reports(self, event):
+    @validate_kwargs
+    def generate_department_reports(self, event: DepartmentGetReportModel,
+                                    context: RequestContext):
         top_compliance_by_tenant = []
         top_compliance_by_cloud = {c: [] for c in CLOUDS}
         top_resource_by_tenant = []
@@ -498,17 +563,16 @@ class ReportGenerator(AbstractApiHandlerLambda):
         }
         previous_month = (self.current_month - timedelta(days=1)).replace(
             day=1)
-        customer = event[CUSTOMER_ATTR]
-        report_types = list(filter(
-            None, event.get(TYPES_ATTR, '').split(', ')))
+        customer = event.customer_id
+        report_types = event.types
 
         top_tenants = self.tenant_metrics_service.list_by_date_and_customer(
             date=self.current_month.isoformat(), customer=customer)
         if len(top_tenants) == 0:
             return build_response(f'There are no metrics for customer '
                                   f'{customer} for the period from '
-                                  f'{self.current_month.isoformat()} to '
-                                  f'{previous_month}')
+                                  f'{previous_month} to '
+                                  f'{self.current_month.isoformat()}')
         for tenant in top_tenants:
             tenant = tenant.attribute_values
             _LOG.debug(f'Retrieving previous item for tenant '
@@ -561,26 +625,25 @@ class ReportGenerator(AbstractApiHandlerLambda):
                     'sort_by': tenant.pop('defining_attribute'),
                     DATA_ATTR: attribute_diff
                 })
-        rabbitmq = self.get_customer_rabbitmq(event[CUSTOMER_ATTR])
+        rabbitmq = self.rabbitmq_service.get_customer_rabbitmq(event.customer_id)
         if not rabbitmq:
             return self.rabbitmq_service.no_rabbit_configuration()
         for _type, values in report_type_mapping.items():
-            if report_types and report_type_mapping[_type]['report_type'][
-                'custodian'] not in report_types:
+            if report_types and report_type_mapping[_type]['report_type']['custodian'] not in report_types:
                 continue
             container = values['container']
             if (isinstance(container, list) and not container) or (
-                    isinstance(container, dict) and not any(
-                container.values())):
+                    isinstance(container, dict) and not any(container.values())):
                 _LOG.warning(f'No data for report type {_type}')
                 continue
-            json_model = self._build_json_model(
+            json_model = self.rabbitmq_service.build_m3_json_model(
                 report_type_mapping[_type]['report_type']['maestro'],
                 {CUSTOMER_ATTR: customer, 'from': previous_month.isoformat(),
                  'to': self.current_month.isoformat(),
                  OUTDATED_TENANTS: values[OUTDATED_TENANTS],
                  'report_type': _type, DATA_ATTR: values['container']})
-            self._send_notification_to_m3(json_model, rabbitmq)
+            self.rabbitmq_service.send_notification_to_m3(
+                COMMAND_NAME, json_model, rabbitmq)
             _LOG.debug(f'Notifications for {customer} customer have been '
                        f'sent successfully')
         return build_response(
@@ -588,7 +651,9 @@ class ReportGenerator(AbstractApiHandlerLambda):
                     f'triggered successfully'
         )
 
-    def generate_c_level_reports(self, event):
+    @validate_kwargs
+    def generate_c_level_reports(self, event: CLevelGetReportModel,
+                                 context: RequestContext):
         report_type_mapping = {
             OVERVIEW_TYPE.upper(): CUSTOMER_OVERVIEW_REPORT_TYPE,
             COMPLIANCE_TYPE.upper(): CUSTOMER_COMPLIANCE_REPORT_TYPE,
@@ -597,9 +662,8 @@ class ReportGenerator(AbstractApiHandlerLambda):
         previous_month = (self.current_month - timedelta(days=1)).replace(
             day=1)
 
-        customer = event[CUSTOMER_ATTR]
-        report_types = list(filter(
-            None, event.get(TYPES_ATTR, '').split(', ')))
+        customer = event.customer_id
+        report_types = event.types
 
         customer_metrics = self.customer_metrics_service.list_by_date_and_customer(
             date=self.current_month.isoformat(), customer=customer)
@@ -608,14 +672,14 @@ class ReportGenerator(AbstractApiHandlerLambda):
         if len(customer_metrics) == 0:
             return build_response(f'There are no metrics for customer '
                                   f'{customer} for the period from '
-                                  f'{self.current_month.isoformat()} to '
-                                  f'{previous_month}')
-        rabbitmq = self.get_customer_rabbitmq(customer)
+                                  f'{previous_month} to '
+                                  f'{self.current_month.isoformat()}')
+        rabbitmq = self.rabbitmq_service.get_customer_rabbitmq(customer)
         if not rabbitmq:
             return self.rabbitmq_service.no_rabbit_configuration()
         for item in customer_metrics:
             item = item.attribute_values
-            if report_types and item.get(TYPES_ATTR) not in report_types:
+            if report_types and item.get('type') not in report_types:
                 continue
 
             if item.get('type') != ATTACK_VECTOR_TYPE.upper():
@@ -645,10 +709,12 @@ class ReportGenerator(AbstractApiHandlerLambda):
                 attribute_diff = calculate_dict_diff(
                     cloud_attrs, prev_cloud_attrs,
                     exclude=['total_scanned_tenants'])
-                applications = list(self.modular_service.get_applications(
+                applications = list(self.modular_client.application_service().list(
                     customer=customer,
-                    _type=ApplicationType.CUSTODIAN_LICENSES.value
+                    _type=ApplicationType.CUSTODIAN_LICENSES.value,
+                    deleted=False
                 ))
+                self._get_application_info(applications, attribute_diff)
             else:
                 # attack report should not contain license info
                 cloud_attrs = {
@@ -659,9 +725,6 @@ class ReportGenerator(AbstractApiHandlerLambda):
                     'google': item.get('google').attribute_values.get(
                         'data', [])}
                 attribute_diff = cloud_attrs
-                applications = []
-
-            self._get_application_info(applications, attribute_diff)
 
             model = {
                 DATA_ATTR: attribute_diff,
@@ -672,9 +735,12 @@ class ReportGenerator(AbstractApiHandlerLambda):
             }
 
             model.update({'report_type': item.get('type')})
-            json_model = self._build_json_model(
+            _LOG.debug('Sending clevel model to m3')
+            _LOG.debug(json.dumps(model))
+            json_model = self.rabbitmq_service.build_m3_json_model(
                 report_type_mapping.get(item.get('type')), model)
-            self._send_notification_to_m3(json_model, rabbitmq)
+            self.rabbitmq_service.send_notification_to_m3(
+                COMMAND_NAME, json_model, rabbitmq)
 
         _LOG.debug(f'Reports sending for {customer} customer have been '
                    f'triggered successfully')
@@ -684,87 +750,61 @@ class ReportGenerator(AbstractApiHandlerLambda):
         )
 
     @staticmethod
-    def _get_license_info(_license: License) -> Dict:
-        balance = _license.allowance.attribute_values['job_balance']
-        time_range = _license.allowance.attribute_values['time_range']
+    def _get_license_info(_license: License) -> dict:
+        balance = _license.allowance.get('job_balance')
+        time_range = _license.allowance.get('time_range')
         scan_frequency = f'{balance} scan{"" if balance == 1 else "s"} per ' \
                          f'{time_range}'
+        expiration = None
+        if exp := _license.expiration:
+            # the returned object is displayed directly, so we make
+            # human-formatting here
+            expiration = exp.strftime('%b %d, %Y %H:%M:%S %Z')
         return {
             'activated': True,
             'license_properties': {
                 'Scans frequency': scan_frequency,
-                'Expiration': _license.expiration,
+                'Expiration': expiration,
                 'Event-Driven mode': 'On' if _license.event_driven else 'Off'
             }
         }
 
-    @staticmethod
-    def _send_notification_to_m3(json_model: Union[list, dict],
-                                 rabbitmq: MaestroRabbitMQTransport) -> None:
-        try:
-            code, status, response = rabbitmq.send_sync(
-                command_name=COMMAND_NAME,
-                parameters=json_model,
-                is_flat_request=False, async_request=False,
-                secure_parameters=None, compressed=True)
-            _LOG.debug(f'Response code: {code}, response message: {response}')
-        except ModularException as e:
-            _LOG.error(f'Modular error: {e}')
-            return build_response(
-                code=HTTPStatus.SERVICE_UNAVAILABLE.value,
-                content='An error occurred while sending the report. '
-                        'Please contact the support team.'
-            )
-        except Exception as e:  # can occur in case access data is invalid
-            _LOG.error(
-                f'An error occurred trying to send a message to rabbit: {e}')
-            return build_response(
-                code=HTTPStatus.SERVICE_UNAVAILABLE.value,
-                content='An error occurred while sending the report. '
-                        'Please contact the support team.'
-            )
-
-    def _process(self, bucket_name, items):
-        """Merges differences"""
-        content = {}
-        differences = self.s3_service.get_json_batch(
-            bucket_name=bucket_name,
-            keys=[f'{i}/difference.json.gz' for i in items]
+    def _fetch_difference(self, tenant: Tenant, bucket_name: str,
+                          result: BatchResults) -> ShardsCollection:
+        collection = ShardsCollectionFactory.from_tenant(tenant)
+        collection.io = ShardsS3IO(
+            bucket=bucket_name,
+            key=TenantReportsBucketKeysBuilder(tenant).ed_job_difference(result),
+            client=self.s3_service,  # it's a client
         )
-        for file in differences:
-            _LOG.debug(f'Processing file {file[0]}')
-            for rule, resource in file[1].items():
-                report_fields = self.mappings_collector.human_data.get(
-                    rule, {}).get('report_fields') or set()
+        collection.fetch_all()
+        return collection
 
-                resource['severity'] = self.mappings_collector.severity.get(
-                    rule, 'Unknown')
-                resource.pop('report_fields', None)
-                resource.pop('standard_points', None)
-                resource.pop('resourceType', None)
-                resource['regions_data'] = resource.pop('resources', {})
-                resource[
-                    'resource_type'] = self.mappings_collector.service.get(
-                    rule)
-
-                filtered_resources = {}
-                for region, data in resource['regions_data'].items():
-                    filtered_resources.setdefault(region, []).extend(
-                        filter_dict(d, report_fields) for d in data)
-                if filtered_resources:
-                    resource['regions_data'] = filtered_resources
-
-                if rule not in content:
-                    content[rule] = resource
-                else:
-                    for region, data in resource['regions_data'].items():
-                        content[rule]['regions_data'].setdefault(
-                            region, []).extend(data)
+    def merge_collections(self, collections: list[ShardsCollection],
+                          meta: dict) -> list[dict]:
+        content = {}
+        human_data = self.mappings_collector.human_data
+        severity = self.mappings_collector.severity
+        service = self.mappings_collector.service
+        for collection in collections:
+            for _, shard in collection:
+                for part in shard:
+                    rf = human_data.get(part.policy, {}).get(
+                        'report_fields') or set()
+                    data = content.setdefault(part.policy, {
+                        'severity': severity.get(part.policy) or 'Unknown',
+                        'description': meta.get(part.policy).get('description'),
+                        'resource_type': service.get(part.policy),
+                        'regions_data': {}
+                    })
+                    data['regions_data'].setdefault(part.location, []).extend(
+                        filter_dict(r, rf) for r in part.resources
+                    )
         return [{'policy': k, **v} for k, v in content.items()]
 
     @staticmethod
     def _get_period(frequency: int, last_execution: str = None) -> \
-            Tuple[datetime, datetime]:
+            tuple[datetime, datetime]:
         _LOG.debug('No last execution date')
         now = utc_datetime()
         minutes = frequency % 60
@@ -778,7 +818,7 @@ class ReportGenerator(AbstractApiHandlerLambda):
         end = last_execution + timedelta(minutes=frequency)
         return last_execution, end
 
-    def _retrieve_mitre_data(self, resources: list) -> List[dict]:
+    def _retrieve_mitre_data(self, resources: list) -> list[dict]:
         mitre = {}
         result = []
         for resource in resources:
@@ -798,41 +838,50 @@ class ReportGenerator(AbstractApiHandlerLambda):
                            'tactic': tactic, 'severity_data': data})
         return result
 
-    def _get_application_info(self, applications: list, attribute_diff: dict):
+    def _get_application_info(self, applications: list[Application],
+                              attribute_diff: dict):
+        """
+        Previously we could have multiple licenses inside one application
+        (split by cloud). That division was just verbal because nothing was
+        preventing us from creating a license that has rulesets for multiple
+        clouds. Although, we did create only cloud-specific licenses.
+        Currently, one application is one license, and we have no
+        straightforward way of knowing the cloud of that license. But I
+        don't want to change the format of report or whatever this data
+        is going to. So I just use this workaround. Basically the same,
+        even better that it was
+        :param applications:
+        :param attribute_diff:
+        :return:
+        """
+        rulesets = {}  # cache
         for ap in applications:
-            # todo pass several licenses to BE
-            meta = CustodianLicensesApplicationMeta(
-                **ap.meta.as_dict()
-            )
-            for cloud in CLOUDS:
-                if not (l := meta.license_key(cloud)):
-                    continue
-                if attribute_diff[cloud].get('activated') is True:
-                    continue
-                license_item = self.license_service.get_license(l)
-                if not license_item:
-                    _LOG.warning(f'Invalid license key in Application '
-                                 f'meta for cloud {cloud}')
-                    continue
-                attribute_diff[cloud].update(self._get_license_info(
-                    license_item))
+            lic = License(ap)
+            # here is the faulty thing, but we are not supposed to create
+            # licenses that contain rulesets of different clouds
+            ruleset_id = next(iter(lic.ruleset_ids), None)
+            if not ruleset_id:
+                continue
+            if ruleset_id not in rulesets:
+                rulesets[ruleset_id] = self.ruleset_service.by_lm_id(ruleset_id)
+            ruleset = rulesets[ruleset_id]
+            if not ruleset:
+                continue
+            if ruleset.cloud == RuleDomain.KUBERNETES:
+                # skip license because c-level report currently does not
+                # support k8s
+                continue
+            cloud = ruleset.cloud.lower()
+            if cloud == 'gcp':
+                cloud = 'google'  # need more kludges...
+            if attribute_diff.setdefault(cloud, {}).get('activated') is True:
+                continue
+            attribute_diff[cloud].update(self._get_license_info(lic))
 
     @staticmethod
-    def _get_attr_values(item, default={}):
+    def _get_attr_values(item, default: dict = None):
+        default = default or {}
         return item.attribute_values if item else default
-
-    @staticmethod
-    def _build_json_model(notification_type, data):
-        return {
-            'viewType': 'm3',
-            'model': {
-                "uuid": str(uuid4()),
-                "notificationType": notification_type,
-                "notificationAsJson": json.dumps(data,
-                                                 separators=(",", ":")),
-                "notificationProcessorTypes": ["MAIL"]
-            }
-        }
 
     def process_department_item_by_cloud(self, item_type, attribute_diff,
                                          report_type_mapping,
@@ -877,45 +926,43 @@ class ReportGenerator(AbstractApiHandlerLambda):
             DATA_ATTR: data
         })
 
-    def get_customer_rabbitmq(self, customer):
-        application = self.rabbitmq_service.get_rabbitmq_application(
-            customer)
-        if not application:
-            _LOG.warning(f'No application with type {RABBITMQ_TYPE} found '
-                         f'for customer {customer}')
-            return
-        rabbitmq = self.rabbitmq_service.build_maestro_mq_transport(
-            application)
-        if not rabbitmq:
-            _LOG.warning(f'Could not build rabbit client from application '
-                         f'for customer {customer}')
-            return
-        return rabbitmq
-
     @staticmethod
     def _process_outdated_tenants(outdated_tenants: dict):
         tenants = []
         for cloud, data in outdated_tenants.items():
-            tenants.extend(list(data.keys()))
+            tenants.extend(data.keys())
         return tenants
 
 
-HANDLER = ReportGenerator(
-    environment_service=SERVICE_PROVIDER.environment_service(),
-    settings_service=SERVICE_PROVIDER.settings_service(),
-    s3_service=SERVICE_PROVIDER.s3(),
-    modular_service=SERVICE_PROVIDER.modular_service(),
-    tenant_metrics_service=SERVICE_PROVIDER.tenant_metrics_service(),
-    customer_metrics_service=SERVICE_PROVIDER.customer_metrics_service(),
-    license_service=SERVICE_PROVIDER.license_service(),
-    batch_results_service=SERVICE_PROVIDER.batch_results_service(),
-    rabbitmq_service=SERVICE_PROVIDER.rabbitmq_service(),
-    mappings_collector=SERVICE_PROVIDER.mappings_collector()
-)
+class ReportGeneratorNoProcessors(ReportGenerator):
+    """
+    Only for retry and event-driven
+    """
+    processors = (
+        ExpandEnvironmentEventProcessor.build(),  # does not change event so can be used
+    )
+
+    def handle_request(self, event: dict, context: RequestContext):
+        resource = event.get('requestContext', {}).get('resourcePath')
+        if resource == CustodianEndpoint.REPORTS_EVENT_DRIVEN:
+            _LOG.info('Executing event-driven handler')
+            return self.generate_event_driven_reports(event, context)
+        if resource == CustodianEndpoint.REPORTS_RETRY:
+            _LOG.info('Executing retry handler')
+            return self.mapping[CustodianEndpoint.REPORTS_RETRY][HTTPMethod.POST](event, context)
+        raise ResponseFactory(HTTPStatus.NOT_FOUND).default().exc()
+
+
+HANDLER = ReportGenerator.build()
+HANDLER_NO_PROCESSORS = ReportGeneratorNoProcessors.build()
 
 
 def lambda_handler(event, context):
-    if event.get(PARAM_REQUEST_PATH) == '/reports/event_driven':
-        return AbstractLambda.lambda_handler(HANDLER, event, context)
+    resource = event.get('requestContext', {}).get('resourcePath')
+    if resource in (CustodianEndpoint.REPORTS_RETRY.value,
+                    CustodianEndpoint.REPORTS_EVENT_DRIVEN.value):
+        _LOG.debug('Retry or event driven request came. '
+                   'Using handler with no processors')
+        return HANDLER_NO_PROCESSORS.lambda_handler(event, context)
 
     return HANDLER.lambda_handler(event=event, context=context)

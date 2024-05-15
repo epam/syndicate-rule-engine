@@ -1,121 +1,134 @@
+from functools import cached_property
 from http import HTTPStatus
-from typing import Iterable
 
-from helpers import build_response
-from helpers.constants import CUSTOMER_ATTR, NAME_ATTR, \
-    PERMISSIONS_ATTR, HTTPMethod, \
-    PERMISSIONS_TO_ATTACH, PERMISSIONS_TO_DETACH, \
-    PARAM_USER_CUSTOMER
-from helpers.log_helper import get_logger
-from helpers.system_customer import SYSTEM_CUSTOMER
-from services.rbac.access_control_service import AccessControlService
-from services.rbac.iam_cache_service import CachedIamService
+from handlers import AbstractHandler, Mapping
+from helpers import NextToken
+from helpers.constants import CustodianEndpoint, HTTPMethod
+from helpers.lambda_response import ResponseFactory, build_response
+from services import SP
+from services.rbac_service import PolicyService
+from validators.swagger_request_models import (
+    BaseModel,
+    BasePaginationModel,
+    PolicyPatchModel,
+    PolicyPostModel,
+)
+from validators.utils import validate_kwargs
 
-_LOG = get_logger(__name__)
 
-
-class PolicyHandler:
+class PolicyHandler(AbstractHandler):
     """
     Manage Policy API
     """
 
-    def __init__(self, cached_iam_service: CachedIamService,
-                 access_control_service: AccessControlService):
-        self._iam_service = cached_iam_service
-        self._access_control_service = access_control_service
+    def __init__(self, policy_service: PolicyService):
+        self._policy_service = policy_service
 
-    def define_action_mapping(self):
+    @classmethod
+    def build(cls):
+        return cls(policy_service=SP.policy_service)
+
+    @cached_property
+    def mapping(self) -> Mapping:
         return {
-            '/policies': {
-                HTTPMethod.GET: self.get_policy,
+            CustodianEndpoint.POLICIES: {
                 HTTPMethod.POST: self.create_policy,
+                HTTPMethod.GET: self.list_policies
+            },
+            CustodianEndpoint.POLICIES_NAME: {
+                HTTPMethod.GET: self.get_policy,
                 HTTPMethod.PATCH: self.update_policy,
                 HTTPMethod.DELETE: self.delete_policy,
-            },
-            '/policies/cache': {
-                HTTPMethod.DELETE: self.delete_policy_cache
-            },
+            }
         }
 
-    def get_policy(self, event: dict):
-        name = event.get(NAME_ATTR)
-        customer = event.get(CUSTOMER_ATTR)
-        it = self._iam_service.list_policies(
-            customer=customer, name=name
-        )
-        return build_response(content=(
-            self._iam_service.get_dto(entity) for entity in it
-        ))
+    @validate_kwargs
+    def get_policy(self, event: BaseModel, name: str):
+        item = self._policy_service.get_nullable(event.customer_id, name)
+        if not item:
+            raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                self._policy_service.not_found_message(name)
+            ).exc()
+        return build_response(content=self._policy_service.dto(item))
 
-    def create_policy(self, event):
-        name = event.get(NAME_ATTR)
-        customer = event.get(CUSTOMER_ATTR) or SYSTEM_CUSTOMER
-        permissions: set = event.get(PERMISSIONS_ATTR)
-        self.ensure_permissions_allowed(event.get(PARAM_USER_CUSTOMER),
-                                        permissions)
-        existing = self._iam_service.get_policy(customer, name)
+    @validate_kwargs
+    def list_policies(self, event: BasePaginationModel):
+        cursor = self._policy_service.query(
+            customer=event.customer_id,
+            limit=event.limit,
+            last_evaluated_key=NextToken.deserialize(event.next_token).value
+        )
+        items = tuple(cursor)
+        return ResponseFactory().items(
+            it=map(self._policy_service.dto, items),
+            next_token=NextToken(cursor.last_evaluated_key)
+        ).build()
+
+    @validate_kwargs
+    def create_policy(self, event: PolicyPostModel):
+        customer = event.customer_id
+        name = event.name
+        existing = self._policy_service.get_nullable(customer, name)
         if existing:
             return build_response(
                 code=HTTPStatus.CONFLICT,
                 content=f'Policy with name {name} already exists'
             )
-        policy = self._iam_service.create_policy({
-            'name': name,
-            'customer': customer,
-            'permissions': list(permissions)
-        })
-        self._iam_service.save(policy)
-        return build_response(content=self._iam_service.get_dto(policy))
+        policy = self._policy_service.create(
+            customer=customer,
+            name=name,
+            description=event.description,
+            permissions=[p.value for p in event.permissions],
+            tenants=tuple(event.tenants),
+            effect=event.effect
+        )
+        self._policy_service.save(policy)
+        return build_response(content=self._policy_service.dto(policy),
+                              code=HTTPStatus.CREATED)
 
-    def ensure_permissions_allowed(self, user_customer: str,
-                                   permissions: Iterable[str]):
-        not_allowed = []
-        for permission in permissions:
-            if not self._access_control_service.is_permission_allowed(
-                    customer=user_customer, permission=permission):
-                not_allowed.append(permission)
-        if not_allowed:
-            return build_response(
-                code=HTTPStatus.BAD_REQUEST,
-                content=f'Such permissions not allowed: {", ".join(not_allowed)}'
-            )
-
-    def update_policy(self, event: dict):
-        name = event.get(NAME_ATTR)
-        customer = event.get(CUSTOMER_ATTR) or SYSTEM_CUSTOMER
-        to_attach: set = event.get(PERMISSIONS_TO_ATTACH)
-        to_detach: set = event.get(PERMISSIONS_TO_DETACH)
-        self.ensure_permissions_allowed(event.get(PARAM_USER_CUSTOMER),
-                                        to_attach)
-        policy = self._iam_service.get_policy(customer, name)
+    @validate_kwargs
+    def update_policy(self, event: PolicyPatchModel, name: str):
+        customer = event.customer_id
+        policy = self._policy_service.get_nullable(customer, name)
         if not policy:
             return build_response(
                 code=HTTPStatus.NOT_FOUND,
                 content=f'Policy with name {name} already not found'
             )
-        permission = set(policy.permissions or [])
+        to_attach = {p.value for p in event.permissions_to_attach}
+        to_detach = {p.value for p in event.permissions_to_detach}
+        permission = set(policy.permissions or ())
         permission -= to_detach
         permission |= to_attach
-        policy.permissions = list(permission)
-        self._iam_service.save(policy)
+        policy.permissions = sorted(permission)
+
+        tenants = set(policy.tenants or ())
+        tenants -= event.tenants_to_remove
+        tenants |= event.tenants_to_add
+        policy.tenants = sorted(tenants)
+
+        if event.effect:
+            policy.effect = event.effect.value
+        if event.description:
+            policy.description = event.description
+
+        self._policy_service.save(policy)
 
         return build_response(
             code=HTTPStatus.OK,
-            content=self._iam_service.get_dto(policy)
+            content=self._policy_service.dto(policy)
         )
 
-    def delete_policy(self, event):
-        name = event.get(NAME_ATTR)
-        customer = event.get(CUSTOMER_ATTR) or SYSTEM_CUSTOMER
-        policy = self._iam_service.get_policy(customer, name)
+    @validate_kwargs
+    def delete_policy(self, event: BaseModel, name: str):
+        policy = self._policy_service.get_nullable(event.customer_id, name)
         if policy:
-            self._iam_service.delete(policy)
-        return build_response(
-            content=f'Policy:{name!r} was successfully deleted'
-        )
+            self._policy_service.delete(policy)
+        return build_response(code=HTTPStatus.NO_CONTENT)
 
-    def delete_policy_cache(self, event):
-        name = event.get(NAME_ATTR)
-        customer = event.get(CUSTOMER_ATTR) or SYSTEM_CUSTOMER
-        self._iam_service.clean_policy_cache(customer=customer, name=name)
-        return build_response(content='Cleaned')
+    # @validate_kwargs
+    # def delete_policy_cache(self, event: PolicyCacheDeleteModel):
+    #     name = event.name
+    #     customer = event.customer
+    #     self._iam_service.clean_policy_cache(customer=customer, name=name)
+    #     return build_response(code=HTTPStatus.NO_CONTENT)

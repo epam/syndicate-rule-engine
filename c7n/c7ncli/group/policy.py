@@ -3,10 +3,9 @@ from pathlib import Path
 
 import click
 
-from c7ncli.group import cli_response, ViewCommand, response, \
-    ContextObj, customer_option
-from c7ncli.service.constants import PARAM_CUSTOMER, PARAM_NAME, \
-    PARAM_PERMISSIONS
+from c7ncli.group import ContextObj, ViewCommand, cli_response, response
+
+attributes_order = 'name', 'permissions', 'customer'
 
 
 @click.group(name='policy')
@@ -15,38 +14,51 @@ def policy():
 
 
 @policy.command(cls=ViewCommand, name='describe')
-@click.option('--policy_name', '-name', type=str,
+@click.option('--name', '-n', type=str,
               help='Policy name to describe.')
-@customer_option
-@cli_response(attributes_order=[PARAM_CUSTOMER, PARAM_NAME, PARAM_PERMISSIONS])
-def describe(ctx: ContextObj, customer_id, policy_name=None):
+@cli_response(attributes_order=attributes_order)
+def describe(ctx: ContextObj, customer_id, name):
     """
     Describes Custodian Service policies of a customer
     """
-    return ctx['api_client'].policy_get(
-        customer_display_name=customer_id,
-        policy_name=policy_name
+    if name:
+        return ctx['api_client'].policy_get(
+            name=name,
+            customer_id=customer_id,
+        )
+    return ctx['api_client'].policy_query(
+        customer_id=customer_id,
     )
 
 
 @policy.command(cls=ViewCommand, name='add')
-@click.option('--policy_name', '-name', type=str, required=True,
+@click.option('--name', '-n', type=str, required=True,
               help='Policy name to create')
 @click.option('--permission', '-p', multiple=True,
               help='List of permissions to attach to the policy')
 @click.option('--path_to_permissions', '-path', required=False,
               help='Local path to .json file that contains list of '
                    'permissions to attach to the policy')
-@customer_option
-@cli_response(attributes_order=[PARAM_CUSTOMER, PARAM_NAME, PARAM_PERMISSIONS])
-def add(ctx: ContextObj, customer_id, policy_name, permission,
-        path_to_permissions):
+@click.option('--permissions_admin', '-admin', is_flag=True,
+              help='Whether to add all permissions to this policy')
+@click.option('--effect', '-ef', type=click.Choice(('allow', 'deny')),
+              required=True, help='That this policy will do')
+@click.option('--tenant', '-t', type=str, multiple=True,
+              help='Permission will be allowed or denied for these tenants. '
+                   'Specify tenant name')
+@click.option('--description', '-d', type=str, required=True,
+              help='Description for this policy')
+@cli_response(attributes_order=attributes_order)
+def add(ctx: ContextObj, customer_id, name, permission,
+        path_to_permissions, permissions_admin, effect, tenant, description):
     """
     Creates a Custodian Service policy for a customer
     """
-    if not permission and not path_to_permissions:
-        return response('--permission or --path_to_permissions '
-                        'must be provided')
+    if not permission and not path_to_permissions and not permissions_admin:
+        return response(
+            '--permission or --path_to_permissions or --permissions_admin '
+            'must be provided'
+        )
     permissions = list(permission)
     if path_to_permissions:
         path = Path(path_to_permissions)
@@ -60,67 +72,63 @@ def add(ctx: ContextObj, customer_id, policy_name, permission,
         permissions.extend(data)
 
     return ctx['api_client'].policy_post(
-        name=policy_name,
+        name=name,
         permissions=permissions,
-        customer=customer_id,
+        customer_id=customer_id,
+        permissions_admin=permissions_admin,
+        effect=effect,
+        tenants=tenant,
+        description=description
     )
 
 
 @policy.command(cls=ViewCommand, name='update')
-@click.option('--policy_name', '-name', type=str, required=True)
+@click.option('--name', '-n', type=str, required=True)
 @click.option('--attach_permission', '-ap', multiple=True,
               required=False,
               help='Names of permissions to attach to the policy')
 @click.option('--detach_permission', '-dp', multiple=True,
               required=False,
               help='Names of permissions to detach from the policy')
-@customer_option
-@cli_response(attributes_order=[PARAM_CUSTOMER, PARAM_NAME, PARAM_PERMISSIONS])
-def update(ctx: ContextObj, customer_id, policy_name, attach_permission,
-           detach_permission):
+@click.option('--effect', '-ef', type=click.Choice(('allow', 'deny')),
+              help='That this policy will do')
+@click.option('--add_tenant', '-at', type=str, multiple=True,
+              help='Add these tenants. Specify tenant name')
+@click.option('--remove_tenant', '-rt', type=str, multiple=True,
+              help='Remove these tenants. Specify tenant name')
+@click.option('--description', '-d', type=str,
+              help='Description for this policy')
+@cli_response(attributes_order=attributes_order)
+def update(ctx: ContextObj, customer_id, name, attach_permission,
+           detach_permission, effect, add_tenant, remove_tenant, description):
     """
     Updates permission-list within a Custodian Service policy
     """
 
-    if not attach_permission and not detach_permission:
-        return response('At least one of the following arguments must be '
-                        'provided: attach_permission, detach_permission')
+    if not attach_permission and not detach_permission and not effect and not add_tenant and not remove_tenant and not description:
+        return response('At least one parameter to update must be provided')
 
     return ctx['api_client'].policy_patch(
-        customer=customer_id,
-        name=policy_name,
+        name=name,
+        customer_id=customer_id,
         permissions_to_attach=attach_permission,
-        permissions_to_detach=detach_permission
+        permissions_to_detach=detach_permission,
+        effect=effect,
+        tenants_to_add=add_tenant,
+        tenants_to_remove=remove_tenant,
+        description=description
     )
 
 
 @policy.command(cls=ViewCommand, name='delete')
-@click.option('--policy_name', '-name', type=str, required=True,
+@click.option('--name', '-n', type=str, required=True,
               help='Policy name to delete')
-@customer_option
 @cli_response()
-def delete(ctx: ContextObj, customer_id, policy_name):
+def delete(ctx: ContextObj, customer_id, name):
     """
     Deletes a Custodian Service policy of a customer
     """
-    if policy_name:
-        policy_name = policy_name.lower()
     return ctx['api_client'].policy_delete(
-        customer_display_name=customer_id,
-        policy_name=policy_name.lower())
-
-
-@policy.command(cls=ViewCommand, name='clean_cache')
-@click.option('--policy_name', '-name', type=str,
-              help='Policy name to clean from cache. If not specified, '
-                   'all policies cache within the customer is cleaned')
-@customer_option
-@cli_response()
-def clean_cache(ctx: ContextObj, policy_name, customer_id):
-    """
-    Clears out cached Custodian Service policies within Lambda
-    """
-    return ctx['api_client'].policy_clean_cache(
-        customer=customer_id,
-        name=policy_name
+        name=name,
+        customer_id=customer_id,
     )

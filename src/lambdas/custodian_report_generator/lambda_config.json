@@ -5,9 +5,10 @@
   "resource_type": "lambda",
   "iam_role_name": "report-api-handler-role",
   "runtime": "python3.10",
-  "memory": 512,
+  "memory": 1024,
   "timeout": 300,
   "lambda_path": "/lambdas/custodian_report_generator",
+  "logs_expiration": "${logs_expiration}",
   "dependencies": [
     {
       "resource_name": "CaaSJobs",
@@ -19,10 +20,10 @@
     }
   ],
   "env_variables": {
-    "caas_rulesets_bucket": "${caas_rulesets_bucket}",
-    "reports_bucket_name": "${reports-bucket}",
-    "stats_s3_bucket_name": "${stats_s3_bucket_name}",
-    "caas_user_pool_name": "${caas_user_pool_name}",
+    "CAAS_RULESETS_BUCKET_NAME": "${caas_rulesets_bucket}",
+    "CAAS_REPORTS_BUCKET_NAME": "${reports-bucket}",
+    "CAAS_STATISTICS_BUCKET_NAME": "${stats_s3_bucket_name}",
+    "CAAS_USER_POOL_NAME": "${caas_user_pool_name}",
     "modular_assume_role_arn": "${modular_assume_role_arn}",
     "MODULAR_AWS_REGION": "${MODULAR_AWS_REGION}"
   },
@@ -36,5 +37,8 @@
     ],
   "layers": [
     "custodian_common_dependencies_layer"
+  ],
+  "platforms": [
+    "manylinux2014_x86_64"
   ]
 }

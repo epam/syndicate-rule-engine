@@ -1,37 +1,29 @@
-import json
 from abc import ABC, abstractmethod
 from functools import cached_property
-from typing import Dict, Optional, Type, Tuple, List
+from typing import Type
 
 import requests
 from botocore.exceptions import ClientError
-from modular_sdk.commons.constants import RABBITMQ_TYPE, SIEM_DEFECT_DOJO_TYPE
+from modular_sdk.commons.constants import ApplicationType
+from modular_sdk.modular import Modular
 from modular_sdk.services.impl.maestro_credentials_service import \
-    DefectDojoApplicationMeta, DefectDojoApplicationSecret, AccessMeta
-from pydantic import BaseModel, Field, ValidationError
+    AccessMeta
+from pydantic import BaseModel, Field, ValidationError, ConfigDict
 
 from helpers.constants import AWS_CLOUD_ATTR, AZURE_CLOUD_ATTR, \
     GCP_CLOUD_ATTR, DEFAULT_SYSTEM_CUSTOMER, HOST_ATTR, CUSTOMER_ATTR, \
     ED_AWS_RULESET_NAME, \
-    ED_AZURE_RULESET_NAME, ED_GOOGLE_RULESET_NAME, \
-    KEY_RULES_TO_SERVICE_SECTION, KEY_RULES_TO_SEVERITY, \
-    KEY_RULES_TO_STANDARDS, KEY_RULES_TO_MITRE, KEY_CLOUD_TO_RULES, \
-    KEY_HUMAN_DATA, KEY_AWS_STANDARDS_COVERAGE, KEY_AZURE_STANDARDS_COVERAGE, \
-    KEY_GOOGLE_STANDARDS_COVERAGE, KEY_AWS_EVENTS, KEY_AZURE_EVENTS, \
-    KEY_GOOGLE_EVENTS, HealthCheckStatus
+    ED_AZURE_RULESET_NAME, ED_GOOGLE_RULESET_NAME, HealthCheckStatus, \
+    SettingKey, S3SettingKey, PRIVATE_KEY_SECRET_NAME
 from helpers.log_helper import get_logger
 from helpers.system_customer import SYSTEM_CUSTOMER
-from integrations.defect_dojo_adapter import DefectDojoAdapter
-from models.modular.application import Application
 from services import SERVICE_PROVIDER
 from services.clients.s3 import S3Client
 from services.clients.ssm import VaultSSMClient
 from services.environment_service import EnvironmentService
 from services.license_manager_service import LicenseManagerService
-from services.modular_service import ModularService
 from services.ruleset_service import RulesetService
-from services.setting_service import SettingsService, KEY_SYSTEM_CUSTOMER, \
-    KEY_REPORT_DATE_MARKER
+from services.setting_service import SettingsService
 from services.ssm_service import SSMService
 
 _LOG = get_logger(__name__)
@@ -40,12 +32,11 @@ _LOG = get_logger(__name__)
 class CheckResult(BaseModel):
     id: str
     status: HealthCheckStatus = HealthCheckStatus.OK
-    details: Optional[Dict] = Field(default_factory=dict)
-    remediation: Optional[str]
-    impact: Optional[str]
+    details: dict = Field(default_factory=dict)
+    remediation: str | None = None
+    impact: str | None = None
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
     def is_ok(self) -> bool:
         return self.status == HealthCheckStatus.OK
@@ -68,7 +59,7 @@ class AbstractHealthCheck(ABC):
         """
 
     @classmethod
-    def remediation(cls) -> Optional[str]:
+    def remediation(cls) -> str | None:
         """
         Actions in case the check is failed
         :return:
@@ -76,34 +67,34 @@ class AbstractHealthCheck(ABC):
         return
 
     @classmethod
-    def impact(cls) -> Optional[str]:
+    def impact(cls) -> str | None:
         """
         Harm in case the check is failed
         :return:
         """
         return
 
-    def ok_result(self, details: Optional[dict] = None) -> CheckResult:
+    def ok_result(self, details: dict | None = None) -> CheckResult:
         return CheckResult(
             id=self.identifier(),
             status=HealthCheckStatus.OK,
-            details=details,
+            details=details or {}
         )
 
-    def not_ok_result(self, details: Optional[dict] = None) -> CheckResult:
+    def not_ok_result(self, details: dict | None = None) -> CheckResult:
         return CheckResult(
             id=self.identifier(),
             status=HealthCheckStatus.NOT_OK,
-            details=details,
+            details=details or {},
             remediation=self.remediation(),
             impact=self.impact()
         )
 
-    def unknown_result(self, details: Optional[dict] = None) -> CheckResult:
+    def unknown_result(self, details: dict | None = None) -> CheckResult:
         return CheckResult(
             id=self.identifier(),
             status=HealthCheckStatus.UNKNOWN,
-            details=details
+            details=details or {}
         )
 
     @abstractmethod
@@ -114,49 +105,6 @@ class AbstractHealthCheck(ABC):
         """
 
 
-# class CoveragesSetToS3SettingsCheck(AbstractHealthCheck):
-#     @classmethod
-#     def remediation(cls) -> Optional[str]:
-#         return 'Parse coverages mappings from excell and set them ' \
-#                'using `main.py env update_settings`'
-#
-#     @classmethod
-#     def impact(cls) -> Optional[str]:
-#         return 'You will not be able to generate compliance report for ' \
-#                'the cloud for which coverages mapping is missing'
-#
-#     @classmethod
-#     def identifier(cls) -> str:
-#         return 'coverages_setting'
-#
-#     def __init__(self, s3_settings_service: S3SettingsService):
-#         self._s3_settings_service = s3_settings_service
-#
-#     @classmethod
-#     def build(cls) -> 'CoveragesSetToS3SettingsCheck':
-#         return cls(
-#             s3_settings_service=SERVICE_PROVIDER.s3_settings_service()
-#         )
-#
-#     def check(self, **kwargs) -> CheckResult:
-#         details = {
-#             AWS_CLOUD_ATTR: True,
-#             AZURE_CLOUD_ATTR: True,
-#             GCP_CLOUD_ATTR: True
-#         }
-#         for cloud in details:
-#             key = S3_KEY_SECURITY_STANDARDS_COVERAGE.format(cloud=cloud)
-#             coverage = self._s3_settings_service.get(key)
-#             if not coverage:
-#                 details[cloud] = False
-#
-#         if all(details.values()):
-#             return self.ok_result(details=details)
-#         return self.not_ok_result(
-#             details=details
-#         )
-
-
 class SystemCustomerSettingCheck(AbstractHealthCheck):
     def __init__(self, settings_service: SettingsService):
         self._settings_service = settings_service
@@ -164,7 +112,7 @@ class SystemCustomerSettingCheck(AbstractHealthCheck):
     @classmethod
     def build(cls) -> 'SystemCustomerSettingCheck':
         return cls(
-            settings_service=SERVICE_PROVIDER.settings_service()
+            settings_service=SERVICE_PROVIDER.settings_service
         )
 
     @classmethod
@@ -172,7 +120,7 @@ class SystemCustomerSettingCheck(AbstractHealthCheck):
         return 'system_customer_setting'
 
     def check(self, **kwargs) -> CheckResult:
-        name = (self._settings_service.get(KEY_SYSTEM_CUSTOMER) or
+        name = (self._settings_service.get(SettingKey.SYSTEM_CUSTOMER) or
                 DEFAULT_SYSTEM_CUSTOMER)
         return self.ok_result(details={
             'name': name
@@ -186,16 +134,16 @@ class LicenseManagerIntegrationCheck(AbstractHealthCheck):
     @classmethod
     def build(cls) -> 'LicenseManagerIntegrationCheck':
         return cls(
-            settings_service=SERVICE_PROVIDER.settings_service()
+            settings_service=SERVICE_PROVIDER.settings_service
         )
 
     @classmethod
-    def remediation(cls) -> Optional[str]:
+    def remediation(cls) -> str | None:
         return 'Make sure License Manager is running. Execute ' \
                '`c7n setting lm config add --host` to set license manager link'
 
     @classmethod
-    def impact(cls) -> Optional[str]:
+    def impact(cls) -> str | None:
         return 'The installation of service does not have ' \
                'access to License Manager API'
 
@@ -230,18 +178,18 @@ class LicenseManagerClientKeyCheck(AbstractHealthCheck):
     @classmethod
     def build(cls) -> 'LicenseManagerClientKeyCheck':
         return cls(
-            settings_service=SERVICE_PROVIDER.settings_service(),
-            license_manager_service=SERVICE_PROVIDER.license_manager_service(),
-            ssm_service=SERVICE_PROVIDER.ssm_service()
+            settings_service=SERVICE_PROVIDER.settings_service,
+            license_manager_service=SERVICE_PROVIDER.license_manager_service,
+            ssm_service=SERVICE_PROVIDER.ssm_service
         )
 
     @classmethod
-    def remediation(cls) -> Optional[str]:
+    def remediation(cls) -> str | None:
         return 'Create client on LM side and rotate keys. Then execute ' \
                '`c7n setting lm client add` to import the rotated key'
 
     @classmethod
-    def impact(cls) -> Optional[str]:
+    def impact(cls) -> str | None:
         return 'License manager does not know about this custodian ' \
                'installation. It will no allow to sync licenses'
 
@@ -278,7 +226,7 @@ class ReportDateMarkerSettingCheck(AbstractHealthCheck):
     @classmethod
     def build(cls) -> 'ReportDateMarkerSettingCheck':
         return cls(
-            settings_service=SERVICE_PROVIDER.settings_service()
+            settings_service=SERVICE_PROVIDER.settings_service
         )
 
     @classmethod
@@ -286,11 +234,11 @@ class ReportDateMarkerSettingCheck(AbstractHealthCheck):
         return 'report_date_marker_setting'
 
     @classmethod
-    def impact(cls) -> Optional[str]:
+    def impact(cls) -> str | None:
         return 'Metric collecting will not work properly'
 
     @classmethod
-    def remediation(cls) -> Optional[str]:
+    def remediation(cls) -> str | None:
         return 'Execute `main.py env update_settings`'
 
     @cached_property
@@ -305,13 +253,15 @@ class ReportDateMarkerSettingCheck(AbstractHealthCheck):
         setting = self._settings_service.get_report_date_marker()
         if not setting:
             return self.not_ok_result({
-                'error': f'setting \'{KEY_REPORT_DATE_MARKER}\' is not set'
+                'error': f'setting \'{SettingKey.REPORT_DATE_MARKER}\' '
+                         f'is not set'
             })
         try:
             self.model(**setting)
         except ValidationError as e:
             return self.not_ok_result({
-                'error': f'setting \'{KEY_REPORT_DATE_MARKER}\' is invalid'
+                'error': f'setting \'{SettingKey.REPORT_DATE_MARKER}\' '
+                         f'is invalid'
             })
         return self.ok_result()
 
@@ -319,17 +269,17 @@ class ReportDateMarkerSettingCheck(AbstractHealthCheck):
 class RabbitMQConnectionCheck(AbstractHealthCheck):
     def __init__(self, settings_service: SettingsService,
                  ssm_service: SSMService,
-                 modular_service: ModularService):
+                 modular_client: Modular):
         self._settings_service = settings_service
         self._ssm_service = ssm_service
-        self._modular_service = modular_service
+        self._modular_client = modular_client
 
     @classmethod
     def build(cls) -> 'RabbitMQConnectionCheck':
         return cls(
-            settings_service=SERVICE_PROVIDER.settings_service(),
-            ssm_service=SERVICE_PROVIDER.ssm_service(),
-            modular_service=SERVICE_PROVIDER.modular_service()
+            settings_service=SERVICE_PROVIDER.settings_service,
+            ssm_service=SERVICE_PROVIDER.ssm_service,
+            modular_client=SERVICE_PROVIDER.modular_client
         )
 
     @classmethod
@@ -337,35 +287,36 @@ class RabbitMQConnectionCheck(AbstractHealthCheck):
         return 'rabbitmq_connection'
 
     @classmethod
-    def impact(cls) -> Optional[str]:
+    def impact(cls) -> str | None:
         return 'Customer won`t be able to send messages to Maestro'
 
     @classmethod
-    def remediation(cls) -> Optional[str]:
+    def remediation(cls) -> str | None:
         return 'Setup RabbitMQ configuration for your customer'
 
-    def _check_customer(self, customer: str) -> Tuple[dict, bool]:
+    def _check_customer(self, customer: str) -> tuple[dict, bool]:
         """
         Returns details for one customer and boolean whether the check
         is successful
         :param customer:
         :return:
         """
-        app = next(self._modular_service.get_applications(
+        app = next(self._modular_client.application_service().list(
             customer=customer,
-            _type=RABBITMQ_TYPE,
+            _type=ApplicationType.RABBITMQ.value,
             limit=1,
             deleted=False
         ), None)
         if not app:
             return {
-                customer: f'Application with type {RABBITMQ_TYPE} not found'
+                customer: f'Application with type '
+                          f'{ApplicationType.RABBITMQ} not found'
             }, False
-        creds = self._modular_service.modular_client.maestro_credentials_service(). \
+        creds = self._modular_client.maestro_credentials_service(). \
             get_by_application(app)
         if not creds:
             return {
-                customer: 'Could not resolve rabbitmq creds from application'
+                customer: 'Could not resolve RabbitMQ creds from application'
             }, False
         return {customer: 'OK'}, True
 
@@ -373,8 +324,8 @@ class RabbitMQConnectionCheck(AbstractHealthCheck):
         if kwargs.get(CUSTOMER_ATTR):
             customers = iter([kwargs[CUSTOMER_ATTR]])
         else:
-            customers = (c.name for c in
-                         self._modular_service.i_get_customers())
+            cs = self._modular_client.customer_service()
+            customers = (c.name for c in cs.i_get_customer())
         details = {}
         ok = True
         for customer in customers:
@@ -394,7 +345,7 @@ class EventDrivenRulesetsExist(AbstractHealthCheck):
     @classmethod
     def build(cls) -> 'AbstractHealthCheck':
         return cls(
-            ruleset_service=SERVICE_PROVIDER.ruleset_service()
+            ruleset_service=SERVICE_PROVIDER.ruleset_service
         )
 
     @classmethod
@@ -441,7 +392,7 @@ class EventDrivenRulesetsExist(AbstractHealthCheck):
         )
 
     @classmethod
-    def remediation(cls) -> Optional[str]:
+    def remediation(cls) -> str | None:
         """
         Actions in case the check is failed
         :return:
@@ -450,81 +401,12 @@ class EventDrivenRulesetsExist(AbstractHealthCheck):
                '"c7n ruleset eventdriven add" for all three clouds'
 
     @classmethod
-    def impact(cls) -> Optional[str]:
+    def impact(cls) -> str | None:
         """
         Harm in case the check is failed
         :return:
         """
         return 'Event-driven scans won`t work'
-
-
-class DefectDojoCheck(AbstractHealthCheck):
-    def __init__(self, modular_service: ModularService):
-        self._modular_service = modular_service
-
-    @classmethod
-    def build(cls) -> 'DefectDojoCheck':
-        return cls(
-            modular_service=SERVICE_PROVIDER.modular_service()
-        )
-
-    @classmethod
-    def identifier(cls) -> str:
-        return 'defect_dojo_connection'
-
-    def _check_application(self, application: Application) -> Tuple[str, bool]:
-        raw_secret = self._modular_service.modular_client.assume_role_ssm_service().get_parameter(
-            application.secret)
-        if not raw_secret or not isinstance(raw_secret, dict):
-            _LOG.debug(f'SSM Secret by name {application.secret} not found')
-            return 'Application secret not found', False
-        meta = DefectDojoApplicationMeta.from_dict(application.meta.as_dict())
-        secret = DefectDojoApplicationSecret.from_dict(raw_secret)
-        try:
-            _LOG.info('Initializing dojo client')
-            DefectDojoAdapter(
-                host=meta.url,
-                api_key=secret.api_key,
-                # todo get other configuration from parent meta
-            )
-            return 'OK', True
-        except requests.RequestException as e:
-            return str(e), False
-
-    def _check_customer(self, customer: str) -> Tuple[dict, bool]:
-        parents = self._modular_service.get_customer_bound_parents(
-            customer=customer,
-            parent_type=SIEM_DEFECT_DOJO_TYPE,
-            is_deleted=False
-        )
-        result = {}
-        ok = True
-        for aid in (parent.application_id for parent in parents):
-            app = self._modular_service.get_application(aid)
-            if not app or app.is_deleted:
-                result[aid], ok = 'Application not found', False
-
-            else:
-                result[aid], _ok = self._check_application(app)
-                ok &= _ok
-        return {customer: result}, ok
-
-    def check(self, **kwargs) -> CheckResult:
-        if kwargs.get(CUSTOMER_ATTR):
-            customers = iter([kwargs[CUSTOMER_ATTR]])
-        else:
-            customers = (c.name for c in
-                         self._modular_service.i_get_customers())
-        details = {}
-        ok = True
-        for customer in customers:
-            data, success = self._check_customer(customer)
-            details.update(data)
-            if not success:
-                ok = False
-        if ok:
-            return self.ok_result(details)
-        return self.not_ok_result(details)
 
 
 class RulesMetaAccessDataCheck(AbstractHealthCheck):
@@ -536,8 +418,8 @@ class RulesMetaAccessDataCheck(AbstractHealthCheck):
     @classmethod
     def build(cls) -> 'RulesMetaAccessDataCheck':
         return cls(
-            settings_service=SERVICE_PROVIDER.settings_service(),
-            ssm_service=SERVICE_PROVIDER.ssm_service()
+            settings_service=SERVICE_PROVIDER.settings_service,
+            ssm_service=SERVICE_PROVIDER.ssm_service
         )
 
     @classmethod
@@ -545,12 +427,12 @@ class RulesMetaAccessDataCheck(AbstractHealthCheck):
         return 'rules_meta_access_data'
 
     @classmethod
-    def remediation(cls) -> Optional[str]:
+    def remediation(cls) -> str | None:
         return 'Admin should set secret with access data to ' \
                'git repo containing rules meta'
 
     @classmethod
-    def impact(cls) -> Optional[str]:
+    def impact(cls) -> str | None:
         return 'Custodian will not pull rules meta. ' \
                'Some features will be unavailable'
 
@@ -578,16 +460,16 @@ class RulesMetaCheck(AbstractHealthCheck):
     @classmethod
     def build(cls) -> 'RulesMetaCheck':
         return cls(
-            s3_settings_service=SERVICE_PROVIDER.s3_settings_service()
+            s3_settings_service=SERVICE_PROVIDER.s3_settings_service
         )
 
     @classmethod
-    def remediation(cls) -> Optional[str]:
+    def remediation(cls) -> str | None:
         return 'Configure rule-meta access data and invoke rule-meta-updater ' \
                'with an empty event to wait for cron invoke'
 
     @classmethod
-    def impact(cls) -> Optional[str]:
+    def impact(cls) -> str | None:
         return 'Some features will not be available'
 
     @classmethod
@@ -597,11 +479,18 @@ class RulesMetaCheck(AbstractHealthCheck):
     def check(self, **kwargs) -> CheckResult:
         _all = set(self._s3_settings_service.ls())
         _required = {
-            KEY_RULES_TO_SERVICE_SECTION, KEY_RULES_TO_SEVERITY,
-            KEY_RULES_TO_STANDARDS, KEY_RULES_TO_MITRE, KEY_CLOUD_TO_RULES,
-            KEY_HUMAN_DATA, KEY_AWS_STANDARDS_COVERAGE,
-            KEY_AZURE_STANDARDS_COVERAGE, KEY_GOOGLE_STANDARDS_COVERAGE,
-            KEY_AWS_EVENTS, KEY_AZURE_EVENTS, KEY_GOOGLE_EVENTS
+            S3SettingKey.RULES_TO_SERVICE_SECTION.value,
+            S3SettingKey.RULES_TO_SEVERITY.value,
+            S3SettingKey.RULES_TO_STANDARDS.value,
+            S3SettingKey.RULES_TO_MITRE.value,
+            S3SettingKey.CLOUD_TO_RULES.value,
+            S3SettingKey.HUMAN_DATA.value,
+            S3SettingKey.AWS_STANDARDS_COVERAGE.value,
+            S3SettingKey.AZURE_STANDARDS_COVERAGE.value,
+            S3SettingKey.GOOGLE_STANDARDS_COVERAGE.value,
+            S3SettingKey.AWS_EVENTS.value,
+            S3SettingKey.AZURE_EVENTS.value,
+            S3SettingKey.GOOGLE_EVENTS.value
         }
         missing = _required - _all
         present = _required & _all
@@ -620,16 +509,16 @@ class VaultConnectionCheck(AbstractHealthCheck):
     @classmethod
     def build(cls) -> 'VaultConnectionCheck':
         return cls(
-            ssm_service=SERVICE_PROVIDER.ssm_service()
+            ssm_service=SERVICE_PROVIDER.ssm_service
         )
 
     @classmethod
-    def remediation(cls) -> Optional[str]:
+    def remediation(cls) -> str | None:
         return 'Make sure, vault required envs are set to .env file. ' \
                'In case k8s installation check whether Vault k8s service is up'
 
     @classmethod
-    def impact(cls) -> Optional[str]:
+    def impact(cls) -> str | None:
         return 'On-prem will not work properly'
 
     @classmethod
@@ -662,7 +551,7 @@ class MinioConnectionCheck(AbstractHealthCheck):
     @classmethod
     def build(cls) -> 'AbstractHealthCheck':
         return cls(
-            s3_client=SERVICE_PROVIDER.s3()
+            s3_client=SERVICE_PROVIDER.s3
         )
 
     @classmethod
@@ -672,7 +561,7 @@ class MinioConnectionCheck(AbstractHealthCheck):
     def check(self, **kwargs) -> CheckResult:
         # TODO check host and port
         try:
-            self._s3_client.list_buckets()
+            next(self._s3_client.list_buckets())
         except ClientError as e:
             if e.response['Error']['Code'] in ('SignatureDoesNotMatch',
                                                'InvalidAccessKeyId'):
@@ -705,16 +594,16 @@ class AllS3BucketsExist(AbstractHealthCheck):
     @classmethod
     def build(cls) -> 'AllS3BucketsExist':
         return cls(
-            s3_client=SERVICE_PROVIDER.s3(),
-            environment_service=SERVICE_PROVIDER.environment_service()
+            s3_client=SERVICE_PROVIDER.s3,
+            environment_service=SERVICE_PROVIDER.environment_service
         )
 
     @classmethod
-    def impact(cls) -> Optional[str]:
+    def impact(cls) -> str | None:
         return 'Depending on missing buckets some features may not work'
 
     @classmethod
-    def remediation(cls) -> Optional[str]:
+    def remediation(cls) -> str | None:
         return 'Set bucket names to .env and execute `main.py ' \
                'create_buckets`. For saas deploy the buckets'
 
@@ -723,20 +612,18 @@ class AllS3BucketsExist(AbstractHealthCheck):
         return 'buckets_exist'
 
     @cached_property
-    def bucket_names(self) -> List[str]:
+    def bucket_names(self) -> list[str]:
         return [name for name in (
             self._environment_service.get_statistics_bucket_name(),
-            self._environment_service.get_ssm_backup_bucket(),
             self._environment_service.get_rulesets_bucket_name(),
             self._environment_service.default_reports_bucket_name(),
-            self._environment_service.get_templates_bucket_name(),
             self._environment_service.get_metrics_bucket_name()
         ) if name]
 
     def check(self, **kwargs) -> CheckResult:
         availability = {}
         for name in self.bucket_names:
-            availability[name] = self._s3_client.is_bucket_exists(name)
+            availability[name] = self._s3_client.bucket_exists(name)
         if all(availability.values()):
             return self.ok_result()
         return self.not_ok_result(availability)
@@ -749,15 +636,15 @@ class VaultAuthTokenIsSetCheck(AbstractHealthCheck):
     @classmethod
     def build(cls) -> 'VaultAuthTokenIsSetCheck':
         return cls(
-            ssm_service=SERVICE_PROVIDER.ssm_service()
+            ssm_service=SERVICE_PROVIDER.ssm_service
         )
 
     @classmethod
-    def remediation(cls) -> Optional[str]:
+    def remediation(cls) -> str | None:
         return 'Execute `main.py init_vault`'
 
     @classmethod
-    def impact(cls) -> Optional[str]:
+    def impact(cls) -> str | None:
         return 'On-prem authentication will not work'
 
     @classmethod
@@ -765,31 +652,17 @@ class VaultAuthTokenIsSetCheck(AbstractHealthCheck):
         return 'vault_auth_token'
 
     def check(self, **kwargs) -> CheckResult:
-        from connections.auth_extension.cognito_to_jwt_adapter import \
-            AUTH_TOKEN_NAME
-        # lambda package does not include `exported_module`
+        # lambda package does not include `onprem`
         if not self._ssm_service.is_secrets_engine_enabled():
             return self.not_ok_result(details={
-                'token': False,
+                'private_key': False,
                 'secrets_engine': False
             })
-        token = self._ssm_service.get_secret_value(AUTH_TOKEN_NAME)
-        if isinstance(token, str):
-            try:
-                payload = json.loads(token)
-            except json.JSONDecodeError as e:
-                return self.not_ok_result(details={
-                    'token': True,
-                    'secrets_engine': True,
-                    'error': 'Invalid token JSON'
-                })
-        else:  # isinstance(token, dict)
-            payload = token
-        phrase = payload.get('phrase')
-        if not phrase:
+        token = self._ssm_service.get_secret_value(PRIVATE_KEY_SECRET_NAME)
+        if not token or not isinstance(token, str):
             return self.not_ok_result(details={
-                'token': True,
+                'private_key': False,
                 'secrets_engine': True,
-                'error': '`phrase` key is missing'
+                'error': 'Private key does not exist or invalid'
             })
         return self.ok_result(details={'token': True, 'secrets_engine': True})

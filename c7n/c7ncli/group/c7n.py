@@ -1,13 +1,13 @@
 import click
 
-from c7ncli.group import cli_response, ViewCommand, response, ContextObj
-from c7ncli.group.application import application
+from c7ncli.group import ContextObj, ViewCommand, cli_response, response
 from c7ncli.group.customer import customer
+from c7ncli.group.integrations import integrations
 from c7ncli.group.job import job
 from c7ncli.group.license import license
 from c7ncli.group.meta import meta
 from c7ncli.group.metrics import metrics
-from c7ncli.group.parent import parent
+from c7ncli.group.platform import platform
 from c7ncli.group.policy import policy
 from c7ncli.group.report import report
 from c7ncli.group.results import results
@@ -17,11 +17,11 @@ from c7ncli.group.ruleset import ruleset
 from c7ncli.group.rulesource import rulesource
 from c7ncli.group.setting import setting
 from c7ncli.group.tenant import tenant
-from c7ncli.group.platform import platform
-from c7ncli.group.user import user
+from c7ncli.group.users import users
 from c7ncli.service.helpers import validate_api_link
 from c7ncli.service.logger import get_logger
-from c7ncli.version import __version__
+from c7ncli.version import __version__, check_version_compatibility
+
 
 SYSTEM_LOG = get_logger(__name__)
 
@@ -39,7 +39,7 @@ def c7n():
               help='Specify how many items per table. '
                    'Set `0` to disable the limitation')
 @cli_response(check_api_link=False, check_access_token=False, )
-def configure(ctx: ContextObj, api_link, items_per_column):
+def configure(ctx: ContextObj, api_link, items_per_column, **kwargs):
     """
     Configures c7n tool to work with Custodian as a Service.
     """
@@ -67,23 +67,35 @@ def configure(ctx: ContextObj, api_link, items_per_column):
 @click.option('--password', '-p', type=str,
               required=True, hide_input=True, prompt=True,
               help='Custodian Service user password.')
-@cli_response(check_access_token=False, secured_params=['password'])
-def login(ctx: ContextObj, username: str, password: str):
+@cli_response(check_access_token=False)
+def login(ctx: ContextObj, username: str, password: str, **kwargs):
     """
     Authenticates user to work with Custodian as a Service.
     """
     adapter = ctx['api_client']
-    _response = adapter.login(username=username, password=password)
+    resp = adapter.login(username=username, password=password)
+    if resp.exc or not resp.ok:
+        return resp
+    check_version_compatibility(resp.api_version)
 
-    if isinstance(_response, dict):
-        return _response
-    ctx['config'].access_token = _response
+    ctx['config'].access_token = resp.data['access_token']
+    if rt := resp.data.get('refresh_token'):
+        ctx['config'].refresh_token = rt
     return response('Great! The c7n tool access token has been saved.')
+
+
+@c7n.command(cls=ViewCommand, name='whoami')
+@cli_response(attributes_order=('username', 'customer', 'role', 'latest_login'))
+def whoami(ctx: ContextObj, customer_id: str):
+    """
+    Returns information about the current user
+    """
+    return ctx['api_client'].whoami()
 
 
 @c7n.command(cls=ViewCommand, name='cleanup')
 @cli_response(check_access_token=False, check_api_link=False)
-def cleanup(ctx: ContextObj):
+def cleanup(ctx: ContextObj, **kwargs):
     """
     Removes all the configuration data related to the tool.
     """
@@ -95,11 +107,11 @@ def cleanup(ctx: ContextObj):
 @click.option('--identifier', '-id', type=str,
               help='Concrete check id to retrieve')
 @click.option('--status', '-st',
-              type=click.Choice(['OK', 'UNKNOWN', 'NOT_OK']),
+              type=click.Choice(('OK', 'UNKNOWN', 'NOT_OK')),
               help='Filter checks by status')
-@cli_response(attributes_order=['id', 'status', 'details', 'impact',
-                                'remediation'])
-def health_check(ctx: ContextObj, identifier, status):
+@cli_response(attributes_order=('id', 'status', 'details', 'impact',
+                                'remediation'))
+def health_check(ctx: ContextObj, identifier, status, **kwargs):
     """
     Checks Custodian Service components availability
     """
@@ -110,7 +122,7 @@ def health_check(ctx: ContextObj, identifier, status):
 
 @c7n.command(cls=ViewCommand, name='show_config')
 @cli_response()
-def show_config(ctx: ContextObj):
+def show_config(ctx: ContextObj, **kwargs):
     """
     Returns the cli configuration
     """
@@ -127,12 +139,10 @@ c7n.add_command(report)
 c7n.add_command(ruleset)
 c7n.add_command(rulesource)
 c7n.add_command(license)
-# c7n.add_command(trigger)
-c7n.add_command(user)
 c7n.add_command(setting)
 c7n.add_command(results)
-c7n.add_command(application)
-c7n.add_command(parent)
 c7n.add_command(metrics)
 c7n.add_command(meta)
 c7n.add_command(platform)
+c7n.add_command(integrations)
+c7n.add_command(users)

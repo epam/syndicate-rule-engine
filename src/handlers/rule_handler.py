@@ -1,17 +1,18 @@
+from functools import cached_property
 from http import HTTPStatus
 
 from modular_sdk.models.pynamodb_extension.base_model import \
     LastEvaluatedKey as Lek
 
-from handlers.abstracts.abstract_handler import AbstractHandler
-from helpers import build_response
-from helpers.constants import HTTPMethod, NEXT_TOKEN_ATTR
+from handlers import AbstractHandler, Mapping
+from helpers.constants import CustodianEndpoint, HTTPMethod
+from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
 from helpers.system_customer import SYSTEM_CUSTOMER
-from services.modular_service import ModularService
+from services import SP
 from services.rule_meta_service import RuleService
 from services.rule_source_service import RuleSourceService
-from validators.request_validation import RuleGetModel, RuleDeleteModel
+from validators.swagger_request_models import RuleDeleteModel, RuleGetModel
 from validators.utils import validate_kwargs
 
 _LOG = get_logger(__name__)
@@ -22,23 +23,29 @@ class RuleHandler(AbstractHandler):
     Manage Rule API
     """
 
-    def __init__(self, modular_service: ModularService,
-                 rule_service: RuleService,
+    def __init__(self, rule_service: RuleService,
                  rule_source_service: RuleSourceService):
         self.rule_service = rule_service
         self.rule_source_service = rule_source_service
-        self.modular_service = modular_service
 
-    def define_action_mapping(self):
+    @classmethod
+    def build(cls):
+        return cls(
+            rule_service=SP.rule_service,
+            rule_source_service=SP.rule_source_service
+        )
+
+    @cached_property
+    def mapping(self) -> Mapping:
         return {
-            '/rules': {
+            CustodianEndpoint.RULES: {
                 HTTPMethod.GET: self.get_rule,
                 HTTPMethod.DELETE: self.delete_rule
             }
         }
 
     @validate_kwargs
-    def get_rule(self, event: RuleGetModel) -> dict:
+    def get_rule(self, event: RuleGetModel):
         _LOG.debug(f'Get rules action')
         customer = event.customer or SYSTEM_CUSTOMER
         lek = Lek.deserialize(event.next_token or None)
@@ -74,14 +81,14 @@ class RuleHandler(AbstractHandler):
             )
         dto = list(self.rule_service.dto(rule) for rule in cursor)
         lek.value = cursor.last_evaluated_key
-        return build_response(
-            content=dto,
-            meta={NEXT_TOKEN_ATTR: lek.serialize()} if lek else None
-        )
+
+        return ResponseFactory().items(
+            dto, next_token=lek.serialize() if lek else None
+        ).build()
 
     @validate_kwargs
     def delete_rule(self, event: RuleDeleteModel):
-        _LOG.debug(f'Delete rule action')
+        _LOG.debug('Delete rule action')
         customer = event.customer or SYSTEM_CUSTOMER
 
         if event.rule:

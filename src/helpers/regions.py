@@ -6,7 +6,7 @@ from typing import Set
 
 from helpers import Enum
 from helpers.constants import AWS_CLOUD_ATTR, AZURE_CLOUD_ATTR, \
-    GOOGLE_CLOUD_ATTR, MULTIREGION
+    GOOGLE_CLOUD_ATTR, GLOBAL_REGION
 
 AWS_REGIONS = {
     'ap-northeast-3', 'ap-southeast-1', 'ap-south-1',
@@ -60,18 +60,18 @@ CLOUD_REGIONS = {
     GOOGLE_CLOUD_ATTR: GOOGLE_REGIONS
 }
 
-AWSRegion = Enum.build('AWSRegion', AWS_REGIONS)
-AZURERegion = Enum.build('AZURERegion', AZURE_REGIONS)
-GOOGLERegion = Enum.build('GOOGLERegion', GOOGLE_REGIONS)
+AWSRegion = Enum.build('AWSRegion', sorted(AWS_REGIONS))
+AZURERegion = Enum.build('AZURERegion', sorted(AZURE_REGIONS))
+GOOGLERegion = Enum.build('GOOGLERegion', sorted(GOOGLE_REGIONS))
 
 AllRegions = Enum.build(
     'AllRegions',
     chain(AWSRegion.iter(), AZURERegion.iter(), GOOGLERegion.iter())
 )
 
-AllRegionsWithMultiregional = Enum.build(
+AllRegionsWithGlobal = Enum.build(
     'AllRegionsWithMultiregional',
-    chain(AllRegions.iter(), iter([MULTIREGION]))
+    chain(AllRegions.iter(), iter([GLOBAL_REGION]))
 )
 
 

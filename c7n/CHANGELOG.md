@@ -4,7 +4,79 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-# [4.15.0] - 2023-10-16
+## [5.1.0] - 2024-04-17
+- added `--effect` and `--tenant` and `--description` to `c7n policy add|update`
+- added `--description` to `c7n role add|update`
+- added `--href` param to `c7n report resource job`
+
+## [5.0.2] - 2024-04-02
+- add `--customer_id` hidden param to `c7n users ...`
+
+## [5.0.0] - 2024-02-19
+- get `trace_id` from headers instead of body
+- refactor, minor optimization
+- adapt response formatters to new Server responses (`data`, `items`, `errors`)
+- Removed commands:
+  - security hub
+  - backupper
+  - `c7n tenant update`
+  - `c7n application *`
+  - `c7n parent *`
+  - `c7n siem *`
+- Added commands:
+  - `c7n customer set_excluded_rules`
+  - `c7n customer get_excluded_rules`
+  - `c7n tenant delete`
+  - `c7n tenant active_licenses`
+  - `c7n tenant set_excluded_rules`
+  - `c7n tenant get_excluded_rules`
+  - `c7n integrations dojo add`
+  - `c7n integrations dojo describe`
+  - `c7n integrations dojo delete`
+  - `c7n integrations dojo activate`
+  - `c7n integrations dojo deactivate`
+  - `c7n integrations dojo get_activation`
+  - `c7n integrations sre add`
+  - `c7n integrations sre describe`
+  - `c7n integrations sre delete`
+  - `c7n integrations sre update`
+  - `c7n license activate`
+  - `c7n license deactivate`
+  - `c7n license get_activation`
+  - `c7n license update_activation`
+  - `c7n tenant credentials *`
+  - `c7n whoami`
+
+
+## [4.19.0] - 2023-12-22
+- added new command `c7n report status`
+
+## [4.18.0] - 2023-12-20
+* rename some parameters in the commands `c7n metrics status` and `c7n job describe`:
+  * `--from` to `--from_date`
+  * `--to` to `--to_date`
+* added new command `c7n report status`
+
+## [4.17.1] - 2023-12-13
+* added parameters `--from` and `--to` for the command `c7n metrics status`
+
+## [4.17.0] - 2023-12-08
+* added new commands:
+  * `c7n setting report enable_sending`
+  * `c7n setting report disable_sending`
+
+## [4.16.1] - 2023-12-05
+* made `--tenant_name` parameter in the `c7n report operational` command multiple
+
+## [4.16.0] - 2023-11-27
+* added new report command:
+  * `c7n report diagnostic`
+* removed some obsolete cli commands
+
+## [4.15.1] - 2023-11-16
+* added `KUBERNETES` report type to the `c7n report operational` command
+
+## [4.15.0] - 2023-10-16
 - added new commands to manage k8s platforms:
   - `c7n platform k8s create_eks`
   - `c7n platform k8s create_native`
@@ -13,55 +85,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `c7n platform k8s describe`
 
 
-# [4.14.0] - 2023-10-04
+## [4.14.0] - 2023-10-04
 * Update libraries to support Python 3.10
   * tabulate from 0.8.9 to 0.9.0
   * requests from 2.27.1 to 2.31.0
 * Make python3.10 a min required version
 
-# [4.13.2] - 2023-10-04
+## [4.13.2] - 2023-10-04
 * added `FINOPS` report type to the commands:
   * `c7n report operational`
   * `c7n report project`
 
-# [4.13.1] - 2023-09-28
+## [4.13.1] - 2023-09-28
 * changed format of the `--report_types` parameter at the time of sending the request in commands:
   * `c7n report operational`
   * `c7n report project`
   * `c7n report department`
   * `c7n report clevel`
 
-# [4.13.0] - 2023-09-28
+## [4.13.0] - 2023-09-28
 * made the `--report_types` parameter multiple in commands:
   * `c7n report operational`
   * `c7n report project`
   * `c7n report department`
   * `c7n report clevel`
 
-# [4.12.0] - 2023-09-05
+## [4.12.0] - 2023-09-05
 - added `c7n report resource latest` command to allow to retrieve resource 
   specific info
 - added `c7n report resource jobs` command
 - added `c7n report resource job`
 
-# [4.11.0] - 2023-09-01
+## [4.11.0] - 2023-09-01
 - added `c7n meta udpate_mappings`, `c7n meta update_standards`, 
   `c7n meta update_meta` commands
 
-# [4.10.1] - 2023-08-23
+## [4.10.1] - 2023-08-23
 - rename `--tenants` to '--tenant' in `c7n user signup` command
 - update some descriptions
 
-# [4.10.0] - 2023-08-23
+## [4.10.0] - 2023-08-23
 - add `--api_version` param to `c7n setting lm config add`
 
-# [4.9.3] - 2023-08-15
+## [4.9.3] - 2023-08-15
 - fix typo in constant name (from `RULES` to `RULE`) in the `c7n report operational` command
 
-# [4.9.2] - 2023-08-10
+## [4.9.2] - 2023-08-10
 - added `--raw` flag to `c7n tenant findings describe` command
 
-# [4.9.0] - 2023-08-10
+## [4.9.0] - 2023-08-10
 - added parameter `--description` to the `c7n rulesource add`, `c7n rulesource update` commands
 - updated `c7n rulesource add` command:
   - made parameter `--git_access_secret` optional;
@@ -82,39 +154,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - removed `--all_rules`, `--rule_version` parameters;
   - made `--standard` parameters multiple;
 
-# [4.7.2] - 2023-08-01
+## [4.7.2] - 2023-08-01
 * added commands to manage Defect Dojo applications:
   - `c7n application dojo add`
   - `c7n application dojo delete`
   - `c7n application dojo update`
   - `c7n application dojo describe`
 
-# [4.7.1] - 2023-07-28
+## [4.7.1] - 2023-07-28
 * added `--results_storage` attribute to `c7n application access update`, 
 `c7n application access add` commands
 * remove `--type` parameter from `c7n parent link_tenant` command
 
-# [4.7.0] - 2023-07-27
+## [4.7.0] - 2023-07-27
 * Add `CUSTODIAN_ACCESS` parent type to `c7n parent ...` commands
 * added `rules_to_scan` parameter to `c7n job submit`. The parameter can 
   accept either string or JSON string or path to a file containing JSON
 
-# [4.6.1] - 2023-07-11
+## [4.6.1] - 2023-07-11
 * Integrate `modular-sdk` instead of the usage of `mcdm-sdk`
 
-# [4.6.0] - 2023-07-04
+## [4.6.0] - 2023-07-04
 * added command: 
   * `c7n metrics status`
 * renamed old command:
   * `c7n trigger metrics_update` to `c7n metrics update`
 
-# [4.5.2] - 2023-07-03
+## [4.5.2] - 2023-07-03
 * made `--tenant_name` and `--tenant_display_name` case-insensitive;
 
-# [4.5.1] - 2023-06-26
+## [4.5.1] - 2023-06-26
 * fix a bug with m3-modular and custom name for click option;
 
-# [4.5.0] - 2023-05-30
+## [4.5.0] - 2023-05-30
 * added new parameter `report_type` to the following commands:
   * `c7n report operational`;
   * `c7n report project`;
@@ -122,7 +194,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   * `c7n report clevel`.
 * removed `c7n siem` group
 
-# [4.4.1] - 2023-05-25
+## [4.4.1] - 2023-05-25
 * hid some secured params from logs
 * added commands:
   - c7n application access add 
@@ -131,7 +203,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - c7n application access update
 * added `--protocol`, `--stage` attributes to `c7n setting lm config add`
 
-# [4.4.0] - 2023-05-24
+## [4.4.0] - 2023-05-24
 * added command to trigger metrics update:t
   - c7n trigger metrics_update
 * renamed license-related commands:
@@ -142,13 +214,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and `c7n setting mail delete` commands;
 * remove `--permissions_admin` from `c7n policy add`
 
-# [4.3.0] - 2023-05-22
+## [4.3.0] - 2023-05-22
 * added commands to manage rabbitMQ:
   - c7n customer rabbitmq add;
   - c7n customer rabbitmq describe
   - c7n customer rabbitmq delete;
 
-# [4.2.0] - 2023-05-02
+## [4.2.0] - 2023-05-02
 * integrate mcdm cli sdk
 * added [`-rsid`/`--rule_source_id`] parameter to the following commands:
   * `c7n rulesource` [`describe`|`update`|`delete`]
@@ -159,11 +231,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   * [`--git_ref`/`-gref`]
   * [`git_rules_prefix`/`-gprefix`]
 
-# [4.1.4] - 2023-04-28
+## [4.1.4] - 2023-04-28
 * removed default name for `--cloud_application_id` option in `c7n application update` and 
 `c7n application add` commands
 
-# [4.1.3] - 2023-04-27
+## [4.1.3] - 2023-04-27
 * rename `c7n ruleset event_driven` command to `c7n ruleset eventdriven`
 * fix _issues_ found by QA team:
   * #52. Updated description of `c7n parent --help` command 
@@ -189,17 +261,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   * #72. Updated description of `c7n user tenants` group
   * #73. Updated parameter description of `c7n user tenants describe` command
 
-# [4.1.2] - 2023-04-26
+## [4.1.2] - 2023-04-26
 * removed default argument name for `--customer_id` option
 * changed `tenant_name` to `tenant_names` parameter in `c7n report operational` command;
 * changed `tenant_display_name` to `tenant_display_names` parameter in `c7n report project` command;
 * made `--tenant_names` parameter required for `c7n report operational` command
 
-# [4.1.1] - 2023-04-25
+## [4.1.1] - 2023-04-25
 * added missing parameter `name` to the `show_config` command. Required for compatibility with `m3modular`
 
 
-# [4.1.0] - 2023-04-20
+## [4.1.0] - 2023-04-20
 * fix issues found by QA team:
   1. Removed `c7n job submit aws`, `c7n job submit azure`, `c7n job submit google`. Now there is only one command `c7n job submit`  for which you can optionally pass `--cloud` attr in case you need to resolve credentials from envs locally;
   2. -
@@ -253,11 +325,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   50. `--access_application_id` renamed to `--cloud_application_id`  for `c7n application add|update` commands;
   51. `--application_id` is added to commands `c7n application delete`, `c7n application update`;
 
-# [4.0.1] - 2023-04-14
+## [4.0.1] - 2023-04-14
 * fix `c7n results describe` for modular
 
 
-# [4.0.0] - 2023-02-03 - 2023-03-07
+## [4.0.0] - 2023-02-03 - 2023-03-07
 * `c7n account findings` moved to `c7n tenant findings`;
 * `c7n account credentials` moved to `c7n tenant credentials`;
 * removed `--account_name` from `c7n report ... accumulated`;
@@ -278,11 +350,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   as M3 Module
 
 
-# [3.4.0] - 2023-01-30 - 2023-02-03
+## [3.4.0] - 2023-01-30 - 2023-02-03
 - add an ability to describe tenants by project id - add `cloud_identifier` 
   param to `c7n tenant describe`
 
-# [3.3.0] - 2023-01-16
+## [3.3.0] - 2023-01-16
 - add `c7n job event` to simulate event-driven requests, only in developer mode.
 - add `c7n result describe` to describe BatchResults;
 - rewrite `c7n report`: add 
@@ -293,7 +365,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `rules jobs/accumulated`;
 
 
-# [3.2.0] - from end of November till now
+## [3.2.0] - from end of November till now
 - add `rule_source_id` to `c7n rule describe`
 - replace `c7n siem delete -type [dojo|security_hub]` 
   with `c7n siem delete dojo|security_hub`
@@ -303,10 +375,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - add `schedule` parameter to `c7n job update`
 - remove `--customer` attr from siem-related commands and add `--tenant_name`
 
-# [3.1.0] (hotfix)
+## [3.1.0] (hotfix)
 
 
-# [3.0.0] 2022-09-14 - 2022-11-02
+## [3.0.0] 2022-09-14 - 2022-11-02
 - integrate Maestro common domain model (MCDM) and its SDK;
 * Added Click's autocomplete;
 * Removed `--start_date` & `--end_date` from `c7n report compliance` and added
@@ -358,7 +430,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Added `c7n user signup`;
 * Added `c7n user delete`
   
-# [2.2.0] - 2022-08-30
+## [2.2.0] - 2022-08-30
 * Added the `--verbose` flag to write detailed information to the log file;
 * Parse `trace_id` from each lambdas' response;
 * Added `--event_driven` attr to `c7n job describe` to be able to retrieve 

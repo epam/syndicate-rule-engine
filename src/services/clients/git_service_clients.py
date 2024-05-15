@@ -2,7 +2,7 @@ import shutil
 import tempfile
 from functools import cached_property
 from pathlib import Path
-from typing import Optional, Union, TypedDict, List
+from typing import TypedDict
 from urllib.parse import urljoin
 
 import requests
@@ -82,8 +82,8 @@ class GitLabClientLib:
             _LOG.warning('Error occurred trying to get project')
             return
 
-    def clone_project(self, project: Union[str, int], to: Path,
-                      ref: Optional[str] = None) -> Optional[Path]:
+    def clone_project(self, project: str | int, to: Path,
+                      ref: str | None = None) -> Path | None:
         """
         In case the project was cloned, returns a path to its root
         >>> with tempfile.TemporaryDirectory() as folder:
@@ -132,8 +132,8 @@ class GitLabClient:
 
     _session: requests.Session = None
 
-    def __init__(self, url: Optional[str] = 'https://git.epam.com',
-                 private_token: Optional[str] = None):
+    def __init__(self, url: str | None = 'https://git.epam.com',
+                 private_token: str | None = None):
         self._url = self.extract_netloc(url)
         self._private_token = private_token
 
@@ -177,7 +177,7 @@ class GitLabClient:
         if isinstance(cls._session, requests.Session):
             cls._session.close()
 
-    def get_project(self, project: Union[int, str]) -> Optional[dict]:
+    def get_project(self, project: int | str) -> dict | None:
         resp = self.session().get(
             url=self._api_url(f'projects/{project}'),
             headers={
@@ -188,8 +188,8 @@ class GitLabClient:
             return
         return resp.json()
 
-    def clone_project(self, project: Union[int, str], to: Path,
-                      ref: Optional[str] = None) -> Optional[Path]:
+    def clone_project(self, project: str | int, to: Path,
+                      ref: str | None = None) -> Path | None:
         """
         In case the project was cloned, returns a path to its root
         >>> with tempfile.TemporaryDirectory() as folder:
@@ -222,8 +222,8 @@ class GitLabClient:
         _LOG.debug('Repository was cloned')
         return next(Path(extracted).iterdir())
 
-    def get_file_meta(self, project: Union[int, str], filepath: str,
-                      ref: Optional[str] = None) -> Optional[_GitLabFileMeta]:
+    def get_file_meta(self, project: int | str, filepath: str,
+                      ref: str | None = None) -> _GitLabFileMeta | None:
         """
         Makes just HEAD to /api/v4/projects/:id/repository/files/:path.
         Main purpose to retrieve commit_hash and updated_date for a file
@@ -285,8 +285,8 @@ class GitHubClient:
             scheme = 'https'
         return scheme + '://' + parsed.netloc
 
-    def __init__(self, url: Optional[str] = 'https://api.github.com',
-                 private_token: Optional[str] = None):
+    def __init__(self, url: str | None = 'https://api.github.com',
+                 private_token: str | None = None):
         self._url = self.extract_netloc(url)
         self._private_token = private_token
 
@@ -309,15 +309,15 @@ class GitHubClient:
         if isinstance(cls._session, requests.Session):
             cls._session.close()
 
-    def get_project(self, project: str) -> Optional[dict]:
+    def get_project(self, project: str) -> dict | None:
         project = project.strip('/')
         resp = self.session().get(url=urljoin(self._url, f'/repos/{project}'))
         if not resp.ok:
             return
         return resp.json()
 
-    def clone_project(self, project: str, to: Path, ref: Optional[str] = None,
-                      ) -> Optional[Path]:
+    def clone_project(self, project: str, to: Path, ref: str | None = None,
+                      ) -> Path | None:
         """
         :param project: GitHub project full name: '[owner]/[repo]'
         :param ref:
@@ -349,7 +349,7 @@ class GitHubClient:
         return next(Path(extracted).iterdir())
 
     def get_file_blame(self, project: str, filepath: str, ref: str
-                       ) -> List[_GitHubBlameRange]:
+                       ) -> list[_GitHubBlameRange]:
         project = project.strip('/')
         owner, repo = project.split('/')
         variables = {
@@ -366,12 +366,12 @@ class GitHubClient:
         ) or []
 
     @staticmethod
-    def most_reset_blame(blames: List[_GitHubBlameRange]) -> _GitHubBlameRange:
+    def most_reset_blame(blames: list[_GitHubBlameRange]) -> _GitHubBlameRange:
         assert blames, 'At least one blame dict must be provided'
         # assuming if there is no age, it is old
         return min(blames, key=lambda x: x.get('age') or 10)
 
-    def run_query(self, query: str, variables: dict) -> Optional[dict]:
+    def run_query(self, query: str, variables: dict) -> dict | None:
         """
         Runs the provided query and returns a raw response
         :param variables:
@@ -392,5 +392,5 @@ class GitHubClient:
         return resp.json()
 
     def get_file_meta(self, project: str, filepath: str,
-                      ref: Optional[str] = None):
+                      ref: str | None = None):
         return

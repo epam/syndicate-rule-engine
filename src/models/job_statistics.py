@@ -4,8 +4,8 @@ from pynamodb.attributes import UnicodeAttribute, NumberAttribute, \
     MapAttribute
 from pynamodb.indexes import AllProjection
 
-from helpers.constants import ENV_VAR_REGION
-from models.modular import BaseModel, BaseGSI
+from helpers.constants import CAASEnv
+from models import BaseModel, BaseGSI
 
 
 class CustomerNameFromDateIndex(BaseGSI):
@@ -26,7 +26,7 @@ class JobStatistics(BaseModel):
 
     class Meta:
         table_name = "CaaSJobStatistics"
-        region = os.environ.get(ENV_VAR_REGION)
+        region = os.environ.get(CAASEnv.AWS_REGION)
 
     id = UnicodeAttribute(hash_key=True)
     cloud = UnicodeAttribute()
@@ -36,6 +36,8 @@ class JobStatistics(BaseModel):
     succeeded = NumberAttribute(null=True, default=0)
     failed = NumberAttribute(null=True, default=0)
     last_scan_date = UnicodeAttribute(null=True)
-    tenants = MapAttribute(null=True)
+    tenants = MapAttribute(default=dict)
+    reason = MapAttribute(default=dict)
+    scanned_regions = MapAttribute(default=dict)
 
     customer_name_from_date_index = CustomerNameFromDateIndex()

@@ -1,19 +1,38 @@
-import collections.abc
-import functools
-import json
-import uuid
+import base64
+import binascii
+from contextlib import contextmanager
 from enum import Enum as _Enum
+import json
+import functools
 from functools import reduce
-from http import HTTPStatus
-from itertools import islice, chain
-from typing import Dict, Type, Any, Union, TypeVar, Optional, List, Tuple, \
-    Iterable, Generator, Callable, Hashable
-from uuid import uuid4
+import io
+from itertools import chain, islice
+import math
+import re
+import msgspec
+import time
+from types import NoneType
+from typing import (
+    Any,
+    BinaryIO,
+    Callable,
+    Generator,
+    Hashable,
+    Iterable,
+    Iterator,
+    Optional,
+    TypeVar,
+    TYPE_CHECKING
+)
+from typing_extensions import Self
+import uuid
 
-from helpers.constants import PARAM_MESSAGE, PARAM_ITEMS, PARAM_TRACE_ID, \
-    GOOGLE_CLOUD_ATTR, GCP_CLOUD_ATTR
-from helpers.exception import CustodianException
+import requests
+
+from helpers.constants import GCP_CLOUD_ATTR, GOOGLE_CLOUD_ATTR
 from helpers.log_helper import get_logger
+if TYPE_CHECKING:
+    from services.abs_lambda import ProcessedEvent
 
 T = TypeVar('T')
 
@@ -21,112 +40,21 @@ _LOG = get_logger(__name__)
 
 PARAM_USER_ID = 'user_id'
 
-LINE_SEP = '/'
-REPO_DYNAMODB_ROOT = 'dynamodb'
-REPO_S3_ROOT = 's3'
 
-REPO_ROLES_FOLDER = 'Roles'
-REPO_POLICIES_FOLDER = 'Policies'
-REPO_SETTINGS_FOLDER = 'Settings'
-REPO_LICENSES_FOLDER = 'Licenses'
-REPO_SIEM_FOLDER = 'SIEMManager'
-
-REPO_SETTINGS_PATH = LINE_SEP.join((REPO_DYNAMODB_ROOT, REPO_SETTINGS_FOLDER))
-
-STATUS_READY_TO_SCAN = 'READY_TO_SCAN'
-
-BAD_REQUEST_IMPROPER_TYPES = 'Bad Request. The following parameters ' \
-                             'don\'t adhere to the respective types: {0}'
 BAD_REQUEST_MISSING_PARAMETERS = 'Bad Request. The following parameters ' \
                                  'are missing: {0}'
 
 
-def build_response(content: Optional[Union[str, dict, list, Iterable]] = None,
-                   code: int = HTTPStatus.OK.value,
-                   meta: Optional[dict] = None):
-    context = _import_request_context()
-    meta = meta or {}
-    _body = {
-        PARAM_TRACE_ID: context.aws_request_id,
-        **meta
-    }
-    if isinstance(content, str):
-        _body.update({PARAM_MESSAGE: content})
-    elif isinstance(content, dict) and content:
-        _body.update({PARAM_ITEMS: [content, ]})
-    elif isinstance(content, list):
-        _body.update({PARAM_ITEMS: content})
-    elif isinstance(content, Iterable):
-        _body.update({PARAM_ITEMS: list(content)})
-    else:
-        _body.update({PARAM_ITEMS: []})
-
-    if 200 <= code <= 207:
-        return {
-            'statusCode': code,
-            'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': '*'
-            },
-            'isBase64Encoded': False,
-            'multiValueHeaders': {},
-            'body': json.dumps(_body, sort_keys=True, separators=(',', ':'))
-        }
-    raise CustodianException(
-        code=code,
-        content=content
-    )
-
-
 class RequestContext:
-    def __init__(self, request_id: str = None):
+    __slots__ = ('aws_request_id', 'invoked_function_arn')
+
+    def __init__(self, request_id: str | None = None):
         self.aws_request_id: str = request_id or str(uuid.uuid4())
+        self.invoked_function_arn = None
 
-
-def _import_request_context():
-    """Imports request_context global variable from abstract_api_handler_lambda
-    and abstract_lambda. Only one of them will be initialized, but here we
-    cannot know which will. So just try"""
-    from services.abstract_api_handler_lambda import REQUEST_CONTEXT as first
-    from services.abstract_lambda import REQUEST_CONTEXT as second
-    if not first and not second:
-        _LOG.warning('NO REQUEST CONTEXT WAS FOUND.')
-        return RequestContext('Custom trace_id')
-    return first if first else second
-
-
-def raise_error_response(code, content):
-    raise CustodianException(code=code, content=content)
-
-
-def get_invalid_parameter_types(
-        event: Dict, required_param_types: Dict[str, Type[Any]]
-) -> Dict:
-    _missing = {}
-    for param, _type in required_param_types.items():
-        data = event.get(param, None)
-        if data is None or not isinstance(data, _type):
-            _missing[param] = _type
-    return _missing
-
-
-def retrieve_invalid_parameter_types(
-        event: Dict, required_param_types: Dict[str, Type[Any]]
-) -> Union[str, Type[None]]:
-    """
-    Checks if all required parameters are given in lambda payload,
-    and follow each respective type.
-    :param event: the lambda payload
-    :param required_param_types: list of the lambda required parameters
-    :return: Union[str, Type[None]]
-    """
-    _missing = get_invalid_parameter_types(event, required_param_types)
-    if _missing:
-        _items = _missing.items()
-        _missing = ', '.join(f'{k}:{v.__name__}' for k, v in _items)
-    return BAD_REQUEST_IMPROPER_TYPES.format(_missing) if _missing else None
+    @staticmethod
+    def get_remaining_time_in_millis():
+        return math.inf
 
 
 def get_missing_parameters(event, required_params_list):
@@ -137,56 +65,7 @@ def get_missing_parameters(event, required_params_list):
     return missing_params_list
 
 
-def validate_params(event, required_params_list):
-    """
-    Checks if all required parameters present in lambda payload.
-    :param event: the lambda payload
-    :param required_params_list: list of the lambda required parameters
-    :return: bad request response if some parameter[s] is/are missing,
-        otherwise - none
-    """
-    missing_params_list = get_missing_parameters(event, required_params_list)
-
-    if missing_params_list:
-        raise_error_response(
-            HTTPStatus.BAD_REQUEST.value,
-            BAD_REQUEST_MISSING_PARAMETERS.format(missing_params_list)
-        )
-
-
-def deep_update(source, overrides):
-    """
-    Update a nested dictionary or similar mapping, with extending
-    inner list by unique items only.
-    """
-    source = source.copy()
-    for key, value in overrides.items():
-        if isinstance(value, collections.abc.Mapping) and value:
-            returned = deep_update(source.get(key, {}), value)
-            source[key] = returned
-        elif isinstance(value, list) and \
-                isinstance(source.get(key), list) and value:
-            for item in value:
-                if item not in source[key]:
-                    source[key].append(item)
-        else:
-            source[key] = overrides[key]
-    return source
-
-
-def generate_id():
-    return str(uuid4())
-
-
-def trim_milliseconds_from_iso_string(iso_string):
-    try:
-        index = iso_string.index('.')
-        return iso_string[:index]
-    except:
-        return iso_string
-
-
-def deep_get(dct: dict, path: Union[list, tuple]) -> Any:
+def deep_get(dct: dict, path: list | tuple) -> Any:
     """
     >>> d = {'a': {'b': 1}}
     >>> deep_get(d, ('a', 'b'))
@@ -196,7 +75,8 @@ def deep_get(dct: dict, path: Union[list, tuple]) -> Any:
     """
     return reduce(
         lambda d, key: d.get(key, None) if isinstance(d, dict) else None,
-        path, dct)
+        path, dct
+    )
 
 
 def deep_set(dct: dict, path: tuple, item: Any):
@@ -209,13 +89,7 @@ def deep_set(dct: dict, path: tuple, item: Any):
         deep_set(dct[path[0]], path[1:], item)
 
 
-def remove_duplicated_dicts(lst: List[Dict]) -> List[Dict]:
-    return list(
-        {json.dumps(dct, sort_keys=True): dct for dct in lst}.values()
-    )
-
-
-def title_keys(item: Union[dict, list]) -> Union[dict, list]:
+def title_keys(item: dict | list) -> dict | list:
     if isinstance(item, dict):
         titled = {}
         for k, v in item.items():
@@ -223,14 +97,11 @@ def title_keys(item: Union[dict, list]) -> Union[dict, list]:
                 title_keys(v)
         return titled
     elif isinstance(item, list):
-        titled = []
-        for i in item:
-            titled.append(title_keys(i))
-        return titled
+        return [title_keys(i) for i in item]
     return item
 
 
-def setdefault(obj: object, name: str, value: T) -> Union[T, Any]:
+def setdefault(obj: object, name: str, value: T) -> T | Any:
     """
     Works like dict.setdefault
     """
@@ -239,22 +110,7 @@ def setdefault(obj: object, name: str, value: T) -> Union[T, Any]:
     return getattr(obj, name)
 
 
-def list_update(target_list: List[T], source_list: List[T],
-                update_by: Tuple[str, ...]) -> List[T]:
-    """
-    Updates objects in target_list from source_list by specified attributes.
-    """
-    _make_dict = lambda _list, _attrs: {
-        tuple(getattr(obj, attr, None) for attr in _attrs): obj
-        for obj in _list
-    }
-    target = _make_dict(target_list, update_by)
-    source = _make_dict(source_list, update_by)
-    target.update(source)
-    return list(target.values())
-
-
-def batches(iterable: Iterable, n: int) -> Generator[List, None, None]:
+def batches(iterable: Iterable, n: int) -> Generator[list, None, None]:
     """
     Batch data into lists of length n. The last batch may be shorter.
     """
@@ -267,35 +123,29 @@ def batches(iterable: Iterable, n: int) -> Generator[List, None, None]:
         batch = list(islice(it, n))
 
 
-def filter_dict(d: dict, keys: Union[set, tuple, list]) -> dict:
+def filter_dict(d: dict, keys: set | list | tuple) -> dict:
     if keys:
         return {k: v for k, v in d.items() if k in keys}
     return d
 
 
 class HashableDict(dict):
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(frozenset(self.items()))
 
 
-def hashable(item: Union[dict, list, str, float, int, type(None)]
-             ) -> Hashable:
-    """Makes hashable from the given item
-        >>> d = {'q': [1,3,5, {'h': 34, 'c': ['1', '2']}], 'v': {1: [1,2,3]}}
-        >>> d1 = {'v': {1: [1,2,3]}, 'q': [1,3,5, {'h': 34, 'c': ['1', '2']}]}
-        >>> hash(hashable(d)) == hash(hashable(d1))
-        True
-        """
+def hashable(item: dict | list | tuple | set | str | float | int | None):
+    """
+    Makes hashable from the given item
+    >>> d = {'q': [1,3,5, {'h': 34, 'c': ['1', '2']}], 'v': {1: [1,2,3]}}
+    >>> d1 = {'v': {1: [1,2,3]}, 'q': [1,3,5, {'h': 34, 'c': ['1', '2']}]}
+    >>> hash(hashable(d)) == hash(hashable(d1))
+    True
+    """
     if isinstance(item, dict):
-        h_dict = HashableDict()
-        for k, v in item.items():
-            h_dict[k] = hashable(v)
-        return h_dict
-    elif isinstance(item, list):
-        h_list = []
-        for i in item:
-            h_list.append(hashable(i))
-        return tuple(h_list)
+        return HashableDict(zip(item.keys(), map(hashable, item.values())))
+    elif isinstance(item, (tuple, list, set)):
+        return tuple(map(hashable, item))
     else:  # str, int, bool, None (all hashable)
         return item
 
@@ -312,20 +162,6 @@ class KeepValueGenerator:
 
     def __iter__(self):
         self.value = yield from self._generator
-
-
-def keep_value(func: Callable):
-    """
-    Decorator that allows to keep generator's value in `value` attribute
-    :param func: function thar returns generator obj
-    :return: function that returns the wrapped generator
-    """
-
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        return KeepValueGenerator(func(*args, **kwargs))
-
-    return wrapper
 
 
 class SingletonMeta(type):
@@ -354,7 +190,7 @@ class Enum(str, _Enum):
         return value in iter(cls)
 
     @classmethod
-    def build(cls, name: str, items: Iterable) -> Type['Enum']:
+    def build(cls, name: str, items: Iterable) -> type['Enum']:
         """
         Values can contain spaces and even "+" or "-"
         :param name:
@@ -393,8 +229,8 @@ def coroutine(func):
     return start
 
 
-def nested_items(item: Union[dict, list, str, float, int, type(None)]
-                 ) -> Generator[Tuple[str, Any], None, bool]:
+def nested_items(item: dict | list | str | float | int | None
+                 ) -> Generator[tuple[str, Any], None, bool]:
     """
     Recursively iterates over nested key-values
     >>> d = {'key': 'value', 'key2': [{1: 2, 3: 4, 'k': 'v'}, {5: 6}, 1, 2, 3]}
@@ -403,7 +239,7 @@ def nested_items(item: Union[dict, list, str, float, int, type(None)]
     :param item:
     :return:
     """
-    if isinstance(item, (str, float, int, type(None))):
+    if isinstance(item, (str, float, int, NoneType)):
         return False  # means not iterated, because it's a leaf
     # list or dict -> can be iterated over
     if isinstance(item, dict):
@@ -417,9 +253,418 @@ def nested_items(item: Union[dict, list, str, float, int, type(None)]
     return True
 
 
-def peek(iterable) -> Optional[Tuple[Any, chain]]:
+def peek(iterable) -> Optional[tuple[Any, chain]]:
     try:
         first = next(iterable)
     except StopIteration:
         return
     return first, chain([first], iterable)
+
+
+def urljoin(*args: str) -> str:
+    """
+    Joins all the parts with one "/"
+    :param args:
+    :return:
+    """
+    return '/'.join(map(lambda x: str(x).strip('/'), args))
+
+
+def skip_indexes(iterable: Iterable[T], skip: set[int]
+                 ) -> Generator[T, None, None]:
+    """
+    Iterates over the collection skipping specific indexes
+    :param iterable:
+    :param skip:
+    :return:
+    """
+    it = iter(iterable)
+    for i, item in enumerate(it):
+        if i in skip:
+            continue
+        yield item
+
+
+def get_last_element(string: str, delimiter: str) -> str:
+    return string.split(delimiter)[-1]
+
+
+def catchdefault(method: Callable, default: Any = None):
+    """
+    Returns method's result. In case it fails -> returns default
+    :param method:
+    :param default:
+    :return:
+    """
+    try:
+        return method()
+    except Exception:  # noqa
+        return default
+
+
+class NotHereDescriptor:
+    def __get__(self, obj, type=None):
+        raise AttributeError
+
+
+JSON_PATH_LIST_INDEXES = re.compile(r'\w*\[(-?\d+)\]')
+
+
+def json_path_get(d: dict | list, path: str) -> Any:
+    """
+    Simple json paths with only basic operations supported
+    >>> json_path_get({'a': 'b', 'c': [1,2,3, [{'b': 'c'}]]}, 'c[-1][0].b')
+    'c'
+    >>> json_path_get([-1, {'one': 'two'}], 'c[-1][0].b') is None
+    True
+    >>> json_path_get([-1, {'one': 'two'}], '[-1].one')
+    'two'
+    """
+    if path.startswith('$'):
+        path = path[1:]
+    if path.startswith('.'):
+        path = path[1:]
+    parts = path.split('.')
+
+    item = d
+    for part in parts:
+        try:
+            _key = part.split('[')[0]
+            _indexes = re.findall(JSON_PATH_LIST_INDEXES, part)
+            if _key:
+                item = item.get(_key)
+            for i in _indexes:
+                item = item[int(i)]
+        except (IndexError, TypeError, AttributeError):
+            item = None
+            break
+    return item
+
+
+FT = TypeVar('FT', bound=BinaryIO)  # file type
+
+
+def download_url(url: str, out: FT | None = None) -> FT | io.BytesIO | None:
+    """
+    Downloads the content by the url handling compression and other encoding
+    in case those are specified in headers
+    :param url:
+    :param out: temp file opened in binary mode
+    :return:
+    """
+    if not out:
+        out = io.BytesIO()
+    try:
+        with requests.get(url, stream=True) as resp:
+            for chunk in resp.raw.stream(decode_content=True):
+                out.write(chunk)
+        out.seek(0)
+        return out
+    except Exception:
+        _LOG.exception(f'Could not download file from url: {url}')
+        return
+
+
+def sifted(request: dict) -> dict:
+    return {
+        k: v for k, v in request.items()
+        if isinstance(v, (bool, int)) or v
+    }
+
+
+HT = TypeVar('HT', bound=Hashable)
+
+
+def without_duplicates(iterable: Iterable[HT]) -> Generator[HT, None, None]:
+    """
+    Iterates over the collection skipping already yielded items
+    :param iterable:
+    :return:
+    """
+    it = iter(iterable)
+    buffer = set()
+    for i in it:
+        if i in buffer:
+            continue
+        buffer.add(i)
+        yield i
+
+
+CT = TypeVar('CT')
+
+
+class MultipleCursorsWithOneLimitIterator(Iterable[CT]):
+    def __init__(self, limit: int | None,
+                 *factories: Callable[[int | None], Iterator[CT]]):
+        """
+        This class will consider the number of yielded items and won't query
+        more. See tests for this thing to understand better
+        :param limit: common limit for all the cursors
+        :param factories: accepts any number of functions with one argument
+        `limit` assuming that if limit is None, - there is no limit. Each
+        function must build a cursor (supposedly a DB cursor) with that limit.
+        """
+        self._limit = limit
+        if not factories:
+            raise ValueError('Invalid usage: at least one factory should be')
+        self._factories = factories
+
+    def __iter__(self) -> Iterator[CT]:
+        self._current_limit = self._limit
+        self._chain = iter(self._factories)
+        factory = next(self._chain)
+        self._it = factory(self._current_limit)
+        return self
+
+    def __next__(self) -> CT:
+        if self._current_limit == 0:
+            raise StopIteration
+        while True:
+            try:
+                item = next(self._it)
+                if isinstance(self._current_limit, int):
+                    self._current_limit -= 1
+                return item
+            except StopIteration:
+                # current cursor came to its end. Making the next one
+                factory = next(self._chain)
+                self._it = factory(self._current_limit)
+
+
+# todo test
+def to_api_gateway_event(processed_event: 'ProcessedEvent') -> dict:
+    """
+    Converts our ProcessedEvent back to api gateway event. It does not
+    contain all the fields only some that are necessary for high level reports
+    endpoints
+    :param processed_event:
+    :return:
+    """
+    assert processed_event['resource'], \
+        'Only event with existing resource supported'
+
+    # values can be just strings in case we get this event from a database
+    resource = processed_event['resource']
+    if isinstance(resource, Enum):
+        resource = resource.value
+    method = processed_event['method']
+    if isinstance(method, Enum):
+        method = method.value
+    return {
+        'resource': resource,
+        'path': resource,
+        'httpMethod': method,
+        'headers': {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Accept-Encoding': 'gzip,deflate',
+        },
+        'multiValueHeaders': {
+            'Accept': ['application/json'],
+            'Accept-Encoding': ['gzip,deflate'],
+            'Content-Type': ['application/json'],
+        },
+        'queryStringParameters': processed_event['query'],
+        'pathParameters': processed_event['path_params'],
+        'requestContext': {
+            'path': processed_event['fullpath'],
+            'resourcePath': resource,
+            'httpMethod': method,
+            'requestTimeEpoch': time.time() * 1e3,
+            'protocol': 'HTTP/1.1',
+            'authorizer': {
+                'claims': {
+                    'sub': processed_event['cognito_user_id'],
+                    'custom:customer': processed_event['cognito_customer'],
+                    'cognito:username': processed_event['cognito_username'],
+                    'custom:role': processed_event['cognito_user_role']
+                }
+            }
+        },
+        'body': json.dumps(processed_event['body'], separators=(',', ':')),
+        'isBase64Encoded': False
+    }
+
+
+JT = TypeVar('JT')  # json type
+IT = TypeVar('IT')  # item type
+
+
+def _default_hook(x):
+    return isinstance(x, (str, int, bool, NoneType))
+
+
+def iter_values(finding: JT,
+                hook: Callable[[IT], bool] = _default_hook
+                ) -> Generator[IT, Any, JT]:
+    """
+    Yields values from the given finding with an ability to send back
+    the desired values. I proudly think this is cool, because we can put
+    values replacement login outside of this generator
+    >>> gen = iter_values({'1':'q', '2': ['w', 'e'], '3': {'4': 'r'}})
+    >>> next(gen)
+    q
+    >>> gen.send('instead of q')
+    w
+    >>> gen.send('instead of w')
+    e
+    >>> gen.send('instead of e')
+    r
+    >>> gen.send('instead of r')
+    After the last command StopIteration will be raised, and it
+    will contain the changed finding.
+    Changes the given finding in-place for performance purposes so be careful
+    :param finding:
+    :param hook:
+    :return:
+    """
+    if hook(finding):
+        new = yield finding
+        return new
+    elif _default_hook(finding):  # anyway we need this default one
+        return finding
+    if isinstance(finding, dict):
+        for k, v in finding.items():
+            finding[k] = yield from iter_values(v, hook)
+        return finding
+    if isinstance(finding, list):
+        for i, v in enumerate(finding):
+            finding[i] = yield from iter_values(v, hook)
+        return finding
+
+
+def dereference_json(obj: dict) -> None:
+    """
+    Changes the given dict in place de-referencing all $ref. Does not support
+    files and http references. If you need them, better use jsonref
+    lib. Works only for dict as root object.
+    Note that it does not create new objects but only replaces {'$ref': ''}
+    with objects that ref(s) are referring to, so:
+    - works really fast, 20x faster than jsonref, at least relying on my
+      benchmarks;
+    - changes your existing object;
+    - can reference the same object multiple times so changing some arbitrary
+      values afterward can change object in multiple places.
+    Though, it's perfectly fine in case you need to dereference obj, dump it
+    to file and forget
+    :param obj:
+    :return:
+    """
+    def _inner(o):
+        if isinstance(o, (str, int, float, bool, NoneType)):
+            return
+        # dict or list
+        if isinstance(o, dict):
+            for k, v in o.items():
+                if isinstance(v, dict) and isinstance(v.get('$ref'), str):
+                    _path = v['$ref'].strip('#/').split('/')
+                    o[k] = deep_get(obj, _path)
+                else:
+                    _inner(v)
+        else:  # isinstance(o, list)
+            for i, v in enumerate(o):
+                if isinstance(v, dict) and isinstance(v.get('$ref'), str):
+                    _path = v['$ref'].strip('#/').split('/')
+                    o[i] = deep_get(obj, _path)
+                else:
+                    _inner(v)
+    _inner(obj)
+
+
+@contextmanager
+def measure_time():
+    holder = [time.perf_counter_ns(), None]
+    try:
+        yield holder
+    finally:
+        holder[1] = time.perf_counter_ns()
+
+
+class NextToken:
+    __slots__ = ('_lak',)
+
+    def __init__(self, lak: dict | int | str | None = None):
+        """
+        Wrapper over dynamodb last_evaluated_key and pymongo offset
+        :param lak:
+        """
+        self._lak = lak
+
+    def __json__(self) -> str | None:
+        """
+        Handled only inside commons.lambda_response
+        :return:
+        """
+        return self.serialize()
+
+    def serialize(self) -> str | None:
+        if not self:
+            return
+        return base64.urlsafe_b64encode(msgspec.json.encode(self._lak)).decode()
+
+    @property
+    def value(self) -> dict | int | str | None:
+        return self._lak
+
+    @classmethod
+    def deserialize(cls, s: str | None = None) -> Self:
+        if not s or not isinstance(s, str):
+            return cls()
+        decoded = None
+        try:
+            decoded = msgspec.json.decode(base64.urlsafe_b64decode(s))
+        except (binascii.Error, msgspec.DecodeError):
+            pass
+        except Exception:  # noqa
+            pass
+        return cls(decoded)
+
+    def __bool__(self) -> bool:
+        return not not self._lak  # 0 and empty dict are None
+
+
+class TermColor:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    DEBUG = '\033[90m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+    @classmethod
+    def blue(cls, st: str) -> str:
+        return f'{cls.OKBLUE}{st}{cls.ENDC}'
+
+    @classmethod
+    def cyan(cls, st: str) -> str:
+        return f'{cls.OKCYAN}{st}{cls.ENDC}'
+
+    @classmethod
+    def green(cls, st: str) -> str:
+        return f'{cls.OKGREEN}{st}{cls.ENDC}'
+
+    @classmethod
+    def yellow(cls, st: str) -> str:
+        return f'{cls.WARNING}{st}{cls.ENDC}'
+
+    @classmethod
+    def red(cls, st: str) -> str:
+        return f'{cls.FAIL}{st}{cls.ENDC}'
+
+    @classmethod
+    def gray(cls, st: str) -> str:
+        return f'{cls.DEBUG}{st}{cls.DEBUG}'
+
+
+def flip_dict(d: dict):
+    """
+    In place
+    :param d:
+    :return:
+    """
+    for k in tuple(d.keys()):
+        d[d.pop(k)] = k

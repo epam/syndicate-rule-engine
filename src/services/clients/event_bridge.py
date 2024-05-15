@@ -1,10 +1,11 @@
 import json
 import uuid
-from typing import List
 
-import boto3
 from botocore.exceptions import ClientError
-
+from typing import TypedDict
+from helpers import sifted
+from services import SP
+from services.clients import Boto3ClientWrapper
 from services.clients.sts import StsClient
 from services.environment_service import EnvironmentService
 
@@ -75,36 +76,45 @@ class BatchRuleTarget(RuleTarget):
         return result
 
 
-class EventBridgeClient:
+class _Rule(TypedDict):
+    Name: str
+    Arn: str
+    EventPattern: str
+    ScheduleExpression: str
+    State: str  # enum
+    Description: str
+    RoleArn: str
+    ManagedBy: str
+    EventBusName: str
+    CreatedBy: str
+
+
+class EventBridgeClient(Boto3ClientWrapper):
+    service_name = 'events'
+
     def __init__(self, environment_service: EnvironmentService,
                  sts_client: StsClient):
         self._environment = environment_service
         self._sts_client = sts_client
-        self._client = None
 
-    @staticmethod
-    def sifted(request: dict) -> dict:
-        return {k: v for k, v in request.items() if isinstance(
-            v, (bool, int)) or v}
-
-    @property
-    def client(self):
-        if not self._client:
-            self._client = boto3.client(
-                'events', self._environment.aws_region())
-        return self._client
+    @classmethod
+    def build(cls) -> 'EventBridgeClient':
+        return cls(
+            environment_service=SP.environment_service,
+            sts_client=SP.sts
+        )
 
     def put_rule(self, rule_name: str, schedule: str, state: str = 'ENABLED',
                  description: str = 'Custodian managed rule') -> str:
         params = dict(Name=rule_name, ScheduleExpression=schedule,
                       State=state, Description=description)
-        response = self.client.put_rule(**self.sifted(params))
+        response = self.client.put_rule(**sifted(params))
         return response['RuleArn']
 
     def delete_rule(self, rule_name: str) -> dict:
         return self.client.delete_rule(Name=rule_name)
 
-    def put_targets(self, rule_name: str, targets: List[RuleTarget]) -> dict:
+    def put_targets(self, rule_name: str, targets: list[RuleTarget]) -> dict:
         params = dict(Rule=rule_name, Targets=[t.serialize() for t in targets])
         return self.client.put_targets(**params)
 
@@ -126,7 +136,7 @@ class EventBridgeClient:
         return f'arn:aws:events:{self._environment.aws_region()}:' \
                f'{self._sts_client.get_account_id()}:rule/{rule_name}'
 
-    def enable_rule(self, rule_name) -> bool:
+    def enable_rule(self, rule_name: str) -> bool:
         params = dict(Name=rule_name)
         try:
             self.client.enable_rule(**params)
@@ -136,7 +146,7 @@ class EventBridgeClient:
                 return False
             raise
 
-    def disable_rule(self, rule_name) -> bool:
+    def disable_rule(self, rule_name: str) -> bool:
         params = dict(Name=rule_name)
         try:
             self.client.disable_rule(**params)
@@ -146,11 +156,11 @@ class EventBridgeClient:
                 return False
             raise
 
-    def describe_rule(self, rule_name) -> dict:
+    def describe_rule(self, rule_name) -> _Rule | None:
         params = dict(Name=rule_name)
         try:
             return self.client.describe_rule(**params)
         except ClientError as e:
             if e.response['Error']['Code'] == 'ResourceNotFoundException':
-                return {}
+                return
             raise

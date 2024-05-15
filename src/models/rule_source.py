@@ -4,9 +4,9 @@ from typing import Optional
 from pynamodb.attributes import UnicodeAttribute, MapAttribute, ListAttribute
 from pynamodb.indexes import AllProjection
 
-from helpers.constants import ENV_VAR_REGION, CUSTOMER_ATTR, \
+from helpers.constants import CAASEnv, CUSTOMER_ATTR, \
     GIT_PROJECT_ID_ATTR, RuleSourceType
-from models.modular import BaseModel, BaseGSI
+from models import BaseModel, BaseGSI
 
 
 class LatestSyncAttribute(MapAttribute):
@@ -30,7 +30,7 @@ class CustomerGitProjectIdIndex(BaseGSI):
 class RuleSource(BaseModel):
     class Meta:
         table_name = 'CaaSRuleSources'
-        region = os.environ.get(ENV_VAR_REGION)
+        region = os.environ.get(CAASEnv.AWS_REGION)
 
     id = UnicodeAttribute(hash_key=True)
     customer = UnicodeAttribute()

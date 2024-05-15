@@ -1,7 +1,6 @@
 import click
-from c7ncli.group import cli_response, ViewCommand, ContextObj
 
-PARAM_PEM = 'PEM'
+from c7ncli.group import ContextObj, ViewCommand, cli_response
 
 
 @click.group(name='client')
@@ -10,38 +9,40 @@ def client():
 
 
 @client.command(cls=ViewCommand, name='describe')
-@click.option('--format', '-f', type=click.Choice([PARAM_PEM]),
-              default=PARAM_PEM, show_default=PARAM_PEM,
-              help='Format of the private-key.')
 @cli_response()
-def describe(ctx: ContextObj, **kwargs):
+def describe(ctx: ContextObj, customer_id):
     """
     Describe current License Manager client-key data
     """
-    kwargs['frmt'] = kwargs.pop('format')
-    return ctx['api_client'].lm_client_setting_get(**kwargs)
+    return ctx['api_client'].lm_client_setting_get(
+        customer_id=customer_id
+    )
 
 
 @client.command(cls=ViewCommand, name='add')
 @click.option('--key_id', '-kid',
               type=str, required=True,
               help='Key-id granted by the License Manager.')
-@click.option('--algorithm', '-alg', type=str,
+@click.option('--algorithm', '-alg', type=str, default='ECC:p521_DSS_SHA:256',
+              show_default=True,
               help='Algorithm granted by the License Manager.', required=True)
 @click.option('--private_key', '-prk', type=str, required=True,
               help='Private-key granted by the License Manager.')
-@click.option('--format', '-f', type=click.Choice([PARAM_PEM]),
-              default=PARAM_PEM, show_default=PARAM_PEM,
-              help='Format of the private-key.')
 @click.option('--b64encoded', '-b64', is_flag=True, default=False,
               help='Specify whether the private is b64encoded.')
-@cli_response(secured_params=['private_key', 'key_id'])
-def add(ctx: ContextObj, **kwargs):
+@cli_response()
+def add(ctx: ContextObj, key_id, algorithm, private_key, b64encoded,
+        customer_id):
     """
     Adds License Manager provided client-key data
     """
-    kwargs['frmt'] = kwargs.pop('format')
-    return ctx['api_client'].lm_client_setting_post(**kwargs)
+    return ctx['api_client'].lm_client_setting_post(
+        key_id=key_id,
+        algorithm=algorithm,
+        private_key=private_key,
+        b64_encoded=b64encoded,
+        customer_id=customer_id
+    )
 
 
 @client.command(cls=ViewCommand, name='delete')
@@ -49,12 +50,13 @@ def add(ctx: ContextObj, **kwargs):
               type=str, required=True,
               help='Key-id granted by the License Manager.')
 @cli_response()
-def delete(ctx: ContextObj, key_id: str):
+def delete(ctx: ContextObj, key_id: str, customer_id):
     """
     Removes current License Manager client-key data
     """
     return ctx['api_client'].lm_client_setting_delete(
-        key_id=key_id
+        key_id=key_id,
+        customer_id=customer_id
     )
 
 

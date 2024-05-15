@@ -1,8 +1,8 @@
 import re
-from typing import Union, Dict
 
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime
+from services import cache
 from services.clients.ssm import AbstractSSMClient
 
 _LOG = get_logger(__name__)
@@ -13,27 +13,18 @@ SSM_NOT_AVAILABLE = re.compile(r'[^a-zA-Z0-9\/_.-]')
 class SSMService:
     def __init__(self, client: AbstractSSMClient):
         self.client = client
-        self.__secrets = {}
+        self.__secrets = cache.factory()
 
     def get_secret_value(self, secret_name):
-        _LOG.debug(f'Retrieving parameter with name \'{secret_name}\'')
-        if secret_name in self.__secrets:
-            return self.__secrets[secret_name]
+        if val := self.__secrets.get(secret_name):
+            _LOG.debug(f'Returning cached value: of {secret_name}')
+            return val
+        _LOG.debug(f'Requesting secret: {secret_name}')
 
         secret = self.client.get_secret_value(secret_name=secret_name)
         if secret:
             self.__secrets[secret_name] = secret
         return secret
-
-    def get_secret_values(self, secret_names: list):
-        result = {}
-        if len(secret_names) > 10:
-            while len(secret_names) > 10:
-                result.update(self.client.get_secret_values(
-                    secret_names=secret_names[:10]))
-                secret_names = secret_names[10:]
-        result.update(self.client.get_secret_values(secret_names=secret_names))
-        return result
 
     def create_secret_value(self, secret_name, secret_value):
         self.client.create_secret(secret_name=secret_name,
@@ -48,7 +39,7 @@ class SSMService:
     def is_secrets_engine_enabled(self, mount_point=None):
         return self.client.is_secrets_engine_enabled(mount_point)
 
-    def save_data(self, name: str, value: Union[str, Dict],
+    def save_data(self, name: str, value: str | dict,
                   prefix: str = 'custodian') -> str:
         """
         Creates safe ssm parameter name and saved data there

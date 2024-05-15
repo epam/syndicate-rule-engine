@@ -10,6 +10,7 @@
             "dynamodb:BatchGetItem",
             "s3:Get*",
             "s3:List*",
+            "s3:PutObject",
             "batch:DescribeJobs",
             "logs:GetLogEvents",
             "cognito-idp:AdminInitiateAuth",

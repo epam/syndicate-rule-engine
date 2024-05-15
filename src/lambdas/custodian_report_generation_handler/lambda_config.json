@@ -8,6 +8,7 @@
   "memory": 512,
   "timeout": 300,
   "lambda_path": "/lambdas/custodian_report_generation_handler",
+  "logs_expiration": "${logs_expiration}",
   "dependencies": [
     {
       "resource_name": "CaaSCustomerMetrics",
@@ -23,12 +24,14 @@
     }
   ],
   "env_variables": {
-    "caas_user_pool_name": "${caas_user_pool_name}",
+    "CAAS_USER_POOL_NAME": "${caas_user_pool_name}",
     "modular_assume_role_arn": "${modular_assume_role_arn}",
     "MODULAR_AWS_REGION": "${MODULAR_AWS_REGION}",
-    "metrics_bucket_name": "${caas_metrics_bucket_name}",
-    "reports_bucket_name": "${reports-bucket}",
-    "caas_rulesets_bucket": "${caas_rulesets_bucket}"
+    "CAAS_METRICS_BUCKET_NAME": "${caas_metrics_bucket_name}",
+    "CAAS_REPORTS_BUCKET_NAME": "${reports-bucket}",
+    "CAAS_RULESETS_BUCKET_NAME": "${caas_rulesets_bucket}",
+    "CAAS_STATISTICS_BUCKET_NAME": "${stats_s3_bucket_name}",
+    "CAAS_RECOMMENDATIONS_BUCKET_NAME": "${caas_recommendations_bucket}"
   },
   "publish_version": true,
   "alias": "${lambdas_alias_name}",
@@ -46,5 +49,8 @@
       "resource_type": "cloudwatch_rule_trigger",
       "target_rule": "caas-event-driven-sender-trigger"
     }
+  ],
+  "platforms": [
+    "manylinux2014_x86_64"
   ]
 }

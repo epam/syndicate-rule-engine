@@ -44,5 +44,10 @@
     "resource_type": "cloudwatch_rule",
     "rule_type": "schedule",
     "expression": "cron(0 0 * * ? *)"
+  },
+  "caas-diagnostic-report-trigger": {
+    "resource_type": "cloudwatch_rule",
+    "rule_type": "schedule",
+    "expression": "cron(0 4 1 * ? *)"
   }
 }

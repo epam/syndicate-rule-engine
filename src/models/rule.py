@@ -1,13 +1,13 @@
 import os
-from itertools import islice
+from itertools import count
 from typing import Optional
 
 from pynamodb.attributes import UnicodeAttribute, MapAttribute, ListAttribute
 from pynamodb.indexes import AllProjection
 
-from helpers.constants import ENV_VAR_REGION, COMPOUND_KEYS_SEPARATOR, \
-    RuleSourceType
-from models.modular import BaseModel, BaseGSI
+from helpers.constants import (COMPOUND_KEYS_SEPARATOR, RuleSourceType, Cloud,
+                               CAASEnv)
+from models import BaseModel, BaseGSI
 
 R_ID_ATTR = 'id'
 R_CUSTOMER_ATTR = 'c'
@@ -42,48 +42,189 @@ class RuleIndex:
     """
     https://github.com/epam/ecc-kubernetes-rulepack/wiki/Rule-Index-(Comment)-Structure
     """
+    @staticmethod
+    def _it(d: int):
+        f = f'0{d}d'
+        for i in count():
+            yield format(i, f)
+
+    _cloud_map = dict(zip(_it(2), [
+        None,
+        'AWS',
+        'AZURE',
+        'GCP'
+    ]))
+
+    _platform_map = dict(zip(_it(2), [
+        None,
+        'Kubernetes',
+        'OpenShift',
+        'Kubernetes and OpenShift'
+    ]))
+    _category_map = dict(zip(_it(2), [
+        'FinOps',
+        'Lifecycle management',
+        'Unutilized Resources',
+        'Idle and underutilized resources',
+        'Rightsizing',
+        'Autoscaling',
+        'Computing resources optimization',
+        'Storage optimization',
+        'Reserved instances and savings plan usage',
+        'Other cost optimization checks',
+        'Tagging',
+        'Security',
+        'Detect',
+        'Identify',
+        'Protect',
+        'Recover',
+        'Detection services',
+        'Secure access management',
+        'Inventory',
+        'Logging',
+        'Resource configuration',
+        'Vulnerability, patch, and version management',
+        'Secure access management',
+        'Secure configuration',
+        'Secure network configuration',
+        'Data protection',
+        'API protection',
+        'Protective services',
+        'Secure development',
+        'Key, Secrets, and Certificate management',
+        'Network security',
+        'Resilience',
+        'Monitoring',
+        'Access control',
+        'Passwordless authentication',
+        'Root user access restrictions',
+        'MFA enabled',
+        'Sensitive API actions restricted',
+        'Resource policy configuration',
+        'API private access',
+        'Resources not publicly accessible',
+        'Resources within VPC',
+        'Security group configuration',
+        'Encryption of data at rest',
+        'Encryption of data in transit',
+        'Encryption of data at rest and in transit',
+        'Data integrity',
+        'Data deletion protection',
+        'Credentials not hardcoded',
+        'Backups enabled',
+        'High availability'
+    ]))
+    _service_section_map = dict(zip(_it(2), [
+        'Identity and Access Management',
+        'Logging and Monitoring',
+        'Networking & Content Delivery',
+        'Compute',
+        'Storage',
+        'Analytics',
+        'Databases',
+        'Kubernetes Engine',
+        'Containers',
+        'Security & Compliance',
+        'Cryptography & PKI',
+        'Machine learning',
+        'End User Computing',
+        'Developer Tools',
+        'Application Integration',
+        'Dataproc',
+        'App Engine',
+        'AppService',
+        'Microsoft Defender for Cloud',
+        'API Server',
+        'Controller Manager',
+        'etcd',
+        'General Policies',
+        'Pod Security Standards',
+        'RBAC and Service Accounts',
+        'Scheduler',
+        'Secrets Management'
+    ]))
+    _source_map = dict(zip(_it(2), [
+        'Azure Security Benchmark (V3)',
+        'CIS Amazon Web Services Foundations Benchmark v1.2.0',
+        'CIS Amazon Web Services Foundations Benchmark v1.4.0',
+        'CIS Amazon Web Services Foundations Benchmark v1.5.0',
+        'CIS AWS Compute Services Benchmark v1.0.0',
+        'CIS AWS EKS Benchmark 1.1.0',
+        'CIS AWS End User Compute Services Benchmark v1.0.0',
+        'CIS Benchmark Google Cloud Platform Foundation v1.0.0',
+        'CIS Benchmark Google Cloud Platform Foundation v1.2.0',
+        'CIS Benchmark Google Cloud Platform Foundation v1.3.0',
+        'CIS Benchmark Google Cloud Platform Foundation v2.0.0',
+        'CIS Google Kubernetes Engine (GKE) Benchmark v1.3.0',
+        'CIS Google Kubernetes Engine (GKE) Benchmark v1.4.0',
+        'CIS Microsoft Azure Foundations Benchmark v1.4.0',
+        'CIS Microsoft Azure Foundations Benchmark v1.5.0',
+        'CIS Microsoft Azure Foundations Benchmark v2.0.0',
+        'CIS MySQL Enterprise Edition 8.0 Benchmark v1.2.0',
+        'CIS Oracle Database 19 Benchmark v1.0.0',
+        'CIS Oracle MySQL Community Server 5.7 Benchmark v2.0.0',
+        'CIS PostgreSQL 11 Benchmark 1.0.0',
+        'EPAM',
+        'NIST SP 800-53 Rev. 5',
+        'PCI DSS',
+        'CIS Kubernetes Benchmark v1.7.0',
+        'CIS RedHat OpenShift Container Platform Benchmark v1.4.0',
+        'CIS Amazon Web Services Foundations Benchmark v2.0.0',
+    ]))
+
+    __slots__ = (
+        '_comment', '_cloud', '_platform', '_category', '_service_section',
+        '_source', '_customization', '_multiregional'
+    )
+
     def __init__(self, comment: str):
         self._comment = comment or ''
-        it = iter(self._comment)
-        self._cloud = ''.join(islice(it, 2))
-        self._platform = ''.join(islice(it, 2))
-        self._category = ''.join(islice(it, 2))
-        self._service_section = ''.join(islice(it, 2))
-        self._source = ''.join(islice(it, 2))
-        self._customization = ''.join(islice(it, 1))
-        self._multiregional = ''.join(islice(it, 1))
-
-    @staticmethod
-    def _cloud_map() -> dict:
-        return {
-            '00': None,
-            '01': 'AWS',
-            '02': 'AZURE',
-            '03': 'GCP'
-        }
-
-    @staticmethod
-    def _platform_map() -> dict:
-        return {
-            '00': None,
-            '01': 'Kubernetes',
-            '02': 'OpenShift',
-            '03': 'Kubernetes and OpenShift'
-        }
+        self._cloud = comment[0:2]
+        self._platform = comment[2:4]
+        self._category = comment[4:6]
+        self._service_section = comment[6:8]
+        self._source = comment[8:10]
+        self._customization = comment[10:11]
+        self._multiregional = comment[11:12]
 
     @property
-    def cloud(self) -> Optional[str]:
-        return self._cloud_map().get(self._cloud)
+    def raw_cloud(self) -> Optional[str]:
+        return self._cloud_map.get(self._cloud)
 
     @property
-    def platform(self) -> Optional[str]:
-        return self._platform_map().get(self._platform)
+    def raw_platform(self) -> Optional[str]:
+        return self._platform_map.get(self._platform)
 
     @property
-    def multiregional(self) -> bool:
+    def cloud(self) -> Cloud:
+        pl = self.raw_platform
+        if pl:
+            return Cloud.KUBERNETES
+        return Cloud[self.raw_cloud]
+
+    @property
+    def category(self) -> Optional[str]:
+        return self._category_map.get(self._category)
+
+    @property
+    def service_section(self) -> Optional[str]:
+        return self._service_section_map.get(self._service_section)
+
+    @property
+    def source(self) -> Optional[str]:
+        return self._source_map.get(self._source)
+
+    @property
+    def has_customization(self) -> bool:
+        if not self._customization:
+            return False
+        return not not int(self._customization)
+
+    @property
+    def is_global(self) -> bool:
         if not self._multiregional:
-            return True  # most rules are multiregional
-        return bool(int(self._multiregional))
+            return True  # most rules are global
+        return not not int(self._multiregional)
 
 
 class Rule(BaseModel):
@@ -100,15 +241,14 @@ class Rule(BaseModel):
 
     class Meta:
         table_name = 'CaaSRules'
-        region = os.environ.get(ENV_VAR_REGION)
+        region = os.environ.get(CAASEnv.AWS_REGION)
 
     # "customer#cloud#name#version"
     id = UnicodeAttribute(hash_key=True, attr_name=R_ID_ATTR)
     customer = UnicodeAttribute(attr_name=R_CUSTOMER_ATTR)
     resource = UnicodeAttribute(attr_name=R_RESOURCE_ATTR)
     description = UnicodeAttribute(attr_name=R_DESCRIPTION_ATTR)
-    filters = ListAttribute(default=list, of=MapAttribute,
-                            attr_name=R_FILTERS_ATTR)
+    filters = ListAttribute(default=list, attr_name=R_FILTERS_ATTR)  # list of either strings or maps
     comment = UnicodeAttribute(null=True, attr_name=R_COMMENT_ATTR)
 
     # "project#ref#path"

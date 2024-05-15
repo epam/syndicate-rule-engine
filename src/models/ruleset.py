@@ -4,9 +4,8 @@ from pynamodb.attributes import UnicodeAttribute, BooleanAttribute, \
     ListAttribute, MapAttribute
 from pynamodb.indexes import AllProjection
 
-from helpers.constants import COMPOUND_KEYS_SEPARATOR
-from helpers.constants import ENV_VAR_REGION
-from models.modular import BaseModel, BaseGSI
+from helpers.constants import CAASEnv, COMPOUND_KEYS_SEPARATOR
+from models import BaseModel, BaseGSI
 
 RULESET_LICENSES = 'L'
 RULESET_STANDARD = 'S'
@@ -47,7 +46,7 @@ class LicenseManagerIdIndex(BaseGSI):
 class Ruleset(BaseModel):
     class Meta:
         table_name = 'CaaSRulesets'
-        region = os.environ.get(ENV_VAR_REGION)
+        region = os.environ.get(CAASEnv.AWS_REGION)
 
     id = UnicodeAttribute(hash_key=True)  # "customer#L|S#name#version"
     customer = UnicodeAttribute()

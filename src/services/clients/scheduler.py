@@ -7,14 +7,11 @@ from typing import Optional
 from botocore.exceptions import ClientError
 from modular_sdk.models.tenant import Tenant
 
-from connections.batch_extension.base_job_client import BaseBatchClient
-from helpers import build_response
-from helpers.constants import BATCH_ENV_SUBMITTED_AT, \
-    BATCH_ENV_TARGET_REGIONS, BATCH_ENV_SCHEDULED_JOB_NAME, \
-    BATCH_ENV_TARGET_RULESETS_VIEW, \
-    BATCH_ENV_LICENSED_RULESETS, ALL_ATTR
+from helpers.lambda_response import ResponseFactory
+from helpers.constants import ALL_ATTR, BatchJobEnv
 from helpers.log_helper import get_logger
 from models.scheduled_job import ScheduledJob
+from services.clients.batch import BatchClient
 from services.clients.event_bridge import EventBridgeClient, BatchRuleTarget
 from services.clients.iam import IAMClient
 from services.environment_service import EnvironmentService
@@ -42,7 +39,7 @@ class AbstractJobScheduler(ABC):
 
     def safe_name_from_tenant(self, tenant: Tenant) -> str:
         return self.safe_name(
-            f'custodian-job-{tenant.customer_name}_{tenant.name}'
+            f'custodian-job-{tenant.customer_name}-{tenant.name}'
         )
 
     @abstractmethod
@@ -68,17 +65,16 @@ class AbstractJobScheduler(ABC):
         """
 
     @staticmethod
-    def _update_job_obj_with(obj: ScheduledJob, tenant: Tenant,
-                             schedule: str, envs: dict):
-        """
-        Retrieves some necessary attributes from account obj and job
-        envs and sets them to the scheduled_job obj
-        """
+    def _scan_regions_from_env(envs: dict) -> list[str]:
+        return envs.get(BatchJobEnv.TARGET_REGIONS, '').split(',')
+
+    @staticmethod
+    def _scan_rulesets_from_env(envs: dict) -> list[str]:
         rule_sets = []
-        standard = envs.get(BATCH_ENV_TARGET_RULESETS_VIEW)
+        standard = envs.get(BatchJobEnv.TARGET_RULESETS)
         if standard and isinstance(standard, str):
             rule_sets.extend(standard.split(','))
-        licensed = envs.get(BATCH_ENV_LICENSED_RULESETS)
+        licensed = envs.get(BatchJobEnv.LICENSED_RULESETS)
         if licensed and isinstance(licensed, str):
             rule_sets.extend(
                 each.split(':', maxsplit=1)[-1]
@@ -86,13 +82,7 @@ class AbstractJobScheduler(ABC):
             )
         if not rule_sets:
             rule_sets.append(ALL_ATTR)
-        obj.update_with(
-            customer=tenant.customer_name,
-            tenant=tenant.name,
-            schedule=schedule,
-            scan_regions=envs.get(BATCH_ENV_TARGET_REGIONS, '').split(','),
-            scan_rulesets=rule_sets
-        )
+        return rule_sets
 
 
 class EventBridgeJobScheduler(AbstractJobScheduler):
@@ -100,7 +90,7 @@ class EventBridgeJobScheduler(AbstractJobScheduler):
     def __init__(self, client: EventBridgeClient,
                  environment_service: EnvironmentService,
                  iam_client: IAMClient,
-                 batch_client: BaseBatchClient):
+                 batch_client: BatchClient):
         self._client = client
         self._environment = environment_service
         self._iam_client = iam_client
@@ -133,8 +123,7 @@ class EventBridgeJobScheduler(AbstractJobScheduler):
                 message = e.response['Error']['Message']
                 _LOG.warning(f'User has sent invalid schedule '
                              f'expression: {args}, {kwargs}')
-                return build_response(code=HTTPStatus.BAD_REQUEST,
-                                      content=f'Validation error: {message}')
+                raise ResponseFactory(HTTPStatus.BAD_REQUEST).errors([message]).exc()
             raise
 
     def register_job(self, tenant: Tenant, schedule: str,
@@ -154,8 +143,8 @@ class EventBridgeJobScheduler(AbstractJobScheduler):
             role_arn=self._iam_client.build_role_arn(
                 self._environment.event_bridge_service_role()),
         )
-        environment[BATCH_ENV_SUBMITTED_AT] = '<submitted_at>'
-        environment[BATCH_ENV_SCHEDULED_JOB_NAME] = _id
+        environment[BatchJobEnv.SUBMITTED_AT] = '<submitted_at>'
+        environment[BatchJobEnv.SCHEDULED_JOB_NAME] = _id
         target.set_input_transformer(
             {'submitted_at': '$.time'},
             self._batch_client.build_container_overrides(
@@ -167,10 +156,18 @@ class EventBridgeJobScheduler(AbstractJobScheduler):
         )
         _ = self._client.put_targets(_id, [target, ])
         _LOG.debug('Batch queue target was added to the created rule')
-        _job = ScheduledJob(id=_id)
-        self._update_job_obj_with(_job, tenant, schedule, environment)
+        _job = ScheduledJob(
+            id=_id,
+            customer_name=tenant.customer_name,
+            tenant_name=tenant.name,
+            context=dict(
+                schedule=schedule,
+                scan_regions=self._scan_regions_from_env(environment),
+                scan_rulesets=self._scan_rulesets_from_env(environment),
+                is_enabled=True
+            ),
+        )
         _job.save()
-        _LOG.debug('Scheduled job`s data was saved to Dynamodb')
         _LOG.info(f'Scheduled job with name \'{_id}\' was added')
         return _job
 
@@ -189,35 +186,27 @@ class EventBridgeJobScheduler(AbstractJobScheduler):
 
     def update_job(self, item: ScheduledJob, is_enabled: Optional[bool] = None,
                    schedule: Optional[str] = None):
-        _id = item.id
-        enabling_rule_map = {
-            True: self._client.enable_rule,
-            False: self._client.disable_rule
-        }
-        _LOG.info(f'Updating scheduled job with id \'{_id}\'')
-        params = dict(rule_name=_id)
-
-        existing_rule = self._client.describe_rule(**params)
-        if not existing_rule:
-            _LOG.error('The EventBridge rule somehow disparaged')
-            return build_response(
-                code=HTTPStatus.NOT_FOUND,
-                content=f'Cannot find rule for scheduled job \'{_id}\'. '
-                        f'Please recreate the job')
-
+        if not isinstance(is_enabled, bool) and not schedule:
+            return
+        rule = self._client.describe_rule(rule_name=item.id)
+        params = dict(
+            rule_name=item.id,
+            schedule=rule['ScheduleExpression'],
+            state=rule['State']
+        )
+        actions = []
         if isinstance(is_enabled, bool):
-            enabling_rule_map.get(is_enabled)(**params)
-
+            params['state'] = 'ENABLED' if is_enabled else 'DISABLED'
+            actions.append(ScheduledJob.context['is_enabled'].set(is_enabled))
         if schedule:
-            new_description = self._rule_description_from_existing_one(
-                    existing_rule.get('Description'), schedule)
-            params.update(schedule=schedule, description=new_description,
-                          state=existing_rule.get('State'))
-            self._put_rule_asserting_valid_schedule_expression(**params)
-            _LOG.debug('EventBridge rule was updated')
+            params['schedule'] = schedule
+            params['description'] = self._rule_description_from_existing_one(
+                rule['Description'],
+                schedule
+            )
+            actions.append(ScheduledJob.context['schedule'].set(schedule))
+        self._put_rule_asserting_valid_schedule_expression(**params)
+        _LOG.debug('EventBridge rule was updated')
+        item.update(actions=actions)
 
-        item.update_with(is_enabled=is_enabled, schedule=schedule)
-        item.save()
-        _LOG.debug('Scheduled job`s data was updated in Dynamodb')
-        _LOG.info(
-            f'Scheduled job with name \'{_id}\' was successfully updated')
+        _LOG.info(f'Scheduled job \'{item.id}\' was successfully updated')

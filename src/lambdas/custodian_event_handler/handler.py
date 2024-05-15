@@ -1,27 +1,29 @@
 from functools import cached_property
-from typing import Union, Dict, Type, Optional
 from http import HTTPStatus
-from handlers.event_assembler_handler import EventAssemblerHandler, \
-    EventRemoverHandler
-from helpers import build_response
+
+from handlers.event_assembler_handler import (EventAssemblerHandler,
+                                              EventRemoverHandler)
+from helpers import RequestContext
 from helpers.constants import ACTION_PARAM
+from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
-from services.abstract_lambda import AbstractLambda
+from services.abs_lambda import EventProcessorLambdaHandler
 
 _LOG = get_logger('custodian-event-handler')
 
 CLEAR_EVENTS_ACTION = 'clear-events'
 ASSEMBLE_EVENTS_ACTION = 'assemble-events'
 
-Handler = Union[EventRemoverHandler, EventAssemblerHandler]
+Handler = EventRemoverHandler | EventAssemblerHandler
 
 
-class EventHandler(AbstractLambda):
+class EventHandler(EventProcessorLambdaHandler):
+    processors = ()
 
     def __init__(self):
-        self._action_handler: Dict[str, Handler] = {}
+        self._action_handler: dict[str, Handler] = {}
 
-    def handle_request(self, event: dict, context: object) -> dict:
+    def handle_request(self, event: dict, context: RequestContext):
         _default_action = ASSEMBLE_EVENTS_ACTION
         event_action = event.get(ACTION_PARAM) or _default_action
         _LOG.info(f'Event action: `{event_action}`. Retrieving handler')
@@ -35,7 +37,7 @@ class EventHandler(AbstractLambda):
                                   content=message)
         return handler.handler(event)
 
-    def get_handler(self, action: str) -> Optional[Handler]:
+    def get_handler(self, action: str) -> Handler | None:
         if action not in self._action_handler:
             _LOG.info(f'Instantiating handler for {action} action')
             _type = self.action_handler_map.get(action)
@@ -44,7 +46,7 @@ class EventHandler(AbstractLambda):
         return self._action_handler.get(action)
 
     @cached_property
-    def action_handler_map(self) -> Dict[str, Type[Handler]]:
+    def action_handler_map(self) -> dict[str, type[Handler]]:
         return {
             CLEAR_EVENTS_ACTION: EventRemoverHandler,
             ASSEMBLE_EVENTS_ACTION: EventAssemblerHandler
