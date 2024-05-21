@@ -1,0 +1,128 @@
+version: "3.8"
+services:
+  nginx:
+    image: "defectdojo/defectdojo-nginx:${NGINX_VERSION:-latest}"
+    depends_on:
+      - uwsgi
+    environment:
+      NGINX_METRICS_ENABLED: "${NGINX_METRICS_ENABLED:-false}"
+    volumes:
+      - defectdojo_media:/usr/share/nginx/html/media
+    ports:
+      - target: 8080
+        published: ${DD_PORT:-8080}
+        protocol: tcp
+        mode: host
+      - target: 8443
+        published: ${DD_TLS_PORT:-8443}
+        protocol: tcp
+        mode: host
+    restart: always
+    networks:
+      - custodian-net
+  uwsgi:
+    image: "defectdojo/defectdojo-django:${DJANGO_VERSION:-latest}"
+    depends_on:
+      - postgres
+    entrypoint: ['/wait-for-it.sh', 'postgres:5432', '-t', '30', '--', '/entrypoint-uwsgi.sh']
+    environment:
+      DD_DEBUG: 'False'
+      DD_DJANGO_METRICS_ENABLED: "${DD_DJANGO_METRICS_ENABLED:-False}"
+      DD_ALLOWED_HOSTS: "${DD_ALLOWED_HOSTS:-*}"
+      DD_DATABASE_URL: "postgresql://${DD_DATABASE_USER}:${DD_DATABASE_PASSWORD}@postgres:5432/${DD_DATABASE_NAME}"
+      DD_CELERY_BROKER_URL: "redis://redis:6379/0"
+      DD_SECRET_KEY: "${DD_SECRET_KEY}"
+      DD_CREDENTIAL_AES_256_KEY: "${DD_CREDENTIAL_AES_256_KEY}"
+    volumes:
+#      - type: bind  # todo provide extra settings for rule engine
+#        source: ./docker/extra_settings
+#        target: /app/docker/extra_settings
+      - "defectdojo_media:${DD_MEDIA_ROOT:-/app/media}"
+    restart: always
+    networks:
+      - custodian-net
+  celerybeat:
+    image: "defectdojo/defectdojo-django:${DJANGO_VERSION:-latest}"
+    depends_on:
+      - postgres
+      - redis
+    entrypoint: ['/wait-for-it.sh', 'postgres:5432', '-t', '30', '--', '/entrypoint-celery-beat.sh']
+    environment:
+      DD_DATABASE_URL: "postgresql://${DD_DATABASE_USER}:${DD_DATABASE_PASSWORD}@postgres:5432/${DD_DATABASE_NAME}"
+      DD_CELERY_BROKER_URL: "redis://redis:6379/0"
+      DD_SECRET_KEY: "${DD_SECRET_KEY}"
+      DD_CREDENTIAL_AES_256_KEY: "${DD_CREDENTIAL_AES_256_KEY}"
+#    volumes:
+#      - type: bind
+#        source: ./docker/extra_settings
+#        target: /app/docker/extra_settings
+    restart: always
+    networks:
+      - custodian-net
+  celeryworker:
+    image: "defectdojo/defectdojo-django:${DJANGO_VERSION:-latest}"
+    depends_on:
+      - postgres
+      - redis
+    entrypoint: ['/wait-for-it.sh', 'postgres:5432', '-t', '30', '--', '/entrypoint-celery-worker.sh']
+    environment:
+      DD_DATABASE_URL: "postgresql://${DD_DATABASE_USER}:${DD_DATABASE_PASSWORD}@postgres:5432/${DD_DATABASE_NAME}"
+      DD_CELERY_BROKER_URL: "redis://redis:6379/0"
+      DD_SECRET_KEY: "${DD_SECRET_KEY}"
+      DD_CREDENTIAL_AES_256_KEY: "${DD_CREDENTIAL_AES_256_KEY}"
+    volumes:
+#      - type: bind
+#        source: ./docker/extra_settings
+#        target: /app/docker/extra_settings
+      - "defectdojo_media:${DD_MEDIA_ROOT:-/app/media}"
+    restart: always
+    networks:
+      - custodian-net
+  initializer:
+    image: "defectdojo/defectdojo-django:${DJANGO_VERSION:-latest}"
+    depends_on:
+      - postgres
+    entrypoint: ['/wait-for-it.sh', 'postgres:5432', '--', '/entrypoint-initializer.sh']
+    environment:
+      DD_DATABASE_URL: "postgresql://${DD_DATABASE_USER}:${DD_DATABASE_PASSWORD}@postgres:5432/${DD_DATABASE_NAME}"
+      DD_ADMIN_USER: "${DD_ADMIN_USER:-admin}"
+      DD_ADMIN_MAIL: "${DD_ADMIN_USER:-admin@defectdojo.local}"
+      DD_ADMIN_FIRST_NAME: "${DD_ADMIN_FIRST_NAME:-Admin}"
+      DD_ADMIN_LAST_NAME: "${DD_ADMIN_LAST_NAME:-User}"
+      DD_INITIALIZE: "${DD_INITIALIZE:-true}"
+      DD_SECRET_KEY: "${DD_SECRET_KEY}"
+      DD_CREDENTIAL_AES_256_KEY: "${DD_CREDENTIAL_AES_256_KEY}"
+#    volumes:
+#      - type: bind
+#        source: ./docker/extra_settings
+#        target: /app/docker/extra_settings
+    restart: on-failure
+    networks:
+      - custodian-net
+  postgres:
+    image: postgres:16.1-alpine
+    environment:
+      POSTGRES_DB: ${DD_DATABASE_NAME}
+      POSTGRES_USER: ${DD_DATABASE_USER}
+      POSTGRES_PASSWORD: ${DD_DATABASE_PASSWORD}
+    volumes:
+      - defectdojo_postgres:/var/lib/postgresql/data
+    restart: always
+    networks:
+      - custodian-net
+  redis:
+    image: redis:7.2.3-alpine
+    volumes:
+      - defectdojo_redis:/data
+    restart: always
+    networks:
+      - custodian-net
+volumes:
+  defectdojo_data: {}
+  defectdojo_postgres: {}
+  defectdojo_media: {}
+  defectdojo_redis: {}
+networks:
+  custodian-net:
+    external: true
+    name: custodian_network

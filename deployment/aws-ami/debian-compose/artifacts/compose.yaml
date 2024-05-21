@@ -1,0 +1,204 @@
+version: "3.8"
+services:
+  modular-api:
+    image: m3-modular-admin:latest
+    container_name: modular-api
+    ports:
+      - "8085:8085"
+    environment:
+      MODULAR_API_INIT_PASSWORD: ${MODULAR_API_INIT_PASSWORD}
+      MODULAR_API_SECRET_KEY: ${MODULAR_API_SECRET_KEY}
+      MODULAR_API_MODE: onprem
+      MODULAR_API_MONGO_URI: mongodb://${CAAS_MONGO_USERNAME}:${CAAS_MONGO_PASSWORD}@mongo:27017/
+      MODULAR_API_MONGO_DATABASE: ${MODULAR_API_MONGO_DATABASE:-modular-api}
+      MODULAR_CLI_VAULT_TOKEN: ${CAAS_VAULT_TOKEN}
+      MODULAR_CLI_VAULT_ADDR: http://vault:8200
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: always
+    profiles:
+      - modular-api
+    networks:
+      - custodian-net
+  modular-service:
+    image: modular-service:latest
+    container_name: modular-service-server
+#    ports:
+#      - "8040:8040"
+    environment:
+      MODULAR_SERVICE_SYSTEM_USER_PASSWORD: ${MODULAR_SERVICE_SYSTEM_USER_PASSWORD}
+      MODULAR_SERVICE_VAULT_ENDPOINT: http://vault:8200
+      MODULAR_SERVICE_VAULT_TOKEN: ${CAAS_VAULT_TOKEN}
+      MODULAR_SERVICE_MONGO_URI: mongodb://${CAAS_MONGO_USERNAME}:${CAAS_MONGO_PASSWORD}@mongo:27017/
+      MODULAR_SERVICE_MONGO_DATABASE: ${CAAS_MONGO_DATABASE:-custodian_as_a_service}
+      modular_service_mode: docker
+      modular_mongo_db_name: ${CAAS_MONGO_DATABASE:-custodian_as_a_service}
+      modular_mongo_user: ${CAAS_MONGO_USERNAME}
+      modular_mongo_password: ${CAAS_MONGO_PASSWORD}
+      modular_mongo_url: mongo:27017
+      VAULT_TOKEN: ${CAAS_VAULT_TOKEN}
+      VAULT_URL: vault
+      VAULT_SERVICE_SERVICE_PORT: 8200
+    depends_on:
+      mongo:
+        condition: service_healthy
+      vault:
+        condition: service_healthy
+    restart: always
+    profiles:
+      - modular-service
+    networks:
+      - custodian-net
+  custodian-service:
+    image: caas-custodian-k8s-dev:latest
+    container_name: rule-engine-server
+#    ports:
+#      - "8000:8000"
+    restart: always
+    depends_on:
+      mongo:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      vault:
+        condition: service_healthy
+    environment:
+      CAAS_SYSTEM_USER_PASSWORD: ${CAAS_SYSTEM_USER_PASSWORD}
+      CAAS_SERVICE_MODE: docker
+      CAAS_TESTING: false
+      CAAS_INNER_CACHE_TTL_SECONDS: 300
+      CAAS_MINIO_ENDPOINT: http://minio:9000
+      CAAS_MINIO_ACCESS_KEY_ID: ${CAAS_MINIO_ACCESS_KEY_ID}
+      CAAS_MINIO_SECRET_ACCESS_KEY: ${CAAS_MINIO_SECRET_ACCESS_KEY}
+      CAAS_VAULT_ENDPOINT: http://vault:8200
+      CAAS_VAULT_TOKEN: ${CAAS_VAULT_TOKEN}
+      CAAS_MONGO_URI: mongodb://${CAAS_MONGO_USERNAME}:${CAAS_MONGO_PASSWORD}@mongo:27017/
+      CAAS_MONGO_DATABASE: ${CAAS_MONGO_DATABASE:-custodian_as_a_service}
+      modular_service_mode: docker
+      modular_mongo_db_name: ${CAAS_MONGO_DATABASE:-custodian_as_a_service}
+      modular_mongo_user: ${CAAS_MONGO_USERNAME}
+      modular_mongo_password: ${CAAS_MONGO_PASSWORD}
+      modular_mongo_url: mongo:27017
+      VAULT_TOKEN: ${CAAS_VAULT_TOKEN}
+      VAULT_URL: vault
+      VAULT_SERVICE_SERVICE_PORT: 8200
+    profiles:
+      - custodian-service
+    networks:
+      - custodian-net
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: minio
+    ports:  # for presigned urls
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data/minio
+    command: ["server", "/data/minio", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${CAAS_MINIO_ACCESS_KEY_ID}
+      MINIO_ROOT_PASSWORD: ${CAAS_MINIO_SECRET_ACCESS_KEY}
+    restart: always
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      # default params are good, minio becomes healthy quite fast
+    networks:
+      - custodian-net
+  mongo:
+    image: mongo:latest
+    container_name: mongo
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+      start_interval: 5s  # in case this setting is supported it should become healthy must faster
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${CAAS_MONGO_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${CAAS_MONGO_PASSWORD}
+#    ports:
+#      - "27017:27017"
+    restart: always
+    networks:
+      - custodian-net
+  vault:
+    image: hashicorp/vault:latest
+    container_name: vault
+#    ports:
+#      - "8200:8200"
+    volumes:
+      - vault-data:/vault/file/
+    configs:
+      - source: vault_config
+        target: /vault/config/config.hcl
+      - source: vault_init
+        target: /usr/local/bin/vault-init.sh
+        mode: 0551
+    environment:
+      - VAULT_ADDR=http://127.0.0.1:8200
+      - MY_VAULT_TOKEN=${CAAS_VAULT_TOKEN}
+    cap_add:
+      - IPC_LOCK
+    entrypoint: /usr/local/bin/vault-init.sh
+    restart: always
+    networks:
+      - custodian-net
+    healthcheck:
+      test: [ "CMD", "wget", "--spider", "--proxy", "off", "http://127.0.0.1:8200/v1/sys/health?standbyok=true"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+      start_interval: 5s  # in case this setting is supported it should become healthy must faster
+volumes:
+  vault-data:
+  mongo-data:
+  minio-data:
+configs:
+  vault_config:
+    content: |
+      ui = true
+      listener "tcp" {
+        address     = "0.0.0.0:8200"
+        tls_disable = 1
+      }
+      storage "file" {
+        path = "/vault/file"
+      }
+      api_addr = "http://127.0.0.1:8200"
+      disable_mlock = "true"
+  vault_init:
+    content: |
+      #!/usr/bin/env sh
+      set -e
+      unseal () {
+        vault operator unseal $(grep 'Key 1:' /vault/file/keys | awk '{print $$NF}')
+        vault operator unseal $(grep 'Key 2:' /vault/file/keys | awk '{print $$NF}')
+        vault operator unseal $(grep 'Key 3:' /vault/file/keys | awk '{print $$NF}')
+      }
+      init () { vault operator init > /vault/file/keys; }
+      log_in () {
+        export ROOT_TOKEN=$(grep 'Initial Root Token:' /vault/file/keys | awk '{print $$NF}')
+        vault login "$$ROOT_TOKEN"
+      }
+      create_token () { vault token create -id "$$MY_VAULT_TOKEN"; }
+      vault server -config=/vault/config/config.hcl &
+      sleep 1
+      if [ -s /vault/file/keys ]; then
+        unseal
+      else
+        init
+        unseal
+        log_in
+        create_token
+      fi
+      vault status > /vault/file/status
+      wait
+networks:
+  custodian-net:
+    name: custodian_network
+    driver: bridge
