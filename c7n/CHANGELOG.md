@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.1.1] - 2024-05-13
+- fix errors formatting for modular
+
 ## [5.1.0] - 2024-04-17
 - added `--effect` and `--tenant` and `--description` to `c7n policy add|update`
 - added `--description` to `c7n role add|update`

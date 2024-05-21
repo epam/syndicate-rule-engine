@@ -50,6 +50,26 @@ def create(ctx: ContextObj, username, password, role_name, customer_id):
     )
 
 
+@users.command(cls=ViewCommand, name='update')
+@click.option('--username', required=True, type=str,
+              help='Username to create user')
+@click.option('--password', '-p', type=str, help='New user password')
+@click.option('--role_name', '-rn', type=str,
+              help='Role to assign to this user. '
+                   'It should exist inside the customer')
+@cli_response()
+def update(ctx: ContextObj, username, customer_id, password, role_name):
+    """
+    Updates some user's attributes
+    """
+    return ctx['api_client'].update_user(
+        username=username,
+        customer_id=customer_id,
+        password=password,
+        role_name=role_name
+    )
+
+
 @users.command(cls=ViewCommand, name='delete')
 @click.option('--username', required=True, type=str,
               help='Username to create user')

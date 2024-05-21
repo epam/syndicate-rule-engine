@@ -13,8 +13,8 @@ def scheduled():
 @scheduled.command(cls=ViewCommand, name='add')
 @tenant_option
 @click.option('--schedule', '-sch', type=str, required=True,
-              help='Cron or Rate expression: cron(0 20 * * *), '
-                   'rate(2 minutes)')
+              help='Cron or Rate, 20 minutes expression: "cron(0 20 * * *)". '
+                   'One execution per two hours: "rate(2 hours)"')
 @click.option('--ruleset', '-rs', type=str, required=False,
               multiple=True,
               help='Rulesets to scan. If not specified, '
@@ -44,7 +44,7 @@ def add(ctx: ContextObj, tenant_name, schedule,
 
 @scheduled.command(cls=ViewCommand, name='describe')
 @click.option('--name', '-n', type=str, required=False,
-              help='Scheduled job name to remove')
+              help='Scheduled job name to describe')
 @tenant_option
 @cli_response(attributes_order=attributes_order)
 def describe(ctx: ContextObj, name, tenant_name, customer_id):

@@ -1147,6 +1147,14 @@ class CustodianApiClient:
             method=HTTPMethod.GET,
         )
 
+    def update_user(self, username: str, **kwargs):
+        return self.make_request(
+            path=CustodianEndpoint.USERS_USERNAME,
+            path_params={'username': username},
+            method=HTTPMethod.PATCH,
+            data=sifted(kwargs)
+        )
+
     def delete_user(self, username: str, **kwargs):
         return self.make_request(
             path=CustodianEndpoint.USERS_USERNAME,
