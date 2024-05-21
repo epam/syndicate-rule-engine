@@ -270,6 +270,32 @@ class TableResponseProcessor(JsonResponseProcessor):
 class ModularResponseProcessor(JsonResponseProcessor):
     modular_table_title = 'Custodian as a service'
 
+    @staticmethod
+    def _errors_to_message(errors: list[dict]) -> str:
+        """
+        Modular cli accepts only messages if status code is not 200
+        :param errors:
+        :return:
+        """
+        def _format_er(e):
+            loc = ''
+            first = True
+            for item in e.get('location') or ():
+                if isinstance(item, int):
+                    loc += f'[{str(item)}]'
+                else:
+                    if first:
+                        loc += str(item)
+                    else:
+                        loc += f' -> {str(item)}'
+                first = False
+            description = e.get('description') or 'Invalid value'
+            if loc:
+                return f'{loc}: {description}'
+            else:
+                return description
+        return '\n'.join(map(_format_er, errors))
+
     def format(self, resp: CustodianResponse) -> dict:
         base = {
             CODE_ATTR: resp.code,
@@ -280,7 +306,7 @@ class ModularResponseProcessor(JsonResponseProcessor):
         if data := dct.get(DATA_ATTR):
             base[ITEMS_ATTR] = [data]
         elif errors := dct.get(ERRORS_ATTR):
-            base[ITEMS_ATTR] = errors
+            base[MESSAGE_ATTR] = self._errors_to_message(errors)
         elif dct.get(ITEMS_ATTR):
             base.update(dct)
         elif ITEMS_ATTR in dct:  # empty

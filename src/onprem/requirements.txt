@@ -21,7 +21,7 @@ dacite==1.8.1
 et-xmlfile==1.1.0
 openpyxl==3.0.10
 cryptography==42.0.2
-modular-sdk==5.1.1
+modular-sdk==5.1.2
 swagger-ui-py==23.9.23
 jwcrypto==1.5.3
 msgspec==0.18.6

@@ -56,7 +56,7 @@ class ProcessedEvent(TypedDict):
     """
     method: HTTPMethod
     resource: CustodianEndpoint | None  # our resource if it can be matched: /jobs/{id}
-    path: str  # real path without stage: /jobs/123
+    path: str  # real path without stage: /jobs/123 or /jobs/123/
     fullpath: str  # full real path with stage /dev/jobs/123
     cognito_username: str | None
     cognito_customer: str | None

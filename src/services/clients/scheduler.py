@@ -120,10 +120,12 @@ class EventBridgeJobScheduler(AbstractJobScheduler):
             _ = self._client.put_rule(*args, **kwargs)
         except ClientError as e:
             if e.response['Error']['Code'] == 'ValidationException':
-                message = e.response['Error']['Message']
                 _LOG.warning(f'User has sent invalid schedule '
                              f'expression: {args}, {kwargs}')
-                raise ResponseFactory(HTTPStatus.BAD_REQUEST).errors([message]).exc()
+                raise ResponseFactory(HTTPStatus.BAD_REQUEST).errors([{
+                    'location': ['schedule'],
+                    'description': 'Invalid schedule expression'
+                }]).exc()
             raise
 
     def register_job(self, tenant: Tenant, schedule: str,
