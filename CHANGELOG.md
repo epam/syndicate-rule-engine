@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.1.2] - 2024-05-10
+- treat endpoints with trailing slashes the same as without (/jobs, /jobs/ are equal)
+
+## [5.1.1] - 2024-05-10
+- fix users pagination for saas
+- fix scheduled expression validation
 
 ## [5.1.0] - 2024-04-17
 - add `tenant` and `effect` to policy model to allow more flexible policies configurations

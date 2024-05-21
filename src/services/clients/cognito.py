@@ -7,7 +7,6 @@ from typing_extensions import NotRequired, Self, TypedDict
 
 import boto3
 from botocore.exceptions import ClientError
-from botocore.paginate import PageIterator
 
 from helpers.constants import (
     CUSTOM_CUSTOMER_ATTR,
@@ -21,6 +20,7 @@ from services.environment_service import EnvironmentService
 
 if TYPE_CHECKING:
     from models.user import User
+    from botocore.client import BaseClient
 
 _LOG = get_logger(__name__)
 
@@ -118,38 +118,49 @@ class UsersIterator(Iterator[UserWrapper]):
 
 
 class CognitoUsersIterator(UsersIterator):
-    def __init__(self, page_iterator: PageIterator,
-                 customer: str | None = None):
-        """
-        :param page_iterator: cognito-idp list_users pages iterator
-        :param customer: allows to filter the result additionally by custom
-        customer attr
-        """
-        self._page_iterable = page_iterator
+    __slots__ = '_cl', '_upi', '_customer', '_limit', 'next_token'
+
+    def __init__(self, client: 'BaseClient', user_pool_id: str,
+                 customer: str | None = None,
+                 limit: int | None = None, next_token: str | None = None):
+        self._cl = client
+        self._upi = user_pool_id
         self._customer = customer
 
-    def __iter__(self):
-        self._it = iter(self._page_iterable)
-        self._page = None
-        return self
+        self._limit = limit
+        self.next_token = next_token
 
-    def __next__(self) -> UserWrapper:
-        while 1:
-            if not self._page:
-                dct = self._it.__next__()  # getting next page
-                self.next_token = dct.get('PaginationToken')
-                _users = map(UserWrapper.from_cognito_model,
-                             dct.get('Users') or ())
-                if self._customer:
-                    self._page = filter(
-                        lambda u: u.customer == self._customer, _users
-                    )
-                else:
-                    self._page = _users
-            try:
-                return self._page.__next__()
-            except StopIteration:
-                self._page = None
+    def _get_next_page(self, limit: int | None = None,
+                       token: str | None = None
+                       ) -> tuple[list[CognitoUserModel], str | None]:
+        params = dict(UserPoolId=self._upi)
+        if limit:
+            params['Limit'] = limit
+        if token:
+            params['PaginationToken'] = token
+        try:
+            res = self._cl.list_users(**params)
+            return res.get('Users') or [], res.get('PaginationToken')
+        except ClientError:
+            _LOG.warning('Unexpected error occurred listing users',
+                         exc_info=True)
+            return [], None
+
+    def __iter__(self) -> Generator[UserWrapper, None, None]:
+        # local vars
+        _limit = self._limit
+        first = True
+        customer = self._customer
+        while _limit != 0 and (first or self.next_token):
+            res = self._get_next_page(_limit, self.next_token)
+            first = False
+            self.next_token = res[1]
+            for user in map(UserWrapper.from_cognito_model, res[0]):
+                if customer and user.customer != customer:
+                    continue
+                yield user
+                if _limit is not None:
+                    _limit -= 1
 
 
 class AuthenticationResult(TypedDict):
@@ -277,23 +288,20 @@ class CognitoClient(BaseAuthClient):
             )
             _LOG.debug(f'Result of admin_get_user: {item}')
             return UserWrapper.from_cognito_model(item)
-        except ClientError:
-            _LOG.warning('ClientError occurred querying a user', exc_info=True)
+        except ClientError as e:
+            _LOG.warning(f'ClientError occurred querying a user, {e}')
             return
 
     def query_users(self, customer: str | None = None,
                     limit: int | None = None,
-                    next_token: str | dict | None = None) -> UsersIterator:
-        conf = {}
-        if limit:
-            conf['MaxItems'] = limit
-        if next_token:
-            conf['StartingToken'] = next_token
-        it = self.client.get_paginator('list_users').paginate(
-            UserPoolId=self.user_pool_id,
-            PaginationConfig=conf
+                    next_token: str | None = None) -> UsersIterator:
+        return CognitoUsersIterator(
+            client=self.client,
+            user_pool_id=self.user_pool_id,
+            limit=limit,
+            next_token=next_token,
+            customer=customer
         )
-        return CognitoUsersIterator(it, customer=customer)
 
     def set_user_password(self, username: str, password: str) -> bool:
         try:

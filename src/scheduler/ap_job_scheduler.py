@@ -1,4 +1,3 @@
-import json
 import os
 from functools import cached_property
 from http import HTTPStatus
@@ -17,19 +16,16 @@ from pymongo import ASCENDING, MongoClient
 from pymongo.collection import Collection
 from pymongo.errors import DuplicateKeyError
 
-from helpers import RequestContext
 from helpers.constants import CAASEnv, CUSTODIAN_TYPE, SCHEDULED_JOB_TYPE, \
-    BatchJobEnv, ReportDispatchStatus
+    BatchJobEnv
 from helpers.lambda_response import ResponseFactory
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_iso
-from models.report_statistics import ReportStatistics
 from models.scheduled_job import SJ_ID_ATTR, SJ_CREATION_DATE_ATTR, \
     SJ_TYPE_ATTR, SJ_CONTEXT_ATTR, SJ_LAST_EXECUTION_TIME_ATTR
 from models.scheduled_job import ScheduledJob, SCHEDULED_JOBS_TABLE_NAME
 from services.clients.batch import SubprocessBatchClient
 from services.clients.scheduler import AbstractJobScheduler
-from services.report_statistics_service import ReportStatisticsService
 from services.setting_service import SettingsService
 
 try:
@@ -192,9 +188,10 @@ class APJobScheduler(AbstractJobScheduler):
         if error:
             _LOG.warning(f'User has sent invalid schedule '
                          f'expression: \'{schedule}\'')
-            raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
-                f'Schedule expression validation error: {error}'
-            ).exc()
+            raise ResponseFactory(HTTPStatus.BAD_REQUEST).errors([{
+                'location': ['schedule'],
+                'description': f'Invalid schedule expression: {error}'
+            }]).exc()
 
     def register_job(self, tenant: Tenant, schedule: str,
                      environment: dict,

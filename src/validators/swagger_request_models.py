@@ -621,6 +621,25 @@ class EventPostModel(BaseModel):
     events: list[dict]
 
 
+def validate_password(password: str) -> list[str]:
+    errors = []
+    upper = any(char.isupper() for char in password)
+    lower = any(char.islower() for char in password)
+    numeric = any(char.isdigit() for char in password)
+    symbol = any(not char.isalnum() for char in password)
+    if not upper:
+        errors.append('must have uppercase characters')
+    if not numeric:
+        errors.append('must have numeric characters')
+    if not lower:
+        errors.append('must have lowercase characters')
+    if not symbol:
+        errors.append('must have at least one symbol')
+    if len(password) < 8:
+        errors.append('valid min length for password: 8')
+    return errors
+
+
 class UserPasswordResetPostModel(BaseModel):
     password: str
     username: str = Field(None)
@@ -629,22 +648,8 @@ class UserPasswordResetPostModel(BaseModel):
     @field_validator('password')
     @classmethod
     def _(cls, password: str) -> str:
-        errors = []
-        upper = any(char.isupper() for char in password)
-        numeric = any(char.isdigit() for char in password)
-        symbol = any(not char.isalnum() for char in password)
-        if not upper:
-            errors.append('must have uppercase characters')
-        if not numeric:
-            errors.append('must have numeric characters')
-        if not symbol:
-            errors.append('must have symbol characters')
-        if len(password) < 8:
-            errors.append('valid min length for password: 8')
-
-        if errors:
+        if errors := validate_password(password):
             raise ValueError(', '.join(errors))
-
         return password
 
 
@@ -1276,22 +1281,8 @@ class UserPatchModel(BaseModel):
     @field_validator('password')
     @classmethod
     def _(cls, password: str) -> str:
-        errors = []
-        upper = any(char.isupper() for char in password)
-        lower = any(char.islower() for char in password)
-        numeric = any(char.isdigit() for char in password)
-        if not upper:
-            errors.append('must have uppercase characters')
-        if not numeric:
-            errors.append('must have numeric characters')
-        if not lower:
-            errors.append('must have lowercase characters')
-        if len(password) < 8:
-            errors.append('valid min length for password: 8')
-
-        if errors:
+        if errors := validate_password(password):
             raise ValueError(', '.join(errors))
-
         return password
 
 
@@ -1310,22 +1301,8 @@ class UserPostModel(BaseModel):
     @field_validator('password')
     @classmethod
     def _(cls, password: str) -> str:
-        errors = []
-        upper = any(char.isupper() for char in password)
-        lower = any(char.islower() for char in password)
-        numeric = any(char.isdigit() for char in password)
-        if not upper:
-            errors.append('must have uppercase characters')
-        if not numeric:
-            errors.append('must have numeric characters')
-        if not lower:
-            errors.append('must have lowercase characters')
-        if len(password) < 8:
-            errors.append('valid min length for password: 8')
-
-        if errors:
+        if errors := validate_password(password):
             raise ValueError(', '.join(errors))
-
         return password
 
 
@@ -1335,22 +1312,8 @@ class UserResetPasswordModel(BaseModel):
     @field_validator('new_password')
     @classmethod
     def _(cls, password: str) -> str:
-        errors = []
-        upper = any(char.isupper() for char in password)
-        lower = any(char.islower() for char in password)
-        numeric = any(char.isdigit() for char in password)
-        if not upper:
-            errors.append('must have uppercase characters')
-        if not numeric:
-            errors.append('must have numeric characters')
-        if not lower:
-            errors.append('must have lowercase characters')
-        if len(password) < 8:
-            errors.append('valid min length for password: 8')
-
-        if errors:
+        if errors := validate_password(password):
             raise ValueError(', '.join(errors))
-
         return password
 
 
@@ -1364,20 +1327,6 @@ class SignUpModel(PydanticBaseModel):
     @field_validator('password')
     @classmethod
     def _(cls, password: str) -> str:
-        errors = []
-        upper = any(char.isupper() for char in password)
-        lower = any(char.islower() for char in password)
-        numeric = any(char.isdigit() for char in password)
-        if not upper:
-            errors.append('must have uppercase characters')
-        if not numeric:
-            errors.append('must have numeric characters')
-        if not lower:
-            errors.append('must have lowercase characters')
-        if len(password) < 8:
-            errors.append('valid min length for password: 8')
-
-        if errors:
+        if errors := validate_password(password):
             raise ValueError(', '.join(errors))
-
         return password

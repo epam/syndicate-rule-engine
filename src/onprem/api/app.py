@@ -32,6 +32,7 @@ class AuthPlugin:
     """
     Authenticates the user
     """
+    __slots__ = 'name',
 
     def __init__(self):
         self.name = 'custodian-auth'
@@ -98,25 +99,40 @@ class OnPremApiBuilder:
         self._endpoint_to_lambda = {}
 
     @staticmethod
-    def _register_errors(app: Bottle) -> None:
-        @app.error(404)
-        def not_found(error):
-            return json.dumps({'message': HTTPStatus.NOT_FOUND.phrase},
-                              separators=(',', ':'))
+    def _build_generic_error_handler(code: HTTPStatus) -> Callable:
+        """
+        Builds a generic callback that handles a specific error code
+        :param code:
+        :return:
+        """
+        def f(error):
+            return json.dumps({'message': code.phrase}, separators=(',', ':'))
+        return f
 
-        @app.error(500)
-        def internal(error):
-            return json.dumps(
-                {'message': HTTPStatus.INTERNAL_SERVER_ERROR.phrase},
-                separators=(',', ':')
+    def _register_errors(self, application: Bottle) -> None:
+        for code in (HTTPStatus.NOT_FOUND, HTTPStatus.INTERNAL_SERVER_ERROR):
+            application.error_handler[code.value] = self._build_generic_error_handler(code)
+
+    @staticmethod
+    def _add_hooks(application: Bottle) -> None:
+        @application.hook('before_request')
+        def strip_path():
+            """
+            Our endpoints do not depend on trailing slashes. Api gw treats
+            /one and /one/ as equal
+            :return:
+            """
+            request.environ['PATH_INFO'] = request.environ['PATH_INFO'].rstrip(
+                '/'
             )
 
     def build(self) -> Bottle:
         self._endpoint_to_lambda.clear()
         app = Bottle()
-        self._register_errors(app)
+        self._add_hooks(app)
 
         custodian_app = Bottle()
+        self._register_errors(custodian_app)
         it = self._dp_wrapper.iter_path_method_lambda()
         auth_plugin = AuthPlugin()
         for path, method, ln, has_auth in it:
@@ -155,7 +171,6 @@ class OnPremApiBuilder:
         return resource
 
     def _callback(self, decoded_token: dict | None = None, **path_params):
-
         method = request.method
         path = request.route.rule
         ln = self._endpoint_to_lambda[(path, method)]
