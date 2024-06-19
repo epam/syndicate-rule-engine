@@ -132,6 +132,4 @@ less than 15 minutes, the new credentials will be obtained from the assumed role
 will be used.
 
 The trigger for executing event-driven scans is a request from the client lambda received at the /event endpoint.
-The entire flow of deploying resources to a client account is described in the [documentation](src/cloudformation/README.md).
-
 Event-driven scans use rulesets that have the `event_driven` field set to `true`.
