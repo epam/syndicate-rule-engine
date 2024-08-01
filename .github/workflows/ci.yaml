@@ -26,7 +26,7 @@ jobs:
 
       - name: Downloads artifacts
         run: |
-          curl "https://public-open-source-syndicate-artifacts.s3.amazonaws.com/${{ github.ref_name }}/rule-engine-ami-artifacts.linux-arm64.zip -o rule-engine-ami-artifacts.linux-arm64.zip"
+          curl "https://public-open-source-syndicate-artifacts.s3.amazonaws.com/ecc/${{ github.ref_name }}/rule-engine-ami-artifacts.linux-arm64.zip -o rule-engine-ami-artifacts.linux-arm64.zip"
 
       - name: Create tag
         uses: actions/github-script@v7
