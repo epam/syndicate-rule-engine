@@ -29,15 +29,20 @@ def rule():
               help='Project id of git repo to build a ruleset')
 @click.option('--git_ref', '-gr', required=False, type=str,
               help='Branch of git repo to build a ruleset')
+@click.option('--rule_source_id', '-rsid', required=False, type=str,
+              help='The id of rule source object the rule must belong to')
 @limit_option
 @next_option
 @cli_response(attributes_order=attributes_order)
 def describe(ctx: ContextObj, customer_id,
-             rule_name, cloud, git_project_id, git_ref,
+             rule_name, cloud, git_project_id, git_ref, rule_source_id,
              limit, next_token):
     """
     Describes rules within your customer
     """
+    if rule_source_id and (git_ref or git_project_id):
+        return response('do not provide --git_ref or --git_project_id if '
+                        '--rule_source_id is provided')
     if git_ref and not git_project_id:
         return response('--git_project_id must be provided with --git_ref')
     return ctx['api_client'].rule_get(
@@ -46,6 +51,7 @@ def describe(ctx: ContextObj, customer_id,
         cloud=cloud,
         git_project_id=git_project_id,
         git_ref=git_ref,
+        rule_source_id=rule_source_id,
         limit=limit,
         next_token=next_token,
     )

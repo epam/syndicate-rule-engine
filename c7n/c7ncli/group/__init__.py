@@ -6,6 +6,7 @@ import operator
 from itertools import islice
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any, Callable, TypedDict, cast
 import urllib.error
@@ -102,6 +103,14 @@ class cli_response:  # noqa
         self._check_access_token = check_access_token
 
     @staticmethod
+    def to_exit_code(code: HTTPStatus | None) -> int:
+        if not code:
+            return 1
+        if 200 <= code < 400:
+            return 0
+        return 1
+
+    @staticmethod
     def update_context(ctx: click.Context):
         """
         Updates the given (current) click context's obj dict with api
@@ -172,10 +181,10 @@ class cli_response:  # noqa
                 resp: CustodianResponse = click.pass_obj(func)(*args, **kwargs)
             except click.ClickException as e:
                 _LOG.info('Click exception has occurred')
-                resp = response(e.format_message())
+                resp = response(e.format_message(), code=HTTPStatus.BAD_REQUEST)
             except Exception as e:
                 _LOG.error(f'Unexpected error has occurred: {e}')
-                resp = response(str(e))
+                resp = response(str(e), code=HTTPStatus.INTERNAL_SERVER_ERROR)
 
             if modular_mode:
                 _LOG.info('The cli is installed as a module. '
@@ -220,6 +229,7 @@ class cli_response:  # noqa
                 _LOG.info('Returning json view')
                 data = JsonResponseProcessor().format(resp)
                 click.echo(json.dumps(data, indent=4))
+            sys.exit(self.to_exit_code(resp.code))
 
         return wrapper
 
@@ -268,7 +278,7 @@ class TableResponseProcessor(JsonResponseProcessor):
 
 
 class ModularResponseProcessor(JsonResponseProcessor):
-    modular_table_title = 'Custodian as a service'
+    modular_table_title = 'Syndicate Rule Engine'
 
     @staticmethod
     def _errors_to_message(errors: list[dict]) -> str:

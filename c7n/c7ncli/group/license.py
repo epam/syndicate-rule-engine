@@ -34,10 +34,8 @@ def describe(ctx: ContextObj, license_key, customer_id):
 @license.command(cls=ViewCommand, name='add')
 @click.option('--tenant_license_key', '-tlk',
               type=str, required=True, help='License key to create')
-@click.option('--description', '-d', type=str, required=False,
-              help='Your description for this license')
 @cli_response()
-def add(ctx: ContextObj, tenant_license_key: str, description: str | None,
+def add(ctx: ContextObj, tenant_license_key: str,
         customer_id: str | None):
     """
     Adds a license from License Manager to the system. After performing this
@@ -46,7 +44,6 @@ def add(ctx: ContextObj, tenant_license_key: str, description: str | None,
     return ctx['api_client'].license_post(
         tenant_license_key=tenant_license_key,
         customer_id=customer_id,
-        description=description
     )
 
 
@@ -82,7 +79,7 @@ def sync(ctx: ContextObj, license_key, customer_id):
 @click.option('--clouds', '-cl',
               type=click.Choice((AWS, AZURE, GOOGLE, KUBERNETES)),
               multiple=True,
-              help='Tenant clouds to activate this dojo for. '
+              help='Tenant clouds to activate this license for. '
                    'Can be specific together with --all_tenants flag')
 @click.option('--exclude_tenant', '-et', type=str, multiple=True,
               help='Tenants to exclude for this integration. '

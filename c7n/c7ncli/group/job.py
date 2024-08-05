@@ -91,11 +91,15 @@ def describe(ctx: ContextObj, job_id: str, tenant_name: str, customer_id: str,
                    'ecc-aws-002-postgresql...]. This CLI param can accept '
                    'both raw rule names and path to file with JSON list '
                    'of rules')
+@click.option('--license_key', '-lk', required=False, type=str,
+              help='License key to utilize for this job in case an ambiguous '
+                   'situation occurs')
 @cli_response(attributes_order=attributes_order)
 def submit(ctx: ContextObj, cloud: str, tenant_name: str,
            ruleset: tuple[str, ...], region: tuple[str, ...],
            credentials_from_env: bool,
-           customer_id: str | None, rules_to_scan: tuple[str]):
+           customer_id: str | None, rules_to_scan: tuple[str],
+           license_key: str):
     """
     Submits a job to scan either AWS, AZURE or GOOGLE account
     """
@@ -117,7 +121,8 @@ def submit(ctx: ContextObj, cloud: str, tenant_name: str,
         target_regions=region,
         credentials=credentials,
         customer_id=customer_id,
-        rules_to_scan=load_rules_to_scan(rules_to_scan)
+        rules_to_scan=load_rules_to_scan(rules_to_scan),
+        license_key=license_key
     )
 
 
@@ -141,13 +146,16 @@ def submit(ctx: ContextObj, cloud: str, tenant_name: str,
                    'ecc-aws-002-postgresql...]. This CLI param can accept '
                    'both raw rule names and path to file with JSON list '
                    'of rules')
+@click.option('--license_key', '-lk', required=False, type=str,
+              help='License key to utilize for this job in case an ambiguous '
+                   'situation occurs')
 @click.option('--access_key', '-ak', type=str, help='AWS access key')
 @click.option('--secret_key', '-sk', type=str, help='AWS secret key')
 @click.option('--session_token', '-st', type=str, help='AWS session token')
 @cli_response(attributes_order=attributes_order)
 def submit_aws(ctx: ContextObj,  tenant_name: str,
                ruleset: tuple[str, ...], region: tuple[str, ...],
-               customer_id: str | None, rules_to_scan: tuple[str],
+               customer_id: str | None, rules_to_scan: tuple[str], license_key,
                access_key, secret_key, session_token):
     """
     Submits a job to scan an AWS account
@@ -174,7 +182,8 @@ def submit_aws(ctx: ContextObj,  tenant_name: str,
         target_regions=region,
         credentials=creds,
         customer_id=customer_id,
-        rules_to_scan=load_rules_to_scan(rules_to_scan)
+        rules_to_scan=load_rules_to_scan(rules_to_scan),
+        license_key=license_key
     )
 
 
@@ -194,6 +203,9 @@ def submit_aws(ctx: ContextObj,  tenant_name: str,
                    'ecc-aws-002-postgresql...]. This CLI param can accept '
                    'both raw rule names and path to file with JSON list '
                    'of rules')
+@click.option('--license_key', '-lk', required=False, type=str,
+              help='License key to utilize for this job in case an ambiguous '
+                   'situation occurs')
 @click.option('--tenant_id', '-ti', type=str, help='Azure tenant id')
 @click.option('--client_id', '-ci', type=str, help='Azure client id')
 @click.option('--client_secret', '-cs', type=str, help='Azure client secret')
@@ -203,6 +215,7 @@ def submit_aws(ctx: ContextObj,  tenant_name: str,
 def submit_azure(ctx: ContextObj, tenant_name: str,
                  ruleset: tuple[str, ...], region: tuple[str, ...],
                  customer_id: str | None, rules_to_scan: tuple[str],
+                 license_key,
                  tenant_id, client_id, client_secret, subscription_id):
     """
     Submits a job to scan an Azure subscription
@@ -233,7 +246,8 @@ def submit_azure(ctx: ContextObj, tenant_name: str,
         target_regions=region,
         credentials=creds,
         customer_id=customer_id,
-        rules_to_scan=load_rules_to_scan(rules_to_scan)
+        rules_to_scan=load_rules_to_scan(rules_to_scan),
+        license_key=license_key
     )
 
 
@@ -253,12 +267,16 @@ def submit_azure(ctx: ContextObj, tenant_name: str,
                    'ecc-aws-002-postgresql...]. This CLI param can accept '
                    'both raw rule names and path to file with JSON list '
                    'of rules')
+@click.option('--license_key', '-lk', required=False, type=str,
+              help='License key to utilize for this job in case an ambiguous '
+                   'situation occurs')
 @click.option('--application_credentials_path', '-acp', type=str,
               help='Path to file with google credentials')
 @cli_response(attributes_order=attributes_order)
 def submit_google(ctx: ContextObj, tenant_name: str,
                   ruleset: tuple[str, ...], region: tuple[str, ...],
                   customer_id: str | None, rules_to_scan: tuple[str],
+                  license_key,
                   application_credentials_path: str):
     """
     Submits a job to scan a Google project
@@ -281,7 +299,8 @@ def submit_google(ctx: ContextObj, tenant_name: str,
         target_regions=region,
         credentials=creds,
         customer_id=customer_id,
-        rules_to_scan=load_rules_to_scan(rules_to_scan)
+        rules_to_scan=load_rules_to_scan(rules_to_scan),
+        license_key=license_key
     )
 
 
@@ -291,10 +310,14 @@ def submit_google(ctx: ContextObj, tenant_name: str,
               multiple=True,
               help='Rulesets to scan. If not specified, all available by '
                    'license rulesets will be used')
+@click.option('--license_key', '-lk', required=False, type=str,
+              help='License key to utilize for this job in case an ambiguous '
+                   'situation occurs')
 @click.option('--token', '-t', type=str, required=False,
               help='Short-lived token to perform k8s scan with')
 @cli_response()
 def submit_k8s(ctx: ContextObj, platform_id: str, ruleset: tuple,
+               license_key: str,
                customer_id: str | None, token: str | None):
     """
     Submits a job for kubernetes cluster
@@ -303,7 +326,8 @@ def submit_k8s(ctx: ContextObj, platform_id: str, ruleset: tuple,
         platform_id=platform_id,
         target_rulesets=ruleset,
         customer_id=customer_id,
-        token=token
+        token=token,
+        license_key=license_key
     )
 
 

@@ -28,7 +28,6 @@ def describe(ctx: ContextObj, customer_id):
               help='License manager protocol')
 @click.option('--stage', '-st', type=str,
               help='Path prefix')
-@click.option('--api_version', '-av', type=str, help='Desired LM api version')
 @cli_response()
 def add(ctx: ContextObj, **kwargs):
     """

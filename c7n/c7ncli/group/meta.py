@@ -1,3 +1,5 @@
+import sys
+
 import click
 
 from c7ncli.group import ContextObj, ViewCommand, cli_response
@@ -22,15 +24,17 @@ def update_standards(ctx: ContextObj, customer_id):
 @cli_response()
 def update_mappings(ctx: ContextObj, customer_id):
     """
-    Execution status of the last metrics update
+    Execution status of the last metrics update.
     """
-    return ctx['api_client'].update_mappings()
+    print('WARNING. This action is deprecated and will be removed soon. '
+          'Use `c7n update_meta` instead', file=sys.stderr)
+    return ctx['api_client'].update_meta()
 
 
 @meta.command(cls=ViewCommand, name='update_meta')
 @cli_response()
 def update_meta(ctx: ContextObj, customer_id):
     """
-    Execution status of the last metrics update
+    Execution status of the last metrics update.
     """
     return ctx['api_client'].update_meta()

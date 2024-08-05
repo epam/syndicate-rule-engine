@@ -50,3 +50,19 @@ def dojo(ctx: ContextObj, job_id: Optional[str], job_type: Optional[str],
         tenant_name=tenant_name,
         job_type=job_type
     )
+
+
+@push.command(cls=ViewCommand, name='chronicle')
+@build_job_id_option(required=True, help='Job id to push')
+@optional_job_type_option
+@cli_response()
+def chronicle(ctx: ContextObj, job_id: Optional[str], job_type: Optional[str],
+              customer_id: Optional[str]):
+    """
+    Pushes job detailed report(s) to the Google Chronicle
+    """
+    return ctx['api_client'].push_chronicle_by_job_id(
+        job_id=job_id,
+        customer_id=customer_id,
+        job_type=job_type
+    )

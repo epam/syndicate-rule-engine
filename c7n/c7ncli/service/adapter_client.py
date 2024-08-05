@@ -110,7 +110,8 @@ class CustodianResponse:
         return self.code is not None
 
     @classmethod
-    def build(cls, content: str | list | dict | Iterable
+    def build(cls, content: str | list | dict | Iterable,
+              code: HTTPStatus = HTTPStatus.OK
               ) -> 'CustodianResponse':
         body = {}
         if isinstance(content, str):
@@ -121,11 +122,11 @@ class CustodianResponse:
             body.update({ITEMS_ATTR: content})
         elif isinstance(content, Iterable):
             body.update(({ITEMS_ATTR: list(content)}))
-        return cls(data=body, code=HTTPStatus.OK)
+        return cls(data=body, code=code)
 
     @property
     def ok(self) -> bool:
-        return self.code is not None and 200 <= self.code <= 206
+        return self.code is not None and 200 <= self.code < 400
 
 
 class CustodianApiClient:
@@ -338,6 +339,13 @@ class CustodianApiClient:
             data=sifted(kwargs)
         )
 
+    def ruleset_release(self, **kwargs):
+        return self.make_request(
+            path=CustodianEndpoint.RULESETS_RELEASE,
+            method=HTTPMethod.POST,
+            data=sifted(kwargs)
+        )
+
     def ed_ruleset_add(self, **kwargs):
         return self.make_request(
             path=CustodianEndpoint.ED_RULESETS,
@@ -359,7 +367,15 @@ class CustodianApiClient:
             data=sifted(kwargs)
         )
 
-    def rule_source_get(self, **kwargs):
+    def rule_source_get(self, id: str, **kwargs):
+        return self.make_request(
+            path=CustodianEndpoint.RULE_SOURCES_ID,
+            path_params={'id': id},
+            method=HTTPMethod.GET,
+            query=sifted(kwargs)
+        )
+
+    def rule_source_query(self, **kwargs):
         return self.make_request(
             path=CustodianEndpoint.RULE_SOURCES,
             method=HTTPMethod.GET,
@@ -373,17 +389,27 @@ class CustodianApiClient:
             data=sifted(kwargs)
         )
 
-    def rule_source_patch(self, **kwargs):
+    def rule_source_patch(self, id: str, **kwargs):
         return self.make_request(
-            path=CustodianEndpoint.RULE_SOURCES,
+            path=CustodianEndpoint.RULE_SOURCES_ID,
+            path_params={'id': id},
             method=HTTPMethod.PATCH,
             data=sifted(kwargs)
         )
 
-    def rule_source_delete(self, **kwargs):
+    def rule_source_delete(self, id: str, **kwargs):
         return self.make_request(
-            path=CustodianEndpoint.RULE_SOURCES,
+            path=CustodianEndpoint.RULE_SOURCES_ID,
+            path_params={'id': id},
             method=HTTPMethod.DELETE,
+            data=sifted(kwargs)
+        )
+
+    def rule_source_sync(self, id: str, **kwargs):
+        return self.make_request(
+            path=CustodianEndpoint.RULE_SOURCES_ID_SYNC,
+            path_params={'id': id},
+            method=HTTPMethod.POST,
             data=sifted(kwargs)
         )
 
@@ -498,13 +524,6 @@ class CustodianApiClient:
             data={}
         )
 
-    def update_mappings(self):
-        return self.make_request(
-            path=CustodianEndpoint.META_MAPPINGS,
-            method=HTTPMethod.POST,
-            data={}
-        )
-
     def update_meta(self):
         return self.make_request(
             path=CustodianEndpoint.META_META,
@@ -536,8 +555,6 @@ class CustodianApiClient:
 
     def job_post(self, **kwargs):
         api = CustodianEndpoint.JOBS
-        if os.environ.get('C7N_STANDARD_JOBS'):
-            api = CustodianEndpoint.JOBS_STANDARD
         return self.make_request(
             path=api,
             method=HTTPMethod.POST,
@@ -647,19 +664,13 @@ class CustodianApiClient:
             data=sifted(kwargs)
         )
 
-    # def signup(self, username: str, password: str, customer: str, role: str,
-    #            tenants: tuple):
-    #     return self.make_request(
-    #         path=CustodianEndpoint.SIGNUP,
-    #         method=HTTPMethod.POST,
-    #         data=sifted({
-    #             PARAM_USERNAME: username,
-    #             PARAM_PASSWORD: password,
-    #             PARAM_CUSTOMER: customer,
-    #             PARAM_ROLE: role,
-    #             PARAM_TENANTS: tenants
-    #         })
-    #     )
+    def push_chronicle_by_job_id(self, job_id: str, **kwargs):
+        return self.make_request(
+            path=CustodianEndpoint.REPORTS_PUSH_CHRONICLE_JOB_ID,
+            path_params={'job_id': job_id},
+            method=HTTPMethod.POST,
+            data=sifted(kwargs)
+        )
 
     def health_check_list(self, **kwargs):
         return self.make_request(
@@ -996,9 +1007,7 @@ class CustodianApiClient:
 
     def dojo_delete(self, id: str, **kwargs):
         return self.make_request(
-            path=CustodianEndpoint.INTEGRATIONS_DEFECT_DOJO_ID,
-            method=HTTPMethod.DELETE,
-            path_params={'id': id},
+            path=CustodianEndpoint.INTEGRATIONS_DEFECT_DOJO_ID, method=HTTPMethod.DELETE, path_params={'id': id},
             data=sifted(kwargs)
         )
 
@@ -1038,7 +1047,7 @@ class CustodianApiClient:
             path=CustodianEndpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION,
             method=HTTPMethod.GET,
             path_params={'id': id},
-            data=sifted(kwargs)
+            query=sifted(kwargs)
         )
 
     def sre_add(self, **kwargs):
@@ -1182,4 +1191,58 @@ class CustodianApiClient:
             path=CustodianEndpoint.USERS_RESET_PASSWORD,
             method=HTTPMethod.POST,
             data=sifted(kwargs)
+        )
+
+    def chronicle_add(self, **kwargs):
+        return self.make_request(
+            path=CustodianEndpoint.INTEGRATIONS_CHRONICLE,
+            method=HTTPMethod.POST,
+            data=sifted(kwargs)
+        )
+
+    def chronicle_delete(self, id: str, **kwargs):
+        return self.make_request(
+            path=CustodianEndpoint.INTEGRATIONS_CHRONICLE_ID,
+            method=HTTPMethod.DELETE,
+            path_params={'id': id},
+            data=sifted(kwargs)
+        )
+
+    def chronicle_get(self, id: str, **kwargs):
+        return self.make_request(
+            path=CustodianEndpoint.INTEGRATIONS_CHRONICLE_ID,
+            method=HTTPMethod.GET,
+            path_params={'id': id},
+            query=sifted(kwargs)
+        )
+
+    def chronicle_query(self, **kwargs):
+        return self.make_request(
+            path=CustodianEndpoint.INTEGRATIONS_CHRONICLE,
+            method=HTTPMethod.GET,
+            query=sifted(kwargs)
+        )
+
+    def chronicle_activate(self, id: str, **kwargs):
+        return self.make_request(
+            path=CustodianEndpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION,
+            method=HTTPMethod.PUT,
+            path_params={'id': id},
+            data=sifted(kwargs)
+        )
+
+    def chronicle_deactivate(self, id: str, **kwargs):
+        return self.make_request(
+            path=CustodianEndpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION,
+            method=HTTPMethod.DELETE,
+            path_params={'id': id},
+            data=sifted(kwargs)
+        )
+
+    def chronicle_get_activation(self, id: str, **kwargs):
+        return self.make_request(
+            path=CustodianEndpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION,
+            method=HTTPMethod.GET,
+            path_params={'id': id},
+            query=sifted(kwargs)
         )

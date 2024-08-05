@@ -4,8 +4,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.4.0] - 2024-07-09
+- added `license_key` optional parameter to `c7n job submit`
+- removed `--description` from `c7n license add`
+- added `--rule_source_id` to `c7n rule describe`
+- removed `--active` from `c7n ruleset add`
+- added `c7n ruleset release` command
+- added `c7n rulesource sync` command
+
+## [5.3.0] - 2024-06-09
+- added commands to manage Chronicle instance:
+  - `c7n integrations chronicle add`
+  - `c7n integrations chronicle describe`
+  - `c7n integrations chronicle delete`
+  - `c7n integrations chronicle activate`
+  - `c7n integrations chronicle deactivate`
+  - `c7n integrations chronicle get_activation`
+  - `c7n report push chronicle`
+
+## [5.1.2] - 2024-06-03
+- made `c7n meta update_mappings` deprecated
+
 ## [5.1.1] - 2024-05-13
 - fix errors formatting for modular
+- add Cli command to change user password
 
 ## [5.1.0] - 2024-04-17
 - added `--effect` and `--tenant` and `--description` to `c7n policy add|update`
