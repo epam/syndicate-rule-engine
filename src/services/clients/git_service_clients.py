@@ -1,14 +1,14 @@
+from pathlib import Path
 import shutil
 import tempfile
-from functools import cached_property
-from pathlib import Path
 from typing import TypedDict
 from urllib.parse import urljoin
 
 import requests
-from urllib3.util import parse_url, Url
+from urllib3.util import Url, parse_url
 
 from helpers import deep_get
+from helpers.constants import GITHUB_API_URL_DEFAULT, GITLAB_API_URL_DEFAULT
 from helpers.log_helper import get_logger
 
 _LOG = get_logger(__name__)
@@ -34,82 +34,6 @@ query($owner:String!, $repo:String!, $ref:String!, $filepath:String!) {
 """
 
 
-class GitLabClientLib:
-    """
-    Our wrapper over GitLab wrapper
-    """
-
-    @staticmethod
-    def extract_netloc(path: str) -> str:
-        """
-        https://git.epam.com/one/two -> https://git.epam.com
-        Hoping that the provided path contains scheme and netloc
-        :param path:
-        :return:
-        """
-        parsed: Url = parse_url(path)
-        scheme = parsed.scheme
-        if not scheme:
-            scheme = 'https'
-        return scheme + '://' + parsed.netloc
-
-    def __init__(self, url: str, private_token: str):
-        self._url = self.extract_netloc(url)
-        self._private_token = private_token
-
-    @cached_property
-    def client(self):
-        """
-        :return:
-        :rtype: gitlab.Gitlab
-        """
-        import gitlab
-        return gitlab.Gitlab(
-            url=self._url,
-            private_token=self._private_token
-        )
-
-    def get_project(self, pid: int):
-        """
-        :param pid:
-        :return:
-        :rtype: Optional[gitlab.base.RESTObject]
-        """
-        from gitlab.exceptions import GitlabError
-        try:
-            return self.client.projects.get(pid)
-        except GitlabError as e:
-            _LOG.warning('Error occurred trying to get project')
-            return
-
-    def clone_project(self, project: str | int, to: Path,
-                      ref: str | None = None) -> Path | None:
-        """
-        In case the project was cloned, returns a path to its root
-        >>> with tempfile.TemporaryDirectory() as folder:
-        >>>     root = GitLabClient().clone_project(123, folder, 'master')
-        :param project: gitlab project ID
-        :param ref:
-        :param to:
-        :return:
-        """
-        pr = self.get_project(project)
-        if not pr:
-            _LOG.debug('Cannot clone project. It was not found')
-            return
-        _LOG.debug(f'Going to clone {project}:{ref}')
-        with tempfile.NamedTemporaryFile(delete=False, dir=to) as file:
-            pr.repository_archive(
-                streamed=True,
-                action=file.write,
-                sha=ref,
-            )
-        extracted = to / 'extracted'
-        shutil.unpack_archive(file.name, extracted, format='tar')
-        _LOG.debug('Repository was cloned')
-        return next(Path(extracted).iterdir())
-
-
 class GitLabClient:
     """
     Our wrapper over GitLab api, without python-gitlab
@@ -130,9 +54,9 @@ class GitLabClient:
         size: int
         execute_filemode: bool
 
-    _session: requests.Session = None
+    _session: requests.Session | None = None
 
-    def __init__(self, url: str | None = 'https://git.epam.com',
+    def __init__(self, url: str = GITLAB_API_URL_DEFAULT,
                  private_token: str | None = None):
         self._url = self.extract_netloc(url)
         self._private_token = private_token
@@ -268,8 +192,17 @@ class _GitHubBlameRange(TypedDict):
     age: int
 
 
+class _GitHubRelease(TypedDict):
+    zipball_url: str
+    tarball_url: str
+    tag_name: str
+    name: str
+    body: str
+    # ...
+
+
 class GitHubClient:
-    _session: requests.Session = None
+    _session: requests.Session | None = None
 
     @staticmethod
     def extract_netloc(path: str) -> str:
@@ -285,7 +218,7 @@ class GitHubClient:
             scheme = 'https'
         return scheme + '://' + parsed.netloc
 
-    def __init__(self, url: str | None = 'https://api.github.com',
+    def __init__(self, url: str = GITHUB_API_URL_DEFAULT,
                  private_token: str | None = None):
         self._url = self.extract_netloc(url)
         self._private_token = private_token
@@ -316,6 +249,27 @@ class GitHubClient:
             return
         return resp.json()
 
+    def download_tarball(self, url: str, to: Path) -> Path | None:
+        """
+        Downloads the file by the given url (tarball is expected) to the given
+        path. Returns the path unpacked tarball content root
+        :param url:
+        :param to:
+        :return:
+        """
+        resp = self.session().get(url=url, stream=True)
+        if not resp.ok:
+            _LOG.debug('Cannot download tarball by url. Not successful resp')
+            return
+        _LOG.debug(f'Going to stream project data to temp file')
+        with tempfile.NamedTemporaryFile(delete=False, dir=to) as file:
+            for chunk in resp.iter_content(1024):
+                file.write(chunk)
+        extracted = to / 'extracted'
+        shutil.unpack_archive(file.name, extracted, format='tar')
+        _LOG.debug('Repository was cloned')
+        return next(Path(extracted).iterdir())
+
     def clone_project(self, project: str, to: Path, ref: str | None = None,
                       ) -> Path | None:
         """
@@ -330,23 +284,7 @@ class GitHubClient:
         if ref:
             path += f'/{ref}'
         _LOG.debug(f'Going to clone {project} from GitHub')
-        resp = self.session().get(
-            url=urljoin(self._url, path),
-            stream=True
-        )  # makes redirect
-        if not resp.ok:
-            _LOG.debug('Cannot clone project. It was not found')
-            return
-        _LOG.debug(f'Going to stream project data to temp file')
-        with tempfile.NamedTemporaryFile(delete=False, dir=to) as file:
-            for chunk in resp.iter_content(1024):
-                file.write(chunk)
-        # in theory, we could've requested zip archive and unpack it on-fly by
-        #  chunks without dumping
-        extracted = to / 'extracted'
-        shutil.unpack_archive(file.name, extracted, format='tar')
-        _LOG.debug('Repository was cloned')
-        return next(Path(extracted).iterdir())
+        return self.download_tarball(url=urljoin(self._url, path), to=to)
 
     def get_file_blame(self, project: str, filepath: str, ref: str
                        ) -> list[_GitHubBlameRange]:
@@ -394,3 +332,12 @@ class GitHubClient:
     def get_file_meta(self, project: str, filepath: str,
                       ref: str | None = None):
         return
+
+    def get_latest_release(self, project: str) -> _GitHubRelease | None:
+        project = project.strip('/')
+        resp = self.session().get(
+            url=urljoin(self._url, f'/repos/{project}/releases/latest'),
+        )
+        if not resp.ok:
+            return
+        return resp.json()

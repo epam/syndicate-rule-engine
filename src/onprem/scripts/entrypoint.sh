@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 echo "Creating the necessary buckets in Minio"
 python main.py create_buckets
 
@@ -13,4 +15,4 @@ echo "Initializing"
 python main.py init
 
 echo "Starting server"
-python main.py run --gunicorn --swagger
+python main.py run --gunicorn

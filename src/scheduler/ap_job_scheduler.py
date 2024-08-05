@@ -156,7 +156,7 @@ class APJobScheduler(AbstractJobScheduler):
         May raise ValueError
         """
         return CronTrigger.from_crontab(
-            schedule.strip().replace('cron', '').strip('()')
+            schedule.strip().replace('cron', '').strip(' ()')
         )
 
     @staticmethod
@@ -164,14 +164,11 @@ class APJobScheduler(AbstractJobScheduler):
         """
         May raise ValueError
         """
-        value, unit = schedule.strip().replace('rate', '').strip('()').split()
+        # validated beforehand so must be valid
+        value, unit = schedule.strip().replace('rate', '').strip(' ()').split()
         value = int(value)
-        if unit not in RATE_EXPRESSION_UNITS:
-            raise ValueError(
-                f'Not available unit: \'{unit}\'. '
-                f'Available: {", ".join(RATE_EXPRESSION_UNITS)}')
         if not unit.endswith('s'):
-            unit = unit + 's'
+            unit += 's'
         return IntervalTrigger(**{unit: value})
 
     def derive_trigger(self, schedule: str) -> BaseTrigger:
@@ -195,7 +192,8 @@ class APJobScheduler(AbstractJobScheduler):
 
     def register_job(self, tenant: Tenant, schedule: str,
                      environment: dict,
-                     name: Optional[str] = None) -> ScheduledJob:
+                     name: Optional[str] = None,
+                     rulesets: list[str] | None = None) -> ScheduledJob:
         _id = self.safe_name(name) if name else \
             self.safe_name_from_tenant(tenant)
         environment[BatchJobEnv.SCHEDULED_JOB_NAME] = _id
@@ -220,8 +218,7 @@ class APJobScheduler(AbstractJobScheduler):
             ScheduledJob.context['schedule'].set(schedule),
             ScheduledJob.context['scan_regions'].set(
                 self._scan_regions_from_env(environment)),
-            ScheduledJob.context['scan_rulesets'].set(
-                self._scan_rulesets_from_env(environment)),
+            ScheduledJob.context['scan_rulesets'].set(rulesets),
             ScheduledJob.context['is_enabled'].set(True)
         ]
         _job.update(actions=actions)

@@ -29,9 +29,6 @@ class RuleMetaHandler(AbstractHandler):
             CustodianEndpoint.META_STANDARDS: {
                 HTTPMethod.POST: self.pull_standards,
             },
-            CustodianEndpoint.META_MAPPINGS: {
-                HTTPMethod.POST: self.pull_mappings,
-            },
             CustodianEndpoint.META_META: {
                 HTTPMethod.POST: self.pull_meta,
             }
@@ -45,19 +42,9 @@ class RuleMetaHandler(AbstractHandler):
                               content='Standards update was triggered')
 
     @validate_kwargs
-    def pull_mappings(self, event: BaseModel):
-        self._lambda_client.invoke_function_async(
-            RULE_META_UPDATER_LAMBDA_NAME, {'action': 'mappings'})
-        return build_response(code=HTTPStatus.ACCEPTED,
-                              content='Meta mappings update was triggered')
-
-    @validate_kwargs
     def pull_meta(self, event: BaseModel):
-        # Purposefully don't allow to update meta
-        # because currently we use only meta from mappings
         self._lambda_client.invoke_function_async(
             RULE_META_UPDATER_LAMBDA_NAME, {'action': 'mappings'}
-            # not a mistake
         )
         return build_response(code=HTTPStatus.ACCEPTED,
                               content='Meta update was triggered')

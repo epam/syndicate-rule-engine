@@ -32,6 +32,103 @@
           "type": "object"
         }
       },
+      "ChronicleActivationPutModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "all_tenants": {
+              "default": false,
+              "title": "All Tenants",
+              "type": "boolean"
+            },
+            "clouds": {
+              "items": {
+                "enum": [
+                  "AWS",
+                  "AZURE",
+                  "GOOGLE"
+                ],
+                "type": "string"
+              },
+              "title": "Clouds",
+              "type": "array",
+              "uniqueItems": true
+            },
+            "convert_to": {
+              "allOf": [
+                {
+                  "enum": [
+                    "ENTITIES",
+                    "EVENTS"
+                  ],
+                  "title": "ChronicleConverterType",
+                  "type": "string"
+                }
+              ],
+              "default": "EVENTS",
+              "description": "How to convert Rule Engine data before sending to Chronicle"
+            },
+            "exclude_tenants": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Exclude Tenants",
+              "type": "array",
+              "uniqueItems": true
+            },
+            "send_after_job": {
+              "default": false,
+              "description": "Whether to send the results to dojo after each scan",
+              "title": "Send After Job",
+              "type": "boolean"
+            },
+            "tenant_names": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Tenant Names",
+              "type": "array",
+              "uniqueItems": true
+            }
+          },
+          "title": "ChronicleActivationPutModel",
+          "type": "object"
+        }
+      },
+      "ChroniclePostModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "credentials_application_id": {
+              "title": "Credentials Application Id",
+              "type": "string"
+            },
+            "description": {
+              "title": "Description",
+              "type": "string"
+            },
+            "endpoint": {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "title": "Endpoint",
+              "type": "string"
+            },
+            "instance_customer_id": {
+              "title": "Instance Customer Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "endpoint",
+            "description",
+            "credentials_application_id",
+            "instance_customer_id"
+          ],
+          "title": "ChroniclePostModel",
+          "type": "object"
+        }
+      },
       "CredentialsActivationModel": {
         "content_type": "application/json",
         "schema": {
@@ -291,6 +388,10 @@
                       "title": "Customer Name",
                       "type": "string"
                     },
+                    "dictionary_url": {
+                      "title": "Dictionary Url",
+                      "type": "string"
+                    },
                     "format": {
                       "enum": [
                         "json",
@@ -298,6 +399,10 @@
                       ],
                       "title": "ReportFormat",
                       "type": "string"
+                    },
+                    "obfuscated": {
+                      "title": "Obfuscated",
+                      "type": "boolean"
                     },
                     "platform_id": {
                       "title": "Platform Id",
@@ -314,6 +419,7 @@
                   },
                   "required": [
                     "format",
+                    "obfuscated",
                     "customer_name"
                   ],
                   "title": "BaseReportEntity",
@@ -581,6 +687,10 @@
                       "title": "Customer Name",
                       "type": "string"
                     },
+                    "dictionary_url": {
+                      "title": "Dictionary Url",
+                      "type": "string"
+                    },
                     "format": {
                       "enum": [
                         "json",
@@ -601,6 +711,10 @@
                       "title": "JobType",
                       "type": "string"
                     },
+                    "obfuscated": {
+                      "title": "Obfuscated",
+                      "type": "boolean"
+                    },
                     "tenant_name": {
                       "title": "Tenant Name",
                       "type": "string"
@@ -612,6 +726,7 @@
                   },
                   "required": [
                     "format",
+                    "obfuscated",
                     "tenant_name",
                     "customer_name"
                   ],
@@ -694,8 +809,9 @@
               "type": "string"
             },
             "version": {
+              "description": "Specific version to remove. * can be specified to remove all the versions of a specific ruleset",
               "title": "Version",
-              "type": "number"
+              "type": "string"
             }
           },
           "required": [
@@ -714,25 +830,28 @@
               "enum": [
                 "AWS",
                 "AZURE",
+                "GOOGLE",
                 "GCP",
                 "KUBERNETES"
               ],
-              "title": "RuleDomain",
+              "title": "Cloud",
               "type": "string"
             },
-            "rules": {
-              "items": {},
-              "title": "Rules",
-              "type": "array"
+            "rule_source_id": {
+              "default": null,
+              "description": "Id of rule source object to get rules from. If the type of that source is GITHUB_RELEASE, the version from release tag will be used",
+              "title": "Rule Source Id",
+              "type": "string"
             },
             "version": {
+              "default": null,
+              "description": "Ruleset version. If not specified, will be generated automatically based on github release of rules or based on the previous ruleset version",
               "title": "Version",
-              "type": "number"
+              "type": "string"
             }
           },
           "required": [
-            "cloud",
-            "version"
+            "cloud"
           ],
           "title": "EventDrivenRulesetPostModel",
           "type": "object"
@@ -982,33 +1101,45 @@
               "default": null,
               "title": "Credentials"
             },
-            "rules_to_scan": {
+            "license_key": {
+              "default": null,
+              "description": "License to exhaust for this job. Will be resolved automatically unless an ambiguous occurs",
+              "title": "License Key",
+              "type": "string"
+            },
+            "regions": {
               "items": {
                 "type": "string"
               },
-              "title": "Rules To Scan",
+              "title": "Regions",
               "type": "array",
               "uniqueItems": true
             },
-            "target_regions": {
+            "rules": {
               "items": {
                 "type": "string"
               },
-              "title": "Target Regions",
+              "title": "Rules",
               "type": "array",
               "uniqueItems": true
             },
-            "target_rulesets": {
+            "rulesets": {
               "items": {
                 "type": "string"
               },
-              "title": "Target Rulesets",
+              "title": "Rulesets",
               "type": "array",
               "uniqueItems": true
             },
             "tenant_name": {
               "title": "Tenant Name",
               "type": "string"
+            },
+            "timeout_minutes": {
+              "default": null,
+              "description": "Job timeout in minutes. This timeout is soft meaning that when the desired number of minutes have passed job termination will be triggered",
+              "title": "Timeout Minutes",
+              "type": "number"
             }
           },
           "required": [
@@ -1034,6 +1165,10 @@
                       "title": "Customer Name",
                       "type": "string"
                     },
+                    "dictionary_url": {
+                      "title": "Dictionary Url",
+                      "type": "string"
+                    },
                     "format": {
                       "enum": [
                         "json",
@@ -1054,6 +1189,10 @@
                       "title": "JobType",
                       "type": "string"
                     },
+                    "obfuscated": {
+                      "title": "Obfuscated",
+                      "type": "boolean"
+                    },
                     "tenant_name": {
                       "title": "Tenant Name",
                       "type": "string"
@@ -1065,6 +1204,7 @@
                   },
                   "required": [
                     "format",
+                    "obfuscated",
                     "tenant_name",
                     "customer_name"
                   ],
@@ -1183,17 +1323,29 @@
         "schema": {
           "description": "K8s platform job",
           "properties": {
+            "license_key": {
+              "default": null,
+              "description": "License to exhaust for this job. Will be resolved automatically unless an ambiguous occurs",
+              "title": "License Key",
+              "type": "string"
+            },
             "platform_id": {
               "title": "Platform Id",
               "type": "string"
             },
-            "target_rulesets": {
+            "rulesets": {
               "items": {
                 "type": "string"
               },
-              "title": "Target Rulesets",
+              "title": "Rulesets",
               "type": "array",
               "uniqueItems": true
+            },
+            "timeout_minutes": {
+              "default": null,
+              "description": "Job timeout in minutes. This timeout is soft meaning that when the desired number of minutes have passed job termination will be triggered",
+              "title": "Timeout Minutes",
+              "type": "number"
             },
             "token": {
               "default": null,
@@ -1328,11 +1480,6 @@
         "content_type": "application/json",
         "schema": {
           "properties": {
-            "api_version": {
-              "default": null,
-              "title": "Api Version",
-              "type": "string"
-            },
             "host": {
               "title": "Host",
               "type": "string"
@@ -1370,11 +1517,6 @@
         "content_type": "application/json",
         "schema": {
           "properties": {
-            "description": {
-              "default": "Custodian license",
-              "title": "Description",
-              "type": "string"
-            },
             "license_key": {
               "title": "License Key",
               "type": "string"
@@ -1520,6 +1662,60 @@
             "items"
           ],
           "title": "MultipleBatchResultsModel",
+          "type": "object"
+        }
+      },
+      "MultipleChronicleModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "items": {
+              "items": {
+                "properties": {
+                  "credentials_application_id": {
+                    "title": "Credentials Application Id",
+                    "type": "string"
+                  },
+                  "customer": {
+                    "title": "Customer",
+                    "type": "string"
+                  },
+                  "description": {
+                    "title": "Description",
+                    "type": "string"
+                  },
+                  "endpoint": {
+                    "title": "Endpoint",
+                    "type": "string"
+                  },
+                  "id": {
+                    "title": "Id",
+                    "type": "string"
+                  },
+                  "instance_customer_id": {
+                    "title": "Instance Customer Id",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "description",
+                  "endpoint",
+                  "credentials_application_id",
+                  "instance_customer_id",
+                  "customer"
+                ],
+                "title": "Chronicle",
+                "type": "object"
+              },
+              "title": "Items",
+              "type": "array"
+            }
+          },
+          "required": [
+            "items"
+          ],
+          "title": "MultipleChronicleModel",
           "type": "object"
         }
       },
@@ -1853,6 +2049,10 @@
                     "title": "Customer Name",
                     "type": "string"
                   },
+                  "dictionary_url": {
+                    "title": "Dictionary Url",
+                    "type": "string"
+                  },
                   "format": {
                     "enum": [
                       "json",
@@ -1873,6 +2073,10 @@
                     "title": "JobType",
                     "type": "string"
                   },
+                  "obfuscated": {
+                    "title": "Obfuscated",
+                    "type": "boolean"
+                  },
                   "tenant_name": {
                     "title": "Tenant Name",
                     "type": "string"
@@ -1884,6 +2088,7 @@
                 },
                 "required": [
                   "format",
+                  "obfuscated",
                   "tenant_name",
                   "customer_name"
                 ],
@@ -2492,11 +2697,15 @@
                     "properties": {
                       "current_status": {
                         "enum": [
-                          "SYNCED",
                           "SYNCING",
+                          "SYNCED",
                           "SYNCING_FAILED"
                         ],
-                        "title": "Current Status",
+                        "title": "RuleSourceSyncingStatus",
+                        "type": "string"
+                      },
+                      "release_tag": {
+                        "title": "Release Tag",
                         "type": "string"
                       },
                       "sync_date": {
@@ -2515,7 +2724,8 @@
                   "type": {
                     "enum": [
                       "GITHUB",
-                      "GITLAB"
+                      "GITLAB",
+                      "GITHUB_RELEASE"
                     ],
                     "title": "RuleSourceType",
                     "type": "string"
@@ -2586,6 +2796,10 @@
                   "resource": {
                     "title": "Resource",
                     "type": "string"
+                  },
+                  "rule_source_id": {
+                    "title": "Rule Source Id",
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -2595,7 +2809,8 @@
                   "branch",
                   "customer",
                   "project",
-                  "resource"
+                  "resource",
+                  "rule_source_id"
                 ],
                 "title": "Rule",
                 "type": "object"
@@ -3198,6 +3413,8 @@
                 "enum": [
                   "report:push_report_to_dojo",
                   "report:push_to_dojo_batch",
+                  "report:push_report_to_chronicle",
+                  "report:push_report_to_chronicle_tenant",
                   "report:post_operational",
                   "report:post_project",
                   "report:post_department",
@@ -3220,7 +3437,6 @@
                   "report:get_job_resources",
                   "report:get_job_resources_batch",
                   "report:get_tenant_latest_raw_report",
-                  "job:post_for_tenant_standard",
                   "job:query",
                   "job:get",
                   "job:post_for_tenant",
@@ -3254,14 +3470,15 @@
                   "ruleset:create",
                   "ruleset:update",
                   "ruleset:delete",
-                  "ruleset:get_content",
                   "ruleset:describe_event_driven",
                   "ruleset:create_event_driven",
                   "ruleset:delete_event_driven",
+                  "ruleset:release",
                   "rule_source:describe",
                   "rule_source:create",
                   "rule_source:update",
                   "rule_source:delete",
+                  "rule_source:sync",
                   "event:post",
                   "license:add_license",
                   "license:query",
@@ -3306,6 +3523,12 @@
                   "dojo_integration:activate",
                   "dojo_integration:get_activation",
                   "dojo_integration:delete_activation",
+                  "chronicle_integration:create",
+                  "chronicle_integration:describe",
+                  "chronicle_integration:delete",
+                  "chronicle_integration:activate",
+                  "chronicle_integration:get_activation",
+                  "chronicle_integration:delete_activation",
                   "credentials:describe",
                   "credentials:bind",
                   "credentials:unbind",
@@ -3329,6 +3552,8 @@
                 "enum": [
                   "report:push_report_to_dojo",
                   "report:push_to_dojo_batch",
+                  "report:push_report_to_chronicle",
+                  "report:push_report_to_chronicle_tenant",
                   "report:post_operational",
                   "report:post_project",
                   "report:post_department",
@@ -3351,7 +3576,6 @@
                   "report:get_job_resources",
                   "report:get_job_resources_batch",
                   "report:get_tenant_latest_raw_report",
-                  "job:post_for_tenant_standard",
                   "job:query",
                   "job:get",
                   "job:post_for_tenant",
@@ -3385,14 +3609,15 @@
                   "ruleset:create",
                   "ruleset:update",
                   "ruleset:delete",
-                  "ruleset:get_content",
                   "ruleset:describe_event_driven",
                   "ruleset:create_event_driven",
                   "ruleset:delete_event_driven",
+                  "ruleset:release",
                   "rule_source:describe",
                   "rule_source:create",
                   "rule_source:update",
                   "rule_source:delete",
+                  "rule_source:sync",
                   "event:post",
                   "license:add_license",
                   "license:query",
@@ -3437,6 +3662,12 @@
                   "dojo_integration:activate",
                   "dojo_integration:get_activation",
                   "dojo_integration:delete_activation",
+                  "chronicle_integration:create",
+                  "chronicle_integration:describe",
+                  "chronicle_integration:delete",
+                  "chronicle_integration:activate",
+                  "chronicle_integration:get_activation",
+                  "chronicle_integration:delete_activation",
                   "credentials:describe",
                   "credentials:bind",
                   "credentials:unbind",
@@ -3501,6 +3732,8 @@
                 "enum": [
                   "report:push_report_to_dojo",
                   "report:push_to_dojo_batch",
+                  "report:push_report_to_chronicle",
+                  "report:push_report_to_chronicle_tenant",
                   "report:post_operational",
                   "report:post_project",
                   "report:post_department",
@@ -3523,7 +3756,6 @@
                   "report:get_job_resources",
                   "report:get_job_resources_batch",
                   "report:get_tenant_latest_raw_report",
-                  "job:post_for_tenant_standard",
                   "job:query",
                   "job:get",
                   "job:post_for_tenant",
@@ -3557,14 +3789,15 @@
                   "ruleset:create",
                   "ruleset:update",
                   "ruleset:delete",
-                  "ruleset:get_content",
                   "ruleset:describe_event_driven",
                   "ruleset:create_event_driven",
                   "ruleset:delete_event_driven",
+                  "ruleset:release",
                   "rule_source:describe",
                   "rule_source:create",
                   "rule_source:update",
                   "rule_source:delete",
+                  "rule_source:sync",
                   "event:post",
                   "license:add_license",
                   "license:query",
@@ -3609,6 +3842,12 @@
                   "dojo_integration:activate",
                   "dojo_integration:get_activation",
                   "dojo_integration:delete_activation",
+                  "chronicle_integration:create",
+                  "chronicle_integration:describe",
+                  "chronicle_integration:delete",
+                  "chronicle_integration:activate",
+                  "chronicle_integration:get_activation",
+                  "chronicle_integration:delete_activation",
                   "credentials:describe",
                   "credentials:bind",
                   "credentials:unbind",
@@ -3816,7 +4055,7 @@
       "ReportPushByJobIdModel": {
         "content_type": "application/json",
         "schema": {
-          "description": "/reports/push/dojo/{job_id}/\n/reports/push/security-hub/{job_id}/",
+          "description": "/reports/push/dojo/{job_id}/\n/reports/push/security-hub/{job_id}/\n/reports/push/chronicle/{job_id}/",
           "properties": {
             "type": {
               "allOf": [
@@ -4022,14 +4261,12 @@
         "content_type": "application/json",
         "schema": {
           "properties": {
-            "id": {
-              "title": "Id",
-              "type": "string"
+            "delete_rules": {
+              "default": false,
+              "title": "Delete Rules",
+              "type": "boolean"
             }
           },
-          "required": [
-            "id"
-          ],
           "title": "RuleSourceDeleteModel",
           "type": "object"
         }
@@ -4047,20 +4284,8 @@
               "default": null,
               "title": "Git Access Secret",
               "type": "string"
-            },
-            "git_access_type": {
-              "default": "TOKEN",
-              "title": "Git access type",
-              "type": "string"
-            },
-            "id": {
-              "title": "Id",
-              "type": "string"
             }
           },
-          "required": [
-            "id"
-          ],
           "title": "RuleSourcePatchModel",
           "type": "object"
         }
@@ -4078,17 +4303,13 @@
               "title": "Git Access Secret",
               "type": "string"
             },
-            "git_access_type": {
-              "default": "TOKEN",
-              "title": "Git access type",
-              "type": "string"
-            },
             "git_project_id": {
               "title": "Git Project Id",
               "type": "string"
             },
             "git_ref": {
               "default": "main",
+              "description": "Git branch to pull rules from. Not used for GITHUB_RELEASE",
               "title": "Git Ref",
               "type": "string"
             },
@@ -4099,9 +4320,27 @@
             },
             "git_url": {
               "default": null,
-              "pattern": "^https?:\\/\\/[^\\/]+$",
+              "description": "If not specified will be inferred from git_project_id. \"https://api.github.com\" will be used for GitHub, \"https://git.epam.com\" will be used for GitLab",
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
               "title": "Git Url",
               "type": "string"
+            },
+            "type": {
+              "allOf": [
+                {
+                  "enum": [
+                    "GITHUB",
+                    "GITLAB",
+                    "GITHUB_RELEASE"
+                  ],
+                  "title": "RuleSourceType",
+                  "type": "string"
+                }
+              ],
+              "default": null,
+              "description": "If not specified will be inferred from git_project_id."
             }
           },
           "required": [
@@ -4142,6 +4381,10 @@
                       "title": "Customer Name",
                       "type": "string"
                     },
+                    "dictionary_url": {
+                      "title": "Dictionary Url",
+                      "type": "string"
+                    },
                     "format": {
                       "enum": [
                         "json",
@@ -4162,6 +4405,10 @@
                       "title": "JobType",
                       "type": "string"
                     },
+                    "obfuscated": {
+                      "title": "Obfuscated",
+                      "type": "boolean"
+                    },
                     "tenant_name": {
                       "title": "Tenant Name",
                       "type": "string"
@@ -4173,6 +4420,7 @@
                   },
                   "required": [
                     "format",
+                    "obfuscated",
                     "tenant_name",
                     "customer_name"
                   ],
@@ -4256,6 +4504,7 @@
               "type": "string"
             },
             "version": {
+              "description": "Specific version to remove. * can be specified to remove all the versions of a specific ruleset",
               "title": "Version",
               "type": "string"
             }
@@ -4272,9 +4521,9 @@
         "content_type": "application/json",
         "schema": {
           "properties": {
-            "active": {
-              "default": null,
-              "title": "Active",
+            "force": {
+              "default": false,
+              "title": "Force",
               "type": "boolean"
             },
             "name": {
@@ -4294,13 +4543,14 @@
               "uniqueItems": true
             },
             "version": {
+              "default": null,
+              "description": "A version of the ruleset you want to update. If not specified, the latest previous ruleset will be used as base to update",
               "title": "Version",
               "type": "string"
             }
           },
           "required": [
-            "name",
-            "version"
+            "name"
           ],
           "title": "RulesetPatchModel",
           "type": "object"
@@ -4310,20 +4560,22 @@
         "content_type": "application/json",
         "schema": {
           "properties": {
-            "active": {
-              "default": true,
-              "title": "Active",
-              "type": "boolean"
-            },
             "cloud": {
               "enum": [
                 "AWS",
                 "AZURE",
+                "GOOGLE",
                 "GCP",
                 "KUBERNETES"
               ],
-              "title": "RuleDomain",
+              "title": "Cloud",
               "type": "string"
+            },
+            "excluded_rules": {
+              "items": {},
+              "title": "Excluded Rules",
+              "type": "array",
+              "uniqueItems": true
             },
             "git_project_id": {
               "default": null,
@@ -4345,6 +4597,12 @@
             },
             "name": {
               "title": "Name",
+              "type": "string"
+            },
+            "rule_source_id": {
+              "default": null,
+              "description": "Id of rule source object to get rules from. If the type of that source is GITHUB_RELEASE, the version from release tag will be used",
+              "title": "Rule Source Id",
               "type": "string"
             },
             "rules": {
@@ -4372,16 +4630,49 @@
               "uniqueItems": true
             },
             "version": {
+              "default": null,
+              "description": "Ruleset version. If not specified, will be generated automatically based on github release of rules or based on the previous ruleset version",
               "title": "Version",
               "type": "string"
             }
           },
           "required": [
             "name",
-            "version",
             "cloud"
           ],
           "title": "RulesetPostModel",
+          "type": "object"
+        }
+      },
+      "RulesetReleasePostModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "description": {
+              "title": "Description",
+              "type": "string"
+            },
+            "display_name": {
+              "title": "Display Name",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "version": {
+              "default": null,
+              "description": "Specific version to release to LM. * can be specified to release all the versions of a specific ruleset. If not specified, the latest version will be released",
+              "title": "Version",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "description",
+            "display_name"
+          ],
+          "title": "RulesetReleasePostModel",
           "type": "object"
         }
       },
@@ -4408,30 +4699,36 @@
         "content_type": "application/json",
         "schema": {
           "properties": {
+            "license_key": {
+              "default": null,
+              "description": "License to exhaust for this job. Will be resolved automatically unless an ambiguous occurs",
+              "title": "License Key",
+              "type": "string"
+            },
             "name": {
               "default": null,
               "title": "Name",
               "type": "string"
             },
+            "regions": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Regions",
+              "type": "array",
+              "uniqueItems": true
+            },
+            "rulesets": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Rulesets",
+              "type": "array",
+              "uniqueItems": true
+            },
             "schedule": {
               "title": "Schedule",
               "type": "string"
-            },
-            "target_regions": {
-              "items": {
-                "type": "string"
-              },
-              "title": "Target Regions",
-              "type": "array",
-              "uniqueItems": true
-            },
-            "target_rulesets": {
-              "items": {
-                "type": "string"
-              },
-              "title": "Target Rulesets",
-              "type": "array",
-              "uniqueItems": true
             },
             "tenant_name": {
               "default": null,
@@ -4696,6 +4993,156 @@
             "data"
           ],
           "title": "SingleBatchResultModel",
+          "type": "object"
+        }
+      },
+      "SingleChronicleActivationModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "data": {
+              "properties": {
+                "activated_for": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Activated For",
+                  "type": "array"
+                },
+                "activated_for_all": {
+                  "title": "Activated For All",
+                  "type": "boolean"
+                },
+                "excluding": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Excluding",
+                  "type": "array"
+                },
+                "send_after_job": {
+                  "title": "Send After Job",
+                  "type": "boolean"
+                },
+                "within_clouds": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Within Clouds",
+                  "type": "array"
+                }
+              },
+              "required": [
+                "activated_for_all",
+                "excluding",
+                "send_after_job"
+              ],
+              "title": "ChronicleActivation",
+              "type": "object"
+            }
+          },
+          "required": [
+            "data"
+          ],
+          "title": "SingleChronicleActivationModel",
+          "type": "object"
+        }
+      },
+      "SingleChronicleModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "data": {
+              "properties": {
+                "credentials_application_id": {
+                  "title": "Credentials Application Id",
+                  "type": "string"
+                },
+                "customer": {
+                  "title": "Customer",
+                  "type": "string"
+                },
+                "description": {
+                  "title": "Description",
+                  "type": "string"
+                },
+                "endpoint": {
+                  "title": "Endpoint",
+                  "type": "string"
+                },
+                "id": {
+                  "title": "Id",
+                  "type": "string"
+                },
+                "instance_customer_id": {
+                  "title": "Instance Customer Id",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "description",
+                "endpoint",
+                "credentials_application_id",
+                "instance_customer_id",
+                "customer"
+              ],
+              "title": "Chronicle",
+              "type": "object"
+            }
+          },
+          "required": [
+            "data"
+          ],
+          "title": "SingleChronicleModel",
+          "type": "object"
+        }
+      },
+      "SingleChroniclePushResult": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "data": {
+              "properties": {
+                "chronicle_integration_id": {
+                  "title": "Chronicle Integration Id",
+                  "type": "string"
+                },
+                "error": {
+                  "title": "Error",
+                  "type": "string"
+                },
+                "job_id": {
+                  "title": "Job Id",
+                  "type": "string"
+                },
+                "platform_id": {
+                  "title": "Platform Id",
+                  "type": "string"
+                },
+                "success": {
+                  "title": "Success",
+                  "type": "boolean"
+                },
+                "tenant_name": {
+                  "title": "Tenant Name",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "job_id",
+                "tenant_name",
+                "chronicle_integration_id",
+                "success"
+              ],
+              "title": "ChroniclePushResult",
+              "type": "object"
+            }
+          },
+          "required": [
+            "data"
+          ],
+          "title": "SingleChroniclePushResult",
           "type": "object"
         }
       },
@@ -5045,6 +5492,10 @@
                   "title": "Customer Name",
                   "type": "string"
                 },
+                "dictionary_url": {
+                  "title": "Dictionary Url",
+                  "type": "string"
+                },
                 "format": {
                   "enum": [
                     "json",
@@ -5052,6 +5503,10 @@
                   ],
                   "title": "ReportFormat",
                   "type": "string"
+                },
+                "obfuscated": {
+                  "title": "Obfuscated",
+                  "type": "boolean"
                 },
                 "platform_id": {
                   "title": "Platform Id",
@@ -5068,6 +5523,7 @@
               },
               "required": [
                 "format",
+                "obfuscated",
                 "customer_name"
               ],
               "title": "BaseReportEntity",
@@ -5234,6 +5690,10 @@
                   "title": "Customer Name",
                   "type": "string"
                 },
+                "dictionary_url": {
+                  "title": "Dictionary Url",
+                  "type": "string"
+                },
                 "format": {
                   "enum": [
                     "json",
@@ -5254,6 +5714,10 @@
                   "title": "JobType",
                   "type": "string"
                 },
+                "obfuscated": {
+                  "title": "Obfuscated",
+                  "type": "boolean"
+                },
                 "tenant_name": {
                   "title": "Tenant Name",
                   "type": "string"
@@ -5265,6 +5729,7 @@
               },
               "required": [
                 "format",
+                "obfuscated",
                 "tenant_name",
                 "customer_name"
               ],
@@ -5836,11 +6301,15 @@
                   "properties": {
                     "current_status": {
                       "enum": [
-                        "SYNCED",
                         "SYNCING",
+                        "SYNCED",
                         "SYNCING_FAILED"
                       ],
-                      "title": "Current Status",
+                      "title": "RuleSourceSyncingStatus",
+                      "type": "string"
+                    },
+                    "release_tag": {
+                      "title": "Release Tag",
                       "type": "string"
                     },
                     "sync_date": {
@@ -5859,7 +6328,8 @@
                 "type": {
                   "enum": [
                     "GITHUB",
-                    "GITLAB"
+                    "GITLAB",
+                    "GITHUB_RELEASE"
                   ],
                   "title": "RuleSourceType",
                   "type": "string"
@@ -6295,215 +6765,6 @@
             "data"
           ],
           "title": "SingleUserModel",
-          "type": "object"
-        }
-      },
-      "StandardJobPostModel": {
-        "content_type": "application/json",
-        "schema": {
-          "description": "standard jobs means not licensed job -> without licensed rule-sets",
-          "properties": {
-            "credentials": {
-              "anyOf": [
-                {
-                  "properties": {
-                    "AWS_ACCESS_KEY_ID": {
-                      "title": "Aws Access Key Id",
-                      "type": "string"
-                    },
-                    "AWS_DEFAULT_REGION": {
-                      "default": "us-east-1",
-                      "title": "Aws Default Region",
-                      "type": "string"
-                    },
-                    "AWS_SECRET_ACCESS_KEY": {
-                      "title": "Aws Secret Access Key",
-                      "type": "string"
-                    },
-                    "AWS_SESSION_TOKEN": {
-                      "default": null,
-                      "title": "Aws Session Token",
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "AWS_ACCESS_KEY_ID",
-                    "AWS_SECRET_ACCESS_KEY"
-                  ],
-                  "title": "AWSCredentials",
-                  "type": "object"
-                },
-                {
-                  "properties": {
-                    "AZURE_CLIENT_ID": {
-                      "title": "Azure Client Id",
-                      "type": "string"
-                    },
-                    "AZURE_CLIENT_SECRET": {
-                      "title": "Azure Client Secret",
-                      "type": "string"
-                    },
-                    "AZURE_SUBSCRIPTION_ID": {
-                      "default": null,
-                      "title": "Azure Subscription Id",
-                      "type": "string"
-                    },
-                    "AZURE_TENANT_ID": {
-                      "title": "Azure Tenant Id",
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "AZURE_TENANT_ID",
-                    "AZURE_CLIENT_ID",
-                    "AZURE_CLIENT_SECRET"
-                  ],
-                  "title": "AZURECredentials",
-                  "type": "object"
-                },
-                {
-                  "properties": {
-                    "auth_provider_x509_cert_url": {
-                      "title": "Auth Provider X509 Cert Url",
-                      "type": "string"
-                    },
-                    "auth_uri": {
-                      "title": "Auth Uri",
-                      "type": "string"
-                    },
-                    "client_email": {
-                      "title": "Client Email",
-                      "type": "string"
-                    },
-                    "client_id": {
-                      "title": "Client Id",
-                      "type": "string"
-                    },
-                    "client_x509_cert_url": {
-                      "title": "Client X509 Cert Url",
-                      "type": "string"
-                    },
-                    "private_key": {
-                      "title": "Private Key",
-                      "type": "string"
-                    },
-                    "private_key_id": {
-                      "title": "Private Key Id",
-                      "type": "string"
-                    },
-                    "project_id": {
-                      "title": "Project Id",
-                      "type": "string"
-                    },
-                    "token_uri": {
-                      "title": "Token Uri",
-                      "type": "string"
-                    },
-                    "type": {
-                      "title": "Type",
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "type",
-                    "project_id",
-                    "private_key_id",
-                    "private_key",
-                    "client_email",
-                    "client_id",
-                    "auth_uri",
-                    "token_uri",
-                    "auth_provider_x509_cert_url",
-                    "client_x509_cert_url"
-                  ],
-                  "title": "GOOGLECredentials1",
-                  "type": "object"
-                },
-                {
-                  "properties": {
-                    "access_token": {
-                      "title": "Access Token",
-                      "type": "string"
-                    },
-                    "client_id": {
-                      "title": "Client Id",
-                      "type": "string"
-                    },
-                    "client_secret": {
-                      "title": "Client Secret",
-                      "type": "string"
-                    },
-                    "project_id": {
-                      "title": "Project Id",
-                      "type": "string"
-                    },
-                    "refresh_token": {
-                      "title": "Refresh Token",
-                      "type": "string"
-                    },
-                    "type": {
-                      "title": "Type",
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "type",
-                    "access_token",
-                    "refresh_token",
-                    "client_id",
-                    "client_secret",
-                    "project_id"
-                  ],
-                  "title": "GOOGLECredentials2",
-                  "type": "object"
-                },
-                {
-                  "properties": {
-                    "access_token": {
-                      "title": "Access Token",
-                      "type": "string"
-                    },
-                    "project_id": {
-                      "title": "Project Id",
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "access_token",
-                    "project_id"
-                  ],
-                  "title": "GOOGLECredentials3",
-                  "type": "object"
-                }
-              ],
-              "default": null,
-              "title": "Credentials"
-            },
-            "target_regions": {
-              "items": {
-                "type": "string"
-              },
-              "title": "Target Regions",
-              "type": "array",
-              "uniqueItems": true
-            },
-            "target_rulesets": {
-              "items": {
-                "type": "string"
-              },
-              "title": "Target Rulesets",
-              "type": "array",
-              "uniqueItems": true
-            },
-            "tenant_name": {
-              "title": "Tenant Name",
-              "type": "string"
-            }
-          },
-          "required": [
-            "tenant_name"
-          ],
-          "title": "StandardJobPostModel",
           "type": "object"
         }
       },

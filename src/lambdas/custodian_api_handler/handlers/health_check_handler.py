@@ -25,6 +25,7 @@ from services.health_check_service import (
     SystemCustomerSettingCheck,
     VaultAuthTokenIsSetCheck,
     VaultConnectionCheck,
+    LiveCheck
 )
 from validators.swagger_request_models import BaseModel, HealthCheckQueryModel
 from validators.utils import validate_kwargs
@@ -68,6 +69,7 @@ class HealthCheckHandler(AbstractHandler):
             RulesMetaAccessDataCheck,
             RulesMetaCheck,
             EventDrivenRulesetsExist,
+            RabbitMQConnectionCheck,
         ]
 
     @cached_property
@@ -78,7 +80,7 @@ class HealthCheckHandler(AbstractHandler):
             LicenseManagerClientKeyCheck,
             AllS3BucketsExist,
             ReportDateMarkerSettingCheck,
-            RabbitMQConnectionCheck,
+            LiveCheck
         ]
 
     @cached_property
@@ -148,8 +150,12 @@ class HealthCheckHandler(AbstractHandler):
         if status:
             it = filter(lambda x: x.status == status, it)
         it = sorted(it, key=lambda result: result.id)
+        code = HTTPStatus.OK
+        if any(not item.is_ok() for item in it):
+            code = HTTPStatus.SERVICE_UNAVAILABLE
         return build_response(
-            content=(result.model_dump(exclude_none=True) for result in it)
+            content=(result.model_dump(exclude_none=True) for result in it),
+            code=code
         )
 
     @validate_kwargs
@@ -162,4 +168,8 @@ class HealthCheckHandler(AbstractHandler):
             instance,
             customer=event.customer
         )
-        return build_response(content=result.model_dump(exclude_none=True))
+        code = HTTPStatus.OK
+        if not result.is_ok():
+            code = HTTPStatus.SERVICE_UNAVAILABLE  # or maybe use another one
+        return build_response(content=result.model_dump(exclude_none=True),
+                              code=code)

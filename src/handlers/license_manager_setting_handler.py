@@ -22,6 +22,7 @@ from helpers.log_helper import get_logger
 from services import SP
 from services.clients.ssm import AbstractSSMClient
 from services.license_manager_service import LicenseManagerService
+from services.clients.lm_client import LmTokenProducer
 from services.setting_service import Setting, SettingsService
 from validators.swagger_request_models import (
     BaseModel,
@@ -76,9 +77,7 @@ class LicenseManagerClientHandler(AbstractHandler):
 
         kid = configuration.get(KID_ATTR)
         alg = configuration.get(ALG_ATTR)
-        name = self.license_manager_service.derive_client_private_key_id(
-            kid=kid
-        )
+        name = LmTokenProducer.derive_client_private_key_id(kid=kid)
         data = self._ssm_client.get_secret_value(name)
         pem = data['value']
         key = load_pem_private_key(pem.encode(), None)
@@ -116,9 +115,7 @@ class LicenseManagerClientHandler(AbstractHandler):
             raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
                 'Invalid private key'
             ).exc()
-        name = self.license_manager_service.derive_client_private_key_id(
-            kid=kid
-        )
+        name = LmTokenProducer.derive_client_private_key_id(kid=kid)
         self._ssm_client.create_secret(
             secret_name=name,
             secret_value={
@@ -191,9 +188,7 @@ class LicenseManagerClientHandler(AbstractHandler):
                 head + f' does not contain {requested_kid} \'kid\' data.')
             return build_response(code=code, content=content)
 
-        name = self.license_manager_service.derive_client_private_key_id(
-            kid=kid
-        )
+        name = LmTokenProducer.derive_client_private_key_id(kid=kid)
         self._ssm_client.delete_parameter(name)
         self.settings_service.delete(setting=setting)
         return build_response(code=HTTPStatus.NO_CONTENT)
@@ -243,7 +238,6 @@ class LicenseManagerConfigHandler(AbstractHandler):
             port=event.port,
             protocol=event.protocol,
             stage=event.stage,
-            api_version=event.api_version
         )
 
         _LOG.info(f'Persisting License Manager config-data: {setting.value}.')

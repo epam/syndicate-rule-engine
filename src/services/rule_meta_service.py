@@ -16,6 +16,7 @@ from helpers.constants import COMPOUND_KEYS_SEPARATOR, ID_ATTR, NAME_ATTR, \
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_iso
 from models.rule import Rule
+from models.rule_source import RuleSource
 from services.base_data_service import BaseDataService
 
 _LOG = get_logger(__name__)
@@ -191,14 +192,15 @@ class RuleNamesResolver:  # TODO test
     __slots__ = ('_available_ids', '_allow_multiple', '_allow_ambiguous')
     Payload = tuple[str, bool]
 
-    def __init__(self, resolve_from: list[str], allow_multiple: bool = False,
+    def __init__(self, resolve_from: Iterable[str],
+                 allow_multiple: bool = False,
                  allow_ambiguous: bool = False):
         """
         :param allow_multiple: whether to allow to resolve multiple rules
         from one provided name (in case the name is ambiguous)
         :param allow_ambiguous: whether to allow to yield an ambiguous rule
         in case allow_multiple is False. See description below
-        :param resolve_from: list of rules to resolve from
+        :param resolve_from: Iterable of rules to resolve from
         """
         if allow_ambiguous and allow_multiple:
             raise AssertionError('If allow_multiple is True, '
@@ -274,7 +276,7 @@ class RuleNamesResolver:  # TODO test
 
 
 class RuleService(BaseDataService[Rule]):
-    FilterValue = str | set[str]
+    FilterValue = str | set[str] | tuple[str]
 
     @staticmethod
     def gen_rule_id(customer: str, cloud: Optional[str] = None,
@@ -329,6 +331,7 @@ class RuleService(BaseDataService[Rule]):
         return loc
 
     def create(self, customer: str, name: str, resource: str, description: str,
+               rule_source_id: str,
                cloud: Optional[str] = None,
                filters: Optional[list[dict]] = None,
                comment: Optional[str] = None,
@@ -341,7 +344,7 @@ class RuleService(BaseDataService[Rule]):
         if isinstance(updated_date, datetime):
             updated_date = utc_iso(updated_date)
         version = version or self.model_class.latest_version_tag()
-        params = dict(
+        return super().create(
             id=self.gen_rule_id(customer, cloud, name, version),
             customer=customer,
             resource=resource,
@@ -351,8 +354,8 @@ class RuleService(BaseDataService[Rule]):
             location=self.gen_location(git_project, ref, path),
             commit_hash=commit_hash,
             updated_date=updated_date,
+            rule_source_id=rule_source_id
         )
-        return super().create(**params)
 
     def get_by_id_index(
             self, customer: str, cloud: Optional[str] = None,
@@ -394,6 +397,33 @@ class RuleService(BaseDataService[Rule]):
             last_evaluated_key=last_evaluated_key,
             filter_condition=filter_condition,
             attributes_to_get=attributes_to_get
+        )
+
+    def get_by_rule_source_id(self, rule_source_id: str, customer: str,
+                              cloud: str | None = None, ascending: bool = True,
+                              limit: int | None = None,
+                              last_evaluated_key: dict | None = None,
+                              ) -> Result:
+        sort_key = self.gen_rule_id(customer, cloud)
+        return self.model_class.rule_source_id_id_index.query(
+            hash_key=rule_source_id,
+            range_key_condition=self.model_class.id.startswith(sort_key),
+            scan_index_forward=ascending,
+            limit=limit,
+            last_evaluated_key=last_evaluated_key
+        )
+
+    def get_by_rule_source(self, rule_source: RuleSource,
+                           cloud: str | None = None, ascending: bool = True,
+                           limit: int | None = None,
+                           last_evaluated_key: dict | None = None) -> Result:
+        return self.get_by_rule_source_id(
+            rule_source_id=rule_source.id,
+            customer=rule_source.customer,
+            cloud=cloud,
+            ascending=ascending,
+            limit=limit,
+            last_evaluated_key=last_evaluated_key
         )
 
     def get_latest_rule(self, customer: str, name: str,
@@ -487,7 +517,7 @@ class RuleService(BaseDataService[Rule]):
         yield from name_rule.values()
 
     def dto(self, item: Rule) -> dict[str, Any]:
-        dct = super().dto(item)
+        dct = item.get_json()
         dct.pop(ID_ATTR, None)
         dct.pop(FILTERS_ATTR, None)
         dct.pop(LOCATION_ATTR, None)
@@ -595,34 +625,28 @@ class RuleService(BaseDataService[Rule]):
                   version: Optional[FilterValue] = None,
                   git_project: Optional[FilterValue] = None,
                   ref: Optional[FilterValue] = None,
+                  rule_source_id: Optional[FilterValue] = None,
                   resource: Optional[FilterValue] = None
                   ) -> Iterator[Rule]:
         """
         God-like filter. Filter just using python. No queries
-        :param rules:
-        :param customer:
-        :param cloud:
-        :param name_prefix:
-        :param version:
-        :param git_project:
-        :param ref:
-        :param resource:
-        :return:
         """
         if isinstance(customer, str):
-            customer = {customer}
+            customer = (customer, )
         if isinstance(cloud, str):
-            cloud = {cloud}
+            cloud = (cloud, )
         if isinstance(name_prefix, str):
-            name_prefix = {name_prefix}
+            name_prefix = (name_prefix, )
         if isinstance(version, str):
-            name_prefix = {version}
+            name_prefix = (version, )
         if isinstance(git_project, str):
-            git_project = {git_project}
+            git_project = (git_project, )
         if isinstance(ref, str):
-            ref = {ref}
+            ref = (ref, )
         if isinstance(resource, str):
-            resource = {resource}
+            resource = (resource, )
+        if isinstance(rule_source_id, str):
+            rule_source_id = (rule_source_id, )
 
         def _check(rule: Rule) -> bool:
             if customer and rule.customer not in customer:
@@ -635,6 +659,8 @@ class RuleService(BaseDataService[Rule]):
             if git_project and rule.git_project not in git_project:
                 return False
             if ref and rule.ref not in ref:
+                return False
+            if rule_source_id and rule.rule_source_id not in rule_source_id:
                 return False
             if resource and rule.resource not in resource:
                 return False

@@ -45,7 +45,8 @@ class AbstractJobScheduler(ABC):
     @abstractmethod
     def register_job(self, tenant: Tenant, schedule: str,
                      environment: dict,
-                     name: Optional[str] = None) -> ScheduledJob:
+                     name: Optional[str] = None,
+                     rulesets: list[str] | None = None) -> ScheduledJob:
         """
         Adds a new job to the system: creates DB item and the rule itself
         """
@@ -67,22 +68,6 @@ class AbstractJobScheduler(ABC):
     @staticmethod
     def _scan_regions_from_env(envs: dict) -> list[str]:
         return envs.get(BatchJobEnv.TARGET_REGIONS, '').split(',')
-
-    @staticmethod
-    def _scan_rulesets_from_env(envs: dict) -> list[str]:
-        rule_sets = []
-        standard = envs.get(BatchJobEnv.TARGET_RULESETS)
-        if standard and isinstance(standard, str):
-            rule_sets.extend(standard.split(','))
-        licensed = envs.get(BatchJobEnv.LICENSED_RULESETS)
-        if licensed and isinstance(licensed, str):
-            rule_sets.extend(
-                each.split(':', maxsplit=1)[-1]
-                for each in licensed.split(',') if ':' in each
-            )
-        if not rule_sets:
-            rule_sets.append(ALL_ATTR)
-        return rule_sets
 
 
 class EventBridgeJobScheduler(AbstractJobScheduler):
@@ -124,13 +109,15 @@ class EventBridgeJobScheduler(AbstractJobScheduler):
                              f'expression: {args}, {kwargs}')
                 raise ResponseFactory(HTTPStatus.BAD_REQUEST).errors([{
                     'location': ['schedule'],
-                    'description': 'Invalid schedule expression'
+                    'description': 'Invalid schedule expression. '
+                                   'Use expression that is valid for AWS EventBridge, i.e. cron(0 12 * * ? *), cron(5,35 14 * * ? *), rate(2 hours)'
                 }]).exc()
             raise
 
     def register_job(self, tenant: Tenant, schedule: str,
                      environment: dict,
-                     name: Optional[str] = None) -> ScheduledJob:
+                     name: Optional[str] = None,
+                     rulesets: list[str] | None = None) -> ScheduledJob:
         _id = self.safe_name(name) if name else \
             self.safe_name_from_tenant(tenant)
         _LOG.info(f'Registering new scheduled job with id \'{_id}\'')
@@ -165,7 +152,7 @@ class EventBridgeJobScheduler(AbstractJobScheduler):
             context=dict(
                 schedule=schedule,
                 scan_regions=self._scan_regions_from_env(environment),
-                scan_rulesets=self._scan_rulesets_from_env(environment),
+                scan_rulesets=rulesets,
                 is_enabled=True
             ),
         )

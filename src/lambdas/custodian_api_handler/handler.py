@@ -49,10 +49,9 @@ class ApiHandler(ApiEventProcessorLambdaHandler):
             JobHandler,
             HealthCheckHandler,
             MetricsStatusHandler,
-            EventsHandler
+            EventsHandler,
+            SwaggerHandler
         ]
-        if not SP.environment_service.is_docker():
-            self.additional_handlers.append(SwaggerHandler)
 
     @classmethod
     def build(cls) -> Self:

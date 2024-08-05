@@ -47,7 +47,8 @@
     "CAAS_METRICS_BUCKET_NAME": "${caas_metrics_bucket_name}",
     "component_name": "custodian-as-a-service",
     "modular_assume_role_arn": "${modular_assume_role_arn}",
-    "MODULAR_AWS_REGION": "${MODULAR_AWS_REGION}"
+    "MODULAR_AWS_REGION": "${MODULAR_AWS_REGION}",
+    "CAAS_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT": "true"
   },
   "publish_version": true,
   "alias": "${lambdas_alias_name}",

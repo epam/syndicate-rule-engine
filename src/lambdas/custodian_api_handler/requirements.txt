@@ -1,3 +1,1 @@
-cryptography==42.0.2
-# swagger-ui-py==23.9.23
-# bottle==0.12.23
+cryptography~=42.0.8

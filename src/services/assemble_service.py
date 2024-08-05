@@ -19,11 +19,10 @@ class AssembleService:
     def build_job_envs(self, tenant: Tenant, job_id: str = None,
                        platform_id: str = None,
                        target_regions: list[str] = None,
-                       target_rulesets: list[tuple[str, str, str]] = None,
-                       affected_licenses: list[str] = None,
-                       licensed_rulesets: list[str] = None,
+                       affected_licenses: list[str] | str | None = None,
                        job_type: BatchJobType = BatchJobType.STANDARD,
-                       credentials_key: str = None) -> dict:
+                       credentials_key: str = None,
+                       job_lifetime_minutes: float | None = None) -> dict:
         # TODO +- duplicate in event_assembler_handler._build_common_envs
         envs = {
             CAASEnv.REPORTS_BUCKET_NAME:
@@ -33,8 +32,7 @@ class AssembleService:
             CAASEnv.RULESETS_BUCKET_NAME:
                 self.environment_service.get_rulesets_bucket_name(),
             CAASEnv.AWS_REGION: self.environment_service.aws_region(),
-            CAASEnv.BATCH_JOB_LIFETIME_MINUTES:
-                self.environment_service.get_job_lifetime_min(),
+            CAASEnv.BATCH_JOB_LIFETIME_MINUTES: job_lifetime_minutes or self.environment_service.get_job_lifetime_min(),
             CAASEnv.LM_TOKEN_LIFETIME_MINUTES:
                 str(self.environment_service.lm_token_lifetime_minutes()),
             'LOG_LEVEL': self.environment_service.batch_job_log_level(),
@@ -46,12 +44,10 @@ class AssembleService:
             BatchJobEnv.CUSTODIAN_JOB_ID: job_id,
 
         }
-        if target_rulesets:
-            envs[BatchJobEnv.TARGET_RULESETS] = ','.join(
-                t[0] for t in target_rulesets)
-        if affected_licenses and licensed_rulesets:
+        if affected_licenses:
+            if isinstance(affected_licenses, str):
+                affected_licenses = [affected_licenses]
             envs.update({
                 BatchJobEnv.AFFECTED_LICENSES: ','.join(affected_licenses),
-                BatchJobEnv.LICENSED_RULESETS: ','.join(licensed_rulesets)
             })
         return sifted(envs)

@@ -1,10 +1,11 @@
-from typing import Set, Optional, Iterator
+from typing import Set, Optional, Iterator, List
 
 from modular_sdk.models.tenant import Tenant
 
 from helpers.constants import NAME_ATTR, ID_ATTR
 from helpers.log_helper import get_logger
 from models.scheduled_job import ScheduledJob
+from services.ruleset_service import RulesetName
 from services.clients.scheduler import AbstractJobScheduler
 
 _LOG = get_logger(__name__)
@@ -67,13 +68,18 @@ class SchedulerService:
         data.pop('type', None)
         data['schedule'] = _context.get('schedule')
         data['scan_regions'] = _context.get('scan_regions') or []
-        data['scan_rulesets'] = _context.get('scan_rulesets') or []
         data['enabled'] = _context.get('is_enabled')
+        rulesets = []
+        for r in item.context.scan_rulesets:
+            rulesets.append(RulesetName(r).to_str(False))
+        data['scan_rulesets'] = rulesets
         return data
 
     def register_job(self, tenant: Tenant, schedule: str, envs: dict,
-                     name: Optional[str] = None) -> ScheduledJob:
-        _job = self._client.register_job(tenant, schedule, envs, name)
+                     name: Optional[str] = None,
+                     rulesets: List[str] | None = None) -> ScheduledJob:
+        _job = self._client.register_job(tenant, schedule, envs, name,
+                                         rulesets)
         return _job
 
     def deregister_job(self, _id):

@@ -1,9 +1,13 @@
 import importlib
+import json
 from pathlib import PurePosixPath
 
 from helpers.constants import S3SettingKey
 from services.clients.s3 import S3Client
+from helpers.log_helper import get_logger
 from services.environment_service import EnvironmentService
+
+_LOG = get_logger(__name__)
 
 
 class S3SettingsService:
@@ -40,11 +44,25 @@ class S3SettingsService:
             bucket_name: str = None):
         if isinstance(key, S3SettingKey):
             key = key.value
-        self._s3.gz_put_json(
-            bucket=bucket_name or self.bucket_name,
-            key=self.key_from_name(key),
-            obj=data
-        )
+        if key in (S3SettingKey.AWS_STANDARDS_COVERAGE,
+                   S3SettingKey.AZURE_STANDARDS_COVERAGE,
+                   S3SettingKey.GOOGLE_STANDARDS_COVERAGE):
+            # kludge for a while because somehow these settings can have None
+            # as json keys. Such json is not valid, so we convert it to "null".
+            # json.dumps does it
+            _LOG.warning('Dumping standards dict converting None keys to '
+                         '"null"')
+            self._s3.gz_put_object(
+                bucket=bucket_name or self.bucket_name,
+                key=self.key_from_name(key),
+                body=json.dumps(data, separators=(',', ':')).encode()
+            )
+        else:
+            self._s3.gz_put_json(
+                bucket=bucket_name or self.bucket_name,
+                key=self.key_from_name(key),
+                obj=data
+            )
 
     def ls(self, bucket_name: str = None) -> list:
         keys = self._s3.list_dir(bucket_name or self.bucket_name,
