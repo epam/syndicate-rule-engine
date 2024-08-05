@@ -7,6 +7,7 @@ from modular_sdk.models.tenant import Tenant
 from helpers.constants import Cloud
 from models.batch_results import BatchResults
 from models.job import Job
+from services.clients.s3 import S3Url
 from services.platform_service import Platform
 from services.reports_bucket import TenantReportsBucketKeysBuilder, \
     ReportsBucketKeysBuilder, PlatformReportsBucketKeysBuilder, \
@@ -166,3 +167,17 @@ class TestStatisticsBucketKeyBuilder:
         now = datetime.now(timezone.utc)
         res = StatisticsBucketKeysBuilder.xray_log('job_id')
         assert res == f'xray/executor/{now.year}/{now.month}/{now.day}/job_id.log'
+
+
+def test_s3_url():
+    url = S3Url('s3://bucket/path/to/file')
+    assert url.bucket == 'bucket'
+    assert url.key == 'path/to/file'
+
+    url = S3Url('bucket/path/to/file')
+    assert url.bucket == 'bucket'
+    assert url.key == 'path/to/file'
+
+    url = S3Url('bucket/path/to/file/')
+    assert url.bucket == 'bucket'
+    assert url.key == 'path/to/file/'

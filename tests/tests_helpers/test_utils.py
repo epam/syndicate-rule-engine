@@ -8,7 +8,7 @@ from helpers import (deep_get, deep_set, title_keys, setdefault, filter_dict,
                      hashable, urljoin, skip_indexes, peek, without_duplicates,
                      MultipleCursorsWithOneLimitIterator, catchdefault,
                      batches, dereference_json, NextToken, iter_values,
-                     flip_dict)
+                     flip_dict, Version)
 
 
 @pytest.fixture
@@ -297,3 +297,27 @@ def test_flip_dict():
     assert d1 != d2
     flip_dict(d1)
     assert d1 == d2
+
+
+def test_version():
+    assert Version().to_str() == '0.0.0'
+
+    ver = Version('2.4.7')
+    assert ver.major == 2
+    assert ver.minor == 4
+    assert ver.patch == 7
+
+    assert Version.first_version().to_str() == '1.0.0'
+
+    ver = Version('1.2.3')
+    assert ver.next_major().to_str() == '2.0.0'
+    assert ver.next_minor().to_str() == '1.3.0'
+    assert ver.next_patch().to_str() == '1.2.4'
+
+    with pytest.raises(ValueError):
+        Version('not a version')
+
+    assert Version('ffsd3.55.1fsd').to_str() == '3.55.1'
+
+    ver = Version('1.2.3')
+    assert Version(ver) is ver
