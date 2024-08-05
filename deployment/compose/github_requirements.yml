@@ -1,0 +1,12 @@
+modular-service:
+      url: https://github.com/epam/modular-service
+      version: 3.1.0
+modular-api:
+      url: https://github.com/epam/modular-api
+      version: 4.0.5
+modular-cli:
+      url: https://github.com/epam/modular-cli
+      version: 2.0.9
+django-DefectDojo:
+    url: https://github.com/DefectDojo/django-DefectDojo
+    version: 2.34.2

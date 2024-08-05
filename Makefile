@@ -11,9 +11,9 @@ CLI_VENV_NAME := c7n_venv
 AWS_ACCOUNT_ID = $(shell aws sts get-caller-identity | python3 -c "import sys,json;print(json.load(sys.stdin)['Account'])")
 AWS_REGION = $(shell aws configure get region)
 
-EXECUTOR_IMAGE_NAME := caas-custodian-service-dev
+EXECUTOR_IMAGE_NAME := rule-engine-executor  # just dev image name
 EXECUTOR_IMAGE_TAG := latest
-SERVER_IMAGE_NAME := caas-custodian-k8s-dev
+SERVER_IMAGE_NAME := rule-engine
 SERVER_IMAGE_TAG := latest
 
 
@@ -83,15 +83,20 @@ fork-executor-image:
 open-source-server-image:
 	$(DOCKER_EXECUTABLE) build -t $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG) -f src/onprem/Dockerfile-opensource .
 
+fork-server-image:
+	$(DOCKER_EXECUTABLE) build -t $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG) -f src/onprem/Dockerfile .
+
 
 open-source-server-image-to-minikube:
 	eval $(minikube -p minikube docker-env) && \
 	$(DOCKER_EXECUTABLE) build -t $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG) -f src/onprem/Dockerfile-opensource .
 
 cli-dist:
+	python -m pip install --upgrade build
 	python -m build --sdist c7n/
 
 obfuscation-manager-dist:
+	python -m pip install --upgrade build
 	python -m build --sdist obfuscation_manager/
 
 aws-ecr-login:

@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "vault.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "vault.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ include "vault.chart" . }}
+data:
+  vault-init.sh: |
+    #!/bin/sh
+    LOG_FILE=/vault/file/vault-init.log
+    unseal() {
+      vault operator unseal $(grep 'Key 1:' /vault/file/keys | awk '{print $NF}')
+      vault operator unseal $(grep 'Key 2:' /vault/file/keys | awk '{print $NF}')
+      vault operator unseal $(grep 'Key 3:' /vault/file/keys | awk '{print $NF}')
+    }
+    init() { vault operator init > /vault/file/keys; }
+    log_in() {
+      export ROOT_TOKEN=$(grep 'Initial Root Token:' /vault/file/keys | awk '{print $NF}')
+      vault login $ROOT_TOKEN
+    }
+    create_token() { vault token create -id $MY_VAULT_TOKEN; }
+    logger() { echo "$(date) $1" >> $LOG_FILE; }
+    
+    while [ true ]; do
+      logger "Waiting till Vault is initialized..."
+      vault status
+      if [[ "$?" -eq 2 ]]; then
+        break
+      fi
+    done
+    
+    if [ -s /vault/file/keys ]; then
+      logger "Keys exist in the persistent memory. Unsealing Vault"
+      unseal
+    else
+      logger "Keys do not exist in the persistent memory. Creating them"
+      init
+      logger "Keys were created. Unsealing"
+      unseal
+      logger "Logging in with the root token"
+      log_in
+      logger "Creating the custom token"
+      create_token
+    fi
+    vault status > /vault/file/status
+  config.hcl: |
+    ui = true
+    listener "tcp" {
+      address     = "0.0.0.0:8200"
+      tls_disable = 1
+    }
+    storage "file" {
+      path = "/vault/file"
+    }
+    api_addr = "http://127.0.0.1:8200"
+    disable_mlock = "true"

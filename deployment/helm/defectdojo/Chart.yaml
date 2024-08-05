@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "2.34.2"
+description: A Helm chart for defectdojo
+name: defectdojo
+type: application
+version: "1.0.0"

@@ -1,0 +1,19 @@
+databaseName: custodian_as_a_service
+
+service:
+  type: ClusterIP
+  port: 8040
+  nodePort: 32104
+
+image:
+  repository: public.ecr.aws/x4s4z8e1/syndicate/modular-service
+  tag: 5.4.0
+  pullPolicy: IfNotPresent
+
+
+replicas: 1
+
+mongoService: mongo
+mongoPort: 27017
+vaultService: vault
+vaultPort: 8200

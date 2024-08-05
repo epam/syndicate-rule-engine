@@ -25,3 +25,5 @@ deployment
 patch_scripts
 tests
 obfuscation_manager
+!**/README.md
+!**/readme.md
