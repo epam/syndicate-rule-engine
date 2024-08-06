@@ -1,0 +1,1 @@
+[{"service_section": "aypqzp8esncdsun69k98m68hjcq", "rules_data": [{"rule": "Buckets have no set life cycle value\n", "service": "Cloud Storage", "category": "bbu8whyk9omoetc9lqqks8l74el", "severity": "Info", "resource_type": "Cloud Storage", "regions_data": {"multiregion": {"total_violated_resources": {"value": 1}}}}]}]
