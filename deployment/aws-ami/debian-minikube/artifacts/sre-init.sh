@@ -41,7 +41,8 @@ done
 
 # Constants
 SRE_LOCAL_PATH=/usr/local/sre
-SRE_ARTIFACTS_PATH=$SRE_LOCAL_PATH/artifacts
+SRE_RELEASES_PATH=$SRE_LOCAL_PATH/releases
+
 
 MODULAR_SERVICE_USERNAME="customer_admin"
 RULE_ENGINE_USERNAME="customer_admin"
@@ -49,11 +50,14 @@ CURRENT_ACCOUNT_TENANT_NAME="CURRENT_ACCOUNT"
 # regions that will be allowed to activate
 AWS_REGIONS="us-east-1 us-east-2 us-west-1 us-west-2 af-south-1 ap-east-1 ap-south-2 ap-southeast-3 ap-southeast-4 ap-south-1 ap-northeast-3 ap-northeast-2 ap-southeast-1 ap-southeast-2 ap-northeast-1 ca-central-1 ca-west-1 eu-central-1 eu-west-1 eu-west-2 eu-south-1 eu-west-3 eu-south-2 eu-north-1 eu-central-2 il-central-1 me-south-1 me-central-1 sa-east-1 us-gov-east-1 us-gov-west-1"
 
-MODULAR_CLI_PATH=$SRE_ARTIFACTS_PATH/modular_cli.tar.gz
-OBFUSCATION_MANAGER_CLI_PATH=$SRE_ARTIFACTS_PATH/rule_engine_obfuscation_manager.tar.gz
+MODULAR_CLI_ARTIFACT_NAME=modular_cli.tar.gz
+OBFUSCATOR_ARTIFACT_NAME=sre_obfuscator.tar.gz
 FIRST_USER=$(getent passwd 1000 | cut -d : -f 1)
 
 # Functions
+
+get_latest_local_release() { ls "$SRE_RELEASES_PATH" | sort -r | head -n 1; }
+
 ensure_in_path() {
   if [[ ":$PATH:" == *":$1:"* ]]; then
     echo "$1 is found in user's PATH"
@@ -89,7 +93,7 @@ install_obfuscation_manager() {
     echo "Obfuscation manager is already installed. Try: sre-obfuscator --help"
   else
     echo "Installing deobfuscation manager"
-    pip3 install --user --break-system-packages "$OBFUSCATION_MANAGER_CLI_PATH[xlsx]"
+    pip3 install --user --break-system-packages "$SRE_RELEASES_PATH/$(get_latest_local_release)/$OBFUSCATOR_ARTIFACT_NAME[xlsx]"
   fi
 }
 
@@ -98,7 +102,7 @@ install_modular_cli() {
     echo "Modular cli is already installed. Try: syndicate --help"
   else
     echo "Installing modular-cli"
-    MODULAR_CLI_ENTRY_POINT=syndicate pip3 install --user --break-system-packages "$MODULAR_CLI_PATH"
+    MODULAR_CLI_ENTRY_POINT=syndicate pip3 install --user --break-system-packages "$SRE_RELEASES_PATH/$(get_latest_local_release)/$MODULAR_CLI_ARTIFACT_NAME"
   fi
 }
 
@@ -239,8 +243,8 @@ fi
 
 echo "Installing CLIs for $target_user"
 sudo su - "$target_user" <<EOF
-pip3 install --user --break-system-packages "$OBFUSCATION_MANAGER_CLI_PATH[xlsx]"
-MODULAR_CLI_ENTRY_POINT=syndicate pip3 install --user --break-system-packages "$MODULAR_CLI_PATH"
+pip3 install --user --break-system-packages "$SRE_RELEASES_PATH/$(get_latest_local_release)$OBFUSCATOR_ARTIFACT_NAME[xlsx]"
+MODULAR_CLI_ENTRY_POINT=syndicate pip3 install --user --break-system-packages "$SRE_RELEASES_PATH/$(get_latest_local_release)/$MODULAR_CLI_ARTIFACT_NAME"
 EOF
 
 kubectl exec service/modular-api -- ./modular.py user describe --username "$target_user"

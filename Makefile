@@ -97,7 +97,7 @@ cli-dist:
 
 obfuscation-manager-dist:
 	python -m pip install --upgrade build
-	python -m build --sdist obfuscation_manager/
+	python -m build --sdist obfuscator-cli/
 
 aws-ecr-login:
 	@if ! aws --version; then echo "Error: install awscli"; exit 1; fi

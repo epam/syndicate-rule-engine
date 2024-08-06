@@ -24,6 +24,6 @@ docs
 deployment
 patch_scripts
 tests
-obfuscation_manager
+obfuscator-cli
 !**/README.md
 !**/readme.md

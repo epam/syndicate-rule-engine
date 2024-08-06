@@ -49,7 +49,7 @@ EOF
 upgrade_and_install_packages() {
   sudo DEBIAN_FRONTEND=noninteractive apt update -y
   sudo DEBIAN_FRONTEND=noninteractive apt upgrade -y
-  sudo DEBIAN_FRONTEND=noninteractive apt install -y jq python3-pip unzip locales-all nginx
+  sudo DEBIAN_FRONTEND=noninteractive apt install -y jq python3-pip locales-all nginx
 }
 install_docker() {
   # Add Docker's official GPG key: from https://docs.docker.com/engine/install/debian/
@@ -189,7 +189,7 @@ EOF
 }
 
 # $SRE_LOCAL_PATH $LM_API_LINK, $RULE_ENGINE_RELEASE, $FIRST_USER will be provided from outside
-if [ -z "$SRE_LOCAL_PATH" ] || [ -z "$LM_API_LINK" ] || [ -z "$RULE_ENGINE_RELEASE" ] || [ -z "$FIRST_USER" ]; then
+if [ -z "$SRE_LOCAL_PATH" ] || [ -z "$LM_API_LINK" ] || [ -z "$RULE_ENGINE_RELEASE" ] || [ -z "$FIRST_USER" ] || [ -z "$GITHUB_REPO" ]; then
   error_log "SRE_LOCAL_PATH=$SRE_LOCAL_PATH LM_API_LINK=$LM_API_LINK RULE_ENGINE_RELEASE=$RULE_ENGINE_RELEASE FIRST_USER=$FIRST_USER. Something is not provided"
   exit 1
 fi
@@ -242,11 +242,10 @@ helm install defectdojo sre/defectdojo
 EOF
 
 log "Downloading artifacts"
-sudo mkdir -p "$SRE_LOCAL_PATH"
-filename="$RULE_ENGINE_RELEASE-artifacts.zip"
-sudo wget -O "$SRE_LOCAL_PATH/$filename" "https://github.com/epam/ecc/releases/download/$RULE_ENGINE_RELEASE/rule-engine-ami-artifacts.linux-$(dpkg --print-architecture).zip"
-sudo unzip "$SRE_LOCAL_PATH/$filename" -d "$SRE_LOCAL_PATH/artifacts"
-sudo mv "$SRE_LOCAL_PATH/artifacts/sre-init.sh" /usr/local/bin/sre-init
+sudo mkdir -p "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE"
+sudo wget -O "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE/modular_cli.tar.gz" "https://github.com/$GITHUB_REPO/releases/download/$RULE_ENGINE_RELEASE/modular_cli.tar.gz"  # todo get from modular-cli repo
+sudo wget -O "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE/sre_obfuscator.tar.gz" "https://github.com/$GITHUB_REPO/releases/download/$RULE_ENGINE_RELEASE/sre_obfuscator.tar.gz"
+sudo wget -O "/usr/local/bin/sre-init" "https://github.com/$GITHUB_REPO/releases/download/$RULE_ENGINE_RELEASE/sre-init.sh"
 sudo chmod +x /usr/local/bin/sre-init
 sudo chown -R $FIRST_USER:$FIRST_USER "$SRE_LOCAL_PATH"
 
