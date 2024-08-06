@@ -84,6 +84,35 @@ def login(ctx: ContextObj, username: str, password: str, **kwargs):
     return response('Great! The sre cli tool access token has been saved.')
 
 
+@sre.command(cls=ViewCommand, name='signup')
+@click.option('--username', '-u', type=str, required=True,
+              help='Modular user username.')
+@click.option('--password', '-p', type=str,
+              required=True, hide_input=True, prompt=True,
+              help='Modular user password.')
+@click.option('--customer_name', '-cn', type=str,
+              required=True,
+              help='Customer name to sign up this user for')
+@click.option('--customer_display_name', '-dn', type=str, required=True,
+              help='Customer display name')
+@click.option('--customer_admin', '-ca', multiple=True, type=str,
+              required=True,
+              help='List of admin emails attached to customer.')
+@cli_response(check_access_token=False)
+def signup(ctx: ContextObj, username, password, customer_name,
+           customer_display_name, customer_admin, customer_id):
+    """
+    Signs up a new user
+    """
+    return ctx['api_client'].signup(
+        username=username,
+        password=password,
+        customer_name=customer_name,
+        customer_display_name=customer_display_name,
+        customer_admins=customer_admin
+    )
+
+
 @sre.command(cls=ViewCommand, name='whoami')
 @cli_response(attributes_order=('username', 'customer', 'role', 'latest_login'))
 def whoami(ctx: ContextObj, customer_id: str):

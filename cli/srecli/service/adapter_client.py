@@ -201,7 +201,8 @@ class CustodianApiClient:
                      method: HTTPMethod | None = None,
                      path_params: dict | None = None,
                      query: dict | None = None,
-                     data: dict | None = None) -> CustodianResponse:
+                     data: dict | None = None,
+                     add_token: bool = True) -> CustodianResponse:
         """
         High-level request method. Adds token.
         :param path:
@@ -209,6 +210,7 @@ class CustodianApiClient:
         :param path_params:
         :param query:
         :param data:
+        :param add_token:
         :return:
         """
         if not method:
@@ -218,7 +220,8 @@ class CustodianApiClient:
             method=method,
             data=data
         )
-        self.add_token(req)
+        if add_token:
+            self.add_token(req)
         response = CustodianResponse(method=method, path=path)
         self._custodian_open(req, response)
         return response
@@ -243,6 +246,14 @@ class CustodianApiClient:
         response = CustodianResponse(HTTPMethod.POST, CustodianEndpoint.SIGNIN)
         self._custodian_open(req, response)
         return response
+
+    def signup(self, **kwargs):
+        return self.make_request(
+            path=CustodianEndpoint.SIGNUP,
+            method=HTTPMethod.POST,
+            data=sifted(kwargs),
+            add_token=False
+        )
 
     def whoami(self):
         return self.make_request(

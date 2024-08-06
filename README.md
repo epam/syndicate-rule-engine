@@ -1,3 +1,37 @@
+# Syndicate Rule Engine
+
+
+## Quickstart with docker compose
+
+Use this quickstart only for fast introduction or development. Default credentials are used as they are hardcoded in 
+`compose.yaml`
+
+
+```bash
+git clone https://github.com/epam/ecc.git && cd ecc
+```
+
+```bash
+docker compose --file deployment/compose/compose.yaml --profile rule-engine up -d
+```
+
+```bash
+pip install ./cli
+```
+
+```bash
+sre configure --api_link http://127.0.0.1:8000/caas
+```
+
+```bash
+sre signup --username admin --password Password123= --customer_name "DEMO" --customer_display_name "Demo Customer" --customer_admin admin@gmail.com 
+```
+
+```bash
+sre login --username admin --password Password123=
+```
+
+
 ### Syndicate Rule Engine
 
 Syndicate Rule Engine is a solution that allows checking and assessing virtual infrastructures in AWS, Azure, GCP infrastructures against different types of standards, requirements and rulesets.
