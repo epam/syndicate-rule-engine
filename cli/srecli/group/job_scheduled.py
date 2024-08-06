@@ -1,6 +1,6 @@
 import click
 
-from srecli.group import ContextObj, ViewCommand, cli_response, response, tenant_option
+from srecli.group import ContextObj, ViewCommand, cli_response, tenant_option
 
 attributes_order = 'name', 'tenant_name', 'enabled', 'schedule'
 
@@ -52,8 +52,10 @@ def describe(ctx: ContextObj, name, tenant_name, customer_id):
     Describes registered scheduled jobs
     """
     if name and (tenant_name or customer_id):
-        return response('You don`t have to specify other attributes if'
-                        ' \'--name\' is specified')
+        raise click.ClickException(
+            'You don`t have to specify other '
+            'attributes if \'--name\' is specified'
+        )
     if name:
         return ctx['api_client'].scheduled_job_get(name, customer_id=customer_id)
     return ctx['api_client'].scheduled_job_query(
@@ -88,7 +90,9 @@ def update(ctx: ContextObj, name, schedule, enabled, customer_id):
     Updates an existing scheduled job
     """
     if all(param is None for param in (enabled, schedule)):
-        return response('You must specify at least one parameter to update.')
+        raise click.ClickException(
+            'You must specify at least one parameter to update.'
+        )
     return ctx['api_client'].scheduled_job_update(
         name=name,
         schedule=schedule,

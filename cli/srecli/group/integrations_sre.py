@@ -5,7 +5,6 @@ from srecli.group import (
     ViewCommand,
     build_tenant_option,
     cli_response,
-    response,
 )
 from srecli.service.constants import AWS, AZURE, GOOGLE, KUBERNETES
 
@@ -54,15 +53,22 @@ def add(ctx: ContextObj, tenant_name: tuple[str, ...], all_tenants: bool,
     Adds self integration
     """
     if tenant_name and any((all_tenants, clouds, exclude_tenant)):
-        return response('Do not provide --all_tenants, --clouds or '
-                        '--exclude_tenants if --tenant_name given')
+        raise click.ClickException(
+            'Do not provide --all_tenants, --clouds or '
+            '--exclude_tenants if --tenant_name given'
+        )
     if not all_tenants and not tenant_name:
-        return response('Either --all_tenants or --tenant_name must be given')
+        raise click.ClickException(
+            'Either --all_tenants or --tenant_name must be given'
+        )
     if (clouds or exclude_tenant) and not all_tenants:
-        return response('set --all_tenants if you provide --clouds or '
-                        '--exclude_tenants')
+        raise click.ClickException(
+            'set --all_tenants if you provide --clouds or --exclude_tenants'
+        )
     if auto_resolve_access and url:
-        return response('Do not provide --url if --auto_resolve_access is set')
+        raise click.ClickException(
+            'Do not provide --url if --auto_resolve_access is set'
+        )
     return ctx['api_client'].sre_add(
         description=description,
         username=username,

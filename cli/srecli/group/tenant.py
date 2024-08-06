@@ -11,7 +11,6 @@ from srecli.group import (
     cli_response,
     limit_option,
     next_option,
-    response,
     tenant_option,
 )
 from srecli.service.constants import ModularCloud
@@ -42,7 +41,7 @@ def describe(ctx: ContextObj, tenant_name, account_number, active, cloud,
     Describes tenants within your customer
     """
     if tenant_name and account_number:
-        return response(
+        raise click.ClickException(
             'Either --tenant_name or --account_number can be given'
         )
     if tenant_name:
@@ -87,7 +86,7 @@ def set_excluded_rules(ctx: ContextObj, tenant_name: str,
     Excludes rules for a tenant
     """
     if not rules and not empty:
-        return response('Specify either --rules '' or --empty')
+        raise click.ClickException('Specify either --rules '' or --empty')
     if empty:
         rules = ()
     return ctx['api_client'].tenant_set_excluded_rules(

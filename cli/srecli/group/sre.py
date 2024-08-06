@@ -45,12 +45,12 @@ def configure(ctx: ContextObj, api_link, items_per_column, **kwargs):
     """
     _is_given = lambda x: x is not None
     if not any(_is_given(param) for param in (api_link, items_per_column)):
-        return response('At least one parameter must be provided', err=True)
+        raise click.ClickException('At least one parameter must be provided')
     if api_link:
         message = validate_api_link(api_link)
         if message:
             SYSTEM_LOG.error(message)
-            return response(message, err=True)
+            raise click.ClickException(message)
         ctx['config'].api_link = api_link
     if isinstance(items_per_column, int):
         if items_per_column == 0:

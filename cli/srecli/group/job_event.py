@@ -1,6 +1,6 @@
 import click
 
-from srecli.group import ContextObj, ViewCommand, cli_response, response
+from srecli.group import ContextObj, ViewCommand, cli_response
 from srecli.service.helpers import (
     build_cloudtrail_records,
     build_eventbridge_record,
@@ -120,4 +120,4 @@ def eventbridge(ctx: ContextObj, account: tuple, region: tuple, source: tuple,
     event-listener. Use it just to check whether
     event-driven jobs work properly
     """
-    return response('Not implemented yet')
+    raise click.ClickException('Not implemented yet')

@@ -16,7 +16,7 @@ def enable_sending(ctx: ContextObj, confirm: bool, customer_id):
     Enables Custodian Service report sending mechanism
     """
     if not confirm:
-        raise click.UsageError('Please, specify `--confirm` flag')
+        raise click.ClickException('Please, specify `--confirm` flag')
     return ctx['api_client'].reports_sending_setting_enable()
 
 
@@ -28,5 +28,5 @@ def disable_sending(ctx: ContextObj, confirm: bool, customer_id):
     Disables Custodian Service report sending mechanism
     """
     if not confirm:
-        raise click.UsageError('Please, specify `--confirm` flag')
+        raise click.ClickException('Please, specify `--confirm` flag')
     return ctx['api_client'].reports_sending_setting_disable()

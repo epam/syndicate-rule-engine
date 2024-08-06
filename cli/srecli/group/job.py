@@ -4,7 +4,7 @@ from pathlib import Path
 
 import click
 
-from srecli.group import ContextObj, ViewCommand, cli_response, response
+from srecli.group import ContextObj, ViewCommand, cli_response
 from srecli.group import limit_option, next_option, tenant_option
 from srecli.group.job_scheduled import scheduled
 from srecli.service.constants import AWS, AZURE, GOOGLE, JobState, \
@@ -49,8 +49,10 @@ def describe(ctx: ContextObj, job_id: str, tenant_name: str, customer_id: str,
     """
 
     if job_id and tenant_name:
-        return response('You do not have to specify account of tenant '
-                        'name if job id is specified.')
+        raise click.ClickException(
+            'You do not have to specify account of tenant name '
+            'if job id is specified.'
+        )
     if job_id:
         return ctx['api_client'].job_get(job_id, customer_id=customer_id)
     dct = {
@@ -113,7 +115,7 @@ def submit(ctx: ContextObj, cloud: str, tenant_name: str,
             credentials = resolver.resolve()
         except LookupError as e:
             USER_LOG.error(Color.red(str(e)))
-            return response(str(e))
+            raise click.ClickException(str(e))
 
     return ctx['api_client'].job_post(
         tenant_name=tenant_name,
@@ -174,8 +176,10 @@ def submit_aws(ctx: ContextObj,  tenant_name: str,
     elif not any((access_key, secret_key, session_token)):
         creds = None
     else:
-        return response('either provide --access_key and --secret_key and '
-                        'optionally --session_token or do not provide anything')
+        raise click.ClickException(
+            'either provide --access_key and --secret_key and '
+            'optionally --session_token or do not provide anything'
+        )
     return ctx['api_client'].job_post(
         tenant_name=tenant_name,
         target_rulesets=ruleset,
@@ -236,7 +240,7 @@ def submit_azure(ctx: ContextObj, tenant_name: str,
     elif not any((tenant_id, client_id, client_secret, subscription_id)):
         creds = None
     else:
-        return response(
+        raise click.ClickException(
             'Provide --tenant_id, --client_id, --client_secret '
             'and optionally --subscription_id or do not provide anything'
         )
@@ -284,12 +288,14 @@ def submit_google(ctx: ContextObj, tenant_name: str,
     if application_credentials_path:
         path = Path(application_credentials_path)
         if not path.exists() or not path.is_file():
-            return response('provided path must point to existing file')
+            raise click.ClickException(
+                'provided path must point to existing file'
+            )
         with open(path, 'r') as file:
             try:
                 creds = json.load(file)
             except json.JSONDecodeError:
-                return response('cannot load json')
+                raise click.ClickException('cannot load json')
     else:
         creds = None
 

@@ -1,6 +1,6 @@
 import click
 
-from srecli.group import ContextObj, ViewCommand, cli_response, response
+from srecli.group import ContextObj, ViewCommand, cli_response
 
 
 @click.group(name='mail')
@@ -45,7 +45,9 @@ def add(ctx: ContextObj,
     Creates Custodian Service Mail configuration
     """
     if emails_per_session < 1:
-        return response('\'--emails_per_session\' must be a positive integer.')
+        raise click.ClickException(
+            '\'--emails_per_session\' must be a positive integer.'
+        )
 
     return ctx['api_client'].mail_setting_post(
         username=username,
@@ -67,5 +69,5 @@ def delete(ctx: ContextObj, confirm: bool, customer_id):
     Deletes Custodian Service Mail configuration
     """
     if not confirm:
-        raise click.UsageError('Please, specify `--confirm` flag')
+        raise click.ClickException('Please, specify `--confirm` flag')
     return ctx['api_client'].mail_setting_delete()

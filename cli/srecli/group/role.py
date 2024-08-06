@@ -2,7 +2,7 @@ from datetime import datetime
 
 import click
 
-from srecli.group import ContextObj, ViewCommand, cli_response, response
+from srecli.group import ContextObj, ViewCommand, cli_response
 
 attributes_order = 'name', 'expiration', 'policies'
 
@@ -47,8 +47,9 @@ def add(ctx: ContextObj, customer_id, name, policies, description, expiration):
         try:
             datetime.fromisoformat(expiration)
         except ValueError:
-            return response(f'Invalid value for the \'expiration\' '
-                            f'parameter: {expiration}')
+            raise click.ClickException(
+                f'Invalid value for the \'expiration\' parameter: {expiration}'
+            )
     return ctx['api_client'].role_post(
         customer_id=customer_id,
         name=name,
@@ -76,15 +77,17 @@ def update(ctx: ContextObj, customer_id, name, attach_policy, detach_policy, exp
     """
     required = (attach_policy, detach_policy, expiration)
     if not any(required):
-        return response(f'At least one of: {", ".join(required)} '
-                        f'must be specified')
+        raise click.ClickException(
+            f'At least one of: {", ".join(required)} must be specified'
+        )
 
     if expiration:
         try:
             datetime.fromisoformat(expiration)
         except ValueError:
-            return response(f'Invalid value for the \'expiration\' '
-                            f'parameter: {expiration}')
+            raise click.ClickException(
+                f'Invalid value for the \'expiration\' parameter: {expiration}'
+            )
     return ctx['api_client'].role_patch(
         name=name,
         policies_to_attach=attach_policy,

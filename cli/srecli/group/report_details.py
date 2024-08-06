@@ -7,7 +7,6 @@ from srecli.group import (
     build_job_id_option,
     from_date_report_option,
     optional_job_type_option,
-    response,
     to_date_report_option,
 )
 from srecli.group import ContextObj, ViewCommand, cli_response
@@ -36,7 +35,9 @@ def jobs(ctx: ContextObj, job_id: Optional[str], tenant_name: Optional[str],
     Describes detailed reports of jobs
     """
     if sum(map(bool, (job_id, tenant_name))) != 1:
-        return response('Either --job_id or --tenant_name must be given')
+        raise click.ClickException(
+            'Either --job_id or --tenant_name must be given'
+        )
     dates = from_date, to_date
     i_iso = map(lambda d: d.isoformat() if d else None, dates)
     from_date, to_date = tuple(i_iso)

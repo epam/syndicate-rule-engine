@@ -5,7 +5,7 @@
 
 COVERAGE_TYPE := html
 DOCKER_EXECUTABLE := podman
-CLI_VENV_NAME := c7n_venv
+CLI_VENV_NAME := venv
 
 # assuming that python is more likely to be installed than jq
 AWS_ACCOUNT_ID = $(shell aws sts get-caller-identity | python3 -c "import sys,json;print(json.load(sys.stdin)['Account'])")
@@ -50,7 +50,7 @@ install:
 install-cli:
 	# installing CLI in editable mode
 	python -m venv $(CLI_VENV_NAME)
-	$(CLI_VENV_NAME)/bin/pip install -e ./c7n
+	$(CLI_VENV_NAME)/bin/pip install -e ./cli
 	@echo "Execute:\nsource ./$(CLI_VENV_NAME)/bin/activate"
 
 
@@ -93,7 +93,7 @@ open-source-server-image-to-minikube:
 
 cli-dist:
 	python -m pip install --upgrade build
-	python -m build --sdist c7n/
+	python -m build --sdist cli/
 
 obfuscation-manager-dist:
 	python -m pip install --upgrade build

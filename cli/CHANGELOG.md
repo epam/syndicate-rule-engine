@@ -5,7 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [5.4.0] - 2024-07-09
-- renamed `c7n` entrypoint to `sre`.
+- renamed `c7n` entrypoint to `sre`
+- add 1 exit codes for all commands that failed
 - added `license_key` optional parameter to `c7n job submit`
 - removed `--description` from `c7n license add`
 - added `--rule_source_id` to `c7n rule describe`

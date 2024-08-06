@@ -3,7 +3,7 @@ from pathlib import Path
 
 import click
 
-from srecli.group import ContextObj, ViewCommand, cli_response, response
+from srecli.group import ContextObj, ViewCommand, cli_response
 
 attributes_order = 'name', 'permissions', 'customer'
 
@@ -55,7 +55,7 @@ def add(ctx: ContextObj, customer_id, name, permission,
     Creates a Custodian Service policy for a customer
     """
     if not permission and not path_to_permissions and not permissions_admin:
-        return response(
+        raise click.ClickException(
             '--permission or --path_to_permissions or --permissions_admin '
             'must be provided'
         )
@@ -63,7 +63,9 @@ def add(ctx: ContextObj, customer_id, name, permission,
     if path_to_permissions:
         path = Path(path_to_permissions)
         if not path.exists() or not path.is_file():
-            return response(f'File {path_to_permissions} does not exist')
+            raise click.ClickException(
+                f'File {path_to_permissions} does not exist'
+            )
         with open(path, 'r') as file:
             try:
                 data = json.load(file)
@@ -106,7 +108,9 @@ def update(ctx: ContextObj, customer_id, name, attach_permission,
     """
 
     if not attach_permission and not detach_permission and not effect and not add_tenant and not remove_tenant and not description:
-        return response('At least one parameter to update must be provided')
+        raise click.ClickException(
+            'At least one parameter to update must be provided'
+        )
 
     return ctx['api_client'].policy_patch(
         name=name,

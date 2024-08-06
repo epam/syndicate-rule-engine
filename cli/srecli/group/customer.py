@@ -1,6 +1,6 @@
 import click
 
-from srecli.group import ContextObj, ViewCommand, cli_response, response
+from srecli.group import ContextObj, ViewCommand, cli_response
 from srecli.group.customer_rabbitmq import rabbitmq
 
 attributes_order = 'name', 'display_name', 'admins'
@@ -35,7 +35,7 @@ def set_excluded_rules(ctx: ContextObj, customer_id: str | None,
     Excludes rules for a customer
     """
     if not rules and not empty:
-        return response('Specify either --rules '' or --empty')
+        raise click.ClickException('Specify either --rules '' or --empty')
     if empty:
         rules = ()
     return ctx['api_client'].customer_set_excluded_rules(

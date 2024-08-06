@@ -1,6 +1,6 @@
 import click
 
-from srecli.group import ContextObj, ViewCommand, cli_response, response
+from srecli.group import ContextObj, ViewCommand, cli_response
 from srecli.group.ruleset_eventdriven import eventdriven
 from srecli.service.constants import RULE_CLOUDS
 
@@ -31,8 +31,10 @@ def describe(ctx: ContextObj, name, version, cloud, get_rules,
     Describes Customer rulesets
     """
     if version and not name:
-        return response('The attribute \'--name\' is required if '
-                        '\'--version\' is specified')
+        raise click.ClickException(
+            'The attribute \'--name\' is required if '
+            '\'--version\' is specified'
+        )
     return ctx['api_client'].ruleset_get(
         name=name,
         version=version,
@@ -80,10 +82,14 @@ def add(ctx: ContextObj, name: str, version: str, cloud: str, rule: tuple,
     Creates Customers ruleset.
     """
     if git_ref and not git_project_id:
-        return response('--git_project_id must be provided with --git_ref')
+        raise click.ClickException(
+            '--git_project_id must be provided with --git_ref'
+        )
     if rule_source_id and (git_ref or git_project_id):
-        return response('do not provide --git_ref or --git_project_id if '
-                        '--rule_source_id is specified')
+        raise click.ClickException(
+            'do not provide --git_ref or --git_project_id if '
+            '--rule_source_id is specified'
+        )
     return ctx['api_client'].ruleset_post(
         name=name,
         version=version,
@@ -123,9 +129,10 @@ def update(ctx: ContextObj, customer_id, name, version, attach_rules,
     """
 
     if not force and not (attach_rules or detach_rules):
-        return response(
+        raise click.ClickException(
             'At least one of the following arguments must be '
-            'provided: \'--attach_rules\', \'--detach_rules\'')
+            'provided: \'--attach_rules\', \'--detach_rules\''
+        )
 
     return ctx['api_client'].ruleset_update(
         name=name,

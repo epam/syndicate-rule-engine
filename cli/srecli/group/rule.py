@@ -5,7 +5,6 @@ from srecli.group import (
     ViewCommand,
     build_rule_source_id_option,
     cli_response,
-    response,
 )
 from srecli.group import limit_option, next_option
 from srecli.service.constants import RULE_CLOUDS
@@ -41,10 +40,14 @@ def describe(ctx: ContextObj, customer_id,
     Describes rules within your customer
     """
     if rule_source_id and (git_ref or git_project_id):
-        return response('do not provide --git_ref or --git_project_id if '
-                        '--rule_source_id is provided')
+        raise click.ClickException(
+            'do not provide --git_ref or --git_project_id if '
+            '--rule_source_id is provided'
+        )
     if git_ref and not git_project_id:
-        return response('--git_project_id must be provided with --git_ref')
+        raise click.ClickException(
+            '--git_project_id must be provided with --git_ref'
+        )
     return ctx['api_client'].rule_get(
         rule=rule_name,
         customer_id=customer_id,

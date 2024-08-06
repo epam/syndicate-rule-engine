@@ -1,9 +1,8 @@
-from typing import Optional
 
 import click
 
 from srecli.group import cli_response, ViewCommand, \
-    response, ContextObj, build_rule_source_id_option, next_option, limit_option
+    ContextObj, build_rule_source_id_option, next_option, limit_option
 
 attributes_order = ('id', 'type', 'description', 'git_project_id', 'git_url',
                     'git_ref', 'git_rules_prefix')
@@ -91,9 +90,10 @@ def update(ctx: ContextObj, rule_source_id,
     """Updates rule source"""
 
     if not (git_access_secret or description):
-        return response(
+        raise click.ClickException(
             'At least one of these parameters must be given'
-            ': \'--git_access_secret\' or \'--description\'')
+            ': \'--git_access_secret\' or \'--description\''
+        )
     return ctx['api_client'].rule_source_patch(
         id=rule_source_id,
         git_access_secret=git_access_secret,
