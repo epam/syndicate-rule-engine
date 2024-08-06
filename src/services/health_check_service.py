@@ -19,12 +19,12 @@ from helpers.log_helper import get_logger
 from helpers.system_customer import SYSTEM_CUSTOMER
 from services import SERVICE_PROVIDER
 from services.clients.s3 import S3Client
-from services.clients.ssm import VaultSSMClient
+from services.clients.ssm import VaultSSMClient, AbstractSSMClient
 from services.environment_service import EnvironmentService
+from services.clients.lm_client import LmTokenProducer
 from services.license_manager_service import LicenseManagerService
 from services.ruleset_service import RulesetService
 from services.setting_service import SettingsService
-from services.ssm_service import SSMService
 
 _LOG = get_logger(__name__)
 
@@ -170,17 +170,17 @@ class LicenseManagerIntegrationCheck(AbstractHealthCheck):
 class LicenseManagerClientKeyCheck(AbstractHealthCheck):
     def __init__(self, settings_service: SettingsService,
                  license_manager_service: LicenseManagerService,
-                 ssm_service: SSMService):
+                 ssm: AbstractSSMClient):
         self._settings_service = settings_service
         self._license_manager_service = license_manager_service
-        self._ssm_service = ssm_service
+        self._ssm = ssm
 
     @classmethod
     def build(cls) -> 'LicenseManagerClientKeyCheck':
         return cls(
             settings_service=SERVICE_PROVIDER.settings_service,
             license_manager_service=SERVICE_PROVIDER.license_manager_service,
-            ssm_service=SERVICE_PROVIDER.ssm_service
+            ssm=SERVICE_PROVIDER.ssm
         )
 
     @classmethod
@@ -206,9 +206,8 @@ class LicenseManagerClientKeyCheck(AbstractHealthCheck):
                 'secret': False
             })
         kid = setting['kid']
-        ssm_name = self._license_manager_service.derive_client_private_key_id(
-            kid=kid)
-        if not self._ssm_service.get_secret_value(ssm_name):
+        ssm_name = LmTokenProducer.derive_client_private_key_id(kid=kid)
+        if not self._ssm.get_secret_value(ssm_name):
             return self.not_ok_result(details={
                 'kid': kid,
                 'secret': False
@@ -268,17 +267,14 @@ class ReportDateMarkerSettingCheck(AbstractHealthCheck):
 
 class RabbitMQConnectionCheck(AbstractHealthCheck):
     def __init__(self, settings_service: SettingsService,
-                 ssm_service: SSMService,
                  modular_client: Modular):
         self._settings_service = settings_service
-        self._ssm_service = ssm_service
         self._modular_client = modular_client
 
     @classmethod
     def build(cls) -> 'RabbitMQConnectionCheck':
         return cls(
             settings_service=SERVICE_PROVIDER.settings_service,
-            ssm_service=SERVICE_PROVIDER.ssm_service,
             modular_client=SERVICE_PROVIDER.modular_client
         )
 
@@ -411,15 +407,15 @@ class EventDrivenRulesetsExist(AbstractHealthCheck):
 
 class RulesMetaAccessDataCheck(AbstractHealthCheck):
     def __init__(self, settings_service: SettingsService,
-                 ssm_service: SSMService):
+                 ssm: AbstractSSMClient):
         self._settings_service = settings_service
-        self._ssm_service = ssm_service
+        self._ssm = ssm
 
     @classmethod
     def build(cls) -> 'RulesMetaAccessDataCheck':
         return cls(
             settings_service=SERVICE_PROVIDER.settings_service,
-            ssm_service=SERVICE_PROVIDER.ssm_service
+            ssm=SERVICE_PROVIDER.ssm
         )
 
     @classmethod
@@ -438,7 +434,7 @@ class RulesMetaAccessDataCheck(AbstractHealthCheck):
 
     def check(self, **kwargs) -> CheckResult:
         secret_name = self._settings_service.rules_metadata_repo_access_data()
-        secret_value = self._ssm_service.get_secret_value(secret_name)
+        secret_value = self._ssm.get_secret_value(secret_name)
         if not secret_value:
             return self.not_ok_result({
                 'error': f'No secret with rules metadata access data found. '
@@ -503,14 +499,12 @@ class RulesMetaCheck(AbstractHealthCheck):
 
 # on-prem specific checks -----
 class VaultConnectionCheck(AbstractHealthCheck):
-    def __init__(self, ssm_service: SSMService):
-        self._ssm_service = ssm_service
+    def __init__(self, ssm: VaultSSMClient):
+        self._ssm = ssm
 
     @classmethod
     def build(cls) -> 'VaultConnectionCheck':
-        return cls(
-            ssm_service=SERVICE_PROVIDER.ssm_service
-        )
+        return cls(ssm=SERVICE_PROVIDER.ssm)
 
     @classmethod
     def remediation(cls) -> str | None:
@@ -526,8 +520,9 @@ class VaultConnectionCheck(AbstractHealthCheck):
         return 'vault_connection'
 
     def check(self, **kwargs) -> CheckResult:
-        client = self._ssm_service.client
-        assert isinstance(client, VaultSSMClient), \
+        client = self._ssm
+        from hvac import Client
+        assert isinstance(client.client, Client), \
             'on-prem installation must use VaultSSMClient'
         client = client.client  # hvac
         try:
@@ -630,14 +625,12 @@ class AllS3BucketsExist(AbstractHealthCheck):
 
 
 class VaultAuthTokenIsSetCheck(AbstractHealthCheck):
-    def __init__(self, ssm_service: SSMService):
-        self._ssm_service = ssm_service
+    def __init__(self, ssm: VaultSSMClient):
+        self._ssm = ssm
 
     @classmethod
     def build(cls) -> 'VaultAuthTokenIsSetCheck':
-        return cls(
-            ssm_service=SERVICE_PROVIDER.ssm_service
-        )
+        return cls(ssm=SERVICE_PROVIDER.ssm)
 
     @classmethod
     def remediation(cls) -> str | None:
@@ -653,12 +646,12 @@ class VaultAuthTokenIsSetCheck(AbstractHealthCheck):
 
     def check(self, **kwargs) -> CheckResult:
         # lambda package does not include `onprem`
-        if not self._ssm_service.is_secrets_engine_enabled():
+        if not self._ssm.is_secrets_engine_enabled():
             return self.not_ok_result(details={
                 'private_key': False,
                 'secrets_engine': False
             })
-        token = self._ssm_service.get_secret_value(PRIVATE_KEY_SECRET_NAME)
+        token = self._ssm.get_secret_value(PRIVATE_KEY_SECRET_NAME)
         if not token or not isinstance(token, str):
             return self.not_ok_result(details={
                 'private_key': False,
@@ -666,3 +659,26 @@ class VaultAuthTokenIsSetCheck(AbstractHealthCheck):
                 'error': 'Private key does not exist or invalid'
             })
         return self.ok_result(details={'token': True, 'secrets_engine': True})
+
+
+class LiveCheck(AbstractHealthCheck):
+    @classmethod
+    def build(cls) -> 'LiveCheck':
+        return cls()
+
+    @classmethod
+    def remediation(cls) -> str | None:
+        # this message will probably never be shown
+        return 'Restart the container'
+
+    @classmethod
+    def impact(cls) -> str | None:
+        return 'Nothing works'
+
+    @classmethod
+    def identifier(cls) -> str:
+        return 'live'
+
+    def check(self, **kwargs) -> CheckResult:
+        # just a formality
+        return self.ok_result()

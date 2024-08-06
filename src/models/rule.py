@@ -2,7 +2,7 @@ import os
 from itertools import count
 from typing import Optional
 
-from pynamodb.attributes import UnicodeAttribute, MapAttribute, ListAttribute
+from pynamodb.attributes import UnicodeAttribute, ListAttribute
 from pynamodb.indexes import AllProjection
 
 from helpers.constants import (COMPOUND_KEYS_SEPARATOR, RuleSourceType, Cloud,
@@ -18,6 +18,7 @@ R_COMMENT_ATTR = 'i'  # index
 R_LOCATION_ATTR = 'l'
 R_COMMIT_HASH_ATTR = 'ch'
 R_UPDATED_DATE_ATTR = 'u'
+R_RULE_SOURCE_ID_ATTR = 's'
 
 
 class CustomerIdIndex(BaseGSI):
@@ -36,6 +37,16 @@ class CustomerLocationIndex(BaseGSI):
 
     customer = UnicodeAttribute(hash_key=True, attr_name=R_CUSTOMER_ATTR)
     location = UnicodeAttribute(range_key=True, attr_name=R_LOCATION_ATTR)
+
+
+class RuleSourceIdIdIndex(BaseGSI):
+    class Meta:
+        index_name = f'{R_RULE_SOURCE_ID_ATTR}-{R_ID_ATTR}-index'
+        projection = AllProjection()
+
+    rule_source_id = UnicodeAttribute(hash_key=True,
+                                      attr_name=R_RULE_SOURCE_ID_ATTR)
+    id = UnicodeAttribute(range_key=True, attr_name=R_ID_ATTR)
 
 
 class RuleIndex:
@@ -250,6 +261,8 @@ class Rule(BaseModel):
     description = UnicodeAttribute(attr_name=R_DESCRIPTION_ATTR)
     filters = ListAttribute(default=list, attr_name=R_FILTERS_ATTR)  # list of either strings or maps
     comment = UnicodeAttribute(null=True, attr_name=R_COMMENT_ATTR)
+    rule_source_id = UnicodeAttribute(null=True,
+                                      attr_name=R_RULE_SOURCE_ID_ATTR)
 
     # "project#ref#path"
     location = UnicodeAttribute(attr_name=R_LOCATION_ATTR)
@@ -259,6 +272,7 @@ class Rule(BaseModel):
 
     customer_id_index = CustomerIdIndex()
     customer_location_index = CustomerLocationIndex()
+    rule_source_id_id_index = RuleSourceIdIdIndex()
 
     @property
     def cloud(self) -> str:
@@ -338,5 +352,6 @@ class Rule(BaseModel):
             'name': self.name,
             'resource': self.resource,
             'filters': self.filters,
-            'description': self.description
+            'description': self.description,
+            'comment': self.comment
         }

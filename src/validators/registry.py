@@ -7,7 +7,11 @@ from validators.swagger_request_models import (
     BaseModel,
     BasePaginationModel,
     BatchResultsQueryModel,
+    RuleSourcesListModel,
+    RulesetReleasePostModel,
     CLevelGetReportModel,
+    ChronicleActivationPutModel,
+    ChroniclePostModel,
     CredentialsBindModel,
     CredentialsQueryModel,
     CustomerExcludedRulesPutModel,
@@ -50,6 +54,7 @@ from validators.swagger_request_models import (
     RabbitMQDeleteModel,
     RabbitMQGetModel,
     RabbitMQPostModel,
+    RawReportGetModel,
     RefreshPostModel,
     ReportPushByJobIdModel,
     ReportPushMultipleModel,
@@ -63,11 +68,9 @@ from validators.swagger_request_models import (
     RuleDeleteModel,
     RuleGetModel,
     RuleSourceDeleteModel,
-    RuleSourceGetModel,
     RuleSourcePatchModel,
     RuleSourcePostModel,
     RuleUpdateMetaPostModel,
-    RulesetContentGetModel,
     RulesetDeleteModel,
     RulesetGetModel,
     RulesetPatchModel,
@@ -79,7 +82,6 @@ from validators.swagger_request_models import (
     SelfIntegrationPutModel,
     SignInPostModel,
     SignUpModel,
-    StandardJobPostModel,
     TenantComplianceReportGetModel,
     TenantExcludedRulesPutModel,
     TenantGetActiveLicensesModel,
@@ -90,7 +92,6 @@ from validators.swagger_request_models import (
     UserPatchModel,
     UserPostModel,
     UserResetPasswordModel,
-    RawReportGetModel
 )
 from validators.swagger_response_models import (
     CredentialsActivationModel,
@@ -102,10 +103,12 @@ from validators.swagger_response_models import (
     JobResourcesReportModel,
     MessageModel,
     MultipleBatchResultsModel,
+    MultipleChronicleModel,
     MultipleCredentialsModel,
     MultipleCustomersModel,
     MultipleDefectDojoModel,
     MultipleDefectDojoPushResult,
+    SingleChroniclePushResult,
     MultipleHealthChecksModel,
     MultipleJobReportModel,
     MultipleJobsModel,
@@ -122,9 +125,12 @@ from validators.swagger_response_models import (
     MultipleScheduledJobsModel,
     MultipleTenantsModel,
     MultipleUsersModel,
+    RawReportModel,
     RulesReportModel,
     SignInModel,
     SingleBatchResultModel,
+    SingleChronicleActivationModel,
+    SingleChronicleModel,
     SingleCredentialsModel,
     SingleCustomerExcludedRules,
     SingleDefeDojoModel,
@@ -150,7 +156,6 @@ from validators.swagger_response_models import (
     SingleTenantExcludedRules,
     SingleTenantsModel,
     SingleUserModel,
-    RawReportModel
 )
 
 
@@ -198,26 +203,18 @@ data: tuple[EndpointInfo, ...] = (
         method=HTTPMethod.GET,
         request_model=HealthCheckQueryModel,
         responses=[(HTTPStatus.OK, MultipleHealthChecksModel, None)],
-        description='Performs all available health checks'
+        description='Performs all available health checks',
+        auth=False
     ),
     EndpointInfo(
         path=CustodianEndpoint.HEALTH_ID,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleHealthCheckModel, None)],
-        description='Performs a specific health check by its id'
+        description='Performs a specific health check by its id',
+        auth=False
     ),
 
-    # jobs
-    EndpointInfo(
-        path=CustodianEndpoint.JOBS_STANDARD,
-        method=HTTPMethod.POST,
-        request_model=StandardJobPostModel,
-        responses=[(HTTPStatus.ACCEPTED, SingleJobModel, None)],
-        permission=Permission.JOB_POST_STANDARD,
-        description='Allows to submit a standard not licensed job. '
-                    'Ruleset must be present locally'
-    ),
     EndpointInfo(
         path=CustodianEndpoint.JOBS_K8S,
         method=HTTPMethod.POST,
@@ -513,6 +510,15 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to delete a local ruleset'
     ),
     EndpointInfo(
+        path=CustodianEndpoint.RULESETS_RELEASE,
+        method=HTTPMethod.POST,
+        request_model=RulesetReleasePostModel,
+        responses=[(HTTPStatus.OK, None, None)],
+        permission=Permission.RULESET_RELEASE,
+        description='Allows to release a ruleset to the license manager'
+    ),
+
+    EndpointInfo(
         path=CustodianEndpoint.ED_RULESETS,
         method=HTTPMethod.GET,
         request_model=EventDrivenRulesetGetModel,
@@ -536,20 +542,12 @@ data: tuple[EndpointInfo, ...] = (
         permission=Permission.RULESET_DELETE_ED,
         description='Allows to delete a ruleset for event-driven scans'
     ),
-    EndpointInfo(
-        path=CustodianEndpoint.RULESETS_CONTENT,
-        method=HTTPMethod.GET,
-        request_model=RulesetContentGetModel,
-        responses=[(HTTPStatus.OK, MessageModel, None)],
-        permission=Permission.RULESET_GET_CONTENT,
-        description='Allows to retrieve ruleset content'
-    ),
 
     # rulesources
     EndpointInfo(
         path=CustodianEndpoint.RULE_SOURCES,
         method=HTTPMethod.GET,
-        request_model=RuleSourceGetModel,
+        request_model=RuleSourcesListModel,
         responses=[(HTTPStatus.OK, MultipleRuleSourceModel, None)],
         permission=Permission.RULE_SOURCE_DESCRIBE,
         description='Allows to list all locally added rule sources'
@@ -563,7 +561,15 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to add a rule-source locally'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RULE_SOURCES,
+        path=CustodianEndpoint.RULE_SOURCES_ID,
+        method=HTTPMethod.GET,
+        request_model=BaseModel,
+        responses=[(HTTPStatus.OK, SingleRuleSourceModel, None)],
+        permission=Permission.RULE_SOURCE_DESCRIBE,
+        description='Allows to get a single rule source item'
+    ),
+    EndpointInfo(
+        path=CustodianEndpoint.RULE_SOURCES_ID,
         method=HTTPMethod.PATCH,
         request_model=RuleSourcePatchModel,
         responses=[(HTTPStatus.OK, SingleRuleSourceModel, None)],
@@ -571,12 +577,20 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to update a local rule-source'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RULE_SOURCES,
+        path=CustodianEndpoint.RULE_SOURCES_ID,
         method=HTTPMethod.DELETE,
         request_model=RuleSourceDeleteModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.RULE_SOURCE_DELETE,
         description='Allows to delete a local rule-source'
+    ),
+    EndpointInfo(
+        path=CustodianEndpoint.RULE_SOURCES_ID_SYNC,
+        method=HTTPMethod.POST,
+        request_model=BaseModel,
+        responses=[(HTTPStatus.ACCEPTED, None, None)],
+        permission=Permission.RULE_SOURCE_SYNC,
+        description='Allows to pull latest meta for rule source'
     ),
 
     # policies
@@ -1015,14 +1029,6 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to submit a job to update standards meta'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.META_MAPPINGS,
-        method=HTTPMethod.POST,
-        request_model=BaseModel,
-        responses=[(HTTPStatus.ACCEPTED, MessageModel, None)],
-        permission=Permission.META_UPDATE_MAPPINGS,
-        description='Allows to submit a job to update rules meta mappings'
-),
-    EndpointInfo(
         path=CustodianEndpoint.META_META,
         method=HTTPMethod.POST,
         request_model=BaseModel,
@@ -1256,7 +1262,80 @@ data: tuple[EndpointInfo, ...] = (
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.USERS_RESET_PASSWORD,
         description='Allows to change you password'
-    )
+    ),
+
+    EndpointInfo(
+        path=CustodianEndpoint.INTEGRATIONS_CHRONICLE,
+        method=HTTPMethod.POST,
+        request_model=ChroniclePostModel,
+        responses=[(HTTPStatus.CREATED, SingleChronicleModel, None)],
+        permission=Permission.CHRONICLE_INTEGRATION_CREATE,
+        description='Registers a google Chronicle instance'
+    ),
+    EndpointInfo(
+        path=CustodianEndpoint.INTEGRATIONS_CHRONICLE,
+        method=HTTPMethod.GET,
+        request_model=BasePaginationModel,
+        responses=[(HTTPStatus.OK, MultipleChronicleModel, None)],
+        permission=Permission.CHRONICLE_INTEGRATION_DESCRIBE,
+        description='Queries google Chronicle instances'
+    ),
+    EndpointInfo(
+        path=CustodianEndpoint.INTEGRATIONS_CHRONICLE_ID,
+        method=HTTPMethod.GET,
+        request_model=BaseModel,
+        responses=[(HTTPStatus.OK, SingleChronicleModel, None)],
+        permission=Permission.CHRONICLE_INTEGRATION_DESCRIBE,
+        description='Retrieves a specific google Chronicle instance'
+    ),
+    EndpointInfo(
+        path=CustodianEndpoint.INTEGRATIONS_CHRONICLE_ID,
+        method=HTTPMethod.DELETE,
+        request_model=BaseModel,
+        responses=[(HTTPStatus.NO_CONTENT, None, None)],
+        permission=Permission.CHRONICLE_INTEGRATION_DELETE,
+        description='Deregisters a specific google Chronicle instance'
+    ),
+    EndpointInfo(
+        path=CustodianEndpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION,
+        method=HTTPMethod.PUT,
+        request_model=ChronicleActivationPutModel,
+        responses=[(HTTPStatus.CREATED, SingleChronicleActivationModel, None)],
+        permission=Permission.CHRONICLE_INTEGRATION_ACTIVATE,
+        description='Allows to activate Chronicle integration for tenants'
+    ),
+    EndpointInfo(
+        path=CustodianEndpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION,
+        method=HTTPMethod.GET,
+        request_model=BaseModel,
+        responses=[(HTTPStatus.OK, SingleDefectDojoActivation, None)],
+        permission=Permission.CHRONICLE_INTEGRATION_GET_ACTIVATION,
+        description='Allows to get tenants Chronicle integration is activated for'
+    ),
+    EndpointInfo(
+        path=CustodianEndpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION,
+        method=HTTPMethod.DELETE,
+        request_model=BaseModel,
+        responses=[(HTTPStatus.NO_CONTENT, None, None)],
+        permission=Permission.CHRONICLE_INTEGRATION_DELETE_ACTIVATION,
+        description='Allows to deactivate Chronicle integration'
+    ),
+    EndpointInfo(
+        path=CustodianEndpoint.REPORTS_PUSH_CHRONICLE_JOB_ID,
+        method=HTTPMethod.POST,
+        request_model=ReportPushByJobIdModel,
+        responses=[(HTTPStatus.OK, SingleChroniclePushResult, None)],
+        permission=Permission.REPORT_PUSH_TO_CHRONICLE,
+        description='Allows to push a specific job to Chronicle'
+    ),
+    EndpointInfo(
+        path=CustodianEndpoint.REPORTS_PUSH_CHRONICLE_TENANTS_TENANT_NAME,
+        method=HTTPMethod.POST,
+        request_model=BaseModel,
+        responses=[(HTTPStatus.OK, SingleChroniclePushResult, None)],
+        permission=Permission.REPORT_PUSH_TO_CHRONICLE_TENANT,
+        description='Allows to push tenant data to Chronicle'
+    ),
 )
 
 common_responses = (

@@ -15,7 +15,7 @@ from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
 from services import SP
 from services.abs_lambda import ProcessedEvent
-from services.ssm_service import SSMService
+from services.clients.ssm import AbstractSSMClient
 from validators.swagger_request_models import (
     RabbitMQDeleteModel,
     RabbitMQGetModel,
@@ -28,15 +28,15 @@ _LOG = get_logger(__name__)
 
 class RabbitMQHandler(AbstractHandler):
     def __init__(self, application_service: ApplicationService,
-                 ssm_service: SSMService):
+                 ssm: AbstractSSMClient):
         self._application_service = application_service
-        self._ssm_service = ssm_service
+        self._ssm = ssm
 
     @classmethod
     def build(cls) -> 'RabbitMQHandler':
         return cls(
             application_service=SP.modular_client.application_service(),
-            ssm_service=SP.ssm_service
+            ssm=SP.ssm
         )
 
     @cached_property
@@ -81,13 +81,13 @@ class RabbitMQHandler(AbstractHandler):
             response_queue=event.response_queue,
             sdk_access_key=event.sdk_access_key
         )
-        name = self._ssm_service.save_data(
-            name=f'{customer}-rabbitmq-configuration',
-            value=RabbitMQApplicationSecret(
+        name = self._ssm.prepare_name(f'{customer}-rabbitmq-configuration')
+        self._ssm.create_secret(
+            secret_name=name,
+            secret_value=RabbitMQApplicationSecret(
                 connection_url=str(event.connection_url),
                 sdk_secret_key=event.sdk_secret_key
             ).dict(),
-            prefix='caas'
         )
         application = self._application_service.build(
             customer_id=customer,
@@ -131,7 +131,7 @@ class RabbitMQHandler(AbstractHandler):
         self._application_service.mark_deleted(application)
         if application.secret:
             _LOG.info(f'Removing application secret: {application.secret}')
-            if not self._ssm_service.delete_secret(application.secret):
+            if not self._ssm.delete_parameter(application.secret):
                 _LOG.warning(f'Could not remove secret: {application.secret}')
         # Modular sdk does not remove the app, just sets is_deleted
         return build_response(code=HTTPStatus.NO_CONTENT)

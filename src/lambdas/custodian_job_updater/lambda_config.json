@@ -11,10 +11,6 @@
   "logs_expiration": "${logs_expiration}",
   "dependencies": [
     {
-      "resource_name": "caas-job-state-update",
-      "resource_type": "cloudwatch_rule_trigger"
-    },
-    {
       "resource_name": "CaaSJobs",
       "resource_type": "dynamodb_table"
     }

@@ -1,10 +1,9 @@
 # classes for swagger models are not instantiated directly in code.
 # PreparedEvent models are used instead.
-
 from base64 import standard_b64decode
 from datetime import date, datetime, timedelta, timezone
 from itertools import chain
-from typing import Literal
+from typing import Literal, Generator
 from typing_extensions import Annotated, Self
 
 from modular_sdk.commons.constants import Cloud as ModularCloud
@@ -30,12 +29,18 @@ from helpers.constants import (
     PolicyErrorType,
     ReportFormat,
     RuleDomain,
+    RuleSourceType,
+    GITHUB_API_URL_DEFAULT,
+    GITLAB_API_URL_DEFAULT
 )
+from helpers import Version
 from helpers.regions import AllRegions, AllRegionsWithGlobal
 from helpers.reports import Standard
 from helpers.time_helper import utc_datetime
 from services import SERVICE_PROVIDER
 from services.rule_meta_service import RuleName
+from services.chronicle_service import ChronicleConverterType
+from services.ruleset_service import RulesetName
 from models.policy import PolicyEffect
 
 
@@ -209,24 +214,59 @@ class TenantRegionPostModel(BaseModel):
 
 class RulesetPostModel(BaseModel):
     name: str
-    version: str
-    cloud: RuleDomain
-    active: bool = True
-
-    # if empty, all the rules for cloud is chosen
-    rules: set = Field(default_factory=set)
+    cloud: Literal['AWS', 'AZURE', 'GOOGLE', 'GCP', 'KUBERNETES']
+    version: str = Field(
+        None,
+        description='Ruleset version. If not specified, '
+                    'will be generated automatically based on github '
+                    'release of rules or based on the previous ruleset version'
+    )
+    rule_source_id: str = Field(
+        None,
+        description='Id of rule source object to get rules from. '
+                    'If the type of that source is GITHUB_RELEASE, '
+                    'the version from release tag will be used'
+    )
     git_project_id: str = Field(None)
     git_ref: str = Field(None)
+
+    rules: set = Field(default_factory=set)
+    excluded_rules: set = Field(default_factory=set)
 
     service_section: str = Field(None)
     severity: str = Field(None)
     mitre: set[str] = Field(default_factory=set)
     standard: set[str] = Field(default_factory=set)
 
+    @field_validator('name', mode='after')
+    @classmethod
+    def validate_name(cls, name: str) -> str:
+        if ':' in name:
+            raise ValueError('colon in not allowed in ruleset name')
+        return name
+
+    @field_validator('cloud', mode='after')
+    @classmethod
+    def validate_cloud(cls, cloud: str) -> str:
+        if cloud == 'GOOGLE':
+            cloud = 'GCP'
+        return cloud
+
+    @field_validator('version', mode='after')
+    @classmethod
+    def validate_version(cls, version: str | None) -> str | None:
+        if not version:
+            return version
+        _ = Version(version)  # raise ValueError
+        return version
+
     @model_validator(mode='after')
-    def validate_filters(self) -> Self:
+    def validate_model(self) -> Self:
         if self.git_ref and not self.git_project_id:
             raise ValueError('git_project_id must be specified with git_ref')
+        if self.rule_source_id and (self.git_ref or self.git_project_id):
+            raise ValueError('Do not specify git_ref or git_project_id '
+                             'if rule_source_id is specified')
         cloud = self.cloud
         col = SERVICE_PROVIDER.mappings_collector
         if self.service_section:
@@ -286,23 +326,68 @@ class RulesetPostModel(BaseModel):
 
 class RulesetPatchModel(BaseModel):
     name: str
-    version: str
+    version: str = Field(
+        None,
+        description='A version of the ruleset you want to update. '
+                    'If not specified, the latest previous ruleset will '
+                    'be used as base to update'
+    )
 
     rules_to_attach: set = Field(default_factory=set)
     rules_to_detach: set = Field(default_factory=set)
-    active: bool = Field(None)
+    force: bool = False
+
+    @field_validator('name', mode='after')
+    @classmethod
+    def validate_name(cls, name: str) -> str:
+        if ':' in name:
+            raise ValueError('colon in not allowed in ruleset name')
+        return name
+
+    @field_validator('version', mode='after')
+    @classmethod
+    def validate_version(cls, version: str | None) -> str | None:
+        if not version:
+            return version
+        _ = Version(version)  # raise ValueError
+        return version
 
     @model_validator(mode='after')
     def at_least_one_given(self) -> Self:
-        if not self.rules_to_attach and not self.rules_to_detach and self.active is None:
+        if self.force:
+            return self
+        if not self.rules_to_attach and not self.rules_to_detach:
             raise ValueError(
-                'At least one attribute to update must be provided')
+                'At least one attribute to update must be provided'
+            )
         return self
 
 
 class RulesetDeleteModel(BaseModel):
     name: str
-    version: str
+    version: str = Field(
+        description='Specific version to remove. * can be specified to '
+                    'remove all the versions of a specific ruleset'
+    )
+
+    @field_validator('name', mode='after')
+    @classmethod
+    def validate_name(cls, name: str) -> str:
+        if ':' in name:
+            raise ValueError('colon in not allowed in ruleset name')
+        return name
+
+    @field_validator('version', mode='after')
+    @classmethod
+    def validate_version(cls, version: str) -> str:
+        version = version.strip()
+        if version != '*':
+            _ = Version(version)
+        return version
+
+    @property
+    def is_all_versions(self) -> bool:
+        return self.version == '*'
 
 
 class RulesetGetModel(BaseModel):
@@ -313,27 +398,53 @@ class RulesetGetModel(BaseModel):
     version: str = Field(None)
     cloud: RuleDomain = Field(None)
     get_rules: bool = False
-    active: bool = Field(None)
     licensed: bool = Field(None)
+
+    @field_validator('version', mode='after')
+    @classmethod
+    def validate_version(cls, version: str | None) -> str | None:
+        if not version:
+            return version
+        version = version.strip()
+        _ = Version(version)
+        return version
 
     @model_validator(mode='after')
     def validate_codependent_params(self) -> Self:
         if self.version and not self.name:
             raise ValueError('\'name\' is required if \'version\' is given')
-        if self.name and self.version and (
-                self.cloud or self.active is not None):
+        if self.name and self.version and self.cloud:
             raise ValueError(
                 'you don\'t have to specify \'cloud\' or \'active\' '
                 'if \'name\' and \'version\' are given')
         return self
 
 
-class RulesetContentGetModel(BaseModel):
-    """
-    GET
-    """
+class RulesetReleasePostModel(BaseModel):
     name: str
-    version: str
+    version: str = Field(
+        None,
+        description='Specific version to release to LM. * can be specified to '
+                    'release all the versions of a specific ruleset. '
+                    'If not specified, the latest version will be released'
+    )
+    description: str
+    display_name: str
+
+    @field_validator('version', mode='after')
+    @classmethod
+    def validate_version(cls, version: str | None) -> str | None:
+        if not version:
+            return version
+        version = version.strip()
+        if version != '*':
+            _ = Version(version)
+        return version
+
+    @property
+    def is_all_versions(self) -> bool:
+        return self.version == '*'
+    # other params
 
 
 class RuleDeleteModel(BaseModel):
@@ -357,9 +468,15 @@ class RuleGetModel(BasePaginationModel):
     cloud: RuleDomain = Field(None)
     git_project_id: str = Field(None)
     git_ref: str = Field(None)
+    rule_source_id: str = Field(None)
 
     @model_validator(mode='after')
     def validate_root(self) -> Self:
+        if self.rule_source_id and (self.git_project_id or self.git_ref):
+            raise ValueError(
+                'Do not specify git_project_id or git_ref if rule_source_id '
+                'is given'
+            )
         if self.git_ref and not self.git_project_id:
             raise ValueError('git_project_id must be specified with git_ref')
         return self
@@ -370,51 +487,59 @@ class RuleUpdateMetaPostModel(BaseModel):
 
 
 class RuleSourcePostModel(BaseModel):
-    git_project_id: str
-    git_url: Annotated[
-        str,
-        StringConstraints(pattern=r'^https?:\/\/[^\/]+$')
-    ] = Field(None)
-    git_ref: str = 'main'
-    git_rules_prefix: str = '/'
-    git_access_type: Annotated[
-        Literal['TOKEN'],
-        WithJsonSchema({'type': 'string', 'title': 'Git access type',
-                        'default': 'TOKEN'})
-    ] = 'TOKEN'
-    # custom json schema because we don't want "const" key to appear in
-    # schema because API gw does not support that,
-    # but we do want validation that only TOKEN is supported now
-    git_access_secret: str = Field(None)
+    git_project_id: str  # "141234124" or "epam/ecc"
     description: str
+    type: RuleSourceType = Field(
+        None,
+        description='If not specified will be inferred from git_project_id.'
+    )
+
+    git_url: HttpUrl = Field(
+        None,
+        description=f'If not specified will be inferred from git_project_id. '
+                    f'"{GITHUB_API_URL_DEFAULT}" will be used for GitHub, '
+                    f'"{GITLAB_API_URL_DEFAULT}" will be used for GitLab'
+    )  # can be inferred
+    git_ref: str = Field(
+        'main',
+        description='Git branch to pull rules from. Not used for '
+                    'GITHUB_RELEASE'
+    )
+    git_rules_prefix: str = '/'
+    git_access_secret: str = Field(None)
+
+    @property
+    def baseurl(self) -> str:
+        return self.git_url.scheme + '://' + self.git_url.host
 
     @model_validator(mode='after')
     def root(self) -> Self:
-        self.git_project_id = self.git_project_id.strip('/')
+        self.git_project_id = self.git_project_id.strip().strip('/')
         is_github = self.git_project_id.count('/') == 1
         is_gitlab = self.git_project_id.isdigit()
+        if not is_github and not is_gitlab:
+            raise ValueError(
+                'unknown git_project_id. '
+                'Specify Gitlab project id or Github owner/repo'
+            )
         if not self.git_url:
             if is_github:
-                self.git_url = 'https://api.github.com'
+                self.git_url = HttpUrl(GITHUB_API_URL_DEFAULT)
             elif is_gitlab:
-                self.git_url = 'https://git.epam.com'
-            else:
-                raise ValueError(
-                    'unknown git_project_id. '
-                    'Specify Gitlab project id or Github owner/repo'
-                )
-        if is_gitlab and not self.git_access_secret:
-            raise ValueError('git_access_secret is required for GitLab')
+                self.git_url = HttpUrl(GITLAB_API_URL_DEFAULT)
+        if not self.type:
+            if is_github:
+                self.type = RuleSourceType.GITHUB
+            elif is_gitlab:
+                self.type = RuleSourceType.GITLAB
+        if self.type is RuleSourceType.GITHUB_RELEASE and not is_github:
+            raise ValueError(
+                'GITHUB_RELEASES is only available for GitHub projects'
+            )
         return self
 
 
 class RuleSourcePatchModel(BaseModel):
-    id: str
-    git_access_type: Annotated[
-        Literal['TOKEN'],
-        WithJsonSchema({'type': 'string', 'title': 'Git access type',
-                        'default': 'TOKEN'})
-    ] = 'TOKEN'
     git_access_secret: str = Field(None)
     description: str = Field(None)
 
@@ -426,15 +551,16 @@ class RuleSourcePatchModel(BaseModel):
 
 
 class RuleSourceDeleteModel(BaseModel):
-    id: str
+    delete_rules: bool = False
 
 
-class RuleSourceGetModel(BaseModel):
-    """
-    GET
-    """
-    id: str = Field(None)
-    git_project_id: str = Field(None)
+class RuleSourcesListModel(BasePaginationModel):
+    type: RuleSourceType = Field(None)
+    project_id: str = Field(
+        None,
+        description='Gitlab project id (12345) or Github project id (epam/ecc)'
+    )
+    has_secret: bool = Field(None)
 
 
 class RolePostModel(BaseModel):
@@ -568,30 +694,135 @@ class JobPostModel(BaseModel):
     credentials: AWSCredentials | AZURECredentials | GOOGLECredentials1 | GOOGLECredentials2 | GOOGLECredentials3 = Field(
         None)
     tenant_name: str
-    target_rulesets: set[str] = Field(default_factory=set)
-    target_regions: set[str] = Field(default_factory=set)
-    rules_to_scan: set[str] = Field(default_factory=set)
-    # todo allow to provide desired license key
+    target_rulesets: set[str] = Field(
+        default_factory=set,
+        alias='rulesets',
+    )
+    target_regions: set[str] = Field(default_factory=set, alias='regions')
+    rules_to_scan: set[str] = Field(default_factory=set, alias='rules')
+    timeout_minutes: float = Field(
+        None,
+        description='Job timeout in minutes. This timeout is soft '
+                    'meaning that when the desired number of minutes have '
+                    'passed job termination will be triggered'
+    )
+    license_key: str = Field(
+        None,
+        description='License to exhaust for this job. Will be resolved '
+                    'automatically unless an ambiguous occurs'
+    )
+
+    @field_validator('target_rulesets', mode='after')
+    @classmethod
+    def validate_rulesets(cls, value: set[str]) -> set[str]:
+        """
+        Removes license keys and validates
+        :param value:
+        :return:
+        """
+        name_to_items = {}
+        rulesets = set()
+        for item in value:
+            i = RulesetName(item)  # raises ValueError
+            name_to_items.setdefault(i.name, []).append(i)
+            rulesets.add(RulesetName(i.name, i.version, None).to_str())
+        if any(len(items) > 1 for items in name_to_items.values()):
+            raise ValueError('Only one version of specific ruleset can be '
+                             'used')
+        return rulesets
+
+    def iter_rulesets(self) -> Generator[RulesetName, None, None]:
+        yield from map(RulesetName, self.target_rulesets)
 
 
-class StandardJobPostModel(BaseModel):
+def sanitize_schedule(schedule: str) -> str:
     """
-    standard jobs means not licensed job -> without licensed rule-sets
+    May raise ValueError
+    :param schedule:
+    :return:
     """
-    credentials: AWSCredentials | AZURECredentials | GOOGLECredentials1 | GOOGLECredentials2 | GOOGLECredentials3 = Field(
-        None)
-    tenant_name: str
-    target_rulesets: set[str] = Field(default_factory=set)
-    target_regions: set[str] = Field(default_factory=set)
+    _rate_error_message = (
+        'Invalid rate expression. Use `rate(value, unit)` where '
+        'value is a positive number, '
+        'unit is one of: minute, minutes, hour, hours, day, days. '
+        'Valid examples are: rate(1 hour), rate(2 hours). '
+        'If the value is equal to 1, then the unit must be singular.'
+    )
+    if 'rate' in schedule:
+        # consider the value to be rate expression only if explicitly
+        # specified "rate"
+        try:
+            value, unit = schedule.replace('rate', '').strip(' ()').split()
+            value = int(value)
+            if unit not in ('minute', 'minutes', 'hour', 'hours', 'day',
+                            'days', 'week', 'weeks', 'second', 'seconds',):
+                raise ValueError
+            if value < 1:
+                raise ValueError
+            if value == 1 and unit.endswith('s') or value > 1 and not unit.endswith('s'):
+                raise ValueError
+        except ValueError:
+            raise ValueError(_rate_error_message)
+        return schedule
+    # considering it to be a cron expression.
+    # Currently, on-prem and saas cron expressions differ. On-prem only
+    # accepts standard crontab that contains five fields without year
+    # (https://en.wikipedia.org/wiki/Cron),
+    # whereas saas accepts expressions that are valid for EventBridge
+    # rule (https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-cron-expressions.html).
+    # The validator below does not 100% ensure that the expression if
+    # valid, but it does some things to make the difference less visible
+    raw = schedule.replace('cron', '').strip(' ()').split()
+    if len(raw) not in (5, 6):
+        raise ValueError('Invalid cron expression. '
+                         'Must contain 5 or 6 fields: '
+                         '(minute hour day-of-month month day-of-week [year])')
+    if SERVICE_PROVIDER.environment_service.is_docker():
+        # on-prem supports only 5 fields and does not support "?"
+        raw = ['*' if i == '?' else i for i in raw]
+        if len(raw) == 6:
+            raw.pop()
+    else:
+        # saas supports only 6 fields
+        if len(raw) == 5:
+            raw.append('*')
+    return f'cron({" ".join(raw)})'
 
 
 class ScheduledJobPostModel(BaseModel):
     schedule: str
     tenant_name: str = Field(None)
     name: str = Field(None)
-    target_rulesets: set[str] = Field(default_factory=set)
-    target_regions: set[str] = Field(default_factory=set)
+    target_rulesets: set[str] = Field(default_factory=set, alias='rulesets')
+    target_regions: set[str] = Field(default_factory=set, alias='regions')
 
+    license_key: str = Field(
+        None,
+        description='License to exhaust for this job. Will be resolved '
+                    'automatically unless an ambiguous occurs'
+    )
+
+    @field_validator('schedule')
+    @classmethod
+    def _(cls, schedule: str) -> str:
+        return sanitize_schedule(schedule)
+
+    @field_validator('target_rulesets', mode='after')
+    @classmethod
+    def validate_rulesets(cls, value: set[str]) -> set[str]:
+        """
+        Removes license keys and validates
+        :param value:
+        :return:
+        """
+        rulesets = set()
+        for item in value:
+            i = RulesetName(item)  # raises ValueError
+            rulesets.add(RulesetName(i.name, i.version, None).to_str())
+        return rulesets
+
+    def iter_rulesets(self) -> Generator[RulesetName, None, None]:
+        yield from map(RulesetName, self.target_rulesets)
 
 class ScheduledJobGetModel(BaseModel):
     """
@@ -609,6 +840,11 @@ class ScheduledJobPatchModel(BaseModel):
         if not self.schedule and self.enabled is None:
             raise ValueError('Provide attributes to update')
         return self
+
+    @field_validator('schedule')
+    @classmethod
+    def _(cls, schedule: str) -> str:
+        return sanitize_schedule(schedule)
 
 
 class EventPostModel(BaseModel):
@@ -692,7 +928,6 @@ class LicenseManagerConfigSettingPostModel(BaseModel):
         StringConstraints(to_upper=True)
     ] = Field(None)
     stage: str = Field(None)
-    api_version: str = Field(None)
 
 
 
@@ -805,6 +1040,7 @@ class ReportPushByJobIdModel(BaseModel):
     """
     /reports/push/dojo/{job_id}/
     /reports/push/security-hub/{job_id}/
+    /reports/push/chronicle/{job_id}/
     """
     type: JobType = JobType.MANUAL
 
@@ -827,16 +1063,55 @@ class EventDrivenRulesetGetModel(BaseModel):
 
 class EventDrivenRulesetPostModel(BaseModel):
     # name: str
-    cloud: RuleDomain
-    version: float
-    rules: list = Field(default_factory=list)
-    # rule_version: Optional[float]
+    cloud: Literal['AWS', 'AZURE', 'GOOGLE', 'GCP', 'KUBERNETES']
+    version: str = Field(
+        None,
+        description='Ruleset version. If not specified, '
+                    'will be generated automatically based on github '
+                    'release of rules or based on the previous ruleset version'
+    )
+    rule_source_id: str = Field(
+        None,
+        description='Id of rule source object to get rules from. '
+                    'If the type of that source is GITHUB_RELEASE, '
+                    'the version from release tag will be used'
+    )
+
+    @field_validator('cloud', mode='after')
+    @classmethod
+    def validate_cloud(cls, cloud: str) -> str:
+        if cloud == 'GOOGLE':
+            cloud = 'GCP'
+        return cloud
+
+    @field_validator('version', mode='after')
+    @classmethod
+    def validate_version(cls, version: str | None) -> str | None:
+        if not version:
+            return version
+        _ = Version(version)  # raise ValueError
+        return version
 
 
 class EventDrivenRulesetDeleteModel(BaseModel):
     # name: str
     cloud: RuleDomain
-    version: float
+    version: str = Field(
+        description='Specific version to remove. * can be specified to '
+                    'remove all the versions of a specific ruleset'
+    )
+
+    @field_validator('version', mode='after')
+    @classmethod
+    def validate_version(cls, version: str) -> str:
+        version = version.strip()
+        if version != '*':
+            _ = Version(version)
+        return version
+
+    @property
+    def is_all_versions(self) -> bool:
+        return self.version == '*'
 
 
 class ProjectGetReportModel(BaseModel):
@@ -1076,8 +1351,37 @@ class K8sJobPostModel(BaseModel):
     K8s platform job
     """
     platform_id: str
-    target_rulesets: set[str] = Field(default_factory=set)
+    target_rulesets: set[str] = Field(default_factory=set, alias='rulesets')
     token: str = Field(None)  # temp jwt token
+
+    timeout_minutes: float = Field(
+        None,
+        description='Job timeout in minutes. This timeout is soft '
+                    'meaning that when the desired number of minutes have '
+                    'passed job termination will be triggered'
+    )
+    license_key: str = Field(
+        None,
+        description='License to exhaust for this job. Will be resolved '
+                    'automatically unless an ambiguous occurs'
+    )
+
+    @field_validator('target_rulesets', mode='after')
+    @classmethod
+    def validate_rulesets(cls, value: set[str]) -> set[str]:
+        """
+        Removes license keys and validates
+        :param value:
+        :return:
+        """
+        rulesets = set()
+        for item in value:
+            i = RulesetName(item)  # raises ValueError
+            rulesets.add(RulesetName(i.name, i.version, None).to_str())
+        return rulesets
+
+    def iter_rulesets(self) -> Generator[RulesetName, None, None]:
+        yield from map(RulesetName, self.target_rulesets)
 
 
 class ReportStatusGetModel(BaseModel):
@@ -1103,7 +1407,6 @@ class MetricsStatusGetModel(TimeRangedMixin, BaseModel):
 
 class LicensePostModel(BaseModel):
     tenant_license_key: str = Field(alias='license_key')
-    description: str = 'Custodian license'
 
 
 class LicenseActivationPutModel(BaseModel):
@@ -1145,6 +1448,50 @@ class DefectDojoPostModel(BaseModel):
     api_key: str
 
     description: str
+
+
+class ChroniclePostModel(BaseModel):
+    endpoint: HttpUrl  # https://malachiteingestion-pa.googleapis.com/v2
+    description: str
+    credentials_application_id: str  # application with google creds
+    instance_customer_id: str
+
+    @property
+    def baseurl(self) -> str:
+        return self.endpoint.scheme + '://' + self.endpoint.host
+
+
+class ChronicleActivationPutModel(BaseModel):
+    tenant_names: set[str] = Field(default_factory=set)
+
+    all_tenants: bool = False
+    clouds: set[Literal['AWS', 'AZURE', 'GOOGLE']] = Field(default_factory=set)
+    exclude_tenants: set[str] = Field(default_factory=set)
+
+    send_after_job: bool = Field(
+        False,
+        description='Whether to send the results to dojo after each scan'
+    )
+    convert_to: ChronicleConverterType = Field(
+        ChronicleConverterType.EVENTS,
+        description='How to convert Rule Engine data '
+                    'before sending to Chronicle'
+    )
+
+    @model_validator(mode='after')
+    def _(self) -> Self:
+        if self.tenant_names and any((self.all_tenants, self.clouds,
+                                      self.exclude_tenants)):
+            raise ValueError('do not provide all_tenants, clouds or '
+                             'exclude_tenants if specific '
+                             'tenant names are provided')
+        if not self.all_tenants and not self.tenant_names:
+            raise ValueError('either all_tenants or specific tenant names '
+                             'must be given')
+        if (self.clouds or self.exclude_tenants) and not self.all_tenants:
+            raise ValueError('set all tenants to true if you provide clouds '
+                             'or excluded')
+        return self
 
 
 class DefectDojoQueryModel(BaseModel):

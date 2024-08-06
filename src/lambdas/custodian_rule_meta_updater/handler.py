@@ -1,28 +1,22 @@
 from concurrent.futures import ThreadPoolExecutor
 import dataclasses
 from functools import cached_property
-import json
 import os
 from pathlib import Path
 import tempfile
-from typing import Generator, TypedDict
+from typing import Generator, Iterable, TypedDict, cast
 
 from modular_sdk.commons import DataclassBase
 from pydantic import ValidationError
 from ruamel.yaml import YAML, YAMLError, __with_libyaml__
 
 from helpers import RequestContext
-from helpers.constants import (
-    RuleSourceType,
-    S3SettingKey,
-    STATUS_SYNCED,
-    STATUS_SYNCING,
-    STATUS_SYNCING_FAILED,
-)
+from helpers.constants import RuleSourceSyncingStatus, RuleSourceType, S3SettingKey
 from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_iso
 from models.rule import Rule
+from models.rule_source import RuleSource
 from models.setting import Setting
 from services import SERVICE_PROVIDER
 from services.abs_lambda import EventProcessorLambdaHandler
@@ -34,7 +28,7 @@ from services.rule_meta_service import RuleMetaModel, RuleModel, RuleService
 from services.rule_source_service import RuleSourceService
 from services.s3_settings_service import S3SettingsService
 from services.setting_service import SettingsService
-from services.ssm_service import SSMService
+from services.clients.ssm import AbstractSSMClient
 
 _LOG = get_logger('custodian-rule-meta-updater')
 
@@ -62,13 +56,13 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
                  rule_source_service: RuleSourceService,
                  settings_service: SettingsService,
                  s3_settings_service: S3SettingsService,
-                 ssm_service: SSMService,
+                 ssm: AbstractSSMClient,
                  s3_client: S3Client):
         self._rule_service = rule_service
         self._rule_source_service = rule_source_service
         self._settings_service = settings_service
         self._s3_settings_service = s3_settings_service
-        self._ssm_service = ssm_service
+        self._ssm = ssm
         self._s3_client = s3_client
 
     @classmethod
@@ -78,7 +72,7 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
             rule_source_service=SERVICE_PROVIDER.rule_source_service,
             settings_service=SERVICE_PROVIDER.settings_service,
             s3_settings_service=SERVICE_PROVIDER.s3_settings_service,
-            ssm_service=SERVICE_PROVIDER.ssm_service,
+            ssm=SERVICE_PROVIDER.ssm,
             s3_client=SERVICE_PROVIDER.s3
         )
 
@@ -97,23 +91,23 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
         if not notation:
             _LOG.warning(f'Notation not found by path: {notation_s3.url}')
             return {}
-        notation = json.load(notation)
         source = self._s3_client.get_object(
             bucket=source_s3.bucket, key=source_s3.key
         )
         if not source:
             _LOG.warning(f'Source not found by path: {source_s3.url}')
             return {}
-        return parse_standards(source, notation)
+        return parse_standards(source, cast(dict, notation))
 
     def update_standards(self):
         _LOG.info('Generating standards')
         aws = self._settings_service.aws_standards_coverage()
         if aws:
             _LOG.debug('Updating standards for AWS')
+            res = self.parse_standards(aws)
             self._s3_settings_service.set(
                 key=S3SettingKey.AWS_STANDARDS_COVERAGE,
-                data=self.parse_standards(aws)
+                data=res
             )
         azure = self._settings_service.azure_standards_coverage()
         if azure:
@@ -249,7 +243,7 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
     def get_metadata_data(self) -> list[MetaAccess]:
         # maybe get from another place. It's a temp solution
         secret_name = self._settings_service.rules_metadata_repo_access_data()
-        secret_value = self._ssm_service.get_secret_value(secret_name)
+        secret_value = self._ssm.get_secret_value(secret_name)
         if not secret_value:
             _LOG.warning('No metas found')
             return []
@@ -289,52 +283,100 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
                         continue
         self.save_mappings(collector)
 
-    def pull_rules(self, ids: list[str]):
-        for rule_source, secret in self._rule_source_service.iter_by_ids(ids):
-            rules = []
-            self._rule_source_service.update_latest_sync(
-                rule_source, STATUS_SYNCING
-            )
-            if rule_source.type == RuleSourceType.GITLAB:
-                _class = GitLabClient
-            elif rule_source.type == RuleSourceType.GITHUB:
-                _class = GitHubClient
-            else:
-                _LOG.warning(f'Not known rule_source type: '
-                             f'{rule_source.git_project_id}')
+    def _load_rules(self, rule_source: RuleSource, root: Path
+                    ) -> Generator[Rule, None, None]:
+        """
+        Iterates over the local folder with rules and loads them to models
+        skipping invalid ones
+        """
+        to_look_up = root / (rule_source.git_rules_prefix or '').strip('/')
+        for filepath, content in self.iter_files(to_look_up):
+            for policy in (content.get(self.policies_key) or []):
+                try:
+                    item = RuleModel(**policy)
+                except ValidationError as e:
+                    _LOG.warning(f'Invalid rule: {content}, {e}')
+                    continue
+                yield self._rule_service.create(
+                    customer=rule_source.customer,
+                    rule_source_id=rule_source.id,
+                    cloud=item.cloud.value,
+                    path=str(filepath.relative_to(root)),
+                    git_project=rule_source.git_project_id,
+                    ref=rule_source.latest_sync.release_tag or rule_source.git_ref,
+                    **item.model_dump()
+                )
+
+    def _download_rule_source(self, item: RuleSource,
+                              client: GitLabClient | GitHubClient,
+                              buffer: str) -> Path | None:
+        """
+        Downloads the repository for the given rule source item using buffer
+        as a temp directory. Returns the path to repo root
+        """
+        match item.type:
+            case RuleSourceType.GITLAB:
+                root = client.clone_project(
+                    project=item.git_project_id,
+                    to=Path(buffer),
+                    ref=item.git_ref
+                )
+            case RuleSourceType.GITHUB:
+                root = client.clone_project(
+                    project=item.git_project_id,
+                    to=Path(buffer),
+                    ref=item.git_ref
+                )
+            case RuleSourceType.GITHUB_RELEASE:
+                client = cast(GitHubClient, client)
+                release = client.get_latest_release(item.git_project_id)
+                if not release:
+                    _LOG.warning(f'Cannot find latest release for rs {item}')
+                    return
                 self._rule_source_service.update_latest_sync(
-                    rule_source, STATUS_SYNCING_FAILED
+                    item=item,
+                    release_tag=release['tag_name']
+                )
+                root = client.download_tarball(url=release['tarball_url'],
+                                               to=Path(buffer))
+            case _:
+                root = None
+        return root
+
+    def pull_rules(self, ids: list[str]):
+        for rule_source, secret in self._rule_source_service.iter_by_ids_with_secrets(ids):
+            self._rule_source_service.update_latest_sync(
+                rule_source, RuleSourceSyncingStatus.SYNCING
+            )
+            client = self._rule_source_service.derive_git_client(rule_source, secret)
+            if not client:
+                _LOG.warning(f'Cannot derive git client from '
+                             f'rule source: {rule_source}')
+                self._rule_source_service.update_latest_sync(
+                    rule_source, RuleSourceSyncingStatus.FAILED
                 )
                 continue
-            client = _class(url=rule_source.git_url, private_token=secret)
+
             with tempfile.TemporaryDirectory() as folder:
-                root = client.clone_project(
-                    project=rule_source.git_project_id,
-                    to=Path(folder),
-                    ref=rule_source.git_ref
+                root = self._download_rule_source(
+                    item=rule_source,
+                    client=client,
+                    buffer=folder
                 )
                 if not root:
+                    _LOG.warning('Could not clone repo')
                     self._rule_source_service.update_latest_sync(
-                        rule_source, STATUS_SYNCING_FAILED
+                        rule_source, RuleSourceSyncingStatus.FAILED
                     )
                     continue
-                to_look_up = \
-                    root / (rule_source.git_rules_prefix or '').strip('/')
-                for filepath, content in self.iter_files(to_look_up):
-                    for policy in (content.get(self.policies_key) or []):
-                        try:
-                            item = RuleModel(**policy)
-                        except ValidationError as e:
-                            _LOG.warning(f'Invalid rule: {content}, {e}')
-                            continue
-                        rules.append(self._rule_service.create(
-                            customer=rule_source.customer,
-                            cloud=item.cloud.value,
-                            path=str(filepath.relative_to(root)),
-                            git_project=rule_source.git_project_id,
-                            ref=rule_source.git_ref,
-                            **item.dict()
-                        ))
+                rules = list(self._load_rules(rule_source, root))
+
+            # because otherwise we cannot detect whether some rules were
+            # removed from GitHub
+            _LOG.debug('Removing old versions of rules')
+            cursor = self._rule_service.get_by_rule_source(rule_source)
+            self._rule_service.batch_delete(cursor)
+
             try:
                 _LOG.info('Going to query git blame for rules')
                 self.expand_with_commit_hash(rules, client)
@@ -345,11 +387,11 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
                 _LOG.error(f'Unexpected error occurred trying '
                            f'to save rules: {e}')
                 self._rule_source_service.update_latest_sync(
-                    rule_source, STATUS_SYNCING_FAILED
+                    rule_source, RuleSourceSyncingStatus.FAILED
                 )
             else:
                 self._rule_source_service.update_latest_sync(
-                    rule_source, STATUS_SYNCED, utc_iso()
+                    rule_source, RuleSourceSyncingStatus.SYNCED, utc_iso()
                 )
 
     @staticmethod
@@ -394,7 +436,7 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
             return
         rule.commit_hash = meta['last_commit_id']
 
-    def expand_with_commit_hash(self, rules: list[Rule],
+    def expand_with_commit_hash(self, rules: Iterable[Rule],
                                 client: GitLabClient | GitHubClient):
         """
         Fetches commit info and set to rules
@@ -427,7 +469,7 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
             _LOG.debug(f'Pulling rules for ids: {ids}')
             self.pull_rules(ids)
         else:
-            _LOG.debug('Pulling meta and mappings')
+            _LOG.debug('Pulling mappings - default')
             self.pull_meta()
 
         return build_response()

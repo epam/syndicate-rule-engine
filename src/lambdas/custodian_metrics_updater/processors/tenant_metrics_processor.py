@@ -1,4 +1,5 @@
 import calendar
+import json
 from datetime import datetime, timedelta
 from functools import cmp_to_key
 from typing import List, Dict, TypedDict, Optional
@@ -377,6 +378,25 @@ class TenantMetrics:
         def len_of_unique(self) -> int:
             return len(self._unique)
 
+    def gz_put_json(self, bucket: str, key: str, obj: dict | list):
+        """
+        Valid json cannot have null as key though `json.dumps` can dump None
+        key and converts it to "null" strings. Msgspec does not do that.
+        Metrics can have None as their key so here I use `json.dumps` instead of
+        msgspec
+        :param bucket:
+        :param key:
+        :param obj:
+        :return:
+        """
+        return self.s3_client.gz_put_object(
+            bucket=bucket,
+            key=key,
+            body=json.dumps(obj, separators=(',', ':')).encode(),
+            content_type='application/json',
+            content_encoding='gzip'
+        )
+
     def process_data(self, event):
         """ Collect data about scans of each tenant
         (AWS account/Azure subscription/GCP project) separately.
@@ -587,7 +607,7 @@ class TenantMetrics:
                     and not self._is_tenant_active(tenant_obj):
                 identifier = f'{ARCHIVE_PREFIX}-{identifier}'
 
-            self.s3_client.gz_put_json(
+            self.gz_put_json(
                 bucket=metrics_bucket,
                 key=TENANT_METRICS_FILE_PATH.format(
                     customer=tenant_obj.customer_name,
@@ -618,7 +638,7 @@ class TenantMetrics:
                                f'date')
                     s3_object_date = (self.today_date + relativedelta(
                         weekday=SU(0))).date().isoformat()
-                    self.s3_client.gz_put_json(
+                    self.gz_put_json(
                         bucket=metrics_bucket,
                         key=TENANT_METRICS_FILE_PATH.format(
                             customer=tenant_obj.customer_name,
@@ -716,12 +736,15 @@ class TenantMetrics:
                     file_content[RESOURCES_TYPE] = collector.resources()
 
             file_content = self._update_missing_tenant_content(file_content)
-            self.s3_client.gz_put_json(bucket=metrics_bucket,
-                                       key=TENANT_METRICS_FILE_PATH.format(
-                                           customer=obj.customer_name,
-                                           date=self.current_week_date,
-                                           project_id=filename),
-                                       obj=file_content)
+            self.gz_put_json(
+                bucket=metrics_bucket,
+                key=TENANT_METRICS_FILE_PATH.format(
+                    customer=obj.customer_name,
+                    date=self.current_week_date,
+                    project_id=filename
+                ),
+                obj=file_content
+            )
             if filename.startswith(ARCHIVE_PREFIX):
                 _LOG.debug(
                     f'Deleting non-archive metrics for tenant {obj.project}')
@@ -742,14 +765,14 @@ class TenantMetrics:
     def _save_monthly_rule_statistics(self, tenant_obj, rule_data):
         date_to_process = utc_datetime(self.current_week_date).date()
         if self.today_date.date().isoformat() == self.month_first_day_iso:  # if month ends
-            self.s3_client.gz_put_json(
+            self.gz_put_json(
                 bucket=self.environment_service.get_statistics_bucket_name(),
                 key=StatisticsBucketKeysBuilder.tenant_statistics(
                     self.today_date.date() - timedelta(days=1),
                     tenant=tenant_obj),
                 obj=rule_data)
         elif week_number(date_to_process) != 1:
-            self.s3_client.gz_put_json(
+            self.gz_put_json(
                 bucket=self.environment_service.get_statistics_bucket_name(),
                 key=StatisticsBucketKeysBuilder.tenant_statistics(
                     date_to_process, tenant=tenant_obj),
@@ -764,7 +787,7 @@ class TenantMetrics:
             average = self.report_service.average_statistics(*map(
                 self.report_service.job_statistics, jobs
             ))
-            self.s3_client.gz_put_json(
+            self.gz_put_json(
                 bucket=self.environment_service.get_statistics_bucket_name(),
                 key=StatisticsBucketKeysBuilder.tenant_statistics(
                     date_to_process, tenant=tenant_obj), obj=list(average))
@@ -875,7 +898,7 @@ class TenantMetrics:
         path = f'{customer}/accounts/monthly/{self.next_month_date}/{project_id}.json'
         metrics_bucket = self.environment_service.get_metrics_bucket_name()
         _LOG.debug(f'Save monthly metrics for account {project_id}')
-        self.s3_client.gz_put_json(
+        self.gz_put_json(
             bucket=metrics_bucket,
             key=path,
             obj=data

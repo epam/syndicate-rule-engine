@@ -1,10 +1,8 @@
 #!/usr/local/bin/python
 import argparse
 import base64
-import logging.config
-import urllib.request
-import urllib.error
 import json
+import logging.config
 import multiprocessing
 import os
 import secrets
@@ -19,9 +17,8 @@ import pymongo
 from bottle import Bottle
 from dateutil.relativedelta import SU, relativedelta
 from dotenv import load_dotenv
-from swagger_ui import api_doc
 
-from helpers import dereference_json, urljoin
+from helpers import dereference_json
 from helpers.__version__ import __version__
 from helpers.constants import (
     CAASEnv,
@@ -61,8 +58,6 @@ INIT_VAULT_ACTION = 'init_vault'
 SET_META_REPOS_ACTION = 'set_meta_repos'
 UPDATE_API_GATEWAY_MODELS_ACTION = 'update_api_models'
 PARSE_XLSX_STANDARD_ACTION = 'parse_standards'
-PARSE_RULE_SOURCE_ACTION = 'parse_rule_source'
-GENERATE_RULES_TABLE_ACTION = 'generate_rules_table'
 SHOW_PERMISSIONS_ACTION = 'show_permissions'
 INIT_ACTION = 'init'
 
@@ -70,7 +65,6 @@ DEFAULT_HOST = '0.0.0.0'
 DEFAULT_PORT = 8000
 DEFAULT_NUMBER_OF_WORKERS = (multiprocessing.cpu_count() * 2) + 1
 DEFAULT_API_GATEWAY_NAME = 'custodian-as-a-service-api'
-DEFAULT_SWAGGER_PREFIX = '/api/doc'
 
 SYSTEM_USER = 'system_user'
 SYSTEM_CUSTOMER = 'CUSTODIAN_SYSTEM'
@@ -172,14 +166,6 @@ def build_parser() -> argparse.ArgumentParser:
         help='Number of gunicorn workers. Must be specified only '
              'if --gunicorn flag is set'
     )
-    parser_run.add_argument(
-        '-sw', '--swagger', action='store_true', default=False,
-        help='Specify the flag is you want to enable swagger'
-    )
-    parser_run.add_argument(
-        '-swp', '--swagger-prefix', type=str, default=DEFAULT_SWAGGER_PREFIX,
-        help='Swagger path prefix, (default: %(default)s)'
-    )
     parser_run.add_argument('--host', default=DEFAULT_HOST, type=str,
                             help='IP address where to run the server')
     parser_run.add_argument('--port', default=DEFAULT_PORT, type=int,
@@ -234,7 +220,7 @@ class InitVault(ActionHandler):
                                                   password=None)).decode()
 
     def __call__(self):
-        ssm = SP.ssm_service
+        ssm = SP.ssm
         if ssm.enable_secrets_engine():
             _LOG.info('Vault engine was enabled')
         else:
@@ -243,7 +229,7 @@ class InitVault(ActionHandler):
             _LOG.info('Token inside Vault already exists. Skipping...')
             return
 
-        ssm.create_secret_value(
+        ssm.create_secret(
             secret_name=PRIVATE_KEY_SECRET_NAME,
             secret_value=self.generate_private_key()
         )
@@ -394,51 +380,8 @@ class Run(ActionHandler):
         builder = OnPremApiBuilder(dp_wrapper=dp_wrapper)
         return builder.build()
 
-    def _resolve_urls(self) -> set[str]:
-        """
-        Builds some additional urls for swagger ui
-        :return:
-        """
-        urls = {f'http://127.0.0.1:{self._port}'}
-        try:
-            with urllib.request.urlopen(
-                    'http://169.254.169.254/latest/meta-data/public-ipv4',
-                    timeout=1) as resp:
-                urls.add(f'http://{resp.read().decode()}:{self._port}')
-        except urllib.error.URLError:
-            _LOG.warning('Cannot resolve public-ipv4 from instance metadata')
-        return urls
-
-    def _init_swagger(self, app: Bottle,
-                      dp_wrapper: DeploymentResourcesApiGatewayWrapper,
-                      prefix: str) -> None:
-        from validators import registry
-        url = f'http://{self._host}:{self._port}'
-        urls = self._resolve_urls()
-        urls.add(url)
-        _LOG.debug('Generating swagger spec')
-        generator = OpenApiGenerator(
-            title='Rule Engine - OpenAPI 3.0',
-            description='Rule engine rest api',
-            url=sorted(urls),
-            stages=dp_wrapper.stage,
-            version=__version__,
-            endpoints=registry.iter_all()
-        )
-        if not prefix.startswith('/'):
-            prefix = f'/{prefix}'
-        api_doc(
-            app,
-            config=generator.generate(),
-            url_prefix=prefix,
-            title='Rule engine'
-        )
-        _LOG.info(f'Serving swagger on {urljoin(url, prefix)}')
-
     def __call__(self, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT,
-                 gunicorn: bool = False, workers: int | None = None,
-                 swagger: bool = False,
-                 swagger_prefix: str = DEFAULT_SWAGGER_PREFIX):
+                 gunicorn: bool = False, workers: int | None = None):
         self._host = host
         self._port = port
 
@@ -453,9 +396,6 @@ class Run(ActionHandler):
 
         dr_wrapper = DeploymentResourcesApiGatewayWrapper(self.load_api_dr())
         app = self.make_app(dr_wrapper)
-        if swagger:
-            self._init_swagger(app, dr_wrapper, swagger_prefix)
-        del dr_wrapper
 
         SP.ap_job_scheduler.start()
         ensure_all()
@@ -646,8 +586,8 @@ class ShowPermissions(ActionHandler):
 
 class SetMetaRepos(ActionHandler):
     def __call__(self, repositories: list[tuple[str, str]]):
-        ssm = SP.ssm_service
-        ssm.create_secret_value(
+        ssm = SP.ssm
+        ssm.create_secret(
             secret_name=DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME,
             secret_value=[
                 {
@@ -686,7 +626,11 @@ def main(args: list[str] | None = None):
         if hasattr(arguments, dest):
             delattr(arguments, dest)
     load_dotenv(verbose=True)
-    func(**vars(arguments))
+    try:
+        func(**vars(arguments))
+    except Exception as e:
+        _LOG.error(f'Unexpected exception occurred: {e}')
+        exit(1)  # some connection errors for entrypoint.sh
 
 
 if __name__ == '__main__':

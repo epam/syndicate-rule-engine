@@ -53,10 +53,7 @@ from executor.helpers.constants import (
 )
 from executor.helpers.profiling import BytesEmitter, xray_recorder as _XRAY
 from executor.services import BSP
-from executor.services.license_manager_service import (
-    BalanceExhaustion,
-    InaccessibleAssets,
-)
+from services.clients.lm_client import LMException
 from executor.services.policy_service import PolicyDict
 from executor.services.report_service import JobResult
 from helpers.constants import (
@@ -73,6 +70,7 @@ from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime, utc_iso
 from models.batch_results import BatchResults
 from models.job import Job
+from models.rule import RuleIndex
 from models.scheduled_job import ScheduledJob
 from services import SP
 from services.ambiguous_job_service import AmbiguousJob
@@ -83,12 +81,16 @@ from services.clients.sts import TokenGenerator, StsClient
 from services.job_lock import TenantSettingJobLock
 from services.job_service import JobUpdater, NullJobUpdater
 from services.platform_service import K8STokenKubeconfig, Kubeconfig, Platform
+from services.chronicle_service import ChronicleConverterType
+from services.udm_generator import ShardCollectionUDMEntitiesConvertor, ShardCollectionUDMEventsConvertor
+from services.ruleset_service import RulesetName
 from services.report_convertors import ShardCollectionDojoConvertor
 from services.reports_bucket import (
     PlatformReportsBucketKeysBuilder,
     StatisticsBucketKeysBuilder,
     TenantReportsBucketKeysBuilder,
 )
+from services.clients.chronicle import ChronicleV2Client
 from services.sharding import ShardsCollection, ShardsCollectionFactory, ShardsS3IO
 
 _LOG = get_logger(__name__)
@@ -164,6 +166,9 @@ class PoliciesLoader:
         """
         if policy.provider_name != 'aws':
             return True
+
+        if comment := policy.data.get('comment'):
+            return RuleIndex(comment).is_global
         rt = policy.resource_manager.resource_type
         # s3 has one endpoint for all regions
         return rt.global_resource or rt.service == 's3'
@@ -474,8 +479,8 @@ class AWSRunner(Runner):
         try:
             future.result() if future else self._call_policy(policy)
         except ClientError as error:
-            error_code = error.response['Error']['Code']
-            error_reason = error.response['Error']['Message']
+            error_code = error.response.get('Error', {}).get('Code')
+            error_reason = error.response.get('Error', {}).get('Message')
 
             if error_code in ACCESS_DENIED_ERROR_CODE.get(self.cloud):
                 _LOG.warning(f'Policy \'{name}\' is skipped. '
@@ -627,100 +632,109 @@ def fetch_licensed_ruleset_list(tenant: Tenant, licensed: dict):
     """
     job_id = BSP.environment_service.job_id()
 
-    payload = dict(
-        job_id=job_id,
-        customer=tenant.customer_name,
-        tenant=tenant.name,
-        ruleset_map=licensed
-    )
     _LOG.debug(f'Going to license a Job:\'{job_id}\'.')
 
-    licensed_job, issue = None, ''
-
     try:
-        licensed_job = BSP.license_manager_service.instantiate_licensed_job_dto(
-            **payload
+        licensed_job = SP.license_manager_service.cl.post_job(
+            job_id=job_id,
+            customer=tenant.customer_name,
+            tenant=tenant.name,
+            ruleset_map=licensed
         )
-    except BalanceExhaustion as fj:
-        issue = str(fj)
-
-    except InaccessibleAssets as ij:
-        issue = str(ij)
-        rulesets = list(ij)
-
-        customer_name = tenant.customer_name
-        customer = SP.modular_client.customer_service().get(customer_name)
-
-        scheduled_job_name = BSP.environment_service.scheduled_job_name()
-        mail_configuration = SP.setting_service.get_mail_configuration()
-
-        if scheduled_job_name and mail_configuration and rulesets and customer:
-            header = f'Scheduled-Job:\'{scheduled_job_name}\' of ' \
-                     f'\'{customer_name}\' customer'
-
-            _LOG.info(f'{header} - is going to be retrieved.')
-            job = SP.scheduler_service.get(
-                name=scheduled_job_name, customer=customer_name
-            )
-            if not job:
-                _LOG.error(f'{header} - could not be found.')
-
-            if not SP.scheduler_service.update_job(item=job, is_enabled=False):
-                _LOG.error(f'{header} - could not be deactivated.')
-            else:
-                _LOG.info(f'{header} - has been deactivated')
-                subject = f'{tenant.name} job-rescheduling notice'
-                if not BSP.notification_service.send_rescheduling_notice_notification(
-                        recipients=customer.admins, subject=subject,
-                        tenant=tenant, scheduled_job_name=scheduled_job_name,
-                        ruleset_list=rulesets,
-                        customer=customer_name):
-                    _LOG.error('Job-Rescheduling notice was not sent.')
-                else:
-                    _LOG.info('Job-Rescheduling notice has been sent.')
-
-        elif not mail_configuration:
-            _LOG.warning(
-                'No mail configuration has been attached, skipping '
-                f' job-rescheduling notice of \'{scheduled_job_name}\'.'
-            )
-
-    if not licensed_job:
-        reason = 'Job execution could not be granted.'
-        if issue:
-            reason += f' {issue}'
-        _LOG.error(reason)
+    except LMException as e:
+        ExecutorError.LM_DID_NOT_ALLOW.reason = str(e)
         raise ExecutorException(ExecutorError.LM_DID_NOT_ALLOW)
+    # except BalanceExhaustion as fj:
+    #     issue = str(fj)
+    #
+    # except InaccessibleAssets as ij:
+    #     issue = str(ij)
+    #     rulesets = list(ij)
+    #
+    #     customer_name = tenant.customer_name
+    #     customer = SP.modular_client.customer_service().get(customer_name)
+    #
+    #     scheduled_job_name = BSP.environment_service.scheduled_job_name()
+    #     mail_configuration = SP.setting_service.get_mail_configuration()
+    #
+    #     if scheduled_job_name and mail_configuration and rulesets and customer:
+    #         header = f'Scheduled-Job:\'{scheduled_job_name}\' of ' \
+    #                  f'\'{customer_name}\' customer'
+    #
+    #         _LOG.info(f'{header} - is going to be retrieved.')
+    #         job = SP.scheduler_service.get(
+    #             name=scheduled_job_name, customer=customer_name
+    #         )
+    #         if not job:
+    #             _LOG.error(f'{header} - could not be found.')
+    #
+    #         if not SP.scheduler_service.update_job(item=job, is_enabled=False):
+    #             _LOG.error(f'{header} - could not be deactivated.')
+    #         else:
+    #             _LOG.info(f'{header} - has been deactivated')
+    #             subject = f'{tenant.name} job-rescheduling notice'
+    #             if not BSP.notification_service.send_rescheduling_notice_notification(
+    #                     recipients=customer.admins, subject=subject,
+    #                     tenant=tenant, scheduled_job_name=scheduled_job_name,
+    #                     ruleset_list=rulesets,
+    #                     customer=customer_name):
+    #                 _LOG.error('Job-Rescheduling notice was not sent.')
+    #             else:
+    #                 _LOG.info('Job-Rescheduling notice has been sent.')
+    #
+    #     elif not mail_configuration:
+    #         _LOG.warning(
+    #             'No mail configuration has been attached, skipping '
+    #             f' job-rescheduling notice of \'{scheduled_job_name}\'.'
+    #         )
 
-    _LOG.info(f'Job {job_id} has been permitted to be commenced.')
-    return BSP.license_manager_service.instantiate_job_sourced_ruleset_list(
-        licensed_job_dto=licensed_job
-    )
+    _LOG.info(f'Job {job_id} was allowed')
+    content = licensed_job['ruleset_content']
+    return [dict(
+        id=ruleset_id,
+        licensed=True,
+        s3_path=source,
+        active=True,
+        status=dict(code='READY_TO_SCAN')
+    ) for ruleset_id, source in content.items()]
 
 
 @_XRAY.capture('Fetch licensed ruleset')
-def get_licensed_ruleset_dto_list(tenant: Tenant) -> list:
+def get_licensed_ruleset_dto_list(tenant: Tenant, job: Job) -> list[dict]:
     """
     Preliminary step, given an affected license and respective ruleset(s),
     can raise
     """
-    affected_license = BSP.environment_service.affected_licenses()
-    licensed_rulesets = BSP.environment_service.licensed_ruleset_map(
-        license_key_list=affected_license
+    licensed, standard = [], []
+    for r in map(RulesetName, job.rulesets):
+        if r.license_key:
+            licensed.append(r)
+        else:
+            standard.append(r)
+    if not licensed:
+        return []
+    license_key = licensed[0].license_key
+    rulesets = [RulesetName(r.name, r.version, None) for r in licensed]
+    lic = SP.license_service.get_nullable(license_key)
+    rulesets = fetch_licensed_ruleset_list(
+        tenant=tenant, licensed={
+            lic.tenant_license_key(tenant.customer_name): [r.to_str() for r in rulesets]
+        }
     )
-    licensed_ruleset_dto_list = []
-    if affected_license and licensed_rulesets:
-        licensed_ruleset_dto_list = fetch_licensed_ruleset_list(
-            tenant=tenant, licensed=licensed_rulesets
-        )
-    return licensed_ruleset_dto_list
+    # LM returns rulesets of specific versions even if we don't specify
+    # versions. The code below just updates job's rulesets with valid versions
+    licensed = [RulesetName(i['id']) for i in rulesets]
+    _LOG.debug(f'Licensed rulesets are fetched: {licensed}')
+    SP.job_service.update(job, rulesets=[s.to_str() for s in standard] + [
+        RulesetName(i.name, i.version, license_key).to_str() for i in licensed
+    ])
+    return rulesets
 
 
 @_XRAY.capture('Upload to SIEM')
 def upload_to_siem(tenant: Tenant, collection: ShardsCollection,
                    job: AmbiguousJob, platform: Platform | None = None):
-    it = SP.integration_service.get_dojo_adapters(tenant, True)
-    for dojo, configuration in it:
+    for dojo, configuration in SP.integration_service.get_dojo_adapters(tenant, True):
         convertor = ShardCollectionDojoConvertor.from_scan_type(
             configuration.scan_type
         )
@@ -742,6 +756,32 @@ def upload_to_siem(tenant: Tenant, collection: ShardsCollection,
             )
         except Exception:
             _LOG.exception('Unexpected error occurred pushing to dojo')
+    mcs = SP.modular_client.maestro_credentials_service()
+    for chronicle, configuration in SP.integration_service.get_chronicle_adapters(tenant, True):
+        _LOG.debug('Going to push data to Chronicle')
+        creds = mcs.get_by_application(
+            chronicle.credentials_application_id,
+            tenant
+        )
+        if not creds:
+            continue
+        client = ChronicleV2Client(
+            url=chronicle.endpoint,
+            credentials=creds.GOOGLE_APPLICATION_CREDENTIALS,
+            customer_id=chronicle.instance_customer_id
+        )
+        match configuration.converter_type:
+            case ChronicleConverterType.EVENTS:
+                _LOG.debug('Converting our collection to UDM events')
+                convertor = ShardCollectionUDMEventsConvertor(tenant=tenant)
+                client.create_udm_events(events=convertor.convert(collection))
+            case _:  # ENTITIES
+                _LOG.debug('Converting our collection to UDM entities')
+                convertor = ShardCollectionUDMEntitiesConvertor(tenant=tenant)
+                success = client.create_udm_entities(
+                    entities=convertor.convert(collection),
+                    log_type='AWS_API_GATEWAY'  # todo use a generic log type or smt
+                )
 
 
 @_XRAY.capture('Get credentials')
@@ -1098,7 +1138,11 @@ def single_account_standard_job() -> int:
         else:
             updater = NullJobUpdater(job)  # updated in caas-job-updater
     else:  # scheduled job, generating it dynamically
-        updater = JobUpdater.from_batch_env(BSP.env.environment)
+        scheduled = ScheduledJob.get_nullable(BSP.env.scheduled_job_name())
+        updater = JobUpdater.from_batch_env(
+            environment=BSP.env.environment,
+            rulesets=scheduled.context.scan_rulesets
+        )
         updater.save()
         job = updater.job
         BSP.env.override_environment({BatchJobEnv.CUSTODIAN_JOB_ID: job.id})
@@ -1130,7 +1174,7 @@ def single_account_standard_job() -> int:
         updater = JobUpdater.from_job_id(job.id)
         updater.status = JobState.FAILED
         updater.stopped_at = utc_iso()
-        updater.reason = e.error.value
+        updater.reason = e.error.with_reason()
         match e.error:
             case ExecutorError.LM_DID_NOT_ALLOW:
                 code = 2
@@ -1152,8 +1196,9 @@ def single_account_standard_job() -> int:
 
     if BSP.env.is_docker() and BSP.env.is_licensed_job():
         _LOG.info('The job is licensed on premises. Updating in LM')
-        BSP.license_manager_service.update_job_in_license_manager(
+        SP.license_manager_service.cl.update_job(
             job_id=job.id,
+            customer=job.customer_name,
             created_at=job.created_at,
             started_at=job.started_at,
             stopped_at=job.stopped_at,
@@ -1185,9 +1230,9 @@ def standard_job(job: Job, tenant: Tenant, work_dir: Path):
     _XRAY.put_metadata('cloud', cloud.value)
 
     licensed_urls = map(operator.itemgetter('s3_path'),
-                        get_licensed_ruleset_dto_list(tenant))
+                        get_licensed_ruleset_dto_list(tenant, job))
     standard_urls = map(SP.ruleset_service.download_url,
-                        BSP.policies_service.get_standard_rulesets())
+                        BSP.policies_service.get_standard_rulesets(job))
 
     if platform:
         credentials = get_platform_credentials(platform)

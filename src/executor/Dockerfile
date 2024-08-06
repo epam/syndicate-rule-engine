@@ -6,21 +6,30 @@ FROM public.ecr.aws/docker/library/python:3.10 as executor-compile-image
 # ../custodian-as-a-service
 # docker build -f src/executor/Dockerfile .
 ARG CUSTODIAN_SERVICE_PATH=.
-ARG CLOUD_CUSTODIAN_PATH=custodian-custom-core
+ARG CLOUD_CUSTODIAN_PATH=cloudcustodian-sre-core
 # it's not enough to just add a provider here, you must copy its files below
 ARG PROVIDERS="gcp azure kube"
 
-ARG POETRY_VERSION="1.4.0"
-# to import c7n_azure.resources.insights.DiagnosticSettings
-ENV AZURE_SUBSCRIPTION_ID=" "
+ARG POETRY_VERSION="1.8.3"
 
 RUN pip install "poetry==$POETRY_VERSION" && python -m venv /root/.local
 
-WORKDIR /build/custodian-custom-core
+WORKDIR /build/cloudcustodian-sre-core
 
 # Core's root
 COPY $CLOUD_CUSTODIAN_PATH/pyproject.toml $CLOUD_CUSTODIAN_PATH/poetry.lock $CLOUD_CUSTODIAN_PATH/README.md ./
 RUN . /root/.local/bin/activate && poetry install --no-interaction --without dev --no-root
+
+# [FROM Cloud Custodian's Dockerfile]:
+# Now install the root package, we used to do this after dependencies of other providers
+# but since moving c7n to a main dependency in pyproject toml we have to do this one first.
+COPY $CLOUD_CUSTODIAN_PATH/c7n c7n/
+# "poetry install --only-root" installs in editable mode
+# (like pip install -e .). Due to multi-stage build we do not need this.
+# To install in non-editable mode with Poetry you have to build a dist and
+# then install which is quite a work so I use "pip install --no-deps ."
+# https://github.com/python-poetry/poetry/issues/1382
+RUN . /root/.local/bin/activate && pip install --no-deps .
 
 # Core's providers
 COPY $CLOUD_CUSTODIAN_PATH/tools/c7n_gcp/pyproject.toml $CLOUD_CUSTODIAN_PATH/tools/c7n_gcp/poetry.lock tools/c7n_gcp/
@@ -33,14 +42,6 @@ RUN for pkg in $PROVIDERS; do . /root/.local/bin/activate && cd tools/c7n_$pkg &
 COPY $CUSTODIAN_SERVICE_PATH/src/executor/requirements.txt ../src/executor/requirements.txt
 RUN . /root/.local/bin/activate && pip install -r ../src/executor/requirements.txt
 
-
-COPY $CLOUD_CUSTODIAN_PATH/c7n c7n/
-# "poetry install --only-root" installs in editable mode
-# (like pip install -e .). Due to multi-stage build we do not need this.
-# To install in non-editable mode with Poetry you have to build a dist and
-# then install which is quite a work so I use "pip install --no-deps ."
-# https://github.com/python-poetry/poetry/issues/1382
-RUN . /root/.local/bin/activate && pip install --no-deps .
 
 COPY $CLOUD_CUSTODIAN_PATH/tools/c7n_gcp tools/c7n_gcp/
 COPY $CLOUD_CUSTODIAN_PATH/tools/c7n_azure tools/c7n_azure/

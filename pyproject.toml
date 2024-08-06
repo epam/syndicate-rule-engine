@@ -1,0 +1,19 @@
+[project]
+name = "rule-engine"
+description = "Service that allows to perform security scans on your infrastructure"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+dependencies = []
+
+
+[tool.pyright]
+include = ["src/"]
+exclude = [
+    "**/__pycache__",
+]
+pythonVersion = "3.10"
+reportIncompatibleMethodOverride = "warning"
+executionEnvironments = [
+    {root = "tests/", pythonVersion = "3.10", extraPaths = ["src/"]}
+]

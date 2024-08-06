@@ -9,12 +9,7 @@
   "timeout": 300,
   "lambda_path": "/lambdas/custodian_license_updater",
   "logs_expiration": "${logs_expiration}",
-  "dependencies": [
-    {
-      "resource_name": "caas-license-update-trigger",
-      "resource_type": "cloudwatch_rule_trigger"
-    }
-  ],
+  "dependencies": [],
   "event_sources": [
     {
       "target_rule": "caas-license-update-trigger",

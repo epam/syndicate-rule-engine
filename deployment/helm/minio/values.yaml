@@ -1,0 +1,25 @@
+service:
+  type: ClusterIP
+  port: 9000
+  nodePort: 32102
+
+
+consoleService:
+  type: NodePort
+  port: 9001
+  nodePort: 32103
+
+
+image:
+  repository: quay.io/minio/minio
+  tag: RELEASE.2024-07-15T19-02-30Z
+  pullPolicy: IfNotPresent
+
+
+persistence:
+  accessMode: ReadWriteOnce
+  size: 4Gi
+  storageClass: standard
+  hostPath: /data/minio
+
+replicas: 1

@@ -48,7 +48,6 @@ class CustodianEndpoint(str, Enum):
     SCHEDULED_JOB = '/scheduled-job'
     PLATFORMS_K8S = '/platforms/k8s'
     SETTINGS_MAIL = '/settings/mail'
-    JOBS_STANDARD = '/jobs/standard'
     BATCH_RESULTS = '/batch-results'
     REPORTS_RETRY = '/reports/retry'
     POLICIES_NAME = '/policies/{name}'
@@ -59,8 +58,8 @@ class CustodianEndpoint(str, Enum):
     REPORTS_PROJECT = '/reports/project'
     USERS_USERNAME = '/users/{username}'
     CREDENTIALS_ID = '/credentials/{id}'
-    META_MAPPINGS = '/rule-meta/mappings'
-    RULESETS_CONTENT = '/rulesets/content'
+    RULE_SOURCES_ID = '/rule-sources/{id}'
+    RULESETS_RELEASE = '/rulesets/release'
     ED_RULESETS = '/rulesets/event-driven'
     DOC_SWAGGER_JSON = '/doc/swagger.json'
     META_STANDARDS = '/rule-meta/standards'
@@ -75,13 +74,16 @@ class CustodianEndpoint(str, Enum):
     TENANTS_TENANT_NAME = '/tenants/{tenant_name}'
     USERS_RESET_PASSWORD = '/users/reset-password'
     REPORTS_EVENT_DRIVEN = '/reports/event_driven'
+    RULE_SOURCES_ID_SYNC = '/rule-sources/{id}/sync'
     LICENSES_LICENSE_KEY = '/licenses/{license_key}'
     SETTINGS_SEND_REPORTS = '/settings/send_reports'
     PLATFORMS_K8S_ID = '/platforms/k8s/{platform_id}'
+    INTEGRATIONS_CHRONICLE = '/integrations/chronicle'
     CREDENTIALS_ID_BINDING = '/credentials/{id}/binding'
     CUSTOMERS_EXCLUDED_RULES = '/customers/excluded-rules'
     INTEGRATIONS_DEFECT_DOJO = '/integrations/defect-dojo'
     REPORTS_PUSH_DOJO_JOB_ID = '/reports/push/dojo/{job_id}'
+    INTEGRATIONS_CHRONICLE_ID = '/integrations/chronicle/{id}'
     REPORTS_RULES_JOBS_JOB_ID = '/reports/rules/jobs/{job_id}'
     BATCH_RESULTS_JOB_ID = '/batch-results/{batch_results_id}'
     LICENSES_LICENSE_KEY_SYNC = '/licenses/{license_key}/sync'
@@ -91,6 +93,7 @@ class CustodianEndpoint(str, Enum):
     REPORTS_DETAILS_JOBS_JOB_ID = '/reports/details/jobs/{job_id}'
     TENANTS_TENANT_NAME_REGIONS = '/tenants/{tenant_name}/regions'
     REPORTS_FINDINGS_JOBS_JOB_ID = '/reports/findings/jobs/{job_id}'
+    REPORTS_PUSH_CHRONICLE_JOB_ID = '/reports/push/chronicle/{job_id}'
     REPORTS_RESOURCES_JOBS_JOB_ID = '/reports/resources/jobs/{job_id}'
     REPORTS_COMPLIANCE_JOBS_JOB_ID = '/reports/compliance/jobs/{job_id}'
     SETTINGS_LICENSE_MANAGER_CLIENT = '/settings/license-manager/client'
@@ -99,11 +102,13 @@ class CustodianEndpoint(str, Enum):
     REPORTS_RULES_TENANTS_TENANT_NAME = '/reports/rules/tenants/{tenant_name}'
     TENANTS_TENANT_NAME_EXCLUDED_RULES = '/tenants/{tenant_name}/excluded-rules'
     TENANTS_TENANT_NAME_ACTIVE_LICENSES = '/tenants/{tenant_name}/active-licenses'
+    INTEGRATIONS_CHRONICLE_ID_ACTIVATION = '/integrations/chronicle/{id}/activation'
     REPORTS_COMPLIANCE_TENANTS_TENANT_NAME = '/reports/compliance/tenants/{tenant_name}'
     INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION = '/integrations/defect-dojo/{id}/activation'
     REPORTS_DETAILS_TENANTS_TENANT_NAME_JOBS = '/reports/details/tenants/{tenant_name}/jobs'
     REPORTS_DIGESTS_TENANTS_TENANT_NAME_JOBS = '/reports/digests/tenants/{tenant_name}/jobs'
     REPORTS_FINDINGS_TENANTS_TENANT_NAME_JOBS = '/reports/findings/tenants/{tenant_name}/jobs'
+    REPORTS_PUSH_CHRONICLE_TENANTS_TENANT_NAME = '/reports/push/chronicle/tenants/{tenant_name}'
     REPORTS_RESOURCES_TENANTS_TENANT_NAME_JOBS = '/reports/resources/tenants/{tenant_name}/jobs'
     REPORTS_RAW_TENANTS_TENANT_NAME_STATE_LATEST = '/reports/raw/tenants/{tenant_name}/state/latest'
     REPORTS_RESOURCES_TENANTS_TENANT_NAME_LATEST = '/reports/resources/tenants/{tenant_name}/state/latest'
@@ -264,9 +269,12 @@ GIT_REF_ATTR = 'git_ref'
 GIT_RULES_PREFIX_ATTR = 'git_rules_prefix'
 GIT_URL_ATTR = 'git_url'
 
-STATUS_SYNCING = 'SYNCING'
-STATUS_SYNCED = 'SYNCED'
-STATUS_SYNCING_FAILED = 'SYNCING_FAILED'
+
+class RuleSourceSyncingStatus(str, Enum):
+    SYNCING = 'SYNCING'
+    SYNCED = 'SYNCED'
+    FAILED = 'SYNCING_FAILED'
+
 
 EVENT_DRIVEN_ATTR = 'event_driven'
 
@@ -402,9 +410,7 @@ class BatchJobEnv(CAASEnv):
     CUSTODIAN_JOB_ID = 'CUSTODIAN_JOB_ID'
     BATCH_RESULTS_IDS = 'BATCH_RESULTS_IDS'
 
-    TARGET_RULESETS = 'TARGET_RULESETS'
     TARGET_REGIONS = 'TARGET_REGIONS'
-    LICENSED_RULESETS = 'LICENSED_RULESETS'
     AFFECTED_LICENSES = 'AFFECTED_LICENSES'
 
     EXECUTOR_MODE = 'EXECUTOR_MODE'
@@ -454,6 +460,8 @@ class Permission(str, Enum):
     # todo implement tenant restrictions where the True is commented
     REPORT_PUSH_TO_DOJO = 'report:push_report_to_dojo', False, True
     REPORT_PUSH_TO_DOJO_BATCH = 'report:push_to_dojo_batch', False,  # True
+    REPORT_PUSH_TO_CHRONICLE = 'report:push_report_to_chronicle', False, True
+    REPORT_PUSH_TO_CHRONICLE_TENANT = 'report:push_report_to_chronicle_tenant', False, True
     REPORT_OPERATIONAL = 'report:post_operational', False, True
     REPORT_PROJECT = 'report:post_project', False,  # True
     REPORT_DEPARTMENT = 'report:post_department', False,  # True
@@ -478,7 +486,6 @@ class Permission(str, Enum):
     REPORT_RESOURCES_GET_JOBS_BATCH = 'report:get_job_resources_batch', False, True
     REPORT_RAW_GET_TENANT_LATEST = 'report:get_tenant_latest_raw_report', False, True
 
-    JOB_POST_STANDARD = 'job:post_for_tenant_standard', False, True
     JOB_QUERY = 'job:query', False,  # True
     JOB_GET = 'job:get', False, True
     JOB_POST_LICENSED = 'job:post_for_tenant', False, True
@@ -520,15 +527,16 @@ class Permission(str, Enum):
     RULESET_CREATE = 'ruleset:create'
     RULESET_UPDATE = 'ruleset:update'
     RULESET_DELETE = 'ruleset:delete'
-    RULESET_GET_CONTENT = 'ruleset:get_content'
     RULESET_DESCRIBE_ED = 'ruleset:describe_event_driven', True
     RULESET_CREATE_ED = 'ruleset:create_event_driven', True
     RULESET_DELETE_ED = 'ruleset:delete_event_driven', True
+    RULESET_RELEASE = 'ruleset:release', False
 
     RULE_SOURCE_DESCRIBE = 'rule_source:describe'
     RULE_SOURCE_CREATE = 'rule_source:create'
     RULE_SOURCE_UPDATE = 'rule_source:update'
     RULE_SOURCE_DELETE = 'rule_source:delete'
+    RULE_SOURCE_SYNC = 'rule_source:sync'
 
     EVENT_POST = 'event:post'
 
@@ -544,7 +552,7 @@ class Permission(str, Enum):
 
     SCHEDULED_JOB_GET = 'scheduled-job:get', False,  # True
     SCHEDULED_JOB_QUERY = 'scheduled-job:query', False,  # True
-    SCHEDULED_JOB_CREATE = 'scheduled-job:register', False,  # True
+    SCHEDULED_JOB_CREATE = 'scheduled-job:register', False, True
     SCHEDULED_JOB_DELETE = 'scheduled-job:deregister', False,  # True
     SCHEDULED_JOB_UPDATE = 'scheduled-job:update', False,  # True
 
@@ -582,6 +590,13 @@ class Permission(str, Enum):
     DOJO_INTEGRATION_ACTIVATE = 'dojo_integration:activate'
     DOJO_INTEGRATION_GET_ACTIVATION = 'dojo_integration:get_activation'
     DOJO_INTEGRATION_DELETE_ACTIVATION = 'dojo_integration:delete_activation'
+
+    CHRONICLE_INTEGRATION_CREATE = 'chronicle_integration:create'
+    CHRONICLE_INTEGRATION_DESCRIBE = 'chronicle_integration:describe'
+    CHRONICLE_INTEGRATION_DELETE = 'chronicle_integration:delete'
+    CHRONICLE_INTEGRATION_ACTIVATE = 'chronicle_integration:activate'
+    CHRONICLE_INTEGRATION_GET_ACTIVATION = 'chronicle_integration:get_activation'
+    CHRONICLE_INTEGRATION_DELETE_ACTIVATION = 'chronicle_integration:delete_activation'
 
     CREDENTIALS_DESCRIBE = 'credentials:describe'
     CREDENTIALS_BIND = 'credentials:bind'
@@ -748,6 +763,7 @@ ED_KUBERNETES_RULESET_NAME = '_ED_KUBERNETES'
 class RuleSourceType(str, Enum):
     GITHUB = 'GITHUB'
     GITLAB = 'GITLAB'
+    GITHUB_RELEASE = 'GITHUB_RELEASE'  # means that rules from the latest release will be used
 
 
 class S3SettingKey(str, Enum):
@@ -831,3 +847,12 @@ PRIVATE_KEY_SECRET_NAME = 'rule-engine-private-key'
 # tenant setting keys
 TS_EXCLUDED_RULES_KEY = 'CUSTODIAN_EXCLUDED_RULES'
 TS_JOB_LOCK_KEY = 'CUSTODIAN_JOB_LOCK'
+
+
+GITHUB_API_URL_DEFAULT = 'https://api.github.com'
+GITLAB_API_URL_DEFAULT = 'https://git.epam.com'
+
+
+# lambda names
+RULE_META_UPDATER_LAMBDA_NAME = 'caas-rule-meta-updater'
+METRICS_UPDATER_LAMBDA_NAME = 'caas-metrics-updater'

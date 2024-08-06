@@ -52,6 +52,7 @@ class ReportFieldsLoader:
         name: str
         arn: str | None
         namespace: str | None
+        date: str | None
 
     _mapping: dict[str, Fields] = {}
 
@@ -81,7 +82,8 @@ class ReportFieldsLoader:
             'id': cast(str, _id),
             'name': cast(str, _name),
             'arn': getattr(resource_type, 'arn', None),
-            'namespace': 'metadata.namespace'  # for k8s always this way
+            'namespace': 'metadata.namespace',  # for k8s always this way
+            'date': getattr(resource_type, 'date', None)
         }
 
     @classmethod
@@ -246,7 +248,7 @@ class JobResult:
 
     def _extend_resources(self, output: RuleRawOutput):
         """
-        Adds some report fields (id, name, arn, namespace) to each resource
+        Adds some report fields (id, name, arn, namespace, date) to each resource
         """
         assert output.was_executed, 'You must provide this method only with policies that was executed without exceptions'  # noqa
         rt = self.adjust_resource_type(output.metadata.resource_type)

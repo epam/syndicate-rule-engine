@@ -219,7 +219,7 @@ class DefectDojoService(BaseDataService[DefectDojoConfiguration]):
 
     def get_nullable(self, id: str) -> DefectDojoConfiguration | None:
         app = self._aps.get_application_by_id(id)
-        if not app:
+        if not app or app.is_deleted or app.type != ApplicationType.DEFECT_DOJO:
             return
         return DefectDojoConfiguration(app)
 

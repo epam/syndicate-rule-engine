@@ -63,12 +63,10 @@ class SettingsService:
             self, host: str,
             port: Optional[int] = None,
             protocol: Optional[str] = None,
-            stage: Optional[str] = None,
-            api_version: Optional[str] = None) -> Setting:
-        from services.clients.license_manager import LMAccessData
+            stage: Optional[str] = None) -> Setting:
+        from services.clients.lm_client import LMAccessData
         model = LMAccessData.from_dict({})
         model.update_host(host=host, port=port, protocol=protocol, stage=stage)
-        model.api_version = api_version
         return self.create(
             name=SettingKey.ACCESS_DATA_LM.value, value=model.dict()
         )

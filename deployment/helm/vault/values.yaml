@@ -1,0 +1,18 @@
+service:
+  type: ClusterIP
+  port: 8200
+  nodePort: 32100
+
+image:
+  repository: hashicorp/vault
+  tag: 1.17.2
+  pullPolicy: IfNotPresent
+
+
+persistence:
+  accessMode: ReadWriteOnce
+  size: 2Gi
+  storageClass: standard
+  hostPath: /data/vault
+
+replicas: 1

@@ -38,12 +38,6 @@ T = TypeVar('T')
 
 _LOG = get_logger(__name__)
 
-PARAM_USER_ID = 'user_id'
-
-
-BAD_REQUEST_MISSING_PARAMETERS = 'Bad Request. The following parameters ' \
-                                 'are missing: {0}'
-
 
 class RequestContext:
     __slots__ = ('aws_request_id', 'invoked_function_arn')
@@ -56,13 +50,9 @@ class RequestContext:
     def get_remaining_time_in_millis():
         return math.inf
 
-
-def get_missing_parameters(event, required_params_list):
-    missing_params_list = []
-    for param in required_params_list:
-        if not event.get(param):
-            missing_params_list.append(param)
-    return missing_params_list
+    @staticmethod
+    def extract_account_id(invoked_function_arn: str) -> str:
+        return invoked_function_arn.split(':')[4]
 
 
 def deep_get(dct: dict, path: list | tuple) -> Any:
@@ -668,3 +658,103 @@ def flip_dict(d: dict):
     """
     for k in tuple(d.keys()):
         d[d.pop(k)] = k
+
+
+class Version(tuple):
+    """
+    Limited version. Additional labels, pre-release labels and build metadata
+    are not supported.
+    Tuple with three elements (integers): (Major, Minor, Patch).
+    Minor and Patch can be missing. It that case they are 0. This class is
+    supposed to be used primarily by rulesets versioning
+    """
+    _not_allowed = re.compile(r'[^.0-9]')
+
+    def __new__(cls, seq: str | tuple[int, int, int] = (0, 0, 0)
+                ) -> 'Version':
+        if isinstance(seq, Version):
+            return seq
+        if isinstance(seq, str):
+            seq = cls._parse(seq)
+        return tuple.__new__(Version, seq)
+
+    @classmethod
+    def _parse(cls, version: str) -> tuple[int, int, int]:
+        """
+        Raises ValueError
+        """
+        prepared = re.sub(cls._not_allowed, '', version).strip('.')
+        items = tuple(map(int, prepared.split('.')))
+        match len(items):
+            case 3: return items
+            case 2: return items[0], items[1], 0
+            case 1: return items[0], 0, 0
+            case _: raise ValueError(
+                f'Cannot parse. Version must have one '
+                f'of formats: 1, 2.3, 4.5.6'
+            )
+
+    @property
+    def major(self) -> int:
+        return self[0]
+
+    @property
+    def minor(self) -> int:
+        return self[1]
+
+    @property
+    def patch(self) -> int | None:
+        return self[2]
+
+    @classmethod
+    def first_version(cls) -> 'Version':
+        return cls((1, 0, 0))
+
+    def to_str(self) -> str:
+        return '.'.join(map(str, self))
+
+    def __str__(self) -> str:
+        return self.to_str()
+
+    def next_major(self) -> 'Version':
+        return Version((self.major + 1, 0, 0))
+
+    def next_minor(self) -> 'Version':
+        return Version((self.major, self.minor + 1, 0))
+
+    def next_patch(self) -> 'Version':
+        return Version((self.major, self.minor, self.patch + 1))
+
+
+class JWTToken:
+    """
+    A simple wrapper over jwt token
+    """
+    EXP_THRESHOLD = 300  # in seconds
+    __slots__ = '_token', '_exp_threshold'
+
+    def __init__(self, token: str, exp_threshold: int = EXP_THRESHOLD):
+        self._token = token
+        self._exp_threshold = exp_threshold
+
+    @property
+    def raw(self) -> str:
+        return self._token
+
+    @property
+    def payload(self) -> dict | None:
+        try:
+            return json.loads(
+                base64.b64decode(self._token.split('.')[1] + '==').decode()
+            )
+        except Exception:
+            return
+
+    def is_expired(self) -> bool:
+        p = self.payload
+        if not p:
+            return True
+        exp = p.get('exp')
+        if not exp:
+            return False
+        return exp < time.time() + self._exp_threshold

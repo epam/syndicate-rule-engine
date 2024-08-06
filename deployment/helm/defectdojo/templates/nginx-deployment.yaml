@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "defectdojo.fullname" . }}-nginx
+  labels:
+    app.kubernetes.io/name: {{ include "defectdojo.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ include "defectdojo.chart" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "defectdojo.name" . }}-nginx
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "defectdojo.name" . }}-nginx
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        helm.sh/chart: {{ include "defectdojo.chart" . }}
+    spec:
+      containers:
+        - env:
+            - name: NGINX_METRICS_ENABLED
+              value: "false"
+          image: "{{ .Values.nginxImage }}:{{ .Values.nginxTag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          name: nginx
+          ports:
+            - containerPort: 8080
+            - containerPort: 8443
+          volumeMounts:
+            - mountPath: /usr/share/nginx/html/media
+              name: dd-media-pvc
+      restartPolicy: Always
+      volumes:
+        - name: dd-media-pvc
+          persistentVolumeClaim:
+            claimName: {{ include "defectdojo.fullname" . }}-media

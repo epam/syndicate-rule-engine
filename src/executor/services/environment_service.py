@@ -40,29 +40,6 @@ class BatchEnvironmentService(EnvironmentService):
             return set(map(str.strip, regions.split(',')))
         return set()
 
-    def target_rulesets(self) -> set[str]:
-        env = self._environment.get(BatchJobEnv.TARGET_RULESETS)
-        if env:
-            return set(map(str.strip, env.split(',')))
-        return set()
-
-    def licensed_ruleset_map(self, license_key_list: list[str]
-                             ) -> dict[str, list[str]]:
-        reference_map = {}
-        rulesets = self._environment.get(BatchJobEnv.LICENSED_RULESETS)
-        if rulesets:
-            for each in rulesets.split(','):
-                index, *ruleset_id = each.split(':', 1)
-                try:
-                    index = int(index)
-                except ValueError:
-                    continue
-                if ruleset_id and 0 <= index < len(license_key_list):
-                    key = license_key_list[index]
-                    referenced = reference_map.setdefault(key, [])
-                    referenced.append(ruleset_id[0])
-        return reference_map
-
     def affected_licenses(self) -> list[str]:
         license_keys = self._environment.get(BatchJobEnv.AFFECTED_LICENSES)
         if license_keys:
