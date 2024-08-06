@@ -33,7 +33,7 @@ pip install .
 ## Obfuscation flow
 1. Execute the following command: 
 ```bash
-c7nobf obfuscate --dump-directory "$custodian_dump_folder" --to "$target_folder" --dictionary-out "$obfuscation_dictionary.json"
+sreobf obfuscate --dump-directory "$custodian_dump_folder" --to "$target_folder" --dictionary-out "$obfuscation_dictionary.json"
 ```
 Where: 
 * $custodian_dump_folder - is the full path to the folder where Custodian Service dump is stored
@@ -45,7 +45,7 @@ Where:
 ## Deobfuscation flow
 1. Execute the following command: 
 ```bash
-c7nobf deobfuscate --dump-directory "$obfuscated_data_folder" --dictionary "$objuscation_dictionary.json" --to "$deobfuscated_data_folder"
+sreobf deobfuscate --dump-directory "$obfuscated_data_folder" --dictionary "$objuscation_dictionary.json" --to "$deobfuscated_data_folder"
 ```
 Where: 
 * $obfuscated_data_folder - is the full path to the folder where Custodian Service obfuscated data is stored

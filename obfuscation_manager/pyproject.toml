@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 
 [project]
-name = "rule-engine-obfuscation-manager"
-description = "Cli to deobfuscate data"
+name = "sre-obfuscator"
+description = "Syndicate Rule Engine data obfuscator"
 dynamic = ["version"]
 requires-python = ">=3.8"
 readme = "README.md"
@@ -16,7 +16,7 @@ xlsx = ["openpyxl==3.0.10"]
 
 
 [project.scripts]
-sre-obfuscator = "obfuscation_manager:main"
+sreobf = "obfuscation_manager:main"
 
 
 [tool.setuptools.dynamic]
