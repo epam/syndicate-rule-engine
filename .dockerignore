@@ -19,7 +19,7 @@ build
 
 
 *syndicate*
-c7n
+cli
 docs
 deployment
 patch_scripts
