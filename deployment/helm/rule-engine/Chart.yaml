@@ -3,4 +3,22 @@ appVersion: "5.4.0"
 description: A Helm chart for the rule-engine
 name: rule-engine
 type: application
-version: "1.0.0"
+version: "5.4.0"
+dependencies:
+  - name: minio
+    version: "^1.0.0"
+    repository: "s3://charts-repository/syndicate/"
+  - name: mongo
+    version: "^1.0.0"
+    repository: "s3://charts-repository/syndicate/"
+  - name: vault
+    version: "^1.0.0"
+    repository: "s3://charts-repository/syndicate/"
+  - name: modular-service
+    version: "^3.2.0"
+    repository: "s3://charts-repository/syndicate/"
+    condition: modular-service.enabled
+  - name: modular-api
+    version: "4.0.7-rule-engine"  # can we use caret here?
+    repository: "s3://charts-repository/syndicate/"
+    condition: modular-api.enabled
