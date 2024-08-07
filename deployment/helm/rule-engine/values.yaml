@@ -20,8 +20,3 @@ vaultService: vault
 vaultPort: 8200
 minioService: minio
 minioPort: 9000
-
-modular-service:
-  enabled: true
-modular-api:
-  enabled: true
