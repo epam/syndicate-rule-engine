@@ -2,6 +2,7 @@
 
 LOG_PATH=/var/log/sre-init.log
 ERROR_LOG_PATH=$LOG_PATH
+HELM_RELEASE_NAME=rule-engine
 
 log() { echo "[INFO] $(date) $1" >> $LOG_PATH; }
 log_err() { echo "[ERROR] $(date) $1" >> $ERROR_LOG_PATH; }
@@ -232,7 +233,7 @@ helm plugin install https://github.com/hypnoglow/helm-s3.git
 helm repo add sre s3://charts-repository/syndicate/
 helm repo update
 
-helm install rule-engine sre/rule-engine
+helm install "$HELM_RELEASE_NAME" sre/rule-engine
 helm install defectdojo sre/defectdojo
 EOF
 
