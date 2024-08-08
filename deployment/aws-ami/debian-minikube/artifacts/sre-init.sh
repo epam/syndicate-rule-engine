@@ -179,7 +179,7 @@ initialize_system() {
 
 cmd_init() {
   local opts init_system="" target_user="" public_ssh_key="" re_username="" re_password="" admin_username="" admin_password=""
-  opts="$(getopt -o h --long help,system,user:,public-ssh-key:,re-username:,re-password:,admin-username:,admin-password: -n "$PROGRAM" -- "$@")"
+  opts="$(getopt -o "h" --long "help,system,user:,public-ssh-key:,re-username:,re-password:,admin-username:,admin-password:" -n "$PROGRAM" -- "$@")"
   local err="$?"
   [ "$err" -ne 0 ] && die "$(cmd_init_usage)"
   eval set -- "$opts"
