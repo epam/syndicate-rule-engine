@@ -229,14 +229,9 @@ kubectl create secret generic modular-service-secret --from-literal=system-passw
 kubectl create secret generic defect-dojo-secret --from-literal=secret-key="$(generate_password 50)" --from-literal=credential-aes-256-key=$(generate_password) --from-literal=db-username=defectdojo --from-literal=db-password=$(generate_password 30 -hex)
 
 helm plugin install https://github.com/hypnoglow/helm-s3.git
-helm repo add sre s3://charts-repository/charts/
+helm repo add sre s3://charts-repository/syndicate/
 helm repo update
 
-helm install vault sre/vault
-helm install minio sre/minio
-helm install mongo sre/mongo
-helm install modular-service sre/modular-service
-helm install modular-api sre/modular-api
 helm install rule-engine sre/rule-engine
 helm install defectdojo sre/defectdojo
 EOF
