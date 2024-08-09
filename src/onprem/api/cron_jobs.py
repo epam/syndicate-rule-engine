@@ -16,7 +16,8 @@ def sync_license():
     from __main__ in case we have multiple possible __main__ (s). And we do
     """
     license_module = importlib.import_module(
-        'lambdas.custodian_license_updater.handler')
+        'lambdas.custodian_license_updater.handler'
+    )
     license_module.lambda_handler(event={}, context=RequestContext())
 
 

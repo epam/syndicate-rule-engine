@@ -10,7 +10,7 @@ from services import SERVICE_PROVIDER
 from services.abs_lambda import EventProcessorLambdaHandler
 from services.job_service import JobUpdater
 from services.license_manager_service import LicenseManagerService
-from services.ssm_service import SSMService
+from services.clients.ssm import AbstractSSMClient
 
 _LOG = get_logger('custodian-job-updater')
 
@@ -67,9 +67,9 @@ class StateChangeEvent(TypedDict):
 class JobUpdaterHandler(EventProcessorLambdaHandler):
     processors = ()
 
-    def __init__(self, ssm_service: SSMService,
+    def __init__(self, ssm: AbstractSSMClient,
                  license_manager_service: LicenseManagerService):
-        self.ssm_service = ssm_service
+        self.ssm = ssm
         self.license_manager_service = license_manager_service
 
     def update_standard(self, detail: StateChangeEventDetail,
@@ -94,8 +94,9 @@ class JobUpdaterHandler(EventProcessorLambdaHandler):
 
         if detail.get('stoppedAt') and self.is_licensed_job(environment):
             job = updater.job
-            self.license_manager_service.update_job_in_license_manager(
+            self.license_manager_service.cl.update_job(
                 job_id=job.id,
+                customer=job.customer_name,
                 created_at=job.created_at,
                 stopped_at=job.stopped_at,
                 started_at=job.started_at,
@@ -143,7 +144,7 @@ class JobUpdaterHandler(EventProcessorLambdaHandler):
         if not key:
             return
         _LOG.debug(f'Deleting smm parameter: \'{key}\'')
-        self.ssm_service.delete_secret(secret_name=key)
+        self.ssm.delete_parameter(secret_name=key)
 
     @staticmethod
     def convert_batch_environment(environment: list[Env]) -> dict:
@@ -151,7 +152,7 @@ class JobUpdaterHandler(EventProcessorLambdaHandler):
 
 
 HANDLER = JobUpdaterHandler(
-    ssm_service=SERVICE_PROVIDER.ssm_service,
+    ssm=SERVICE_PROVIDER.ssm,
     license_manager_service=SERVICE_PROVIDER.license_manager_service,
 )
 

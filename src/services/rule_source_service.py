@@ -1,232 +1,222 @@
-from hashlib import md5
+import hashlib
+import uuid
 from http import HTTPStatus
-from typing import Generator, Iterable, Optional
+from typing import Generator, Iterable, Any
 
 from pynamodb.pagination import ResultIterator
 
 from helpers.constants import (
     COMMIT_HASH_ATTR,
     COMMIT_TIME_ATTR,
-    CUSTOMER_ATTR,
     GIT_ACCESS_SECRET_ATTR,
     GIT_ACCESS_TYPE_ATTR,
-    GIT_PROJECT_ID_ATTR,
     LATEST_SYNC_ATTR,
-    RESTRICT_FROM_ATTR,
-    RULE_SOURCE_ID_ATTR,
-    STATUS_ATTR,
-    STATUS_SYNCED,
-    STATUS_SYNCING,
-    STATUS_SYNCING_FAILED,
     TYPE_ATTR,
+    RuleSourceType,
+    RuleSourceSyncingStatus,
 )
 from helpers.lambda_response import ResponseFactory
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime
 from models.rule_source import RuleSource
+from services.base_data_service import BaseDataService
 from services.clients.git_service_clients import GitHubClient, GitLabClient
-from services.ssm_service import SSMService
 
-SSM_SECRET_NAME_TEMPLATE = 'caas.{rule_source_id}.{timestamp}.repo_secret'
-STATUS_MESSAGE_UPDATE_EVENT_SUBMITTED = 'Rule update event has been submitted'
-STATUS_MESSAGE_UPDATE_EVENT_FORBIDDEN = \
-    'Rule source is currently being updated. ' \
-    'Rule update event has not been submitted'
-
+from services.clients.ssm import AbstractSSMClient
 
 _LOG = get_logger(__name__)
 
 
+class RuleSourceService(BaseDataService[RuleSource]):
+    def __init__(self, ssm: AbstractSSMClient):
+        super().__init__()
+        self._ssm = ssm
 
-class RuleSourceService:
+    def get_nullable(self, id: str) -> RuleSource | None:
+        return super().get_nullable(hash_key=id)
 
-    def __init__(self, ssm_service: SSMService):
-        self.ssm_service = ssm_service
+    def dto(self, item: RuleSource) -> dict[str, Any]:
+        data = item.get_json()
+        data.pop('type_', None)
+        data.pop('restrict_from', None)
+        data.pop('allowed_for', None)
+        data.pop(GIT_ACCESS_SECRET_ATTR, None)
+        data.pop(GIT_ACCESS_TYPE_ATTR, None)
+        (data.get(LATEST_SYNC_ATTR) or {}).pop(
+            COMMIT_HASH_ATTR,
+            None)
+        (data.get(LATEST_SYNC_ATTR) or {}).pop(
+            COMMIT_TIME_ATTR,
+            None)
+        data[TYPE_ATTR] = item.type
+        data['has_secret'] = item.has_secret
+        return data
 
-    def create_rule_source(self, git_project_id: str, git_url: str,
-                           git_ref: str, git_rules_prefix: str,
-                           git_access_type: str, customer: str,
-                           description: str | None = None,
-                           git_access_secret: str | None = None) -> RuleSource:
-        rule_source_id = self.derive_rule_source_id(
-            customer=customer,
-            git_url=git_url,
-            git_project_id=git_project_id,
-            git_ref=git_ref,
-            git_rules_prefix=git_rules_prefix
+    def query(self, customer: str, project_id: str | None = None,
+              limit: int | None = None,
+              last_evaluated_key: dict | None = None,
+              has_secret: bool | None = None) -> ResultIterator[RuleSource]:
+        rkc = None
+        if project_id:
+            rkc = (RuleSource.git_project_id == project_id)
+        fc = None
+        if isinstance(has_secret, bool):
+            if has_secret:
+                fc = RuleSource.git_access_secret.exists()
+            else:
+                fc = RuleSource.git_access_secret.does_not_exist()
+        return RuleSource.customer_git_project_id_index.query(
+            hash_key=customer,
+            range_key_condition=rkc,
+            filter_condition=fc,
+            limit=limit,
+            last_evaluated_key=last_evaluated_key,
+            scan_index_forward=True
         )
-        item = RuleSource(
-            id=rule_source_id,
-            customer=customer,
-            git_project_id=git_project_id,
-            git_url=git_url,
-            git_access_type=git_access_type,
-            git_rules_prefix=git_rules_prefix,
-            git_ref=git_ref,
-            description=description
-        )
-        if git_access_secret:
-            _LOG.debug('Access secret was provided. Saving to ssm')
-            self.set_secret(item, git_access_secret)
-        return item
 
-    def set_secret(self, rule_source: RuleSource, git_access_secret: str):
-        if rule_source.git_access_secret:
-            self.ssm_service.delete_secret(rule_source.git_access_secret)
-        ssm_secret_name = self._save_ssm_secret(
-            rule_source_id=rule_source.id,
-            git_access_secret=git_access_secret
-        )
-        rule_source.git_access_secret = ssm_secret_name
-
-    @classmethod
-    def list_rule_sources(cls, customer: str | None = None,
-                          git_project_id: str | None = None) -> list:
-        if customer:
-            iterable = cls.i_query_by_customer(
-                customer=customer, git_project_id=git_project_id
-            )
-        elif git_project_id:
-            cnd = RuleSource.git_project_id == git_project_id
-            iterable = RuleSource.scan(filter_condition=cnd)
-        else:
-            iterable = RuleSource.scan()
-        return list(iterable)
-
-    @staticmethod
-    def get(rule_source_id: str) -> Optional[RuleSource]:
-        return RuleSource.get_nullable(hash_key=rule_source_id)
+    def delete(self, item: RuleSource):
+        name = item.git_access_secret
+        if name:
+            self._ssm.delete_parameter(secret_name=name)
+        return super().delete(item)
 
     def iter_by_ids(self, ids: Iterable[str]
-                    ) -> Generator[tuple[RuleSource, Optional[str]], None, None]:
+                    ) -> Generator[RuleSource, None, None]:
         """
         Iterates over pairs: rule-source, secret
         :param ids:
         :return:
         """
         for _id in ids:
-            item = self.get(_id)
+            item = self.get_nullable(_id)
             if not item:
                 continue
-            secret = None
-            if item.git_access_secret:
-                secret = self.ssm_service.get_secret_value(
-                    item.git_access_secret
-                )
-            yield item, secret
+            yield item
+
+    def get_secret(self, item: RuleSource) -> str | None:
+        name = item.git_access_secret
+        if not name:
+            return
+        return self._ssm.get_secret_value(name)
 
     @staticmethod
-    def i_query_by_customer(
-            customer: str, git_project_id: Optional[str] = None,
-            limit: Optional[int] = None,
-            last_evaluated_key: Optional[str] = None
-    ) -> ResultIterator[RuleSource]:
-        gpid_attr = RuleSource.git_project_id
-        rk = gpid_attr == git_project_id if git_project_id else None
-        index = RuleSource.customer_git_project_id_index
-        return index.query(
-            hash_key=customer, range_key_condition=rk,
-            limit=limit, last_evaluated_key=last_evaluated_key
+    def build_ssm_secret_name(item: RuleSource) -> str:
+        ts = int(utc_datetime().timestamp())
+        return f'caas.{item.id}.{ts}.repo_secret'
+
+    def set_secret(self, item: RuleSource, secret: str):
+        if item.git_access_secret:
+            self._ssm.delete_parameter(item.git_access_secret)
+
+        name = self.build_ssm_secret_name(item)
+        self._ssm.create_secret(
+            secret_name=name,
+            secret_value=secret
+        )
+        item.git_access_secret = name
+
+    def iter_by_ids_with_secrets(self, ids: Iterable[str]
+                                 ) -> Generator[tuple[RuleSource, str | None], None, None]:
+        for item in self.iter_by_ids(ids):
+            yield item, self.get_secret(item)
+
+    @staticmethod
+    def generate_id(customer: str, git_project_id: str,
+                    type_: RuleSourceType, git_url: str, git_ref: str,
+                    git_rules_prefix: str) -> str:
+        """
+        Generates deterministic uuid based on rule source attributes in order
+        to eliminate duplicates
+        :param customer:
+        :param git_project_id:
+        :param type_:
+        :param git_url: domain with schema, validated using pydantic
+        :param git_ref:
+        :param git_rules_prefix:
+        :return:
+        """
+        s = '#'.join((
+            customer.strip(),
+            git_project_id.strip().strip('/'),
+            type_.value,
+            git_url.removeprefix('http://').removeprefix('https://').strip().strip('/'),
+            git_ref.strip(),
+            git_rules_prefix.strip().strip('/')
+        ))
+        return str(uuid.UUID(hashlib.md5(s.encode('utf-8')).hexdigest()))
+
+    def set_id(self, item: RuleSource) -> None:
+        item.id = self.generate_id(
+            customer=item.customer,
+            git_project_id=item.git_project_id,
+            type_=item.type,
+            git_url=item.git_url,
+            git_ref=item.git_ref,
+            git_rules_prefix=item.git_rules_prefix
         )
 
-    @staticmethod
-    def save_rule_source(rule_source: RuleSource):
-        return rule_source.save()
+    def create(self, git_project_id: str, type_: RuleSourceType, git_url: str,
+               git_ref: str, git_rules_prefix: str, customer: str,
+               description: str, ) -> RuleSource:
+        item = RuleSource(
+            customer=customer,
+            git_project_id=git_project_id,
+            git_url=git_url,
+            git_ref=git_ref,
+            description=description,
+            type_=type_.value,
+            git_rules_prefix=git_rules_prefix,
+        )
+        self.set_id(item)
+        return item
+
+    def validate_git_access_data(self, item: RuleSource,
+                                 secret: str | None = None):
+        project_id = item.git_project_id
+        client = self.derive_git_client(item, secret)
+        pr = client.get_project(project_id)
+        if not pr:
+            _LOG.warning(f'Cannot access project: {project_id}')
+            raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                f'Cannot access {"GitLab" if item.type is RuleSourceType.GITLAB else "GitHub"} '
+                f'project {project_id}'
+            ).exc()
 
     @staticmethod
-    def derive_rule_source_id(customer: str, git_url: str,
-                              git_project_id: str, git_ref: str,
-                              git_rules_prefix: str) -> str:
-        string_to_hash = ':'.join((
-            customer, git_url, git_project_id, git_ref, git_rules_prefix
-        ))
-        return md5(string_to_hash.encode('utf-8')).hexdigest()
+    def is_allowed_to_sync(item: RuleSource) -> bool:
+        return (item.latest_sync.as_dict().get('current_status') !=
+                RuleSourceSyncingStatus.SYNCING)
 
     @staticmethod
-    def is_allowed_to_sync(rule_source: RuleSource) -> bool:
-        _LOG.debug(f'Checking the status of rule_source with with customer '
-                   f'\'{rule_source.customer}\' and project_id '
-                   f'\'{rule_source.id}\'')
-        return rule_source.latest_sync.as_dict().get('current_status') != \
-            STATUS_SYNCING
-
-    @staticmethod
-    def build_update_event_response(rule_source: RuleSource,
-                                    forbidden: bool = False) -> dict:
-        message = STATUS_MESSAGE_UPDATE_EVENT_FORBIDDEN if forbidden \
-            else STATUS_MESSAGE_UPDATE_EVENT_SUBMITTED
-        return {
-            RULE_SOURCE_ID_ATTR: rule_source.id,
-            CUSTOMER_ATTR: rule_source.customer,
-            GIT_PROJECT_ID_ATTR: rule_source.git_project_id,
-            STATUS_ATTR: message
-        }
-
-    def delete_rule_source(self, rule_source: RuleSource):
-        secret_name = rule_source.git_access_secret
-        if secret_name:
-            self.ssm_service.delete_secret(secret_name=secret_name)
-        return rule_source.delete()
-
-    @staticmethod
-    def get_rule_source_dto(rule_source: RuleSource) -> dict:
-        rule_source_json = rule_source.get_json()
-        rule_source_json.pop(GIT_ACCESS_SECRET_ATTR, None)
-        rule_source_json.pop(GIT_ACCESS_TYPE_ATTR, None)
-        rule_source_json.pop(RESTRICT_FROM_ATTR, None)
-        (rule_source_json.get(LATEST_SYNC_ATTR) or {}).pop(COMMIT_HASH_ATTR,
-                                                           None)
-        (rule_source_json.get(LATEST_SYNC_ATTR) or {}).pop(COMMIT_TIME_ATTR,
-                                                           None)
-        rule_source_json[TYPE_ATTR] = rule_source.type
-        rule_source_json['has_secret'] = rule_source.has_secret
-        return rule_source_json
-
-    @staticmethod
-    def update_latest_sync(rule_source: RuleSource,
-                           current_status: Optional[str] = None,
-                           sync_date: Optional[str] = None,
-                           commit_hash: Optional[str] = None,
-                           commit_time: Optional[str] = None):
+    def update_latest_sync(item: RuleSource,
+                           current_status: RuleSourceSyncingStatus | None = None,
+                           sync_date: str | None = None,
+                           commit_hash: str | None = None,
+                           commit_time: str | None = None,
+                           release_tag: str | None = None):
         actions = []
         if current_status:
-            assert current_status in {STATUS_SYNCING, STATUS_SYNCED,
-                                      STATUS_SYNCING_FAILED}
             actions.append(RuleSource.latest_sync.current_status.set(
-                current_status))
+                current_status.value))
         if sync_date:
             actions.append(RuleSource.latest_sync.sync_date.set(sync_date))
         if commit_hash:
             actions.append(RuleSource.latest_sync.commit_hash.set(commit_hash))
         if commit_time:
             actions.append(RuleSource.latest_sync.commit_time.set(commit_time))
+        if release_tag:
+            actions.append(RuleSource.latest_sync.release_tag.set(release_tag))
         if actions:
-            rule_source.update(actions=actions)
-
-    def _save_ssm_secret(self, rule_source_id, git_access_secret):
-        timestamp = int(utc_datetime().timestamp())
-        secret_name = SSM_SECRET_NAME_TEMPLATE.format(
-            rule_source_id=rule_source_id,
-            timestamp=timestamp
-        )
-        self.ssm_service.create_secret_value(
-            secret_name=secret_name,
-            secret_value=git_access_secret
-        )
-        return secret_name
+            item.update(actions=actions)
 
     @staticmethod
-    def validate_git_access_data(git_project_id: str, git_url: str,
-                                 git_access_secret: str | None = None):
-        is_gitlab = str(git_project_id).isdigit()
-        if is_gitlab:
-            client = GitLabClient(url=git_url, private_token=git_access_secret)
-        else:
-            client = GitHubClient(url=git_url)
-        pr = client.get_project(git_project_id)
-        if not pr:
-            _LOG.warning(f'Cannot access project: {git_project_id}')
-            raise ResponseFactory(HTTPStatus.SERVICE_UNAVAILABLE).message(
-                f'Cannot access {"GitLab" if is_gitlab else "GitHub"} '
-                f'project {git_project_id}'
-            ).exc()
+    def derive_git_client(item: RuleSource, secret: str | None
+                          ) -> GitHubClient | GitLabClient | None:
+        match item.type:
+            case RuleSourceType.GITLAB:
+                return GitLabClient(url=item.git_url, private_token=secret)
+            case RuleSourceType.GITHUB | RuleSourceType.GITHUB_RELEASE:
+                return GitHubClient(url=item.git_url, private_token=secret)
+            case _:
+                return
+

@@ -13,7 +13,6 @@ from services import SP
 if TYPE_CHECKING:
     from executor.services.credentials_service import CredentialsService
     from executor.services.environment_service import BatchEnvironmentService
-    from executor.services.license_manager_service import LicenseManagerService
     from executor.services.notification_service import NotificationService
     from executor.services.policy_service import PoliciesService
 
@@ -44,17 +43,6 @@ class BatchServiceProvider(metaclass=SingletonMeta):
     @property
     def env(self) -> 'BatchEnvironmentService':  # alias
         return self.environment_service
-
-    @cached_property
-    def license_manager_service(self) -> 'LicenseManagerService':
-        from executor.services.license_manager_service import \
-            LicenseManagerService
-        _LOG.debug('Creating LicenseManagerService')
-        return LicenseManagerService(
-            settings_service=SP.settings_service,
-            ssm_client=SP.ssm,
-            environment_service=self.environment_service
-        )
 
     @cached_property
     def notification_service(self) -> 'NotificationService':

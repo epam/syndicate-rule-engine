@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "defectdojo.fullname" . }}-redis
+  labels:
+    app.kubernetes.io/name: {{ include "defectdojo.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ include "defectdojo.chart" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "defectdojo.name" . }}-redis
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "defectdojo.name" . }}-redis
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        helm.sh/chart: {{ include "defectdojo.chart" . }}
+    spec:
+      containers:
+        - image: "{{ .Values.redisImage }}:{{ .Values.redisTag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          name: redis
+          ports:
+            - containerPort: 6379
+          volumeMounts:
+            - mountPath: /data
+              name: dd-redis-pvc
+      restartPolicy: Always
+      volumes:
+        - name: dd-redis-pvc
+          persistentVolumeClaim:
+            claimName: {{ include "defectdojo.fullname" . }}-cache

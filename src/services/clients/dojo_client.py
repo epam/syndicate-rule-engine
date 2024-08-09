@@ -36,7 +36,7 @@ class DojoV2Client:
 
     def user_profile(self) -> dict | None:
         resp = self._request(path='user_profile', method=HTTPMethod.GET)
-        if not resp or not resp.ok:
+        if resp is None or not resp.ok:
             return
         return resp.json()
 

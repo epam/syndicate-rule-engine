@@ -12,7 +12,8 @@ from helpers import download_url
 from helpers.constants import Cloud
 from helpers.log_helper import get_logger
 from models.ruleset import Ruleset
-from services.ruleset_service import RulesetService
+from services.ruleset_service import RulesetService, RulesetName
+from models.job import Job
 
 _LOG = get_logger(__name__)
 
@@ -21,6 +22,8 @@ class PolicyDict(TypedDict):
     name: str
     resource: str
     filters: list
+    description: str | None
+    comment: str | None
 
 
 class PoliciesService:
@@ -31,10 +34,18 @@ class PoliciesService:
         self._ruleset_service = ruleset_service
         self._environment_service = environment_service
 
-    def get_standard_rulesets(self) -> Generator[Ruleset, None, None]:
-        yield from self._ruleset_service.iter_by_id(
-            self._environment_service.target_rulesets()
-        )
+    def get_standard_rulesets(self, job: Job) -> Generator[Ruleset, None, None]:
+        for r in map(RulesetName, job.rulesets):
+            if r.license_key:
+                continue
+            item = self._ruleset_service.get_standard(
+                customer=job.customer_name,
+                name=r.name,
+                version=r.version.to_str()
+            )
+            if not item:
+                continue
+            yield item
 
     @staticmethod
     def iter_excluding(policies: Iterable[PolicyDict], exclude: set[str]
@@ -104,7 +115,7 @@ class PoliciesService:
                       f'been downloaded. Returning path to it.')
             return path
 
-        ruleset = self._ruleset_service.get_ed_ruleset(cloud)
+        ruleset = self._ruleset_service.get_latest_event_driven(cloud)
         if ruleset:
             with open(path, 'wb') as file:
                 self._ruleset_service.download(ruleset, file)

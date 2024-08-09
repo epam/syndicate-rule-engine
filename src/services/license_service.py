@@ -55,11 +55,13 @@ class License:
 
     def __init__(self, app: Application):
         self._app = app
-        self._meta = app.meta.as_dict()
 
     @property
     def customer(self) -> str:
         return self._app.customer_id
+
+    def tenant_license_key(self, customer: str) -> str | None:
+        return self.customers.get(customer, {}).get('tenant_license_key')
 
     @property
     def application(self) -> Application:
@@ -67,7 +69,6 @@ class License:
         Meta will be set when you request the application
         :return:
         """
-        self._app.meta = self._meta
         return self._app
 
     @property
@@ -84,59 +85,65 @@ class License:
 
     @property
     def allowance(self) -> Allowance:
-        return self._meta.setdefault(self._allowance, {})
+        if self._allowance not in self._app.meta:
+            self._app.meta[self._allowance] = {}
+        return self._app.meta[self._allowance]
 
     @allowance.setter
     def allowance(self, value: Allowance):
-        self._meta[self._allowance] = value
+        self._app.meta[self._allowance] = value
 
     @property
     def customers(self) -> dict[str, Tenants]:
-        return self._meta.setdefault(self._customers, {})
+        if self._customers not in self._app.meta:
+            self._app.meta[self._customers] = {}
+        return self._app.meta[self._customers]
 
     @customers.setter
     def customers(self, value: dict[str, Tenants]):
-        self._meta[self._customers] = value
+        self._app.meta[self._customers] = value
 
     @property
     def event_driven(self) -> EventDriven:
-        return self._meta.setdefault(self._event_driven, {})
+        if self._event_driven not in self._app.meta:
+            self._app.meta[self._event_driven] = {}
+        return self._app.meta[self._event_driven]
 
     @event_driven.setter
     def event_driven(self, value: EventDriven):
-        self._meta[self._event_driven] = value
+        self._app.meta[self._event_driven] = value
 
     @property
     def ruleset_ids(self) -> list[str]:
-        return self._meta.setdefault(self._ruleset_ids, [])
+        if self._ruleset_ids not in self._app.meta:
+            self._app.meta[self._ruleset_ids] = []
+        return self._app.meta[self._ruleset_ids]
 
     @ruleset_ids.setter
     def ruleset_ids(self, value: list[str]):
-        self._meta[self._ruleset_ids] = value
+        self._app.meta[self._ruleset_ids] = value
 
     @property
     def expiration(self) -> datetime | None:
-        exp = self._meta.get(self._expiration)
-        if exp:
-            return utc_datetime(exp)
+        if self._expiration in self._app.meta:
+            return utc_datetime(self._app.meta[self._expiration])
 
     @expiration.setter
     def expiration(self, value: str | datetime):
         if isinstance(value, datetime):
             value = utc_iso(value)
-        self._meta[self._expiration] = value
+        self._app.meta[self._expiration] = value
 
     @property
     def latest_sync(self) -> datetime | None:
-        exp = self._meta.get(self._latest_sync)
-        if exp:
-            return utc_datetime(exp)
+        if self._latest_sync in self._app.meta:
+            return utc_datetime(self._app.meta[self._latest_sync])
 
     @latest_sync.setter
     def latest_sync(self, value: str | datetime):
         if isinstance(value, datetime):
             value = utc_iso(value)
-        self._meta[self._latest_sync] = value
+        self._app.meta[self._latest_sync] = value
 
     def is_expired(self) -> bool:
         exp = self.expiration
@@ -158,8 +165,9 @@ class LicenseService(BaseDataService[License]):
     def to_licenses(it: Iterable[Application]) -> Iterator[License]:
         return map(License, it)
 
-    def create(self, license_key: str, description: str, customer: str,
+    def create(self, license_key: str, customer: str,
                created_by: str, customers: dict | None = None,
+               description: str | None = None,
                expiration: str | None = None,
                ruleset_ids: list[str] | None = None,
                allowance: Allowance | None = None,
@@ -168,7 +176,7 @@ class LicenseService(BaseDataService[License]):
         app = self._aps.build(
             customer_id=customer,
             type=ApplicationType.CUSTODIAN_LICENSES.value,
-            description=description,
+            description=description or '',
             created_by=created_by,
             application_id=license_key,
             is_deleted=False,
@@ -316,3 +324,34 @@ class LicenseService(BaseDataService[License]):
             lambda lic: lic.event_driven.get('active') and lic.expiration and lic.expiration > now,
             licenses
         )
+
+    def iter_by_ids(self, ids: Iterable[str]
+                    ) -> Generator[License, None, None]:
+        for i in set(ids):
+            item = self.get_nullable(i)
+            if not item:
+                continue
+            yield item
+
+    def update(self, item: License, description: str | None = None,
+               allowance: dict | None = None, customers: dict | None = None,
+               event_driven: dict | None = None,
+               rulesets: list[str] | None = None,
+               latest_sync: str | None = None, valid_until: str | None = None):
+        actions = []
+        if description:
+            actions.append(Application.description.set(description))
+        if allowance:
+            actions.append(Application.meta[License._allowance].set(allowance))
+        if customers:
+            actions.append(Application.meta[License._customers].set(customers))
+        if event_driven:
+            actions.append(Application.meta[License._event_driven].set(event_driven))
+        if rulesets:
+            actions.append(Application.meta[License._ruleset_ids].set(rulesets))
+        if latest_sync:
+            actions.append(Application.meta[License._latest_sync].set(latest_sync))
+        if valid_until:
+            actions.append(Application.meta[License._expiration].set(valid_until))
+        if actions:
+            item.application.update(actions=actions)

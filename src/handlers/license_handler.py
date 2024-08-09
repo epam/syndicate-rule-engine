@@ -231,13 +231,10 @@ class LicenseHandler(AbstractHandler):
         license_obj = self.service.get_nullable(license_key)
         if license_obj:
             _LOG.info(f'License object {license_key} already exists')
-            if event.description:
-                license_obj.description = event.description
         else:
             _LOG.info('License object does not exist. Creating')
             license_obj = self.service.create(
                 license_key=license_key,
-                description=event.description or 'Custodian license',
                 customer=event.customer,
                 created_by=_pe['cognito_user_id'],
             )
@@ -256,17 +253,16 @@ class LicenseHandler(AbstractHandler):
             code=HTTPStatus.NO_CONTENT
         )
         lic = self.service.get_nullable(license_key)
-        if not lic or event.customer and event.customer not in lic.customers:
+        if not lic or event.customer and event.customer != lic.customer:
             return _success()
-        if not event.customer or len(
-                lic.customers) == 1 and event.customer in lic.customers:
-            self.service.delete(lic)
-            self.service.remove_rulesets_for_license(lic)
-            # TODO remove parents
-            return _success()
-
-        lic.customers.pop(event.customer)
-        self.service.save(lic)
+        self.service.delete(lic)
+        self.service.remove_rulesets_for_license(lic)
+        activations = self.get_all_activations(
+            license_key=lic.license_key,
+            customer=event.customer
+        )
+        for parent in activations:
+            self.ps.force_delete(parent)
         return _success()
 
     @validate_kwargs
@@ -287,19 +283,13 @@ class LicenseHandler(AbstractHandler):
         forbid = ResponseFactory(HTTPStatus.FORBIDDEN).message(
             'License manager does not allow to active the license'
         )
-        response = self.license_manager_service.activate_customer(
+        response = self.license_manager_service.cl.activate_customer(
             customer, tenant_license_key
         )
         if not response:
             _LOG.info('Not successful response from LM')
             raise forbid.exc()
-
-        lk = response.get(LICENSE_KEY_ATTR)
-        tlk = response.get(TENANT_LICENSE_KEY_ATTR)
-        if not all((lk, tlk)):
-            _LOG.warning('Invalid response from LM')
-            raise forbid.exc()
-        return lk
+        return response[0]
 
     def _execute_license_sync(self, license_keys: list[str]) -> dict:
         """

@@ -56,7 +56,7 @@ class ProcessedEvent(TypedDict):
     """
     method: HTTPMethod
     resource: CustodianEndpoint | None  # our resource if it can be matched: /jobs/{id}
-    path: str  # real path without stage: /jobs/123
+    path: str  # real path without stage: /jobs/123 or /jobs/123/
     fullpath: str  # full real path with stage /dev/jobs/123
     cognito_username: str | None
     cognito_customer: str | None
@@ -69,6 +69,7 @@ class ProcessedEvent(TypedDict):
     path_params: dict
     tenant_access_payload: TenantsAccessPayload
     additional_kwargs: dict  # additional kwargs to path to a handler
+    headers: dict
 
 
 class ExpandEnvironmentEventProcessor(AbstractEventProcessor):
@@ -83,6 +84,20 @@ class ExpandEnvironmentEventProcessor(AbstractEventProcessor):
             environment_service=SP.environment_service
         )
 
+    @staticmethod
+    def _resolve_stage(event: dict) -> str:
+        original = event['headers'].get('X-Original-Uri')
+        if original:  # nginx reverse proxy gives this header
+            # event['path'] here contains full path without stage
+            return original[:-len(event['path'])].strip('/')
+        # we could've got stage from requestContext.stage, but it always points
+        # to api gw stage. That value if wrong for us in case we use a domain
+        # name with prefix. So we should resolve stage as difference between
+        # requestContext.path and requestContext.resourcePath
+        _path = deep_get(event, ('requestContext', 'path'))
+        _resource = deep_get(event, ('requestContext', 'resourcePath'))
+        return _path[:-len(_resource)].strip('/')
+
     def __call__(self, event: dict, context: RequestContext
                  ) -> tuple[dict, RequestContext]:
         """
@@ -91,16 +106,12 @@ class ExpandEnvironmentEventProcessor(AbstractEventProcessor):
         envs = {CAASEnv.INVOCATION_REQUEST_ID: context.aws_request_id}
         if host := deep_get(event, ('headers', 'Host')):
             envs[CAASEnv.API_GATEWAY_HOST] = host
-        # we could've got stage from requestContext.stage, but it always points
-        # to api gw stage. That value if wrong for us in case we use a domain
-        # name with prefix. So we should resolve stage as difference between
-        # requestContext.path and requestContext.resourcePath
-        _path = deep_get(event, ('requestContext', 'path'))
-        _resource = deep_get(event, ('requestContext', 'resourcePath'))
-        envs[CAASEnv.API_GATEWAY_STAGE] = _path[:-len(_resource)].strip('/')
+        envs[CAASEnv.API_GATEWAY_STAGE] = self._resolve_stage(event)
 
-        if arn := context.invoked_function_arn:
-            envs[CAASEnv.ACCOUNT_ID] = arn.split(':')[4]
+        if context.invoked_function_arn:
+            envs[CAASEnv.ACCOUNT_ID] = RequestContext.extract_account_id(
+                context.invoked_function_arn
+            )
         self._env.override_environment(envs)
         return event, context
 
@@ -185,7 +196,8 @@ class ApiGatewayEventProcessor(AbstractEventProcessor):
             'query': dict(event.get('queryStringParameters') or {}),
             'path_params': dict(event.get('pathParameters') or {}),
             'tenant_access_payload': TenantsAccessPayload.build_denying_all(),
-            'additional_kwargs': dict()
+            'additional_kwargs': dict(),
+            'headers': event['headers']
         }, context
 
 
@@ -207,7 +219,6 @@ class RestrictCustomerEventProcessor(AbstractEventProcessor):
         (CustodianEndpoint.METRICS_STATUS, HTTPMethod.GET),
 
         (CustodianEndpoint.META_STANDARDS, HTTPMethod.POST),
-        (CustodianEndpoint.META_MAPPINGS, HTTPMethod.POST),
         (CustodianEndpoint.META_META, HTTPMethod.POST),
 
         (CustodianEndpoint.ED_RULESETS, HTTPMethod.GET),
@@ -217,12 +228,14 @@ class RestrictCustomerEventProcessor(AbstractEventProcessor):
         (CustodianEndpoint.RULESETS, HTTPMethod.POST),
         (CustodianEndpoint.RULESETS, HTTPMethod.PATCH),
         (CustodianEndpoint.RULESETS, HTTPMethod.DELETE),
-        (CustodianEndpoint.RULESETS_CONTENT, HTTPMethod.GET),
+        (CustodianEndpoint.RULESETS_RELEASE, HTTPMethod.POST),
 
+        (CustodianEndpoint.RULE_SOURCES_ID, HTTPMethod.GET),
         (CustodianEndpoint.RULE_SOURCES, HTTPMethod.GET),
         (CustodianEndpoint.RULE_SOURCES, HTTPMethod.POST),
-        (CustodianEndpoint.RULE_SOURCES, HTTPMethod.DELETE),
-        (CustodianEndpoint.RULE_SOURCES, HTTPMethod.PATCH),
+        (CustodianEndpoint.RULE_SOURCES_ID, HTTPMethod.DELETE),
+        (CustodianEndpoint.RULE_SOURCES_ID, HTTPMethod.PATCH),
+        (CustodianEndpoint.RULE_SOURCES_ID_SYNC, HTTPMethod.POST),
 
         (CustodianEndpoint.RULES, HTTPMethod.GET),
         (CustodianEndpoint.RULES, HTTPMethod.DELETE),
@@ -249,6 +262,9 @@ class RestrictCustomerEventProcessor(AbstractEventProcessor):
         (CustodianEndpoint.USERS_USERNAME, HTTPMethod.PATCH),
         (CustodianEndpoint.USERS_USERNAME, HTTPMethod.DELETE),
         (CustodianEndpoint.USERS_USERNAME, HTTPMethod.GET),
+
+        (CustodianEndpoint.SCHEDULED_JOB, HTTPMethod.GET),
+        (CustodianEndpoint.SCHEDULED_JOB_NAME, HTTPMethod.GET)
     }
 
     def __init__(self, customer_service: CustomerService):
@@ -344,6 +360,7 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
         :param permission:
         :return: TenantAccessPayload
         """
+        _LOG.debug(f'Checking permission: {permission}')
         factory = ResponseFactory(HTTPStatus.FORBIDDEN).message
         # todo cache role and policies?
         role = self._rs.get_nullable(customer, role_name)
@@ -356,7 +373,9 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
         ta = TenantAccess()
         is_allowed = False
         for policy in it:
+            _LOG.info(f'Checking permission for policy: {policy.name}')
             if policy.forbids(permission):
+                _LOG.debug('Policy explicitly forbids')
                 raise factory(self._not_allowed_message(permission)).exc()
             is_allowed |= policy.allows(permission)
             ta.add(policy)
@@ -392,6 +411,8 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
             role_name=cast(str, event['cognito_user_role']),
             permission=permission
         )
+        _LOG.debug(f'Resolved tenant access payload: '
+                   f'{event["tenant_access_payload"]}')
         return event, context
 
 

@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from services.clients.s3 import ModularAssumeRoleS3Service
     from services.clients.s3 import S3Client
     from services.clients.scheduler import EventBridgeJobScheduler
-    from services.clients.ssm import AbstractSSMClient
+    from services.clients.ssm import CachedSSMClient
     from services.clients.sts import StsClient
     from services.coverage_service import CoverageService
     from services.environment_service import EnvironmentService
@@ -38,7 +38,6 @@ if TYPE_CHECKING:
     from services.s3_settings_service import S3SettingsService
     from services.scheduler_service import SchedulerService
     from services.setting_service import CachedSettingsService
-    from services.ssm_service import SSMService
     from services.platform_service import PlatformService
     from services.clients.batch import BatchClient, SubprocessBatchClient
     from services.integration_service import IntegrationService
@@ -46,6 +45,7 @@ if TYPE_CHECKING:
     from services.clients.cognito import BaseAuthClient
     from services.rbac_service import RoleService, PolicyService
     from services.clients.step_function import ScriptClient, StepFunctionClient
+    from services.chronicle_service import ChronicleInstanceService
 
 
 _LOG = get_logger(__name__)
@@ -69,12 +69,14 @@ class ServiceProvider(metaclass=SingletonMeta):
         return S3Client.factory().build_s3(env.aws_region())
 
     @cached_property
-    def ssm(self) -> 'AbstractSSMClient':
-        from services.clients.ssm import VaultSSMClient, SSMClient
+    def ssm(self) -> 'CachedSSMClient':
+        from services.clients.ssm import VaultSSMClient, SSMClient, CachedSSMClient
         env = self.environment_service
         if env.is_docker():
-            return VaultSSMClient(environment_service=env)
-        return SSMClient(environment_service=env)
+            cl = VaultSSMClient()
+        else:
+            cl = SSMClient(environment_service=env)
+        return CachedSSMClient(cl)
 
     @cached_property
     def sts(self) -> 'StsClient':
@@ -110,11 +112,6 @@ class ServiceProvider(metaclass=SingletonMeta):
         if self.environment_service.is_docker():
             return self.onprem_users_client
         return self.saas_users_client
-
-    @cached_property
-    def ssm_service(self) -> 'SSMService':
-        from services.ssm_service import SSMService
-        return SSMService(client=self.ssm)
 
     @cached_property
     def lambda_client(self):
@@ -223,7 +220,7 @@ class ServiceProvider(metaclass=SingletonMeta):
     def rule_source_service(self) -> 'RuleSourceService':
         from services.rule_source_service import RuleSourceService
         return RuleSourceService(
-            ssm_service=self.ssm_service,
+            ssm=self.ssm,
         )
 
     @cached_property
@@ -240,8 +237,8 @@ class ServiceProvider(metaclass=SingletonMeta):
         from services.license_manager_service import LicenseManagerService
         return LicenseManagerService(
             settings_service=self.settings_service,
-            environment_service=self.environment_service,
-            ssm_service=self.ssm_service
+            ssm=self.ssm,
+            ruleset_service=self.ruleset_service
         )
 
     @cached_property
@@ -340,7 +337,8 @@ class ServiceProvider(metaclass=SingletonMeta):
         from services.integration_service import IntegrationService
         return IntegrationService(
             parent_service=self.modular_client.parent_service(),
-            defect_dojo_service=self.defect_dojo_service
+            defect_dojo_service=self.defect_dojo_service,
+            chronicle_instance_service=self.chronicle_instance_service
         )
 
     @cached_property
@@ -360,4 +358,12 @@ class ServiceProvider(metaclass=SingletonMeta):
         return DefectDojoService(
             application_service=self.modular_client.application_service(),
             ssm_service=self.modular_client.assume_role_ssm_service()
+        )
+
+    @cached_property
+    def chronicle_instance_service(self) -> 'ChronicleInstanceService':
+        from services.chronicle_service import ChronicleInstanceService
+        return ChronicleInstanceService(
+            application_service=self.modular_client.application_service(),
+            parent_service=self.modular_client.parent_service()
         )

@@ -2,7 +2,6 @@ from datetime import timedelta
 from functools import cached_property
 from http import HTTPStatus
 from itertools import chain
-from typing import Iterable
 
 from botocore.exceptions import ClientError
 from modular_sdk.models.pynamodb_extension.base_model import \
@@ -10,7 +9,6 @@ from modular_sdk.models.pynamodb_extension.base_model import \
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.tenant_service import TenantService
 
-from helpers import adjust_cloud
 from helpers.constants import (
     BatchJobType,
     Cloud,
@@ -40,9 +38,10 @@ from services.license_manager_service import LicenseManagerService
 from services.license_service import License, LicenseService
 from services.platform_service import PlatformService
 from services.rule_meta_service import RuleNamesResolver, RuleService
-from services.ruleset_service import RulesetService
+from services.ruleset_service import RulesetService, RulesetName
 from services.scheduler_service import SchedulerService
-from services.ssm_service import SSMService
+from services.clients.ssm import AbstractSSMClient
+from services import cache
 from validators.swagger_request_models import (
     BaseModel,
     JobGetModel,
@@ -51,7 +50,6 @@ from validators.swagger_request_models import (
     ScheduledJobGetModel,
     ScheduledJobPatchModel,
     ScheduledJobPostModel,
-    StandardJobPostModel,
 )
 from validators.utils import validate_kwargs
 
@@ -68,7 +66,7 @@ class JobHandler(AbstractHandler):
                  assemble_service: AssembleService,
                  batch_client: BatchClient,
                  sts_client: StsClient,
-                 ssm_service: SSMService,
+                 ssm: AbstractSSMClient,
                  scheduler_service: SchedulerService,
                  rule_service: RuleService,
                  platform_service: PlatformService):
@@ -81,10 +79,13 @@ class JobHandler(AbstractHandler):
         self._assemble_service = assemble_service
         self._batch_client = batch_client
         self._sts_client = sts_client
-        self._ssm_service = ssm_service
+        self._ssm = ssm
         self._scheduler_service = scheduler_service
         self._rule_service = rule_service
         self._platform_service = platform_service
+
+        self._licensed_rulesets_cache = cache.factory()
+        self._tenant_licenses = cache.factory()
 
     @classmethod
     def build(cls) -> 'JobHandler':
@@ -98,7 +99,7 @@ class JobHandler(AbstractHandler):
             assemble_service=SERVICE_PROVIDER.assemble_service,
             batch_client=SERVICE_PROVIDER.batch,
             sts_client=SERVICE_PROVIDER.sts,
-            ssm_service=SERVICE_PROVIDER.ssm_service,
+            ssm=SERVICE_PROVIDER.ssm,
             scheduler_service=SERVICE_PROVIDER.scheduler_service,
             rule_service=SERVICE_PROVIDER.rule_service,
             platform_service=SERVICE_PROVIDER.platform_service
@@ -115,9 +116,6 @@ class JobHandler(AbstractHandler):
             CustodianEndpoint.JOBS: {
                 HTTPMethod.POST: self.post,
                 HTTPMethod.GET: self.query,
-            },
-            CustodianEndpoint.JOBS_STANDARD: {
-                HTTPMethod.POST: self.post_standard,
             },
             CustodianEndpoint.JOBS_K8S: {
                 HTTPMethod.POST: self.post_k8s
@@ -140,144 +138,270 @@ class JobHandler(AbstractHandler):
     def _obtain_tenant(self, tenant_name: str, tap: TenantsAccessPayload,
                        customer: str | None = None) -> Tenant:
         tenant = self._tenant_service.get(tenant_name)
-        if tenant and not tap.is_allowed_for(tenant.name):
-            tenant = None
         modular_helpers.assert_tenant_valid(tenant, customer)
+        if not tap.is_allowed_for(tenant.name):
+            raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                f'The request tenant \'{tenant_name}\' is not found'
+            ).exc()
         return tenant
 
-    @validate_kwargs
-    def post_standard(self, event: StandardJobPostModel,
-                      _tap: TenantsAccessPayload):
-        """
-        Post job for the given tenant. Only not-licensed rule-sets
-        """
+    def _get_tenant_licenses(self, tenant: Tenant) -> tuple[License, ...]:
+        if tenant.name in self._tenant_licenses:
+            _LOG.debug('Returning cached tenant licenses')
+            return self._tenant_licenses[tenant.name]
+        _LOG.debug('Querying tenant licenses')
+        licenses = tuple(
+            lic[1]
+            for lic in self._license_service.iter_tenant_licenses(tenant)
+        )
+        self._tenant_licenses[tenant.name] = licenses
+        return licenses
 
-        tenant = self._obtain_tenant(event.tenant_name, _tap, event.customer)
+    def _get_licensed_ruleset(self, name: str) -> Ruleset | None:
+        if name in self._licensed_rulesets_cache:
+            _LOG.debug('Return cached ruleset item')
+            return self._licensed_rulesets_cache[name]
+        item = self._ruleset_service.by_lm_id(name)
+        if not item:
+            _LOG.error('Somehow licensed ruleset does not exist in DB')
+            return
+        self._licensed_rulesets_cache[name] = item
+        return item
 
-        credentials_key = None
-        if event.credentials:
-            credentials = event.credentials.dict()
-            if not self._environment_service.skip_cloud_identifier_validation():
-                _LOG.info('Validating cloud identifier')
-                self._validate_cloud_identifier(
-                    credentials=credentials,
-                    cloud_identifier=tenant.project,
-                    cloud=tenant.cloud.upper()
+    def _resolve_all_from_licenses(self, tenant: Tenant, domain: RuleDomain,
+                                   licenses: tuple[License, ...]
+                                   ) -> tuple[License, list[RulesetName]]:
+        mapping = {}  # license to acceptable rulesets
+        for lic in licenses:
+            _tlk = lic.tenant_license_key(tenant.customer_name)
+            if not _tlk:
+                continue
+            for name in set(lic.ruleset_ids):
+                item = self._get_licensed_ruleset(name)
+                if not item or item.cloud != domain.value:
+                    continue
+                ruleset_name = RulesetName(name, None, lic.license_key)
+                ruleset_name.rules = item.rules
+                mapping.setdefault(lic, set()).add(ruleset_name)
+        if not mapping:
+            raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
+                f'No appropriate rulesets can be resolved from license(s)'
+            ).exc()
+        if len(mapping) > 1:
+            raise ResponseFactory(HTTPStatus.CONFLICT).message(
+                f'Ambiguous situation. Multiple licenses: '
+                f'{", ".join(l.license_key for l in mapping)} - '
+                f'can be used for this job but only one license per job '
+                f'is currently allowed. Specify the desired license key'
+            ).exc()
+        lic, rulesets = next(iter(mapping.items()))
+        return lic, list(rulesets)
+
+    def _resolve_local(self, tenant: Tenant, domain: RuleDomain,
+                       ruleset_names: set[RulesetName]
+                       ) -> list[RulesetName]:
+        local = []
+        for name in ruleset_names:
+            if name.version:
+                item = self._ruleset_service.get_standard(
+                    customer=tenant.customer_name,
+                    name=name.name,
+                    version=name.version.to_str()
                 )
-            credentials_key = self._ssm_service.save_data(
-                name=tenant.name, value=credentials
-            )
-
-        regions_to_scan = self._resolve_regions_to_scan(
-            target_regions=event.target_regions,
-            tenant=tenant
-        )
-
-        if not self._environment_service.allow_simultaneous_jobs_for_one_tenant():
-            lock = TenantSettingJobLock(event.tenant_name)
-            if job_id := lock.locked_for(regions_to_scan):
-                return build_response(
-                    code=HTTPStatus.FORBIDDEN,
-                    content=f'Some requested regions are already being '
-                            f'scanned in another tenant`s job {job_id}'
+            else:
+                item = self._ruleset_service.get_latest(
+                    customer=tenant.customer_name,
+                    name=name.name
                 )
+            if not item:
+                if name.version:
+                    raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                        f'Licensed or local ruleset {name.name} '
+                        f'{name.version} not found'
+                    ).exc()
+                else:
+                    raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                        f'No versions of licensed or local '
+                        f'ruleset {name.name} found'
+                    ).exc()
+            if item.cloud != domain.value:
+                raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
+                    f'Local ruleset {item.name} is supposed to be used with '
+                    f'{item.cloud}'
+                ).exc()
+            ruleset_name = RulesetName(item.name, item.version or None, None)
+            ruleset_name.rules = item.rules
+            local.append(ruleset_name)
+        return local
 
-        ids = list(
-            (item.id, item.name, item.version) for item in
-            self.retrieve_standard_rulesets(tenant, event.target_rulesets)
-        )
-        if not ids:
-            return build_response(code=HTTPStatus.NOT_FOUND,
-                                  content='No standard rule-sets found')
+    def _match_licensed(self, lic: License, domain: RuleDomain,
+                        ruleset_name: RulesetName) -> Ruleset | None:
+        if ruleset_name.name not in lic.ruleset_ids:
+            return
+        item = self._get_licensed_ruleset(ruleset_name.name)
+        if not item:
+            return
+        if item.cloud != domain.value:
+            return
+        if ruleset_name.version and ruleset_name.version.to_str() not in item.versions:
+            return
+        return item
 
-        ttl_days = self._environment_service.jobs_time_to_live_days()
-        ttl = None
-        if ttl_days:
-            ttl = timedelta(days=ttl_days)
-        job = self._job_service.create(
-            customer_name=tenant.customer_name,
-            tenant_name=tenant.name,
-            regions=list(regions_to_scan),
-            rulesets=[f'{i[1]}:{i[2]}' for i in ids],
-            ttl=ttl
-        )
-        self._job_service.save(job)
-        envs = self._assemble_service.build_job_envs(
+    def _resolve_from_names_and_licenses(self, tenant: Tenant, domain: RuleDomain,
+                                         ruleset_names: set[RulesetName],
+                                         licenses: tuple[License, ...]
+                                         ) -> tuple[list[RulesetName], License | None, list[RulesetName]]:
+        utilized = set()
+        mapping = {}
+        for lic in licenses:
+            _tlk = lic.tenant_license_key(tenant.customer_name)
+            if not _tlk:
+                continue
+            for name in ruleset_names:
+                item = self._match_licensed(lic, domain, name)
+                if not item:
+                    continue
+                ruleset_name = RulesetName(name.name, name.version,
+                                           lic.license_key)
+                ruleset_name.rules = item.rules
+                mapping.setdefault(lic, set()).add(ruleset_name)
+                utilized.add(name)
+        if len(mapping) > 1:
+            # either the save ruleset name can be used from different licenses
+            # or different rulesets can be used from different licenses
+            raise ResponseFactory(HTTPStatus.CONFLICT).message(
+                f'Ambiguous situation. Multiple licenses: '
+                f'{", ".join(l.license_key for l in mapping)} - '
+                f'can be used for this job but only one license per job '
+                f'is currently allowed. Specify the desired license key'
+            ).exc()
+        if len(mapping) == 1:
+            lic, licensed = next(iter(mapping.items()))
+        else:  # len(mapping) == 0:
+            lic, licensed = None, set()
+        local = self._resolve_local(
             tenant=tenant,
-            job_id=job.id,
-            target_regions=list(regions_to_scan),
-            target_rulesets=ids,
-            credentials_key=credentials_key,
+            domain=domain,
+            ruleset_names=ruleset_names - utilized
         )
-        bid = self._submit_job_to_batch(tenant=tenant, job=job, envs=envs)
-        self._job_service.update(job, bid)
-        TenantSettingJobLock(tenant.name).acquire(job.id, regions_to_scan)
-        return build_response(
-            code=HTTPStatus.CREATED,
-            content=self._job_service.dto(job)
-        )
+        return local, lic, licensed
 
-    def retrieve_standard_rulesets(self, tenant: Tenant, names: set[str]
-                                   ) -> Iterable[Ruleset]:
-        cloud = adjust_cloud(tenant.cloud)
-        if names:
-            return chain.from_iterable([
-                self._ruleset_service.iter_standard(
-                    customer=tenant.customer_name, name=name, cloud=cloud,
-                    event_driven=False, limit=1, active=True
-                ) for name in names
-            ])
-        else:
-            return self._ruleset_service.iter_standard(
-                customer=tenant.customer_name, cloud=cloud,
-                event_driven=False, active=True
-            )
-
-    def resolve_rulesets(self, licenses: Iterable[License], tenant: Tenant,
-                         domain: RuleDomain, names: set[str]
-                         ) -> dict[str, list[Ruleset]]:
+    def _resolve_rulesets(self, tenant: Tenant, domain: RuleDomain,
+                          ruleset_names: set[RulesetName],
+                          licenses: tuple[License, ...]
+                          ) -> tuple[list[RulesetName], License | None, list[RulesetName]]:
         """
-        Resolves licensed rulesets that will be used for that scan.
-        Logic here is somewhat tangled, but it should work as expected
-        :param licenses:
         :param tenant:
         :param domain:
-        :param names:
-        :return: (affected_licenses, licensed_rulesets, rulesets):
-        - affected_license: [tenant_license_key1, tenant_license_key2]
-        - licensed_rulesets: ['0:Full AWS 1', '0:Full AWS 1']
+        :param ruleset_names:
+        :param licenses:
+        :return:
         """
-        # TODO tests
-        mapping = {}  # ruleset id to list of tenant license keys
-        for lic in licenses:
-            tlk = lic.customers.get(tenant.customer_name,
-                                    {}).get('tenant_license_key')
-            if not tlk:
-                continue
-            for _id in lic.ruleset_ids:
-                mapping.setdefault(_id, []).append(tlk)
+        if not ruleset_names and not licenses:
+            # or use all local rulesets
+            _LOG.warning('No rulesets were provided and no licenses '
+                         'are activated')
+            raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
+                f'No licenses are activated for tenant {tenant.name} and '
+                f'not ruleset names provided. '
+                f'Specify ruleset names to use local rulesets or activate '
+                f'a license'
+            ).exc()
+        if not ruleset_names:  # but licenses
+            _LOG.info('No rulesets were provided but some licenses are '
+                      'activated. Resolving all rulesets from license')
+            standard_rulesets = []
+            lic, licensed_rulesets = self._resolve_all_from_licenses(
+                tenant=tenant,
+                domain=domain,
+                licenses=licenses
+            )
+        elif not licenses:  # but ruleset names
+            _LOG.info('No licenses are activated but some rulesets were '
+                      'provided. Resolving local rulesets')
+            standard_rulesets = self._resolve_local(
+                tenant=tenant,
+                domain=domain,
+                ruleset_names=ruleset_names
+            )
+            lic, licensed_rulesets = None, []
+        else:  # both ruleset names and licenses
+            _LOG.info('Some licenses are activated and rulesets were '
+                      'provided.')
+            standard_rulesets, lic, licensed_rulesets = self._resolve_from_names_and_licenses(
+                tenant=tenant,
+                domain=domain,
+                ruleset_names=ruleset_names,
+                licenses=licenses
+            )
+        return standard_rulesets, lic, licensed_rulesets
 
-        # in case one ruleset is given by multiple tenant license keys,
-        # we just use the first one, because it is excessive configuration,
-        # this shouldn't happen
-        reversed_mapping = {}  # tenant_license_key to rulesets
-        for _id, tenant_license_keys in mapping.items():
-            ruleset = self._ruleset_service.by_lm_id(_id)
-            if not ruleset or ruleset.cloud != domain.value:
-                continue
-            if names and ruleset.name not in names:
-                continue
-            # ruleset is acceptable
-            reversed_mapping.setdefault(tenant_license_keys[0],
-                                        []).append(ruleset)
-        return reversed_mapping
+    def _get_rulesets_for_scan(self, tenant: Tenant, domain: RuleDomain,
+                               license_key: str | None,
+                               ruleset_names: set[RulesetName]
+                               ) -> tuple[list[RulesetName], License | None, list[RulesetName]]:
+        if license_key:
+            lic = self._license_service.get_nullable(license_key)
+            if not lic:
+                raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
+                    f'License {license_key} not found'
+                ).exc()
+            if not self._license_service.is_subject_applicable(
+                    lic=lic, customer=tenant.customer_name, tenant_name=tenant.name):
+                raise ResponseFactory(HTTPStatus.FORBIDDEN).message(
+                    f'License {license_key} is not applicable for '
+                    f'tenant {tenant.name}'
+                ).exc()
+            licenses = (lic, )
+        else:
+            licenses = self._get_tenant_licenses(tenant)
+
+        if licenses and all(l.is_expired() for l in licenses):
+            raise ResponseFactory(HTTPStatus.FORBIDDEN).message(
+                'All licenses have expired'
+            ).exc()
+
+        standard_rulesets, lic, licensed_rulesets = self._resolve_rulesets(
+            tenant=tenant,
+            domain=domain,
+            ruleset_names=ruleset_names,
+            licenses=licenses
+        )
+
+        if not standard_rulesets and not licensed_rulesets:
+            raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
+                'No licensed and standard rulesets are found'
+            ).exc()
+
+        if lic:
+            _LOG.debug('Making request to LM to ensure the job is allowed')
+            self.ensure_job_is_allowed(
+                tenant, lic.tenant_license_key(tenant.customer_name)
+            )
+        return standard_rulesets, lic, licensed_rulesets
+
+    @staticmethod
+    def _serialize_rulesets(standard: list[RulesetName], lic: License | None,
+                            licensed: list[RulesetName]) -> list[str]:
+        rulesets = [r.to_str() for r in standard]
+        if lic:
+            rulesets += [
+                RulesetName(r.name, r.version or None, lic.license_key).to_str()
+                for r in licensed
+            ]
+        return rulesets
 
     @validate_kwargs
     def post(self, event: JobPostModel, _tap: TenantsAccessPayload):
         """
-        Post job for the given tenant. Only licensed rule-sets
+        Post job for the given tenant
+        :param event:
+        :param _tap:
+        :return:
         """
-        tenant = self._obtain_tenant(event.tenant_name, _tap, event.customer)
+        _LOG.info('Job post event came')
+        tenant = self._obtain_tenant(event.tenant_name, _tap,
+                                     event.customer_id)
         domain = RuleDomain.from_tenant_cloud(tenant.cloud)
         if not domain:
             raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
@@ -286,6 +410,7 @@ class JobHandler(AbstractHandler):
 
         credentials_key = None
         if event.credentials:
+            _LOG.info('Credentials were provided. Saving to secrets manager')
             credentials = event.credentials.dict()
             if not self._environment_service.skip_cloud_identifier_validation():
                 _LOG.info('Validating cloud identifier')
@@ -294,8 +419,11 @@ class JobHandler(AbstractHandler):
                     cloud_identifier=tenant.project,
                     cloud=tenant.cloud.upper()
                 )
-            credentials_key = self._ssm_service.save_data(
-                name=tenant.name, value=credentials
+            credentials_key = self._ssm.prepare_name(tenant.name)
+            self._ssm.create_secret(
+                secret_name=credentials_key,
+                secret_value=credentials,
+                ttl=1800  # should be enough for on-prem
             )
 
         regions_to_scan = self._resolve_regions_to_scan(
@@ -304,45 +432,29 @@ class JobHandler(AbstractHandler):
         )
 
         if not self._environment_service.allow_simultaneous_jobs_for_one_tenant():
+            _LOG.debug('Setting job lock')
             lock = TenantSettingJobLock(event.tenant_name)
             if job_id := lock.locked_for(regions_to_scan):
-                return build_response(
-                    code=HTTPStatus.FORBIDDEN,
-                    content=f'Some requested regions are already being '
-                            f'scanned in another tenant`s job {job_id}'
-                )
-        licenses = [
-            l[1] for l in self._license_service.iter_tenant_licenses(tenant)
-        ]
-        if not licenses:
-            raise ResponseFactory(HTTPStatus.FORBIDDEN).message(
-                'There is no linked licenses for this tenant'
-            ).exc()
-        if all([lic.is_expired() for lic in licenses]):
-            raise ResponseFactory(HTTPStatus.FORBIDDEN).message(
-                'All activated licenses have expired'
-            ).exc()
-        mapping = self.resolve_rulesets(
-            licenses=licenses,
+                raise ResponseFactory(HTTPStatus.FORBIDDEN).message(
+                    f'Some requested regions are already being '
+                    f'scanned in another tenant`s job {job_id}'
+                ).exc()
+
+        standard_rulesets, lic, licensed_rulesets = self._get_rulesets_for_scan(
             tenant=tenant,
             domain=domain,
-            names=event.target_rulesets
+            license_key=event.license_key,
+            ruleset_names=set(event.iter_rulesets())
         )
-        _LOG.debug(f'Resolved rulesets mapping: {mapping}')
-        if not mapping:
-            raise ResponseFactory(HTTPStatus.FORBIDDEN).message(
-                'No appropriate licensed rulesets found for the requests scan'
-            ).exc()
-        # currently allow only jobs that exhaust one tenant license
-        tenant_license_key, rulesets = next(iter(mapping.items()))
-        self.ensure_job_is_allowed(tenant, tenant_license_key)
-        affected_licenses = [tenant_license_key]
-        licensed_rulesets = [f'0:{r.license_manager_id}' for r in rulesets]
 
         rules_to_scan = event.rules_to_scan
         if rules_to_scan:
             _LOG.info('Rules to scan were provided. Resolving them')
-            available = set(chain.from_iterable(r.rules for r in rulesets))
+            available = set(
+                chain.from_iterable(
+                    r.rules for r in chain(standard_rulesets, licensed_rulesets)  # not a bug, rules attribute is injected
+                )
+            )
             resolver = RuleNamesResolver(
                 resolve_from=list(available),
                 allow_multiple=True
@@ -367,22 +479,25 @@ class JobHandler(AbstractHandler):
         ttl = None
         if ttl_days:
             ttl = timedelta(days=ttl_days)
+
         job = self._job_service.create(
             customer_name=tenant.customer_name,
             tenant_name=tenant.name,
             regions=list(regions_to_scan),
-            rulesets=[r.license_manager_id for r in rulesets],
+            rulesets=self._serialize_rulesets(standard_rulesets, lic, licensed_rulesets),
             rules_to_scan=list(rules_to_scan or []),
-            ttl=ttl
+            ttl=ttl,
+            affected_license=lic.license_key if lic else None
         )
         self._job_service.save(job)
+
         envs = self._assemble_service.build_job_envs(
             tenant=tenant,
             job_id=job.id,
             target_regions=list(regions_to_scan),
-            affected_licenses=affected_licenses,
-            licensed_rulesets=licensed_rulesets,
-            credentials_key=credentials_key
+            credentials_key=credentials_key,
+            job_lifetime_minutes=event.timeout_minutes,
+            affected_licenses=lic.tenant_license_key(tenant.customer_name) if lic else None
         )
         bid = self._submit_job_to_batch(tenant=tenant, job=job, envs=envs)
         self._job_service.update(job, bid)
@@ -411,18 +526,17 @@ class JobHandler(AbstractHandler):
     def ensure_job_is_allowed(self, tenant: Tenant, tlk: str):
         _LOG.info(f'Going to check for permission to exhaust'
                   f'{tlk} TenantLicense(s).')
-        if not self._license_manager_service.is_allowed_to_license_a_job(
+        if not self._license_manager_service.cl.check_permission(
                 customer=tenant.customer_name, tenant=tenant.name,
-                tenant_license_keys=[tlk]):
-            message = f'Tenant:\'{tenant.name}\' could not be granted ' \
-                      f'to start a licensed job with tenant license {tlk}'
-            return build_response(
-                content=message, code=HTTPStatus.FORBIDDEN
-            )
-        _LOG.info(f'Tenant:\'{tenant.name}\' has been granted '
+                tenant_license_key=tlk):
+            message = (f'Tenant \'{tenant.name}\' could not be granted to '
+                       f'start a licensed job with tenant license {tlk}')
+            raise ResponseFactory(HTTPStatus.FORBIDDEN).message(message).exc()
+        _LOG.info(f'Tenant \'{tenant.name}\' has been granted '
                   f'permission to submit a licensed job.')
 
-    def _resolve_regions_to_scan(self, target_regions: set[str],
+    @staticmethod
+    def _resolve_regions_to_scan(target_regions: set[str],
                                  tenant: Tenant) -> set[str]:
         cloud = modular_helpers.tenant_cloud(tenant)
         if cloud == Cloud.AZURE or cloud == Cloud.GOOGLE:
@@ -533,61 +647,45 @@ class JobHandler(AbstractHandler):
                     content=f'Job {job_id} is already running '
                             f'for tenant {tenant.name}'
                 )
-
-        licenses = [
-            l[1] for l in self._license_service.iter_tenant_licenses(tenant)
-        ]
-        if not licenses:
-            raise ResponseFactory(HTTPStatus.FORBIDDEN).message(
-                'There is no linked licenses for this tenant'
-            ).exc()
-        if all([lic.is_expired() for lic in licenses]):
-            raise ResponseFactory(HTTPStatus.FORBIDDEN).message(
-                'All activated licenses have expired'
-            ).exc()
-        mapping = self.resolve_rulesets(
-            licenses=licenses,
+        standard_rulesets, lic, licensed_rulesets = self._get_rulesets_for_scan(
             tenant=tenant,
             domain=RuleDomain.KUBERNETES,
-            names=event.target_rulesets
+            license_key=event.license_key,
+            ruleset_names=set(event.iter_rulesets())
         )
-        _LOG.debug(f'Resolved rulesets mapping: {mapping}')
-        if not mapping:
-            raise ResponseFactory(HTTPStatus.FORBIDDEN).message(
-                'No appropriate licensed rulesets found for the requests scan'
-            ).exc()
-        # currently allow only jobs that exhaust one tenant license
-        tenant_license_key, rulesets = next(iter(mapping.items()))
-        self.ensure_job_is_allowed(tenant, tenant_license_key)
-        affected_licenses = [tenant_license_key]
-        licensed_rulesets = [f'0:{r.license_manager_id}' for r in rulesets]
 
         credentials_key = None  # TODO K8S validate whether long-lived token exists, validate whether it belongs to a cluster?
         if event.token:
             _LOG.debug('Temp token was provided. Saving to ssm')
-            credentials_key = self._ssm_service.save_data(
-                name=tenant.name, value=event.token
+            credentials_key = self._ssm.prepare_name(tenant.name)
+            self._ssm.create_secret(
+                secret_name=credentials_key,
+                secret_value=event.token,
+                ttl=1800  # should be enough for on-prem
             )
+
         ttl_days = self._environment_service.jobs_time_to_live_days()
         ttl = None
         if ttl_days:
             ttl = timedelta(days=ttl_days)
+
         job = self._job_service.create(
             customer_name=tenant.customer_name,
             tenant_name=tenant.name,
             regions=[],
-            rulesets=[r.license_manager_id for r in rulesets],
+            rulesets=self._serialize_rulesets(standard_rulesets, lic, licensed_rulesets),
             ttl=ttl,
-            platform_id=platform.id
+            platform_id=platform.id,
+            affected_license=lic.license_key if lic else None
         )
         self._job_service.save(job)
         envs = self._assemble_service.build_job_envs(
             tenant=tenant,
             job_id=job.id,
             platform_id=platform.id,
-            affected_licenses=affected_licenses,
-            licensed_rulesets=licensed_rulesets,
-            credentials_key=credentials_key
+            credentials_key=credentials_key,
+            job_lifetime_minutes=event.timeout_minutes,
+            affected_licenses=lic.tenant_license_key(tenant.customer_name) if lic else None
         )
         bid = self._submit_job_to_batch(tenant=tenant, job=job, envs=envs)
         self._job_service.update(job, bid)
@@ -607,49 +705,31 @@ class JobHandler(AbstractHandler):
             raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
                 f'Cannot start job for tenant with cloud {tenant.cloud}'
             ).exc()
-        # the same flow as for not scheduled jobs
         regions_to_scan = self._resolve_regions_to_scan(
             target_regions=event.target_regions,
             tenant=tenant
         )
-        licenses = [
-            l[1] for l in self._license_service.iter_tenant_licenses(tenant)
-        ]
-        if not licenses:
-            raise ResponseFactory(HTTPStatus.FORBIDDEN).message(
-                'There is no linked licenses for this tenant'
-            ).exc()
-        if all([lic.is_expired() for lic in licenses]):
-            raise ResponseFactory(HTTPStatus.FORBIDDEN).message(
-                'All activated licenses have expired'
-            ).exc()
-        mapping = self.resolve_rulesets(
-            licenses=licenses,
+        standard_rulesets, lic, licensed_ruleses = self._get_rulesets_for_scan(
             tenant=tenant,
             domain=domain,
-            names=event.target_rulesets
+            license_key=event.license_key,
+            ruleset_names=set(event.iter_rulesets())
         )
-        if not mapping:
-            raise ResponseFactory(HTTPStatus.FORBIDDEN).message(
-                'No appropriate licensed rulesets found for the requests scan'
-            ).exc()
-        # currently allow only jobs that exhaust one tenant license
-        tenant_license_key, rulesets = next(iter(mapping.items()))
-        self.ensure_job_is_allowed(tenant, tenant_license_key)
-        affected_licenses = [tenant_license_key]
-        licensed_rulesets = [f'0:{r.license_manager_id}' for r in rulesets]
 
         envs = self._assemble_service.build_job_envs(
             tenant=tenant,
             target_regions=list(regions_to_scan),
-            affected_licenses=affected_licenses,
-            licensed_rulesets=licensed_rulesets,
-            job_type=BatchJobType.SCHEDULED
+            job_type=BatchJobType.SCHEDULED,
+            affected_licenses=lic.tenant_license_key(tenant.customer_name) if lic else None
         )
-        # MOVE TODO fix terminate for scheduled
 
         job = self._scheduler_service.register_job(
-            tenant, event.schedule, envs, event.name
+            tenant=tenant,
+            schedule=event.schedule,
+            envs=envs,
+            name=event.name,
+            rulesets=self._serialize_rulesets(standard_rulesets, lic,
+                                              licensed_ruleses)
         )
         return build_response(
             code=HTTPStatus.CREATED,
@@ -662,7 +742,7 @@ class JobHandler(AbstractHandler):
         if event.tenant_name:
             tenants.add(event.tenant_name)
         items = self._scheduler_service.list(
-            customer=event.customer,
+            customer=event.customer or SYSTEM_CUSTOMER,
             tenants=tenants
         )
         return build_response(content=(
@@ -672,7 +752,7 @@ class JobHandler(AbstractHandler):
     @validate_kwargs
     def get_scheduled(self, event: BaseModel, name: str):
         item = next(self._scheduler_service.list(
-            name=name, customer=event.customer
+            name=name, customer=event.customer or SYSTEM_CUSTOMER
         ), None)
         if not item:
             raise ResponseFactory(HTTPStatus.NOT_FOUND).default().exc()

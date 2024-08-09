@@ -87,7 +87,7 @@ class LicenseManagerToken:
         }
         payload = {
             'customer': self.customer,
-            'exp': int(time.time()) + self.lifetime * 60
+            'exp': int(time.time()) + self.lifetime * 60,
         }
         message = b'.'.join([
             self._encode(json.dumps(part, separators=(',', ':')).encode())

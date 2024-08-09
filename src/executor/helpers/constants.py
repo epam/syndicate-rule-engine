@@ -58,6 +58,21 @@ class ExecutorError(str, Enum):
     """
     Explanation for user why the job failed
     """
-    LM_DID_NOT_ALLOW = 'License manager does did not allow this job'  # exit code 2
+    reason: str | None
+
+    def __new__(cls, value: str, reason: str | None = None):
+        obj = str.__new__(cls, value)
+        obj._value_ = value
+
+        obj.reason = reason
+        return obj
+
+    LM_DID_NOT_ALLOW = 'License manager did not allow this job'  # exit code 2
     NO_CREDENTIALS = 'Could not resolve any credentials'
     INTERNAL = 'Internal executor error'
+
+    def with_reason(self, why: str | None = None) -> str:
+        reason = why or self.reason
+        if not reason:
+            return self.value
+        return f'{self.value}: {reason}'

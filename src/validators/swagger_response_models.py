@@ -13,7 +13,8 @@ from helpers.constants import (
     PolicyErrorType,
     ReportFormat,
     RuleSourceType,
-    RuleDomain
+    RuleDomain,
+    RuleSourceSyncingStatus
 )
 
 
@@ -47,6 +48,7 @@ class Rule(TypedDict):
     customer: str
     project: str
     resource: str
+    rule_source_id: str
 
 
 class Job(TypedDict):
@@ -95,8 +97,9 @@ class Ruleset(TypedDict):
 
 
 class RuleSourceLatestSync(TypedDict):
-    current_status: Literal['SYNCED', 'SYNCING', 'SYNCING_FAILED']
+    current_status: RuleSourceSyncingStatus
     sync_date: datetime
+    release_tag: NotRequired[str]
 
 
 class RuleSource(TypedDict):
@@ -347,6 +350,15 @@ class DefectDojo(TypedDict):
     protocol: Literal['HTTP', 'HTTPS']
 
 
+class Chronicle(TypedDict):
+    id: str
+    description: str
+    endpoint: str
+    credentials_application_id: str
+    instance_customer_id: str
+    customer: str
+
+
 class DefectDojoActivation(BaseActivation):
     scan_type: Literal['Generic Findings Import', 'Cloud Custodian Scan']
     product_type: str
@@ -355,6 +367,10 @@ class DefectDojoActivation(BaseActivation):
     test: str
     send_after_job: bool
     attachment: Literal['json', 'xlsx', 'csv'] | None
+
+
+class ChronicleActivation(BaseActivation):
+    send_after_job: bool
 
 
 class DojoPushResult(TypedDict):
@@ -368,6 +384,15 @@ class DojoPushResult(TypedDict):
     dojo_integration_id: str
     success: bool
     attachment: Literal['json', 'xlsx', 'csv'] | None
+    platform_id: NotRequired[str]
+    error: NotRequired[str]
+
+
+class ChroniclePushResult(TypedDict):
+    job_id: str
+    tenant_name: str
+    chronicle_integration_id: str
+    success: bool
     platform_id: NotRequired[str]
     error: NotRequired[str]
 
@@ -635,6 +660,18 @@ class MultipleDefectDojoModel(BaseModel):
     items: DefectDojo
 
 
+class SingleChronicleModel(BaseModel):
+    data: Chronicle
+
+
+class SingleChronicleActivationModel(BaseModel):
+    data: ChronicleActivation
+
+
+class MultipleChronicleModel(BaseModel):
+    items: list[Chronicle]
+
+
 class SingleDefectDojoActivation(BaseModel):
     data: DefectDojoActivation
 
@@ -645,6 +682,10 @@ class SingleDefectDojoPushResult(BaseModel):
 
 class MultipleDefectDojoPushResult(BaseModel):
     items: list[DojoPushResult]
+
+
+class SingleChroniclePushResult(BaseModel):
+    data: ChroniclePushResult
 
 
 class SingleSelfIntegration(BaseModel):

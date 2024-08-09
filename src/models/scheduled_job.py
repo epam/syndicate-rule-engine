@@ -24,8 +24,8 @@ SJ_CUSTOMER_NAME_ATTR = 'customer_name'
 class ScheduledJobContext(MapAttribute):
     schedule = UnicodeAttribute(null=True)
     job_state = UnicodeAttribute(null=True)
-    scan_regions = ListAttribute(null=True, of=UnicodeAttribute)
-    scan_rulesets = ListAttribute(null=True, of=UnicodeAttribute)
+    scan_regions = ListAttribute(null=True, of=UnicodeAttribute, default=list)
+    scan_rulesets = ListAttribute(null=True, of=UnicodeAttribute, default=list)
     is_enabled = BooleanAttribute(null=True, default_for_new=True)
 
 
@@ -59,7 +59,7 @@ class ScheduledJob(BaseSafeUpdateModel):
                                      attr_name=SJ_CUSTOMER_NAME_ATTR)
     creation_date = UnicodeAttribute(
         null=True, attr_name=SJ_CREATION_DATE_ATTR,
-        default_for_new=lambda: utc_iso())
+        default_for_new=utc_iso)
     last_execution_time = UnicodeAttribute(
         null=True, attr_name=SJ_LAST_EXECUTION_TIME_ATTR)
     context = ScheduledJobContext(default=dict, attr_name=SJ_CONTEXT_ATTR)

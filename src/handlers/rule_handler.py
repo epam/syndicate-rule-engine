@@ -63,7 +63,19 @@ class RuleHandler(AbstractHandler):
                 )
             return build_response(content=[])
         _LOG.debug('Going to list rules')
-        if event.git_project_id:
+        if event.rule_source_id:
+            rs = self.rule_source_service.get_nullable(event.rule_source_id)
+            if not rs or rs.customer != customer:
+                raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                    self.rule_source_service.not_found_message()
+                ).exc()
+            cursor = self.rule_service.get_by_rule_source(
+                rule_source=rs,
+                cloud=event.cloud,
+                limit=event.limit,
+                last_evaluated_key=lek.value
+            )
+        elif event.git_project_id:
             cursor = self.rule_service.get_by(
                 customer=customer,
                 project=event.git_project_id,
@@ -72,7 +84,7 @@ class RuleHandler(AbstractHandler):
                 limit=event.limit,
                 last_evaluated_key=lek.value
             )
-        else:  # no git_project_id & git_ref
+        else:  # no rule_source_id, git_project_id, git_ref
             cursor = self.rule_service.get_by_id_index(
                 customer=customer,
                 cloud=event.cloud,

@@ -155,7 +155,6 @@ class ReportGenerator(EventProcessorLambdaHandler):
                  batch_results_service: BatchResultsService,
                  mappings_collector: LazyLoadedMappingsCollector,
                  report_statistics_service: ReportStatisticsService,
-                 ap_job_scheduler: 'APJobScheduler',
                  ruleset_service: RulesetService):
         self.s3_service = s3_service
         self.environment_service = environment_service
@@ -168,7 +167,6 @@ class ReportGenerator(EventProcessorLambdaHandler):
         self.rabbitmq_service = rabbitmq_service
         self.report_statistics_service = report_statistics_service
         self.mappings_collector = mappings_collector
-        self.ap_job_scheduler = ap_job_scheduler
         self.ruleset_service = ruleset_service
 
         self.customer_license_mapping = {}
@@ -228,7 +226,6 @@ class ReportGenerator(EventProcessorLambdaHandler):
             rabbitmq_service=SERVICE_PROVIDER.rabbitmq_service,
             mappings_collector=SERVICE_PROVIDER.mappings_collector,
             report_statistics_service=SERVICE_PROVIDER.report_statistics_service,
-            ap_job_scheduler=SERVICE_PROVIDER.ap_job_scheduler,
             ruleset_service=SERVICE_PROVIDER.ruleset_service
         )
 

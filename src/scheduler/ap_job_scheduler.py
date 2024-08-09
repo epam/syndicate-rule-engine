@@ -1,4 +1,3 @@
-import json
 import os
 from functools import cached_property
 from http import HTTPStatus
@@ -17,19 +16,16 @@ from pymongo import ASCENDING, MongoClient
 from pymongo.collection import Collection
 from pymongo.errors import DuplicateKeyError
 
-from helpers import RequestContext
 from helpers.constants import CAASEnv, CUSTODIAN_TYPE, SCHEDULED_JOB_TYPE, \
-    BatchJobEnv, ReportDispatchStatus
+    BatchJobEnv
 from helpers.lambda_response import ResponseFactory
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_iso
-from models.report_statistics import ReportStatistics
 from models.scheduled_job import SJ_ID_ATTR, SJ_CREATION_DATE_ATTR, \
     SJ_TYPE_ATTR, SJ_CONTEXT_ATTR, SJ_LAST_EXECUTION_TIME_ATTR
 from models.scheduled_job import ScheduledJob, SCHEDULED_JOBS_TABLE_NAME
 from services.clients.batch import SubprocessBatchClient
 from services.clients.scheduler import AbstractJobScheduler
-from services.report_statistics_service import ReportStatisticsService
 from services.setting_service import SettingsService
 
 try:
@@ -160,7 +156,7 @@ class APJobScheduler(AbstractJobScheduler):
         May raise ValueError
         """
         return CronTrigger.from_crontab(
-            schedule.strip().replace('cron', '').strip('()')
+            schedule.strip().replace('cron', '').strip(' ()')
         )
 
     @staticmethod
@@ -168,14 +164,11 @@ class APJobScheduler(AbstractJobScheduler):
         """
         May raise ValueError
         """
-        value, unit = schedule.strip().replace('rate', '').strip('()').split()
+        # validated beforehand so must be valid
+        value, unit = schedule.strip().replace('rate', '').strip(' ()').split()
         value = int(value)
-        if unit not in RATE_EXPRESSION_UNITS:
-            raise ValueError(
-                f'Not available unit: \'{unit}\'. '
-                f'Available: {", ".join(RATE_EXPRESSION_UNITS)}')
         if not unit.endswith('s'):
-            unit = unit + 's'
+            unit += 's'
         return IntervalTrigger(**{unit: value})
 
     def derive_trigger(self, schedule: str) -> BaseTrigger:
@@ -192,13 +185,15 @@ class APJobScheduler(AbstractJobScheduler):
         if error:
             _LOG.warning(f'User has sent invalid schedule '
                          f'expression: \'{schedule}\'')
-            raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
-                f'Schedule expression validation error: {error}'
-            ).exc()
+            raise ResponseFactory(HTTPStatus.BAD_REQUEST).errors([{
+                'location': ['schedule'],
+                'description': f'Invalid schedule expression: {error}'
+            }]).exc()
 
     def register_job(self, tenant: Tenant, schedule: str,
                      environment: dict,
-                     name: Optional[str] = None) -> ScheduledJob:
+                     name: Optional[str] = None,
+                     rulesets: list[str] | None = None) -> ScheduledJob:
         _id = self.safe_name(name) if name else \
             self.safe_name_from_tenant(tenant)
         environment[BatchJobEnv.SCHEDULED_JOB_NAME] = _id
@@ -223,8 +218,7 @@ class APJobScheduler(AbstractJobScheduler):
             ScheduledJob.context['schedule'].set(schedule),
             ScheduledJob.context['scan_regions'].set(
                 self._scan_regions_from_env(environment)),
-            ScheduledJob.context['scan_rulesets'].set(
-                self._scan_rulesets_from_env(environment)),
+            ScheduledJob.context['scan_rulesets'].set(rulesets),
             ScheduledJob.context['is_enabled'].set(True)
         ]
         _job.update(actions=actions)

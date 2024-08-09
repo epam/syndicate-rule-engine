@@ -1,0 +1,22 @@
+databaseName: custodian_as_a_service
+modularDatabaseName: custodian_as_a_service
+innerCacheTTLSeconds: '300'
+
+service:
+  type: ClusterIP
+  port: 8000
+  nodePort: 32106
+
+image:
+  repository: public.ecr.aws/x4s4z8e1/syndicate/rule-engine
+  tag: 5.4.0
+  pullPolicy: IfNotPresent
+
+replicas: 1
+
+mongoService: mongo
+mongoPort: 27017
+vaultService: vault
+vaultPort: 8200
+minioService: minio
+minioPort: 9000

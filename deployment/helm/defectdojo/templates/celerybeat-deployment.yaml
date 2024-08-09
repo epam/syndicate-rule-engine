@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "defectdojo.fullname" . }}-celerybeat
+  labels:
+    app.kubernetes.io/name: {{ include "defectdojo.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ include "defectdojo.chart" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "defectdojo.name" . }}-celerybeat
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "defectdojo.name" . }}-celerybeat
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        helm.sh/chart: {{ include "defectdojo.chart" . }}
+    spec:
+      containers:
+        - command: ["/wait-for-it.sh", '{{ include "defectdojo.fullname" . }}-postgres:5432', "-t", "30", "--", "/entrypoint-celery-beat.sh"]
+          env:
+            - name: DD_CELERY_BROKER_URL
+              value: redis://{{ include "defectdojo.fullname" . }}-redis:6379/0
+            - name: DD_CREDENTIAL_AES_256_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: defect-dojo-secret
+                  key: credential-aes-256-key
+            - name: DD_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: defect-dojo-secret
+                  key: secret-key
+            - name: _DD_DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: defect-dojo-secret
+                  key: db-username
+            - name: _DD_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: defect-dojo-secret
+                  key: db-password
+            - name: DD_DATABASE_URL
+              value: 'postgresql://$(_DD_DB_USERNAME):$(_DD_DB_PASSWORD)@{{ include "defectdojo.fullname" . }}-postgres:5432/defectdojo'
+          image: "{{ .Values.djangoImage }}:{{ .Values.djangoTag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          name: celerybeat
+      restartPolicy: Always

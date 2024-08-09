@@ -3,6 +3,7 @@ from http import HTTPStatus
 
 from modular_sdk.modular import Modular
 from modular_sdk.services.parent_service import ParentService
+from helpers.log_helper import get_logger
 
 from handlers import AbstractHandler, Mapping
 from helpers.constants import CustodianEndpoint, HTTPMethod, JobState
@@ -12,6 +13,7 @@ from services import SP
 from services import modular_helpers
 from services.ambiguous_job_service import AmbiguousJob, AmbiguousJobService
 from services.clients.dojo_client import DojoV2Client
+from services.clients.chronicle import ChronicleV2Client
 from services.defect_dojo_service import (
     DefectDojoConfiguration,
     DefectDojoParentMeta,
@@ -22,11 +24,18 @@ from services.platform_service import PlatformService
 from services.report_convertors import ShardCollectionDojoConvertor
 from services.report_service import ReportService
 from services.sharding import ShardsCollection
+from modular_sdk.models.tenant import Tenant
 from validators.swagger_request_models import (
     ReportPushByJobIdModel,
     ReportPushMultipleModel,
+    BaseModel
 )
+from services.chronicle_service import ChronicleInstance, ChronicleConverterType, ChronicleParentMeta
+from modular_sdk.services.impl.maestro_credentials_service import MaestroCredentialsService
 from validators.utils import validate_kwargs
+from services.udm_generator import ShardCollectionUDMEntitiesConvertor, ShardCollectionUDMEventsConvertor
+
+_LOG = get_logger(__name__)
 
 
 class SiemPushHandler(AbstractHandler):
@@ -35,13 +44,15 @@ class SiemPushHandler(AbstractHandler):
                  modular_client: Modular,
                  platform_service: PlatformService,
                  integration_service: IntegrationService,
-                 defect_dojo_service: DefectDojoService):
+                 defect_dojo_service: DefectDojoService,
+                 maestro_credentials_service: MaestroCredentialsService):
         self._ambiguous_job_service = ambiguous_job_service
         self._rs = report_service
         self._modular_client = modular_client
         self._platform_service = platform_service
         self._integration_service = integration_service
         self._dds = defect_dojo_service
+        self._mcs = maestro_credentials_service
 
     @classmethod
     def build(cls) -> 'AbstractHandler':
@@ -51,7 +62,8 @@ class SiemPushHandler(AbstractHandler):
             modular_client=SP.modular_client,
             platform_service=SP.platform_service,
             integration_service=SP.integration_service,
-            defect_dojo_service=SP.defect_dojo_service
+            defect_dojo_service=SP.defect_dojo_service,
+            maestro_credentials_service=SP.modular_client.maestro_credentials_service()
         )
 
     @cached_property
@@ -63,6 +75,12 @@ class SiemPushHandler(AbstractHandler):
             CustodianEndpoint.REPORTS_PUSH_DOJO: {
                 HTTPMethod.POST: self.push_dojo_multiple_jobs
             },
+            CustodianEndpoint.REPORTS_PUSH_CHRONICLE_JOB_ID: {
+                HTTPMethod.POST: self.push_chronicle_by_job_id
+            },
+            CustodianEndpoint.REPORTS_PUSH_CHRONICLE_TENANTS_TENANT_NAME: {
+                HTTPMethod.POST: self.push_chronicle_by_tenant
+            }
         }
 
     @property
@@ -107,6 +125,30 @@ class SiemPushHandler(AbstractHandler):
             case _:
                 return (HTTPStatus.SERVICE_UNAVAILABLE,
                         'Could not make request to dojo server')
+
+    @staticmethod
+    def _push_chronicle(client: ChronicleV2Client,
+                        configuration: ChronicleParentMeta,
+                        tenant: Tenant, collection: ShardsCollection
+                        ) -> tuple[HTTPStatus, str]:
+        match configuration.converter_type:
+            case ChronicleConverterType.EVENTS:
+                _LOG.debug('Converting our collection to UDM events')
+                convertor = ShardCollectionUDMEventsConvertor(tenant=tenant)
+                success = client.create_udm_events(
+                    events=convertor.convert(collection),
+                )
+            case _:  # ENTITIES
+                _LOG.debug('Converting our collection to UDM entities')
+                convertor = ShardCollectionUDMEntitiesConvertor(tenant=tenant)
+                success = client.create_udm_entities(
+                    entities=convertor.convert(collection),
+                    log_type='AWS_API_GATEWAY'  # todo use a generic log type or smt
+                )
+        if success:
+            return HTTPStatus.OK, 'Pushed'
+        return (HTTPStatus.SERVICE_UNAVAILABLE,
+                'Some errors occurred pushing data to chronicle')
 
     @validate_kwargs
     def push_dojo_by_job_id(self, event: ReportPushByJobIdModel, job_id: str):
@@ -166,7 +208,7 @@ class SiemPushHandler(AbstractHandler):
         )
         match code:
             case HTTPStatus.OK:
-                return build_response(self.get_dto(job, dojo, configuration))
+                return build_response(self.get_dojo_dto(job, dojo, configuration))
             case _:
                 return build_response(
                     content=message,
@@ -174,9 +216,9 @@ class SiemPushHandler(AbstractHandler):
                 )
 
     @staticmethod
-    def get_dto(job: AmbiguousJob, dojo: DefectDojoConfiguration,
-                configuration: DefectDojoParentMeta,
-                error: str | None = None) -> dict:
+    def get_dojo_dto(job: AmbiguousJob, dojo: DefectDojoConfiguration,
+                     configuration: DefectDojoParentMeta,
+                     error: str | None = None) -> dict:
         data = {
             'job_id': job.id,
             'scan_type': configuration.scan_type,
@@ -191,6 +233,24 @@ class SiemPushHandler(AbstractHandler):
         }
         if job.is_platform_job:
             data['platform_id'] = job.platform_id
+        if error:
+            data['error'] = error
+        return data
+
+    @staticmethod
+    def get_chronicle_dto(tenant: Tenant, chronicle: ChronicleInstance,
+                          job: AmbiguousJob | None = None,
+                          error: str | None = None
+                          ) -> dict:
+        data = {
+            'tenant_name': tenant.name,
+            'chronicle_integration_id': chronicle.id,
+            'success': not error,
+        }
+        if job:
+            data['job_id'] = job.id
+            if job.is_platform_job:
+                data['platform_id'] = job.platform_id
         if error:
             data['error'] = error
         return data
@@ -265,13 +325,13 @@ class SiemPushHandler(AbstractHandler):
             )
             match code:
                 case HTTPStatus.OK:
-                    resp = self.get_dto(
+                    resp = self.get_dojo_dto(
                         job=job,
                         dojo=dojo,
                         configuration=_configuration,
                     )
                 case _:
-                    resp = self.get_dto(
+                    resp = self.get_dojo_dto(
                         job=job,
                         dojo=dojo,
                         configuration=_configuration,
@@ -279,3 +339,123 @@ class SiemPushHandler(AbstractHandler):
                     )
             responses.append(resp)
         return build_response(responses)
+
+    @validate_kwargs
+    def push_chronicle_by_job_id(self, event: ReportPushByJobIdModel,
+                                 job_id: str):
+        job = self._ambiguous_job_service.get_job(
+            job_id=job_id,
+            typ=event.type,
+            customer=event.customer
+        )
+        if not job:
+            return build_response(
+                content='The request job not found',
+                code=HTTPStatus.NOT_FOUND
+            )
+        if not job.is_succeeded:
+            return build_response(
+                content='Job has not succeeded yet',
+                code=HTTPStatus.NOT_FOUND
+            )
+        tenant = self._modular_client.tenant_service().get(job.tenant_name)
+        modular_helpers.assert_tenant_valid(tenant, event.customer)
+
+        chronicle, configuration = next(
+            self._integration_service.get_chronicle_adapters(tenant),
+            (None, None)
+        )
+        if not chronicle:
+            raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
+                f'Tenant {tenant.name} does not have linked chronicle '
+                f'configuration'
+            ).exc()
+        creds = self._mcs.get_by_application(
+            chronicle.credentials_application_id,
+            tenant
+        )
+        if not creds:
+            raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
+                'Cannot resolve credentials for Chronicle'
+            ).exc()
+
+        client = ChronicleV2Client(
+            url=chronicle.endpoint,
+            credentials=creds.GOOGLE_APPLICATION_CREDENTIALS,
+            customer_id=chronicle.instance_customer_id
+        )
+
+        if job.is_platform_job:
+            platform = self._platform_service.get_nullable(job.platform_id)
+            if not platform:
+                return build_response(
+                    content='Job platform not found',
+                    code=HTTPStatus.NOT_FOUND
+                )
+            collection = self._rs.platform_job_collection(platform, job.job)
+            collection.meta = self._rs.fetch_meta(platform)
+        else:
+            collection = self._rs.ambiguous_job_collection(tenant, job)
+            collection.meta = self._rs.fetch_meta(tenant)
+        collection.fetch_all()
+        code, message = self._push_chronicle(
+            client=client,
+            configuration=configuration,
+            tenant=tenant,
+            collection=collection,
+        )
+        match code:
+            case HTTPStatus.OK:
+                return build_response(self.get_chronicle_dto(tenant, chronicle, job))
+            case _:
+                return build_response(
+                    content=message,
+                    code=HTTPStatus.SERVICE_UNAVAILABLE,
+                )
+
+    @validate_kwargs
+    def push_chronicle_by_tenant(self, event: BaseModel, tenant_name: str):
+        tenant = self._modular_client.tenant_service().get(tenant_name)
+        modular_helpers.assert_tenant_valid(tenant, event.customer)
+
+        chronicle, configuration = next(
+            self._integration_service.get_chronicle_adapters(tenant),
+            (None, None)
+        )
+        if not chronicle:
+            raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
+                f'Tenant {tenant.name} does not have linked chronicle '
+                f'configuration'
+            ).exc()
+        creds = self._mcs.get_by_application(
+            chronicle.credentials_application_id,
+            tenant
+        )
+        if not creds:
+            raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
+                'Cannot resolve credentials for Chronicle'
+            ).exc()
+
+        client = ChronicleV2Client(
+            url=chronicle.endpoint,
+            credentials=creds.GOOGLE_APPLICATION_CREDENTIALS,
+            customer_id=chronicle.instance_customer_id
+        )
+        collection = self._rs.tenant_latest_collection(tenant)
+        collection.fetch_all()
+        collection.fetch_meta()
+
+        code, message = self._push_chronicle(
+            client=client,
+            configuration=configuration,
+            tenant=tenant,
+            collection=collection,
+        )
+        match code:
+            case HTTPStatus.OK:
+                return build_response(self.get_chronicle_dto(tenant, chronicle))
+            case _:
+                return build_response(
+                    content=message,
+                    code=HTTPStatus.SERVICE_UNAVAILABLE,
+                )

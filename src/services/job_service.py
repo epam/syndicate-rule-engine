@@ -11,6 +11,7 @@ from helpers.time_helper import utc_iso, utc_datetime
 from models.job import Job
 from services import SP
 from services.base_data_service import BaseDataService
+from services.ruleset_service import RulesetName
 
 _LOG = get_logger(__name__)
 
@@ -19,7 +20,8 @@ class JobService(BaseDataService[Job]):
     def create(self, customer_name: str, tenant_name: str, regions: list[str],
                rulesets: list[str], rules_to_scan: list[str] | None = None,
                platform_id: str | None = None, ttl: timedelta | None = None,
-               owner: str | None = None) -> Job:
+               owner: str | None = None, affected_license: str | None = None
+               ) -> Job:
         return super().create(
             id=str(uuid.uuid4()),
             customer_name=customer_name,
@@ -29,13 +31,15 @@ class JobService(BaseDataService[Job]):
             rules_to_scan=rules_to_scan or [],
             platform_id=platform_id,
             ttl=ttl,
-            owner=owner
+            owner=owner,
+            affected_license=affected_license
         )
 
     def update(self, job: Job, batch_job_id: str = None, reason: str = None,
                status: JobState = None, created_at: str = None,
                started_at: str = None, stopped_at: str = None,
-               queue: str = None, definition: str = None):
+               queue: str = None, definition: str = None,
+               rulesets: list[str] | None = None):
         actions = []
         if batch_job_id:
             actions.append(Job.batch_job_id.set(batch_job_id))
@@ -53,6 +57,8 @@ class JobService(BaseDataService[Job]):
             actions.append(Job.queue.set(queue))
         if definition:
             actions.append(Job.definition.set(definition))
+        if rulesets:
+            actions.append(Job.rulesets.set(rulesets))
         if actions:
             job.update(actions)
 
@@ -120,6 +126,10 @@ class JobService(BaseDataService[Job]):
         raw.pop('owner', None)
         raw.pop('rules_to_scan', None)
         raw.pop('ttl', None)
+        rulesets = []
+        for r in item.rulesets:
+            rulesets.append(RulesetName(r).to_str(False))
+        raw['rulesets'] = rulesets
         return raw
 
 
@@ -154,12 +164,18 @@ class JobUpdater:
         self._actions = []
 
     @classmethod
-    def from_batch_env(cls, environment: dict[str, str]) -> 'JobUpdater':
+    def from_batch_env(cls, environment: dict[str, str],
+                       rulesets: list[str] | None = None) -> 'JobUpdater':
         """
         A situation when the job does not exist in db is possible
         :param environment:
+        :param rulesets:
         :return:
         """
+        rulesets = rulesets or []
+        licensed = [r for r in map(RulesetName, rulesets) if r.license_key]
+        license_key = licensed[0].license_key if licensed else None
+
         tenant = SP.modular_client.tenant_service().get(
             environment[BatchJobEnv.TENANT_NAME]
         )
@@ -168,18 +184,8 @@ class JobUpdater:
             submitted_at = utc_iso(
                 utc_datetime(environment[BatchJobEnv.SUBMITTED_AT]))
 
-        rule_sets = []
-        standard = environment.get(BatchJobEnv.TARGET_RULESETS)
-        if standard and isinstance(standard, str):
-            rule_sets.extend(standard.split(','))
-        licensed = environment.get(BatchJobEnv.LICENSED_RULESETS)
-        if licensed and isinstance(licensed, str):
-            rule_sets.extend(
-                each.split(':', maxsplit=1)[-1]
-                for each in licensed.split(',') if ':' in each
-            )
-        if not rule_sets:
-            rule_sets.append(ALL_ATTR)
+        if not rulesets:
+            rulesets = []
         return JobUpdater(Job(
             id=environment.get(BatchJobEnv.CUSTODIAN_JOB_ID) or str(
                 uuid.uuid4()),
@@ -190,9 +196,10 @@ class JobUpdater:
             status=JobState.SUBMITTED.value,
             owner=tenant.customer_name,
             regions=environment.get(BatchJobEnv.TARGET_REGIONS, '').split(','),
-            rulesets=rule_sets,
+            rulesets=rulesets,
             scheduled_rule_name=environment.get(
                 BatchJobEnv.SCHEDULED_JOB_NAME),
+            affected_license=license_key
         ))
 
     @classmethod

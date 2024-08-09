@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.4.0] - 2024-07-09
+- added `rule_source_id` and `excluded_rules` parameters to `POST /rulestets`.
+- added auto version resolving to all the `/rulesets` endpoints. Version parameters is optional
+- added `POST /rulestes/release` endpoint to release new rulesets to LM
+- added a new type of rulesource - `GITHUB_RELEASE`
+- removed `/jobs/standard` endpoint
+- refactored a bit
+
+## [5.3.0] - 2024-06-09
+- added endpoints for Google Chronicle integration:
+  - `POST /integrations/chronicle`
+  - `GET /integrations/chronicle`
+  - `GET /integrations/chronicle/{id}`
+  - `DELETE /integrations/chronicle/{id}`
+  - `PUT /integrations/chronicle/{id}/activation`
+  - `GET /integrations/chronicle/{id}/activation`
+  - `DELETE /integrations/chronicle/{id}/activation`
+- added logic that converts shards collection to UDM entities and UDM events
+- added an endpoint to push job to Google Chronicle `POST /reports/push/chronicle/{job_id}`
+- resolve License Manager API version from LM API
+
+## [5.2.0] - 2024-06-03
+- removed `POST /rule-meta/mappings` endpoint
+- improve scheduled job cron validator
+- Improve ruleset name resolving for `POST /jobs`
+
+## [5.1.3] - 2024-05-23
+- fix issue with adding scheduled jobs
+- remove rabbitmq check from on-prem health checks. 
+
+## [5.1.2] - 2024-05-21
+- treat endpoints with trailing slashes the same as without (/jobs, /jobs/ are equal)
+
+## [5.1.1] - 2024-05-10
+- fix users pagination for saas
+- fix scheduled expression validation
 
 ## [5.1.0] - 2024-04-17
 - add `tenant` and `effect` to policy model to allow more flexible policies configurations

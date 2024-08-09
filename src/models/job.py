@@ -26,6 +26,7 @@ JOB_SCHEDULED_RULE_NAME = 'sr'
 JOB_RULES_TO_SCAN = 'ru'
 JOB_PLATFORM_ID = 'p'
 JOB_TTL = 'ttl'
+JOB_AFFECTED_LICENSE = 'al'
 
 
 class TenantNameSubmittedAtIndex(BaseGSI):
@@ -82,6 +83,8 @@ class Job(BaseModel):
     rules_to_scan = ListAttribute(default=list, attr_name=JOB_RULES_TO_SCAN,
                                   of=UnicodeAttribute)
     platform_id = UnicodeAttribute(null=True, attr_name=JOB_PLATFORM_ID)
+    affected_license = UnicodeAttribute(null=True,
+                                        attr_name=JOB_AFFECTED_LICENSE)
 
     ttl = TTLAttribute(null=True, attr_name=JOB_TTL)
 
