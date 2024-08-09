@@ -234,7 +234,7 @@ helm plugin install https://github.com/hypnoglow/helm-s3.git
 helm repo add sre s3://charts-repository/syndicate/
 helm repo update
 
-helm install "$HELM_RELEASE_NAME" sre/rule-engine
+helm install "$HELM_RELEASE_NAME" sre/rule-engine --version $RULE_ENGINE_RELEASE
 helm install defectdojo sre/defectdojo
 EOF
 

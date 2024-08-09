@@ -182,7 +182,7 @@ initialize_system() {
   for r in $AWS_REGIONS;
   do
     echo "Activating $r for tenant"
-    syndicate admin tenant regions activate --tenant_name "$CURRENT_ACCOUNT_TENANT_NAME" --region_name "$r" --json
+    syndicate admin tenant regions activate --tenant_name "$CURRENT_ACCOUNT_TENANT_NAME" --region_name "$r" --json > /dev/null
   done
 
   echo "Getting Defect dojo token"
