@@ -6,6 +6,7 @@ HELM_RELEASE_NAME=rule-engine
 
 log() { echo "[INFO] $(date) $1" >> $LOG_PATH; }
 log_err() { echo "[ERROR] $(date) $1" >> $ERROR_LOG_PATH; }
+# shellcheck disable=SC2120
 get_imds_token () {
   duration="10"  # must be an integer
   if [ -n "$1" ]; then
@@ -69,8 +70,8 @@ install_docker() {
 install_minikube() {
   # https://minikube.sigs.k8s.io/docs/start
   log "Installing minikube"
-  curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube_latest_$(dpkg --print-architecture).deb
-  sudo dpkg -i minikube_latest_$(dpkg --print-architecture).deb && rm minikube_latest_$(dpkg --print-architecture).deb
+  curl -LO "https://storage.googleapis.com/minikube/releases/latest/minikube_latest_$(dpkg --print-architecture).deb"
+  sudo dpkg -i "minikube_latest_$(dpkg --print-architecture).deb" && rm "minikube_latest_$(dpkg --print-architecture).deb"
 }
 install_kubectl() {
   # https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/#install-kubectl-binary-with-curl-on-linux
@@ -241,7 +242,8 @@ log "Downloading artifacts"
 sudo mkdir -p "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE"
 sudo wget -O "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE/modular_cli.tar.gz" "https://github.com/$GITHUB_REPO/releases/download/$RULE_ENGINE_RELEASE/modular_cli.tar.gz"  # todo get from modular-cli repo
 sudo wget -O "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE/sre_obfuscator.tar.gz" "https://github.com/$GITHUB_REPO/releases/download/$RULE_ENGINE_RELEASE/sre_obfuscator.tar.gz"
-sudo wget -O "/usr/local/bin/sre-init" "https://github.com/$GITHUB_REPO/releases/download/$RULE_ENGINE_RELEASE/sre-init.sh"
+sudo wget -O "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE/sre-init.sh" "https://github.com/$GITHUB_REPO/releases/download/$RULE_ENGINE_RELEASE/sre-init.sh"
+sudo cp "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE/sre-init.sh" /usr/local/bin/sre-init
 sudo chmod +x /usr/local/bin/sre-init
 sudo chown -R $FIRST_USER:$FIRST_USER "$SRE_LOCAL_PATH"
 

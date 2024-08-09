@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -eo pipefail
+
 cmd_usage() {
   cat <<EOF
 Manage Rule Engine installation
@@ -41,14 +43,29 @@ Options:
 EOF
 }
 
+cmd_update_usage() {
+  cat <<EOF
+Updates local Rule Engine Installation
 
-cmd_version() {
-  echo "$VERSION"
+Description:
+  Checks for new release and performs update if it's available
+
+Usage:
+  $PROGRAM $COMMAND [options]
+
+Examples:
+  $PROGRAM $COMMAND -y
+
+Options:
+  -h, --help           Show this message and exit
+  -y, --yes            Automatic yes to prompts
+  --helm-release-name  Rule Engine helm release name (default "$HELM_RELEASE_NAME")
+EOF
 }
-die() {
-  echo "$@" >&2
-  exit 1
-}
+# todo add force and release version
+
+cmd_version() { echo "$VERSION"; }
+die() { echo "$@" >&2; exit 1; }
 cmd_unrecognized() {
   cat <<EOF
 Error: unrecognized command \`$PROGRAM $COMMAND\`
@@ -61,7 +78,10 @@ EOF
 get_latest_local_release() { ls "$SRE_RELEASES_PATH" | sort -r | head -n 1; }
 get_helm_release_version() {
   # currently the version of rule engine chart corresponds to the version of app inside
-  helm get metadata "$HELM_RELEASE_NAME" -o json | jq -r '.version'
+  helm get metadata "$1" -o json | jq -r '.version'
+}
+get_latest_release_tag() {
+  curl -fLs "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | jq -r '.tag_name' || die "Error: no latest release for $GITHUB_REPO found"
 }
 ensure_in_path() {
   if [[ ":$PATH:" != *":$1:"* ]]; then
@@ -92,6 +112,12 @@ minikube_ip(){
   # user may exist in docker group but re-login wasn't made
   sudo su "$FIRST_USER" -c "minikube ip"
 }
+yesno() {
+	[[ -t 0 ]] || return 0
+	local response
+	read -r -p "$1 [y/N] " response
+	[[ $response == [yY] ]] || exit 1
+}
 
 initialize_system() {
   # creates:
@@ -100,22 +126,15 @@ initialize_system() {
   # - customer based on LM response
   # - tenant within the customer which represents this AWS account
   # - entity that represents defect dojo installation
-  local mip=$(minikube_ip)
+  local mip lm_response customer_name modular_service_password rule_engine_password license_key dojo_token="" activation_id
+  mip="$(minikube_ip)"
 
   ensure_in_path "$HOME/.local/bin"
 
-  if pip freeze | grep sre-obfuscator > /dev/null; then
-    echo "Obfuscation manager is already installed. Try: sreobf --help"
-  else
-    echo "Installing deobfuscation manager"
-    pip3 install --user --break-system-packages "$SRE_RELEASES_PATH/$(get_latest_local_release)/$OBFUSCATOR_ARTIFACT_NAME[xlsx]"
-  fi
-  if pip freeze | grep modular-cli > /dev/null; then
-    echo "Modular cli is already installed. Try: syndicate --help"
-  else
-    echo "Installing modular-cli"
-    MODULAR_CLI_ENTRY_POINT=syndicate pip3 install --user --break-system-packages "$SRE_RELEASES_PATH/$(get_latest_local_release)/$MODULAR_CLI_ARTIFACT_NAME"
-  fi
+  echo "Installing obfuscation manager"
+  pip3 install --user --break-system-packages --upgrade "$SRE_RELEASES_PATH/$(get_latest_local_release)/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]"
+  echo "Installing modular-cli"
+  MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pip3 install --user --break-system-packages --upgrade "$SRE_RELEASES_PATH/$(get_latest_local_release)/$MODULAR_CLI_ARTIFACT_NAME"
 
   echo "Logging in to modular-cli"
   syndicate setup --username admin --password "$(get_kubectl_secret modular-api-secret system-password)" --api_path "http://$mip:32105" --json
@@ -129,12 +148,12 @@ initialize_system() {
   syndicate admin configure --api_link http://modular-service:8040/dev --json
   syndicate admin login --username system_user --password "$(get_kubectl_secret modular-service-secret system-password)" --json
 
-  local lm_response=$(get_kubectl_secret lm-data lm-response)
-  local customer_name=$(echo $lm_response | jq ".customer_name" -r)
+  lm_response=$(get_kubectl_secret lm-data lm-response)
+  customer_name=$(echo "$lm_response" | jq ".customer_name" -r)
 
   echo "Generating passwords for modular-service and rule-engine non-system users"
-  local modular_service_password="$(generate_password)"
-  local rule_engine_password="$(generate_password)"  # todo maybe save them to k8s as well
+  modular_service_password="$(generate_password)"
+  rule_engine_password="$(generate_password)"  # todo maybe save them to k8s as well
 
   echo "Creating modular service customer and its user"
   syndicate admin signup --username "$MODULAR_SERVICE_USERNAME" --password "$modular_service_password" --customer_name "$customer_name" --customer_display_name "$customer_name" --customer_admin admin@example.com --json
@@ -142,7 +161,7 @@ initialize_system() {
   echo "Creating custodian customer users"
   syndicate re meta update_meta --json
   syndicate re setting lm config add --host "$(get_kubectl_secret lm-data api-link)" --json
-  syndicate re setting lm client add --key_id $(echo $lm_response | jq ".private_key.key_id" -r) --algorithm $(echo $lm_response | jq ".private_key.algorithm" -r) --private_key $(echo $lm_response | jq ".private_key.value" -r) --b64encoded --json
+  syndicate re setting lm client add --key_id "$(echo "$lm_response" | jq ".private_key.key_id" -r)" --algorithm "$(echo "$lm_response" | jq ".private_key.algorithm" -r)" --private_key "$(echo "$lm_response" | jq ".private_key.value" -r)" --b64encoded --json
   syndicate re policy add --name admin_policy --permissions_admin --effect allow --tenant '*' --description "Full admin access policy for customer" --customer_id "$customer_name" --json
   syndicate re role add --name admin_role --policies admin_policy --description "Admin customer role" --customer_id "$customer_name" --json
   syndicate re users create --username "$RULE_ENGINE_USERNAME" --password "$rule_engine_password" --role_name admin_role --customer_id "$customer_name" --json
@@ -153,7 +172,7 @@ initialize_system() {
   syndicate re login --username "$RULE_ENGINE_USERNAME" --password "$rule_engine_password" --json
 
   echo "Adding tenant license"
-  license_key=$(syndicate re license add --tenant_license_key $(echo $lm_response | jq ".tenant_license_key" -r) --json | jq ".items[0].license_key" -r)
+  license_key=$(syndicate re license add --tenant_license_key "$(echo "$lm_response" | jq ".tenant_license_key" -r)" --json | jq ".items[0].license_key" -r)
   syndicate re license activate --license_key "$license_key" --all_tenants --json  # can be removed with new version of sre
 
 
@@ -169,7 +188,7 @@ initialize_system() {
   echo "Getting Defect dojo token"
   while [ -z "$dojo_token" ]; do
     sleep 2
-    dojo_token=$(curl -X POST -H 'content-type: application/json' "http://$mip:32107/api/v2/api-token-auth/" -d "{\"username\":\"admin\",\"password\":\"$(get_kubectl_secret defect-dojo-secret system-password)\"}" | jq ".token" -r)
+    dojo_token=$(curl -X POST -H 'content-type: application/json' "http://$mip:32107/api/v2/api-token-auth/" -d "{\"username\":\"admin\",\"password\":\"$(get_kubectl_secret defect-dojo-secret system-password)\"}" | jq ".token" -r || true)
   done
 
   echo "Activating dojo installation for rule engine"
@@ -178,10 +197,8 @@ initialize_system() {
 }
 
 cmd_init() {
-  local opts init_system="" target_user="" public_ssh_key="" re_username="" re_password="" admin_username="" admin_password=""
+  local opts init_system="" target_user="" public_ssh_key="" re_username="" re_password="" admin_username="" admin_password="" new_password api_path
   opts="$(getopt -o "h" --long "help,system,user:,public-ssh-key:,re-username:,re-password:,admin-username:,admin-password:" -n "$PROGRAM" -- "$@")"
-  local err="$?"
-  [ "$err" -ne 0 ] && die "$(cmd_init_usage)"
   eval set -- "$opts"
   while true; do
     case "$1" in
@@ -215,15 +232,16 @@ cmd_init() {
   fi
 
   # target_user must exist here
-  local _username _password
-  test -n "$re_username"; _username=$?
-  test -n "$re_password"; _password=$?
+  local _username=1 _password=1
+  [ -n "$re_username" ] && _username=0
+  [ -n "$re_password" ] && _password=0
   if [ "$(( _username ^ _password ))" -eq 1 ]; then
     die "Error: --re-username and --re-password must be specified together"
   fi
 
-  test -n "$admin_username"; _username=$?
-  test -n "$admin_password"; _password=$?
+  _username=1 _password=1
+  [ -n "$admin_username" ] && _username=0
+  [ -n "$admin_password" ] && _password=0
   if [ "$(( _username ^ _password ))" -eq 1 ]; then
     die "Error: --admin-username and --admin-password must be specified together"
   fi
@@ -246,22 +264,23 @@ cmd_init() {
 EOF
   fi
   echo "Installing CLIs for $target_user"
-  sudo su - "$target_user" <<EOF
-  pip3 install --user --break-system-packages "$SRE_RELEASES_PATH/$(get_latest_local_release)/$OBFUSCATOR_ARTIFACT_NAME[xlsx]"
-  MODULAR_CLI_ENTRY_POINT=syndicate pip3 install --user --break-system-packages "$SRE_RELEASES_PATH/$(get_latest_local_release)/$MODULAR_CLI_ARTIFACT_NAME"
+  sudo su - "$target_user" <<EOF >/dev/null
+  pip3 install --user --break-system-packages "$SRE_RELEASES_PATH/$(get_latest_local_release)/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]"
+  MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pip3 install --user --break-system-packages "$SRE_RELEASES_PATH/$(get_latest_local_release)/$MODULAR_CLI_ARTIFACT_NAME"
 EOF
 
-  kubectl exec service/modular-api -- ./modular.py user describe --username "$target_user"
+  local err=0
+  kubectl exec service/modular-api -- ./modular.py user describe --username "$target_user" &>/dev/null || err=1
 
-  if [ "$?" -ne 0 ]; then
+  if [ "$err" -ne 0 ]; then
     echo "Creating new modular-api user"
-    local new_password="$(generate_password)"
-    local api_path="http://$(minikube_ip):32105"
+    new_password="$(generate_password)"
+    api_path="http://$(minikube_ip):32105"
     kubectl exec service/modular-api -- ./modular.py user add --username "$target_user" --group admin_group --password "$new_password"
     sudo su - "$target_user" <<EOF
     echo "Logging in to modular-cli"
-    ~/.local/bin/syndicate setup --username "$target_user" --password "$new_password" --api_path "$api_path" --json
-    ~/.local/bin/syndicate login --json
+    ~/.local/bin/syndicate setup --username "$target_user" --password "$new_password" --api_path "$api_path"
+    ~/.local/bin/syndicate login
 EOF
   else
     echo "Modular api user has been initialized before"
@@ -271,23 +290,77 @@ EOF
   if [ -n "$re_username" ]; then
     echo "Logging in to Rule Engine"
     sudo su - "$target_user" <<EOF
-    ~/.local/bin/syndicate re configure --api_link http://rule-engine:8000/caas --json
-    ~/.local/bin/syndicate re login --username "$re_username" --password "$re_password" --json
+    ~/.local/bin/syndicate re configure --api_link http://rule-engine:8000/caas
+    ~/.local/bin/syndicate re login --username "$re_username" --password "$re_password"
 EOF
   fi
 
   if [ -n "$admin_username" ]; then
     echo "Logging in to Modular Service"
     sudo su - "$target_user" <<EOF
-    ~/.local/bin/syndicate admin configure --api_link http://modular-service:8040/dev --json
-    ~/.local/bin/syndicate admin login --username "$admin_username" --password "$admin_password" --json
+    ~/.local/bin/syndicate admin configure --api_link http://modular-service:8040/dev
+    ~/.local/bin/syndicate admin login --username "$admin_username" --password "$admin_password"
 EOF
   fi
   echo "Done"
 }
 
+pull_artifacts() {
+  # downloads all necessary files from the given github release tag. Make sure the release exists
+  mkdir -p "$SRE_RELEASES_PATH/$1"
+  wget -q -O "$SRE_RELEASES_PATH/$1/$MODULAR_CLI_ARTIFACT_NAME" "https://github.com/$GITHUB_REPO/releases/download/$1/$MODULAR_CLI_ARTIFACT_NAME" || echo "Warning: could not download $MODULAR_CLI_ARTIFACT_NAME from release $1"
+  wget -q -O "$SRE_RELEASES_PATH/$1/$OBFUSCATOR_ARTIFACT_NAME" "https://github.com/$GITHUB_REPO/releases/download/$1/$OBFUSCATOR_ARTIFACT_NAME" || echo "Warning: could not download $OBFUSCATOR_ARTIFACT_NAME from release $1"
+  wget -q -O "$SRE_RELEASES_PATH/$1/$SRE_INIT_ARTIFACT_NAME" "https://github.com/$GITHUB_REPO/releases/download/$1/$SRE_INIT_ARTIFACT_NAME" || echo "Warning: could not download $SRE_INIT_ARTIFACT_NAME from release $1"
+}
+update_sre_init() {
+  # assuming that the target version already exists locally
+  local err=0
+  sudo cp "$SRE_RELEASES_PATH/$1/$SRE_INIT_ARTIFACT_NAME" /usr/local/bin/sre-init || err=1
+  if [ "$err" -eq 0 ]; then
+    sudo chmod +x /usr/local/bin/sre-init
+  else
+    echo "Could not update sre-init"
+  fi
+}
+
+
 cmd_update() {
-  echo "update"
+  local opts auto_yes=0 r_name=$HELM_RELEASE_NAME r_version latest_tag
+  opts="$(getopt -o "hy" --long "help,yes,helm-release-name:" -n "$PROGRAM" -- "$@")"
+  eval set -- "$opts"
+  while true; do
+    case "$1" in
+      '-h'|'--help') cmd_update_usage; exit 0 ;;
+      '-y'|'--yes') auto_yes=1; shift ;;
+      '--helm-release-name') r_name="$2"; shift 2 ;;
+      '--') shift; break ;;
+    esac
+  done
+  r_version="$(get_helm_release_version "$r_name")"
+  echo "The current helm chart release is $r_version"
+  latest_tag="$(get_latest_release_tag)"
+  echo "Latest release available is $latest_tag"
+  if [[ ! "$r_version" < "$latest_tag" ]]; then
+    echo "Rule Engine chart is up-to-date"
+    exit 0
+  fi
+  echo "New release $latest_tag is available."
+  [[ $auto_yes -eq 1 ]] || yesno "Do you want to update?"
+  echo "Updating to $latest_tag"
+  echo "Pulling new artifacts"
+  pull_artifacts "$latest_tag"
+  echo "Updating helm repo"
+  helm repo update
+  helm search repo sre/rule-engine --version "$latest_tag" --fail-on-no-result >/dev/null 2>&1 || die "Error: $latest_tag version of $r_name chart not found. Cannot update"
+  echo "Upgrading $r_name chart to $latest_tag version"
+  helm upgrade "$HELM_RELEASE_NAME" sre/rule-engine --version "$latest_tag"
+  echo "Upgrading obfuscation manager"
+  pip3 install --user --break-system-packages --upgrade "$SRE_RELEASES_PATH/$latest_tag/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]" >/dev/null
+  echo "Upgrading modular CLI"
+  MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pip3 install --user --break-system-packages --upgrade "$SRE_RELEASES_PATH/$latest_tag/${MODULAR_CLI_ARTIFACT_NAME}" >/dev/null
+  echo "Trying to update sre-init"
+  update_sre_init "$latest_tag"
+  echo "Done"
 }
 
 
@@ -309,6 +382,8 @@ AWS_REGIONS="us-east-1 us-east-2 us-west-1 us-west-2 af-south-1 ap-east-1 ap-sou
 
 MODULAR_CLI_ARTIFACT_NAME=modular_cli.tar.gz
 OBFUSCATOR_ARTIFACT_NAME=sre_obfuscator.tar.gz
+SRE_INIT_ARTIFACT_NAME=sre-init.sh
+MODULAR_CLI_ENTRY_POINT=syndicate
 FIRST_USER=$(getent passwd 1000 | cut -d : -f 1)
 
 case "$1" in
@@ -317,8 +392,7 @@ case "$1" in
   update) shift; cmd_update "$@" ;;
   init) shift; cmd_init "$@" ;;
   --system|--user) cmd_init "$@" ;;  # redirect to init as default one
-  '') shift; cmd_usage ;;
+  '') cmd_usage ;;
   *) die "$(cmd_unrecognized)" ;;
 esac
 exit 0
-
