@@ -231,11 +231,11 @@ kubectl create secret generic modular-service-secret --from-literal=system-passw
 kubectl create secret generic defect-dojo-secret --from-literal=secret-key="$(generate_password 50)" --from-literal=credential-aes-256-key=$(generate_password) --from-literal=db-username=defectdojo --from-literal=db-password=$(generate_password 30 -hex)
 
 helm plugin install https://github.com/hypnoglow/helm-s3.git
-helm repo add sre s3://charts-repository/syndicate/
-helm repo update
+helm repo add syndicate s3://charts-repository/syndicate/
+helm repo update syndicate
 
-helm install "$HELM_RELEASE_NAME" sre/rule-engine --version $RULE_ENGINE_RELEASE
-helm install defectdojo sre/defectdojo
+helm install "$HELM_RELEASE_NAME" syndicate/rule-engine --version $RULE_ENGINE_RELEASE
+helm install defectdojo syndicate/defectdojo
 EOF
 
 log "Downloading artifacts"

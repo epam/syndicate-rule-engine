@@ -350,10 +350,10 @@ cmd_update() {
   echo "Pulling new artifacts"
   pull_artifacts "$latest_tag"
   echo "Updating helm repo"
-  helm repo update
-  helm search repo sre/rule-engine --version "$latest_tag" --fail-on-no-result >/dev/null 2>&1 || die "Error: $latest_tag version of $r_name chart not found. Cannot update"
+  helm repo update syndicate
+  helm search repo syndicate/rule-engine --version "$latest_tag" --fail-on-no-result >/dev/null 2>&1 || die "Error: $latest_tag version of $r_name chart not found. Cannot update"
   echo "Upgrading $r_name chart to $latest_tag version"
-  helm upgrade "$HELM_RELEASE_NAME" sre/rule-engine --version "$latest_tag"
+  helm upgrade "$HELM_RELEASE_NAME" syndicate/rule-engine --version "$latest_tag"
   echo "Upgrading obfuscation manager"
   pip3 install --user --break-system-packages --upgrade "$SRE_RELEASES_PATH/$latest_tag/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]" >/dev/null
   echo "Upgrading modular CLI"
