@@ -3,6 +3,12 @@
 LOG_PATH=/var/log/sre-init.log
 ERROR_LOG_PATH=$LOG_PATH
 HELM_RELEASE_NAME=rule-engine
+DOCKER_VERSION='5:27.1.1-1~debian.12~bookworm'
+MINIKUBE_VERSION=v1.33.1
+KUBERNETES_VERSION=v1.30.0
+KUBECTL_VERSION=v1.30.3
+HELM_VERSION=3.15.3-1
+
 
 log() { echo "[INFO] $(date) $1" >> $LOG_PATH; }
 log_err() { echo "[ERROR] $(date) $1" >> $ERROR_LOG_PATH; }
@@ -49,13 +55,13 @@ EOF
   sudo systemctl enable rule-engine-minikube.service
 }
 upgrade_and_install_packages() {
-  sudo DEBIAN_FRONTEND=noninteractive apt update -y
-  sudo DEBIAN_FRONTEND=noninteractive apt upgrade -y
-  sudo DEBIAN_FRONTEND=noninteractive apt install -y jq python3-pip locales-all nginx
+  sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
+  # sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y jq curl python3-pip locales-all nginx
 }
 install_docker() {
   # Add Docker's official GPG key: from https://docs.docker.com/engine/install/debian/
-  sudo DEBIAN_FRONTEND=noninteractive apt install -y ca-certificates curl
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl
   sudo install -m 0755 -d /etc/apt/keyrings
   sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
   sudo chmod a+r /etc/apt/keyrings/docker.asc
@@ -64,20 +70,20 @@ install_docker() {
     "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
     $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
     sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-  sudo DEBIAN_FRONTEND=noninteractive apt update -y
-  sudo DEBIAN_FRONTEND=noninteractive apt install -y docker-ce docker-ce-cli containerd.io
+  sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce="$1" docker-ce-cli="$1" containerd.io
 }
 install_minikube() {
   # https://minikube.sigs.k8s.io/docs/start
   log "Installing minikube"
-  curl -LO "https://storage.googleapis.com/minikube/releases/latest/minikube_latest_$(dpkg --print-architecture).deb"
+  curl -LO "https://storage.googleapis.com/minikube/releases/$1/minikube_latest_$(dpkg --print-architecture).deb"
   sudo dpkg -i "minikube_latest_$(dpkg --print-architecture).deb" && rm "minikube_latest_$(dpkg --print-architecture).deb"
 }
 install_kubectl() {
   # https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/#install-kubectl-binary-with-curl-on-linux
-  curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/$(dpkg --print-architecture)/kubectl"  # todo specify concrete release
-  curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/$(dpkg --print-architecture)/kubectl.sha256"
-  echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check || exit 1
+  curl -LO "https://dl.k8s.io/release/$1/bin/linux/$(dpkg --print-architecture)/kubectl"
+  curl -LO "https://dl.k8s.io/release/$1/bin/linux/$(dpkg --print-architecture)/kubectl.sha256"
+  echo "$(cat kubectl.sha256) kubectl" | sha256sum --check || exit 1
   sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && rm kubectl kubectl.sha256
 }
 install_helm() {
@@ -86,7 +92,7 @@ install_helm() {
   sudo apt-get install apt-transport-https --yes
   echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
   sudo apt-get update
-  sudo apt-get install helm
+  sudo apt-get install helm="$1"
 }
 nginx_conf() {
   cat <<EOF
@@ -203,24 +209,24 @@ log "The first run. Configuring sre for user $FIRST_USER"
 log "Upgrading system and installing some necessary packages"
 upgrade_and_install_packages
 
-log "Installing docker"
-install_docker
+log "Installing docker $DOCKER_VERSION"
+install_docker "$DOCKER_VERSION"
 
-log "Installing minikube"
-install_minikube
+log "Installing minikube $MINIKUBE_VERSION"
+install_minikube "$MINIKUBE_VERSION"
 
-log "Installing kubectl"
-install_kubectl
+log "Installing kubectl $KUBECTL_VERSION"
+install_kubectl "$KUBECTL_VERSION"
 
-log "Installing helm"
-install_helm
+log "Installing helm $HELM_VERSION"
+install_helm "$HELM_VERSION"
 
 log "Adding user $FIRST_USER to docker group"
 sudo usermod -aG docker "$FIRST_USER"
 
 log "Starting minikube and installing helm releases on behalf of $FIRST_USER"
 sudo su - "$FIRST_USER" <<EOF
-minikube start --driver=docker --container-runtime=containerd -n 1 --force --interactive=false --memory=max --cpus=max --profile rule-engine
+minikube start --driver=docker --container-runtime=containerd -n 1 --force --interactive=false --memory=max --cpus=max --profile rule-engine --kubernetes-version=$KUBERNETES_VERSION
 minikube profile rule-engine  # making default
 kubectl create secret generic minio-secret --from-literal=username=miniouser --from-literal=password=$(generate_password)
 kubectl create secret generic mongo-secret --from-literal=username=mongouser --from-literal=password=$(generate_password 30 -hex)
@@ -293,5 +299,5 @@ sudo ln -s /etc/nginx/sites-available/modular /etc/nginx/sites-enabled/
 sudo nginx -s reload
 
 log "Cleaning apt cache"
-sudo apt clean
+sudo apt-get clean
 log 'Done'
