@@ -285,16 +285,17 @@ log "Enabling minikube service"
 enable_minikube_service
 
 log "Configuring nginx"
+sudo rm /etc/nginx/sites-enabled/*
+sudo rm /etc/nginx/sites-available/*
 nginx_conf | sudo tee /etc/nginx/nginx.conf > /dev/null
 nginx_defectdojo_conf | sudo tee /etc/nginx/sites-available/defectdojo > /dev/null
-nginx_minio_api_conf | sudo tee /etc/nginx/sites-available/minio_api > /dev/null
-nginx_minio_console_conf | sudo tee /etc/nginx/sites-available/minio_console > /dev/null
-nginx_sre_conf | sudo tee /etc/nginx/sites-available/sre > /dev/null
-nginx_modular_api_conf | sudo tee /etc/nginx/sites-available/modular > /dev/null
+nginx_minio_api_conf | sudo tee /etc/nginx/sites-available/minio > /dev/null
+nginx_minio_console_conf | sudo tee /etc/nginx/sites-available/minio-console > /dev/null
+nginx_sre_conf | sudo tee /etc/nginx/sites-available/sre > /dev/null  # rule-engine + modular-service
+nginx_modular_api_conf | sudo tee /etc/nginx/sites-available/modular-api > /dev/null
 
-sudo rm /etc/nginx/sites-enabled/*
 sudo ln -s /etc/nginx/sites-available/defectdojo /etc/nginx/sites-enabled/
-sudo ln -s /etc/nginx/sites-available/modular /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/modular-api /etc/nginx/sites-enabled/
 
 sudo nginx -s reload
 

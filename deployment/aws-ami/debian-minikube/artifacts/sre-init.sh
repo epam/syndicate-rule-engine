@@ -10,9 +10,10 @@ Usage:
   $PROGRAM [command]
 
 Available Commands:
-  init     Initializes Rule Engine installation
-  update   Updates the installation
   help     Show help message
+  init     Initialize Rule Engine installation
+  nginx    Allow to enable and disable nginx sites
+  update   Update the installation
   version  Print versions information
 EOF
 }
@@ -63,6 +64,29 @@ Options:
 EOF
 }
 # todo add force and release version
+
+cmd_nginx_usage() {
+  cat <<EOF
+Manage existing nginx configurations for Rule Engine
+
+Description:
+  Allows to enable and disable existing nginx configurations and corresponding k8s services. The command is not designed
+  to be flexible. It just allows to enable and disable pre-defined services easily.
+
+Examples:
+  $PROGRAM $COMMAND
+  $PROGRAM $COMMAND enable sre
+  $PROGRAM $COMMAND disable defectdojo
+
+Available Commands:
+  help     Show help message
+  disable  Disable the given nginx server
+  enable   Enable the given nginx server
+
+Options:
+  -h, --help  Show this message and exit
+EOF
+}
 
 cmd_version() { echo "$VERSION"; }
 die() { echo "$@" >&2; exit 1; }
@@ -363,6 +387,47 @@ cmd_update() {
   echo "Done"
 }
 
+cmd_nginx() {
+  case "$1" in
+    -h|--help) shift; cmd_nginx_usage "$@" ;;
+    enable) shift; cmd_nginx_enable "$@" ;;
+    disable) shift; cmd_nginx_disable "$@" ;;
+    '') cmd_nginx_list ;;
+    *) die "$(cmd_unrecognized)" ;;
+  esac
+
+}
+
+cmd_nginx_list() {
+  local port filename rows="" enabled=":"
+  for file in /etc/nginx/sites-enabled/*; do
+    port="$(grep -oP "listen \K\d+" < "$file")"
+    filename="${file##*/}"
+    rows+="$filename Enabled $port\n"
+    enabled+="$filename:"
+  done
+  for file in /etc/nginx/sites-available/*; do
+    filename="${file##*/}"
+    if [[ "$enabled" = *:$filename:* ]]; then
+      continue
+    fi
+    port="$(grep -oP "listen \K\d+" < "$file")"
+    rows+="$filename Disabled $port\n"
+  done
+  printf "%b" "$rows" | column --table --table-columns NAME,STATUS,PORT
+}
+
+cmd_nginx_enable() {
+  printf "Not implemented yet. Create link from /etc/nginx/sites-available to /etc/nginx/sites-enabled manually. Expose existing k8s service manually\n"
+  exit 1
+
+}
+
+cmd_nginx_disable() {
+  printf "Not implemented yet\n"
+  exit 1
+}
+
 
 # Start
 VERSION="1.0.0"
@@ -391,6 +456,7 @@ case "$1" in
   version|--version) shift; cmd_version "$@" ;;
   update) shift; cmd_update "$@" ;;
   init) shift; cmd_init "$@" ;;
+  nginx) shift; cmd_nginx "$@" ;;
   --system|--user) cmd_init "$@" ;;  # redirect to init as default one
   '') cmd_usage ;;
   *) die "$(cmd_unrecognized)" ;;
