@@ -245,6 +245,7 @@ helm install defectdojo syndicate/defectdojo
 EOF
 
 log "Downloading artifacts"
+sudo mkdir -p "$SRE_LOCAL_PATH/backups"
 sudo mkdir -p "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE"
 sudo wget -O "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE/modular_cli.tar.gz" "https://github.com/$GITHUB_REPO/releases/download/$RULE_ENGINE_RELEASE/modular_cli.tar.gz"  # todo get from modular-cli repo
 sudo wget -O "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE/sre_obfuscator.tar.gz" "https://github.com/$GITHUB_REPO/releases/download/$RULE_ENGINE_RELEASE/sre_obfuscator.tar.gz"

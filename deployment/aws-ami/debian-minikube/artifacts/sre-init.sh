@@ -10,6 +10,7 @@ Usage:
   $PROGRAM [command]
 
 Available Commands:
+  backup   Show backups information
   help     Show help message
   init     Initialize Rule Engine installation
   nginx    Allow to enable and disable nginx sites
@@ -74,17 +75,54 @@ Description:
   to be flexible. It just allows to enable and disable pre-defined services easily.
 
 Examples:
-  $PROGRAM $COMMAND
+  $PROGRAM $COMMAND ls
   $PROGRAM $COMMAND enable sre
   $PROGRAM $COMMAND disable defectdojo
 
 Available Commands:
-  help     Show help message
-  disable  Disable the given nginx server
-  enable   Enable the given nginx server
+  disable     Disable the given nginx server
+  enable      Enable the given nginx server
+  help        Show help message
+  ls          Show available nginx servers
 
 Options:
   -h, --help  Show this message and exit
+EOF
+}
+
+cmd_backup_usage() {
+  cat <<EOF
+Manage local backups
+
+Description:
+  Command for managing local backups of persistent volumes from k8s
+
+Examples:
+  $PROGRAM $COMMAND
+
+Available Command:
+  help        Show help message
+  ls          Show created backups
+
+Options
+  -h, --help  Show helm message
+EOF
+}
+
+cmd_backup_list_usage() {
+  cat <<EOF
+Shows local backups
+
+Description:
+  Command for describing all created backups
+
+Examples:
+  $PROGRAM $COMMAND ls
+
+Options
+  -h, --help     Show helm message
+  -v, --version  Version of Rule Engine release where backups where made (default current release "$(get_helm_release_version "$HELM_RELEASE_NAME")")
+  -p, --path     Path where backups are store (default "$SRE_BACKUPS_PATH")
 EOF
 }
 
@@ -347,7 +385,6 @@ update_sre_init() {
   fi
 }
 
-
 cmd_update() {
   local opts auto_yes=0 r_name=$HELM_RELEASE_NAME r_version latest_tag
   opts="$(getopt -o "hy" --long "help,yes,helm-release-name:" -n "$PROGRAM" -- "$@")"
@@ -392,10 +429,10 @@ cmd_nginx() {
     -h|--help) shift; cmd_nginx_usage "$@" ;;
     enable) shift; cmd_nginx_enable "$@" ;;
     disable) shift; cmd_nginx_disable "$@" ;;
-    '') cmd_nginx_list ;;
+    ls) shift; cmd_nginx_list "$@" ;;
+    '') cmd_nginx_list "$@" ;;
     *) die "$(cmd_unrecognized)" ;;
   esac
-
 }
 
 cmd_nginx_list() {
@@ -420,12 +457,65 @@ cmd_nginx_list() {
 cmd_nginx_enable() {
   printf "Not implemented yet. Create link from /etc/nginx/sites-available to /etc/nginx/sites-enabled manually. Expose existing k8s service manually\n"
   exit 1
-
 }
 
 cmd_nginx_disable() {
   printf "Not implemented yet\n"
   exit 1
+}
+
+make_backup() {
+  # accepts k8s persistent volume name as first parameter and destination folder as second parameter.
+  local host_path
+  host_path="$(kubectl get pv "$1" -o jsonpath="{.spec.hostPath.path}")"
+  if [ -z "$host_path" ]; then
+    return 1
+  fi
+  minikube ssh "sudo tar -czf /tmp/$1.tar.gz -C $host_path ."
+  minikube cp "$HELM_RELEASE_NAME:/tmp/$1.tar.gz" "$2/"
+  sha256sum "$2/$1.tar.gz" > "$2/$1.sha256"
+}
+restore_backup() {
+  # accepts k8s persistent volume name as first parameter and folder with backup as second parameter
+  local host_path
+  host_path="$(kubectl get pv "$1" -o jsonpath="{.spec.hostPath.path}")"
+  if [ -z "$host_path" ]; then
+    return 1
+  fi
+  if [ ! -f "$2/$1.tar.gz" ]; then
+    return 1
+  fi
+  if [ ! -f "$2/$1.sha256" ]; then
+    return 1
+  fi
+  sha256sum "$2/$1.sha256" --check || return 1
+  minikube cp "$2/$1.tar.gz" "$HELM_RELEASE_NAME:/tmp/$1.tar.gz"
+  minikube ssh "sudo tar --same-owner --overwrite -xzf /tmp/$1.tar.gz -C $host_path"
+}
+cmd_backup() {
+  case "$1" in
+    -h|--help) shift; cmd_backup_usage "$@" ;;
+    ls) shift; cmd_backup_list "$@" ;;
+    '') cmd_backup_list "$@" ;;
+    *) die "$(cmd_unrecognized)" ;;
+  esac
+}
+
+cmd_backup_list() {
+  local opts version path="$SRE_BACKUPS_PATH"
+  version=$(get_helm_release_version "$HELM_RELEASE_NAME")
+  opts="$(getopt -o "hvp" --long "help,version:,path:" -n "$PROGRAM" -- "$@")"
+  eval set -- "$opts"
+  while true; do
+    case "$1" in
+      -h|--help) cmd_backup_list_usage; exit 0 ;;
+      -v|--version) version="$2"; shift 2 ;;
+      -p|--path) path="$2"; shift 2 ;;
+      '--') shift; break ;;
+    esac
+  done
+  path+="/$version"
+  # Todo
 }
 
 
@@ -437,6 +527,7 @@ COMMAND="$1"
 # Some global constants
 SRE_LOCAL_PATH=/usr/local/sre
 SRE_RELEASES_PATH=$SRE_LOCAL_PATH/releases
+SRE_BACKUPS_PATH=$SRE_LOCAL_PATH/backups
 GITHUB_REPO=epam/ecc
 HELM_RELEASE_NAME=rule-engine
 MODULAR_SERVICE_USERNAME="customer_admin"
@@ -452,6 +543,7 @@ MODULAR_CLI_ENTRY_POINT=syndicate
 FIRST_USER=$(getent passwd 1000 | cut -d : -f 1)
 
 case "$1" in
+  backup) shift; cmd_backup "$@" ;;
   help|-h|--help) shift; cmd_usage "$@" ;;
   version|--version) shift; cmd_version "$@" ;;
   update) shift; cmd_update "$@" ;;
