@@ -10,7 +10,7 @@ Usage:
   $PROGRAM [command]
 
 Available Commands:
-  backup   Show backups information
+  backup   Allow to manage backups
   help     Show help message
   init     Initialize Rule Engine installation
   nginx    Allow to enable and disable nginx sites
@@ -101,8 +101,11 @@ Examples:
   $PROGRAM $COMMAND
 
 Available Command:
+  create      Creates a new backup
   help        Show help message
   ls          Show created backups
+  restore     Restores backup
+  rm          Removes existing backup
 
 Options
   -h, --help  Show helm message
@@ -120,14 +123,79 @@ Examples:
   $PROGRAM $COMMAND ls
 
 Options
-  -h, --help     Show helm message
-  -v, --version  Version of Rule Engine release where backups where made (default current release "$(get_helm_release_version "$HELM_RELEASE_NAME")")
-  -p, --path     Path where backups are store (default "$SRE_BACKUPS_PATH"). --version parameter is ignored when custom --path is specified
+  -h, --help     Show help message
+  -v, --version  Version of Rule Engine release for which backups where made (default current release "$(get_helm_release_version "$HELM_RELEASE_NAME")")
+  -p, --path     Path where backups are store (default "$SRE_BACKUPS_PATH/\$version"). --version parameter is ignored when custom --path is specified
+EOF
+}
+cmd_backup_rm_usage() {
+  cat <<EOF
+Removes local backup
+
+Description:
+  Command for removing local backup
+
+Examples:
+  $PROGRAM $COMMAND rm --name my-backup
+
+Required Options:
+  -n, --name     Backup name to remove
+
+Options
+  -h, --help     Show help message
+  -y, --yes      Automatic yes to prompts
+  -v, --version  Version of Rule Engine release for which backups where made (default current release "$(get_helm_release_version "$HELM_RELEASE_NAME")")
+  -p, --path     Path where backups are stored (default "$SRE_BACKUPS_PATH/\$version"). Note that --version parameter is ignored when custom --path is specified
+EOF
+}
+cmd_backup_create_usage() {
+  cat <<EOF
+Creates local backup
+
+Description:
+  Command for creating local backup
+
+Examples:
+  $PROGRAM $COMMAND create --name my-backup
+  $PROGRAM $COMMAND create --name my-backup --volumes=minio,mongo,vault
+
+Required Options:
+  -n, --name  Backup name to create
+
+Options
+  -h, --help  Show help message
+  -p, --path  Path where backups are store (default "$SRE_BACKUPS_PATH/$(get_helm_release_version "$HELM_RELEASE_NAME")")
+  --volumes   Volumes to make the backup for. Uses all k8s volumes if not specified. Specify volumes divided by comma
 EOF
 }
 
+cmd_backup_restore_usage() {
+  cat <<EOF
+Restores local backup
+
+Description:
+  Command for restoring local backup
+
+Examples:
+  $PROGRAM $COMMAND restore --name my-backup
+  $PROGRAM $COMMAND restore --name my-backup --volumes=minio,mongo,vault
+
+Required Options:
+  -n, --name     Backup name to create
+
+Options
+  -h, --help     Show help message
+  -v, --version  Version of Rule Engine release for which backups where made (default current release "$(get_helm_release_version "$HELM_RELEASE_NAME")")
+  -p, --path     Path where backups are store (default "$SRE_BACKUPS_PATH/\$version"). --version parameter is ignored when custom --path is specified
+  -f, --force    Restore backup even if current release version does not match to the release version where backup was made
+  --volumes      Volumes to make the backup for. Uses all k8s volumes if not specified. Specify volumes divided by comma
+EOF
+}
+
+
 cmd_version() { echo "$VERSION"; }
-die() { echo "$@" >&2; exit 1; }
+die() { echo "Error:" "$@" >&2; exit 1; }
+warn() { echo "Warning:" "$@" >&2; }
 cmd_unrecognized() {
   cat <<EOF
 Error: unrecognized command \`$PROGRAM $COMMAND\`
@@ -143,7 +211,7 @@ get_helm_release_version() {
   helm get metadata "$1" -o json | jq -r '.version'
 }
 get_latest_release_tag() {
-  curl -fLs "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | jq -r '.tag_name' || die "Error: no latest release for $GITHUB_REPO found"
+  curl -fLs "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | jq -r '.tag_name' || die "no latest release for $GITHUB_REPO found"
 }
 ensure_in_path() {
   if [[ ":$PATH:" != *":$1:"* ]]; then
@@ -277,15 +345,15 @@ cmd_init() {
   done
 
   if [ -z "$init_system" ] && [ -z "$target_user" ]; then
-    die "Error: either --system or --user must be specified"
+    die "either --system or --user must be specified"
   fi
 
   if [ -n "$init_system" ]; then
     if [ "$FIRST_USER" != "$(whoami)" ]; then
-      die "Error: system configuration can be performed only by '$FIRST_USER' user"
+      die "system configuration can be performed only by '$FIRST_USER' user"
     fi
     if [ -f "$SRE_LOCAL_PATH/success" ]; then
-      die "Error: Rule Engine was already initialized. Cannot do that again"
+      die "Rule Engine was already initialized. Cannot do that again"
     fi
     echo "Initializing Rule Engine for the first time"
     initialize_system
@@ -298,14 +366,14 @@ cmd_init() {
   [ -n "$re_username" ] && _username=0
   [ -n "$re_password" ] && _password=0
   if [ "$(( _username ^ _password ))" -eq 1 ]; then
-    die "Error: --re-username and --re-password must be specified together"
+    die "--re-username and --re-password must be specified together"
   fi
 
   _username=1 _password=1
   [ -n "$admin_username" ] && _username=0
   [ -n "$admin_password" ] && _password=0
   if [ "$(( _username ^ _password ))" -eq 1 ]; then
-    die "Error: --admin-username and --admin-password must be specified together"
+    die "--admin-username and --admin-password must be specified together"
   fi
 
   echo "Initializing Rule Engine for user $target_user"
@@ -313,7 +381,7 @@ cmd_init() {
     echo "User already exists"
   else
     echo "User does not exist. Creating..."
-    sudo useradd --create-home --shell /bin/bash --user-group "$target_user" || die "Error: could not create a user"
+    sudo useradd --create-home --shell /bin/bash --user-group "$target_user" || die "could not create a user"
   fi
 
   if [ -n "$public_ssh_key" ]; then
@@ -370,9 +438,9 @@ EOF
 pull_artifacts() {
   # downloads all necessary files from the given github release tag. Make sure the release exists
   mkdir -p "$SRE_RELEASES_PATH/$1"
-  wget -q -O "$SRE_RELEASES_PATH/$1/$MODULAR_CLI_ARTIFACT_NAME" "https://github.com/$GITHUB_REPO/releases/download/$1/$MODULAR_CLI_ARTIFACT_NAME" || echo "Warning: could not download $MODULAR_CLI_ARTIFACT_NAME from release $1"
-  wget -q -O "$SRE_RELEASES_PATH/$1/$OBFUSCATOR_ARTIFACT_NAME" "https://github.com/$GITHUB_REPO/releases/download/$1/$OBFUSCATOR_ARTIFACT_NAME" || echo "Warning: could not download $OBFUSCATOR_ARTIFACT_NAME from release $1"
-  wget -q -O "$SRE_RELEASES_PATH/$1/$SRE_INIT_ARTIFACT_NAME" "https://github.com/$GITHUB_REPO/releases/download/$1/$SRE_INIT_ARTIFACT_NAME" || echo "Warning: could not download $SRE_INIT_ARTIFACT_NAME from release $1"
+  wget -q -O "$SRE_RELEASES_PATH/$1/$MODULAR_CLI_ARTIFACT_NAME" "https://github.com/$GITHUB_REPO/releases/download/$1/$MODULAR_CLI_ARTIFACT_NAME" || warn "could not download $MODULAR_CLI_ARTIFACT_NAME from release $1"
+  wget -q -O "$SRE_RELEASES_PATH/$1/$OBFUSCATOR_ARTIFACT_NAME" "https://github.com/$GITHUB_REPO/releases/download/$1/$OBFUSCATOR_ARTIFACT_NAME" || warn "could not download $OBFUSCATOR_ARTIFACT_NAME from release $1"
+  wget -q -O "$SRE_RELEASES_PATH/$1/$SRE_INIT_ARTIFACT_NAME" "https://github.com/$GITHUB_REPO/releases/download/$1/$SRE_INIT_ARTIFACT_NAME" || warn "could not download $SRE_INIT_ARTIFACT_NAME from release $1"
 }
 update_sre_init() {
   # assuming that the target version already exists locally
@@ -412,7 +480,7 @@ cmd_update() {
   pull_artifacts "$latest_tag"
   echo "Updating helm repo"
   helm repo update syndicate
-  helm search repo syndicate/rule-engine --version "$latest_tag" --fail-on-no-result >/dev/null 2>&1 || die "Error: $latest_tag version of $r_name chart not found. Cannot update"
+  helm search repo syndicate/rule-engine --version "$latest_tag" --fail-on-no-result >/dev/null 2>&1 || die "$latest_tag version of $r_name chart not found. Cannot update"
   echo "Upgrading $r_name chart to $latest_tag version"
   helm upgrade "$HELM_RELEASE_NAME" syndicate/rule-engine --version "$latest_tag"
   echo "Upgrading obfuscation manager"
@@ -436,6 +504,7 @@ cmd_nginx() {
 }
 
 cmd_nginx_list() {
+  # TODO can be rewritten
   local port filename rows="" enabled=":"
   for file in /etc/nginx/sites-enabled/*; do
     port="$(grep -oP "listen \K\d+" < "$file")"
@@ -469,6 +538,7 @@ make_backup() {
   local host_path
   host_path="$(kubectl get pv "$1" -o jsonpath="{.spec.hostPath.path}")"
   if [ -z "$host_path" ]; then
+    warn "volume $1 does not have hostPath" >&2
     return 1
   fi
   minikube ssh "sudo tar -czf /tmp/$1.tar.gz -C $host_path ."
@@ -480,12 +550,15 @@ restore_backup() {
   local host_path
   host_path="$(kubectl get pv "$1" -o jsonpath="{.spec.hostPath.path}")"
   if [ -z "$host_path" ]; then
+    warn "volume $1 does not have hostPath"
     return 1
   fi
   if [ ! -f "$2/$1.tar.gz" ]; then
+    warn "tar archive does not exist for $1"
     return 1
   fi
   if [ ! -f "$2/$1.sha256" ]; then
+    warn "sha256 sum does not match for volume $1"
     return 1
   fi
   sha256sum "$2/$1.sha256" --check || return 1
@@ -495,15 +568,29 @@ restore_backup() {
 cmd_backup() {
   case "$1" in
     -h|--help) shift; cmd_backup_usage "$@" ;;
+    create) shift; cmd_backup_create "$@" ;;
     ls) shift; cmd_backup_list "$@" ;;
+    rm) shift; cmd_backup_rm "$@";;
+    restore) shift; cmd_backup_restore "$@" ;;
     '') cmd_backup_list "$@" ;;
     *) die "$(cmd_unrecognized)" ;;
   esac
 }
 
+resolve_backup_path() {
+  if [ -n "$1" ]; then
+    [ -n "$2" ] && warn "--version is ignored because --path is specified" >&2
+    echo "$1" # ignoring version if path is specified
+  elif [ -n "$2" ]; then
+    echo "$SRE_BACKUPS_PATH/$2"
+  else
+    echo "$SRE_BACKUPS_PATH/$(get_helm_release_version "$HELM_RELEASE_NAME")"
+  fi
+}
+
 cmd_backup_list() {
-  local opts version="" path="" pvs
-  opts="$(getopt -o "hvp" --long "help,version:,path:" -n "$PROGRAM" -- "$@")"
+  local opts version="" path="" pvs size
+  opts="$(getopt -o "hv:p:" --long "help,version:,path:" -n "$PROGRAM" -- "$@")"
   eval set -- "$opts"
   while true; do
     case "$1" in
@@ -513,24 +600,118 @@ cmd_backup_list() {
       '--') shift; break ;;
     esac
   done
-  if [ -n "$path" ]; then
-    [ -n "$version" ] && echo "Warning: --version is ignored because --path is specified" >&2
-    path="$path"  # ignoring version if path is specified
-  elif [ -n "$version" ]; then
-    path="$SRE_BACKUPS_PATH/$version"
-  else
-    path="$SRE_BACKUPS_PATH/$(get_helm_release_version "$HELM_RELEASE_NAME")"
-  fi
+  path="$(resolve_backup_path "$path" "$version")"
   if [ ! -d "$path" ] || [ -z "$(ls -A "$path")" ]; then
     echo "No backups found in $path" >&2
     exit 0
   fi
   find "$path/"* -maxdepth 1 -type d -print0 | xargs -0 stat --format "%W %n" | sort -r | while IFS=' ' read -r ts fp; do
-    pvs=$(find "$fp" -name '*.tar.gz' -type f -exec basename --suffix='.tar.gz' '{}' \; | tr '\n' ',' | sed 's/,$//')
-    printf "%s|%s|%s|%s|%s\n" "$(basename "$fp")" "$(date --date="@$ts")" "$(du -hsc "$fp"/*.tar.gz | grep total | cut -f1)" "$version" "$pvs"
-  done | column --table -s "|" --table-columns NAME,DATE,SIZE,VERSION,PVs
+    pvs=$(find "$fp" -name '*.tar.gz' -type f -exec basename --suffix='.tar.gz' '{}' \; | sort | tr '\n' ',' | sed 's/,$//')
+    size="$(du -hsc "$fp"/*.tar.gz 2>/dev/null | grep total | cut -f1 || true)"
+    printf "%s|%s|%s|%s\n" "$(basename "$fp")" "$(date --date="@$ts")" "${size:-0}" "$pvs"
+  done | column --table -s "|" --table-columns NAME,DATE,SIZE,PVs
 }
 
+cmd_backup_rm() {
+  local opts version="" path="" name="" auto_yes=0
+  opts="$(getopt -o "n:hyv:p:" --long "name:,help,yes,version:,path:" -n "$PROGRAM" -- "$@")"
+  eval set -- "$opts"
+  while true; do
+    case "$1" in
+      -h|--help) cmd_backup_rm_usage; exit 0 ;;
+      -v|--version) version="$2"; shift 2 ;;
+      -p|--path) path="$2"; shift 2 ;;
+      -n|--name) name="$2"; shift 2 ;;
+      -y|--yes) auto_yes=1; shift ;;
+      '--') shift; break ;;
+    esac
+  done
+  [ -z "$name" ] && die "--name is required"
+  path="$(resolve_backup_path "$path" "$version")"
+  if [ ! -d "$path/$name" ]; then
+    echo "All traces of '$name' (from $path) are removed"
+    exit 0
+  fi
+  [[ $auto_yes -eq 1 ]] || yesno "Do you really want to remove backup?"
+  rm -rf "${path:?}/$name"
+  echo "All traces of '$name' (from $path) are removed"
+}
+
+cmd_backup_create() {
+  local opts path="" name="" volumes="" vol
+  opts="$(getopt -o "n:hp:" --long "name:,help,path:,volumes:" -n "$PROGRAM" -- "$@")"
+  eval set -- "$opts"
+  while true; do
+    case "$1" in
+      -h|--help) cmd_backup_create_usage; exit 0 ;;
+      -p|--path) path="$2"; shift 2 ;;
+      -n|--name) name="$2"; shift 2 ;;
+      --volumes) volumes="$2"; shift 2 ;;
+      '--') shift; break ;;
+    esac
+  done
+  [ -z "$name" ] && die "--name is required"
+  [ -z "$path" ] && path="$SRE_BACKUPS_PATH/$(get_helm_release_version "$HELM_RELEASE_NAME")"
+  [ -d "$path/$name" ] && die "'$name' already exists"
+  mkdir -p "$path/$name"
+  if [ -z "$volumes" ]; then
+    for vol in $(kubectl get pv -o=jsonpath="{.items[*].metadata.name}"); do
+      echo "Making backup for volume $vol"
+      make_backup "$vol" "$path/$name" || warn "could not make backup"
+    done
+  else
+    local items
+    IFS=',' read -ra items <<< "$volumes"
+    for vol in "${items[@]}"; do
+      if ! kubectl get pv "$vol" >/dev/null 2>&1; then
+        warn "'$vol' volume does not exist" >&2
+        continue
+      fi
+      echo "Making backup for volume '$vol'"
+      make_backup "$vol" "$path/$name" || warn "could not make backup"
+    done
+  fi
+}
+cmd_backup_restore() {
+  local opts path="" name="" volumes="" version="" force=0 current_release vol
+  opts="$(getopt -o "n:hp:v:f" --long "name:,help,path:,version:,volumes:,force" -n "$PROGRAM" -- "$@")"
+  eval set -- "$opts"
+  while true; do
+    case "$1" in
+      -h|--help) cmd_backup_restore_usage; exit 0 ;;
+      -p|--path) path="$2"; shift 2 ;;
+      -v|--version) version="$2"; shift 2 ;;
+      -n|--name) name="$2"; shift 2 ;;
+      -f|--force) force=1; shift ;;
+      --volumes) volumes="$2"; shift 2 ;;
+      '--') shift; break ;;
+    esac
+  done
+  [ -z "$name" ] && die "--name is required"
+  current_release="$(get_helm_release_version "$HELM_RELEASE_NAME")"
+  [ "$force" -eq 0 ] && [ -n "$version" ] && [ "$version" != "$current_release" ] && die "current release $current_release does not match to the backup version $version. Specify --force if you really want to restore backup"
+  path="$(resolve_backup_path "$path" "$version")"
+  [ ! -d "$path/$name" ] && die "backup '$name' (from $path) not found"
+
+  declare -a items
+  if [ -z "$volumes" ]; then
+    while IFS= read -r -d ''; do
+      items+=("$(basename --suffix='.tar.gz' "$REPLY")")
+    done < <(find "$path/$name" -name '*.tar.gz' -type f -print0)
+  else
+    IFS=',' read -ra items <<< "$volumes"
+  fi
+  echo "${items[@]}"
+
+  for vol in "${items[@]}"; do
+    if ! kubectl get pv "$vol" >/dev/null 2>&1; then
+      warn "'$vol' volume does not exist" >&2
+      continue
+    fi
+    echo "Restoring volume '$vol'"
+    restore_backup "$vol" "$path/$name" || die "could not restore backup"
+  done
+}
 
 # Start
 VERSION="1.0.0"
