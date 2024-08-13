@@ -122,7 +122,7 @@ Examples:
 Options
   -h, --help     Show helm message
   -v, --version  Version of Rule Engine release where backups where made (default current release "$(get_helm_release_version "$HELM_RELEASE_NAME")")
-  -p, --path     Path where backups are store (default "$SRE_BACKUPS_PATH")
+  -p, --path     Path where backups are store (default "$SRE_BACKUPS_PATH"). --version parameter is ignored when custom --path is specified
 EOF
 }
 
@@ -502,8 +502,7 @@ cmd_backup() {
 }
 
 cmd_backup_list() {
-  local opts version path="$SRE_BACKUPS_PATH"
-  version=$(get_helm_release_version "$HELM_RELEASE_NAME")
+  local opts version="" path="" pvs
   opts="$(getopt -o "hvp" --long "help,version:,path:" -n "$PROGRAM" -- "$@")"
   eval set -- "$opts"
   while true; do
@@ -514,8 +513,22 @@ cmd_backup_list() {
       '--') shift; break ;;
     esac
   done
-  path+="/$version"
-  # Todo
+  if [ -n "$path" ]; then
+    [ -n "$version" ] && echo "Warning: --version is ignored because --path is specified" >&2
+    path="$path"  # ignoring version if path is specified
+  elif [ -n "$version" ]; then
+    path="$SRE_BACKUPS_PATH/$version"
+  else
+    path="$SRE_BACKUPS_PATH/$(get_helm_release_version "$HELM_RELEASE_NAME")"
+  fi
+  if [ ! -d "$path" ] || [ -z "$(ls -A "$path")" ]; then
+    echo "No backups found in $path" >&2
+    exit 0
+  fi
+  find "$path/"* -maxdepth 1 -type d -print0 | xargs -0 stat --format "%W %n" | sort -r | while IFS=' ' read -r ts fp; do
+    pvs=$(find "$fp" -name '*.tar.gz' -type f -exec basename --suffix='.tar.gz' '{}' \; | tr '\n' ',' | sed 's/,$//')
+    printf "%s|%s|%s|%s|%s\n" "$(basename "$fp")" "$(date --date="@$ts")" "$(du -hsc "$fp"/*.tar.gz | grep total | cut -f1)" "$version" "$pvs"
+  done | column --table -s "|" --table-columns NAME,DATE,SIZE,VERSION,PVs
 }
 
 
