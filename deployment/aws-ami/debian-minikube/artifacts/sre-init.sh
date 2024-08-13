@@ -563,7 +563,7 @@ restore_backup() {
   fi
   sha256sum "$2/$1.sha256" --check || return 1
   minikube cp "$2/$1.tar.gz" "$HELM_RELEASE_NAME:/tmp/$1.tar.gz"
-  minikube ssh "sudo tar --same-owner --overwrite -xzf /tmp/$1.tar.gz -C $host_path"
+  minikube ssh "sudo rm -rf $host_path/*; sudo tar --same-owner --overwrite -xzf /tmp/$1.tar.gz -C $host_path"
 }
 cmd_backup() {
   case "$1" in
