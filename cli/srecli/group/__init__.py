@@ -5,7 +5,7 @@ from http import HTTPStatus
 import operator
 from itertools import islice
 import json
-import os
+import shutil
 import sys
 from pathlib import Path
 from typing import Any, Callable, TypedDict, cast
@@ -31,7 +31,8 @@ from srecli.service.constants import (
     NEXT_TOKEN_ATTR,
     NO_CONTENT_RESPONSE_MESSAGE,
     NO_ITEMS_TO_DISPLAY_RESPONSE_MESSAGE,
-    JobType
+    JobType,
+    Env
 )
 from srecli.service.logger import get_logger, get_user_logger, write_verbose_logs
 
@@ -170,8 +171,10 @@ class cli_response:  # noqa
             if Path(__file__).parents[3].name == MODULAR_ADMIN:  # TODO check some other way
                 modular_mode = True
 
-            json_view = kwargs.pop('json')
-            verbose = kwargs.pop('verbose')
+            json_view = Env.RESPONSE_FORMAT.get() == 'json' or kwargs.get('json')
+            verbose = Env.VERBOSE.get() or kwargs.get('verbose')
+            kwargs.pop('json', None)
+            kwargs.pop('verbose', None)
             if verbose:
                 write_verbose_logs()
             ctx = cast(click.Context, click.get_current_context())
@@ -204,7 +207,10 @@ class cli_response:  # noqa
                         items_per_column=ctx.obj['config'].items_per_column,
                         attributes_order=self._attributes_order
                     )
-                    table = printer.print(prepared)
+                    table = printer.print(
+                        prepared,
+                        raise_on_overflow=not Env.NO_PROMPT.get()
+                    )
                 except ColumnOverflow as ce:
 
                     _LOG.info(f'Awaiting user to respond to - {ce!r}.')
@@ -399,7 +405,7 @@ class TablePrinter:
         else:
             formatted = self._items_table(data)
 
-        overflow = formatted.index('\n') > os.get_terminal_size().columns
+        overflow = formatted.index('\n') > shutil.get_terminal_size().columns
         if overflow and raise_on_overflow:
             raise ColumnOverflow(table=formatted)
         return formatted
