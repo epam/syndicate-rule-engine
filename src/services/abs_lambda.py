@@ -4,6 +4,7 @@ import inspect
 import json
 import msgspec
 from typing import MutableMapping, TypedDict, cast, TYPE_CHECKING
+from pynamodb.exceptions import PynamoDBConnectionError
 
 from modular_sdk.commons.exception import ModularException
 from modular_sdk.services.customer_service import CustomerService
@@ -586,6 +587,18 @@ class EventProcessorLambdaHandler(AbstractLambdaHandler):
         except ModularException as e:
             _LOG.warning('Modular exception occurred', exc_info=True)
             return ResponseFactory(int(e.code)).message(e.content).build()
+        except PynamoDBConnectionError as e:
+            if e.cause_response_code not in (
+                    'ProvisionedThroughputExceededException',
+                    'ThrottlingException'):
+                _LOG.exception('Unexpected pynamodb exception occurred')
+                return ResponseFactory(
+                    HTTPStatus.INTERNAL_SERVER_ERROR
+                ).default().build()
+            _LOG.exception(f'{e.cause_response_code} occurred. Returning 429')
+            return ResponseFactory(
+                HTTPStatus.TOO_MANY_REQUESTS
+            ).default().build()
         except Exception:  # noqa
             _LOG.exception('Unexpected exception occurred')
             return ResponseFactory(

@@ -1,4 +1,5 @@
 import operator
+import os
 from enum import Enum
 
 
@@ -138,8 +139,31 @@ ERRORS_ATTR = 'errors'
 MESSAGE_ATTR = 'message'
 NEXT_TOKEN_ATTR = 'next_token'
 
-C7NCLI_LOG_LEVEL_ENV_NAME = 'SRE_CLI_LOG_LEVEL'
-C7NCLI_DEVELOPER_MODE_ENV_NAME = 'SRE_CLI_DEVELOPER_MODE'
+
+class Env(str, Enum):
+    default: str | None
+
+    def __new__(cls, value: str, default: str | None = None):
+        """
+        All environment variables and optionally their default values.
+        Since envs always have string type the default value also should be
+        of string type and then converted to the necessary type in code.
+        There is no default value if not specified (default equal to None)
+        """
+        obj = str.__new__(cls, value)
+        obj._value_ = value
+
+        obj.default = default
+        return obj
+
+    LOG_LEVEL = 'SRE_CLI_LOG_LEVEL'
+    DEVELOPER_MODE = 'SRE_CLI_DEVELOPER_MODE'
+    RESPONSE_FORMAT = 'SRE_CLI_RESPONSE_FORMAT', 'table'
+    VERBOSE = 'SRE_CLI_VERBOSE'
+    NO_PROMPT = 'SRE_CLI_NO_PROMPT'
+
+    def get(self) -> str | None:
+        return os.getenv(self.value, default=self.default)
 
 
 class JobType(str, Enum):

@@ -11,7 +11,7 @@ from srecli.service.constants import AWS, AZURE, GOOGLE, JobState, \
     ENV_AWS_ACCESS_KEY_ID, ENV_AWS_SESSION_TOKEN, ENV_AWS_SECRET_ACCESS_KEY, \
     ENV_AZURE_TENANT_ID, ENV_AZURE_CLIENT_ID, ENV_AZURE_CLIENT_SECRET, \
     ENV_AZURE_SUBSCRIPTION_ID
-from srecli.service.constants import C7NCLI_DEVELOPER_MODE_ENV_NAME
+from srecli.service.constants import Env
 from srecli.service.credentials import EnvCredentialsResolver
 from srecli.service.helpers import Color
 from srecli.service.logger import get_user_logger
@@ -378,7 +378,7 @@ def load_rules_to_scan(rules_to_scan: tuple[str, ...]) -> list:
     return list(rules)
 
 
-if str(os.getenv(C7NCLI_DEVELOPER_MODE_ENV_NAME)).lower() == 'true':
+if Env.DEVELOPER_MODE.get():
     from srecli.group.job_event import event
 
     job.add_command(event)

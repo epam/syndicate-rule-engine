@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 import re
 
-from srecli.service.constants import C7NCLI_LOG_LEVEL_ENV_NAME
+from srecli.service.constants import Env
 from srecli.version import __version__
 
 LOGS_FOLDER = Path('logs/srecli')
@@ -56,7 +56,7 @@ c7n_logger = getLogger('sre')
 c7n_logger.setLevel(DEBUG)
 c7n_logger.propagate = False
 
-log_level = os.getenv(C7NCLI_LOG_LEVEL_ENV_NAME)
+log_level = Env.LOG_LEVEL.get()
 if log_level:
     console_handler = StreamHandler()
     console_handler.setLevel(log_level)
