@@ -273,3 +273,8 @@ class EnvironmentService:
             CAASEnv.ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS
         ))
         return env.lower() in ENV_TRUE
+
+    def minio_presigned_url_host(self) -> str | None:
+        host = self._environment.get(CAASEnv.MINIO_PRESIGNED_URL_HOST)
+        if host:
+            return host.strip().strip('/')

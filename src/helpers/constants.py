@@ -2,6 +2,7 @@ import operator
 from enum import Enum
 from itertools import filterfalse
 from typing import Iterator
+import os
 
 from typing_extensions import Self
 
@@ -328,6 +329,30 @@ class CAASEnv:
     """
     Envs that can be set for lambdas of custodian service
     """
+    default: str | None
+
+    def __new__(cls, value: str, default: str | None = None):
+        """
+        All environment variables and optionally their default values.
+        Since envs always have string type the default value also should be
+        of string type and then converted to the necessary type in code.
+        There is no default value if not specified (default equal to None)
+        """
+        obj = str.__new__(cls, value)
+        obj._value_ = value
+
+        obj.default = default
+        return obj
+
+    def get(self) -> str | None:
+        return os.getenv(self.value, default=self.default)
+
+    def set(self, val: str | None):
+        if val is None:
+            os.environ.pop(self.value, None)
+        else:
+            os.environ[self.value] = str(val)
+
     # modes
     SERVICE_MODE = 'CAAS_SERVICE_MODE'
     TESTING_MODE = 'CAAS_TESTING'
@@ -388,6 +413,7 @@ class CAASEnv:
     MINIO_ENDPOINT = 'CAAS_MINIO_ENDPOINT'
     MINIO_ACCESS_KEY_ID = 'CAAS_MINIO_ACCESS_KEY_ID'
     MINIO_SECRET_ACCESS_KEY = 'CAAS_MINIO_SECRET_ACCESS_KEY'
+    MINIO_PRESIGNED_URL_HOST = 'CAAS_MINIO_PRESIGNED_URL_HOST'
 
     VAULT_ENDPOINT = 'CAAS_VAULT_ENDPOINT'
     VAULT_TOKEN = 'CAAS_VAULT_TOKEN'
