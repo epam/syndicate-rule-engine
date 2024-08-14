@@ -297,6 +297,7 @@ nginx_modular_api_conf | sudo tee /etc/nginx/sites-available/modular-api > /dev/
 
 sudo ln -s /etc/nginx/sites-available/defectdojo /etc/nginx/sites-enabled/
 sudo ln -s /etc/nginx/sites-available/modular-api /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/minio /etc/nginx/sites-enabled/
 
 sudo nginx -s reload
 

@@ -155,8 +155,9 @@ class LicenseUpdater(EventProcessorLambdaHandler):
             clouds.remove('GCP')
             clouds.add('GOOGLE')
         if 'KUBERNETES' in clouds:
-            # todo because currently we cannot create parent with cloud KUBERNETES
-            clouds.remove('KUBERNETES')
+            # todo because currently we cannot create parent with cloud
+            #  KUBERNETES SO activating for all
+            clouds.clear()
         for customer, data in lic.customers.items():
             # TODO maybe move this block to some service
             am = data.get('attachment_model')
