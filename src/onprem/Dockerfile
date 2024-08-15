@@ -71,4 +71,4 @@ ENV AWS_REGION=eu-central-1 \
 WORKDIR /src
 EXPOSE 8000
 RUN chmod +x entrypoint.sh main.py
-ENTRYPOINT ["entrypoint.sh"]
+ENTRYPOINT ["/src/entrypoint.sh"]

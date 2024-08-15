@@ -168,7 +168,7 @@ nginx_sre_conf() {
   cat <<EOF
 server {
     listen 8000;
-    location /sre {
+    location /re {
         include /etc/nginx/proxy_params;
         proxy_set_header X-Original-URI \$request_uri;
         proxy_redirect off;
@@ -234,7 +234,7 @@ kubectl create secret generic vault-secret --from-literal=token=$(generate_passw
 kubectl create secret generic rule-engine-secret --from-literal=system-password=$(generate_password 30)
 kubectl create secret generic modular-api-secret --from-literal=system-password=$(generate_password 20 -hex) --from-literal=secret-key="$(generate_password 50)"
 kubectl create secret generic modular-service-secret --from-literal=system-password=$(generate_password 30)
-kubectl create secret generic defect-dojo-secret --from-literal=secret-key="$(generate_password 50)" --from-literal=credential-aes-256-key=$(generate_password) --from-literal=db-username=defectdojo --from-literal=db-password=$(generate_password 30 -hex)
+kubectl create secret generic defectdojo-secret --from-literal=secret-key="$(generate_password 50)" --from-literal=credential-aes-256-key=$(generate_password) --from-literal=db-username=defectdojo --from-literal=db-password=$(generate_password 30 -hex)
 
 helm plugin install https://github.com/hypnoglow/helm-s3.git
 helm repo add syndicate s3://charts-repository/syndicate/
@@ -278,7 +278,7 @@ done
 dojo_pass=$(base64 <<< "$dojo_pass")
 
 sudo su - "$FIRST_USER" <<EOF
-kubectl patch secret defect-dojo-secret -p="{\"data\":{\"system-password\":\"$dojo_pass\"}}"
+kubectl patch secret defectdojo-secret -p="{\"data\":{\"system-password\":\"$dojo_pass\"}}"
 EOF
 log "Defect dojo secret was saved"
 

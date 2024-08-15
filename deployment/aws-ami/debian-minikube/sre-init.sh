@@ -318,7 +318,7 @@ initialize_system() {
   echo "Getting Defect dojo token"
   while [ -z "$dojo_token" ]; do
     sleep 2
-    dojo_token=$(curl -X POST -H 'content-type: application/json' "http://$mip:32107/api/v2/api-token-auth/" -d "{\"username\":\"admin\",\"password\":\"$(get_kubectl_secret defect-dojo-secret system-password)\"}" | jq ".token" -r || true)
+    dojo_token=$(curl -X POST -H 'content-type: application/json' "http://$mip:32107/api/v2/api-token-auth/" -d "{\"username\":\"admin\",\"password\":\"$(get_kubectl_secret defectdojo-secret system-password)\"}" | jq ".token" -r || true)
   done
 
   echo "Activating dojo installation for rule engine"
@@ -404,7 +404,7 @@ EOF
 
   if [ "$err" -ne 0 ]; then
     echo "Creating new modular-api user"
-    new_password="$(generate_password)"
+    new_password="$(generate_password 20 -hex)"
     api_path="http://$(minikube_ip):32105"
     kubectl exec service/modular-api -- ./modular.py user add --username "$target_user" --group admin_group --password "$new_password"
     sudo su - "$target_user" <<EOF
