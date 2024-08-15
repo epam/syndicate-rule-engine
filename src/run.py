@@ -14,6 +14,7 @@ Exit codes:
 - 126: Job is event-driven and cannot be executed in consequence of invalid
   credentials or conceivably some other temporal reason. Retry is allowed.
 """
+import os
 from abc import ABC, abstractmethod
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
@@ -1140,12 +1141,12 @@ def single_account_standard_job() -> int:
     else:  # scheduled job, generating it dynamically
         scheduled = ScheduledJob.get_nullable(BSP.env.scheduled_job_name())
         updater = JobUpdater.from_batch_env(
-            environment=BSP.env.environment,
+            environment=dict(os.environ),
             rulesets=scheduled.context.scan_rulesets
         )
         updater.save()
         job = updater.job
-        BSP.env.override_environment({BatchJobEnv.CUSTODIAN_JOB_ID: job.id})
+        BSP.env.override_environment({BatchJobEnv.CUSTODIAN_JOB_ID.value: job.id})
 
     if BSP.env.is_scheduled():  # locking scanned regions
         TenantSettingJobLock(tenant_name).acquire(

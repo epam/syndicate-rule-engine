@@ -67,7 +67,7 @@ class AbstractJobScheduler(ABC):
 
     @staticmethod
     def _scan_regions_from_env(envs: dict) -> list[str]:
-        return envs.get(BatchJobEnv.TARGET_REGIONS, '').split(',')
+        return envs.get(BatchJobEnv.TARGET_REGIONS.value, '').split(',')
 
 
 class EventBridgeJobScheduler(AbstractJobScheduler):
@@ -132,8 +132,8 @@ class EventBridgeJobScheduler(AbstractJobScheduler):
             role_arn=self._iam_client.build_role_arn(
                 self._environment.event_bridge_service_role()),
         )
-        environment[BatchJobEnv.SUBMITTED_AT] = '<submitted_at>'
-        environment[BatchJobEnv.SCHEDULED_JOB_NAME] = _id
+        environment[BatchJobEnv.SUBMITTED_AT.value] = '<submitted_at>'
+        environment[BatchJobEnv.SCHEDULED_JOB_NAME.value] = _id
         target.set_input_transformer(
             {'submitted_at': '$.time'},
             self._batch_client.build_container_overrides(

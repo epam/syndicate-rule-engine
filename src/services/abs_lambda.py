@@ -104,13 +104,13 @@ class ExpandEnvironmentEventProcessor(AbstractEventProcessor):
         """
         Adds some useful data to internal environment variables
         """
-        envs = {CAASEnv.INVOCATION_REQUEST_ID: context.aws_request_id}
+        envs = {CAASEnv.INVOCATION_REQUEST_ID.value: context.aws_request_id}
         if host := deep_get(event, ('headers', 'Host')):
-            envs[CAASEnv.API_GATEWAY_HOST] = host
-        envs[CAASEnv.API_GATEWAY_STAGE] = self._resolve_stage(event)
+            envs[CAASEnv.API_GATEWAY_HOST.value] = host
+        envs[CAASEnv.API_GATEWAY_STAGE.value] = self._resolve_stage(event)
 
         if context.invoked_function_arn:
-            envs[CAASEnv.ACCOUNT_ID] = RequestContext.extract_account_id(
+            envs[CAASEnv.ACCOUNT_ID.value] = RequestContext.extract_account_id(
                 context.invoked_function_arn
             )
         self._env.override_environment(envs)

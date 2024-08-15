@@ -1,5 +1,3 @@
-import os
-
 from pynamodb.attributes import UnicodeAttribute, MapAttribute
 from pynamodb.indexes import AllProjection
 
@@ -49,7 +47,7 @@ class TenantNameSubmittedAtIndex(BaseGSI):
 class BatchResults(BaseModel):
     class Meta:
         table_name = "CaaSBatchResults"
-        region = os.environ.get(CAASEnv.AWS_REGION)
+        region = CAASEnv.AWS_REGION.get()
 
     id = UnicodeAttribute(hash_key=True, attr_name=BR_ID)  # uuid
     job_id = UnicodeAttribute(attr_name=BR_JOB_ID, null=True)  # Batch job id

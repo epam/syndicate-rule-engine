@@ -93,7 +93,7 @@ class LambdaResponse:
             'Access-Control-Allow-Methods': '*',
             'Accept-Version': __version__,  # TODO API think about header name
         }
-        if trace_id := os.getenv(CAASEnv.INVOCATION_REQUEST_ID):
+        if trace_id := CAASEnv.INVOCATION_REQUEST_ID.get(None):
             headers['Lambda-Invocation-Trace-Id'] = trace_id
         if not self.ok:
             headers['x-amzn-ErrorType'] = str(self._code.value)

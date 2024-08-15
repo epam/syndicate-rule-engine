@@ -72,7 +72,7 @@ class StsClient(Boto3ClientWrapper):
             _LOG.warning('Valid account id not found in envs. '
                          'Calling \'get_caller_identity\'')
             _id = self.get_caller_identity()['Account']
-            self._environment.override_environment({CAASEnv.ACCOUNT_ID: _id})
+            self._environment.override_environment({CAASEnv.ACCOUNT_ID.value: _id})
         return _id
 
 

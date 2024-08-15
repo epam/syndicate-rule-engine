@@ -63,7 +63,7 @@ class MongoAndSSMAuthClient(BaseAuthClient):
         self._ssm = ssm_client
         self._jwt_client = None
         self._refresh_col = cast(MongoClient, MONGO_CLIENT).get_database(
-            os.getenv(CAASEnv.MONGO_DATABASE)
+            CAASEnv.MONGO_DATABASE.get()
         ).get_collection('CaaSRefreshTokenChains')
 
     @property

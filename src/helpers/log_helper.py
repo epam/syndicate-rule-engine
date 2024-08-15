@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 from typing import TypeVar
 from helpers.constants import CAASEnv, LOG_FORMAT
 
@@ -11,7 +10,7 @@ console_handler = logging.StreamHandler()
 console_handler.setFormatter(logging.Formatter(LOG_FORMAT))
 custodian_logger.addHandler(console_handler)
 
-log_level = os.getenv(CAASEnv.LOG_LEVEL) or 'DEBUG'
+log_level = CAASEnv.LOG_LEVEL.get()
 try:
     custodian_logger.setLevel(log_level)
 except ValueError:  # not valid log level name

@@ -1,8 +1,8 @@
 import operator
+import os
 from enum import Enum
 from itertools import filterfalse
-from typing import Iterator
-import os
+from typing import Iterator, MutableMapping
 
 from typing_extensions import Self
 
@@ -142,7 +142,6 @@ class CustodianEndpoint(str, Enum):
 
 LAMBDA_URL_HEADER_CONTENT_TYPE_UPPER = 'Content-Type'
 JSON_CONTENT_TYPE = 'application/json'
-
 
 DEFAULT_SYSTEM_CUSTOMER: str = 'SYSTEM'
 DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME = \
@@ -293,7 +292,6 @@ TENANT_LICENSE_KEY_ATTR = 'tenant_license_key'
 TENANT_LICENSE_KEYS_ATTR = 'tenant_license_keys'
 CUSTOMERS_ATTR = 'customers'
 
-
 # License Manager[Setting].Config:
 HOST_ATTR = 'host'
 # License Manager[Setting].Client:
@@ -324,19 +322,25 @@ EXTERNAL_DATA_BUCKET_ATTR = 'externalDataBucket'
 
 LOG_FORMAT = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
 
+_SENTINEL = object()
 
-class CAASEnv:
+
+class EnvEnum(str, Enum):
     """
-    Envs that can be set for lambdas of custodian service
+    Abstract enumeration class for holding environment variables
     """
     default: str | None
+
+    @staticmethod
+    def source() -> MutableMapping:
+        return os.environ
 
     def __new__(cls, value: str, default: str | None = None):
         """
         All environment variables and optionally their default values.
         Since envs always have string type the default value also should be
         of string type and then converted to the necessary type in code.
-        There is no default value if not specified (default equal to None)
+        There is no default value if not specified (default equal to unset)
         """
         obj = str.__new__(cls, value)
         obj._value_ = value
@@ -344,21 +348,29 @@ class CAASEnv:
         obj.default = default
         return obj
 
-    def get(self) -> str | None:
-        return os.getenv(self.value, default=self.default)
+    def get(self, default=_SENTINEL) -> str | None:
+        if default is _SENTINEL:
+            default = self.default
+        if default is not None:
+            default = str(default)
+        return self.source().get(self.value, default)
 
     def set(self, val: str | None):
         if val is None:
-            os.environ.pop(self.value, None)
+            self.source().pop(self.value, None)
         else:
-            os.environ[self.value] = str(val)
+            self.source()[self.value] = str(val)
 
-    # modes
+
+class CAASEnv(EnvEnum):
+    """
+    Envs that can be set for lambdas of custodian service
+    """
     SERVICE_MODE = 'CAAS_SERVICE_MODE'
     TESTING_MODE = 'CAAS_TESTING'
     MOCKED_RABBIT_MQ_S3 = 'CAAS_MOCK_RABBIT_MQ_S3'
-    SYSTEM_CUSTOMER_NAME = 'SYSTEM_CUSTOMER_NAME'
-    LOG_LEVEL = 'CAAS_LOG_LEVEL'
+    SYSTEM_CUSTOMER_NAME = 'SYSTEM_CUSTOMER_NAME', DEFAULT_SYSTEM_CUSTOMER
+    LOG_LEVEL = 'CAAS_LOG_LEVEL', 'DEBUG'
 
     # inner envs (they are set automatically when request comes)
     API_GATEWAY_HOST = '_CAAS_API_GATEWAY_HOST'
@@ -366,11 +378,11 @@ class CAASEnv:
     INVOCATION_REQUEST_ID = '_INVOCATION_REQUEST_ID'
 
     # buckets
-    RULESETS_BUCKET_NAME = 'CAAS_RULESETS_BUCKET_NAME'
-    REPORTS_BUCKET_NAME = 'CAAS_REPORTS_BUCKET_NAME'
-    METRICS_BUCKET_NAME = 'CAAS_METRICS_BUCKET_NAME'
-    STATISTICS_BUCKET_NAME = 'CAAS_STATISTICS_BUCKET_NAME'
-    RECOMMENDATIONS_BUCKET_NAME = 'CAAS_RECOMMENDATIONS_BUCKET_NAME'
+    RULESETS_BUCKET_NAME = 'CAAS_RULESETS_BUCKET_NAME', 'rulesets'
+    REPORTS_BUCKET_NAME = 'CAAS_REPORTS_BUCKET_NAME', 'reports'
+    METRICS_BUCKET_NAME = 'CAAS_METRICS_BUCKET_NAME', 'metrics'
+    STATISTICS_BUCKET_NAME = 'CAAS_STATISTICS_BUCKET_NAME', 'statistics'
+    RECOMMENDATIONS_BUCKET_NAME = 'CAAS_RECOMMENDATIONS_BUCKET_NAME', 'recommendation'
 
     # Cognito either one will work, but ID faster and safer
     USER_POOL_NAME = 'CAAS_USER_POOL_NAME'
@@ -380,7 +392,7 @@ class CAASEnv:
     ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS = 'CAAS_ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS'  # noqa, can be useful for QA
 
     # lm
-    LM_TOKEN_LIFETIME_MINUTES = 'CAAS_LM_TOKEN_LIFETIME_MINUTES'
+    LM_TOKEN_LIFETIME_MINUTES = 'CAAS_LM_TOKEN_LIFETIME_MINUTES', '120'
 
     # some deployment options
     ACCOUNT_ID = 'CAAS_ACCOUNT_ID'
@@ -389,15 +401,15 @@ class CAASEnv:
     # batch options
     BATCH_JOB_DEF_NAME = 'CAAS_BATCH_JOB_DEF_NAME'
     BATCH_JOB_QUEUE_NAME = 'CAAS_BATCH_JOB_QUEUE_NAME'
-    BATCH_JOB_LOG_LEVEL = 'CAAS_BATCH_JOB_LOG_LEVEL'
-    BATCH_JOB_LIFETIME_MINUTES = 'CAAS_BATCH_JOB_LIFETIME_MINUTES'
+    BATCH_JOB_LOG_LEVEL = 'CAAS_BATCH_JOB_LOG_LEVEL', 'DEBUG'
+    BATCH_JOB_LIFETIME_MINUTES = 'CAAS_BATCH_JOB_LIFETIME_MINUTES', '120'
     EB_SERVICE_ROLE_TO_INVOKE_BATCH = 'CAAS_EB_SERVICE_ROLE_TO_INVOKE_BATCH'
 
     # events
-    EVENTS_TTL_HOURS = 'CAAS_EVENTS_TTL_HOURS'
-    NATIVE_EVENTS_PER_ITEM = 'CAAS_NATIVE_EVENTS_PER_ITEM'
-    EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE = 'CAAS_EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE'  # noqa
-    NUMBER_OF_PARTITIONS_FOR_EVENTS = 'CAAS_NUMBER_OF_PARTITIONS_FOR_EVENTS'
+    EVENTS_TTL_HOURS = 'CAAS_EVENTS_TTL_HOURS', '48'
+    NATIVE_EVENTS_PER_ITEM = 'CAAS_NATIVE_EVENTS_PER_ITEM', '100'
+    EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE = 'CAAS_EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE', '100'
+    NUMBER_OF_PARTITIONS_FOR_EVENTS = 'CAAS_NUMBER_OF_PARTITIONS_FOR_EVENTS', '10'
 
     # jobs
     JOBS_TIME_TO_LIVE_DAYS = 'CAAS_JOBS_TIME_TO_LIVE_DAYS'
@@ -407,7 +419,7 @@ class CAASEnv:
     ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT = 'CAAS_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT'  # noqa
 
     # cache
-    INNER_CACHE_TTL_SECONDS = 'CAAS_INNER_CACHE_TTL_SECONDS'
+    INNER_CACHE_TTL_SECONDS = 'CAAS_INNER_CACHE_TTL_SECONDS', '300'
 
     # on-prem access
     MINIO_ENDPOINT = 'CAAS_MINIO_ENDPOINT'
@@ -419,19 +431,25 @@ class CAASEnv:
     VAULT_TOKEN = 'CAAS_VAULT_TOKEN'
 
     MONGO_URI = 'CAAS_MONGO_URI'
-    MONGO_DATABASE = 'CAAS_MONGO_DATABASE'
+    MONGO_DATABASE = 'CAAS_MONGO_DATABASE', 'custodian_as_a_service'
 
-    AWS_REGION = 'AWS_REGION'
+    AWS_REGION = 'AWS_REGION', 'us-east-1'
 
     # init envs
     SYSTEM_USER_PASSWORD = 'CAAS_SYSTEM_USER_PASSWORD'
 
 
-class BatchJobEnv(CAASEnv):
+class BatchJobEnv(EnvEnum):
     """
     Batch executor specific envs. Note that batch can contain some envs from
     lambdas, but these that are listed here -> only for batch
     """
+    # common
+    AWS_REGION = 'AWS_REGION', 'us-east-1'
+    BATCH_JOB_LIFETIME_MINUTES = 'CAAS_BATCH_JOB_LIFETIME_MINUTES', '120'
+    SYSTEM_CUSTOMER_NAME = 'SYSTEM_CUSTOMER_NAME', DEFAULT_SYSTEM_CUSTOMER
+
+    # specific to executor
     JOB_ID = 'AWS_BATCH_JOB_ID'
     CUSTODIAN_JOB_ID = 'CUSTODIAN_JOB_ID'
     BATCH_RESULTS_IDS = 'BATCH_RESULTS_IDS'
@@ -443,18 +461,13 @@ class BatchJobEnv(CAASEnv):
     JOB_TYPE = 'JOB_TYPE'
     SUBMITTED_AT = 'SUBMITTED_AT'
 
-    AWS_DEFAULT_REGION = 'AWS_DEFAULT_REGION'
+    AWS_DEFAULT_REGION = 'AWS_DEFAULT_REGION', 'us-east-1'
     CREDENTIALS_KEY = 'CREDENTIALS_KEY'
 
     SCHEDULED_JOB_NAME = 'SCHEDULED_JOB_NAME'
     TENANT_NAME = 'TENANT_NAME'
     PLATFORM_ID = 'PLATFORM_ID'
     ALLOW_MANAGEMENT_CREDS = 'ALLOW_MANAGEMENT_CREDENTIALS'
-
-
-class JobComponentName(CAASEnv):
-    RECOMMENDATIONS = 'custodian-service-recommendations'
-    METRICS = 'custodian-service-metrics'
 
 
 class Permission(str, Enum):
@@ -674,26 +687,12 @@ class BatchJobType(str, Enum):
     SCHEDULED = 'scheduled'
 
 
-DEFAULT_NUMBER_OF_PARTITIONS_FOR_EVENTS = 10
-
-DEFAULT_NUMBER_OF_EVENTS_IN_EVENT_ITEM: int = 100
-DEFAULT_EVENTS_TTL_HOURS = 48
-DEFAULT_INNER_CACHE_TTL_SECONDS: int = 300
-
-DEFAULT_LM_TOKEN_LIFETIME_MINUTES = 120
-
 # event-driven
 AWS_VENDOR = 'AWS'
 MAESTRO_VENDOR = 'MAESTRO'
 
 # smtp
 PASSWORD_ATTR = 'password'
-
-DEFAULT_REPORTS_BUCKET_NAME = 'reports'
-DEFAULT_RULESETS_BUCKET_NAME = 'rulesets'
-DEFAULT_STATISTICS_BUCKET_NAME = 'statistics'
-DEFAULT_METRICS_BUCKET_NAME = 'metrics'
-DEFAULT_RECOMMENDATION_BUCKET_NAME = 'recommendation'
 
 # reports
 DATA_TYPE = 'data_type'
@@ -866,18 +865,14 @@ REPORT_FIELDS = {
     'namespace'  # k8s specific
 }  # from Cloud Custodian
 
-
 PRIVATE_KEY_SECRET_NAME = 'rule-engine-private-key'
-
 
 # tenant setting keys
 TS_EXCLUDED_RULES_KEY = 'CUSTODIAN_EXCLUDED_RULES'
 TS_JOB_LOCK_KEY = 'CUSTODIAN_JOB_LOCK'
 
-
 GITHUB_API_URL_DEFAULT = 'https://api.github.com'
 GITLAB_API_URL_DEFAULT = 'https://git.epam.com'
-
 
 # lambda names
 RULE_META_UPDATER_LAMBDA_NAME = 'caas-rule-meta-updater'

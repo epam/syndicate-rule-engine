@@ -4,7 +4,6 @@ import base64
 import json
 import logging.config
 import multiprocessing
-import os
 import secrets
 import string
 import sys
@@ -391,8 +390,8 @@ class Run(ActionHandler):
             )
 
         from onprem.api.cron_jobs import ensure_all
-        if os.getenv(CAASEnv.SERVICE_MODE) != DOCKER_SERVICE_MODE:
-            os.environ[CAASEnv.SERVICE_MODE] = DOCKER_SERVICE_MODE
+        if CAASEnv.SERVICE_MODE.get() != DOCKER_SERVICE_MODE:
+            CAASEnv.SERVICE_MODE.set(DOCKER_SERVICE_MODE)
 
         dr_wrapper = DeploymentResourcesApiGatewayWrapper(self.load_api_dr())
         app = self.make_app(dr_wrapper)
@@ -526,13 +525,13 @@ class InitAction(ActionHandler):
         if not Setting.get_nullable(SettingKey.SYSTEM_CUSTOMER):
             _LOG.info('Setting system customer name')
             Setting(
-                name=CAASEnv.SYSTEM_CUSTOMER_NAME,
+                name=CAASEnv.SYSTEM_CUSTOMER_NAME.value,
                 value=SYSTEM_CUSTOMER
             ).save()
-        if not Setting.get_nullable(SettingKey.REPORT_DATE_MARKER):
+        if not Setting.get_nullable(SettingKey.REPORT_DATE_MARKER.value):
             _LOG.info('Setting report date marker')
             Setting(
-                name=SettingKey.REPORT_DATE_MARKER,
+                name=SettingKey.REPORT_DATE_MARKER.value,
                 value={
                     'last_week_date': (datetime.today() +
                                        relativedelta(
@@ -545,7 +544,7 @@ class InitAction(ActionHandler):
         users_client = SP.users_client
         if not users_client.get_user_by_username(SYSTEM_USER):
             _LOG.info('Creating a system user')
-            password = os.getenv(CAASEnv.SYSTEM_USER_PASSWORD)
+            password = CAASEnv.SYSTEM_USER_PASSWORD.get(None)
             from_env = bool(password)
             if not from_env:
                 password = gen_password()

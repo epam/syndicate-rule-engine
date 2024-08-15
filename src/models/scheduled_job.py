@@ -1,4 +1,3 @@
-import os
 from typing import Optional
 
 from pynamodb.attributes import UnicodeAttribute, ListAttribute, \
@@ -49,7 +48,7 @@ class ScheduledJob(BaseSafeUpdateModel):
 
     class Meta:
         table_name = SCHEDULED_JOBS_TABLE_NAME
-        region = os.environ.get(CAASEnv.AWS_REGION)
+        region = CAASEnv.AWS_REGION.get()
 
     id = UnicodeAttribute(hash_key=True, attr_name=SJ_ID_ATTR)
     type = UnicodeAttribute(range_key=True, default=default_type,

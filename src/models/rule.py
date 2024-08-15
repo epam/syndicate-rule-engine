@@ -1,4 +1,3 @@
-import os
 from itertools import count
 from typing import Optional
 
@@ -252,7 +251,7 @@ class Rule(BaseModel):
 
     class Meta:
         table_name = 'CaaSRules'
-        region = os.environ.get(CAASEnv.AWS_REGION)
+        region = CAASEnv.AWS_REGION.get()
 
     # "customer#cloud#name#version"
     id = UnicodeAttribute(hash_key=True, attr_name=R_ID_ATTR)

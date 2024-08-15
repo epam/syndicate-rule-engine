@@ -1,5 +1,3 @@
-import os
-
 from pynamodb.attributes import UnicodeAttribute, BooleanAttribute, \
     ListAttribute, MapAttribute
 from pynamodb.indexes import AllProjection
@@ -49,7 +47,7 @@ class LicenseManagerIdIndex(BaseGSI):
 class Ruleset(BaseModel):
     class Meta:
         table_name = 'CaaSRulesets'
-        region = os.environ.get(CAASEnv.AWS_REGION)
+        region = CAASEnv.AWS_REGION.get()
 
     id = UnicodeAttribute(hash_key=True)  # "customer#L|S#name#version"
     customer = UnicodeAttribute()

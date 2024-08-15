@@ -173,9 +173,9 @@ class SubprocessBatchClient:
 
         # Popen raises TypeError in case there is an env where value is None
         job_id = str(uuid.uuid4())
-        environment_variables[BatchJobEnv.JOB_ID] = job_id
+        environment_variables[BatchJobEnv.JOB_ID.value] = job_id
         environment_variables[
-            BatchJobEnv.SUBMITTED_AT] = utc_iso()  # for scheduled jobs
+            BatchJobEnv.SUBMITTED_AT.value] = utc_iso()  # for scheduled jobs
         env = {**os.environ, **environment_variables}
         process = subprocess.Popen([
             sys.executable,
