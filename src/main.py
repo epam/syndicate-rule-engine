@@ -372,6 +372,12 @@ class InitMongo(ActionHandler):
                     keys=needed[name],
                     name=name
                 ))
+            needed.pop(name)
+        for name, keys in needed.items():  # all that left must be created
+            to_create.append(IndexModel(
+                keys=keys,
+                name=name
+            ))
         for name in to_delete:
             _LOG.info(f'Going to remove index: {name}')
             collection.drop_index(name)
