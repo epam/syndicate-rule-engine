@@ -339,12 +339,20 @@ class InitMongo(ActionHandler):
         yield self.main_index_name, *self._get_hash_range(model)
         yield from self._iter_indexes(model)
 
+    @staticmethod
+    def _exceptional_indexes() -> tuple[str, ...]:
+        return (
+            '_id_',
+            'next_run_time_1'  # from APScheduler
+        )
+
     def ensure_indexes(self, model: 'BaseModel'):
         table_name = model.Meta.table_name
         _LOG.info(f'Going to check indexes for {table_name}')
         collection = model.mongodb_handler().mongodb.collection(table_name)
         existing = collection.index_information()
-        existing.pop('_id_', None)  # main index, ignoring
+        for name in self._exceptional_indexes():
+            existing.pop(name, None)
         needed = {}
         for name, h, r in self._iter_all_indexes(model):
             needed[name] = [(h, self.hash_key_order)]
