@@ -320,7 +320,6 @@ EXTERNAL_DATA_ATTR = 'externalData'
 EXTERNAL_DATA_KEY_ATTR = 'externalDataKey'
 EXTERNAL_DATA_BUCKET_ATTR = 'externalDataBucket'
 
-LOG_FORMAT = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
 
 _SENTINEL = object()
 
@@ -370,7 +369,7 @@ class CAASEnv(EnvEnum):
     TESTING_MODE = 'CAAS_TESTING'
     MOCKED_RABBIT_MQ_S3 = 'CAAS_MOCK_RABBIT_MQ_S3'
     SYSTEM_CUSTOMER_NAME = 'SYSTEM_CUSTOMER_NAME', DEFAULT_SYSTEM_CUSTOMER
-    LOG_LEVEL = 'CAAS_LOG_LEVEL', 'DEBUG'
+    LOG_LEVEL = 'CAAS_LOG_LEVEL', 'INFO'
 
     # inner envs (they are set automatically when request comes)
     API_GATEWAY_HOST = '_CAAS_API_GATEWAY_HOST'
