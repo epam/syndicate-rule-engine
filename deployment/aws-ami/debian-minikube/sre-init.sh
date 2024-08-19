@@ -62,6 +62,7 @@ Options:
   -h, --help           Show this message and exit
   -y, --yes            Automatic yes to prompts
   --helm-release-name  Rule Engine helm release name (default "$HELM_RELEASE_NAME")
+  --backup-name        Backup name to make before the update (default "$AUTO_BACKUP_PREFIX\$timestamp")
 EOF
 }
 # todo add force and release version
@@ -454,14 +455,15 @@ update_sre_init() {
 }
 
 cmd_update() {
-  local opts auto_yes=0 r_name=$HELM_RELEASE_NAME r_version latest_tag
-  opts="$(getopt -o "hy" --long "help,yes,helm-release-name:" -n "$PROGRAM" -- "$@")"
+  local opts auto_yes=0 r_name=$HELM_RELEASE_NAME r_version latest_tag backup_name=""
+  opts="$(getopt -o "hy" --long "help,yes,helm-release-name:,backup-name:" -n "$PROGRAM" -- "$@")"
   eval set -- "$opts"
   while true; do
     case "$1" in
       '-h'|'--help') cmd_update_usage; exit 0 ;;
       '-y'|'--yes') auto_yes=1; shift ;;
       '--helm-release-name') r_name="$2"; shift 2 ;;
+      '--backup-name') backup_name="$2"; shift 2 ;;
       '--') shift; break ;;
     esac
   done
@@ -476,6 +478,9 @@ cmd_update() {
   echo "New release $latest_tag is available."
   [[ $auto_yes -eq 1 ]] || yesno "Do you want to update?"
   echo "Updating to $latest_tag"
+  [ -z "$backup_name" ] && backup_name="$AUTO_BACKUP_PREFIX$(date +%s)"
+  echo "Making backup $backup_name"
+  cmd_backup_create --name "$backup_name" --volumes=minio,mongo,vault
   echo "Pulling new artifacts"
   pull_artifacts "$latest_tag"
   echo "Updating helm repo"
@@ -729,6 +734,7 @@ RULE_ENGINE_USERNAME="customer_admin"
 CURRENT_ACCOUNT_TENANT_NAME="CURRENT_ACCOUNT"
 # regions that will be allowed to activate
 AWS_REGIONS="us-east-1 us-east-2 us-west-1 us-west-2 af-south-1 ap-east-1 ap-south-2 ap-southeast-3 ap-southeast-4 ap-south-1 ap-northeast-3 ap-northeast-2 ap-southeast-1 ap-southeast-2 ap-northeast-1 ca-central-1 ca-west-1 eu-central-1 eu-west-1 eu-west-2 eu-south-1 eu-west-3 eu-south-2 eu-north-1 eu-central-2 il-central-1 me-south-1 me-central-1 sa-east-1 us-gov-east-1 us-gov-west-1"
+AUTO_BACKUP_PREFIX="autobackup-"
 
 MODULAR_CLI_ARTIFACT_NAME=modular_cli.tar.gz
 OBFUSCATOR_ARTIFACT_NAME=sre_obfuscator.tar.gz
