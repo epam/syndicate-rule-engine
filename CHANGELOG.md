@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.4.1] - 2024-08-07
 - return 429 status code if dynamodb provisioned capacity exceeded error
+- remove `accN` index from usage
 
 ## [5.4.0] - 2024-07-09
 - added `rule_source_id` and `excluded_rules` parameters to `POST /rulestets`.
