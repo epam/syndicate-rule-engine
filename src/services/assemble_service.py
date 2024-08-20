@@ -35,7 +35,7 @@ class AssembleService:
             CAASEnv.BATCH_JOB_LIFETIME_MINUTES.value: job_lifetime_minutes or self.environment_service.get_job_lifetime_min(),
             CAASEnv.LM_TOKEN_LIFETIME_MINUTES.value:
                 str(self.environment_service.lm_token_lifetime_minutes()),
-            'LOG_LEVEL': self.environment_service.batch_job_log_level(),
+            CAASEnv.LOG_LEVEL.value: self.environment_service.batch_job_log_level(),
             BatchJobEnv.TENANT_NAME.value: tenant.name,
             BatchJobEnv.PLATFORM_ID.value: platform_id,
             BatchJobEnv.CREDENTIALS_KEY.value: credentials_key,

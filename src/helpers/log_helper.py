@@ -40,6 +40,11 @@ logging.config.dictConfig({
             'handlers': ['console_handler'],
             'propagate': False
         },
+        'custodian': {  # Cloud Custodian logger
+            'level': CAASEnv.LOG_LEVEL.get(),
+            'handlers': ['console_handler'],
+            'propagate': False
+        }
     }
 })
 
