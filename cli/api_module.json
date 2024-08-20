@@ -1,5 +1,5 @@
 {
     "module_name": "srecli",
     "cli_path": "/srecli/group",
-    "mount_point": "/c7n"
+    "mount_point": "/re"
 }
