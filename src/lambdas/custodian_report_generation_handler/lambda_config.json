@@ -47,7 +47,17 @@
   "event_sources": [
     {
       "resource_type": "cloudwatch_rule_trigger",
-      "target_rule": "caas-event-driven-sender-trigger"
+      "target_rule": "caas-event-driven-sender-trigger",
+      "input": {
+        "httpMethod": "GET",
+        "requestContext": {
+          "resourcePath": "/reports/event_driven",
+          "path": "/reports/event_driven"
+        },
+        "headers": {
+          "Host": ""
+        }
+      }
     }
   ],
   "platforms": [

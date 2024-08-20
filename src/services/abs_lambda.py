@@ -86,18 +86,20 @@ class ExpandEnvironmentEventProcessor(AbstractEventProcessor):
         )
 
     @staticmethod
-    def _resolve_stage(event: dict) -> str:
-        original = event['headers'].get('X-Original-Uri')
-        if original:  # nginx reverse proxy gives this header
+    def _resolve_stage(event: dict) -> str | None:
+        original = event.get('headers', {}).get('X-Original-Uri')
+        path = event.get('path')
+        if original and path:  # nginx reverse proxy gives this header
             # event['path'] here contains full path without stage
-            return original[:-len(event['path'])].strip('/')
+            return original[:-len(path)].strip('/')
         # we could've got stage from requestContext.stage, but it always points
         # to api gw stage. That value if wrong for us in case we use a domain
         # name with prefix. So we should resolve stage as difference between
         # requestContext.path and requestContext.resourcePath
-        _path = deep_get(event, ('requestContext', 'path'))
-        _resource = deep_get(event, ('requestContext', 'resourcePath'))
-        return _path[:-len(_resource)].strip('/')
+        path = deep_get(event, ('requestContext', 'path'))
+        resource = deep_get(event, ('requestContext', 'resourcePath'))
+        if path and resource:
+            return path[:-len(resource)].strip('/')
 
     def __call__(self, event: dict, context: RequestContext
                  ) -> tuple[dict, RequestContext]:
@@ -107,7 +109,9 @@ class ExpandEnvironmentEventProcessor(AbstractEventProcessor):
         envs = {CAASEnv.INVOCATION_REQUEST_ID.value: context.aws_request_id}
         if host := deep_get(event, ('headers', 'Host')):
             envs[CAASEnv.API_GATEWAY_HOST.value] = host
-        envs[CAASEnv.API_GATEWAY_STAGE.value] = self._resolve_stage(event)
+        stage = self._resolve_stage(event)
+        if stage:
+            envs[CAASEnv.API_GATEWAY_STAGE.value] = stage
 
         if context.invoked_function_arn:
             envs[CAASEnv.ACCOUNT_ID.value] = RequestContext.extract_account_id(
