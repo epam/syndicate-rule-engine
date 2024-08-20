@@ -23,5 +23,5 @@ dependencies:
     condition: modular-service.enabled
   - name: modular-api
     repository: "s3://charts-repository/syndicate/"
-    version: "4.0.7-rule-engine"
+    version: "4.0.8"
     condition: modular-api.enabled
