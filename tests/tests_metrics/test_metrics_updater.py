@@ -62,7 +62,6 @@ for cloud in CLOUDS:
         'activation_date': '2022-01-01T10:00:00',
         'project': f'{cloud}-1234567890123',
         'regions': regions[cloud],
-        'account_number': '109876543210' if cloud == 'GOOGLE' else None
     }))
 
 
