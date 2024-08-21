@@ -6,11 +6,6 @@ from enum import Enum
 from helpers.constants import CAASEnv, Cloud
 
 
-class ExecutorMode(str, Enum):
-    CONSISTENT = 'consistent'
-    CONCURRENT = 'concurrent'
-
-
 ENV_AWS_ACCESS_KEY_ID = 'AWS_ACCESS_KEY_ID'
 ENV_AWS_SECRET_ACCESS_KEY = 'AWS_SECRET_ACCESS_KEY'
 ENV_AWS_SESSION_TOKEN = 'AWS_SESSION_TOKEN'

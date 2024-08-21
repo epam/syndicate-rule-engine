@@ -1,7 +1,7 @@
 import os
 from typing import cast
 
-from executor.helpers.constants import (ExecutorMode, ENVS_TO_HIDE,
+from executor.helpers.constants import (ENVS_TO_HIDE,
                                         HIDDEN_ENV_PLACEHOLDER)
 from helpers.constants import (BatchJobEnv, BatchJobType, ENV_TRUE)
 from services.environment_service import EnvironmentService
@@ -83,13 +83,6 @@ class BatchEnvironmentService(EnvironmentService):
 
     def submitted_at(self):
         return BatchJobEnv.SUBMITTED_AT.get()
-
-    def executor_mode(self) -> ExecutorMode:
-        env = BatchJobEnv.EXECUTOR_MODE.get(ExecutorMode.CONSISTENT.value)
-        return ExecutorMode(env)
-
-    def is_concurrent(self) -> bool:
-        return self.executor_mode() == ExecutorMode.CONCURRENT
 
     def scheduled_job_name(self) -> str | None:
         return BatchJobEnv.SCHEDULED_JOB_NAME.get()

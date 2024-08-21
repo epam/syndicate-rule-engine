@@ -16,7 +16,6 @@ Exit codes:
 """
 import os
 from abc import ABC, abstractmethod
-from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 import io
 from itertools import chain
@@ -48,7 +47,6 @@ from executor.helpers.constants import (
     AWS_DEFAULT_REGION,
     CACHE_FILE,
     ExecutorError,
-    ExecutorMode,
     INVALID_CREDENTIALS_ERROR_CODES,
     ENV_AWS_DEFAULT_REGION,
 )
@@ -264,7 +262,7 @@ class PoliciesLoader:
         _LOG.debug(f'Global policies: {n_global}')
         _LOG.debug(f'Not global policies: {n_not_global}')
 
-    def _load(self, policies: list[PolicyDict], 
+    def _load(self, policies: list[PolicyDict],
               options: Config | None = None) -> list[Policy]:
         """
         Unsafe load using internal CLoud Custodian API:
@@ -417,21 +415,8 @@ class Runner(ABC):
     @_XRAY.capture('Run policies consistently')
     def start(self):
         self._is_ongoing = True
-        for policy in self._policies:
-            self._handle_errors(policy=policy)
-        self._is_ongoing = False
-
-    @_XRAY.capture('Run policies concurrently ')
-    def start_threads(self):
-        self._is_ongoing = True
-        with ThreadPoolExecutor() as executor:
-            future_policy = {
-                executor.submit(self._call_policy, policy): policy
-                for policy in self._policies
-            }
-            for future in as_completed(future_policy):
-                self._handle_errors(policy=future_policy[future],
-                                    future=future)
+        while self._policies:
+            self._handle_errors(policy=self._policies.pop(0))
         self._is_ongoing = False
 
     def _call_policy(self, policy: Policy):
@@ -468,17 +453,17 @@ class Runner(ABC):
             self._failed[(region, policy)] = (error_type, message, tb)
 
     @abstractmethod
-    def _handle_errors(self, policy: Policy, future: Future | None = None):
+    def _handle_errors(self, policy: Policy):
         ...
 
 
 class AWSRunner(Runner):
     cloud = Cloud.AWS
 
-    def _handle_errors(self, policy: Policy, future: Future | None = None):
+    def _handle_errors(self, policy: Policy):
         name, region = policy.name, PoliciesLoader.get_policy_region(policy)
         try:
-            future.result() if future else self._call_policy(policy)
+            self._call_policy(policy)
         except ClientError as error:
             error_code = error.response.get('Error', {}).get('Code')
             error_reason = error.response.get('Error', {}).get('Message')
@@ -525,10 +510,10 @@ class AWSRunner(Runner):
 class AZURERunner(Runner):
     cloud = Cloud.AZURE
 
-    def _handle_errors(self, policy: Policy, future: Future | None = None):
+    def _handle_errors(self, policy: Policy):
         name, region = policy.name, PoliciesLoader.get_policy_region(policy)
         try:
-            future.result() if future else self._call_policy(policy)
+            self._call_policy(policy)
         except CloudError as error:
             error_code = error.error
             error_reason = error.message.split(':')[-1].strip()
@@ -566,10 +551,10 @@ class AZURERunner(Runner):
 class GCPRunner(Runner):
     cloud = Cloud.GOOGLE
 
-    def _handle_errors(self, policy: Policy, future: Future | None = None):
+    def _handle_errors(self, policy: Policy):
         name, region = policy.name, PoliciesLoader.get_policy_region(policy)
         try:
-            future.result() if future else self._call_policy(policy)
+            self._call_policy(policy)
         except GoogleAuthError as error:
             error_reason = str(error.args[-1])
             _LOG.warning(
@@ -608,10 +593,10 @@ class GCPRunner(Runner):
 class K8SRunner(Runner):
     cloud = Cloud.KUBERNETES
 
-    def _handle_errors(self, policy: Policy, future: Future | None = None):
+    def _handle_errors(self, policy: Policy):
         name, region = policy.name, PoliciesLoader.get_policy_region(policy)
         try:
-            future.result() if future else self._call_policy(policy)
+            self._call_policy(policy)
         except Exception as error:
             _LOG.exception(f'Policy {name} has failed with unexpected error')
             self._add_failed(
@@ -1015,11 +1000,7 @@ def batch_results_job(batch_results: BatchResults):
             policies,
             batch_results.regions_to_rules()
         ))
-        match BSP.environment_service.executor_mode():
-            case ExecutorMode.CONSISTENT:
-                runner.start()
-            case ExecutorMode.CONCURRENT:
-                runner.start_threads()
+        runner.start()
 
     result = JobResult(work_dir, cloud)
     keys_builder = TenantReportsBucketKeysBuilder(tenant)
@@ -1254,11 +1235,8 @@ def standard_job(job: Job, tenant: Tenant, work_dir: Path):
 
     with EnvironmentContext(credentials, reset_all=False):
         runner = Runner.factory(cloud, loader.load_from_policies(policies))
-        match BSP.environment_service.executor_mode():
-            case ExecutorMode.CONSISTENT:
-                runner.start()
-            case ExecutorMode.CONCURRENT:
-                runner.start_threads()
+        runner.start()
+
     result = JobResult(work_dir, cloud)
     if platform:
         keys_builder = PlatformReportsBucketKeysBuilder(platform)
