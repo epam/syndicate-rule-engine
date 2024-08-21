@@ -249,6 +249,11 @@ yesno() {
 	read -r -p "$1 [y/N] " response
 	[[ $response == [yY] ]] || exit 1
 }
+patch_kubectl_secret() {
+  local secret
+  secret=$(base64 <<< "$3")
+  kubectl patch secret "$1" -p="{\"data\":{\"$2\":\"$secret\"}}"
+}
 
 initialize_system() {
   # creates:
@@ -284,7 +289,9 @@ initialize_system() {
 
   echo "Generating passwords for modular-service and rule-engine non-system users"
   modular_service_password="$(generate_password)"
-  rule_engine_password="$(generate_password)"  # todo maybe save them to k8s as well
+  rule_engine_password="$(generate_password)"
+  patch_kubectl_secret "$RULE_ENGINE_SECRET_NAME" "admin-password" "$rule_engine_password"
+  patch_kubectl_secret "$MODULAR_SERVICE_SECRET_NAME" "admin-password" "$modular_service_password"
 
   echo "Creating modular service customer and its user"
   syndicate admin signup --username "$MODULAR_SERVICE_USERNAME" --password "$modular_service_password" --customer_name "$customer_name" --customer_display_name "$customer_name" --customer_admin admin@example.com --json
@@ -319,7 +326,7 @@ initialize_system() {
   echo "Getting Defect dojo token"
   while [ -z "$dojo_token" ]; do
     sleep 2
-    dojo_token=$(curl -X POST -H 'content-type: application/json' "http://$mip:32107/api/v2/api-token-auth/" -d "{\"username\":\"admin\",\"password\":\"$(get_kubectl_secret defectdojo-secret system-password)\"}" | jq ".token" -r || true)
+    dojo_token=$(curl -X POST -H 'content-type: application/json' "http://$mip:32107/api/v2/api-token-auth/" -d "{\"username\":\"admin\",\"password\":\"$(get_kubectl_secret "$DEFECTDOJO_SECRET_NAME" system-password)\"}" | jq ".token" -r || true)
   done
 
   echo "Activating dojo installation for rule engine"
@@ -735,6 +742,11 @@ CURRENT_ACCOUNT_TENANT_NAME="CURRENT_ACCOUNT"
 # regions that will be allowed to activate
 AWS_REGIONS="us-east-1 us-east-2 us-west-1 us-west-2 af-south-1 ap-east-1 ap-south-2 ap-southeast-3 ap-southeast-4 ap-south-1 ap-northeast-3 ap-northeast-2 ap-southeast-1 ap-southeast-2 ap-northeast-1 ca-central-1 ca-west-1 eu-central-1 eu-west-1 eu-west-2 eu-south-1 eu-west-3 eu-south-2 eu-north-1 eu-central-2 il-central-1 me-south-1 me-central-1 sa-east-1 us-gov-east-1 us-gov-west-1"
 AUTO_BACKUP_PREFIX="autobackup-"
+
+RULE_ENGINE_SECRET_NAME=rule-engine-secret
+MODULAR_API_SECRET_NAME=modular-api-secret
+MODULAR_SERVICE_SECRET_NAME=modular-service-secret
+DEFECTDOJO_SECRET_NAME=defectdojo-secret
 
 MODULAR_CLI_ARTIFACT_NAME=modular_cli.tar.gz
 OBFUSCATOR_ARTIFACT_NAME=sre_obfuscator.tar.gz
