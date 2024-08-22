@@ -23,11 +23,12 @@ import operator
 from pathlib import Path
 import sys
 import tempfile
-import threading
+import multiprocessing
 import time
 import traceback
-from typing import Generator, Optional, cast
+from typing import Generator, cast
 
+import msgspec.json
 from botocore.exceptions import ClientError
 from c7n.config import Config
 from c7n.exceptions import PolicyValidationError
@@ -123,13 +124,12 @@ TIME_THRESHOLD: float = get_time_left()
 
 class PoliciesLoader:
     __slots__ = ('_cloud', '_output_dir', '_regions', '_cache', 
-                 '_cache_period')
+                 '_cache_period', '_load_global')
 
     def __init__(self, cloud: Cloud, output_dir: Path,
                  regions: set[str] | None = None, cache: str = CACHE_FILE,
-                 cache_period: int = 30):
+                 cache_period: int = 30, load_global: bool = True):
         """
-
         :param cloud:
         :param output_dir:
         :param regions:
@@ -144,6 +144,7 @@ class PoliciesLoader:
                          f'{self._cloud}')
         self._cache = cache
         self._cache_period = cache_period
+        self._load_global = load_global
 
     def set_global_output(self, policy: Policy) -> None:
         policy.options.output_dir = str(
@@ -241,7 +242,7 @@ class PoliciesLoader:
         global_yielded = set()
         n_global, n_not_global = 0, 0
         for policy in policies:
-            if self.is_global(policy):
+            if self._load_global and self.is_global(policy):
                 if policy.name in global_yielded:
                     # custom core loads all the global policies only once
                     # (except S3 which technically is not global).
@@ -375,30 +376,26 @@ class PoliciesLoader:
 
 
 class Runner(ABC):
-    FailedPolicies = dict[
-        tuple[str, str],
-        tuple[PolicyErrorType, Optional[str], list[str]]
-    ]
     cloud: Cloud | None = None
 
-    def __init__(self, policies: list[Policy]):
+    def __init__(self, policies: list[Policy], failed: dict | None = None):
         self._policies = policies
 
-        self._failed: Runner.FailedPolicies = {}
+        self._failed = failed or {}
 
         self._is_ongoing = False
         self._error_type: PolicyErrorType = PolicyErrorType.SKIPPED  # default
         self._message = None
         self._exception = None
 
-        self._lock = threading.Lock()
-
     @classmethod
-    def factory(cls, cloud: Cloud, policies: list[Policy]) -> 'Runner':
+    def factory(cls, cloud: Cloud, policies: list[Policy],
+                failed: dict | None = None) -> 'Runner':
         """
         Builds a necessary runner instance based on cloud.
         :param cloud:
         :param policies:
+        :param failed:
         :return:
         """
         # TODO refactor, make runner not abstract and move policy
@@ -406,10 +403,10 @@ class Runner(ABC):
         _class = next(
             filter(lambda sub: sub.cloud == cloud, cls.__subclasses__())
         )
-        return _class(policies)
+        return _class(policies, failed)
 
     @property
-    def failed(self) -> FailedPolicies:
+    def failed(self) -> dict:
         return self._failed
 
     @_XRAY.capture('Run policies consistently')
@@ -439,18 +436,25 @@ class Runner(ABC):
             return
         policy()
 
-    def _add_failed(self, region: str, policy: str,
-                    error_type: PolicyErrorType, 
-                    exception: Exception | None = None,
-                    message: str | None = None):
+    @staticmethod
+    def add_failed(failed: dict, region: str, policy: str,
+                   error_type: PolicyErrorType,
+                   exception: Exception | None = None,
+                   message: str | None = None):
         tb = []
         if exception:
             te = traceback.TracebackException.from_exception(exception)
             tb.extend(te.format())
             if not message:
                 message = ''.join(te.format_exception_only())
-        with self._lock:
-            self._failed[(region, policy)] = (error_type, message, tb)
+        failed[(region, policy)] = (error_type, message, tb)
+
+    def _add_failed(self, region: str, policy: str,
+                    error_type: PolicyErrorType, 
+                    exception: Exception | None = None,
+                    message: str | None = None):
+        self.add_failed(self._failed, region, policy, error_type, exception,
+                        message)
 
     @abstractmethod
     def _handle_errors(self, policy: Policy):
@@ -630,49 +634,6 @@ def fetch_licensed_ruleset_list(tenant: Tenant, licensed: dict):
     except LMException as e:
         ExecutorError.LM_DID_NOT_ALLOW.reason = str(e)
         raise ExecutorException(ExecutorError.LM_DID_NOT_ALLOW)
-    # except BalanceExhaustion as fj:
-    #     issue = str(fj)
-    #
-    # except InaccessibleAssets as ij:
-    #     issue = str(ij)
-    #     rulesets = list(ij)
-    #
-    #     customer_name = tenant.customer_name
-    #     customer = SP.modular_client.customer_service().get(customer_name)
-    #
-    #     scheduled_job_name = BSP.environment_service.scheduled_job_name()
-    #     mail_configuration = SP.setting_service.get_mail_configuration()
-    #
-    #     if scheduled_job_name and mail_configuration and rulesets and customer:
-    #         header = f'Scheduled-Job:\'{scheduled_job_name}\' of ' \
-    #                  f'\'{customer_name}\' customer'
-    #
-    #         _LOG.info(f'{header} - is going to be retrieved.')
-    #         job = SP.scheduler_service.get(
-    #             name=scheduled_job_name, customer=customer_name
-    #         )
-    #         if not job:
-    #             _LOG.error(f'{header} - could not be found.')
-    #
-    #         if not SP.scheduler_service.update_job(item=job, is_enabled=False):
-    #             _LOG.error(f'{header} - could not be deactivated.')
-    #         else:
-    #             _LOG.info(f'{header} - has been deactivated')
-    #             subject = f'{tenant.name} job-rescheduling notice'
-    #             if not BSP.notification_service.send_rescheduling_notice_notification(
-    #                     recipients=customer.admins, subject=subject,
-    #                     tenant=tenant, scheduled_job_name=scheduled_job_name,
-    #                     ruleset_list=rulesets,
-    #                     customer=customer_name):
-    #                 _LOG.error('Job-Rescheduling notice was not sent.')
-    #             else:
-    #                 _LOG.info('Job-Rescheduling notice has been sent.')
-    #
-    #     elif not mail_configuration:
-    #         _LOG.warning(
-    #             'No mail configuration has been attached, skipping '
-    #             f' job-rescheduling notice of \'{scheduled_job_name}\'.'
-    #         )
 
     _LOG.info(f'Job {job_id} was allowed')
     content = licensed_job['ruleset_content']
@@ -1189,6 +1150,44 @@ def single_account_standard_job() -> int:
     return code
 
 
+def process_job(filename: str, work_dir: Path, cloud: Cloud,
+                q: multiprocessing.Queue,
+                region: str = GLOBAL_REGION):
+    """
+    Cloud Custodian keeps consuming RAM for some reason. After 9th-10th region
+    scanned the used memory can be more than 1GI, and it does get free. Not
+    sure about correctness and legality of this workaround, but it
+    seems to help. We execute scan for each region in a separate process
+    consequently. When one process finished its memory is freed
+    (any way the results is flushed to files).
+    """
+    with open(filename, 'rb') as file:
+        data = msgspec.json.decode(file.read())
+    loader = PoliciesLoader(
+        cloud=cloud,
+        output_dir=work_dir,
+        regions={region},
+        # not to be confused, if regions=={'global'} any region will be skipped because 'global' is just a not valid region name
+        cache_period=120,
+        load_global=region == GLOBAL_REGION
+    )
+    try:
+        _LOG.debug('Loading policies')
+        policies = loader.load_from_policies(data)
+        _LOG.info(f'{len(policies)} were loaded')
+        runner = Runner.factory(cloud, policies)
+        _LOG.info('Starting runner')
+        runner.start()
+        _LOG.info('Runner has finished')
+        q.put(runner.failed)
+    except Exception:  # not considered
+        # TODO this exception can occur if, say, credentials are invalid.
+        #  In such a case PolicyErrorType.CREDENTIALS won't be assigned to
+        #  those policies that should've been executed here. Must be fixed
+        _LOG.exception('Unexpected error occurred trying to scan')
+        q.put({})
+
+
 @_XRAY.capture('Standard job')
 def standard_job(job: Job, tenant: Tenant, work_dir: Path):
     cloud: Cloud  # not cloud but rather domain
@@ -1226,16 +1225,22 @@ def standard_job(job: Job, tenant: Tenant, work_dir: Path):
         keep=set(job.rules_to_scan),
         exclude=get_rules_to_exclude(tenant)
     )
-
-    loader = PoliciesLoader(
-        cloud=cloud,
-        output_dir=work_dir,
-        regions=BSP.env.target_regions()
-    )
-
+    with tempfile.NamedTemporaryFile(delete=False) as file:
+        file.write(msgspec.json.encode(policies))
+    failed = {}
     with EnvironmentContext(credentials, reset_all=False):
-        runner = Runner.factory(cloud, loader.load_from_policies(policies))
-        runner.start()
+        q = multiprocessing.Queue()
+        for region in [GLOBAL_REGION, ] + sorted(BSP.env.target_regions()):
+            p = multiprocessing.Process(
+                target=process_job,
+                args=(file.name, work_dir, cloud, q, region)
+            )
+            p.start()
+            _LOG.info(f'Starting Cloud Custodian process for {region} with pid {p.pid}')
+            _LOG.info(f'Waiting for item from queue')
+            failed.update(q.get())
+            p.join()
+            p.close()
 
     result = JobResult(work_dir, cloud)
     if platform:
@@ -1282,7 +1287,7 @@ def standard_job(job: Job, tenant: Tenant, work_dir: Path):
     SP.s3.gz_put_json(
         bucket=SP.environment_service.get_statistics_bucket_name(),
         key=StatisticsBucketKeysBuilder.job_statistics(job),
-        obj=result.statistics(tenant, runner.failed)
+        obj=result.statistics(tenant, failed)
     )
     _LOG.info(f'Job \'{job.id}\' has ended')
 
