@@ -20,7 +20,7 @@ EOF
 }
 
 cmd_init_usage() {
-  cat <<-EOF
+  cat <<EOF
 Initializes Rule Engine
 
 Description:
@@ -550,10 +550,17 @@ make_backup() {
   local host_path
   host_path="$(kubectl get pv "$1" -o jsonpath="{.spec.hostPath.path}")"
   if [ -z "$host_path" ]; then
-    warn "volume $1 does not have hostPath" >&2
+    warn "volume $1 does not have hostPath"
     return 1
   fi
-  minikube ssh "sudo tar -czf /tmp/$1.tar.gz -C $host_path ."
+  while true; do
+    if minikube ssh "sudo tar -czf /tmp/$1.tar.gz -C $host_path ."
+    then
+      break
+    fi
+    warn "error occurred making tar archive. Trying again in 1 sec"
+    sleep 1
+  done
   minikube cp "$HELM_RELEASE_NAME:/tmp/$1.tar.gz" "$2/"
   sha256sum "$2/$1.tar.gz" > "$2/$1.sha256"
 }
@@ -591,7 +598,7 @@ cmd_backup() {
 
 resolve_backup_path() {
   if [ -n "$1" ]; then
-    [ -n "$2" ] && warn "--version is ignored because --path is specified" >&2
+    [ -n "$2" ] && warn "--version is ignored because --path is specified"
     echo "$1" # ignoring version if path is specified
   elif [ -n "$2" ]; then
     echo "$SRE_BACKUPS_PATH/$2"
@@ -676,7 +683,7 @@ cmd_backup_create() {
     IFS=',' read -ra items <<< "$volumes"
     for vol in "${items[@]}"; do
       if ! kubectl get pv "$vol" >/dev/null 2>&1; then
-        warn "'$vol' volume does not exist" >&2
+        warn "'$vol' volume does not exist"
         continue
       fi
       echo "Making backup for volume '$vol'"
@@ -717,7 +724,7 @@ cmd_backup_restore() {
 
   for vol in "${items[@]}"; do
     if ! kubectl get pv "$vol" >/dev/null 2>&1; then
-      warn "'$vol' volume does not exist" >&2
+      warn "'$vol' volume does not exist"
       continue
     fi
     echo "Restoring volume '$vol'"
