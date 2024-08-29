@@ -14,6 +14,7 @@ Available Commands:
   help     Show help message
   init     Initialize Rule Engine installation
   nginx    Allow to enable and disable nginx sites
+  secrets  Allow to retrieve some secrets generated on startup. They are located inside k8s cluster
   update   Update the installation
   version  Print versions information
 EOF
@@ -732,6 +733,19 @@ cmd_backup_restore() {
   done
 }
 
+
+cmd_secrets() {
+  if [ -z "$1" ]; then
+    for key in "${!SECRETS_MAPPING[@]}"; do
+      echo "$key"
+    done
+    return
+  fi
+  [ ! -v SECRETS_MAPPING["$1"] ] && die "There is no secret $1"
+  IFS=',' read -ra values <<< "${SECRETS_MAPPING[$1]}"
+  get_kubectl_secret "${values[0]}" "${values[1]}"
+}
+
 # Start
 VERSION="1.0.0"
 PROGRAM="${0##*/}"
@@ -743,8 +757,8 @@ SRE_RELEASES_PATH=$SRE_LOCAL_PATH/releases
 SRE_BACKUPS_PATH=$SRE_LOCAL_PATH/backups
 GITHUB_REPO=epam/ecc
 HELM_RELEASE_NAME=rule-engine
-MODULAR_SERVICE_USERNAME="customer_admin"
-RULE_ENGINE_USERNAME="customer_admin"
+MODULAR_SERVICE_USERNAME="admin"
+RULE_ENGINE_USERNAME="admin"
 CURRENT_ACCOUNT_TENANT_NAME="CURRENT_ACCOUNT"
 # regions that will be allowed to activate
 AWS_REGIONS="us-east-1 us-east-2 us-west-1 us-west-2 af-south-1 ap-east-1 ap-south-2 ap-southeast-3 ap-southeast-4 ap-south-1 ap-northeast-3 ap-northeast-2 ap-southeast-1 ap-southeast-2 ap-northeast-1 ca-central-1 ca-west-1 eu-central-1 eu-west-1 eu-west-2 eu-south-1 eu-west-3 eu-south-2 eu-north-1 eu-central-2 il-central-1 me-south-1 me-central-1 sa-east-1 us-gov-east-1 us-gov-west-1"
@@ -754,6 +768,15 @@ RULE_ENGINE_SECRET_NAME=rule-engine-secret
 MODULAR_API_SECRET_NAME=modular-api-secret
 MODULAR_SERVICE_SECRET_NAME=modular-service-secret
 DEFECTDOJO_SECRET_NAME=defectdojo-secret
+
+declare -A SECRETS_MAPPING
+SECRETS_MAPPING["dojo-system-password"]="$DEFECTDOJO_SECRET_NAME,system-password"
+SECRETS_MAPPING["modular-service-system-password"]="$MODULAR_SERVICE_SECRET_NAME,system-password"
+SECRETS_MAPPING["modular-service-admin-password"]="$MODULAR_SERVICE_SECRET_NAME,admin-password"
+SECRETS_MAPPING["rule-engine-system-password"]="$RULE_ENGINE_SECRET_NAME,system-password"
+SECRETS_MAPPING["rule-engine-admin-password"]="$RULE_ENGINE_SECRET_NAME,admin-password"
+SECRETS_MAPPING["modular-api-system-password"]="$MODULAR_API_SECRET_NAME,system-password"
+
 
 MODULAR_CLI_ARTIFACT_NAME=modular_cli.tar.gz
 OBFUSCATOR_ARTIFACT_NAME=sre_obfuscator.tar.gz
@@ -768,6 +791,7 @@ case "$1" in
   update) shift; cmd_update "$@" ;;
   init) shift; cmd_init "$@" ;;
   nginx) shift; cmd_nginx "$@" ;;
+  secrets) shift; cmd_secrets "$@" ;;
   --system|--user) cmd_init "$@" ;;  # redirect to init as default one
   '') cmd_usage ;;
   *) die "$(cmd_unrecognized)" ;;
