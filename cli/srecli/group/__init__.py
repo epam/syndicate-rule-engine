@@ -314,7 +314,7 @@ class ModularResponseProcessor(JsonResponseProcessor):
 
     def format(self, resp: CustodianResponse) -> dict:
         base = {
-            CODE_ATTR: resp.code,
+            CODE_ATTR: resp.code or HTTPStatus.SERVICE_UNAVAILABLE.value,
             STATUS_ATTR: SUCCESS_STATUS if resp.ok else ERROR_STATUS,
             TABLE_TITLE_ATTR: self.modular_table_title
         }
