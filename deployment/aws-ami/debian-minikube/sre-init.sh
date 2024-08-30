@@ -13,6 +13,7 @@ Available Commands:
   backup   Allow to manage backups
   help     Show help message
   init     Initialize Rule Engine installation
+  list     Lists available updates
   nginx    Allow to enable and disable nginx sites
   secrets  Allow to retrieve some secrets generated on startup. They are located inside k8s cluster
   update   Update the installation
@@ -57,16 +58,16 @@ Usage:
   $PROGRAM $COMMAND [options]
 
 Examples:
+  $PROGRAM $COMMAND --check
   $PROGRAM $COMMAND -y
 
 Options:
+  --backup-name        Backup name to make before the update (default "$AUTO_BACKUP_PREFIX\$timestamp")
+  --check              Checks whether update is available but do not update
   -h, --help           Show this message and exit
   -y, --yes            Automatic yes to prompts
-  --helm-release-name  Rule Engine helm release name (default "$HELM_RELEASE_NAME")
-  --backup-name        Backup name to make before the update (default "$AUTO_BACKUP_PREFIX\$timestamp")
 EOF
 }
-# todo add force and release version
 
 cmd_nginx_usage() {
   cat <<EOF
@@ -215,6 +216,29 @@ get_helm_release_version() {
 get_latest_release_tag() {
   curl -fLs "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | jq -r '.tag_name' || die "no latest release for $GITHUB_REPO found"
 }
+
+iter_github_releases() {
+  # todo curl paginate over github release api. Each result on new line. Iterates starting from highest to lower.
+  # todo add limit
+  curl -fLs "https://api.github.com/repos/$GITHUB_REPO/releases" | jq -c '.[]' || die "Could not make another request to GitHub. Probably rate limit exceeded"
+}
+
+get_new_github_releases() {
+  # requires one parameter -> current release
+  [ ! ${#NEW_GITHUB_RELEASES[@]} -eq 0 ] && return
+
+  local tag_name
+  while IFS= read -r item; do
+    tag_name=$(jq -r '.tag_name' <<<"$item")
+    if [[ "$1" < "$tag_name" ]]; then
+      NEW_GITHUB_RELEASES+=("$tag_name")
+    else  # higher or equal
+      break
+    fi
+  done < <(iter_github_releases)
+}
+
+
 ensure_in_path() {
   if [[ ":$PATH:" != *":$1:"* ]]; then
     export PATH=$PATH:$1
@@ -249,6 +273,18 @@ yesno() {
 	local response
 	read -r -p "$1 [y/N] " response
 	[[ $response == [yY] ]] || exit 1
+}
+colorize() {
+  local color
+  case "$1" in
+    GREEN) color="\033[0;32m" ;;
+    RED) color="\033[31m" ;;
+    YELLOW) color="\033[0;33m" ;;
+    *) color=""
+  esac
+  printf "%b" "$color"
+  cat
+  printf "\033[0m"
 }
 patch_kubectl_secret() {
   local secret
@@ -462,27 +498,58 @@ update_sre_init() {
   fi
 }
 
+
+cmd_update_list() {
+  # TODO think how to name the command
+  local tag_name current_release
+  current_release="$(get_helm_release_version "$HELM_RELEASE_NAME")"
+  while IFS= read -r item; do
+    tag_name=$(jq -r '.tag_name' <<< "$item")
+    if [[ ! "$current_release" < "$tag_name" ]]; then
+      jq -r '"\(.tag_name)* \(.published_at) \(.html_url)"' <<<"$item"
+      # TODO colorize
+      break
+    fi
+    jq -r '"\(.tag_name) \(.published_at) \(.html_url)\n"' <<<"$item"
+  done < <(iter_github_releases) | column --table --table-columns RELEASE,DATE,URL
+}
+
+
+cmd_update_check() {
+  # requires one parameter -> current release
+  get_new_github_releases "$1"
+  if [ ${#NEW_GITHUB_RELEASES[@]} -eq 0 ]; then
+    echo "Up-to-date"
+    exit 0
+  else
+    echo "You are ${#NEW_GITHUB_RELEASES[@]} release(s) behind the latest release. Use sre-init update" >&2
+    exit 1
+  fi
+}
+
+
 cmd_update() {
-  local opts auto_yes=0 r_name=$HELM_RELEASE_NAME r_version latest_tag backup_name=""
-  opts="$(getopt -o "hy" --long "help,yes,helm-release-name:,backup-name:" -n "$PROGRAM" -- "$@")"
+  local opts auto_yes=0 current_release latest_tag backup_name=""
+  opts="$(getopt -o "hy" --long "help,yes,check,backup-name:" -n "$PROGRAM" -- "$@")"
   eval set -- "$opts"
   while true; do
     case "$1" in
       '-h'|'--help') cmd_update_usage; exit 0 ;;
       '-y'|'--yes') auto_yes=1; shift ;;
-      '--helm-release-name') r_name="$2"; shift 2 ;;
+      '--check') cmd_update_check "$(get_helm_release_version "$HELM_RELEASE_NAME")"; shift ;;
       '--backup-name') backup_name="$2"; shift 2 ;;
       '--') shift; break ;;
     esac
   done
-  r_version="$(get_helm_release_version "$r_name")"
-  echo "The current helm chart release is $r_version"
-  latest_tag="$(get_latest_release_tag)"
-  echo "Latest release available is $latest_tag"
-  if [[ ! "$r_version" < "$latest_tag" ]]; then
-    echo "Rule Engine chart is up-to-date"
+  current_release="$(get_helm_release_version "$HELM_RELEASE_NAME")"
+  echo "The current installed release is $current_release"
+  get_new_github_releases "$current_release"
+  # TODO fix, does not work here
+  if [ "${#NEW_GITHUB_RELEASES[@]}" -eq 0 ]; then
+    echo "Up-to-date"
     exit 0
   fi
+  latest_tag="${NEW_GITHUB_RELEASES[-1]}"
   echo "New release $latest_tag is available."
   [[ $auto_yes -eq 1 ]] || yesno "Do you want to update?"
   echo "Updating to $latest_tag"
@@ -777,6 +844,9 @@ SECRETS_MAPPING["rule-engine-system-password"]="$RULE_ENGINE_SECRET_NAME,system-
 SECRETS_MAPPING["rule-engine-admin-password"]="$RULE_ENGINE_SECRET_NAME,admin-password"
 SECRETS_MAPPING["modular-api-system-password"]="$MODULAR_API_SECRET_NAME,system-password"
 
+# global var, data pulled by func
+NEW_GITHUB_RELEASES=()
+
 
 MODULAR_CLI_ARTIFACT_NAME=modular_cli.tar.gz
 OBFUSCATOR_ARTIFACT_NAME=sre_obfuscator.tar.gz
@@ -789,6 +859,7 @@ case "$1" in
   help|-h|--help) shift; cmd_usage "$@" ;;
   version|--version) shift; cmd_version "$@" ;;
   update) shift; cmd_update "$@" ;;
+  list) shift; cmd_update_list "$@" ;;
   init) shift; cmd_init "$@" ;;
   nginx) shift; cmd_nginx "$@" ;;
   secrets) shift; cmd_secrets "$@" ;;

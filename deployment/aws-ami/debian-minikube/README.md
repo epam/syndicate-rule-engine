@@ -18,7 +18,7 @@ cat <<EOF | sudo tee /usr/local/bin/sre-run.sh > /dev/null
 #!/bin/bash
 
 LM_API_LINK="https://lm.api.link"  # just example link
-GITHUB_REPO=epam/ecc
+GITHUB_REPO=epam/syndicate-rule-engine
 
 ...
 

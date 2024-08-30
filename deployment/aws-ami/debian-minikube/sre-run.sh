@@ -2,7 +2,7 @@
 
 # shellcheck disable=SC2034
 LM_API_LINK="https://lm.api.link"
-GITHUB_REPO=epam/ecc
+GITHUB_REPO=epam/syndicate-rule-engine
 FIRST_USER=$(getent passwd 1000 | cut -d : -f 1)
 SRE_LOCAL_PATH=/usr/local/sre
 LOG_PATH=/var/log/sre-init.log
@@ -25,7 +25,7 @@ fi
 
 log "Executing ami-initialize from release $RULE_ENGINE_RELEASE"
 # shellcheck disable=SC1090
-source <(wget -O - "https://github.com/epam/ecc/releases/download/$RULE_ENGINE_RELEASE/ami-initialize.sh")
+source <(wget -O - "https://github.com/$GITHUB_REPO/releases/download/$RULE_ENGINE_RELEASE/ami-initialize.sh")
 
 # will be downloaded by line above
 log "Executing sre-init --system"
