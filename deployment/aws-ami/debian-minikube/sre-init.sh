@@ -283,7 +283,7 @@ colorize() {
     *) color=""
   esac
   printf "%b" "$color"
-  cat
+  cat -
   printf "\033[0m"
 }
 patch_kubectl_secret() {
@@ -506,11 +506,10 @@ cmd_update_list() {
   while IFS= read -r item; do
     tag_name=$(jq -r '.tag_name' <<< "$item")
     if [[ ! "$current_release" < "$tag_name" ]]; then
-      jq -r '"\(.tag_name)* \(.published_at) \(.html_url)"' <<<"$item"
-      # TODO colorize
+      jq -rj '"\(.tag_name)* \(.published_at) \(.html_url)"' <<<"$item" | colorize GREEN
       break
     fi
-    jq -r '"\(.tag_name) \(.published_at) \(.html_url)\n"' <<<"$item"
+    jq -rj '"\(.tag_name) \(.published_at) \(.html_url)\n"' <<<"$item"
   done < <(iter_github_releases) | column --table --table-columns RELEASE,DATE,URL
 }
 
@@ -544,7 +543,7 @@ cmd_update() {
   current_release="$(get_helm_release_version "$HELM_RELEASE_NAME")"
   echo "The current installed release is $current_release"
   get_new_github_releases "$current_release"
-  # TODO fix, does not work here
+  echo "${#NEW_GITHUB_RELEASES[*]} new github releases available"
   if [ "${#NEW_GITHUB_RELEASES[@]}" -eq 0 ]; then
     echo "Up-to-date"
     exit 0
@@ -613,8 +612,18 @@ cmd_nginx_disable() {
   exit 1
 }
 
+scale_for_volume() {
+  # accepts volume name as one parameter and number of replicas as the second one
+  [ ! -v PV_TO_DEPLOYMENTS["$1"] ] && return
+  local deploy
+  while read -r -d ',' deploy; do
+    kubectl scale deployment "$deploy" --replicas="$2"
+  done <<<"${PV_TO_DEPLOYMENTS["$1"]},"  # comma added here to make sure read catches the last segment
+}
+
 make_backup() {
   # accepts k8s persistent volume name as first parameter and destination folder as second parameter.
+  # perform scaling to 0 before this method
   local host_path
   host_path="$(kubectl get pv "$1" -o jsonpath="{.spec.hostPath.path}")"
   if [ -z "$host_path" ]; then
@@ -634,6 +643,7 @@ make_backup() {
 }
 restore_backup() {
   # accepts k8s persistent volume name as first parameter and folder with backup as second parameter
+  # perform scaling to 0 before this method
   local host_path
   host_path="$(kubectl get pv "$1" -o jsonpath="{.spec.hostPath.path}")"
   if [ -z "$host_path" ]; then
@@ -650,7 +660,7 @@ restore_backup() {
   fi
   sha256sum "$2/$1.sha256" --check || return 1
   minikube cp "$2/$1.tar.gz" "$HELM_RELEASE_NAME:/tmp/$1.tar.gz"
-  minikube ssh "sudo rm -rf $host_path; sudo mkdir -p $host_path ; sudo tar --same-owner --overwrite -xzf /tmp/$1.tar.gz -C $host_path"
+  minikube ssh "sudo rm -rf $host_path; sudo mkdir -p $host_path ; sudo tar --same-owner --overwrite -xzf /tmp/$1.tar.gz -C $host_path"  # todo what if error here
 }
 cmd_backup() {
   case "$1" in
@@ -725,7 +735,7 @@ cmd_backup_rm() {
 }
 
 cmd_backup_create() {
-  local opts path="" name="" volumes="" vol
+  local opts path="" name="" volumes="" vol items=()
   opts="$(getopt -o "n:hp:" --long "name:,help,path:,volumes:" -n "$PROGRAM" -- "$@")"
   eval set -- "$opts"
   while true; do
@@ -740,24 +750,28 @@ cmd_backup_create() {
   [ -z "$name" ] && die "--name is required"
   [ -z "$path" ] && path="$SRE_BACKUPS_PATH/$(get_helm_release_version "$HELM_RELEASE_NAME")"
   [ -d "$path/$name" ] && die "'$name' already exists"
-  mkdir -p "$path/$name"
   if [ -z "$volumes" ]; then
     for vol in $(kubectl get pv -o=jsonpath="{.items[*].metadata.name}"); do
-      echo "Making backup for volume $vol"
-      make_backup "$vol" "$path/$name" || warn "could not make backup"
+      items+=("$vol")
     done
   else
-    local items
-    IFS=',' read -ra items <<< "$volumes"
-    for vol in "${items[@]}"; do
+    while read -r -d ',' vol; do
+      [ -z "$vol" ] && continue
       if ! kubectl get pv "$vol" >/dev/null 2>&1; then
         warn "'$vol' volume does not exist"
         continue
       fi
-      echo "Making backup for volume '$vol'"
-      make_backup "$vol" "$path/$name" || warn "could not make backup"
-    done
+      items+=("$vol")
+    done <<<"$volumes,"
   fi
+  [ "${#items[@]}" -eq 0 ] && die "no volumes to make backup"
+  mkdir -p "$path/$name"
+  for vol in "${items[@]}"; do
+    echo "Making backup for volume $vol"
+    scale_for_volume "$vol" 0
+    make_backup "$vol" "$path/$name" || warn "could not make backup"
+    scale_for_volume "$vol" 1
+  done
 }
 cmd_backup_restore() {
   local opts path="" name="" volumes="" version="" force=0 current_release vol
@@ -788,15 +802,17 @@ cmd_backup_restore() {
   else
     IFS=',' read -ra items <<< "$volumes"
   fi
-  echo "${items[@]}"
 
   for vol in "${items[@]}"; do
+    [ -z "$vol" ] && continue
     if ! kubectl get pv "$vol" >/dev/null 2>&1; then
       warn "'$vol' volume does not exist"
       continue
     fi
     echo "Restoring volume '$vol'"
-    restore_backup "$vol" "$path/$name" || die "could not restore backup"
+    scale_for_volume "$vol" 0
+    restore_backup "$vol" "$path/$name" || warn "could not restore backup"
+    scale_for_volume "$vol" 1
   done
 }
 
@@ -843,6 +859,16 @@ SECRETS_MAPPING["modular-service-admin-password"]="$MODULAR_SERVICE_SECRET_NAME,
 SECRETS_MAPPING["rule-engine-system-password"]="$RULE_ENGINE_SECRET_NAME,system-password"
 SECRETS_MAPPING["rule-engine-admin-password"]="$RULE_ENGINE_SECRET_NAME,admin-password"
 SECRETS_MAPPING["modular-api-system-password"]="$MODULAR_API_SECRET_NAME,system-password"
+
+# FOR backups to scale up/down
+declare -A PV_TO_DEPLOYMENTS
+PV_TO_DEPLOYMENTS["minio"]="minio"
+PV_TO_DEPLOYMENTS["vault"]="vault"
+PV_TO_DEPLOYMENTS["mongo"]="mongo"
+PV_TO_DEPLOYMENTS["defectdojo-cache"]="defectdojo-redis"
+PV_TO_DEPLOYMENTS["defectdojo-data"]="defectdojo-postgres"
+PV_TO_DEPLOYMENTS["defectdojo-media"]="defectdojo-nginx,defectdojo-uwsgi,defectdojo-celeryworker"
+
 
 # global var, data pulled by func
 NEW_GITHUB_RELEASES=()
