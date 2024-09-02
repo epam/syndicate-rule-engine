@@ -1,34 +1,74 @@
-from datetime import date
-from getpass import getuser
-from logging import (
-    DEBUG,
-    FileHandler,
-    Formatter,
-    INFO,
-    NullHandler,
-    StreamHandler,
-    getLogger,
-)
+import logging
+import logging.config
 import os
-from pathlib import Path
 import re
+from datetime import date
+from pathlib import Path
 
+from srecli import __version__
 from srecli.service.constants import Env
-from srecli.version import __version__
-
-LOGS_FOLDER = Path('logs/srecli')
-LOGS_FILE_NAME = date.today().strftime('%Y-%m-%d-sre.log')
 
 
-SYSTEM_LOG_FORMAT = f'%(asctime)s [USER: {getuser()}] %(message)s'
-USER_LOG_FORMAT = '%(message)s'
-VERBOSE_MODE_LOG_FORMAT = f'%(asctime)s [%(levelname)s] ' \
-                          f'USER:{getuser()} LOG: %(message)s'
+class TermColor:
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    FAIL = '\033[91m'
+    DEBUG = '\033[90m'
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    UNDERLINE = '\033[4m'
+    BOLD_RED = '\x1b[31;1m'
+
+    _pattern = '{color}{string}' + ENDC
+
+    @classmethod
+    def blue(cls, st: str) -> str:
+        return cls._pattern.format(color=cls.OKBLUE, string=st)
+
+    @classmethod
+    def cyan(cls, st: str) -> str:
+        return cls._pattern.format(color=cls.OKCYAN, string=st)
+
+    @classmethod
+    def green(cls, st: str) -> str:
+        return cls._pattern.format(color=cls.OKGREEN, string=st)
+
+    @classmethod
+    def yellow(cls, st: str) -> str:
+        return cls._pattern.format(color=cls.WARNING, string=st)
+
+    @classmethod
+    def red(cls, st: str) -> str:
+        return cls._pattern.format(color=cls.FAIL, string=st)
+
+    @classmethod
+    def gray(cls, st: str) -> str:
+        return cls._pattern.format(color=cls.DEBUG, string=st)
+
+    @classmethod
+    def bold_red(cls, st: str) -> str:
+        return cls._pattern.format(color=cls.BOLD_RED, string=st)
 
 
-class SensitiveFormatter(Formatter):
+class ColorFormatter(logging.Formatter):
+    formats = {
+        logging.DEBUG: TermColor.gray,
+        logging.INFO: TermColor.green,
+        logging.WARNING: TermColor.yellow,
+        logging.ERROR: TermColor.red,
+        logging.CRITICAL: TermColor.bold_red
+    }
+
+    def format(self, record):
+        return self.formats[record.levelno](super().format(record))
+
+
+class SensitiveFormatter(logging.Formatter):
     """
-    Formatter that removes sensitive information.
+    Formatter that removes sensitive information from jsons
     """
     _inner = '|'.join((
         'refresh_token', 'id_token', 'password', 'authorization', 'secret',
@@ -51,43 +91,65 @@ class SensitiveFormatter(Formatter):
         )
 
 
-# SYSTEM logger
-c7n_logger = getLogger('sre')
-c7n_logger.setLevel(DEBUG)
-c7n_logger.propagate = False
+LOG_FORMAT = '%(asctime)s %(levelname)s %(name)s.%(funcName)s:%(lineno)d %(message)s'
 
-log_level = Env.LOG_LEVEL.get()
-if log_level:
-    console_handler = StreamHandler()
-    console_handler.setLevel(log_level)
-    console_handler.setFormatter(SensitiveFormatter(SYSTEM_LOG_FORMAT))
-    c7n_logger.addHandler(console_handler)
-else:
-    c7n_logger.addHandler(NullHandler())
+logging.captureWarnings(capture=True)
+logging.config.dictConfig({
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'console_formatter': {
+            'format': '%(asctime)s %(levelname)s %(name)s.%(funcName)s:%(lineno)d %(message)s',
+            '()': SensitiveFormatter
+        },
+        'user_formatter': {
+            'format': '%(message)s',
+            '()': ColorFormatter
+        }
+    },
+    'handlers': {
+        'console_handler': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'console_formatter'
+        },
+        'user_handler': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'user_formatter'
+        }
+    },
+    'loggers': {
+        'srecli': {
+            'level': Env.LOG_LEVEL.get(),
+            'handlers': ['console_handler'],
+            'propagate': False
+        },
+        'srecli.user': {
+            'level': Env.LOG_LEVEL.get(),
+            'handlers': ['user_handler'],
+            'propagate': False
+        }
+    }
+})
 
-# USER logger
-c7n_user_logger = getLogger('user.sre')
-c7n_user_logger.setLevel(DEBUG)
-c7n_user_logger.propagate = False
-console_handler = StreamHandler()
-console_handler.setLevel(INFO)
-console_handler.setFormatter(SensitiveFormatter(USER_LOG_FORMAT))
-c7n_user_logger.addHandler(console_handler)
+
+def get_logger(name: str, level: str | None = None, /) -> logging.Logger:
+    log = logging.getLogger(name)
+    if level:
+        log.setLevel(level)
+    return log
 
 
-def get_logger(log_name, level=DEBUG):
-    module_logger = c7n_logger.getChild(log_name)
-    module_logger.setLevel(level)
-    return module_logger
+def get_user_logger():
+    return logging.getLogger('srecli.user')
 
 
-def get_user_logger(log_name, level=INFO):
-    module_logger = c7n_user_logger.getChild(log_name)
-    module_logger.setLevel(level)
-    return module_logger
+LOGS_FOLDER = Path('logs/srecli')
+LOGS_FILE_NAME = date.today().strftime('%Y-%m-%d-sre.log')
+
 
 
 def write_verbose_logs():
+    return # todo make it
     os.makedirs(LOGS_FOLDER, exist_ok=True)
     file_handler = FileHandler(LOGS_FOLDER / LOGS_FILE_NAME)
     file_handler.setLevel(DEBUG)

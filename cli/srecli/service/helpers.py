@@ -1,4 +1,5 @@
 import base64
+import sys
 import json
 import secrets
 import string
@@ -12,6 +13,7 @@ from typing import Callable, TypeVar
 from dateutil.parser import isoparse
 from urllib3.exceptions import LocationParseError
 from urllib3.util import parse_url
+from distutils.version import LooseVersion
 
 
 def urljoin(*args: str) -> str:
@@ -198,62 +200,6 @@ def build_maestro_record(event_action: str, group: str, sub_group: str,
     }
 
 
-class Color:
-    """
-    Terminal out put color
-    """
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-
-    _current = ''
-
-    @classmethod
-    def blue(cls, st: str) -> str:
-        return f'{cls.OKBLUE}{st}{cls.ENDC}'
-
-    @classmethod
-    def cyan(cls, st: str) -> str:
-        return f'{cls.OKCYAN}{st}{cls.ENDC}'
-
-    @classmethod
-    def green(cls, st: str) -> str:
-        return f'{cls.OKGREEN}{st}{cls.ENDC}'
-
-    @classmethod
-    def yellow(cls, st: str) -> str:
-        return f'{cls.WARNING}{st}{cls.ENDC}'
-
-    @classmethod
-    def red(cls, st: str) -> str:
-        return f'{cls.FAIL}{st}{cls.ENDC}'
-
-    @classmethod
-    def init(cls, color: str):
-        """
-        Color.init(Color.OKGREEN)
-        Color._('hello')  # will be green
-        Color.reset()
-        :param color:
-        :return:
-        """
-        cls._current = color
-
-    @classmethod
-    def reset(cls):
-        cls._current = ''
-
-    @classmethod
-    def _(cls, st: str) -> str:
-        return f'{cls._current}{st}{cls.ENDC}'
-
-
 def validate_api_link(url: str) -> str | None:
     url = url.lstrip()
 
@@ -293,3 +239,28 @@ def catch(func: Callable[[], RT], exception: type[ET] = Exception
         return func(), None
     except exception as e:
         return None, e
+
+
+def check_version_compatibility(api, cli, /):
+    # todo check without distutils
+    if not api:
+        print('Custodian API did not return the version number!',
+              file=sys.stderr)
+        return
+    cli_version = LooseVersion(cli)
+    api_version = LooseVersion(api)
+    if cli_version > api_version:
+        print(f'Consider that you SRE CLI version {cli_version} is '
+              f'higher than the API version {api_version}',
+              file=sys.stderr)
+        return
+    if cli_version.version[0] < api_version.version[0]:  # Major
+        print(f'CLI Major version {cli_version} is lower than '
+              f'the API version {api_version}. Please, update the CLI',
+              file=sys.stderr)
+        sys.exit(1)
+    if cli_version.version[1] < api_version.version[1]:  # Minor
+        print(f'CLI Minor version {cli_version} is lower than the '
+              f'API version {api_version}. Some features may not '
+              f'work. Consider updating the SRE CLI',
+              file=sys.stderr)
