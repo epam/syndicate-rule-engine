@@ -1,21 +1,18 @@
 import statistics
 from datetime import datetime
-import urllib.request
-import urllib.error
 from itertools import chain
 from typing import TypedDict, Generator, BinaryIO, cast
 
 import msgspec
 from modular_sdk.models.tenant import Tenant
 
-from urllib3.util import parse_url, Url
 from helpers.constants import Cloud, ReportFormat, PolicyErrorType
 from helpers.log_helper import get_logger
 from models.batch_results import BatchResults
 from models.job import Job
+from services import cache
 from services.ambiguous_job_service import AmbiguousJob
 from services.clients.s3 import S3Client, Json
-from services import cache
 from services.environment_service import EnvironmentService
 from services.mappings_collector import LazyLoadedMappingsCollector
 from services.platform_service import Platform
@@ -329,41 +326,6 @@ class ReportService:
 
         return filter(check, statistic)
 
-    @cache.cachedmethod(lambda self: self._ipv4_cache)
-    def _resolve_instance_public_ipv4(self) -> str | None:
-        _LOG.info('Trying to resolve instance ipv4')
-        url = 'http://169.254.169.254/latest/meta-data/public-ipv4'
-        try:
-            with urllib.request.urlopen(url, timeout=1) as resp:
-                return resp.read().decode()
-        except urllib.error.URLError:
-            _LOG.warning('Cannot resolve public-ipv4 from instance metadata')
-
-    def _prepare_url(self, url: str) -> str:
-        """
-        In case public ipv4 is available -> replaces host in url to that ipv4.
-        Otherwise, is host is equal to `minio` -> replaces to 127.0.0.1
-        (because 'minio' is docker compose domain)
-        :param url:
-        :return:
-        """
-        parsed: Url = parse_url(url)
-        if ipv4 := self._resolve_instance_public_ipv4():
-            new_host = ipv4
-        elif parsed.host == 'minio':
-            new_host = '127.0.0.1'
-        else:
-            new_host = parsed.host
-        return Url(
-            scheme=parsed.scheme,
-            auth=parsed.auth,
-            host=new_host,
-            port=parsed.port,
-            path=parsed.path,
-            query=parsed.query,
-            fragment=parsed.fragment
-        ).url
-
     def one_time_url(self, buffer: BinaryIO, filename: str) -> str:
         """
         Can be used to generate one time presigned urls. Such files will be
@@ -379,7 +341,7 @@ class ReportService:
             key=key,
             body=buffer
         )
-        return self._prepare_url(self.s3_client.gz_download_url(
+        return self.s3_client.prepare_presigned_url(self.s3_client.gz_download_url(
             bucket=self.environment_service.default_reports_bucket_name(),
             key=key,
             filename=filename
@@ -399,7 +361,7 @@ class ReportService:
             body=msgspec.json.encode(obj),
             content_type='application/json'
         )
-        return self._prepare_url(self.s3_client.gz_download_url(
+        return self.s3_client.prepare_presigned_url(self.s3_client.gz_download_url(
             bucket=self.environment_service.default_reports_bucket_name(),
             key=key,
             filename=filename

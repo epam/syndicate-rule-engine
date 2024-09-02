@@ -60,8 +60,8 @@ class VaultSSMClient(AbstractSSMClient):
 
     def _init_client(self):
         import hvac
-        token = os.getenv(CAASEnv.VAULT_TOKEN)
-        endpoint = os.getenv(CAASEnv.VAULT_ENDPOINT)
+        token = CAASEnv.VAULT_TOKEN.get()
+        endpoint = CAASEnv.VAULT_ENDPOINT.get()
         assert token and endpoint, ('Vault endpoint and token must '
                                     'be specified for on-prem')
         _LOG.info('Initializing hvac client')

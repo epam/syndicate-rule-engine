@@ -26,7 +26,7 @@ from srecli.version import __version__, check_version_compatibility
 SYSTEM_LOG = get_logger(__name__)
 
 
-@click.group()
+@click.group(name='sre')
 @click.version_option(__version__)
 def sre():
     """The main click's group to accumulate all the CLI commands"""

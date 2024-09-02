@@ -1,29 +1,59 @@
 import json
 import logging
-import os
+import logging.config
+from datetime import datetime, timezone
 from typing import TypeVar
-from helpers.constants import CAASEnv, LOG_FORMAT
+
+from helpers.constants import CAASEnv
+
+LOG_FORMAT = '%(asctime)s %(levelname)s %(name)s.%(funcName)s:%(lineno)d %(message)s'
+# there is no root module so just make up this ephemeral module
+ROOT_MODULE = 'rule_engine'
 
 
-custodian_logger = logging.getLogger('custodian')
-custodian_logger.propagate = False
-console_handler = logging.StreamHandler()
-console_handler.setFormatter(logging.Formatter(LOG_FORMAT))
-custodian_logger.addHandler(console_handler)
-
-log_level = os.getenv(CAASEnv.LOG_LEVEL) or 'DEBUG'
-try:
-    custodian_logger.setLevel(log_level)
-except ValueError:  # not valid log level name
-    custodian_logger.setLevel(logging.DEBUG)
-logging.captureWarnings(True)
+class CustomFormatter(logging.Formatter):
+    def formatTime(self, record, datefmt=None):
+        if datefmt is not None:
+            return super().formatTime(record, datefmt)
+        return datetime.fromtimestamp(record.created, timezone.utc).isoformat()
 
 
-def get_logger(log_name: str, level: str = log_level):
-    module_logger = custodian_logger.getChild(log_name)
+logging.captureWarnings(capture=True)
+logging.config.dictConfig({
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'console_formatter': {
+            'format': LOG_FORMAT,
+            '()': CustomFormatter
+        }
+    },
+    'handlers': {
+        'console_handler': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'console_formatter'
+        }
+    },
+    'loggers': {
+        ROOT_MODULE: {
+            'level': CAASEnv.LOG_LEVEL.get(),
+            'handlers': ['console_handler'],
+            'propagate': False
+        },
+        'custodian': {  # Cloud Custodian logger
+            'level': CAASEnv.LOG_LEVEL.get(),
+            'handlers': ['console_handler'],
+            'propagate': False
+        }
+    }
+})
+
+
+def get_logger(name: str, level: str | None = None, /):
+    log = logging.getLogger(ROOT_MODULE).getChild(name)
     if level:
-        module_logger.setLevel(level)
-    return module_logger
+        log.setLevel(level)
+    return log
 
 
 SECRET_KEYS = {

@@ -1,5 +1,3 @@
-import os
-
 from pynamodb.attributes import UnicodeAttribute, ListAttribute, TTLAttribute
 from pynamodb.indexes import AllProjection
 
@@ -55,7 +53,7 @@ class CustomerNameSubmittedAtIndex(BaseGSI):
 class Job(BaseModel):
     class Meta:
         table_name = 'CaaSJobs'
-        region = os.environ.get(CAASEnv.AWS_REGION)
+        region = CAASEnv.AWS_REGION.get()
 
     id = UnicodeAttribute(hash_key=True, attr_name=JOB_ID)
     batch_job_id = UnicodeAttribute(null=True, attr_name=JOB_BATCH_JOB_ID)

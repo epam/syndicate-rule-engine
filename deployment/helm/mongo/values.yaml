@@ -5,7 +5,7 @@ service:
 
 image:
   repository: mongo
-  tag: 5.0.0
+  tag: 5.0.28
   pullPolicy: IfNotPresent
 
 

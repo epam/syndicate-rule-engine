@@ -11,14 +11,14 @@ don't matter here
 
 **Create entrypoint script**
 
-Create `sre-run.sh` (name does not matter) script by some path, say `/usr/local/bin/` and put the content of [sre/deployment/aws-ami/debian-minikube/artifacts/sre-run.sh](./artifacts/sre-run.sh) there:
+Create `sre-run.sh` (name does not matter) script by some path, say `/usr/local/bin/` and put the content of [sre/deployment/aws-ami/debian-minikube/sre-run.sh](./sre-run.sh) there:
 
 ```bash
 cat <<EOF | sudo tee /usr/local/bin/sre-run.sh > /dev/null
 #!/bin/bash
 
 LM_API_LINK="https://lm.api.link"  # just example link
-GITHUB_REPO=epam/ecc
+GITHUB_REPO=epam/syndicate-rule-engine
 
 ...
 

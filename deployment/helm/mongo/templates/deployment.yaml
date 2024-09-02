@@ -27,7 +27,7 @@ spec:
             claimName: {{ include "mongo.fullname" . }}
       containers:
         - name: mongodb
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           livenessProbe:
             exec:

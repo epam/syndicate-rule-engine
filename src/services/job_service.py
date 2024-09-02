@@ -177,28 +177,28 @@ class JobUpdater:
         license_key = licensed[0].license_key if licensed else None
 
         tenant = SP.modular_client.tenant_service().get(
-            environment[BatchJobEnv.TENANT_NAME]
+            environment[BatchJobEnv.TENANT_NAME.value]
         )
         submitted_at = utc_iso()
-        if BatchJobEnv.SUBMITTED_AT in environment:
+        if BatchJobEnv.SUBMITTED_AT.value in environment:
             submitted_at = utc_iso(
-                utc_datetime(environment[BatchJobEnv.SUBMITTED_AT]))
+                utc_datetime(environment[BatchJobEnv.SUBMITTED_AT.value]))
 
         if not rulesets:
             rulesets = []
         return JobUpdater(Job(
-            id=environment.get(BatchJobEnv.CUSTODIAN_JOB_ID) or str(
+            id=environment.get(BatchJobEnv.CUSTODIAN_JOB_ID.value) or str(
                 uuid.uuid4()),
-            batch_job_id=environment.get(BatchJobEnv.JOB_ID),
+            batch_job_id=environment.get(BatchJobEnv.JOB_ID.value),
             tenant_name=tenant.name,
             customer_name=tenant.customer_name,
             submitted_at=submitted_at,
             status=JobState.SUBMITTED.value,
             owner=tenant.customer_name,
-            regions=environment.get(BatchJobEnv.TARGET_REGIONS, '').split(','),
+            regions=environment.get(BatchJobEnv.TARGET_REGIONS.value, '').split(','),
             rulesets=rulesets,
             scheduled_rule_name=environment.get(
-                BatchJobEnv.SCHEDULED_JOB_NAME),
+                BatchJobEnv.SCHEDULED_JOB_NAME.value),
             affected_license=license_key
         ))
 

@@ -75,7 +75,7 @@ class JobUpdaterHandler(EventProcessorLambdaHandler):
     def update_standard(self, detail: StateChangeEventDetail,
                         environment: dict[str, str]):
         _LOG.info('Updating a standard job')
-        job_id = environment.get(BatchJobEnv.CUSTODIAN_JOB_ID)
+        job_id = environment.get(BatchJobEnv.CUSTODIAN_JOB_ID.value)
         updater = JobUpdater.from_job_id(job_id)
         updater.status = detail['status']
         if not updater.job.created_at and detail.get('createdAt'):
@@ -117,7 +117,7 @@ class JobUpdaterHandler(EventProcessorLambdaHandler):
             detail['container']['environment']
         )
         # event driven jobs are updated inside batch
-        if environment.get(BatchJobEnv.JOB_TYPE) == BatchJobType.STANDARD:
+        if environment.get(BatchJobEnv.JOB_TYPE.value) == BatchJobType.STANDARD:
             # not scheduled and not ed
             self.update_standard(detail, environment)
         return build_response()
@@ -128,7 +128,7 @@ class JobUpdaterHandler(EventProcessorLambdaHandler):
         Returns true in case the job is licensed. A licensed job is the
         one which involves at least one licensed ruleset.
         """
-        return bool(environment.get(BatchJobEnv.AFFECTED_LICENSES))
+        return bool(environment.get(BatchJobEnv.AFFECTED_LICENSES.value))
 
     @staticmethod
     def timestamp_to_iso(timestamp: float) -> str:
@@ -140,7 +140,7 @@ class JobUpdaterHandler(EventProcessorLambdaHandler):
 
     def _delete_temporary_credentials(self, environment: dict[str, str]):
         _LOG.info(f'Deleting used temporary credentials secret')
-        key = environment.get(BatchJobEnv.CREDENTIALS_KEY)
+        key = environment.get(BatchJobEnv.CREDENTIALS_KEY.value)
         if not key:
             return
         _LOG.debug(f'Deleting smm parameter: \'{key}\'')

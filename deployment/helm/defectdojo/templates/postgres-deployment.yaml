@@ -29,12 +29,12 @@ spec:
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
-                  name: defect-dojo-secret
+                  name: defectdojo-secret
                   key: db-username
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: defect-dojo-secret
+                  name: defectdojo-secret
                   key: db-password
           image: "{{ .Values.postgresImage }}:{{ .Values.postgresTag }}"
           imagePullPolicy: {{ .Values.imagePullPolicy }}

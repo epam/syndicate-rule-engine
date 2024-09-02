@@ -246,7 +246,7 @@ class EventAssemblerHandler:
             return self.response
         # here we already have allowed batch_results. Just start a job.
         common_envs = self._build_common_envs()
-        common_envs[BatchJobEnv.BATCH_RESULTS_IDS] = ','.join(
+        common_envs[BatchJobEnv.BATCH_RESULTS_IDS.value] = ','.join(
             item.id for item in allowed_batch_results)
         for br in allowed_batch_results:
             br.registration_start = str(start_event.timestamp)
@@ -454,19 +454,19 @@ class EventAssemblerHandler:
 
     def _build_common_envs(self) -> dict:
         return {
-            CAASEnv.REPORTS_BUCKET_NAME:
+            CAASEnv.REPORTS_BUCKET_NAME.value:
                 self._environment_service.default_reports_bucket_name(),
-            CAASEnv.STATISTICS_BUCKET_NAME:
+            CAASEnv.STATISTICS_BUCKET_NAME.value:
                 self._environment_service.get_statistics_bucket_name(),
-            CAASEnv.RULESETS_BUCKET_NAME:
+            CAASEnv.RULESETS_BUCKET_NAME.value:
                 self._environment_service.get_rulesets_bucket_name(),
-            BatchJobEnv.AWS_REGION:
+            BatchJobEnv.AWS_REGION.value:
                 self._environment_service.aws_region(),
-            CAASEnv.BATCH_JOB_LIFETIME_MINUTES:
+            CAASEnv.BATCH_JOB_LIFETIME_MINUTES.value:
                 self._environment_service.get_job_lifetime_min(),
-            BatchJobEnv.JOB_TYPE: BatchJobType.EVENT_DRIVEN.value,
+            BatchJobEnv.JOB_TYPE.value: BatchJobType.EVENT_DRIVEN.value,
             'LOG_LEVEL': self._environment_service.batch_job_log_level(),
-            BatchJobEnv.SYSTEM_CUSTOMER_NAME: SYSTEM_CUSTOMER,
+            BatchJobEnv.SYSTEM_CUSTOMER_NAME.value: SYSTEM_CUSTOMER,
         }
 
     def _submit_batch_job(self, environment: dict[str, str]) -> str | None:

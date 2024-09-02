@@ -70,5 +70,5 @@ ENV AWS_REGION=eu-central-1 \
 
 WORKDIR /src
 EXPOSE 8000
-RUN chmod +x onprem/scripts/entrypoint.sh main.py
-ENTRYPOINT ["onprem/scripts/entrypoint.sh"]
+RUN chmod +x entrypoint.sh main.py
+ENTRYPOINT ["/src/entrypoint.sh"]

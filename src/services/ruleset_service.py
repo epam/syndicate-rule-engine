@@ -293,12 +293,12 @@ class RulesetService(BaseDataService[Ruleset]):
         :param ruleset:
         :return:
         """
-        return self._s3_client.gz_download_url(
+        return self._s3_client.prepare_presigned_url(self._s3_client.gz_download_url(
             bucket=ruleset.s3_path['bucket_name'],
             key=ruleset.s3_path['path'],
             filename=ruleset.name,  # not so important
             response_encoding='gzip',
-        )
+        ))
 
     @staticmethod
     def payload_hash(payload: list | dict) -> str:

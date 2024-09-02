@@ -536,7 +536,7 @@ class ShardCollectionUDMEventsConvertor(ShardCollectionConvertor):
                 ),
                 principal=UDMNoun(
                     application='Syndicate Rule Engine',  # todo maybe add other data
-                    hostname=os.getenv(CAASEnv.API_GATEWAY_HOST, 'SRE')  # todo maybe get from ec2 metadata
+                    hostname=CAASEnv.API_GATEWAY_HOST.get('rule-engine'),  # todo maybe get from ec2 metadata
                 ),
                 target=UDMNoun(
                     location=UDMLocation(region),

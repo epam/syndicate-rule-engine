@@ -1,5 +1,3 @@
-import os
-
 from modular_sdk.models.pynamodb_extension.base_model import DynamicAttribute
 from pynamodb.attributes import UnicodeAttribute
 
@@ -10,7 +8,7 @@ from models import BaseModel
 class Setting(BaseModel):
     class Meta:
         table_name = 'CaaSSettings'
-        region = os.environ.get(CAASEnv.AWS_REGION)
+        region = CAASEnv.AWS_REGION.get()
         max_retry_attempts = 5
 
     name = UnicodeAttribute(hash_key=True)

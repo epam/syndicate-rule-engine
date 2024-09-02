@@ -196,7 +196,7 @@ class APJobScheduler(AbstractJobScheduler):
                      rulesets: list[str] | None = None) -> ScheduledJob:
         _id = self.safe_name(name) if name else \
             self.safe_name_from_tenant(tenant)
-        environment[BatchJobEnv.SCHEDULED_JOB_NAME] = _id
+        environment[BatchJobEnv.SCHEDULED_JOB_NAME.value] = _id
         _LOG.info(f'Registering new scheduled job with id \'{_id}\'')
         self.scheduler.add_job(
             func=self._batch_client.submit_job,

@@ -29,22 +29,22 @@ spec:
             - name: DD_CREDENTIAL_AES_256_KEY
               valueFrom:
                 secretKeyRef:
-                  name: defect-dojo-secret
+                  name: defectdojo-secret
                   key: credential-aes-256-key
             - name: DD_SECRET_KEY
               valueFrom:
                 secretKeyRef:
-                  name: defect-dojo-secret
+                  name: defectdojo-secret
                   key: secret-key
             - name: _DD_DB_USERNAME
               valueFrom:
                 secretKeyRef:
-                  name: defect-dojo-secret
+                  name: defectdojo-secret
                   key: db-username
             - name: _DD_DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: defect-dojo-secret
+                  name: defectdojo-secret
                   key: db-password
             - name: DD_DATABASE_URL
               value: 'postgresql://$(_DD_DB_USERNAME):$(_DD_DB_PASSWORD)@{{ include "defectdojo.fullname" . }}-postgres:5432/defectdojo'
