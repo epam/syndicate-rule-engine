@@ -219,8 +219,9 @@ get_latest_release_tag() {
 
 iter_github_releases() {
   # todo curl paginate over github release api. Each result on new line. Iterates starting from highest to lower.
-  # todo add limit
-  curl -fLs "https://api.github.com/repos/$GITHUB_REPO/releases" | jq -c '.[]' || die "Could not make another request to GitHub. Probably rate limit exceeded"
+  # todo add limit.
+  # todo add per_page=100?
+  curl -fLs "https://api.github.com/repos/$GITHUB_REPO/releases" | jq -c '.[] | select(.draft == false and .prerelease == false)' || die "Could not make another request to GitHub. Probably rate limit exceeded"
 }
 
 get_new_github_releases() {
