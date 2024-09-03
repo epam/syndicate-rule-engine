@@ -19,7 +19,6 @@ class TenantModel(TypedDict):
     region: list[str]
 
 
-
 class HTTPMethod(str, Enum):
     HEAD = 'HEAD'
     GET = 'GET'
@@ -185,7 +184,8 @@ class Env(str, Enum):
         else:
             os.environ[self.value] = str(val)
 
-    LOG_LEVEL = 'SRE_CLI_LOG_LEVEL'
+    LOG_LEVEL = 'SRE_CLI_LOG_LEVEL', 'INFO'
+    LOGS_FOLDER = 'SRE_CLI_LOGS_FOLDER'  # if not specified, logs are not written to file
     DEVELOPER_MODE = 'SRE_CLI_DEVELOPER_MODE'
     RESPONSE_FORMAT = 'SRE_CLI_RESPONSE_FORMAT', 'table'
     VERBOSE = 'SRE_CLI_VERBOSE'

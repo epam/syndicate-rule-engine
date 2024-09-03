@@ -23,7 +23,7 @@ from srecli.service.logger import get_logger
 from srecli import __version__
 
 
-SYSTEM_LOG = get_logger(__name__)
+_LOG = get_logger(__name__)
 
 
 @click.group(name='sre')
@@ -49,7 +49,7 @@ def configure(ctx: ContextObj, api_link, items_per_column, **kwargs):
     if api_link:
         message = validate_api_link(api_link)
         if message:
-            SYSTEM_LOG.error(message)
+            _LOG.warning(f'invalid link: {message}')
             raise click.ClickException(message)
         ctx['config'].api_link = api_link
     if isinstance(items_per_column, int):

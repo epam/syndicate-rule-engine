@@ -1,12 +1,11 @@
 import logging
 import logging.config
-import os
 import re
-from datetime import date
 from pathlib import Path
 
-from srecli import __version__
 from srecli.service.constants import Env
+
+LOG_FORMAT = '%(asctime)s %(levelname)s %(name)s.%(funcName)s:%(lineno)d %(message)s'
 
 
 class TermColor:
@@ -91,27 +90,20 @@ class SensitiveFormatter(logging.Formatter):
         )
 
 
-LOG_FORMAT = '%(asctime)s %(levelname)s %(name)s.%(funcName)s:%(lineno)d %(message)s'
-
-logging.captureWarnings(capture=True)
-logging.config.dictConfig({
+config = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
-        'console_formatter': {
-            'format': '%(asctime)s %(levelname)s %(name)s.%(funcName)s:%(lineno)d %(message)s',
+        'base_formatter': {
+            'format': LOG_FORMAT,
             '()': SensitiveFormatter
         },
         'user_formatter': {
             'format': '%(message)s',
             '()': ColorFormatter
-        }
+        },
     },
     'handlers': {
-        'console_handler': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'console_formatter'
-        },
         'user_handler': {
             'class': 'logging.StreamHandler',
             'formatter': 'user_formatter'
@@ -120,16 +112,39 @@ logging.config.dictConfig({
     'loggers': {
         'srecli': {
             'level': Env.LOG_LEVEL.get(),
-            'handlers': ['console_handler'],
+            'handlers': [],
             'propagate': False
         },
         'srecli.user': {
-            'level': Env.LOG_LEVEL.get(),
+            'level': 'DEBUG',
             'handlers': ['user_handler'],
             'propagate': False
         }
     }
-})
+}
+
+if folder := Env.LOGS_FOLDER.get():
+    folder = Path(folder)
+    if folder.is_dir():
+        filename = str(folder / 'srecli.log')
+    elif folder.is_file() or folder.suffix:
+        folder.parent.mkdir(parents=True, exist_ok=True)
+        filename = str(folder)
+    else:
+        folder.mkdir(parents=True, exist_ok=True)
+        filename = str(folder / 'srecli.log')
+    config['handlers']['file_handler'] = {
+        'class': 'logging.handlers.TimedRotatingFileHandler',
+        'formatter': 'base_formatter',
+        'when': 'D',
+        'interval': 1,
+        'filename': filename
+    }
+    config['loggers']['srecli']['handlers'].append('file_handler')
+
+
+logging.captureWarnings(capture=True)
+logging.config.dictConfig(config)
 
 
 def get_logger(name: str, level: str | None = None, /) -> logging.Logger:
@@ -140,20 +155,17 @@ def get_logger(name: str, level: str | None = None, /) -> logging.Logger:
 
 
 def get_user_logger():
+    """
+    Colored logs to output some information to user
+    """
     return logging.getLogger('srecli.user')
 
 
-LOGS_FOLDER = Path('logs/srecli')
-LOGS_FILE_NAME = date.today().strftime('%Y-%m-%d-sre.log')
-
-
-
-def write_verbose_logs():
-    return # todo make it
-    os.makedirs(LOGS_FOLDER, exist_ok=True)
-    file_handler = FileHandler(LOGS_FOLDER / LOGS_FILE_NAME)
-    file_handler.setLevel(DEBUG)
-    formatter = SensitiveFormatter(VERBOSE_MODE_LOG_FORMAT)
-    file_handler.setFormatter(formatter)
-    c7n_logger.addHandler(file_handler)
-    c7n_logger.info(f'sre cli version: {__version__}')
+def enable_verbose_logs():
+    """
+    Just adds streaming handler to the main logger
+    """
+    logger = logging.getLogger('srecli')
+    handler = logging.StreamHandler()
+    handler.setFormatter(SensitiveFormatter(LOG_FORMAT))
+    logger.addHandler(handler)
