@@ -1,15 +1,15 @@
+import json
+import operator
+import shutil
+import sys
+import urllib.error
 from abc import ABC, abstractmethod
 from datetime import timezone
 from functools import reduce, wraps
 from http import HTTPStatus
-import operator
 from itertools import islice
-import json
-import shutil
-import sys
 from pathlib import Path
 from typing import Any, Callable, TypedDict, cast
-import urllib.error
 
 import click
 from dateutil.parser import isoparse
@@ -32,9 +32,12 @@ from srecli.service.constants import (
     NO_CONTENT_RESPONSE_MESSAGE,
     NO_ITEMS_TO_DISPLAY_RESPONSE_MESSAGE,
     JobType,
-    Env
+    Env,
+    MODULAR_ADMIN,
+    STATUS_ATTR, SUCCESS_STATUS, ERROR_STATUS, CODE_ATTR, TABLE_TITLE_ATTR,
+    REVERT_TO_JSON_MESSAGE, COLUMN_OVERFLOW
 )
-from srecli.service.logger import get_logger, get_user_logger, write_verbose_logs
+from srecli.service.logger import get_logger, enable_verbose_logs
 
 CredentialsProvider = None
 try:
@@ -44,22 +47,7 @@ except ImportError:
     pass
 
 
-# modular cli
-MODULAR_ADMIN = 'modules'
-SUCCESS_STATUS = 'SUCCESS'
-ERROR_STATUS = 'FAILED'
-STATUS_ATTR = 'status'
-CODE_ATTR = 'code'
-TABLE_TITLE_ATTR = 'table_title'
-# -----------
-
 _LOG = get_logger(__name__)
-USER_LOG = get_user_logger(__name__)
-
-REVERT_TO_JSON_MESSAGE = 'The command`s response is pretty huge and the ' \
-                         'result table structure can be broken.\nDo you want ' \
-                         'to show the response in the JSON format?'
-COLUMN_OVERFLOW = 'Column has overflown, within the table representation.'
 
 
 class TableException(Exception):
@@ -172,11 +160,11 @@ class cli_response:  # noqa
                 modular_mode = True
 
             json_view = Env.RESPONSE_FORMAT.get() == 'json' or kwargs.get('json')
-            verbose = Env.VERBOSE.get() or kwargs.get('verbose')
+            verbose = Env.VERBOSE.get() or kwargs.get('verbose')  # todo verbose can be enabled earlier if from env
             kwargs.pop('json', None)
             kwargs.pop('verbose', None)
             if verbose:
-                write_verbose_logs()
+                enable_verbose_logs()
             ctx = cast(click.Context, click.get_current_context())
             self.update_context(ctx)
             try:

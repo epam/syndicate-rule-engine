@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.5.0] - 2024-09-02
+- change job submit command to resolve credentials for tenant from all available places
+
 ## [5.4.1] - 2024-08-06
 - fix `inappropriate ioctl for device`
 - add environment variables: `SRE_CLI_RESPONSE_FORMAT`, `SRE_CLI_VERBOSE`, `SRE_CLI_NO_PROMPT`

@@ -21,7 +21,7 @@ dependencies = [
 sre = "srecli.group.sre:sre"
 
 [tool.setuptools.dynamic]
-version = {attr = "srecli.version.__version__"}
+version = {attr = "srecli.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["."]

@@ -2,7 +2,7 @@ from functools import partial
 from http import HTTPStatus
 from http.client import HTTPResponse
 import json
-from typing import Iterable
+from typing import Iterable, Generator
 import urllib
 import urllib.error
 from urllib.parse import quote, urlencode
@@ -18,12 +18,12 @@ from srecli.service.constants import (
     LAMBDA_INVOCATION_TRACE_ID_HEADER,
     MESSAGE_ATTR,
     SERVER_VERSION_HEADER,
+    DATA_ATTR
 )
 from srecli.service.helpers import JWTToken, catch, sifted, urljoin
-from srecli.service.logger import get_logger, get_user_logger
+from srecli.service.logger import get_logger
 
 _LOG = get_logger(__name__)
-USER_LOG = get_user_logger(__name__)
 
 
 class ApiClient:
@@ -99,6 +99,15 @@ class CustodianResponse:
         # JsonDecodeError | urllib.error.URLError - don't know how to handle
         # properly
         self.exc = exc
+
+    def iter_items(self) -> Generator[dict, None, None]:
+        d = self.data
+        if not self.ok or not d:
+            return
+        if DATA_ATTR in d:
+            yield d[DATA_ATTR]
+        if ITEMS_ATTR in d:
+            yield from d[ITEMS_ATTR]
 
     @property
     def was_sent(self) -> bool:
