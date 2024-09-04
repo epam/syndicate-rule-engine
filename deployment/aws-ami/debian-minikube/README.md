@@ -83,8 +83,8 @@ The listed envs can be specified via ec2 user data and will impact the way ami i
 **Configuration preferences:**
 - `MODULAR_SERVICE_USERNAME` - username for admin user that will be created for modular-service (default `admin`)
 - `RULE_ENGINE_USERNAME` - username for admin user that will be created for rule-engine (default `admin`)
-- `THIS_ACCOUNT_TENANT_NAME` - tenant name for the default tenant that is created automatically (default is the first alias for account if it can be retrieved. Otherwise `THIS`)
-- `THIS_ACCOUNT_AWS_REGIONS` - aws regions to activate for the tenant that represents this account (default `<all regions>`)
+- `TENANT_NAME` - tenant name for the default tenant that is created automatically (default is the first alias for account if it can be retrieved. Otherwise `THIS`)
+- `TENANT_AWS_REGIONS` - aws regions to activate for the tenant that represents this account (default `<all regions>`)
 - `ADMIN_EMAILS` - customer admin emails split by `,` (default ``)
 - `TENANT_PRIMARY_CONTACTS` - tenant primary emails split by `,` (default ``)
 - `TENANT_SECONDARY_CONTACTS` - tenant secondary emails split by `,` (default ``)

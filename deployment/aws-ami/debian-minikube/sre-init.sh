@@ -298,8 +298,8 @@ get_account_alias() {
 }
 
 resolve_tenant_name() {
-  if [ -n "$THIS_ACCOUNT_TENANT_NAME" ]; then
-    echo "${THIS_ACCOUNT_TENANT_NAME^^}"
+  if [ -n "$TENANT_NAME" ]; then
+    echo "${TENANT_NAME^^}"
     return
   fi
   local tn
@@ -392,7 +392,7 @@ initialize_system() {
                                 $(build_multiple_params --default_owner "$TENANT_OWNER_EMAIL" 1) \
                                 --json
   echo "Activating region for tenant"
-  for r in $THIS_ACCOUNT_AWS_REGIONS;
+  for r in $TENANT_AWS_REGIONS;
   do
     echo "Activating $r for tenant"
     syndicate admin tenant regions activate --tenant_name "$tenant_name" --region_name "$r" --json > /dev/null
@@ -879,9 +879,9 @@ HELM_RELEASE_NAME="${HELM_RELEASE_NAME:-rule-engine}"
 # for --system configuration
 MODULAR_SERVICE_USERNAME="${MODULAR_SERVICE_USERNAME:-admin}"
 RULE_ENGINE_USERNAME="${RULE_ENGINE_USERNAME:-admin}"
-THIS_ACCOUNT_AWS_REGIONS="${THIS_ACCOUNT_AWS_REGIONS:-us-east-1 us-east-2 us-west-1 us-west-2 af-south-1 ap-east-1 ap-south-2 ap-southeast-3 ap-southeast-4 ap-south-1 ap-northeast-3 ap-northeast-2 ap-southeast-1 ap-southeast-2 ap-northeast-1 ca-central-1 ca-west-1 eu-central-1 eu-west-1 eu-west-2 eu-south-1 eu-west-3 eu-south-2 eu-north-1 eu-central-2 il-central-1 me-south-1 me-central-1 sa-east-1 us-gov-east-1 us-gov-west-1}"
+TENANT_AWS_REGIONS="${TENANT_AWS_REGIONS:-us-east-1 us-east-2 us-west-1 us-west-2 af-south-1 ap-east-1 ap-south-2 ap-southeast-3 ap-southeast-4 ap-south-1 ap-northeast-3 ap-northeast-2 ap-southeast-1 ap-southeast-2 ap-northeast-1 ca-central-1 ca-west-1 eu-central-1 eu-west-1 eu-west-2 eu-south-1 eu-west-3 eu-south-2 eu-north-1 eu-central-2 il-central-1 me-south-1 me-central-1 sa-east-1 us-gov-east-1 us-gov-west-1}"
 FIRST_USER="${FIRST_USER:-$(getent passwd 1000 | cut -d : -f 1)}"
-#THIS_ACCOUNT_TENANT_NAME  # resolved dynamically, see corresponding method
+#TENANT_NAME=  # resolved dynamically, see corresponding method
 #ADMIN_EMAILS=
 #TENANT_PRIMARY_CONTACTS=
 #TENANT_SECONDARY_CONTACTS=

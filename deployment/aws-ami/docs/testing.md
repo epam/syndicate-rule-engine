@@ -176,14 +176,14 @@ syndicate re tenant describe
 In case instance profile is configured and hop limit is more than 2 you can submit the job (otherwise specify credentials manually):
 
 ```bash
-syndicate re job submit --tenant_name CURRENT_ACCOUNT --region eu-west-1  # or specify your region
+syndicate re job submit --tenant_name CURRENT --region eu-west-1  # or specify your region
 ```
 
 The job will be `RUNNING` for some time. When its status becomes `SUCCEEDED` you verify that findings appeared on Dojo 
 UI (`http://<ipv4>`). Also try generating some report:
 
 ```bash
-syndicate re report resource latest --tenant_name CURRENT_ACCOUNT --format xlsx --json
+syndicate re report resource latest --tenant_name CURRENT --format xlsx --json
 ```
 
 ## sre-init testing
