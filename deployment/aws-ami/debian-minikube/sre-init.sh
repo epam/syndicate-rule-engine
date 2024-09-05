@@ -63,9 +63,27 @@ Examples:
 
 Options:
   --backup-name        Backup name to make before the update (default "$AUTO_BACKUP_PREFIX\$timestamp")
-  --check              Checks whether update is available but do not update
+  --check              Checks whether update is available but do not try to update
   -h, --help           Show this message and exit
   -y, --yes            Automatic yes to prompts
+EOF
+}
+cmd_update_list_usage() {
+  cat <<EOF
+Displays available releases
+
+Description:
+  List only new available Rule Engine releases and the current one. Uses GitHub rest api under the hood and
+  can throttle if rate limit is exceeded
+
+Usage:
+  $PROGRAM $COMMAND [options]
+
+Examples:
+  $PROGRAM $COMMAND
+
+Options:
+  -h, --help           Show this message and exit
 EOF
 }
 
@@ -216,25 +234,47 @@ get_latest_release_tag() {
 }
 
 iter_github_releases() {
-  # todo curl paginate over github release api. Each result on new line. Iterates starting from highest to lower.
-  # todo add limit.
-  # todo add per_page=100?
-  curl -fLs "https://api.github.com/repos/$GITHUB_REPO/releases" | jq -c '.[] | select(.draft == false and .prerelease == false)' || die "Could not make another request to GitHub. Probably rate limit exceeded"
+  # iterates only over released version by default. --prerelease flag includes prereleases to output. --draft includes drafts
+  local opts draft=0 prerelease=0 per_page=30 filter
+  opts="$(getopt -o "" --long "draft,prerelease,per-page:," -n iter_github_releases -- "$@")"
+  eval set -- "$opts"
+  while true; do
+    case "$1" in
+      --draft) draft=1; shift ;;
+      --prerelease) prerelease=1; shift ;;
+      --per-page) per_page="$2"; shift 2 ;;
+      '--') shift; break ;;
+    esac
+  done
+  # todo couldn't think of other solution fast
+  if [ "$draft" -eq 1 ] && [ "$prerelease" -eq 1 ]; then
+    filter='.[]'
+  elif [ "$draft" -eq 0 ] && [ "$prerelease" -eq 1 ]; then
+    filter='.[] | select(.draft == false)'
+  elif [ "$draft" -eq 1 ] && [ "$prerelease" -eq 0 ]; then
+    filter='.[] | select(.prerelease == false)'
+  else  # both 0
+    filter='.[] | select(.prerelease == false and .draft == false)'
+  fi
+  # todo add pagination if needed
+  curl -fLs --request GET --header "Accept: application/vnd.github+json" "https://api.github.com/repos/$GITHUB_REPO/releases?per_page=$per_page" | jq -c "$filter" || die "Could not make another request to GitHub. Probably rate limit exceeded"
 }
 
 get_new_github_releases() {
   # requires one parameter -> current release
   [ ! ${#NEW_GITHUB_RELEASES[@]} -eq 0 ] && return
+  local current_release="$1"
+  shift # all other parameter are passed to iter_github_releases
 
   local tag_name
   while IFS= read -r item; do
     tag_name=$(jq -r '.tag_name' <<<"$item")
-    if [[ "$1" < "$tag_name" ]]; then
+    if [[ "$current_release" < "$tag_name" ]]; then
       NEW_GITHUB_RELEASES+=("$tag_name")
     else  # higher or equal
       break
     fi
-  done < <(iter_github_releases)
+  done < <(iter_github_releases "$@")
 }
 
 ensure_in_path() {
@@ -537,54 +577,60 @@ update_sre_init() {
 }
 
 cmd_update_list() {
-  # TODO think how to name the command
+  local opts iter_params=""
+  opts="$(getopt -o "h" --long "help,allow-prereleases" -n "$PROGRAM" -- "$@")"
+  eval set -- "$opts"
+  while true; do
+    case "$1" in
+      -h|--help) cmd_update_list_usage; exit 0 ;;
+      --allow-prereleases) iter_params="--prerelease"; shift ;;
+      '--') shift; break ;;
+    esac
+  done
+
   local tag_name current_release
   current_release="$(get_helm_release_version "$HELM_RELEASE_NAME")"
   while IFS= read -r item; do
     tag_name=$(jq -r '.tag_name' <<< "$item")
-    if [[ ! "$current_release" < "$tag_name" ]]; then
-      jq -rj '"\(.tag_name)* \(.published_at) \(.html_url)"' <<<"$item" | colorize GREEN
-      break
+    if [[ "$current_release" = "$tag_name" ]]; then
+      jq -rj '"\(.tag_name)* \(.published_at) \(.html_url) \(.prerelease)"' <<<"$item" | colorize GREEN
     fi
-    jq -rj '"\(.tag_name) \(.published_at) \(.html_url)\n"' <<<"$item"
-  done < <(iter_github_releases) | column --table --table-columns RELEASE,DATE,URL
+    [[ ! "$current_release" < "$tag_name" ]] && break
+    jq -rj '"\(.tag_name) \(.published_at) \(.html_url) \(.prerelease)\n"' <<<"$item"
+  done < <(iter_github_releases $iter_params) | column --table --table-columns RELEASE,DATE,URL,PRERELEASE
 }
 
-cmd_update_check() {
-  # requires one parameter -> current release
-  get_new_github_releases "$1"
-  if [ ${#NEW_GITHUB_RELEASES[@]} -eq 0 ]; then
-    echo "Up-to-date"
-    exit 0
-  else
-    echo "You are ${#NEW_GITHUB_RELEASES[@]} release(s) behind the latest release. Use sre-init update" >&2
-    exit 1
-  fi
-}
+there_are_new_releases() { test "${#NEW_GITHUB_RELEASES[@]}" -ne 0; }
 
 cmd_update() {
-  local opts auto_yes=0 current_release latest_tag backup_name=""
-  opts="$(getopt -o "hy" --long "help,yes,check,backup-name:" -n "$PROGRAM" -- "$@")"
+  local opts auto_yes=0 current_release latest_tag backup_name="" iter_params="" check=0
+  opts="$(getopt -o "hy" --long "help,yes,check,allow-prereleases,backup-name:" -n "$PROGRAM" -- "$@")"
   eval set -- "$opts"
   while true; do
     case "$1" in
       '-h'|'--help') cmd_update_usage; exit 0 ;;
       '-y'|'--yes') auto_yes=1; shift ;;
-      '--check') cmd_update_check "$(get_helm_release_version "$HELM_RELEASE_NAME")"; shift ;;
+      '--check') check=1; shift ;;
       '--backup-name') backup_name="$2"; shift 2 ;;
+      '--allow-prereleases') iter_params="--prerelease"; shift ;;
       '--') shift; break ;;
     esac
   done
   current_release="$(get_helm_release_version "$HELM_RELEASE_NAME")"
-  echo "The current installed release is $current_release"
-  get_new_github_releases "$current_release"
-  echo "${#NEW_GITHUB_RELEASES[*]} new github releases available"
-  if [ "${#NEW_GITHUB_RELEASES[@]}" -eq 0 ]; then
+  get_new_github_releases "$current_release" $iter_params
+  if ! there_are_new_releases; then
     echo "Up-to-date"
     exit 0
   fi
+  # new releases found
+  if [ "$check" -eq 1 ]; then
+    warn "you are ${#NEW_GITHUB_RELEASES[@]} release(s) behind the latest release. Use sre-init update"
+    exit 1
+  fi
+  echo "The current installed release is $current_release"
+  echo "${#NEW_GITHUB_RELEASES[*]} new github releases available"
   latest_tag="${NEW_GITHUB_RELEASES[-1]}"
-  echo "New release $latest_tag is available."
+  echo "Going to update to the next release - $latest_tag"
   [[ $auto_yes -eq 1 ]] || yesno "Do you want to update?"
   echo "Updating to $latest_tag"
   [ -z "$backup_name" ] && backup_name="$AUTO_BACKUP_PREFIX$(date +%s)"
@@ -596,7 +642,7 @@ cmd_update() {
   helm repo update syndicate
   helm search repo syndicate/rule-engine --version "$latest_tag" --fail-on-no-result >/dev/null 2>&1 || die "$latest_tag version of $r_name chart not found. Cannot update"
   echo "Upgrading $r_name chart to $latest_tag version"
-  helm upgrade "$HELM_RELEASE_NAME" syndicate/rule-engine --version "$latest_tag"
+  helm upgrade "$HELM_RELEASE_NAME" syndicate/rule-engine --version "$latest_tag"  # todo add flags + if failed restore backup
   echo "Upgrading obfuscation manager"
   pip3 install --user --break-system-packages --upgrade "$SRE_RELEASES_PATH/$latest_tag/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]" >/dev/null
   echo "Upgrading modular CLI"
@@ -734,7 +780,7 @@ cmd_backup_list() {
   done
   path="$(resolve_backup_path "$path" "$version")"
   if [ ! -d "$path" ] || [ -z "$(ls -A "$path")" ]; then
-    echo "No backups found in $path" >&2
+    echo -e "No backups found in $path\nTip: use sre-init backup ls --version \$previous to see backups for older installations" >&2
     exit 0
   fi
   find "$path/"* -maxdepth 1 -type d -print0 | xargs -0 stat --format "%W %n" | sort -r | while IFS=' ' read -r ts fp; do
@@ -927,7 +973,7 @@ case "$1" in
   help|-h|--help) shift; cmd_usage "$@" ;;
   version|--version) shift; cmd_version "$@" ;;
   update) shift; cmd_update "$@" ;;
-  list) shift; cmd_update_list "$@" ;;
+  list) shift; cmd_update_list "$@" ;; # TODO think how to name the command
   init) shift; cmd_init "$@" ;;
   nginx) shift; cmd_nginx "$@" ;;
   secrets) shift; cmd_secrets "$@" ;;

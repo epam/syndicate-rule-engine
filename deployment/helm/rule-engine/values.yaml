@@ -13,6 +13,10 @@ image:
   pullPolicy: IfNotPresent
 
 replicas: 1
+strategy:
+  type: RollingUpdate
+  maxUnavailable: 0
+  maxSurge: 100%
 
 mongoService: mongo
 mongoPort: 27017
