@@ -21,6 +21,7 @@ SYNDICATE_EXECUTABLE_PATH ?= $(shell which syndicate)
 SYNDICATE_CONFIG_PATH ?= .syndicate-config-main
 SYNDICATE_BUNDLE_NAME := custodian-service
 
+HELM_REPO_NAME := syndicate
 
 check-syndicate:
 	@if [[ -z "$(SYNDICATE_EXECUTABLE_PATH)" ]]; then echo "No syndicate executable found"; exit 1; fi
@@ -149,3 +150,9 @@ push-amd64:
 
 push-manifest:
 	$(DOCKER_EXECUTABLE) manifest push $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)
+
+
+push-helm-chart:
+	helm package --dependency-update deployment/helm/rule-engine
+	helm s3 push rule-engine-$(SERVER_IMAGE_TAG).tgz $(HELM_REPO_NAME)
+	-rm rule-engine-$(SERVER_IMAGE_TAG).tgz

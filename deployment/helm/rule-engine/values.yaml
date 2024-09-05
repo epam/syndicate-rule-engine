@@ -9,7 +9,7 @@ service:
 
 image:
   repository: public.ecr.aws/x4s4z8e1/syndicate/rule-engine
-  tag: 5.4.0
+  tag: 5.5.0
   pullPolicy: IfNotPresent
 
 replicas: 1
@@ -39,4 +39,4 @@ modular-api:
   enabled: true
   fullnameOverride: modular-api
   image:
-    tag: 4.0.8-rule-engine
+    tag: 4.1.0-rule-engine
