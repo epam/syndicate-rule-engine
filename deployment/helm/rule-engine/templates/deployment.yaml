@@ -44,7 +44,7 @@ spec:
             failureThreshold: 3
           ports:
             - containerPort: 8000
-              hostPort: 8000
+              name: http
               protocol: TCP
           env:
             - name: modular_mongo_user
