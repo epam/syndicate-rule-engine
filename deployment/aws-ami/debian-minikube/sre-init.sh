@@ -64,6 +64,7 @@ Examples:
 Options:
   --backup-name        Backup name to make before the update (default "$AUTO_BACKUP_PREFIX\$timestamp")
   --check              Checks whether update is available but do not try to update
+  --same-version       Pull artifacts for current version and just restart deployments
   -h, --help           Show this message and exit
   -y, --yes            Automatic yes to prompts
 EOF
@@ -583,7 +584,7 @@ cmd_update_list() {
   while true; do
     case "$1" in
       -h|--help) cmd_update_list_usage; exit 0 ;;
-      --allow-prereleases) iter_params="--prerelease"; shift ;;
+      --allow-prereleases) iter_params="--prerelease --draft"; shift ;;
       '--') shift; break ;;
     esac
   done
@@ -593,18 +594,18 @@ cmd_update_list() {
   while IFS= read -r item; do
     tag_name=$(jq -r '.tag_name' <<< "$item")
     if [[ "$current_release" = "$tag_name" ]]; then
-      jq -rj '"\(.tag_name)* \(.published_at) \(.html_url) \(.prerelease)"' <<<"$item" | colorize GREEN
+      jq -rj '"\(.tag_name)* \(.published_at) \(.html_url) \(.prerelease) \(.draft)"' <<<"$item" | colorize GREEN
     fi
     [[ ! "$current_release" < "$tag_name" ]] && break
-    jq -rj '"\(.tag_name) \(.published_at) \(.html_url) \(.prerelease)\n"' <<<"$item"
-  done < <(iter_github_releases $iter_params) | column --table --table-columns RELEASE,DATE,URL,PRERELEASE
+    jq -rj '"\(.tag_name) \(.published_at) \(.html_url) \(.prerelease) \(.draft)\n"' <<<"$item"
+  done < <(iter_github_releases $iter_params) | column --table --table-columns RELEASE,DATE,URL,PRERELEASE,DRAFT
 }
 
 there_are_new_releases() { test "${#NEW_GITHUB_RELEASES[@]}" -ne 0; }
 
 cmd_update() {
-  local opts auto_yes=0 current_release latest_tag backup_name="" iter_params="" check=0
-  opts="$(getopt -o "hy" --long "help,yes,check,allow-prereleases,backup-name:" -n "$PROGRAM" -- "$@")"
+  local opts auto_yes=0 current_release latest_tag backup_name="" iter_params="" check=0 same_version=0
+  opts="$(getopt -o "hy" --long "help,yes,check,allow-prereleases,same-version,backup-name:" -n "$PROGRAM" -- "$@")"
   eval set -- "$opts"
   while true; do
     case "$1" in
@@ -612,24 +613,29 @@ cmd_update() {
       '-y'|'--yes') auto_yes=1; shift ;;
       '--check') check=1; shift ;;
       '--backup-name') backup_name="$2"; shift 2 ;;
-      '--allow-prereleases') iter_params="--prerelease"; shift ;;
+      '--allow-prereleases') iter_params="--prerelease --draft"; shift ;;
+      '--same-version') same_version=1; shift ;;
       '--') shift; break ;;
     esac
   done
   current_release="$(get_helm_release_version "$HELM_RELEASE_NAME")"
-  get_new_github_releases "$current_release" $iter_params
-  if ! there_are_new_releases; then
-    echo "Up-to-date"
-    exit 0
+  if [ "$same_version" -eq 1 ]; then
+    latest_tag="$current_release"
+  else
+    get_new_github_releases "$current_release" $iter_params
+    if ! there_are_new_releases; then
+      echo "Up-to-date"
+      exit 0
+    fi
+    # new releases found
+    if [ "$check" -eq 1 ]; then
+      warn "you are ${#NEW_GITHUB_RELEASES[@]} release(s) behind the latest release. Use sre-init update"
+      exit 1
+    fi
+    echo "The current installed release is $current_release"
+    echo "${#NEW_GITHUB_RELEASES[*]} new github releases available"
+    latest_tag="${NEW_GITHUB_RELEASES[-1]}"
   fi
-  # new releases found
-  if [ "$check" -eq 1 ]; then
-    warn "you are ${#NEW_GITHUB_RELEASES[@]} release(s) behind the latest release. Use sre-init update"
-    exit 1
-  fi
-  echo "The current installed release is $current_release"
-  echo "${#NEW_GITHUB_RELEASES[*]} new github releases available"
-  latest_tag="${NEW_GITHUB_RELEASES[-1]}"
   echo "Going to update to the next release - $latest_tag"
   [[ $auto_yes -eq 1 ]] || yesno "Do you want to update?"
   echo "Updating to $latest_tag"
@@ -638,11 +644,16 @@ cmd_update() {
   cmd_backup_create --name "$backup_name" --volumes=minio,mongo,vault
   echo "Pulling new artifacts"
   pull_artifacts "$latest_tag"
-  echo "Updating helm repo"
-  helm repo update syndicate
-  helm search repo syndicate/rule-engine --version "$latest_tag" --fail-on-no-result >/dev/null 2>&1 || die "$latest_tag version of $r_name chart not found. Cannot update"
-  echo "Upgrading $r_name chart to $latest_tag version"
-  helm upgrade "$HELM_RELEASE_NAME" syndicate/rule-engine --version "$latest_tag"  # todo add flags + if failed restore backup
+  if [ "$same_version" -eq 1 ]; then
+    echo "Restarting existing deployments"
+    kubectl rollout restart deployment -l app.kubernetes.io/instance=rule-engine
+  else
+    echo "Updating helm repo"
+    helm repo update syndicate
+    helm search repo syndicate/rule-engine --version "$latest_tag" --fail-on-no-result >/dev/null 2>&1 || die "$latest_tag version of $r_name chart not found. Cannot update"
+    echo "Upgrading $r_name chart to $latest_tag version"
+    helm upgrade "$HELM_RELEASE_NAME" syndicate/rule-engine --version "$latest_tag"  # todo add flags + if failed restore backup --atomic
+  fi
   echo "Upgrading obfuscation manager"
   pip3 install --user --break-system-packages --upgrade "$SRE_RELEASES_PATH/$latest_tag/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]" >/dev/null
   echo "Upgrading modular CLI"
