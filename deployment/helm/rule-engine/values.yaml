@@ -10,7 +10,7 @@ service:
 image:
   repository: public.ecr.aws/x4s4z8e1/syndicate/rule-engine
   tag: 5.5.0
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
 replicas: 1
 strategy:
