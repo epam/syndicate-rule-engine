@@ -9,6 +9,13 @@ metadata:
     helm.sh/chart: {{ include "minio.chart" . }}
 spec:
   replicas: {{ .Values.replicas }}
+  strategy:
+    type: {{ .Values.strategy.type }}
+    {{- if eq .Values.strategy.type "RollingUpdate" }}
+    rollingUpdate:
+      maxSurge: {{ .Values.strategy.maxSurge }}
+      maxUnavailable: {{ .Values.strategy.maxUnavailable }}
+    {{- end}}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "minio.name" . }}
@@ -53,10 +60,10 @@ spec:
           args: ["server", "/storage", "--console-address", ":9001"]
           ports:
             - containerPort: 9000
-              hostPort: 9000
+              name: http-api
               protocol: TCP
             - containerPort: 9001
-              hostPort: 9001
+              name: http-console
               protocol: TCP
           volumeMounts:
             - name: minio-storage

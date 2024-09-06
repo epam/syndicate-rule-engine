@@ -23,3 +23,7 @@ persistence:
   hostPath: /data/minio
 
 replicas: 1
+strategy:
+  type: RollingUpdate
+  maxUnavailable: 0
+  maxSurge: 100%
