@@ -107,19 +107,22 @@ config = {
         'user_handler': {
             'class': 'logging.StreamHandler',
             'formatter': 'user_formatter'
+        },
+        'null_handler': {
+            'class': 'logging.NullHandler'
         }
     },
     'loggers': {
         'srecli': {
             'level': Env.LOG_LEVEL.get(),
-            'handlers': [],
-            'propagate': False
+            'handlers': ['null_handler'],
+            'propagate': False,
         },
         'srecli.user': {
             'level': 'DEBUG',
             'handlers': ['user_handler'],
             'propagate': False
-        }
+        },
     }
 }
 

@@ -63,9 +63,27 @@ Examples:
 
 Options:
   --backup-name        Backup name to make before the update (default "$AUTO_BACKUP_PREFIX\$timestamp")
-  --check              Checks whether update is available but do not update
+  --check              Checks whether update is available but do not try to update
   -h, --help           Show this message and exit
   -y, --yes            Automatic yes to prompts
+EOF
+}
+cmd_update_list_usage() {
+  cat <<EOF
+Displays available releases
+
+Description:
+  List only new available Rule Engine releases and the current one. Uses GitHub rest api under the hood and
+  can throttle if rate limit is exceeded
+
+Usage:
+  $PROGRAM $COMMAND [options]
+
+Examples:
+  $PROGRAM $COMMAND
+
+Options:
+  -h, --help           Show this message and exit
 EOF
 }
 
@@ -195,7 +213,6 @@ Options
 EOF
 }
 
-
 cmd_version() { echo "$VERSION"; }
 die() { echo "Error:" "$@" >&2; exit 1; }
 warn() { echo "Warning:" "$@" >&2; }
@@ -205,7 +222,6 @@ Error: unrecognized command \`$PROGRAM $COMMAND\`
 Try '$PROGRAM --help' for more information
 EOF
 }
-
 
 # helper functions
 get_latest_local_release() { ls "$SRE_RELEASES_PATH" | sort -r | head -n 1; }
@@ -218,26 +234,48 @@ get_latest_release_tag() {
 }
 
 iter_github_releases() {
-  # todo curl paginate over github release api. Each result on new line. Iterates starting from highest to lower.
-  # todo add limit
-  curl -fLs "https://api.github.com/repos/$GITHUB_REPO/releases" | jq -c '.[]' || die "Could not make another request to GitHub. Probably rate limit exceeded"
+  # iterates only over released version by default. --prerelease flag includes prereleases to output. --draft includes drafts
+  local opts draft=0 prerelease=0 per_page=30 filter
+  opts="$(getopt -o "" --long "draft,prerelease,per-page:," -n iter_github_releases -- "$@")"
+  eval set -- "$opts"
+  while true; do
+    case "$1" in
+      --draft) draft=1; shift ;;
+      --prerelease) prerelease=1; shift ;;
+      --per-page) per_page="$2"; shift 2 ;;
+      '--') shift; break ;;
+    esac
+  done
+  # todo couldn't think of other solution fast
+  if [ "$draft" -eq 1 ] && [ "$prerelease" -eq 1 ]; then
+    filter='.[]'
+  elif [ "$draft" -eq 0 ] && [ "$prerelease" -eq 1 ]; then
+    filter='.[] | select(.draft == false)'
+  elif [ "$draft" -eq 1 ] && [ "$prerelease" -eq 0 ]; then
+    filter='.[] | select(.prerelease == false)'
+  else  # both 0
+    filter='.[] | select(.prerelease == false and .draft == false)'
+  fi
+  # todo add pagination if needed
+  curl -fLs --request GET --header "Accept: application/vnd.github+json" "https://api.github.com/repos/$GITHUB_REPO/releases?per_page=$per_page" | jq -c "$filter" || die "Could not make another request to GitHub. Probably rate limit exceeded"
 }
 
 get_new_github_releases() {
   # requires one parameter -> current release
   [ ! ${#NEW_GITHUB_RELEASES[@]} -eq 0 ] && return
+  local current_release="$1"
+  shift # all other parameter are passed to iter_github_releases
 
   local tag_name
   while IFS= read -r item; do
     tag_name=$(jq -r '.tag_name' <<<"$item")
-    if [[ "$1" < "$tag_name" ]]; then
+    if [[ "$current_release" < "$tag_name" ]]; then
       NEW_GITHUB_RELEASES+=("$tag_name")
     else  # higher or equal
       break
     fi
-  done < <(iter_github_releases)
+  done < <(iter_github_releases "$@")
 }
-
 
 ensure_in_path() {
   if [[ ":$PATH:" != *":$1:"* ]]; then
@@ -292,6 +330,37 @@ patch_kubectl_secret() {
   kubectl patch secret "$1" -p="{\"data\":{\"$2\":\"$secret\"}}"
 }
 
+get_account_alias() {
+  local output
+  if output="$(aws iam list-account-aliases 2>&1)"; then
+    jq -r '.AccountAliases[0]' <<<"$output"
+  fi
+}
+
+resolve_tenant_name() {
+  if [ -n "$TENANT_NAME" ]; then
+    echo "${TENANT_NAME^^}"
+    return
+  fi
+  local tn
+  tn="$(get_account_alias)"
+  if [ -n "$tn" ]; then
+    echo "${tn^^}"
+    return
+  fi
+  echo CURRENT  # default
+}
+build_multiple_params() {
+  # build_multiple_params --email admin@gmail.com,admin2@gmail.com -> --email admin@gmail.com --email admin2gmail.com
+  local item counter=0
+  while read -r -d ',' item; do
+    if [ -n "$3" ] && [ "$counter" -eq "$3" ]; then return; fi
+    [ -z "$item" ] && continue
+    printf "%s %s " "$1" "$item"
+    ((counter++))
+  done <<<",$2,"
+}
+
 initialize_system() {
   # creates:
   # - non-system admin users for Rule Engine & Modular Service
@@ -299,7 +368,7 @@ initialize_system() {
   # - customer based on LM response
   # - tenant within the customer which represents this AWS account
   # - entity that represents defect dojo installation
-  local mip lm_response customer_name modular_service_password rule_engine_password license_key dojo_token="" activation_id
+  local mip lm_response customer_name tenant_name modular_service_password rule_engine_password license_key dojo_token="" activation_id
   mip="$(minikube_ip)"
 
   ensure_in_path "$HOME/.local/bin"
@@ -331,10 +400,10 @@ initialize_system() {
   patch_kubectl_secret "$MODULAR_SERVICE_SECRET_NAME" "admin-password" "$modular_service_password"
 
   echo "Creating modular service customer and its user"
-  syndicate admin signup --username "$MODULAR_SERVICE_USERNAME" --password "$modular_service_password" --customer_name "$customer_name" --customer_display_name "$customer_name" --customer_admin admin@example.com --json
+  syndicate admin signup --username "$MODULAR_SERVICE_USERNAME" --password "$modular_service_password" --customer_name "$customer_name" --customer_display_name "$customer_name" $(build_multiple_params --customer_admin "$ADMIN_EMAILS") --json
 
   echo "Creating custodian customer users"
-  syndicate re meta update_meta --json
+#  syndicate re meta update_meta --json
   syndicate re setting lm config add --host "$(get_kubectl_secret lm-data api-link)" --json
   syndicate re setting lm client add --key_id "$(echo "$lm_response" | jq ".private_key.key_id" -r)" --algorithm "$(echo "$lm_response" | jq ".private_key.algorithm" -r)" --private_key "$(echo "$lm_response" | jq ".private_key.value" -r)" --b64encoded --json
   syndicate re policy add --name admin_policy --permissions_admin --effect allow --tenant '*' --description "Full admin access policy for customer" --customer_id "$customer_name" --json
@@ -351,13 +420,22 @@ initialize_system() {
   syndicate re license activate --license_key "$license_key" --all_tenants --json  # can be removed with new version of sre
 
 
-  echo "Activating tenant for the current aws account"
-  syndicate admin tenant create --name "$CURRENT_ACCOUNT_TENANT_NAME" --display_name "Tenant $(account_id)" --cloud AWS --account_id "$(account_id)" --primary_contacts admin@example.com --secondary_contacts admin@example.com --tenant_manager_contacts admin@example.com --default_owner admin@example.com --json
+  tenant_name="$(resolve_tenant_name)"
+  echo "Activating tenant $tenant_name for the current aws account"
+  syndicate admin tenant create --name "$tenant_name" \
+                                --display_name "Tenant $(account_id)" \
+                                --cloud AWS \
+                                --account_id "$(account_id)" \
+                                $(build_multiple_params --primary_contacts "$TENANT_PRIMARY_CONTACTS") \
+                                $(build_multiple_params --secondary_concats "$TENANT_SECONDARY_CONTACTS") \
+                                $(build_multiple_params --tenant_manager_contacts "$TENANT_MANAGER_CONTACTS") \
+                                $(build_multiple_params --default_owner "$TENANT_OWNER_EMAIL" 1) \
+                                --json
   echo "Activating region for tenant"
-  for r in $AWS_REGIONS;
+  for r in $TENANT_AWS_REGIONS;
   do
     echo "Activating $r for tenant"
-    syndicate admin tenant regions activate --tenant_name "$CURRENT_ACCOUNT_TENANT_NAME" --region_name "$r" --json > /dev/null
+    syndicate admin tenant regions activate --tenant_name "$tenant_name" --region_name "$r" --json > /dev/null
   done
 
   echo "Getting Defect dojo token"
@@ -394,11 +472,11 @@ cmd_init() {
   fi
 
   if [ -n "$init_system" ]; then
-    if [ "$FIRST_USER" != "$(whoami)" ]; then
-      die "system configuration can be performed only by '$FIRST_USER' user"
-    fi
     if [ -f "$SRE_LOCAL_PATH/success" ]; then
       die "Rule Engine was already initialized. Cannot do that again"
+    fi
+    if [ "$FIRST_USER" != "$(whoami)" ]; then
+      die "system configuration can be performed only by '$FIRST_USER' user"
     fi
     echo "Initializing Rule Engine for the first time"
     initialize_system
@@ -498,58 +576,66 @@ update_sre_init() {
   fi
 }
 
-
 cmd_update_list() {
-  # TODO think how to name the command
+  local opts iter_params=""
+  opts="$(getopt -o "h" --long "help,allow-prereleases" -n "$PROGRAM" -- "$@")"
+  eval set -- "$opts"
+  while true; do
+    case "$1" in
+      -h|--help) cmd_update_list_usage; exit 0 ;;
+      --allow-prereleases) iter_params="--prerelease --draft"; shift ;;
+      '--') shift; break ;;
+    esac
+  done
+
   local tag_name current_release
   current_release="$(get_helm_release_version "$HELM_RELEASE_NAME")"
   while IFS= read -r item; do
     tag_name=$(jq -r '.tag_name' <<< "$item")
-    if [[ ! "$current_release" < "$tag_name" ]]; then
-      jq -rj '"\(.tag_name)* \(.published_at) \(.html_url)"' <<<"$item" | colorize GREEN
-      break
+    if [[ "$current_release" = "$tag_name" ]]; then
+      jq -rj '"\(.tag_name)* \(.published_at) \(.html_url) \(.prerelease) \(.draft)"' <<<"$item" | colorize GREEN
     fi
-    jq -rj '"\(.tag_name) \(.published_at) \(.html_url)\n"' <<<"$item"
-  done < <(iter_github_releases) | column --table --table-columns RELEASE,DATE,URL
+    [[ ! "$current_release" < "$tag_name" ]] && break
+    jq -rj '"\(.tag_name) \(.published_at) \(.html_url) \(.prerelease) \(.draft)\n"' <<<"$item"
+  done < <(iter_github_releases $iter_params) | column --table --table-columns RELEASE,DATE,URL,PRERELEASE,DRAFT
 }
 
-
-cmd_update_check() {
-  # requires one parameter -> current release
-  get_new_github_releases "$1"
-  if [ ${#NEW_GITHUB_RELEASES[@]} -eq 0 ]; then
-    echo "Up-to-date"
-    exit 0
-  else
-    echo "You are ${#NEW_GITHUB_RELEASES[@]} release(s) behind the latest release. Use sre-init update" >&2
-    exit 1
-  fi
-}
-
+there_are_new_releases() { test "${#NEW_GITHUB_RELEASES[@]}" -ne 0; }
 
 cmd_update() {
-  local opts auto_yes=0 current_release latest_tag backup_name=""
-  opts="$(getopt -o "hy" --long "help,yes,check,backup-name:" -n "$PROGRAM" -- "$@")"
+  local opts auto_yes=0 current_release latest_tag backup_name="" iter_params="" check=0 same_version=0
+  opts="$(getopt -o "hy" --long "help,yes,check,allow-prereleases,same-version,backup-name:" -n "$PROGRAM" -- "$@")"
   eval set -- "$opts"
   while true; do
     case "$1" in
       '-h'|'--help') cmd_update_usage; exit 0 ;;
       '-y'|'--yes') auto_yes=1; shift ;;
-      '--check') cmd_update_check "$(get_helm_release_version "$HELM_RELEASE_NAME")"; shift ;;
+      '--check') check=1; shift ;;
       '--backup-name') backup_name="$2"; shift 2 ;;
+      '--allow-prereleases') iter_params="--prerelease --draft"; shift ;;
+      '--same-version') same_version=1; shift ;;
       '--') shift; break ;;
     esac
   done
   current_release="$(get_helm_release_version "$HELM_RELEASE_NAME")"
-  echo "The current installed release is $current_release"
-  get_new_github_releases "$current_release"
-  echo "${#NEW_GITHUB_RELEASES[*]} new github releases available"
-  if [ "${#NEW_GITHUB_RELEASES[@]}" -eq 0 ]; then
-    echo "Up-to-date"
-    exit 0
+  if [ "$same_version" -eq 1 ]; then
+    latest_tag="$current_release"
+  else
+    get_new_github_releases "$current_release" $iter_params
+    if ! there_are_new_releases; then
+      echo "Up-to-date"
+      exit 0
+    fi
+    # new releases found
+    if [ "$check" -eq 1 ]; then
+      warn "you are ${#NEW_GITHUB_RELEASES[@]} release(s) behind the latest release. Use sre-init update"
+      exit 1
+    fi
+    echo "The current installed release is $current_release"
+    echo "${#NEW_GITHUB_RELEASES[*]} new github releases available"
+    latest_tag="${NEW_GITHUB_RELEASES[-1]}"
   fi
-  latest_tag="${NEW_GITHUB_RELEASES[-1]}"
-  echo "New release $latest_tag is available."
+  echo "Going to update to the next release - $latest_tag"
   [[ $auto_yes -eq 1 ]] || yesno "Do you want to update?"
   echo "Updating to $latest_tag"
   [ -z "$backup_name" ] && backup_name="$AUTO_BACKUP_PREFIX$(date +%s)"
@@ -557,11 +643,16 @@ cmd_update() {
   cmd_backup_create --name "$backup_name" --volumes=minio,mongo,vault
   echo "Pulling new artifacts"
   pull_artifacts "$latest_tag"
-  echo "Updating helm repo"
-  helm repo update syndicate
-  helm search repo syndicate/rule-engine --version "$latest_tag" --fail-on-no-result >/dev/null 2>&1 || die "$latest_tag version of $r_name chart not found. Cannot update"
-  echo "Upgrading $r_name chart to $latest_tag version"
-  helm upgrade "$HELM_RELEASE_NAME" syndicate/rule-engine --version "$latest_tag"
+  if [ "$same_version" -eq 1 ]; then
+    echo "Restarting existing deployments"
+    kubectl rollout restart deployment -l app.kubernetes.io/instance="$HELM_RELEASE_NAME"
+  else
+    echo "Updating helm repo"
+    helm repo update syndicate
+    helm search repo syndicate/rule-engine --version "$latest_tag" --fail-on-no-result >/dev/null 2>&1 || die "$latest_tag version of $r_name chart not found. Cannot update"
+    echo "Upgrading $r_name chart to $latest_tag version"
+    helm upgrade "$HELM_RELEASE_NAME" syndicate/rule-engine --version "$latest_tag"  # todo add flags + if failed restore backup --atomic
+  fi
   echo "Upgrading obfuscation manager"
   pip3 install --user --break-system-packages --upgrade "$SRE_RELEASES_PATH/$latest_tag/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]" >/dev/null
   echo "Upgrading modular CLI"
@@ -699,7 +790,7 @@ cmd_backup_list() {
   done
   path="$(resolve_backup_path "$path" "$version")"
   if [ ! -d "$path" ] || [ -z "$(ls -A "$path")" ]; then
-    echo "No backups found in $path" >&2
+    echo -e "No backups found in $path\nTip: use sre-init backup ls --version \$previous to see backups for older installations" >&2
     exit 0
   fi
   find "$path/"* -maxdepth 1 -type d -print0 | xargs -0 stat --format "%W %n" | sort -r | while IFS=' ' read -r ts fp; do
@@ -816,7 +907,6 @@ cmd_backup_restore() {
   done
 }
 
-
 cmd_secrets() {
   if [ -z "$1" ]; then
     for key in "${!SECRETS_MAPPING[@]}"; do
@@ -834,23 +924,35 @@ VERSION="1.0.0"
 PROGRAM="${0##*/}"
 COMMAND="$1"
 
-# Some global constants
-SRE_LOCAL_PATH=/usr/local/sre
-SRE_RELEASES_PATH=$SRE_LOCAL_PATH/releases
-SRE_BACKUPS_PATH=$SRE_LOCAL_PATH/backups
-GITHUB_REPO=epam/ecc
-HELM_RELEASE_NAME=rule-engine
-MODULAR_SERVICE_USERNAME="admin"
-RULE_ENGINE_USERNAME="admin"
-CURRENT_ACCOUNT_TENANT_NAME="CURRENT_ACCOUNT"
-# regions that will be allowed to activate
-AWS_REGIONS="us-east-1 us-east-2 us-west-1 us-west-2 af-south-1 ap-east-1 ap-south-2 ap-southeast-3 ap-southeast-4 ap-south-1 ap-northeast-3 ap-northeast-2 ap-southeast-1 ap-southeast-2 ap-northeast-1 ca-central-1 ca-west-1 eu-central-1 eu-west-1 eu-west-2 eu-south-1 eu-west-3 eu-south-2 eu-north-1 eu-central-2 il-central-1 me-south-1 me-central-1 sa-east-1 us-gov-east-1 us-gov-west-1"
-AUTO_BACKUP_PREFIX="autobackup-"
+# Some global variables that can be provided from outside
+AUTO_BACKUP_PREFIX="${AUTO_BACKUP_PREFIX:-autobackup-}"
+SRE_LOCAL_PATH="${SRE_LOCAL_PATH:-/usr/local/sre}"
+SRE_RELEASES_PATH="${SRE_RELEASES_PATH:-$SRE_LOCAL_PATH/releases}"
+SRE_BACKUPS_PATH="${SRE_BACKUPS_PATH:-$SRE_LOCAL_PATH/backups}"
+GITHUB_REPO="${GITHUB_REPO:-epam/syndicate-rule-engine}"
+HELM_RELEASE_NAME="${HELM_RELEASE_NAME:-rule-engine}"
 
+# for --system configuration
+MODULAR_SERVICE_USERNAME="${MODULAR_SERVICE_USERNAME:-admin}"
+RULE_ENGINE_USERNAME="${RULE_ENGINE_USERNAME:-admin}"
+TENANT_AWS_REGIONS="${TENANT_AWS_REGIONS:-us-east-1 us-east-2 us-west-1 us-west-2 af-south-1 ap-east-1 ap-south-2 ap-southeast-3 ap-southeast-4 ap-south-1 ap-northeast-3 ap-northeast-2 ap-southeast-1 ap-southeast-2 ap-northeast-1 ca-central-1 ca-west-1 eu-central-1 eu-west-1 eu-west-2 eu-south-1 eu-west-3 eu-south-2 eu-north-1 eu-central-2 il-central-1 me-south-1 me-central-1 sa-east-1 us-gov-east-1 us-gov-west-1}"
+FIRST_USER="${FIRST_USER:-$(getent passwd 1000 | cut -d : -f 1)}"
+#TENANT_NAME=  # resolved dynamically, see corresponding method
+#ADMIN_EMAILS=
+#TENANT_PRIMARY_CONTACTS=
+#TENANT_SECONDARY_CONTACTS=
+#TENANT_MANAGER_CONTACTS=
+#TENANT_OWNER_EMAIL=
+# specify emails split by `,`
+
+
+# All variables below are constants and should not be changed
 RULE_ENGINE_SECRET_NAME=rule-engine-secret
 MODULAR_API_SECRET_NAME=modular-api-secret
 MODULAR_SERVICE_SECRET_NAME=modular-service-secret
 DEFECTDOJO_SECRET_NAME=defectdojo-secret
+
+MODULAR_CLI_ENTRY_POINT=syndicate
 
 declare -A SECRETS_MAPPING
 SECRETS_MAPPING["dojo-system-password"]="$DEFECTDOJO_SECRET_NAME,system-password"
@@ -869,23 +971,19 @@ PV_TO_DEPLOYMENTS["defectdojo-cache"]="defectdojo-redis"
 PV_TO_DEPLOYMENTS["defectdojo-data"]="defectdojo-postgres"
 PV_TO_DEPLOYMENTS["defectdojo-media"]="defectdojo-nginx,defectdojo-uwsgi,defectdojo-celeryworker"
 
-
 # global var, data pulled by func
 NEW_GITHUB_RELEASES=()
-
 
 MODULAR_CLI_ARTIFACT_NAME=modular_cli.tar.gz
 OBFUSCATOR_ARTIFACT_NAME=sre_obfuscator.tar.gz
 SRE_INIT_ARTIFACT_NAME=sre-init.sh
-MODULAR_CLI_ENTRY_POINT=syndicate
-FIRST_USER=$(getent passwd 1000 | cut -d : -f 1)
 
 case "$1" in
   backup) shift; cmd_backup "$@" ;;
   help|-h|--help) shift; cmd_usage "$@" ;;
   version|--version) shift; cmd_version "$@" ;;
   update) shift; cmd_update "$@" ;;
-  list) shift; cmd_update_list "$@" ;;
+  list) shift; cmd_update_list "$@" ;; # TODO think how to name the command
   init) shift; cmd_init "$@" ;;
   nginx) shift; cmd_nginx "$@" ;;
   secrets) shift; cmd_secrets "$@" ;;

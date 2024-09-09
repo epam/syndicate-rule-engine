@@ -1,17 +1,27 @@
 #!/bin/bash
 
-LOG_PATH=/var/log/sre-init.log
-ERROR_LOG_PATH=$LOG_PATH
-HELM_RELEASE_NAME=rule-engine
-DOCKER_VERSION='5:27.1.1-1~debian.12~bookworm'
-MINIKUBE_VERSION=v1.33.1
-KUBERNETES_VERSION=v1.30.0
-KUBECTL_VERSION=v1.30.3
-HELM_VERSION=3.15.3-1
+LOG_PATH="${LOG_PATH:-/var/log/sre-init.log}"
+ERROR_LOG_PATH="${ERROR_LOG_PATH:-/var/log/sre-init.log}"
+
+SYNDICATE_HELM_REPOSITORY="${SYNDICATE_HELM_REPOSITORY:-s3://charts-repository/syndicate/}"
+HELM_RELEASE_NAME="${HELM_RELEASE_NAME:-rule-engine}"
+DEFECTDOJO_HELM_RELEASE_NAME="${DEFECTDOJO_HELM_RELEASE_NAME:-defectdojo}"
+
+DOCKER_VERSION="${DOCKER_VERSION:-5:27.1.1-1~debian.12~bookworm}"
+MINIKUBE_VERSION="${MINIKUBE_VERSION:-v1.33.1}"
+KUBERNETES_VERSION="${KUBERNETES_VERSION:-v1.30.0}"
+KUBECTL_VERSION="${KUBECTL_VERSION:-v1.30.3}"
+HELM_VERSION="${HELM_VERSION:-3.15.3-1}"
+
+SRE_LOCAL_PATH="${SRE_LOCAL_PATH:-/usr/local/sre}"
+LM_API_LINK="${LM_API_LINK:-https://lm.api.link}"
+GITHUB_REPO="${GITHUB_REPO:-epam/syndicate-rule-engine}"
+
+FIRST_USER="${FIRST_USER:-$(getent passwd 1000 | cut -d : -f 1)}"
 
 
-log() { echo "[INFO] $(date) $1" >> $LOG_PATH; }
-log_err() { echo "[ERROR] $(date) $1" >> $ERROR_LOG_PATH; }
+log() { echo "[INFO] $(date) $1" >> "$LOG_PATH"; }
+log_err() { echo "[ERROR] $(date) $1" >> "$ERROR_LOG_PATH"; }
 # shellcheck disable=SC2120
 get_imds_token () {
   duration="10"  # must be an integer
@@ -75,7 +85,6 @@ install_docker() {
 }
 install_minikube() {
   # https://minikube.sigs.k8s.io/docs/start
-  log "Installing minikube"
   curl -LO "https://storage.googleapis.com/minikube/releases/$1/minikube_latest_$(dpkg --print-architecture).deb"
   sudo dpkg -i "minikube_latest_$(dpkg --print-architecture).deb" && rm "minikube_latest_$(dpkg --print-architecture).deb"
 }
@@ -196,9 +205,8 @@ server {
 EOF
 }
 
-# $SRE_LOCAL_PATH $LM_API_LINK, $RULE_ENGINE_RELEASE, $FIRST_USER will be provided from outside
-if [ -z "$SRE_LOCAL_PATH" ] || [ -z "$LM_API_LINK" ] || [ -z "$RULE_ENGINE_RELEASE" ] || [ -z "$FIRST_USER" ] || [ -z "$GITHUB_REPO" ]; then
-  error_log "SRE_LOCAL_PATH=$SRE_LOCAL_PATH LM_API_LINK=$LM_API_LINK RULE_ENGINE_RELEASE=$RULE_ENGINE_RELEASE FIRST_USER=$FIRST_USER. Something is not provided"
+if [ -z "$RULE_ENGINE_RELEASE" ]; then
+  error_log "RULE_ENGINE_RELEASE env is required"
   exit 1
 fi
 log "Script is executed on behalf of $(id)"
@@ -237,11 +245,11 @@ kubectl create secret generic modular-service-secret --from-literal=system-passw
 kubectl create secret generic defectdojo-secret --from-literal=secret-key="$(generate_password 50)" --from-literal=credential-aes-256-key=$(generate_password) --from-literal=db-username=defectdojo --from-literal=db-password=$(generate_password 30 -hex)
 
 helm plugin install https://github.com/hypnoglow/helm-s3.git
-helm repo add syndicate s3://charts-repository/syndicate/
+helm repo add syndicate "$SYNDICATE_HELM_REPOSITORY"
 helm repo update syndicate
 
 helm install "$HELM_RELEASE_NAME" syndicate/rule-engine --version $RULE_ENGINE_RELEASE
-helm install defectdojo syndicate/defectdojo
+helm install "$DEFECTDOJO_HELM_RELEASE_NAME" syndicate/defectdojo
 EOF
 
 log "Downloading artifacts"
@@ -252,7 +260,7 @@ sudo wget -O "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE/sre_obfuscator.tar.g
 sudo wget -O "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE/sre-init.sh" "https://github.com/$GITHUB_REPO/releases/download/$RULE_ENGINE_RELEASE/sre-init.sh"
 sudo cp "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE/sre-init.sh" /usr/local/bin/sre-init
 sudo chmod +x /usr/local/bin/sre-init
-sudo chown -R $FIRST_USER:$FIRST_USER "$SRE_LOCAL_PATH"
+sudo chown -R "$FIRST_USER":"$FIRST_USER" "$SRE_LOCAL_PATH"
 
 
 log "Going to make request to license manager"

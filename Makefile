@@ -14,13 +14,14 @@ AWS_REGION = $(shell aws configure get region)
 EXECUTOR_IMAGE_NAME := rule-engine-executor  # just dev image name
 EXECUTOR_IMAGE_TAG := latest
 SERVER_IMAGE_NAME := public.ecr.aws/x4s4z8e1/syndicate/rule-engine
-SERVER_IMAGE_TAG ?= $(shell python -c "from src.helpers.__version__ import __version__; print(__version__)")
+SERVER_IMAGE_TAG ?= $(shell PYTHONPATH=./src python -B -c "from src.helpers.__version__ import __version__; print(__version__)")
 
 
 SYNDICATE_EXECUTABLE_PATH ?= $(shell which syndicate)
 SYNDICATE_CONFIG_PATH ?= .syndicate-config-main
 SYNDICATE_BUNDLE_NAME := custodian-service
 
+HELM_REPO_NAME := syndicate
 
 check-syndicate:
 	@if [[ -z "$(SYNDICATE_EXECUTABLE_PATH)" ]]; then echo "No syndicate executable found"; exit 1; fi
@@ -149,3 +150,9 @@ push-amd64:
 
 push-manifest:
 	$(DOCKER_EXECUTABLE) manifest push $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)
+
+
+push-helm-chart:
+	helm package --dependency-update deployment/helm/rule-engine
+	helm s3 push rule-engine-$(SERVER_IMAGE_TAG).tgz $(HELM_REPO_NAME)
+	-rm rule-engine-$(SERVER_IMAGE_TAG).tgz

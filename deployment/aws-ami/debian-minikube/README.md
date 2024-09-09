@@ -17,16 +17,10 @@ Create `sre-run.sh` (name does not matter) script by some path, say `/usr/local/
 cat <<EOF | sudo tee /usr/local/bin/sre-run.sh > /dev/null
 #!/bin/bash
 
-LM_API_LINK="https://lm.api.link"  # just example link
-GITHUB_REPO=epam/syndicate-rule-engine
-
 ...
 
 EOF
 ```
-
-**Note:** specify a valid link to the licence manager. Other parameters also can be adjusted but keep the default
-if you don't know what you are doing.
 
 **Allow to execute that script for root:**
 
@@ -61,3 +55,38 @@ sudo systemctl enable sre-run.service
 **Create AMI from the instance**
 
 Log out and create AWS AMI image from the instance. Terminate the instance when AMI becomes `Available`.
+
+
+## AMI Envs
+
+
+### Initialization
+
+The listed envs can be specified via ec2 user data and will impact the way ami is initialized.
+
+**Installation preferences:**
+- `LOG_PATH` - path to file where to write logs (default `/var/log/sre-init.log`)
+- `ERROR_LOG_PATH` - path to file where to write errors logs (default `/var/log/sre-init.log`)
+- `SYNDICATE_HELM_REPOSITORY` - (default `s3://charts-repository/syndicate/`)
+- `HELM_RELEASE_NAME` - name of helm release for Rule Engine application (default `rule-engine`)
+- `DEFECTDOJO_HELM_RELEASE_NAME` - name of helm release for DefectDojo application (default `defectdojo`)
+- `DOCKER_VERSION` - (default `5:27.1.1-1~debian.12~bookworm`)
+- `MINIKUBE_VERSION` - (default `v1.33.1`)
+- `KUBERNETES_VERSION` - (default `v1.30.0`)
+- `KUBECTL_VERSION` - (default `v1.30.3`)
+- `HELM_VERSION` - (default `3.15.3-1`)
+- `SRE_LOCAL_PATH` - directory where to collect all artifacts (default `/usr/local/sre`)
+- `LM_API_LINK` - link to license manager (default `https://lm.api.link`)
+- `GITHUB_REPO` - Rule Engine GitHub repository (default `epam/syndicate-rule-engine`)
+- `FIRST_USER` - linux username to install rule-engine for. Must have sudo without password (default `admin`, more precisely user with id 1000)
+
+**Configuration preferences:**
+- `MODULAR_SERVICE_USERNAME` - username for admin user that will be created for modular-service (default `admin`)
+- `RULE_ENGINE_USERNAME` - username for admin user that will be created for rule-engine (default `admin`)
+- `TENANT_NAME` - tenant name for the default tenant that is created automatically (default is the first alias for account if it can be retrieved. Otherwise `THIS`)
+- `TENANT_AWS_REGIONS` - aws regions to activate for the tenant that represents this account (default `<all regions>`)
+- `ADMIN_EMAILS` - customer admin emails split by `,` (default ``)
+- `TENANT_PRIMARY_CONTACTS` - tenant primary emails split by `,` (default ``)
+- `TENANT_SECONDARY_CONTACTS` - tenant secondary emails split by `,` (default ``)
+- `TENANT_MANAGER_CONTACTS` - tenant manager contacts split by `,` (default ``)
+- `TENANT_OWNER_EMAIL` - one tenant owner email (default ``)

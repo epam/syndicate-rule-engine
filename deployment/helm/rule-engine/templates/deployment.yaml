@@ -9,6 +9,13 @@ metadata:
     helm.sh/chart: {{ include "rule-engine.chart" . }}
 spec:
   replicas: {{ .Values.replicas }}
+  strategy:
+    type: {{ .Values.strategy.type }}
+    {{- if eq .Values.strategy.type "RollingUpdate" }}
+    rollingUpdate:
+      maxSurge: {{ .Values.strategy.maxSurge }}
+      maxUnavailable: {{ .Values.strategy.maxUnavailable }}
+    {{- end}}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "rule-engine.name" . }}
@@ -37,7 +44,7 @@ spec:
             failureThreshold: 3
           ports:
             - containerPort: 8000
-              hostPort: 8000
+              name: http
               protocol: TCP
           env:
             - name: modular_mongo_user
