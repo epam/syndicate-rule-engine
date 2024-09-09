@@ -14,7 +14,7 @@ KUBECTL_VERSION="${KUBECTL_VERSION:-v1.30.3}"
 HELM_VERSION="${HELM_VERSION:-3.15.3-1}"
 
 SRE_LOCAL_PATH="${SRE_LOCAL_PATH:-/usr/local/sre}"
-LM_API_LINK="${LM_API_LINK:-https://lm.api.link}"
+LM_API_LINK="${LM_API_LINK:-https://lm.syndicate.team}"
 GITHUB_REPO="${GITHUB_REPO:-epam/syndicate-rule-engine}"
 
 FIRST_USER="${FIRST_USER:-$(getent passwd 1000 | cut -d : -f 1)}"

@@ -76,7 +76,7 @@ The listed envs can be specified via ec2 user data and will impact the way ami i
 - `KUBECTL_VERSION` - (default `v1.30.3`)
 - `HELM_VERSION` - (default `3.15.3-1`)
 - `SRE_LOCAL_PATH` - directory where to collect all artifacts (default `/usr/local/sre`)
-- `LM_API_LINK` - link to license manager (default `https://lm.api.link`)
+- `LM_API_LINK` - link to license manager (default `https://lm.syndicate.team`)
 - `GITHUB_REPO` - Rule Engine GitHub repository (default `epam/syndicate-rule-engine`)
 - `FIRST_USER` - linux username to install rule-engine for. Must have sudo without password (default `admin`, more precisely user with id 1000)
 
