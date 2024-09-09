@@ -230,7 +230,7 @@ get_helm_release_version() {
   helm get metadata "$1" -o json | jq -r '.version'
 }
 get_latest_release_tag() {
-  curl -fLs "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | jq -r '.tag_name' || die "no latest release for $GITHUB_REPO found"
+  curl -fLs "${GITHUB_CURL_HEADERS[@]}" "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | jq -r '.tag_name' || die "no latest release for $GITHUB_REPO found"
 }
 
 iter_github_releases() {
@@ -257,7 +257,7 @@ iter_github_releases() {
     filter='.[] | select(.prerelease == false and .draft == false)'
   fi
   # todo add pagination if needed
-  curl -fLs --request GET --header "Accept: application/vnd.github+json" "https://api.github.com/repos/$GITHUB_REPO/releases?per_page=$per_page" | jq -c "$filter" || die "Could not make another request to GitHub. Probably rate limit exceeded"
+  curl -fLs --request GET "${GITHUB_CURL_HEADERS[@]}" "https://api.github.com/repos/$GITHUB_REPO/releases?per_page=$per_page" | jq -c "$filter" || die "Could not make another request to GitHub. Probably rate limit exceeded"
 }
 
 get_new_github_releases() {
@@ -561,9 +561,16 @@ EOF
 pull_artifacts() {
   # downloads all necessary files from the given github release tag. Make sure the release exists
   mkdir -p "$SRE_RELEASES_PATH/$1"
-  wget -q -O "$SRE_RELEASES_PATH/$1/$MODULAR_CLI_ARTIFACT_NAME" "https://github.com/$GITHUB_REPO/releases/download/$1/$MODULAR_CLI_ARTIFACT_NAME" || warn "could not download $MODULAR_CLI_ARTIFACT_NAME from release $1"
-  wget -q -O "$SRE_RELEASES_PATH/$1/$OBFUSCATOR_ARTIFACT_NAME" "https://github.com/$GITHUB_REPO/releases/download/$1/$OBFUSCATOR_ARTIFACT_NAME" || warn "could not download $OBFUSCATOR_ARTIFACT_NAME from release $1"
-  wget -q -O "$SRE_RELEASES_PATH/$1/$SRE_INIT_ARTIFACT_NAME" "https://github.com/$GITHUB_REPO/releases/download/$1/$SRE_INIT_ARTIFACT_NAME" || warn "could not download $SRE_INIT_ARTIFACT_NAME from release $1"
+  # todo allow download from drafts
+  local assets=("$MODULAR_CLI_ARTIFACT_NAME" "$OBFUSCATOR_ARTIFACT_NAME" "$SRE_INIT_ARTIFACT_NAME")
+  for asset in "${assets[@]}"; do
+    if wget -q -O "/tmp/$asset" "https://github.com/$GITHUB_REPO/releases/download/$1/$asset"; then
+      mv "/tmp/$asset" "$SRE_RELEASES_PATH/$1/$asset"
+    else
+      rm -f "/tmp/$asset"
+      warn "could not download $asset from release $1"
+    fi
+  done
 }
 update_sre_init() {
   # assuming that the target version already exists locally
@@ -577,13 +584,13 @@ update_sre_init() {
 }
 
 cmd_update_list() {
-  local opts iter_params=""
+  local opts iter_params=()
   opts="$(getopt -o "h" --long "help,allow-prereleases" -n "$PROGRAM" -- "$@")"
   eval set -- "$opts"
   while true; do
     case "$1" in
       -h|--help) cmd_update_list_usage; exit 0 ;;
-      --allow-prereleases) iter_params="--prerelease --draft"; shift ;;
+      --allow-prereleases) iter_params=(--prerelease --draft); shift ;;
       '--') shift; break ;;
     esac
   done
@@ -597,13 +604,13 @@ cmd_update_list() {
     fi
     [[ ! "$current_release" < "$tag_name" ]] && break
     jq -rj '"\(.tag_name) \(.published_at) \(.html_url) \(.prerelease) \(.draft)\n"' <<<"$item"
-  done < <(iter_github_releases $iter_params) | column --table --table-columns RELEASE,DATE,URL,PRERELEASE,DRAFT
+  done < <(iter_github_releases "${iter_params[@]}") | column --table --table-columns RELEASE,DATE,URL,PRERELEASE,DRAFT
 }
 
 there_are_new_releases() { test "${#NEW_GITHUB_RELEASES[@]}" -ne 0; }
 
 cmd_update() {
-  local opts auto_yes=0 current_release latest_tag backup_name="" iter_params="" check=0 same_version=0
+  local opts auto_yes=0 current_release latest_tag backup_name="" iter_params=() check=0 same_version=0
   opts="$(getopt -o "hy" --long "help,yes,check,allow-prereleases,same-version,backup-name:" -n "$PROGRAM" -- "$@")"
   eval set -- "$opts"
   while true; do
@@ -612,7 +619,7 @@ cmd_update() {
       '-y'|'--yes') auto_yes=1; shift ;;
       '--check') check=1; shift ;;
       '--backup-name') backup_name="$2"; shift 2 ;;
-      '--allow-prereleases') iter_params="--prerelease --draft"; shift ;;
+      '--allow-prereleases') iter_params=(--prerelease --draft); shift ;;
       '--same-version') same_version=1; shift ;;
       '--') shift; break ;;
     esac
@@ -621,7 +628,7 @@ cmd_update() {
   if [ "$same_version" -eq 1 ]; then
     latest_tag="$current_release"
   else
-    get_new_github_releases "$current_release" $iter_params
+    get_new_github_releases "$current_release" "${iter_params[@]}"
     if ! there_are_new_releases; then
       echo "Up-to-date"
       exit 0
@@ -649,16 +656,22 @@ cmd_update() {
   else
     echo "Updating helm repo"
     helm repo update syndicate
-    helm search repo syndicate/rule-engine --version "$latest_tag" --fail-on-no-result >/dev/null 2>&1 || die "$latest_tag version of $r_name chart not found. Cannot update"
-    echo "Upgrading $r_name chart to $latest_tag version"
+    helm search repo syndicate/rule-engine --version "$latest_tag" --fail-on-no-result >/dev/null 2>&1 || die "$latest_tag version $HELM_RELEASE_NAME chart not found. Cannot update"
+    echo "Upgrading $HELM_RELEASE_NAME chart to $latest_tag version"
     helm upgrade "$HELM_RELEASE_NAME" syndicate/rule-engine --version "$latest_tag"  # todo add flags + if failed restore backup --atomic
   fi
-  echo "Upgrading obfuscation manager"
-  pip3 install --user --break-system-packages --upgrade "$SRE_RELEASES_PATH/$latest_tag/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]" >/dev/null
-  echo "Upgrading modular CLI"
-  MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pip3 install --user --break-system-packages --upgrade "$SRE_RELEASES_PATH/$latest_tag/${MODULAR_CLI_ARTIFACT_NAME}" >/dev/null
-  echo "Trying to update sre-init"
-  update_sre_init "$latest_tag"
+  if [ -f "$SRE_RELEASES_PATH/$latest_tag/$OBFUSCATOR_ARTIFACT_NAME" ]; then
+    echo "Upgrading obfuscation manager"
+    pip3 install --user --break-system-packages --upgrade "$SRE_RELEASES_PATH/$latest_tag/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]" >/dev/null
+  fi
+  if [ -f "$SRE_RELEASES_PATH/$latest_tag/$MODULAR_CLI_ARTIFACT_NAME" ]; then
+    echo "Upgrading modular CLI"
+    MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pip3 install --user --break-system-packages --upgrade "$SRE_RELEASES_PATH/$latest_tag/${MODULAR_CLI_ARTIFACT_NAME}" >/dev/null
+  fi
+  if [ -f "$SRE_RELEASES_PATH/$1/$SRE_INIT_ARTIFACT_NAME" ]; then
+    echo "Trying to update sre-init"
+    update_sre_init "$latest_tag"
+  fi
   echo "Done"
 }
 
@@ -973,6 +986,12 @@ PV_TO_DEPLOYMENTS["defectdojo-media"]="defectdojo-nginx,defectdojo-uwsgi,defectd
 
 # global var, data pulled by func
 NEW_GITHUB_RELEASES=()
+
+GITHUB_CURL_HEADERS=('-H' 'X-GitHub-Api-Version: 2022-11-28')
+if [ -n "$GITHUB_TOKEN" ]; then
+  GITHUB_CURL_HEADERS+=('-H' "Authorization: Bearer $GITHUB_TOKEN")
+fi
+
 
 MODULAR_CLI_ARTIFACT_NAME=modular_cli.tar.gz
 OBFUSCATOR_ARTIFACT_NAME=sre_obfuscator.tar.gz
