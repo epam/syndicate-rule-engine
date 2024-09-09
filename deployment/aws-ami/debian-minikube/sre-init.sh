@@ -64,7 +64,6 @@ Examples:
 Options:
   --backup-name        Backup name to make before the update (default "$AUTO_BACKUP_PREFIX\$timestamp")
   --check              Checks whether update is available but do not try to update
-  --same-version       Pull artifacts for current version and just restart deployments
   -h, --help           Show this message and exit
   -y, --yes            Automatic yes to prompts
 EOF
@@ -646,7 +645,7 @@ cmd_update() {
   pull_artifacts "$latest_tag"
   if [ "$same_version" -eq 1 ]; then
     echo "Restarting existing deployments"
-    kubectl rollout restart deployment -l app.kubernetes.io/instance=rule-engine
+    kubectl rollout restart deployment -l app.kubernetes.io/instance="$HELM_RELEASE_NAME"
   else
     echo "Updating helm repo"
     helm repo update syndicate
