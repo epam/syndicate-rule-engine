@@ -232,7 +232,7 @@ Execute AWS scan with the created ruleset. Provide cloud credentials to the corr
 
 
 ```bash
-sre job submit --tenant_name $TENANT_NAME --ruleset FULL_AWS
+sre job submit --tenant_name $TENANT_NAME
 ```
 
 You can see job's status by describing it:
