@@ -786,7 +786,7 @@ make_backup() {
     return 1
   fi
   while true; do
-    if minikube ssh "sudo tar -czf /tmp/$1.tar.gz -C $host_path ."
+    if minikube ssh "sudo tar -czf /tmp/$1.tar.gz -C $host_path ." >/dev/null 2>&1
     then
       break
     fi
