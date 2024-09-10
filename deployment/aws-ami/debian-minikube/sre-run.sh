@@ -15,7 +15,7 @@ FIRST_USER="${FIRST_USER:-$(getent passwd 1000 | cut -d : -f 1)}"
 
 log() { echo "[INFO] $(date) $1" >> "$LOG_PATH"; }
 
-if [ -f "$SRE_LOCAL_PATH/success" ]; then
+if [ -f "$SRE_LOCAL_PATH/.success" ]; then
   log "Rule Engine was already initialized. Skipping"
   exit 0
 fi
@@ -39,6 +39,6 @@ log "Executing sre-init --system"
 export SRE_LOCAL_PATH HELM_RELEASE_NAME GITHUB_REPO FIRST_USER MODULAR_SERVICE_USERNAME RULE_ENGINE_USERNAME TENANT_NAME TENANT_AWS_REGIONS ADMIN_EMAILS TENANT_PRIMARY_CONTACTS TENANT_SECONDARY_CONTACTS TENANT_MANAGER_CONTACTS TENANT_OWNER_EMAIL
 sudo --preserve-env=SRE_LOCAL_PATH,HELM_RELEASE_NAME,GITHUB_REPO,FIRST_USER,MODULAR_SERVICE_USERNAME,RULE_ENGINE_USERNAME,TENANT_NAME,TENANT_AWS_REGIONS,ADMIN_EMAILS,TENANT_PRIMARY_CONTACTS,TENANT_SECONDARY_CONTACTS,TENANT_MANAGER_CONTACTS,TENANT_OWNER_EMAIL -u "$FIRST_USER" sre-init --system | sudo tee -a "$LOG_PATH" >/dev/null
 
-log "Creating $SRE_LOCAL_PATH/success"
-sudo touch "$SRE_LOCAL_PATH/success"
-sudo chmod 000 "$SRE_LOCAL_PATH/success"
+log "Creating $SRE_LOCAL_PATH/.success"
+sudo touch "$SRE_LOCAL_PATH/.success"
+sudo chmod 000 "$SRE_LOCAL_PATH/.success"

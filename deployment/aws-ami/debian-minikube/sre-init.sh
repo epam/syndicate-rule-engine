@@ -64,6 +64,7 @@ Examples:
 Options:
   --backup-name        Backup name to make before the update (default "$AUTO_BACKUP_PREFIX\$timestamp")
   --check              Checks whether update is available but do not try to update
+  --no-backup          Do not do backup
   -h, --help           Show this message and exit
   -y, --yes            Automatic yes to prompts
 EOF
@@ -229,13 +230,11 @@ get_helm_release_version() {
   # currently the version of rule engine chart corresponds to the version of app inside
   helm get metadata "$1" -o json | jq -r '.version'
 }
-get_latest_release_tag() {
-  curl -fLs "${GITHUB_CURL_HEADERS[@]}" "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | jq -r '.tag_name' || die "no latest release for $GITHUB_REPO found"
-}
 
+# some github api functions
 iter_github_releases() {
-  # iterates only over released version by default. --prerelease flag includes prereleases to output. --draft includes drafts
-  local opts draft=0 prerelease=0 per_page=30 filter
+  # iterates only over released version by default. --prerelease flag includes pre-releases to output. --draft includes drafts
+  local opts draft=0 prerelease=0 per_page=${GITHUB_PER_PAGE:-30} filter
   opts="$(getopt -o "" --long "draft,prerelease,per-page:," -n iter_github_releases -- "$@")"
   eval set -- "$opts"
   while true; do
@@ -257,24 +256,38 @@ iter_github_releases() {
     filter='.[] | select(.prerelease == false and .draft == false)'
   fi
   # todo add pagination if needed
-  curl -fLs --request GET "${GITHUB_CURL_HEADERS[@]}" "https://api.github.com/repos/$GITHUB_REPO/releases?per_page=$per_page" | jq -c "$filter" || die "Could not make another request to GitHub. Probably rate limit exceeded"
+  curl -fLs --request GET -H 'Accept: application/vnd.github+json' "${GITHUB_CURL_HEADERS[@]}" "https://api.github.com/repos/$GITHUB_REPO/releases?per_page=$per_page" | jq -c "$filter" || die "Could not make another request to GitHub. Probably rate limit exceeded"
 }
 
-get_new_github_releases() {
-  # requires one parameter -> current release
-  [ ! ${#NEW_GITHUB_RELEASES[@]} -eq 0 ] && return
-  local current_release="$1"
-  shift # all other parameter are passed to iter_github_releases
-
+get_github_release_by_tag() {
   local tag_name
   while IFS= read -r item; do
     tag_name=$(jq -r '.tag_name' <<<"$item")
+    if [ "$1" = "$tag_name" ]; then
+      echo "$item"
+      return
+    fi
+  done < <(iter_github_releases --prerelease --draft)
+  return 1
+}
+
+get_new_github_release() {
+  # requires one parameter -> current release
+  local current_release="$1" tag_name result
+  shift # all other parameter are passed to iter_github_releases
+
+  while IFS= read -r item; do
+    tag_name=$(jq -r '.tag_name' <<<"$item")
     if [[ "$current_release" < "$tag_name" ]]; then
-      NEW_GITHUB_RELEASES+=("$tag_name")
-    else  # higher or equal
+      result="$item"
+    elif [ -n "$result" ]; then  # higher or equal
+      echo "$result"
+      return 0
+    else
       break
     fi
   done < <(iter_github_releases "$@")
+  return 1
 }
 
 ensure_in_path() {
@@ -472,7 +485,7 @@ cmd_init() {
   fi
 
   if [ -n "$init_system" ]; then
-    if [ -f "$SRE_LOCAL_PATH/success" ]; then
+    if [ -f "$SRE_LOCAL_PATH/.success" ]; then
       die "Rule Engine was already initialized. Cannot do that again"
     fi
     if [ "$FIRST_USER" != "$(whoami)" ]; then
@@ -558,20 +571,34 @@ EOF
   echo "Done"
 }
 
-pull_artifacts() {
-  # downloads all necessary files from the given github release tag. Make sure the release exists
-  mkdir -p "$SRE_RELEASES_PATH/$1"
-  # todo allow download from drafts
-  local assets=("$MODULAR_CLI_ARTIFACT_NAME" "$OBFUSCATOR_ARTIFACT_NAME" "$SRE_INIT_ARTIFACT_NAME")
-  for asset in "${assets[@]}"; do
-    if wget -q -O "/tmp/$asset" "https://github.com/$GITHUB_REPO/releases/download/$1/$asset"; then
-      mv "/tmp/$asset" "$SRE_RELEASES_PATH/$1/$asset"
+pull_artifacts () {
+  # todo is that efficient at all?
+  local tag name url
+  tag=$(jq -r '.tag_name' <<<"$1")
+  mkdir -p "$SRE_RELEASES_PATH/$tag"
+
+  while IFS= read -r asset; do
+    name="$(jq -r '.name' <<< "$asset")"
+    url="$(jq -r '.url' <<< "$asset")"
+    echo "Going to download $name for release $tag"
+    if curl -fLs "${GITHUB_CURL_HEADERS[@]}" -o "/tmp/$name" -H "Accept: application/octet-stream" "$url"; then
+      mv "/tmp/$name" "$SRE_RELEASES_PATH/$tag/$name"
     else
-      rm -f "/tmp/$asset"
+      rm -f "/tmp/$name"
       warn "could not download $asset from release $1"
     fi
-  done
+  done < <(jq -c '.assets[]' <<<"$1")
 }
+get_release_type() {
+  if [ "$(jq '.draft' <<<"$1")" = 'true'  ]; then
+    echo 'draft'
+  elif [ "$(jq '.prerelease' <<<"$1")" = 'true' ]; then
+    echo 'prerelease'
+  else
+    echo 'release'
+  fi
+}
+
 update_sre_init() {
   # assuming that the target version already exists locally
   local err=0
@@ -580,6 +607,29 @@ update_sre_init() {
     sudo chmod +x /usr/local/bin/sre-init
   else
     echo "Could not update sre-init"
+  fi
+}
+warn_if_update_available() {
+  # this function is designed to remind a user to update if the update is available
+  local current_release release_data
+  current_release="$(get_helm_release_version "$HELM_RELEASE_NAME")"
+  if release_data="$(get_new_github_release "$current_release")"; then
+    warn "new $(get_release_type "$release_data") $(jq -r '.tag_name' <<<"$release_data") is available. Use 'sre-init update'"
+  fi
+}
+make_update_notification() {
+  if [ ! -f "$UPDATE_NOTIFICATION_FILE" ]; then
+    warn_if_update_available
+    echo "$UPDATE_NOTIFICATION_PERIOD:$(( $(date +%s) / UPDATE_NOTIFICATION_PERIOD ))" > "$UPDATE_NOTIFICATION_FILE"
+    return
+  fi
+  # file exists
+  local period passed
+  IFS=':' read -r period passed <"$UPDATE_NOTIFICATION_FILE"
+  if [ "$(( $(date +%s) / period ))" -ne "$passed" ]; then
+    warn_if_update_available
+    echo "$UPDATE_NOTIFICATION_PERIOD:$(( $(date +%s) / UPDATE_NOTIFICATION_PERIOD ))" > "$UPDATE_NOTIFICATION_FILE"
+    return
   fi
 }
 
@@ -607,17 +657,16 @@ cmd_update_list() {
   done < <(iter_github_releases "${iter_params[@]}") | column --table --table-columns RELEASE,DATE,URL,PRERELEASE,DRAFT
 }
 
-there_are_new_releases() { test "${#NEW_GITHUB_RELEASES[@]}" -ne 0; }
-
 cmd_update() {
-  local opts auto_yes=0 current_release latest_tag backup_name="" iter_params=() check=0 same_version=0
-  opts="$(getopt -o "hy" --long "help,yes,check,allow-prereleases,same-version,backup-name:" -n "$PROGRAM" -- "$@")"
+  local opts auto_yes=0 current_release release_data latest_tag backup_name="" iter_params=() check=0 same_version=0 do_backup=1
+  opts="$(getopt -o "hy" --long "help,yes,check,no-backup,allow-prereleases,same-version,backup-name:" -n "$PROGRAM" -- "$@")"
   eval set -- "$opts"
   while true; do
     case "$1" in
       '-h'|'--help') cmd_update_usage; exit 0 ;;
       '-y'|'--yes') auto_yes=1; shift ;;
       '--check') check=1; shift ;;
+      '--no-backup') do_backup=0; shift ;;
       '--backup-name') backup_name="$2"; shift 2 ;;
       '--allow-prereleases') iter_params=(--prerelease --draft); shift ;;
       '--same-version') same_version=1; shift ;;
@@ -626,30 +675,32 @@ cmd_update() {
   done
   current_release="$(get_helm_release_version "$HELM_RELEASE_NAME")"
   if [ "$same_version" -eq 1 ]; then
+    release_data="$(get_github_release_by_tag "$current_release")" || die "could not get release by tag $current_release"
     latest_tag="$current_release"
   else
-    get_new_github_releases "$current_release" "${iter_params[@]}"
-    if ! there_are_new_releases; then
+    if ! release_data="$(get_new_github_release "$current_release" "${iter_params[@]}")"; then
       echo "Up-to-date"
       exit 0
     fi
+    latest_tag="$(jq -r '.tag_name' <<<"$release_data")"
     # new releases found
     if [ "$check" -eq 1 ]; then
-      warn "you are ${#NEW_GITHUB_RELEASES[@]} release(s) behind the latest release. Use sre-init update"
+      warn "new $(get_release_type "$release_data") $latest_tag is available. Use 'sre-init update'"
       exit 1
     fi
-    echo "The current installed release is $current_release"
-    echo "${#NEW_GITHUB_RELEASES[*]} new github releases available"
-    latest_tag="${NEW_GITHUB_RELEASES[-1]}"
+    echo "The current installed version is $current_release"
+    echo "New github $(get_release_type "$release_data") $latest_tag is available"
   fi
-  echo "Going to update to the next release - $latest_tag"
+  echo "Going to update to $latest_tag"
   [[ $auto_yes -eq 1 ]] || yesno "Do you want to update?"
   echo "Updating to $latest_tag"
-  [ -z "$backup_name" ] && backup_name="$AUTO_BACKUP_PREFIX$(date +%s)"
-  echo "Making backup $backup_name"
-  cmd_backup_create --name "$backup_name" --volumes=minio,mongo,vault
+  if [ "$do_backup" -eq 1 ]; then
+    [ -z "$backup_name" ] && backup_name="$AUTO_BACKUP_PREFIX$(date +%s)"
+    echo "Making backup $backup_name"
+    cmd_backup_create --name "$backup_name" --volumes=minio,mongo,vault
+  fi
   echo "Pulling new artifacts"
-  pull_artifacts "$latest_tag"
+  pull_artifacts "$release_data"
   if [ "$same_version" -eq 1 ]; then
     echo "Restarting existing deployments"
     kubectl rollout restart deployment -l app.kubernetes.io/instance="$HELM_RELEASE_NAME"
@@ -984,8 +1035,6 @@ PV_TO_DEPLOYMENTS["defectdojo-cache"]="defectdojo-redis"
 PV_TO_DEPLOYMENTS["defectdojo-data"]="defectdojo-postgres"
 PV_TO_DEPLOYMENTS["defectdojo-media"]="defectdojo-nginx,defectdojo-uwsgi,defectdojo-celeryworker"
 
-# global var, data pulled by func
-NEW_GITHUB_RELEASES=()
 
 GITHUB_CURL_HEADERS=('-H' 'X-GitHub-Api-Version: 2022-11-28')
 if [ -n "$GITHUB_TOKEN" ]; then
@@ -996,6 +1045,12 @@ fi
 MODULAR_CLI_ARTIFACT_NAME=modular_cli.tar.gz
 OBFUSCATOR_ARTIFACT_NAME=sre_obfuscator.tar.gz
 SRE_INIT_ARTIFACT_NAME=sre-init.sh
+
+# in seconds
+UPDATE_NOTIFICATION_PERIOD="${UPDATE_NOTIFICATION_PERIOD:-3600}"
+UPDATE_NOTIFICATION_FILE="$SRE_LOCAL_PATH/.update-notification"
+
+make_update_notification || true
 
 case "$1" in
   backup) shift; cmd_backup "$@" ;;
