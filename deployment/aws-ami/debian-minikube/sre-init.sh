@@ -315,10 +315,6 @@ user_exists() { id "$1" &>/dev/null; }
 get_kubectl_secret() {
   kubectl get secret "$1" -o jsonpath="{.data.$2}" | base64 --decode
 }
-minikube_ip(){
-  # user may exist in docker group but re-login wasn't made
-  sudo su "$FIRST_USER" -c "minikube ip"
-}
 yesno() {
 	[[ -t 0 ]] || return 0
 	local response
@@ -381,8 +377,7 @@ initialize_system() {
   # - customer based on LM response
   # - tenant within the customer which represents this AWS account
   # - entity that represents defect dojo installation
-  local mip lm_response customer_name tenant_name modular_service_password rule_engine_password license_key dojo_token="" activation_id
-  mip="$(minikube_ip)"
+  local lm_response customer_name tenant_name modular_service_password rule_engine_password license_key dojo_token="" activation_id
 
   ensure_in_path "$HOME/.local/bin"
 
@@ -392,7 +387,7 @@ initialize_system() {
   MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pip3 install --user --break-system-packages --upgrade "$SRE_RELEASES_PATH/$(get_latest_local_release)/$MODULAR_CLI_ARTIFACT_NAME"
 
   echo "Logging in to modular-cli"
-  syndicate setup --username admin --password "$(get_kubectl_secret modular-api-secret system-password)" --api_path "http://$mip:32105" --json
+  syndicate setup --username admin --password "$(get_kubectl_secret modular-api-secret system-password)" --api_path "http://127.0.0.1:8085" --json
   syndicate login --json
 
   echo "Logging in to Rule engine using system user"
@@ -454,7 +449,7 @@ initialize_system() {
   echo "Getting Defect dojo token"
   while [ -z "$dojo_token" ]; do
     sleep 2
-    dojo_token=$(curl -X POST -H 'content-type: application/json' "http://$mip:32107/api/v2/api-token-auth/" -d "{\"username\":\"admin\",\"password\":\"$(get_kubectl_secret "$DEFECTDOJO_SECRET_NAME" system-password)\"}" | jq ".token" -r || true)
+    dojo_token=$(curl -X POST -H 'content-type: application/json' "http://127.0.0.1:80/api/v2/api-token-auth/" -d "{\"username\":\"admin\",\"password\":\"$(get_kubectl_secret "$DEFECTDOJO_SECRET_NAME" system-password)\"}" | jq ".token" -r || true)
   done
 
   echo "Activating dojo installation for rule engine"
@@ -463,7 +458,7 @@ initialize_system() {
 }
 
 cmd_init() {
-  local opts init_system="" target_user="" public_ssh_key="" re_username="" re_password="" admin_username="" admin_password="" new_password api_path
+  local opts init_system="" target_user="" public_ssh_key="" re_username="" re_password="" admin_username="" admin_password="" new_password
   opts="$(getopt -o "h" --long "help,system,user:,public-ssh-key:,re-username:,re-password:,admin-username:,admin-password:" -n "$PROGRAM" -- "$@")"
   eval set -- "$opts"
   while true; do
@@ -541,11 +536,10 @@ EOF
   if [ "$err" -ne 0 ]; then
     echo "Creating new modular-api user"
     new_password="$(generate_password 20 -hex)"
-    api_path="http://$(minikube_ip):32105"
     kubectl exec service/modular-api -- ./modular.py user add --username "$target_user" --group admin_group --password "$new_password"
     sudo su - "$target_user" <<EOF
     echo "Logging in to modular-cli"
-    ~/.local/bin/syndicate setup --username "$target_user" --password "$new_password" --api_path "$api_path"
+    ~/.local/bin/syndicate setup --username "$target_user" --password "$new_password" --api_path "http://127.0.0.1:8085"
     ~/.local/bin/syndicate login
 EOF
   else
