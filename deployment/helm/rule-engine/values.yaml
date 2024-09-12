@@ -43,4 +43,4 @@ modular-api:
   enabled: true
   fullnameOverride: modular-api
   image:
-    tag: 4.1.0-rule-engine
+    tag: 4.1.4-rule-engine
