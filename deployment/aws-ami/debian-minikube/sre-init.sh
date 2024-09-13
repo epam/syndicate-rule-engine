@@ -669,7 +669,7 @@ cmd_update() {
   done
   current_release="$(get_helm_release_version "$HELM_RELEASE_NAME")"
   if [ "$same_version" -eq 1 ]; then
-    release_data="$(get_github_release_by_tag "$current_release")" || die "could not get release by tag $current_release"
+    release_data="$(get_github_release_by_tag "$current_release")" || warn "could not get release by tag $current_release"
     latest_tag="$current_release"
   else
     if ! release_data="$(get_new_github_release "$current_release" "${iter_params[@]}")"; then
@@ -693,8 +693,10 @@ cmd_update() {
     echo "Making backup $backup_name"
     cmd_backup_create --name "$backup_name" --volumes=minio,mongo,vault
   fi
-  echo "Pulling new artifacts"
-  pull_artifacts "$release_data"
+  if [ -n "$release_data" ]; then
+    echo "Pulling new artifacts"
+    pull_artifacts "$release_data"
+  fi
   if [ "$same_version" -eq 1 ]; then
     echo "Restarting existing deployments"  # todo maybe just helm upgrade with the same version
     kubectl rollout restart deployment -l app.kubernetes.io/instance="$HELM_RELEASE_NAME"
