@@ -427,10 +427,13 @@ class Run(ActionHandler):
             workers = workers or DEFAULT_NUMBER_OF_WORKERS
             from onprem.api.app_gunicorn import \
                 CustodianGunicornApplication
+            # todo allow to specify these settings from outside
             options = {
                 'bind': f'{host}:{port}',
                 'workers': workers,
-                'timeout': 60
+                'timeout': 60,
+                'max_requests': 512,
+                'max_requests_jitter': 64
             }
             CustodianGunicornApplication(app, options).run()
         else:
