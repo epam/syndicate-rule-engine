@@ -108,11 +108,23 @@ nginx_conf() {
 worker_processes auto;
 pid /run/nginx.pid;
 error_log /var/log/nginx/error.log;
-# error_log /dev/null emerg;
+worker_rlimit_nofile 8192;
 events {
-    worker_connections 1024;
+    worker_connections 4096;
 }
 http {
+    access_log off;
+    server_tokens off;
+    gzip on;
+    gzip_min_length 10240;
+    gzip_disable msie6;
+    gzip_types application/json;
+
+    client_body_timeout 5s;
+    client_header_timeout 5s;
+    limit_req_zone \$binary_remote_addr zone=req_per_ip:10m rate=30r/s;
+    limit_req_status 429;
+
     include /etc/nginx/mime.types;
     include /etc/nginx/sites-enabled/*;
 }
@@ -182,12 +194,14 @@ server {
         proxy_set_header X-Original-URI \$request_uri;
         proxy_redirect off;
         proxy_pass http://$(minikube_ip):32106/caas;
+        limit_req zone=req_per_ip;
     }
     location /ms {
         include /etc/nginx/proxy_params;
         proxy_set_header X-Original-URI \$request_uri;
         proxy_redirect off;
         proxy_pass http://$(minikube_ip):32104/dev;
+        limit_req zone=req_per_ip;
     }
 }
 EOF
@@ -200,6 +214,7 @@ server {
         include /etc/nginx/proxy_params;
         proxy_redirect off;
         proxy_pass http://$(minikube_ip):32105;
+        limit_req zone=req_per_ip;
     }
 }
 EOF

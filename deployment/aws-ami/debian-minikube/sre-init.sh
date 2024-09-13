@@ -696,7 +696,7 @@ cmd_update() {
   echo "Pulling new artifacts"
   pull_artifacts "$release_data"
   if [ "$same_version" -eq 1 ]; then
-    echo "Restarting existing deployments"
+    echo "Restarting existing deployments"  # todo maybe just helm upgrade with the same version
     kubectl rollout restart deployment -l app.kubernetes.io/instance="$HELM_RELEASE_NAME"
   else
     echo "Updating helm repo"
