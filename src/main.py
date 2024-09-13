@@ -430,6 +430,7 @@ class Run(ActionHandler):
             options = {
                 'bind': f'{host}:{port}',
                 'workers': workers,
+                'timeout': 60
             }
             CustodianGunicornApplication(app, options).run()
         else:

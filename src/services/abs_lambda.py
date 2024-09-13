@@ -108,12 +108,15 @@ class ExpandEnvironmentEventProcessor(AbstractEventProcessor):
         """
         envs = {CAASEnv.INVOCATION_REQUEST_ID.value: context.aws_request_id}
         if host := deep_get(event, ('headers', 'Host')):
+            _LOG.debug(f'Resolved host from header: {host}')
             envs[CAASEnv.API_GATEWAY_HOST.value] = host
         stage = self._resolve_stage(event)
         if stage:
+            _LOG.debug(f'Resolved stage: {stage}')
             envs[CAASEnv.API_GATEWAY_STAGE.value] = stage
 
         if context.invoked_function_arn:
+            _LOG.debug('Extracting account id from event context')
             envs[CAASEnv.ACCOUNT_ID.value] = RequestContext.extract_account_id(
                 context.invoked_function_arn
             )
@@ -173,12 +176,12 @@ class ApiGatewayEventProcessor(AbstractEventProcessor):
             try:
                 body = self._decoder.decode(body)
             except msgspec.ValidationError as e:
-                _LOG.info('Invalid body type came. Returning 400')
+                _LOG.warning('Invalid body type came. Returning 400')
                 raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
                     str(e)
                 ).exc()
             except msgspec.DecodeError as e:
-                _LOG.info('Invalid incoming json. Returning 400')
+                _LOG.warning('Invalid incoming json. Returning 400')
                 raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
                     str(e)
                 ).exc()
@@ -307,12 +310,15 @@ class RestrictCustomerEventProcessor(AbstractEventProcessor):
             event['tenant_access_payload'] = TenantsAccessPayload.build_allowing_all()
 
             if (event['resource'], event['method']) in self.can_work_without_customer_id:  # noqa
+                _LOG.info(f'System is making request that can be done without '
+                          f'customer_id')
                 return event, context
             if not cid:
                 raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
                     'Please, provide customer_id param to make a request on '
                     'his behalf'
                 ).exc()
+            _LOG.info(f'System is making request on behalf of {cid}')
             return event, context
         # override customer attribute for standard users with their customer
         cust = event['cognito_customer']
@@ -365,7 +371,7 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
         :param permission:
         :return: TenantAccessPayload
         """
-        _LOG.debug(f'Checking permission: {permission}')
+        _LOG.info(f'Checking permission: {permission}')
         factory = ResponseFactory(HTTPStatus.FORBIDDEN).message
         # todo cache role and policies?
         role = self._rs.get_nullable(customer, role_name)

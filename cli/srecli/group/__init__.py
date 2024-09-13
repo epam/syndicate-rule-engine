@@ -247,6 +247,8 @@ class JsonResponseProcessor(ResponseProcessor):
         if resp.code == HTTPStatus.NO_CONTENT:
             return {MESSAGE_ATTR: NO_CONTENT_RESPONSE_MESSAGE}
         elif isinstance(resp.exc, json.JSONDecodeError):
+            if not resp.data:
+                return {MESSAGE_ATTR: resp.code.phrase}
             return {MESSAGE_ATTR: f'Invalid JSON received: {resp.exc.msg}'}
         elif isinstance(resp.exc, urllib.error.URLError):
             return {MESSAGE_ATTR: f'Cannot send a request: {resp.exc.reason}'}

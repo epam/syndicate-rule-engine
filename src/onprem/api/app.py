@@ -204,7 +204,9 @@ class OnPremApiBuilder:
             event['body'] = request.body.read().decode()
             event['isBase64Encoded'] = False
 
+        _LOG.info(f'Handling request: {request.method}:{request.path}')
         response = handler(event, RequestContext())
+        _LOG.info('Request was handled. Returning response')
 
         return HTTPResponse(
             body=response['body'],
