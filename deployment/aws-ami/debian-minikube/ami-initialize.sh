@@ -194,14 +194,14 @@ server {
         proxy_set_header X-Original-URI \$request_uri;
         proxy_redirect off;
         proxy_pass http://$(minikube_ip):32106/caas;
-        limit_req zone=req_per_ip;
+        limit_req zone=req_per_ip burst=5 nodelay;
     }
     location /ms {
         include /etc/nginx/proxy_params;
         proxy_set_header X-Original-URI \$request_uri;
         proxy_redirect off;
         proxy_pass http://$(minikube_ip):32104/dev;
-        limit_req zone=req_per_ip;
+        limit_req zone=req_per_ip burst=5 nodelay;
     }
 }
 EOF
@@ -214,7 +214,7 @@ server {
         include /etc/nginx/proxy_params;
         proxy_redirect off;
         proxy_pass http://$(minikube_ip):32105;
-        limit_req zone=req_per_ip;
+        limit_req zone=req_per_ip burst=5 nodelay;
     }
 }
 EOF
