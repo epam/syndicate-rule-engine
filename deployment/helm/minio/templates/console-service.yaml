@@ -1,3 +1,4 @@
+{{- if .Values.console.enabled -}}
 apiVersion: v1
 kind: Service
 metadata:
@@ -20,3 +21,4 @@ spec:
       {{- if (and (eq .Values.consoleService.type "NodePort") ( .Values.consoleService.nodePort)) }}
       nodePort: {{ .Values.consoleService.nodePort }}
       {{- end }}
+{{- end }}

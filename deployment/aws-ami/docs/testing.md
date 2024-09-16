@@ -17,8 +17,8 @@ When setup is finished a file `/usr/local/sre/success` will be created. So if yo
 setup was successful:
 
 ```bash
-# ls /usr/local/sre/success
-test -f /usr/local/sre/success && echo "Success" || echo "Fail"
+# ls /usr/local/sre/.success
+test -f /usr/local/sre/.success && echo "Success" || echo "Fail"
 ```
 
 When setup is finished you must have three cli entrypoints available: `syndicate`, `sreobf`, `sre-init`. 

@@ -9,6 +9,8 @@ consoleService:
   port: 9001
   nodePort: 32103
 
+console:
+  enabled: false
 
 image:
   repository: quay.io/minio/minio

@@ -105,6 +105,7 @@ install_helm() {
 }
 nginx_conf() {
   cat <<EOF
+#load_module /usr/lib/nginx/modules/ngx_stream_module.so;  # for mongo
 worker_processes auto;
 pid /run/nginx.pid;
 error_log /var/log/nginx/error.log;
@@ -128,6 +129,9 @@ http {
     include /etc/nginx/mime.types;
     include /etc/nginx/sites-enabled/*;
 }
+#stream {
+#    include /etc/nginx/streams-enabled/*;
+#}
 EOF
 }
 nginx_defectdojo_conf() {
@@ -182,6 +186,29 @@ server {
         chunked_transfer_encoding off;
         proxy_pass http://$(minikube_ip):32103; # minio ui
    }
+}
+EOF
+}
+nginx_vault_conf() {
+  # just for debugging purposes
+  cat <<EOF
+server {
+    listen 8200;
+    location / {
+        include /etc/nginx/proxy_params;
+        proxy_pass http://$(minikube_ip):32100;
+    }
+}
+EOF
+}
+nginx_mongo_conf() {
+  # just for debugging purposes
+  cat <<EOF
+server {
+    listen 27017;
+    proxy_connect_timeout 1s;
+    proxy_timeout 3s;
+    proxy_pass $(minikube_ip):32101;
 }
 EOF
 }
@@ -311,10 +338,15 @@ enable_minikube_service
 log "Configuring nginx"
 sudo rm /etc/nginx/sites-enabled/*
 sudo rm /etc/nginx/sites-available/*
+sudo mkdir /etc/nginx/streams-available || true
+sudo mkdir /etc/nginx/streams-enabled || true
+
 nginx_conf | sudo tee /etc/nginx/nginx.conf > /dev/null
 nginx_defectdojo_conf | sudo tee /etc/nginx/sites-available/defectdojo > /dev/null
 nginx_minio_api_conf | sudo tee /etc/nginx/sites-available/minio > /dev/null
 nginx_minio_console_conf | sudo tee /etc/nginx/sites-available/minio-console > /dev/null
+nginx_vault_conf | sudo tee /etc/nginx/sites-available/vault > /dev/null
+nginx_mongo_conf | sudo tee /etc/nginx/streams-available/mongo > /dev/null
 nginx_sre_conf | sudo tee /etc/nginx/sites-available/sre > /dev/null  # rule-engine + modular-service
 nginx_modular_api_conf | sudo tee /etc/nginx/sites-available/modular-api > /dev/null
 
