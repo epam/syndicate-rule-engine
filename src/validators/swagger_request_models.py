@@ -930,7 +930,6 @@ class LicenseManagerConfigSettingPostModel(BaseModel):
     stage: str = Field(None)
 
 
-
 class LicenseManagerClientSettingPostModel(BaseModel):
     key_id: str
     algorithm: Annotated[
@@ -964,7 +963,6 @@ class BatchResultsQueryModel(BasePaginationModel):
 
     start: datetime = Field(None)
     end: datetime = Field(None)
-
 
 
 # reports
@@ -1635,7 +1633,7 @@ class UserPatchModel(BaseModel):
 
 class UserPostModel(BaseModel):
     username: str
-    role_name: str = Field(None)
+    role_name: str
     password: str
 
     @field_validator('username', mode='after')
