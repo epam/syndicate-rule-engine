@@ -18,6 +18,7 @@ LM_API_LINK="${LM_API_LINK:-https://lm.syndicate.team}"
 GITHUB_REPO="${GITHUB_REPO:-epam/syndicate-rule-engine}"
 
 FIRST_USER="${FIRST_USER:-$(getent passwd 1000 | cut -d : -f 1)}"
+DO_NOT_ACTIVATE_LICENSE="${DO_NOT_ACTIVATE_LICENSE:-}"
 
 
 log() { echo "[INFO] $(date) $1" >> "$LOG_PATH"; }
@@ -305,19 +306,23 @@ sudo chmod +x /usr/local/bin/sre-init
 sudo chown -R "$FIRST_USER":"$FIRST_USER" "$SRE_LOCAL_PATH"
 
 
-log "Going to make request to license manager"
-lm_response=$(request_to_lm)
-code=$?
-if [ $code -ne 0 ];
-then
-  log_err "Unsuccessful response from the license manager"
-  exit 1
-fi
-lm_response=$(echo "$lm_response" | jq --indent 0 ".items[0]")
-sudo su - "$FIRST_USER" <<EOF
+if [ -z "$DO_NOT_ACTIVATE_LICENSE" ]; then
+  log "Going to make request to license manager"
+  if ! lm_response="$(request_to_lm)"; then
+    log_err "Unsuccessful response from the license manager"
+    exit 1
+  fi
+  lm_response=$(jq --indent 0 '.items[0]' <<<"$lm_response")
+  sudo su - "$FIRST_USER" <<EOF
 kubectl create secret generic lm-data --from-literal=api-link='$LM_API_LINK' --from-literal=lm-response='$lm_response'
 EOF
-log "License information was received"
+  log "License information was received"
+else
+  log "Skipping license activation step"
+  sudo su - "$FIRST_USER" <<EOF
+kubectl create secret generic lm-data --from-literal=api-link='$LM_API_LINK'
+EOF
+fi
 
 
 log "Getting Defect dojo password"
