@@ -194,6 +194,10 @@ class UsersHandler(AbstractHandler):
             raise ResponseFactory(HTTPStatus.CONFLICT).message(
                 f'Customer {event.customer_name} already exists'
             ).exc()
+        if self._user_client.does_user_exist(event.username):
+            raise ResponseFactory(HTTPStatus.CONFLICT).message(
+                f'User {event.username} already exists'
+            ).exc()
         customer = Customer(
             name=event.customer_name,
             display_name=event.customer_display_name,

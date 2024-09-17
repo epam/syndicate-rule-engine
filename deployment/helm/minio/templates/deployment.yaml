@@ -62,9 +62,11 @@ spec:
             - containerPort: 9000
               name: http-api
               protocol: TCP
+            {{- if .Values.console.enabled }}
             - containerPort: 9001
               name: http-console
               protocol: TCP
+            {{- end }}
           volumeMounts:
             - name: minio-storage
               mountPath: "/storage"
@@ -79,3 +81,7 @@ spec:
                 secretKeyRef:
                   name: minio-secret
                   key: password
+            {{- if not .Values.console.enabled }}
+            - name: MINIO_BROWSER
+              value: 'off'
+            {{- end }}

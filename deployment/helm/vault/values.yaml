@@ -3,6 +3,9 @@ service:
   port: 8200
   nodePort: 32100
 
+ui:
+  enabled: 'false'
+
 image:
   repository: hashicorp/vault
   tag: 1.17.2

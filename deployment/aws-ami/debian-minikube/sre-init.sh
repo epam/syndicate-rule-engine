@@ -214,7 +214,9 @@ Options
 EOF
 }
 
-cmd_version() { echo "$VERSION"; }
+cmd_version() {
+  echo "$PROGRAM: $VERSION"
+}
 die() { echo "Error:" "$@" >&2; exit 1; }
 warn() { echo "Warning:" "$@" >&2; }
 cmd_unrecognized() {
@@ -228,7 +230,7 @@ EOF
 get_latest_local_release() { ls "$SRE_RELEASES_PATH" | sort -r | head -n 1; }
 get_helm_release_version() {
   # currently the version of rule engine chart corresponds to the version of app inside
-  helm get metadata "$1" -o json | jq -r '.version'
+  helm get metadata "$1" -o json 2>/dev/null | jq -r '.version'
 }
 
 # some github api functions
@@ -290,11 +292,6 @@ get_new_github_release() {
   return 1
 }
 
-ensure_in_path() {
-  if [[ ":$PATH:" != *":$1:"* ]]; then
-    export PATH=$PATH:$1
-  fi
-}
 # shellcheck disable=SC2120
 generate_password() {
   chars="20"
@@ -359,6 +356,15 @@ resolve_tenant_name() {
   fi
   echo CURRENT  # default
 }
+resolve_customer_name() {
+  # used only if license activation is disabled
+  if [ -n "$CUSTOMER_NAME" ]; then
+    echo "$CUSTOMER_NAME"
+  else
+    echo MAIN
+  fi
+}
+
 build_multiple_params() {
   # build_multiple_params --email admin@gmail.com,admin2@gmail.com -> --email admin@gmail.com --email admin2gmail.com
   local item counter=0
@@ -379,7 +385,9 @@ initialize_system() {
   # - entity that represents defect dojo installation
   local lm_response customer_name tenant_name modular_service_password rule_engine_password license_key dojo_token="" activation_id
 
-  ensure_in_path "$HOME/.local/bin"
+  # this function if invoked using sudo -E -u "$FIRST_USER" sre-init --system. So, some envs must be adjusted.
+  # Currently, don't know how to solve that in better way
+  export PATH="$PATH:/home/$FIRST_USER/.local/bin"
 
   echo "Installing obfuscation manager"
   pip3 install --user --break-system-packages --upgrade "$SRE_RELEASES_PATH/$(get_latest_local_release)/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]"
@@ -398,22 +406,26 @@ initialize_system() {
   syndicate admin configure --api_link http://modular-service:8040/dev --json
   syndicate admin login --username system_user --password "$(get_kubectl_secret modular-service-secret system-password)" --json
 
-  lm_response=$(get_kubectl_secret lm-data lm-response)
-  customer_name=$(echo "$lm_response" | jq ".customer_name" -r)
-
   echo "Generating passwords for modular-service and rule-engine non-system users"
   modular_service_password="$(generate_password)"
   rule_engine_password="$(generate_password)"
   patch_kubectl_secret "$RULE_ENGINE_SECRET_NAME" "admin-password" "$rule_engine_password"
   patch_kubectl_secret "$MODULAR_SERVICE_SECRET_NAME" "admin-password" "$modular_service_password"
 
+  if [ -z "$DO_NOT_ACTIVATE_LICENSE" ]; then
+    customer_name="$(jq ".customer_name" -r <<<"$(get_kubectl_secret lm-data lm-response)")"
+  else
+    customer_name="$(resolve_customer_name)"
+  fi
+
   echo "Creating modular service customer and its user"
   syndicate admin signup --username "$MODULAR_SERVICE_USERNAME" --password "$modular_service_password" --customer_name "$customer_name" --customer_display_name "$customer_name" $(build_multiple_params --customer_admin "$ADMIN_EMAILS") --json
 
   echo "Creating custodian customer users"
-#  syndicate re meta update_meta --json
   syndicate re setting lm config add --host "$(get_kubectl_secret lm-data api-link)" --json
-  syndicate re setting lm client add --key_id "$(echo "$lm_response" | jq ".private_key.key_id" -r)" --algorithm "$(echo "$lm_response" | jq ".private_key.algorithm" -r)" --private_key "$(echo "$lm_response" | jq ".private_key.value" -r)" --b64encoded --json
+  if [ -z "$DO_NOT_ACTIVATE_LICENSE" ]; then
+    syndicate re setting lm client add --key_id "$(echo "$lm_response" | jq ".private_key.key_id" -r)" --algorithm "$(echo "$lm_response" | jq ".private_key.algorithm" -r)" --private_key "$(echo "$lm_response" | jq ".private_key.value" -r)" --b64encoded --json
+  fi
   syndicate re policy add --name admin_policy --permissions_admin --effect allow --tenant '*' --description "Full admin access policy for customer" --customer_id "$customer_name" --json
   syndicate re role add --name admin_role --policies admin_policy --description "Admin customer role" --customer_id "$customer_name" --json
   syndicate re users create --username "$RULE_ENGINE_USERNAME" --password "$rule_engine_password" --role_name admin_role --customer_id "$customer_name" --json
@@ -423,9 +435,11 @@ initialize_system() {
   syndicate admin login --username "$MODULAR_SERVICE_USERNAME" --password "$modular_service_password" --json
   syndicate re login --username "$RULE_ENGINE_USERNAME" --password "$rule_engine_password" --json
 
-  echo "Adding tenant license"
-  license_key=$(syndicate re license add --tenant_license_key "$(echo "$lm_response" | jq ".tenant_license_key" -r)" --json | jq ".items[0].license_key" -r)
-  syndicate re license activate --license_key "$license_key" --all_tenants --json  # can be removed with new version of sre
+  if [ -z "$DO_NOT_ACTIVATE_LICENSE" ]; then
+    echo "Adding tenant license"
+    license_key=$(syndicate re license add --tenant_license_key "$(echo "$lm_response" | jq ".tenant_license_key" -r)" --json | jq ".items[0].license_key" -r)
+    syndicate re license activate --license_key "$license_key" --all_tenants --json  # can be removed with new version of sre
+  fi
 
 
   tenant_name="$(resolve_tenant_name)"
@@ -606,14 +620,14 @@ update_sre_init() {
 warn_if_update_available() {
   # this function is designed to remind a user to update if the update is available
   local current_release release_data
-  current_release="$(get_helm_release_version "$HELM_RELEASE_NAME")"
+  current_release="$(get_helm_release_version "$HELM_RELEASE_NAME")" || return 1
   if release_data="$(get_new_github_release "$current_release")"; then
     warn "new $(get_release_type "$release_data") $(jq -r '.tag_name' <<<"$release_data") is available. Use 'sre-init update'"
   fi
 }
 make_update_notification() {
   if [ ! -f "$UPDATE_NOTIFICATION_FILE" ]; then
-    warn_if_update_available
+    warn_if_update_available || return 1
     echo "$UPDATE_NOTIFICATION_PERIOD:$(( $(date +%s) / UPDATE_NOTIFICATION_PERIOD ))" > "$UPDATE_NOTIFICATION_FILE"
     return
   fi
@@ -621,7 +635,7 @@ make_update_notification() {
   local period passed
   IFS=':' read -r period passed <"$UPDATE_NOTIFICATION_FILE"
   if [ "$(( $(date +%s) / period ))" -ne "$passed" ]; then
-    warn_if_update_available
+    warn_if_update_available || return 1
     echo "$UPDATE_NOTIFICATION_PERIOD:$(( $(date +%s) / UPDATE_NOTIFICATION_PERIOD ))" > "$UPDATE_NOTIFICATION_FILE"
     return
   fi
@@ -826,13 +840,15 @@ cmd_backup() {
 }
 
 resolve_backup_path() {
+  local version
   if [ -n "$1" ]; then
     [ -n "$2" ] && warn "--version is ignored because --path is specified"
     echo "$1" # ignoring version if path is specified
   elif [ -n "$2" ]; then
     echo "$SRE_BACKUPS_PATH/$2"
   else
-    echo "$SRE_BACKUPS_PATH/$(get_helm_release_version "$HELM_RELEASE_NAME")"
+    version="$(get_helm_release_version "$HELM_RELEASE_NAME")" || die "cannot resolve current installation version. Use --version"
+    echo "$SRE_BACKUPS_PATH/$version"
   fi
 }
 
@@ -853,7 +869,7 @@ cmd_backup_list() {
     echo -e "No backups found in $path\nTip: use sre-init backup ls --version \$previous to see backups for older installations" >&2
     exit 0
   fi
-  find "$path/"* -maxdepth 1 -type d -print0 | xargs -0 stat --format "%W %n" | sort -r | while IFS=' ' read -r ts fp; do
+  find "$path/"* -maxdepth 0 -type d -print0 | xargs -0 stat --format "%W %n" | sort -r | while IFS=' ' read -r ts fp; do
     pvs=$(find "$fp" -name '*.tar.gz' -type f -exec basename --suffix='.tar.gz' '{}' \; | sort | tr '\n' ',' | sed 's/,$//')
     size="$(du -hsc "$fp"/*.tar.gz 2>/dev/null | grep total | cut -f1 || true)"
     printf "%s|%s|%s|%s\n" "$(basename "$fp")" "$(date --date="@$ts")" "${size:-0}" "$pvs"
@@ -899,10 +915,12 @@ cmd_backup_create() {
     esac
   done
   [ -z "$name" ] && die "--name is required"
-  [ -z "$path" ] && path="$SRE_BACKUPS_PATH/$(get_helm_release_version "$HELM_RELEASE_NAME")"
+  if [ -z "$path" ]; then
+    path="$SRE_BACKUPS_PATH/$(get_helm_release_version "$HELM_RELEASE_NAME")" || die "cannot resolve current version"
+  fi
   [ -d "$path/$name" ] && die "'$name' already exists"
   if [ -z "$volumes" ]; then
-    for vol in $(kubectl get pv -o=jsonpath="{.items[*].metadata.name}"); do
+    for vol in $(kubectl get pv -o=jsonpath="{.items[*].metadata.name}" 2>/dev/null); do
       items+=("$vol")
     done
   else
@@ -940,7 +958,7 @@ cmd_backup_restore() {
     esac
   done
   [ -z "$name" ] && die "--name is required"
-  current_release="$(get_helm_release_version "$HELM_RELEASE_NAME")"
+  current_release="$(get_helm_release_version "$HELM_RELEASE_NAME")" || die "cannot resolve current version"
   [ "$force" -eq 0 ] && [ -n "$version" ] && [ "$version" != "$current_release" ] && die "current release $current_release does not match to the backup version $version. Specify --force if you really want to restore backup"
   path="$(resolve_backup_path "$path" "$version")"
   [ ! -d "$path/$name" ] && die "backup '$name' (from $path) not found"
@@ -969,14 +987,12 @@ cmd_backup_restore() {
 
 cmd_secrets() {
   if [ -z "$1" ]; then
-    for key in "${!SECRETS_MAPPING[@]}"; do
-      echo "$key"
-    done
+    printf "%s\n" "${!SECRETS_MAPPING[@]}"
     return
   fi
-  [ ! -v SECRETS_MAPPING["$1"] ] && die "There is no secret $1"
+  [ ! -v SECRETS_MAPPING["$1"] ] && die "there is no secret $1"
   IFS=',' read -ra values <<< "${SECRETS_MAPPING[$1]}"
-  get_kubectl_secret "${values[0]}" "${values[1]}"
+  get_kubectl_secret "${values[0]}" "${values[1]}" || die "cannot reach secret. Probably, you don't have access"
 }
 
 # Start
@@ -991,12 +1007,14 @@ SRE_RELEASES_PATH="${SRE_RELEASES_PATH:-$SRE_LOCAL_PATH/releases}"
 SRE_BACKUPS_PATH="${SRE_BACKUPS_PATH:-$SRE_LOCAL_PATH/backups}"
 GITHUB_REPO="${GITHUB_REPO:-epam/syndicate-rule-engine}"
 HELM_RELEASE_NAME="${HELM_RELEASE_NAME:-rule-engine}"
+DO_NOT_ACTIVATE_LICENSE="${DO_NOT_ACTIVATE_LICENSE:-}"
 
 # for --system configuration
 MODULAR_SERVICE_USERNAME="${MODULAR_SERVICE_USERNAME:-admin}"
 RULE_ENGINE_USERNAME="${RULE_ENGINE_USERNAME:-admin}"
 TENANT_AWS_REGIONS="${TENANT_AWS_REGIONS:-us-east-1 us-east-2 us-west-1 us-west-2 af-south-1 ap-east-1 ap-south-2 ap-southeast-3 ap-southeast-4 ap-south-1 ap-northeast-3 ap-northeast-2 ap-southeast-1 ap-southeast-2 ap-northeast-1 ca-central-1 ca-west-1 eu-central-1 eu-west-1 eu-west-2 eu-south-1 eu-west-3 eu-south-2 eu-north-1 eu-central-2 il-central-1 me-south-1 me-central-1 sa-east-1 us-gov-east-1 us-gov-west-1}"
 FIRST_USER="${FIRST_USER:-$(getent passwd 1000 | cut -d : -f 1)}"
+#CUSTOMER_NAME=  # resolved dynamically, see corresponding method
 #TENANT_NAME=  # resolved dynamically, see corresponding method
 #ADMIN_EMAILS=
 #TENANT_PRIMARY_CONTACTS=

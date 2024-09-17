@@ -18,6 +18,7 @@ LM_API_LINK="${LM_API_LINK:-https://lm.syndicate.team}"
 GITHUB_REPO="${GITHUB_REPO:-epam/syndicate-rule-engine}"
 
 FIRST_USER="${FIRST_USER:-$(getent passwd 1000 | cut -d : -f 1)}"
+DO_NOT_ACTIVATE_LICENSE="${DO_NOT_ACTIVATE_LICENSE:-}"
 
 
 log() { echo "[INFO] $(date) $1" >> "$LOG_PATH"; }
@@ -105,6 +106,7 @@ install_helm() {
 }
 nginx_conf() {
   cat <<EOF
+#load_module /usr/lib/nginx/modules/ngx_stream_module.so;  # for mongo
 worker_processes auto;
 pid /run/nginx.pid;
 error_log /var/log/nginx/error.log;
@@ -128,6 +130,9 @@ http {
     include /etc/nginx/mime.types;
     include /etc/nginx/sites-enabled/*;
 }
+#stream {
+#    include /etc/nginx/streams-enabled/*;
+#}
 EOF
 }
 nginx_defectdojo_conf() {
@@ -182,6 +187,29 @@ server {
         chunked_transfer_encoding off;
         proxy_pass http://$(minikube_ip):32103; # minio ui
    }
+}
+EOF
+}
+nginx_vault_conf() {
+  # just for debugging purposes
+  cat <<EOF
+server {
+    listen 8200;
+    location / {
+        include /etc/nginx/proxy_params;
+        proxy_pass http://$(minikube_ip):32100;
+    }
+}
+EOF
+}
+nginx_mongo_conf() {
+  # just for debugging purposes
+  cat <<EOF
+server {
+    listen 27017;
+    proxy_connect_timeout 1s;
+    proxy_timeout 3s;
+    proxy_pass $(minikube_ip):32101;
 }
 EOF
 }
@@ -278,19 +306,23 @@ sudo chmod +x /usr/local/bin/sre-init
 sudo chown -R "$FIRST_USER":"$FIRST_USER" "$SRE_LOCAL_PATH"
 
 
-log "Going to make request to license manager"
-lm_response=$(request_to_lm)
-code=$?
-if [ $code -ne 0 ];
-then
-  log_err "Unsuccessful response from the license manager"
-  exit 1
-fi
-lm_response=$(echo "$lm_response" | jq --indent 0 ".items[0]")
-sudo su - "$FIRST_USER" <<EOF
+if [ -z "$DO_NOT_ACTIVATE_LICENSE" ]; then
+  log "Going to make request to license manager"
+  if ! lm_response="$(request_to_lm)"; then
+    log_err "Unsuccessful response from the license manager"
+    exit 1
+  fi
+  lm_response=$(jq --indent 0 '.items[0]' <<<"$lm_response")
+  sudo su - "$FIRST_USER" <<EOF
 kubectl create secret generic lm-data --from-literal=api-link='$LM_API_LINK' --from-literal=lm-response='$lm_response'
 EOF
-log "License information was received"
+  log "License information was received"
+else
+  log "Skipping license activation step"
+  sudo su - "$FIRST_USER" <<EOF
+kubectl create secret generic lm-data --from-literal=api-link='$LM_API_LINK'
+EOF
+fi
 
 
 log "Getting Defect dojo password"
@@ -311,10 +343,15 @@ enable_minikube_service
 log "Configuring nginx"
 sudo rm /etc/nginx/sites-enabled/*
 sudo rm /etc/nginx/sites-available/*
+sudo mkdir /etc/nginx/streams-available || true
+sudo mkdir /etc/nginx/streams-enabled || true
+
 nginx_conf | sudo tee /etc/nginx/nginx.conf > /dev/null
 nginx_defectdojo_conf | sudo tee /etc/nginx/sites-available/defectdojo > /dev/null
 nginx_minio_api_conf | sudo tee /etc/nginx/sites-available/minio > /dev/null
 nginx_minio_console_conf | sudo tee /etc/nginx/sites-available/minio-console > /dev/null
+nginx_vault_conf | sudo tee /etc/nginx/sites-available/vault > /dev/null
+nginx_mongo_conf | sudo tee /etc/nginx/streams-available/mongo > /dev/null
 nginx_sre_conf | sudo tee /etc/nginx/sites-available/sre > /dev/null  # rule-engine + modular-service
 nginx_modular_api_conf | sudo tee /etc/nginx/sites-available/modular-api > /dev/null
 
