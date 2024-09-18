@@ -461,14 +461,14 @@ def response(*args, **kwargs):
 
 # callbacks
 def convert_in_upper_case_if_present(ctx, param, value):
-    if isinstance(value, list | tuple):
+    if isinstance(value, (list, tuple)):
         return [each.upper() for each in value]
     elif value:
         return value.upper()
 
 
 def convert_in_lower_case_if_present(ctx, param, value):
-    if isinstance(value, list):
+    if isinstance(value, (list, tuple)):
         return [each.lower() for each in value]
     elif value:
         return value.lower()
@@ -493,17 +493,6 @@ def build_account_option(**kwargs) -> Callable:
     )
     params.update(kwargs)
     return click.option('--account_number', '-acc', **params)
-
-
-def build_tenant_display_name_option(**kwargs) -> Callable:
-    params = dict(
-        type=str,
-        required=True,
-        help='The name of the target tenant group',
-        callback=convert_in_lower_case_if_present
-    )
-    params.update(kwargs)
-    return click.option('--tenant_display_name', '-tdn', **params)
 
 
 def build_iso_date_option(*args, **kwargs) -> Callable:
@@ -559,7 +548,6 @@ def build_limit_option(**kwargs) -> Callable:
 
 
 tenant_option = build_tenant_option()
-tenant_display_name_option = build_tenant_display_name_option()
 account_option = build_account_option()
 
 optional_job_type_option = build_job_type_option()

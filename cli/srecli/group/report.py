@@ -1,7 +1,7 @@
 import click
 
 from srecli.group import ContextObj, ViewCommand, build_tenant_option, \
-    cli_response, tenant_display_name_option, response
+    cli_response, response, convert_in_lower_case_if_present
 from srecli.group.report_compliance import compliance
 from srecli.group.report_details import details
 from srecli.group.report_digests import digests
@@ -54,7 +54,9 @@ def operational(ctx: ContextObj, tenant_name, report_types, customer_id,
 
 
 @report.command(cls=ViewCommand, name='project')
-@tenant_display_name_option
+@click.option('--tenant_display_name', '-tdn', type=str, required=True,
+              callback=convert_in_lower_case_if_present,
+              help='Display name of tenants to use for project report')
 @click.option('--report_types', '-rt', multiple=True, type=click.Choice(
     ('OVERVIEW', 'RESOURCES', 'COMPLIANCE', 'ATTACK_VECTOR', 'FINOPS')),
               required=False, help='Report type')
@@ -64,7 +66,7 @@ def operational(ctx: ContextObj, tenant_name, report_types, customer_id,
 def project(ctx: ContextObj, report_types, tenant_display_name, customer_id,
             receiver):
     """
-    Retrieves project-level reports for a tenant group
+    Retrieves project-level reports for tenants
     """
     res = ctx['api_client'].project_report_post(
         tenant_display_names=[tenant_display_name],
