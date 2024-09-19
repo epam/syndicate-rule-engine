@@ -15,6 +15,7 @@ from helpers.constants import REPORT_FIELDS
 from helpers.reports import NONE_VERSION, Standard, Severity
 from services import SP
 from services.xlsx_writer import CellContent, Table, XlsxRowsWriter
+from services.mappings_collector import MappingsCollector
 
 if TYPE_CHECKING:
     from services.sharding import ShardsCollection
@@ -189,11 +190,14 @@ class ShardsCollectionGenericDojoConvertor(ShardCollectionDojoConvertor):
     def convert(self, collection: 'ShardsCollection') -> Findings:
         findings = []
         meta = collection.meta
+        mc2 = MappingsCollector.build_from_sharding_collection_meta(collection.meta)
+
         human_data = self.mc.human_data
         severity = self.mc.severity
-        standards = self.mc.standard
+        standards = self.mc.standard or mc2.standard
         service = self.mc.service
-        ss = self.mc.service_section
+        ss = self.mc.service_section or mc2.service_section
+
         for part in collection.iter_parts():
             if not part.resources:
                 continue
@@ -300,9 +304,10 @@ class ShardsCollectionCloudCustodianDojoConvertor(ShardCollectionDojoConvertor):
     def convert(self, collection: 'ShardsCollection') -> list[Model]:
         result = []
         meta = collection.meta
-        human_data = self.mc.human_data or {}
-        severity = self.mc.severity or {}
-        standards = self.mc.standard or {}
+        mc2 = MappingsCollector.build_from_sharding_collection_meta(meta)
+        human_data = self.mc.human_data
+        severity = self.mc.severity
+        standards = self.mc.standard or mc2.standard
         for part in collection.iter_parts():
             if not part.resources:
                 continue
