@@ -732,7 +732,7 @@ cmd_update() {
     echo "Upgrading modular CLI"
     MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pip3 install --user --break-system-packages --upgrade "$SRE_RELEASES_PATH/$latest_tag/${MODULAR_CLI_ARTIFACT_NAME}" >/dev/null
   fi
-  if [ -f "$SRE_RELEASES_PATH/$1/$SRE_INIT_ARTIFACT_NAME" ]; then
+  if [ -f "$SRE_RELEASES_PATH/$latest_tag/$SRE_INIT_ARTIFACT_NAME" ]; then
     echo "Trying to update sre-init"
     update_sre_init "$latest_tag"
   fi
