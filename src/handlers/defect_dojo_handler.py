@@ -113,7 +113,7 @@ class DefectDojoHandler(AbstractHandler):
                             customer: str | None = None) -> Iterable[Parent]:
         it = self._ps.i_list_application_parents(
             application_id=dojo_id,
-            type_=ParentType.SIEM_DEFECT_DOJO,
+            type_=ParentType.CUSTODIAN_SIEM_DEFECT_DOJO,
             rate_limit=3
         )
         if customer:
@@ -158,7 +158,7 @@ class DefectDojoHandler(AbstractHandler):
             parent_service=self._ps,
             application_id=id,
             customer_id=event.customer,
-            type_=ParentType.SIEM_DEFECT_DOJO,
+            type_=ParentType.CUSTODIAN_SIEM_DEFECT_DOJO,
             created_by=_pe['cognito_user_id'],
             meta=meta.dict()
         )

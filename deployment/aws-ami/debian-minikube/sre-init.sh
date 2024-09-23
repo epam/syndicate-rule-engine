@@ -366,14 +366,14 @@ resolve_customer_name() {
 }
 
 build_multiple_params() {
-  # build_multiple_params --email admin@gmail.com,admin2@gmail.com -> --email admin@gmail.com --email admin2gmail.com
+  # build_multiple_params --email "admin@gmail.com admin2@gmail.com" -> --email admin@gmail.com --email admin2gmail.com
   local item counter=0
-  while read -r -d ',' item; do
+  for item in $2; do
     if [ -n "$3" ] && [ "$counter" -eq "$3" ]; then return; fi
     [ -z "$item" ] && continue
     printf "%s %s " "$1" "$item"
     ((counter++))
-  done <<<",$2,"
+  done
 }
 
 initialize_system() {
@@ -424,7 +424,8 @@ initialize_system() {
   echo "Creating custodian customer users"
   syndicate re setting lm config add --host "$(get_kubectl_secret lm-data api-link)" --json
   if [ -z "$DO_NOT_ACTIVATE_LICENSE" ]; then
-    syndicate re setting lm client add --key_id "$(echo "$lm_response" | jq ".private_key.key_id" -r)" --algorithm "$(echo "$lm_response" | jq ".private_key.algorithm" -r)" --private_key "$(echo "$lm_response" | jq ".private_key.value" -r)" --b64encoded --json
+    lm_response="$(get_kubectl_secret lm-data lm-response)"
+    syndicate re setting lm client add --key_id "$(jq ".private_key.key_id" -r <<<"$lm_response")" --algorithm "$(jq ".private_key.algorithm" -r <<<"$lm_response")" --private_key "$(jq ".private_key.value" -r <<<"$lm_response")" --b64encoded --json
   fi
   syndicate re policy add --name admin_policy --permissions_admin --effect allow --tenant '*' --description "Full admin access policy for customer" --customer_id "$customer_name" --json
   syndicate re role add --name admin_role --policies admin_policy --description "Admin customer role" --customer_id "$customer_name" --json
@@ -437,7 +438,7 @@ initialize_system() {
 
   if [ -z "$DO_NOT_ACTIVATE_LICENSE" ]; then
     echo "Adding tenant license"
-    license_key=$(syndicate re license add --tenant_license_key "$(echo "$lm_response" | jq ".tenant_license_key" -r)" --json | jq ".items[0].license_key" -r)
+    license_key=$(syndicate re license add --tenant_license_key "$(jq ".tenant_license_key" -r <<<"$lm_response")" --json | jq ".items[0].license_key" -r)
     syndicate re license activate --license_key "$license_key" --all_tenants --json  # can be removed with new version of sre
   fi
 
@@ -456,6 +457,7 @@ initialize_system() {
   echo "Activating region for tenant"
   for r in $TENANT_AWS_REGIONS;
   do
+    [ -z "$r" ] && continue
     echo "Activating $r for tenant"
     syndicate admin tenant regions activate --tenant_name "$tenant_name" --region_name "$r" --json > /dev/null
   done
@@ -666,8 +668,8 @@ cmd_update_list() {
 }
 
 cmd_update() {
-  local opts auto_yes=0 current_release release_data latest_tag backup_name="" iter_params=() check=0 same_version=0 do_backup=1
-  opts="$(getopt -o "hy" --long "help,yes,check,no-backup,allow-prereleases,same-version,backup-name:" -n "$PROGRAM" -- "$@")"
+  local opts auto_yes=0 current_release release_data latest_tag backup_name="" iter_params=() check=0 same_version=0 do_backup=1 do_patch='true'
+  opts="$(getopt -o "hy" --long "help,yes,check,no-backup,no-patch,allow-prereleases,same-version,backup-name:" -n "$PROGRAM" -- "$@")"
   eval set -- "$opts"
   while true; do
     case "$1" in
@@ -675,6 +677,7 @@ cmd_update() {
       '-y'|'--yes') auto_yes=1; shift ;;
       '--check') check=1; shift ;;
       '--no-backup') do_backup=0; shift ;;
+      '--no-patch') do_patch='false'; shift ;;
       '--backup-name') backup_name="$2"; shift 2 ;;
       '--allow-prereleases') iter_params=(--prerelease --draft); shift ;;
       '--same-version') same_version=1; shift ;;
@@ -719,7 +722,7 @@ cmd_update() {
     helm repo update syndicate
     helm search repo syndicate/rule-engine --version "$latest_tag" --fail-on-no-result >/dev/null 2>&1 || die "$latest_tag version $HELM_RELEASE_NAME chart not found. Cannot update"
     echo "Upgrading $HELM_RELEASE_NAME chart to $latest_tag version"
-    helm upgrade "$HELM_RELEASE_NAME" syndicate/rule-engine --version "$latest_tag"  # todo add flags + if failed restore backup --atomic
+    helm upgrade "$HELM_RELEASE_NAME" syndicate/rule-engine --version "$latest_tag" --set=patch.enabled="$do_patch"  # todo add flags + if failed restore backup --atomic
   fi
   if [ -f "$SRE_RELEASES_PATH/$latest_tag/$OBFUSCATOR_ARTIFACT_NAME" ]; then
     echo "Upgrading obfuscation manager"
