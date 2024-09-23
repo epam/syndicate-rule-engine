@@ -43,5 +43,42 @@ spec:
                   key: modular-db-name
             - name: modular_service_mode
               value: docker
+            - name: CAAS_SERVICE_MODE
+              value: docker
+            - name: CAAS_MONGO_URI
+              value: "mongodb://$(modular_mongo_user):$(modular_mongo_password)@$(modular_mongo_url)/"
+            - name: CAAS_MONGO_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "rule-engine.fullname" . }}
+                  key: db-name
+            - name: VAULT_URL
+              value: {{ .Values.vaultService }}
+            - name: VAULT_SERVICE_SERVICE_PORT
+              value: "{{ .Values.vaultPort }}"
+            - name: CAAS_VAULT_ENDPOINT
+              value: "http://$(VAULT_URL):$(VAULT_SERVICE_SERVICE_PORT)"
+            - name: CAAS_VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vault-secret
+                  key: token
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vault-secret
+                  key: token
+            - name: CAAS_MINIO_ENDPOINT
+              value: "http://{{ .Values.minioService }}:{{ .Values.minioPort }}"
+            - name: CAAS_MINIO_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: username
+            - name: CAAS_MINIO_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: password
       restartPolicy: OnFailure
 {{- end }}
