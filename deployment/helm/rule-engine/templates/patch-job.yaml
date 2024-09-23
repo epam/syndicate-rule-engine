@@ -1,0 +1,47 @@
+{{- if .Values.patch.enabled -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "rule-engine.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "rule-engine.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ include "rule-engine.chart" . }}
+spec:
+  ttlSecondsAfterFinished: {{ .Values.patch.ttlSecondsAfterFinished }}
+  backoffLimit: {{ .Values.patch.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "rule-engine.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        helm.sh/chart: {{ include "rule-engine.chart" . }}
+    spec:
+      containers:
+        - name: rule-engine-patch
+          image: "{{ .Values.patch.image.repository }}:{{ .Values.patch.image.tag }}"
+          imagePullPolicy: {{ .Values.patch.image.pullPolicy }}
+          env:
+            - name: modular_mongo_user
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-secret
+                  key: username
+            - name: modular_mongo_password
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-secret
+                  key: password
+            - name: modular_mongo_url
+              value: "{{ .Values.mongoService }}:{{ .Values.mongoPort }}"
+            - name: modular_mongo_db_name
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "rule-engine.fullname" . }}
+                  key: modular-db-name
+            - name: modular_service_mode
+              value: docker
+      restartPolicy: OnFailure
+{{- end }}
