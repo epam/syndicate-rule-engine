@@ -354,14 +354,14 @@ resolve_tenant_name() {
     echo "${tn^^}"
     return
   fi
-  echo CURRENT  # default
+  echo TENANT_1  # default
 }
 resolve_customer_name() {
   # used only if license activation is disabled
   if [ -n "$CUSTOMER_NAME" ]; then
     echo "$CUSTOMER_NAME"
   else
-    echo MAIN
+    echo CUSTOMER_1
   fi
 }
 
@@ -385,8 +385,6 @@ initialize_system() {
   # - entity that represents defect dojo installation
   local lm_response customer_name tenant_name modular_service_password rule_engine_password license_key dojo_token="" activation_id
 
-  # this function if invoked using sudo -E -u "$FIRST_USER" sre-init --system. So, some envs must be adjusted.
-  # Currently, don't know how to solve that in better way
   export PATH="$PATH:/home/$FIRST_USER/.local/bin"
 
   echo "Installing obfuscation manager"
@@ -414,23 +412,30 @@ initialize_system() {
 
   if [ -z "$DO_NOT_ACTIVATE_LICENSE" ]; then
     customer_name="$(jq ".customer_name" -r <<<"$(get_kubectl_secret lm-data lm-response)")"
+    lm_response="$(get_kubectl_secret lm-data lm-response)"
   else
     customer_name="$(resolve_customer_name)"
   fi
-
-  echo "Creating modular service customer and its user"
-  syndicate admin signup --username "$MODULAR_SERVICE_USERNAME" --password "$modular_service_password" --customer_name "$customer_name" --customer_display_name "$customer_name" $(build_multiple_params --customer_admin "$ADMIN_EMAILS") --json
+  # here i must create customer if it does not exit
+  if ! syndicate admin customer describe --name "$customer_name" >/dev/null 2>&1; then
+    echo "Creating customer $customer_name"
+    syndicate admin customer add --name "$customer_name" --display_name "${CUSTOMER_DISPLAY_NAME:-$customer_name}" $(build_multiple_params --admin "$ADMIN_EMAILS") --json
+  fi
+  echo "Creating modular service policy, role and user"
+  syndicate admin policy add --name admin_policy --permissions_admin --customer_id "$customer_name" --json
+  syndicate admin role add --name admin_role --policies admin_policy --customer_id "$customer_name" --json
+  syndicate admin users create --username "$MODULAR_SERVICE_USERNAME" --password "$modular_service_password" --role_name admin_role --customer_id "$customer_name" --json
 
   echo "Creating custodian customer users"
-  syndicate re setting lm config add --host "$(get_kubectl_secret lm-data api-link)" --json
-  if [ -z "$DO_NOT_ACTIVATE_LICENSE" ]; then
-    lm_response="$(get_kubectl_secret lm-data lm-response)"
-    syndicate re setting lm client add --key_id "$(jq ".private_key.key_id" -r <<<"$lm_response")" --algorithm "$(jq ".private_key.algorithm" -r <<<"$lm_response")" --private_key "$(jq ".private_key.value" -r <<<"$lm_response")" --b64encoded --json
-  fi
   syndicate re policy add --name admin_policy --permissions_admin --effect allow --tenant '*' --description "Full admin access policy for customer" --customer_id "$customer_name" --json
   syndicate re role add --name admin_role --policies admin_policy --description "Admin customer role" --customer_id "$customer_name" --json
   syndicate re users create --username "$RULE_ENGINE_USERNAME" --password "$rule_engine_password" --role_name admin_role --customer_id "$customer_name" --json
 
+  echo "Setting LM related settings"
+  syndicate re setting lm config add --host "$(get_kubectl_secret lm-data api-link)" --json
+  if [ -z "$DO_NOT_ACTIVATE_LICENSE" ]; then
+    syndicate re setting lm client add --key_id "$(jq ".private_key.key_id" -r <<<"$lm_response")" --algorithm "$(jq ".private_key.algorithm" -r <<<"$lm_response")" --private_key "$(jq ".private_key.value" -r <<<"$lm_response")" --b64encoded --json
+  fi
 
   echo "Logging in as customer users"
   syndicate admin login --username "$MODULAR_SERVICE_USERNAME" --password "$modular_service_password" --json
@@ -442,25 +447,30 @@ initialize_system() {
     syndicate re license activate --license_key "$license_key" --all_tenants --json  # can be removed with new version of sre
   fi
 
-
-  tenant_name="$(resolve_tenant_name)"
-  echo "Activating tenant $tenant_name for the current aws account"
-  syndicate admin tenant create --name "$tenant_name" \
-                                --display_name "Tenant $(account_id)" \
-                                --cloud AWS \
-                                --account_id "$(account_id)" \
-                                $(build_multiple_params --primary_contacts "$TENANT_PRIMARY_CONTACTS") \
-                                $(build_multiple_params --secondary_concats "$TENANT_SECONDARY_CONTACTS") \
-                                $(build_multiple_params --tenant_manager_contacts "$TENANT_MANAGER_CONTACTS") \
-                                $(build_multiple_params --default_owner "$TENANT_OWNER_EMAIL" 1) \
-                                --json
-  echo "Activating region for tenant"
-  for r in $TENANT_AWS_REGIONS;
-  do
-    [ -z "$r" ] && continue
-    echo "Activating $r for tenant"
-    syndicate admin tenant regions activate --tenant_name "$tenant_name" --region_name "$r" --json > /dev/null
-  done
+  if [ -z "$DO_NOT_ACTIVATE_TENANT" ]; then
+    tenant_name="$(resolve_tenant_name)"
+    echo "Activating tenant $tenant_name for the current aws account"
+    local err=0
+    syndicate admin tenant create --name "$tenant_name" \
+                                  --display_name "Tenant $(account_id)" \
+                                  --cloud AWS \
+                                  --account_id "$(account_id)" \
+                                  $(build_multiple_params --primary_contacts "$TENANT_PRIMARY_CONTACTS") \
+                                  $(build_multiple_params --secondary_concats "$TENANT_SECONDARY_CONTACTS") \
+                                  $(build_multiple_params --tenant_manager_contacts "$TENANT_MANAGER_CONTACTS") \
+                                  $(build_multiple_params --default_owner "$TENANT_OWNER_EMAIL" 1) \
+                                  --json || err=1
+    if [ "$err" -ne 0 ]; then
+      warn "could not create tenant"
+    else
+      echo "Activating region for tenant"
+      for r in $TENANT_AWS_REGIONS; do
+        [ -z "$r" ] && continue
+        echo "Activating $r for tenant"
+        syndicate admin tenant regions activate --tenant_name "$tenant_name" --region_name "$r" --json > /dev/null || warn "could not activate region $r"
+      done
+    fi
+  fi
 
   echo "Getting Defect dojo token"
   while [ -z "$dojo_token" ]; do
@@ -1011,6 +1021,7 @@ SRE_BACKUPS_PATH="${SRE_BACKUPS_PATH:-$SRE_LOCAL_PATH/backups}"
 GITHUB_REPO="${GITHUB_REPO:-epam/syndicate-rule-engine}"
 HELM_RELEASE_NAME="${HELM_RELEASE_NAME:-rule-engine}"
 DO_NOT_ACTIVATE_LICENSE="${DO_NOT_ACTIVATE_LICENSE:-}"
+DO_NOT_ACTIVATE_TENANT="${DO_NOT_ACTIVATE_TENANT:-}"
 
 # for --system configuration
 MODULAR_SERVICE_USERNAME="${MODULAR_SERVICE_USERNAME:-admin}"
@@ -1018,13 +1029,14 @@ RULE_ENGINE_USERNAME="${RULE_ENGINE_USERNAME:-admin}"
 TENANT_AWS_REGIONS="${TENANT_AWS_REGIONS:-us-east-1 us-east-2 us-west-1 us-west-2 af-south-1 ap-east-1 ap-south-2 ap-southeast-3 ap-southeast-4 ap-south-1 ap-northeast-3 ap-northeast-2 ap-southeast-1 ap-southeast-2 ap-northeast-1 ca-central-1 ca-west-1 eu-central-1 eu-west-1 eu-west-2 eu-south-1 eu-west-3 eu-south-2 eu-north-1 eu-central-2 il-central-1 me-south-1 me-central-1 sa-east-1 us-gov-east-1 us-gov-west-1}"
 FIRST_USER="${FIRST_USER:-$(getent passwd 1000 | cut -d : -f 1)}"
 #CUSTOMER_NAME=  # resolved dynamically, see corresponding method
+#CUSTOMER_DISPLAY_NAME=  # can be used
 #TENANT_NAME=  # resolved dynamically, see corresponding method
 #ADMIN_EMAILS=
 #TENANT_PRIMARY_CONTACTS=
 #TENANT_SECONDARY_CONTACTS=
 #TENANT_MANAGER_CONTACTS=
 #TENANT_OWNER_EMAIL=
-# specify emails split by `,`
+# specify emails split by " "
 
 
 # All variables below are constants and should not be changed

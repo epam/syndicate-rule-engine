@@ -391,7 +391,10 @@ class InitMongo(ActionHandler):
 
     def __call__(self):
         _LOG.debug('Going to sync indexes with code')
-        for model in self.models():
+        models = []
+        if SP.environment_service.is_docker():
+            models.extend(self.models())
+        for model in models:
             self.ensure_indexes(model)
 
 

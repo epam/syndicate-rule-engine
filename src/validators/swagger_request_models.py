@@ -566,10 +566,18 @@ class RuleSourcesListModel(BasePaginationModel):
 class RolePostModel(BaseModel):
     name: str
     policies: set[str]
-    expiration: datetime = Field(
-        default_factory=lambda: utc_datetime() + timedelta(days=365)
-    )
+    expiration: datetime = Field(None)
     description: str
+
+    @field_validator('expiration')
+    @classmethod
+    def _(cls, expiration: datetime | None) -> datetime | None:
+        if not expiration:
+            return expiration
+        expiration.astimezone(timezone.utc)
+        if expiration < datetime.now(tz=timezone.utc):
+            raise ValueError('Expiration date has already passed')
+        return expiration
 
 
 class RolePatchModel(BaseModel):

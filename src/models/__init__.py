@@ -33,6 +33,8 @@ class CustodianMongoDBHandlerMixin(ABCMongoDBHandlerMixin):
             cls._mongodb = ADAPTER
         return cls._mongodb
 
+    is_docker = CAASEnv.SERVICE_MODE.get() == DOCKER_SERVICE_MODE
+
 
 class BaseModel(CustodianMongoDBHandlerMixin, RawBaseModel):
     pass
