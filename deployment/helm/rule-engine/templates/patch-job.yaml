@@ -42,7 +42,13 @@ spec:
                   name: {{ include "rule-engine.fullname" . }}
                   key: modular-db-name
             - name: modular_service_mode
-              value: docker
+              value: {{ default "docker" .Values.modularSdk.serviceMode }}
+            {{- if ne (default "docker" .Values.modularSdk.serviceMode) "docker" }}
+            - name: modular_assume_role_arn
+              value: {{ .Values.modularSdk.assumeRoleArn }}
+            - name: MODULAR_AWS_REGION
+              value: {{ .Values.modularSdk.awsRegion }}
+            {{- end }}
             - name: CAAS_SERVICE_MODE
               value: docker
             - name: CAAS_MONGO_URI
