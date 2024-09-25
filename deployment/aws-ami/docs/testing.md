@@ -129,7 +129,7 @@ to expose Rule Engine and Modular service APIs you should follow the steps:
 Expose the corresponding services from Kubernetes by changing service type to `NodePort`
 
 ```bash
-helm upgrade --set modular-service.service.type=NodePort,service.type=NodePort rule-engine syndicate/rule-engine --version "$(helm get metadata rule-engine -o json | jq -r '.version')"
+helm upgrade --reuse-values --set modular-service.service.type=NodePort,service.type=NodePort rule-engine syndicate/rule-engine --version "$(helm get metadata rule-engine -o json | jq -r '.version')"
 ```
 
 Enable corresponding nginx site:
