@@ -594,7 +594,7 @@ EOF
 pull_artifacts () {
   # todo is that efficient at all?
   local tag name url
-  tag=$(jq -r '.tag_name' <<<"$1")
+  tag="$(jq -r '.tag_name' <<<"$1")"
   mkdir -p "$SRE_RELEASES_PATH/$tag"
 
   while IFS= read -r asset; do
@@ -678,7 +678,7 @@ cmd_update_list() {
 }
 
 cmd_update() {
-  local opts auto_yes=0 current_release release_data latest_tag backup_name="" iter_params=() check=0 same_version=0 do_backup=1 do_patch='true'
+  local opts auto_yes=0 current_release release_data latest_tag backup_name="" iter_params=() check=0 same_version=0 do_backup=1 do_patch='true' helm_values
   opts="$(getopt -o "hy" --long "help,yes,check,no-backup,no-patch,allow-prereleases,same-version,backup-name:" -n "$PROGRAM" -- "$@")"
   eval set -- "$opts"
   while true; do
@@ -724,16 +724,23 @@ cmd_update() {
     echo "Pulling new artifacts"
     pull_artifacts "$release_data"
   fi
-  if [ "$same_version" -eq 1 ]; then
-    echo "Restarting existing deployments"  # todo maybe just helm upgrade with the same version
-    kubectl rollout restart deployment -l app.kubernetes.io/instance="$HELM_RELEASE_NAME"
+  echo "Verifying that necessary helm chart exists"
+  helm repo update syndicate || die "helm repo update failed"
+  helm search repo syndicate/rule-engine --version "$latest_tag" --fail-on-no-result >/dev/null 2>&1 || die "$latest_tag version $HELM_RELEASE_NAME chart not found. Cannot update"
+  echo "Making helm upgrade. It should not take more than $(( HELM_UPGRADE_TIMEOUT / 60 )) minutes"
+  helm_values="$(helm get values "$HELM_RELEASE_NAME" -o json)"  # preserve only user-set values
+  if ! helm upgrade "$HELM_RELEASE_NAME" syndicate/rule-engine --timeout "${HELM_UPGRADE_TIMEOUT}s" --wait --wait-for-jobs --version "$latest_tag" --reset-values --values <(echo "$helm_values") --set=patch.enabled="$do_patch"; then
+    warn "helm upgrade failed. Rolling back to the previous version..."
+    helm rollback "$HELM_RELEASE_NAME" 0 --wait || die "Helm rollback failed... Contact the support team"
+    if [ "$do_backup" -eq 1 ] && [ "$do_patch" = 'true' ]; then
+      echo "Data patch could've been performed and backup was also created. Restoring backup $backup_name"
+      cmd_backup_restore --name "$backup_name"
+    fi
+    exit 1
   else
-    echo "Updating helm repo"
-    helm repo update syndicate
-    helm search repo syndicate/rule-engine --version "$latest_tag" --fail-on-no-result >/dev/null 2>&1 || die "$latest_tag version $HELM_RELEASE_NAME chart not found. Cannot update"
-    echo "Upgrading $HELM_RELEASE_NAME chart to $latest_tag version"
-    helm upgrade "$HELM_RELEASE_NAME" syndicate/rule-engine --version "$latest_tag" --set=patch.enabled="$do_patch"  # todo add flags + if failed restore backup --atomic
+    echo "helm upgrade was successful"
   fi
+
   if [ -f "$SRE_RELEASES_PATH/$latest_tag/$OBFUSCATOR_ARTIFACT_NAME" ]; then
     echo "Upgrading obfuscation manager"
     pip3 install --user --break-system-packages --upgrade "$SRE_RELEASES_PATH/$latest_tag/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]" >/dev/null
@@ -1020,6 +1027,7 @@ SRE_RELEASES_PATH="${SRE_RELEASES_PATH:-$SRE_LOCAL_PATH/releases}"
 SRE_BACKUPS_PATH="${SRE_BACKUPS_PATH:-$SRE_LOCAL_PATH/backups}"
 GITHUB_REPO="${GITHUB_REPO:-epam/syndicate-rule-engine}"
 HELM_RELEASE_NAME="${HELM_RELEASE_NAME:-rule-engine}"
+HELM_UPGRADE_TIMEOUT="${HELM_UPGRADE_TIMEOUT:-120}"
 DO_NOT_ACTIVATE_LICENSE="${DO_NOT_ACTIVATE_LICENSE:-}"
 DO_NOT_ACTIVATE_TENANT="${DO_NOT_ACTIVATE_TENANT:-}"
 
@@ -1086,7 +1094,7 @@ case "$1" in
   help|-h|--help) shift; cmd_usage "$@" ;;
   version|--version) shift; cmd_version "$@" ;;
   update) shift; cmd_update "$@" ;;
-  list) shift; cmd_update_list "$@" ;; # TODO think how to name the command
+  list) shift; cmd_update_list "$@" ;;
   init) shift; cmd_init "$@" ;;
   nginx) shift; cmd_nginx "$@" ;;
   secrets) shift; cmd_secrets "$@" ;;
