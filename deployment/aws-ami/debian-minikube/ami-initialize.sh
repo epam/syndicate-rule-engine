@@ -33,6 +33,7 @@ get_imds_token () {
 }
 identity_document() { curl -s -H "X-aws-ec2-metadata-token: $(get_imds_token)" http://169.254.169.254/latest/dynamic/instance-identity/document; }
 document_signature() { curl -s -H "X-aws-ec2-metadata-token: $(get_imds_token)" http://169.254.169.254/latest/dynamic/instance-identity/signature | tr -d '\n'; }
+region() { curl -s curl -s -H "X-aws-ec2-metadata-token: $(get_imds_token)" http://169.254.169.254/latest/dynamic/instance-identity/document | jq -r ".region"; }
 request_to_lm() { curl -s -X POST -d "{\"signature\":\"$(document_signature)\",\"document\":\"$(identity_document | base64 -w 0)\"}" "$LM_API_LINK/marketplace/custodian/init"; }
 generate_password() {
   chars="20"
@@ -247,6 +248,15 @@ server {
 }
 EOF
 }
+build_helm_values() {
+  # builds values for modularSdk role
+  if [ -z "$MODULAR_SDK_ROLE_ARN" ]; then
+    return
+  fi
+  local modular_region
+  modular_region="${MODULAR_SDK_REGION:-$(region)}"
+  echo -n "--set=modular-service.modularSdk.serviceMode=saas,modular-service.modularSdk.awsRegion=${modular_region},modular-service.modularSdk.assumeRoleArn='${MODULAR_SDK_ROLE_ARN}' --set=modularSdk.serviceMode=saas,modularSdk.awsRegion=${modular_region},modularSdk.assumeRoleArn='${MODULAR_SDK_ROLE_ARN}'"
+}
 
 if [ -z "$RULE_ENGINE_RELEASE" ]; then
   error_log "RULE_ENGINE_RELEASE env is required"
@@ -291,7 +301,7 @@ helm plugin install https://github.com/hypnoglow/helm-s3.git
 helm repo add syndicate "$SYNDICATE_HELM_REPOSITORY"
 helm repo update syndicate
 
-helm install "$HELM_RELEASE_NAME" syndicate/rule-engine --version $RULE_ENGINE_RELEASE
+helm install "$HELM_RELEASE_NAME" syndicate/rule-engine --version $RULE_ENGINE_RELEASE $(build_helm_values)
 helm install "$DEFECTDOJO_HELM_RELEASE_NAME" syndicate/defectdojo
 EOF
 

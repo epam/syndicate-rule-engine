@@ -91,6 +91,8 @@ TENANT_NAME=EXAMPLE
 - `KUBERNETES_VERSION` - (default `v1.30.0`)
 - `KUBECTL_VERSION` - (default `v1.30.3`)
 - `HELM_VERSION` - (default `3.15.3-1`)
+- `MODULAR_SDK_ROLE_ARN` - can be specified to configure modular-sdk to use tables from DynamoDB
+- `MODULAR_SDK_REGION` - region where DynamoDB tables are located
 
 **Configuration preferences**
 - `LM_API_LINK` - link to license manager (default `https://lm.syndicate.team`)
