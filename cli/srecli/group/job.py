@@ -11,6 +11,9 @@ from srecli.service.constants import Env
 from srecli.service.constants import JobState, TenantModel
 from srecli.service.creds import AWSCredentialsResolver, \
     AZURECredentialsResolver, GOOGLECredentialsResolver, CredentialsLookupError
+from srecli.service.logger import get_logger
+
+_LOG = get_logger(__name__)
 
 attributes_order = 'id', 'tenant_name', 'status', 'submitted_at',
 
@@ -94,10 +97,10 @@ def describe(ctx: ContextObj, job_id: str, tenant_name: str, customer_id: str,
 @click.option('--azure_client_secret', type=str, help='Azure client secret')
 @click.option('--google_application_credentials_path', type=str,
               help='Path to file with google credentials')
-@click.option('--allow_no_creds', is_flag=True,
-              help='Allow to make request without credentials. '
-                   'Such job can be successful if credentials are '
-                   'pre-configured on server side')
+@click.option('--only_preconfigured_credentials', is_flag=True,
+              help='Specify flag to ignore any credentials that can be found '
+                   'in cli session and use those that are preconfigured '
+                   'by admin')
 @cli_response(attributes_order=attributes_order)
 def submit(ctx: ContextObj, tenant_name: str,
            ruleset: tuple[str, ...], region: tuple[str, ...],
@@ -107,12 +110,12 @@ def submit(ctx: ContextObj, tenant_name: str,
            azure_subscription_id: str | None, azure_tenant_id: str | None,
            azure_client_id: str | None, azure_client_secret: str | None,
            google_application_credentials_path: str | None,
-           allow_no_creds: bool):
+           only_preconfigured_credentials: bool):
     """
     Submits a job to scan either AWS, AZURE or GOOGLE account
     """
     resp = ctx['api_client'].tenant_get(tenant_name, customer_id=customer_id)
-    # todo cache?
+    # todo cache in temp files
     if not resp.was_sent or not resp.ok:
         return resp
     tenant: TenantModel = next(resp.iter_items())
@@ -122,21 +125,23 @@ def submit(ctx: ContextObj, tenant_name: str,
         case 'GOOGLE' | 'GCP': resolver = GOOGLECredentialsResolver(tenant)
         case _: return response('Not supported tenant cloud')  # newer happen
 
-    try:
-        creds = resolver.resolve(
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key,
-            aws_session_token=aws_session_token,
-            azure_subscription_id=azure_subscription_id,
-            azure_tenant_id=azure_tenant_id,
-            azure_client_id=azure_client_id,
-            azure_client_secret=azure_client_secret,
-            google_application_credentials_path=google_application_credentials_path
-        )
-    except CredentialsLookupError as e:
-        if not allow_no_creds:
-            return response(str(e))
+    if only_preconfigured_credentials:
         creds = {}
+    else:
+        try:
+            creds = resolver.resolve(
+                aws_access_key_id=aws_access_key_id,
+                aws_secret_access_key=aws_secret_access_key,
+                aws_session_token=aws_session_token,
+                azure_subscription_id=azure_subscription_id,
+                azure_tenant_id=azure_tenant_id,
+                azure_client_id=azure_client_id,
+                azure_client_secret=azure_client_secret,
+                google_application_credentials_path=google_application_credentials_path
+            )
+        except CredentialsLookupError as e:
+            _LOG.warning(f'Could not find credentials: {e}')
+            creds = {}
 
     return ctx['api_client'].job_post(
         tenant_name=tenant_name,

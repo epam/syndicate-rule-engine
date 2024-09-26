@@ -788,7 +788,7 @@ class JobHandler(AbstractHandler):
         )
         return build_response(content=self._scheduler_service.dto(item))
 
-    def _validate_cloud_identifier(self, cloud_identifier: int,
+    def _validate_cloud_identifier(self, cloud_identifier: str,
                                    credentials: dict, cloud: Cloud):
         identifier_validators_mapping = {
             Cloud.AWS: self._validate_aws_account_id,
@@ -807,7 +807,7 @@ class JobHandler(AbstractHandler):
             )
 
     def _validate_aws_account_id(self, credentials: dict,
-                                 target_account_id: int):
+                                 target_account_id: str):
         credentials_lower = {
             k.lower(): v for k, v in credentials.items() if
             k != 'AWS_DEFAULT_REGION'
@@ -815,7 +815,7 @@ class JobHandler(AbstractHandler):
         try:
             account_id = self._sts_client.get_caller_identity(
                 credentials=credentials_lower)['Account']
-            return account_id == target_account_id
+            return str(account_id) == str(target_account_id)
         except ClientError:
             message = 'Invalid AWS credentials provided.'
             _LOG.warning(message)
@@ -825,5 +825,5 @@ class JobHandler(AbstractHandler):
             )
 
     @staticmethod
-    def _validate_gcp_project_id(credentials: dict, target_project_id: int):
-        return credentials.get('project_id') == target_project_id
+    def _validate_gcp_project_id(credentials: dict, target_project_id: str):
+        return str(credentials.get('project_id')) == str(target_project_id)

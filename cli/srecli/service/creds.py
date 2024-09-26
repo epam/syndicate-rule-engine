@@ -108,18 +108,14 @@ class AZURECredentialsResolver(CredentialsResolver):
 
 
 class AWSCredentialsResolver(CredentialsResolver):
-    def _check_account_id(self, account_it: str | None):
-        if account_it and self._tenant['account_id'] != account_it:
-            raise click.UsageError(
-                f'Resolved credentials account id {account_it} does not '
-                f'match with tenant account id'
-            )
+    def _is_valid_account_id(self, account_it: str) -> bool:
+        return self._tenant['account_id'] == account_it
 
     def resolve(self, *, aws_access_key_id: str | None = None,
                 aws_secret_access_key: str | None = None,
                 aws_session_token: str | None = None, **kwargs) -> dict:
         try:
-            s = boto3.Session(
+            session = boto3.Session(
                 aws_access_key_id=aws_access_key_id,
                 aws_secret_access_key=aws_secret_access_key,
                 aws_session_token=aws_session_token
@@ -127,13 +123,20 @@ class AWSCredentialsResolver(CredentialsResolver):
         except PartialCredentialsError as e:
             raise click.UsageError('Partial AWS credentials provided')
         try:
-            resp = s.client('sts').get_caller_identity()
-            self._check_account_id(resp.get('Account'))
+            resp = session.client('sts').get_caller_identity()
+            if not self._is_valid_account_id(resp['Account']):
+                if session.profile_name == 'default':
+                    # default profile is kind of common case,
+                    return {}
+                raise click.UsageError(
+                    f'Resolved credentials account id {resp["Account"]} '
+                    f'does not match with tenant account id'
+                )
         except NoCredentialsError:
             raise CredentialsLookupError('cannot resolve aws credentials')
         except ClientError:
             raise click.UsageError('Cannot get caller identity with credentials')
-        cr = s.get_credentials()
+        cr = session.get_credentials()
         if not cr:
             raise CredentialsLookupError('cannot resolve aws credentials')
 
