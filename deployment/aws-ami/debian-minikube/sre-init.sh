@@ -12,6 +12,7 @@ Usage:
 Available Commands:
   backup   Allow to manage backups
   help     Show help message
+  health   Check installation health
   init     Initialize Rule Engine installation
   list     Lists available updates
   nginx    Allow to enable and disable nginx sites
@@ -211,6 +212,21 @@ Options
   -p, --path     Path where backups are store (default "$SRE_BACKUPS_PATH/\$version"). --version parameter is ignored when custom --path is specified
   -f, --force    Restore backup even if current release version does not match to the release version where backup was made
   --volumes      Volumes to make the backup for. Uses all k8s volumes if not specified. Specify volumes divided by comma
+EOF
+}
+
+cmd_health_usage() {
+  cat <<EOF
+Checks installation health
+
+Description:
+  Command that verifies different aspects of installation
+
+Examples:
+  $PROGRAM $COMMAND
+
+Options
+  -h, --help  Show helm message
 EOF
 }
 
@@ -1015,6 +1031,37 @@ cmd_secrets() {
   get_kubectl_secret "${values[0]}" "${values[1]}" || die "cannot reach secret. Probably, you don't have access"
 }
 
+cmd_health() {
+  local opts
+  opts="$(getopt -o "h" --long "help" -n "$PROGRAM" -- "$@")"
+  eval set -- "$opts"
+  while true; do
+    case "$1" in
+      -h|--help) cmd_health_usage; exit 0 ;;
+      '--') shift; break ;;
+    esac
+  done
+  declare -A checks  # order is priority
+  checks["1:/usr/local/sre/.success"]="test -f /usr/local/sre/.success"
+  checks["2:Rule Engine helm release"]="helm get metadata $HELM_RELEASE_NAME"
+  checks["3:Syndicate entrypoint"]="syndicate version"
+  checks["4:Rule Engine health check"]="syndicate re health_check"
+  checks["5:Obfuscation manager entrypoint"]="sreobf --help"
+  checks["6:Defect Dojo helm release"]="helm get metadata defectdojo"
+
+  # TODO allow to show error message for each check
+  while IFS= read -r key; do
+    IFS=":" read -r order name <<<"$key"
+    if ${checks["$name"]} >/dev/null 2>&1; then
+      printf "%s|%s|ok" "$order" "$name" | colorize GREEN
+    else
+      printf "%s|%s|failed" "$order" "$name" | colorize RED
+      exit 1
+    fi
+    printf "\n"
+  done < <(printf "%s\n" "${!checks[@]}" | sort) | column --table -s "|" --table-columns "№,CHECK,STATUS"
+}
+
 # Start
 VERSION="1.0.0"
 PROGRAM="${0##*/}"
@@ -1098,6 +1145,7 @@ case "$1" in
   init) shift; cmd_init "$@" ;;
   nginx) shift; cmd_nginx "$@" ;;
   secrets) shift; cmd_secrets "$@" ;;
+  health) shift; cmd_health "$@" ;;
   --system|--user) cmd_init "$@" ;;  # redirect to init as default one
   '') cmd_usage ;;
   *) die "$(cmd_unrecognized)" ;;
