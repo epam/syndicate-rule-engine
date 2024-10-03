@@ -15,17 +15,17 @@ _LOG = get_logger(__name__)
 class Boto3ClientFactory:
     _session = Session()  # class variable
 
-    def __init__(self, service: str):
+    def __init__(self, service: str, no_proxies: bool = False):
         self._service = service
+        self._no_proxies = no_proxies
 
-    @staticmethod
-    def _build_default_config() -> Config:
+    def _build_default_config(self) -> Config:
         proxy = {}
         if url := CAASEnv.HTTP_PROXY.get():
             proxy['http'] = url
         if url := CAASEnv.HTTPS_PROXY.get():
             proxy['https'] = url
-        if proxy:
+        if proxy and not self._no_proxies:
             return Config(proxies=proxy)
         return Config()
 
