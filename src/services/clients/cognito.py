@@ -5,7 +5,6 @@ from http import HTTPStatus
 from typing import Generator, Iterator, TYPE_CHECKING
 from typing_extensions import NotRequired, Self, TypedDict
 
-import boto3
 from botocore.exceptions import ClientError
 
 from helpers.constants import (
@@ -17,6 +16,7 @@ from helpers.lambda_response import ResponseFactory
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime, utc_iso
 from services.environment_service import EnvironmentService
+from services.clients import Boto3ClientFactory
 
 if TYPE_CHECKING:
     from models.user import User
@@ -225,7 +225,7 @@ class CognitoClient(BaseAuthClient):
 
     @cached_property
     def client(self):
-        return boto3.client('cognito-idp', region_name=self._env.aws_region())
+        return Boto3ClientFactory('cognito-idp').build(region_name=self._env.aws_region())
 
     @property
     def user_pool_name(self) -> str:

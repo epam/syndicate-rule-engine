@@ -2,11 +2,11 @@ import json
 from abc import ABC
 from functools import cached_property
 
-import boto3
 from botocore.exceptions import ClientError
 
 from helpers.log_helper import get_logger
 from services.environment_service import EnvironmentService
+from services.clients import Boto3ClientFactory
 
 _LOG = get_logger(__name__)
 
@@ -63,8 +63,9 @@ class ScriptClient(AbstractStepFunctionClient):
 class StepFunctionClient(AbstractStepFunctionClient):
     @cached_property
     def client(self):
-        return boto3.client('stepfunctions',
-                            region_name=self._environment_service.aws_region())
+        return Boto3ClientFactory('stepfunctions').build(
+            region_name=self._environment_service.aws_region()
+        )
 
     @staticmethod
     def build_step_function_arn(region: str, account_id: str, name: str

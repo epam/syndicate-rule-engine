@@ -6,6 +6,10 @@ from boto3.session import Session
 from botocore.client import BaseClient
 from botocore.config import Config
 from typing_extensions import Self
+from helpers.log_helper import get_logger
+from helpers.constants import CAASEnv
+
+_LOG = get_logger(__name__)
 
 
 class Boto3ClientFactory:
@@ -14,10 +18,25 @@ class Boto3ClientFactory:
     def __init__(self, service: str):
         self._service = service
 
+    @staticmethod
+    def _build_default_config() -> Config:
+        proxy = {}
+        if url := CAASEnv.HTTP_PROXY.get():
+            proxy['http'] = url
+        if url := CAASEnv.HTTPS_PROXY.get():
+            proxy['https'] = url
+        if proxy:
+            return Config(proxies=proxy)
+        return Config()
+
     def build(self, region_name: str = None, endpoint_url: str = None,
               aws_access_key_id: str = None, aws_secret_access_key: str = None,
               aws_session_token: str = None, config: Config = None,
               ) -> BaseClient:
+        _LOG.info(f'Building boto3 client for {self._service}')
+        conf = self._build_default_config()
+        if config:
+            conf = conf.merge(config)
         return self._session.client(
             service_name=self._service,
             region_name=region_name,
@@ -25,7 +44,7 @@ class Boto3ClientFactory:
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key,
             aws_session_token=aws_session_token,
-            config=config
+            config=conf
         )
 
     def build_resource(self, region_name: str = None, endpoint_url: str = None,
@@ -33,6 +52,10 @@ class Boto3ClientFactory:
                        aws_secret_access_key: str = None,
                        aws_session_token: str = None, config: Config = None,
                        ) -> ServiceResource:
+        _LOG.info(f'Building boto3 resource for {self._service}')
+        conf = self._build_default_config()
+        if config:
+            conf = conf.merge(config)
         return self._session.resource(
             service_name=self._service,
             region_name=region_name,
@@ -40,7 +63,7 @@ class Boto3ClientFactory:
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key,
             aws_session_token=aws_session_token,
-            config=config
+            config=conf
         )
 
     def from_keys(self, aws_access_key_id: str, aws_secret_access_key: str,

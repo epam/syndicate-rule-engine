@@ -1,15 +1,14 @@
 from abc import ABC, abstractmethod
 import json
-import os
 import re
 
-import boto3
 from botocore.client import ClientError
 
 from helpers.constants import CAASEnv
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime
 from services import cache
+from services.clients import Boto3ClientFactory
 from services.environment_service import EnvironmentService
 
 _LOG = get_logger(__name__)
@@ -135,8 +134,8 @@ class SSMClient(AbstractSSMClient):
     @property
     def client(self):
         if not self._client:
-            self._client = boto3.client(
-                'ssm', self._environment_service.aws_region()
+            self._client = Boto3ClientFactory('ssm').build(
+                region_name=self._environment_service.aws_region()
             )
         return self._client
 

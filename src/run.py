@@ -65,6 +65,7 @@ from helpers.constants import (
     PlatformType,
     PolicyErrorType,
     TS_EXCLUDED_RULES_KEY,
+    CAASEnv
 )
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime, utc_iso
@@ -1228,7 +1229,11 @@ def standard_job(job: Job, tenant: Tenant, work_dir: Path):
     with tempfile.NamedTemporaryFile(delete=False) as file:
         file.write(msgspec.json.encode(policies))
     failed = {}
-    with EnvironmentContext(credentials, reset_all=False):
+    proxies = {
+        'HTTP_PROXY': CAASEnv.HTTP_PROXY.get(''),
+        'HTTPS_PROXY': CAASEnv.HTTPS_PROXY.get('')
+    }
+    with EnvironmentContext(credentials | proxies, reset_all=False):
         q = multiprocessing.Queue()
         for region in [GLOBAL_REGION, ] + sorted(BSP.env.target_regions()):
             p = multiprocessing.Process(
