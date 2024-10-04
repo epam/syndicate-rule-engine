@@ -3,12 +3,11 @@ from importlib import import_module
 from threading import Thread
 from typing import Callable
 
-import boto3
-
 from helpers import RequestContext
 from helpers.lambda_response import CustodianException
 from helpers.log_helper import get_logger
 from services.environment_service import EnvironmentService
+from services.clients import Boto3ClientFactory
 
 _LOG = get_logger(__name__)
 RULE_META_UPDATER_LAMBDA_NAME = 'caas-rule-meta-updater'
@@ -37,8 +36,9 @@ class LambdaClient:
     def client(self):
         """Returns client for saas. For on-prem the method is not used"""
         if not self._client:
-            self._client = boto3.client(
-                'lambda', self._environment.aws_region())
+            self._client = Boto3ClientFactory('lambda').build(
+                region_name=self._environment.aws_region()
+            )
         return self._client
 
     def invoke_function_async(self, function_name, event=None):

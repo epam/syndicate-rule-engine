@@ -20,6 +20,7 @@ from helpers.constants import (
     TENANT_LICENSE_KEYS_ATTR,
     TENANT_LICENSE_KEY_ATTR,
     TOKEN_ATTR,
+    CAASEnv
 )
 from helpers.log_helper import get_logger
 from helpers.system_customer import SYSTEM_CUSTOMER
@@ -152,6 +153,13 @@ class LMClient:
         self._token_producer = token_producer
 
         self._session = requests.Session()
+        proxies = {}
+        if url := CAASEnv.HTTPS_PROXY.get():
+            proxies['https'] = url
+        if url := CAASEnv.HTTP_PROXY.get():
+            proxies['http'] = url
+        if proxies:
+            self._session.proxies.update(proxies)
 
     def __del__(self):
         self._session.close()

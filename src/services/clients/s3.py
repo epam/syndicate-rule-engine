@@ -56,7 +56,8 @@ class S3ClientWrapperFactory(Boto3ClientWrapperFactory['S3Client']):
     def _minio_config(cls) -> Config:
         return cls._base_config().merge(Config(s3={
             'signature_version': 's3v4',
-            'addressing_style': 'path'
+            'addressing_style': 'path',
+            'proxies': {}
         }))
 
     def build_s3(self, region_name: str) -> 'S3Client':
@@ -80,7 +81,7 @@ class S3ClientWrapperFactory(Boto3ClientWrapperFactory['S3Client']):
 
         instance = self._wrapper.build()
         instance.resource = Boto3ClientFactory(
-            instance.service_name).build_resource(
+            instance.service_name, no_proxies=True).build_resource(
             aws_access_key_id=access_key,
             aws_secret_access_key=secret_key,
             endpoint_url=endpoint,
