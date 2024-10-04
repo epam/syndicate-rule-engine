@@ -795,17 +795,27 @@ def get_credentials(tenant: Tenant,
     # 5
     if not credentials:
         _LOG.info(_log_start + 'instance profile')
-        # TODO refactor + do the same for other clouds. Try to resolve
-        #  from envs
-        try:
-            aid = StsClient.factory().build().get_caller_identity()['Account']
-            _LOG.debug('Instance profile found')
-            if aid == tenant.project:
-                _LOG.info('Instance profile credentials match to tenant id')
-                return {}
-        except (Exception, ClientError) as e:
-            _LOG.warning(f'No instance credentials found: {e}')
-
+        # TODO refactor
+        match tenant.cloud:
+            case Cloud.AWS:
+                try:
+                    aid = StsClient.factory().build().get_caller_identity()['Account']
+                    _LOG.debug('Instance profile found')
+                    if aid == tenant.project:
+                        _LOG.info('Instance profile credentials match to tenant id')
+                        return {}
+                except (Exception, ClientError) as e:
+                    _LOG.warning(f'No instance credentials found: {e}')
+            case Cloud.AZURE:
+                try:
+                    from c7n_azure.session import Session
+                    aid = Session().subscription_id
+                    _LOG.info('subscription id found')
+                    if aid == tenant.project:
+                        _LOG.info('Subscription id matches to tenant id')
+                        return {}
+                except BaseException:  # catch sys.exit(1)
+                    _LOG.warning('Could not find azure subscription id')
     if credentials:
         credentials = mcs.complete_credentials_dict(
             credentials=credentials,
@@ -1211,15 +1221,15 @@ def standard_job(job: Job, tenant: Tenant, work_dir: Path):
     _XRAY.put_annotation('tenant_name', tenant.name)
     _XRAY.put_metadata('cloud', cloud.value)
 
-    licensed_urls = map(operator.itemgetter('s3_path'),
-                        get_licensed_ruleset_dto_list(tenant, job))
-    standard_urls = map(SP.ruleset_service.download_url,
-                        BSP.policies_service.get_standard_rulesets(job))
-
     if platform:
         credentials = get_platform_credentials(platform)
     else:
         credentials = get_credentials(tenant)
+
+    licensed_urls = map(operator.itemgetter('s3_path'),
+                        get_licensed_ruleset_dto_list(tenant, job))
+    standard_urls = map(SP.ruleset_service.download_url,
+                        BSP.policies_service.get_standard_rulesets(job))
 
     policies = BSP.policies_service.get_policies(
         urls=chain(licensed_urls, standard_urls),
@@ -1229,12 +1239,7 @@ def standard_job(job: Job, tenant: Tenant, work_dir: Path):
     with tempfile.NamedTemporaryFile(delete=False) as file:
         file.write(msgspec.json.encode(policies))
     failed = {}
-    proxies = {}
-    if url := CAASEnv.HTTP_PROXY.get():
-        proxies['HTTP_PROXY'] = url
-    if url := CAASEnv.HTTPS_PROXY.get():
-        proxies['HTTPS_PROXY'] = url
-    with EnvironmentContext(credentials | proxies, reset_all=False):
+    with EnvironmentContext(credentials, reset_all=False):
         q = multiprocessing.Queue()
         for region in [GLOBAL_REGION, ] + sorted(BSP.env.target_regions()):
             p = multiprocessing.Process(
