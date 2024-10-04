@@ -1229,10 +1229,11 @@ def standard_job(job: Job, tenant: Tenant, work_dir: Path):
     with tempfile.NamedTemporaryFile(delete=False) as file:
         file.write(msgspec.json.encode(policies))
     failed = {}
-    proxies = {
-        'HTTP_PROXY': CAASEnv.HTTP_PROXY.get(''),
-        'HTTPS_PROXY': CAASEnv.HTTPS_PROXY.get('')
-    }
+    proxies = {}
+    if url := CAASEnv.HTTP_PROXY.get():
+        proxies['HTTP_PROXY'] = url
+    if url := CAASEnv.HTTPS_PROXY.get():
+        proxies['HTTPS_PROXY'] = url
     with EnvironmentContext(credentials | proxies, reset_all=False):
         q = multiprocessing.Queue()
         for region in [GLOBAL_REGION, ] + sorted(BSP.env.target_regions()):
