@@ -437,10 +437,6 @@ class CAASEnv(EnvEnum):
     # init envs
     SYSTEM_USER_PASSWORD = 'CAAS_SYSTEM_USER_PASSWORD'
 
-    # proxy, currently used only for scans and license manager api client
-    HTTP_PROXY = 'CAAS_HTTP_PROXY'
-    HTTPS_PROXY = 'CAAS_HTTPS_PROXY'
-
 
 class BatchJobEnv(EnvEnum):
     """
