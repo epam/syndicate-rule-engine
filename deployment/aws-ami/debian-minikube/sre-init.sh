@@ -720,14 +720,15 @@ cmd_update() {
       exit 0
     fi
     latest_tag="$(jq -r '.tag_name' <<<"$release_data")"
-    # new releases found
-    if [ "$check" -eq 1 ]; then
-      warn "new $(get_release_type "$release_data") $latest_tag is available. Use 'sre-init update'"
-      exit 1
-    fi
-    echo "The current installed version is $current_release"
-    echo "New github $(get_release_type "$release_data") $latest_tag is available"
   fi
+  # by here release is definitely available
+  if [ "$check" -eq 1 ]; then
+    warn "new $(get_release_type "$release_data") $latest_tag is available. Use 'sre-init update'"
+    exit 1
+  fi
+  echo "The current installed version is $current_release"
+  echo "New github $(get_release_type "$release_data") $latest_tag is available"
+
   echo "Going to update to $latest_tag"
   [[ $auto_yes -eq 1 ]] || yesno "Do you want to update?"
   echo "Updating to $latest_tag"
