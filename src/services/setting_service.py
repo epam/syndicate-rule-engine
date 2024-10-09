@@ -196,14 +196,10 @@ class SettingsService:
         return 30
 
     def disable_send_reports(self):
-        value = self.get(name=SettingKey.SEND_REPORTS, value=False)
-        value.value = False
-        value.save()
+        self.create(name=SettingKey.SEND_REPORTS, value=False).save()
 
     def enable_send_reports(self):
-        value = self.get(name=SettingKey.SEND_REPORTS, value=False)
-        value.value = True
-        value.save()
+        self.create(name=SettingKey.SEND_REPORTS, value=True).save()
 
     def get_send_reports(self) -> bool:
         value = self.get(name=SettingKey.SEND_REPORTS,
