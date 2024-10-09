@@ -9,6 +9,7 @@ from helpers import get_logger, hashable, filter_dict
 from helpers.constants import GLOBAL_REGION, REPORT_FIELDS
 from models.customer_metrics import CustomerMetrics
 from models.tenant_metrics import TenantMetrics
+from models.rule import RuleIndex
 from services.mappings_collector import LazyLoadedMappingsCollector
 from services.sharding import ShardsCollection, BaseShardPart
 
@@ -61,11 +62,11 @@ class MetricsService:
         :param name:
         :return:
         """
-        return f'c7n-service:{name}'
+        return f'sre:{name}'
 
     @staticmethod
     def is_custom_attr(name: str) -> bool:
-        return name.startswith('c7n-service:')
+        return name.startswith('sre:')
 
     @staticmethod
     def allow_only_regions(it: ResourcesGenerator, regions: set[str]
@@ -123,6 +124,11 @@ class MetricsService:
         #  solution. Maybe move this logic to a separate class
         for rule, region, dto, ts in it:
             rt = meta.get(rule).get('resource')
+            comment = RuleIndex(meta.get(rule, {}).get('comment', ''))
+            if comment.is_global:  # todo, do we need this?
+                yield rule, GLOBAL_REGION, dto, ts
+                continue
+
             rt = self.adjust_resource_type(rt)
             if rt in ('glue-catalog', 'account'):
                 _LOG.debug(f'Rule with type {rt} found. Adding region '
@@ -155,7 +161,7 @@ class MetricsService:
             yield rule, region, filtered, ts
 
     def create_resources_generator(self, collection: ShardsCollection,
-                                   active_regions: Union[set, list]
+                                   active_regions: set | list
                                    ) -> ResourcesGenerator:
         # just iterate over resources
         resources = self.iter_resources(collection.iter_parts())
