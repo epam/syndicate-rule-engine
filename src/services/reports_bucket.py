@@ -368,6 +368,7 @@ class StatisticsBucketKeysBuilder:
 class MetricsBucketKeysBuilder:
     __slots__ = '_tenant',
     _accounts = 'accounts/'
+    _tenants = 'tenants/'
     _monthly = 'monthly/'
 
     def __init__(self, tenant: 'Tenant'):
@@ -379,6 +380,14 @@ class MetricsBucketKeysBuilder:
             self._accounts,
             dt.date().isoformat(),
             f'{self._tenant.project}.json'
+        )
+
+    def tenant_metrics(self, dt: datetime) -> str:
+        return urljoin(
+            self._tenant.customer_name,
+            self._tenants,
+            dt.date().isoformat(),
+            f'{self._tenant.display_name_to_lower.lower()}.json'
         )
 
     @classmethod
@@ -401,4 +410,17 @@ class MetricsBucketKeysBuilder:
             self._monthly,
             next_m.date().isoformat(),
             f'{self._tenant.project}.json'
+        )
+
+    def tenant_monthly_metrics(self, dt: datetime) -> str:
+        """
+        Key contains the first day of the next month
+        """
+        next_m = dt + relativedelta(months=+1, day=1)
+        return urljoin(
+            self._tenant.customer_name,
+            self._tenants,
+            self._monthly,
+            next_m.date().isoformat(),
+            f'{self._tenant.display_name_to_lower.lower()}.json'
         )
