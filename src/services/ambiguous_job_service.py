@@ -101,6 +101,9 @@ class AmbiguousJob:
         """
         return getattr(self.job, item, None)
 
+    def is_finished(self) -> bool:
+        return self.stopped_at and self.status in (JobState.SUCCEEDED, JobState.FAILED)
+
 
 class AmbiguousJobService:
     def __init__(self, job_service: JobService,

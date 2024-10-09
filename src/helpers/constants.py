@@ -851,10 +851,20 @@ class Severity(str, Enum):
     LOW = 'Low'
     MEDIUM = 'Medium'
     HIGH = 'High'
+    UNKNOWN = 'Unknown'
 
     @classmethod
     def iter(cls):
         return map(operator.attrgetter('value'), cls)
+
+    @classmethod
+    def parse(cls, sev: str | None) -> 'Severity':
+        if not sev:
+            return cls.UNKNOWN
+        try:
+            return cls(sev.strip().capitalize())
+        except ValueError:
+            return cls.UNKNOWN
 
 
 REPORT_FIELDS = {
