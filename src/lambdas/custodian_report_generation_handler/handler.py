@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import inspect
 from functools import cached_property
 from http import HTTPStatus
+from dateutil.relativedelta import SU, relativedelta
 import json
 from typing import Mapping, TYPE_CHECKING
 
@@ -70,7 +71,7 @@ from services.metrics_service import TenantMetricsService
 from services.modular_helpers import get_tenant_regions
 from services.rabbitmq_service import RabbitMQService
 from services.report_statistics_service import ReportStatisticsService
-from services.reports_bucket import TenantReportsBucketKeysBuilder
+from services.reports_bucket import TenantReportsBucketKeysBuilder, MetricsBucketKeysBuilder
 from services.ruleset_service import RulesetService
 from services.setting_service import SettingsService
 from services.sharding import ShardsCollection, ShardsCollectionFactory, ShardsS3IO
@@ -430,15 +431,16 @@ class ReportGenerator(EventProcessorLambdaHandler):
             content='Reports sending was successfully triggered'
         )
 
+    @staticmethod
+    def get_report_date() -> datetime:
+        now = utc_datetime()
+        end = now + relativedelta(hour=0, minute=0, second=0, microsecond=0, weekday=SU(+1))
+        return end
+
     @validate_kwargs
     def generate_project_reports(self, event: ProjectGetReportModel,
                                  context: RequestContext):
-        if not (date := self.settings_service.get_report_date_marker().get(
-                'current_week_date')):
-            raise ResponseFactory(HTTPStatus.INTERNAL_SERVER_ERROR).message(
-                'Cannot send reports: missing \'current_week_date\' section '
-                'in \'REPORT_DATE_MARKER\' setting.'
-            ).exc()
+        date = self.get_report_date()
 
         metrics_bucket = self.environment_service.get_metrics_bucket_name()
         tenant_display_names = event.tenant_display_names
@@ -460,12 +462,9 @@ class ReportGenerator(EventProcessorLambdaHandler):
                 continue
 
             tenant = list(tenants)[0]
-            tenant_group_metrics = self.s3_service.gz_get_object(
+            tenant_group_metrics = self.s3_service.gz_get_json(
                 bucket=metrics_bucket,
-                key=TENANT_METRICS_PATH.format(
-                    customer=tenant.customer_name,
-                    date=date, tenant_dn=display_name
-                )
+                key=MetricsBucketKeysBuilder(tenant).tenant_metrics(date)
             )
             if not tenant_group_metrics:
                 _msg = f'There is no data for \'{display_name}\' tenant ' \
@@ -473,10 +472,6 @@ class ReportGenerator(EventProcessorLambdaHandler):
                 _LOG.warning(_msg)
                 errors.append(_msg)
                 continue
-
-            tenant_group_metrics = json.load(tenant_group_metrics)
-            _LOG.debug('Tenant group metrics')
-            _LOG.debug(json.dumps(tenant_group_metrics))
 
             tenant_group_metrics[
                 OUTDATED_TENANTS] = self._process_outdated_tenants(
