@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.6.0b1] - 2024-10-10
+- refactor metrics pipeline a bit
+- allow maestro reports without license
+
 ## [5.5.0] - 2024-08-07
 - return 429 status code if dynamodb provisioned capacity exceeded error
 - remove `accN` index from usage
