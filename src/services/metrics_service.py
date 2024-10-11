@@ -123,9 +123,9 @@ class MetricsService:
         # TODO in case we need more business logic here, redesign this
         #  solution. Maybe move this logic to a separate class
         for rule, region, dto, ts in it:
-            rt = meta.get(rule).get('resource')
-            comment = RuleIndex(meta.get(rule, {}).get('comment', ''))
-            if comment.is_global:  # todo, do we need this?
+            rt = meta.get(rule, {}).get('resource')
+            comment = meta.get(rule, {}).get('comment', '')
+            if comment and RuleIndex(comment).is_global:  # todo do we need this
                 yield rule, GLOBAL_REGION, dto, ts
                 continue
 

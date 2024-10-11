@@ -51,7 +51,7 @@ def ensure_job(name: str, method: Callable, hours: int):
     if not _job:
         _LOG.info(f'Job {name} not found, registering')
         scheduler.add_job(method, id=name,
-                          trigger=IntervalTrigger(minutes=1))
+                          trigger=IntervalTrigger(hours=hours))
     else:
         _LOG.info(f'Job {name} already registered')
     from models.scheduled_job import ScheduledJob
