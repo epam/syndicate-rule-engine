@@ -65,19 +65,19 @@ def describe(ctx: ContextObj, name, version, cloud, get_rules,
               help='Project id of git repo to build a ruleset')
 @click.option('--git_ref', '-gr', required=False, type=str,
               help='Branch of git repo to build a ruleset')
-@click.option('--standard', '-st', type=str, multiple=True,
-              help='Filter rules by the security standard name')
-@click.option('--service_section', '-ss', type=str,
-              help='Filter rules by the service section')
-@click.option('--severity', '-s', type=str,
-              help='Filter rules by severity')
-@click.option('--mitre', '-m', type=str, multiple=True,
-              help='Filter rules by mitre')
+@click.option('--platform', required=False, type=click.Choice(('kubernetes', 'openshift')),
+              multiple=True, help='Platform for k8s')
+@click.option('--category', required=False, type=str, multiple=True,
+              help='Rules category to use')
+@click.option('--service_section', required=False, type=str, multiple=True,
+              help='Rules service section to use')
+@click.option('--source', required=False, type=str, multiple=True,
+              help='Rules source to use')
 @cli_response(attributes_order=attributes_order)
 def add(ctx: ContextObj, name: str, version: str, cloud: str, rule: tuple,
         exclude_rule: tuple, rule_source_id: str, git_project_id: str, git_ref: str,
-        standard: tuple, service_section: tuple,
-        severity: tuple, mitre: tuple,  customer_id: str):
+        platform: tuple[str], category: tuple[str], service_section: tuple[str],
+        source: tuple[str], customer_id: str):
     """
     Creates Customers ruleset.
     """
@@ -99,10 +99,10 @@ def add(ctx: ContextObj, name: str, version: str, cloud: str, rule: tuple,
         rule_source_id=rule_source_id,
         git_project_id=git_project_id,
         git_ref=git_ref,
-        standard=standard,
-        service_section=service_section,
-        severity=severity,
-        mitre=mitre,
+        platforms=platform,
+        categories=category,
+        service_sections=service_section,
+        sources=source,
         customer_id=customer_id
     )
 
