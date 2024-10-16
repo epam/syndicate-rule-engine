@@ -50,6 +50,7 @@ class JobStatisticsService:
     @staticmethod
     def get_by_customer_and_date(customer: str, from_date, to_date=None,
                                  limit=None) -> list:
+        # [cry] pagination is automatic
         filter_condition = None
         range_key_condition = None
 

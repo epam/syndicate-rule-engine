@@ -14,7 +14,6 @@ from services.clients.s3 import S3Client
 from services.environment_service import EnvironmentService
 from services.rabbitmq_service import RabbitMQService
 from services.reports_bucket import StatisticsBucketKeysBuilder
-from services.setting_service import SettingsService
 from validators.swagger_request_models import BaseModel
 from validators.utils import validate_kwargs
 
@@ -25,11 +24,10 @@ DIAGNOSTIC_REPORT_TYPE = {'maestro': 'CUSTODIAN_DIAGNOSTIC_REPORT',
 
 class DiagnosticHandler(AbstractHandler):
     def __init__(self, environment_service: EnvironmentService,
-                 s3_service: S3Client, settings_service: SettingsService,
+                 s3_service: S3Client,
                  rabbitmq_service: RabbitMQService):
         self.environment_service = environment_service
         self.s3_service = s3_service
-        self.settings_service = settings_service
         self.rabbitmq_service = rabbitmq_service
 
         self.stat_bucket_name = \
@@ -49,14 +47,10 @@ class DiagnosticHandler(AbstractHandler):
             (self.today_date - relativedelta(months=1)).replace(day=1),
             datetime.min.time())
 
-        self._date_marker = self.settings_service.get_report_date_marker()
-        self.current_week_date = self._date_marker.get('current_week_date')
-
     @classmethod
     def build(cls) -> 'DiagnosticHandler':
         return cls(
             environment_service=SERVICE_PROVIDER.environment_service,
-            settings_service=SERVICE_PROVIDER.settings_service,
             s3_service=SERVICE_PROVIDER.s3,
             rabbitmq_service=SERVICE_PROVIDER.rabbitmq_service
         )

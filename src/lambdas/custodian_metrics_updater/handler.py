@@ -31,6 +31,9 @@ from lambdas.custodian_metrics_updater.processors.tenant_metrics_processor impor
 from lambdas.custodian_metrics_updater.processors.top_metrics_processor import (
     CUSTOMER_METRICS,
 )
+from lambdas.custodian_metrics_updater.processors.improved.new_tenant_metrics_processor import TENANT_METRICS as NEW_TENANT_METRICS
+from lambdas.custodian_metrics_updater.processors.improved.new_tenant_group_metrics_processor import TENANT_GROUP_METRICS as NEW_TENANT_GROUP_METRICS
+from lambdas.custodian_metrics_updater.processors.improved.new_metric_difference_processor import TENANT_METRICS_DIFF as NEW_TENANT_METRICS_DIFF
 from services import SERVICE_PROVIDER
 from services.abs_lambda import EventProcessorLambdaHandler
 from services.clients.lambda_func import LambdaClient
@@ -45,10 +48,10 @@ class MetricsUpdater(EventProcessorLambdaHandler):
         self.lambda_client = lambda_client
 
         self.PIPELINE_TYPE_MAPPING = {
-            'tenants': TENANT_METRICS,
-            'tenant_groups': TENANT_GROUP_METRICS,
+            'tenants': NEW_TENANT_METRICS,
+            'tenant_groups': NEW_TENANT_GROUP_METRICS,
             'customer': CUSTOMER_METRICS,
-            'difference': TENANT_METRICS_DIFF,
+            'difference': NEW_TENANT_METRICS_DIFF,
             'findings': FINDINGS_UPDATER,
             'recommendations': RECOMMENDATION_METRICS,
             'diagnostic': DIAGNOSTIC_METRICS

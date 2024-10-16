@@ -8,7 +8,6 @@ from helpers import get_logger
 from helpers.constants import JobState
 from helpers.time_helper import utc_datetime
 from services import SERVICE_PROVIDER
-from services.ambiguous_job_service import AmbiguousJobService
 from services.clients.s3 import S3Client
 from services.environment_service import EnvironmentService
 from services.job_statistics_service import JobStatisticsService
@@ -16,7 +15,6 @@ from services.report_service import ReportService
 from services.report_statistics_service import ReportStatisticsService
 from services.reports_bucket import StatisticsBucketKeysBuilder
 from services.scheduler_service import SchedulerService
-from services.setting_service import SettingsService
 
 _LOG = get_logger(__name__)
 
@@ -24,18 +22,15 @@ _LOG = get_logger(__name__)
 class DiagnosticMetrics:
     def __init__(self, modular_client: Modular,
                  environment_service: EnvironmentService,
-                 s3_service: S3Client, settings_service: SettingsService,
+                 s3_service: S3Client,
                  report_statistics_service: ReportStatisticsService,
-                 ambiguous_job_service: AmbiguousJobService,
                  job_statistics_service: JobStatisticsService,
                  scheduler_service: SchedulerService,
                  report_service: ReportService):
         self.modular_client = modular_client
         self.environment_service = environment_service
         self.s3_service = s3_service
-        self.settings_service = settings_service
         self.report_statistics_service = report_statistics_service
-        self.ambiguous_job_service = ambiguous_job_service
         self.job_statistics_service = job_statistics_service
         self.scheduler_service = scheduler_service
         self.report_service = report_service
@@ -63,10 +58,8 @@ class DiagnosticMetrics:
         return cls(
             modular_client=SERVICE_PROVIDER.modular_client,
             environment_service=SERVICE_PROVIDER.environment_service,
-            settings_service=SERVICE_PROVIDER.settings_service,
             s3_service=SERVICE_PROVIDER.s3,
             report_statistics_service=SERVICE_PROVIDER.report_statistics_service,
-            ambiguous_job_service=SERVICE_PROVIDER.ambiguous_job_service,
             job_statistics_service=SERVICE_PROVIDER.job_statistics_service,
             scheduler_service=SERVICE_PROVIDER.scheduler_service,
             report_service=SERVICE_PROVIDER.report_service

@@ -672,6 +672,8 @@ class AZURECredentials(PydanticBaseModel):
 
 
 class GOOGLECredentials1(PydanticBaseModel):
+    model_config = ConfigDict(extra='allow')
+
     type: str
     project_id: str
     private_key_id: str
@@ -685,6 +687,8 @@ class GOOGLECredentials1(PydanticBaseModel):
 
 
 class GOOGLECredentials2(PydanticBaseModel):
+    model_config = ConfigDict(extra='allow')
+
     type: str
     access_token: str
     refresh_token: str
@@ -694,6 +698,8 @@ class GOOGLECredentials2(PydanticBaseModel):
 
 
 class GOOGLECredentials3(PydanticBaseModel):
+    model_config = ConfigDict(extra='allow')
+
     access_token: str
     project_id: str
 

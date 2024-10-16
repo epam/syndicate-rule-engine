@@ -1,17 +1,17 @@
-from datetime import datetime
 from functools import cached_property
 from http import HTTPStatus
 import json
+from datetime import datetime
 import os
 import sys
 import tempfile
 import uuid
 
-from dateutil.relativedelta import SU, relativedelta
-from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.tenant_service import TenantService
 
 from handlers import AbstractHandler, Mapping
+from dateutil.relativedelta import relativedelta, SU
+from helpers.time_helper import utc_datetime
 from helpers import RequestContext
 from helpers.constants import (
     ATTACK_VECTOR_TYPE,
@@ -42,6 +42,7 @@ from services.rabbitmq_service import RabbitMQService
 from services.setting_service import SettingsService
 from validators.swagger_request_models import OperationalGetReportModel
 from validators.utils import validate_kwargs
+from services.reports_bucket import MetricsBucketKeysBuilder
 from services.rbac_service import TenantsAccessPayload
 
 _LOG = get_logger(__name__)
@@ -110,20 +111,17 @@ class OperationalHandler(AbstractHandler):
             }
         }
 
+    @staticmethod
+    def get_report_date() -> datetime:
+        now = utc_datetime()
+        end = now + relativedelta(hour=0, minute=0, second=0, microsecond=0, weekday=SU(+1))
+        return end
+
     @validate_kwargs
     def generate_operational_reports(self, event: OperationalGetReportModel,
                                      context: RequestContext,
                                      _tap: TenantsAccessPayload):
-        date = self.settings_service.get_report_date_marker().get(
-            'current_week_date')
-        if not date:
-            _LOG.warning('Missing \'current_week_date\' section in '
-                         '\'REPORT_DATE_MARKER\' setting.')
-            date = (datetime.today() + relativedelta(
-                weekday=SU(0))).date().isoformat()
-
         metrics_bucket = self.environment_service.get_metrics_bucket_name()
-        # TODO report move to the pydantic validation because this is stupid
         tenant_names = event.tenant_names
         report_types = event.types
         receivers = event.receivers
@@ -138,21 +136,18 @@ class OperationalHandler(AbstractHandler):
                 ).exc()
             _LOG.debug(f'Retrieving tenant with name {tenant_name}')
             tenant = self.tenant_service.get(tenant_name)
-            if not tenant:
+            if not tenant or event.customer and tenant.customer_name != event.customer:
                 _msg = f'Cannot find tenant with name \'{tenant_name}\''
                 errors.append(_msg)
                 continue
-            if not self._is_tenant_active(tenant):
+            if not tenant.is_active:
                 _msg = f'Custodian is not activated for tenant ' \
                        f'\'{tenant_name}\''
                 errors.append(_msg)
                 continue
-            tenant_metrics = self.s3_service.gz_get_object(
+            tenant_metrics = self.s3_service.gz_get_json(
                 bucket=metrics_bucket,
-                key=ACCOUNT_METRICS_PATH.format(
-                    customer=tenant.customer_name,
-                    date=date, account_id=tenant.project
-                )
+                key=MetricsBucketKeysBuilder(tenant).account_metrics(self.get_report_date())
             )
             if not tenant_metrics:
                 _msg = f'There is no data for tenant {tenant_name} for the ' \
@@ -161,8 +156,6 @@ class OperationalHandler(AbstractHandler):
                 continue
 
             _LOG.debug('Retrieving tenant data')
-            # TODO maybe use ijson lib to reduce memory load
-            tenant_metrics = json.load(tenant_metrics)
             tenant_metrics[OUTDATED_TENANTS] = self._process_outdated_tenants(
                 tenant_metrics.pop(OUTDATED_TENANTS, {}))
 
@@ -247,20 +240,6 @@ class OperationalHandler(AbstractHandler):
                     f'{" was" if report_types else " were"} '
                     f'successfully created'
         )
-
-    def _is_tenant_active(self, tenant: Tenant) -> bool:
-        _LOG.debug(f'Going to check whether Custodian is activated '
-                   f'for tenant {tenant.name}')
-        if not tenant.is_active:
-            _LOG.debug('Tenant is not active')
-            return False
-        lic = self.license_service.get_tenant_license(tenant)
-        if not lic:
-            return False
-        if lic.is_expired():
-            _LOG.warning(f'License {lic.license_key} has expired')
-            return False
-        return True
 
     @staticmethod
     def _process_outdated_tenants(outdated_tenants: dict):
@@ -385,6 +364,7 @@ class OperationalHandler(AbstractHandler):
             'ATTACK_VECTOR': self.save_mitre_data_to_s3
         }
 
+        # [cry] those are different sizes
         if sys.getsizeof(json.dumps(data)) > \
                 self.settings_service.get_max_rabbitmq_size() and \
                 report_type in report_type_method_mapping:
