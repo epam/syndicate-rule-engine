@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.5.0] - 2024-09-02
 - change job submit command to resolve credentials for tenant from all available places
+- add `--platform`, `--category`, `--service_section` and `--source` fields to `sre ruleset add`
 
 ## [5.4.1] - 2024-08-06
 - fix `inappropriate ioctl for device`

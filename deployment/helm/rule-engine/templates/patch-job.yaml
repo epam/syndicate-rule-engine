@@ -1,4 +1,4 @@
-{{- if .Values.patch.enabled -}}
+{{- if and .Values.patch.enabled (not (empty .Values.patch.image.tag)) -}}
 apiVersion: batch/v1
 kind: Job
 metadata:

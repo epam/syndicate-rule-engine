@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - remove `accN` index from usage
 - scan each region in a separate process in order to reduce RAM usage
 - change `create_indexes` command. Now it ensures that indexes are up-to-date instead of recreating them
+- allow to build rulesets using rule comment field
 
 ## [5.4.0] - 2024-07-09
 - added `rule_source_id` and `excluded_rules` parameters to `POST /rulestets`.
