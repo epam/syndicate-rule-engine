@@ -13,7 +13,10 @@ class Standard:
                  points: set[str] | None = None):
         self.name: str = name
         self.version: str = version
-        self.points: set[str] = points or set()
+        if points:
+            self.points: set[str] = set(filter(None, points))
+        else:
+            self.points: set[str] = set()
 
     def __hash__(self):
         return hash((self.name, self.version))

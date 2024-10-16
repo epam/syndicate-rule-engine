@@ -13,14 +13,15 @@ AWS_REGION = $(shell aws configure get region)
 
 EXECUTOR_IMAGE_NAME := rule-engine-executor  # just dev image name
 EXECUTOR_IMAGE_TAG := latest
-SERVER_IMAGE_NAME := rule-engine
-SERVER_IMAGE_TAG := latest
+SERVER_IMAGE_NAME := public.ecr.aws/x4s4z8e1/syndicate/rule-engine
+SERVER_IMAGE_TAG ?= $(shell PYTHONPATH=./src python -B -c "from src.helpers.__version__ import __version__; print(__version__)")
 
 
 SYNDICATE_EXECUTABLE_PATH ?= $(shell which syndicate)
 SYNDICATE_CONFIG_PATH ?= .syndicate-config-main
 SYNDICATE_BUNDLE_NAME := custodian-service
 
+HELM_REPO_NAME := syndicate
 
 check-syndicate:
 	@if [[ -z "$(SYNDICATE_EXECUTABLE_PATH)" ]]; then echo "No syndicate executable found"; exit 1; fi
@@ -80,17 +81,6 @@ fork-executor-image:
 	# $(DOCKER_EXECUTABLE) build -t $(EXECUTOR_IMAGE_NAME):$(EXECUTOR_IMAGE_TAG) -f src/executor/Dockerfile --build-arg CUSTODIAN_SERVICE_PATH=custodian-as-a-service --build-arg CLOUD_CUSTODIAN_PATH=custodian-custom-core ..
 
 
-open-source-server-image:
-	$(DOCKER_EXECUTABLE) build -t $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG) -f src/onprem/Dockerfile-opensource .
-
-fork-server-image:
-	$(DOCKER_EXECUTABLE) build -t $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG) -f src/onprem/Dockerfile .
-
-
-open-source-server-image-to-minikube:
-	eval $(minikube -p minikube docker-env) && \
-	$(DOCKER_EXECUTABLE) build -t $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG) -f src/onprem/Dockerfile-opensource .
-
 cli-dist:
 	python -m pip install --upgrade build
 	python -m build --sdist cli/
@@ -108,12 +98,6 @@ aws-ecr-push-executor:
 	export AWS_REGION=$(AWS_REGION) AWS_ACCOUNT_ID=$(AWS_ACCOUNT_ID); \
 	$(DOCKER_EXECUTABLE) tag $(EXECUTOR_IMAGE_NAME):$(EXECUTOR_IMAGE_TAG) $$AWS_ACCOUNT_ID.dkr.ecr.$$AWS_REGION.amazonaws.com/$(EXECUTOR_IMAGE_NAME):$(EXECUTOR_IMAGE_TAG); \
 	$(DOCKER_EXECUTABLE) push $$AWS_ACCOUNT_ID.dkr.ecr.$$AWS_REGION.amazonaws.com/$(EXECUTOR_IMAGE_NAME):$(EXECUTOR_IMAGE_TAG)
-
-
-aws-ecr-push-server:
-	export AWS_REGION=$(AWS_REGION) AWS_ACCOUNT_ID=$(AWS_ACCOUNT_ID); \
-	$(DOCKER_EXECUTABLE) tag $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG) $$AWS_ACCOUNT_ID.dkr.ecr.$$AWS_REGION.amazonaws.com/$(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG); \
-	$(DOCKER_EXECUTABLE) push $$AWS_ACCOUNT_ID.dkr.ecr.$$AWS_REGION.amazonaws.com/$(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)
 
 
 syndicate-update-lambdas: check-syndicate
@@ -135,3 +119,40 @@ syndicate-update-api-gateway: check-syndicate
 syndicate-update-step-functions: check-syndicate
 	# it does not remove the old api gateway
 	SDCT_CONF=$(SYNDICATE_CONFIG_PATH) $(SYNDICATE_EXECUTABLE_PATH) deploy --deploy_only_types step_functions --replace_output --bundle_name $(SYNDICATE_BUNDLE_NAME)
+
+
+# images with fork which is default for now. Use src/onprem/Dockerfile-opensource for c7n from open source
+#make image-arm64
+#make image-amd64
+#make push-arm64
+#make push-amd64
+#make image-manifest
+#make push-manifest
+image-arm64:
+	$(DOCKER_EXECUTABLE) build --platform linux/arm64 -t $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)-arm64 -f src/onprem/Dockerfile .
+
+image-amd64:
+	$(DOCKER_EXECUTABLE) build --platform linux/amd64 -t $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)-amd64 -f src/onprem/Dockerfile .
+
+
+image-manifest:
+	-$(DOCKER_EXECUTABLE) manifest rm $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)
+	$(DOCKER_EXECUTABLE) manifest create $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG) $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)-arm64 $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)-amd64
+	$(DOCKER_EXECUTABLE) manifest annotate $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG) $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)-arm64 --arch arm64
+	$(DOCKER_EXECUTABLE) manifest annotate $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG) $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)-amd64 --arch amd64
+
+push-arm64:
+	$(DOCKER_EXECUTABLE) push $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)-arm64
+
+
+push-amd64:
+	$(DOCKER_EXECUTABLE) push $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)-amd64
+
+push-manifest:
+	$(DOCKER_EXECUTABLE) manifest push $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)
+
+
+push-helm-chart:
+	helm package --dependency-update deployment/helm/rule-engine
+	helm s3 push rule-engine-$(SERVER_IMAGE_TAG).tgz $(HELM_REPO_NAME)
+	-rm rule-engine-$(SERVER_IMAGE_TAG).tgz

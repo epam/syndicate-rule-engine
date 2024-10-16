@@ -262,8 +262,6 @@ class TopMetrics:
                 continue
 
             acc_id = overview_metrics.get('account_id')
-            if cloud == 'google':
-                acc_id = self.get_google_project_id(acc_id) or acc_id
 
             if self.tenant_scan_mapping.get(customer, {}).get(acc_id):
                 scans = self.tenant_scan_mapping[customer][acc_id]
@@ -892,8 +890,6 @@ class TopMetrics:
                 continue
 
             account_id = metrics[cloud].get('account_id')
-            if cloud == 'google':
-                account_id = self.get_google_project_id(account_id) or account_id
 
             account_path = TENANT_METRICS_PATH.format(
                 customer=customer,
@@ -905,16 +901,6 @@ class TopMetrics:
             if not attack_metrics:
                 continue
         return attack_by_tenant
-
-    def get_google_project_id(self, account_number):
-        if not (tenant := self.ggl_tenant_obj_mapping.get(account_number)):
-            tenant = next(self.modular_client.tenant_service().i_get_by_accN(
-                account_number
-            ), None)
-            self.ggl_tenant_obj_mapping[account_number] = tenant
-        if tenant:
-            return tenant.project
-        return
 
 
 CUSTOMER_METRICS = TopMetrics.build()

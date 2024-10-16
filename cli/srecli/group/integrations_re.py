@@ -9,15 +9,15 @@ from srecli.group import (
 from srecli.service.constants import AWS, AZURE, GOOGLE, KUBERNETES
 
 
-@click.group(name='sre')
-def sre():
+@click.group(name='re')
+def re():
     """
     Manages Rule engine integration (self integration for Maestro)
     :return:
     """
 
 
-@sre.command(cls=ViewCommand, name='add')
+@re.command(cls=ViewCommand, name='add')
 @build_tenant_option(multiple=True)
 @click.option('--all_tenants', is_flag=True,
               help='Whether to activate integration for all tenants')
@@ -84,7 +84,7 @@ def add(ctx: ContextObj, tenant_name: tuple[str, ...], all_tenants: bool,
     )
 
 
-@sre.command(cls=ViewCommand, name='describe')
+@re.command(cls=ViewCommand, name='describe')
 @cli_response()
 def describe(ctx: ContextObj, customer_id):
     """
@@ -93,7 +93,7 @@ def describe(ctx: ContextObj, customer_id):
     return ctx['api_client'].sre_describe(customer_id=customer_id)
 
 
-@sre.command(cls=ViewCommand, name='delete')
+@re.command(cls=ViewCommand, name='delete')
 @cli_response()
 def delete(ctx: ContextObj, customer_id):
     """
@@ -102,7 +102,7 @@ def delete(ctx: ContextObj, customer_id):
     return ctx['api_client'].sre_delete(customer_id=customer_id)
 
 
-@sre.command(cls=ViewCommand, name='update')
+@re.command(cls=ViewCommand, name='update')
 @click.option('--add_tenant', '-at', type=str, multiple=True,
               help='Tenants to activate')
 @click.option('--exclude_tenant', '-et', type=str, multiple=True,

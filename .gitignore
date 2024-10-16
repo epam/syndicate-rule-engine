@@ -252,3 +252,4 @@ pip-selfcheck.json
 .syndicate
 .tmp/
 **/.DS_Store
+.vscode/

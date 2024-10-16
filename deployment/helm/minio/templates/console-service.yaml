@@ -1,3 +1,4 @@
+{{- if .Values.console.enabled -}}
 apiVersion: v1
 kind: Service
 metadata:
@@ -14,8 +15,10 @@ spec:
   type: {{ .Values.consoleService.type }}
   ports:
     - protocol: TCP
-      targetPort: 9001
+      name: http-console
+      targetPort: http-console
       port: {{ .Values.consoleService.port }}
       {{- if (and (eq .Values.consoleService.type "NodePort") ( .Values.consoleService.nodePort)) }}
       nodePort: {{ .Values.consoleService.nodePort }}
       {{- end }}
+{{- end }}

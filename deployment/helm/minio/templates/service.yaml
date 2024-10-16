@@ -14,8 +14,8 @@ spec:
   type: {{ .Values.service.type }}
   ports:
     - protocol: TCP
-      name: api
-      targetPort: 9000
+      name: http-api
+      targetPort: http-api
       port: {{ .Values.service.port }}
       {{- if (and (eq .Values.service.type "NodePort") ( .Values.service.nodePort)) }}
       nodePort: {{ .Values.service.nodePort }}

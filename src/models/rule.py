@@ -1,4 +1,3 @@
-import os
 from itertools import count
 from typing import Optional
 
@@ -59,20 +58,20 @@ class RuleIndex:
         for i in count():
             yield format(i, f)
 
-    _cloud_map = dict(zip(_it(2), [
+    cloud_map = dict(zip(_it(2), [
         None,
         'AWS',
         'AZURE',
         'GCP'
     ]))
 
-    _platform_map = dict(zip(_it(2), [
+    platform_map = dict(zip(_it(2), [
         None,
         'Kubernetes',
         'OpenShift',
         'Kubernetes and OpenShift'
     ]))
-    _category_map = dict(zip(_it(2), [
+    category_map = dict(zip(_it(2), [
         'FinOps',
         'Lifecycle management',
         'Unutilized Resources',
@@ -125,7 +124,7 @@ class RuleIndex:
         'Backups enabled',
         'High availability'
     ]))
-    _service_section_map = dict(zip(_it(2), [
+    service_section_map = dict(zip(_it(2), [
         'Identity and Access Management',
         'Logging and Monitoring',
         'Networking & Content Delivery',
@@ -154,7 +153,7 @@ class RuleIndex:
         'Scheduler',
         'Secrets Management'
     ]))
-    _source_map = dict(zip(_it(2), [
+    source_map = dict(zip(_it(2), [
         'Azure Security Benchmark (V3)',
         'CIS Amazon Web Services Foundations Benchmark v1.2.0',
         'CIS Amazon Web Services Foundations Benchmark v1.4.0',
@@ -200,11 +199,11 @@ class RuleIndex:
 
     @property
     def raw_cloud(self) -> Optional[str]:
-        return self._cloud_map.get(self._cloud)
+        return self.cloud_map.get(self._cloud)
 
     @property
     def raw_platform(self) -> Optional[str]:
-        return self._platform_map.get(self._platform)
+        return self.platform_map.get(self._platform)
 
     @property
     def cloud(self) -> Cloud:
@@ -215,15 +214,15 @@ class RuleIndex:
 
     @property
     def category(self) -> Optional[str]:
-        return self._category_map.get(self._category)
+        return self.category_map.get(self._category)
 
     @property
     def service_section(self) -> Optional[str]:
-        return self._service_section_map.get(self._service_section)
+        return self.service_section_map.get(self._service_section)
 
     @property
     def source(self) -> Optional[str]:
-        return self._source_map.get(self._source)
+        return self.source_map.get(self._source)
 
     @property
     def has_customization(self) -> bool:
@@ -252,7 +251,7 @@ class Rule(BaseModel):
 
     class Meta:
         table_name = 'CaaSRules'
-        region = os.environ.get(CAASEnv.AWS_REGION)
+        region = CAASEnv.AWS_REGION.get()
 
     # "customer#cloud#name#version"
     id = UnicodeAttribute(hash_key=True, attr_name=R_ID_ATTR)

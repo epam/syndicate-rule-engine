@@ -1,9 +1,10 @@
 import gzip
 import io
 import mimetypes
-import os
 import re
 import shutil
+import urllib.error
+import urllib.request
 from datetime import datetime, timedelta
 from typing import Generator, Iterable, Optional, TypedDict, BinaryIO, cast
 
@@ -15,6 +16,7 @@ from urllib3.util import Url, parse_url
 
 from helpers.constants import CAASEnv
 from helpers.log_helper import get_logger
+from services import cache
 from services.clients import (Boto3ClientWrapperFactory, Boto3ClientFactory,
                               Boto3ClientWrapper)
 
@@ -69,9 +71,9 @@ class S3ClientWrapperFactory(Boto3ClientWrapperFactory['S3Client']):
         return instance
 
     def build_minio(self) -> 'S3Client':
-        endpoint = os.getenv(CAASEnv.MINIO_ENDPOINT)
-        access_key = os.getenv(CAASEnv.MINIO_ACCESS_KEY_ID)
-        secret_key = os.getenv(CAASEnv.MINIO_SECRET_ACCESS_KEY)
+        endpoint = CAASEnv.MINIO_ENDPOINT.get()
+        access_key = CAASEnv.MINIO_ACCESS_KEY_ID.get()
+        secret_key = CAASEnv.MINIO_SECRET_ACCESS_KEY.get()
         assert endpoint and access_key and secret_key, \
             ('Minio endpoint, access key and secret key must be '
              'provided for on-prem')
@@ -101,6 +103,8 @@ class S3Client(Boto3ClientWrapper):
     def __init__(self):
         self._enc = msgspec.json.Encoder()
         self._dec = msgspec.json.Decoder()
+
+        self._ipv4_cache = cache.TTLCache(maxsize=2, ttl=3600)
 
     class Bucket(TypedDict):
         Name: str
@@ -437,6 +441,53 @@ class S3Client(Boto3ClientWrapper):
                 'Status': 'Enabled'
             }]}
         )
+
+    @cache.cachedmethod(lambda self: self._ipv4_cache)
+    def _resolve_instance_public_ipv4(self) -> str | None:
+        _LOG.info('Trying to resolve instance ipv4')
+        token = None
+        try:
+            _LOG.info('Getting imds token')
+            req = urllib.request.Request(
+                'http://169.254.169.254/latest/api/token',
+                headers={'X-aws-ec2-metadata-token-ttl-seconds': '30'},
+                method='PUT'
+            )
+            with urllib.request.urlopen(req, timeout=1) as resp:
+                token = resp.read().decode()
+        except urllib.error.URLError:
+            _LOG.warning('Could not get imds token')
+        try:
+            req = urllib.request.Request(
+                'http://169.254.169.254/latest/meta-data/public-ipv4',
+                headers={'X-aws-ec2-metadata-token': token} if token else {},
+            )
+            with urllib.request.urlopen(req, timeout=1) as resp:
+                return resp.read().decode()
+        except urllib.error.URLError:
+            _LOG.warning('Cannot resolve public-ipv4 from instance metadata')
+
+    def prepare_presigned_url(self, url: str, host: str | None = None) -> str:
+        parsed: Url = parse_url(url)
+        if host:
+            new_host = host
+        elif _env := CAASEnv.MINIO_PRESIGNED_URL_HOST.get():
+            new_host = _env
+        elif ipv4 := self._resolve_instance_public_ipv4():
+            new_host = ipv4
+        elif parsed.host == 'minio':  # exception for docker
+            new_host = '127.0.0.1'
+        else:
+            new_host = parsed.host
+        return Url(
+            scheme=parsed.scheme,
+            auth=parsed.auth,
+            host=new_host,
+            port=parsed.port,
+            path=parsed.path,
+            query=parsed.query,
+            fragment=parsed.fragment
+        ).url
 
 
 class ModularAssumeRoleS3Service(S3Client):

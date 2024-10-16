@@ -32,3 +32,5 @@ service:
   type: NodePort
   port: 8080
   nodePort: 32107
+
+initializerJobTTLSecondsAfterFinished: 7200

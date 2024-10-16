@@ -4,6 +4,7 @@ import inspect
 import json
 import msgspec
 from typing import MutableMapping, TypedDict, cast, TYPE_CHECKING
+from pynamodb.exceptions import PynamoDBConnectionError
 
 from modular_sdk.commons.exception import ModularException
 from modular_sdk.services.customer_service import CustomerService
@@ -85,31 +86,38 @@ class ExpandEnvironmentEventProcessor(AbstractEventProcessor):
         )
 
     @staticmethod
-    def _resolve_stage(event: dict) -> str:
-        original = event['headers'].get('X-Original-Uri')
-        if original:  # nginx reverse proxy gives this header
+    def _resolve_stage(event: dict) -> str | None:
+        original = event.get('headers', {}).get('X-Original-Uri')
+        path = event.get('path')
+        if original and path:  # nginx reverse proxy gives this header
             # event['path'] here contains full path without stage
-            return original[:-len(event['path'])].strip('/')
+            return original[:-len(path)].strip('/')
         # we could've got stage from requestContext.stage, but it always points
         # to api gw stage. That value if wrong for us in case we use a domain
         # name with prefix. So we should resolve stage as difference between
         # requestContext.path and requestContext.resourcePath
-        _path = deep_get(event, ('requestContext', 'path'))
-        _resource = deep_get(event, ('requestContext', 'resourcePath'))
-        return _path[:-len(_resource)].strip('/')
+        path = deep_get(event, ('requestContext', 'path'))
+        resource = deep_get(event, ('requestContext', 'resourcePath'))
+        if path and resource:
+            return path[:-len(resource)].strip('/')
 
     def __call__(self, event: dict, context: RequestContext
                  ) -> tuple[dict, RequestContext]:
         """
         Adds some useful data to internal environment variables
         """
-        envs = {CAASEnv.INVOCATION_REQUEST_ID: context.aws_request_id}
+        envs = {CAASEnv.INVOCATION_REQUEST_ID.value: context.aws_request_id}
         if host := deep_get(event, ('headers', 'Host')):
-            envs[CAASEnv.API_GATEWAY_HOST] = host
-        envs[CAASEnv.API_GATEWAY_STAGE] = self._resolve_stage(event)
+            _LOG.debug(f'Resolved host from header: {host}')
+            envs[CAASEnv.API_GATEWAY_HOST.value] = host
+        stage = self._resolve_stage(event)
+        if stage:
+            _LOG.debug(f'Resolved stage: {stage}')
+            envs[CAASEnv.API_GATEWAY_STAGE.value] = stage
 
         if context.invoked_function_arn:
-            envs[CAASEnv.ACCOUNT_ID] = RequestContext.extract_account_id(
+            _LOG.debug('Extracting account id from event context')
+            envs[CAASEnv.ACCOUNT_ID.value] = RequestContext.extract_account_id(
                 context.invoked_function_arn
             )
         self._env.override_environment(envs)
@@ -168,12 +176,12 @@ class ApiGatewayEventProcessor(AbstractEventProcessor):
             try:
                 body = self._decoder.decode(body)
             except msgspec.ValidationError as e:
-                _LOG.info('Invalid body type came. Returning 400')
+                _LOG.warning('Invalid body type came. Returning 400')
                 raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
                     str(e)
                 ).exc()
             except msgspec.DecodeError as e:
-                _LOG.info('Invalid incoming json. Returning 400')
+                _LOG.warning('Invalid incoming json. Returning 400')
                 raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
                     str(e)
                 ).exc()
@@ -302,12 +310,15 @@ class RestrictCustomerEventProcessor(AbstractEventProcessor):
             event['tenant_access_payload'] = TenantsAccessPayload.build_allowing_all()
 
             if (event['resource'], event['method']) in self.can_work_without_customer_id:  # noqa
+                _LOG.info(f'System is making request that can be done without '
+                          f'customer_id')
                 return event, context
             if not cid:
                 raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
                     'Please, provide customer_id param to make a request on '
                     'his behalf'
                 ).exc()
+            _LOG.info(f'System is making request on behalf of {cid}')
             return event, context
         # override customer attribute for standard users with their customer
         cust = event['cognito_customer']
@@ -360,7 +371,7 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
         :param permission:
         :return: TenantAccessPayload
         """
-        _LOG.debug(f'Checking permission: {permission}')
+        _LOG.info(f'Checking permission: {permission}')
         factory = ResponseFactory(HTTPStatus.FORBIDDEN).message
         # todo cache role and policies?
         role = self._rs.get_nullable(customer, role_name)
@@ -586,6 +597,18 @@ class EventProcessorLambdaHandler(AbstractLambdaHandler):
         except ModularException as e:
             _LOG.warning('Modular exception occurred', exc_info=True)
             return ResponseFactory(int(e.code)).message(e.content).build()
+        except PynamoDBConnectionError as e:
+            if e.cause_response_code not in (
+                    'ProvisionedThroughputExceededException',
+                    'ThrottlingException'):
+                _LOG.exception('Unexpected pynamodb exception occurred')
+                return ResponseFactory(
+                    HTTPStatus.INTERNAL_SERVER_ERROR
+                ).default().build()
+            _LOG.exception(f'{e.cause_response_code} occurred. Returning 429')
+            return ResponseFactory(
+                HTTPStatus.TOO_MANY_REQUESTS
+            ).default().build()
         except Exception:  # noqa
             _LOG.exception('Unexpected exception occurred')
             return ResponseFactory(

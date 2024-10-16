@@ -9,6 +9,13 @@ metadata:
     helm.sh/chart: {{ include "rule-engine.chart" . }}
 spec:
   replicas: {{ .Values.replicas }}
+  strategy:
+    type: {{ .Values.strategy.type }}
+    {{- if eq .Values.strategy.type "RollingUpdate" }}
+    rollingUpdate:
+      maxSurge: {{ .Values.strategy.maxSurge }}
+      maxUnavailable: {{ .Values.strategy.maxUnavailable }}
+    {{- end}}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "rule-engine.name" . }}
@@ -20,10 +27,12 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/managed-by: {{ .Release.Service }}
         helm.sh/chart: {{ include "rule-engine.chart" . }}
+      annotations:
+        rollme: {{ randAlphaNum 5 | quote }}
     spec:
       containers:
         - name: rule-engine
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           livenessProbe:
             httpGet:
@@ -37,7 +46,7 @@ spec:
             failureThreshold: 3
           ports:
             - containerPort: 8000
-              hostPort: 8000
+              name: http
               protocol: TCP
           env:
             - name: modular_mongo_user
@@ -58,7 +67,13 @@ spec:
                   name: {{ include "rule-engine.fullname" . }}
                   key: modular-db-name
             - name: modular_service_mode
-              value: docker
+              value: {{ default "docker" .Values.modularSdk.serviceMode }}
+            {{- if ne (default "docker" .Values.modularSdk.serviceMode) "docker" }}
+            - name: modular_assume_role_arn
+              value: {{ .Values.modularSdk.assumeRoleArn }}
+            - name: MODULAR_AWS_REGION
+              value: {{ .Values.modularSdk.awsRegion }}
+            {{- end }}
             - name: CAAS_SERVICE_MODE
               value: docker
             - name: CAAS_MONGO_URI
@@ -108,4 +123,10 @@ spec:
                   key: system-password
             - name: CAAS_TESTING
               value: 'false'
+            - name: HTTP_PROXY
+              value: {{ .Values.httpProxy }}
+            - name: HTTPS_PROXY
+              value: {{ .Values.httpProxy }}
+            - name: NO_PROXY
+              value: {{ .Values.noProxy }}
       restartPolicy: Always

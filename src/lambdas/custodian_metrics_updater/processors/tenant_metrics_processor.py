@@ -537,7 +537,7 @@ class TenantMetrics:
             result_tenant_data.setdefault(name, {}).update({
                 CUSTOMER_ATTR: tenant_obj.customer_name,
                 TENANT_NAME_ATTR: tenant_obj.name,
-                ID_ATTR: tenant_obj.account_number or tenant_obj.project,
+                ID_ATTR: tenant_obj.project,
                 CLOUD_ATTR: cloud,
                 'activated_regions': active_regions,
                 'from': self.start_date.isoformat(),

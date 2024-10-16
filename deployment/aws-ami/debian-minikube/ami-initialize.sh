@@ -1,10 +1,29 @@
 #!/bin/bash
 
-LOG_PATH=/var/log/sre-init.log
-ERROR_LOG_PATH=$LOG_PATH
+LOG_PATH="${LOG_PATH:-/var/log/sre-init.log}"
+ERROR_LOG_PATH="${ERROR_LOG_PATH:-/var/log/sre-init.log}"
 
-log() { echo "[INFO] $(date) $1" >> $LOG_PATH; }
-log_err() { echo "[ERROR] $(date) $1" >> $ERROR_LOG_PATH; }
+SYNDICATE_HELM_REPOSITORY="${SYNDICATE_HELM_REPOSITORY:-s3://charts-repository/syndicate/}"
+HELM_RELEASE_NAME="${HELM_RELEASE_NAME:-rule-engine}"
+DEFECTDOJO_HELM_RELEASE_NAME="${DEFECTDOJO_HELM_RELEASE_NAME:-defectdojo}"
+
+DOCKER_VERSION="${DOCKER_VERSION:-5:27.1.1-1~debian.12~bookworm}"
+MINIKUBE_VERSION="${MINIKUBE_VERSION:-v1.33.1}"
+KUBERNETES_VERSION="${KUBERNETES_VERSION:-v1.30.0}"
+KUBECTL_VERSION="${KUBECTL_VERSION:-v1.30.3}"
+HELM_VERSION="${HELM_VERSION:-3.15.3-1}"
+
+SRE_LOCAL_PATH="${SRE_LOCAL_PATH:-/usr/local/sre}"
+LM_API_LINK="${LM_API_LINK:-https://lm.syndicate.team}"
+GITHUB_REPO="${GITHUB_REPO:-epam/syndicate-rule-engine}"
+
+FIRST_USER="${FIRST_USER:-$(getent passwd 1000 | cut -d : -f 1)}"
+DO_NOT_ACTIVATE_LICENSE="${DO_NOT_ACTIVATE_LICENSE:-}"
+
+
+log() { echo "[INFO] $(date) $1" >> "$LOG_PATH"; }
+log_err() { echo "[ERROR] $(date) $1" >> "$ERROR_LOG_PATH"; }
+# shellcheck disable=SC2120
 get_imds_token () {
   duration="10"  # must be an integer
   if [ -n "$1" ]; then
@@ -14,6 +33,7 @@ get_imds_token () {
 }
 identity_document() { curl -s -H "X-aws-ec2-metadata-token: $(get_imds_token)" http://169.254.169.254/latest/dynamic/instance-identity/document; }
 document_signature() { curl -s -H "X-aws-ec2-metadata-token: $(get_imds_token)" http://169.254.169.254/latest/dynamic/instance-identity/signature | tr -d '\n'; }
+region() { curl -s curl -s -H "X-aws-ec2-metadata-token: $(get_imds_token)" http://169.254.169.254/latest/dynamic/instance-identity/document | jq -r ".region"; }
 request_to_lm() { curl -s -X POST -d "{\"signature\":\"$(document_signature)\",\"document\":\"$(identity_document | base64 -w 0)\"}" "$LM_API_LINK/marketplace/custodian/init"; }
 generate_password() {
   chars="20"
@@ -47,13 +67,13 @@ EOF
   sudo systemctl enable rule-engine-minikube.service
 }
 upgrade_and_install_packages() {
-  sudo DEBIAN_FRONTEND=noninteractive apt update -y
-  sudo DEBIAN_FRONTEND=noninteractive apt upgrade -y
-  sudo DEBIAN_FRONTEND=noninteractive apt install -y jq python3-pip locales-all nginx
+  sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
+  # sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y jq curl python3-pip locales-all nginx
 }
 install_docker() {
   # Add Docker's official GPG key: from https://docs.docker.com/engine/install/debian/
-  sudo DEBIAN_FRONTEND=noninteractive apt install -y ca-certificates curl
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl
   sudo install -m 0755 -d /etc/apt/keyrings
   sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
   sudo chmod a+r /etc/apt/keyrings/docker.asc
@@ -62,20 +82,19 @@ install_docker() {
     "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
     $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
     sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-  sudo DEBIAN_FRONTEND=noninteractive apt update -y
-  sudo DEBIAN_FRONTEND=noninteractive apt install -y docker-ce docker-ce-cli containerd.io
+  sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce="$1" docker-ce-cli="$1" containerd.io
 }
 install_minikube() {
   # https://minikube.sigs.k8s.io/docs/start
-  log "Installing minikube"
-  curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube_latest_$(dpkg --print-architecture).deb
-  sudo dpkg -i minikube_latest_$(dpkg --print-architecture).deb && rm minikube_latest_$(dpkg --print-architecture).deb
+  curl -LO "https://storage.googleapis.com/minikube/releases/$1/minikube_latest_$(dpkg --print-architecture).deb"
+  sudo dpkg -i "minikube_latest_$(dpkg --print-architecture).deb" && rm "minikube_latest_$(dpkg --print-architecture).deb"
 }
 install_kubectl() {
   # https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/#install-kubectl-binary-with-curl-on-linux
-  curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/$(dpkg --print-architecture)/kubectl"  # todo specify concrete release
-  curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/$(dpkg --print-architecture)/kubectl.sha256"
-  echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check || exit 1
+  curl -LO "https://dl.k8s.io/release/$1/bin/linux/$(dpkg --print-architecture)/kubectl"
+  curl -LO "https://dl.k8s.io/release/$1/bin/linux/$(dpkg --print-architecture)/kubectl.sha256"
+  echo "$(cat kubectl.sha256) kubectl" | sha256sum --check || exit 1
   sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && rm kubectl kubectl.sha256
 }
 install_helm() {
@@ -84,21 +103,37 @@ install_helm() {
   sudo apt-get install apt-transport-https --yes
   echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
   sudo apt-get update
-  sudo apt-get install helm
+  sudo apt-get install helm="$1"
 }
 nginx_conf() {
   cat <<EOF
+#load_module /usr/lib/nginx/modules/ngx_stream_module.so;  # for mongo
 worker_processes auto;
 pid /run/nginx.pid;
 error_log /var/log/nginx/error.log;
-# error_log /dev/null emerg;
+worker_rlimit_nofile 8192;
 events {
-    worker_connections 1024;
+    worker_connections 4096;
 }
 http {
+    access_log off;
+    server_tokens off;
+    gzip on;
+    gzip_min_length 10240;
+    gzip_disable msie6;
+    gzip_types application/json;
+
+    client_body_timeout 5s;
+    client_header_timeout 5s;
+    limit_req_zone \$binary_remote_addr zone=req_per_ip:10m rate=30r/s;
+    limit_req_status 429;
+
     include /etc/nginx/mime.types;
     include /etc/nginx/sites-enabled/*;
 }
+#stream {
+#    include /etc/nginx/streams-enabled/*;
+#}
 EOF
 }
 nginx_defectdojo_conf() {
@@ -156,21 +191,46 @@ server {
 }
 EOF
 }
+nginx_vault_conf() {
+  # just for debugging purposes
+  cat <<EOF
+server {
+    listen 8200;
+    location / {
+        include /etc/nginx/proxy_params;
+        proxy_pass http://$(minikube_ip):32100;
+    }
+}
+EOF
+}
+nginx_mongo_conf() {
+  # just for debugging purposes
+  cat <<EOF
+server {
+    listen 27017;
+    proxy_connect_timeout 1s;
+    proxy_timeout 3s;
+    proxy_pass $(minikube_ip):32101;
+}
+EOF
+}
 nginx_sre_conf() {
   cat <<EOF
 server {
     listen 8000;
-    location /sre {
+    location /re {
         include /etc/nginx/proxy_params;
         proxy_set_header X-Original-URI \$request_uri;
         proxy_redirect off;
         proxy_pass http://$(minikube_ip):32106/caas;
+        limit_req zone=req_per_ip burst=5 nodelay;
     }
     location /ms {
         include /etc/nginx/proxy_params;
         proxy_set_header X-Original-URI \$request_uri;
         proxy_redirect off;
         proxy_pass http://$(minikube_ip):32104/dev;
+        limit_req zone=req_per_ip burst=5 nodelay;
     }
 }
 EOF
@@ -183,14 +243,23 @@ server {
         include /etc/nginx/proxy_params;
         proxy_redirect off;
         proxy_pass http://$(minikube_ip):32105;
+        limit_req zone=req_per_ip burst=5 nodelay;
     }
 }
 EOF
 }
+build_helm_values() {
+  # builds values for modularSdk role
+  if [ -z "$MODULAR_SDK_ROLE_ARN" ]; then
+    return
+  fi
+  local modular_region
+  modular_region="${MODULAR_SDK_REGION:-$(region)}"
+  echo -n "--set=modular-service.modularSdk.serviceMode=saas,modular-service.modularSdk.awsRegion=${modular_region},modular-service.modularSdk.assumeRoleArn=${MODULAR_SDK_ROLE_ARN//,/\\,} --set=modularSdk.serviceMode=saas,modularSdk.awsRegion=${modular_region},modularSdk.assumeRoleArn=${MODULAR_SDK_ROLE_ARN//,/\\,}"
+}
 
-# $SRE_LOCAL_PATH $LM_API_LINK, $RULE_ENGINE_RELEASE, $FIRST_USER will be provided from outside
-if [ -z "$SRE_LOCAL_PATH" ] || [ -z "$LM_API_LINK" ] || [ -z "$RULE_ENGINE_RELEASE" ] || [ -z "$FIRST_USER" ] || [ -z "$GITHUB_REPO" ]; then
-  error_log "SRE_LOCAL_PATH=$SRE_LOCAL_PATH LM_API_LINK=$LM_API_LINK RULE_ENGINE_RELEASE=$RULE_ENGINE_RELEASE FIRST_USER=$FIRST_USER. Something is not provided"
+if [ -z "$RULE_ENGINE_RELEASE" ]; then
+  error_log "RULE_ENGINE_RELEASE env is required"
   exit 1
 fi
 log "Script is executed on behalf of $(id)"
@@ -201,24 +270,24 @@ log "The first run. Configuring sre for user $FIRST_USER"
 log "Upgrading system and installing some necessary packages"
 upgrade_and_install_packages
 
-log "Installing docker"
-install_docker
+log "Installing docker $DOCKER_VERSION"
+install_docker "$DOCKER_VERSION"
 
-log "Installing minikube"
-install_minikube
+log "Installing minikube $MINIKUBE_VERSION"
+install_minikube "$MINIKUBE_VERSION"
 
-log "Installing kubectl"
-install_kubectl
+log "Installing kubectl $KUBECTL_VERSION"
+install_kubectl "$KUBECTL_VERSION"
 
-log "Installing helm"
-install_helm
+log "Installing helm $HELM_VERSION"
+install_helm "$HELM_VERSION"
 
 log "Adding user $FIRST_USER to docker group"
 sudo usermod -aG docker "$FIRST_USER"
 
 log "Starting minikube and installing helm releases on behalf of $FIRST_USER"
 sudo su - "$FIRST_USER" <<EOF
-minikube start --driver=docker --container-runtime=containerd -n 1 --force --interactive=false --memory=max --cpus=max --profile rule-engine
+minikube start --driver=docker --container-runtime=containerd -n 1 --force --interactive=false --memory=max --cpus=max --profile rule-engine --kubernetes-version=$KUBERNETES_VERSION
 minikube profile rule-engine  # making default
 kubectl create secret generic minio-secret --from-literal=username=miniouser --from-literal=password=$(generate_password)
 kubectl create secret generic mongo-secret --from-literal=username=mongouser --from-literal=password=$(generate_password 30 -hex)
@@ -226,43 +295,44 @@ kubectl create secret generic vault-secret --from-literal=token=$(generate_passw
 kubectl create secret generic rule-engine-secret --from-literal=system-password=$(generate_password 30)
 kubectl create secret generic modular-api-secret --from-literal=system-password=$(generate_password 20 -hex) --from-literal=secret-key="$(generate_password 50)"
 kubectl create secret generic modular-service-secret --from-literal=system-password=$(generate_password 30)
-kubectl create secret generic defect-dojo-secret --from-literal=secret-key="$(generate_password 50)" --from-literal=credential-aes-256-key=$(generate_password) --from-literal=db-username=defectdojo --from-literal=db-password=$(generate_password 30 -hex)
+kubectl create secret generic defectdojo-secret --from-literal=secret-key="$(generate_password 50)" --from-literal=credential-aes-256-key=$(generate_password) --from-literal=db-username=defectdojo --from-literal=db-password=$(generate_password 30 -hex)
 
 helm plugin install https://github.com/hypnoglow/helm-s3.git
-helm repo add sre s3://charts-repository/charts/
-helm repo update
+helm repo add syndicate "$SYNDICATE_HELM_REPOSITORY"
+helm repo update syndicate
 
-helm install vault sre/vault
-helm install minio sre/minio
-helm install mongo sre/mongo
-helm install modular-service sre/modular-service
-helm install modular-api sre/modular-api
-helm install rule-engine sre/rule-engine
-helm install defectdojo sre/defectdojo
+helm install "$HELM_RELEASE_NAME" syndicate/rule-engine --version $RULE_ENGINE_RELEASE $(build_helm_values)
+helm install "$DEFECTDOJO_HELM_RELEASE_NAME" syndicate/defectdojo
 EOF
 
 log "Downloading artifacts"
+sudo mkdir -p "$SRE_LOCAL_PATH/backups"
 sudo mkdir -p "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE"
 sudo wget -O "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE/modular_cli.tar.gz" "https://github.com/$GITHUB_REPO/releases/download/$RULE_ENGINE_RELEASE/modular_cli.tar.gz"  # todo get from modular-cli repo
 sudo wget -O "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE/sre_obfuscator.tar.gz" "https://github.com/$GITHUB_REPO/releases/download/$RULE_ENGINE_RELEASE/sre_obfuscator.tar.gz"
-sudo wget -O "/usr/local/bin/sre-init" "https://github.com/$GITHUB_REPO/releases/download/$RULE_ENGINE_RELEASE/sre-init.sh"
+sudo wget -O "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE/sre-init.sh" "https://github.com/$GITHUB_REPO/releases/download/$RULE_ENGINE_RELEASE/sre-init.sh"
+sudo cp "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE/sre-init.sh" /usr/local/bin/sre-init
 sudo chmod +x /usr/local/bin/sre-init
-sudo chown -R $FIRST_USER:$FIRST_USER "$SRE_LOCAL_PATH"
+sudo chown -R "$FIRST_USER":"$FIRST_USER" "$SRE_LOCAL_PATH"
 
 
-log "Going to make request to license manager"
-lm_response=$(request_to_lm)
-code=$?
-if [ $code -ne 0 ];
-then
-  log_err "Unsuccessful response from the license manager"
-  exit 1
-fi
-lm_response=$(echo "$lm_response" | jq --indent 0 ".items[0]")
-sudo su - "$FIRST_USER" <<EOF
+if [ -z "$DO_NOT_ACTIVATE_LICENSE" ]; then
+  log "Going to make request to license manager"
+  if ! lm_response="$(request_to_lm)"; then
+    log_err "Unsuccessful response from the license manager"
+    exit 1
+  fi
+  lm_response=$(jq --indent 0 '.items[0]' <<<"$lm_response")
+  sudo su - "$FIRST_USER" <<EOF
 kubectl create secret generic lm-data --from-literal=api-link='$LM_API_LINK' --from-literal=lm-response='$lm_response'
 EOF
-log "License information was received"
+  log "License information was received"
+else
+  log "Skipping license activation step"
+  sudo su - "$FIRST_USER" <<EOF
+kubectl create secret generic lm-data --from-literal=api-link='$LM_API_LINK'
+EOF
+fi
 
 
 log "Getting Defect dojo password"
@@ -273,7 +343,7 @@ done
 dojo_pass=$(base64 <<< "$dojo_pass")
 
 sudo su - "$FIRST_USER" <<EOF
-kubectl patch secret defect-dojo-secret -p="{\"data\":{\"system-password\":\"$dojo_pass\"}}"
+kubectl patch secret defectdojo-secret -p="{\"data\":{\"system-password\":\"$dojo_pass\"}}"
 EOF
 log "Defect dojo secret was saved"
 
@@ -281,19 +351,26 @@ log "Enabling minikube service"
 enable_minikube_service
 
 log "Configuring nginx"
+sudo rm /etc/nginx/sites-enabled/*
+sudo rm /etc/nginx/sites-available/*
+sudo mkdir /etc/nginx/streams-available || true
+sudo mkdir /etc/nginx/streams-enabled || true
+
 nginx_conf | sudo tee /etc/nginx/nginx.conf > /dev/null
 nginx_defectdojo_conf | sudo tee /etc/nginx/sites-available/defectdojo > /dev/null
-nginx_minio_api_conf | sudo tee /etc/nginx/sites-available/minio_api > /dev/null
-nginx_minio_console_conf | sudo tee /etc/nginx/sites-available/minio_console > /dev/null
-nginx_sre_conf | sudo tee /etc/nginx/sites-available/sre > /dev/null
-nginx_modular_api_conf | sudo tee /etc/nginx/sites-available/modular > /dev/null
+nginx_minio_api_conf | sudo tee /etc/nginx/sites-available/minio > /dev/null
+nginx_minio_console_conf | sudo tee /etc/nginx/sites-available/minio-console > /dev/null
+nginx_vault_conf | sudo tee /etc/nginx/sites-available/vault > /dev/null
+nginx_mongo_conf | sudo tee /etc/nginx/streams-available/mongo > /dev/null
+nginx_sre_conf | sudo tee /etc/nginx/sites-available/sre > /dev/null  # rule-engine + modular-service
+nginx_modular_api_conf | sudo tee /etc/nginx/sites-available/modular-api > /dev/null
 
-sudo rm /etc/nginx/sites-enabled/*
 sudo ln -s /etc/nginx/sites-available/defectdojo /etc/nginx/sites-enabled/
-sudo ln -s /etc/nginx/sites-available/modular /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/modular-api /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/minio /etc/nginx/sites-enabled/
 
 sudo nginx -s reload
 
 log "Cleaning apt cache"
-sudo apt clean
+sudo apt-get clean
 log 'Done'

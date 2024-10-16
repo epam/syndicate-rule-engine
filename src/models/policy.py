@@ -1,10 +1,9 @@
-import os
+from enum import Enum
 
 from pynamodb.attributes import UnicodeAttribute, ListAttribute
 
-from models import BaseModel
-from enum import Enum
 from helpers.constants import CAASEnv
+from models import BaseModel
 
 
 class PolicyEffect(str, Enum):
@@ -15,7 +14,7 @@ class PolicyEffect(str, Enum):
 class Policy(BaseModel):
     class Meta:
         table_name = 'CaaSPolicies'
-        region = os.environ.get(CAASEnv.AWS_REGION)
+        region = CAASEnv.AWS_REGION.get()
 
     customer = UnicodeAttribute(hash_key=True)  # todo hot partition?
     name = UnicodeAttribute(range_key=True)

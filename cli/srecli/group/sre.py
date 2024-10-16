@@ -18,15 +18,15 @@ from srecli.group.rulesource import rulesource
 from srecli.group.setting import setting
 from srecli.group.tenant import tenant
 from srecli.group.users import users
-from srecli.service.helpers import validate_api_link
+from srecli.service.helpers import validate_api_link, check_version_compatibility
 from srecli.service.logger import get_logger
-from srecli.version import __version__, check_version_compatibility
+from srecli import __version__
 
 
-SYSTEM_LOG = get_logger(__name__)
+_LOG = get_logger(__name__)
 
 
-@click.group()
+@click.group(name='sre')
 @click.version_option(__version__)
 def sre():
     """The main click's group to accumulate all the CLI commands"""
@@ -49,7 +49,7 @@ def configure(ctx: ContextObj, api_link, items_per_column, **kwargs):
     if api_link:
         message = validate_api_link(api_link)
         if message:
-            SYSTEM_LOG.error(message)
+            _LOG.warning(f'invalid link: {message}')
             raise click.ClickException(message)
         ctx['config'].api_link = api_link
     if isinstance(items_per_column, int):
@@ -76,7 +76,7 @@ def login(ctx: ContextObj, username: str, password: str, **kwargs):
     resp = adapter.login(username=username, password=password)
     if resp.exc or not resp.ok:
         return resp
-    check_version_compatibility(resp.api_version)
+    check_version_compatibility(resp.api_version, __version__)
 
     ctx['config'].access_token = resp.data['access_token']
     if rt := resp.data.get('refresh_token'):

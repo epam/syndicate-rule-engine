@@ -13,9 +13,9 @@ from helpers.constants import CAASEnv, DOCKER_SERVICE_MODE
 
 ADAPTER = None
 MONGO_CLIENT = None
-if os.getenv(CAASEnv.SERVICE_MODE) == DOCKER_SERVICE_MODE:
-    uri = os.getenv(CAASEnv.MONGO_URI)
-    db = os.getenv(CAASEnv.MONGO_DATABASE)
+if CAASEnv.SERVICE_MODE.get() == DOCKER_SERVICE_MODE:
+    uri = CAASEnv.MONGO_URI.get()
+    db = CAASEnv.MONGO_DATABASE.get()
     assert uri and db, 'Mongo uri and db must be specified for on-prem'
     ADAPTER = PynamoDBToPyMongoAdapter(
         mongodb_connection=MongoDBConnection(
@@ -32,6 +32,8 @@ class CustodianMongoDBHandlerMixin(ABCMongoDBHandlerMixin):
         if not cls._mongodb:
             cls._mongodb = ADAPTER
         return cls._mongodb
+
+    is_docker = CAASEnv.SERVICE_MODE.get() == DOCKER_SERVICE_MODE
 
 
 class BaseModel(CustodianMongoDBHandlerMixin, RawBaseModel):

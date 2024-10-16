@@ -14,7 +14,7 @@ spec:
   type: {{ .Values.service.type }}
   ports:
     - protocol: TCP
-      targetPort: 27017
+      targetPort: mongo-socket
       port: {{ .Values.service.port }}
       {{- if (and (eq .Values.service.type "NodePort") ( .Values.service.nodePort)) }}
       nodePort: {{ .Values.service.nodePort }}

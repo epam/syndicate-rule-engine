@@ -1,6 +1,4 @@
-import os
-
-from pynamodb.attributes import UnicodeAttribute, MapAttribute, ListAttribute
+from pynamodb.attributes import UnicodeAttribute, MapAttribute
 from pynamodb.indexes import AllProjection
 
 from helpers.constants import CAASEnv, CUSTOMER_ATTR, \
@@ -30,7 +28,7 @@ class CustomerGitProjectIdIndex(BaseGSI):
 class RuleSource(BaseModel):
     class Meta:
         table_name = 'CaaSRuleSources'
-        region = os.environ.get(CAASEnv.AWS_REGION)
+        region = CAASEnv.AWS_REGION.get()
 
     id = UnicodeAttribute(hash_key=True)
     customer = UnicodeAttribute()

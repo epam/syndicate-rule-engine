@@ -3,6 +3,7 @@ from typing import TypedDict, TYPE_CHECKING
 
 from helpers.constants import RuleDomain
 from services import SP
+from models.rule import RuleIndex
 
 if TYPE_CHECKING:
     from services.rule_meta_service import RuleMetaModel
@@ -34,7 +35,7 @@ HumanDataType = dict[str, HumanData]
 class MappingsCollector:
     """
     This class helps to retrieve specific projections from rule's meta and
-    keep them as mappings to allow more cost-effective access
+    keep them as mappings
     """
 
     def __init__(self):
@@ -206,6 +207,29 @@ class MappingsCollector:
     @google_events.setter
     def google_events(self, value: Events):
         self._google_events = value
+
+    @classmethod
+    def build_from_sharding_collection_meta(cls, meta: dict
+                                            ) -> 'MappingsCollector':
+        """
+        Sharding collection meta is a mapping of rule names to rules metadata
+        that is available from the rules. That metadata has rule comment
+        which we can use:
+        https://github.com/epam/ecc-aws-rulepack/wiki/Rule-Index-(Comment)-Structure
+        """
+        instance = cls()
+        for name, data in meta.items():
+            comment = data.get('comment')
+            if not comment:
+                continue
+            index = RuleIndex(comment)
+            if ss := index.service_section:
+                instance._service_section[name] = ss
+            if category := index.category:
+                instance._category[name] = category
+            if source := index.source:
+                instance._standard[name] = {source: ['()']}  # resembles standards format from metadata but without points
+        return instance
 
 
 class LazyLoadedMappingsCollector:

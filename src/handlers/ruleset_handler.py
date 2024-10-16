@@ -23,7 +23,7 @@ from helpers.log_helper import get_logger
 from helpers.reports import Standard
 from helpers.system_customer import SYSTEM_CUSTOMER
 from helpers.time_helper import utc_iso
-from models.rule import Rule
+from models.rule import Rule, RuleIndex
 from models.rule_source import RuleSource
 from models.ruleset import Ruleset, EMPTY_VERSION
 from services import SERVICE_PROVIDER
@@ -338,32 +338,25 @@ class RulesetHandler(AbstractHandler):
                 item, params_to_exclude) for item in items)
         )
 
-    def _filtered_rules(self, rules: list[Rule], severity: Optional[str],
-                        service_section: Optional[str], standard: set,
-                        mitre: set) -> Generator[Rule, None, None]:
-        mappings = self.mappings_collector
+    @staticmethod
+    def _filtered_rules(rules: list[Rule], platforms: set[str],
+                        categories: set[str], service_sections: set[str],
+                        sources: set[str]) -> Generator[Rule, None, None]:
         for rule in rules:
+            comment = RuleIndex(rule.comment)
             name = rule.name
-            if severity and mappings.severity.get(name) != severity:
-                _LOG.debug(f'Skipping rule {name}. Severity does not match')
+            if platforms and (not comment.raw_platform or comment.raw_platform.lower() not in platforms):
+                _LOG.debug(f'Skipping rule {name}. Platform does not match')
                 continue
-            if service_section and \
-                    (mappings.service_section.get(name) != service_section):
-                _LOG.debug(f'Skipping rule {name}. Service '
-                           f'section does not match')
+            if categories and (not comment.category or comment.category.lower() not in categories):
+                _LOG.debug(f'Skipping rule {name}. Category does not match')
                 continue
-            if standard:  # list
-                st = mappings.standard.get(name) or {}
-                available = (Standard.deserialize_to_strs(st) | st.keys())
-                if not all(item in available for item in standard):
-                    _LOG.debug(f'Skipping rule {name}. '
-                               f'Standard does not match')
-                    continue
-            if mitre:  # list
-                available = mappings.mitre.get(name) or {}
-                if not all(item in available for item in mitre):
-                    _LOG.debug(f'Skipping rule: {name}. Mitre does not match')
-                    continue
+            if service_sections and (not comment.service_section or comment.service_section.lower() not in service_sections):
+                _LOG.debug(f'Skipping rule {name}. Service section does not match')
+                continue
+            if sources and (not comment.source or comment.source.lower() not in sources):
+                _LOG.debug(f'Skipping rule {name}. Source does not match')
+                continue
             yield rule
 
     @validate_kwargs
@@ -490,10 +483,10 @@ class RulesetHandler(AbstractHandler):
         _LOG.debug('Filtering rules by mappings')
         rules = list(self._filtered_rules(
             rules=rules,
-            severity=event.severity,
-            service_section=event.service_section,
-            standard=event.standard,
-            mitre=event.mitre
+            platforms=event.platforms,
+            categories=event.categories,
+            service_sections=event.service_sections,
+            sources=event.sources,
         ))
         if not rules:
             _LOG.warning('No rules found by filters')

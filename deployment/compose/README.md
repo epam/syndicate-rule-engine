@@ -70,9 +70,10 @@ Defect dojo ui should become available on [http://127.0.0.1:8080](http://127.0.0
 There are two APIs: rule engine API and modular-service api. The first allows to manage rules, rulesets, jobs and reports.
 The second one allows to manage admin entities. You can use provided CLIs to interact with entities.
 
+### Log in as system users
 
 ```bash
-c7n --version
+sre --version
 modular-service --version
 ```
 
@@ -84,7 +85,7 @@ alias ms="modular-service"
 Configure api links:
 
 ```bash
-c7n configure --api_link http://0.0.0.0:8000/caas
+sre configure --api_link http://0.0.0.0:8000/caas
 ```
 
 ```bash
@@ -93,41 +94,82 @@ ms configure --api_link http://0.0.0.0:8040/dev
 
 Login as system users:
 ```bash
-c7n login --username system_user --password "$CAAS_SYSTEM_USER_PASSWORD"
+sre login --username system_user --password "$CAAS_SYSTEM_USER_PASSWORD"
 ```
 
 ```bash
 ms login --username system_user --password "$MODULAR_SERVICE_SYSTEM_USER_PASSWORD"
 ```
 
+
+### Activate license, part 1
+To activate license such information must be provided to you:
+
+- license activation key in `uuid4` format - `$LICENSE_ACTIVATION_KEY`
+- License Manager API link - `$LM_API_LINK`
+- License Manager private key id - `$LM_PRIVATE_KEY_ID`
+- base64-encoded License Manager private key - `$LM_PRIVATE_KEY`
+- Customer Name `$CUSTOMER_NAME`
+
+
+Configure LM api link
+```bash
+sre setting lm config add --host "$LM_API_LINK" --json
+```
+
+Configure LM private key
+```bash
+sre setting lm client add --key_id "$LM_PRIVATE_KEY_ID" --private_key "$LM_PRIVATE_KEY" --b64encoded --json
+```
+
+Other license configuration steps will be performed from a customer user.
+
+### Log in as customer users
+
 Register new user for modular-service
 ```bash
 export MODULAR_SERVICE_USERNAME=admin
 export MODULAR_SERVICE_PASSWORD="$(python generate_random_password.py)"
-export CUSTOMER_NAME="EPAM Systems"
 ms signup --username $MODULAR_SERVICE_USERNAME --password $MODULAR_SERVICE_PASSWORD --customer_name $CUSTOMER_NAME --customer_display_name "$CUSTOMER_NAME" --customer_admin admin@example.com --json
 ```
-
 
 From system user create role and policy and admin user for rule engine:
 ```bash
 export RULE_ENGINE_USERNAME=admin
 export RULE_ENGINE_PASSWORD="$(python generate_random_envs.py)"
-c7n policy add --name admin_policy --permissions_admin --effect allow --tenant '*' --description "Full admin access policy for customer" --customer_id "$CUSTOMER_NAME" --json
-c7n role add --name admin_role --policies admin_policy --description "Admin customer role" --customer_id "$CUSTOMER_NAME" --json
-c7n users create --username "$RULE_ENGINE_USERNAME" --password "$RULE_ENGINE_PASSWORD" --role_name admin_role --customer_id "$CUSTOMER_NAME" --json
+sre policy add --name admin_policy --permissions_admin --effect allow --tenant '*' --description "Full admin access policy for customer" --customer_id "$CUSTOMER_NAME" --json
+sre role add --name admin_role --policies admin_policy --description "Admin customer role" --customer_id "$CUSTOMER_NAME" --json
+sre users create --username "$RULE_ENGINE_USERNAME" --password "$RULE_ENGINE_PASSWORD" --role_name admin_role --customer_id "$CUSTOMER_NAME" --json
 ```
 
 Login as admin users into modular service and rule engine
 ```bash
-c7n login --username "$RULE_ENGINE_USERNAME" --password "$RULE_ENGINE_PASSWORD"
+sre login --username "$RULE_ENGINE_USERNAME" --password "$RULE_ENGINE_PASSWORD"
 ```
 
 ```bash
 ms login --username "$MODULAR_SERVICE_USERNAME" --password "$MODULAR_SERVICE_PASSWORD"
 ```
 
+### Activate license, part 2
 
+Add license
+```bash
+sre license add --tenant_license_key "$LICENSE_ACTIVATION_KEY" --json
+```
+
+Make sure license and new rulesets exist:
+
+```bash
+sre license describe
+```
+
+```bash
+sre ruleset describe
+```
+
+
+### Activate tenant
 
 Activate a tenant that will represent your cloud account:
 
@@ -143,6 +185,7 @@ ms tenant regions activate -tn $TENANT_NAME -rn eu-west-1  # or some other regio
 ```
 
 
+### Link defect dojo
 Link defect dojo installation if you have one. First get dojo api token using the command or via UI:
 
 ```bash
@@ -152,47 +195,50 @@ export DOJO_TOKEN=$(curl -X POST -H 'content-type: application/json' "http://127
 Add dojo installation:
 
 ```bash
-c7n integrations dojo add --url http://nginx:8080/api/v2 --api_key $DOJO_TOKEN --description "Main dojo installation"
+sre integrations dojo add --url http://nginx:8080/api/v2 --api_key $DOJO_TOKEN --description "Main dojo installation"
 ```
 **Note:** `nginx` is used as host because the services are inside docker compose
 
 Activate dojo installation:
 
 ```bash
-c7n integrations dojo activate -id "here put id of integration from the previous command" --all_tenants --send_after_job
+sre integrations dojo activate -id "here put id of integration from the previous command" --all_tenants --send_after_job
 ```
 
+
+### Adding your own rulesets (optional)
 
 Add some rule-source
 
 ```bash
-c7n rulesource add -gpid epam/ecc-aws-rulepack -t GITHUB_RELEASE -d "Main open source aws rule source" -gprefix policies/
+sre rulesource add -gpid epam/ecc-aws-rulepack -t GITHUB_RELEASE -d "Main open source aws rule source" -gprefix policies/
 ```
 
 Pull rules
 
 ```bash
-c7n rulesource sync -rsid "ID from the previous command"
+sre rulesource sync -rsid "ID from the previous command"
 ```
 
-Wait some time till the rule are pulled. You can use `c7n rulesource describe` to see the syncing status
+Wait some time till the rule are pulled. You can use `sre rulesource describe` to see the syncing status
 Create ruleset with pulled rules
 
 ```bash
-c7n ruleset add --name FULL_AWS --cloud AWS
+sre ruleset add --name FULL_AWS --cloud AWS
 ```
 
-Execute AWS scan with the created ruleset. Provide cloud credentials to the corresponding command or ec2 istance provide credentials will be used by default
+### Submitting jobs
+Execute AWS scan with the created ruleset. Provide cloud credentials to the corresponding command or ec2 instance provide credentials will be used by default
 
 
 ```bash
-c7n job submit --tenant_name $TENANT_NAME --ruleset FULL_AWS
+sre job submit --tenant_name $TENANT_NAME
 ```
 
 You can see job's status by describing it:
 
 ```bash
-c7n job describe -id "id from previous command"
+sre job describe -id "id from previous command"
 ```
 
 Also, visit DefectDojo UI to see findings when the job is finished. For questions or further usage contact support

@@ -4,16 +4,16 @@ import base64
 import json
 import logging.config
 import multiprocessing
-import os
 import secrets
 import string
 import sys
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Literal, TYPE_CHECKING
+from typing import Callable, Literal, TYPE_CHECKING, cast, Generator
 
 import pymongo
+from pymongo.operations import IndexModel
 from bottle import Bottle
 from dateutil.relativedelta import SU, relativedelta
 from dotenv import load_dotenv
@@ -255,7 +255,7 @@ class InitMinio(ActionHandler):
             return
         client.create_bucket(
             bucket=name,
-            region=SP.environment_service.aws_region() or 'us-east-1'
+            region=SP.environment_service.aws_region()
         )
         _LOG.info(f'Bucket {name} was created')
 
@@ -277,75 +277,20 @@ class InitMinio(ActionHandler):
 
 
 class InitMongo(ActionHandler):
-    @staticmethod
-    def convert_index(key_schema: dict) -> str | list[tuple]:
-        if len(key_schema) == 1:
-            _LOG.debug('Only hash key found for the index')
-            return key_schema[0]['AttributeName']
-        elif len(key_schema) == 2:
-            _LOG.debug('Both hash and range keys found for the index')
-            result = [None, None]
-            for key in key_schema:
-                if key['KeyType'] == 'HASH':
-                    _i = 0
-                elif key['KeyType'] == 'RANGE':
-                    _i = 1
-                else:
-                    raise ValueError(f'Unknown key type: {key["KeyType"]}')
-                result[_i] = (key['AttributeName'], pymongo.DESCENDING)
-            return result
-        else:
-            raise ValueError(f'Unknown key schema: {key_schema}')
+    main_index_name = 'main'
+    hash_key_order = pymongo.ASCENDING
+    range_key_order = pymongo.DESCENDING
 
     @staticmethod
-    def create_indexes_for_model(model: 'BaseModel'):
-        table_name = model.Meta.table_name
-        _LOG.info(f'Creating indexes for {table_name}')
-        collection = model.mongodb_handler().mongodb.collection(table_name)
-        collection.drop_indexes()
-
-        hash_key = getattr(model._hash_key_attribute(), 'attr_name', None)
-        range_key = getattr(model._range_key_attribute(), 'attr_name', None)
-        _LOG.debug('Creating the main index')
-        if hash_key and range_key:
-            collection.create_index([(hash_key, pymongo.ASCENDING),
-                                     (range_key, pymongo.ASCENDING)],
-                                    name='main')
-        elif hash_key:
-            collection.create_index(hash_key, name='main')
-        else:
-            _LOG.error(f'Table has no hash_key and range_key')
-
-        indexes = model._get_schema()  # GSIs & LSIs,  # only PynamoDB 5.2.1+
-        gsi = indexes.get('global_secondary_indexes')
-        lsi = indexes.get('local_secondary_indexes')
-        if gsi:
-            for i in gsi:
-                index_name = i['index_name']
-                _LOG.debug(f'Creating index \'{index_name}\'')
-                collection.create_index(
-                    InitMongo.convert_index(i['key_schema']),
-                    name=index_name
-                )
-        if lsi:
-            pass  # write this part if at least one LSI is used
-
-    @staticmethod
-    def models():
-        from modular_sdk.models.application import Application
-        from modular_sdk.models.customer import Customer
-        from modular_sdk.models.job import Job as ModularJob
-        from modular_sdk.models.region import RegionModel
-        from modular_sdk.models.tenant import Tenant
-        from modular_sdk.models.tenant_settings import TenantSettings
-        from modular_sdk.models.parent import Parent
-
+    def models() -> tuple:
         from models.batch_results import BatchResults
         from models.customer_metrics import CustomerMetrics
         from models.event import Event
         from models.job import Job
         from models.job_statistics import JobStatistics
         from models.policy import Policy
+        from models.report_statistics import ReportStatistics
+        from models.retries import Retries
         from models.role import Role
         from models.rule import Rule
         from models.rule_source import RuleSource
@@ -354,22 +299,103 @@ class InitMongo(ActionHandler):
         from models.setting import Setting
         from models.tenant_metrics import TenantMetrics
         from models.user import User
+        return (
+            BatchResults, CustomerMetrics, Event, Job, JobStatistics, Policy,
+            ReportStatistics, Retries, Role, Rule, RuleSource, Ruleset,
+            ScheduledJob, Setting, TenantMetrics, User
+        )
 
-        modular_models = [
-            Customer, Tenant, Parent, RegionModel, TenantSettings, Application,
-            ModularJob
-        ]
-        custodian_models = [
-            Job, ScheduledJob,
-            Policy, Role, Rule, RuleSource, Ruleset, Setting,
-            User, Event, BatchResults, TenantMetrics, JobStatistics,
-            CustomerMetrics,
-        ]
-        return modular_models + custodian_models
+    @staticmethod
+    def _get_hash_range(model: 'BaseModel') -> tuple[str, str | None]:
+        h, r = None, None
+        for attr in model.get_attributes().values():
+            if attr.is_hash_key:
+                h = attr.attr_name
+            if attr.is_range_key:
+                r = attr.attr_name
+        return cast(str, h), r
+
+    @staticmethod
+    def _iter_indexes(model: 'BaseModel'
+                      ) -> Generator[tuple[str, str, str | None], None, None]:
+        """
+        Yields tuples: (index name, hash_key, range_key) indexes of the given
+        model. Currently, only global secondary indexes are used so this
+        implementation wasn't tested with local ones. Uses private PynamoDB
+        API because cannot find public methods that can help
+        """
+        for index in model._indexes.values():
+            name = index.Meta.index_name
+            h, r = None, None
+            for attr in index.Meta.attributes.values():
+                if attr.is_hash_key:
+                    h = attr.attr_name
+                if attr.is_range_key:
+                    r = attr.attr_name
+            yield name, cast(str, h), r
+
+    def _iter_all_indexes(self, model: 'BaseModel'
+                          ) -> Generator[tuple[str, str, str | None], None, None]:
+        yield self.main_index_name, *self._get_hash_range(model)
+        yield from self._iter_indexes(model)
+
+    @staticmethod
+    def _exceptional_indexes() -> tuple[str, ...]:
+        return (
+            '_id_',
+            'next_run_time_1'  # from APScheduler
+        )
+
+    def ensure_indexes(self, model: 'BaseModel'):
+        table_name = model.Meta.table_name
+        _LOG.info(f'Going to check indexes for {table_name}')
+        collection = model.mongodb_handler().mongodb.collection(table_name)
+        existing = collection.index_information()
+        for name in self._exceptional_indexes():
+            existing.pop(name, None)
+        needed = {}
+        for name, h, r in self._iter_all_indexes(model):
+            needed[name] = [(h, self.hash_key_order)]
+            if r:
+                needed[name].append((r, self.range_key_order))
+        to_create = []
+        to_delete = set()
+        for name, data in existing.items():
+            if name not in needed:
+                to_delete.add(name)
+                continue
+            # name in needed so maybe the index is valid, and we must keep it
+            # or the index has changed, and we need to re-create it
+            if data.get('key', []) != needed[name]:  # not valid
+                to_delete.add(name)
+                to_create.append(IndexModel(
+                    keys=needed[name],
+                    name=name
+                ))
+            needed.pop(name)
+        for name, keys in needed.items():  # all that left must be created
+            to_create.append(IndexModel(
+                keys=keys,
+                name=name
+            ))
+        for name in to_delete:
+            _LOG.info(f'Going to remove index: {name}')
+            collection.drop_index(name)
+        if to_create:
+            _message = ','.join(
+                json.dumps(i.document,
+                           separators=(',', ':')) for i in to_create
+            )
+            _LOG.info(f'Going to create indexes: {_message}')
+            collection.create_indexes(to_create)
 
     def __call__(self):
-        for model in self.models():
-            self.create_indexes_for_model(model)
+        _LOG.debug('Going to sync indexes with code')
+        models = []
+        if SP.environment_service.is_docker():
+            models.extend(self.models())
+        for model in models:
+            self.ensure_indexes(model)
 
 
 class Run(ActionHandler):
@@ -391,8 +417,8 @@ class Run(ActionHandler):
             )
 
         from onprem.api.cron_jobs import ensure_all
-        if os.getenv(CAASEnv.SERVICE_MODE) != DOCKER_SERVICE_MODE:
-            os.environ[CAASEnv.SERVICE_MODE] = DOCKER_SERVICE_MODE
+        if CAASEnv.SERVICE_MODE.get() != DOCKER_SERVICE_MODE:
+            CAASEnv.SERVICE_MODE.set(DOCKER_SERVICE_MODE)
 
         dr_wrapper = DeploymentResourcesApiGatewayWrapper(self.load_api_dr())
         app = self.make_app(dr_wrapper)
@@ -404,9 +430,13 @@ class Run(ActionHandler):
             workers = workers or DEFAULT_NUMBER_OF_WORKERS
             from onprem.api.app_gunicorn import \
                 CustodianGunicornApplication
+            # todo allow to specify these settings from outside
             options = {
                 'bind': f'{host}:{port}',
                 'workers': workers,
+                'timeout': 60,
+                'max_requests': 512,
+                'max_requests_jitter': 64
             }
             CustodianGunicornApplication(app, options).run()
         else:
@@ -526,13 +556,13 @@ class InitAction(ActionHandler):
         if not Setting.get_nullable(SettingKey.SYSTEM_CUSTOMER):
             _LOG.info('Setting system customer name')
             Setting(
-                name=CAASEnv.SYSTEM_CUSTOMER_NAME,
+                name=CAASEnv.SYSTEM_CUSTOMER_NAME.value,
                 value=SYSTEM_CUSTOMER
             ).save()
-        if not Setting.get_nullable(SettingKey.REPORT_DATE_MARKER):
+        if not Setting.get_nullable(SettingKey.REPORT_DATE_MARKER.value):
             _LOG.info('Setting report date marker')
             Setting(
-                name=SettingKey.REPORT_DATE_MARKER,
+                name=SettingKey.REPORT_DATE_MARKER.value,
                 value={
                     'last_week_date': (datetime.today() +
                                        relativedelta(
@@ -545,7 +575,7 @@ class InitAction(ActionHandler):
         users_client = SP.users_client
         if not users_client.get_user_by_username(SYSTEM_USER):
             _LOG.info('Creating a system user')
-            password = os.getenv(CAASEnv.SYSTEM_USER_PASSWORD)
+            password = CAASEnv.SYSTEM_USER_PASSWORD.get(None)
             from_env = bool(password)
             if not from_env:
                 password = gen_password()

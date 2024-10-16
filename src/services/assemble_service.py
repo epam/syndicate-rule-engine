@@ -25,29 +25,29 @@ class AssembleService:
                        job_lifetime_minutes: float | None = None) -> dict:
         # TODO +- duplicate in event_assembler_handler._build_common_envs
         envs = {
-            CAASEnv.REPORTS_BUCKET_NAME:
+            CAASEnv.REPORTS_BUCKET_NAME.value:
                 self.environment_service.default_reports_bucket_name(),
-            CAASEnv.STATISTICS_BUCKET_NAME:
+            CAASEnv.STATISTICS_BUCKET_NAME.value:
                 self.environment_service.get_statistics_bucket_name(),
-            CAASEnv.RULESETS_BUCKET_NAME:
+            CAASEnv.RULESETS_BUCKET_NAME.value:
                 self.environment_service.get_rulesets_bucket_name(),
-            CAASEnv.AWS_REGION: self.environment_service.aws_region(),
-            CAASEnv.BATCH_JOB_LIFETIME_MINUTES: job_lifetime_minutes or self.environment_service.get_job_lifetime_min(),
-            CAASEnv.LM_TOKEN_LIFETIME_MINUTES:
+            CAASEnv.AWS_REGION.value: self.environment_service.aws_region(),
+            CAASEnv.BATCH_JOB_LIFETIME_MINUTES.value: job_lifetime_minutes or self.environment_service.get_job_lifetime_min(),
+            CAASEnv.LM_TOKEN_LIFETIME_MINUTES.value:
                 str(self.environment_service.lm_token_lifetime_minutes()),
-            'LOG_LEVEL': self.environment_service.batch_job_log_level(),
-            BatchJobEnv.TENANT_NAME: tenant.name,
-            BatchJobEnv.PLATFORM_ID: platform_id,
-            BatchJobEnv.CREDENTIALS_KEY: credentials_key,
-            BatchJobEnv.JOB_TYPE: job_type.value if isinstance(job_type, BatchJobType) else job_type,  # noqa
-            BatchJobEnv.TARGET_REGIONS: ','.join(target_regions or []),
-            BatchJobEnv.CUSTODIAN_JOB_ID: job_id,
+            CAASEnv.LOG_LEVEL.value: self.environment_service.batch_job_log_level(),
+            BatchJobEnv.TENANT_NAME.value: tenant.name,
+            BatchJobEnv.PLATFORM_ID.value: platform_id,
+            BatchJobEnv.CREDENTIALS_KEY.value: credentials_key,
+            BatchJobEnv.JOB_TYPE.value: job_type.value if isinstance(job_type, BatchJobType) else job_type,  # noqa
+            BatchJobEnv.TARGET_REGIONS.value: ','.join(target_regions or []),
+            BatchJobEnv.CUSTODIAN_JOB_ID.value: job_id,
 
         }
         if affected_licenses:
             if isinstance(affected_licenses, str):
                 affected_licenses = [affected_licenses]
             envs.update({
-                BatchJobEnv.AFFECTED_LICENSES: ','.join(affected_licenses),
+                BatchJobEnv.AFFECTED_LICENSES.value: ','.join(affected_licenses),
             })
         return sifted(envs)

@@ -9,6 +9,13 @@ metadata:
     helm.sh/chart: {{ include "mongo.chart" . }}
 spec:
   replicas: {{ .Values.replicas }}
+  strategy:
+    type: {{ .Values.strategy.type }}
+    {{- if eq .Values.strategy.type "RollingUpdate" }}
+    rollingUpdate:
+      maxSurge: {{ .Values.strategy.maxSurge }}
+      maxUnavailable: {{ .Values.strategy.maxUnavailable }}
+    {{- end}}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "mongo.name" . }}
@@ -27,7 +34,7 @@ spec:
             claimName: {{ include "mongo.fullname" . }}
       containers:
         - name: mongodb
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           livenessProbe:
             exec:
@@ -39,7 +46,7 @@ spec:
             timeoutSeconds: 5
           ports:
             - containerPort: 27017
-              hostPort: 27017
+              name: mongo-socket
               protocol: TCP
           volumeMounts:
             - name: mongo-storage

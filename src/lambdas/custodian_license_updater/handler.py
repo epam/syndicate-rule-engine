@@ -68,11 +68,11 @@ class LicenseUpdater(EventProcessorLambdaHandler):
             _LOG.info(f'Going to sync license: {lic.license_key}')
             try:
                 self._process_license(lic)
+                _LOG.info('License was synced')
             except LicenseSyncError as e:
                 _LOG.warning(f'Error occurred: {e}')
             except Exception:
                 _LOG.exception('Unexpected error occurred')
-            _LOG.info('License was synced')
         return build_response()
 
     def _process_ruleset(self, dto: dict, lic: License) -> Ruleset:
@@ -155,8 +155,9 @@ class LicenseUpdater(EventProcessorLambdaHandler):
             clouds.remove('GCP')
             clouds.add('GOOGLE')
         if 'KUBERNETES' in clouds:
-            # todo because currently we cannot create parent with cloud KUBERNETES
-            clouds.remove('KUBERNETES')
+            # todo because currently we cannot create parent with cloud
+            #  KUBERNETES SO activating for all
+            clouds.clear()
         for customer, data in lic.customers.items():
             # TODO maybe move this block to some service
             am = data.get('attachment_model')

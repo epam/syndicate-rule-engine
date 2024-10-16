@@ -9,6 +9,13 @@ metadata:
     helm.sh/chart: {{ include "minio.chart" . }}
 spec:
   replicas: {{ .Values.replicas }}
+  strategy:
+    type: {{ .Values.strategy.type }}
+    {{- if eq .Values.strategy.type "RollingUpdate" }}
+    rollingUpdate:
+      maxSurge: {{ .Values.strategy.maxSurge }}
+      maxUnavailable: {{ .Values.strategy.maxUnavailable }}
+    {{- end}}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "minio.name" . }}
@@ -28,7 +35,7 @@ spec:
             claimName: {{ include "minio.fullname" . }}
       containers:
         - name: minio
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           livenessProbe:
             httpGet:
@@ -53,11 +60,13 @@ spec:
           args: ["server", "/storage", "--console-address", ":9001"]
           ports:
             - containerPort: 9000
-              hostPort: 9000
+              name: http-api
               protocol: TCP
+            {{- if .Values.console.enabled }}
             - containerPort: 9001
-              hostPort: 9001
+              name: http-console
               protocol: TCP
+            {{- end }}
           volumeMounts:
             - name: minio-storage
               mountPath: "/storage"
@@ -72,3 +81,7 @@ spec:
                 secretKeyRef:
                   name: minio-secret
                   key: password
+            {{- if not .Values.console.enabled }}
+            - name: MINIO_BROWSER
+              value: 'off'
+            {{- end }}

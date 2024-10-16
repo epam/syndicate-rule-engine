@@ -58,11 +58,13 @@ class AuthPlugin:
 
     def __call__(self, callback: Callable):
         def wrapper(*args, **kwargs):
+            _LOG.info('Checking whether request is authorized in AuthPlugin')
             header = (request.headers.get('Authorization') or
                       request.headers.get('authorization'))
             token = self.get_token_from_header(header)
 
             if not token:
+                _LOG.warning('Token not found in header')
                 resp = ResponseFactory(HTTPStatus.UNAUTHORIZED).message(
                     UNAUTHORIZED_MESSAGE
                 )
@@ -75,6 +77,7 @@ class AuthPlugin:
             except CustodianException as e:
                 return self._to_bottle_resp(e.response)
 
+            _LOG.info('Token decoded successfully')
             sign = inspect.signature(callback)
             if 'decoded_token' in sign.parameters:
                 _LOG.debug('Expanding callback with decoded token')
@@ -204,7 +207,9 @@ class OnPremApiBuilder:
             event['body'] = request.body.read().decode()
             event['isBase64Encoded'] = False
 
+        _LOG.info(f'Handling request: {request.method}:{request.path}')
         response = handler(event, RequestContext())
+        _LOG.info('Request was handled. Returning response')
 
         return HTTPResponse(
             body=response['body'],

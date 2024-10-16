@@ -63,7 +63,7 @@ class MongoAndSSMAuthClient(BaseAuthClient):
         self._ssm = ssm_client
         self._jwt_client = None
         self._refresh_col = cast(MongoClient, MONGO_CLIENT).get_database(
-            os.getenv(CAASEnv.MONGO_DATABASE)
+            CAASEnv.MONGO_DATABASE.get()
         ).get_collection('CaaSRefreshTokenChains')
 
     @property
@@ -242,9 +242,11 @@ class MongoAndSSMAuthClient(BaseAuthClient):
         try:
             verified = self.jwt_client.verify(token)
         except jwt.JWTExpired:
+            _LOG.warning('Access token has expired')
             raise ResponseFactory(HTTPStatus.UNAUTHORIZED).message(
                 TOKEN_EXPIRED_MESSAGE).exc()
-        except (jwt.JWException, ValueError, Exception):
+        except (jwt.JWException, ValueError, Exception) as e:
+            _LOG.warning(f'Could not decode token: {e}')
             raise ResponseFactory(HTTPStatus.UNAUTHORIZED).message(
                 UNAUTHORIZED_MESSAGE).exc()
         return json.loads(verified.claims)

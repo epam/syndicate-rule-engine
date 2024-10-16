@@ -9,6 +9,13 @@ metadata:
     helm.sh/chart: {{ include "vault.chart" . }}
 spec:
   replicas: {{ .Values.replicas }}
+  strategy:
+    type: {{ .Values.strategy.type }}
+    {{- if eq .Values.strategy.type "RollingUpdate" }}
+    rollingUpdate:
+      maxSurge: {{ .Values.strategy.maxSurge }}
+      maxUnavailable: {{ .Values.strategy.maxUnavailable }}
+    {{- end}}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "vault.name" . }}
@@ -31,7 +38,7 @@ spec:
             defaultMode: 0555
       containers:
         - name: vault
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           readinessProbe:
             exec:
@@ -62,7 +69,7 @@ spec:
               subPath: config.hcl
           ports:
             - containerPort: 8200
-              hostPort: 8200
+              name: http
               protocol: TCP
           args: ["server"]
           env:

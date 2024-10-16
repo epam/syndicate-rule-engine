@@ -2,7 +2,6 @@
 # PreparedEvent models are used instead.
 from base64 import standard_b64decode
 from datetime import date, datetime, timedelta, timezone
-from itertools import chain
 from typing import Literal, Generator
 from typing_extensions import Annotated, Self
 
@@ -35,12 +34,11 @@ from helpers.constants import (
 )
 from helpers import Version
 from helpers.regions import AllRegions, AllRegionsWithGlobal
-from helpers.reports import Standard
 from helpers.time_helper import utc_datetime
 from services import SERVICE_PROVIDER
-from services.rule_meta_service import RuleName
 from services.chronicle_service import ChronicleConverterType
 from services.ruleset_service import RulesetName
+from models.rule import RuleIndex
 from models.policy import PolicyEffect
 
 
@@ -233,10 +231,66 @@ class RulesetPostModel(BaseModel):
     rules: set = Field(default_factory=set)
     excluded_rules: set = Field(default_factory=set)
 
-    service_section: str = Field(None)
-    severity: str = Field(None)
-    mitre: set[str] = Field(default_factory=set)
-    standard: set[str] = Field(default_factory=set)
+    platforms: set[str] = Field(
+        default_factory=set,
+        description='Platform for k8s rules to filter based on',
+    )
+    categories: set[str] = Field(
+        default_factory=set,
+        description='Rules category to use'
+    )
+    service_sections: set[str] = Field(
+        default_factory=set,
+        description='Service section to use'
+    )
+    sources: set[str] = Field(
+        default_factory=set,
+        description='Sources to use'
+    )
+
+    @field_validator('platforms', mode='after')
+    @classmethod
+    def validate_platforms(cls, platforms: set[str]) -> set[str]:
+        if not platforms: return platforms
+        all_platforms = {i.lower() for i in RuleIndex.platform_map.values() if i}
+        platforms = {p.strip().lower() for p in platforms}
+        not_existing = platforms - all_platforms
+        if not_existing:
+            raise ValueError(f'not available platforms: {", ".join(not_existing)}. Choose from: {", ".join(all_platforms)}')
+        return platforms
+
+    @field_validator('categories', mode='after')
+    @classmethod
+    def validate_categories(cls, categories: set[str]) -> set[str]:
+        if not categories: return categories
+        all_categories = {i.lower() for i in RuleIndex.category_map.values() if i}
+        categories = {c.strip().lower() for c in categories}
+        not_existing = categories - all_categories
+        if not_existing:
+            raise ValueError(f'not available categories: {", ".join(not_existing)}. Choose from: {", ".join(all_categories)}')
+        return categories
+
+    @field_validator('service_sections', mode='after')
+    @classmethod
+    def validate_service_sections(cls, service_sections: set[str]) -> set[str]:
+        if not service_sections: return service_sections
+        all_sections = {i.lower() for i in RuleIndex.service_section_map.values() if i}
+        service_sections = {ss.strip().lower() for ss in service_sections}
+        not_existing = service_sections - all_sections
+        if not_existing:
+            raise ValueError(f'not available service sections: {", ".join(not_existing)}. Choose from: {", ".join(all_sections)}')
+        return service_sections
+
+    @field_validator('sources', mode='after')
+    @classmethod
+    def validate_sources(cls, sources: set[str]) -> set[str]:
+        if not sources: return sources
+        all_sources = {i.lower() for i in RuleIndex.source_map.values() if i}
+        sources = {s.strip().lower() for s in sources}
+        not_existing = sources - all_sources
+        if not_existing:
+            raise ValueError(f'not available sources: {", ".join(not_existing)}. Choose from: {", ".join(all_sources)}')
+        return sources
 
     @field_validator('name', mode='after')
     @classmethod
@@ -267,60 +321,6 @@ class RulesetPostModel(BaseModel):
         if self.rule_source_id and (self.git_ref or self.git_project_id):
             raise ValueError('Do not specify git_ref or git_project_id '
                              'if rule_source_id is specified')
-        cloud = self.cloud
-        col = SERVICE_PROVIDER.mappings_collector
-        if self.service_section:
-            ss = col.service_section
-            if not ss:
-                raise ValueError('cannot load service section data')
-            available = set(
-                value for key, value in ss.items()
-                if RuleName(key).cloud == cloud
-            )
-            if self.service_section not in available:
-                raise ValueError('Not available service section. '
-                                 f'Choose from: {", ".join(available)}')
-        if self.severity:
-            sv = col.severity
-            if not sv:
-                raise ValueError('cannot load severity data')
-            available = set(
-                value for key, value in sv.items()
-                if RuleName(key).cloud == cloud
-            )
-            if self.severity not in available:
-                raise ValueError('Not available severity. '
-                                 f'Choose from: {", ".join(available)}')
-        if self.mitre:
-            mt = col.mitre
-            if not mt:
-                raise ValueError('cannot load mitre data')
-            available = set(chain.from_iterable(
-                value.keys() for key, value in mt.items()
-                if RuleName(key).cloud == cloud
-            ))
-            not_available = self.mitre - available
-            if not_available:
-                raise ValueError(
-                    f'Not available mitre: {", ".join(not_available)}. '
-                    f'Choose from: {", ".join(available)}')
-        if self.standard:
-            st = col.standard
-            if not st:
-                raise ValueError('cannot load standards data')
-            available = set()
-            it = (
-                (v or {}) for k, v in st.items()
-                if RuleName(k).cloud == cloud
-            )
-            for st in it:
-                available.update(Standard.deserialize_to_strs(st))
-                available.update(st.keys())
-            not_available = self.standard - available
-            if not_available:
-                raise ValueError(
-                    f'Not available standard: {", ".join(not_available)}. '
-                    f'Choose from: {", ".join(available)}')
         return self
 
 
@@ -566,10 +566,18 @@ class RuleSourcesListModel(BasePaginationModel):
 class RolePostModel(BaseModel):
     name: str
     policies: set[str]
-    expiration: datetime = Field(
-        default_factory=lambda: utc_datetime() + timedelta(days=365)
-    )
+    expiration: datetime = Field(None)
     description: str
+
+    @field_validator('expiration')
+    @classmethod
+    def _(cls, expiration: datetime | None) -> datetime | None:
+        if not expiration:
+            return expiration
+        expiration.astimezone(timezone.utc)
+        if expiration < datetime.now(tz=timezone.utc):
+            raise ValueError('Expiration date has already passed')
+        return expiration
 
 
 class RolePatchModel(BaseModel):
@@ -930,7 +938,6 @@ class LicenseManagerConfigSettingPostModel(BaseModel):
     stage: str = Field(None)
 
 
-
 class LicenseManagerClientSettingPostModel(BaseModel):
     key_id: str
     algorithm: Annotated[
@@ -964,7 +971,6 @@ class BatchResultsQueryModel(BasePaginationModel):
 
     start: datetime = Field(None)
     end: datetime = Field(None)
-
 
 
 # reports
@@ -1635,7 +1641,7 @@ class UserPatchModel(BaseModel):
 
 class UserPostModel(BaseModel):
     username: str
-    role_name: str = Field(None)
+    role_name: str
     password: str
 
     @field_validator('username', mode='after')

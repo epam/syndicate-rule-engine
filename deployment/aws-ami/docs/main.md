@@ -23,7 +23,7 @@ From the beginning, only entity that represents the AWS account where instance i
 ```bash
 syndicate re tenant describe
 ```
-**Note:** this one by default has `CURRENT_ACCOUNT` name that must be used to reference this entity.
+**Note:** this one by default has `TENANT_1` name that must be used to reference this entity.
 
 When the instance was starting it made a request to our License Manager and received a license and rule-sets. You can 
 describe the license using this command:
@@ -40,7 +40,7 @@ If the instance has Instance Role with access to this AWS Account you can execut
 Use this command:
 
 ```bash
-syndicate re job submit --tenant_name CURRENT_ACCOUNT --region eu-west-1  # or the region you want
+syndicate re job submit --tenant_name TENANT_1 --region eu-west-1  # or the region you want
 ```
 Rule Engine will use rulesets that are available by license and credentials from instance profile.
 
@@ -57,7 +57,7 @@ syndicate re report digests jobs --job_id <job_id> --json
 ```
 
 ```bash
-syndicate re report resource latest --tenant_name CURRENT_ACCOUNT --json > data.json
+syndicate re report resource latest --tenant_name TENANT_1 --json > data.json
 ```
 
 See the full documentation for further details.
@@ -135,7 +135,7 @@ that represent accounts and organizations (`admin` - entities administrator)
 `Tenant` is a main entity that Rule Engine manages and requires. One tenant represents one AWS Account or AZURE subscription or
 GOOGLE project that is to be scanned. If you want to scan something you must create a tenant that represents it.
 
-When an instance is launched from AMI one tenant is created automatically. Its default name is `CURRENT_ACCOUNT` and it 
+When an instance is launched from AMI one tenant is created automatically. Its default name is `TENANT_1` and it 
 represents the AWS account where the AMI was launched. This tenant has one active region (the one where instance is launched).
 In case instance profile allowed READ access to the AWS account that tenant can be immediately used.
 
@@ -160,7 +160,7 @@ If you want to scan an account other from the one where the instance is launched
     Access keys can be provided individually for each scan which is definitely the case, but it's somewhat inconvenient:
 
     ```bash
-    syndicate re job submit_aws --tenant_name CURRENT_ACCOUNT --access_key $AWS_ACCESS_KEY_ID --secret_key $AWS_SECRET_ACCESS_KEY --session_token $AWS_SESSION_TOKEN --region eu-west-1
+    syndicate re job submit_aws --tenant_name TENANT_1 --access_key $AWS_ACCESS_KEY_ID --secret_key $AWS_SECRET_ACCESS_KEY --session_token $AWS_SESSION_TOKEN --region eu-west-1
     ```
 
     You can configure an AWS role or, for instance, AZURE Certificate to be used for scanning multiple times. 
@@ -250,7 +250,7 @@ After that you should activate the license for tenants. You must do that because
 can issue different rulesets for the same tenant):
 
 ```bash
-syndicate re license activate --license_key <License key from previous command> --tenant_name CURRENT_ACCOUNT --tenant_name ANOTHER_ACCOUNT
+syndicate re license activate --license_key <License key from previous command> --tenant_name TENANT_1 --tenant_name ANOTHER_ACCOUNT
 ```
 **Note:** `License Key from previous command` is not the same as `$TENANT_LICENSE_KEY`
 
@@ -275,10 +275,10 @@ when you submit it
 
 ## 3.1. Requesting full scan
 
-To request a scan for `CURRENT_ACCOUNT` tenant for all regions and all rules you the following command:
+To request a scan for `TENANT_1` tenant for all regions and all rules you the following command:
 
 ```bash
-syndicate re job submit --tenant_name CURRENT_ACCOUNT --region eu-west-1
+syndicate re job submit --tenant_name TENANT_1 --region eu-west-1
 ```
 
 To see the status of the submitted job use the describe command:
@@ -299,14 +299,14 @@ syndicate re ruleset describe
 And submit the scan:
 
 ```bash
-syndicate re job submit --tenant_name CURRENT_ACCOUNT --ruleset FULL_AWS --region eu-west-1
+syndicate re job submit --tenant_name TENANT_1 --ruleset FULL_AWS --region eu-west-1
 ```
 
 Also, you can restrict the scope to specific rule names. List of all rules and their descriptions can be found in 
 `Attachment 3`
 
 ```bash
-syndicate re job submit --tenant_name CURRENT_ACCOUNT --ruleset FULL_AWS --rules_to_scan ecc-aws-001... --rules_to_scann ecc-aws-002...
+syndicate re job submit --tenant_name TENANT_1 --ruleset FULL_AWS --rules_to_scan ecc-aws-001... --rules_to_scann ecc-aws-002...
 ```
 
 ## 3.3. Disabling rules for tenant
@@ -317,7 +317,7 @@ the ruleset has them.
 Exclude for tenant:
 
 ```bash
-syndicate re tenant set_excluded_rules --tenant_name CURRENT_ACCOUNT --rules ecc-aws-001 --rules ecc-aws-002
+syndicate re tenant set_excluded_rules --tenant_name TENANT_1 --rules ecc-aws-001 --rules ecc-aws-002
 ```
 
 Exclude for customer:
@@ -342,19 +342,19 @@ contain data accumulated from multiple jobs within a tenant. All the reports CLI
 
 To get the latest resources state for a tenant you can generate resources report: 
 ```bash
-syndicate re report resource latest --tenant_name CURRENT_ACCOUNT --json > data.json
+syndicate re report resource latest --tenant_name TENANT_1 --json > data.json
 ```
 
 If you want to get the save report in more human-readable format use `--format xlsx` and download the file from received url:
 
 ```bash
-syndicate re report resource latest --tenant_name CURRENT_ACCOUNT --format xlsx --json
+syndicate re report resource latest --tenant_name TENANT_1 --format xlsx --json
 ```
 
 If you want the same report but filtered based on some attributes use CLI params:
 
 ```bash
-syndicate re report resource latest --tenant_name CURRENT_ACCOUNT --format xlsx --region eu-central-1 --name my-lambda --json
+syndicate re report resource latest --tenant_name TENANT_1 --format xlsx --region eu-central-1 --name my-lambda --json
 ```
 
 If you want to look at `Access Denied` errors during the scan you can generate errors report:
@@ -382,7 +382,7 @@ and hides all of them. You can request almost any `built-in` report specifying `
 needs just raw report to be able to generate Analytics reports. To receive obfuscated raw report use the command:
 
 ```bash
-syndicate re report raw latest --tenant_name CURRENT_ACCOUNT --obfuscated --json
+syndicate re report raw latest --tenant_name TENANT_1 --obfuscated --json
 ```
 This command will give two urls. `url` is the obfuscated report itself. It can be given to our team. `dictionary_url` is
 the obfuscation dictionary of values. Keep it to yourself.

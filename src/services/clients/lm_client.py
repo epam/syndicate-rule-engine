@@ -20,6 +20,7 @@ from helpers.constants import (
     TENANT_LICENSE_KEYS_ATTR,
     TENANT_LICENSE_KEY_ATTR,
     TOKEN_ATTR,
+    CAASEnv
 )
 from helpers.log_helper import get_logger
 from helpers.system_customer import SYSTEM_CUSTOMER
@@ -183,7 +184,7 @@ class LMClient:
             _LOG.debug(f'Response from {resp}')
             return resp
         except (requests.RequestException, Exception) as e:
-            _LOG.exception(f'Error occurred while executing request. ')
+            _LOG.exception('Error occurred while executing request.')
             return
 
     def sync_license(self, license_key: str, customer: str | None = None

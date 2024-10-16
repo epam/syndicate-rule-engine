@@ -1,10 +1,8 @@
-import os
-
 from pynamodb.attributes import UnicodeAttribute, MapAttribute, NumberAttribute
 from pynamodb.indexes import AllProjection
 
-from models import BaseModel, BaseGSI
 from helpers.constants import CAASEnv
+from models import BaseModel, BaseGSI
 
 
 class CustomerNameTriggeredAtIndex(BaseGSI):
@@ -31,7 +29,7 @@ class StatusIndex(BaseGSI):
 class ReportStatistics(BaseModel):
     class Meta:
         table_name = 'CaaSReportStatistics'
-        region = os.environ.get(CAASEnv.AWS_REGION)
+        region = CAASEnv.AWS_REGION.get()
 
     id = UnicodeAttribute(hash_key=True)
     triggered_at = UnicodeAttribute(range_key=True)

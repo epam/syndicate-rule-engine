@@ -1,8 +1,22 @@
 import operator
+import os
 from enum import Enum
 
+from typing import TypedDict
 
 # from http import HTTPMethod  # python3.11+
+
+
+class TenantModel(TypedDict):
+    # aws account_id azure subscription_id or google project_id
+    account_id: str
+    activation_date: str
+    cloud: str
+    customer_name: str
+    display_name: str
+    is_active: bool
+    name: str
+    region: list[str]
 
 
 class HTTPMethod(str, Enum):
@@ -138,28 +152,76 @@ ERRORS_ATTR = 'errors'
 MESSAGE_ATTR = 'message'
 NEXT_TOKEN_ATTR = 'next_token'
 
-C7NCLI_LOG_LEVEL_ENV_NAME = 'SRE_CLI_LOG_LEVEL'
-C7NCLI_DEVELOPER_MODE_ENV_NAME = 'SRE_CLI_DEVELOPER_MODE'
+_SENTINEL = object()
+
+
+class Env(str, Enum):
+    default: str | None
+
+    def __new__(cls, value: str, default: str | None = None):
+        """
+        All environment variables and optionally their default values.
+        Since envs always have string type the default value also should be
+        of string type and then converted to the necessary type in code.
+        There is no default value if not specified (default equal to None)
+        """
+        obj = str.__new__(cls, value)
+        obj._value_ = value
+
+        obj.default = default
+        return obj
+
+    def get(self, default=_SENTINEL) -> str | None:
+        if default is _SENTINEL:
+            default = self.default
+        if default is not None:
+            default = str(default)
+        return os.environ.get(self.value, default)
+
+    def set(self, val: str | None):
+        if val is None:
+            os.environ.pop(self.value, None)
+        else:
+            os.environ[self.value] = str(val)
+
+    LOG_LEVEL = 'SRE_CLI_LOG_LEVEL', 'INFO'
+    LOGS_FOLDER = 'SRE_CLI_LOGS_FOLDER'  # if not specified, logs are not written to file
+    DEVELOPER_MODE = 'SRE_CLI_DEVELOPER_MODE'
+    RESPONSE_FORMAT = 'SRE_CLI_RESPONSE_FORMAT', 'table'
+    VERBOSE = 'SRE_CLI_VERBOSE'
+    NO_PROMPT = 'SRE_CLI_NO_PROMPT'
+
+    # aws
+    AWS_ACCESS_KEY_ID = 'AWS_ACCESS_KEY_ID'
+    AWS_SECRET_ACCESS_KEY = 'AWS_SECRET_ACCESS_KEY'
+    AWS_SESSION_TOKEN = 'AWS_SESSION_TOKEN'
+    AWS_DEFAULT_REGION = 'AWS_DEFAULT_REGION'
+    AWS_REGION = 'AWS_REGION'
+    AWS_DEFAULT_PROFILE = 'AWS_DEFAULT_PROFILE'
+    AWS_PROFILE = 'AWS_PROFILE'
+
+    # azure
+    AZURE_TENANT_ID = 'AZURE_TENANT_ID'
+    AZURE_SUBSCRIPTION_ID = 'AZURE_SUBSCRIPTION_ID'
+    AZURE_CLIENT_ID = 'AZURE_CLIENT_ID'
+    AZURE_CLIENT_SECRET = 'AZURE_CLIENT_SECRET'
+
+    AZURE_KEYVAULT_CLIENT_ID = 'AZURE_KEYVAULT_CLIENT_ID'
+    AZURE_KEYVAULT_SECRET = 'AZURE_KEYVAULT_SECRET'
+
+    AZURE_CLIENT_CERTIFICATE_PATH = 'AZURE_CLIENT_CERTIFICATE_PATH'
+    AZURE_CLIENT_CERTIFICATE_PASSWORD = 'AZURE_CLIENT_CERTIFICATE_PASSWORD'
+
+    AZURE_ACCESS_TOKEN = 'AZURE_ACCESS_TOKEN'
+
+    # google
+    GOOGLE_APPLICATION_CREDENTIALS = 'GOOGLE_APPLICATION_CREDENTIALS'
 
 
 class JobType(str, Enum):
     MANUAL = 'manual'
     REACTIVE = 'reactive'
 
-
-# Credentials
-ENV_AWS_ACCESS_KEY_ID = 'AWS_ACCESS_KEY_ID'
-ENV_AWS_SECRET_ACCESS_KEY = 'AWS_SECRET_ACCESS_KEY'
-ENV_AWS_SESSION_TOKEN = 'AWS_SESSION_TOKEN'
-ENV_AWS_DEFAULT_REGION = 'AWS_DEFAULT_REGION'
-ENV_AWS_REGION = 'AWS_REGION'
-
-ENV_AZURE_TENANT_ID = 'AZURE_TENANT_ID'
-ENV_AZURE_SUBSCRIPTION_ID = 'AZURE_SUBSCRIPTION_ID'
-ENV_AZURE_CLIENT_ID = 'AZURE_CLIENT_ID'
-ENV_AZURE_CLIENT_SECRET = 'AZURE_CLIENT_SECRET'
-
-ENV_GOOGLE_APPLICATION_CREDENTIALS = 'GOOGLE_APPLICATION_CREDENTIALS'
 
 DEFAULT_AWS_REGION = 'us-east-1'
 
@@ -230,3 +292,19 @@ class ModularCloud(str, Enum):
     @classmethod
     def iter(cls):
         return map(operator.attrgetter('value'), cls)
+
+
+# modular cli
+MODULAR_ADMIN = 'modules'
+SUCCESS_STATUS = 'SUCCESS'
+ERROR_STATUS = 'FAILED'
+STATUS_ATTR = 'status'
+CODE_ATTR = 'code'
+TABLE_TITLE_ATTR = 'table_title'
+# -----------
+
+REVERT_TO_JSON_MESSAGE = 'The command`s response is pretty huge and the ' \
+                         'result table structure can be broken.\nDo you want ' \
+                         'to show the response in the JSON format?'
+COLUMN_OVERFLOW = 'Column has overflown, within the table representation.'
+

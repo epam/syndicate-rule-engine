@@ -1,5 +1,3 @@
-import os
-
 from pynamodb.attributes import UnicodeAttribute, ListAttribute
 
 from helpers.constants import CAASEnv
@@ -10,7 +8,7 @@ from models import BaseModel
 class Role(BaseModel):
     class Meta:
         table_name = 'CaaSRoles'
-        region = os.environ.get(CAASEnv.AWS_REGION)
+        region = CAASEnv.AWS_REGION.get()
 
     customer = UnicodeAttribute(hash_key=True)
     name = UnicodeAttribute(range_key=True)

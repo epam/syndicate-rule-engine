@@ -1,15 +1,15 @@
+import json
+import operator
+import shutil
+import sys
+import urllib.error
 from abc import ABC, abstractmethod
 from datetime import timezone
 from functools import reduce, wraps
 from http import HTTPStatus
-import operator
 from itertools import islice
-import json
-import os
-import sys
 from pathlib import Path
 from typing import Any, Callable, TypedDict, cast
-import urllib.error
 
 import click
 from dateutil.parser import isoparse
@@ -31,9 +31,13 @@ from srecli.service.constants import (
     NEXT_TOKEN_ATTR,
     NO_CONTENT_RESPONSE_MESSAGE,
     NO_ITEMS_TO_DISPLAY_RESPONSE_MESSAGE,
-    JobType
+    JobType,
+    Env,
+    MODULAR_ADMIN,
+    STATUS_ATTR, SUCCESS_STATUS, ERROR_STATUS, CODE_ATTR, TABLE_TITLE_ATTR,
+    REVERT_TO_JSON_MESSAGE, COLUMN_OVERFLOW
 )
-from srecli.service.logger import get_logger, get_user_logger, write_verbose_logs
+from srecli.service.logger import get_logger, enable_verbose_logs
 
 CredentialsProvider = None
 try:
@@ -43,22 +47,7 @@ except ImportError:
     pass
 
 
-# modular cli
-MODULAR_ADMIN = 'modules'
-SUCCESS_STATUS = 'SUCCESS'
-ERROR_STATUS = 'FAILED'
-STATUS_ATTR = 'status'
-CODE_ATTR = 'code'
-TABLE_TITLE_ATTR = 'table_title'
-# -----------
-
 _LOG = get_logger(__name__)
-USER_LOG = get_user_logger(__name__)
-
-REVERT_TO_JSON_MESSAGE = 'The command`s response is pretty huge and the ' \
-                         'result table structure can be broken.\nDo you want ' \
-                         'to show the response in the JSON format?'
-COLUMN_OVERFLOW = 'Column has overflown, within the table representation.'
 
 
 class TableException(Exception):
@@ -170,10 +159,12 @@ class cli_response:  # noqa
             if Path(__file__).parents[3].name == MODULAR_ADMIN:  # TODO check some other way
                 modular_mode = True
 
-            json_view = kwargs.pop('json')
-            verbose = kwargs.pop('verbose')
+            json_view = Env.RESPONSE_FORMAT.get() == 'json' or kwargs.get('json')
+            verbose = Env.VERBOSE.get() or kwargs.get('verbose')  # todo verbose can be enabled earlier if from env
+            kwargs.pop('json', None)
+            kwargs.pop('verbose', None)
             if verbose:
-                write_verbose_logs()
+                enable_verbose_logs()
             ctx = cast(click.Context, click.get_current_context())
             self.update_context(ctx)
             try:
@@ -204,7 +195,10 @@ class cli_response:  # noqa
                         items_per_column=ctx.obj['config'].items_per_column,
                         attributes_order=self._attributes_order
                     )
-                    table = printer.print(prepared)
+                    table = printer.print(
+                        prepared,
+                        raise_on_overflow=not Env.NO_PROMPT.get()
+                    )
                 except ColumnOverflow as ce:
 
                     _LOG.info(f'Awaiting user to respond to - {ce!r}.')
@@ -253,6 +247,8 @@ class JsonResponseProcessor(ResponseProcessor):
         if resp.code == HTTPStatus.NO_CONTENT:
             return {MESSAGE_ATTR: NO_CONTENT_RESPONSE_MESSAGE}
         elif isinstance(resp.exc, json.JSONDecodeError):
+            if not resp.data and resp.code:
+                return {MESSAGE_ATTR: resp.code.phrase}
             return {MESSAGE_ATTR: f'Invalid JSON received: {resp.exc.msg}'}
         elif isinstance(resp.exc, urllib.error.URLError):
             return {MESSAGE_ATTR: f'Cannot send a request: {resp.exc.reason}'}
@@ -308,7 +304,7 @@ class ModularResponseProcessor(JsonResponseProcessor):
 
     def format(self, resp: CustodianResponse) -> dict:
         base = {
-            CODE_ATTR: resp.code,
+            CODE_ATTR: resp.code or HTTPStatus.SERVICE_UNAVAILABLE.value,
             STATUS_ATTR: SUCCESS_STATUS if resp.ok else ERROR_STATUS,
             TABLE_TITLE_ATTR: self.modular_table_title
         }
@@ -399,7 +395,7 @@ class TablePrinter:
         else:
             formatted = self._items_table(data)
 
-        overflow = formatted.index('\n') > os.get_terminal_size().columns
+        overflow = formatted.index('\n') > shutil.get_terminal_size().columns
         if overflow and raise_on_overflow:
             raise ColumnOverflow(table=formatted)
         return formatted
@@ -465,14 +461,14 @@ def response(*args, **kwargs):
 
 # callbacks
 def convert_in_upper_case_if_present(ctx, param, value):
-    if isinstance(value, list | tuple):
+    if isinstance(value, (list, tuple)):
         return [each.upper() for each in value]
     elif value:
         return value.upper()
 
 
 def convert_in_lower_case_if_present(ctx, param, value):
-    if isinstance(value, list):
+    if isinstance(value, (list, tuple)):
         return [each.lower() for each in value]
     elif value:
         return value.lower()
@@ -497,17 +493,6 @@ def build_account_option(**kwargs) -> Callable:
     )
     params.update(kwargs)
     return click.option('--account_number', '-acc', **params)
-
-
-def build_tenant_display_name_option(**kwargs) -> Callable:
-    params = dict(
-        type=str,
-        required=True,
-        help='The name of the target tenant group',
-        callback=convert_in_lower_case_if_present
-    )
-    params.update(kwargs)
-    return click.option('--tenant_display_name', '-tdn', **params)
 
 
 def build_iso_date_option(*args, **kwargs) -> Callable:
@@ -563,7 +548,6 @@ def build_limit_option(**kwargs) -> Callable:
 
 
 tenant_option = build_tenant_option()
-tenant_display_name_option = build_tenant_display_name_option()
 account_option = build_account_option()
 
 optional_job_type_option = build_job_type_option()

@@ -11,3 +11,4 @@ data:
   inner-cache-ttl-seconds: {{ .Values.innerCacheTTLSeconds | quote }}
   db-name: {{ .Values.databaseName }}
   modular-db-name: {{ .Values.modularDatabaseName }}
+  # todo maybe remove configs at all?

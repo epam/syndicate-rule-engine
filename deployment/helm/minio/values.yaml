@@ -5,10 +5,12 @@ service:
 
 
 consoleService:
-  type: NodePort
+  type: ClusterIP
   port: 9001
   nodePort: 32103
 
+console:
+  enabled: false
 
 image:
   repository: quay.io/minio/minio
@@ -23,3 +25,7 @@ persistence:
   hostPath: /data/minio
 
 replicas: 1
+strategy:
+  type: RollingUpdate
+  maxUnavailable: 0
+  maxSurge: 100%

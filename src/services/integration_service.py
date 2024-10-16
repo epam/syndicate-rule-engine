@@ -53,7 +53,7 @@ class IntegrationService:
         :return:
         """
         parent = self._ps.get_linked_parent_by_tenant(
-            tenant=tenant, type_=ParentType.SIEM_DEFECT_DOJO
+            tenant=tenant, type_=ParentType.CUSTODIAN_SIEM_DEFECT_DOJO
         )
         if not parent:
             return

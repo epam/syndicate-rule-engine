@@ -9,10 +9,14 @@ service:
 
 image:
   repository: public.ecr.aws/x4s4z8e1/syndicate/rule-engine
-  tag: 5.4.0
-  pullPolicy: IfNotPresent
+  tag: 5.5.0
+  pullPolicy: Always
 
 replicas: 1
+strategy:
+  type: RollingUpdate
+  maxUnavailable: 0
+  maxSurge: 100%
 
 mongoService: mongo
 mongoPort: 27017
@@ -20,3 +24,41 @@ vaultService: vault
 vaultPort: 8200
 minioService: minio
 minioPort: 9000
+
+vault:
+  enabled: true
+  fullnameOverride: vault
+minio:
+  enabled: true
+  fullnameOverride: minio
+  service:
+    type: NodePort
+mongo:
+  enabled: true
+  fullnameOverride: mongo
+modular-service:
+  enabled: true
+  fullnameOverride: modular-service
+modular-api:
+  enabled: true
+  fullnameOverride: modular-api
+  image:
+    tag: 4.2.0-rule-engine
+
+patch:
+  enabled: false
+  backoffLimit: 10
+  ttlSecondsAfterFinished: 3600
+  image:
+    repository: public.ecr.aws/x4s4z8e1/syndicate/patches
+    tag: rule-engine-5.5.0
+    pullPolicy: Always
+
+modularSdk:
+  serviceMode: docker
+  awsRegion:
+  assumeRoleArn:
+
+httpProxy: ''
+httpsProxy: ''
+noProxy: 'localhost,127.0.0.1,169.254.169.254,mongo,vault,minio,defectdojo'
