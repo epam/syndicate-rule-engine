@@ -121,9 +121,6 @@ class EnvironmentService:
         # resolved from lambda context
         return CAASEnv.ACCOUNT_ID.get()
 
-    def is_testing(self) -> bool:
-        return CAASEnv.TESTING_MODE.get('').lower() in ENV_TRUE
-
     def mock_rabbitmq_s3_url(self) -> tuple[str, float] | None:
         data = CAASEnv.MOCKED_RABBIT_MQ_S3.get()
         if not data:

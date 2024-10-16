@@ -1,53 +1,30 @@
-import os
-import sys
 from pathlib import Path
 
 SOURCE = Path(__file__).parent.parent / 'src'
 
-
-class ImportFromContext:
-    """
-    Context object to import lambdas and packages. It's necessary because
-    root path is not the path to the syndicate project but the path where
-    lambdas are accumulated - SRC_FOLDER
-    """
-
-    def __init__(self, source: Path, envs: dict):
-        self.envs = envs or {}
-        self._old_envs = {}
-        self.source = source.resolve()
-
-    def add_source_to_path(self):
-        source_path = str(self.source)
-        if source_path not in sys.path:
-            sys.path.append(source_path)
-
-    def remove_source_from_path(self):
-        source_path = str(self.source)
-        if source_path in sys.path:
-            sys.path.remove(source_path)
-
-    def add_envs(self):
-        for k, v in self.envs.items():
-            if k in os.environ:
-                self._old_envs[k] = os.environ[k]
-            os.environ[k] = v
-
-    def remove_envs(self):
-        for k in self.envs:
-            os.environ.pop(k, None)
-        os.environ.update(self._old_envs)
-
-    def __enter__(self):
-        self.add_source_to_path()
-        self.add_envs()
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.remove_source_from_path()
-        self.remove_envs()
-
-
-import_from_source = ImportFromContext(source=SOURCE, envs={
-    'AWS_REGION': 'eu-central-1',
-    'CAAS_TESTING': 'true',
-})
+# TEST_ENVS = {
+#     'AWS_REGION': 'us-east-1',
+#     'AWS_ACCESS_KEY_ID': 'testing',
+#     'AWS_SECRET_ACCESS_KEY': 'testing',
+#     'AWS_SECURITY_TOKEN': 'testing',
+#     'AWS_SESSION_TOKEN': 'testing',
+#     'AWS_DEFAULT_REGION': 'us-east-1',
+#
+#     'SYSTEM_CUSTOMER_NAME': 'TEST_SYSTEM_CUSTOMER',
+#     'CAAS_INNER_CACHE_TTL_SECONDS': '0',
+#
+#     'CAAS_SERVICE_MODE': 'docker',
+#     'CAAS_MONGO_URI': 'mongodb://localhost',
+#     'CAAS_MONGO_DATABASE': 'custodian-as-a-service-testing',
+#     'CAAS_MINIO_ENDPOINT': 'testing',
+#     'CAAS_MINIO_ACCESS_KEY_ID': 'testing',
+#     'CAAS_MINIO_SECRET_ACCESS_KEY': 'testing',
+#     'CAAS_VAULT_ENDPOINT': 'testing',
+#     'CAAS_VAULT_TOKEN': 'testing',
+#
+#     'modular_service_mode': 'docker',
+#     'modular_mongo_db_name': 'custodian-as-a-service-testing',
+#     'modular_mongo_user': 'testing',
+#     'modular_mongo_password': 'testing',
+#     'modular_mongo_url': 'localhost'
+# }

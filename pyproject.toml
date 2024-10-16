@@ -1,10 +1,21 @@
 [project]
-name = "rule-engine"
+name = "syndicate-rule-engine"
 description = "Service that allows to perform security scans on your infrastructure"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
 dependencies = []
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.3.2",
+    "coverage>=7.6.3",
+    "pytest-cov>=5.0.0",
+    "WebTest>=3.0.1",
+    "pytest-xdist>=3.6.1",
+    "moto>=5.0.17",
+    "mongomock>=4"
+]
 
 
 [tool.pyright]
@@ -16,4 +27,9 @@ pythonVersion = "3.10"
 reportIncompatibleMethodOverride = "warning"
 executionEnvironments = [
     {root = "tests/", pythonVersion = "3.10", extraPaths = ["src/"]}
+]
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "src",
 ]

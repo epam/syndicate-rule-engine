@@ -236,7 +236,10 @@ class UsersHandler(AbstractHandler):
             customer=event.customer_name
         )
         _LOG.debug(f'Saving user: {event.username}')
-        return build_response(content=f'The user {event.username} was created')
+        return build_response(
+            code=HTTPStatus.CREATED,
+            content=f'The user {event.username} was created'
+        )
 
     @validate_kwargs
     def refresh(self, event: RefreshPostModel):
