@@ -1,0 +1,76 @@
+name: ci-for-build-and-tests
+
+on:
+  push:
+    branches: [ "feature/ci_implement_tests" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+
+jobs:
+  build-package:
+    uses: ./.github/workflows/build-and-check-python-package.yml
+    with:
+      path: ./cli
+
+  tests:
+    needs: build-package
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+  
+    - name: Check modified files
+      id: check_files
+      run: |
+        git fetch origin ${{ github.pull_request_target }}
+        changed_files=$(git diff --name-only origin/main)#${{ github.pull_request_target }}
+        echo "Changed files: ${changed_files}"
+        checked_directory="cli/"
+        for file in ${changed_files}
+        do
+          if [[ ${file} == ${checked_directory}* ]]
+          then
+            echo "Target directory was modified."
+            echo "changes_found=true" >>$GITHUB_OUTPUT
+            exit 0
+          fi
+        done
+        echo "Target directory was not modified."
+        echo "changes_found=false" >>$GITHUB_OUTPUT
+        echo "dist=/tmp/bavp/dist" >>$GITHUB_OUTPUT
+      shell: bash
+
+    - name: Setup test env
+      if: steps.check_files.outputs.changes_found == 'true'
+      run: |
+        python -VV
+        pip install virtualenv
+        virtualenv .venv
+        source .venv/bin/activate
+        pip --cache-dir=.cache/pip --quiet install tox
+        
+    - name: tests
+      if: steps.check_files.outputs.changes_found == 'true'
+      run: |
+        source .venv/bin/activate
+        tox -e py310
+
+    - name: Upload coverage report
+      if: steps.check_files.outputs.changes_found == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: coverage.xml
+        retention-days: 1
+
+    - name: Upload test report
+      if: steps.check_files.outputs.changes_found == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-report
+        path: report.xml
+        retention-days: 1
