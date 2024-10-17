@@ -46,6 +46,17 @@ def vault_token(mocked_hvac_client) -> None:
         mount_point='kv'
     )
 
+@pytest.fixture()
+def s3_buckets(mocked_s3_client) -> None:
+    buckets = [
+        CAASEnv.REPORTS_BUCKET_NAME.get(),
+        CAASEnv.STATISTICS_BUCKET_NAME.get(),
+        CAASEnv.RULESETS_BUCKET_NAME.get(),
+        CAASEnv.METRICS_BUCKET_NAME.get()
+    ]
+    for b in buckets:
+        SP.s3.create_bucket(b, 'eu-central-1')
+
 
 @pytest.fixture()
 def system_user(mocked_mongo_client, vault_token) -> tuple[str, str]:
