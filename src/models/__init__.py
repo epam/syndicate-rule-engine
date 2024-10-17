@@ -1,5 +1,3 @@
-import os
-
 from modular_sdk.connections.mongodb_connection import MongoDBConnection
 from modular_sdk.models.pynamodb_extension.base_model import \
     ABCMongoDBHandlerMixin, \

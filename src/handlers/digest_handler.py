@@ -88,6 +88,7 @@ class DigestReportHandler(AbstractHandler):
         :return:
         """
         collection.fetch_all()
+
         report = ShardsCollectionDigestConvertor().convert(collection)
         return ReportResponse(job, report, ReportFormat.JSON).dict()
 
