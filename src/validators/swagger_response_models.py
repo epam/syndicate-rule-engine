@@ -3,7 +3,6 @@ from typing import Literal
 
 from pydantic import BaseModel
 from typing_extensions import NotRequired, TypedDict
-from models.policy import PolicyEffect
 
 from helpers.constants import (
     HealthCheckStatus,
@@ -14,7 +13,8 @@ from helpers.constants import (
     ReportFormat,
     RuleSourceType,
     RuleDomain,
-    RuleSourceSyncingStatus
+    RuleSourceSyncingStatus,
+    PolicyEffect
 )
 
 

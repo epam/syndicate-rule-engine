@@ -660,6 +660,11 @@ class Permission(str, Enum):
         return filter(operator.attrgetter('is_disabled'), cls)
 
 
+class PolicyEffect(str, Enum):
+    ALLOW = 'allow'
+    DENY = 'deny'
+
+
 # Modular
 # Tenant
 MODULAR_MANAGEMENT_ID_ATTR = 'management_parent_id'

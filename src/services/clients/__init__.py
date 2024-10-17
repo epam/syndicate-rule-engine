@@ -7,7 +7,6 @@ from botocore.client import BaseClient
 from botocore.config import Config
 from typing_extensions import Self
 from helpers.log_helper import get_logger
-from helpers.constants import CAASEnv
 
 _LOG = get_logger(__name__)
 

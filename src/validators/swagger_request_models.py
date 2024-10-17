@@ -30,7 +30,8 @@ from helpers.constants import (
     RuleDomain,
     RuleSourceType,
     GITHUB_API_URL_DEFAULT,
-    GITLAB_API_URL_DEFAULT
+    GITLAB_API_URL_DEFAULT,
+    PolicyEffect
 )
 from helpers import Version
 from helpers.regions import AllRegions, AllRegionsWithGlobal
@@ -39,7 +40,6 @@ from services import SERVICE_PROVIDER
 from services.chronicle_service import ChronicleConverterType
 from services.ruleset_service import RulesetName
 from models.rule import RuleIndex
-from models.policy import PolicyEffect
 
 
 class BaseModel(PydanticBaseModel):
