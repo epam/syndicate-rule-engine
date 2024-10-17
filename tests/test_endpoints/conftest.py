@@ -7,7 +7,7 @@ from webtest import TestApp
 
 from helpers.constants import Permission, CAASEnv, PolicyEffect
 from services import SP  # probably the only safe import we can use in conftest
-from ..commons import SOURCE, InMemoryHvacClient
+from ..commons import SOURCE, InMemoryHvacClient, SREClient
 
 
 # assuming that only this package will use mongo so that we need to clear
@@ -109,3 +109,8 @@ def wsgi_app(deployment_resources):
 @pytest.fixture
 def wsgi_test_app(wsgi_app) -> TestApp:
     return TestApp(wsgi_app)
+
+
+@pytest.fixture
+def sre_client(wsgi_test_app) -> SREClient:
+    return SREClient(wsgi_test_app)

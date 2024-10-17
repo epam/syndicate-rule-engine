@@ -1,8 +1,10 @@
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlparse
 
 from dateutil.parser import isoparse
+from webtest import TestApp, TestResponse
 
 SOURCE = Path(__file__).parent.parent / 'src'
 
@@ -102,3 +104,36 @@ def valid_isoformat(d):
         return True
     except ValueError:
         return False
+
+
+class SREClient:
+    """
+    This class just to abstract away from TestApp
+    """
+    __slots__ = '_app', '_default_stage'
+
+    def __init__(self, test_wsgi_app: TestApp, default_stage='caas'):
+        self._app = test_wsgi_app
+        self._default_stage = default_stage.strip('/')
+
+    def request(self, url: str, method: str = 'GET', *,
+                auth: str | None = None,
+                data: dict | None = None) -> TestResponse:
+        method = method.lower()
+        assert method in ('get', 'post', 'put', 'delete', 'patch')
+
+        path = urlparse(url).path.lstrip('/')
+        if not path.startswith(self._default_stage):
+            path = f'{self._default_stage}/{path}'
+        path = f'/{path}'
+
+        headers = None
+        if auth: headers = {'Authorization': auth}
+
+        if method == 'get':
+            return self._app.get(path, params=data, headers=headers,
+                                 expect_errors=True)
+        # post, put, patch, delete
+        return getattr(self._app, f'{method}_json')(
+            path, data, headers=headers, expect_errors=True
+        )

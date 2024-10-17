@@ -2,8 +2,8 @@ from helpers.constants import CAASEnv
 from ..commons import valid_isoformat
 
 
-def test_signup(wsgi_test_app):
-    resp = wsgi_test_app.post_json('/caas/signup', {
+def test_signup(sre_client):
+    resp = sre_client.request('/signup', 'POST', data={
         'username': 'example',
         'password': 'Qwerty12345=',
         'customer_name': 'example',
@@ -14,25 +14,25 @@ def test_signup(wsgi_test_app):
     assert resp.content_type == 'application/json'
     assert 'message' in resp.json
 
-    resp = wsgi_test_app.post_json('/caas/signup', {
+    resp = sre_client.request('/signup', 'POST', data={
         'username': 'example',
         'password': 'Qwerty12345=',
         'customer_name': 'example',
         'customer_display_name': 'example customer',
         'customer_admins': ['example@gmail.com']
-    }, expect_errors=True)
+    })
     assert resp.status_code == 409
     assert 'message' in resp.json
 
 
-def test_signup_invalid_password(wsgi_test_app):
-    resp = wsgi_test_app.post_json('/caas/signup', {
+def test_signup_invalid_password(sre_client):
+    resp = sre_client.request('/signup', 'POST', data={
         'username': 'example',
         'password': '12345',
         'customer_name': 'example',
         'customer_display_name': 'example customer',
         'customer_admins': ['example@gmail.com']
-    }, expect_errors=True)
+    })
     assert resp.status_code == 400
     assert resp.json == {'errors': [{
         'description': 'Value error, must have uppercase characters, must have lowercase characters, must have at least one symbol, valid min length for password: 8',
@@ -40,21 +40,44 @@ def test_signup_invalid_password(wsgi_test_app):
     }]}
 
 
-def test_system_whoami(system_user: str, wsgi_test_app):
-    resp = wsgi_test_app.get('/caas/users/whoami', expect_errors=True)
+def test_signin(system_user: str, sre_client):
+    resp = sre_client.request('/signin', 'POST', data={
+        'username': system_user[0],
+        'password': system_user[1]
+    })
+    assert resp.status_code == 200
+    assert resp.json['access_token']
+    assert resp.json['refresh_token']
+    assert resp.json['expires_in']
+
+    resp = sre_client.request('/signin', 'POST', data={
+        'username': system_user[0],
+        'password': 'invalid password'
+    })
+    assert resp.status_code == 401
+    assert resp.json == {'message': 'Incorrect username and/or password'}
+
+    resp = sre_client.request('/signin', 'POST', data={
+        'username': 'invalid username',
+        'password': system_user[1]
+    })
+    assert resp.status_code == 401
+    assert resp.json == {'message': 'Incorrect username and/or password'}
+
+
+def test_system_whoami(system_user: str, sre_client):
+    resp = sre_client.request('/users/whoami', 'GET')
     assert resp.status_code == 401
     assert resp.json == {'message': 'Unauthorized'}
 
-    resp = wsgi_test_app.post_json('/caas/signin', {
+    resp = sre_client.request('/signin', 'POST', data={
         'username': system_user[0],
         'password': system_user[1]
     })
     assert resp.status_code == 200
     token = resp.json['access_token']
 
-    resp = wsgi_test_app.get('/caas/users/whoami', headers={
-        'Authorization': token
-    })
+    resp = sre_client.request('/users/whoami', 'GET', auth=token)
     assert resp.status_code == 200
     data = resp.json
     assert valid_isoformat(data['data']['created_at'])
@@ -64,8 +87,8 @@ def test_system_whoami(system_user: str, wsgi_test_app):
     assert data['data']['username'] == 'system'
 
 
-def test_refresh_token(system_user: str, wsgi_test_app):
-    resp = wsgi_test_app.post_json('/caas/signin', {
+def test_refresh_token(system_user: str, sre_client):
+    resp = sre_client.request('/signin', 'POST', data={
         'username': system_user[0],
         'password': system_user[1]
     })
@@ -75,17 +98,43 @@ def test_refresh_token(system_user: str, wsgi_test_app):
     expires_in = resp.json['expires_in']
     assert expires_in <= 3600, 'Too high expiration for access token'
 
-    assert wsgi_test_app.get('/caas/users/whoami', headers={'Authorization': at}).status_code == 200
+    assert sre_client.request('/users/whoami', 'GET', auth=at).status_code == 200
 
-    assert wsgi_test_app.post_json('/caas/refresh', {'refresh_token': 'junk'}, expect_errors=True).status_code == 401
+    assert sre_client.request('/refresh', 'POST', data={'refresh_token': 'junk'}).status_code == 401
 
-    resp = wsgi_test_app.post_json('/caas/refresh', {'refresh_token': rt})
+    resp = sre_client.request('/refresh', 'POST', data={'refresh_token': rt})
     assert resp.status_code == 200
 
     new_at = resp.json['access_token']
     assert resp.json['refresh_token']
     assert resp.json['expires_in']
 
-    assert wsgi_test_app.get('/caas/users/whoami', headers={'Authorization': new_at}).status_code == 200
+    assert sre_client.request('/users/whoami', 'GET', auth=new_at).status_code == 200
 
-    assert wsgi_test_app.post_json('/caas/refresh', {'refresh_token': rt}, expect_errors=True).status_code == 401
+    assert sre_client.request('/refresh', 'POST', data={'refresh_token': rt}).status_code == 401
+
+
+def test_reset_password(system_user: str, sre_client):
+    resp = sre_client.request('/signin', 'POST', data={
+        'username': system_user[0],
+        'password': system_user[1]
+    })
+    at = resp.json['access_token']
+
+    resp = sre_client.request('/users/reset-password', 'POST', auth=at, data={'new_password': '12345'})
+    assert resp.status_code == 400
+
+    resp = sre_client.request('/users/reset-password', 'POST', auth=at, data={'new_password': 'Qwerty12345='})
+    assert resp.status_code == 204
+
+    assert sre_client.request('/signin', 'POST', data={
+        'username': system_user[0],
+        'password': system_user[1]
+    }).status_code == 401
+
+    assert sre_client.request('/signin', 'POST', data={
+        'username': system_user[0],
+        'password': 'Qwerty12345='
+    }).status_code == 200
+
+
