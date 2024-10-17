@@ -106,11 +106,11 @@ def wsgi_app(deployment_resources):
     return builder.build()
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def wsgi_test_app(wsgi_app) -> TestApp:
     return TestApp(wsgi_app)
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def sre_client(wsgi_test_app) -> SREClient:
     return SREClient(wsgi_test_app)
