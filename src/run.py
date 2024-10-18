@@ -129,7 +129,7 @@ class PoliciesLoader:
 
     def __init__(self, cloud: Cloud, output_dir: Path,
                  regions: set[str] | None = None, cache: str = CACHE_FILE,
-                 cache_period: int = 30, load_global: bool = True):
+                 cache_period: int = 30):
         """
         :param cloud:
         :param output_dir:
@@ -145,7 +145,7 @@ class PoliciesLoader:
                          f'{self._cloud}')
         self._cache = cache
         self._cache_period = cache_period
-        self._load_global = load_global
+        self._load_global = not self._regions or GLOBAL_REGION in self._regions
 
     def set_global_output(self, policy: Policy) -> None:
         policy.options.output_dir = str(
@@ -160,8 +160,10 @@ class PoliciesLoader:
     @staticmethod
     def is_global(policy: Policy) -> bool:
         """
-        Tells whether this policy must be executed only once ignoring its
-        region
+        This "is_global" means not whether the resource itself is global but
+        rather whether it's enough for us to execute such policy only once
+        independently on any region. Thus, it's always ok to execute AZURE and
+        GCP policies only once and for AWS we should consider some logic
         :param policy:
         :return:
         """
@@ -227,39 +229,53 @@ class PoliciesLoader:
     def prepare_policies(self, policies: list[Policy],
                          ) -> Generator[Policy, None, None]:
         """
-        Keeps only policies with regions that must be scanned. Also keeps
-        global policies and changes their output_dir to global.
-        Exceptions:
-        - s3, region-dependent, but API is global. So treat like global.
-          No need to make requests multiple times
-        - waf, global but its
-          resource_manager.resource_type.global_resource == False.
-          Though it's not global in resource_type class, Cloud Custodian
-          treats it like global and loads only once because
-          boto3.Session().get_available_regions('waf') returns an empty list
-        :param policies:
-        :return:
+        - aws.account: global, loaded once
+        - aws.distribution: global, loaded once
+        - aws.hostedzone: global, loaded once
+        - aws.iam-certificate: global, loaded once
+        - aws.iam-group: global, loaded once
+        - aws.iam-role: global, loaded once
+        - aws.iam-user: global, loaded once
+        - aws.r53domain: global, loaded once
+        - aws.rrset: global, loaded once
+        - aws.s3: global, loaded for each region (kind of bug)
+        - aws.waf: global, loaded once
+        Cloud Custodian automatically knows that all the listed resource types
+        are global and loads them only once, EXCEPT s3. Technically it's not
+        global because each bucket is living in its own region but the api to
+        list buckets is the same for all buckets for we must execute all s3
+        rules only once, and they will contain results for all regions. In
+        other words treat s3 rules as global
         """
         global_yielded = set()
         n_global, n_not_global = 0, 0
         for policy in policies:
-            if self._load_global and self.is_global(policy):
+            if self.is_global(policy):
+                if not self._load_global:
+                    continue
                 if policy.name in global_yielded:
-                    # custom core loads all the global policies only once
-                    # (except S3 which technically is not global).
                     continue
                 _LOG.debug(f'Global policy found: {policy.name}')
                 self.set_global_output(policy)
+                # next two lines are probably just for s3 resource types
                 policy.options.region = AWS_DEFAULT_REGION
                 policy.session_factory.region = AWS_DEFAULT_REGION
                 global_yielded.add(policy.name)
                 n_global += 1
-            elif not self._regions or policy.options.region in self._regions:
+            else:  # not global
+                if self._regions and policy.options.region not in self._regions:
+                    # here is tricky implementation: self._regions can
+                    # contain "global" which is not a valid region.
+                    # self._load_global is based on existence of "global" in
+                    # self._regions. If we want to load only global rules
+                    # the fact that self._regions contains only "global"
+                    # will help because no policy will skip this if stmt.
+                    # But if we want to load all regions, just keep empty
+                    # self._regions
+                    continue
                 _LOG.debug(f'Not global policy found: {policy.name}')
                 n_not_global += 1
                 # self.set_regional_output(policy)  # Cloud Custodian does it
-            else:
-                continue
             yield policy
         _LOG.debug(f'Global policies: {n_global}')
         _LOG.debug(f'Not global policies: {n_not_global}')
@@ -344,6 +360,7 @@ class PoliciesLoader:
                                    mapping: dict[str, set[str]]
                                    ) -> list[Policy]:
         """
+        Currently, self._load_global does not impact this method
         Expected mapping:
         {
             'eu-central-1': {'epam-aws-005..', 'epam-aws-006..'},
@@ -1163,7 +1180,7 @@ def single_account_standard_job() -> int:
 
 def process_job(filename: str, work_dir: Path, cloud: Cloud,
                 q: multiprocessing.Queue,
-                region: str = GLOBAL_REGION):
+                region: str):
     """
     Cloud Custodian keeps consuming RAM for some reason. After 9th-10th region
     scanned the used memory can be more than 1GI, and it does get free. Not
@@ -1172,15 +1189,14 @@ def process_job(filename: str, work_dir: Path, cloud: Cloud,
     consequently. When one process finished its memory is freed
     (any way the results is flushed to files).
     """
+    _LOG.debug(f'Running scan process for region {region}')
     with open(filename, 'rb') as file:
         data = msgspec.json.decode(file.read())
     loader = PoliciesLoader(
         cloud=cloud,
         output_dir=work_dir,
         regions={region},
-        # not to be confused, if regions=={'global'} any region will be skipped because 'global' is just a not valid region name
         cache_period=120,
-        load_global=region == GLOBAL_REGION
     )
     try:
         _LOG.debug('Loading policies')
