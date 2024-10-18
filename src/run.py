@@ -65,7 +65,6 @@ from helpers.constants import (
     PlatformType,
     PolicyErrorType,
     TS_EXCLUDED_RULES_KEY,
-    CAASEnv
 )
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime, utc_iso
@@ -92,7 +91,7 @@ from services.reports_bucket import (
     TenantReportsBucketKeysBuilder,
 )
 from services.clients.chronicle import ChronicleV2Client
-from services.sharding import ShardsCollection, ShardsCollectionFactory, ShardsS3IO
+from services.sharding import ShardsCollection, ShardsCollectionFactory, ShardsS3IO, ShardPart
 
 _LOG = get_logger(__name__)
 
@@ -1022,6 +1021,8 @@ def batch_results_job(batch_results: BatchResults):
     _LOG.debug('Pulling latest state')
     latest.fetch_by_indexes(collection.shards.keys())
     latest.fetch_meta()
+    _LOG.info('Self-healing regions')  # todo remove after a couple of releases
+    fix_s3_regions(latest)
 
     difference = collection - latest
 
@@ -1215,6 +1216,34 @@ def process_job(filename: str, work_dir: Path, cloud: Cloud,
         q.put({})
 
 
+def fix_s3_regions(latest: 'ShardsCollection'):
+    """
+    Self-healing s3 regions. They are kept as global. This patch rewrites each
+    global s3 part as multiple region-specific parts. The function should be
+    just removed in a couple of releases
+    """
+    meta = latest.meta
+    for part in tuple(latest.iter_parts()):
+        if part.location != GLOBAL_REGION:
+            continue
+        resource = meta.get(part.policy, {}).get('resource')
+        if not resource or resource not in ('s3', 'aws.s3'):
+            continue
+        # s3 with global
+        latest.drop_part(part.policy, part.location)
+        _region_buckets = {}
+        for res in part.resources:
+            r = res.get('Location', {}).get('LocationConstraint') or AWS_DEFAULT_REGION
+            _region_buckets.setdefault(r, []).append(res)
+        for r, buckets in _region_buckets.items():
+            latest.put_part(ShardPart(
+                policy=part.policy,
+                location=r,
+                timestamp=part.timestamp,
+                resources=buckets
+            ))
+
+
 @_XRAY.capture('Standard job')
 def standard_job(job: Job, tenant: Tenant, work_dir: Path):
     cloud: Cloud  # not cloud but rather domain
@@ -1303,6 +1332,8 @@ def standard_job(job: Job, tenant: Tenant, work_dir: Path):
     _LOG.debug('Pulling latest state')
     latest.fetch_by_indexes(collection.shards.keys())
     latest.fetch_meta()
+    _LOG.info('Self-healing regions')  # todo remove after a couple of releases
+    fix_s3_regions(latest)
 
     _LOG.debug('Writing latest state')
     latest.update(collection)

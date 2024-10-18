@@ -84,16 +84,16 @@ class ShardPart(msgspec.Struct, BaseShardPart, frozen=True):
 
 
 class LazyPickleShardPart(BaseShardPart):
-    __slots__ = 'policy', 'location', '_resources', 'timestamp', 'filepath'
+    __slots__ = 'policy', 'location', '_resources', 'timestamp', 'tf'
 
-    def __init__(self, filepath: str, policy: str,
+    def __init__(self, tf, policy: str,
                  location: str = GLOBAL_REGION,
                  timestamp: float | None = None):
         self.policy: str = policy
         self.location: str = location
         self.timestamp: float = timestamp or time.time()
         self._resources: list[dict] | None = None
-        self.filepath: str = filepath
+        self.tf = tf
 
     @classmethod
     def from_resources(cls, resources: list[dict], policy: str,
@@ -106,10 +106,11 @@ class LazyPickleShardPart(BaseShardPart):
         :param location:
         :return:
         """
-        with tempfile.NamedTemporaryFile(delete=False) as fp:
-            pickle.dump(resources, fp, protocol=pickle.HIGHEST_PROTOCOL)
+        tf = tempfile.TemporaryFile()
+        pickle.dump(resources, tf, protocol=pickle.HIGHEST_PROTOCOL)
+        tf.seek(0)
         return cls(
-            filepath=fp.name,
+            tf=tf,
             policy=policy,
             location=location
         )
@@ -117,8 +118,8 @@ class LazyPickleShardPart(BaseShardPart):
     @property
     def resources(self) -> list[dict]:
         if self._resources is None:
-            with open(self.filepath, 'rb') as fp:
-                self._resources = pickle.load(fp)
+            self._resources = pickle.load(self.tf)
+            self.tf.seek(0)
         return self._resources
 
     def drop(self) -> None:
@@ -161,6 +162,13 @@ class Shard(Iterable[BaseShardPart]):
         if existing and existing.timestamp > part.timestamp:
             return
         self._data[key] = part
+
+    def pop(self, policy: str, location: str) -> BaseShardPart | None:
+        """
+        Removes part from this shard
+        """
+        key = (policy, location)
+        return self._data.pop(key, None)
 
     def update(self, shard: 'Shard') -> None:
         """
@@ -494,6 +502,19 @@ class ShardsCollection(Iterable[tuple[int, Shard]]):
         """
         n = self._distributor.distribute_part(part)
         self.shards[n].put(part)
+
+    def drop_part(self, part: BaseShardPart | str,
+                  location: str | None = None, /):
+        """
+        Removes a part from this collection
+        """
+        if isinstance(part, str):
+            if not location:
+                raise ValueError('provide location as second parameter')
+            # just for distributor
+            part = ShardPart(policy=part, location=location)
+        n = self._distributor.distribute_part(part)
+        self.shards[n].pop(part.policy, part.location)
 
     def put_parts(self, parts: Iterable[BaseShardPart]) -> None:
         """

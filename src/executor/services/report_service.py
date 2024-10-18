@@ -6,6 +6,7 @@ from c7n.provider import get_resource_class
 from c7n.resources import load_resources
 from modular_sdk.models.tenant import Tenant
 
+from executor.helpers.constants import AWS_DEFAULT_REGION
 from helpers import json_path_get
 from helpers.constants import (Cloud, GLOBAL_REGION, PolicyErrorType)
 from helpers.log_helper import get_logger
@@ -134,10 +135,6 @@ class RuleRawMetadata:
     @property
     def resource_type(self) -> str:
         return self.policy['resource']
-
-    @property
-    def description(self) -> str | None:
-        return self.policy.get('description')
 
     @property
     def start_time(self) -> float:
@@ -312,10 +309,33 @@ class JobResult:
                     resources=resources
                 )
 
+    @staticmethod
+    def resolve_aws_s3_location_constraint(it: Iterable[RegionRuleOutput]
+                                           ) -> Generator[RegionRuleOutput, None, None]:
+        for region, rule, item in it:
+            if not item.was_executed or not item.resources:  # None or empty []
+                yield region, rule, item
+                continue
+            if item.metadata.resource_type not in ('s3', 'aws.s3'):
+                yield region, rule, item
+                continue
+            _region_buckets = {}
+            for bucket in item.resources:
+                # LocationConstraint is None if region is us-east-1
+                r = bucket.get('Location', {}).get('LocationConstraint') or AWS_DEFAULT_REGION
+                _region_buckets.setdefault(r, []).append(bucket)
+            for r, buckets in _region_buckets.items():
+                yield r, rule, RuleRawOutput(
+                    metadata=item.metadata,
+                    resources=buckets
+                )
+
     def build_default_iterator(self) -> Iterable[RegionRuleOutput]:
         it = self.iter_raw()
         if self._cloud == Cloud.AZURE:
             it = self.resolve_azure_locations(it)
+        elif self._cloud == Cloud.AWS:
+            it = self.resolve_aws_s3_location_constraint(it)
         return it
 
     def statistics(self, tenant: Tenant, failed: dict) -> list[dict]:
@@ -327,7 +347,7 @@ class JobResult:
         """
         failed = failed or {}
         res = []
-        for region, rule, output in self.iter_raw():
+        for region, rule, output in self.iter_raw():  # todo can be optimized not to load resources
             metadata = output.metadata
             item = {
                 'policy': rule,
