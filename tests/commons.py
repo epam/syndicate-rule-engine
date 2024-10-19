@@ -8,6 +8,8 @@ from webtest import TestApp, TestResponse
 
 SOURCE = Path(__file__).parent.parent / 'src'
 
+DATA = Path(__file__).parent / 'data'
+
 
 class InMemoryHvacClient:
     """

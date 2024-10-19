@@ -10,7 +10,7 @@ from executor.helpers.constants import AWS_DEFAULT_REGION
 from helpers import json_path_get
 from helpers.constants import (Cloud, GLOBAL_REGION, PolicyErrorType)
 from helpers.log_helper import get_logger
-from services.sharding import LazyPickleShardPart
+from services.sharding import ShardPart
 
 _LOG = get_logger(__name__)
 
@@ -168,38 +168,18 @@ class RuleRawMetadata:
         return metric['Value']
 
 
-class RuleRawOutput:
-    __slots__ = ('metadata', 'resources')
-
-    def __init__(self, metadata: RuleRawMetadata,
-                 resources: list[dict] | None):
-        self.metadata = metadata
-        self.resources = resources  # if None, the rule wasn't executed at all
-        # custodian_run: str
-
-    @property
-    def was_executed(self) -> bool:
-        """
-        Tells whether this policy was executed at all. Policy was not
-        executed in case some internal exception or ClientError or
-        something else. Either way resources.json is not created for such
-        policies, PolicyException metric is present
-        :return:
-        """
-        return self.resources is not None
-
-
 class JobResult:
     class FormattedItem(TypedDict):  # our detailed report item
         policy: dict
         resources: list[dict]
 
-    RegionRuleOutput = tuple[str, str, RuleRawOutput]
+    RegionRuleOutput = tuple[str, str, RuleRawMetadata, list[dict] | None]
 
     def __init__(self, work_dir: Path, cloud: Cloud):
         self._work_dir = work_dir
         self._cloud = cloud
 
+        self._metadata_decoder = msgspec.json.Decoder(type=dict)
         self._res_decoded = msgspec.json.Decoder(type=list[dict])
 
     @staticmethod
@@ -217,41 +197,28 @@ class JobResult:
             self.cloud_to_resource_type_prefix()[self._cloud], rt
         ))
 
-    def _load_raw_rule_output(self, root: Path) -> RuleRawOutput | None:
-        """
-        Folder with rule output contains three files:
-        'custodian-run.log' -> logs in text
-        'metadata.json' -> dict
-        'resources.json' -> list or resources
-        In case resources.json files does not exist this execution did
-        not happen due to some exception
-        :param root:
-        :return:
-        """
-        # logs = root / 'custodian-run.log'
-        metadata = root / 'metadata.json'
+    @staticmethod
+    def _resources_exist(root: Path) -> bool:
+        return (root / 'resources.json').exists()
+
+    def _load_resources(self, root: Path) -> list[dict] | None:
         resources = root / 'resources.json'
+        if not resources.exists(): return
+        with open(resources, 'rb') as fp:
+            return self._res_decoded.decode(fp.read())
 
-        with open(metadata, 'r') as file:
-            metadata_data = msgspec.json.decode(file.read(), type=dict)
-        resources_data = None
-        if resources.exists():
-            with open(resources, 'r') as file:
-                resources_data = self._res_decoded.decode(file.read())
-        return RuleRawOutput(
-            metadata=RuleRawMetadata(metadata_data),
-            resources=resources_data
-        )
+    def _load_metadata(self, root: Path) -> RuleRawMetadata:
+        with open(root / 'metadata.json', 'rb') as fp:
+            return RuleRawMetadata(self._metadata_decoder.decode(fp.read()))
 
-    def _extend_resources(self, output: RuleRawOutput):
+    def _extend_resources(self, resources: list[dict], rt: str):
         """
         Adds some report fields (id, name, arn, namespace, date) to each resource
         """
-        assert output.was_executed, 'You must provide this method only with policies that was executed without exceptions'  # noqa
-        rt = self.adjust_resource_type(output.metadata.resource_type)
+        rt = self.adjust_resource_type(rt)
         ReportFieldsLoader.load((rt,))  # should be loaded before
         fields = ReportFieldsLoader.get(rt)
-        for res in output.resources:
+        for res in resources:
             for field, path in fields.items():
                 if not path:
                     continue
@@ -260,14 +227,17 @@ class JobResult:
                     continue
                 res[field] = val
 
-    def iter_raw(self) -> Generator[RegionRuleOutput, None, None]:
+    def iter_raw(self, with_resources: bool = False
+                 ) -> Generator[RegionRuleOutput, None, None]:
         dirs = filter(Path.is_dir, self._work_dir.iterdir())
         for region in dirs:
             for rule in filter(Path.is_dir, region.iterdir()):
-                loaded = self._load_raw_rule_output(rule)
-                if not loaded:
-                    continue
-                yield region.name, rule.name, loaded
+                metadata = self._load_metadata(rule)
+                if with_resources:
+                    resources = self._load_resources(rule)
+                else:
+                    resources = [] if self._resources_exist(rule) else None
+                yield region.name, rule.name, metadata, resources
 
     @staticmethod
     def resolve_azure_locations(it: Iterable[RegionRuleOutput]
@@ -290,48 +260,38 @@ class JobResult:
         'location' will be congested to 'multiregion' region.
         :return:
         """
-        for _, rule, item in it:
-            if not item.was_executed:
-                yield GLOBAL_REGION, rule, item
-                continue
-            # was executed
-            if not item.resources:  # we cannot know
-                yield GLOBAL_REGION, rule, item
+        for _, rule, metadata, resources in it:
+            if resources is None or not resources:
+                yield GLOBAL_REGION, rule, metadata, resources
                 continue
             # resources exist
             _loc_res = {}
-            for res in item.resources:
+            for res in resources:
                 loc = res.get('location') or GLOBAL_REGION
                 _loc_res.setdefault(loc, []).append(res)
-            for location, resources in _loc_res.items():
-                yield location, rule, RuleRawOutput(
-                    metadata=item.metadata,
-                    resources=resources
-                )
+            for loc, res in _loc_res.items():
+                yield loc, rule, metadata, res
 
     @staticmethod
     def resolve_aws_s3_location_constraint(it: Iterable[RegionRuleOutput]
                                            ) -> Generator[RegionRuleOutput, None, None]:
-        for region, rule, item in it:
-            if not item.was_executed or not item.resources:  # None or empty []
-                yield region, rule, item
+        for region, rule, metadata, resources in it:
+            if resources is None or not resources:
+                yield region, rule, metadata, resources
                 continue
-            if item.metadata.resource_type not in ('s3', 'aws.s3'):
-                yield region, rule, item
+            if metadata.resource_type not in ('s3', 'aws.s3'):
+                yield region, rule, metadata, resources
                 continue
             _region_buckets = {}
-            for bucket in item.resources:
+            for bucket in resources:
                 # LocationConstraint is None if region is us-east-1
                 r = bucket.get('Location', {}).get('LocationConstraint') or AWS_DEFAULT_REGION
                 _region_buckets.setdefault(r, []).append(bucket)
             for r, buckets in _region_buckets.items():
-                yield r, rule, RuleRawOutput(
-                    metadata=item.metadata,
-                    resources=buckets
-                )
+                yield r, rule, metadata, buckets
 
     def build_default_iterator(self) -> Iterable[RegionRuleOutput]:
-        it = self.iter_raw()
+        it = self.iter_raw(with_resources=True)
         if self._cloud == Cloud.AZURE:
             it = self.resolve_azure_locations(it)
         elif self._cloud == Cloud.AWS:
@@ -347,8 +307,7 @@ class JobResult:
         """
         failed = failed or {}
         res = []
-        for region, rule, output in self.iter_raw():  # todo can be optimized not to load resources
-            metadata = output.metadata
+        for region, rule, metadata, resources in self.iter_raw(with_resources=False):
             item = {
                 'policy': rule,
                 'region': region,
@@ -358,7 +317,7 @@ class JobResult:
                 'end_time': metadata.end_time,
                 'api_calls': metadata.api_calls,
             }
-            if output.was_executed:
+            if resources is not None:
                 item['scanned_resources'] = metadata.all_resources_count
                 item['failed_resources'] = metadata.failed_resources_count
             elif _failed := failed.get((region, rule)):
@@ -372,15 +331,14 @@ class JobResult:
             res.append(item)
         return res
 
-    def iter_shard_parts(self) -> Generator[LazyPickleShardPart, None, None]:
-        for region, rule, output in self.build_default_iterator():
-            if not output.was_executed:
-                continue
-            self._extend_resources(output)  # todo use ijson
-            yield LazyPickleShardPart.from_resources(
-                resources=output.resources,
+    def iter_shard_parts(self) -> Generator[ShardPart, None, None]:
+        for region, rule, metadata, resources in self.build_default_iterator():
+            if resources is None: continue
+            self._extend_resources(resources, metadata.resource_type)
+            yield ShardPart(
                 policy=rule,
-                location=region
+                location=region,
+                resources=resources
             )
 
     def rules_meta(self) -> dict[str, dict]:
@@ -390,9 +348,9 @@ class JobResult:
         :return:
         """
         result = {}
-        for _, rule, output in self.iter_raw():
+        for _, rule, metadata, _ in self.iter_raw(with_resources=False):
             meta = {
-                k: v for k, v in output.metadata.policy.items()
+                k: v for k, v in metadata.policy.items()
                 if k not in ('filters', 'name')
             }
             if 'resource' in meta:
