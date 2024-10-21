@@ -118,9 +118,6 @@ class SettingsService:
         Returns the name of SYSTEM customer. If the setting is not found,
         default system customer name is returned.
         """
-        if self._environment.is_testing():
-            _LOG.info('Testing mode. Returning default system customer name')
-            return DEFAULT_SYSTEM_CUSTOMER
         _LOG.info('Querying CaaSSettings in order to get SYSTEM Customer name')
         name: Optional[str] = None
         try:

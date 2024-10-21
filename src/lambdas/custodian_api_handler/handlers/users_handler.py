@@ -8,11 +8,10 @@ from modular_sdk.services.customer_service import CustomerService
 
 from handlers import AbstractHandler, Mapping
 from helpers import NextToken
-from helpers.constants import CustodianEndpoint, HTTPMethod, Permission
+from helpers.constants import CustodianEndpoint, HTTPMethod, Permission, PolicyEffect
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime
-from models.policy import PolicyEffect
 from services import SP
 from services.abs_lambda import ProcessedEvent
 from services.clients.cognito import BaseAuthClient, UserWrapper
@@ -236,7 +235,10 @@ class UsersHandler(AbstractHandler):
             customer=event.customer_name
         )
         _LOG.debug(f'Saving user: {event.username}')
-        return build_response(content=f'The user {event.username} was created')
+        return build_response(
+            code=HTTPStatus.CREATED,
+            content=f'The user {event.username} was created'
+        )
 
     @validate_kwargs
     def refresh(self, event: RefreshPostModel):

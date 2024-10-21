@@ -121,7 +121,11 @@ def filter_dict(d: dict, keys: set | list | tuple) -> dict:
 
 class HashableDict(dict):
     def __hash__(self) -> int:
-        return hash(frozenset(self.items()))
+        if hasattr(self, '__calculated_hash'):
+            return getattr(self, '__calculated_hash')
+        h = hash(frozenset(self.items()))
+        setattr(self, '__calculated_hash', h)
+        return h
 
 
 def hashable(item: dict | list | tuple | set | str | float | int | None):

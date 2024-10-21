@@ -1,7 +1,6 @@
 from datetime import timedelta
 from http import HTTPStatus
 import json
-import os
 import secrets
 from typing import cast
 
