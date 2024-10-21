@@ -3,7 +3,7 @@
 LOG_PATH="${LOG_PATH:-/var/log/sre-init.log}"
 ERROR_LOG_PATH="${ERROR_LOG_PATH:-/var/log/sre-init.log}"
 
-SYNDICATE_HELM_REPOSITORY="${SYNDICATE_HELM_REPOSITORY:-s3://charts-repository/syndicate/}"
+SYNDICATE_HELM_REPOSITORY="${SYNDICATE_HELM_REPOSITORY:-https://charts-repository.s3.eu-west-1.amazonaws.com/syndicate/}"
 HELM_RELEASE_NAME="${HELM_RELEASE_NAME:-rule-engine}"
 DEFECTDOJO_HELM_RELEASE_NAME="${DEFECTDOJO_HELM_RELEASE_NAME:-defectdojo}"
 
@@ -297,7 +297,6 @@ kubectl create secret generic modular-api-secret --from-literal=system-password=
 kubectl create secret generic modular-service-secret --from-literal=system-password=$(generate_password 30)
 kubectl create secret generic defectdojo-secret --from-literal=secret-key="$(generate_password 50)" --from-literal=credential-aes-256-key=$(generate_password) --from-literal=db-username=defectdojo --from-literal=db-password=$(generate_password 30 -hex)
 
-helm plugin install https://github.com/hypnoglow/helm-s3.git
 helm repo add syndicate "$SYNDICATE_HELM_REPOSITORY"
 helm repo update syndicate
 

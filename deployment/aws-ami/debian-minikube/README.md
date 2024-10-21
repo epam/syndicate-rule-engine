@@ -85,7 +85,7 @@ TENANT_NAME=EXAMPLE
 **Installation preferences**
 - `LOG_PATH` - path to file where to write logs (default `/var/log/sre-init.log`)
 - `ERROR_LOG_PATH` - path to file where to write errors logs (default `/var/log/sre-init.log`)
-- `SYNDICATE_HELM_REPOSITORY` - (default `s3://charts-repository/syndicate/`)
+- `SYNDICATE_HELM_REPOSITORY` - (default `https://charts-repository.s3.eu-west-1.amazonaws.com/syndicate/`)
 - `DOCKER_VERSION` - (default `5:27.1.1-1~debian.12~bookworm`)
 - `MINIKUBE_VERSION` - (default `v1.33.1`)
 - `KUBERNETES_VERSION` - (default `v1.30.0`)
