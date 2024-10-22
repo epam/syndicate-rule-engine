@@ -1,0 +1,63 @@
+[
+  {
+    "kind": "compute#network",
+    "id": "877139587449282054",
+    "creationTimestamp": "2024-09-26T06:26:01.219-07:00",
+    "name": "default",
+    "description": "Default network for the project",
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/networks/default",
+    "selfLinkWithId": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/networks/877139587449282054",
+    "autoCreateSubnetworks": true,
+    "subnetworks": [
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-west6/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-central2/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-west3/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/asia-northeast3/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-west9/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/asia-east2/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/asia-east1/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/me-west1/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-west2/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-east5/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/asia-northeast1/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-west10/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-central1/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-west1/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-west1/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/me-central1/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-east4/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/northamerica-northeast2/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/southamerica-east1/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/australia-southeast1/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-west4/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-southwest1/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/asia-south2/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/australia-southeast2/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/southamerica-west1/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/northamerica-northeast1/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-west4/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-west8/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/asia-northeast2/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-east7/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-west12/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-north1/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-south1/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/asia-south1/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-west3/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/asia-southeast1/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/northamerica-south1/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/africa-south1/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-west2/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-east1/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-west8/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/asia-southeast2/subnetworks/default"
+    ],
+    "routingConfig": {
+      "routingMode": "REGIONAL"
+    },
+    "networkFirewallPolicyEnforcementOrder": "AFTER_CLASSIC_FIREWALL",
+    "c7n:MatchedFilters": [
+      "name"
+    ]
+  }
+]

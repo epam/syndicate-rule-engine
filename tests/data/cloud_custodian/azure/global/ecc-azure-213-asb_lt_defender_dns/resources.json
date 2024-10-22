@@ -1,0 +1,14 @@
+[
+  {
+    "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/Dns",
+    "name": "Dns",
+    "type": "Microsoft.Security/pricings",
+    "properties": {
+      "pricingTier": "Free",
+      "freeTrialRemainingTime": "P30D"
+    },
+    "c7n:MatchedFilters": [
+      "name"
+    ]
+  }
+]

@@ -62,16 +62,18 @@ class GOOGLECredentialsResolver(CredentialsResolver):
         if google_application_credentials_path:
             data = self._load_file(google_application_credentials_path)
             self._check_tenant(data)
-            return {
-                Env.GOOGLE_APPLICATION_CREDENTIALS.value: data
-            }
+            # return {
+            #     Env.GOOGLE_APPLICATION_CREDENTIALS.value: data
+            # }
+            return data  # exception
         from_env = Env.GOOGLE_APPLICATION_CREDENTIALS.get()
         if from_env:
             data = self._load_file(from_env)
             self._check_tenant(data)
-            return {
-                Env.GOOGLE_APPLICATION_CREDENTIALS.value: data
-            }
+            # return {
+            #     Env.GOOGLE_APPLICATION_CREDENTIALS.value: data
+            # }
+            return data  # exception
         raise CredentialsLookupError('cannot resolve google credentials')
 
 

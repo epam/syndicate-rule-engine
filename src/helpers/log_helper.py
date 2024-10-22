@@ -18,7 +18,6 @@ class CustomFormatter(logging.Formatter):
         return datetime.fromtimestamp(record.created, timezone.utc).isoformat()
 
 
-logging.captureWarnings(capture=True)
 logging.config.dictConfig({
     'version': 1,
     'disable_existing_loggers': False,

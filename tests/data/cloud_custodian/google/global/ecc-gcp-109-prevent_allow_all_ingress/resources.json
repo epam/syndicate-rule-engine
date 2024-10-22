@@ -1,0 +1,54 @@
+[
+  {
+    "kind": "compute#firewall",
+    "id": "3339756659677913058",
+    "creationTimestamp": "2024-09-26T06:26:37.596-07:00",
+    "name": "default-allow-internal",
+    "description": "Allow internal traffic on the default network",
+    "network": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/networks/default",
+    "priority": 65534,
+    "sourceRanges": [
+      "10.128.0.0/9"
+    ],
+    "allowed": [
+      {
+        "IPProtocol": "tcp",
+        "ports": [
+          "0-65535"
+        ],
+        "portRanges": [
+          {
+            "beginPort": "0",
+            "endPort": "65535"
+          }
+        ]
+      },
+      {
+        "IPProtocol": "udp",
+        "ports": [
+          "0-65535"
+        ],
+        "portRanges": [
+          {
+            "beginPort": "0",
+            "endPort": "65535"
+          }
+        ]
+      },
+      {
+        "IPProtocol": "icmp"
+      }
+    ],
+    "direction": "INGRESS",
+    "logConfig": {
+      "enable": false
+    },
+    "disabled": false,
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/firewalls/default-allow-internal",
+    "c7n:MatchedFilters": [
+      "direction",
+      "allowed[].IPProtocol",
+      "allowed[].ports[]"
+    ]
+  }
+]

@@ -1,0 +1,77 @@
+{
+  "policy": {
+    "name": "ecc-aws-374-cloudtrail_logs_data_events",
+    "resource": "aws.cloudtrail",
+    "description": "Description for ecc-aws-374-cloudtrail_logs_data_events"
+  },
+  "version": "0.9.40",
+  "execution": {
+    "id": "1f423a85-47fe-47b1-9867-ab1671d04900",
+    "start": 1729253935.386652,
+    "end_time": 1729253935.660345,
+    "duration": 0.2736930847167969
+  },
+  "config": {
+    "region": "eu-west-1",
+    "regions": [
+      "all"
+    ],
+    "cache": "cloud-custodian.cache",
+    "profile": null,
+    "account_id": "123456789012",
+    "assume_role": null,
+    "session_policy": null,
+    "external_id": null,
+    "log_group": null,
+    "tracer": "default",
+    "metrics_enabled": false,
+    "metrics": null,
+    "output_dir": "./eu-west-1",
+    "cache_period": 120,
+    "dryrun": false,
+    "authorization_file": null,
+    "command": "c7n.commands.run",
+    "config": null,
+    "configs": [],
+    "subparser": "run",
+    "policy_filters": [],
+    "resource_types": [],
+    "verbose": null,
+    "quiet": false,
+    "debug": false,
+    "skip_validation": false,
+    "vars": null
+  },
+  "sys-stats": {
+    "snapshot_time": 0.27370429039001465,
+    "num_fds": 1,
+    "cpu_user": 0.02304102399999941,
+    "cpu_system": 0.004398719999999745,
+    "num_ctx_switches_voluntary": 68,
+    "rss": 49152,
+    "pfaults": 57
+  },
+  "api-stats": {
+    "cloudtrail.GetEventSelectors": 1
+  },
+  "metrics": [
+    {
+      "MetricName": "ResourceCount",
+      "Timestamp": "2024-10-18T15:18:55.658952",
+      "Value": 1,
+      "Unit": "Count"
+    },
+    {
+      "MetricName": "ResourceTime",
+      "Timestamp": "2024-10-18T15:18:55.658962",
+      "Value": 0.27149391174316406,
+      "Unit": "Seconds"
+    },
+    {
+      "MetricName": "ActionTime",
+      "Timestamp": "2024-10-18T15:18:55.660328",
+      "Value": 4.0531158447265625e-06,
+      "Unit": "Seconds"
+    }
+  ]
+}

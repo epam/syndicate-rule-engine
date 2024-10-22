@@ -1,0 +1,61 @@
+{
+  "policy": {
+    "name": "ecc-aws-527-waf_global_webacl_not_empty",
+    "resource": "aws.waf",
+    "description": "Description for ecc-aws-527-waf_global_webacl_not_empty"
+  },
+  "version": "0.9.40",
+  "execution": {
+    "id": "e1886e87-d9f0-4b91-a3c5-bbd44a218eb4",
+    "start": 1729253695.95329,
+    "end_time": 1729253695.95428,
+    "duration": 0.0009899139404296875
+  },
+  "config": {
+    "region": "us-east-1",
+    "regions": [
+      "all"
+    ],
+    "cache": "cloud-custodian.cache",
+    "profile": null,
+    "account_id": "123456789012",
+    "assume_role": null,
+    "session_policy": null,
+    "external_id": null,
+    "log_group": null,
+    "tracer": "default",
+    "metrics_enabled": false,
+    "metrics": null,
+    "output_dir": "./global",
+    "cache_period": 120,
+    "dryrun": false,
+    "authorization_file": null,
+    "command": "c7n.commands.run",
+    "config": null,
+    "configs": [],
+    "subparser": "run",
+    "policy_filters": [],
+    "resource_types": [],
+    "verbose": null,
+    "quiet": false,
+    "debug": false,
+    "skip_validation": false,
+    "vars": null
+  },
+  "sys-stats": {
+    "snapshot_time": 0.000972747802734375,
+    "num_fds": 1,
+    "cpu_user": 0.0005406719999996312,
+    "cpu_system": 0.0004290559999997612,
+    "pfaults": 30
+  },
+  "api-stats": {},
+  "metrics": [
+    {
+      "MetricName": "PolicyException",
+      "Timestamp": "2024-10-21T13:30:01.405201",
+      "Value": 1,
+      "Unit": "Count"
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "policy": {
+    "name": "ecc-aws-150-api_gateway_rest_api_encryption_at_rest",
+    "resource": "rest-stage",
+    "description": "Description for ecc-aws-150-api_gateway_rest_api_encryption_at_rest"
+  },
+  "version": "0.9.40",
+  "execution": {
+    "id": "cf362466-07ea-4628-a70d-e5f4a1385e48",
+    "start": 1729253764.842481,
+    "end_time": 1729253765.068435,
+    "duration": 0.2259540557861328
+  },
+  "config": {
+    "region": "eu-central-1",
+    "regions": [
+      "all"
+    ],
+    "cache": "cloud-custodian.cache",
+    "profile": null,
+    "account_id": "123456789012",
+    "assume_role": null,
+    "session_policy": null,
+    "external_id": null,
+    "log_group": null,
+    "tracer": "default",
+    "metrics_enabled": false,
+    "metrics": null,
+    "output_dir": "./eu-central-1",
+    "cache_period": 120,
+    "dryrun": false,
+    "authorization_file": null,
+    "command": "c7n.commands.run",
+    "config": null,
+    "configs": [],
+    "subparser": "run",
+    "policy_filters": [],
+    "resource_types": [],
+    "verbose": null,
+    "quiet": false,
+    "debug": false,
+    "skip_validation": false,
+    "vars": null
+  },
+  "sys-stats": {
+    "snapshot_time": 0.22596096992492676,
+    "cache_size": 4096,
+    "num_fds": 1,
+    "cpu_user": 0.022618367999999833,
+    "cpu_system": 0.005922176000000001,
+    "num_ctx_switches_voluntary": 74,
+    "rss": 16384,
+    "pfaults": 115
+  },
+  "api-stats": {
+    "apigateway.GetStages": 1
+  },
+  "metrics": [
+    {
+      "MetricName": "ResourceCount",
+      "Timestamp": "2024-10-18T15:16:05.067923",
+      "Value": 0,
+      "Unit": "Count"
+    },
+    {
+      "MetricName": "ResourceTime",
+      "Timestamp": "2024-10-18T15:16:05.067932",
+      "Value": 0.224945068359375,
+      "Unit": "Seconds"
+    }
+  ]
+}

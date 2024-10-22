@@ -1,0 +1,68 @@
+{
+  "policy": {
+    "name": "ecc-aws-149-rds_public_access_disabled",
+    "resource": "rds",
+    "description": "Description for ecc-aws-149-rds_public_access_disabled"
+  },
+  "version": "0.9.40",
+  "execution": {
+    "id": "109bef62-47e4-4515-b97c-80bc5165755f",
+    "start": 1729253903.4745028,
+    "end_time": 1729253903.48386,
+    "duration": 0.009357213973999023
+  },
+  "config": {
+    "region": "eu-west-1",
+    "regions": [
+      "all"
+    ],
+    "cache": "cloud-custodian.cache",
+    "profile": null,
+    "account_id": "123456789012",
+    "assume_role": null,
+    "session_policy": null,
+    "external_id": null,
+    "log_group": null,
+    "tracer": "default",
+    "metrics_enabled": false,
+    "metrics": null,
+    "output_dir": "./eu-west-1",
+    "cache_period": 120,
+    "dryrun": false,
+    "authorization_file": null,
+    "command": "c7n.commands.run",
+    "config": null,
+    "configs": [],
+    "subparser": "run",
+    "policy_filters": [],
+    "resource_types": [],
+    "verbose": null,
+    "quiet": false,
+    "debug": false,
+    "skip_validation": false,
+    "vars": null
+  },
+  "sys-stats": {
+    "snapshot_time": 0.009285926818847656,
+    "num_fds": 1,
+    "cpu_user": 0.0018754560000004972,
+    "cpu_system": 0.0019150079999998848,
+    "num_ctx_switches_voluntary": 31,
+    "pfaults": 50
+  },
+  "api-stats": {},
+  "metrics": [
+    {
+      "MetricName": "ResourceCount",
+      "Timestamp": "2024-10-18T15:18:23.483548",
+      "Value": 0,
+      "Unit": "Count"
+    },
+    {
+      "MetricName": "ResourceTime",
+      "Timestamp": "2024-10-18T15:18:23.483555",
+      "Value": 0.0026121139526367188,
+      "Unit": "Seconds"
+    }
+  ]
+}

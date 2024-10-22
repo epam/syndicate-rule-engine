@@ -1,0 +1,67 @@
+{
+  "policy": {
+    "name": "ecc-gcp-237-postgresql_use_the_latest_major_version",
+    "resource": "gcp.sql-instance",
+    "description": "Description for ecc-gcp-237-postgresql_use_the_latest_major_version"
+  },
+  "version": "0.9.40",
+  "execution": {
+    "id": "9effff70-129b-45e2-8714-aa8a4e4e72d2",
+    "start": 1729502743.801879,
+    "end_time": 1729502743.8026721,
+    "duration": 0.0007932186126708984
+  },
+  "config": {
+    "region": "",
+    "regions": [],
+    "cache": "cloud-custodian.cache",
+    "profile": null,
+    "account_id": null,
+    "assume_role": null,
+    "session_policy": null,
+    "external_id": null,
+    "log_group": null,
+    "tracer": "default",
+    "metrics_enabled": false,
+    "metrics": null,
+    "output_dir": "./global",
+    "cache_period": 120,
+    "dryrun": false,
+    "authorization_file": null,
+    "command": "c7n.commands.run",
+    "config": null,
+    "configs": [],
+    "subparser": "run",
+    "policy_filters": [],
+    "resource_types": [],
+    "verbose": null,
+    "quiet": false,
+    "debug": false,
+    "skip_validation": false,
+    "vars": null
+  },
+  "sys-stats": {
+    "snapshot_time": 0.0007860660552978516,
+    "num_fds": 1,
+    "cpu_user": 0.00028889599999992743,
+    "cpu_system": 0.0002735839999999934,
+    "num_ctx_switches_voluntary": 2,
+    "rss": 16384,
+    "pfaults": 9
+  },
+  "api-stats": {},
+  "metrics": [
+    {
+      "MetricName": "ResourceCount",
+      "Timestamp": "2024-10-21T12:25:43.802425",
+      "Value": 0,
+      "Unit": "Count"
+    },
+    {
+      "MetricName": "ResourceTime",
+      "Timestamp": "2024-10-21T12:25:43.802428",
+      "Value": 0.0002779960632324219,
+      "Unit": "Seconds"
+    }
+  ]
+}
