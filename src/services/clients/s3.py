@@ -455,6 +455,8 @@ class S3Client(Boto3ClientWrapper):
             )
             with urllib.request.urlopen(req, timeout=1) as resp:
                 token = resp.read().decode()
+        except TimeoutError:
+            _LOG.warning('Could not get imds token. Timeout')
         except urllib.error.URLError:
             _LOG.warning('Could not get imds token')
         try:
@@ -464,6 +466,8 @@ class S3Client(Boto3ClientWrapper):
             )
             with urllib.request.urlopen(req, timeout=1) as resp:
                 return resp.read().decode()
+        except TimeoutError:
+            _LOG.warning('Could not get imds token. Timeout')
         except urllib.error.URLError:
             _LOG.warning('Cannot resolve public-ipv4 from instance metadata')
 
