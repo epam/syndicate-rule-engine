@@ -1,0 +1,62 @@
+{
+  "policy": {
+    "name": "ecc-aws-427-rds_cluster_without_tag_information",
+    "resource": "aws.rds-cluster",
+    "description": "Description for ecc-aws-427-rds_cluster_without_tag_information"
+  },
+  "version": "0.9.40",
+  "execution": {
+    "id": "b78b63f0-e847-47b1-9df6-697d88bcc904",
+    "start": 1729253941.704202,
+    "end_time": 1729253941.712029,
+    "duration": 0.007827043533325195
+  },
+  "config": {
+    "region": "eu-west-1",
+    "regions": [
+      "all"
+    ],
+    "cache": "cloud-custodian.cache",
+    "profile": null,
+    "account_id": "123456789012",
+    "assume_role": null,
+    "session_policy": null,
+    "external_id": null,
+    "log_group": null,
+    "tracer": "default",
+    "metrics_enabled": false,
+    "metrics": null,
+    "output_dir": "./eu-west-1",
+    "cache_period": 120,
+    "dryrun": false,
+    "authorization_file": null,
+    "command": "c7n.commands.run",
+    "config": null,
+    "configs": [],
+    "subparser": "run",
+    "policy_filters": [],
+    "resource_types": [],
+    "verbose": null,
+    "quiet": false,
+    "debug": false,
+    "skip_validation": false,
+    "vars": null
+  },
+  "sys-stats": {
+    "snapshot_time": 0.0077970027923583984,
+    "num_fds": 1,
+    "cpu_user": 0.002229247999999018,
+    "cpu_system": 0.002185471999999855,
+    "num_ctx_switches_voluntary": 17,
+    "pfaults": 54
+  },
+  "api-stats": {},
+  "metrics": [
+    {
+      "MetricName": "PolicyException",
+      "Timestamp": "2024-10-21T13:35:06.040984",
+      "Value": 1,
+      "Unit": "Count"
+    }
+  ]
+}

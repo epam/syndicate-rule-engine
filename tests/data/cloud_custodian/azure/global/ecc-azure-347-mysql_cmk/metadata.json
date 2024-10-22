@@ -1,0 +1,68 @@
+{
+  "policy": {
+    "name": "ecc-azure-347-mysql_cmk",
+    "resource": "azure.mysql-flexibleserver",
+    "description": "Description for ecc-azure-347-mysql_cmk"
+  },
+  "version": "0.9.40",
+  "execution": {
+    "id": "b651e907-d81c-4c1f-b00b-7a3113ccee25",
+    "start": 1729502356.6879518,
+    "end_time": 1729502356.692846,
+    "duration": 0.004894256591796875
+  },
+  "config": {
+    "region": "AzureCloud",
+    "regions": [
+      "AzureCloud"
+    ],
+    "cache": "memory",
+    "profile": null,
+    "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
+    "assume_role": null,
+    "session_policy": null,
+    "external_id": null,
+    "log_group": null,
+    "tracer": "default",
+    "metrics_enabled": false,
+    "metrics": null,
+    "output_dir": "./global",
+    "cache_period": 120,
+    "dryrun": false,
+    "authorization_file": null,
+    "command": "c7n.commands.run",
+    "config": null,
+    "configs": [],
+    "subparser": "run",
+    "policy_filters": [],
+    "resource_types": [],
+    "verbose": null,
+    "quiet": false,
+    "debug": false,
+    "skip_validation": false,
+    "vars": null
+  },
+  "sys-stats": {
+    "snapshot_time": 0.0048220157623291016,
+    "num_fds": 1,
+    "cpu_user": 0.0008863999999999539,
+    "cpu_system": 0.0010573440000000156,
+    "num_ctx_switches_voluntary": 9,
+    "pfaults": 2
+  },
+  "api-stats": {},
+  "metrics": [
+    {
+      "MetricName": "ResourceCount",
+      "Timestamp": "2024-10-21T12:19:16.691916",
+      "Value": 0,
+      "Unit": "Count"
+    },
+    {
+      "MetricName": "ResourceTime",
+      "Timestamp": "2024-10-21T12:19:16.691935",
+      "Value": 0.00029397010803222656,
+      "Unit": "Seconds"
+    }
+  ]
+}

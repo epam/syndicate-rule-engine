@@ -1,0 +1,32 @@
+[
+  {
+    "repositoryArn": "arn:aws:ecr:eu-west-1:123456789012:repository/application-dev",
+    "registryId": "123456789012",
+    "repositoryName": "application-dev",
+    "repositoryUri": "123456789012.dkr.ecr.eu-west-1.amazonaws.com/application-dev",
+    "createdAt": "2022-08-04T16:27:44+03:00",
+    "imageTagMutability": "MUTABLE",
+    "imageScanningConfiguration": {
+      "scanOnPush": true
+    },
+    "encryptionConfiguration": {
+      "encryptionType": "AES256"
+    },
+    "Tags": []
+  },
+  {
+    "repositoryArn": "arn:aws:ecr:eu-west-1:123456789012:repository/example-developer-test",
+    "registryId": "123456789012",
+    "repositoryName": "example-developer-test",
+    "repositoryUri": "123456789012.dkr.ecr.eu-west-1.amazonaws.com/example-developer-test",
+    "createdAt": "2018-12-10T16:26:16+02:00",
+    "imageTagMutability": "MUTABLE",
+    "imageScanningConfiguration": {
+      "scanOnPush": true
+    },
+    "encryptionConfiguration": {
+      "encryptionType": "AES256"
+    },
+    "Tags": []
+  }
+]
