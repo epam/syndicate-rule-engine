@@ -25,7 +25,7 @@ EOF
 }
 
 sre_being_initialized_msg() {
-  # accept number of seconds left a first parameter
+  # accepts number of seconds left as a first parameter
   cat <<EOF
 EPAM Syndicate Rule Engine is being initialized for the first time. Please, wait. Approximately $(date -d@"$1" -u "+%M minute(s) %S seconds") left
 EOF
