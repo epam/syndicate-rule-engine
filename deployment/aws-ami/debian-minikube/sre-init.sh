@@ -1097,9 +1097,11 @@ verify_installation() {
     return 0
   fi
   # .success does not exist
-  local passed
-  passed="$(( $(date +%s) - $(stat --format "%W" "$LOG_PATH") ))"
-  if [ ! -f "$LOG_PATH" ] || [ "$passed" -gt "$INSTALLATION_PERIOD_THRESHOLD" ]; then
+  local passed=""
+  if [ -f "$LOG_PATH" ]; then
+    passed="$(( $(date +%s) - $(stat --format "%W" "$LOG_PATH") ))"
+  fi
+  if [ -z "$passed" ] || [ "$passed" -gt "$INSTALLATION_PERIOD_THRESHOLD" ]; then
     # smt went wrong
     contact_support_msg >&2
     exit 1
