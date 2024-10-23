@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [5.5.1] - 2024-10-22
 - fixed Internal error if cannot resolve public ip from metadata
 - added logic to that validates whether the installation is successful to sre-init
+- improved sre-run so that it fails if any command in ami-initialize fails. Also it outputs all logs to log file
 
 ## [5.5.0] - 2024-08-07
 - return 429 status code if dynamodb provisioned capacity exceeded error
