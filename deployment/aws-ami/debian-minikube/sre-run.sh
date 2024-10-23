@@ -1,10 +1,13 @@
 #!/bin/bash
 
+set -eo pipefail
 
 # here we load possible envs provided from outside. Those are explained in README.md. No difficult logic must be there
-# shellcheck disable=SC1090
 _TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 300")
-source <(curl -s -H "X-aws-ec2-metadata-token: $_TOKEN" http://169.254.169.254/latest/user-data/)
+if user_data="$(curl -sf -H "X-aws-ec2-metadata-token: $_TOKEN" http://169.254.169.254/latest/user-data/)"; then
+  # shellcheck disable=SC1090
+  source <(echo "$user_data")
+fi
 
 # these can be provided from outside
 export GITHUB_REPO="${GITHUB_REPO:-epam/syndicate-rule-engine}"

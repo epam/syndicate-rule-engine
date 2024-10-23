@@ -29,12 +29,12 @@ get_imds_token () {
   if [ -n "$1" ]; then
     duration="$1"
   fi
-  curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: $duration"
+  curl -sf -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: $duration"
 }
-identity_document() { curl -s -H "X-aws-ec2-metadata-token: $(get_imds_token)" http://169.254.169.254/latest/dynamic/instance-identity/document; }
-document_signature() { curl -s -H "X-aws-ec2-metadata-token: $(get_imds_token)" http://169.254.169.254/latest/dynamic/instance-identity/signature | tr -d '\n'; }
-region() { curl -s curl -s -H "X-aws-ec2-metadata-token: $(get_imds_token)" http://169.254.169.254/latest/dynamic/instance-identity/document | jq -r ".region"; }
-request_to_lm() { curl -s -X POST -d "{\"signature\":\"$(document_signature)\",\"document\":\"$(identity_document | base64 -w 0)\"}" "$LM_API_LINK/marketplace/custodian/init"; }
+identity_document() { curl -sf -H "X-aws-ec2-metadata-token: $(get_imds_token)" http://169.254.169.254/latest/dynamic/instance-identity/document; }
+document_signature() { curl -sf -H "X-aws-ec2-metadata-token: $(get_imds_token)" http://169.254.169.254/latest/dynamic/instance-identity/signature | tr -d '\n'; }
+region() { curl -sf curl -s -H "X-aws-ec2-metadata-token: $(get_imds_token)" http://169.254.169.254/latest/dynamic/instance-identity/document | jq -r ".region"; }
+request_to_lm() { curl -sf -X POST -d "{\"signature\":\"$(document_signature)\",\"document\":\"$(identity_document | base64 -w 0)\"}" "$LM_API_LINK/marketplace/custodian/init"; }
 generate_password() {
   chars="20"
   typ='-base64'
@@ -266,8 +266,8 @@ log "Script is executed on behalf of $(id)"
 log "The first run. Configuring sre for user $FIRST_USER"
 
 log "Downloading artifacts"
-sudo mkdir -p "$SRE_LOCAL_PATH/backups"
-sudo mkdir -p "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE"
+sudo mkdir -p "$SRE_LOCAL_PATH/backups" || true
+sudo mkdir -p "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE" || true
 sudo wget -O "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE/sre-init.sh" "https://github.com/$GITHUB_REPO/releases/download/$RULE_ENGINE_RELEASE/sre-init.sh"
 sudo cp "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE/sre-init.sh" /usr/local/bin/sre-init
 sudo chmod +x /usr/local/bin/sre-init
@@ -332,13 +332,11 @@ kubectl create secret generic lm-data --from-literal=api-link='$LM_API_LINK'
 EOF
 fi
 
-
 log "Getting Defect dojo password (usually takes 3-4 minutes)"
-while [ -z "$dojo_pass" ]; do
+while ! dojo_pass="$(sudo su "$FIRST_USER" -c "kubectl logs job.batch/defectdojo-initializer" 2>/dev/null | grep -oP "Admin password: \K\w+")"; do
   sleep 5
-  dojo_pass=$(sudo su "$FIRST_USER" -c "kubectl logs job.batch/defectdojo-initializer" | grep -oP "Admin password: \K\w+")
 done
-dojo_pass=$(base64 <<< "$dojo_pass")
+dojo_pass="$(base64 <<< "$dojo_pass")"
 
 sudo su - "$FIRST_USER" <<EOF
 kubectl patch secret defectdojo-secret -p="{\"data\":{\"system-password\":\"$dojo_pass\"}}"
@@ -349,8 +347,8 @@ log "Enabling minikube service"
 enable_minikube_service
 
 log "Configuring nginx"
-sudo rm /etc/nginx/sites-enabled/*
-sudo rm /etc/nginx/sites-available/*
+sudo rm -f /etc/nginx/sites-enabled/*
+sudo rm -f /etc/nginx/sites-available/*
 sudo mkdir /etc/nginx/streams-available || true
 sudo mkdir /etc/nginx/streams-enabled || true
 
@@ -363,9 +361,9 @@ nginx_mongo_conf | sudo tee /etc/nginx/streams-available/mongo > /dev/null
 nginx_sre_conf | sudo tee /etc/nginx/sites-available/sre > /dev/null  # rule-engine + modular-service
 nginx_modular_api_conf | sudo tee /etc/nginx/sites-available/modular-api > /dev/null
 
-sudo ln -s /etc/nginx/sites-available/defectdojo /etc/nginx/sites-enabled/
-sudo ln -s /etc/nginx/sites-available/modular-api /etc/nginx/sites-enabled/
-sudo ln -s /etc/nginx/sites-available/minio /etc/nginx/sites-enabled/
+sudo ln -sf /etc/nginx/sites-available/defectdojo /etc/nginx/sites-enabled/
+sudo ln -sf /etc/nginx/sites-available/modular-api /etc/nginx/sites-enabled/
+sudo ln -sf /etc/nginx/sites-available/minio /etc/nginx/sites-enabled/
 
 sudo nginx -s reload
 
