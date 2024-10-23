@@ -55,6 +55,7 @@ sudo systemctl enable sre-run.service
 
 ```bash
 > ~/.ssh/authorized_keys
+printf "" | sudo tee /root/.ssh/authorized_keys
 ```
 
 **Create AMI from the instance**
