@@ -83,7 +83,6 @@ TENANT_NAME=EXAMPLE
 ```
 
 **Installation preferences**
-- `LOG_PATH` - path to file where to write logs (default `/var/log/sre-init.log`)
 - `ERROR_LOG_PATH` - path to file where to write errors logs (default `/var/log/sre-init.log`)
 - `SYNDICATE_HELM_REPOSITORY` - (default `https://charts-repository.s3.eu-west-1.amazonaws.com/syndicate/`)
 - `DOCKER_VERSION` - (default `5:27.1.1-1~debian.12~bookworm`)
@@ -119,3 +118,5 @@ They are intended for development purposes so do not touch them.
 - `HELM_RELEASE_NAME` - name of helm release for Rule Engine application (default `rule-engine`)
 - `DEFECTDOJO_HELM_RELEASE_NAME` - name of helm release for DefectDojo application (default `defectdojo`)
 - `GITHUB_REPO` - Rule Engine GitHub repository (default `epam/syndicate-rule-engine`)
+- `LOG_PATH` - path to file where to write logs (default `/var/log/sre-init.log`)
+- `RULE_ENGINE_RELEASE` - version of public release to install
