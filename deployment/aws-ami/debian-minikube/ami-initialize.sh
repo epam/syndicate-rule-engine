@@ -69,7 +69,7 @@ EOF
 upgrade_and_install_packages() {
   sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
   # sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
-  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y jq curl python3-pip locales-all nginx
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y jq curl python3-pip locales-all nginx pipx
 }
 install_docker() {
   # Add Docker's official GPG key: from https://docs.docker.com/engine/install/debian/
@@ -262,6 +262,7 @@ if [ -z "$RULE_ENGINE_RELEASE" ]; then
   error_log "RULE_ENGINE_RELEASE env is required"
   exit 1
 fi
+sudo -u "$FIRST_USER" mkdir -p "$(getent passwd "$FIRST_USER" | cut -d: -f6)/.local/bin" || true
 log "Script is executed on behalf of $(id)"
 log "The first run. Configuring sre for user $FIRST_USER"
 

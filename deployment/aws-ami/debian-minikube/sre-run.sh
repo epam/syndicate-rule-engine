@@ -13,7 +13,7 @@ fi
 export GITHUB_REPO="${GITHUB_REPO:-epam/syndicate-rule-engine}"
 export SRE_LOCAL_PATH="${SRE_LOCAL_PATH:-/usr/local/sre}"
 export LOG_PATH="${LOG_PATH:-/var/log/sre-init.log}"
-export FIRST_USER="${FIRST_USER:-$(getent passwd 1000 | cut -d : -f 1)}"
+export FIRST_USER="${FIRST_USER:-$(getent passwd 1000 | cut -d: -f1)}"
 
 
 log() { echo "[INFO] $(date) $1" >> "$LOG_PATH"; }
@@ -27,6 +27,8 @@ fi
 log "-----------------------------------------------------"
 log "Initializing Syndicate Rule Engine for the first time"
 log "-----------------------------------------------------"
+log "Creating ~/.local/bin for $FIRST_USER"  # wish to do it faster than user manages to log in to trigger ~/.profile
+sudo -u "$FIRST_USER" mkdir -p "$(getent passwd "$FIRST_USER" | cut -d: -f6)/.local/bin" || true
 log "Installing jq and curl"
 sudo apt update -y && sudo apt install -y jq curl
 
