@@ -262,7 +262,13 @@ if [ -z "$RULE_ENGINE_RELEASE" ]; then
   error_log "RULE_ENGINE_RELEASE env is required"
   exit 1
 fi
+# some steps that are better to be done before user tries to log in, so put them first
 sudo -u "$FIRST_USER" mkdir -p "$(getent passwd "$FIRST_USER" | cut -d: -f6)/.local/bin" || true
+
+log "Adding user $FIRST_USER to docker group"
+sudo groupadd docker || true
+sudo usermod -aG docker "$FIRST_USER" || true
+
 log "Script is executed on behalf of $(id)"
 log "The first run. Configuring sre for user $FIRST_USER"
 
@@ -291,9 +297,6 @@ install_kubectl "$KUBECTL_VERSION"
 
 log "Installing helm $HELM_VERSION"
 install_helm "$HELM_VERSION"
-
-log "Adding user $FIRST_USER to docker group"
-sudo usermod -aG docker "$FIRST_USER"
 
 log "Starting minikube and installing helm releases on behalf of $FIRST_USER"
 sudo su - "$FIRST_USER" <<EOF
