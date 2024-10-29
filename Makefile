@@ -16,6 +16,8 @@ EXECUTOR_IMAGE_TAG := latest
 SERVER_IMAGE_NAME := public.ecr.aws/x4s4z8e1/syndicate/rule-engine
 SERVER_IMAGE_TAG ?= $(shell PYTHONPATH=./src python -B -c "from src.helpers.__version__ import __version__; print(__version__)")
 
+DOCKERFILE_NAME := "Dockerfile"
+ADDITIONAL_BUILD_PARAMS ?= ""
 
 SYNDICATE_EXECUTABLE_PATH ?= $(shell which syndicate)
 SYNDICATE_CONFIG_PATH ?= .syndicate-config-main
@@ -129,10 +131,10 @@ syndicate-update-step-functions: check-syndicate
 #make image-manifest
 #make push-manifest
 image-arm64:
-	$(DOCKER_EXECUTABLE) build --platform linux/arm64 -t $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)-arm64 -f src/onprem/Dockerfile .
+	$(DOCKER_EXECUTABLE) build $(ADDITIONAL_BUILD_PARAMS) --platform linux/arm64 -t $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)-arm64 -f src/onprem/$(DOCKERFILE_NAME) .
 
 image-amd64:
-	$(DOCKER_EXECUTABLE) build --platform linux/amd64 -t $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)-amd64 -f src/onprem/Dockerfile .
+	$(DOCKER_EXECUTABLE) build $(ADDITIONAL_BUILD_PARAMS) --platform linux/amd64 -t $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)-amd64 -f src/onprem/$(DOCKERFILE_NAME) .
 
 
 image-manifest:
