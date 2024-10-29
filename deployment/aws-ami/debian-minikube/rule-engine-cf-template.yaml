@@ -43,10 +43,6 @@ Parameters:
   SubnetId:
     Description: "ID of a subnet within the VPC"
     Type: "AWS::EC2::Subnet::Id"
-#  SecurityGroupIds:
-#    Description: "Security group id to attach to the instance"
-#    Type: List<AWS::EC2::SecurityGroup::Id>
-#    Default: ""
   KeyName:
     Description: "Name of an existing EC2 KeyPair to enable SSH access to the instances"
     Type: "AWS::EC2::KeyPair::KeyName"
@@ -74,20 +70,14 @@ Metadata:
         Parameters:
           - VpcId
           - SubnetId
-          - SecurityGroupId
       - Label:
           default: "EC2 Instance configuration"
         Parameters:
           - InstanceType
           - KeyName
-#Conditions:
-#  CreateSecurityGroup: !Equals
-#    - !Join ["", !Ref SecurityGroupIds]
-#    - ""
 Resources:
   SyndicateRuleEngineSecurityGroup:
     Type: AWS::EC2::SecurityGroup
-#    Condition: CreateSecurityGroup
     Properties:
       GroupDescription: Allows access to Defect Dojo and Modular API and Minio API for presigned-urls
       GroupName: !Sub ${AWS::StackName}-sg
