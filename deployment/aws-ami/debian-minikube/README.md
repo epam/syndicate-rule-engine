@@ -1,5 +1,4 @@
 
-
 ## Creating AMI ami
 
 **Start EC2 instance and log in**
@@ -84,7 +83,6 @@ TENANT_NAME=EXAMPLE
 ```
 
 **Installation preferences**
-- `ERROR_LOG_PATH` - path to file where to write errors logs (default `/var/log/sre-init.log`)
 - `SYNDICATE_HELM_REPOSITORY` - (default `https://charts-repository.s3.eu-west-1.amazonaws.com/syndicate/`)
 - `DOCKER_VERSION` - (default `5:27.1.1-1~debian.12~bookworm`)
 - `MINIKUBE_VERSION` - (default `v1.33.1`)
@@ -93,6 +91,8 @@ TENANT_NAME=EXAMPLE
 - `HELM_VERSION` - (default `3.15.3-1`)
 - `MODULAR_SDK_ROLE_ARN` - can be specified to configure modular-sdk to use tables from DynamoDB
 - `MODULAR_SDK_REGION` - region where DynamoDB tables are located
+- `CF_STACK_NAME` - name of Cloud Formation stack to send SUCCESS of FAILURE signal to. By default, it's not specified and 
+  signals won't be sent
 
 **Configuration preferences**
 - `LM_API_LINK` - link to license manager (default `https://lm.syndicate.team`)
@@ -120,4 +120,5 @@ They are intended for development purposes so do not touch them.
 - `DEFECTDOJO_HELM_RELEASE_NAME` - name of helm release for DefectDojo application (default `defectdojo`)
 - `GITHUB_REPO` - Rule Engine GitHub repository (default `epam/syndicate-rule-engine`)
 - `LOG_PATH` - path to file where to write logs (default `/var/log/sre-init.log`)
+- `ERROR_LOG_PATH` - path to file where to write errors logs (default `/var/log/sre-init.log`)
 - `RULE_ENGINE_RELEASE` - version of public release to install

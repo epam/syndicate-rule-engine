@@ -84,7 +84,7 @@ Metadata:
       SubnetId:
         default: "Subnet where to launch the instance. Must be within the VPC"
       KeyName:
-        default: "SSH Key name"
+        default: "SSH Key pair name"
       InstanceType:
         default: "Graviton Instance Type"
       InstanceRoleName:
