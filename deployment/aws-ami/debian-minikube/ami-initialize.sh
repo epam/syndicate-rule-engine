@@ -31,9 +31,10 @@ get_imds_token () {
   fi
   curl -sf -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: $duration"
 }
-identity_document() { curl -sf -H "X-aws-ec2-metadata-token: $(get_imds_token)" http://169.254.169.254/latest/dynamic/instance-identity/document; }
-document_signature() { curl -sf -H "X-aws-ec2-metadata-token: $(get_imds_token)" http://169.254.169.254/latest/dynamic/instance-identity/signature | tr -d '\n'; }
-region() { curl -sf curl -s -H "X-aws-ec2-metadata-token: $(get_imds_token)" http://169.254.169.254/latest/dynamic/instance-identity/document | jq -r ".region"; }
+get_from_metadata() { curl -sf -H "X-aws-ec2-metadata-token: $(get_imds_token)" "http://169.254.169.254/latest$1"; }
+identity_document() { get_from_metadata "/dynamic/instance-identity/document"; }
+document_signature() { get_from_metadata "/dynamic/instance-identity/signature" | tr -d '\n'; }
+region() { get_from_metadata "/dynamic/instance-identity/document" | jq -r ".region"; }
 request_to_lm() { curl -sf -X POST -d "{\"signature\":\"$(document_signature)\",\"document\":\"$(identity_document | base64 -w 0)\"}" "$LM_API_LINK/marketplace/custodian/init"; }
 generate_password() {
   chars="20"
@@ -276,6 +277,19 @@ sudo wget -q -O "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE/modular_cli.tar.g
 sudo wget -q -O "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE/sre_obfuscator.tar.gz" "https://github.com/$GITHUB_REPO/releases/download/$RULE_ENGINE_RELEASE/sre_obfuscator.tar.gz"
 sudo chown -R "$FIRST_USER":"$FIRST_USER" "$SRE_LOCAL_PATH"
 
+if [ -z "$DO_NOT_ACTIVATE_LICENSE" ]; then
+  log "Going to make request to license manager"
+  if ! lm_response="$(request_to_lm)"; then
+    log_err "Unsuccessful response from the license manager"
+    exit 1
+  fi
+  lm_response=$(jq --indent 0 '.items[0]' <<<"$lm_response")
+  log "License information was received"
+else
+  log "Skipping license activation step"
+  lm_response=""
+fi
+
 # Prerequisite
 log "Upgrading system and installing some necessary packages"
 upgrade_and_install_packages
@@ -315,21 +329,13 @@ helm install "$DEFECTDOJO_HELM_RELEASE_NAME" syndicate/defectdojo
 EOF
 
 
-if [ -z "$DO_NOT_ACTIVATE_LICENSE" ]; then
-  log "Going to make request to license manager"
-  if ! lm_response="$(request_to_lm)"; then
-    log_err "Unsuccessful response from the license manager"
-    exit 1
-  fi
-  lm_response=$(jq --indent 0 '.items[0]' <<<"$lm_response")
-  sudo su - "$FIRST_USER" <<EOF
-kubectl create secret generic lm-data --from-literal=api-link='$LM_API_LINK' --from-literal=lm-response='$lm_response'
-EOF
-  log "License information was received"
-else
-  log "Skipping license activation step"
+if [ -z "$lm_response" ]; then
   sudo su - "$FIRST_USER" <<EOF
 kubectl create secret generic lm-data --from-literal=api-link='$LM_API_LINK'
+EOF
+else
+  sudo su - "$FIRST_USER" <<EOF
+kubectl create secret generic lm-data --from-literal=api-link='$LM_API_LINK' --from-literal=lm-response='$lm_response'
 EOF
 fi
 

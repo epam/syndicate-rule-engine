@@ -62,8 +62,37 @@ Parameters:
       - c7g.medium
       - c7g.large
       - c7g.xlarge
+  InstanceRoleName:
+    Description: "IAM Role name to attach to the instance. Keep empty to start instance without attached role"
+    Type: String
+    Default: ""
+  TenantName:
+    Description: "Syndicate Rule Engine tenant name to create. The tenant represents THIS AWS Account. The name will be used instead of the default name."
+    Default: ""
+    Type: String
+    AllowedPattern: "^[A-Z0-9_-]*$"
+    ConstraintDescription: "must contain only uppercase letters, digits, underscores and dashes"
+  AdminEmails:
+    Description: "Administrator emails split by space"
+    Default: ""
+    Type: String
 Metadata:
   AWS::CloudFormation::Interface:
+    ParameterLabels:
+      VpcId:
+        default: "VPC where to create a security group"
+      SubnetId:
+        default: "Subnet where to launch the instance. Must be within the VPC"
+      KeyName:
+        default: "SSH Key name"
+      InstanceType:
+        default: "Graviton Instance Type"
+      InstanceRoleName:
+        default: "IAM Role name"
+      TenantName:
+        default: "Syndicate Rule Engine tenant name"
+      AdminEmails:
+        default: "Emails of Syndicate Rule Engine admins"
     ParameterGroups:
       - Label:
           default: "Network configuration"
@@ -75,6 +104,14 @@ Metadata:
         Parameters:
           - InstanceType
           - KeyName
+          - InstanceRoleName
+      - Label:
+          default: "Syndicate Rule Engine configuration"
+        Parameters:
+          - TenantName
+          - AdminEmails
+Conditions:
+  AttachRole: !Not [!Equals [!Ref InstanceRoleName, ""]]
 Resources:
   SyndicateRuleEngineSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -110,14 +147,25 @@ Resources:
           HttpEndpoint: enabled
           HttpPutResponseHopLimit: 3
           HttpTokens: required
+  SyndicateRuleEngineInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Condition: AttachRole
+    Properties:
+      Roles:
+        - !Ref InstanceRoleName
   SyndicateRuleEngineInstance:
     Type: AWS::EC2::Instance
+    CreationPolicy:
+      ResourceSignal:
+        Count: 1
+        Timeout: PT20M
     Properties:
       ImageId: !FindInMap
         - RegionMap
         - !Ref AWS::Region
         - ImageId
       InstanceType: !Ref InstanceType
+      IamInstanceProfile: !If [AttachRole, !Ref SyndicateRuleEngineInstanceProfile, !Ref "AWS::NoValue"]
       KeyName: !Ref KeyName
       Tags:
         - Key: Name
@@ -128,6 +176,11 @@ Resources:
       LaunchTemplate:
         LaunchTemplateId: !Ref SyndicateRuleEngineLaunchTemplate
         Version: !GetAtt SyndicateRuleEngineLaunchTemplate.DefaultVersionNumber
+      UserData:
+        Fn::Base64: !Sub |
+          export CF_STACK_NAME="${AWS::StackName}"
+          export TENANT_NAME="${TenantName}"
+          export ADMIN_EMAILS="${AdminEmails}"
 Outputs:
   InstanceId:
     Value: !GetAtt SyndicateRuleEngineInstance.InstanceId
