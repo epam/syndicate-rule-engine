@@ -77,6 +77,10 @@ log "Initializing Syndicate Rule Engine for the first time"
 log "-----------------------------------------------------"
 log "Creating ~/.local/bin for $FIRST_USER"  # wish to do it faster than user manages to log in to trigger ~/.profile
 sudo -u "$FIRST_USER" mkdir -p "$(getent passwd "$FIRST_USER" | cut -d: -f6)/.local/bin" || true
+log "Adding user $FIRST_USER to docker group"
+sudo groupadd docker || true
+sudo usermod -aG docker "$FIRST_USER" || true
+
 log "Installing jq and curl"
 sudo apt update -y && sudo apt install -y jq curl
 

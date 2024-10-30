@@ -95,6 +95,7 @@ Options:
   --backup-name        Backup name to make before the update (default "$AUTO_BACKUP_PREFIX\$timestamp")
   --check              Checks whether update is available but do not try to update
   --no-backup          Do not do backup
+  --defectdojo         Specify this flag to update Defect Dojo chart instead of Syndicate Rule Engine
   -h, --help           Show this message and exit
   -y, --yes            Automatic yes to prompts
 EOF
@@ -724,8 +725,8 @@ cmd_update_list() {
 }
 
 cmd_update() {
-  local opts auto_yes=0 current_release release_data latest_tag backup_name="" iter_params=() check=0 same_version=0 do_backup=1 do_patch='true' helm_values
-  opts="$(getopt -o "hy" --long "help,yes,check,no-backup,no-patch,allow-prereleases,same-version,backup-name:" -n "$PROGRAM" -- "$@")"
+  local opts auto_yes=0 current_release release_data latest_tag backup_name="" iter_params=() check=0 same_version=0 do_backup=1 do_patch='true' helm_values update_defectdojo=0
+  opts="$(getopt -o "hy" --long "help,yes,check,no-backup,no-patch,defectdojo,allow-prereleases,same-version,backup-name:" -n "$PROGRAM" -- "$@")"
   eval set -- "$opts"
   while true; do
     case "$1" in
@@ -737,9 +738,34 @@ cmd_update() {
       '--backup-name') backup_name="$2"; shift 2 ;;
       '--allow-prereleases') iter_params=(--prerelease --draft); shift ;;
       '--same-version') same_version=1; shift ;;
+      '--defectdojo') update_defectdojo=1; shift ;;
       '--') shift; break ;;
     esac
   done
+  if [ "$update_defectdojo" -eq 1 ]; then
+    # todo refactor to a separate command.
+    [ "$check" -eq 1 ] && die "--check if currently not supported for Defect Dojo"
+    echo "Going to update Defect Dojo chart"
+    if [ "$do_backup" -eq 1 ]; then
+      [ -z "$backup_name" ] && backup_name="$AUTO_BACKUP_PREFIX$(date +%s)"
+      echo "Making backup $backup_name"
+      cmd_backup_create --name "$backup_name" --volumes=defectdojo-cache,defectdojo-data,defectdojo-media
+    fi
+    helm repo update syndicate
+    if ! helm upgrade "$DEFECTDOJO_HELM_RELEASE_NAME" syndicate/defectdojo --wait; then
+      warn "helm upgrade failed. Rolling back to the previous version..."
+      helm rollback "$DEFECTDOJO_HELM_RELEASE_NAME" 0 --wait || die "Helm rollback failed... Contact the support team"
+      if [ "$do_backup" -eq 1 ]; then
+        echo "Data patch could've been performed and backup was also created. Restoring backup $backup_name"
+        cmd_backup_restore --name "$backup_name"
+      fi
+      exit 1
+    else
+      echo "helm upgrade was successful"
+    fi
+    exit 0
+  fi
+
   current_release="$(get_helm_release_version "$HELM_RELEASE_NAME")"
   if [ "$same_version" -eq 1 ]; then
     release_data="$(get_github_release_by_tag "$current_release")" || warn "could not get release by tag $current_release"
@@ -1124,6 +1150,7 @@ SRE_RELEASES_PATH="${SRE_RELEASES_PATH:-$SRE_LOCAL_PATH/releases}"
 SRE_BACKUPS_PATH="${SRE_BACKUPS_PATH:-$SRE_LOCAL_PATH/backups}"
 GITHUB_REPO="${GITHUB_REPO:-epam/syndicate-rule-engine}"
 HELM_RELEASE_NAME="${HELM_RELEASE_NAME:-rule-engine}"
+DEFECTDOJO_HELM_RELEASE_NAME="${DEFECTDOJO_HELM_RELEASE_NAME:-defectdojo}"
 HELM_UPGRADE_TIMEOUT="${HELM_UPGRADE_TIMEOUT:-120}"
 DO_NOT_ACTIVATE_LICENSE="${DO_NOT_ACTIVATE_LICENSE:-}"
 DO_NOT_ACTIVATE_TENANT="${DO_NOT_ACTIVATE_TENANT:-}"
