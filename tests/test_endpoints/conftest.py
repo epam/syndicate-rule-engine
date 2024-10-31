@@ -46,6 +46,7 @@ def vault_token(mocked_hvac_client) -> None:
         mount_point='kv'
     )
 
+
 @pytest.fixture()
 def s3_buckets(mocked_s3_client) -> None:
     buckets = [
