@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-azure-125-nsg_mysql",
     "resource": "azure.networksecuritygroup",
-    "description": "Description for ecc-azure-125-nsg_mysql"
+    "description": "Description for ecc-azure-125-nsg_mysql",
+    "comment": "020042022000"
   },
   "version": "0.9.40",
   "execution": {

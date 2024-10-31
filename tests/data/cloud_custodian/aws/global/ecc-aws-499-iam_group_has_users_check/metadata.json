@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-aws-499-iam_group_has_users_check",
     "resource": "aws.iam-group",
-    "description": "Description for ecc-aws-499-iam_group_has_users_check"
+    "description": "Description for ecc-aws-499-iam_group_has_users_check",
+    "comment": "010018002001"
   },
   "version": "0.9.40",
   "execution": {

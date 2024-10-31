@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-aws-221-sns_kms_encryption_enabled",
     "resource": "sns",
-    "description": "Description for ecc-aws-221-sns_kms_encryption_enabled"
+    "description": "Description for ecc-aws-221-sns_kms_encryption_enabled",
+    "comment": "010042022000"
   },
   "version": "0.9.40",
   "execution": {

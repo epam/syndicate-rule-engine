@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances",
     "resource": "aws.ebs",
-    "description": "Description for ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances"
+    "description": "Description for ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances",
+    "comment": "010002042000"
   },
   "version": "0.9.40",
   "execution": {

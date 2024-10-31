@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-azure-358-synapse_workspace_managed_vnet",
     "resource": "azure.synapse",
-    "description": "Description for ecc-azure-358-synapse_workspace_managed_vnet"
+    "description": "Description for ecc-azure-358-synapse_workspace_managed_vnet",
+    "comment": "020041052000"
   },
   "version": "0.9.40",
   "execution": {

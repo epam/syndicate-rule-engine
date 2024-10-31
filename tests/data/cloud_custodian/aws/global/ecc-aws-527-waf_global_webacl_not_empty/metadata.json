@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-aws-527-waf_global_webacl_not_empty",
     "resource": "aws.waf",
-    "description": "Description for ecc-aws-527-waf_global_webacl_not_empty"
+    "description": "Description for ecc-aws-527-waf_global_webacl_not_empty",
+    "comment": "010002092001"
   },
   "version": "0.9.40",
   "execution": {

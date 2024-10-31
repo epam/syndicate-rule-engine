@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-aws-070-unused_ec2_security_groups",
     "resource": "security-group",
-    "description": "Description for ecc-aws-070-unused_ec2_security_groups"
+    "description": "Description for ecc-aws-070-unused_ec2_security_groups",
+    "comment": "010018022000"
   },
   "version": "0.9.40",
   "execution": {

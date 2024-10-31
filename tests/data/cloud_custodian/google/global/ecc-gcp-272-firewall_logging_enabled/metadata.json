@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-gcp-272-firewall_logging_enabled",
     "resource": "gcp.firewall",
-    "description": "Description for ecc-gcp-272-firewall_logging_enabled"
+    "description": "Description for ecc-gcp-272-firewall_logging_enabled",
+    "comment": "030019022000"
   },
   "version": "0.9.40",
   "execution": {

@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-azure-213-asb_lt_defender_dns",
     "resource": "azure.defender-pricing",
-    "description": "Description for ecc-azure-213-asb_lt_defender_dns"
+    "description": "Description for ecc-azure-213-asb_lt_defender_dns",
+    "comment": "020032180000"
   },
   "version": "0.9.40",
   "execution": {

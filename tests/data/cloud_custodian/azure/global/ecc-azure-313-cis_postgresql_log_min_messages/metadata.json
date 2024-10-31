@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-azure-313-cis_postgresql_log_min_messages",
     "resource": "azure.postgresql-server",
-    "description": "Description for ecc-azure-313-cis_postgresql_log_min_messages"
+    "description": "Description for ecc-azure-313-cis_postgresql_log_min_messages",
+    "comment": "020019061910"
   },
   "version": "0.9.40",
   "execution": {

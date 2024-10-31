@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-aws-167-security_group_ingress_is_restricted_traffic_to_port_143",
     "resource": "aws.security-group",
-    "description": "Description for ecc-aws-167-security_group_ingress_is_restricted_traffic_to_port_143"
+    "description": "Description for ecc-aws-167-security_group_ingress_is_restricted_traffic_to_port_143",
+    "comment": "010042022000"
   },
   "version": "0.9.40",
   "execution": {

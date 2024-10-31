@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-gcp-033-vpc_flow_logs_for_every_subnet",
     "resource": "gcp.subnet",
-    "description": "Description for ecc-gcp-033-vpc_flow_logs_for_every_subnet"
+    "description": "Description for ecc-gcp-033-vpc_flow_logs_for_every_subnet",
+    "comment": "030019021000"
   },
   "version": "0.9.40",
   "execution": {

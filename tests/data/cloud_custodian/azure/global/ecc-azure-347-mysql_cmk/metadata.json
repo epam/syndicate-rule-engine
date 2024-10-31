@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-azure-347-mysql_cmk",
     "resource": "azure.mysql-flexibleserver",
-    "description": "Description for ecc-azure-347-mysql_cmk"
+    "description": "Description for ecc-azure-347-mysql_cmk",
+    "comment": "020043062000"
   },
   "version": "0.9.40",
   "execution": {

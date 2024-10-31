@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-aws-149-rds_public_access_disabled",
     "resource": "rds",
-    "description": "Description for ecc-aws-149-rds_public_access_disabled"
+    "description": "Description for ecc-aws-149-rds_public_access_disabled",
+    "comment": "010040062900"
   },
   "version": "0.9.40",
   "execution": {

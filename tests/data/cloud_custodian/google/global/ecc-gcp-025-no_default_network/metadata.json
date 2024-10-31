@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-gcp-025-no_default_network",
     "resource": "gcp.vpc",
-    "description": "Description for ecc-gcp-025-no_default_network"
+    "description": "Description for ecc-gcp-025-no_default_network",
+    "comment": "030018021000"
   },
   "version": "0.9.40",
   "execution": {

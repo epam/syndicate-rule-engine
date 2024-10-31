@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-gcp-240-slow_query_log_database_flag_for_cloud_sql_mysql",
     "resource": "gcp.sql-instance",
-    "description": "Description for ecc-gcp-240-slow_query_log_database_flag_for_cloud_sql_mysql"
+    "description": "Description for ecc-gcp-240-slow_query_log_database_flag_for_cloud_sql_mysql",
+    "comment": "030019062000"
   },
   "version": "0.9.40",
   "execution": {

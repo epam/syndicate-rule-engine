@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-gcp-101-load_balancer_access_logging_disabled",
     "resource": "gcp.loadbalancer-backend-service",
-    "description": "Description for ecc-gcp-101-load_balancer_access_logging_disabled"
+    "description": "Description for ecc-gcp-101-load_balancer_access_logging_disabled",
+    "comment": "030019022000"
   },
   "version": "0.9.40",
   "execution": {

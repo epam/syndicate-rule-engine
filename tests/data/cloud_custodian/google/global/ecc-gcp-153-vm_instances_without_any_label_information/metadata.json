@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-gcp-153-vm_instances_without_any_label_information",
     "resource": "gcp.instance",
-    "description": "Description for ecc-gcp-153-vm_instances_without_any_label_information"
+    "description": "Description for ecc-gcp-153-vm_instances_without_any_label_information",
+    "comment": "030010032000"
   },
   "version": "0.9.40",
   "execution": {

@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-azure-096-cis_sec_defender_azure_sql",
     "resource": "azure.defender-pricing",
-    "description": "Description for ecc-azure-096-cis_sec_defender_azure_sql"
+    "description": "Description for ecc-azure-096-cis_sec_defender_azure_sql",
+    "comment": "020032182700"
   },
   "version": "0.9.40",
   "execution": {

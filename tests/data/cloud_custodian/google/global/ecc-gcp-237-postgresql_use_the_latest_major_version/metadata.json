@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-gcp-237-postgresql_use_the_latest_major_version",
     "resource": "gcp.sql-instance",
-    "description": "Description for ecc-gcp-237-postgresql_use_the_latest_major_version"
+    "description": "Description for ecc-gcp-237-postgresql_use_the_latest_major_version",
+    "comment": "030021062000"
   },
   "version": "0.9.40",
   "execution": {

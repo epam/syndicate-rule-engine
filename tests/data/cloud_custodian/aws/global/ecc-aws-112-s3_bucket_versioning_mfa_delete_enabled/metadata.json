@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
     "resource": "s3",
-    "description": "Description for ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled"
+    "description": "Description for ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+    "comment": "010047042901"
   },
   "version": "0.9.40",
   "execution": {

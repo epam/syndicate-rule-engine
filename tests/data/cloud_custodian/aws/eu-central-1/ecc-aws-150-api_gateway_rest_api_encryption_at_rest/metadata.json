@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-aws-150-api_gateway_rest_api_encryption_at_rest",
     "resource": "rest-stage",
-    "description": "Description for ecc-aws-150-api_gateway_rest_api_encryption_at_rest"
+    "description": "Description for ecc-aws-150-api_gateway_rest_api_encryption_at_rest",
+    "comment": "010043022000"
   },
   "version": "0.9.40",
   "execution": {

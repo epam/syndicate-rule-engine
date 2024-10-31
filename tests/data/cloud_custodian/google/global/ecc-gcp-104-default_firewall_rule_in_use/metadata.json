@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-gcp-104-default_firewall_rule_in_use",
     "resource": "gcp.firewall",
-    "description": "Description for ecc-gcp-104-default_firewall_rule_in_use"
+    "description": "Description for ecc-gcp-104-default_firewall_rule_in_use",
+    "comment": "030018022000"
   },
   "version": "0.9.40",
   "execution": {

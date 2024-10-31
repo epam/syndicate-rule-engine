@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-gcp-027-dnssec_for_cloud_dns",
     "resource": "gcp.dns-managed-zone",
-    "description": "Description for ecc-gcp-027-dnssec_for_cloud_dns"
+    "description": "Description for ecc-gcp-027-dnssec_for_cloud_dns",
+    "comment": "030030021000"
   },
   "version": "0.9.40",
   "execution": {

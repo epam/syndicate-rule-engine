@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-gcp-109-prevent_allow_all_ingress",
     "resource": "gcp.firewall",
-    "description": "Description for ecc-gcp-109-prevent_allow_all_ingress"
+    "description": "Description for ecc-gcp-109-prevent_allow_all_ingress",
+    "comment": "030042022000"
   },
   "version": "0.9.40",
   "execution": {

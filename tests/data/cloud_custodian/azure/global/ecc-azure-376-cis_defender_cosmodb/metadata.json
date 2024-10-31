@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-azure-376-cis_defender_cosmodb",
     "resource": "azure.defender-pricing",
-    "description": "Description for ecc-azure-376-cis_defender_cosmodb"
+    "description": "Description for ecc-azure-376-cis_defender_cosmodb",
+    "comment": "020032182700"
   },
   "version": "0.9.40",
   "execution": {

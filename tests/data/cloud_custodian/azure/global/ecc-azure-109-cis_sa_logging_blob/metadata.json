@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-azure-109-cis_sa_logging_blob",
     "resource": "azure.storage",
-    "description": "Description for ecc-azure-109-cis_sa_logging_blob"
+    "description": "Description for ecc-azure-109-cis_sa_logging_blob",
+    "comment": "020019042700"
   },
   "version": "0.9.40",
   "execution": {

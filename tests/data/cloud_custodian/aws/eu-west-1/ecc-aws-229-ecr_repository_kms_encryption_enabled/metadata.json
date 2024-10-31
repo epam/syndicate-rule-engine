@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-aws-229-ecr_repository_kms_encryption_enabled",
     "resource": "ecr",
-    "description": "Description for ecc-aws-229-ecr_repository_kms_encryption_enabled"
+    "description": "Description for ecc-aws-229-ecr_repository_kms_encryption_enabled",
+    "comment": "010043082000"
   },
   "version": "0.9.40",
   "execution": {

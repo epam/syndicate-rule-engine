@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-azure-099-cis_sec_defender_aks",
     "resource": "azure.defender-pricing",
-    "description": "Description for ecc-azure-099-cis_sec_defender_aks"
+    "description": "Description for ecc-azure-099-cis_sec_defender_aks",
+    "comment": "020032182700"
   },
   "version": "0.9.40",
   "execution": {

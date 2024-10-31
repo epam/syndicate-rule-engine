@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-aws-490-ec2_token_hop_limit_check",
     "resource": "aws.ec2",
-    "description": "Description for ecc-aws-490-ec2_token_hop_limit_check"
+    "description": "Description for ecc-aws-490-ec2_token_hop_limit_check",
+    "comment": "010024032010"
   },
   "version": "0.9.40",
   "execution": {

@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-aws-374-cloudtrail_logs_data_events",
     "resource": "aws.cloudtrail",
-    "description": "Description for ecc-aws-374-cloudtrail_logs_data_events"
+    "description": "Description for ecc-aws-374-cloudtrail_logs_data_events",
+    "comment": "010019012000"
   },
   "version": "0.9.40",
   "execution": {

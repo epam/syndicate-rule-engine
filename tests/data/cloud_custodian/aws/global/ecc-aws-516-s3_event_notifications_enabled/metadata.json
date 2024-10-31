@@ -2,7 +2,8 @@
   "policy": {
     "name": "ecc-aws-516-s3_event_notifications_enabled",
     "resource": "aws.s3",
-    "description": "Description for ecc-aws-516-s3_event_notifications_enabled"
+    "description": "Description for ecc-aws-516-s3_event_notifications_enabled",
+    "comment": "010019042001"
   },
   "version": "0.9.40",
   "execution": {
