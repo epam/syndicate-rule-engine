@@ -10,6 +10,10 @@ SOURCE = Path(__file__).parent.parent / 'src'
 
 DATA = Path(__file__).parent / 'data'
 
+AWS_ACCOUNT_ID = '123456789012'
+AZURE_ACCOUNT_ID = '3d615fa8-05c6-47ea-990d-9d162testing'  # subscription id
+GOOGLE_ACCOUNT_ID = 'testing-project-123'
+
 
 class InMemoryHvacClient:
     """
@@ -123,6 +127,7 @@ class SREClient:
                 data: dict | None = None) -> TestResponse:
         method = method.lower()
         assert method in ('get', 'post', 'put', 'delete', 'patch')
+        data = data or {}
 
         path = urlparse(url).path.lstrip('/')
         if not path.startswith(self._default_stage):

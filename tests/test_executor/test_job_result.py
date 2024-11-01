@@ -6,22 +6,6 @@ from modular_sdk.models.tenant import Tenant
 from executor.helpers.constants import Cloud
 from executor.services.report_service import JobResult
 from helpers.constants import PolicyErrorType
-from ..commons import DATA
-
-
-@pytest.fixture
-def aws_scan_result() -> Path:
-    return DATA / "cloud_custodian" / "aws"
-
-
-@pytest.fixture
-def azure_scan_result() -> Path:
-    return DATA / "cloud_custodian" / "azure"
-
-
-@pytest.fixture
-def google_scan_result() -> Path:
-    return DATA / "cloud_custodian" / "google"
 
 
 @pytest.fixture

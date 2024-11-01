@@ -1,17 +1,15 @@
 import os
 
+from pathlib import Path
 import mongomock
 import pytest
 from moto import mock_aws
 
 from unittest.mock import patch
 from helpers.constants import CAASEnv
-from .commons import InMemoryHvacClient
+from .commons import InMemoryHvacClient, DATA
 
 
-# here I mock the global MongoClient and also add a global fixture that is
-# executed before each test and clears the database. Not sure if such
-# approach is ok, but it works. The same with minio and vault.
 # This "pytest_configure" function must be executed BEFORE any imports that
 # can initialize MongoClient or other clients. Be careful with imports
 # in other conftest files
@@ -51,3 +49,19 @@ def clear_envs():
     os.environ.pop(CAASEnv.INVOCATION_REQUEST_ID.value, None)
     os.environ.pop(CAASEnv.API_GATEWAY_STAGE.value, None)
     os.environ.pop(CAASEnv.API_GATEWAY_HOST.value, None)
+
+
+@pytest.fixture
+def aws_scan_result() -> Path:
+    return DATA / "cloud_custodian" / "aws"
+
+
+@pytest.fixture
+def azure_scan_result() -> Path:
+    return DATA / "cloud_custodian" / "azure"
+
+
+@pytest.fixture
+def google_scan_result() -> Path:
+    return DATA / "cloud_custodian" / "google"
+
