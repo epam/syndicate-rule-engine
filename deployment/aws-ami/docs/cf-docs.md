@@ -16,14 +16,15 @@ where You will need to specify stack parameters.
 ### Specify AWS Cloud Formation stack parameters
 
 You must configure such parameters:
-- **AWS VPC id:** choose a VPC where to create a security group for Syndicate Rule Engine. The security group will be attached
-  to the EC2 instance and will allow inbound traffic on ports: 80, 8085 and 9000 for Defect Dojo, Modular API 
-  and Minio API respectively. Consider that 22 port is closed, so You should open it if You want to have SSH access
 - **AWS Subnet id:** choose a subnet within the VPC You've chosen before. EC2 Instance will be created inside that subnet
+- **AWS Security groups ids:** specify security groups within Your VPC that will be attached to the instance. By default,
+  the instance is listening on ports: 80 (Defect dojo), 8085 (Modular API), 9000 (Minio API) so, make sure to open 
+  these ports if You want to use the services outside the instance
 - **EC2 Instance Type:** choose a type for the instance for the list. It must be at least `m7g.medium`
 - **SSH Key pair name:** choose key pair from listed. Will be used to access the instance
 
 Other optional parameters:
+- **Instance Name:** name for the instance. Stack name will be used as instance name if custom value is not specified
 - **IAM Role name:** name of AWS IAM role to attach to the instance. The role must be created beforehand and must allow EC2 Service to assume it.
   Keep the field empty if You do not want any role to be attached
 - **Syndicate Rule Engine tenant name:** name for the tenant that will be created during startup of Syndicate Rule Engine. The 
@@ -71,7 +72,6 @@ Review all the parameters and options and click `Submit`
 ### After CLoud Formation stack creation
 
 The stack will create such resources:
-- EC2 Security Group
 - EC2 Launch Template
 - EC2 Instance Profile
 - EC2 Instance
