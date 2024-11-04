@@ -1,6 +1,7 @@
 import json
 import uuid
-from datetime import timedelta
+from datetime import timedelta, datetime
+from dateutil.relativedelta import relativedelta, SU
 
 import boto3
 import pytest
@@ -247,3 +248,40 @@ def create_tenant_br():
         )
 
     return factory
+
+
+@pytest.fixture()
+def report_bounds() -> tuple[datetime, datetime]:
+    """
+    Returns tuple that contains two dates. Last Sunday and next Sunday
+    """
+    now = utc_datetime()
+    start = now + relativedelta(hour=0, minute=0, second=0, microsecond=0,
+                                weekday=SU(-1))
+    end = now + relativedelta(hour=0, minute=0, second=0, microsecond=0,
+                              weekday=SU(+1))
+    return start, end
+
+
+@pytest.fixture()
+def reports_marker(report_bounds):
+    """
+    Set mocked dates marker
+    """
+    from models.setting import Setting
+    from services.setting_service import SettingKey
+    start, end = report_bounds
+    start = start.date()
+    end = end.date()
+    Setting(
+        name=SettingKey.REPORT_DATE_MARKER,
+        value={
+            "current_week_date": end.isoformat(),
+            "last_week_date": start.isoformat()
+        }
+    ).save()
+    Setting(
+        name=SettingKey.SEND_REPORTS,
+        value=True
+    ).save()
+

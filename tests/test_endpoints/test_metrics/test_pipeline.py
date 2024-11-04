@@ -3,55 +3,17 @@ Metrics pipeline collects data for the current week for all customers and
 tenants. These tests check whether the data is processed as we expect
 """
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import pytest
-from dateutil.relativedelta import relativedelta, SU
 
 from executor.services.report_service import JobResult
 from helpers.constants import JobState, Cloud, PolicyErrorType
-from helpers.time_helper import utc_datetime
-from models.setting import Setting
 from services import SP
 from services.reports_bucket import TenantReportsBucketKeysBuilder, \
     StatisticsBucketKeysBuilder
-from services.setting_service import SettingKey
 from services.sharding import ShardsCollectionFactory, ShardsS3IO
 from ...commons import AWS_ACCOUNT_ID, AZURE_ACCOUNT_ID, GOOGLE_ACCOUNT_ID
-
-
-@pytest.fixture()
-def report_bounds() -> tuple[datetime, datetime]:
-    """
-    Returns tuple that contains two dates. Last Sunday and next Sunday
-    """
-    now = utc_datetime()
-    start = now + relativedelta(hour=0, minute=0, second=0, microsecond=0,
-                                weekday=SU(-1))
-    end = now + relativedelta(hour=0, minute=0, second=0, microsecond=0,
-                              weekday=SU(+1))
-    return start, end
-
-
-@pytest.fixture()
-def reports_marker(report_bounds):
-    """
-    Set mocked dates marker
-    """
-    start, end = report_bounds
-    start = start.date()
-    end = end.date()
-    Setting(
-        name=SettingKey.REPORT_DATE_MARKER,
-        value={
-            "current_week_date": end.isoformat(),
-            "last_week_date": start.isoformat()
-        }
-    ).save()
-    Setting(
-        name=SettingKey.SEND_REPORTS,
-        value=True
-    ).save()
 
 
 @pytest.fixture()
