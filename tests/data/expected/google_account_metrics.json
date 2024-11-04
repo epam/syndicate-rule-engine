@@ -1,0 +1,307 @@
+{
+  "overview": {
+    "total_scans": 3,
+    "failed_scans": 1,
+    "succeeded_scans": 2,
+    "resources_violated": 5,
+    "regions_data": {
+      "global": {
+        "severity_data": {
+          "null": 5
+        }
+      }
+    }
+  },
+  "customer": "TEST_CUSTOMER",
+  "tenant_name": "GOOGLE-TESTING",
+  "id": "testing-project-123",
+  "cloud": "google",
+  "activated_regions": [],
+  "from": "2024-11-03",
+  "to": "2024-11-04T16:13:09.633919",
+  "outdated_tenants": {},
+  "last_scan_date": "2024-11-03T08:20:00Z",
+  "compliance": {
+    "regions_data": [
+      {
+        "region": "global",
+        "standards_data": []
+      }
+    ],
+    "average_data": []
+  },
+  "resources": [
+    {
+      "policy": "ecc-gcp-025-no_default_network",
+      "resource_type": null,
+      "description": "Description for ecc-gcp-025-no_default_network",
+      "severity": null,
+      "regions_data": {
+        "global": {
+          "resources": [
+            {
+              "id": "default",
+              "name": "default"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "policy": "ecc-gcp-272-firewall_logging_enabled",
+      "resource_type": null,
+      "description": "Description for ecc-gcp-272-firewall_logging_enabled",
+      "severity": null,
+      "regions_data": {
+        "global": {
+          "resources": [
+            {
+              "id": "default-allow-internal",
+              "name": "default-allow-internal"
+            },
+            {
+              "id": "default-allow-ssh",
+              "name": "default-allow-ssh"
+            },
+            {
+              "id": "default-allow-rdp",
+              "name": "default-allow-rdp"
+            },
+            {
+              "id": "default-allow-icmp",
+              "name": "default-allow-icmp"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "policy": "ecc-gcp-109-prevent_allow_all_ingress",
+      "resource_type": null,
+      "description": "Description for ecc-gcp-109-prevent_allow_all_ingress",
+      "severity": null,
+      "regions_data": {
+        "global": {
+          "resources": [
+            {
+              "id": "default-allow-internal",
+              "name": "default-allow-internal"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "policy": "ecc-gcp-104-default_firewall_rule_in_use",
+      "resource_type": null,
+      "description": "Description for ecc-gcp-104-default_firewall_rule_in_use",
+      "severity": null,
+      "regions_data": {
+        "global": {
+          "resources": [
+            {
+              "id": "default-allow-internal",
+              "name": "default-allow-internal"
+            },
+            {
+              "id": "default-allow-ssh",
+              "name": "default-allow-ssh"
+            },
+            {
+              "id": "default-allow-rdp",
+              "name": "default-allow-rdp"
+            },
+            {
+              "id": "default-allow-icmp",
+              "name": "default-allow-icmp"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "policy": "ecc-gcp-033-vpc_flow_logs_for_every_subnet",
+      "resource_type": null,
+      "description": "Description for ecc-gcp-033-vpc_flow_logs_for_every_subnet",
+      "severity": null,
+      "regions_data": {
+        "global": {
+          "resources": [
+            {
+              "id": "default",
+              "name": "default"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "attack_vector": [],
+  "rule": {
+    "rules_data": [
+      {
+        "policy": "ecc-gcp-240-slow_query_log_database_flag_for_cloud_sql_mysql",
+        "region": "global",
+        "invocations": 1,
+        "succeeded_invocations": 1,
+        "failed_invocations": 0,
+        "total_api_calls": {},
+        "min_exec": 0.0007588863372802734,
+        "max_exec": 0.0007588863372802734,
+        "total_exec": 0.0007588863372802734,
+        "average_exec": 0.0007588863372802734,
+        "resources_failed": 0,
+        "resources_scanned": 0,
+        "average_resources_scanned": 0,
+        "average_resources_failed": 0
+      },
+      {
+        "policy": "ecc-gcp-237-postgresql_use_the_latest_major_version",
+        "region": "global",
+        "invocations": 1,
+        "succeeded_invocations": 1,
+        "failed_invocations": 0,
+        "total_api_calls": {},
+        "min_exec": 0.0007932186126708984,
+        "max_exec": 0.0007932186126708984,
+        "total_exec": 0.0007932186126708984,
+        "average_exec": 0.0007932186126708984,
+        "resources_failed": 0,
+        "resources_scanned": 0,
+        "average_resources_scanned": 0,
+        "average_resources_failed": 0
+      },
+      {
+        "policy": "ecc-gcp-153-vm_instances_without_any_label_information",
+        "region": "global",
+        "invocations": 1,
+        "succeeded_invocations": 1,
+        "failed_invocations": 0,
+        "total_api_calls": {},
+        "min_exec": 0.0006279945373535156,
+        "max_exec": 0.0006279945373535156,
+        "total_exec": 0.0006279945373535156,
+        "average_exec": 0.0006279945373535156,
+        "resources_failed": 0,
+        "resources_scanned": 0,
+        "average_resources_scanned": 0,
+        "average_resources_failed": 0
+      },
+      {
+        "policy": "ecc-gcp-025-no_default_network",
+        "region": "global",
+        "invocations": 1,
+        "succeeded_invocations": 1,
+        "failed_invocations": 0,
+        "total_api_calls": {},
+        "min_exec": 0.0008008480072021484,
+        "max_exec": 0.0008008480072021484,
+        "total_exec": 0.0008008480072021484,
+        "average_exec": 0.0008008480072021484,
+        "resources_failed": 1,
+        "resources_scanned": 0,
+        "average_resources_scanned": 0,
+        "average_resources_failed": 1
+      },
+      {
+        "policy": "ecc-gcp-272-firewall_logging_enabled",
+        "region": "global",
+        "invocations": 1,
+        "succeeded_invocations": 1,
+        "failed_invocations": 0,
+        "total_api_calls": {},
+        "min_exec": 0.010553836822509766,
+        "max_exec": 0.010553836822509766,
+        "total_exec": 0.010553836822509766,
+        "average_exec": 0.010553836822509766,
+        "resources_failed": 4,
+        "resources_scanned": 0,
+        "average_resources_scanned": 0,
+        "average_resources_failed": 4
+      },
+      {
+        "policy": "ecc-gcp-109-prevent_allow_all_ingress",
+        "region": "global",
+        "invocations": 1,
+        "succeeded_invocations": 1,
+        "failed_invocations": 0,
+        "total_api_calls": {},
+        "min_exec": 0.0009238719940185547,
+        "max_exec": 0.0009238719940185547,
+        "total_exec": 0.0009238719940185547,
+        "average_exec": 0.0009238719940185547,
+        "resources_failed": 1,
+        "resources_scanned": 0,
+        "average_resources_scanned": 0,
+        "average_resources_failed": 1
+      },
+      {
+        "policy": "ecc-gcp-104-default_firewall_rule_in_use",
+        "region": "global",
+        "invocations": 1,
+        "succeeded_invocations": 1,
+        "failed_invocations": 0,
+        "total_api_calls": {},
+        "min_exec": 0.0007839202880859375,
+        "max_exec": 0.0007839202880859375,
+        "total_exec": 0.0007839202880859375,
+        "average_exec": 0.0007839202880859375,
+        "resources_failed": 4,
+        "resources_scanned": 0,
+        "average_resources_scanned": 0,
+        "average_resources_failed": 4
+      },
+      {
+        "policy": "ecc-gcp-033-vpc_flow_logs_for_every_subnet",
+        "region": "global",
+        "invocations": 1,
+        "succeeded_invocations": 1,
+        "failed_invocations": 0,
+        "total_api_calls": {},
+        "min_exec": 0.0016372203826904297,
+        "max_exec": 0.0016372203826904297,
+        "total_exec": 0.0016372203826904297,
+        "average_exec": 0.0016372203826904297,
+        "resources_failed": 42,
+        "resources_scanned": 0,
+        "average_resources_scanned": 0,
+        "average_resources_failed": 42
+      },
+      {
+        "policy": "ecc-gcp-027-dnssec_for_cloud_dns",
+        "region": "global",
+        "invocations": 1,
+        "succeeded_invocations": 0,
+        "failed_invocations": 1,
+        "total_api_calls": {},
+        "min_exec": 0.0006399154663085938,
+        "max_exec": 0.0006399154663085938,
+        "total_exec": 0.0006399154663085938,
+        "average_exec": 0.0006399154663085938,
+        "resources_failed": 0,
+        "resources_scanned": 0,
+        "average_resources_scanned": 0,
+        "average_resources_failed": 0
+      },
+      {
+        "policy": "ecc-gcp-101-load_balancer_access_logging_disabled",
+        "region": "global",
+        "invocations": 1,
+        "succeeded_invocations": 0,
+        "failed_invocations": 1,
+        "total_api_calls": {},
+        "min_exec": 0.0006928443908691406,
+        "max_exec": 0.0006928443908691406,
+        "total_exec": 0.0006928443908691406,
+        "average_exec": 0.0006928443908691406,
+        "resources_failed": 0,
+        "resources_scanned": 0,
+        "average_resources_scanned": 0,
+        "average_resources_failed": 0
+      }
+    ],
+    "violated_resources_length": 5
+  },
+  "finops": [],
+  "kubernetes": {}
+}

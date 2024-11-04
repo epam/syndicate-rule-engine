@@ -1,4 +1,5 @@
 import os
+import msgspec
 
 from pathlib import Path
 import mongomock
@@ -65,3 +66,19 @@ def azure_scan_result() -> Path:
 def google_scan_result() -> Path:
     return DATA / "cloud_custodian" / "google"
 
+
+@pytest.fixture(scope='session')
+def load_expected():
+    _cache = {}
+    _decoder = msgspec.json.Decoder()
+
+    def inner(filename: str):
+        if not filename.endswith('.json'):
+            filename = f'{filename}.json'
+        if filename not in _cache:
+            fn = DATA / 'expected' / filename
+            assert fn.exists() and fn.is_file(), f'{fn} must exist for test'
+            with open(fn, 'rb') as fp:
+                _cache[filename] = _decoder.decode(fp.read())
+        return _cache[filename]
+    return inner

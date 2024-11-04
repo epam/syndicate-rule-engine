@@ -4,16 +4,17 @@ tenants. These tests check whether the data is processed as we expect
 """
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
 
 import pytest
 from dateutil.relativedelta import relativedelta, SU
 from modular_sdk.models.customer import Customer
+from modular_sdk.models.region import RegionAttr
 from modular_sdk.models.tenant import Tenant
 
 from executor.services.report_service import JobResult
 from helpers.constants import JobState, Cloud, PolicyErrorType
-from helpers.time_helper import utc_iso
+from helpers.time_helper import utc_iso, utc_datetime
 from models.batch_results import BatchResults
 from models.job import Job
 from models.setting import Setting
@@ -23,6 +24,19 @@ from services.reports_bucket import TenantReportsBucketKeysBuilder, \
 from services.setting_service import SettingKey
 from services.sharding import ShardsCollectionFactory, ShardsS3IO
 from ...commons import AWS_ACCOUNT_ID, AZURE_ACCOUNT_ID, GOOGLE_ACCOUNT_ID
+
+
+@pytest.fixture()
+def report_bounds() -> tuple[datetime, datetime]:
+    """
+    Returns tuple that contains two dates. Last Sunday and next Sunday
+    """
+    now = utc_datetime()
+    start = now + relativedelta(hour=0, minute=0, second=0, microsecond=0,
+                                weekday=SU(-1))
+    end = now + relativedelta(hour=0, minute=0, second=0, microsecond=0,
+                              weekday=SU(+1))
+    return start, end
 
 
 @pytest.fixture()
@@ -38,7 +52,7 @@ def main_customer(mocked_mongo_client) -> Customer:
 
 
 @pytest.fixture()
-def aws_tenant(main_customer):
+def aws_tenant(main_customer, report_bounds):
     tenant = Tenant(
         name='AWS-TESTING',
         display_name='testing',
@@ -49,14 +63,20 @@ def aws_tenant(main_customer):
         cloud='AWS',
         project=AWS_ACCOUNT_ID,
         contacts={},
-        activation_date=datetime.now(timezone.utc)
+        activation_date=utc_iso(report_bounds[0] - timedelta(days=14)),
+        regions=[
+            RegionAttr(native_name='eu-west-1'),
+            RegionAttr(native_name='eu-central-1'),
+            RegionAttr(native_name='eu-north-1'),
+            RegionAttr(native_name='eu-west-3')
+        ]
     )
     tenant.save()
     return tenant
 
 
 @pytest.fixture()
-def azure_tenant(main_customer):
+def azure_tenant(main_customer, report_bounds):
     tenant = Tenant(
         name='AZURE-TESTING',
         display_name='testing',
@@ -67,14 +87,14 @@ def azure_tenant(main_customer):
         cloud='AZURE',
         project=AZURE_ACCOUNT_ID,
         contacts={},
-        activation_date=datetime.now(timezone.utc)
+        activation_date=utc_iso(report_bounds[0] - timedelta(days=14))
     )
     tenant.save()
     return tenant
 
 
 @pytest.fixture()
-def google_tenant(main_customer):
+def google_tenant(main_customer, report_bounds):
     tenant = Tenant(
         name='GOOGLE-TESTING',
         display_name='testing',
@@ -85,20 +105,20 @@ def google_tenant(main_customer):
         cloud='GOOGLE',
         project=GOOGLE_ACCOUNT_ID,
         contacts={},
-        activation_date=datetime.now(timezone.utc)
+        activation_date=utc_iso(report_bounds[0] - timedelta(days=5))
     )
     tenant.save()
     return tenant
 
 
 @pytest.fixture()
-def reports_marker():
+def reports_marker(report_bounds):
     """
-    Sets marker for current week from Sunday till Sunday
+    Set mocked dates marker
     """
-    now = datetime.now().date()
-    start = now + relativedelta(weekday=SU(-1))
-    end = now + relativedelta(weekday=SU(+1))
+    start, end = report_bounds
+    start = start.date()
+    end = end.date()
     Setting(
         name=SettingKey.REPORT_DATE_MARKER,
         value={
@@ -114,16 +134,18 @@ def reports_marker():
 
 @pytest.fixture()
 def create_tenant_job():
-    def factory(tenant: Tenant, status: JobState = JobState.SUCCEEDED) -> Job:
+    def factory(tenant: Tenant, submitted_at: datetime,
+                status: JobState = JobState.SUCCEEDED) -> Job:
         return Job(
             id=str(uuid.uuid4()),
             batch_job_id='batch_job_id',
             tenant_name=tenant.name,
             customer_name=tenant.customer_name,
             status=status.value,
-            created_at=utc_iso(),
-            started_at=utc_iso(),
-            stopped_at=utc_iso(),
+            submitted_at=utc_iso(submitted_at),
+            created_at=utc_iso(submitted_at + timedelta(minutes=1)),
+            started_at=utc_iso(submitted_at + timedelta(minutes=2)),
+            stopped_at=utc_iso(submitted_at + timedelta(minutes=5)),
             rulesets=['TESTING']
         )
 
@@ -132,7 +154,7 @@ def create_tenant_job():
 
 @pytest.fixture()
 def create_tenant_br():
-    def factory(tenant: Tenant,
+    def factory(tenant: Tenant, submitted_at: datetime,
                 status: JobState = JobState.SUCCEEDED) -> BatchResults:
         return BatchResults(
             id=str(uuid.uuid4()),
@@ -141,18 +163,22 @@ def create_tenant_br():
             cloud_identifier=tenant.project,
             tenant_name=tenant.name,
             customer_name=tenant.customer_name,
-            stopped_at=utc_iso(),
+            submitted_at=utc_iso(submitted_at),
+            stopped_at=utc_iso(submitted_at + timedelta(minutes=5)),
         )
 
     return factory
 
 
 @pytest.fixture()
-def aws_jobs(aws_tenant, aws_scan_result, create_tenant_job, create_tenant_br):
+def aws_jobs(aws_tenant, aws_scan_result, create_tenant_job, create_tenant_br,
+             report_bounds):
     # don't need to keep results of individual jobs, but need their statistics
-    job = create_tenant_job(aws_tenant, JobState.SUCCEEDED)
-    create_tenant_job(aws_tenant, JobState.FAILED).save()
-    br = create_tenant_br(aws_tenant, JobState.SUCCEEDED)
+    start = report_bounds[0]
+
+    job = create_tenant_job(aws_tenant, start + timedelta(minutes=120), JobState.SUCCEEDED)
+    create_tenant_job(aws_tenant, start + timedelta(days=1), JobState.FAILED).save()
+    br = create_tenant_br(aws_tenant, start + timedelta(minutes=180), JobState.SUCCEEDED)
 
     job.save()
     br.save()
@@ -188,11 +214,15 @@ def aws_jobs(aws_tenant, aws_scan_result, create_tenant_job, create_tenant_br):
 
 
 @pytest.fixture()
-def azure_jobs(azure_tenant, azure_scan_result, create_tenant_job, create_tenant_br):
+def azure_jobs(azure_tenant, azure_scan_result, create_tenant_job,
+               create_tenant_br,
+               report_bounds):
     # don't need to keep results of individual jobs, but need their statistics
-    job = create_tenant_job(azure_tenant, JobState.SUCCEEDED)
-    create_tenant_job(azure_tenant, JobState.FAILED).save()
-    br = create_tenant_br(azure_tenant, JobState.SUCCEEDED)
+    start = report_bounds[0]
+
+    job = create_tenant_job(azure_tenant, start + timedelta(minutes=300), JobState.SUCCEEDED)
+    create_tenant_job(azure_tenant, start + timedelta(minutes=60), JobState.FAILED).save()
+    br = create_tenant_br(azure_tenant, start + timedelta(minutes=900), JobState.SUCCEEDED)
 
     job.save()
     br.save()
@@ -220,11 +250,13 @@ def azure_jobs(azure_tenant, azure_scan_result, create_tenant_job, create_tenant
 
 
 @pytest.fixture()
-def google_jobs(google_tenant, google_scan_result, create_tenant_job, create_tenant_br):
+def google_jobs(google_tenant, google_scan_result, create_tenant_job, create_tenant_br,
+                report_bounds):
     # don't need to keep results of individual jobs, but need their statistics
-    job = create_tenant_job(google_tenant, JobState.SUCCEEDED)
-    create_tenant_job(google_tenant, JobState.FAILED).save()
-    br = create_tenant_br(google_tenant, JobState.SUCCEEDED)
+    start = report_bounds[0]
+    job = create_tenant_job(google_tenant, start + timedelta(minutes=400), JobState.SUCCEEDED)
+    create_tenant_job(google_tenant, start + timedelta(minutes=360), JobState.FAILED).save()
+    br = create_tenant_br(google_tenant, start + timedelta(minutes=500), JobState.SUCCEEDED)
 
     job.save()
     br.save()
@@ -251,20 +283,43 @@ def google_jobs(google_tenant, google_scan_result, create_tenant_job, create_ten
     )
 
 
+def compare_tenant_metrics(one, two):
+    """
+    More or less
+    """
+    assert one['overview'] == two['overview']
+    assert one['compliance'] == two['compliance'], 'Compliance data does not match'
+    assert one['rule'] == two['rule']
+    assert one['customer'] == two['customer']
+    assert one['tenant_name'] == two['tenant_name']
+    assert one['id'] == two['id']
+    assert one['cloud'] == two['cloud']
+    assert sorted(one['activated_regions']) == sorted(two['activated_regions'])
+    assert sorted(one['outdated_tenants']) == sorted(two['outdated_tenants'])
+    assert one['attack_vector'] == two['attack_vector'], 'Attack vector data does not match'
+    assert one['finops'] == two['finops'], 'Finops data does not match'
+    assert one['kubernetes'] == two['kubernetes'], 'Kubernetes data does not match'
+    assert len(one['resources']) == len(two['resources'])
+
+
 def test_metrics_update_denied(sre_client):
     resp = sre_client.request('/metrics/update', 'POST')
     assert resp.status_int == 401
     assert resp.json == {'message': 'Unauthorized'}
 
 
-def test_metrics_update(
+# todo mark as slow
+
+def test_metrics_update_tenant_metrics_processor(
         sre_client,
         system_user_token,
         s3_buckets,
         reports_marker,
         aws_jobs,
         azure_jobs,
-        google_jobs
+        google_jobs,
+        report_bounds,
+        load_expected
 ):
     """
     This test case has three tenants one for each cloud. Each tenant has
@@ -273,4 +328,21 @@ def test_metrics_update(
     """
     resp = sre_client.request('/metrics/update', 'POST',
                               auth=system_user_token)
-    # probably sleep
+    assert resp.status_int == 202
+    assert resp.json == {'message': 'Metrics update has been submitted'}
+    time.sleep(3)  # don't know how to check underlying thread is finished
+    # here we check only tenant metrics processor outcome
+    _, end = report_bounds
+    end = end.date()
+
+    aws_data = SP.s3.gz_get_json('metrics', f'TEST_CUSTOMER/accounts/{end.isoformat()}/{AWS_ACCOUNT_ID}.json')
+    assert aws_data, 'AWS data must not be empty'
+    compare_tenant_metrics(aws_data, load_expected('aws_account_metrics'))
+
+    azure_data = SP.s3.gz_get_json('metrics', f'TEST_CUSTOMER/accounts/{end.isoformat()}/{AZURE_ACCOUNT_ID}.json')
+    assert azure_data, 'AZURE data must not be empty'
+    compare_tenant_metrics(azure_data, load_expected('azure_account_metrics'))
+
+    google_data = SP.s3.gz_get_json('metrics', f'TEST_CUSTOMER/accounts/{end.isoformat()}/{GOOGLE_ACCOUNT_ID}.json')
+    assert google_data, 'GOOGLE data must not be empty'
+    compare_tenant_metrics(google_data, load_expected('google_account_metrics'))

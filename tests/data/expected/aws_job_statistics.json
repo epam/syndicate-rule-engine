@@ -1,0 +1,194 @@
+[
+  {
+    "policy": "ecc-aws-427-rds_cluster_without_tag_information",
+    "region": "eu-west-1",
+    "tenant_name": "TEST-TENANT",
+    "customer_name": "TEST-CUSTOMER",
+    "start_time": 1729253941.704202,
+    "end_time": 1729253941.712029,
+    "api_calls": {},
+    "error_type": "ACCESS",
+    "reason": "AccessDenied Exception",
+    "traceback": []
+  },
+  {
+    "policy": "ecc-aws-149-rds_public_access_disabled",
+    "region": "eu-west-1",
+    "tenant_name": "TEST-TENANT",
+    "customer_name": "TEST-CUSTOMER",
+    "start_time": 1729253903.4745028,
+    "end_time": 1729253903.48386,
+    "api_calls": {},
+    "scanned_resources": null,
+    "failed_resources": 0
+  },
+  {
+    "policy": "ecc-aws-167-security_group_ingress_is_restricted_traffic_to_port_143",
+    "region": "eu-west-1",
+    "tenant_name": "TEST-TENANT",
+    "customer_name": "TEST-CUSTOMER",
+    "start_time": 1729253907.7343721,
+    "end_time": 1729253907.736023,
+    "api_calls": {},
+    "scanned_resources": null,
+    "failed_resources": 0
+  },
+  {
+    "policy": "ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances",
+    "region": "eu-west-1",
+    "tenant_name": "TEST-TENANT",
+    "customer_name": "TEST-CUSTOMER",
+    "start_time": 1729253989.469185,
+    "end_time": 1729253990.192673,
+    "api_calls": {
+      "ec2.DescribeInstances": 1
+    },
+    "scanned_resources": null,
+    "failed_resources": 2
+  },
+  {
+    "policy": "ecc-aws-490-ec2_token_hop_limit_check",
+    "region": "eu-west-1",
+    "tenant_name": "TEST-TENANT",
+    "customer_name": "TEST-CUSTOMER",
+    "start_time": 1729253946.7202518,
+    "end_time": 1729253946.722402,
+    "api_calls": {},
+    "scanned_resources": null,
+    "failed_resources": 2
+  },
+  {
+    "policy": "ecc-aws-229-ecr_repository_kms_encryption_enabled",
+    "region": "eu-west-1",
+    "tenant_name": "TEST-TENANT",
+    "customer_name": "TEST-CUSTOMER",
+    "start_time": 1729253920.7959292,
+    "end_time": 1729253920.7997608,
+    "api_calls": {},
+    "scanned_resources": null,
+    "failed_resources": 2
+  },
+  {
+    "policy": "ecc-aws-374-cloudtrail_logs_data_events",
+    "region": "eu-west-1",
+    "tenant_name": "TEST-TENANT",
+    "customer_name": "TEST-CUSTOMER",
+    "start_time": 1729253935.386652,
+    "end_time": 1729253935.660345,
+    "api_calls": {
+      "cloudtrail.GetEventSelectors": 1
+    },
+    "scanned_resources": null,
+    "failed_resources": 1
+  },
+  {
+    "policy": "ecc-aws-150-api_gateway_rest_api_encryption_at_rest",
+    "region": "eu-central-1",
+    "tenant_name": "TEST-TENANT",
+    "customer_name": "TEST-CUSTOMER",
+    "start_time": 1729253764.842481,
+    "end_time": 1729253765.068435,
+    "api_calls": {
+      "apigateway.GetStages": 1
+    },
+    "scanned_resources": null,
+    "failed_resources": 0
+  },
+  {
+    "policy": "ecc-aws-070-unused_ec2_security_groups",
+    "region": "eu-central-1",
+    "tenant_name": "TEST-TENANT",
+    "customer_name": "TEST-CUSTOMER",
+    "start_time": 1729253751.923907,
+    "end_time": 1729253757.393474,
+    "api_calls": {
+      "ec2.DescribeNetworkInterfaces": 1,
+      "lambda.ListFunctions": 1,
+      "autoscaling.DescribeLaunchConfigurations": 1,
+      "events.ListRules": 1,
+      "events.ListTargetsByRule": 22,
+      "codebuild.ListProjects": 1,
+      "codebuild.BatchGetProjects": 1,
+      "tagging.GetResources": 1,
+      "batch.DescribeComputeEnvironments": 1,
+      "ec2.DescribeSecurityGroupReferences": 1
+    },
+    "scanned_resources": null,
+    "failed_resources": 3
+  },
+  {
+    "policy": "ecc-aws-374-cloudtrail_logs_data_events",
+    "region": "eu-central-1",
+    "tenant_name": "TEST-TENANT",
+    "customer_name": "TEST-CUSTOMER",
+    "start_time": 1729253779.865362,
+    "end_time": 1729253780.092237,
+    "api_calls": {
+      "cloudtrail.GetEventSelectors": 1
+    },
+    "scanned_resources": null,
+    "failed_resources": 1
+  },
+  {
+    "policy": "ecc-aws-221-sns_kms_encryption_enabled",
+    "region": "eu-central-1",
+    "tenant_name": "TEST-TENANT",
+    "customer_name": "TEST-CUSTOMER",
+    "start_time": 1729253768.087648,
+    "end_time": 1729253769.274071,
+    "api_calls": {
+      "sns.ListTopics": 1,
+      "sns.GetTopicAttributes": 7,
+      "tagging.GetResources": 1
+    },
+    "scanned_resources": null,
+    "failed_resources": 3
+  },
+  {
+    "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+    "region": "global",
+    "tenant_name": "TEST-TENANT",
+    "customer_name": "TEST-CUSTOMER",
+    "start_time": 1729253612.897642,
+    "end_time": 1729253612.904913,
+    "api_calls": {},
+    "scanned_resources": null,
+    "failed_resources": 6
+  },
+  {
+    "policy": "ecc-aws-499-iam_group_has_users_check",
+    "region": "global",
+    "tenant_name": "TEST-TENANT",
+    "customer_name": "TEST-CUSTOMER",
+    "start_time": 1729253693.737499,
+    "end_time": 1729253695.934546,
+    "api_calls": {
+      "iam.GetGroup": 9
+    },
+    "scanned_resources": null,
+    "failed_resources": 3
+  },
+  {
+    "policy": "ecc-aws-516-s3_event_notifications_enabled",
+    "region": "global",
+    "tenant_name": "TEST-TENANT",
+    "customer_name": "TEST-CUSTOMER",
+    "start_time": 1729253632.1882932,
+    "end_time": 1729253632.1969962,
+    "api_calls": {},
+    "scanned_resources": null,
+    "failed_resources": 4
+  },
+  {
+    "policy": "ecc-aws-527-waf_global_webacl_not_empty",
+    "region": "global",
+    "tenant_name": "TEST-TENANT",
+    "customer_name": "TEST-CUSTOMER",
+    "start_time": 1729253695.95329,
+    "end_time": 1729253695.95428,
+    "api_calls": {},
+    "error_type": "ACCESS",
+    "reason": "AccessDenied Exception",
+    "traceback": []
+  }
+]
