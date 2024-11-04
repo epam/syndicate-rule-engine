@@ -3,20 +3,14 @@ Metrics pipeline collects data for the current week for all customers and
 tenants. These tests check whether the data is processed as we expect
 """
 import time
-import uuid
 from datetime import datetime, timedelta
 
 import pytest
 from dateutil.relativedelta import relativedelta, SU
-from modular_sdk.models.customer import Customer
-from modular_sdk.models.region import RegionAttr
-from modular_sdk.models.tenant import Tenant
 
 from executor.services.report_service import JobResult
 from helpers.constants import JobState, Cloud, PolicyErrorType
-from helpers.time_helper import utc_iso, utc_datetime
-from models.batch_results import BatchResults
-from models.job import Job
+from helpers.time_helper import utc_datetime
 from models.setting import Setting
 from services import SP
 from services.reports_bucket import TenantReportsBucketKeysBuilder, \
@@ -37,78 +31,6 @@ def report_bounds() -> tuple[datetime, datetime]:
     end = now + relativedelta(hour=0, minute=0, second=0, microsecond=0,
                               weekday=SU(+1))
     return start, end
-
-
-@pytest.fixture()
-def main_customer(mocked_mongo_client) -> Customer:
-    customer = Customer(
-        name='TEST_CUSTOMER',
-        display_name='test customer',
-        admins=[],
-        is_active=True
-    )
-    customer.save()
-    return customer
-
-
-@pytest.fixture()
-def aws_tenant(main_customer, report_bounds):
-    tenant = Tenant(
-        name='AWS-TESTING',
-        display_name='testing',
-        display_name_to_lower='testing',
-        read_only=False,
-        is_active=True,
-        customer_name=main_customer.name,
-        cloud='AWS',
-        project=AWS_ACCOUNT_ID,
-        contacts={},
-        activation_date=utc_iso(report_bounds[0] - timedelta(days=14)),
-        regions=[
-            RegionAttr(native_name='eu-west-1'),
-            RegionAttr(native_name='eu-central-1'),
-            RegionAttr(native_name='eu-north-1'),
-            RegionAttr(native_name='eu-west-3')
-        ]
-    )
-    tenant.save()
-    return tenant
-
-
-@pytest.fixture()
-def azure_tenant(main_customer, report_bounds):
-    tenant = Tenant(
-        name='AZURE-TESTING',
-        display_name='testing',
-        display_name_to_lower='testing',
-        read_only=False,
-        is_active=True,
-        customer_name=main_customer.name,
-        cloud='AZURE',
-        project=AZURE_ACCOUNT_ID,
-        contacts={},
-        activation_date=utc_iso(report_bounds[0] - timedelta(days=14))
-    )
-    tenant.save()
-    return tenant
-
-
-@pytest.fixture()
-def google_tenant(main_customer, report_bounds):
-    tenant = Tenant(
-        name='GOOGLE-TESTING',
-        display_name='testing',
-        display_name_to_lower='testing',
-        read_only=False,
-        is_active=True,
-        customer_name=main_customer.name,
-        cloud='GOOGLE',
-        project=GOOGLE_ACCOUNT_ID,
-        contacts={},
-        activation_date=utc_iso(report_bounds[0] - timedelta(days=5))
-    )
-    tenant.save()
-    return tenant
 
 
 @pytest.fixture()
@@ -133,52 +55,17 @@ def reports_marker(report_bounds):
 
 
 @pytest.fixture()
-def create_tenant_job():
-    def factory(tenant: Tenant, submitted_at: datetime,
-                status: JobState = JobState.SUCCEEDED) -> Job:
-        return Job(
-            id=str(uuid.uuid4()),
-            batch_job_id='batch_job_id',
-            tenant_name=tenant.name,
-            customer_name=tenant.customer_name,
-            status=status.value,
-            submitted_at=utc_iso(submitted_at),
-            created_at=utc_iso(submitted_at + timedelta(minutes=1)),
-            started_at=utc_iso(submitted_at + timedelta(minutes=2)),
-            stopped_at=utc_iso(submitted_at + timedelta(minutes=5)),
-            rulesets=['TESTING']
-        )
-
-    return factory
-
-
-@pytest.fixture()
-def create_tenant_br():
-    def factory(tenant: Tenant, submitted_at: datetime,
-                status: JobState = JobState.SUCCEEDED) -> BatchResults:
-        return BatchResults(
-            id=str(uuid.uuid4()),
-            job_id='batch_job_id',
-            status=status.value,
-            cloud_identifier=tenant.project,
-            tenant_name=tenant.name,
-            customer_name=tenant.customer_name,
-            submitted_at=utc_iso(submitted_at),
-            stopped_at=utc_iso(submitted_at + timedelta(minutes=5)),
-        )
-
-    return factory
-
-
-@pytest.fixture()
 def aws_jobs(aws_tenant, aws_scan_result, create_tenant_job, create_tenant_br,
              report_bounds):
     # don't need to keep results of individual jobs, but need their statistics
     start = report_bounds[0]
 
-    job = create_tenant_job(aws_tenant, start + timedelta(minutes=120), JobState.SUCCEEDED)
-    create_tenant_job(aws_tenant, start + timedelta(days=1), JobState.FAILED).save()
-    br = create_tenant_br(aws_tenant, start + timedelta(minutes=180), JobState.SUCCEEDED)
+    job = create_tenant_job(aws_tenant, start + timedelta(minutes=120),
+                            JobState.SUCCEEDED)
+    create_tenant_job(aws_tenant, start + timedelta(days=1),
+                      JobState.FAILED).save()
+    br = create_tenant_br(aws_tenant, start + timedelta(minutes=180),
+                          JobState.SUCCEEDED)
 
     job.save()
     br.save()
@@ -220,9 +107,12 @@ def azure_jobs(azure_tenant, azure_scan_result, create_tenant_job,
     # don't need to keep results of individual jobs, but need their statistics
     start = report_bounds[0]
 
-    job = create_tenant_job(azure_tenant, start + timedelta(minutes=300), JobState.SUCCEEDED)
-    create_tenant_job(azure_tenant, start + timedelta(minutes=60), JobState.FAILED).save()
-    br = create_tenant_br(azure_tenant, start + timedelta(minutes=900), JobState.SUCCEEDED)
+    job = create_tenant_job(azure_tenant, start + timedelta(minutes=300),
+                            JobState.SUCCEEDED)
+    create_tenant_job(azure_tenant, start + timedelta(minutes=60),
+                      JobState.FAILED).save()
+    br = create_tenant_br(azure_tenant, start + timedelta(minutes=900),
+                          JobState.SUCCEEDED)
 
     job.save()
     br.save()
@@ -243,20 +133,26 @@ def azure_jobs(azure_tenant, azure_scan_result, create_tenant_job,
         bucket=SP.environment_service.get_statistics_bucket_name(),
         key=StatisticsBucketKeysBuilder.job_statistics(job),
         obj=result.statistics(azure_tenant, {
-            ('global', 'ecc-azure-125-nsg_mysql'): (PolicyErrorType.ACCESS.value, 'AccessDenied exception', []),
-            ('global', 'ecc-azure-313-cis_postgresql_log_min_messages'): (PolicyErrorType.ACCESS.value, 'AccessDenied exception', []),
+            ('global', 'ecc-azure-125-nsg_mysql'): (
+                PolicyErrorType.ACCESS.value, 'AccessDenied exception', []),
+            ('global', 'ecc-azure-313-cis_postgresql_log_min_messages'): (
+                PolicyErrorType.ACCESS.value, 'AccessDenied exception', []),
         })
     )
 
 
 @pytest.fixture()
-def google_jobs(google_tenant, google_scan_result, create_tenant_job, create_tenant_br,
+def google_jobs(google_tenant, google_scan_result, create_tenant_job,
+                create_tenant_br,
                 report_bounds):
     # don't need to keep results of individual jobs, but need their statistics
     start = report_bounds[0]
-    job = create_tenant_job(google_tenant, start + timedelta(minutes=400), JobState.SUCCEEDED)
-    create_tenant_job(google_tenant, start + timedelta(minutes=360), JobState.FAILED).save()
-    br = create_tenant_br(google_tenant, start + timedelta(minutes=500), JobState.SUCCEEDED)
+    job = create_tenant_job(google_tenant, start + timedelta(minutes=400),
+                            JobState.SUCCEEDED)
+    create_tenant_job(google_tenant, start + timedelta(minutes=360),
+                      JobState.FAILED).save()
+    br = create_tenant_br(google_tenant, start + timedelta(minutes=500),
+                          JobState.SUCCEEDED)
 
     job.save()
     br.save()
@@ -277,8 +173,10 @@ def google_jobs(google_tenant, google_scan_result, create_tenant_job, create_ten
         bucket=SP.environment_service.get_statistics_bucket_name(),
         key=StatisticsBucketKeysBuilder.job_statistics(job),
         obj=result.statistics(google_tenant, {
-            ('global', 'ecc-gcp-027-dnssec_for_cloud_dns'): (PolicyErrorType.ACCESS.value, 'AccessDenied exception', []),
-            ('global', 'ecc-gcp-101-load_balancer_access_logging_disabled'): (PolicyErrorType.ACCESS.value, 'AccessDenied exception', []),
+            ('global', 'ecc-gcp-027-dnssec_for_cloud_dns'): (
+                PolicyErrorType.ACCESS.value, 'AccessDenied exception', []),
+            ('global', 'ecc-gcp-101-load_balancer_access_logging_disabled'): (
+                PolicyErrorType.ACCESS.value, 'AccessDenied exception', []),
         })
     )
 
@@ -288,7 +186,8 @@ def compare_tenant_metrics(one, two):
     More or less
     """
     assert one['overview'] == two['overview']
-    assert one['compliance'] == two['compliance'], 'Compliance data does not match'
+    assert one['compliance'] == two[
+        'compliance'], 'Compliance data does not match'
     assert one['rule'] == two['rule']
     assert one['customer'] == two['customer']
     assert one['tenant_name'] == two['tenant_name']
@@ -296,9 +195,11 @@ def compare_tenant_metrics(one, two):
     assert one['cloud'] == two['cloud']
     assert sorted(one['activated_regions']) == sorted(two['activated_regions'])
     assert sorted(one['outdated_tenants']) == sorted(two['outdated_tenants'])
-    assert one['attack_vector'] == two['attack_vector'], 'Attack vector data does not match'
+    assert one['attack_vector'] == two[
+        'attack_vector'], 'Attack vector data does not match'
     assert one['finops'] == two['finops'], 'Finops data does not match'
-    assert one['kubernetes'] == two['kubernetes'], 'Kubernetes data does not match'
+    assert one['kubernetes'] == two[
+        'kubernetes'], 'Kubernetes data does not match'
     assert len(one['resources']) == len(two['resources'])
 
 
@@ -335,14 +236,18 @@ def test_metrics_update_tenant_metrics_processor(
     _, end = report_bounds
     end = end.date()
 
-    aws_data = SP.s3.gz_get_json('metrics', f'TEST_CUSTOMER/accounts/{end.isoformat()}/{AWS_ACCOUNT_ID}.json')
+    aws_data = SP.s3.gz_get_json('metrics',
+                                 f'TEST_CUSTOMER/accounts/{end.isoformat()}/{AWS_ACCOUNT_ID}.json')
     assert aws_data, 'AWS data must not be empty'
     compare_tenant_metrics(aws_data, load_expected('aws_account_metrics'))
 
-    azure_data = SP.s3.gz_get_json('metrics', f'TEST_CUSTOMER/accounts/{end.isoformat()}/{AZURE_ACCOUNT_ID}.json')
+    azure_data = SP.s3.gz_get_json('metrics',
+                                   f'TEST_CUSTOMER/accounts/{end.isoformat()}/{AZURE_ACCOUNT_ID}.json')
     assert azure_data, 'AZURE data must not be empty'
     compare_tenant_metrics(azure_data, load_expected('azure_account_metrics'))
 
-    google_data = SP.s3.gz_get_json('metrics', f'TEST_CUSTOMER/accounts/{end.isoformat()}/{GOOGLE_ACCOUNT_ID}.json')
+    google_data = SP.s3.gz_get_json('metrics',
+                                    f'TEST_CUSTOMER/accounts/{end.isoformat()}/{GOOGLE_ACCOUNT_ID}.json')
     assert google_data, 'GOOGLE data must not be empty'
-    compare_tenant_metrics(google_data, load_expected('google_account_metrics'))
+    compare_tenant_metrics(google_data,
+                           load_expected('google_account_metrics'))

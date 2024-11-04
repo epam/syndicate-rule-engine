@@ -161,7 +161,7 @@ class JobsRulesHandler(AbstractHandler):
                 url = self._report_service.one_time_url(
                     buffer, f'{job.id}-rules.xlsx'
                 )
-                content = ReportResponse(job, url, ReportFormat.XLSX).dict()
+                content = ReportResponse(job, url, fmt=ReportFormat.XLSX).dict()
         return build_response(content=content)
 
     @validate_kwargs

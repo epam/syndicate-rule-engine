@@ -109,7 +109,7 @@ class ComplianceReportHandler(AbstractHandler):
         coverages = self._coverage_service.coverage_from_collection(
             collection, modular_helpers.tenant_cloud(tenant)
         )
-        response = ReportResponse(job, coverages, event.format)
+        response = ReportResponse(job, coverages, fmt=event.format)
         match event.format:
             case ReportFormat.JSON:
                 if event.href:
@@ -147,7 +147,7 @@ class ComplianceReportHandler(AbstractHandler):
         coverages = self._coverage_service.coverage_from_collection(
             collection, cloud
         )
-        response = ReportResponse(tenant, coverages, event.format)
+        response = ReportResponse(tenant, coverages, fmt=event.format)
         match event.format:
             case ReportFormat.JSON:
                 if event.href:

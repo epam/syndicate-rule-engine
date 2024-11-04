@@ -90,7 +90,7 @@ class DigestReportHandler(AbstractHandler):
         collection.fetch_all()
 
         report = ShardsCollectionDigestConvertor().convert(collection)
-        return ReportResponse(job, report, ReportFormat.JSON).dict()
+        return ReportResponse(job, report, fmt=ReportFormat.JSON).dict()
 
     @validate_kwargs
     def get_by_tenant_jobs(self, event: TenantJobsDigestsReportGetModel,
