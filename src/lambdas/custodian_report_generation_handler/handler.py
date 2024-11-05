@@ -86,9 +86,7 @@ from validators.utils import validate_kwargs
 if TYPE_CHECKING:
     from scheduler import APJobScheduler
 
-TENANT_METRICS_PATH = '{customer}/tenants/{date}/{tenant_dn}.json'
 COMMAND_NAME = 'SEND_MAIL'
-ED_API_ENDPOINT = '/reports/event_driven'
 
 EVENT_DRIVEN_TYPE = {'maestro': 'CUSTODIAN_EVENT_DRIVEN_RESOURCES_REPORT',
                      'custodian': 'EVENT_DRIVEN'}

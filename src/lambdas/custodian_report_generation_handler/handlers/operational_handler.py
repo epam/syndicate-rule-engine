@@ -61,7 +61,6 @@ FINOPS_REPORT_TYPE = {'maestro': 'CUSTODIAN_FINOPS_REPORT',
                       'custodian': 'FINOPS'}
 KUBERNETES_REPORT_TYPE = {'maestro': 'CUSTODIAN_K8S_CLUSTER_REPORT',
                           'custodian': 'KUBERNETES'}
-ACCOUNT_METRICS_PATH = '{customer}/accounts/{date}/{account_id}.json'
 COMMAND_NAME = 'SEND_MAIL'
 
 RULE_PREFIX = 'rule'
@@ -363,6 +362,7 @@ class OperationalHandler(AbstractHandler):
             'RESOURCES': self.save_policy_data_to_s3,
             'ATTACK_VECTOR': self.save_mitre_data_to_s3
         }
+        # todo refactor this method. It seems like it does multiple things
 
         # [cry] those are different sizes
         if sys.getsizeof(json.dumps(data)) > \

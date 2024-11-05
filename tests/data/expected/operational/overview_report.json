@@ -1,0 +1,54 @@
+{
+  "receivers": [
+    "admin@gmail.com"
+  ],
+  "customer": "TEST_CUSTOMER",
+  "tenant_name": "AWS-TESTING",
+  "id": "123456789012",
+  "cloud": "aws",
+  "activated_regions": [
+    "eu-central-1",
+    "eu-north-1",
+    "eu-west-1",
+    "eu-west-3"
+  ],
+  "from": "2024-11-03T00:00:00Z",
+  "to": "2024-11-10T00:00:00Z",
+  "last_scan_date": "2024-11-04T00:00:00Z",
+  "outdated_tenants": [],
+  "data": {
+    "total_scans": 3,
+    "failed_scans": 1,
+    "succeeded_scans": 2,
+    "resources_violated": 23,
+    "regions_data": {
+      "eu-central-1": {
+        "severity_data": {
+          "Unknown": 7
+        }
+      },
+      "global": {
+        "severity_data": {
+          "Unknown": 4
+        }
+      },
+      "eu-north-1": {
+        "severity_data": {
+          "Unknown": 1
+        }
+      },
+      "eu-west-1": {
+        "severity_data": {
+          "Unknown": 10
+        }
+      },
+      "eu-west-3": {
+        "severity_data": {
+          "Unknown": 1
+        }
+      }
+    }
+  },
+  "externalData": false,
+  "report_type": "OVERVIEW"
+}

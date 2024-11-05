@@ -177,7 +177,6 @@ def test_metrics_update_tenant_metrics_processor(
         sre_client,
         system_user_token,
         s3_buckets,
-        reports_marker,
         aws_jobs,
         azure_jobs,
         google_jobs,

@@ -46,7 +46,7 @@ def vault_token(mocked_hvac_client) -> None:
     mocked_hvac_client.secrets.kv.v2.create_or_update_secret(
         path='rule-engine-private-key',
         secret={
-            'data': 'LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSHVBZ0VBTUJBR0J5cUdTTTQ5QWdFR0JTdUJCQUFqQklIV01JSFRBZ0VCQkVJQXRGcnczSW43QzZuK01hSHEKK3BJQnBiejVjUzI5V202RVRidUpCbmJUeUhYZ0V2cjBNcXFLT25qemY1VCtoSGZodVhYSSs5VE5VR1dCekl0Rgo4THRhVGltaGdZa0RnWVlBQkFBbUs4U25HYUkyVHNJRXAzMDZIRWgzZXNTNHNLUXZ4QXNmY0R4ZUVEVW1GUGxhCkhKejUyM2MzMVJXRGNLaXR1cXFpUXlOYjZvdEM3MXZMdjNXNCswSW9Bd0NGc0RUWVVqMHl1SmU4TjBWblNYSHMKOWpFOWR2L2dPSUYreG1YMjI1bnIzZnU4UHhiWDZXdlFhQjcwUTZ2WUlsOGtCNStSaTA2WkxESms2cHBCdHM0SApHUT09Ci0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS0K'},
+            'data': 'LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSHVBZ0VBTUJBR0J5cUdTTTQ5QWdFR0JTdUJCQUFqQklIV01JSFRBZ0VCQkVJQXRGcnczSW43QzZuK01hSHEKK3BJQnBiejVjUzI5V202RVRidUpCbmJUeUhYZ0V2cjBNcXFLT25qemY1VCtoSGZodVhYSSs5VE5VR1dCekl0Rgo4THRhVGltaGdZa0RnWVlBQkFBbUs4U25HYUkyVHNJRXAzMDZIRWgzZXNTNHNLUXZ4QXNmY0R4ZUVEVW1GUGxhCkhKejUyM2MzMVJXRGNLaXR1cXFpUXlOYjZvdEM3MXZMdjNXNCswSW9Bd0NGc0RUWVVqMHl1SmU4TjBWblNYSHMKOWpFOWR2L2dPSUYreG1YMjI1bnIzZnU4UHhiWDZXdlFhQjcwUTZ2WUlsOGtCNStSaTA2WkxESms2cHBCdHM0SApHUT09Ci0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS0K'},  # noqa
         mount_point='kv'
     )
 
@@ -57,7 +57,8 @@ def s3_buckets(mocked_s3_client) -> None:
         CAASEnv.REPORTS_BUCKET_NAME.get(),
         CAASEnv.STATISTICS_BUCKET_NAME.get(),
         CAASEnv.RULESETS_BUCKET_NAME.get(),
-        CAASEnv.METRICS_BUCKET_NAME.get()
+        CAASEnv.METRICS_BUCKET_NAME.get(),
+        CAASEnv.RECOMMENDATIONS_BUCKET_NAME.get()
     ]
     for b in buckets:
         SP.s3.create_bucket(b, 'eu-central-1')
@@ -68,6 +69,7 @@ def system_user(mocked_mongo_client, vault_token) -> tuple[str, str]:
     """
     Creates system policy, role and user
     """
+    from models.user import User
     SP.policy_service.create(
         customer=CAASEnv.SYSTEM_CUSTOMER_NAME.get(),
         name='system',
@@ -83,21 +85,34 @@ def system_user(mocked_mongo_client, vault_token) -> tuple[str, str]:
         policies=['system'],
         description='system role',
     )
-    SP.users_client.signup_user(
-        username='system',
-        password='system',
-        customer=CAASEnv.SYSTEM_CUSTOMER_NAME.get(),
-        role='system'
-    )
+    col = mocked_mongo_client[CAASEnv.MONGO_DATABASE.get()][User.Meta.table_name]
+    col.insert_one({
+        'user_id': 'system',
+        'customer': CAASEnv.SYSTEM_CUSTOMER_NAME.get(),
+        'role': 'system',
+        'created_at': utc_iso(),
+        'password': b'$2b$12$KZdrVss.Juxf.HB/TjtqvefpSNTW7gUdXLxLTXJXv7.3bCiDNqpXm'  # noqa
+    })
+    # here i just hardcode the hashed password directly in order to bypass
+    #  bcrypt. It's intentionally slow for security purposes and it makes all
+    #  tests run much slower.
+    # SP.users_client.signup_user(
+    #     username='system',
+    #     password='system',
+    #     customer=CAASEnv.SYSTEM_CUSTOMER_NAME.get(),
+    #     role='system'
+    # )
     return 'system', 'system'
 
 
 @pytest.fixture()
 def system_user_token(system_user) -> str:
-    return SP.users_client.authenticate_user(
-        username=system_user[0],
-        password=system_user[1]
-    )['id_token']
+    # bypass bcrypt. See explanation inside system_user fixture
+    return 'eyJhbGciOiJFUzUxMiIsImtpZCI6IldHd25FNVdVWHhjRlVBdExrRS1yQTM0dVV1MG9UOUh5bG00S0VPZThCbFkiLCJrdHkiOiJFQyJ9.eyJjb2duaXRvOnVzZXJuYW1lIjoic3lzdGVtIiwiY3VzdG9tOmN1c3RvbWVyIjoiVEVTVF9TWVNURU1fQ1VTVE9NRVIiLCJjdXN0b206bGF0ZXN0X2xvZ2luIjpudWxsLCJjdXN0b206cm9sZSI6InN5c3RlbSIsImN1c3RvbTp0ZW5hbnRzIjoiIiwiZXhwIjoxNzMwODIxMTIxLCJpYXQiOjE3MzA4MTc1MjEsInN1YiI6IjY3MmEyZGRmZTAyMzJiNTFjYWY1NjRlMiJ9.AJGaYLzn4q-rEre7I9Lu754OnhxF1Q8BTnLztCpS1MjOWoT3PkmlPhoZK0oxO7qQnBEenpRStE9EwcLjydHRuKciAUDZu52M2WeNX7AQbMTQv5eN4EjkkZCFUVnfBNGyMIUHFG_d4-JxmWjzTUpRGQYPPvksNdwhMauyl9GeNkw9N4Fc'  # noqa
+    # return SP.users_client.authenticate_user(
+    #     username=system_user[0],
+    #     password=system_user[1]
+    # )['id_token']
 
 
 @pytest.fixture(scope='session')
@@ -228,8 +243,3 @@ def reports_marker(report_bounds):
             "last_week_date": start.isoformat()
         }
     ).save()
-    Setting(
-        name=SettingKey.SEND_REPORTS,
-        value=True
-    ).save()
-

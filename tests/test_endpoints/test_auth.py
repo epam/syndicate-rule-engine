@@ -1,5 +1,5 @@
 from helpers.constants import CAASEnv
-from ..commons import valid_isoformat
+from ..commons import is_valid_isoformat
 
 
 def test_signup(sre_client):
@@ -80,8 +80,8 @@ def test_system_whoami(system_user: str, sre_client):
     resp = sre_client.request('/users/whoami', 'GET', auth=token)
     assert resp.status_code == 200
     data = resp.json
-    assert valid_isoformat(data['data']['created_at'])
-    assert valid_isoformat(data['data']['latest_login'])
+    assert is_valid_isoformat(data['data']['created_at'])
+    assert is_valid_isoformat(data['data']['latest_login'])
     assert data['data']['customer'] == CAASEnv.SYSTEM_CUSTOMER_NAME.get()
     assert data['data']['role'] == 'system'
     assert data['data']['username'] == 'system'

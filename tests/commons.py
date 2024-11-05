@@ -103,10 +103,19 @@ class InMemoryHvacClient:
         return ['secrets', 'kv']
 
 
-def valid_isoformat(d):
+def is_valid_isoformat(d) -> bool:
     if not d: return False
     try:
         isoparse(d)
+        return True
+    except ValueError:
+        return False
+
+
+def is_valid_uuid(item) -> bool:
+    if not item: return False
+    try:
+        uuid.UUID(str(item))
         return True
     except ValueError:
         return False
