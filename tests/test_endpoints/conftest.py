@@ -107,12 +107,10 @@ def system_user(mocked_mongo_client, vault_token) -> tuple[str, str]:
 
 @pytest.fixture()
 def system_user_token(system_user) -> str:
-    # bypass bcrypt. See explanation inside system_user fixture
-    return 'eyJhbGciOiJFUzUxMiIsImtpZCI6IldHd25FNVdVWHhjRlVBdExrRS1yQTM0dVV1MG9UOUh5bG00S0VPZThCbFkiLCJrdHkiOiJFQyJ9.eyJjb2duaXRvOnVzZXJuYW1lIjoic3lzdGVtIiwiY3VzdG9tOmN1c3RvbWVyIjoiVEVTVF9TWVNURU1fQ1VTVE9NRVIiLCJjdXN0b206bGF0ZXN0X2xvZ2luIjpudWxsLCJjdXN0b206cm9sZSI6InN5c3RlbSIsImN1c3RvbTp0ZW5hbnRzIjoiIiwiZXhwIjoxNzMwODIxMTIxLCJpYXQiOjE3MzA4MTc1MjEsInN1YiI6IjY3MmEyZGRmZTAyMzJiNTFjYWY1NjRlMiJ9.AJGaYLzn4q-rEre7I9Lu754OnhxF1Q8BTnLztCpS1MjOWoT3PkmlPhoZK0oxO7qQnBEenpRStE9EwcLjydHRuKciAUDZu52M2WeNX7AQbMTQv5eN4EjkkZCFUVnfBNGyMIUHFG_d4-JxmWjzTUpRGQYPPvksNdwhMauyl9GeNkw9N4Fc'  # noqa
-    # return SP.users_client.authenticate_user(
-    #     username=system_user[0],
-    #     password=system_user[1]
-    # )['id_token']
+    return SP.users_client.authenticate_user(
+        username=system_user[0],
+        password=system_user[1]
+    )['id_token']
 
 
 @pytest.fixture(scope='session')

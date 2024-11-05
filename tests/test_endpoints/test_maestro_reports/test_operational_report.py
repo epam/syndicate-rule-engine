@@ -3,7 +3,7 @@ import json
 import pytest
 
 from services import SP
-from ...commons import is_valid_uuid
+from ...commons import valid_uuid, dicts_equal
 
 
 @pytest.fixture()
@@ -12,7 +12,7 @@ def aws_metrics(aws_tenant, load_expected, report_bounds):
     SP.s3.gz_put_json(
         bucket='metrics',
         key=f'TEST_CUSTOMER/accounts/{end.date().isoformat()}/{aws_tenant.project}.json',
-        obj=load_expected('aws_account_metrics')
+        obj=load_expected('metrics/aws_account')
     )
 
 
@@ -22,7 +22,7 @@ def azure_metrics(azure_tenant, load_expected, report_bounds):
     SP.s3.gz_put_json(
         bucket='metrics',
         key=f'TEST_CUSTOMER/accounts/{end.date().isoformat()}/{azure_tenant.project}.json',
-        obj=load_expected('azure_account_metrics')
+        obj=load_expected('metrics/azure_account')
     )
 
 
@@ -32,35 +32,17 @@ def google_metrics(google_tenant, load_expected, report_bounds):
     SP.s3.gz_put_json(
         bucket='metrics',
         key=f'TEST_CUSTOMER/accounts/{end.date().isoformat()}/{google_tenant.project}.json',
-        obj=load_expected('google_account_metrics')
+        obj=load_expected('metrics/google_account')
     )
 
 
 def validate_maestro_model(m: dict):
     assert isinstance(m, dict)
     assert m['viewType'] == 'm3'
-    assert is_valid_uuid(m['model']['uuid'])
+    assert valid_uuid(m['model']['uuid'])
     assert m['model']['notificationProcessorTypes'] == ['MAIL']
     assert m['model']['notificationType']
     assert isinstance(m['model']['notificationAsJson'], str)
-
-
-def compare_operational_report(one, two, compare_data: bool = True):
-    """
-    More or less
-    """
-    assert one['receivers'] == two['receivers']
-    assert one['customer'] == two['customer']
-    assert one['tenant_name'] == two['tenant_name']
-    assert one['id'] == two['id']
-    assert one['cloud'] == two['cloud']
-    assert sorted(one['activated_regions']) == sorted(two['activated_regions'])
-    assert sorted(one['outdated_tenants']) == sorted(two['outdated_tenants'])
-    assert one['externalData'] == two['externalData']
-    assert one['report_type'] == two['report_type']
-    if compare_data:
-        assert one['data'] == two['data']
-    # todo more compare
 
 
 def test_operational_report_aws_tenant(
@@ -97,27 +79,27 @@ def test_operational_report_aws_tenant(
         type_model[param['model']['notificationType']] = json.loads(
             param['model']['notificationAsJson'])
 
-    compare_operational_report(
+    assert dicts_equal(
         type_model['CUSTODIAN_ATTACKS_REPORT'],
         load_expected('operational/attacks_report')
     )
-    compare_operational_report(
+    assert dicts_equal(
         type_model['CUSTODIAN_COMPLIANCE_REPORT'],
         load_expected('operational/compliance_report')
     )
-    compare_operational_report(
+    assert dicts_equal(
         type_model['CUSTODIAN_OVERVIEW_REPORT'],
         load_expected('operational/overview_report')
     )
-    compare_operational_report(
+    assert dicts_equal(
         type_model['CUSTODIAN_RESOURCES_REPORT'],
         load_expected('operational/resources_report')
     )
-    compare_operational_report(
+    assert dicts_equal(
         type_model['CUSTODIAN_RULES_REPORT'],
         load_expected('operational/rules_report')
     )
-    compare_operational_report(
+    assert dicts_equal(
         type_model['CUSTODIAN_FINOPS_REPORT'],
         load_expected('operational/finops_report')
     )

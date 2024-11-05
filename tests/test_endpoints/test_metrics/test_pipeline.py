@@ -13,7 +13,7 @@ from services import SP
 from services.reports_bucket import TenantReportsBucketKeysBuilder, \
     StatisticsBucketKeysBuilder
 from services.sharding import ShardsCollectionFactory, ShardsS3IO
-from ...commons import AWS_ACCOUNT_ID, AZURE_ACCOUNT_ID, GOOGLE_ACCOUNT_ID
+from ...commons import AWS_ACCOUNT_ID, AZURE_ACCOUNT_ID, GOOGLE_ACCOUNT_ID, dicts_equal
 
 
 @pytest.fixture()
@@ -143,40 +143,16 @@ def google_jobs(google_tenant, google_scan_result, create_tenant_job,
     )
 
 
-def compare_tenant_metrics(one, two):
-    """
-    More or less
-    """
-    assert one['overview'] == two['overview']
-    assert one['compliance'] == two[
-        'compliance'], 'Compliance data does not match'
-    assert one['rule'] == two['rule']
-    assert one['customer'] == two['customer']
-    assert one['tenant_name'] == two['tenant_name']
-    assert one['id'] == two['id']
-    assert one['cloud'] == two['cloud']
-    assert sorted(one['activated_regions']) == sorted(two['activated_regions'])
-    assert sorted(one['outdated_tenants']) == sorted(two['outdated_tenants'])
-    assert one['attack_vector'] == two[
-        'attack_vector'], 'Attack vector data does not match'
-    assert one['finops'] == two['finops'], 'Finops data does not match'
-    assert one['kubernetes'] == two[
-        'kubernetes'], 'Kubernetes data does not match'
-    assert len(one['resources']) == len(two['resources'])
-
-
 def test_metrics_update_denied(sre_client):
     resp = sre_client.request('/metrics/update', 'POST')
     assert resp.status_int == 401
     assert resp.json == {'message': 'Unauthorized'}
 
 
-# todo mark as slow
-
-def test_metrics_update_tenant_metrics_processor(
+@pytest.mark.slow
+def test_metrics_update(
         sre_client,
         system_user_token,
-        s3_buckets,
         aws_jobs,
         azure_jobs,
         google_jobs,
@@ -197,18 +173,26 @@ def test_metrics_update_tenant_metrics_processor(
     _, end = report_bounds
     end = end.date()
 
+    # validating tenant metrics results
     aws_data = SP.s3.gz_get_json('metrics',
                                  f'TEST_CUSTOMER/accounts/{end.isoformat()}/{AWS_ACCOUNT_ID}.json')
     assert aws_data, 'AWS data must not be empty'
-    compare_tenant_metrics(aws_data, load_expected('aws_account_metrics'))
+    assert dicts_equal(aws_data, load_expected('metrics/aws_account'))
 
     azure_data = SP.s3.gz_get_json('metrics',
                                    f'TEST_CUSTOMER/accounts/{end.isoformat()}/{AZURE_ACCOUNT_ID}.json')
     assert azure_data, 'AZURE data must not be empty'
-    compare_tenant_metrics(azure_data, load_expected('azure_account_metrics'))
+    assert dicts_equal(azure_data, load_expected('metrics/azure_account'))
 
     google_data = SP.s3.gz_get_json('metrics',
                                     f'TEST_CUSTOMER/accounts/{end.isoformat()}/{GOOGLE_ACCOUNT_ID}.json')
     assert google_data, 'GOOGLE data must not be empty'
-    compare_tenant_metrics(google_data,
-                           load_expected('google_account_metrics'))
+    assert dicts_equal(google_data, load_expected('metrics/google_account'))
+
+    # todo validated whether montly metrics are collected
+    # todo validate weekly scan statistics
+
+    # validating tenant group metrics results
+    group_data = SP.s3.gz_get_json('metrics', f'TEST_CUSTOMER/tenants/{end.isoformat()}/testing.json')
+    assert group_data, 'Group data must not be empty'
+    assert dicts_equal(group_data, load_expected('metrics/tenant_group'))

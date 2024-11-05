@@ -103,6 +103,10 @@ def test_hashable(dictionary):
     assert hash(hashable(d)) != hash(hashable(d1))
 
 
+def test_hashable_json_serializable(dictionary):
+    json.dumps(dictionary)
+
+
 def test_urljoin():
     assert urljoin('one', 'two', 'three') == 'one/two/three'
     assert urljoin('/one/', '/two/', '/three/') == 'one/two/three'

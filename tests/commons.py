@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 
 from dateutil.parser import isoparse
 from webtest import TestApp, TestResponse
+from helpers import HashableDict
 
 SOURCE = Path(__file__).parent.parent / 'src'
 
@@ -103,7 +104,7 @@ class InMemoryHvacClient:
         return ['secrets', 'kv']
 
 
-def is_valid_isoformat(d) -> bool:
+def valid_isoformat(d) -> bool:
     if not d: return False
     try:
         isoparse(d)
@@ -112,13 +113,39 @@ def is_valid_isoformat(d) -> bool:
         return False
 
 
-def is_valid_uuid(item) -> bool:
+def valid_uuid(item) -> bool:
     if not item: return False
     try:
         uuid.UUID(str(item))
         return True
     except ValueError:
         return False
+
+
+def comparable(item: dict | list | tuple | set | str | float | int | None,
+               ignore_dates: bool = False):
+    """
+    >>> d = [{'key1': [1,2,3]}, {'key2': [4,5,6]}]
+    >>> d1 = [{'key2': [6,5,4]}, {'key1': [3,2,1]}]
+    >>> comparable(d) == comparable(d1)
+    Order of items inside inner collections is not important.
+    The result of this function cannot be dumped to json without default=list,
+    """
+    if isinstance(item, dict):
+        return HashableDict(zip(item.keys(), map(comparable, item.values())))
+    elif isinstance(item, (tuple, list, set)):
+        return frozenset(map(comparable, item))
+    else:
+        if ignore_dates and valid_isoformat(item):
+            return None
+        return item
+
+
+def dicts_equal(one, two, ignore_dates: bool = True) -> bool:
+    """
+    Ignores the order of dicts inside lists
+    """
+    return comparable(one, ignore_dates) == comparable(two, ignore_dates)
 
 
 class SREClient:
