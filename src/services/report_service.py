@@ -203,7 +203,9 @@ class ReportService:
         collection.fetch_meta()
         return collection.meta or {}
 
-    def job_statistics(self, job: Job | BatchResults) -> list[StatisticsItem]:
+    def job_statistics(self, job: Job | BatchResults | AmbiguousJob) -> list[StatisticsItem]:
+        if isinstance(job, AmbiguousJob):
+            job = job.job
         data = self.s3_client.gz_get_json(
             bucket=self.environment_service.get_statistics_bucket_name(),
             key=StatisticsBucketKeysBuilder.job_statistics(job)

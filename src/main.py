@@ -559,7 +559,7 @@ class InitAction(ActionHandler):
                 name=CAASEnv.SYSTEM_CUSTOMER_NAME.value,
                 value=SYSTEM_CUSTOMER
             ).save()
-        if not Setting.get_nullable(SettingKey.REPORT_DATE_MARKER.value):
+        if not Setting.get_nullable(SettingKey.REPORT_DATE_MARKER.value):  # todo redesign
             _LOG.info('Setting report date marker')
             Setting(
                 name=SettingKey.REPORT_DATE_MARKER.value,
@@ -572,6 +572,7 @@ class InitAction(ActionHandler):
                                               0))).date().isoformat()
                 }
             ).save()
+        Setting(name=SettingKey.SEND_REPORTS, value=True).save()
         users_client = SP.users_client
         if not users_client.get_user_by_username(SYSTEM_USER):
             _LOG.info('Creating a system user')

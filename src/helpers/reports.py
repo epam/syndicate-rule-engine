@@ -102,14 +102,18 @@ def keep_highest(*args: set):
 severity_chain = {v: i for i, v in enumerate(Severity.iter())}
 
 
-def severity_cmp(one: str, two: str) -> int:
-    oi = severity_chain.get(one)
-    ti = severity_chain.get(two)
-    if not isinstance(oi, int):
-        return 1
-    if not isinstance(ti, int):
-        return -1
-    return oi - ti
+class SeverityCmp:
+    def __call__(self, one: str, two: str) -> int:
+        oi = severity_chain.get(one)
+        ti = severity_chain.get(two)
+        if not isinstance(oi, int):
+            return 1
+        if not isinstance(ti, int):
+            return -1
+        return oi - ti
+
+
+severity_cmp = SeverityCmp()
 
 
 def merge_dictionaries(dict_to_merge: dict, dict_in: dict):

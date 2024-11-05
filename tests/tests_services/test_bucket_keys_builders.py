@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 import pytest
 from modular_sdk.models.parent import Parent
@@ -11,7 +11,7 @@ from services.clients.s3 import S3Url
 from services.platform_service import Platform
 from services.reports_bucket import TenantReportsBucketKeysBuilder, \
     ReportsBucketKeysBuilder, PlatformReportsBucketKeysBuilder, \
-    StatisticsBucketKeysBuilder
+    StatisticsBucketKeysBuilder, MetricsBucketKeysBuilder
 
 
 @pytest.fixture
@@ -167,6 +167,20 @@ class TestStatisticsBucketKeyBuilder:
         now = datetime.now(timezone.utc)
         res = StatisticsBucketKeysBuilder.xray_log('job_id')
         assert res == f'xray/executor/{now.year}/{now.month}/{now.day}/job_id.log'
+
+
+class TestMetricsBucketKeyBuilder:
+    def test_account_metrics(self, aws_tenant):
+        now = datetime.now(timezone.utc)
+        res = MetricsBucketKeysBuilder(aws_tenant).account_metrics(now)
+        assert res == f'TEST-CUSTOMER/accounts/{now.date().isoformat()}/123123123123.json'
+
+    def test_account_monthly_metrics(self, aws_tenant):
+        now = datetime.now(timezone.utc)
+        res = MetricsBucketKeysBuilder(aws_tenant).account_monthly_metrics(now)
+        next_m = now.month + 1
+        if next_m == 12: next_m = 1
+        assert res == f'TEST-CUSTOMER/accounts/monthly/{now.year}-{next_m}-01/123123123123.json'
 
 
 def test_s3_url():
