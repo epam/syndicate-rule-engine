@@ -30,7 +30,6 @@ class FindingsUpdater:
             delimiter=ReportsBucketKeysBuilder.latest,
             prefix=ReportsBucketKeysBuilder.prefix
         )
-        # todo use s3control.create_job for this
         for prefix in prefixes:
             _LOG.debug(f'Processing key: {prefix}')
             objects = self._s3_client.list_objects(
