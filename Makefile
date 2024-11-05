@@ -154,5 +154,5 @@ push-manifest:
 
 push-helm-chart:
 	helm package --dependency-update deployment/helm/rule-engine
-	helm s3 push rule-engine-$(SERVER_IMAGE_TAG).tgz $(HELM_REPO_NAME)
+	helm s3 push rule-engine-$(SERVER_IMAGE_TAG).tgz $(HELM_REPO_NAME) --relative
 	-rm rule-engine-$(SERVER_IMAGE_TAG).tgz

@@ -2,9 +2,38 @@
 
 set -eo pipefail
 
+contact_support_msg() {
+  cat <<EOF
+Dear Customer!
+
+An error may have occurred during the initial setup of the Syndicate Rule Engine software.
+Download the log file from $LOG_PATH with the following command with the replaced placeholders:
+
+  \$SSH_KEY_NAME - the name of the ssh key specified on the instance start
+  \$INSTANCE_PUBLIC_DNS - public DNS of the instance
+
+Command:
+  scp -i \$SSH_KEY_NAME admin@\$INSTANCE_PUBLIC_DNS:/var/log/sre-init.log /your/local/directory/
+
+After that, please contact our support team at SupportSyndicateTeam@epam.com for further assistance.
+
+We apologise for the inconvenience,
+
+Sincerely,
+EPAM Syndicate team
+EOF
+}
+
+sre_being_initialized_msg() {
+  # accepts number of seconds left as a first parameter
+  cat <<EOF
+EPAM Syndicate Rule Engine is being initialized for the first time. Please, wait. Approximately $(date -d@"$1" -u "+%M minute(s) %S seconds") left
+EOF
+}
+
 cmd_usage() {
   cat <<EOF
-Manage Rule Engine installation
+Manage Syndicate Rule Engine installation
 
 Usage:
   $PROGRAM [command]
@@ -13,7 +42,7 @@ Available Commands:
   backup   Allow to manage backups
   help     Show help message
   health   Check installation health
-  init     Initialize Rule Engine installation
+  init     Initialize Syndicate Rule Engine installation
   list     Lists available updates
   nginx    Allow to enable and disable nginx sites
   secrets  Allow to retrieve some secrets generated on startup. They are located inside k8s cluster
@@ -24,10 +53,10 @@ EOF
 
 cmd_init_usage() {
   cat <<EOF
-Initializes Rule Engine
+Initializes Syndicate Rule Engine
 
 Description:
-  Initializes Rule Engine for the first time or for a specified user. Includes installing CLIs, configuring passwords and other
+  Initializes Syndicate Rule Engine for the first time or for a specified user. Includes installing CLIs, configuring passwords and other
 
 Usage:
   $PROGRAM $COMMAND [options]
@@ -41,16 +70,16 @@ Options:
   --system          Initialize SRE for the first time. Only possible for $FIRST_USER user. Creates necessary system entities
   --user            Initialize SRE for the given user
   --public-ssh-key  If specified will be added to user's authorized_keys.
-  --re-username     Rule Engine username to configure. Must be specified together with --re-password
-  --re-password     Rule Engine password to configure. Must be specified together with --re-username
-  --admin-username  Modular Service username to configure. Must be specified together with --admin-password
-  --admin-password  Modular Service password to configure. Must be specified together with --admin-username
+  --re-username     Syndicate Rule Engine username to configure. Must be specified together with --re-password
+  --re-password     Syndicate Rule Engine password to configure. Must be specified together with --re-username
+  --admin-username  Syndicate Modular Service username to configure. Must be specified together with --admin-password
+  --admin-password  Syndicate Modular Service password to configure. Must be specified together with --admin-username
 EOF
 }
 
 cmd_update_usage() {
   cat <<EOF
-Updates local Rule Engine Installation
+Updates local Syndicate Rule Engine Installation
 
 Description:
   Checks for new release and performs update if it's available
@@ -66,6 +95,7 @@ Options:
   --backup-name        Backup name to make before the update (default "$AUTO_BACKUP_PREFIX\$timestamp")
   --check              Checks whether update is available but do not try to update
   --no-backup          Do not do backup
+  --defectdojo         Specify this flag to update Defect Dojo chart instead of Syndicate Rule Engine
   -h, --help           Show this message and exit
   -y, --yes            Automatic yes to prompts
 EOF
@@ -75,7 +105,7 @@ cmd_update_list_usage() {
 Displays available releases
 
 Description:
-  List only new available Rule Engine releases and the current one. Uses GitHub rest api under the hood and
+  List only new available Syndicate Rule Engine releases and the current one. Uses GitHub rest api under the hood and
   can throttle if rate limit is exceeded
 
 Usage:
@@ -91,7 +121,7 @@ EOF
 
 cmd_nginx_usage() {
   cat <<EOF
-Manage existing nginx configurations for Rule Engine
+Manage existing nginx configurations for Syndicate Rule Engine
 
 Description:
   Allows to enable and disable existing nginx configurations and corresponding k8s services. The command is not designed
@@ -147,7 +177,7 @@ Examples:
 
 Options
   -h, --help     Show help message
-  -v, --version  Version of Rule Engine release for which backups where made (default current release "$(get_helm_release_version "$HELM_RELEASE_NAME")")
+  -v, --version  Version of Syndicate Rule Engine release for which backups where made (default current release "$(get_helm_release_version "$HELM_RELEASE_NAME")")
   -p, --path     Path where backups are store (default "$SRE_BACKUPS_PATH/\$version"). --version parameter is ignored when custom --path is specified
 EOF
 }
@@ -167,7 +197,7 @@ Required Options:
 Options
   -h, --help     Show help message
   -y, --yes      Automatic yes to prompts
-  -v, --version  Version of Rule Engine release for which backups where made (default current release "$(get_helm_release_version "$HELM_RELEASE_NAME")")
+  -v, --version  Version of Syndicate Rule Engine release for which backups where made (default current release "$(get_helm_release_version "$HELM_RELEASE_NAME")")
   -p, --path     Path where backups are stored (default "$SRE_BACKUPS_PATH/\$version"). Note that --version parameter is ignored when custom --path is specified
 EOF
 }
@@ -208,7 +238,7 @@ Required Options:
 
 Options
   -h, --help     Show help message
-  -v, --version  Version of Rule Engine release for which backups where made (default current release "$(get_helm_release_version "$HELM_RELEASE_NAME")")
+  -v, --version  Version of Syndicate Rule Engine release for which backups where made (default current release "$(get_helm_release_version "$HELM_RELEASE_NAME")")
   -p, --path     Path where backups are store (default "$SRE_BACKUPS_PATH/\$version"). --version parameter is ignored when custom --path is specified
   -f, --force    Restore backup even if current release version does not match to the release version where backup was made
   --volumes      Volumes to make the backup for. Uses all k8s volumes if not specified. Specify volumes divided by comma
@@ -220,7 +250,7 @@ cmd_health_usage() {
 Checks installation health
 
 Description:
-  Command that verifies different aspects of installation
+  Command that verifies different aspects of installation. Returns 1 in case something is wrong
 
 Examples:
   $PROGRAM $COMMAND
@@ -404,15 +434,15 @@ initialize_system() {
   export PATH="$PATH:/home/$FIRST_USER/.local/bin"
 
   echo "Installing obfuscation manager"
-  pip3 install --user --break-system-packages --upgrade "$SRE_RELEASES_PATH/$(get_latest_local_release)/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]"
+  pipx install --force "$SRE_RELEASES_PATH/$(get_latest_local_release)/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]"
   echo "Installing modular-cli"
-  MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pip3 install --user --break-system-packages --upgrade "$SRE_RELEASES_PATH/$(get_latest_local_release)/$MODULAR_CLI_ARTIFACT_NAME"
+  MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pipx install --force "$SRE_RELEASES_PATH/$(get_latest_local_release)/$MODULAR_CLI_ARTIFACT_NAME"
 
   echo "Logging in to modular-cli"
   syndicate setup --username admin --password "$(get_kubectl_secret modular-api-secret system-password)" --api_path "http://127.0.0.1:8085" --json
   syndicate login --json
 
-  echo "Logging in to Rule engine using system user"
+  echo "Logging in to Syndicate Rule engine using system user"
   syndicate re configure --api_link http://rule-engine:8000/caas --json
   syndicate re login --username system_user --password "$(get_kubectl_secret rule-engine-secret system-password)" --json
 
@@ -494,7 +524,7 @@ initialize_system() {
     dojo_token=$(curl -X POST -H 'content-type: application/json' "http://127.0.0.1:80/api/v2/api-token-auth/" -d "{\"username\":\"admin\",\"password\":\"$(get_kubectl_secret "$DEFECTDOJO_SECRET_NAME" system-password)\"}" | jq ".token" -r || true)
   done
 
-  echo "Activating dojo installation for rule engine"
+  echo "Activating dojo installation for Syndicate Rule Engine"
   activation_id=$(syndicate re integrations dojo add --url http://defectdojo:8080/api/v2 --api_key "$dojo_token" --description "Global dojo installation" --json | jq ".items[0].id" -r)
   syndicate re integrations dojo activate --integration_id "$activation_id" --all_tenants --scan_type "Generic Findings Import" --send_after_job --json
 }
@@ -523,12 +553,12 @@ cmd_init() {
 
   if [ -n "$init_system" ]; then
     if [ -f "$SRE_LOCAL_PATH/.success" ]; then
-      die "Rule Engine was already initialized. Cannot do that again"
+      die "Syndicate Rule Engine was already initialized. Cannot do that again"
     fi
     if [ "$FIRST_USER" != "$(whoami)" ]; then
       die "system configuration can be performed only by '$FIRST_USER' user"
     fi
-    echo "Initializing Rule Engine for the first time"
+    echo "Initializing Syndicate Rule Engine for the first time"
     initialize_system
     echo "Done"
     return
@@ -549,7 +579,7 @@ cmd_init() {
     die "--admin-username and --admin-password must be specified together"
   fi
 
-  echo "Initializing Rule Engine for user $target_user"
+  echo "Initializing Syndicate Rule Engine for user $target_user"
   if user_exists "$target_user"; then
     echo "User already exists"
   else
@@ -568,8 +598,8 @@ EOF
   fi
   echo "Installing CLIs for $target_user"
   sudo su - "$target_user" <<EOF >/dev/null
-  pip3 install --user --break-system-packages "$SRE_RELEASES_PATH/$(get_latest_local_release)/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]"
-  MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pip3 install --user --break-system-packages "$SRE_RELEASES_PATH/$(get_latest_local_release)/$MODULAR_CLI_ARTIFACT_NAME"
+  pipx install --force "$SRE_RELEASES_PATH/$(get_latest_local_release)/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]"
+  MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pipx install --force "$SRE_RELEASES_PATH/$(get_latest_local_release)/$MODULAR_CLI_ARTIFACT_NAME"
 EOF
 
   local err=0
@@ -590,7 +620,7 @@ EOF
 
 
   if [ -n "$re_username" ]; then
-    echo "Logging in to Rule Engine"
+    echo "Logging in to Syndicate Rule Engine"
     sudo su - "$target_user" <<EOF
     ~/.local/bin/syndicate re configure --api_link http://rule-engine:8000/caas
     ~/.local/bin/syndicate re login --username "$re_username" --password "$re_password"
@@ -694,8 +724,8 @@ cmd_update_list() {
 }
 
 cmd_update() {
-  local opts auto_yes=0 current_release release_data latest_tag backup_name="" iter_params=() check=0 same_version=0 do_backup=1 do_patch='true' helm_values
-  opts="$(getopt -o "hy" --long "help,yes,check,no-backup,no-patch,allow-prereleases,same-version,backup-name:" -n "$PROGRAM" -- "$@")"
+  local opts auto_yes=0 current_release release_data latest_tag backup_name="" iter_params=() check=0 same_version=0 do_backup=1 do_patch='true' helm_values update_defectdojo=0
+  opts="$(getopt -o "hy" --long "help,yes,check,no-backup,no-patch,defectdojo,allow-prereleases,same-version,backup-name:" -n "$PROGRAM" -- "$@")"
   eval set -- "$opts"
   while true; do
     case "$1" in
@@ -707,9 +737,34 @@ cmd_update() {
       '--backup-name') backup_name="$2"; shift 2 ;;
       '--allow-prereleases') iter_params=(--prerelease --draft); shift ;;
       '--same-version') same_version=1; shift ;;
+      '--defectdojo') update_defectdojo=1; shift ;;
       '--') shift; break ;;
     esac
   done
+  if [ "$update_defectdojo" -eq 1 ]; then
+    # todo refactor to a separate command.
+    [ "$check" -eq 1 ] && die "--check if currently not supported for Defect Dojo"
+    echo "Going to update Defect Dojo chart"
+    if [ "$do_backup" -eq 1 ]; then
+      [ -z "$backup_name" ] && backup_name="$AUTO_BACKUP_PREFIX$(date +%s)"
+      echo "Making backup $backup_name"
+      cmd_backup_create --name "$backup_name" --volumes=defectdojo-cache,defectdojo-data,defectdojo-media
+    fi
+    helm repo update syndicate
+    if ! helm upgrade "$DEFECTDOJO_HELM_RELEASE_NAME" syndicate/defectdojo --wait; then
+      warn "helm upgrade failed. Rolling back to the previous version..."
+      helm rollback "$DEFECTDOJO_HELM_RELEASE_NAME" 0 --wait || die "Helm rollback failed... Contact the support team"
+      if [ "$do_backup" -eq 1 ]; then
+        echo "Data patch could've been performed and backup was also created. Restoring backup $backup_name"
+        cmd_backup_restore --name "$backup_name"
+      fi
+      exit 1
+    else
+      echo "helm upgrade was successful"
+    fi
+    exit 0
+  fi
+
   current_release="$(get_helm_release_version "$HELM_RELEASE_NAME")"
   if [ "$same_version" -eq 1 ]; then
     release_data="$(get_github_release_by_tag "$current_release")" || warn "could not get release by tag $current_release"
@@ -760,11 +815,11 @@ cmd_update() {
 
   if [ -f "$SRE_RELEASES_PATH/$latest_tag/$OBFUSCATOR_ARTIFACT_NAME" ]; then
     echo "Upgrading obfuscation manager"
-    pip3 install --user --break-system-packages --upgrade "$SRE_RELEASES_PATH/$latest_tag/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]" >/dev/null
+    pipx install --force "$SRE_RELEASES_PATH/$latest_tag/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]" >/dev/null
   fi
   if [ -f "$SRE_RELEASES_PATH/$latest_tag/$MODULAR_CLI_ARTIFACT_NAME" ]; then
     echo "Upgrading modular CLI"
-    MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pip3 install --user --break-system-packages --upgrade "$SRE_RELEASES_PATH/$latest_tag/${MODULAR_CLI_ARTIFACT_NAME}" >/dev/null
+    MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pipx install --force "$SRE_RELEASES_PATH/$latest_tag/${MODULAR_CLI_ARTIFACT_NAME}" >/dev/null
   fi
   if [ -f "$SRE_RELEASES_PATH/$latest_tag/$SRE_INIT_ARTIFACT_NAME" ]; then
     echo "Trying to update sre-init"
@@ -1042,11 +1097,11 @@ cmd_health() {
       '--') shift; break ;;
     esac
   done
-  declare -A checks  # order is priority
+  declare -A checks  # numbers specify priority
   checks["1:/usr/local/sre/.success"]="test -f /usr/local/sre/.success"
-  checks["2:Rule Engine helm release"]="helm get metadata $HELM_RELEASE_NAME"
+  checks["2:Syndicate Rule Engine helm release"]="helm get metadata $HELM_RELEASE_NAME"
   checks["3:Syndicate entrypoint"]="syndicate version"
-  checks["4:Rule Engine health check"]="syndicate re health_check"
+  checks["4:Syndicate Rule Engine health check"]="syndicate re health_check"
   checks["5:Obfuscation manager entrypoint"]="sreobf --help"
   checks["6:Defect Dojo helm release"]="helm get metadata defectdojo"
 
@@ -1063,6 +1118,25 @@ cmd_health() {
   done < <(printf "%s\n" "${!checks[@]}" | sort) | column --table -s "|" --table-columns "№,CHECK,STATUS"
 }
 
+verify_installation() {
+  if [ -f "$SRE_LOCAL_PATH/.success" ]; then
+    return 0
+  fi
+  # .success does not exist
+  local passed=""
+  if [ -f "$LOG_PATH" ]; then
+    passed="$(( $(date +%s) - $(stat --format "%W" "$LOG_PATH") ))"
+  fi
+  if [ -z "$passed" ] || [ "$passed" -gt "$INSTALLATION_PERIOD_THRESHOLD" ]; then
+    # smt went wrong
+    contact_support_msg >&2
+    exit 1
+  fi
+  # .success does not exist but we are still within a threshold
+  sre_being_initialized_msg "$(( "$INSTALLATION_PERIOD_THRESHOLD" - "$passed" ))" >&2
+  exit 1
+}
+
 # Start
 VERSION="1.0.0"
 PROGRAM="${0##*/}"
@@ -1075,6 +1149,7 @@ SRE_RELEASES_PATH="${SRE_RELEASES_PATH:-$SRE_LOCAL_PATH/releases}"
 SRE_BACKUPS_PATH="${SRE_BACKUPS_PATH:-$SRE_LOCAL_PATH/backups}"
 GITHUB_REPO="${GITHUB_REPO:-epam/syndicate-rule-engine}"
 HELM_RELEASE_NAME="${HELM_RELEASE_NAME:-rule-engine}"
+DEFECTDOJO_HELM_RELEASE_NAME="${DEFECTDOJO_HELM_RELEASE_NAME:-defectdojo}"
 HELM_UPGRADE_TIMEOUT="${HELM_UPGRADE_TIMEOUT:-120}"
 DO_NOT_ACTIVATE_LICENSE="${DO_NOT_ACTIVATE_LICENSE:-}"
 DO_NOT_ACTIVATE_TENANT="${DO_NOT_ACTIVATE_TENANT:-}"
@@ -1132,8 +1207,17 @@ OBFUSCATOR_ARTIFACT_NAME=sre_obfuscator.tar.gz
 SRE_INIT_ARTIFACT_NAME=sre-init.sh
 
 # in seconds
+INSTALLATION_PERIOD_THRESHOLD="${INSTALLATION_PERIOD_THRESHOLD:-900}"
+LOG_PATH="${LOG_PATH:-/var/log/sre-init.log}"  # that is a default log path and should not be changed
+
+# in seconds
 UPDATE_NOTIFICATION_PERIOD="${UPDATE_NOTIFICATION_PERIOD:-3600}"
 UPDATE_NOTIFICATION_FILE="$SRE_LOCAL_PATH/.update-notification"
+
+
+if [ ! "$1" = "init" ] && [ ! "$1" = '--system' ]; then
+  verify_installation
+fi
 
 make_update_notification || true
 
