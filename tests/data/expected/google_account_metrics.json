@@ -7,7 +7,7 @@
     "regions_data": {
       "global": {
         "severity_data": {
-          "null": 5
+          "Unknown": 5
         }
       }
     }
@@ -17,8 +17,8 @@
   "id": "testing-project-123",
   "cloud": "google",
   "activated_regions": [],
-  "from": "2024-11-03",
-  "to": "2024-11-04T16:13:09.633919",
+  "from": "2024-11-03T00:00:00Z",
+  "to": "2024-11-10T00:00:00Z",
   "outdated_tenants": {},
   "last_scan_date": "2024-11-03T08:20:00Z",
   "compliance": {
@@ -33,9 +33,9 @@
   "resources": [
     {
       "policy": "ecc-gcp-025-no_default_network",
-      "resource_type": null,
+      "resource_type": "Vpc",
       "description": "Description for ecc-gcp-025-no_default_network",
-      "severity": null,
+      "severity": "Unknown",
       "regions_data": {
         "global": {
           "resources": [
@@ -49,20 +49,12 @@
     },
     {
       "policy": "ecc-gcp-272-firewall_logging_enabled",
-      "resource_type": null,
+      "resource_type": "Firewall",
       "description": "Description for ecc-gcp-272-firewall_logging_enabled",
-      "severity": null,
+      "severity": "Unknown",
       "regions_data": {
         "global": {
           "resources": [
-            {
-              "id": "default-allow-internal",
-              "name": "default-allow-internal"
-            },
-            {
-              "id": "default-allow-ssh",
-              "name": "default-allow-ssh"
-            },
             {
               "id": "default-allow-rdp",
               "name": "default-allow-rdp"
@@ -70,6 +62,14 @@
             {
               "id": "default-allow-icmp",
               "name": "default-allow-icmp"
+            },
+            {
+              "id": "default-allow-ssh",
+              "name": "default-allow-ssh"
+            },
+            {
+              "id": "default-allow-internal",
+              "name": "default-allow-internal"
             }
           ]
         }
@@ -77,9 +77,9 @@
     },
     {
       "policy": "ecc-gcp-109-prevent_allow_all_ingress",
-      "resource_type": null,
+      "resource_type": "Firewall",
       "description": "Description for ecc-gcp-109-prevent_allow_all_ingress",
-      "severity": null,
+      "severity": "Unknown",
       "regions_data": {
         "global": {
           "resources": [
@@ -93,20 +93,12 @@
     },
     {
       "policy": "ecc-gcp-104-default_firewall_rule_in_use",
-      "resource_type": null,
+      "resource_type": "Firewall",
       "description": "Description for ecc-gcp-104-default_firewall_rule_in_use",
-      "severity": null,
+      "severity": "Unknown",
       "regions_data": {
         "global": {
           "resources": [
-            {
-              "id": "default-allow-internal",
-              "name": "default-allow-internal"
-            },
-            {
-              "id": "default-allow-ssh",
-              "name": "default-allow-ssh"
-            },
             {
               "id": "default-allow-rdp",
               "name": "default-allow-rdp"
@@ -114,6 +106,14 @@
             {
               "id": "default-allow-icmp",
               "name": "default-allow-icmp"
+            },
+            {
+              "id": "default-allow-ssh",
+              "name": "default-allow-ssh"
+            },
+            {
+              "id": "default-allow-internal",
+              "name": "default-allow-internal"
             }
           ]
         }
@@ -121,9 +121,9 @@
     },
     {
       "policy": "ecc-gcp-033-vpc_flow_logs_for_every_subnet",
-      "resource_type": null,
+      "resource_type": "Subnet",
       "description": "Description for ecc-gcp-033-vpc_flow_logs_for_every_subnet",
-      "severity": null,
+      "severity": "Unknown",
       "regions_data": {
         "global": {
           "resources": [

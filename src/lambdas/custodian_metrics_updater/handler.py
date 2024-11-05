@@ -16,24 +16,18 @@ from lambdas.custodian_metrics_updater.processors.diagnostic_metrics_processor i
 from lambdas.custodian_metrics_updater.processors.findings_processor import (
     FINDINGS_UPDATER,
 )
-from lambdas.custodian_metrics_updater.processors.metric_difference_processor import (
-    TENANT_METRICS_DIFF,
-)
+from lambdas.custodian_metrics_updater.processors.improved.new_metric_difference_processor import \
+    TENANT_METRICS_DIFF as NEW_TENANT_METRICS_DIFF
+from lambdas.custodian_metrics_updater.processors.improved.new_tenant_group_metrics_processor import \
+    TENANT_GROUP_METRICS as NEW_TENANT_GROUP_METRICS
+from lambdas.custodian_metrics_updater.processors.improved.new_tenant_metrics_processor import \
+    TENANT_METRICS as NEW_TENANT_METRICS
 from lambdas.custodian_metrics_updater.processors.recommendation_processor import (
     RECOMMENDATION_METRICS,
-)
-from lambdas.custodian_metrics_updater.processors.tenant_group_metrics_processor import (
-    TENANT_GROUP_METRICS,
-)
-from lambdas.custodian_metrics_updater.processors.tenant_metrics_processor import (
-    TENANT_METRICS,
 )
 from lambdas.custodian_metrics_updater.processors.top_metrics_processor import (
     CUSTOMER_METRICS,
 )
-from lambdas.custodian_metrics_updater.processors.improved.new_tenant_metrics_processor import TENANT_METRICS as NEW_TENANT_METRICS
-from lambdas.custodian_metrics_updater.processors.improved.new_tenant_group_metrics_processor import TENANT_GROUP_METRICS as NEW_TENANT_GROUP_METRICS
-from lambdas.custodian_metrics_updater.processors.improved.new_metric_difference_processor import TENANT_METRICS_DIFF as NEW_TENANT_METRICS_DIFF
 from services import SERVICE_PROVIDER
 from services.abs_lambda import EventProcessorLambdaHandler
 from services.clients.lambda_func import LambdaClient

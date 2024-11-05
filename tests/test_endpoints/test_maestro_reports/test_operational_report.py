@@ -68,3 +68,4 @@ def test_operational_report(system_user_token, sre_client,
         }
     )
     assert resp.status_int == 503
+    # todo finish

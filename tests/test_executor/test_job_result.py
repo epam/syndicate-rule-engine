@@ -1,23 +1,10 @@
 from pathlib import Path
 
 import pytest
-from modular_sdk.models.tenant import Tenant
 
 from executor.helpers.constants import Cloud
 from executor.services.report_service import JobResult
 from helpers.constants import PolicyErrorType
-
-
-@pytest.fixture
-def aws_tenant() -> Tenant:
-    return Tenant(
-        name="TEST-TENANT",
-        display_name="Test tenant",
-        is_active=True,
-        customer_name="TEST-CUSTOMER",
-        cloud="AWS",
-        project="123456789012",
-    )
 
 
 def test_adjust_resource_type():

@@ -7,7 +7,7 @@
     "regions_data": {
       "global": {
         "severity_data": {
-          "null": 5
+          "Unknown": 5
         }
       }
     }
@@ -17,8 +17,8 @@
   "id": "3d615fa8-05c6-47ea-990d-9d162testing",
   "cloud": "azure",
   "activated_regions": [],
-  "from": "2024-11-03",
-  "to": "2024-11-04T16:11:20.888190",
+  "from": "2024-11-03T00:00:00Z",
+  "to": "2024-11-10T00:00:00Z",
   "outdated_tenants": {},
   "last_scan_date": "2024-11-03T15:00:00Z",
   "compliance": {
@@ -33,9 +33,9 @@
   "resources": [
     {
       "policy": "ecc-azure-310-asb_defender_open_source_rds",
-      "resource_type": null,
+      "resource_type": "Defender-pricing",
       "description": "Description for ecc-azure-310-asb_defender_open_source_rds",
-      "severity": null,
+      "severity": "Unknown",
       "regions_data": {
         "global": {
           "resources": [
@@ -49,9 +49,9 @@
     },
     {
       "policy": "ecc-azure-096-cis_sec_defender_azure_sql",
-      "resource_type": null,
+      "resource_type": "Defender-pricing",
       "description": "Description for ecc-azure-096-cis_sec_defender_azure_sql",
-      "severity": null,
+      "severity": "Unknown",
       "regions_data": {
         "global": {
           "resources": [
@@ -65,9 +65,9 @@
     },
     {
       "policy": "ecc-azure-376-cis_defender_cosmodb",
-      "resource_type": null,
+      "resource_type": "Defender-pricing",
       "description": "Description for ecc-azure-376-cis_defender_cosmodb",
-      "severity": null,
+      "severity": "Unknown",
       "regions_data": {
         "global": {
           "resources": [
@@ -81,9 +81,9 @@
     },
     {
       "policy": "ecc-azure-099-cis_sec_defender_aks",
-      "resource_type": null,
+      "resource_type": "Defender-pricing",
       "description": "Description for ecc-azure-099-cis_sec_defender_aks",
-      "severity": null,
+      "severity": "Unknown",
       "regions_data": {
         "global": {
           "resources": [
@@ -97,9 +97,9 @@
     },
     {
       "policy": "ecc-azure-213-asb_lt_defender_dns",
-      "resource_type": null,
+      "resource_type": "Defender-pricing",
       "description": "Description for ecc-azure-213-asb_lt_defender_dns",
-      "severity": null,
+      "severity": "Unknown",
       "regions_data": {
         "global": {
           "resources": [

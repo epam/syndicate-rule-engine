@@ -1,18 +1,17 @@
 import json
 import uuid
 from datetime import timedelta, datetime
-from dateutil.relativedelta import relativedelta, SU
 
 import boto3
 import pytest
+from dateutil.relativedelta import relativedelta, SU
 from moto.backends import get_backend
 from webtest import TestApp
 
 from helpers.constants import Permission, CAASEnv, PolicyEffect, JobState
 from helpers.time_helper import utc_iso, utc_datetime
 from services import SP  # probably the only safe import we can use in conftest
-from ..commons import SOURCE, InMemoryHvacClient, SREClient, AWS_ACCOUNT_ID, \
-    AZURE_ACCOUNT_ID, GOOGLE_ACCOUNT_ID
+from ..commons import SOURCE, InMemoryHvacClient, SREClient
 
 
 # assuming that only this package will use mongo so that we need to clear
@@ -133,81 +132,30 @@ def sre_client(wsgi_test_app) -> SREClient:
     return SREClient(wsgi_test_app)
 
 
+# override existing fixtures only for this package because here we have all
+# the inner services mocked
 @pytest.fixture()
-def main_customer(mocked_mongo_client):
-    from modular_sdk.models.customer import Customer
-    customer = Customer(
-        name='TEST_CUSTOMER',
-        display_name='test customer',
-        admins=[],
-        is_active=True
-    )
-    customer.save()
-    return customer
+def main_customer(mocked_mongo_client, main_customer):
+    main_customer.save()
+    return main_customer
 
 
 @pytest.fixture()
-def aws_tenant(main_customer):
-    from modular_sdk.models.tenant import Tenant
-    from modular_sdk.models.region import RegionAttr
-    tenant = Tenant(
-        name='AWS-TESTING',
-        display_name='testing',
-        display_name_to_lower='testing',
-        read_only=False,
-        is_active=True,
-        customer_name=main_customer.name,
-        cloud='AWS',
-        project=AWS_ACCOUNT_ID,
-        contacts={},
-        activation_date=utc_iso(utc_datetime() - timedelta(days=30)),
-        regions=[
-            RegionAttr(native_name='eu-west-1'),
-            RegionAttr(native_name='eu-central-1'),
-            RegionAttr(native_name='eu-north-1'),
-            RegionAttr(native_name='eu-west-3')
-        ]
-    )
-    tenant.save()
-    return tenant
+def aws_tenant(main_customer, aws_tenant):
+    aws_tenant.save()
+    return aws_tenant
 
 
 @pytest.fixture()
-def azure_tenant(main_customer):
-    from modular_sdk.models.tenant import Tenant
-    tenant = Tenant(
-        name='AZURE-TESTING',
-        display_name='testing',
-        display_name_to_lower='testing',
-        read_only=False,
-        is_active=True,
-        customer_name=main_customer.name,
-        cloud='AZURE',
-        project=AZURE_ACCOUNT_ID,
-        contacts={},
-        activation_date=utc_iso(utc_datetime() - timedelta(days=30)),
-    )
-    tenant.save()
-    return tenant
+def azure_tenant(main_customer, azure_tenant):
+    azure_tenant.save()
+    return azure_tenant
 
 
 @pytest.fixture()
-def google_tenant(main_customer):
-    from modular_sdk.models.tenant import Tenant
-    tenant = Tenant(
-        name='GOOGLE-TESTING',
-        display_name='testing',
-        display_name_to_lower='testing',
-        read_only=False,
-        is_active=True,
-        customer_name=main_customer.name,
-        cloud='GOOGLE',
-        project=GOOGLE_ACCOUNT_ID,
-        contacts={},
-        activation_date=utc_iso(utc_datetime() - timedelta(days=30)),
-    )
-    tenant.save()
-    return tenant
+def google_tenant(main_customer, google_tenant):
+    google_tenant.save()
+    return google_tenant
 
 
 @pytest.fixture()
