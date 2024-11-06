@@ -9,6 +9,7 @@ from services.reports_bucket import (
     StatisticsBucketKeysBuilder,
 )
 from services.sharding import ShardsCollectionFactory, ShardsS3IO
+from ...commons import dicts_equal
 
 
 @pytest.fixture(autouse=True)
@@ -60,7 +61,7 @@ def aws_job(aws_tenant, aws_scan_result, create_tenant_job):
     return job
 
 
-def test_digest_report_job(system_user_token, sre_client, aws_job):
+def test_digest_report_aws_job(system_user_token, sre_client, aws_job):
     resp = sre_client.request(
         f"/reports/digests/jobs/{aws_job.id}",
         auth=system_user_token,
@@ -85,26 +86,19 @@ def test_digest_report_job(system_user_token, sre_client, aws_job):
     }
 
 
-def test_details_report_job(system_user_token, sre_client, aws_job, load_expected):
+def test_details_report_aws_job(system_user_token, sre_client, aws_job, load_expected):
     resp = sre_client.request(
         f"/reports/details/jobs/{aws_job.id}",
         auth=system_user_token,
         data={"customer_id": aws_job.customer_name},  # on behalf because system
     )
     assert resp.status_int == 200
-    data = resp.json['data']
-    assert data['customer_name'] == 'TEST_CUSTOMER'
-    assert data['format'] == 'json'
-    assert data['job_id'] == aws_job.id
-    assert data['job_type'] == 'manual'
-    assert data['obfuscated'] is False
-    assert data['tenant_name'] == 'AWS-TESTING'
-    assert len(data['content']) == 5
-    for r in ('eu-central-1', 'eu-north-1', 'eu-west-1', 'eu-west-3', 'global'):
-        assert r in data['content']
+    expected = load_expected('aws_details_report')
+    expected['data']['job_id'] = aws_job.id
+    assert dicts_equal(resp.json, expected)
 
 
-def test_errors_report_job(system_user_token, sre_client, aws_job, load_expected):
+def test_errors_report_aws_job(system_user_token, sre_client, aws_job, load_expected):
     resp = sre_client.request(
         f"/reports/errors/jobs/{aws_job.id}",
         auth=system_user_token,
@@ -112,3 +106,13 @@ def test_errors_report_job(system_user_token, sre_client, aws_job, load_expected
     )
     assert resp.status_int == 200
     assert resp.json == load_expected('aws_job_errors')
+
+
+def test_raw_report_aws_job(system_user_token, sre_client, aws_tenant, aws_job, load_expected):
+    resp = sre_client.request(
+        f"/reports/raw/tenants/{aws_tenant.name}/state/latest",
+        auth=system_user_token,
+        data={"customer_id": aws_job.customer_name},  # on behalf because system
+    )
+    assert resp.status_int == 200
+    # todo test presigned url?

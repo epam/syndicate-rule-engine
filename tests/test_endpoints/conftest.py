@@ -1,6 +1,7 @@
 import json
 import uuid
 from datetime import timedelta, datetime
+from typing import TYPE_CHECKING
 
 import boto3
 import pytest
@@ -13,9 +14,13 @@ from helpers.time_helper import utc_iso, utc_datetime
 from services import SP  # probably the only safe import we can use in conftest
 from ..commons import SOURCE, InMemoryHvacClient, SREClient
 
+if TYPE_CHECKING:
+    from modular_sdk.models.tenant import Tenant
+    from modular_sdk.models.customer import Customer
+
 
 # assuming that only this package will use mongo so that we need to clear
-# it after each invocation. It's here for optimization purposes
+# it after each invocation
 
 # data sources fixtures
 @pytest.fixture(autouse=True)
@@ -148,25 +153,28 @@ def sre_client(wsgi_test_app) -> SREClient:
 # override existing fixtures only for this package because here we have all
 # the inner services mocked
 @pytest.fixture()
-def main_customer(mocked_mongo_client, main_customer):
+def main_customer(mocked_mongo_client, main_customer: 'Customer'
+                  ) -> 'Customer':
     main_customer.save()
     return main_customer
 
 
 @pytest.fixture()
-def aws_tenant(main_customer, aws_tenant):
+def aws_tenant(main_customer: 'Customer', aws_tenant: 'Tenant') -> 'Tenant':
     aws_tenant.save()
     return aws_tenant
 
 
 @pytest.fixture()
-def azure_tenant(main_customer, azure_tenant):
+def azure_tenant(main_customer: 'Customer', azure_tenant: 'Tenant'
+                 ) -> 'Tenant':
     azure_tenant.save()
     return azure_tenant
 
 
 @pytest.fixture()
-def google_tenant(main_customer, google_tenant):
+def google_tenant(main_customer: 'Customer', google_tenant: 'Tenant'
+                  ) -> 'Tenant':
     google_tenant.save()
     return google_tenant
 
@@ -225,7 +233,7 @@ def report_bounds() -> tuple[datetime, datetime]:
 
 
 @pytest.fixture()
-def reports_marker(report_bounds):
+def reports_marker(report_bounds) -> None:
     """
     Set mocked dates marker
     """
