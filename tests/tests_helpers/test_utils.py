@@ -8,7 +8,7 @@ from helpers import (deep_get, deep_set, title_keys, setdefault, filter_dict,
                      hashable, urljoin, skip_indexes, peek, without_duplicates,
                      MultipleCursorsWithOneLimitIterator, catchdefault,
                      batches, dereference_json, NextToken, iter_values,
-                     flip_dict, Version)
+                     flip_dict, Version, comparable)
 
 
 @pytest.fixture
@@ -101,10 +101,26 @@ def test_hashable(dictionary):
     d = {'q': [1, 2, 3]}
     d1 = {'Q': [1, 2, 3]}
     assert hash(hashable(d)) != hash(hashable(d1))
+    d = {'q': [1, 2, 3]}
+    d1 = {'q': [3, 2, 1]}
+    assert hash(hashable(d)) != hash(hashable(d1))
 
 
 def test_hashable_json_serializable(dictionary):
     json.dumps(dictionary)
+
+
+def test_comparable():
+    d = {'key1': [1, 2, 3, {'k': 'v'}], 'key2': {'k': 'v'}}
+    d1 = {'key2': {'k': 'v'}, 'key1': [1, {'k': 'v'}, 2, 3]}
+    assert comparable(d) == comparable(d1)
+    assert hash(comparable(d)) == hash(comparable(d1))
+
+    d = [1, {'key1': [1, {'k': '2024-11-06T12:14:02.881343'}]}]
+    d1 = [{'key1': [{'k': '2021-10-02T11:30:02.881343'}, 1]}, 1]
+    assert comparable(d) != comparable(d1)
+    assert comparable(d, replace_dates_with=None) == comparable(d1, replace_dates_with=None)
+
 
 
 def test_urljoin():

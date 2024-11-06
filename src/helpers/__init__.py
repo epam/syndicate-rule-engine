@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from enum import Enum as _Enum
 import json
 import functools
+from dateutil.parser import isoparse
 from functools import reduce
 import io
 from itertools import chain, islice
@@ -142,6 +143,39 @@ def hashable(item: dict | list | tuple | set | str | float | int | None):
         return tuple(map(hashable, item))
     else:  # str, int, bool, None (all hashable)
         return item
+
+
+_SENTINEL = object()
+
+
+def comparable(item: dict | list | tuple | set | str | float | int | None, *,
+               replace_dates_with=_SENTINEL):
+    """
+    >>> d = [{'key1': [1,2,3]}, {'key2': [4,5,6]}]
+    >>> d1 = [{'key2': [6,5,4]}, {'key1': [3,2,1]}]
+    >>> comparable(d) == comparable(d1)
+    Order of items inside inner collections is not important.
+    The result of this function cannot be dumped to json without default=list.
+    Currently is used primarily for tests.
+    """
+    if isinstance(item, dict):
+        return HashableDict([
+            (k, comparable(v, replace_dates_with=replace_dates_with))
+            for k, v in item.items()
+        ])
+    elif isinstance(item, (tuple, list, set)):
+        return frozenset([
+            comparable(i, replace_dates_with=replace_dates_with)
+            for i in item
+        ])
+    else:
+        if replace_dates_with is _SENTINEL:
+            return item
+        try:
+            isoparse(str(item))
+            return replace_dates_with
+        except ValueError:
+            return item
 
 
 class KeepValueGenerator:
