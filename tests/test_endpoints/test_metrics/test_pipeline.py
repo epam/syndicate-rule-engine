@@ -168,7 +168,7 @@ def test_metrics_update(
                               auth=system_user_token)
     assert resp.status_int == 202
     assert resp.json == {'message': 'Metrics update has been submitted'}
-    time.sleep(3)  # don't know how to check underlying thread is finished
+    time.sleep(4)  # don't know how to check underlying thread is finished
     # here we check only tenant metrics processor outcome
     _, end = report_bounds
     end = end.date()
@@ -196,3 +196,5 @@ def test_metrics_update(
     group_data = SP.s3.gz_get_json('metrics', f'TEST_CUSTOMER/tenants/{end.isoformat()}/testing.json')
     assert group_data, 'Group data must not be empty'
     assert dicts_equal(group_data, load_expected('metrics/tenant_group'))
+
+    # validation tenant

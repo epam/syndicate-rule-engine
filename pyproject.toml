@@ -19,17 +19,27 @@ test = [
 
 
 [tool.pyright]
-include = ["src/"]
-exclude = [
-    "**/__pycache__",
-]
 pythonVersion = "3.10"
 reportIncompatibleMethodOverride = "warning"
 executionEnvironments = [
+    {root = "src/", pythonVersion = "3.10"},
     {root = "tests/", pythonVersion = "3.10", extraPaths = ["src/"]}
 ]
+
+
+[tool.ruff]
+line-length = 79
+src = ["src", "tests"]
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
 
 [tool.pytest.ini_options]
 pythonpath = [
   "src",
 ]
+
+

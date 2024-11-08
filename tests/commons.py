@@ -107,7 +107,7 @@ class InMemoryHvacClient:
 def valid_isoformat(d) -> bool:
     if not d: return False
     try:
-        isoparse(d)
+        isoparse(str(d))
         return True
     except ValueError:
         return False

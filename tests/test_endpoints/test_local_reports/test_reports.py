@@ -45,14 +45,17 @@ def aws_job(aws_tenant, aws_scan_result, create_tenant_job):
         obj=result.statistics(
             aws_tenant,
             {
-                ("eu-west-1", "ecc-aws-427-rds_cluster_without_tag_information"): (
+                (
+                    'eu-west-1',
+                    'ecc-aws-427-rds_cluster_without_tag_information',
+                ): (
                     PolicyErrorType.ACCESS,
-                    "AccessDenied Exception",
+                    'AccessDenied Exception',
                     [],
                 ),
-                ("global", "ecc-aws-527-waf_global_webacl_not_empty"): (
+                ('global', 'ecc-aws-527-waf_global_webacl_not_empty'): (
                     PolicyErrorType.ACCESS,
-                    "AccessDenied Exception",
+                    'AccessDenied Exception',
                     [],
                 ),
             },
@@ -63,34 +66,40 @@ def aws_job(aws_tenant, aws_scan_result, create_tenant_job):
 
 def test_digest_report_aws_job(system_user_token, sre_client, aws_job):
     resp = sre_client.request(
-        f"/reports/digests/jobs/{aws_job.id}",
+        f'/reports/digests/jobs/{aws_job.id}',
         auth=system_user_token,
-        data={"customer_id": aws_job.customer_name},  # on behalf because system
+        data={
+            'customer_id': aws_job.customer_name
+        },  # on behalf because system
     )
     assert resp.status_int == 200
     assert resp.json == {
-        "data": {
-            "content": {
-                "failed_checks": {"severity": {"Unknown": 14}, "total": 14},
-                "successful_checks": 3,
-                "total_checks": 17,
-                "violating_resources": 23,
+        'data': {
+            'content': {
+                'failed_checks': {'severity': {'Unknown': 14}, 'total': 14},
+                'successful_checks': 3,
+                'total_checks': 17,
+                'violating_resources': 23,
             },
-            "customer_name": "TEST_CUSTOMER",
-            "format": "json",
-            "job_id": aws_job.id,
-            "job_type": "manual",
-            "obfuscated": False,
-            "tenant_name": "AWS-TESTING",
+            'customer_name': 'TEST_CUSTOMER',
+            'format': 'json',
+            'job_id': aws_job.id,
+            'job_type': 'manual',
+            'obfuscated': False,
+            'tenant_name': 'AWS-TESTING',
         }
     }
 
 
-def test_details_report_aws_job(system_user_token, sre_client, aws_job, load_expected):
+def test_details_report_aws_job(
+    system_user_token, sre_client, aws_job, load_expected
+):
     resp = sre_client.request(
-        f"/reports/details/jobs/{aws_job.id}",
+        f'/reports/details/jobs/{aws_job.id}',
         auth=system_user_token,
-        data={"customer_id": aws_job.customer_name},  # on behalf because system
+        data={
+            'customer_id': aws_job.customer_name
+        },  # on behalf because system
     )
     assert resp.status_int == 200
     expected = load_expected('aws_details_report')
@@ -98,21 +107,29 @@ def test_details_report_aws_job(system_user_token, sre_client, aws_job, load_exp
     assert dicts_equal(resp.json, expected)
 
 
-def test_errors_report_aws_job(system_user_token, sre_client, aws_job, load_expected):
+def test_errors_report_aws_job(
+    system_user_token, sre_client, aws_job, load_expected
+):
     resp = sre_client.request(
-        f"/reports/errors/jobs/{aws_job.id}",
+        f'/reports/errors/jobs/{aws_job.id}',
         auth=system_user_token,
-        data={"customer_id": aws_job.customer_name},  # on behalf because system
+        data={
+            'customer_id': aws_job.customer_name
+        },  # on behalf because system
     )
     assert resp.status_int == 200
     assert resp.json == load_expected('aws_job_errors')
 
 
-def test_raw_report_aws_job(system_user_token, sre_client, aws_tenant, aws_job, load_expected):
+def test_raw_report_aws_job(
+    system_user_token, sre_client, aws_tenant, aws_job
+):
     resp = sre_client.request(
-        f"/reports/raw/tenants/{aws_tenant.name}/state/latest",
+        f'/reports/raw/tenants/{aws_tenant.name}/state/latest',
         auth=system_user_token,
-        data={"customer_id": aws_job.customer_name},  # on behalf because system
+        data={
+            'customer_id': aws_job.customer_name
+        },  # on behalf because system
     )
     assert resp.status_int == 200
     # todo test presigned url?
