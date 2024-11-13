@@ -353,7 +353,8 @@ generate_password() {
 get_imds_token () {
   curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 20"
 }
-account_id() { curl -s curl -s -H "X-aws-ec2-metadata-token: $(get_imds_token)" http://169.254.169.254/latest/dynamic/instance-identity/document | jq -r ".accountId"; }
+get_from_metadata() { curl -sf -H "X-aws-ec2-metadata-token: $(get_imds_token)" "http://169.254.169.254/latest$1"; }
+account_id() { get_from_metadata "/dynamic/instance-identity/document" | jq -r ".accountId"; }
 user_exists() { id "$1" &>/dev/null; }
 get_kubectl_secret() {
   kubectl get secret "$1" -o jsonpath="{.data.$2}" | base64 --decode
