@@ -1,25 +1,34 @@
+# Access Guide
 
-### AMI access
+As soon as the AWS CloudFormation stack of EPAM Syndicate Rule Engine changed 
+its state to `CREATE_COMPLETE` you can access the product in the following ways:
+
+### Defect Dojo
+To access the Defect Dojo Web Interface do the following steps: 
+1. Verify if the inbound/outbound HTTPS traffic is allowed to 80 port by the 
+Security Group that is applied to the product instance;
+2. Open https://INSTANCE-PUBLIC-DNS:80 (replace INSTANCE-PUBLIC-DNS with the actual value) 
+in your browser; the Defect Dojo web app will open.  
+
+### CLI
+To access the EPAM Syndicate Rule Engine's CLI please follow these steps:
+1. Verify if the inbound/outbound SSH traffic is allowed to port 22 by the 
+Security Group that is applied to the product instance;
+2. Make sure that you have the SSH key used while instance provisioning;
+3. Ensure the key file has read-only permission for the owner or file user.
+If not, set such permission with the command: `chmod 400 $SSH_KEY_NAME` where 
+`$SSH_KEY_NAME` is replaced with the actual ssh key file name. 
+4. Connect to the product instance using the SSH key using this command: 
+`ssh -i $SSH_KEY_NAME admin@$INSTANCE_PUBLIC_DNS` where:
+   - `$SSH_KEY_NAME` is the actual name of the key file;
+   - `$INSTANCE_PUBLIC_DNS` is the actual public DNS of the instance.
+5. After you successfully log in check if the syndicate CLI is available with the 
+command `syndicate --version`.
+
+### API 
+Coming Soon.
+In case of urgent need please contact [SupportSyndicateTeam@epam.com](mailto:SupportSyndicateTeam@epam.com)
 
 
-When Syndicate Rule Engine Cloud Formation stack is deployed and has `CREATE_COMPLETE` status you can access Syndicate Rule Engine AMI externally by using its APIs if the 
-necessary ports are open by security groups. By default, those are:
-- Defect Dojo on port `80`
-- Modular API on port `8085`
-
-Also, you can access Syndicate Rule Engine main CLI called `syndicate` and helper cli called `sre-init`.
-To access them you must log in to the Syndicate Rule Engine instance using SSH protocol. Make 
-sure 22 port is open by security group and perform this command:
-```bash
-ssh -i $SSH_KEY_NAME admin@$INSTANCE_PUBLIC_DNS
-```
-
-When you successfully logged in to the instance you should be able to use 
-such commands:
-```bash
-syndicate version
-```
-
-```bash
-sre-init version
-```
+### Support
+In case of any issues please contact [SupportSyndicateTeam@epam.com](mailto:SupportSyndicateTeam@epam.com)
