@@ -375,6 +375,9 @@ class MetricsBucketKeysBuilder:
         self._tenant = tenant
 
     def account_metrics(self, dt: datetime) -> str:
+        """
+        Means individual tenant metrics
+        """
         return urljoin(
             self._tenant.customer_name,
             self._accounts,
@@ -383,6 +386,9 @@ class MetricsBucketKeysBuilder:
         )
 
     def tenant_metrics(self, dt: datetime) -> str:
+        """
+        Means tenant group metrics
+        """
         return urljoin(
             self._tenant.customer_name,
             self._tenants,

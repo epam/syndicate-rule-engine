@@ -1,6 +1,7 @@
 from typing import TypeVar, Generic, Any, Iterable
+from models import BaseModel
 
-T = TypeVar('T')
+T = TypeVar('T', bound=BaseModel)
 
 
 class BaseDataService(Generic[T]):
