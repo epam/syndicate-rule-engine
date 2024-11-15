@@ -1,0 +1,112 @@
+name: ci-for-build-and-tests
+
+on:
+  pull_request:
+    branches: [ "main", "develop" ]
+
+jobs:
+  check_modified_files:
+    name: Check modified files in directories
+    runs-on: ubuntu-latest
+    outputs:
+      cli_files_changes_found: ${{ steps.check_cli_files.outputs.changes_found }}
+      src_files_changes_found: ${{ steps.check_src_files.outputs.changes_found }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+   
+
+    - name: Check modified files in cli directory
+      id: check_cli_files
+      shell: bash
+      run: |
+        ls -la ./.github/workflows/
+        git fetch origin ${{ github.pull_request_target }}
+        changed_files=$(git diff --name-only ${{ github.pull_request_target }})
+        echo "Changed files: ${changed_files}"
+        checked_directory="cli/"
+        for file in ${changed_files}
+        do
+          if [[ ${file} == ${checked_directory}* ]]
+          then
+            echo "Target directory was modified."
+            echo "changes_found=true" >>$GITHUB_OUTPUT
+            exit 0
+          fi
+        done
+        echo "Target directory was not modified."
+        echo "changes_found=false" >>$GITHUB_OUTPUT
+        echo "dist=/tmp/bavp/dist" >>$GITHUB_OUTPUT
+
+    - name: Check modified files in src directory
+      id: check_src_files
+      shell: bash
+      run: |
+        git fetch origin ${{ github.pull_request_target }}
+        changed_files=$(git diff --name-only ${{ github.pull_request_target }})
+        echo "Changed files: ${changed_files}"
+        checked_directory="src/"
+        for file in ${changed_files}
+        do
+          if [[ ${file} == ${checked_directory}* ]]
+          then
+            echo "Target directory was modified."
+            echo "changes_found=true" >>$GITHUB_OUTPUT
+            exit 0
+          fi
+        done
+        echo "Target directory was not modified."
+        echo "changes_found=false" >>$GITHUB_OUTPUT
+        echo "dist=/tmp/bavp/dist" >>$GITHUB_OUTPUT
+
+  build_package:
+    name: Build CLI package
+    needs: check_modified_files
+    if: ${{ needs.check_modified_files.outputs.cli_files_changes_found == 'true' }}
+    uses: ./.github/workflows/build-and-check-python-package.yml
+    with:
+      path: ./cli
+
+  tests:
+    name: Run Python tests
+    needs: check_modified_files
+    if: ${{ needs.check_modified_files.outputs.src_files_changes_found == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+   
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Setup test env
+      run: |
+        python -VV
+        pip install virtualenv
+        virtualenv .venv
+        source .venv/bin/activate
+        pip --cache-dir=.cache/pip --quiet install tox
+        
+    - name: tests
+      run: |
+        source .venv/bin/activate
+        tox -e py310
+
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: coverage.xml
+        retention-days: 1
+
+    - name: Upload test report
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-report
+        path: report.xml
+        retention-days: 1
