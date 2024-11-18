@@ -22,8 +22,8 @@ jobs:
       shell: bash
       run: |
         ls -la ./.github/workflows/
-        git fetch origin ${{ github.pull_request_target }}
-        changed_files=$(git diff --name-only ${{ github.pull_request_target }})
+        git fetch origin ${{ github.event.pull_request.base.sha }}
+        changed_files=$(git diff --name-only ${{ github.event.pull_request.base.sha }})
         echo "Changed files: ${changed_files}"
         checked_directory="cli/"
         for file in ${changed_files}
@@ -43,8 +43,8 @@ jobs:
       id: check_src_files
       shell: bash
       run: |
-        git fetch origin ${{ github.pull_request_target }}
-        changed_files=$(git diff --name-only ${{ github.pull_request_target }})
+        git fetch origin ${{ github.event.pull_request.base.sha }}
+        changed_files=$(git diff --name-only ${{ github.event.pull_request.base.sha }})
         echo "Changed files: ${changed_files}"
         checked_directory="src/"
         for file in ${changed_files}
