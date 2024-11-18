@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Syndicate Rule Engine AMI deployment template"
+Description: "EPAM Syndicate Rule Engine AMI deployment template"
 Mappings:
   RegionMap:
     eu-north-1:
@@ -38,15 +38,15 @@ Mappings:
       ImageId: ami-xxxxxxxxxxxxxxxxx
 Parameters:
   SubnetId:
-    Description: "ID of a subnet within the VPC"
+    Description: "Choose a subnet to launch the instance in"
     Type: "AWS::EC2::Subnet::Id"
   SecurityGroupIds:
-    Description: "Security groups to attach to the instance. Must allow TCP traffic on 80, 8085, 9000 ports by default"
+    Description: "Specify security groups to be attached to the instance. By default, the following ports are used: 80 (Defect dojo), 8085 (API), 9000 (Minio API). Consider opening these ports if these services should be available outside the instance"
     Type: "List<AWS::EC2::SecurityGroup::Id>"
   KeyName:
     Description: "Name of an existing EC2 KeyPair to enable SSH access to the instances"
     Type: "AWS::EC2::KeyPair::KeyName"
-    ConstraintDescription: "must be the name of an existing EC2 KeyPair."
+    ConstraintDescription: "Name of an existing EC2 Key Pair"
   InstanceType:
     Description: "EC2 Instance type"
     Type: String
@@ -63,7 +63,7 @@ Parameters:
       - c7g.large
       - c7g.xlarge
   InstanceName:
-    Description: "Name for the Syndicate Rule Engine instance. Keep empty to give it the name of the stack"
+    Description: "Name for the EPAM Syndicate Rule Engine instance. Stack name will be used as instance name if custom value is not specified"
     Type: String
     Default: ""
   InstanceRoleName:
@@ -71,8 +71,8 @@ Parameters:
     Type: String
     Default: ""
   TenantName:
-    Description: "Syndicate Rule Engine tenant name to create. The tenant represents THIS AWS Account. The name will be used instead of the default name."
-    Default: ""
+    Description: "The initial tenant to be activated, represents the AWS Account where the product is installed"
+    Default: "TENANT_1"
     Type: String
     AllowedPattern: "^[A-Z0-9_-]*$"
     ConstraintDescription: "must contain only uppercase letters, digits, underscores and dashes"
@@ -84,7 +84,7 @@ Metadata:
   AWS::CloudFormation::Interface:
     ParameterLabels:
       SubnetId:
-        default: "Subnet where to launch the instance. Must be within the VPC"
+        default: "Subnet to launch the instance in"
       SecurityGroupIds:
         default: "Security groups to attach to instance"
       KeyName:
@@ -92,13 +92,13 @@ Metadata:
       InstanceName:
         default: "Instance name"
       InstanceType:
-        default: "Graviton Instance Type"
+        default: "Instance Type"
       InstanceRoleName:
-        default: "IAM Role name"
+        default: "IAM Role Name"
       TenantName:
-        default: "Syndicate Rule Engine tenant name"
+        default: "Tenant Name"
       AdminEmails:
-        default: "Emails of Syndicate Rule Engine admins"
+        default: "Emails of installation administrators"
     ParameterGroups:
       - Label:
           default: "Network configuration"
@@ -113,7 +113,7 @@ Metadata:
           - KeyName
           - InstanceRoleName
       - Label:
-          default: "Syndicate Rule Engine configuration"
+          default: "EPAM Syndicate Rule Engine configuration"
         Parameters:
           - TenantName
           - AdminEmails
