@@ -5,11 +5,9 @@ from functools import cached_property
 from typing import Optional, Callable, TypeVar, Iterator, Iterable, Union
 
 from helpers.constants import JobType, JobState
-from helpers.log_helper import get_logger
 from services.batch_results_service import BatchResultsService, BatchResults
 from services.job_service import JobService, Job
 
-_LOG = get_logger(__name__)
 
 Source = Job | BatchResults
 
@@ -95,6 +93,10 @@ class AmbiguousJob:
     def is_succeeded(self) -> bool:
         return self.status == JobState.SUCCEEDED.value
 
+    @property
+    def is_failed(self) -> bool:
+        return self.status == JobState.FAILED.value
+
     def __getattr__(self, item):
         """
         All the other attributes can be accessed directly
@@ -155,9 +157,9 @@ class AmbiguousJobService:
         return heapq.merge(jobs, brs, key=key, reverse=not ascending)
 
     def get_by_customer_name(self, customer_name: str,
-                             job_type: JobType = None, status: JobState = None,
-                             start: datetime = None, end: datetime = None,
-                             ascending: bool = False, limit: int = None,
+                             job_type: JobType | None = None, status: JobState | None = None,
+                             start: datetime | None = None, end: datetime | None = None,
+                             ascending: bool = False, limit: int | None = None,
                              ) -> Iterable[Source]:
         cursor1 = self.job_service.get_by_customer_name(
             customer_name=customer_name,
@@ -184,9 +186,9 @@ class AmbiguousJobService:
                 return self.merged(cursor1, cursor2, ascending)
 
     def get_by_tenant_name(self, tenant_name: str,
-                           job_type: JobType = None, status: JobState = None,
-                           start: datetime = None, end: datetime = None,
-                           ascending: bool = False, limit: int = None,
+                           job_type: JobType | None = None, status: JobState | None = None,
+                           start: datetime | None = None, end: datetime | None = None,
+                           ascending: bool = False, limit: int | None = None,
                            ) -> Iterable[Source]:
         cursor1 = self.job_service.get_by_tenant_name(
             tenant_name=tenant_name,

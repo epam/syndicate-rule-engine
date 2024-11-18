@@ -10,7 +10,6 @@ from helpers.constants import Cloud, ReportFormat, PolicyErrorType
 from helpers.log_helper import get_logger
 from models.batch_results import BatchResults
 from models.job import Job
-from services import cache
 from services.ambiguous_job_service import AmbiguousJob
 from services.clients.s3 import S3Client, Json
 from services.environment_service import EnvironmentService
@@ -100,8 +99,6 @@ class ReportService:
         self.s3_client = s3_client
         self.environment_service = environment_service
         self.mappings_collector = mappings_collector
-
-        self._ipv4_cache = cache.TTLCache(maxsize=2, ttl=300)
 
     def job_collection(self, tenant: Tenant, job: Job) -> ShardsCollection:
         collection = ShardsCollectionFactory.from_tenant(tenant)

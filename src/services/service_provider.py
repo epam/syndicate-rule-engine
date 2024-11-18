@@ -46,6 +46,7 @@ if TYPE_CHECKING:
     from services.rbac_service import RoleService, PolicyService
     from services.clients.step_function import ScriptClient, StepFunctionClient
     from services.chronicle_service import ChronicleInstanceService
+    from services.reports import ReportMetricsService
 
 
 _LOG = get_logger(__name__)
@@ -367,3 +368,8 @@ class ServiceProvider(metaclass=SingletonMeta):
             application_service=self.modular_client.application_service(),
             parent_service=self.modular_client.parent_service()
         )
+
+    @cached_property
+    def report_metrics_service(self) -> 'ReportMetricsService':
+        from services.reports import ReportMetricsService
+        return ReportMetricsService()

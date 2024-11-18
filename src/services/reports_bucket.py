@@ -121,6 +121,7 @@ class ReportsBucketKeysBuilder(ABC):
         """
         Returns the nearest to given date existing snapshot key
         """
+        # todo can be cached
         prefixes = SP.s3.common_prefixes(
             bucket=SP.environment_service.default_reports_bucket_name(),
             delimiter='/',

@@ -1,0 +1,72 @@
+{
+  "ecc-aws-427-rds_cluster_without_tag_information": {
+    "resource": "aws.rds-cluster",
+    "description": "Description for ecc-aws-427-rds_cluster_without_tag_information",
+    "comment": "010010062000"
+  },
+  "ecc-aws-149-rds_public_access_disabled": {
+    "resource": "aws.rds",
+    "description": "Description for ecc-aws-149-rds_public_access_disabled",
+    "comment": "010040062900"
+  },
+  "ecc-aws-167-security_group_ingress_is_restricted_traffic_to_port_143": {
+    "resource": "aws.security-group",
+    "description": "Description for ecc-aws-167-security_group_ingress_is_restricted_traffic_to_port_143",
+    "comment": "010042022000"
+  },
+  "ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances": {
+    "resource": "aws.ebs",
+    "description": "Description for ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances",
+    "comment": "010002042000"
+  },
+  "ecc-aws-490-ec2_token_hop_limit_check": {
+    "resource": "aws.ec2",
+    "description": "Description for ecc-aws-490-ec2_token_hop_limit_check",
+    "comment": "010024032010"
+  },
+  "ecc-aws-229-ecr_repository_kms_encryption_enabled": {
+    "resource": "aws.ecr",
+    "description": "Description for ecc-aws-229-ecr_repository_kms_encryption_enabled",
+    "comment": "010043082000"
+  },
+  "ecc-aws-374-cloudtrail_logs_data_events": {
+    "resource": "aws.cloudtrail",
+    "description": "Description for ecc-aws-374-cloudtrail_logs_data_events",
+    "comment": "010019012000"
+  },
+  "ecc-aws-150-api_gateway_rest_api_encryption_at_rest": {
+    "resource": "aws.rest-stage",
+    "description": "Description for ecc-aws-150-api_gateway_rest_api_encryption_at_rest",
+    "comment": "010043022000"
+  },
+  "ecc-aws-070-unused_ec2_security_groups": {
+    "resource": "aws.security-group",
+    "description": "Description for ecc-aws-070-unused_ec2_security_groups",
+    "comment": "010018022000"
+  },
+  "ecc-aws-221-sns_kms_encryption_enabled": {
+    "resource": "aws.sns",
+    "description": "Description for ecc-aws-221-sns_kms_encryption_enabled",
+    "comment": "010042022000"
+  },
+  "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled": {
+    "resource": "aws.s3",
+    "description": "Description for ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+    "comment": "010047042901"
+  },
+  "ecc-aws-499-iam_group_has_users_check": {
+    "resource": "aws.iam-group",
+    "description": "Description for ecc-aws-499-iam_group_has_users_check",
+    "comment": "010018002001"
+  },
+  "ecc-aws-516-s3_event_notifications_enabled": {
+    "resource": "aws.s3",
+    "description": "Description for ecc-aws-516-s3_event_notifications_enabled",
+    "comment": "010019042001"
+  },
+  "ecc-aws-527-waf_global_webacl_not_empty": {
+    "resource": "aws.waf",
+    "description": "Description for ecc-aws-527-waf_global_webacl_not_empty",
+    "comment": "010002092001"
+  }
+}

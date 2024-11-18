@@ -1,6 +1,6 @@
 import os
 import msgspec
-from datetime import timedelta
+from datetime import timedelta, datetime
 from typing import TYPE_CHECKING
 
 from pathlib import Path
@@ -60,19 +60,29 @@ def clear_envs():
     os.environ.pop(CAASEnv.API_GATEWAY_HOST.value, None)
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def aws_scan_result() -> Path:
     return DATA / "cloud_custodian" / "aws"
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def azure_scan_result() -> Path:
     return DATA / "cloud_custodian" / "azure"
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def google_scan_result() -> Path:
     return DATA / "cloud_custodian" / "google"
+
+
+@pytest.fixture(scope='session')
+def aws_shards_path() -> Path:
+    return DATA / "shards" / "aws"
+
+
+@pytest.fixture()
+def utcnow() -> datetime:
+    return utc_datetime()
 
 
 @pytest.fixture(scope='session')
