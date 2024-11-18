@@ -6,7 +6,7 @@ import shutil
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta
-from typing import Generator, Iterable, Optional, TypedDict, BinaryIO, cast
+from typing import BinaryIO, Generator, Iterable, Optional, TypedDict, cast
 
 import msgspec
 from botocore.config import Config
@@ -17,8 +17,11 @@ from urllib3.util import Url, parse_url
 from helpers.constants import CAASEnv
 from helpers.log_helper import get_logger
 from services import cache
-from services.clients import (Boto3ClientWrapperFactory, Boto3ClientFactory,
-                              Boto3ClientWrapper)
+from services.clients import (
+    Boto3ClientFactory,
+    Boto3ClientWrapper,
+    Boto3ClientWrapperFactory,
+)
 
 _LOG = get_logger(__name__)
 
@@ -30,6 +33,7 @@ class S3Url:
 
     def __init__(self, s3_url: str):
         self._parsed: Url = parse_url(s3_url)
+        assert isinstance(self._parsed.path, str) and self._parsed.path.lstrip('/'), 'Bucket key cannot be empty'
 
     @property
     def bucket(self) -> str:
@@ -37,11 +41,21 @@ class S3Url:
 
     @property
     def key(self) -> str:
-        return self._parsed.path.lstrip('/') if self._parsed.path else None
+        return self._parsed.path.lstrip('/')
 
     @property
     def url(self) -> str:
         return self._parsed.url
+
+    def __str__(self) -> str:
+        return f's3://{self.bucket}/{self.key}'
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}({self})'
+
+    @classmethod
+    def build(cls, bucket: str, key: str) -> 'S3Url':
+        return cls(f's3://{bucket.strip()}/{key.lstrip("/")}')
 
 
 class S3ClientWrapperFactory(Boto3ClientWrapperFactory['S3Client']):
