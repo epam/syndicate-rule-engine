@@ -45,13 +45,13 @@ class S3Url:
 
     @property
     def url(self) -> str:
-        return self._parsed.url
-
-    def __str__(self) -> str:
         return f's3://{self.bucket}/{self.key}'
 
+    def __str__(self) -> str:
+        return self.url
+
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}({self})'
+        return f'{self.__class__.__name__}({self.url})'
 
     @classmethod
     def build(cls, bucket: str, key: str) -> 'S3Url':

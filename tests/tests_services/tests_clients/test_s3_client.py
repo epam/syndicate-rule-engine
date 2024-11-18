@@ -9,7 +9,7 @@ def test_s3_url():
     assert S3Url('s3://my-bucket/one/two/three.json').url == 's3://my-bucket/one/two/three.json'
 
 
-    assert S3Url('my-bucket/one/two/three.json').url == 'my-bucket/one/two/three.json'
+    assert S3Url('my-bucket/one/two/three.json').url == 's3://my-bucket/one/two/three.json'
     assert S3Url('my-bucket/one/two/three.json').bucket == 'my-bucket'
     assert S3Url('my-bucket/one/two/three.json').key == 'one/two/three.json'
     assert str(S3Url('my-bucket/one/two/three.json')) == 's3://my-bucket/one/two/three.json'
