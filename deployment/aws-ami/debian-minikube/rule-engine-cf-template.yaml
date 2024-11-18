@@ -41,14 +41,14 @@ Parameters:
     Description: "Choose a subnet to launch the instance in"
     Type: "AWS::EC2::Subnet::Id"
   SecurityGroupIds:
-    Description: "Specify security groups to be attached to the instance. By default, the following ports are used: 80 (Defect dojo), 8085 (API), 9000 (Minio API). Consider opening these ports if these services should be available outside the instance"
+    Description: "Specify security groups to be attached to the instance. By default, the following ports are used: 80 (Defect dojo), 8085 (API), 9000 (Minio API). Consider to select Security Group with the ports opened if these services should be available outside the instance"
     Type: "List<AWS::EC2::SecurityGroup::Id>"
   KeyName:
-    Description: "Name of an existing EC2 KeyPair to enable SSH access to the instances"
+    Description: "Choose key pair. Make sure you have access to the selected keys"
     Type: "AWS::EC2::KeyPair::KeyName"
     ConstraintDescription: "Name of an existing EC2 Key Pair"
   InstanceType:
-    Description: "EC2 Instance type"
+    Description: "Choose a type for the instance"
     Type: String
     Default: m7g.medium
     ConstraintDescription: "must be ARM-based instance type, m7g.medium is minimal required type"
@@ -63,9 +63,9 @@ Parameters:
       - c7g.large
       - c7g.xlarge
   InstanceName:
-    Description: "Name for the EPAM Syndicate Rule Engine instance. Stack name will be used as instance name if custom value is not specified"
+    Description: "Name for the EPAM Syndicate Rule Engine instance"
     Type: String
-    Default: ""
+    Default: "EPAM Syndicate Rule Engine"
   InstanceRoleName:
     Description: "IAM Role name to attach to the instance. Keep empty to start instance without attached role"
     Type: String

@@ -15,7 +15,7 @@ Required parameters:
 - **AWS Subnet id:** сhoose a subnet to launch the instance in;
 - **AWS Security groups ids:** specify security groups to be attached to the instance. By default, 
 the following ports are used: 80 (Defect dojo), 8085 (API), 9000 (Minio API).
-Consider opening these ports if these services should be available outside the instance;
+Consider to select Security Group with the ports opened if these services should be available outside the instance;
 - **EC2 Instance Type:** choose a type for the instance;
 - **SSH Key pair name:** choose key pair. Make sure you have access to the selected key. 
 
@@ -38,12 +38,12 @@ Click `Next` if all parameters are set.
 Configure AWS CloudFormation options provided by AWS:
 
 - **Permissions:** specify IAM Role that will be used by AWS CloudFormation to deploy the stack. The role must have 
-  permissions to create such AWS resources: EC2 Security Groups, EC2 Launch Templates, EC2 Instance Profiles, EC2 Instances.
-  Credentials of the user who deploys the stack are used in case of no Role is specified.
+  permissions to create such AWS resources: EC2 Launch Templates, EC2 Instance Profiles, EC2 Instances.
+  Credentials of the user who deploys the stack are used in case of no Role is specified;
 - **Stack failure options:** choose the `Preserve successfully provisioned resources` option. It will ensure that You will
   still be able to access the instance in case the initial setup fails. If such event happens You will be able to access
   initialization logs and share them with EPAM Syndicate Team. If You choose the default value for this option,
-  AWS CloudFormation will terminate the instance immediately when the installation fails.
+  AWS CloudFormation will terminate the instance immediately when the installation fails;
 - **Capabilities:** confirm that You `Acknowledge that AWS CloudFormation might create IAM resources.`. It's required
   if You specified IAM Role in the previous section. No custom role will be created but the one You have specified will 
   be attached to the instance profile.
@@ -52,7 +52,7 @@ Click `Next` if all options are set.
 
 ## 4. Create stack
 
-Review all the parameters and options and click `Submit`
+Review all the parameters and options and click `Submit`.
 
 ## 5. After the AWS CloudFormation stack creation
 
@@ -75,7 +75,9 @@ In case the `Preserve successfully provisioned resources` option was enabled on 
 Please follow these steps to download the initialization log file and share it with the support team:
 1. Make sure the instance's port 22 is open for your IP address;
 2. Make sure there is access to the Key Pair file used on instance startup;
-3. Execute the following command to get the log file from the instance `scp -i $SSH_KEY_NAME admin@$INSTANCE_PUBLIC_DNS:/var/log/sre-init.log /$YOUR_LOCAL_DIRECTORY/` where:
+3. Execute the following command to get the log file from the instance:
+
+`scp -i $SSH_KEY_NAME admin@$INSTANCE_PUBLIC_DNS:/var/log/sre-init.log /$YOUR_LOCAL_DIRECTORY/`, where:
    - `$SSH_KEY_NAME` is the actual name of the key file;
    - `$INSTANCE_PUBLIC_DNS` is the actual public DNS of the instance;
    - `$YOUR_LOCAL_DIRECTORY` is the path on you local machine where the log file will be saved.
