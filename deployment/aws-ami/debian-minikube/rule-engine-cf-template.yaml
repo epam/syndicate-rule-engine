@@ -101,19 +101,19 @@ Metadata:
         default: "Emails of installation administrators"
     ParameterGroups:
       - Label:
-          default: "Network configuration"
+          default: "Network Configuration"
         Parameters:
           - SubnetId
           - SecurityGroupIds
       - Label:
-          default: "EC2 Instance configuration"
+          default: "EC2 Instance Configuration"
         Parameters:
           - InstanceName
           - InstanceType
           - KeyName
           - InstanceRoleName
       - Label:
-          default: "EPAM Syndicate Rule Engine configuration"
+          default: "Service Configuration"
         Parameters:
           - TenantName
           - AdminEmails
