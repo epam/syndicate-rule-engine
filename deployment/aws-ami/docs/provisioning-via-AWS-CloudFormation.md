@@ -76,14 +76,15 @@ Please follow these steps to download the initialization log file and share it w
 1. Make sure the instance's port 22 is open for your IP address;
 2. Make sure there is access to the Key Pair file used on instance startup;
 3. Execute the following command to get the log file from the instance:
-
     ```bash
     scp -i $SSH_KEY_NAME admin@$INSTANCE_PUBLIC_DNS:/var/log/sre-init.log /$YOUR_LOCAL_DIRECTORY/
     ```
-    where:
-       - `$SSH_KEY_NAME` is the actual name of the key file;
-       - `$INSTANCE_PUBLIC_DNS` is the actual public DNS of the instance;
-       - `$YOUR_LOCAL_DIRECTORY` is the path on you local machine where the log file will be saved.
+   where:
+   - `$SSH_KEY_NAME` is the actual name of the key file;
+   - `$INSTANCE_PUBLIC_DNS` is the actual public DNS of the instance;
+   - `$YOUR_LOCAL_DIRECTORY` is the path on you local machine where the log file will be saved.
+
+
 4. After downloading the file the AWS CloudFormation stack can be deleted;
 5. Attach the log to the email and send it to [SupportSyndicateTeam@epam.com](mailto:SupportSyndicateTeam@epam.com) please.
 
