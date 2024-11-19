@@ -1,196 +1,231 @@
+from __future__ import annotations
+
+import itertools
+import statistics
 from enum import Enum
-from statistics import mean
+from typing import Annotated, Generator
 
-from helpers.constants import GLOBAL_REGION, Cloud
-from helpers.log_helper import get_logger
-from helpers.reports import Standard
-from services.mappings_collector import LazyLoadedMappingsCollector
-from services.sharding import ShardsCollection
+import msgspec
+from typing_extensions import Self
 
-
-class CoverageKey(str, Enum):
-    POINTS = 'P'
-    PERCENTAGES = '%'
+PercentFloat = Annotated[float, msgspec.Meta(ge=-1.0, le=1.0)]
+NonNegativeInt = Annotated[int, msgspec.Meta(ge=0)]
 
 
-_LOG = get_logger(__name__)
+class QOption(str, Enum):
+    """
+    Questionnaire options
+    """
 
-Points = dict[Standard, set[str]]
-RegionPoints = dict[str, Points]
-Coverage = dict[Standard, float]
+    percent: PercentFloat
+
+    def __new__(cls, value: str, percent: PercentFloat):
+        """
+        All environment variables and optionally their default values.
+        Since envs always have string type the default value also should be
+        of string type and then converted to the necessary type in code.
+        There is no default value if not specified (default equal to unset)
+        """
+        obj = str.__new__(cls, value)
+        obj._value_ = value
+
+        obj.percent = percent
+        return obj
+
+    # these percents may be wrong but seems like all coverages have same values
+    NOT_APPLICABLE = 'NA', -1.0
+    NOT_COMPATIBLE = 'NC', 0.0
+    SOMEWHAT_COMPATIBLE = 'SC', 0.25
+    PARTIALLY_COMPATIBLE = 'PC', 0.5
+    MOSTLY_COMPATIBLE = 'MC', 0.75
+    FULLY_COMPATIBLE = 'FC', 1.0
 
 
-class CoverageCalculator:  # todo test
-    def __init__(self, standards_coverage: dict):
-        self._standards_coverage = standards_coverage
+class CoverageNode(msgspec.Struct, frozen=True):
+    """
+    Coverage Control is a recursive structure that holds some info
+    about points and questinaries for a version of some standard
+    """
+
+    # NOTE: all commented values currently are just not necessary for
+    # the algorithm so i ignore them.
+
+    # percent: PercentFloat = msgspec.field(name='%')
+    points: dict[str, CoverageNode] | msgspec.UnsetType = msgspec.field(
+        name='P', default=msgspec.UNSET
+    )
+    # section_title: str | msgspec.UnsetType = msgspec.field(
+    #     name='S', default=msgspec.UNSET
+    # )
+    # control_title: str | msgspec.UnsetType = msgspec.field(
+    #     name='C', default=msgspec.UNSET
+    # )
+    # compliant_rules: NonNegativeInt | msgspec.UnsetType = msgspec.field(
+    #     name='compliant_rules', default=msgspec.UNSET
+    # )
+    total_rules: NonNegativeInt | msgspec.UnsetType = msgspec.field(
+        name='total_rules', default=msgspec.UNSET
+    )
+
+    # @property
+    # def title(self) -> str | None:
+    #     if self.control_title is not msgspec.UNSET:
+    #         return self.control_title
+    #     if self.section_title is not msgspec.UNSET:
+    #         return self.section_title
+
+    @property
+    def is_control(self) -> bool:
+        """
+        Each control must have total_rules so we probably can rely on that.
+        """
+        return self.total_rules is not msgspec.UNSET
+
+    @property
+    def is_section(self) -> bool:
+        """
+        Everything that is not control is probably a section or a subsection.
+        Not so important here.
+        """
+        return not self.is_control
 
     @classmethod
-    def _calculate(cls, coverage: dict, points: set) -> float:
-        """Calculates coverage percents based on coverage data and
-        given points. Coverage data dict consists of so-called "Point" dicts.
-        One Point dict looks like this:
-        point_dict = {
-            "%": 0.56,
-            "P": {
-                "point1": $point_dict,
-                "point2": $point_dict
-            }
-        }
-        Coverage data dict on the highest level starts with a list of points:
-        coverage = {
-            "point1": $point_dict,
-            "point2": $point_dict
-        }
-        "points" variable is a required set of points or/and sub-points to
-        calculate coverage for:
-        points = {"point1", "point2"}
-        """
-        if not coverage:
-            return 0
-        percents: list[float] = []
-        for point, data in coverage.items():
-            if point in points:
-                percents.append(data.get(CoverageKey.PERCENTAGES, 0))
-            elif data.get(CoverageKey.PERCENTAGES, 0):
-                percents.append(
-                    cls._calculate(data.get(CoverageKey.POINTS, {}), points))
-            else:
-                percents.append(0)
-        return mean(percents)
+    def _traverse_points(
+        cls, points: dict[str, CoverageNode] | msgspec.UnsetType
+    ) -> Generator[tuple[str, CoverageNode], None, None]:
+        if points is msgspec.UNSET or not points:
+            return
+        for name, leaf in points.items():
+            yield name, leaf
+            yield from cls._traverse_points(leaf.points)
 
-    def get_coverage(self, points: Points) -> Coverage:
+    def traverse(self) -> Generator[tuple[str, CoverageNode], None, None]:
         """
-        Accepts a dict where keys are Standard instances and values are sets
-        of points within this standard. Returns a dict of standard
-        instances to calculated coverages
-        :param points:
-        [0 - 100]
-        :return:
+        Iterates over all nodes. Yields name and corresponding node.
+        Eield reserverd name for the root node: root
         """
-        coverages = {}
-        for standard, standard_points in points.items():
-            standard_params = self._standards_coverage.get(
-                standard.name, {}).get(standard.version)
-            if not standard_params:
-                _LOG.warning(f'Not found standards coverages for '
-                             f'{standard}. Skipping the standard')
+        yield 'root', self
+        yield from self._traverse_points(self.points)
+
+    def iter_control_total_rules(
+        self,
+    ) -> Generator[tuple[str, int], None, None]:
+        """
+        Iterates over each node but yields only contols: their names and
+        total number of rules. Those are values we need
+        """
+        _unset = msgspec.UNSET
+        for name, leaf in self.traverse():
+            # we don't need controls with 0 rules. Those are for questions
+            if leaf.total_rules is _unset or leaf.total_rules == 0:
                 continue
-            standard_coverage = self._calculate(
-                self._coverages_value(standard_params), standard_points)
-            coverages[standard] = standard_coverage
-        return coverages
+            yield name, leaf.total_rules
 
-    @staticmethod
-    def _coverages_value(d: dict):
+
+class CoverageCalculator:
+    """
+    As simple as it can be. Calculates coverage for some specific standard and
+    version pair.
+
+    Each standard has a concrete number N of so-called "controls".
+    Coverage for a standard is a mean value of coverages of all its controls.
+    Coverage for a control is ratio between number of rules that succesfully
+    verified this control and total number of rules that check for this
+    control (currently we have no technical ability to take number of
+    resources in consideration). Also, coverage for a control can be
+    derived based on client's answers regarding some specific aspects of his
+    infrastructure. Those controls must be provided from outside.
+    User responses have higher priority.
+    """
+
+    __slots__ = '_cm', '_tc', '_buf'
+
+    def __init__(
+        self,
+        coverage_of_missing: float = 0.0,
+        total_controls: int | None = None,
+    ):
         """
-        Retrieves the value of the first key in coverages dict
-        which is not the '%' key
+        Initialized a new coverage calculator. Its methods generally return
+        the same instance of calculator and can be used in calls chain.
+
+        :param coverage_of_missing: how covered to consider controls without
+        provided information
+        :param total_controls: total number of controls. If not specified the
+        number of already provided controls will be used
         """
-        keys = list(d)
-        if len(keys) == 0 or \
-                (len(keys) == 1 and keys[0] == CoverageKey.PERCENTAGES):
-            return {}
-        for key in keys:
-            if key != CoverageKey.PERCENTAGES:
-                return d[key]
+        self._cm: PercentFloat = coverage_of_missing
+        self._buf: dict[str, PercentFloat] = {}
+        # TODO: allow to use Decimal if needed + validate each percent to be
+        # either -1 or 0..1
 
+        self._tc: int | None = None
+        if total_controls is not None:
+            self.set_total(total_controls)
 
-class CoverageService:
-    def __init__(self, mappings_collector: LazyLoadedMappingsCollector):
-        self._mappings_collector = mappings_collector
-
-    def points_from_collection(self, collection: ShardsCollection
-                               ) -> RegionPoints:
+    def reset(self) -> Self:
         """
-        Derives points from shards collection to the following format:
-        {'region': {Standard: {'point1', 'point2', 'point3'}}}
-        :param collection:
-        :return: Points
+        Resets ONLY controls buffer.
         """
-        remapped = {}  # policy to its parts
-        for part in collection.iter_parts():
-            remapped.setdefault(part.policy, []).append(part)
-        points = {}
-        for policy, parts in remapped.items():
-            standards = Standard.deserialize(
-                self._mappings_collector.standard.get(policy) or {}
-            )
-            for part in parts:
-                points.setdefault(part.location, {})
-                for standard in standards:
-                    points[part.location].setdefault(standard, set())
-                    if not part.resources:
-                        points[part.location][standard].update(standard.points)
-        return points
+        self._buf.clear()
+        return self
 
-    def standards_coverage(self, cloud: Cloud) -> dict:
-        match cloud:
-            case Cloud.AWS:
-                return self._mappings_collector.aws_standards_coverage
-            case Cloud.AZURE:
-                return self._mappings_collector.azure_standards_coverage
-            case Cloud.GOOGLE:
-                return self._mappings_collector.google_standards_coverage
-            case _:
-                return {}
+    def set_total(self, n: int) -> Self:
+        assert n > 0, 'total must be bigger than 0'
+        self._tc = n
+        return self
 
-    @staticmethod
-    def distribute_global(points: RegionPoints) -> RegionPoints:
+    @property
+    def total(self) -> int:
+        if self._tc is not None:
+            return self._tc
+        return len(self._buf)
+
+    def update(
+        self,
+        one: dict[str, PercentFloat] | str,
+        two: PercentFloat | int | None = None,
+        three: int | None = None,
+        /,
+    ) -> Self:
         """
-        Updates each region's points with global points.
-        The method updates the given object and returns it as well,
-        (just to keep +- similar interface)
-        :param points:
-        :return:
+        It's up to you not to pass values that higher than 1 or less 0 here
+        (-1 is allowed)
+        >>> c = CoverageCalculator()
+        >>> c.update({"1.1": 0.5, "1.2": 0.5})  # ok
+        >>> c.update('1.1', 0.5)  # ok
+        >>> c.update('1.1', 2, 4)  # ok
         """
-        if len(points) == 1:  # only one region in dict
-            return points
-        multi_region = points.pop(GLOBAL_REGION, None)
-        if not multi_region:
-            return points
-        for region, region_result in points.items():
-            for standard, _points in multi_region.items():
-                points[region].setdefault(standard, set()).update(_points)
-        return points
+        if isinstance(one, dict):
+            self._buf.update(one)
+            return self
+        if three is not None:
+            assert two is not None and two <= three, 'Invalid usage'
+            self._buf[str(one)] = two / three
+            return self
 
-    @staticmethod
-    def congest_to_global(points: RegionPoints) -> RegionPoints:
+        assert two is not None, 'Invalid usage'
+        self._buf[str(one)] = two
+        return self
+
+    def produce(self) -> float | None:
         """
-        Merges all the points to global ones
-        :param points:
-        :return:
+        Returns None if cannot calculate coverage. It can be in case the
+        total number of controls is zero or specified total is lower than
+        number of provided controls.
+        Controls with -1.0 coverage are discarded from calculation.
         """
-        standards = {}
-        for region_data in points.values():
-            for standard, points in region_data.items():
-                standards.setdefault(standard, set()).update(points)
-        return {GLOBAL_REGION: standards}
+        buf_l = len(self._buf)
+        total = self.total
+        if total == 0 or total < buf_l:
+            return
+        # by here total >= len(self._buf)
 
-    @staticmethod
-    def format_coverage(coverage: Coverage) -> dict[str, float]:
-        """
-        Replaces Standard instances with strings, transforms 0-1 to percents
-        """
-        return {k.full_name: round(v * 100, 2) for k, v in coverage.items()}
-
-    def calculate_region_coverages(self, points: RegionPoints, cloud: Cloud,
-                                   ) -> dict[str, Coverage]:
-        calc = CoverageCalculator(self.standards_coverage(cloud))
-        return {
-            region: calc.get_coverage(region_points)
-            for region, region_points in points.items()
-        }
-
-    def format_region_coverages(self, coverages: dict[str, Coverage]
-                                ) -> dict[str, float]:
-        return {k: self.format_coverage(v) for k, v in coverages.items()}
-
-    def coverage_from_collection(self, collection: ShardsCollection,
-                                 cloud: Cloud) -> dict:
-        points = self.points_from_collection(collection)
-        if cloud == Cloud.AWS:
-            points = self.distribute_global(points)
-        if cloud == Cloud.AZURE:
-            points = self.congest_to_global(points)
-        coverages = self.calculate_region_coverages(points, cloud)
-        return self.format_region_coverages(coverages)
+        it = itertools.chain(
+            self._buf.values(), itertools.repeat(self._cm, total - buf_l)
+        )
+        it = filter(lambda x: x != -1.0, it)
+        items = tuple(it)
+        if len(items) == 0:
+            return
+        return statistics.mean(items)
