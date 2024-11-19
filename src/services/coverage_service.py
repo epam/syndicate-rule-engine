@@ -20,12 +20,6 @@ class QOption(str, Enum):
     percent: PercentFloat
 
     def __new__(cls, value: str, percent: PercentFloat):
-        """
-        All environment variables and optionally their default values.
-        Since envs always have string type the default value also should be
-        of string type and then converted to the necessary type in code.
-        There is no default value if not specified (default equal to unset)
-        """
         obj = str.__new__(cls, value)
         obj._value_ = value
 
