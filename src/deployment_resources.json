@@ -4925,7 +4925,7 @@
               }
             }
           ],
-          "lambda_name": "caas-report-generation-handler",
+          "lambda_name": "caas-report-generator",
           "method_request_models": {
             "application/json": "OperationalGetReportModel"
           },
@@ -4999,7 +4999,7 @@
               }
             }
           ],
-          "lambda_name": "caas-report-generation-handler",
+          "lambda_name": "caas-report-generator",
           "method_request_models": {
             "application/json": "ProjectGetReportModel"
           },
@@ -5073,7 +5073,7 @@
               }
             }
           ],
-          "lambda_name": "caas-report-generation-handler",
+          "lambda_name": "caas-report-generator",
           "method_request_models": {
             "application/json": "DepartmentGetReportModel"
           },
@@ -5147,7 +5147,7 @@
               }
             }
           ],
-          "lambda_name": "caas-report-generation-handler",
+          "lambda_name": "caas-report-generator",
           "method_request_models": {
             "application/json": "CLevelGetReportModel"
           },
@@ -5209,7 +5209,7 @@
             "validate_request_body": false,
             "validate_request_parameters": false
           },
-          "lambda_name": "caas-report-generation-handler",
+          "lambda_name": "caas-report-generator",
           "method_request_parameters": {
             "method.request.querystring.customer_id": false
           },

@@ -545,39 +545,39 @@ class TenantMetrics:
                 key=MetricsBucketKeysBuilder(tenant).account_metrics(end),  # todo date of last day?
                 obj=base
             )
-            _LOG.info('Saving monthly metrics to s3')  # todo monthly seems not monthly, must be fixed
-            self._s3.gz_put_json(
-                bucket=self._env.get_metrics_bucket_name(),
-                key=MetricsBucketKeysBuilder(tenant).account_monthly_metrics(end),
-                obj=base
-            )
+            # _LOG.info('Saving monthly metrics to s3')  # todo monthly seems not monthly, must be fixed
+            # self._s3.gz_put_json(
+            #     bucket=self._env.get_metrics_bucket_name(),
+            #     key=MetricsBucketKeysBuilder(tenant).account_monthly_metrics(end),
+            #     obj=base
+            # )
 
-            if utc_datetime().day == 1:
-                _LOG.info('Saving monthly rule statistics')
-                self._save_monthly_rule_statistics(
-                    start=start,
-                    end=end,
-                    tenant_obj=tenant,
-                    rule_data=base['rule'].get('rules_data', [])
-                )
+            # if utc_datetime().day == 1:
+            #     _LOG.info('Saving monthly rule statistics')
+            #     self._save_monthly_rule_statistics(
+            #         start=start,
+            #         end=end,
+            #         tenant_obj=tenant,
+            #         rule_data=base['rule'].get('rules_data', [])
+            #     )
 
-        _LOG.info('Saving weekly job stats')
-        # TODO these stats MUST be refactored. I just moved that code and actually cannot copletely comprehend its logic
-        if utc_datetime().day == 1:
-            self.save_weekly_job_stats(
-                customer=customer,
-                tenant_objects={t.name: t for t in all_tenants},
-                start=start,
-                end=end,
-                end_date=utc_datetime().date().isoformat()
-            )
-        else:
-            self.save_weekly_job_stats(
-                customer=customer.name,
-                tenant_objects={t.name: t for t in all_tenants},
-                start=start,
-                end=end,
-            )
+        # _LOG.info('Saving weekly job stats')
+        # # TODO these stats MUST be refactored. I just moved that code and actually cannot copletely comprehend its logic
+        # if utc_datetime().day == 1:
+        #     self.save_weekly_job_stats(
+        #         customer=customer,
+        #         tenant_objects={t.name: t for t in all_tenants},
+        #         start=start,
+        #         end=end,
+        #         end_date=utc_datetime().date().isoformat()
+        #     )
+        # else:
+        #     self.save_weekly_job_stats(
+        #         customer=customer.name,
+        #         tenant_objects={t.name: t for t in all_tenants},
+        #         start=start,
+        #         end=end,
+        #     )
 
         _LOG.info('Copy metrics for tenants that have not been scaneed this week')  # todo is it ok?
         current_ids = {tenant.project for tenant in all_tenants}
@@ -635,7 +635,7 @@ class TenantMetrics:
     def process_data(self, event):
         start, end = self.get_current_week_boundaries()
 
-        self.weekly_scan_statistics = {}  # todo refactor
+        # self.weekly_scan_statistics = {}  # todo refactor
 
         for customer in self._mc.customer_service().i_get_customer(is_active=True):
             _LOG.info(f'Collecting jobs for customer {customer.name}')
@@ -652,16 +652,16 @@ class TenantMetrics:
                 start=start,
                 end=end
             )
-        for cid, data in self.weekly_scan_statistics.items():  # todo refactor
-            _LOG.debug(f'Saving weekly statistics for customer {cid}')
-            for c in CLOUDS:
-                dict_to_save = data.get(c)
-                if not dict_to_save:
-                    continue
-                dict_to_save['customer_name'] = cid
-                dict_to_save['cloud'] = c
-                dict_to_save['tenants'] = dict_to_save.get('tenants', {})
-                self._jss.save(dict_to_save)
+        # for cid, data in self.weekly_scan_statistics.items():  # todo refactor
+        #     _LOG.debug(f'Saving weekly statistics for customer {cid}')
+        #     for c in CLOUDS:
+        #         dict_to_save = data.get(c)
+        #         if not dict_to_save:
+        #             continue
+        #         dict_to_save['customer_name'] = cid
+        #         dict_to_save['cloud'] = c
+        #         dict_to_save['tenants'] = dict_to_save.get('tenants', {})
+        #         self._jss.save(dict_to_save)
 
         return {
             'data_type': 'tenant_groups',
@@ -672,136 +672,134 @@ class TenantMetrics:
 
     # todo refactor each method below this line
 
-    def save_weekly_job_stats(self, customer, tenant_objects,
-                              start: datetime, end: datetime,
-                              end_date: str = None):
-        def append_time_period(new_start_date, new_end_date):
-            nonlocal time_periods
-            time_periods.append((new_start_date, new_end_date))
+    # def save_weekly_job_stats(self, customer, tenant_objects,
+    #                           start: datetime, end: datetime,
+    #                           end_date: str = None):
+    #     def append_time_period(new_start_date, new_end_date):
+    #         nonlocal time_periods
+    #         time_periods.append((new_start_date, new_end_date))
+    #
+    #     if not end_date:
+    #         start_date = (start - timedelta(days=7)).date()  # todo???
+    #     else:
+    #         start_date = start.date()
+    #     time_periods = []
+    #     end_date = utc_datetime(end_date).date() if end_date else start.date()
+    #
+    #     if end_date.month != start_date.month:
+    #         # split data from previous month and current
+    #         # if the week is at the junction of months
+    #         append_time_period(start_date, start_date.replace(
+    #             day=calendar.monthrange(start_date.year, start_date.month)[1]))
+    #         start_date = start_date.replace(month=end_date.month, day=1)
+    #
+    #     append_time_period(start_date, end_date)
+    #     _LOG.warning(
+    #         f'Saving weekly scans statistics for period {time_periods}')
+    #
+    #     for start_date, end_date in time_periods:
+    #         _LOG.warning(f'Start date: {start_date} {type(start_date)}')
+    #         _LOG.warning(f'End date: {end_date} {type(end_date)}')
+    #         start_date = start_date.isoformat()
+    #         end_date = end_date.isoformat()
+    #         if self._jss.get_by_customer_and_date(
+    #                 customer, start_date, end_date):
+    #             continue
+    #
+    #         scans = self._ajs.get_by_customer_name(
+    #             customer_name=customer,
+    #             start=utc_datetime(start_date),
+    #             end=utc_datetime(end_date)
+    #         )
+    #
+    #         self.weekly_scan_statistics.setdefault(customer, {}). \
+    #             setdefault('customer_name', customer)
+    #         weekly_stats = self.weekly_scan_statistics[customer]
+    #         for c in CLOUDS:
+    #             weekly_stats.setdefault(c, {})
+    #             weekly_stats[c]['from_date'] = start_date
+    #             weekly_stats[c]['to_date'] = end_date
+    #             weekly_stats[c]['failed'] = 0
+    #             weekly_stats[c]['succeeded'] = 0
+    #
+    #         for scan in scans:
+    #             name = scan.tenant_name
+    #             if not (tenant_obj := tenant_objects.get(name)):
+    #                 tenant_obj = self._mc.tenant_service().get(name)
+    #                 if not tenant_obj or not tenant_obj.project:
+    #                     _LOG.warning(f'Cannot find tenant {name}. Skipping...')
+    #                     continue
+    #
+    #             cloud = tenant_obj.cloud.lower()
+    #             weekly_stats[cloud].setdefault('scanned_regions', {}). \
+    #                 setdefault(tenant_obj.project, {})
+    #             weekly_stats[cloud].setdefault('tenants', {}).setdefault(
+    #                 tenant_obj.project, {'failed_scans': 0,
+    #                                      'succeeded_scans': 0})
+    #             if scan.status == JobState.FAILED.value:
+    #                 weekly_stats[cloud]['failed'] += 1
+    #                 weekly_stats[cloud]['tenants'][tenant_obj.project][
+    #                     'failed_scans'] += 1
+    #                 reason = getattr(scan, 'reason', None)
+    #                 if reason:
+    #                     weekly_stats[cloud].setdefault('reason', {}).setdefault(
+    #                         tenant_obj.project, {}).setdefault(reason, 0)
+    #                     weekly_stats[cloud]['reason'][tenant_obj.project][
+    #                         reason] += 1
+    #             elif scan.status == JobState.SUCCEEDED.value:
+    #                 weekly_stats[cloud]['tenants'][tenant_obj.project][
+    #                     'succeeded_scans'] += 1
+    #                 weekly_stats[cloud]['succeeded'] += 1
+    #
+    #             if scan.Meta.table_name == BatchResults.Meta.table_name:
+    #                 regions = list(scan.regions_to_rules().keys()) or []
+    #             else:
+    #                 regions = scan.regions or []
+    #             for region in regions:
+    #                 weekly_stats[cloud]['scanned_regions'][tenant_obj.project].setdefault(region, 0)
+    #                 weekly_stats[cloud]['scanned_regions'][tenant_obj.project][region] += 1
+    #             weekly_stats[cloud]['last_scan_date'] = self._get_last_scan_date(
+    #                 scan.submitted_at, weekly_stats[cloud].get('last_scan_date'))
 
-        if not end_date:
-            start_date = (start - timedelta(days=7)).date()  # todo???
-        else:
-            start_date = start.date()
-        time_periods = []
-        end_date = utc_datetime(end_date).date() if end_date else start.date()
+    # @staticmethod
+    # def _get_last_scan_date(new_scan_date: str, last_scan_date: str = None):
+    #     if not last_scan_date:
+    #         return new_scan_date
+    #     last_scan_datetime = utc_datetime(last_scan_date, utc=False)
+    #     scan_datetime = utc_datetime(new_scan_date, utc=False)
+    #     if last_scan_datetime < scan_datetime:
+    #         return new_scan_date
+    #     return last_scan_date
 
-        if end_date.month != start_date.month:
-            # split data from previous month and current
-            # if the week is at the junction of months
-            append_time_period(start_date, start_date.replace(
-                day=calendar.monthrange(start_date.year, start_date.month)[1]))
-            start_date = start_date.replace(month=end_date.month, day=1)
-
-        append_time_period(start_date, end_date)
-        _LOG.warning(
-            f'Saving weekly scans statistics for period {time_periods}')
-
-        for start_date, end_date in time_periods:
-            _LOG.warning(f'Start date: {start_date} {type(start_date)}')
-            _LOG.warning(f'End date: {end_date} {type(end_date)}')
-            start_date = start_date.isoformat()
-            end_date = end_date.isoformat()
-            if self._jss.get_by_customer_and_date(
-                    customer, start_date, end_date):
-                continue
-
-            scans = self._ajs.get_by_customer_name(
-                customer_name=customer,
-                start=utc_datetime(start_date),
-                end=utc_datetime(end_date)
-            )
-
-            self.weekly_scan_statistics.setdefault(customer, {}). \
-                setdefault('customer_name', customer)
-            weekly_stats = self.weekly_scan_statistics[customer]
-            for c in CLOUDS:
-                weekly_stats.setdefault(c, {})
-                weekly_stats[c]['from_date'] = start_date
-                weekly_stats[c]['to_date'] = end_date
-                weekly_stats[c]['failed'] = 0
-                weekly_stats[c]['succeeded'] = 0
-
-            for scan in scans:
-                name = scan.tenant_name
-                if not (tenant_obj := tenant_objects.get(name)):
-                    tenant_obj = self._mc.tenant_service().get(name)
-                    if not tenant_obj or not tenant_obj.project:
-                        _LOG.warning(f'Cannot find tenant {name}. Skipping...')
-                        continue
-
-                cloud = tenant_obj.cloud.lower()
-                weekly_stats[cloud].setdefault('scanned_regions', {}). \
-                    setdefault(tenant_obj.project, {})
-                weekly_stats[cloud].setdefault('tenants', {}).setdefault(
-                    tenant_obj.project, {'failed_scans': 0,
-                                         'succeeded_scans': 0})
-                if scan.status == JobState.FAILED.value:
-                    weekly_stats[cloud]['failed'] += 1
-                    weekly_stats[cloud]['tenants'][tenant_obj.project][
-                        'failed_scans'] += 1
-                    reason = getattr(scan, 'reason', None)
-                    if reason:
-                        weekly_stats[cloud].setdefault('reason', {}).setdefault(
-                            tenant_obj.project, {}).setdefault(reason, 0)
-                        weekly_stats[cloud]['reason'][tenant_obj.project][
-                            reason] += 1
-                elif scan.status == JobState.SUCCEEDED.value:
-                    weekly_stats[cloud]['tenants'][tenant_obj.project][
-                        'succeeded_scans'] += 1
-                    weekly_stats[cloud]['succeeded'] += 1
-
-                if scan.Meta.table_name == BatchResults.Meta.table_name:
-                    regions = list(scan.regions_to_rules().keys()) or []
-                else:
-                    regions = scan.regions or []
-                for region in regions:
-                    weekly_stats[cloud]['scanned_regions'][tenant_obj.project].setdefault(region, 0)
-                    weekly_stats[cloud]['scanned_regions'][tenant_obj.project][region] += 1
-                weekly_stats[cloud]['last_scan_date'] = self._get_last_scan_date(
-                    scan.submitted_at, weekly_stats[cloud].get('last_scan_date'))
-
-    @staticmethod
-    def _get_last_scan_date(new_scan_date: str, last_scan_date: str = None):
-        if not last_scan_date:
-            return new_scan_date
-        last_scan_datetime = utc_datetime(last_scan_date, utc=False)
-        scan_datetime = utc_datetime(new_scan_date, utc=False)
-        if last_scan_datetime < scan_datetime:
-            return new_scan_date
-        return last_scan_date
-
-    def _save_monthly_rule_statistics(self, start: datetime, end: datetime,
-                                      tenant_obj: Tenant, rule_data):
-        today_date = utc_datetime()
-        date_to_process = end.date()
-        if today_date.date().day == 1:
-            self._s3.gz_put_json(
-                bucket=self._env.get_statistics_bucket_name(),
-                key=StatisticsBucketKeysBuilder.tenant_statistics(
-                    today_date.date() - timedelta(days=1),
-                    tenant=tenant_obj),
-                obj=rule_data)
-        elif week_number(date_to_process) != 1:
-            self._s3.gz_put_json(
-                bucket=self._env.get_statistics_bucket_name(),
-                key=StatisticsBucketKeysBuilder.tenant_statistics(
-                    date_to_process, tenant=tenant_obj),
-                obj=rule_data)
-        else:  # if week does not fully belong to the current month
-            jobs = self._ajs.get_by_tenant_name(
-                tenant_name=tenant_obj.name,
-                start=today_date.replace(day=1),
-                end=end,
-                status=JobState.SUCCEEDED,
-            )
-            average = self._rs.average_statistics(*map(
-                self._rs.job_statistics, jobs
-            ))
-            self._s3.gz_put_json(
-                bucket=self._env.get_statistics_bucket_name(),
-                key=StatisticsBucketKeysBuilder.tenant_statistics(
-                    date_to_process, tenant=tenant_obj), obj=list(average))
-
-
-TENANT_METRICS = TenantMetrics.build()
+    # def _save_monthly_rule_statistics(self, start: datetime, end: datetime,
+    #                                   tenant_obj: Tenant, rule_data):
+    #     today_date = utc_datetime()
+    #     date_to_process = end.date()
+    #     if today_date.date().day == 1:
+    #         self._s3.gz_put_json(
+    #             bucket=self._env.get_statistics_bucket_name(),
+    #             key=StatisticsBucketKeysBuilder.tenant_statistics(
+    #                 today_date.date() - timedelta(days=1),
+    #                 tenant=tenant_obj),
+    #             obj=rule_data)
+    #     elif week_number(date_to_process) != 1:
+    #         self._s3.gz_put_json(
+    #             bucket=self._env.get_statistics_bucket_name(),
+    #             key=StatisticsBucketKeysBuilder.tenant_statistics(
+    #                 date_to_process, tenant=tenant_obj),
+    #             obj=rule_data)
+    #     else:  # if week does not fully belong to the current month
+    #         jobs = self._ajs.get_by_tenant_name(
+    #             tenant_name=tenant_obj.name,
+    #             start=today_date.replace(day=1),
+    #             end=end,
+    #             status=JobState.SUCCEEDED,
+    #         )
+    #         average = self._rs.average_statistics(*map(
+    #             self._rs.job_statistics, jobs
+    #         ))
+    #         self._s3.gz_put_json(
+    #             bucket=self._env.get_statistics_bucket_name(),
+    #             key=StatisticsBucketKeysBuilder.tenant_statistics(
+    #                 date_to_process, tenant=tenant_obj), obj=list(average))
+    #

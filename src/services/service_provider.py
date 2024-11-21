@@ -1,7 +1,7 @@
 from functools import cached_property
 from typing import Union, TYPE_CHECKING
 
-from helpers import SingletonMeta, get_logger
+from helpers import SingletonMeta
 
 if TYPE_CHECKING:
     from services.clients.mongo_ssm_auth_client import MongoAndSSMAuthClient
@@ -18,7 +18,6 @@ if TYPE_CHECKING:
     from services.clients.scheduler import EventBridgeJobScheduler
     from services.clients.ssm import CachedSSMClient
     from services.clients.sts import StsClient
-    from services.coverage_service import CoverageService
     from services.environment_service import EnvironmentService
     from services.event_processor_service import EventProcessorService
     from services.event_service import EventService
@@ -47,9 +46,6 @@ if TYPE_CHECKING:
     from services.clients.step_function import ScriptClient, StepFunctionClient
     from services.chronicle_service import ChronicleInstanceService
     from services.reports import ReportMetricsService
-
-
-_LOG = get_logger(__name__)
 
 
 class ServiceProvider(metaclass=SingletonMeta):
@@ -243,13 +239,6 @@ class ServiceProvider(metaclass=SingletonMeta):
         )
 
     @cached_property
-    def coverage_service(self) -> 'CoverageService':
-        from services.coverage_service import CoverageService
-        return CoverageService(
-            mappings_collector=self.mappings_collector
-        )
-
-    @cached_property
     def scheduler_service(self) -> 'SchedulerService':
         from services.scheduler_service import SchedulerService
         client = self.event_bridge_job_scheduler \
@@ -372,4 +361,7 @@ class ServiceProvider(metaclass=SingletonMeta):
     @cached_property
     def report_metrics_service(self) -> 'ReportMetricsService':
         from services.reports import ReportMetricsService
-        return ReportMetricsService()
+        return ReportMetricsService(
+            s3_client=self.s3,
+            environment_service=self.environment_service
+        )

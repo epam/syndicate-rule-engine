@@ -299,10 +299,11 @@ class InitMongo(ActionHandler):
         from models.setting import Setting
         from models.tenant_metrics import TenantMetrics
         from models.user import User
+        from models.metrics import ReportMetrics
         return (
             BatchResults, CustomerMetrics, Event, Job, JobStatistics, Policy,
             ReportStatistics, Retries, Role, Rule, RuleSource, Ruleset,
-            ScheduledJob, Setting, TenantMetrics, User
+            ScheduledJob, Setting, TenantMetrics, User, ReportMetrics
         )
 
     @staticmethod

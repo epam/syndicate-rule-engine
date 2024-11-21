@@ -1,0 +1,31 @@
+{
+  "total_scans": 3,
+  "failed_scans": 1,
+  "succeeded_scans": 2,
+  "activated_regions": [
+    "eu-central-1",
+    "eu-north-1",
+    "eu-west-1",
+    "eu-west-3"
+  ],
+  "last_scan_date": "2024-11-17T00:51:06.579760Z",
+  "id": "123456789012",
+  "resources_violated": 23,
+  "regions_severity": {
+    "eu-central-1": {
+      "Unknown": 7
+    },
+    "global": {
+      "Unknown": 4
+    },
+    "eu-north-1": {
+      "Unknown": 1
+    },
+    "eu-west-1": {
+      "Unknown": 10
+    },
+    "eu-west-3": {
+      "Unknown": 1
+    }
+  }
+}

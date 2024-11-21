@@ -1,5 +1,4 @@
 import io
-from functools import cached_property
 from http import HTTPStatus
 from typing import Iterator
 
@@ -19,12 +18,10 @@ from validators.utils import validate_kwargs
 
 
 class ResourceReportXlsxWriter:
+    head = ('Rule', 'Region', 'Type', 'Reason')
+
     def __init__(self, it: Iterator[StatisticsItem]):
         self._it = it
-
-    @cached_property
-    def head(self) -> list:
-        return ['Rule', 'Region', 'Type', 'Reason']
 
     def write(self, wsh: Worksheet, wb: Workbook):
         bold = wb.add_format({'bold': True})
@@ -58,7 +55,7 @@ class ErrorsReportHandler(AbstractHandler):
             report_service=SP.report_service,
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.REPORTS_ERRORS_JOBS_JOB_ID: {

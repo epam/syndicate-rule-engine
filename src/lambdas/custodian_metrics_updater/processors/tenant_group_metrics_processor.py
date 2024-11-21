@@ -406,4 +406,4 @@ class TenantGroupMetrics:
         return _unique
 
 
-TENANT_GROUP_METRICS = TenantGroupMetrics.build()
+# TENANT_GROUP_METRICS = TenantGroupMetrics.build()

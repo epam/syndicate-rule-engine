@@ -1,6 +1,11 @@
 from pynamodb.attributes import MapAttribute, UnicodeAttribute
 
-from helpers.constants import COMPOUND_KEYS_SEPARATOR, CAASEnv, ReportType
+from helpers.constants import (
+    COMPOUND_KEYS_SEPARATOR,
+    CAASEnv,
+    Cloud,
+    ReportType,
+)
 from models import BaseModel
 
 
@@ -15,7 +20,7 @@ class ReportMetrics(BaseModel):
     end = UnicodeAttribute(range_key=True, attr_name='e')
     start = UnicodeAttribute(null=True, default=None, attr_name='s')
     data = MapAttribute(default=dict, attr_name='d')
-    s3_path = UnicodeAttribute(null=True, default=None, attr_name='l')
+    s3_url = UnicodeAttribute(null=True, default=None, attr_name='l')
     customer = UnicodeAttribute(attr_name='c')
     # todo add ttl
     # todo add link to s3
@@ -25,8 +30,27 @@ class ReportMetrics(BaseModel):
         return ReportType(self.key.split(COMPOUND_KEYS_SEPARATOR, 1)[0])
 
     @property
+    def project(self) -> str | None:
+        return self.key.split(COMPOUND_KEYS_SEPARATOR, 3)[2] or None
+
+    @property
+    def cloud(self) -> Cloud | None:
+        item = self.key.split(COMPOUND_KEYS_SEPARATOR, 4)[3] or None
+        if not item:
+            return
+        return Cloud(item)
+
+    @property
+    def tenant(self) -> str | None:
+        return self.key.split(COMPOUND_KEYS_SEPARATOR, 5)[4] or None
+
+    @property
+    def region(self) -> str | None:
+        return self.key.split(COMPOUND_KEYS_SEPARATOR)[5] or None
+
+    @property
     def is_fetched(self) -> bool:
-        if not self.s3_path:
+        if not self.s3_url:
             return True
         # s3 path exists
-        return bool(self.data)
+        return bool(self.data.as_dict())

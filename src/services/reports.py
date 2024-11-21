@@ -2,7 +2,7 @@ import bisect
 from datetime import datetime
 from functools import cached_property, cmp_to_key
 from itertools import chain
-from typing import Generator, Iterable, Iterator, TypedDict
+from typing import Generator, Iterable, Iterator, TypedDict, cast
 
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
@@ -19,6 +19,7 @@ from helpers.reports import Severity, SeverityCmp, keep_highest
 from helpers.time_helper import utc_datetime, utc_iso
 from models.metrics import ReportMetrics
 from services.ambiguous_job_service import AmbiguousJob
+from services.reports_bucket import ReportMetricsBucketKeysBuilder
 from services.base_data_service import BaseDataService
 from services.mappings_collector import (
     LazyLoadedMappingsCollector,
@@ -26,6 +27,8 @@ from services.mappings_collector import (
 )
 from services.report_service import ReportService
 from services.sharding import ShardsCollection
+from services.clients.s3 import S3Client, S3Url
+from services.environment_service import EnvironmentService
 
 _LOG = get_logger(__name__)
 
@@ -141,15 +144,22 @@ class ShardsCollectionDataSource:
     def __init__(
         self,
         collection: ShardsCollection,
-        mappings_collector: LazyLoadedMappingsCollector | MappingsCollector,
+        mappings_collector: LazyLoadedMappingsCollector
+        | MappingsCollector
+        | None = None,
     ):
         """
         Assuming that collection is pulled and has meta
         """
         self._col = collection
-        self._services = mappings_collector.service
-        self._severities = mappings_collector.severity
-        self._hd = mappings_collector.human_data
+        if mappings_collector:
+            self._services = mappings_collector.service
+            self._severities = mappings_collector.severity
+            self._hd = mappings_collector.human_data
+        else:
+            self._services = {}
+            self._severities = {}
+            self._hd = {}
 
         self.__resources = None
 
@@ -189,18 +199,22 @@ class ShardsCollectionDataSource:
 
     @staticmethod
     def _allow_only_regions(
-        it: ResourcesGenerator, regions: set[str]
+        it: ResourcesGenerator, regions: set[str] | tuple[str, ...]
     ) -> ResourcesGenerator:
         for rule, region, dto, ts in it:
             if region in regions:
                 yield rule, region, dto, ts
 
     def _allow_only_resource_type(
-        self, it: ResourcesGenerator, meta: dict, resource_type: str
+        self,
+        it: ResourcesGenerator,
+        meta: dict,
+        resource_type: tuple[str, ...],
     ) -> ResourcesGenerator:
+        to_check = tuple(map(self.adjust_resource_type, resource_type))
         for rule, region, dto, ts in it:
             rt = self.adjust_resource_type(meta.get(rule, {}).get('resource'))
-            if rt == self.adjust_resource_type(resource_type):
+            if rt in to_check:
                 yield rule, region, dto, ts
 
     @staticmethod
@@ -279,7 +293,8 @@ class ShardsCollectionDataSource:
         self,
         only_report_fields: bool = True,
         deduplicated: bool = True,
-        active_regions: set | None = None,
+        active_regions: tuple[str, ...] = (),
+        resource_types: tuple[str, ...] = (),
     ) -> ResourcesGenerator:
         it = self.iter_resources()
         it = self._custom_modify(it)
@@ -289,8 +304,12 @@ class ShardsCollectionDataSource:
         if deduplicated:
             it = self._deduplicated(it)
 
-        if active_regions is not None:
-            it = self._allow_only_regions(it, {GLOBAL_REGION, *active_regions})
+        if active_regions:
+            it = self._allow_only_regions(it, (GLOBAL_REGION, *active_regions))
+        if resource_types:
+            it = self._allow_only_resource_type(
+                it, self._col.meta, resource_types
+            )
         return it
 
     @property
@@ -458,9 +477,7 @@ class ShardsCollectionProvider:
             # TODO: cache for actual nearest key instead of given date in case
             #  we can have slightly different incoming "date". If the parameter
             #  most likely to be the same, we better keep it as is.
-            col = self._rs.tenant_snapshot_collection(
-                tenant, date
-            )
+            col = self._rs.tenant_snapshot_collection(tenant, date)
 
         if col is None:
             return
@@ -472,6 +489,14 @@ class ShardsCollectionProvider:
 
 
 class ReportMetricsService(BaseDataService[ReportMetrics]):
+    def __init__(
+        self, s3_client: S3Client, environment_service: EnvironmentService
+    ):
+        super().__init__()
+
+        self._s3 = s3_client
+        self._env = environment_service
+
     @staticmethod
     def build_key(
         type_: ReportType,
@@ -609,4 +634,31 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
                 customer=customer, type_=type_, ascending=False, limit=1
             ),
             None,
+        )
+
+    def save_data_to_s3(self, item: ReportMetrics) -> None:
+        """
+        These items are assumed to be immutable - generated only once. So
+        currently no need to handle key overrides and remove old junk
+        because they should not happen
+        """
+        if not item.data:
+            _LOG.warning(
+                f'{item.key} has empty data so will not be saved to s3'
+            )
+            return
+        bucket = self._env.default_reports_bucket_name()
+        key = ReportMetricsBucketKeysBuilder.metrics_key(item)
+        self._s3.gz_put_json(bucket=bucket, key=key, obj=item.data.as_dict())
+        item.data = {}
+        item.s3_url = str(S3Url.build(bucket, key))
+
+    def fetch_data_from_s3(self, item: ReportMetrics) -> None:
+        if item.is_fetched:
+            return
+        if not item.s3_url:
+            return
+        url = S3Url(item.s3_url)
+        item.data = cast(
+            dict, self._s3.gz_get_json(bucket=url.bucket, key=url.key)
         )

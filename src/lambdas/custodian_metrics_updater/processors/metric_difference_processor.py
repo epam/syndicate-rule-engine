@@ -146,8 +146,8 @@ class TenantMetricsDifference:
         return next_step
 
 
-TENANT_METRICS_DIFF = TenantMetricsDifference(
-    s3_client=SERVICE_PROVIDER.s3,
-    environment_service=SERVICE_PROVIDER.environment_service,
-    settings_service=SERVICE_PROVIDER.settings_service
-)
+# TENANT_METRICS_DIFF = TenantMetricsDifference(
+#     s3_client=SERVICE_PROVIDER.s3,
+#     environment_service=SERVICE_PROVIDER.environment_service,
+#     settings_service=SERVICE_PROVIDER.settings_service
+# )

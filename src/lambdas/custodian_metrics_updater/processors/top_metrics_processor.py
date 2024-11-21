@@ -99,11 +99,16 @@ class TopMetrics:
         )
 
     def process_data(self, event):
+        # by here no customer and tenant metrics in Mongo
         if end_date := event.get(END_DATE):
-            s3_object_date = f'monthly/{utc_datetime(end_date).replace(day=1)}'
+            s3_object_date = f'monthly/{utc_datetime(end_date).replace(day=1)}' # [cry] bug invalid iso format
         else:
             end_date = self.month_first_day
             s3_object_date = f'monthly/{self.month_first_day}'
+
+        end_date = '2024-12-01'  # todo to collect for this month
+        s3_object_date = f'monthly/{end_date}'
+        # seems like it collects monthly for previous month
 
         customers = set(
             customer.split('/')[0] for customer in
@@ -115,6 +120,7 @@ class TopMetrics:
                     self.current_month_customer_metrics_exist(customer):
                 _LOG.debug(f'Customer and department metrics for customer '
                            f'{customer} already exist')
+                # todo how may items must exist
                 continue
 
             _LOG.debug(f'Processing customer {customer}')
@@ -126,17 +132,17 @@ class TopMetrics:
             self.tenant_scan_mapping[
                 customer] = self._get_month_customer_scan_stats(
                 customer, to_date=utc_datetime(end_date, utc=False).date(),
-                from_date=self.prev_month_first_day)
+                from_date=self.prev_month_first_day)  # [cry] seems like a bug with range
 
             for filename in tenant_filenames:
                 if not filename.endswith('.json') and not \
                         filename.endswith('.json.gz'):
-                    continue
+                    continue  # remove that
 
                 _LOG.debug(f'Processing tenant group {filename}')
                 tenant_group_content = self.s3_client.gz_get_json(
                     bucket=self.metrics_bucket, key=filename)
-                tenant_group_content = copy.deepcopy(tenant_group_content)
+                tenant_group_content = copy.deepcopy(tenant_group_content)  # [cry] for what
                 customer = tenant_group_content.get(CUSTOMER_ATTR)
 
                 resource_data = tenant_group_content.get(RESOURCES_TYPE, {})
@@ -158,9 +164,9 @@ class TopMetrics:
                 self._process_customer_compliance(
                     tenant_group_content[COMPLIANCE_TYPE])
                 self._process_customer_overview(
-                    tenant_group_content[OVERVIEW_TYPE])
+                    tenant_group_content[OVERVIEW_TYPE])  # [cry] does not collect scans data
                 self._process_customer_finops(
-                    tenant_group_content[FINOPS_TYPE])
+                    tenant_group_content[FINOPS_TYPE])  # does nothing
                 attack_by_tenant = self._process_customer_mitre(
                     tenant_group_content[RESOURCES_TYPE], customer,
                     s3_object_date)
@@ -170,6 +176,7 @@ class TopMetrics:
             # save top tenants and new date marker
             if not self.current_month_tenant_metrics_exist(customer):
                 _LOG.debug('Saving top tenants to the table')
+                # [cry] invalid model, does not work with mongo
                 top_items = self.create_top_items()
                 self.tenant_metrics_service.batch_save(top_items)
 
@@ -177,6 +184,7 @@ class TopMetrics:
                 _LOG.debug('Saving customer metrics to the table')
                 customer_items = self.create_customer_items(customer)
                 self.customer_metrics_service.batch_save(customer_items)
+        breakpoint()
 
         return {DATA_TYPE: NEXT_STEP, END_DATE: event.get(END_DATE),
                 'continuously': event.get('continuously')}
@@ -185,9 +193,9 @@ class TopMetrics:
         top_metrics_by_cloud = []  # top resources, compliance, attack by cloud
         top_metrics_by_tenant = []  # top resources, compliance, attack by tenant
 
-        self._sort_top_tenants_by_attack()
+        self._sort_top_tenants_by_attack()  # [cry] after this method list becomes empty, probably because no attacks, but that still looks like a bug
         for cloud in CLOUDS:
-            self._sort_top_tenants_by_attack_by_cloud(cloud)
+            self._sort_top_tenants_by_attack_by_cloud(cloud)  # [cry] the same
 
         for metrics_type, defining_attr in [('RESOURCES', 'all_resources'), (
                 'COMPLIANCE', 'mean_coverage'), ('ATTACK', 'index')]:
@@ -235,8 +243,8 @@ class TopMetrics:
         tenant_dn = tenant_group_content.get('tenant_display_name')
         general_tenant_info = {
             CUSTOMER_ATTR: customer,
-            'from': tenant_group_content['from'],
-            'to': tenant_group_content['to'],
+            'from': tenant_group_content['from'],  # [cry] invalid because tenant_group_content contains dates for week
+            'to': tenant_group_content['to'],  # [cry] invalid
             'tenant_display_name': tenant_group_content['tenant_display_name']
         }
 
@@ -263,12 +271,12 @@ class TopMetrics:
 
             acc_id = overview_metrics.get('account_id')
 
-            if self.tenant_scan_mapping.get(customer, {}).get(acc_id):
+            if self.tenant_scan_mapping.get(customer, {}).get(acc_id):  # [cry] wtf, mix statistics here
                 scans = self.tenant_scan_mapping[customer][acc_id]
             else:
                 scans = {'failed_scans': 0,
                          'succeeded_scans': 0}
-            overview_metrics['failed_scans'] = scans['failed_scans']
+            overview_metrics['failed_scans'] = scans['failed_scans']   # [cry] whyyyyyyy, overview metrics already have scans
             overview_metrics['succeeded_scans'] = scans['succeeded_scans']
             overview_metrics['total_scans'] = scans['succeeded_scans'] + scans['failed_scans']
             self.CUSTOMER_OVERVIEW[cloud]['failed_scans'] += scans['failed_scans']
@@ -286,10 +294,14 @@ class TopMetrics:
 
             overview_metrics.pop('regions_data', None)
             overview_metrics.update(sum_regions_data)
+            # sum everything app
             if overview_metrics.get('resources_violated'):
                 tenant_data = {
                     **general_tenant_info, cloud: overview_metrics
                 }
+                # kind of OK here, but still we allow only one tenant per cloud per tenant group
+                # kind of sorts tenant groups within clouds by some param
+                # [cry] - TOP of tenant groups within cloud when each tenant group can contain only one tenant because other discarded
                 self.add_tenant_to_top_by_resources_by_cloud(
                     tenant_name=tenant_dn,
                     amount=overview_metrics['resources_violated'],
@@ -300,6 +312,7 @@ class TopMetrics:
         tenant_data = {
             **general_tenant_info, **metrics[OVERVIEW_TYPE]
         }
+        # kind of sum across clouds
         self.add_tenant_to_top_by_resources(tenant_display_name=tenant_dn,
                                             amount=resources_sum,
                                             tenant_data=tenant_data)
@@ -339,7 +352,10 @@ class TopMetrics:
                 tenant_data=tenant_data, cloud=cloud)
             self.mean_coverage[cloud].extend(coverages)
 
-        tenant_coverage = sum(tenant_mean_coverage) / len(tenant_mean_coverage)
+        if tenant_mean_coverage:
+            tenant_coverage = sum(tenant_mean_coverage) / len(tenant_mean_coverage)
+        else:
+            tenant_coverage = 0.0  # todo temp fix to make it work
         tenant_data = {
             **general_tenant_info, **metrics[COMPLIANCE_TYPE]
         }
@@ -430,7 +446,7 @@ class TopMetrics:
                                                 tenant_data, cloud):
         self.TOP_RESOURCES_BY_CLOUD[cloud] = self._add_tenant_to_top(
             tenant_name, amount, tenant_data,
-            self.TOP_RESOURCES_BY_CLOUD[cloud],
+            self.TOP_RESOURCES_BY_CLOUD[cloud],  # [cry] that is genuine trash
             TOP_CLOUD_LENGTH, 'all_resources', reverse=True)
 
     def add_tenant_to_top_by_finops(self, tenant_display_name, amount,
@@ -534,13 +550,13 @@ class TopMetrics:
         if self._cust_metrics_exists is None:
             self._cust_metrics_exists = self.customer_metrics_service.get_all_types_by_customer_date(
                 customer=customer,
-                date=datetime.today().date().replace(day=1).isoformat())
+                date=datetime.today().date().replace(day=1).isoformat())  # [cry] not in sync with end_date
         return all(self._cust_metrics_exists.values())
 
     def current_month_tenant_metrics_exist(self, customer):
         if self._tenant_metrics_exists is None:
             self._tenant_metrics_exists = self.tenant_metrics_service.get_all_types_by_customer_date(
-                date=datetime.today().date().replace(day=1).isoformat(),
+                date=datetime.today().date().replace(day=1).isoformat(),  # [cry] not in sync with end_date
                 customer=customer)
         return all(self._tenant_metrics_exists.values())
 
@@ -759,7 +775,7 @@ class TopMetrics:
     def _unpack_metrics(data):
         for cloud in CLOUDS:
             if data.get(cloud):
-                data[cloud] = data[cloud][0]
+                data[cloud] = data[cloud][0]  # [cry] doesn't it mean that we allow only one tenant per cloud per tenant group?
             else:
                 data[cloud] = {}
         return data
@@ -794,7 +810,9 @@ class TopMetrics:
         for cloud in CLOUDS:
             self.CUSTOMER_OVERVIEW[cloud]['resources_violated'] += \
                 overview_data.get(cloud, {}).get('resources_violated', 0)
+            # [cry] what about scans data
 
+            # basically sums up data for all regions
             for region, data in overview_data.get(cloud, {}).get(
                     'regions_data', {}).items():
                 for severity, value in data.get('severity_data', {}).items():
@@ -886,11 +904,12 @@ class TopMetrics:
     def _process_customer_mitre(self, metrics, customer, s3_object_date):
         attack_by_tenant = {c: [] for c in CLOUDS}
         for cloud in CLOUDS:
-            if not metrics.get(cloud):
+            if not metrics.get(cloud):  # why
                 continue
 
             account_id = metrics[cloud].get('account_id')
 
+            # [cry]why montly metrics for tenant? - because we aparently allow one tenant per cloud per group
             account_path = TENANT_METRICS_PATH.format(
                 customer=customer,
                 date=s3_object_date) + '/' + account_id + '.json.gz'

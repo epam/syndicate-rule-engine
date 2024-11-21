@@ -5,6 +5,7 @@ import random
 from typing import cast
 from unittest.mock import MagicMock
 from uuid import uuid4
+import msgspec
 
 from modular_sdk.commons import ModularException
 from modular_sdk.commons.constants import ApplicationType
@@ -19,7 +20,7 @@ from modular_sdk.services.impl.maestro_rabbit_transport_service import (
     MaestroRabbitMQTransport,
 )
 
-from helpers.lambda_response import ReportNotSendException, ResponseFactory
+from helpers.lambda_response import ReportNotSendException, ResponseFactory, LambdaResponse
 from helpers.log_helper import get_logger
 from services import SP
 from services import cache
@@ -73,13 +74,14 @@ class MockedRabbitMQTransport:
 
 class RabbitMQService:
     __slots__ = ('modular_client', 'customer_rabbit_cache',
-                 'environment_service')
+                 'environment_service', '_encoder')
 
     def __init__(self, modular_client: Modular,
                  environment_service: EnvironmentService):
         self.modular_client = modular_client
         self.environment_service = environment_service
         self.customer_rabbit_cache = cache.factory()
+        self._encoder = msgspec.json.Encoder()
 
     def get_rabbitmq_application(self, customer: str) -> Application | None:
         aps = self.modular_client.application_service()
@@ -92,7 +94,14 @@ class RabbitMQService:
         ), None)
 
     @staticmethod
+    def no_rabbitmq_response() -> LambdaResponse:
+        return ResponseFactory(HTTPStatus.SERVICE_UNAVAILABLE).message(
+            'No valid RabbitMq configuration found'
+        )
+
+    @staticmethod
     def no_rabbit_configuration():
+        # TODO: remove
         raise ResponseFactory(HTTPStatus.SERVICE_UNAVAILABLE).message(
             'No valid RabbitMq configuration found'
         ).exc()
@@ -130,12 +139,31 @@ class RabbitMQService:
         )
 
     @staticmethod
+    def send_to_m3(rabbitmq: MaestroRabbitMQTransport, command: str,
+                   models: list[dict]) -> int | None:
+        _LOG.info('Going to send data to')
+        try:
+            code, status, response = rabbitmq.send_sync(
+                command_name=command,
+                parameters=models,
+                is_flat_request=False,
+                async_request=False,
+                secure_parameters=None,
+                compressed=True
+            )
+        except ModularException:
+            _LOG.exception('Could not send message to m3')
+            return
+        _LOG.info(f'Response from rabbit: {code}, {status}, {response}')
+        return int(code)
+
+    @staticmethod
     def send_notification_to_m3(command_name: str,
                                 json_model: list | dict,
                                 rabbitmq: MaestroRabbitMQTransport,
                                 is_event_driven: bool = False):
+        # TODO: remove
         _LOG.debug('Pushing to rabbitmq')
-        _LOG.debug(json.dumps(json_model))
         factory = ResponseFactory(HTTPStatus.INTERNAL_SERVER_ERROR)
         try:
             code, status, response = rabbitmq.send_sync(
@@ -155,15 +183,13 @@ class RabbitMQService:
             _LOG.exception('An error occurred sending a message to rabbit')
             raise factory.message(str(e)).exc(ReportNotSendException)
 
-    @staticmethod
-    def build_m3_json_model(notification_type, data):
+    def build_m3_json_model(self, notification_type: str, data: dict):
         return {
             'viewType': 'm3',
             'model': {
                 "uuid": str(uuid4()),
                 "notificationType": notification_type,
-                "notificationAsJson": json.dumps(data,
-                                                 separators=(",", ":")),
+                "notificationAsJson": self._encoder.encode(data).decode(),
                 "notificationProcessorTypes": ["MAIL"]
             }
         }

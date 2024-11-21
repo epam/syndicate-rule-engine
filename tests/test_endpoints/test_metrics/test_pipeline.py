@@ -3,30 +3,37 @@ Metrics pipeline collects data for the current week for all customers and
 tenants. These tests check whether the data is processed as we expect
 """
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
+from dateutil.relativedelta import relativedelta
 
 from executor.services.report_service import JobResult
-from helpers.constants import JobState, Cloud, PolicyErrorType
+from helpers.constants import Cloud, JobState, PolicyErrorType, ReportType
+from lambdas.custodian_metrics_updater.processors.new_metrics_collector import (
+    MetricsCollector,
+)
 from services import SP
-from services.reports_bucket import TenantReportsBucketKeysBuilder, \
-    StatisticsBucketKeysBuilder
+from services.reports_bucket import (
+    StatisticsBucketKeysBuilder,
+    TenantReportsBucketKeysBuilder,
+)
 from services.sharding import ShardsCollectionFactory, ShardsS3IO
-from ...commons import AWS_ACCOUNT_ID, AZURE_ACCOUNT_ID, GOOGLE_ACCOUNT_ID, dicts_equal
+
+from ...commons import dicts_equal
 
 
 @pytest.fixture()
 def aws_jobs(aws_tenant, aws_scan_result, create_tenant_job, create_tenant_br,
-             report_bounds):
+             utcnow):
     # don't need to keep results of individual jobs, but need their statistics
-    start = report_bounds[0]
+    start = utcnow.replace(hour=0)
 
-    job = create_tenant_job(aws_tenant, start + timedelta(minutes=120),
+    job = create_tenant_job(aws_tenant, start + timedelta(seconds=1),
                             JobState.SUCCEEDED)
-    create_tenant_job(aws_tenant, start + timedelta(days=1),
+    create_tenant_job(aws_tenant, start + timedelta(seconds=2),
                       JobState.FAILED).save()
-    br = create_tenant_br(aws_tenant, start + timedelta(minutes=180),
+    br = create_tenant_br(aws_tenant, start + timedelta(seconds=3),
                           JobState.SUCCEEDED)
 
     job.save()
@@ -64,16 +71,15 @@ def aws_jobs(aws_tenant, aws_scan_result, create_tenant_job, create_tenant_br,
 
 @pytest.fixture()
 def azure_jobs(azure_tenant, azure_scan_result, create_tenant_job,
-               create_tenant_br,
-               report_bounds):
+               create_tenant_br, utcnow):
     # don't need to keep results of individual jobs, but need their statistics
-    start = report_bounds[0]
+    start = utcnow.replace(hour=0)
 
-    job = create_tenant_job(azure_tenant, start + timedelta(minutes=300),
+    job = create_tenant_job(azure_tenant, start + timedelta(seconds=1),
                             JobState.SUCCEEDED)
-    create_tenant_job(azure_tenant, start + timedelta(minutes=60),
+    create_tenant_job(azure_tenant, start + timedelta(seconds=2),
                       JobState.FAILED).save()
-    br = create_tenant_br(azure_tenant, start + timedelta(minutes=900),
+    br = create_tenant_br(azure_tenant, start + timedelta(seconds=3),
                           JobState.SUCCEEDED)
 
     job.save()
@@ -105,15 +111,15 @@ def azure_jobs(azure_tenant, azure_scan_result, create_tenant_job,
 
 @pytest.fixture()
 def google_jobs(google_tenant, google_scan_result, create_tenant_job,
-                create_tenant_br,
-                report_bounds):
+                create_tenant_br, utcnow):
     # don't need to keep results of individual jobs, but need their statistics
-    start = report_bounds[0]
-    job = create_tenant_job(google_tenant, start + timedelta(minutes=400),
+    start = utcnow.replace(hour=0)
+
+    job = create_tenant_job(google_tenant, start + timedelta(seconds=1),
                             JobState.SUCCEEDED)
-    create_tenant_job(google_tenant, start + timedelta(minutes=360),
+    create_tenant_job(google_tenant, start + timedelta(seconds=2),
                       JobState.FAILED).save()
-    br = create_tenant_br(google_tenant, start + timedelta(minutes=500),
+    br = create_tenant_br(google_tenant, start + timedelta(seconds=3),
                           JobState.SUCCEEDED)
 
     job.save()
@@ -149,52 +155,125 @@ def test_metrics_update_denied(sre_client):
     assert resp.json == {'message': 'Unauthorized'}
 
 
-@pytest.mark.slow
+# @pytest.mark.slow
+# def test_metrics_update(
+#         sre_client,
+#         system_user_token,
+#         aws_jobs,
+#         azure_jobs,
+#         google_jobs,
+#         report_bounds,
+#         load_expected
+# ):
+#     """
+#     This test case has three tenants one for each cloud. Each tenant has
+#     two standard jobs (one failed) and one event driven job during the current
+#     collecting period.
+#     """
+#     resp = sre_client.request('/metrics/update', 'POST',
+#                               auth=system_user_token)
+#     assert resp.status_int == 202
+#     assert resp.json == {'message': 'Metrics update has been submitted'}
+#     time.sleep(100000)  # don't know how to check underlying thread is finished
+#     # here we check only tenant metrics processor outcome
+#     _, end = report_bounds
+#     end = end.date()
+#
+#     # validating tenant metrics results
+#     aws_data = SP.s3.gz_get_json('metrics',
+#                                  f'TEST_CUSTOMER/accounts/{end.isoformat()}/{AWS_ACCOUNT_ID}.json')
+#     assert aws_data, 'AWS data must not be empty'
+#     assert dicts_equal(aws_data, load_expected('metrics/aws_account'))
+#
+#     azure_data = SP.s3.gz_get_json('metrics',
+#                                    f'TEST_CUSTOMER/accounts/{end.isoformat()}/{AZURE_ACCOUNT_ID}.json')
+#     assert azure_data, 'AZURE data must not be empty'
+#     assert dicts_equal(azure_data, load_expected('metrics/azure_account'))
+#
+#     google_data = SP.s3.gz_get_json('metrics',
+#                                     f'TEST_CUSTOMER/accounts/{end.isoformat()}/{GOOGLE_ACCOUNT_ID}.json')
+#     assert google_data, 'GOOGLE data must not be empty'
+#     assert dicts_equal(google_data, load_expected('metrics/google_account'))
+#
+#     # todo validated whether montly metrics are collected
+#     # todo validate weekly scan statistics
+#
+#     # validating tenant group metrics results
+#     group_data = SP.s3.gz_get_json('metrics', f'TEST_CUSTOMER/tenants/{end.isoformat()}/testing.json')
+#     assert group_data, 'Group data must not be empty'
+#     assert dicts_equal(group_data, load_expected('metrics/tenant_group'))
+
+def test_whole_period():
+    now = datetime(year=2024, month=1, day=10, hour=12, minute=10, second=35,
+                   tzinfo=timezone.utc)
+    class RTMock:
+        def __init__(self, r_start, r_end):
+            self.r_start = r_start
+            self.r_end = r_end
+
+    r1 = RTMock(
+        r_start=relativedelta(days=-1),
+        r_end=relativedelta()
+    )
+    r2 = RTMock(
+        r_end=relativedelta(hour=0, minute=0, second=0),
+        r_start=relativedelta(months=-1)
+    )
+    start, end = MetricsCollector.whole_period(now, r1, r2)  # pyright: ignore
+    assert start == datetime(2023, 12, 10, 12, 10, 35, tzinfo=timezone.utc)
+    assert end == datetime(2024, 1, 10, 12, 10, 35, tzinfo=timezone.utc)
+
+    r3 = RTMock(
+        r_start=None,
+        r_end=relativedelta()
+    )
+    r4 = RTMock(
+        r_start=None,
+        r_end=relativedelta(hour=0, minute=0, second=0),
+    )
+    start, end = MetricsCollector.whole_period(now, r3, r4)  # pyright: ignore
+    assert start is None
+    assert end == now
+
+
 def test_metrics_update(
         sre_client,
         system_user_token,
         aws_jobs,
         azure_jobs,
         google_jobs,
-        report_bounds,
-        load_expected
+        load_expected,
+        aws_tenant,
+        azure_tenant,
+        google_tenant,
+        main_customer
 ):
-    """
-    This test case has three tenants one for each cloud. Each tenant has
-    two standard jobs (one failed) and one event driven job during the current
-    collecting period.
-    """
+    # todo mock date because currently these tests may fail if executed
+    #  in some corner dates
     resp = sre_client.request('/metrics/update', 'POST',
                               auth=system_user_token)
     assert resp.status_int == 202
     assert resp.json == {'message': 'Metrics update has been submitted'}
-    time.sleep(4)  # don't know how to check underlying thread is finished
-    # here we check only tenant metrics processor outcome
-    _, end = report_bounds
-    end = end.date()
+    time.sleep(5)  # don't know how to check underlying thread is finished
 
-    # validating tenant metrics results
-    aws_data = SP.s3.gz_get_json('metrics',
-                                 f'TEST_CUSTOMER/accounts/{end.isoformat()}/{AWS_ACCOUNT_ID}.json')
-    assert aws_data, 'AWS data must not be empty'
-    assert dicts_equal(aws_data, load_expected('metrics/aws_account'))
+    # checking operational (per tenant)
+    item = SP.report_metrics_service.get_latest_for_tenant(aws_tenant, ReportType.OPERATIONAL_OVERVIEW)
+    assert dicts_equal(item.data.as_dict(), load_expected('metrics/aws_operational_overview'))
 
-    azure_data = SP.s3.gz_get_json('metrics',
-                                   f'TEST_CUSTOMER/accounts/{end.isoformat()}/{AZURE_ACCOUNT_ID}.json')
-    assert azure_data, 'AZURE data must not be empty'
-    assert dicts_equal(azure_data, load_expected('metrics/azure_account'))
+    item = SP.report_metrics_service.get_latest_for_tenant(azure_tenant, ReportType.OPERATIONAL_OVERVIEW)
+    assert dicts_equal(item.data.as_dict(), load_expected('metrics/azure_operational_overview'))
 
-    google_data = SP.s3.gz_get_json('metrics',
-                                    f'TEST_CUSTOMER/accounts/{end.isoformat()}/{GOOGLE_ACCOUNT_ID}.json')
-    assert google_data, 'GOOGLE data must not be empty'
-    assert dicts_equal(google_data, load_expected('metrics/google_account'))
+    item = SP.report_metrics_service.get_latest_for_tenant(google_tenant, ReportType.OPERATIONAL_OVERVIEW)
+    assert dicts_equal(item.data.as_dict(), load_expected('metrics/google_operational_overview'))
 
-    # todo validated whether montly metrics are collected
-    # todo validate weekly scan statistics
+    item = SP.report_metrics_service.get_latest_for_tenant(aws_tenant, ReportType.OPERATIONAL_RESOURCES)
+    SP.report_metrics_service.fetch_data_from_s3(item)
+    assert dicts_equal(item.data.as_dict(), load_expected('metrics/aws_operational_resources'))
 
-    # validating tenant group metrics results
-    group_data = SP.s3.gz_get_json('metrics', f'TEST_CUSTOMER/tenants/{end.isoformat()}/testing.json')
-    assert group_data, 'Group data must not be empty'
-    assert dicts_equal(group_data, load_expected('metrics/tenant_group'))
+    item = SP.report_metrics_service.get_latest_for_tenant(azure_tenant, ReportType.OPERATIONAL_RESOURCES)
+    SP.report_metrics_service.fetch_data_from_s3(item)
+    assert dicts_equal(item.data.as_dict(), load_expected('metrics/azure_operational_resources'))
 
-    # validation tenant
+    item = SP.report_metrics_service.get_latest_for_tenant(google_tenant, ReportType.OPERATIONAL_RESOURCES)
+    SP.report_metrics_service.fetch_data_from_s3(item)
+    assert dicts_equal(item.data.as_dict(), load_expected('metrics/google_operational_resources'))

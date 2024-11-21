@@ -3,37 +3,26 @@ import json
 import pytest
 
 from services import SP
+from helpers.constants import ReportType
 from ...commons import valid_uuid, dicts_equal
 
 
 @pytest.fixture()
-def aws_metrics(aws_tenant, load_expected, report_bounds):
-    _, end = report_bounds
-    SP.s3.gz_put_json(
-        bucket='metrics',
-        key=f'TEST_CUSTOMER/accounts/{end.date().isoformat()}/{aws_tenant.project}.json',
-        obj=load_expected('metrics/aws_account')
-    )
+def aws_operational_overview_metrics(aws_tenant, load_expected, utcnow):
+    SP.report_metrics_service.create(
+        key=SP.report_metrics_service.key_for_tenant(ReportType.OPERATIONAL_OVERVIEW, aws_tenant),
+        data=load_expected('metrics/aws_operational_overview'),
+        end=utcnow
+    ).save()
 
 
 @pytest.fixture()
-def azure_metrics(azure_tenant, load_expected, report_bounds):
-    _, end = report_bounds
-    SP.s3.gz_put_json(
-        bucket='metrics',
-        key=f'TEST_CUSTOMER/accounts/{end.date().isoformat()}/{azure_tenant.project}.json',
-        obj=load_expected('metrics/azure_account')
-    )
-
-
-@pytest.fixture()
-def google_metrics(google_tenant, load_expected, report_bounds):
-    _, end = report_bounds
-    SP.s3.gz_put_json(
-        bucket='metrics',
-        key=f'TEST_CUSTOMER/accounts/{end.date().isoformat()}/{google_tenant.project}.json',
-        obj=load_expected('metrics/google_account')
-    )
+def aws_operational_resources_metrics(aws_tenant, load_expected, utcnow):
+    SP.report_metrics_service.create(
+        key=SP.report_metrics_service.key_for_tenant(ReportType.OPERATIONAL_RESOURCES, aws_tenant),
+        data=load_expected('metrics/aws_operational_resources'),
+        end=utcnow
+    ).save()
 
 
 def validate_maestro_model(m: dict):
@@ -45,8 +34,8 @@ def validate_maestro_model(m: dict):
     assert isinstance(m['model']['notificationAsJson'], str)
 
 
-def test_operational_report_aws_tenant(
-        system_user_token, sre_client, aws_metrics, mocked_rabbitmq,
+def test_operational_overview_report_aws_tenant(
+        system_user_token, sre_client, aws_operational_overview_metrics, mocked_rabbitmq,
         load_expected):
     resp = sre_client.request(
         "/reports/operational",
@@ -55,12 +44,12 @@ def test_operational_report_aws_tenant(
         data={
             "customer_id": "TEST_CUSTOMER",
             "tenant_names": ['AWS-TESTING'],
+            "types": ["OVERVIEW"],
             "receivers": ["admin@gmail.com"]
         }
     )
-    assert resp.status_int == 200
+    assert resp.status_int == 202
 
-    # testing that modular-sdk's rabbit client was called with expected data
     assert len(mocked_rabbitmq.send_sync.mock_calls) == 1
 
     kw = mocked_rabbitmq.send_sync.mock_calls[0].kwargs
@@ -72,34 +61,41 @@ def test_operational_report_aws_tenant(
 
     # checking models
     params = kw['parameters']
-    assert len(params) == 6, 'All 6 report types must be sent'
-    type_model = {}
-    for param in params:
-        validate_maestro_model(param)
-        type_model[param['model']['notificationType']] = json.loads(
-            param['model']['notificationAsJson'])
+    assert len(params) == 1, 'Only one operational report is sent'
+    typ = params[0]['model']['notificationType']
+    model = json.loads(params[0]['model']['notificationAsJson'])
 
+    assert typ == 'CUSTODIAN_OVERVIEW_REPORT'
     assert dicts_equal(
-        type_model['CUSTODIAN_ATTACKS_REPORT'],
-        load_expected('operational/attacks_report')
-    )
-    assert dicts_equal(
-        type_model['CUSTODIAN_COMPLIANCE_REPORT'],
-        load_expected('operational/compliance_report')
-    )
-    assert dicts_equal(
-        type_model['CUSTODIAN_OVERVIEW_REPORT'],
+        model,
         load_expected('operational/overview_report')
     )
+
+
+def test_operational_resources_report_aws_tenant(
+        system_user_token, sre_client, aws_operational_resources_metrics,
+        mocked_rabbitmq,
+        load_expected):
+    resp = sre_client.request(
+        "/reports/operational",
+        "POST",
+        auth=system_user_token,
+        data={
+            "customer_id": "TEST_CUSTOMER",
+            "tenant_names": ['AWS-TESTING'],
+            "types": ["RESOURCES"],
+            "receivers": ["admin@gmail.com"]
+        }
+    )
+    assert resp.status_int == 202
+    assert len(mocked_rabbitmq.send_sync.mock_calls) == 1
+    params = mocked_rabbitmq.send_sync.mock_calls[0].kwargs['parameters']
+
+    assert len(params) == 1, 'Only one operational report is sent'
+    assert params[0]['model']['notificationType'] == 'CUSTODIAN_RESOURCES_REPORT'
+
     assert dicts_equal(
-        type_model['CUSTODIAN_RESOURCES_REPORT'],
+        json.loads(params[0]['model']['notificationAsJson']),
         load_expected('operational/resources_report')
     )
-    assert dicts_equal(
-        type_model['CUSTODIAN_RULES_REPORT'],
-        load_expected('operational/rules_report')
-    )
-    assert dicts_equal(
-        type_model['CUSTODIAN_FINOPS_REPORT'],
-        load_expected('operational/finops_report')
-    )
+

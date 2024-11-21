@@ -1,5 +1,4 @@
 from concurrent.futures import ThreadPoolExecutor
-from functools import cached_property
 from http import HTTPStatus
 from itertools import chain
 import operator
@@ -86,7 +85,7 @@ class RulesetHandler(AbstractHandler):
             license_manager_service=SERVICE_PROVIDER.license_manager_service
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.RULESETS: {
@@ -701,7 +700,7 @@ class RulesetHandler(AbstractHandler):
                 message=message,
                 code=code
             ))
-        if all(item['released'] for item in responses):
+        if all([item['released'] for item in responses]):
             result_code = HTTPStatus.CREATED
         else:
             result_code = HTTPStatus.MULTI_STATUS

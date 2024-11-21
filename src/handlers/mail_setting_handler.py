@@ -1,4 +1,3 @@
-from functools import cached_property
 from http import HTTPStatus
 
 from handlers import AbstractHandler, Mapping
@@ -38,7 +37,7 @@ class MailSettingHandler(AbstractHandler):
         self.smtp_client = smtp_client
         self.ssm_client = ssm_client
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.SETTINGS_MAIL: {

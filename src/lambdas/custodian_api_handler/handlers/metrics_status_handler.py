@@ -1,5 +1,4 @@
 from datetime import date, datetime
-from functools import cached_property
 
 from modular_sdk.models.job import Job
 from modular_sdk.modular import Modular
@@ -29,7 +28,7 @@ class MetricsStatusHandler(AbstractHandler):
             environment_service=SERVICE_PROVIDER.environment_service
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.METRICS_STATUS: {

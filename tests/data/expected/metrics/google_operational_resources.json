@@ -1,0 +1,101 @@
+{
+  "id": "testing-project-123",
+  "data": [
+    {
+      "policy": "ecc-gcp-025-no_default_network",
+      "resource_type": "Vpc",
+      "description": "Description for ecc-gcp-025-no_default_network",
+      "severity": "Unknown",
+      "resources": {
+        "global": [
+          {
+            "id": "default",
+            "name": "default"
+          }
+        ]
+      }
+    },
+    {
+      "policy": "ecc-gcp-272-firewall_logging_enabled",
+      "resource_type": "Firewall",
+      "description": "Description for ecc-gcp-272-firewall_logging_enabled",
+      "severity": "Unknown",
+      "resources": {
+        "global": [
+          {
+            "id": "default-allow-rdp",
+            "name": "default-allow-rdp"
+          },
+          {
+            "id": "default-allow-icmp",
+            "name": "default-allow-icmp"
+          },
+          {
+            "id": "default-allow-internal",
+            "name": "default-allow-internal"
+          },
+          {
+            "id": "default-allow-ssh",
+            "name": "default-allow-ssh"
+          }
+        ]
+      }
+    },
+    {
+      "policy": "ecc-gcp-109-prevent_allow_all_ingress",
+      "resource_type": "Firewall",
+      "description": "Description for ecc-gcp-109-prevent_allow_all_ingress",
+      "severity": "Unknown",
+      "resources": {
+        "global": [
+          {
+            "id": "default-allow-internal",
+            "name": "default-allow-internal"
+          }
+        ]
+      }
+    },
+    {
+      "policy": "ecc-gcp-104-default_firewall_rule_in_use",
+      "resource_type": "Firewall",
+      "description": "Description for ecc-gcp-104-default_firewall_rule_in_use",
+      "severity": "Unknown",
+      "resources": {
+        "global": [
+          {
+            "id": "default-allow-rdp",
+            "name": "default-allow-rdp"
+          },
+          {
+            "id": "default-allow-icmp",
+            "name": "default-allow-icmp"
+          },
+          {
+            "id": "default-allow-internal",
+            "name": "default-allow-internal"
+          },
+          {
+            "id": "default-allow-ssh",
+            "name": "default-allow-ssh"
+          }
+        ]
+      }
+    },
+    {
+      "policy": "ecc-gcp-033-vpc_flow_logs_for_every_subnet",
+      "resource_type": "Subnet",
+      "description": "Description for ecc-gcp-033-vpc_flow_logs_for_every_subnet",
+      "severity": "Unknown",
+      "resources": {
+        "global": [
+          {
+            "id": "default",
+            "name": "default"
+          }
+        ]
+      }
+    }
+  ],
+  "last_scan_date": "2024-11-17T00:02:53.992185Z",
+  "activated_regions": []
+}

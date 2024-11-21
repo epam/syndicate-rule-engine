@@ -1,19 +1,22 @@
 import tempfile
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone, date
+from datetime import date, datetime, timezone
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Optional
+
 from dateutil.relativedelta import relativedelta
 
 from helpers import urljoin
 from helpers.constants import Cloud
 from helpers.time_helper import utc_datetime, week_number
 from models.batch_results import BatchResults
+from models.metrics import ReportMetrics
 from models.job import Job
 from services import SP
 
 if TYPE_CHECKING:
     from modular_sdk.models.tenant import Tenant
+
     from services.platform_service import Platform
 
 
@@ -30,6 +33,7 @@ class ReportsBucketKeysBuilder(ABC):
     raw/EPAM Systems/AWS/31231231231/jobs/event-driven/2023-12-10-14/b00649c9-2657-4ade-bd6b-f0f5924f6a50/result/  # noqa
     raw/EPAM Systems/AWS/31231231231/jobs/event-driven/2023-12-10-14/b00649c9-2657-4ade-bd6b-f0f5924f6a50/difference/  # noqa
     """
+
     date_delimiter = '-'
 
     prefix = 'raw/'
@@ -56,9 +60,12 @@ class ReportsBucketKeysBuilder(ABC):
         """
         _from = _from or utc_datetime()
         _from = _from.astimezone(timezone.utc)  # just in case
-        return _from.strftime(ReportsBucketKeysBuilder.date_delimiter.join(
-            ['%Y', '%m', '%d', '%H']
-        ) + '/')
+        return _from.strftime(
+            ReportsBucketKeysBuilder.date_delimiter.join(
+                ('%Y', '%m', '%d', '%H')
+            )
+            + '/'
+        )
 
     @property
     @abstractmethod
@@ -112,10 +119,7 @@ class ReportsBucketKeysBuilder(ABC):
         :param date:
         :return:
         """
-        return self.urljoin(
-            self.snapshots_folder(),
-            self.datetime(date)
-        )
+        return self.urljoin(self.snapshots_folder(), self.datetime(date))
 
     def nearest_snapshot_key(self, date: datetime) -> str | None:
         """
@@ -125,12 +129,9 @@ class ReportsBucketKeysBuilder(ABC):
         prefixes = SP.s3.common_prefixes(
             bucket=SP.environment_service.default_reports_bucket_name(),
             delimiter='/',
-            prefix=self.snapshots_folder()
+            prefix=self.snapshots_folder(),
         )
-        to_check = self.urljoin(
-            self.snapshots_folder(),
-            self.datetime(date)
-        )
+        to_check = self.urljoin(self.snapshots_folder(), self.datetime(date))
         lower = None
         for prefix in prefixes:
             if prefix <= to_check:
@@ -173,8 +174,9 @@ class TenantReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
         return Cloud[self._tenant.cloud.upper()]
 
     def job_result(self, job: 'Job') -> str:
-        assert job.tenant_name == self._tenant.name, \
-            f'Job tenant must be {self._tenant.name}'
+        assert (
+            job.tenant_name == self._tenant.name
+        ), f'Job tenant must be {self._tenant.name}'
         return self.urljoin(
             self.prefix,
             self._tenant.customer_name,
@@ -188,8 +190,9 @@ class TenantReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
         )
 
     def ed_job_result(self, br: 'BatchResults') -> str:
-        assert br.tenant_name == self._tenant.name, \
-            f'Job tenant must be {self._tenant.name}'
+        assert (
+            br.tenant_name == self._tenant.name
+        ), f'Job tenant must be {self._tenant.name}'
         return self.urljoin(
             self.prefix,
             self._tenant.customer_name,
@@ -203,8 +206,9 @@ class TenantReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
         )
 
     def ed_job_difference(self, br: 'BatchResults') -> str:
-        assert br.tenant_name == self._tenant.name, \
-            f'Job tenant must be {self._tenant.name}'
+        assert (
+            br.tenant_name == self._tenant.name
+        ), f'Job tenant must be {self._tenant.name}'
         return self.urljoin(
             self.prefix,
             self._tenant.customer_name,
@@ -223,7 +227,7 @@ class TenantReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
             self._tenant.customer_name,
             self.cloud.value,
             self._tenant.project,
-            self.latest
+            self.latest,
         )
 
     def snapshots_folder(self) -> str:
@@ -232,12 +236,11 @@ class TenantReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
             self._tenant.customer_name,
             self.cloud.value,
             self._tenant.project,
-            self.snapshots
+            self.snapshots,
         )
 
 
 class PlatformReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
-
     def __init__(self, platform: 'Platform'):
         self._platform = platform
 
@@ -249,8 +252,9 @@ class PlatformReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
         return Cloud.KUBERNETES
 
     def job_result(self, job: 'Job') -> str:
-        assert job.platform_id == self._platform.id, \
-            f'Job platform must be {self._platform.id}'
+        assert (
+            job.platform_id == self._platform.id
+        ), f'Job platform must be {self._platform.id}'
 
         return self.urljoin(
             self.prefix,
@@ -260,7 +264,7 @@ class PlatformReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
             self.jobs,
             self.standard,
             self.datetime(utc_datetime(job.submitted_at)),
-            job.id
+            job.id,
         )
 
     def ed_job_result(self, br: 'BatchResults') -> str:
@@ -275,7 +279,7 @@ class PlatformReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
             self._platform.customer,
             self.cloud.value,
             self._platform.platform_id,
-            self.latest
+            self.latest,
         )
 
     def snapshots_folder(self) -> str:
@@ -284,7 +288,7 @@ class PlatformReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
             self._platform.customer,
             self.cloud.value,
             self._platform.platform_id,
-            self.snapshots
+            self.snapshots,
         )
 
 
@@ -303,17 +307,9 @@ class StatisticsBucketKeysBuilder:
     def job_statistics(cls, job: Job | BatchResults) -> str:
         if isinstance(job, Job):
             return urljoin(
-                cls._statistics,
-                cls._standard,
-                job.id,
-                cls._statistics_file
+                cls._statistics, cls._standard, job.id, cls._statistics_file
             )
-        return urljoin(
-            cls._statistics,
-            cls._ed,
-            job.id,
-            cls._statistics_file
-        )
+        return urljoin(cls._statistics, cls._ed, job.id, cls._statistics_file)
 
     @classmethod
     def report_statistics(cls, now: date, customer: str) -> str:
@@ -321,53 +317,97 @@ class StatisticsBucketKeysBuilder:
             cls._report_statistics,
             cls._diagnostic,
             customer,
-            now.strftime(ReportsBucketKeysBuilder.date_delimiter.join(
-                ['%Y', '%m']) + '/'),
-            cls._diagnostic_report_file
+            now.strftime(
+                ReportsBucketKeysBuilder.date_delimiter.join(['%Y', '%m'])
+                + '/'
+            ),
+            cls._diagnostic_report_file,
         )
 
     @classmethod
-    def tenant_statistics(cls, now: date, tenant: Optional['Tenant'] = None,
-                          customer: Optional[str] = None) -> str:
+    def tenant_statistics(
+        cls,
+        now: date,
+        tenant: Optional['Tenant'] = None,
+        customer: Optional[str] = None,
+    ) -> str:
         if customer:
             return urljoin(
                 cls._tenant_statistics,
                 cls._rules,
                 customer,
-                now.strftime(ReportsBucketKeysBuilder.date_delimiter.join(
-                    ['%Y', '%m']) + '/')
+                now.strftime(
+                    ReportsBucketKeysBuilder.date_delimiter.join(['%Y', '%m'])
+                    + '/'
+                ),
             )
         elif tenant:
             return urljoin(
                 cls._tenant_statistics,
                 cls._rules,
                 tenant.customer_name,
-                now.strftime(ReportsBucketKeysBuilder.date_delimiter.join(
-                    ['%Y', '%m']) + '/'),
+                now.strftime(
+                    ReportsBucketKeysBuilder.date_delimiter.join(['%Y', '%m'])
+                    + '/'
+                ),
                 tenant.cloud,
                 tenant.project,
-                str(week_number(now)) + '.json'
+                str(week_number(now)) + '.json',
             )
-        return urljoin(
-            cls._tenant_statistics,
-            cls._rules
-        )
+        return urljoin(cls._tenant_statistics, cls._rules)
 
     @classmethod
     def xray_log(cls, job_id: str) -> str:
         now = utc_datetime()
         return urljoin(
-            'xray',
-            'executor',
-            now.year,
-            now.month,
-            now.day,
-            f'{job_id}.log'
+            'xray', 'executor', now.year, now.month, now.day, f'{job_id}.log'
         )
 
 
+class ReportMetricsBucketKeysBuilder:
+    __slots__ = ()
+
+    date_delimiter = '-'
+    prefix = 'metrics/'
+    data = 'data.json.gz'
+
+    @staticmethod
+    def datetime(end: datetime) -> str:
+        """
+        Builds datetime part of a path
+        :return:
+        """
+        end = end.astimezone(timezone.utc)  # just in case
+        return end.strftime(
+            ReportMetricsBucketKeysBuilder.date_delimiter.join(
+                ('%Y', '%m', '%d', '%H', '%M', '%S', '%f')
+            )
+        )
+
+    @classmethod
+    def metrics_key(cls, item: ReportMetrics) -> str:
+        items = []
+        if pr := item.project:
+            items.append(pr)
+        if cl := item.cloud:
+            items.append(cl.value)
+        if t := item.tenant:
+            items.append(t)
+        if r := item.region:
+            items.append(r)
+        return urljoin(
+            cls.prefix,
+            item.customer,
+            item.type.value,
+            *items,
+            cls.datetime(utc_datetime(item.end)),
+            cls.data,
+        )
+
+
+# TODO: remove
 class MetricsBucketKeysBuilder:
-    __slots__ = '_tenant',
+    __slots__ = ('_tenant',)
     _accounts = 'accounts/'
     _tenants = 'tenants/'
     _monthly = 'monthly/'
@@ -383,7 +423,7 @@ class MetricsBucketKeysBuilder:
             self._tenant.customer_name,
             self._accounts,
             dt.date().isoformat(),
-            f'{self._tenant.project}.json'
+            f'{self._tenant.project}.json',
         )
 
     def tenant_metrics(self, dt: datetime) -> str:
@@ -394,17 +434,16 @@ class MetricsBucketKeysBuilder:
             self._tenant.customer_name,
             self._tenants,
             dt.date().isoformat(),
-            f'{self._tenant.display_name_to_lower.lower()}.json'
+            f'{self._tenant.display_name_to_lower.lower()}.json',
         )
 
     @classmethod
-    def list_customer_accounts_metrics_prefix(cls, customer_name: str,
-                                              dt: datetime) -> str:
-        return urljoin(
-            customer_name,
-            cls._accounts,
-            dt.date().isoformat()
-        ) + '/'
+    def list_customer_accounts_metrics_prefix(
+        cls, customer_name: str, dt: datetime
+    ) -> str:
+        return (
+            urljoin(customer_name, cls._accounts, dt.date().isoformat()) + '/'
+        )
 
     def account_monthly_metrics(self, dt: datetime) -> str:
         """
@@ -416,7 +455,7 @@ class MetricsBucketKeysBuilder:
             self._accounts,
             self._monthly,
             next_m.date().isoformat(),
-            f'{self._tenant.project}.json'
+            f'{self._tenant.project}.json',
         )
 
     def tenant_monthly_metrics(self, dt: datetime) -> str:
@@ -429,5 +468,5 @@ class MetricsBucketKeysBuilder:
             self._tenants,
             self._monthly,
             next_m.date().isoformat(),
-            f'{self._tenant.display_name_to_lower.lower()}.json'
+            f'{self._tenant.display_name_to_lower.lower()}.json',
         )

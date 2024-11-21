@@ -1,4 +1,3 @@
-from functools import cached_property
 from http import HTTPStatus
 
 from handlers import AbstractHandler, Mapping
@@ -44,7 +43,7 @@ class RuleSourceHandler(AbstractHandler):
             lambda_client=SP.lambda_client
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.RULE_SOURCES: {

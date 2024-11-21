@@ -3,6 +3,84 @@ from helpers.constants import Severity
 NONE_VERSION = 'null'
 
 
+# class Standard(tuple):
+#     # todo can be broken during sorting if there are two standards with the
+#     #  same name but the first one has version and another one does not have.
+#
+#     def __new__(cls, name: str, version: str | None = None):
+#         if isinstance(name, Standard):
+#             return name
+#         if isinstance(name, tuple) and len(name) == 2:
+#             return tuple.__new__(Standard, name)
+#         if isinstance(name, tuple) and len(name) == 1:
+#             return tuple.__new__(Standard, (name[0], None))
+#         if not isinstance(name, str):
+#             raise TypeError('only string or tuple are allowed')
+#         version = None if version == 'null' else version
+#         return tuple.__new__(Standard, (name, version))
+#
+#     def __init__(self, *args, **kwargs):
+#         super().__init__()
+#         self.points = set()
+#
+#     @property
+#     def name(self) -> str:
+#         return self[0]
+#
+#     @property
+#     def version(self) -> str | None:
+#         return self[1]
+#
+#     def __repr__(self) -> str:
+#         return f'{self.name} {self.version}'
+#
+#     @property
+#     def full_name(self) -> str:
+#         if not self.version:
+#             return self.name
+#         return f'{self.name} {self.version}'
+#
+#     @classmethod
+#     def deserialize(cls, standards: dict[str, list] | dict[str, dict],
+#                     include_points: bool = False
+#                     ) -> Generator['Standard', None, None]:
+#         """Currently rules' standards look like it's showed below
+#         {
+#             'Standard_1': [
+#                 'v1 (point1,sub-point1,point2)',
+#                 'v2'
+#             ],
+#             'Standard_2': [
+#                 '(sub-point2)'
+#             ],
+#         }
+#         The method will transform it to this:
+#         {('Standard_1', 'v1'), ('Standard_1', 'v2'), ('Standard_2', 'null')}
+#         Each standard will contain a set of its points inside
+#         """
+#         for standard, versions in standards.items():
+#             for version in versions:
+#                 v = None
+#                 p = set()
+#
+#                 version_points = version.rsplit(maxsplit=1)
+#                 if len(version_points) == 2:  # version and points
+#                     v = version_points[0]
+#                     if include_points:
+#                         p = set(version_points[1].strip('()').split(','))
+#                 elif len(version_points) == 1 and version_points[0].startswith('('):  # only points
+#                     if include_points:
+#                         p = set(version_points[0].strip('()').split(','))
+#                 elif len(version_points) == 1:  # only version
+#                     v = version_points[0]
+#                 else:
+#                     raise ValueError(f'Wrong rule standard format: '
+#                                      f'{standard}, {version}')
+#                 item = Standard(standard, v)
+#                 if include_points:
+#                     item.points.update(p)
+#                 yield item
+
 class Standard:
     """
     Basic representation of rule's standard with version

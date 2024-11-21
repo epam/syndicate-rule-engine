@@ -1,4 +1,3 @@
-from functools import cached_property
 from http import HTTPStatus
 
 from modular_sdk.modular import Modular
@@ -66,7 +65,7 @@ class SiemPushHandler(AbstractHandler):
             maestro_credentials_service=SP.modular_client.maestro_credentials_service()
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.REPORTS_PUSH_DOJO_JOB_ID: {

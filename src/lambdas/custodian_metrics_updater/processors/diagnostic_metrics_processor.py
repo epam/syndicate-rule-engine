@@ -210,4 +210,4 @@ class DiagnosticMetrics:
         return [{'level': level, **data} for level, data in result.items()]
 
 
-DIAGNOSTIC_METRICS = DiagnosticMetrics.build()
+# DIAGNOSTIC_METRICS = DiagnosticMetrics.build()

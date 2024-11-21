@@ -1,4 +1,3 @@
-from functools import cached_property
 from typing import TYPE_CHECKING
 
 from handlers import AbstractHandler, Mapping
@@ -34,7 +33,7 @@ class CustomerHandler(AbstractHandler):
             customer_settings_service=SP.modular_client.customer_settings_service(),
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.CUSTOMERS: {

@@ -52,7 +52,7 @@ from validators.registry import permissions_mapping
 from validators.swagger_request_models import BaseModel, RuleUpdateMetaPostModel
 from validators.utils import validate_kwargs
 
-_LOG = get_logger('custodian-configuration-api-handler')
+_LOG = get_logger(__name__)
 
 
 STATUS_MESSAGE_UPDATE_EVENT_SUBMITTED = 'Rule update event has been submitted'
@@ -173,7 +173,7 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
     def update_metrics(self, event: BaseModel):
         _LOG.debug(f'Going to trigger: {METRICS_UPDATER_LAMBDA_NAME}')
         response = self.lambda_client.invoke_function_async(
-            METRICS_UPDATER_LAMBDA_NAME, event={'data_type': 'tenants'})
+            METRICS_UPDATER_LAMBDA_NAME, event={'data_type': 'metrics'})
         if response.get('StatusCode') == HTTPStatus.ACCEPTED:
             _LOG.debug('Metrics updating has been triggered')
             return build_response(

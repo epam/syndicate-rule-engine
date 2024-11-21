@@ -1,4 +1,3 @@
-from functools import cached_property
 from http import HTTPStatus
 
 from modular_sdk.services.tenant_service import TenantService
@@ -7,7 +6,6 @@ from handlers import AbstractHandler, Mapping
 from helpers.constants import CustodianEndpoint, HTTPMethod, JobState, \
     ReportFormat
 from helpers.lambda_response import build_response
-from helpers import flip_dict
 from services import SP
 from services import modular_helpers
 from services.ambiguous_job_service import AmbiguousJob, AmbiguousJobService
@@ -42,7 +40,7 @@ class DetailedReportHandler(AbstractHandler):
             platform_service=SP.platform_service
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.REPORTS_DETAILS_JOBS_JOB_ID: {

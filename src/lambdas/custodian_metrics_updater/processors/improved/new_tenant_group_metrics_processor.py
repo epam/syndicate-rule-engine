@@ -247,12 +247,12 @@ class TenantGroupMetrics:
                 key=MetricsBucketKeysBuilder(tenants[0]).tenant_metrics(end),
                 obj=tenant_group_data
             )
-            _LOG.info('Saving monthly metrics to s3')  # todo monthly seems not monthly, must be fixed
-            self._s3.gz_put_json(
-                bucket=self._env.get_metrics_bucket_name(),
-                key=MetricsBucketKeysBuilder(tenants[0]).tenant_monthly_metrics(end),
-                obj=tenant_group_data
-            )
+            # _LOG.info('Saving monthly metrics to s3')  # todo monthly seems not monthly, must be fixed
+            # self._s3.gz_put_json(
+            #     bucket=self._env.get_metrics_bucket_name(),
+            #     key=MetricsBucketKeysBuilder(tenants[0]).tenant_monthly_metrics(end),
+            #     obj=tenant_group_data
+            # )
 
     @staticmethod
     def get_current_week_boundaries() -> tuple[datetime, datetime]:
@@ -285,6 +285,3 @@ class TenantGroupMetrics:
             # todo pass period which we use to collect data
             'continuously': event.get('continuously')  # todo for what
         }
-
-
-TENANT_GROUP_METRICS = TenantGroupMetrics.build()

@@ -327,13 +327,13 @@ class Recommendation:
                 body=content.encode())
 
 
-RECOMMENDATION_METRICS = Recommendation(
-    environment_service=SERVICE_PROVIDER.environment_service,
-    s3_client=SERVICE_PROVIDER.s3,
-    modular_client=SERVICE_PROVIDER.modular_client,
-    rabbitmq_service=SERVICE_PROVIDER.rabbitmq_service,
-    assume_role_s3=SERVICE_PROVIDER.assume_role_s3,
-    mappings_collector=SERVICE_PROVIDER.mappings_collector,
-    report_service=SERVICE_PROVIDER.report_service,
-    platform_service=SERVICE_PROVIDER.platform_service
-)
+# RECOMMENDATION_METRICS = Recommendation(
+#     environment_service=SERVICE_PROVIDER.environment_service,
+#     s3_client=SERVICE_PROVIDER.s3,
+#     modular_client=SERVICE_PROVIDER.modular_client,
+#     rabbitmq_service=SERVICE_PROVIDER.rabbitmq_service,
+#     assume_role_s3=SERVICE_PROVIDER.assume_role_s3,
+#     mappings_collector=SERVICE_PROVIDER.mappings_collector,
+#     report_service=SERVICE_PROVIDER.report_service,
+#     platform_service=SERVICE_PROVIDER.platform_service
+# )

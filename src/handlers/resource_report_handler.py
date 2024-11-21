@@ -1,9 +1,9 @@
 import tempfile
 from datetime import datetime
-from functools import cached_property, cmp_to_key
+from functools import cmp_to_key
 from http import HTTPStatus
 from itertools import chain
-from typing import Any, Iterator, Optional, TypedDict, Generator
+from typing import Any, Iterator, Optional, TypedDict
 
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.tenant_service import TenantService
@@ -11,33 +11,29 @@ from xlsxwriter import Workbook
 from xlsxwriter.worksheet import Worksheet
 
 from handlers import AbstractHandler, Mapping
-from helpers import filter_dict, hashable, flip_dict
+from helpers import filter_dict, flip_dict, hashable
 from helpers.constants import (
+    JOB_ID_ATTR,
+    REPORT_FIELDS,
+    TYPE_ATTR,
     CustodianEndpoint,
     HTTPMethod,
-    JOB_ID_ATTR,
     JobState,
     JobType,
-    REPORT_FIELDS,
     ReportFormat,
     Severity,
-    TYPE_ATTR,
 )
 from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
 from helpers.reports import severity_cmp
 from helpers.time_helper import utc_iso
-from services import SP
-from services import modular_helpers
+from services import SP, modular_helpers, obfuscation
 from services.ambiguous_job_service import AmbiguousJob, AmbiguousJobService
-from services.clients.s3 import S3Client
-from services.environment_service import EnvironmentService
 from services.mappings_collector import LazyLoadedMappingsCollector
-from services.metrics_service import MetricsService, ResourcesGenerator
 from services.platform_service import Platform, PlatformService
 from services.report_service import ReportResponse, ReportService
+from services.reports import ShardsCollectionDataSource
 from services.sharding import ShardsCollection
-from services import obfuscation
 from services.xlsx_writer import CellContent, Table, XlsxRowsWriter
 from validators.swagger_request_models import (
     PlatformK8sResourcesReportGetModel,
@@ -77,25 +73,18 @@ class MatchedResourcesIterator(Iterator[Payload]):
     def collection(self) -> ShardsCollection:
         return self._collection
 
-    def create_resources_generator(self) -> ResourcesGenerator:
+    def create_resources_generator(self) -> ShardsCollectionDataSource.ResourcesGenerator:
         """
         See metrics_service.create_resources_generator
         :return:
         """
-        ms = self.metrics_service
-        resources = ms.iter_resources(self._collection.iter_parts())
-        resources = ms.custom_modify(resources, self._collection.meta)
-        if self._region:
-            resources = ms.allow_only_regions(resources, {self._region})
-        if self._resource_type:
-            resources = ms.allow_only_resource_type(
-                resources, self._collection.meta, self._resource_type
-            )
-        return resources
-
-    @property
-    def metrics_service(self) -> MetricsService:
-        return SP.metrics_service
+        source = ShardsCollectionDataSource(self._collection)
+        return source.create_resources_generator(
+            only_report_fields=False,
+            deduplicated=False,
+            active_regions=(self._region, ) if self._region else (),
+            resource_types=(self._resource_type, ) if self._resource_type else (),
+        )
 
     def __iter__(self):
         self._it = self.create_resources_generator()
@@ -166,13 +155,9 @@ class ResourceReportBuilder:
         self._entity = entity
         self._full = full
 
-    @cached_property
+    @property
     def mc(self) -> LazyLoadedMappingsCollector:
         return SP.mappings_collector
-
-    @cached_property
-    def metrics_service(self) -> MetricsService:
-        return SP.metrics_service
 
     def _build_rules(self, rules: set[str]) -> list[dict]:
         severity = self.mc.severity
@@ -227,6 +212,12 @@ class ResourceReportBuilder:
 
 
 class ResourceReportXlsxWriter:
+    head = (
+        '№', 'Service', 'Resource', 'Region',
+        'Date updated', 'Rule', 'Description', 'Severity', 'Article',
+        'Remediation',
+    )
+
     def __init__(self, it: MatchedResourcesIterator, full: bool = True, 
                  keep_region: bool = True):
         self._it = it
@@ -236,10 +227,6 @@ class ResourceReportXlsxWriter:
     @property
     def mc(self) -> LazyLoadedMappingsCollector:
         return SP.mappings_collector
-
-    @property
-    def ms(self) -> MetricsService:
-        return SP.metrics_service
 
     def _aggregated(self) -> dict[tuple, list]:
         """
@@ -262,14 +249,6 @@ class ResourceReportXlsxWriter:
             data[1].update(dto)
             data[2] = max(data[2], ts)
         return res
-
-    @cached_property
-    def head(self) -> list:
-        return [
-            '№', 'Service', 'Resource', 'Region',
-            'Date updated', 'Rule', 'Description', 'Severity', 'Article',
-            'Remediation',
-        ]
 
     def write(self, wsh: Worksheet, wb: Workbook):
         service = self.mc.service
@@ -355,18 +334,12 @@ class ResourceReportHandler(AbstractHandler):
     def __init__(self, ambiguous_job_service: AmbiguousJobService,
                  tenant_service: TenantService,
                  report_service: ReportService,
-                 metrics_service: MetricsService,
                  mappings_collector: LazyLoadedMappingsCollector,
-                 s3_client: S3Client,
-                 environment_service: EnvironmentService,
                  platform_service: PlatformService):
         self._ambiguous_job_service = ambiguous_job_service
         self._tenant_service = tenant_service
         self._report_service = report_service
-        self._metrics_service = metrics_service
         self._mappings_collector = mappings_collector
-        self._s3_client = s3_client
-        self._environment_service = environment_service
         self._platform_service = platform_service
 
     @property
@@ -383,14 +356,11 @@ class ResourceReportHandler(AbstractHandler):
             ambiguous_job_service=SP.ambiguous_job_service,
             tenant_service=SP.modular_client.tenant_service(),
             report_service=SP.report_service,
-            metrics_service=SP.metrics_service,
             mappings_collector=SP.mappings_collector,
-            s3_client=SP.s3,
-            environment_service=SP.environment_service,
             platform_service=SP.platform_service
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.REPORTS_RESOURCES_PLATFORMS_K8S_PLATFORM_ID_LATEST: {

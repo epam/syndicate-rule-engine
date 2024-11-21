@@ -1,5 +1,4 @@
 import io
-from functools import cached_property
 from http import HTTPStatus
 from itertools import chain
 
@@ -9,11 +8,10 @@ from xlsxwriter.worksheet import Worksheet
 
 from handlers import AbstractHandler, Mapping
 from helpers.constants import CustodianEndpoint, HTTPMethod, ReportFormat
-from helpers.lambda_response import build_response
+from helpers.lambda_response import build_response, ResponseFactory
 from services import SP
 from services import modular_helpers
 from services.ambiguous_job_service import AmbiguousJobService
-from services.coverage_service import CoverageService
 from services.environment_service import EnvironmentService
 from services.report_service import ReportResponse, ReportService
 from services.xlsx_writer import CellContent, Table, XlsxRowsWriter
@@ -50,12 +48,10 @@ class ComplianceReportXlsxWriter:
 
 class ComplianceReportHandler(AbstractHandler):
     def __init__(self, tenant_service: TenantService,
-                 coverage_service: CoverageService,
                  environment_service: EnvironmentService,
                  ambiguous_job_service: AmbiguousJobService,
                  report_service: ReportService):
         self._tenant_service = tenant_service
-        self._coverage_service = coverage_service
         self._environment_service = environment_service
         self._ambiguous_job_service = ambiguous_job_service
         self._report_service = report_service
@@ -64,13 +60,12 @@ class ComplianceReportHandler(AbstractHandler):
     def build(cls) -> 'AbstractHandler':
         return cls(
             tenant_service=SP.modular_client.tenant_service(),
-            coverage_service=SP.coverage_service,
             environment_service=SP.environment_service,
             ambiguous_job_service=SP.ambiguous_job_service,
             report_service=SP.report_service
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.REPORTS_COMPLIANCE_JOBS_JOB_ID: {
@@ -83,6 +78,7 @@ class ComplianceReportHandler(AbstractHandler):
 
     @validate_kwargs
     def get_by_job(self, event: JobComplianceReportGetModel, job_id: str):
+        raise ResponseFactory(HTTPStatus.NOT_IMPLEMENTED).default().exc()
         job = self._ambiguous_job_service.get_job(
             job_id=job_id,
             typ=event.job_type,
@@ -134,6 +130,7 @@ class ComplianceReportHandler(AbstractHandler):
     @validate_kwargs
     def get_by_tenant(self, event: TenantComplianceReportGetModel, 
                       tenant_name: str):
+        raise ResponseFactory(HTTPStatus.NOT_IMPLEMENTED).default().exc()
         tenant = self._tenant_service.get(tenant_name)
         modular_helpers.assert_tenant_valid(tenant, event.customer)
         cloud = modular_helpers.tenant_cloud(tenant)

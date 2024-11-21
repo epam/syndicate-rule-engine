@@ -1,6 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
 import dataclasses
-from functools import cached_property
 import os
 from pathlib import Path
 import tempfile
@@ -30,7 +29,7 @@ from services.s3_settings_service import S3SettingsService
 from services.setting_service import SettingsService
 from services.clients.ssm import AbstractSSMClient
 
-_LOG = get_logger('custodian-rule-meta-updater')
+_LOG = get_logger(__name__)
 
 _LOG.debug(f'Using CYaml: {__with_libyaml__}')
 
@@ -51,6 +50,9 @@ class StandardsSetting(TypedDict):
 
 class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
     processors = ()
+    metadata_key = 'metadata'
+    policies_key = 'policies'
+
 
     def __init__(self, rule_service: RuleService,
                  rule_source_service: RuleSourceService,
@@ -208,14 +210,6 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
             if filename.endswith(suffix):
                 filename = filename[:-len(suffix)]
         return filename
-
-    @cached_property
-    def metadata_key(self) -> str:
-        return 'metadata'
-
-    @cached_property
-    def policies_key(self) -> str:
-        return 'policies'
 
     def iter_files(self, root: Path
                    ) -> Generator[tuple[Path, dict], None, None]:

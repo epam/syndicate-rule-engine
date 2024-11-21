@@ -1,4 +1,3 @@
-from functools import cached_property
 from http import HTTPStatus
 
 from modular_sdk.models.pynamodb_extension.base_model import LastEvaluatedKey as Lek
@@ -23,7 +22,7 @@ class BatchResultsHandler(AbstractHandler):
             batch_results_service=SERVICE_PROVIDER.batch_results_service
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.BATCH_RESULTS_JOB_ID: {

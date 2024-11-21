@@ -1000,7 +1000,9 @@ class ReportType(str, Enum):
         """
         Keeps some default report information. Just helper class. Report type
         implies the period for which data is collected
-        (at least the default period)
+        (at least the default period).
+        Also, the principal entity for any report must depend on report type
+        i.e operational is for specific tenant, c-level - across whole customer
         """
         obj = str.__new__(cls, value)
         obj._value_ = value

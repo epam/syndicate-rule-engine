@@ -1,4 +1,3 @@
-from functools import cached_property
 from http import HTTPStatus
 
 from handlers import AbstractHandler, Mapping
@@ -23,7 +22,7 @@ class RuleMetaHandler(AbstractHandler):
             lambda_client=SERVICE_PROVIDER.lambda_client
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.META_STANDARDS: {

@@ -1077,4 +1077,4 @@ class TenantMetrics:
         return result
 
 
-TENANT_METRICS = TenantMetrics.build()
+# TENANT_METRICS = TenantMetrics.build()

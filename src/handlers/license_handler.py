@@ -1,4 +1,4 @@
-from functools import cached_property, partial
+from functools import partial
 from http import HTTPStatus
 from itertools import chain
 from typing import Iterable
@@ -73,7 +73,7 @@ class LicenseHandler(AbstractHandler):
             parent_service=SP.modular_client.parent_service()
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.LICENSES: {

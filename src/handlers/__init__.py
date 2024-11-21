@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from functools import cached_property
 from typing import Callable
 from helpers.constants import CustodianEndpoint
 
@@ -14,7 +13,7 @@ class AbstractHandler(ABC):
         Builds the instance of the class
         """
 
-    @cached_property
+    @property
     @abstractmethod
     def mapping(self) -> Mapping:
         """

@@ -19,7 +19,7 @@
   "data": [
     {
       "policy": "ecc-aws-070-unused_ec2_security_groups",
-      "resource_type": "Security-group",
+      "resource_type": "Security Group",
       "description": "Description for ecc-aws-070-unused_ec2_security_groups",
       "severity": "Unknown",
       "regions_data": {
@@ -132,7 +132,7 @@
     },
     {
       "policy": "ecc-aws-499-iam_group_has_users_check",
-      "resource_type": "Iam-group",
+      "resource_type": "Iam Group",
       "description": "Description for ecc-aws-499-iam_group_has_users_check",
       "severity": "Unknown",
       "regions_data": {

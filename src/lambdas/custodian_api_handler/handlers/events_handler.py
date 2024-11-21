@@ -1,4 +1,3 @@
-from functools import cached_property
 from http import HTTPStatus
 
 from helpers import KeepValueGenerator, batches
@@ -34,7 +33,7 @@ class EventsHandler(AbstractHandler):
             environment_service=SP.environment_service
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.EVENT: {
