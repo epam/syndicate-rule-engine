@@ -62,3 +62,6 @@ modularSdk:
 httpProxy: ''
 httpsProxy: ''
 noProxy: 'localhost,127.0.0.1,169.254.169.254,mongo,vault,minio,defectdojo'
+
+logLevel: INFO
+executorLogLevel: INFO

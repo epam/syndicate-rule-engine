@@ -135,13 +135,14 @@ class RabbitMQService:
         )
         return self.modular_client.rabbit_transport_service(
             connection_url=creds.connection_url,
-            config=maestro_config
+            config=maestro_config,
+            timeout=30
         )
 
     @staticmethod
     def send_to_m3(rabbitmq: MaestroRabbitMQTransport, command: str,
                    models: list[dict]) -> int | None:
-        _LOG.info('Going to send data to')
+        _LOG.info('Going to send data to rabbitMQ')
         try:
             code, status, response = rabbitmq.send_sync(
                 command_name=command,
