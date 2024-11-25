@@ -45,7 +45,7 @@ To initiate the update to the next version please execute the following command:
 **Note:** no prompt will be shown if you specify `--yes` flag.
 
 The command produces logs to console notifying the user about the update progress.  
-> The command is fail-safe - the 'sre-init' tool will rollback all the changes made to the software in case of failure.
+> The command is fail-safe. The 'sre-init' tool will rollback all the changes made to the software in case of failure.
 > 
 > This allows to return the product to the previous state. 
 

@@ -1,14 +1,10 @@
 # Access Guide
 
+> This software product is delivered without TLS (Transport Layer Security) configured by default.
+> If access from the public internet is required, it is strongly recommended to follow the best practices of configuring HTTPS access.
+
 As soon as the AWS CloudFormation stack of EPAM Syndicate Rule Engine changed 
 its state to `CREATE_COMPLETE` you can access the product in the following ways:
-
-### Defect Dojo
-To access the Defect Dojo Web Interface do the following steps: 
-1. Verify if the inbound/outbound HTTPS traffic is allowed to 80 port by the 
-Security Group that is applied to the product instance;
-2. Open https://INSTANCE-PUBLIC-DNS:80 (replace INSTANCE-PUBLIC-DNS with the actual value) 
-in your browser; the Defect Dojo web app will open.  
 
 ### CLI
 To access the EPAM Syndicate Rule Engine's CLI please follow these steps:
@@ -25,10 +21,16 @@ If not, set such permission with the command: `chmod 400 $SSH_KEY_NAME` where
 5. After you successfully log in check if the syndicate CLI is available with the 
 command `syndicate --version`.
 
+### Defect Dojo
+To access the Defect Dojo Web Interface do the following steps: 
+1. Verify if the inbound/outbound HTTP traffic is allowed to 80 port by the 
+Security Group that is applied to the product instance;
+2. Open https://INSTANCE-PUBLIC-DNS:80 (replace INSTANCE-PUBLIC-DNS with the actual value) 
+in your browser; the Defect Dojo web app will open.  
+
 ### API 
 Coming Soon.
 In case of urgent need please contact [SupportSyndicateTeam@epam.com](mailto:SupportSyndicateTeam@epam.com)
-
 
 ### Support
 In case of any issues please contact [SupportSyndicateTeam@epam.com](mailto:SupportSyndicateTeam@epam.com)
