@@ -1023,6 +1023,7 @@ class ReportType(str, Enum):
             return
         return now + self.r_start
 
+    # Operational, kind of for one tenant
     OPERATIONAL_OVERVIEW = (
         'OPERATIONAL_OVERVIEW',
         'Data for a specific tenant of any cloud for a week period from Sunday till Sunday. Contains number of different jobs, total number of resources by region and by severities',
@@ -1039,6 +1040,7 @@ class ReportType(str, Enum):
         'Compliance per tenant as of date of generation',
     )
 
+    # C-Level, kind of for the whole customer
     C_LEVEL_OVERVIEW = (
         'C_LEVEL_OVERVIEW',
         'Data across all tenants within clouds for a previous month',
@@ -1047,3 +1049,16 @@ class ReportType(str, Enum):
         ),
         relativedelta(hour=0, minute=0, second=0, microsecond=0, day=1),
     )
+    C_LEVEL_COMPLIANCE = (
+        'C_LEVEL_COMPLIANCE',
+        'Standards coverage across all tenants within customer ...?',
+        relativedelta(
+            hour=0, minute=0, second=0, microsecond=0, months=-1, day=1
+        ),
+        relativedelta(hour=0, minute=0, second=0, microsecond=0, day=1),
+    )
+
+
+class RabbitCommand(str, Enum):
+    SEND_MAIL = 'SEND_MAIL'
+

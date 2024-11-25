@@ -31,7 +31,8 @@ from helpers.constants import (
     RuleSourceType,
     GITHUB_API_URL_DEFAULT,
     GITLAB_API_URL_DEFAULT,
-    PolicyEffect
+    PolicyEffect,
+    ReportType
 )
 from helpers import Version
 from helpers.regions import AllRegions, AllRegionsWithGlobal
@@ -1141,6 +1142,23 @@ class OperationalGetReportModel(BaseModel):
     attempt: SkipJsonSchema[int] = 0
     execution_job_id: SkipJsonSchema[str] = Field(None)
 
+    @property
+    def new_types(self) -> tuple[ReportType, ...]:
+        """
+        Converts to new types
+        """
+        old_new = {
+            'OVERVIEW': ReportType.OPERATIONAL_OVERVIEW,
+            'RESOURCES': ReportType.OPERATIONAL_RESOURCES,
+            'COMPLIANCE': ReportType.OPERATIONAL_COMPLIANCE
+        }
+        res = []
+        for t in self.types:
+            if t in old_new:
+                res.append(old_new[t])
+        return tuple(res)
+
+
 
 class DepartmentGetReportModel(BaseModel):
     types: set[Literal['TOP_RESOURCES_BY_CLOUD', 'TOP_TENANTS_RESOURCES', 'TOP_TENANTS_COMPLIANCE', 'TOP_COMPLIANCE_BY_CLOUD', 'TOP_TENANTS_ATTACKS', 'TOP_ATTACK_BY_CLOUD']] = Field(default_factory=set)
@@ -1152,6 +1170,21 @@ class CLevelGetReportModel(BaseModel):
     types: set[Literal['OVERVIEW', 'COMPLIANCE', 'ATTACK_VECTOR']] = Field(default_factory=set)
     attempt: SkipJsonSchema[int] = 0
     execution_job_id: SkipJsonSchema[str] = Field(None)
+
+    @property
+    def new_types(self) -> tuple[ReportType, ...]:
+        """
+        Converts to new types
+        """
+        old_new = {
+            'OVERVIEW': ReportType.C_LEVEL_OVERVIEW,
+            'COMPLIANCE': ReportType.C_LEVEL_COMPLIANCE,
+        }
+        res = []
+        for t in self.types:
+            if t in old_new:
+                res.append(old_new[t])
+        return tuple(res)
 
 
 class HealthCheckQueryModel(BaseModel):

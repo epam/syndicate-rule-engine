@@ -20,7 +20,8 @@ from modular_sdk.services.impl.maestro_rabbit_transport_service import (
     MaestroRabbitMQTransport,
 )
 
-from helpers.lambda_response import ReportNotSendException, ResponseFactory, LambdaResponse
+from helpers.constants import RabbitCommand
+from helpers.lambda_response import ResponseFactory, LambdaResponse
 from helpers.log_helper import get_logger
 from services import SP
 from services import cache
@@ -140,12 +141,12 @@ class RabbitMQService:
         )
 
     @staticmethod
-    def send_to_m3(rabbitmq: MaestroRabbitMQTransport, command: str,
-                   models: list[dict]) -> int | None:
+    def send_to_m3(rabbitmq: MaestroRabbitMQTransport, command: RabbitCommand,
+                   models: list[dict] | dict) -> int | None:
         _LOG.info('Going to send data to rabbitMQ')
         try:
             code, status, response = rabbitmq.send_sync(
-                command_name=command,
+                command_name=command.value,
                 parameters=models,
                 is_flat_request=False,
                 async_request=False,
@@ -157,32 +158,6 @@ class RabbitMQService:
             return
         _LOG.info(f'Response from rabbit: {code}, {status}, {response}')
         return int(code)
-
-    @staticmethod
-    def send_notification_to_m3(command_name: str,
-                                json_model: list | dict,
-                                rabbitmq: MaestroRabbitMQTransport,
-                                is_event_driven: bool = False):
-        # TODO: remove
-        _LOG.debug('Pushing to rabbitmq')
-        factory = ResponseFactory(HTTPStatus.INTERNAL_SERVER_ERROR)
-        try:
-            code, status, response = rabbitmq.send_sync(
-                command_name=command_name,
-                parameters=json_model,
-                is_flat_request=False, async_request=False,
-                secure_parameters=None, compressed=True)
-            _LOG.debug(f'Response code: {code}, response message: {response}')
-            if code == HTTPStatus.INTERNAL_SERVER_ERROR and \
-                    not is_event_driven:
-                raise factory.message(response).exc(ReportNotSendException)
-            return code
-        except ModularException as e:
-            _LOG.error(f'Modular error: {e}')
-            raise factory.message(str(e)).exc(ReportNotSendException)
-        except Exception as e:  # can occur in case access data is invalid
-            _LOG.exception('An error occurred sending a message to rabbit')
-            raise factory.message(str(e)).exc(ReportNotSendException)
 
     def build_m3_json_model(self, notification_type: str, data: dict):
         return {
