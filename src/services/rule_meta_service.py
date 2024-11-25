@@ -52,6 +52,9 @@ class RuleMetaModel(BaseModel):
     def process_events(cls, value: dict) -> dict:
         processed = {}
         for source, names in value.items():
+            if not isinstance(names, list) or not all([isinstance(name, str) for name in names]):
+                _LOG.warning(f'Invalid event names in metadata: {names}')
+                continue
             processed[source] = list(chain.from_iterable(
                 name.split(',') for name in names
             ))

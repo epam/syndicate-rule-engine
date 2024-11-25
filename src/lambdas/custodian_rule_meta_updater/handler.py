@@ -281,6 +281,10 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
                     except ValidationError as e:
                         _LOG.warning(f'Invalid meta: {content}, {e}')
                         continue
+                    except Exception:
+                        _LOG.exception(f'Unexpected error happened '
+                                       f'loading rule {filename}')
+                        continue
         self.save_mappings(collector)
 
     def _load_rules(self, rule_source: RuleSource, root: Path
