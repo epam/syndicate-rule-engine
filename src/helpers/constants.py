@@ -1035,6 +1035,14 @@ class ReportType(str, Enum):
         'OPERATIONAL_RESOURCES',
         'All resources for a specific tenant as of date of generation',
     )
+    OPERATIONAL_RULES = (
+        'OPERATIONAL_RULES',
+        'Average rules usage statistics for tenant within this week',
+        relativedelta(
+            hour=0, minute=0, second=0, microsecond=0, weekday=SU(-1)
+        ),
+    )
+
     OPERATIONAL_COMPLIANCE = (
         'OPERATIONAL_COMPLIANCE',
         'Compliance per tenant as of date of generation',

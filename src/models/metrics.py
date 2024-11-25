@@ -54,3 +54,17 @@ class ReportMetrics(BaseModel):
             return True
         # s3 path exists
         return bool(self.data.as_dict())
+
+    @property
+    def entity(self) -> str:
+        """
+        Returns a domain (entity) that represents scope of this report
+        """
+        if t := self.tenant:
+            return t
+        if c := self.cloud:
+            return c.value
+        if p := self.project:
+            return p
+        return self.customer
+

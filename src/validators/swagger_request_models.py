@@ -1150,14 +1150,14 @@ class OperationalGetReportModel(BaseModel):
         old_new = {
             'OVERVIEW': ReportType.OPERATIONAL_OVERVIEW,
             'RESOURCES': ReportType.OPERATIONAL_RESOURCES,
-            'COMPLIANCE': ReportType.OPERATIONAL_COMPLIANCE
+            # 'COMPLIANCE': ReportType.OPERATIONAL_COMPLIANCE,
+            'RULE': ReportType.OPERATIONAL_RULES,
         }
         res = []
         for t in self.types:
             if t in old_new:
                 res.append(old_new[t])
         return tuple(res)
-
 
 
 class DepartmentGetReportModel(BaseModel):

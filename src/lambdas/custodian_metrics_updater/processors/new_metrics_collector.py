@@ -1,10 +1,12 @@
 from datetime import datetime
 
+from typing import Generator
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
+from models.metrics import ReportMetrics
 from modular_sdk.modular import Modular
 
-from helpers.constants import Cloud, ReportType
+from helpers.constants import Cloud, JobState, ReportType
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime
 from services import SP, modular_helpers
@@ -51,6 +53,7 @@ class MetricsCollector:
         self._rms = report_metrics_service
 
         self._tenants_cache = {}
+        self._reports = {}
 
     @classmethod
     def build(cls) -> 'MetricsCollector':
@@ -61,6 +64,10 @@ class MetricsCollector:
             report_service=SP.report_service,
             report_metrics_service=SP.report_metrics_service,
         )
+
+    def reset(self):
+        self._tenants_cache.clear()
+        self._reports.clear()
 
     @staticmethod
     def whole_period(
@@ -102,7 +109,7 @@ class MetricsCollector:
             target[k] += v
 
     def _get_tenant(self, name: str) -> Tenant | None:
-        # todo support is_active
+        # TODO: support is_active
         if name in self._tenants_cache:
             return self._tenants_cache[name]
         item = self._mc.tenant_service().get(name)
@@ -121,6 +128,7 @@ class MetricsCollector:
         reports = (
             ReportType.OPERATIONAL_OVERVIEW,
             ReportType.OPERATIONAL_RESOURCES,
+            ReportType.OPERATIONAL_RULES,
             ReportType.C_LEVEL_OVERVIEW,
         )
 
@@ -158,6 +166,15 @@ class MetricsCollector:
                 job_source=job_source,
                 sc_provider=sc_provider,
                 report_type=ReportType.OPERATIONAL_RESOURCES,
+            )
+        )
+
+        _LOG.info('Generating operational rules for all tenants')
+        all_reports.extend(
+            self.operational_rules(
+                now=now,
+                job_source=job_source,
+                report_type=ReportType.OPERATIONAL_RULES,
             )
         )
 
@@ -266,7 +283,47 @@ class MetricsCollector:
                 end=end,
                 start=start,
             )
-            self._rms.save_data_to_s3(item)  # TODO: define whether to same based on some parameter or data size
+            self._rms.save_data_to_s3(
+                item
+            )  # TODO: define whether to same based on some parameter or data size
+            yield item
+
+    def operational_rules(
+        self,
+        now: datetime,
+        job_source: JobMetricsDataSource,
+        report_type: ReportType,
+    ) -> Generator[ReportMetrics, None, None]:
+        start = report_type.start(now)
+        end = report_type.end(now)
+        js = job_source.subset(start=start, end=end)
+        for tenant_name in js.scanned_tenants:
+            tenant = self._get_tenant(tenant_name)
+            if not tenant:
+                _LOG.warning(f'Tenant with name {tenant_name} not found!')
+                continue
+            tjs = js.subset(tenant=tenant.name, job_state=JobState.SUCCEEDED)
+
+            data = {
+                'succeeded_scans': len(tjs),
+                'activated_regions': sorted(
+                    modular_helpers.get_tenant_regions(tenant)
+                ),
+                'last_scan_date': tjs.last_scan_date,
+                'id': tenant.project,
+                'data': list(
+                    self._rs.average_statistics(
+                        *map(self._rs.job_statistics, tjs)
+                    )
+                ),
+            }
+            item = self._rms.create(
+                key=self._rms.key_for_tenant(report_type, tenant),
+                data=data,
+                end=end,
+                start=start,
+            )
+            self._rms.save_data_to_s3(item)
             yield item
 
     def c_level_overview(

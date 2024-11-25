@@ -12,6 +12,7 @@ from helpers.constants import (
     COMPOUND_KEYS_SEPARATOR,
     GLOBAL_REGION,
     REPORT_FIELDS,
+    JobState,
     ReportType,
 )
 from helpers.log_helper import get_logger
@@ -49,6 +50,7 @@ class JobMetricsDataSource:
         start: datetime | None = None,
         end: datetime | None = None,
         tenant: str | set[str] | list[str] | tuple[str, ...] | None = None,
+        job_state: JobState | None = None,
     ) -> 'JobMetricsDataSource':
         """
         Returns new object with jobs within the range. Including start but
@@ -70,7 +72,8 @@ class JobMetricsDataSource:
                 tenant if isinstance(tenant, (set, list, tuple)) else (tenant,)
             )
             jobs = filter(lambda j: j.tenant_name in _items, jobs)
-
+        if job_state:
+            jobs = filter(lambda j: j.status is job_state, jobs)
         return self.__class__(jobs)
 
     def __getitem__(self, key) -> 'JobMetricsDataSource':

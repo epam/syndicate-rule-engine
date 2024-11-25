@@ -277,3 +277,15 @@ def test_metrics_update(
     item = SP.report_metrics_service.get_latest_for_tenant(google_tenant, ReportType.OPERATIONAL_RESOURCES)
     SP.report_metrics_service.fetch_data_from_s3(item)
     assert dicts_equal(item.data.as_dict(), load_expected('metrics/google_operational_resources'))
+
+    item = SP.report_metrics_service.get_latest_for_tenant(aws_tenant, ReportType.OPERATIONAL_RULES)
+    SP.report_metrics_service.fetch_data_from_s3(item)
+    assert dicts_equal(item.data.as_dict(), load_expected('metrics/aws_operational_rules'))
+
+    item = SP.report_metrics_service.get_latest_for_tenant(azure_tenant, ReportType.OPERATIONAL_RULES)
+    SP.report_metrics_service.fetch_data_from_s3(item)
+    assert dicts_equal(item.data.as_dict(), load_expected('metrics/azure_operational_rules'))
+
+    item = SP.report_metrics_service.get_latest_for_tenant(google_tenant, ReportType.OPERATIONAL_RULES)
+    SP.report_metrics_service.fetch_data_from_s3(item)
+    assert dicts_equal(item.data.as_dict(), load_expected('metrics/google_operational_rules'))

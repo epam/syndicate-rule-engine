@@ -25,6 +25,15 @@ def aws_operational_resources_metrics(aws_tenant, load_expected, utcnow):
     ).save()
 
 
+@pytest.fixture()
+def aws_operational_rules_metrics(aws_tenant, load_expected, utcnow):
+    SP.report_metrics_service.create(
+        key=SP.report_metrics_service.key_for_tenant(ReportType.OPERATIONAL_RULES, aws_tenant),
+        data=load_expected('metrics/aws_operational_rules'),
+        end=utcnow
+    ).save()
+
+
 def validate_maestro_model(m: dict):
     assert isinstance(m, dict)
     assert m['viewType'] == 'm3'
@@ -99,3 +108,29 @@ def test_operational_resources_report_aws_tenant(
         load_expected('operational/resources_report')
     )
 
+
+def test_operational_rules_report_aws_tenant(
+        system_user_token, sre_client, aws_operational_rules_metrics,
+        mocked_rabbitmq, load_expected
+):
+    resp = sre_client.request(
+        "/reports/operational",
+        "POST",
+        auth=system_user_token,
+        data={
+            "customer_id": "TEST_CUSTOMER",
+            "tenant_names": ['AWS-TESTING'],
+            "types": ["RULE"],
+            "receivers": ["admin@gmail.com"]
+        }
+    )
+    assert resp.status_int == 202
+    assert len(mocked_rabbitmq.send_sync.mock_calls) == 1
+    params = mocked_rabbitmq.send_sync.mock_calls[0].kwargs['parameters']
+
+    assert len(params) == 1, 'Only one operational report is sent'
+    assert params[0]['model']['notificationType'] == 'CUSTODIAN_RULES_REPORT'
+    assert dicts_equal(
+        json.loads(params[0]['model']['notificationAsJson']),
+        load_expected('operational/rules_report')
+    )

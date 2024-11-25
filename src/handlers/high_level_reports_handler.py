@@ -29,6 +29,7 @@ _LOG = get_logger(__name__)
 SRE_REPORTS_TYPE_TO_M3_MAPPING = {
     ReportType.OPERATIONAL_RESOURCES: 'CUSTODIAN_RESOURCES_REPORT',
     ReportType.OPERATIONAL_OVERVIEW: 'CUSTODIAN_OVERVIEW_REPORT',
+    ReportType.OPERATIONAL_RULES: 'CUSTODIAN_RULES_REPORT',
     ReportType.OPERATIONAL_COMPLIANCE: 'CUSTODIAN_COMPLIANCE_REPORT',
     ReportType.C_LEVEL_OVERVIEW: 'CUSTODIAN_CUSTOMER_OVERVIEW_REPORT',
 }
@@ -59,6 +60,8 @@ class MaestroModelBuilder:
                 | ReportType.C_LEVEL_COMPLIANCE
             ):
                 return 'COMPLIANCE'
+            case ReportType.OPERATIONAL_RULES:
+                return 'RULE'
 
     def __init__(self, receivers: tuple[str, ...] = (), size_limit: int = 0):
         self._receivers = receivers  # base receivers
@@ -107,6 +110,22 @@ class MaestroModelBuilder:
             'data': result,
         }
 
+    @staticmethod
+    def _operational_rules(rep: ReportMetrics) -> dict:
+        assert rep.type == ReportType.OPERATIONAL_RULES
+        data = rep.data.as_dict()
+        return {
+            'tenant_name': rep.tenant,
+            'id': data['id'],
+            'cloud': rep.cloud.value,  # pyright: ignore
+            'activated_regions': data['activated_regions'],
+            'last_scan_date': data['last_scan_date'],
+            'data': {
+                'rules_data': data.get('data', []),
+                'violated_resources_length': '',
+            },
+        }
+
     def convert(self, rep: ReportMetrics) -> dict | None:
         base = {
             'receivers': self._receivers,
@@ -126,6 +145,8 @@ class MaestroModelBuilder:
                 custom = self._operational_overview_custom(rep)
             case ReportType.OPERATIONAL_RESOURCES:
                 custom = self._operational_resources_custom(rep)
+            case ReportType.OPERATIONAL_RULES:
+                custom = self._operational_rules(rep)
             case _:
                 return
         base.update(custom)
