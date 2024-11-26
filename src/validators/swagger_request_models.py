@@ -88,7 +88,7 @@ class TimeRangedMixin:
     # end_iso: datetime | date = Field(None, alias='to')
 
     @classmethod
-    def skip_validation_if_no_input(cls):
+    def skip_validation_if_no_input(cls) -> bool:
         return False
 
     @classmethod
@@ -1153,6 +1153,8 @@ class OperationalGetReportModel(BaseModel):
             # 'COMPLIANCE': ReportType.OPERATIONAL_COMPLIANCE,
             'RULE': ReportType.OPERATIONAL_RULES,
         }
+        if not self.types:
+            return tuple(old_new.values())
         res = []
         for t in self.types:
             if t in old_new:
@@ -1178,8 +1180,10 @@ class CLevelGetReportModel(BaseModel):
         """
         old_new = {
             'OVERVIEW': ReportType.C_LEVEL_OVERVIEW,
-            'COMPLIANCE': ReportType.C_LEVEL_COMPLIANCE,
+            # 'COMPLIANCE': ReportType.C_LEVEL_COMPLIANCE,
         }
+        if not self.types:
+            return tuple(old_new.values())
         res = []
         for t in self.types:
             if t in old_new:
@@ -1446,7 +1450,7 @@ class MetricsStatusGetModel(TimeRangedMixin, BaseModel):
         return timedelta(days=365)
 
     @classmethod
-    def skip_validation_if_no_input(cls):
+    def skip_validation_if_no_input(cls) -> bool:
         return True
 
 

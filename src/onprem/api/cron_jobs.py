@@ -34,7 +34,7 @@ def metrics_pipeline():
     module = importlib.import_module(
         'lambdas.custodian_metrics_updater.handler'
     )
-    module.HANDLER.lambda_handler(event={'data_type': 'metrics'}, context=RequestContext())
+    module.lambda_handler(event={'data_type': 'metrics'}, context=RequestContext())
 
 
 # def diagnostic_pipeline():
