@@ -122,7 +122,7 @@ class MaestroModelBuilder:
             'last_scan_date': data['last_scan_date'],
             'data': {
                 'rules_data': data.get('data', []),
-                'violated_resources_length': '',
+                'violated_resources_length': data['resources_violated'],
             },
         }
 

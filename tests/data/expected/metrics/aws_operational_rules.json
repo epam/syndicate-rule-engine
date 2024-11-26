@@ -8,6 +8,7 @@
   ],
   "last_scan_date": "2024-11-25T00:19:34.726931Z",
   "id": "123456789012",
+  "resources_violated": 23,
   "data": [
     {
       "policy": "ecc-aws-427-rds_cluster_without_tag_information",

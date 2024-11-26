@@ -1,14 +1,14 @@
 from datetime import datetime
+from typing import Generator, Iterator
 
-from typing import Generator
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
-from models.metrics import ReportMetrics
 from modular_sdk.modular import Modular
 
 from helpers.constants import Cloud, JobState, ReportType
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime
+from models.metrics import ReportMetrics
 from services import SP, modular_helpers
 from services.ambiguous_job_service import AmbiguousJobService
 from services.mappings_collector import LazyLoadedMappingsCollector
@@ -20,23 +20,113 @@ from services.reports import (
     ShardsCollectionProvider,
 )
 
+ReportsGen = Generator[ReportMetrics, None, None]
+
 _LOG = get_logger(__name__)
+
+
+class MetricsContext:
+    """
+    Keeps some common context and data for one task of collecting metrics
+    """
+
+    __slots__ = '_cst', '_dt', '_reports'
+
+    def __init__(self, cst: Customer, now: datetime | None = None):
+        self._cst = cst
+        self._dt = now
+        self._reports = {}
+
+    def __enter__(self):
+        if not self._dt:
+            self._dt = utc_datetime()
+        self._reports.clear()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._reports.clear()
+
+    @property
+    def now(self) -> datetime:
+        if not self._dt:
+            # not a use case actually
+            return utc_datetime()
+        return self._dt
+
+    @property
+    def customer(self) -> Customer:
+        return self._cst
+
+    @property
+    def n_reports(self) -> int:
+        return self._reports.__len__()
+
+    def add_report(self, report: ReportMetrics):
+        key = report.entity, report.type
+        assert (
+            key not in self._reports
+        ), 'adding the same report twice within one context, smt is definitelly wrong'
+        self._reports[key] = report
+
+    def add_reports(self, reports: Iterator[ReportMetrics]):
+        for report in reports:
+            self.add_report(report)
+
+    def iter_reports(self) -> ReportsGen:
+        yield from self._reports.values()
+
+    def get_report(self, entity: str, typ: ReportType) -> ReportMetrics | None:
+        return self._reports.get((entity, typ))
 
 
 class MetricsCollector:
     """
-    We have multiple types of metrics that we must collect. Data that we can
-    use to collect metrics:
+    Here when i say "collect data for reports", "collect metrics",
+    "collect reports" i generally mean the same thing.
+
+    We have multiple types of metrics that we must collect (multiple types
+    of reports that we can send). Sources of data that we can use to
+    collect metrics:
     - all standard and event-driven jobs, their results and statistics for each
     - latest state of resources for each tenant
     - snapshots of resources state for each tenant with configured snapshot
       period. Default is 4 hours for onprem.
-    - customers and tenants, applications, parents, etc. - models
+    - customers and tenants, applications, parents, etc. - models from DB
     - rules index and some meta that is available locally - description,
       resource type
-    - data from Cloud Custodian, only onprem
+    - data from Cloud Custodian, only onprem because lambdas do not have
+      Cloud Custodian package
     - private rule metadata, (currently not clear)
+
+    What you should understand is that each item of ReportType enum represents
+    a separate type of reports. That type has its own reporting period,
+    data format and logic behind it. So, generally we should be able to
+    collect data for each that report individually for any specified date.
+    Such a way of collecting metrics would probably be easy to understand and
+    reason about but it would be inefficient because we would probably need to
+    query the same data sources and aggregate the same data multiple times
+    especially if we collect all data for the same period. And.. that is
+    actually the case. So this MetricsCollector class and MetricsContext
+    created to allow reusing some data and optimizing the metrics collection
+    process assuming that most our reports share a lot.
+
+    Example to think about: Operational Overview report contains some
+    overview information as of its reporting date, specifically it has
+    total number of violated resources. Operational Rules report historically
+    must also contain total number of violated resources as of its reporting
+    date. This number is quite expensive to calculate because currently it
+    requires iterating over all rules and their resources,
+    making deduplication, etc. Generally we could not just steal that value
+    from Op. Overview to Op. Rules because they can be just collected for
+    different periods. But here i do that anyway because i know reports
+    are collected for the same period here.
     """
+
+    # TODO: determine based on item size?
+    LARGE_REPORTS = (
+        ReportType.OPERATIONAL_RULES,
+        ReportType.OPERATIONAL_RESOURCES,
+    )
 
     def __init__(
         self,
@@ -53,7 +143,6 @@ class MetricsCollector:
         self._rms = report_metrics_service
 
         self._tenants_cache = {}
-        self._reports = {}
 
     @classmethod
     def build(cls) -> 'MetricsCollector':
@@ -64,10 +153,6 @@ class MetricsCollector:
             report_service=SP.report_service,
             report_metrics_service=SP.report_metrics_service,
         )
-
-    def reset(self):
-        self._tenants_cache.clear()
-        self._reports.clear()
 
     @staticmethod
     def whole_period(
@@ -118,7 +203,26 @@ class MetricsCollector:
         self._tenants_cache[name] = item
         return item
 
-    def collect_metrics_for_customer(self, customer: Customer, now: datetime):
+    def save_data_to_s3(self, it: ReportsGen) -> ReportsGen:
+        for item in it:
+            if item.type in self.LARGE_REPORTS:
+                self._rms.save_data_to_s3(item)
+            yield item
+
+    def _complete_rules_report(
+        self, it: ReportsGen, ctx: MetricsContext
+    ) -> ReportsGen:
+        for item in it:
+            ov = ctx.get_report(item.entity, ReportType.OPERATIONAL_OVERVIEW)
+            if not ov:
+                _LOG.warning(
+                    'Cannot complete rules report because correspond operational is not found'
+                )
+            elif item.type is ReportType.OPERATIONAL_RULES:
+                item.data['resources_violated'] = ov.data['resources_violated']
+            yield item
+
+    def collect_metrics_for_customer(self, ctx: MetricsContext):
         """
         Collects predefined hard-coded set of reports. Here we definitely know
         that all the reports are collected as of "now" date, so we can cache
@@ -132,11 +236,11 @@ class MetricsCollector:
             ReportType.C_LEVEL_OVERVIEW,
         )
 
-        start, end = self.whole_period(now, *reports)
+        start, end = self.whole_period(ctx.now, *reports)
         _LOG.info(f'Need to collect data from {start} to {end}')
         jobs = self._ajs.to_ambiguous(
             self._ajs.get_by_customer_name(
-                customer_name=customer.name,
+                customer_name=ctx.customer.name,
                 start=start,
                 end=end,  # todo here end must be not including
                 ascending=True,  # important
@@ -147,12 +251,11 @@ class MetricsCollector:
             _LOG.warning('No jobs for customer found')
 
         sc_provider = ShardsCollectionProvider(self._rs)
-        all_reports = []
 
         _LOG.info('Generating operational overview for all tenants')
-        all_reports.extend(
+        ctx.add_reports(
             self.operational_overview(
-                now=now,
+                now=ctx.now,
                 job_source=job_source,
                 sc_provider=sc_provider,
                 report_type=ReportType.OPERATIONAL_OVERVIEW,
@@ -160,21 +263,28 @@ class MetricsCollector:
         )
 
         _LOG.info('Generating operational resources for all tenants')
-        all_reports.extend(
-            self.operational_resources(
-                now=now,
-                job_source=job_source,
-                sc_provider=sc_provider,
-                report_type=ReportType.OPERATIONAL_RESOURCES,
+        ctx.add_reports(
+            self.save_data_to_s3(
+                self.operational_resources(
+                    now=ctx.now,
+                    job_source=job_source,
+                    sc_provider=sc_provider,
+                    report_type=ReportType.OPERATIONAL_RESOURCES,
+                )
             )
         )
 
         _LOG.info('Generating operational rules for all tenants')
-        all_reports.extend(
-            self.operational_rules(
-                now=now,
-                job_source=job_source,
-                report_type=ReportType.OPERATIONAL_RULES,
+        ctx.add_reports(
+            self.save_data_to_s3(
+                self._complete_rules_report(
+                    self.operational_rules(
+                        now=ctx.now,
+                        job_source=job_source,
+                        report_type=ReportType.OPERATIONAL_RULES,
+                    ),
+                    ctx,
+                )
             )
         )
 
@@ -183,20 +293,20 @@ class MetricsCollector:
         # todo tops
         # todo clevel
 
-        if now.day == 1:  # assuming that we collect metrics once a day
+        if ctx.now.day == 1:  # assuming that we collect metrics once a day
             _LOG.info('Generating c-level overview for all tenants')
-            all_reports.extend(
+            ctx.add_reports(
                 self.c_level_overview(
-                    customer=customer,
-                    now=now,
+                    customer=ctx.customer,
+                    now=ctx.now,
                     job_source=job_source,
                     sc_provider=sc_provider,
                     report_type=ReportType.C_LEVEL_OVERVIEW,
                 )
             )
 
-        _LOG.info(f'Saving all reports items: {len(all_reports)}')
-        self._rms.batch_save(all_reports)
+        _LOG.info(f'Saving all reports items: {ctx.n_reports}')
+        self._rms.batch_save(ctx.iter_reports())
 
     def operational_overview(
         self,
@@ -204,7 +314,7 @@ class MetricsCollector:
         job_source: JobMetricsDataSource,
         sc_provider: ShardsCollectionProvider,
         report_type: ReportType,
-    ):
+    ) -> ReportsGen:
         start = report_type.start(now)
         end = report_type.end(now)
         js = job_source.subset(start=start, end=end)
@@ -249,7 +359,7 @@ class MetricsCollector:
         job_source: JobMetricsDataSource,
         sc_provider: ShardsCollectionProvider,
         report_type: ReportType,
-    ):
+    ) -> ReportsGen:
         # TODO: how to determine whether to include tenant in reporting.
         #  Currently it's based on job_source.scanned_tenants and since
         #  this reports does not have start bound job_source contains jobs
@@ -277,23 +387,19 @@ class MetricsCollector:
                     modular_helpers.get_tenant_regions(tenant)
                 ),
             }
-            item = self._rms.create(
+            yield self._rms.create(
                 key=self._rms.key_for_tenant(report_type, tenant),
                 data=data,  # TODO: test whether it's ok to assign large objects to PynamoDB's MapAttribute
                 end=end,
                 start=start,
             )
-            self._rms.save_data_to_s3(
-                item
-            )  # TODO: define whether to same based on some parameter or data size
-            yield item
 
     def operational_rules(
         self,
         now: datetime,
         job_source: JobMetricsDataSource,
         report_type: ReportType,
-    ) -> Generator[ReportMetrics, None, None]:
+    ) -> ReportsGen:
         start = report_type.start(now)
         end = report_type.end(now)
         js = job_source.subset(start=start, end=end)
@@ -317,14 +423,12 @@ class MetricsCollector:
                     )
                 ),
             }
-            item = self._rms.create(
+            yield self._rms.create(
                 key=self._rms.key_for_tenant(report_type, tenant),
                 data=data,
                 end=end,
                 start=start,
             )
-            self._rms.save_data_to_s3(item)
-            yield item
 
     def c_level_overview(
         self,
@@ -333,7 +437,7 @@ class MetricsCollector:
         job_source: JobMetricsDataSource,
         sc_provider: ShardsCollectionProvider,
         report_type: ReportType,
-    ):
+    ) -> ReportsGen:
         start = report_type.start(now)
         end = report_type.end(now)
         js = job_source.subset(start=start, end=end)
@@ -388,11 +492,12 @@ class MetricsCollector:
 
     def __call__(self):
         _LOG.info('Starting metrics collector')
-        now = utc_datetime()  # todo get from somewhere
+        now = utc_datetime()  # TODO: allow to get from somewhere
 
         for customer in self._mc.customer_service().i_get_customer(
             is_active=True
         ):
             _LOG.info(f'Collecting metrics for customer: {customer.name}')
-            self.collect_metrics_for_customer(customer=customer, now=now)
+            with MetricsContext(customer, now) as ctx:
+                self.collect_metrics_for_customer(ctx)
         return {}
