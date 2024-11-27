@@ -1169,6 +1169,7 @@ class DepartmentGetReportModel(BaseModel):
 
 
 class CLevelGetReportModel(BaseModel):
+    receivers: set[str] = Field(default_factory=set)
     types: set[Literal['OVERVIEW', 'COMPLIANCE', 'ATTACK_VECTOR']] = Field(default_factory=set)
     attempt: SkipJsonSchema[int] = 0
     execution_job_id: SkipJsonSchema[str] = Field(None)

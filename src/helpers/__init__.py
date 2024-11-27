@@ -23,7 +23,7 @@ from typing import (
     Iterator,
     Optional,
     TypeVar,
-    TYPE_CHECKING
+    TYPE_CHECKING,
 )
 from typing_extensions import Self
 import uuid
@@ -32,6 +32,7 @@ import requests
 
 from helpers.constants import GCP_CLOUD_ATTR, GOOGLE_CLOUD_ATTR
 from helpers.log_helper import get_logger
+
 if TYPE_CHECKING:
     from services.abs_lambda import ProcessedEvent
 
@@ -66,7 +67,8 @@ def deep_get(dct: dict, path: list | tuple) -> Any:
     """
     return reduce(
         lambda d, key: d.get(key, None) if isinstance(d, dict) else None,
-        path, dct
+        path,
+        dct,
     )
 
 
@@ -84,8 +86,9 @@ def title_keys(item: dict | list) -> dict | list:
     if isinstance(item, dict):
         titled = {}
         for k, v in item.items():
-            titled[k[0].upper() + k[1:] if isinstance(k, str) else k] = \
+            titled[k[0].upper() + k[1:] if isinstance(k, str) else k] = (
                 title_keys(v)
+            )
         return titled
     elif isinstance(item, list):
         return [title_keys(i) for i in item]
@@ -148,8 +151,11 @@ def hashable(item: dict | list | tuple | set | str | float | int | None):
 _SENTINEL = object()
 
 
-def comparable(item: dict | list | tuple | set | str | float | int | None, *,
-               replace_dates_with=_SENTINEL):
+def comparable(
+    item: dict | list | tuple | set | str | float | int | None,
+    *,
+    replace_dates_with=_SENTINEL,
+):
     """
     >>> d = [{'key1': [1,2,3]}, {'key2': [4,5,6]}]
     >>> d1 = [{'key2': [6,5,4]}, {'key1': [3,2,1]}]
@@ -159,15 +165,19 @@ def comparable(item: dict | list | tuple | set | str | float | int | None, *,
     Currently is used primarily for tests.
     """
     if isinstance(item, dict):
-        return HashableDict([
-            (k, comparable(v, replace_dates_with=replace_dates_with))
-            for k, v in item.items()
-        ])
+        return HashableDict(
+            [
+                (k, comparable(v, replace_dates_with=replace_dates_with))
+                for k, v in item.items()
+            ]
+        )
     elif isinstance(item, (tuple, list, set)):
-        return frozenset([
-            comparable(i, replace_dates_with=replace_dates_with)
-            for i in item
-        ])
+        return frozenset(
+            [
+                comparable(i, replace_dates_with=replace_dates_with)
+                for i in item
+            ]
+        )
     else:
         if replace_dates_with is _SENTINEL:
             return item
@@ -244,41 +254,9 @@ def adjust_cloud(cloud: str) -> str:
     Backward compatibility. We use GCP everywhere, but Maestro
     Tenants use GOOGLE
     """
-    return GCP_CLOUD_ATTR if cloud.upper() == GOOGLE_CLOUD_ATTR else cloud.upper()
-
-
-def coroutine(func):
-    @functools.wraps(func)
-    def start(*args, **kwargs):
-        gen = func(*args, **kwargs)
-        next(gen)
-        return gen
-
-    return start
-
-
-def nested_items(item: dict | list | str | float | int | None
-                 ) -> Generator[tuple[str, Any], None, bool]:
-    """
-    Recursively iterates over nested key-values
-    >>> d = {'key': 'value', 'key2': [{1: 2, 3: 4, 'k': 'v'}, {5: 6}, 1, 2, 3]}
-    >>> print(list(nested_items(d)))
-    [('key', 'value'), (1, 2), (3, 4), ('k', 'v'), (5, 6)]
-    :param item:
-    :return:
-    """
-    if isinstance(item, (str, float, int, NoneType)):
-        return False  # means not iterated, because it's a leaf
-    # list or dict -> can be iterated over
-    if isinstance(item, dict):
-        for k, v in item.items():
-            # if iterated over nested, we don't need to yield it
-            if not (yield from nested_items(v)):
-                yield k, v
-    else:  # isinstance(item, list)
-        for i in item:
-            yield from nested_items(i)
-    return True
+    return (
+        GCP_CLOUD_ATTR if cloud.upper() == GOOGLE_CLOUD_ATTR else cloud.upper()
+    )
 
 
 def peek(iterable) -> Optional[tuple[Any, chain]]:
@@ -298,8 +276,9 @@ def urljoin(*args: str) -> str:
     return '/'.join(map(lambda x: str(x).strip('/'), args))
 
 
-def skip_indexes(iterable: Iterable[T], skip: set[int]
-                 ) -> Generator[T, None, None]:
+def skip_indexes(
+    iterable: Iterable[T], skip: set[int]
+) -> Generator[T, None, None]:
     """
     Iterates over the collection skipping specific indexes
     :param iterable:
@@ -313,6 +292,7 @@ def skip_indexes(iterable: Iterable[T], skip: set[int]
         yield item
 
 
+# TODO: remove
 def get_last_element(string: str, delimiter: str) -> str:
     return string.split(delimiter)[-1]
 
@@ -395,8 +375,7 @@ def download_url(url: str, out: FT | None = None) -> FT | io.BytesIO | None:
 
 def sifted(request: dict) -> dict:
     return {
-        k: v for k, v in request.items()
-        if isinstance(v, (bool, int)) or v
+        k: v for k, v in request.items() if isinstance(v, (bool, int)) or v
     }
 
 
@@ -422,8 +401,11 @@ CT = TypeVar('CT')
 
 
 class MultipleCursorsWithOneLimitIterator(Iterable[CT]):
-    def __init__(self, limit: int | None,
-                 *factories: Callable[[int | None], Iterator[CT]]):
+    def __init__(
+        self,
+        limit: int | None,
+        *factories: Callable[[int | None], Iterator[CT]],
+    ):
         """
         This class will consider the number of yielded items and won't query
         more. See tests for this thing to understand better
@@ -468,8 +450,9 @@ def to_api_gateway_event(processed_event: 'ProcessedEvent') -> dict:
     :param processed_event:
     :return:
     """
-    assert processed_event['resource'], \
-        'Only event with existing resource supported'
+    assert processed_event[
+        'resource'
+    ], 'Only event with existing resource supported'
 
     # values can be just strings in case we get this event from a database
     resource = processed_event['resource']
@@ -505,26 +488,25 @@ def to_api_gateway_event(processed_event: 'ProcessedEvent') -> dict:
                     'sub': processed_event['cognito_user_id'],
                     'custom:customer': processed_event['cognito_customer'],
                     'cognito:username': processed_event['cognito_username'],
-                    'custom:role': processed_event['cognito_user_role']
+                    'custom:role': processed_event['cognito_user_role'],
                 }
-            }
+            },
         },
         'body': json.dumps(processed_event['body'], separators=(',', ':')),
-        'isBase64Encoded': False
+        'isBase64Encoded': False,
     }
 
 
 JT = TypeVar('JT')  # json type
-IT = TypeVar('IT')  # item type
 
 
-def _default_hook(x):
+def _default_hook(x: Any) -> bool:
     return isinstance(x, (str, int, bool, NoneType))
 
 
-def iter_values(finding: JT,
-                hook: Callable[[IT], bool] = _default_hook
-                ) -> Generator[IT, Any, JT]:
+def iter_values(
+    finding: JT, hook: Callable[[Any], bool] = _default_hook
+) -> Generator[Any, Any, JT]:
     """
     Yields values from the given finding with an ability to send back
     the desired values. I proudly think this is cool, because we can put
@@ -561,6 +543,31 @@ def iter_values(finding: JT,
         return finding
 
 
+def iter_key_values(
+    finding: JT,
+    hook: Callable[[Any], bool] = _default_hook,
+    keys: tuple[str, ...] = (),
+) -> Generator[tuple[tuple[str, ...], Any], Any, JT]:
+    """
+    Slightly changed version of the function above. Iterates over dict
+    and yields tuples where the first element is tuple of keys and the second
+    is a value. Skips lists entirely for now.
+    """
+    if hook(finding):
+        new = yield keys, finding
+        return new
+    elif _default_hook(finding):
+        return finding
+    if isinstance(finding, dict):
+        for k, v in finding.items():
+            finding[k] = yield from iter_key_values(v, hook, keys + (k,))
+        return finding
+    if isinstance(finding, list):
+        # TODO: maybe yield list indexes here, but they can be confused
+        # with dict keys of type int. Currently, we don't need this block
+        return finding
+
+
 def dereference_json(obj: dict) -> None:
     """
     Changes the given dict in place de-referencing all $ref. Does not support
@@ -578,6 +585,7 @@ def dereference_json(obj: dict) -> None:
     :param obj:
     :return:
     """
+
     def _inner(o):
         if isinstance(o, (str, int, float, bool, NoneType)):
             return
@@ -596,6 +604,7 @@ def dereference_json(obj: dict) -> None:
                     o[i] = deep_get(obj, _path)
                 else:
                     _inner(v)
+
     _inner(obj)
 
 
@@ -628,7 +637,9 @@ class NextToken:
     def serialize(self) -> str | None:
         if not self:
             return
-        return base64.urlsafe_b64encode(msgspec.json.encode(self._lak)).decode()
+        return base64.urlsafe_b64encode(
+            msgspec.json.encode(self._lak)
+        ).decode()
 
     @property
     def value(self) -> dict | int | str | None:
@@ -706,10 +717,10 @@ class Version(tuple):
     Minor and Patch can be missing. It that case they are 0. This class is
     supposed to be used primarily by rulesets versioning
     """
+
     _not_allowed = re.compile(r'[^.0-9]')
 
-    def __new__(cls, seq: str | tuple[int, int, int] = (0, 0, 0)
-                ) -> 'Version':
+    def __new__(cls, seq: str | tuple[int, int, int] = (0, 0, 0)) -> 'Version':
         if isinstance(seq, Version):
             return seq
         if isinstance(seq, str):
@@ -724,13 +735,17 @@ class Version(tuple):
         prepared = re.sub(cls._not_allowed, '', version).strip('.')
         items = tuple(map(int, prepared.split('.')))
         match len(items):
-            case 3: return items
-            case 2: return items[0], items[1], 0
-            case 1: return items[0], 0, 0
-            case _: raise ValueError(
-                f'Cannot parse. Version must have one '
-                f'of formats: 1, 2.3, 4.5.6'
-            )
+            case 3:
+                return items
+            case 2:
+                return items[0], items[1], 0
+            case 1:
+                return items[0], 0, 0
+            case _:
+                raise ValueError(
+                    f'Cannot parse. Version must have one '
+                    f'of formats: 1, 2.3, 4.5.6'
+                )
 
     @property
     def major(self) -> int:
@@ -768,6 +783,7 @@ class JWTToken:
     """
     A simple wrapper over jwt token
     """
+
     EXP_THRESHOLD = 300  # in seconds
     __slots__ = '_token', '_exp_threshold'
 

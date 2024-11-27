@@ -7,7 +7,7 @@ from typing import Generator, Iterable, Iterator, TypedDict, cast
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
 
-from helpers import filter_dict, hashable
+from helpers import filter_dict, hashable, iter_key_values, deep_get
 from helpers.constants import (
     COMPOUND_KEYS_SEPARATOR,
     GLOBAL_REGION,
@@ -602,26 +602,32 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
 
     def query_by_customer(
         self,
-        customer: Customer,
+        customer: Customer | str,
         type_: ReportType,
         till: datetime | None = None,
         ascending: bool = False,
         limit: int | None = None,
     ) -> Iterator[ReportMetrics]:
+        name = customer.name if isinstance(customer, Customer) else customer
         return self.query(
-            key=self.key_for_customer(type_, customer.name),
+            key=self.key_for_customer(type_, name),
             till=till,
             ascending=ascending,
             limit=limit,
         )
 
     def get_latest_for_tenant(
-        self, tenant: Tenant, type_: ReportType, region: str = ''
+        self,
+        tenant: Tenant,
+        type_: ReportType,
+        till: datetime | None = None,
+        region: str = '',
     ) -> ReportMetrics | None:
         return next(
             self.query_by_tenant(
                 tenant=tenant,
                 type_=type_,
+                till=till,
                 region=region,
                 ascending=False,
                 limit=1,
@@ -630,11 +636,18 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
         )
 
     def get_latest_for_customer(
-        self, customer: Customer, type_: ReportType
+        self,
+        customer: Customer | str,
+        type_: ReportType,
+        till: datetime | None = None,
     ) -> ReportMetrics | None:
         return next(
             self.query_by_customer(
-                customer=customer, type_=type_, ascending=False, limit=1
+                customer=customer,
+                type_=type_,
+                till=till,
+                ascending=False,
+                limit=1,
             ),
             None,
         )
@@ -665,3 +678,36 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
         item.data = cast(
             dict, self._s3.gz_get_json(bucket=url.bucket, key=url.key)
         )
+
+
+def add_diff(
+    current: dict,
+    previous: dict,
+    exclude: tuple[str | tuple[str, ...], ...] = (),
+) -> None:
+    """
+    Replaces numbers inside the current dict with {"diff": int, "value": int}.
+    "diff" can be None in case there is not data for previous period
+    Changes the first item in-place.
+    """
+    to_exclude = {i if isinstance(i, tuple) else (i,) for i in exclude}
+    gen = iter_key_values(
+        finding=current,
+        hook=lambda x: isinstance(x, (int, float)) and not isinstance(x, bool)
+    )
+    try:
+        keys, real = next(gen)
+        while True:
+            if keys in to_exclude:
+                new = real
+            else:
+                new = {'value': real}
+                old = deep_get(previous, keys)
+                if isinstance(old, (int, float)) and not isinstance(old, bool):
+                    new['diff'] = real - old
+            keys, real = gen.send(new)
+    except StopIteration:
+        pass
+
+    # TODO: we can possibly have values that exist in previous dict and
+    #  do not exist in the current one. They are ignored for now

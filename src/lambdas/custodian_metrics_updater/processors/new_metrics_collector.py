@@ -9,16 +9,20 @@ from helpers.constants import Cloud, JobState, ReportType
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime
 from models.metrics import ReportMetrics
+from models.ruleset import Ruleset
 from services import SP, modular_helpers
 from services.ambiguous_job_service import AmbiguousJobService
+from services.license_service import License, LicenseService
 from services.mappings_collector import LazyLoadedMappingsCollector
 from services.report_service import ReportService
+from services.ruleset_service import RulesetName
 from services.reports import (
     JobMetricsDataSource,
     ReportMetricsService,
     ShardsCollectionDataSource,
     ShardsCollectionProvider,
 )
+from services.ruleset_service import RulesetService
 
 ReportsGen = Generator[ReportMetrics, None, None]
 
@@ -135,12 +139,16 @@ class MetricsCollector:
         mappings_collector: LazyLoadedMappingsCollector,
         report_service: ReportService,
         report_metrics_service: ReportMetricsService,
+        license_service: LicenseService,
+        ruleset_service: RulesetService,
     ):
         self._mc = modular_client
         self._ajs = ambiguous_job_service
         self._mp = mappings_collector
         self._rs = report_service
         self._rms = report_metrics_service
+        self._ls = license_service
+        self._rss = ruleset_service
 
         self._tenants_cache = {}
 
@@ -152,6 +160,8 @@ class MetricsCollector:
             mappings_collector=SP.mappings_collector,
             report_service=SP.report_service,
             report_metrics_service=SP.report_metrics_service,
+            license_service=SP.license_service,
+            ruleset_service=SP.ruleset_service,
         )
 
     @staticmethod
@@ -209,8 +219,9 @@ class MetricsCollector:
                 self._rms.save_data_to_s3(item)
             yield item
 
+    @staticmethod
     def _complete_rules_report(
-        self, it: ReportsGen, ctx: MetricsContext
+        it: ReportsGen, ctx: MetricsContext
     ) -> ReportsGen:
         for item in it:
             ov = ctx.get_report(item.entity, ReportType.OPERATIONAL_OVERVIEW)
@@ -288,17 +299,26 @@ class MetricsCollector:
             )
         )
 
-        # todo operational compliance, attacks, rules, finops, kubernetes
+        # todo operational compliance, attacks, finops, kubernetes
         # todo project reports
         # todo tops
         # todo clevel
 
-        if ctx.now.day == 1:  # assuming that we collect metrics once a day
-            _LOG.info('Generating c-level overview for all tenants')
+        collected = bool(
+            self._rms.get_latest_for_customer(
+                customer=ctx.customer,
+                type_=ReportType.C_LEVEL_OVERVIEW,
+                till=ReportType.C_LEVEL_OVERVIEW.end(ctx.now),
+            )
+        )
+        if not collected:
+            _LOG.info(
+                'Generating c-level overview for all tenants because '
+                'it has not be collected yet'
+            )
             ctx.add_reports(
                 self.c_level_overview(
-                    customer=ctx.customer,
-                    now=ctx.now,
+                    ctx=ctx,
                     job_source=job_source,
                     sc_provider=sc_provider,
                     report_type=ReportType.C_LEVEL_OVERVIEW,
@@ -432,14 +452,13 @@ class MetricsCollector:
 
     def c_level_overview(
         self,
-        customer: Customer,
-        now: datetime,
+        ctx: MetricsContext,
         job_source: JobMetricsDataSource,
         sc_provider: ShardsCollectionProvider,
         report_type: ReportType,
     ) -> ReportsGen:
-        start = report_type.start(now)
-        end = report_type.end(now)
+        start = report_type.start(ctx.now)
+        end = report_type.end(ctx.now)
         js = job_source.subset(start=start, end=end)
         cloud_tenant = {
             Cloud.AWS.value: [],
@@ -452,6 +471,10 @@ class MetricsCollector:
                 _LOG.warning(f'Tenant with name {tenant_name} not found!')
                 continue
             cloud_tenant.setdefault(tenant.cloud, []).append(tenant)
+        _LOG.info('Collecting licenses data')
+        # TODO: in case these metrics are collected as of some past date the
+        #  license information will not correspond to date
+        licenses, rulesets = self._collect_licenses_data(ctx)
         data = {}
         for cloud, tenants in cloud_tenant.items():
             rt_data = {}
@@ -482,13 +505,96 @@ class MetricsCollector:
                 'succeeded_scans': tjs.n_succeeded,
                 'total_scanned_tenants': len(used_tenants),
                 'total_scans': len(tjs),
+                **self._cloud_licenses_info(cloud, licenses, rulesets),
             }
         yield self._rms.create(
-            key=self._rms.key_for_customer(report_type, customer.name),
+            key=self._rms.key_for_customer(report_type, ctx.customer.name),
             data=data,
             start=start,
             end=end,
         )
+
+    def _collect_licenses_data(
+        self, ctx: MetricsContext
+    ) -> tuple[tuple[License, ...], dict[str, Ruleset]]:
+        """
+        Collects customer licenses data and their rulesets
+        """
+        licenses = tuple(self._ls.iter_customer_licenses(ctx.customer.name))
+        rulesets = {}  # cache
+        for lic in licenses:
+            for ruleset_id in lic.ruleset_ids:
+                if ruleset_id not in rulesets:
+                    rulesets[ruleset_id] = self._rss.by_lm_id(ruleset_id)
+        return licenses, rulesets
+
+    @staticmethod
+    def _cloud_licenses_info(
+        cloud: str,  # Cloud
+        licenses: tuple[License, ...],
+        rulesets: dict[str, Ruleset],
+    ) -> dict:
+        """
+        C level reports currently dispaly license information as if only one
+        license can ever exist for a cloud. Actually, number of licenses is
+        not limited per cloud.
+
+        :param cloud: cloud we need to collect data for
+        :param licenses: list of all licenses within a customer
+        :param rulesets: mapping ids to rulesets, all rulesets across
+        customer licenses
+        :return: data that will be stored in report and sent to Maestro
+        """
+        cloud_rulesets = []
+        cloud_licenses = []
+        for lic in licenses:
+            for rid in lic.ruleset_ids:
+                rs = rulesets.get(rid)
+                if not rs:
+                    _LOG.warning(
+                        f'Somehow ruleset item {rid} does not exist in DB'
+                    )
+                    continue
+                cl = rs.cloud.upper()
+                if cl == 'GCP':
+                    cl = 'GOOGLE'
+                if cl == cloud:
+                    cloud_licenses.append(lic)
+                    if rs.versions:
+                        cloud_rulesets.append(RulesetName(rs.name, sorted(rs.versions)[-1]).to_str())
+                    else:
+                        cloud_rulesets.append(rs.name)
+                    cloud_rulesets.append(rs)
+        if not cloud_licenses:
+            return {'activated': False, 'license_properties': {}}
+
+        # TODO: change this on Maestro side to allow multiple licenses
+        main_l = cloud_licenses[0]
+        expiration = None
+        if exp := main_l.expiration:
+            # the returned object is displayed directly, so we make
+            # human-formatting here
+            expiration = exp.strftime('%b %d, %Y %H:%M:%S %Z')
+
+        # TODO: just pass raw data to Maestro: they must format it
+        balance = main_l.allowance.get('job_balance')
+        time_range = main_l.allowance.get('time_range')
+        scan_frequency = (
+            f'{balance} scan{"" if balance == 1 else "s"} per {time_range}'
+        )
+
+        return {
+            'activated': True,
+            'license_properties': {
+                'Rulesets': sorted(cloud_rulesets),
+                'Number of licenses': len(cloud_licenses),
+                'Event-Driven mode': 'On'
+                if any([lic.event_driven for lic in cloud_licenses])
+                else 'Off',
+                'Scans frequency': scan_frequency,
+                'Expiration': expiration,
+            },
+        }
 
     def __call__(self):
         _LOG.info('Starting metrics collector')

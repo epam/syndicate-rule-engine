@@ -13,13 +13,8 @@ def standards_dict() -> dict:
     :return:
     """
     return {
-        'HIPAA': [
-            'v1 (point1,sub-point1,point2)',
-            'v2'
-        ],
-        'Cis Controls': [
-            '(sub-point1,sub-point2)'
-        ],
+        'HIPAA': ['v1 (point1,sub-point1,point2)', 'v2'],
+        'Cis Controls': ['(sub-point1,sub-point2)'],
     }
 
 
@@ -100,5 +95,6 @@ def test_severity_cmp():
     assert severity_cmp('High', 'Not existing') < 0
     assert severity_cmp('Not existing', 'High') > 0
 
-    assert (sorted(['High', 'Medium', 'Info'], key=cmp_to_key(severity_cmp)) ==
-            ['Info', 'Medium', 'High'])
+    assert sorted(
+        ['High', 'Medium', 'Info'], key=cmp_to_key(severity_cmp)
+    ) == ['Info', 'Medium', 'High']

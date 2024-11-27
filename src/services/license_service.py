@@ -290,6 +290,15 @@ class LicenseService(BaseDataService[License]):
                 yield parent, License(app)
             yielded.add(aid)
 
+    def iter_customer_licenses(self, customer: str, limit: int | None = None,
+                               ) -> Iterator[License]:
+        return self.to_licenses(self._aps.list(
+            customer=customer,
+            _type=ApplicationType.CUSTODIAN_LICENSES.value,
+            deleted=False,
+            limit=limit
+        ))
+
     @staticmethod
     def is_subject_applicable(lic: License, customer: str,
                               tenant_name: str | None = None):

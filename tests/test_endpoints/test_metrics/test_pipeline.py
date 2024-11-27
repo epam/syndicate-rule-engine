@@ -5,8 +5,10 @@ tenants. These tests check whether the data is processed as we expect
 import time
 from datetime import datetime, timedelta, timezone
 
+from unittest.mock import patch
 import pytest
 from dateutil.relativedelta import relativedelta
+from helpers.time_helper import utc_datetime
 
 from executor.services.report_service import JobResult
 from helpers.constants import Cloud, JobState, PolicyErrorType, ReportType
@@ -289,3 +291,33 @@ def test_metrics_update(
     item = SP.report_metrics_service.get_latest_for_tenant(google_tenant, ReportType.OPERATIONAL_RULES)
     SP.report_metrics_service.fetch_data_from_s3(item)
     assert dicts_equal(item.data.as_dict(), load_expected('metrics/google_operational_rules'))
+
+
+def test_metrics_update_c_level(
+        sre_client,
+        system_user_token,
+        aws_jobs,
+        azure_jobs,
+        google_jobs,
+        load_expected,
+        aws_tenant,
+        azure_tenant,
+        google_tenant,
+        main_customer,
+        utcnow
+):
+    future_date = utcnow + timedelta(days=31)
+
+    def mocked(x=None):
+        if not x:
+            return future_date
+        return utc_datetime(x)
+    with (patch('lambdas.custodian_metrics_updater.processors.new_metrics_collector.utc_datetime', mocked),
+          patch('services.reports.utc_datetime', mocked)):
+        resp = sre_client.request('/metrics/update', 'POST',
+                                  auth=system_user_token)
+        assert resp.status_int == 202
+        assert resp.json == {'message': 'Metrics update has been submitted'}
+        time.sleep(5)  # don't know how to check underlying thread is finished
+    item = SP.report_metrics_service.get_latest_for_customer(main_customer, ReportType.C_LEVEL_OVERVIEW)
+    assert dicts_equal(item.data.as_dict(), load_expected('metrics/c_level_overview'))

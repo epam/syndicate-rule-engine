@@ -2,6 +2,7 @@ from datetime import timedelta
 from http import HTTPStatus
 from typing import cast
 
+from dateutil.relativedelta import relativedelta
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.modular import Modular
 
@@ -20,8 +21,11 @@ from services import SP, modular_helpers
 from services.environment_service import EnvironmentService
 from services.rabbitmq_service import RabbitMQService
 from services.rbac_service import TenantsAccessPayload
-from services.reports import ReportMetricsService
-from validators.swagger_request_models import OperationalGetReportModel
+from services.reports import ReportMetricsService, add_diff
+from validators.swagger_request_models import (
+    CLevelGetReportModel,
+    OperationalGetReportModel,
+)
 from validators.utils import validate_kwargs
 
 _LOG = get_logger(__name__)
@@ -30,7 +34,7 @@ SRE_REPORTS_TYPE_TO_M3_MAPPING = {
     ReportType.OPERATIONAL_RESOURCES: 'CUSTODIAN_RESOURCES_REPORT',
     ReportType.OPERATIONAL_OVERVIEW: 'CUSTODIAN_OVERVIEW_REPORT',
     ReportType.OPERATIONAL_RULES: 'CUSTODIAN_RULES_REPORT',
-    ReportType.OPERATIONAL_COMPLIANCE: 'CUSTODIAN_COMPLIANCE_REPORT',
+    # ReportType.OPERATIONAL_COMPLIANCE: 'CUSTODIAN_COMPLIANCE_REPORT',
     ReportType.C_LEVEL_OVERVIEW: 'CUSTODIAN_CUSTOMER_OVERVIEW_REPORT',
 }
 
@@ -126,8 +130,8 @@ class MaestroModelBuilder:
             },
         }
 
-    def convert(self, rep: ReportMetrics) -> dict | None:
-        base = {
+    def build_base(self, rep: ReportMetrics) -> dict:
+        return {
             'receivers': self._receivers,
             'report_type': self.convert_to_old_rt(rep.type),
             'customer': rep.customer,
@@ -139,7 +143,11 @@ class MaestroModelBuilder:
             'to': rep.end,
             'outdated_tenants': [],  # TODO: implement
             'externalData': False,
+            'data': {},
         }
+
+    def convert(self, rep: ReportMetrics) -> dict | None:
+        base = self.build_base(rep)
         match rep.type:
             case ReportType.OPERATIONAL_OVERVIEW:
                 custom = self._operational_overview_custom(rep)
@@ -186,9 +194,68 @@ class HighLevelReportsHandler(AbstractHandler):
             },
         }
 
-    def post_c_level(self, event):
+    @validate_kwargs
+    def post_c_level(self, event: CLevelGetReportModel):
+        models = []
+        rabbitmq = self._rmq.get_customer_rabbitmq(event.customer_id)
+        if not rabbitmq:
+            raise self._rmq.no_rabbitmq_response().exc()
+
+        builder = MaestroModelBuilder(receivers=tuple(event.receivers))
+
+        for typ in event.new_types:
+            rep = self._rms.get_latest_for_customer(event.customer_id, typ)
+            if not rep:
+                _LOG.warning(f'Cannot find {typ} for {event.customer_id}')
+                continue
+            self._rms.fetch_data_from_s3(rep)
+
+            previous = self._rms.get_latest_for_customer(
+                customer=event.customer_id,
+                type_=typ,
+                till=utc_datetime() + relativedelta(months=-1),
+            )
+            if not previous:
+                _LOG.info(
+                    'Previous clevel report not found, diffs will be empty'
+                )
+                previous_data = {}
+            else:
+                self._rms.fetch_data_from_s3(previous)
+                previous_data = previous.data.as_dict()
+            current_data = rep.data.as_dict()
+            for cl, data in current_data.items():
+                add_diff(data, previous_data.get(cl, {}),
+                         exclude=('total_scanned_tenants', ))
+            base = builder.build_base(rep)
+            base['data'] = current_data
+
+            models.append(
+                self._rmq.build_m3_json_model(
+                    notification_type=SRE_REPORTS_TYPE_TO_M3_MAPPING[typ],
+                    data=base,
+                )
+            )
+
+        if not models:
+            raise (
+                ResponseFactory(HTTPStatus.NOT_FOUND)
+                .message(
+                    'No collected reports found to send. Update metrics first'
+                )
+                .exc()
+            )
+        code = self._rmq.send_to_m3(
+            rabbitmq=rabbitmq, command=RabbitCommand.SEND_MAIL, models=models
+        )
+        if code != 200:
+            raise (
+                ResponseFactory(HTTPStatus.SERVICE_UNAVAILABLE)
+                .message('Could not send message to RabbitMQ')
+                .exc()
+            )
         return build_response(
-            content='not implemented', code=HTTPStatus.NOT_FOUND
+            code=HTTPStatus.ACCEPTED, content='Successfully sent'
         )
 
     @validate_kwargs
