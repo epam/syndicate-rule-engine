@@ -194,6 +194,17 @@ class SeverityCmp:
 severity_cmp = SeverityCmp()
 
 
+def adjust_resource_type(rt: str, /) -> str:
+    """
+    Removes cloud prefix from resource type
+    """
+    return rt.split('.', maxsplit=1)[-1]
+
+
+def service_from_resource_type(rt: str, /) -> str:
+    return adjust_resource_type(rt).replace('-', ' ').replace('_', ' ').title()
+
+
 def merge_dictionaries(dict_to_merge: dict, dict_in: dict):
     """
     Merge one dict into another

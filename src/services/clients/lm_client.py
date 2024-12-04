@@ -1,32 +1,29 @@
+import base64
 import dataclasses
+import gzip
+import re
 from enum import Enum
 from http import HTTPStatus
-import re
 
-from typing_extensions import TypedDict, NotRequired
-from modular_sdk.services.impl.maestro_credentials_service import AccessMeta
+import msgspec
 import requests
+from modular_sdk.services.impl.maestro_credentials_service import AccessMeta
 
 from helpers import JWTToken, Version, urljoin
 from helpers.__version__ import __version__
 from helpers.constants import (
     ALG_ATTR,
     AUTHORIZATION_PARAM,
-    CUSTOMER_ATTR,
+    KID_ATTR,
+    TOKEN_ATTR,
     HTTPMethod,
     JobState,
-    KID_ATTR,
-    TENANTS_ATTR,
-    TENANT_ATTR,
-    TENANT_LICENSE_KEYS_ATTR,
-    TENANT_LICENSE_KEY_ATTR,
-    TOKEN_ATTR,
 )
 from helpers.log_helper import get_logger
 from helpers.system_customer import SYSTEM_CUSTOMER
 from services.clients.ssm import AbstractSSMClient
+from services.metadata import Metadata
 from services.setting_service import SettingsService
-
 
 _LOG = get_logger(__name__)
 
@@ -65,8 +62,9 @@ class LMAccessData(AccessMeta):
 class LmTokenProducer:
     __slots__ = '_ss', '_ssm', '_kid', '_alg', '_pem', '_cached'
 
-    def __init__(self, settings_service: SettingsService,
-                 ssm: AbstractSSMClient):
+    def __init__(
+        self, settings_service: SettingsService, ssm: AbstractSSMClient
+    ):
         self._ss = settings_service
         self._ssm = ssm
 
@@ -94,9 +92,12 @@ class LmTokenProducer:
         kid = self.get_kid()
         if not kid:
             return
-        resp = self._ssm.get_secret_value(
-            secret_name=self.derive_client_private_key_id(kid)
-        ) or {}
+        resp = (
+            self._ssm.get_secret_value(
+                secret_name=self.derive_client_private_key_id(kid)
+            )
+            or {}
+        )
         self._pem = resp['value'].encode()
         return self._pem
 
@@ -105,9 +106,12 @@ class LmTokenProducer:
         customer = re.sub(r'[\s-]', '_', customer.lower())
         return f'caas_lm_auth_token_{customer}'
 
-    def produce(self, lifetime: int = 120, customer: str | None = None,
-                cached: bool = True
-                ) -> str | None:
+    def produce(
+        self,
+        lifetime: int = 120,
+        customer: str | None = None,
+        cached: bool = True,
+    ) -> str | None:
         """
         Lm uses cached token to improve performance
         :param lifetime:
@@ -120,7 +124,9 @@ class LmTokenProducer:
         if cached:
             v = (self._ssm.get_secret_value(secret_name) or {}).get(TOKEN_ATTR)
             if v and not JWTToken(v).is_expired():
-                _LOG.debug(f'Returning cached JWT token for customer: {customer}')
+                _LOG.debug(
+                    f'Returning cached JWT token for customer: {customer}'
+                )
                 return v
 
         pem = self.get_pem()
@@ -128,16 +134,16 @@ class LmTokenProducer:
             return
         # not to bring cryptography to global
         from services.license_manager_token import LicenseManagerToken
+
         token = LicenseManagerToken(
             customer=customer,
             lifetime=lifetime,
             kid=self.get_kid(),
-            private_pem=pem
+            private_pem=pem,
         ).produce()
         if cached:
             self._ssm.create_secret(
-                secret_name=secret_name,
-                secret_value={TOKEN_ATTR: token}
+                secret_name=secret_name, secret_value={TOKEN_ATTR: token}
             )
         return token
 
@@ -147,6 +153,7 @@ class LMClient:
     This is the base LM client with all endpoints that were available from
     the beginning (except whoami)
     """
+
     __slots__ = '_baseurl', '_token_producer', '_session'
 
     def __init__(self, baseurl: str, token_producer: LmTokenProducer):
@@ -164,15 +171,17 @@ class LMClient:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._session.close()
 
-    def _send_request(self, endpoint: LMEndpoint, method: HTTPMethod,
-                      params: dict | None = None,
-                      data: dict | None = None,
-                      token: str | None = None,
-                      ) -> requests.Response | None:
-        _LOG.debug(f'Going to send \'{method}\' request to \'{endpoint}\'')
+    def _send_request(
+        self,
+        endpoint: LMEndpoint,
+        method: HTTPMethod,
+        params: dict | None = None,
+        data: dict | None = None,
+        token: str | None = None,
+    ) -> requests.Response | None:
+        _LOG.debug(f"Going to send '{method}' request to '{endpoint}'")
         kw = dict(
-            method=method.value,
-            url=urljoin(self._baseurl, endpoint.value)
+            method=method.value, url=urljoin(self._baseurl, endpoint.value)
         )
         if params:
             kw.update(params=params)
@@ -188,38 +197,43 @@ class LMClient:
             _LOG.exception('Error occurred while executing request.')
             return
 
-    def sync_license(self, license_key: str, customer: str | None = None
-                     ) -> dict | None:
+    def sync_license(
+        self, license_key: str, customer: str | None = None
+    ) -> dict | None:
         resp = self._send_request(
             endpoint=LMEndpoint.LICENSE_SYNC,
             method=HTTPMethod.POST,
             data={'license_key': license_key},
-            token=self._token_producer.produce(customer=customer)
+            token=self._token_producer.produce(customer=customer),
         )
         if resp is None or not resp.ok:
             _LOG.warning('Failed license sync')
             return
         return resp.json()['items'].pop()
 
-    def check_permission(self, customer: str, tenant: str,
-                         tenant_license_key: str) -> bool:
-        return bool(self._send_request(
-            endpoint=LMEndpoint.JOBS_CHECK_PERMISSION,
-            method=HTTPMethod.POST,
-            data={
-                'tenant': tenant,
-                'tenant_license_keys': [tenant_license_key]
-            },
-            token=self._token_producer.produce(customer=customer)
-        ))
+    def check_permission(
+        self, customer: str, tenant: str, tenant_license_key: str
+    ) -> bool:
+        return bool(
+            self._send_request(
+                endpoint=LMEndpoint.JOBS_CHECK_PERMISSION,
+                method=HTTPMethod.POST,
+                data={
+                    'tenant': tenant,
+                    'tenant_license_keys': [tenant_license_key],
+                },
+                token=self._token_producer.produce(customer=customer),
+            )
+        )
 
-    def activate_customer(self, customer: str, tlk: str
-                          ) -> tuple[str, str] | None:
+    def activate_customer(
+        self, customer: str, tlk: str
+    ) -> tuple[str, str] | None:
         resp = self._send_request(
             endpoint=LMEndpoint.CUSTOMER_SET_ACTIVATION_DATE,
             method=HTTPMethod.POST,
             data={'tenant_license_key': tlk},
-            token=self._token_producer.produce(customer=customer)
+            token=self._token_producer.produce(customer=customer),
         )
         if resp is None or not resp.ok:
             _LOG.warning('Cannot activate customer')
@@ -227,9 +241,13 @@ class LMClient:
         data = resp.json()['items'][0]
         return data['license_key'], data['tenant_license_key']
 
-    def post_job(self, job_id: str, customer: str, tenant: str,
-                 ruleset_map: dict[str, list[str]]
-                 ) -> dict:
+    def post_job(
+        self,
+        job_id: str,
+        customer: str,
+        tenant: str,
+        ruleset_map: dict[str, list[str]],
+    ) -> dict:
         resp = self._send_request(
             endpoint=LMEndpoint.JOBS,
             method=HTTPMethod.POST,
@@ -238,9 +256,9 @@ class LMClient:
                 'job_id': job_id,
                 'tenant': tenant,
                 'rulesets': ruleset_map,
-                'installation_version': __version__
+                'installation_version': __version__,
             },
-            token=self._token_producer.produce(customer=customer)
+            token=self._token_producer.produce(customer=customer),
         )
         if resp is None:
             raise LMUnavailable('Cannot access the License manager')
@@ -254,11 +272,15 @@ class LMClient:
             case _:
                 raise LMUnavailable(resp.json().get('message') or '')
 
-    def update_job(self, job_id: str, customer: str | None,
-                   created_at: str | None = None,
-                   started_at: str | None = None,
-                   stopped_at: str | None = None,
-                   status: JobState | None = None) -> bool:
+    def update_job(
+        self,
+        job_id: str,
+        customer: str | None,
+        created_at: str | None = None,
+        started_at: str | None = None,
+        stopped_at: str | None = None,
+        status: JobState | None = None,
+    ) -> bool:
         resp = self._send_request(
             endpoint=LMEndpoint.JOBS,
             method=HTTPMethod.PATCH,
@@ -267,9 +289,9 @@ class LMClient:
                 'created_at': created_at,
                 'started_at': started_at,
                 'stopped_at': stopped_at,
-                'status': status
+                'status': status,
             },
-            token=self._token_producer.produce(customer=customer)
+            token=self._token_producer.produce(customer=customer),
         )
         if resp is None or not resp.ok:
             _LOG.info('Failed to update job in lm')
@@ -285,7 +307,7 @@ class LMClient:
         resp = self._send_request(
             endpoint=LMEndpoint.WHOAMI,
             method=HTTPMethod.GET,
-            token=self._token_producer.produce(lifetime=15, cached=False)
+            token=self._token_producer.produce(lifetime=15, cached=False),
         )
         if resp is None or not resp.ok:
             return None, None
@@ -296,30 +318,43 @@ class LMClientAfter2p7(LMClient):
     """
     This class introduces API changes in LM >= 2.7.0
     """
-    def check_permission(self, customer: str, tenant: str,
-                         tenant_license_key: str) -> bool:
+
+    def check_permission(
+        self, customer: str, tenant: str, tenant_license_key: str
+    ) -> bool:
         resp = self._send_request(
             endpoint=LMEndpoint.JOBS_CHECK_PERMISSION,
             method=HTTPMethod.POST,
             data={
                 'tenants': [tenant],
-                'tenant_license_keys': [tenant_license_key]
+                'tenant_license_keys': [tenant_license_key],
             },
-            token=self._token_producer.produce(customer=customer)
+            token=self._token_producer.produce(customer=customer),
         )
         if resp is None or not resp.ok:
             _LOG.warning('Cannot check permission')
             return False
-        return tenant in resp.json().get('items')[0][tenant_license_key]['allowed']
+        return (
+            tenant
+            in resp.json().get('items')[0][tenant_license_key]['allowed']
+        )
 
 
 class LMClientAfter3p0(LMClientAfter2p7):
     """
     This class introduces changes in LM >= 3.0.0
     """
-    def post_ruleset(self, name: str, version: str, cloud: str,
-                     description: str, display_name: str, download_url: str,
-                     rules: list[str]) -> tuple[HTTPStatus, str] | None:
+
+    def post_ruleset(
+        self,
+        name: str,
+        version: str,
+        cloud: str,
+        description: str,
+        display_name: str,
+        download_url: str,
+        rules: list[str],
+    ) -> tuple[HTTPStatus, str] | None:
         """
         Returns boolean whether the ruleset was released. If None is returned
         the request is unsuccessful
@@ -334,40 +369,46 @@ class LMClientAfter3p0(LMClientAfter2p7):
                 'description': description,
                 'display_name': display_name,
                 'download_url': download_url,
-                'rules': rules
+                'rules': rules,
             },
-            token=self._token_producer.produce(lifetime=15, cached=False)
+            token=self._token_producer.produce(lifetime=15, cached=False),
         )
         if resp is None:
             return
         return HTTPStatus(resp.status_code), resp.json().get('message', '')
 
 
+
 class LMClientAfter3p3(LMClientAfter3p0):
     """
     This class introduces changes in LM >= 3.3.0
     """
-    def get_all_metadata(self, customer: str, tenant_license_key: str):
+
+    def get_all_metadata(
+        self, customer: str, tenant_license_key: str
+    ) -> MetadataResponse | None:
         resp = self._send_request(
             endpoint=LMEndpoint.LICENSE_METADATA_ALL,
             method=HTTPMethod.GET,
-            params={
-                'tenant_license_key': tenant_license_key
-            },
-            token=self._token_producer.produce(customer=customer)
+            params={'tenant_license_key': tenant_license_key},
+            token=self._token_producer.produce(customer=customer),
         )
         if resp is None or not resp.ok:
             _LOG.warning('Could not get metadata')
-            return {}
-        # TODO: convert
-        return resp.content
+            return
+        # TODO: stream somehow?
+        return msgspec.msgpack.decode(
+            gzip.decompress(base64.b64decode(resp.content)),
+            type=MetadataResponse,
+        )
 
 
 class LMClientFactory:
     __slots__ = '_ss', '_ssm'
 
-    def __init__(self, settings_service: SettingsService,
-                 ssm: AbstractSSMClient):
+    def __init__(
+        self, settings_service: SettingsService, ssm: AbstractSSMClient
+    ):
         self._ss = settings_service
         self._ssm = ssm
 
@@ -384,22 +425,25 @@ class LMClientFactory:
         _LOG.debug(f'Received api version: {version}')
 
         if not version:
-            _LOG.info('No desired api version supplied. '
-                      'Using after 2.7.0 client')
+            _LOG.info(
+                'No desired api version supplied. ' 'Using after 2.7.0 client'
+            )
             return LMClientAfter2p7(baseurl=ad.url, token_producer=producer)
         if Version(version) >= Version('3.3.0'):
-            _LOG.info(f'Desired version is {version}. '
-                      f'Using client for 3.3.0+')
+            _LOG.info(
+                f'Desired version is {version}. ' f'Using client for 3.3.0+'
+            )
             return LMClientAfter3p3(baseurl=ad.url, token_producer=producer)
         if Version(version) >= Version('3.0.0'):
-            _LOG.info(f'Desired version is {version}. '
-                      f'Using client for 3.0.0+')
+            _LOG.info(
+                f'Desired version is {version}. ' f'Using client for 3.0.0+'
+            )
             return LMClientAfter3p0(baseurl=ad.url, token_producer=producer)
         if Version(version) >= Version('2.7.0'):
-            _LOG.info(f'Desired version is {version}. '
-                      f'Using client for 2.7.0+')
+            _LOG.info(
+                f'Desired version is {version}. ' f'Using client for 2.7.0+'
+            )
             return LMClientAfter2p7(baseurl=ad.url, token_producer=producer)
         # < 2.7.0
-        _LOG.info(f'Desired version is {version}. '
-                  f'Using client for <2.7.0')
+        _LOG.info(f'Desired version is {version}. ' f'Using client for <2.7.0')
         return cl

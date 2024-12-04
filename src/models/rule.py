@@ -187,7 +187,7 @@ class RuleIndex:
         '_source', '_customization', '_multiregional'
     )
 
-    def __init__(self, comment: str):
+    def __init__(self, comment: str | None):
         self._comment = comment or ''
         self._cloud = comment[0:2]
         self._platform = comment[2:4]

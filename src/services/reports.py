@@ -171,6 +171,7 @@ class ShardsCollectionDataSource:
         """
         Removes cloud prefix from resource type
         """
+        # TODO: replace usages with one from reports.py
         return rt.split('.', maxsplit=1)[-1]
 
     def _get_rule_service(self, rule: str) -> str:
