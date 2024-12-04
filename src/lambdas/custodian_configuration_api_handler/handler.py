@@ -17,7 +17,6 @@ from handlers.rabbitmq_handler import RabbitMQHandler
 from handlers.report_status_handler import ReportStatusHandlerHandler
 from handlers.role_handler import RoleHandler
 from handlers.rule_handler import RuleHandler
-from handlers.rule_meta_handler import RuleMetaHandler
 from handlers.rule_source_handler import RuleSourceHandler
 from handlers.ruleset_handler import RulesetHandler
 from handlers.self_integration_handler import SelfIntegrationHandler
@@ -74,7 +73,6 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
         RoleHandler,
         RuleHandler,
         RulesetHandler,
-        RuleMetaHandler,
         PlatformsHandler,
         MailSettingHandler,
         CustomerHandler,

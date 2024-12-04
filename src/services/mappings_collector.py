@@ -1,12 +1,11 @@
 from functools import cached_property
-from typing import TypedDict, TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 from helpers.constants import RuleDomain
-from services import SP
 from models.rule import RuleIndex
+from services import SP
 
 if TYPE_CHECKING:
-    from services.rule_meta_service import RuleMetaModel
     from services.s3_settings_service import S3SettingsService
 
 
@@ -68,33 +67,33 @@ class MappingsCollector:
         if cloud == RuleDomain.GCP:
             return self._google_events
 
-    def add_meta(self, meta: 'RuleMetaModel'):
-        self._severity[meta.name] = meta.severity
-        self._mitre[meta.name] = meta.mitre
-        self._service_section[meta.name] = meta.service_section
-        self._category[meta.name] = meta.category
-        self._service[meta.name] = meta.service
-        self._standard[meta.name] = meta.standard
-        domain = meta.get_domain()
-        if domain:
-            self._cloud_rules.setdefault(domain.value, []).append(meta.name)
-        if meta.cloud:
-            self._cloud_rules.setdefault(meta.cloud, []).append(meta.name)
-        self._human_data[meta.name] = {
-            'article': meta.article,
-            'impact': meta.impact,
-            'report_fields': meta.report_fields,
-            'remediation': meta.remediation,
-            'multiregional': meta.multiregional,
-            'service': meta.service
-        }
-
-        _map = self.event_map(domain)
-        if isinstance(_map, dict):
-            for source, names in meta.events.items():
-                _map.setdefault(source, {})
-                for name in names:  # here already parsed, without ','
-                    _map[source].setdefault(name, []).append(meta.name)
+    # def add_meta(self, meta: 'RuleMetaModel'):
+    #     self._severity[meta.name] = meta.severity
+    #     self._mitre[meta.name] = meta.mitre
+    #     self._service_section[meta.name] = meta.service_section
+    #     self._category[meta.name] = meta.category
+    #     self._service[meta.name] = meta.service
+    #     self._standard[meta.name] = meta.standard
+    #     domain = meta.get_domain()
+    #     if domain:
+    #         self._cloud_rules.setdefault(domain.value, []).append(meta.name)
+    #     if meta.cloud:
+    #         self._cloud_rules.setdefault(meta.cloud, []).append(meta.name)
+    #     self._human_data[meta.name] = {
+    #         'article': meta.article,
+    #         'impact': meta.impact,
+    #         'report_fields': meta.report_fields,
+    #         'remediation': meta.remediation,
+    #         'multiregional': meta.multiregional,
+    #         'service': meta.service
+    #     }
+    #
+    #     _map = self.event_map(domain)
+    #     if isinstance(_map, dict):
+    #         for source, names in meta.events.items():
+    #             _map.setdefault(source, {})
+    #             for name in names:  # here already parsed, without ','
+    #                 _map[source].setdefault(name, []).append(meta.name)
 
     @property
     def severity(self) -> SeverityType:

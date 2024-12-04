@@ -46,7 +46,6 @@ class CustodianEndpoint(str, Enum):
     DOC_PROXY = '/doc/{proxy+}'
     ROLES_NAME = '/roles/{name}'
     CREDENTIALS = '/credentials'
-    META_META = '/rule-meta/meta'
     RULE_SOURCES = '/rule-sources'
     USERS_WHOAMI = '/users/whoami'
     SCHEDULED_JOB = '/scheduled-job'
@@ -66,7 +65,6 @@ class CustodianEndpoint(str, Enum):
     RULESETS_RELEASE = '/rulesets/release'
     ED_RULESETS = '/rulesets/event-driven'
     DOC_SWAGGER_JSON = '/doc/swagger.json'
-    META_STANDARDS = '/rule-meta/standards'
     RULE_META_UPDATER = '/rules/update-meta'
     REPORTS_PUSH_DOJO = '/reports/push/dojo'
     CUSTOMERS_RABBITMQ = '/customers/rabbitmq'
@@ -631,10 +629,6 @@ class Permission(str, Enum):
 
     METRICS_UPDATE = 'system:update_metrics', True
     METRICS_STATUS = 'system:metrics_status'
-
-    META_UPDATE_STANDARDS = 'meta:update_standards', True
-    META_UPDATE_MAPPINGS = 'meta:update_mappings', True
-    META_UPDATE_META = 'meta:update_meta', True
 
     RULESET_DESCRIBE = 'ruleset:describe', False  # True
     RULESET_CREATE = 'ruleset:create'

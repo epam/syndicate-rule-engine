@@ -553,6 +553,12 @@ class JobHandler(AbstractHandler):
 
     @validate_kwargs
     def query(self, event: JobGetModel):
+        client = self._license_manager_service.cl
+        breakpoint()
+        res = client.get_all_metadata(customer='EPAM Systems', tenant_license_key='a9f1cc05-b606-41c0-939d-c5c288982b4f')
+        breakpoint()
+
+
         old_lek = Lek.deserialize(event.next_token)
         new_lek = Lek()
 

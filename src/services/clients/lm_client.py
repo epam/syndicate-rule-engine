@@ -3,6 +3,7 @@ from enum import Enum
 from http import HTTPStatus
 import re
 
+from typing_extensions import TypedDict, NotRequired
 from modular_sdk.services.impl.maestro_credentials_service import AccessMeta
 import requests
 
@@ -20,7 +21,6 @@ from helpers.constants import (
     TENANT_LICENSE_KEYS_ATTR,
     TENANT_LICENSE_KEY_ATTR,
     TOKEN_ATTR,
-    CAASEnv
 )
 from helpers.log_helper import get_logger
 from helpers.system_customer import SYSTEM_CUSTOMER
@@ -54,6 +54,7 @@ class LMEndpoint(str, Enum):
     JOBS = '/jobs'
     JOBS_CHECK_PERMISSION = '/jobs/check-permission'
     WHOAMI = '/whoami'
+    LICENSE_METADATA_ALL = '/license/metadata/all'
 
 
 @dataclasses.dataclass()
@@ -206,9 +207,8 @@ class LMClient:
             endpoint=LMEndpoint.JOBS_CHECK_PERMISSION,
             method=HTTPMethod.POST,
             data={
-                CUSTOMER_ATTR: customer,
-                TENANT_ATTR: tenant,
-                TENANT_LICENSE_KEYS_ATTR: [tenant_license_key]
+                'tenant': tenant,
+                'tenant_license_keys': [tenant_license_key]
             },
             token=self._token_producer.produce(customer=customer)
         ))
@@ -218,10 +218,7 @@ class LMClient:
         resp = self._send_request(
             endpoint=LMEndpoint.CUSTOMER_SET_ACTIVATION_DATE,
             method=HTTPMethod.POST,
-            data={
-                CUSTOMER_ATTR: customer,
-                TENANT_LICENSE_KEY_ATTR: tlk
-            },
+            data={'tenant_license_key': tlk},
             token=self._token_producer.produce(customer=customer)
         )
         if resp is None or not resp.ok:
@@ -239,7 +236,6 @@ class LMClient:
             data={
                 'service_type': 'CUSTODIAN',
                 'job_id': job_id,
-                'customer': customer,
                 'tenant': tenant,
                 'rulesets': ruleset_map,
                 'installation_version': __version__
@@ -306,9 +302,8 @@ class LMClientAfter2p7(LMClient):
             endpoint=LMEndpoint.JOBS_CHECK_PERMISSION,
             method=HTTPMethod.POST,
             data={
-                CUSTOMER_ATTR: customer,
-                TENANTS_ATTR: [tenant],
-                TENANT_LICENSE_KEYS_ATTR: [tenant_license_key]
+                'tenants': [tenant],
+                'tenant_license_keys': [tenant_license_key]
             },
             token=self._token_producer.produce(customer=customer)
         )
@@ -348,6 +343,26 @@ class LMClientAfter3p0(LMClientAfter2p7):
         return HTTPStatus(resp.status_code), resp.json().get('message', '')
 
 
+class LMClientAfter3p3(LMClientAfter3p0):
+    """
+    This class introduces changes in LM >= 3.3.0
+    """
+    def get_all_metadata(self, customer: str, tenant_license_key: str):
+        resp = self._send_request(
+            endpoint=LMEndpoint.LICENSE_METADATA_ALL,
+            method=HTTPMethod.GET,
+            params={
+                'tenant_license_key': tenant_license_key
+            },
+            token=self._token_producer.produce(customer=customer)
+        )
+        if resp is None or not resp.ok:
+            _LOG.warning('Could not get metadata')
+            return {}
+        # TODO: convert
+        return resp.content
+
+
 class LMClientFactory:
     __slots__ = '_ss', '_ssm'
 
@@ -370,8 +385,12 @@ class LMClientFactory:
 
         if not version:
             _LOG.info('No desired api version supplied. '
-                      'Using afrer 2.7.0 client')
+                      'Using after 2.7.0 client')
             return LMClientAfter2p7(baseurl=ad.url, token_producer=producer)
+        if Version(version) >= Version('3.3.0'):
+            _LOG.info(f'Desired version is {version}. '
+                      f'Using client for 3.3.0+')
+            return LMClientAfter3p3(baseurl=ad.url, token_producer=producer)
         if Version(version) >= Version('3.0.0'):
             _LOG.info(f'Desired version is {version}. '
                       f'Using client for 3.0.0+')

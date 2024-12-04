@@ -525,20 +525,6 @@ class CustodianApiClient:
             data={}
         )
 
-    def update_standards(self):
-        return self.make_request(
-            path=CustodianEndpoint.META_STANDARDS,
-            method=HTTPMethod.POST,
-            data={}
-        )
-
-    def update_meta(self):
-        return self.make_request(
-            path=CustodianEndpoint.META_META,
-            method=HTTPMethod.POST,
-            data={}
-        )
-
     def trigger_rule_meta_updater(self, **kwargs):
         return self.make_request(
             path=CustodianEndpoint.RULE_META_UPDATER,
