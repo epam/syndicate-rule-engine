@@ -13,6 +13,7 @@ from services.reports import (
     ShardsCollectionDataSource,
     add_diff,
 )
+from helpers.reports import adjust_resource_type
 from services.sharding import AWSRegionDistributor, ShardPart, ShardsCollection
 
 
@@ -161,6 +162,11 @@ class TestJobMetricsDataSource:
             pytest.fail('Empty JobsMetricsDataSource must not pass if-clause')
 
 
+def test_adjust_rt():
+    assert adjust_resource_type('aws.iam-role') == 'iam-role'
+    assert adjust_resource_type('iam-role') == 'iam-role'
+
+
 class TestShardsCollectionDataSource:
     def test_n_unique(self, aws_shards_collection, empty_mappings_collector):
         source = ShardsCollectionDataSource(
@@ -168,16 +174,6 @@ class TestShardsCollectionDataSource:
             mappings_collector=empty_mappings_collector,
         )
         assert source.n_unique == 23
-
-    def test_adjust_rt(self):
-        assert (
-            ShardsCollectionDataSource.adjust_resource_type('aws.iam-role')
-            == 'iam-role'
-        )
-        assert (
-            ShardsCollectionDataSource.adjust_resource_type('iam-role')
-            == 'iam-role'
-        )
 
     def test_region_severities_no_metadata(
         self, aws_shards_collection, empty_mappings_collector

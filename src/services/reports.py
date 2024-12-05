@@ -7,7 +7,7 @@ from typing import Generator, Iterable, Iterator, TypedDict, cast
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
 
-from helpers import filter_dict, hashable, iter_key_values, deep_get
+from helpers import deep_get, filter_dict, hashable, iter_key_values
 from helpers.constants import (
     COMPOUND_KEYS_SEPARATOR,
     GLOBAL_REGION,
@@ -16,20 +16,26 @@ from helpers.constants import (
     ReportType,
 )
 from helpers.log_helper import get_logger
-from helpers.reports import Severity, SeverityCmp, keep_highest
+from helpers.reports import (
+    Severity,
+    SeverityCmp,
+    adjust_resource_type,
+    keep_highest,
+    service_from_resource_type,
+)
 from helpers.time_helper import utc_datetime, utc_iso
 from models.metrics import ReportMetrics
 from services.ambiguous_job_service import AmbiguousJob
-from services.reports_bucket import ReportMetricsBucketKeysBuilder
 from services.base_data_service import BaseDataService
+from services.clients.s3 import S3Client, S3Url
+from services.environment_service import EnvironmentService
 from services.mappings_collector import (
     LazyLoadedMappingsCollector,
     MappingsCollector,
 )
 from services.report_service import ReportService
+from services.reports_bucket import ReportMetricsBucketKeysBuilder
 from services.sharding import ShardsCollection
-from services.clients.s3 import S3Client, S3Url
-from services.environment_service import EnvironmentService
 
 _LOG = get_logger(__name__)
 
@@ -166,23 +172,6 @@ class ShardsCollectionDataSource:
 
         self.__resources = None
 
-    @staticmethod
-    def adjust_resource_type(rt: str) -> str:
-        """
-        Removes cloud prefix from resource type
-        """
-        # TODO: replace usages with one from reports.py
-        return rt.split('.', maxsplit=1)[-1]
-
-    def _get_rule_service(self, rule: str) -> str:
-        """
-        Builds rule service from Cloud Custodian resource type. Last resort
-        """
-        if serv := self._services.get(rule):
-            return serv
-        rt = self.adjust_resource_type(self._col.meta[rule]['resource'])
-        return rt.replace('-', ' ').replace('_', ' ').title()
-
     def iter_resources(self):
         for part in self._col.iter_parts():
             for res in part.resources:
@@ -209,15 +198,13 @@ class ShardsCollectionDataSource:
             if region in regions:
                 yield rule, region, dto, ts
 
+    @staticmethod
     def _allow_only_resource_type(
-        self,
-        it: ResourcesGenerator,
-        meta: dict,
-        resource_type: tuple[str, ...],
+        it: ResourcesGenerator, meta: dict, resource_type: tuple[str, ...]
     ) -> ResourcesGenerator:
-        to_check = tuple(map(self.adjust_resource_type, resource_type))
+        to_check = tuple(map(adjust_resource_type, resource_type))
         for rule, region, dto, ts in it:
-            rt = self.adjust_resource_type(meta.get(rule, {}).get('resource'))
+            rt = adjust_resource_type(meta.get(rule, {})['resource'])
             if rt in to_check:
                 yield rule, region, dto, ts
 
@@ -255,8 +242,8 @@ class ShardsCollectionDataSource:
         #  solution. Maybe move this logic to a separate class
         meta = self._col.meta
         for rule, region, dto, ts in it:
-            rt = meta.get(rule, {}).get('resource')
-            rt = self.adjust_resource_type(rt)
+            rt = meta.get(rule, {})['resource']
+            rt = adjust_resource_type(rt)
             if rt in ('glue-catalog', 'account'):
                 _LOG.debug(
                     f'Rule with type {rt} found. Adding region '
@@ -415,7 +402,9 @@ class ShardsCollectionDataSource:
             item = {
                 'policy': rule,
                 'resource_type': service.get(rule)
-                or self._get_rule_service(rule),
+                or service_from_resource_type(
+                    self._col.meta[rule]['resource']
+                ),
                 'description': rm.get('description') or '',
                 'severity': Severity.parse(severity.get(rule)).value,
                 'resources': {
@@ -430,7 +419,9 @@ class ShardsCollectionDataSource:
         result = {}
         service = self._services
         for rule in self._resources:
-            rt = service.get(rule) or self._get_rule_service(rule)
+            rt = service.get(rule) or service_from_resource_type(
+                self._col.meta[rule]['resource']
+            )
             result.setdefault(rt, 0)
             for res in self._resources[rule].values():
                 result[rt] += len(res)
@@ -694,7 +685,7 @@ def add_diff(
     to_exclude = {i if isinstance(i, tuple) else (i,) for i in exclude}
     gen = iter_key_values(
         finding=current,
-        hook=lambda x: isinstance(x, (int, float)) and not isinstance(x, bool)
+        hook=lambda x: isinstance(x, (int, float)) and not isinstance(x, bool),
     )
     try:
         keys, real = next(gen)
