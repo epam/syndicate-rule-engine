@@ -267,7 +267,7 @@ def peek(iterable) -> Optional[tuple[Any, chain]]:
     return first, chain([first], iterable)
 
 
-def urljoin(*args: str) -> str:
+def urljoin(*args: str | int) -> str:
     """
     Joins all the parts with one "/"
     :param args:

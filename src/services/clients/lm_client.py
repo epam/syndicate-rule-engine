@@ -313,6 +313,11 @@ class LMClient:
             return None, None
         return resp.json().get('client_id'), resp.headers.get('Accept-Version')
 
+    def get_all_metadata(
+            self, customer: str, tenant_license_key: str
+    ) -> Metadata | None:
+        return
+
 
 class LMClientAfter2p7(LMClient):
     """
@@ -378,7 +383,6 @@ class LMClientAfter3p0(LMClientAfter2p7):
         return HTTPStatus(resp.status_code), resp.json().get('message', '')
 
 
-
 class LMClientAfter3p3(LMClientAfter3p0):
     """
     This class introduces changes in LM >= 3.3.0
@@ -386,7 +390,7 @@ class LMClientAfter3p3(LMClientAfter3p0):
 
     def get_all_metadata(
         self, customer: str, tenant_license_key: str
-    ) -> MetadataResponse | None:
+    ) -> Metadata | None:
         resp = self._send_request(
             endpoint=LMEndpoint.LICENSE_METADATA_ALL,
             method=HTTPMethod.GET,
@@ -397,10 +401,14 @@ class LMClientAfter3p3(LMClientAfter3p0):
             _LOG.warning('Could not get metadata')
             return
         # TODO: stream somehow?
-        return msgspec.msgpack.decode(
-            gzip.decompress(base64.b64decode(resp.content)),
-            type=MetadataResponse,
-        )
+        try:
+            return msgspec.msgpack.decode(
+                gzip.decompress(base64.b64decode(resp.content)),
+                type=Metadata,
+            )
+        except msgspec.ValidationError:
+            _LOG.exception('Invalid metadata came')
+            return
 
 
 class LMClientFactory:

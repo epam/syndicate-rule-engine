@@ -1,12 +1,12 @@
 import tempfile
 from abc import ABC, abstractmethod
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Optional
 
 from dateutil.relativedelta import relativedelta
 
-from helpers import urljoin
+from helpers import urljoin, Version
 from helpers.constants import Cloud
 from helpers.time_helper import utc_datetime, week_number
 from models.batch_results import BatchResults
@@ -51,7 +51,7 @@ class ReportsBucketKeysBuilder(ABC):
         return urljoin(*args) + '/'  # delimiter
 
     @staticmethod
-    def datetime(_from: Optional[datetime] = None) -> str:
+    def datetime(_from: datetime | None = None) -> str:
         """
         Builds datetime part of a path with 1 hour precision in UTC.
         By default, uses the current datetime.
@@ -312,13 +312,13 @@ class StatisticsBucketKeysBuilder:
         return urljoin(cls._statistics, cls._ed, job.id, cls._statistics_file)
 
     @classmethod
-    def report_statistics(cls, now: date, customer: str) -> str:
+    def report_statistics(cls, now: datetime, customer: str) -> str:
         return urljoin(
             cls._report_statistics,
             cls._diagnostic,
             customer,
             now.strftime(
-                ReportsBucketKeysBuilder.date_delimiter.join(['%Y', '%m'])
+                ReportsBucketKeysBuilder.date_delimiter.join(('%Y', '%m'))
                 + '/'
             ),
             cls._diagnostic_report_file,
@@ -327,7 +327,7 @@ class StatisticsBucketKeysBuilder:
     @classmethod
     def tenant_statistics(
         cls,
-        now: date,
+        now: datetime,
         tenant: Optional['Tenant'] = None,
         customer: Optional[str] = None,
     ) -> str:
@@ -337,7 +337,7 @@ class StatisticsBucketKeysBuilder:
                 cls._rules,
                 customer,
                 now.strftime(
-                    ReportsBucketKeysBuilder.date_delimiter.join(['%Y', '%m'])
+                    ReportsBucketKeysBuilder.date_delimiter.join(('%Y', '%m'))
                     + '/'
                 ),
             )
@@ -347,7 +347,7 @@ class StatisticsBucketKeysBuilder:
                 cls._rules,
                 tenant.customer_name,
                 now.strftime(
-                    ReportsBucketKeysBuilder.date_delimiter.join(['%Y', '%m'])
+                    ReportsBucketKeysBuilder.date_delimiter.join(('%Y', '%m'))
                     + '/'
                 ),
                 tenant.cloud,
@@ -403,6 +403,17 @@ class ReportMetricsBucketKeysBuilder:
             cls.datetime(utc_datetime(item.end)),
             cls.data,
         )
+
+
+class ReportMetaBucketsKeys:
+    __slots__ = ()
+
+    prefix = 'meta/'
+    data = 'data.gz'
+
+    @classmethod
+    def meta_key(cls, license_key: str, version: Version) -> str:
+        return urljoin(cls.prefix, license_key, version.to_str(), cls.data)
 
 
 # TODO: remove
