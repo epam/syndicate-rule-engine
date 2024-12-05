@@ -1,11 +1,9 @@
 import base64
 import dataclasses
-import gzip
 import re
 from enum import Enum
 from http import HTTPStatus
 
-import msgspec
 import requests
 from modular_sdk.services.impl.maestro_credentials_service import AccessMeta
 
@@ -22,7 +20,6 @@ from helpers.constants import (
 from helpers.log_helper import get_logger
 from helpers.system_customer import SYSTEM_CUSTOMER
 from services.clients.ssm import AbstractSSMClient
-from services.metadata import Metadata
 from services.setting_service import SettingsService
 
 _LOG = get_logger(__name__)
@@ -314,9 +311,12 @@ class LMClient:
         return resp.json().get('client_id'), resp.headers.get('Accept-Version')
 
     def get_all_metadata(
-            self, customer: str, tenant_license_key: str
-    ) -> Metadata | None:
-        return
+        self,
+        customer: str,
+        tenant_license_key: str,
+        installation_version: str | None = None,
+    ) -> bytes | None:
+        pass
 
 
 class LMClientAfter2p7(LMClient):
@@ -389,26 +389,24 @@ class LMClientAfter3p3(LMClientAfter3p0):
     """
 
     def get_all_metadata(
-        self, customer: str, tenant_license_key: str
-    ) -> Metadata | None:
+        self,
+        customer: str,
+        tenant_license_key: str,
+        installation_version: str | None = None,
+    ) -> bytes | None:
+        params = {'tenant_license_key': tenant_license_key}
+        if installation_version:
+            params['installation_version'] = installation_version
         resp = self._send_request(
             endpoint=LMEndpoint.LICENSE_METADATA_ALL,
             method=HTTPMethod.GET,
-            params={'tenant_license_key': tenant_license_key},
+            params=params,
             token=self._token_producer.produce(customer=customer),
         )
         if resp is None or not resp.ok:
             _LOG.warning('Could not get metadata')
             return
-        # TODO: stream somehow?
-        try:
-            return msgspec.msgpack.decode(
-                gzip.decompress(base64.b64decode(resp.content)),
-                type=Metadata,
-            )
-        except msgspec.ValidationError:
-            _LOG.exception('Invalid metadata came')
-            return
+        return base64.b64decode(resp.content)
 
 
 class LMClientFactory:

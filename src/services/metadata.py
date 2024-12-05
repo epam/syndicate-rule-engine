@@ -1,15 +1,26 @@
-from typing import TYPE_CHECKING
+import io
+import tempfile
+from typing import TYPE_CHECKING, cast
+import gzip
 
 import msgspec
 
+from helpers import Version
+from helpers.__version__ import __version__
 from helpers.constants import Severity
+from helpers.log_helper import get_logger
 from helpers.reports import service_from_resource_type
 from models.rule import RuleIndex
+from services.reports_bucket import ReportMetaBucketsKeys
+from services import cache
 
 if TYPE_CHECKING:
     from services.clients.s3 import S3Client
+    from services.environment_service import EnvironmentService
     from services.license_manager_service import LicenseManagerService
     from services.license_service import License
+
+_LOG = get_logger(__name__)
 
 
 class RuleMetadata(msgspec.Struct, kw_only=True, array_like=True, frozen=True):
@@ -43,6 +54,8 @@ EMPTY = RuleMetadata(
     remediation='',
 )
 
+DEFAULT_VERSION = Version(__version__)
+
 
 class Metadata(msgspec.Struct, frozen=True):
     rules: dict[str, RuleMetadata] = msgspec.field(default_factory=dict)
@@ -74,15 +87,99 @@ class Metadata(msgspec.Struct, frozen=True):
     def is_empty(self) -> bool:
         return bool(self.rules)
 
+    @classmethod
+    def empty(cls) -> 'Metadata':
+        return cls()
+
 
 class MetadataProvider:
-    __slots__ = '_lm', '_s3'
+    __slots__ = '_lm', '_s3', '_env', '_cache'
+    _dec = msgspec.msgpack.Decoder(type=Metadata)
 
     def __init__(
-        self, lm_service: 'LicenseManagerService', s3_client: 'S3Client'
+        self,
+        lm_service: 'LicenseManagerService',
+        s3_client: 'S3Client',
+        environment_service: 'EnvironmentService',
     ):
         self._lm = lm_service
         self._s3 = s3_client
+        self._env = environment_service
 
-    def get_for(self, lic: License) -> Metadata:
-        pass
+        # cache for 30 minutes
+        self._cache = cache.factory(ttu=lambda a, b, now: now + 1800)
+
+    def _get_from_s3(
+        self, license_key: str, version: Version
+    ) -> Metadata | None:
+        _LOG.info(f'Trying to load metadata for {license_key} from s3')
+        buf = self._s3.gz_get_object(
+            bucket=self._env.default_reports_bucket_name(),
+            key=ReportMetaBucketsKeys.meta_key(license_key, version),
+            gz_buffer=tempfile.TemporaryFile(),
+        )
+        if buf is None:
+            return
+        return self._dec.decode(cast(io.BytesIO, buf).getvalue())
+
+    def _get_from_cache(
+        self, license_key: str, version: Version
+    ) -> Metadata | None:
+        _LOG.info('Trying to get metadata for {license_key} from cache')
+        return self._cache.get((license_key, version))
+
+    def _save_to_cache(
+        self, license_key: str, version: Version, meta: Metadata
+    ) -> None:
+        _LOG.info('Saving metadata to in-memory cache')
+        self._cache[(license_key, version)] = meta
+
+    def get_no_cache(
+        self, lic: 'License', version: Version = DEFAULT_VERSION
+    ) -> Metadata:
+        """
+        Tries to get from s3 locally. If our s3 does not have it, makes
+        request to lm
+        """
+        meta = self._get_from_s3(lic.license_key, version)
+        if meta:
+            _LOG.info('Metadata is found in local s3. Returning')
+            return meta
+
+        cst = lic.first_customer
+        tlk = lic.tenant_license_key(cst)
+        if not tlk:
+            _LOG.warning(
+                f'Tenant license key not found when getting metadata for license {lic.license_key}'
+            )
+            return Metadata.empty()
+        data = self._lm.cl.get_all_metadata(
+            customer=cst,
+            tenant_license_key=tlk,
+            installation_version=version.to_str(),
+        )
+        if not data:
+            _LOG.warning('Unsuccessful request to lm. No metadata returned')
+            return Metadata.empty()
+        # NOTE: lm returns metadata in gzipped format the same way we store
+        # it, so we can hack this one and save response as is
+        _LOG.info('Storing metadata returned by LM in S3')
+        self._s3.put_object(
+            bucket=self._env.default_reports_bucket_name(),
+            key=ReportMetaBucketsKeys.meta_key(lic.license_key, version),
+            body=data,
+            content_encoding='gzip',
+        )
+        return self._dec.decode(gzip.decompress(data))
+
+    def get(
+        self, lic: 'License', /, *, version: Version = DEFAULT_VERSION
+    ) -> Metadata:
+        meta = self._get_from_cache(lic.license_key, version)
+        if meta:
+            _LOG.info('Metadata is found in cache. Returning')
+            return meta
+        meta = self.get_no_cache(lic)
+        _LOG.info('Saving metadata to cache')
+        self._save_to_cache(lic.license_key, version, meta)
+        return meta

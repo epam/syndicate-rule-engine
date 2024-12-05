@@ -33,7 +33,9 @@ class S3Url:
 
     def __init__(self, s3_url: str):
         self._parsed: Url = parse_url(s3_url)
-        assert isinstance(self._parsed.path, str) and self._parsed.path.lstrip('/'), 'Bucket key cannot be empty'
+        assert isinstance(self._parsed.path, str) and self._parsed.path.lstrip(
+            '/'
+        ), 'Bucket key cannot be empty'
 
     @property
     def bucket(self) -> str:
@@ -61,25 +63,21 @@ class S3Url:
 class S3ClientWrapperFactory(Boto3ClientWrapperFactory['S3Client']):
     @classmethod
     def _base_config(cls) -> Config:
-        return Config(retries={
-            'max_attempts': 10,
-            'mode': 'standard'
-        })
+        return Config(retries={'max_attempts': 10, 'mode': 'standard'})
 
     @classmethod
     def _minio_config(cls) -> Config:
-        return cls._base_config().merge(Config(s3={
-            'signature_version': 's3v4',
-            'addressing_style': 'path'
-        }))
+        return cls._base_config().merge(
+            Config(
+                s3={'signature_version': 's3v4', 'addressing_style': 'path'}
+            )
+        )
 
     def build_s3(self, region_name: str) -> 'S3Client':
         instance = self._wrapper.build()
         instance.resource = Boto3ClientFactory(
-            instance.service_name).build_resource(
-            region_name=region_name,
-            config=self._base_config()
-        )
+            instance.service_name
+        ).build_resource(region_name=region_name, config=self._base_config())
         instance.client = instance.resource.meta.client
         _LOG.info('S3 connection was successfully initialized')
         return instance
@@ -88,17 +86,19 @@ class S3ClientWrapperFactory(Boto3ClientWrapperFactory['S3Client']):
         endpoint = CAASEnv.MINIO_ENDPOINT.get()
         access_key = CAASEnv.MINIO_ACCESS_KEY_ID.get()
         secret_key = CAASEnv.MINIO_SECRET_ACCESS_KEY.get()
-        assert endpoint and access_key and secret_key, \
-            ('Minio endpoint, access key and secret key must be '
-             'provided for on-prem')
+        assert endpoint and access_key and secret_key, (
+            'Minio endpoint, access key and secret key must be '
+            'provided for on-prem'
+        )
 
         instance = self._wrapper.build()
         instance.resource = Boto3ClientFactory(
-            instance.service_name).build_resource(
+            instance.service_name
+        ).build_resource(
             aws_access_key_id=access_key,
             aws_secret_access_key=secret_key,
             endpoint_url=endpoint,
-            config=self._minio_config()
+            config=self._minio_config(),
         )
         instance.client = instance.resource.meta.client
         _LOG.info('Minio connection was successfully initialized')
@@ -111,13 +111,13 @@ class S3Client(Boto3ClientWrapper):
     add .gz to bucket key, compress/decompress content (if the method
     interacts with content) and add gzip ContentEncoding to metadata
     """
+
     service_name = 's3'
     s3_not_available = re.compile(r'[^a-zA-Z0-9!-_.*()]')
+    _enc = msgspec.json.Encoder()
+    _dec = msgspec.json.Decoder()
 
     def __init__(self):
-        self._enc = msgspec.json.Encoder()
-        self._dec = msgspec.json.Decoder()
-
         self._ipv4_cache = cache.TTLCache(maxsize=2, ttl=3600)
 
     class Bucket(TypedDict):
@@ -139,8 +139,9 @@ class S3Client(Boto3ClientWrapper):
         return S3ClientWrapperFactory(cls)
 
     @staticmethod
-    def _resolve_content_type(key: str, ct: str = None, ce: str = None
-                              ) -> tuple[str | None, str | None]:
+    def _resolve_content_type(
+        key: str, ct: str | None = None, ce: str | None = None
+    ) -> tuple[str | None, str | None]:
         """
         Returns user provided content type and encoding. If something is not
         provided -> tries to resolve from key
@@ -156,8 +157,14 @@ class S3Client(Boto3ClientWrapper):
         ce = ce or resolved_ce
         return ct, ce
 
-    def put_object(self, bucket: str, key: str, body: bytes | BinaryIO,
-                   content_type: str = None, content_encoding: str = None):
+    def put_object(
+        self,
+        bucket: str,
+        key: str,
+        body: bytes | BinaryIO,
+        content_type: str | None = None,
+        content_encoding: str | None = None,
+    ):
         """
         Uploads the provided stream of bytes or raw bytes.
         :param bucket:
@@ -167,8 +174,9 @@ class S3Client(Boto3ClientWrapper):
         :param content_encoding:
         :return:
         """
-        ct, ce = self._resolve_content_type(key, content_type,
-                                            content_encoding)
+        ct, ce = self._resolve_content_type(
+            key, content_type, content_encoding
+        )
         params = {}
         if ct:
             params.update(ContentType=ct)
@@ -180,9 +188,15 @@ class S3Client(Boto3ClientWrapper):
             Fileobj=body, Key=key, ExtraArgs=params
         )
 
-    def gz_put_object(self, bucket: str, key: str, body: bytes | BinaryIO,
-                      gz_buffer: BinaryIO = None, content_type: str = None,
-                      content_encoding: str = None):
+    def gz_put_object(
+        self,
+        bucket: str,
+        key: str,
+        body: bytes | BinaryIO,
+        gz_buffer: BinaryIO | None = None,
+        content_type: str | None = None,
+        content_encoding: str | None = None,
+    ):
         """
         Uploads the file adding .gz to the file extension and compressing the
         body
@@ -203,11 +217,17 @@ class S3Client(Boto3ClientWrapper):
             else:
                 shutil.copyfileobj(body, gz)
         gz_buffer.seek(0)
-        return self.put_object(bucket, self._gz_key(key), gz_buffer,
-                               content_type, content_encoding)
+        return self.put_object(
+            bucket,
+            self._gz_key(key),
+            gz_buffer,
+            content_type,
+            content_encoding,
+        )
 
-    def get_object(self, bucket: str, key: str,
-                   buffer: BinaryIO = None) -> BinaryIO | None:
+    def get_object(
+        self, bucket: str, key: str, buffer: BinaryIO | None = None
+    ) -> BinaryIO | None:
         """
         Downloads object to memory by default. Optional buffer can be provided.
         In case the key does not exist, None is returned
@@ -225,15 +245,21 @@ class S3Client(Boto3ClientWrapper):
         except ClientError as e:
             if e.response['Error']['Code'] in ('NoSuchKey', '404'):
                 return
-            _LOG.exception(f'Unexpected error occurred in '
-                           f'get_object: s3://{bucket}/{key}')
+            _LOG.exception(
+                f'Unexpected error occurred in '
+                f'get_object: s3://{bucket}/{key}'
+            )
             raise e
         buffer.seek(0)
         return buffer
 
-    def gz_get_object(self, bucket: str, key: str,
-                      buffer: BinaryIO = None,
-                      gz_buffer: BinaryIO = None) -> BinaryIO | None:
+    def gz_get_object(
+        self,
+        bucket: str,
+        key: str,
+        buffer: BinaryIO | None = None,
+        gz_buffer: BinaryIO | None = None,
+    ) -> BinaryIO | None:
         """
         :param bucket:
         :param key:
@@ -261,7 +287,7 @@ class S3Client(Boto3ClientWrapper):
             bucket=bucket,
             key=key,
             body=self._enc.encode(obj),
-            content_type='application/json'
+            content_type='application/json',
         )
 
     def gz_put_json(self, bucket: str, key: str, obj: Json):
@@ -272,7 +298,7 @@ class S3Client(Boto3ClientWrapper):
             key=key,
             body=self._enc.encode(obj),
             content_type='application/json',
-            content_encoding='gzip'
+            content_encoding='gzip',
         )
 
     def get_json(self, bucket: str, key: str) -> Json:
@@ -314,11 +340,14 @@ class S3Client(Boto3ClientWrapper):
     def gz_object_exists(self, bucket: str, key: str) -> bool:
         return self.object_exists(bucket, self._gz_key(key))
 
-    def list_objects(self, bucket: str, prefix: Optional[str] = None,
-                     page_size: Optional[int] = None,
-                     limit: Optional[int] = None,
-                     start_after: Optional[str] = None,
-                     ) -> Iterable:
+    def list_objects(
+        self,
+        bucket: str,
+        prefix: Optional[str] = None,
+        page_size: Optional[int] = None,
+        limit: Optional[int] = None,
+        start_after: Optional[str] = None,
+    ) -> Iterable:
         params = dict()
         if prefix:
             params.update(Prefix=prefix)
@@ -331,12 +360,14 @@ class S3Client(Boto3ClientWrapper):
             it = it.limit(limit)
         return it
 
-    def list_dir(self, bucket_name: str,
-                 key: Optional[str] = None,
-                 page_size: Optional[int] = None,
-                 limit: Optional[int] = None,
-                 start_after: Optional[str] = None
-                 ) -> Generator[str, None, None]:
+    def list_dir(
+        self,
+        bucket_name: str,
+        key: Optional[str] = None,
+        page_size: Optional[int] = None,
+        limit: Optional[int] = None,
+        start_after: Optional[str] = None,
+    ) -> Generator[str, None, None]:
         """
         Yields just keys
         :param bucket_name:
@@ -346,18 +377,24 @@ class S3Client(Boto3ClientWrapper):
         :param start_after:
         :return:
         """
-        yield from (obj.key for obj in self.list_objects(
-            bucket=bucket_name,
-            prefix=key,
-            page_size=page_size,
-            limit=limit,
-            start_after=start_after
-        ))
+        yield from (
+            obj.key
+            for obj in self.list_objects(
+                bucket=bucket_name,
+                prefix=key,
+                page_size=page_size,
+                limit=limit,
+                start_after=start_after,
+            )
+        )
 
-    def common_prefixes(self, bucket: str, delimiter: str,
-                        prefix: Optional[str] = None,
-                        start_after: Optional[str] = None
-                        ) -> Generator[str, None, None]:
+    def common_prefixes(
+        self,
+        bucket: str,
+        delimiter: str,
+        prefix: Optional[str] = None,
+        start_after: Optional[str] = None,
+    ) -> Generator[str, None, None]:
         paginator = self.client.get_paginator('list_objects_v2')
         params = dict(Bucket=bucket, Delimiter=delimiter)
         if prefix:
@@ -371,7 +408,7 @@ class S3Client(Boto3ClientWrapper):
     def create_bucket(self, bucket: str, region: str):
         self.client.create_bucket(
             Bucket=bucket,
-            CreateBucketConfiguration={'LocationConstraint': region}
+            CreateBucketConfiguration={'LocationConstraint': region},
         )
 
     def bucket_exists(self, bucket: str) -> bool:
@@ -386,18 +423,27 @@ class S3Client(Boto3ClientWrapper):
     def list_buckets(self) -> Generator[Bucket, None, None]:
         yield from (self.client.list_buckets().get('Buckets') or [])
 
-    def copy(self, bucket: str, key: str, destination_bucket: str,
-             destination_key: str):
+    def copy(
+        self,
+        bucket: str,
+        key: str,
+        destination_bucket: str,
+        destination_key: str,
+    ):
         self.client.copy(
             CopySource=dict(Bucket=bucket, Key=key),
             Bucket=destination_bucket,
-            Key=destination_key
+            Key=destination_key,
         )
 
-    def download_url(self, bucket: str, key: str,
-                     expires_in: timedelta = timedelta(seconds=300),
-                     filename: Optional[str] = None,
-                     response_encoding: Optional[str] = None) -> str:
+    def download_url(
+        self,
+        bucket: str,
+        key: str,
+        expires_in: timedelta = timedelta(seconds=300),
+        filename: Optional[str] = None,
+        response_encoding: Optional[str] = None,
+    ) -> str:
         """
         :param bucket:
         :param key:
@@ -410,7 +456,8 @@ class S3Client(Boto3ClientWrapper):
         if filename:
             disposition += f';filename="{filename}"'
         params = {
-            'Bucket': bucket, 'Key': key,
+            'Bucket': bucket,
+            'Key': key,
             'ResponseContentDisposition': disposition,
         }
         if response_encoding:
@@ -421,10 +468,14 @@ class S3Client(Boto3ClientWrapper):
             ExpiresIn=expires_in.seconds,
         )
 
-    def gz_download_url(self, bucket: str, key: str,
-                        expires_in: timedelta = timedelta(seconds=300),
-                        filename: Optional[str] = None,
-                        response_encoding: str = None) -> str:
+    def gz_download_url(
+        self,
+        bucket: str,
+        key: str,
+        expires_in: timedelta = timedelta(seconds=300),
+        filename: Optional[str] = None,
+        response_encoding: str = None,
+    ) -> str:
         """
         Prefix gz only impact the key here
         :param bucket:
@@ -434,26 +485,27 @@ class S3Client(Boto3ClientWrapper):
         :param response_encoding:
         :return:
         """
-        return self.download_url(bucket, self._gz_key(key), expires_in,
-                                 filename, response_encoding)
+        return self.download_url(
+            bucket, self._gz_key(key), expires_in, filename, response_encoding
+        )
 
-    def put_path_expiration(self, bucket: str, key: str, days: int):
+    def put_path_expiration(self, bucket: str, rules: list[tuple[str, int]]):
         """
-        Creates a lifecycle rule with expiration for the given prefix
-        :param bucket:
-        :param key:
-        :param days:
+        Creates a lifecycle rule with expiration for the given prefixes
         :return:
         """
         return self.client.put_bucket_lifecycle_configuration(
             Bucket=bucket,
-            LifecycleConfiguration={'Rules': [{
-                'Expiration': {'Days': days},
-                'Filter': {
-                    'Prefix': key
-                },
-                'Status': 'Enabled'
-            }]}
+            LifecycleConfiguration={
+                'Rules': [
+                    {
+                        'Expiration': {'Days': days},
+                        'Filter': {'Prefix': key},
+                        'Status': 'Enabled',
+                    }
+                    for key, days in rules
+                ]
+            },
         )
 
     @cache.cachedmethod(lambda self: self._ipv4_cache)
@@ -465,7 +517,7 @@ class S3Client(Boto3ClientWrapper):
             req = urllib.request.Request(
                 'http://169.254.169.254/latest/api/token',
                 headers={'X-aws-ec2-metadata-token-ttl-seconds': '30'},
-                method='PUT'
+                method='PUT',
             )
             with urllib.request.urlopen(req, timeout=1) as resp:
                 token = resp.read().decode()
@@ -504,7 +556,7 @@ class S3Client(Boto3ClientWrapper):
             port=parsed.port,
             path=parsed.path,
             query=parsed.query,
-            fragment=parsed.fragment
+            fragment=parsed.fragment,
         ).url
 
 

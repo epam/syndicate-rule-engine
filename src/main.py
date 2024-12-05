@@ -36,9 +36,7 @@ from services import SP
 from services.clients.xlsx_standard_parser import (
     init_parser as init_xlsx_cli_parser,
 )
-from services.clients.xlsx_standard_parser import (
-    main as parse_xlsx_standard,
-)
+from services.clients.xlsx_standard_parser import main as parse_xlsx_standard
 from services.openapi_spec_generator import OpenApiGenerator
 
 if TYPE_CHECKING:
@@ -284,11 +282,6 @@ class InitMinio(ActionHandler):
         )
         _LOG.info(f'Bucket {name} was created')
 
-    @staticmethod
-    def put_exp_lifecycle(name: str, prefix: str, days: int):
-        _LOG.info(f'Setting {days} days expiration for s3://{name}/{prefix}')
-        SP.s3.put_path_expiration(bucket=name, key=prefix, days=days)
-
     def __call__(self):
         from services.reports_bucket import (
             ReportMetaBucketsKeys,
@@ -297,15 +290,14 @@ class InitMinio(ActionHandler):
 
         for name in self.buckets():
             self.create_bucket(name)
-        self.put_exp_lifecycle(
-            SP.environment_service.default_reports_bucket_name(),
-            ReportsBucketKeysBuilder.on_demand,
-            7,
-        )
-        self.put_exp_lifecycle(
-            SP.environment_service.default_reports_bucket_name(),
-            ReportMetaBucketsKeys.prefix,
-            7,
+
+        _LOG.info(f'Setting expiration for s3 paths')
+        SP.s3.put_path_expiration(
+            bucket=SP.environment_service.default_reports_bucket_name(),
+            rules=[
+                (ReportsBucketKeysBuilder.on_demand, 7),
+                (ReportMetaBucketsKeys.prefix, 7),
+            ],
         )
 
 

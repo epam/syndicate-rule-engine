@@ -46,6 +46,7 @@ if TYPE_CHECKING:
     from services.clients.step_function import ScriptClient, StepFunctionClient
     from services.chronicle_service import ChronicleInstanceService
     from services.reports import ReportMetricsService
+    from services.metadata import MetadataProvider
 
 
 class ServiceProvider(metaclass=SingletonMeta):
@@ -362,6 +363,15 @@ class ServiceProvider(metaclass=SingletonMeta):
     def report_metrics_service(self) -> 'ReportMetricsService':
         from services.reports import ReportMetricsService
         return ReportMetricsService(
+            s3_client=self.s3,
+            environment_service=self.environment_service
+        )
+
+    @cached_property
+    def metadata_provider(self) -> 'MetadataProvider':
+        from services.metadata import MetadataProvider
+        return MetadataProvider(
+            lm_service=self.license_manager_service,
             s3_client=self.s3,
             environment_service=self.environment_service
         )
