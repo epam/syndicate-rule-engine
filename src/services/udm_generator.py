@@ -3,18 +3,20 @@ https://cloud.google.com/chronicle/docs/reference/udm-field-list
 
 These models contain only fields that we needed
 """
-from datetime import datetime, timezone
 import enum
-import os
+from datetime import datetime, timezone
 
-from modular_sdk.models.tenant import Tenant
 import msgspec
+from modular_sdk.models.tenant import Tenant
 
 from helpers import filter_dict, hashable
-from helpers.constants import CAASEnv, REPORT_FIELDS
-from helpers.mappings.udm_resource_type import UDMResourceType, from_cc_resource_type
+from helpers.constants import REPORT_FIELDS, CAASEnv, Severity
+from helpers.mappings.udm_resource_type import (
+    UDMResourceType,
+    from_cc_resource_type,
+)
 from helpers.time_helper import utc_datetime
-from services.mappings_collector import LazyLoadedMappingsCollector
+from services.metadata import Metadata, RuleMetadata
 from services.report_convertors import ShardCollectionConvertor
 from services.sharding import ShardsCollection
 
@@ -103,19 +105,17 @@ class UDMSeverity(str, enum.Enum):
     UNKNOWN_SEVERITY = 'UNKNOWN_SEVERITY'
 
     @classmethod
-    def from_local(cls, name: str | None) -> 'UDMSeverity':
+    def from_local(cls, name: Severity) -> 'UDMSeverity':
         match name:
-            case 'High':
+            case Severity.HIGH:
                 return cls.HIGH
-            case 'Medium':
+            case Severity.MEDIUM:
                 return cls.MEDIUM
-            case 'Low':
+            case Severity.LOW:
                 return cls.LOW
-            case 'Info':
+            case Severity.INFO:
                 return cls.INFORMATIONAL
-            case None:
-                return cls.NONE
-            case _:
+            case Severity.UNKNOWN:
                 return cls.UNKNOWN_SEVERITY
 
 
@@ -127,19 +127,15 @@ class VulnerabilitySeverity(str, enum.Enum):
     UNKNOWN_SEVERITY = 'UNKNOWN_SEVERITY'
 
     @classmethod
-    def from_local(cls, name: str | None) -> 'VulnerabilitySeverity':
+    def from_local(cls, name: Severity) -> 'VulnerabilitySeverity':
         match name:
-            case 'High':
+            case Severity.HIGH:
                 return cls.HIGH
-            case 'Medium':
+            case Severity.MEDIUM:
                 return cls.MEDIUM
-            case 'Low':
+            case Severity.LOW | Severity.INFO:
                 return cls.LOW
-            case 'Info':
-                return cls.LOW
-            case None:
-                return cls.UNKNOWN_SEVERITY
-            case _:
+            case Severity.UNKNOWN:
                 return cls.UNKNOWN_SEVERITY
 
 
@@ -261,21 +257,21 @@ class UDMExtensions(msgspec.Struct, kw_only=True):
 
 
 class UDMEvent(msgspec.Struct, kw_only=True):
-    metadata: UDMEntityMetadata
+    metadata: UDMEventMetadata
     principal: UDMNoun = msgspec.UNSET
     target: UDMNoun = msgspec.UNSET
     extensions: UDMExtensions
 
 
 class UDMSecurityResultBuilder:
-    __slots__ = 'policy', 'description', 'mc', 'rule_set'
+    __slots__ = 'policy', 'description', 'meta', 'rule_set'
 
     def __init__(self, policy: str, description: str,
-                 mc: LazyLoadedMappingsCollector,
+                 metadata: RuleMetadata,
                  rule_set: str | None = None):
         self.policy = policy
         self.description = description
-        self.mc = mc
+        self.meta = metadata
         self.rule_set = rule_set
 
     def _build_mitre(self) -> UDMAttackDetails:
@@ -283,7 +279,7 @@ class UDMSecurityResultBuilder:
             tactics=[],
             techniques=[]
         )
-        mitre = self.mc.mitre.get(self.policy, {})
+        mitre = self.meta.mitre
         for tactic, techniques in mitre.items():
             item.tactics.append(UDMAttackDetailsTactic(name=tactic))
             for technique in techniques:
@@ -304,7 +300,6 @@ class UDMSecurityResultBuilder:
         return item
 
     def build(self) -> UDMSecurityResult:
-        hd = self.mc.human_data.get(self.policy, {})
         item = UDMSecurityResult(
             category=UDMSecurityCategory.POLICY_VIOLATION,
             summary=self.description,
@@ -315,23 +310,23 @@ class UDMSecurityResultBuilder:
         )
         if self.rule_set:
             item.rule_set = self.rule_set
-        if article := hd.get('article'):
+        if article := self.meta.article:
             item.description = article
-        if sev := self.mc.severity.get(self.policy):
+        if sev := self.meta.severity:
             item.severity = UDMSeverity.from_local(sev)
         return item
 
 
 class UDMVulnerabilityBuilder:
-    __slots__ = 'policy', 'description', 'mc', 'scan_start_time', 'scan_end_time'
+    __slots__ = 'policy', 'description', 'meta', 'scan_start_time', 'scan_end_time'
 
     def __init__(self, policy: str, description: str,
-                 mc: LazyLoadedMappingsCollector,
+                 metadata: RuleMetadata,
                  scan_start_time: str | datetime | None = None,
                  scan_end_time: str | datetime | None = None):
         self.policy = policy
         self.description = description
-        self.mc = mc
+        self.meta = metadata
         self.scan_start_time = scan_start_time
         self.scan_end_time = scan_end_time
 
@@ -347,7 +342,6 @@ class UDMVulnerabilityBuilder:
             return
 
     def build(self) -> UDMVulnerability:
-        hd = self.mc.human_data.get(self.policy, {})
         item = UDMVulnerability(
             name=self.description,
             vendor='Syndicate Rule Engine',
@@ -357,9 +351,9 @@ class UDMVulnerabilityBuilder:
             item.scan_start_time = st
         if et := self._parse_dt(self.scan_end_time):
             item.scan_end_time = et
-        if article := hd.get('article'):
+        if article := self.meta.article:
             item.description = article
-        if sev := self.mc.severity.get(self.policy):
+        if sev := self.meta.severity:
             item.severity = VulnerabilitySeverity.from_local(sev)
         return item
 
@@ -370,8 +364,9 @@ class ShardCollectionUDMEntitiesConvertor(ShardCollectionConvertor):
     represents one resource with inner list of all its violations
     """
 
-    def __init__(self, tenant: Tenant,
+    def __init__(self, metadata: Metadata, tenant: Tenant,
                  rule_set: str | None = None, **kwargs):
+        super().__init__(metadata)
         self._tenant = tenant
         self._rule_set = rule_set
 
@@ -409,11 +404,10 @@ class ShardCollectionUDMEntitiesConvertor(ShardCollectionConvertor):
                     policies_results[part.policy] = UDMSecurityResultBuilder(
                         policy=part.policy,
                         description=meta.get(part.policy, {}).get('description'),
-                        mc=self.mc,
+                        metadata=self.meta.rule(part.policy),
                         rule_set=self._rule_set
                     ).build()
         entities = []
-        services = self.mc.service
         for unique, inner in datas.items():
             policies, full_res, ts = inner
             res, region, rt = unique
@@ -450,7 +444,7 @@ class ShardCollectionUDMEntitiesConvertor(ShardCollectionConvertor):
                     )
                 )
             )
-            if service := services.get(next(iter(policies))):
+            if service := self.meta.rule(next(iter(policies))).service:
                 entity.entity.application = service
             if date := full_res.get('date'):
                 dt = self._parse_date(date)
@@ -473,8 +467,9 @@ class ShardCollectionUDMEventsConvertor(ShardCollectionConvertor):
     Converts a collection to a list of UDM Events
     """
 
-    def __init__(self, tenant: Tenant,
+    def __init__(self, metadata: Metadata, tenant: Tenant,
                  rule_set: str | None = None, **kwargs):
+        super().__init__(metadata)
         self._tenant = tenant
         self._rule_set = rule_set
 
@@ -512,10 +507,9 @@ class ShardCollectionUDMEventsConvertor(ShardCollectionConvertor):
                     policies_results[part.policy] = UDMVulnerabilityBuilder(
                         policy=part.policy,
                         description=meta.get(part.policy, {}).get('description'),
-                        mc=self.mc,
+                        metadata=self.meta.rule(part.policy),
                     ).build()
         events = []
-        services = self.mc.service
         for unique, inner in datas.items():
             policies, full_res, ts = inner
             res, region, rt = unique
@@ -560,7 +554,7 @@ class ShardCollectionUDMEventsConvertor(ShardCollectionConvertor):
                 )
             )
 
-            if service := services.get(next(iter(policies))):
+            if service := self.meta.rule(next(iter(policies))).service:
                 event.target.application = service
             if date := full_res.get('date'):
                 dt = self._parse_date(date)

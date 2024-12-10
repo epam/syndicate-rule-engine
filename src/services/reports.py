@@ -17,7 +17,6 @@ from helpers.constants import (
 )
 from helpers.log_helper import get_logger
 from helpers.reports import (
-    Severity,
     SeverityCmp,
     adjust_resource_type,
     keep_highest,
@@ -29,10 +28,7 @@ from services.ambiguous_job_service import AmbiguousJob
 from services.base_data_service import BaseDataService
 from services.clients.s3 import S3Client, S3Url
 from services.environment_service import EnvironmentService
-from services.mappings_collector import (
-    LazyLoadedMappingsCollector,
-    MappingsCollector,
-)
+from services.metadata import Metadata
 from services.report_service import ReportService
 from services.reports_bucket import ReportMetricsBucketKeysBuilder
 from services.sharding import ShardsCollection
@@ -150,25 +146,12 @@ class ShardsCollectionDataSource:
         severity: str
         resources: dict[str, list[dict]]
 
-    def __init__(
-        self,
-        collection: ShardsCollection,
-        mappings_collector: LazyLoadedMappingsCollector
-        | MappingsCollector
-        | None = None,
-    ):
+    def __init__(self, collection: ShardsCollection, metadata: Metadata):
         """
         Assuming that collection is pulled and has meta
         """
         self._col = collection
-        if mappings_collector:
-            self._services = mappings_collector.service
-            self._severities = mappings_collector.severity
-            self._hd = mappings_collector.human_data
-        else:
-            self._services = {}
-            self._severities = {}
-            self._hd = {}
+        self._meta = metadata
 
         self.__resources = None
 
@@ -261,8 +244,7 @@ class ShardsCollectionDataSource:
             yield rule, region, dto, ts
 
     def _report_fields(self, rule: str) -> set[str]:
-        rf = set(self._hd.get(rule, {}).get('report_fields') or [])
-        return rf | REPORT_FIELDS
+        return set(self._meta.rule(rule).report_fields) | REPORT_FIELDS
 
     def _keep_report_fields(
         self, it: ResourcesGenerator
@@ -361,7 +343,7 @@ class ShardsCollectionDataSource:
         """
         region_severity = {}
         for rule in self._resources:
-            severity = Severity.parse(self._severities.get(rule)).value
+            severity = self._meta.rule(rule).severity
             for region, res in self._resources[rule].items():
                 region_severity.setdefault(region, {}).setdefault(
                     severity, set()
@@ -394,19 +376,17 @@ class ShardsCollectionDataSource:
 
     def resources(self) -> list[PrettifiedFinding]:
         result = []
-        service = self._services
-        severity = self._severities
         meta = self._col.meta
         for rule in self._resources:
             rm = meta.get(rule, {})
             item = {
                 'policy': rule,
-                'resource_type': service.get(rule)
+                'resource_type': self._meta.rule(rule).service
                 or service_from_resource_type(
                     self._col.meta[rule]['resource']
                 ),
                 'description': rm.get('description') or '',
-                'severity': Severity.parse(severity.get(rule)).value,
+                'severity': self._meta.rule(rule).severity.value,
                 'resources': {
                     region: list(res)
                     for region, res in self._resources[rule].items()
@@ -417,9 +397,8 @@ class ShardsCollectionDataSource:
 
     def resource_types(self) -> dict[str, int]:
         result = {}
-        service = self._services
         for rule in self._resources:
-            rt = service.get(rule) or service_from_resource_type(
+            rt = self._meta.rule(rule).service or service_from_resource_type(
                 self._col.meta[rule]['resource']
             )
             result.setdefault(rt, 0)

@@ -23,7 +23,9 @@ if TYPE_CHECKING:
 _LOG = get_logger(__name__)
 
 
-class RuleMetadata(msgspec.Struct, kw_only=True, array_like=True, frozen=True, eq=False):
+class RuleMetadata(
+    msgspec.Struct, kw_only=True, array_like=True, frozen=True, eq=False
+):
     """
     Represents the formation in which metadata is returned from LM and
     is stored
@@ -39,12 +41,16 @@ class RuleMetadata(msgspec.Struct, kw_only=True, array_like=True, frozen=True, e
     article: str
     impact: str
     remediation: str
-    standard: dict = msgspec.field(default_factory=dict)
+    standard: dict[str, dict[str, tuple[str, ...]]] = msgspec.field(
+        default_factory=dict
+    )
     mitre: dict = msgspec.field(default_factory=dict)
     waf: dict = msgspec.field(default_factory=dict)
 
     def __repr__(self) -> str:
-        return f'{__name__}.{self.__class__.__name__} object at {hex(id(self))}'
+        return (
+            f'{__name__}.{self.__class__.__name__} object at {hex(id(self))}'
+        )
 
 
 EMPTY = RuleMetadata(
@@ -85,6 +91,7 @@ class Metadata(msgspec.Struct, frozen=True, eq=False):
             article='',
             impact='',
             remediation='',
+            standard={index.source: {'null': ()}} if index.source else {},
         )
 
     def is_empty(self) -> bool:

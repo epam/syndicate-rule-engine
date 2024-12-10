@@ -17,6 +17,7 @@ from helpers.time_helper import utc_datetime, utc_iso
 from models.ruleset import Ruleset
 from services import SERVICE_PROVIDER
 from services.base_data_service import BaseDataService
+from services.metadata import Metadata, MetadataProvider
 from services.modular_helpers import LinkedParentsIterator
 
 _LOG = get_logger(__name__)
@@ -169,11 +170,13 @@ class LicenseService(BaseDataService[License]):
         application_service: ApplicationService,
         parent_service: ParentService,
         customer_service: CustomerService,
+        metadata_provider: MetadataProvider,
     ):
         super().__init__()
         self._aps = application_service
         self._ps = parent_service
         self._cs = customer_service
+        self._mp = metadata_provider
 
     @staticmethod
     def to_licenses(it: Iterable[Application]) -> Iterator[License]:
@@ -323,6 +326,19 @@ class LicenseService(BaseDataService[License]):
                 limit=limit,
             )
         )
+
+    def get_customer_license(self, customer: str) -> License | None:
+        """
+        TODO: used to retrieve metadata for customer. BUT:
+
+        """
+        return next(self.iter_customer_licenses(customer, limit=1), None)
+
+    def get_customer_metadata(self, customer: str) -> Metadata:
+        lic = self.get_customer_license(customer)
+        if not lic:
+            return Metadata.empty()
+        return self._mp.get(lic)
 
     @staticmethod
     def is_subject_applicable(

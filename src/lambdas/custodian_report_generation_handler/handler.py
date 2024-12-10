@@ -65,9 +65,10 @@ from services.batch_results_service import BatchResultsService
 from services.clients.s3 import S3Client
 from services.environment_service import EnvironmentService
 from services.license_service import License, LicenseService
-from services.mappings_collector import LazyLoadedMappingsCollector
-from services.metrics_service import CustomerMetricsService
-from services.metrics_service import TenantMetricsService
+if False:
+    from services.mappings_collector import LazyLoadedMappingsCollector
+    from services.metrics_service import CustomerMetricsService
+    from services.metrics_service import TenantMetricsService
 from services.modular_helpers import get_tenant_regions
 from services.rabbitmq_service import RabbitMQService
 from services.report_statistics_service import ReportStatisticsService
@@ -129,6 +130,7 @@ CLOUDS = ['aws', 'azure', 'google']
 _LOG = get_logger(__name__)
 
 
+# TODO: remove
 class ReportGenerator(EventProcessorLambdaHandler):
     handlers = (
         OperationalHandler,
@@ -147,12 +149,12 @@ class ReportGenerator(EventProcessorLambdaHandler):
                  environment_service: EnvironmentService,
                  settings_service: SettingsService,
                  modular_client: Modular,
-                 tenant_metrics_service: TenantMetricsService,
-                 customer_metrics_service: CustomerMetricsService,
+                 tenant_metrics_service: 'TenantMetricsService',
+                 customer_metrics_service: 'CustomerMetricsService',
                  license_service: LicenseService,
                  rabbitmq_service: RabbitMQService,
                  batch_results_service: BatchResultsService,
-                 mappings_collector: LazyLoadedMappingsCollector,
+                 mappings_collector: 'LazyLoadedMappingsCollector',
                  report_statistics_service: ReportStatisticsService,
                  ruleset_service: RulesetService):
         self.s3_service = s3_service
@@ -218,12 +220,12 @@ class ReportGenerator(EventProcessorLambdaHandler):
             settings_service=SERVICE_PROVIDER.settings_service,
             s3_service=SERVICE_PROVIDER.s3,
             modular_client=SERVICE_PROVIDER.modular_client,
-            tenant_metrics_service=SERVICE_PROVIDER.tenant_metrics_service,
-            customer_metrics_service=SERVICE_PROVIDER.customer_metrics_service,
+            tenant_metrics_service={},
+            customer_metrics_service={},
             license_service=SERVICE_PROVIDER.license_service,
             batch_results_service=SERVICE_PROVIDER.batch_results_service,
             rabbitmq_service=SERVICE_PROVIDER.rabbitmq_service,
-            mappings_collector=SERVICE_PROVIDER.mappings_collector,
+            mappings_collector={},
             report_statistics_service=SERVICE_PROVIDER.report_statistics_service,
             ruleset_service=SERVICE_PROVIDER.ruleset_service
         )

@@ -13,7 +13,6 @@ from models.job import Job
 from services.ambiguous_job_service import AmbiguousJob
 from services.clients.s3 import S3Client, Json
 from services.environment_service import EnvironmentService
-from services.mappings_collector import LazyLoadedMappingsCollector
 from services.platform_service import Platform
 from services.reports_bucket import (TenantReportsBucketKeysBuilder, \
                                      PlatformReportsBucketKeysBuilder,
@@ -94,11 +93,9 @@ class ReportResponse:
 
 class ReportService:
     def __init__(self, s3_client: S3Client,
-                 environment_service: EnvironmentService,
-                 mappings_collector: LazyLoadedMappingsCollector):
+                 environment_service: EnvironmentService):
         self.s3_client = s3_client
         self.environment_service = environment_service
-        self.mappings_collector = mappings_collector
 
     def job_collection(self, tenant: Tenant, job: Job) -> ShardsCollection:
         collection = ShardsCollectionFactory.from_tenant(tenant)

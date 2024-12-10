@@ -19,7 +19,6 @@ from helpers.constants import (
 )
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
-from helpers.reports import Standard
 from helpers.system_customer import SYSTEM_CUSTOMER
 from helpers.time_helper import utc_iso
 from models.rule import Rule, RuleIndex
@@ -31,7 +30,6 @@ from services.clients.s3 import S3Client
 from services.environment_service import EnvironmentService
 from services.license_manager_service import LicenseManagerService
 from services.license_service import LicenseService
-from services.mappings_collector import LazyLoadedMappingsCollector
 from services.rule_meta_service import RuleNamesResolver, RuleService
 from services.rule_source_service import RuleSourceService
 from services.ruleset_service import RulesetService
@@ -59,7 +57,6 @@ class RulesetHandler(AbstractHandler):
                  environment_service: EnvironmentService,
                  rule_source_service: RuleSourceService,
                  license_service: LicenseService,
-                 mappings_collector: LazyLoadedMappingsCollector,
                  license_manager_service: LicenseManagerService):
         self.ruleset_service = ruleset_service
         self.application_service = application_service
@@ -68,7 +65,6 @@ class RulesetHandler(AbstractHandler):
         self.environment_service = environment_service
         self.rule_source_service = rule_source_service
         self.license_service = license_service
-        self.mappings_collector = mappings_collector
         self.license_manager_service = license_manager_service
 
     @classmethod
@@ -81,7 +77,6 @@ class RulesetHandler(AbstractHandler):
             environment_service=SERVICE_PROVIDER.environment_service,
             rule_source_service=SERVICE_PROVIDER.rule_source_service,
             license_service=SERVICE_PROVIDER.license_service,
-            mappings_collector=SERVICE_PROVIDER.mappings_collector,
             license_manager_service=SERVICE_PROVIDER.license_manager_service
         )
 

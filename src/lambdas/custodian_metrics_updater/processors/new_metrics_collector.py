@@ -13,16 +13,15 @@ from models.ruleset import Ruleset
 from services import SP, modular_helpers
 from services.ambiguous_job_service import AmbiguousJobService
 from services.license_service import License, LicenseService
-from services.mappings_collector import LazyLoadedMappingsCollector
+from services.metadata import Metadata
 from services.report_service import ReportService
-from services.ruleset_service import RulesetName
 from services.reports import (
     JobMetricsDataSource,
     ReportMetricsService,
     ShardsCollectionDataSource,
     ShardsCollectionProvider,
 )
-from services.ruleset_service import RulesetService
+from services.ruleset_service import RulesetName, RulesetService
 
 ReportsGen = Generator[ReportMetrics, None, None]
 
@@ -34,11 +33,14 @@ class MetricsContext:
     Keeps some common context and data for one task of collecting metrics
     """
 
-    __slots__ = '_cst', '_dt', '_reports'
+    __slots__ = '_cst', '_dt', '_meta', '_reports'
 
-    def __init__(self, cst: Customer, now: datetime | None = None):
+    def __init__(
+        self, cst: Customer, metadata: Metadata, now: datetime | None = None
+    ):
         self._cst = cst
         self._dt = now
+        self._meta = metadata
         self._reports = {}
 
     def __enter__(self):
@@ -60,6 +62,10 @@ class MetricsContext:
     @property
     def customer(self) -> Customer:
         return self._cst
+
+    @property
+    def metadata(self) -> Metadata:
+        return self._meta
 
     @property
     def n_reports(self) -> int:
@@ -136,7 +142,6 @@ class MetricsCollector:
         self,
         modular_client: Modular,
         ambiguous_job_service: AmbiguousJobService,
-        mappings_collector: LazyLoadedMappingsCollector,
         report_service: ReportService,
         report_metrics_service: ReportMetricsService,
         license_service: LicenseService,
@@ -144,7 +149,6 @@ class MetricsCollector:
     ):
         self._mc = modular_client
         self._ajs = ambiguous_job_service
-        self._mp = mappings_collector
         self._rs = report_service
         self._rms = report_metrics_service
         self._ls = license_service
@@ -157,7 +161,6 @@ class MetricsCollector:
         return cls(
             modular_client=SP.modular_client,
             ambiguous_job_service=SP.ambiguous_job_service,
-            mappings_collector=SP.mappings_collector,
             report_service=SP.report_service,
             report_metrics_service=SP.report_metrics_service,
             license_service=SP.license_service,
@@ -266,7 +269,7 @@ class MetricsCollector:
         _LOG.info('Generating operational overview for all tenants')
         ctx.add_reports(
             self.operational_overview(
-                now=ctx.now,
+                ctx=ctx,
                 job_source=job_source,
                 sc_provider=sc_provider,
                 report_type=ReportType.OPERATIONAL_OVERVIEW,
@@ -277,7 +280,7 @@ class MetricsCollector:
         ctx.add_reports(
             self.save_data_to_s3(
                 self.operational_resources(
-                    now=ctx.now,
+                    ctx=ctx,
                     job_source=job_source,
                     sc_provider=sc_provider,
                     report_type=ReportType.OPERATIONAL_RESOURCES,
@@ -330,13 +333,13 @@ class MetricsCollector:
 
     def operational_overview(
         self,
-        now: datetime,
+        ctx: MetricsContext,
         job_source: JobMetricsDataSource,
         sc_provider: ShardsCollectionProvider,
         report_type: ReportType,
     ) -> ReportsGen:
-        start = report_type.start(now)
-        end = report_type.end(now)
+        start = report_type.start(ctx.now)
+        end = report_type.end(ctx.now)
         js = job_source.subset(start=start, end=end)
         # TODO: maybe collect for all tenants
         for tenant_name in js.scanned_tenants:
@@ -352,7 +355,7 @@ class MetricsCollector:
                 )
                 continue
             tjs = js.subset(tenant=tenant.name)
-            sdc = ShardsCollectionDataSource(col, self._mp)
+            sdc = ShardsCollectionDataSource(col, ctx.metadata)
             data = {
                 'total_scans': len(tjs),
                 'failed_scans': tjs.n_failed,
@@ -375,7 +378,7 @@ class MetricsCollector:
 
     def operational_resources(
         self,
-        now: datetime,
+        ctx: MetricsContext,
         job_source: JobMetricsDataSource,
         sc_provider: ShardsCollectionProvider,
         report_type: ReportType,
@@ -384,8 +387,8 @@ class MetricsCollector:
         #  Currently it's based on job_source.scanned_tenants and since
         #  this reports does not have start bound job_source contains jobs
         #  for a bigger period of time
-        start = report_type.start(now)
-        end = report_type.end(now)
+        start = report_type.start(ctx.now)
+        end = report_type.end(ctx.now)
         js = job_source.subset(start=start, end=end)
         for tenant_name in js.scanned_tenants:
             tenant = self._get_tenant(tenant_name)
@@ -401,7 +404,9 @@ class MetricsCollector:
                 continue
             data = {
                 'id': tenant.project,
-                'data': ShardsCollectionDataSource(col, self._mp).resources(),
+                'data': ShardsCollectionDataSource(
+                    col, ctx.metadata
+                ).resources(),
                 'last_scan_date': js.subset(tenant=tenant.name).last_scan_date,
                 'activated_regions': sorted(
                     modular_helpers.get_tenant_regions(tenant)
@@ -489,7 +494,7 @@ class MetricsCollector:
                         f'{tenant.name} for {end}'
                     )
                     continue
-                sdc = ShardsCollectionDataSource(col, self._mp)
+                sdc = ShardsCollectionDataSource(col, ctx.metadata)
                 self._update_dict_values(rt_data, sdc.resource_types())
                 self._update_dict_values(sev_data, sdc.severities())
                 total += sdc.n_unique
@@ -561,7 +566,11 @@ class MetricsCollector:
                 if cl == cloud:
                     cloud_licenses.append(lic)
                     if rs.versions:
-                        cloud_rulesets.append(RulesetName(rs.name, sorted(rs.versions)[-1]).to_str())
+                        cloud_rulesets.append(
+                            RulesetName(
+                                rs.name, sorted(rs.versions)[-1]
+                            ).to_str()
+                        )
                     else:
                         cloud_rulesets.append(rs.name)
                     cloud_rulesets.append(rs)
@@ -604,6 +613,7 @@ class MetricsCollector:
             is_active=True
         ):
             _LOG.info(f'Collecting metrics for customer: {customer.name}')
-            with MetricsContext(customer, now) as ctx:
+            metadata = self._ls.get_customer_metadata(customer.name)
+            with MetricsContext(customer, metadata, now) as ctx:
                 self.collect_metrics_for_customer(ctx)
         return {}

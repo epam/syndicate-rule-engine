@@ -698,9 +698,11 @@ def get_licensed_ruleset_dto_list(tenant: Tenant, job: Job) -> list[dict]:
 @_XRAY.capture('Upload to SIEM')
 def upload_to_siem(tenant: Tenant, collection: ShardsCollection,
                    job: AmbiguousJob, platform: Platform | None = None):
+    metadata = SP.license_service.get_customer_metadata(tenant.customer_name)
     for dojo, configuration in SP.integration_service.get_dojo_adapters(tenant, True):
         convertor = ShardCollectionDojoConvertor.from_scan_type(
-            configuration.scan_type
+            configuration.scan_type,
+            metadata
         )
         configuration = configuration.substitute_fields(job, platform)
         client = DojoV2Client(
@@ -737,11 +739,11 @@ def upload_to_siem(tenant: Tenant, collection: ShardsCollection,
         match configuration.converter_type:
             case ChronicleConverterType.EVENTS:
                 _LOG.debug('Converting our collection to UDM events')
-                convertor = ShardCollectionUDMEventsConvertor(tenant=tenant)
+                convertor = ShardCollectionUDMEventsConvertor(metadata, tenant=tenant)
                 client.create_udm_events(events=convertor.convert(collection))
             case _:  # ENTITIES
                 _LOG.debug('Converting our collection to UDM entities')
-                convertor = ShardCollectionUDMEntitiesConvertor(tenant=tenant)
+                convertor = ShardCollectionUDMEntitiesConvertor(metadata, tenant=tenant)
                 success = client.create_udm_entities(
                     entities=convertor.convert(collection),
                     log_type='AWS_API_GATEWAY'  # todo use a generic log type or smt

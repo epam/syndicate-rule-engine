@@ -25,12 +25,8 @@ if TYPE_CHECKING:
     from services.job_statistics_service import JobStatisticsService
     from services.license_manager_service import LicenseManagerService
     from services.license_service import LicenseService
-    from services.metrics_service import CustomerMetricsService
-    from services.metrics_service import MetricsService
-    from services.metrics_service import TenantMetricsService
     from services.rabbitmq_service import RabbitMQService
     from services.report_service import ReportService
-    from services.mappings_collector import LazyLoadedMappingsCollector
     from services.rule_meta_service import RuleService
     from services.rule_source_service import RuleSourceService
     from services.ruleset_service import RulesetService
@@ -167,11 +163,6 @@ class ServiceProvider(metaclass=SingletonMeta):
         return RuleService()
 
     @cached_property
-    def mappings_collector(self) -> 'LazyLoadedMappingsCollector':
-        from services.mappings_collector import LazyLoadedMappingsCollector
-        return LazyLoadedMappingsCollector.build()
-
-    @cached_property
     def settings_service(self) -> 'CachedSettingsService':
         from services.setting_service import CachedSettingsService
         return CachedSettingsService(
@@ -203,14 +194,12 @@ class ServiceProvider(metaclass=SingletonMeta):
             s3_settings_service=self.s3_settings_service,
             environment_service=self.environment_service,
             sts_client=self.sts,
-            mappings_collector=self.mappings_collector
         )
 
     @cached_property
     def ruleset_service(self) -> 'RulesetService':
         from services.ruleset_service import RulesetService
         return RulesetService(
-            license_service=self.license_service,
             s3_client=self.s3
         )
 
@@ -227,7 +216,8 @@ class ServiceProvider(metaclass=SingletonMeta):
         return LicenseService(
             application_service=self.modular_client.application_service(),
             parent_service=self.modular_client.parent_service(),
-            customer_service=self.modular_client.customer_service()
+            customer_service=self.modular_client.customer_service(),
+            metadata_provider=self.metadata_provider
         )
 
     @cached_property
@@ -276,26 +266,6 @@ class ServiceProvider(metaclass=SingletonMeta):
         return ReportService(
             s3_client=self.s3,
             environment_service=self.environment_service,
-            mappings_collector=self.mappings_collector
-        )
-
-    @cached_property
-    def metrics_service(self) -> 'MetricsService':
-        from services.metrics_service import MetricsService
-        return MetricsService(mappings_collector=self.mappings_collector)
-
-    @cached_property
-    def tenant_metrics_service(self) -> 'TenantMetricsService':
-        from services.metrics_service import TenantMetricsService
-        return TenantMetricsService(
-            mappings_collector=self.mappings_collector
-        )
-
-    @cached_property
-    def customer_metrics_service(self) -> 'CustomerMetricsService':
-        from services.metrics_service import CustomerMetricsService
-        return CustomerMetricsService(
-            mappings_collector=self.mappings_collector
         )
 
     @cached_property
