@@ -540,7 +540,7 @@ class MetricsCollector:
         rulesets: dict[str, Ruleset],
     ) -> dict:
         """
-        C level reports currently dispaly license information as if only one
+        C level reports currently display license information as if only one
         license can ever exist for a cloud. Actually, number of licenses is
         not limited per cloud.
 
@@ -572,8 +572,11 @@ class MetricsCollector:
                             ).to_str()
                         )
                     else:
-                        cloud_rulesets.append(rs.name)
-                    cloud_rulesets.append(rs)
+                        cloud_rulesets.append(
+                            RulesetName(
+                                rs.name, rs.version
+                            ).to_str()
+                        )
         if not cloud_licenses:
             return {'activated': False, 'license_properties': {}}
 
