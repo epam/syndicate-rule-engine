@@ -135,22 +135,6 @@ class TestStatisticsBucketKeyBuilder:
         assert res == f'xray/executor/{now.year}/{now.month}/{now.day}/job_id.log'
 
 
-class TestMetricsBucketKeyBuilder:
-    def test_account_metrics(self, aws_tenant):
-        now = datetime.now(timezone.utc)
-        res = MetricsBucketKeysBuilder(aws_tenant).account_metrics(now)
-        assert res == f'TEST_CUSTOMER/accounts/{now.date().isoformat()}/123456789012.json'
-
-    def test_account_monthly_metrics(self, aws_tenant):
-        now = datetime.now(timezone.utc)
-        res = MetricsBucketKeysBuilder(aws_tenant).account_monthly_metrics(now)
-        next_m = now.month + 1
-        if next_m == 13: next_m = 1
-        next_m = str(next_m)
-        if len(next_m) == 1: next_m = f'0{next_m}'
-        assert res == f'TEST_CUSTOMER/accounts/monthly/{now.year}-{next_m}-01/123456789012.json'
-
-
 def test_s3_url():
     url = S3Url('s3://bucket/path/to/file')
     assert url.bucket == 'bucket'

@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from modular_sdk.models.tenant import Tenant
     from modular_sdk.models.customer import Customer
     from services.platform_service import Platform
+    from services.metadata import Metadata
 
 
 # This "pytest_configure" function must be executed BEFORE any imports that
@@ -191,3 +192,9 @@ def k8s_platform(main_customer: 'Customer',
             type_scope=f'{ParentType.PLATFORM_K8S.value}#{ParentScope.SPECIFIC.value}#{aws_tenant.name}'
         )
     )
+
+
+@pytest.fixture
+def empty_metadata() -> 'Metadata':
+    from services.metadata import Metadata
+    return Metadata.empty()

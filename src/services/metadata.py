@@ -1,7 +1,8 @@
+import gzip
 import io
 import tempfile
+from enum import Enum
 from typing import TYPE_CHECKING, cast
-import gzip
 
 import msgspec
 
@@ -11,8 +12,8 @@ from helpers.constants import Severity
 from helpers.log_helper import get_logger
 from helpers.reports import service_from_resource_type
 from models.rule import RuleIndex
-from services.reports_bucket import ReportMetaBucketsKeys
 from services import cache
+from services.reports_bucket import ReportMetaBucketsKeys
 
 if TYPE_CHECKING:
     from services.clients.s3 import S3Client
@@ -27,7 +28,7 @@ class RuleMetadata(
     msgspec.Struct, kw_only=True, array_like=True, frozen=True, eq=False
 ):
     """
-    Represents the formation in which metadata is returned from LM and
+    Represents the formation in which per rule metadata is returned from LM and
     is stored
     """
 
@@ -53,7 +54,28 @@ class RuleMetadata(
         )
 
 
-EMPTY = RuleMetadata(
+class DomainMetadata(
+    msgspec.Struct, kw_only=True, array_like=True, frozen=True, eq=False
+):
+    """
+    Represents the formation in which per domain metadata is returned from
+    LM and is stored
+    """
+
+    tech_cov: dict[str, dict[str, dict[str, int]]] = msgspec.field(
+        default_factory=dict
+    )
+    full_cov: dict[str, dict[str, dict[str, int]]] = msgspec.field(
+        default_factory=dict
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f'{__name__}.{self.__class__.__name__} object at {hex(id(self))}'
+        )
+
+
+EMPTY_RULE_METADATA = RuleMetadata(
     source='',
     category='',
     service_section='',
@@ -62,13 +84,15 @@ EMPTY = RuleMetadata(
     impact='',
     remediation='',
 )
+EMPTY_DOMAIN_METADATA = DomainMetadata()
+
 
 DEFAULT_VERSION = Version(__version__)
 
 
 class Metadata(msgspec.Struct, frozen=True, eq=False):
     rules: dict[str, RuleMetadata] = msgspec.field(default_factory=dict)
-    # TODO: other mappings
+    domains: dict[str, DomainMetadata] = msgspec.field(default_factory=dict)
 
     def rule(
         self,
@@ -81,7 +105,7 @@ class Metadata(msgspec.Struct, frozen=True, eq=False):
         if item := self.rules.get(name):
             return item
         if not comment and not resource:
-            return EMPTY
+            return EMPTY_RULE_METADATA
         index = RuleIndex(comment)
         return RuleMetadata(
             source=index.source or '',
@@ -94,8 +118,14 @@ class Metadata(msgspec.Struct, frozen=True, eq=False):
             standard={index.source: {'null': ()}} if index.source else {},
         )
 
-    def is_empty(self) -> bool:
-        return bool(self.rules)
+    def domain(self, name: str | Enum, /) -> DomainMetadata:
+        if isinstance(name, Enum):
+            key = name.value
+        else:
+            key = name
+        if key == 'GCP':
+            key = 'GOOGLE'
+        return self.domains.get(key.upper(), EMPTY_DOMAIN_METADATA)
 
     @classmethod
     def empty(cls) -> 'Metadata':
@@ -138,7 +168,7 @@ class MetadataProvider:
     def _get_from_cache(
         self, license_key: str, version: Version
     ) -> Metadata | None:
-        _LOG.info('Trying to get metadata for {license_key} from cache')
+        _LOG.info(f'Trying to get metadata for {license_key} from cache')
         return self._cache.get((license_key, version))
 
     def _save_to_cache(

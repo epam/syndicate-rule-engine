@@ -2,118 +2,12 @@ from __future__ import annotations
 
 import itertools
 import statistics
-from enum import Enum
-from typing import Annotated, Generator
+from typing import Annotated
 
 import msgspec
 from typing_extensions import Self
 
 PercentFloat = Annotated[float, msgspec.Meta(ge=-1.0, le=1.0)]
-NonNegativeInt = Annotated[int, msgspec.Meta(ge=0)]
-
-
-class QOption(str, Enum):
-    """
-    Questionnaire options
-    """
-
-    percent: PercentFloat
-
-    def __new__(cls, value: str, percent: PercentFloat):
-        obj = str.__new__(cls, value)
-        obj._value_ = value
-
-        obj.percent = percent
-        return obj
-
-    # these percents may be wrong but seems like all coverages have same values
-    NOT_APPLICABLE = 'NA', -1.0
-    NOT_COMPATIBLE = 'NC', 0.0
-    SOMEWHAT_COMPATIBLE = 'SC', 0.25
-    PARTIALLY_COMPATIBLE = 'PC', 0.5
-    MOSTLY_COMPATIBLE = 'MC', 0.75
-    FULLY_COMPATIBLE = 'FC', 1.0
-
-
-class CoverageNode(msgspec.Struct, frozen=True):
-    """
-    Coverage Control is a recursive structure that holds some info
-    about points and questinaries for a version of some standard
-    """
-
-    # NOTE: all commented values currently are just not necessary for
-    # the algorithm so i ignore them.
-
-    # percent: PercentFloat = msgspec.field(name='%')
-    points: dict[str, CoverageNode] | msgspec.UnsetType = msgspec.field(
-        name='P', default=msgspec.UNSET
-    )
-    # section_title: str | msgspec.UnsetType = msgspec.field(
-    #     name='S', default=msgspec.UNSET
-    # )
-    # control_title: str | msgspec.UnsetType = msgspec.field(
-    #     name='C', default=msgspec.UNSET
-    # )
-    # compliant_rules: NonNegativeInt | msgspec.UnsetType = msgspec.field(
-    #     name='compliant_rules', default=msgspec.UNSET
-    # )
-    total_rules: NonNegativeInt | msgspec.UnsetType = msgspec.field(
-        name='total_rules', default=msgspec.UNSET
-    )
-
-    # @property
-    # def title(self) -> str | None:
-    #     if self.control_title is not msgspec.UNSET:
-    #         return self.control_title
-    #     if self.section_title is not msgspec.UNSET:
-    #         return self.section_title
-
-    @property
-    def is_control(self) -> bool:
-        """
-        Each control must have total_rules so we probably can rely on that.
-        """
-        return self.total_rules is not msgspec.UNSET
-
-    @property
-    def is_section(self) -> bool:
-        """
-        Everything that is not control is probably a section or a subsection.
-        Not so important here.
-        """
-        return not self.is_control
-
-    @classmethod
-    def _traverse_points(
-        cls, points: dict[str, CoverageNode] | msgspec.UnsetType
-    ) -> Generator[tuple[str, CoverageNode], None, None]:
-        if points is msgspec.UNSET or not points:
-            return
-        for name, leaf in points.items():
-            yield name, leaf
-            yield from cls._traverse_points(leaf.points)
-
-    def traverse(self) -> Generator[tuple[str, CoverageNode], None, None]:
-        """
-        Iterates over all nodes. Yields name and corresponding node.
-        Eield reserverd name for the root node: root
-        """
-        yield 'root', self
-        yield from self._traverse_points(self.points)
-
-    def iter_control_total_rules(
-        self,
-    ) -> Generator[tuple[str, int], None, None]:
-        """
-        Iterates over each node but yields only contols: their names and
-        total number of rules. Those are values we need
-        """
-        _unset = msgspec.UNSET
-        for name, leaf in self.traverse():
-            # we don't need controls with 0 rules. Those are for questions
-            if leaf.total_rules is _unset or leaf.total_rules == 0:
-                continue
-            yield name, leaf.total_rules
 
 
 class CoverageCalculator:
@@ -123,7 +17,7 @@ class CoverageCalculator:
 
     Each standard has a concrete number N of so-called "controls".
     Coverage for a standard is a mean value of coverages of all its controls.
-    Coverage for a control is ratio between number of rules that succesfully
+    Coverage for a control is ratio between number of rules that successfully
     verified this control and total number of rules that check for this
     control (currently we have no technical ability to take number of
     resources in consideration). Also, coverage for a control can be

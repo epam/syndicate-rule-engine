@@ -7,7 +7,6 @@ import pytest
 from helpers.time_helper import utc_datetime
 from models.job import Job
 from services.ambiguous_job_service import AmbiguousJob
-from services.mappings_collector import MappingsCollector
 from services.reports import (
     JobMetricsDataSource,
     ShardsCollectionDataSource,
@@ -23,11 +22,6 @@ def create_job():
         return AmbiguousJob(Job(id=_id, submitted_at=submitted_at))
 
     return factory
-
-
-@pytest.fixture
-def empty_mappings_collector():
-    return MappingsCollector()
 
 
 @pytest.fixture(scope='class')
@@ -168,19 +162,19 @@ def test_adjust_rt():
 
 
 class TestShardsCollectionDataSource:
-    def test_n_unique(self, aws_shards_collection, empty_mappings_collector):
+    def test_n_unique(self, aws_shards_collection, empty_metadata):
         source = ShardsCollectionDataSource(
             collection=aws_shards_collection,
-            mappings_collector=empty_mappings_collector,
+            metadata=empty_metadata
         )
         assert source.n_unique == 23
 
     def test_region_severities_no_metadata(
-        self, aws_shards_collection, empty_mappings_collector
+        self, aws_shards_collection, empty_metadata
     ):
         source = ShardsCollectionDataSource(
             collection=aws_shards_collection,
-            mappings_collector=empty_mappings_collector,
+            metadata=empty_metadata
         )
         assert source.region_severities() == {
             'eu-central-1': {'Unknown': 7},
@@ -192,11 +186,11 @@ class TestShardsCollectionDataSource:
         assert source.severities() == {'Unknown': 23}
 
     def test_report_types_no_metadata(
-        self, aws_shards_collection, empty_mappings_collector
+        self, aws_shards_collection, empty_metadata
     ):
         source = ShardsCollectionDataSource(
             collection=aws_shards_collection,
-            mappings_collector=empty_mappings_collector,
+            metadata=empty_metadata
         )
         assert source.resource_types() == {
             'Security Group': 3,
