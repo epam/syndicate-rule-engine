@@ -3,7 +3,6 @@ import binascii
 from contextlib import contextmanager
 from enum import Enum as _Enum
 import json
-import functools
 from dateutil.parser import isoparse
 from functools import reduce
 import io
@@ -23,7 +22,6 @@ from typing import (
     Iterator,
     Optional,
     TypeVar,
-    TYPE_CHECKING,
 )
 from typing_extensions import Self
 import uuid
@@ -33,8 +31,6 @@ import requests
 from helpers.constants import GCP_CLOUD_ATTR, GOOGLE_CLOUD_ATTR
 from helpers.log_helper import get_logger
 
-if TYPE_CHECKING:
-    from services.abs_lambda import ProcessedEvent
 
 T = TypeVar('T')
 
@@ -436,62 +432,6 @@ class MultipleCursorsWithOneLimitIterator(Iterable[CT]):
                 self._it = factory(self._current_limit)
 
 
-# todo test
-def to_api_gateway_event(processed_event: 'ProcessedEvent') -> dict:
-    """
-    Converts our ProcessedEvent back to api gateway event. It does not
-    contain all the fields only some that are necessary for high level reports
-    endpoints
-    :param processed_event:
-    :return:
-    """
-    assert processed_event[
-        'resource'
-    ], 'Only event with existing resource supported'
-
-    # values can be just strings in case we get this event from a database
-    resource = processed_event['resource']
-    if isinstance(resource, Enum):
-        resource = resource.value
-    method = processed_event['method']
-    if isinstance(method, Enum):
-        method = method.value
-    return {
-        'resource': resource,
-        'path': resource,
-        'httpMethod': method,
-        'headers': {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Accept-Encoding': 'gzip,deflate',
-        },
-        'multiValueHeaders': {
-            'Accept': ['application/json'],
-            'Accept-Encoding': ['gzip,deflate'],
-            'Content-Type': ['application/json'],
-        },
-        'queryStringParameters': processed_event['query'],
-        'pathParameters': processed_event['path_params'],
-        'requestContext': {
-            'path': processed_event['fullpath'],
-            'resourcePath': resource,
-            'httpMethod': method,
-            'requestTimeEpoch': time.time() * 1e3,
-            'protocol': 'HTTP/1.1',
-            'authorizer': {
-                'claims': {
-                    'sub': processed_event['cognito_user_id'],
-                    'custom:customer': processed_event['cognito_customer'],
-                    'cognito:username': processed_event['cognito_username'],
-                    'custom:role': processed_event['cognito_user_role'],
-                }
-            },
-        },
-        'body': json.dumps(processed_event['body'], separators=(',', ':')),
-        'isBase64Encoded': False,
-    }
-
-
 JT = TypeVar('JT')  # json type
 
 
@@ -655,43 +595,6 @@ class NextToken:
 
     def __bool__(self) -> bool:
         return not not self._lak  # 0 and empty dict are None
-
-
-class TermColor:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    DEBUG = '\033[90m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-
-    @classmethod
-    def blue(cls, st: str) -> str:
-        return f'{cls.OKBLUE}{st}{cls.ENDC}'
-
-    @classmethod
-    def cyan(cls, st: str) -> str:
-        return f'{cls.OKCYAN}{st}{cls.ENDC}'
-
-    @classmethod
-    def green(cls, st: str) -> str:
-        return f'{cls.OKGREEN}{st}{cls.ENDC}'
-
-    @classmethod
-    def yellow(cls, st: str) -> str:
-        return f'{cls.WARNING}{st}{cls.ENDC}'
-
-    @classmethod
-    def red(cls, st: str) -> str:
-        return f'{cls.FAIL}{st}{cls.ENDC}'
-
-    @classmethod
-    def gray(cls, st: str) -> str:
-        return f'{cls.DEBUG}{st}{cls.DEBUG}'
 
 
 def flip_dict(d: dict):

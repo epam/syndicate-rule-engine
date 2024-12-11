@@ -2,8 +2,6 @@ from typing import Generator, Iterable
 
 from helpers.constants import Severity
 
-NONE_VERSION = 'null'
-
 
 class Standard(tuple):
     # TODO: can be broken during sorting if there are two standards with the
@@ -148,18 +146,3 @@ def adjust_resource_type(rt: str, /) -> str:
 
 def service_from_resource_type(rt: str, /) -> str:
     return adjust_resource_type(rt).replace('-', ' ').replace('_', ' ').title()
-
-
-def merge_dictionaries(dict_to_merge: dict, dict_in: dict):
-    """
-    Merge one dict into another
-
-    :param dict_to_merge: dictionary that we will merge
-    :param dict_in: dictionary in which we will merge
-    :return:
-    """
-    for key in dict_to_merge:
-        if key in dict_in:
-            dict_in[key].update(dict_to_merge[key])
-        else:
-            dict_in[key] = dict_to_merge[key]
