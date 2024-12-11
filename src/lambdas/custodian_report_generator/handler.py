@@ -24,9 +24,6 @@ from validators.registry import permissions_mapping
 _LOG = get_logger(__name__)
 
 
-# TODO merge this lambda with report_generation_handler
-
-
 class ReportGenerator(ApiEventProcessorLambdaHandler):
     processors = (
         ExpandEnvironmentEventProcessor.build(),

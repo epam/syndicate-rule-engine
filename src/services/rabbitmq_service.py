@@ -100,13 +100,6 @@ class RabbitMQService:
             'No valid RabbitMq configuration found'
         )
 
-    @staticmethod
-    def no_rabbit_configuration():
-        # TODO: remove
-        raise ResponseFactory(HTTPStatus.SERVICE_UNAVAILABLE).message(
-            'No valid RabbitMq configuration found'
-        ).exc()
-
     def build_maestro_mq_transport(self, application: Application
                                    ) -> MaestroRabbitMQTransport | None:
         if tpl := self.environment_service.mock_rabbitmq_s3_url():

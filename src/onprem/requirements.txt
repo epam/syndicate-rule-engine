@@ -16,7 +16,6 @@ APScheduler~=3.10.4
 pydantic~=2.8.2
 cachetools~=5.4.0
 python-dotenv~=1.0.1
-dacite~=1.8.1
 openpyxl==3.0.10
 cryptography~=42.0.8
 modular-sdk>=6.3.0,<7.0

@@ -8,7 +8,7 @@ from models.job import Job
 from services.clients.s3 import S3Url
 from services.reports_bucket import TenantReportsBucketKeysBuilder, \
     ReportsBucketKeysBuilder, PlatformReportsBucketKeysBuilder, \
-    StatisticsBucketKeysBuilder, MetricsBucketKeysBuilder
+    StatisticsBucketKeysBuilder
 
 
 @pytest.fixture

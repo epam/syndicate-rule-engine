@@ -15,9 +15,6 @@ from lambdas.custodian_api_handler.handler import \
 from lambdas.custodian_configuration_api_handler.handler import (
     lambda_handler as configuration_api_handler_lambda,
 )
-from lambdas.custodian_report_generation_handler.handler import (
-    lambda_handler as report_generation_handler,
-)
 from lambdas.custodian_report_generator.handler import (
     lambda_handler as report_generator_lambda,
 )
@@ -93,7 +90,6 @@ class OnPremApiBuilder:
         'caas-api-handler': api_handler_lambda,
         'caas-configuration-api-handler': configuration_api_handler_lambda,
         'caas-report-generator': report_generator_lambda,
-        # 'caas-report-generation-handler': report_generation_handler
     }
 
     def __init__(self, dp_wrapper: DeploymentResourcesApiGatewayWrapper):

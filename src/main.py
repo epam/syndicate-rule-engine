@@ -309,7 +309,6 @@ class InitMongo(ActionHandler):
     @staticmethod
     def models() -> tuple:
         from models.batch_results import BatchResults
-        from models.customer_metrics import CustomerMetrics
         from models.event import Event
         from models.job import Job
         from models.job_statistics import JobStatistics
@@ -323,12 +322,10 @@ class InitMongo(ActionHandler):
         from models.ruleset import Ruleset
         from models.scheduled_job import ScheduledJob
         from models.setting import Setting
-        from models.tenant_metrics import TenantMetrics
         from models.user import User
 
         return (
             BatchResults,
-            CustomerMetrics,
             Event,
             Job,
             JobStatistics,
@@ -341,7 +338,6 @@ class InitMongo(ActionHandler):
             Ruleset,
             ScheduledJob,
             Setting,
-            TenantMetrics,
             User,
             ReportMetrics,
         )

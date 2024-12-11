@@ -292,11 +292,6 @@ def skip_indexes(
         yield item
 
 
-# TODO: remove
-def get_last_element(string: str, delimiter: str) -> str:
-    return string.split(delimiter)[-1]
-
-
 def catchdefault(method: Callable, default: Any = None):
     """
     Returns method's result. In case it fails -> returns default
