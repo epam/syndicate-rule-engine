@@ -3,10 +3,10 @@ from functools import cached_property
 from http import HTTPStatus
 from typing import Generator, Iterable
 
+from handlers import AbstractHandler, Mapping
 from helpers.constants import CustodianEndpoint, HTTPMethod
 from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
-from handlers import AbstractHandler, Mapping
 from services import SERVICE_PROVIDER
 from services.environment_service import EnvironmentService
 from services.health_check_service import (
@@ -16,6 +16,7 @@ from services.health_check_service import (
     EventDrivenRulesetsExist,
     LicenseManagerClientKeyCheck,
     LicenseManagerIntegrationCheck,
+    LiveCheck,
     MinioConnectionCheck,
     MongoConnectionCheck,
     RabbitMQConnectionCheck,
@@ -25,7 +26,6 @@ from services.health_check_service import (
     SystemCustomerSettingCheck,
     VaultAuthTokenIsSetCheck,
     VaultConnectionCheck,
-    LiveCheck
 )
 from validators.swagger_request_models import BaseModel, HealthCheckQueryModel
 from validators.utils import validate_kwargs
@@ -34,57 +34,42 @@ _LOG = get_logger(__name__)
 
 
 class HealthCheckHandler(AbstractHandler):
+    on_prem_specific_checks = (
+        VaultConnectionCheck,
+        VaultAuthTokenIsSetCheck,
+        MongoConnectionCheck,
+        MinioConnectionCheck,
+    )
+    saas_specific_checks = (
+        RulesMetaAccessDataCheck,
+        RulesMetaCheck,
+        EventDrivenRulesetsExist,
+        RabbitMQConnectionCheck,
+    )
+    common_checks = (
+        SystemCustomerSettingCheck,
+        LicenseManagerIntegrationCheck,
+        LicenseManagerClientKeyCheck,
+        AllS3BucketsExist,
+        ReportDateMarkerSettingCheck,
+        LiveCheck,
+    )
+
     def __init__(self, environment_service: EnvironmentService):
         self._environment_service = environment_service
 
     @classmethod
     def build(cls) -> 'HealthCheckHandler':
-        return cls(
-            environment_service=SERVICE_PROVIDER.environment_service
-        )
+        return cls(environment_service=SERVICE_PROVIDER.environment_service)
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.HEALTH: {
-                HTTPMethod.GET: self.list
-            },
-            CustodianEndpoint.HEALTH_ID: {
-                HTTPMethod.GET: self.get
-            }
+            CustodianEndpoint.HEALTH: {HTTPMethod.GET: self.list},
+            CustodianEndpoint.HEALTH_ID: {HTTPMethod.GET: self.get},
         }
 
-    @cached_property
-    def on_prem_specific_checks(self) -> list[type[AbstractHealthCheck]]:
-        return [
-            VaultConnectionCheck,
-            VaultAuthTokenIsSetCheck,
-            MongoConnectionCheck,
-            MinioConnectionCheck,
-        ]
-
-    @cached_property
-    def saas_specific_checks(self) -> list[type[AbstractHealthCheck]]:
-        return [
-            RulesMetaAccessDataCheck,
-            RulesMetaCheck,
-            EventDrivenRulesetsExist,
-            RabbitMQConnectionCheck,
-        ]
-
-    @cached_property
-    def common_checks(self) -> list[type[AbstractHealthCheck]]:
-        return [
-            SystemCustomerSettingCheck,
-            LicenseManagerIntegrationCheck,
-            LicenseManagerClientKeyCheck,
-            AllS3BucketsExist,
-            ReportDateMarkerSettingCheck,
-            LiveCheck
-        ]
-
-    @cached_property
-    def checks(self) -> list[type[AbstractHealthCheck]]:
+    def checks(self) -> tuple[type[AbstractHealthCheck], ...]:
         """
         Must return a list of all the necessary checks for the
         current installation.
@@ -103,7 +88,7 @@ class HealthCheckHandler(AbstractHandler):
     @cached_property
     def identifier_to_instance(self) -> dict[str, AbstractHealthCheck]:
         return {
-            _class.identifier(): _class.build() for _class in self.checks
+            _class.identifier(): _class.build() for _class in self.checks()
         }
 
     @staticmethod
@@ -112,8 +97,10 @@ class HealthCheckHandler(AbstractHandler):
         try:
             result = instance.check(**kwargs)
         except Exception as e:
-            _LOG.exception(f'An unknown exception occurred trying to '
-                           f'execute check `{instance.identifier()}`')
+            _LOG.exception(
+                f'An unknown exception occurred trying to '
+                f'execute check `{instance.identifier()}`'
+            )
             result = instance.unknown_result(details={'error': str(e)})
         _LOG.info(f'Check: {instance.identifier()} has finished')
         if not result.is_ok():
@@ -121,15 +108,17 @@ class HealthCheckHandler(AbstractHandler):
             pass
         return result
 
-    def execute_consistently(self, checks: Iterable[AbstractHealthCheck],
-                             **kwargs) -> Generator[CheckResult, None, None]:
+    def execute_consistently(
+        self, checks: Iterable[AbstractHealthCheck], **kwargs
+    ) -> Generator[CheckResult, None, None]:
         _LOG.info('Executing checks consistently')
         for instance in checks:
             yield self._execute_check(instance, **kwargs)
         _LOG.info('All the checks have finished')
 
-    def execute_concurrently(self, checks: Iterable[AbstractHealthCheck],
-                             **kwargs) -> Generator[CheckResult, None, None]:
+    def execute_concurrently(
+        self, checks: Iterable[AbstractHealthCheck], **kwargs
+    ) -> Generator[CheckResult, None, None]:
         _LOG.info('Executing checks concurrently')
         with ThreadPoolExecutor() as executor:
             futures = [
@@ -144,8 +133,7 @@ class HealthCheckHandler(AbstractHandler):
     def list(self, event: HealthCheckQueryModel):
         status = event.status
         it = self.execute_concurrently(
-            self.identifier_to_instance.values(),
-            customer=event.customer
+            self.identifier_to_instance.values(), customer=event.customer
         )
         if status:
             it = filter(lambda x: x.status == status, it)
@@ -155,21 +143,20 @@ class HealthCheckHandler(AbstractHandler):
             code = HTTPStatus.SERVICE_UNAVAILABLE
         return build_response(
             content=(result.model_dump(exclude_none=True) for result in it),
-            code=code
+            code=code,
         )
 
     @validate_kwargs
     def get(self, event: BaseModel, id: str):
         instance = self.identifier_to_instance.get(id)
         if not instance:
-            return build_response(code=HTTPStatus.NOT_FOUND,
-                                  content=f'Not available check: {id}')
-        result = self._execute_check(
-            instance,
-            customer=event.customer
-        )
+            return build_response(
+                code=HTTPStatus.NOT_FOUND, content=f'Not available check: {id}'
+            )
+        result = self._execute_check(instance, customer=event.customer)
         code = HTTPStatus.OK
         if not result.is_ok():
             code = HTTPStatus.SERVICE_UNAVAILABLE  # or maybe use another one
-        return build_response(content=result.model_dump(exclude_none=True),
-                              code=code)
+        return build_response(
+            content=result.model_dump(exclude_none=True), code=code
+        )

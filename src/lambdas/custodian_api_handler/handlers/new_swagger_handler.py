@@ -1,4 +1,3 @@
-from functools import cached_property
 from http import HTTPStatus
 from typing import TYPE_CHECKING
 
@@ -60,7 +59,7 @@ class SwaggerHandler(AbstractHandler):
     def build(cls) -> 'SwaggerHandler':
         return cls(environment_service=SP.environment_service)
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.DOC: {

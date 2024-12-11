@@ -1,4 +1,3 @@
-from functools import cached_property
 from http import HTTPStatus
 
 from modular_sdk.services.tenant_service import TenantService
@@ -41,7 +40,7 @@ class FindingsReportHandler(AbstractHandler):
             platform_service=SP.platform_service
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.REPORTS_FINDINGS_JOBS_JOB_ID: {

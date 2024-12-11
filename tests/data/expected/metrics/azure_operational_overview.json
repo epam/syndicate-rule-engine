@@ -1,0 +1,14 @@
+{
+  "total_scans": 3,
+  "failed_scans": 1,
+  "succeeded_scans": 2,
+  "activated_regions": [],
+  "last_scan_date": "2024-11-17T00:53:59.014935Z",
+  "id": "3d615fa8-05c6-47ea-990d-9d162testing",
+  "resources_violated": 5,
+  "regions_severity": {
+    "global": {
+      "Unknown": 5
+    }
+  }
+}

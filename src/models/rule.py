@@ -187,7 +187,7 @@ class RuleIndex:
         '_source', '_customization', '_multiregional'
     )
 
-    def __init__(self, comment: str):
+    def __init__(self, comment: str | None):
         self._comment = comment or ''
         self._cloud = comment[0:2]
         self._platform = comment[2:4]
@@ -232,6 +232,13 @@ class RuleIndex:
 
     @property
     def is_global(self) -> bool:
+        """
+        This fields means whether the rule should be executed only once and
+        not whether the resource itself is global. For instance: s3. S3 buckets
+        are not global. They reside in specific regions. But the API endpoints
+        is global and returns all the buckets from all regions. So, we should
+        execute such rules only once.
+        """
         if not self._multiregional:
             return True  # most rules are global
         return not not int(self._multiregional)

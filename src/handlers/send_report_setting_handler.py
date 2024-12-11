@@ -1,4 +1,3 @@
-from functools import cached_property
 from http import HTTPStatus
 
 from modular_sdk.services.customer_service import CustomerService
@@ -31,7 +30,7 @@ class ReportsSendingSettingHandler(AbstractHandler):
         self.step_function_client = step_function_client
         self.customer_service = customer_service
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.SETTINGS_SEND_REPORTS: {

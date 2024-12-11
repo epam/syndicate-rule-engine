@@ -1,4 +1,3 @@
-from functools import cached_property
 from typing import cast
 
 from modular_sdk.models.tenant import Tenant
@@ -34,7 +33,7 @@ class RawReportHandler(AbstractHandler):
             tenant_service=SP.modular_client.tenant_service(),
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.REPORTS_RAW_TENANTS_TENANT_NAME_STATE_LATEST: {

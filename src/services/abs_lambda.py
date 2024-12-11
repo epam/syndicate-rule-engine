@@ -226,9 +226,6 @@ class RestrictCustomerEventProcessor(AbstractEventProcessor):
         (CustodianEndpoint.METRICS_UPDATE, HTTPMethod.POST),
         (CustodianEndpoint.METRICS_STATUS, HTTPMethod.GET),
 
-        (CustodianEndpoint.META_STANDARDS, HTTPMethod.POST),
-        (CustodianEndpoint.META_META, HTTPMethod.POST),
-
         (CustodianEndpoint.ED_RULESETS, HTTPMethod.GET),
         (CustodianEndpoint.ED_RULESETS, HTTPMethod.POST),
         (CustodianEndpoint.ED_RULESETS, HTTPMethod.DELETE),

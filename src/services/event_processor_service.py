@@ -10,7 +10,6 @@ from helpers.constants import AWS_VENDOR, MAESTRO_VENDOR, AZURE_CLOUD_ATTR, \
 from helpers.log_helper import get_logger
 from services.clients.sts import StsClient
 from services.environment_service import EnvironmentService
-from services.mappings_collector import LazyLoadedMappingsCollector
 from services.s3_settings_service import S3SettingsService, \
     S3SettingsServiceLocalWrapper
 _LOG = get_logger(__name__)
@@ -59,12 +58,11 @@ DEV = '323549576358'
 class EventProcessorService:
     def __init__(self, s3_settings_service: S3SettingsService,
                  environment_service: EnvironmentService,
-                 sts_client: StsClient,
-                 mappings_collector: LazyLoadedMappingsCollector):
+                 sts_client: StsClient):
         self.s3_settings_service = s3_settings_service
         self.environment_service = environment_service
         self.sts_client = sts_client
-        self.mappings_collector = mappings_collector
+        self.mappings_collector = {}  # TODO: fix
         self.EVENT_TYPE_PROCESSOR_MAPPING = {
             AWS_VENDOR: EventBridgeEventProcessor,
             MAESTRO_VENDOR: MaestroEventProcessor
@@ -90,7 +88,7 @@ class BaseEventProcessor(ABC):
     def __init__(self, s3_settings_service: S3SettingsService,
                  environment_service: EnvironmentService,
                  sts_client: StsClient,
-                 mappings_collector: LazyLoadedMappingsCollector):
+                 mappings_collector: dict):
         self.s3_settings_service = S3SettingsServiceLocalWrapper(
             s3_settings_service)
         self.environment_service = environment_service
@@ -375,7 +373,7 @@ class EventBridgeEventProcessor(BaseEventProcessor):
     def __init__(self, s3_settings_service: S3SettingsService,
                  environment_service: EnvironmentService,
                  sts_client: StsClient,
-                 mappings_collector: LazyLoadedMappingsCollector):
+                 mappings_collector: dict):
         super().__init__(
             s3_settings_service,
             environment_service,

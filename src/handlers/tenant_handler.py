@@ -1,4 +1,3 @@
-from functools import cached_property
 from http import HTTPStatus
 from itertools import islice
 from typing import TYPE_CHECKING
@@ -82,7 +81,7 @@ class TenantHandler(AbstractHandler):
         dct.pop('read_only', None)
         return dct
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.TENANTS: {

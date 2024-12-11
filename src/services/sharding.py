@@ -1,16 +1,14 @@
-from abc import ABC, abstractmethod
-from collections import ChainMap, defaultdict
 import io
-from pathlib import PurePosixPath
-import pickle
 import tempfile
 import time
+from abc import ABC, abstractmethod
+from collections import defaultdict
+from pathlib import PurePosixPath
 from typing import (
     BinaryIO,
     Generator,
     Iterable,
     Iterator,
-    Literal,
     TYPE_CHECKING,
     TypedDict,
     cast,
@@ -18,9 +16,8 @@ from typing import (
 
 import msgspec
 
-from helpers import hashable, urljoin
+from helpers import hashable
 from helpers.constants import Cloud, GLOBAL_REGION
-from services import SP
 from services.clients.s3 import S3Client
 
 if TYPE_CHECKING:
@@ -83,48 +80,6 @@ class ShardPart(msgspec.Struct, BaseShardPart, frozen=True):
     resources: list[dict] = msgspec.field(default_factory=list, name='r')
 
 
-class LazyPickleShardPart(BaseShardPart):
-    __slots__ = 'policy', 'location', '_resources', 'timestamp', 'filepath'
-
-    def __init__(self, filepath: str, policy: str,
-                 location: str = GLOBAL_REGION,
-                 timestamp: float | None = None):
-        self.policy: str = policy
-        self.location: str = location
-        self.timestamp: float = timestamp or time.time()
-        self._resources: list[dict] | None = None
-        self.filepath: str = filepath
-
-    @classmethod
-    def from_resources(cls, resources: list[dict], policy: str,
-                       location: str = GLOBAL_REGION):
-        """
-        Creates shard part with given resources but immediately dumps them
-        to inner file storage
-        :param resources:
-        :param policy:
-        :param location:
-        :return:
-        """
-        with tempfile.NamedTemporaryFile(delete=False) as fp:
-            pickle.dump(resources, fp, protocol=pickle.HIGHEST_PROTOCOL)
-        return cls(
-            filepath=fp.name,
-            policy=policy,
-            location=location
-        )
-
-    @property
-    def resources(self) -> list[dict]:
-        if self._resources is None:
-            with open(self.filepath, 'rb') as fp:
-                self._resources = pickle.load(fp)
-        return self._resources
-
-    def drop(self) -> None:
-        self._resources = None  # not sure if it can help
-
-
 class Shard(Iterable[BaseShardPart]):
     """
     Shard store shard parts. This shard implementation uses policy and
@@ -161,6 +116,15 @@ class Shard(Iterable[BaseShardPart]):
         if existing and existing.timestamp > part.timestamp:
             return
         self._data[key] = part
+
+    def pop(self, policy: str, location: str) -> BaseShardPart | None:
+        """
+        Removes part from this shard
+        """
+        return self._data.pop((policy, location), None)
+
+    def get(self, policy: str, location: str) -> BaseShardPart | None:
+        return self._data.get((policy, location), None)
 
     def update(self, shard: 'Shard') -> None:
         """
@@ -312,22 +276,6 @@ class ShardsS3IO(ShardsIO):
         self._client = client
         self._encoder = msgspec.json.Encoder()
 
-    def shard_to_filelike(self, shard: Shard) -> BinaryIO:
-        encoder = self._encoder
-        buf = tempfile.TemporaryFile()
-        _first = True
-        for part in shard:
-            if _first:
-                s = b'['
-                _first = False
-            else:
-                s = b','
-            buf.write(s)
-            buf.write(encoder.encode(part.serialize()))
-        buf.write(b']')
-        buf.seek(0)
-        return buf
-
     @property
     def key(self) -> str:
         return self._root
@@ -343,7 +291,8 @@ class ShardsS3IO(ShardsIO):
         self._client.gz_put_object(
             bucket=self._bucket,
             key=self._key(n),
-            body=self.shard_to_filelike(shard),
+            body=self._encoder.encode(tuple(shard)),
+            gz_buffer=tempfile.TemporaryFile()
         )
 
     def read_raw(self, n: int) -> list[BaseShardPart] | None:
@@ -455,23 +404,24 @@ class ShardsCollection(Iterable[tuple[int, Shard]]):
         Returns a difference between two collections. Uses
         SingleShardDistributor for the new collection
         """
-        # todo rewrite
         new = ShardsCollectionFactory.difference()
-
-        current = ChainMap(*[shard.raw for _, shard in self])
-        other = ChainMap(*[shard.raw for _, shard in other])
-        for key, part in current.items():
-            other_part = other.get(key)
-            if not other_part:  # definitely new
+        for part in self.iter_parts():
+            other_part = None
+            for _, shard in other:
+                p = shard.get(part.policy, part.location)
+                if p:
+                    other_part = p
+                    break
+            if not other_part:  # keeping the current one without changes
                 new.put_part(part)
-                continue
-            current_res = set(hashable(res) for res in part.resources)
-            other_res = set(hashable(res) for res in other_part.resources)
-            new.put_part(ShardPart(
-                policy=part.policy,
-                location=part.location,
-                resources=list(current_res - other_res)
-            ))
+            else:
+                current_res = set(map(hashable, part.resources))
+                other_res = set(map(hashable, other_part.resources))
+                new.put_part(ShardPart(
+                    policy=part.policy,
+                    location=part.location,
+                    resources=list(current_res - other_res)
+                ))
         return new
 
     @property
@@ -494,6 +444,19 @@ class ShardsCollection(Iterable[tuple[int, Shard]]):
         """
         n = self._distributor.distribute_part(part)
         self.shards[n].put(part)
+
+    def drop_part(self, part: BaseShardPart | str,
+                  location: str | None = None, /):
+        """
+        Removes a part from this collection
+        """
+        if isinstance(part, str):
+            if not location:
+                raise ValueError('provide location as second parameter')
+            # just for distributor
+            part = ShardPart(policy=part, location=location)
+        n = self._distributor.distribute_part(part)
+        self.shards[n].pop(part.policy, part.location)
 
     def put_parts(self, parts: Iterable[BaseShardPart]) -> None:
         """
@@ -561,53 +524,10 @@ class ShardsCollection(Iterable[tuple[int, Shard]]):
             self._io.write_meta(self.meta)
 
 
-class ShardingConfig:
-    filename = '.conf'
-
-    __slots__ = 'version',
-
-    def __init__(self, version: Literal[1, 2]):
-        """
-        :param version:
-        1 - one shard is a json - list of dits
-        2 - one shard is a bunch of JSONs separated by newline
-        """
-        self.version = version
-        # todo add distributor, and maybe smt else here
-
-    @classmethod
-    def from_raw(cls, dct: dict) -> 'ShardingConfig':
-        return cls(**dct)
-
-    @classmethod
-    def build_default(cls) -> 'ShardingConfig':
-        return cls(version=1)
-
-
 class ShardsCollectionFactory:
     """
     Builds distributors but without writers
     """
-    @staticmethod
-    def from_s3_key(cloud: Cloud, key: str) -> ShardsCollection:
-        bucket = SP.environment_service.default_reports_bucket_name()
-        item = SP.s3.gz_get_json(bucket, urljoin(key, ShardingConfig.filename))
-        if item:
-            conf = ShardingConfig(item)
-        else:
-            conf = ShardingConfig.build_default()
-        col = ShardsCollection(
-            distributor=ShardsCollectionFactory._cloud_distributor(cloud)
-        )
-        match conf.version:
-            case 1:
-                col.io = ShardsS3IO(bucket=bucket, key=key, client=SP.s3)
-            case 2:
-                col.io = ShardsS3IOV2(bucket=bucket, key=key, client=SP.s3)
-            case _:
-                raise RuntimeError('Invalid shards version')
-        return col
-
     @staticmethod
     def _cloud_distributor(cloud: Cloud) -> ShardDataDistributor:
         match cloud:

@@ -1,5 +1,4 @@
 from datetime import timedelta
-from functools import cached_property
 from http import HTTPStatus
 from itertools import chain
 
@@ -105,7 +104,7 @@ class JobHandler(AbstractHandler):
             platform_service=SERVICE_PROVIDER.platform_service
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         """
         These are licensed jobs endpoints. They use only licensed rule-sets.

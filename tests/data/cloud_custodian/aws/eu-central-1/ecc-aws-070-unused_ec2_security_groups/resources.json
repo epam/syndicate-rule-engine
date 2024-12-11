@@ -1,0 +1,132 @@
+[
+  {
+    "Description": "Europe West",
+    "GroupName": "west-eu",
+    "IpPermissions": [
+      {
+        "IpProtocol": "-1",
+        "IpRanges": [],
+        "Ipv6Ranges": [],
+        "PrefixListIds": [
+          {
+            "Description": "west-eu prefix list",
+            "PrefixListId": "pl-087e65b29d25c5dcc"
+          }
+        ],
+        "UserIdGroupPairs": [
+          {
+            "GroupId": "sg-05209ceeb761317e5",
+            "UserId": "123456789012"
+          }
+        ]
+      }
+    ],
+    "OwnerId": "123456789012",
+    "GroupId": "sg-05209ceeb761317e5",
+    "IpPermissionsEgress": [
+      {
+        "IpProtocol": "-1",
+        "IpRanges": [
+          {
+            "CidrIp": "0.0.0.0/0"
+          }
+        ],
+        "Ipv6Ranges": [],
+        "PrefixListIds": [],
+        "UserIdGroupPairs": []
+      }
+    ],
+    "Tags": [
+      {
+        "Key": "created-by",
+        "Value": "testing"
+      }
+    ],
+    "VpcId": "vpc-7ce45c14"
+  },
+  {
+    "Description": "Allow ssh access to packer ami build",
+    "GroupName": "packer-ssh-access",
+    "IpPermissions": [
+      {
+        "FromPort": 22,
+        "IpProtocol": "tcp",
+        "IpRanges": [
+          {
+            "CidrIp": "195.56.111.209/32",
+            "Description": "VPN EU"
+          },
+          {
+            "CidrIp": "192.168.222.0/24",
+            "Description": "CICD VPC"
+          }
+        ],
+        "Ipv6Ranges": [],
+        "PrefixListIds": [],
+        "ToPort": 22,
+        "UserIdGroupPairs": []
+      }
+    ],
+    "OwnerId": "123456789012",
+    "GroupId": "sg-0ae266faddaef17e9",
+    "IpPermissionsEgress": [
+      {
+        "IpProtocol": "-1",
+        "IpRanges": [
+          {
+            "CidrIp": "0.0.0.0/0"
+          }
+        ],
+        "Ipv6Ranges": [],
+        "PrefixListIds": [],
+        "UserIdGroupPairs": []
+      }
+    ],
+    "VpcId": "vpc-7ce45c14"
+  },
+  {
+    "Description": "Asia",
+    "GroupName": "asia",
+    "IpPermissions": [
+      {
+        "IpProtocol": "-1",
+        "IpRanges": [],
+        "Ipv6Ranges": [],
+        "PrefixListIds": [
+          {
+            "Description": "asia prefix list",
+            "PrefixListId": "pl-0dc15f62b6e30b603"
+          }
+        ],
+        "UserIdGroupPairs": [
+          {
+            "GroupId": "sg-09d19538187df66cf",
+            "UserId": "123456789012"
+          }
+        ]
+      }
+    ],
+    "OwnerId": "123456789012",
+    "GroupId": "sg-09d19538187df66cf",
+    "IpPermissionsEgress": [
+      {
+        "IpProtocol": "-1",
+        "IpRanges": [
+          {
+            "CidrIp": "0.0.0.0/0"
+          }
+        ],
+        "Ipv6Ranges": [],
+        "PrefixListIds": [],
+        "UserIdGroupPairs": []
+      }
+    ],
+    "Tags": [
+      {
+        "Key": "created-by",
+        "Value": "testing"
+      }
+    ],
+    "VpcId": "vpc-7ce45c14"
+  }
+]

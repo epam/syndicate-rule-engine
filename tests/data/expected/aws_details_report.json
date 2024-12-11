@@ -1,0 +1,1686 @@
+{
+  "data": {
+    "content": {
+      "eu-central-1": [
+        {
+          "policy": {
+            "comment": "010043022000",
+            "description": "Description for ecc-aws-150-api_gateway_rest_api_encryption_at_rest",
+            "name": "ecc-aws-150-api_gateway_rest_api_encryption_at_rest",
+            "resource": "aws.rest-stage"
+          },
+          "resources": []
+        },
+        {
+          "policy": {
+            "comment": "010018022000",
+            "description": "Description for ecc-aws-070-unused_ec2_security_groups",
+            "name": "ecc-aws-070-unused_ec2_security_groups",
+            "resource": "aws.security-group"
+          },
+          "resources": [
+            {
+              "Description": "Europe West",
+              "GroupId": "sg-05209ceeb761317e5",
+              "GroupName": "west-eu",
+              "IpPermissions": [
+                {
+                  "IpProtocol": "-1",
+                  "IpRanges": [],
+                  "Ipv6Ranges": [],
+                  "PrefixListIds": [
+                    {
+                      "Description": "west-eu prefix list",
+                      "PrefixListId": "pl-087e65b29d25c5dcc"
+                    }
+                  ],
+                  "UserIdGroupPairs": [
+                    {
+                      "GroupId": "sg-05209ceeb761317e5",
+                      "UserId": "123456789012"
+                    }
+                  ]
+                }
+              ],
+              "IpPermissionsEgress": [
+                {
+                  "IpProtocol": "-1",
+                  "IpRanges": [
+                    {
+                      "CidrIp": "0.0.0.0/0"
+                    }
+                  ],
+                  "Ipv6Ranges": [],
+                  "PrefixListIds": [],
+                  "UserIdGroupPairs": []
+                }
+              ],
+              "OwnerId": "123456789012",
+              "Tags": [
+                {
+                  "Key": "created-by",
+                  "Value": "testing"
+                }
+              ],
+              "VpcId": "vpc-7ce45c14",
+              "id": "sg-05209ceeb761317e5",
+              "name": "west-eu"
+            },
+            {
+              "Description": "Allow ssh access to packer ami build",
+              "GroupId": "sg-0ae266faddaef17e9",
+              "GroupName": "packer-ssh-access",
+              "IpPermissions": [
+                {
+                  "FromPort": 22,
+                  "IpProtocol": "tcp",
+                  "IpRanges": [
+                    {
+                      "CidrIp": "195.56.111.209/32",
+                      "Description": "VPN EU"
+                    },
+                    {
+                      "CidrIp": "192.168.222.0/24",
+                      "Description": "CICD VPC"
+                    }
+                  ],
+                  "Ipv6Ranges": [],
+                  "PrefixListIds": [],
+                  "ToPort": 22,
+                  "UserIdGroupPairs": []
+                }
+              ],
+              "IpPermissionsEgress": [
+                {
+                  "IpProtocol": "-1",
+                  "IpRanges": [
+                    {
+                      "CidrIp": "0.0.0.0/0"
+                    }
+                  ],
+                  "Ipv6Ranges": [],
+                  "PrefixListIds": [],
+                  "UserIdGroupPairs": []
+                }
+              ],
+              "OwnerId": "123456789012",
+              "VpcId": "vpc-7ce45c14",
+              "id": "sg-0ae266faddaef17e9",
+              "name": "packer-ssh-access"
+            },
+            {
+              "Description": "Asia",
+              "GroupId": "sg-09d19538187df66cf",
+              "GroupName": "asia",
+              "IpPermissions": [
+                {
+                  "IpProtocol": "-1",
+                  "IpRanges": [],
+                  "Ipv6Ranges": [],
+                  "PrefixListIds": [
+                    {
+                      "Description": "asia prefix list",
+                      "PrefixListId": "pl-0dc15f62b6e30b603"
+                    }
+                  ],
+                  "UserIdGroupPairs": [
+                    {
+                      "GroupId": "sg-09d19538187df66cf",
+                      "UserId": "123456789012"
+                    }
+                  ]
+                }
+              ],
+              "IpPermissionsEgress": [
+                {
+                  "IpProtocol": "-1",
+                  "IpRanges": [
+                    {
+                      "CidrIp": "0.0.0.0/0"
+                    }
+                  ],
+                  "Ipv6Ranges": [],
+                  "PrefixListIds": [],
+                  "UserIdGroupPairs": []
+                }
+              ],
+              "OwnerId": "123456789012",
+              "Tags": [
+                {
+                  "Key": "created-by",
+                  "Value": "testing"
+                }
+              ],
+              "VpcId": "vpc-7ce45c14",
+              "id": "sg-09d19538187df66cf",
+              "name": "asia"
+            }
+          ]
+        },
+        {
+          "policy": {
+            "comment": "010019012000",
+            "description": "Description for ecc-aws-374-cloudtrail_logs_data_events",
+            "name": "ecc-aws-374-cloudtrail_logs_data_events",
+            "resource": "aws.cloudtrail"
+          },
+          "resources": [
+            {
+              "HasCustomEventSelectors": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+              "HasInsightSelectors": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+              "HomeRegion": "eu-central-1",
+              "IncludeGlobalServiceEvents": true,
+              "IsMultiRegionTrail": true,
+              "IsOrganizationTrail": true,
+              "LogFileValidationEnabled": true,
+              "Name": "testing-org",
+              "S3BucketName": "testing-org-csup6",
+              "Tags": [],
+              "TrailARN": "arn:aws:cloudtrail:eu-central-1:111111111111:trail/testing-org",
+              "arn": "arn:aws:cloudtrail:eu-central-1:111111111111:trail/testing-org",
+              "c7n:TrailEventSelectors": {
+                "EventSelectors": [
+                  {
+                    "DataResources": [],
+                    "ExcludeManagementEventSources": [],
+                    "IncludeManagementEvents": true,
+                    "ReadWriteType": "All"
+                  }
+                ],
+                "TrailARN": "arn:aws:cloudtrail:eu-central-1:111111111111:trail/testing-org"
+              },
+              "id": "arn:aws:cloudtrail:eu-central-1:111111111111:trail/testing-org",
+              "name": "testing-org"
+            }
+          ]
+        },
+        {
+          "policy": {
+            "comment": "010042022000",
+            "description": "Description for ecc-aws-221-sns_kms_encryption_enabled",
+            "name": "ecc-aws-221-sns_kms_encryption_enabled",
+            "resource": "aws.sns"
+          },
+          "resources": [
+            {
+              "DisplayName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+              "EffectiveDeliveryPolicy": "{\"http\":{\"defaultHealthyRetryPolicy\":{\"minDelayTarget\":20,\"maxDelayTarget\":20,\"numRetries\":3,\"numMaxDelayRetries\":0,\"numNoDelayRetries\":0,\"numMinDelayRetries\":0,\"backoffFunction\":\"linear\"},\"disableSubscriptionOverrides\":false,\"defaultRequestPolicy\":{\"headerContentType\":\"text/plain; charset=UTF-8\"}}}",
+              "Owner": "123456789012",
+              "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"__default_policy_ID\",\"Statement\":[{\"Sid\":\"__default_statement_ID\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":[\"SNS:GetTopicAttributes\",\"SNS:SetTopicAttributes\",\"SNS:AddPermission\",\"SNS:RemovePermission\",\"SNS:DeleteTopic\",\"SNS:Subscribe\",\"SNS:ListSubscriptionsByTopic\",\"SNS:Publish\",\"SNS:Receive\"],\"Resource\":\"arn:aws:sns:eu-central-1:123456789012:dead\",\"Condition\":{\"StringEquals\":{\"AWS:SourceOwner\":\"123456789012\"}}}]}",
+              "SubscriptionsConfirmed": "1",
+              "SubscriptionsDeleted": "0",
+              "SubscriptionsPending": "0",
+              "Tags": [],
+              "TopicArn": "arn:aws:sns:eu-central-1:123456789012:dead",
+              "c7n:MatchedFilters": [
+                "KmsMasterKeyId"
+              ],
+              "id": "arn:aws:sns:eu-central-1:123456789012:dead",
+              "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673"
+            },
+            {
+              "DisplayName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+              "EffectiveDeliveryPolicy": "{\"http\":{\"defaultHealthyRetryPolicy\":{\"minDelayTarget\":20,\"maxDelayTarget\":20,\"numRetries\":3,\"numMaxDelayRetries\":0,\"numNoDelayRetries\":0,\"numMinDelayRetries\":0,\"backoffFunction\":\"linear\"},\"disableSubscriptionOverrides\":false,\"defaultRequestPolicy\":{\"headerContentType\":\"text/plain; charset=UTF-8\"}}}",
+              "Owner": "123456789012",
+              "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"__default_policy_ID\",\"Statement\":[{\"Sid\":\"__default_statement_ID\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":[\"SNS:GetTopicAttributes\",\"SNS:SetTopicAttributes\",\"SNS:AddPermission\",\"SNS:RemovePermission\",\"SNS:DeleteTopic\",\"SNS:Subscribe\",\"SNS:ListSubscriptionsByTopic\",\"SNS:Publish\",\"SNS:Receive\"],\"Resource\":\"arn:aws:sns:eu-central-1:123456789012:testing-guard-duty-topic\",\"Condition\":{\"StringEquals\":{\"AWS:SourceOwner\":\"123456789012\"}}},{\"Sid\":\"15c86ff9-b139-11ea-b98f-02c2a2ced469\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"events.amazonaws.com\"},\"Action\":\"sns:Publish\",\"Resource\":\"arn:aws:sns:eu-central-1:123456789012:testing-guard-duty-topic\"}]}",
+              "SubscriptionsConfirmed": "1",
+              "SubscriptionsDeleted": "0",
+              "SubscriptionsPending": "0",
+              "Tags": [],
+              "TopicArn": "arn:aws:sns:eu-central-1:123456789012:testing-guard-duty-topic",
+              "c7n:MatchedFilters": [
+                "KmsMasterKeyId"
+              ],
+              "id": "arn:aws:sns:eu-central-1:123456789012:testing-guard-duty-topic",
+              "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673"
+            },
+            {
+              "DisplayName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+              "EffectiveDeliveryPolicy": "{\"http\":{\"defaultHealthyRetryPolicy\":{\"minDelayTarget\":20,\"maxDelayTarget\":20,\"numRetries\":3,\"numMaxDelayRetries\":0,\"numNoDelayRetries\":0,\"numMinDelayRetries\":0,\"backoffFunction\":\"linear\"},\"disableSubscriptionOverrides\":false,\"defaultRequestPolicy\":{\"headerContentType\":\"text/plain; charset=UTF-8\"}}}",
+              "Owner": "123456789012",
+              "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"__default_policy_ID\",\"Statement\":[{\"Sid\":\"__default_statement_ID\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":[\"SNS:GetTopicAttributes\",\"SNS:SetTopicAttributes\",\"SNS:AddPermission\",\"SNS:RemovePermission\",\"SNS:DeleteTopic\",\"SNS:Subscribe\",\"SNS:ListSubscriptionsByTopic\",\"SNS:Publish\",\"SNS:Receive\"],\"Resource\":\"arn:aws:sns:eu-central-1:123456789012:m3-inspector-topic\",\"Condition\":{\"StringEquals\":{\"AWS:SourceOwner\":\"123456789012\"}}}]}",
+              "SubscriptionsConfirmed": "1",
+              "SubscriptionsDeleted": "0",
+              "SubscriptionsPending": "0",
+              "Tags": [],
+              "TopicArn": "arn:aws:sns:eu-central-1:123456789012:m3-inspector-topic",
+              "c7n:MatchedFilters": [
+                "KmsMasterKeyId"
+              ],
+              "id": "arn:aws:sns:eu-central-1:123456789012:m3-inspector-topic",
+              "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673"
+            }
+          ]
+        },
+        {
+          "policy": {
+            "comment": "010047042901",
+            "description": "Description for ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+            "name": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+            "resource": "aws.s3"
+          },
+          "resources": [
+            {
+              "Acl": {
+                "Grants": [
+                  {
+                    "Grantee": {
+                      "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+                      "Type": "CanonicalUser"
+                    },
+                    "Permission": "FULL_CONTROL"
+                  }
+                ],
+                "Owner": {
+                  "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+                }
+              },
+              "CreationDate": "2024-07-16T13:24:02+00:00",
+              "Lifecycle": {
+                "Rules": [
+                  {
+                    "AbortIncompleteMultipartUpload": {
+                      "DaysAfterInitiation": true
+                    },
+                    "Expiration": {
+                      "Days": 14
+                    },
+                    "Filter": {
+                      "Prefix": "DEV/"
+                    },
+                    "ID": "devExpiration",
+                    "NoncurrentVersionExpiration": {
+                      "NoncurrentDays": 14
+                    },
+                    "Status": "Enabled"
+                  },
+                  {
+                    "AbortIncompleteMultipartUpload": {
+                      "DaysAfterInitiation": true
+                    },
+                    "Expiration": {
+                      "Days": 90
+                    },
+                    "Filter": {
+                      "Prefix": "QA/"
+                    },
+                    "ID": "qaExpiration",
+                    "NoncurrentVersionExpiration": {
+                      "NoncurrentDays": 90
+                    },
+                    "Status": "Enabled"
+                  }
+                ]
+              },
+              "Location": {
+                "LocationConstraint": "eu-central-1"
+              },
+              "Logging": {
+                "TargetBucket": "s3-access-logs-123456789012-eu-central-1",
+                "TargetPrefix": "123456789012/eu-central-1/example-artifacts/"
+              },
+              "Name": "example-artifacts",
+              "Notification": {},
+              "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"S3BucketPolicy\",\"Statement\":[{\"Sid\":\"DenyInsecureTransport\",\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"*\",\"Resource\":[\"arn:aws:s3:::example-artifacts\",\"arn:aws:s3:::example-artifacts/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
+              "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "Tags": [
+                {
+                  "Key": "owner",
+                  "Value": "some_email@gmail.com"
+                },
+                {
+                  "Key": "aws:cloudformation:stack-name",
+                  "Value": "APP-s3-repository"
+                },
+                {
+                  "Key": "aws:cloudformation:logical-id",
+                  "Value": "APPArtifacts"
+                },
+                {
+                  "Key": "environment",
+                  "Value": "develop"
+                },
+                {
+                  "Key": "application",
+                  "Value": "APP"
+                },
+                {
+                  "Key": "aws:cloudformation:stack-id",
+                  "Value": "arn:aws:cloudformation:eu-central-1:123456789012:stack/APP-s3-repository/a740f9f0-4376-11ef-98b5-02f06973e781"
+                }
+              ],
+              "Versioning": {
+                "Status": "Suspended"
+              },
+              "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "c7n:MatchedFilters": [
+                "Versioning.MFADelete"
+              ],
+              "date": "2024-07-16T13:24:02+00:00",
+              "id": "example-artifacts",
+              "name": "example-artifacts"
+            }
+          ]
+        },
+        {
+          "policy": {
+            "comment": "010019042001",
+            "description": "Description for ecc-aws-516-s3_event_notifications_enabled",
+            "name": "ecc-aws-516-s3_event_notifications_enabled",
+            "resource": "aws.s3"
+          },
+          "resources": [
+            {
+              "Acl": {
+                "Grants": [
+                  {
+                    "Grantee": {
+                      "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+                      "Type": "CanonicalUser"
+                    },
+                    "Permission": "FULL_CONTROL"
+                  }
+                ],
+                "Owner": {
+                  "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+                }
+              },
+              "CreationDate": "2024-07-16T13:24:02+00:00",
+              "Lifecycle": {
+                "Rules": [
+                  {
+                    "AbortIncompleteMultipartUpload": {
+                      "DaysAfterInitiation": true
+                    },
+                    "Expiration": {
+                      "Days": 14
+                    },
+                    "Filter": {
+                      "Prefix": "DEV/"
+                    },
+                    "ID": "devExpiration",
+                    "NoncurrentVersionExpiration": {
+                      "NoncurrentDays": 14
+                    },
+                    "Status": "Enabled"
+                  },
+                  {
+                    "AbortIncompleteMultipartUpload": {
+                      "DaysAfterInitiation": true
+                    },
+                    "Expiration": {
+                      "Days": 90
+                    },
+                    "Filter": {
+                      "Prefix": "QA/"
+                    },
+                    "ID": "qaExpiration",
+                    "NoncurrentVersionExpiration": {
+                      "NoncurrentDays": 90
+                    },
+                    "Status": "Enabled"
+                  }
+                ]
+              },
+              "Location": {
+                "LocationConstraint": "eu-central-1"
+              },
+              "Logging": {
+                "TargetBucket": "s3-access-logs-123456789012-eu-central-1",
+                "TargetPrefix": "123456789012/eu-central-1/example-artifacts/"
+              },
+              "Name": "example-artifacts",
+              "Notification": {},
+              "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"S3BucketPolicy\",\"Statement\":[{\"Sid\":\"DenyInsecureTransport\",\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"*\",\"Resource\":[\"arn:aws:s3:::example-artifacts\",\"arn:aws:s3:::example-artifacts/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
+              "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "Tags": [
+                {
+                  "Key": "owner",
+                  "Value": "some_email@gmail.com"
+                },
+                {
+                  "Key": "aws:cloudformation:stack-name",
+                  "Value": "APP-s3-repository"
+                },
+                {
+                  "Key": "aws:cloudformation:logical-id",
+                  "Value": "APPArtifacts"
+                },
+                {
+                  "Key": "environment",
+                  "Value": "develop"
+                },
+                {
+                  "Key": "application",
+                  "Value": "APP"
+                },
+                {
+                  "Key": "aws:cloudformation:stack-id",
+                  "Value": "arn:aws:cloudformation:eu-central-1:123456789012:stack/APP-s3-repository/a740f9f0-4376-11ef-98b5-02f06973e781"
+                }
+              ],
+              "Versioning": {
+                "Status": "Suspended"
+              },
+              "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "date": "2024-07-16T13:24:02+00:00",
+              "id": "example-artifacts",
+              "name": "example-artifacts"
+            }
+          ]
+        }
+      ],
+      "eu-north-1": [
+        {
+          "policy": {
+            "comment": "010047042901",
+            "description": "Description for ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+            "name": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+            "resource": "aws.s3"
+          },
+          "resources": [
+            {
+              "Acl": {
+                "Grants": [
+                  {
+                    "Grantee": {
+                      "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+                      "Type": "CanonicalUser"
+                    },
+                    "Permission": "FULL_CONTROL"
+                  }
+                ],
+                "Owner": {
+                  "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+                }
+              },
+              "CreationDate": "2020-08-13T13:37:17+00:00",
+              "Lifecycle": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "Location": {
+                "LocationConstraint": "eu-north-1"
+              },
+              "Logging": {
+                "TargetBucket": "s3-access-logs-123456789012-eu-north-1",
+                "TargetPrefix": "123456789012/eu-north-1/macro-delivery/"
+              },
+              "Name": "macro-delivery",
+              "Notification": {},
+              "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"PolicyForCloudFrontPrivateContent\",\"Statement\":[{\"Sid\":\"ReadOnly\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":[]},\"Action\":[\"s3:GetObject\",\"s3:ListBucket\"],\"Resource\":[\"arn:aws:s3:::macro-delivery/**\",\"arn:aws:s3:::macro-delivery\",\"arn:aws:s3:::macro-delivery/*\"]},{\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::macro-delivery\",\"arn:aws:s3:::macro-delivery/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
+              "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "Tags": [],
+              "Versioning": {},
+              "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "c7n:MatchedFilters": [
+                "Versioning.MFADelete"
+              ],
+              "date": "2020-08-13T13:37:17+00:00",
+              "id": "macro-delivery",
+              "name": "macro-delivery"
+            }
+          ]
+        }
+      ],
+      "eu-west-1": [
+        {
+          "policy": {
+            "comment": "010040062900",
+            "description": "Description for ecc-aws-149-rds_public_access_disabled",
+            "name": "ecc-aws-149-rds_public_access_disabled",
+            "resource": "aws.rds"
+          },
+          "resources": []
+        },
+        {
+          "policy": {
+            "comment": "010042022000",
+            "description": "Description for ecc-aws-167-security_group_ingress_is_restricted_traffic_to_port_143",
+            "name": "ecc-aws-167-security_group_ingress_is_restricted_traffic_to_port_143",
+            "resource": "aws.security-group"
+          },
+          "resources": []
+        },
+        {
+          "policy": {
+            "comment": "010002042000",
+            "description": "Description for ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances",
+            "name": "ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances",
+            "resource": "aws.ebs"
+          },
+          "resources": [
+            {
+              "Attachments": [
+                {
+                  "AttachTime": "2024-07-18T11:46:19+00:00",
+                  "DeleteOnTermination": true,
+                  "Device": "/dev/xvda",
+                  "InstanceId": "i-005d97ab81a8b56a5",
+                  "State": "attached",
+                  "VolumeId": "vol-060f342d89d8bb757"
+                }
+              ],
+              "AvailabilityZone": "eu-west-1b",
+              "CreateTime": "2024-07-18T11:46:19.170000+00:00",
+              "Encrypted": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+              "Instance": {
+                "AmiLaunchIndex": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+                "Architecture": "x86_64",
+                "BlockDeviceMappings": [
+                  {
+                    "DeviceName": "/dev/xvda",
+                    "Ebs": {
+                      "AttachTime": "2024-07-18T11:46:19+00:00",
+                      "DeleteOnTermination": true,
+                      "Status": "attached",
+                      "VolumeId": "vol-060f342d89d8bb757"
+                    }
+                  }
+                ],
+                "CapacityReservationSpecification": {
+                  "CapacityReservationPreference": "open"
+                },
+                "ClientToken": "314c55a8-3b4e-4e81-a7c2-ca0d6400af0b",
+                "CpuOptions": {
+                  "CoreCount": true,
+                  "ThreadsPerCore": 2
+                },
+                "EbsOptimized": true,
+                "EnaSupport": true,
+                "EnclaveOptions": {
+                  "Enabled": "ec47f3e8-3f01-460f-a086-f45df83fd152"
+                },
+                "HibernationOptions": {
+                  "Configured": "ec47f3e8-3f01-460f-a086-f45df83fd152"
+                },
+                "Hypervisor": "xen",
+                "IamInstanceProfile": {
+                  "Arn": "arn:aws:iam::123456789012:instance-profile/testing-default-ec2-profile",
+                  "Id": "AIPAIV7EAZ2KRZ75EKE"
+                },
+                "ImageId": "ami-0983f1f9ba9026e4e",
+                "InstanceId": "i-005d97ab81a8b56a5",
+                "InstanceType": "t3.medium",
+                "KeyName": "application-ami",
+                "LaunchTime": "2024-09-17T11:14:38+00:00",
+                "MaintenanceOptions": {
+                  "AutoRecovery": "default"
+                },
+                "MetadataOptions": {
+                  "HttpEndpoint": "enabled",
+                  "HttpProtocolIpv6": "disabled",
+                  "HttpPutResponseHopLimit": true,
+                  "HttpTokens": "required",
+                  "InstanceMetadataTags": "disabled",
+                  "State": "applied"
+                },
+                "Monitoring": {
+                  "State": "disabled"
+                },
+                "NetworkInterfaces": [
+                  {
+                    "Attachment": {
+                      "AttachTime": "2024-07-18T11:46:18+00:00",
+                      "AttachmentId": "eni-attach-0405671de1a0ffdb5",
+                      "DeleteOnTermination": true,
+                      "DeviceIndex": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+                      "NetworkCardIndex": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+                      "Status": "attached"
+                    },
+                    "Description": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+                    "Groups": [
+                      {
+                        "GroupId": "sg-09603e6a7501e7194",
+                        "GroupName": "example-ami-build"
+                      },
+                      {
+                        "GroupId": "sg-051ba793e1b956043",
+                        "GroupName": "defect-dojo-sg"
+                      },
+                      {
+                        "GroupId": "sg-00f7d5cd7c8bed802",
+                        "GroupName": "defect-dojo-extended-sg"
+                      }
+                    ],
+                    "InterfaceType": "interface",
+                    "Ipv6Addresses": [],
+                    "MacAddress": "06:57:5c:8d:b7:0f",
+                    "NetworkInterfaceId": "eni-0be81fc7ed0241b73",
+                    "OwnerId": "123456789012",
+                    "PrivateDnsName": "ip-192-168-111-222.eu-west-1.compute.internal",
+                    "PrivateIpAddress": "192.168.111.222",
+                    "PrivateIpAddresses": [
+                      {
+                        "Primary": true,
+                        "PrivateDnsName": "ip-192-168-111-222.eu-west-1.compute.internal",
+                        "PrivateIpAddress": "192.168.111.222"
+                      }
+                    ],
+                    "SourceDestCheck": true,
+                    "Status": "in-use",
+                    "SubnetId": "subnet-0fd97a4fe475ce4a0",
+                    "VpcId": "vpc-0fd123269e7109aa0"
+                  }
+                ],
+                "Placement": {
+                  "AvailabilityZone": "eu-west-1b",
+                  "GroupName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+                  "Tenancy": "default"
+                },
+                "PlatformDetails": "Linux/UNIX",
+                "PrivateDnsName": "ip-192-168-111-222.eu-west-1.compute.internal",
+                "PrivateDnsNameOptions": {
+                  "EnableResourceNameDnsAAAARecord": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+                  "EnableResourceNameDnsARecord": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+                  "HostnameType": "ip-name"
+                },
+                "PrivateIpAddress": "192.168.111.222",
+                "ProductCodes": [],
+                "PublicDnsName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+                "RootDeviceName": "/dev/xvda",
+                "RootDeviceType": "ebs",
+                "SecurityGroups": [
+                  {
+                    "GroupId": "sg-09603e6a7501e7194",
+                    "GroupName": "example-ami-build"
+                  },
+                  {
+                    "GroupId": "sg-051ba793e1b956043",
+                    "GroupName": "defect-dojo-sg"
+                  },
+                  {
+                    "GroupId": "sg-00f7d5cd7c8bed802",
+                    "GroupName": "defect-dojo-extended-sg"
+                  }
+                ],
+                "SourceDestCheck": true,
+                "State": {
+                  "Code": 80,
+                  "Name": "stopped"
+                },
+                "StateReason": {
+                  "Code": "Client.UserInitiatedShutdown",
+                  "Message": "Client.UserInitiatedShutdown: User initiated shutdown"
+                },
+                "StateTransitionReason": "User initiated (2024-09-17 13:38:26 GMT)",
+                "SubnetId": "subnet-0fd97a4fe475ce4a0",
+                "Tags": [
+                  {
+                    "Key": "Name",
+                    "Value": "application-minikube"
+                  }
+                ],
+                "UsageOperation": "RunInstances",
+                "UsageOperationUpdateTime": "2024-07-18T11:46:18+00:00",
+                "VirtualizationType": "hvm",
+                "VpcId": "vpc-0fd123269e7109aa0"
+              },
+              "Iops": 3000,
+              "MultiAttachEnabled": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+              "Size": 30,
+              "SnapshotId": "snap-05843dfabfa9b2353",
+              "State": "in-use",
+              "Throughput": 125,
+              "VolumeId": "vol-060f342d89d8bb757",
+              "VolumeType": "gp3",
+              "c7n:MatchedFilters": [
+                "instance-State.Name"
+              ],
+              "id": "vol-060f342d89d8bb757",
+              "name": "vol-060f342d89d8bb757"
+            },
+            {
+              "Attachments": [
+                {
+                  "AttachTime": "2024-10-16T09:03:25+00:00",
+                  "DeleteOnTermination": true,
+                  "Device": "/dev/xvda",
+                  "InstanceId": "i-0580697d712fb5b56",
+                  "State": "attached",
+                  "VolumeId": "vol-080f1194e8b86e0a7"
+                }
+              ],
+              "AvailabilityZone": "eu-west-1a",
+              "CreateTime": "2024-10-16T09:03:25.833000+00:00",
+              "Encrypted": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+              "Instance": {
+                "AmiLaunchIndex": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+                "Architecture": "arm64",
+                "BlockDeviceMappings": [
+                  {
+                    "DeviceName": "/dev/xvda",
+                    "Ebs": {
+                      "AttachTime": "2024-10-16T09:03:25+00:00",
+                      "DeleteOnTermination": true,
+                      "Status": "attached",
+                      "VolumeId": "vol-080f1194e8b86e0a7"
+                    }
+                  }
+                ],
+                "BootMode": "uefi",
+                "CapacityReservationSpecification": {
+                  "CapacityReservationPreference": "open"
+                },
+                "ClientToken": "5f1f7bf5-67d2-4e31-ac60-6293113a0723",
+                "CpuOptions": {
+                  "CoreCount": true,
+                  "ThreadsPerCore": true
+                },
+                "EbsOptimized": true,
+                "EnaSupport": true,
+                "EnclaveOptions": {
+                  "Enabled": "ec47f3e8-3f01-460f-a086-f45df83fd152"
+                },
+                "HibernationOptions": {
+                  "Configured": "ec47f3e8-3f01-460f-a086-f45df83fd152"
+                },
+                "Hypervisor": "xen",
+                "IamInstanceProfile": {
+                  "Arn": "arn:aws:iam::123456789012:instance-profile/example-ami-role",
+                  "Id": "AIPAUWVIOXSTP3WM3RA"
+                },
+                "ImageId": "ami-09b4aff9223a76a18",
+                "InstanceId": "i-0580697d712fb5b56",
+                "InstanceType": "m7g.medium",
+                "KeyName": "example-key",
+                "LaunchTime": "2024-10-16T09:03:25+00:00",
+                "MaintenanceOptions": {
+                  "AutoRecovery": "default"
+                },
+                "MetadataOptions": {
+                  "HttpEndpoint": "enabled",
+                  "HttpProtocolIpv6": "disabled",
+                  "HttpPutResponseHopLimit": 4,
+                  "HttpTokens": "required",
+                  "InstanceMetadataTags": "disabled",
+                  "State": "applied"
+                },
+                "Monitoring": {
+                  "State": "disabled"
+                },
+                "NetworkInterfaces": [
+                  {
+                    "Attachment": {
+                      "AttachTime": "2024-10-16T09:03:25+00:00",
+                      "AttachmentId": "eni-attach-044350aff2ea042f5",
+                      "DeleteOnTermination": true,
+                      "DeviceIndex": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+                      "NetworkCardIndex": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+                      "Status": "attached"
+                    },
+                    "Description": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+                    "Groups": [
+                      {
+                        "GroupId": "sg-0d29c0f45fb83b5cd",
+                        "GroupName": "basic"
+                      }
+                    ],
+                    "InterfaceType": "interface",
+                    "Ipv6Addresses": [],
+                    "MacAddress": "02:9c:21:21:01:91",
+                    "NetworkInterfaceId": "eni-0bb2ae5e4db2945f9",
+                    "OwnerId": "123456789012",
+                    "PrivateDnsName": "ip-192-168-121-31.eu-west-1.compute.internal",
+                    "PrivateIpAddress": "192.168.121.31",
+                    "PrivateIpAddresses": [
+                      {
+                        "Primary": true,
+                        "PrivateDnsName": "ip-192-168-121-31.eu-west-1.compute.internal",
+                        "PrivateIpAddress": "192.168.121.31"
+                      }
+                    ],
+                    "SourceDestCheck": true,
+                    "Status": "in-use",
+                    "SubnetId": "subnet-0bcf600231c491d63",
+                    "VpcId": "vpc-0fd123269e7109aa0"
+                  }
+                ],
+                "Placement": {
+                  "AvailabilityZone": "eu-west-1a",
+                  "GroupName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+                  "Tenancy": "default"
+                },
+                "PlatformDetails": "Linux/UNIX",
+                "PrivateDnsName": "ip-192-168-121-31.eu-west-1.compute.internal",
+                "PrivateDnsNameOptions": {
+                  "EnableResourceNameDnsAAAARecord": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+                  "EnableResourceNameDnsARecord": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+                  "HostnameType": "ip-name"
+                },
+                "PrivateIpAddress": "192.168.121.31",
+                "ProductCodes": [],
+                "PublicDnsName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+                "RootDeviceName": "/dev/xvda",
+                "RootDeviceType": "ebs",
+                "SecurityGroups": [
+                  {
+                    "GroupId": "sg-0d29c0f45fb83b5cd",
+                    "GroupName": "basic"
+                  }
+                ],
+                "SourceDestCheck": true,
+                "State": {
+                  "Code": 80,
+                  "Name": "stopped"
+                },
+                "StateReason": {
+                  "Code": "Client.UserInitiatedShutdown",
+                  "Message": "Client.UserInitiatedShutdown: User initiated shutdown"
+                },
+                "StateTransitionReason": "User initiated (2024-10-16 09:12:17 GMT)",
+                "SubnetId": "subnet-0bcf600231c491d63",
+                "Tags": [
+                  {
+                    "Key": "Name",
+                    "Value": "example"
+                  }
+                ],
+                "UsageOperation": "RunInstances",
+                "UsageOperationUpdateTime": "2024-10-16T09:03:25+00:00",
+                "VirtualizationType": "hvm",
+                "VpcId": "vpc-0fd123269e7109aa0"
+              },
+              "Iops": 3000,
+              "MultiAttachEnabled": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+              "Size": 30,
+              "SnapshotId": "snap-03233c26af4dd36d0",
+              "State": "in-use",
+              "Throughput": 125,
+              "VolumeId": "vol-080f1194e8b86e0a7",
+              "VolumeType": "gp3",
+              "c7n:MatchedFilters": [
+                "instance-State.Name"
+              ],
+              "id": "vol-080f1194e8b86e0a7",
+              "name": "vol-080f1194e8b86e0a7"
+            }
+          ]
+        },
+        {
+          "policy": {
+            "comment": "010024032010",
+            "description": "Description for ecc-aws-490-ec2_token_hop_limit_check",
+            "name": "ecc-aws-490-ec2_token_hop_limit_check",
+            "resource": "aws.ec2"
+          },
+          "resources": [
+            {
+              "AmiLaunchIndex": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+              "Architecture": "arm64",
+              "BlockDeviceMappings": [
+                {
+                  "DeviceName": "/dev/xvda",
+                  "Ebs": {
+                    "AttachTime": "2024-10-16T09:03:25+00:00",
+                    "DeleteOnTermination": true,
+                    "Status": "attached",
+                    "VolumeId": "vol-080f1194e8b86e0a7"
+                  }
+                }
+              ],
+              "BootMode": "uefi",
+              "CapacityReservationSpecification": {
+                "CapacityReservationPreference": "open"
+              },
+              "ClientToken": "5f1f7bf5-67d2-4e31-ac60-6293113a0723",
+              "CpuOptions": {
+                "CoreCount": true,
+                "ThreadsPerCore": true
+              },
+              "EbsOptimized": true,
+              "EnaSupport": true,
+              "EnclaveOptions": {
+                "Enabled": "ec47f3e8-3f01-460f-a086-f45df83fd152"
+              },
+              "HibernationOptions": {
+                "Configured": "ec47f3e8-3f01-460f-a086-f45df83fd152"
+              },
+              "Hypervisor": "xen",
+              "IamInstanceProfile": {
+                "Arn": "arn:aws:iam::123456789012:instance-profile/example-ami-role",
+                "Id": "AIPAUWVIOXSTP3WM3RA"
+              },
+              "ImageId": "ami-09b4aff9223a76a18",
+              "InstanceId": "i-0580697d712fb5b56",
+              "InstanceType": "m7g.medium",
+              "KeyName": "example-key",
+              "LaunchTime": "2024-10-16T09:03:25+00:00",
+              "MaintenanceOptions": {
+                "AutoRecovery": "default"
+              },
+              "MetadataOptions": {
+                "HttpEndpoint": "enabled",
+                "HttpProtocolIpv6": "disabled",
+                "HttpPutResponseHopLimit": 4,
+                "HttpTokens": "required",
+                "InstanceMetadataTags": "disabled",
+                "State": "applied"
+              },
+              "Monitoring": {
+                "State": "disabled"
+              },
+              "NetworkInterfaces": [
+                {
+                  "Attachment": {
+                    "AttachTime": "2024-10-16T09:03:25+00:00",
+                    "AttachmentId": "eni-attach-044350aff2ea042f5",
+                    "DeleteOnTermination": true,
+                    "DeviceIndex": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+                    "NetworkCardIndex": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+                    "Status": "attached"
+                  },
+                  "Description": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+                  "Groups": [
+                    {
+                      "GroupId": "sg-0d29c0f45fb83b5cd",
+                      "GroupName": "basic"
+                    }
+                  ],
+                  "InterfaceType": "interface",
+                  "Ipv6Addresses": [],
+                  "MacAddress": "02:9c:21:21:01:91",
+                  "NetworkInterfaceId": "eni-0bb2ae5e4db2945f9",
+                  "OwnerId": "123456789012",
+                  "PrivateDnsName": "ip-192-168-121-31.eu-west-1.compute.internal",
+                  "PrivateIpAddress": "192.168.121.31",
+                  "PrivateIpAddresses": [
+                    {
+                      "Primary": true,
+                      "PrivateDnsName": "ip-192-168-121-31.eu-west-1.compute.internal",
+                      "PrivateIpAddress": "192.168.121.31"
+                    }
+                  ],
+                  "SourceDestCheck": true,
+                  "Status": "in-use",
+                  "SubnetId": "subnet-0bcf600231c491d63",
+                  "VpcId": "vpc-0fd123269e7109aa0"
+                }
+              ],
+              "Placement": {
+                "AvailabilityZone": "eu-west-1a",
+                "GroupName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+                "Tenancy": "default"
+              },
+              "PlatformDetails": "Linux/UNIX",
+              "PrivateDnsName": "ip-192-168-121-31.eu-west-1.compute.internal",
+              "PrivateDnsNameOptions": {
+                "EnableResourceNameDnsAAAARecord": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+                "EnableResourceNameDnsARecord": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+                "HostnameType": "ip-name"
+              },
+              "PrivateIpAddress": "192.168.121.31",
+              "ProductCodes": [],
+              "PublicDnsName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+              "RootDeviceName": "/dev/xvda",
+              "RootDeviceType": "ebs",
+              "SecurityGroups": [
+                {
+                  "GroupId": "sg-0d29c0f45fb83b5cd",
+                  "GroupName": "basic"
+                }
+              ],
+              "SourceDestCheck": true,
+              "State": {
+                "Code": 80,
+                "Name": "stopped"
+              },
+              "StateReason": {
+                "Code": "Client.UserInitiatedShutdown",
+                "Message": "Client.UserInitiatedShutdown: User initiated shutdown"
+              },
+              "StateTransitionReason": "User initiated (2024-10-16 09:12:17 GMT)",
+              "SubnetId": "subnet-0bcf600231c491d63",
+              "Tags": [
+                {
+                  "Key": "Name",
+                  "Value": "example"
+                }
+              ],
+              "UsageOperation": "RunInstances",
+              "UsageOperationUpdateTime": "2024-10-16T09:03:25+00:00",
+              "VirtualizationType": "hvm",
+              "VpcId": "vpc-0fd123269e7109aa0",
+              "date": "2024-10-16T09:03:25+00:00",
+              "id": "i-0580697d712fb5b56",
+              "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673"
+            },
+            {
+              "AmiLaunchIndex": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+              "Architecture": "x86_64",
+              "BlockDeviceMappings": [
+                {
+                  "DeviceName": "/dev/xvda",
+                  "Ebs": {
+                    "AttachTime": "2024-06-25T09:35:35+00:00",
+                    "DeleteOnTermination": true,
+                    "Status": "attached",
+                    "VolumeId": "vol-06663a095c7de10d2"
+                  }
+                }
+              ],
+              "BootMode": "uefi-preferred",
+              "CapacityReservationSpecification": {
+                "CapacityReservationPreference": "open"
+              },
+              "ClientToken": "4826535c-901a-4cab-b4a4-9952e9be1385",
+              "CpuOptions": {
+                "CoreCount": true,
+                "ThreadsPerCore": true
+              },
+              "EbsOptimized": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+              "EnaSupport": true,
+              "EnclaveOptions": {
+                "Enabled": "ec47f3e8-3f01-460f-a086-f45df83fd152"
+              },
+              "HibernationOptions": {
+                "Configured": "ec47f3e8-3f01-460f-a086-f45df83fd152"
+              },
+              "Hypervisor": "xen",
+              "IamInstanceProfile": {
+                "Arn": "arn:aws:iam::123456789012:instance-profile/testing-default-ec2-profile",
+                "Id": "AIPAIV7EAZ2KRZ75EKE"
+              },
+              "ImageId": "ami-08ba52a61087f1bd6",
+              "InstanceId": "i-0771a4eb028bda937",
+              "InstanceType": "t2.micro",
+              "KeyName": "application-ami-dev",
+              "LaunchTime": "2024-06-25T09:35:34+00:00",
+              "MaintenanceOptions": {
+                "AutoRecovery": "default"
+              },
+              "MetadataOptions": {
+                "HttpEndpoint": "enabled",
+                "HttpProtocolIpv6": "disabled",
+                "HttpPutResponseHopLimit": 2,
+                "HttpTokens": "required",
+                "InstanceMetadataTags": "disabled",
+                "State": "applied"
+              },
+              "Monitoring": {
+                "State": "disabled"
+              },
+              "NetworkInterfaces": [
+                {
+                  "Attachment": {
+                    "AttachTime": "2024-06-25T09:35:34+00:00",
+                    "AttachmentId": "eni-attach-021a5b1a91b636f5a",
+                    "DeleteOnTermination": true,
+                    "DeviceIndex": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+                    "NetworkCardIndex": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+                    "Status": "attached"
+                  },
+                  "Description": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+                  "Groups": [
+                    {
+                      "GroupId": "sg-0ea2f014d35531a10",
+                      "GroupName": "west-eu"
+                    }
+                  ],
+                  "InterfaceType": "interface",
+                  "Ipv6Addresses": [],
+                  "MacAddress": "06:3b:bd:9e:39:55",
+                  "NetworkInterfaceId": "eni-0189a4bcc8e9098db",
+                  "OwnerId": "123456789012",
+                  "PrivateDnsName": "ip-172-44-22-143.eu-west-1.compute.internal",
+                  "PrivateIpAddress": "172.44.22.143",
+                  "PrivateIpAddresses": [
+                    {
+                      "Primary": true,
+                      "PrivateDnsName": "ip-172-44-22-143.eu-west-1.compute.internal",
+                      "PrivateIpAddress": "172.44.22.143"
+                    }
+                  ],
+                  "SourceDestCheck": true,
+                  "Status": "in-use",
+                  "SubnetId": "subnet-14f0e962",
+                  "VpcId": "vpc-b78b9ad3"
+                }
+              ],
+              "Placement": {
+                "AvailabilityZone": "eu-west-1b",
+                "GroupName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+                "Tenancy": "default"
+              },
+              "PlatformDetails": "Linux/UNIX",
+              "PrivateDnsName": "ip-172-44-22-143.eu-west-1.compute.internal",
+              "PrivateDnsNameOptions": {
+                "EnableResourceNameDnsAAAARecord": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+                "EnableResourceNameDnsARecord": true,
+                "HostnameType": "ip-name"
+              },
+              "PrivateIpAddress": "172.44.22.143",
+              "ProductCodes": [],
+              "PublicDnsName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+              "RootDeviceName": "/dev/xvda",
+              "RootDeviceType": "ebs",
+              "SecurityGroups": [
+                {
+                  "GroupId": "sg-0ea2f014d35531a10",
+                  "GroupName": "west-eu"
+                }
+              ],
+              "SourceDestCheck": true,
+              "State": {
+                "Code": 80,
+                "Name": "stopped"
+              },
+              "StateReason": {
+                "Code": "Client.UserInitiatedShutdown",
+                "Message": "Client.UserInitiatedShutdown: User initiated shutdown"
+              },
+              "StateTransitionReason": "User initiated (2024-06-26 09:48:58 GMT)",
+              "SubnetId": "subnet-14f0e962",
+              "Tags": [
+                {
+                  "Key": "Name",
+                  "Value": "application-ami-test"
+                }
+              ],
+              "UsageOperation": "RunInstances",
+              "UsageOperationUpdateTime": "2024-06-25T09:35:34+00:00",
+              "VirtualizationType": "hvm",
+              "VpcId": "vpc-b78b9ad3",
+              "date": "2024-06-25T09:35:34+00:00",
+              "id": "i-0771a4eb028bda937",
+              "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673"
+            }
+          ]
+        },
+        {
+          "policy": {
+            "comment": "010043082000",
+            "description": "Description for ecc-aws-229-ecr_repository_kms_encryption_enabled",
+            "name": "ecc-aws-229-ecr_repository_kms_encryption_enabled",
+            "resource": "aws.ecr"
+          },
+          "resources": [
+            {
+              "Tags": [],
+              "arn": "arn:aws:ecr:eu-west-1:123456789012:repository/application-dev",
+              "createdAt": "2022-08-04T16:27:44+03:00",
+              "encryptionConfiguration": {
+                "encryptionType": "AES256"
+              },
+              "id": "application-dev",
+              "imageScanningConfiguration": {
+                "scanOnPush": true
+              },
+              "imageTagMutability": "MUTABLE",
+              "name": "application-dev",
+              "registryId": "123456789012",
+              "repositoryArn": "arn:aws:ecr:eu-west-1:123456789012:repository/application-dev",
+              "repositoryName": "application-dev",
+              "repositoryUri": "123456789012.dkr.ecr.eu-west-1.amazonaws.com/application-dev"
+            },
+            {
+              "Tags": [],
+              "arn": "arn:aws:ecr:eu-west-1:123456789012:repository/example-developer-test",
+              "createdAt": "2018-12-10T16:26:16+02:00",
+              "encryptionConfiguration": {
+                "encryptionType": "AES256"
+              },
+              "id": "example-developer-test",
+              "imageScanningConfiguration": {
+                "scanOnPush": true
+              },
+              "imageTagMutability": "MUTABLE",
+              "name": "example-developer-test",
+              "registryId": "123456789012",
+              "repositoryArn": "arn:aws:ecr:eu-west-1:123456789012:repository/example-developer-test",
+              "repositoryName": "example-developer-test",
+              "repositoryUri": "123456789012.dkr.ecr.eu-west-1.amazonaws.com/example-developer-test"
+            }
+          ]
+        },
+        {
+          "policy": {
+            "comment": "010019012000",
+            "description": "Description for ecc-aws-374-cloudtrail_logs_data_events",
+            "name": "ecc-aws-374-cloudtrail_logs_data_events",
+            "resource": "aws.cloudtrail"
+          },
+          "resources": [
+            {
+              "HasCustomEventSelectors": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+              "HasInsightSelectors": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+              "HomeRegion": "eu-central-1",
+              "IncludeGlobalServiceEvents": true,
+              "IsMultiRegionTrail": true,
+              "IsOrganizationTrail": true,
+              "LogFileValidationEnabled": true,
+              "Name": "testing-org",
+              "S3BucketName": "testing-org-csup6",
+              "Tags": [],
+              "TrailARN": "arn:aws:cloudtrail:eu-central-1:111111111111:trail/testing-org",
+              "arn": "arn:aws:cloudtrail:eu-central-1:111111111111:trail/testing-org",
+              "c7n:TrailEventSelectors": {
+                "EventSelectors": [
+                  {
+                    "DataResources": [],
+                    "ExcludeManagementEventSources": [],
+                    "IncludeManagementEvents": true,
+                    "ReadWriteType": "All"
+                  }
+                ],
+                "TrailARN": "arn:aws:cloudtrail:eu-central-1:111111111111:trail/testing-org"
+              },
+              "id": "arn:aws:cloudtrail:eu-central-1:111111111111:trail/testing-org",
+              "name": "testing-org"
+            }
+          ]
+        },
+        {
+          "policy": {
+            "comment": "010047042901",
+            "description": "Description for ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+            "name": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+            "resource": "aws.s3"
+          },
+          "resources": [
+            {
+              "Acl": {
+                "Grants": [
+                  {
+                    "Grantee": {
+                      "DisplayName": "Special-AWS",
+                      "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+                      "Type": "CanonicalUser"
+                    },
+                    "Permission": "FULL_CONTROL"
+                  }
+                ],
+                "Owner": {
+                  "DisplayName": "Special-AWS",
+                  "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+                }
+              },
+              "CreationDate": "2022-06-20T10:54:56+00:00",
+              "Lifecycle": {
+                "Rules": [
+                  {
+                    "Expiration": {
+                      "Days": true
+                    },
+                    "Filter": {
+                      "Prefix": "on-demand/"
+                    },
+                    "ID": "Remove old",
+                    "Status": "Enabled"
+                  }
+                ]
+              },
+              "Location": {
+                "LocationConstraint": "eu-west-1"
+              },
+              "Logging": {
+                "TargetBucket": "s3-access-logs-123456789012-eu-west-1",
+                "TargetPrefix": "123456789012/eu-west-1/example-reports-dev/"
+              },
+              "Name": "example-reports-dev",
+              "Notification": {},
+              "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::example-reports-dev\",\"arn:aws:s3:::example-reports-dev/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
+              "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "Tags": [
+                {
+                  "Key": "environment",
+                  "Value": "example"
+                }
+              ],
+              "Versioning": {},
+              "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "c7n:MatchedFilters": [
+                "Versioning.MFADelete"
+              ],
+              "date": "2022-06-20T10:54:56+00:00",
+              "id": "example-reports-dev",
+              "name": "example-reports-dev"
+            },
+            {
+              "Acl": {
+                "Grants": [
+                  {
+                    "Grantee": {
+                      "DisplayName": "Special-AWS",
+                      "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+                      "Type": "CanonicalUser"
+                    },
+                    "Permission": "FULL_CONTROL"
+                  }
+                ],
+                "Owner": {
+                  "DisplayName": "Special-AWS",
+                  "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+                }
+              },
+              "CreationDate": "2024-05-30T08:05:41+00:00",
+              "Lifecycle": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "Location": {
+                "LocationConstraint": "eu-west-1"
+              },
+              "Logging": {
+                "TargetBucket": "s3-access-logs-123456789012-eu-west-1",
+                "TargetPrefix": "123456789012/eu-west-1/appcomposer-4bzknnwy0n3wuuhd-eu-west-1/"
+              },
+              "Name": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1",
+              "Notification": {},
+              "Policy": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "Tags": [],
+              "Versioning": {},
+              "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "c7n:MatchedFilters": [
+                "Versioning.MFADelete"
+              ],
+              "date": "2024-05-30T08:05:41+00:00",
+              "id": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1",
+              "name": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1"
+            },
+            {
+              "Acl": {
+                "Grants": [
+                  {
+                    "Grantee": {
+                      "DisplayName": "Special-AWS",
+                      "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+                      "Type": "CanonicalUser"
+                    },
+                    "Permission": "FULL_CONTROL"
+                  }
+                ],
+                "Owner": {
+                  "DisplayName": "Special-AWS",
+                  "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+                }
+              },
+              "CreationDate": "2022-07-05T10:17:37+00:00",
+              "Lifecycle": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "Location": {
+                "LocationConstraint": "eu-west-1"
+              },
+              "Logging": {
+                "TargetBucket": "s3-access-logs-123456789012-eu-west-1",
+                "TargetPrefix": "123456789012/eu-west-1/example-rulesets-dev/"
+              },
+              "Name": "example-rulesets-dev",
+              "Notification": {},
+              "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::example-rulesets-dev\",\"arn:aws:s3:::example-rulesets-dev/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
+              "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "Tags": [
+                {
+                  "Key": "environment",
+                  "Value": "example"
+                }
+              ],
+              "Versioning": {},
+              "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "c7n:MatchedFilters": [
+                "Versioning.MFADelete"
+              ],
+              "date": "2022-07-05T10:17:37+00:00",
+              "id": "example-rulesets-dev",
+              "name": "example-rulesets-dev"
+            }
+          ]
+        },
+        {
+          "policy": {
+            "comment": "010019042001",
+            "description": "Description for ecc-aws-516-s3_event_notifications_enabled",
+            "name": "ecc-aws-516-s3_event_notifications_enabled",
+            "resource": "aws.s3"
+          },
+          "resources": [
+            {
+              "Acl": {
+                "Grants": [
+                  {
+                    "Grantee": {
+                      "DisplayName": "Special-AWS",
+                      "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+                      "Type": "CanonicalUser"
+                    },
+                    "Permission": "FULL_CONTROL"
+                  }
+                ],
+                "Owner": {
+                  "DisplayName": "Special-AWS",
+                  "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+                }
+              },
+              "CreationDate": "2022-06-20T10:54:56+00:00",
+              "Lifecycle": {
+                "Rules": [
+                  {
+                    "Expiration": {
+                      "Days": true
+                    },
+                    "Filter": {
+                      "Prefix": "on-demand/"
+                    },
+                    "ID": "Remove old",
+                    "Status": "Enabled"
+                  }
+                ]
+              },
+              "Location": {
+                "LocationConstraint": "eu-west-1"
+              },
+              "Logging": {
+                "TargetBucket": "s3-access-logs-123456789012-eu-west-1",
+                "TargetPrefix": "123456789012/eu-west-1/example-reports-dev/"
+              },
+              "Name": "example-reports-dev",
+              "Notification": {},
+              "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::example-reports-dev\",\"arn:aws:s3:::example-reports-dev/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
+              "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "Tags": [
+                {
+                  "Key": "environment",
+                  "Value": "example"
+                }
+              ],
+              "Versioning": {},
+              "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "date": "2022-06-20T10:54:56+00:00",
+              "id": "example-reports-dev",
+              "name": "example-reports-dev"
+            },
+            {
+              "Acl": {
+                "Grants": [
+                  {
+                    "Grantee": {
+                      "DisplayName": "Special-AWS",
+                      "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+                      "Type": "CanonicalUser"
+                    },
+                    "Permission": "FULL_CONTROL"
+                  }
+                ],
+                "Owner": {
+                  "DisplayName": "Special-AWS",
+                  "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+                }
+              },
+              "CreationDate": "2024-05-30T08:05:41+00:00",
+              "Lifecycle": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "Location": {
+                "LocationConstraint": "eu-west-1"
+              },
+              "Logging": {
+                "TargetBucket": "s3-access-logs-123456789012-eu-west-1",
+                "TargetPrefix": "123456789012/eu-west-1/appcomposer-4bzknnwy0n3wuuhd-eu-west-1/"
+              },
+              "Name": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1",
+              "Notification": {},
+              "Policy": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "Tags": [],
+              "Versioning": {},
+              "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "date": "2024-05-30T08:05:41+00:00",
+              "id": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1",
+              "name": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1"
+            },
+            {
+              "Acl": {
+                "Grants": [
+                  {
+                    "Grantee": {
+                      "DisplayName": "Special-AWS",
+                      "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+                      "Type": "CanonicalUser"
+                    },
+                    "Permission": "FULL_CONTROL"
+                  }
+                ],
+                "Owner": {
+                  "DisplayName": "Special-AWS",
+                  "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+                }
+              },
+              "CreationDate": "2019-05-08T15:03:20+00:00",
+              "Lifecycle": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "Location": {
+                "LocationConstraint": "eu-west-1"
+              },
+              "Logging": {
+                "TargetBucket": "s3-access-logs-123456789012-eu-west-1",
+                "TargetPrefix": "123456789012/eu-west-1/example-meta-storage-eu-west-1-tmp/"
+              },
+              "Name": "example-meta-storage-eu-west-1-tmp",
+              "Notification": {},
+              "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::example-meta-storage-eu-west-1-tmp\",\"arn:aws:s3:::example-meta-storage-eu-west-1-tmp/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
+              "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "Tags": [],
+              "Versioning": {},
+              "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "date": "2019-05-08T15:03:20+00:00",
+              "id": "example-meta-storage-eu-west-1-tmp",
+              "name": "example-meta-storage-eu-west-1-tmp"
+            }
+          ]
+        }
+      ],
+      "eu-west-3": [
+        {
+          "policy": {
+            "comment": "010047042901",
+            "description": "Description for ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+            "name": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+            "resource": "aws.s3"
+          },
+          "resources": [
+            {
+              "Acl": {
+                "Grants": [
+                  {
+                    "Grantee": {
+                      "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+                      "Type": "CanonicalUser"
+                    },
+                    "Permission": "FULL_CONTROL"
+                  }
+                ],
+                "Owner": {
+                  "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+                }
+              },
+              "CreationDate": "2019-12-17T17:05:18+00:00",
+              "Lifecycle": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "Location": {
+                "LocationConstraint": "eu-west-3"
+              },
+              "Logging": {
+                "TargetBucket": "s3-access-logs-123456789012-eu-west-3",
+                "TargetPrefix": "123456789012/eu-west-3/example-meta-storage-eu-west-3-par/"
+              },
+              "Name": "example-meta-storage-eu-west-3-par",
+              "Notification": {
+                "LambdaFunctionConfigurations": [
+                  {
+                    "Events": [
+                      "s3:ObjectCreated:Put"
+                    ],
+                    "Filter": {
+                      "Key": {
+                        "FilterRules": [
+                          {
+                            "Name": "Suffix",
+                            "Value": ".raw"
+                          }
+                        ]
+                      }
+                    },
+                    "Id": "ZTYzMTRiZDYtYWE4Ny00MTk0LWEwODAtZjU3NTFjNjQyZWVk",
+                    "LambdaFunctionArn": "arn:aws:lambda:eu-west-3:123456789012:function:log-data-parser:Prod"
+                  }
+                ]
+              },
+              "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::example-meta-storage-eu-west-3-par\",\"arn:aws:s3:::example-meta-storage-eu-west-3-par/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
+              "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "Tags": [],
+              "Versioning": {},
+              "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "c7n:MatchedFilters": [
+                "Versioning.MFADelete"
+              ],
+              "date": "2019-12-17T17:05:18+00:00",
+              "id": "example-meta-storage-eu-west-3-par",
+              "name": "example-meta-storage-eu-west-3-par"
+            }
+          ]
+        }
+      ],
+      "global": [
+        {
+          "policy": {
+            "comment": "010018002001",
+            "description": "Description for ecc-aws-499-iam_group_has_users_check",
+            "name": "ecc-aws-499-iam_group_has_users_check",
+            "resource": "aws.iam-group"
+          },
+          "resources": [
+            {
+              "Arn": "arn:aws:iam::123456789012:group/example-dev-extended-group",
+              "CreateDate": "2022-06-06T07:35:04+00:00",
+              "GroupId": "AGPAUWVIOXSTGO46LZR77",
+              "GroupName": "example-dev-extended-group",
+              "Path": "/",
+              "arn": "arn:aws:iam::123456789012:group/example-dev-extended-group",
+              "date": "2022-06-06T07:35:04+00:00",
+              "id": "example-dev-extended-group",
+              "name": "example-dev-extended-group"
+            },
+            {
+              "Arn": "arn:aws:iam::123456789012:group/example-dev-group",
+              "CreateDate": "2022-05-24T12:47:26+00:00",
+              "GroupId": "AGPAUWIOXSTCNCHB3RX",
+              "GroupName": "example-dev-group",
+              "Path": "/",
+              "arn": "arn:aws:iam::123456789012:group/example-dev-group",
+              "date": "2022-05-24T12:47:26+00:00",
+              "id": "example-dev-group",
+              "name": "example-dev-group"
+            },
+            {
+              "Arn": "arn:aws:iam::123456789012:group/DeployGroupWithoutIAM",
+              "CreateDate": "2017-07-10T11:39:45+00:00",
+              "GroupId": "AGPAIVA7CCC6ONKEHHI2",
+              "GroupName": "DeployGroupWithoutIAM",
+              "Path": "/",
+              "arn": "arn:aws:iam::123456789012:group/DeployGroupWithoutIAM",
+              "date": "2017-07-10T11:39:45+00:00",
+              "id": "DeployGroupWithoutIAM",
+              "name": "DeployGroupWithoutIAM"
+            }
+          ]
+        }
+      ]
+    },
+    "customer_name": "TEST_CUSTOMER",
+    "format": "json",
+    "job_id": "b48fc2bb-fbde-4e63-a254-ce0af04ae397",
+    "job_type": "manual",
+    "obfuscated": false,
+    "tenant_name": "AWS-TESTING"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "error_type": "ACCESS",
+      "policy": "ecc-aws-427-rds_cluster_without_tag_information",
+      "reason": "AccessDenied Exception",
+      "region": "eu-west-1"
+    },
+    {
+      "error_type": "ACCESS",
+      "policy": "ecc-aws-527-waf_global_webacl_not_empty",
+      "reason": "AccessDenied Exception",
+      "region": "global"
+    }
+  ]
+}

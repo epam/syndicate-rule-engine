@@ -1,0 +1,77 @@
+{
+  "policy": {
+    "name": "ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances",
+    "resource": "aws.ebs",
+    "description": "Description for ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances",
+    "comment": "010002042000"
+  },
+  "version": "0.9.40",
+  "execution": {
+    "id": "2332204c-abdb-4c61-92f8-9a3133d0011c",
+    "start": 1729253989.469185,
+    "end_time": 1729253990.192673,
+    "duration": 0.7234878540039062
+  },
+  "config": {
+    "region": "eu-west-1",
+    "regions": [
+      "all"
+    ],
+    "cache": "cloud-custodian.cache",
+    "profile": null,
+    "account_id": "123456789012",
+    "assume_role": null,
+    "session_policy": null,
+    "external_id": null,
+    "log_group": null,
+    "tracer": "default",
+    "metrics_enabled": false,
+    "metrics": null,
+    "output_dir": "./eu-west-1",
+    "cache_period": 120,
+    "dryrun": false,
+    "authorization_file": null,
+    "command": "c7n.commands.run",
+    "config": null,
+    "configs": [],
+    "subparser": "run",
+    "policy_filters": [],
+    "resource_types": [],
+    "verbose": null,
+    "quiet": false,
+    "debug": false,
+    "skip_validation": false,
+    "vars": null
+  },
+  "sys-stats": {
+    "snapshot_time": 0.7234959602355957,
+    "num_fds": 1,
+    "cpu_user": 0.056041472000000425,
+    "cpu_system": 0.004952831999999852,
+    "num_ctx_switches_voluntary": 118,
+    "pfaults": 110
+  },
+  "api-stats": {
+    "ec2.DescribeInstances": 1
+  },
+  "metrics": [
+    {
+      "MetricName": "ResourceCount",
+      "Timestamp": "2024-10-18T15:19:50.190122",
+      "Value": 2,
+      "Unit": "Count"
+    },
+    {
+      "MetricName": "ResourceTime",
+      "Timestamp": "2024-10-18T15:19:50.190134",
+      "Value": 0.7203769683837891,
+      "Unit": "Seconds"
+    },
+    {
+      "MetricName": "ActionTime",
+      "Timestamp": "2024-10-18T15:19:50.192651",
+      "Value": 5.0067901611328125e-06,
+      "Unit": "Seconds"
+    }
+  ]
+}

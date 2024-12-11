@@ -1,4 +1,3 @@
-from functools import cached_property
 from http import HTTPStatus
 
 from modular_sdk.commons.constants import ApplicationType, ParentScope, \
@@ -48,7 +47,7 @@ class PlatformsHandler(AbstractHandler):
     def ts(self) -> TenantService:
         return self._modular_client.tenant_service()
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.PLATFORMS_K8S: {

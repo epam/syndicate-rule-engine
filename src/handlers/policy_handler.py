@@ -1,4 +1,3 @@
-from functools import cached_property
 from http import HTTPStatus
 
 from handlers import AbstractHandler, Mapping
@@ -28,7 +27,7 @@ class PolicyHandler(AbstractHandler):
     def build(cls):
         return cls(policy_service=SP.policy_service)
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.POLICIES: {

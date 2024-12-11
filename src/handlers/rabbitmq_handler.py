@@ -1,4 +1,3 @@
-from functools import cached_property
 from http import HTTPStatus
 
 from modular_sdk.commons.constants import ApplicationType
@@ -39,7 +38,7 @@ class RabbitMQHandler(AbstractHandler):
             ssm=SP.ssm
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.CUSTOMERS_RABBITMQ: {

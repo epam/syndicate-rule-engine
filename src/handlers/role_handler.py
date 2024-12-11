@@ -1,4 +1,3 @@
-from functools import cached_property
 from http import HTTPStatus
 from typing import Iterable
 
@@ -33,7 +32,7 @@ class RoleHandler(AbstractHandler):
         return cls(role_service=SP.role_service, 
                    policy_service=SP.policy_service)
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.ROLES: {

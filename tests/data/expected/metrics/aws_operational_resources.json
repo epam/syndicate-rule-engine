@@ -1,0 +1,220 @@
+{
+  "id": "123456789012",
+  "data": [
+    {
+      "policy": "ecc-aws-070-unused_ec2_security_groups",
+      "resource_type": "Security Group",
+      "description": "Description for ecc-aws-070-unused_ec2_security_groups",
+      "severity": "Unknown",
+      "resources": {
+        "eu-central-1": [
+          {
+            "id": "sg-05209ceeb761317e5",
+            "name": "west-eu"
+          },
+          {
+            "id": "sg-0ae266faddaef17e9",
+            "name": "packer-ssh-access"
+          },
+          {
+            "id": "sg-09d19538187df66cf",
+            "name": "asia"
+          }
+        ]
+      }
+    },
+    {
+      "policy": "ecc-aws-374-cloudtrail_logs_data_events",
+      "resource_type": "Cloudtrail",
+      "description": "Description for ecc-aws-374-cloudtrail_logs_data_events",
+      "severity": "Unknown",
+      "resources": {
+        "global": [
+          {
+            "id": "arn:aws:cloudtrail:eu-central-1:111111111111:trail/testing-org",
+            "name": "testing-org",
+            "arn": "arn:aws:cloudtrail:eu-central-1:111111111111:trail/testing-org"
+          }
+        ]
+      }
+    },
+    {
+      "policy": "ecc-aws-221-sns_kms_encryption_enabled",
+      "resource_type": "Sns",
+      "description": "Description for ecc-aws-221-sns_kms_encryption_enabled",
+      "severity": "Unknown",
+      "resources": {
+        "eu-central-1": [
+          {
+            "id": "arn:aws:sns:eu-central-1:123456789012:testing-guard-duty-topic",
+            "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673"
+          },
+          {
+            "id": "arn:aws:sns:eu-central-1:123456789012:m3-inspector-topic",
+            "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673"
+          },
+          {
+            "id": "arn:aws:sns:eu-central-1:123456789012:dead",
+            "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673"
+          }
+        ]
+      }
+    },
+    {
+      "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+      "resource_type": "S3",
+      "description": "Description for ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+      "severity": "Unknown",
+      "resources": {
+        "eu-central-1": [
+          {
+            "id": "example-artifacts",
+            "name": "example-artifacts"
+          }
+        ],
+        "eu-north-1": [
+          {
+            "id": "macro-delivery",
+            "name": "macro-delivery"
+          }
+        ],
+        "eu-west-1": [
+          {
+            "id": "example-rulesets-dev",
+            "name": "example-rulesets-dev"
+          },
+          {
+            "id": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1",
+            "name": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1"
+          },
+          {
+            "id": "example-reports-dev",
+            "name": "example-reports-dev"
+          }
+        ],
+        "eu-west-3": [
+          {
+            "id": "example-meta-storage-eu-west-3-par",
+            "name": "example-meta-storage-eu-west-3-par"
+          }
+        ]
+      }
+    },
+    {
+      "policy": "ecc-aws-499-iam_group_has_users_check",
+      "resource_type": "Iam Group",
+      "description": "Description for ecc-aws-499-iam_group_has_users_check",
+      "severity": "Unknown",
+      "resources": {
+        "global": [
+          {
+            "id": "example-dev-extended-group",
+            "name": "example-dev-extended-group",
+            "arn": "arn:aws:iam::123456789012:group/example-dev-extended-group"
+          },
+          {
+            "id": "example-dev-group",
+            "name": "example-dev-group",
+            "arn": "arn:aws:iam::123456789012:group/example-dev-group"
+          },
+          {
+            "id": "DeployGroupWithoutIAM",
+            "name": "DeployGroupWithoutIAM",
+            "arn": "arn:aws:iam::123456789012:group/DeployGroupWithoutIAM"
+          }
+        ]
+      }
+    },
+    {
+      "policy": "ecc-aws-516-s3_event_notifications_enabled",
+      "resource_type": "S3",
+      "description": "Description for ecc-aws-516-s3_event_notifications_enabled",
+      "severity": "Unknown",
+      "resources": {
+        "eu-central-1": [
+          {
+            "id": "example-artifacts",
+            "name": "example-artifacts"
+          }
+        ],
+        "eu-west-1": [
+          {
+            "id": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1",
+            "name": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1"
+          },
+          {
+            "id": "example-reports-dev",
+            "name": "example-reports-dev"
+          },
+          {
+            "id": "example-meta-storage-eu-west-1-tmp",
+            "name": "example-meta-storage-eu-west-1-tmp"
+          }
+        ]
+      }
+    },
+    {
+      "policy": "ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances",
+      "resource_type": "Ebs",
+      "description": "Description for ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances",
+      "severity": "Unknown",
+      "resources": {
+        "eu-west-1": [
+          {
+            "id": "vol-080f1194e8b86e0a7",
+            "name": "vol-080f1194e8b86e0a7"
+          },
+          {
+            "id": "vol-060f342d89d8bb757",
+            "name": "vol-060f342d89d8bb757"
+          }
+        ]
+      }
+    },
+    {
+      "policy": "ecc-aws-490-ec2_token_hop_limit_check",
+      "resource_type": "Ec2",
+      "description": "Description for ecc-aws-490-ec2_token_hop_limit_check",
+      "severity": "Unknown",
+      "resources": {
+        "eu-west-1": [
+          {
+            "id": "i-0771a4eb028bda937",
+            "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673"
+          },
+          {
+            "id": "i-0580697d712fb5b56",
+            "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673"
+          }
+        ]
+      }
+    },
+    {
+      "policy": "ecc-aws-229-ecr_repository_kms_encryption_enabled",
+      "resource_type": "Ecr",
+      "description": "Description for ecc-aws-229-ecr_repository_kms_encryption_enabled",
+      "severity": "Unknown",
+      "resources": {
+        "eu-west-1": [
+          {
+            "id": "example-developer-test",
+            "name": "example-developer-test",
+            "arn": "arn:aws:ecr:eu-west-1:123456789012:repository/example-developer-test"
+          },
+          {
+            "id": "application-dev",
+            "name": "application-dev",
+            "arn": "arn:aws:ecr:eu-west-1:123456789012:repository/application-dev"
+          }
+        ]
+      }
+    }
+  ],
+  "last_scan_date": "2024-11-17T00:02:53.992185Z",
+  "activated_regions": [
+    "eu-central-1",
+    "eu-north-1",
+    "eu-west-1",
+    "eu-west-3"
+  ]
+}

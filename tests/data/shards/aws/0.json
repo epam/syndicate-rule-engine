@@ -1,0 +1,536 @@
+[
+  {
+    "p": "ecc-aws-150-api_gateway_rest_api_encryption_at_rest",
+    "l": "eu-central-1",
+    "t": 1731853781.22628,
+    "r": []
+  },
+  {
+    "p": "ecc-aws-070-unused_ec2_security_groups",
+    "l": "eu-central-1",
+    "t": 1731853781.2266,
+    "r": [
+      {
+        "Description": "Europe West",
+        "GroupName": "west-eu",
+        "IpPermissions": [
+          {
+            "IpProtocol": "-1",
+            "IpRanges": [],
+            "Ipv6Ranges": [],
+            "PrefixListIds": [
+              {
+                "Description": "west-eu prefix list",
+                "PrefixListId": "pl-087e65b29d25c5dcc"
+              }
+            ],
+            "UserIdGroupPairs": [
+              {
+                "GroupId": "sg-05209ceeb761317e5",
+                "UserId": "123456789012"
+              }
+            ]
+          }
+        ],
+        "OwnerId": "123456789012",
+        "GroupId": "sg-05209ceeb761317e5",
+        "IpPermissionsEgress": [
+          {
+            "IpProtocol": "-1",
+            "IpRanges": [
+              {
+                "CidrIp": "0.0.0.0/0"
+              }
+            ],
+            "Ipv6Ranges": [],
+            "PrefixListIds": [],
+            "UserIdGroupPairs": []
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "created-by",
+            "Value": "testing"
+          }
+        ],
+        "VpcId": "vpc-7ce45c14",
+        "id": "sg-05209ceeb761317e5",
+        "name": "west-eu"
+      },
+      {
+        "Description": "Allow ssh access to packer ami build",
+        "GroupName": "packer-ssh-access",
+        "IpPermissions": [
+          {
+            "FromPort": 22,
+            "IpProtocol": "tcp",
+            "IpRanges": [
+              {
+                "CidrIp": "195.56.111.209/32",
+                "Description": "VPN EU"
+              },
+              {
+                "CidrIp": "192.168.222.0/24",
+                "Description": "CICD VPC"
+              }
+            ],
+            "Ipv6Ranges": [],
+            "PrefixListIds": [],
+            "ToPort": 22,
+            "UserIdGroupPairs": []
+          }
+        ],
+        "OwnerId": "123456789012",
+        "GroupId": "sg-0ae266faddaef17e9",
+        "IpPermissionsEgress": [
+          {
+            "IpProtocol": "-1",
+            "IpRanges": [
+              {
+                "CidrIp": "0.0.0.0/0"
+              }
+            ],
+            "Ipv6Ranges": [],
+            "PrefixListIds": [],
+            "UserIdGroupPairs": []
+          }
+        ],
+        "VpcId": "vpc-7ce45c14",
+        "id": "sg-0ae266faddaef17e9",
+        "name": "packer-ssh-access"
+      },
+      {
+        "Description": "Asia",
+        "GroupName": "asia",
+        "IpPermissions": [
+          {
+            "IpProtocol": "-1",
+            "IpRanges": [],
+            "Ipv6Ranges": [],
+            "PrefixListIds": [
+              {
+                "Description": "asia prefix list",
+                "PrefixListId": "pl-0dc15f62b6e30b603"
+              }
+            ],
+            "UserIdGroupPairs": [
+              {
+                "GroupId": "sg-09d19538187df66cf",
+                "UserId": "123456789012"
+              }
+            ]
+          }
+        ],
+        "OwnerId": "123456789012",
+        "GroupId": "sg-09d19538187df66cf",
+        "IpPermissionsEgress": [
+          {
+            "IpProtocol": "-1",
+            "IpRanges": [
+              {
+                "CidrIp": "0.0.0.0/0"
+              }
+            ],
+            "Ipv6Ranges": [],
+            "PrefixListIds": [],
+            "UserIdGroupPairs": []
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "created-by",
+            "Value": "testing"
+          }
+        ],
+        "VpcId": "vpc-7ce45c14",
+        "id": "sg-09d19538187df66cf",
+        "name": "asia"
+      }
+    ]
+  },
+  {
+    "p": "ecc-aws-374-cloudtrail_logs_data_events",
+    "l": "eu-central-1",
+    "t": 1731853781.226819,
+    "r": [
+      {
+        "Name": "testing-org",
+        "S3BucketName": "testing-org-csup6",
+        "IncludeGlobalServiceEvents": true,
+        "IsMultiRegionTrail": true,
+        "HomeRegion": "eu-central-1",
+        "TrailARN": "arn:aws:cloudtrail:eu-central-1:111111111111:trail/testing-org",
+        "LogFileValidationEnabled": true,
+        "HasCustomEventSelectors": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+        "HasInsightSelectors": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+        "IsOrganizationTrail": true,
+        "Tags": [],
+        "c7n:TrailEventSelectors": {
+          "TrailARN": "arn:aws:cloudtrail:eu-central-1:111111111111:trail/testing-org",
+          "EventSelectors": [
+            {
+              "ReadWriteType": "All",
+              "IncludeManagementEvents": true,
+              "DataResources": [],
+              "ExcludeManagementEventSources": []
+            }
+          ]
+        },
+        "id": "arn:aws:cloudtrail:eu-central-1:111111111111:trail/testing-org",
+        "name": "testing-org",
+        "arn": "arn:aws:cloudtrail:eu-central-1:111111111111:trail/testing-org"
+      }
+    ]
+  },
+  {
+    "p": "ecc-aws-221-sns_kms_encryption_enabled",
+    "l": "eu-central-1",
+    "t": 1731853781.227776,
+    "r": [
+      {
+        "TopicArn": "arn:aws:sns:eu-central-1:123456789012:dead",
+        "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"__default_policy_ID\",\"Statement\":[{\"Sid\":\"__default_statement_ID\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":[\"SNS:GetTopicAttributes\",\"SNS:SetTopicAttributes\",\"SNS:AddPermission\",\"SNS:RemovePermission\",\"SNS:DeleteTopic\",\"SNS:Subscribe\",\"SNS:ListSubscriptionsByTopic\",\"SNS:Publish\",\"SNS:Receive\"],\"Resource\":\"arn:aws:sns:eu-central-1:123456789012:dead\",\"Condition\":{\"StringEquals\":{\"AWS:SourceOwner\":\"123456789012\"}}}]}",
+        "Owner": "123456789012",
+        "SubscriptionsPending": "0",
+        "EffectiveDeliveryPolicy": "{\"http\":{\"defaultHealthyRetryPolicy\":{\"minDelayTarget\":20,\"maxDelayTarget\":20,\"numRetries\":3,\"numMaxDelayRetries\":0,\"numNoDelayRetries\":0,\"numMinDelayRetries\":0,\"backoffFunction\":\"linear\"},\"disableSubscriptionOverrides\":false,\"defaultRequestPolicy\":{\"headerContentType\":\"text/plain; charset=UTF-8\"}}}",
+        "SubscriptionsConfirmed": "1",
+        "DisplayName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+        "SubscriptionsDeleted": "0",
+        "Tags": [],
+        "c7n:MatchedFilters": [
+          "KmsMasterKeyId"
+        ],
+        "id": "arn:aws:sns:eu-central-1:123456789012:dead",
+        "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673"
+      },
+      {
+        "TopicArn": "arn:aws:sns:eu-central-1:123456789012:testing-guard-duty-topic",
+        "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"__default_policy_ID\",\"Statement\":[{\"Sid\":\"__default_statement_ID\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":[\"SNS:GetTopicAttributes\",\"SNS:SetTopicAttributes\",\"SNS:AddPermission\",\"SNS:RemovePermission\",\"SNS:DeleteTopic\",\"SNS:Subscribe\",\"SNS:ListSubscriptionsByTopic\",\"SNS:Publish\",\"SNS:Receive\"],\"Resource\":\"arn:aws:sns:eu-central-1:123456789012:testing-guard-duty-topic\",\"Condition\":{\"StringEquals\":{\"AWS:SourceOwner\":\"123456789012\"}}},{\"Sid\":\"15c86ff9-b139-11ea-b98f-02c2a2ced469\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"events.amazonaws.com\"},\"Action\":\"sns:Publish\",\"Resource\":\"arn:aws:sns:eu-central-1:123456789012:testing-guard-duty-topic\"}]}",
+        "Owner": "123456789012",
+        "SubscriptionsPending": "0",
+        "EffectiveDeliveryPolicy": "{\"http\":{\"defaultHealthyRetryPolicy\":{\"minDelayTarget\":20,\"maxDelayTarget\":20,\"numRetries\":3,\"numMaxDelayRetries\":0,\"numNoDelayRetries\":0,\"numMinDelayRetries\":0,\"backoffFunction\":\"linear\"},\"disableSubscriptionOverrides\":false,\"defaultRequestPolicy\":{\"headerContentType\":\"text/plain; charset=UTF-8\"}}}",
+        "SubscriptionsConfirmed": "1",
+        "DisplayName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+        "SubscriptionsDeleted": "0",
+        "Tags": [],
+        "c7n:MatchedFilters": [
+          "KmsMasterKeyId"
+        ],
+        "id": "arn:aws:sns:eu-central-1:123456789012:testing-guard-duty-topic",
+        "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673"
+      },
+      {
+        "TopicArn": "arn:aws:sns:eu-central-1:123456789012:m3-inspector-topic",
+        "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"__default_policy_ID\",\"Statement\":[{\"Sid\":\"__default_statement_ID\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":[\"SNS:GetTopicAttributes\",\"SNS:SetTopicAttributes\",\"SNS:AddPermission\",\"SNS:RemovePermission\",\"SNS:DeleteTopic\",\"SNS:Subscribe\",\"SNS:ListSubscriptionsByTopic\",\"SNS:Publish\",\"SNS:Receive\"],\"Resource\":\"arn:aws:sns:eu-central-1:123456789012:m3-inspector-topic\",\"Condition\":{\"StringEquals\":{\"AWS:SourceOwner\":\"123456789012\"}}}]}",
+        "Owner": "123456789012",
+        "SubscriptionsPending": "0",
+        "EffectiveDeliveryPolicy": "{\"http\":{\"defaultHealthyRetryPolicy\":{\"minDelayTarget\":20,\"maxDelayTarget\":20,\"numRetries\":3,\"numMaxDelayRetries\":0,\"numNoDelayRetries\":0,\"numMinDelayRetries\":0,\"backoffFunction\":\"linear\"},\"disableSubscriptionOverrides\":false,\"defaultRequestPolicy\":{\"headerContentType\":\"text/plain; charset=UTF-8\"}}}",
+        "SubscriptionsConfirmed": "1",
+        "DisplayName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+        "SubscriptionsDeleted": "0",
+        "Tags": [],
+        "c7n:MatchedFilters": [
+          "KmsMasterKeyId"
+        ],
+        "id": "arn:aws:sns:eu-central-1:123456789012:m3-inspector-topic",
+        "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673"
+      }
+    ]
+  },
+  {
+    "p": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+    "l": "eu-central-1",
+    "t": 1731853781.230081,
+    "r": [
+      {
+        "Name": "example-artifacts",
+        "CreationDate": "2024-07-16T13:24:02+00:00",
+        "Location": {
+          "LocationConstraint": "eu-central-1"
+        },
+        "Tags": [
+          {
+            "Key": "owner",
+            "Value": "some_email@gmail.com"
+          },
+          {
+            "Key": "aws:cloudformation:stack-name",
+            "Value": "APP-s3-repository"
+          },
+          {
+            "Key": "aws:cloudformation:logical-id",
+            "Value": "APPArtifacts"
+          },
+          {
+            "Key": "environment",
+            "Value": "develop"
+          },
+          {
+            "Key": "application",
+            "Value": "APP"
+          },
+          {
+            "Key": "aws:cloudformation:stack-id",
+            "Value": "arn:aws:cloudformation:eu-central-1:123456789012:stack/APP-s3-repository/a740f9f0-4376-11ef-98b5-02f06973e781"
+          }
+        ],
+        "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"S3BucketPolicy\",\"Statement\":[{\"Sid\":\"DenyInsecureTransport\",\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"*\",\"Resource\":[\"arn:aws:s3:::example-artifacts\",\"arn:aws:s3:::example-artifacts/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
+        "Acl": {
+          "Owner": {
+            "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+          },
+          "Grants": [
+            {
+              "Grantee": {
+                "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+                "Type": "CanonicalUser"
+              },
+              "Permission": "FULL_CONTROL"
+            }
+          ]
+        },
+        "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+        "Versioning": {
+          "Status": "Suspended"
+        },
+        "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+        "Logging": {
+          "TargetBucket": "s3-access-logs-123456789012-eu-central-1",
+          "TargetPrefix": "123456789012/eu-central-1/example-artifacts/"
+        },
+        "Notification": {},
+        "Lifecycle": {
+          "Rules": [
+            {
+              "Expiration": {
+                "Days": 14
+              },
+              "ID": "devExpiration",
+              "Filter": {
+                "Prefix": "DEV/"
+              },
+              "Status": "Enabled",
+              "NoncurrentVersionExpiration": {
+                "NoncurrentDays": 14
+              },
+              "AbortIncompleteMultipartUpload": {
+                "DaysAfterInitiation": true
+              }
+            },
+            {
+              "Expiration": {
+                "Days": 90
+              },
+              "ID": "qaExpiration",
+              "Filter": {
+                "Prefix": "QA/"
+              },
+              "Status": "Enabled",
+              "NoncurrentVersionExpiration": {
+                "NoncurrentDays": 90
+              },
+              "AbortIncompleteMultipartUpload": {
+                "DaysAfterInitiation": true
+              }
+            }
+          ]
+        },
+        "c7n:MatchedFilters": [
+          "Versioning.MFADelete"
+        ],
+        "id": "example-artifacts",
+        "name": "example-artifacts",
+        "date": "2024-07-16T13:24:02+00:00"
+      }
+    ]
+  },
+  {
+    "p": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+    "l": "eu-north-1",
+    "t": 1731853781.2301362,
+    "r": [
+      {
+        "Name": "macro-delivery",
+        "CreationDate": "2020-08-13T13:37:17+00:00",
+        "Location": {
+          "LocationConstraint": "eu-north-1"
+        },
+        "Tags": [],
+        "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"PolicyForCloudFrontPrivateContent\",\"Statement\":[{\"Sid\":\"ReadOnly\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":[]},\"Action\":[\"s3:GetObject\",\"s3:ListBucket\"],\"Resource\":[\"arn:aws:s3:::macro-delivery/**\",\"arn:aws:s3:::macro-delivery\",\"arn:aws:s3:::macro-delivery/*\"]},{\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::macro-delivery\",\"arn:aws:s3:::macro-delivery/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
+        "Acl": {
+          "Owner": {
+            "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+          },
+          "Grants": [
+            {
+              "Grantee": {
+                "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+                "Type": "CanonicalUser"
+              },
+              "Permission": "FULL_CONTROL"
+            }
+          ]
+        },
+        "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+        "Versioning": {},
+        "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+        "Logging": {
+          "TargetBucket": "s3-access-logs-123456789012-eu-north-1",
+          "TargetPrefix": "123456789012/eu-north-1/macro-delivery/"
+        },
+        "Notification": {},
+        "Lifecycle": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+        "c7n:MatchedFilters": [
+          "Versioning.MFADelete"
+        ],
+        "id": "macro-delivery",
+        "name": "macro-delivery",
+        "date": "2020-08-13T13:37:17+00:00"
+      }
+    ]
+  },
+  {
+    "p": "ecc-aws-499-iam_group_has_users_check",
+    "l": "global",
+    "t": 1731853781.230378,
+    "r": [
+      {
+        "Path": "/",
+        "GroupName": "example-dev-extended-group",
+        "GroupId": "AGPAUWVIOXSTGO46LZR77",
+        "Arn": "arn:aws:iam::123456789012:group/example-dev-extended-group",
+        "CreateDate": "2022-06-06T07:35:04+00:00",
+        "id": "example-dev-extended-group",
+        "name": "example-dev-extended-group",
+        "arn": "arn:aws:iam::123456789012:group/example-dev-extended-group",
+        "date": "2022-06-06T07:35:04+00:00"
+      },
+      {
+        "Path": "/",
+        "GroupName": "example-dev-group",
+        "GroupId": "AGPAUWIOXSTCNCHB3RX",
+        "Arn": "arn:aws:iam::123456789012:group/example-dev-group",
+        "CreateDate": "2022-05-24T12:47:26+00:00",
+        "id": "example-dev-group",
+        "name": "example-dev-group",
+        "arn": "arn:aws:iam::123456789012:group/example-dev-group",
+        "date": "2022-05-24T12:47:26+00:00"
+      },
+      {
+        "Path": "/",
+        "GroupName": "DeployGroupWithoutIAM",
+        "GroupId": "AGPAIVA7CCC6ONKEHHI2",
+        "Arn": "arn:aws:iam::123456789012:group/DeployGroupWithoutIAM",
+        "CreateDate": "2017-07-10T11:39:45+00:00",
+        "id": "DeployGroupWithoutIAM",
+        "name": "DeployGroupWithoutIAM",
+        "arn": "arn:aws:iam::123456789012:group/DeployGroupWithoutIAM",
+        "date": "2017-07-10T11:39:45+00:00"
+      }
+    ]
+  },
+  {
+    "p": "ecc-aws-516-s3_event_notifications_enabled",
+    "l": "eu-central-1",
+    "t": 1731853781.230747,
+    "r": [
+      {
+        "Name": "example-artifacts",
+        "CreationDate": "2024-07-16T13:24:02+00:00",
+        "Location": {
+          "LocationConstraint": "eu-central-1"
+        },
+        "Tags": [
+          {
+            "Key": "owner",
+            "Value": "some_email@gmail.com"
+          },
+          {
+            "Key": "aws:cloudformation:stack-name",
+            "Value": "APP-s3-repository"
+          },
+          {
+            "Key": "aws:cloudformation:logical-id",
+            "Value": "APPArtifacts"
+          },
+          {
+            "Key": "environment",
+            "Value": "develop"
+          },
+          {
+            "Key": "application",
+            "Value": "APP"
+          },
+          {
+            "Key": "aws:cloudformation:stack-id",
+            "Value": "arn:aws:cloudformation:eu-central-1:123456789012:stack/APP-s3-repository/a740f9f0-4376-11ef-98b5-02f06973e781"
+          }
+        ],
+        "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"S3BucketPolicy\",\"Statement\":[{\"Sid\":\"DenyInsecureTransport\",\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"*\",\"Resource\":[\"arn:aws:s3:::example-artifacts\",\"arn:aws:s3:::example-artifacts/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
+        "Acl": {
+          "Owner": {
+            "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+          },
+          "Grants": [
+            {
+              "Grantee": {
+                "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+                "Type": "CanonicalUser"
+              },
+              "Permission": "FULL_CONTROL"
+            }
+          ]
+        },
+        "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+        "Versioning": {
+          "Status": "Suspended"
+        },
+        "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+        "Logging": {
+          "TargetBucket": "s3-access-logs-123456789012-eu-central-1",
+          "TargetPrefix": "123456789012/eu-central-1/example-artifacts/"
+        },
+        "Notification": {},
+        "Lifecycle": {
+          "Rules": [
+            {
+              "Expiration": {
+                "Days": 14
+              },
+              "ID": "devExpiration",
+              "Filter": {
+                "Prefix": "DEV/"
+              },
+              "Status": "Enabled",
+              "NoncurrentVersionExpiration": {
+                "NoncurrentDays": 14
+              },
+              "AbortIncompleteMultipartUpload": {
+                "DaysAfterInitiation": true
+              }
+            },
+            {
+              "Expiration": {
+                "Days": 90
+              },
+              "ID": "qaExpiration",
+              "Filter": {
+                "Prefix": "QA/"
+              },
+              "Status": "Enabled",
+              "NoncurrentVersionExpiration": {
+                "NoncurrentDays": 90
+              },
+              "AbortIncompleteMultipartUpload": {
+                "DaysAfterInitiation": true
+              }
+            }
+          ]
+        },
+        "id": "example-artifacts",
+        "name": "example-artifacts",
+        "date": "2024-07-16T13:24:02+00:00"
+      }
+    ]
+  }
+]

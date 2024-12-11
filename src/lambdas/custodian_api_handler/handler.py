@@ -30,7 +30,7 @@ from services.abs_lambda import (
 )
 from validators.registry import permissions_mapping
 
-_LOG = get_logger('custodian-api-handler')
+_LOG = get_logger(__name__)
 
 
 class ApiHandler(ApiEventProcessorLambdaHandler):

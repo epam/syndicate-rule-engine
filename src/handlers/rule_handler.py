@@ -1,4 +1,3 @@
-from functools import cached_property
 from http import HTTPStatus
 
 from modular_sdk.models.pynamodb_extension.base_model import \
@@ -35,7 +34,7 @@ class RuleHandler(AbstractHandler):
             rule_source_service=SP.rule_source_service
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.RULES: {

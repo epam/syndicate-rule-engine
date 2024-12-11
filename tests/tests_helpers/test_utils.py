@@ -4,11 +4,28 @@ from itertools import islice
 
 import pytest
 
-from helpers import (deep_get, deep_set, title_keys, setdefault, filter_dict,
-                     hashable, urljoin, skip_indexes, peek, without_duplicates,
-                     MultipleCursorsWithOneLimitIterator, catchdefault,
-                     batches, dereference_json, NextToken, iter_values,
-                     flip_dict, Version)
+from helpers import (
+    deep_get,
+    deep_set,
+    title_keys,
+    setdefault,
+    filter_dict,
+    hashable,
+    urljoin,
+    skip_indexes,
+    peek,
+    without_duplicates,
+    MultipleCursorsWithOneLimitIterator,
+    catchdefault,
+    batches,
+    dereference_json,
+    NextToken,
+    iter_values,
+    flip_dict,
+    Version,
+    comparable,
+    iter_key_values,
+)
 
 
 @pytest.fixture
@@ -19,15 +36,9 @@ def dictionary() -> dict:
     """
     return {
         'one': 'two',
-        3: {
-            'four': 'five'
-        },
-        'six': {
-            'seven': {'eight': 'nine'}
-        },
-        'ten': [{
-            'eleven': 'twelve'
-        }]
+        3: {'four': 'five'},
+        'six': {'seven': {'eight': 'nine'}},
+        'ten': [{'eleven': 'twelve'}],
     }
 
 
@@ -47,7 +58,7 @@ def test_deep_set():
 
 
 def test_batches():
-    a = [1, 2, 3, 4, 5, ]
+    a = [1, 2, 3, 4, 5]
     it = batches(a, 2)
     assert next(it) == [1, 2]
     assert next(it) == [3, 4]
@@ -59,15 +70,9 @@ def test_batches():
 def test_title_keys(dictionary):
     assert title_keys(dictionary) == {
         'One': 'two',
-        3: {
-            'Four': 'five'
-        },
-        'Six': {
-            'Seven': {'Eight': 'nine'}
-        },
-        'Ten': [{
-            'Eleven': 'twelve'
-        }]
+        3: {'Four': 'five'},
+        'Six': {'Seven': {'Eight': 'nine'}},
+        'Ten': [{'Eleven': 'twelve'}],
     }
 
 
@@ -87,9 +92,7 @@ def test_filter_dict(dictionary):
     assert filter_dict(dictionary, ()) == dictionary
     assert filter_dict(dictionary, ('one', 3)) == {
         'one': 'two',
-        3: {
-            'four': 'five'
-        }
+        3: {'four': 'five'},
     }
 
 
@@ -101,6 +104,27 @@ def test_hashable(dictionary):
     d = {'q': [1, 2, 3]}
     d1 = {'Q': [1, 2, 3]}
     assert hash(hashable(d)) != hash(hashable(d1))
+    d = {'q': [1, 2, 3]}
+    d1 = {'q': [3, 2, 1]}
+    assert hash(hashable(d)) != hash(hashable(d1))
+
+
+def test_hashable_json_serializable(dictionary):
+    json.dumps(dictionary)
+
+
+def test_comparable():
+    d = {'key1': [1, 2, 3, {'k': 'v'}], 'key2': {'k': 'v'}}
+    d1 = {'key2': {'k': 'v'}, 'key1': [1, {'k': 'v'}, 2, 3]}
+    assert comparable(d) == comparable(d1)
+    assert hash(comparable(d)) == hash(comparable(d1))
+
+    d = [1, {'key1': [1, {'k': '2024-11-06T12:14:02.881343'}]}]
+    d1 = [{'key1': [{'k': '2021-10-02T11:30:02.881343'}, 1]}, 1]
+    assert comparable(d) != comparable(d1)
+    assert comparable(d, replace_dates_with=None) == comparable(
+        d1, replace_dates_with=None
+    )
 
 
 def test_urljoin():
@@ -167,7 +191,7 @@ def test_multiple_cursors_with_one_limit_it():
     f3 = build_f(it3)
     it = MultipleCursorsWithOneLimitIterator(2, f1, f2, f3)
     assert list(it) == [0, 1]
-    assert list(it1) == [2, ]
+    assert list(it1) == [2]
     assert list(it2) == [0, 1]
     assert list(it3) == [0, 1, 2]
 
@@ -210,28 +234,23 @@ def test_multiple_cursors_with_one_limit_it():
 
 def test_dereference_json():
     obj = {
-        'key1': {
-            'a': [1, 2, 3],
-            'b': {'$ref': '#/key3'}
-        },
-        'key2': {
-            '$ref': '#/key1',
-        },
-        'key3': 10
+        'key1': {'a': [1, 2, 3], 'b': {'$ref': '#/key3'}},
+        'key2': {'$ref': '#/key1'},
+        'key3': 10,
     }
     dereference_json(obj)
     # obj = jsonref.replace_refs(obj, lazy_load=False)
     assert obj == {
         'key1': {'a': [1, 2, 3], 'b': 10},
         'key2': {'a': [1, 2, 3], 'b': 10},
-        'key3': 10
+        'key3': 10,
     }
 
     obj = {
         'key0': {'$ref': '#/key1/value'},
         'key1': {'value': 1, 'test': {'$ref': '#/key2'}},
         'key2': [1, 2, 3],
-        'key4': [1, 2, {'test': {'$ref': '#/key0'}}]
+        'key4': [1, 2, {'test': {'$ref': '#/key0'}}],
     }
     dereference_json(obj)
     # obj = jsonref.replace_refs(obj, lazy_load=False)
@@ -239,7 +258,7 @@ def test_dereference_json():
         'key0': 1,
         'key1': {'value': 1, 'test': [1, 2, 3]},
         'key2': [1, 2, 3],
-        'key4': [1, 2, {'test': 1}]
+        'key4': [1, 2, {'test': 1}],
     }
 
 
@@ -268,12 +287,7 @@ class TestNextToken:
 
 
 def test_iter_values():
-    item = {
-        'key1': [1, 2, 3],
-        'key2': {
-            'key3': 4
-        }
-    }
+    item = {'key1': [1, 2, 3], 'key2': {'key3': 4}}
     gen = iter_values(item)
     try:
         real = next(gen)
@@ -281,18 +295,44 @@ def test_iter_values():
             real = gen.send(real**2)
     except StopIteration:
         pass
-    assert item == {
-        'key1': [1, 4, 9],
-        'key2': {
-            'key3': 16
-        }
+    assert item == {'key1': [1, 4, 9], 'key2': {'key3': 16}}
+
+
+def test_iter_key_values(dictionary):
+    gen = iter_key_values(dictionary)
+    try:
+        _, real = next(gen)
+        while True:
+            _, real = gen.send(real + real)
+    except StopIteration:
+        pass
+    assert dictionary == {
+        'one': 'twotwo',
+        3: {'four': 'fivefive'},
+        'six': {'seven': {'eight': 'ninenine'}},
+        'ten': [{'eleven': 'twelve'}],
+    }
+    gen = iter_key_values(dictionary)
+    assert next(gen) == (('one',), 'twotwo')
+    assert gen.send(0) == ((3, 'four'), 'fivefive')
+    assert gen.send(0) == (('six', 'seven', 'eight'), 'ninenine')
+    with pytest.raises(StopIteration):
+        _, _ = gen.send(0)
+    assert dictionary == {
+        'one': 0,
+        3: {'four': 0},
+        'six': {'seven': {'eight': 0}},
+        'ten': [{'eleven': 'twelve'}],
     }
 
 
 def test_flip_dict():
     def gen_mirrored_dicts() -> tuple[dict, dict]:
-        return ({f'{i}': i for i in range(1000)},
-                {i: f'{i}' for i in range(1000)})
+        return (
+            {f'{i}': i for i in range(1000)},
+            {i: f'{i}' for i in range(1000)},
+        )
+
     d1, d2 = gen_mirrored_dicts()
     assert d1 != d2
     flip_dict(d1)

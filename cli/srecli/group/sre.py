@@ -5,7 +5,6 @@ from srecli.group.customer import customer
 from srecli.group.integrations import integrations
 from srecli.group.job import job
 from srecli.group.license import license
-from srecli.group.meta import meta
 from srecli.group.metrics import metrics
 from srecli.group.platform import platform
 from srecli.group.policy import policy
@@ -142,7 +141,6 @@ sre.add_command(license)
 sre.add_command(setting)
 sre.add_command(results)
 sre.add_command(metrics)
-sre.add_command(meta)
 sre.add_command(platform)
 sre.add_command(integrations)
 sre.add_command(users)

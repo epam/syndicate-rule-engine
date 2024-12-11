@@ -1,0 +1,77 @@
+{
+  "id": "3d615fa8-05c6-47ea-990d-9d162testing",
+  "data": [
+    {
+      "policy": "ecc-azure-310-asb_defender_open_source_rds",
+      "resource_type": "Defender Pricing",
+      "description": "Description for ecc-azure-310-asb_defender_open_source_rds",
+      "severity": "Unknown",
+      "resources": {
+        "global": [
+          {
+            "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/OpenSourceRelationalDatabases",
+            "name": "OpenSourceRelationalDatabases"
+          }
+        ]
+      }
+    },
+    {
+      "policy": "ecc-azure-096-cis_sec_defender_azure_sql",
+      "resource_type": "Defender Pricing",
+      "description": "Description for ecc-azure-096-cis_sec_defender_azure_sql",
+      "severity": "Unknown",
+      "resources": {
+        "global": [
+          {
+            "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/SqlServers",
+            "name": "SqlServers"
+          }
+        ]
+      }
+    },
+    {
+      "policy": "ecc-azure-376-cis_defender_cosmodb",
+      "resource_type": "Defender Pricing",
+      "description": "Description for ecc-azure-376-cis_defender_cosmodb",
+      "severity": "Unknown",
+      "resources": {
+        "global": [
+          {
+            "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/CosmosDbs",
+            "name": "CosmosDbs"
+          }
+        ]
+      }
+    },
+    {
+      "policy": "ecc-azure-099-cis_sec_defender_aks",
+      "resource_type": "Defender Pricing",
+      "description": "Description for ecc-azure-099-cis_sec_defender_aks",
+      "severity": "Unknown",
+      "resources": {
+        "global": [
+          {
+            "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/KubernetesService",
+            "name": "KubernetesService"
+          }
+        ]
+      }
+    },
+    {
+      "policy": "ecc-azure-213-asb_lt_defender_dns",
+      "resource_type": "Defender Pricing",
+      "description": "Description for ecc-azure-213-asb_lt_defender_dns",
+      "severity": "Unknown",
+      "resources": {
+        "global": [
+          {
+            "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/Dns",
+            "name": "Dns"
+          }
+        ]
+      }
+    }
+  ],
+  "last_scan_date": "2024-11-17T00:02:53.992185Z",
+  "activated_regions": []
+}
