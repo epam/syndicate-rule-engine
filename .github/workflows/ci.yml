@@ -95,7 +95,7 @@ jobs:
     - name: tests
       run: |
         source .venv/bin/activate
-        tox -e 3.10
+        tox -e py310
 
     - name: Upload coverage report
       uses: actions/upload-artifact@v4

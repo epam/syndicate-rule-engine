@@ -44,21 +44,18 @@ testpaths = ["tests"]
 
 
 [tool.tox]
-requires = ["tox>=4"]
-env_list = ["3.10"]
+requires = ["tox>=4.19"]
+env_list = ["py310"]
 skipsdist = true
 skip_install = true
-
 
 [tool.tox.env_run_base]
 description = "Run tests under {base_python}"
 
-[tool.tox.env."3.10"]
+[tool.tox.env.py310]
 dependency_groups = ["test"]
-deps = [
-    "-r src/onprem/requirements.txt",
-]
-command = [[
+deps = ["-r src/onprem/requirements.txt",]
+commands = [[
     "pytest",
     "tests",
     "-v",

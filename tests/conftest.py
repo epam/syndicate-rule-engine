@@ -1,30 +1,67 @@
 import os
-import msgspec
-from datetime import timedelta, datetime
-from typing import TYPE_CHECKING
-
+from datetime import datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING
+from unittest.mock import patch
+
 import mongomock
+import msgspec
 import pytest
+from modular_sdk.commons.constants import ParentScope, ParentType
 from moto import mock_aws
 
-from unittest.mock import patch
 from helpers.constants import CAASEnv
-from helpers.time_helper import utc_iso, utc_datetime
-from .commons import InMemoryHvacClient, DATA, AWS_ACCOUNT_ID, AZURE_ACCOUNT_ID, GOOGLE_ACCOUNT_ID
-from modular_sdk.commons.constants import ParentType, ParentScope
-if TYPE_CHECKING:
-    from modular_sdk.models.tenant import Tenant
-    from modular_sdk.models.customer import Customer
-    from services.platform_service import Platform
-    from services.metadata import Metadata
+from helpers.time_helper import utc_datetime, utc_iso
 
+from .commons import (
+    AWS_ACCOUNT_ID,
+    AZURE_ACCOUNT_ID,
+    DATA,
+    GOOGLE_ACCOUNT_ID,
+    InMemoryHvacClient,
+)
+
+if TYPE_CHECKING:
+    from modular_sdk.models.customer import Customer
+    from modular_sdk.models.tenant import Tenant
+
+    from services.metadata import Metadata
+    from services.platform_service import Platform
+
+TEST_ENVS = {
+    'AWS_REGION': 'us-east-1',
+    'AWS_ACCESS_KEY_ID': 'testing',
+    'AWS_SECRET_ACCESS_KEY': 'testing',
+    'AWS_SECURITY_TOKEN': 'testing',
+    'AWS_SESSION_TOKEN': 'testing',
+    'AWS_DEFAULT_REGION': 'us-east-1',
+    'SYSTEM_CUSTOMER_NAME': 'TEST_SYSTEM_CUSTOMER',
+    'CAAS_INNER_CACHE_TTL_SECONDS': '0',
+    'CAAS_SERVICE_MODE': 'docker',
+    'CAAS_MONGO_URI': 'mongodb://testing',
+    'CAAS_MONGO_DATABASE': 'custodian-as-a-service-testing',
+    'CAAS_MINIO_ENDPOINT': 'http://testing',
+    'CAAS_MINIO_ACCESS_KEY_ID': 'testing',
+    'CAAS_MINIO_SECRET_ACCESS_KEY': 'testing',
+    'CAAS_VAULT_ENDPOINT': 'http://testing',
+    'CAAS_VAULT_TOKEN': 'testing',
+    'modular_service_mode': 'docker',
+    'modular_mongo_db_name': 'custodian-as-a-service-testing',
+    'modular_mongo_user': 'testing',
+    'modular_mongo_password': 'testing',
+    'modular_mongo_url': 'testing',
+    'AWS_ACCOUNT_ID': '123456789012',
+    'AZURE_SUBSCRIPTION_ID': '3d615fa8-05c6-47ea-990d-9d162testing',
+    'CLOUDSDK_CORE_PROJECT': 'testing-project-123',
+}
 
 # This "pytest_configure" function must be executed BEFORE any imports that
 # can initialize MongoClient or other clients. Be careful with imports
 # in other conftest files
 
+
 def pytest_configure(config):
+    os.environ.update(TEST_ENVS)
     os.environ['MOTO_S3_CUSTOM_ENDPOINTS'] = CAASEnv.MINIO_ENDPOINT.get('')
 
     mongo_patcher = mongomock.patch(servers=CAASEnv.MONGO_URI.get('localhost'))
@@ -63,22 +100,22 @@ def clear_envs():
 
 @pytest.fixture(scope='session')
 def aws_scan_result() -> Path:
-    return DATA / "cloud_custodian" / "aws"
+    return DATA / 'cloud_custodian' / 'aws'
 
 
 @pytest.fixture(scope='session')
 def azure_scan_result() -> Path:
-    return DATA / "cloud_custodian" / "azure"
+    return DATA / 'cloud_custodian' / 'azure'
 
 
 @pytest.fixture(scope='session')
 def google_scan_result() -> Path:
-    return DATA / "cloud_custodian" / "google"
+    return DATA / 'cloud_custodian' / 'google'
 
 
 @pytest.fixture(scope='session')
 def aws_shards_path() -> Path:
-    return DATA / "shards" / "aws"
+    return DATA / 'shards' / 'aws'
 
 
 @pytest.fixture()
@@ -100,24 +137,27 @@ def load_expected():
             with open(fn, 'rb') as fp:
                 _cache[filename] = _decoder.decode(fp.read())
         return _cache[filename]
+
     return inner
 
 
 @pytest.fixture()
 def main_customer() -> 'Customer':
     from modular_sdk.models.customer import Customer
+
     return Customer(
         name='TEST_CUSTOMER',
         display_name='test customer',
         admins=[],
-        is_active=True
+        is_active=True,
     )
 
 
 @pytest.fixture
 def aws_tenant(main_customer: 'Customer') -> 'Tenant':
-    from modular_sdk.models.tenant import Tenant
     from modular_sdk.models.region import RegionAttr
+    from modular_sdk.models.tenant import Tenant
+
     return Tenant(
         name='AWS-TESTING',
         display_name='testing',
@@ -133,14 +173,15 @@ def aws_tenant(main_customer: 'Customer') -> 'Tenant':
             RegionAttr(native_name='eu-west-1'),
             RegionAttr(native_name='eu-central-1'),
             RegionAttr(native_name='eu-north-1'),
-            RegionAttr(native_name='eu-west-3')
-        ]
+            RegionAttr(native_name='eu-west-3'),
+        ],
     )
 
 
 @pytest.fixture
 def azure_tenant(main_customer: 'Customer') -> 'Tenant':
     from modular_sdk.models.tenant import Tenant
+
     return Tenant(
         name='AZURE-TESTING',
         display_name='testing',
@@ -158,6 +199,7 @@ def azure_tenant(main_customer: 'Customer') -> 'Tenant':
 @pytest.fixture
 def google_tenant(main_customer: 'Customer') -> 'Tenant':
     from modular_sdk.models.tenant import Tenant
+
     return Tenant(
         name='GOOGLE-TESTING',
         display_name='testing',
@@ -173,23 +215,22 @@ def google_tenant(main_customer: 'Customer') -> 'Tenant':
 
 
 @pytest.fixture
-def k8s_platform(main_customer: 'Customer',
-                 aws_tenant: 'Tenant') -> 'Platform':
-    from services.platform_service import Platform
+def k8s_platform(
+    main_customer: 'Customer', aws_tenant: 'Tenant'
+) -> 'Platform':
     from modular_sdk.models.parent import Parent
+
+    from services.platform_service import Platform
+
     return Platform(
         parent=Parent(
             parent_id='platform_id',
             customer_id=main_customer.name,
             type=ParentType.PLATFORM_K8S.value,
             description='Test platform',
-            meta={
-                'name': 'test',
-                'region': 'eu-west-1',
-                'type': 'EKS'
-            },
+            meta={'name': 'test', 'region': 'eu-west-1', 'type': 'EKS'},
             is_deleted=False,
-            type_scope=f'{ParentType.PLATFORM_K8S.value}#{ParentScope.SPECIFIC.value}#{aws_tenant.name}'
+            type_scope=f'{ParentType.PLATFORM_K8S.value}#{ParentScope.SPECIFIC.value}#{aws_tenant.name}',
         )
     )
 
@@ -197,4 +238,5 @@ def k8s_platform(main_customer: 'Customer',
 @pytest.fixture
 def empty_metadata() -> 'Metadata':
     from services.metadata import Metadata
+
     return Metadata.empty()

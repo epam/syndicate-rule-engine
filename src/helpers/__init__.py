@@ -61,7 +61,6 @@ def deep_get(dct: dict, path: list | tuple) -> Any:
     >>> deep_get(d, (1, 'two'))
     None
     """
-    print('hello')
     return reduce(
         lambda d, key: d.get(key, None) if isinstance(d, dict) else None,
         path,
