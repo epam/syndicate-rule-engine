@@ -157,54 +157,6 @@ def test_metrics_update_denied(sre_client):
     assert resp.json == {'message': 'Unauthorized'}
 
 
-# @pytest.mark.slow
-# def test_metrics_update(
-#         sre_client,
-#         system_user_token,
-#         aws_jobs,
-#         azure_jobs,
-#         google_jobs,
-#         report_bounds,
-#         load_expected
-# ):
-#     """
-#     This test case has three tenants one for each cloud. Each tenant has
-#     two standard jobs (one failed) and one event driven job during the current
-#     collecting period.
-#     """
-#     resp = sre_client.request('/metrics/update', 'POST',
-#                               auth=system_user_token)
-#     assert resp.status_int == 202
-#     assert resp.json == {'message': 'Metrics update has been submitted'}
-#     time.sleep(100000)  # don't know how to check underlying thread is finished
-#     # here we check only tenant metrics processor outcome
-#     _, end = report_bounds
-#     end = end.date()
-#
-#     # validating tenant metrics results
-#     aws_data = SP.s3.gz_get_json('metrics',
-#                                  f'TEST_CUSTOMER/accounts/{end.isoformat()}/{AWS_ACCOUNT_ID}.json')
-#     assert aws_data, 'AWS data must not be empty'
-#     assert dicts_equal(aws_data, load_expected('metrics/aws_account'))
-#
-#     azure_data = SP.s3.gz_get_json('metrics',
-#                                    f'TEST_CUSTOMER/accounts/{end.isoformat()}/{AZURE_ACCOUNT_ID}.json')
-#     assert azure_data, 'AZURE data must not be empty'
-#     assert dicts_equal(azure_data, load_expected('metrics/azure_account'))
-#
-#     google_data = SP.s3.gz_get_json('metrics',
-#                                     f'TEST_CUSTOMER/accounts/{end.isoformat()}/{GOOGLE_ACCOUNT_ID}.json')
-#     assert google_data, 'GOOGLE data must not be empty'
-#     assert dicts_equal(google_data, load_expected('metrics/google_account'))
-#
-#     # todo validated whether montly metrics are collected
-#     # todo validate weekly scan statistics
-#
-#     # validating tenant group metrics results
-#     group_data = SP.s3.gz_get_json('metrics', f'TEST_CUSTOMER/tenants/{end.isoformat()}/testing.json')
-#     assert group_data, 'Group data must not be empty'
-#     assert dicts_equal(group_data, load_expected('metrics/tenant_group'))
-
 def test_whole_period():
     now = datetime(year=2024, month=1, day=10, hour=12, minute=10, second=35,
                    tzinfo=timezone.utc)
