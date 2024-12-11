@@ -1,122 +1,66 @@
+from typing import Generator, Iterable
+
 from helpers.constants import Severity
 
 NONE_VERSION = 'null'
 
 
-# class Standard(tuple):
-#     # todo can be broken during sorting if there are two standards with the
-#     #  same name but the first one has version and another one does not have.
-#
-#     def __new__(cls, name: str, version: str | None = None):
-#         if isinstance(name, Standard):
-#             return name
-#         if isinstance(name, tuple) and len(name) == 2:
-#             return tuple.__new__(Standard, name)
-#         if isinstance(name, tuple) and len(name) == 1:
-#             return tuple.__new__(Standard, (name[0], None))
-#         if not isinstance(name, str):
-#             raise TypeError('only string or tuple are allowed')
-#         version = None if version == 'null' else version
-#         return tuple.__new__(Standard, (name, version))
-#
-#     def __init__(self, *args, **kwargs):
-#         super().__init__()
-#         self.points = set()
-#
-#     @property
-#     def name(self) -> str:
-#         return self[0]
-#
-#     @property
-#     def version(self) -> str | None:
-#         return self[1]
-#
-#     def __repr__(self) -> str:
-#         return f'{self.name} {self.version}'
-#
-#     @property
-#     def full_name(self) -> str:
-#         if not self.version:
-#             return self.name
-#         return f'{self.name} {self.version}'
-#
-#     @classmethod
-#     def deserialize(cls, standards: dict[str, list] | dict[str, dict],
-#                     include_points: bool = False
-#                     ) -> Generator['Standard', None, None]:
-#         """Currently rules' standards look like it's showed below
-#         {
-#             'Standard_1': [
-#                 'v1 (point1,sub-point1,point2)',
-#                 'v2'
-#             ],
-#             'Standard_2': [
-#                 '(sub-point2)'
-#             ],
-#         }
-#         The method will transform it to this:
-#         {('Standard_1', 'v1'), ('Standard_1', 'v2'), ('Standard_2', 'null')}
-#         Each standard will contain a set of its points inside
-#         """
-#         for standard, versions in standards.items():
-#             for version in versions:
-#                 v = None
-#                 p = set()
-#
-#                 version_points = version.rsplit(maxsplit=1)
-#                 if len(version_points) == 2:  # version and points
-#                     v = version_points[0]
-#                     if include_points:
-#                         p = set(version_points[1].strip('()').split(','))
-#                 elif len(version_points) == 1 and version_points[0].startswith('('):  # only points
-#                     if include_points:
-#                         p = set(version_points[0].strip('()').split(','))
-#                 elif len(version_points) == 1:  # only version
-#                     v = version_points[0]
-#                 else:
-#                     raise ValueError(f'Wrong rule standard format: '
-#                                      f'{standard}, {version}')
-#                 item = Standard(standard, v)
-#                 if include_points:
-#                     item.points.update(p)
-#                 yield item
+class Standard(tuple):
+    # TODO: can be broken during sorting if there are two standards with the
+    #  same name but the first one has version and another one does not have.
+    NULL = 'null'  # null version means no version
 
-class Standard:
-    """
-    Basic representation of rule's standard with version
-    """
-    __slots__ = ('name', 'version', 'points')
+    def __new__(cls, name: str, version: str | None = None):
+        if isinstance(name, Standard):
+            return name
+        if isinstance(name, tuple) and len(name) == 2:
+            return tuple.__new__(Standard, name)
+        if isinstance(name, tuple) and len(name) == 1:
+            return tuple.__new__(Standard, (name[0], None))
+        if not isinstance(name, str):
+            raise TypeError('only string or tuple are allowed')
+        version = None if version == cls.NULL else version
+        return tuple.__new__(Standard, (name, version))
 
-    def __init__(self, name: str, version: str = NONE_VERSION,
-                 points: set[str] | None = None):
-        self.name: str = name
-        self.version: str = version
-        if points:
-            self.points: set[str] = set(filter(None, points))
-        else:
-            self.points: set[str] = set()
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+        self._points = None
 
-    def __hash__(self):
-        return hash((self.name, self.version))
+    def get_points(self) -> frozenset:
+        if self._points is None:
+            return frozenset()
+        return self._points
 
-    def __eq__(self, other) -> bool:
-        if isinstance(other, Standard):
-            return (self.name, self.version) == (other.name, other.version)
-        elif isinstance(other, tuple) and len(other) == 2:
-            return (self.name, self.version) == (other[0], other[1])
-        return False
-
-    def __repr__(self):
-        return f'({self.name}, {self.version})'
+    def set_points(self, val: Iterable[str]) -> None:
+        self._points = frozenset(val)
 
     @property
-    def full_name(self):
-        return f'{self.name} {self.version}' \
-            if self.version != NONE_VERSION else self.name
+    def name(self) -> str:
+        return self[0]
+
+    @property
+    def version(self) -> str | None:
+        return self[1]
+
+    @property
+    def version_str(self) -> str:
+        return self.version or self.NULL
+
+    def __repr__(self) -> str:
+        return f'{self.name} {self.version}'
+
+    @property
+    def full_name(self) -> str:
+        if not self.version:
+            return self.name
+        return f'{self.name} {self.version}'
 
     @classmethod
-    def deserialize(cls, standards: dict[str, list] | dict[str, dict]
-                    ) -> set['Standard']:
+    def deserialize(
+        cls,
+        standards: dict[str, list] | dict[str, dict],
+        include_points: bool = True,
+    ) -> Generator['Standard', None, None]:
         """Currently rules' standards look like it's showed below
         {
             'Standard_1': [
@@ -131,31 +75,32 @@ class Standard:
         {('Standard_1', 'v1'), ('Standard_1', 'v2'), ('Standard_2', 'null')}
         Each standard will contain a set of its points inside
         """
-        result = set()
         for standard, versions in standards.items():
             for version in versions:
-                params = dict(name=standard)
+                v = None
+                p = []
+
                 version_points = version.rsplit(maxsplit=1)
                 if len(version_points) == 2:  # version and points
-                    v, points = version_points
-                    params['version'] = v
-                    params['points'] = set(points.strip('()').split(','))
+                    v = version_points[0]
+                    if include_points:
+                        p = version_points[1].strip('()').split(',')
                 elif len(version_points) == 1 and version_points[0].startswith(
-                        '('):  # only points
-                    params['points'] = set(version_points[0].strip(
-                        '()').split(','))
+                    '('
+                ):  # only points
+                    if include_points:
+                        p = version_points[0].strip('()').split(',')
                 elif len(version_points) == 1:  # only version
-                    params['version'] = version_points[0]
+                    v = version_points[0]
                 else:
-                    raise ValueError(f'Wrong rule standard format: '
-                                     f'{standard}, {version}')
-                result.add(cls(**params))
-        return result
-
-    @classmethod
-    def deserialize_to_strs(cls, standards: dict[str, list] | dict[str, dict]
-                            ) -> set[str]:
-        return {item.full_name for item in cls.deserialize(standards)}
+                    raise ValueError(
+                        f'Wrong rule standard format: '
+                        f'{standard}, {version}'
+                    )
+                item = cls(standard, v)
+                if include_points:
+                    item.set_points(filter(None, p))
+                yield item
 
 
 def keep_highest(*args: set):
