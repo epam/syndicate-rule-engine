@@ -6,7 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [5.6.0] - 2024-11-05
-- refactor all inner reports and metrics
+- refactor metrics collector
+- refactor such inner reports
+  - OPERATIONAL OVERVIERW
+  - OPERATIONAL RESOURCES
+  - OPERATIONAL RULES
+  - C LEVEL OVERVIEW
+- refactor suc inner reports and metrics
+- allow to use metadata provided by the license manager
+- write tests for new metrics and existing reports
 
 ## [5.6.0b1] - 2024-11-05
 - refactor metrics pipeline a bit
