@@ -33,10 +33,6 @@ from onprem.api.deployment_resources_parser import (
     DeploymentResourcesApiGatewayWrapper,
 )
 from services import SP
-from services.clients.xlsx_standard_parser import (
-    init_parser as init_xlsx_cli_parser,
-)
-from services.clients.xlsx_standard_parser import main as parse_xlsx_standard
 from services.openapi_spec_generator import OpenApiGenerator
 
 if TYPE_CHECKING:
@@ -58,7 +54,6 @@ GENERATE_OPENAPI_ACTION = 'generate_openapi'
 INIT_VAULT_ACTION = 'init_vault'
 SET_META_REPOS_ACTION = 'set_meta_repos'
 UPDATE_API_GATEWAY_MODELS_ACTION = 'update_api_models'
-PARSE_XLSX_STANDARD_ACTION = 'parse_standards'
 SHOW_PERMISSIONS_ACTION = 'show_permissions'
 INIT_ACTION = 'init'
 
@@ -158,12 +153,6 @@ def build_parser() -> argparse.ArgumentParser:
     _ = sub_parsers.add_parser(
         GENERATE_OPENAPI_ACTION,
         help='Generates Open API spec for Rule Engine API',
-    )
-    init_xlsx_cli_parser(
-        sub_parsers.add_parser(
-            PARSE_XLSX_STANDARD_ACTION,
-            help="Parses Custom Core's xlsx with standards",
-        )
     )
     parser_run = sub_parsers.add_parser(RUN_ACTION, help='Run on-prem server')
     parser_run.add_argument(
@@ -704,7 +693,6 @@ def main(args: list[str] | None = None):
         (CREATE_BUCKETS_ACTION,): InitMinio(),
         (GENERATE_OPENAPI_ACTION,): GenerateOpenApi(),
         (RUN_ACTION,): Run(),
-        (PARSE_XLSX_STANDARD_ACTION,): parse_xlsx_standard,
         (UPDATE_API_GATEWAY_MODELS_ACTION,): UpdateApiGatewayModels(),
         (SHOW_PERMISSIONS_ACTION,): ShowPermissions(),
         (INIT_ACTION,): InitAction(),
