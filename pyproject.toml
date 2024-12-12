@@ -5,8 +5,9 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
 dependencies = []
+version = "5.6.0"
 
-[project.optional-dependencies]
+[dependency-groups]
 test = [
     "pytest>=8.3.2",
     "coverage>=7.6.3",
@@ -38,8 +39,29 @@ skip-magic-trailing-comma = true
 
 
 [tool.pytest.ini_options]
-pythonpath = [
-  "src",
-]
+pythonpath = ["src"]
+testpaths = ["tests"]
 
 
+[tool.tox]
+requires = ["tox>=4.19"]
+env_list = ["py310"]
+skipsdist = true
+skip_install = true
+
+[tool.tox.env_run_base]
+description = "Run tests under {base_python}"
+
+[tool.tox.env.py310]
+dependency_groups = ["test"]
+deps = ["-r src/onprem/requirements.txt",]
+commands = [[
+    "pytest",
+    "tests",
+    "-v",
+    "--cov=src/",
+    "--cov-report=term-missing",
+    "--cov-report=xml:coverage.xml",
+    "--junitxml=report.xml",
+    { replace = "posargs", extend = true}
+]]
