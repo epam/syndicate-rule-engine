@@ -1,11 +1,10 @@
 import json
 import uuid
 from datetime import timedelta, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 import boto3
 import pytest
-from dateutil.relativedelta import relativedelta, SU
 from moto.backends import get_backend
 from webtest import TestApp
 
@@ -17,6 +16,7 @@ from ..commons import SOURCE, InMemoryHvacClient, SREClient
 if TYPE_CHECKING:
     from modular_sdk.models.tenant import Tenant
     from modular_sdk.models.customer import Customer
+    from services.license_service import License
 
 
 # assuming that only this package will use mongo so that we need to clear
@@ -217,3 +217,68 @@ def create_tenant_br():
         )
 
     return factory
+
+
+@pytest.fixture()
+def main_license(main_customer) -> 'License':
+    lic = SP.license_service.create(
+        license_key='license-key',
+        customer=main_customer.name,
+        created_by='testing',
+        customers={main_customer.name: {'attachment_model': 'permitted', 'tenants': [], 'tenant_license_key': 'tlk'}},
+        description='Testing license',
+        expiration=utc_iso(utc_datetime() + timedelta(days=1)),
+        ruleset_ids=['AWS', 'AZURE', 'GOOGLE'],
+        allowance={
+            'balance_exhaustion_model': 'independent',
+            'job_balance': 10,
+            'time_range': 'DAY'
+        },
+        event_driven={
+            'active': False,
+            'quota': 0,
+        }
+    )
+    SP.license_service.save(lic)
+    SP.ruleset_service.create(
+        customer=CAASEnv.SYSTEM_CUSTOMER_NAME.get(),
+        name='AWS',
+        version='',
+        cloud='AWS',
+        rules=[],
+        event_driven=False,
+        licensed=True,
+        license_keys=[lic.license_key],
+        license_manager_id='AWS'
+    ).save()
+    SP.ruleset_service.create(
+        customer=CAASEnv.SYSTEM_CUSTOMER_NAME.get(),
+        name='AZURE',
+        version='',
+        cloud='AZURE',
+        rules=[],
+        event_driven=False,
+        licensed=True,
+        license_keys=[lic.license_key],
+        license_manager_id='AZURE'
+    ).save()
+    SP.ruleset_service.create(
+        customer=CAASEnv.SYSTEM_CUSTOMER_NAME.get(),
+        name='GOOGLE',
+        version='',
+        cloud='GCP',
+        rules=[],
+        event_driven=False,
+        licensed=True,
+        license_keys=[lic.license_key],
+        license_manager_id='GOOGLE'
+    ).save()
+    return lic
+
+
+@pytest.fixture()
+def set_license_metadata(main_license, load_metadata) -> Callable[[str], None]:
+    def _inner(name: str):
+        metadata = load_metadata(name)
+        SP.metadata_provider.set(metadata, main_license)
+    return _inner

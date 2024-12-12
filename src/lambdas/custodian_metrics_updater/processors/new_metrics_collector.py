@@ -247,6 +247,7 @@ class MetricsCollector:
             ReportType.OPERATIONAL_OVERVIEW,
             ReportType.OPERATIONAL_RESOURCES,
             ReportType.OPERATIONAL_RULES,
+            ReportType.OPERATIONAL_FINOPS,
             ReportType.C_LEVEL_OVERVIEW,
         )
 
@@ -299,6 +300,15 @@ class MetricsCollector:
                     ),
                     ctx,
                 )
+            )
+        )
+        _LOG.info('Generating operational finops for all tenants')
+        ctx.add_reports(
+            self.operational_finops(
+                ctx=ctx,
+                job_source=job_source,
+                sc_provider=sc_provider,
+                report_type=ReportType.OPERATIONAL_FINOPS,
             )
         )
 
@@ -455,6 +465,43 @@ class MetricsCollector:
                 start=start,
             )
 
+    def operational_finops(
+        self,
+        ctx: MetricsContext,
+        job_source: JobMetricsDataSource,
+        sc_provider: ShardsCollectionProvider,
+        report_type: ReportType,
+    ) -> ReportsGen:
+        start = report_type.start(ctx.now)
+        end = report_type.end(ctx.now)
+        js = job_source.subset(start=start, end=end)
+        for tenant_name in js.scanned_tenants:
+            tenant = self._get_tenant(tenant_name)
+            if not tenant:
+                _LOG.warning(f'Tenant with name {tenant_name} not found!')
+                continue
+            col = sc_provider.get_for_tenant(tenant, end)
+            if col is None:
+                _LOG.warning(
+                    f'Cannot get shards collection for '
+                    f'{tenant.name} for {end}'
+                )
+                continue
+            data = {
+                'id': tenant.project,
+                'data': ShardsCollectionDataSource(col, ctx.metadata).finops(),
+                'last_scan_date': js.subset(tenant=tenant.name).last_scan_date,
+                'activated_regions': sorted(
+                    modular_helpers.get_tenant_regions(tenant)
+                ),
+            }
+            yield self._rms.create(
+                key=self._rms.key_for_tenant(report_type, tenant),
+                data=data,  # TODO: test whether it's ok to assign large objects to PynamoDB's MapAttribute
+                end=end,
+                start=start,
+            )
+
     def c_level_overview(
         self,
         ctx: MetricsContext,
@@ -573,9 +620,7 @@ class MetricsCollector:
                         )
                     else:
                         cloud_rulesets.append(
-                            RulesetName(
-                                rs.name, rs.version
-                            ).to_str()
+                            RulesetName(rs.name, rs.version).to_str()
                         )
         if not cloud_licenses:
             return {'activated': False, 'license_properties': {}}

@@ -53,6 +53,14 @@ class RuleMetadata(
             f'{__name__}.{self.__class__.__name__} object at {hex(id(self))}'
         )
 
+    def is_finops(self) -> bool:
+        return 'finops' in self.category.lower()
+
+    def finops_category(self) -> str | None:
+        if not self.is_finops():
+            return
+        return self.category.split('>')[-1].strip()
+
 
 class DomainMetadata(
     msgspec.Struct, kw_only=True, array_like=True, frozen=True, eq=False
@@ -214,6 +222,19 @@ class MetadataProvider:
             content_encoding='gzip',
         )
         return self._dec.decode(gzip.decompress(data))
+
+    def set(
+        self,
+        metadata: Metadata,
+        lic: 'License',
+        version: Version = DEFAULT_VERSION,
+    ):
+        self._s3.put_object(
+            bucket=self._env.default_reports_bucket_name(),
+            key=ReportMetaBucketsKeys.meta_key(lic.license_key, version),
+            body=gzip.compress(msgspec.msgpack.encode(metadata)),
+            content_encoding='gzip',
+        )
 
     def get(
         self, lic: 'License', /, *, version: Version = DEFAULT_VERSION

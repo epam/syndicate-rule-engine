@@ -2,21 +2,52 @@
   "receivers": [
     "admin@gmail.com"
   ],
+  "report_type": "FINOPS",
   "customer": "TEST_CUSTOMER",
+  "from": "2024-12-05T13:42:56.472339Z",
+  "to": "2024-12-12T13:42:56.472339Z",
+  "outdated_tenants": [],
+  "externalData": false,
+  "data": [
+    {
+      "service_section": "Compute",
+      "rules_data": [
+        {
+          "rule": "Description for ecc-aws-070-unused_ec2_security_groups",
+          "service": "Security Group",
+          "category": "Unused Resources",
+          "severity": "Unknown",
+          "resource_type": "aws.security-group",
+          "region_data": {
+            "eu-central-1": {
+              "resources": [
+                {
+                  "id": "sg-05209ceeb761317e5",
+                  "name": "west-eu"
+                },
+                {
+                  "id": "sg-09d19538187df66cf",
+                  "name": "asia"
+                },
+                {
+                  "id": "sg-0ae266faddaef17e9",
+                  "name": "packer-ssh-access"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
   "tenant_name": "AWS-TESTING",
   "id": "123456789012",
-  "cloud": "aws",
+  "cloud": "AWS",
   "activated_regions": [
     "eu-central-1",
     "eu-north-1",
     "eu-west-1",
     "eu-west-3"
   ],
-  "from": "2024-11-03T00:00:00Z",
-  "to": "2024-11-10T00:00:00Z",
-  "last_scan_date": "2024-11-04T00:00:00Z",
-  "outdated_tenants": [],
-  "data": [],
-  "externalData": false,
-  "report_type": "FINOPS"
+  "last_scan_date": "2024-12-12T00:38:12.463910Z"
 }

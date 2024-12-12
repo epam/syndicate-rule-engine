@@ -406,6 +406,38 @@ class ShardsCollectionDataSource:
                 result[rt] += len(res)
         return result
 
+    def finops(self) -> dict[str, list[dict]]:
+        """
+        Produces finops data in its old format
+        """
+        res = {}
+        for rule in self._resources:
+            rule_meta = self._meta.rule(rule)
+            finops_category = rule_meta.finops_category()
+            if not finops_category:
+                continue  # not a finops rule
+            ss = rule_meta.service_section
+            if not ss:
+                _LOG.warning(f'Rule {rule} does not have service section')
+                continue
+            res.setdefault(ss, []).append(
+                {
+                    'rule': self._col.meta[rule].get('description', rule),
+                    'service': rule_meta.service
+                    or service_from_resource_type(
+                        self._col.meta[rule]['resource']
+                    ),
+                    'category': finops_category,
+                    'severity': rule_meta.severity.value,
+                    'resource_type': self._col.meta[rule]['resource'],
+                    'resources': {
+                        region: list(res)
+                        for region, res in self._resources[rule].items()
+                    },
+                }
+            )
+        return res
+
 
 class ShardsCollectionProvider:
     """

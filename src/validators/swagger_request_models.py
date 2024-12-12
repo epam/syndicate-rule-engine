@@ -1152,6 +1152,7 @@ class OperationalGetReportModel(BaseModel):
             'RESOURCES': ReportType.OPERATIONAL_RESOURCES,
             # 'COMPLIANCE': ReportType.OPERATIONAL_COMPLIANCE,
             'RULE': ReportType.OPERATIONAL_RULES,
+            'FINOPS': ReportType.OPERATIONAL_FINOPS
         }
         if not self.types:
             return tuple(old_new.values())
