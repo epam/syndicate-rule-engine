@@ -133,4 +133,8 @@ spec:
               value: {{ .Values.logLevel }}
             - name: CAAS_BATCH_JOB_LOG_LEVEL
               value: {{ .Values.executorLogLevel }}
+            {{- if .Values.allowSimultaneousJobsForOneTenant }}
+            - name: CAAS_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT
+              value: 'true'
+            {{- end  }}
       restartPolicy: Always

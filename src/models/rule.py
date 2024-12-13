@@ -183,12 +183,12 @@ class RuleIndex:
     ]))
 
     __slots__ = (
-        '_comment', '_cloud', '_platform', '_category', '_service_section',
+        '_cloud', '_platform', '_category', '_service_section',
         '_source', '_customization', '_multiregional'
     )
 
     def __init__(self, comment: str | None):
-        self._comment = comment or ''
+        comment = comment or ''
         self._cloud = comment[0:2]
         self._platform = comment[2:4]
         self._category = comment[4:6]
