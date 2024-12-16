@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - OPERATIONAL OVERVIERW
   - OPERATIONAL RESOURCES
   - OPERATIONAL RULES
+  - OPERATIONAL FINOPS
   - C LEVEL OVERVIEW
 - refactor suc inner reports and metrics
 - allow to use metadata provided by the license manager
