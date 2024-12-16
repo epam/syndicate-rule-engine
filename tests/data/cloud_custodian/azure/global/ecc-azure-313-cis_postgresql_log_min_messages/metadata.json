@@ -1,0 +1,62 @@
+{
+  "policy": {
+    "name": "ecc-azure-313-cis_postgresql_log_min_messages",
+    "resource": "azure.postgresql-server",
+    "description": "Description for ecc-azure-313-cis_postgresql_log_min_messages",
+    "comment": "020019061910"
+  },
+  "version": "0.9.40",
+  "execution": {
+    "id": "8ba5dd70-92d7-4d6c-86ba-f6e310dc0566",
+    "start": 1729502354.66514,
+    "end_time": 1729502354.665709,
+    "duration": 0.0005691051483154297
+  },
+  "config": {
+    "region": "AzureCloud",
+    "regions": [
+      "AzureCloud"
+    ],
+    "cache": "memory",
+    "profile": null,
+    "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
+    "assume_role": null,
+    "session_policy": null,
+    "external_id": null,
+    "log_group": null,
+    "tracer": "default",
+    "metrics_enabled": false,
+    "metrics": null,
+    "output_dir": "./global",
+    "cache_period": 120,
+    "dryrun": false,
+    "authorization_file": null,
+    "command": "c7n.commands.run",
+    "config": null,
+    "configs": [],
+    "subparser": "run",
+    "policy_filters": [],
+    "resource_types": [],
+    "verbose": null,
+    "quiet": false,
+    "debug": false,
+    "skip_validation": false,
+    "vars": null
+  },
+  "sys-stats": {
+    "snapshot_time": 0.0005602836608886719,
+    "num_fds": 1,
+    "cpu_user": 0.0002471680000000198,
+    "cpu_system": 0.0001888639999999553,
+    "num_ctx_switches_voluntary": 1
+  },
+  "api-stats": {},
+  "metrics": [
+    {
+      "MetricName": "PolicyException",
+      "Timestamp": "2024-10-21T13:30:01.405201",
+      "Value": 1,
+      "Unit": "Count"
+    }
+  ]
+}

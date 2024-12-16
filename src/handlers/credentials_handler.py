@@ -1,8 +1,6 @@
 """
 Maestro applications with credentials and CUSTODIAN_ACCESS parent
 """
-
-from functools import cached_property
 from http import HTTPStatus
 from itertools import chain
 from typing import Iterable, Literal
@@ -61,7 +59,7 @@ class CredentialsHandler(AbstractHandler):
             parent_service=SP.modular_client.parent_service()
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.CREDENTIALS: {

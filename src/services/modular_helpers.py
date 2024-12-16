@@ -3,7 +3,7 @@ Provides some modular sdk helper functions and classes
 """
 
 from http import HTTPStatus
-from typing import Iterable, Iterator, Literal
+from typing import Iterable, Iterator, Literal, cast
 from typing_extensions import Self
 
 from modular_sdk.commons.constants import ParentScope, ParentType
@@ -301,13 +301,14 @@ def is_tenant_valid(tenant: Tenant | None = None,
 
 
 def assert_tenant_valid(tenant: Tenant | None = None,
-                        customer: str | None = None):
+                        customer: str | None = None) -> Tenant:
     if not is_tenant_valid(tenant, customer):
         generic = 'No active tenant could be found.'
         template = 'Active tenant \'{tdn}\' not found'
         issue = template.format(
             tdn=tenant.name) if tenant else generic
         raise ResponseFactory(HTTPStatus.NOT_FOUND).message(issue).exc()
+    return cast(Tenant, tenant)
 
 
 def get_tenant_regions(tenant: Tenant) -> set[str]:

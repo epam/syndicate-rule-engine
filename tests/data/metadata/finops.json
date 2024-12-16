@@ -1,0 +1,19 @@
+{
+  "rules": {
+    "ecc-aws-070-unused_ec2_security_groups": [
+      "testing",
+      "FinOps > Unused Resources",
+      "Compute",
+      "Security Group",
+      "Unknown",
+      [],
+      true,
+      "",
+      "",
+      "",
+      {},
+      {},
+      {}
+    ]
+  }
+}

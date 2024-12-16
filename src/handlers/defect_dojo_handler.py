@@ -1,4 +1,3 @@
-from functools import cached_property
 from http import HTTPStatus
 from typing import Iterable
 
@@ -43,7 +42,7 @@ class DefectDojoHandler(AbstractHandler):
             parent_service=SP.modular_client.parent_service()
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.INTEGRATIONS_DEFECT_DOJO: {

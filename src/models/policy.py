@@ -1,14 +1,7 @@
-from enum import Enum
-
 from pynamodb.attributes import UnicodeAttribute, ListAttribute
 
-from helpers.constants import CAASEnv
+from helpers.constants import CAASEnv, PolicyEffect
 from models import BaseModel
-
-
-class PolicyEffect(str, Enum):
-    ALLOW = 'allow'
-    DENY = 'deny'
 
 
 class Policy(BaseModel):

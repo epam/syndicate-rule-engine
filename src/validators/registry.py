@@ -1019,24 +1019,6 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get a status of report by id'
     ),
 
-    # meta mappings
-    EndpointInfo(
-        path=CustodianEndpoint.META_STANDARDS,
-        method=HTTPMethod.POST,
-        request_model=BaseModel,
-        responses=[(HTTPStatus.ACCEPTED, MessageModel, None)],
-        permission=Permission.META_UPDATE_STANDARDS,
-        description='Allows to submit a job to update standards meta'
-    ),
-    EndpointInfo(
-        path=CustodianEndpoint.META_META,
-        method=HTTPMethod.POST,
-        request_model=BaseModel,
-        responses=[(HTTPStatus.ACCEPTED, MessageModel, None)],
-        permission=Permission.META_UPDATE_META,
-        description='Allows to submit a job to update rules meta mappings'
-    ),
-
     # resources reports
     EndpointInfo(
         path=CustodianEndpoint.REPORTS_RESOURCES_PLATFORMS_K8S_PLATFORM_ID_LATEST,

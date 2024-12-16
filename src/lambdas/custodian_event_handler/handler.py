@@ -9,7 +9,7 @@ from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
 from services.abs_lambda import EventProcessorLambdaHandler
 
-_LOG = get_logger('custodian-event-handler')
+_LOG = get_logger(__name__)
 
 CLEAR_EVENTS_ACTION = 'clear-events'
 ASSEMBLE_EVENTS_ACTION = 'assemble-events'

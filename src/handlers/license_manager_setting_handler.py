@@ -1,4 +1,3 @@
-from functools import cached_property
 from http import HTTPStatus
 
 from cryptography.hazmat.primitives.serialization import (
@@ -49,7 +48,7 @@ class LicenseManagerClientHandler(AbstractHandler):
         self.license_manager_service = license_manager_service
         self._ssm_client = ssm_client
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CLIENT: {
@@ -202,7 +201,7 @@ class LicenseManagerConfigHandler(AbstractHandler):
     def __init__(self, settings_service: SettingsService):
         self.settings_service = settings_service
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CONFIG: {

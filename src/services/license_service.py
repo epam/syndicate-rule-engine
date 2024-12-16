@@ -1,11 +1,11 @@
 import operator
 from datetime import datetime
 from itertools import chain
-from typing import Iterable, TypedDict, Literal, Iterator, Any, Generator
+from typing import Any, Generator, Iterable, Iterator, Literal, TypedDict
 
-from modular_sdk.models.parent import Parent
 from modular_sdk.commons.constants import ApplicationType, ParentType
 from modular_sdk.models.application import Application
+from modular_sdk.models.parent import Parent
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.application_service import ApplicationService
 from modular_sdk.services.customer_service import CustomerService
@@ -13,11 +13,12 @@ from modular_sdk.services.parent_service import ParentService
 from typing_extensions import NotRequired
 
 from helpers.log_helper import get_logger
-from helpers.time_helper import utc_iso, utc_datetime
+from helpers.time_helper import utc_datetime, utc_iso
 from models.ruleset import Ruleset
 from services import SERVICE_PROVIDER
-from services.modular_helpers import LinkedParentsIterator
 from services.base_data_service import BaseDataService
+from services.metadata import Metadata, MetadataProvider
+from services.modular_helpers import LinkedParentsIterator
 
 _LOG = get_logger(__name__)
 
@@ -59,6 +60,17 @@ class License:
     @property
     def customer(self) -> str:
         return self._app.customer_id
+
+    @property
+    def first_customer(self) -> str:
+        item = next(iter(self.customers), None)
+        if not item:
+            return self.customer
+        if item != self.customer:
+            _LOG.warning(
+                'Seems like license application customer does not match the first customer from inner map'
+            )
+        return item
 
     def tenant_license_key(self, customer: str) -> str | None:
         return self.customers.get(customer, {}).get('tenant_license_key')
@@ -153,26 +165,35 @@ class License:
 
 
 class LicenseService(BaseDataService[License]):
-    def __init__(self, application_service: ApplicationService,
-                 parent_service: ParentService,
-                 customer_service: CustomerService):
+    def __init__(
+        self,
+        application_service: ApplicationService,
+        parent_service: ParentService,
+        customer_service: CustomerService,
+        metadata_provider: MetadataProvider,
+    ):
         super().__init__()
         self._aps = application_service
         self._ps = parent_service
         self._cs = customer_service
+        self._mp = metadata_provider
 
     @staticmethod
     def to_licenses(it: Iterable[Application]) -> Iterator[License]:
         return map(License, it)
 
-    def create(self, license_key: str, customer: str,
-               created_by: str, customers: dict | None = None,
-               description: str | None = None,
-               expiration: str | None = None,
-               ruleset_ids: list[str] | None = None,
-               allowance: Allowance | None = None,
-               event_driven: EventDriven | None = None,
-               ) -> License:
+    def create(
+        self,
+        license_key: str,
+        customer: str,
+        created_by: str,
+        customers: dict | None = None,
+        description: str | None = None,
+        expiration: str | None = None,
+        ruleset_ids: list[str] | None = None,
+        allowance: Allowance | None = None,
+        event_driven: EventDriven | None = None,
+    ) -> License:
         app = self._aps.build(
             customer_id=customer,
             type=ApplicationType.CUSTODIAN_LICENSES.value,
@@ -180,7 +201,7 @@ class LicenseService(BaseDataService[License]):
             created_by=created_by,
             application_id=license_key,
             is_deleted=False,
-            meta={}
+            meta={},
         )
         lic = License(app)
         if expiration:
@@ -205,7 +226,7 @@ class LicenseService(BaseDataService[License]):
             'description': item.description,
             'ruleset_ids': item.ruleset_ids,
             'event_driven': item.event_driven,
-            'allowance': item.allowance
+            'allowance': item.allowance,
         }
 
     def get_nullable(self, license_key: str) -> License | None:
@@ -235,12 +256,15 @@ class LicenseService(BaseDataService[License]):
             if not item:
                 _LOG.warning('Strangely enough -> ruleset by lm id not found')
                 continue
-            if len(item.license_keys) == 1 and \
-                    item.license_keys[0] == lic.license_key:
+            if (
+                len(item.license_keys) == 1
+                and item.license_keys[0] == lic.license_key
+            ):
                 delete.append(item)
             else:
-                item.license_keys = list(set(item.license_keys) -
-                                         {lic.license_key})
+                item.license_keys = list(
+                    set(item.license_keys) - {lic.license_key}
+                )
                 update.append(item)
         with Ruleset.batch_write() as batch:
             for item in delete:
@@ -266,8 +290,9 @@ class LicenseService(BaseDataService[License]):
         if pair:
             return pair[1]
 
-    def iter_tenant_licenses(self, tenant: Tenant, limit: int | None = None
-                             ) -> Generator[tuple[Parent, License], None, None]:
+    def iter_tenant_licenses(
+        self, tenant: Tenant, limit: int | None = None
+    ) -> Generator[tuple[Parent, License], None, None]:
         """
         Iterates over all licenses that are active for tenant
         :param tenant:
@@ -278,7 +303,7 @@ class LicenseService(BaseDataService[License]):
             parent_service=self._ps,
             tenant=tenant,
             type_=ParentType.CUSTODIAN_LICENSES,
-            limit=limit
+            limit=limit,
         )
         yielded = set()
         for parent in it:
@@ -290,9 +315,35 @@ class LicenseService(BaseDataService[License]):
                 yield parent, License(app)
             yielded.add(aid)
 
+    def iter_customer_licenses(
+        self, customer: str, limit: int | None = None
+    ) -> Iterator[License]:
+        return self.to_licenses(
+            self._aps.list(
+                customer=customer,
+                _type=ApplicationType.CUSTODIAN_LICENSES.value,
+                deleted=False,
+                limit=limit,
+            )
+        )
+
+    def get_customer_license(self, customer: str) -> License | None:
+        """
+        TODO: used to retrieve metadata for customer. BUT:
+
+        """
+        return next(self.iter_customer_licenses(customer, limit=1), None)
+
+    def get_customer_metadata(self, customer: str) -> Metadata:
+        lic = self.get_customer_license(customer)
+        if not lic:
+            return Metadata.empty()
+        return self._mp.get(lic)
+
     @staticmethod
-    def is_subject_applicable(lic: License, customer: str,
-                              tenant_name: str | None = None):
+    def is_subject_applicable(
+        lic: License, customer: str, tenant_name: str | None = None
+    ):
         customers = lic.customers
         scope: dict = customers.get(customer) or {}
 
@@ -301,9 +352,13 @@ class LicenseService(BaseDataService[License]):
         retained, _all = tenant_name in tenants, not tenants
         attachment = (
             model == PERMITTED_ATTACHMENT and (retained or _all),
-            model == PROHIBITED_ATTACHMENT and not (retained or _all)
+            model == PROHIBITED_ATTACHMENT and not (retained or _all),
         )
-        return (not tenant_name) or (tenant_name and any(attachment)) if scope else False
+        return (
+            (not tenant_name) or (tenant_name and any(attachment))
+            if scope
+            else False
+        )
 
     def get_event_driven_licenses(self) -> Iterator[License]:
         """
@@ -312,32 +367,44 @@ class LicenseService(BaseDataService[License]):
         :return:
         """
         names = map(operator.attrgetter('name'), self._cs.i_get_customer())
-        licenses = self.to_licenses(chain.from_iterable(
-            self._aps.i_get_application_by_customer(
-                customer_id=name,
-                application_type=ApplicationType.CUSTODIAN_LICENSES,
-                deleted=False
-            ) for name in names
-        ))
+        licenses = self.to_licenses(
+            chain.from_iterable(
+                self._aps.i_get_application_by_customer(
+                    customer_id=name,
+                    application_type=ApplicationType.CUSTODIAN_LICENSES,
+                    deleted=False,
+                )
+                for name in names
+            )
+        )
         now = utc_datetime()
         return filter(
-            lambda lic: lic.event_driven.get('active') and lic.expiration and lic.expiration > now,
-            licenses
+            lambda lic: lic.event_driven.get('active')
+            and lic.expiration
+            and lic.expiration > now,
+            licenses,
         )
 
-    def iter_by_ids(self, ids: Iterable[str]
-                    ) -> Generator[License, None, None]:
+    def iter_by_ids(
+        self, ids: Iterable[str]
+    ) -> Generator[License, None, None]:
         for i in set(ids):
             item = self.get_nullable(i)
             if not item:
                 continue
             yield item
 
-    def update(self, item: License, description: str | None = None,
-               allowance: dict | None = None, customers: dict | None = None,
-               event_driven: dict | None = None,
-               rulesets: list[str] | None = None,
-               latest_sync: str | None = None, valid_until: str | None = None):
+    def update(
+        self,
+        item: License,
+        description: str | None = None,
+        allowance: dict | None = None,
+        customers: dict | None = None,
+        event_driven: dict | None = None,
+        rulesets: list[str] | None = None,
+        latest_sync: str | None = None,
+        valid_until: str | None = None,
+    ):
         actions = []
         if description:
             actions.append(Application.description.set(description))
@@ -346,12 +413,20 @@ class LicenseService(BaseDataService[License]):
         if customers:
             actions.append(Application.meta[License._customers].set(customers))
         if event_driven:
-            actions.append(Application.meta[License._event_driven].set(event_driven))
+            actions.append(
+                Application.meta[License._event_driven].set(event_driven)
+            )
         if rulesets:
-            actions.append(Application.meta[License._ruleset_ids].set(rulesets))
+            actions.append(
+                Application.meta[License._ruleset_ids].set(rulesets)
+            )
         if latest_sync:
-            actions.append(Application.meta[License._latest_sync].set(latest_sync))
+            actions.append(
+                Application.meta[License._latest_sync].set(latest_sync)
+            )
         if valid_until:
-            actions.append(Application.meta[License._expiration].set(valid_until))
+            actions.append(
+                Application.meta[License._expiration].set(valid_until)
+            )
         if actions:
             item.application.update(actions=actions)

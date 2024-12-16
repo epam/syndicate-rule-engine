@@ -1,4 +1,3 @@
-from functools import cached_property
 from http import HTTPStatus
 from itertools import chain
 from typing import Iterable
@@ -66,7 +65,7 @@ class SelfIntegrationHandler(AbstractHandler):
             ssm_service=SP.modular_client.assume_role_ssm_service()
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.INTEGRATIONS_SELF: {

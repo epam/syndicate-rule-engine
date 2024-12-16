@@ -1,0 +1,8 @@
+[Unit]
+Description=sre-run script running at bootstrap
+
+[Service]
+ExecStart=/usr/local/bin/sre-run.sh
+
+[Install]
+WantedBy=multi-user.target

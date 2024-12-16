@@ -21,7 +21,7 @@ from services.modular_helpers import ResolveParentsPayload, \
     split_into_to_keep_to_delete, build_parents
 from services.ruleset_service import RulesetService
 
-_LOG = get_logger('custodian-license-updater')
+_LOG = get_logger(__name__)
 
 
 class LicenseSyncError(Exception):

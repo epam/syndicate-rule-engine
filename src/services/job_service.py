@@ -1,19 +1,16 @@
 import uuid
-from datetime import timedelta, datetime
-from typing import Optional, Any
+from datetime import datetime, timedelta
+from typing import Any
 
 from pynamodb.expressions.condition import Condition
 from pynamodb.pagination import ResultIterator
 
-from helpers.constants import JobState, BatchJobEnv, ALL_ATTR
-from helpers.log_helper import get_logger
-from helpers.time_helper import utc_iso, utc_datetime
+from helpers.constants import BatchJobEnv, JobState
+from helpers.time_helper import utc_datetime, utc_iso
 from models.job import Job
 from services import SP
 from services.base_data_service import BaseDataService
 from services.ruleset_service import RulesetName
-
-_LOG = get_logger(__name__)
 
 
 class JobService(BaseDataService[Job]):
@@ -35,10 +32,10 @@ class JobService(BaseDataService[Job]):
             affected_license=affected_license
         )
 
-    def update(self, job: Job, batch_job_id: str = None, reason: str = None,
-               status: JobState = None, created_at: str = None,
-               started_at: str = None, stopped_at: str = None,
-               queue: str = None, definition: str = None,
+    def update(self, job: Job, batch_job_id: str | None = None, reason: str | None = None,
+               status: JobState | None = None, created_at: str | None = None,
+               started_at: str | None = None, stopped_at: str | None = None,
+               queue: str | None = None, definition: str | None = None,
                rulesets: list[str] | None = None):
         actions = []
         if batch_job_id:
@@ -62,11 +59,11 @@ class JobService(BaseDataService[Job]):
         if actions:
             job.update(actions)
 
-    def get_by_customer_name(self, customer_name: str, status: JobState = None,
-                             start: datetime = None, end: datetime = None,
-                             filter_condition: Optional[Condition] = None,
-                             ascending: bool = False, limit: int = None,
-                             last_evaluated_key: dict = None,
+    def get_by_customer_name(self, customer_name: str, status: JobState | None = None,
+                             start: datetime | None = None, end: datetime | None = None,
+                             filter_condition: Condition | None = None,
+                             ascending: bool = False, limit: int | None = None,
+                             last_evaluated_key: dict | None = None,
                              ) -> ResultIterator[Job]:
         if start and end:
             rkc = Job.submitted_at.between(
@@ -90,11 +87,11 @@ class JobService(BaseDataService[Job]):
             last_evaluated_key=last_evaluated_key
         )
 
-    def get_by_tenant_name(self, tenant_name: str, status: JobState = None,
-                           start: datetime = None, end: datetime = None,
-                           filter_condition: Optional[Condition] = None,
-                           ascending: bool = False, limit: int = None,
-                           last_evaluated_key: dict = None,
+    def get_by_tenant_name(self, tenant_name: str, status: JobState | None = None,
+                           start: datetime | None = None, end: datetime | None = None,
+                           filter_condition: Condition | None = None,
+                           ascending: bool = False, limit: int | None = None,
+                           last_evaluated_key: dict | None = None,
                            ) -> ResultIterator[Job]:
         if start and end:
             rkc = Job.submitted_at.between(

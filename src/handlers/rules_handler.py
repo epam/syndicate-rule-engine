@@ -1,5 +1,4 @@
 import io
-from functools import cached_property
 from http import HTTPStatus
 from typing import Iterator
 
@@ -24,15 +23,13 @@ from validators.utils import validate_kwargs
 
 
 class RulesReportXlsxWriter:
+    head = (
+        'Rule', 'Region', 'Executed successfully',
+        'Execution time (seconds)', 'Failed Resources'
+    )
+
     def __init__(self, it: Iterator[dict]):
         self._it = it
-
-    @cached_property
-    def head(self) -> list:
-        return [
-            'Rule', 'Region', 'Executed successfully',
-            'Execution time (seconds)', 'Failed Resources'
-        ]
 
     @staticmethod
     def status_empty(st: bool) -> str:
@@ -115,7 +112,7 @@ class JobsRulesHandler(AbstractHandler):
             tenant_service=SP.modular_client.tenant_service()
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.REPORTS_RULES_JOBS_JOB_ID: {
@@ -161,7 +158,7 @@ class JobsRulesHandler(AbstractHandler):
                 url = self._report_service.one_time_url(
                     buffer, f'{job.id}-rules.xlsx'
                 )
-                content = ReportResponse(job, url, ReportFormat.XLSX).dict()
+                content = ReportResponse(job, url, fmt=ReportFormat.XLSX).dict()
         return build_response(content=content)
 
     @validate_kwargs

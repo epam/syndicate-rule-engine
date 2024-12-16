@@ -1,0 +1,59 @@
+{
+  "AWS": {
+    "failed_scans": 1,
+    "last_scan_date": "2024-11-26T00:09:20.824013Z",
+    "resources_violated": 23,
+    "resource_types_data": {
+      "Security Group": 3,
+      "Cloudtrail": 1,
+      "Sns": 3,
+      "S3": 10,
+      "Iam Group": 3,
+      "Ebs": 2,
+      "Ec2": 2,
+      "Ecr": 2
+    },
+    "severity_data": {
+      "Unknown": 23
+    },
+    "succeeded_scans": 2,
+    "total_scanned_tenants": 1,
+    "total_scans": 3,
+    "activated": false,
+    "license_properties": {}
+  },
+  "AZURE": {
+    "failed_scans": 1,
+    "last_scan_date": "2024-11-26T00:09:20.824013Z",
+    "resources_violated": 5,
+    "resource_types_data": {
+      "Defender Pricing": 5
+    },
+    "severity_data": {
+      "Unknown": 5
+    },
+    "succeeded_scans": 2,
+    "total_scanned_tenants": 1,
+    "total_scans": 3,
+    "activated": false,
+    "license_properties": {}
+  },
+  "GOOGLE": {
+    "failed_scans": 1,
+    "last_scan_date": "2024-11-26T00:09:20.824013Z",
+    "resources_violated": 5,
+    "resource_types_data": {
+      "Vpc": 1,
+      "Firewall": 9,
+      "Subnet": 1
+    },
+    "severity_data": {
+      "Unknown": 5
+    },
+    "succeeded_scans": 2,
+    "total_scanned_tenants": 1,
+    "total_scans": 3,
+    "activated": false,
+    "license_properties": {}
+  }
+}

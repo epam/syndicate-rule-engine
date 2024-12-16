@@ -30,7 +30,9 @@ from helpers.constants import (
     RuleDomain,
     RuleSourceType,
     GITHUB_API_URL_DEFAULT,
-    GITLAB_API_URL_DEFAULT
+    GITLAB_API_URL_DEFAULT,
+    PolicyEffect,
+    ReportType
 )
 from helpers import Version
 from helpers.regions import AllRegions, AllRegionsWithGlobal
@@ -39,7 +41,6 @@ from services import SERVICE_PROVIDER
 from services.chronicle_service import ChronicleConverterType
 from services.ruleset_service import RulesetName
 from models.rule import RuleIndex
-from models.policy import PolicyEffect
 
 
 class BaseModel(PydanticBaseModel):
@@ -87,7 +88,7 @@ class TimeRangedMixin:
     # end_iso: datetime | date = Field(None, alias='to')
 
     @classmethod
-    def skip_validation_if_no_input(cls):
+    def skip_validation_if_no_input(cls) -> bool:
         return False
 
     @classmethod
@@ -672,6 +673,8 @@ class AZURECredentials(PydanticBaseModel):
 
 
 class GOOGLECredentials1(PydanticBaseModel):
+    model_config = ConfigDict(extra='allow')
+
     type: str
     project_id: str
     private_key_id: str
@@ -685,6 +688,8 @@ class GOOGLECredentials1(PydanticBaseModel):
 
 
 class GOOGLECredentials2(PydanticBaseModel):
+    model_config = ConfigDict(extra='allow')
+
     type: str
     access_token: str
     refresh_token: str
@@ -694,6 +699,8 @@ class GOOGLECredentials2(PydanticBaseModel):
 
 
 class GOOGLECredentials3(PydanticBaseModel):
+    model_config = ConfigDict(extra='allow')
+
     access_token: str
     project_id: str
 
@@ -1135,6 +1142,26 @@ class OperationalGetReportModel(BaseModel):
     attempt: SkipJsonSchema[int] = 0
     execution_job_id: SkipJsonSchema[str] = Field(None)
 
+    @property
+    def new_types(self) -> tuple[ReportType, ...]:
+        """
+        Converts to new types
+        """
+        old_new = {
+            'OVERVIEW': ReportType.OPERATIONAL_OVERVIEW,
+            'RESOURCES': ReportType.OPERATIONAL_RESOURCES,
+            # 'COMPLIANCE': ReportType.OPERATIONAL_COMPLIANCE,
+            'RULE': ReportType.OPERATIONAL_RULES,
+            'FINOPS': ReportType.OPERATIONAL_FINOPS
+        }
+        if not self.types:
+            return tuple(old_new.values())
+        res = []
+        for t in self.types:
+            if t in old_new:
+                res.append(old_new[t])
+        return tuple(res)
+
 
 class DepartmentGetReportModel(BaseModel):
     types: set[Literal['TOP_RESOURCES_BY_CLOUD', 'TOP_TENANTS_RESOURCES', 'TOP_TENANTS_COMPLIANCE', 'TOP_COMPLIANCE_BY_CLOUD', 'TOP_TENANTS_ATTACKS', 'TOP_ATTACK_BY_CLOUD']] = Field(default_factory=set)
@@ -1143,9 +1170,27 @@ class DepartmentGetReportModel(BaseModel):
 
 
 class CLevelGetReportModel(BaseModel):
+    receivers: set[str] = Field(default_factory=set)
     types: set[Literal['OVERVIEW', 'COMPLIANCE', 'ATTACK_VECTOR']] = Field(default_factory=set)
     attempt: SkipJsonSchema[int] = 0
     execution_job_id: SkipJsonSchema[str] = Field(None)
+
+    @property
+    def new_types(self) -> tuple[ReportType, ...]:
+        """
+        Converts to new types
+        """
+        old_new = {
+            'OVERVIEW': ReportType.C_LEVEL_OVERVIEW,
+            # 'COMPLIANCE': ReportType.C_LEVEL_COMPLIANCE,
+        }
+        if not self.types:
+            return tuple(old_new.values())
+        res = []
+        for t in self.types:
+            if t in old_new:
+                res.append(old_new[t])
+        return tuple(res)
 
 
 class HealthCheckQueryModel(BaseModel):
@@ -1407,7 +1452,7 @@ class MetricsStatusGetModel(TimeRangedMixin, BaseModel):
         return timedelta(days=365)
 
     @classmethod
-    def skip_validation_if_no_input(cls):
+    def skip_validation_if_no_input(cls) -> bool:
         return True
 
 

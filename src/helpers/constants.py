@@ -1,13 +1,15 @@
 import operator
 import os
+from datetime import datetime
 from enum import Enum
 from itertools import filterfalse
 from typing import Iterator, MutableMapping
 
+from dateutil.relativedelta import SU, relativedelta
 from typing_extensions import Self
 
-
 # from http import HTTPMethod  # python3.11+
+
 
 class HTTPMethod(str, Enum):
     HEAD = 'HEAD'
@@ -22,6 +24,7 @@ class CustodianEndpoint(str, Enum):
     """
     Should correspond to Api gateway models
     """
+
     DOC = '/doc'
     JOBS = '/jobs'
     ROLES = '/roles'
@@ -43,7 +46,6 @@ class CustodianEndpoint(str, Enum):
     DOC_PROXY = '/doc/{proxy+}'
     ROLES_NAME = '/roles/{name}'
     CREDENTIALS = '/credentials'
-    META_META = '/rule-meta/meta'
     RULE_SOURCES = '/rule-sources'
     USERS_WHOAMI = '/users/whoami'
     SCHEDULED_JOB = '/scheduled-job'
@@ -63,7 +65,6 @@ class CustodianEndpoint(str, Enum):
     RULESETS_RELEASE = '/rulesets/release'
     ED_RULESETS = '/rulesets/event-driven'
     DOC_SWAGGER_JSON = '/doc/swagger.json'
-    META_STANDARDS = '/rule-meta/standards'
     RULE_META_UPDATER = '/rules/update-meta'
     REPORTS_PUSH_DOJO = '/reports/push/dojo'
     CUSTOMERS_RABBITMQ = '/customers/rabbitmq'
@@ -101,19 +102,45 @@ class CustodianEndpoint(str, Enum):
     SETTINGS_LICENSE_MANAGER_CONFIG = '/settings/license-manager/config'
     LICENSE_LICENSE_KEY_ACTIVATION = '/licenses/{license_key}/activation'
     REPORTS_RULES_TENANTS_TENANT_NAME = '/reports/rules/tenants/{tenant_name}'
-    TENANTS_TENANT_NAME_EXCLUDED_RULES = '/tenants/{tenant_name}/excluded-rules'
-    TENANTS_TENANT_NAME_ACTIVE_LICENSES = '/tenants/{tenant_name}/active-licenses'
-    INTEGRATIONS_CHRONICLE_ID_ACTIVATION = '/integrations/chronicle/{id}/activation'
-    REPORTS_COMPLIANCE_TENANTS_TENANT_NAME = '/reports/compliance/tenants/{tenant_name}'
-    INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION = '/integrations/defect-dojo/{id}/activation'
-    REPORTS_DETAILS_TENANTS_TENANT_NAME_JOBS = '/reports/details/tenants/{tenant_name}/jobs'
-    REPORTS_DIGESTS_TENANTS_TENANT_NAME_JOBS = '/reports/digests/tenants/{tenant_name}/jobs'
-    REPORTS_FINDINGS_TENANTS_TENANT_NAME_JOBS = '/reports/findings/tenants/{tenant_name}/jobs'
-    REPORTS_PUSH_CHRONICLE_TENANTS_TENANT_NAME = '/reports/push/chronicle/tenants/{tenant_name}'
-    REPORTS_RESOURCES_TENANTS_TENANT_NAME_JOBS = '/reports/resources/tenants/{tenant_name}/jobs'
-    REPORTS_RAW_TENANTS_TENANT_NAME_STATE_LATEST = '/reports/raw/tenants/{tenant_name}/state/latest'
-    REPORTS_RESOURCES_TENANTS_TENANT_NAME_LATEST = '/reports/resources/tenants/{tenant_name}/state/latest'
-    REPORTS_RESOURCES_PLATFORMS_K8S_PLATFORM_ID_LATEST = '/reports/resources/platforms/k8s/{platform_id}/state/latest'
+    TENANTS_TENANT_NAME_EXCLUDED_RULES = (
+        '/tenants/{tenant_name}/excluded-rules'
+    )
+    TENANTS_TENANT_NAME_ACTIVE_LICENSES = (
+        '/tenants/{tenant_name}/active-licenses'
+    )
+    INTEGRATIONS_CHRONICLE_ID_ACTIVATION = (
+        '/integrations/chronicle/{id}/activation'
+    )
+    REPORTS_COMPLIANCE_TENANTS_TENANT_NAME = (
+        '/reports/compliance/tenants/{tenant_name}'
+    )
+    INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION = (
+        '/integrations/defect-dojo/{id}/activation'
+    )
+    REPORTS_DETAILS_TENANTS_TENANT_NAME_JOBS = (
+        '/reports/details/tenants/{tenant_name}/jobs'
+    )
+    REPORTS_DIGESTS_TENANTS_TENANT_NAME_JOBS = (
+        '/reports/digests/tenants/{tenant_name}/jobs'
+    )
+    REPORTS_FINDINGS_TENANTS_TENANT_NAME_JOBS = (
+        '/reports/findings/tenants/{tenant_name}/jobs'
+    )
+    REPORTS_PUSH_CHRONICLE_TENANTS_TENANT_NAME = (
+        '/reports/push/chronicle/tenants/{tenant_name}'
+    )
+    REPORTS_RESOURCES_TENANTS_TENANT_NAME_JOBS = (
+        '/reports/resources/tenants/{tenant_name}/jobs'
+    )
+    REPORTS_RAW_TENANTS_TENANT_NAME_STATE_LATEST = (
+        '/reports/raw/tenants/{tenant_name}/state/latest'
+    )
+    REPORTS_RESOURCES_TENANTS_TENANT_NAME_LATEST = (
+        '/reports/resources/tenants/{tenant_name}/state/latest'
+    )
+    REPORTS_RESOURCES_PLATFORMS_K8S_PLATFORM_ID_LATEST = (
+        '/reports/resources/platforms/k8s/{platform_id}/state/latest'
+    )
 
     @classmethod
     def match(cls, resource: str) -> Self | None:
@@ -144,8 +171,9 @@ LAMBDA_URL_HEADER_CONTENT_TYPE_UPPER = 'Content-Type'
 JSON_CONTENT_TYPE = 'application/json'
 
 DEFAULT_SYSTEM_CUSTOMER: str = 'SYSTEM'
-DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME = \
+DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME = (
     'custodian.rules-metadata-repo-access'
+)
 
 ACTION_PARAM = 'action'
 
@@ -188,6 +216,7 @@ class Cloud(str, Enum):
     """
     More like provider. "Cloud" is just a name that happen to be used
     """
+
     AWS = 'AWS'
     AZURE = 'AZURE'
     GOOGLE = 'GOOGLE'
@@ -236,6 +265,7 @@ class PolicyErrorType(str, Enum):
     """
     For statistics
     """
+
     SKIPPED = 'SKIPPED'
     ACCESS = 'ACCESS'  # not enough permissions
     CREDENTIALS = 'CREDENTIALS'  # invalid credentials
@@ -328,6 +358,7 @@ class EnvEnum(str, Enum):
     """
     Abstract enumeration class for holding environment variables
     """
+
     default: str | None
 
     @staticmethod
@@ -365,8 +396,8 @@ class CAASEnv(EnvEnum):
     """
     Envs that can be set for lambdas of custodian service
     """
+
     SERVICE_MODE = 'CAAS_SERVICE_MODE'
-    TESTING_MODE = 'CAAS_TESTING'
     MOCKED_RABBIT_MQ_S3 = 'CAAS_MOCK_RABBIT_MQ_S3'
     SYSTEM_CUSTOMER_NAME = 'SYSTEM_CUSTOMER_NAME', DEFAULT_SYSTEM_CUSTOMER
     LOG_LEVEL = 'CAAS_LOG_LEVEL', 'INFO'
@@ -381,14 +412,19 @@ class CAASEnv(EnvEnum):
     REPORTS_BUCKET_NAME = 'CAAS_REPORTS_BUCKET_NAME', 'reports'
     METRICS_BUCKET_NAME = 'CAAS_METRICS_BUCKET_NAME', 'metrics'
     STATISTICS_BUCKET_NAME = 'CAAS_STATISTICS_BUCKET_NAME', 'statistics'
-    RECOMMENDATIONS_BUCKET_NAME = 'CAAS_RECOMMENDATIONS_BUCKET_NAME', 'recommendation'
+    RECOMMENDATIONS_BUCKET_NAME = (
+        'CAAS_RECOMMENDATIONS_BUCKET_NAME',
+        'recommendation',
+    )
 
     # Cognito either one will work, but ID faster and safer
     USER_POOL_NAME = 'CAAS_USER_POOL_NAME'
     USER_POOL_ID = 'CAAS_USER_POOL_ID'
 
     # rbac
-    ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS = 'CAAS_ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS'  # noqa, can be useful for QA
+    ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS = (
+        'CAAS_ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS'
+    )
 
     # lm
     LM_TOKEN_LIFETIME_MINUTES = 'CAAS_LM_TOKEN_LIFETIME_MINUTES', '120'
@@ -407,15 +443,23 @@ class CAASEnv(EnvEnum):
     # events
     EVENTS_TTL_HOURS = 'CAAS_EVENTS_TTL_HOURS', '48'
     NATIVE_EVENTS_PER_ITEM = 'CAAS_NATIVE_EVENTS_PER_ITEM', '100'
-    EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE = 'CAAS_EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE', '100'
-    NUMBER_OF_PARTITIONS_FOR_EVENTS = 'CAAS_NUMBER_OF_PARTITIONS_FOR_EVENTS', '10'
+    EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE = (
+        'CAAS_EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE',
+        '100',
+    )
+    NUMBER_OF_PARTITIONS_FOR_EVENTS = (
+        'CAAS_NUMBER_OF_PARTITIONS_FOR_EVENTS',
+        '10',
+    )
 
     # jobs
     JOBS_TIME_TO_LIVE_DAYS = 'CAAS_JOBS_TIME_TO_LIVE_DAYS'
 
     # some logic setting
     SKIP_CLOUD_IDENTIFIER_VALIDATION = 'CAAS_SKIP_CLOUD_IDENTIFIER_VALIDATION'
-    ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT = 'CAAS_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT'  # noqa
+    ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT = (
+        'CAAS_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT'
+    )
 
     # cache
     INNER_CACHE_TTL_SECONDS = 'CAAS_INNER_CACHE_TTL_SECONDS', '300'
@@ -443,6 +487,7 @@ class BatchJobEnv(EnvEnum):
     Batch executor specific envs. Note that batch can contain some envs from
     lambdas, but these that are listed here -> only for batch
     """
+
     # common
     AWS_REGION = 'AWS_REGION', 'us-east-1'
     BATCH_JOB_LIFETIME_MINUTES = 'CAAS_BATCH_JOB_LIFETIME_MINUTES', '120'
@@ -473,8 +518,12 @@ class Permission(str, Enum):
     is_disabled: bool
     depends_on_tenant: bool
 
-    def __new__(cls, value: str, is_disabled: bool = False,
-                depends_on_tenant: bool = False):
+    def __new__(
+        cls,
+        value: str,
+        is_disabled: bool = False,
+        depends_on_tenant: bool = False,
+    ):
         """
         Hidden permissions are those that currently cannot be used by standard
         users even if the user has one. Those endpoints are available only for
@@ -497,12 +546,16 @@ class Permission(str, Enum):
 
     # todo implement tenant restrictions where the True is commented
     REPORT_PUSH_TO_DOJO = 'report:push_report_to_dojo', False, True
-    REPORT_PUSH_TO_DOJO_BATCH = 'report:push_to_dojo_batch', False,  # True
+    REPORT_PUSH_TO_DOJO_BATCH = 'report:push_to_dojo_batch', False  # True
     REPORT_PUSH_TO_CHRONICLE = 'report:push_report_to_chronicle', False, True
-    REPORT_PUSH_TO_CHRONICLE_TENANT = 'report:push_report_to_chronicle_tenant', False, True
+    REPORT_PUSH_TO_CHRONICLE_TENANT = (
+        'report:push_report_to_chronicle_tenant',
+        False,
+        True,
+    )
     REPORT_OPERATIONAL = 'report:post_operational', False, True
-    REPORT_PROJECT = 'report:post_project', False,  # True
-    REPORT_DEPARTMENT = 'report:post_department', False,  # True
+    REPORT_PROJECT = 'report:post_project', False  # True
+    REPORT_DEPARTMENT = 'report:post_department', False  # True
     REPORT_CLEVEL = 'report:post_clevel'
     REPORT_DIAGNOSTIC = 'report:get_diagnostic'
     REPORT_STATUS = 'report:get_status'
@@ -514,17 +567,37 @@ class Permission(str, Enum):
     REPORT_FINDINGS_DESCRIBE = 'report:get_findings', False, True
     REPORT_FINDINGS_DESCRIBE_BATCH = 'report:get_findings_batch', False, True
     REPORT_COMPLIANCE_DESCRIBE_JOB = 'report:get_job_compliance', False, True
-    REPORT_COMPLIANCE_DESCRIBE_TENANT = 'report:get_tenant_compliance', False, True
+    REPORT_COMPLIANCE_DESCRIBE_TENANT = (
+        'report:get_tenant_compliance',
+        False,
+        True,
+    )
     REPORT_ERRORS_DESCRIBE = 'report:get_job_errors', False, True
     REPORT_RULES_DESCRIBE_JOB = 'report:get_job_rules', False, True
     REPORT_RULES_DESCRIBE_TENANT = 'report:get_tenant_rules', False, True
-    REPORT_RESOURCES_GET_TENANT_LATEST = 'report:get_tenant_latest_resources', False, True
-    REPORT_RESOURCES_GET_K8S_PLATFORM_LATEST = 'report:get_k8s_platform_latest_resources', False, True
+    REPORT_RESOURCES_GET_TENANT_LATEST = (
+        'report:get_tenant_latest_resources',
+        False,
+        True,
+    )
+    REPORT_RESOURCES_GET_K8S_PLATFORM_LATEST = (
+        'report:get_k8s_platform_latest_resources',
+        False,
+        True,
+    )
     REPORT_RESOURCES_GET_JOBS = 'report:get_job_resources', False, True
-    REPORT_RESOURCES_GET_JOBS_BATCH = 'report:get_job_resources_batch', False, True
-    REPORT_RAW_GET_TENANT_LATEST = 'report:get_tenant_latest_raw_report', False, True
+    REPORT_RESOURCES_GET_JOBS_BATCH = (
+        'report:get_job_resources_batch',
+        False,
+        True,
+    )
+    REPORT_RAW_GET_TENANT_LATEST = (
+        'report:get_tenant_latest_raw_report',
+        False,
+        True,
+    )
 
-    JOB_QUERY = 'job:query', False,  # True
+    JOB_QUERY = 'job:query', False  # True
     JOB_GET = 'job:get', False, True
     JOB_POST_LICENSED = 'job:post_for_tenant', False, True
     JOB_POST_K8S = 'job:post_for_k8s_platform', False, True
@@ -534,7 +607,7 @@ class Permission(str, Enum):
     CUSTOMER_SET_EXCLUDED_RULES = 'customer:set_excluded_rules'
     CUSTOMER_GET_EXCLUDED_RULES = 'customer:get_excluded_rules'
 
-    TENANT_QUERY = 'tenant:query', False,  # True
+    TENANT_QUERY = 'tenant:query', False  # True
     TENANT_GET = 'tenant:get', False, True
     TENANT_GET_ACTIVE_LICENSES = 'tenant:get_active_licenses', False, True
     TENANT_SET_EXCLUDED_RULES = 'tenant:set_excluded_rules', False, True
@@ -557,11 +630,7 @@ class Permission(str, Enum):
     METRICS_UPDATE = 'system:update_metrics', True
     METRICS_STATUS = 'system:metrics_status'
 
-    META_UPDATE_STANDARDS = 'meta:update_standards', True
-    META_UPDATE_MAPPINGS = 'meta:update_mappings', True
-    META_UPDATE_META = 'meta:update_meta', True
-
-    RULESET_DESCRIBE = 'ruleset:describe', False,  # True
+    RULESET_DESCRIBE = 'ruleset:describe', False  # True
     RULESET_CREATE = 'ruleset:create'
     RULESET_UPDATE = 'ruleset:update'
     RULESET_DELETE = 'ruleset:delete'
@@ -579,25 +648,28 @@ class Permission(str, Enum):
     EVENT_POST = 'event:post'
 
     LICENSE_ADD = 'license:add_license'
-    LICENSE_QUERY = 'license:query', False,  # True
-    LICENSE_GET = 'license:get', False,  # True
-    LICENSE_DELETE = 'license:delete_license', False,  # True
+    LICENSE_QUERY = 'license:query', False  # True
+    LICENSE_GET = 'license:get', False  # True
+    LICENSE_DELETE = 'license:delete_license', False  # True
     LICENSE_SYNC = 'license:sync', True
     LICENSE_ACTIVATE = 'license:activate'
-    LICENSE_GET_ACTIVATION = 'license:get_activation', False,  # True
-    LICENSE_DELETE_ACTIVATION = 'license:delete_activation', False,
-    LICENSE_UPDATE_ACTIVATION = 'license:update_activation', False,
+    LICENSE_GET_ACTIVATION = 'license:get_activation', False  # True
+    LICENSE_DELETE_ACTIVATION = 'license:delete_activation', False
+    LICENSE_UPDATE_ACTIVATION = 'license:update_activation', False
 
-    SCHEDULED_JOB_GET = 'scheduled-job:get', False,  # True
-    SCHEDULED_JOB_QUERY = 'scheduled-job:query', False,  # True
+    SCHEDULED_JOB_GET = 'scheduled-job:get', False  # True
+    SCHEDULED_JOB_QUERY = 'scheduled-job:query', False  # True
     SCHEDULED_JOB_CREATE = 'scheduled-job:register', False, True
-    SCHEDULED_JOB_DELETE = 'scheduled-job:deregister', False,  # True
-    SCHEDULED_JOB_UPDATE = 'scheduled-job:update', False,  # True
+    SCHEDULED_JOB_DELETE = 'scheduled-job:deregister', False  # True
+    SCHEDULED_JOB_UPDATE = 'scheduled-job:update', False  # True
 
     SETTINGS_DESCRIBE_MAIL = 'settings:describe_mail', True
     SETTINGS_CREATE_MAIL = 'settings:create_mail', True
     SETTINGS_DELETE_MAIL = 'settings:delete_mail', True
-    SETTINGS_CHANGE_SET_REPORTS = 'settings:change_send_reports', True  # TODO make PUT
+    SETTINGS_CHANGE_SET_REPORTS = (
+        'settings:change_send_reports',
+        True,
+    )  # TODO make PUT
     SETTINGS_DESCRIBE_LM_CONFIG = 'settings:describe_lm_config'
     SETTINGS_CREATE_LM_CONFIG = 'settings:create_lm_config', True
     SETTINGS_DELETE_LM_CONFIG = 'settings:delete_lm_config', True
@@ -610,10 +682,10 @@ class Permission(str, Enum):
     RABBITMQ_DELETE = 'rabbitmq:delete'
 
     BATCH_RESULTS_GET = 'batch_results:get', False, True
-    BATCH_RESULTS_QUERY = 'batch_results:query', False,  # True
+    BATCH_RESULTS_QUERY = 'batch_results:query', False  # True
 
     PLATFORM_GET_K8S = 'platform:get_k8s', False, True
-    PLATFORM_QUERY_K8S = 'platform:query_k8', False,  # True
+    PLATFORM_QUERY_K8S = 'platform:query_k8', False  # True
     PLATFORM_CREATE_K8S = 'platform:create_k8s', False, True
     PLATFORM_DELETE_K8S = 'platform:delete_k8s', False, True
 
@@ -633,8 +705,12 @@ class Permission(str, Enum):
     CHRONICLE_INTEGRATION_DESCRIBE = 'chronicle_integration:describe'
     CHRONICLE_INTEGRATION_DELETE = 'chronicle_integration:delete'
     CHRONICLE_INTEGRATION_ACTIVATE = 'chronicle_integration:activate'
-    CHRONICLE_INTEGRATION_GET_ACTIVATION = 'chronicle_integration:get_activation'
-    CHRONICLE_INTEGRATION_DELETE_ACTIVATION = 'chronicle_integration:delete_activation'
+    CHRONICLE_INTEGRATION_GET_ACTIVATION = (
+        'chronicle_integration:get_activation'
+    )
+    CHRONICLE_INTEGRATION_DELETE_ACTIVATION = (
+        'chronicle_integration:delete_activation'
+    )
 
     CREDENTIALS_DESCRIBE = 'credentials:describe'
     CREDENTIALS_BIND = 'credentials:bind'
@@ -661,6 +737,11 @@ class Permission(str, Enum):
         return filter(operator.attrgetter('is_disabled'), cls)
 
 
+class PolicyEffect(str, Enum):
+    ALLOW = 'allow'
+    DENY = 'deny'
+
+
 # Modular
 # Tenant
 MODULAR_MANAGEMENT_ID_ATTR = 'management_parent_id'
@@ -681,6 +762,7 @@ class BatchJobType(str, Enum):
     """
     Our inner types
     """
+
     STANDARD = 'standard'
     EVENT_DRIVEN = 'event-driven-multi-account'
     SCHEDULED = 'scheduled'
@@ -719,6 +801,7 @@ class JobState(str, Enum):
     """
     https://docs.aws.amazon.com/batch/latest/userguide/job_states.html
     """
+
     SUBMITTED = 'SUBMITTED'
     PENDING = 'PENDING'
     RUNNABLE = 'RUNNABLE'
@@ -767,7 +850,7 @@ TACTICS_ID_MAPPING = {  # rules do not have tactic IDs
     'Collection': 'TA0009',
     'Exfiltration': 'TA0010',
     'Command and Control': 'TA0011',
-    'Impact': 'TA0040'
+    'Impact': 'TA0040',
 }
 
 RETRY_REPORT_STATE_MACHINE = 'retry_send_reports'
@@ -808,12 +891,15 @@ class S3SettingKey(str, Enum):
     AZURE_EVENTS = 'AZURE_EVENTS'
     GOOGLE_EVENTS = 'GOOGLE_EVENTS'
 
-    EVENT_BRIDGE_EVENT_SOURCE_TO_RULES_MAPPING = \
+    EVENT_BRIDGE_EVENT_SOURCE_TO_RULES_MAPPING = (
         'EVENT_BRIDGE_EVENT_SOURCE_TO_RULES_MAPPING'
-    MAESTRO_SUBGROUP_ACTION_TO_AZURE_EVENTS_MAPPING = \
+    )
+    MAESTRO_SUBGROUP_ACTION_TO_AZURE_EVENTS_MAPPING = (
         'MAESTRO_SUBGROUP_ACTION_TO_AZURE_EVENTS_MAPPING'
-    MAESTRO_SUBGROUP_ACTION_TO_GOOGLE_EVENTS_MAPPING = \
+    )
+    MAESTRO_SUBGROUP_ACTION_TO_GOOGLE_EVENTS_MAPPING = (
         'MAESTRO_SUBGROUP_ACTION_TO_GOOGLE_EVENTS_MAPPING'
+    )
 
 
 class SettingKey(str, Enum):
@@ -847,21 +933,32 @@ class Severity(str, Enum):
     """
     Low to High
     """
+
     INFO = 'Info'
     LOW = 'Low'
     MEDIUM = 'Medium'
     HIGH = 'High'
+    UNKNOWN = 'Unknown'
 
     @classmethod
     def iter(cls):
         return map(operator.attrgetter('value'), cls)
+
+    @classmethod
+    def parse(cls, sev: str | None) -> 'Severity':
+        if not sev:
+            return cls.UNKNOWN
+        try:
+            return cls(sev.strip().capitalize())
+        except ValueError:
+            return cls.UNKNOWN
 
 
 REPORT_FIELDS = {
     'id',
     'name',
     'arn',  # aws specific
-    'namespace'  # k8s specific
+    'namespace',  # k8s specific
 }  # from Cloud Custodian
 
 PRIVATE_KEY_SECRET_NAME = 'rule-engine-private-key'
@@ -876,3 +973,100 @@ GITLAB_API_URL_DEFAULT = 'https://git.epam.com'
 # lambda names
 RULE_META_UPDATER_LAMBDA_NAME = 'caas-rule-meta-updater'
 METRICS_UPDATER_LAMBDA_NAME = 'caas-metrics-updater'
+
+
+class ReportType(str, Enum):
+    description: str
+    r_end: relativedelta  # relatively to now
+    # currently None means either that start date is not important here, i.e.
+    # report represents data as of date of its generation or
+    # that the report need all data without lower bound. It depends on
+    # report type. Some of them just don't need start date
+    r_start: relativedelta | None
+
+    def __new__(
+        cls,
+        value: str,
+        description: str,
+        r_start: relativedelta | None = None,
+        r_end: relativedelta | None = None,
+    ):
+        """
+        Keeps some default report information. Just helper class. Report type
+        implies the period for which data is collected
+        (at least the default period).
+        Also, the principal entity for any report must depend on report type
+        i.e operational is for specific tenant, c-level - across whole customer
+        """
+        obj = str.__new__(cls, value)
+        obj._value_ = value
+
+        obj.description = description
+        obj.r_end = r_end or relativedelta()
+        obj.r_start = r_start
+        return obj
+
+    def end(self, now: datetime) -> datetime:
+        """
+        This data
+        """
+        return now + self.r_end
+
+    def start(self, now: datetime) -> datetime | None:
+        if not self.r_start:
+            return
+        return now + self.r_start
+
+    # Operational, kind of for one tenant
+    OPERATIONAL_OVERVIEW = (
+        'OPERATIONAL_OVERVIEW',
+        'Data for a specific tenant of any cloud for a week period from Sunday till Sunday. Contains number of different jobs, total number of resources by region and by severities',
+        relativedelta(
+            hour=0, minute=0, second=0, microsecond=0, weekday=SU(-1)
+        ),
+    )
+    OPERATIONAL_RESOURCES = (
+        'OPERATIONAL_RESOURCES',
+        'All resources for a specific tenant as of date of generation',
+    )
+    OPERATIONAL_RULES = (
+        'OPERATIONAL_RULES',
+        'Average rules usage statistics for tenant within this week',
+        relativedelta(
+            hour=0, minute=0, second=0, microsecond=0, weekday=SU(-1)
+        ),
+    )
+
+    OPERATIONAL_COMPLIANCE = (
+        'OPERATIONAL_COMPLIANCE',
+        'Compliance per tenant as of date of generation',
+    )
+    OPERATIONAL_FINOPS = (
+        'OPERATIONAL_FINOPS',
+        'Finops report per tenant as of date of generation',
+    )
+
+    # C-Level, kind of for the whole customer
+    C_LEVEL_OVERVIEW = (
+        'C_LEVEL_OVERVIEW',
+        'Data across all tenants within clouds for a previous month',
+        relativedelta(
+            hour=0, minute=0, second=0, microsecond=0, months=-1, day=1
+        ),
+        relativedelta(hour=0, minute=0, second=0, microsecond=0, day=1),
+    )
+    C_LEVEL_COMPLIANCE = (
+        'C_LEVEL_COMPLIANCE',
+        'Standards coverage across all tenants within customer ...?',
+        relativedelta(
+            hour=0, minute=0, second=0, microsecond=0, months=-1, day=1
+        ),
+        relativedelta(hour=0, minute=0, second=0, microsecond=0, day=1),
+    )
+
+
+class RabbitCommand(str, Enum):
+    SEND_MAIL = 'SEND_MAIL'
+
+
+DEFAULT_COMPONENT_NAME = 'custodian-as-a-service'

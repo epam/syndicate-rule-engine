@@ -118,9 +118,6 @@ class SettingsService:
         Returns the name of SYSTEM customer. If the setting is not found,
         default system customer name is returned.
         """
-        if self._environment.is_testing():
-            _LOG.info('Testing mode. Returning default system customer name')
-            return DEFAULT_SYSTEM_CUSTOMER
         _LOG.info('Querying CaaSSettings in order to get SYSTEM Customer name')
         name: Optional[str] = None
         try:
@@ -196,14 +193,10 @@ class SettingsService:
         return 30
 
     def disable_send_reports(self):
-        value = self.get(name=SettingKey.SEND_REPORTS, value=False)
-        value.value = False
-        value.save()
+        self.create(name=SettingKey.SEND_REPORTS, value=False).save()
 
     def enable_send_reports(self):
-        value = self.get(name=SettingKey.SEND_REPORTS, value=False)
-        value.value = True
-        value.save()
+        self.create(name=SettingKey.SEND_REPORTS, value=True).save()
 
     def get_send_reports(self) -> bool:
         value = self.get(name=SettingKey.SEND_REPORTS,

@@ -1,17 +1,14 @@
 import uuid
 from datetime import datetime
-from typing import Optional, Any
+from typing import Any
 
 from pynamodb.expressions.condition import Condition
 from pynamodb.pagination import ResultIterator
 
 from helpers.constants import JobState
-from helpers.log_helper import get_logger
 from helpers.time_helper import utc_iso
 from models.batch_results import BatchResults
 from services.base_data_service import BaseDataService
-
-_LOG = get_logger(__name__)
 
 
 class BatchResultsService(BaseDataService[BatchResults]):
@@ -25,9 +22,9 @@ class BatchResultsService(BaseDataService[BatchResults]):
             cloud_identifier=cloud_identifier
         )
 
-    def update(self, job: BatchResults, batch_job_id: str = None,
-               reason: str = None,
-               status: JobState = None, stopped_at: str = None):
+    def update(self, job: BatchResults, batch_job_id: str | None = None,
+               reason: str | None = None,
+               status: JobState | None = None, stopped_at: str | None = None):
         actions = []
         if batch_job_id:
             actions.append(BatchResults.job_id.set(batch_job_id))
@@ -40,11 +37,11 @@ class BatchResultsService(BaseDataService[BatchResults]):
         if actions:
             job.update(actions)
 
-    def get_by_customer_name(self, customer_name: str, status: JobState = None,
-                             start: datetime = None, end: datetime = None,
-                             filter_condition: Optional[Condition] = None,
-                             ascending: bool = False, limit: int = None,
-                             last_evaluated_key: dict = None,
+    def get_by_customer_name(self, customer_name: str, status: JobState | None = None,
+                             start: datetime | None = None, end: datetime | None = None,
+                             filter_condition: Condition | None = None,
+                             ascending: bool = False, limit: int | None = None,
+                             last_evaluated_key: dict | None = None,
                              ) -> ResultIterator[BatchResults]:
         if start and end:
             rkc = BatchResults.submitted_at.between(
@@ -68,11 +65,11 @@ class BatchResultsService(BaseDataService[BatchResults]):
             last_evaluated_key=last_evaluated_key
         )
 
-    def get_by_tenant_name(self, tenant_name: str, status: JobState = None,
-                           start: datetime = None, end: datetime = None,
-                           filter_condition: Optional[Condition] = None,
-                           ascending: bool = False, limit: int = None,
-                           last_evaluated_key: dict = None,
+    def get_by_tenant_name(self, tenant_name: str, status: JobState | None = None,
+                           start: datetime | None = None, end: datetime | None = None,
+                           filter_condition: Condition | None = None,
+                           ascending: bool = False, limit: int | None = None,
+                           last_evaluated_key: dict | None = None,
                            ) -> ResultIterator[BatchResults]:
         if start and end:
             rkc = BatchResults.submitted_at.between(

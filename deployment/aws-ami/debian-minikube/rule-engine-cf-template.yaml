@@ -1,0 +1,170 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "EPAM Syndicate Rule Engine AMI deployment template"
+Mappings:
+  RegionMap:
+    eu-north-1:
+      ImageId: ami-xxxxxxxxxxxxxxxxx
+    ap-south-1:
+      ImageId: ami-xxxxxxxxxxxxxxxxx
+    eu-west-3:
+      ImageId: ami-xxxxxxxxxxxxxxxxx
+    eu-west-2:
+      ImageId: ami-xxxxxxxxxxxxxxxxx
+    eu-west-1:
+      ImageId: ami-xxxxxxxxxxxxxxxxx
+    ap-northeast-3:
+      ImageId: ami-xxxxxxxxxxxxxxxxx
+    ap-northeast-2:
+      ImageId: ami-xxxxxxxxxxxxxxxxx
+    ap-northeast-1:
+      ImageId: ami-xxxxxxxxxxxxxxxxx
+    sa-east-1:
+      ImageId: ami-xxxxxxxxxxxxxxxxx
+    ca-central-1:
+      ImageId: ami-xxxxxxxxxxxxxxxxx
+    ap-southeast-1:
+      ImageId: ami-xxxxxxxxxxxxxxxxx
+    ap-southeast-2:
+      ImageId: ami-xxxxxxxxxxxxxxxxx
+    eu-central-1:
+      ImageId: ami-xxxxxxxxxxxxxxxxx
+    us-east-1:
+      ImageId: ami-0f095cb35eb9613ef
+    us-east-2:
+      ImageId: ami-xxxxxxxxxxxxxxxxx
+    us-west-1:
+      ImageId: ami-xxxxxxxxxxxxxxxxx
+    us-west-2:
+      ImageId: ami-xxxxxxxxxxxxxxxxx
+Parameters:
+  SubnetId:
+    Description: "Choose a subnet to launch the instance in"
+    Type: "AWS::EC2::Subnet::Id"
+  SecurityGroupIds:
+    Description: "Specify security groups to be attached to the instance. By default, the following ports are used: 80 (Defect dojo), 8085 (API), 9000 (Minio API). Consider to select Security Group with the ports opened if these services should be available outside the instance"
+    Type: "List<AWS::EC2::SecurityGroup::Id>"
+  KeyName:
+    Description: "Choose key pair. Make sure you have access to the selected keys"
+    Type: "AWS::EC2::KeyPair::KeyName"
+    ConstraintDescription: "Name of an existing EC2 Key Pair"
+  InstanceType:
+    Description: "Choose a type for the instance"
+    Type: String
+    Default: m7g.medium
+    ConstraintDescription: "must be ARM-based instance type, m7g.medium is minimal required type"
+    AllowedValues:
+      - m7g.medium
+      - m7g.large
+      - m7g.xlarge
+      - r7g.medium
+      - r7g.large
+      - r7s.xlarge
+      - c7g.medium
+      - c7g.large
+      - c7g.xlarge
+  InstanceName:
+    Description: "Name for the EPAM Syndicate Rule Engine instance"
+    Type: String
+    Default: "EPAM Syndicate Rule Engine"
+  InstanceRoleName:
+    Description: "IAM Role name to attach to the instance. Keep empty to start instance without attached role"
+    Type: String
+    Default: ""
+  TenantName:
+    Description: "The initial tenant to be activated, represents the AWS Account where the product is installed"
+    Default: "TENANT_1"
+    Type: String
+    AllowedPattern: "^[A-Z0-9_-]*$"
+    ConstraintDescription: "must contain only uppercase letters, digits, underscores and dashes"
+  AdminEmails:
+    Description: "Administrator emails split by space"
+    Default: ""
+    Type: String
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterLabels:
+      SubnetId:
+        default: "Subnet to launch the instance in"
+      SecurityGroupIds:
+        default: "Security groups to attach to instance"
+      KeyName:
+        default: "SSH Key pair name"
+      InstanceName:
+        default: "Instance name"
+      InstanceType:
+        default: "Instance Type"
+      InstanceRoleName:
+        default: "IAM Role Name"
+      TenantName:
+        default: "Tenant Name"
+      AdminEmails:
+        default: "Emails of installation administrators"
+    ParameterGroups:
+      - Label:
+          default: "Network Configuration"
+        Parameters:
+          - SubnetId
+          - SecurityGroupIds
+      - Label:
+          default: "EC2 Instance Configuration"
+        Parameters:
+          - InstanceName
+          - InstanceType
+          - KeyName
+          - InstanceRoleName
+      - Label:
+          default: "Service Configuration"
+        Parameters:
+          - TenantName
+          - AdminEmails
+Conditions:
+  AttachRole: !Not [!Equals [!Ref InstanceRoleName, ""]]
+  IsInstanceNameGiven: !Not [!Equals [!Ref InstanceName, ""]]
+Resources:
+  SyndicateRuleEngineLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub ${AWS::StackName}-imdsv2-launch-template
+      LaunchTemplateData:
+        MetadataOptions:
+          HttpEndpoint: enabled
+          HttpPutResponseHopLimit: 3
+          HttpTokens: required
+  SyndicateRuleEngineInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Condition: AttachRole
+    Properties:
+      Roles:
+        - !Ref InstanceRoleName
+  SyndicateRuleEngineInstance:
+    Type: AWS::EC2::Instance
+    CreationPolicy:
+      ResourceSignal:
+        Count: 1
+        Timeout: PT20M
+    Properties:
+      ImageId: !FindInMap
+        - RegionMap
+        - !Ref AWS::Region
+        - ImageId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !If [AttachRole, !Ref SyndicateRuleEngineInstanceProfile, !Ref "AWS::NoValue"]
+      KeyName: !Ref KeyName
+      Tags:
+        - Key: Name
+          Value: !If [IsInstanceNameGiven, !Ref InstanceName, !Ref "AWS::StackName"]
+      SubnetId: !Ref SubnetId
+      SecurityGroupIds: !Ref SecurityGroupIds
+      LaunchTemplate:
+        LaunchTemplateId: !Ref SyndicateRuleEngineLaunchTemplate
+        Version: !GetAtt SyndicateRuleEngineLaunchTemplate.DefaultVersionNumber
+      UserData:
+        Fn::Base64: !Sub |
+          export CF_STACK_NAME="${AWS::StackName}"
+          export TENANT_NAME="${TenantName}"
+          export ADMIN_EMAILS="${AdminEmails}"
+Outputs:
+  InstanceId:
+    Value: !GetAtt SyndicateRuleEngineInstance.InstanceId
+  PublicIp:
+    Value: !GetAtt SyndicateRuleEngineInstance.PublicIp

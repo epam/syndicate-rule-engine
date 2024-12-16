@@ -1,4 +1,3 @@
-from functools import cached_property
 from http import HTTPStatus
 
 from modular_sdk.services.tenant_service import TenantService
@@ -14,6 +13,8 @@ from services.platform_service import PlatformService
 from services.report_convertors import ShardsCollectionDigestConvertor
 from services.report_service import ReportService, ReportResponse
 from services.sharding import ShardsCollection
+from services.metadata import Metadata
+from services.license_service import LicenseService
 from validators.swagger_request_models import JobDigestReportGetModel, \
     TenantJobsDigestsReportGetModel
 from validators.utils import validate_kwargs
@@ -23,11 +24,13 @@ class DigestReportHandler(AbstractHandler):
     def __init__(self, ambiguous_job_service: AmbiguousJobService,
                  report_service: ReportService,
                  tenant_service: TenantService,
-                 platform_service: PlatformService):
+                 platform_service: PlatformService,
+                 license_service: LicenseService):
         self._ambiguous_job_service = ambiguous_job_service
         self._rs = report_service
         self._ts = tenant_service
         self._platform_service = platform_service
+        self._ls = license_service
 
     @classmethod
     def build(cls) -> 'DigestReportHandler':
@@ -35,10 +38,11 @@ class DigestReportHandler(AbstractHandler):
             ambiguous_job_service=SP.ambiguous_job_service,
             report_service=SP.report_service,
             tenant_service=SP.modular_client.tenant_service(),
-            platform_service=SP.platform_service
+            platform_service=SP.platform_service,
+            license_service=SP.license_service
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.REPORTS_DIGESTS_JOBS_JOB_ID: {
@@ -72,30 +76,30 @@ class DigestReportHandler(AbstractHandler):
             collection = self._rs.platform_job_collection(platform, job.job)
         else:
             tenant = self._ts.get(job.tenant_name)
-            modular_helpers.assert_tenant_valid(tenant, event.customer)
+            tenant = modular_helpers.assert_tenant_valid(tenant, event.customer)
             collection = self._rs.ambiguous_job_collection(tenant, job)
+        metadata = self._ls.get_customer_metadata(job.customer_name)
         return build_response(
-            content=self._collection_response(job, collection)
+            content=self._collection_response(job, collection, metadata)
         )
 
     @staticmethod
     def _collection_response(job: AmbiguousJob, collection: ShardsCollection,
+                             metadata: Metadata
                              ) -> dict:
         """
         Builds response for the given collection
-        :param collection:
-        :param job:
-        :return:
         """
         collection.fetch_all()
-        report = ShardsCollectionDigestConvertor().convert(collection)
-        return ReportResponse(job, report, ReportFormat.JSON).dict()
+
+        report = ShardsCollectionDigestConvertor(metadata).convert(collection)
+        return ReportResponse(job, report, fmt=ReportFormat.JSON).dict()
 
     @validate_kwargs
     def get_by_tenant_jobs(self, event: TenantJobsDigestsReportGetModel,
                            tenant_name: str):
         tenant = self._ts.get(tenant_name)
-        modular_helpers.assert_tenant_valid(tenant, event.customer)
+        tenant = modular_helpers.assert_tenant_valid(tenant, event.customer)
 
         jobs = self._ambiguous_job_service.get_by_tenant_name(
             tenant_name=tenant_name,
@@ -106,6 +110,7 @@ class DigestReportHandler(AbstractHandler):
         )
         jobs = filter(lambda x: not x.is_platform_job,
                       self._ambiguous_job_service.to_ambiguous(jobs))
+        metadata = self._ls.get_customer_metadata(tenant.customer_name)
 
         job_collection = []
         for job in jobs:
@@ -113,6 +118,6 @@ class DigestReportHandler(AbstractHandler):
             job_collection.append((job, col))
         # TODO _collection_response to threads?
         return build_response(content=map(
-            lambda pair: self._collection_response(*pair),
+            lambda pair: self._collection_response(*(pair + (metadata, ))),
             job_collection
         ))

@@ -1,13 +1,10 @@
 from datetime import datetime
-from itertools import chain
 from typing import Optional, Iterator, Generator, Iterable, Any, Literal
 
 from modular_sdk.models.pynamodb_extension.pynamodb_to_pymongo_adapter import \
     Result
-from pydantic import BaseModel, Field, model_validator, field_validator, \
-    ConfigDict
+from pydantic import BaseModel, Field, ConfigDict
 from pynamodb.expressions.condition import Condition
-from typing_extensions import Self
 
 from helpers import adjust_cloud
 from helpers.constants import COMPOUND_KEYS_SEPARATOR, ID_ATTR, NAME_ATTR, \
@@ -20,64 +17,6 @@ from models.rule_source import RuleSource
 from services.base_data_service import BaseDataService
 
 _LOG = get_logger(__name__)
-
-
-class RuleMetaModel(BaseModel):
-    model_config = ConfigDict(use_enum_values=True, extra='ignore',
-                              str_strip_whitespace=True,
-                              coerce_numbers_to_str=True)
-
-    name: str
-    version: str
-    cloud: str | None = None  # AWS, AZURE, GCP,  currently not important for us
-    platform: list[str] = Field(
-        default_factory=list)  # Kubernetes, as well not so important
-    source: str  # "EPAM"
-    service: str | None = None
-    category: str | None = None
-    article: str | None = None
-    service_section: str
-    impact: str
-    severity: str  # make choice?
-    min_core_version: str
-    report_fields: list[str] = Field(default_factory=list)
-    multiregional: bool = False  # false by default only for AWS
-    events: dict = Field(default_factory=dict)
-    standard: dict = Field(default_factory=dict)
-    mitre: dict = Field(alias='MITRE', default_factory=dict)
-    remediation: str
-
-    @field_validator('events', mode='after')
-    @classmethod
-    def process_events(cls, value: dict) -> dict:
-        processed = {}
-        for source, names in value.items():
-            processed[source] = list(chain.from_iterable(
-                name.split(',') for name in names
-            ))
-        return processed
-
-    @model_validator(mode='after')
-    def validate_multiregional(self) -> Self:
-        if self.cloud != RuleDomain.AWS.value:
-            self.multiregional = True
-        return self
-
-    def get_domain(self) -> RuleDomain | None:
-        """
-        Returns the value which represents the Custom Core domain
-        (adapter or plugin) which this rule uses. In case it's a cloud, it's
-        kept in cloud attribute. In case it's platform, it's kept in platform
-        attribute, though from Core's prospective they are the same
-        :return:
-        """
-        if self.cloud:
-            try:
-                return RuleDomain[self.cloud]
-            except KeyError:
-                return
-        elif 'Kubernetes' in self.platform:
-            return RuleDomain.KUBERNETES
 
 
 class RuleModel(BaseModel):

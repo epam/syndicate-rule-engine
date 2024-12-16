@@ -17,7 +17,6 @@ from handlers.rabbitmq_handler import RabbitMQHandler
 from handlers.report_status_handler import ReportStatusHandlerHandler
 from handlers.role_handler import RoleHandler
 from handlers.rule_handler import RuleHandler
-from handlers.rule_meta_handler import RuleMetaHandler
 from handlers.rule_source_handler import RuleSourceHandler
 from handlers.ruleset_handler import RulesetHandler
 from handlers.self_integration_handler import SelfIntegrationHandler
@@ -52,7 +51,7 @@ from validators.registry import permissions_mapping
 from validators.swagger_request_models import BaseModel, RuleUpdateMetaPostModel
 from validators.utils import validate_kwargs
 
-_LOG = get_logger('custodian-configuration-api-handler')
+_LOG = get_logger(__name__)
 
 
 STATUS_MESSAGE_UPDATE_EVENT_SUBMITTED = 'Rule update event has been submitted'
@@ -74,7 +73,6 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
         RoleHandler,
         RuleHandler,
         RulesetHandler,
-        RuleMetaHandler,
         PlatformsHandler,
         MailSettingHandler,
         CustomerHandler,
@@ -173,7 +171,7 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
     def update_metrics(self, event: BaseModel):
         _LOG.debug(f'Going to trigger: {METRICS_UPDATER_LAMBDA_NAME}')
         response = self.lambda_client.invoke_function_async(
-            METRICS_UPDATER_LAMBDA_NAME, event={'data_type': 'tenants'})
+            METRICS_UPDATER_LAMBDA_NAME, event={'data_type': 'metrics'})
         if response.get('StatusCode') == HTTPStatus.ACCEPTED:
             _LOG.debug('Metrics updating has been triggered')
             return build_response(

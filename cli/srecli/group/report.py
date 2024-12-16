@@ -113,14 +113,17 @@ def department(ctx: ContextObj, report_types, customer_id):
 @click.option('--report_types', '-rt', multiple=True, type=click.Choice(
     ('OVERVIEW', 'COMPLIANCE', 'ATTACK_VECTOR')), required=False,
               help='Report type')
+@click.option('--receiver', '-r', multiple=True, type=str,
+              help='Emails that will receive this notification')
 @cli_response()
-def clevel(ctx: ContextObj, report_types, customer_id):
+def clevel(ctx: ContextObj, report_types, receiver, customer_id):
     """
     Retrieves c-level reports
     """
     res = ctx['api_client'].c_level_report_post(
         types=report_types,
-        customer_id=customer_id
+        customer_id=customer_id,
+        receivers=receiver
     )
     if not res.ok:
         return res

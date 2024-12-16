@@ -1,4 +1,3 @@
-from functools import cached_property
 from http import HTTPStatus
 
 from handlers import AbstractHandler, Mapping
@@ -18,7 +17,7 @@ class ReportStatusHandlerHandler(AbstractHandler):
     def __init__(self, report_statistics_service: ReportStatisticsService):
         self.report_statistics_service = report_statistics_service
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
             CustodianEndpoint.REPORTS_STATUS: {

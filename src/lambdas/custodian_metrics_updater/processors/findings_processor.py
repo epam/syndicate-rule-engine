@@ -1,14 +1,12 @@
 from pathlib import PurePosixPath
 
 from helpers import get_logger
-from helpers.constants import DATA_TYPE, START_DATE
-from services import SERVICE_PROVIDER
+from services import SP
 from services.clients.s3 import S3Client
 from services.environment_service import EnvironmentService
 from services.reports_bucket import ReportsBucketKeysBuilder
 
 _LOG = get_logger(__name__)
-NEXT_STEP = 'recommendations'
 
 
 class FindingsUpdater:
@@ -17,7 +15,14 @@ class FindingsUpdater:
         self._s3_client = s3_client
         self._environment_service = environment_service
 
-    def process_data(self, event: dict):
+    @classmethod
+    def build(cls) -> 'FindingsUpdater':
+        return cls(
+            s3_client=SP.s3,
+            environment_service=SP.environment_service
+        )
+
+    def __call__(self, *args, **kwargs):
         """
         When this processor is executed we make a snapshot of existing
         findings for specified tenants.
@@ -30,7 +35,6 @@ class FindingsUpdater:
             delimiter=ReportsBucketKeysBuilder.latest,
             prefix=ReportsBucketKeysBuilder.prefix
         )
-        # todo use s3control.create_job for this
         for prefix in prefixes:
             _LOG.debug(f'Processing key: {prefix}')
             objects = self._s3_client.list_objects(
@@ -56,11 +60,4 @@ class FindingsUpdater:
                     destination_bucket=bucket,
                     destination_key=destination
                 )
-        return {DATA_TYPE: NEXT_STEP, START_DATE: event.get(START_DATE),
-                'continuously': event.get('continuously')}
-
-
-FINDINGS_UPDATER = FindingsUpdater(
-    s3_client=SERVICE_PROVIDER.s3,
-    environment_service=SERVICE_PROVIDER.environment_service
-)
+        return {}

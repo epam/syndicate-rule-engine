@@ -12,7 +12,7 @@ from services.job_service import JobUpdater
 from services.license_manager_service import LicenseManagerService
 from services.clients.ssm import AbstractSSMClient
 
-_LOG = get_logger('custodian-job-updater')
+_LOG = get_logger(__name__)
 
 
 class Env(TypedDict):

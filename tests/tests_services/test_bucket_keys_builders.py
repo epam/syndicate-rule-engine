@@ -1,79 +1,45 @@
 from datetime import datetime, timezone
 
 import pytest
-from modular_sdk.models.parent import Parent
-from modular_sdk.models.tenant import Tenant
 
 from helpers.constants import Cloud
 from models.batch_results import BatchResults
 from models.job import Job
 from services.clients.s3 import S3Url
-from services.platform_service import Platform
 from services.reports_bucket import TenantReportsBucketKeysBuilder, \
     ReportsBucketKeysBuilder, PlatformReportsBucketKeysBuilder, \
     StatisticsBucketKeysBuilder
 
 
 @pytest.fixture
-def aws_tenant() -> Tenant:
-    return Tenant(
-        name='TEST-TENANT',
-        display_name='Test tenant',
-        is_active=True,
-        customer_name='TEST-CUSTOMER',
-        cloud='AWS',
-        project='123123123123'
-    )
-
-
-@pytest.fixture
-def k8s_platform() -> Platform:
-    return Platform(
-        parent=Parent(
-            parent_id='platform_id',
-            customer_id='TEST-CUSTOMER',
-            type='PLATFORM_K8S',
-            description='Test platform',
-            meta={
-                'name': 'test',
-                'region': 'eu-west-1',
-                'type': 'EKS'
-            },
-            is_deleted=False,
-            type_scope='PLATFORM_K8S#SPECIFIC#TEST-TENANT'
-        )
-    )
-
-
-@pytest.fixture
-def standard_job() -> Job:
+def standard_job(aws_tenant) -> Job:
     return Job(
         id='job_id',
-        tenant_name='TEST-TENANT',
-        customer_name='TEST-CUSTOMER',
+        tenant_name=aws_tenant.name,
+        customer_name=aws_tenant.customer_name,
         submitted_at='2023-11-27T14:29:08.694447Z',
         status='SUCCEEDED',
     )
 
 
 @pytest.fixture
-def platform_job() -> Job:
+def platform_job(k8s_platform) -> Job:
     return Job(
         id='job_id',
-        tenant_name='TEST-TENANT',
-        customer_name='TEST-CUSTOMER',
+        tenant_name=k8s_platform.tenant_name,
+        customer_name=k8s_platform.customer,
         submitted_at='2023-11-27T14:29:08.694447Z',
         status='SUCCEEDED',
-        platform_id='platform_id'
+        platform_id=k8s_platform.id
     )
 
 
 @pytest.fixture
-def ed_job() -> BatchResults:
+def ed_job(aws_tenant) -> BatchResults:
     return BatchResults(
         id='job_id',
-        tenant_name='TEST-TENANT',
-        customer_name='TEST-CUSTOMER',
+        tenant_name=aws_tenant.name,
+        customer_name=aws_tenant.customer_name,
         submitted_at='2023-11-27T14:29:08.694447Z',
         status='SUCCEEDED',
     )
@@ -95,28 +61,28 @@ class TestTenantReportsBucketKeyBuilder:
 
     def test_job_result(self, tenant_reports_builder, standard_job):
         res = tenant_reports_builder.job_result(standard_job)
-        assert res == 'raw/TEST-CUSTOMER/AWS/123123123123/jobs/standard/2023-11-27-14/job_id/result/'
+        assert res == 'raw/TEST_CUSTOMER/AWS/123456789012/jobs/standard/2023-11-27-14/job_id/result/'
 
     def test_ed_job_result(self, tenant_reports_builder, ed_job):
         res = tenant_reports_builder.ed_job_result(ed_job)
-        assert res == 'raw/TEST-CUSTOMER/AWS/123123123123/jobs/event-driven/2023-11-27-14/job_id/result/'
+        assert res == 'raw/TEST_CUSTOMER/AWS/123456789012/jobs/event-driven/2023-11-27-14/job_id/result/'
 
     def test_ed_job_difference(self, tenant_reports_builder, ed_job):
         res = tenant_reports_builder.ed_job_difference(ed_job)
-        assert res == 'raw/TEST-CUSTOMER/AWS/123123123123/jobs/event-driven/2023-11-27-14/job_id/difference/'
+        assert res == 'raw/TEST_CUSTOMER/AWS/123456789012/jobs/event-driven/2023-11-27-14/job_id/difference/'
 
     def test_latest_key(self, tenant_reports_builder):
         res = tenant_reports_builder.latest_key()
-        assert res == 'raw/TEST-CUSTOMER/AWS/123123123123/latest/'
+        assert res == 'raw/TEST_CUSTOMER/AWS/123456789012/latest/'
 
     def test_snapshots_folder(self, tenant_reports_builder):
         res = tenant_reports_builder.snapshots_folder()
-        assert res == 'raw/TEST-CUSTOMER/AWS/123123123123/snapshots/'
+        assert res == 'raw/TEST_CUSTOMER/AWS/123456789012/snapshots/'
 
     def test_snapshot_key(self, tenant_reports_builder):
         now = datetime.now(tz=timezone.utc)
         res = tenant_reports_builder.snapshot_key(now)
-        assert res == f'raw/TEST-CUSTOMER/AWS/123123123123/snapshots/{now.strftime("%Y-%m-%d-%H")}/'
+        assert res == f'raw/TEST_CUSTOMER/AWS/123456789012/snapshots/{now.strftime("%Y-%m-%d-%H")}/'
 
     def test_one_time_on_demand(self):
         res = ReportsBucketKeysBuilder.one_time_on_demand()
@@ -129,7 +95,7 @@ class TestPlatformReportsBucketKeyBuilder:
 
     def test_job_result(self, platform_reports_builder, platform_job):
         res = platform_reports_builder.job_result(platform_job)
-        assert res == 'raw/TEST-CUSTOMER/KUBERNETES/test-eu-west-1/jobs/standard/2023-11-27-14/job_id/'
+        assert res == 'raw/TEST_CUSTOMER/KUBERNETES/test-eu-west-1/jobs/standard/2023-11-27-14/job_id/'
 
     def test_ed_job(self, platform_reports_builder, ed_job):
         with pytest.raises(NotImplementedError):
@@ -139,11 +105,11 @@ class TestPlatformReportsBucketKeyBuilder:
 
     def test_latest_key(self, platform_reports_builder):
         res = platform_reports_builder.latest_key()
-        assert res == 'raw/TEST-CUSTOMER/KUBERNETES/test-eu-west-1/latest/'
+        assert res == 'raw/TEST_CUSTOMER/KUBERNETES/test-eu-west-1/latest/'
 
     def test_snapshots_folder(self, platform_reports_builder):
         res = platform_reports_builder.snapshots_folder()
-        assert res == 'raw/TEST-CUSTOMER/KUBERNETES/test-eu-west-1/snapshots/'
+        assert res == 'raw/TEST_CUSTOMER/KUBERNETES/test-eu-west-1/snapshots/'
 
 
 class TestStatisticsBucketKeyBuilder:
@@ -159,9 +125,9 @@ class TestStatisticsBucketKeyBuilder:
         now = datetime.now(timezone.utc)
         res = StatisticsBucketKeysBuilder.report_statistics(
             now=now,
-            customer='TEST-CUSTOMER'
+            customer='TEST_CUSTOMER'
         )
-        assert res == f'report-statistics/diagnostic/TEST-CUSTOMER/{now.strftime("%Y-%m")}/diagnostic_report.json'
+        assert res == f'report-statistics/diagnostic/TEST_CUSTOMER/{now.strftime("%Y-%m")}/diagnostic_report.json'
 
     def test_xray_log(self):
         now = datetime.now(timezone.utc)

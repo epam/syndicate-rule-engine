@@ -229,7 +229,7 @@ class TestShardCollection:
         part1 = make_shard_part(
             location='global',
             policy='policy1',
-            resources=[{'k1': 'v1'}]
+            resources=[{'k1': 'v1'}, {'k4': 'v4'}]
         )
         part2 = make_shard_part(
             location='global',

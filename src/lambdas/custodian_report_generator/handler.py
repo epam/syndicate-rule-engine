@@ -6,6 +6,7 @@ from handlers.digest_handler import DigestReportHandler
 from handlers.errors_handler import ErrorsReportHandler
 from handlers.findings_handler import FindingsReportHandler
 from handlers.push_handler import SiemPushHandler
+from handlers.high_level_reports_handler import HighLevelReportsHandler
 from handlers.resource_report_handler import ResourceReportHandler
 from handlers.rules_handler import JobsRulesHandler
 from helpers.log_helper import get_logger
@@ -20,10 +21,7 @@ from services.abs_lambda import (
 )
 from validators.registry import permissions_mapping
 
-_LOG = get_logger('caas-report-generator')
-
-
-# TODO merge this lambda with report_generation_handler
+_LOG = get_logger(__name__)
 
 
 class ReportGenerator(ApiEventProcessorLambdaHandler):
@@ -43,7 +41,8 @@ class ReportGenerator(ApiEventProcessorLambdaHandler):
         ErrorsReportHandler,
         SiemPushHandler,
         FindingsReportHandler,
-        RawReportHandler
+        RawReportHandler,
+        HighLevelReportsHandler
     )
 
     @cached_property
