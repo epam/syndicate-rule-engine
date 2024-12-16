@@ -1041,6 +1041,10 @@ class ReportType(str, Enum):
         'OPERATIONAL_COMPLIANCE',
         'Compliance per tenant as of date of generation',
     )
+    OPERATIONAL_FINOPS = (
+        'OPERATIONAL_FINOPS',
+        'Finops report per tenant as of date of generation',
+    )
 
     # C-Level, kind of for the whole customer
     C_LEVEL_OVERVIEW = (

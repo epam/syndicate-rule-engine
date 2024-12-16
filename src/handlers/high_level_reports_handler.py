@@ -34,6 +34,7 @@ SRE_REPORTS_TYPE_TO_M3_MAPPING = {
     ReportType.OPERATIONAL_RESOURCES: 'CUSTODIAN_RESOURCES_REPORT',
     ReportType.OPERATIONAL_OVERVIEW: 'CUSTODIAN_OVERVIEW_REPORT',
     ReportType.OPERATIONAL_RULES: 'CUSTODIAN_RULES_REPORT',
+    ReportType.OPERATIONAL_FINOPS: 'CUSTODIAN_FINOPS_REPORT',
     # ReportType.OPERATIONAL_COMPLIANCE: 'CUSTODIAN_COMPLIANCE_REPORT',
     ReportType.C_LEVEL_OVERVIEW: 'CUSTODIAN_CUSTOMER_OVERVIEW_REPORT',
 }
@@ -66,6 +67,8 @@ class MaestroModelBuilder:
                 return 'COMPLIANCE'
             case ReportType.OPERATIONAL_RULES:
                 return 'RULE'
+            case ReportType.OPERATIONAL_FINOPS:
+                return 'FINOPS'
 
     def __init__(self, receivers: tuple[str, ...] = (), size_limit: int = 0):
         self._receivers = receivers  # base receivers
@@ -115,7 +118,7 @@ class MaestroModelBuilder:
         }
 
     @staticmethod
-    def _operational_rules(rep: ReportMetrics) -> dict:
+    def _operational_rules_custom(rep: ReportMetrics) -> dict:
         assert rep.type == ReportType.OPERATIONAL_RULES
         data = rep.data.as_dict()
         return {
@@ -128,6 +131,29 @@ class MaestroModelBuilder:
                 'rules_data': data.get('data', []),
                 'violated_resources_length': data['resources_violated'],
             },
+        }
+
+    @staticmethod
+    def _operational_finops_custom(rep: ReportMetrics) -> dict:
+        assert rep.type == ReportType.OPERATIONAL_FINOPS
+        data = rep.data.as_dict()
+        result = []
+        for ss, rules in data['data'].items():
+            for rule in rules:
+                rule['region_data'] = {
+                    region: {'resources': resources}
+                    for region, resources in rule.pop('resources', {}).items()
+                }
+
+            result.append({'service_section': ss, 'rules_data': rules})
+
+        return {
+            'tenant_name': rep.tenant,
+            'id': data['id'],
+            'cloud': rep.cloud.value,  # pyright: ignore
+            'activated_regions': data['activated_regions'],
+            'last_scan_date': data['last_scan_date'],
+            'data': result,
         }
 
     def build_base(self, rep: ReportMetrics) -> dict:
@@ -154,7 +180,9 @@ class MaestroModelBuilder:
             case ReportType.OPERATIONAL_RESOURCES:
                 custom = self._operational_resources_custom(rep)
             case ReportType.OPERATIONAL_RULES:
-                custom = self._operational_rules(rep)
+                custom = self._operational_rules_custom(rep)
+            case ReportType.OPERATIONAL_FINOPS:
+                custom = self._operational_finops_custom(rep)
             case _:
                 return
         base.update(custom)
@@ -225,8 +253,11 @@ class HighLevelReportsHandler(AbstractHandler):
                 previous_data = previous.data.as_dict()
             current_data = rep.data.as_dict()
             for cl, data in current_data.items():
-                add_diff(data, previous_data.get(cl, {}),
-                         exclude=('total_scanned_tenants', ))
+                add_diff(
+                    data,
+                    previous_data.get(cl, {}),
+                    exclude=('total_scanned_tenants',),
+                )
             base = builder.build_base(rep)
             base['data'] = current_data
 

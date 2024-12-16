@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 from unittest.mock import patch
 
 import mongomock
@@ -240,3 +240,17 @@ def empty_metadata() -> 'Metadata':
     from services.metadata import Metadata
 
     return Metadata.empty()
+
+
+@pytest.fixture
+def load_metadata() -> Callable[[str], 'Metadata']:
+    from services.metadata import Metadata
+
+    def _inner(name: str) -> Metadata:
+        if not name.endswith('.json'):
+            name = f'{name}.json'
+        path = DATA / 'metadata' / name
+        assert path.exists(), f'{path} must exist'
+        with open(path, 'rb') as fp:
+            return msgspec.json.decode(fp.read(), type=Metadata)
+    return _inner
