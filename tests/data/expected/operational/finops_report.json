@@ -18,7 +18,7 @@
           "category": "Unused Resources",
           "severity": "Unknown",
           "resource_type": "aws.security-group",
-          "region_data": {
+          "regions_data": {
             "eu-central-1": {
               "resources": [
                 {

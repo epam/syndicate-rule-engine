@@ -140,7 +140,7 @@ class MaestroModelBuilder:
         result = []
         for ss, rules in data['data'].items():
             for rule in rules:
-                rule['region_data'] = {
+                rule['regions_data'] = {
                     region: {'resources': resources}
                     for region, resources in rule.pop('resources', {}).items()
                 }
