@@ -8,7 +8,8 @@ from modular_sdk.services.parent_service import ParentService
 
 from services.modular_helpers import (ResolveParentsPayload,
                                       split_into_to_keep_to_delete,
-                                      get_activation_dto, get_main_scope)
+                                      get_activation_dto, get_main_scope,
+                                      get_tenant_regions)
 
 
 @pytest.fixture
@@ -216,3 +217,14 @@ def test_get_main_scope(parent_factory):
     assert get_main_scope([p6, p5]) == ParentScope.ALL
     assert get_main_scope([p8]) == ParentScope.ALL
     assert get_main_scope([p8]) == ParentScope.ALL
+
+
+def test_get_tenant_regions(aws_tenant, azure_tenant, google_tenant):
+    assert get_tenant_regions(aws_tenant) == {
+        'eu-west-1',
+        'eu-central-1',
+        'eu-north-1',
+        'eu-west-3'
+    }
+    assert get_tenant_regions(azure_tenant) == set()
+    assert get_tenant_regions(google_tenant) == set()

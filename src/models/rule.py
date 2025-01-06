@@ -2,11 +2,11 @@ from itertools import count
 from typing import Optional
 
 from pynamodb.attributes import UnicodeAttribute, ListAttribute
-from pynamodb.indexes import AllProjection
+from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
 from helpers.constants import (COMPOUND_KEYS_SEPARATOR, RuleSourceType, Cloud,
                                CAASEnv)
-from models import BaseModel, BaseGSI
+from models import BaseModel
 
 R_ID_ATTR = 'id'
 R_CUSTOMER_ATTR = 'c'
@@ -20,7 +20,7 @@ R_UPDATED_DATE_ATTR = 'u'
 R_RULE_SOURCE_ID_ATTR = 's'
 
 
-class CustomerIdIndex(BaseGSI):
+class CustomerIdIndex(GlobalSecondaryIndex):
     class Meta:
         index_name = f'{R_CUSTOMER_ATTR}-{R_ID_ATTR}-index'
         projection = AllProjection()
@@ -29,7 +29,7 @@ class CustomerIdIndex(BaseGSI):
     id = UnicodeAttribute(range_key=True, attr_name=R_ID_ATTR)
 
 
-class CustomerLocationIndex(BaseGSI):
+class CustomerLocationIndex(GlobalSecondaryIndex):
     class Meta:
         index_name = f'{R_CUSTOMER_ATTR}-{R_LOCATION_ATTR}-index'
         projection = AllProjection()
@@ -38,7 +38,7 @@ class CustomerLocationIndex(BaseGSI):
     location = UnicodeAttribute(range_key=True, attr_name=R_LOCATION_ATTR)
 
 
-class RuleSourceIdIdIndex(BaseGSI):
+class RuleSourceIdIdIndex(GlobalSecondaryIndex):
     class Meta:
         index_name = f'{R_RULE_SOURCE_ID_ATTR}-{R_ID_ATTR}-index'
         projection = AllProjection()

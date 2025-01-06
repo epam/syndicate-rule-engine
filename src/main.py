@@ -10,13 +10,11 @@ import sys
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Generator, Literal, cast
+from typing import TYPE_CHECKING, Callable, Literal
 
-import pymongo
 from bottle import Bottle
 from dateutil.relativedelta import SU, relativedelta
 from dotenv import load_dotenv
-from pymongo.operations import IndexModel
 
 from helpers import dereference_json
 from helpers.__version__ import __version__
@@ -34,6 +32,7 @@ from onprem.api.deployment_resources_parser import (
 )
 from services import SP
 from services.openapi_spec_generator import OpenApiGenerator
+from modular_sdk.models.pynamongo.indexes_creator import IndexesCreator
 
 if TYPE_CHECKING:
     from models import BaseModel
@@ -291,10 +290,6 @@ class InitMinio(ActionHandler):
 
 
 class InitMongo(ActionHandler):
-    main_index_name = 'main'
-    hash_key_order = pymongo.ASCENDING
-    range_key_order = pymongo.DESCENDING
-
     @staticmethod
     def models() -> tuple:
         from models.batch_results import BatchResults
@@ -331,93 +326,23 @@ class InitMongo(ActionHandler):
             ReportMetrics,
         )
 
-    @staticmethod
-    def _get_hash_range(model: 'BaseModel') -> tuple[str, str | None]:
-        h, r = None, None
-        for attr in model.get_attributes().values():
-            if attr.is_hash_key:
-                h = attr.attr_name
-            if attr.is_range_key:
-                r = attr.attr_name
-        return cast(str, h), r
-
-    @staticmethod
-    def _iter_indexes(
-        model: 'BaseModel',
-    ) -> Generator[tuple[str, str, str | None], None, None]:
-        """
-        Yields tuples: (index name, hash_key, range_key) indexes of the given
-        model. Currently, only global secondary indexes are used so this
-        implementation wasn't tested with local ones. Uses private PynamoDB
-        API because cannot find public methods that can help
-        """
-        for index in model._indexes.values():
-            name = index.Meta.index_name
-            h, r = None, None
-            for attr in index.Meta.attributes.values():
-                if attr.is_hash_key:
-                    h = attr.attr_name
-                if attr.is_range_key:
-                    r = attr.attr_name
-            yield name, cast(str, h), r
-
-    def _iter_all_indexes(
-        self, model: 'BaseModel'
-    ) -> Generator[tuple[str, str, str | None], None, None]:
-        yield self.main_index_name, *self._get_hash_range(model)
-        yield from self._iter_indexes(model)
-
-    @staticmethod
-    def _exceptional_indexes() -> tuple[str, ...]:
-        return (
-            '_id_',
-            'next_run_time_1',  # from APScheduler
-        )
-
-    def ensure_indexes(self, model: 'BaseModel'):
-        table_name = model.Meta.table_name
-        _LOG.info(f'Going to check indexes for {table_name}')
-        collection = model.mongodb_handler().mongodb.collection(table_name)
-        existing = collection.index_information()
-        for name in self._exceptional_indexes():
-            existing.pop(name, None)
-        needed = {}
-        for name, h, r in self._iter_all_indexes(model):
-            needed[name] = [(h, self.hash_key_order)]
-            if r:
-                needed[name].append((r, self.range_key_order))
-        to_create = []
-        to_delete = set()
-        for name, data in existing.items():
-            if name not in needed:
-                to_delete.add(name)
-                continue
-            # name in needed so maybe the index is valid, and we must keep it
-            # or the index has changed, and we need to re-create it
-            if data.get('key', []) != needed[name]:  # not valid
-                to_delete.add(name)
-                to_create.append(IndexModel(keys=needed[name], name=name))
-            needed.pop(name)
-        for name, keys in needed.items():  # all that left must be created
-            to_create.append(IndexModel(keys=keys, name=name))
-        for name in to_delete:
-            _LOG.info(f'Going to remove index: {name}')
-            collection.drop_index(name)
-        if to_create:
-            _message = ','.join(
-                json.dumps(i.document, separators=(',', ':'))
-                for i in to_create
-            )
-            _LOG.info(f'Going to create indexes: {_message}')
-            collection.create_indexes(to_create)
-
     def __call__(self):
         _LOG.debug('Going to sync indexes with code')
-        models = []
-        if SP.environment_service.is_docker():
-            models.extend(self.models())
-        for model in models:
-            self.ensure_indexes(model)
+        from models import BaseModel
+        if not BaseModel.is_mongo_model():
+            _LOG.warning('Cannot create indexes for DynamoDB')
+            return
+
+        creator = IndexesCreator(
+            db=BaseModel.mongo_adapter().mongo_database,
+            main_index_name='main',
+            ignore_indexes=(
+                '_id_',
+                'next_run_time_1'
+            ),
+        )
+        for model in self.models():
+            creator.sync(model)
 
 
 class Run(ActionHandler):

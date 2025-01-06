@@ -573,11 +573,13 @@ class MongoConnectionCheck(AbstractHealthCheck):
         return 'mongodb_connection'
 
     def check(self, **kwargs) -> CheckResult:
-        from models.job import Job
-        client = Job.mongodb_handler().mongodb.client
+        from models import BaseModel
+        adapter = BaseModel.mongo_adapter()
+        if adapter and adapter.mongo_database is not None and adapter.mongo_database.client:
+            return self.ok_result()
         # TODO think how to check considering that for on-prem we make
         #  queries when the server starts
-        return self.ok_result()
+        return self.not_ok_result()
 
 
 class AllS3BucketsExist(AbstractHealthCheck):

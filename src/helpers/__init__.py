@@ -710,3 +710,10 @@ class JWTToken:
         if not exp:
             return False
         return exp < time.time() + self._exp_threshold
+
+
+def json_round_trip(item: T, hook=None) -> T:
+    """
+    Can be helpful to get rid of some types
+    """
+    return msgspec.json.decode(msgspec.json.encode(item, enc_hook=hook))

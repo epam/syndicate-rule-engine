@@ -1,9 +1,9 @@
 from pynamodb.attributes import UnicodeAttribute, MapAttribute
-from pynamodb.indexes import AllProjection
+from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
 from helpers.constants import CAASEnv, CUSTOMER_ATTR, \
     GIT_PROJECT_ID_ATTR, RuleSourceType
-from models import BaseModel, BaseGSI
+from models import BaseModel
 
 
 class LatestSyncAttribute(MapAttribute):
@@ -14,7 +14,7 @@ class LatestSyncAttribute(MapAttribute):
     release_tag = UnicodeAttribute(null=True)
 
 
-class CustomerGitProjectIdIndex(BaseGSI):
+class CustomerGitProjectIdIndex(GlobalSecondaryIndex):
     class Meta:
         index_name = f'{CUSTOMER_ATTR}-{GIT_PROJECT_ID_ATTR}-index'
         read_capacity_units = 1

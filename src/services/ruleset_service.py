@@ -22,6 +22,7 @@ from helpers.time_helper import utc_iso
 from models.ruleset import RULESET_LICENSES, RULESET_STANDARD, Ruleset
 from services.base_data_service import BaseDataService
 from services.clients.s3 import S3Client
+from modular_sdk.models.pynamongo.convertors import instance_as_dict
 
 
 class RulesetService(BaseDataService[Ruleset]):
@@ -237,7 +238,7 @@ class RulesetService(BaseDataService[Ruleset]):
             )
 
     def dto(self, ruleset: Ruleset, params_to_exclude=None) -> dict:
-        ruleset_json = ruleset.get_json()
+        ruleset_json = instance_as_dict(ruleset)
         ruleset_json[RULES_NUMBER] = len(ruleset_json.get(RULES_ATTR) or [])
 
         ruleset_json[NAME_ATTR] = ruleset.name

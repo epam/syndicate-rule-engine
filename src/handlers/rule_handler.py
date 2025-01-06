@@ -1,12 +1,10 @@
 from http import HTTPStatus
 
-from modular_sdk.models.pynamodb_extension.base_model import \
-    LastEvaluatedKey as Lek
-
 from handlers import AbstractHandler, Mapping
 from helpers.constants import CustodianEndpoint, HTTPMethod
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
+from helpers import NextToken
 from helpers.system_customer import SYSTEM_CUSTOMER
 from services import SP
 from services.rule_meta_service import RuleService
@@ -47,7 +45,6 @@ class RuleHandler(AbstractHandler):
     def get_rule(self, event: RuleGetModel):
         _LOG.debug(f'Get rules action')
         customer = event.customer or SYSTEM_CUSTOMER
-        lek = Lek.deserialize(event.next_token or None)
         if event.rule:
             # TODO split to get and list endpoints
             _LOG.debug('Rule id was given. Trying to resolve one rule')
@@ -72,7 +69,7 @@ class RuleHandler(AbstractHandler):
                 rule_source=rs,
                 cloud=event.cloud,
                 limit=event.limit,
-                last_evaluated_key=lek.value
+                last_evaluated_key=NextToken.deserialize(event.next_token).value
             )
         elif event.git_project_id:
             cursor = self.rule_service.get_by(
@@ -81,20 +78,20 @@ class RuleHandler(AbstractHandler):
                 ref=event.git_ref,
                 cloud=event.cloud,
                 limit=event.limit,
-                last_evaluated_key=lek.value
+                last_evaluated_key=NextToken.deserialize(event.next_token).value
             )
         else:  # no rule_source_id, git_project_id, git_ref
             cursor = self.rule_service.get_by_id_index(
                 customer=customer,
                 cloud=event.cloud,
                 limit=event.limit,
-                last_evaluated_key=lek.value
+                last_evaluated_key=NextToken.deserialize(event.next_token).value
             )
         dto = list(self.rule_service.dto(rule) for rule in cursor)
-        lek.value = cursor.last_evaluated_key
 
         return ResponseFactory().items(
-            dto, next_token=lek.serialize() if lek else None
+            it=dto,
+            next_token=NextToken(cursor.last_evaluated_key)
         ).build()
 
     @validate_kwargs

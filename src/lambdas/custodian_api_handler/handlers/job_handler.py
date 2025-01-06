@@ -3,8 +3,6 @@ from http import HTTPStatus
 from itertools import chain
 
 from botocore.exceptions import ClientError
-from modular_sdk.models.pynamodb_extension.base_model import \
-    LastEvaluatedKey as Lek
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.tenant_service import TenantService
 
@@ -17,6 +15,7 @@ from helpers.constants import (
     JobState,
     RuleDomain,
 )
+from helpers import NextToken
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
 from helpers.system_customer import SYSTEM_CUSTOMER
@@ -553,9 +552,6 @@ class JobHandler(AbstractHandler):
 
     @validate_kwargs
     def query(self, event: JobGetModel):
-        old_lek = Lek.deserialize(event.next_token)
-        new_lek = Lek()
-
         if event.tenant_name:
             cursor = self._job_service.get_by_tenant_name(
                 tenant_name=event.tenant_name,
@@ -563,7 +559,7 @@ class JobHandler(AbstractHandler):
                 limit=event.limit,
                 start=event.start_iso,
                 end=event.end_iso,
-                last_evaluated_key=old_lek.value,
+                last_evaluated_key=NextToken(event.next_token).value,
             )
         else:
             cursor = self._job_service.get_by_customer_name(
@@ -572,13 +568,12 @@ class JobHandler(AbstractHandler):
                 limit=event.limit,
                 start=event.start_iso,
                 end=event.end_iso,
-                last_evaluated_key=old_lek.value
+                last_evaluated_key=NextToken(event.next_token).value
             )
         jobs = list(cursor)
-        new_lek.value = cursor.last_evaluated_key
         return ResponseFactory().items(
             it=map(self._job_service.dto, jobs),
-            next_token=new_lek.serialize() if new_lek else None
+            next_token=NextToken(cursor.last_evaluated_key)
         ).build()
 
     @validate_kwargs

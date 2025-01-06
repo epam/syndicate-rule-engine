@@ -1,11 +1,11 @@
 from pynamodb.attributes import UnicodeAttribute, MapAttribute, NumberAttribute
-from pynamodb.indexes import AllProjection
+from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
 from helpers.constants import CAASEnv
-from models import BaseModel, BaseGSI
+from models import BaseModel
 
 
-class CustomerNameTriggeredAtIndex(BaseGSI):
+class CustomerNameTriggeredAtIndex(GlobalSecondaryIndex):
     class Meta:
         index_name = 'customer_name-triggered_at-index'
         read_capacity_units = 1
@@ -16,7 +16,7 @@ class CustomerNameTriggeredAtIndex(BaseGSI):
     triggered_at = UnicodeAttribute(range_key=True)
 
 
-class StatusIndex(BaseGSI):
+class StatusIndex(GlobalSecondaryIndex):
     class Meta:
         index_name = 'status-index'
         read_capacity_units = 1

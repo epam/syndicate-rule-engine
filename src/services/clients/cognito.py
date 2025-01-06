@@ -72,7 +72,7 @@ class UserWrapper:
         if user.created_at:
             ca = utc_datetime(user.created_at)
         return cls(
-            sub=str(user.mongo_id),  # noqa valid for onprem
+            sub=str(user.__mongo_id__),
             username=user.user_id,
             customer=user.customer,
             role=user.role,

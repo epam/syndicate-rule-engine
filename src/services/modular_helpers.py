@@ -318,11 +318,12 @@ def get_tenant_regions(tenant: Tenant) -> set[str]:
     # Maestro's regions in tenants have attribute "is_active" ("act").
     # But currently (22.06.2023) they ignore it. They deem all the
     # regions listed in an active tenant to be active as well. So do we
-    tenant_json = tenant.get_json()
-    return {
-        r.get('native_name') for r in tenant_json.get('regions') or []
-        if r.get('is_hidden') is not True
-    }
+    regions = set()
+    for region in tenant.regions:
+        if bool(region.is_hidden):
+            continue
+        regions.add(region.native_name)
+    return regions
 
 
 def tenant_cloud(tenant: Tenant) -> Cloud | None:

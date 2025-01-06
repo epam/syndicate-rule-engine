@@ -21,6 +21,7 @@ from helpers.time_helper import utc_datetime
 from models.rule_source import RuleSource
 from services.base_data_service import BaseDataService
 from services.clients.git_service_clients import GitHubClient, GitLabClient
+from modular_sdk.models.pynamongo.convertors import instance_as_dict
 
 from services.clients.ssm import AbstractSSMClient
 
@@ -36,7 +37,7 @@ class RuleSourceService(BaseDataService[RuleSource]):
         return super().get_nullable(hash_key=id)
 
     def dto(self, item: RuleSource) -> dict[str, Any]:
-        data = item.get_json()
+        data = instance_as_dict(item)
         data.pop('type_', None)
         data.pop('restrict_from', None)
         data.pop('allowed_for', None)

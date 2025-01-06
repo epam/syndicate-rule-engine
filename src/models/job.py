@@ -1,9 +1,9 @@
 from pynamodb.attributes import UnicodeAttribute, ListAttribute, TTLAttribute
-from pynamodb.indexes import AllProjection
+from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
 from helpers.constants import CAASEnv, JobState
 from helpers.time_helper import utc_iso
-from models import BaseModel, BaseGSI
+from models import BaseModel
 
 JOB_ID = 'i'
 JOB_BATCH_JOB_ID = 'b'
@@ -27,7 +27,7 @@ JOB_TTL = 'ttl'
 JOB_AFFECTED_LICENSE = 'al'
 
 
-class TenantNameSubmittedAtIndex(BaseGSI):
+class TenantNameSubmittedAtIndex(GlobalSecondaryIndex):
     class Meta:
         index_name = f'{JOB_TENANT_NAME}-{JOB_SUBMITTED_AT}-index'
         read_capacity_units = 1
@@ -38,7 +38,7 @@ class TenantNameSubmittedAtIndex(BaseGSI):
     submitted_at = UnicodeAttribute(range_key=True, attr_name=JOB_SUBMITTED_AT)
 
 
-class CustomerNameSubmittedAtIndex(BaseGSI):
+class CustomerNameSubmittedAtIndex(GlobalSecondaryIndex):
     class Meta:
         index_name = f'{JOB_CUSTOMER_NAME}-{JOB_SUBMITTED_AT}-index'
         read_capacity_units = 1

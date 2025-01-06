@@ -5,6 +5,7 @@ from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.modular import Modular
 
+from helpers import json_round_trip
 from helpers.constants import Cloud, JobState, ReportType
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime
@@ -414,9 +415,9 @@ class MetricsCollector:
                 continue
             data = {
                 'id': tenant.project,
-                'data': ShardsCollectionDataSource(
+                'data': json_round_trip(ShardsCollectionDataSource(
                     col, ctx.metadata
-                ).resources(),
+                ).resources()),
                 'last_scan_date': js.subset(tenant=tenant.name).last_scan_date,
                 'activated_regions': sorted(
                     modular_helpers.get_tenant_regions(tenant)
@@ -489,7 +490,7 @@ class MetricsCollector:
                 continue
             data = {
                 'id': tenant.project,
-                'data': ShardsCollectionDataSource(col, ctx.metadata).finops(),
+                'data': json_round_trip(ShardsCollectionDataSource(col, ctx.metadata).finops()),
                 'last_scan_date': js.subset(tenant=tenant.name).last_scan_date,
                 'activated_regions': sorted(
                     modular_helpers.get_tenant_regions(tenant)

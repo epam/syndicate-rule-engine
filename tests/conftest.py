@@ -170,10 +170,30 @@ def aws_tenant(main_customer: 'Customer') -> 'Tenant':
         contacts={},
         activation_date=utc_iso(utc_datetime() - timedelta(days=30)),
         regions=[
-            RegionAttr(native_name='eu-west-1'),
-            RegionAttr(native_name='eu-central-1'),
-            RegionAttr(native_name='eu-north-1'),
-            RegionAttr(native_name='eu-west-3'),
+            RegionAttr(
+                maestro_name='EU_WEST_1',
+                native_name='eu-west-1',
+                cloud='AWS',
+                region_id='1'
+            ),
+            RegionAttr(
+                maestro_name='EU_CENTRAL_1',
+                native_name='eu-central-1',
+                cloud='AWS',
+                region_id='2'
+            ),
+            RegionAttr(
+                maestro_name='EU_NORTH_1',
+                native_name='eu-north-1',
+                cloud='AWS',
+                region_id='3'
+            ),
+            RegionAttr(
+                maestro_name='EU_WEST_3',
+                native_name='eu-west-3',
+                cloud='AWS',
+                region_id='4'
+            ),
         ],
     )
 
