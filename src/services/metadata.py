@@ -10,7 +10,7 @@ from helpers import Version
 from helpers.__version__ import __version__
 from helpers.constants import Severity
 from helpers.log_helper import get_logger
-from helpers.reports import service_from_resource_type
+from helpers.reports import service_from_resource_type, Standard
 from models.rule import RuleIndex
 from services import cache
 from services.reports_bucket import ReportMetaBucketsKeys
@@ -70,17 +70,21 @@ class DomainMetadata(
     LM and is stored
     """
 
-    tech_cov: dict[str, dict[str, dict[str, int]]] = msgspec.field(
-        default_factory=dict
-    )
-    full_cov: dict[str, dict[str, dict[str, int]]] = msgspec.field(
-        default_factory=dict
-    )
+    # dict[Standard, dict[str, int]] after loading
+    tech_cov: dict = msgspec.field(default_factory=dict)
+    full_cov: dict = msgspec.field(default_factory=dict)
 
     def __repr__(self) -> str:
         return (
             f'{__name__}.{self.__class__.__name__} object at {hex(id(self))}'
         )
+
+    def __post_init__(self):
+        for cov in (self.tech_cov, self.full_cov):
+            for name in tuple(cov):
+                for version, data in cov[name].items():
+                    cov[Standard(name, version)] = data
+                cov.pop(name)
 
 
 EMPTY_RULE_METADATA = RuleMetadata(
@@ -225,7 +229,7 @@ class MetadataProvider:
 
     def set(
         self,
-        metadata: Metadata,
+        metadata: dict,
         lic: 'License',
         version: Version = DEFAULT_VERSION,
     ):

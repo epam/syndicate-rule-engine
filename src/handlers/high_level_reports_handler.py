@@ -31,11 +31,13 @@ from validators.utils import validate_kwargs
 _LOG = get_logger(__name__)
 
 SRE_REPORTS_TYPE_TO_M3_MAPPING = {
+    # Operational
     ReportType.OPERATIONAL_RESOURCES: 'CUSTODIAN_RESOURCES_REPORT',
     ReportType.OPERATIONAL_OVERVIEW: 'CUSTODIAN_OVERVIEW_REPORT',
     ReportType.OPERATIONAL_RULES: 'CUSTODIAN_RULES_REPORT',
     ReportType.OPERATIONAL_FINOPS: 'CUSTODIAN_FINOPS_REPORT',
-    # ReportType.OPERATIONAL_COMPLIANCE: 'CUSTODIAN_COMPLIANCE_REPORT',
+    ReportType.OPERATIONAL_COMPLIANCE: 'CUSTODIAN_COMPLIANCE_REPORT',
+    # C-Level
     ReportType.C_LEVEL_OVERVIEW: 'CUSTODIAN_CUSTOMER_OVERVIEW_REPORT',
 }
 
@@ -156,6 +158,27 @@ class MaestroModelBuilder:
             'data': result,
         }
 
+    @staticmethod
+    def _operational_compliance_custom(rep: ReportMetrics) -> dict:
+        assert rep.type == ReportType.OPERATIONAL_COMPLIANCE
+        data = rep.data.as_dict()
+
+        average_data = [
+            {'name': name, 'value': round(value * 100, 2)}
+            for name, value in data['data'].get('total', {}).items()
+        ]
+        return {
+            'tenant_name': rep.tenant,
+            'id': data['id'],
+            'cloud': rep.cloud.value,  # pyright: ignore
+            'activated_regions': data['activated_regions'],
+            'last_scan_date': data['last_scan_date'],
+            'data': {
+                'average_data': average_data,
+                'regions_data': []
+            }
+        }
+
     def build_base(self, rep: ReportMetrics) -> dict:
         return {
             'receivers': self._receivers,
@@ -183,6 +206,8 @@ class MaestroModelBuilder:
                 custom = self._operational_rules_custom(rep)
             case ReportType.OPERATIONAL_FINOPS:
                 custom = self._operational_finops_custom(rep)
+            case ReportType.OPERATIONAL_COMPLIANCE:
+                custom = self._operational_compliance_custom(rep)
             case _:
                 return
         base.update(custom)

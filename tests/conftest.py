@@ -53,6 +53,7 @@ TEST_ENVS = {
     'AWS_ACCOUNT_ID': '123456789012',
     'AZURE_SUBSCRIPTION_ID': '3d615fa8-05c6-47ea-990d-9d162testing',
     'CLOUDSDK_CORE_PROJECT': 'testing-project-123',
+    'application_name': 'syndicate-rule-engine'
 }
 
 # This "pytest_configure" function must be executed BEFORE any imports that
@@ -263,14 +264,12 @@ def empty_metadata() -> 'Metadata':
 
 
 @pytest.fixture
-def load_metadata() -> Callable[[str], 'Metadata']:
-    from services.metadata import Metadata
-
-    def _inner(name: str) -> Metadata:
+def load_metadata() -> Callable[[str], dict]:
+    def _inner(name: str) -> dict:
         if not name.endswith('.json'):
             name = f'{name}.json'
         path = DATA / 'metadata' / name
         assert path.exists(), f'{path} must exist'
         with open(path, 'rb') as fp:
-            return msgspec.json.decode(fp.read(), type=Metadata)
+            return msgspec.json.decode(fp.read(), type=dict)
     return _inner

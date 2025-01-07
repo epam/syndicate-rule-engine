@@ -203,7 +203,7 @@ def test_metrics_update(
         main_customer,
         set_license_metadata
 ):
-    set_license_metadata('finops')
+    set_license_metadata('operational_metrics')
     # todo mock date because currently these tests may fail if executed
     #  in some corner dates
     resp = sre_client.request('/metrics/update', 'POST',
@@ -249,6 +249,10 @@ def test_metrics_update(
     item = SP.report_metrics_service.get_latest_for_tenant(aws_tenant, ReportType.OPERATIONAL_FINOPS)
     SP.report_metrics_service.fetch_data_from_s3(item)
     assert dicts_equal(item.data.as_dict(), load_expected('metrics/aws_operational_finops'))
+
+    item = SP.report_metrics_service.get_latest_for_tenant(aws_tenant, ReportType.OPERATIONAL_COMPLIANCE)
+    SP.report_metrics_service.fetch_data_from_s3(item)
+    assert dicts_equal(item.data.as_dict(), load_expected('metrics/aws_operational_compliance'))
 
 
 def test_metrics_update_c_level(

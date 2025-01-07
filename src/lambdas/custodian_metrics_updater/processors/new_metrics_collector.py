@@ -244,16 +244,18 @@ class MetricsCollector:
         some sources of data and use lower-level metrics to calculate higher
         level
         """
-        reports = (
+        # NOTE: these are reports that need jobs, and thus we should consider
+        # the reporting period for each one (yes, currently all reports
+        # are specified)
+        start, end = self.whole_period(
+            ctx.now,
             ReportType.OPERATIONAL_OVERVIEW,
             ReportType.OPERATIONAL_RESOURCES,
             ReportType.OPERATIONAL_RULES,
             ReportType.OPERATIONAL_FINOPS,
             ReportType.C_LEVEL_OVERVIEW,
         )
-
-        start, end = self.whole_period(ctx.now, *reports)
-        _LOG.info(f'Need to collect data from {start} to {end}')
+        _LOG.info(f'Need to collect jobs data from {start} to {end}')
         jobs = self._ajs.to_ambiguous(
             self._ajs.get_by_customer_name(
                 customer_name=ctx.customer.name,
@@ -312,8 +314,17 @@ class MetricsCollector:
                 report_type=ReportType.OPERATIONAL_FINOPS,
             )
         )
+        _LOG.info('Generating operational compliance for all tenants')
+        ctx.add_reports(
+            self.operational_compliance(
+                ctx=ctx,
+                job_source=job_source,
+                sc_provider=sc_provider,
+                report_type=ReportType.OPERATIONAL_COMPLIANCE
+            )
+        )
 
-        # todo operational compliance, attacks, finops, kubernetes
+        # todo operational compliance, attacks, kubernetes
         # todo project reports
         # todo tops
         # todo clevel
@@ -499,6 +510,53 @@ class MetricsCollector:
             yield self._rms.create(
                 key=self._rms.key_for_tenant(report_type, tenant),
                 data=data,  # TODO: test whether it's ok to assign large objects to PynamoDB's MapAttribute
+                end=end,
+                start=start,
+            )
+
+    def operational_compliance(self, ctx: MetricsContext,
+                               job_source: JobMetricsDataSource,
+                               sc_provider: ShardsCollectionProvider,
+                               report_type: ReportType) -> ReportsGen:
+        start = report_type.start(ctx.now)
+        end = report_type.end(ctx.now)
+        js = job_source.subset(start=start, end=end)
+        for tenant_name in js.scanned_tenants:
+            tenant = self._get_tenant(tenant_name)
+            if not tenant:
+                _LOG.warning(f'Tenant with name {tenant_name} not found!')
+                continue
+            col = sc_provider.get_for_tenant(tenant, end)
+            if col is None:
+                _LOG.warning(
+                    f'Cannot get shards collection for '
+                    f'{tenant.name} for {end}'
+                )
+                continue
+            res = self._rs.get_standard_to_controls_to_rules(
+                it=self._rs.iter_successful_parts(col),
+                metadata=ctx.metadata
+            )
+            coverages = self._rs.calculate_coverages(
+                successful=res,
+                full=ctx.metadata.domain(tenant.cloud).full_cov
+            )
+
+            data = {
+                'id': tenant.project,
+                'last_scan_date': js.subset(tenant=tenant.name).last_scan_date,
+                'activated_regions': sorted(
+                    modular_helpers.get_tenant_regions(tenant)
+                ),
+                'data': {
+                    'total': {
+                        st.full_name: cov for st, cov in coverages.items()
+                    }
+                }
+            }
+            yield self._rms.create(
+                key=self._rms.key_for_tenant(report_type, tenant),
+                data=data,
                 end=end,
                 start=start,
             )
