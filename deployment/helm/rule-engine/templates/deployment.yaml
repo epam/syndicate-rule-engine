@@ -49,6 +49,8 @@ spec:
               name: http
               protocol: TCP
           env:
+            - name: application_name
+              value: 'syndicate-rule-engine'
             - name: modular_mongo_user
               valueFrom:
                 secretKeyRef:

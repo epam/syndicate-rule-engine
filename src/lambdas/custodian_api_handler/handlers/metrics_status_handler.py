@@ -4,7 +4,7 @@ from modular_sdk.models.job import Job
 from modular_sdk.modular import Modular
 
 from handlers import AbstractHandler, Mapping
-from helpers.constants import CustodianEndpoint, HTTPMethod, DEFAULT_COMPONENT_NAME
+from helpers.constants import CustodianEndpoint, HTTPMethod
 from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_iso
@@ -41,7 +41,6 @@ class MetricsStatusHandler(AbstractHandler):
         from_ = event.start_iso
         to = event.end_iso
         rkc = None
-        component_name = self._mc.environment_service().component() or DEFAULT_COMPONENT_NAME
 
         if from_ and to:
             rkc = Job.started_at.between(from_, to)
@@ -54,7 +53,7 @@ class MetricsStatusHandler(AbstractHandler):
         # TODO api add job_service with corresponding methods
         items = list(
             Job.job_started_at_index.query(
-                hash_key=component_name,
+                hash_key='metrics',
                 limit=1 if rkc is None else 10,
                 range_key_condition=rkc,
                 scan_index_forward=False,
@@ -62,10 +61,7 @@ class MetricsStatusHandler(AbstractHandler):
         )
 
         if not items:
-            _LOG.warning(
-                f'Cannot find metrics update job with component name: '
-                f'{component_name}'
-            )
+            _LOG.warning('Cannot find metrics update job')
         response = []
         for item in items:
             response.append(self.get_metrics_status_dto(item))

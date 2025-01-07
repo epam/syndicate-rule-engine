@@ -1067,6 +1067,3 @@ class ReportType(str, Enum):
 
 class RabbitCommand(str, Enum):
     SEND_MAIL = 'SEND_MAIL'
-
-
-DEFAULT_COMPONENT_NAME = 'custodian-as-a-service'

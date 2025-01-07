@@ -91,7 +91,8 @@ logging.config.dictConfig(
             }
         },
         'loggers': {
-            '__main__': {'level': 'DEBUG', 'handlers': ['console_handler']}
+            '__main__': {'level': 'DEBUG', 'handlers': ['console_handler']},
+            'modular_sdk': {'level': 'DEBUG', 'handlers': ['console_handler']}
         },
     }
 )
