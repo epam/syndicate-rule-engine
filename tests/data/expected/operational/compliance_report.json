@@ -4,26 +4,34 @@
   ],
   "report_type": "COMPLIANCE",
   "customer": "TEST_CUSTOMER",
-  "from": "2024-12-31T15:28:39.809056Z",
-  "to": "2025-01-07T15:28:39.809056Z",
+  "from": "2025-01-01T13:06:50.487358Z",
+  "to": "2025-01-08T13:06:50.487358Z",
   "outdated_tenants": [],
   "externalData": false,
   "data": {
-    "average_data": [
+    "regions_data": [
       {
-        "name": "Standard1 v1.0.0",
-        "value": 50.0
+        "region": "eu-central-1",
+        "standards_data": [
+          {
+            "name": "Standard1 v1.0.0",
+            "value": 50.0
+          },
+          {
+            "name": "Standard1 v2.0.0",
+            "value": 25.0
+          },
+          {
+            "name": "Standard2",
+            "value": 12.5
+          }
+        ]
       },
       {
-        "name": "Standard1 v2.0.0",
-        "value": 25.0
-      },
-      {
-        "name": "Standard2",
-        "value": 12.5
+        "region": "eu-west-1",
+        "standards_data": []
       }
-    ],
-    "regions_data": []
+    ]
   },
   "tenant_name": "AWS-TESTING",
   "id": "123456789012",
@@ -34,5 +42,5 @@
     "eu-west-1",
     "eu-west-3"
   ],
-  "last_scan_date": "2025-01-07T00:23:24.928732Z"
+  "last_scan_date": "2025-01-08T00:05:47.388488Z"
 }

@@ -6,7 +6,7 @@ from modular_sdk.models.tenant import Tenant
 from modular_sdk.modular import Modular
 
 from helpers import json_round_trip
-from helpers.constants import Cloud, JobState, ReportType
+from helpers.constants import GLOBAL_REGION, Cloud, JobState, ReportType
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime
 from models.metrics import ReportMetrics
@@ -320,7 +320,7 @@ class MetricsCollector:
                 ctx=ctx,
                 job_source=job_source,
                 sc_provider=sc_provider,
-                report_type=ReportType.OPERATIONAL_COMPLIANCE
+                report_type=ReportType.OPERATIONAL_COMPLIANCE,
             )
         )
 
@@ -426,9 +426,9 @@ class MetricsCollector:
                 continue
             data = {
                 'id': tenant.project,
-                'data': json_round_trip(ShardsCollectionDataSource(
-                    col, ctx.metadata
-                ).resources()),
+                'data': json_round_trip(
+                    ShardsCollectionDataSource(col, ctx.metadata).resources()
+                ),
                 'last_scan_date': js.subset(tenant=tenant.name).last_scan_date,
                 'activated_regions': sorted(
                     modular_helpers.get_tenant_regions(tenant)
@@ -501,7 +501,9 @@ class MetricsCollector:
                 continue
             data = {
                 'id': tenant.project,
-                'data': json_round_trip(ShardsCollectionDataSource(col, ctx.metadata).finops()),
+                'data': json_round_trip(
+                    ShardsCollectionDataSource(col, ctx.metadata).finops()
+                ),
                 'last_scan_date': js.subset(tenant=tenant.name).last_scan_date,
                 'activated_regions': sorted(
                     modular_helpers.get_tenant_regions(tenant)
@@ -514,10 +516,13 @@ class MetricsCollector:
                 start=start,
             )
 
-    def operational_compliance(self, ctx: MetricsContext,
-                               job_source: JobMetricsDataSource,
-                               sc_provider: ShardsCollectionProvider,
-                               report_type: ReportType) -> ReportsGen:
+    def operational_compliance(
+        self,
+        ctx: MetricsContext,
+        job_source: JobMetricsDataSource,
+        sc_provider: ShardsCollectionProvider,
+        report_type: ReportType,
+    ) -> ReportsGen:
         start = report_type.start(ctx.now)
         end = report_type.end(ctx.now)
         js = job_source.subset(start=start, end=end)
@@ -533,15 +538,33 @@ class MetricsCollector:
                     f'{tenant.name} for {end}'
                 )
                 continue
-            res = self._rs.get_standard_to_controls_to_rules(
-                it=self._rs.iter_successful_parts(col),
-                metadata=ctx.metadata
-            )
-            coverages = self._rs.calculate_coverages(
-                successful=res,
-                full=ctx.metadata.domain(tenant.cloud).full_cov
-            )
+            if tenant.cloud == Cloud.AWS:
+                mapping = self._rs.group_parts_iterator_by_location(
+                    self._rs.iter_successful_parts(col)
+                )
+            else:
+                mapping = {
+                    GLOBAL_REGION: list(self._rs.iter_successful_parts(col))
+                }
 
+            region_coverages = {}
+            for location, parts in mapping.items():
+                region_coverages[location] = self._rs.calculate_coverages(
+                    successful=self._rs.get_standard_to_controls_to_rules(
+                        it=parts, metadata=ctx.metadata
+                    ),
+                    full=ctx.metadata.domain(tenant.cloud).full_cov,
+                )
+
+            # calculating total across whole account. For all except AWS those
+            # are the same
+            total = self._rs.calculate_coverages(
+                successful=self._rs.get_standard_to_controls_to_rules(
+                    it=self._rs.iter_successful_parts(col),
+                    metadata=ctx.metadata,
+                ),
+                full=ctx.metadata.domain(tenant.cloud).full_cov,
+            )
             data = {
                 'id': tenant.project,
                 'last_scan_date': js.subset(tenant=tenant.name).last_scan_date,
@@ -549,10 +572,14 @@ class MetricsCollector:
                     modular_helpers.get_tenant_regions(tenant)
                 ),
                 'data': {
-                    'total': {
-                        st.full_name: cov for st, cov in coverages.items()
-                    }
-                }
+                    'regions': {
+                        location: {
+                            st.full_name: cov for st, cov in standards.items()
+                        }
+                        for location, standards in region_coverages.items()
+                    },
+                    'total': {st.full_name: cov for st, cov in total.items()},
+                },
             }
             yield self._rms.create(
                 key=self._rms.key_for_tenant(report_type, tenant),

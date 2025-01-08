@@ -407,6 +407,13 @@ class ReportService:
                 yield part
 
     @staticmethod
+    def group_parts_iterator_by_location(it: Iterable[BaseShardPart]) -> dict[str, list[BaseShardPart]]:
+        res = {}
+        for item in it:
+            res.setdefault(item.location, []).append(item)
+        return res
+
+    @staticmethod
     def get_standard_to_controls_to_rules(
         it: Iterable[BaseShardPart], metadata: Metadata
     ) -> dict[Standard, dict[str, int]]:

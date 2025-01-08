@@ -163,9 +163,15 @@ class MaestroModelBuilder:
         assert rep.type == ReportType.OPERATIONAL_COMPLIANCE
         data = rep.data.as_dict()
 
-        average_data = [
-            {'name': name, 'value': round(value * 100, 2)}
-            for name, value in data['data'].get('total', {}).items()
+        regions_data = [
+            {
+                'region': region,
+                'standards_data': [
+                    {'name': name, 'value': round(value * 100, 2)}
+                    for name, value in standards.items()
+                ],
+            }
+            for region, standards in data['data'].get('regions', {}).items()
         ]
         return {
             'tenant_name': rep.tenant,
@@ -173,10 +179,7 @@ class MaestroModelBuilder:
             'cloud': rep.cloud.value,  # pyright: ignore
             'activated_regions': data['activated_regions'],
             'last_scan_date': data['last_scan_date'],
-            'data': {
-                'average_data': average_data,
-                'regions_data': []
-            }
+            'data': {'regions_data': regions_data},
         }
 
     def build_base(self, rep: ReportMetrics) -> dict:
