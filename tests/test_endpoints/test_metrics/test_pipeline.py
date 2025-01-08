@@ -254,6 +254,10 @@ def test_metrics_update(
     SP.report_metrics_service.fetch_data_from_s3(item)
     assert dicts_equal(item.data.as_dict(), load_expected('metrics/aws_operational_compliance'))
 
+    item = SP.report_metrics_service.get_latest_for_tenant(aws_tenant, ReportType.OPERATIONAL_ATTACKS)
+    SP.report_metrics_service.fetch_data_from_s3(item)
+    assert dicts_equal(item.data.as_dict(), load_expected('metrics/aws_operational_attacks'))
+
 
 def test_metrics_update_c_level(
         sre_client,

@@ -37,6 +37,8 @@ SRE_REPORTS_TYPE_TO_M3_MAPPING = {
     ReportType.OPERATIONAL_RULES: 'CUSTODIAN_RULES_REPORT',
     ReportType.OPERATIONAL_FINOPS: 'CUSTODIAN_FINOPS_REPORT',
     ReportType.OPERATIONAL_COMPLIANCE: 'CUSTODIAN_COMPLIANCE_REPORT',
+    ReportType.OPERATIONAL_ATTACKS: 'CUSTODIAN_ATTACKS_REPORT',
+
     # C-Level
     ReportType.C_LEVEL_OVERVIEW: 'CUSTODIAN_CUSTOMER_OVERVIEW_REPORT',
 }
@@ -67,6 +69,8 @@ class MaestroModelBuilder:
                 | ReportType.C_LEVEL_COMPLIANCE
             ):
                 return 'COMPLIANCE'
+            case ReportType.OPERATIONAL_ATTACKS:
+                return 'ATTACK_VECTOR'
             case ReportType.OPERATIONAL_RULES:
                 return 'RULE'
             case ReportType.OPERATIONAL_FINOPS:
@@ -182,6 +186,19 @@ class MaestroModelBuilder:
             'data': {'regions_data': regions_data},
         }
 
+    @staticmethod
+    def _operational_attacks_custom(rep: ReportMetrics) -> dict:
+        assert rep.type == ReportType.OPERATIONAL_ATTACKS
+        data = rep.data.as_dict()
+        return {
+            'tenant_name': rep.tenant,
+            'id': data['id'],
+            'cloud': rep.cloud.value,  # pyright: ignore
+            'activated_regions': data['activated_regions'],
+            'last_scan_date': data['last_scan_date'],
+            'data': data['data']
+        }
+
     def build_base(self, rep: ReportMetrics) -> dict:
         return {
             'receivers': self._receivers,
@@ -211,6 +228,8 @@ class MaestroModelBuilder:
                 custom = self._operational_finops_custom(rep)
             case ReportType.OPERATIONAL_COMPLIANCE:
                 custom = self._operational_compliance_custom(rep)
+            case ReportType.OPERATIONAL_ATTACKS:
+                custom = self._operational_attacks_custom(rep)
             case _:
                 return
         base.update(custom)

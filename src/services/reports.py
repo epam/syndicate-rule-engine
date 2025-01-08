@@ -14,6 +14,7 @@ from helpers.constants import (
     REPORT_FIELDS,
     JobState,
     ReportType,
+    TACTICS_ID_MAPPING
 )
 from helpers.log_helper import get_logger
 from helpers.reports import (
@@ -437,6 +438,61 @@ class ShardsCollectionDataSource:
                 }
             )
         return res
+
+    def operational_attacks(self) -> list:
+        # TODO: refactor this format and it that generates it.
+        #  This code just generates mitre report the way it was generated
+        pre_result = {}
+
+        for rule in self._resources:
+            meta = self._meta.rule(rule)
+            if not meta.mitre:
+                _LOG.warning(f'Mitre metadata not found for {rule}. Skipping')
+                continue
+            severity = meta.severity
+            resource_type = self._col.meta[rule]['resource'],
+            description = self._col.meta[rule].get('description', '')
+
+            for region, res in self._resources[rule].items():
+                for tactic, data in meta.mitre.items():
+                    for technique in data:
+                        technique_name = technique.get('tn_name')
+                        technique_id = technique.get('tn_id')
+                        sub_techniques = [
+                            st['st_name'] for st in technique.get('st', [])
+                        ]
+                        resources_data = [{
+                            'resource': r,
+                            'resource_type': resource_type,
+                            'rule': description,
+                            'severity': severity.value,
+                            'sub_techniques': sub_techniques
+                        } for r in res]
+                        tactics_data = pre_result.setdefault(tactic, {
+                            'tactic_id': TACTICS_ID_MAPPING.get(tactic),
+                            'techniques_data': {}
+                        })
+                        techniques_data = tactics_data[
+                            'techniques_data'].setdefault(
+                            technique_name, {
+                                'technique_id': technique_id,
+                                'regions_data': {}
+                            }
+                        )
+                        regions_data = techniques_data[
+                            'regions_data'].setdefault(
+                            region, {'resources': []}
+                        )
+                        regions_data['resources'].extend(resources_data)
+        result = []
+        for tactic, techniques in pre_result.items():
+            item = {"tactic_id": techniques['tactic_id'], "tactic": tactic,
+                    "techniques_data": []}
+            for technique, data in techniques['techniques_data'].items():
+                item['techniques_data'].append(
+                    {**data, 'technique': technique})
+            result.append(item)
+        return result
 
 
 class ShardsCollectionProvider:

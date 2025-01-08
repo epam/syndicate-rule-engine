@@ -1045,6 +1045,10 @@ class ReportType(str, Enum):
         'OPERATIONAL_FINOPS',
         'Finops report per tenant as of date of generation',
     )
+    OPERATIONAL_ATTACKS = (
+        'OPERATIONAL_ATTACKS',
+        'MITRE Attacks report per tenant as of date of generation'
+    )
 
     # C-Level, kind of for the whole customer
     C_LEVEL_OVERVIEW = (

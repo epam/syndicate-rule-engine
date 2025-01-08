@@ -20,7 +20,34 @@
           "null": ["p1", "p2", "p3", "p4"]
         }
       },
-      {},
+      {
+        "Collection": [
+          {
+            "tn_id": "T0",
+            "tn_name": "testing0",
+            "st": [
+              {
+                "st_id": "T0.0",
+                "st_name": "sub0"
+              },
+              {
+                "st_id": "T0.1",
+                "st_name": "sub1"
+              }
+            ]
+          },
+          {
+            "tn_id": "T1",
+            "tn_name": "testing1",
+            "st": [
+              {
+                "st_id": "T1.0",
+                "st_name": "sub0"
+              }
+            ]
+          }
+        ]
+      },
       {}
     ],
     "ecc-aws-150-api_gateway_rest_api_encryption_at_rest": [
