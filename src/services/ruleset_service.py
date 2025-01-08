@@ -1,4 +1,5 @@
 import hashlib
+import uuid
 from typing import BinaryIO, Generator, Iterable, Iterator, Optional
 
 import msgspec
@@ -369,9 +370,16 @@ class RulesetName(tuple):
             case 2:  # name and version or license_key and name
                 first, second = items
                 try:
-                    return first, Version(second), None
-                except ValueError:
+                    # NOTE: Version can parse version from any string
+                    # containing a number.
+                    # That is bad because if ruleset name is, say
+                    # FULL_K8S, it will be
+                    # considered a version. So, here I rely on
+                    # the fact that license id is UUID
+                    _ = uuid.UUID(first)
                     return second, None, first
+                except ValueError:
+                    return first, Version(second), None
             case _:  # only name
                 return items[0], None, None
 

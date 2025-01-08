@@ -43,6 +43,11 @@ logging.config.dictConfig({
             'level': CAASEnv.LOG_LEVEL.get(),
             'handlers': ['console_handler'],
             'propagate': False
+        },
+        'modular_sdk': {
+            'level': 'WARNING',
+            'handlers': ['console_handler'],
+            'propagate': False
         }
     }
 })

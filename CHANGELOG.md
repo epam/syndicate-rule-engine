@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.7.0] - 2025-01-06
 - moved to modular-sdk 7.0.0
+- fixed a bug when ruleset name containing a number was considered to be rulesset version
 
 ## [5.6.0] - 2024-11-05
 - refactor metrics collector
