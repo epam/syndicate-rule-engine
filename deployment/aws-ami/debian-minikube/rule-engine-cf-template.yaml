@@ -58,7 +58,7 @@ Parameters:
       - m7g.xlarge
       - r7g.medium
       - r7g.large
-      - r7s.xlarge
+      - r7g.xlarge
       - c7g.medium
       - c7g.large
       - c7g.xlarge
