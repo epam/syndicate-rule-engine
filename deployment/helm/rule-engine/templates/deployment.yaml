@@ -139,4 +139,8 @@ spec:
             - name: CAAS_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT
               value: 'true'
             {{- end  }}
+            {{- if .Values.recommendationsBucket }}
+            - name: CAAS_RECOMMENDATIONS_BUCKET_NAME
+              value: {{ .Values.recommendationsBucket }}
+            {{- end}}
       restartPolicy: Always

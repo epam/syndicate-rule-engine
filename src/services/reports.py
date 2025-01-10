@@ -450,7 +450,7 @@ class ShardsCollectionDataSource:
                 _LOG.warning(f'Mitre metadata not found for {rule}. Skipping')
                 continue
             severity = meta.severity
-            resource_type = self._col.meta[rule]['resource'],
+            resource_type = meta.service or service_from_resource_type(self._col.meta[rule]['resource'])
             description = self._col.meta[rule].get('description', '')
 
             for region, res in self._resources[rule].items():
