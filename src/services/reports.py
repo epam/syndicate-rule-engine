@@ -2,7 +2,7 @@ import bisect
 from datetime import datetime
 from functools import cached_property, cmp_to_key
 from itertools import chain
-from typing import Generator, Iterable, Iterator, TypedDict, cast
+from typing import Generator, Iterable, Iterator, TypedDict, cast, Literal
 
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
@@ -14,7 +14,8 @@ from helpers.constants import (
     REPORT_FIELDS,
     JobState,
     ReportType,
-    TACTICS_ID_MAPPING
+    TACTICS_ID_MAPPING,
+    Cloud
 )
 from helpers.log_helper import get_logger
 from helpers.reports import (
@@ -33,6 +34,7 @@ from services.metadata import Metadata
 from services.report_service import ReportService
 from services.reports_bucket import ReportMetricsBucketKeysBuilder
 from services.sharding import ShardsCollection
+from services.platform_service import Platform
 
 _LOG = get_logger(__name__)
 
@@ -53,6 +55,8 @@ class JobMetricsDataSource:
         start: datetime | None = None,
         end: datetime | None = None,
         tenant: str | set[str] | list[str] | tuple[str, ...] | None = None,
+        platform: str | set[str] | list[str] | tuple[str, ...] | None = None,
+        affiliation: Literal['tenant', 'platform', None] = None,
         job_state: JobState | None = None,
     ) -> 'JobMetricsDataSource':
         """
@@ -70,11 +74,25 @@ class JobMetricsDataSource:
             else len(self._jobs)
         )
         jobs = self._jobs[st:en]
+
         if tenant:
             _items = (
                 tenant if isinstance(tenant, (set, list, tuple)) else (tenant,)
             )
             jobs = filter(lambda j: j.tenant_name in _items, jobs)
+
+        if platform:
+            _items = (
+                platform if isinstance(platform, (set, list, tuple)) else (platform,)
+            )
+            jobs = filter(lambda j: j.platform_id in _items, jobs)
+        match affiliation:
+            case 'tenant':
+                jobs = filter(lambda j: not j.is_platform_job, jobs)
+            case 'platform':
+                jobs = filter(lambda j: j.is_platform_job, jobs)
+            case None:
+                pass
         if job_state:
             jobs = filter(lambda j: j.status is job_state, jobs)
         return self.__class__(jobs)
@@ -135,6 +153,10 @@ class JobMetricsDataSource:
     @cached_property
     def scanned_tenants(self) -> tuple[str, ...]:
         return tuple(set(j.tenant_name for j in self._jobs))
+
+    @cached_property
+    def scanned_platforms(self) -> tuple[str, ...]:
+        return tuple(set(j.platform_id for j in self._jobs if j.is_platform_job))
 
 
 class ShardsCollectionDataSource:
@@ -565,11 +587,11 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
         customer: str,
         project: str = '',
         cloud: str = '',
-        tenant: str = '',
+        tenant_or_platform: str = '',
         region: str = '',
     ) -> str:
         return COMPOUND_KEYS_SEPARATOR.join(
-            (type_.value, customer, project, cloud, tenant, region)
+            (type_.value, customer, project, cloud, tenant_or_platform, region)
         )
 
     @classmethod
@@ -582,10 +604,18 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
         return cls.build_key(
             type_=type_,
             customer=tenant.customer_name,
-            project=tenant.display_name_to_lower.lower(),  # TODO: maybe use lt attr
             cloud=tenant.cloud,
-            tenant=tenant.name,
+            tenant_or_platform=tenant.name,
             region=region,
+        )
+
+    @classmethod
+    def key_for_platform(cls, type_: ReportType, platform: Platform):
+        return cls.build_key(
+            type_=type_,
+            customer=platform.customer,
+            cloud=Cloud.KUBERNETES.value,
+            tenant_or_platform=platform.platform_id,
         )
 
     @classmethod

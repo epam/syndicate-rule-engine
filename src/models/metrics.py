@@ -42,7 +42,15 @@ class ReportMetrics(BaseModel):
 
     @property
     def tenant(self) -> str | None:
+        if self.cloud is Cloud.KUBERNETES:
+            return
         return self.key.split(COMPOUND_KEYS_SEPARATOR, 5)[4] or None
+
+    @property
+    def platform_id(self) -> str | None:
+        if self.cloud is Cloud.KUBERNETES:
+            return self.key.split(COMPOUND_KEYS_SEPARATOR, 5)[4] or None
+        return
 
     @property
     def region(self) -> str | None:
@@ -62,6 +70,8 @@ class ReportMetrics(BaseModel):
         """
         if t := self.tenant:
             return t
+        if pl := self.platform_id:
+            return pl
         if c := self.cloud:
             return c.value
         if p := self.project:

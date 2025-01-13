@@ -16,6 +16,7 @@ from services.ambiguous_job_service import AmbiguousJobService
 from services.license_service import License, LicenseService
 from services.metadata import Metadata
 from services.report_service import ReportService
+from services.platform_service import PlatformService, Platform
 from services.reports import (
     JobMetricsDataSource,
     ReportMetricsService,
@@ -137,7 +138,8 @@ class MetricsCollector:
     LARGE_REPORTS = (
         ReportType.OPERATIONAL_RULES,
         ReportType.OPERATIONAL_RESOURCES,
-        ReportType.OPERATIONAL_ATTACKS
+        ReportType.OPERATIONAL_ATTACKS,
+        ReportType.OPERATIONAL_KUBERNETES
     )
 
     def __init__(
@@ -148,6 +150,8 @@ class MetricsCollector:
         report_metrics_service: ReportMetricsService,
         license_service: LicenseService,
         ruleset_service: RulesetService,
+        platform_service: PlatformService
+
     ):
         self._mc = modular_client
         self._ajs = ambiguous_job_service
@@ -155,8 +159,10 @@ class MetricsCollector:
         self._rms = report_metrics_service
         self._ls = license_service
         self._rss = ruleset_service
+        self._ps = platform_service
 
         self._tenants_cache = {}
+        self._platforms_cache = {}
 
     @classmethod
     def build(cls) -> 'MetricsCollector':
@@ -167,6 +173,7 @@ class MetricsCollector:
             report_metrics_service=SP.report_metrics_service,
             license_service=SP.license_service,
             ruleset_service=SP.ruleset_service,
+            platform_service=SP.platform_service
         )
 
     @staticmethod
@@ -218,6 +225,16 @@ class MetricsCollector:
         self._tenants_cache[name] = item
         return item
 
+    def _get_platform(self, platform_id: str) -> Platform | None:
+        if platform_id in self._platforms_cache:
+            return self._platforms_cache[platform_id]
+        platform = self._ps.get_nullable(platform_id)
+        if not platform:
+            return
+        self._ps.fetch_application(platform)
+        self._platforms_cache[platform_id] = platform
+        return platform
+
     def save_data_to_s3(self, it: ReportsGen) -> ReportsGen:
         for item in it:
             if item.type in self.LARGE_REPORTS:
@@ -255,6 +272,7 @@ class MetricsCollector:
             ReportType.OPERATIONAL_RULES,
             ReportType.OPERATIONAL_FINOPS,
             ReportType.OPERATIONAL_ATTACKS,
+            ReportType.OPERATIONAL_KUBERNETES,
             ReportType.C_LEVEL_OVERVIEW,
         )
         _LOG.info(f'Need to collect jobs data from {start} to {end}')
@@ -336,8 +354,18 @@ class MetricsCollector:
                 )
             )
         )
+        _LOG.info('Generating operational k8s report for all platforms')
+        ctx.add_reports(
+            self.save_data_to_s3(
+                self.operational_k8s(
+                    ctx=ctx,
+                    job_source=job_source,
+                    sc_provider=sc_provider,
+                    report_type=ReportType.OPERATIONAL_KUBERNETES
+                )
+            )
+        )
 
-        # todo operational compliance, attacks, kubernetes
         # todo project reports
         # todo tops
         # todo clevel
@@ -375,7 +403,7 @@ class MetricsCollector:
     ) -> ReportsGen:
         start = report_type.start(ctx.now)
         end = report_type.end(ctx.now)
-        js = job_source.subset(start=start, end=end)
+        js = job_source.subset(start=start, end=end, affiliation='tenant')
         # TODO: maybe collect for all tenants
         for tenant_name in js.scanned_tenants:
             tenant = self._get_tenant(tenant_name)
@@ -391,10 +419,12 @@ class MetricsCollector:
                 continue
             tjs = js.subset(tenant=tenant.name)
             sdc = ShardsCollectionDataSource(col, ctx.metadata)
+            # NOTE: ignoring jobs that are not finished
+            succeeded, failed = tjs.n_succeeded, tjs.n_failed
             data = {
-                'total_scans': len(tjs),
-                'failed_scans': tjs.n_failed,
-                'succeeded_scans': tjs.n_succeeded,
+                'total_scans': succeeded + failed,
+                'failed_scans': failed,
+                'succeeded_scans': succeeded,
                 'activated_regions': sorted(
                     modular_helpers.get_tenant_regions(tenant)
                 ),
@@ -424,7 +454,7 @@ class MetricsCollector:
         #  for a bigger period of time
         start = report_type.start(ctx.now)
         end = report_type.end(ctx.now)
-        js = job_source.subset(start=start, end=end)
+        js = job_source.subset(start=start, end=end, affiliation='tenant')
         for tenant_name in js.scanned_tenants:
             tenant = self._get_tenant(tenant_name)
             if not tenant:
@@ -462,7 +492,7 @@ class MetricsCollector:
     ) -> ReportsGen:
         start = report_type.start(now)
         end = report_type.end(now)
-        js = job_source.subset(start=start, end=end)
+        js = job_source.subset(start=start, end=end, affiliation='tenant')
         for tenant_name in js.scanned_tenants:
             tenant = self._get_tenant(tenant_name)
             if not tenant:
@@ -499,7 +529,7 @@ class MetricsCollector:
     ) -> ReportsGen:
         start = report_type.start(ctx.now)
         end = report_type.end(ctx.now)
-        js = job_source.subset(start=start, end=end)
+        js = job_source.subset(start=start, end=end, affiliation='tenant')
         for tenant_name in js.scanned_tenants:
             tenant = self._get_tenant(tenant_name)
             if not tenant:
@@ -538,7 +568,7 @@ class MetricsCollector:
     ) -> ReportsGen:
         start = report_type.start(ctx.now)
         end = report_type.end(ctx.now)
-        js = job_source.subset(start=start, end=end)
+        js = job_source.subset(start=start, end=end, affiliation='tenant')
         for tenant_name in js.scanned_tenants:
             tenant = self._get_tenant(tenant_name)
             if not tenant:
@@ -610,7 +640,7 @@ class MetricsCollector:
     ) -> ReportsGen:
         start = report_type.start(ctx.now)
         end = report_type.end(ctx.now)
-        js = job_source.subset(start=start, end=end)
+        js = job_source.subset(start=start, end=end, affiliation='tenant')
         for tenant_name in js.scanned_tenants:
             tenant = self._get_tenant(tenant_name)
             if not tenant:
@@ -642,6 +672,26 @@ class MetricsCollector:
                 start=start,
             )
 
+    def operational_k8s(self, ctx: MetricsContext, job_source: JobMetricsDataSource,
+                        sc_provider: ShardsCollectionProvider,
+                        report_type: ReportType) -> ReportsGen:
+        start = report_type.start(ctx.now)
+        end = report_type.end(ctx.now)
+        js = job_source.subset(start=start, end=end, affiliation='platform')
+        for platform_id in js.scanned_platforms:
+            platform = self._get_platform(platform_id)
+            if not platform:
+                _LOG.warning(f'Platform with id {platform_id} not found!')
+                continue
+            # TODO: finish
+            # col = sc_provider.get_for_tenant(tenant, end)
+            # if col is None:
+            #     _LOG.warning(
+            #         f'Cannot get shards collection for '
+            #         f'{tenant.name} for {end}'
+            #     )
+            #     continue
+
     def c_level_overview(
         self,
         ctx: MetricsContext,
@@ -651,7 +701,7 @@ class MetricsCollector:
     ) -> ReportsGen:
         start = report_type.start(ctx.now)
         end = report_type.end(ctx.now)
-        js = job_source.subset(start=start, end=end)
+        js = job_source.subset(start=start, end=end, affiliation='tenant')
         cloud_tenant = {
             Cloud.AWS.value: [],
             Cloud.AZURE.value: [],

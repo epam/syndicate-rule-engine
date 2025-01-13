@@ -1,6 +1,6 @@
 {
   "id": "123456789012",
-  "last_scan_date": "2025-01-08T00:28:07.458408Z",
+  "last_scan_date": "2025-01-13T00:34:23.264015Z",
   "activated_regions": [
     "eu-central-1",
     "eu-north-1",
@@ -22,9 +22,7 @@
                     "id": "sg-05209ceeb761317e5",
                     "name": "west-eu"
                   },
-                  "resource_type": [
-                    "aws.security-group"
-                  ],
+                  "resource_type": "Security Group",
                   "rule": "Description for ecc-aws-070-unused_ec2_security_groups",
                   "severity": "Unknown",
                   "sub_techniques": [
@@ -37,9 +35,7 @@
                     "id": "sg-09d19538187df66cf",
                     "name": "asia"
                   },
-                  "resource_type": [
-                    "aws.security-group"
-                  ],
+                  "resource_type": "Security Group",
                   "rule": "Description for ecc-aws-070-unused_ec2_security_groups",
                   "severity": "Unknown",
                   "sub_techniques": [
@@ -52,9 +48,7 @@
                     "id": "sg-0ae266faddaef17e9",
                     "name": "packer-ssh-access"
                   },
-                  "resource_type": [
-                    "aws.security-group"
-                  ],
+                  "resource_type": "Security Group",
                   "rule": "Description for ecc-aws-070-unused_ec2_security_groups",
                   "severity": "Unknown",
                   "sub_techniques": [
@@ -77,9 +71,7 @@
                     "id": "sg-05209ceeb761317e5",
                     "name": "west-eu"
                   },
-                  "resource_type": [
-                    "aws.security-group"
-                  ],
+                  "resource_type": "Security Group",
                   "rule": "Description for ecc-aws-070-unused_ec2_security_groups",
                   "severity": "Unknown",
                   "sub_techniques": [
@@ -91,9 +83,7 @@
                     "id": "sg-09d19538187df66cf",
                     "name": "asia"
                   },
-                  "resource_type": [
-                    "aws.security-group"
-                  ],
+                  "resource_type": "Security Group",
                   "rule": "Description for ecc-aws-070-unused_ec2_security_groups",
                   "severity": "Unknown",
                   "sub_techniques": [
@@ -105,9 +95,7 @@
                     "id": "sg-0ae266faddaef17e9",
                     "name": "packer-ssh-access"
                   },
-                  "resource_type": [
-                    "aws.security-group"
-                  ],
+                  "resource_type": "Security Group",
                   "rule": "Description for ecc-aws-070-unused_ec2_security_groups",
                   "severity": "Unknown",
                   "sub_techniques": [
