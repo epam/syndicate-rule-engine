@@ -15,8 +15,8 @@ from services import SP, modular_helpers
 from services.ambiguous_job_service import AmbiguousJobService
 from services.license_service import License, LicenseService
 from services.metadata import Metadata
+from services.platform_service import Platform, PlatformService
 from services.report_service import ReportService
-from services.platform_service import PlatformService, Platform
 from services.reports import (
     JobMetricsDataSource,
     ReportMetricsService,
@@ -139,7 +139,7 @@ class MetricsCollector:
         ReportType.OPERATIONAL_RULES,
         ReportType.OPERATIONAL_RESOURCES,
         ReportType.OPERATIONAL_ATTACKS,
-        ReportType.OPERATIONAL_KUBERNETES
+        ReportType.OPERATIONAL_KUBERNETES,
     )
 
     def __init__(
@@ -150,8 +150,7 @@ class MetricsCollector:
         report_metrics_service: ReportMetricsService,
         license_service: LicenseService,
         ruleset_service: RulesetService,
-        platform_service: PlatformService
-
+        platform_service: PlatformService,
     ):
         self._mc = modular_client
         self._ajs = ambiguous_job_service
@@ -173,7 +172,7 @@ class MetricsCollector:
             report_metrics_service=SP.report_metrics_service,
             license_service=SP.license_service,
             ruleset_service=SP.ruleset_service,
-            platform_service=SP.platform_service
+            platform_service=SP.platform_service,
         )
 
     @staticmethod
@@ -361,7 +360,7 @@ class MetricsCollector:
                     ctx=ctx,
                     job_source=job_source,
                     sc_provider=sc_provider,
-                    report_type=ReportType.OPERATIONAL_KUBERNETES
+                    report_type=ReportType.OPERATIONAL_KUBERNETES,
                 )
             )
         )
@@ -470,7 +469,11 @@ class MetricsCollector:
             data = {
                 'id': tenant.project,
                 'data': json_round_trip(
-                    ShardsCollectionDataSource(col, ctx.metadata).resources()
+                    tuple(
+                        ShardsCollectionDataSource(
+                            col, ctx.metadata
+                        ).resources()
+                    )
                 ),
                 'last_scan_date': js.subset(tenant=tenant.name).last_scan_date,
                 'activated_regions': sorted(
@@ -632,11 +635,11 @@ class MetricsCollector:
             )
 
     def operational_attacks(
-            self,
-            ctx: MetricsContext,
-            job_source: JobMetricsDataSource,
-            sc_provider: ShardsCollectionProvider,
-            report_type: ReportType,
+        self,
+        ctx: MetricsContext,
+        job_source: JobMetricsDataSource,
+        sc_provider: ShardsCollectionProvider,
+        report_type: ReportType,
     ) -> ReportsGen:
         start = report_type.start(ctx.now)
         end = report_type.end(ctx.now)
@@ -654,7 +657,9 @@ class MetricsCollector:
                 )
                 continue
             data = json_round_trip(
-                ShardsCollectionDataSource(col, ctx.metadata).operational_attacks()
+                ShardsCollectionDataSource(
+                    col, ctx.metadata
+                ).operational_attacks()
             )
 
             data = {
@@ -672,9 +677,13 @@ class MetricsCollector:
                 start=start,
             )
 
-    def operational_k8s(self, ctx: MetricsContext, job_source: JobMetricsDataSource,
-                        sc_provider: ShardsCollectionProvider,
-                        report_type: ReportType) -> ReportsGen:
+    def operational_k8s(
+        self,
+        ctx: MetricsContext,
+        job_source: JobMetricsDataSource,
+        sc_provider: ShardsCollectionProvider,
+        report_type: ReportType,
+    ) -> ReportsGen:
         start = report_type.start(ctx.now)
         end = report_type.end(ctx.now)
         js = job_source.subset(start=start, end=end, affiliation='platform')
@@ -683,14 +692,46 @@ class MetricsCollector:
             if not platform:
                 _LOG.warning(f'Platform with id {platform_id} not found!')
                 continue
-            # TODO: finish
-            # col = sc_provider.get_for_tenant(tenant, end)
-            # if col is None:
-            #     _LOG.warning(
-            #         f'Cannot get shards collection for '
-            #         f'{tenant.name} for {end}'
-            #     )
-            #     continue
+            col = sc_provider.get_for_platform(platform, end)
+            if col is None:
+                _LOG.warning(
+                    f'Cannot get shards collection for '
+                    f'{platform.platform_id} for {end}'
+                )
+                continue
+            ds = ShardsCollectionDataSource(col, ctx.metadata)
+
+            coverages = self._rs.calculate_coverages(
+                successful=self._rs.get_standard_to_controls_to_rules(
+                    it=self._rs.iter_successful_parts(col),
+                    metadata=ctx.metadata,
+                ),
+                full=ctx.metadata.domain(Cloud.KUBERNETES).full_cov,
+            )
+
+            data = json_round_trip(
+                {
+                    'tenant_name': platform.tenant_name,
+                    'last_scan_date': js.subset(
+                        platform=platform_id
+                    ).last_scan_date,
+                    'region': platform.region,
+                    'name': platform.name,
+                    'type': platform.type.value,
+                    'resources': list(ds.resources_no_regions()),
+                    'compliance': {
+                        st.full_name: cov for st, cov in coverages.items()
+                    },
+                    'mitre': ds.operational_k8s_attacks(),
+                }
+            )
+
+            yield self._rms.create(
+                key=self._rms.key_for_platform(report_type, platform),
+                data=data,
+                end=end,
+                start=start,
+            )
 
     def c_level_overview(
         self,

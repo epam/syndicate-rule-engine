@@ -2,7 +2,7 @@ import bisect
 from datetime import datetime
 from functools import cached_property, cmp_to_key
 from itertools import chain
-from typing import Generator, Iterable, Iterator, TypedDict, cast, Literal
+from typing import Generator, Iterable, Iterator, Literal, cast
 
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
@@ -12,10 +12,10 @@ from helpers.constants import (
     COMPOUND_KEYS_SEPARATOR,
     GLOBAL_REGION,
     REPORT_FIELDS,
+    TACTICS_ID_MAPPING,
+    Cloud,
     JobState,
     ReportType,
-    TACTICS_ID_MAPPING,
-    Cloud
 )
 from helpers.log_helper import get_logger
 from helpers.reports import (
@@ -31,10 +31,10 @@ from services.base_data_service import BaseDataService
 from services.clients.s3 import S3Client, S3Url
 from services.environment_service import EnvironmentService
 from services.metadata import Metadata
+from services.platform_service import Platform
 from services.report_service import ReportService
 from services.reports_bucket import ReportMetricsBucketKeysBuilder
 from services.sharding import ShardsCollection
-from services.platform_service import Platform
 
 _LOG = get_logger(__name__)
 
@@ -83,7 +83,9 @@ class JobMetricsDataSource:
 
         if platform:
             _items = (
-                platform if isinstance(platform, (set, list, tuple)) else (platform,)
+                platform
+                if isinstance(platform, (set, list, tuple))
+                else (platform,)
             )
             jobs = filter(lambda j: j.platform_id in _items, jobs)
         match affiliation:
@@ -156,18 +158,13 @@ class JobMetricsDataSource:
 
     @cached_property
     def scanned_platforms(self) -> tuple[str, ...]:
-        return tuple(set(j.platform_id for j in self._jobs if j.is_platform_job))
+        return tuple(
+            set(j.platform_id for j in self._jobs if j.is_platform_job)
+        )
 
 
 class ShardsCollectionDataSource:
     ResourcesGenerator = Generator[tuple[str, str, dict, float], None, None]
-
-    class PrettifiedFinding(TypedDict):
-        policy: str
-        resource_type: str
-        description: str
-        severity: str
-        resources: dict[str, list[dict]]
 
     def __init__(self, collection: ShardsCollection, metadata: Metadata):
         """
@@ -397,12 +394,11 @@ class ShardsCollectionDataSource:
                 res[name] += n
         return res
 
-    def resources(self) -> list[PrettifiedFinding]:
-        result = []
+    def resources(self) -> Generator[dict, None, None]:
         meta = self._col.meta
         for rule in self._resources:
             rm = meta.get(rule, {})
-            item = {
+            yield {
                 'policy': rule,
                 'resource_type': self._meta.rule(rule).service
                 or service_from_resource_type(
@@ -415,8 +411,13 @@ class ShardsCollectionDataSource:
                     for region, res in self._resources[rule].items()
                 },
             }
-            result.append(item)
-        return result
+
+    def resources_no_regions(self) -> Generator[dict, None, None]:
+        for res in self.resources():
+            res['resources'] = list(
+                chain.from_iterable(res['resources'].values())
+            )
+            yield res
 
     def resource_types(self) -> dict[str, int]:
         result = {}
@@ -472,7 +473,9 @@ class ShardsCollectionDataSource:
                 _LOG.warning(f'Mitre metadata not found for {rule}. Skipping')
                 continue
             severity = meta.severity
-            resource_type = meta.service or service_from_resource_type(self._col.meta[rule]['resource'])
+            resource_type = meta.service or service_from_resource_type(
+                self._col.meta[rule]['resource']
+            )
             description = self._col.meta[rule].get('description', '')
 
             for region, res in self._resources[rule].items():
@@ -483,36 +486,108 @@ class ShardsCollectionDataSource:
                         sub_techniques = [
                             st['st_name'] for st in technique.get('st', [])
                         ]
-                        resources_data = [{
-                            'resource': r,
-                            'resource_type': resource_type,
-                            'rule': description,
-                            'severity': severity.value,
-                            'sub_techniques': sub_techniques
-                        } for r in res]
-                        tactics_data = pre_result.setdefault(tactic, {
-                            'tactic_id': TACTICS_ID_MAPPING.get(tactic),
-                            'techniques_data': {}
-                        })
-                        techniques_data = tactics_data[
-                            'techniques_data'].setdefault(
-                            technique_name, {
-                                'technique_id': technique_id,
-                                'regions_data': {}
+                        resources_data = [
+                            {
+                                'resource': r,
+                                'resource_type': resource_type,
+                                'rule': description,
+                                'severity': severity.value,
+                                'sub_techniques': sub_techniques,
                             }
+                            for r in res
+                        ]
+                        tactics_data = pre_result.setdefault(
+                            tactic,
+                            {
+                                'tactic_id': TACTICS_ID_MAPPING.get(tactic),
+                                'techniques_data': {},
+                            },
+                        )
+                        techniques_data = tactics_data[
+                            'techniques_data'
+                        ].setdefault(
+                            technique_name,
+                            {'technique_id': technique_id, 'regions_data': {}},
                         )
                         regions_data = techniques_data[
-                            'regions_data'].setdefault(
-                            region, {'resources': []}
-                        )
+                            'regions_data'
+                        ].setdefault(region, {'resources': []})
                         regions_data['resources'].extend(resources_data)
         result = []
         for tactic, techniques in pre_result.items():
-            item = {"tactic_id": techniques['tactic_id'], "tactic": tactic,
-                    "techniques_data": []}
+            item = {
+                'tactic_id': techniques['tactic_id'],
+                'tactic': tactic,
+                'techniques_data': [],
+            }
             for technique, data in techniques['techniques_data'].items():
                 item['techniques_data'].append(
-                    {**data, 'technique': technique})
+                    {**data, 'technique': technique}
+                )
+            result.append(item)
+        return result
+
+    def operational_k8s_attacks(self) -> list[dict]:
+        # TODO REFACTOR IT
+        pre_result = {}
+        for rule in self._resources:
+            meta = self._meta.rule(rule)
+            if not meta.mitre:
+                _LOG.warning(f'Mitre metadata not found for {rule}. Skipping')
+                continue
+            severity = meta.severity
+            resource_type = meta.service or service_from_resource_type(
+                self._col.meta[rule]['resource']
+            )
+            description = self._col.meta[rule].get('description', '')
+
+            for _, res in self._resources[rule].items():
+                for tactic, data in meta.mitre.items():
+                    for technique in data:
+                        technique_name = technique.get('tn_name')
+                        technique_id = technique.get('tn_id')
+                        sub_techniques = [
+                            st['st_name'] for st in technique.get('st', [])
+                        ]
+                        tactics_data = pre_result.setdefault(
+                            tactic,
+                            {
+                                'tactic_id': TACTICS_ID_MAPPING.get(tactic),
+                                'techniques_data': {},
+                            },
+                        )
+                        techniques_data = tactics_data[
+                            'techniques_data'
+                        ].setdefault(
+                            technique_name, {'technique_id': technique_id}
+                        )
+                        resources_data = techniques_data.setdefault(
+                            'resources', []
+                        )
+                        resources_data.extend(
+                            [
+                                {
+                                    'resource': r,
+                                    'resource_type': resource_type,
+                                    'rule': description,
+                                    'severity': severity.value,
+                                    'sub_techniques': sub_techniques,
+                                }
+                                for r in res
+                            ]
+                        )
+        result = []
+
+        for tactic, techniques in pre_result.items():
+            item = {
+                'tactic_id': techniques['tactic_id'],
+                'tactic': tactic,
+                'techniques_data': [],
+            }
+            for technique, data in techniques['techniques_data'].items():
+                item['techniques_data'].append(
+                    {**data, 'technique': technique}
+                )
             result.append(item)
         return result
 
@@ -566,6 +641,27 @@ class ShardsCollectionProvider:
         if col is None:
             return
 
+        col.fetch_all()
+        col.fetch_meta()
+        self._cache[key] = col
+        return col
+
+    def get_for_platform(
+        self, platform: Platform, date: datetime
+    ) -> ShardsCollection | None:
+        is_latest = self._is_latest(date)
+        if is_latest:
+            key = (platform.platform_id, None)
+        else:
+            key = (platform.platform_id, date)
+        if key in self._cache:
+            return self._cache[key]
+        if is_latest:
+            col = self._rs.platform_latest_collection(platform)
+        else:
+            col = self._rs.platform_snapshot_collection(platform, date)
+        if col is None:
+            return
         col.fetch_all()
         col.fetch_meta()
         self._cache[key] = col
