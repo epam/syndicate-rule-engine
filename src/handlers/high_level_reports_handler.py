@@ -16,6 +16,7 @@ from helpers.constants import (
     HTTPMethod,
     RabbitCommand,
     ReportType,
+    Cloud,
 )
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
@@ -26,6 +27,7 @@ from services.clients.s3 import S3Client
 from services.environment_service import EnvironmentService
 from services.rabbitmq_service import RabbitMQService
 from services.rbac_service import TenantsAccessPayload
+from services.platform_service import PlatformService
 from services.reports import ReportMetricsService, add_diff
 from validators.swagger_request_models import (
     CLevelGetReportModel,
@@ -43,6 +45,7 @@ SRE_REPORTS_TYPE_TO_M3_MAPPING = {
     ReportType.OPERATIONAL_FINOPS: 'CUSTODIAN_FINOPS_REPORT',
     ReportType.OPERATIONAL_COMPLIANCE: 'CUSTODIAN_COMPLIANCE_REPORT',
     ReportType.OPERATIONAL_ATTACKS: 'CUSTODIAN_ATTACKS_REPORT',
+    ReportType.OPERATIONAL_KUBERNETES: 'CUSTODIAN_K8S_CLUSTER_REPORT',
     # C-Level
     ReportType.C_LEVEL_OVERVIEW: 'CUSTODIAN_CUSTOMER_OVERVIEW_REPORT',
 }
@@ -93,6 +96,8 @@ class MaestroModelBuilder:
                 return 'RULE'
             case ReportType.OPERATIONAL_FINOPS:
                 return 'FINOPS'
+            case ReportType.OPERATIONAL_KUBERNETES:
+                return 'KUBERNETES'
 
     def __init__(self, receivers: tuple[str, ...] = (), size_limit: int = 0):
         self._receivers = receivers  # base receivers
@@ -217,6 +222,26 @@ class MaestroModelBuilder:
             'data': data['data'],
         }
 
+    @staticmethod
+    def _operational_k8s_custom(rep: ReportMetrics) -> dict:
+        assert rep.type == ReportType.OPERATIONAL_KUBERNETES
+        data = rep.data.as_dict()
+        return {
+            'tenant_name': data['tenant_name'],
+            'last_scan_date': data['last_scan_date'],
+            'cluster_id': rep.platform_id,
+            'cloud': Cloud.AWS.value,  # TODO: get from tenant
+            'region': data['region'],
+            'data': {
+                'policy_data': data['resources'],
+                'mitre_data': data['mitre'],
+                'compliance_data': [
+                    {'name': name, 'value': cov}
+                    for name, cov in data['compliance'].items()
+                ],
+            },
+        }
+
     def build_base(self, rep: ReportMetrics) -> MaestroReport:
         return {
             'receivers': self._receivers,
@@ -233,7 +258,7 @@ class MaestroModelBuilder:
             'data': {},
         }
 
-    def convert(self, rep: ReportMetrics) -> MaestroReport | None:
+    def convert(self, rep: ReportMetrics) -> MaestroReport:
         base = self.build_base(rep)
         match rep.type:
             case ReportType.OPERATIONAL_OVERVIEW:
@@ -248,8 +273,10 @@ class MaestroModelBuilder:
                 custom = self._operational_compliance_custom(rep)
             case ReportType.OPERATIONAL_ATTACKS:
                 custom = self._operational_attacks_custom(rep)
+            case ReportType.OPERATIONAL_KUBERNETES:
+                custom = self._operational_k8s_custom(rep)
             case _:
-                return
+                raise NotImplementedError()
         base.update(custom)
         return base
 
@@ -284,8 +311,22 @@ class MaestroReportToS3Packer:
             'ATTACK_VECTOR': self._pack_attacks,
         }
 
-    def _pack_k8s(self, data):
-        raise NotImplementedError()
+    def _pack_k8s(self, data: dict):
+        buf = bytearray()
+        for line in data.get('policy_data', {}):
+            resources = line.pop('resources', [])
+            self._write_line(buf, line, b'policy')
+            for resource in resources:
+                self._write_line(buf, resource)
+        for tactic in data.get('mitre_data', {}):
+            techniques = tactic.pop('techniques_data', [])
+            self._write_line(buf, tactic, b'tactic')
+            for technique in techniques:
+                resources = technique.pop('resources', [])
+                self._write_line(buf, technique, b'technique')
+                for resource in resources:
+                    self._write_line(buf, resource)
+        return buf
 
     def _pack_finops(self, data: list[dict]) -> bytearray:
         buf = bytearray()
@@ -355,8 +396,10 @@ class MaestroReportToS3Packer:
         data = report['data']
         if not self._is_too_big(data):
             return report
-        _LOG.info(f'Report size is bigger than limit: {self._limit}. '
-                  f'Writing to S3')
+        _LOG.info(
+            f'Report size is bigger than limit: {self._limit}. '
+            f'Writing to S3'
+        )
         customer = report['customer']
         key = f'{customer}/{str(uuid.uuid4())}.jsonl'
 
@@ -386,12 +429,14 @@ class HighLevelReportsHandler(AbstractHandler):
         environment_service: EnvironmentService,
         rabbitmq_service: RabbitMQService,
         assume_role_s3_client: S3Client,
+        platform_service: PlatformService,
     ):
         self._rms = report_metrics_service
         self._mc = modular_client
         self._env = environment_service
         self._rmq = rabbitmq_service
         self._assume_role_s3 = assume_role_s3_client
+        self._ps = platform_service
 
     @classmethod
     def build(cls) -> 'HighLevelReportsHandler':
@@ -401,6 +446,7 @@ class HighLevelReportsHandler(AbstractHandler):
             environment_service=SP.environment_service,
             rabbitmq_service=SP.rabbitmq_service,
             assume_role_s3_client=SP.assume_role_s3,
+            platform_service=SP.platform_service,
         )
 
     @property
@@ -508,15 +554,53 @@ class HighLevelReportsHandler(AbstractHandler):
             tenant = cast(Tenant, tenant)
 
             for typ in event.new_types:
+                if typ is ReportType.OPERATIONAL_KUBERNETES:
+                    _LOG.debug('Specific handling for k8s reports')
+                    k8s_datas = []
+                    for platform in self._ps.query_by_tenant(tenant):
+                        rep = self._rms.get_latest_for_platform(platform, typ)
+                        if not rep:
+                            _LOG.warning(
+                                f'Could not find data for platform {platform.platform_id}'
+                            )
+                            continue
+                        self._rms.fetch_data_from_s3(rep)
+                        data = builder.convert(rep)
+                        data = packer.pack(data)
+                        k8s_datas.append(data)
+                    if not k8s_datas:
+                        _LOG.debug(
+                            f'Could not find any {typ} for {tenant.name}'
+                        )
+                        raise (
+                            ResponseFactory(HTTPStatus.NOT_FOUND)
+                            .message(
+                                f'Could not find any {typ} for {tenant.name}'
+                            )
+                            .exc()
+                        )
+                    models.extend(
+                        self._rmq.build_m3_json_model(
+                            notification_type=SRE_REPORTS_TYPE_TO_M3_MAPPING[
+                                typ
+                            ],
+                            data=i,
+                        )
+                        for i in k8s_datas
+                    )
+                    continue
+
+                _LOG.debug(f'Going to generate {typ} for {tenant.name}')
                 rep = self._rms.get_latest_for_tenant(tenant=tenant, type_=typ)
                 if not rep:
                     _LOG.debug(f'Could not find any {typ} for {tenant.name}')
-                    continue
+                    raise (
+                        ResponseFactory(HTTPStatus.NOT_FOUND)
+                        .message(f'Could not find any {typ} for {tenant.name}')
+                        .exc()
+                    )
                 self._rms.fetch_data_from_s3(rep)
                 data = builder.convert(rep)
-                if data is None:
-                    _LOG.warning('Could not convert data for some reason')
-                    continue
                 data = packer.pack(data)
 
                 models.append(

@@ -1153,7 +1153,8 @@ class OperationalGetReportModel(BaseModel):
             'COMPLIANCE': ReportType.OPERATIONAL_COMPLIANCE,
             'RULE': ReportType.OPERATIONAL_RULES,
             'FINOPS': ReportType.OPERATIONAL_FINOPS,
-            'ATTACK_VECTOR': ReportType.OPERATIONAL_ATTACKS
+            'ATTACK_VECTOR': ReportType.OPERATIONAL_ATTACKS,
+            'KUBERNETES': ReportType.OPERATIONAL_KUBERNETES
         }
         if not self.types:
             return tuple(old_new.values())

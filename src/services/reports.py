@@ -785,6 +785,21 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
             limit=limit,
         )
 
+    def query_by_platform(
+        self,
+        platform: Platform,
+        type_: ReportType,
+        till: datetime | None = None,
+        ascending: bool = False,
+        limit: int | None = None,
+    ) -> Iterator[ReportMetrics]:
+        return self.query(
+            key=self.key_for_platform(type_, platform),
+            till=till,
+            ascending=ascending,
+            limit=limit,
+        )
+
     def query_by_customer(
         self,
         customer: Customer | str,
@@ -814,6 +829,23 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
                 type_=type_,
                 till=till,
                 region=region,
+                ascending=False,
+                limit=1,
+            ),
+            None,
+        )
+
+    def get_latest_for_platform(
+        self,
+        platform: Platform,
+        type_: ReportType,
+        till: datetime | None = None,
+    ) -> ReportMetrics | None:
+        return next(
+            self.query_by_platform(
+                platform=platform,
+                type_=type_,
+                till=till,
                 ascending=False,
                 limit=1,
             ),
