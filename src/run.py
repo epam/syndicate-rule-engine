@@ -897,6 +897,7 @@ def get_platform_credentials(platform: Platform) -> dict:
     parent = SP.modular_client.parent_service().get_linked_parent_by_tenant(
         tenant=tenant, type_=ParentType.AWS_MANAGEMENT
     )
+    # TODO: get tenant credentials here somehow
     if not parent:
         _LOG.warning('Parent AWS_MANAGEMENT not found')
         raise ExecutorException(ExecutorError.NO_CREDENTIALS)
