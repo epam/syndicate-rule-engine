@@ -19,6 +19,7 @@ from services import SP
 from services.reports_bucket import (
     StatisticsBucketKeysBuilder,
     TenantReportsBucketKeysBuilder,
+    PlatformReportsBucketKeysBuilder
 )
 from services.sharding import ShardsCollectionFactory, ShardsS3IO
 
@@ -151,6 +152,36 @@ def google_jobs(google_tenant, google_scan_result, create_tenant_job,
     )
 
 
+@pytest.fixture()
+def k8s_platform_jobs(aws_tenant, k8s_platform, k8s_scan_result, create_k8s_platform_job, utcnow):
+    start = utcnow.replace(hour=0)
+
+    job = create_k8s_platform_job(k8s_platform, start + timedelta(seconds=1),
+                                  JobState.SUCCEEDED)
+    create_k8s_platform_job(k8s_platform, start + timedelta(seconds=2),
+                            JobState.FAILED).save()
+
+    job.save()
+
+    # prepare data for pipeline
+    result = JobResult(k8s_scan_result, Cloud.KUBERNETES)
+    collection = ShardsCollectionFactory.from_cloud(Cloud.KUBERNETES)
+    collection.put_parts(result.iter_shard_parts())
+    collection.meta = result.rules_meta()
+    collection.io = ShardsS3IO(
+        bucket=SP.environment_service.default_reports_bucket_name(),
+        key=PlatformReportsBucketKeysBuilder(k8s_platform).latest_key(),
+        client=SP.s3
+    )
+    collection.write_all()
+    collection.write_meta()
+    SP.s3.gz_put_json(
+        bucket=SP.environment_service.get_statistics_bucket_name(),
+        key=StatisticsBucketKeysBuilder.job_statistics(job),
+        obj=result.statistics(aws_tenant, {})
+    )
+
+
 def test_metrics_update_denied(sre_client):
     resp = sre_client.request('/metrics/update', 'POST')
     assert resp.status_int == 401
@@ -196,10 +227,12 @@ def test_metrics_update(
         aws_jobs,
         azure_jobs,
         google_jobs,
+        k8s_platform_jobs,
         load_expected,
         aws_tenant,
         azure_tenant,
         google_tenant,
+        k8s_platform,
         main_customer,
         set_license_metadata
 ):
@@ -257,6 +290,10 @@ def test_metrics_update(
     item = SP.report_metrics_service.get_latest_for_tenant(aws_tenant, ReportType.OPERATIONAL_ATTACKS)
     SP.report_metrics_service.fetch_data_from_s3(item)
     assert dicts_equal(item.data.as_dict(), load_expected('metrics/aws_operational_attacks'))
+
+    item = SP.report_metrics_service.get_latest_for_platform(k8s_platform, ReportType.OPERATIONAL_KUBERNETES)
+    SP.report_metrics_service.fetch_data_from_s3(item)
+    assert dicts_equal(item.data.as_dict(), load_expected('metrics/k8s_operational'))
 
 
 def test_metrics_update_c_level(

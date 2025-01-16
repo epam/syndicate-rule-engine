@@ -72,11 +72,148 @@
       },
       {},
       {}
-
+    ],
+    "ecc-k8s-050-default_namespace_should_not_be_used_for_pods": [
+      "testing",
+      "Encryption",
+      "Compute",
+      "Pod",
+      "Info",
+      [],
+      true,
+      "",
+      "",
+      "",
+      {
+        "Standard1": {
+          "v2.0.0": ["p2"]
+        },
+        "Standard2": {
+          "null": ["p1"]
+        }
+      },
+      {},
+      {}
+    ],
+    "ecc-k8s-058-sa_tokens_are_only_mounted_where_necessary": [
+      "testing",
+      "Encryption",
+      "Compute",
+      "Service Account",
+      "High",
+      [],
+      true,
+      "",
+      "",
+      "",
+      {
+        "Standard1": {
+          "v1.0.0": ["p1", "p3"],
+          "v2.0.0": ["p2"]
+        },
+        "Standard2": {
+          "null": ["p1"]
+        }
+      },
+      {
+        "Collection": [
+          {
+            "tn_id": "T0",
+            "tn_name": "testing0",
+            "st": [
+              {
+                "st_id": "T0.0",
+                "st_name": "sub0"
+              },
+              {
+                "st_id": "T0.1",
+                "st_name": "sub1"
+              }
+            ]
+          },
+          {
+            "tn_id": "T1",
+            "tn_name": "testing1",
+            "st": [
+              {
+                "st_id": "T1.0",
+                "st_name": "sub0"
+              }
+            ]
+          }
+        ]
+      },
+      {}
+    ],
+    "ecc-k8s-059-service_account_tokens_are_only_mounted_where_necessary_in_pods": [
+      "testing",
+      "Encryption",
+      "Compute",
+      "Pod",
+      "Info",
+      [],
+      true,
+      "",
+      "",
+      "",
+      {
+        "Standard1": {
+          "v2.0.0": ["p2"]
+        },
+        "Standard2": {
+          "null": ["p1"]
+        }
+      },
+      {},
+      {}
+    ],
+    "ecc-k8s-060-minimize_the_admission_of_hostpath_volumes": [
+      "testing",
+      "Encryption",
+      "Compute",
+      "Pod",
+      "Medium",
+      [],
+      true,
+      "",
+      "",
+      "",
+      {
+        "Standard1": {
+          "v1.0.0": ["p1", "p3", "p3"],
+          "v2.0.0": ["p2"]
+        }
+      },
+      {},
+      {}
     ]
   },
   "domains": {
     "AWS": [
+      {},
+      {
+        "Standard1": {
+          "v1.0.0": {
+            "p1": 2,
+            "p2": 2,
+            "p3": 2
+          },
+          "v2.0.0": {
+            "p1": 2,
+            "p2": 2
+          }
+        },
+        "Standard2": {
+          "null": {
+            "p1": 2,
+            "p2": 1,
+            "p3": 1,
+            "p4": 1
+          }
+        }
+      }
+    ],
+    "KUBERNETES": [
       {},
       {
         "Standard1": {

@@ -115,6 +115,11 @@ def google_scan_result() -> Path:
 
 
 @pytest.fixture(scope='session')
+def k8s_scan_result() -> Path:
+    return DATA / 'cloud_custodian' / 'kubernetes'
+
+
+@pytest.fixture(scope='session')
 def aws_shards_path() -> Path:
     return DATA / 'shards' / 'aws'
 
@@ -246,6 +251,7 @@ def k8s_platform(
     return Platform(
         parent=Parent(
             parent_id='platform_id',
+            application_id='application_id',
             customer_id=main_customer.name,
             type=ParentType.PLATFORM_K8S.value,
             description='Test platform',

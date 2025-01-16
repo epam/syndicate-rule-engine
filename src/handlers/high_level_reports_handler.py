@@ -236,7 +236,7 @@ class MaestroModelBuilder:
                 'policy_data': data['resources'],
                 'mitre_data': data['mitre'],
                 'compliance_data': [
-                    {'name': name, 'value': cov}
+                    {'name': name, 'value': round(cov * 100, 2)}
                     for name, cov in data['compliance'].items()
                 ],
             },
@@ -561,7 +561,7 @@ class HighLevelReportsHandler(AbstractHandler):
                         rep = self._rms.get_latest_for_platform(platform, typ)
                         if not rep:
                             _LOG.warning(
-                                f'Could not find data for platform {platform.platform_id}'
+                                f'Could not find data for platform {platform.id}'
                             )
                             continue
                         self._rms.fetch_data_from_s3(rep)

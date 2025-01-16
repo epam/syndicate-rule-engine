@@ -651,9 +651,9 @@ class ShardsCollectionProvider:
     ) -> ShardsCollection | None:
         is_latest = self._is_latest(date)
         if is_latest:
-            key = (platform.platform_id, None)
+            key = (platform.id, None)
         else:
-            key = (platform.platform_id, date)
+            key = (platform.id, date)
         if key in self._cache:
             return self._cache[key]
         if is_latest:
@@ -711,7 +711,7 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
             type_=type_,
             customer=platform.customer,
             cloud=Cloud.KUBERNETES.value,
-            tenant_or_platform=platform.platform_id,
+            tenant_or_platform=platform.id,
         )
 
     @classmethod

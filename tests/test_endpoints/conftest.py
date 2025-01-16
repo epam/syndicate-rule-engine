@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from modular_sdk.models.tenant import Tenant
     from modular_sdk.models.customer import Customer
     from services.license_service import License
+    from services.platform_service import Platform
 
 
 # assuming that only this package will use mongo so that we need to clear
@@ -180,6 +181,14 @@ def google_tenant(main_customer: 'Customer', google_tenant: 'Tenant'
 
 
 @pytest.fixture()
+def k8s_platform(main_customer: 'Customer', k8s_platform: 'Platform') -> 'Platform':
+    k8s_platform.parent.save()
+    if k8s_platform.application:
+        k8s_platform.application.save()
+    return k8s_platform
+
+
+@pytest.fixture()
 def create_tenant_job():
     def factory(tenant, submitted_at,
                 status: JobState = JobState.SUCCEEDED):
@@ -196,7 +205,27 @@ def create_tenant_job():
             stopped_at=utc_iso(submitted_at + timedelta(minutes=5)),
             rulesets=['TESTING']
         )
+    return factory
 
+
+@pytest.fixture()
+def create_k8s_platform_job():
+    def factory(platform: 'Platform', submitted_at,
+                status: JobState = JobState.SUCCEEDED):
+        from models.job import Job
+        return Job(
+            id=str(uuid.uuid4()),
+            batch_job_id='batch_job_id',
+            tenant_name=platform.tenant_name,
+            customer_name=platform.customer,
+            status=status.value,
+            submitted_at=utc_iso(submitted_at),
+            created_at=utc_iso(submitted_at + timedelta(minutes=1)),
+            started_at=utc_iso(submitted_at + timedelta(minutes=2)),
+            stopped_at=utc_iso(submitted_at + timedelta(minutes=5)),
+            rulesets=['TESTING'],
+            platform_id=platform.id
+        )
     return factory
 
 
