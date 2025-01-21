@@ -32,6 +32,9 @@ def create(ctx: ContextObj, tenant_name: str, name: str, region: Optional[str],
            description: Optional[str], type: str, endpoint: Optional[str],
            certificate_authority: Optional[str], token: Optional[str],
            customer_id):
+    """
+    Register a new K8S Platform within a tenant
+    """
     return ctx['api_client'].platform_k8s_create(
         tenant_name=tenant_name,
         name=name,
@@ -49,6 +52,9 @@ def create(ctx: ContextObj, tenant_name: str, name: str, region: Optional[str],
 @build_tenant_option()
 @cli_response()
 def describe(ctx: ContextObj, tenant_name: Optional[str], customer_id):
+    """
+    List registered K8S platforms
+    """
     return ctx['api_client'].platform_k8s_list(
         tenant_name=tenant_name,
         customer_id=customer_id
@@ -60,5 +66,8 @@ def describe(ctx: ContextObj, tenant_name: Optional[str], customer_id):
               help='Platform id')
 @cli_response()
 def delete(ctx: ContextObj, platform_id: str, customer_id):
+    """
+    Deregister a platform
+    """
     return ctx['api_client'].platform_k8s_delete(platform_id,
                                                  customer_id=customer_id)
