@@ -1053,6 +1053,9 @@ class ReportType(str, Enum):
         'Just old K8S report as of date of generation. It contains both MITRE and Resources data'
     )
 
+    # Project, for a group of tenants within one project
+    PROJECT_OVERVIEW = 'PROJECT_OVERVIEW', 'Overview data per group of tenants'
+
     # C-Level, kind of for the whole customer
     C_LEVEL_OVERVIEW = (
         'C_LEVEL_OVERVIEW',

@@ -773,7 +773,8 @@ class MetricsCollector:
                     )
                     continue
                 sdc = ShardsCollectionDataSource(col, ctx.metadata)
-                self._update_dict_values(rt_data, sdc.resource_types())
+                self._update_dict_values(rt_data, sdc.services())
+
                 self._update_dict_values(sev_data, sdc.severities())
                 total += sdc.n_unique
                 used_tenants.append(tenant.name)

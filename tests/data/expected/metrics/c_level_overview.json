@@ -7,7 +7,7 @@
       "Security Group": 3,
       "Cloudtrail": 1,
       "Sns": 3,
-      "S3": 10,
+      "S3": 7,
       "Iam Group": 3,
       "Ebs": 2,
       "Ec2": 2,
@@ -44,7 +44,7 @@
     "resources_violated": 5,
     "resource_types_data": {
       "Vpc": 1,
-      "Firewall": 9,
+      "Firewall": 4,
       "Subnet": 1
     },
     "severity_data": {

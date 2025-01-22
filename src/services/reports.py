@@ -1,5 +1,6 @@
 import bisect
 from datetime import datetime
+from enum import Enum
 from functools import cached_property, cmp_to_key
 from itertools import chain
 from typing import Generator, Iterable, Iterator, Literal, cast
@@ -7,7 +8,7 @@ from typing import Generator, Iterable, Iterator, Literal, cast
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
 
-from helpers import deep_get, filter_dict, hashable, iter_key_values
+from helpers import deep_get, hashable, iter_key_values
 from helpers.constants import (
     COMPOUND_KEYS_SEPARATOR,
     GLOBAL_REGION,
@@ -37,6 +38,16 @@ from services.reports_bucket import ReportMetricsBucketKeysBuilder
 from services.sharding import ShardsCollection
 
 _LOG = get_logger(__name__)
+
+
+class CustomAttribute(str, Enum):
+    REGION = 'sre:region'
+    SERVICE = 'sre:service'
+
+    @classmethod
+    def pop_custom(cls, dct: dict) -> None:
+        for attr in cls:
+            dct.pop(attr.value, None)
 
 
 class JobMetricsDataSource:
@@ -181,34 +192,11 @@ class ShardsCollectionDataSource:
                 yield part.policy, part.location, res, part.timestamp
 
     @staticmethod
-    def _custom_attr(name: str) -> str:
-        """
-        Adds prefix to the attribute name to mark that it's custom
-        :param name:
-        :return:
-        """
-        return f'sre:{name}'
-
-    @staticmethod
-    def _is_custom_attr(name: str) -> bool:
-        return name.startswith('sre:')
-
-    @staticmethod
     def _allow_only_regions(
         it: ResourcesGenerator, regions: set[str] | tuple[str, ...]
     ) -> ResourcesGenerator:
         for rule, region, dto, ts in it:
             if region in regions:
-                yield rule, region, dto, ts
-
-    @staticmethod
-    def _allow_only_resource_type(
-        it: ResourcesGenerator, meta: dict, resource_type: tuple[str, ...]
-    ) -> ResourcesGenerator:
-        to_check = tuple(map(adjust_resource_type, resource_type))
-        for rule, region, dto, ts in it:
-            rt = adjust_resource_type(meta.get(rule, {})['resource'])
-            if rt in to_check:
                 yield rule, region, dto, ts
 
     @staticmethod
@@ -229,44 +217,65 @@ class ShardsCollectionDataSource:
             yield rule, region, dto, ts
             _emitted.add(_hashable)
 
-    def _custom_modify(self, it: ResourcesGenerator) -> ResourcesGenerator:
+    @staticmethod
+    def _allow_only_resource_type(
+        it: ResourcesGenerator, meta: dict, resource_type: tuple[str, ...]
+    ) -> ResourcesGenerator:
+        to_check = tuple(map(adjust_resource_type, resource_type))
+        for rule, region, dto, ts in it:
+            rt = adjust_resource_type(meta.get(rule, {})['resource'])
+            if rt in to_check:
+                yield rule, region, dto, ts
+
+    def _add_custom_attributes(
+        self, it: ResourcesGenerator
+    ) -> ResourcesGenerator:
         """
         Some resources require special treatment.
         - rules with resource type "aws.cloudtrail" are not multiregional,
         but the resource they look for can be either multiregional or not.
         So we must deduplicate them on the scope of whole account.
         252 and other glue-catalog rules are not multiregional, but they
-        also do not return unique information within region.
-        :param it:
-        :param meta:
-        :return:
+        do not return unique information within region.
+
+        Also, most rules with aws.account resource type belong to different
+        services, so we add some custom attributes to make deduplication more
+        robust
         """
-        # TODO: in case we need more business logic here, redesign this
-        #  solution. Maybe move this logic to a separate class
         meta = self._col.meta
+        _need_region = ('glue-catalog', 'account')
+
         for rule, region, dto, ts in it:
+            dto_copy = dto.copy()
+
             rt = meta.get(rule, {})['resource']
             rt = adjust_resource_type(rt)
-            if rt in ('glue-catalog', 'account'):
+
+            if rt in _need_region:
                 _LOG.debug(
                     f'Rule with type {rt} found. Adding region '
                     f'attribute to make its dto differ from '
                     f'other regions'
                 )
-                dto[self._custom_attr('region')] = region
-            elif rt == 'cloudtrail':
+                dto_copy[CustomAttribute.REGION.value] = region
+
+            # NOTE: rules with aws.account resource type can literally
+            #  relate to different services, and we can know that only
+            #  by using metadata.
+            if rt == 'account' and (ser := self._meta.rule(rule).service):
+                _LOG.debug('Adding service to rule with aws.account resource')
+                dto_copy[CustomAttribute.SERVICE.value] = ser
+
+            if rt == 'cloudtrail':
                 if dto.get('IsMultiRegionTrail'):
                     _LOG.debug(
                         'Found multiregional trail. '
                         'Moving it to multiregional region'
                     )
                     region = GLOBAL_REGION
-            yield rule, region, dto, ts
+            yield rule, region, dto_copy, ts
 
-    def _report_fields(self, rule: str) -> set[str]:
-        return set(self._meta.rule(rule).report_fields) | REPORT_FIELDS
-
-    def _keep_report_fields(
+    def _keep_only_report_fields(
         self, it: ResourcesGenerator
     ) -> ResourcesGenerator:
         """
@@ -275,27 +284,46 @@ class ShardsCollectionDataSource:
         :param it:
         :return:
         """
+        base_to_keep = REPORT_FIELDS | set(CustomAttribute)
+
         for rule, region, dto, ts in it:
-            filtered = filter_dict(dto, self._report_fields(rule))
-            filtered.update(
-                {k: v for k, v in dto.items() if self._is_custom_attr(k)}
-            )
-            yield rule, region, filtered, ts
+            fields = base_to_keep.union(self._meta.rule(rule).report_fields)
+            for k in tuple(dto):
+                if k not in fields:
+                    dto.pop(k)
+            yield rule, region, dto, ts
 
     def create_resources_generator(
         self,
         only_report_fields: bool = True,
-        deduplicated: bool = True,
         active_regions: tuple[str, ...] = (),
         resource_types: tuple[str, ...] = (),
     ) -> ResourcesGenerator:
         it = self.iter_resources()
-        it = self._custom_modify(it)
+        it = self._add_custom_attributes(it)
 
         if only_report_fields:
-            it = self._keep_report_fields(it)
-        if deduplicated:
-            it = self._deduplicated(it)
+            it = self._keep_only_report_fields(it)
+
+        # NOTE about deduplication: there is no sense in de-duplicating
+        # resources within one policy and one region because it would be an
+        # error if one policy invocation returned not unique resources.
+        # The same thing about deduplication within one policy across
+        # different regions. There should be no the same resources in different
+        #  regions returned by one policy (otherwise this policy must be
+        # global, right?). We can benefit from deduplication only if we do
+        # that within one region across different policies: rule1 checks
+        # whether ec2 instances have termination protection, rule2 checks
+        # whether ec2 instances have metadataV2. Both rules find the same
+        # ec2 instance with id 1 in eu-central-1 region. There are two
+        # findings, but there is only one violating resource.
+        # But this deduplication below is needed because it fixes resources
+        # after self._add_custom_attributes() method. After applying the method
+        # the iterator can produce more than one unique resources within
+        # one policy and region (which cannot happen under normal
+        # circumstances). So we need this deduplication here for some corner
+        # cases (As multiregional CloudTrail, for example)
+        it = self._deduplicated(it)
 
         if active_regions:
             it = self._allow_only_regions(it, (GLOBAL_REGION, *active_regions))
@@ -312,13 +340,9 @@ class ShardsCollectionDataSource:
         """
         if self.__resources is not None:
             return self.__resources
-        # TODO: test how bad-performant is that..
-        it = self.create_resources_generator()
         mapping = {}
-        for rule, region, dto, _ in it:
-            mapping.setdefault(rule, {}).setdefault(region, set()).add(
-                hashable(dto)
-            )
+        for rule, region, dto, _ in self.create_resources_generator():
+            mapping.setdefault(region, {}).setdefault(rule, []).append(dto)
         self.__resources = mapping
         return mapping
 
@@ -327,14 +351,12 @@ class ShardsCollectionDataSource:
 
     @cached_property
     def n_unique(self) -> int:
-        return len(
-            set(
-                chain.from_iterable(
-                    chain.from_iterable(d.values())
-                    for d in self._resources.values()
-                )
-            )
-        )
+        n = 0
+        for rule_resources in self._resources.values():
+            n += len(set(
+                map(hashable, chain.from_iterable(rule_resources.values()))
+            ))
+        return n
 
     def region_severities(
         self, unique: bool = True
@@ -356,18 +378,20 @@ class ShardsCollectionDataSource:
         different severity, it will be added to the highest severity
         number.
         unique == False
-        In case where is a resource which violates different rules with
+        In case there is a resource which violates different rules with
         different severity, it will be to both severities. So, the total
         number of unique resources and sum of resources by severities
         can clash
         """
         region_severity = {}
-        for rule in self._resources:
-            severity = self._meta.rule(rule).severity
-            for region, res in self._resources[rule].items():
-                region_severity.setdefault(region, {}).setdefault(
-                    severity, set()
-                ).update(res)
+        for region in self._resources:
+            _inner = region_severity.setdefault(region, {})
+            for rule, res in self._resources[region].items():
+                _inner.setdefault(
+                    self._meta.rule(rule).severity,
+                    set()
+                ).update(map(hashable, res))
+
         if unique:
             for region, data in region_severity.items():
                 keep_highest(
@@ -381,6 +405,8 @@ class ShardsCollectionDataSource:
         result = {}
         for region, data in region_severity.items():
             for severity, resources in data.items():
+                if not resources:
+                    continue
                 d = result.setdefault(region, {})
                 d.setdefault(severity, 0)
                 d[severity] += len(resources)
@@ -395,8 +421,14 @@ class ShardsCollectionDataSource:
         return res
 
     def resources(self) -> Generator[dict, None, None]:
+        inverted = {}
+        for region in self._resources:
+            for rule, resources in self._resources[region].items():
+                # we won't encounter the same region for one rule twice
+                inverted.setdefault(rule, {})[region] = resources
+
         meta = self._col.meta
-        for rule in self._resources:
+        for rule in inverted:
             rm = meta.get(rule, {})
             yield {
                 'policy': rule,
@@ -408,7 +440,7 @@ class ShardsCollectionDataSource:
                 'severity': self._meta.rule(rule).severity.value,
                 'resources': {
                     region: list(res)
-                    for region, res in self._resources[rule].items()
+                    for region, res in inverted[rule].items()
                 },
             }
 
@@ -419,23 +451,48 @@ class ShardsCollectionDataSource:
             )
             yield res
 
-    def resource_types(self) -> dict[str, int]:
+    def region_services(self) -> dict[str, dict[str, int]]:
+        region_service = {}
+        for region in self._resources:
+            _inner = region_service.setdefault(region, {})
+            for rule, res in self._resources[region].items():
+                ser = self._meta.rule(
+                    rule).service or service_from_resource_type(
+                    self._col.meta[rule]['resource']
+                )
+                _inner.setdefault(
+                    ser,
+                    set()
+                ).update(map(hashable, res))
+
         result = {}
-        for rule in self._resources:
-            rt = self._meta.rule(rule).service or service_from_resource_type(
-                self._col.meta[rule]['resource']
-            )
-            result.setdefault(rt, 0)
-            for res in self._resources[rule].values():
-                result[rt] += len(res)
+        for region, data in region_service.items():
+            for ser, resources in data.items():
+                d = result.setdefault(region, {})
+                d.setdefault(ser, 0)
+                d[ser] += len(resources)
         return result
+
+    def services(self) -> dict[str, int]:
+        res = {}
+        for services in self.region_services().values():
+            for name, n in services.items():
+                res.setdefault(name, 0)
+                res[name] += n
+        return res
 
     def finops(self) -> dict[str, list[dict]]:
         """
         Produces finops data in its old format
         """
+        inverted = {}
+        for region in self._resources:
+            for rule, resources in self._resources[region].items():
+                # we won't encounter the same region for one rule twice
+                inverted.setdefault(rule, {})[region] = resources
+
         res = {}
-        for rule in self._resources:
+        for rule in inverted:
             rule_meta = self._meta.rule(rule)
             finops_category = rule_meta.finops_category()
             if not finops_category:
@@ -456,7 +513,7 @@ class ShardsCollectionDataSource:
                     'resource_type': self._col.meta[rule]['resource'],
                     'resources': {
                         region: list(res)
-                        for region, res in self._resources[rule].items()
+                        for region, res in inverted[rule].items()
                     },
                 }
             )
@@ -465,9 +522,16 @@ class ShardsCollectionDataSource:
     def operational_attacks(self) -> list:
         # TODO: refactor this format and it that generates it.
         #  This code just generates mitre report the way it was generated
+
+        inverted = {}
+        for region in self._resources:
+            for rule, resources in self._resources[region].items():
+                # we won't encounter the same region for one rule twice
+                inverted.setdefault(rule, {})[region] = resources
+
         pre_result = {}
 
-        for rule in self._resources:
+        for rule in inverted:
             meta = self._meta.rule(rule)
             if not meta.mitre:
                 _LOG.warning(f'Mitre metadata not found for {rule}. Skipping')
@@ -478,7 +542,7 @@ class ShardsCollectionDataSource:
             )
             description = self._col.meta[rule].get('description', '')
 
-            for region, res in self._resources[rule].items():
+            for region, res in inverted[rule].items():
                 for tactic, data in meta.mitre.items():
                     for technique in data:
                         technique_name = technique.get('tn_name')
@@ -529,8 +593,14 @@ class ShardsCollectionDataSource:
 
     def operational_k8s_attacks(self) -> list[dict]:
         # TODO REFACTOR IT
+        inverted = {}
+        for region in self._resources:
+            for rule, resources in self._resources[region].items():
+                # we won't encounter the same region for one rule twice
+                inverted.setdefault(rule, {})[region] = resources
+
         pre_result = {}
-        for rule in self._resources:
+        for rule in inverted:
             meta = self._meta.rule(rule)
             if not meta.mitre:
                 _LOG.warning(f'Mitre metadata not found for {rule}. Skipping')
@@ -541,7 +611,7 @@ class ShardsCollectionDataSource:
             )
             description = self._col.meta[rule].get('description', '')
 
-            for _, res in self._resources[rule].items():
+            for _, res in inverted[rule].items():
                 for tactic, data in meta.mitre.items():
                     for technique in data:
                         technique_name = technique.get('tn_name')

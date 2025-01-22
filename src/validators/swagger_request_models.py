@@ -1128,19 +1128,34 @@ class EventDrivenRulesetDeleteModel(BaseModel):
 
 
 class ProjectGetReportModel(BaseModel):
-    tenant_display_names: set[str]
+    tenant_display_names: set[Annotated[
+        str, StringConstraints(to_lower=True, strip_whitespace=True)
+    ]]
     types: set[Literal['OVERVIEW', 'RESOURCES', 'COMPLIANCE', 'ATTACK_VECTOR', 'FINOPS']] = Field(default_factory=set)
     receivers: set[str] = Field(default_factory=set)
-    attempt: SkipJsonSchema[int] = 0
-    execution_job_id: SkipJsonSchema[str] = Field(None)
+    # attempt: SkipJsonSchema[int] = 0
+    # execution_job_id: SkipJsonSchema[str] = Field(None)
+
+    @property
+    def new_types(self) -> tuple[ReportType, ...]:
+        old_new = {
+            'OVERVIEW': ReportType.PROJECT_OVERVIEW
+        }
+        if not self.types:
+            return tuple(old_new.values())
+        res = []
+        for t in self.types:
+            if t in old_new:
+                res.append(old_new[t])
+        return tuple(res)
 
 
 class OperationalGetReportModel(BaseModel):
     tenant_names: set[str]
     types: set[Literal['OVERVIEW', 'RESOURCES', 'COMPLIANCE', 'RULE', 'ATTACK_VECTOR', 'FINOPS', 'KUBERNETES']] = Field(default_factory=set)
     receivers: set[str] = Field(default_factory=set)
-    attempt: SkipJsonSchema[int] = 0
-    execution_job_id: SkipJsonSchema[str] = Field(None)
+    # attempt: SkipJsonSchema[int] = 0
+    # execution_job_id: SkipJsonSchema[str] = Field(None)
 
     @property
     def new_types(self) -> tuple[ReportType, ...]:

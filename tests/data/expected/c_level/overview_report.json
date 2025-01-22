@@ -28,7 +28,7 @@
           "value": 3
         },
         "S3": {
-          "value": 10
+          "value": 7
         },
         "Iam Group": {
           "value": 3
@@ -99,7 +99,7 @@
           "value": 1
         },
         "Firewall": {
-          "value": 9
+          "value": 4
         },
         "Subnet": {
           "value": 1

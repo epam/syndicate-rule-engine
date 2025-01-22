@@ -32,6 +32,7 @@ from services.reports import ReportMetricsService, add_diff
 from validators.swagger_request_models import (
     CLevelGetReportModel,
     OperationalGetReportModel,
+    ProjectGetReportModel
 )
 from validators.utils import validate_kwargs
 
@@ -46,6 +47,10 @@ SRE_REPORTS_TYPE_TO_M3_MAPPING = {
     ReportType.OPERATIONAL_COMPLIANCE: 'CUSTODIAN_COMPLIANCE_REPORT',
     ReportType.OPERATIONAL_ATTACKS: 'CUSTODIAN_ATTACKS_REPORT',
     ReportType.OPERATIONAL_KUBERNETES: 'CUSTODIAN_K8S_CLUSTER_REPORT',
+
+    # Project
+    ReportType.PROJECT_OVERVIEW: 'CUSTODIAN_PROJECT_OVERVIEW_REPORT',
+
     # C-Level
     ReportType.C_LEVEL_OVERVIEW: 'CUSTODIAN_CUSTOMER_OVERVIEW_REPORT',
 }
@@ -83,7 +88,7 @@ class MaestroModelBuilder:
         match rt:
             case ReportType.OPERATIONAL_RESOURCES:
                 return 'RESOURCES'
-            case ReportType.OPERATIONAL_OVERVIEW | ReportType.C_LEVEL_OVERVIEW:
+            case ReportType.OPERATIONAL_OVERVIEW | ReportType.PROJECT_OVERVIEW | ReportType.C_LEVEL_OVERVIEW:
                 return 'OVERVIEW'
             case (
                 ReportType.OPERATIONAL_COMPLIANCE
@@ -455,6 +460,9 @@ class HighLevelReportsHandler(AbstractHandler):
             CustodianEndpoint.REPORTS_CLEVEL: {
                 HTTPMethod.POST: self.post_c_level
             },
+            CustodianEndpoint.REPORTS_PROJECT: {
+                HTTPMethod.POST: self.post_project
+            },
             CustodianEndpoint.REPORTS_OPERATIONAL: {
                 HTTPMethod.POST: self.post_operational
             },
@@ -627,6 +635,18 @@ class HighLevelReportsHandler(AbstractHandler):
                 .message('Could not send message to RabbitMQ')
                 .exc()
             )
+        return build_response(
+            code=HTTPStatus.ACCEPTED, content='Successfully sent'
+        )
+
+    @validate_kwargs
+    def post_project(self, event: ProjectGetReportModel,
+                     _tap: TenantsAccessPayload):
+        models = []
+        rabbitmq = self._rmq.get_customer_rabbitmq(event.customer_id)
+        if not rabbitmq:
+            raise self._rmq.no_rabbitmq_response().exc()
+
         return build_response(
             code=HTTPStatus.ACCEPTED, content='Successfully sent'
         )

@@ -53,6 +53,36 @@
       {},
       {},
       {}
+    ],
+    "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled": [
+      "testing",
+      "Encryption",
+      "Compute",
+      "AWS S3",
+      "Medium",
+      [],
+      true,
+      "",
+      "",
+      "",
+      {},
+      {},
+      {}
+    ],
+    "ecc-aws-516-s3_event_notifications_enabled": [
+      "testing",
+      "Encryption",
+      "Compute",
+      "AWS S3",
+      "High",
+      [],
+      true,
+      "",
+      "",
+      "",
+      {},
+      {},
+      {}
     ]
   }
 }

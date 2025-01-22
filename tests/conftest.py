@@ -262,20 +262,20 @@ def k8s_platform(
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def empty_metadata() -> 'Metadata':
     from services.metadata import Metadata
 
     return Metadata.empty()
 
 
-@pytest.fixture
-def load_metadata() -> Callable[[str], dict]:
-    def _inner(name: str) -> dict:
+@pytest.fixture(scope='session')
+def load_metadata() -> Callable:
+    def _inner(name: str, load_as=dict) -> dict:
         if not name.endswith('.json'):
             name = f'{name}.json'
         path = DATA / 'metadata' / name
         assert path.exists(), f'{path} must exist'
         with open(path, 'rb') as fp:
-            return msgspec.json.decode(fp.read(), type=dict)
+            return msgspec.json.decode(fp.read(), type=load_as)
     return _inner

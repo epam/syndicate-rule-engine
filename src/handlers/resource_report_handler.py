@@ -86,7 +86,6 @@ class MatchedResourcesIterator(Iterator[Payload]):
         source = ShardsCollectionDataSource(self._collection, Metadata.empty())
         return source.create_resources_generator(
             only_report_fields=False,
-            deduplicated=False,
             active_regions=(self._region,) if self._region else (),
             resource_types=(self._resource_type,)
             if self._resource_type
