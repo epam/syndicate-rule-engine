@@ -430,6 +430,39 @@
     ]
   },
   {
+    "p": "ecc-aws-015-ensure_mfa_is_enabled_for_the_root_account",
+    "l": "global",
+    "t": 1731853781.230378,
+    "r": [
+      {
+        "account_id": "123456789012",
+        "account_name": "testing"
+      }
+    ]
+  },
+  {
+    "p": "ecc-aws-515-security_hub_enabled",
+    "l": "eu-central-1",
+    "t": 1731853781.230378,
+    "r": [
+      {
+        "account_id": "123456789012",
+        "account_name": "testing"
+      }
+    ]
+  },
+  {
+    "p": "ecc-aws-531-ebs_default_encryption_enabled",
+    "l": "eu-central-1",
+    "t": 1731853781.230378,
+    "r": [
+      {
+        "account_id": "123456789012",
+        "account_name": "testing"
+      }
+    ]
+  },
+  {
     "p": "ecc-aws-516-s3_event_notifications_enabled",
     "l": "eu-central-1",
     "t": 1731853781.230747,

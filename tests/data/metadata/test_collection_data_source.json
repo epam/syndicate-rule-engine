@@ -1,0 +1,58 @@
+{
+  "rules": {
+    "ecc-aws-015-ensure_mfa_is_enabled_for_the_root_account": [
+      "testing",
+      "Encryption",
+      "Compute",
+      "AWS Account",
+      "Info",
+      [
+        "account_id",
+        "account_name"
+      ],
+      true,
+      "",
+      "",
+      "",
+      {},
+      {},
+      {}
+    ],
+    "ecc-aws-515-security_hub_enabled": [
+      "testing",
+      "Encryption",
+      "Compute",
+      "AWS Security Hub",
+      "Info",
+      [
+        "account_id",
+        "account_name"
+      ],
+      true,
+      "",
+      "",
+      "",
+      {},
+      {},
+      {}
+    ],
+    "ecc-aws-531-ebs_default_encryption_enabled": [
+      "testing",
+      "Encryption",
+      "Compute",
+      "Amazon Elastic Block Store",
+      "Info",
+      [
+        "account_id",
+        "account_name"
+      ],
+      true,
+      "",
+      "",
+      "",
+      {},
+      {},
+      {}
+    ]
+  }
+}
