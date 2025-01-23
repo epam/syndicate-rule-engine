@@ -1054,7 +1054,13 @@ class ReportType(str, Enum):
     )
 
     # Project, for a group of tenants within one project
-    PROJECT_OVERVIEW = 'PROJECT_OVERVIEW', 'Overview data per group of tenants'
+    PROJECT_OVERVIEW = (
+        'PROJECT_OVERVIEW',
+        'Overview data per group of tenants',
+        relativedelta(
+            hour=0, minute=0, second=0, microsecond=0, weekday=SU(-1)
+        ),
+    )
 
     # C-Level, kind of for the whole customer
     C_LEVEL_OVERVIEW = (

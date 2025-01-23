@@ -177,8 +177,9 @@ class JobMetricsDataSource:
 class ShardsCollectionDataSource:
     ResourcesGenerator = Generator[tuple[str, str, dict, float], None, None]
 
-    def __init__(self, collection: ShardsCollection, metadata: Metadata,
-                 cloud: Cloud):
+    def __init__(
+        self, collection: ShardsCollection, metadata: Metadata, cloud: Cloud
+    ):
         """
         Assuming that collection is pulled and has meta
         """
@@ -229,7 +230,9 @@ class ShardsCollectionDataSource:
             if rt in to_check:
                 yield rule, region, dto, ts
 
-    def _add_custom_attributes_google(self, it: ResourcesGenerator) -> ResourcesGenerator:
+    def _add_custom_attributes_google(
+        self, it: ResourcesGenerator
+    ) -> ResourcesGenerator:
         for rule, region, dto, ts in it:
             dto_copy = dto.copy()
             if ser := self._meta.rule(rule).service:
@@ -367,9 +370,11 @@ class ShardsCollectionDataSource:
     def n_unique(self) -> int:
         n = 0
         for rule_resources in self._resources.values():
-            n += len(set(
-                map(hashable, chain.from_iterable(rule_resources.values()))
-            ))
+            n += len(
+                set(
+                    map(hashable, chain.from_iterable(rule_resources.values()))
+                )
+            )
         return n
 
     @cached_property
@@ -410,8 +415,7 @@ class ShardsCollectionDataSource:
             _inner = region_severity.setdefault(region, {})
             for rule, res in self._resources[region].items():
                 _inner.setdefault(
-                    self._meta.rule(rule).severity,
-                    set()
+                    self._meta.rule(rule).severity, set()
                 ).update(map(hashable, res))
 
         if unique:
@@ -461,8 +465,7 @@ class ShardsCollectionDataSource:
                 'description': rm.get('description') or '',
                 'severity': self._meta.rule(rule).severity.value,
                 'resources': {
-                    region: list(res)
-                    for region, res in inverted[rule].items()
+                    region: list(res) for region, res in inverted[rule].items()
                 },
             }
 
@@ -479,13 +482,11 @@ class ShardsCollectionDataSource:
             _inner = region_service.setdefault(region, {})
             for rule, res in self._resources[region].items():
                 ser = self._meta.rule(
-                    rule).service or service_from_resource_type(
+                    rule
+                ).service or service_from_resource_type(
                     self._col.meta[rule]['resource']
                 )
-                _inner.setdefault(
-                    ser,
-                    set()
-                ).update(map(hashable, res))
+                _inner.setdefault(ser, set()).update(map(hashable, res))
 
         result = {}
         for region, data in region_service.items():
@@ -825,11 +826,7 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
         return cls.build_key(type_=type_, customer=customer)
 
     def create(
-        self,
-        key: str,
-        data: dict,
-        end: datetime,
-        start: datetime | None = None,
+        self, key: str, end: datetime, start: datetime | None = None
     ) -> ReportMetrics:
         assert key.count(COMPOUND_KEYS_SEPARATOR) == 5, 'Invalid key'
         customer = key.split(COMPOUND_KEYS_SEPARATOR, 2)[1]
@@ -837,7 +834,6 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
             key=key,
             end=utc_iso(end),
             start=utc_iso(start) if start else None,
-            data=data,
             customer=customer,
         )
 
@@ -961,32 +957,56 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
             None,
         )
 
-    def save_data_to_s3(self, item: ReportMetrics) -> None:
-        """
-        These items are assumed to be immutable - generated only once. So
-        currently no need to handle key overrides and remove old junk
-        because they should not happen
-        """
-        if not item.data:
-            _LOG.warning(
-                f'{item.key} has empty data so will not be saved to s3'
-            )
-            return
-        bucket = self._env.default_reports_bucket_name()
-        key = ReportMetricsBucketKeysBuilder.metrics_key(item)
-        self._s3.gz_put_json(bucket=bucket, key=key, obj=item.data.as_dict())
-        item.data = {}
-        item.s3_url = str(S3Url.build(bucket, key))
-
-    def fetch_data_from_s3(self, item: ReportMetrics) -> None:
-        if item.is_fetched:
-            return
-        if not item.s3_url:
-            return
-        url = S3Url(item.s3_url)
-        item.data = cast(
-            dict, self._s3.gz_get_json(bucket=url.bucket, key=url.key)
+    def get_latest_for_project(
+        self,
+        customer: str,
+        project: str,
+        type_: ReportType,
+        cloud: str = '',
+        till: datetime | None = None,
+    ) -> ReportMetrics | None:
+        return next(
+            self.query(
+                key=self.key_for_project(type_, customer, project, cloud),
+                till=till,
+                ascending=False,
+                limit=1,
+            ),
+            None
         )
+
+    def save(self, item: ReportMetrics, data: dict | None = None) -> None:
+        if data is None:
+            return super().save(item)
+
+        # TODO: do that based on item size
+        if item.type in (
+            ReportType.OPERATIONAL_RULES,
+            ReportType.OPERATIONAL_RESOURCES,
+            ReportType.OPERATIONAL_ATTACKS,
+            ReportType.OPERATIONAL_KUBERNETES,
+        ):
+            # large
+            bucket = self._env.default_reports_bucket_name()
+            key = ReportMetricsBucketKeysBuilder.metrics_key(item)
+            self._s3.gz_put_json(bucket, key, data)
+            item.data = {}
+            item.s3_url = str(S3Url.build(bucket, key))
+            return super().save(item)
+        item.data = data
+        return super().save(item)
+
+    def fetch_data(self, item: ReportMetrics) -> dict:
+        if item.is_fetched:
+            return item.data.as_dict()
+        if not item.s3_url:
+            # should not happen. This means there no data in S3 and in DB,
+            # so the report is corrupted
+            return {}
+        url = S3Url(item.s3_url)
+        data = cast(dict, self._s3.gz_get_json(url.bucket, url.key))
+        item.data = data
+        return data
 
 
 def add_diff(

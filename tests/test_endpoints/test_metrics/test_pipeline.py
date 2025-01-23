@@ -247,53 +247,47 @@ def test_metrics_update(
 
     # checking operational (per tenant)
     item = SP.report_metrics_service.get_latest_for_tenant(aws_tenant, ReportType.OPERATIONAL_OVERVIEW)
-    assert dicts_equal(item.data.as_dict(), load_expected('metrics/aws_operational_overview'))
+    assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/aws_operational_overview'))
 
     item = SP.report_metrics_service.get_latest_for_tenant(azure_tenant, ReportType.OPERATIONAL_OVERVIEW)
-    assert dicts_equal(item.data.as_dict(), load_expected('metrics/azure_operational_overview'))
+    assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/azure_operational_overview'))
 
     item = SP.report_metrics_service.get_latest_for_tenant(google_tenant, ReportType.OPERATIONAL_OVERVIEW)
-    assert dicts_equal(item.data.as_dict(), load_expected('metrics/google_operational_overview'))
+    assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/google_operational_overview'))
 
     item = SP.report_metrics_service.get_latest_for_tenant(aws_tenant, ReportType.OPERATIONAL_RESOURCES)
-    SP.report_metrics_service.fetch_data_from_s3(item)
-    assert dicts_equal(item.data.as_dict(), load_expected('metrics/aws_operational_resources'))
+    assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/aws_operational_resources'))
 
     item = SP.report_metrics_service.get_latest_for_tenant(azure_tenant, ReportType.OPERATIONAL_RESOURCES)
-    SP.report_metrics_service.fetch_data_from_s3(item)
-    assert dicts_equal(item.data.as_dict(), load_expected('metrics/azure_operational_resources'))
+    assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/azure_operational_resources'))
 
     item = SP.report_metrics_service.get_latest_for_tenant(google_tenant, ReportType.OPERATIONAL_RESOURCES)
-    SP.report_metrics_service.fetch_data_from_s3(item)
-    assert dicts_equal(item.data.as_dict(), load_expected('metrics/google_operational_resources'))
+    assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/google_operational_resources'))
 
     item = SP.report_metrics_service.get_latest_for_tenant(aws_tenant, ReportType.OPERATIONAL_RULES)
-    SP.report_metrics_service.fetch_data_from_s3(item)
-    assert dicts_equal(item.data.as_dict(), load_expected('metrics/aws_operational_rules'))
+    assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/aws_operational_rules'))
 
     item = SP.report_metrics_service.get_latest_for_tenant(azure_tenant, ReportType.OPERATIONAL_RULES)
-    SP.report_metrics_service.fetch_data_from_s3(item)
-    assert dicts_equal(item.data.as_dict(), load_expected('metrics/azure_operational_rules'))
+    assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/azure_operational_rules'))
 
     item = SP.report_metrics_service.get_latest_for_tenant(google_tenant, ReportType.OPERATIONAL_RULES)
-    SP.report_metrics_service.fetch_data_from_s3(item)
-    assert dicts_equal(item.data.as_dict(), load_expected('metrics/google_operational_rules'))
+    assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/google_operational_rules'))
 
     item = SP.report_metrics_service.get_latest_for_tenant(aws_tenant, ReportType.OPERATIONAL_FINOPS)
-    SP.report_metrics_service.fetch_data_from_s3(item)
-    assert dicts_equal(item.data.as_dict(), load_expected('metrics/aws_operational_finops'))
+    assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/aws_operational_finops'))
 
     item = SP.report_metrics_service.get_latest_for_tenant(aws_tenant, ReportType.OPERATIONAL_COMPLIANCE)
-    SP.report_metrics_service.fetch_data_from_s3(item)
-    assert dicts_equal(item.data.as_dict(), load_expected('metrics/aws_operational_compliance'))
+    assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/aws_operational_compliance'))
 
     item = SP.report_metrics_service.get_latest_for_tenant(aws_tenant, ReportType.OPERATIONAL_ATTACKS)
-    SP.report_metrics_service.fetch_data_from_s3(item)
-    assert dicts_equal(item.data.as_dict(), load_expected('metrics/aws_operational_attacks'))
+    assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/aws_operational_attacks'))
 
     item = SP.report_metrics_service.get_latest_for_platform(k8s_platform, ReportType.OPERATIONAL_KUBERNETES)
-    SP.report_metrics_service.fetch_data_from_s3(item)
-    assert dicts_equal(item.data.as_dict(), load_expected('metrics/k8s_operational'))
+    assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/k8s_operational'))
+
+    item = SP.report_metrics_service.get_latest_for_project(main_customer.name, aws_tenant.display_name_to_lower, ReportType.PROJECT_OVERVIEW)
+    assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/aws_project_overview'))
+
 
 
 def test_metrics_update_c_level(
@@ -323,4 +317,4 @@ def test_metrics_update_c_level(
         assert resp.json == {'message': 'Metrics update has been submitted'}
         time.sleep(2)  # don't know how to check underlying thread is finished
     item = SP.report_metrics_service.get_latest_for_customer(main_customer, ReportType.C_LEVEL_OVERVIEW)
-    assert dicts_equal(item.data.as_dict(), load_expected('metrics/c_level_overview'))
+    assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/c_level_overview'))

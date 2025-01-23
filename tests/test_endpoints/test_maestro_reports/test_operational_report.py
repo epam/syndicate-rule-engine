@@ -9,56 +9,57 @@ from ...commons import valid_uuid, dicts_equal
 
 @pytest.fixture()
 def aws_operational_overview_metrics(aws_tenant, load_expected, utcnow):
-    SP.report_metrics_service.create(
+    item = SP.report_metrics_service.create(
         key=SP.report_metrics_service.key_for_tenant(ReportType.OPERATIONAL_OVERVIEW, aws_tenant),
-        data=load_expected('metrics/aws_operational_overview'),
         end=utcnow
-    ).save()
+    )
+    SP.report_metrics_service.save(item, load_expected('metrics/aws_operational_overview'))
+
 
 
 @pytest.fixture()
 def aws_operational_resources_metrics(aws_tenant, load_expected, utcnow):
-    SP.report_metrics_service.create(
+    item = SP.report_metrics_service.create(
         key=SP.report_metrics_service.key_for_tenant(ReportType.OPERATIONAL_RESOURCES, aws_tenant),
-        data=load_expected('metrics/aws_operational_resources'),
         end=utcnow
-    ).save()
+    )
+    SP.report_metrics_service.save(item, load_expected('metrics/aws_operational_resources'))
 
 
 @pytest.fixture()
 def aws_operational_rules_metrics(aws_tenant, load_expected, utcnow):
-    SP.report_metrics_service.create(
+    item = SP.report_metrics_service.create(
         key=SP.report_metrics_service.key_for_tenant(ReportType.OPERATIONAL_RULES, aws_tenant),
-        data=load_expected('metrics/aws_operational_rules'),
         end=utcnow
-    ).save()
+    )
+    SP.report_metrics_service.save(item, load_expected('metrics/aws_operational_rules'))
 
 
 @pytest.fixture()
 def aws_operational_finops_metrics(aws_tenant, load_expected, utcnow):
-    SP.report_metrics_service.create(
+    item = SP.report_metrics_service.create(
         key=SP.report_metrics_service.key_for_tenant(ReportType.OPERATIONAL_FINOPS, aws_tenant),
-        data=load_expected('metrics/aws_operational_finops'),
         end=utcnow
-    ).save()
+    )
+    SP.report_metrics_service.save(item, load_expected('metrics/aws_operational_finops'))
 
 
 @pytest.fixture()
 def aws_operational_compliance_metrics(aws_tenant, load_expected, utcnow):
-    SP.report_metrics_service.create(
+    item = SP.report_metrics_service.create(
         key=SP.report_metrics_service.key_for_tenant(ReportType.OPERATIONAL_COMPLIANCE, aws_tenant),
-        data=load_expected('metrics/aws_operational_compliance'),
         end=utcnow
-    ).save()
+    )
+    SP.report_metrics_service.save(item, load_expected('metrics/aws_operational_compliance'))
 
 
 @pytest.fixture()
 def k8s_operational_metrics(k8s_platform, load_expected, utcnow):
-    SP.report_metrics_service.create(
+    item = SP.report_metrics_service.create(
         key=SP.report_metrics_service.key_for_platform(ReportType.OPERATIONAL_KUBERNETES, k8s_platform),
-        data=load_expected('metrics/k8s_operational'),
         end=utcnow
-    ).save()
+    )
+    SP.report_metrics_service.save(item, load_expected('metrics/k8s_operational'))
 
 
 def validate_maestro_model(m: dict):

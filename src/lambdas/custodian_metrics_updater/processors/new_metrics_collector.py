@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Generator, Iterator
+from typing import Generator, Iterator, cast
 
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
@@ -15,9 +15,9 @@ from services import SP, modular_helpers
 from services.ambiguous_job_service import AmbiguousJobService
 from services.license_service import License, LicenseService
 from services.metadata import Metadata
+from services.modular_helpers import tenant_cloud
 from services.platform_service import Platform, PlatformService
 from services.report_service import ReportService
-from services.modular_helpers import tenant_cloud
 from services.reports import (
     JobMetricsDataSource,
     ReportMetricsService,
@@ -26,7 +26,7 @@ from services.reports import (
 )
 from services.ruleset_service import RulesetName, RulesetService
 
-ReportsGen = Generator[ReportMetrics, None, None]
+ReportsGen = Generator[tuple[ReportMetrics, dict], None, None]
 
 _LOG = get_logger(__name__)
 
@@ -74,21 +74,30 @@ class MetricsContext:
     def n_reports(self) -> int:
         return self._reports.__len__()
 
-    def add_report(self, report: ReportMetrics):
+    def add_report(self, report: ReportMetrics, data: dict):
         key = report.entity, report.type
         assert (
             key not in self._reports
         ), 'adding the same report twice within one context, smt is definitelly wrong'
-        self._reports[key] = report
+        self._reports[key] = (report, data)
 
-    def add_reports(self, reports: Iterator[ReportMetrics]):
+    def add_reports(self, reports: Iterator[tuple[ReportMetrics, dict]]):
         for report in reports:
-            self.add_report(report)
+            self.add_report(*report)
 
-    def iter_reports(self) -> ReportsGen:
-        yield from self._reports.values()
+    def iter_reports(
+        self, entity: str | None = None, typ: ReportType | None = None
+    ) -> ReportsGen:
+        for (en, t), rep in self._reports.items():
+            if entity and en != entity:
+                continue
+            if typ and t != typ:
+                continue
+            yield rep
 
-    def get_report(self, entity: str, typ: ReportType) -> ReportMetrics | None:
+    def get_report(
+        self, entity: str, typ: ReportType
+    ) -> tuple[ReportMetrics, dict] | None:
         return self._reports.get((entity, typ))
 
 
@@ -134,14 +143,6 @@ class MetricsCollector:
     different periods. But here i do that anyway because i know reports
     are collected for the same period here.
     """
-
-    # TODO: determine based on item size?
-    LARGE_REPORTS = (
-        ReportType.OPERATIONAL_RULES,
-        ReportType.OPERATIONAL_RESOURCES,
-        ReportType.OPERATIONAL_ATTACKS,
-        ReportType.OPERATIONAL_KUBERNETES,
-    )
 
     def __init__(
         self,
@@ -235,25 +236,19 @@ class MetricsCollector:
         self._platforms_cache[platform_id] = platform
         return platform
 
-    def save_data_to_s3(self, it: ReportsGen) -> ReportsGen:
-        for item in it:
-            if item.type in self.LARGE_REPORTS:
-                self._rms.save_data_to_s3(item)
-            yield item
-
     @staticmethod
     def _complete_rules_report(
         it: ReportsGen, ctx: MetricsContext
     ) -> ReportsGen:
-        for item in it:
-            ov = ctx.get_report(item.entity, ReportType.OPERATIONAL_OVERVIEW)
-            if not ov:
+        for rep, data in it:
+            ov = ctx.get_report(rep.entity, ReportType.OPERATIONAL_OVERVIEW)
+            if ov is None:
                 _LOG.warning(
                     'Cannot complete rules report because correspond operational is not found'
                 )
-            elif item.type is ReportType.OPERATIONAL_RULES:
-                item.data['resources_violated'] = ov.data['resources_violated']
-            yield item
+            elif rep.type is ReportType.OPERATIONAL_RULES:
+                data['resources_violated'] = ov[1]['resources_violated']
+            yield rep, data
 
     def collect_metrics_for_customer(self, ctx: MetricsContext):
         """
@@ -273,6 +268,7 @@ class MetricsCollector:
             ReportType.OPERATIONAL_FINOPS,
             ReportType.OPERATIONAL_ATTACKS,
             ReportType.OPERATIONAL_KUBERNETES,
+            ReportType.PROJECT_OVERVIEW,
             ReportType.C_LEVEL_OVERVIEW,
         )
         _LOG.info(f'Need to collect jobs data from {start} to {end}')
@@ -299,30 +295,36 @@ class MetricsCollector:
                 report_type=ReportType.OPERATIONAL_OVERVIEW,
             )
         )
+        # TODO: save reports to db and s3 immideately when they don't needed anymore
+        ctx.add_reports(
+            self.project_overview(
+                ctx=ctx,
+                operational_reports=list(
+                    ctx.iter_reports(typ=ReportType.OPERATIONAL_OVERVIEW)
+                ),
+                report_type=ReportType.PROJECT_OVERVIEW,
+            )
+        )
 
         _LOG.info('Generating operational resources for all tenants')
         ctx.add_reports(
-            self.save_data_to_s3(
-                self.operational_resources(
-                    ctx=ctx,
-                    job_source=job_source,
-                    sc_provider=sc_provider,
-                    report_type=ReportType.OPERATIONAL_RESOURCES,
-                )
+            self.operational_resources(
+                ctx=ctx,
+                job_source=job_source,
+                sc_provider=sc_provider,
+                report_type=ReportType.OPERATIONAL_RESOURCES,
             )
         )
 
         _LOG.info('Generating operational rules for all tenants')
         ctx.add_reports(
-            self.save_data_to_s3(
-                self._complete_rules_report(
-                    self.operational_rules(
-                        now=ctx.now,
-                        job_source=job_source,
-                        report_type=ReportType.OPERATIONAL_RULES,
-                    ),
-                    ctx,
-                )
+            self._complete_rules_report(
+                self.operational_rules(
+                    now=ctx.now,
+                    job_source=job_source,
+                    report_type=ReportType.OPERATIONAL_RULES,
+                ),
+                ctx,
             )
         )
         _LOG.info('Generating operational finops for all tenants')
@@ -345,24 +347,20 @@ class MetricsCollector:
         )
         _LOG.info('Generating operational attacks for all tenants')
         ctx.add_reports(
-            self.save_data_to_s3(
-                self.operational_attacks(
-                    ctx=ctx,
-                    job_source=job_source,
-                    sc_provider=sc_provider,
-                    report_type=ReportType.OPERATIONAL_ATTACKS,
-                )
+            self.operational_attacks(
+                ctx=ctx,
+                job_source=job_source,
+                sc_provider=sc_provider,
+                report_type=ReportType.OPERATIONAL_ATTACKS,
             )
         )
         _LOG.info('Generating operational k8s report for all platforms')
         ctx.add_reports(
-            self.save_data_to_s3(
-                self.operational_k8s(
-                    ctx=ctx,
-                    job_source=job_source,
-                    sc_provider=sc_provider,
-                    report_type=ReportType.OPERATIONAL_KUBERNETES,
-                )
+            self.operational_k8s(
+                ctx=ctx,
+                job_source=job_source,
+                sc_provider=sc_provider,
+                report_type=ReportType.OPERATIONAL_KUBERNETES,
             )
         )
 
@@ -392,7 +390,8 @@ class MetricsCollector:
             )
 
         _LOG.info(f'Saving all reports items: {ctx.n_reports}')
-        self._rms.batch_save(ctx.iter_reports())
+        for rep, data in ctx.iter_reports():
+            self._rms.save(rep, data)
 
     def operational_overview(
         self,
@@ -418,7 +417,9 @@ class MetricsCollector:
                 )
                 continue
             tjs = js.subset(tenant=tenant.name)
-            sdc = ShardsCollectionDataSource(col, ctx.metadata, tenant_cloud(tenant))
+            sdc = ShardsCollectionDataSource(
+                col, ctx.metadata, tenant_cloud(tenant)
+            )
             # NOTE: ignoring jobs that are not finished
             succeeded, failed = tjs.n_succeeded, tjs.n_failed
 
@@ -439,15 +440,14 @@ class MetricsCollector:
                 'id': tenant.project,
                 'resources_violated': sdc.n_unique,
                 'total_findings': sdc.n_findings,
-                'regions_data': region_data
+                'regions_data': region_data,
             }
             item = self._rms.create(
                 key=self._rms.key_for_tenant(report_type, tenant),
-                data=data,
                 end=end,
                 start=start,
             )
-            yield item
+            yield item, data
 
     def operational_resources(
         self,
@@ -489,11 +489,13 @@ class MetricsCollector:
                     modular_helpers.get_tenant_regions(tenant)
                 ),
             }
-            yield self._rms.create(
-                key=self._rms.key_for_tenant(report_type, tenant),
-                data=data,  # TODO: test whether it's ok to assign large objects to PynamoDB's MapAttribute
-                end=end,
-                start=start,
+            yield (
+                self._rms.create(
+                    key=self._rms.key_for_tenant(report_type, tenant),
+                    end=end,
+                    start=start,
+                ),
+                data,
             )
 
     def operational_rules(
@@ -525,11 +527,13 @@ class MetricsCollector:
                     )
                 ),
             }
-            yield self._rms.create(
-                key=self._rms.key_for_tenant(report_type, tenant),
-                data=data,
-                end=end,
-                start=start,
+            yield (
+                self._rms.create(
+                    key=self._rms.key_for_tenant(report_type, tenant),
+                    end=end,
+                    start=start,
+                ),
+                data,
             )
 
     def operational_finops(
@@ -557,18 +561,22 @@ class MetricsCollector:
             data = {
                 'id': tenant.project,
                 'data': json_round_trip(
-                    ShardsCollectionDataSource(col, ctx.metadata, tenant_cloud(tenant)).finops()
+                    ShardsCollectionDataSource(
+                        col, ctx.metadata, tenant_cloud(tenant)
+                    ).finops()
                 ),
                 'last_scan_date': js.subset(tenant=tenant.name).last_scan_date,
                 'activated_regions': sorted(
                     modular_helpers.get_tenant_regions(tenant)
                 ),
             }
-            yield self._rms.create(
-                key=self._rms.key_for_tenant(report_type, tenant),
-                data=data,  # TODO: test whether it's ok to assign large objects to PynamoDB's MapAttribute
-                end=end,
-                start=start,
+            yield (
+                self._rms.create(
+                    key=self._rms.key_for_tenant(report_type, tenant),
+                    end=end,
+                    start=start,
+                ),
+                data,
             )
 
     def operational_compliance(
@@ -636,11 +644,13 @@ class MetricsCollector:
                     'total': {st.full_name: cov for st, cov in total.items()},
                 },
             }
-            yield self._rms.create(
-                key=self._rms.key_for_tenant(report_type, tenant),
-                data=data,
-                end=end,
-                start=start,
+            yield (
+                self._rms.create(
+                    key=self._rms.key_for_tenant(report_type, tenant),
+                    end=end,
+                    start=start,
+                ),
+                data,
             )
 
     def operational_attacks(
@@ -679,11 +689,13 @@ class MetricsCollector:
                 ),
                 'data': data,
             }
-            yield self._rms.create(
-                key=self._rms.key_for_tenant(report_type, tenant),
-                data=data,
-                end=end,
-                start=start,
+            yield (
+                self._rms.create(
+                    key=self._rms.key_for_tenant(report_type, tenant),
+                    end=end,
+                    start=start,
+                ),
+                data,
             )
 
     def operational_k8s(
@@ -708,7 +720,9 @@ class MetricsCollector:
                     f'{platform.platform_id} for {end}'
                 )
                 continue
-            ds = ShardsCollectionDataSource(col, ctx.metadata, Cloud.KUBERNETES)
+            ds = ShardsCollectionDataSource(
+                col, ctx.metadata, Cloud.KUBERNETES
+            )
 
             coverages = self._rs.calculate_coverages(
                 successful=self._rs.get_standard_to_controls_to_rules(
@@ -735,11 +749,71 @@ class MetricsCollector:
                 }
             )
 
-            yield self._rms.create(
-                key=self._rms.key_for_platform(report_type, platform),
-                data=data,
-                end=end,
-                start=start,
+            yield (
+                self._rms.create(
+                    key=self._rms.key_for_platform(report_type, platform),
+                    end=end,
+                    start=start,
+                ),
+                data,
+            )
+
+    def project_overview(
+        self,
+        ctx: MetricsContext,
+        operational_reports: list[tuple[ReportMetrics, dict]],
+        report_type: ReportType,
+    ) -> ReportsGen:
+        assert all(
+            r[0].type is ReportType.OPERATIONAL_OVERVIEW
+            for r in operational_reports
+        )
+
+        # they are totally the same as operational overview
+        start = report_type.start(ctx.now)
+        end = report_type.end(ctx.now)
+
+        dn_to_reports = {}
+        for item in operational_reports:
+            tenant = cast(Tenant, self._get_tenant(item[0].tenant))
+            dn_to_reports.setdefault(
+                tenant.display_name_to_lower.lower(), []
+            ).append(item)
+        for dn, reports in dn_to_reports.items():
+            data = {}
+            for item in reports:
+                tenant = cast(Tenant, self._get_tenant(item[0].tenant))
+
+                data.setdefault(tenant_cloud(tenant).value, []).append(
+                    {
+                        'account_id': item[1]['id'],
+                        'tenant_name': tenant.name,
+                        'last_scan_date': item[1]['last_scan_date'],
+                        'activated_regions': item[1]['activated_regions'],
+                        'total_scans': item[1]['total_scans'],
+                        'failed_scans': item[1]['failed_scans'],
+                        'succeeded_scans': item[1]['succeeded_scans'],
+                        'regions_data': {
+                            r: {
+                                'severity_data': d['severity'],
+                                'resource_types_data': d[
+                                    'service'
+                                ],  # TODO: maybe use resource types here instead of services
+                            }
+                            for r, d in item[1]['regions_data'].items()
+                        },
+                    }
+                )
+
+            yield (
+                self._rms.create(
+                    key=self._rms.key_for_project(
+                        report_type, ctx.customer.name, dn
+                    ),
+                    end=end,
+                    start=start,
+                ),
+                data,
             )
 
     def c_level_overview(
@@ -781,7 +855,9 @@ class MetricsCollector:
                         f'{tenant.name} for {end}'
                     )
                     continue
-                sdc = ShardsCollectionDataSource(col, ctx.metadata, tenant_cloud(tenant))
+                sdc = ShardsCollectionDataSource(
+                    col, ctx.metadata, tenant_cloud(tenant)
+                )
                 self._update_dict_values(rt_data, sdc.services())
 
                 self._update_dict_values(sev_data, sdc.severities())
@@ -800,11 +876,13 @@ class MetricsCollector:
                 'total_scans': len(tjs),
                 **self._cloud_licenses_info(cloud, licenses, rulesets),
             }
-        yield self._rms.create(
-            key=self._rms.key_for_customer(report_type, ctx.customer.name),
-            data=data,
-            start=start,
-            end=end,
+        yield (
+            self._rms.create(
+                key=self._rms.key_for_customer(report_type, ctx.customer.name),
+                start=start,
+                end=end,
+            ),
+            data,
         )
 
     def _collect_licenses_data(

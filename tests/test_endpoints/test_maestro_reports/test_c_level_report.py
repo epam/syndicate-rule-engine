@@ -8,11 +8,11 @@ from services import SP
 
 @pytest.fixture()
 def c_level_overview(main_customer, load_expected, utcnow):
-    SP.report_metrics_service.create(
+    item = SP.report_metrics_service.create(
         key=SP.report_metrics_service.key_for_customer(ReportType.C_LEVEL_OVERVIEW, main_customer.name),
-        data=load_expected('metrics/c_level_overview'),
         end=utcnow
-    ).save()
+    )
+    SP.report_metrics_service.save(item, load_expected('metrics/c_level_overview'))
 
 
 def test_c_level_overview(

@@ -265,6 +265,14 @@ class MaestroModelBuilder:
             'data': {},
         }
 
+    def _project_overview(self, rep: ReportMetrics) -> dict:
+        assert rep.type == ReportType.PROJECT_OVERVIEW
+
+        return {
+            'tenant_display_name': rep.project,
+            'data': rep.data.as_dict()
+        }
+
     def convert(self, rep: ReportMetrics) -> MaestroReport:
         base = self.build_base(rep)
         match rep.type:
@@ -282,6 +290,8 @@ class MaestroModelBuilder:
                 custom = self._operational_attacks_custom(rep)
             case ReportType.OPERATIONAL_KUBERNETES:
                 custom = self._operational_k8s_custom(rep)
+            case ReportType.PROJECT_OVERVIEW:
+                custom = self._project_overview(rep)
             case _:
                 raise NotImplementedError()
         base.update(custom)
@@ -484,7 +494,6 @@ class HighLevelReportsHandler(AbstractHandler):
             if not rep:
                 _LOG.warning(f'Cannot find {typ} for {event.customer_id}')
                 continue
-            self._rms.fetch_data_from_s3(rep)
 
             previous = self._rms.get_latest_for_customer(
                 customer=event.customer_id,
@@ -497,9 +506,8 @@ class HighLevelReportsHandler(AbstractHandler):
                 )
                 previous_data = {}
             else:
-                self._rms.fetch_data_from_s3(previous)
-                previous_data = previous.data.as_dict()
-            current_data = rep.data.as_dict()
+                previous_data = self._rms.fetch_data(previous)
+            current_data = self._rms.fetch_data(rep)
             for cl, data in current_data.items():
                 add_diff(
                     data,
@@ -574,7 +582,7 @@ class HighLevelReportsHandler(AbstractHandler):
                                 f'Could not find data for platform {platform.id}'
                             )
                             continue
-                        self._rms.fetch_data_from_s3(rep)
+                        self._rms.fetch_data(rep)
                         data = builder.convert(rep)
                         data = packer.pack(data)
                         k8s_datas.append(data)
@@ -609,7 +617,7 @@ class HighLevelReportsHandler(AbstractHandler):
                         .message(f'Could not find any {typ} for {tenant.name}')
                         .exc()
                     )
-                self._rms.fetch_data_from_s3(rep)
+                self._rms.fetch_data(rep)
                 data = builder.convert(rep)
                 data = packer.pack(data)
 
@@ -649,6 +657,52 @@ class HighLevelReportsHandler(AbstractHandler):
         if not rabbitmq:
             raise self._rmq.no_rabbitmq_response().exc()
 
+        builder = MaestroModelBuilder(receivers=tuple(event.receivers))
+        for display_name in event.tenant_display_names:
+            _LOG.info(f'Going to retrieve tenants with display_name: {display_name}')
+
+            for typ in event.new_types:
+
+                _LOG.debug(f'Going to generate {typ} for {display_name}')
+                rep = self._rms.get_latest_for_project(
+                    customer=event.customer_id,
+                    project=display_name,
+                    type_=typ
+                )
+                if not rep:
+                    _LOG.debug(f'Could not find any {typ} for {display_name}')
+                    raise (
+                        ResponseFactory(HTTPStatus.NOT_FOUND)
+                        .message(f'Could not find any {typ} for {display_name}')
+                        .exc()
+                    )
+                self._rms.fetch_data(rep)
+                data = builder.convert(rep)
+
+                models.append(
+                    self._rmq.build_m3_json_model(
+                        notification_type=SRE_REPORTS_TYPE_TO_M3_MAPPING[typ],
+                        data=data,
+                    )
+                )
+
+        if not models:
+            raise (
+                ResponseFactory(HTTPStatus.NOT_FOUND)
+                .message(
+                    'No collected reports found to send. Update metrics first'
+                )
+                .exc()
+            )
+        code = self._rmq.send_to_m3(
+            rabbitmq=rabbitmq, command=RabbitCommand.SEND_MAIL, models=models
+        )
+        if code != 200:
+            raise (
+                ResponseFactory(HTTPStatus.SERVICE_UNAVAILABLE)
+                .message('Could not send message to RabbitMQ')
+                .exc()
+            )
         return build_response(
             code=HTTPStatus.ACCEPTED, content='Successfully sent'
         )
