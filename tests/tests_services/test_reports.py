@@ -6,6 +6,7 @@ import pytest
 
 from helpers.reports import adjust_resource_type
 from helpers.time_helper import utc_datetime
+from helpers.constants import Cloud
 from models.job import Job
 from services.ambiguous_job_service import AmbiguousJob
 from services.metadata import Metadata
@@ -170,13 +171,17 @@ def test_adjust_rt():
 class TestShardsCollectionDataSource:
     def test_n_unique(self, aws_shards_collection, metadata):
         source = ShardsCollectionDataSource(
-            collection=aws_shards_collection, metadata=metadata
+            collection=aws_shards_collection,
+            metadata=metadata,
+            cloud=Cloud.AWS
         )
         assert source.n_unique == 26
 
     def test_region_severities(self, aws_shards_collection, metadata):
         source = ShardsCollectionDataSource(
-            collection=aws_shards_collection, metadata=metadata
+            collection=aws_shards_collection,
+            metadata=metadata,
+            cloud=Cloud.AWS
         )
         assert source.region_severities(unique=True) == {
             'eu-central-1': {'Unknown': 6, 'Info': 2, 'High': 1},
@@ -190,7 +195,9 @@ class TestShardsCollectionDataSource:
         self, aws_shards_collection, metadata
     ):
         source = ShardsCollectionDataSource(
-            collection=aws_shards_collection, metadata=metadata
+            collection=aws_shards_collection,
+            metadata=metadata,
+            cloud=Cloud.AWS
         )
         assert source.region_severities(unique=False) == {
             'eu-central-1': {'Unknown': 6, 'Medium': 1, 'Info': 2, 'High': 1},
@@ -202,7 +209,9 @@ class TestShardsCollectionDataSource:
 
     def test_severities(self, aws_shards_collection, metadata):
         source = ShardsCollectionDataSource(
-            collection=aws_shards_collection, metadata=metadata
+            collection=aws_shards_collection,
+            metadata=metadata,
+            cloud=Cloud.AWS
         )
         assert source.severities() == {
             'Unknown': 16,
@@ -213,7 +222,9 @@ class TestShardsCollectionDataSource:
 
     def test_region_services(self, aws_shards_collection, metadata):
         source = ShardsCollectionDataSource(
-            collection=aws_shards_collection, metadata=metadata
+            collection=aws_shards_collection,
+            metadata=metadata,
+            cloud=Cloud.AWS
         )
         assert source.region_services() == {
             'eu-central-1': {
@@ -231,7 +242,9 @@ class TestShardsCollectionDataSource:
 
     def test_services(self, aws_shards_collection, metadata):
         source = ShardsCollectionDataSource(
-            collection=aws_shards_collection, metadata=metadata
+            collection=aws_shards_collection,
+            metadata=metadata,
+            cloud=Cloud.AWS
         )
         assert source.services() == {
             'Security Group': 3,

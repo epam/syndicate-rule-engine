@@ -1,9 +1,8 @@
 {
   "succeeded_scans": 2,
   "activated_regions": [],
-  "last_scan_date": "2024-11-25T00:22:07.209431Z",
+  "last_scan_date": "2025-01-23T00:41:18.126682Z",
   "id": "testing-project-123",
-  "resources_violated": 5,
   "data": [
     {
       "policy": "ecc-gcp-240-slow_query_log_database_flag_for_cloud_sql_mysql",
@@ -128,10 +127,10 @@
       "max_exec": 0.0016372203826904297,
       "total_exec": 0.0016372203826904297,
       "average_exec": 0.0016372203826904297,
-      "resources_failed": 42,
+      "resources_failed": 4,
       "resources_scanned": 0,
       "average_resources_scanned": 0,
-      "average_resources_failed": 42
+      "average_resources_failed": 4
     },
     {
       "policy": "ecc-gcp-027-dnssec_for_cloud_dns",
@@ -165,5 +164,6 @@
       "average_resources_scanned": 0,
       "average_resources_failed": 0
     }
-  ]
+  ],
+  "resources_violated": 9
 }

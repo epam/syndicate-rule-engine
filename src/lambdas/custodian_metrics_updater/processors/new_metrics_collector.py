@@ -17,6 +17,7 @@ from services.license_service import License, LicenseService
 from services.metadata import Metadata
 from services.platform_service import Platform, PlatformService
 from services.report_service import ReportService
+from services.modular_helpers import tenant_cloud
 from services.reports import (
     JobMetricsDataSource,
     ReportMetricsService,
@@ -417,9 +418,16 @@ class MetricsCollector:
                 )
                 continue
             tjs = js.subset(tenant=tenant.name)
-            sdc = ShardsCollectionDataSource(col, ctx.metadata)
+            sdc = ShardsCollectionDataSource(col, ctx.metadata, tenant_cloud(tenant))
             # NOTE: ignoring jobs that are not finished
             succeeded, failed = tjs.n_succeeded, tjs.n_failed
+
+            region_data = {}
+            for region, data in sdc.region_severities(unique=True).items():
+                region_data.setdefault(region, {})['severity'] = data
+            for region, data in sdc.region_services().items():
+                region_data.setdefault(region, {})['service'] = data
+
             data = {
                 'total_scans': succeeded + failed,
                 'failed_scans': failed,
@@ -430,7 +438,8 @@ class MetricsCollector:
                 'last_scan_date': tjs.last_scan_date,
                 'id': tenant.project,
                 'resources_violated': sdc.n_unique,
-                'regions_severity': sdc.region_severities(unique=True),
+                'total_findings': sdc.n_findings,
+                'regions_data': region_data
             }
             item = self._rms.create(
                 key=self._rms.key_for_tenant(report_type, tenant),
@@ -471,7 +480,7 @@ class MetricsCollector:
                 'data': json_round_trip(
                     tuple(
                         ShardsCollectionDataSource(
-                            col, ctx.metadata
+                            col, ctx.metadata, tenant_cloud(tenant)
                         ).resources()
                     )
                 ),
@@ -548,7 +557,7 @@ class MetricsCollector:
             data = {
                 'id': tenant.project,
                 'data': json_round_trip(
-                    ShardsCollectionDataSource(col, ctx.metadata).finops()
+                    ShardsCollectionDataSource(col, ctx.metadata, tenant_cloud(tenant)).finops()
                 ),
                 'last_scan_date': js.subset(tenant=tenant.name).last_scan_date,
                 'activated_regions': sorted(
@@ -658,7 +667,7 @@ class MetricsCollector:
                 continue
             data = json_round_trip(
                 ShardsCollectionDataSource(
-                    col, ctx.metadata
+                    col, ctx.metadata, tenant_cloud(tenant)
                 ).operational_attacks()
             )
 
@@ -699,7 +708,7 @@ class MetricsCollector:
                     f'{platform.platform_id} for {end}'
                 )
                 continue
-            ds = ShardsCollectionDataSource(col, ctx.metadata)
+            ds = ShardsCollectionDataSource(col, ctx.metadata, Cloud.KUBERNETES)
 
             coverages = self._rs.calculate_coverages(
                 successful=self._rs.get_standard_to_controls_to_rules(
@@ -772,7 +781,7 @@ class MetricsCollector:
                         f'{tenant.name} for {end}'
                     )
                     continue
-                sdc = ShardsCollectionDataSource(col, ctx.metadata)
+                sdc = ShardsCollectionDataSource(col, ctx.metadata, tenant_cloud(tenant))
                 self._update_dict_values(rt_data, sdc.services())
 
                 self._update_dict_values(sev_data, sdc.severities())

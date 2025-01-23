@@ -1,13 +1,13 @@
 {
   "AWS": {
     "failed_scans": 1,
-    "last_scan_date": "2024-11-26T00:09:20.824013Z",
+    "last_scan_date": "2025-01-23T00:44:11.768367Z",
     "resources_violated": 23,
     "resource_types_data": {
       "Security Group": 3,
-      "Cloudtrail": 1,
       "Sns": 3,
       "S3": 7,
+      "Cloudtrail": 1,
       "Iam Group": 3,
       "Ebs": 2,
       "Ec2": 2,
@@ -24,7 +24,7 @@
   },
   "AZURE": {
     "failed_scans": 1,
-    "last_scan_date": "2024-11-26T00:09:20.824013Z",
+    "last_scan_date": "2025-01-23T00:44:11.768367Z",
     "resources_violated": 5,
     "resource_types_data": {
       "Defender Pricing": 5
@@ -40,15 +40,15 @@
   },
   "GOOGLE": {
     "failed_scans": 1,
-    "last_scan_date": "2024-11-26T00:09:20.824013Z",
-    "resources_violated": 5,
+    "last_scan_date": "2025-01-23T00:44:11.768367Z",
+    "resources_violated": 9,
     "resource_types_data": {
       "Vpc": 1,
       "Firewall": 4,
-      "Subnet": 1
+      "Subnet": 4
     },
     "severity_data": {
-      "Unknown": 5
+      "Unknown": 9
     },
     "succeeded_scans": 2,
     "total_scanned_tenants": 1,

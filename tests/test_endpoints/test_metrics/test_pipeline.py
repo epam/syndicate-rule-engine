@@ -243,7 +243,7 @@ def test_metrics_update(
                               auth=system_user_token)
     assert resp.status_int == 202
     assert resp.json == {'message': 'Metrics update has been submitted'}
-    time.sleep(5)  # don't know how to check underlying thread is finished
+    time.sleep(2)  # don't know how to check underlying thread is finished
 
     # checking operational (per tenant)
     item = SP.report_metrics_service.get_latest_for_tenant(aws_tenant, ReportType.OPERATIONAL_OVERVIEW)
@@ -321,6 +321,6 @@ def test_metrics_update_c_level(
                                   auth=system_user_token)
         assert resp.status_int == 202
         assert resp.json == {'message': 'Metrics update has been submitted'}
-        time.sleep(5)  # don't know how to check underlying thread is finished
+        time.sleep(2)  # don't know how to check underlying thread is finished
     item = SP.report_metrics_service.get_latest_for_customer(main_customer, ReportType.C_LEVEL_OVERVIEW)
     assert dicts_equal(item.data.as_dict(), load_expected('metrics/c_level_overview'))

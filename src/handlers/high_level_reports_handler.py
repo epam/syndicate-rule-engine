@@ -113,6 +113,11 @@ class MaestroModelBuilder:
     def _operational_overview_custom(rep: ReportMetrics) -> dict:
         assert rep.type == ReportType.OPERATIONAL_OVERVIEW
         data = rep.data.as_dict()
+
+        for r, inner in data.setdefault('regions_data', {}).items():
+            inner.pop('service', None)
+            inner['severity_data'] = inner.pop('severity', {})
+
         return {
             'tenant_name': rep.tenant,
             'id': data['id'],
@@ -124,10 +129,7 @@ class MaestroModelBuilder:
                 'failed_scans': data['failed_scans'],
                 'succeeded_scans': data['succeeded_scans'],
                 'resources_violated': data['resources_violated'],
-                'regions_data': {
-                    r: {'severity_data': d}
-                    for r, d in data['regions_severity'].items()
-                },
+                'regions_data': data['regions_data'],
             },
         }
 

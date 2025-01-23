@@ -177,12 +177,14 @@ class JobMetricsDataSource:
 class ShardsCollectionDataSource:
     ResourcesGenerator = Generator[tuple[str, str, dict, float], None, None]
 
-    def __init__(self, collection: ShardsCollection, metadata: Metadata):
+    def __init__(self, collection: ShardsCollection, metadata: Metadata,
+                 cloud: Cloud):
         """
         Assuming that collection is pulled and has meta
         """
         self._col = collection
         self._meta = metadata
+        self._cloud = cloud
 
         self.__resources = None
 
@@ -227,7 +229,15 @@ class ShardsCollectionDataSource:
             if rt in to_check:
                 yield rule, region, dto, ts
 
-    def _add_custom_attributes(
+    def _add_custom_attributes_google(self, it: ResourcesGenerator) -> ResourcesGenerator:
+        for rule, region, dto, ts in it:
+            dto_copy = dto.copy()
+            if ser := self._meta.rule(rule).service:
+                _LOG.debug('Adding service to google resource')
+                dto[CustomAttribute.SERVICE.value] = ser
+            yield rule, region, dto_copy, ts
+
+    def _add_custom_attributes_aws(
         self, it: ResourcesGenerator
     ) -> ResourcesGenerator:
         """
@@ -300,7 +310,11 @@ class ShardsCollectionDataSource:
         resource_types: tuple[str, ...] = (),
     ) -> ResourcesGenerator:
         it = self.iter_resources()
-        it = self._add_custom_attributes(it)
+        match self._cloud:
+            case Cloud.AWS:
+                it = self._add_custom_attributes_aws(it)
+            case Cloud.GOOGLE:
+                it = self._add_custom_attributes_google(it)
 
         if only_report_fields:
             it = self._keep_only_report_fields(it)
@@ -318,8 +332,8 @@ class ShardsCollectionDataSource:
         # ec2 instance with id 1 in eu-central-1 region. There are two
         # findings, but there is only one violating resource.
         # But this deduplication below is needed because it fixes resources
-        # after self._add_custom_attributes() method. After applying the method
-        # the iterator can produce more than one unique resources within
+        # after self._add_custom_attributes_*() methods. After applying the
+        # method the iterator can produce more than one unique resources within
         # one policy and region (which cannot happen under normal
         # circumstances). So we need this deduplication here for some corner
         # cases (As multiregional CloudTrail, for example)
@@ -356,6 +370,14 @@ class ShardsCollectionDataSource:
             n += len(set(
                 map(hashable, chain.from_iterable(rule_resources.values()))
             ))
+        return n
+
+    @cached_property
+    def n_findings(self) -> int:
+        n = 0
+        for rule_resources in self._resources.values():
+            for res in rule_resources.values():
+                n += len(res)
         return n
 
     def region_severities(
