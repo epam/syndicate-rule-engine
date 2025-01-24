@@ -289,7 +289,6 @@ def test_metrics_update(
     assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/aws_project_overview'))
 
 
-
 def test_metrics_update_c_level(
         sre_client,
         system_user_token,
@@ -316,5 +315,5 @@ def test_metrics_update_c_level(
         assert resp.status_int == 202
         assert resp.json == {'message': 'Metrics update has been submitted'}
         time.sleep(2)  # don't know how to check underlying thread is finished
-    item = SP.report_metrics_service.get_latest_for_customer(main_customer, ReportType.C_LEVEL_OVERVIEW)
+    item = SP.report_metrics_service.get_exactly_for_customer(main_customer, ReportType.C_LEVEL_OVERVIEW)
     assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/c_level_overview'))

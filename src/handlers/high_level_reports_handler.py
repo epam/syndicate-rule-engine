@@ -32,7 +32,7 @@ from services.reports import ReportMetricsService, add_diff
 from validators.swagger_request_models import (
     CLevelGetReportModel,
     OperationalGetReportModel,
-    ProjectGetReportModel
+    ProjectGetReportModel,
 )
 from validators.utils import validate_kwargs
 
@@ -47,10 +47,8 @@ SRE_REPORTS_TYPE_TO_M3_MAPPING = {
     ReportType.OPERATIONAL_COMPLIANCE: 'CUSTODIAN_COMPLIANCE_REPORT',
     ReportType.OPERATIONAL_ATTACKS: 'CUSTODIAN_ATTACKS_REPORT',
     ReportType.OPERATIONAL_KUBERNETES: 'CUSTODIAN_K8S_CLUSTER_REPORT',
-
     # Project
     ReportType.PROJECT_OVERVIEW: 'CUSTODIAN_PROJECT_OVERVIEW_REPORT',
-
     # C-Level
     ReportType.C_LEVEL_OVERVIEW: 'CUSTODIAN_CUSTOMER_OVERVIEW_REPORT',
 }
@@ -88,7 +86,11 @@ class MaestroModelBuilder:
         match rt:
             case ReportType.OPERATIONAL_RESOURCES:
                 return 'RESOURCES'
-            case ReportType.OPERATIONAL_OVERVIEW | ReportType.PROJECT_OVERVIEW | ReportType.C_LEVEL_OVERVIEW:
+            case (
+                ReportType.OPERATIONAL_OVERVIEW
+                | ReportType.PROJECT_OVERVIEW
+                | ReportType.C_LEVEL_OVERVIEW
+            ):
                 return 'OVERVIEW'
             case (
                 ReportType.OPERATIONAL_COMPLIANCE
@@ -268,10 +270,7 @@ class MaestroModelBuilder:
     def _project_overview(self, rep: ReportMetrics) -> dict:
         assert rep.type == ReportType.PROJECT_OVERVIEW
 
-        return {
-            'tenant_display_name': rep.project,
-            'data': rep.data.as_dict()
-        }
+        return {'tenant_display_name': rep.project, 'data': rep.data.as_dict()}
 
     def convert(self, rep: ReportMetrics) -> MaestroReport:
         base = self.build_base(rep)
@@ -488,17 +487,24 @@ class HighLevelReportsHandler(AbstractHandler):
             raise self._rmq.no_rabbitmq_response().exc()
 
         builder = MaestroModelBuilder(receivers=tuple(event.receivers))
+        now = utc_datetime()
 
         for typ in event.new_types:
-            rep = self._rms.get_latest_for_customer(event.customer_id, typ)
+            rep = self._rms.get_exactly_for_customer(
+                event.customer_id, typ, typ.start(now), typ.end(now)
+            )
             if not rep:
-                _LOG.warning(f'Cannot find {typ} for {event.customer_id}')
+                _LOG.warning(
+                    f'Cannot find {typ} for {event.customer_id} for the current month'
+                )
                 continue
 
-            previous = self._rms.get_latest_for_customer(
+            previous_month = now + relativedelta(months=-1)
+            previous = self._rms.get_exactly_for_customer(
                 customer=event.customer_id,
                 type_=typ,
-                till=utc_datetime() + relativedelta(months=-1),
+                start=typ.start(previous_month),
+                end=typ.end(previous_month),
             )
             if not previous:
                 _LOG.info(
@@ -650,8 +656,9 @@ class HighLevelReportsHandler(AbstractHandler):
         )
 
     @validate_kwargs
-    def post_project(self, event: ProjectGetReportModel,
-                     _tap: TenantsAccessPayload):
+    def post_project(
+        self, event: ProjectGetReportModel, _tap: TenantsAccessPayload
+    ):
         models = []
         rabbitmq = self._rmq.get_customer_rabbitmq(event.customer_id)
         if not rabbitmq:
@@ -659,21 +666,22 @@ class HighLevelReportsHandler(AbstractHandler):
 
         builder = MaestroModelBuilder(receivers=tuple(event.receivers))
         for display_name in event.tenant_display_names:
-            _LOG.info(f'Going to retrieve tenants with display_name: {display_name}')
+            _LOG.info(
+                f'Going to retrieve tenants with display_name: {display_name}'
+            )
 
             for typ in event.new_types:
-
                 _LOG.debug(f'Going to generate {typ} for {display_name}')
                 rep = self._rms.get_latest_for_project(
-                    customer=event.customer_id,
-                    project=display_name,
-                    type_=typ
+                    customer=event.customer_id, project=display_name, type_=typ
                 )
                 if not rep:
                     _LOG.debug(f'Could not find any {typ} for {display_name}')
                     raise (
                         ResponseFactory(HTTPStatus.NOT_FOUND)
-                        .message(f'Could not find any {typ} for {display_name}')
+                        .message(
+                            f'Could not find any {typ} for {display_name}'
+                        )
                         .exc()
                     )
                 self._rms.fetch_data(rep)

@@ -369,10 +369,11 @@ class MetricsCollector:
         # todo clevel
 
         collected = bool(
-            self._rms.get_latest_for_customer(
+            self._rms.get_exactly_for_customer(
                 customer=ctx.customer,
                 type_=ReportType.C_LEVEL_OVERVIEW,
-                till=ReportType.C_LEVEL_OVERVIEW.end(ctx.now),
+                start=ReportType.C_LEVEL_OVERVIEW.start(ctx.now),
+                end=ReportType.C_LEVEL_OVERVIEW.end(ctx.now),
             )
         )
         if not collected:
@@ -387,6 +388,10 @@ class MetricsCollector:
                     sc_provider=sc_provider,
                     report_type=ReportType.C_LEVEL_OVERVIEW,
                 )
+            )
+        else:
+            _LOG.info(
+                'C level overview report was already collected. Skipping'
             )
 
         _LOG.info(f'Saving all reports items: {ctx.n_reports}')
@@ -780,7 +785,11 @@ class MetricsCollector:
                 tenant.display_name_to_lower.lower(), []
             ).append(item)
         for dn, reports in dn_to_reports.items():
-            data = {}
+            data = {
+                Cloud.AWS.value: [],
+                Cloud.AZURE.value: [],
+                Cloud.GOOGLE.value: []
+            }
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
 

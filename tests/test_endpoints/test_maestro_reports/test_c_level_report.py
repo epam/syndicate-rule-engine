@@ -10,7 +10,8 @@ from services import SP
 def c_level_overview(main_customer, load_expected, utcnow):
     item = SP.report_metrics_service.create(
         key=SP.report_metrics_service.key_for_customer(ReportType.C_LEVEL_OVERVIEW, main_customer.name),
-        end=utcnow
+        start=ReportType.C_LEVEL_OVERVIEW.start(utcnow),
+        end=ReportType.C_LEVEL_OVERVIEW.end(utcnow)
     )
     SP.report_metrics_service.save(item, load_expected('metrics/c_level_overview'))
 

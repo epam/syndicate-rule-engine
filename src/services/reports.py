@@ -840,15 +840,47 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
     def query(
         self,
         key: str,
+        since: datetime | None = None,
         till: datetime | None = None,
         ascending: bool = False,
         limit: int | None = None,
         rate_limit: int | None = None,
     ) -> Iterator[ReportMetrics]:
+        """
+        Queries reports inside the given time scope
+        """
         assert key.count(COMPOUND_KEYS_SEPARATOR) == 5, 'Invalid key'
         rkc = None
+        if since:
+            rkc &= ReportMetrics.start >= utc_iso(since)
         if till:
-            rkc = ReportMetrics.end <= utc_iso(till)
+            rkc &= ReportMetrics.end < utc_iso(till)
+        return self.model_class.query(
+            hash_key=key,
+            range_key_condition=rkc,
+            scan_index_forward=ascending,
+            limit=limit,
+            rate_limit=rate_limit,
+        )
+
+    def query_exactly(
+        self,
+        key: str,
+        start: datetime | None = None,
+        end: datetime | None = None,
+        ascending: bool = False,
+        limit: int | None = None,
+        rate_limit: int | None = None,
+    ) -> Iterator[ReportMetrics]:
+        """
+        Queries reports with exaclty matching time
+        """
+        assert key.count(COMPOUND_KEYS_SEPARATOR) == 5, 'Invalid key'
+        rkc = None
+        if start:
+            rkc &= ReportMetrics.start == utc_iso(start)
+        if end:
+            rkc &= ReportMetrics.end == utc_iso(end)
         return self.model_class.query(
             hash_key=key,
             range_key_condition=rkc,
@@ -883,22 +915,6 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
     ) -> Iterator[ReportMetrics]:
         return self.query(
             key=self.key_for_platform(type_, platform),
-            till=till,
-            ascending=ascending,
-            limit=limit,
-        )
-
-    def query_by_customer(
-        self,
-        customer: Customer | str,
-        type_: ReportType,
-        till: datetime | None = None,
-        ascending: bool = False,
-        limit: int | None = None,
-    ) -> Iterator[ReportMetrics]:
-        name = customer.name if isinstance(customer, Customer) else customer
-        return self.query(
-            key=self.key_for_customer(type_, name),
             till=till,
             ascending=ascending,
             limit=limit,
@@ -940,21 +956,23 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
             None,
         )
 
-    def get_latest_for_customer(
+    def get_exactly_for_customer(
         self,
         customer: Customer | str,
         type_: ReportType,
-        till: datetime | None = None,
+        start: datetime | None = None,
+        end: datetime | None = None,
     ) -> ReportMetrics | None:
+        name = customer.name if isinstance(customer, Customer) else customer
         return next(
-            self.query_by_customer(
-                customer=customer,
-                type_=type_,
-                till=till,
+            self.query_exactly(
+                key=self.key_for_customer(type_, name),
+                start=start,
+                end=end,
                 ascending=False,
                 limit=1,
             ),
-            None,
+            None
         )
 
     def get_latest_for_project(
@@ -972,7 +990,7 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
                 ascending=False,
                 limit=1,
             ),
-            None
+            None,
         )
 
     def save(self, item: ReportMetrics, data: dict | None = None) -> None:
