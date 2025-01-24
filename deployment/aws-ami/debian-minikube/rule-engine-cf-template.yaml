@@ -29,7 +29,7 @@ Mappings:
     eu-central-1:
       ImageId: ami-xxxxxxxxxxxxxxxxx
     us-east-1:
-      ImageId: ami-0f095cb35eb9613ef
+      ImageId: ami-0598d4d9cd501bbb3
     us-east-2:
       ImageId: ami-xxxxxxxxxxxxxxxxx
     us-west-1:
