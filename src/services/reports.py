@@ -469,9 +469,7 @@ class ShardsCollectionDataSource:
                 ),
                 'description': rm.get('description') or '',
                 'severity': self._meta.rule(rule).severity.value,
-                'resources': {
-                    region: list(res) for region, res in inverted[rule].items()
-                },
+                'resources': inverted[rule],
             }
 
     def resources_no_regions(self) -> Generator[dict, None, None]:
@@ -539,13 +537,39 @@ class ShardsCollectionDataSource:
                     'category': finops_category,
                     'severity': rule_meta.severity.value,
                     'resource_type': self._col.meta[rule]['resource'],
-                    'resources': {
-                        region: list(res)
-                        for region, res in inverted[rule].items()
-                    },
+                    'resources': inverted[rule],
                 }
             )
         return res
+
+    def deprecation(self) -> Generator[dict, None, None]:
+        """
+        Produces deprecations data in the format required by maestro
+        """
+        inverted = {}
+        for region in self._resources:
+            for rule, resources in self._resources[region].items():
+                # we won't encounter the same region for one rule twice
+                inverted.setdefault(rule, {})[region] = resources
+
+        for rule in inverted:
+            rule_meta = self._meta.rule(rule)
+            depr = rule_meta.deprecation_category_date()
+            if depr is None:
+                continue  # not a deprecation rule
+            category, date = depr
+            yield {
+                'category': category,
+                'deprecation_date': date,
+                'remediation_complexity': rule_meta.remediation_complexity.value,
+                'remediation': rule_meta.remediation,
+                'policy': rule,
+                'description': self._col.meta[rule].get('description', ''),
+                'resource_type': service_from_resource_type(
+                    self._col.meta[rule]['resource']
+                ),
+                'resources': inverted[rule],
+            }
 
     def operational_attacks(self) -> list:
         # TODO: refactor this format and it that generates it.

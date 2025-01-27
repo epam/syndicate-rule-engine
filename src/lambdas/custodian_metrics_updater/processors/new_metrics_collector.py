@@ -267,6 +267,7 @@ class MetricsCollector:
             ReportType.OPERATIONAL_FINOPS,
             ReportType.OPERATIONAL_ATTACKS,
             ReportType.OPERATIONAL_KUBERNETES,
+            ReportType.OPERATIONAL_DEPRECATION,
             ReportType.PROJECT_OVERVIEW,
             ReportType.C_LEVEL_OVERVIEW,
         )
@@ -294,7 +295,7 @@ class MetricsCollector:
                 report_type=ReportType.OPERATIONAL_OVERVIEW,
             )
         )
-        # TODO: save reports to db and s3 immideately when they don't needed anymore
+        # TODO: save reports to db and s3 immideately when they're not needed anymore
         ctx.add_reports(
             self.project_overview(
                 ctx=ctx,
@@ -360,6 +361,15 @@ class MetricsCollector:
                 job_source=job_source,
                 sc_provider=sc_provider,
                 report_type=ReportType.OPERATIONAL_KUBERNETES,
+            )
+        )
+        _LOG.info('Generating operational deprecations report for all tenants')
+        ctx.add_reports(
+            self.operational_deprecation(
+                ctx=ctx,
+                job_source=job_source,
+                sc_provider=sc_provider,
+                report_type=ReportType.OPERATIONAL_DEPRECATION,
             )
         )
 
@@ -756,6 +766,51 @@ class MetricsCollector:
             yield (
                 self._rms.create(
                     key=self._rms.key_for_platform(report_type, platform),
+                    end=end,
+                    start=start,
+                ),
+                data,
+            )
+
+    def operational_deprecation(
+        self,
+        ctx: MetricsContext,
+        job_source: JobMetricsDataSource,
+        sc_provider: ShardsCollectionProvider,
+        report_type: ReportType,
+    ) -> ReportsGen:
+        start = report_type.start(ctx.now)
+        end = report_type.end(ctx.now)
+        js = job_source.subset(start=start, end=end, affiliation='tenant')
+        for tenant_name in js.scanned_tenants:
+            tenant = self._get_tenant(tenant_name)
+            if not tenant:
+                _LOG.warning(f'Tenant with name {tenant_name} not found!')
+                continue
+            col = sc_provider.get_for_tenant(tenant, end)
+            if col is None:
+                _LOG.warning(
+                    f'Cannot get shards collection for '
+                    f'{tenant.name} for {end}'
+                )
+                continue
+            data = {
+                'id': tenant.project,
+                'last_scan_date': js.subset(
+                    tenant=tenant.name
+                ).last_succeeded_scan_date,
+                'activated_regions': sorted(
+                    modular_helpers.get_tenant_regions(tenant)
+                ),
+                'data': list(
+                    ShardsCollectionDataSource(
+                        col, ctx.metadata, tenant_cloud(tenant)
+                    ).deprecation()
+                ),
+            }
+            yield (
+                self._rms.create(
+                    key=self._rms.key_for_tenant(report_type, tenant),
                     end=end,
                     start=start,
                 ),

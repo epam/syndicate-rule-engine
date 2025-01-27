@@ -8,9 +8,9 @@ import msgspec
 
 from helpers import Version
 from helpers.__version__ import __version__
-from helpers.constants import Severity
+from helpers.constants import RemediationComplexity, Severity
 from helpers.log_helper import get_logger
-from helpers.reports import service_from_resource_type, Standard
+from helpers.reports import Standard, service_from_resource_type
 from models.rule import RuleIndex
 from services import cache
 from services.reports_bucket import ReportMetaBucketsKeys
@@ -47,6 +47,9 @@ class RuleMetadata(
     )
     mitre: dict = msgspec.field(default_factory=dict)
     waf: dict = msgspec.field(default_factory=dict)
+    remediation_complexity: RemediationComplexity = msgspec.field(
+        default=RemediationComplexity.UNKNOWN
+    )
 
     def __repr__(self) -> str:
         return (
@@ -60,6 +63,17 @@ class RuleMetadata(
         if not self.is_finops():
             return
         return self.category.split('>')[-1].strip()
+
+    def is_deprecation(self) -> bool:
+        return 'deprecation' in self.category.lower()
+
+    def deprecation_category_date(self) -> tuple[str, str | None] | None:
+        if not self.is_deprecation():
+            return
+        first, second = map(str.strip, self.category.split('>', maxsplit=1))
+        if ':' in first:
+            return second, first.split(':', maxsplit=1)[-1].strip()
+        return second, None
 
 
 class DomainMetadata(

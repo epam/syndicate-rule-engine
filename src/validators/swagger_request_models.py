@@ -1152,7 +1152,7 @@ class ProjectGetReportModel(BaseModel):
 
 class OperationalGetReportModel(BaseModel):
     tenant_names: set[str]
-    types: set[Literal['OVERVIEW', 'RESOURCES', 'COMPLIANCE', 'RULE', 'ATTACK_VECTOR', 'FINOPS', 'KUBERNETES']] = Field(default_factory=set)
+    types: set[Literal['OVERVIEW', 'RESOURCES', 'COMPLIANCE', 'RULE', 'ATTACK_VECTOR', 'FINOPS', 'KUBERNETES', 'DEPRECATIONS']] = Field(default_factory=set)
     receivers: set[str] = Field(default_factory=set)
     # attempt: SkipJsonSchema[int] = 0
     # execution_job_id: SkipJsonSchema[str] = Field(None)
@@ -1169,7 +1169,8 @@ class OperationalGetReportModel(BaseModel):
             'RULE': ReportType.OPERATIONAL_RULES,
             'FINOPS': ReportType.OPERATIONAL_FINOPS,
             'ATTACK_VECTOR': ReportType.OPERATIONAL_ATTACKS,
-            'KUBERNETES': ReportType.OPERATIONAL_KUBERNETES
+            'KUBERNETES': ReportType.OPERATIONAL_KUBERNETES,
+            'DEPRECATIONS': ReportType.OPERATIONAL_DEPRECATION
         }
         if not self.types:
             return tuple(old_new.values())

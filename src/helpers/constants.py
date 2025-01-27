@@ -945,11 +945,29 @@ class Severity(str, Enum):
         return map(operator.attrgetter('value'), cls)
 
     @classmethod
-    def parse(cls, sev: str | None) -> 'Severity':
+    def parse(cls, sev: str | None, /) -> 'Severity':
         if not sev:
             return cls.UNKNOWN
         try:
             return cls(sev.strip().capitalize())
+        except ValueError:
+            return cls.UNKNOWN
+
+
+class RemediationComplexity(str, Enum):
+    UNKNOWN = 'Unknown'
+    LOW = 'Low'
+    LOW_MEDIUM = 'Low-Medium'
+    MEDIUM = 'Medium'
+    MEDIUM_HIGH = 'Medium-High'
+    HIGH = 'High'
+
+    @classmethod
+    def parse(cls, rem: str | None, /) -> 'RemediationComplexity':
+        if not rem:
+            return cls.UNKNOWN
+        try:
+            return cls(rem.strip().title())
         except ValueError:
             return cls.UNKNOWN
 
@@ -1046,11 +1064,18 @@ class ReportType(str, Enum):
     )
     OPERATIONAL_ATTACKS = (
         'OPERATIONAL_ATTACKS',
-        'MITRE Attacks report per tenant as of date of generation'
+        'MITRE Attacks report per tenant as of date of generation',
     )
     OPERATIONAL_KUBERNETES = (
         'OPERATIONAL_KUBERNETES',
-        'Just old K8S report as of date of generation. It contains both MITRE and Resources data'
+        'Just old K8S report as of date of generation. It contains both MITRE and Resources data',
+    )
+    OPERATIONAL_DEPRECATION = (
+        'OPERATIONAL_DEPRECATION',
+        'Displays resources that will be soon deprecated',
+        relativedelta(
+            hour=0, minute=0, second=0, microsecond=0, weekday=SU(-1)
+        ),
     )
 
     # Project, for a group of tenants within one project

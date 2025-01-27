@@ -47,6 +47,7 @@ SRE_REPORTS_TYPE_TO_M3_MAPPING = {
     ReportType.OPERATIONAL_COMPLIANCE: 'CUSTODIAN_COMPLIANCE_REPORT',
     ReportType.OPERATIONAL_ATTACKS: 'CUSTODIAN_ATTACKS_REPORT',
     ReportType.OPERATIONAL_KUBERNETES: 'CUSTODIAN_K8S_CLUSTER_REPORT',
+    ReportType.OPERATIONAL_DEPRECATION: 'CUSTODIAN_DEPRECATIONS_REPORT',
     # Project
     ReportType.PROJECT_OVERVIEW: 'CUSTODIAN_PROJECT_OVERVIEW_REPORT',
     # C-Level
@@ -76,7 +77,7 @@ class MaestroModelBuilder:
     congested.
     """
 
-    __slots__ = '_receivers', '_limit'
+    __slots__ = ('_receivers',)
 
     @staticmethod
     def convert_to_old_rt(rt: ReportType) -> str:
@@ -105,11 +106,11 @@ class MaestroModelBuilder:
                 return 'FINOPS'
             case ReportType.OPERATIONAL_KUBERNETES:
                 return 'KUBERNETES'
+            case ReportType.OPERATIONAL_DEPRECATION:
+                return 'DEPRECATIONS'
 
-    def __init__(self, receivers: tuple[str, ...] = (), size_limit: int = 0):
+    def __init__(self, receivers: tuple[str, ...] = ()):
         self._receivers = receivers  # base receivers
-        self._limit = size_limit  # size limit in bytes. 0 means no limit
-        # TODO: implement this limit logic to send reports via s3
 
     @staticmethod
     def _operational_overview_custom(rep: ReportMetrics, data: dict) -> dict:
@@ -188,6 +189,25 @@ class MaestroModelBuilder:
             'activated_regions': data['activated_regions'],
             'last_scan_date': data['last_scan_date'],
             'data': result,
+        }
+
+    @staticmethod
+    def _operational_deprecations_custom(
+        rep: ReportMetrics, data: dict
+    ) -> dict:
+        assert rep.type == ReportType.OPERATIONAL_DEPRECATION
+        for item in data.setdefault('data', []):
+            item['regions_data'] = {
+                region: {'resources': res}
+                for region, res in item.pop('resources', {}).items()
+            }
+        return {
+            'tenant_name': rep.tenant,
+            'id': data['id'],
+            'cloud': rep.cloud.value,  # pyright: ignore
+            'activated_regions': data['activated_regions'],
+            'last_scan_date': data['last_scan_date'],
+            'data': data['data']
         }
 
     @staticmethod
@@ -291,6 +311,8 @@ class MaestroModelBuilder:
                 custom = self._operational_attacks_custom(rep, data)
             case ReportType.OPERATIONAL_KUBERNETES:
                 custom = self._operational_k8s_custom(rep, data)
+            case ReportType.OPERATIONAL_DEPRECATION:
+                custom = self._operational_deprecations_custom(rep, data)
             case ReportType.PROJECT_OVERVIEW:
                 custom = self._project_overview(rep, data)
             case _:
