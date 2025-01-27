@@ -5,7 +5,6 @@ from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.modular import Modular
 
-from helpers import json_round_trip
 from helpers.constants import GLOBAL_REGION, Cloud, JobState, ReportType
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime
@@ -441,7 +440,7 @@ class MetricsCollector:
                 'activated_regions': sorted(
                     modular_helpers.get_tenant_regions(tenant)
                 ),
-                'last_scan_date': tjs.last_scan_date,
+                'last_scan_date': tjs.last_succeeded_scan_date,
                 'id': tenant.project,
                 'resources_violated': sdc.n_unique,
                 'total_findings': sdc.n_findings,
@@ -482,14 +481,14 @@ class MetricsCollector:
                 continue
             data = {
                 'id': tenant.project,
-                'data': json_round_trip(
-                    tuple(
-                        ShardsCollectionDataSource(
-                            col, ctx.metadata, tenant_cloud(tenant)
-                        ).resources()
-                    )
+                'data': list(
+                    ShardsCollectionDataSource(
+                        col, ctx.metadata, tenant_cloud(tenant)
+                    ).resources()
                 ),
-                'last_scan_date': js.subset(tenant=tenant.name).last_scan_date,
+                'last_scan_date': js.subset(
+                    tenant=tenant.name
+                ).last_succeeded_scan_date,
                 'activated_regions': sorted(
                     modular_helpers.get_tenant_regions(tenant)
                 ),
@@ -524,7 +523,7 @@ class MetricsCollector:
                 'activated_regions': sorted(
                     modular_helpers.get_tenant_regions(tenant)
                 ),
-                'last_scan_date': tjs.last_scan_date,
+                'last_scan_date': tjs.last_succeeded_scan_date,
                 'id': tenant.project,
                 'data': list(
                     self._rs.average_statistics(
@@ -565,12 +564,12 @@ class MetricsCollector:
                 continue
             data = {
                 'id': tenant.project,
-                'data': json_round_trip(
-                    ShardsCollectionDataSource(
-                        col, ctx.metadata, tenant_cloud(tenant)
-                    ).finops()
-                ),
-                'last_scan_date': js.subset(tenant=tenant.name).last_scan_date,
+                'data': ShardsCollectionDataSource(
+                    col, ctx.metadata, tenant_cloud(tenant)
+                ).finops(),
+                'last_scan_date': js.subset(
+                    tenant=tenant.name
+                ).last_succeeded_scan_date,
                 'activated_regions': sorted(
                     modular_helpers.get_tenant_regions(tenant)
                 ),
@@ -635,7 +634,9 @@ class MetricsCollector:
             )
             data = {
                 'id': tenant.project,
-                'last_scan_date': js.subset(tenant=tenant.name).last_scan_date,
+                'last_scan_date': js.subset(
+                    tenant=tenant.name
+                ).last_succeeded_scan_date,
                 'activated_regions': sorted(
                     modular_helpers.get_tenant_regions(tenant)
                 ),
@@ -680,15 +681,15 @@ class MetricsCollector:
                     f'{tenant.name} for {end}'
                 )
                 continue
-            data = json_round_trip(
-                ShardsCollectionDataSource(
-                    col, ctx.metadata, tenant_cloud(tenant)
-                ).operational_attacks()
-            )
+            data = ShardsCollectionDataSource(
+                col, ctx.metadata, tenant_cloud(tenant)
+            ).operational_attacks()
 
             data = {
                 'id': tenant.project,
-                'last_scan_date': js.subset(tenant=tenant.name).last_scan_date,
+                'last_scan_date': js.subset(
+                    tenant=tenant.name
+                ).last_succeeded_scan_date,
                 'activated_regions': sorted(
                     modular_helpers.get_tenant_regions(tenant)
                 ),
@@ -737,22 +738,20 @@ class MetricsCollector:
                 full=ctx.metadata.domain(Cloud.KUBERNETES).full_cov,
             )
 
-            data = json_round_trip(
-                {
-                    'tenant_name': platform.tenant_name,
-                    'last_scan_date': js.subset(
-                        platform=platform_id
-                    ).last_scan_date,
-                    'region': platform.region,
-                    'name': platform.name,
-                    'type': platform.type.value,
-                    'resources': list(ds.resources_no_regions()),
-                    'compliance': {
-                        st.full_name: cov for st, cov in coverages.items()
-                    },
-                    'mitre': ds.operational_k8s_attacks(),
-                }
-            )
+            data = {
+                'tenant_name': platform.tenant_name,
+                'last_scan_date': js.subset(
+                    platform=platform_id
+                ).last_succeeded_scan_date,
+                'region': platform.region,
+                'name': platform.name,
+                'type': platform.type.value,
+                'resources': list(ds.resources_no_regions()),
+                'compliance': {
+                    st.full_name: cov for st, cov in coverages.items()
+                },
+                'mitre': ds.operational_k8s_attacks(),
+            }
 
             yield (
                 self._rms.create(
@@ -788,7 +787,7 @@ class MetricsCollector:
             data = {
                 Cloud.AWS.value: [],
                 Cloud.AZURE.value: [],
-                Cloud.GOOGLE.value: []
+                Cloud.GOOGLE.value: [],
             }
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
@@ -876,7 +875,7 @@ class MetricsCollector:
             tjs = js.subset(tenant=used_tenants)
             data[cloud] = {
                 'failed_scans': tjs.n_failed,
-                'last_scan_date': tjs.last_scan_date,
+                'last_scan_date': tjs.last_succeeded_scan_date,
                 'resources_violated': total,
                 'resource_types_data': rt_data,
                 'severity_data': sev_data,

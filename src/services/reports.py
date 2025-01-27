@@ -152,10 +152,15 @@ class JobMetricsDataSource:
         return sum(map(lambda j: not j.is_finished, self._jobs))
 
     @property
-    def last_scan_date(self) -> str | None:
+    def last_succeeded_scan_date(self) -> str | None:
         if not self._jobs:
             return
-        return self._jobs[-1].submitted_at
+        succeeded = next(
+            (item for item in reversed(self._jobs) if item.is_succeeded), None
+        )
+        if not succeeded:
+            return
+        return succeeded.submitted_at
 
     @property
     def customer(self) -> str | None:
@@ -972,7 +977,7 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
                 ascending=False,
                 limit=1,
             ),
-            None
+            None,
         )
 
     def get_latest_for_project(
@@ -1023,7 +1028,7 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
             return {}
         url = S3Url(item.s3_url)
         data = cast(dict, self._s3.gz_get_json(url.bucket, url.key))
-        item.data = data
+        # item.data = data  # no need to create a lot of other objects
         return data
 
 

@@ -112,9 +112,8 @@ class MaestroModelBuilder:
         # TODO: implement this limit logic to send reports via s3
 
     @staticmethod
-    def _operational_overview_custom(rep: ReportMetrics) -> dict:
+    def _operational_overview_custom(rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.OPERATIONAL_OVERVIEW
-        data = rep.data.as_dict()
 
         for r, inner in data.setdefault('regions_data', {}).items():
             inner.pop('service', None)
@@ -136,9 +135,8 @@ class MaestroModelBuilder:
         }
 
     @staticmethod
-    def _operational_resources_custom(rep: ReportMetrics) -> dict:
+    def _operational_resources_custom(rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.OPERATIONAL_RESOURCES
-        data = rep.data.as_dict()
         result = []
         for item in data.get('data', []):
             rd = {}
@@ -156,9 +154,8 @@ class MaestroModelBuilder:
         }
 
     @staticmethod
-    def _operational_rules_custom(rep: ReportMetrics) -> dict:
+    def _operational_rules_custom(rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.OPERATIONAL_RULES
-        data = rep.data.as_dict()
         return {
             'tenant_name': rep.tenant,
             'id': data['id'],
@@ -172,9 +169,8 @@ class MaestroModelBuilder:
         }
 
     @staticmethod
-    def _operational_finops_custom(rep: ReportMetrics) -> dict:
+    def _operational_finops_custom(rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.OPERATIONAL_FINOPS
-        data = rep.data.as_dict()
         result = []
         for ss, rules in data['data'].items():
             for rule in rules:
@@ -195,9 +191,8 @@ class MaestroModelBuilder:
         }
 
     @staticmethod
-    def _operational_compliance_custom(rep: ReportMetrics) -> dict:
+    def _operational_compliance_custom(rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.OPERATIONAL_COMPLIANCE
-        data = rep.data.as_dict()
 
         regions_data = [
             {
@@ -219,9 +214,8 @@ class MaestroModelBuilder:
         }
 
     @staticmethod
-    def _operational_attacks_custom(rep: ReportMetrics) -> dict:
+    def _operational_attacks_custom(rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.OPERATIONAL_ATTACKS
-        data = rep.data.as_dict()
         return {
             'tenant_name': rep.tenant,
             'id': data['id'],
@@ -232,9 +226,8 @@ class MaestroModelBuilder:
         }
 
     @staticmethod
-    def _operational_k8s_custom(rep: ReportMetrics) -> dict:
+    def _operational_k8s_custom(rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.OPERATIONAL_KUBERNETES
-        data = rep.data.as_dict()
         return {
             'tenant_name': data['tenant_name'],
             'last_scan_date': data['last_scan_date'],
@@ -267,30 +260,39 @@ class MaestroModelBuilder:
             'data': {},
         }
 
-    def _project_overview(self, rep: ReportMetrics) -> dict:
+    def _project_overview(self, rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.PROJECT_OVERVIEW
+        outdated_tenants = set()
+        for cloud_tenants in data.values():
+            for t in cloud_tenants:
+                if t['succeeded_scans'] == 0:
+                    outdated_tenants.add(t['tenant_name'])
 
-        return {'tenant_display_name': rep.project, 'data': rep.data.as_dict()}
+        return {
+            'tenant_display_name': rep.project,
+            'data': data,
+            'outdated_tenants': list(outdated_tenants),
+        }
 
-    def convert(self, rep: ReportMetrics) -> MaestroReport:
+    def convert(self, rep: ReportMetrics, data: dict) -> MaestroReport:
         base = self.build_base(rep)
         match rep.type:
             case ReportType.OPERATIONAL_OVERVIEW:
-                custom = self._operational_overview_custom(rep)
+                custom = self._operational_overview_custom(rep, data)
             case ReportType.OPERATIONAL_RESOURCES:
-                custom = self._operational_resources_custom(rep)
+                custom = self._operational_resources_custom(rep, data)
             case ReportType.OPERATIONAL_RULES:
-                custom = self._operational_rules_custom(rep)
+                custom = self._operational_rules_custom(rep, data)
             case ReportType.OPERATIONAL_FINOPS:
-                custom = self._operational_finops_custom(rep)
+                custom = self._operational_finops_custom(rep, data)
             case ReportType.OPERATIONAL_COMPLIANCE:
-                custom = self._operational_compliance_custom(rep)
+                custom = self._operational_compliance_custom(rep, data)
             case ReportType.OPERATIONAL_ATTACKS:
-                custom = self._operational_attacks_custom(rep)
+                custom = self._operational_attacks_custom(rep, data)
             case ReportType.OPERATIONAL_KUBERNETES:
-                custom = self._operational_k8s_custom(rep)
+                custom = self._operational_k8s_custom(rep, data)
             case ReportType.PROJECT_OVERVIEW:
-                custom = self._project_overview(rep)
+                custom = self._project_overview(rep, data)
             case _:
                 raise NotImplementedError()
         base.update(custom)
@@ -588,8 +590,7 @@ class HighLevelReportsHandler(AbstractHandler):
                                 f'Could not find data for platform {platform.id}'
                             )
                             continue
-                        self._rms.fetch_data(rep)
-                        data = builder.convert(rep)
+                        data = builder.convert(rep, self._rms.fetch_data(rep))
                         data = packer.pack(data)
                         k8s_datas.append(data)
                     if not k8s_datas:
@@ -623,8 +624,7 @@ class HighLevelReportsHandler(AbstractHandler):
                         .message(f'Could not find any {typ} for {tenant.name}')
                         .exc()
                     )
-                self._rms.fetch_data(rep)
-                data = builder.convert(rep)
+                data = builder.convert(rep, self._rms.fetch_data(rep))
                 data = packer.pack(data)
 
                 models.append(
@@ -684,8 +684,7 @@ class HighLevelReportsHandler(AbstractHandler):
                         )
                         .exc()
                     )
-                self._rms.fetch_data(rep)
-                data = builder.convert(rep)
+                data = builder.convert(rep, self._rms.fetch_data(rep))
 
                 models.append(
                     self._rmq.build_m3_json_model(
