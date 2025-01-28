@@ -285,11 +285,15 @@ def test_metrics_update(
     item = SP.report_metrics_service.get_latest_for_platform(k8s_platform, ReportType.OPERATIONAL_KUBERNETES)
     assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/k8s_operational'))
 
+    item = SP.report_metrics_service.get_latest_for_tenant(azure_tenant, ReportType.OPERATIONAL_DEPRECATION)
+    assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/azure_operational_deprecations'))
+
     item = SP.report_metrics_service.get_latest_for_project(main_customer.name, aws_tenant.display_name_to_lower, ReportType.PROJECT_OVERVIEW)
     assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/aws_project_overview'))
 
-    item = SP.report_metrics_service.get_latest_for_tenant(azure_tenant, ReportType.OPERATIONAL_DEPRECATION)
-    assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/azure_operational_deprecations'))
+    item = SP.report_metrics_service.get_latest_for_project(main_customer.name, aws_tenant.display_name_to_lower, ReportType.PROJECT_COMPLIANCE)
+    breakpoint()
+    assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/aws_project_overview'))
 
 
 def test_metrics_update_c_level(

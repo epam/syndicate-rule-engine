@@ -1139,7 +1139,8 @@ class ProjectGetReportModel(BaseModel):
     @property
     def new_types(self) -> tuple[ReportType, ...]:
         old_new = {
-            'OVERVIEW': ReportType.PROJECT_OVERVIEW
+            'OVERVIEW': ReportType.PROJECT_OVERVIEW,
+            'COMPLIANCE': ReportType.PROJECT_COMPLIANCE
         }
         if not self.types:
             return tuple(old_new.values())

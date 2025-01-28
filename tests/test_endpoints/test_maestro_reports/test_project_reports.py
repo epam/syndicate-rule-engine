@@ -10,10 +10,31 @@ from ...commons import valid_uuid, dicts_equal
 @pytest.fixture()
 def project_overview_metrics(aws_tenant, load_expected, utcnow):
     item = SP.report_metrics_service.create(
-        key=SP.report_metrics_service.key_for_project(ReportType.PROJECT_OVERVIEW, aws_tenant.customer_name, aws_tenant.display_name),
-        end=utcnow
+        key=SP.report_metrics_service.key_for_project(
+            ReportType.PROJECT_OVERVIEW,
+            aws_tenant.customer_name,
+            aws_tenant.display_name,
+        ),
+        end=utcnow,
     )
-    SP.report_metrics_service.save(item, load_expected('metrics/aws_project_overview'))
+    SP.report_metrics_service.save(
+        item, load_expected('metrics/aws_project_overview')
+    )
+
+
+@pytest.fixture()
+def project_compliance_metrics(aws_tenant, load_expected, utcnow):
+    item = SP.report_metrics_service.create(
+        key=SP.report_metrics_service.key_for_project(
+            ReportType.PROJECT_COMPLIANCE,
+            aws_tenant.customer_name,
+            aws_tenant.display_name,
+        ),
+        end=utcnow,
+    )
+    SP.report_metrics_service.save(
+        item, load_expected('metrics/aws_project_compliance')
+    )
 
 
 def validate_maestro_model(m: dict):
@@ -26,18 +47,22 @@ def validate_maestro_model(m: dict):
 
 
 def test_project_overview_report(
-        system_user_token, sre_client, project_overview_metrics, mocked_rabbitmq,
-        load_expected):
+    system_user_token,
+    sre_client,
+    project_overview_metrics,
+    mocked_rabbitmq,
+    load_expected,
+):
     resp = sre_client.request(
-        "/reports/project",
-        "POST",
+        '/reports/project',
+        'POST',
         auth=system_user_token,
         data={
-            "customer_id": "TEST_CUSTOMER",
-            "tenant_display_names": ['testing'],
-            "types": ["OVERVIEW"],
-            "receivers": ["admin@gmail.com"]
-        }
+            'customer_id': 'TEST_CUSTOMER',
+            'tenant_display_names': ['testing'],
+            'types': ['OVERVIEW'],
+            'receivers': ['admin@gmail.com'],
+        },
     )
     assert resp.status_int == 202
 
@@ -57,7 +82,43 @@ def test_project_overview_report(
     model = json.loads(params[0]['model']['notificationAsJson'])
 
     assert typ == 'CUSTODIAN_PROJECT_OVERVIEW_REPORT'
-    assert dicts_equal(
-        model,
-        load_expected('project/overview_report')
+    assert dicts_equal(model, load_expected('project/overview_report'))
+
+
+def test_project_compliance_report(
+    system_user_token,
+    sre_client,
+    project_compliance_metrics,
+    mocked_rabbitmq,
+    load_expected,
+):
+    resp = sre_client.request(
+        '/reports/project',
+        'POST',
+        auth=system_user_token,
+        data={
+            'customer_id': 'TEST_CUSTOMER',
+            'tenant_display_names': ['testing'],
+            'types': ['COMPLIANCE'],
+            'receivers': ['admin@gmail.com'],
+        },
     )
+    assert resp.status_int == 202
+
+    assert len(mocked_rabbitmq.send_sync.mock_calls) == 1
+
+    kw = mocked_rabbitmq.send_sync.mock_calls[0].kwargs
+    assert kw['command_name'] == 'SEND_MAIL'
+    assert kw['is_flat_request'] is False
+    assert kw['async_request'] is False
+    assert kw['secure_parameters'] is None
+    assert kw['compressed'] is True
+
+    # checking models
+    params = kw['parameters']
+    assert len(params) == 1, 'Only one operational report is sent'
+    typ = params[0]['model']['notificationType']
+    model = json.loads(params[0]['model']['notificationAsJson'])
+
+    assert typ == 'CUSTODIAN_PROJECT_COMPLIANCE_REPORT'
+    assert dicts_equal(model, load_expected('project/compliance_report'))

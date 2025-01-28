@@ -1,0 +1,94 @@
+{
+  "receivers": [
+    "admin@gmail.com"
+  ],
+  "report_type": "COMPLIANCE",
+  "customer": "TEST_CUSTOMER",
+  "from": "2025-01-21T10:42:38.611668Z",
+  "to": "2025-01-28T10:42:38.611668Z",
+  "outdated_tenants": [],
+  "externalData": false,
+  "data": {
+    "AWS": [
+      {
+        "account_id": "123456789012",
+        "tenant_name": "AWS-TESTING",
+        "last_scan_date": "2025-01-28T00:38:45.667946Z",
+        "activated_regions": [
+          "eu-central-1",
+          "eu-north-1",
+          "eu-west-1",
+          "eu-west-3"
+        ],
+        "regions_data": [
+          {
+            "region": "eu-central-1",
+            "standards_data": [
+              {
+                "name": "Standard1 v1.0.0",
+                "value": 50.0
+              },
+              {
+                "name": "Standard1 v2.0.0",
+                "value": 25.0
+              },
+              {
+                "name": "Standard2",
+                "value": 12.5
+              }
+            ]
+          },
+          {
+            "region": "eu-west-1",
+            "standards_data": []
+          }
+        ],
+        "average_data": [
+          {
+            "name": "Standard1 v1.0.0",
+            "value": 50.0
+          },
+          {
+            "name": "Standard1 v2.0.0",
+            "value": 25.0
+          },
+          {
+            "name": "Standard2",
+            "value": 12.5
+          }
+        ]
+      }
+    ],
+    "AZURE": [
+      {
+        "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
+        "tenant_name": "AZURE-TESTING",
+        "last_scan_date": "2025-01-28T00:38:45.667946Z",
+        "activated_regions": [],
+        "regions_data": [
+          {
+            "region": "global",
+            "standards_data": []
+          }
+        ],
+        "average_data": []
+      }
+    ],
+    "GOOGLE": [
+      {
+        "account_id": "testing-project-123",
+        "tenant_name": "GOOGLE-TESTING",
+        "last_scan_date": "2025-01-28T00:38:45.667946Z",
+        "activated_regions": [],
+        "regions_data": [
+          {
+            "region": "global",
+            "standards_data": []
+          }
+        ],
+        "average_data": []
+      }
+    ]
+  },
+  "tenant_display_name": "testing"
+}

@@ -12,11 +12,11 @@ from typing_extensions import NotRequired, TypedDict
 
 from handlers import AbstractHandler, Mapping
 from helpers.constants import (
+    Cloud,
     CustodianEndpoint,
     HTTPMethod,
     RabbitCommand,
     ReportType,
-    Cloud,
 )
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
@@ -25,9 +25,9 @@ from models.metrics import ReportMetrics
 from services import SP, modular_helpers
 from services.clients.s3 import S3Client
 from services.environment_service import EnvironmentService
+from services.platform_service import PlatformService
 from services.rabbitmq_service import RabbitMQService
 from services.rbac_service import TenantsAccessPayload
-from services.platform_service import PlatformService
 from services.reports import ReportMetricsService, add_diff
 from validators.swagger_request_models import (
     CLevelGetReportModel,
@@ -50,6 +50,7 @@ SRE_REPORTS_TYPE_TO_M3_MAPPING = {
     ReportType.OPERATIONAL_DEPRECATION: 'CUSTODIAN_DEPRECATIONS_REPORT',
     # Project
     ReportType.PROJECT_OVERVIEW: 'CUSTODIAN_PROJECT_OVERVIEW_REPORT',
+    ReportType.PROJECT_COMPLIANCE: 'CUSTODIAN_PROJECT_COMPLIANCE_REPORT',
     # C-Level
     ReportType.C_LEVEL_OVERVIEW: 'CUSTODIAN_CUSTOMER_OVERVIEW_REPORT',
 }
@@ -95,6 +96,7 @@ class MaestroModelBuilder:
                 return 'OVERVIEW'
             case (
                 ReportType.OPERATIONAL_COMPLIANCE
+                | ReportType.PROJECT_COMPLIANCE
                 | ReportType.C_LEVEL_COMPLIANCE
             ):
                 return 'COMPLIANCE'
@@ -207,7 +209,7 @@ class MaestroModelBuilder:
             'cloud': rep.cloud.value,  # pyright: ignore
             'activated_regions': data['activated_regions'],
             'last_scan_date': data['last_scan_date'],
-            'data': data['data']
+            'data': data['data'],
         }
 
     @staticmethod
@@ -280,7 +282,7 @@ class MaestroModelBuilder:
             'data': {},
         }
 
-    def _project_overview(self, rep: ReportMetrics, data: dict) -> dict:
+    def _project_overview_custom(self, rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.PROJECT_OVERVIEW
         outdated_tenants = set()
         for cloud_tenants in data.values():
@@ -293,6 +295,32 @@ class MaestroModelBuilder:
             'data': data,
             'outdated_tenants': list(outdated_tenants),
         }
+
+    def _project_compliance_custom(
+        self, rep: ReportMetrics, data: dict
+    ) -> dict:
+        assert rep.type == ReportType.PROJECT_COMPLIANCE
+        for cloud_tenants in data.values():
+            for t in cloud_tenants:
+                t['regions_data'] = [
+                    {
+                        'region': region,
+                        'standards_data': [
+                            {'name': name, 'value': round(value * 100, 2)}
+                            for name, value in standards.items()
+                        ],
+                    }
+                    for region, standards in t['data']
+                    .get('regions', {})
+                    .items()
+                ]
+                t['average_data'] = [
+                    {'name': name, 'value': round(value * 100, 2)}
+                    for name, value in t['data'].get('total', {}).items()
+                ]
+                t.pop('data')
+
+        return {'tenant_display_name': rep.project, 'data': data}
 
     def convert(self, rep: ReportMetrics, data: dict) -> MaestroReport:
         base = self.build_base(rep)
@@ -314,7 +342,9 @@ class MaestroModelBuilder:
             case ReportType.OPERATIONAL_DEPRECATION:
                 custom = self._operational_deprecations_custom(rep, data)
             case ReportType.PROJECT_OVERVIEW:
-                custom = self._project_overview(rep, data)
+                custom = self._project_overview_custom(rep, data)
+            case ReportType.PROJECT_COMPLIANCE:
+                custom = self._project_compliance_custom(rep, data)
             case _:
                 raise NotImplementedError()
         base.update(custom)

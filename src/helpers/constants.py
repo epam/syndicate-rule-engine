@@ -1086,6 +1086,10 @@ class ReportType(str, Enum):
             hour=0, minute=0, second=0, microsecond=0, weekday=SU(-1)
         ),
     )
+    PROJECT_COMPLIANCE = (
+        'PROJECT_COMPLIANCE',
+        'Compliance data per group of tenants',
+    )
 
     # C-Level, kind of for the whole customer
     C_LEVEL_OVERVIEW = (

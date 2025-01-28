@@ -184,7 +184,7 @@ class MetricsCollector:
         Accepts the date where reports are collected and number of reports
         that should be collected. Returns the biggest whole period (start, end)
         that we need to collect these reports. Example:
-        say today (date when which metrics are collected) is 2024-11-15,
+        say today (date when metrics are collected) is 2024-11-15,
         we want to collect tenant overview metrics (their period is one week
         from Sunday to Sunday: [2024-11-10, 2024-11-17]) and c-level metrics
         for customer (their period is one previous month:
@@ -269,6 +269,7 @@ class MetricsCollector:
             ReportType.OPERATIONAL_KUBERNETES,
             ReportType.OPERATIONAL_DEPRECATION,
             ReportType.PROJECT_OVERVIEW,
+            ReportType.PROJECT_COMPLIANCE,
             ReportType.C_LEVEL_OVERVIEW,
         )
         _LOG.info(f'Need to collect jobs data from {start} to {end}')
@@ -295,17 +296,6 @@ class MetricsCollector:
                 report_type=ReportType.OPERATIONAL_OVERVIEW,
             )
         )
-        # TODO: save reports to db and s3 immideately when they're not needed anymore
-        ctx.add_reports(
-            self.project_overview(
-                ctx=ctx,
-                operational_reports=list(
-                    ctx.iter_reports(typ=ReportType.OPERATIONAL_OVERVIEW)
-                ),
-                report_type=ReportType.PROJECT_OVERVIEW,
-            )
-        )
-
         _LOG.info('Generating operational resources for all tenants')
         ctx.add_reports(
             self.operational_resources(
@@ -370,6 +360,31 @@ class MetricsCollector:
                 job_source=job_source,
                 sc_provider=sc_provider,
                 report_type=ReportType.OPERATIONAL_DEPRECATION,
+            )
+        )
+
+        # TODO: save reports to db and s3 immideately when they're not needed anymore
+        _LOG.info('Generating project overview reports for all tenant groups')
+        ctx.add_reports(
+            self.project_overview(
+                ctx=ctx,
+                operational_reports=list(
+                    ctx.iter_reports(typ=ReportType.OPERATIONAL_OVERVIEW)
+                ),
+                report_type=ReportType.PROJECT_OVERVIEW,
+            )
+        )
+
+        _LOG.info(
+            'Generating project compliance reports for all tenant groups'
+        )
+        ctx.add_reports(
+            self.project_compliance(
+                ctx=ctx,
+                operational_reports=list(
+                    ctx.iter_reports(typ=ReportType.OPERATIONAL_COMPLIANCE)
+                ),
+                report_type=ReportType.PROJECT_COMPLIANCE,
             )
         )
 
@@ -879,6 +894,57 @@ class MetricsCollector:
                 data,
             )
 
+    def project_compliance(
+        self,
+        ctx: MetricsContext,
+        operational_reports: list[tuple[ReportMetrics, dict]],
+        report_type: ReportType,
+    ) -> ReportsGen:
+        assert all(
+            r[0].type is ReportType.OPERATIONAL_COMPLIANCE
+            for r in operational_reports
+        )
+
+        # they are totally the same as operational compliance
+        start = report_type.start(ctx.now)
+        end = report_type.end(ctx.now)
+        dn_to_reports = {}
+        for item in operational_reports:
+            tenant = cast(Tenant, self._get_tenant(item[0].tenant))
+            dn_to_reports.setdefault(
+                tenant.display_name_to_lower.lower(), []
+            ).append(item)
+
+        for dn, reports in dn_to_reports.items():
+            data = {
+                Cloud.AWS.value: [],
+                Cloud.AZURE.value: [],
+                Cloud.GOOGLE.value: [],
+            }
+            for item in reports:
+                tenant = cast(Tenant, self._get_tenant(item[0].tenant))
+
+                data.setdefault(tenant_cloud(tenant).value, []).append(
+                    {
+                        'account_id': item[1]['id'],
+                        'tenant_name': tenant.name,
+                        'last_scan_date': item[1]['last_scan_date'],
+                        'activated_regions': item[1]['activated_regions'],
+                        'data': item[1]['data'],
+                    }
+                )
+
+            yield (
+                self._rms.create(
+                    key=self._rms.key_for_project(
+                        report_type, ctx.customer.name, dn
+                    ),
+                    end=end,
+                    start=start,
+                ),
+                data,
+            )
+
     def c_level_overview(
         self,
         ctx: MetricsContext,
@@ -1043,7 +1109,9 @@ class MetricsCollector:
             is_active=True
         ):
             _LOG.info(f'Collecting metrics for customer: {customer.name}')
+            # TODO: merge metadata if there are multiple licenses
             metadata = self._ls.get_customer_metadata(customer.name)
             with MetricsContext(customer, metadata, now) as ctx:
                 self.collect_metrics_for_customer(ctx)
+            self._tenants_cache.clear()
         return {}

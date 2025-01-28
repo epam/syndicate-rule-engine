@@ -710,3 +710,12 @@ class JWTToken:
         if not exp:
             return False
         return exp < time.time() + self._exp_threshold
+
+
+def group_by(
+    it: Iterable[T], key: Callable[[T], Hashable]
+) -> dict[Hashable, list[T]]:
+    res = {}
+    for item in it:
+        res.setdefault(key(item), []).append(item)
+    return res
