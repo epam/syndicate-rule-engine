@@ -1090,6 +1090,12 @@ class ReportType(str, Enum):
         'PROJECT_COMPLIANCE',
         'Compliance data per group of tenants',
     )
+    PROJECT_RESOURCES = (
+        'PROJECT_RESOURCES',
+        'Resources data per group of tenants',
+    )
+    PROJECT_ATTACKS = ('PROJECT_ATTACKS', 'Attacks data per group of tenants')
+    PROJECT_FINOPS = ('PROJECT_FINOPS', 'Finops data per group of tenants')
 
     # C-Level, kind of for the whole customer
     C_LEVEL_OVERVIEW = (

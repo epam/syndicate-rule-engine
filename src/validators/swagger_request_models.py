@@ -1140,7 +1140,10 @@ class ProjectGetReportModel(BaseModel):
     def new_types(self) -> tuple[ReportType, ...]:
         old_new = {
             'OVERVIEW': ReportType.PROJECT_OVERVIEW,
-            'COMPLIANCE': ReportType.PROJECT_COMPLIANCE
+            'RESOURCES': ReportType.PROJECT_RESOURCES,
+            'COMPLIANCE': ReportType.PROJECT_COMPLIANCE,
+            'ATTACK_VECTOR': ReportType.PROJECT_ATTACKS,
+            'FINOPS': ReportType.PROJECT_FINOPS
         }
         if not self.types:
             return tuple(old_new.values())

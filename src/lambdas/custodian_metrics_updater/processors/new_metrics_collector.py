@@ -1,3 +1,4 @@
+import copy
 from datetime import datetime
 from typing import Generator, Iterator, cast
 
@@ -385,6 +386,37 @@ class MetricsCollector:
                     ctx.iter_reports(typ=ReportType.OPERATIONAL_COMPLIANCE)
                 ),
                 report_type=ReportType.PROJECT_COMPLIANCE,
+            )
+        )
+
+        _LOG.info('Generating project resources reports for all tenant groups')
+        ctx.add_reports(
+            self.project_resources(
+                ctx=ctx,
+                operational_reports=list(
+                    ctx.iter_reports(typ=ReportType.OPERATIONAL_RESOURCES)
+                ),
+                report_type=ReportType.PROJECT_RESOURCES,
+            )
+        )
+        _LOG.info('Generating project attacks reports for all tenant groups')
+        ctx.add_reports(
+            self.project_attacks(
+                ctx=ctx,
+                operational_reports=list(
+                    ctx.iter_reports(typ=ReportType.OPERATIONAL_ATTACKS)
+                ),
+                report_type=ReportType.PROJECT_ATTACKS,
+            )
+        )
+        _LOG.info('Generating project finops reports for all tenant groups')
+        ctx.add_reports(
+            self.project_finops(
+                ctx=ctx,
+                operational_reports=list(
+                    ctx.iter_reports(typ=ReportType.OPERATIONAL_FINOPS)
+                ),
+                report_type=ReportType.PROJECT_FINOPS,
             )
         )
 
@@ -945,6 +977,202 @@ class MetricsCollector:
                 data,
             )
 
+    def project_resources(
+        self,
+        ctx: MetricsContext,
+        operational_reports: list[tuple[ReportMetrics, dict]],
+        report_type: ReportType,
+    ) -> ReportsGen:
+        assert all(
+            r[0].type is ReportType.OPERATIONAL_RESOURCES
+            for r in operational_reports
+        )
+
+        # they are totally the same as operational compliance
+        start = report_type.start(ctx.now)
+        end = report_type.end(ctx.now)
+        dn_to_reports = {}
+        for item in operational_reports:
+            tenant = cast(Tenant, self._get_tenant(item[0].tenant))
+            dn_to_reports.setdefault(
+                tenant.display_name_to_lower.lower(), []
+            ).append(item)
+
+        for dn, reports in dn_to_reports.items():
+            data = {
+                Cloud.AWS.value: [],
+                Cloud.AZURE.value: [],
+                Cloud.GOOGLE.value: [],
+            }
+            for item in reports:
+                tenant = cast(Tenant, self._get_tenant(item[0].tenant))
+
+                policies_data = []
+                for policy in item[1].get('data', []):
+                    policies_data.append(
+                        {
+                            'policy': policy['policy'],
+                            'description': policy['description'],
+                            'severity': policy['severity'],
+                            'resource_type': policy['resource_type'],
+                            'regions_data': {
+                                region: {'total_violated_resources': len(res)}
+                                for region, res in policy['resources'].items()
+                            },
+                        }
+                    )
+
+                data.setdefault(tenant_cloud(tenant).value, []).append(
+                    {
+                        'account_id': item[1]['id'],
+                        'tenant_name': tenant.name,
+                        'last_scan_date': item[1]['last_scan_date'],
+                        'activated_regions': item[1]['activated_regions'],
+                        'data': policies_data,
+                    }
+                )
+
+            yield (
+                self._rms.create(
+                    key=self._rms.key_for_project(
+                        report_type, ctx.customer.name, dn
+                    ),
+                    end=end,
+                    start=start,
+                ),
+                data,
+            )
+
+    def project_attacks(
+        self,
+        ctx: MetricsContext,
+        operational_reports: list[tuple[ReportMetrics, dict]],
+        report_type: ReportType,
+    ) -> ReportsGen:
+        assert all(
+            r[0].type is ReportType.OPERATIONAL_ATTACKS
+            for r in operational_reports
+        )
+
+        # they are totally the same as operational compliance
+        start = report_type.start(ctx.now)
+        end = report_type.end(ctx.now)
+        dn_to_reports = {}
+        for item in operational_reports:
+            tenant = cast(Tenant, self._get_tenant(item[0].tenant))
+            dn_to_reports.setdefault(
+                tenant.display_name_to_lower.lower(), []
+            ).append(item)
+
+        for dn, reports in dn_to_reports.items():
+            data = {
+                Cloud.AWS.value: [],
+                Cloud.AZURE.value: [],
+                Cloud.GOOGLE.value: [],
+            }
+            for item in reports:
+                tenant = cast(Tenant, self._get_tenant(item[0].tenant))
+
+                mitre_data = copy.deepcopy(item[1].get('data', []))
+                for mitre in mitre_data:
+                    for technique in mitre.get('techniques_data', []):
+                        for region_data in technique.get(
+                            'regions_data', {}
+                        ).values():
+                            severity_data = {}
+                            for r in region_data.pop('resources', {}):
+                                severity_data.setdefault(r['severity'], 0)
+                                severity_data[r['severity']] += 1
+
+                            region_data['severity_data'] = severity_data
+
+                data.setdefault(tenant_cloud(tenant).value, []).append(
+                    {
+                        'account_id': item[1]['id'],
+                        'tenant_name': tenant.name,
+                        'last_scan_date': item[1]['last_scan_date'],
+                        'activated_regions': item[1]['activated_regions'],
+                        'mitre_data': mitre_data,
+                    }
+                )
+
+            yield (
+                self._rms.create(
+                    key=self._rms.key_for_project(
+                        report_type, ctx.customer.name, dn
+                    ),
+                    end=end,
+                    start=start,
+                ),
+                data,
+            )
+
+    def project_finops(
+        self,
+        ctx: MetricsContext,
+        operational_reports: list[tuple[ReportMetrics, dict]],
+        report_type: ReportType,
+    ) -> ReportsGen:
+        assert all(
+            r[0].type is ReportType.OPERATIONAL_FINOPS
+            for r in operational_reports
+        )
+
+        # they are totally the same as operational compliance
+        start = report_type.start(ctx.now)
+        end = report_type.end(ctx.now)
+        dn_to_reports = {}
+        for item in operational_reports:
+            tenant = cast(Tenant, self._get_tenant(item[0].tenant))
+            dn_to_reports.setdefault(
+                tenant.display_name_to_lower.lower(), []
+            ).append(item)
+
+        for dn, reports in dn_to_reports.items():
+            data = {
+                Cloud.AWS.value: [],
+                Cloud.AZURE.value: [],
+                Cloud.GOOGLE.value: [],
+            }
+            for item in reports:
+                tenant = cast(Tenant, self._get_tenant(item[0].tenant))
+
+                service_data = []
+                for ss, ss_data in item[1].get('data', {}).items():
+                    rules_data = copy.deepcopy(ss_data)
+                    for rule in rules_data:
+                        rule['regions_data'] = {
+                            region: {'total_violated_resources': len(res)}
+                            for region, res in rule.pop(
+                                'resources', {}
+                            ).items()
+                        }
+
+                    service_data.append(
+                        {'service_section': ss, 'rules_data': rules_data}
+                    )
+
+                data.setdefault(tenant_cloud(tenant).value, []).append(
+                    {
+                        'account_id': item[1]['id'],
+                        'tenant_name': tenant.name,
+                        'last_scan_date': item[1]['last_scan_date'],
+                        'activated_regions': item[1]['activated_regions'],
+                        'service_data': service_data,
+                    }
+                )
+
+            yield (
+                self._rms.create(
+                    key=self._rms.key_for_project(
+                        report_type, ctx.customer.name, dn
+                    ),
+                    end=end,
+                    start=start,
+                ),
+                data,
+            )
+
     def c_level_overview(
         self,
         ctx: MetricsContext,
@@ -1114,4 +1342,5 @@ class MetricsCollector:
             with MetricsContext(customer, metadata, now) as ctx:
                 self.collect_metrics_for_customer(ctx)
             self._tenants_cache.clear()
+            self._platforms_cache.clear()
         return {}

@@ -51,6 +51,9 @@ SRE_REPORTS_TYPE_TO_M3_MAPPING = {
     # Project
     ReportType.PROJECT_OVERVIEW: 'CUSTODIAN_PROJECT_OVERVIEW_REPORT',
     ReportType.PROJECT_COMPLIANCE: 'CUSTODIAN_PROJECT_COMPLIANCE_REPORT',
+    ReportType.PROJECT_RESOURCES: 'CUSTODIAN_PROJECT_RESOURCES_REPORT',
+    ReportType.PROJECT_FINOPS: 'CUSTODIAN_PROJECT_FINOPS_REPORT',
+    ReportType.PROJECT_ATTACKS: 'CUSTODIAN_PROJECT_ATTACKS_REPORT',
     # C-Level
     ReportType.C_LEVEL_OVERVIEW: 'CUSTODIAN_CUSTOMER_OVERVIEW_REPORT',
 }
@@ -86,7 +89,10 @@ class MaestroModelBuilder:
         Maestro still needs those
         """
         match rt:
-            case ReportType.OPERATIONAL_RESOURCES:
+            case (
+                ReportType.OPERATIONAL_RESOURCES
+                | ReportType.PROJECT_RESOURCES
+            ):
                 return 'RESOURCES'
             case (
                 ReportType.OPERATIONAL_OVERVIEW
@@ -100,11 +106,11 @@ class MaestroModelBuilder:
                 | ReportType.C_LEVEL_COMPLIANCE
             ):
                 return 'COMPLIANCE'
-            case ReportType.OPERATIONAL_ATTACKS:
+            case ReportType.OPERATIONAL_ATTACKS | ReportType.PROJECT_ATTACKS:
                 return 'ATTACK_VECTOR'
             case ReportType.OPERATIONAL_RULES:
                 return 'RULE'
-            case ReportType.OPERATIONAL_FINOPS:
+            case ReportType.OPERATIONAL_FINOPS | ReportType.PROJECT_FINOPS:
                 return 'FINOPS'
             case ReportType.OPERATIONAL_KUBERNETES:
                 return 'KUBERNETES'
@@ -322,6 +328,26 @@ class MaestroModelBuilder:
 
         return {'tenant_display_name': rep.project, 'data': data}
 
+    def _project_resources_custom(
+        self, rep: ReportMetrics, data: dict
+    ) -> dict:
+        assert rep.type == ReportType.PROJECT_RESOURCES
+        return {'tenant_display_name': rep.project, 'data': data}
+
+    def _project_attacks_custom(self, rep: ReportMetrics, data: dict) -> dict:
+        assert rep.type == ReportType.PROJECT_ATTACKS
+        return {'tenant_display_name': rep.project, 'data': data}
+
+    def _project_finops_custom(self, rep: ReportMetrics, data: dict) -> dict:
+        assert rep.type == ReportType.PROJECT_FINOPS
+        for cloud_tenants in data.values():
+            for t in cloud_tenants:
+                for service_data in t.get('service_data', []):
+                    for rule_data in service_data.get('rules_data', []):
+                        add_diff(rule_data, {})
+                        # just to replace int leafs with {'value': leaf, 'diff': None}
+        return {'tenant_display_name': rep.project, 'data': data}
+
     def convert(self, rep: ReportMetrics, data: dict) -> MaestroReport:
         base = self.build_base(rep)
         match rep.type:
@@ -345,6 +371,12 @@ class MaestroModelBuilder:
                 custom = self._project_overview_custom(rep, data)
             case ReportType.PROJECT_COMPLIANCE:
                 custom = self._project_compliance_custom(rep, data)
+            case ReportType.PROJECT_RESOURCES:
+                custom = self._project_resources_custom(rep, data)
+            case ReportType.PROJECT_ATTACKS:
+                custom = self._project_attacks_custom(rep, data)
+            case ReportType.PROJECT_FINOPS:
+                custom = self._project_finops_custom(rep, data)
             case _:
                 raise NotImplementedError()
         base.update(custom)

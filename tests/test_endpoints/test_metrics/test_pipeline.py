@@ -292,8 +292,16 @@ def test_metrics_update(
     assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/aws_project_overview'))
 
     item = SP.report_metrics_service.get_latest_for_project(main_customer.name, aws_tenant.display_name_to_lower, ReportType.PROJECT_COMPLIANCE)
-    breakpoint()
-    assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/aws_project_overview'))
+    assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/aws_project_compliance'))
+
+    item = SP.report_metrics_service.get_latest_for_project(main_customer.name, aws_tenant.display_name_to_lower, ReportType.PROJECT_RESOURCES)
+    assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/aws_project_resources'))
+
+    item = SP.report_metrics_service.get_latest_for_project(main_customer.name, aws_tenant.display_name_to_lower, ReportType.PROJECT_ATTACKS)
+    assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/aws_project_attacks'))
+
+    item = SP.report_metrics_service.get_latest_for_project(main_customer.name, aws_tenant.display_name_to_lower, ReportType.PROJECT_FINOPS)
+    assert dicts_equal(SP.report_metrics_service.fetch_data(item), load_expected('metrics/aws_project_finops'))
 
 
 def test_metrics_update_c_level(
