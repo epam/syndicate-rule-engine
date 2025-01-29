@@ -12,6 +12,8 @@ class LatestSyncAttribute(MapAttribute):
     commit_time = UnicodeAttribute(null=True)  # ISO8601
     current_status = UnicodeAttribute(null=True)  # SYNCING, SYNCED
     release_tag = UnicodeAttribute(null=True)
+    version = UnicodeAttribute(null=True)
+    cc_version = UnicodeAttribute(null=True)
 
 
 class CustomerGitProjectIdIndex(GlobalSecondaryIndex):

@@ -49,6 +49,7 @@ class RuleSourceService(BaseDataService[RuleSource]):
         (data.get(LATEST_SYNC_ATTR) or {}).pop(
             COMMIT_TIME_ATTR,
             None)
+        (data.get(LATEST_SYNC_ATTR) or {}).pop('cc_version', None)
         data[TYPE_ATTR] = item.type
         data['has_secret'] = item.has_secret
         return data
@@ -194,7 +195,9 @@ class RuleSourceService(BaseDataService[RuleSource]):
                            sync_date: str | None = None,
                            commit_hash: str | None = None,
                            commit_time: str | None = None,
-                           release_tag: str | None = None):
+                           release_tag: str | None = None,
+                           version: str | None = None,
+                           cc_version: str | None = None):
         actions = []
         if current_status:
             actions.append(RuleSource.latest_sync.current_status.set(
@@ -207,6 +210,10 @@ class RuleSourceService(BaseDataService[RuleSource]):
             actions.append(RuleSource.latest_sync.commit_time.set(commit_time))
         if release_tag:
             actions.append(RuleSource.latest_sync.release_tag.set(release_tag))
+        if version:
+            actions.append(RuleSource.latest_sync.version.set(version))
+        if cc_version:
+            actions.append(RuleSource.latest_sync.cc_version.set(cc_version))
         if actions:
             item.update(actions=actions)
 
