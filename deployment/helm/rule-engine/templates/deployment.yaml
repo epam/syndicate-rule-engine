@@ -76,6 +76,8 @@ spec:
             - name: MODULAR_AWS_REGION
               value: {{ .Values.modularSdk.awsRegion }}
             {{- end }}
+            - name: MODULAR_SDK_LOG_LEVEL
+              value: {{ .Values.modularSDKLogLevel }}
             - name: CAAS_SERVICE_MODE
               value: docker
             - name: CAAS_MONGO_URI

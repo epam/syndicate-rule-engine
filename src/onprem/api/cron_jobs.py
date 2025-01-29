@@ -53,6 +53,8 @@ def ensure_job(name: str, method: Callable, hours: int):
     from models.scheduled_job import ScheduledJob
 
     scheduler = SERVICE_PROVIDER.ap_job_scheduler.scheduler
+    _LOG.info(f'De-registering {name} job')
+    SERVICE_PROVIDER.ap_job_scheduler.deregister_job(name)
     _LOG.info(f'Registering {name} job')
     scheduler.add_job(method, id=name,
                       trigger=IntervalTrigger(hours=hours))
@@ -66,10 +68,6 @@ def ensure_job(name: str, method: Callable, hours: int):
 
 
 def ensure_all():
-    from helpers.system_customer import SYSTEM_CUSTOMER
-    from models.scheduled_job import ScheduledJob
-    for item in ScheduledJob.customer_name_principal_index.query(hash_key=SYSTEM_CUSTOMER):
-        item.delete()
     jobs = {
         'custodian-system-license-sync-job': (sync_license, 3),
         'custodian-system-snapshot-findings': (make_findings_snapshot, 4),

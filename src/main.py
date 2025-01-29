@@ -16,7 +16,12 @@ from bottle import Bottle
 from dateutil.relativedelta import SU, relativedelta
 from dotenv import load_dotenv
 
+load_dotenv(verbose=True)  # noqa
+
+from modular_sdk.models.pynamongo.indexes_creator import IndexesCreator
+
 from helpers import dereference_json
+from helpers.log_helper import setup_logging
 from helpers.__version__ import __version__
 from helpers.constants import (
     DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME,
@@ -32,7 +37,6 @@ from onprem.api.deployment_resources_parser import (
 )
 from services import SP
 from services.openapi_spec_generator import OpenApiGenerator
-from modular_sdk.models.pynamongo.indexes_creator import IndexesCreator
 
 if TYPE_CHECKING:
     from models import BaseModel
@@ -81,6 +85,7 @@ def gen_password(digits: int = 20) -> str:
 logging.config.dictConfig(
     {
         'version': 1,
+        'disable_existing_loggers': False,
         'formatters': {
             'console_formatter': {'format': '%(levelname)s - %(message)s'}
         },
@@ -92,7 +97,7 @@ logging.config.dictConfig(
         },
         'loggers': {
             '__main__': {'level': 'DEBUG', 'handlers': ['console_handler']},
-            'modular_sdk': {'level': 'DEBUG', 'handlers': ['console_handler']}
+            'modular_sdk': {'level': 'INFO', 'handlers': ['console_handler']},
         },
     }
 )
@@ -330,6 +335,7 @@ class InitMongo(ActionHandler):
     def __call__(self):
         _LOG.debug('Going to sync indexes with code')
         from models import BaseModel
+
         if not BaseModel.is_mongo_model():
             _LOG.warning('Cannot create indexes for DynamoDB')
             return
@@ -337,10 +343,7 @@ class InitMongo(ActionHandler):
         creator = IndexesCreator(
             db=BaseModel.mongo_adapter().mongo_database,
             main_index_name='main',
-            ignore_indexes=(
-                '_id_',
-                'next_run_time_1'
-            ),
+            ignore_indexes=('_id_', 'next_run_time_1'),
         )
         for model in self.models():
             creator.sync(model)
@@ -362,6 +365,9 @@ class Run(ActionHandler):
         gunicorn: bool = False,
         workers: int | None = None,
     ):
+        # needed here to override logging config from this file
+        setup_logging()
+
         self._host = host
         self._port = port
 
@@ -627,7 +633,6 @@ def main(args: list[str] | None = None):
     for dest in ALL_NESTING:
         if hasattr(arguments, dest):
             delattr(arguments, dest)
-    load_dotenv(verbose=True)
     try:
         func(**vars(arguments))
     except Exception as e:
