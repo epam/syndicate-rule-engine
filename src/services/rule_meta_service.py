@@ -342,7 +342,7 @@ class RuleService(BaseDataService[Rule]):
                               cloud: str | None = None, ascending: bool = True,
                               limit: int | None = None,
                               last_evaluated_key: dict | None = None,
-                              ) -> ResultIterator[Rule]:
+                              ) -> Iterator[Rule]:
         sort_key = self.gen_rule_id(customer, cloud)
         return self.model_class.rule_source_id_id_index.query(
             hash_key=rule_source_id,
@@ -356,7 +356,7 @@ class RuleService(BaseDataService[Rule]):
                            cloud: str | None = None, ascending: bool = True,
                            limit: int | None = None,
                            last_evaluated_key: dict | None = None
-                           ) -> ResultIterator[Rule]:
+                           ) -> Iterator[Rule]:
         return self.get_by_rule_source_id(
             rule_source_id=rule_source.id,
             customer=rule_source.customer,

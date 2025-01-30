@@ -230,8 +230,16 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
             # because otherwise we cannot detect whether some rules were
             # removed from GitHub
             _LOG.debug('Removing old versions of rules')
-            cursor = self._rule_service.get_by_rule_source(rule_source)
-            self._rule_service.batch_delete(cursor)
+            new_names = {item.name for item in rules}
+
+            to_remove = []
+            for rule in self._rule_service.get_by_rule_source(rule_source):
+                if rule.name not in new_names:
+                    _LOG.info(
+                        f'Rule {rule.name} not found in repo after update. Removing'
+                    )
+                    to_remove.append(rule)
+            self._rule_service.batch_delete(to_remove)
 
             try:
                 _LOG.info('Going to query git blame for rules')

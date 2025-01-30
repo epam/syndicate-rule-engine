@@ -252,7 +252,8 @@ class RulesetPostModel(BaseModel):
     @field_validator('platforms', mode='after')
     @classmethod
     def validate_platforms(cls, platforms: set[str]) -> set[str]:
-        if not platforms: return platforms
+        if not platforms:
+            return platforms
         all_platforms = {i.lower() for i in RuleIndex.platform_map.values() if i}
         platforms = {p.strip().lower() for p in platforms}
         not_existing = platforms - all_platforms
@@ -263,7 +264,8 @@ class RulesetPostModel(BaseModel):
     @field_validator('categories', mode='after')
     @classmethod
     def validate_categories(cls, categories: set[str]) -> set[str]:
-        if not categories: return categories
+        if not categories:
+            return categories
         all_categories = {i.lower() for i in RuleIndex.category_map.values() if i}
         categories = {c.strip().lower() for c in categories}
         not_existing = categories - all_categories
@@ -274,7 +276,8 @@ class RulesetPostModel(BaseModel):
     @field_validator('service_sections', mode='after')
     @classmethod
     def validate_service_sections(cls, service_sections: set[str]) -> set[str]:
-        if not service_sections: return service_sections
+        if not service_sections:
+            return service_sections
         all_sections = {i.lower() for i in RuleIndex.service_section_map.values() if i}
         service_sections = {ss.strip().lower() for ss in service_sections}
         not_existing = service_sections - all_sections
@@ -285,7 +288,8 @@ class RulesetPostModel(BaseModel):
     @field_validator('sources', mode='after')
     @classmethod
     def validate_sources(cls, sources: set[str]) -> set[str]:
-        if not sources: return sources
+        if not sources:
+            return sources
         all_sources = {i.lower() for i in RuleIndex.source_map.values() if i}
         sources = {s.strip().lower() for s in sources}
         not_existing = sources - all_sources
@@ -312,7 +316,7 @@ class RulesetPostModel(BaseModel):
     def validate_version(cls, version: str | None) -> str | None:
         if not version:
             return version
-        _ = Version(version)  # raise ValueError
+        _ = Version(version)  # raises ValueError
         return version
 
     @model_validator(mode='after')
@@ -333,10 +337,14 @@ class RulesetPatchModel(BaseModel):
                     'If not specified, the latest previous ruleset will '
                     'be used as base to update'
     )
+    new_version: str
 
     rules_to_attach: set = Field(default_factory=set)
     rules_to_detach: set = Field(default_factory=set)
-    force: bool = False
+    force: bool = Field(
+        None, 
+        description='Force the creation of a new ruleset version even if no there is no changes'
+    )
 
     @field_validator('name', mode='after')
     @classmethod
@@ -353,15 +361,11 @@ class RulesetPatchModel(BaseModel):
         _ = Version(version)  # raise ValueError
         return version
 
-    @model_validator(mode='after')
-    def at_least_one_given(self) -> Self:
-        if self.force:
-            return self
-        if not self.rules_to_attach and not self.rules_to_detach:
-            raise ValueError(
-                'At least one attribute to update must be provided'
-            )
-        return self
+    @field_validator('new_version', mode='after')
+    @classmethod
+    def validate_new_version(cls, new_version: str) -> str:
+        _ = Version(new_version)  # raise ValueError
+        return new_version
 
 
 class RulesetDeleteModel(BaseModel):

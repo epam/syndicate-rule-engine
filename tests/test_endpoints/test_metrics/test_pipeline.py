@@ -317,7 +317,7 @@ def test_metrics_update_c_level(
         main_customer,
         utcnow
 ):
-    future_date = utcnow + timedelta(days=31)
+    future_date = utcnow + relativedelta(months=+1)
 
     def mocked(x=None):
         if not x:

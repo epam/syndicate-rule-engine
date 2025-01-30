@@ -60,3 +60,15 @@ class RuleSource(BaseModel):
     @property
     def has_secret(self) -> bool:
         return bool(self.git_access_secret)
+
+    @property
+    def release_tag(self) -> str | None:
+        return self.latest_sync.release_tag
+
+    @property
+    def version(self) -> str | None:
+        return self.latest_sync.version
+
+    @property
+    def cc_version(self) -> str | None:
+        return self.latest_sync.cc_version
