@@ -1,12 +1,19 @@
 import copy
+import statistics
 from datetime import datetime
-from typing import Generator, Iterator, cast
+from typing import Generator, Iterator, cast, Iterable
 
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.modular import Modular
 
-from helpers.constants import GLOBAL_REGION, Cloud, JobState, ReportType
+from helpers.constants import (
+    GLOBAL_REGION,
+    Cloud,
+    JobState,
+    ReportType,
+    TACTICS_ID_MAPPING,
+)
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime
 from models.metrics import ReportMetrics
@@ -29,6 +36,19 @@ from services.ruleset_service import RulesetName, RulesetService
 ReportsGen = Generator[tuple[ReportMetrics, dict], None, None]
 
 _LOG = get_logger(__name__)
+
+# NOTE: there is a lot of code repetition here that:
+# 1. makes this file quite big and congested
+# 2. sometimes not optimal performance-wise.
+# But as far as i see it the repetition is not a problem whatsoever.
+# Furthermore, i'm sure that is more an advantage here
+# because these metrics and reports have some problems that are not easy to
+# detect and fix. So I tried to pull all the "calculus" logic out but keep all
+# the reports creation logic separated for each individual report type so that
+# we could apply fixes and improvements individually even though most have
+# the same boilerplate.
+# The business logic itself is quite confusing so no need to make it
+# more unclear by providing more abstraction
 
 
 class MetricsContext:
@@ -165,6 +185,38 @@ class MetricsCollector:
         self._tenants_cache = {}
         self._platforms_cache = {}
 
+    @staticmethod
+    def yield_one_per_cloud(
+        it: Iterable[Tenant],
+    ) -> Generator[tuple[Cloud, Tenant], None, None]:
+        """
+        Maestro has so-called tenant groups. They call them "tenants" so
+        here we have a confusion. "Tenant" as a model is one AWS account or
+        one AZURE subscription or one GOOGLE project, etc.
+        "Tenant" as a group is a number of "Tenant" models where
+        each cloud can be found only once. So, a number of tenants in a
+        tenant group cannot exceed the total number of supported clouds
+        because a tenant of specific cloud can be added only once.
+
+        This method iterates over the given tenants and yields a cloud and a
+        tenant. If it founds a second tenant with already yielded cloud,
+        it just skips it with warning.
+        """
+        yielded = set()
+        for tenant in it:
+            cloud = tenant_cloud(tenant)
+            if cloud in yielded:
+                _LOG.warning(
+                    f'Found another tenant with the same cloud: {tenant.name}'
+                )
+                continue
+            yield cloud, tenant
+            yielded.add(cloud)
+
+    @staticmethod
+    def base_clouds_payload() -> dict[Cloud, list]:
+        return {Cloud.AWS: [], Cloud.AZURE: [], Cloud.GOOGLE: []}
+
     @classmethod
     def build(cls) -> 'MetricsCollector':
         return cls(
@@ -257,22 +309,7 @@ class MetricsCollector:
         some sources of data and use lower-level metrics to calculate higher
         level
         """
-        # NOTE: these are reports that need jobs, and thus we should consider
-        # the reporting period for each one (yes, currently all reports
-        # are specified)
-        start, end = self.whole_period(
-            ctx.now,
-            ReportType.OPERATIONAL_OVERVIEW,
-            ReportType.OPERATIONAL_RESOURCES,
-            ReportType.OPERATIONAL_RULES,
-            ReportType.OPERATIONAL_FINOPS,
-            ReportType.OPERATIONAL_ATTACKS,
-            ReportType.OPERATIONAL_KUBERNETES,
-            ReportType.OPERATIONAL_DEPRECATION,
-            ReportType.PROJECT_OVERVIEW,
-            ReportType.PROJECT_COMPLIANCE,
-            ReportType.C_LEVEL_OVERVIEW,
-        )
+        start, end = self.whole_period(ctx.now, *ReportType)
         _LOG.info(f'Need to collect jobs data from {start} to {end}')
         jobs = self._ajs.to_ambiguous(
             self._ajs.get_by_customer_name(
@@ -420,19 +457,87 @@ class MetricsCollector:
             )
         )
 
-        # todo project reports
-        # todo tops
-        # todo clevel
-
-        collected = bool(
-            self._rms.get_exactly_for_customer(
-                customer=ctx.customer,
-                type_=ReportType.C_LEVEL_OVERVIEW,
-                start=ReportType.C_LEVEL_OVERVIEW.start(ctx.now),
-                end=ReportType.C_LEVEL_OVERVIEW.end(ctx.now),
+        # Department
+        if not self._rms.was_collected_for_customer(
+            ctx.customer, ReportType.DEPARTMENT_TOP_RESOURCES_BY_CLOUD, ctx.now
+        ):
+            _LOG.info('Generating department top resources by cloud')
+            ctx.add_reports(
+                self.top_resources_by_cloud(
+                    ctx=ctx,
+                    job_source=job_source,
+                    sc_provider=sc_provider,
+                    report_type=ReportType.DEPARTMENT_TOP_RESOURCES_BY_CLOUD,
+                )
             )
-        )
-        if not collected:
+
+        if not self._rms.was_collected_for_customer(
+            ctx.customer, ReportType.DEPARTMENT_TOP_TENANTS_RESOURCES, ctx.now
+        ):
+            _LOG.info('Generating department top tenants resources')
+            ctx.add_reports(
+                self.top_tenants_resources(
+                    ctx=ctx,
+                    job_source=job_source,
+                    sc_provider=sc_provider,
+                    report_type=ReportType.DEPARTMENT_TOP_TENANTS_RESOURCES,
+                )
+            )
+        if not self._rms.was_collected_for_customer(
+            ctx.customer,
+            ReportType.DEPARTMENT_TOP_COMPLIANCE_BY_CLOUD,
+            ctx.now,
+        ):
+            _LOG.info('Generating department top compliance by cloud')
+            ctx.add_reports(
+                self.top_compliance_by_cloud(
+                    ctx=ctx,
+                    job_source=job_source,
+                    sc_provider=sc_provider,
+                    report_type=ReportType.DEPARTMENT_TOP_COMPLIANCE_BY_CLOUD,
+                )
+            )
+        if not self._rms.was_collected_for_customer(
+            ctx.customer, ReportType.DEPARTMENT_TOP_TENANTS_COMPLIANCE, ctx.now
+        ):
+            _LOG.info('Generating department top tenants compliance')
+            ctx.add_reports(
+                self.top_tenants_compliance(
+                    ctx=ctx,
+                    job_source=job_source,
+                    sc_provider=sc_provider,
+                    report_type=ReportType.DEPARTMENT_TOP_TENANTS_COMPLIANCE,
+                )
+            )
+        if not self._rms.was_collected_for_customer(
+            ctx.customer, ReportType.DEPARTMENT_TOP_ATTACK_BY_CLOUD, ctx.now
+        ):
+            _LOG.info('Generating department top attacks by cloud')
+            ctx.add_reports(
+                self.top_attacks_by_cloud(
+                    ctx=ctx,
+                    job_source=job_source,
+                    sc_provider=sc_provider,
+                    report_type=ReportType.DEPARTMENT_TOP_ATTACK_BY_CLOUD,
+                )
+            )
+        if not self._rms.was_collected_for_customer(
+            ctx.customer, ReportType.DEPARTMENT_TOP_TENANTS_ATTACKS, ctx.now
+        ):
+            _LOG.info('Generating department top tenant attacks')
+            ctx.add_reports(
+                self.top_tenants_attacks(
+                    ctx=ctx,
+                    job_source=job_source,
+                    sc_provider=sc_provider,
+                    report_type=ReportType.DEPARTMENT_TOP_TENANTS_ATTACKS,
+                )
+            )
+
+        # C-level
+        if not self._rms.was_collected_for_customer(
+            ctx.customer, ReportType.C_LEVEL_OVERVIEW, ctx.now
+        ):
             _LOG.info(
                 'Generating c-level overview for all tenants because '
                 'it has not be collected yet'
@@ -444,10 +549,6 @@ class MetricsCollector:
                     sc_provider=sc_provider,
                     report_type=ReportType.C_LEVEL_OVERVIEW,
                 )
-            )
-        else:
-            _LOG.info(
-                'C level overview report was already collected. Skipping'
             )
 
         _LOG.info(f'Saving all reports items: {ctx.n_reports}')
@@ -682,12 +783,8 @@ class MetricsCollector:
 
             # calculating total across whole account. For all except AWS those
             # are the same
-            total = self._rs.calculate_coverages(
-                successful=self._rs.get_standard_to_controls_to_rules(
-                    it=self._rs.iter_successful_parts(col),
-                    metadata=ctx.metadata,
-                ),
-                full=ctx.metadata.domain(tenant.cloud).full_cov,
+            total = self._rs.calculate_tenant_full_coverage(
+                col, ctx.metadata, tenant_cloud(tenant)
             )
             data = {
                 'id': tenant.project,
@@ -1173,6 +1270,356 @@ class MetricsCollector:
                 data,
             )
 
+    def top_resources_by_cloud(
+        self,
+        ctx: MetricsContext,
+        job_source: JobMetricsDataSource,
+        sc_provider: ShardsCollectionProvider,
+        report_type: ReportType,
+    ) -> ReportsGen:
+        cloud_tenant = self.base_clouds_payload()
+        start = report_type.start(ctx.now)
+        end = report_type.end(ctx.now)
+        js = job_source.subset(start=start, end=end, affiliation='tenant')
+        for tenant_name in js.scanned_tenants:
+            tenant = self._get_tenant(tenant_name)
+            if not tenant:
+                _LOG.warning(f'Tenant with name {tenant_name} not found!')
+                continue
+            cloud = tenant_cloud(tenant)
+            col = sc_provider.get_for_tenant(tenant, end)
+            if col is None:
+                _LOG.warning(
+                    f'Cannot get shards collection for '
+                    f'{tenant.name} for {end}'
+                )
+                continue
+            tjs = js.subset(tenant=tenant.name)
+            sdc = ShardsCollectionDataSource(col, ctx.metadata, cloud)
+
+            cloud_tenant.setdefault(cloud, []).append(
+                {
+                    'tenant_display_name': tenant.display_name_to_lower.lower(),
+                    'sort_by': (n_unique := sdc.n_unique),
+                    'data': {
+                        'activated_regions': sorted(
+                            modular_helpers.get_tenant_regions(tenant)
+                        ),
+                        'tenant_name': tenant_name,
+                        'last_scan_date': tjs.last_succeeded_scan_date,
+                        'total_scans': tjs.n_succeeded + tjs.n_failed,
+                        'failed_scans': tjs.n_failed,
+                        'succeeded_scans': tjs.n_succeeded,
+                        'resources_violated': n_unique,
+                        'resource_types_data': sdc.resource_types(),
+                        'severity_data': sdc.severities(),
+                    },
+                }
+            )
+        yield (
+            self._rms.create(
+                key=self._rms.key_for_customer(report_type, ctx.customer.name),
+                start=start,
+                end=end,
+            ),
+            cloud_tenant,
+        )
+
+    def top_tenants_resources(
+        self,
+        ctx: MetricsContext,
+        job_source: JobMetricsDataSource,
+        sc_provider: ShardsCollectionProvider,
+        report_type: ReportType,
+    ) -> ReportsGen:
+        start = report_type.start(ctx.now)
+        end = report_type.end(ctx.now)
+        js = job_source.subset(start=start, end=end, affiliation='tenant')
+        dn_tenants = {}
+        for tenant_name in js.scanned_tenants:
+            tenant = self._get_tenant(tenant_name)
+            if not tenant:
+                _LOG.warning(f'Tenant with name {tenant_name} not found!')
+                continue
+            dn_tenants.setdefault(
+                tenant.display_name_to_lower.lower(), []
+            ).append(tenant)
+        data = []
+        for dn, tenants in dn_tenants.items():
+            clouds_data = {}
+            sort_by = 0
+            for cloud, tenant in self.yield_one_per_cloud(tenants):
+                col = sc_provider.get_for_tenant(tenant, end)
+                if col is None:
+                    _LOG.warning(
+                        f'Cannot get shards collection for '
+                        f'{tenant.name} for {end}'
+                    )
+                    continue
+                tjs = js.subset(tenant=tenant.name)
+                # TODO: cache shards collection data source for the same dates
+                sdc = ShardsCollectionDataSource(col, ctx.metadata, cloud)
+
+                n_unique = sdc.n_unique
+                clouds_data[cloud.value] = {
+                    'last_scan_date': tjs.last_succeeded_scan_date,
+                    'activated_regions': sorted(
+                        modular_helpers.get_tenant_regions(tenant)
+                    ),
+                    'tenant_name': tenant.name,
+                    'account_id': tenant.project,
+                    'total_scans': tjs.n_succeeded + tjs.n_failed,
+                    'succeeded_scans': tjs.n_succeeded,
+                    'failed_scans': tjs.n_failed,
+                    'resources_violated': n_unique,
+                    'resource_types_data': sdc.resource_types(),
+                    'severity_data': sdc.severities(),
+                }
+                sort_by += n_unique
+
+            data.append(
+                {
+                    'tenant_display_name': dn,
+                    'sort_by': sort_by,
+                    'data': clouds_data,
+                }
+            )
+        yield (
+            self._rms.create(
+                key=self._rms.key_for_customer(report_type, ctx.customer.name),
+                start=start,
+                end=end,
+            ),
+            {'data': data},
+        )
+
+    def top_compliance_by_cloud(
+        self,
+        ctx: MetricsContext,
+        job_source: JobMetricsDataSource,
+        sc_provider: ShardsCollectionProvider,
+        report_type: ReportType,
+    ) -> ReportsGen:
+        cloud_tenant = self.base_clouds_payload()
+        start = report_type.start(ctx.now)
+        end = report_type.end(ctx.now)
+        js = job_source.subset(start=start, end=end, affiliation='tenant')
+        for tenant_name in js.scanned_tenants:
+            tenant = self._get_tenant(tenant_name)
+            if not tenant:
+                _LOG.warning(f'Tenant with name {tenant_name} not found!')
+                continue
+            cloud = tenant_cloud(tenant)
+            col = sc_provider.get_for_tenant(tenant, end)
+            if col is None:
+                _LOG.warning(
+                    f'Cannot get shards collection for '
+                    f'{tenant.name} for {end}'
+                )
+                continue
+            total = self._rs.calculate_tenant_full_coverage(
+                col, ctx.metadata, cloud
+            )
+
+            cloud_tenant.setdefault(cloud, []).append(
+                {
+                    'tenant_display_name': tenant.display_name_to_lower.lower(),
+                    'sort_by': statistics.mean(total.values()) if total else 0,
+                    'data': {st.full_name: cov for st, cov in total.items()},
+                }
+            )
+        yield (
+            self._rms.create(
+                key=self._rms.key_for_customer(report_type, ctx.customer.name),
+                start=start,
+                end=end,
+            ),
+            cloud_tenant,
+        )
+
+    def top_tenants_compliance(
+        self,
+        ctx: MetricsContext,
+        job_source: JobMetricsDataSource,
+        sc_provider: ShardsCollectionProvider,
+        report_type: ReportType,
+    ) -> ReportsGen:
+        start = report_type.start(ctx.now)
+        end = report_type.end(ctx.now)
+        js = job_source.subset(start=start, end=end, affiliation='tenant')
+        dn_tenants = {}
+        for tenant_name in js.scanned_tenants:
+            tenant = self._get_tenant(tenant_name)
+            if not tenant:
+                _LOG.warning(f'Tenant with name {tenant_name} not found!')
+                continue
+            dn_tenants.setdefault(
+                tenant.display_name_to_lower.lower(), []
+            ).append(tenant)
+        data = []
+        for dn, tenants in dn_tenants.items():
+            clouds_data = {}
+            percents = []
+            for cloud, tenant in self.yield_one_per_cloud(tenants):
+                col = sc_provider.get_for_tenant(tenant, end)
+                if col is None:
+                    _LOG.warning(
+                        f'Cannot get shards collection for '
+                        f'{tenant.name} for {end}'
+                    )
+                    continue
+                tjs = js.subset(tenant=tenant.name)
+                total = self._rs.calculate_tenant_full_coverage(
+                    col, ctx.metadata, cloud
+                )
+                clouds_data[cloud.value] = {
+                    'last_scan_date': tjs.last_succeeded_scan_date,
+                    'activated_regions': sorted(
+                        modular_helpers.get_tenant_regions(tenant)
+                    ),
+                    'tenant_name': tenant.name,
+                    'average_data': {
+                        st.full_name: cov for st, cov in total.items()
+                    },
+                }
+                percents.extend(total.values())
+            data.append(
+                {
+                    'tenant_display_name': dn,
+                    'sort_by': statistics.mean(percents) if percents else 0,
+                    'data': clouds_data,
+                }
+            )
+        yield (
+            self._rms.create(
+                key=self._rms.key_for_customer(report_type, ctx.customer.name),
+                start=start,
+                end=end,
+            ),
+            {'data': data},
+        )
+
+    def top_attacks_by_cloud(
+        self,
+        ctx: MetricsContext,
+        job_source: JobMetricsDataSource,
+        sc_provider: ShardsCollectionProvider,
+        report_type: ReportType,
+    ) -> ReportsGen:
+        cloud_tenant = self.base_clouds_payload()
+        start = report_type.start(ctx.now)
+        end = report_type.end(ctx.now)
+        js = job_source.subset(start=start, end=end, affiliation='tenant')
+        for tenant_name in js.scanned_tenants:
+            tenant = self._get_tenant(tenant_name)
+            if not tenant:
+                _LOG.warning(f'Tenant with name {tenant_name} not found!')
+                continue
+            cloud = tenant_cloud(tenant)
+            col = sc_provider.get_for_tenant(tenant, end)
+            if col is None:
+                _LOG.warning(
+                    f'Cannot get shards collection for '
+                    f'{tenant.name} for {end}'
+                )
+                continue
+            tjs = js.subset(tenant=tenant.name)
+            scd = ShardsCollectionDataSource(col, ctx.metadata, cloud)
+
+            tactic_severity = scd.tactic_to_severities()
+
+            cloud_tenant.setdefault(cloud, []).append(
+                {
+                    'tenant_display_name': tenant.display_name_to_lower.lower(),
+                    'last_scan_date': tjs.last_succeeded_scan_date,
+                    'activated_regions': sorted(
+                        modular_helpers.get_tenant_regions(tenant)
+                    ),
+                    'tenant_name': tenant.name,
+                    'account_id': tenant.project,
+                    'sort_by': scd.n_unique,  # TODO: sort by what?
+                    'data': [
+                        {
+                            'tactic_id': TACTICS_ID_MAPPING.get(
+                                tactic_name, ''
+                            ),
+                            'tactic': tactic_name,
+                            'severity_data': sev_data,
+                        }
+                        for tactic_name, sev_data in tactic_severity.items()
+                    ],
+                }
+            )
+        yield (
+            self._rms.create(
+                key=self._rms.key_for_customer(report_type, ctx.customer.name),
+                start=start,
+                end=end,
+            ),
+            cloud_tenant,
+        )
+
+    def top_tenants_attacks(
+        self,
+        ctx: MetricsContext,
+        job_source: JobMetricsDataSource,
+        sc_provider: ShardsCollectionProvider,
+        report_type: ReportType,
+    ) -> ReportsGen:
+        start = report_type.start(ctx.now)
+        end = report_type.end(ctx.now)
+        js = job_source.subset(start=start, end=end, affiliation='tenant')
+        dn_tenants = {}
+        for tenant_name in js.scanned_tenants:
+            tenant = self._get_tenant(tenant_name)
+            if not tenant:
+                _LOG.warning(f'Tenant with name {tenant_name} not found!')
+                continue
+            dn_tenants.setdefault(
+                tenant.display_name_to_lower.lower(), []
+            ).append(tenant)
+        data = []
+        for dn, tenants in dn_tenants.items():
+            clouds_data = {}
+            sort_by = 0
+            for cloud, tenant in self.yield_one_per_cloud(tenants):
+                col = sc_provider.get_for_tenant(tenant, end)
+                if col is None:
+                    _LOG.warning(
+                        f'Cannot get shards collection for '
+                        f'{tenant.name} for {end}'
+                    )
+                    continue
+                sdc = ShardsCollectionDataSource(col, ctx.metadata, cloud)
+
+                tactic_severity = sdc.tactic_to_severities()
+
+                clouds_data[cloud.value] = [
+                    {
+                        'tactic_id': TACTICS_ID_MAPPING.get(tactic_name, ''),
+                        'tactic': tactic_name,
+                        'severity_data': sev_data,
+                    }
+                    for tactic_name, sev_data in tactic_severity.items()
+                ]
+                sort_by += sdc.n_unique
+
+            data.append(
+                {
+                    'tenant_display_name': dn,
+                    'sort_by': sort_by,
+                    'data': clouds_data,
+                }
+            )
+        yield (
+            self._rms.create(
+                key=self._rms.key_for_customer(report_type, ctx.customer.name),
+                start=start,
+                end=end,
+            ),
+            {'data': data},
+        )
+
     def c_level_overview(
         self,
         ctx: MetricsContext,
@@ -1183,11 +1630,7 @@ class MetricsCollector:
         start = report_type.start(ctx.now)
         end = report_type.end(ctx.now)
         js = job_source.subset(start=start, end=end, affiliation='tenant')
-        cloud_tenant = {
-            Cloud.AWS.value: [],
-            Cloud.AZURE.value: [],
-            Cloud.GOOGLE.value: [],
-        }
+        cloud_tenant = self.base_clouds_payload()
         for tenant_name in js.scanned_tenants:
             tenant = self._get_tenant(tenant_name)
             if not tenant:

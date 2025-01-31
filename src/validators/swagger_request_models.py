@@ -1191,15 +1191,36 @@ class OperationalGetReportModel(BaseModel):
 
 class DepartmentGetReportModel(BaseModel):
     types: set[Literal['TOP_RESOURCES_BY_CLOUD', 'TOP_TENANTS_RESOURCES', 'TOP_TENANTS_COMPLIANCE', 'TOP_COMPLIANCE_BY_CLOUD', 'TOP_TENANTS_ATTACKS', 'TOP_ATTACK_BY_CLOUD']] = Field(default_factory=set)
-    attempt: SkipJsonSchema[int] = 0
-    execution_job_id: SkipJsonSchema[str] = Field(None)
+    # attempt: SkipJsonSchema[int] = 0
+    # execution_job_id: SkipJsonSchema[str] = Field(None)
+
+    @property
+    def new_types(self) -> tuple[ReportType, ...]:
+        """
+        Convert to new types
+        """
+        old_new = {
+            'TOP_RESOURCES_BY_CLOUD': ReportType.DEPARTMENT_TOP_RESOURCES_BY_CLOUD,
+            'TOP_TENANTS_RESOURCES': ReportType.DEPARTMENT_TOP_TENANTS_RESOURCES,
+            'TOP_TENANTS_COMPLIANCE': ReportType.DEPARTMENT_TOP_TENANTS_COMPLIANCE,
+            'TOP_COMPLIANCE_BY_CLOUD': ReportType.DEPARTMENT_TOP_COMPLIANCE_BY_CLOUD, 
+            'TOP_TENANTS_ATTACKS': ReportType.DEPARTMENT_TOP_TENANTS_ATTACKS, 
+            'TOP_ATTACK_BY_CLOUD': ReportType.DEPARTMENT_TOP_ATTACK_BY_CLOUD
+        }
+        if not self.types:
+            return tuple(old_new.values())
+        res = []
+        for t in self.types:
+            if t in old_new:
+                res.append(old_new[t])
+        return tuple(res)
 
 
 class CLevelGetReportModel(BaseModel):
     receivers: set[str] = Field(default_factory=set)
     types: set[Literal['OVERVIEW', 'COMPLIANCE', 'ATTACK_VECTOR']] = Field(default_factory=set)
-    attempt: SkipJsonSchema[int] = 0
-    execution_job_id: SkipJsonSchema[str] = Field(None)
+    # attempt: SkipJsonSchema[int] = 0
+    # execution_job_id: SkipJsonSchema[str] = Field(None)
 
     @property
     def new_types(self) -> tuple[ReportType, ...]:

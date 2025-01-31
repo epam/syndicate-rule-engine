@@ -16,7 +16,10 @@ from services.clients.s3 import Json, S3Client
 from services.environment_service import EnvironmentService
 from services.metadata import Metadata
 from services.platform_service import Platform
-from services.coverage_service import StandardCoverageCalculator, calculate_controls_coverages
+from services.coverage_service import (
+    StandardCoverageCalculator,
+    calculate_controls_coverages,
+)
 from services.reports_bucket import (
     PlatformReportsBucketKeysBuilder,
     ReportsBucketKeysBuilder,
@@ -407,7 +410,9 @@ class ReportService:
                 yield part
 
     @staticmethod
-    def group_parts_iterator_by_location(it: Iterable[BaseShardPart]) -> dict[str, list[BaseShardPart]]:
+    def group_parts_iterator_by_location(
+        it: Iterable[BaseShardPart],
+    ) -> dict[str, list[BaseShardPart]]:
         res = {}
         for item in it:
             res.setdefault(item.location, []).append(item)
@@ -448,7 +453,33 @@ class ReportService:
                     f'Metadata does not contain controls-rules mapping for {st}'
                 )
                 continue
-            res[st] = StandardCoverageCalculator().update(
-                calculate_controls_coverages(successful[st], total_controls)
-            ).produce()
+            res[st] = (
+                StandardCoverageCalculator()
+                .update(
+                    calculate_controls_coverages(
+                        successful[st], total_controls
+                    )
+                )
+                .produce()
+            )
         return res
+
+    def calculate_tenant_full_coverage(
+        self, col: ShardsCollection, metadata: Metadata, cloud: Cloud
+    ) -> dict[Standard, float]:
+        return self.calculate_coverages(
+            successful=self.get_standard_to_controls_to_rules(
+                it=self.iter_successful_parts(col), metadata=metadata
+            ),
+            full=metadata.domain(cloud).full_cov,
+        )
+
+    def calculate_tenant_tech_coverage(
+        self, col: ShardsCollection, metadata: Metadata, cloud: Cloud
+    ) -> dict[Standard, float]:
+        return self.calculate_coverages(
+            successful=self.get_standard_to_controls_to_rules(
+                it=self.iter_successful_parts(col), metadata=metadata
+            ),
+            full=metadata.domain(cloud).tech_cov,
+        )

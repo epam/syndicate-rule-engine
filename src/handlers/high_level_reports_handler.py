@@ -33,6 +33,7 @@ from validators.swagger_request_models import (
     CLevelGetReportModel,
     OperationalGetReportModel,
     ProjectGetReportModel,
+    DepartmentGetReportModel
 )
 from validators.utils import validate_kwargs
 
@@ -54,6 +55,14 @@ SRE_REPORTS_TYPE_TO_M3_MAPPING = {
     ReportType.PROJECT_RESOURCES: 'CUSTODIAN_PROJECT_RESOURCES_REPORT',
     ReportType.PROJECT_FINOPS: 'CUSTODIAN_PROJECT_FINOPS_REPORT',
     ReportType.PROJECT_ATTACKS: 'CUSTODIAN_PROJECT_ATTACKS_REPORT',
+    # Department
+    ReportType.DEPARTMENT_TOP_RESOURCES_BY_CLOUD: 'CUSTODIAN_TOP_RESOURCES_BY_CLOUD_REPORT',
+    ReportType.DEPARTMENT_TOP_TENANTS_RESOURCES: 'CUSTODIAN_TOP_TENANTS_VIOLATED_RESOURCES_REPORT',
+    ReportType.DEPARTMENT_TOP_TENANTS_COMPLIANCE: 'CUSTODIAN_TOP_TENANTS_COMPLIANCE_REPORT',
+    ReportType.DEPARTMENT_TOP_COMPLIANCE_BY_CLOUD: 'CUSTODIAN_TOP_COMPLIANCE_BY_CLOUD_REPORT',
+    ReportType.DEPARTMENT_TOP_TENANTS_ATTACKS: 'CUSTODIAN_TOP_TENANTS_ATTACKS_REPORT',
+    ReportType.DEPARTMENT_TOP_ATTACK_BY_CLOUD: 'CUSTODIAN_TOP_TENANTS_BY_CLOUD_ATTACKS_REPORT',
+
     # C-Level
     ReportType.C_LEVEL_OVERVIEW: 'CUSTODIAN_CUSTOMER_OVERVIEW_REPORT',
 }
@@ -86,7 +95,7 @@ class MaestroModelBuilder:
     @staticmethod
     def convert_to_old_rt(rt: ReportType) -> str:
         """
-        Maestro still needs those
+        Some field that Maestro needs (or does not). Anyway it's in the model
         """
         match rt:
             case (
@@ -116,6 +125,18 @@ class MaestroModelBuilder:
                 return 'KUBERNETES'
             case ReportType.OPERATIONAL_DEPRECATION:
                 return 'DEPRECATIONS'
+            case ReportType.DEPARTMENT_TOP_RESOURCES_BY_CLOUD:
+                return 'RESOURCES_BY_CLOUD'
+            case ReportType.DEPARTMENT_TOP_TENANTS_RESOURCES:
+                return 'RESOURCES_BY_TENANT'
+            case ReportType.DEPARTMENT_TOP_TENANTS_COMPLIANCE:
+                return 'COMPLIANCE_BY_TENANT'
+            case ReportType.DEPARTMENT_TOP_COMPLIANCE_BY_CLOUD:
+                return 'COMPLIANCE_BY_CLOUD'
+            case ReportType.DEPARTMENT_TOP_TENANTS_ATTACKS:
+                return 'ATTACK_BY_TENANT'
+            case ReportType.DEPARTMENT_TOP_ATTACK_BY_CLOUD:
+                return 'ATTACK_BY_CLOUD'
 
     def __init__(self, receivers: tuple[str, ...] = ()):
         self._receivers = receivers  # base receivers
@@ -560,6 +581,9 @@ class HighLevelReportsHandler(AbstractHandler):
             CustodianEndpoint.REPORTS_PROJECT: {
                 HTTPMethod.POST: self.post_project
             },
+            CustodianEndpoint.REPORTS_DEPARTMENT: {
+                HTTPMethod.POST: self.post_department
+            },
             CustodianEndpoint.REPORTS_OPERATIONAL: {
                 HTTPMethod.POST: self.post_operational
             },
@@ -776,6 +800,41 @@ class HighLevelReportsHandler(AbstractHandler):
                         data=data,
                     )
                 )
+
+        if not models:
+            raise (
+                ResponseFactory(HTTPStatus.NOT_FOUND)
+                .message(
+                    'No collected reports found to send. Update metrics first'
+                )
+                .exc()
+            )
+        code = self._rmq.send_to_m3(
+            rabbitmq=rabbitmq, command=RabbitCommand.SEND_MAIL, models=models
+        )
+        if code != 200:
+            raise (
+                ResponseFactory(HTTPStatus.SERVICE_UNAVAILABLE)
+                .message('Could not send message to RabbitMQ')
+                .exc()
+            )
+        return build_response(
+            code=HTTPStatus.ACCEPTED, content='Successfully sent'
+        )
+
+    @validate_kwargs
+    def post_department(self, event: DepartmentGetReportModel):
+        models = []
+        rabbitmq = self._rmq.get_customer_rabbitmq(event.customer_id)
+        if not rabbitmq:
+            raise self._rmq.no_rabbitmq_response().exc()
+
+        builder = MaestroModelBuilder()
+
+
+        # TODO: here generate 
+
+
 
         if not models:
             raise (

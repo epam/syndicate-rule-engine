@@ -1097,6 +1097,56 @@ class ReportType(str, Enum):
     PROJECT_ATTACKS = ('PROJECT_ATTACKS', 'Attacks data per group of tenants')
     PROJECT_FINOPS = ('PROJECT_FINOPS', 'Finops data per group of tenants')
 
+    # Department, tops by tenants
+    DEPARTMENT_TOP_RESOURCES_BY_CLOUD = (
+        'DEPARTMENT_TOP_RESOURCES_BY_CLOUD',
+        'Top resources in tenants by cloud',
+        relativedelta(
+            hour=0, minute=0, second=0, microsecond=0, months=-1, day=1
+        ),
+        relativedelta(hour=0, minute=0, second=0, microsecond=0, day=1),
+    )
+    DEPARTMENT_TOP_TENANTS_RESOURCES = (
+        'DEPARTMENT_TOP_TENANTS_RESOURCES',
+        'As the name suggests',
+        relativedelta(
+            hour=0, minute=0, second=0, microsecond=0, months=-1, day=1
+        ),
+        relativedelta(hour=0, minute=0, second=0, microsecond=0, day=1),
+    )
+    DEPARTMENT_TOP_TENANTS_COMPLIANCE = (
+        'DEPARTMENT_TOP_TENANTS_COMPLIANCE',
+        'As the name suggests',
+        relativedelta(
+            hour=0, minute=0, second=0, microsecond=0, months=-1, day=1
+        ),
+        relativedelta(hour=0, minute=0, second=0, microsecond=0, day=1),
+    )
+    DEPARTMENT_TOP_COMPLIANCE_BY_CLOUD = (
+        'DEPARTMENT_TOP_COMPLIANCE_BY_CLOUD',
+        'As the name suggests',
+        relativedelta(
+            hour=0, minute=0, second=0, microsecond=0, months=-1, day=1
+        ),
+        relativedelta(hour=0, minute=0, second=0, microsecond=0, day=1),
+    )
+    DEPARTMENT_TOP_TENANTS_ATTACKS = (
+        'DEPARTMENT_TOP_TENANTS_ATTACKS',
+        'As the name suggests',
+        relativedelta(
+            hour=0, minute=0, second=0, microsecond=0, months=-1, day=1
+        ),
+        relativedelta(hour=0, minute=0, second=0, microsecond=0, day=1),
+    )
+    DEPARTMENT_TOP_ATTACK_BY_CLOUD = (
+        'DEPARTMENT_TOP_ATTACK_BY_CLOUD',
+        'As the name suggests',
+        relativedelta(
+            hour=0, minute=0, second=0, microsecond=0, months=-1, day=1
+        ),
+        relativedelta(hour=0, minute=0, second=0, microsecond=0, day=1),
+    )
+
     # C-Level, kind of for the whole customer
     C_LEVEL_OVERVIEW = (
         'C_LEVEL_OVERVIEW',

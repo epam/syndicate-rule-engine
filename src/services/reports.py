@@ -479,6 +479,32 @@ class ShardsCollectionDataSource:
             )
             yield res
 
+    def region_resource_types(self) -> dict[str, dict[str, int]]:
+        region_resource = {}
+        for region in self._resources:
+            _inner = region_resource.setdefault(region, {})
+            for rule, res in self._resources[region].items():
+                rt = service_from_resource_type(
+                    self._col.meta[rule]['resource']
+                )
+                _inner.setdefault(rt, set()).update(map(hashable, res))
+
+        result = {}
+        for region, data in region_resource.items():
+            for rt, resources in data.items():
+                d = result.setdefault(region, {})
+                d.setdefault(rt, 0)
+                d[rt] += len(resources)
+        return result
+
+    def resource_types(self) -> dict[str, int]:
+        res = {}
+        for rt in self.region_resource_types().values():
+            for name, n in rt.items():
+                res.setdefault(name, 0)
+                res[name] += n
+        return res
+
     def region_services(self) -> dict[str, dict[str, int]]:
         region_service = {}
         for region in self._resources:
@@ -713,6 +739,37 @@ class ShardsCollectionDataSource:
             result.append(item)
         return result
 
+    def tactic_to_severities(self) -> dict[str, dict[str, int]]:
+        """ """
+        # not sure about its correctness because this kind of data mapping
+        # is very slick
+        result = {}
+        for region in self._resources:
+            tactic_severity = {}
+            for rule, resources in self._resources[region].items():
+                sev = self._meta.rule(rule).severity.value
+                for tactic in self._meta.rule(rule).mitre:
+                    tactic_severity.setdefault(tactic, {}).setdefault(
+                        sev, set()
+                    ).update(map(hashable, resources))
+            for tactic, data in tactic_severity.items():
+                keep_highest(
+                    *[
+                        data.get(k)
+                        for k in sorted(
+                            data.keys(), key=cmp_to_key(SeverityCmp())
+                        )
+                    ]
+                )
+            for tactic, data in tactic_severity.items():
+                for severity, resources in data.items():
+                    if not resources:
+                        continue
+                    d = result.setdefault(tactic, {})
+                    d.setdefault(severity, 0)
+                    d[severity] += len(resources)
+        return result
+
 
 class ShardsCollectionProvider:
     """
@@ -758,6 +815,8 @@ class ShardsCollectionProvider:
             # TODO: cache for actual nearest key instead of given date in case
             #  we can have slightly different incoming "date". If the parameter
             #  most likely to be the same, we better keep it as is.
+            #  If we choose to cache using the nearest key we will still need
+            #  to make one s3:list_objects call each time this method is called
             col = self._rs.tenant_snapshot_collection(tenant, date)
 
         if col is None:
@@ -900,6 +959,7 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
         ascending: bool = False,
         limit: int | None = None,
         rate_limit: int | None = None,
+        attributes_to_get: tuple | None = None,
     ) -> Iterator[ReportMetrics]:
         """
         Queries reports with exaclty matching time
@@ -916,6 +976,7 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
             scan_index_forward=ascending,
             limit=limit,
             rate_limit=rate_limit,
+            attributes_to_get=attributes_to_get,
         )
 
     def query_by_tenant(
@@ -991,6 +1052,7 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
         type_: ReportType,
         start: datetime | None = None,
         end: datetime | None = None,
+        attributes_to_get: tuple | None = None,
     ) -> ReportMetrics | None:
         name = customer.name if isinstance(customer, Customer) else customer
         return next(
@@ -1000,6 +1062,7 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
                 end=end,
                 ascending=False,
                 limit=1,
+                attributes_to_get=attributes_to_get,
             ),
             None,
         )
@@ -1054,6 +1117,24 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
         data = cast(dict, self._s3.gz_get_json(url.bucket, url.key))
         # item.data = data  # no need to create a lot of other objects
         return data
+
+    def was_collected_for_customer(
+        self, customer: Customer | str, type_: ReportType, now: datetime
+    ) -> bool:
+        name = customer.name if isinstance(customer, Customer) else customer
+        return bool(
+            next(
+                self.query_exactly(
+                    key=self.key_for_customer(type_, name),
+                    start=type_.start(now),
+                    end=type_.end(now),
+                    ascending=False,
+                    limit=1,
+                    attributes_to_get=(ReportMetrics.key,),
+                ),
+                None,
+            )
+        )
 
 
 def add_diff(
