@@ -214,8 +214,8 @@ class MetricsCollector:
             yielded.add(cloud)
 
     @staticmethod
-    def base_clouds_payload() -> dict[Cloud, list]:
-        return {Cloud.AWS: [], Cloud.AZURE: [], Cloud.GOOGLE: []}
+    def base_clouds_payload() -> dict[str, list]:
+        return {Cloud.AWS.value: [], Cloud.AZURE.value: [], Cloud.GOOGLE.value: []}
 
     @classmethod
     def build(cls) -> 'MetricsCollector':
@@ -983,11 +983,7 @@ class MetricsCollector:
                 tenant.display_name_to_lower.lower(), []
             ).append(item)
         for dn, reports in dn_to_reports.items():
-            data = {
-                Cloud.AWS.value: [],
-                Cloud.AZURE.value: [],
-                Cloud.GOOGLE.value: [],
-            }
+            data = self.base_clouds_payload()
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
 
@@ -1045,11 +1041,7 @@ class MetricsCollector:
             ).append(item)
 
         for dn, reports in dn_to_reports.items():
-            data = {
-                Cloud.AWS.value: [],
-                Cloud.AZURE.value: [],
-                Cloud.GOOGLE.value: [],
-            }
+            data = self.base_clouds_payload()
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
 
@@ -1096,11 +1088,7 @@ class MetricsCollector:
             ).append(item)
 
         for dn, reports in dn_to_reports.items():
-            data = {
-                Cloud.AWS.value: [],
-                Cloud.AZURE.value: [],
-                Cloud.GOOGLE.value: [],
-            }
+            data = self.base_clouds_payload()
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
 
@@ -1162,11 +1150,7 @@ class MetricsCollector:
             ).append(item)
 
         for dn, reports in dn_to_reports.items():
-            data = {
-                Cloud.AWS.value: [],
-                Cloud.AZURE.value: [],
-                Cloud.GOOGLE.value: [],
-            }
+            data = self.base_clouds_payload()
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
 
@@ -1226,11 +1210,7 @@ class MetricsCollector:
             ).append(item)
 
         for dn, reports in dn_to_reports.items():
-            data = {
-                Cloud.AWS.value: [],
-                Cloud.AZURE.value: [],
-                Cloud.GOOGLE.value: [],
-            }
+            data = self.base_clouds_payload()
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
 
@@ -1297,7 +1277,7 @@ class MetricsCollector:
             tjs = js.subset(tenant=tenant.name)
             sdc = ShardsCollectionDataSource(col, ctx.metadata, cloud)
 
-            cloud_tenant.setdefault(cloud, []).append(
+            cloud_tenant.setdefault(cloud.value, []).append(
                 {
                     'tenant_display_name': tenant.display_name_to_lower.lower(),
                     'sort_by': (n_unique := sdc.n_unique),
@@ -1421,7 +1401,7 @@ class MetricsCollector:
                 col, ctx.metadata, cloud
             )
 
-            cloud_tenant.setdefault(cloud, []).append(
+            cloud_tenant.setdefault(cloud.value, []).append(
                 {
                     'tenant_display_name': tenant.display_name_to_lower.lower(),
                     'sort_by': statistics.mean(total.values()) if total else 0,
@@ -1528,7 +1508,7 @@ class MetricsCollector:
 
             tactic_severity = scd.tactic_to_severities()
 
-            cloud_tenant.setdefault(cloud, []).append(
+            cloud_tenant.setdefault(cloud.value, []).append(
                 {
                     'tenant_display_name': tenant.display_name_to_lower.lower(),
                     'last_scan_date': tjs.last_succeeded_scan_date,

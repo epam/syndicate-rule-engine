@@ -256,7 +256,7 @@ def main_license(main_customer) -> 'License':
         created_by='testing',
         customers={main_customer.name: {'attachment_model': 'permitted', 'tenants': [], 'tenant_license_key': 'tlk'}},
         description='Testing license',
-        expiration=utc_iso(utc_datetime() + timedelta(days=1)),
+        expiration=datetime(2100, 2, 1, 15, 24, 26, 175778),
         ruleset_ids=['AWS', 'AZURE', 'GOOGLE'],
         allowance={
             'balance_exhaustion_model': 'independent',

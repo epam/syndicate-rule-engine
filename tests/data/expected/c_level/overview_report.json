@@ -4,8 +4,8 @@
   ],
   "report_type": "OVERVIEW",
   "customer": "TEST_CUSTOMER",
-  "from": "2025-01-16T12:45:40.343542Z",
-  "to": "2025-01-23T12:45:40.343542Z",
+  "from": "2025-01-01T00:00:00Z",
+  "to": "2025-02-01T00:00:00Z",
   "outdated_tenants": [],
   "externalData": false,
   "data": {
@@ -13,7 +13,7 @@
       "failed_scans": {
         "value": 1
       },
-      "last_scan_date": "2025-01-23T00:44:11.768367Z",
+      "last_scan_date": "2025-02-01T00:17:25.830309Z",
       "resources_violated": {
         "value": 23
       },
@@ -55,14 +55,24 @@
       "total_scans": {
         "value": 3
       },
-      "activated": false,
-      "license_properties": {}
+      "activated": true,
+      "license_properties": {
+        "Rulesets": [
+          "AWS"
+        ],
+        "Number of licenses": {
+          "value": 1
+        },
+        "Event-Driven mode": "On",
+        "Scans frequency": "10 scans per DAY",
+        "Expiration": "Feb 01, 2100 13:24:26 UTC"
+      }
     },
     "AZURE": {
       "failed_scans": {
         "value": 1
       },
-      "last_scan_date": "2025-01-23T00:44:11.768367Z",
+      "last_scan_date": "2025-02-01T00:17:25.830309Z",
       "resources_violated": {
         "value": 5
       },
@@ -83,14 +93,24 @@
       "total_scans": {
         "value": 3
       },
-      "activated": false,
-      "license_properties": {}
+      "activated": true,
+      "license_properties": {
+        "Rulesets": [
+          "AZURE"
+        ],
+        "Number of licenses": {
+          "value": 1
+        },
+        "Event-Driven mode": "On",
+        "Scans frequency": "10 scans per DAY",
+        "Expiration": "Feb 01, 2100 13:24:26 UTC"
+      }
     },
     "GOOGLE": {
       "failed_scans": {
         "value": 1
       },
-      "last_scan_date": "2025-01-23T00:44:11.768367Z",
+      "last_scan_date": "2025-02-01T00:17:25.830309Z",
       "resources_violated": {
         "value": 9
       },
@@ -117,8 +137,18 @@
       "total_scans": {
         "value": 3
       },
-      "activated": false,
-      "license_properties": {}
+      "activated": true,
+      "license_properties": {
+        "Rulesets": [
+          "GOOGLE"
+        ],
+        "Number of licenses": {
+          "value": 1
+        },
+        "Event-Driven mode": "On",
+        "Scans frequency": "10 scans per DAY",
+        "Expiration": "Feb 01, 2100 13:24:26 UTC"
+      }
     }
   }
 }

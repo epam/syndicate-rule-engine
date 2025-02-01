@@ -420,7 +420,7 @@ class ShardsCollectionDataSource:
             _inner = region_severity.setdefault(region, {})
             for rule, res in self._resources[region].items():
                 _inner.setdefault(
-                    self._meta.rule(rule).severity, set()
+                    self._meta.rule(rule).severity.value, set()
                 ).update(map(hashable, res))
 
         if unique:
