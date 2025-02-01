@@ -830,9 +830,30 @@ class HighLevelReportsHandler(AbstractHandler):
             raise self._rmq.no_rabbitmq_response().exc()
 
         builder = MaestroModelBuilder()
+        now = utc_datetime()
+
+        for typ in event.new_types:
+            _LOG.debug(f'Going to generate {typ} for {event.customer_id}')
+            rep = self._rms.get_exactly_for_customer(
+                customer=event.customer_id,
+                type_=typ,
+                start=typ.start(now),
+                end=typ.end(now)
+            )
+            if not rep:
+                _LOG.warning(
+                    f'Cannot find {typ} for {event.customer_id} for the current month'
+                )
+                continue
 
 
-        # TODO: here generate 
+
+
+
+
+
+
+
 
 
 

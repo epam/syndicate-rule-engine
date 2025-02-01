@@ -1,7 +1,8 @@
 import copy
+import heapq
 import statistics
 from datetime import datetime
-from typing import Generator, Iterator, cast, Iterable
+from typing import Generator, Iterable, Iterator, cast
 
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
@@ -9,10 +10,10 @@ from modular_sdk.modular import Modular
 
 from helpers.constants import (
     GLOBAL_REGION,
+    TACTICS_ID_MAPPING,
     Cloud,
     JobState,
     ReportType,
-    TACTICS_ID_MAPPING,
 )
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime
@@ -49,6 +50,9 @@ _LOG = get_logger(__name__)
 # the same boilerplate.
 # The business logic itself is quite confusing so no need to make it
 # more unclear by providing more abstraction
+
+TOP_TENANT_LENGTH = 10
+TOP_CLOUD_LENGTH = 5
 
 
 class MetricsContext:
@@ -186,6 +190,18 @@ class MetricsCollector:
         self._platforms_cache = {}
 
     @staticmethod
+    def nlargest(
+        items: list[dict], n: int, reverse: bool = False
+    ) -> list[dict]:
+        def key(i: dict):
+            return i.get('sort_by', 0)
+
+        if reverse:
+            return heapq.nlargest(n, items, key=key)
+        else:
+            return heapq.nsmallest(n, items, key=key)
+
+    @staticmethod
     def yield_one_per_cloud(
         it: Iterable[Tenant],
     ) -> Generator[tuple[Cloud, Tenant], None, None]:
@@ -215,7 +231,11 @@ class MetricsCollector:
 
     @staticmethod
     def base_clouds_payload() -> dict[str, list]:
-        return {Cloud.AWS.value: [], Cloud.AZURE.value: [], Cloud.GOOGLE.value: []}
+        return {
+            Cloud.AWS.value: [],
+            Cloud.AZURE.value: [],
+            Cloud.GOOGLE.value: [],
+        }
 
     @classmethod
     def build(cls) -> 'MetricsCollector':
@@ -1296,6 +1316,11 @@ class MetricsCollector:
                     },
                 }
             )
+        for cloud in cloud_tenant:
+            cloud_tenant[cloud] = self.nlargest(
+                cloud_tenant[cloud], TOP_CLOUD_LENGTH, True
+            )
+
         yield (
             self._rms.create(
                 key=self._rms.key_for_customer(report_type, ctx.customer.name),
@@ -1364,6 +1389,7 @@ class MetricsCollector:
                     'data': clouds_data,
                 }
             )
+        data = self.nlargest(data, TOP_TENANT_LENGTH, True)
         yield (
             self._rms.create(
                 key=self._rms.key_for_customer(report_type, ctx.customer.name),
@@ -1408,6 +1434,12 @@ class MetricsCollector:
                     'data': {st.full_name: cov for st, cov in total.items()},
                 }
             )
+
+        for cloud in cloud_tenant:
+            cloud_tenant[cloud] = self.nlargest(
+                cloud_tenant[cloud], TOP_CLOUD_LENGTH, False
+            )
+
         yield (
             self._rms.create(
                 key=self._rms.key_for_customer(report_type, ctx.customer.name),
@@ -1470,6 +1502,7 @@ class MetricsCollector:
                     'data': clouds_data,
                 }
             )
+        data = self.nlargest(data, TOP_TENANT_LENGTH, False)
         yield (
             self._rms.create(
                 key=self._rms.key_for_customer(report_type, ctx.customer.name),
@@ -1529,6 +1562,11 @@ class MetricsCollector:
                         for tactic_name, sev_data in tactic_severity.items()
                     ],
                 }
+            )
+
+        for cloud in cloud_tenant:
+            cloud_tenant[cloud] = self.nlargest(
+                cloud_tenant[cloud], TOP_CLOUD_LENGTH, True
             )
         yield (
             self._rms.create(
@@ -1591,6 +1629,7 @@ class MetricsCollector:
                     'data': clouds_data,
                 }
             )
+        data = self.nlargest(data, TOP_TENANT_LENGTH, True)
         yield (
             self._rms.create(
                 key=self._rms.key_for_customer(report_type, ctx.customer.name),
