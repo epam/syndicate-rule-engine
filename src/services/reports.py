@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 from functools import cached_property, cmp_to_key
 from itertools import chain
-from typing import Generator, Iterable, Iterator, Literal, cast
+from typing import Generator, Iterable, Iterator, Literal, cast, Callable, Any
 
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
@@ -1137,10 +1137,18 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
         )
 
 
+def _default_diff_callback(key, new, old) -> dict:
+    res = {'value': new}
+    if isinstance(old, (int, float)) and not isinstance(old, bool):
+        res['diff'] = new - old
+    return res
+
+
 def add_diff(
     current: dict,
     previous: dict,
     exclude: tuple[str | tuple[str, ...], ...] = (),
+    callback: Callable[[str, Any, Any], Any] = _default_diff_callback,
 ) -> None:
     """
     Replaces numbers inside the current dict with {"diff": int, "value": int}.
@@ -1158,10 +1166,7 @@ def add_diff(
             if keys in to_exclude:
                 new = real
             else:
-                new = {'value': real}
-                old = deep_get(previous, keys)
-                if isinstance(old, (int, float)) and not isinstance(old, bool):
-                    new['diff'] = real - old
+                new = callback(keys[-1], real, deep_get(previous, keys))
             keys, real = gen.send(new)
     except StopIteration:
         pass

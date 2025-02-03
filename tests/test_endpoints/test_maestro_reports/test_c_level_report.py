@@ -1,34 +1,43 @@
-import pytest
 import json
-from helpers.constants import ReportType
-from ...commons import dicts_equal
 
+import pytest
+
+from helpers.constants import ReportType
 from services import SP
+
+from ...commons import dicts_equal
 
 
 @pytest.fixture()
 def c_level_overview(main_customer, load_expected, utcnow):
     item = SP.report_metrics_service.create(
-        key=SP.report_metrics_service.key_for_customer(ReportType.C_LEVEL_OVERVIEW, main_customer.name),
+        key=SP.report_metrics_service.key_for_customer(
+            ReportType.C_LEVEL_OVERVIEW, main_customer.name
+        ),
         start=ReportType.C_LEVEL_OVERVIEW.start(utcnow),
-        end=ReportType.C_LEVEL_OVERVIEW.end(utcnow)
+        end=ReportType.C_LEVEL_OVERVIEW.end(utcnow),
     )
-    SP.report_metrics_service.save(item, load_expected('metrics/c_level_overview'))
+    SP.report_metrics_service.save(
+        item, load_expected('metrics/c_level_overview')
+    )
 
 
 def test_c_level_overview(
-    system_user_token, sre_client, c_level_overview, mocked_rabbitmq,
-    load_expected
+    system_user_token,
+    sre_client,
+    c_level_overview,
+    mocked_rabbitmq,
+    load_expected,
 ):
     resp = sre_client.request(
-        "/reports/clevel",
-        "POST",
+        '/reports/clevel',
+        'POST',
         auth=system_user_token,
         data={
-            "customer_id": "TEST_CUSTOMER",
-            "types": ["OVERVIEW"],
-            "receivers": ["admin@gmail.com"]
-        }
+            'customer_id': 'TEST_CUSTOMER',
+            'types': ['OVERVIEW'],
+            'receivers': ['admin@gmail.com'],
+        },
     )
     assert resp.status_int == 202
 
@@ -42,7 +51,4 @@ def test_c_level_overview(
     model = json.loads(params[0]['model']['notificationAsJson'])
 
     assert typ == 'CUSTODIAN_CUSTOMER_OVERVIEW_REPORT'
-    assert dicts_equal(
-        model,
-        load_expected('c_level/overview_report')
-    )
+    assert dicts_equal(model, load_expected('c_level/overview_report'))

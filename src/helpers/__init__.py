@@ -719,3 +719,12 @@ def group_by(
     for item in it:
         res.setdefault(key(item), []).append(item)
     return res
+
+
+def map_by(
+    it: Iterable[T], key: Callable[[T], Hashable]
+) -> dict[Hashable, T]:
+    res = {}
+    for item in it:
+        res.setdefault(key(item), item)
+    return res

@@ -1,0 +1,45 @@
+{
+  "receivers": [],
+  "report_type": "COMPLIANCE_BY_CLOUD",
+  "customer": "TEST_CUSTOMER",
+  "from": "2025-01-01T00:00:00Z",
+  "to": "2025-02-01T00:00:00Z",
+  "outdated_tenants": [],
+  "externalData": false,
+  "data": {
+    "AWS": [
+      {
+        "data": [
+          {
+            "name": "Standard1 v1.0.0",
+            "value": 50.0
+          },
+          {
+            "name": "Standard1 v2.0.0",
+            "value": 25.0
+          },
+          {
+            "name": "Standard2",
+            "value": 12.5
+          }
+        ],
+        "sort_by": 0.2916666666666667,
+        "tenant_display_name": "testing"
+      }
+    ],
+    "AZURE": [
+      {
+        "data": [],
+        "sort_by": 0,
+        "tenant_display_name": "testing"
+      }
+    ],
+    "GOOGLE": [
+      {
+        "data": [],
+        "sort_by": 0,
+        "tenant_display_name": "testing"
+      }
+    ]
+  }
+}

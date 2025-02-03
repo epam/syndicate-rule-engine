@@ -1,3 +1,4 @@
+import operator
 import uuid
 from datetime import timedelta
 from http import HTTPStatus
@@ -11,6 +12,7 @@ from modular_sdk.modular import Modular
 from typing_extensions import NotRequired, TypedDict
 
 from handlers import AbstractHandler, Mapping
+from helpers import map_by
 from helpers.constants import (
     Cloud,
     CustodianEndpoint,
@@ -31,9 +33,9 @@ from services.rbac_service import TenantsAccessPayload
 from services.reports import ReportMetricsService, add_diff
 from validators.swagger_request_models import (
     CLevelGetReportModel,
+    DepartmentGetReportModel,
     OperationalGetReportModel,
     ProjectGetReportModel,
-    DepartmentGetReportModel
 )
 from validators.utils import validate_kwargs
 
@@ -62,7 +64,6 @@ SRE_REPORTS_TYPE_TO_M3_MAPPING = {
     ReportType.DEPARTMENT_TOP_COMPLIANCE_BY_CLOUD: 'CUSTODIAN_TOP_COMPLIANCE_BY_CLOUD_REPORT',
     ReportType.DEPARTMENT_TOP_TENANTS_ATTACKS: 'CUSTODIAN_TOP_TENANTS_ATTACKS_REPORT',
     ReportType.DEPARTMENT_TOP_ATTACK_BY_CLOUD: 'CUSTODIAN_TOP_TENANTS_BY_CLOUD_ATTACKS_REPORT',
-
     # C-Level
     ReportType.C_LEVEL_OVERVIEW: 'CUSTODIAN_CUSTOMER_OVERVIEW_REPORT',
 }
@@ -80,6 +81,13 @@ class MaestroReport(TypedDict):
     externalDataBucket: NotRequired[str]
 
     data: list | dict
+
+
+def _compliance_diff_callback(key, new, old) -> dict:
+    res = {'value': round(new * 100, 2)}
+    if isinstance(old, (int, float)) and not isinstance(old, bool):
+        res['diff'] = round((new - old) * 100, 2)
+    return res
 
 
 class MaestroModelBuilder:
@@ -369,8 +377,131 @@ class MaestroModelBuilder:
                         # just to replace int leafs with {'value': leaf, 'diff': None}
         return {'tenant_display_name': rep.project, 'data': data}
 
-    def convert(self, rep: ReportMetrics, data: dict) -> MaestroReport:
+    def _top_compliance_by_cloud(
+        self, rep: ReportMetrics, data: dict, previous_data: dict
+    ) -> dict:
+        key = operator.itemgetter('tenant_display_name')
+
+        for cl, items in data.items():
+            old = map_by(previous_data.get(cl, []), key)
+            for tdn, new_data in map_by(items, key).items():
+                old_data = old.get(tdn, {})
+                add_diff(
+                    new_data,
+                    old_data,
+                    exclude=('sort_by',),
+                    callback=_compliance_diff_callback,
+                )
+                new_data['data'] = [
+                    {'name': k, **v}
+                    for k, v in new_data.get('data', {}).items()
+                ]
+
+        return {'data': data}
+
+    def _top_resources_by_cloud(
+        self, rep: ReportMetrics, data: dict, previous_data: dict
+    ) -> dict:
+        key = operator.itemgetter('tenant_display_name')
+
+        for cl, items in data.items():
+            old = map_by(previous_data.get(cl, []), key)
+            for tdn, new_data in map_by(items, key).items():
+                old_data = old.get(tdn, {})
+                add_diff(
+                    new_data.setdefault('data', {}),
+                    old_data.setdefault('data', {}),
+                )
+        return {'data': data}
+
+    def _top_attacks_by_cloud(
+        self, rep: ReportMetrics, data: dict, previous_data: dict
+    ) -> dict:
+        key = operator.itemgetter('tenant_name')
+        key_tactic = operator.itemgetter('tactic_id')
+        for cl, items in data.items():
+            old = map_by(previous_data.get(cl, []), key)
+            for tn, new_data in map_by(items, key).items():
+                old_data = old.get(tn, {})
+
+                # that is crazy
+
+                old_tactics = map_by(old_data.get('data', []), key_tactic)
+                for tactic_id, new_tactics_data in map_by(
+                    new_data.get('data', []), key_tactic
+                ).items():
+                    old_tactics_data = old_tactics.get(tactic_id, {})
+                    add_diff(new_tactics_data, old_tactics_data)
+        return {'data': data}
+
+    def _top_tenants_compliance(
+        self, rep: ReportMetrics, data: dict, previous_data: dict
+    ) -> dict:
+        key = operator.itemgetter('tenant_display_name')
+        old = map_by(previous_data.get('data', []), key)
+        for tdn, new_data in map_by(data.setdefault('data', []), key).items():
+            old_data = old.get(tdn, {})
+            add_diff(
+                new_data,
+                old_data,
+                exclude=('sort_by',),
+                callback=_compliance_diff_callback,
+            )
+            for d in new_data.get('data', {}).values():
+                d['average_data'] = [
+                    {'name': k, **v}
+                    for k, v in d.get('average_data', {}).items()
+                ]
+        return data
+
+    def _top_tenants_resources(
+        self, rep: ReportMetrics, data: dict, previous_data: dict
+    ) -> dict:
+        key = operator.itemgetter('tenant_display_name')
+        old = map_by(previous_data.get('data', []), key)
+        for tdn, new_data in map_by(data.setdefault('data', []), key).items():
+            old_data = old.get(tdn, {})
+            add_diff(
+                new_data.setdefault('data', {}),
+                old_data.setdefault('data', {}),
+            )
+        return data
+
+    def _top_tenants_attacks(
+        self, rep: ReportMetrics, data: dict, previous_data: dict
+    ) -> dict:
+        key = operator.itemgetter('tenant_display_name')
+        key_tactic = operator.itemgetter('tactic_id')
+        old = map_by(previous_data.get('data', []), key)
+        for tdn, new_data in map_by(data.setdefault('data', []), key).items():
+            old_data = old.get(tdn, {})
+
+            for cl, items in new_data.get('data', {}).items():
+                old_tactics = map_by(old_data.get(cl, []), key_tactic)
+                for tactic_id, new_tactics_data in map_by(
+                    items, key_tactic
+                ).items():
+                    old_tactics_data = old_tactics.get(tactic_id, {})
+                    add_diff(new_tactics_data, old_tactics_data)
+        return data
+
+    def _c_level_overview_custom(
+        self, rep: ReportMetrics, data: dict, previous_data: dict
+    ) -> dict:
+        previous_data = previous_data or {}
+        for cl, cl_data in data.items():
+            add_diff(
+                cl_data,
+                previous_data.get(cl, {}),
+                exclude=('total_scanned_tenants',),
+            )
+        return {'data': data}
+
+    def convert(
+        self, rep: ReportMetrics, data: dict, previous_data: dict | None = None
+    ) -> MaestroReport:
         base = self.build_base(rep)
+        previous_data = previous_data or {}
         match rep.type:
             case ReportType.OPERATIONAL_OVERVIEW:
                 custom = self._operational_overview_custom(rep, data)
@@ -398,6 +529,24 @@ class MaestroModelBuilder:
                 custom = self._project_attacks_custom(rep, data)
             case ReportType.PROJECT_FINOPS:
                 custom = self._project_finops_custom(rep, data)
+            case ReportType.DEPARTMENT_TOP_TENANTS_ATTACKS:
+                custom = self._top_tenants_attacks(rep, data, previous_data)
+            case ReportType.DEPARTMENT_TOP_TENANTS_RESOURCES:
+                custom = self._top_tenants_resources(rep, data, previous_data)
+            case ReportType.DEPARTMENT_TOP_TENANTS_COMPLIANCE:
+                custom = self._top_tenants_compliance(rep, data, previous_data)
+            case ReportType.DEPARTMENT_TOP_ATTACK_BY_CLOUD:
+                custom = self._top_attacks_by_cloud(rep, data, previous_data)
+            case ReportType.DEPARTMENT_TOP_RESOURCES_BY_CLOUD:
+                custom = self._top_resources_by_cloud(rep, data, previous_data)
+            case ReportType.DEPARTMENT_TOP_COMPLIANCE_BY_CLOUD:
+                custom = self._top_compliance_by_cloud(
+                    rep, data, previous_data
+                )
+            case ReportType.C_LEVEL_OVERVIEW:
+                custom = self._c_level_overview_custom(
+                    rep, data, previous_data
+                )
             case _:
                 raise NotImplementedError()
         base.update(custom)
@@ -624,15 +773,7 @@ class HighLevelReportsHandler(AbstractHandler):
             else:
                 previous_data = self._rms.fetch_data(previous)
             current_data = self._rms.fetch_data(rep)
-            for cl, data in current_data.items():
-                add_diff(
-                    data,
-                    previous_data.get(cl, {}),
-                    exclude=('total_scanned_tenants',),
-                )
-            base = builder.build_base(rep)
-            base['data'] = current_data
-
+            base = builder.convert(rep, current_data, previous_data)
             models.append(
                 self._rmq.build_m3_json_model(
                     notification_type=SRE_REPORTS_TYPE_TO_M3_MAPPING[typ],
@@ -838,24 +979,36 @@ class HighLevelReportsHandler(AbstractHandler):
                 customer=event.customer_id,
                 type_=typ,
                 start=typ.start(now),
-                end=typ.end(now)
+                end=typ.end(now),
             )
             if not rep:
                 _LOG.warning(
                     f'Cannot find {typ} for {event.customer_id} for the current month'
                 )
                 continue
+            previous_month = now + relativedelta(months=-1)
+            previous = self._rms.get_exactly_for_customer(
+                customer=event.customer_id,
+                type_=typ,
+                start=typ.start(previous_month),
+                end=typ.end(previous_month),
+            )
+            if not previous:
+                _LOG.info(
+                    'Previous clevel report not found, diffs will be empty'
+                )
+                previous_data = {}
+            else:
+                previous_data = self._rms.fetch_data(previous)
+            current_data = self._rms.fetch_data(rep)
 
-
-
-
-
-
-
-
-
-
-
+            base = builder.convert(rep, current_data, previous_data)
+            models.append(
+                self._rmq.build_m3_json_model(
+                    notification_type=SRE_REPORTS_TYPE_TO_M3_MAPPING[typ],
+                    data=base,
+                )
+            )
 
         if not models:
             raise (
