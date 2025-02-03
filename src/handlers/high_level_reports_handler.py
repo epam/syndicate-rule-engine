@@ -66,6 +66,8 @@ SRE_REPORTS_TYPE_TO_M3_MAPPING = {
     ReportType.DEPARTMENT_TOP_ATTACK_BY_CLOUD: 'CUSTODIAN_TOP_TENANTS_BY_CLOUD_ATTACKS_REPORT',
     # C-Level
     ReportType.C_LEVEL_OVERVIEW: 'CUSTODIAN_CUSTOMER_OVERVIEW_REPORT',
+    ReportType.C_LEVEL_COMPLIANCE: 'CUSTODIAN_CUSTOMER_COMPLIANCE_REPORT',
+    ReportType.C_LEVEL_ATTACKS: 'CUSTODIAN_CUSTOMER_ATTACKS_REPORT',
 }
 
 
@@ -123,7 +125,11 @@ class MaestroModelBuilder:
                 | ReportType.C_LEVEL_COMPLIANCE
             ):
                 return 'COMPLIANCE'
-            case ReportType.OPERATIONAL_ATTACKS | ReportType.PROJECT_ATTACKS:
+            case (
+                ReportType.OPERATIONAL_ATTACKS
+                | ReportType.PROJECT_ATTACKS
+                | ReportType.C_LEVEL_ATTACKS
+            ):
                 return 'ATTACK_VECTOR'
             case ReportType.OPERATIONAL_RULES:
                 return 'RULE'
@@ -493,8 +499,36 @@ class MaestroModelBuilder:
             add_diff(
                 cl_data,
                 previous_data.get(cl, {}),
-                exclude=('total_scanned_tenants',),
+                exclude=('total_scanned_tenants', ('license_properties', 'Number of licenses')),
             )
+        return {'data': data}
+
+    def _c_level_attacks_custom(
+        self, rep: ReportMetrics, data: dict, previous_data: dict
+    ) -> dict:
+        key = operator.itemgetter('tactic_id')
+        for cl, cl_data in data.items():
+            old = map_by(previous_data.get(cl, []), key)
+            for tactic_id, new_data in map_by(cl_data, key).items():
+                old_data = old.get(tactic_id, {})
+                add_diff(new_data, old_data)
+
+        return {'data': data}
+
+    def _c_level_compliance_custom(
+        self, rep: ReportMetrics, data: dict, previous_data: dict
+    ) -> dict:
+        for cl, cl_data in data.items():
+            add_diff(
+                cl_data,
+                previous_data.get(cl, {}),
+                exclude=('total_scanned_tenants', ('license_properties', 'Number of licenses')),
+                callback=_compliance_diff_callback,
+            )
+            cl_data['average_data'] = [
+                {'name': k, **v}
+                for k, v in cl_data.get('average_data', {}).items()
+            ]
         return {'data': data}
 
     def convert(
@@ -547,8 +581,12 @@ class MaestroModelBuilder:
                 custom = self._c_level_overview_custom(
                     rep, data, previous_data
                 )
-            case _:
-                raise NotImplementedError()
+            case ReportType.C_LEVEL_ATTACKS:
+                custom = self._c_level_attacks_custom(rep, data, previous_data)
+            case ReportType.C_LEVEL_COMPLIANCE:
+                custom = self._c_level_compliance_custom(
+                    rep, data, previous_data
+                )
         base.update(custom)
         return base
 

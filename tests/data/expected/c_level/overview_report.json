@@ -60,9 +60,7 @@
         "Rulesets": [
           "AWS"
         ],
-        "Number of licenses": {
-          "value": 1
-        },
+        "Number of licenses": 1,
         "Event-Driven mode": "On",
         "Scans frequency": "10 scans per DAY",
         "Expiration": "Feb 01, 2100 13:24:26 UTC"
@@ -98,9 +96,7 @@
         "Rulesets": [
           "AZURE"
         ],
-        "Number of licenses": {
-          "value": 1
-        },
+        "Number of licenses": 1,
         "Event-Driven mode": "On",
         "Scans frequency": "10 scans per DAY",
         "Expiration": "Feb 01, 2100 13:24:26 UTC"
@@ -142,9 +138,7 @@
         "Rulesets": [
           "GOOGLE"
         ],
-        "Number of licenses": {
-          "value": 1
-        },
+        "Number of licenses": 1,
         "Event-Driven mode": "On",
         "Scans frequency": "10 scans per DAY",
         "Expiration": "Feb 01, 2100 13:24:26 UTC"

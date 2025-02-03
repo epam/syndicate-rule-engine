@@ -1,8 +1,6 @@
-from __future__ import annotations
-
 import itertools
 import statistics
-from typing import Annotated
+from typing import Annotated, Any, Generator
 
 import msgspec
 from typing_extensions import Self
@@ -119,8 +117,9 @@ class StandardCoverageCalculator:
         return statistics.mean(items)
 
 
-def calculate_controls_coverages(successful: dict[str, int],
-                                 total: dict[str, int]) -> dict[str, float]:
+def calculate_controls_coverages(
+    successful: dict[str, int], total: dict[str, int]
+) -> dict[str, float]:
     res = {}
     for control, total_n in total.items():
         successful_n = successful.get(control)
@@ -129,3 +128,21 @@ def calculate_controls_coverages(successful: dict[str, int],
         else:
             res[control] = 0.0
     return res
+
+
+class MappingAverageCalculator:
+    __slots__ = ('_buf',)
+
+    def __init__(self):
+        self._buf = {}
+
+    def update(self, dct: dict[Any, float]) -> None:
+        for k, v in dct.items():
+            self._buf.setdefault(k, []).append(v)
+
+    def produce(self) -> Generator[tuple[Any, float], None, None]:
+        for k, v in self._buf.items():
+            yield k, statistics.mean(v)
+
+    def reset(self) -> None:
+        self._buf.clear()

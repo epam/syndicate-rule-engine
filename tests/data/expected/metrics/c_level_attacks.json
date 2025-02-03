@@ -1,0 +1,13 @@
+{
+  "AWS": [
+    {
+      "tactic": "Collection",
+      "tactic_id": "TA0009",
+      "severity_data": {
+        "Unknown": 3
+      }
+    }
+  ],
+  "AZURE": [],
+  "GOOGLE": []
+}

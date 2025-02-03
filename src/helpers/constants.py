@@ -1164,6 +1164,14 @@ class ReportType(str, Enum):
         ),
         relativedelta(hour=0, minute=0, second=0, microsecond=0, day=1),
     )
+    C_LEVEL_ATTACKS = (
+        'C_LEVEL_ATTACKS',
+        'Attacks across all tenants within customer ...?',
+        relativedelta(
+            hour=0, minute=0, second=0, microsecond=0, months=-1, day=1
+        ),
+        relativedelta(hour=0, minute=0, second=0, microsecond=0, day=1),
+    )
 
 
 class RabbitCommand(str, Enum):

@@ -1229,7 +1229,8 @@ class CLevelGetReportModel(BaseModel):
         """
         old_new = {
             'OVERVIEW': ReportType.C_LEVEL_OVERVIEW,
-            # 'COMPLIANCE': ReportType.C_LEVEL_COMPLIANCE,
+            'COMPLIANCE': ReportType.C_LEVEL_COMPLIANCE,
+            'ATTACK_VECTOR': ReportType.C_LEVEL_ATTACKS
         }
         if not self.types:
             return tuple(old_new.values())

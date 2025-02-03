@@ -501,6 +501,21 @@ def test_metrics_update_department_c_level(
     )
 
     item = SP.report_metrics_service.get_exactly_for_customer(
+        main_customer, ReportType.C_LEVEL_COMPLIANCE
+    )
+    assert dicts_equal(
+        SP.report_metrics_service.fetch_data(item),
+        load_expected('metrics/c_level_compliance')
+    )
+    item = SP.report_metrics_service.get_exactly_for_customer(
+        main_customer, ReportType.C_LEVEL_ATTACKS
+    )
+    assert dicts_equal(
+        SP.report_metrics_service.fetch_data(item),
+        load_expected('metrics/c_level_attacks')
+    )
+
+    item = SP.report_metrics_service.get_exactly_for_customer(
         main_customer, ReportType.DEPARTMENT_TOP_RESOURCES_BY_CLOUD
     )
     assert dicts_equal(

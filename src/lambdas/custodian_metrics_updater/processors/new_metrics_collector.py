@@ -26,6 +26,7 @@ from services.metadata import Metadata
 from services.modular_helpers import tenant_cloud
 from services.platform_service import Platform, PlatformService
 from services.report_service import ReportService
+from services.coverage_service import MappingAverageCalculator
 from services.reports import (
     JobMetricsDataSource,
     ReportMetricsService,
@@ -568,6 +569,37 @@ class MetricsCollector:
                     job_source=job_source,
                     sc_provider=sc_provider,
                     report_type=ReportType.C_LEVEL_OVERVIEW,
+                )
+            )
+
+        if not self._rms.was_collected_for_customer(
+            ctx.customer, ReportType.C_LEVEL_COMPLIANCE, ctx.now
+        ):
+            _LOG.info(
+                'Generating c-level compliance for all tenants because '
+                'it has not be collected yet'
+            )
+            ctx.add_reports(
+                self.c_level_compliance(
+                    ctx=ctx,
+                    job_source=job_source,
+                    sc_provider=sc_provider,
+                    report_type=ReportType.C_LEVEL_COMPLIANCE,
+                )
+            )
+        if not self._rms.was_collected_for_customer(
+            ctx.customer, ReportType.C_LEVEL_ATTACKS, ctx.now
+        ):
+            _LOG.info(
+                'Generating c-level attacks for all tenants because '
+                'it has not be collected yet'
+            )
+            ctx.add_reports(
+                self.c_level_attacks(
+                    ctx=ctx,
+                    job_source=job_source,
+                    sc_provider=sc_provider,
+                    report_type=ReportType.C_LEVEL_ATTACKS,
                 )
             )
 
@@ -1695,6 +1727,121 @@ class MetricsCollector:
                 'total_scans': len(tjs),
                 **self._cloud_licenses_info(cloud, licenses, rulesets),
             }
+        yield (
+            self._rms.create(
+                key=self._rms.key_for_customer(report_type, ctx.customer.name),
+                start=start,
+                end=end,
+            ),
+            data,
+        )
+
+    def c_level_compliance(
+        self,
+        ctx: MetricsContext,
+        job_source: JobMetricsDataSource,
+        sc_provider: ShardsCollectionProvider,
+        report_type: ReportType,
+    ) -> ReportsGen:
+        start = report_type.start(ctx.now)
+        end = report_type.end(ctx.now)
+        js = job_source.subset(start=start, end=end, affiliation='tenant')
+        cloud_tenant = self.base_clouds_payload()
+        for tenant_name in js.scanned_tenants:
+            tenant = self._get_tenant(tenant_name)
+            if not tenant:
+                _LOG.warning(f'Tenant with name {tenant_name} not found!')
+                continue
+            cloud_tenant.setdefault(tenant.cloud, []).append(tenant)
+        _LOG.info('Collecting licenses data')
+        # TODO: in case these metrics are collected as of some past date the
+        #  license information will not correspond to date
+        licenses, rulesets = self._collect_licenses_data(ctx)
+        data = {}
+        for cloud, tenants in cloud_tenant.items():
+            calc = MappingAverageCalculator()
+            for tenant in tenants:
+                col = sc_provider.get_for_tenant(tenant, end)
+                if col is None:
+                    _LOG.warning(
+                        f'Cannot get shards collection for '
+                        f'{tenant.name} for {end}'
+                    )
+                    continue
+                total = self._rs.calculate_tenant_full_coverage(
+                    col, ctx.metadata, tenant_cloud(tenant)
+                )
+                calc.update(total)
+
+            data[cloud] = {
+                **self._cloud_licenses_info(cloud, licenses, rulesets),
+                'total_scanned_tenants': len(tenants),
+                'last_scan_date': js.subset(
+                    tenant={t.name for t in tenants}
+                ).last_succeeded_scan_date,
+                'average_data': {
+                    st.full_name: cov for st, cov in calc.produce()
+                },
+            }
+        yield (
+            self._rms.create(
+                key=self._rms.key_for_customer(report_type, ctx.customer.name),
+                start=start,
+                end=end,
+            ),
+            data,
+        )
+
+    def c_level_attacks(
+        self,
+        ctx: MetricsContext,
+        job_source: JobMetricsDataSource,
+        sc_provider: ShardsCollectionProvider,
+        report_type: ReportType,
+    ) -> ReportsGen:
+        start = report_type.start(ctx.now)
+        end = report_type.end(ctx.now)
+        js = job_source.subset(start=start, end=end, affiliation='tenant')
+        cloud_tenant = self.base_clouds_payload()
+        for tenant_name in js.scanned_tenants:
+            tenant = self._get_tenant(tenant_name)
+            if not tenant:
+                _LOG.warning(f'Tenant with name {tenant_name} not found!')
+                continue
+            cloud_tenant.setdefault(tenant.cloud, []).append(tenant)
+
+        data = {}
+        for cloud, tenants in cloud_tenant.items():
+            tactic_severities = {}
+            for tenant in tenants:
+                col = sc_provider.get_for_tenant(tenant, end)
+                if col is None:
+                    _LOG.warning(
+                        f'Cannot get shards collection for '
+                        f'{tenant.name} for {end}'
+                    )
+                    continue
+                sdc = ShardsCollectionDataSource(
+                    col, ctx.metadata, tenant_cloud(tenant)
+                )
+                for (
+                    tactic_name,
+                    severities,
+                ) in sdc.tactic_to_severities().items():
+                    self._update_dict_values(
+                        target=tactic_severities.setdefault(tactic_name, {}),
+                        from_=severities,
+                    )
+
+            data[cloud] = [
+                {
+                    'tactic': tactic,
+                    'tactic_id': TACTICS_ID_MAPPING.get(tactic, ''),
+                    'severity_data': severity_data,
+                }
+                for tactic, severity_data in tactic_severities.items()
+            ]
+
         yield (
             self._rms.create(
                 key=self._rms.key_for_customer(report_type, ctx.customer.name),
