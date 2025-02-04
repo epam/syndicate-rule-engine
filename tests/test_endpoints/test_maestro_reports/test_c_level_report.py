@@ -21,6 +21,7 @@ def c_level_overview(main_customer, load_expected, utcnow):
         item, load_expected('metrics/c_level_overview')
     )
 
+
 @pytest.fixture()
 def c_level_compliance(main_customer, load_expected, utcnow):
     item = SP.report_metrics_service.create(

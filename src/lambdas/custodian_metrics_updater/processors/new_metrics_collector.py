@@ -2,7 +2,7 @@ import copy
 import heapq
 import statistics
 from datetime import datetime
-from typing import Generator, Iterable, Iterator, cast
+from typing import TYPE_CHECKING, Generator, Iterable, Iterator, cast
 
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
@@ -21,12 +21,12 @@ from models.metrics import ReportMetrics
 from models.ruleset import Ruleset
 from services import SP, modular_helpers
 from services.ambiguous_job_service import AmbiguousJobService
+from services.coverage_service import MappingAverageCalculator
 from services.license_service import License, LicenseService
 from services.metadata import Metadata
 from services.modular_helpers import tenant_cloud
 from services.platform_service import Platform, PlatformService
 from services.report_service import ReportService
-from services.coverage_service import MappingAverageCalculator
 from services.reports import (
     JobMetricsDataSource,
     ReportMetricsService,
@@ -34,6 +34,9 @@ from services.reports import (
     ShardsCollectionProvider,
 )
 from services.ruleset_service import RulesetName, RulesetService
+
+if TYPE_CHECKING:
+    from services.report_service import AverageStatisticsItem
 
 ReportsGen = Generator[tuple[ReportMetrics, dict], None, None]
 
@@ -207,17 +210,17 @@ class MetricsCollector:
         it: Iterable[Tenant],
     ) -> Generator[tuple[Cloud, Tenant], None, None]:
         """
-        Maestro has so-called tenant groups. They call them "tenants" so
-        here we have a confusion. "Tenant" as a model is one AWS account or
-        one AZURE subscription or one GOOGLE project, etc.
-        "Tenant" as a group is a number of "Tenant" models where
-        each cloud can be found only once. So, a number of tenants in a
-        tenant group cannot exceed the total number of supported clouds
+                Maestro has so-called tenant groups. They call them "tenants" so
+                here we have a confusion. "Tenant" as a model is one AWS account or
+                one AZURE subscription or one GOOGLE project, etc.
+                "Tenant" as a group is a number of "Tenant" models where
+                each cloud can be found only once. So, a number of tenants in a
+                tenant group cannot exceed the total number of supported clouds
         because a tenant of specific cloud can be added only once.
 
-        This method iterates over the given tenants and yields a cloud and a
-        tenant. If it founds a second tenant with already yielded cloud,
-        it just skips it with warning.
+                This method iterates over the given tenants and yields a cloud and a
+                tenant. If it founds a second tenant with already yielded cloud,
+                it just skips it with warning.
         """
         yielded = set()
         for tenant in it:
@@ -371,6 +374,7 @@ class MetricsCollector:
                 self.operational_rules(
                     now=ctx.now,
                     job_source=job_source,
+                    sc_provider=sc_provider,
                     report_type=ReportType.OPERATIONAL_RULES,
                 ),
                 ctx,
@@ -712,10 +716,20 @@ class MetricsCollector:
                 data,
             )
 
+    def _expand_rules_statistics(
+        self, it: Iterable['AverageStatisticsItem'], meta: dict | None = None
+    ) -> Generator['AverageStatisticsItem', None, None]:
+        meta = meta or {}
+        for item in it:
+            p = item.policy
+            item.policy = meta.get(p, {}).get('description', p)
+            yield item
+
     def operational_rules(
         self,
         now: datetime,
         job_source: JobMetricsDataSource,
+        sc_provider: ShardsCollectionProvider,
         report_type: ReportType,
     ) -> ReportsGen:
         start = report_type.start(now)
@@ -727,6 +741,7 @@ class MetricsCollector:
                 _LOG.warning(f'Tenant with name {tenant_name} not found!')
                 continue
             tjs = js.subset(tenant=tenant.name, job_state=JobState.SUCCEEDED)
+            col = sc_provider.get_for_tenant(tenant, end)
 
             data = {
                 'succeeded_scans': len(tjs),
@@ -736,8 +751,11 @@ class MetricsCollector:
                 'last_scan_date': tjs.last_succeeded_scan_date,
                 'id': tenant.project,
                 'data': list(
-                    self._rs.average_statistics(
-                        *map(self._rs.job_statistics, tjs)
+                    self._expand_rules_statistics(
+                        self._rs.average_statistics(
+                            *map(self._rs.job_statistics, tjs)
+                        ),
+                        col.meta if col else {},
                     )
                 ),
             }

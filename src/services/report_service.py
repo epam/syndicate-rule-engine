@@ -1,9 +1,9 @@
 import statistics
+import msgspec
 from datetime import datetime
 from itertools import chain
-from typing import BinaryIO, Generator, TypedDict, cast, Iterable
+from typing import BinaryIO, Generator, TypedDict, Iterable
 
-import msgspec
 from modular_sdk.models.tenant import Tenant
 
 from helpers.log_helper import get_logger
@@ -36,24 +36,27 @@ from services.sharding import (
 _LOG = get_logger(__name__)
 
 
-class StatisticsItem(TypedDict, total=False):
+class StatisticsItem(msgspec.Struct, kw_only=True, eq=False):
     policy: str
     region: str
     tenant_name: str
     customer_name: str
     start_time: float
     end_time: float
-    api_calls: dict
+    api_calls: dict = msgspec.field(default_factory=dict)
 
-    scanned_resources: int | None
-    failed_resources: int | None
-    reason: str | None
-    traceback: list[str]
-    error_type: PolicyErrorType | None
+    scanned_resources: int | None = None
+    failed_resources: int | None = None
+    reason: str | None = None
+    traceback: list[str] = msgspec.field(default_factory=list)
+    error_type: PolicyErrorType | None = None
 
+    def is_successful(self) -> bool:
+        return self.error_type is None
 
-class AverageStatisticsItem(TypedDict, total=False):
+class AverageStatisticsItem(msgspec.Struct, kw_only=True, eq=False):
     policy: str
+    region: str
     invocations: int
     succeeded_invocations: int
     failed_invocations: int
@@ -66,6 +69,22 @@ class AverageStatisticsItem(TypedDict, total=False):
     resources_scanned: int
     average_resources_scanned: int
     average_resources_failed: int
+
+
+# class AverageStatisticsItem(TypedDict, total=False):
+#     policy: str
+#     invocations: int
+#     succeeded_invocations: int
+#     failed_invocations: int
+#     total_api_calls: dict
+#     min_exec: float
+#     max_exec: float
+#     total_exec: float
+#     average_exec: float
+#     resources_failed: int
+#     resources_scanned: int
+#     average_resources_scanned: int
+#     average_resources_failed: int
 
 
 class ReportResponse:
@@ -107,6 +126,8 @@ class ReportResponse:
 
 
 class ReportService:
+    _job_statistics_decoder = msgspec.json.Decoder(type=list[StatisticsItem])
+
     def __init__(
         self, s3_client: S3Client, environment_service: EnvironmentService
     ):
@@ -225,131 +246,96 @@ class ReportService:
     ) -> list[StatisticsItem]:
         if isinstance(job, AmbiguousJob):
             job = job.job
-        data = self.s3_client.gz_get_json(
+        data = self.s3_client.gz_get_object(
             bucket=self.environment_service.get_statistics_bucket_name(),
             key=StatisticsBucketKeysBuilder.job_statistics(job),
         )
-        if not data:
+        if data is None:
+            # must never happen for a succeeded job
             return []
-        return data
+        return self._job_statistics_decoder.decode(data.getvalue())
 
     @staticmethod
     def average_statistics(
-        *iterables: list[StatisticsItem],
-    ) -> Generator[dict, None, None]:
+        *iterables: Iterable[StatisticsItem],
+    ) -> Generator[AverageStatisticsItem, None, None]:
         remapped = {}  # (policy region) to items
         for i in chain(*iterables):
-            remapped.setdefault((i['policy'], i['region']), []).append(i)
+            remapped.setdefault((i.policy, i.region), []).append(i)
         for key, items in remapped.items():
+            items: list[StatisticsItem]
             total_api_calls = {}
             executions = []
             failed_invocations = 0
             scanned, failed = [], []
             for item in items:
-                for k, v in (item.get('api_calls') or {}).items():
+                for k, v in item.api_calls.items():
                     if k not in total_api_calls:
                         total_api_calls[k] = v
                     else:
                         total_api_calls[k] += v
-                executions.append(item['end_time'] - item['start_time'])
-                if item.get('scanned_resources'):
-                    scanned.append(item['scanned_resources'])
-                if item.get('failed_resources'):
-                    failed.append(item['failed_resources'])
-                if item.get('error_type'):
+                executions.append(item.end_time - item.start_time)
+                if item.scanned_resources is not None:
+                    scanned.append(item.scanned_resources)
+                if item.failed_resources is not None:
+                    failed.append(item.failed_resources)
+                if item.error_type:
                     failed_invocations += 1
             scanned = scanned or [0]
             failed = failed or [0]
-            yield {
-                'policy': key[0],
-                'region': key[1],
-                'invocations': len(items),
-                'succeeded_invocations': len(items) - failed_invocations,
-                'failed_invocations': failed_invocations,
-                'total_api_calls': total_api_calls,
-                'min_exec': min(executions),
-                'max_exec': max(executions),
-                'total_exec': sum(executions),
-                'average_exec': statistics.mean(executions),
-                'resources_failed': sum(failed),
-                'resources_scanned': sum(scanned),
-                'average_resources_scanned': statistics.mean(scanned),
-                'average_resources_failed': statistics.mean(failed),
-            }
+            yield AverageStatisticsItem(
+                policy=key[0],
+                region=key[1],
+                invocations=len(items),
+                succeeded_invocations=len(items) - failed_invocations,
+                failed_invocations=failed_invocations,
+                total_api_calls=total_api_calls,
+                min_exec=min(executions),
+                max_exec=max(executions),
+                total_exec=sum(executions),
+                average_exec=statistics.mean(executions),
+                resources_failed=sum(failed),
+                resources_scanned=sum(scanned),
+                average_resources_scanned=statistics.mean(scanned),
+                average_resources_failed=statistics.mean(failed)
+            )
 
     @staticmethod
-    def sum_average_statistics(
-        iterables: list[AverageStatisticsItem],
-    ) -> list[AverageStatisticsItem]:
-        result = {}
-        for item in iterables:
-            for k, v in item.items():
-                if k == 'policy':
-                    result.setdefault(item['policy'], {})
-                elif k == 'region':
-                    continue
-                elif k == 'total_api_calls':
-                    for k_api, v_api in v.items():
-                        result[item['policy']].setdefault(k, {}).setdefault(
-                            k_api, 0
-                        )
-                        result[item['policy']][k][k_api] += v_api
-                else:
-                    result[item['policy']].setdefault(k, 0)
-                    result[item['policy']][k] += v
-
-        return [{'policy': k, **v} for k, v in result.items()]
-
-    @staticmethod
-    def format_statistic(item: StatisticsItem) -> dict:
-        item = cast(dict, item)
-        item.pop('tenant_name', None)
-        item.pop('customer_name', None)
-        item.pop('traceback', None)
-        item.pop('reason', None)
-        item['succeeded'] = not bool(item.get('error_type'))
-        item['execution_time'] = item['end_time'] - item['start_time']
-        item.pop('start_time', None)
-        item.pop('end_time', None)
-        return item
-
-    @staticmethod
-    def format_failed(item: StatisticsItem) -> StatisticsItem:
+    def format_statistics_failed(item: StatisticsItem) -> StatisticsItem:
         """
-        Changes the given item. Does not create new one
+        Changes the given item. Does not create new one.
+        Returns the same one for convenience
         :param item:
         :return:
         """
-        item.pop('tenant_name', None)
-        item.pop('customer_name', None)
-        item.pop('start_time', None)
-        item.pop('end_time', None)
-        item.pop('api_calls', None)
-        item.pop('scanned_resources', None)
-        item.pop('failed_resources', None)
-        item.pop('traceback', None)
+        item.tenant_name = msgspec.UNSET
+        item.customer_name = msgspec.UNSET
+        item.start_time = msgspec.UNSET
+        item.end_time = msgspec.UNSET
+        item.api_calls = msgspec.UNSET
+        item.scanned_resources = msgspec.UNSET
+        item.failed_resources = msgspec.UNSET
+        item.traceback = msgspec.UNSET
         return item
 
     @staticmethod
     def only_failed(
-        statistic: list[StatisticsItem], error_type: PolicyErrorType = None
-    ) -> filter:
+        statistic: Iterable[StatisticsItem],
+        error_type: PolicyErrorType | None = None,
+    ) -> Generator[StatisticsItem, None, None]:
         """
         Keeps only failed statistics items
         :param statistic:
         :param error_type:
         :return:
         """
-
-        def check(item):
-            et = item.get('error_type')
-            if not et:
-                return False
-            if error_type and et != error_type:
-                return False
-            return True
-
-        return filter(check, statistic)
+        for item in statistic:
+            if not item.error_type:
+                continue
+            # definitelly failed
+            if error_type and item.error_type != error_type:
+                continue
+            yield item
 
     def one_time_url(self, buffer: BinaryIO, filename: str) -> str:
         """

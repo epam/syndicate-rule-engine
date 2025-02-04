@@ -2,26 +2,24 @@ import heapq
 import operator
 from datetime import datetime
 from functools import cached_property
-from typing import Optional, Callable, TypeVar, Iterator, Iterable, Union
+from typing import Callable, Iterable, Iterator, Optional, Union
 
-from helpers.constants import JobType, JobState
-from services.batch_results_service import BatchResultsService, BatchResults
-from services.job_service import JobService, Job
-
+from helpers.constants import JobState, JobType
+from services.batch_results_service import BatchResults, BatchResultsService
+from services.job_service import Job, JobService
 
 Source = Job | BatchResults
-
-J = TypeVar('J', Job, BatchResults)
 
 
 class AmbiguousJob:
     """
     Resembles our base job interface
     """
-    __slots__ = ('job', )
 
-    def __init__(self, job: J):
-        self.job: J = job
+    __slots__ = ('job',)
+
+    def __init__(self, job: Source):
+        self.job: Source = job
 
     def __repr__(self) -> str:
         return f'{self.class_.__name__}<{self.id}>'
@@ -35,7 +33,7 @@ class AmbiguousJob:
         return type(other) is self.class_ and self.job == other
 
     @property
-    def class_(self) -> J:
+    def class_(self) -> type[Source]:
         return type(self.job)
 
     @property
@@ -104,12 +102,18 @@ class AmbiguousJob:
         return getattr(self.job, item, None)
 
     def is_finished(self) -> bool:
-        return self.stopped_at and self.status in (JobState.SUCCEEDED, JobState.FAILED)
+        return bool(self.stopped_at) and self.status in (
+            JobState.SUCCEEDED,
+            JobState.FAILED,
+        )
 
 
 class AmbiguousJobService:
-    def __init__(self, job_service: JobService,
-                 batch_results_service: BatchResultsService):
+    def __init__(
+        self,
+        job_service: JobService,
+        batch_results_service: BatchResultsService,
+    ):
         self._manual_source_service = job_service
         self._reactive_source_service = batch_results_service
 
@@ -125,7 +129,7 @@ class AmbiguousJobService:
     def typ_job_getter_ref(self) -> dict[JobType, Callable]:
         return {
             JobType.MANUAL: self._manual_source_service.get_nullable,
-            JobType.REACTIVE: self._reactive_source_service.get_nullable
+            JobType.REACTIVE: self._reactive_source_service.get_nullable,
         }
 
     def get(self, uid: str, typ: Optional[JobType] = None) -> Optional[Source]:
@@ -136,10 +140,13 @@ class AmbiguousJobService:
         source = filter(lambda x: x, (get(uid) for get in ref.values()))
         return next(source, None)
 
-    def get_job(self, job_id: str, typ: Optional[JobType] = None,
-                tenant: Optional[str] = None,
-                customer: Optional[str] = None
-                ) -> AmbiguousJob | None:
+    def get_job(
+        self,
+        job_id: str,
+        typ: Optional[JobType] = None,
+        tenant: Optional[str] = None,
+        customer: Optional[str] = None,
+    ) -> AmbiguousJob | None:
         item = self.get(job_id, typ)
         if not item:
             return
@@ -151,23 +158,31 @@ class AmbiguousJobService:
         return item
 
     @staticmethod
-    def merged(jobs: Iterator[Job], brs: Iterator[BatchResults],
-               ascending: bool = False) -> Iterable[Source]:
+    def merged(
+        jobs: Iterator[Job],
+        brs: Iterator[BatchResults],
+        ascending: bool = False,
+    ) -> Iterable[Source]:
         key = operator.attrgetter('submitted_at')
         return heapq.merge(jobs, brs, key=key, reverse=not ascending)
 
-    def get_by_customer_name(self, customer_name: str,
-                             job_type: JobType | None = None, status: JobState | None = None,
-                             start: datetime | None = None, end: datetime | None = None,
-                             ascending: bool = False, limit: int | None = None,
-                             ) -> Iterable[Source]:
+    def get_by_customer_name(
+        self,
+        customer_name: str,
+        job_type: JobType | None = None,
+        status: JobState | None = None,
+        start: datetime | None = None,
+        end: datetime | None = None,
+        ascending: bool = False,
+        limit: int | None = None,
+    ) -> Iterable[Source]:
         cursor1 = self.job_service.get_by_customer_name(
             customer_name=customer_name,
             status=status,
             start=start,
             end=end,
             ascending=ascending,
-            limit=limit
+            limit=limit,
         )
         cursor2 = self.batch_results_service.get_by_customer_name(
             customer_name=customer_name,
@@ -175,7 +190,7 @@ class AmbiguousJobService:
             start=start,
             end=end,
             ascending=ascending,
-            limit=limit
+            limit=limit,
         )
         match job_type:
             case JobType.MANUAL:
@@ -185,18 +200,23 @@ class AmbiguousJobService:
             case _:
                 return self.merged(cursor1, cursor2, ascending)
 
-    def get_by_tenant_name(self, tenant_name: str,
-                           job_type: JobType | None = None, status: JobState | None = None,
-                           start: datetime | None = None, end: datetime | None = None,
-                           ascending: bool = False, limit: int | None = None,
-                           ) -> Iterable[Source]:
+    def get_by_tenant_name(
+        self,
+        tenant_name: str,
+        job_type: JobType | None = None,
+        status: JobState | None = None,
+        start: datetime | None = None,
+        end: datetime | None = None,
+        ascending: bool = False,
+        limit: int | None = None,
+    ) -> Iterable[Source]:
         cursor1 = self.job_service.get_by_tenant_name(
             tenant_name=tenant_name,
             status=status,
             start=start,
             end=end,
             ascending=ascending,
-            limit=limit
+            limit=limit,
         )
         cursor2 = self.batch_results_service.get_by_tenant_name(
             tenant_name=tenant_name,
@@ -204,7 +224,7 @@ class AmbiguousJobService:
             start=start,
             end=end,
             ascending=ascending,
-            limit=limit
+            limit=limit,
         )
         match job_type:
             case JobType.MANUAL:

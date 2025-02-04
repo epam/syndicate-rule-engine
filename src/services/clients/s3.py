@@ -257,9 +257,9 @@ class S3Client(Boto3ClientWrapper):
         self,
         bucket: str,
         key: str,
-        buffer: BinaryIO | None = None,
-        gz_buffer: BinaryIO | None = None,
-    ) -> BinaryIO | None:
+        buffer: io.BytesIO | None = None,
+        gz_buffer: io.BytesIO | None = None,
+    ) -> io.BytesIO | None:
         """
         :param bucket:
         :param key:
