@@ -1919,11 +1919,11 @@ class MetricsCollector:
                         cloud_rulesets.append(
                             RulesetName(
                                 rs.name, sorted(rs.versions)[-1]
-                            ).to_str()
+                            ).to_human_readable_str()
                         )
                     else:
                         cloud_rulesets.append(
-                            RulesetName(rs.name, rs.version).to_str()
+                            RulesetName(rs.name, rs.version).to_human_readable_str()
                         )
         if not cloud_licenses:
             return {'activated': False, 'license_properties': {}}

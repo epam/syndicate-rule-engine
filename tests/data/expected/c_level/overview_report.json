@@ -58,7 +58,7 @@
       "activated": true,
       "license_properties": {
         "Rulesets": [
-          "AWS"
+          "AWS 1.0.0"
         ],
         "Number of licenses": 1,
         "Event-Driven mode": "On",
@@ -94,7 +94,7 @@
       "activated": true,
       "license_properties": {
         "Rulesets": [
-          "AZURE"
+          "AZURE 1.0.0"
         ],
         "Number of licenses": 1,
         "Event-Driven mode": "On",
@@ -136,7 +136,7 @@
       "activated": true,
       "license_properties": {
         "Rulesets": [
-          "GOOGLE"
+          "GOOGLE 1.0.0"
         ],
         "Number of licenses": 1,
         "Event-Driven mode": "On",

@@ -414,3 +414,9 @@ class RulesetName(tuple):
         if (lk := self.license_key) and include_license:
             name = f'{lk}:{name}'
         return name
+
+    def to_human_readable_str(self) -> str:
+        name = self.name
+        if v := self.version:
+            name = f'{name} {v.to_str()}'
+        return name

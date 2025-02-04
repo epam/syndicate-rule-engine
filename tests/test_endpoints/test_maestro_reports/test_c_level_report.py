@@ -83,11 +83,11 @@ def test_c_level_overview(
 
 
 def test_c_level_compliance(
-        system_user_token,
-        sre_client,
-        c_level_compliance,
-        mocked_rabbitmq,
-        load_expected,
+    system_user_token,
+    sre_client,
+    c_level_compliance,
+    mocked_rabbitmq,
+    load_expected,
 ):
     resp = sre_client.request(
         '/reports/clevel',
@@ -115,11 +115,11 @@ def test_c_level_compliance(
 
 
 def test_c_level_attacks(
-        system_user_token,
-        sre_client,
-        c_level_attacks,
-        mocked_rabbitmq,
-        load_expected,
+    system_user_token,
+    sre_client,
+    c_level_attacks,
+    mocked_rabbitmq,
+    load_expected,
 ):
     resp = sre_client.request(
         '/reports/clevel',

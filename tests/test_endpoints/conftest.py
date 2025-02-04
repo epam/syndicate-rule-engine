@@ -278,7 +278,8 @@ def main_license(main_customer) -> 'License':
         event_driven=False,
         licensed=True,
         license_keys=[lic.license_key],
-        license_manager_id='AWS'
+        license_manager_id='AWS',
+        versions=['1.0.0']
     ).save()
     SP.ruleset_service.create(
         customer=CAASEnv.SYSTEM_CUSTOMER_NAME.get(),
@@ -289,7 +290,8 @@ def main_license(main_customer) -> 'License':
         event_driven=False,
         licensed=True,
         license_keys=[lic.license_key],
-        license_manager_id='AZURE'
+        license_manager_id='AZURE',
+        versions=['1.0.0']
     ).save()
     SP.ruleset_service.create(
         customer=CAASEnv.SYSTEM_CUSTOMER_NAME.get(),
@@ -300,7 +302,8 @@ def main_license(main_customer) -> 'License':
         event_driven=False,
         licensed=True,
         license_keys=[lic.license_key],
-        license_manager_id='GOOGLE'
+        license_manager_id='GOOGLE',
+        versions=['1.0.0']
     ).save()
     return lic
 
