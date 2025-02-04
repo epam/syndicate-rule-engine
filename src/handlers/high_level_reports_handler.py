@@ -161,6 +161,7 @@ class MaestroModelBuilder:
 
         for r, inner in data.setdefault('regions_data', {}).items():
             inner.pop('service', None)
+            inner.pop('resource_types', None)
             inner['severity_data'] = inner.pop('severity', {})
 
         return {

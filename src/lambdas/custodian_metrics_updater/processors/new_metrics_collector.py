@@ -210,17 +210,17 @@ class MetricsCollector:
         it: Iterable[Tenant],
     ) -> Generator[tuple[Cloud, Tenant], None, None]:
         """
-                Maestro has so-called tenant groups. They call them "tenants" so
-                here we have a confusion. "Tenant" as a model is one AWS account or
-                one AZURE subscription or one GOOGLE project, etc.
-                "Tenant" as a group is a number of "Tenant" models where
-                each cloud can be found only once. So, a number of tenants in a
-                tenant group cannot exceed the total number of supported clouds
+        Maestro has so-called tenant groups. They call them "tenants" so
+        here we have a confusion. "Tenant" as a model is one AWS account or
+        one AZURE subscription or one GOOGLE project, etc.
+        "Tenant" as a group is a number of "Tenant" models where
+        each cloud can be found only once. So, a number of tenants in a
+        tenant group cannot exceed the total number of supported clouds
         because a tenant of specific cloud can be added only once.
 
-                This method iterates over the given tenants and yields a cloud and a
-                tenant. If it founds a second tenant with already yielded cloud,
-                it just skips it with warning.
+        This method iterates over the given tenants and yields a cloud and a
+        tenant. If it founds a second tenant with already yielded cloud,
+        it just skips it with warning.
         """
         yielded = set()
         for tenant in it:
@@ -646,6 +646,8 @@ class MetricsCollector:
                 region_data.setdefault(region, {})['severity'] = data
             for region, data in sdc.region_services().items():
                 region_data.setdefault(region, {})['service'] = data
+            for region, data in sdc.region_resource_types().items():
+                region_data.setdefault(region, {})['resource_types'] = data
 
             data = {
                 'total_scans': succeeded + failed,
@@ -1069,9 +1071,7 @@ class MetricsCollector:
                         'regions_data': {
                             r: {
                                 'severity_data': d['severity'],
-                                'resource_types_data': d[
-                                    'service'
-                                ],  # TODO: maybe use resource types here instead of services
+                                'resource_types_data': d['resource_types'],
                             }
                             for r, d in item[1]['regions_data'].items()
                         },
@@ -1727,7 +1727,7 @@ class MetricsCollector:
                 sdc = ShardsCollectionDataSource(
                     col, ctx.metadata, tenant_cloud(tenant)
                 )
-                self._update_dict_values(rt_data, sdc.services())
+                self._update_dict_values(rt_data, sdc.resource_types())
 
                 self._update_dict_values(sev_data, sdc.severities())
                 total += sdc.n_unique
@@ -1923,7 +1923,9 @@ class MetricsCollector:
                         )
                     else:
                         cloud_rulesets.append(
-                            RulesetName(rs.name, rs.version).to_human_readable_str()
+                            RulesetName(
+                                rs.name, rs.version
+                            ).to_human_readable_str()
                         )
         if not cloud_licenses:
             return {'activated': False, 'license_properties': {}}

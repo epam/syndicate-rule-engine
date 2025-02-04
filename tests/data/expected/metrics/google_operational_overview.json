@@ -3,7 +3,7 @@
   "failed_scans": 1,
   "succeeded_scans": 2,
   "activated_regions": [],
-  "last_scan_date": "2025-01-23T00:30:54.383130Z",
+  "last_scan_date": "2025-02-04T00:14:20.422230Z",
   "id": "testing-project-123",
   "resources_violated": 9,
   "total_findings": 14,
@@ -13,6 +13,11 @@
         "Unknown": 9
       },
       "service": {
+        "Vpc": 1,
+        "Firewall": 4,
+        "Subnet": 4
+      },
+      "resource_types": {
         "Vpc": 1,
         "Firewall": 4,
         "Subnet": 4

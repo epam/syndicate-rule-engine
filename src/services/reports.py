@@ -463,10 +463,7 @@ class ShardsCollectionDataSource:
             rm = meta.get(rule, {})
             yield {
                 'policy': rule,
-                'resource_type': self._meta.rule(rule).service
-                or service_from_resource_type(
-                    self._col.meta[rule]['resource']
-                ),
+                'resource_type': service_from_resource_type(self._col.meta[rule]['resource']),
                 'description': rm.get('description') or '',
                 'severity': self._meta.rule(rule).severity.value,
                 'resources': inverted[rule],
@@ -562,7 +559,7 @@ class ShardsCollectionDataSource:
                     ),
                     'category': finops_category,
                     'severity': rule_meta.severity.value,
-                    'resource_type': self._col.meta[rule]['resource'],
+                    'resource_type': service_from_resource_type(self._col.meta[rule]['resource']),
                     'resources': inverted[rule],
                 }
             )
@@ -615,7 +612,7 @@ class ShardsCollectionDataSource:
                 _LOG.warning(f'Mitre metadata not found for {rule}. Skipping')
                 continue
             severity = meta.severity
-            resource_type = meta.service or service_from_resource_type(
+            resource_type = service_from_resource_type(
                 self._col.meta[rule]['resource']
             )
             description = self._col.meta[rule].get('description', '')
@@ -684,7 +681,7 @@ class ShardsCollectionDataSource:
                 _LOG.warning(f'Mitre metadata not found for {rule}. Skipping')
                 continue
             severity = meta.severity
-            resource_type = meta.service or service_from_resource_type(
+            resource_type = service_from_resource_type(
                 self._col.meta[rule]['resource']
             )
             description = self._col.meta[rule].get('description', '')

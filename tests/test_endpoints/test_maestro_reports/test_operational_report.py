@@ -16,7 +16,6 @@ def aws_operational_overview_metrics(aws_tenant, load_expected, utcnow):
     SP.report_metrics_service.save(item, load_expected('metrics/aws_operational_overview'))
 
 
-
 @pytest.fixture()
 def aws_operational_resources_metrics(aws_tenant, load_expected, utcnow):
     item = SP.report_metrics_service.create(
