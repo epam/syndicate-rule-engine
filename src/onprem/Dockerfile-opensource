@@ -1,4 +1,4 @@
-FROM public.ecr.aws/docker/library/python:3.10-slim as compile-image
+FROM public.ecr.aws/docker/library/python:3.10 as compile-image
 
 ARG CUSTODIAN_SERVICE_PATH=.
 ARG CLOUD_CUSTODIAN_PROVIDERS="gcp azure kube"
