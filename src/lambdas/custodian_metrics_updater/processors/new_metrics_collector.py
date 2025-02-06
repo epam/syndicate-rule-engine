@@ -106,7 +106,7 @@ class MetricsContext:
         key = report.entity, report.type
         assert (
             key not in self._reports
-        ), 'adding the same report twice within one context, smt is definitelly wrong'
+        ), 'adding the same report twice within one context, smt is wrong'
         self._reports[key] = (report, data)
 
     def add_reports(self, reports: Iterator[tuple[ReportMetrics, dict]]):
@@ -339,7 +339,7 @@ class MetricsCollector:
             self._ajs.get_by_customer_name(
                 customer_name=ctx.customer.name,
                 start=start,
-                end=end,  # todo here end must be not including
+                end=end,  # TODO: here end must be not including
                 ascending=True,  # important
             )
         )
@@ -620,8 +620,8 @@ class MetricsCollector:
     ) -> ReportsGen:
         start = report_type.start(ctx.now)
         end = report_type.end(ctx.now)
+        # holds all tenants' jobs for this reporting period
         js = job_source.subset(start=start, end=end, affiliation='tenant')
-        # TODO: maybe collect for all tenants
         for tenant_name in js.scanned_tenants:
             tenant = self._get_tenant(tenant_name)
             if not tenant:
@@ -635,19 +635,35 @@ class MetricsCollector:
                 )
                 continue
             tjs = js.subset(tenant=tenant.name)
-            sdc = ShardsCollectionDataSource(
+            scd = ShardsCollectionDataSource(
                 col, ctx.metadata, tenant_cloud(tenant)
             )
             # NOTE: ignoring jobs that are not finished
             succeeded, failed = tjs.n_succeeded, tjs.n_failed
 
             region_data = {}
-            for region, data in sdc.region_severities(unique=True).items():
+            for region, data in scd.region_severities(unique=True).items():
                 region_data.setdefault(region, {})['severity'] = data
-            for region, data in sdc.region_services().items():
+            for region, data in scd.region_services().items():
                 region_data.setdefault(region, {})['service'] = data
-            for region, data in sdc.region_resource_types().items():
+            for region, data in scd.region_resource_types().items():
                 region_data.setdefault(region, {})['resource_types'] = data
+
+            outdated = []
+            lsd = tjs.last_succeeded_scan_date
+            if not lsd:
+                # means that tenants has some jobs for this period, but no
+                # succeeded jobs. There were some activity regarding this
+                # tenant so we collect metrics but if there are no succeeded
+                # jobs we make this tenant outdated for this reporting
+                # period and set last scan date to real last scan date.
+                # here i a problem: to get real last scan date we need all
+                # jobs but here we have only a period starting from previous
+                # month beginning. Will do for now, but this seems a bug
+                outdated.append(tenant.name)
+                lsd = job_source.subset(
+                    tenant=tenant.name
+                ).last_succeeded_scan_date
 
             data = {
                 'total_scans': succeeded + failed,
@@ -656,16 +672,18 @@ class MetricsCollector:
                 'activated_regions': sorted(
                     modular_helpers.get_tenant_regions(tenant)
                 ),
-                'last_scan_date': tjs.last_succeeded_scan_date,
+                'last_scan_date': lsd,
                 'id': tenant.project,
-                'resources_violated': sdc.n_unique,
-                'total_findings': sdc.n_findings,
+                'resources_violated': scd.n_unique,
+                'total_findings': scd.n_findings,
                 'regions_data': region_data,
+                'outdated_tenants': outdated,
             }
             item = self._rms.create(
-                key=self._rms.key_for_tenant(report_type, tenant),
+                key=ReportMetrics.build_key_for_tenant(report_type, tenant),
                 end=end,
                 start=start,
+                tenants=[tenant.name],
             )
             yield item, data
 
@@ -676,10 +694,6 @@ class MetricsCollector:
         sc_provider: ShardsCollectionProvider,
         report_type: ReportType,
     ) -> ReportsGen:
-        # TODO: how to determine whether to include tenant in reporting.
-        #  Currently it's based on job_source.scanned_tenants and since
-        #  this reports does not have start bound job_source contains jobs
-        #  for a bigger period of time
         start = report_type.start(ctx.now)
         end = report_type.end(ctx.now)
         js = job_source.subset(start=start, end=end, affiliation='tenant')
@@ -695,6 +709,14 @@ class MetricsCollector:
                     f'{tenant.name} for {end}'
                 )
                 continue
+            outdated = []
+            lsd = js.subset(tenant=tenant.name).last_succeeded_scan_date
+            if not lsd:
+                outdated.append(tenant.name)
+                lsd = job_source.subset(
+                    tenant=tenant.name
+                ).last_succeeded_scan_date
+
             data = {
                 'id': tenant.project,
                 'data': list(
@@ -702,18 +724,20 @@ class MetricsCollector:
                         col, ctx.metadata, tenant_cloud(tenant)
                     ).resources()
                 ),
-                'last_scan_date': js.subset(
-                    tenant=tenant.name
-                ).last_succeeded_scan_date,
+                'last_scan_date': lsd,
                 'activated_regions': sorted(
                     modular_helpers.get_tenant_regions(tenant)
                 ),
+                'outdated_tenants': outdated,
             }
             yield (
                 self._rms.create(
-                    key=self._rms.key_for_tenant(report_type, tenant),
+                    key=ReportMetrics.build_key_for_tenant(
+                        report_type, tenant
+                    ),
                     end=end,
                     start=start,
+                    tenants=[tenant.name],
                 ),
                 data,
             )
@@ -745,12 +769,19 @@ class MetricsCollector:
             tjs = js.subset(tenant=tenant.name, job_state=JobState.SUCCEEDED)
             col = sc_provider.get_for_tenant(tenant, end)
 
+            outdated = []
+            lsd = tjs.last_succeeded_scan_date
+            if not lsd:
+                outdated.append(tenant.name)
+                lsd = job_source.subset(
+                    tenant=tenant.name
+                ).last_succeeded_scan_date
             data = {
                 'succeeded_scans': len(tjs),
                 'activated_regions': sorted(
                     modular_helpers.get_tenant_regions(tenant)
                 ),
-                'last_scan_date': tjs.last_succeeded_scan_date,
+                'last_scan_date': lsd,
                 'id': tenant.project,
                 'data': list(
                     self._expand_rules_statistics(
@@ -760,12 +791,16 @@ class MetricsCollector:
                         col.meta if col else {},
                     )
                 ),
+                'outdated_tenants': outdated,
             }
             yield (
                 self._rms.create(
-                    key=self._rms.key_for_tenant(report_type, tenant),
+                    key=ReportMetrics.build_key_for_tenant(
+                        report_type, tenant
+                    ),
                     end=end,
                     start=start,
+                    tenants=[tenant.name],
                 ),
                 data,
             )
@@ -792,23 +827,33 @@ class MetricsCollector:
                     f'{tenant.name} for {end}'
                 )
                 continue
+
+            outdated = []
+            lsd = js.subset(tenant=tenant.name).last_succeeded_scan_date
+            if not lsd:
+                outdated.append(tenant.name)
+                lsd = job_source.subset(
+                    tenant=tenant.name
+                ).last_succeeded_scan_date
             data = {
                 'id': tenant.project,
                 'data': ShardsCollectionDataSource(
                     col, ctx.metadata, tenant_cloud(tenant)
                 ).finops(),
-                'last_scan_date': js.subset(
-                    tenant=tenant.name
-                ).last_succeeded_scan_date,
+                'last_scan_date': lsd,
                 'activated_regions': sorted(
                     modular_helpers.get_tenant_regions(tenant)
                 ),
+                'outdated_tenants': outdated,
             }
             yield (
                 self._rms.create(
-                    key=self._rms.key_for_tenant(report_type, tenant),
+                    key=ReportMetrics.build_key_for_tenant(
+                        report_type, tenant
+                    ),
                     end=end,
                     start=start,
+                    tenants=[tenant.name],
                 ),
                 data,
             )
@@ -858,11 +903,17 @@ class MetricsCollector:
             total = self._rs.calculate_tenant_full_coverage(
                 col, ctx.metadata, tenant_cloud(tenant)
             )
+
+            outdated = []
+            lsd = js.subset(tenant=tenant.name).last_succeeded_scan_date
+            if not lsd:
+                outdated.append(tenant.name)
+                lsd = job_source.subset(
+                    tenant=tenant.name
+                ).last_succeeded_scan_date
             data = {
                 'id': tenant.project,
-                'last_scan_date': js.subset(
-                    tenant=tenant.name
-                ).last_succeeded_scan_date,
+                'last_scan_date': lsd,
                 'activated_regions': sorted(
                     modular_helpers.get_tenant_regions(tenant)
                 ),
@@ -875,12 +926,16 @@ class MetricsCollector:
                     },
                     'total': {st.full_name: cov for st, cov in total.items()},
                 },
+                'outdated_tenants': outdated,
             }
             yield (
                 self._rms.create(
-                    key=self._rms.key_for_tenant(report_type, tenant),
+                    key=ReportMetrics.build_key_for_tenant(
+                        report_type, tenant
+                    ),
                     end=end,
                     start=start,
+                    tenants=[tenant.name],
                 ),
                 data,
             )
@@ -911,21 +966,30 @@ class MetricsCollector:
                 col, ctx.metadata, tenant_cloud(tenant)
             ).operational_attacks()
 
+            outdated = []
+            lsd = js.subset(tenant=tenant.name).last_succeeded_scan_date
+            if not lsd:
+                outdated.append(tenant.name)
+                lsd = job_source.subset(
+                    tenant=tenant.name
+                ).last_succeeded_scan_date
             data = {
                 'id': tenant.project,
-                'last_scan_date': js.subset(
-                    tenant=tenant.name
-                ).last_succeeded_scan_date,
+                'last_scan_date': lsd,
                 'activated_regions': sorted(
                     modular_helpers.get_tenant_regions(tenant)
                 ),
                 'data': data,
+                'outdated_tenants': outdated,
             }
             yield (
                 self._rms.create(
-                    key=self._rms.key_for_tenant(report_type, tenant),
+                    key=ReportMetrics.build_key_for_tenant(
+                        report_type, tenant
+                    ),
                     end=end,
                     start=start,
+                    tenants=[tenant.name],
                 ),
                 data,
             )
@@ -964,11 +1028,16 @@ class MetricsCollector:
                 full=ctx.metadata.domain(Cloud.KUBERNETES).full_cov,
             )
 
+            outdated = []
+            lsd = js.subset(platform=platform_id).last_succeeded_scan_date
+            if not lsd:
+                outdated.append(platform.tenant_name)
+                lsd = job_source.subset(
+                    platform=platform_id
+                ).last_succeeded_scan_date
             data = {
                 'tenant_name': platform.tenant_name,
-                'last_scan_date': js.subset(
-                    platform=platform_id
-                ).last_succeeded_scan_date,
+                'last_scan_date': lsd,
                 'region': platform.region,
                 'name': platform.name,
                 'type': platform.type.value,
@@ -977,13 +1046,17 @@ class MetricsCollector:
                     st.full_name: cov for st, cov in coverages.items()
                 },
                 'mitre': ds.operational_k8s_attacks(),
+                'outdated_tenants': outdated,
             }
 
             yield (
                 self._rms.create(
-                    key=self._rms.key_for_platform(report_type, platform),
+                    key=ReportMetrics.build_key_for_platform(
+                        report_type, platform
+                    ),
                     end=end,
                     start=start,
+                    tenants=[platform.tenant_name],
                 ),
                 data,
             )
@@ -1010,11 +1083,16 @@ class MetricsCollector:
                     f'{tenant.name} for {end}'
                 )
                 continue
+            outdated = []
+            lsd = js.subset(tenant=tenant.name).last_succeeded_scan_date
+            if not lsd:
+                outdated.append(tenant.name)
+                lsd = job_source.subset(
+                    tenant=tenant.name
+                ).last_succeeded_scan_date
             data = {
                 'id': tenant.project,
-                'last_scan_date': js.subset(
-                    tenant=tenant.name
-                ).last_succeeded_scan_date,
+                'last_scan_date': lsd,
                 'activated_regions': sorted(
                     modular_helpers.get_tenant_regions(tenant)
                 ),
@@ -1023,12 +1101,16 @@ class MetricsCollector:
                         col, ctx.metadata, tenant_cloud(tenant)
                     ).deprecation()
                 ),
+                'outdated_tenants': outdated,
             }
             yield (
                 self._rms.create(
-                    key=self._rms.key_for_tenant(report_type, tenant),
+                    key=ReportMetrics.build_key_for_tenant(
+                        report_type, tenant
+                    ),
                     end=end,
                     start=start,
+                    tenants=[tenant.name],
                 ),
                 data,
             )
@@ -1055,9 +1137,17 @@ class MetricsCollector:
                 tenant.display_name_to_lower.lower(), []
             ).append(item)
         for dn, reports in dn_to_reports.items():
+            if len(reports) > 3:
+                _LOG.warning(
+                    'Something is wrong: one project contains more than one tenant per cloud'
+                )
             data = self.base_clouds_payload()
+            outdated_tenants = set()
+            tenants = set()
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
+                tenants.add(tenant.name)
+                outdated_tenants.update(item[1]['outdated_tenants'])
 
                 data.setdefault(tenant_cloud(tenant).value, []).append(
                     {
@@ -1080,13 +1170,14 @@ class MetricsCollector:
 
             yield (
                 self._rms.create(
-                    key=self._rms.key_for_project(
+                    key=ReportMetrics.build_key_for_project(
                         report_type, ctx.customer.name, dn
                     ),
                     end=end,
                     start=start,
+                    tenants=tenants,
                 ),
-                data,
+                {'outdated_tenants': list(outdated_tenants), 'data': data},
             )
 
     def project_compliance(
@@ -1112,8 +1203,12 @@ class MetricsCollector:
 
         for dn, reports in dn_to_reports.items():
             data = self.base_clouds_payload()
+            outdated_tenants = set()
+            tenants = set()
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
+                tenants.add(tenant.name)
+                outdated_tenants.update(item[1]['outdated_tenants'])
 
                 data.setdefault(tenant_cloud(tenant).value, []).append(
                     {
@@ -1127,13 +1222,14 @@ class MetricsCollector:
 
             yield (
                 self._rms.create(
-                    key=self._rms.key_for_project(
+                    key=ReportMetrics.build_key_for_project(
                         report_type, ctx.customer.name, dn
                     ),
                     end=end,
                     start=start,
+                    tenants=tenants,
                 ),
-                data,
+                {'outdated_tenants': list(outdated_tenants), 'data': data},
             )
 
     def project_resources(
@@ -1159,8 +1255,12 @@ class MetricsCollector:
 
         for dn, reports in dn_to_reports.items():
             data = self.base_clouds_payload()
+            outdated_tenants = set()
+            tenants = set()
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
+                tenants.add(tenant.name)
+                outdated_tenants.update(item[1]['outdated_tenants'])
 
                 policies_data = []
                 for policy in item[1].get('data', []):
@@ -1189,13 +1289,14 @@ class MetricsCollector:
 
             yield (
                 self._rms.create(
-                    key=self._rms.key_for_project(
+                    key=ReportMetrics.build_key_for_project(
                         report_type, ctx.customer.name, dn
                     ),
                     end=end,
                     start=start,
+                    tenants=tenants,
                 ),
-                data,
+                {'outdated_tenants': list(outdated_tenants), 'data': data},
             )
 
     def project_attacks(
@@ -1221,8 +1322,12 @@ class MetricsCollector:
 
         for dn, reports in dn_to_reports.items():
             data = self.base_clouds_payload()
+            outdated_tenants = set()
+            tenants = set()
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
+                tenants.add(tenant.name)
+                outdated_tenants.update(item[1]['outdated_tenants'])
 
                 mitre_data = copy.deepcopy(item[1].get('data', []))
                 for mitre in mitre_data:
@@ -1249,13 +1354,14 @@ class MetricsCollector:
 
             yield (
                 self._rms.create(
-                    key=self._rms.key_for_project(
+                    key=ReportMetrics.build_key_for_project(
                         report_type, ctx.customer.name, dn
                     ),
                     end=end,
                     start=start,
+                    tenants=tenants,
                 ),
-                data,
+                {'outdated_tenants': list(outdated_tenants), 'data': data},
             )
 
     def project_finops(
@@ -1281,8 +1387,12 @@ class MetricsCollector:
 
         for dn, reports in dn_to_reports.items():
             data = self.base_clouds_payload()
+            outdated_tenants = set()
+            tenants = set()
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
+                tenants.add(tenant.name)
+                outdated_tenants.update(item[1]['outdated_tenants'])
 
                 service_data = []
                 for ss, ss_data in item[1].get('data', {}).items():
@@ -1311,13 +1421,14 @@ class MetricsCollector:
 
             yield (
                 self._rms.create(
-                    key=self._rms.key_for_project(
+                    key=ReportMetrics.build_key_for_project(
                         report_type, ctx.customer.name, dn
                     ),
                     end=end,
                     start=start,
+                    tenants=tenants,
                 ),
-                data,
+                {'outdated_tenants': list(outdated_tenants), 'data': data},
             )
 
     def top_resources_by_cloud(
@@ -1328,6 +1439,8 @@ class MetricsCollector:
         report_type: ReportType,
     ) -> ReportsGen:
         cloud_tenant = self.base_clouds_payload()
+        outdated = set()
+        all_tenants = set()
         start = report_type.start(ctx.now)
         end = report_type.end(ctx.now)
         js = job_source.subset(start=start, end=end, affiliation='tenant')
@@ -1345,6 +1458,15 @@ class MetricsCollector:
                 )
                 continue
             tjs = js.subset(tenant=tenant.name)
+
+            lsd = tjs.last_succeeded_scan_date
+            if not lsd:
+                outdated.add(tenant.name)
+                lsd = job_source.subset(
+                    tenant=tenant.name
+                ).last_succeeded_scan_date
+            all_tenants.add(tenant.name)
+
             sdc = ShardsCollectionDataSource(col, ctx.metadata, cloud)
 
             cloud_tenant.setdefault(cloud.value, []).append(
@@ -1356,7 +1478,7 @@ class MetricsCollector:
                             modular_helpers.get_tenant_regions(tenant)
                         ),
                         'tenant_name': tenant_name,
-                        'last_scan_date': tjs.last_succeeded_scan_date,
+                        'last_scan_date': lsd,
                         'total_scans': tjs.n_succeeded + tjs.n_failed,
                         'failed_scans': tjs.n_failed,
                         'succeeded_scans': tjs.n_succeeded,
@@ -1373,11 +1495,14 @@ class MetricsCollector:
 
         yield (
             self._rms.create(
-                key=self._rms.key_for_customer(report_type, ctx.customer.name),
+                key=ReportMetrics.build_key_for_customer(
+                    report_type, ctx.customer.name
+                ),
                 start=start,
                 end=end,
+                tenants=all_tenants,
             ),
-            cloud_tenant,
+            {'outdated_tenants': list(outdated), 'data': cloud_tenant},
         )
 
     def top_tenants_resources(
@@ -1390,6 +1515,8 @@ class MetricsCollector:
         start = report_type.start(ctx.now)
         end = report_type.end(ctx.now)
         js = job_source.subset(start=start, end=end, affiliation='tenant')
+        outdated = set()
+        all_tenants = set()
         dn_tenants = {}
         for tenant_name in js.scanned_tenants:
             tenant = self._get_tenant(tenant_name)
@@ -1415,9 +1542,17 @@ class MetricsCollector:
                 # TODO: cache shards collection data source for the same dates
                 sdc = ShardsCollectionDataSource(col, ctx.metadata, cloud)
 
+                lsd = tjs.last_succeeded_scan_date
+                if not lsd:
+                    outdated.add(tenant.name)
+                    lsd = job_source.subset(
+                        tenant=tenant.name
+                    ).last_succeeded_scan_date
+                all_tenants.add(tenant.name)
+
                 n_unique = sdc.n_unique
                 clouds_data[cloud.value] = {
-                    'last_scan_date': tjs.last_succeeded_scan_date,
+                    'last_scan_date': lsd,
                     'activated_regions': sorted(
                         modular_helpers.get_tenant_regions(tenant)
                     ),
@@ -1442,11 +1577,14 @@ class MetricsCollector:
         data = self.nlargest(data, TOP_TENANT_LENGTH, True)
         yield (
             self._rms.create(
-                key=self._rms.key_for_customer(report_type, ctx.customer.name),
+                key=ReportMetrics.build_key_for_customer(
+                    report_type, ctx.customer.name
+                ),
                 start=start,
                 end=end,
+                tenants=all_tenants,
             ),
-            {'data': data},
+            {'data': data, 'outdated_tenants': list(outdated)},
         )
 
     def top_compliance_by_cloud(
@@ -1460,6 +1598,8 @@ class MetricsCollector:
         start = report_type.start(ctx.now)
         end = report_type.end(ctx.now)
         js = job_source.subset(start=start, end=end, affiliation='tenant')
+        all_tenants = set()
+        outdated = set()
         for tenant_name in js.scanned_tenants:
             tenant = self._get_tenant(tenant_name)
             if not tenant:
@@ -1473,6 +1613,10 @@ class MetricsCollector:
                     f'{tenant.name} for {end}'
                 )
                 continue
+            if not js.subset(tenant=tenant.name).last_succeeded_scan_date:
+                outdated.add(tenant.name)
+            all_tenants.add(tenant.name)
+
             total = self._rs.calculate_tenant_full_coverage(
                 col, ctx.metadata, cloud
             )
@@ -1492,11 +1636,14 @@ class MetricsCollector:
 
         yield (
             self._rms.create(
-                key=self._rms.key_for_customer(report_type, ctx.customer.name),
+                key=ReportMetrics.build_key_for_customer(
+                    report_type, ctx.customer.name
+                ),
                 start=start,
                 end=end,
+                tenants=all_tenants,
             ),
-            cloud_tenant,
+            {'data': cloud_tenant, 'outdated_tenants': list(outdated)},
         )
 
     def top_tenants_compliance(
@@ -1509,6 +1656,8 @@ class MetricsCollector:
         start = report_type.start(ctx.now)
         end = report_type.end(ctx.now)
         js = job_source.subset(start=start, end=end, affiliation='tenant')
+        all_tenants = set()
+        outdated = set()
         dn_tenants = {}
         for tenant_name in js.scanned_tenants:
             tenant = self._get_tenant(tenant_name)
@@ -1531,11 +1680,19 @@ class MetricsCollector:
                     )
                     continue
                 tjs = js.subset(tenant=tenant.name)
+                lsd = tjs.last_succeeded_scan_date
+                if not lsd:
+                    outdated.add(tenant.name)
+                    lsd = job_source.subset(
+                        tenant=tenant.name
+                    ).last_succeeded_scan_date
+                all_tenants.add(tenant.name)
+
                 total = self._rs.calculate_tenant_full_coverage(
                     col, ctx.metadata, cloud
                 )
                 clouds_data[cloud.value] = {
-                    'last_scan_date': tjs.last_succeeded_scan_date,
+                    'last_scan_date': lsd,
                     'activated_regions': sorted(
                         modular_helpers.get_tenant_regions(tenant)
                     ),
@@ -1555,11 +1712,14 @@ class MetricsCollector:
         data = self.nlargest(data, TOP_TENANT_LENGTH, False)
         yield (
             self._rms.create(
-                key=self._rms.key_for_customer(report_type, ctx.customer.name),
+                key=ReportMetrics.build_key_for_customer(
+                    report_type, ctx.customer.name
+                ),
                 start=start,
                 end=end,
+                tenants=all_tenants,
             ),
-            {'data': data},
+            {'data': data, 'outdated_tenants': list(outdated)},
         )
 
     def top_attacks_by_cloud(
@@ -1572,6 +1732,8 @@ class MetricsCollector:
         cloud_tenant = self.base_clouds_payload()
         start = report_type.start(ctx.now)
         end = report_type.end(ctx.now)
+        all_tenants = set()
+        outdated = set()
         js = job_source.subset(start=start, end=end, affiliation='tenant')
         for tenant_name in js.scanned_tenants:
             tenant = self._get_tenant(tenant_name)
@@ -1587,6 +1749,15 @@ class MetricsCollector:
                 )
                 continue
             tjs = js.subset(tenant=tenant.name)
+
+            lsd = tjs.last_succeeded_scan_date
+            if not lsd:
+                outdated.add(tenant.name)
+                lsd = job_source.subset(
+                    tenant=tenant.name
+                ).last_succeeded_scan_date
+            all_tenants.add(tenant.name)
+
             scd = ShardsCollectionDataSource(col, ctx.metadata, cloud)
 
             tactic_severity = scd.tactic_to_severities()
@@ -1594,7 +1765,7 @@ class MetricsCollector:
             cloud_tenant.setdefault(cloud.value, []).append(
                 {
                     'tenant_display_name': tenant.display_name_to_lower.lower(),
-                    'last_scan_date': tjs.last_succeeded_scan_date,
+                    'last_scan_date': lsd,
                     'activated_regions': sorted(
                         modular_helpers.get_tenant_regions(tenant)
                     ),
@@ -1620,11 +1791,14 @@ class MetricsCollector:
             )
         yield (
             self._rms.create(
-                key=self._rms.key_for_customer(report_type, ctx.customer.name),
+                key=ReportMetrics.build_key_for_customer(
+                    report_type, ctx.customer.name
+                ),
                 start=start,
                 end=end,
+                tenants=all_tenants,
             ),
-            cloud_tenant,
+            {'data': cloud_tenant, 'outdated_tenants': list(outdated)},
         )
 
     def top_tenants_attacks(
@@ -1637,6 +1811,8 @@ class MetricsCollector:
         start = report_type.start(ctx.now)
         end = report_type.end(ctx.now)
         js = job_source.subset(start=start, end=end, affiliation='tenant')
+        all_tenants = set()
+        outdated = set()
         dn_tenants = {}
         for tenant_name in js.scanned_tenants:
             tenant = self._get_tenant(tenant_name)
@@ -1659,6 +1835,9 @@ class MetricsCollector:
                     )
                     continue
                 sdc = ShardsCollectionDataSource(col, ctx.metadata, cloud)
+                if not js.subset(tenant=tenant.name).last_succeeded_scan_date:
+                    outdated.add(tenant.name)
+                all_tenants.add(tenant.name)
 
                 tactic_severity = sdc.tactic_to_severities()
 
@@ -1682,11 +1861,14 @@ class MetricsCollector:
         data = self.nlargest(data, TOP_TENANT_LENGTH, True)
         yield (
             self._rms.create(
-                key=self._rms.key_for_customer(report_type, ctx.customer.name),
+                key=ReportMetrics.build_key_for_customer(
+                    report_type, ctx.customer.name
+                ),
                 start=start,
                 end=end,
+                tenants=all_tenants,
             ),
-            {'data': data},
+            {'data': data, 'outdated_tenants': list(outdated)},
         )
 
     def c_level_overview(
@@ -1711,6 +1893,8 @@ class MetricsCollector:
         #  license information will not correspond to date
         licenses, rulesets = self._collect_licenses_data(ctx)
         data = {}
+        all_tenants = set()
+        outdated = set()
         for cloud, tenants in cloud_tenant.items():
             rt_data = {}
             sev_data = {}
@@ -1724,6 +1908,10 @@ class MetricsCollector:
                         f'{tenant.name} for {end}'
                     )
                     continue
+                all_tenants.add(tenant.name)
+                if not js.subset(tenant=tenant.name).last_succeeded_scan_date:
+                    outdated.add(tenant.name)
+
                 sdc = ShardsCollectionDataSource(
                     col, ctx.metadata, tenant_cloud(tenant)
                 )
@@ -1747,11 +1935,14 @@ class MetricsCollector:
             }
         yield (
             self._rms.create(
-                key=self._rms.key_for_customer(report_type, ctx.customer.name),
+                key=ReportMetrics.build_key_for_customer(
+                    report_type, ctx.customer.name
+                ),
                 start=start,
                 end=end,
+                tenants=all_tenants,
             ),
-            data,
+            {'data': data, 'outdated_tenants': list(outdated)},
         )
 
     def c_level_compliance(
@@ -1765,6 +1956,8 @@ class MetricsCollector:
         end = report_type.end(ctx.now)
         js = job_source.subset(start=start, end=end, affiliation='tenant')
         cloud_tenant = self.base_clouds_payload()
+        all_tenants = set()
+        outdated = set()
         for tenant_name in js.scanned_tenants:
             tenant = self._get_tenant(tenant_name)
             if not tenant:
@@ -1786,6 +1979,9 @@ class MetricsCollector:
                         f'{tenant.name} for {end}'
                     )
                     continue
+                all_tenants.add(tenant.name)
+                if not js.subset(tenant=tenant.name).last_succeeded_scan_date:
+                    outdated.add(tenant.name)
                 total = self._rs.calculate_tenant_full_coverage(
                     col, ctx.metadata, tenant_cloud(tenant)
                 )
@@ -1803,11 +1999,14 @@ class MetricsCollector:
             }
         yield (
             self._rms.create(
-                key=self._rms.key_for_customer(report_type, ctx.customer.name),
+                key=ReportMetrics.build_key_for_customer(
+                    report_type, ctx.customer.name
+                ),
                 start=start,
                 end=end,
+                tenants=all_tenants,
             ),
-            data,
+            {'data': data, 'outdated_tenants': list(outdated)},
         )
 
     def c_level_attacks(
@@ -1821,6 +2020,8 @@ class MetricsCollector:
         end = report_type.end(ctx.now)
         js = job_source.subset(start=start, end=end, affiliation='tenant')
         cloud_tenant = self.base_clouds_payload()
+        all_tenants = set()
+        outdated = set()
         for tenant_name in js.scanned_tenants:
             tenant = self._get_tenant(tenant_name)
             if not tenant:
@@ -1839,6 +2040,9 @@ class MetricsCollector:
                         f'{tenant.name} for {end}'
                     )
                     continue
+                all_tenants.add(tenant.name)
+                if not js.subset(tenant=tenant.name).last_succeeded_scan_date:
+                    outdated.add(tenant.name)
                 sdc = ShardsCollectionDataSource(
                     col, ctx.metadata, tenant_cloud(tenant)
                 )
@@ -1862,11 +2066,14 @@ class MetricsCollector:
 
         yield (
             self._rms.create(
-                key=self._rms.key_for_customer(report_type, ctx.customer.name),
+                key=ReportMetrics.build_key_for_customer(
+                    report_type, ctx.customer.name
+                ),
                 start=start,
                 end=end,
+                tenants=all_tenants,
             ),
-            data,
+            {'data': data, 'outdated_tenants': outdated},
         )
 
     def _collect_licenses_data(

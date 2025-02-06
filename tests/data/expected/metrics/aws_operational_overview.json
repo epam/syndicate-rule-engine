@@ -2,6 +2,7 @@
   "total_scans": 3,
   "failed_scans": 1,
   "succeeded_scans": 2,
+  "outdated_tenants": [],
   "activated_regions": [
     "eu-central-1",
     "eu-north-1",

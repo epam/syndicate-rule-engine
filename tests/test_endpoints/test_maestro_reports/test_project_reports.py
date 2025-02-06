@@ -4,6 +4,7 @@ import pytest
 
 from helpers.constants import ReportType
 from services import SP
+from models.metrics import ReportMetrics
 
 from ...commons import dicts_equal, valid_uuid
 
@@ -11,7 +12,7 @@ from ...commons import dicts_equal, valid_uuid
 @pytest.fixture()
 def project_overview_metrics(aws_tenant, load_expected, utcnow):
     item = SP.report_metrics_service.create(
-        key=SP.report_metrics_service.key_for_project(
+        key=ReportMetrics.build_key_for_project(
             ReportType.PROJECT_OVERVIEW,
             aws_tenant.customer_name,
             aws_tenant.display_name,
@@ -26,7 +27,7 @@ def project_overview_metrics(aws_tenant, load_expected, utcnow):
 @pytest.fixture()
 def project_compliance_metrics(aws_tenant, load_expected, utcnow):
     item = SP.report_metrics_service.create(
-        key=SP.report_metrics_service.key_for_project(
+        key=ReportMetrics.build_key_for_project(
             ReportType.PROJECT_COMPLIANCE,
             aws_tenant.customer_name,
             aws_tenant.display_name,
@@ -41,7 +42,7 @@ def project_compliance_metrics(aws_tenant, load_expected, utcnow):
 @pytest.fixture()
 def project_resources_metrics(aws_tenant, load_expected, utcnow):
     item = SP.report_metrics_service.create(
-        key=SP.report_metrics_service.key_for_project(
+        key=ReportMetrics.build_key_for_project(
             ReportType.PROJECT_RESOURCES,
             aws_tenant.customer_name,
             aws_tenant.display_name,
@@ -56,7 +57,7 @@ def project_resources_metrics(aws_tenant, load_expected, utcnow):
 @pytest.fixture()
 def project_finops_metrics(aws_tenant, load_expected, utcnow):
     item = SP.report_metrics_service.create(
-        key=SP.report_metrics_service.key_for_project(
+        key=ReportMetrics.build_key_for_project(
             ReportType.PROJECT_FINOPS,
             aws_tenant.customer_name,
             aws_tenant.display_name,
@@ -71,7 +72,7 @@ def project_finops_metrics(aws_tenant, load_expected, utcnow):
 @pytest.fixture()
 def project_attacks_metrics(aws_tenant, load_expected, utcnow):
     item = SP.report_metrics_service.create(
-        key=SP.report_metrics_service.key_for_project(
+        key=ReportMetrics.build_key_for_project(
             ReportType.PROJECT_ATTACKS,
             aws_tenant.customer_name,
             aws_tenant.display_name,

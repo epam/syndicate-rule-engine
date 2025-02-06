@@ -4,6 +4,7 @@ import pytest
 
 from helpers.constants import ReportType
 from services import SP
+from models.metrics import ReportMetrics
 
 from ...commons import dicts_equal
 
@@ -11,7 +12,7 @@ from ...commons import dicts_equal
 @pytest.fixture()
 def c_level_overview(main_customer, load_expected, utcnow):
     item = SP.report_metrics_service.create(
-        key=SP.report_metrics_service.key_for_customer(
+        key=ReportMetrics.build_key_for_customer(
             ReportType.C_LEVEL_OVERVIEW, main_customer.name
         ),
         start=ReportType.C_LEVEL_OVERVIEW.start(utcnow),
@@ -25,7 +26,7 @@ def c_level_overview(main_customer, load_expected, utcnow):
 @pytest.fixture()
 def c_level_compliance(main_customer, load_expected, utcnow):
     item = SP.report_metrics_service.create(
-        key=SP.report_metrics_service.key_for_customer(
+        key=ReportMetrics.build_key_for_customer(
             ReportType.C_LEVEL_COMPLIANCE, main_customer.name
         ),
         start=ReportType.C_LEVEL_COMPLIANCE.start(utcnow),
@@ -39,7 +40,7 @@ def c_level_compliance(main_customer, load_expected, utcnow):
 @pytest.fixture()
 def c_level_attacks(main_customer, load_expected, utcnow):
     item = SP.report_metrics_service.create(
-        key=SP.report_metrics_service.key_for_customer(
+        key=ReportMetrics.build_key_for_customer(
             ReportType.C_LEVEL_ATTACKS, main_customer.name
         ),
         start=ReportType.C_LEVEL_ATTACKS.start(utcnow),

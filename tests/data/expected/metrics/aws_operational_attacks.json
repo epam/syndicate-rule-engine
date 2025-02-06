@@ -1,6 +1,7 @@
 {
   "id": "123456789012",
   "last_scan_date": "2025-01-13T00:34:23.264015Z",
+  "outdated_tenants": [],
   "activated_regions": [
     "eu-central-1",
     "eu-north-1",

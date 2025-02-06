@@ -1,5 +1,6 @@
 {
   "succeeded_scans": 2,
+  "outdated_tenants": [],
   "activated_regions": [
     "eu-central-1",
     "eu-north-1",

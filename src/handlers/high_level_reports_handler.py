@@ -170,6 +170,7 @@ class MaestroModelBuilder:
             'cloud': rep.cloud.value,  # pyright: ignore
             'activated_regions': data['activated_regions'],
             'last_scan_date': data['last_scan_date'],
+            'outdated_tenants': data['outdated_tenants'],
             'data': {
                 'total_scans': data['total_scans'],
                 'failed_scans': data['failed_scans'],
@@ -192,6 +193,7 @@ class MaestroModelBuilder:
         return {
             'tenant_name': rep.tenant,
             'id': data['id'],
+            'outdated_tenants': data['outdated_tenants'],
             'cloud': rep.cloud.value,  # pyright: ignore
             'activated_regions': data['activated_regions'],
             'last_scan_date': data['last_scan_date'],
@@ -205,6 +207,7 @@ class MaestroModelBuilder:
             'tenant_name': rep.tenant,
             'id': data['id'],
             'cloud': rep.cloud.value,  # pyright: ignore
+            'outdated_tenants': data['outdated_tenants'],
             'activated_regions': data['activated_regions'],
             'last_scan_date': data['last_scan_date'],
             'data': {
@@ -229,6 +232,7 @@ class MaestroModelBuilder:
         return {
             'tenant_name': rep.tenant,
             'id': data['id'],
+            'outdated_tenants': data['outdated_tenants'],
             'cloud': rep.cloud.value,  # pyright: ignore
             'activated_regions': data['activated_regions'],
             'last_scan_date': data['last_scan_date'],
@@ -248,6 +252,7 @@ class MaestroModelBuilder:
         return {
             'tenant_name': rep.tenant,
             'id': data['id'],
+            'outdated_tenants': data['outdated_tenants'],
             'cloud': rep.cloud.value,  # pyright: ignore
             'activated_regions': data['activated_regions'],
             'last_scan_date': data['last_scan_date'],
@@ -272,6 +277,7 @@ class MaestroModelBuilder:
             'tenant_name': rep.tenant,
             'id': data['id'],
             'cloud': rep.cloud.value,  # pyright: ignore
+            'outdated_tenants': data['outdated_tenants'],
             'activated_regions': data['activated_regions'],
             'last_scan_date': data['last_scan_date'],
             'data': {'regions_data': regions_data},
@@ -284,6 +290,7 @@ class MaestroModelBuilder:
             'tenant_name': rep.tenant,
             'id': data['id'],
             'cloud': rep.cloud.value,  # pyright: ignore
+            'outdated_tenants': data['outdated_tenants'],
             'activated_regions': data['activated_regions'],
             'last_scan_date': data['last_scan_date'],
             'data': data['data'],
@@ -295,6 +302,7 @@ class MaestroModelBuilder:
         return {
             'tenant_name': data['tenant_name'],
             'last_scan_date': data['last_scan_date'],
+            'outdated_tenants': data['outdated_tenants'],
             'cluster_id': rep.platform_id,
             'cloud': Cloud.AWS.value,  # TODO: get from tenant
             'region': data['region'],
@@ -319,30 +327,20 @@ class MaestroModelBuilder:
                 utc_datetime(rep.end) - timedelta(days=7)
             ),  # TODO: fix on maestro side. Not every report can have "from"
             'to': rep.end,
-            'outdated_tenants': [],  # TODO: implement
+            'outdated_tenants': [],
             'externalData': False,
             'data': {},
         }
 
     def _project_overview_custom(self, rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.PROJECT_OVERVIEW
-        outdated_tenants = set()
-        for cloud_tenants in data.values():
-            for t in cloud_tenants:
-                if t['succeeded_scans'] == 0:
-                    outdated_tenants.add(t['tenant_name'])
-
-        return {
-            'tenant_display_name': rep.project,
-            'data': data,
-            'outdated_tenants': list(outdated_tenants),
-        }
+        return {'tenant_display_name': rep.project, **data}
 
     def _project_compliance_custom(
         self, rep: ReportMetrics, data: dict
     ) -> dict:
         assert rep.type == ReportType.PROJECT_COMPLIANCE
-        for cloud_tenants in data.values():
+        for cloud_tenants in data['data'].values():
             for t in cloud_tenants:
                 t['regions_data'] = [
                     {
@@ -362,35 +360,35 @@ class MaestroModelBuilder:
                 ]
                 t.pop('data')
 
-        return {'tenant_display_name': rep.project, 'data': data}
+        return {'tenant_display_name': rep.project, **data}
 
     def _project_resources_custom(
         self, rep: ReportMetrics, data: dict
     ) -> dict:
         assert rep.type == ReportType.PROJECT_RESOURCES
-        return {'tenant_display_name': rep.project, 'data': data}
+        return {'tenant_display_name': rep.project, **data}
 
     def _project_attacks_custom(self, rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.PROJECT_ATTACKS
-        return {'tenant_display_name': rep.project, 'data': data}
+        return {'tenant_display_name': rep.project, **data}
 
     def _project_finops_custom(self, rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.PROJECT_FINOPS
-        for cloud_tenants in data.values():
+        for cloud_tenants in data['data'].values():
             for t in cloud_tenants:
                 for service_data in t.get('service_data', []):
                     for rule_data in service_data.get('rules_data', []):
                         add_diff(rule_data, {})
                         # just to replace int leafs with {'value': leaf, 'diff': None}
-        return {'tenant_display_name': rep.project, 'data': data}
+        return {'tenant_display_name': rep.project, **data}
 
     def _top_compliance_by_cloud(
         self, rep: ReportMetrics, data: dict, previous_data: dict
     ) -> dict:
         key = operator.itemgetter('tenant_display_name')
 
-        for cl, items in data.items():
-            old = map_by(previous_data.get(cl, []), key)
+        for cl, items in data['data'].items():
+            old = map_by(previous_data.get('data', {}).get(cl, []), key)
             for tdn, new_data in map_by(items, key).items():
                 old_data = old.get(tdn, {})
                 add_diff(
@@ -404,30 +402,30 @@ class MaestroModelBuilder:
                     for k, v in new_data.get('data', {}).items()
                 ]
 
-        return {'data': data}
+        return data
 
     def _top_resources_by_cloud(
         self, rep: ReportMetrics, data: dict, previous_data: dict
     ) -> dict:
         key = operator.itemgetter('tenant_display_name')
 
-        for cl, items in data.items():
-            old = map_by(previous_data.get(cl, []), key)
+        for cl, items in data['data'].items():
+            old = map_by(previous_data.get('data', {}).get(cl, []), key)
             for tdn, new_data in map_by(items, key).items():
                 old_data = old.get(tdn, {})
                 add_diff(
                     new_data.setdefault('data', {}),
                     old_data.setdefault('data', {}),
                 )
-        return {'data': data}
+        return data
 
     def _top_attacks_by_cloud(
         self, rep: ReportMetrics, data: dict, previous_data: dict
     ) -> dict:
         key = operator.itemgetter('tenant_name')
         key_tactic = operator.itemgetter('tactic_id')
-        for cl, items in data.items():
-            old = map_by(previous_data.get(cl, []), key)
+        for cl, items in data['data'].items():
+            old = map_by(previous_data.get('data', {}).get(cl, []), key)
             for tn, new_data in map_by(items, key).items():
                 old_data = old.get(tn, {})
 
@@ -439,7 +437,7 @@ class MaestroModelBuilder:
                 ).items():
                     old_tactics_data = old_tactics.get(tactic_id, {})
                     add_diff(new_tactics_data, old_tactics_data)
-        return {'data': data}
+        return data
 
     def _top_tenants_compliance(
         self, rep: ReportMetrics, data: dict, previous_data: dict
@@ -496,41 +494,47 @@ class MaestroModelBuilder:
         self, rep: ReportMetrics, data: dict, previous_data: dict
     ) -> dict:
         previous_data = previous_data or {}
-        for cl, cl_data in data.items():
+        for cl, cl_data in data.get('data', {}).items():
             add_diff(
                 cl_data,
-                previous_data.get(cl, {}),
-                exclude=('total_scanned_tenants', ('license_properties', 'Number of licenses')),
+                previous_data.get('data', {}).get(cl, {}),
+                exclude=(
+                    'total_scanned_tenants',
+                    ('license_properties', 'Number of licenses'),
+                ),
             )
-        return {'data': data}
+        return data
 
     def _c_level_attacks_custom(
         self, rep: ReportMetrics, data: dict, previous_data: dict
     ) -> dict:
         key = operator.itemgetter('tactic_id')
-        for cl, cl_data in data.items():
-            old = map_by(previous_data.get(cl, []), key)
+        for cl, cl_data in data.get('data', {}).items():
+            old = map_by(previous_data.get('data', {}).get(cl, []), key)
             for tactic_id, new_data in map_by(cl_data, key).items():
                 old_data = old.get(tactic_id, {})
                 add_diff(new_data, old_data)
 
-        return {'data': data}
+        return data
 
     def _c_level_compliance_custom(
         self, rep: ReportMetrics, data: dict, previous_data: dict
     ) -> dict:
-        for cl, cl_data in data.items():
+        for cl, cl_data in data.get('data', {}).items():
             add_diff(
                 cl_data,
-                previous_data.get(cl, {}),
-                exclude=('total_scanned_tenants', ('license_properties', 'Number of licenses')),
+                previous_data.get('data', {}).get(cl, {}),
+                exclude=(
+                    'total_scanned_tenants',
+                    ('license_properties', 'Number of licenses'),
+                ),
                 callback=_compliance_diff_callback,
             )
             cl_data['average_data'] = [
                 {'name': k, **v}
                 for k, v in cl_data.get('average_data', {}).items()
             ]
-        return {'data': data}
+        return data
 
     def convert(
         self, rep: ReportMetrics, data: dict, previous_data: dict | None = None

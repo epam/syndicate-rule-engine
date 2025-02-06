@@ -4,6 +4,7 @@ import pytest
 
 from helpers.constants import ReportType
 from services import SP
+from models.metrics import ReportMetrics
 
 from ...commons import dicts_equal
 
@@ -11,7 +12,7 @@ from ...commons import dicts_equal
 @pytest.fixture()
 def top_attacks_by_cloud(main_customer, load_expected, utcnow):
     item = SP.report_metrics_service.create(
-        key=SP.report_metrics_service.key_for_customer(
+        key=ReportMetrics.build_key_for_customer(
             ReportType.DEPARTMENT_TOP_ATTACK_BY_CLOUD, main_customer.name
         ),
         start=ReportType.DEPARTMENT_TOP_ATTACK_BY_CLOUD.start(utcnow),
@@ -25,7 +26,7 @@ def top_attacks_by_cloud(main_customer, load_expected, utcnow):
 @pytest.fixture()
 def top_compliance_by_cloud(main_customer, load_expected, utcnow):
     item = SP.report_metrics_service.create(
-        key=SP.report_metrics_service.key_for_customer(
+        key=ReportMetrics.build_key_for_customer(
             ReportType.DEPARTMENT_TOP_COMPLIANCE_BY_CLOUD, main_customer.name
         ),
         start=ReportType.DEPARTMENT_TOP_COMPLIANCE_BY_CLOUD.start(utcnow),
@@ -39,7 +40,7 @@ def top_compliance_by_cloud(main_customer, load_expected, utcnow):
 @pytest.fixture()
 def top_resources_by_cloud(main_customer, load_expected, utcnow):
     item = SP.report_metrics_service.create(
-        key=SP.report_metrics_service.key_for_customer(
+        key=ReportMetrics.build_key_for_customer(
             ReportType.DEPARTMENT_TOP_RESOURCES_BY_CLOUD, main_customer.name
         ),
         start=ReportType.DEPARTMENT_TOP_RESOURCES_BY_CLOUD.start(utcnow),
@@ -53,7 +54,7 @@ def top_resources_by_cloud(main_customer, load_expected, utcnow):
 @pytest.fixture()
 def top_tenants_attacks(main_customer, load_expected, utcnow):
     item = SP.report_metrics_service.create(
-        key=SP.report_metrics_service.key_for_customer(
+        key=ReportMetrics.build_key_for_customer(
             ReportType.DEPARTMENT_TOP_TENANTS_ATTACKS, main_customer.name
         ),
         start=ReportType.DEPARTMENT_TOP_TENANTS_ATTACKS.start(utcnow),
@@ -67,7 +68,7 @@ def top_tenants_attacks(main_customer, load_expected, utcnow):
 @pytest.fixture()
 def top_tenants_compliance(main_customer, load_expected, utcnow):
     item = SP.report_metrics_service.create(
-        key=SP.report_metrics_service.key_for_customer(
+        key=ReportMetrics.build_key_for_customer(
             ReportType.DEPARTMENT_TOP_TENANTS_COMPLIANCE, main_customer.name
         ),
         start=ReportType.DEPARTMENT_TOP_TENANTS_COMPLIANCE.start(utcnow),
@@ -81,7 +82,7 @@ def top_tenants_compliance(main_customer, load_expected, utcnow):
 @pytest.fixture()
 def top_tenants_resources(main_customer, load_expected, utcnow):
     item = SP.report_metrics_service.create(
-        key=SP.report_metrics_service.key_for_customer(
+        key=ReportMetrics.build_key_for_customer(
             ReportType.DEPARTMENT_TOP_TENANTS_RESOURCES, main_customer.name
         ),
         start=ReportType.DEPARTMENT_TOP_TENANTS_RESOURCES.start(utcnow),

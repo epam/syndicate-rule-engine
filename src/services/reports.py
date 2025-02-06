@@ -151,7 +151,7 @@ class JobMetricsDataSource:
     def n_in_progress(self) -> int:
         return sum(map(lambda j: not j.is_finished, self._jobs))
 
-    @property
+    @cached_property
     def last_succeeded_scan_date(self) -> str | None:
         if not self._jobs:
             return
@@ -463,7 +463,9 @@ class ShardsCollectionDataSource:
             rm = meta.get(rule, {})
             yield {
                 'policy': rule,
-                'resource_type': service_from_resource_type(self._col.meta[rule]['resource']),
+                'resource_type': service_from_resource_type(
+                    self._col.meta[rule]['resource']
+                ),
                 'description': rm.get('description') or '',
                 'severity': self._meta.rule(rule).severity.value,
                 'resources': inverted[rule],
@@ -559,7 +561,9 @@ class ShardsCollectionDataSource:
                     ),
                     'category': finops_category,
                     'severity': rule_meta.severity.value,
-                    'resource_type': service_from_resource_type(self._col.meta[rule]['resource']),
+                    'resource_type': service_from_resource_type(
+                        self._col.meta[rule]['resource']
+                    ),
                     'resources': inverted[rule],
                 }
             )
@@ -855,63 +859,12 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
         self._s3 = s3_client
         self._env = environment_service
 
-    @staticmethod
-    def build_key(
-        type_: ReportType,
-        customer: str,
-        project: str = '',
-        cloud: str = '',
-        tenant_or_platform: str = '',
-        region: str = '',
-    ) -> str:
-        return COMPOUND_KEYS_SEPARATOR.join(
-            (type_.value, customer, project, cloud, tenant_or_platform, region)
-        )
-
-    @classmethod
-    def key_for_tenant(
-        cls, type_: ReportType, tenant: Tenant, region: str = ''
-    ) -> str:
-        """
-        For tenant bound reports
-        """
-        return cls.build_key(
-            type_=type_,
-            customer=tenant.customer_name,
-            cloud=tenant.cloud,
-            tenant_or_platform=tenant.name,
-            region=region,
-        )
-
-    @classmethod
-    def key_for_platform(cls, type_: ReportType, platform: Platform):
-        return cls.build_key(
-            type_=type_,
-            customer=platform.customer,
-            cloud=Cloud.KUBERNETES.value,
-            tenant_or_platform=platform.id,
-        )
-
-    @classmethod
-    def key_for_project(
-        cls, type_: ReportType, customer: str, project: str, cloud: str = ''
-    ) -> str:
-        """
-        For project reports
-        """
-        return cls.build_key(
-            type_=type_, customer=customer, project=project, cloud=cloud
-        )
-
-    @classmethod
-    def key_for_customer(cls, type_: ReportType, customer: str) -> str:
-        """
-        For c-level reports
-        """
-        return cls.build_key(type_=type_, customer=customer)
-
     def create(
-        self, key: str, end: datetime, start: datetime | None = None
+        self,
+        key: str,
+        end: datetime,
+        start: datetime | None = None,
+        tenants: Iterable[str] = (),
     ) -> ReportMetrics:
         assert key.count(COMPOUND_KEYS_SEPARATOR) == 5, 'Invalid key'
         customer = key.split(COMPOUND_KEYS_SEPARATOR, 2)[1]
@@ -920,6 +873,7 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
             end=utc_iso(end),
             start=utc_iso(start) if start else None,
             customer=customer,
+            tenants=list(tenants),
         )
 
     def query(
@@ -981,12 +935,11 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
         tenant: Tenant,
         type_: ReportType,
         till: datetime | None = None,
-        region: str = '',
         ascending: bool = False,
         limit: int | None = None,
     ) -> Iterator[ReportMetrics]:
         return self.query(
-            key=self.key_for_tenant(type_, tenant, region),
+            key=ReportMetrics.build_key_for_tenant(type_, tenant),
             till=till,
             ascending=ascending,
             limit=limit,
@@ -1001,27 +954,18 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
         limit: int | None = None,
     ) -> Iterator[ReportMetrics]:
         return self.query(
-            key=self.key_for_platform(type_, platform),
+            key=ReportMetrics.build_key_for_platform(type_, platform),
             till=till,
             ascending=ascending,
             limit=limit,
         )
 
     def get_latest_for_tenant(
-        self,
-        tenant: Tenant,
-        type_: ReportType,
-        till: datetime | None = None,
-        region: str = '',
+        self, tenant: Tenant, type_: ReportType, till: datetime | None = None
     ) -> ReportMetrics | None:
         return next(
             self.query_by_tenant(
-                tenant=tenant,
-                type_=type_,
-                till=till,
-                region=region,
-                ascending=False,
-                limit=1,
+                tenant=tenant, type_=type_, till=till, ascending=False, limit=1
             ),
             None,
         )
@@ -1054,7 +998,7 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
         name = customer.name if isinstance(customer, Customer) else customer
         return next(
             self.query_exactly(
-                key=self.key_for_customer(type_, name),
+                key=ReportMetrics.build_key_for_customer(type_, name),
                 start=start,
                 end=end,
                 ascending=False,
@@ -1069,12 +1013,13 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
         customer: str,
         project: str,
         type_: ReportType,
-        cloud: str = '',
         till: datetime | None = None,
     ) -> ReportMetrics | None:
         return next(
             self.query(
-                key=self.key_for_project(type_, customer, project, cloud),
+                key=ReportMetrics.build_key_for_project(
+                    type_, customer, project
+                ),
                 till=till,
                 ascending=False,
                 limit=1,
@@ -1122,7 +1067,7 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
         return bool(
             next(
                 self.query_exactly(
-                    key=self.key_for_customer(type_, name),
+                    key=ReportMetrics.build_key_for_customer(type_, name),
                     start=type_.start(now),
                     end=type_.end(now),
                     ascending=False,

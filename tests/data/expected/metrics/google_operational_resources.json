@@ -1,5 +1,6 @@
 {
   "id": "testing-project-123",
+  "outdated_tenants": [],
   "data": [
     {
       "policy": "ecc-gcp-025-no_default_network",

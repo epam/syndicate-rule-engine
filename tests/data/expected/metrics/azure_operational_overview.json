@@ -1,5 +1,6 @@
 {
   "total_scans": 3,
+  "outdated_tenants": [],
   "failed_scans": 1,
   "succeeded_scans": 2,
   "activated_regions": [],

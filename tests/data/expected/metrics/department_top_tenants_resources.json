@@ -68,5 +68,6 @@
       "sort_by": 37,
       "tenant_display_name": "testing"
     }
-  ]
+  ],
+  "outdated_tenants": []
 }

@@ -1,5 +1,6 @@
 {
   "tenant_name": "AWS-TESTING",
+  "outdated_tenants": [],
   "last_scan_date": "2025-01-16T00:08:14.766892Z",
   "region": "eu-west-1",
   "name": "test",

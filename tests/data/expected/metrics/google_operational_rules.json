@@ -1,5 +1,6 @@
 {
   "succeeded_scans": 2,
+  "outdated_tenants": [],
   "activated_regions": [],
   "last_scan_date": "2025-02-04T00:16:00.289094Z",
   "id": "testing-project-123",
