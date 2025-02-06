@@ -1,10 +1,11 @@
 FROM public.ecr.aws/docker/library/python:3.10 as compile-image
 
 ARG CUSTODIAN_SERVICE_PATH=.
-ARG CLOUD_CUSTODIAN_PROVIDERS="gcp azure kube"
+ARG CLOUD_CUSTODIAN_PACKAGE="c7n~=0.9.43"
+ARG CLOUD_CUSTODIAN_PROVIDERS="c7n-gcp~=0.4.42 c7n-azure~=0.7.42 c7n-kube~=0.2.42"
 
 # some dependency error occurred when installing all with one pip install command. So
-RUN pip install --user c7n && for pkg in $CLOUD_CUSTODIAN_PROVIDERS; do pip install --user c7n-$pkg; done
+RUN pip install --user "$CLOUD_CUSTODIAN_PACKAGE" && for pkg in $CLOUD_CUSTODIAN_PROVIDERS; do pip install --user "$pkg"; done
 
 COPY $CUSTODIAN_SERVICE_PATH/src/executor/requirements.txt /src/executor/requirements.txt
 RUN pip install --user -r /src/executor/requirements.txt
@@ -13,8 +14,6 @@ COPY $CUSTODIAN_SERVICE_PATH/src/onprem/requirements.txt /src/onprem/requirement
 RUN pip install --user -r /src/onprem/requirements.txt
 
 COPY $CUSTODIAN_SERVICE_PATH/src /src
-
-RUN rm -rf $(find /root/.local/lib -name "*.dist-info") && rm -rf $(find /root/.local/lib/ -name "__pycache__")
 
 
 FROM public.ecr.aws/docker/library/python:3.10-slim AS build-image
