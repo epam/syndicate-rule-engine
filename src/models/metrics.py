@@ -30,7 +30,8 @@ class ReportMetrics(BaseModel):
     customer = UnicodeAttribute(attr_name='c')
 
     # holds tenants that were involved in collecting this report
-    tenants = ListAttribute(of=UnicodeAttribute, default=list)
+    tenants = ListAttribute(of=UnicodeAttribute, default=list,
+                            attr_name='t')
 
     @property
     def type(self) -> ReportType:

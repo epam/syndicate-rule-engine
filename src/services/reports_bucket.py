@@ -13,6 +13,7 @@ from models.batch_results import BatchResults
 from models.job import Job
 from models.metrics import ReportMetrics
 from services import SP
+from services.clients.s3 import S3Client
 
 if TYPE_CHECKING:
     from modular_sdk.models.tenant import Tenant
@@ -386,16 +387,18 @@ class ReportMetricsBucketKeysBuilder:
 
     @classmethod
     def metrics_key(cls, item: ReportMetrics) -> str:
-        # first two are always type and customer
+        # first two are always type and customer and always exist
         type_, customer, *other = item.key.split(COMPOUND_KEYS_SEPARATOR)
 
-        return urljoin(
-            cls.prefix,
-            customer,
-            type_,
-            *other,
-            cls.datetime(utc_datetime(item.end)),
-            cls.data,
+        return S3Client.safe_key(
+            urljoin(
+                cls.prefix,
+                customer,
+                type_,
+                *filter(None, other),
+                cls.datetime(utc_datetime(item.end)),
+                cls.data,
+            )
         )
 
 

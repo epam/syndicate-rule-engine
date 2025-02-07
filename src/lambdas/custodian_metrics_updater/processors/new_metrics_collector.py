@@ -2176,7 +2176,13 @@ class MetricsCollector:
             # TODO: merge metadata if there are multiple licenses
             metadata = self._ls.get_customer_metadata(customer.name)
             with MetricsContext(customer, metadata, now) as ctx:
-                self.collect_metrics_for_customer(ctx)
+                try:
+                    self.collect_metrics_for_customer(ctx)
+                except Exception:
+                    _LOG.exception(
+                        f'Unexpected error occurred collecting metrics for {customer.name}'
+                    )
+                    raise
             self._tenants_cache.clear()
             self._platforms_cache.clear()
         return {}
