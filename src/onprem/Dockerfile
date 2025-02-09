@@ -42,10 +42,6 @@ RUN for pkg in $PROVIDERS; do . /root/.local/bin/activate && cd tools/c7n_$pkg &
 COPY $CUSTODIAN_SERVICE_PATH/src/onprem/requirements.txt ../src/onprem/requirements.txt
 RUN . /root/.local/bin/activate && pip install -r ../src/onprem/requirements.txt
 
-# executor requirements
-COPY $CUSTODIAN_SERVICE_PATH/src/executor/requirements.txt ../src/executor/requirements.txt
-RUN . /root/.local/bin/activate && pip install -r ../src/executor/requirements.txt
-
 
 COPY $CLOUD_CUSTODIAN_PATH/tools/c7n_gcp tools/c7n_gcp/
 COPY $CLOUD_CUSTODIAN_PATH/tools/c7n_azure tools/c7n_azure/

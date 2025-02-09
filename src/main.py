@@ -376,17 +376,12 @@ class Run(ActionHandler):
                 '--workers is ignored because you are not running Gunicorn'
             )
 
-        from onprem.api.cron_jobs import ensure_all
-
         if CAASEnv.SERVICE_MODE.get() != DOCKER_SERVICE_MODE:
             CAASEnv.SERVICE_MODE.set(DOCKER_SERVICE_MODE)
 
         dr_wrapper = DeploymentResourcesApiGatewayWrapper(self.load_api_dr())
         app = self.make_app(dr_wrapper)
 
-        SP.ap_job_scheduler.start()
-        ensure_all()
-        # ensure_retry_job()
         if gunicorn:
             workers = workers or DEFAULT_NUMBER_OF_WORKERS
             from onprem.api.app_gunicorn import CustodianGunicornApplication

@@ -125,6 +125,17 @@ services:
     restart: always
     networks:
       - rule-engine-net
+  redis:
+    image: redis:7.2.3-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: always
+    command: redis-server --save 20 1 --loglevel warning --requirepass redispassword
+    networks:
+      - rule-engine-net
   vault:
     image: hashicorp/vault:1.17.2
     container_name: vault
@@ -158,6 +169,7 @@ volumes:
   vault-data:
   mongo-data:
   minio-data:
+  redis-data:
 configs:
   vault_config:
     content: |

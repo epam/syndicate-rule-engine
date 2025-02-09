@@ -50,6 +50,7 @@ from services.rule_source_service import RuleSourceService
 from validators.registry import permissions_mapping
 from validators.swagger_request_models import BaseModel, RuleUpdateMetaPostModel
 from validators.utils import validate_kwargs
+from onprem.tasks import collect_metrics
 
 _LOG = get_logger(__name__)
 
@@ -170,21 +171,10 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
     @validate_kwargs
     def update_metrics(self, event: BaseModel):
         _LOG.debug(f'Going to trigger: {METRICS_UPDATER_LAMBDA_NAME}')
-        response = self.lambda_client.invoke_function_async(
-            METRICS_UPDATER_LAMBDA_NAME, event={'data_type': 'metrics'})
-        if response.get('StatusCode') == HTTPStatus.ACCEPTED:
-            _LOG.debug('Metrics updating has been triggered')
-            return build_response(
-                code=HTTPStatus.ACCEPTED,
-                content='Metrics update has been submitted'
-            )
-        _LOG.error(
-            f'Response code is not {HTTPStatus.ACCEPTED}. '
-            f'Response: {response}.\n'
-            f'Metrics updating has not been triggered')
+        collect_metrics.delay()
         return build_response(
-            code=HTTPStatus.SERVICE_UNAVAILABLE,
-            content='Could not trigger metrics updating'
+            code=HTTPStatus.ACCEPTED,
+            content='Metrics update has been submitted'
         )
 
     @staticmethod

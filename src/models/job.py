@@ -7,6 +7,7 @@ from models import BaseModel
 
 JOB_ID = 'i'
 JOB_BATCH_JOB_ID = 'b'
+JOB_CELERY_TASK_ID = 'cti'
 JOB_TENANT_NAME = 't'
 JOB_CUSTOMER_NAME = 'c'
 JOB_STATUS = 's'
@@ -57,6 +58,7 @@ class Job(BaseModel):
 
     id = UnicodeAttribute(hash_key=True, attr_name=JOB_ID)
     batch_job_id = UnicodeAttribute(null=True, attr_name=JOB_BATCH_JOB_ID)
+    celery_task_id = UnicodeAttribute(null=True, attr_name=JOB_CELERY_TASK_ID)
     tenant_name = UnicodeAttribute(attr_name=JOB_TENANT_NAME)
     customer_name = UnicodeAttribute(attr_name=JOB_CUSTOMER_NAME)
 

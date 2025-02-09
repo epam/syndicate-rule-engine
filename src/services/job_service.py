@@ -43,6 +43,7 @@ class JobService(BaseDataService[Job]):
         self,
         job: Job,
         batch_job_id: str | None = None,
+        celery_task_id: str | None = None,
         reason: str | None = None,
         status: JobState | None = None,
         created_at: str | None = None,
@@ -55,6 +56,8 @@ class JobService(BaseDataService[Job]):
         actions = []
         if batch_job_id:
             actions.append(Job.batch_job_id.set(batch_job_id))
+        if celery_task_id:
+            actions.append(Job.celery_task_id.set(celery_task_id))
         if reason:
             actions.append(Job.reason.set(reason))
         if status:
@@ -147,6 +150,7 @@ class JobService(BaseDataService[Job]):
         raw.pop('owner', None)
         raw.pop('rules_to_scan', None)
         raw.pop('ttl', None)
+        raw.pop('celery_task_id', None)
         rulesets = []
         for r in item.rulesets:
             rulesets.append(RulesetName(r).to_str(False))

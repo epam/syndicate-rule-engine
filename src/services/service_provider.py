@@ -34,8 +34,8 @@ if TYPE_CHECKING:
     from services.scheduler_service import SchedulerService
     from services.setting_service import CachedSettingsService
     from services.platform_service import PlatformService
-    from services.clients.batch import BatchClient, SubprocessBatchClient
     from services.integration_service import IntegrationService
+    from services.clients.batch import CeleryJobClient, BatchClient
     from services.defect_dojo_service import DefectDojoService
     from services.clients.cognito import BaseAuthClient
     from services.rbac_service import RoleService, PolicyService
@@ -82,10 +82,10 @@ class ServiceProvider(metaclass=SingletonMeta):
         )
 
     @cached_property
-    def batch(self) -> Union['BatchClient', 'SubprocessBatchClient']:
+    def batch(self) -> Union['BatchClient', 'CeleryJobClient']:
         if self.environment_service.is_docker():
-            from services.clients.batch import SubprocessBatchClient
-            return SubprocessBatchClient.build()
+            from services.clients.batch import CeleryJobClient
+            return CeleryJobClient.build()
         from services.clients.batch import BatchClient
         return BatchClient.factory().build(
             region_name=self.environment_service.aws_region()
