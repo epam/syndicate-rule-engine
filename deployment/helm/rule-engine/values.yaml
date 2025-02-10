@@ -24,6 +24,9 @@ vaultService: vault
 vaultPort: 8200
 minioService: minio
 minioPort: 9000
+# for celery
+redisService: redis
+redisPort: 6380
 
 vault:
   enabled: true
@@ -36,6 +39,9 @@ minio:
 mongo:
   enabled: true
   fullnameOverride: mongo
+redis:
+  enabled: true
+  fullnameOverride: redis
 modular-service:
   enabled: true
   fullnameOverride: modular-service

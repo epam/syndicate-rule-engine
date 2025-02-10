@@ -1,0 +1,21 @@
+service:
+  type: ClusterIP
+  port: 6380  # 6379 is taken by Defect Dojo
+  nodePort: 32104
+
+image:
+  repository: redis
+  tag: 7.2.3-alpine
+  pullPolicy: IfNotPresent
+
+persistence:
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  storageClass: standard
+  hostPath: /data/redis
+
+replicas: 1
+strategy:
+  type: RollingUpdate
+  maxUnavailable: 0
+  maxSurge: 100%

@@ -17,6 +17,10 @@ dependencies:
     repository: "s3://charts-repository/syndicate/"
     version: "^1.0.0"
     condition: mongo.enabled
+  - name: redis
+    repository: "s3://charts-repository/syndicate/"
+    version: "^1.0.0"
+    condition: redis.enabled
   - name: modular-service
     repository: "s3://charts-repository/syndicate/"
     version: "^3.2.0"

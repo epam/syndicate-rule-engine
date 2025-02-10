@@ -6,7 +6,7 @@ from helpers.constants import CAASEnv
 
 load_dotenv(verbose=True)
 
-redis = CAASEnv.CELERY_BROKER_URL.get('redis://:redispassword@localhost:6379/0')
+redis = CAASEnv.CELERY_BROKER_URL.get()
 
 app = Celery(broker=redis,
              include=['onprem.tasks'])
@@ -14,7 +14,7 @@ app = Celery(broker=redis,
 app.conf.beat_schedule = {
     'make-findings-snapshots-every-4-hours': {
         'task': 'onprem.tasks.make_findings_snapshot',
-        'schedule': crontab(hour='*/4'),
+        'schedule': crontab(minute='0', hour='*/4'),
         'args': ()
     },
     'sync-license-every-4-hours': {
@@ -24,7 +24,7 @@ app.conf.beat_schedule = {
     },
     'collect-metrics-twice-a-day': {
         'task': 'onprem.tasks.collect_metrics',
-        'schedule': crontab(hour='1,13'),
+        'schedule': crontab(minute='0', hour='1,13'),
         'args': ()
     }
 }
