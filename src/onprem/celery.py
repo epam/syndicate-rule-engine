@@ -34,6 +34,8 @@ app.conf.worker_prefetch_multiplier = 1  # https://docs.celeryq.dev/en/stable/us
 app.conf.task_compression = 'gzip'
 app.conf.worker_max_tasks_per_child = 8
 app.conf.worker_log_color = False
+app.conf.worker_send_task_event = False
+app.conf.task_ignore_result = True  # custom results logic
 
 # app.conf.task_annotations = {
 #     'onprem.tasks.run_executor': {

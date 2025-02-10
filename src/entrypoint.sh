@@ -21,18 +21,18 @@ start_server() {
   python main.py init
 
   log "Starting server"
-  python main.py run --gunicorn
+  exec python main.py run --gunicorn
 }
 
 start_celeryworker() {
   log "Going to start celeryworker"
-  celery -A onprem worker
+  exec celery -A onprem worker --loglevel=INFO --without-heartbeat --without-gossip --without-mingle -Ofair --uid=nobody --gid=nogroup
 
 }
 
 start_celerybeat() {
   log "Going to start celerybeat"
-  celery -A onprem beat
+  exec celery -A onprem beat --loglevel=INFO --uid=nobody --gid=nogroup
 }
 
 case "$1" in

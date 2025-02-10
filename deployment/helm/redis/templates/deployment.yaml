@@ -52,7 +52,7 @@ spec:
           args:
             - "-c"
             - |
-              redis-server --save 20 1 --loglevel warning --requirepass ${REDIS_PASSWORD:-$MONGO_PASSWORD}
+              exec redis-server --save 20 1 --loglevel warning --requirepass ${REDIS_PASSWORD:-$MONGO_PASSWORD}
           ports:
             - containerPort: 6379
               name: redis-socket
