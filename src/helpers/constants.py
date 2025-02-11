@@ -482,6 +482,9 @@ class CAASEnv(EnvEnum):
     # init envs
     SYSTEM_USER_PASSWORD = 'CAAS_SYSTEM_USER_PASSWORD'
 
+    # Celery
+    CELERY_BROKER_URL = 'CAAS_CELERY_BROKER_URL'
+
 
 class BatchJobEnv(EnvEnum):
     """

@@ -23,6 +23,10 @@ class MetricsUpdater(EventProcessorLambdaHandler):
     def __init__(self, lambda_client: LambdaClient):
         self.lambda_client = lambda_client
 
+    @classmethod
+    def build(cls) -> 'MetricsUpdater':
+        return cls(lambda_client=SERVICE_PROVIDER.lambda_client)
+
     @tracer_decorator(is_job=True, component='metrics')
     def handle_request(self, event, context):
         # todo validate event
@@ -57,10 +61,5 @@ class MetricsUpdater(EventProcessorLambdaHandler):
         )
 
 
-HANDLER = MetricsUpdater(
-    lambda_client=SERVICE_PROVIDER.lambda_client
-)
-
-
 def lambda_handler(event, context):
-    return HANDLER.lambda_handler(event=event, context=context)
+    return MetricsUpdater.build().lambda_handler(event=event, context=context)
