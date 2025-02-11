@@ -26,13 +26,13 @@ start_server() {
 
 start_celeryworker() {
   log "Going to start celeryworker"
-  exec celery -A onprem worker --loglevel=INFO --without-heartbeat --without-gossip --without-mingle -Ofair --uid=nobody --gid=nogroup
+  exec celery -A onprem worker --loglevel=INFO --without-heartbeat --without-gossip --without-mingle -Ofair
 
 }
 
 start_celerybeat() {
   log "Going to start celerybeat"
-  exec celery -A onprem beat --loglevel=INFO --uid=nobody --gid=nogroup
+  exec celery -A onprem beat --loglevel=INFO
 }
 
 case "$1" in
