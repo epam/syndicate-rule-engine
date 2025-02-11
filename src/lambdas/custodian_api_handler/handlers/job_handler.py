@@ -570,6 +570,7 @@ class JobHandler(AbstractHandler):
             rules_to_scan=list(rules_to_scan or []),
             ttl=ttl,
             affected_license=lic.license_key if lic else None,
+            status=JobState.PENDING
         )
         self._job_service.save(job)
 
@@ -783,6 +784,7 @@ class JobHandler(AbstractHandler):
             ttl=ttl,
             platform_id=platform.id,
             affected_license=lic.license_key if lic else None,
+            status=JobState.PENDING
         )
         self._job_service.save(job)
         envs = self._assemble_service.build_job_envs(

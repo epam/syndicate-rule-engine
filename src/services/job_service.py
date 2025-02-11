@@ -25,6 +25,7 @@ class JobService(BaseDataService[Job]):
         ttl: timedelta | None = None,
         owner: str | None = None,
         affected_license: str | None = None,
+        status: JobState = JobState.SUBMITTED
     ) -> Job:
         return super().create(
             id=str(uuid.uuid4()),
@@ -37,6 +38,7 @@ class JobService(BaseDataService[Job]):
             ttl=ttl,
             owner=owner,
             affected_license=affected_license,
+            status=status.value
         )
 
     def update(
