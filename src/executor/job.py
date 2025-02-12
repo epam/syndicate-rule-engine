@@ -1,5 +1,7 @@
 import io
-import multiprocessing
+# import multiprocessing
+import billiard as multiprocessing  # allows to execute child processes from a daemon process
+
 import operator
 import os
 import sys
@@ -214,6 +216,7 @@ class PoliciesLoader:
             debug=False,
             skip_validation=False,
             vars=None,
+            log_group='null'
         )
 
     @staticmethod
@@ -1303,7 +1306,6 @@ def process_job_concurrent(
     filename: str,
     work_dir: Path,
     cloud: Cloud,
-    q: multiprocessing.Queue,
     region: str,
 ):
     """
@@ -1328,13 +1330,13 @@ def process_job_concurrent(
         _LOG.info('Starting runner')
         runner.start()
         _LOG.info('Runner has finished')
-        q.put(runner.failed)
+        return runner.failed
     except Exception:  # not considered
         # TODO this exception can occur if, say, credentials are invalid.
         #  In such a case PolicyErrorType.CREDENTIALS won't be assigned to
         #  those policies that should've been executed here. Must be fixed
         _LOG.exception('Unexpected error occurred trying to scan')
-        q.put({})
+        return {}
 
 
 def process_job(
@@ -1441,8 +1443,13 @@ def standard_job(job: Job, tenant: Tenant, work_dir: Path):
         file.write(msgspec.json.encode(policies))
     failed = {}
     with EnvironmentContext(credentials, reset_all=False):
-        for region in [GLOBAL_REGION] + sorted(BSP.env.target_regions()):
-            failed.update(process_job(policies, work_dir, cloud, region))
+        for region in [GLOBAL_REGION, ] + sorted(BSP.env.target_regions()):
+            with multiprocessing.Pool(1) as pool:
+                res = pool.apply(
+                    process_job_concurrent,
+                    (file.name, work_dir, cloud, region)
+                )
+                failed.update(res)
 
     result = JobResult(work_dir, cloud)
     if platform:

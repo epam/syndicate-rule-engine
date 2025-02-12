@@ -859,6 +859,8 @@ class HighLevelReportsHandler(AbstractHandler):
         )
 
         builder = MaestroModelBuilder(receivers=tuple(event.receivers))
+        types = event.new_types
+        only_k8s = len(types) == 1 and types[0] == ReportType.OPERATIONAL_KUBERNETES
 
         for tenant_name in event.tenant_names:
             if not _tap.is_allowed_for(tenant_name):
@@ -871,7 +873,7 @@ class HighLevelReportsHandler(AbstractHandler):
             modular_helpers.assert_tenant_valid(tenant, event.customer)
             tenant = cast(Tenant, tenant)
 
-            for typ in event.new_types:
+            for typ in types:
                 if typ is ReportType.OPERATIONAL_KUBERNETES:
                     _LOG.debug('Specific handling for k8s reports')
                     k8s_datas = []
@@ -885,7 +887,7 @@ class HighLevelReportsHandler(AbstractHandler):
                         data = builder.convert(rep, self._rms.fetch_data(rep))
                         data = packer.pack(data)
                         k8s_datas.append(data)
-                    if not k8s_datas:
+                    if only_k8s and not k8s_datas:
                         _LOG.debug(
                             f'Could not find any {typ} for {tenant.name}'
                         )
