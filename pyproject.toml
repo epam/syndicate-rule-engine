@@ -17,6 +17,9 @@ test = [
     "moto>=5.0.17",
     "mongomock>=4"
 ]
+c7n = [
+    "c7n~=0.9.43",
+]
 
 
 [tool.pyright]
@@ -53,7 +56,7 @@ skip_install = true
 description = "Run tests under {base_python}"
 
 [tool.tox.env.py310]
-dependency_groups = ["test"]
+dependency_groups = ["test", "c7n"]
 deps = ["-r src/onprem/requirements.txt",]
 commands = [[
     "pytest",
