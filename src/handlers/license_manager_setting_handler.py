@@ -122,7 +122,7 @@ class LicenseManagerClientHandler(AbstractHandler):
                     Encoding.PEM,
                     PrivateFormat.PKCS8,
                     NoEncryption()
-                )
+                ).decode('utf-8')
             }
         )
         _LOG.info('Private key was saved to SSM')
