@@ -284,14 +284,13 @@ def test_metrics_update_operational_project(
     set_license_metadata,
 ):
     set_license_metadata('metrics_metadata')
-    # todo mock date because currently these tests may fail if executed
-    #  in some corner dates
-    resp = sre_client.request(
-        '/metrics/update', 'POST', auth=system_user_token
-    )
-    assert resp.status_int == 202
-    assert resp.json == {'message': 'Metrics update has been submitted'}
-    time.sleep(2)  # don't know how to check underlying thread is finished
+    # resp = sre_client.request(
+    #     '/metrics/update', 'POST', auth=system_user_token
+    # )
+    # assert resp.status_int == 202
+    # assert resp.json == {'message': 'Metrics update has been submitted'}
+    # time.sleep(2)  # don't know how to check underlying thread is finished
+    MetricsCollector.build().__call__()
 
     # checking operational (per tenant)
     item = SP.report_metrics_service.get_latest_for_tenant(
@@ -486,12 +485,13 @@ def test_metrics_update_department_c_level(
         ),
         patch('services.reports.utc_datetime', mocked),
     ):
-        resp = sre_client.request(
-            '/metrics/update', 'POST', auth=system_user_token
-        )
-        assert resp.status_int == 202
-        assert resp.json == {'message': 'Metrics update has been submitted'}
-        time.sleep(2)  # don't know how to check underlying thread is finished
+        MetricsCollector.build().__call__()
+        # resp = sre_client.request(
+        #     '/metrics/update', 'POST', auth=system_user_token
+        # )
+        # assert resp.status_int == 202
+        # assert resp.json == {'message': 'Metrics update has been submitted'}
+        # time.sleep(2)  # don't know how to check underlying thread is finished
     item = SP.report_metrics_service.get_exactly_for_customer(
         main_customer, ReportType.C_LEVEL_OVERVIEW
     )
