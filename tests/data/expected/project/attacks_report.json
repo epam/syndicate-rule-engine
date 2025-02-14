@@ -1,0 +1,75 @@
+{
+  "receivers": [
+    "admin@gmail.com"
+  ],
+  "report_type": "ATTACK_VECTOR",
+  "customer": "TEST_CUSTOMER",
+  "from": "2025-01-21T14:27:22.606099Z",
+  "to": "2025-01-28T14:27:22.606099Z",
+  "outdated_tenants": [],
+  "externalData": false,
+  "data": {
+    "AWS": [
+      {
+        "account_id": "123456789012",
+        "tenant_name": "AWS-TESTING",
+        "last_scan_date": "2025-01-28T00:20:16.359026Z",
+        "activated_regions": [
+          "eu-central-1",
+          "eu-north-1",
+          "eu-west-1",
+          "eu-west-3"
+        ],
+        "mitre_data": [
+          {
+            "tactic_id": "TA0009",
+            "tactic": "Collection",
+            "techniques_data": [
+              {
+                "technique_id": "T0",
+                "regions_data": {
+                  "eu-central-1": {
+                    "severity_data": {
+                      "Unknown": 3
+                    }
+                  }
+                },
+                "technique": "testing0"
+              },
+              {
+                "technique_id": "T1",
+                "regions_data": {
+                  "eu-central-1": {
+                    "severity_data": {
+                      "Unknown": 3
+                    }
+                  }
+                },
+                "technique": "testing1"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "AZURE": [
+      {
+        "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
+        "tenant_name": "AZURE-TESTING",
+        "last_scan_date": "2025-01-28T00:20:16.359026Z",
+        "activated_regions": [],
+        "mitre_data": []
+      }
+    ],
+    "GOOGLE": [
+      {
+        "account_id": "testing-project-123",
+        "tenant_name": "GOOGLE-TESTING",
+        "last_scan_date": "2025-01-28T00:20:16.359026Z",
+        "activated_regions": [],
+        "mitre_data": []
+      }
+    ]
+  },
+  "tenant_display_name": "testing"
+}

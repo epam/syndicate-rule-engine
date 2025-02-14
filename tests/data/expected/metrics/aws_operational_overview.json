@@ -2,30 +2,84 @@
   "total_scans": 3,
   "failed_scans": 1,
   "succeeded_scans": 2,
+  "outdated_tenants": [],
   "activated_regions": [
     "eu-central-1",
     "eu-north-1",
     "eu-west-1",
     "eu-west-3"
   ],
-  "last_scan_date": "2024-11-17T00:51:06.579760Z",
+  "last_scan_date": "2025-02-04T00:11:06.462491Z",
   "id": "123456789012",
   "resources_violated": 23,
-  "regions_severity": {
+  "total_findings": 26,
+  "regions_data": {
     "eu-central-1": {
-      "Unknown": 7
+      "severity": {
+        "Unknown": 7
+      },
+      "service": {
+        "Security Group": 3,
+        "Sns": 3,
+        "S3": 1
+      },
+      "resource_types": {
+        "Security Group": 3,
+        "Sns": 3,
+        "S3": 1
+      }
     },
     "global": {
-      "Unknown": 4
+      "severity": {
+        "Unknown": 4
+      },
+      "service": {
+        "Cloudtrail": 1,
+        "Iam Group": 3
+      },
+      "resource_types": {
+        "Cloudtrail": 1,
+        "Iam Group": 3
+      }
     },
     "eu-north-1": {
-      "Unknown": 1
+      "severity": {
+        "Unknown": 1
+      },
+      "service": {
+        "S3": 1
+      },
+      "resource_types": {
+        "S3": 1
+      }
     },
     "eu-west-1": {
-      "Unknown": 10
+      "severity": {
+        "Unknown": 10
+      },
+      "service": {
+        "Ebs": 2,
+        "Ec2": 2,
+        "Ecr": 2,
+        "S3": 4
+      },
+      "resource_types": {
+        "Ebs": 2,
+        "Ec2": 2,
+        "Ecr": 2,
+        "S3": 4
+      }
     },
     "eu-west-3": {
-      "Unknown": 1
+      "severity": {
+        "Unknown": 1
+      },
+      "service": {
+        "S3": 1
+      },
+      "resource_types": {
+        "S3": 1
+      }
     }
   }
 }

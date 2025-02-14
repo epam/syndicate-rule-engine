@@ -4,8 +4,8 @@
   ],
   "report_type": "OVERVIEW",
   "customer": "TEST_CUSTOMER",
-  "from": "2024-11-20T15:41:54.676916Z",
-  "to": "2024-11-27T15:41:54.676916Z",
+  "from": "2025-01-01T00:00:00Z",
+  "to": "2025-02-01T00:00:00Z",
   "outdated_tenants": [],
   "externalData": false,
   "data": {
@@ -13,7 +13,7 @@
       "failed_scans": {
         "value": 1
       },
-      "last_scan_date": "2024-11-26T00:09:20.824013Z",
+      "last_scan_date": "2025-02-01T00:17:25.830309Z",
       "resources_violated": {
         "value": 23
       },
@@ -21,14 +21,14 @@
         "Security Group": {
           "value": 3
         },
-        "Cloudtrail": {
-          "value": 1
-        },
         "Sns": {
           "value": 3
         },
         "S3": {
-          "value": 10
+          "value": 7
+        },
+        "Cloudtrail": {
+          "value": 1
         },
         "Iam Group": {
           "value": 3
@@ -55,14 +55,22 @@
       "total_scans": {
         "value": 3
       },
-      "activated": false,
-      "license_properties": {}
+      "activated": true,
+      "license_properties": {
+        "Rulesets": [
+          "AWS 1.0.0"
+        ],
+        "Number of licenses": 1,
+        "Event-Driven mode": "On",
+        "Scans frequency": "10 scans per DAY",
+        "Expiration": "Feb 01, 2100 13:24:26 UTC"
+      }
     },
     "AZURE": {
       "failed_scans": {
         "value": 1
       },
-      "last_scan_date": "2024-11-26T00:09:20.824013Z",
+      "last_scan_date": "2025-02-01T00:17:25.830309Z",
       "resources_violated": {
         "value": 5
       },
@@ -83,31 +91,39 @@
       "total_scans": {
         "value": 3
       },
-      "activated": false,
-      "license_properties": {}
+      "activated": true,
+      "license_properties": {
+        "Rulesets": [
+          "AZURE 1.0.0"
+        ],
+        "Number of licenses": 1,
+        "Event-Driven mode": "On",
+        "Scans frequency": "10 scans per DAY",
+        "Expiration": "Feb 01, 2100 13:24:26 UTC"
+      }
     },
     "GOOGLE": {
       "failed_scans": {
         "value": 1
       },
-      "last_scan_date": "2024-11-26T00:09:20.824013Z",
+      "last_scan_date": "2025-02-01T00:17:25.830309Z",
       "resources_violated": {
-        "value": 5
+        "value": 9
       },
       "resource_types_data": {
         "Vpc": {
           "value": 1
         },
         "Firewall": {
-          "value": 9
+          "value": 4
         },
         "Subnet": {
-          "value": 1
+          "value": 4
         }
       },
       "severity_data": {
         "Unknown": {
-          "value": 5
+          "value": 9
         }
       },
       "succeeded_scans": {
@@ -117,8 +133,16 @@
       "total_scans": {
         "value": 3
       },
-      "activated": false,
-      "license_properties": {}
+      "activated": true,
+      "license_properties": {
+        "Rulesets": [
+          "GOOGLE 1.0.0"
+        ],
+        "Number of licenses": 1,
+        "Event-Driven mode": "On",
+        "Scans frequency": "10 scans per DAY",
+        "Expiration": "Feb 01, 2100 13:24:26 UTC"
+      }
     }
   }
 }

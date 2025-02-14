@@ -1,12 +1,12 @@
 {
   "succeeded_scans": 2,
+  "outdated_tenants": [],
   "activated_regions": [],
-  "last_scan_date": "2024-11-25T00:22:07.209431Z",
+  "last_scan_date": "2025-02-04T00:16:00.289094Z",
   "id": "3d615fa8-05c6-47ea-990d-9d162testing",
-  "resources_violated": 5,
   "data": [
     {
-      "policy": "ecc-azure-347-mysql_cmk",
+      "policy": "Description for ecc-azure-347-mysql_cmk",
       "region": "global",
       "invocations": 1,
       "succeeded_invocations": 1,
@@ -22,7 +22,7 @@
       "average_resources_failed": 0
     },
     {
-      "policy": "ecc-azure-109-cis_sa_logging_blob",
+      "policy": "Description for ecc-azure-109-cis_sa_logging_blob",
       "region": "global",
       "invocations": 1,
       "succeeded_invocations": 1,
@@ -38,7 +38,7 @@
       "average_resources_failed": 0
     },
     {
-      "policy": "ecc-azure-358-synapse_workspace_managed_vnet",
+      "policy": "Description for ecc-azure-358-synapse_workspace_managed_vnet",
       "region": "global",
       "invocations": 1,
       "succeeded_invocations": 1,
@@ -54,7 +54,7 @@
       "average_resources_failed": 0
     },
     {
-      "policy": "ecc-azure-125-nsg_mysql",
+      "policy": "Description for ecc-azure-125-nsg_mysql",
       "region": "global",
       "invocations": 1,
       "succeeded_invocations": 0,
@@ -70,7 +70,7 @@
       "average_resources_failed": 0
     },
     {
-      "policy": "ecc-azure-313-cis_postgresql_log_min_messages",
+      "policy": "Description for ecc-azure-313-cis_postgresql_log_min_messages",
       "region": "global",
       "invocations": 1,
       "succeeded_invocations": 0,
@@ -86,7 +86,7 @@
       "average_resources_failed": 0
     },
     {
-      "policy": "ecc-azure-310-asb_defender_open_source_rds",
+      "policy": "Description for ecc-azure-310-asb_defender_open_source_rds",
       "region": "global",
       "invocations": 1,
       "succeeded_invocations": 1,
@@ -102,7 +102,7 @@
       "average_resources_failed": 1
     },
     {
-      "policy": "ecc-azure-096-cis_sec_defender_azure_sql",
+      "policy": "Description for ecc-azure-096-cis_sec_defender_azure_sql",
       "region": "global",
       "invocations": 1,
       "succeeded_invocations": 1,
@@ -118,7 +118,7 @@
       "average_resources_failed": 1
     },
     {
-      "policy": "ecc-azure-376-cis_defender_cosmodb",
+      "policy": "Description for ecc-azure-376-cis_defender_cosmodb",
       "region": "global",
       "invocations": 1,
       "succeeded_invocations": 1,
@@ -134,7 +134,7 @@
       "average_resources_failed": 1
     },
     {
-      "policy": "ecc-azure-099-cis_sec_defender_aks",
+      "policy": "Description for ecc-azure-099-cis_sec_defender_aks",
       "region": "global",
       "invocations": 1,
       "succeeded_invocations": 1,
@@ -150,7 +150,7 @@
       "average_resources_failed": 1
     },
     {
-      "policy": "ecc-azure-213-asb_lt_defender_dns",
+      "policy": "Description for ecc-azure-213-asb_lt_defender_dns",
       "region": "global",
       "invocations": 1,
       "succeeded_invocations": 1,
@@ -165,5 +165,6 @@
       "average_resources_scanned": 0,
       "average_resources_failed": 1
     }
-  ]
+  ],
+  "resources_violated": 5
 }

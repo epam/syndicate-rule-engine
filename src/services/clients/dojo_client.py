@@ -12,6 +12,8 @@ _LOG = get_logger(__name__)
 class DojoV2Client:
     __slots__ = ('_url', '_session')
 
+    encoder = msgspec.json.Encoder()
+
     def __init__(self, url: str, api_key: str):
         """
         :param url: http://127.0.0.1:8080/api/v2
@@ -60,7 +62,7 @@ class DojoV2Client:
                 'scan_date': scan_date.date().isoformat()
             },
             files={
-                'file': ('report.json', msgspec.json.encode(data))
+                'file': ('report.json', self.encoder.encode(data))
             }
         )
 
@@ -79,6 +81,7 @@ class DojoV2Client:
                 timeout=timeout
             )
             _LOG.info(f'Response status code: {resp.status_code}')
+            _LOG.debug(f'Response body: {resp.text}')
             return resp
         except requests.RequestException:
             _LOG.exception('Error occurred making request to dojo')

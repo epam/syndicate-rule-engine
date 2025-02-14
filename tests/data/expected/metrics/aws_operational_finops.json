@@ -1,5 +1,6 @@
 {
   "id": "123456789012",
+  "outdated_tenants": [],
   "data": {
     "Compute": [
       {
@@ -7,7 +8,7 @@
         "service": "Security Group",
         "category": "Unused Resources",
         "severity": "Unknown",
-        "resource_type": "aws.security-group",
+        "resource_type": "Security Group",
         "resources": {
           "eu-central-1": [
             {
@@ -15,19 +16,19 @@
               "name": "west-eu"
             },
             {
-              "id": "sg-09d19538187df66cf",
-              "name": "asia"
-            },
-            {
               "id": "sg-0ae266faddaef17e9",
               "name": "packer-ssh-access"
+            },
+            {
+              "id": "sg-09d19538187df66cf",
+              "name": "asia"
             }
           ]
         }
       }
     ]
   },
-  "last_scan_date": "2024-12-12T00:38:12.463910Z",
+  "last_scan_date": "2025-02-04T00:15:05.088388Z",
   "activated_regions": [
     "eu-central-1",
     "eu-north-1",

@@ -68,5 +68,20 @@
     "resource": "aws.waf",
     "description": "Description for ecc-aws-527-waf_global_webacl_not_empty",
     "comment": "010002092001"
+  },
+  "ecc-aws-015-ensure_mfa_is_enabled_for_the_root_account": {
+    "resource": "aws.account",
+    "description": "Description for ecc-aws-015-ensure_mfa_is_enabled_for_the_root_account",
+    "comment": "010036002901"
+  },
+  "ecc-aws-515-security_hub_enabled": {
+    "resource": "aws.account",
+    "description": "Description for ecc-aws-515-security_hub_enabled",
+    "comment": "010016092900"
+  },
+  "ecc-aws-531-ebs_default_encryption_enabled": {
+    "resource": "aws.account",
+    "description": "Description for ecc-aws-531-ebs_default_encryption_enabled",
+    "comment": "010043042900"
   }
 }

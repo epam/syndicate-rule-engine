@@ -1,8 +1,6 @@
-from __future__ import annotations
-
 import itertools
 import statistics
-from typing import Annotated
+from typing import Annotated, Any, Generator
 
 import msgspec
 from typing_extensions import Self
@@ -10,7 +8,7 @@ from typing_extensions import Self
 PercentFloat = Annotated[float, msgspec.Meta(ge=-1.0, le=1.0)]
 
 
-class CoverageCalculator:
+class StandardCoverageCalculator:
     """
     As simple as it can be. Calculates coverage for some specific standard and
     version pair.
@@ -117,3 +115,34 @@ class CoverageCalculator:
         if len(items) == 0:
             return
         return statistics.mean(items)
+
+
+def calculate_controls_coverages(
+    successful: dict[str, int], total: dict[str, int]
+) -> dict[str, float]:
+    res = {}
+    for control, total_n in total.items():
+        successful_n = successful.get(control)
+        if successful_n:
+            res[control] = successful_n / total_n
+        else:
+            res[control] = 0.0
+    return res
+
+
+class MappingAverageCalculator:
+    __slots__ = ('_buf',)
+
+    def __init__(self):
+        self._buf = {}
+
+    def update(self, dct: dict[Any, float]) -> None:
+        for k, v in dct.items():
+            self._buf.setdefault(k, []).append(v)
+
+    def produce(self) -> Generator[tuple[Any, float], None, None]:
+        for k, v in self._buf.items():
+            yield k, statistics.mean(v)
+
+    def reset(self) -> None:
+        self._buf.clear()

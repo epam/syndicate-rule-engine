@@ -1,0 +1,26 @@
+{
+  "id": "123456789012",
+  "last_scan_date": "2025-01-08T00:05:47.388488Z",
+  "outdated_tenants": [],
+  "activated_regions": [
+    "eu-central-1",
+    "eu-north-1",
+    "eu-west-1",
+    "eu-west-3"
+  ],
+  "data": {
+    "regions": {
+      "eu-central-1": {
+        "Standard1 v1.0.0": 0.5,
+        "Standard1 v2.0.0": 0.25,
+        "Standard2": 0.125
+      },
+      "eu-west-1": {}
+    },
+    "total": {
+      "Standard1 v1.0.0": 0.5,
+      "Standard1 v2.0.0": 0.25,
+      "Standard2": 0.125
+    }
+  }
+}

@@ -1,5 +1,6 @@
 {
   "id": "testing-project-123",
+  "outdated_tenants": [],
   "data": [
     {
       "policy": "ecc-gcp-025-no_default_network",
@@ -9,7 +10,7 @@
       "resources": {
         "global": [
           {
-            "id": "default",
+            "id": "877139587449282054",
             "name": "default"
           }
         ]
@@ -23,19 +24,19 @@
       "resources": {
         "global": [
           {
-            "id": "default-allow-rdp",
-            "name": "default-allow-rdp"
-          },
-          {
-            "id": "default-allow-icmp",
+            "id": "1227136820292673506",
             "name": "default-allow-icmp"
           },
           {
-            "id": "default-allow-internal",
+            "id": "3339756659677913058",
             "name": "default-allow-internal"
           },
           {
-            "id": "default-allow-ssh",
+            "id": "2342562096469303266",
+            "name": "default-allow-rdp"
+          },
+          {
+            "id": "2007825320515264482",
             "name": "default-allow-ssh"
           }
         ]
@@ -49,7 +50,7 @@
       "resources": {
         "global": [
           {
-            "id": "default-allow-internal",
+            "id": "3339756659677913058",
             "name": "default-allow-internal"
           }
         ]
@@ -63,19 +64,19 @@
       "resources": {
         "global": [
           {
-            "id": "default-allow-rdp",
-            "name": "default-allow-rdp"
-          },
-          {
-            "id": "default-allow-icmp",
+            "id": "1227136820292673506",
             "name": "default-allow-icmp"
           },
           {
-            "id": "default-allow-internal",
+            "id": "3339756659677913058",
             "name": "default-allow-internal"
           },
           {
-            "id": "default-allow-ssh",
+            "id": "2342562096469303266",
+            "name": "default-allow-rdp"
+          },
+          {
+            "id": "2007825320515264482",
             "name": "default-allow-ssh"
           }
         ]
@@ -89,13 +90,25 @@
       "resources": {
         "global": [
           {
-            "id": "default",
+            "id": "2708525157271002654",
+            "name": "default"
+          },
+          {
+            "id": "80118305852546590",
+            "name": "default"
+          },
+          {
+            "id": "3115367106910640951",
+            "name": "default"
+          },
+          {
+            "id": "816596276746100793",
             "name": "default"
           }
         ]
       }
     }
   ],
-  "last_scan_date": "2024-11-17T00:02:53.992185Z",
+  "last_scan_date": "2025-01-23T00:39:25.574884Z",
   "activated_regions": []
 }

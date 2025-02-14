@@ -65,7 +65,7 @@ def describe(ctx: ContextObj, name, version, cloud, get_rules,
               help='Project id of git repo to build a ruleset')
 @click.option('--git_ref', '-gr', required=False, type=str,
               help='Branch of git repo to build a ruleset')
-@click.option('--platform', required=False, type=click.Choice(('kubernetes', 'openshift')),
+@click.option('--platform', required=False, type=click.Choice(('kubernetes', 'openshift', 'kubernetes and openshift')),
               multiple=True, help='Platform for k8s')
 @click.option('--category', required=False, type=str, multiple=True,
               help='Rules category to use')
@@ -112,6 +112,8 @@ def add(ctx: ContextObj, name: str, version: str, cloud: str, rule: tuple,
 @click.option('--version', '-v', type=str, required=False,
               help='Ruleset version to update. If not specified, '
                    'the latest version will be updated')
+@click.option('--new_version', '-nv', type=str, required=True,
+              help='New version for the updated ruleset')
 @click.option('--attach_rules', '-ar', multiple=True, required=False,
               help='Rule ids to attach to the ruleset. '
                    'Multiple values allowed')
@@ -122,21 +124,15 @@ def add(ctx: ContextObj, name: str, version: str, cloud: str, rule: tuple,
               help='If specified the new version of ruleset will be created '
                    'even if there are no changes')
 @cli_response(attributes_order=attributes_order)
-def update(ctx: ContextObj, customer_id, name, version, attach_rules,
-           detach_rules, force):
+def update(ctx: ContextObj, customer_id, name, version, new_version, 
+           attach_rules, detach_rules, force):
     """
     Updates Customers ruleset.
     """
-
-    if not force and not (attach_rules or detach_rules):
-        raise click.ClickException(
-            'At least one of the following arguments must be '
-            'provided: \'--attach_rules\', \'--detach_rules\''
-        )
-
     return ctx['api_client'].ruleset_update(
         name=name,
         version=version,
+        new_version=new_version,
         rules_to_attach=attach_rules,
         rules_to_detach=detach_rules,
         customer_id=customer_id,

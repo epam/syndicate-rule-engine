@@ -121,13 +121,6 @@ class EnvironmentService:
         # resolved from lambda context
         return CAASEnv.ACCOUNT_ID.get()
 
-    def mock_rabbitmq_s3_url(self) -> tuple[str, float] | None:
-        data = CAASEnv.MOCKED_RABBIT_MQ_S3.get()
-        if not data:
-            return
-        url, rate = data.split(',')
-        return url, float(rate)
-
     def jobs_time_to_live_days(self) -> int | None:
         """live_days
         Lambdas:

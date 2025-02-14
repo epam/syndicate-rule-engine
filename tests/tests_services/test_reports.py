@@ -4,15 +4,17 @@ from pathlib import Path
 import msgspec
 import pytest
 
+from helpers.reports import adjust_resource_type
 from helpers.time_helper import utc_datetime
+from helpers.constants import Cloud
 from models.job import Job
 from services.ambiguous_job_service import AmbiguousJob
+from services.metadata import Metadata
 from services.reports import (
     JobMetricsDataSource,
     ShardsCollectionDataSource,
     add_diff,
 )
-from helpers.reports import adjust_resource_type
 from services.sharding import AWSRegionDistributor, ShardPart, ShardsCollection
 
 
@@ -34,6 +36,11 @@ def aws_shards_collection(aws_shards_path: Path) -> ShardsCollection:
     with open(aws_shards_path / '1.json', 'rb') as fp:
         col.put_parts(msgspec.json.decode(fp.read(), type=list[ShardPart]))
     return col
+
+
+@pytest.fixture(scope='class')
+def metadata(load_metadata) -> Metadata:
+    return load_metadata('test_collection_data_source', Metadata)
 
 
 class TestJobMetricsDataSource:
@@ -162,42 +169,92 @@ def test_adjust_rt():
 
 
 class TestShardsCollectionDataSource:
-    def test_n_unique(self, aws_shards_collection, empty_metadata):
+    def test_n_unique(self, aws_shards_collection, metadata):
         source = ShardsCollectionDataSource(
             collection=aws_shards_collection,
-            metadata=empty_metadata
+            metadata=metadata,
+            cloud=Cloud.AWS
         )
-        assert source.n_unique == 23
+        assert source.n_unique == 26
 
-    def test_region_severities_no_metadata(
-        self, aws_shards_collection, empty_metadata
-    ):
+    def test_region_severities(self, aws_shards_collection, metadata):
         source = ShardsCollectionDataSource(
             collection=aws_shards_collection,
-            metadata=empty_metadata
+            metadata=metadata,
+            cloud=Cloud.AWS
         )
-        assert source.region_severities() == {
-            'eu-central-1': {'Unknown': 7},
-            'global': {'Unknown': 4},
-            'eu-north-1': {'Unknown': 1},
-            'eu-west-1': {'Unknown': 10},
-            'eu-west-3': {'Unknown': 1},
+        assert source.region_severities(unique=True) == {
+            'eu-central-1': {'Unknown': 6, 'Info': 2, 'High': 1},
+            'global': {'Unknown': 4, 'Info': 1},
+            'eu-north-1': {'Medium': 1},
+            'eu-west-1': {'Unknown': 6, 'Medium': 1, 'High': 3},
+            'eu-west-3': {'Medium': 1},
         }
-        assert source.severities() == {'Unknown': 23}
 
-    def test_report_types_no_metadata(
-        self, aws_shards_collection, empty_metadata
+    def test_region_severities_no_unique(
+        self, aws_shards_collection, metadata
     ):
         source = ShardsCollectionDataSource(
             collection=aws_shards_collection,
-            metadata=empty_metadata
+            metadata=metadata,
+            cloud=Cloud.AWS
         )
-        assert source.resource_types() == {
+        assert source.region_severities(unique=False) == {
+            'eu-central-1': {'Unknown': 6, 'Medium': 1, 'Info': 2, 'High': 1},
+            'global': {'Unknown': 4, 'Info': 1},
+            'eu-north-1': {'Medium': 1},
+            'eu-west-1': {'Unknown': 6, 'Medium': 3, 'High': 3},
+            'eu-west-3': {'Medium': 1},
+        }
+
+    def test_severities(self, aws_shards_collection, metadata):
+        source = ShardsCollectionDataSource(
+            collection=aws_shards_collection,
+            metadata=metadata,
+            cloud=Cloud.AWS
+        )
+        assert source.severities() == {
+            'Unknown': 16,
+            'Info': 3,
+            'High': 4,
+            'Medium': 3,
+        }
+
+    def test_region_services(self, aws_shards_collection, metadata):
+        source = ShardsCollectionDataSource(
+            collection=aws_shards_collection,
+            metadata=metadata,
+            cloud=Cloud.AWS
+        )
+        assert source.region_services() == {
+            'eu-central-1': {
+                'Security Group': 3,
+                'Sns': 3,
+                'AWS S3': 1,
+                'AWS Security Hub': 1,
+                'Amazon Elastic Block Store': 1,
+            },
+            'global': {'Cloudtrail': 1, 'Iam Group': 3, 'AWS Account': 1},
+            'eu-north-1': {'AWS S3': 1},
+            'eu-west-1': {'Ebs': 2, 'Ec2': 2, 'Ecr': 2, 'AWS S3': 4},
+            'eu-west-3': {'AWS S3': 1},
+        }
+
+    def test_services(self, aws_shards_collection, metadata):
+        source = ShardsCollectionDataSource(
+            collection=aws_shards_collection,
+            metadata=metadata,
+            cloud=Cloud.AWS
+        )
+        assert source.services() == {
             'Security Group': 3,
-            'Cloudtrail': 1,
             'Sns': 3,
-            'S3': 10,
+            'AWS S3': 7,
+            'AWS Security Hub': 1,
+            'Amazon Elastic Block Store': 1,
+            'Cloudtrail': 1,
             'Iam Group': 3,
+            'AWS Account': 1,
             'Ebs': 2,
             'Ec2': 2,
             'Ecr': 2,
@@ -243,4 +300,3 @@ def test_add_diff():
             'HIPAA': {'value': 0.1},
         },
     }
-

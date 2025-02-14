@@ -1,10 +1,10 @@
 from pynamodb.attributes import UnicodeAttribute, BooleanAttribute, \
     ListAttribute, MapAttribute
-from pynamodb.indexes import AllProjection
+from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
 from helpers.constants import CAASEnv, COMPOUND_KEYS_SEPARATOR
 from helpers.time_helper import utc_iso
-from models import BaseModel, BaseGSI
+from models import BaseModel
 
 RULESET_LICENSES = 'L'
 RULESET_STANDARD = 'S'
@@ -23,7 +23,7 @@ class RulesetStatusAttribute(MapAttribute):
     reason = UnicodeAttribute(null=True)
 
 
-class CustomerIdIndex(BaseGSI):
+class CustomerIdIndex(GlobalSecondaryIndex):
     class Meta:
         index_name = 'customer-id-index'
         read_capacity_units = 1
@@ -34,7 +34,7 @@ class CustomerIdIndex(BaseGSI):
     id = UnicodeAttribute(range_key=True)
 
 
-class LicenseManagerIdIndex(BaseGSI):
+class LicenseManagerIdIndex(GlobalSecondaryIndex):
     class Meta:
         index_name = 'license_manager_id-index'
         read_capacity_units = 1

@@ -205,11 +205,6 @@ CLOUD_ATTR = 'cloud'
 CLOUD_IDENTIFIER_ATTR = 'cloud_identifier'
 REGION_ATTR = 'region'
 JOB_ID_ATTR = 'job_id'
-AWS_CLOUD_ATTR = 'AWS'
-AZURE_CLOUD_ATTR = 'AZURE'
-# the same, but first is obsolete, second is the one from Maestro's tenants
-GCP_CLOUD_ATTR, GOOGLE_CLOUD_ATTR = 'GCP', 'GOOGLE'
-KUBERNETES_CLOUD_ATTR = 'KUBERNETES'  # from rules metadata
 
 
 class Cloud(str, Enum):
@@ -221,26 +216,33 @@ class Cloud(str, Enum):
     AZURE = 'AZURE'
     GOOGLE = 'GOOGLE'
     GCP = 'GOOGLE'  # alias
+    K8S = 'KUBERNETES'  # alis
     KUBERNETES = 'KUBERNETES'
+
+    @classmethod
+    def parse(cls, cloud: str) -> Self | None:
+        try:
+            return cls[cloud.upper()]
+        except KeyError:
+            return
 
 
 # The values of this enum represent what Custom core can scan, i.e. what
 # type of rules and ruleset(s) we can have. These are not tenant clouds
 class RuleDomain(str, Enum):
-    AWS = AWS_CLOUD_ATTR
-    AZURE = AZURE_CLOUD_ATTR
-    GCP = GCP_CLOUD_ATTR
-    KUBERNETES = KUBERNETES_CLOUD_ATTR
+    AWS = 'AWS'
+    AZURE = 'AZURE'
+    GCP = 'GCP'
+    GOOGLE = 'GCP'
+    KUBERNETES = 'KUBERNETES'
+    K8S = 'KUBERNETES'
 
     @classmethod
     def from_tenant_cloud(cls, cloud: str) -> Self | None:
-        match cloud:
-            case 'AWS':
-                return cls.AWS
-            case 'AZURE':
-                return cls.AZURE
-            case 'GOOGLE':
-                return cls.GCP
+        try:
+            return cls[cloud.upper()]
+        except KeyError:
+            return
 
 
 class JobType(str, Enum):
@@ -398,7 +400,6 @@ class CAASEnv(EnvEnum):
     """
 
     SERVICE_MODE = 'CAAS_SERVICE_MODE'
-    MOCKED_RABBIT_MQ_S3 = 'CAAS_MOCK_RABBIT_MQ_S3'
     SYSTEM_CUSTOMER_NAME = 'SYSTEM_CUSTOMER_NAME', DEFAULT_SYSTEM_CUSTOMER
     LOG_LEVEL = 'CAAS_LOG_LEVEL', 'INFO'
 
@@ -480,6 +481,9 @@ class CAASEnv(EnvEnum):
 
     # init envs
     SYSTEM_USER_PASSWORD = 'CAAS_SYSTEM_USER_PASSWORD'
+
+    # Celery
+    CELERY_BROKER_URL = 'CAAS_CELERY_BROKER_URL'
 
 
 class BatchJobEnv(EnvEnum):
@@ -945,11 +949,29 @@ class Severity(str, Enum):
         return map(operator.attrgetter('value'), cls)
 
     @classmethod
-    def parse(cls, sev: str | None) -> 'Severity':
+    def parse(cls, sev: str | None, /) -> 'Severity':
         if not sev:
             return cls.UNKNOWN
         try:
             return cls(sev.strip().capitalize())
+        except ValueError:
+            return cls.UNKNOWN
+
+
+class RemediationComplexity(str, Enum):
+    UNKNOWN = 'Unknown'
+    LOW = 'Low'
+    LOW_MEDIUM = 'Low-Medium'
+    MEDIUM = 'Medium'
+    MEDIUM_HIGH = 'Medium-High'
+    HIGH = 'High'
+
+    @classmethod
+    def parse(cls, rem: str | None, /) -> 'RemediationComplexity':
+        if not rem:
+            return cls.UNKNOWN
+        try:
+            return cls(rem.strip().title())
         except ValueError:
             return cls.UNKNOWN
 
@@ -975,13 +997,43 @@ RULE_META_UPDATER_LAMBDA_NAME = 'caas-rule-meta-updater'
 METRICS_UPDATER_LAMBDA_NAME = 'caas-metrics-updater'
 
 
+# some common deltas for reports
+_last_sunday = relativedelta(
+    hour=0, minute=0, second=0, microsecond=0, weekday=SU(-1)
+)
+
+_previous_month_start = relativedelta(
+    hour=0, minute=0, second=0, microsecond=0, months=-1, day=1
+)
+_this_month_start = relativedelta(
+    hour=0, minute=0, second=0, microsecond=0, day=1
+)
+
+
 class ReportType(str, Enum):
+    """
+    Each member of the enum represents a specific type of report that can
+    be generated and sent (currently they could be sent only by using Maestro).
+    Each member holds a value of enum, a description that is not used
+    externally but only for developers and two time deltas: relative start
+    date and a relative end date. These dates represent the reporting period
+    for that concrete type relatively to now.
+    If start date is omitted it means that either start date is not important
+    for this type of report (for example report as of specific date) or
+    the report needs all historical data available without lower bound. It
+    depends on report type but currently there are no the latters.
+    Also, the principal entity for any report depends on report type.
+
+    Currently, it can be described as:
+    - Operational = one tenant scope;
+    - Project = one tenant group scope (multiple tenants with different
+      clouds that belong to the same Maestro project);
+    - Department = one customer scope
+    - Clevel = one customer scope
+    """
+
     description: str
     r_end: relativedelta  # relatively to now
-    # currently None means either that start date is not important here, i.e.
-    # report represents data as of date of its generation or
-    # that the report need all data without lower bound. It depends on
-    # report type. Some of them just don't need start date
     r_start: relativedelta | None
 
     def __new__(
@@ -991,13 +1043,6 @@ class ReportType(str, Enum):
         r_start: relativedelta | None = None,
         r_end: relativedelta | None = None,
     ):
-        """
-        Keeps some default report information. Just helper class. Report type
-        implies the period for which data is collected
-        (at least the default period).
-        Also, the principal entity for any report must depend on report type
-        i.e operational is for specific tenant, c-level - across whole customer
-        """
         obj = str.__new__(cls, value)
         obj._value_ = value
 
@@ -1021,52 +1066,129 @@ class ReportType(str, Enum):
     OPERATIONAL_OVERVIEW = (
         'OPERATIONAL_OVERVIEW',
         'Data for a specific tenant of any cloud for a week period from Sunday till Sunday. Contains number of different jobs, total number of resources by region and by severities',
-        relativedelta(
-            hour=0, minute=0, second=0, microsecond=0, weekday=SU(-1)
-        ),
+        _last_sunday,
     )
     OPERATIONAL_RESOURCES = (
         'OPERATIONAL_RESOURCES',
         'All resources for a specific tenant as of date of generation',
+        _last_sunday,
     )
     OPERATIONAL_RULES = (
         'OPERATIONAL_RULES',
         'Average rules usage statistics for tenant within this week',
-        relativedelta(
-            hour=0, minute=0, second=0, microsecond=0, weekday=SU(-1)
-        ),
+        _last_sunday,
     )
-
     OPERATIONAL_COMPLIANCE = (
         'OPERATIONAL_COMPLIANCE',
         'Compliance per tenant as of date of generation',
+        _last_sunday,
     )
     OPERATIONAL_FINOPS = (
         'OPERATIONAL_FINOPS',
         'Finops report per tenant as of date of generation',
+        _last_sunday,
+    )
+    OPERATIONAL_ATTACKS = (
+        'OPERATIONAL_ATTACKS',
+        'MITRE Attacks report per tenant as of date of generation',
+        _last_sunday,
+    )
+    OPERATIONAL_KUBERNETES = (
+        'OPERATIONAL_KUBERNETES',
+        'Just old K8S report as of date of generation. It contains both MITRE and Resources data',
+        _last_sunday,
+    )
+    OPERATIONAL_DEPRECATION = (
+        'OPERATIONAL_DEPRECATION',
+        'Displays resources that will be soon deprecated',
+        _last_sunday,
+    )
+
+    # Project, for a group of tenants within one project
+    PROJECT_OVERVIEW = (
+        'PROJECT_OVERVIEW',
+        'Overview data per group of tenants',
+        _last_sunday,
+    )
+    PROJECT_COMPLIANCE = (
+        'PROJECT_COMPLIANCE',
+        'Compliance data per group of tenants',
+        _last_sunday,
+    )
+    PROJECT_RESOURCES = (
+        'PROJECT_RESOURCES',
+        'Resources data per group of tenants',
+        _last_sunday,
+    )
+    PROJECT_ATTACKS = (
+        'PROJECT_ATTACKS',
+        'Attacks data per group of tenants',
+        _last_sunday,
+    )
+    PROJECT_FINOPS = (
+        'PROJECT_FINOPS',
+        'Finops data per group of tenants',
+        _last_sunday,
+    )
+
+    # Department, tops by tenants
+    DEPARTMENT_TOP_RESOURCES_BY_CLOUD = (
+        'DEPARTMENT_TOP_RESOURCES_BY_CLOUD',
+        'Top resources in tenants by cloud',
+        _previous_month_start,
+        _this_month_start,
+    )
+    DEPARTMENT_TOP_TENANTS_RESOURCES = (
+        'DEPARTMENT_TOP_TENANTS_RESOURCES',
+        'As the name suggests',
+        _previous_month_start,
+        _this_month_start,
+    )
+    DEPARTMENT_TOP_TENANTS_COMPLIANCE = (
+        'DEPARTMENT_TOP_TENANTS_COMPLIANCE',
+        'As the name suggests',
+        _previous_month_start,
+        _this_month_start,
+    )
+    DEPARTMENT_TOP_COMPLIANCE_BY_CLOUD = (
+        'DEPARTMENT_TOP_COMPLIANCE_BY_CLOUD',
+        'As the name suggests',
+        _previous_month_start,
+        _this_month_start,
+    )
+    DEPARTMENT_TOP_TENANTS_ATTACKS = (
+        'DEPARTMENT_TOP_TENANTS_ATTACKS',
+        'As the name suggests',
+        _previous_month_start,
+        _this_month_start,
+    )
+    DEPARTMENT_TOP_ATTACK_BY_CLOUD = (
+        'DEPARTMENT_TOP_ATTACK_BY_CLOUD',
+        'As the name suggests',
+        _previous_month_start,
+        _this_month_start,
     )
 
     # C-Level, kind of for the whole customer
     C_LEVEL_OVERVIEW = (
         'C_LEVEL_OVERVIEW',
         'Data across all tenants within clouds for a previous month',
-        relativedelta(
-            hour=0, minute=0, second=0, microsecond=0, months=-1, day=1
-        ),
-        relativedelta(hour=0, minute=0, second=0, microsecond=0, day=1),
+        _previous_month_start,
+        _this_month_start,
     )
     C_LEVEL_COMPLIANCE = (
         'C_LEVEL_COMPLIANCE',
         'Standards coverage across all tenants within customer ...?',
-        relativedelta(
-            hour=0, minute=0, second=0, microsecond=0, months=-1, day=1
-        ),
-        relativedelta(hour=0, minute=0, second=0, microsecond=0, day=1),
+        _previous_month_start,
+        _this_month_start,
+    )
+    C_LEVEL_ATTACKS = (
+        'C_LEVEL_ATTACKS',
+        'Attacks across all tenants within customer ...?',
+        _previous_month_start,
+        _this_month_start,
     )
 
 
 class RabbitCommand(str, Enum):
     SEND_MAIL = 'SEND_MAIL'
-
-
-DEFAULT_COMPONENT_NAME = 'custodian-as-a-service'

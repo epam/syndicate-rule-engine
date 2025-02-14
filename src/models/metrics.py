@@ -1,4 +1,6 @@
-from pynamodb.attributes import MapAttribute, UnicodeAttribute
+from typing import TYPE_CHECKING
+
+from pynamodb.attributes import MapAttribute, UnicodeAttribute, ListAttribute
 
 from helpers.constants import (
     COMPOUND_KEYS_SEPARATOR,
@@ -8,8 +10,12 @@ from helpers.constants import (
 )
 from models import BaseModel
 
+if TYPE_CHECKING:
+    from modular_sdk.models.tenant import Tenant
 
-# TODO: optimize for mongo queries, make start and end Date objects instead of strings
+    from services.platform_service import Platform
+
+
 class ReportMetrics(BaseModel):
     class Meta:
         table_name = 'CaaSReportMetrics'
@@ -22,8 +28,10 @@ class ReportMetrics(BaseModel):
     data = MapAttribute(default=dict, attr_name='d')
     s3_url = UnicodeAttribute(null=True, default=None, attr_name='l')
     customer = UnicodeAttribute(attr_name='c')
-    # todo add ttl
-    # todo add link to s3
+
+    # holds tenants that were involved in collecting this report
+    tenants = ListAttribute(of=UnicodeAttribute, default=list,
+                            attr_name='t')
 
     @property
     def type(self) -> ReportType:
@@ -42,11 +50,15 @@ class ReportMetrics(BaseModel):
 
     @property
     def tenant(self) -> str | None:
+        if self.cloud is Cloud.KUBERNETES:
+            return
         return self.key.split(COMPOUND_KEYS_SEPARATOR, 5)[4] or None
 
     @property
-    def region(self) -> str | None:
-        return self.key.split(COMPOUND_KEYS_SEPARATOR)[5] or None
+    def platform_id(self) -> str | None:
+        if self.cloud is Cloud.KUBERNETES:
+            return self.key.split(COMPOUND_KEYS_SEPARATOR, 5)[4] or None
+        return
 
     @property
     def is_fetched(self) -> bool:
@@ -62,9 +74,53 @@ class ReportMetrics(BaseModel):
         """
         if t := self.tenant:
             return t
-        if c := self.cloud:
-            return c.value
+        if pl := self.platform_id:
+            return pl
         if p := self.project:
             return p
         return self.customer
 
+    @staticmethod
+    def build_key(
+        type_: ReportType,
+        customer: str,
+        project: str = '',
+        cloud: str = '',
+        tenant_or_platform: str = '',
+        region: str = '',
+    ) -> str:
+        return COMPOUND_KEYS_SEPARATOR.join(
+            (type_.value, customer, project, cloud, tenant_or_platform, region)
+        )
+
+    @classmethod
+    def build_key_for_customer(cls, type_: ReportType, customer: str) -> str:
+        return cls.build_key(type_=type_, customer=customer)
+
+    @classmethod
+    def build_key_for_project(
+        cls, type_: ReportType, customer: str, project: str
+    ) -> str:
+        return cls.build_key(type_=type_, customer=customer, project=project)
+
+    @classmethod
+    def build_key_for_platform(
+        cls, type_: ReportType, platform: 'Platform'
+    ) -> str:
+        return cls.build_key(
+            type_=type_,
+            customer=platform.customer,
+            cloud=Cloud.KUBERNETES.value,
+            tenant_or_platform=platform.id,
+        )
+
+    @classmethod
+    def build_key_for_tenant(cls, type_: ReportType, tenant: 'Tenant') -> str:
+        cl = Cloud.parse(tenant.cloud)
+        assert cl, 'Not supported tenant came'
+        return cls.build_key(
+            type_=type_,
+            customer=tenant.customer_name,
+            cloud=cl.value,
+            tenant_or_platform=tenant.name,
+        )

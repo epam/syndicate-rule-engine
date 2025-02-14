@@ -27,7 +27,7 @@ def report():
 @build_tenant_option(required=True, multiple=True)
 @click.option('--report_types', '-rt', multiple=True, type=click.Choice(
     ('OVERVIEW', 'RESOURCES', 'COMPLIANCE', 'RULE', 'ATTACK_VECTOR',
-     'FINOPS', 'KUBERNETES')),
+     'FINOPS', 'KUBERNETES', 'DEPRECATIONS')),
               required=False, help='Report type')
 @click.option('--receiver', '-r', multiple=True, type=str,
               help='Emails that will receive this notification')

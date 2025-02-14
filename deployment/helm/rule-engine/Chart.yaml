@@ -1,9 +1,9 @@
 apiVersion: v2
-appVersion: "5.6.0"
+appVersion: "5.7.0"
 description: A Helm chart for the rule-engine
 name: rule-engine
 type: application
-version: "5.6.0"
+version: "5.7.0"
 dependencies:
   - name: vault
     repository: "s3://charts-repository/syndicate/"
@@ -17,6 +17,10 @@ dependencies:
     repository: "s3://charts-repository/syndicate/"
     version: "^1.0.0"
     condition: mongo.enabled
+  - name: redis
+    repository: "s3://charts-repository/syndicate/"
+    version: "^1.0.0"
+    condition: redis.enabled
   - name: modular-service
     repository: "s3://charts-repository/syndicate/"
     version: "^3.2.0"

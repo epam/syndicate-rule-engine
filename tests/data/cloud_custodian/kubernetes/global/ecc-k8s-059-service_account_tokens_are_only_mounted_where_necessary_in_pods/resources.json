@@ -1,0 +1,48 @@
+[
+  {
+    "api_version": null,
+    "kind": null,
+    "metadata": {
+      "annotations": null,
+      "cluster_name": null,
+      "creation_timestamp": "2025-01-15T04:31:51+00:00",
+      "deletion_grace_period_seconds": null,
+      "deletion_timestamp": null,
+      "finalizers": null,
+      "generate_name": "test-pod-123",
+      "generation": null,
+      "initializers": null,
+      "labels": {},
+      "name": "test-pod-123l2hxk",
+      "namespace": "acf0f67f",
+      "resource_version": "241084905",
+      "self_link": null,
+      "uid": "ae55fb56-619a-49af-b282-8e63cdee6b24"
+    }
+  },
+  {
+    "api_version": null,
+    "kind": null,
+    "metadata": {
+      "annotations": {
+        "kubernetes.io/limit-ranger": "LimitRanger plugin set: cpu, memory request for container frontend-app; cpu, memory limit for container frontend-app"
+      },
+      "cluster_name": null,
+      "creation_timestamp": "2025-01-15T11:10:21+00:00",
+      "deletion_grace_period_seconds": null,
+      "deletion_timestamp": null,
+      "finalizers": null,
+      "generate_name": "frontend-app-7dfc594f8f-",
+      "generation": null,
+      "initializers": null,
+      "labels": {
+      },
+      "name": "frontend-app-7dfc594f8f-ch966",
+      "namespace": "team3-frontend-app-develop",
+      "owner_references": [],
+      "resource_version": "241425653",
+      "self_link": null,
+      "uid": "67d19da5-f0fe-4083-bf7e-7584127cb5a3"
+    }
+  }
+]

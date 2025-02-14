@@ -1,0 +1,61 @@
+{
+  "data": {
+    "AWS": [
+      {
+        "account_id": "123456789012",
+        "tenant_name": "AWS-TESTING",
+        "last_scan_date": "2025-01-28T00:38:45.667946Z",
+        "activated_regions": [
+          "eu-central-1",
+          "eu-north-1",
+          "eu-west-1",
+          "eu-west-3"
+        ],
+        "data": {
+          "regions": {
+            "eu-central-1": {
+              "Standard1 v1.0.0": 0.5,
+              "Standard1 v2.0.0": 0.25,
+              "Standard2": 0.125
+            },
+            "eu-west-1": {}
+          },
+          "total": {
+            "Standard1 v1.0.0": 0.5,
+            "Standard1 v2.0.0": 0.25,
+            "Standard2": 0.125
+          }
+        }
+      }
+    ],
+    "AZURE": [
+      {
+        "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
+        "tenant_name": "AZURE-TESTING",
+        "last_scan_date": "2025-01-28T00:38:45.667946Z",
+        "activated_regions": [],
+        "data": {
+          "regions": {
+            "global": {}
+          },
+          "total": {}
+        }
+      }
+    ],
+    "GOOGLE": [
+      {
+        "account_id": "testing-project-123",
+        "tenant_name": "GOOGLE-TESTING",
+        "last_scan_date": "2025-01-28T00:38:45.667946Z",
+        "activated_regions": [],
+        "data": {
+          "regions": {
+            "global": {}
+          },
+          "total": {}
+        }
+      }
+    ]
+  },
+  "outdated_tenants": []
+}

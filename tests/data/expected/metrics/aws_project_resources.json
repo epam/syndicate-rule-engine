@@ -1,0 +1,261 @@
+{
+  "data": {
+    "AWS": [
+      {
+        "account_id": "123456789012",
+        "tenant_name": "AWS-TESTING",
+        "last_scan_date": "2025-01-28T00:20:16.359026Z",
+        "activated_regions": [
+          "eu-central-1",
+          "eu-north-1",
+          "eu-west-1",
+          "eu-west-3"
+        ],
+        "data": [
+          {
+            "policy": "ecc-aws-070-unused_ec2_security_groups",
+            "description": "Description for ecc-aws-070-unused_ec2_security_groups",
+            "severity": "Unknown",
+            "resource_type": "Security Group",
+            "regions_data": {
+              "eu-central-1": {
+                "total_violated_resources": 3
+              }
+            }
+          },
+          {
+            "policy": "ecc-aws-221-sns_kms_encryption_enabled",
+            "description": "Description for ecc-aws-221-sns_kms_encryption_enabled",
+            "severity": "Unknown",
+            "resource_type": "Sns",
+            "regions_data": {
+              "eu-central-1": {
+                "total_violated_resources": 3
+              }
+            }
+          },
+          {
+            "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+            "description": "Description for ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+            "severity": "Unknown",
+            "resource_type": "S3",
+            "regions_data": {
+              "eu-central-1": {
+                "total_violated_resources": 1
+              },
+              "eu-north-1": {
+                "total_violated_resources": 1
+              },
+              "eu-west-1": {
+                "total_violated_resources": 3
+              },
+              "eu-west-3": {
+                "total_violated_resources": 1
+              }
+            }
+          },
+          {
+            "policy": "ecc-aws-516-s3_event_notifications_enabled",
+            "description": "Description for ecc-aws-516-s3_event_notifications_enabled",
+            "severity": "Unknown",
+            "resource_type": "S3",
+            "regions_data": {
+              "eu-central-1": {
+                "total_violated_resources": 1
+              },
+              "eu-west-1": {
+                "total_violated_resources": 3
+              }
+            }
+          },
+          {
+            "policy": "ecc-aws-374-cloudtrail_logs_data_events",
+            "description": "Description for ecc-aws-374-cloudtrail_logs_data_events",
+            "severity": "Unknown",
+            "resource_type": "Cloudtrail",
+            "regions_data": {
+              "global": {
+                "total_violated_resources": 1
+              }
+            }
+          },
+          {
+            "policy": "ecc-aws-499-iam_group_has_users_check",
+            "description": "Description for ecc-aws-499-iam_group_has_users_check",
+            "severity": "Unknown",
+            "resource_type": "Iam Group",
+            "regions_data": {
+              "global": {
+                "total_violated_resources": 3
+              }
+            }
+          },
+          {
+            "policy": "ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances",
+            "description": "Description for ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances",
+            "severity": "Unknown",
+            "resource_type": "Ebs",
+            "regions_data": {
+              "eu-west-1": {
+                "total_violated_resources": 2
+              }
+            }
+          },
+          {
+            "policy": "ecc-aws-490-ec2_token_hop_limit_check",
+            "description": "Description for ecc-aws-490-ec2_token_hop_limit_check",
+            "severity": "Unknown",
+            "resource_type": "Ec2",
+            "regions_data": {
+              "eu-west-1": {
+                "total_violated_resources": 2
+              }
+            }
+          },
+          {
+            "policy": "ecc-aws-229-ecr_repository_kms_encryption_enabled",
+            "description": "Description for ecc-aws-229-ecr_repository_kms_encryption_enabled",
+            "severity": "Unknown",
+            "resource_type": "Ecr",
+            "regions_data": {
+              "eu-west-1": {
+                "total_violated_resources": 2
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "AZURE": [
+      {
+        "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
+        "tenant_name": "AZURE-TESTING",
+        "last_scan_date": "2025-01-28T00:20:16.359026Z",
+        "activated_regions": [],
+        "data": [
+          {
+            "policy": "ecc-azure-310-asb_defender_open_source_rds",
+            "description": "Description for ecc-azure-310-asb_defender_open_source_rds",
+            "severity": "Unknown",
+            "resource_type": "Defender Pricing",
+            "regions_data": {
+              "global": {
+                "total_violated_resources": 1
+              }
+            }
+          },
+          {
+            "policy": "ecc-azure-096-cis_sec_defender_azure_sql",
+            "description": "Description for ecc-azure-096-cis_sec_defender_azure_sql",
+            "severity": "Unknown",
+            "resource_type": "Defender Pricing",
+            "regions_data": {
+              "global": {
+                "total_violated_resources": 1
+              }
+            }
+          },
+          {
+            "policy": "ecc-azure-376-cis_defender_cosmodb",
+            "description": "Description for ecc-azure-376-cis_defender_cosmodb",
+            "severity": "Unknown",
+            "resource_type": "Defender Pricing",
+            "regions_data": {
+              "global": {
+                "total_violated_resources": 1
+              }
+            }
+          },
+          {
+            "policy": "ecc-azure-099-cis_sec_defender_aks",
+            "description": "Description for ecc-azure-099-cis_sec_defender_aks",
+            "severity": "Unknown",
+            "resource_type": "Defender Pricing",
+            "regions_data": {
+              "global": {
+                "total_violated_resources": 1
+              }
+            }
+          },
+          {
+            "policy": "ecc-azure-213-asb_lt_defender_dns",
+            "description": "Description for ecc-azure-213-asb_lt_defender_dns",
+            "severity": "Unknown",
+            "resource_type": "Defender Pricing",
+            "regions_data": {
+              "global": {
+                "total_violated_resources": 1
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "GOOGLE": [
+      {
+        "account_id": "testing-project-123",
+        "tenant_name": "GOOGLE-TESTING",
+        "last_scan_date": "2025-01-28T00:20:16.359026Z",
+        "activated_regions": [],
+        "data": [
+          {
+            "policy": "ecc-gcp-025-no_default_network",
+            "description": "Description for ecc-gcp-025-no_default_network",
+            "severity": "Unknown",
+            "resource_type": "Vpc",
+            "regions_data": {
+              "global": {
+                "total_violated_resources": 1
+              }
+            }
+          },
+          {
+            "policy": "ecc-gcp-272-firewall_logging_enabled",
+            "description": "Description for ecc-gcp-272-firewall_logging_enabled",
+            "severity": "Unknown",
+            "resource_type": "Firewall",
+            "regions_data": {
+              "global": {
+                "total_violated_resources": 4
+              }
+            }
+          },
+          {
+            "policy": "ecc-gcp-109-prevent_allow_all_ingress",
+            "description": "Description for ecc-gcp-109-prevent_allow_all_ingress",
+            "severity": "Unknown",
+            "resource_type": "Firewall",
+            "regions_data": {
+              "global": {
+                "total_violated_resources": 1
+              }
+            }
+          },
+          {
+            "policy": "ecc-gcp-104-default_firewall_rule_in_use",
+            "description": "Description for ecc-gcp-104-default_firewall_rule_in_use",
+            "severity": "Unknown",
+            "resource_type": "Firewall",
+            "regions_data": {
+              "global": {
+                "total_violated_resources": 4
+              }
+            }
+          },
+          {
+            "policy": "ecc-gcp-033-vpc_flow_logs_for_every_subnet",
+            "description": "Description for ecc-gcp-033-vpc_flow_logs_for_every_subnet",
+            "severity": "Unknown",
+            "resource_type": "Subnet",
+            "regions_data": {
+              "global": {
+                "total_violated_resources": 4
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "outdated_tenants": []
+}

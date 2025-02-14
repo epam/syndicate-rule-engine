@@ -5,8 +5,8 @@ from typing import Optional, Dict, Iterator, List, Generator, Tuple, Set, \
     Iterable
 
 from helpers import deep_get, deep_set
-from helpers.constants import AWS_VENDOR, MAESTRO_VENDOR, AZURE_CLOUD_ATTR, \
-    S3SettingKey, GOOGLE_CLOUD_ATTR, GLOBAL_REGION
+from helpers.constants import AWS_VENDOR, MAESTRO_VENDOR, \
+    S3SettingKey, GLOBAL_REGION, Cloud
 from helpers.log_helper import get_logger
 from services.clients.sts import StsClient
 from services.environment_service import EnvironmentService
@@ -251,8 +251,8 @@ class CloudTrail:
 class MaestroEventProcessor(BaseEventProcessor):
     skip_where = {}
     keep_where = {
-        (MA_EVENT_METADATA, MA_REQUEST, MA_CLOUD): {AZURE_CLOUD_ATTR,
-                                                    GOOGLE_CLOUD_ATTR},
+        (MA_EVENT_METADATA, MA_REQUEST, MA_CLOUD): {Cloud.AZURE.value,
+                                                    Cloud.GOOGLE.value},
         # (MA_EVENT_METADATA, MA_CLOUD,): {AZURE_CLOUD_ATTR, },
         (MA_GROUP,): {'MANAGEMENT'},
         (MA_SUB_GROUP,): {'INSTANCE'}
@@ -301,9 +301,9 @@ class MaestroEventProcessor(BaseEventProcessor):
             # TODO currently only AZURE events are expected. In case we want
             #  to process AWS maestro audit events we should remap the
             #  maestro region to native name. For AZURE we can just ignore it
-            if cloud == AZURE_CLOUD_ATTR:
+            if cloud == Cloud.AZURE.value:
                 region = GLOBAL_REGION
-            elif cloud == GOOGLE_CLOUD_ATTR:
+            elif cloud == Cloud.GOOGLE.value:
                 region = GLOBAL_REGION
             else:
                 region = deep_get(event, (MA_REGION_NAME,))
@@ -323,8 +323,8 @@ class MaestroEventProcessor(BaseEventProcessor):
 
     def get_rules(self, event: dict, cloud: str) -> Set[str]:
         cloud_method = {
-            AZURE_CLOUD_ATTR: self.get_rules_azure,
-            GOOGLE_CLOUD_ATTR: self.get_rules_google
+            Cloud.AZURE.value: self.get_rules_azure,
+            Cloud.GOOGLE.value: self.get_rules_google
         }
         _get_rules = cloud_method.get(cloud) or (lambda e: set())
         return _get_rules(event)

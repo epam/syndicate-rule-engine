@@ -7,6 +7,7 @@ from helpers.log_helper import get_logger
 from models.scheduled_job import ScheduledJob
 from services.ruleset_service import RulesetName
 from services.clients.scheduler import AbstractJobScheduler
+from modular_sdk.models.pynamongo.convertors import instance_as_dict
 
 _LOG = get_logger(__name__)
 
@@ -62,7 +63,7 @@ class SchedulerService:
 
     @staticmethod
     def dto(item: ScheduledJob) -> dict:
-        data = item.get_json()
+        data = instance_as_dict(item)
         _context = data.pop('context', {})
         data[NAME_ATTR] = data.pop(ID_ATTR, None)
         data.pop('type', None)

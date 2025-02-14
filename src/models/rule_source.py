@@ -1,9 +1,9 @@
 from pynamodb.attributes import UnicodeAttribute, MapAttribute
-from pynamodb.indexes import AllProjection
+from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
 from helpers.constants import CAASEnv, CUSTOMER_ATTR, \
     GIT_PROJECT_ID_ATTR, RuleSourceType
-from models import BaseModel, BaseGSI
+from models import BaseModel
 
 
 class LatestSyncAttribute(MapAttribute):
@@ -12,9 +12,11 @@ class LatestSyncAttribute(MapAttribute):
     commit_time = UnicodeAttribute(null=True)  # ISO8601
     current_status = UnicodeAttribute(null=True)  # SYNCING, SYNCED
     release_tag = UnicodeAttribute(null=True)
+    version = UnicodeAttribute(null=True)
+    cc_version = UnicodeAttribute(null=True)
 
 
-class CustomerGitProjectIdIndex(BaseGSI):
+class CustomerGitProjectIdIndex(GlobalSecondaryIndex):
     class Meta:
         index_name = f'{CUSTOMER_ATTR}-{GIT_PROJECT_ID_ATTR}-index'
         read_capacity_units = 1
@@ -58,3 +60,15 @@ class RuleSource(BaseModel):
     @property
     def has_secret(self) -> bool:
         return bool(self.git_access_secret)
+
+    @property
+    def release_tag(self) -> str | None:
+        return self.latest_sync.release_tag
+
+    @property
+    def version(self) -> str | None:
+        return self.latest_sync.version
+
+    @property
+    def cc_version(self) -> str | None:
+        return self.latest_sync.cc_version

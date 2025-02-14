@@ -1,0 +1,22 @@
+{
+  "data": [
+    {
+      "data": {
+        "AWS": [
+          {
+            "severity_data": {
+              "Unknown": 3
+            },
+            "tactic": "Collection",
+            "tactic_id": "TA0009"
+          }
+        ],
+        "AZURE": [],
+        "GOOGLE": []
+      },
+      "sort_by": 37,
+      "tenant_display_name": "testing"
+    }
+  ],
+  "outdated_tenants": []
+}

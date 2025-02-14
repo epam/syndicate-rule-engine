@@ -1,12 +1,13 @@
 from pynamodb.attributes import UnicodeAttribute, ListAttribute, TTLAttribute
-from pynamodb.indexes import AllProjection
+from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
 from helpers.constants import CAASEnv, JobState
 from helpers.time_helper import utc_iso
-from models import BaseModel, BaseGSI
+from models import BaseModel
 
 JOB_ID = 'i'
 JOB_BATCH_JOB_ID = 'b'
+JOB_CELERY_TASK_ID = 'cti'
 JOB_TENANT_NAME = 't'
 JOB_CUSTOMER_NAME = 'c'
 JOB_STATUS = 's'
@@ -27,7 +28,7 @@ JOB_TTL = 'ttl'
 JOB_AFFECTED_LICENSE = 'al'
 
 
-class TenantNameSubmittedAtIndex(BaseGSI):
+class TenantNameSubmittedAtIndex(GlobalSecondaryIndex):
     class Meta:
         index_name = f'{JOB_TENANT_NAME}-{JOB_SUBMITTED_AT}-index'
         read_capacity_units = 1
@@ -38,7 +39,7 @@ class TenantNameSubmittedAtIndex(BaseGSI):
     submitted_at = UnicodeAttribute(range_key=True, attr_name=JOB_SUBMITTED_AT)
 
 
-class CustomerNameSubmittedAtIndex(BaseGSI):
+class CustomerNameSubmittedAtIndex(GlobalSecondaryIndex):
     class Meta:
         index_name = f'{JOB_CUSTOMER_NAME}-{JOB_SUBMITTED_AT}-index'
         read_capacity_units = 1
@@ -57,6 +58,7 @@ class Job(BaseModel):
 
     id = UnicodeAttribute(hash_key=True, attr_name=JOB_ID)
     batch_job_id = UnicodeAttribute(null=True, attr_name=JOB_BATCH_JOB_ID)
+    celery_task_id = UnicodeAttribute(null=True, attr_name=JOB_CELERY_TASK_ID)
     tenant_name = UnicodeAttribute(attr_name=JOB_TENANT_NAME)
     customer_name = UnicodeAttribute(attr_name=JOB_CUSTOMER_NAME)
 

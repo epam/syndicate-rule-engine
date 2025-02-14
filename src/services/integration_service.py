@@ -5,6 +5,7 @@ from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.parent_service import ParentService
 
 from services.ambiguous_job_service import AmbiguousJob
+from services.ruleset_service import RulesetName
 from services.chronicle_service import (
     ChronicleInstance,
     ChronicleInstanceService,
@@ -73,5 +74,6 @@ class IntegrationService:
             job.owner,
             job.type.value,
             job.scheduled_rule_name,
-            *(job.rulesets or []),
+
+            *(RulesetName(rs).name for rs in (job.rulesets or ())),
         ]))
