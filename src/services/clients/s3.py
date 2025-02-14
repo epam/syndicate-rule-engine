@@ -161,7 +161,7 @@ class S3Client(Boto3ClientWrapper):
         self,
         bucket: str,
         key: str,
-        body: bytes | BinaryIO,
+        body: bytes | BinaryIO | bytearray,
         content_type: str | None = None,
         content_encoding: str | None = None,
     ):
@@ -182,7 +182,7 @@ class S3Client(Boto3ClientWrapper):
             params.update(ContentType=ct)
         if ce:
             params.update(ContentEncoding=ce)
-        if isinstance(body, bytes):
+        if isinstance(body, (bytes, bytearray)):
             body = io.BytesIO(body)
         return self.resource.Bucket(bucket).upload_fileobj(
             Fileobj=body, Key=key, ExtraArgs=params
@@ -192,7 +192,7 @@ class S3Client(Boto3ClientWrapper):
         self,
         bucket: str,
         key: str,
-        body: bytes | BinaryIO,
+        body: bytes | BinaryIO | bytearray,
         gz_buffer: BinaryIO | None = None,
         content_type: str | None = None,
         content_encoding: str | None = None,
@@ -212,7 +212,7 @@ class S3Client(Boto3ClientWrapper):
         if not gz_buffer:
             gz_buffer = io.BytesIO()
         with gzip.GzipFile(fileobj=gz_buffer, mode='wb') as gz:
-            if isinstance(body, bytes):
+            if isinstance(body, (bytes, bytearray)):
                 gz.write(body)
             else:
                 shutil.copyfileobj(body, gz)
@@ -257,9 +257,9 @@ class S3Client(Boto3ClientWrapper):
         self,
         bucket: str,
         key: str,
-        buffer: BinaryIO | None = None,
-        gz_buffer: BinaryIO | None = None,
-    ) -> BinaryIO | None:
+        buffer: io.BytesIO | None = None,
+        gz_buffer: io.BytesIO | None = None,
+    ) -> io.BytesIO | None:
         """
         :param bucket:
         :param key:
@@ -568,8 +568,17 @@ class ModularAssumeRoleS3Service(S3Client):
     # the implementation in S3Client uses s3 resource to handle multipart
     # upload if necessary. Currently, we can access only client here, so
     # this implementation
-    def put_object(self, bucket: str, key: str, body: bytes | BinaryIO):
-        ct, ce = mimetypes.guess_type(key)
+    def put_object(
+        self,
+        bucket: str,
+        key: str,
+        body: bytes | BinaryIO | bytearray,
+        content_type: str | None = None,
+        content_encoding: str | None = None,
+    ):
+        ct, ce = self._resolve_content_type(
+            key, content_type, content_encoding
+        )
         params = dict(Bucket=bucket, Key=key, Body=body)
         if ct:
             params.update(ContentType=ct)

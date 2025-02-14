@@ -49,6 +49,8 @@ spec:
               name: http
               protocol: TCP
           env:
+            - name: application_name
+              value: 'syndicate-rule-engine'
             - name: modular_mongo_user
               valueFrom:
                 secretKeyRef:
@@ -74,6 +76,8 @@ spec:
             - name: MODULAR_AWS_REGION
               value: {{ .Values.modularSdk.awsRegion }}
             {{- end }}
+            - name: MODULAR_SDK_LOG_LEVEL
+              value: {{ .Values.modularSDKLogLevel }}
             - name: CAAS_SERVICE_MODE
               value: docker
             - name: CAAS_MONGO_URI
@@ -121,8 +125,6 @@ spec:
                 secretKeyRef:
                   name: rule-engine-secret
                   key: system-password
-            - name: CAAS_TESTING
-              value: 'false'
             - name: HTTP_PROXY
               value: {{ .Values.httpProxy }}
             - name: HTTPS_PROXY
@@ -137,4 +139,18 @@ spec:
             - name: CAAS_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT
               value: 'true'
             {{- end  }}
+            {{- if .Values.recommendationsBucket }}
+            - name: CAAS_RECOMMENDATIONS_BUCKET_NAME
+              value: {{ .Values.recommendationsBucket }}
+            {{- end}}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-secret
+                  key: password
+                  optional: true
+            - name: REDIS_DOMAIN
+              value: {{ .Values.redisService }}
+            - name: REDIS_PORT
+              value: "{{ .Values.redisPort }}"
       restartPolicy: Always

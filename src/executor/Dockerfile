@@ -52,8 +52,6 @@ RUN for pkg in $PROVIDERS; do . /root/.local/bin/activate && cd tools/c7n_$pkg &
 COPY $CUSTODIAN_SERVICE_PATH/src ../src
 # by here we have executor built in /root/.local
 
-# is it ok?
-RUN rm -rf $(find /root/.local/lib -name "*.dist-info") && rm -rf $(find /root/.local/lib/ -name "__pycache__")
 
 # 3.10-alpine 3.10-slim both work
 FROM public.ecr.aws/docker/library/python:3.10-slim AS build-image

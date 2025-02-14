@@ -1,4 +1,4 @@
-from services.coverage_service import CoverageCalculator as CC
+from services.coverage_service import StandardCoverageCalculator as CC
 
 
 def test_coverage_calculator():

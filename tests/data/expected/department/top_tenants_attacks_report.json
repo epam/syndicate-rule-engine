@@ -1,0 +1,30 @@
+{
+  "receivers": [],
+  "report_type": "ATTACK_BY_TENANT",
+  "customer": "TEST_CUSTOMER",
+  "from": "2025-01-01T00:00:00Z",
+  "to": "2025-02-01T00:00:00Z",
+  "outdated_tenants": [],
+  "externalData": false,
+  "data": [
+    {
+      "data": {
+        "AWS": [
+          {
+            "severity_data": {
+              "Unknown": {
+                "value": 3
+              }
+            },
+            "tactic": "Collection",
+            "tactic_id": "TA0009"
+          }
+        ],
+        "AZURE": [],
+        "GOOGLE": []
+      },
+      "sort_by": 37,
+      "tenant_display_name": "testing"
+    }
+  ]
+}

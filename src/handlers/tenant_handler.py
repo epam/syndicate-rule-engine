@@ -5,11 +5,11 @@ import uuid
 
 from botocore.exceptions import ClientError
 from modular_sdk.models.parent import Parent
-from modular_sdk.models.pynamodb_extension.base_model import LastEvaluatedKey as Lek
 from modular_sdk.models.region import RegionModel
 from modular_sdk.models.tenant import Tenant
 
 from handlers import AbstractHandler, Mapping
+from helpers import NextToken
 from helpers.constants import (
     CustodianEndpoint,
     DEFAULT_OWNER_ATTR,
@@ -122,21 +122,17 @@ class TenantHandler(AbstractHandler):
 
     @validate_kwargs
     def query(self, event: MultipleTenantsGetModel):
-        old_lek = Lek.deserialize(event.next_token)
-        new_lek = Lek()
-
         cursor = self._ts.i_get_tenant_by_customer(
             customer_id=event.customer,
             active=event.active,
             cloud=event.cloud.value if event.cloud else None,
             limit=event.limit,
-            last_evaluated_key=old_lek.value
+            last_evaluated_key=NextToken.deserialize(event.next_token).value
         )
         items = list(cursor)
-        new_lek.value = cursor.last_evaluated_key
         return ResponseFactory(HTTPStatus.OK).items(
             it=map(self.get_dto, items),
-            next_token=new_lek.serialize() if new_lek else None
+            next_token=NextToken(cursor.last_evaluated_key)
         ).build()
 
     @validate_kwargs

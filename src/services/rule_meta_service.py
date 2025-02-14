@@ -1,9 +1,8 @@
 from datetime import datetime
 from typing import Optional, Iterator, Generator, Iterable, Any, Literal
 
-from modular_sdk.models.pynamodb_extension.pynamodb_to_pymongo_adapter import \
-    Result
 from pydantic import BaseModel, Field, ConfigDict
+from modular_sdk.models.pynamongo.adapter import ResultIterator, EmptyResultIterator
 from pynamodb.expressions.condition import Condition
 
 from helpers import adjust_cloud
@@ -15,6 +14,7 @@ from helpers.time_helper import utc_iso
 from models.rule import Rule
 from models.rule_source import RuleSource
 from services.base_data_service import BaseDataService
+from modular_sdk.models.pynamongo.convertors import instance_as_dict
 
 _LOG = get_logger(__name__)
 
@@ -302,7 +302,7 @@ class RuleService(BaseDataService[Rule]):
             ascending: Optional[bool] = False, limit: Optional[int] = None,
             last_evaluated_key: Optional[dict] = None,
             filter_condition: Optional[Condition] = None,
-            attributes_to_get: Optional[list] = None) -> Result:
+            attributes_to_get: Optional[list] = None) -> ResultIterator[Rule]:
         """
         Performs query by rules with full match of provided parameters.
         This query uses Customer id index (c-id-index)
@@ -326,7 +326,7 @@ class RuleService(BaseDataService[Rule]):
                          'Trying to resolve cloud from name')
             cloud = RuleName(name).cloud.value
             if not cloud:
-                return Result(iter([]))
+                return EmptyResultIterator(last_evaluated_key)
         sort_key = self.gen_rule_id(customer, cloud, name, version)
         return self.model_class.customer_id_index.query(
             hash_key=customer,
@@ -342,7 +342,7 @@ class RuleService(BaseDataService[Rule]):
                               cloud: str | None = None, ascending: bool = True,
                               limit: int | None = None,
                               last_evaluated_key: dict | None = None,
-                              ) -> Result:
+                              ) -> Iterator[Rule]:
         sort_key = self.gen_rule_id(customer, cloud)
         return self.model_class.rule_source_id_id_index.query(
             hash_key=rule_source_id,
@@ -355,7 +355,8 @@ class RuleService(BaseDataService[Rule]):
     def get_by_rule_source(self, rule_source: RuleSource,
                            cloud: str | None = None, ascending: bool = True,
                            limit: int | None = None,
-                           last_evaluated_key: dict | None = None) -> Result:
+                           last_evaluated_key: dict | None = None
+                           ) -> Iterator[Rule]:
         return self.get_by_rule_source_id(
             rule_source_id=rule_source.id,
             customer=rule_source.customer,
@@ -397,7 +398,7 @@ class RuleService(BaseDataService[Rule]):
                          'Trying to resolve from name')
             cloud = RuleName(name_prefix).cloud.value
             if not cloud:
-                return Result(iter([]))
+                return EmptyResultIterator(last_evaluated_key)
         sort_key = f'{customer}{COMPOUND_KEYS_SEPARATOR}{cloud}' \
                    f'{COMPOUND_KEYS_SEPARATOR}{name_prefix}'
         return self.model_class.customer_id_index.query(
@@ -456,7 +457,7 @@ class RuleService(BaseDataService[Rule]):
         yield from name_rule.values()
 
     def dto(self, item: Rule) -> dict[str, Any]:
-        dct = item.get_json()
+        dct = instance_as_dict(item)
         dct.pop(ID_ATTR, None)
         dct.pop(FILTERS_ATTR, None)
         dct.pop(LOCATION_ATTR, None)
@@ -474,7 +475,8 @@ class RuleService(BaseDataService[Rule]):
             ref: Optional[str] = None, path: Optional[str] = None,
             ascending: bool = False, limit: Optional[int] = None,
             last_evaluated_key: Optional[dict] = None,
-            filter_condition: Optional[Condition] = None) -> Result:
+            filter_condition: Optional[Condition] = None
+    ) -> ResultIterator[Rule]:
         """
         This query uses Customer location index (c-l-index).
         This is a low-level implementation when filter can be provided
@@ -506,7 +508,7 @@ class RuleService(BaseDataService[Rule]):
                ascending: bool = False, limit: Optional[int] = None,
                last_evaluated_key: Optional[dict] = None,
                index: Literal['c-l-index', 'c-id-index'] = 'c-l-index'
-               ) -> Result:
+               ) -> ResultIterator[Rule]:
         """
         A hybrid between get_by_id_index and get_by_location_index.
         This method can use either index. Which one will perform more

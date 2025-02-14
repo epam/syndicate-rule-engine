@@ -1,0 +1,105 @@
+{
+  "tenant_name": "AWS-TESTING",
+  "outdated_tenants": [],
+  "last_scan_date": "2025-01-16T00:08:14.766892Z",
+  "region": "eu-west-1",
+  "name": "test",
+  "type": "EKS",
+  "resources": [
+    {
+      "policy": "ecc-k8s-060-minimize_the_admission_of_hostpath_volumes",
+      "resource_type": "Pod",
+      "description": "Description for ecc-k8s-060-minimize_the_admission_of_hostpath_volumes",
+      "severity": "Medium",
+      "resources": [
+        {
+          "id": "3f287bc9-94dc-47b1-96a1-827dce683a92",
+          "name": "test-node-58cm6",
+          "namespace": "kube-system"
+        }
+      ]
+    },
+    {
+      "policy": "ecc-k8s-058-sa_tokens_are_only_mounted_where_necessary",
+      "resource_type": "Service Account",
+      "description": "Description for ecc-k8s-058-sa_tokens_are_only_mounted_where_necessary",
+      "severity": "High",
+      "resources": [
+        {
+          "id": "337c51cd-35f0-4f47-b27e-55e61ab14921",
+          "name": "test-opertor-77hwxcq",
+          "namespace": "09c64sffas"
+        }
+      ]
+    },
+    {
+      "policy": "ecc-k8s-059-service_account_tokens_are_only_mounted_where_necessary_in_pods",
+      "resource_type": "Pod",
+      "description": "Description for ecc-k8s-059-service_account_tokens_are_only_mounted_where_necessary_in_pods",
+      "severity": "Info",
+      "resources": [
+        {
+          "id": "67d19da5-f0fe-4083-bf7e-7584127cb5a3",
+          "name": "frontend-app-7dfc594f8f-ch966",
+          "namespace": "team3-frontend-app-develop"
+        },
+        {
+          "id": "ae55fb56-619a-49af-b282-8e63cdee6b24",
+          "name": "test-pod-123l2hxk",
+          "namespace": "acf0f67f"
+        }
+      ]
+    }
+  ],
+  "compliance": {
+    "Standard1 v2.0.0": 0.25,
+    "Standard2": 0.125
+  },
+  "mitre": [
+    {
+      "tactic_id": "TA0009",
+      "tactic": "Collection",
+      "techniques_data": [
+        {
+          "technique_id": "T0",
+          "resources": [
+            {
+              "resource": {
+                "id": "337c51cd-35f0-4f47-b27e-55e61ab14921",
+                "name": "test-opertor-77hwxcq",
+                "namespace": "09c64sffas"
+              },
+              "resource_type": "Service Account",
+              "rule": "Description for ecc-k8s-058-sa_tokens_are_only_mounted_where_necessary",
+              "severity": "High",
+              "sub_techniques": [
+                "sub0",
+                "sub1"
+              ]
+            }
+          ],
+          "technique": "testing0"
+        },
+        {
+          "technique_id": "T1",
+          "resources": [
+            {
+              "resource": {
+                "id": "337c51cd-35f0-4f47-b27e-55e61ab14921",
+                "name": "test-opertor-77hwxcq",
+                "namespace": "09c64sffas"
+              },
+              "resource_type": "Service Account",
+              "rule": "Description for ecc-k8s-058-sa_tokens_are_only_mounted_where_necessary",
+              "severity": "High",
+              "sub_techniques": [
+                "sub0"
+              ]
+            }
+          ],
+          "technique": "testing1"
+        }
+      ]
+    }
+  ]
+}

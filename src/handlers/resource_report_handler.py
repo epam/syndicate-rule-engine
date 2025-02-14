@@ -22,6 +22,7 @@ from helpers.constants import (
     JobType,
     ReportFormat,
     Severity,
+    Cloud
 )
 from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
@@ -31,6 +32,7 @@ from services import SP, modular_helpers, obfuscation
 from services.ambiguous_job_service import AmbiguousJob, AmbiguousJobService
 from services.license_service import LicenseService
 from services.metadata import Metadata
+from services.modular_helpers import tenant_cloud
 from services.platform_service import Platform, PlatformService
 from services.report_service import ReportResponse, ReportService
 from services.reports import ShardsCollectionDataSource
@@ -54,6 +56,7 @@ class MatchedResourcesIterator(Iterator[Payload]):
     def __init__(
         self,
         collection: ShardsCollection,
+        cloud: Cloud,
         resource_type: Optional[str] = None,
         region: Optional[str] = None,
         exact_match: bool = True,
@@ -62,6 +65,7 @@ class MatchedResourcesIterator(Iterator[Payload]):
         dictionary_out: dict | None = None,
     ):
         self._collection = collection
+        self._cloud = cloud
         self._resource_type = resource_type
         self._region = region
 
@@ -83,10 +87,13 @@ class MatchedResourcesIterator(Iterator[Payload]):
         See metrics_service.create_resources_generator
         :return:
         """
-        source = ShardsCollectionDataSource(self._collection, Metadata.empty())
+        source = ShardsCollectionDataSource(
+            collection=self._collection,
+            metadata=Metadata.empty(),
+            cloud=self._cloud
+        )
         return source.create_resources_generator(
             only_report_fields=False,
-            deduplicated=False,
             active_regions=(self._region,) if self._region else (),
             resource_types=(self._resource_type,)
             if self._resource_type
@@ -458,6 +465,7 @@ class ResourceReportHandler(AbstractHandler):
         dictionary = {}  # todo maybe refactor somehow
         matched = MatchedResourcesIterator(
             collection=collection,
+            cloud=Cloud.KUBERNETES,
             resource_type=event.resource_type,
             exact_match=event.exact_match,
             search_by_all=event.search_by_all,
@@ -532,6 +540,7 @@ class ResourceReportHandler(AbstractHandler):
         dictionary = {}  # todo maybe refactor somehow
         matched = MatchedResourcesIterator(
             collection=collection,
+            cloud=tenant_cloud(tenant_item),
             resource_type=event.resource_type,
             region=event.region,
             exact_match=event.exact_match,
@@ -620,6 +629,7 @@ class ResourceReportHandler(AbstractHandler):
             collection.meta = self._report_service.fetch_meta(tenant_item)
             matched = MatchedResourcesIterator(
                 collection=collection,
+                cloud=tenant_cloud(tenant_item),
                 resource_type=event.resource_type,
                 region=event.region,
                 exact_match=event.exact_match,
@@ -680,6 +690,7 @@ class ResourceReportHandler(AbstractHandler):
         dictionary = {}
         matched = MatchedResourcesIterator(
             collection=collection,
+            cloud=tenant_cloud(tenant),
             resource_type=event.resource_type,
             region=event.region,
             exact_match=event.exact_match,

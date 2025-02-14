@@ -1,0 +1,113 @@
+{
+  "data": {
+    "AZURE": [
+      {
+        "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
+        "tenant_name": "AZURE-TESTING",
+        "last_scan_date": "2025-01-23T00:10:16.506991Z",
+        "activated_regions": [],
+        "total_scans": 3,
+        "failed_scans": 1,
+        "succeeded_scans": 2,
+        "regions_data": {
+          "global": {
+            "severity_data": {
+              "Unknown": 5
+            },
+            "resource_types_data": {
+              "Defender Pricing": 5
+            }
+          }
+        }
+      }
+    ],
+    "GOOGLE": [
+      {
+        "account_id": "testing-project-123",
+        "tenant_name": "GOOGLE-TESTING",
+        "last_scan_date": "2025-01-23T00:10:16.506991Z",
+        "activated_regions": [],
+        "total_scans": 3,
+        "failed_scans": 1,
+        "succeeded_scans": 2,
+        "regions_data": {
+          "global": {
+            "severity_data": {
+              "Unknown": 9
+            },
+            "resource_types_data": {
+              "Vpc": 1,
+              "Firewall": 4,
+              "Subnet": 4
+            }
+          }
+        }
+      }
+    ],
+    "AWS": [
+      {
+        "account_id": "123456789012",
+        "tenant_name": "AWS-TESTING",
+        "last_scan_date": "2025-01-23T00:10:16.506991Z",
+        "activated_regions": [
+          "eu-central-1",
+          "eu-north-1",
+          "eu-west-1",
+          "eu-west-3"
+        ],
+        "total_scans": 3,
+        "failed_scans": 1,
+        "succeeded_scans": 2,
+        "regions_data": {
+          "eu-central-1": {
+            "severity_data": {
+              "Unknown": 7
+            },
+            "resource_types_data": {
+              "Security Group": 3,
+              "Sns": 3,
+              "S3": 1
+            }
+          },
+          "global": {
+            "severity_data": {
+              "Unknown": 4
+            },
+            "resource_types_data": {
+              "Cloudtrail": 1,
+              "Iam Group": 3
+            }
+          },
+          "eu-north-1": {
+            "severity_data": {
+              "Unknown": 1
+            },
+            "resource_types_data": {
+              "S3": 1
+            }
+          },
+          "eu-west-1": {
+            "severity_data": {
+              "Unknown": 10
+            },
+            "resource_types_data": {
+              "Ebs": 2,
+              "Ec2": 2,
+              "Ecr": 2,
+              "S3": 4
+            }
+          },
+          "eu-west-3": {
+            "severity_data": {
+              "Unknown": 1
+            },
+            "resource_types_data": {
+              "S3": 1
+            }
+          }
+        }
+      }
+    ]
+  },
+  "outdated_tenants": []
+}

@@ -1,59 +1,86 @@
 {
-  "AWS": {
-    "failed_scans": 1,
-    "last_scan_date": "2024-11-26T00:09:20.824013Z",
-    "resources_violated": 23,
-    "resource_types_data": {
-      "Security Group": 3,
-      "Cloudtrail": 1,
-      "Sns": 3,
-      "S3": 10,
-      "Iam Group": 3,
-      "Ebs": 2,
-      "Ec2": 2,
-      "Ecr": 2
+  "data": {
+    "AWS": {
+      "failed_scans": 1,
+      "last_scan_date": "2025-02-01T00:17:25.830309Z",
+      "resources_violated": 23,
+      "resource_types_data": {
+        "Security Group": 3,
+        "Sns": 3,
+        "S3": 7,
+        "Cloudtrail": 1,
+        "Iam Group": 3,
+        "Ebs": 2,
+        "Ec2": 2,
+        "Ecr": 2
+      },
+      "severity_data": {
+        "Unknown": 23
+      },
+      "succeeded_scans": 2,
+      "total_scanned_tenants": 1,
+      "total_scans": 3,
+      "activated": true,
+      "license_properties": {
+        "Rulesets": [
+          "AWS 1.0.0"
+        ],
+        "Number of licenses": 1,
+        "Event-Driven mode": "On",
+        "Scans frequency": "10 scans per DAY",
+        "Expiration": "Feb 01, 2100 13:24:26 UTC"
+      }
     },
-    "severity_data": {
-      "Unknown": 23
+    "AZURE": {
+      "failed_scans": 1,
+      "last_scan_date": "2025-02-01T00:17:25.830309Z",
+      "resources_violated": 5,
+      "resource_types_data": {
+        "Defender Pricing": 5
+      },
+      "severity_data": {
+        "Unknown": 5
+      },
+      "succeeded_scans": 2,
+      "total_scanned_tenants": 1,
+      "total_scans": 3,
+      "activated": true,
+      "license_properties": {
+        "Rulesets": [
+          "AZURE 1.0.0"
+        ],
+        "Number of licenses": 1,
+        "Event-Driven mode": "On",
+        "Scans frequency": "10 scans per DAY",
+        "Expiration": "Feb 01, 2100 13:24:26 UTC"
+      }
     },
-    "succeeded_scans": 2,
-    "total_scanned_tenants": 1,
-    "total_scans": 3,
-    "activated": false,
-    "license_properties": {}
+    "GOOGLE": {
+      "failed_scans": 1,
+      "last_scan_date": "2025-02-01T00:17:25.830309Z",
+      "resources_violated": 9,
+      "resource_types_data": {
+        "Vpc": 1,
+        "Firewall": 4,
+        "Subnet": 4
+      },
+      "severity_data": {
+        "Unknown": 9
+      },
+      "succeeded_scans": 2,
+      "total_scanned_tenants": 1,
+      "total_scans": 3,
+      "activated": true,
+      "license_properties": {
+        "Rulesets": [
+          "GOOGLE 1.0.0"
+        ],
+        "Number of licenses": 1,
+        "Event-Driven mode": "On",
+        "Scans frequency": "10 scans per DAY",
+        "Expiration": "Feb 01, 2100 13:24:26 UTC"
+      }
+    }
   },
-  "AZURE": {
-    "failed_scans": 1,
-    "last_scan_date": "2024-11-26T00:09:20.824013Z",
-    "resources_violated": 5,
-    "resource_types_data": {
-      "Defender Pricing": 5
-    },
-    "severity_data": {
-      "Unknown": 5
-    },
-    "succeeded_scans": 2,
-    "total_scanned_tenants": 1,
-    "total_scans": 3,
-    "activated": false,
-    "license_properties": {}
-  },
-  "GOOGLE": {
-    "failed_scans": 1,
-    "last_scan_date": "2024-11-26T00:09:20.824013Z",
-    "resources_violated": 5,
-    "resource_types_data": {
-      "Vpc": 1,
-      "Firewall": 9,
-      "Subnet": 1
-    },
-    "severity_data": {
-      "Unknown": 5
-    },
-    "succeeded_scans": 2,
-    "total_scanned_tenants": 1,
-    "total_scans": 3,
-    "activated": false,
-    "license_properties": {}
-  }
+  "outdated_tenants": []
 }

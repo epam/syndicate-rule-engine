@@ -1,8 +1,7 @@
 from http import HTTPStatus
 
-from modular_sdk.models.pynamodb_extension.base_model import LastEvaluatedKey as Lek
-
 from helpers.constants import CustodianEndpoint, HTTPMethod
+from helpers import NextToken
 from helpers.lambda_response import ResponseFactory, build_response
 from handlers import AbstractHandler, Mapping
 from services import SERVICE_PROVIDER
@@ -44,14 +43,12 @@ class BatchResultsHandler(AbstractHandler):
 
     @validate_kwargs
     def query(self, event: BatchResultsQueryModel):
-        old_lek = Lek.deserialize(event.next_token)
-        new_lek = Lek()
 
         if event.tenant_name:
             cursor = self._batch_results_service.get_by_tenant_name(
                 tenant_name=event.tenant_name,
                 limit=event.limit,
-                last_evaluated_key=old_lek.value,
+                last_evaluated_key=NextToken(event.next_token).value,
                 start=event.start,
                 end=event.end
             )
@@ -59,13 +56,12 @@ class BatchResultsHandler(AbstractHandler):
             cursor = self._batch_results_service.get_by_customer_name(
                 customer_name=event.customer,
                 limit=event.limit,
-                last_evaluated_key=old_lek.value,
+                last_evaluated_key=NextToken(event.next_token).value,
                 start=event.start,
                 end=event.end
             )
         jobs = list(cursor)
-        new_lek.value = cursor.last_evaluated_key
         return ResponseFactory().items(
             it=map(self._batch_results_service.dto, jobs),
-            next_token=new_lek.serialize() if new_lek else None
+            next_token=NextToken(cursor.last_evaluated_key)
         ).build()

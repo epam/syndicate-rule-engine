@@ -44,6 +44,17 @@ class LicenseUpdater(EventProcessorLambdaHandler):
         self.parent_service = parent_service
         self.customer_service = customer_service
 
+    @classmethod
+    def build(cls) -> 'LicenseUpdater':
+        return cls(
+            license_service=SERVICE_PROVIDER.license_service,
+            license_manager_service=SERVICE_PROVIDER.license_manager_service,
+            ruleset_service=SERVICE_PROVIDER.ruleset_service,
+            customer_service=SERVICE_PROVIDER.modular_client.customer_service(),
+            application_service=SERVICE_PROVIDER.modular_client.application_service(),
+            parent_service=SERVICE_PROVIDER.modular_client.parent_service()
+        )
+
     def iter_licenses(self, license_keys: list[str]
                       ) -> Generator[License, None, None]:
         if license_keys:
@@ -196,15 +207,5 @@ class LicenseUpdater(EventProcessorLambdaHandler):
                 self.parent_service.save(parent)
 
 
-HANDLER = LicenseUpdater(
-    license_service=SERVICE_PROVIDER.license_service,
-    license_manager_service=SERVICE_PROVIDER.license_manager_service,
-    ruleset_service=SERVICE_PROVIDER.ruleset_service,
-    customer_service=SERVICE_PROVIDER.modular_client.customer_service(),
-    application_service=SERVICE_PROVIDER.modular_client.application_service(),
-    parent_service=SERVICE_PROVIDER.modular_client.parent_service()
-)
-
-
 def lambda_handler(event, context):
-    return HANDLER.lambda_handler(event=event, context=context)
+    return LicenseUpdater.build().lambda_handler(event=event, context=context)

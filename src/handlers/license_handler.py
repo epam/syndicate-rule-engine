@@ -13,15 +13,13 @@ from handlers import AbstractHandler, Mapping
 from helpers.constants import (
     CustodianEndpoint,
     HTTPMethod,
-    LICENSE_KEY_ATTR,
-    TENANT_LICENSE_KEY_ATTR,
 )
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
+from onprem.tasks import sync_license
 from services import SP
 from services.abs_lambda import ProcessedEvent
-from services.clients.lambda_func import LICENSE_UPDATER_LAMBDA_NAME, \
-    LambdaClient
+from services.clients.lambda_func import LambdaClient
 from services.license_manager_service import LicenseManagerService
 from services.license_service import LicenseService
 from services.modular_helpers import (
@@ -107,7 +105,7 @@ class LicenseHandler(AbstractHandler):
         return it
 
     @validate_kwargs
-    def activate_license(self, event: LicenseActivationPutModel, 
+    def activate_license(self, event: LicenseActivationPutModel,
                          license_key: str, _pe: ProcessedEvent):
         lic = self.service.get_nullable(license_key)
         if not lic:
@@ -117,7 +115,8 @@ class LicenseHandler(AbstractHandler):
         # either ALL & [cloud] & [exclude] or tenant_names
         # Should not be many
         payload = ResolveParentsPayload(
-            parents=list(self.get_all_activations(license_key, event.customer)),
+            parents=list(
+                self.get_all_activations(license_key, event.customer)),
             tenant_names=event.tenant_names,
             exclude_tenants=event.exclude_tenants,
             clouds=event.clouds,
@@ -239,7 +238,7 @@ class LicenseHandler(AbstractHandler):
                 created_by=_pe['cognito_user_id'],
             )
         self.service.save(license_obj)
-        self._execute_license_sync([license_key])
+        sync_license.apply_async(([license_key],), countdown=3)
 
         return build_response(
             code=HTTPStatus.ACCEPTED,
@@ -272,7 +271,7 @@ class LicenseHandler(AbstractHandler):
         sync-concerned lambda, `license-updater`.
         :return:Dict[code=202]
         """
-        _response = self._execute_license_sync([license_key])
+        sync_license.delay([license_key])
         return build_response(
             code=HTTPStatus.ACCEPTED,
             content='License is being synchronized'
@@ -290,18 +289,3 @@ class LicenseHandler(AbstractHandler):
             _LOG.info('Not successful response from LM')
             raise forbid.exc()
         return response[0]
-
-    def _execute_license_sync(self, license_keys: list[str]) -> dict:
-        """
-        Returns a response from an asynchronously invoked
-        sync-concerned lambda, `license-updater`.
-        :return:Dict[code=202]
-        """
-        _LOG.info('Invoking license updater lambda')
-        response = self.lambda_client.invoke_function_async(
-            LICENSE_UPDATER_LAMBDA_NAME, event={
-                LICENSE_KEY_ATTR: license_keys
-            }
-        )
-        _LOG.info(f'License updater lambda was invoked: {response}')
-        return response

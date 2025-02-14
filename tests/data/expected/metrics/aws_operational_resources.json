@@ -1,5 +1,6 @@
 {
   "id": "123456789012",
+  "outdated_tenants": [],
   "data": [
     {
       "policy": "ecc-aws-070-unused_ec2_security_groups",

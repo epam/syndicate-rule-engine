@@ -6,13 +6,14 @@ from typing import TYPE_CHECKING, Optional
 
 from dateutil.relativedelta import relativedelta
 
-from helpers import urljoin, Version
-from helpers.constants import Cloud
+from helpers import Version, urljoin
+from helpers.constants import COMPOUND_KEYS_SEPARATOR, Cloud
 from helpers.time_helper import utc_datetime, week_number
 from models.batch_results import BatchResults
-from models.metrics import ReportMetrics
 from models.job import Job
+from models.metrics import ReportMetrics
 from services import SP
+from services.clients.s3 import S3Client
 
 if TYPE_CHECKING:
     from modular_sdk.models.tenant import Tenant
@@ -386,22 +387,18 @@ class ReportMetricsBucketKeysBuilder:
 
     @classmethod
     def metrics_key(cls, item: ReportMetrics) -> str:
-        items = []
-        if pr := item.project:
-            items.append(pr)
-        if cl := item.cloud:
-            items.append(cl.value)
-        if t := item.tenant:
-            items.append(t)
-        if r := item.region:
-            items.append(r)
-        return urljoin(
-            cls.prefix,
-            item.customer,
-            item.type.value,
-            *items,
-            cls.datetime(utc_datetime(item.end)),
-            cls.data,
+        # first two are always type and customer and always exist
+        type_, customer, *other = item.key.split(COMPOUND_KEYS_SEPARATOR)
+
+        return S3Client.safe_key(
+            urljoin(
+                cls.prefix,
+                customer,
+                type_,
+                *filter(None, other),
+                cls.datetime(utc_datetime(item.end)),
+                cls.data,
+            )
         )
 
 

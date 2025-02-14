@@ -1,4 +1,5 @@
 import hashlib
+import uuid
 from typing import BinaryIO, Generator, Iterable, Iterator, Optional
 
 import msgspec
@@ -22,6 +23,7 @@ from helpers.time_helper import utc_iso
 from models.ruleset import RULESET_LICENSES, RULESET_STANDARD, Ruleset
 from services.base_data_service import BaseDataService
 from services.clients.s3 import S3Client
+from modular_sdk.models.pynamongo.convertors import instance_as_dict
 
 
 class RulesetService(BaseDataService[Ruleset]):
@@ -237,7 +239,7 @@ class RulesetService(BaseDataService[Ruleset]):
             )
 
     def dto(self, ruleset: Ruleset, params_to_exclude=None) -> dict:
-        ruleset_json = ruleset.get_json()
+        ruleset_json = instance_as_dict(ruleset)
         ruleset_json[RULES_NUMBER] = len(ruleset_json.get(RULES_ATTR) or [])
 
         ruleset_json[NAME_ATTR] = ruleset.name
@@ -368,9 +370,16 @@ class RulesetName(tuple):
             case 2:  # name and version or license_key and name
                 first, second = items
                 try:
-                    return first, Version(second), None
-                except ValueError:
+                    # NOTE: Version can parse version from any string
+                    # containing a number.
+                    # That is bad because if ruleset name is, say
+                    # FULL_K8S, it will be
+                    # considered a version. So, here I rely on
+                    # the fact that license id is UUID
+                    _ = uuid.UUID(first)
                     return second, None, first
+                except ValueError:
+                    return first, Version(second), None
             case _:  # only name
                 return items[0], None, None
 
@@ -404,4 +413,10 @@ class RulesetName(tuple):
             name = f'{name}:{v.to_str()}'
         if (lk := self.license_key) and include_license:
             name = f'{lk}:{name}'
+        return name
+
+    def to_human_readable_str(self) -> str:
+        name = self.name
+        if v := self.version:
+            name = f'{name} {v.to_str()}'
         return name

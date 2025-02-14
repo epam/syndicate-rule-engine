@@ -1,9 +1,9 @@
 from pynamodb.attributes import UnicodeAttribute, MapAttribute
-from pynamodb.indexes import AllProjection
+from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
 from helpers.constants import CAASEnv, JobState
 from helpers.time_helper import utc_iso
-from models import BaseModel, BaseGSI
+from models import BaseModel
 
 BR_ID = 'id'
 BR_JOB_ID = 'jid'
@@ -22,7 +22,7 @@ BR_FAILURE_REASON = 'fr'
 BR_CREDENTIALS_KEY = 'cr'
 
 
-class CustomerNameSubmittedAtIndex(BaseGSI):
+class CustomerNameSubmittedAtIndex(GlobalSecondaryIndex):
     class Meta:
         index_name = f'{BR_CUSTOMER_NAME}-{BR_JOB_SUBMITTED_AT}-index'
         read_capacity_units = 1
@@ -34,7 +34,7 @@ class CustomerNameSubmittedAtIndex(BaseGSI):
                                     attr_name=BR_JOB_SUBMITTED_AT)
 
 
-class TenantNameSubmittedAtIndex(BaseGSI):
+class TenantNameSubmittedAtIndex(GlobalSecondaryIndex):
     class Meta:
         index_name = f'{BR_TENANT_NAME}-{BR_JOB_SUBMITTED_AT}-index'
         read_capacity_units = 1

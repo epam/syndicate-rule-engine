@@ -28,7 +28,7 @@ import uuid
 
 import requests
 
-from helpers.constants import GCP_CLOUD_ATTR, GOOGLE_CLOUD_ATTR
+from helpers.constants import RuleDomain, Cloud
 from helpers.log_helper import get_logger
 
 
@@ -250,9 +250,10 @@ def adjust_cloud(cloud: str) -> str:
     Backward compatibility. We use GCP everywhere, but Maestro
     Tenants use GOOGLE
     """
-    return (
-        GCP_CLOUD_ATTR if cloud.upper() == GOOGLE_CLOUD_ATTR else cloud.upper()
-    )
+    u = cloud.upper()
+    if u == Cloud.GOOGLE.value:
+        return RuleDomain.GCP.value
+    return u
 
 
 def peek(iterable) -> Optional[tuple[Any, chain]]:
@@ -710,3 +711,21 @@ class JWTToken:
         if not exp:
             return False
         return exp < time.time() + self._exp_threshold
+
+
+def group_by(
+    it: Iterable[T], key: Callable[[T], Hashable]
+) -> dict[Hashable, list[T]]:
+    res = {}
+    for item in it:
+        res.setdefault(key(item), []).append(item)
+    return res
+
+
+def map_by(
+    it: Iterable[T], key: Callable[[T], Hashable]
+) -> dict[Hashable, T]:
+    res = {}
+    for item in it:
+        res.setdefault(key(item), item)
+    return res

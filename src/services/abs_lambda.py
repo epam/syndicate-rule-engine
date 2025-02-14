@@ -87,11 +87,15 @@ class ExpandEnvironmentEventProcessor(AbstractEventProcessor):
 
     @staticmethod
     def _resolve_stage(event: dict) -> str | None:
+        # nginx reverse proxy gives this header. It also can contain query
         original = event.get('headers', {}).get('X-Original-Uri')
         path = event.get('path')
         if original and path:  # nginx reverse proxy gives this header
             # event['path'] here contains full path without stage
-            return original[:-len(path)].strip('/')
+            try:
+                return original[:original.index(path)].strip('/')
+            except ValueError:
+                pass
         # we could've got stage from requestContext.stage, but it always points
         # to api gw stage. That value if wrong for us in case we use a domain
         # name with prefix. So we should resolve stage as difference between

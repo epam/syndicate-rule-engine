@@ -1,10 +1,11 @@
-FROM public.ecr.aws/docker/library/python:3.10-slim as compile-image
+FROM public.ecr.aws/docker/library/python:3.10 as compile-image
 
 ARG CUSTODIAN_SERVICE_PATH=.
-ARG CLOUD_CUSTODIAN_PROVIDERS="gcp azure kube"
+ARG CLOUD_CUSTODIAN_PACKAGE="c7n~=0.9.43"
+ARG CLOUD_CUSTODIAN_PROVIDERS="c7n-gcp~=0.4.42 c7n-azure~=0.7.42 c7n-kube~=0.2.42"
 
 # some dependency error occurred when installing all with one pip install command. So
-RUN pip install --user c7n && for pkg in $CLOUD_CUSTODIAN_PROVIDERS; do pip install --user c7n-$pkg; done
+RUN pip install --user "$CLOUD_CUSTODIAN_PACKAGE" && for pkg in $CLOUD_CUSTODIAN_PROVIDERS; do pip install --user "$pkg"; done
 
 COPY $CUSTODIAN_SERVICE_PATH/src/executor/requirements.txt /src/executor/requirements.txt
 RUN pip install --user -r /src/executor/requirements.txt
@@ -16,11 +17,7 @@ COPY $CUSTODIAN_SERVICE_PATH/src/models /src/models
 COPY $CUSTODIAN_SERVICE_PATH/src/services /src/services
 COPY $CUSTODIAN_SERVICE_PATH/src/run.py /src/
 
-# Some additional actions to reduce size, don't know whether those are used practices and whether they do no harm, but
-# seems to work
-RUN rm -rf $(find /root/.local/lib -name "*.dist-info") && rm -rf $(find /root/.local/lib/ -name "__pycache__")
 
-#FROM public.ecr.aws/docker/library/python:3.10-alpine AS build-image
 FROM public.ecr.aws/docker/library/python:3.10-slim AS build-image
 
 COPY --from=compile-image /root/.local /root/.local

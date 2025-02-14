@@ -1,0 +1,136 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rule-engine.fullname" . }}-celerybeat
+  labels:
+    app.kubernetes.io/name: {{ include "rule-engine.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ include "rule-engine.chart" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "rule-engine.name" . }}-celerybeat
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "rule-engine.name" . }}-celerybeat
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        helm.sh/chart: {{ include "rule-engine.chart" . }}
+      annotations:
+        rollme: {{ randAlphaNum 5 | quote }}
+    spec:
+      containers:
+        - name: rule-engine-celerybeat
+          args: ["celerybeat"]
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: application_name
+              value: 'syndicate-rule-engine'
+            - name: modular_mongo_user
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-secret
+                  key: username
+            - name: modular_mongo_password
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-secret
+                  key: password
+            - name: modular_mongo_url
+              value: "{{ .Values.mongoService }}:{{ .Values.mongoPort }}"
+            - name: modular_mongo_db_name
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "rule-engine.fullname" . }}
+                  key: modular-db-name
+            - name: modular_service_mode
+              value: {{ default "docker" .Values.modularSdk.serviceMode }}
+            {{- if ne (default "docker" .Values.modularSdk.serviceMode) "docker" }}
+            - name: modular_assume_role_arn
+              value: {{ .Values.modularSdk.assumeRoleArn }}
+            - name: MODULAR_AWS_REGION
+              value: {{ .Values.modularSdk.awsRegion }}
+            {{- end }}
+            - name: MODULAR_SDK_LOG_LEVEL
+              value: {{ .Values.modularSDKLogLevel }}
+            - name: CAAS_SERVICE_MODE
+              value: docker
+            - name: CAAS_MONGO_URI
+              value: "mongodb://$(modular_mongo_user):$(modular_mongo_password)@$(modular_mongo_url)/"
+            - name: CAAS_MONGO_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "rule-engine.fullname" . }}
+                  key: db-name
+            - name: VAULT_URL
+              value: {{ .Values.vaultService }}
+            - name: VAULT_SERVICE_SERVICE_PORT
+              value: "{{ .Values.vaultPort }}"
+            - name: CAAS_VAULT_ENDPOINT
+              value: "http://$(VAULT_URL):$(VAULT_SERVICE_SERVICE_PORT)"
+            - name: CAAS_VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vault-secret
+                  key: token
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vault-secret
+                  key: token
+            - name: CAAS_MINIO_ENDPOINT
+              value: "http://{{ .Values.minioService }}:{{ .Values.minioPort }}"
+            - name: CAAS_MINIO_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: username
+            - name: CAAS_MINIO_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: password
+            - name: CAAS_INNER_CACHE_TTL_SECONDS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "rule-engine.fullname" . }}
+                  key: inner-cache-ttl-seconds
+            - name: CAAS_SYSTEM_USER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rule-engine-secret
+                  key: system-password
+            - name: HTTP_PROXY
+              value: {{ .Values.httpProxy }}
+            - name: HTTPS_PROXY
+              value: {{ .Values.httpProxy }}
+            - name: NO_PROXY
+              value: {{ .Values.noProxy }}
+            - name: CAAS_LOG_LEVEL
+              value: {{ .Values.logLevel }}
+            - name: CAAS_BATCH_JOB_LOG_LEVEL
+              value: {{ .Values.executorLogLevel }}
+            {{- if .Values.allowSimultaneousJobsForOneTenant }}
+            - name: CAAS_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT
+              value: 'true'
+            {{- end  }}
+            {{- if .Values.recommendationsBucket }}
+            - name: CAAS_RECOMMENDATIONS_BUCKET_NAME
+              value: {{ .Values.recommendationsBucket }}
+            {{- end}}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-secret
+                  key: password
+                  optional: true
+            - name: REDIS_DOMAIN
+              value: {{ .Values.redisService }}
+            - name: REDIS_PORT
+              value: "{{ .Values.redisPort }}"
+      restartPolicy: Always

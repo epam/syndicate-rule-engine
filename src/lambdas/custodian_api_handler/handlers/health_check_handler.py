@@ -93,7 +93,6 @@ class HealthCheckHandler(AbstractHandler):
 
     @staticmethod
     def _execute_check(instance: AbstractHealthCheck, **kwargs) -> CheckResult:
-        _LOG.info(f'Executing check: `{instance.identifier()}`')
         try:
             result = instance.check(**kwargs)
         except Exception as e:
@@ -102,7 +101,6 @@ class HealthCheckHandler(AbstractHandler):
                 f'execute check `{instance.identifier()}`'
             )
             result = instance.unknown_result(details={'error': str(e)})
-        _LOG.info(f'Check: {instance.identifier()} has finished')
         if not result.is_ok():
             # logs
             pass
@@ -111,15 +109,12 @@ class HealthCheckHandler(AbstractHandler):
     def execute_consistently(
         self, checks: Iterable[AbstractHealthCheck], **kwargs
     ) -> Generator[CheckResult, None, None]:
-        _LOG.info('Executing checks consistently')
         for instance in checks:
             yield self._execute_check(instance, **kwargs)
-        _LOG.info('All the checks have finished')
 
     def execute_concurrently(
         self, checks: Iterable[AbstractHealthCheck], **kwargs
     ) -> Generator[CheckResult, None, None]:
-        _LOG.info('Executing checks concurrently')
         with ThreadPoolExecutor() as executor:
             futures = [
                 executor.submit(self._execute_check, instance, **kwargs)
@@ -127,7 +122,6 @@ class HealthCheckHandler(AbstractHandler):
             ]
             for future in as_completed(futures):
                 yield future.result()
-        _LOG.info('All the checks have finished')
 
     @validate_kwargs
     def list(self, event: HealthCheckQueryModel):

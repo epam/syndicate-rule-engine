@@ -1,13 +1,12 @@
-from typing import Optional
-
 from pynamodb.attributes import UnicodeAttribute, ListAttribute, \
     MapAttribute, BooleanAttribute
-from pynamodb.indexes import AllProjection
+from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
+from pynamodb.settings import OperationSettings
 
 from helpers.constants import CAASEnv, CUSTODIAN_TYPE, \
     SCHEDULED_JOB_TYPE
 from helpers.time_helper import utc_iso
-from models import BaseGSI, BaseSafeUpdateModel
+from models import BaseSafeUpdateModel
 
 SCHEDULED_JOBS_TABLE_NAME = 'CaaSScheduledJobs'
 
@@ -22,13 +21,13 @@ SJ_CUSTOMER_NAME_ATTR = 'customer_name'
 
 class ScheduledJobContext(MapAttribute):
     schedule = UnicodeAttribute(null=True)
-    job_state = UnicodeAttribute(null=True)
+    # job_state = BinaryAttribute(null=True)  # no need to load this attr
     scan_regions = ListAttribute(null=True, of=UnicodeAttribute, default=list)
     scan_rulesets = ListAttribute(null=True, of=UnicodeAttribute, default=list)
     is_enabled = BooleanAttribute(null=True, default_for_new=True)
 
 
-class CustomerNamePrincipalIndex(BaseGSI):
+class CustomerNamePrincipalIndex(GlobalSecondaryIndex):
     class Meta:
         index_name = f'{SJ_CUSTOMER_NAME_ATTR}-{SJ_TENANT_NAME}-index'
         read_capacity_units = 1
@@ -65,7 +64,18 @@ class ScheduledJob(BaseSafeUpdateModel):
     customer_name_principal_index = CustomerNamePrincipalIndex()
 
     @classmethod
-    def get_nullable(cls, hash_key, range_key=None, attributes_to_get=None
-                     ) -> Optional['ScheduledJob']:
+    def get_nullable(
+        cls,
+        hash_key,
+        range_key=None,
+        consistent_read: bool = False,
+        attributes_to_get=None,
+        settings: OperationSettings = OperationSettings.default,
+    ) -> 'ScheduledJob | None':
         return super().get_nullable(
-            hash_key, range_key or cls.default_type, attributes_to_get)
+            hash_key=hash_key,
+            range_key=range_key or cls.default_type,
+            consistent_read=consistent_read,
+            attributes_to_get=attributes_to_get,
+            settings=settings
+        )

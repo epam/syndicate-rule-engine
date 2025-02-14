@@ -2,24 +2,16 @@
   "receivers": [
     "admin@gmail.com"
   ],
+  "report_type": "RULE",
   "customer": "TEST_CUSTOMER",
-  "tenant_name": "AWS-TESTING",
-  "id": "123456789012",
-  "cloud": "AWS",
-  "activated_regions": [
-    "eu-central-1",
-    "eu-north-1",
-    "eu-west-1",
-    "eu-west-3"
-  ],
-  "from": "2024-11-03T00:00:00Z",
-  "to": "2024-11-10T00:00:00Z",
-  "last_scan_date": "2024-11-04T00:00:00Z",
+  "from": "2025-01-28T12:19:03.513541Z",
+  "to": "2025-02-04T12:19:03.513541Z",
   "outdated_tenants": [],
+  "externalData": false,
   "data": {
     "rules_data": [
       {
-        "policy": "ecc-aws-427-rds_cluster_without_tag_information",
+        "policy": "Description for ecc-aws-427-rds_cluster_without_tag_information",
         "region": "eu-west-1",
         "invocations": 1,
         "succeeded_invocations": 0,
@@ -35,7 +27,7 @@
         "average_resources_failed": 0
       },
       {
-        "policy": "ecc-aws-149-rds_public_access_disabled",
+        "policy": "Description for ecc-aws-149-rds_public_access_disabled",
         "region": "eu-west-1",
         "invocations": 1,
         "succeeded_invocations": 1,
@@ -51,7 +43,7 @@
         "average_resources_failed": 0
       },
       {
-        "policy": "ecc-aws-167-security_group_ingress_is_restricted_traffic_to_port_143",
+        "policy": "Description for ecc-aws-167-security_group_ingress_is_restricted_traffic_to_port_143",
         "region": "eu-west-1",
         "invocations": 1,
         "succeeded_invocations": 1,
@@ -67,7 +59,7 @@
         "average_resources_failed": 0
       },
       {
-        "policy": "ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances",
+        "policy": "Description for ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances",
         "region": "eu-west-1",
         "invocations": 1,
         "succeeded_invocations": 1,
@@ -85,7 +77,7 @@
         "average_resources_failed": 2
       },
       {
-        "policy": "ecc-aws-490-ec2_token_hop_limit_check",
+        "policy": "Description for ecc-aws-490-ec2_token_hop_limit_check",
         "region": "eu-west-1",
         "invocations": 1,
         "succeeded_invocations": 1,
@@ -101,7 +93,7 @@
         "average_resources_failed": 2
       },
       {
-        "policy": "ecc-aws-229-ecr_repository_kms_encryption_enabled",
+        "policy": "Description for ecc-aws-229-ecr_repository_kms_encryption_enabled",
         "region": "eu-west-1",
         "invocations": 1,
         "succeeded_invocations": 1,
@@ -117,7 +109,7 @@
         "average_resources_failed": 2
       },
       {
-        "policy": "ecc-aws-374-cloudtrail_logs_data_events",
+        "policy": "Description for ecc-aws-374-cloudtrail_logs_data_events",
         "region": "eu-west-1",
         "invocations": 1,
         "succeeded_invocations": 1,
@@ -135,7 +127,7 @@
         "average_resources_failed": 1
       },
       {
-        "policy": "ecc-aws-150-api_gateway_rest_api_encryption_at_rest",
+        "policy": "Description for ecc-aws-150-api_gateway_rest_api_encryption_at_rest",
         "region": "eu-central-1",
         "invocations": 1,
         "succeeded_invocations": 1,
@@ -153,7 +145,7 @@
         "average_resources_failed": 0
       },
       {
-        "policy": "ecc-aws-070-unused_ec2_security_groups",
+        "policy": "Description for ecc-aws-070-unused_ec2_security_groups",
         "region": "eu-central-1",
         "invocations": 1,
         "succeeded_invocations": 1,
@@ -180,7 +172,7 @@
         "average_resources_failed": 3
       },
       {
-        "policy": "ecc-aws-374-cloudtrail_logs_data_events",
+        "policy": "Description for ecc-aws-374-cloudtrail_logs_data_events",
         "region": "eu-central-1",
         "invocations": 1,
         "succeeded_invocations": 1,
@@ -198,7 +190,7 @@
         "average_resources_failed": 1
       },
       {
-        "policy": "ecc-aws-221-sns_kms_encryption_enabled",
+        "policy": "Description for ecc-aws-221-sns_kms_encryption_enabled",
         "region": "eu-central-1",
         "invocations": 1,
         "succeeded_invocations": 1,
@@ -218,7 +210,7 @@
         "average_resources_failed": 3
       },
       {
-        "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+        "policy": "Description for ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
         "region": "global",
         "invocations": 1,
         "succeeded_invocations": 1,
@@ -234,7 +226,7 @@
         "average_resources_failed": 6
       },
       {
-        "policy": "ecc-aws-499-iam_group_has_users_check",
+        "policy": "Description for ecc-aws-499-iam_group_has_users_check",
         "region": "global",
         "invocations": 1,
         "succeeded_invocations": 1,
@@ -252,7 +244,7 @@
         "average_resources_failed": 3
       },
       {
-        "policy": "ecc-aws-516-s3_event_notifications_enabled",
+        "policy": "Description for ecc-aws-516-s3_event_notifications_enabled",
         "region": "global",
         "invocations": 1,
         "succeeded_invocations": 1,
@@ -268,7 +260,7 @@
         "average_resources_failed": 4
       },
       {
-        "policy": "ecc-aws-527-waf_global_webacl_not_empty",
+        "policy": "Description for ecc-aws-527-waf_global_webacl_not_empty",
         "region": "global",
         "invocations": 1,
         "succeeded_invocations": 0,
@@ -286,6 +278,14 @@
     ],
     "violated_resources_length": 23
   },
-  "externalData": false,
-  "report_type": "RULE"
+  "tenant_name": "AWS-TESTING",
+  "id": "123456789012",
+  "cloud": "AWS",
+  "activated_regions": [
+    "eu-central-1",
+    "eu-north-1",
+    "eu-west-1",
+    "eu-west-3"
+  ],
+  "last_scan_date": "2025-02-04T00:16:00.289094Z"
 }

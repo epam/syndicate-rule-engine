@@ -1,13 +1,10 @@
-from modular_sdk.connections.mongodb_connection import MongoDBConnection
-from modular_sdk.models.pynamodb_extension.base_model import \
-    ABCMongoDBHandlerMixin, \
-    RawBaseModel, RawBaseGSI
-from modular_sdk.models.pynamodb_extension.base_safe_update_model import \
-    BaseSafeUpdateModel as ModularSafeUpdateModel
-from modular_sdk.models.pynamodb_extension.pynamodb_to_pymongo_adapter import \
-    PynamoDBToPyMongoAdapter
+from typing import cast
 
-from helpers.constants import CAASEnv, DOCKER_SERVICE_MODE
+import pymongo
+from modular_sdk.models.pynamongo.adapter import PynamoDBToPymongoAdapter
+from modular_sdk.models.pynamongo.models import Model, SafeUpdateModel
+
+from helpers.constants import DOCKER_SERVICE_MODE, CAASEnv
 
 ADAPTER = None
 MONGO_CLIENT = None
@@ -15,33 +12,25 @@ if CAASEnv.SERVICE_MODE.get() == DOCKER_SERVICE_MODE:
     uri = CAASEnv.MONGO_URI.get()
     db = CAASEnv.MONGO_DATABASE.get()
     assert uri and db, 'Mongo uri and db must be specified for on-prem'
-    ADAPTER = PynamoDBToPyMongoAdapter(
-        mongodb_connection=MongoDBConnection(
-            mongo_uri=uri,
-            default_db_name=db
-        )
-    )
-    MONGO_CLIENT = ADAPTER.mongodb.client
+    MONGO_CLIENT = pymongo.MongoClient(uri)
+    ADAPTER = PynamoDBToPymongoAdapter(db=MONGO_CLIENT.get_database(db))
 
 
-class CustodianMongoDBHandlerMixin(ABCMongoDBHandlerMixin):
+class BaseModel(Model):
     @classmethod
-    def mongodb_handler(cls):
-        if not cls._mongodb:
-            cls._mongodb = ADAPTER
-        return cls._mongodb
+    def is_mongo_model(cls) -> bool:
+        return CAASEnv.SERVICE_MODE.get() == DOCKER_SERVICE_MODE
 
-    is_docker = CAASEnv.SERVICE_MODE.get() == DOCKER_SERVICE_MODE
-
-
-class BaseModel(CustodianMongoDBHandlerMixin, RawBaseModel):
-    pass
+    @classmethod
+    def mongo_adapter(cls) -> PynamoDBToPymongoAdapter:
+        return cast(PynamoDBToPymongoAdapter, ADAPTER)
 
 
-class BaseGSI(CustodianMongoDBHandlerMixin, RawBaseGSI):
-    pass
+class BaseSafeUpdateModel(SafeUpdateModel):
+    @classmethod
+    def is_mongo_model(cls) -> bool:
+        return CAASEnv.SERVICE_MODE.get() == DOCKER_SERVICE_MODE
 
-
-class BaseSafeUpdateModel(CustodianMongoDBHandlerMixin,
-                          ModularSafeUpdateModel):
-    pass
+    @classmethod
+    def mongo_adapter(cls) -> PynamoDBToPymongoAdapter:
+        return cast(PynamoDBToPymongoAdapter, ADAPTER)

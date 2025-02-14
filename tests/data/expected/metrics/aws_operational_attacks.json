@@ -1,0 +1,114 @@
+{
+  "id": "123456789012",
+  "last_scan_date": "2025-01-13T00:34:23.264015Z",
+  "outdated_tenants": [],
+  "activated_regions": [
+    "eu-central-1",
+    "eu-north-1",
+    "eu-west-1",
+    "eu-west-3"
+  ],
+  "data": [
+    {
+      "tactic_id": "TA0009",
+      "tactic": "Collection",
+      "techniques_data": [
+        {
+          "technique_id": "T0",
+          "regions_data": {
+            "eu-central-1": {
+              "resources": [
+                {
+                  "resource": {
+                    "id": "sg-05209ceeb761317e5",
+                    "name": "west-eu"
+                  },
+                  "resource_type": "Security Group",
+                  "rule": "Description for ecc-aws-070-unused_ec2_security_groups",
+                  "severity": "Unknown",
+                  "sub_techniques": [
+                    "sub0",
+                    "sub1"
+                  ]
+                },
+                {
+                  "resource": {
+                    "id": "sg-09d19538187df66cf",
+                    "name": "asia"
+                  },
+                  "resource_type": "Security Group",
+                  "rule": "Description for ecc-aws-070-unused_ec2_security_groups",
+                  "severity": "Unknown",
+                  "sub_techniques": [
+                    "sub0",
+                    "sub1"
+                  ]
+                },
+                {
+                  "resource": {
+                    "id": "sg-0ae266faddaef17e9",
+                    "name": "packer-ssh-access"
+                  },
+                  "resource_type": "Security Group",
+                  "rule": "Description for ecc-aws-070-unused_ec2_security_groups",
+                  "severity": "Unknown",
+                  "sub_techniques": [
+                    "sub0",
+                    "sub1"
+                  ]
+                }
+              ]
+            }
+          },
+          "technique": "testing0"
+        },
+        {
+          "technique_id": "T1",
+          "regions_data": {
+            "eu-central-1": {
+              "resources": [
+                {
+                  "resource": {
+                    "id": "sg-05209ceeb761317e5",
+                    "name": "west-eu"
+                  },
+                  "resource_type": "Security Group",
+                  "rule": "Description for ecc-aws-070-unused_ec2_security_groups",
+                  "severity": "Unknown",
+                  "sub_techniques": [
+                    "sub0"
+                  ]
+                },
+                {
+                  "resource": {
+                    "id": "sg-09d19538187df66cf",
+                    "name": "asia"
+                  },
+                  "resource_type": "Security Group",
+                  "rule": "Description for ecc-aws-070-unused_ec2_security_groups",
+                  "severity": "Unknown",
+                  "sub_techniques": [
+                    "sub0"
+                  ]
+                },
+                {
+                  "resource": {
+                    "id": "sg-0ae266faddaef17e9",
+                    "name": "packer-ssh-access"
+                  },
+                  "resource_type": "Security Group",
+                  "rule": "Description for ecc-aws-070-unused_ec2_security_groups",
+                  "severity": "Unknown",
+                  "sub_techniques": [
+                    "sub0"
+                  ]
+                }
+              ]
+            }
+          },
+          "technique": "testing1"
+        }
+      ]
+    }
+  ]
+}

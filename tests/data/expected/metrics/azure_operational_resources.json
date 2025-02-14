@@ -1,5 +1,6 @@
 {
   "id": "3d615fa8-05c6-47ea-990d-9d162testing",
+  "outdated_tenants": [],
   "data": [
     {
       "policy": "ecc-azure-310-asb_defender_open_source_rds",

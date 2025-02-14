@@ -149,7 +149,7 @@ class MongoAndSSMAuthClient(BaseAuthClient):
         return self.jwt_client.sign(
             claims={
                 COGNITO_USERNAME: user.user_id,
-                COGNITO_SUB: str(user.mongo_id),
+                COGNITO_SUB: str(user.__mongo_id__),
                 CUSTOM_CUSTOMER_ATTR: user.customer,
                 CUSTOM_TENANTS_ATTR: user.tenants or '',
                 CUSTOM_ROLE_ATTR: user.role,

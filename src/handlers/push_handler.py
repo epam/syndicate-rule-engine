@@ -146,6 +146,11 @@ class SiemPushHandler(AbstractHandler):
                     HTTPStatus.SERVICE_UNAVAILABLE,
                     'Dojo failed with internal',
                 )
+            case HTTPStatus.REQUEST_ENTITY_TOO_LARGE:
+                return (
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                    'Report is too large to be pushed'
+                )
             case _:
                 return (
                     HTTPStatus.SERVICE_UNAVAILABLE,

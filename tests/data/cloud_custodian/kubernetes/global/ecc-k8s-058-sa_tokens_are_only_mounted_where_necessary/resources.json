@@ -1,0 +1,33 @@
+[
+  {
+    "api_version": null,
+    "kind": null,
+    "metadata": {
+      "annotations": null,
+      "cluster_name": null,
+      "creation_timestamp": "2025-01-15T15:09:18+00:00",
+      "deletion_grace_period_seconds": null,
+      "deletion_timestamp": null,
+      "finalizers": null,
+      "generate_name": "test-operator-123",
+      "generation": null,
+      "initializers": null,
+      "labels": {
+        "name": "cd-pipeline-operator",
+        "pod-template-hash": "77f8c9"
+      },
+      "managed_fields": [],
+      "name": "test-opertor-77hwxcq",
+      "namespace": "09c64sffas",
+      "owner_references": [],
+      "resource_version": "241695298",
+      "self_link": null,
+      "uid": "337c51cd-35f0-4f47-b27e-55e61ab14921"
+    },
+    "spec": {},
+    "status": {},
+    "c7n:MatchedFilters": [
+      "automount_service_account_token"
+    ]
+  }
+]
