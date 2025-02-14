@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [5.7.0] - 2025-01-06
 - moved to modular-sdk 7.0.0
 - fixed a bug when ruleset name containing a number was considered to be rulesset version
+- added Celery as jobs queue
+- refactor such inner reports
+  - PROJECT_*
+  - DEPARTMENT_*
+  - C_LEVEL_*
+- added OPERATIONAL_DEPRECATIONS report
+- added tests for all reports
 
 ## [5.6.0] - 2024-11-05
 - refactor metrics collector
