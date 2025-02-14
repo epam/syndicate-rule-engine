@@ -973,9 +973,7 @@ class HighLevelReportsHandler(AbstractHandler):
                     _LOG.debug(f'Could not find any {typ} for {display_name}')
                     raise (
                         ResponseFactory(HTTPStatus.NOT_FOUND)
-                        .message(
-                            f'Could not find any {typ} for {display_name}'
-                        )
+                        .message('No active tenant could be found.')
                         .exc()
                     )
                 data = builder.convert(rep, self._rms.fetch_data(rep))
