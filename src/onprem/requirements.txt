@@ -18,6 +18,7 @@ cachetools~=5.4.0
 python-dotenv~=1.0.1
 openpyxl==3.0.10
 cryptography~=42.0.8
+git+https://github.com/epam/modular-sdk.git@pynamodb-pymongo
 modular-sdk~=7.0.0
 jwcrypto~=1.5.3
 msgspec~=0.18.6
