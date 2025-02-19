@@ -161,6 +161,18 @@ class Metadata(msgspec.Struct, frozen=True, eq=False):
         return f'{self.__class__.__name__}(...{len(self.rules)} rules)'
 
 
+def merge_metadata(*metadata: Metadata) -> Metadata:
+    rules = {}
+    domains = {}
+    for item in metadata:
+        rules.update(item.rules)
+        domains.update(item.domains)
+    return Metadata(
+        rules=rules,
+        domains=domains
+    )
+
+
 class MetadataProvider:
     __slots__ = '_lm', '_s3', '_env', '_cache'
     _dec = msgspec.msgpack.Decoder(type=Metadata)

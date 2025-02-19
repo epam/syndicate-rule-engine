@@ -379,4 +379,4 @@ sudo ln -sf /etc/nginx/sites-available/minio /etc/nginx/sites-enabled/
 sudo nginx -s reload
 
 log "Cleaning apt cache"
-sudo apt-get clean
+sudo apt-get clean || true

@@ -147,7 +147,7 @@ class LicenseUpdater(EventProcessorLambdaHandler):
         )
 
         _LOG.info('Updating license activation')
-        self.update_license_activation(lic, new_rulesets)
+        # self.update_license_activation(lic, new_rulesets)
 
     def get_all_activations(self, license_key: str,
                             customer: str | None = None) -> Iterable[Parent]:
