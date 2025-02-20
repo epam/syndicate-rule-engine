@@ -18,6 +18,7 @@
         "total_scans": 3,
         "failed_scans": 1,
         "succeeded_scans": 2,
+        "resources_violated": 5,
         "regions_data": {
           "global": {
             "severity_data": {
@@ -39,6 +40,7 @@
         "total_scans": 3,
         "failed_scans": 1,
         "succeeded_scans": 2,
+        "resources_violated": 9,
         "regions_data": {
           "global": {
             "severity_data": {
@@ -67,6 +69,7 @@
         "total_scans": 3,
         "failed_scans": 1,
         "succeeded_scans": 2,
+        "resources_violated": 23,
         "regions_data": {
           "eu-central-1": {
             "severity_data": {

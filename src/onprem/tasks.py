@@ -7,7 +7,7 @@ from lambdas.custodian_metrics_updater.processors.findings_processor import \
 from onprem.celery import app
 
 
-@app.task
+@app.task(time_limit=3600*3)
 def run_executor(environment: dict[str, str]):
     return main(environment)
 

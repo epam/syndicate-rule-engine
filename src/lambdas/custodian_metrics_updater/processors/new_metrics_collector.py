@@ -1158,6 +1158,7 @@ class MetricsCollector:
                         'total_scans': item[1]['total_scans'],
                         'failed_scans': item[1]['failed_scans'],
                         'succeeded_scans': item[1]['succeeded_scans'],
+                        'resources_violated': item[1]['resources_violated'],
                         'regions_data': {
                             r: {
                                 'severity_data': d['severity'],
