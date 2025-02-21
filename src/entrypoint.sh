@@ -26,8 +26,7 @@ start_server() {
 
 start_celeryworker() {
   log "Going to start celeryworker"
-  exec celery -A onprem worker --loglevel=INFO --without-heartbeat --without-gossip --without-mingle -Ofair
-
+  exec celery -A onprem worker --loglevel=INFO --without-heartbeat --without-gossip --without-mingle -Ofair --concurrency 1 --prefetch-multiplier 1
 }
 
 start_celerybeat() {
