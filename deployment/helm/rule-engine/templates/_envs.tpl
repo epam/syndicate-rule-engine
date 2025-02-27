@@ -13,12 +13,13 @@ env:
         name: mongo-secret
         key: password
   - name: MODULAR_SDK_MONGO_URI
+  {{- if .Values.modularSdk.mongoUri }}
+    value: "{{ .Values.modularSdk.mongoUri }}"
+  {{- else }}
     value: "mongodb://$(MODULAR_SDK_MONGO_USER):$(MODULAR_SDK_MONGO_PASSWORD)@{{ .Values.mongoService }}:{{ .Values.mongoPort }}/"
+  {{- end }}
   - name: MODULAR_SDK_MONGO_DB_NAME
-    valueFrom:
-      configMapKeyRef:
-        name: {{ include "rule-engine.fullname" . }}
-        key: modular-db-name
+    value: "{{ .Values.modularSdk.databaseName }}"
   - name: MODULAR_SDK_SERVICE_MODE
     value: {{ default "docker" .Values.modularSdk.serviceMode }}
   {{- if ne (default "docker" .Values.modularSdk.serviceMode) "docker" }}
@@ -28,7 +29,7 @@ env:
     value: {{ .Values.modularSdk.awsRegion }}
   {{- end }}
   - name: MODULAR_SDK_LOG_LEVEL
-    value: {{ .Values.modularSDKLogLevel }}
+    value: {{ .Values.modularSdk.logLevel }}
   - name: MODULAR_SDK_VAULT_URL
     value: "http://{{ .Values.vaultService }}:{{ .Values.vaultPort }}"
   - name: MODULAR_SDK_VAULT_TOKEN
@@ -41,10 +42,7 @@ env:
   - name: CAAS_MONGO_URI
     value: "mongodb://$(MODULAR_SDK_MONGO_USER):$(MODULAR_SDK_MONGO_PASSWORD)@{{ .Values.mongoService }}:{{ .Values.mongoPort }}/"
   - name: CAAS_MONGO_DATABASE
-    valueFrom:
-      configMapKeyRef:
-        name: {{ include "rule-engine.fullname" . }}
-        key: db-name
+    value: "{{ .Values.databaseName }}"
   - name: CAAS_VAULT_ENDPOINT
     value: "http://{{ .Values.vaultService }}:{{ .Values.vaultPort }}"
   - name: CAAS_VAULT_TOKEN
@@ -65,10 +63,7 @@ env:
         name: minio-secret
         key: password
   - name: CAAS_INNER_CACHE_TTL_SECONDS
-    valueFrom:
-      configMapKeyRef:
-        name: {{ include "rule-engine.fullname" . }}
-        key: inner-cache-ttl-seconds
+    value: {{ .Values.innerCacheTTLSeconds | quote }}
   - name: CAAS_SYSTEM_USER_PASSWORD
     valueFrom:
       secretKeyRef:
