@@ -45,15 +45,15 @@ TEST_ENVS = {
     'CAAS_MINIO_SECRET_ACCESS_KEY': 'testing',
     'CAAS_VAULT_ENDPOINT': 'http://testing',
     'CAAS_VAULT_TOKEN': 'testing',
-    'modular_service_mode': 'docker',
-    'modular_mongo_db_name': 'custodian-as-a-service-testing',
-    'modular_mongo_user': 'testing',
-    'modular_mongo_password': 'testing',
-    'modular_mongo_url': 'testing',
+    'MODULAR_SDK_MONGO_URI': 'mongodb://testing',
+    'MODULAR_SDK_SERVICE_MODE': 'docker',
+    'MODULAR_SDK_MONGO_DB_NAME': 'custodian-as-a-service-testing',
+    'MODULAR_SDK_APPLICATION_NAME': 'syndicate-rule-engine',
+    'MODULAR_SDK_VAULT_TOKEN': 'testing',
+    'MODULAR_SDK_VAULT_HOSTNAME': 'http://testing',
     'AWS_ACCOUNT_ID': '123456789012',
     'AZURE_SUBSCRIPTION_ID': '3d615fa8-05c6-47ea-990d-9d162testing',
     'CLOUDSDK_CORE_PROJECT': 'testing-project-123',
-    'application_name': 'syndicate-rule-engine'
 }
 
 # This "pytest_configure" function must be executed BEFORE any imports that
@@ -65,9 +65,9 @@ def pytest_configure(config):
     os.environ.update(TEST_ENVS)
     os.environ['MOTO_S3_CUSTOM_ENDPOINTS'] = CAASEnv.MINIO_ENDPOINT.get('')
 
-    mongo_patcher = mongomock.patch(servers=CAASEnv.MONGO_URI.get('localhost'))
+    mongo_patcher = mongomock.patch(servers=CAASEnv.MONGO_URI.get())
     cl = mongo_patcher.start()
-    config.mongo_client = cl(host=CAASEnv.MONGO_URI.get('localhost'))
+    config.mongo_client = cl(host=CAASEnv.MONGO_URI.get())
     config._mongo_patcher = mongo_patcher
 
     aws_patcher = mock_aws()
