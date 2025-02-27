@@ -32,14 +32,11 @@ services:
       MODULAR_SERVICE_VAULT_TOKEN: "${CAAS_VAULT_TOKEN:-token}"
       MODULAR_SERVICE_MONGO_URI: "mongodb://${CAAS_MONGO_USERNAME:-mongouser}:${CAAS_MONGO_PASSWORD:-mongopassword}@mongo:27017/"
       MODULAR_SERVICE_MONGO_DATABASE: "${CAAS_MONGO_DATABASE:-custodian_as_a_service}"
-      modular_service_mode: docker
-      modular_mongo_db_name: "${CAAS_MONGO_DATABASE:-custodian_as_a_service}"
-      modular_mongo_user: "${CAAS_MONGO_USERNAME:-mongouser}"
-      modular_mongo_password: "${CAAS_MONGO_PASSWORD:-mongopassword}"
-      modular_mongo_url: mongo:27017
-      VAULT_TOKEN: "${CAAS_VAULT_TOKEN:-token}"
-      VAULT_URL: vault
-      VAULT_SERVICE_SERVICE_PORT: 8200
+      MODULAR_SDK_SERVICE_MODE: docker
+      MODULAR_SDK_MONGO_DB_NAME: "${CAAS_MONGO_DATABASE:-custodian_as_a_service}"
+      MODULAR_SDK_MONGO_URI: "mongodb://${CAAS_MONGO_USERNAME:-mongouser}:${CAAS_MONGO_PASSWORD:-mongopassword}@mongo:27017/"
+      MODULAR_SDK_VAULT_TOKEN: "${CAAS_VAULT_TOKEN:-token}"
+      MODULAR_SDK_VAULT_URL: "http://vault:8200"
     depends_on:
       mongo:
         condition: service_healthy
@@ -75,14 +72,11 @@ services:
       CAAS_VAULT_TOKEN: "${CAAS_VAULT_TOKEN:-token}"
       CAAS_MONGO_URI: "mongodb://${CAAS_MONGO_USERNAME:-mongouser}:${CAAS_MONGO_PASSWORD:-mongopassword}@mongo:27017/"
       CAAS_MONGO_DATABASE: "${CAAS_MONGO_DATABASE:-custodian_as_a_service}"
-      modular_service_mode: docker
-      modular_mongo_db_name: "${CAAS_MONGO_DATABASE:-custodian_as_a_service}"
-      modular_mongo_user: "${CAAS_MONGO_USERNAME:-mongouser}"
-      modular_mongo_password: "${CAAS_MONGO_PASSWORD:-mongopassword}"
-      modular_mongo_url: mongo:27017
-      VAULT_TOKEN: "${CAAS_VAULT_TOKEN:-token}"
-      VAULT_URL: vault
-      VAULT_SERVICE_SERVICE_PORT: 8200
+      MODULAR_SDK_SERVICE_MODE: docker
+      MODULAR_SDK_MONGO_DB_NAME: "${CAAS_MONGO_DATABASE:-custodian_as_a_service}"
+      MODULAR_SDK_MONGO_URI: "mongodb://${CAAS_MONGO_USERNAME:-mongouser}:${CAAS_MONGO_PASSWORD:-mongopassword}@mongo:27017/"
+      MODULAR_SDK_VAULT_TOKEN: "${CAAS_VAULT_TOKEN:-token}"
+      MODULAR_SDK_VAULT_URL: "http://vault:8200"
     profiles:
       - rule-engine
     networks:
