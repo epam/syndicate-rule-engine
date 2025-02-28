@@ -1,16 +1,13 @@
-from datetime import timedelta
-from http import HTTPStatus
 import json
 import secrets
-from typing import cast
+from datetime import timedelta
+from http import HTTPStatus
 
 import bcrypt
 from jwcrypto import jwt
-from pymongo import MongoClient
 from pynamodb.pagination import ResultIterator
 
 from helpers.constants import (
-    CAASEnv,
     COGNITO_SUB,
     COGNITO_USERNAME,
     CUSTOM_CUSTOMER_ATTR,
@@ -18,17 +15,18 @@ from helpers.constants import (
     CUSTOM_ROLE_ATTR,
     CUSTOM_TENANTS_ATTR,
     PRIVATE_KEY_SECRET_NAME,
+    CAASEnv,
 )
 from helpers.lambda_response import ResponseFactory
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime, utc_iso
-from models import MONGO_CLIENT
+from models import MongoClientSingleton
 from models.user import User
 from services.clients.cognito import (
     AuthenticationResult,
     BaseAuthClient,
-    UserWrapper,
     UsersIterator,
+    UserWrapper,
 )
 from services.clients.jwt_management_client import JWTManagementClient
 from services.clients.ssm import AbstractSSMClient
@@ -42,7 +40,7 @@ UNAUTHORIZED_MESSAGE = 'Unauthorized'
 
 
 class MongoAndSSMUsersIterator(UsersIterator):
-    __slots__ = '_it',
+    __slots__ = ('_it',)
 
     def __init__(self, it: ResultIterator[User]):
         self._it = it
@@ -61,7 +59,7 @@ class MongoAndSSMAuthClient(BaseAuthClient):
     def __init__(self, ssm_client: AbstractSSMClient):
         self._ssm = ssm_client
         self._jwt_client = None
-        self._refresh_col = cast(MongoClient, MONGO_CLIENT).get_database(
+        self._refresh_col = MongoClientSingleton.get_instance().get_database(
             CAASEnv.MONGO_DATABASE.get()
         ).get_collection('CaaSRefreshTokenChains')
 
@@ -88,24 +86,28 @@ class MongoAndSSMAuthClient(BaseAuthClient):
             return
         return UserWrapper.from_user_model(item)
 
-    def query_users(self, customer: str | None = None,
-                    limit: int | None = None,
-                    next_token: str | dict | None = None) -> UsersIterator:
+    def query_users(
+        self,
+        customer: str | None = None,
+        limit: int | None = None,
+        next_token: str | dict | None = None,
+    ) -> UsersIterator:
         fc = None
         if customer:
-            fc = (User.customer == customer)
+            fc = User.customer == customer
         it = User.scan(
-            limit=limit,
-            last_evaluated_key=next_token,
-            filter_condition=fc
+            limit=limit, last_evaluated_key=next_token, filter_condition=fc
         )
         return MongoAndSSMUsersIterator(it)
 
     def set_user_password(self, username: str, password: str) -> bool:
-        User(user_id=username).update(actions=[
-            User.password.set(
-                bcrypt.hashpw(password.encode(), bcrypt.gensalt()))
-        ])
+        User(user_id=username).update(
+            actions=[
+                User.password.set(
+                    bcrypt.hashpw(password.encode(), bcrypt.gensalt())
+                )
+            ]
+        )
         return True
 
     @staticmethod
@@ -155,17 +157,17 @@ class MongoAndSSMAuthClient(BaseAuthClient):
                 CUSTOM_ROLE_ATTR: user.role,
                 CUSTOM_LATEST_LOGIN_ATTR: user.latest_login,
             },
-            exp=timedelta(minutes=EXPIRATION_IN_MINUTES)
+            exp=timedelta(minutes=EXPIRATION_IN_MINUTES),
         )
 
-    def authenticate_user(self, username: str, password: str
-                          ) -> AuthenticationResult | None:
+    def authenticate_user(
+        self, username: str, password: str
+    ) -> AuthenticationResult | None:
         user_item = User.get_nullable(hash_key=username)
         if not user_item:
             return
         check = bcrypt.checkpw(
-            password=password.encode(),
-            hashed_password=user_item.password
+            password=password.encode(), hashed_password=user_item.password
         )
         if not check:
             _LOG.info('Invalid password provided by user')
@@ -174,9 +176,13 @@ class MongoAndSSMAuthClient(BaseAuthClient):
 
         rt_version = self._gen_refresh_token_version()
         refresh_token = self._gen_refresh_token(username, rt_version)
-        self._refresh_col.replace_one({'_id': username}, {
-            'v': rt_version  # latest version for user
-        }, upsert=True)
+        self._refresh_col.replace_one(
+            {'_id': username},
+            {
+                'v': rt_version  # latest version for user
+            },
+            upsert=True,
+        )
 
         # that id_token is actually used as access_token. But because Api Gw
         # required cognito id_token to be passed, we keep here the similar
@@ -184,7 +190,7 @@ class MongoAndSSMAuthClient(BaseAuthClient):
         return {
             'id_token': token,
             'refresh_token': refresh_token,
-            'expires_in': EXPIRATION_IN_MINUTES * 60
+            'expires_in': EXPIRATION_IN_MINUTES * 60,
         }
 
     def refresh_token(self, refresh_token: str) -> AuthenticationResult | None:
@@ -196,37 +202,49 @@ class MongoAndSSMAuthClient(BaseAuthClient):
         username, rt_version = tpl
         latest = self._refresh_col.find_one({'_id': username})
         if not latest or not latest.get('v'):
-            _LOG.warning('Latest version of token not found in DB '
-                         'but valid token was received. Cannot refresh')
+            _LOG.warning(
+                'Latest version of token not found in DB '
+                'but valid token was received. Cannot refresh'
+            )
             return
         correct_version = latest['v']
         if rt_version != correct_version:
-            _LOG.warning('Valid token received but its version and one from '
-                         'DB do not match. Stolen refresh token or user '
-                         'reused one. Invalidating existing version')
+            _LOG.warning(
+                'Valid token received but its version and one from '
+                'DB do not match. Stolen refresh token or user '
+                'reused one. Invalidating existing version'
+            )
             self._refresh_col.delete_one({'_id': username})
             return
         rt_version = self._gen_refresh_token_version()
-        self._refresh_col.replace_one({'_id': username}, {
-            'v': rt_version  # latest version for user
-        }, upsert=True)
+        self._refresh_col.replace_one(
+            {'_id': username},
+            {
+                'v': rt_version  # latest version for user
+            },
+            upsert=True,
+        )
 
         user_item = User.get_nullable(hash_key=username)
         return {
             'id_token': self._gen_access_token(user_item),
             'refresh_token': self._gen_refresh_token(username, rt_version),
-            'expires_in': EXPIRATION_IN_MINUTES * 60
+            'expires_in': EXPIRATION_IN_MINUTES * 60,
         }
 
-    def signup_user(self, username: str, password: str,
-                    customer: str | None = None, role: str | None = None
-                    ) -> UserWrapper:
+    def signup_user(
+        self,
+        username: str,
+        password: str,
+        customer: str | None = None,
+        role: str | None = None,
+    ) -> UserWrapper:
         created_at = utc_datetime()
         user = User(
             user_id=username,
             customer=customer,
             role=role,
-            created_at=utc_iso(created_at)
+            created_at=utc_iso(created_at),
         )
         self._update_password_attr(user, password)
         user.save()
@@ -234,7 +252,7 @@ class MongoAndSSMAuthClient(BaseAuthClient):
             username=username,
             customer=customer,
             role=role,
-            created_at=created_at
+            created_at=created_at,
         )
 
     def decode_token(self, token: str) -> dict:
@@ -242,10 +260,16 @@ class MongoAndSSMAuthClient(BaseAuthClient):
             verified = self.jwt_client.verify(token)
         except jwt.JWTExpired:
             _LOG.warning('Access token has expired')
-            raise ResponseFactory(HTTPStatus.UNAUTHORIZED).message(
-                TOKEN_EXPIRED_MESSAGE).exc()
+            raise (
+                ResponseFactory(HTTPStatus.UNAUTHORIZED)
+                .message(TOKEN_EXPIRED_MESSAGE)
+                .exc()
+            )
         except (jwt.JWException, ValueError, Exception) as e:
             _LOG.warning(f'Could not decode token: {e}')
-            raise ResponseFactory(HTTPStatus.UNAUTHORIZED).message(
-                UNAUTHORIZED_MESSAGE).exc()
+            raise (
+                ResponseFactory(HTTPStatus.UNAUTHORIZED)
+                .message(UNAUTHORIZED_MESSAGE)
+                .exc()
+            )
         return json.loads(verified.claims)

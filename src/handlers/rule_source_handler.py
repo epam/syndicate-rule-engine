@@ -9,7 +9,7 @@ from helpers.constants import (
 )
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
-from helpers.system_customer import SYSTEM_CUSTOMER
+from helpers.system_customer import SystemCustomer
 from models.rule_source import RuleSource
 from services import SP
 from services.clients.lambda_func import LambdaClient
@@ -77,13 +77,13 @@ class RuleSourceHandler(AbstractHandler):
     @validate_kwargs
     def get_rule_source(self, event: BaseModel, id: str):
         # Todo maybe support project id
-        item = self._ensure_rule_source(id, event.customer or SYSTEM_CUSTOMER)
+        item = self._ensure_rule_source(id, event.customer or SystemCustomer.get_name())
         return build_response(self._rule_source_service.dto(item))
 
     @validate_kwargs
     def list_rule_sources(self, event: RuleSourcesListModel):
         cursor = self._rule_source_service.query(
-            customer=event.customer or SYSTEM_CUSTOMER,
+            customer=event.customer or SystemCustomer.get_name(),
             has_secret=event.has_secret,
             limit=event.limit,
             last_evaluated_key=NextToken.deserialize(event.next_token).value
@@ -96,7 +96,7 @@ class RuleSourceHandler(AbstractHandler):
 
     @validate_kwargs
     def delete_rule_source(self, event: RuleSourceDeleteModel, id: str):
-        customer = event.customer or SYSTEM_CUSTOMER
+        customer = event.customer or SystemCustomer.get_name()
         item = self._ensure_rule_source(id, customer)
         if not item:
             return build_response(code=HTTPStatus.NO_CONTENT)
@@ -114,7 +114,7 @@ class RuleSourceHandler(AbstractHandler):
 
     @validate_kwargs
     def create_rule_source(self, event: RuleSourcePostModel):
-        customer = event.customer or SYSTEM_CUSTOMER
+        customer = event.customer or SystemCustomer.get_name()
 
         identifier = self._rule_source_service.generate_id(
             customer=customer,
@@ -155,7 +155,7 @@ class RuleSourceHandler(AbstractHandler):
 
     @validate_kwargs
     def update_rule_source(self, event: RuleSourcePatchModel, id: str):
-        customer = event.customer or SYSTEM_CUSTOMER
+        customer = event.customer or SystemCustomer.get_name()
         entity = self._ensure_rule_source(id, customer)
         if event.git_access_secret:
             self._rule_source_service.validate_git_access_data(
@@ -174,7 +174,7 @@ class RuleSourceHandler(AbstractHandler):
 
     @validate_kwargs
     def sync_rule_source(self, event: BaseModel, id: str):
-        customer = event.customer or SYSTEM_CUSTOMER
+        customer = event.customer or SystemCustomer.get_name()
         entity = self._ensure_rule_source(id, customer)
 
         if not self._rule_source_service.is_allowed_to_sync(entity):

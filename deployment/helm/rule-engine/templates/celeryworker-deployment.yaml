@@ -39,11 +39,11 @@ spec:
         - name: rule-engine-celery-worker
           args: ["celeryworker"]
           image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
-#          resources:
-#            limits:
-#              memory: "900Mi"
-#            requests:
-#              memory: "400Mi"
+          resources:
+            limits:
+              memory: "900Mi"
+            requests:
+              memory: "400Mi"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             runAsNonRoot: true

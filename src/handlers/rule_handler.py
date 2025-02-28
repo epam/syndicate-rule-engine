@@ -5,7 +5,7 @@ from helpers.constants import CustodianEndpoint, HTTPMethod
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
 from helpers import NextToken
-from helpers.system_customer import SYSTEM_CUSTOMER
+from helpers.system_customer import SystemCustomer
 from services import SP
 from services.rule_meta_service import RuleService
 from services.rule_source_service import RuleSourceService
@@ -43,8 +43,8 @@ class RuleHandler(AbstractHandler):
 
     @validate_kwargs
     def get_rule(self, event: RuleGetModel):
-        _LOG.debug(f'Get rules action')
-        customer = event.customer or SYSTEM_CUSTOMER
+        _LOG.debug('Get rules action')
+        customer = event.customer or SystemCustomer.get_name()
         if event.rule:
             # TODO split to get and list endpoints
             _LOG.debug('Rule id was given. Trying to resolve one rule')
@@ -97,7 +97,7 @@ class RuleHandler(AbstractHandler):
     @validate_kwargs
     def delete_rule(self, event: RuleDeleteModel):
         _LOG.debug('Delete rule action')
-        customer = event.customer or SYSTEM_CUSTOMER
+        customer = event.customer or SystemCustomer.get_name()
 
         if event.rule:
             _LOG.debug('Rule name given. Removing one rule')

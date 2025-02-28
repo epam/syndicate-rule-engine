@@ -1,19 +1,28 @@
-from typing import cast
-
 import pymongo
 from modular_sdk.models.pynamongo.adapter import PynamoDBToPymongoAdapter
 from modular_sdk.models.pynamongo.models import Model, SafeUpdateModel
 
 from helpers.constants import DOCKER_SERVICE_MODE, CAASEnv
 
-ADAPTER = None
-MONGO_CLIENT = None
-if CAASEnv.SERVICE_MODE.get() == DOCKER_SERVICE_MODE:
-    uri = CAASEnv.MONGO_URI.get()
-    db = CAASEnv.MONGO_DATABASE.get()
-    assert uri and db, 'Mongo uri and db must be specified for on-prem'
-    MONGO_CLIENT = pymongo.MongoClient(uri)
-    ADAPTER = PynamoDBToPymongoAdapter(db=MONGO_CLIENT.get_database(db))
+
+class MongoClientSingleton:
+    _instance = None
+
+    @classmethod
+    def get_instance(cls) -> pymongo.MongoClient:
+        if cls._instance is None:
+            cls._instance = pymongo.MongoClient(CAASEnv.MONGO_URI.get())
+        return cls._instance
+
+
+class PynamoDBToPymongoAdapterSingleton:
+    _instance = None
+
+    @classmethod
+    def get_instance(cls) -> PynamoDBToPymongoAdapter:
+        if cls._instance is None:
+            cls._instance = PynamoDBToPymongoAdapter(db=MongoClientSingleton.get_instance().get_database(CAASEnv.MONGO_DATABASE.get()))
+        return cls._instance
 
 
 class BaseModel(Model):
@@ -23,7 +32,7 @@ class BaseModel(Model):
 
     @classmethod
     def mongo_adapter(cls) -> PynamoDBToPymongoAdapter:
-        return cast(PynamoDBToPymongoAdapter, ADAPTER)
+        return PynamoDBToPymongoAdapterSingleton.get_instance()
 
 
 class BaseSafeUpdateModel(SafeUpdateModel):
@@ -33,4 +42,4 @@ class BaseSafeUpdateModel(SafeUpdateModel):
 
     @classmethod
     def mongo_adapter(cls) -> PynamoDBToPymongoAdapter:
-        return cast(PynamoDBToPymongoAdapter, ADAPTER)
+        return PynamoDBToPymongoAdapterSingleton.get_instance()
