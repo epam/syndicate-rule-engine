@@ -97,4 +97,6 @@ env:
     value: {{ .Values.redisService }}
   - name: REDIS_PORT
     value: "{{ .Values.redisPort }}"
+  - name: CAAS_CELERY_LOG_LEVEL
+    value: {{ .Values.celery.logLevel }}
 {{- end -}}

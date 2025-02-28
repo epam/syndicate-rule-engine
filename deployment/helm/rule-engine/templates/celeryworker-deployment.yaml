@@ -23,6 +23,18 @@ spec:
       annotations:
         rollme: {{ randAlphaNum 5 | quote }}
     spec:
+      volumes:
+        - name: rule-engine-storage
+          persistentVolumeClaim:
+            claimName: {{ include "rule-engine.fullname" . }}
+      initContainers: # TODO: how can we change permissions in some other way?
+        - name: volume-permissions
+          image: busybox:1.28
+          imagePullPolicy: IfNotPresent
+          command: [ "chown", "-R", "1001:1337", "/data" ]
+          volumeMounts:
+            - name: rule-engine-storage
+              mountPath: /data
       containers:
         - name: rule-engine-celery-worker
           args: ["celeryworker"]
@@ -33,5 +45,12 @@ spec:
 #            requests:
 #              memory: "400Mi"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1337
+          volumeMounts:
+            - name: rule-engine-storage
+              mountPath: "/data"
           {{- include "rule-engine.envs" . | nindent 10 }}
       restartPolicy: Always
