@@ -74,3 +74,14 @@ modularSDKLogLevel: WARNING
 executorLogLevel: INFO
 allowSimultaneousJobsForOneTenant: false
 recommendationsBucket:
+
+
+persistence:
+  accessMode: ReadWriteOnce
+  size: 256Mi
+  storageClass: standard
+  hostPath: /data/rule-engine
+
+
+celery:
+  logLevel: INFO
