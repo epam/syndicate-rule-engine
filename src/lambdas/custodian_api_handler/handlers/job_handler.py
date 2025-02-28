@@ -19,7 +19,7 @@ from helpers.constants import (
 )
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
-from helpers.system_customer import SYSTEM_CUSTOMER
+from helpers.system_customer import SystemCustomer
 from models.job import Job
 from models.ruleset import Ruleset
 from services import SERVICE_PROVIDER, cache, modular_helpers
@@ -712,7 +712,7 @@ class JobHandler(AbstractHandler):
         user_id = _pe['cognito_username']
         reason = (
             f"Initiated by user '{user_id}' "
-            f"(customer '{event.customer or SYSTEM_CUSTOMER}')"
+            f"(customer '{event.customer or SystemCustomer.get_name()}')"
         )
         _LOG.info(f"Going to terminate job with id '{job.id}'")
         self._batch_client.terminate_job(job=job, reason=reason)
@@ -864,7 +864,7 @@ class JobHandler(AbstractHandler):
         if event.tenant_name:
             tenants.add(event.tenant_name)
         items = self._scheduler_service.list(
-            customer=event.customer or SYSTEM_CUSTOMER, tenants=tenants
+            customer=event.customer or SystemCustomer.get_name(), tenants=tenants
         )
         return build_response(
             content=(self._scheduler_service.dto(item) for item in items)
@@ -875,7 +875,7 @@ class JobHandler(AbstractHandler):
         raise ResponseFactory(HTTPStatus.NOT_IMPLEMENTED).message('Scheduled jobs are currently not available').exc()
         item = next(
             self._scheduler_service.list(
-                name=name, customer=event.customer or SYSTEM_CUSTOMER
+                name=name, customer=event.customer or SystemCustomer.get_name()
             ),
             None,
         )

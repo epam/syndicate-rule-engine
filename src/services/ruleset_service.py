@@ -18,7 +18,7 @@ from helpers.constants import (
     RULES_NUMBER,
     VERSION_ATTR,
 )
-from helpers.system_customer import SYSTEM_CUSTOMER
+from helpers.system_customer import SystemCustomer
 from helpers.time_helper import utc_iso
 from models.ruleset import RULESET_LICENSES, RULESET_STANDARD, Ruleset
 from services.base_data_service import BaseDataService
@@ -45,7 +45,7 @@ class RulesetService(BaseDataService[Ruleset]):
         if cloud:
             filter_condition &= Ruleset.cloud == cloud.upper()
         sort_key = (
-            f'{SYSTEM_CUSTOMER}{COMPOUND_KEYS_SEPARATOR}'
+            f'{SystemCustomer.get_name()}{COMPOUND_KEYS_SEPARATOR}'
             f'{RULESET_LICENSES}{COMPOUND_KEYS_SEPARATOR}'
         )
         if name:
@@ -53,7 +53,7 @@ class RulesetService(BaseDataService[Ruleset]):
         if version:
             sort_key += f'{version}'
         return self.model_class.customer_id_index.query(
-            hash_key=SYSTEM_CUSTOMER,
+            hash_key=SystemCustomer.get_name(),
             range_key_condition=(self.model_class.id.startswith(sort_key)),
             scan_index_forward=ascending,
             limit=limit,
@@ -187,7 +187,7 @@ class RulesetService(BaseDataService[Ruleset]):
         self, cloud: str, version: str, rules: list[str]
     ) -> Ruleset:
         return self.create(
-            customer=SYSTEM_CUSTOMER,
+            customer=SystemCustomer.get_name(),
             name=self.ed_ruleset_name(cloud),
             version=version,
             cloud=cloud,
@@ -272,13 +272,13 @@ class RulesetService(BaseDataService[Ruleset]):
         :return:
         """
         sk = self.build_id(
-            customer=SYSTEM_CUSTOMER,
+            customer=SystemCustomer.get_name(),
             licensed=False,
             name=self.ed_ruleset_name(cloud),
             version='',
         )
         return Ruleset.customer_id_index.query(
-            hash_key=SYSTEM_CUSTOMER,
+            hash_key=SystemCustomer.get_name(),
             range_key_condition=Ruleset.id.startswith(sk),
             filter_condition=(Ruleset.event_driven == True),
             scan_index_forward=ascending,
@@ -290,7 +290,7 @@ class RulesetService(BaseDataService[Ruleset]):
 
     def get_event_driven(self, cloud: str, version: str) -> Ruleset | None:
         return self.get_standard(
-            customer=SYSTEM_CUSTOMER,
+            customer=SystemCustomer.get_name(),
             name=self.ed_ruleset_name(cloud),
             version=version,
         )

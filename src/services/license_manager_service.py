@@ -1,7 +1,7 @@
 from functools import cached_property
 
 from helpers.log_helper import get_logger
-from helpers.system_customer import SYSTEM_CUSTOMER
+from helpers.system_customer import SystemCustomer
 from helpers.time_helper import utc_iso
 from models.ruleset import Ruleset, EMPTY_VERSION
 from services.clients.lm_client import LMClient, LMClientFactory
@@ -41,7 +41,7 @@ class LicenseManagerService:
         :return:
         """
         return self.ruleset_service.create(
-            customer=SYSTEM_CUSTOMER,
+            customer=SystemCustomer.get_name(),
             name=dto['name'],
             version=EMPTY_VERSION,
             cloud=dto['cloud'],

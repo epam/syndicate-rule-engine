@@ -23,7 +23,7 @@ from helpers.constants import (
     SettingKey,
 )
 from helpers.log_helper import get_logger
-from helpers.system_customer import SYSTEM_CUSTOMER
+from helpers.system_customer import SystemCustomer
 from services import SERVICE_PROVIDER
 from services.clients.lm_client import LmTokenProducer
 from services.clients.s3 import S3Client
@@ -369,7 +369,7 @@ class EventDrivenRulesetsExist(AbstractHealthCheck):
         }
         aws = next(
             self._ruleset_service.iter_standard(
-                customer=SYSTEM_CUSTOMER,
+                customer=SystemCustomer.get_name(),
                 name=ED_AWS_RULESET_NAME,
                 cloud=RuleDomain.AWS.value,
                 event_driven=True,
@@ -379,7 +379,7 @@ class EventDrivenRulesetsExist(AbstractHealthCheck):
         )
         azure = next(
             self._ruleset_service.iter_standard(
-                customer=SYSTEM_CUSTOMER,
+                customer=SystemCustomer.get_name(),
                 name=ED_AZURE_RULESET_NAME,
                 cloud=RuleDomain.AZURE.value,
                 event_driven=True,
@@ -389,7 +389,7 @@ class EventDrivenRulesetsExist(AbstractHealthCheck):
         )
         gcp = next(
             self._ruleset_service.iter_standard(
-                customer=SYSTEM_CUSTOMER,
+                customer=SystemCustomer.get_name(),
                 name=ED_GOOGLE_RULESET_NAME,
                 cloud=RuleDomain.GCP.value,
                 event_driven=True,

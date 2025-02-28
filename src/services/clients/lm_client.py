@@ -18,7 +18,7 @@ from helpers.constants import (
     JobState,
 )
 from helpers.log_helper import get_logger
-from helpers.system_customer import SYSTEM_CUSTOMER
+from helpers.system_customer import SystemCustomer
 from services.clients.ssm import AbstractSSMClient
 from services.setting_service import SettingsService
 
@@ -99,7 +99,7 @@ class LmTokenProducer:
         return self._pem
 
     @staticmethod
-    def get_ssm_auth_token_name(customer: str = SYSTEM_CUSTOMER):
+    def get_ssm_auth_token_name(customer: str):
         customer = re.sub(r'[\s-]', '_', customer.lower())
         return f'caas_lm_auth_token_{customer}'
 
@@ -116,7 +116,7 @@ class LmTokenProducer:
         :param cached:
         :return:
         """
-        customer = customer or SYSTEM_CUSTOMER
+        customer = customer or SystemCustomer.get_name()
         secret_name = self.get_ssm_auth_token_name(customer)
         if cached:
             v = (self._ssm.get_secret_value(secret_name) or {}).get(TOKEN_ATTR)

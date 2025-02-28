@@ -6,7 +6,7 @@ from handlers import AbstractHandler, Mapping
 from helpers.constants import CustodianEndpoint, HTTPMethod
 from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
-from helpers.system_customer import SYSTEM_CUSTOMER
+from helpers.system_customer import SystemCustomer
 from services import SP
 from services.clients.step_function import ScriptClient, StepFunctionClient
 from services.health_check_service import RabbitMQConnectionCheck
@@ -62,7 +62,7 @@ class ReportsSendingSettingHandler(AbstractHandler):
                 'protocol': 'HTTP/1.1',
                 'authorizer': {
                     'claims': {
-                        'custom:customer': SYSTEM_CUSTOMER,
+                        'custom:customer': SystemCustomer.get_name(),
                     }
                 }
             },

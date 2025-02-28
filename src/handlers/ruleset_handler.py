@@ -19,7 +19,7 @@ from helpers.constants import (
 )
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
-from helpers.system_customer import SYSTEM_CUSTOMER
+from helpers.system_customer import SystemCustomer
 from helpers.time_helper import utc_iso
 from models.rule import Rule, RuleIndex
 from models.rule_source import RuleSource
@@ -105,7 +105,7 @@ class RulesetHandler(AbstractHandler):
     def get_event_driven_ruleset(self, event: EventDrivenRulesetGetModel):
         _LOG.debug('Get event-driven rulesets')
         items = self.ruleset_service.iter_standard(
-            customer=SYSTEM_CUSTOMER, event_driven=True, cloud=event.cloud
+            customer=SystemCustomer.get_name(), event_driven=True, cloud=event.cloud
         )
         params_to_exclude = {EVENT_DRIVEN_ATTR}
         if not event.get_rules:
@@ -121,7 +121,7 @@ class RulesetHandler(AbstractHandler):
     @validate_kwargs
     def post_event_driven_ruleset(self, event: EventDrivenRulesetPostModel):
         _LOG.debug('Create event-driven rulesets')
-        customer = event.customer or SYSTEM_CUSTOMER
+        customer = event.customer or SystemCustomer.get_name()
 
         rs: RuleSource | None = None
         desired_version: Version
@@ -327,7 +327,7 @@ class RulesetHandler(AbstractHandler):
         # maybe filter licensed rule-sets by tenants.
 
         params = dict(
-            customer=event.customer or SYSTEM_CUSTOMER,
+            customer=event.customer or SystemCustomer.get_name(),
             name=event.name,
             version=Version(event.version).to_str() if event.version else None,
             cloud=event.cloud,
@@ -392,7 +392,7 @@ class RulesetHandler(AbstractHandler):
 
     @validate_kwargs
     def create_ruleset(self, event: RulesetPostModel):
-        customer = event.customer or SYSTEM_CUSTOMER
+        customer = event.customer or SystemCustomer.get_name()
 
         rs: RuleSource | None = None
         desired_version: Version
@@ -587,7 +587,7 @@ class RulesetHandler(AbstractHandler):
 
     @validate_kwargs
     def update_ruleset(self, event: RulesetPatchModel):
-        customer = event.customer or SYSTEM_CUSTOMER
+        customer = event.customer or SystemCustomer.get_name()
         if not event.force and self.ruleset_service.get_standard(
             customer=customer, name=event.name, version=event.new_version
         ):
@@ -715,7 +715,7 @@ class RulesetHandler(AbstractHandler):
 
     @validate_kwargs
     def delete_ruleset(self, event: RulesetDeleteModel):
-        customer = event.customer or SYSTEM_CUSTOMER
+        customer = event.customer or SystemCustomer.get_name()
 
         if event.is_all_versions:
             _LOG.debug('Removing all versions of a specific ruleset')
@@ -737,7 +737,7 @@ class RulesetHandler(AbstractHandler):
 
     @validate_kwargs
     def release_ruleset(self, event: RulesetReleasePostModel):
-        customer = event.customer or SYSTEM_CUSTOMER
+        customer = event.customer or SystemCustomer.get_name()
         client = self.license_manager_service.cl
         if not isinstance(client, LMClientAfter3p0):
             raise (
