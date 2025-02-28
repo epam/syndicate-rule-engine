@@ -26,12 +26,14 @@ start_server() {
 
 start_celeryworker() {
   log "Going to start celeryworker"
-  exec celery -A onprem worker --loglevel=INFO --without-heartbeat --without-gossip --without-mingle -Ofair --concurrency 1 --prefetch-multiplier 1
+  mkdir -p /data/logs
+  exec celery --app=onprem worker --hostname=worker1@%n --logfile=/data/logs/%n-%i.log --statedb=/data/worker.state --loglevel="${CAAS_CELERY_LOG_LEVEL:-INFO}" --without-heartbeat --without-gossip --without-mingle -Ofair --concurrency 1 --prefetch-multiplier 1
 }
 
 start_celerybeat() {
   log "Going to start celerybeat"
-  exec celery -A onprem beat --loglevel=INFO
+  mkdir -p /data/logs
+  exec celery --app=onprem beat --logfile=/data/logs/beat.log --loglevel="${CAAS_CELERY_LOG_LEVEL:-INFO}" --schedule=/data/celerybeat-schedule
 }
 
 case "$1" in
