@@ -1,10 +1,11 @@
 {
+  "outdated_tenants": [],
   "data": {
     "AWS": [
       {
         "account_id": "123456789012",
         "tenant_name": "AWS-TESTING",
-        "last_scan_date": "2025-01-28T00:20:16.359026Z",
+        "last_scan_date": "2025-03-04T00:51:40.379739Z",
         "activated_regions": [
           "eu-central-1",
           "eu-north-1",
@@ -13,32 +14,43 @@
         ],
         "mitre_data": [
           {
+            "tactic_name": "Collection",
             "tactic_id": "TA0009",
-            "tactic": "Collection",
-            "techniques_data": [
-              {
-                "technique_id": "T0",
-                "regions_data": {
-                  "eu-central-1": {
-                    "severity_data": {
-                      "Unknown": 3
-                    }
-                  }
-                },
-                "technique": "testing0"
-              },
-              {
-                "technique_id": "T1",
-                "regions_data": {
-                  "eu-central-1": {
-                    "severity_data": {
-                      "Unknown": 3
-                    }
-                  }
-                },
-                "technique": "testing1"
+            "technique_name": "testing0",
+            "technique_id": "T0",
+            "sub_technique_name": "sub0",
+            "sub_technique_id": "T0.0",
+            "regions": {
+              "eu-central-1": {
+                "Unknown": 3
               }
-            ]
+            }
+          },
+          {
+            "tactic_name": "Collection",
+            "tactic_id": "TA0009",
+            "technique_name": "testing0",
+            "technique_id": "T0",
+            "sub_technique_name": "sub1",
+            "sub_technique_id": "T0.1",
+            "regions": {
+              "eu-central-1": {
+                "Unknown": 3
+              }
+            }
+          },
+          {
+            "tactic_name": "Collection",
+            "tactic_id": "TA0009",
+            "technique_name": "testing1",
+            "technique_id": "T1",
+            "sub_technique_name": "sub0",
+            "sub_technique_id": "T1.0",
+            "regions": {
+              "eu-central-1": {
+                "Unknown": 3
+              }
+            }
           }
         ]
       }
@@ -47,7 +59,7 @@
       {
         "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
         "tenant_name": "AZURE-TESTING",
-        "last_scan_date": "2025-01-28T00:20:16.359026Z",
+        "last_scan_date": "2025-03-04T00:51:40.379739Z",
         "activated_regions": [],
         "mitre_data": []
       }
@@ -56,11 +68,10 @@
       {
         "account_id": "testing-project-123",
         "tenant_name": "GOOGLE-TESTING",
-        "last_scan_date": "2025-01-28T00:20:16.359026Z",
+        "last_scan_date": "2025-03-04T00:51:40.379739Z",
         "activated_regions": [],
         "mitre_data": []
       }
     ]
-  },
-  "outdated_tenants": []
+  }
 }

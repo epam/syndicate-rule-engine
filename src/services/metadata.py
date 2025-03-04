@@ -2,13 +2,17 @@ import gzip
 import io
 import tempfile
 from enum import Enum
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Generator, cast
 
 import msgspec
 
 from helpers import Version
 from helpers.__version__ import __version__
-from helpers.constants import RemediationComplexity, Severity
+from helpers.constants import (
+    TACTICS_ID_MAPPING,
+    RemediationComplexity,
+    Severity,
+)
 from helpers.log_helper import get_logger
 from helpers.reports import Standard, service_from_resource_type
 from models.rule import RuleIndex
@@ -22,6 +26,28 @@ if TYPE_CHECKING:
     from services.license_service import License
 
 _LOG = get_logger(__name__)
+
+
+class MitreAttack(msgspec.Struct, frozen=True, eq=True, kw_only=True):
+    """
+    Represents one specific MITRE Attack
+    """
+
+    tactic_name: str
+    tactic_id: str
+    technique_name: str
+    technique_id: str
+    sub_technique_name: str | None = msgspec.field(default=None)
+    sub_technique_id: str | None = msgspec.field(default=None)
+
+    def to_dict(self):
+        return {f: getattr(self, f) for f in self.__struct_fields__}
+
+    def __post_init__(self):
+        if bool(self.sub_technique_name) ^ bool(self.sub_technique_id):
+            raise ValueError(
+                'Both sub technique id and name must be specified'
+            )
 
 
 class RuleMetadata(
@@ -45,7 +71,7 @@ class RuleMetadata(
     standard: dict[str, dict[str, tuple[str, ...]]] = msgspec.field(
         default_factory=dict
     )
-    mitre: dict = msgspec.field(default_factory=dict)
+    mitre: dict[str, list[dict]] = msgspec.field(default_factory=dict)
     waf: dict = msgspec.field(default_factory=dict)
     remediation_complexity: RemediationComplexity = msgspec.field(
         default=RemediationComplexity.UNKNOWN
@@ -74,6 +100,46 @@ class RuleMetadata(
         if ':' in first:
             return second, first.split(':', maxsplit=1)[-1].strip()
         return second, None
+
+    def iter_mitre_attacks(self) -> Generator[MitreAttack, None, None]:
+        for tactic_name, techniques in self.mitre.items():
+            tactic_id = TACTICS_ID_MAPPING.get(tactic_name)
+            if not tactic_id:
+                _LOG.warning(f'Not known tactic name: {tactic_name}')
+                continue
+            for technique in techniques:
+                tn_id = technique.get('tn_id')
+                tn_name = technique.get('tn_name')
+                if not tn_id or not tn_name:
+                    _LOG.warning(
+                        f'Technique name or id not found: {technique}'
+                    )
+                    continue
+
+                if sub := technique.get('st'):
+                    for s in sub:
+                        st_id = s.get('st_id')
+                        st_name = s.get('st_name')
+                        if not st_id or not st_name:
+                            _LOG.warning(
+                                f'Sub technique name or id not found: {s}'
+                            )
+                            continue
+                        yield MitreAttack(
+                            tactic_name=tactic_name,
+                            tactic_id=tactic_id,
+                            technique_name=tn_name,
+                            technique_id=tn_id,
+                            sub_technique_name=st_name,
+                            sub_technique_id=st_id,
+                        )
+                else:
+                    yield MitreAttack(
+                        tactic_name=tactic_name,
+                        tactic_id=tactic_id,
+                        technique_name=tn_name,
+                        technique_id=tn_id,
+                    )
 
 
 class DomainMetadata(
@@ -167,10 +233,7 @@ def merge_metadata(*metadata: Metadata) -> Metadata:
     for item in metadata:
         rules.update(item.rules)
         domains.update(item.domains)
-    return Metadata(
-        rules=rules,
-        domains=domains
-    )
+    return Metadata(rules=rules, domains=domains)
 
 
 class MetadataProvider:

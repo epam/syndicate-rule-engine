@@ -1,7 +1,6 @@
 {
   "id": "123456789012",
-  "last_scan_date": "2025-01-13T00:34:23.264015Z",
-  "outdated_tenants": [],
+  "last_scan_date": "2025-03-04T00:48:05.004398Z",
   "activated_regions": [
     "eu-central-1",
     "eu-north-1",
@@ -10,105 +9,191 @@
   ],
   "data": [
     {
-      "tactic_id": "TA0009",
-      "tactic": "Collection",
-      "techniques_data": [
+      "region": "eu-central-1",
+      "service": "Security Group",
+      "resource_type": "Security Group",
+      "resource": {
+        "id": "sg-05209ceeb761317e5",
+        "name": "west-eu"
+      },
+      "attacks": [
         {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing0",
           "technique_id": "T0",
-          "regions_data": {
-            "eu-central-1": {
-              "resources": [
-                {
-                  "resource": {
-                    "id": "sg-05209ceeb761317e5",
-                    "name": "west-eu"
-                  },
-                  "resource_type": "Security Group",
-                  "rule": "Description for ecc-aws-070-unused_ec2_security_groups",
-                  "severity": "Unknown",
-                  "sub_techniques": [
-                    "sub0",
-                    "sub1"
-                  ]
-                },
-                {
-                  "resource": {
-                    "id": "sg-09d19538187df66cf",
-                    "name": "asia"
-                  },
-                  "resource_type": "Security Group",
-                  "rule": "Description for ecc-aws-070-unused_ec2_security_groups",
-                  "severity": "Unknown",
-                  "sub_techniques": [
-                    "sub0",
-                    "sub1"
-                  ]
-                },
-                {
-                  "resource": {
-                    "id": "sg-0ae266faddaef17e9",
-                    "name": "packer-ssh-access"
-                  },
-                  "resource_type": "Security Group",
-                  "rule": "Description for ecc-aws-070-unused_ec2_security_groups",
-                  "severity": "Unknown",
-                  "sub_techniques": [
-                    "sub0",
-                    "sub1"
-                  ]
-                }
-              ]
+          "sub_technique_name": "sub0",
+          "sub_technique_id": "T0.0",
+          "severity": "Unknown",
+          "violations": [
+            {
+              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
+              "remediation": "",
+              "remediation_complexity": "Unknown",
+              "severity": "Unknown"
             }
-          },
-          "technique": "testing0"
+          ]
         },
         {
-          "technique_id": "T1",
-          "regions_data": {
-            "eu-central-1": {
-              "resources": [
-                {
-                  "resource": {
-                    "id": "sg-05209ceeb761317e5",
-                    "name": "west-eu"
-                  },
-                  "resource_type": "Security Group",
-                  "rule": "Description for ecc-aws-070-unused_ec2_security_groups",
-                  "severity": "Unknown",
-                  "sub_techniques": [
-                    "sub0"
-                  ]
-                },
-                {
-                  "resource": {
-                    "id": "sg-09d19538187df66cf",
-                    "name": "asia"
-                  },
-                  "resource_type": "Security Group",
-                  "rule": "Description for ecc-aws-070-unused_ec2_security_groups",
-                  "severity": "Unknown",
-                  "sub_techniques": [
-                    "sub0"
-                  ]
-                },
-                {
-                  "resource": {
-                    "id": "sg-0ae266faddaef17e9",
-                    "name": "packer-ssh-access"
-                  },
-                  "resource_type": "Security Group",
-                  "rule": "Description for ecc-aws-070-unused_ec2_security_groups",
-                  "severity": "Unknown",
-                  "sub_techniques": [
-                    "sub0"
-                  ]
-                }
-              ]
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing0",
+          "technique_id": "T0",
+          "sub_technique_name": "sub1",
+          "sub_technique_id": "T0.1",
+          "severity": "Unknown",
+          "violations": [
+            {
+              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
+              "remediation": "",
+              "remediation_complexity": "Unknown",
+              "severity": "Unknown"
             }
-          },
-          "technique": "testing1"
+          ]
+        },
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing1",
+          "technique_id": "T1",
+          "sub_technique_name": "sub0",
+          "sub_technique_id": "T1.0",
+          "severity": "Unknown",
+          "violations": [
+            {
+              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
+              "remediation": "",
+              "remediation_complexity": "Unknown",
+              "severity": "Unknown"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "region": "eu-central-1",
+      "service": "Security Group",
+      "resource_type": "Security Group",
+      "resource": {
+        "id": "sg-0ae266faddaef17e9",
+        "name": "packer-ssh-access"
+      },
+      "attacks": [
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing0",
+          "technique_id": "T0",
+          "sub_technique_name": "sub0",
+          "sub_technique_id": "T0.0",
+          "severity": "Unknown",
+          "violations": [
+            {
+              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
+              "remediation": "",
+              "remediation_complexity": "Unknown",
+              "severity": "Unknown"
+            }
+          ]
+        },
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing0",
+          "technique_id": "T0",
+          "sub_technique_name": "sub1",
+          "sub_technique_id": "T0.1",
+          "severity": "Unknown",
+          "violations": [
+            {
+              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
+              "remediation": "",
+              "remediation_complexity": "Unknown",
+              "severity": "Unknown"
+            }
+          ]
+        },
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing1",
+          "technique_id": "T1",
+          "sub_technique_name": "sub0",
+          "sub_technique_id": "T1.0",
+          "severity": "Unknown",
+          "violations": [
+            {
+              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
+              "remediation": "",
+              "remediation_complexity": "Unknown",
+              "severity": "Unknown"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "region": "eu-central-1",
+      "service": "Security Group",
+      "resource_type": "Security Group",
+      "resource": {
+        "id": "sg-09d19538187df66cf",
+        "name": "asia"
+      },
+      "attacks": [
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing0",
+          "technique_id": "T0",
+          "sub_technique_name": "sub0",
+          "sub_technique_id": "T0.0",
+          "severity": "Unknown",
+          "violations": [
+            {
+              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
+              "remediation": "",
+              "remediation_complexity": "Unknown",
+              "severity": "Unknown"
+            }
+          ]
+        },
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing0",
+          "technique_id": "T0",
+          "sub_technique_name": "sub1",
+          "sub_technique_id": "T0.1",
+          "severity": "Unknown",
+          "violations": [
+            {
+              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
+              "remediation": "",
+              "remediation_complexity": "Unknown",
+              "severity": "Unknown"
+            }
+          ]
+        },
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing1",
+          "technique_id": "T1",
+          "sub_technique_name": "sub0",
+          "sub_technique_id": "T1.0",
+          "severity": "Unknown",
+          "violations": [
+            {
+              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
+              "remediation": "",
+              "remediation_complexity": "Unknown",
+              "severity": "Unknown"
+            }
+          ]
         }
       ]
     }
-  ]
+  ],
+  "outdated_tenants": []
 }

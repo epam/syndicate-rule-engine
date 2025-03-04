@@ -2,8 +2,10 @@ import copy
 import heapq
 import statistics
 from datetime import datetime
+from functools import cmp_to_key
 from typing import TYPE_CHECKING, Generator, Iterable, Iterator, cast
 
+import msgspec
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.modular import Modular
@@ -16,6 +18,7 @@ from helpers.constants import (
     ReportType,
 )
 from helpers.log_helper import get_logger
+from helpers.reports import SeverityCmp, service_from_resource_type
 from helpers.time_helper import utc_datetime
 from models.metrics import ReportMetrics
 from models.ruleset import Ruleset
@@ -23,7 +26,7 @@ from services import SP, modular_helpers
 from services.ambiguous_job_service import AmbiguousJobService
 from services.coverage_service import MappingAverageCalculator
 from services.license_service import License, LicenseService
-from services.metadata import Metadata
+from services.metadata import Metadata, MitreAttack
 from services.modular_helpers import tenant_cloud
 from services.platform_service import Platform, PlatformService
 from services.report_service import ReportService
@@ -962,9 +965,46 @@ class MetricsCollector:
                     f'{tenant.name} for {end}'
                 )
                 continue
-            data = ShardsCollectionDataSource(
+            mitre_data = []
+            ds = ShardsCollectionDataSource(
                 col, ctx.metadata, tenant_cloud(tenant)
-            ).operational_attacks()
+            )
+            for (
+                region,
+                service,
+                rt,
+                res,
+                attacks,
+            ) in ds.iter_resource_attacks():
+                at = []
+                for attack, rules in attacks.items():
+                    inner = attack.to_dict()
+                    inner['severity'] = sorted(
+                        (ctx.metadata.rule(r).severity.value for r in rules),
+                        key=cmp_to_key(SeverityCmp()),
+                    )[-1]
+                    inner['violations'] = [
+                        {
+                            'description': col.meta[rule]['description'],
+                            'remediation': ctx.metadata.rule(rule).remediation,
+                            'remediation_complexity': ctx.metadata.rule(
+                                rule
+                            ).remediation_complexity.value,
+                            'severity': ctx.metadata.rule(rule).severity.value,
+                        }
+                        for rule in rules
+                    ]
+                    at.append(inner)
+
+                mitre_data.append(
+                    {
+                        'region': region,
+                        'service': service,
+                        'resource_type': service_from_resource_type(rt),
+                        'resource': res,
+                        'attacks': at,
+                    }
+                )
 
             outdated = []
             lsd = js.subset(tenant=tenant.name).last_succeeded_scan_date
@@ -979,7 +1019,7 @@ class MetricsCollector:
                 'activated_regions': sorted(
                     modular_helpers.get_tenant_regions(tenant)
                 ),
-                'data': data,
+                'data': mitre_data,
                 'outdated_tenants': outdated,
             }
             yield (
@@ -1019,6 +1059,43 @@ class MetricsCollector:
             ds = ShardsCollectionDataSource(
                 col, ctx.metadata, Cloud.KUBERNETES
             )
+            mitre_data = []
+            for (
+                region,
+                service,
+                rt,
+                res,
+                attacks,
+            ) in ds.iter_resource_attacks():
+                at = []
+                for attack, rules in attacks.items():
+                    inner = attack.to_dict()
+                    inner['severity'] = sorted(
+                        (ctx.metadata.rule(r).severity.value for r in rules),
+                        key=cmp_to_key(SeverityCmp()),
+                    )[-1]
+                    inner['violations'] = [
+                        {
+                            'description': col.meta[rule]['description'],
+                            'remediation': ctx.metadata.rule(rule).remediation,
+                            'remediation_complexity': ctx.metadata.rule(
+                                rule
+                            ).remediation_complexity.value,
+                            'severity': ctx.metadata.rule(rule).severity.value,
+                        }
+                        for rule in rules
+                    ]
+                    at.append(inner)
+
+                mitre_data.append(
+                    {
+                        'region': region,
+                        'service': service,
+                        'resource_type': service_from_resource_type(rt),
+                        'resource': res,
+                        'attacks': at,
+                    }
+                )
 
             coverages = self._rs.calculate_coverages(
                 successful=self._rs.get_standard_to_controls_to_rules(
@@ -1045,7 +1122,7 @@ class MetricsCollector:
                 'compliance': {
                     st.full_name: cov for st, cov in coverages.items()
                 },
-                'mitre': ds.operational_k8s_attacks(),
+                'mitre': mitre_data,
                 'outdated_tenants': outdated,
             }
 
@@ -1330,18 +1407,16 @@ class MetricsCollector:
                 tenants.add(tenant.name)
                 outdated_tenants.update(item[1]['outdated_tenants'])
 
-                mitre_data = copy.deepcopy(item[1].get('data', []))
-                for mitre in mitre_data:
-                    for technique in mitre.get('techniques_data', []):
-                        for region_data in technique.get(
-                            'regions_data', {}
-                        ).values():
-                            severity_data = {}
-                            for r in region_data.pop('resources', {}):
-                                severity_data.setdefault(r['severity'], 0)
-                                severity_data[r['severity']] += 1
-
-                            region_data['severity_data'] = severity_data
+                new_mitre_data = {}
+                for res in item[1].get('data', ()):
+                    for attack in res['attacks']:
+                        inner = new_mitre_data.setdefault(
+                            msgspec.convert(attack, type=MitreAttack), {}
+                        )
+                        inner.setdefault(res['region'], {}).setdefault(
+                            attack['severity'], 0
+                        )
+                        inner[res['region']][attack['severity']] += 1
 
                 data.setdefault(tenant_cloud(tenant).value, []).append(
                     {
@@ -1349,7 +1424,10 @@ class MetricsCollector:
                         'tenant_name': tenant.name,
                         'last_scan_date': item[1]['last_scan_date'],
                         'activated_regions': item[1]['activated_regions'],
-                        'mitre_data': mitre_data,
+                        'mitre_data': [
+                            {**attack.to_dict(), 'regions': regions_data}
+                            for attack, regions_data in new_mitre_data.items()
+                        ],
                     }
                 )
 
