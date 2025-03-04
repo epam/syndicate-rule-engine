@@ -663,7 +663,7 @@ class JobHandler(AbstractHandler):
                 limit=event.limit,
                 start=event.start_iso,
                 end=event.end_iso,
-                last_evaluated_key=NextToken(event.next_token).value,
+                last_evaluated_key=NextToken.deserialize(event.next_token).value,
             )
         else:
             cursor = self._job_service.get_by_customer_name(
@@ -672,7 +672,7 @@ class JobHandler(AbstractHandler):
                 limit=event.limit,
                 start=event.start_iso,
                 end=event.end_iso,
-                last_evaluated_key=NextToken(event.next_token).value,
+                last_evaluated_key=NextToken.deserialize(event.next_token).value,
             )
         jobs = list(cursor)
         return (

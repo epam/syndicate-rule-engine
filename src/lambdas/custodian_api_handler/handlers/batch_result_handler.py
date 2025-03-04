@@ -48,7 +48,7 @@ class BatchResultsHandler(AbstractHandler):
             cursor = self._batch_results_service.get_by_tenant_name(
                 tenant_name=event.tenant_name,
                 limit=event.limit,
-                last_evaluated_key=NextToken(event.next_token).value,
+                last_evaluated_key=NextToken.deserialize(event.next_token).value,
                 start=event.start,
                 end=event.end
             )
@@ -56,7 +56,7 @@ class BatchResultsHandler(AbstractHandler):
             cursor = self._batch_results_service.get_by_customer_name(
                 customer_name=event.customer,
                 limit=event.limit,
-                last_evaluated_key=NextToken(event.next_token).value,
+                last_evaluated_key=NextToken.deserialize(event.next_token).value,
                 start=event.start,
                 end=event.end
             )
