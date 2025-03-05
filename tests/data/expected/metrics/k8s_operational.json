@@ -1,6 +1,6 @@
 {
   "tenant_name": "AWS-TESTING",
-  "last_scan_date": "2025-03-04T00:50:18.771976Z",
+  "last_scan_date": "2025-03-05T00:41:34.367561Z",
   "region": "eu-west-1",
   "name": "test",
   "type": "EKS",
