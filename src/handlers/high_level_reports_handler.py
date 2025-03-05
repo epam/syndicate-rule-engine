@@ -629,21 +629,22 @@ class MaestroReportToS3Packer:
             'ATTACK_VECTOR': self._pack_attacks,
         }
 
-    def _pack_k8s(self, data: dict):
+    def _pack_k8s(self, data: dict) -> bytearray:
         buf = bytearray()
         for line in data.get('policy_data', {}):
             resources = line.pop('resources', [])
             self._write_line(buf, line, b'policy')
             for resource in resources:
                 self._write_line(buf, resource)
-        for tactic in data.get('mitre_data', {}):
-            techniques = tactic.pop('techniques_data', [])
-            self._write_line(buf, tactic, b'tactic')
-            for technique in techniques:
-                resources = technique.pop('resources', [])
-                self._write_line(buf, technique, b'technique')
-                for resource in resources:
-                    self._write_line(buf, resource)
+        for res in data.get('mitre_data', {}):
+            attacks = res.pop('attacks', [])
+            self._write_line(buf, res, b'resource')
+            for attack in attacks:
+                violations = attack.pop('violations', [])
+                self._write_line(buf, attack, b'attack')
+                for v in violations:
+                    self._write_line(buf, v)
+        # TODO: what about compliance
         return buf
 
     def _pack_finops(self, data: list[dict]) -> bytearray:
@@ -671,6 +672,19 @@ class MaestroReportToS3Packer:
                     self._write_line(buf, resource)
         return buf
 
+    def _pack_attacks(self, data: list[dict]) -> bytearray:
+        buf = bytearray()
+        # NOTE: maybe we should use temp file
+        for res in data:
+            attacks = res.pop('attacks', [])
+            self._write_line(buf, res, b'resource')
+            for attack in attacks:
+                violations = attack.pop('violations', [])
+                self._write_line(buf, attack, b'attack')
+                for v in violations:
+                    self._write_line(buf, v)
+        return buf
+
     def _write_line(
         self, to: bytearray, data: dict | list, tag: bytes | None = None
     ) -> None:
@@ -678,22 +692,6 @@ class MaestroReportToS3Packer:
             to.extend(tag)
         self._encoder.encode_into(data, to, len(to))
         to.extend(b'\n')
-
-    def _pack_attacks(self, data: list[dict]) -> bytearray:
-        buf = bytearray()
-        # NOTE: maybe we should use temp file
-        for tactic in data:
-            techniques = tactic.pop('techniques_data', [])
-            self._write_line(buf, tactic, b'tactic')
-
-            for technique in techniques:
-                regions = technique.pop('regions_data', {})
-                self._write_line(buf, technique, b'technique')
-                for region, resources in regions.items():
-                    self._write_line(buf, {'key': region}, b'region')
-                    for resource in resources.get('resources', []):
-                        self._write_line(buf, resource)
-        return buf
 
     def _is_too_big(self, data: dict | list) -> bool:
         return len(self._encoder.encode(data)) > self._limit
