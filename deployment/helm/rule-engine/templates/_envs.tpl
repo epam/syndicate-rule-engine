@@ -40,7 +40,11 @@ env:
   - name: CAAS_SERVICE_MODE
     value: docker
   - name: CAAS_MONGO_URI
+  {{- if .Value.mongoUri }}
+    value: "{{ .Values.mongoUri }}"
+  {{- else }}
     value: "mongodb://$(MODULAR_SDK_MONGO_USER):$(MODULAR_SDK_MONGO_PASSWORD)@{{ .Values.mongoService }}:{{ .Values.mongoPort }}/"
+  {{- end }}
   - name: CAAS_MONGO_DATABASE
     value: "{{ .Values.databaseName }}"
   - name: CAAS_VAULT_ENDPOINT

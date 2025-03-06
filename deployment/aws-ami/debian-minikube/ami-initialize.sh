@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# Envs that have default values
 LOG_PATH="${LOG_PATH:-/var/log/sre-init.log}"
 ERROR_LOG_PATH="${ERROR_LOG_PATH:-/var/log/sre-init.log}"
 
@@ -250,13 +251,27 @@ server {
 EOF
 }
 build_helm_values() {
-  # builds values for modularSdk role
-  if [ -z "$MODULAR_SDK_ROLE_ARN" ]; then
+  local params=""
+  if [ -n "$MODULAR_SDK_ROLE_ARN" ]; then
+    local modular_region
+    modular_region="${MODULAR_SDK_REGION:-$(region)}"
+    params+=" --set=modular-service.modularSdk.serviceMode=saas,modular-service.modularSdk.awsRegion=${modular_region},modular-service.modularSdk.assumeRoleArn=${MODULAR_SDK_ROLE_ARN//,/\\,} --set=modularSdk.serviceMode=saas,modularSdk.awsRegion=${modular_region},modularSdk.assumeRoleArn=${MODULAR_SDK_ROLE_ARN//,/\\,}"
+  fi
+  if [ -n "$MODULAR_SDK_MONGO_URI" ]; then
+    params+=" --set=modular-service.modularSdk.mongoUri=$MODULAR_SDK_MONGO_URI --set=modularSdk.mongoUri=$MODULAR_SDK_MONGO_URI"
+  fi
+  if [ -n "$MODULAR_SDK_MONGO_DB_NAME" ]; then
+    params+=" --set=modular-service.modularSdk.databaseName=$MODULAR_SDK_MONGO_DB_NAME --set=modularSdk.databaseName=$MODULAR_SDK_MONGO_DB_NAME"
+  fi
+  if [ -n "$SRE_RECOMMENDATIONS_BUCKET_NAME" ]; then
+    params+=" --set=recommendationsBucket=$SRE_RECOMMENDATIONS_BUCKET_NAME"
+  fi
+
+  if [ -z "$params" ]; then
     return
   fi
-  local modular_region
-  modular_region="${MODULAR_SDK_REGION:-$(region)}"
-  echo -n "--set=modular-service.modularSdk.serviceMode=saas,modular-service.modularSdk.awsRegion=${modular_region},modular-service.modularSdk.assumeRoleArn=${MODULAR_SDK_ROLE_ARN//,/\\,} --set=modularSdk.serviceMode=saas,modularSdk.awsRegion=${modular_region},modularSdk.assumeRoleArn=${MODULAR_SDK_ROLE_ARN//,/\\,}"
+  echo -n "$params"
+
 }
 
 if [ -z "$RULE_ENGINE_RELEASE" ]; then

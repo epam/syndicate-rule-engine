@@ -1,4 +1,5 @@
 databaseName: custodian_as_a_service
+mongoUri:
 innerCacheTTLSeconds: '300'
 
 service:
@@ -44,9 +45,11 @@ redis:
 modular-service:
   enabled: true
   fullnameOverride: modular-service
+  databaseName: custodian_as_a_service
 modular-api:
   enabled: true
   fullnameOverride: modular-api
+  disableRateLimiter: "true"
   image:
     tag: 4.2.0-rule-engine
 

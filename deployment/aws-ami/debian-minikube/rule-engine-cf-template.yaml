@@ -74,11 +74,127 @@ Parameters:
     Description: "The initial tenant to be activated, represents the AWS Account where the product is installed"
     Default: "TENANT_1"
     Type: String
-    AllowedPattern: "^[A-Z0-9_-]*$"
+    AllowedPattern: "^[A-Z0-9_-]*$"  # TODO allow an empty value to try resolve
     ConstraintDescription: "must contain only uppercase letters, digits, underscores and dashes"
-  AdminEmails:
-    Description: "Administrator emails split by space"
+  TenantRegionsToActivate:
+    Description: "What tenant regions should be activated by default"
+    Type: CommaDelimitedList
+    AllowedValues:
+      - eu-central-1
+      - eu-west-1
+      - eu-west-2
+  TenantPrimaryContacts:
+    Description: "Primary emails for the main tenant split by ,"
+    Type: CommaDelimitedList
     Default: ""
+  TenantSecondaryContacts:
+    Description: "Secondary emails for the main tenant split by ,"
+    Type: CommaDelimitedList
+    Default: ""
+  TenantManagerContacts:
+    Description: "Tenant manager for the main tenant split by ,"
+    Type: CommaDelimitedList
+    Default: ""
+  TenantOwnerEmail:
+    Description: "One email of the tenant's owner"
+    Type: String
+    Default: ""
+  ActivateTenant:
+    Description: "Whether to activate the default tenant the represents this account"
+    Default: "true"
+    Type: String
+    AllowedValues:
+      - "true"
+      - "false"
+  AdminEmails:
+    Description: "Administrator emails split by a comma"
+    Default: ""
+    Type: CommaDelimitedList
+  ActivateLicense:
+    Description: "Whether to activate Syndicate Rule Engine license. Highly recommended"
+    Default: "true"
+    Type: String
+    AllowedValues:
+      - "true"
+      - "false"
+  CustomerName:
+    Description: "Name of the default customer to be created. Value is ignored if ActivateLicense is true"
+    Default: CUSTOMER_1
+    Type: String
+    AllowedPattern: "^[A-Za-z0-9_-]*$"
+    ConstraintDescription: "must contain only letters, digits, underscores and dashes"
+  ModularSdkAssumeRoleArn:
+    Description: "Iam role arn(s) to be assumed to access Modular DynamoDB tables. Multiple can be specified separated using a comma"
+    Default: ""
+    Type: CommaDelimitedList
+  ModularSdkAssumeRoleRegion:
+    Description: "AWS Region where Modular DynamoDB tables are placed. Will be ignored if ModularSdkAssumeRoleArn is not set"
+    Type: String
+    AllowedValues:
+      - "us-east-1"
+      - "us-east-2"
+      - "us-west-1"
+      - "us-west-2"
+      - "ca-central-1"
+      - "ca-west-1"
+      - "eu-north-1"
+      - "eu-west-1"
+      - "eu-west-2"
+      - "eu-west-3"
+      - "eu-central-1"
+      - "eu-south-1"
+      - "eu-south-2"
+      - "eu-central-2"
+      - "ap-south-1"
+      - "ap-northeast-3"
+      - "ap-northeast-2"
+      - "ap-northeast-1"
+      - "ap-southeast-1"
+      - "ap-southeast-2"
+      - "ap-southeast-3"
+      - "ap-east-1"
+      - "sa-east-1"
+      - "cn-north-1"
+      - "cn-northwest-1"
+      - "me-south-1"
+      - "af-south-1"
+      - "me-central-1"
+      - "ap-south-2"
+      - "ap-southeast-4"
+      - "il-central-1"
+      - "ap-southeast-5"
+      - "ap-southeast-7"
+      - "mx-central-1"
+    Default: "us-east-1"  # TODO: use current as default somehow or keep empty
+  RuleEngineRecommendationsBucket:
+    Description: "Name of an S3 bucket where Syndicate Rule Engine will post recommendations (for Maestro integration)"
+    Type: String
+    Default: ""
+    AllowedPattern: "^$|^[a-z0-9-.]{3,63}$"
+    ConstraintDescription: "a valid bucket name is expected"
+  LicenseManagerApiLink:
+    Description: "API link to the license manager. Keep empty to use the default one"
+    Type: String
+    Default: ""
+    AllowedPattern: "^$|^http(s)?://.+$"
+    ConstraintDescription: "must contain a valid http(s) url or be empty"
+  ModularServiceUsername:
+    Description: "Username to use when creating a Modular Service user"
+    Type: String
+    Default: admin
+    AllowedPattern: "^[a-z][a-z0-9_]*$"
+  RuleEngineUsername:
+    Description: "Username to use when creating a Rule Engine user"
+    Type: String
+    Default: admin
+    AllowedPattern: "^[a-z][a-z0-9_]*$"
+  ModularSdkMongoUri:  # TODO use SSM
+    Description: ""
+    Type: String
+    Default: ""
+  ModularSdkMongoDBName:
+    Description: ""
+    Default: "syndicate-rule-engine"
     Type: String
 Metadata:
   AWS::CloudFormation::Interface:
@@ -97,8 +213,40 @@ Metadata:
         default: "IAM Role Name"
       TenantName:
         default: "Tenant Name"
+      TenantRegionsToActivate:
+        default: "Tenant regions to activate"
       AdminEmails:
         default: "Emails of installation administrators"
+      TenantOwnerEmail:
+        default: "Email of tenant's owner"
+      TenantPrimaryContacts:
+        default: "Primary emails for the tenant"
+      TenantSecondaryContacts:
+        default: "Secondary emails for the tenant"
+      TenantManagerContacts:
+        default: "Management emails for the tenant"
+      RuleEngineUsername:
+        default: "Syndicate Rule Engine admin username"
+      ModularServiceUsername:
+        default: "Syndicate Modular Service admin username"
+      ModularSdkMongoUri:
+        default: "URI of an external MongoDB Cluster containing Modular tables"
+      ModularSdkMongoDBName:
+        default: "Name of MongoDB database for Modular tables"
+      ModularSdkAssumeRoleArn:
+        default: "AWS IAM Role(s) to access Modular tables in DynamoDB"
+      ModularSdkAssumeRoleRegion:
+        default: "AWS Region where DynamoDB Modular tables are located"
+      RuleEngineRecommendationsBucket:
+        default: "Name of an AWS S3 bucket for Maestro recommendations"
+      ActivateLicense:
+        default: "Should we activate an available license for your customer?"
+      CustomerName:
+        default: "How should we name you customer in case you do not want us to activate the license?"
+      ActivateTenant:
+        default: "Should we activate a tenant for this AWS account?"
+      LicenseManagerApiLink:
+        default: "Custom License Manager link"
     ParameterGroups:
       - Label:
           default: "Network Configuration"
@@ -113,13 +261,37 @@ Metadata:
           - KeyName
           - InstanceRoleName
       - Label:
-          default: "Service Configuration"
+          default: "Service Initial Configuration"
         Parameters:
           - TenantName
+          - TenantRegionsToActivate
+          - TenantOwnerEmail
+          - TenantPrimaryContacts
+          - TenantSecondaryContacts
+          - TenantManagerContacts
           - AdminEmails
+          - RuleEngineUsername
+          - ModularServiceUsername
+      - Label:
+          default: "Modular Database configuration"
+        Parameters:
+          - ModularSdkMongoUri
+          - ModularSdkMongoDBName
+          - ModularSdkAssumeRoleArn
+          - ModularSdkAssumeRoleRegion
+          - RuleEngineRecommendationsBucket
+      - Label:
+          default: "Advanced configurations"
+        Parameters:
+          - ActivateLicense
+          - CustomerName
+          - ActivateTenant
+          - LicenseManagerApiLink
 Conditions:
   AttachRole: !Not [!Equals [!Ref InstanceRoleName, ""]]
   IsInstanceNameGiven: !Not [!Equals [!Ref InstanceName, ""]]
+  WhetherToActivateLicense: !Equals [!Ref ActivateLicense, "true"]
+  WhetherToActivateTenant: !Equals [!Ref ActivateTenant, "true"]
 Resources:
   SyndicateRuleEngineLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
@@ -159,10 +331,35 @@ Resources:
         LaunchTemplateId: !Ref SyndicateRuleEngineLaunchTemplate
         Version: !GetAtt SyndicateRuleEngineLaunchTemplate.DefaultVersionNumber
       UserData:
-        Fn::Base64: !Sub |
-          export CF_STACK_NAME="${AWS::StackName}"
-          export TENANT_NAME="${TenantName}"
-          export ADMIN_EMAILS="${AdminEmails}"
+        Fn::Base64: !Sub
+          - |
+            export CF_STACK_NAME="${AWS::StackName}"
+            export TENANT_NAME="${TenantName}"
+            export TENANT_AWS_REGIONS="${TenantRegionsToActivateEnv}"
+            export ADMIN_EMAILS="${AdminEmailsEnv}"
+            export TENANT_OWNER_EMAIL="${TenantOwnerEmail}"
+            export TENANT_PRIMARY_CONTACTS="${TenantPrimaryContactsEnv}"
+            export TENANT_SECONDARY_CONTACTS="${TenantSecondaryContactsEnv}"
+            export TENANT_MANAGER_CONTACTS="${TenantManagerContactsEnv}"
+            export MODULAR_SERVICE_USERNAME="${ModularServiceUsername}"
+            export RULE_ENGINE_USERNAME="${RuleEngineUsername}"
+            export MODULAR_SDK_ROLE_ARN="${ModularSdkAssumeRoleArnEnv}"
+            export MODULAR_SDK_REGION="${ModularSdkAssumeRoleRegion}"
+            export MODULAR_SDK_MONGO_URI="${ModularSdkMongoUri}"
+            export MODULAR_SDK_MONGO_DB_NAME="${ModularSdkMongoDBName}"
+            export SRE_RECOMMENDATIONS_BUCKET_NAME="${RuleEngineRecommendationsBucket}"
+            export DO_NOT_ACTIVATE_LICENSE="${DoNotActivateLicenseEnv}"
+            export CUSTOMER_NAME="${CustomerName}"
+            export DO_NOT_ACTIVATE_TENANT="${DoNotActivateTenantEnv}"
+            export LM_API_LINK="${LicenseManagerApiLink}"
+          - AdminEmailsEnv: !Join [" ", !Ref AdminEmails]
+            TenantPrimaryContactsEnv: !Join [" ", !Ref TenantPrimaryContacts]
+            TenantSecondaryContactsEnv: !Join [" ", !Ref TenantSecondaryContacts]
+            TenantManagerContactsEnv: !Join [" ", !Ref TenantManagerContacts]
+            TenantRegionsToActivateEnv: !Join [" ", !Ref TenantRegionsToActivate]
+            ModularSdkAssumeRoleArnEnv: !Join [",", !Ref ModularSdkAssumeRoleArn]
+            DoNotActivateLicenseEnv: !If [WhetherToActivateLicense, "", "y"]
+            DoNotActivateTenantEnv: !If [WhetherToActivateTenant, "", "y"]
 Outputs:
   InstanceId:
     Value: !GetAtt SyndicateRuleEngineInstance.InstanceId
