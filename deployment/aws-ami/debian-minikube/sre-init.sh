@@ -503,7 +503,7 @@ initialize_system() {
                                   --cloud AWS \
                                   --account_id "$(account_id)" \
                                   $(build_multiple_params --primary_contacts "$TENANT_PRIMARY_CONTACTS") \
-                                  $(build_multiple_params --secondary_concats "$TENANT_SECONDARY_CONTACTS") \
+                                  $(build_multiple_params --secondary_contacts "$TENANT_SECONDARY_CONTACTS") \
                                   $(build_multiple_params --tenant_manager_contacts "$TENANT_MANAGER_CONTACTS") \
                                   $(build_multiple_params --default_owner "$TENANT_OWNER_EMAIL" 1) \
                                   --json || err=1

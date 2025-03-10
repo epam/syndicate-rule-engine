@@ -170,7 +170,7 @@ class CustodianEndpoint(str, Enum):
 LAMBDA_URL_HEADER_CONTENT_TYPE_UPPER = 'Content-Type'
 JSON_CONTENT_TYPE = 'application/json'
 
-DEFAULT_SYSTEM_CUSTOMER: str = 'SYSTEM'
+DEFAULT_SYSTEM_CUSTOMER: str = 'CUSTODIAN_SYSTEM'
 DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME = (
     'custodian.rules-metadata-repo-access'
 )

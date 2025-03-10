@@ -11,7 +11,7 @@ Mappings:
     eu-west-2:
       ImageId: ami-xxxxxxxxxxxxxxxxx
     eu-west-1:
-      ImageId: ami-xxxxxxxxxxxxxxxxx
+      ImageId: ami-000e6509bac9eb14f
     ap-northeast-3:
       ImageId: ami-xxxxxxxxxxxxxxxxx
     ap-northeast-2:
@@ -74,15 +74,46 @@ Parameters:
     Description: "The initial tenant to be activated, represents the AWS Account where the product is installed"
     Default: "TENANT_1"
     Type: String
-    AllowedPattern: "^[A-Z0-9_-]*$"  # TODO allow an empty value to try resolve
-    ConstraintDescription: "must contain only uppercase letters, digits, underscores and dashes"
+    AllowedPattern: "^$|^[A-Z0-9_-]*$"
+    ConstraintDescription: "must contain only uppercase letters, digits, underscores and dashes. If the field is empty Rule Engine will try to resolve Account Alias"
   TenantRegionsToActivate:
     Description: "What tenant regions should be activated by default"
     Type: CommaDelimitedList
     AllowedValues:
-      - eu-central-1
-      - eu-west-1
-      - eu-west-2
+      - "us-east-1"
+      - "us-east-2"
+      - "us-west-1"
+      - "us-west-2"
+      - "ca-central-1"
+      - "ca-west-1"
+      - "eu-north-1"
+      - "eu-west-1"
+      - "eu-west-2"
+      - "eu-west-3"
+      - "eu-central-1"
+      - "eu-south-1"
+      - "eu-south-2"
+      - "eu-central-2"
+      - "ap-south-1"
+      - "ap-northeast-3"
+      - "ap-northeast-2"
+      - "ap-northeast-1"
+      - "ap-southeast-1"
+      - "ap-southeast-2"
+      - "ap-southeast-3"
+      - "ap-east-1"
+      - "sa-east-1"
+      - "cn-north-1"
+      - "cn-northwest-1"
+      - "me-south-1"
+      - "af-south-1"
+      - "me-central-1"
+      - "ap-south-2"
+      - "ap-southeast-4"
+      - "il-central-1"
+      - "ap-southeast-5"
+      - "ap-southeast-7"
+      - "mx-central-1"
   TenantPrimaryContacts:
     Description: "Primary emails for the main tenant split by ,"
     Type: CommaDelimitedList
@@ -165,7 +196,7 @@ Parameters:
       - "ap-southeast-5"
       - "ap-southeast-7"
       - "mx-central-1"
-    Default: "us-east-1"  # TODO: use current as default somehow or keep empty
+    Default: "us-east-1"
   RuleEngineRecommendationsBucket:
     Description: "Name of an S3 bucket where Syndicate Rule Engine will post recommendations (for Maestro integration)"
     Type: String
@@ -188,13 +219,25 @@ Parameters:
     Type: String
     Default: admin
     AllowedPattern: "^[a-z][a-z0-9_]*$"
-  ModularSdkMongoUri:  # TODO use SSM
-    Description: ""
+  ModularSdkMongoUriSSMParameterName:
+    Description: "Name of an SSM parameter containing MongoDB URI parameter"
     Type: String
     Default: ""
   ModularSdkMongoDBName:
-    Description: ""
-    Default: "syndicate-rule-engine"
+    Description: "Name of Mongo Database where Modular tables are placed"
+    Default: "modular-common-domain"
+    Type: String
+  RuleEngineVersion:
+    Description: "Version of Rule Engine release to use"
+    Default: "$LATEST"
+    Type: String
+    AllowedValues:
+      - "$LATEST"
+      - "5.7.0"
+      - "5.8.0"
+  RuleEngineInstanceLaunchTemplateName:
+    Description: "Name of EC2 launch template to be created"
+    Default: "syndicate-rule-engine-imdsv2-launch-template"
     Type: String
 Metadata:
   AWS::CloudFormation::Interface:
@@ -229,8 +272,8 @@ Metadata:
         default: "Syndicate Rule Engine admin username"
       ModularServiceUsername:
         default: "Syndicate Modular Service admin username"
-      ModularSdkMongoUri:
-        default: "URI of an external MongoDB Cluster containing Modular tables"
+      ModularSdkMongoUriSSMParameterName:
+        default: "Name of an existing SSM parameter which contains Mongo URI"
       ModularSdkMongoDBName:
         default: "Name of MongoDB database for Modular tables"
       ModularSdkAssumeRoleArn:
@@ -247,6 +290,10 @@ Metadata:
         default: "Should we activate a tenant for this AWS account?"
       LicenseManagerApiLink:
         default: "Custom License Manager link"
+      RuleEngineVersion:
+        default: "Version of Rule Engine release"
+      RuleEngineInstanceLaunchTemplateName:
+        default: "Name of EC2 launch template that will be created"
     ParameterGroups:
       - Label:
           default: "Network Configuration"
@@ -260,6 +307,7 @@ Metadata:
           - InstanceType
           - KeyName
           - InstanceRoleName
+          - RuleEngineInstanceLaunchTemplateName
       - Label:
           default: "Service Initial Configuration"
         Parameters:
@@ -275,7 +323,7 @@ Metadata:
       - Label:
           default: "Modular Database configuration"
         Parameters:
-          - ModularSdkMongoUri
+          - ModularSdkMongoUriSSMParameterName
           - ModularSdkMongoDBName
           - ModularSdkAssumeRoleArn
           - ModularSdkAssumeRoleRegion
@@ -283,6 +331,7 @@ Metadata:
       - Label:
           default: "Advanced configurations"
         Parameters:
+          - RuleEngineVersion
           - ActivateLicense
           - CustomerName
           - ActivateTenant
@@ -292,11 +341,12 @@ Conditions:
   IsInstanceNameGiven: !Not [!Equals [!Ref InstanceName, ""]]
   WhetherToActivateLicense: !Equals [!Ref ActivateLicense, "true"]
   WhetherToActivateTenant: !Equals [!Ref ActivateTenant, "true"]
+  IsLatestRuleEngineVersion: !Equals [!Ref RuleEngineVersion, "$LATEST"]
 Resources:
   SyndicateRuleEngineLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchTemplateName: !Sub ${AWS::StackName}-imdsv2-launch-template
+      LaunchTemplateName: !Ref RuleEngineInstanceLaunchTemplateName
       LaunchTemplateData:
         MetadataOptions:
           HttpEndpoint: enabled
@@ -345,9 +395,10 @@ Resources:
             export RULE_ENGINE_USERNAME="${RuleEngineUsername}"
             export MODULAR_SDK_ROLE_ARN="${ModularSdkAssumeRoleArnEnv}"
             export MODULAR_SDK_REGION="${ModularSdkAssumeRoleRegion}"
-            export MODULAR_SDK_MONGO_URI="${ModularSdkMongoUri}"
+            export MODULAR_SDK_MONGO_URI_SSM_PARAMETER_NAME="${ModularSdkMongoUriSSMParameterName}"
             export MODULAR_SDK_MONGO_DB_NAME="${ModularSdkMongoDBName}"
             export SRE_RECOMMENDATIONS_BUCKET_NAME="${RuleEngineRecommendationsBucket}"
+            export RULE_ENGINE_RELEASE="${RuleEngineVersionEnv}"
             export DO_NOT_ACTIVATE_LICENSE="${DoNotActivateLicenseEnv}"
             export CUSTOMER_NAME="${CustomerName}"
             export DO_NOT_ACTIVATE_TENANT="${DoNotActivateTenantEnv}"
@@ -358,6 +409,7 @@ Resources:
             TenantManagerContactsEnv: !Join [" ", !Ref TenantManagerContacts]
             TenantRegionsToActivateEnv: !Join [" ", !Ref TenantRegionsToActivate]
             ModularSdkAssumeRoleArnEnv: !Join [",", !Ref ModularSdkAssumeRoleArn]
+            RuleEngineVersionEnv: !If [IsLatestRuleEngineVersion, "", !Ref RuleEngineVersion]
             DoNotActivateLicenseEnv: !If [WhetherToActivateLicense, "", "y"]
             DoNotActivateTenantEnv: !If [WhetherToActivateTenant, "", "y"]
 Outputs:

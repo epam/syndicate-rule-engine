@@ -46,6 +46,8 @@ modular-service:
   enabled: true
   fullnameOverride: modular-service
   databaseName: custodian_as_a_service
+  modularSdk:
+    databaseName: custodian_as_a_service
 modular-api:
   enabled: true
   fullnameOverride: modular-api
