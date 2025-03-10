@@ -23,8 +23,11 @@ class MetricsUpdater(EventProcessorLambdaHandler):
     def __init__(self, lambda_client: LambdaClient):
         self.lambda_client = lambda_client
 
-    # TODO: fix ModularJobs for Mongo
-    # @tracer_decorator(is_job=True)
+    @classmethod
+    def build(cls) -> 'MetricsUpdater':
+        return cls(lambda_client=SERVICE_PROVIDER.lambda_client)
+
+    @tracer_decorator(is_job=True, component='metrics')
     def handle_request(self, event, context):
         # todo validate event
         dt = event.get('data_type')
@@ -58,10 +61,5 @@ class MetricsUpdater(EventProcessorLambdaHandler):
         )
 
 
-HANDLER = MetricsUpdater(
-    lambda_client=SERVICE_PROVIDER.lambda_client
-)
-
-
 def lambda_handler(event, context):
-    return HANDLER.lambda_handler(event=event, context=context)
+    return MetricsUpdater.build().lambda_handler(event=event, context=context)

@@ -1,0 +1,25 @@
+{
+  "id": "3d615fa8-05c6-47ea-990d-9d162testing",
+  "outdated_tenants": [],
+  "last_scan_date": "2025-01-27T00:31:46.313689Z",
+  "activated_regions": [],
+  "data": [
+    {
+      "category": "Runtime version",
+      "deprecation_date": "2026-01-27",
+      "remediation_complexity": "Medium-High",
+      "remediation": "Remediation text here",
+      "policy": "ecc-azure-096-cis_sec_defender_azure_sql",
+      "description": "Description for ecc-azure-096-cis_sec_defender_azure_sql",
+      "resource_type": "Defender Pricing",
+      "resources": {
+        "global": [
+          {
+            "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/SqlServers",
+            "name": "SqlServers"
+          }
+        ]
+      }
+    }
+  ]
+}

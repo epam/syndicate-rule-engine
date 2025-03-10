@@ -1,0 +1,38 @@
+{
+  "data": [
+    {
+      "data": {
+        "AWS": {
+          "activated_regions": [
+            "eu-central-1",
+            "eu-north-1",
+            "eu-west-1",
+            "eu-west-3"
+          ],
+          "average_data": {
+            "Standard1 v1.0.0": 0.5,
+            "Standard1 v2.0.0": 0.25,
+            "Standard2": 0.125
+          },
+          "last_scan_date": "2025-02-01T00:14:37.917014Z",
+          "tenant_name": "AWS-TESTING"
+        },
+        "AZURE": {
+          "activated_regions": [],
+          "average_data": {},
+          "last_scan_date": "2025-02-01T00:14:37.917014Z",
+          "tenant_name": "AZURE-TESTING"
+        },
+        "GOOGLE": {
+          "activated_regions": [],
+          "average_data": {},
+          "last_scan_date": "2025-02-01T00:14:37.917014Z",
+          "tenant_name": "GOOGLE-TESTING"
+        }
+      },
+      "sort_by": 0.2916666666666667,
+      "tenant_display_name": "testing"
+    }
+  ],
+  "outdated_tenants": []
+}

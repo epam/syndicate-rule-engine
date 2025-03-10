@@ -2,41 +2,45 @@
   "receivers": [
     "admin@gmail.com"
   ],
+  "report_type": "COMPLIANCE",
   "customer": "TEST_CUSTOMER",
+  "from": "2025-01-01T13:06:50.487358Z",
+  "to": "2025-01-08T13:06:50.487358Z",
+  "outdated_tenants": [],
+  "externalData": false,
+  "data": {
+    "regions_data": [
+      {
+        "region": "eu-central-1",
+        "standards_data": [
+          {
+            "name": "Standard1 v1.0.0",
+            "value": 50.0
+          },
+          {
+            "name": "Standard1 v2.0.0",
+            "value": 25.0
+          },
+          {
+            "name": "Standard2",
+            "value": 12.5
+          }
+        ]
+      },
+      {
+        "region": "eu-west-1",
+        "standards_data": []
+      }
+    ]
+  },
   "tenant_name": "AWS-TESTING",
   "id": "123456789012",
-  "cloud": "aws",
+  "cloud": "AWS",
   "activated_regions": [
     "eu-central-1",
     "eu-north-1",
     "eu-west-1",
     "eu-west-3"
   ],
-  "from": "2024-11-03T00:00:00Z",
-  "to": "2024-11-10T00:00:00Z",
-  "last_scan_date": "2024-11-04T00:00:00Z",
-  "outdated_tenants": [],
-  "data": {
-    "regions_data": [
-      {
-        "region": "eu-central-1",
-        "standards_data": []
-      },
-      {
-        "region": "eu-west-1",
-        "standards_data": []
-      },
-      {
-        "region": "eu-north-1",
-        "standards_data": []
-      },
-      {
-        "region": "eu-west-3",
-        "standards_data": []
-      }
-    ],
-    "average_data": []
-  },
-  "externalData": false,
-  "report_type": "COMPLIANCE"
+  "last_scan_date": "2025-01-08T00:05:47.388488Z"
 }

@@ -1,0 +1,142 @@
+{
+  "receivers": [],
+  "report_type": "RESOURCES_BY_CLOUD",
+  "customer": "TEST_CUSTOMER",
+  "from": "2025-01-01T00:00:00Z",
+  "to": "2025-02-01T00:00:00Z",
+  "outdated_tenants": [],
+  "externalData": false,
+  "data": {
+    "AWS": [
+      {
+        "data": {
+          "activated_regions": [
+            "eu-central-1",
+            "eu-north-1",
+            "eu-west-1",
+            "eu-west-3"
+          ],
+          "failed_scans": {
+            "value": 1
+          },
+          "last_scan_date": "2025-02-01T00:14:37.917014Z",
+          "resource_types_data": {
+            "Cloudtrail": {
+              "value": 1
+            },
+            "Ebs": {
+              "value": 2
+            },
+            "Ec2": {
+              "value": 2
+            },
+            "Ecr": {
+              "value": 2
+            },
+            "Iam Group": {
+              "value": 3
+            },
+            "S3": {
+              "value": 7
+            },
+            "Security Group": {
+              "value": 3
+            },
+            "Sns": {
+              "value": 3
+            }
+          },
+          "resources_violated": {
+            "value": 23
+          },
+          "severity_data": {
+            "Unknown": {
+              "value": 23
+            }
+          },
+          "succeeded_scans": {
+            "value": 2
+          },
+          "tenant_name": "AWS-TESTING",
+          "total_scans": {
+            "value": 3
+          }
+        },
+        "sort_by": 23,
+        "tenant_display_name": "testing"
+      }
+    ],
+    "AZURE": [
+      {
+        "data": {
+          "activated_regions": [],
+          "failed_scans": {
+            "value": 1
+          },
+          "last_scan_date": "2025-02-01T00:14:37.917014Z",
+          "resource_types_data": {
+            "Defender Pricing": {
+              "value": 5
+            }
+          },
+          "resources_violated": {
+            "value": 5
+          },
+          "severity_data": {
+            "Unknown": {
+              "value": 5
+            }
+          },
+          "succeeded_scans": {
+            "value": 2
+          },
+          "tenant_name": "AZURE-TESTING",
+          "total_scans": {
+            "value": 3
+          }
+        },
+        "sort_by": 5,
+        "tenant_display_name": "testing"
+      }
+    ],
+    "GOOGLE": [
+      {
+        "data": {
+          "activated_regions": [],
+          "failed_scans": {
+            "value": 1
+          },
+          "last_scan_date": "2025-02-01T00:14:37.917014Z",
+          "resource_types_data": {
+            "Firewall": {
+              "value": 4
+            },
+            "Subnet": {
+              "value": 4
+            },
+            "Vpc": {
+              "value": 1
+            }
+          },
+          "resources_violated": {
+            "value": 9
+          },
+          "severity_data": {
+            "Unknown": {
+              "value": 9
+            }
+          },
+          "succeeded_scans": {
+            "value": 2
+          },
+          "tenant_name": "GOOGLE-TESTING",
+          "total_scans": {
+            "value": 3
+          }
+        },
+        "sort_by": 9,
+        "tenant_display_name": "testing"
+      }
+    ]
+  }
+}

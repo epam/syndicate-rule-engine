@@ -1,0 +1,29 @@
+[
+  {
+    "api_version": null,
+    "kind": null,
+    "metadata": {
+      "annotations": null,
+      "cluster_name": null,
+      "creation_timestamp": "2025-01-15T06:57:16+00:00",
+      "deletion_grace_period_seconds": null,
+      "deletion_timestamp": null,
+      "finalizers": null,
+      "generate_name": "aws-node-",
+      "generation": null,
+      "initializers": null,
+      "labels": {},
+      "managed_fields": [],
+      "name": "test-node-58cm6",
+      "namespace": "kube-system",
+      "owner_references": [
+      ],
+      "resource_version": "241126241",
+      "self_link": null,
+      "uid": "3f287bc9-94dc-47b1-96a1-827dce683a92"
+    },
+    "c7n:MatchedFilters": [
+      "spec.volumes && length(spec.volumes[?host_path!=null])!=`0`"
+    ]
+  }
+]

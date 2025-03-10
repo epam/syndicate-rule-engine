@@ -1,12 +1,12 @@
 boto3~=1.34.144
 botocore~=1.34.144
 pynamodb>=5.5.1,<6
-pymongo~=4.5.0
+pymongo~=4.10.1
 hvac~=1.2.1
 requests~=2.32.3
 python-dateutil>=2.8.2,<3.0
 # jinja2~=3.1.2  # currently not used
-modular-sdk>=6.3.0,<7.0
+modular-sdk~=7.0.0
 aws-xray-sdk~=2.14.0
 msgspec~=0.18.6
 cryptography~=42.0.8

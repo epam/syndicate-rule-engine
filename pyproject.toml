@@ -5,7 +5,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
 dependencies = []
-version = "5.6.0"
+version = "5.7.0"
 
 [dependency-groups]
 test = [
@@ -16,6 +16,10 @@ test = [
     "pytest-xdist>=3.6.1",
     "moto>=5.0.17",
     "mongomock>=4"
+]
+c7n = [
+    "c7n~=0.9.43",
+    "c7n-azure~=0.7.42"
 ]
 
 
@@ -53,7 +57,7 @@ skip_install = true
 description = "Run tests under {base_python}"
 
 [tool.tox.env.py310]
-dependency_groups = ["test"]
+dependency_groups = ["test", "c7n"]
 deps = ["-r src/onprem/requirements.txt",]
 commands = [[
     "pytest",

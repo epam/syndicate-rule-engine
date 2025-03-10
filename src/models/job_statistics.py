@@ -1,12 +1,12 @@
 from pynamodb.attributes import UnicodeAttribute, NumberAttribute, \
     MapAttribute
-from pynamodb.indexes import AllProjection
+from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
 from helpers.constants import CAASEnv
-from models import BaseModel, BaseGSI
+from models import BaseModel
 
 
-class CustomerNameFromDateIndex(BaseGSI):
+class CustomerNameFromDateIndex(GlobalSecondaryIndex):
     class Meta:
         index_name = "customer_name-from_date-index"
         read_capacity_units = 1

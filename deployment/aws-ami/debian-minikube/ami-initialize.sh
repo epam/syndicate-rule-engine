@@ -319,6 +319,7 @@ minikube profile rule-engine  # making default
 kubectl create secret generic minio-secret --from-literal=username=miniouser --from-literal=password=$(generate_password)
 kubectl create secret generic mongo-secret --from-literal=username=mongouser --from-literal=password=$(generate_password 30 -hex)
 kubectl create secret generic vault-secret --from-literal=token=$(generate_password 30)
+kubectl create secret generic redis-secret --from-literal=password=$(generate_password 30 -hex)
 kubectl create secret generic rule-engine-secret --from-literal=system-password=$(generate_password 30)
 kubectl create secret generic modular-api-secret --from-literal=system-password=$(generate_password 20 -hex) --from-literal=secret-key="$(generate_password 50)"
 kubectl create secret generic modular-service-secret --from-literal=system-password=$(generate_password 30)
@@ -378,4 +379,4 @@ sudo ln -sf /etc/nginx/sites-available/minio /etc/nginx/sites-enabled/
 sudo nginx -s reload
 
 log "Cleaning apt cache"
-sudo apt-get clean
+sudo apt-get clean || true

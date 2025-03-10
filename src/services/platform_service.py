@@ -4,7 +4,7 @@ import operator
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Generator, TYPE_CHECKING, Iterator
 
 from modular_sdk.commons.constants import ParentScope, ParentType
 from modular_sdk.models.application import Application
@@ -13,9 +13,11 @@ from modular_sdk.models.tenant import Tenant
 
 from helpers import NotHereDescriptor
 from helpers.constants import PlatformType, GLOBAL_REGION
-from services import SP
 from services.base_data_service import BaseDataService
 
+if TYPE_CHECKING:
+    from modular_sdk.services.parent_service import ParentService
+    from modular_sdk.services.application_service import ApplicationService
 
 class Platform:
     __slots__ = ('parent', 'application')
@@ -79,6 +81,12 @@ class PlatformService(BaseDataService[Platform]):
     batch_delete = NotHereDescriptor()
     batch_write = NotHereDescriptor()
 
+    def __init__(self, parent_service: 'ParentService',
+                 application_service: 'ApplicationService'):
+        super().__init__()
+        self._ps = parent_service
+        self._aps = application_service
+
     def save(self, item: Platform):
         """
         Application secret must be saved beforehand
@@ -90,10 +98,10 @@ class PlatformService(BaseDataService[Platform]):
             item.application.save()
 
     def delete(self, item: Platform):
-        SP.modular_client.parent_service().mark_deleted(item.parent)
+        self._ps.mark_deleted(item.parent)
         app = item.application
         if app:
-            SP.modular_client.application_service().mark_deleted(app)
+            self._aps.mark_deleted(app)
 
     def dto(self, item: Platform) -> dict[str, Any]:
         return {
@@ -117,7 +125,7 @@ class PlatformService(BaseDataService[Platform]):
                region: str | None,
                description: str = 'Custodian created native k8s',
                ) -> Platform:
-        parent = SP.modular_client.parent_service().build(
+        parent = self._ps.build(
             customer_id=tenant.customer_name,
             application_id=application.application_id,
             parent_type=ParentType.PLATFORM_K8S,
@@ -131,17 +139,24 @@ class PlatformService(BaseDataService[Platform]):
             parent.parent_id = self.generate_id(tenant.name, region, name)
         return Platform(parent=parent, application=application)
 
+    def query_by_tenant(self, tenant: Tenant) -> Iterator[Platform]:
+        it = self._ps.get_by_tenant_scope(
+            customer_id=tenant.customer_name,
+            type_=ParentType.PLATFORM_K8S,
+            tenant_name=tenant.name
+        )
+        return map(Platform, it)
+
     def get_nullable(self, *args, **kwargs) -> Optional[Platform]:
         parent = Parent.get_nullable(*args, **kwargs)
         if not parent or parent.is_deleted:
             return
         return Platform(parent=parent)
 
-    @staticmethod
-    def fetch_application(platform: Platform):
+    def fetch_application(self, platform: Platform):
         if platform.application:
             return
-        platform.application = SP.modular_client.application_service().get_application_by_id(
+        platform.application = self._aps.get_application_by_id(
             platform.parent.application_id
         )
 

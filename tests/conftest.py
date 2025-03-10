@@ -53,6 +53,7 @@ TEST_ENVS = {
     'AWS_ACCOUNT_ID': '123456789012',
     'AZURE_SUBSCRIPTION_ID': '3d615fa8-05c6-47ea-990d-9d162testing',
     'CLOUDSDK_CORE_PROJECT': 'testing-project-123',
+    'application_name': 'syndicate-rule-engine'
 }
 
 # This "pytest_configure" function must be executed BEFORE any imports that
@@ -114,6 +115,11 @@ def google_scan_result() -> Path:
 
 
 @pytest.fixture(scope='session')
+def k8s_scan_result() -> Path:
+    return DATA / 'cloud_custodian' / 'kubernetes'
+
+
+@pytest.fixture(scope='session')
 def aws_shards_path() -> Path:
     return DATA / 'shards' / 'aws'
 
@@ -170,10 +176,30 @@ def aws_tenant(main_customer: 'Customer') -> 'Tenant':
         contacts={},
         activation_date=utc_iso(utc_datetime() - timedelta(days=30)),
         regions=[
-            RegionAttr(native_name='eu-west-1'),
-            RegionAttr(native_name='eu-central-1'),
-            RegionAttr(native_name='eu-north-1'),
-            RegionAttr(native_name='eu-west-3'),
+            RegionAttr(
+                maestro_name='EU_WEST_1',
+                native_name='eu-west-1',
+                cloud='AWS',
+                region_id='1'
+            ),
+            RegionAttr(
+                maestro_name='EU_CENTRAL_1',
+                native_name='eu-central-1',
+                cloud='AWS',
+                region_id='2'
+            ),
+            RegionAttr(
+                maestro_name='EU_NORTH_1',
+                native_name='eu-north-1',
+                cloud='AWS',
+                region_id='3'
+            ),
+            RegionAttr(
+                maestro_name='EU_WEST_3',
+                native_name='eu-west-3',
+                cloud='AWS',
+                region_id='4'
+            ),
         ],
     )
 
@@ -225,6 +251,7 @@ def k8s_platform(
     return Platform(
         parent=Parent(
             parent_id='platform_id',
+            application_id='application_id',
             customer_id=main_customer.name,
             type=ParentType.PLATFORM_K8S.value,
             description='Test platform',
@@ -235,22 +262,20 @@ def k8s_platform(
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def empty_metadata() -> 'Metadata':
     from services.metadata import Metadata
 
     return Metadata.empty()
 
 
-@pytest.fixture
-def load_metadata() -> Callable[[str], 'Metadata']:
-    from services.metadata import Metadata
-
-    def _inner(name: str) -> Metadata:
+@pytest.fixture(scope='session')
+def load_metadata() -> Callable:
+    def _inner(name: str, load_as=dict) -> dict:
         if not name.endswith('.json'):
             name = f'{name}.json'
         path = DATA / 'metadata' / name
         assert path.exists(), f'{path} must exist'
         with open(path, 'rb') as fp:
-            return msgspec.json.decode(fp.read(), type=Metadata)
+            return msgspec.json.decode(fp.read(), type=load_as)
     return _inner

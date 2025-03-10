@@ -1,0 +1,53 @@
+{
+  "receivers": [],
+  "report_type": "COMPLIANCE_BY_TENANT",
+  "customer": "TEST_CUSTOMER",
+  "from": "2025-01-01T00:00:00Z",
+  "to": "2025-02-01T00:00:00Z",
+  "outdated_tenants": [],
+  "externalData": false,
+  "data": [
+    {
+      "data": {
+        "AWS": {
+          "activated_regions": [
+            "eu-central-1",
+            "eu-north-1",
+            "eu-west-1",
+            "eu-west-3"
+          ],
+          "average_data": [
+            {
+              "name": "Standard1 v1.0.0",
+              "value": 50.0
+            },
+            {
+              "name": "Standard1 v2.0.0",
+              "value": 25.0
+            },
+            {
+              "name": "Standard2",
+              "value": 12.5
+            }
+          ],
+          "last_scan_date": "2025-02-01T00:14:37.917014Z",
+          "tenant_name": "AWS-TESTING"
+        },
+        "AZURE": {
+          "activated_regions": [],
+          "average_data": [],
+          "last_scan_date": "2025-02-01T00:14:37.917014Z",
+          "tenant_name": "AZURE-TESTING"
+        },
+        "GOOGLE": {
+          "activated_regions": [],
+          "average_data": [],
+          "last_scan_date": "2025-02-01T00:14:37.917014Z",
+          "tenant_name": "GOOGLE-TESTING"
+        }
+      },
+      "sort_by": 0.2916666666666667,
+      "tenant_display_name": "testing"
+    }
+  ]
+}

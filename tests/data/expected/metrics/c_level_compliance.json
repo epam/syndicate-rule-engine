@@ -1,0 +1,54 @@
+{
+  "data": {
+    "AWS": {
+      "activated": true,
+      "license_properties": {
+        "Rulesets": [
+          "AWS 1.0.0"
+        ],
+        "Number of licenses": 1,
+        "Event-Driven mode": "On",
+        "Scans frequency": "10 scans per DAY",
+        "Expiration": "Feb 01, 2100 13:24:26 UTC"
+      },
+      "total_scanned_tenants": 1,
+      "last_scan_date": "2025-02-03T00:18:28.047393Z",
+      "average_data": {
+        "Standard1 v1.0.0": 0.5,
+        "Standard1 v2.0.0": 0.25,
+        "Standard2": 0.125
+      }
+    },
+    "AZURE": {
+      "activated": true,
+      "license_properties": {
+        "Rulesets": [
+          "AZURE 1.0.0"
+        ],
+        "Number of licenses": 1,
+        "Event-Driven mode": "On",
+        "Scans frequency": "10 scans per DAY",
+        "Expiration": "Feb 01, 2100 13:24:26 UTC"
+      },
+      "total_scanned_tenants": 1,
+      "last_scan_date": "2025-02-03T00:18:28.047393Z",
+      "average_data": {}
+    },
+    "GOOGLE": {
+      "activated": true,
+      "license_properties": {
+        "Rulesets": [
+          "GOOGLE 1.0.0"
+        ],
+        "Number of licenses": 1,
+        "Event-Driven mode": "On",
+        "Scans frequency": "10 scans per DAY",
+        "Expiration": "Feb 01, 2100 13:24:26 UTC"
+      },
+      "total_scanned_tenants": 1,
+      "last_scan_date": "2025-02-03T00:18:28.047393Z",
+      "average_data": {}
+    }
+  },
+  "outdated_tenants": []
+}

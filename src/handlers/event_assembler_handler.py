@@ -18,7 +18,7 @@ from helpers.constants import (
 )
 from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
-from helpers.system_customer import SYSTEM_CUSTOMER
+from helpers.system_customer import SystemCustomer
 from services import SERVICE_PROVIDER
 from services import modular_helpers
 from services.batch_results_service import BatchResults, BatchResultsService
@@ -466,7 +466,7 @@ class EventAssemblerHandler:
                 self._environment_service.get_job_lifetime_min(),
             BatchJobEnv.JOB_TYPE.value: BatchJobType.EVENT_DRIVEN.value,
             'LOG_LEVEL': self._environment_service.batch_job_log_level(),
-            BatchJobEnv.SYSTEM_CUSTOMER_NAME.value: SYSTEM_CUSTOMER,
+            BatchJobEnv.SYSTEM_CUSTOMER_NAME.value: SystemCustomer.get_name(),
         }
 
     def _submit_batch_job(self, environment: dict[str, str]) -> str | None:

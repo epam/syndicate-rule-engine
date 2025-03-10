@@ -25,9 +25,92 @@ _LOG = get_logger(__name__)
 _LOG.debug(f'Using CYaml: {__with_libyaml__}')
 
 
+class RulesRepo:
+    """
+    Class to retrieve data from rules repo downloaded locally
+    """
+
+    __slots__ = ('_root',)
+    yaml = YAML(typ='safe', pure=False)
+    yaml_exceptions = ('.gitlab-ci.yml',)
+    policies_key = 'policies'
+
+    def __init__(self, root: Path):
+        self._root = Path(root)
+
+    @property
+    def root(self) -> Path:
+        return self._root
+
+    def _iter_files_by_name(self, name: str) -> Generator[Path, None, None]:
+        """
+        Helper method to retrieve specific known files
+        :param name:
+        :return:
+        """
+        for folder, _, files in os.walk(self._root):
+            for file in files:
+                if file == name:
+                    yield Path(folder, file)
+
+    def version(self) -> str | None:
+        file = next(self._iter_files_by_name('version'), None)
+        if not file:
+            return
+        with open(file, 'r') as fp:
+            return fp.read().strip()
+
+    def version_cloud_custodian(self) -> str | None:
+        file = next(self._iter_files_by_name('version-custodian'), None)
+        if not file:
+            return
+        with open(file, 'r') as fp:
+            return fp.read().strip()
+
+    @staticmethod
+    def is_yaml(filename: str) -> bool:
+        return filename.endswith('.yaml') or filename.endswith('.yml')
+
+    @classmethod
+    def iter_yaml_files(
+        cls, root: Path, excluding: tuple[str, ...] = ()
+    ) -> Generator[tuple[Path, dict], None, None]:
+        _yaml = cls.yaml
+        for folder, _, files in os.walk(root):
+            for file in files:
+                if not cls.is_yaml(file) or file in excluding:
+                    _LOG.debug(
+                        f'Skipping: {file} because not yaml or an exception'
+                    )
+                    continue
+                try:
+                    path = Path(folder, file)
+                    with open(path, 'rb') as fp:
+                        yield path, _yaml.load(fp)
+                except YAMLError:
+                    _LOG.warning(f'Failed to load {file}')
+
+    def iter_policies(
+        self, prefix: str | None = None
+    ) -> Generator[tuple[Path, dict], None, None]:
+        """
+        Yield tuples where first elements are paths relative to self.root
+        """
+        _root = self._root
+        if prefix:
+            _root /= prefix.strip('/')
+
+        for file, data in self.iter_yaml_files(_root, self.yaml_exceptions):
+            relative = file.relative_to(self._root)
+            for policy in data.get(self.policies_key, []):
+                if not isinstance(policy, dict):
+                    _LOG.warning(f'Some invalid policy came: {policy}')
+                    continue
+                yield relative, policy
+
+
 class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
     processors = ()
-    policies_key = 'policies'
 
     def __init__(
         self, rule_service: RuleService, rule_source_service: RuleSourceService
@@ -42,38 +125,6 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
             rule_source_service=SERVICE_PROVIDER.rule_source_service,
         )
 
-    @staticmethod
-    def is_yaml(filename: str) -> bool:
-        exception_names = ['.gitlab-ci.yml']
-        if filename in exception_names:
-            return False
-        return filename.endswith('.yaml') or filename.endswith('.yml')
-
-    def iter_files(
-        self, root: Path
-    ) -> Generator[tuple[Path, dict], None, None]:
-        """
-        Walks through the given root folder, looks for yaml files, loads
-        them and yields JSONs
-        :param root:
-        :return: Generator
-        """
-        yaml = YAML(typ='safe', pure=False)
-        # yaml.default_flow_style = False  # for saving, but we only load
-        for folder, _, files in os.walk(root):
-            for file in files:
-                if not self.is_yaml(file):
-                    _LOG.debug(f'Skipping: {file} because not yaml')
-                    continue
-                try:
-                    path = Path(folder, file)
-                    with open(path, 'rb') as fp:
-                        yield path, yaml.load(fp)
-                except YAMLError:
-                    _LOG.warning(
-                        f"Failed to load rule '{file}' " f'content, skipping'
-                    )
-
     def _load_rules(
         self, rule_source: RuleSource, root: Path
     ) -> Generator[Rule, None, None]:
@@ -81,24 +132,23 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
         Iterates over the local folder with rules and loads them to models
         skipping invalid ones
         """
-        to_look_up = root / (rule_source.git_rules_prefix or '').strip('/')
-        for filepath, content in self.iter_files(to_look_up):
-            for policy in content.get(self.policies_key) or []:
-                try:
-                    item = RuleModel(**policy)
-                except ValidationError as e:
-                    _LOG.warning(f'Invalid rule: {content}, {e}')
-                    continue
-                yield self._rule_service.create(
-                    customer=rule_source.customer,
-                    rule_source_id=rule_source.id,
-                    cloud=item.cloud.value,
-                    path=str(filepath.relative_to(root)),
-                    git_project=rule_source.git_project_id,
-                    ref=rule_source.latest_sync.release_tag
-                    or rule_source.git_ref,
-                    **item.model_dump(),
-                )
+        for relative_path, content in RulesRepo(root).iter_policies(
+            rule_source.git_rules_prefix
+        ):
+            try:
+                item = RuleModel(**content)
+            except ValidationError as e:
+                _LOG.warning(f'Invalid rule: {content}, {e}')
+                continue
+            yield self._rule_service.create(
+                customer=rule_source.customer,
+                rule_source_id=rule_source.id,
+                cloud=item.cloud.value,
+                path=str(relative_path),
+                git_project=rule_source.git_project_id,
+                ref=rule_source.latest_sync.release_tag or rule_source.git_ref,
+                **item.model_dump(),
+            )
 
     def _download_rule_source(
         self,
@@ -110,6 +160,7 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
         Downloads the repository for the given rule source item using buffer
         as a temp directory. Returns the path to repo root
         """
+        release_tag = None
         match item.type:
             case RuleSourceType.GITLAB:
                 root = client.clone_project(
@@ -129,12 +180,18 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
                 if not release:
                     _LOG.warning(f'Cannot find latest release for rs {item}')
                     return
-                self._rule_source_service.update_latest_sync(
-                    item=item, release_tag=release['tag_name']
-                )
                 root = client.download_tarball(
                     url=release['tarball_url'], to=Path(buffer)
                 )
+                release_tag = release['tag_name']
+        if root:
+            self._rule_source_service.update_latest_sync(
+                item=item,
+                release_tag=release_tag,
+                version=RulesRepo(root).version(),
+                cc_version=RulesRepo(root).version_cloud_custodian(),
+            )
+
         return root
 
     def pull_rules(self, ids: list[str]):
@@ -173,8 +230,16 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
             # because otherwise we cannot detect whether some rules were
             # removed from GitHub
             _LOG.debug('Removing old versions of rules')
-            cursor = self._rule_service.get_by_rule_source(rule_source)
-            self._rule_service.batch_delete(cursor)
+            new_names = {item.name for item in rules}
+
+            to_remove = []
+            for rule in self._rule_service.get_by_rule_source(rule_source):
+                if rule.name not in new_names:
+                    _LOG.info(
+                        f'Rule {rule.name} not found in repo after update. Removing'
+                    )
+                    to_remove.append(rule)
+            self._rule_service.batch_delete(to_remove)
 
             try:
                 _LOG.info('Going to query git blame for rules')

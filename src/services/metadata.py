@@ -8,9 +8,9 @@ import msgspec
 
 from helpers import Version
 from helpers.__version__ import __version__
-from helpers.constants import Severity
+from helpers.constants import RemediationComplexity, Severity
 from helpers.log_helper import get_logger
-from helpers.reports import service_from_resource_type
+from helpers.reports import Standard, service_from_resource_type
 from models.rule import RuleIndex
 from services import cache
 from services.reports_bucket import ReportMetaBucketsKeys
@@ -47,6 +47,9 @@ class RuleMetadata(
     )
     mitre: dict = msgspec.field(default_factory=dict)
     waf: dict = msgspec.field(default_factory=dict)
+    remediation_complexity: RemediationComplexity = msgspec.field(
+        default=RemediationComplexity.UNKNOWN
+    )
 
     def __repr__(self) -> str:
         return (
@@ -61,6 +64,17 @@ class RuleMetadata(
             return
         return self.category.split('>')[-1].strip()
 
+    def is_deprecation(self) -> bool:
+        return 'deprecation' in self.category.lower()
+
+    def deprecation_category_date(self) -> tuple[str, str | None] | None:
+        if not self.is_deprecation():
+            return
+        first, second = map(str.strip, self.category.split('>', maxsplit=1))
+        if ':' in first:
+            return second, first.split(':', maxsplit=1)[-1].strip()
+        return second, None
+
 
 class DomainMetadata(
     msgspec.Struct, kw_only=True, array_like=True, frozen=True, eq=False
@@ -70,17 +84,21 @@ class DomainMetadata(
     LM and is stored
     """
 
-    tech_cov: dict[str, dict[str, dict[str, int]]] = msgspec.field(
-        default_factory=dict
-    )
-    full_cov: dict[str, dict[str, dict[str, int]]] = msgspec.field(
-        default_factory=dict
-    )
+    # dict[Standard, dict[str, int]] after loading
+    tech_cov: dict = msgspec.field(default_factory=dict)
+    full_cov: dict = msgspec.field(default_factory=dict)
 
     def __repr__(self) -> str:
         return (
             f'{__name__}.{self.__class__.__name__} object at {hex(id(self))}'
         )
+
+    def __post_init__(self):
+        for cov in (self.tech_cov, self.full_cov):
+            for name in tuple(cov):
+                for version, data in cov[name].items():
+                    cov[Standard(name, version)] = data
+                cov.pop(name)
 
 
 EMPTY_RULE_METADATA = RuleMetadata(
@@ -141,6 +159,18 @@ class Metadata(msgspec.Struct, frozen=True, eq=False):
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(...{len(self.rules)} rules)'
+
+
+def merge_metadata(*metadata: Metadata) -> Metadata:
+    rules = {}
+    domains = {}
+    for item in metadata:
+        rules.update(item.rules)
+        domains.update(item.domains)
+    return Metadata(
+        rules=rules,
+        domains=domains
+    )
 
 
 class MetadataProvider:
@@ -225,7 +255,7 @@ class MetadataProvider:
 
     def set(
         self,
-        metadata: Metadata,
+        metadata: dict,
         lic: 'License',
         version: Version = DEFAULT_VERSION,
     ):

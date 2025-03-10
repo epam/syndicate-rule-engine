@@ -19,7 +19,6 @@ from lambdas.custodian_api_handler.handlers.metrics_status_handler import (
 from lambdas.custodian_api_handler.handlers.new_swagger_handler import \
     SwaggerHandler
 from lambdas.custodian_api_handler.handlers.users_handler import UsersHandler
-from services import SP
 from services.abs_lambda import (
     ApiGatewayEventProcessor,
     CheckPermissionEventProcessor,

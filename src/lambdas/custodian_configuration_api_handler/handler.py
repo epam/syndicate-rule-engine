@@ -34,7 +34,7 @@ from helpers.constants import (
 )
 from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
-from helpers.system_customer import SYSTEM_CUSTOMER
+from helpers.system_customer import SystemCustomer
 from models.rule_source import RuleSource
 from services import SERVICE_PROVIDER
 from services.abs_lambda import (
@@ -50,6 +50,7 @@ from services.rule_source_service import RuleSourceService
 from validators.registry import permissions_mapping
 from validators.swagger_request_models import BaseModel, RuleUpdateMetaPostModel
 from validators.utils import validate_kwargs
+from onprem.tasks import collect_metrics
 
 _LOG = get_logger(__name__)
 
@@ -112,14 +113,14 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
     @validate_kwargs
     def invoke_rule_meta_updater(self, event: RuleUpdateMetaPostModel):
 
-        customer = event.customer or SYSTEM_CUSTOMER
+        customer = event.customer or SystemCustomer.get_name()
 
         rs_service = self.rule_source_service
 
         rule_source_id = event.rule_source_id
         if rule_source_id:
             rule_source = rs_service.get_nullable(rule_source_id)
-            if not rule_source or customer != SYSTEM_CUSTOMER and rule_source.customer != customer:
+            if not rule_source or customer != SystemCustomer.get_name() and rule_source.customer != customer:
                 return build_response(
                     code=HTTPStatus.NOT_FOUND,
                     content=f'The requested Rule Source \'{rule_source_id}\' '
@@ -170,21 +171,10 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
     @validate_kwargs
     def update_metrics(self, event: BaseModel):
         _LOG.debug(f'Going to trigger: {METRICS_UPDATER_LAMBDA_NAME}')
-        response = self.lambda_client.invoke_function_async(
-            METRICS_UPDATER_LAMBDA_NAME, event={'data_type': 'metrics'})
-        if response.get('StatusCode') == HTTPStatus.ACCEPTED:
-            _LOG.debug('Metrics updating has been triggered')
-            return build_response(
-                code=HTTPStatus.ACCEPTED,
-                content='Metrics update has been submitted'
-            )
-        _LOG.error(
-            f'Response code is not {HTTPStatus.ACCEPTED}. '
-            f'Response: {response}.\n'
-            f'Metrics updating has not been triggered')
+        collect_metrics.delay()
         return build_response(
-            code=HTTPStatus.SERVICE_UNAVAILABLE,
-            content='Could not trigger metrics updating'
+            code=HTTPStatus.ACCEPTED,
+            content='Metrics update has been submitted'
         )
 
     @staticmethod

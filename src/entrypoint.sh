@@ -2,17 +2,48 @@
 
 set -e
 
-echo "Creating the necessary buckets in Minio"
-python main.py create_buckets
+# Kludge:
+export CAAS_CELERY_BROKER_URL="redis://:${REDIS_PASSWORD:-$modular_mongo_password}@${REDIS_DOMAIN}:${REDIS_PORT}/0"
 
-echo "Creating indexes in MongoDB"
-python main.py create_indexes
+log() { echo "[INFO] $(date) $1" >&2; }
 
-echo "Creating the necessary engine and token in Vault"
-python main.py init_vault
+start_server() {
+  log "Creating the necessary buckets in Minio"
+  python main.py create_buckets
 
-echo "Initializing"
-python main.py init
+  log "Creating indexes in MongoDB"
+  python main.py create_indexes
 
-echo "Starting server"
-python main.py run --gunicorn
+  log "Creating the necessary engine and token in Vault"
+  python main.py init_vault
+
+  log "Initializing"
+  python main.py init
+
+  log "Starting server"
+  exec python main.py run --gunicorn
+}
+
+start_celeryworker() {
+  log "Going to start celeryworker"
+  mkdir -p /data/logs
+  exec celery --app=onprem worker --hostname=worker1@%n --logfile=/data/logs/%n-%i.log --statedb=/data/worker.state --loglevel="${CAAS_CELERY_LOG_LEVEL:-INFO}" --without-heartbeat --without-gossip --without-mingle -Ofair --concurrency 1 --prefetch-multiplier 1
+}
+
+start_celerybeat() {
+  log "Going to start celerybeat"
+  mkdir -p /data/logs
+  exec celery --app=onprem beat --logfile=/data/logs/beat.log --loglevel="${CAAS_CELERY_LOG_LEVEL:-INFO}" --schedule=/data/celerybeat-schedule
+}
+
+case "$1" in
+  celerybeat)
+    start_celerybeat
+    ;;
+  celeryworker)
+    start_celeryworker
+    ;;
+  *)
+    start_server
+    ;;
+esac

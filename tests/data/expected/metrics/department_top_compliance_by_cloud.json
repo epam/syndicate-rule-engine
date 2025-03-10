@@ -1,0 +1,30 @@
+{
+  "data": {
+    "AWS": [
+      {
+        "data": {
+          "Standard1 v1.0.0": 0.5,
+          "Standard1 v2.0.0": 0.25,
+          "Standard2": 0.125
+        },
+        "sort_by": 0.2916666666666667,
+        "tenant_display_name": "testing"
+      }
+    ],
+    "AZURE": [
+      {
+        "data": {},
+        "sort_by": 0,
+        "tenant_display_name": "testing"
+      }
+    ],
+    "GOOGLE": [
+      {
+        "data": {},
+        "sort_by": 0,
+        "tenant_display_name": "testing"
+      }
+    ]
+  },
+  "outdated_tenants": []
+}

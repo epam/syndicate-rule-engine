@@ -145,4 +145,7 @@ def adjust_resource_type(rt: str, /) -> str:
 
 
 def service_from_resource_type(rt: str, /) -> str:
+    """
+    Best try to convert CC resource name to human-readable service name
+    """
     return adjust_resource_type(rt).replace('-', ' ').replace('_', ' ').title()

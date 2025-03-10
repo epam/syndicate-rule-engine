@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.7.0] - 2025-01-30
+- added `--new_version` to ruleset update
+
+## [5.6.0] - 2025-01-21
+- fix `sre platform k8s delete`
+- add help messages for `sre platform k8s ...`
+
 ## [5.5.0] - 2024-09-02
 - change job submit command to resolve credentials for tenant from all available places
 - add `--platform`, `--category`, `--service_section` and `--source` fields to `sre ruleset add`

@@ -1,0 +1,59 @@
+{
+  "receivers": [],
+  "report_type": "ATTACK_BY_CLOUD",
+  "customer": "TEST_CUSTOMER",
+  "from": "2025-01-01T00:00:00Z",
+  "to": "2025-02-01T00:00:00Z",
+  "outdated_tenants": [],
+  "externalData": false,
+  "data": {
+    "AWS": [
+      {
+        "account_id": "123456789012",
+        "activated_regions": [
+          "eu-central-1",
+          "eu-north-1",
+          "eu-west-1",
+          "eu-west-3"
+        ],
+        "data": [
+          {
+            "severity_data": {
+              "Unknown": {
+                "value": 3
+              }
+            },
+            "tactic": "Collection",
+            "tactic_id": "TA0009"
+          }
+        ],
+        "last_scan_date": "2025-02-01T00:14:37.917014Z",
+        "sort_by": 23,
+        "tenant_display_name": "testing",
+        "tenant_name": "AWS-TESTING"
+      }
+    ],
+    "AZURE": [
+      {
+        "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
+        "activated_regions": [],
+        "data": [],
+        "last_scan_date": "2025-02-01T00:14:37.917014Z",
+        "sort_by": 5,
+        "tenant_display_name": "testing",
+        "tenant_name": "AZURE-TESTING"
+      }
+    ],
+    "GOOGLE": [
+      {
+        "account_id": "testing-project-123",
+        "activated_regions": [],
+        "data": [],
+        "last_scan_date": "2025-02-01T00:14:37.917014Z",
+        "sort_by": 9,
+        "tenant_display_name": "testing",
+        "tenant_name": "GOOGLE-TESTING"
+      }
+    ]
+  }
+}

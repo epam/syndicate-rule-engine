@@ -1,5 +1,6 @@
 from pynamodb.attributes import UnicodeAttribute
 
+from modular_sdk.models.pynamongo.attributes import BinaryAttribute
 from helpers.constants import CAASEnv
 from models import BaseModel
 
@@ -14,7 +15,7 @@ class User(BaseModel):
     tenants = UnicodeAttribute(null=True)
     customer = UnicodeAttribute(null=True)
     role = UnicodeAttribute(null=True)
-    password = UnicodeAttribute(null=True)
+    password = BinaryAttribute(null=True)
     latest_login = UnicodeAttribute(null=True)
     created_at = UnicodeAttribute(null=True)
 

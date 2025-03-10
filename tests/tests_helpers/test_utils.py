@@ -25,6 +25,7 @@ from helpers import (
     Version,
     comparable,
     iter_key_values,
+    group_by,
 )
 
 
@@ -361,3 +362,22 @@ def test_version():
 
     ver = Version('1.2.3')
     assert Version(ver) is ver
+
+
+def test_group_by():
+    assert group_by(range(10), key=lambda n: n % 2 == 0) == {
+        True: [0, 2, 4, 6, 8],
+        False: [1, 3, 5, 7, 9],
+    }
+
+    o1, o2, o3, o4 = (
+        {'k': 1, 'd': 1},
+        {'k': 1, 'd': 2},
+        {'k': 2, 'd': 3},
+        {'k': 3, 'd': 4},
+    )
+    groupped = group_by((o1, o2, o3, o4), key=lambda o: o['k'])
+    assert o1 in groupped[1]
+    assert o2 in groupped[1]
+    assert o3 in groupped[2]
+    assert o4 in groupped[3]

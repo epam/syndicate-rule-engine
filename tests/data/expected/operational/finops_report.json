@@ -4,8 +4,8 @@
   ],
   "report_type": "FINOPS",
   "customer": "TEST_CUSTOMER",
-  "from": "2024-12-05T13:42:56.472339Z",
-  "to": "2024-12-12T13:42:56.472339Z",
+  "from": "2025-01-28T15:20:43.374903Z",
+  "to": "2025-02-04T15:20:43.374903Z",
   "outdated_tenants": [],
   "externalData": false,
   "data": [
@@ -17,8 +17,8 @@
           "service": "Security Group",
           "category": "Unused Resources",
           "severity": "Unknown",
-          "resource_type": "aws.security-group",
-          "region_data": {
+          "resource_type": "Security Group",
+          "regions_data": {
             "eu-central-1": {
               "resources": [
                 {
@@ -26,12 +26,12 @@
                   "name": "west-eu"
                 },
                 {
-                  "id": "sg-09d19538187df66cf",
-                  "name": "asia"
-                },
-                {
                   "id": "sg-0ae266faddaef17e9",
                   "name": "packer-ssh-access"
+                },
+                {
+                  "id": "sg-09d19538187df66cf",
+                  "name": "asia"
                 }
               ]
             }
@@ -49,5 +49,5 @@
     "eu-west-1",
     "eu-west-3"
   ],
-  "last_scan_date": "2024-12-12T00:38:12.463910Z"
+  "last_scan_date": "2025-02-04T00:15:05.088388Z"
 }

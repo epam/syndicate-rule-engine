@@ -18,7 +18,7 @@ from helpers.lambda_response import (
     ResponseFactory,
 )
 from helpers.log_helper import get_logger, hide_secret_values
-from helpers.system_customer import SYSTEM_CUSTOMER
+from helpers.system_customer import SystemCustomer
 from services.environment_service import EnvironmentService
 from services.job_service import JobService
 from services.batch_results_service import BatchResultsService
@@ -87,11 +87,15 @@ class ExpandEnvironmentEventProcessor(AbstractEventProcessor):
 
     @staticmethod
     def _resolve_stage(event: dict) -> str | None:
+        # nginx reverse proxy gives this header. It also can contain query
         original = event.get('headers', {}).get('X-Original-Uri')
         path = event.get('path')
         if original and path:  # nginx reverse proxy gives this header
             # event['path'] here contains full path without stage
-            return original[:-len(path)].strip('/')
+            try:
+                return original[:original.index(path)].strip('/')
+            except ValueError:
+                pass
         # we could've got stage from requestContext.stage, but it always points
         # to api gw stage. That value if wrong for us in case we use a domain
         # name with prefix. So we should resolve stage as difference between
@@ -199,7 +203,7 @@ class ApiGatewayEventProcessor(AbstractEventProcessor):
             'cognito_user_role': deep_get(rc, ('authorizer', 'claims',
                                                'custom:role')),
             'permission': self._mapping.get((res, method)),
-            'is_system': cst == SYSTEM_CUSTOMER,
+            'is_system': cst == SystemCustomer.get_name(),
             'body': body,
             'query': dict(event.get('queryStringParameters') or {}),
             'path_params': dict(event.get('pathParameters') or {}),
@@ -299,7 +303,7 @@ class RestrictCustomerEventProcessor(AbstractEventProcessor):
             # if system user is making a request he should provide customer_id
             # as a parameter to make a request on that customer's behalf.
             cid = self._get_cid(event)
-            if cid and cid != SYSTEM_CUSTOMER and not self._cs.get(cid):
+            if cid and cid != SystemCustomer.get_name() and not self._cs.get(cid):
                 raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
                     f'Customer {cid} does not exist. You cannot make a request'
                     f' on his behalf'

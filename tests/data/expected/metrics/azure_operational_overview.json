@@ -1,14 +1,24 @@
 {
   "total_scans": 3,
+  "outdated_tenants": [],
   "failed_scans": 1,
   "succeeded_scans": 2,
   "activated_regions": [],
-  "last_scan_date": "2024-11-17T00:53:59.014935Z",
+  "last_scan_date": "2025-02-04T00:12:48.301627Z",
   "id": "3d615fa8-05c6-47ea-990d-9d162testing",
   "resources_violated": 5,
-  "regions_severity": {
+  "total_findings": 5,
+  "regions_data": {
     "global": {
-      "Unknown": 5
+      "severity": {
+        "Unknown": 5
+      },
+      "service": {
+        "Defender Pricing": 5
+      },
+      "resource_types": {
+        "Defender Pricing": 5
+      }
     }
   }
 }

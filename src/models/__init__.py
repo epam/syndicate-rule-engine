@@ -1,47 +1,45 @@
-from modular_sdk.connections.mongodb_connection import MongoDBConnection
-from modular_sdk.models.pynamodb_extension.base_model import \
-    ABCMongoDBHandlerMixin, \
-    RawBaseModel, RawBaseGSI
-from modular_sdk.models.pynamodb_extension.base_safe_update_model import \
-    BaseSafeUpdateModel as ModularSafeUpdateModel
-from modular_sdk.models.pynamodb_extension.pynamodb_to_pymongo_adapter import \
-    PynamoDBToPyMongoAdapter
+import pymongo
+from modular_sdk.models.pynamongo.adapter import PynamoDBToPymongoAdapter
+from modular_sdk.models.pynamongo.models import Model, SafeUpdateModel
 
-from helpers.constants import CAASEnv, DOCKER_SERVICE_MODE
-
-ADAPTER = None
-MONGO_CLIENT = None
-if CAASEnv.SERVICE_MODE.get() == DOCKER_SERVICE_MODE:
-    uri = CAASEnv.MONGO_URI.get()
-    db = CAASEnv.MONGO_DATABASE.get()
-    assert uri and db, 'Mongo uri and db must be specified for on-prem'
-    ADAPTER = PynamoDBToPyMongoAdapter(
-        mongodb_connection=MongoDBConnection(
-            mongo_uri=uri,
-            default_db_name=db
-        )
-    )
-    MONGO_CLIENT = ADAPTER.mongodb.client
+from helpers.constants import DOCKER_SERVICE_MODE, CAASEnv
 
 
-class CustodianMongoDBHandlerMixin(ABCMongoDBHandlerMixin):
+class MongoClientSingleton:
+    _instance = None
+
     @classmethod
-    def mongodb_handler(cls):
-        if not cls._mongodb:
-            cls._mongodb = ADAPTER
-        return cls._mongodb
-
-    is_docker = CAASEnv.SERVICE_MODE.get() == DOCKER_SERVICE_MODE
+    def get_instance(cls) -> pymongo.MongoClient:
+        if cls._instance is None:
+            cls._instance = pymongo.MongoClient(CAASEnv.MONGO_URI.get())
+        return cls._instance
 
 
-class BaseModel(CustodianMongoDBHandlerMixin, RawBaseModel):
-    pass
+class PynamoDBToPymongoAdapterSingleton:
+    _instance = None
+
+    @classmethod
+    def get_instance(cls) -> PynamoDBToPymongoAdapter:
+        if cls._instance is None:
+            cls._instance = PynamoDBToPymongoAdapter(db=MongoClientSingleton.get_instance().get_database(CAASEnv.MONGO_DATABASE.get()))
+        return cls._instance
 
 
-class BaseGSI(CustodianMongoDBHandlerMixin, RawBaseGSI):
-    pass
+class BaseModel(Model):
+    @classmethod
+    def is_mongo_model(cls) -> bool:
+        return CAASEnv.SERVICE_MODE.get() == DOCKER_SERVICE_MODE
+
+    @classmethod
+    def mongo_adapter(cls) -> PynamoDBToPymongoAdapter:
+        return PynamoDBToPymongoAdapterSingleton.get_instance()
 
 
-class BaseSafeUpdateModel(CustodianMongoDBHandlerMixin,
-                          ModularSafeUpdateModel):
-    pass
+class BaseSafeUpdateModel(SafeUpdateModel):
+    @classmethod
+    def is_mongo_model(cls) -> bool:
+        return CAASEnv.SERVICE_MODE.get() == DOCKER_SERVICE_MODE
+
+    @classmethod
+    def mongo_adapter(cls) -> PynamoDBToPymongoAdapter:
+        return PynamoDBToPymongoAdapterSingleton.get_instance()

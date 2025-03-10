@@ -42,10 +42,10 @@ class ReportFieldsLoader:
     json representation of its instances. We cannot know what field inside
     that json is considered to be a logical ID, name (or arn in case AWS) of
     that resource. Fortunately, this information is present inside Cloud
-    Custodian and we get get it.
-    For k8s name is always inside "metadata.name", id - "metadata.uid",
+    Custodian, and we can get it.
+    For K8S name is always inside "metadata.name", id - "metadata.uid",
     namespace - "metadata.namespace".
-    For azure they are also always the same due to consistent api.
+    For AZURE they are also always the same due to consistent api.
     For AWS, GOOGLE we must retrieve these values for each resource type
     """
     class Fields(TypedDict, total=False):
@@ -225,7 +225,7 @@ class JobResult:
                 val = json_path_get(res, path)
                 if not val:
                     continue
-                res[field] = val
+                res.setdefault(field, val)
 
     def iter_raw(self, with_resources: bool = False
                  ) -> Generator[RegionRuleOutput, None, None]:
@@ -244,21 +244,11 @@ class JobResult:
                                 ) -> Generator[RegionRuleOutput, None, None]:
         """
         The thing is: Custodian Custom Core cannot scan Azure
-        region-dependently. A rule covers the whole subscription
-        (or whatever, I don't know) and then each found resource has
-        'location' field with its real location.
+        region-dependently. A rule covers the whole subscription and then
+        each found resource has 'location' field with its real location.
         In order to adhere to AWS logic, when a user wants to receive
         reports only for regions he activated, we need to filter out only
         appropriate resources.
-        Also note that Custom Core has such a thing as `AzureCloud`. From
-        my point of view it's like a mock for every region (because,
-        I believe, in the beginning Core was designed for AWS and therefore
-        there are regions). With the current scanner implementation
-        (3.3.1) incoming `detailed_report` will always have one key:
-        `AzureCloud` with a list of all the scanned rules. We must remap it.
-        All the resources that does not contain
-        'location' will be congested to 'multiregion' region.
-        :return:
         """
         for _, rule, metadata, resources in it:
             if resources is None or not resources:

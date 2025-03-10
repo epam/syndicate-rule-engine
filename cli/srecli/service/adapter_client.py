@@ -973,7 +973,7 @@ class CustodianApiClient:
     def platform_k8s_delete(self, platform_id: str, **kwargs):
         return self.make_request(
             path=CustodianEndpoint.PLATFORMS_K8S_ID,
-            path_params={'id': platform_id},
+            path_params={'platform_id': platform_id},
             method=HTTPMethod.DELETE,
             data=sifted(kwargs)
         )

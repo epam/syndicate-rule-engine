@@ -1,4 +1,4 @@
-FROM public.ecr.aws/docker/library/python:3.10 as executor-compile-image
+FROM public.ecr.aws/docker/library/python:3.10 as compile-image
 
 # default values expect that user has cloned core to the Custodian's
 # root and execute build with build context pointing to Custodian's root:
@@ -42,10 +42,6 @@ RUN for pkg in $PROVIDERS; do . /root/.local/bin/activate && cd tools/c7n_$pkg &
 COPY $CUSTODIAN_SERVICE_PATH/src/onprem/requirements.txt ../src/onprem/requirements.txt
 RUN . /root/.local/bin/activate && pip install -r ../src/onprem/requirements.txt
 
-# executor requirements
-COPY $CUSTODIAN_SERVICE_PATH/src/executor/requirements.txt ../src/executor/requirements.txt
-RUN . /root/.local/bin/activate && pip install -r ../src/executor/requirements.txt
-
 
 COPY $CLOUD_CUSTODIAN_PATH/tools/c7n_gcp tools/c7n_gcp/
 COPY $CLOUD_CUSTODIAN_PATH/tools/c7n_azure tools/c7n_azure/
@@ -59,11 +55,11 @@ COPY $CUSTODIAN_SERVICE_PATH/src ../src
 
 FROM public.ecr.aws/docker/library/python:3.10-slim AS build-image
 
-COPY --from=executor-compile-image /root/.local /root/.local
-COPY --from=executor-compile-image /build/src/ /src/
+COPY --from=compile-image /root/.local /root/.local
+COPY --from=compile-image /build/src/ /src/
 
 
-ENV AWS_REGION=eu-central-1 \
+ENV AWS_REGION=us-east-1 \
     CAAS_SERVICE_MODE=docker \
     PATH=/root/.local/bin:$PATH \
     modular_service_mode=docker

@@ -1,14 +1,28 @@
 {
   "total_scans": 3,
+  "outdated_tenants": [],
   "failed_scans": 1,
   "succeeded_scans": 2,
   "activated_regions": [],
-  "last_scan_date": "2024-11-17T00:53:59.014935Z",
+  "last_scan_date": "2025-02-04T00:14:20.422230Z",
   "id": "testing-project-123",
-  "resources_violated": 5,
-  "regions_severity": {
+  "resources_violated": 9,
+  "total_findings": 14,
+  "regions_data": {
     "global": {
-      "Unknown": 5
+      "severity": {
+        "Unknown": 9
+      },
+      "service": {
+        "Vpc": 1,
+        "Firewall": 4,
+        "Subnet": 4
+      },
+      "resource_types": {
+        "Vpc": 1,
+        "Firewall": 4,
+        "Subnet": 4
+      }
     }
   }
 }

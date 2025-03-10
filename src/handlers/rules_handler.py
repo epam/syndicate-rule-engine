@@ -7,13 +7,21 @@ from xlsxwriter import Workbook
 from xlsxwriter.worksheet import Worksheet
 
 from handlers import AbstractHandler, Mapping
-from helpers.constants import CustodianEndpoint, HTTPMethod, JobState, \
-    ReportFormat
+from helpers.constants import (
+    CustodianEndpoint,
+    HTTPMethod,
+    JobState,
+    ReportFormat,
+)
 from helpers.lambda_response import build_response
 from services import SP
 from services import modular_helpers
 from services.ambiguous_job_service import AmbiguousJobService
-from services.report_service import ReportResponse, ReportService
+from services.report_service import (
+    ReportResponse,
+    ReportService,
+    StatisticsItem,
+)
 from services.xlsx_writer import CellContent, Table, XlsxRowsWriter
 from validators.swagger_request_models import (
     JobRuleReportGetModel,
@@ -24,8 +32,11 @@ from validators.utils import validate_kwargs
 
 class RulesReportXlsxWriter:
     head = (
-        'Rule', 'Region', 'Executed successfully',
-        'Execution time (seconds)', 'Failed Resources'
+        'Rule',
+        'Region',
+        'Executed successfully',
+        'Execution time (seconds)',
+        'Failed Resources',
     )
 
     def __init__(self, it: Iterator[dict]):
@@ -58,11 +69,15 @@ class RulesReportXlsxWriter:
             remapped.setdefault(item['policy'], []).append(item)
         # sorts buy the total number of failed resources per rule
         # across all the regions
-        data = dict(sorted(
-            remapped.items(),
-            key=lambda p: sum(i.get('failed_resources') or 0 for i in p[1]),
-            reverse=True
-        ))
+        data = dict(
+            sorted(
+                remapped.items(),
+                key=lambda p: sum(
+                    i.get('failed_resources') or 0 for i in p[1]
+                ),
+                reverse=True,
+            )
+        )
 
         table = Table()
         table.new_row()
@@ -74,32 +89,41 @@ class RulesReportXlsxWriter:
             items = sorted(
                 items,
                 key=lambda i: i.get('failed_resources') or 0,
-                reverse=True
+                reverse=True,
             )
-            table.add_cells(*[
-                CellContent(item['region']) for item in items
-            ])
-            table.add_cells(*[
-                CellContent(str(item['succeeded']).lower(),
-                            status_color(item['succeeded']))
-                for item in items
-            ])
-            table.add_cells(*[
-                CellContent(item['execution_time']) for item in items
-            ])
-            table.add_cells(*[
-                CellContent(item.get('failed_resources') or
-                            self.status_empty(item['succeeded']))
-                for item in items
-            ])
+            table.add_cells(*[CellContent(item['region']) for item in items])
+            table.add_cells(
+                *[
+                    CellContent(
+                        str(item['succeeded']).lower(),
+                        status_color(item['succeeded']),
+                    )
+                    for item in items
+                ]
+            )
+            table.add_cells(
+                *[CellContent(item['execution_time']) for item in items]
+            )
+            table.add_cells(
+                *[
+                    CellContent(
+                        item.get('failed_resources')
+                        or self.status_empty(item['succeeded'])
+                    )
+                    for item in items
+                ]
+            )
         writer = XlsxRowsWriter()
         writer.write(wsh, table)
 
 
 class JobsRulesHandler(AbstractHandler):
-    def __init__(self, ambiguous_job_service: AmbiguousJobService,
-                 report_service: ReportService,
-                 tenant_service: TenantService):
+    def __init__(
+        self,
+        ambiguous_job_service: AmbiguousJobService,
+        report_service: ReportService,
+        tenant_service: TenantService,
+    ):
         self._ambiguous_job_service = ambiguous_job_service
         self._report_service = report_service
         self._tenant_service = tenant_service
@@ -109,7 +133,7 @@ class JobsRulesHandler(AbstractHandler):
         return cls(
             ambiguous_job_service=SP.ambiguous_job_service,
             report_service=SP.report_service,
-            tenant_service=SP.modular_client.tenant_service()
+            tenant_service=SP.modular_client.tenant_service(),
         )
 
     @property
@@ -120,23 +144,35 @@ class JobsRulesHandler(AbstractHandler):
             },
             CustodianEndpoint.REPORTS_RULES_TENANTS_TENANT_NAME: {
                 HTTPMethod.GET: self.get_by_tenant_accumulated
-            }
+            },
+        }
+
+    @staticmethod
+    def _format_statistics_item(item: StatisticsItem) -> dict:
+        return {
+            'policy': item.policy,
+            'region': item.region,
+            'api_calls': item.api_calls,
+            'execution_time': item.end_time - item.start_time,
+            'succeeded': item.is_successful(),
+            'scanned_resources': item.scanned_resources,
+            'failed_resources': item.failed_resources,
+            'error_type': item.error_type
         }
 
     @validate_kwargs
     def get_by_job(self, event: JobRuleReportGetModel, job_id: str):
         job = self._ambiguous_job_service.get_job(
-            job_id=job_id,
-            typ=event.job_type,
-            customer=event.customer
+            job_id=job_id, typ=event.job_type, customer=event.customer
         )
         if not job:
             return build_response(
-                content='The request job not found',
-                code=HTTPStatus.NOT_FOUND
+                content='The request job not found', code=HTTPStatus.NOT_FOUND
             )
         statistics = self._report_service.job_statistics(job.job)
-        data = map(self._report_service.format_statistic, statistics)
+        data = map(
+            self._format_statistics_item, statistics
+        )
         content = []
         match event.format:
             case ReportFormat.JSON:
@@ -151,19 +187,21 @@ class JobsRulesHandler(AbstractHandler):
                 buffer = io.BytesIO()
                 with Workbook(buffer, {'strings_to_numbers': True}) as wb:
                     RulesReportXlsxWriter(data).write(
-                        wb=wb,
-                        wsh=wb.add_worksheet('Rules')
+                        wb=wb, wsh=wb.add_worksheet('Rules')
                     )
                 buffer.seek(0)
                 url = self._report_service.one_time_url(
                     buffer, f'{job.id}-rules.xlsx'
                 )
-                content = ReportResponse(job, url, fmt=ReportFormat.XLSX).dict()
+                content = ReportResponse(
+                    job, url, fmt=ReportFormat.XLSX
+                ).dict()
         return build_response(content=content)
 
     @validate_kwargs
-    def get_by_tenant_accumulated(self, event: TenantRuleReportGetModel,
-                                  tenant_name: str):
+    def get_by_tenant_accumulated(
+        self, event: TenantRuleReportGetModel, tenant_name: str
+    ):
         tenant = self._tenant_service.get(tenant_name)
         modular_helpers.assert_tenant_valid(tenant)
 
@@ -174,7 +212,7 @@ class JobsRulesHandler(AbstractHandler):
             start=event.start_iso,
             end=event.end_iso,
         )
-        average = self._report_service.average_statistics(*map(
-            self._report_service.job_statistics, jobs
-        ))
+        average = self._report_service.average_statistics(
+            *map(self._report_service.job_statistics, jobs)
+        )
         return build_response(content=average)

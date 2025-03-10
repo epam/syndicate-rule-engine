@@ -2,20 +2,12 @@
   "receivers": [
     "admin@gmail.com"
   ],
+  "report_type": "OVERVIEW",
   "customer": "TEST_CUSTOMER",
-  "tenant_name": "AWS-TESTING",
-  "id": "123456789012",
-  "cloud": "AWS",
-  "activated_regions": [
-    "eu-central-1",
-    "eu-north-1",
-    "eu-west-1",
-    "eu-west-3"
-  ],
-  "from": "2024-11-03T00:00:00Z",
-  "to": "2024-11-10T00:00:00Z",
-  "last_scan_date": "2024-11-04T00:00:00Z",
+  "from": "2025-01-28T15:20:06.140240Z",
+  "to": "2025-02-04T15:20:06.140240Z",
   "outdated_tenants": [],
+  "externalData": false,
   "data": {
     "total_scans": 3,
     "failed_scans": 1,
@@ -49,6 +41,14 @@
       }
     }
   },
-  "externalData": false,
-  "report_type": "OVERVIEW"
+  "tenant_name": "AWS-TESTING",
+  "id": "123456789012",
+  "cloud": "AWS",
+  "activated_regions": [
+    "eu-central-1",
+    "eu-north-1",
+    "eu-west-1",
+    "eu-west-3"
+  ],
+  "last_scan_date": "2025-02-04T00:11:06.462491Z"
 }
