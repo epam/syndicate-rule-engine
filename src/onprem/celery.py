@@ -59,7 +59,8 @@ app.conf.worker_log_color = False
 app.conf.worker_send_task_event = False
 app.conf.task_ignore_result = True  # custom results logic
 app.conf.broker_transport_options = {
-    "queue_order_strategy": "sorted"
+    "queue_order_strategy": "sorted",
+    "visibility_timeout": 3600 * 3
 }
 
 # app.conf.task_annotations = {

@@ -1023,7 +1023,7 @@ def get_credentials(
             case Cloud.AWS:
                 try:
                     aid = (
-                        StsClient.factory()
+                        StsClient
                         .build()
                         .get_caller_identity()['Account']
                     )
@@ -1135,16 +1135,14 @@ def get_platform_credentials(platform: Platform) -> dict:
             f'No credentials in ' f'application: {application.application_id}'
         )
         raise ExecutorException(ExecutorError.NO_CREDENTIALS)
-    cluster = (
-        EKSClient.factory()
-        .from_keys(
-            aws_access_key_id=creds.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=creds.AWS_SECRET_ACCESS_KEY,
-            aws_session_token=creds.AWS_SESSION_TOKEN,
-            region_name=platform.region,
-        )
-        .describe_cluster(platform.name)
+    cl = EKSClient.build()
+    cl.client = Boto3ClientFactory(EKSClient.service_name).build(
+        region_name=platform.region,
+        aws_access_key_id=creds.AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=creds.AWS_SECRET_ACCESS_KEY,
+        aws_session_token=creds.AWS_SESSION_TOKEN,
     )
+    cluster = cl.describe_cluster(platform.name)
     if not cluster:
         _LOG.error(
             f'No cluster with name: {platform.name} '

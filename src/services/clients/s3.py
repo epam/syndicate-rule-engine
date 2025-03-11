@@ -17,11 +17,7 @@ from urllib3.util import Url, parse_url
 from helpers.constants import CAASEnv
 from helpers.log_helper import get_logger
 from services import cache
-from services.clients import (
-    Boto3ClientFactory,
-    Boto3ClientWrapper,
-    Boto3ClientWrapperFactory,
-)
+from services.clients import Boto3ClientFactory, Boto3ClientWrapper
 
 _LOG = get_logger(__name__)
 
@@ -60,51 +56,6 @@ class S3Url:
         return cls(f's3://{bucket.strip()}/{key.lstrip("/")}')
 
 
-class S3ClientWrapperFactory(Boto3ClientWrapperFactory['S3Client']):
-    @classmethod
-    def _base_config(cls) -> Config:
-        return Config(retries={'max_attempts': 10, 'mode': 'standard'})
-
-    @classmethod
-    def _minio_config(cls) -> Config:
-        return cls._base_config().merge(
-            Config(
-                s3={'signature_version': 's3v4', 'addressing_style': 'path'}
-            )
-        )
-
-    def build_s3(self, region_name: str) -> 'S3Client':
-        instance = self._wrapper.build()
-        instance.resource = Boto3ClientFactory(
-            instance.service_name
-        ).build_resource(region_name=region_name, config=self._base_config())
-        instance.client = instance.resource.meta.client
-        _LOG.info('S3 connection was successfully initialized')
-        return instance
-
-    def build_minio(self) -> 'S3Client':
-        endpoint = CAASEnv.MINIO_ENDPOINT.get()
-        access_key = CAASEnv.MINIO_ACCESS_KEY_ID.get()
-        secret_key = CAASEnv.MINIO_SECRET_ACCESS_KEY.get()
-        assert endpoint and access_key and secret_key, (
-            'Minio endpoint, access key and secret key must be '
-            'provided for on-prem'
-        )
-
-        instance = self._wrapper.build()
-        instance.resource = Boto3ClientFactory(
-            instance.service_name
-        ).build_resource(
-            aws_access_key_id=access_key,
-            aws_secret_access_key=secret_key,
-            endpoint_url=endpoint,
-            config=self._minio_config(),
-        )
-        instance.client = instance.resource.meta.client
-        _LOG.info('Minio connection was successfully initialized')
-        return instance
-
-
 class S3Client(Boto3ClientWrapper):
     """
     Most methods have their gz equivalent with prefix gz_. Such methods
@@ -120,6 +71,60 @@ class S3Client(Boto3ClientWrapper):
     def __init__(self):
         self._ipv4_cache = cache.TTLCache(maxsize=2, ttl=3600)
 
+    @classmethod
+    def _base_config(cls) -> Config:
+        return Config(retries={'max_attempts': 10, 'mode': 'standard'})
+
+    @classmethod
+    def _minio_config(cls) -> Config:
+        return cls._base_config().merge(
+            Config(
+                s3={'signature_version': 's3v4', 'addressing_style': 'path'}
+            )
+        )
+
+    def _init_minio(self) -> None:
+        endpoint = CAASEnv.MINIO_ENDPOINT.get()
+        access_key = CAASEnv.MINIO_ACCESS_KEY_ID.get()
+        secret_key = CAASEnv.MINIO_SECRET_ACCESS_KEY.get()
+        assert endpoint and access_key and secret_key, (
+            'Minio endpoint, access key and secret key must be '
+            'provided for on-prem'
+        )
+        self._resource = Boto3ClientFactory(self.service_name).build_resource(
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
+            endpoint_url=endpoint,
+            config=self._minio_config(),
+        )
+        self._client = self.resource.meta.client
+        _LOG.info('Minio connection was successfully initialized')
+
+    def _init_s3(self) -> None:
+        self._resource = Boto3ClientFactory(self.service_name).build_resource(
+            region_name=CAASEnv.AWS_REGION.get(), config=self._base_config()
+        )
+        self._client = self._resource.meta.client
+        _LOG.info('S3 connection was successfully initialized')
+
+    @property
+    def client(self):
+        if self._client is None:
+            if CAASEnv.is_docker():
+                self._init_minio()
+            else:
+                self._init_s3()
+        return self._client
+
+    @property
+    def resource(self):
+        if self._resource is None:
+            if CAASEnv.is_docker():
+                self._init_minio()
+            else:
+                self._init_s3()
+        return self._resource
+
     class Bucket(TypedDict):
         Name: str
         CreationDate: datetime
@@ -133,10 +138,6 @@ class S3Client(Boto3ClientWrapper):
         if not key.endswith('.gz'):
             key = key.strip('.') + '.gz'
         return key
-
-    @classmethod
-    def factory(cls) -> S3ClientWrapperFactory:
-        return S3ClientWrapperFactory(cls)
 
     @staticmethod
     def _resolve_content_type(

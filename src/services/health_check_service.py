@@ -226,55 +226,6 @@ class LicenseManagerClientKeyCheck(AbstractHealthCheck):
         return self.ok_result(details={'kid': kid, 'secret': True})
 
 
-class ReportDateMarkerSettingCheck(AbstractHealthCheck):
-    def __init__(self, settings_service: SettingsService):
-        self._settings_service = settings_service
-
-    @classmethod
-    def build(cls) -> 'ReportDateMarkerSettingCheck':
-        return cls(settings_service=SERVICE_PROVIDER.settings_service)
-
-    @classmethod
-    def identifier(cls) -> str:
-        return 'report_date_marker_setting'
-
-    @classmethod
-    def impact(cls) -> str | None:
-        return 'Metric collecting will not work properly'
-
-    @classmethod
-    def remediation(cls) -> str | None:
-        return 'Execute `main.py env update_settings`'
-
-    @cached_property
-    def model(self) -> Type[BaseModel]:
-        class Setting(BaseModel):
-            last_week_date: str
-            current_week_date: str
-
-        return Setting
-
-    def check(self, **kwargs) -> CheckResult:
-        setting = self._settings_service.get_report_date_marker()
-        if not setting:
-            return self.not_ok_result(
-                {
-                    'error': f"setting '{SettingKey.REPORT_DATE_MARKER}' "
-                    f'is not set'
-                }
-            )
-        try:
-            self.model(**setting)
-        except ValidationError as e:
-            return self.not_ok_result(
-                {
-                    'error': f"setting '{SettingKey.REPORT_DATE_MARKER}' "
-                    f'is invalid'
-                }
-            )
-        return self.ok_result()
-
-
 class RabbitMQConnectionCheck(AbstractHealthCheck):
     def __init__(
         self, settings_service: SettingsService, modular_client: Modular

@@ -514,6 +514,10 @@ class CAASEnv(EnvEnum):
     # Celery
     CELERY_BROKER_URL = 'SRE_CELERY_BROKER_URL', ('CAAS_CELERY_BROKER_URL', )
 
+    @classmethod
+    def is_docker(cls) -> bool:
+        return cls.SERVICE_MODE.get() == 'docker'
+
 
 class BatchJobEnv(EnvEnum):
     """
@@ -942,7 +946,6 @@ class SettingKey(str, Enum):
     TEMPLATE_BUCKET = 'TEMPLATES_S3_BUCKET_NAME'
     SYSTEM_CUSTOMER = 'SYSTEM_CUSTOMER_NAME'
     EVENT_ASSEMBLER = 'EVENT_ASSEMBLER'
-    REPORT_DATE_MARKER = 'REPORT_DATE_MARKER'
     RULES_METADATA_REPO_ACCESS_SSM_NAME = 'RULES_METADATA_REPO_ACCESS_SSM_NAME'
 
     AWS_STANDARDS_COVERAGE = 'AWS_STANDARDS_COVERAGE'

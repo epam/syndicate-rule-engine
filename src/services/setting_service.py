@@ -143,21 +143,6 @@ class SettingsService:
                                           ) -> Optional[Union[Setting, dict]]:
         return self.get(name=SettingKey.EVENT_ASSEMBLER, value=value)
 
-    def get_report_date_marker(self) -> dict:
-        marker = self.get(name=SettingKey.REPORT_DATE_MARKER)
-        return marker or {}
-
-    def set_report_date_marker(self, current_week_date: str = None,
-                               last_week_date: str = None):
-        marker = self.get(name=SettingKey.REPORT_DATE_MARKER)
-        if current_week_date:
-            marker.update({'current_week_date': current_week_date})
-        if last_week_date:
-            marker.update({'last_week_date': last_week_date})
-        new_marker = self.create(name=SettingKey.REPORT_DATE_MARKER,
-                                 value=marker)
-        new_marker.save()
-
     # metadata
     def rules_metadata_repo_access_data(self) -> str:
         """

@@ -524,25 +524,6 @@ class InitAction(ActionHandler):
             Setting(
                 name=CAASEnv.SYSTEM_CUSTOMER_NAME.value, value=DEFAULT_SYSTEM_CUSTOMER
             ).save()
-        if not Setting.get_nullable(
-            SettingKey.REPORT_DATE_MARKER.value
-        ):  # todo redesign
-            _LOG.info('Setting report date marker')
-            Setting(
-                name=SettingKey.REPORT_DATE_MARKER.value,
-                value={
-                    'last_week_date': (
-                        datetime.today() + relativedelta(weekday=SU(-1))
-                    )
-                    .date()
-                    .isoformat(),
-                    'current_week_date': (
-                        datetime.today() + relativedelta(weekday=SU(0))
-                    )
-                    .date()
-                    .isoformat(),
-                },
-            ).save()
         Setting(name=SettingKey.SEND_REPORTS, value=True).save()
         users_client = SP.users_client
         if not users_client.get_user_by_username(SYSTEM_USER):
