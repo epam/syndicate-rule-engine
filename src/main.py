@@ -31,6 +31,7 @@ from helpers.constants import (
     HTTPMethod,
     Permission,
     SettingKey,
+    DEFAULT_SYSTEM_CUSTOMER
 )
 from onprem.api.deployment_resources_parser import (
     DeploymentResourcesApiGatewayWrapper,
@@ -66,7 +67,6 @@ DEFAULT_NUMBER_OF_WORKERS = (multiprocessing.cpu_count() * 2) + 1
 DEFAULT_API_GATEWAY_NAME = 'custodian-as-a-service-api'
 
 SYSTEM_USER = 'system_user'
-SYSTEM_CUSTOMER = 'CUSTODIAN_SYSTEM'
 
 
 def gen_password(digits: int = 20) -> str:
@@ -522,26 +522,7 @@ class InitAction(ActionHandler):
         if not Setting.get_nullable(SettingKey.SYSTEM_CUSTOMER):
             _LOG.info('Setting system customer name')
             Setting(
-                name=CAASEnv.SYSTEM_CUSTOMER_NAME.value, value=SYSTEM_CUSTOMER
-            ).save()
-        if not Setting.get_nullable(
-            SettingKey.REPORT_DATE_MARKER.value
-        ):  # todo redesign
-            _LOG.info('Setting report date marker')
-            Setting(
-                name=SettingKey.REPORT_DATE_MARKER.value,
-                value={
-                    'last_week_date': (
-                        datetime.today() + relativedelta(weekday=SU(-1))
-                    )
-                    .date()
-                    .isoformat(),
-                    'current_week_date': (
-                        datetime.today() + relativedelta(weekday=SU(0))
-                    )
-                    .date()
-                    .isoformat(),
-                },
+                name=SettingKey.SYSTEM_CUSTOMER.value, value=DEFAULT_SYSTEM_CUSTOMER
             ).save()
         Setting(name=SettingKey.SEND_REPORTS, value=True).save()
         users_client = SP.users_client
@@ -555,7 +536,7 @@ class InitAction(ActionHandler):
             users_client.signup_user(
                 username=SYSTEM_USER,
                 password=password,
-                customer=SYSTEM_CUSTOMER,
+                customer=DEFAULT_SYSTEM_CUSTOMER,
             )
             if not from_env:
                 print(f'System ({SYSTEM_USER}) password: {password}')

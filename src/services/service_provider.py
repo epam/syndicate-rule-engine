@@ -57,10 +57,7 @@ class ServiceProvider(metaclass=SingletonMeta):
     @cached_property
     def s3(self) -> 'S3Client':
         from services.clients.s3 import S3Client
-        env = self.environment_service
-        if env.is_docker():
-            return S3Client.factory().build_minio()
-        return S3Client.factory().build_s3(env.aws_region())
+        return S3Client.build()
 
     @cached_property
     def ssm(self) -> 'CachedSSMClient':
@@ -77,9 +74,7 @@ class ServiceProvider(metaclass=SingletonMeta):
         from services.clients.sts import StsClient
         if self.environment_service.is_docker():
             return StsClient.build()
-        return StsClient.factory().build(
-            region_name=self.environment_service.aws_region()
-        )
+        return StsClient.build()
 
     @cached_property
     def batch(self) -> Union['BatchClient', 'CeleryJobClient']:
@@ -87,9 +82,7 @@ class ServiceProvider(metaclass=SingletonMeta):
             from services.clients.batch import CeleryJobClient
             return CeleryJobClient.build()
         from services.clients.batch import BatchClient
-        return BatchClient.factory().build(
-            region_name=self.environment_service.aws_region()
-        )
+        return BatchClient.build()
 
     @cached_property
     def onprem_users_client(self) -> 'MongoAndSSMAuthClient':
@@ -120,9 +113,7 @@ class ServiceProvider(metaclass=SingletonMeta):
     @cached_property
     def events(self) -> 'EventBridgeClient':
         from services.clients.event_bridge import EventBridgeClient
-        return EventBridgeClient.factory().build(
-            region_name=self.environment_service.aws_region()
-        )
+        return EventBridgeClient.build()
 
     @cached_property
     def iam(self) -> 'IAMClient':

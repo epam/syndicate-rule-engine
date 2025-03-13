@@ -22,7 +22,7 @@ class EKSClient(Boto3ClientWrapper):
 
     def describe_cluster(self, name: str) -> Cluster | None:
         try:
-            return self._client.describe_cluster(name=name)['cluster']
+            return self.client.describe_cluster(name=name)['cluster']
         except ClientError as e:
             if e.response['Error']['Code'] == 'ResourceNotFoundException':
                 return

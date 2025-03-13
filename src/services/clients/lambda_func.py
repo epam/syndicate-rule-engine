@@ -35,7 +35,7 @@ class LambdaClient:
     @property
     def client(self):
         """Returns client for saas. For on-prem the method is not used"""
-        if not self._client:
+        if self._client is None:
             self._client = Boto3ClientFactory('lambda').build(
                 region_name=self._environment.aws_region()
             )

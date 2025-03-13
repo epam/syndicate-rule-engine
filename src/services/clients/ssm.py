@@ -133,7 +133,7 @@ class SSMClient(AbstractSSMClient):
 
     @property
     def client(self):
-        if not self._client:
+        if self._client is None:
             self._client = Boto3ClientFactory('ssm').build(
                 region_name=self._environment_service.aws_region()
             )
