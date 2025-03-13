@@ -152,7 +152,6 @@ class JobService(BaseDataService[Job]):
         raw.pop('owner', None)
         raw.pop('rules_to_scan', None)
         raw.pop('ttl', None)
-        raw.pop('celery_task_id', None)
         rulesets = []
         for r in item.rulesets:
             rulesets.append(RulesetName(r).to_str(False))

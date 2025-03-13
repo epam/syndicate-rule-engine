@@ -54,12 +54,13 @@ app.conf.timezone = 'UTC'
 app.conf.broker_connection_retry_on_startup = True
 app.conf.worker_prefetch_multiplier = 1  # https://docs.celeryq.dev/en/stable/userguide/optimizing.html#prefetch-limits
 app.conf.task_compression = 'gzip'
-# app.conf.worker_max_tasks_per_child = 16
+app.conf.worker_max_tasks_per_child = 3
 app.conf.worker_log_color = False
 app.conf.worker_send_task_event = False
 app.conf.task_ignore_result = True  # custom results logic
 app.conf.broker_transport_options = {
-    "queue_order_strategy": "sorted"
+    "queue_order_strategy": "sorted",
+    "visibility_timeout": 3600 * 4
 }
 
 # app.conf.task_annotations = {
