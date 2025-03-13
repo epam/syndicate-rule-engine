@@ -3,7 +3,7 @@
 set -e
 
 # Kludge:
-export CAAS_CELERY_BROKER_URL="redis://:${REDIS_PASSWORD:-$modular_mongo_password}@${REDIS_DOMAIN}:${REDIS_PORT}/0"
+export CAAS_CELERY_BROKER_URL="${CAAS_CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:-$modular_mongo_password}@${REDIS_DOMAIN}:${REDIS_PORT}/0}"
 
 log() { echo "[INFO] $(date) $1" >&2; }
 

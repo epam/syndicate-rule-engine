@@ -32,14 +32,12 @@ services:
       MODULAR_SERVICE_VAULT_TOKEN: "${CAAS_VAULT_TOKEN:-token}"
       MODULAR_SERVICE_MONGO_URI: "mongodb://${CAAS_MONGO_USERNAME:-mongouser}:${CAAS_MONGO_PASSWORD:-mongopassword}@mongo:27017/"
       MODULAR_SERVICE_MONGO_DATABASE: "${CAAS_MONGO_DATABASE:-custodian_as_a_service}"
-      modular_service_mode: docker
-      modular_mongo_db_name: "${CAAS_MONGO_DATABASE:-custodian_as_a_service}"
-      modular_mongo_user: "${CAAS_MONGO_USERNAME:-mongouser}"
-      modular_mongo_password: "${CAAS_MONGO_PASSWORD:-mongopassword}"
-      modular_mongo_url: mongo:27017
-      VAULT_TOKEN: "${CAAS_VAULT_TOKEN:-token}"
-      VAULT_URL: vault
-      VAULT_SERVICE_SERVICE_PORT: 8200
+      MODULAR_SDK_SERVICE_MODE: docker
+      MODULAR_SDK_MONGO_DB_NAME: "${CAAS_MONGO_DATABASE:-syndicate-rule-engine}"
+      MODULAR_SDK_MONGO_URI: "mongodb://${CAAS_MONGO_USERNAME:-mongouser}:${CAAS_MONGO_PASSWORD:-mongopassword}@mongo:27017/"
+      MODULAR_SDK_VAULT_TOKEN: "${CAAS_VAULT_TOKEN:-token}"
+      MODULAR_SDK_VAULT_URL: "http://vault:8200"
+      MODULAR_SDK_APPLICATION_NAME: syndicate-rule-engine
     depends_on:
       mongo:
         condition: service_healthy
@@ -50,8 +48,88 @@ services:
       - modular-service
     networks:
       - rule-engine-net
+  rule-engine-celeryworker:
+    image: public.ecr.aws/x4s4z8e1/syndicate/rule-engine:5.7.0
+    container_name: rule-engine-celeryworker
+    restart: always
+    entrypoint: ["/src/entrypoint.sh", "celeryworker"]
+#    volumes:
+#      - rule-engine-data:/data
+    depends_on:
+      mongo:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      vault:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      SRE_SYSTEM_USER_PASSWORD: "${CAAS_SYSTEM_USER_PASSWORD:-systempassword}"
+      SRE_SERVICE_MODE: docker
+      SRE_INNER_CACHE_TTL_SECONDS: 300
+      SRE_MINIO_ENDPOINT: http://minio:9000
+      SRE_MINIO_ACCESS_KEY_ID: "${CAAS_MINIO_ACCESS_KEY_ID:-miniouser}"
+      SRE_MINIO_SECRET_ACCESS_KEY: "${CAAS_MINIO_SECRET_ACCESS_KEY:-miniopassword}"
+      SRE_VAULT_ENDPOINT: http://vault:8200
+      SRE_VAULT_TOKEN: "${CAAS_VAULT_TOKEN:-token}"
+      SRE_MONGO_URI: "mongodb://${CAAS_MONGO_USERNAME:-mongouser}:${CAAS_MONGO_PASSWORD:-mongopassword}@mongo:27017/"
+      SRE_MONGO_DATABASE: "${CAAS_MONGO_DATABASE:-syndicate-rule-engine}"
+      MODULAR_SDK_SERVICE_MODE: docker
+      MODULAR_SDK_MONGO_DB_NAME: "${CAAS_MONGO_DATABASE:-syndicate-rule-engine}"
+      MODULAR_SDK_MONGO_URI: "mongodb://${CAAS_MONGO_USERNAME:-mongouser}:${CAAS_MONGO_PASSWORD:-mongopassword}@mongo:27017/"
+      MODULAR_SDK_VAULT_TOKEN: "${CAAS_VAULT_TOKEN:-token}"
+      MODULAR_SDK_VAULT_URL: "http://vault:8200"
+      MODULAR_SDK_APPLICATION_NAME: syndicate-rule-engine
+      REDIS_PASSWORD: redispassword
+      REDIS_DOMAIN: redis
+      REDIS_PORT: "6379"
+    profiles:
+      - rule-engine
+    networks:
+      - rule-engine-net
+  rule-engine-celerybeat:
+    image: public.ecr.aws/x4s4z8e1/syndicate/rule-engine:5.7.0
+    container_name: rule-engine-celerybeat
+    restart: always
+    entrypoint: ["/src/entrypoint.sh", "celeryworker"]
+#    volumes:
+#      - rule-engine-data:/data
+    depends_on:
+      mongo:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      vault:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      SRE_SYSTEM_USER_PASSWORD: "${CAAS_SYSTEM_USER_PASSWORD:-systempassword}"
+      SRE_SERVICE_MODE: docker
+      SRE_INNER_CACHE_TTL_SECONDS: 300
+      SRE_MINIO_ENDPOINT: http://minio:9000
+      SRE_MINIO_ACCESS_KEY_ID: "${CAAS_MINIO_ACCESS_KEY_ID:-miniouser}"
+      SRE_MINIO_SECRET_ACCESS_KEY: "${CAAS_MINIO_SECRET_ACCESS_KEY:-miniopassword}"
+      SRE_VAULT_ENDPOINT: http://vault:8200
+      SRE_VAULT_TOKEN: "${CAAS_VAULT_TOKEN:-token}"
+      SRE_MONGO_URI: "mongodb://${CAAS_MONGO_USERNAME:-mongouser}:${CAAS_MONGO_PASSWORD:-mongopassword}@mongo:27017/"
+      SRE_MONGO_DATABASE: "${CAAS_MONGO_DATABASE:-syndicate-rule-engine}"
+      MODULAR_SDK_SERVICE_MODE: docker
+      MODULAR_SDK_MONGO_DB_NAME: "${CAAS_MONGO_DATABASE:-syndicate-rule-engine}"
+      MODULAR_SDK_MONGO_URI: "mongodb://${CAAS_MONGO_USERNAME:-mongouser}:${CAAS_MONGO_PASSWORD:-mongopassword}@mongo:27017/"
+      MODULAR_SDK_VAULT_TOKEN: "${CAAS_VAULT_TOKEN:-token}"
+      MODULAR_SDK_VAULT_URL: "http://vault:8200"
+      MODULAR_SDK_APPLICATION_NAME: syndicate-rule-engine
+      REDIS_PASSWORD: redispassword
+      REDIS_DOMAIN: redis
+      REDIS_PORT: "6379"
+    profiles:
+      - rule-engine
+    networks:
+      - rule-engine-net
   rule-engine:
-    image: public.ecr.aws/x4s4z8e1/syndicate/rule-engine:5.4.0
+    image: public.ecr.aws/x4s4z8e1/syndicate/rule-engine:5.7.0
     container_name: rule-engine
     ports:
       - "8000:8000"
@@ -63,26 +141,28 @@ services:
         condition: service_healthy
       vault:
         condition: service_healthy
+      redis:
+        condition: service_started
     environment:
-      CAAS_SYSTEM_USER_PASSWORD: "${CAAS_SYSTEM_USER_PASSWORD:-systempassword}"
-      CAAS_SERVICE_MODE: docker
-      CAAS_TESTING: false
-      CAAS_INNER_CACHE_TTL_SECONDS: 300
-      CAAS_MINIO_ENDPOINT: http://minio:9000
-      CAAS_MINIO_ACCESS_KEY_ID: "${CAAS_MINIO_ACCESS_KEY_ID:-miniouser}"
-      CAAS_MINIO_SECRET_ACCESS_KEY: "${CAAS_MINIO_SECRET_ACCESS_KEY:-miniopassword}"
-      CAAS_VAULT_ENDPOINT: http://vault:8200
-      CAAS_VAULT_TOKEN: "${CAAS_VAULT_TOKEN:-token}"
-      CAAS_MONGO_URI: "mongodb://${CAAS_MONGO_USERNAME:-mongouser}:${CAAS_MONGO_PASSWORD:-mongopassword}@mongo:27017/"
-      CAAS_MONGO_DATABASE: "${CAAS_MONGO_DATABASE:-custodian_as_a_service}"
-      modular_service_mode: docker
-      modular_mongo_db_name: "${CAAS_MONGO_DATABASE:-custodian_as_a_service}"
-      modular_mongo_user: "${CAAS_MONGO_USERNAME:-mongouser}"
-      modular_mongo_password: "${CAAS_MONGO_PASSWORD:-mongopassword}"
-      modular_mongo_url: mongo:27017
-      VAULT_TOKEN: "${CAAS_VAULT_TOKEN:-token}"
-      VAULT_URL: vault
-      VAULT_SERVICE_SERVICE_PORT: 8200
+      SRE_SYSTEM_USER_PASSWORD: "${CAAS_SYSTEM_USER_PASSWORD:-systempassword}"
+      SRE_SERVICE_MODE: docker
+      SRE_INNER_CACHE_TTL_SECONDS: 300
+      SRE_MINIO_ENDPOINT: http://minio:9000
+      SRE_MINIO_ACCESS_KEY_ID: "${CAAS_MINIO_ACCESS_KEY_ID:-miniouser}"
+      SRE_MINIO_SECRET_ACCESS_KEY: "${CAAS_MINIO_SECRET_ACCESS_KEY:-miniopassword}"
+      SRE_VAULT_ENDPOINT: http://vault:8200
+      SRE_VAULT_TOKEN: "${CAAS_VAULT_TOKEN:-token}"
+      SRE_MONGO_URI: "mongodb://${CAAS_MONGO_USERNAME:-mongouser}:${CAAS_MONGO_PASSWORD:-mongopassword}@mongo:27017/"
+      SRE_MONGO_DATABASE: "${CAAS_MONGO_DATABASE:-syndicate-rule-engine}"
+      MODULAR_SDK_SERVICE_MODE: docker
+      MODULAR_SDK_MONGO_DB_NAME: "${CAAS_MONGO_DATABASE:-syndicate-rule-engine}"
+      MODULAR_SDK_MONGO_URI: "mongodb://${CAAS_MONGO_USERNAME:-mongouser}:${CAAS_MONGO_PASSWORD:-mongopassword}@mongo:27017/"
+      MODULAR_SDK_VAULT_TOKEN: "${CAAS_VAULT_TOKEN:-token}"
+      MODULAR_SDK_VAULT_URL: "http://vault:8200"
+      MODULAR_SDK_APPLICATION_NAME: syndicate-rule-engine
+      REDIS_PASSWORD: redispassword
+      REDIS_DOMAIN: redis
+      REDIS_PORT: "6379"
     profiles:
       - rule-engine
     networks:
@@ -170,6 +250,7 @@ volumes:
   mongo-data:
   minio-data:
   redis-data:
+#  rule-engine-data:
 configs:
   vault_config:
     content: |

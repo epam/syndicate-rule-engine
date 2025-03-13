@@ -140,7 +140,7 @@ from c7n.provider import clouds
 from c7n.resources import load_resources
 from google.auth.exceptions import GoogleAuthError
 from googleapiclient.errors import HttpError
-from modular_sdk.commons.constants import ENV_KUBECONFIG, ParentType
+from modular_sdk.commons.constants import ENV_KUBECONFIG, ParentType, ENV_GOOGLE_APPLICATION_CREDENTIALS
 from modular_sdk.models.parent import Parent
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.environment_service import EnvironmentContext
@@ -1526,17 +1526,21 @@ def standard_job(job: Job, tenant: Tenant, work_dir: Path):
         keep=set(job.rules_to_scan),
         exclude=get_rules_to_exclude(tenant),
     )
-    with tempfile.NamedTemporaryFile(delete=False) as file:
-        file.write(msgspec.json.encode(policies))
+    with tempfile.NamedTemporaryFile(delete=False) as policies_file:
+        policies_file.write(msgspec.json.encode(policies))
     failed = {}
     with EnvironmentContext(credentials, reset_all=False):
         for region in [GLOBAL_REGION, ] + sorted(BSP.env.target_regions()):
             with multiprocessing.Pool(1) as pool:
                 res = pool.apply(
                     process_job_concurrent,
-                    (file.name, work_dir, cloud, region)
+                    (policies_file.name, work_dir, cloud, region)
                 )
                 failed.update(res)
+
+    Path(policies_file.name).unlink(missing_ok=True)
+    if cloud is Cloud.GOOGLE and (filename := credentials.get(ENV_GOOGLE_APPLICATION_CREDENTIALS)):
+        Path(filename).unlink(missing_ok=True)
 
     result = JobResult(work_dir, cloud)
     if platform:
