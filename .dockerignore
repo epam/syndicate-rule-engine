@@ -15,6 +15,7 @@ dist
 build
 **/*.egg-info
 .idea
+.venv
 .vscode
 
 
