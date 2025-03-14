@@ -462,8 +462,6 @@ class EventAssemblerHandler:
                 self._environment_service.get_rulesets_bucket_name(),
             BatchJobEnv.AWS_REGION.value:
                 self._environment_service.aws_region(),
-            CAASEnv.BATCH_JOB_LIFETIME_MINUTES.value:
-                self._environment_service.get_job_lifetime_min(),
             BatchJobEnv.JOB_TYPE.value: BatchJobType.EVENT_DRIVEN.value,
             'LOG_LEVEL': self._environment_service.batch_job_log_level(),
             BatchJobEnv.SYSTEM_CUSTOMER_NAME.value: SystemCustomer.get_name(),

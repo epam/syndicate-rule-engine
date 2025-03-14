@@ -142,11 +142,11 @@ spec:
             {{- if .Values.allowSimultaneousJobsForOneTenant }}
             - name: CAAS_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT
               value: 'true'
-            {{- end  }}
+            {{- end }}
             {{- if .Values.recommendationsBucket }}
             - name: CAAS_RECOMMENDATIONS_BUCKET_NAME
               value: {{ .Values.recommendationsBucket }}
-            {{- end}}
+            {{- end }}
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -159,4 +159,10 @@ spec:
               value: "{{ .Values.redisPort }}"
             - name: CAAS_CELERY_LOG_LEVEL
               value: {{ .Values.celery.logLevel }}
+            - name: SRE_CC_LOG_LEVEL
+              value: {{ .Values.executorCCLogLevel }}
+            {{- if .Values.executorLogsFilename }}
+            - name: SRE_EXECUTOR_LOGS_FILENAME
+              value: {{ .Values.executorLogsFilename }}
+            {{- end }}
       restartPolicy: Always
