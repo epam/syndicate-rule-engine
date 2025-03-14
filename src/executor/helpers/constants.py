@@ -66,6 +66,7 @@ class ExecutorError(str, Enum):
 
     LM_DID_NOT_ALLOW = 'License manager did not allow this job'  # exit code 2
     NO_CREDENTIALS = 'Could not resolve any credentials'
+    TIMEOUT = 'Task timeout exceeded'
     INTERNAL = 'Internal executor error'
 
     def with_reason(self, why: str | None = None) -> str:

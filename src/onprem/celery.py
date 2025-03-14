@@ -60,7 +60,7 @@ app.conf.worker_send_task_event = False
 app.conf.task_ignore_result = True  # custom results logic
 app.conf.broker_transport_options = {
     "queue_order_strategy": "sorted",
-    "visibility_timeout": 3600 * 4
+    "visibility_timeout": 3600 * 4 + 300  # more than hard task limit because we cannot afford to deliver one task twice
 }
 
 # app.conf.task_annotations = {

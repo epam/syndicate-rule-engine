@@ -209,6 +209,7 @@ from services.udm_generator import (
     ShardCollectionUDMEntitiesConvertor,
     ShardCollectionUDMEventsConvertor,
 )
+from celery.exceptions import SoftTimeLimitExceeded
 
 _LOG = get_logger(__name__)
 
@@ -216,25 +217,6 @@ _LOG = get_logger(__name__)
 class ExecutorException(Exception):
     def __init__(self, error: ExecutorError):
         self.error = error
-
-
-# def get_time_left() -> float:
-#     _LOG.debug('Retrieving job time threshold')
-#     if BSP.environment_service.is_docker():
-#         _LOG.debug('On prem job - using current timestamp as start time')
-#         started_at = utc_datetime().timestamp() * 1e3
-#     else:
-#         _LOG.debug('Saas - using AWS Batch startedAt attribute')
-#         job = SP.batch.get_job(BSP.environment_service.batch_job_id())
-#         started_at = job.get('startedAt') or utc_datetime().timestamp() * 1e3
-#
-#     threshold = datetime.timestamp(
-#         datetime.fromtimestamp(started_at / 1e3) + timedelta(
-#             minutes=BSP.environment_service.job_lifetime_min())
-#     )
-#     _LOG.debug(f'Threshold: {threshold}, {datetime.fromtimestamp(threshold)}')
-#     return threshold
-#
 
 
 class PoliciesLoader:
@@ -536,12 +518,10 @@ class Runner(ABC):
         self,
         policies: list[Policy],
         failed: dict | None = None,
-        time_threshold: int | None = None,
     ):
         self._policies = policies
 
         self._failed = failed or {}
-        self._time_threshold = time_threshold
 
         self._is_ongoing = False
         self._error_type: PolicyErrorType = PolicyErrorType.SKIPPED  # default
@@ -578,21 +558,6 @@ class Runner(ABC):
         self._is_ongoing = False
 
     def _call_policy(self, policy: Policy):
-        # TODO: Celery maybe has its thresholds
-        if (
-            self._time_threshold is not None
-            and self._time_threshold <= utc_datetime().timestamp()
-        ):
-            if self._is_ongoing:
-                _LOG.warning(
-                    'Job time threshold has been exceeded. '
-                    'All the consequent rules will be skipped.'
-                )
-            self._is_ongoing = False
-            self._error_type = PolicyErrorType.SKIPPED
-            self._message = (
-                'Job time exceeded the maximum possible execution time'
-            )
         if not self._is_ongoing:
             self._add_failed(
                 region=PoliciesLoader.get_policy_region(policy),
@@ -1298,6 +1263,10 @@ def multi_account_event_driven_job() -> int:
             _LOG.exception(f'Executor exception {e.error} occurred')
             actions.append(BatchResults.status.set(JobState.FAILED.value))
             actions.append(BatchResults.reason.set(traceback.format_exc()))
+        except SoftTimeLimitExceeded:
+            _LOG.error('Job is terminated because of soft timeout')
+            actions.append(BatchResults.status.set(JobState.FAILED.value))
+            actions.append(BatchResults.reason.set(ExecutorError.TIMEOUT.with_reason()))
         except Exception:
             _LOG.exception('Unexpected exception occurred')
             actions.append(BatchResults.status.set(JobState.FAILED.value))
@@ -1386,18 +1355,24 @@ def single_account_standard_job() -> int:
                 code = 2
             case _:
                 code = 1
+    except SoftTimeLimitExceeded:
+        _LOG.error('Job is terminated because of soft timeout')
+        updater = JobUpdater.from_job_id(job.id)
+        updater.status = JobState.FAILED
+        updater.stopped_at = utc_iso()
+        updater.reason = ExecutorError.TIMEOUT.with_reason()
+        code = 1
     except Exception:
         _LOG.exception('Unexpected error occurred')
         updater = JobUpdater.from_job_id(job.id)
         updater.status = JobState.FAILED
         updater.stopped_at = utc_iso()
-        updater.reason = ExecutorError.INTERNAL
+        updater.reason = ExecutorError.INTERNAL.with_reason()
         code = 1
     finally:
         Path(CACHE_FILE).unlink(missing_ok=True)
         TenantSettingJobLock(tenant_name).release(job.id)
         temp_dir.cleanup()
-
     updater.update()
 
     if BSP.env.is_docker() and BSP.env.is_licensed_job():
