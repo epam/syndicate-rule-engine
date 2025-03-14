@@ -116,10 +116,8 @@ https://github.com/celery/celery/issues/4525
 https://stackoverflow.com/questions/54858326/python-multiprocessing-billiard-vs-multiprocessing
 https://github.com/celery/billiard/issues/282
 """
-import io
-# import multiprocessing
-import billiard as multiprocessing  # allows to execute child processes from a daemon process
 
+import io
 import operator
 import os
 import sys
@@ -131,6 +129,8 @@ from itertools import chain
 from pathlib import Path
 from typing import Generator, cast
 
+# import multiprocessing
+import billiard as multiprocessing  # allows to execute child processes from a daemon process
 import msgspec.json
 from botocore.exceptions import ClientError
 from c7n.config import Config
@@ -140,7 +140,12 @@ from c7n.provider import clouds
 from c7n.resources import load_resources
 from google.auth.exceptions import GoogleAuthError
 from googleapiclient.errors import HttpError
-from modular_sdk.commons.constants import ENV_KUBECONFIG, ParentType, ENV_GOOGLE_APPLICATION_CREDENTIALS
+from modular_sdk.commons.constants import (
+    ENV_AZURE_CLIENT_CERTIFICATE_PATH,
+    ENV_GOOGLE_APPLICATION_CREDENTIALS,
+    ENV_KUBECONFIG,
+    ParentType,
+)
 from modular_sdk.models.parent import Parent
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.environment_service import EnvironmentContext
@@ -330,7 +335,8 @@ class PoliciesLoader:
             debug=False,
             skip_validation=False,
             vars=None,
-            log_group='null'
+            log_group='null',
+            tracer='default',
         )
 
     @staticmethod
@@ -585,7 +591,7 @@ class Runner(ABC):
             self._is_ongoing = False
             self._error_type = PolicyErrorType.SKIPPED
             self._message = (
-                'Job time exceeded the maximum ' 'possible execution time'
+                'Job time exceeded the maximum possible execution time'
             )
         if not self._is_ongoing:
             self._add_failed(
@@ -644,7 +650,7 @@ class AWSRunner(Runner):
 
             if error_code in ACCESS_DENIED_ERROR_CODE.get(self.cloud):
                 _LOG.warning(
-                    f"Policy '{name}' is skipped. " f"Reason: '{error_reason}'"
+                    f"Policy '{name}' is skipped. Reason: '{error_reason}'"
                 )
                 self._add_failed(
                     region=region,
@@ -1022,11 +1028,7 @@ def get_credentials(
         match tenant.cloud:
             case Cloud.AWS:
                 try:
-                    aid = (
-                        StsClient
-                        .build()
-                        .get_caller_identity()['Account']
-                    )
+                    aid = StsClient.build().get_caller_identity()['Account']
                     _LOG.debug('Instance profile found')
                     if aid == tenant.project:
                         _LOG.info(
@@ -1087,9 +1089,7 @@ def get_platform_credentials(platform: Platform) -> dict:
         )  # noqa
 
     if kubeconfig and token:
-        _LOG.debug(
-            'Kubeconfig and custom token are provided. ' 'Combining both'
-        )
+        _LOG.debug('Kubeconfig and custom token are provided. Combining both')
         config = Kubeconfig(kubeconfig)
         session = str(int(time.time()))
         user = f'user-{session}'
@@ -1108,8 +1108,7 @@ def get_platform_credentials(platform: Platform) -> dict:
         _LOG.warning('No kubeconfig provided and platform is not EKS')
         raise ExecutorException(ExecutorError.NO_CREDENTIALS)
     _LOG.debug(
-        'Kubeconfig and token are not provided. '
-        'Using management creds for EKS'
+        'Kubeconfig and token are not provided. Using management creds for EKS'
     )
     tenant = SP.modular_client.tenant_service().get(platform.tenant_name)
     parent = SP.modular_client.parent_service().get_linked_parent_by_tenant(
@@ -1132,7 +1131,7 @@ def get_platform_credentials(platform: Platform) -> dict:
     )
     if not creds:
         _LOG.warning(
-            f'No credentials in ' f'application: {application.application_id}'
+            f'No credentials in application: {application.application_id}'
         )
         raise ExecutorException(ExecutorError.NO_CREDENTIALS)
     cl = EKSClient.build()
@@ -1415,10 +1414,7 @@ def single_account_standard_job() -> int:
 
 
 def process_job_concurrent(
-    filename: str,
-    work_dir: Path,
-    cloud: Cloud,
-    region: str,
+    filename: str, work_dir: Path, cloud: Cloud, region: str
 ):
     """
     Cloud Custodian keeps consuming RAM for some reason. After 9th-10th region
@@ -1530,16 +1526,23 @@ def standard_job(job: Job, tenant: Tenant, work_dir: Path):
         policies_file.write(msgspec.json.encode(policies))
     failed = {}
     with EnvironmentContext(credentials, reset_all=False):
-        for region in [GLOBAL_REGION, ] + sorted(BSP.env.target_regions()):
+        for region in [GLOBAL_REGION] + sorted(BSP.env.target_regions()):
             with multiprocessing.Pool(1) as pool:
                 res = pool.apply(
                     process_job_concurrent,
-                    (policies_file.name, work_dir, cloud, region)
+                    (policies_file.name, work_dir, cloud, region),
                 )
                 failed.update(res)
 
+    _LOG.info(f'Removing temp files: {policies_file.name} and credentials')
     Path(policies_file.name).unlink(missing_ok=True)
-    if cloud is Cloud.GOOGLE and (filename := credentials.get(ENV_GOOGLE_APPLICATION_CREDENTIALS)):
+    if cloud is Cloud.GOOGLE and (
+        filename := credentials.get(ENV_GOOGLE_APPLICATION_CREDENTIALS)
+    ):
+        Path(filename).unlink(missing_ok=True)
+    if cloud is Cloud.AZURE and (
+        filename := credentials.get(ENV_AZURE_CLIENT_CERTIFICATE_PATH)
+    ):
         Path(filename).unlink(missing_ok=True)
 
     result = JobResult(work_dir, cloud)

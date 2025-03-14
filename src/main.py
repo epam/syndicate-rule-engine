@@ -239,14 +239,14 @@ class InitVault(ActionHandler):
 
     def __call__(self):
         ssm = SP.ssm
-        if ssm.enable_secrets_engine():
-            _LOG.info('Vault engine was enabled')
+        if not ssm.is_secrets_engine_enabled():
+            _LOG.info('Enabling vault secrets engine')
+            ssm.enable_secrets_engine()
         else:
-            _LOG.info('Vault engine has been already enabled')
+            _LOG.info('Secrets engine is already enabled in vault')
         if ssm.get_secret_value(PRIVATE_KEY_SECRET_NAME):
             _LOG.info('Token inside Vault already exists. Skipping...')
             return
-
         ssm.create_secret(
             secret_name=PRIVATE_KEY_SECRET_NAME,
             secret_value=self.generate_private_key(),
