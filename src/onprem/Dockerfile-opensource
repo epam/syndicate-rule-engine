@@ -1,8 +1,8 @@
 FROM public.ecr.aws/docker/library/python:3.10 as compile-image
 
 ARG CUSTODIAN_SERVICE_PATH=.
-ARG CLOUD_CUSTODIAN_PACKAGE="c7n~=0.9.43"
-ARG CLOUD_CUSTODIAN_PROVIDERS="c7n-gcp~=0.4.42 c7n-azure~=0.7.42 c7n-kube~=0.2.42"
+ARG CLOUD_CUSTODIAN_PACKAGE="c7n==0.9.43"
+ARG CLOUD_CUSTODIAN_PROVIDERS="c7n-gcp==0.4.42 c7n-azure==0.7.42 c7n-kube==0.2.42"
 
 RUN python3 -m venv /venv
 

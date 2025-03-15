@@ -8,15 +8,10 @@ import secrets
 import string
 import sys
 from abc import ABC, abstractmethod
-from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Literal
 
 from bottle import Bottle
-from dateutil.relativedelta import SU, relativedelta
-from dotenv import load_dotenv
-
-load_dotenv(verbose=True)  # noqa
 
 from modular_sdk.models.pynamongo.indexes_creator import IndexesCreator
 
@@ -239,14 +234,14 @@ class InitVault(ActionHandler):
 
     def __call__(self):
         ssm = SP.ssm
-        if ssm.enable_secrets_engine():
-            _LOG.info('Vault engine was enabled')
+        if not ssm.is_secrets_engine_enabled():
+            _LOG.info('Enabling vault secrets engine')
+            ssm.enable_secrets_engine()
         else:
-            _LOG.info('Vault engine has been already enabled')
+            _LOG.info('Secrets engine is already enabled in vault')
         if ssm.get_secret_value(PRIVATE_KEY_SECRET_NAME):
             _LOG.info('Token inside Vault already exists. Skipping...')
             return
-
         ssm.create_secret(
             secret_name=PRIVATE_KEY_SECRET_NAME,
             secret_value=self.generate_private_key(),
@@ -522,7 +517,7 @@ class InitAction(ActionHandler):
         if not Setting.get_nullable(SettingKey.SYSTEM_CUSTOMER):
             _LOG.info('Setting system customer name')
             Setting(
-                name=CAASEnv.SYSTEM_CUSTOMER_NAME.value, value=DEFAULT_SYSTEM_CUSTOMER
+                name=SettingKey.SYSTEM_CUSTOMER.value, value=DEFAULT_SYSTEM_CUSTOMER
             ).save()
         Setting(name=SettingKey.SEND_REPORTS, value=True).save()
         users_client = SP.users_client

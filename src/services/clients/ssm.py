@@ -121,9 +121,8 @@ class VaultSSMClient(AbstractSSMClient):
             return False  # already exists
 
     def is_secrets_engine_enabled(self, mount_point=None) -> bool:
-        mount_points = self.client.sys.list_mounted_secrets_engines()
-        target_point = mount_point or self.mount_point
-        return f'{target_point}/' in mount_points
+        target_mount_point = mount_point or self.mount_point
+        return f'{target_mount_point}/' in self.client.sys.list_mounted_secrets_engines()['data']
 
 
 class SSMClient(AbstractSSMClient):

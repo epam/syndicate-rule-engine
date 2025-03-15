@@ -425,6 +425,7 @@ class CAASEnv(EnvEnum):
     SERVICE_MODE = 'SRE_SERVICE_MODE', ('CAAS_SERVICE_MODE', )
     SYSTEM_CUSTOMER_NAME = 'SRE_SYSTEM_CUSTOMER_NAME', ('SYSTEM_CUSTOMER_NAME',), DEFAULT_SYSTEM_CUSTOMER
     LOG_LEVEL = 'SRE_LOG_LEVEL', ('CAAS_LOG_LEVEL', ), 'INFO'
+    EXECUTOR_LOGS_FILENAME = 'SRE_EXECUTOR_LOGS_FILENAME', ()
 
     # inner envs (they are set automatically when request comes)
     # TODO: remove them and use some ctx object as place for this data
@@ -514,6 +515,9 @@ class CAASEnv(EnvEnum):
     # Celery
     CELERY_BROKER_URL = 'SRE_CELERY_BROKER_URL', ('CAAS_CELERY_BROKER_URL', )
 
+    # Cloud Custodian
+    CC_LOG_LEVEL = 'SRE_CC_LOG_LEVEL', (), 'INFO'
+
     @classmethod
     def is_docker(cls) -> bool:
         return cls.SERVICE_MODE.get() == 'docker'
@@ -527,7 +531,6 @@ class BatchJobEnv(EnvEnum):
 
     # common
     AWS_REGION = 'AWS_REGION', 'us-east-1'
-    BATCH_JOB_LIFETIME_MINUTES = 'SRE_BATCH_JOB_LIFETIME_MINUTES', ('CAAS_BATCH_JOB_LIFETIME_MINUTES', ), '120'
     SYSTEM_CUSTOMER_NAME = 'SRE_SYSTEM_CUSTOMER_NAME', ('SYSTEM_CUSTOMER_NAME', ), DEFAULT_SYSTEM_CUSTOMER
 
     # specific to executor

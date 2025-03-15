@@ -103,4 +103,10 @@ env:
     value: "{{ .Values.redisPort }}"
   - name: CAAS_CELERY_LOG_LEVEL
     value: {{ .Values.celery.logLevel }}
+  - name: SRE_CC_LOG_LEVEL
+    value: {{ .Values.executorCCLogLevel }}
+  {{- if .Values.executorLogsFilename }}
+  - name: SRE_EXECUTOR_LOGS_FILENAME
+    value: {{ .Values.executorLogsFilename }}
+{{- end }}
 {{- end -}}

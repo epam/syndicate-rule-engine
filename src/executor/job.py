@@ -116,10 +116,8 @@ https://github.com/celery/celery/issues/4525
 https://stackoverflow.com/questions/54858326/python-multiprocessing-billiard-vs-multiprocessing
 https://github.com/celery/billiard/issues/282
 """
-import io
-# import multiprocessing
-import billiard as multiprocessing  # allows to execute child processes from a daemon process
 
+import io
 import operator
 import os
 import sys
@@ -131,6 +129,8 @@ from itertools import chain
 from pathlib import Path
 from typing import Generator, cast
 
+# import multiprocessing
+import billiard as multiprocessing  # allows to execute child processes from a daemon process
 import msgspec.json
 from botocore.exceptions import ClientError
 from c7n.config import Config
@@ -140,7 +140,12 @@ from c7n.provider import clouds
 from c7n.resources import load_resources
 from google.auth.exceptions import GoogleAuthError
 from googleapiclient.errors import HttpError
-from modular_sdk.commons.constants import ENV_KUBECONFIG, ParentType
+from modular_sdk.commons.constants import (
+    ENV_AZURE_CLIENT_CERTIFICATE_PATH,
+    ENV_GOOGLE_APPLICATION_CREDENTIALS,
+    ENV_KUBECONFIG,
+    ParentType,
+)
 from modular_sdk.models.parent import Parent
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.environment_service import EnvironmentContext
@@ -204,6 +209,7 @@ from services.udm_generator import (
     ShardCollectionUDMEntitiesConvertor,
     ShardCollectionUDMEventsConvertor,
 )
+from celery.exceptions import SoftTimeLimitExceeded
 
 _LOG = get_logger(__name__)
 
@@ -211,25 +217,6 @@ _LOG = get_logger(__name__)
 class ExecutorException(Exception):
     def __init__(self, error: ExecutorError):
         self.error = error
-
-
-# def get_time_left() -> float:
-#     _LOG.debug('Retrieving job time threshold')
-#     if BSP.environment_service.is_docker():
-#         _LOG.debug('On prem job - using current timestamp as start time')
-#         started_at = utc_datetime().timestamp() * 1e3
-#     else:
-#         _LOG.debug('Saas - using AWS Batch startedAt attribute')
-#         job = SP.batch.get_job(BSP.environment_service.batch_job_id())
-#         started_at = job.get('startedAt') or utc_datetime().timestamp() * 1e3
-#
-#     threshold = datetime.timestamp(
-#         datetime.fromtimestamp(started_at / 1e3) + timedelta(
-#             minutes=BSP.environment_service.job_lifetime_min())
-#     )
-#     _LOG.debug(f'Threshold: {threshold}, {datetime.fromtimestamp(threshold)}')
-#     return threshold
-#
 
 
 class PoliciesLoader:
@@ -330,7 +317,8 @@ class PoliciesLoader:
             debug=False,
             skip_validation=False,
             vars=None,
-            log_group='null'
+            log_group='null',
+            tracer='default',
         )
 
     @staticmethod
@@ -530,12 +518,10 @@ class Runner(ABC):
         self,
         policies: list[Policy],
         failed: dict | None = None,
-        time_threshold: int | None = None,
     ):
         self._policies = policies
 
         self._failed = failed or {}
-        self._time_threshold = time_threshold
 
         self._is_ongoing = False
         self._error_type: PolicyErrorType = PolicyErrorType.SKIPPED  # default
@@ -572,21 +558,6 @@ class Runner(ABC):
         self._is_ongoing = False
 
     def _call_policy(self, policy: Policy):
-        # TODO: Celery maybe has its thresholds
-        if (
-            self._time_threshold is not None
-            and self._time_threshold <= utc_datetime().timestamp()
-        ):
-            if self._is_ongoing:
-                _LOG.warning(
-                    'Job time threshold has been exceeded. '
-                    'All the consequent rules will be skipped.'
-                )
-            self._is_ongoing = False
-            self._error_type = PolicyErrorType.SKIPPED
-            self._message = (
-                'Job time exceeded the maximum ' 'possible execution time'
-            )
         if not self._is_ongoing:
             self._add_failed(
                 region=PoliciesLoader.get_policy_region(policy),
@@ -644,7 +615,7 @@ class AWSRunner(Runner):
 
             if error_code in ACCESS_DENIED_ERROR_CODE.get(self.cloud):
                 _LOG.warning(
-                    f"Policy '{name}' is skipped. " f"Reason: '{error_reason}'"
+                    f"Policy '{name}' is skipped. Reason: '{error_reason}'"
                 )
                 self._add_failed(
                     region=region,
@@ -1022,11 +993,7 @@ def get_credentials(
         match tenant.cloud:
             case Cloud.AWS:
                 try:
-                    aid = (
-                        StsClient
-                        .build()
-                        .get_caller_identity()['Account']
-                    )
+                    aid = StsClient.build().get_caller_identity()['Account']
                     _LOG.debug('Instance profile found')
                     if aid == tenant.project:
                         _LOG.info(
@@ -1087,9 +1054,7 @@ def get_platform_credentials(platform: Platform) -> dict:
         )  # noqa
 
     if kubeconfig and token:
-        _LOG.debug(
-            'Kubeconfig and custom token are provided. ' 'Combining both'
-        )
+        _LOG.debug('Kubeconfig and custom token are provided. Combining both')
         config = Kubeconfig(kubeconfig)
         session = str(int(time.time()))
         user = f'user-{session}'
@@ -1108,8 +1073,7 @@ def get_platform_credentials(platform: Platform) -> dict:
         _LOG.warning('No kubeconfig provided and platform is not EKS')
         raise ExecutorException(ExecutorError.NO_CREDENTIALS)
     _LOG.debug(
-        'Kubeconfig and token are not provided. '
-        'Using management creds for EKS'
+        'Kubeconfig and token are not provided. Using management creds for EKS'
     )
     tenant = SP.modular_client.tenant_service().get(platform.tenant_name)
     parent = SP.modular_client.parent_service().get_linked_parent_by_tenant(
@@ -1132,7 +1096,7 @@ def get_platform_credentials(platform: Platform) -> dict:
     )
     if not creds:
         _LOG.warning(
-            f'No credentials in ' f'application: {application.application_id}'
+            f'No credentials in application: {application.application_id}'
         )
         raise ExecutorException(ExecutorError.NO_CREDENTIALS)
     cl = EKSClient.build()
@@ -1299,6 +1263,10 @@ def multi_account_event_driven_job() -> int:
             _LOG.exception(f'Executor exception {e.error} occurred')
             actions.append(BatchResults.status.set(JobState.FAILED.value))
             actions.append(BatchResults.reason.set(traceback.format_exc()))
+        except SoftTimeLimitExceeded:
+            _LOG.error('Job is terminated because of soft timeout')
+            actions.append(BatchResults.status.set(JobState.FAILED.value))
+            actions.append(BatchResults.reason.set(ExecutorError.TIMEOUT.with_reason()))
         except Exception:
             _LOG.exception('Unexpected exception occurred')
             actions.append(BatchResults.status.set(JobState.FAILED.value))
@@ -1387,18 +1355,24 @@ def single_account_standard_job() -> int:
                 code = 2
             case _:
                 code = 1
+    except SoftTimeLimitExceeded:
+        _LOG.error('Job is terminated because of soft timeout')
+        updater = JobUpdater.from_job_id(job.id)
+        updater.status = JobState.FAILED
+        updater.stopped_at = utc_iso()
+        updater.reason = ExecutorError.TIMEOUT.with_reason()
+        code = 1
     except Exception:
         _LOG.exception('Unexpected error occurred')
         updater = JobUpdater.from_job_id(job.id)
         updater.status = JobState.FAILED
         updater.stopped_at = utc_iso()
-        updater.reason = ExecutorError.INTERNAL
+        updater.reason = ExecutorError.INTERNAL.with_reason()
         code = 1
     finally:
         Path(CACHE_FILE).unlink(missing_ok=True)
         TenantSettingJobLock(tenant_name).release(job.id)
         temp_dir.cleanup()
-
     updater.update()
 
     if BSP.env.is_docker() and BSP.env.is_licensed_job():
@@ -1415,10 +1389,7 @@ def single_account_standard_job() -> int:
 
 
 def process_job_concurrent(
-    filename: str,
-    work_dir: Path,
-    cloud: Cloud,
-    region: str,
+    filename: str, work_dir: Path, cloud: Cloud, region: str
 ):
     """
     Cloud Custodian keeps consuming RAM for some reason. After 9th-10th region
@@ -1526,17 +1497,28 @@ def standard_job(job: Job, tenant: Tenant, work_dir: Path):
         keep=set(job.rules_to_scan),
         exclude=get_rules_to_exclude(tenant),
     )
-    with tempfile.NamedTemporaryFile(delete=False) as file:
-        file.write(msgspec.json.encode(policies))
+    with tempfile.NamedTemporaryFile(delete=False) as policies_file:
+        policies_file.write(msgspec.json.encode(policies))
     failed = {}
     with EnvironmentContext(credentials, reset_all=False):
-        for region in [GLOBAL_REGION, ] + sorted(BSP.env.target_regions()):
+        for region in [GLOBAL_REGION] + sorted(BSP.env.target_regions()):
             with multiprocessing.Pool(1) as pool:
                 res = pool.apply(
                     process_job_concurrent,
-                    (file.name, work_dir, cloud, region)
+                    (policies_file.name, work_dir, cloud, region),
                 )
                 failed.update(res)
+
+    _LOG.info(f'Removing temp files: {policies_file.name} and credentials')
+    Path(policies_file.name).unlink(missing_ok=True)
+    if cloud is Cloud.GOOGLE and (
+        filename := credentials.get(ENV_GOOGLE_APPLICATION_CREDENTIALS)
+    ):
+        Path(filename).unlink(missing_ok=True)
+    if cloud is Cloud.AZURE and (
+        filename := credentials.get(ENV_AZURE_CLIENT_CERTIFICATE_PATH)
+    ):
+        Path(filename).unlink(missing_ok=True)
 
     result = JobResult(work_dir, cloud)
     if platform:

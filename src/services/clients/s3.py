@@ -406,11 +406,11 @@ class S3Client(Boto3ClientWrapper):
             for prefix in item.get('CommonPrefixes') or []:
                 yield prefix.get('Prefix')
 
-    def create_bucket(self, bucket: str, region: str):
-        self.client.create_bucket(
-            Bucket=bucket,
-            CreateBucketConfiguration={'LocationConstraint': region},
-        )
+    def create_bucket(self, bucket: str, region: str | None = None):
+        params = dict(Bucket=bucket)
+        if region:
+            params.update(CreateBucketConfiguration={'LocationConstraint': region})
+        self.client.create_bucket(**params)
 
     def bucket_exists(self, bucket: str) -> bool:
         try:

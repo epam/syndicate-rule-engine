@@ -1,13 +1,12 @@
 from abc import ABC, abstractmethod
 from functools import cached_property
-from typing import Type
 
 import requests
 from botocore.exceptions import ClientError
 from modular_sdk.commons.constants import ApplicationType
 from modular_sdk.modular import Modular
 from modular_sdk.services.impl.maestro_credentials_service import AccessMeta
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field
 
 from helpers.constants import (
     CUSTOMER_ATTR,
