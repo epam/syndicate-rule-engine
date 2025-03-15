@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - added OPERATIONAL_DEPRECATIONS report
 - added tests for all reports
 - removed python-dotenv
+- added soft limit for job tasks
 
 ## [5.6.0] - 2024-11-05
 - refactor metrics collector
