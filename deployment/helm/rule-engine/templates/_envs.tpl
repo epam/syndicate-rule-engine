@@ -37,38 +37,38 @@ env:
       secretKeyRef:
         name: vault-secret
         key: token
-  - name: CAAS_SERVICE_MODE
+  - name: SRE_SERVICE_MODE
     value: docker
-  - name: CAAS_MONGO_URI
+  - name: SRE_MONGO_URI
   {{- if .Values.mongoUri }}
     value: "{{ .Values.mongoUri }}"
   {{- else }}
     value: "mongodb://$(MODULAR_SDK_MONGO_USER):$(MODULAR_SDK_MONGO_PASSWORD)@{{ .Values.mongoService }}:{{ .Values.mongoPort }}/"
   {{- end }}
-  - name: CAAS_MONGO_DATABASE
+  - name: SRE_MONGO_DB_NAME
     value: "{{ .Values.databaseName }}"
-  - name: CAAS_VAULT_ENDPOINT
+  - name: SRE_VAULT_ENDPOINT
     value: "http://{{ .Values.vaultService }}:{{ .Values.vaultPort }}"
-  - name: CAAS_VAULT_TOKEN
+  - name: SRE_VAULT_TOKEN
     valueFrom:
       secretKeyRef:
         name: vault-secret
         key: token
-  - name: CAAS_MINIO_ENDPOINT
+  - name: SRE_MINIO_ENDPOINT
     value: "http://{{ .Values.minioService }}:{{ .Values.minioPort }}"
-  - name: CAAS_MINIO_ACCESS_KEY_ID
+  - name: SRE_MINIO_ACCESS_KEY_ID
     valueFrom:
       secretKeyRef:
         name: minio-secret
         key: username
-  - name: CAAS_MINIO_SECRET_ACCESS_KEY
+  - name: SRE_MINIO_SECRET_ACCESS_KEY
     valueFrom:
       secretKeyRef:
         name: minio-secret
         key: password
-  - name: CAAS_INNER_CACHE_TTL_SECONDS
+  - name: SRE_INNER_CACHE_TTL_SECONDS
     value: {{ .Values.innerCacheTTLSeconds | quote }}
-  - name: CAAS_SYSTEM_USER_PASSWORD
+  - name: SRE_SYSTEM_USER_PASSWORD
     valueFrom:
       secretKeyRef:
         name: rule-engine-secret
@@ -79,16 +79,16 @@ env:
     value: {{ .Values.httpProxy }}
   - name: NO_PROXY
     value: {{ .Values.noProxy }}
-  - name: CAAS_LOG_LEVEL
+  - name: SRE_LOG_LEVEL
     value: {{ .Values.logLevel }}
-  - name: CAAS_BATCH_JOB_LOG_LEVEL
+  - name: SRE_BATCH_JOB_LOG_LEVEL
     value: {{ .Values.executorLogLevel }}
   {{- if .Values.allowSimultaneousJobsForOneTenant }}
-  - name: CAAS_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT
+  - name: SRE_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT
     value: 'true'
   {{- end  }}
   {{- if .Values.recommendationsBucket }}
-  - name: CAAS_RECOMMENDATIONS_BUCKET_NAME
+  - name: SRE_RECOMMENDATIONS_BUCKET_NAME
     value: {{ .Values.recommendationsBucket }}
   {{- end}}
   - name: REDIS_PASSWORD
@@ -101,7 +101,7 @@ env:
     value: {{ .Values.redisService }}
   - name: REDIS_PORT
     value: "{{ .Values.redisPort }}"
-  - name: CAAS_CELERY_LOG_LEVEL
+  - name: SRE_CELERY_LOG_LEVEL
     value: {{ .Values.celery.logLevel }}
   - name: SRE_CC_LOG_LEVEL
     value: {{ .Values.executorCCLogLevel }}
