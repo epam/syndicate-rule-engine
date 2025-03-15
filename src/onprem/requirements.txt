@@ -15,7 +15,6 @@ gunicorn~=20.1.0
 APScheduler~=3.10.4
 pydantic~=2.8.2
 cachetools~=5.4.0
-python-dotenv~=1.0.1
 openpyxl==3.0.10
 cryptography~=42.0.8
 modular-sdk @ git+https://github.com/epam/modular-sdk@7f520ca23ed0397529fde2a96b4f756750ddb815

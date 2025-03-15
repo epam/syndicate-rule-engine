@@ -8,15 +8,10 @@ import secrets
 import string
 import sys
 from abc import ABC, abstractmethod
-from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Literal
 
 from bottle import Bottle
-from dateutil.relativedelta import SU, relativedelta
-from dotenv import load_dotenv
-
-load_dotenv(verbose=True)  # noqa
 
 from modular_sdk.models.pynamongo.indexes_creator import IndexesCreator
 

@@ -31,7 +31,7 @@ services:
       MODULAR_SERVICE_VAULT_ENDPOINT: http://vault:8200
       MODULAR_SERVICE_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
       MODULAR_SERVICE_MONGO_URI: "${MODULAR_SERVICE_MONGO_URI:-mongodb://mongouser:mongopassword@mongo:27017/}"
-      MODULAR_SERVICE_MONGO_DATABASE: "${SRE_MONGO_DATABASE:-syndicate-rule-engine}"
+      MODULAR_SERVICE_MONGO_DATABASE: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
       MODULAR_SDK_SERVICE_MODE: docker
       MODULAR_SDK_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
       MODULAR_SDK_MONGO_URI: "${MODULAR_SDK_MONGO_URI:-mongodb://mongouser:$mongopassword@mongo:27017/}"

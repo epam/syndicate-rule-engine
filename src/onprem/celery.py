@@ -1,11 +1,8 @@
 from celery import Celery
 from celery.schedules import crontab
-from dotenv import load_dotenv
 
 from helpers.constants import CAASEnv
 from kombu import Queue
-
-load_dotenv(verbose=True)
 
 redis = CAASEnv.CELERY_BROKER_URL.get()
 
