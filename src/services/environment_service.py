@@ -92,9 +92,6 @@ class EnvironmentService:
         """
         return CAASEnv.USER_POOL_ID.get()
 
-    def get_job_lifetime_min(self) -> str:
-        return CAASEnv.BATCH_JOB_LIFETIME_MINUTES.get()
-
     def get_statistics_bucket_name(self) -> str:
         return CAASEnv.STATISTICS_BUCKET_NAME.get()
 

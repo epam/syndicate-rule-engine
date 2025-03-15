@@ -7,12 +7,18 @@ from xlsxwriter import Workbook
 from xlsxwriter.worksheet import Worksheet
 
 from handlers import AbstractHandler, Mapping
-from helpers.constants import CustodianEndpoint, HTTPMethod, ReportFormat
-from helpers.lambda_response import build_response, ResponseFactory
-from services import SP
-from services import modular_helpers
+from helpers.constants import (
+    GLOBAL_REGION,
+    Cloud,
+    CustodianEndpoint,
+    HTTPMethod,
+    ReportFormat,
+)
+from helpers.lambda_response import build_response
+from services import SP, modular_helpers
 from services.ambiguous_job_service import AmbiguousJobService
 from services.environment_service import EnvironmentService
+from services.license_service import LicenseService
 from services.report_service import ReportResponse, ReportService
 from services.xlsx_writer import CellContent, Table, XlsxRowsWriter
 from validators.swagger_request_models import (
@@ -27,9 +33,11 @@ class ComplianceReportXlsxWriter:
         self._coverages = coverages
 
     def write(self, wsh: Worksheet, wb: Workbook):
-        standards = sorted(set(chain.from_iterable(
-            v.keys() for v in self._coverages.values()
-        )))
+        standards = sorted(
+            set(
+                chain.from_iterable(v.keys() for v in self._coverages.values())
+            )
+        )
         bold = wb.add_format({'bold': True})
         percent = wb.add_format({'num_format': '0.00%'})
         table = Table()
@@ -47,14 +55,19 @@ class ComplianceReportXlsxWriter:
 
 
 class ComplianceReportHandler(AbstractHandler):
-    def __init__(self, tenant_service: TenantService,
-                 environment_service: EnvironmentService,
-                 ambiguous_job_service: AmbiguousJobService,
-                 report_service: ReportService):
+    def __init__(
+        self,
+        tenant_service: TenantService,
+        environment_service: EnvironmentService,
+        ambiguous_job_service: AmbiguousJobService,
+        report_service: ReportService,
+        license_service: LicenseService,
+    ):
         self._tenant_service = tenant_service
         self._environment_service = environment_service
         self._ambiguous_job_service = ambiguous_job_service
         self._report_service = report_service
+        self._license_service = license_service
 
     @classmethod
     def build(cls) -> 'AbstractHandler':
@@ -62,7 +75,8 @@ class ComplianceReportHandler(AbstractHandler):
             tenant_service=SP.modular_client.tenant_service(),
             environment_service=SP.environment_service,
             ambiguous_job_service=SP.ambiguous_job_service,
-            report_service=SP.report_service
+            report_service=SP.report_service,
+            license_service=SP.license_service,
         )
 
     @property
@@ -73,52 +87,77 @@ class ComplianceReportHandler(AbstractHandler):
             },
             CustodianEndpoint.REPORTS_COMPLIANCE_TENANTS_TENANT_NAME: {
                 HTTPMethod.GET: self.get_by_tenant
-            }
+            },
         }
 
     @validate_kwargs
     def get_by_job(self, event: JobComplianceReportGetModel, job_id: str):
-        raise ResponseFactory(HTTPStatus.NOT_IMPLEMENTED).default().exc()
         job = self._ambiguous_job_service.get_job(
-            job_id=job_id,
-            typ=event.job_type,
-            customer=event.customer
+            job_id=job_id, typ=event.job_type, customer=event.customer
         )
         if not job:
             return build_response(
-                content='The request job not found',
-                code=HTTPStatus.NOT_FOUND
+                content='The request job not found', code=HTTPStatus.NOT_FOUND
             )
         tenant = self._tenant_service.get(job.tenant_name)
+        tenant = modular_helpers.assert_tenant_valid(tenant, event.customer)
         if not tenant:
             return build_response(
-                code=HTTPStatus.NOT_FOUND,
-                content='Job tenant not found'
+                code=HTTPStatus.NOT_FOUND, content='Job tenant not found'
             )
-        # TODO api implement for platform
+        cloud = modular_helpers.tenant_cloud(tenant)
+        if not cloud:
+            return build_response(
+                content=f'Not allowed cloud: {cloud.value}',
+                code=HTTPStatus.BAD_REQUEST,
+            )
+        # TODO: implement for platform
         if not job.is_ed_job:
             collection = self._report_service.job_collection(tenant, job.job)
         else:
-            collection = self._report_service.ed_job_collection(tenant,
-                                                                job.job)
+            collection = self._report_service.ed_job_collection(
+                tenant, job.job
+            )
         collection.fetch_all()
-        coverages = self._coverage_service.coverage_from_collection(
-            collection, modular_helpers.tenant_cloud(tenant)
+
+        if cloud is Cloud.AWS:
+            mapping = self._report_service.group_parts_iterator_by_location(
+                self._report_service.iter_successful_parts(collection)
+            )
+        else:
+            mapping = {
+                GLOBAL_REGION: list(
+                    self._report_service.iter_successful_parts(collection)
+                )
+            }
+        region_coverages = {}
+        metadata = self._license_service.get_customer_metadata(
+            tenant.customer_name
         )
-        response = ReportResponse(job, coverages, fmt=event.format)
+        for location, parts in mapping.items():
+            coverages = self._report_service.calculate_coverages(
+                successful=self._report_service.get_standard_to_controls_to_rules(
+                    it=parts, metadata=metadata
+                ),
+                full=metadata.domain(tenant.cloud).full_cov,
+            )
+            region_coverages[location] = {
+                st.full_name: cov for st, cov in coverages.items()
+            }
+
+        response = ReportResponse(job, region_coverages, fmt=event.format)
         match event.format:
             case ReportFormat.JSON:
                 if event.href:
                     url = self._report_service.one_time_url_json(
-                        coverages, f'{tenant.name}-compliance.json'
+                        region_coverages, f'{job.id}-compliance.json'
                     )
                     response.content = url
             case ReportFormat.XLSX:
                 buffer = io.BytesIO()
                 with Workbook(buffer) as wb:
-                    ComplianceReportXlsxWriter(coverages).write(
-                        wb=wb,
-                        wsh=wb.add_worksheet('Compliance')
+                    ComplianceReportXlsxWriter(region_coverages).write(
+                        wb=wb, wsh=wb.add_worksheet('Compliance')
                     )
                 buffer.seek(0)
                 url = self._report_service.one_time_url(
@@ -128,36 +167,58 @@ class ComplianceReportHandler(AbstractHandler):
         return build_response(content=response.dict())
 
     @validate_kwargs
-    def get_by_tenant(self, event: TenantComplianceReportGetModel, 
-                      tenant_name: str):
-        raise ResponseFactory(HTTPStatus.NOT_IMPLEMENTED).default().exc()
+    def get_by_tenant(
+        self, event: TenantComplianceReportGetModel, tenant_name: str
+    ):
         tenant = self._tenant_service.get(tenant_name)
-        modular_helpers.assert_tenant_valid(tenant, event.customer)
+        tenant = modular_helpers.assert_tenant_valid(tenant, event.customer)
         cloud = modular_helpers.tenant_cloud(tenant)
         if not cloud:
             return build_response(
                 content=f'Not allowed cloud: {cloud.value}',
-                code=HTTPStatus.BAD_REQUEST
+                code=HTTPStatus.BAD_REQUEST,
             )
         collection = self._report_service.tenant_latest_collection(tenant)
         collection.fetch_all()
-        coverages = self._coverage_service.coverage_from_collection(
-            collection, cloud
+
+        if cloud is Cloud.AWS:
+            mapping = self._report_service.group_parts_iterator_by_location(
+                self._report_service.iter_successful_parts(collection)
+            )
+        else:
+            mapping = {
+                GLOBAL_REGION: list(
+                    self._report_service.iter_successful_parts(collection)
+                )
+            }
+        region_coverages = {}
+        metadata = self._license_service.get_customer_metadata(
+            tenant.customer_name
         )
-        response = ReportResponse(tenant, coverages, fmt=event.format)
+        for location, parts in mapping.items():
+            coverages = self._report_service.calculate_coverages(
+                successful=self._report_service.get_standard_to_controls_to_rules(
+                    it=parts, metadata=metadata
+                ),
+                full=metadata.domain(tenant.cloud).full_cov,
+            )
+            region_coverages[location] = {
+                st.full_name: cov for st, cov in coverages.items()
+            }
+
+        response = ReportResponse(tenant, region_coverages, fmt=event.format)
         match event.format:
             case ReportFormat.JSON:
                 if event.href:
                     url = self._report_service.one_time_url_json(
-                        coverages, f'{tenant_name}-compliance.json'
+                        region_coverages, f'{tenant_name}-compliance.json'
                     )
                     response.content = url
             case ReportFormat.XLSX:
                 buffer = io.BytesIO()
                 with Workbook(buffer) as wb:
-                    ComplianceReportXlsxWriter(coverages).write(
-                        wb=wb,
-                        wsh=wb.add_worksheet('Compliance')
+                    ComplianceReportXlsxWriter(region_coverages).write(
+                        wb=wb, wsh=wb.add_worksheet('Compliance')
                     )
                 buffer.seek(0)
                 url = self._report_service.one_time_url(

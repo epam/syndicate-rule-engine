@@ -3,7 +3,7 @@
 **/__pycache__
 **/.tmp
 **/*.md
-**/.env
+.env
 
 .pytest_cache
 .coverage
@@ -15,6 +15,7 @@ dist
 build
 **/*.egg-info
 .idea
+.venv
 .vscode
 
 

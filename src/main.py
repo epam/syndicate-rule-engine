@@ -8,15 +8,10 @@ import secrets
 import string
 import sys
 from abc import ABC, abstractmethod
-from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Literal
 
 from bottle import Bottle
-from dateutil.relativedelta import SU, relativedelta
-from dotenv import load_dotenv
-
-load_dotenv(verbose=True)  # noqa
 
 from modular_sdk.models.pynamongo.indexes_creator import IndexesCreator
 
@@ -31,6 +26,7 @@ from helpers.constants import (
     HTTPMethod,
     Permission,
     SettingKey,
+    DEFAULT_SYSTEM_CUSTOMER
 )
 from onprem.api.deployment_resources_parser import (
     DeploymentResourcesApiGatewayWrapper,
@@ -66,7 +62,6 @@ DEFAULT_NUMBER_OF_WORKERS = (multiprocessing.cpu_count() * 2) + 1
 DEFAULT_API_GATEWAY_NAME = 'custodian-as-a-service-api'
 
 SYSTEM_USER = 'system_user'
-SYSTEM_CUSTOMER = 'CUSTODIAN_SYSTEM'
 
 
 def gen_password(digits: int = 20) -> str:
@@ -239,14 +234,14 @@ class InitVault(ActionHandler):
 
     def __call__(self):
         ssm = SP.ssm
-        if ssm.enable_secrets_engine():
-            _LOG.info('Vault engine was enabled')
+        if not ssm.is_secrets_engine_enabled():
+            _LOG.info('Enabling vault secrets engine')
+            ssm.enable_secrets_engine()
         else:
-            _LOG.info('Vault engine has been already enabled')
+            _LOG.info('Secrets engine is already enabled in vault')
         if ssm.get_secret_value(PRIVATE_KEY_SECRET_NAME):
             _LOG.info('Token inside Vault already exists. Skipping...')
             return
-
         ssm.create_secret(
             secret_name=PRIVATE_KEY_SECRET_NAME,
             secret_value=self.generate_private_key(),
@@ -522,26 +517,7 @@ class InitAction(ActionHandler):
         if not Setting.get_nullable(SettingKey.SYSTEM_CUSTOMER):
             _LOG.info('Setting system customer name')
             Setting(
-                name=CAASEnv.SYSTEM_CUSTOMER_NAME.value, value=SYSTEM_CUSTOMER
-            ).save()
-        if not Setting.get_nullable(
-            SettingKey.REPORT_DATE_MARKER.value
-        ):  # todo redesign
-            _LOG.info('Setting report date marker')
-            Setting(
-                name=SettingKey.REPORT_DATE_MARKER.value,
-                value={
-                    'last_week_date': (
-                        datetime.today() + relativedelta(weekday=SU(-1))
-                    )
-                    .date()
-                    .isoformat(),
-                    'current_week_date': (
-                        datetime.today() + relativedelta(weekday=SU(0))
-                    )
-                    .date()
-                    .isoformat(),
-                },
+                name=SettingKey.SYSTEM_CUSTOMER.value, value=DEFAULT_SYSTEM_CUSTOMER
             ).save()
         Setting(name=SettingKey.SEND_REPORTS, value=True).save()
         users_client = SP.users_client
@@ -555,7 +531,7 @@ class InitAction(ActionHandler):
             users_client.signup_user(
                 username=SYSTEM_USER,
                 password=password,
-                customer=SYSTEM_CUSTOMER,
+                customer=DEFAULT_SYSTEM_CUSTOMER,
             )
             if not from_env:
                 print(f'System ({SYSTEM_USER}) password: {password}')
