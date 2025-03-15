@@ -2,8 +2,10 @@ import copy
 import heapq
 import statistics
 from datetime import datetime
+from functools import cmp_to_key
 from typing import TYPE_CHECKING, Generator, Iterable, Iterator, cast
 
+import msgspec
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.modular import Modular
@@ -16,6 +18,7 @@ from helpers.constants import (
     ReportType,
 )
 from helpers.log_helper import get_logger
+from helpers.reports import SeverityCmp, service_from_resource_type
 from helpers.time_helper import utc_datetime
 from models.metrics import ReportMetrics
 from models.ruleset import Ruleset
@@ -23,7 +26,7 @@ from services import SP, modular_helpers
 from services.ambiguous_job_service import AmbiguousJobService
 from services.coverage_service import MappingAverageCalculator
 from services.license_service import License, LicenseService
-from services.metadata import Metadata
+from services.metadata import Metadata, MitreAttack
 from services.modular_helpers import tenant_cloud
 from services.platform_service import Platform, PlatformService
 from services.report_service import ReportService
@@ -239,6 +242,14 @@ class MetricsCollector:
             Cloud.AWS.value: [],
             Cloud.AZURE.value: [],
             Cloud.GOOGLE.value: [],
+        }
+
+    @staticmethod
+    def base_cloud_payload_dict() -> dict[str, dict]:
+        return {
+            Cloud.AWS.value: {},
+            Cloud.AZURE.value: {},
+            Cloud.GOOGLE.value: {},
         }
 
     @classmethod
@@ -962,9 +973,46 @@ class MetricsCollector:
                     f'{tenant.name} for {end}'
                 )
                 continue
-            data = ShardsCollectionDataSource(
+            mitre_data = []
+            ds = ShardsCollectionDataSource(
                 col, ctx.metadata, tenant_cloud(tenant)
-            ).operational_attacks()
+            )
+            for (
+                region,
+                service,
+                rt,
+                res,
+                attacks,
+            ) in ds.iter_resource_attacks():
+                at = []
+                for attack, rules in attacks.items():
+                    inner = attack.to_dict()
+                    inner['severity'] = sorted(
+                        (ctx.metadata.rule(r).severity.value for r in rules),
+                        key=cmp_to_key(SeverityCmp()),
+                    )[-1]
+                    inner['violations'] = [
+                        {
+                            'description': col.meta[rule]['description'],
+                            'remediation': ctx.metadata.rule(rule).remediation,
+                            'remediation_complexity': ctx.metadata.rule(
+                                rule
+                            ).remediation_complexity.value,
+                            'severity': ctx.metadata.rule(rule).severity.value,
+                        }
+                        for rule in rules
+                    ]
+                    at.append(inner)
+
+                mitre_data.append(
+                    {
+                        'region': region,
+                        'service': service,
+                        'resource_type': service_from_resource_type(rt),
+                        'resource': res,
+                        'attacks': at,
+                    }
+                )
 
             outdated = []
             lsd = js.subset(tenant=tenant.name).last_succeeded_scan_date
@@ -979,7 +1027,7 @@ class MetricsCollector:
                 'activated_regions': sorted(
                     modular_helpers.get_tenant_regions(tenant)
                 ),
-                'data': data,
+                'data': mitre_data,
                 'outdated_tenants': outdated,
             }
             yield (
@@ -1019,6 +1067,43 @@ class MetricsCollector:
             ds = ShardsCollectionDataSource(
                 col, ctx.metadata, Cloud.KUBERNETES
             )
+            mitre_data = []
+            for (
+                region,
+                service,
+                rt,
+                res,
+                attacks,
+            ) in ds.iter_resource_attacks():
+                at = []
+                for attack, rules in attacks.items():
+                    inner = attack.to_dict()
+                    inner['severity'] = sorted(
+                        (ctx.metadata.rule(r).severity.value for r in rules),
+                        key=cmp_to_key(SeverityCmp()),
+                    )[-1]
+                    inner['violations'] = [
+                        {
+                            'description': col.meta[rule]['description'],
+                            'remediation': ctx.metadata.rule(rule).remediation,
+                            'remediation_complexity': ctx.metadata.rule(
+                                rule
+                            ).remediation_complexity.value,
+                            'severity': ctx.metadata.rule(rule).severity.value,
+                        }
+                        for rule in rules
+                    ]
+                    at.append(inner)
+
+                mitre_data.append(
+                    {
+                        'region': region,
+                        'service': service,
+                        'resource_type': service_from_resource_type(rt),
+                        'resource': res,
+                        'attacks': at,
+                    }
+                )
 
             coverages = self._rs.calculate_coverages(
                 successful=self._rs.get_standard_to_controls_to_rules(
@@ -1045,7 +1130,7 @@ class MetricsCollector:
                 'compliance': {
                     st.full_name: cov for st, cov in coverages.items()
                 },
-                'mitre': ds.operational_k8s_attacks(),
+                'mitre': mitre_data,
                 'outdated_tenants': outdated,
             }
 
@@ -1141,7 +1226,7 @@ class MetricsCollector:
                 _LOG.warning(
                     'Something is wrong: one project contains more than one tenant per cloud'
                 )
-            data = self.base_clouds_payload()
+            data = self.base_cloud_payload_dict()
             outdated_tenants = set()
             tenants = set()
             for item in reports:
@@ -1149,25 +1234,23 @@ class MetricsCollector:
                 tenants.add(tenant.name)
                 outdated_tenants.update(item[1]['outdated_tenants'])
 
-                data.setdefault(tenant_cloud(tenant).value, []).append(
-                    {
-                        'account_id': item[1]['id'],
-                        'tenant_name': tenant.name,
-                        'last_scan_date': item[1]['last_scan_date'],
-                        'activated_regions': item[1]['activated_regions'],
-                        'total_scans': item[1]['total_scans'],
-                        'failed_scans': item[1]['failed_scans'],
-                        'succeeded_scans': item[1]['succeeded_scans'],
-                        'resources_violated': item[1]['resources_violated'],
-                        'regions_data': {
-                            r: {
-                                'severity_data': d['severity'],
-                                'resource_types_data': d['resource_types'],
-                            }
-                            for r, d in item[1]['regions_data'].items()
-                        },
-                    }
-                )
+                data[tenant_cloud(tenant).value] = {
+                    'account_id': item[1]['id'],
+                    'tenant_name': tenant.name,
+                    'last_scan_date': item[1]['last_scan_date'],
+                    'activated_regions': item[1]['activated_regions'],
+                    'total_scans': item[1]['total_scans'],
+                    'failed_scans': item[1]['failed_scans'],
+                    'succeeded_scans': item[1]['succeeded_scans'],
+                    'resources_violated': item[1]['resources_violated'],
+                    'regions_data': {
+                        r: {
+                            'severity_data': d['severity'],
+                            'resource_types_data': d['resource_types'],
+                        }
+                        for r, d in item[1]['regions_data'].items()
+                    },
+                }
 
             yield (
                 self._rms.create(
@@ -1203,7 +1286,7 @@ class MetricsCollector:
             ).append(item)
 
         for dn, reports in dn_to_reports.items():
-            data = self.base_clouds_payload()
+            data = self.base_cloud_payload_dict()
             outdated_tenants = set()
             tenants = set()
             for item in reports:
@@ -1211,15 +1294,13 @@ class MetricsCollector:
                 tenants.add(tenant.name)
                 outdated_tenants.update(item[1]['outdated_tenants'])
 
-                data.setdefault(tenant_cloud(tenant).value, []).append(
-                    {
-                        'account_id': item[1]['id'],
-                        'tenant_name': tenant.name,
-                        'last_scan_date': item[1]['last_scan_date'],
-                        'activated_regions': item[1]['activated_regions'],
-                        'data': item[1]['data'],
-                    }
-                )
+                data[tenant_cloud(tenant).value] = {
+                    'account_id': item[1]['id'],
+                    'tenant_name': tenant.name,
+                    'last_scan_date': item[1]['last_scan_date'],
+                    'activated_regions': item[1]['activated_regions'],
+                    'data': item[1]['data'],
+                }
 
             yield (
                 self._rms.create(
@@ -1255,7 +1336,7 @@ class MetricsCollector:
             ).append(item)
 
         for dn, reports in dn_to_reports.items():
-            data = self.base_clouds_payload()
+            data = self.base_cloud_payload_dict()
             outdated_tenants = set()
             tenants = set()
             for item in reports:
@@ -1278,15 +1359,13 @@ class MetricsCollector:
                         }
                     )
 
-                data.setdefault(tenant_cloud(tenant).value, []).append(
-                    {
-                        'account_id': item[1]['id'],
-                        'tenant_name': tenant.name,
-                        'last_scan_date': item[1]['last_scan_date'],
-                        'activated_regions': item[1]['activated_regions'],
-                        'data': policies_data,
-                    }
-                )
+                data[tenant_cloud(tenant).value] = {
+                    'account_id': item[1]['id'],
+                    'tenant_name': tenant.name,
+                    'last_scan_date': item[1]['last_scan_date'],
+                    'activated_regions': item[1]['activated_regions'],
+                    'data': policies_data,
+                }
 
             yield (
                 self._rms.create(
@@ -1322,7 +1401,7 @@ class MetricsCollector:
             ).append(item)
 
         for dn, reports in dn_to_reports.items():
-            data = self.base_clouds_payload()
+            data = self.base_cloud_payload_dict()
             outdated_tenants = set()
             tenants = set()
             for item in reports:
@@ -1330,28 +1409,27 @@ class MetricsCollector:
                 tenants.add(tenant.name)
                 outdated_tenants.update(item[1]['outdated_tenants'])
 
-                mitre_data = copy.deepcopy(item[1].get('data', []))
-                for mitre in mitre_data:
-                    for technique in mitre.get('techniques_data', []):
-                        for region_data in technique.get(
-                            'regions_data', {}
-                        ).values():
-                            severity_data = {}
-                            for r in region_data.pop('resources', {}):
-                                severity_data.setdefault(r['severity'], 0)
-                                severity_data[r['severity']] += 1
+                new_mitre_data = {}
+                for res in item[1].get('data', ()):
+                    for attack in res['attacks']:
+                        inner = new_mitre_data.setdefault(
+                            msgspec.convert(attack, type=MitreAttack), {}
+                        )
+                        inner.setdefault(res['region'], {}).setdefault(
+                            attack['severity'], 0
+                        )
+                        inner[res['region']][attack['severity']] += 1
 
-                            region_data['severity_data'] = severity_data
-
-                data.setdefault(tenant_cloud(tenant).value, []).append(
-                    {
-                        'account_id': item[1]['id'],
-                        'tenant_name': tenant.name,
-                        'last_scan_date': item[1]['last_scan_date'],
-                        'activated_regions': item[1]['activated_regions'],
-                        'mitre_data': mitre_data,
-                    }
-                )
+                data[tenant_cloud(tenant).value] = {
+                    'account_id': item[1]['id'],
+                    'tenant_name': tenant.name,
+                    'last_scan_date': item[1]['last_scan_date'],
+                    'activated_regions': item[1]['activated_regions'],
+                    'attacks': [
+                        {**attack.to_dict(), 'regions': regions_data}
+                        for attack, regions_data in new_mitre_data.items()
+                    ],
+                }
 
             yield (
                 self._rms.create(
@@ -1387,7 +1465,7 @@ class MetricsCollector:
             ).append(item)
 
         for dn, reports in dn_to_reports.items():
-            data = self.base_clouds_payload()
+            data = self.base_cloud_payload_dict()
             outdated_tenants = set()
             tenants = set()
             for item in reports:
@@ -1410,15 +1488,13 @@ class MetricsCollector:
                         {'service_section': ss, 'rules_data': rules_data}
                     )
 
-                data.setdefault(tenant_cloud(tenant).value, []).append(
-                    {
-                        'account_id': item[1]['id'],
-                        'tenant_name': tenant.name,
-                        'last_scan_date': item[1]['last_scan_date'],
-                        'activated_regions': item[1]['activated_regions'],
-                        'service_data': service_data,
-                    }
-                )
+                data[tenant_cloud(tenant).value] = {
+                    'account_id': item[1]['id'],
+                    'tenant_name': tenant.name,
+                    'last_scan_date': item[1]['last_scan_date'],
+                    'activated_regions': item[1]['activated_regions'],
+                    'service_data': service_data,
+                }
 
             yield (
                 self._rms.create(

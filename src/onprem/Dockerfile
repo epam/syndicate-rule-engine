@@ -60,9 +60,9 @@ COPY --from=compile-image /build/src/ /src/
 
 
 ENV AWS_REGION=us-east-1 \
-    CAAS_SERVICE_MODE=docker \
+    SRE_SERVICE_MODE=docker \
     PATH=/root/.local/bin:$PATH \
-    modular_service_mode=docker
+    MODULAR_SDK_SERVICE_MODE=docker
 
 WORKDIR /src
 EXPOSE 8000

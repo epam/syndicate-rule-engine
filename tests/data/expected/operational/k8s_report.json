@@ -4,8 +4,8 @@
   ],
   "report_type": "KUBERNETES",
   "customer": "TEST_CUSTOMER",
-  "from": "2025-01-09T15:14:49.817757Z",
-  "to": "2025-01-16T15:14:49.817757Z",
+  "from": "2025-02-26T12:49:35.522765Z",
+  "to": "2025-03-05T12:49:35.522765Z",
   "outdated_tenants": [],
   "externalData": false,
   "data": {
@@ -43,61 +43,79 @@
         "severity": "Info",
         "resources": [
           {
-            "id": "67d19da5-f0fe-4083-bf7e-7584127cb5a3",
-            "name": "frontend-app-7dfc594f8f-ch966",
-            "namespace": "team3-frontend-app-develop"
-          },
-          {
             "id": "ae55fb56-619a-49af-b282-8e63cdee6b24",
             "name": "test-pod-123l2hxk",
             "namespace": "acf0f67f"
+          },
+          {
+            "id": "67d19da5-f0fe-4083-bf7e-7584127cb5a3",
+            "name": "frontend-app-7dfc594f8f-ch966",
+            "namespace": "team3-frontend-app-develop"
           }
         ]
       }
     ],
     "mitre_data": [
       {
-        "tactic_id": "TA0009",
-        "tactic": "Collection",
-        "techniques_data": [
+        "region": "global",
+        "service": "Service Account",
+        "resource_type": "Service Account",
+        "resource": {
+          "id": "337c51cd-35f0-4f47-b27e-55e61ab14921",
+          "name": "test-opertor-77hwxcq",
+          "namespace": "09c64sffas"
+        },
+        "attacks": [
           {
+            "tactic_name": "Collection",
+            "tactic_id": "TA0009",
+            "technique_name": "testing0",
             "technique_id": "T0",
-            "resources": [
+            "sub_technique_name": "sub0",
+            "sub_technique_id": "T0.0",
+            "severity": "High",
+            "violations": [
               {
-                "resource": {
-                  "id": "337c51cd-35f0-4f47-b27e-55e61ab14921",
-                  "name": "test-opertor-77hwxcq",
-                  "namespace": "09c64sffas"
-                },
-                "resource_type": "Service Account",
-                "rule": "Description for ecc-k8s-058-sa_tokens_are_only_mounted_where_necessary",
-                "severity": "High",
-                "sub_techniques": [
-                  "sub0",
-                  "sub1"
-                ]
+                "description": "Description for ecc-k8s-058-sa_tokens_are_only_mounted_where_necessary",
+                "remediation": "",
+                "remediation_complexity": "Unknown",
+                "severity": "High"
               }
-            ],
-            "technique": "testing0"
+            ]
           },
           {
-            "technique_id": "T1",
-            "resources": [
+            "tactic_name": "Collection",
+            "tactic_id": "TA0009",
+            "technique_name": "testing0",
+            "technique_id": "T0",
+            "sub_technique_name": "sub1",
+            "sub_technique_id": "T0.1",
+            "severity": "High",
+            "violations": [
               {
-                "resource": {
-                  "id": "337c51cd-35f0-4f47-b27e-55e61ab14921",
-                  "name": "test-opertor-77hwxcq",
-                  "namespace": "09c64sffas"
-                },
-                "resource_type": "Service Account",
-                "rule": "Description for ecc-k8s-058-sa_tokens_are_only_mounted_where_necessary",
-                "severity": "High",
-                "sub_techniques": [
-                  "sub0"
-                ]
+                "description": "Description for ecc-k8s-058-sa_tokens_are_only_mounted_where_necessary",
+                "remediation": "",
+                "remediation_complexity": "Unknown",
+                "severity": "High"
               }
-            ],
-            "technique": "testing1"
+            ]
+          },
+          {
+            "tactic_name": "Collection",
+            "tactic_id": "TA0009",
+            "technique_name": "testing1",
+            "technique_id": "T1",
+            "sub_technique_name": "sub0",
+            "sub_technique_id": "T1.0",
+            "severity": "High",
+            "violations": [
+              {
+                "description": "Description for ecc-k8s-058-sa_tokens_are_only_mounted_where_necessary",
+                "remediation": "",
+                "remediation_complexity": "Unknown",
+                "severity": "High"
+              }
+            ]
           }
         ]
       }
@@ -114,7 +132,7 @@
     ]
   },
   "tenant_name": "AWS-TESTING",
-  "last_scan_date": "2025-01-16T00:08:14.766892Z",
+  "last_scan_date": "2025-03-05T00:41:34.367561Z",
   "cluster_id": "platform_id",
   "cloud": "AWS",
   "region": "eu-west-1"

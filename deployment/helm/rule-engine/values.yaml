@@ -1,5 +1,5 @@
 databaseName: custodian_as_a_service
-modularDatabaseName: custodian_as_a_service
+mongoUri:
 innerCacheTTLSeconds: '300'
 
 service:
@@ -9,7 +9,7 @@ service:
 
 image:
   repository: public.ecr.aws/x4s4z8e1/syndicate/rule-engine
-  tag: 5.7.0
+  tag: 5.8.0
   pullPolicy: Always
 
 replicas: 1
@@ -45,9 +45,13 @@ redis:
 modular-service:
   enabled: true
   fullnameOverride: modular-service
+  databaseName: custodian_as_a_service
+  modularSdk:
+    databaseName: custodian_as_a_service
 modular-api:
   enabled: true
   fullnameOverride: modular-api
+  disableRateLimiter: "true"
   image:
     tag: 4.2.0-rule-engine
 
@@ -64,13 +68,16 @@ modularSdk:
   serviceMode: docker
   awsRegion:
   assumeRoleArn:
+  mongoUri:
+  databaseName: custodian_as_a_service
+  logLevel: WARNING
+
 
 httpProxy: ''
 httpsProxy: ''
 noProxy: 'localhost,127.0.0.1,169.254.169.254,mongo,vault,minio,defectdojo'
 
 logLevel: INFO
-modularSDKLogLevel: WARNING
 executorLogLevel: INFO
 executorCCLogLevel: INFO
 executorLogsFilename:
