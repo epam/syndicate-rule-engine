@@ -41,9 +41,9 @@ spec:
           image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
           resources:
             limits:
-              memory: "900Mi"
+              memory: "1.5Gi"
             requests:
-              memory: "400Mi"
+              memory: "0.5Gi"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             runAsNonRoot: true

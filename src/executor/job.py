@@ -128,6 +128,8 @@ from abc import ABC, abstractmethod
 from itertools import chain
 from pathlib import Path
 from typing import Generator, cast
+from executor.helpers.patch_cc import patch_cc
+patch_cc()
 
 # import multiprocessing
 import billiard as multiprocessing  # allows to execute child processes from a daemon process
