@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 from functools import cached_property, cmp_to_key
 from itertools import chain
-from typing import Generator, Iterable, Iterator, Literal, cast, Callable, Any
+from typing import Any, Callable, Generator, Iterable, Iterator, Literal, cast
 
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
@@ -13,7 +13,6 @@ from helpers.constants import (
     COMPOUND_KEYS_SEPARATOR,
     GLOBAL_REGION,
     REPORT_FIELDS,
-    TACTICS_ID_MAPPING,
     Cloud,
     JobState,
     ReportType,
@@ -31,7 +30,7 @@ from services.ambiguous_job_service import AmbiguousJob
 from services.base_data_service import BaseDataService
 from services.clients.s3 import S3Client, S3Url
 from services.environment_service import EnvironmentService
-from services.metadata import Metadata
+from services.metadata import Metadata, MitreAttack
 from services.platform_service import Platform
 from services.report_service import ReportService
 from services.reports_bucket import ReportMetricsBucketKeysBuilder
@@ -45,9 +44,13 @@ class CustomAttribute(str, Enum):
     SERVICE = 'sre:service'
 
     @classmethod
-    def pop_custom(cls, dct: dict) -> None:
+    def pop_custom(cls, dct: dict) -> dict:
+        """
+        Returns the same instance for convenience
+        """
         for attr in cls:
             dct.pop(attr.value, None)
+        return dct
 
 
 class JobMetricsDataSource:
@@ -598,147 +601,57 @@ class ShardsCollectionDataSource:
                 'resources': inverted[rule],
             }
 
-    def operational_attacks(self) -> list:
-        # TODO: refactor this format and it that generates it.
-        #  This code just generates mitre report the way it was generated
-
+    def iter_resource_attacks(
+        self,
+    ) -> Generator[
+        tuple[str, str, str, dict, dict[MitreAttack, list[str]]], None, None
+    ]:
+        """
+        Yields a unique attack, a target resource and rules that can cause
+        such an attack:
+        region, service, resource_type, resource, dict[MitreAttack, list[str]]
+        """
         inverted = {}
         for region in self._resources:
             for rule, resources in self._resources[region].items():
                 # we won't encounter the same region for one rule twice
                 inverted.setdefault(rule, {})[region] = resources
 
-        pre_result = {}
-
+        unique_resource_to_attack_rules = {}
         for rule in inverted:
-            meta = self._meta.rule(rule)
-            if not meta.mitre:
-                _LOG.warning(f'Mitre metadata not found for {rule}. Skipping')
+            s = self._meta.rule(rule).service
+            rt = adjust_resource_type(self._col.meta[rule]['resource'])
+            rule_attacks = tuple(self._meta.rule(rule).iter_mitre_attacks())
+            if not rule_attacks:
+                _LOG.warning(f'No attacks found for rule: {rule}')
                 continue
-            severity = meta.severity
-            resource_type = service_from_resource_type(
-                self._col.meta[rule]['resource']
-            )
-            description = self._col.meta[rule].get('description', '')
+            for region, resources in inverted[rule].items():
+                for res in resources:
+                    _, attacks = unique_resource_to_attack_rules.setdefault(
+                        (
+                            region,
+                            s,
+                            rt,
+                            res['id'],
+                        ),  # key to uniquely identify a resource
+                        (res, {}),
+                    )
+                    for attack in rule_attacks:
+                        attacks.setdefault(attack, []).append(rule)
+        for (region, s, rt, _id), (
+            res,
+            attacks,
+        ) in unique_resource_to_attack_rules.items():
+            yield region, s, rt, CustomAttribute.pop_custom(res), attacks
 
-            for region, res in inverted[rule].items():
-                for tactic, data in meta.mitre.items():
-                    for technique in data:
-                        technique_name = technique.get('tn_name')
-                        technique_id = technique.get('tn_id')
-                        sub_techniques = [
-                            st['st_name'] for st in technique.get('st', [])
-                        ]
-                        resources_data = [
-                            {
-                                'resource': r,
-                                'resource_type': resource_type,
-                                'rule': description,
-                                'severity': severity.value,
-                                'sub_techniques': sub_techniques,
-                            }
-                            for r in res
-                        ]
-                        tactics_data = pre_result.setdefault(
-                            tactic,
-                            {
-                                'tactic_id': TACTICS_ID_MAPPING.get(tactic),
-                                'techniques_data': {},
-                            },
-                        )
-                        techniques_data = tactics_data[
-                            'techniques_data'
-                        ].setdefault(
-                            technique_name,
-                            {'technique_id': technique_id, 'regions_data': {}},
-                        )
-                        regions_data = techniques_data[
-                            'regions_data'
-                        ].setdefault(region, {'resources': []})
-                        regions_data['resources'].extend(resources_data)
-        result = []
-        for tactic, techniques in pre_result.items():
-            item = {
-                'tactic_id': techniques['tactic_id'],
-                'tactic': tactic,
-                'techniques_data': [],
-            }
-            for technique, data in techniques['techniques_data'].items():
-                item['techniques_data'].append(
-                    {**data, 'technique': technique}
-                )
-            result.append(item)
-        return result
-
-    def operational_k8s_attacks(self) -> list[dict]:
-        # TODO REFACTOR IT
-        inverted = {}
-        for region in self._resources:
-            for rule, resources in self._resources[region].items():
-                # we won't encounter the same region for one rule twice
-                inverted.setdefault(rule, {})[region] = resources
-
-        pre_result = {}
-        for rule in inverted:
-            meta = self._meta.rule(rule)
-            if not meta.mitre:
-                _LOG.warning(f'Mitre metadata not found for {rule}. Skipping')
-                continue
-            severity = meta.severity
-            resource_type = service_from_resource_type(
-                self._col.meta[rule]['resource']
-            )
-            description = self._col.meta[rule].get('description', '')
-
-            for _, res in inverted[rule].items():
-                for tactic, data in meta.mitre.items():
-                    for technique in data:
-                        technique_name = technique.get('tn_name')
-                        technique_id = technique.get('tn_id')
-                        sub_techniques = [
-                            st['st_name'] for st in technique.get('st', [])
-                        ]
-                        tactics_data = pre_result.setdefault(
-                            tactic,
-                            {
-                                'tactic_id': TACTICS_ID_MAPPING.get(tactic),
-                                'techniques_data': {},
-                            },
-                        )
-                        techniques_data = tactics_data[
-                            'techniques_data'
-                        ].setdefault(
-                            technique_name, {'technique_id': technique_id}
-                        )
-                        resources_data = techniques_data.setdefault(
-                            'resources', []
-                        )
-                        resources_data.extend(
-                            [
-                                {
-                                    'resource': r,
-                                    'resource_type': resource_type,
-                                    'rule': description,
-                                    'severity': severity.value,
-                                    'sub_techniques': sub_techniques,
-                                }
-                                for r in res
-                            ]
-                        )
-        result = []
-
-        for tactic, techniques in pre_result.items():
-            item = {
-                'tactic_id': techniques['tactic_id'],
-                'tactic': tactic,
-                'techniques_data': [],
-            }
-            for technique, data in techniques['techniques_data'].items():
-                item['techniques_data'].append(
-                    {**data, 'technique': technique}
-                )
-            result.append(item)
-        return result
+    def iter_resource_attacks_flat(
+        self,
+    ) -> Generator[
+        tuple[str, str, str, dict, MitreAttack, list[str]], None, None
+    ]:
+        for region, s, rt, res, attacks in self.iter_resource_attacks():
+            for attack, rules in attacks.items():
+                yield region, s, rt, res, attack, rules
 
     def tactic_to_severities(self) -> dict[str, dict[str, int]]:
         """ """

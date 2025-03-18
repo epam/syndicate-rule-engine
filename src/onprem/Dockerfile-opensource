@@ -29,8 +29,8 @@ COPY --from=compile-image --chown=$USERNAME:$USERNAME /src /src
 WORKDIR /src
 USER $USERNAME
 ENV AWS_REGION=us-east-1 \
-    CAAS_SERVICE_MODE=docker \
-    modular_service_mode=docker \
+    SRE_SERVICE_MODE=docker \
+    MODULAR_SDK_SERVICE_MODE=docker \
     PATH=/venv/bin:$PATH
 EXPOSE 8000
 ENTRYPOINT ["/src/entrypoint.sh"]

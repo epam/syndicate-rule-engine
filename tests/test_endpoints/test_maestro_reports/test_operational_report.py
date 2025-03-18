@@ -49,6 +49,19 @@ def aws_operational_rules_metrics(aws_tenant, load_expected, utcnow):
 
 
 @pytest.fixture()
+def aws_operational_attacks_metrics(aws_tenant, load_expected, utcnow):
+    item = SP.report_metrics_service.create(
+        key=ReportMetrics.build_key_for_tenant(
+            ReportType.OPERATIONAL_ATTACKS, aws_tenant
+        ),
+        end=utcnow,
+    )
+    SP.report_metrics_service.save(
+        item, load_expected('metrics/aws_operational_attacks')
+    )
+
+
+@pytest.fixture()
 def aws_operational_finops_metrics(aws_tenant, load_expected, utcnow):
     item = SP.report_metrics_service.create(
         key=ReportMetrics.build_key_for_tenant(
@@ -272,6 +285,38 @@ def test_operational_compliance_report_aws_tenant(
     assert dicts_equal(
         json.loads(params[0]['model']['notificationAsJson']),
         load_expected('operational/compliance_report'),
+    )
+
+
+def test_operational_attacks_report_aws_tenant(
+        system_user_token,
+        sre_client,
+        aws_operational_attacks_metrics,
+        mocked_rabbitmq,
+        load_expected,
+):
+    resp = sre_client.request(
+        '/reports/operational',
+        'POST',
+        auth=system_user_token,
+        data={
+            'customer_id': 'TEST_CUSTOMER',
+            'tenant_names': ['AWS-TESTING'],
+            'types': ['ATTACK_VECTOR'],
+            'receivers': ['admin@gmail.com'],
+        },
+    )
+    assert resp.status_int == 202
+    assert len(mocked_rabbitmq.send_sync.mock_calls) == 1
+    params = mocked_rabbitmq.send_sync.mock_calls[0].kwargs['parameters']
+
+    assert len(params) == 1, 'Only one operational report is sent'
+    assert (
+            params[0]['model']['notificationType'] == 'CUSTODIAN_ATTACKS_REPORT'
+    )
+    assert dicts_equal(
+        json.loads(params[0]['model']['notificationAsJson']),
+        load_expected('operational/attacks_report'),
     )
 
 

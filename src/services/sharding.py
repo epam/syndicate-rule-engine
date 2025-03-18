@@ -37,6 +37,12 @@ AWS_REGIONS = (
 )
 
 
+class RuleMeta(TypedDict):
+    description: str
+    resource: str
+    comment: str
+
+
 class ShardPartDict(TypedDict):
     p: str  # policy name
     l: str  # region
@@ -372,7 +378,7 @@ class ShardsCollection(Iterable[tuple[int, Shard]]):
         self._io = io
 
         self.shards: defaultdict[int, Shard] = defaultdict(Shard)
-        self.meta = {}
+        self.meta: dict[str, RuleMeta] = {}
 
     def __iter__(self) -> Iterator[tuple[int, Shard]]:
         """
@@ -512,7 +518,7 @@ class ShardsCollection(Iterable[tuple[int, Shard]]):
         """
         self.fetch_by_indexes(self.shards.keys())
 
-    def update_meta(self, other: dict):
+    def update_meta(self, other: dict[str, RuleMeta]):
         for rule, data in other.items():
             self.meta.setdefault(rule, {}).update(data)
 

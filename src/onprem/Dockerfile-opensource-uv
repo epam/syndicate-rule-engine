@@ -6,13 +6,15 @@ WORKDIR /src
 # TODO: use RUN --mount=type=bind for pyproject.toml and uv.lock
 COPY pyproject.toml uv.lock /src/
 
-ENV UV_LINK_MODE=copy
+ENV UV_LINK_MODE=copy \
+    UV_NO_INSTALLER_METADATA=1 \
+    UV_COMPILE_BYTECODE=1
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-editable --group=c7n --compile-bytecode
 
 COPY src /src/
 RUN chmod +x /src/entrypoint.sh /src/main.py && \
-    rm -f /src/.env.example /src/executor/Dockerfile* /src/executor/requirements.txt /src/onprem/Dockerfile* /src/onprem/requirements.txt /src/uv.lock /src/pyproject.toml
+    rm -f /src/executor/Dockerfile* /src/executor/requirements.txt /src/onprem/Dockerfile* /src/onprem/requirements.txt /src/uv.lock /src/pyproject.toml
 
 FROM public.ecr.aws/docker/library/python:3.10-slim
 
