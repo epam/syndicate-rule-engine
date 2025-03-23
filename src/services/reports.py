@@ -584,13 +584,18 @@ class ShardsCollectionDataSource:
 
         for rule in inverted:
             rule_meta = self._meta.rule(rule)
-            depr = rule_meta.deprecation_category_date()
-            if depr is None:
+            category = rule_meta.deprecation_category()
+            if not category:
                 continue  # not a deprecation rule
-            category, date = depr
+
             yield {
                 'category': category,
-                'deprecation_date': date,
+
+                'deprecation_date': rule_meta.deprecation.date.isoformat() if rule_meta.deprecation.date else None,
+                'is_deprecated': rule_meta.deprecation.is_deprecated,
+                'deprecation_severity': rule_meta.deprecation.severity.value,
+                'deprecation_link': rule_meta.deprecation.link,
+
                 'remediation_complexity': rule_meta.remediation_complexity.value,
                 'remediation': rule_meta.remediation,
                 'policy': rule,
