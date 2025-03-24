@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - changed modular sdk envs
 - changed Operational and Project Attacks reports
 - refactored MongoClient and Boto clients/session creation to create separate items per processes
+- improved Operational deprecations report
 
 ## [5.7.0] - 2025-01-14
 - moved to modular-sdk 7.0.0

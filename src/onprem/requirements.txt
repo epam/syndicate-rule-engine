@@ -93,7 +93,7 @@ jwcrypto==1.5.6
     # via syndicate-rule-engine (pyproject.toml)
 kombu==5.5.0
     # via celery
-modular-sdk @ git+https://github.com/epam/modular-sdk@9b3023d759a85cb5a8e71fb47f07b606ea70f73c
+modular-sdk @ git+https://github.com/epam/modular-sdk@afd3de743dab6023426a0758276649ba68dd56db
     # via syndicate-rule-engine (pyproject.toml)
 msgspec==0.18.6
     # via syndicate-rule-engine (pyproject.toml)

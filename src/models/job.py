@@ -55,6 +55,7 @@ class Job(BaseModel):
     class Meta:
         table_name = 'CaaSJobs'
         region = CAASEnv.AWS_REGION.get()
+        mongo_attributes = True  # ttl attribute is patched
 
     id = UnicodeAttribute(hash_key=True, attr_name=JOB_ID)
     batch_job_id = UnicodeAttribute(null=True, attr_name=JOB_BATCH_JOB_ID)

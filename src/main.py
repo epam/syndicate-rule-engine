@@ -329,19 +329,18 @@ class InitMongo(ActionHandler):
 
     def __call__(self):
         _LOG.debug('Going to sync indexes with code')
-        from models import BaseModel
+        from models import PynamoDBToPymongoAdapterSingleton, BaseModel
 
         if not BaseModel.is_mongo_model():
             _LOG.warning('Cannot create indexes for DynamoDB')
             return
-
         creator = IndexesCreator(
-            db=BaseModel.mongo_adapter().mongo_database,
-            main_index_name='main',
-            ignore_indexes=('_id_', 'next_run_time_1'),
+            db=PynamoDBToPymongoAdapterSingleton.get_instance().mongo_database
         )
+
         for model in self.models():
-            creator.sync(model)
+            _LOG.info(f'Syncing indexes for {model.Meta.table_name}')
+            creator.sync(model, always_keep=('_id_', 'next_run_time_1'))
 
 
 class Run(ActionHandler):

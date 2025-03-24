@@ -2458,7 +2458,7 @@ wheels = [
 [[package]]
 name = "modular-sdk"
 version = "7.0.0a1"
-source = { git = "https://github.com/epam/modular-sdk?rev=9b3023d759a85cb5a8e71fb47f07b606ea70f73c#9b3023d759a85cb5a8e71fb47f07b606ea70f73c" }
+source = { git = "https://github.com/epam/modular-sdk?rev=afd3de743dab6023426a0758276649ba68dd56db#afd3de743dab6023426a0758276649ba68dd56db" }
 dependencies = [
     { name = "boto3" },
     { name = "botocore" },
@@ -3401,7 +3401,7 @@ requires-dist = [
     { name = "gunicorn", specifier = "==20.1.0" },
     { name = "hvac", specifier = "==1.2.1" },
     { name = "jwcrypto", specifier = "==1.5.6" },
-    { name = "modular-sdk", git = "https://github.com/epam/modular-sdk?rev=9b3023d759a85cb5a8e71fb47f07b606ea70f73c" },
+    { name = "modular-sdk", git = "https://github.com/epam/modular-sdk?rev=afd3de743dab6023426a0758276649ba68dd56db" },
     { name = "msgspec", specifier = "==0.18.6" },
     { name = "openpyxl", specifier = "==3.0.10" },
     { name = "pydantic", specifier = "==2.8.2" },
