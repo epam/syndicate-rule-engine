@@ -9,7 +9,7 @@ import string
 import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Literal
+from typing import Callable, Literal
 
 from bottle import Bottle
 
@@ -34,8 +34,6 @@ from onprem.api.deployment_resources_parser import (
 from services import SP
 from services.openapi_spec_generator import OpenApiGenerator
 
-if TYPE_CHECKING:
-    from models import BaseModel
 
 SRC = Path(__file__).parent.resolve()
 ROOT = SRC.parent.resolve()
@@ -186,14 +184,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 class ActionHandler(ABC):
-    @staticmethod
-    def is_docker() -> bool:
-        # such a kludge due to different envs that points to on-prem env in
-        # LM and Modular
-        lm_docker = SP.environment_service.is_docker()
-        modular_docker = SP.modular_client.environment_service().is_docker()
-        return lm_docker or modular_docker
-
     @staticmethod
     def load_api_dr() -> dict:
         with open(SRC / DEPLOYMENT_RESOURCES_FILENAME, 'r') as f:

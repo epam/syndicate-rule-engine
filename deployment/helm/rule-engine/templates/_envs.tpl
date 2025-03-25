@@ -22,6 +22,14 @@ env:
     value: "{{ .Values.modularSdk.databaseName }}"
   - name: MODULAR_SDK_SERVICE_MODE
     value: {{ default "docker" .Values.modularSdk.serviceMode }}
+  {{- if .Values.modularSdk.dbBackend }}
+  - name: MODULAR_SDK_DB_BACKEND
+    value: "{{ .Values.modularSdk.dbBackend }}"
+  {{- end }}
+  {{- if .Values.modularSdk.secretsBackend }}
+  - name: MODULAR_SDK_SECRETS_BACKEND
+    value: "{{ .Values.modularSdk.secretsBackend }}"
+  {{- end }}
   {{- if ne (default "docker" .Values.modularSdk.serviceMode) "docker" }}
   - name: MODULAR_SDK_ASSUME_ROLE_ARN
     value: {{ .Values.modularSdk.assumeRoleArn }}

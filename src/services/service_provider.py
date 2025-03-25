@@ -12,7 +12,6 @@ if TYPE_CHECKING:
     from services.clients.cognito import CognitoClient
     from services.clients.event_bridge import EventBridgeClient
     from services.clients.iam import IAMClient
-    from services.clients.modular import ModularClient
     from services.clients.s3 import ModularAssumeRoleS3Service
     from services.clients.s3 import S3Client
     from services.clients.scheduler import EventBridgeJobScheduler
@@ -43,6 +42,7 @@ if TYPE_CHECKING:
     from services.chronicle_service import ChronicleInstanceService
     from services.reports import ReportMetricsService
     from services.metadata import MetadataProvider
+    from modular_sdk.modular import ModularServiceProvider
 
 
 class ServiceProvider(metaclass=SingletonMeta):
@@ -106,9 +106,9 @@ class ServiceProvider(metaclass=SingletonMeta):
         return LambdaClient(environment_service=self.environment_service)
 
     @cached_property
-    def modular_client(self) -> 'ModularClient':
-        from services.clients.modular import ModularClient
-        return ModularClient()
+    def modular_client(self) -> 'ModularServiceProvider':
+        from modular_sdk.modular import ModularServiceProvider
+        return ModularServiceProvider()
 
     @cached_property
     def events(self) -> 'EventBridgeClient':
