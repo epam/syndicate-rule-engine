@@ -77,27 +77,3 @@ skip-magic-trailing-comma = true
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
-
-
-[tool.tox]
-requires = ["tox>=4.19"]
-env_list = ["py310"]
-skipsdist = true
-skip_install = true
-
-[tool.tox.env_run_base]
-description = "Run tests under {base_python}"
-
-[tool.tox.env.py310]
-dependency_groups = ["test", "c7n"]
-deps = ["-r src/onprem/requirements.txt",]
-commands = [[
-    "pytest",
-    "tests",
-    "-v",
-    "--cov=src/",
-    "--cov-report=term-missing",
-    "--cov-report=xml:coverage.xml",
-    "--junitxml=report.xml",
-    { replace = "posargs", extend = true}
-]]
