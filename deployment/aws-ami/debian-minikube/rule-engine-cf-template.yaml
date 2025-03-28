@@ -51,15 +51,12 @@ Parameters:
     Description: "Choose a type for the instance"
     Type: String
     Default: m7g.medium
-    ConstraintDescription: "must be ARM-based instance type, m7g.medium is minimal required type"
+    ConstraintDescription: "must be ARM-based instance type, c7g.large is a minimal required type"
     AllowedValues:
-      - m7g.medium
       - m7g.large
       - m7g.xlarge
-      - r7g.medium
       - r7g.large
       - r7g.xlarge
-      - c7g.medium
       - c7g.large
       - c7g.xlarge
   InstanceName:
