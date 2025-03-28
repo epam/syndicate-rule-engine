@@ -124,6 +124,8 @@ severity_chain = {v: i for i, v in enumerate(Severity.iter())}
 
 
 class SeverityCmp:
+    __slots__ = ()
+
     def __call__(self, one: str, two: str) -> int:
         oi = severity_chain.get(one)
         ti = severity_chain.get(two)

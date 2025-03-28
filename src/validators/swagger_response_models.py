@@ -63,6 +63,7 @@ class Job(TypedDict):
     submitted_at: str
     tenant_name: str
     scheduled_rule_name: NotRequired[str]
+    celery_task_id: NotRequired[str]
 
 
 class Policy(TypedDict):

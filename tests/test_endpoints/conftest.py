@@ -1,6 +1,6 @@
 import json
 import uuid
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 from typing import TYPE_CHECKING, Callable
 
 import boto3
@@ -9,7 +9,7 @@ from moto.backends import get_backend
 from webtest import TestApp
 
 from helpers.constants import Permission, CAASEnv, PolicyEffect, JobState
-from helpers.time_helper import utc_iso, utc_datetime
+from helpers.time_helper import utc_iso
 from services import SP  # probably the only safe import we can use in conftest
 from ..commons import SOURCE, InMemoryHvacClient, SREClient
 
@@ -256,7 +256,7 @@ def main_license(main_customer) -> 'License':
         created_by='testing',
         customers={main_customer.name: {'attachment_model': 'permitted', 'tenants': [], 'tenant_license_key': 'tlk'}},
         description='Testing license',
-        expiration=datetime(2100, 2, 1, 15, 24, 26, 175778),
+        expiration=datetime(2100, 2, 1, 15, 24, 26, 175778, tzinfo=timezone.utc),
         ruleset_ids=['AWS', 'AZURE', 'GOOGLE'],
         allowance={
             'balance_exhaustion_model': 'independent',

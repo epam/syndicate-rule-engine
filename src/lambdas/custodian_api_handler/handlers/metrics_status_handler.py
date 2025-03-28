@@ -38,8 +38,8 @@ class MetricsStatusHandler(AbstractHandler):
 
     @validate_kwargs
     def get(self, event: MetricsStatusGetModel):
-        from_ = event.start_iso
-        to = event.end_iso
+        from_ = utc_iso(event.start_iso)
+        to = utc_iso(event.end_iso)
         rkc = None
 
         if from_ and to:

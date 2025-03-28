@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 import logging
 import logging.config
 from datetime import datetime, timezone
@@ -20,44 +21,62 @@ class CustomFormatter(logging.Formatter):
             return super().formatTime(record, datefmt)
         return datetime.fromtimestamp(record.created, timezone.utc).isoformat()
 
-
-LOGGING_CONFIG = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'console_formatter': {'format': LOG_FORMAT, '()': CustomFormatter}
-    },
-    'handlers': {
-        'console_handler': {
-            'class': 'logging.StreamHandler',
+from logging import FileHandler
+def build_logging_config():
+    config = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'formatters': {
+            'console_formatter': {'format': LOG_FORMAT, '()': CustomFormatter}
+        },
+        'handlers': {
+            'console_handler': {
+                'class': 'logging.StreamHandler',
+                'formatter': 'console_formatter',
+            }
+        },
+        'loggers': {
+            ROOT_MODULE: {
+                'level': CAASEnv.LOG_LEVEL.get(),
+                'handlers': ['console_handler'],
+                'propagate': False,
+            },
+            'modular_sdk': {
+                'level': ModularSDKEnv.LOG_LEVEL.get(),
+                'handlers': ['console_handler'],
+                'propagate': False,
+            },
+            'custodian': {  # Cloud Custodian logger
+                'level': CAASEnv.CC_LOG_LEVEL.get(),
+                'handlers': ['console_handler'],
+                'propagate': False,
+            },
+            'c7n': {
+                'level': CAASEnv.CC_LOG_LEVEL.get(),
+                'handlers': ['console_handler'],
+                'propagate': False,
+            },
+        },
+    }
+    if fn := CAASEnv.EXECUTOR_LOGS_FILENAME.get():
+        Path(fn).parent.mkdir(parents=True, exist_ok=True)
+        config['handlers']['executor_file_handler'] = {
+            'class': 'logging.FileHandler',
             'formatter': 'console_formatter',
+            'filename': fn
         }
-    },
-    'loggers': {
-        ROOT_MODULE: {
-            'level': CAASEnv.LOG_LEVEL.get(),
-            'handlers': ['console_handler'],
-            'propagate': False,
-        },
-        'custodian': {  # Cloud Custodian logger
-            'level': CAASEnv.LOG_LEVEL.get(),
-            'handlers': ['console_handler'],
-            'propagate': False,
-        },
-        'modular_sdk': {
-            'level': ModularSDKEnv.LOG_LEVEL.get(),
-            'handlers': ['console_handler'],
-            'propagate': False,
-        },
-    },
-}
+        config['loggers']['custodian']['handlers'].append('executor_file_handler')
+        config['loggers']['c7n']['handlers'].append('executor_file_handler')
+        config['loggers'][ROOT_MODULE]['handlers'].append('executor_file_handler')
+        config['loggers']['modular_sdk']['handlers'].append('executor_file_handler')
+    return config
 
 
 def setup_logging():
     # Importing here to prevent modular_sdk from overriding our logging conf
     import modular_sdk.commons.log_helper  # noqa
 
-    logging.config.dictConfig(LOGGING_CONFIG)
+    logging.config.dictConfig(build_logging_config())
 
 
 def get_logger(name: str, level: str | None = None, /):

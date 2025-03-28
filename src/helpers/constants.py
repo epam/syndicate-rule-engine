@@ -2,7 +2,7 @@ import operator
 import os
 from datetime import datetime
 from enum import Enum
-from itertools import filterfalse
+from itertools import filterfalse, chain
 from typing import Iterator, MutableMapping
 
 from dateutil.relativedelta import SU, relativedelta
@@ -170,7 +170,7 @@ class CustodianEndpoint(str, Enum):
 LAMBDA_URL_HEADER_CONTENT_TYPE_UPPER = 'Content-Type'
 JSON_CONTENT_TYPE = 'application/json'
 
-DEFAULT_SYSTEM_CUSTOMER: str = 'SYSTEM'
+DEFAULT_SYSTEM_CUSTOMER: str = 'CUSTODIAN_SYSTEM'
 DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME = (
     'custodian.rules-metadata-repo-access'
 )
@@ -362,12 +362,18 @@ class EnvEnum(str, Enum):
     """
 
     default: str | None
+    aliases: tuple[str, ...]
 
     @staticmethod
     def source() -> MutableMapping:
         return os.environ
 
-    def __new__(cls, value: str, default: str | None = None):
+    def __new__(
+        cls,
+        value: str,
+        aliases: tuple[str, ...] | str = (),
+        default: str = None,  # pyright: ignore
+    ):
         """
         All environment variables and optionally their default values.
         Since envs always have string type the default value also should be
@@ -378,20 +384,37 @@ class EnvEnum(str, Enum):
         obj._value_ = value
 
         obj.default = default
+        obj.aliases = (aliases, ) if isinstance(aliases, str) else aliases
         return obj
 
     def get(self, default=_SENTINEL) -> str | None:
+        # TODO: improve typing
+        source = self.source()
+        for k in chain((self.value,), self.aliases):
+            if k in source:
+                return source[k]
+
+        # returning a default value
         if default is _SENTINEL:
             default = self.default
         if default is not None:
             default = str(default)
-        return self.source().get(self.value, default)
+        return default
+
+    def discard(self) -> None:
+        self.source().pop(self.value, None)
 
     def set(self, val: str | None):
         if val is None:
-            self.source().pop(self.value, None)
+            self.discard()
         else:
             self.source()[self.value] = str(val)
+
+    @property
+    def alias(self) -> str | None:
+        if not self.aliases:
+            return
+        return self.aliases[0]
 
 
 class CAASEnv(EnvEnum):
@@ -399,91 +422,105 @@ class CAASEnv(EnvEnum):
     Envs that can be set for lambdas of custodian service
     """
 
-    SERVICE_MODE = 'CAAS_SERVICE_MODE'
-    SYSTEM_CUSTOMER_NAME = 'SYSTEM_CUSTOMER_NAME', DEFAULT_SYSTEM_CUSTOMER
-    LOG_LEVEL = 'CAAS_LOG_LEVEL', 'INFO'
+    SERVICE_MODE = 'SRE_SERVICE_MODE', ('CAAS_SERVICE_MODE', )
+    SYSTEM_CUSTOMER_NAME = 'SRE_SYSTEM_CUSTOMER_NAME', ('SYSTEM_CUSTOMER_NAME',), DEFAULT_SYSTEM_CUSTOMER
+    LOG_LEVEL = 'SRE_LOG_LEVEL', ('CAAS_LOG_LEVEL', ), 'INFO'
+    EXECUTOR_LOGS_FILENAME = 'SRE_EXECUTOR_LOGS_FILENAME', ()
 
     # inner envs (they are set automatically when request comes)
-    API_GATEWAY_HOST = '_CAAS_API_GATEWAY_HOST'
-    API_GATEWAY_STAGE = '_CAAS_API_GATEWAY_STAGE'
-    INVOCATION_REQUEST_ID = '_INVOCATION_REQUEST_ID'
+    # TODO: remove them and use some ctx object as place for this data
+    API_GATEWAY_HOST = '_SRE_API_GATEWAY_HOST'
+    API_GATEWAY_STAGE = '_SRE_API_GATEWAY_STAGE'
+    INVOCATION_REQUEST_ID = '_SRE_INVOCATION_REQUEST_ID'
 
     # buckets
-    RULESETS_BUCKET_NAME = 'CAAS_RULESETS_BUCKET_NAME', 'rulesets'
-    REPORTS_BUCKET_NAME = 'CAAS_REPORTS_BUCKET_NAME', 'reports'
-    METRICS_BUCKET_NAME = 'CAAS_METRICS_BUCKET_NAME', 'metrics'
-    STATISTICS_BUCKET_NAME = 'CAAS_STATISTICS_BUCKET_NAME', 'statistics'
+    RULESETS_BUCKET_NAME = 'SRE_RULESETS_BUCKET_NAME', ('CAAS_RULESETS_BUCKET_NAME',), 'rulesets'
+    REPORTS_BUCKET_NAME = 'SRE_REPORTS_BUCKET_NAME', ('CAAS_REPORTS_BUCKET_NAME', ), 'reports'
+    METRICS_BUCKET_NAME = 'SRE_METRICS_BUCKET_NAME', ('CAAS_METRICS_BUCKET_NAME', ), 'metrics'
+    STATISTICS_BUCKET_NAME = 'SRE_STATISTICS_BUCKET_NAME', ('CAAS_STATISTICS_BUCKET_NAME', ), 'statistics'
     RECOMMENDATIONS_BUCKET_NAME = (
-        'CAAS_RECOMMENDATIONS_BUCKET_NAME',
+        'SRE_RECOMMENDATIONS_BUCKET_NAME',
+        ('CAAS_RECOMMENDATIONS_BUCKET_NAME', ),
         'recommendation',
     )
 
     # Cognito either one will work, but ID faster and safer
-    USER_POOL_NAME = 'CAAS_USER_POOL_NAME'
-    USER_POOL_ID = 'CAAS_USER_POOL_ID'
+    USER_POOL_NAME = 'SRE_USER_POOL_NAME', ('CAAS_USER_POOL_NAME', )
+    USER_POOL_ID = 'SRE_USER_POOL_ID', ('CAAS_USER_POOL_ID', )
 
     # rbac
     ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS = (
-        'CAAS_ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS'
+        'SRE_ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS',
+        ('CAAS_ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS', )
     )
 
     # lm
-    LM_TOKEN_LIFETIME_MINUTES = 'CAAS_LM_TOKEN_LIFETIME_MINUTES', '120'
+    LM_TOKEN_LIFETIME_MINUTES = 'SRE_LM_TOKEN_LIFETIME_MINUTES',('CAAS_LM_TOKEN_LIFETIME_MINUTES',), '120'
 
     # some deployment options
-    ACCOUNT_ID = 'CAAS_ACCOUNT_ID'
-    LAMBDA_ALIAS_NAME = 'CAAS_LAMBDA_ALIAS_NAME'
+    ACCOUNT_ID = 'SRE_ACCOUNT_ID', ('CAAS_ACCOUNT_ID', )
+    LAMBDA_ALIAS_NAME = 'SRE_LAMBDA_ALIAS_NAME', ('CAAS_LAMBDA_ALIAS_NAME', )
 
     # batch options
-    BATCH_JOB_DEF_NAME = 'CAAS_BATCH_JOB_DEF_NAME'
-    BATCH_JOB_QUEUE_NAME = 'CAAS_BATCH_JOB_QUEUE_NAME'
-    BATCH_JOB_LOG_LEVEL = 'CAAS_BATCH_JOB_LOG_LEVEL', 'DEBUG'
-    BATCH_JOB_LIFETIME_MINUTES = 'CAAS_BATCH_JOB_LIFETIME_MINUTES', '180'
-    EB_SERVICE_ROLE_TO_INVOKE_BATCH = 'CAAS_EB_SERVICE_ROLE_TO_INVOKE_BATCH'
+    BATCH_JOB_DEF_NAME = 'SRE_BATCH_JOB_DEF_NAME', ('CAAS_BATCH_JOB_DEF_NAME', )
+    BATCH_JOB_QUEUE_NAME = 'SRE_BATCH_JOB_QUEUE_NAME', ('CAAS_BATCH_JOB_QUEUE_NAME', )
+    BATCH_JOB_LOG_LEVEL = 'SRE_BATCH_JOB_LOG_LEVEL', ('CAAS_BATCH_JOB_LOG_LEVEL',), 'DEBUG'
+    BATCH_JOB_LIFETIME_MINUTES = 'SRE_BATCH_JOB_LIFETIME_MINUTES', ('CAAS_BATCH_JOB_LIFETIME_MINUTES', ), '180'
+    EB_SERVICE_ROLE_TO_INVOKE_BATCH = 'SRE_EB_SERVICE_ROLE_TO_INVOKE_BATCH', ('CAAS_EB_SERVICE_ROLE_TO_INVOKE_BATCH', )
 
     # events
-    EVENTS_TTL_HOURS = 'CAAS_EVENTS_TTL_HOURS', '48'
-    NATIVE_EVENTS_PER_ITEM = 'CAAS_NATIVE_EVENTS_PER_ITEM', '100'
+    EVENTS_TTL_HOURS = 'SRE_EVENTS_TTL_HOURS', ('CAAS_EVENTS_TTL_HOURS', ), '48'
+    NATIVE_EVENTS_PER_ITEM = 'SRE_NATIVE_EVENTS_PER_ITEM', ('CAAS_NATIVE_EVENTS_PER_ITEM', ), '100'
     EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE = (
-        'CAAS_EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE',
+        'SRE_EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE',
+        ('CAAS_EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE', ),
         '100',
     )
     NUMBER_OF_PARTITIONS_FOR_EVENTS = (
-        'CAAS_NUMBER_OF_PARTITIONS_FOR_EVENTS',
+        'SRE_NUMBER_OF_PARTITIONS_FOR_EVENTS',
+        ('CAAS_NUMBER_OF_PARTITIONS_FOR_EVENTS', ),
         '10',
     )
 
     # jobs
-    JOBS_TIME_TO_LIVE_DAYS = 'CAAS_JOBS_TIME_TO_LIVE_DAYS'
+    JOBS_TIME_TO_LIVE_DAYS = 'SRE_JOBS_TIME_TO_LIVE_DAYS', ('CAAS_JOBS_TIME_TO_LIVE_DAYS', )
 
     # some logic setting
-    SKIP_CLOUD_IDENTIFIER_VALIDATION = 'CAAS_SKIP_CLOUD_IDENTIFIER_VALIDATION'
+    SKIP_CLOUD_IDENTIFIER_VALIDATION = 'SRE_SKIP_CLOUD_IDENTIFIER_VALIDATION', ('CAAS_SKIP_CLOUD_IDENTIFIER_VALIDATION', )
     ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT = (
-        'CAAS_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT'
+        'SRE_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT',
+        ('CAAS_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT', )
     )
 
     # cache
-    INNER_CACHE_TTL_SECONDS = 'CAAS_INNER_CACHE_TTL_SECONDS', '300'
+    INNER_CACHE_TTL_SECONDS = 'SRE_INNER_CACHE_TTL_SECONDS', ('CAAS_INNER_CACHE_TTL_SECONDS', ), '300'
 
     # on-prem access
-    MINIO_ENDPOINT = 'CAAS_MINIO_ENDPOINT'
-    MINIO_ACCESS_KEY_ID = 'CAAS_MINIO_ACCESS_KEY_ID'
-    MINIO_SECRET_ACCESS_KEY = 'CAAS_MINIO_SECRET_ACCESS_KEY'
-    MINIO_PRESIGNED_URL_HOST = 'CAAS_MINIO_PRESIGNED_URL_HOST'
+    MINIO_ENDPOINT = 'SRE_MINIO_ENDPOINT', ('CAAS_MINIO_ENDPOINT', )
+    MINIO_ACCESS_KEY_ID = 'SRE_MINIO_ACCESS_KEY_ID', ('CAAS_MINIO_ACCESS_KEY_ID', )
+    MINIO_SECRET_ACCESS_KEY = 'SRE_MINIO_SECRET_ACCESS_KEY', ('CAAS_MINIO_SECRET_ACCESS_KEY', )
+    MINIO_PRESIGNED_URL_HOST = 'SRE_MINIO_PRESIGNED_URL_HOST', ('CAAS_MINIO_PRESIGNED_URL_HOST', )
 
-    VAULT_ENDPOINT = 'CAAS_VAULT_ENDPOINT'
-    VAULT_TOKEN = 'CAAS_VAULT_TOKEN'
+    VAULT_ENDPOINT = 'SRE_VAULT_ENDPOINT', ('CAAS_VAULT_ENDPOINT', )
+    VAULT_TOKEN = 'SRE_VAULT_TOKEN', ('CAAS_VAULT_TOKEN', )
 
-    MONGO_URI = 'CAAS_MONGO_URI'
-    MONGO_DATABASE = 'CAAS_MONGO_DATABASE', 'custodian_as_a_service'
+    MONGO_URI = 'SRE_MONGO_URI', ('CAAS_MONGO_URI', )
+    MONGO_DATABASE = 'SRE_MONGO_DB_NAME', ('CAAS_MONGO_DATABASE',), 'custodian_as_a_service'
 
-    AWS_REGION = 'AWS_REGION', 'us-east-1'
+    AWS_REGION = 'AWS_REGION', 'us-east-1'  # default lambda env so without SRE
 
     # init envs
-    SYSTEM_USER_PASSWORD = 'CAAS_SYSTEM_USER_PASSWORD'
+    SYSTEM_USER_PASSWORD = 'SRE_SYSTEM_USER_PASSWORD', ('CAAS_SYSTEM_USER_PASSWORD', )
 
     # Celery
-    CELERY_BROKER_URL = 'CAAS_CELERY_BROKER_URL'
+    CELERY_BROKER_URL = 'SRE_CELERY_BROKER_URL', ('CAAS_CELERY_BROKER_URL', )
+
+    # Cloud Custodian
+    CC_LOG_LEVEL = 'SRE_CC_LOG_LEVEL', (), 'INFO'
+
+    @classmethod
+    def is_docker(cls) -> bool:
+        return cls.SERVICE_MODE.get() == 'docker'
 
 
 class BatchJobEnv(EnvEnum):
@@ -494,11 +531,10 @@ class BatchJobEnv(EnvEnum):
 
     # common
     AWS_REGION = 'AWS_REGION', 'us-east-1'
-    BATCH_JOB_LIFETIME_MINUTES = 'CAAS_BATCH_JOB_LIFETIME_MINUTES', '120'
-    SYSTEM_CUSTOMER_NAME = 'SYSTEM_CUSTOMER_NAME', DEFAULT_SYSTEM_CUSTOMER
+    SYSTEM_CUSTOMER_NAME = 'SRE_SYSTEM_CUSTOMER_NAME', ('SYSTEM_CUSTOMER_NAME', ), DEFAULT_SYSTEM_CUSTOMER
 
     # specific to executor
-    JOB_ID = 'AWS_BATCH_JOB_ID'
+    JOB_ID = 'AWS_BATCH_JOB_ID'  # default batch env
     CUSTODIAN_JOB_ID = 'CUSTODIAN_JOB_ID'
     BATCH_RESULTS_IDS = 'BATCH_RESULTS_IDS'
 
@@ -913,7 +949,6 @@ class SettingKey(str, Enum):
     TEMPLATE_BUCKET = 'TEMPLATES_S3_BUCKET_NAME'
     SYSTEM_CUSTOMER = 'SYSTEM_CUSTOMER_NAME'
     EVENT_ASSEMBLER = 'EVENT_ASSEMBLER'
-    REPORT_DATE_MARKER = 'REPORT_DATE_MARKER'
     RULES_METADATA_REPO_ACCESS_SSM_NAME = 'RULES_METADATA_REPO_ACCESS_SSM_NAME'
 
     AWS_STANDARDS_COVERAGE = 'AWS_STANDARDS_COVERAGE'
@@ -942,6 +977,7 @@ class Severity(str, Enum):
     LOW = 'Low'
     MEDIUM = 'Medium'
     HIGH = 'High'
+    # CRITICAL = 'Critical'
     UNKNOWN = 'Unknown'
 
     @classmethod

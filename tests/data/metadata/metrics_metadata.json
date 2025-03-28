@@ -189,7 +189,7 @@
     ],
     "ecc-azure-096-cis_sec_defender_azure_sql": [
       "testing",
-      "Deprecation:2026-01-27 > Runtime version",
+      "Deprecation > Runtime version",
       "Compute",
       "",
       "Unknown",
@@ -201,7 +201,12 @@
       {},
       {},
       {},
-      "Medium-High"
+      "Medium-High",
+      {
+        "date": "2100-01-27",
+        "link": "https://example.com",
+        "is_deprecated": true
+      }
     ]
   },
   "domains": {

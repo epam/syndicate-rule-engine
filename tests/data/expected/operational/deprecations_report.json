@@ -11,7 +11,10 @@
   "data": [
     {
       "category": "Runtime version",
-      "deprecation_date": "2026-01-27",
+      "deprecation_date": "2100-01-27",
+      "deprecation_severity": "Low",
+      "deprecation_link": "https://example.com",
+      "is_deprecated": false,
       "remediation_complexity": "Medium-High",
       "remediation": "Remediation text here",
       "policy": "ecc-azure-096-cis_sec_defender_azure_sql",

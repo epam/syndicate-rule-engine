@@ -2,7 +2,7 @@
   "data": {
     "AWS": {
       "failed_scans": 1,
-      "last_scan_date": "2025-02-01T00:17:25.830309Z",
+      "last_scan_date": "2025-03-26T00:28:39.367318Z",
       "resources_violated": 23,
       "resource_types_data": {
         "Security Group": 3,
@@ -28,12 +28,12 @@
         "Number of licenses": 1,
         "Event-Driven mode": "On",
         "Scans frequency": "10 scans per DAY",
-        "Expiration": "Feb 01, 2100 13:24:26 UTC"
+        "Expiration": "Feb 01, 2100 15:24:26 UTC"
       }
     },
     "AZURE": {
       "failed_scans": 1,
-      "last_scan_date": "2025-02-01T00:17:25.830309Z",
+      "last_scan_date": "2025-03-26T00:28:39.367318Z",
       "resources_violated": 5,
       "resource_types_data": {
         "Defender Pricing": 5
@@ -52,12 +52,12 @@
         "Number of licenses": 1,
         "Event-Driven mode": "On",
         "Scans frequency": "10 scans per DAY",
-        "Expiration": "Feb 01, 2100 13:24:26 UTC"
+        "Expiration": "Feb 01, 2100 15:24:26 UTC"
       }
     },
     "GOOGLE": {
       "failed_scans": 1,
-      "last_scan_date": "2025-02-01T00:17:25.830309Z",
+      "last_scan_date": "2025-03-26T00:28:39.367318Z",
       "resources_violated": 9,
       "resource_types_data": {
         "Vpc": 1,
@@ -78,7 +78,7 @@
         "Number of licenses": 1,
         "Event-Driven mode": "On",
         "Scans frequency": "10 scans per DAY",
-        "Expiration": "Feb 01, 2100 13:24:26 UTC"
+        "Expiration": "Feb 01, 2100 15:24:26 UTC"
       }
     }
   },

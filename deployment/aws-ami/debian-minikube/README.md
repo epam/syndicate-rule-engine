@@ -91,6 +91,9 @@ TENANT_NAME=EXAMPLE
 - `HELM_VERSION` - (default `3.15.3-1`)
 - `MODULAR_SDK_ROLE_ARN` - can be specified to configure modular-sdk to use tables from DynamoDB
 - `MODULAR_SDK_REGION` - region where DynamoDB tables are located
+- `MODULAR_SDK_MONGO_URI_SSM_PARAMETER_NAME` - name of an SSM parameter where mongo URI to use for modular tables
+- `MODULAR_SDK_MONGO_DB_NAME` - name of Mongo database instead of the default 
+- `SRE_RECOMMENDATIONS_BUCKET_NAME` - name of Recommendations bucket where to put reports
 - `CF_STACK_NAME` - name of Cloud Formation stack to send SUCCESS of FAILURE signal to. By default, it's not specified and 
   signals won't be sent
 

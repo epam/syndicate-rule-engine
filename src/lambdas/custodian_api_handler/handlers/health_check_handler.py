@@ -20,7 +20,6 @@ from services.health_check_service import (
     MinioConnectionCheck,
     MongoConnectionCheck,
     RabbitMQConnectionCheck,
-    ReportDateMarkerSettingCheck,
     RulesMetaAccessDataCheck,
     RulesMetaCheck,
     SystemCustomerSettingCheck,
@@ -51,7 +50,6 @@ class HealthCheckHandler(AbstractHandler):
         LicenseManagerIntegrationCheck,
         LicenseManagerClientKeyCheck,
         AllS3BucketsExist,
-        ReportDateMarkerSettingCheck,
         LiveCheck,
     )
 

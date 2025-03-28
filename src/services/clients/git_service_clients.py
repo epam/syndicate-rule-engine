@@ -91,9 +91,8 @@ class GitLabClient:
 
     @classmethod
     def session(cls) -> requests.Session:
-        if not isinstance(cls._session, requests.Session):
+        if cls._session is None:
             cls._session = requests.Session()
-        # todo maybe use the same requests session for all the clients
         return cls._session
 
     @classmethod
@@ -229,7 +228,7 @@ class GitHubClient:
 
     @classmethod
     def session(cls) -> requests.Session:
-        if not isinstance(cls._session, requests.Session):
+        if cls._session is None:
             cls._session = requests.Session()
             cls._session.headers = {
                 'X-GitHub-Api-Version': '2022-11-28',

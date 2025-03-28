@@ -556,7 +556,7 @@ def measure_time():
 class NextToken:
     __slots__ = ('_lak',)
 
-    def __init__(self, lak: dict | int | str | None = None):
+    def __init__(self, lak: dict | int | None = None):
         """
         Wrapper over dynamodb last_evaluated_key and pymongo offset
         :param lak:

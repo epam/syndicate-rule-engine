@@ -39,15 +39,8 @@ test-coverage:
 
 
 install:
-	# install for local usage
-	@if [[ -z "$(VIRTUAL_ENV)" ]]; then echo "Creating python virtual env"; python -m venv venv; fi
-	venv/bin/pip install c7n
-	venv/bin/pip install c7n-azure
-	venv/bin/pip install c7n-gcp
-	venv/bin/pip install c7n-kube
-	venv/bin/pip install -r src/onprem/requirements.txt
-	venv/bin/pip install -r src/executor/requirements.txt
-	@echo "Execute:\nsource ./venv/bin/activate"
+	@if ! command -v uv >/dev/null 2>&1; then echo "Please, install uv"; exit 1; fi
+	uv sync --all-groups --all-extras --prerelease=allow
 
 
 install-cli:

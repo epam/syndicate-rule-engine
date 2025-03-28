@@ -1,8 +1,12 @@
 import pymongo
 from modular_sdk.models.pynamongo.adapter import PynamoDBToPymongoAdapter
 from modular_sdk.models.pynamongo.models import Model, SafeUpdateModel
+from modular_sdk.models.pynamongo.patch import patch_attributes
 
 from helpers.constants import DOCKER_SERVICE_MODE, CAASEnv
+
+# Just for models.job.Job.ttl
+patch_attributes()
 
 
 class MongoClientSingleton:

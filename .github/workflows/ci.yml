@@ -73,37 +73,33 @@ jobs:
     needs: check_modified_files
     if: ${{ needs.check_modified_files.outputs.src_files_changes_found == 'true' }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version:
+          - "3.10"
+#          - "3.11"  # TODO: if it's uncommented the pipeline fails because it tries to upload coverage.xml twice for each version and there is a conflict. Should be fixed
     steps:
     - uses: actions/checkout@v4
       with:
         ref: ${{ github.event.pull_request.head.sha }}
-   
-
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v5
+    - name: Install uv and set the python version
+      uses: astral-sh/setup-uv@v5
       with:
-        python-version: '3.10'
-
-    - name: Setup test env
+        python-version: ${{ matrix.python-version }}
+        enable-cache: true
+        cache-dependency-glob: "uv.lock"
+    - name: Install dependencies
       run: |
-        python -VV
-        pip install virtualenv
-        virtualenv .venv
-        source .venv/bin/activate
-        pip --cache-dir=.cache/pip --quiet install tox
-        
-    - name: tests
+        uv sync --all-extras --all-groups --prerelease=allow
+    - name: Run tests with Python ${{ matrix.python-version }}
       run: |
-        source .venv/bin/activate
-        tox -e py310
-
+        uv run --frozen pytest --verbose --cov=src/ --cov-report=term --cov-report=xml:coverage.xml --junitxml=report.xml -n auto
     - name: Upload coverage report
       uses: actions/upload-artifact@v4
       with:
         name: coverage-report
         path: coverage.xml
         retention-days: 1
-
     - name: Upload test report
       uses: actions/upload-artifact@v4
       with:
