@@ -528,6 +528,9 @@ initialize_system() {
   echo "Activating dojo installation for Syndicate Rule Engine"
   activation_id=$(syndicate re integrations dojo add --url http://defectdojo:8080/api/v2 --api_key "$dojo_token" --description "Global dojo installation" --json | jq ".items[0].id" -r)
   syndicate re integrations dojo activate --integration_id "$activation_id" --all_tenants --scan_type "Generic Findings Import" --send_after_job --json
+
+  echo "Enabling Kubectl GC for images inside minikube"
+  minikube ssh "sudo sed -i -e 's/^imageMinimumGCAge:.*$/imageMinimumGCAge: 12h/' -e 's/^imageMaximumGCAge:.*$/imageMaximumGCAge: 24h/' /var/lib/kubelet/config.yaml; sudo systemctl restart kubelet"
 }
 
 cmd_init() {

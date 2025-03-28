@@ -50,7 +50,7 @@ Parameters:
   InstanceType:
     Description: "Choose a type for the instance"
     Type: String
-    Default: m7g.medium
+    Default: c7g.large
     ConstraintDescription: "must be ARM-based instance type, c7g.large is a minimal required type"
     AllowedValues:
       - m7g.large

@@ -338,8 +338,6 @@ log "Starting minikube and installing helm releases on behalf of $FIRST_USER"
 sudo su - "$FIRST_USER" <<EOF
 minikube start --driver=docker --container-runtime=containerd -n 1 --force --interactive=false --memory=max --cpus=max --profile rule-engine --kubernetes-version=$KUBERNETES_VERSION
 minikube profile rule-engine  # making default
-minikube ssh "sudo sed -i -e 's/^imageMinimumGCAge:.*$/imageMinimumGCAge: 12h/' -e 's/^imageMaximumGCAge:.*$/imageMaximumGCAge: 24h/' /var/lib/kubelet/config.yaml; sudo systemctl restart kubelet"
-
 kubectl create secret generic minio-secret --from-literal=username=miniouser --from-literal=password=$(generate_password)
 kubectl create secret generic mongo-secret --from-literal=username=mongouser --from-literal=password=$(generate_password 30 -hex)
 kubectl create secret generic vault-secret --from-literal=token=$(generate_password 30)
