@@ -1,14 +1,20 @@
 import gzip
 import io
 import tempfile
+import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Generator, cast
+from dateutil.relativedelta import relativedelta
 
 import msgspec
 
 from helpers import Version
 from helpers.__version__ import __version__
-from helpers.constants import RemediationComplexity, Severity
+from helpers.constants import (
+    TACTICS_ID_MAPPING,
+    RemediationComplexity,
+    Severity,
+)
 from helpers.log_helper import get_logger
 from helpers.reports import Standard, service_from_resource_type
 from models.rule import RuleIndex
@@ -22,6 +28,76 @@ if TYPE_CHECKING:
     from services.license_service import License
 
 _LOG = get_logger(__name__)
+
+
+class MitreAttack(msgspec.Struct, frozen=True, eq=True, kw_only=True):
+    """
+    Represents one specific MITRE Attack
+    """
+
+    tactic_name: str
+    tactic_id: str
+    technique_name: str
+    technique_id: str
+    sub_technique_name: str | None = msgspec.field(default=None)
+    sub_technique_id: str | None = msgspec.field(default=None)
+
+    def to_dict(self):
+        return {f: getattr(self, f) for f in self.__struct_fields__}
+
+    def __post_init__(self):
+        if bool(self.sub_technique_name) ^ bool(self.sub_technique_id):
+            raise ValueError(
+                'Both sub technique id and name must be specified'
+            )
+
+class Deprecation(msgspec.Struct, frozen=True, kw_only=True):
+    date: datetime.date | msgspec.UnsetType = msgspec.field(default=msgspec.UNSET)
+    _is_deprecated: bool | msgspec.UnsetType = msgspec.field(default=msgspec.UNSET, name='is_deprecated')
+    link: str | msgspec.UnsetType = msgspec.field(default=msgspec.UNSET)
+
+    @property
+    def is_deprecated(self) -> bool:
+        """
+        is_deprecated is a dynamic attribute that depends on the current date so we must calculate it each time
+        unless we don't know the date
+        """
+        if self.date:
+            return datetime.date.today() >= self.date
+        return self._is_deprecated if isinstance(self._is_deprecated, bool) else False
+
+    @property
+    def is_outdated(self) -> bool:
+        return not self.date and not self.is_deprecated
+
+    @property
+    def severity(self) -> Severity:
+        """
+        Calculates deprecation severity based on deprecation date:
+
+        now     1m     2m     3m     4m     5m     6m     7m     8m
+        ------------------------------------------------------------
+        High    High   High   High   Medium Medium Medium  Low   Low
+        """
+        if self.is_deprecated:
+            return Severity.HIGH
+        if self.is_outdated:
+            return Severity.INFO
+        # not deprecated and not outdated, means date exists, and it is bigger than now
+        now = datetime.date.today()
+        assert self.date and self.date > now, 'date must be present if not is_deprecated and not is_outdated'
+        # TODO: revise and improve difference calculation if needed
+        diff = relativedelta(self.date, now)
+        months = diff.years * 12 + diff.months
+        if diff.days > 0:
+            months += 1
+
+        if months <= 3:
+            return Severity.HIGH
+        elif 3 < months <= 6:
+            return Severity.MEDIUM
+        else:  # 6 < months
+            return Severity.LOW
 
 
 class RuleMetadata(
@@ -45,11 +121,12 @@ class RuleMetadata(
     standard: dict[str, dict[str, tuple[str, ...]]] = msgspec.field(
         default_factory=dict
     )
-    mitre: dict = msgspec.field(default_factory=dict)
+    mitre: dict[str, list[dict]] = msgspec.field(default_factory=dict)
     waf: dict = msgspec.field(default_factory=dict)
     remediation_complexity: RemediationComplexity = msgspec.field(
         default=RemediationComplexity.UNKNOWN
     )
+    deprecation: Deprecation = msgspec.field(default=Deprecation())  # it's immutable so can a default
 
     def __repr__(self) -> str:
         return (
@@ -67,13 +144,50 @@ class RuleMetadata(
     def is_deprecation(self) -> bool:
         return 'deprecation' in self.category.lower()
 
-    def deprecation_category_date(self) -> tuple[str, str | None] | None:
+    def deprecation_category(self) -> str | None:
         if not self.is_deprecation():
             return
-        first, second = map(str.strip, self.category.split('>', maxsplit=1))
-        if ':' in first:
-            return second, first.split(':', maxsplit=1)[-1].strip()
-        return second, None
+        return self.category.split('>')[-1].strip()
+
+    def iter_mitre_attacks(self) -> Generator[MitreAttack, None, None]:
+        for tactic_name, techniques in self.mitre.items():
+            tactic_id = TACTICS_ID_MAPPING.get(tactic_name)
+            if not tactic_id:
+                _LOG.warning(f'Not known tactic name: {tactic_name}')
+                continue
+            for technique in techniques:
+                tn_id = technique.get('tn_id')
+                tn_name = technique.get('tn_name')
+                if not tn_id or not tn_name:
+                    _LOG.warning(
+                        f'Technique name or id not found: {technique}'
+                    )
+                    continue
+
+                if sub := technique.get('st'):
+                    for s in sub:
+                        st_id = s.get('st_id')
+                        st_name = s.get('st_name')
+                        if not st_id or not st_name:
+                            _LOG.warning(
+                                f'Sub technique name or id not found: {s}'
+                            )
+                            continue
+                        yield MitreAttack(
+                            tactic_name=tactic_name,
+                            tactic_id=tactic_id,
+                            technique_name=tn_name,
+                            technique_id=tn_id,
+                            sub_technique_name=st_name,
+                            sub_technique_id=st_id,
+                        )
+                else:
+                    yield MitreAttack(
+                        tactic_name=tactic_name,
+                        tactic_id=tactic_id,
+                        technique_name=tn_name,
+                        technique_id=tn_id,
+                    )
 
 
 class DomainMetadata(
@@ -167,10 +281,7 @@ def merge_metadata(*metadata: Metadata) -> Metadata:
     for item in metadata:
         rules.update(item.rules)
         domains.update(item.domains)
-    return Metadata(
-        rules=rules,
-        domains=domains
-    )
+    return Metadata(rules=rules, domains=domains)
 
 
 class MetadataProvider:

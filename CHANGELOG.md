@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.8.0] - 2025-02-27
+- changed modular sdk envs
+- changed Operational and Project Attacks reports
+- refactored MongoClient and Boto clients/session creation to create separate items per processes
+- improved Operational deprecations report
+
 ## [5.7.0] - 2025-01-14
 - moved to modular-sdk 7.0.0
 - fixed a bug when ruleset name containing a number was considered to be rulesset version

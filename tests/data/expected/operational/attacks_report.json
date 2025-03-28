@@ -2,21 +2,208 @@
   "receivers": [
     "admin@gmail.com"
   ],
+  "report_type": "ATTACK_VECTOR",
   "customer": "TEST_CUSTOMER",
+  "from": "2025-02-26T12:24:13.456856Z",
+  "to": "2025-03-05T12:24:13.456856Z",
+  "outdated_tenants": [],
+  "externalData": false,
+  "data": [
+    {
+      "region": "eu-central-1",
+      "service": "Security Group",
+      "resource_type": "Security Group",
+      "resource": {
+        "id": "sg-05209ceeb761317e5",
+        "name": "west-eu"
+      },
+      "attacks": [
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing0",
+          "technique_id": "T0",
+          "sub_technique_name": "sub0",
+          "sub_technique_id": "T0.0",
+          "severity": "Unknown",
+          "violations": [
+            {
+              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
+              "remediation": "",
+              "remediation_complexity": "Unknown",
+              "severity": "Unknown"
+            }
+          ]
+        },
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing0",
+          "technique_id": "T0",
+          "sub_technique_name": "sub1",
+          "sub_technique_id": "T0.1",
+          "severity": "Unknown",
+          "violations": [
+            {
+              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
+              "remediation": "",
+              "remediation_complexity": "Unknown",
+              "severity": "Unknown"
+            }
+          ]
+        },
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing1",
+          "technique_id": "T1",
+          "sub_technique_name": "sub0",
+          "sub_technique_id": "T1.0",
+          "severity": "Unknown",
+          "violations": [
+            {
+              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
+              "remediation": "",
+              "remediation_complexity": "Unknown",
+              "severity": "Unknown"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "region": "eu-central-1",
+      "service": "Security Group",
+      "resource_type": "Security Group",
+      "resource": {
+        "id": "sg-0ae266faddaef17e9",
+        "name": "packer-ssh-access"
+      },
+      "attacks": [
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing0",
+          "technique_id": "T0",
+          "sub_technique_name": "sub0",
+          "sub_technique_id": "T0.0",
+          "severity": "Unknown",
+          "violations": [
+            {
+              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
+              "remediation": "",
+              "remediation_complexity": "Unknown",
+              "severity": "Unknown"
+            }
+          ]
+        },
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing0",
+          "technique_id": "T0",
+          "sub_technique_name": "sub1",
+          "sub_technique_id": "T0.1",
+          "severity": "Unknown",
+          "violations": [
+            {
+              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
+              "remediation": "",
+              "remediation_complexity": "Unknown",
+              "severity": "Unknown"
+            }
+          ]
+        },
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing1",
+          "technique_id": "T1",
+          "sub_technique_name": "sub0",
+          "sub_technique_id": "T1.0",
+          "severity": "Unknown",
+          "violations": [
+            {
+              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
+              "remediation": "",
+              "remediation_complexity": "Unknown",
+              "severity": "Unknown"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "region": "eu-central-1",
+      "service": "Security Group",
+      "resource_type": "Security Group",
+      "resource": {
+        "id": "sg-09d19538187df66cf",
+        "name": "asia"
+      },
+      "attacks": [
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing0",
+          "technique_id": "T0",
+          "sub_technique_name": "sub0",
+          "sub_technique_id": "T0.0",
+          "severity": "Unknown",
+          "violations": [
+            {
+              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
+              "remediation": "",
+              "remediation_complexity": "Unknown",
+              "severity": "Unknown"
+            }
+          ]
+        },
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing0",
+          "technique_id": "T0",
+          "sub_technique_name": "sub1",
+          "sub_technique_id": "T0.1",
+          "severity": "Unknown",
+          "violations": [
+            {
+              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
+              "remediation": "",
+              "remediation_complexity": "Unknown",
+              "severity": "Unknown"
+            }
+          ]
+        },
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing1",
+          "technique_id": "T1",
+          "sub_technique_name": "sub0",
+          "sub_technique_id": "T1.0",
+          "severity": "Unknown",
+          "violations": [
+            {
+              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
+              "remediation": "",
+              "remediation_complexity": "Unknown",
+              "severity": "Unknown"
+            }
+          ]
+        }
+      ]
+    }
+  ],
   "tenant_name": "AWS-TESTING",
   "id": "123456789012",
-  "cloud": "aws",
+  "cloud": "AWS",
   "activated_regions": [
     "eu-central-1",
     "eu-north-1",
     "eu-west-1",
     "eu-west-3"
   ],
-  "from": "2024-11-03T00:00:00Z",
-  "to": "2024-11-10T00:00:00Z",
-  "last_scan_date": "2024-11-04T00:00:00Z",
-  "outdated_tenants": [],
-  "data": [],
-  "externalData": false,
-  "report_type": "ATTACK_VECTOR"
+  "last_scan_date": "2025-03-04T00:48:05.004398Z"
 }

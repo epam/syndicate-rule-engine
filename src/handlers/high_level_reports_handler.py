@@ -340,25 +340,22 @@ class MaestroModelBuilder:
         self, rep: ReportMetrics, data: dict
     ) -> dict:
         assert rep.type == ReportType.PROJECT_COMPLIANCE
-        for cloud_tenants in data['data'].values():
-            for t in cloud_tenants:
-                t['regions_data'] = [
-                    {
-                        'region': region,
-                        'standards_data': [
-                            {'name': name, 'value': round(value * 100, 2)}
-                            for name, value in standards.items()
-                        ],
-                    }
-                    for region, standards in t['data']
-                    .get('regions', {})
-                    .items()
-                ]
-                t['average_data'] = [
-                    {'name': name, 'value': round(value * 100, 2)}
-                    for name, value in t['data'].get('total', {}).items()
-                ]
-                t.pop('data')
+        for t in data['data'].values():
+            t['regions_data'] = [
+                {
+                    'region': region,
+                    'standards_data': [
+                        {'name': name, 'value': round(value * 100, 2)}
+                        for name, value in standards.items()
+                    ],
+                }
+                for region, standards in t['data'].get('regions', {}).items()
+            ]
+            t['average_data'] = [
+                {'name': name, 'value': round(value * 100, 2)}
+                for name, value in t['data'].get('total', {}).items()
+            ]
+            t.pop('data')
 
         return {'tenant_display_name': rep.project, **data}
 
@@ -370,16 +367,22 @@ class MaestroModelBuilder:
 
     def _project_attacks_custom(self, rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.PROJECT_ATTACKS
+        for t in data['data'].values():
+            for attack in t.setdefault('attacks', []):
+                attack['regions_data'] = [
+                    {'region': region, 'severity_data': data}
+                    for region, data in attack.pop('regions', {}).items()
+                ]
+
         return {'tenant_display_name': rep.project, **data}
 
     def _project_finops_custom(self, rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.PROJECT_FINOPS
-        for cloud_tenants in data['data'].values():
-            for t in cloud_tenants:
-                for service_data in t.get('service_data', []):
-                    for rule_data in service_data.get('rules_data', []):
-                        add_diff(rule_data, {})
-                        # just to replace int leafs with {'value': leaf, 'diff': None}
+        for t in data['data'].values():
+            for service_data in t.get('service_data', []):
+                for rule_data in service_data.get('rules_data', []):
+                    add_diff(rule_data, {})
+                    # just to replace int leafs with {'value': leaf, 'diff': None}
         return {'tenant_display_name': rep.project, **data}
 
     def _top_compliance_by_cloud(
@@ -626,21 +629,22 @@ class MaestroReportToS3Packer:
             'ATTACK_VECTOR': self._pack_attacks,
         }
 
-    def _pack_k8s(self, data: dict):
+    def _pack_k8s(self, data: dict) -> bytearray:
         buf = bytearray()
         for line in data.get('policy_data', {}):
             resources = line.pop('resources', [])
             self._write_line(buf, line, b'policy')
             for resource in resources:
                 self._write_line(buf, resource)
-        for tactic in data.get('mitre_data', {}):
-            techniques = tactic.pop('techniques_data', [])
-            self._write_line(buf, tactic, b'tactic')
-            for technique in techniques:
-                resources = technique.pop('resources', [])
-                self._write_line(buf, technique, b'technique')
-                for resource in resources:
-                    self._write_line(buf, resource)
+        for res in data.get('mitre_data', {}):
+            attacks = res.pop('attacks', [])
+            self._write_line(buf, res, b'resource')
+            for attack in attacks:
+                violations = attack.pop('violations', [])
+                self._write_line(buf, attack, b'attack')
+                for v in violations:
+                    self._write_line(buf, v)
+        # TODO: what about compliance
         return buf
 
     def _pack_finops(self, data: list[dict]) -> bytearray:
@@ -668,6 +672,19 @@ class MaestroReportToS3Packer:
                     self._write_line(buf, resource)
         return buf
 
+    def _pack_attacks(self, data: list[dict]) -> bytearray:
+        buf = bytearray()
+        # NOTE: maybe we should use temp file
+        for res in data:
+            attacks = res.pop('attacks', [])
+            self._write_line(buf, res, b'resource')
+            for attack in attacks:
+                violations = attack.pop('violations', [])
+                self._write_line(buf, attack, b'attack')
+                for v in violations:
+                    self._write_line(buf, v)
+        return buf
+
     def _write_line(
         self, to: bytearray, data: dict | list, tag: bytes | None = None
     ) -> None:
@@ -675,22 +692,6 @@ class MaestroReportToS3Packer:
             to.extend(tag)
         self._encoder.encode_into(data, to, len(to))
         to.extend(b'\n')
-
-    def _pack_attacks(self, data: list[dict]) -> bytearray:
-        buf = bytearray()
-        # NOTE: maybe we should use temp file
-        for tactic in data:
-            techniques = tactic.pop('techniques_data', [])
-            self._write_line(buf, tactic, b'tactic')
-
-            for technique in techniques:
-                regions = technique.pop('regions_data', {})
-                self._write_line(buf, technique, b'technique')
-                for region, resources in regions.items():
-                    self._write_line(buf, {'key': region}, b'region')
-                    for resource in resources.get('resources', []):
-                        self._write_line(buf, resource)
-        return buf
 
     def _is_too_big(self, data: dict | list) -> bool:
         return len(self._encoder.encode(data)) > self._limit
@@ -860,7 +861,9 @@ class HighLevelReportsHandler(AbstractHandler):
 
         builder = MaestroModelBuilder(receivers=tuple(event.receivers))
         types = event.new_types
-        only_k8s = len(types) == 1 and types[0] == ReportType.OPERATIONAL_KUBERNETES
+        only_k8s = (
+            len(types) == 1 and types[0] == ReportType.OPERATIONAL_KUBERNETES
+        )
 
         for tenant_name in event.tenant_names:
             if not _tap.is_allowed_for(tenant_name):

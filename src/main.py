@@ -9,7 +9,7 @@ import string
 import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Literal
+from typing import Callable, Literal
 
 from bottle import Bottle
 
@@ -34,8 +34,6 @@ from onprem.api.deployment_resources_parser import (
 from services import SP
 from services.openapi_spec_generator import OpenApiGenerator
 
-if TYPE_CHECKING:
-    from models import BaseModel
 
 SRC = Path(__file__).parent.resolve()
 ROOT = SRC.parent.resolve()
@@ -187,14 +185,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 class ActionHandler(ABC):
     @staticmethod
-    def is_docker() -> bool:
-        # such a kludge due to different envs that points to on-prem env in
-        # LM and Modular
-        lm_docker = SP.environment_service.is_docker()
-        modular_docker = SP.modular_client.environment_service().is_docker()
-        return lm_docker or modular_docker
-
-    @staticmethod
     def load_api_dr() -> dict:
         with open(SRC / DEPLOYMENT_RESOURCES_FILENAME, 'r') as f:
             data1 = json.load(f).get(DEFAULT_API_GATEWAY_NAME) or {}
@@ -329,19 +319,18 @@ class InitMongo(ActionHandler):
 
     def __call__(self):
         _LOG.debug('Going to sync indexes with code')
-        from models import BaseModel
+        from models import PynamoDBToPymongoAdapterSingleton, BaseModel
 
         if not BaseModel.is_mongo_model():
             _LOG.warning('Cannot create indexes for DynamoDB')
             return
-
         creator = IndexesCreator(
-            db=BaseModel.mongo_adapter().mongo_database,
-            main_index_name='main',
-            ignore_indexes=('_id_', 'next_run_time_1'),
+            db=PynamoDBToPymongoAdapterSingleton.get_instance().mongo_database
         )
+
         for model in self.models():
-            creator.sync(model)
+            _LOG.info(f'Syncing indexes for {model.Meta.table_name}')
+            creator.sync(model, always_keep=('_id_', 'next_run_time_1'))
 
 
 class Run(ActionHandler):

@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# Envs that have default values
 LOG_PATH="${LOG_PATH:-/var/log/sre-init.log}"
 ERROR_LOG_PATH="${ERROR_LOG_PATH:-/var/log/sre-init.log}"
 
@@ -249,14 +250,35 @@ server {
 }
 EOF
 }
+get_ssm_parameter() {
+  aws ssm get-parameter --name="$1" --with-decryption --query='Parameter.Value' --output=text
+}
 build_helm_values() {
-  # builds values for modularSdk role
-  if [ -z "$MODULAR_SDK_ROLE_ARN" ]; then
+  local params="" mongo_uri=""
+  if [ -n "$MODULAR_SDK_ROLE_ARN" ]; then
+    local modular_region
+    modular_region="${MODULAR_SDK_REGION:-$(region)}"
+    params+=" --set=modular-service.modularSdk.serviceMode=saas,modular-service.modularSdk.awsRegion=${modular_region},modular-service.modularSdk.assumeRoleArn=${MODULAR_SDK_ROLE_ARN//,/\\,} --set=modularSdk.serviceMode=saas,modularSdk.awsRegion=${modular_region},modularSdk.assumeRoleArn=${MODULAR_SDK_ROLE_ARN//,/\\,}"
+  fi
+  if [ -n "$MODULAR_SDK_MONGO_URI_SSM_PARAMETER_NAME" ]; then
+    if ! mongo_uri="$(get_ssm_parameter "$MODULAR_SDK_MONGO_URI_SSM_PARAMETER_NAME")"; then
+      log_err "Could not retrieve Mongo URI from ssm parameter $MODULAR_SDK_MONGO_URI_SSM_PARAMETER_NAME"
+      exit 1
+    fi
+    params+=" --set=modular-service.modularSdk.mongoUri=$mongo_uri --set=modularSdk.mongoUri=$mongo_uri"
+  fi
+  if [ -n "$MODULAR_SDK_MONGO_DB_NAME" ]; then
+    params+=" --set=modular-service.modularSdk.databaseName=$MODULAR_SDK_MONGO_DB_NAME --set=modularSdk.databaseName=$MODULAR_SDK_MONGO_DB_NAME"
+  fi
+  if [ -n "$SRE_RECOMMENDATIONS_BUCKET_NAME" ]; then
+    params+=" --set=recommendationsBucket=$SRE_RECOMMENDATIONS_BUCKET_NAME"
+  fi
+
+  if [ -z "$params" ]; then
     return
   fi
-  local modular_region
-  modular_region="${MODULAR_SDK_REGION:-$(region)}"
-  echo -n "--set=modular-service.modularSdk.serviceMode=saas,modular-service.modularSdk.awsRegion=${modular_region},modular-service.modularSdk.assumeRoleArn=${MODULAR_SDK_ROLE_ARN//,/\\,} --set=modularSdk.serviceMode=saas,modularSdk.awsRegion=${modular_region},modularSdk.assumeRoleArn=${MODULAR_SDK_ROLE_ARN//,/\\,}"
+  echo -n "$params"
+
 }
 
 if [ -z "$RULE_ENGINE_RELEASE" ]; then

@@ -977,6 +977,7 @@ class Severity(str, Enum):
     LOW = 'Low'
     MEDIUM = 'Medium'
     HIGH = 'High'
+    # CRITICAL = 'Critical'
     UNKNOWN = 'Unknown'
 
     @classmethod

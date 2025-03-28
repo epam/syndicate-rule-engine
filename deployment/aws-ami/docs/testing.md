@@ -226,4 +226,81 @@ sre-init backup restore --name test-backup
 ## Obfuscation manager testing
 
 
+
+## K8s images GC
+
+### Configuring GC manually
+Seems like there is no way to configure kubelet inside minikube to automatically remove unused images based on their age just by using `minikube start ...` command 
+even though such feature is supported by kubelet. It can be configured manually by modifying `imageMinimumGCAge` and `imageMaximumGCAge` (https://kubernetes.io/docs/reference/config-api/kubelet-config.v1beta1/):
+
+```bash
+minikube ssh
+sudo apt-get update
+sudo apt-get install -y vim
+sudo vim /var/lib/kubelet/config.yaml
+```
+
+Set the mentioned above settings to appropriate values (say `24h`) and then save the file. After that 
+restart the kubelet:
+
+```bash
+sudo systemctl restart kubelet
+```
+
+Doing that in one move:
+```bash
+minikube ssh "sudo sed -i -e 's/^imageMinimumGCAge:.*$/imageMinimumGCAge: 12h/' -e 's/^imageMaximumGCAge:.*$/imageMaximumGCAge: 24h/' /var/lib/kubelet/config.yaml; sudo systemctl restart kubelet"
+```
+
+
+### Removing images from minikube manually (not recommended)
+
+```bash
+minikube ssh
+sudo crictl rmi --prune
+```
+
+
+### Useful links
+https://github.com/kubernetes/kubeadm/issues/1464
+https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/
+
+## Migrate minikube
+
+```bash
+sre-init backup create --name main
+```
+```bash
+helm get values rule-engine > rule-engine-helm.yaml
+```
+
+```bash
+Backup of volume just in case
+```
+
+```bash
+kubectl get secret defectdojo-secret lm-data minio-secret modular-api-secret modular-service-secret mongo-secret redis-secret rule-engine-secret vault-secret -o yaml > secrets.yaml
+```
+
+```bash
+minikube delete # :)
+```
+
+```bash
+minikube start --driver=docker --container-runtime=containerd -n 1 --interactive=false --memory=max --cpus=2 --profile rule-engine --kubernetes-version=v1.30.0
+minikube profile rule-engine
+```
+
+```bash
+kubectl apply -f secrets.yaml
+```
+
+```bash
+helm install -f rule-engine-helm.yaml rule-engine syndicate/rule-engine --version 5.7.0
+```
+
+```bash
+sre-init backup restore --name main
+```
+
 ## Troubleshooting
