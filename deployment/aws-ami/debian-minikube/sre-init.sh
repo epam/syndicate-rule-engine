@@ -211,14 +211,17 @@ Description:
 Examples:
   $PROGRAM $COMMAND create --name my-backup
   $PROGRAM $COMMAND create --name my-backup --volumes=minio,mongo,vault
+  $PROGRAM $COMMAND CREATE --name my-backup --volumes=all --secrets=all --helm-values
 
 Required Options:
   -n, --name  Backup name to create
 
 Options
-  -h, --help  Show help message
-  -p, --path  Path where backups are store (default "$SRE_BACKUPS_PATH/$(get_helm_release_version "$HELM_RELEASE_NAME")")
-  --volumes   Volumes to make the backup for. Uses all k8s volumes if not specified. Specify volumes divided by comma
+  -h, --help    Show help message
+  -p, --path    Path where backups are store (default "$SRE_BACKUPS_PATH/$(get_helm_release_version "$HELM_RELEASE_NAME")")
+  --volumes     Volumes to make the backup for. Specify volumes divided by comma. Specify 'all' to backup all volumes
+  --secrets     K8s secrets to backup. Specify secrets names divided by comma. Specify 'all' to backup all Syndicate Rule Engine secrets
+  --helm-values Specify this flag to include helm values into backup
 EOF
 }
 
@@ -901,6 +904,7 @@ make_backup() {
   done
   minikube cp "$HELM_RELEASE_NAME:/tmp/$1.tar.gz" "$2/"
   sha256sum "$2/$1.tar.gz" > "$2/$1.sha256"
+  chmod 440 "$2/$1.tar.gz" "$2/$1.sha256"
 }
 restore_backup() {
   # accepts k8s persistent volume name as first parameter and folder with backup as second parameter
@@ -911,6 +915,8 @@ restore_backup() {
     warn "volume $1 does not have hostPath"
     return 1
   fi
+  # TODO: probably the two checks whether files exist can be removed
+  #  because sha256sum checks all that
   if [ ! -f "$2/$1.tar.gz" ]; then
     warn "tar archive does not exist for $1"
     return 1
@@ -923,6 +929,47 @@ restore_backup() {
   minikube cp "$2/$1.tar.gz" "$HELM_RELEASE_NAME:/tmp/$1.tar.gz"
   minikube ssh "sudo rm -rf $host_path; sudo mkdir -p $host_path ; sudo tar --same-owner --overwrite -xzf /tmp/$1.tar.gz -C $host_path"  # todo what if error here
 }
+make_secrets_backup() {
+  # accepts target file as a first parameter and secrets names as other parameters
+  local target_file="$1"
+  shift
+  if ! kubectl get secrets -o json --ignore-not-found=false "$@" | jq -c > "$target_file" 2>/dev/null; then
+    warn "Could not dump secrets to $target_file"
+    return 1
+  fi
+  sha256sum "$target_file" > "$target_file.sha256"
+  chmod 440 "$target_file" "$target_file.sha256"
+}
+restore_secrets_backup() {
+  local target_file="$1"
+  if ! sha256sum "$target_file.sha256" --check; then
+    warn "Could not verify sha256 for secrets file"
+    return 1
+  fi
+  kubectl replace --force -f "$target_file" 2>/dev/null
+}
+
+make_helm_values_backup() {
+  local target_file="$1"
+  if ! helm get values -o json "$HELM_RELEASE_NAME" > "$target_file" 2>/dev/null; then
+    warn "Could not dump helm values to $target_file"
+    return 1
+  fi
+  sha256sum "$target_file" > "$target_file.sha256"
+  chmod 440 "$target_file" "$target_file.sha256"
+}
+restore_helm_values_backup() {
+  local target_file="$1"
+  if ! sha256sum "$target_file.sha256" --check; then
+    warn "Could not verify sha256 for helm values file"
+    return 1
+  fi
+  warn 'helm values will not be restored automatically. Use the following command to restore them: '
+  cat <<EOF
+helm upgrade -f "$target_file" "$HELM_RELEASE_NAME" syndicate/rule-engine --version "$(get_helm_release_version "$HELM_RELEASE_NAME")"
+EOF
+}
+
 cmd_backup() {
   case "$1" in
     -h|--help) shift; cmd_backup_usage "$@" ;;
@@ -949,7 +996,7 @@ resolve_backup_path() {
 }
 
 cmd_backup_list() {
-  local opts version="" path="" pvs size
+  local opts version="" path="" pvs size secrets helm_values
   opts="$(getopt -o "hv:p:" --long "help,version:,path:" -n "$PROGRAM" -- "$@")"
   eval set -- "$opts"
   while true; do
@@ -967,9 +1014,21 @@ cmd_backup_list() {
   fi
   find "$path/"* -maxdepth 0 -type d -print0 | xargs -0 stat --format "%W %n" | sort -r | while IFS=' ' read -r ts fp; do
     pvs=$(find "$fp" -name '*.tar.gz' -type f -exec basename --suffix='.tar.gz' '{}' \; | sort | tr '\n' ',' | sed 's/,$//')
-    size="$(du -hsc "$fp"/*.tar.gz 2>/dev/null | grep total | cut -f1 || true)"
-    printf "%s|%s|%s|%s\n" "$(basename "$fp")" "$(date --date="@$ts")" "${size:-0}" "$pvs"
-  done | column --table -s "|" --table-columns NAME,DATE,SIZE,PVs
+    size="$(du -hsc "$fp"/*.tar.gz "$fp/$BACKUP_HELM_VALUES_FILENAME" "$fp/$BACKUP_SECRETS_FILENAME" 2>/dev/null | grep total | cut -f1 || true)"
+    [ -f "$fp/$BACKUP_HELM_VALUES_FILENAME" ] && helm_values=yes || helm_values=no
+    if [ -f "$fp/$BACKUP_SECRETS_FILENAME" ]; then
+#      local kind=$(jq -r '.kind' <"$fp/$BACKUP_SECRETS_FILENAME")
+#      if [ "$kind" = 'Secret' ]; then
+#        secrets=$(jq -r '.metadata.name' <"$fp/$BACKUP_SECRETS_FILENAME")
+#      else
+#        secrets=$(jq -r '.items[].metadata.name' <"$fp/$BACKUP_SECRETS_FILENAME" | sort | tr '\n' ',' | sed 's/,$//')
+#      fi
+      secrets=yes
+    else
+      secrets=no
+    fi
+    printf "%s|%s|%s|%s|%s|%s\n" "$(basename "$fp")" "$(date --date="@$ts")" "${size:-0}" "$pvs" "$secrets" "$helm_values"
+  done | column --table -s "|" --table-columns NAME,DATE,SIZE,PVS,SECRETS,"HELM VALUES"
 }
 
 cmd_backup_rm() {
@@ -998,8 +1057,8 @@ cmd_backup_rm() {
 }
 
 cmd_backup_create() {
-  local opts path="" name="" volumes="" vol items=()
-  opts="$(getopt -o "n:hp:" --long "name:,help,path:,volumes:" -n "$PROGRAM" -- "$@")"
+  local opts path="" name="" volumes="" secrets="" vol sec items=() items_secrets=() helm_values=""
+  opts="$(getopt -o "n:hp:" --long "name:,help,path:,volumes:,secrets:,helm-values" -n "$PROGRAM" -- "$@")"
   eval set -- "$opts"
   while true; do
     case "$1" in
@@ -1007,6 +1066,8 @@ cmd_backup_create() {
       -p|--path) path="$2"; shift 2 ;;
       -n|--name) name="$2"; shift 2 ;;
       --volumes) volumes="$2"; shift 2 ;;
+      --secrets) secrets="$2"; shift 2 ;;
+      --helm-values) helm_values='y'; shift 1 ;;
       '--') shift; break ;;
     esac
   done
@@ -1015,24 +1076,54 @@ cmd_backup_create() {
     path="$SRE_BACKUPS_PATH/$(get_helm_release_version "$HELM_RELEASE_NAME")" || die "cannot resolve current version"
   fi
   [ -d "$path/$name" ] && die "'$name' already exists"
-  if [ -z "$volumes" ]; then
+
+  # checking secrets
+  if [ "$secrets" = 'all' ]; then
+    items_secrets+=( "${ALL_SECRETS[@]}" )
+  elif [ -n "$secrets" ]; then
+    while read -r -d ',' sec; do
+      [ -z "$sec" ] && continue
+      if ! kubectl get secret "$sec" >/dev/null 2>&1; then
+        die "'$sec' secret does not exist"
+      fi
+      items_secrets+=("$sec")
+    done <<<"$secrets,"
+  fi
+  # By here we have an array of secrets names to make a backup
+
+  # checking volumes
+  if [ "$volumes" = 'all'  ]; then
     for vol in $(kubectl get pv -o=jsonpath="{.items[*].metadata.name}" 2>/dev/null); do
       items+=("$vol")
     done
-  else
+  elif [ -n "$volumes" ]; then
     while read -r -d ',' vol; do
       [ -z "$vol" ] && continue
       if ! kubectl get pv "$vol" >/dev/null 2>&1; then
-        warn "'$vol' volume does not exist"
-        continue
+        die "'$vol' volume does not exist"
       fi
       items+=("$vol")
     done <<<"$volumes,"
   fi
-  [ "${#items[@]}" -eq 0 ] && die "no volumes to make backup"
+  # By here we have an array of volumes names to make a backup
+
+  if [ "${#items[@]}" -eq 0 ] && [ "${#items_secrets[@]}" -eq 0 ] && [ -z "$helm_values" ]; then
+    die "nothing to backup"
+  fi
   mkdir -p "$path/$name"
+
+  if [ "${#items_secrets}" -ne 0 ]; then
+    echo "Making backup of secrets"
+    make_secrets_backup "$path/$name/$BACKUP_SECRETS_FILENAME" "${items_secrets[@]}"
+  fi
+
+  if [ -n "$helm_values" ]; then
+    echo "Making backup of helm values"
+    make_helm_values_backup "$path/$name/$BACKUP_HELM_VALUES_FILENAME"
+  fi
+
   for vol in "${items[@]}"; do
-    echo "Making backup for volume $vol"
+    echo "Making backup of volume $vol"
     scale_for_volume "$vol" 0
     make_backup "$vol" "$path/$name" || warn "could not make backup"
     scale_for_volume "$vol" 1
@@ -1068,6 +1159,12 @@ cmd_backup_restore() {
     IFS=',' read -ra items <<< "$volumes"
   fi
 
+  # TODO add some input flags to control whether secrets are restored
+  if [ -f "$path/$name/$BACKUP_SECRETS_FILENAME" ]; then
+    echo "Restoring secrets"
+    restore_secrets_backup "$path/$name/$BACKUP_SECRETS_FILENAME" || warn "could not restore secrets"
+  fi
+
   for vol in "${items[@]}"; do
     [ -z "$vol" ] && continue
     if ! kubectl get pv "$vol" >/dev/null 2>&1; then
@@ -1079,6 +1176,11 @@ cmd_backup_restore() {
     restore_backup "$vol" "$path/$name" || warn "could not restore backup"
     scale_for_volume "$vol" 1
   done
+  # TODO add some input flags to control whether helm values are restored
+  if [ -f "$path/$name/$BACKUP_HELM_VALUES_FILENAME" ]; then
+    echo "Restoring helm values"
+    restore_helm_values_backup "$path/$name/$BACKUP_HELM_VALUES_FILENAME" || warn "could not restore helm values"
+  fi
 }
 
 cmd_secrets() {
@@ -1142,7 +1244,7 @@ verify_installation() {
 }
 
 # Start
-VERSION="1.0.0"
+VERSION="1.1.0"
 PROGRAM="${0##*/}"
 COMMAND="$1"
 
@@ -1175,10 +1277,19 @@ FIRST_USER="${FIRST_USER:-$(getent passwd 1000 | cut -d : -f 1)}"
 
 
 # All variables below are constants and should not be changed
-RULE_ENGINE_SECRET_NAME=rule-engine-secret
+DEFECTDOJO_SECRET_NAME=defectdojo-secret
+LM_DATA_SECRET_NAME=lm-data
+MINIO_SECRET_NAME=minio-secret
 MODULAR_API_SECRET_NAME=modular-api-secret
 MODULAR_SERVICE_SECRET_NAME=modular-service-secret
-DEFECTDOJO_SECRET_NAME=defectdojo-secret
+MONGO_SECRET_NAME=mongo-secret
+RULE_ENGINE_SECRET_NAME=rule-engine-secret
+VAULT_SECRET_NAME=vault-secret
+
+ALL_SECRETS=("$DEFECTDOJO_SECRET_NAME" "$LM_DATA_SECRET_NAME" "$MINIO_SECRET_NAME" "$MODULAR_API_SECRET_NAME" "$MODULAR_SERVICE_SECRET_NAME" "$MONGO_SECRET_NAME" "$RULE_ENGINE_SECRET_NAME" "$VAULT_SECRET_NAME")
+
+BACKUP_SECRETS_FILENAME=${BACKUP_SECRETS_FILENAME:-_k8s_secrets}
+BACKUP_HELM_VALUES_FILENAME=${BACKUP_HELM_VALUES_FILENAME:-_helm_values}
 
 MODULAR_CLI_ENTRY_POINT=syndicate
 

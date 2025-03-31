@@ -268,19 +268,10 @@ https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/
 ## Migrate minikube
 
 ```bash
-sre-init backup create --name main
-```
-```bash
-helm get values rule-engine > rule-engine-helm.yaml
+# TODO: do not include redis volume
+sre-init backup create --name main --volumes=all --secrets=all --helm-values
 ```
 
-```bash
-Backup of volume just in case
-```
-
-```bash
-kubectl get secret defectdojo-secret lm-data minio-secret modular-api-secret modular-service-secret mongo-secret redis-secret rule-engine-secret vault-secret -o yaml > secrets.yaml
-```
 
 ```bash
 minikube delete # :)
@@ -292,15 +283,19 @@ minikube profile rule-engine
 ```
 
 ```bash
-kubectl apply -f secrets.yaml
-```
-
-```bash
 helm install -f rule-engine-helm.yaml rule-engine syndicate/rule-engine --version 5.7.0
 ```
 
 ```bash
+helm install defectdojo syndicate/defectdojo
+```
+
+```bash
 sre-init backup restore --name main
+```
+
+```bash
+[Enable minikube gc]
 ```
 
 ## Troubleshooting
