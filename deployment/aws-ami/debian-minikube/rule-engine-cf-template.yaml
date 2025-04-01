@@ -11,7 +11,7 @@ Mappings:
     eu-west-2:
       ImageId: ami-xxxxxxxxxxxxxxxxx
     eu-west-1:
-      ImageId: ami-000e6509bac9eb14f
+      ImageId: ami-xxxxxxxxxxxxxxxxx
     ap-northeast-3:
       ImageId: ami-xxxxxxxxxxxxxxxxx
     ap-northeast-2:
