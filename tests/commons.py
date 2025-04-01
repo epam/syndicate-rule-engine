@@ -1,7 +1,8 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from pathlib import Path
 from urllib.parse import urlparse
+from unittest.mock import patch
 
 from dateutil.parser import isoparse
 from webtest import TestApp, TestResponse
@@ -162,3 +163,20 @@ class SREClient:
         return getattr(self._app, f'{method}_json')(
             path, data, headers=headers, expect_errors=True
         )
+
+
+def mock_date_today(target: str, return_value: date):
+    class FakeDateType(type):
+        def __instancecheck__(self, instance):
+            return isinstance(instance, date)
+
+    class FakeDate(date, metaclass=FakeDateType):
+
+        def __new__(cls, *args, **kwargs):
+            return date.__new__(date, *args, **kwargs)
+
+        @classmethod
+        def today(cls):
+            return return_value
+
+    return patch(target, FakeDate)

@@ -43,11 +43,11 @@ class MetricsStatusHandler(AbstractHandler):
         rkc = None
 
         if from_ and to:
-            rkc = Job.started_at.between(from_, to)
+            rkc = Job.started_at.between(utc_iso(from_), utc_iso(to))
         elif from_:
-            rkc = Job.started_at >= from_
+            rkc = Job.started_at >= utc_iso(from_)
         elif to:
-            rkc = Job.started_at < to
+            rkc = Job.started_at < utc_iso(to)
         _LOG.debug(f'Range key condition: {rkc}')
 
         # TODO api add job_service with corresponding methods
@@ -62,10 +62,9 @@ class MetricsStatusHandler(AbstractHandler):
 
         if not items:
             _LOG.warning('Cannot find metrics update job')
-        response = []
-        for item in items:
-            response.append(self.get_metrics_status_dto(item))
-        return build_response(content=response)
+        return build_response(
+            content=[self.get_metrics_status_dto(item) for item in items]
+        )
 
     @staticmethod
     def get_metrics_status_dto(item: Job) -> dict:

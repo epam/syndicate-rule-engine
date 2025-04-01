@@ -8,15 +8,10 @@ import secrets
 import string
 import sys
 from abc import ABC, abstractmethod
-from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Literal
+from typing import Callable, Literal
 
 from bottle import Bottle
-from dateutil.relativedelta import SU, relativedelta
-from dotenv import load_dotenv
-
-load_dotenv(verbose=True)  # noqa
 
 from modular_sdk.models.pynamongo.indexes_creator import IndexesCreator
 
@@ -31,6 +26,7 @@ from helpers.constants import (
     HTTPMethod,
     Permission,
     SettingKey,
+    DEFAULT_SYSTEM_CUSTOMER
 )
 from onprem.api.deployment_resources_parser import (
     DeploymentResourcesApiGatewayWrapper,
@@ -38,8 +34,6 @@ from onprem.api.deployment_resources_parser import (
 from services import SP
 from services.openapi_spec_generator import OpenApiGenerator
 
-if TYPE_CHECKING:
-    from models import BaseModel
 
 SRC = Path(__file__).parent.resolve()
 ROOT = SRC.parent.resolve()
@@ -66,7 +60,6 @@ DEFAULT_NUMBER_OF_WORKERS = (multiprocessing.cpu_count() * 2) + 1
 DEFAULT_API_GATEWAY_NAME = 'custodian-as-a-service-api'
 
 SYSTEM_USER = 'system_user'
-SYSTEM_CUSTOMER = 'CUSTODIAN_SYSTEM'
 
 
 def gen_password(digits: int = 20) -> str:
@@ -192,14 +185,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 class ActionHandler(ABC):
     @staticmethod
-    def is_docker() -> bool:
-        # such a kludge due to different envs that points to on-prem env in
-        # LM and Modular
-        lm_docker = SP.environment_service.is_docker()
-        modular_docker = SP.modular_client.environment_service().is_docker()
-        return lm_docker or modular_docker
-
-    @staticmethod
     def load_api_dr() -> dict:
         with open(SRC / DEPLOYMENT_RESOURCES_FILENAME, 'r') as f:
             data1 = json.load(f).get(DEFAULT_API_GATEWAY_NAME) or {}
@@ -239,14 +224,14 @@ class InitVault(ActionHandler):
 
     def __call__(self):
         ssm = SP.ssm
-        if ssm.enable_secrets_engine():
-            _LOG.info('Vault engine was enabled')
+        if not ssm.is_secrets_engine_enabled():
+            _LOG.info('Enabling vault secrets engine')
+            ssm.enable_secrets_engine()
         else:
-            _LOG.info('Vault engine has been already enabled')
+            _LOG.info('Secrets engine is already enabled in vault')
         if ssm.get_secret_value(PRIVATE_KEY_SECRET_NAME):
             _LOG.info('Token inside Vault already exists. Skipping...')
             return
-
         ssm.create_secret(
             secret_name=PRIVATE_KEY_SECRET_NAME,
             secret_value=self.generate_private_key(),
@@ -334,19 +319,18 @@ class InitMongo(ActionHandler):
 
     def __call__(self):
         _LOG.debug('Going to sync indexes with code')
-        from models import BaseModel
+        from models import PynamoDBToPymongoAdapterSingleton, BaseModel
 
         if not BaseModel.is_mongo_model():
             _LOG.warning('Cannot create indexes for DynamoDB')
             return
-
         creator = IndexesCreator(
-            db=BaseModel.mongo_adapter().mongo_database,
-            main_index_name='main',
-            ignore_indexes=('_id_', 'next_run_time_1'),
+            db=PynamoDBToPymongoAdapterSingleton.get_instance().mongo_database
         )
+
         for model in self.models():
-            creator.sync(model)
+            _LOG.info(f'Syncing indexes for {model.Meta.table_name}')
+            creator.sync(model, always_keep=('_id_', 'next_run_time_1'))
 
 
 class Run(ActionHandler):
@@ -522,26 +506,7 @@ class InitAction(ActionHandler):
         if not Setting.get_nullable(SettingKey.SYSTEM_CUSTOMER):
             _LOG.info('Setting system customer name')
             Setting(
-                name=CAASEnv.SYSTEM_CUSTOMER_NAME.value, value=SYSTEM_CUSTOMER
-            ).save()
-        if not Setting.get_nullable(
-            SettingKey.REPORT_DATE_MARKER.value
-        ):  # todo redesign
-            _LOG.info('Setting report date marker')
-            Setting(
-                name=SettingKey.REPORT_DATE_MARKER.value,
-                value={
-                    'last_week_date': (
-                        datetime.today() + relativedelta(weekday=SU(-1))
-                    )
-                    .date()
-                    .isoformat(),
-                    'current_week_date': (
-                        datetime.today() + relativedelta(weekday=SU(0))
-                    )
-                    .date()
-                    .isoformat(),
-                },
+                name=SettingKey.SYSTEM_CUSTOMER.value, value=DEFAULT_SYSTEM_CUSTOMER
             ).save()
         Setting(name=SettingKey.SEND_REPORTS, value=True).save()
         users_client = SP.users_client
@@ -555,7 +520,7 @@ class InitAction(ActionHandler):
             users_client.signup_user(
                 username=SYSTEM_USER,
                 password=password,
-                customer=SYSTEM_CUSTOMER,
+                customer=DEFAULT_SYSTEM_CUSTOMER,
             )
             if not from_env:
                 print(f'System ({SYSTEM_USER}) password: {password}')

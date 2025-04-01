@@ -19,7 +19,7 @@ def test_custodian_endpoint_match():
 def test_env_enum():
     class MyEnvs(EnvEnum):
         FOO = 'MY_FOO'
-        BAR = 'MY_BAR', 'bar_default'
+        BAR = 'MY_BAR', (), 'bar_default'
 
     with patch('os.environ', {}):
         assert MyEnvs.FOO.get() is None

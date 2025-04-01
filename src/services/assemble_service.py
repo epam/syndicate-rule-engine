@@ -32,7 +32,6 @@ class AssembleService:
             CAASEnv.RULESETS_BUCKET_NAME.value:
                 self.environment_service.get_rulesets_bucket_name(),
             CAASEnv.AWS_REGION.value: self.environment_service.aws_region(),
-            CAASEnv.BATCH_JOB_LIFETIME_MINUTES.value: job_lifetime_minutes or self.environment_service.get_job_lifetime_min(),
             CAASEnv.LM_TOKEN_LIFETIME_MINUTES.value:
                 str(self.environment_service.lm_token_lifetime_minutes()),
             CAASEnv.LOG_LEVEL.value: self.environment_service.batch_job_log_level(),

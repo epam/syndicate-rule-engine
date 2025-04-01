@@ -10,7 +10,7 @@ image:
 
 persistence:
   accessMode: ReadWriteOnce
-  size: 1Gi
+  size: 256Mi
   storageClass: standard
   hostPath: /data/redis
 

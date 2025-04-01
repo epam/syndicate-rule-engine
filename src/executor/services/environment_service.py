@@ -58,13 +58,6 @@ class BatchEnvironmentService(EnvironmentService):
     def credentials_key(self) -> str | None:
         return BatchJobEnv.CREDENTIALS_KEY.get()
 
-    def job_lifetime_min(self) -> int:
-        """
-        Must return job lifetime in minutes
-        :return:
-        """
-        return int(BatchJobEnv.BATCH_JOB_LIFETIME_MINUTES.get())
-
     def job_type(self) -> BatchJobType:
         """
         Default job type is `standard`

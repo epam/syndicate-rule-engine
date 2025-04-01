@@ -45,7 +45,9 @@ def test_statistics_aws(aws_tenant, aws_scan_result, load_expected):
     }
     stats = item.statistics(aws_tenant, failed)
     assert len(stats) == 15
-    assert stats == load_expected('aws_job_statistics')
+    def k(i):
+        return i['policy'], i['region']
+    assert sorted(stats, key=k) == sorted(load_expected('aws_job_statistics'), key=k)
 
 
 def test_iter_shard_parts_aws(aws_scan_result):
