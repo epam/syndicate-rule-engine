@@ -17,7 +17,7 @@ dependencies = [
     "cryptography==43.0.3",
     "google-api-python-client==2.160.0",
     "google-auth==2.38.0",
-    "gunicorn==20.1.0",
+    "gunicorn~=23.0.0",
     "hvac~=2.3.0",
     "jwcrypto==1.5.6",
     "modular-sdk @ git+https://github.com/epam/modular-sdk@0f72340e46e9202b99414b1dd95487a3f9fb4298",
@@ -77,3 +77,8 @@ skip-magic-trailing-comma = true
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+
+
+[tool.uv]
+package = false
+prerelease = "allow"  # for some azure lib
