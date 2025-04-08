@@ -6,6 +6,8 @@ annotated-types==0.7.0
     # via pydantic
 apscheduler==3.11.0
     # via syndicate-rule-engine (pyproject.toml)
+async-timeout==5.0.1
+    # via redis
 aws-xray-sdk==2.14.0
     # via syndicate-rule-engine (pyproject.toml)
 bcrypt==4.0.1
