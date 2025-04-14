@@ -5,7 +5,6 @@ from helpers import SingletonMeta
 
 if TYPE_CHECKING:
     from services.clients.mongo_ssm_auth_client import MongoAndSSMAuthClient
-    from scheduler.ap_job_scheduler import APJobScheduler
     from services.ambiguous_job_service import AmbiguousJobService
     from services.assemble_service import AssembleService
     from services.batch_results_service import BatchResultsService
@@ -14,14 +13,12 @@ if TYPE_CHECKING:
     from services.clients.iam import IAMClient
     from services.clients.s3 import ModularAssumeRoleS3Service
     from services.clients.s3 import S3Client
-    from services.clients.scheduler import EventBridgeJobScheduler
     from services.clients.ssm import CachedSSMClient
     from services.clients.sts import StsClient
     from services.environment_service import EnvironmentService
     from services.event_processor_service import EventProcessorService
     from services.event_service import EventService
     from services.job_service import JobService
-    from services.job_statistics_service import JobStatisticsService
     from services.license_manager_service import LicenseManagerService
     from services.license_service import LicenseService
     from services.rabbitmq_service import RabbitMQService
@@ -30,7 +27,7 @@ if TYPE_CHECKING:
     from services.rule_source_service import RuleSourceService
     from services.ruleset_service import RulesetService
     from services.s3_settings_service import S3SettingsService
-    from services.scheduler_service import SchedulerService
+    from services.scheduled_job_service import ScheduledJobService
     from services.setting_service import CachedSettingsService
     from services.platform_service import PlatformService
     from services.integration_service import IntegrationService
@@ -113,30 +110,13 @@ class ServiceProvider(metaclass=SingletonMeta):
     @cached_property
     def events(self) -> 'EventBridgeClient':
         from services.clients.event_bridge import EventBridgeClient
+        # TODO: probably not used
         return EventBridgeClient.build()
 
     @cached_property
     def iam(self) -> 'IAMClient':
         from services.clients.iam import IAMClient
         return IAMClient(sts_client=self.sts)
-
-    @cached_property
-    def event_bridge_job_scheduler(self) -> 'EventBridgeJobScheduler':
-        from services.clients.scheduler import EventBridgeJobScheduler
-        return EventBridgeJobScheduler(
-            client=self.events,
-            environment_service=self.environment_service,
-            iam_client=self.iam,
-            batch_client=self.batch
-        )
-
-    @cached_property
-    def ap_job_scheduler(self) -> 'APJobScheduler':
-        from scheduler.ap_job_scheduler import APJobScheduler
-        return APJobScheduler(
-            batch_client=self.batch,
-            setting_service=self.settings_service,
-        )
 
     @cached_property
     def assume_role_s3(self) -> 'ModularAssumeRoleS3Service':
@@ -221,12 +201,9 @@ class ServiceProvider(metaclass=SingletonMeta):
         )
 
     @cached_property
-    def scheduler_service(self) -> 'SchedulerService':
-        from services.scheduler_service import SchedulerService
-        client = self.event_bridge_job_scheduler \
-            if not self.environment_service.is_docker() \
-            else self.ap_job_scheduler
-        return SchedulerService(client=client)
+    def scheduled_job_service(self) -> 'ScheduledJobService':
+        from services.scheduled_job_service import ScheduledJobService
+        return ScheduledJobService()
 
     @cached_property
     def event_service(self) -> 'EventService':
@@ -266,11 +243,6 @@ class ServiceProvider(metaclass=SingletonMeta):
             modular_client=self.modular_client,
             environment_service=self.environment_service
         )
-
-    @cached_property
-    def job_statistics_service(self) -> 'JobStatisticsService':
-        from services.job_statistics_service import JobStatisticsService
-        return JobStatisticsService()
 
     @cached_property
     def report_statistics_service(self):

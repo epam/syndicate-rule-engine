@@ -16,6 +16,7 @@ from helpers.constants import (
     HTTPMethod,
     JobState,
     RuleDomain,
+    ScheduledJobType
 )
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
@@ -37,7 +38,7 @@ from services.platform_service import PlatformService
 from services.rbac_service import TenantsAccessPayload
 from services.rule_meta_service import RuleNamesResolver, RuleService
 from services.ruleset_service import RulesetName, RulesetService
-from services.scheduler_service import SchedulerService
+from services.scheduled_job_service import ScheduledJobService
 from validators.swagger_request_models import (
     BaseModel,
     JobGetModel,
@@ -65,7 +66,7 @@ class JobHandler(AbstractHandler):
         batch_client: BatchClient,
         sts_client: StsClient,
         ssm: AbstractSSMClient,
-        scheduler_service: SchedulerService,
+        scheduled_job_service: ScheduledJobService,
         rule_service: RuleService,
         platform_service: PlatformService,
     ):
@@ -79,7 +80,7 @@ class JobHandler(AbstractHandler):
         self._batch_client = batch_client
         self._sts_client = sts_client
         self._ssm = ssm
-        self._scheduler_service = scheduler_service
+        self._scheduled_job_service = scheduled_job_service
         self._rule_service = rule_service
         self._platform_service = platform_service
 
@@ -99,7 +100,7 @@ class JobHandler(AbstractHandler):
             batch_client=SERVICE_PROVIDER.batch,
             sts_client=SERVICE_PROVIDER.sts,
             ssm=SERVICE_PROVIDER.ssm,
-            scheduler_service=SERVICE_PROVIDER.scheduler_service,
+            scheduled_job_service=SERVICE_PROVIDER.scheduled_job_service,
             rule_service=SERVICE_PROVIDER.rule_service,
             platform_service=SERVICE_PROVIDER.platform_service,
         )
@@ -579,12 +580,12 @@ class JobHandler(AbstractHandler):
             job_id=job.id,
             target_regions=list(regions_to_scan),
             credentials_key=credentials_key,
-            job_lifetime_minutes=event.timeout_minutes,
             affected_licenses=lic.tenant_license_key(tenant.customer_name)
             if lic
             else None,
         )
-        resp = self._submit_job_to_batch(tenant=tenant, job=job, envs=envs)
+        resp = self._submit_job_to_batch(tenant=tenant, job=job, envs=envs,
+                                         timeout=event.timeout_minutes * 60 if event.timeout_minutes else None)
         self._job_service.update(
             job=job,
             batch_job_id=resp['jobId'],
@@ -596,7 +597,8 @@ class JobHandler(AbstractHandler):
         )
 
     def _submit_job_to_batch(
-        self, tenant: Tenant, job: Job, envs: dict
+        self, tenant: Tenant, job: Job, envs: dict,
+        timeout: int | None = None
     ) -> BatchJob:
         job_name = f'{tenant.name}-{job.submitted_at}'
         job_name = ''.join(
@@ -608,6 +610,7 @@ class JobHandler(AbstractHandler):
             job_queue=self._environment_service.get_batch_job_queue(),
             job_definition=self._environment_service.get_batch_job_def(),
             environment_variables=envs,
+            timeout=timeout
         )
         _LOG.debug(f'Batch job was submitted: {response}')
         return response
@@ -792,12 +795,12 @@ class JobHandler(AbstractHandler):
             job_id=job.id,
             platform_id=platform.id,
             credentials_key=credentials_key,
-            job_lifetime_minutes=event.timeout_minutes,
             affected_licenses=lic.tenant_license_key(tenant.customer_name)
             if lic
             else None,
         )
-        resp = self._submit_job_to_batch(tenant=tenant, job=job, envs=envs)
+        resp = self._submit_job_to_batch(tenant=tenant, job=job, envs=envs,
+                                         timeout=event.timeout_minutes * 60 if event.timeout_minutes else None)
         self._job_service.update(
             job=job,
             batch_job_id=resp['jobId'],
@@ -814,7 +817,6 @@ class JobHandler(AbstractHandler):
     def post_scheduled(
         self, event: ScheduledJobPostModel, _tap: TenantsAccessPayload
     ):
-        raise ResponseFactory(HTTPStatus.NOT_IMPLEMENTED).message('Scheduled jobs are currently not available').exc()
         tenant = self._obtain_tenant(event.tenant_name, _tap, event.customer)
         domain = RuleDomain.from_tenant_cloud(tenant.cloud)
         if not domain:
@@ -825,10 +827,16 @@ class JobHandler(AbstractHandler):
                 )
                 .exc()
             )
+        name = event.name or self._scheduled_job_service.generate_name(tenant.name)
+        if self._scheduled_job_service.get_by_name(tenant.customer_name, name):
+            raise ResponseFactory(HTTPStatus.CONFLICT).message(
+                f'Scheduled job with name {name} already exists'
+            ).exc()
+
         regions_to_scan = self._resolve_regions_to_scan(
             target_regions=event.target_regions, tenant=tenant
         )
-        standard_rulesets, lic, licensed_ruleses = self._get_rulesets_for_scan(
+        standard_rulesets, lic, licensed_rulesets = self._get_rulesets_for_scan(
             tenant=tenant,
             domain=domain,
             license_key=event.license_key,
@@ -839,78 +847,89 @@ class JobHandler(AbstractHandler):
             tenant=tenant,
             target_regions=list(regions_to_scan),
             job_type=BatchJobType.SCHEDULED,
-            affected_licenses=lic.tenant_license_key(tenant.customer_name)
-            if lic
-            else None,
+            affected_licenses=lic.tenant_license_key(tenant.customer_name) if lic else None,
+            scheduled_job_name=name,
         )
+        item = self._scheduled_job_service.create(
+            name=name,
+            customer_name=tenant.customer_name,
+            tenant_name=tenant.name,
+            typ=ScheduledJobType.STANDARD,
+            description=event.description,
+            meta={
+                'rulesets': self._serialize_rulesets(
+                    standard_rulesets, lic, licensed_rulesets
+                ),
+                'regions': sorted(regions_to_scan)
+            }
+        )
+        self._scheduled_job_service.set_celery_task(
+            item=item,
+            task='onprem.tasks.run_executor',
+            sch=event.celery_schedule(),
+            args=(envs, )
+        )
+        self._scheduled_job_service.save(item)
 
-        job = self._scheduler_service.register_job(
-            tenant=tenant,
-            schedule=event.schedule,
-            envs=envs,
-            name=event.name,
-            rulesets=self._serialize_rulesets(
-                standard_rulesets, lic, licensed_ruleses
-            ),
-        )
         return build_response(
-            code=HTTPStatus.CREATED, content=self._scheduler_service.dto(job)
+            code=HTTPStatus.CREATED, content=self._scheduled_job_service.dto(item)
         )
 
     @validate_kwargs
     def query_scheduled(self, event: ScheduledJobGetModel):
-        raise ResponseFactory(HTTPStatus.NOT_IMPLEMENTED).message('Scheduled jobs are currently not available').exc()
-        tenants = set()
-        if event.tenant_name:
-            tenants.add(event.tenant_name)
-        items = self._scheduler_service.list(
-            customer=event.customer or SystemCustomer.get_name(), tenants=tenants
+        cursor = self._scheduled_job_service.get_by_customer(
+            customer_name=event.customer_id,
+            typ=ScheduledJobType.STANDARD,
+            tenant_name=event.tenant_name,
+            limit=event.limit,
+            last_evaluated_key=NextToken.deserialize(event.next_token).value,
         )
-        return build_response(
-            content=(self._scheduler_service.dto(item) for item in items)
+        jobs = list(cursor)
+        return (
+            ResponseFactory()
+            .items(
+                it=map(self._scheduled_job_service.dto, jobs),
+                next_token=NextToken(cursor.last_evaluated_key),
+            )
+            .build()
         )
 
     @validate_kwargs
     def get_scheduled(self, event: BaseModel, name: str):
-        raise ResponseFactory(HTTPStatus.NOT_IMPLEMENTED).message('Scheduled jobs are currently not available').exc()
-        item = next(
-            self._scheduler_service.list(
-                name=name, customer=event.customer or SystemCustomer.get_name()
-            ),
-            None,
+        item = self._scheduled_job_service.get_by_name(
+            customer_name=event.customer_id, name=name
         )
-        if not item:
+        if not item or event.customer and item.customer_name != event.customer:
             raise ResponseFactory(HTTPStatus.NOT_FOUND).default().exc()
-        return build_response(content=self._scheduler_service.dto(item))
+        return build_response(content=self._scheduled_job_service.dto(item))
 
     @validate_kwargs
     def delete_scheduled(self, event: BaseModel, name: str):
-        raise ResponseFactory(HTTPStatus.NOT_IMPLEMENTED).message('Scheduled jobs are currently not available').exc()
-        item = self._scheduler_service.get(name, event.customer)
-        if not item:
-            return build_response(
-                code=HTTPStatus.NOT_FOUND,
-                content=f'Scheduled job {name} not found',
-            )
-        self._scheduler_service.deregister_job(name)
+        item = self._scheduled_job_service.get_by_name(
+            customer_name=event.customer_id, name=name
+        )
+        if not item or event.customer and item.customer_name != event.customer:
+            return build_response(code=HTTPStatus.NO_CONTENT)
+        self._scheduled_job_service.delete(item)
         return build_response(code=HTTPStatus.NO_CONTENT)
 
     @validate_kwargs
     def patch_scheduled(self, event: ScheduledJobPatchModel, name: str):
-        raise ResponseFactory(HTTPStatus.NOT_IMPLEMENTED).message('Scheduled jobs are currently not available').exc()
-        is_enabled = event.enabled
-        customer = event.customer
-        schedule = event.schedule
-
-        item = self._scheduler_service.get(name, customer)
+        item = self._scheduled_job_service.get_by_name(
+            customer_name=event.customer_id, name=name
+        )
         if not item:
             return build_response(
                 code=HTTPStatus.NOT_FOUND,
                 content=f'Scheduled job {name} not found',
             )
-
-        self._scheduler_service.update_job(item, is_enabled, schedule=schedule)
-        return build_response(content=self._scheduler_service.dto(item))
+        self._scheduled_job_service.update(
+            item=item,
+            enabled=event.enabled,
+            description=event.description,
+            sch=event.celery_schedule()
+        )
+        return build_response(content=self._scheduled_job_service.dto(item))
 
     def _validate_cloud_identifier(
         self, cloud_identifier: str, credentials: dict, cloud: Cloud

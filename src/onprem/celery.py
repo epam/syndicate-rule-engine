@@ -26,6 +26,8 @@ app.conf.beat_schedule = {
         'args': ()
     }
 }
+app.conf.beat_scheduler = 'onprem.scheduler:MongoScheduler'
+
 # TODO: celery docs are abstruse but this seems to work. Anyway, we should
 #  pay attention
 app.conf.task_create_missing_queues = True
@@ -51,7 +53,7 @@ app.conf.timezone = 'UTC'
 app.conf.broker_connection_retry_on_startup = True
 app.conf.worker_prefetch_multiplier = 1  # https://docs.celeryq.dev/en/stable/userguide/optimizing.html#prefetch-limits
 app.conf.task_compression = 'gzip'
-app.conf.worker_max_tasks_per_child = 3
+app.conf.worker_max_tasks_per_child = 16
 app.conf.worker_log_color = False
 app.conf.worker_send_task_event = False
 app.conf.task_ignore_result = True  # custom results logic

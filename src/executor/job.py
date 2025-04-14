@@ -179,7 +179,6 @@ from helpers.time_helper import utc_datetime, utc_iso
 from models.batch_results import BatchResults
 from models.job import Job
 from models.rule import RuleIndex
-from models.scheduled_job import ScheduledJob
 from services import SP
 from services.ambiguous_job_service import AmbiguousJob
 from services.chronicle_service import ChronicleConverterType
@@ -1278,27 +1277,6 @@ def multi_account_event_driven_job() -> int:
     return 0
 
 
-def update_scheduled_job() -> None:
-    """
-    Updates 'last_execution_time' in scheduled job item if
-    this is a scheduled job.
-    """
-    _LOG.info('Updating scheduled job item in DB')
-    scheduled_job_name = BSP.env.scheduled_job_name()
-    if not scheduled_job_name:
-        _LOG.info(
-            'The job is not scheduled. No scheduled job '
-            'item to update. Skipping'
-        )
-        return
-    _LOG.info(
-        'The job is scheduled. Updating the '
-        "'last_execution_time' in scheduled job item"
-    )
-    item = ScheduledJob(id=scheduled_job_name, type=ScheduledJob.default_type)
-    item.update(actions=[ScheduledJob.last_execution_time.set(utc_iso())])
-
-
 def single_account_standard_job() -> int:
     # in case it's a standard job , tenant_name will always exist
     tenant_name = cast(str, BSP.env.tenant_name())
@@ -1312,22 +1290,19 @@ def single_account_standard_job() -> int:
         else:
             updater = NullJobUpdater(job)  # updated in caas-job-updater
     else:  # scheduled job, generating it dynamically
-        scheduled = ScheduledJob.get_nullable(BSP.env.scheduled_job_name())
+        scheduled = SP.scheduled_job_service.get_by_name(
+            customer_name=tenant.customer_name,
+            name=BatchJobEnv.SCHEDULED_JOB_NAME.get()
+        )
         updater = JobUpdater.from_batch_env(
             environment=dict(os.environ),
-            rulesets=scheduled.context.scan_rulesets,
+            rulesets=scheduled.meta.as_dict().get('rulesets', []),
         )
         updater.save()
         job = updater.job
         BSP.env.override_environment(
             {BatchJobEnv.CUSTODIAN_JOB_ID.value: job.id}
         )
-
-    if BSP.env.is_scheduled():  # locking scanned regions
-        TenantSettingJobLock(tenant_name).acquire(
-            job_id=job.id, regions=BSP.env.target_regions() or {GLOBAL_REGION}
-        )
-        update_scheduled_job()
 
     updater.created_at = utc_iso()
     updater.started_at = utc_iso()

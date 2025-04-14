@@ -3318,7 +3318,6 @@ name = "syndicate-rule-engine"
 version = "5.8.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "apscheduler" },
     { name = "aws-xray-sdk" },
     { name = "bcrypt" },
     { name = "boto3" },
@@ -3368,7 +3367,6 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "apscheduler", specifier = "==3.11.0" },
     { name = "aws-xray-sdk", specifier = "~=2.14.0" },
     { name = "bcrypt", specifier = "==4.0.1" },
     { name = "boto3", specifier = "==1.36.11" },

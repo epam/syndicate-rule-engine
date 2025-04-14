@@ -3,4 +3,3 @@ helpers
 models
 validators
 handlers
-scheduler

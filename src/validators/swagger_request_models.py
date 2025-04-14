@@ -32,15 +32,16 @@ from helpers.constants import (
     GITHUB_API_URL_DEFAULT,
     GITLAB_API_URL_DEFAULT,
     PolicyEffect,
-    ReportType
+    ReportType,
+    CAASEnv
 )
 from helpers import Version
 from helpers.regions import AllRegions, AllRegionsWithGlobal
 from helpers.time_helper import utc_datetime
-from services import SERVICE_PROVIDER
 from services.chronicle_service import ChronicleConverterType
 from services.ruleset_service import RulesetName
 from models.rule import RuleIndex
+from celery.schedules import BaseSchedule, schedule as celery_schedule, crontab as celery_crontab
 
 
 class BaseModel(PydanticBaseModel):
@@ -771,7 +772,7 @@ def sanitize_schedule(schedule: str) -> str:
         # consider the value to be rate expression only if explicitly
         # specified "rate"
         try:
-            value, unit = schedule.replace('rate', '').strip(' ()').split()
+            value, unit = schedule.replace('rate', '').strip(' ()').split(maxsplit=1)
             value = int(value)
             if unit not in ('minute', 'minutes', 'hour', 'hours', 'day',
                             'days', 'week', 'weeks', 'second', 'seconds',):
@@ -782,7 +783,7 @@ def sanitize_schedule(schedule: str) -> str:
                 raise ValueError
         except ValueError:
             raise ValueError(_rate_error_message)
-        return schedule
+        return f'rate({value} {unit})'
     # considering it to be a cron expression.
     # Currently, on-prem and saas cron expressions differ. On-prem only
     # accepts standard crontab that contains five fields without year
@@ -794,9 +795,9 @@ def sanitize_schedule(schedule: str) -> str:
     raw = schedule.replace('cron', '').strip(' ()').split()
     if len(raw) not in (5, 6):
         raise ValueError('Invalid cron expression. '
-                         'Must contain 5 or 6 fields: '
-                         '(minute hour day-of-month month day-of-week [year])')
-    if SERVICE_PROVIDER.environment_service.is_docker():
+                         'Must contain 5 fields: '
+                         '(minute hour day-of-month month day-of-week)')
+    if CAASEnv.is_docker():
         # on-prem supports only 5 fields and does not support "?"
         raw = ['*' if i == '?' else i for i in raw]
         if len(raw) == 6:
@@ -808,10 +809,28 @@ def sanitize_schedule(schedule: str) -> str:
     return f'cron({" ".join(raw)})'
 
 
+def to_celery_schedule(sch: int | str) -> 'BaseSchedule':
+    if isinstance(sch, int):
+        return celery_schedule(timedelta(seconds=sch))
+    # isinstance(self.schedule, str)
+    # already sanitized so it's either rate() or cron(). Look at
+    # sanitize_schedule
+    if 'rate' in sch:
+        val, unit = sch.replace('rate', '').strip('()').split(maxsplit=1)
+        if not unit.endswith('s'):
+            unit += 's'
+
+        return celery_schedule(timedelta(**{unit: int(val)}))
+    # 'cron' in self.schedule
+    items = sch.replace('cron', '').strip('()').split(maxsplit=4)
+    return celery_crontab(*items)
+
+
 class ScheduledJobPostModel(BaseModel):
-    schedule: str
-    tenant_name: str = Field(None)
-    name: str = Field(None)
+    schedule: int | str
+    tenant_name: str
+    name: str = Field(None, description='Name for this scheduled entry. Will be generated if not provided. Must be unique within a customer')
+    description: str
     target_rulesets: set[str] = Field(default_factory=set, alias='rulesets')
     target_regions: set[str] = Field(default_factory=set, alias='regions')
 
@@ -823,8 +842,11 @@ class ScheduledJobPostModel(BaseModel):
 
     @field_validator('schedule')
     @classmethod
-    def _(cls, schedule: str) -> str:
-        return sanitize_schedule(schedule)
+    def validate_schedule(cls, sch: int | str) -> int | str:
+        # TODO: check minimum allowed period
+        if isinstance(sch, int):
+            return sch
+        return sanitize_schedule(sch)
 
     @field_validator('target_rulesets', mode='after')
     @classmethod
@@ -843,7 +865,11 @@ class ScheduledJobPostModel(BaseModel):
     def iter_rulesets(self) -> Generator[RulesetName, None, None]:
         yield from map(RulesetName, self.target_rulesets)
 
-class ScheduledJobGetModel(BaseModel):
+    def celery_schedule(self) -> BaseSchedule:
+        return to_celery_schedule(self.schedule)
+
+
+class ScheduledJobGetModel(BasePaginationModel):
     """
     GET
     """
@@ -851,19 +877,27 @@ class ScheduledJobGetModel(BaseModel):
 
 
 class ScheduledJobPatchModel(BaseModel):
-    schedule: str = Field(None)
+    schedule: int | str = Field(None)
     enabled: bool = Field(None)
+    description: str = Field(None)
 
     @model_validator(mode='after')
     def at_least_one_given(self) -> Self:
-        if not self.schedule and self.enabled is None:
+        if not self.schedule and self.enabled is None and self.description is None:
             raise ValueError('Provide attributes to update')
         return self
 
     @field_validator('schedule')
     @classmethod
-    def _(cls, schedule: str) -> str:
-        return sanitize_schedule(schedule)
+    def validate_schedule(cls, sch: int | str | None) -> int | str | None:
+        # TODO: check minimum allowed period
+        if isinstance(sch, int) or sch is None:
+            return sch
+        return sanitize_schedule(sch)
+
+    def celery_schedule(self) -> BaseSchedule | None:
+        if self.schedule is not None:
+            return to_celery_schedule(self.schedule)
 
 
 class EventPostModel(BaseModel):

@@ -22,7 +22,7 @@ class AssembleService:
                        affected_licenses: list[str] | str | None = None,
                        job_type: BatchJobType = BatchJobType.STANDARD,
                        credentials_key: str = None,
-                       job_lifetime_minutes: float | None = None) -> dict:
+                       scheduled_job_name: str | None = None) -> dict[str, str]:
         # TODO +- duplicate in event_assembler_handler._build_common_envs
         envs = {
             CAASEnv.REPORTS_BUCKET_NAME.value:
@@ -38,10 +38,10 @@ class AssembleService:
             BatchJobEnv.TENANT_NAME.value: tenant.name,
             BatchJobEnv.PLATFORM_ID.value: platform_id,
             BatchJobEnv.CREDENTIALS_KEY.value: credentials_key,
-            BatchJobEnv.JOB_TYPE.value: job_type.value if isinstance(job_type, BatchJobType) else job_type,  # noqa
+            BatchJobEnv.JOB_TYPE.value: job_type.value if isinstance(job_type, BatchJobType) else job_type,
             BatchJobEnv.TARGET_REGIONS.value: ','.join(target_regions or []),
             BatchJobEnv.CUSTODIAN_JOB_ID.value: job_id,
-
+            BatchJobEnv.SCHEDULED_JOB_NAME.value: scheduled_job_name
         }
         if affected_licenses:
             if isinstance(affected_licenses, str):

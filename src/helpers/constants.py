@@ -541,7 +541,6 @@ class BatchJobEnv(EnvEnum):
     TARGET_REGIONS = 'TARGET_REGIONS'
     AFFECTED_LICENSES = 'AFFECTED_LICENSES'
 
-    EXECUTOR_MODE = 'EXECUTOR_MODE'
     JOB_TYPE = 'JOB_TYPE'
     SUBMITTED_AT = 'SUBMITTED_AT'
 
@@ -1228,3 +1227,8 @@ class ReportType(str, Enum):
 
 class RabbitCommand(str, Enum):
     SEND_MAIL = 'SEND_MAIL'
+
+
+class ScheduledJobType(str, Enum):
+    STANDARD = 'standard'
+    SYSTEM = 'system'

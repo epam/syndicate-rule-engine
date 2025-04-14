@@ -33,7 +33,7 @@ start_celeryworker() {
 start_celerybeat() {
   log "Going to start celerybeat"
   mkdir -p /data/logs
-  exec celery --app=onprem beat --logfile=/data/logs/beat.log --loglevel="${SRE_CELERY_LOG_LEVEL:-INFO}" --schedule=/data/celerybeat-schedule
+  exec celery --app=onprem beat --logfile=/data/logs/beat.log --loglevel="${SRE_CELERY_LOG_LEVEL:-INFO}"
 }
 
 case "$1" in

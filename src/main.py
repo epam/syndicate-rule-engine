@@ -286,7 +286,6 @@ class InitMongo(ActionHandler):
         from models.batch_results import BatchResults
         from models.event import Event
         from models.job import Job
-        from models.job_statistics import JobStatistics
         from models.metrics import ReportMetrics
         from models.policy import Policy
         from models.report_statistics import ReportStatistics
@@ -303,7 +302,6 @@ class InitMongo(ActionHandler):
             BatchResults,
             Event,
             Job,
-            JobStatistics,
             Policy,
             ReportStatistics,
             Retries,
