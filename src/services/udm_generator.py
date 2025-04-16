@@ -19,6 +19,7 @@ from helpers.time_helper import utc_datetime
 from services.metadata import Metadata, RuleMetadata
 from services.report_convertors import ShardCollectionConvertor
 from services.sharding import ShardsCollection
+from services import SP
 
 
 class UDMEntityType(str, enum.Enum):
@@ -530,7 +531,7 @@ class ShardCollectionUDMEventsConvertor(ShardCollectionConvertor):
                 ),
                 principal=UDMNoun(
                     application='Syndicate Rule Engine',  # todo maybe add other data
-                    hostname=CAASEnv.API_GATEWAY_HOST.get('rule-engine'),  # todo maybe get from ec2 metadata
+                    hostname=SP.tls.__dict__.get('host', 'rule-engine'),  # todo maybe get from ec2 metadata
                 ),
                 target=UDMNoun(
                     location=UDMLocation(region),

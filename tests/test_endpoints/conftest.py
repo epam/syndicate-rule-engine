@@ -63,7 +63,6 @@ def s3_buckets(mocked_s3_client) -> None:
         CAASEnv.REPORTS_BUCKET_NAME.get(),
         CAASEnv.STATISTICS_BUCKET_NAME.get(),
         CAASEnv.RULESETS_BUCKET_NAME.get(),
-        CAASEnv.METRICS_BUCKET_NAME.get(),
         CAASEnv.RECOMMENDATIONS_BUCKET_NAME.get()
     ]
     for b in buckets:

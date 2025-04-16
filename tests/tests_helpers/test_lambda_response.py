@@ -5,9 +5,11 @@ from helpers.__version__ import __version__
 
 from helpers.lambda_response import LambdaResponse, CustodianException, \
     JsonLambdaResponse, ResponseFactory, build_response
+from services import SP
 
 
 def test_ok_lambda_response():
+    SP.tls.aws_request_id = 'mock'
     resp = LambdaResponse(
         code=HTTPStatus.OK,
         content='<h1>Hello, world!</h1>',
@@ -22,7 +24,8 @@ def test_ok_lambda_response():
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': '*',
             'Accept-Version': __version__,
-            'Content-Type': 'text/html'
+            'Content-Type': 'text/html',
+            'Lambda-Invocation-Trace-Id': 'mock'
         },
         'isBase64Encoded': False,
         'body': '<h1>Hello, world!</h1>'
@@ -51,6 +54,7 @@ def test_too_large_lambda_response():
 
 
 def test_json_lambda_response():
+    SP.tls.aws_request_id = 'mock'
     resp = JsonLambdaResponse(
         code=HTTPStatus.OK,
         content={'str': 'value', 'list': [1, 2, 3]},
@@ -62,7 +66,8 @@ def test_json_lambda_response():
             'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
             'Access-Control-Allow-Methods': '*',
             'Access-Control-Allow-Origin': '*',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Lambda-Invocation-Trace-Id': 'mock'
         },
         'isBase64Encoded': False,
         'body': '{"list":[1,2,3],"str":"value"}',

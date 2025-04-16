@@ -604,7 +604,6 @@ class AllS3BucketsExist(AbstractHealthCheck):
                 self._environment_service.get_statistics_bucket_name(),
                 self._environment_service.get_rulesets_bucket_name(),
                 self._environment_service.default_reports_bucket_name(),
-                self._environment_service.get_metrics_bucket_name(),
             )
             if name
         ]

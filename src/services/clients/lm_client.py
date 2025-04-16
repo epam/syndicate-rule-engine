@@ -195,12 +195,22 @@ class LMClient:
             return
 
     def sync_license(
-        self, license_key: str, customer: str | None = None
+        self,
+        license_key: str,
+        customer: str | None = None,
+        installation_version: str | None = None,
+        include_ruleset_links: bool = True,
     ) -> dict | None:
+        data = dict(
+            license_key=license_key,
+            include_ruleset_links=include_ruleset_links,
+        )
+        if installation_version:
+            data['installation_version'] = installation_version
         resp = self._send_request(
             endpoint=LMEndpoint.LICENSE_SYNC,
             method=HTTPMethod.POST,
-            data={'license_key': license_key},
+            data=data,
             token=self._token_producer.produce(customer=customer),
         )
         if resp is None or not resp.ok:
@@ -244,6 +254,7 @@ class LMClient:
         customer: str,
         tenant: str,
         ruleset_map: dict[str, list[str]],
+        include_ruleset_links: bool = False
     ) -> dict:
         resp = self._send_request(
             endpoint=LMEndpoint.JOBS,
@@ -254,6 +265,7 @@ class LMClient:
                 'tenant': tenant,
                 'rulesets': ruleset_map,
                 'installation_version': __version__,
+                'include_ruleset_links': include_ruleset_links
             },
             token=self._token_producer.produce(customer=customer),
         )
@@ -432,24 +444,18 @@ class LMClientFactory:
 
         if not version:
             _LOG.info(
-                'No desired api version supplied. ' 'Using after 2.7.0 client'
+                'No desired api version supplied. Using after 2.7.0 client'
             )
             return LMClientAfter2p7(baseurl=ad.url, token_producer=producer)
         if Version(version) >= Version('3.3.0'):
-            _LOG.info(
-                f'Desired version is {version}. ' f'Using client for 3.3.0+'
-            )
+            _LOG.info(f'Desired version is {version}. Using client for 3.3.0+')
             return LMClientAfter3p3(baseurl=ad.url, token_producer=producer)
         if Version(version) >= Version('3.0.0'):
-            _LOG.info(
-                f'Desired version is {version}. ' f'Using client for 3.0.0+'
-            )
+            _LOG.info(f'Desired version is {version}. Using client for 3.0.0+')
             return LMClientAfter3p0(baseurl=ad.url, token_producer=producer)
         if Version(version) >= Version('2.7.0'):
-            _LOG.info(
-                f'Desired version is {version}. ' f'Using client for 2.7.0+'
-            )
+            _LOG.info(f'Desired version is {version}. Using client for 2.7.0+')
             return LMClientAfter2p7(baseurl=ad.url, token_producer=producer)
         # < 2.7.0
-        _LOG.info(f'Desired version is {version}. ' f'Using client for <2.7.0')
+        _LOG.info(f'Desired version is {version}. Using client for <2.7.0')
         return cl

@@ -1,4 +1,5 @@
 from functools import cached_property
+import threading
 from typing import Union, TYPE_CHECKING
 
 from helpers import SingletonMeta
@@ -311,3 +312,7 @@ class ServiceProvider(metaclass=SingletonMeta):
             s3_client=self.s3,
             environment_service=self.environment_service
         )
+
+    @cached_property
+    def tls(self) -> threading.local:
+        return threading.local()
