@@ -11,25 +11,19 @@ from pydantic import BaseModel, ConfigDict, Field
 from helpers.constants import (
     CUSTOMER_ATTR,
     DEFAULT_SYSTEM_CUSTOMER,
-    ED_AWS_RULESET_NAME,
-    ED_AZURE_RULESET_NAME,
-    ED_GOOGLE_RULESET_NAME,
     HOST_ATTR,
     PRIVATE_KEY_SECRET_NAME,
     HealthCheckStatus,
-    RuleDomain,
     S3SettingKey,
     SettingKey,
 )
 from helpers.log_helper import get_logger
-from helpers.system_customer import SystemCustomer
 from services import SERVICE_PROVIDER
 from services.clients.lm_client import LmTokenProducer
 from services.clients.s3 import S3Client
 from services.clients.ssm import AbstractSSMClient, VaultSSMClient
 from services.environment_service import EnvironmentService
 from services.license_manager_service import LicenseManagerService
-from services.ruleset_service import RulesetService
 from services.setting_service import SettingsService
 
 _LOG = get_logger(__name__)
@@ -297,84 +291,6 @@ class RabbitMQConnectionCheck(AbstractHealthCheck):
         if ok:
             return self.ok_result(details)
         return self.not_ok_result(details)
-
-
-class EventDrivenRulesetsExist(AbstractHealthCheck):
-    def __init__(self, ruleset_service: RulesetService):
-        self._ruleset_service = ruleset_service
-
-    @classmethod
-    def build(cls) -> 'AbstractHealthCheck':
-        return cls(ruleset_service=SERVICE_PROVIDER.ruleset_service)
-
-    @classmethod
-    def identifier(cls) -> str:
-        return 'event_driven_rulesets'
-
-    def check(self, **kwargs) -> CheckResult:
-        details = {
-            RuleDomain.AWS.value: False,
-            RuleDomain.AZURE.value: False,
-            RuleDomain.GCP.value: False,
-        }
-        aws = next(
-            self._ruleset_service.iter_standard(
-                customer=SystemCustomer.get_name(),
-                name=ED_AWS_RULESET_NAME,
-                cloud=RuleDomain.AWS.value,
-                event_driven=True,
-                limit=1,
-            ),
-            None,
-        )
-        azure = next(
-            self._ruleset_service.iter_standard(
-                customer=SystemCustomer.get_name(),
-                name=ED_AZURE_RULESET_NAME,
-                cloud=RuleDomain.AZURE.value,
-                event_driven=True,
-                limit=1,
-            ),
-            None,
-        )
-        gcp = next(
-            self._ruleset_service.iter_standard(
-                customer=SystemCustomer.get_name(),
-                name=ED_GOOGLE_RULESET_NAME,
-                cloud=RuleDomain.GCP.value,
-                event_driven=True,
-                limit=1,
-            ),
-            None,
-        )
-        if aws:
-            details[RuleDomain.AWS.value] = True
-        if azure:
-            details[RuleDomain.AZURE.value] = True
-        if gcp:
-            details[RuleDomain.GCP.value] = True
-        if all(details.values()):
-            return self.ok_result(details=details)
-        return self.not_ok_result(details=details)
-
-    @classmethod
-    def remediation(cls) -> str | None:
-        """
-        Actions in case the check is failed
-        :return:
-        """
-        return (
-            'Login as a system user and execute '
-            '"c7n ruleset eventdriven add" for all three clouds'
-        )
-
-    @classmethod
-    def impact(cls) -> str | None:
-        """
-        Harm in case the check is failed
-        :return:
-        """
-        return 'Event-driven scans won`t work'
 
 
 class RulesMetaAccessDataCheck(AbstractHealthCheck):

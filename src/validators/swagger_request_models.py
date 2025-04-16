@@ -1107,64 +1107,6 @@ class ReportPushMultipleModel(TimeRangedMixin, BaseModel):
     type: JobType = Field(None)
 
 
-class EventDrivenRulesetGetModel(BaseModel):
-    cloud: RuleDomain = Field(None)
-    get_rules: bool = False
-
-
-class EventDrivenRulesetPostModel(BaseModel):
-    # name: str
-    cloud: Literal['AWS', 'AZURE', 'GOOGLE', 'GCP', 'KUBERNETES']
-    version: str = Field(
-        None,
-        description='Ruleset version. If not specified, '
-                    'will be generated automatically based on github '
-                    'release of rules or based on the previous ruleset version'
-    )
-    rule_source_id: str = Field(
-        None,
-        description='Id of rule source object to get rules from. '
-                    'If the type of that source is GITHUB_RELEASE, '
-                    'the version from release tag will be used'
-    )
-
-    @field_validator('cloud', mode='after')
-    @classmethod
-    def validate_cloud(cls, cloud: str) -> str:
-        if cloud == 'GOOGLE':
-            cloud = 'GCP'
-        return cloud
-
-    @field_validator('version', mode='after')
-    @classmethod
-    def validate_version(cls, version: str | None) -> str | None:
-        if not version:
-            return version
-        _ = Version(version)  # raise ValueError
-        return version
-
-
-class EventDrivenRulesetDeleteModel(BaseModel):
-    # name: str
-    cloud: RuleDomain
-    version: str = Field(
-        description='Specific version to remove. * can be specified to '
-                    'remove all the versions of a specific ruleset'
-    )
-
-    @field_validator('version', mode='after')
-    @classmethod
-    def validate_version(cls, version: str) -> str:
-        version = version.strip()
-        if version != '*':
-            _ = Version(version)
-        return version
-
-    @property
-    def is_all_versions(self) -> bool:
-        return self.version == '*'
-
-
 class ProjectGetReportModel(BaseModel):
     tenant_display_names: set[Annotated[
         str, StringConstraints(to_lower=True, strip_whitespace=True)

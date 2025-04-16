@@ -1,5 +1,4 @@
-from pynamodb.attributes import UnicodeAttribute, BooleanAttribute, \
-    ListAttribute, MapAttribute
+from pynamodb.attributes import UnicodeAttribute, ListAttribute, MapAttribute
 from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
 from helpers.constants import CAASEnv, COMPOUND_KEYS_SEPARATOR
@@ -52,7 +51,6 @@ class Ruleset(BaseModel):
     id = UnicodeAttribute(hash_key=True)  # "customer#L|S#name#version"
     customer = UnicodeAttribute()
     cloud = UnicodeAttribute()
-    event_driven = BooleanAttribute(default=False)
     rules = ListAttribute(of=UnicodeAttribute, default=list)
     s3_path = S3PathAttribute(default=dict)
     status = RulesetStatusAttribute(default=dict)  # deprecated

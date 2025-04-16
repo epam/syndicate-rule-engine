@@ -46,7 +46,6 @@ class LicenseManagerService:
             version=EMPTY_VERSION,
             cloud=dto['cloud'],
             rules=dto.get('rules') or [],
-            event_driven=False,
             status={'last_update_time': utc_iso()},
             licensed=True,
             license_keys=license_keys,

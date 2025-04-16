@@ -1164,13 +1164,15 @@ def batch_results_job(batch_results: BatchResults):
     cloud = Cloud[tenant.cloud.upper()]
     credentials = get_credentials(tenant, batch_results)
 
-    policies = BSP.policies_service.separate_ruleset(
-        from_=BSP.policies_service.ensure_event_driven_ruleset(cloud),
-        exclude=get_rules_to_exclude(tenant),
-        keep=set(
-            chain.from_iterable(batch_results.regions_to_rules().values())
-        ),
-    )
+    # TODO: use standard ruleset
+    policies = []
+    # policies = BSP.policies_service.separate_ruleset(
+    #     from_=BSP.policies_service.ensure_event_driven_ruleset(cloud),
+    #     exclude=get_rules_to_exclude(tenant),
+    #     keep=set(
+    #         chain.from_iterable(batch_results.regions_to_rules().values())
+    #     ),
+    # )
     loader = PoliciesLoader(
         cloud=cloud,
         output_dir=work_dir,

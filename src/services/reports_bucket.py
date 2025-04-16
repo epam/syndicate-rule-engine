@@ -4,8 +4,6 @@ from datetime import datetime, timezone
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Optional
 
-from dateutil.relativedelta import relativedelta
-
 from helpers import Version, urljoin
 from helpers.constants import COMPOUND_KEYS_SEPARATOR, Cloud
 from helpers.time_helper import utc_datetime, week_number

@@ -7,10 +7,6 @@ import msgspec
 from helpers import Version
 from helpers.constants import (
     COMPOUND_KEYS_SEPARATOR,
-    ED_AWS_RULESET_NAME,
-    ED_AZURE_RULESET_NAME,
-    ED_GOOGLE_RULESET_NAME,
-    ED_KUBERNETES_RULESET_NAME,
     ID_ATTR,
     LICENSED_ATTR,
     NAME_ATTR,
@@ -154,7 +150,6 @@ class RulesetService(BaseDataService[Ruleset]):
         version: str,
         cloud: str,
         rules: list,
-        event_driven: bool = False,
         s3_path: dict | None = None,
         status: dict | None = None,
         licensed: bool = False,
@@ -172,7 +167,6 @@ class RulesetService(BaseDataService[Ruleset]):
             id=self.build_id(customer, licensed, name, version),
             customer=customer,
             cloud=cloud,
-            event_driven=event_driven,
             rules=rules,
             s3_path=s3_path or {},
             status=status or {},
@@ -181,20 +175,6 @@ class RulesetService(BaseDataService[Ruleset]):
             created_at=created_at or utc_iso(),
             versions=versions or [],
             description=description,
-        )
-
-    def create_event_driven(
-        self, cloud: str, version: str, rules: list[str]
-    ) -> Ruleset:
-        return self.create(
-            customer=SystemCustomer.get_name(),
-            name=self.ed_ruleset_name(cloud),
-            version=version,
-            cloud=cloud,
-            rules=rules,
-            event_driven=True,
-            licensed=False,
-            description='System event driven ruleset',
         )
 
     def get_previous_ruleset(
@@ -261,40 +241,6 @@ class RulesetService(BaseDataService[Ruleset]):
     def set_s3_path(ruleset: Ruleset, bucket: str, key: str):
         ruleset.s3_path = {'bucket_name': bucket, 'path': key}
 
-    def iter_event_driven(
-        self, cloud: str, ascending: bool = False, limit: int | None = None
-    ) -> Iterator[Ruleset]:
-        """
-        Iterates over event-driven rulesets for cloud
-        :param cloud:
-        :param ascending:
-        :param limit:
-        :return:
-        """
-        sk = self.build_id(
-            customer=SystemCustomer.get_name(),
-            licensed=False,
-            name=self.ed_ruleset_name(cloud),
-            version='',
-        )
-        return Ruleset.customer_id_index.query(
-            hash_key=SystemCustomer.get_name(),
-            range_key_condition=Ruleset.id.startswith(sk),
-            filter_condition=(Ruleset.event_driven == True),
-            scan_index_forward=ascending,
-            limit=limit,
-        )
-
-    def get_latest_event_driven(self, cloud: str) -> Ruleset | None:
-        return next(self.iter_event_driven(cloud, limit=1), None)
-
-    def get_event_driven(self, cloud: str, version: str) -> Ruleset | None:
-        return self.get_standard(
-            customer=SystemCustomer.get_name(),
-            name=self.ed_ruleset_name(cloud),
-            version=version,
-        )
-
     def download(self, ruleset: Ruleset, out: BinaryIO = None) -> BinaryIO:
         return self._s3_client.gz_get_object(
             bucket=ruleset.s3_path['bucket_name'],
@@ -318,15 +264,6 @@ class RulesetService(BaseDataService[Ruleset]):
         )
 
     @staticmethod
-    def payload_hash(payload: list | dict) -> str:
-        if isinstance(payload, dict):
-            policies = payload.get('policies') or []
-        else:
-            policies = payload
-        name_to_body = {p['name']: p for p in policies}
-        return RulesetService.hash_from_name_to_body(name_to_body)
-
-    @staticmethod
     def hash_from_name_to_body(name_to_body: dict) -> str:
         """
         Calculates hash of ruleset's policies. Does not consider other from
@@ -336,18 +273,6 @@ class RulesetService(BaseDataService[Ruleset]):
         """
         data = msgspec.json.encode(name_to_body, order='deterministic')
         return hashlib.sha256(data).hexdigest()
-
-    @staticmethod
-    def ed_ruleset_name(cloud: str) -> str:
-        match cloud:
-            case 'AWS':
-                return ED_AWS_RULESET_NAME
-            case 'AZURE':
-                return ED_AZURE_RULESET_NAME
-            case 'GOOGLE' | 'GCP':
-                return ED_GOOGLE_RULESET_NAME
-            case 'KUBERNETES' | 'K8S':
-                return ED_KUBERNETES_RULESET_NAME
 
 
 class RulesetName(tuple):

@@ -63,7 +63,6 @@ class CustodianEndpoint(str, Enum):
     CREDENTIALS_ID = '/credentials/{id}'
     RULE_SOURCES_ID = '/rule-sources/{id}'
     RULESETS_RELEASE = '/rulesets/release'
-    ED_RULESETS = '/rulesets/event-driven'
     DOC_SWAGGER_JSON = '/doc/swagger.json'
     RULE_META_UPDATER = '/rules/update-meta'
     REPORTS_PUSH_DOJO = '/reports/push/dojo'
@@ -666,9 +665,6 @@ class Permission(str, Enum):
     RULESET_CREATE = 'ruleset:create'
     RULESET_UPDATE = 'ruleset:update'
     RULESET_DELETE = 'ruleset:delete'
-    RULESET_DESCRIBE_ED = 'ruleset:describe_event_driven', True
-    RULESET_CREATE_ED = 'ruleset:create_event_driven', True
-    RULESET_DELETE_ED = 'ruleset:delete_event_driven', True
     RULESET_RELEASE = 'ruleset:release', False
 
     RULE_SOURCE_DESCRIBE = 'rule_source:describe'
@@ -892,11 +888,6 @@ START_DATE = 'start_date'
 ARTICLE_ATTR = 'article'
 
 COMPOUND_KEYS_SEPARATOR = '#'
-
-ED_AWS_RULESET_NAME = '_ED_AWS'
-ED_AZURE_RULESET_NAME = '_ED_AZURE'
-ED_GOOGLE_RULESET_NAME = '_ED_GOOGLE'
-ED_KUBERNETES_RULESET_NAME = '_ED_KUBERNETES'
 
 
 class RuleSourceType(str, Enum):

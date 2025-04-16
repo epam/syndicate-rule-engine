@@ -20,9 +20,6 @@ from validators.swagger_request_models import (
     DefectDojoPostModel,
     DefectDojoQueryModel,
     DepartmentGetReportModel,
-    EventDrivenRulesetDeleteModel,
-    EventDrivenRulesetGetModel,
-    EventDrivenRulesetPostModel,
     EventPostModel,
     HealthCheckQueryModel,
     JobComplianceReportGetModel,
@@ -516,31 +513,6 @@ data: tuple[EndpointInfo, ...] = (
         responses=[(HTTPStatus.OK, None, None)],
         permission=Permission.RULESET_RELEASE,
         description='Allows to release a ruleset to the license manager'
-    ),
-
-    EndpointInfo(
-        path=CustodianEndpoint.ED_RULESETS,
-        method=HTTPMethod.GET,
-        request_model=EventDrivenRulesetGetModel,
-        responses=[(HTTPStatus.OK, MultipleRulesetsModel, None)],
-        permission=Permission.RULESET_DESCRIBE_ED,
-        description='Allows to list rulesets for event-driven scans'
-    ),
-    EndpointInfo(
-        path=CustodianEndpoint.ED_RULESETS,
-        method=HTTPMethod.POST,
-        request_model=EventDrivenRulesetPostModel,
-        responses=[(HTTPStatus.CREATED, SingleRulesetModel, None)],
-        permission=Permission.RULESET_CREATE_ED,
-        description='Allows to create a ruleset for event-driven scans'
-    ),
-    EndpointInfo(
-        path=CustodianEndpoint.ED_RULESETS,
-        method=HTTPMethod.DELETE,
-        request_model=EventDrivenRulesetDeleteModel,
-        responses=[(HTTPStatus.NO_CONTENT, None, None)],
-        permission=Permission.RULESET_DELETE_ED,
-        description='Allows to delete a ruleset for event-driven scans'
     ),
 
     # rulesources
