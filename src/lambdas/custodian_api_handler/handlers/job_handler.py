@@ -16,7 +16,7 @@ from helpers.constants import (
     HTTPMethod,
     JobState,
     RuleDomain,
-    ScheduledJobType
+    ScheduledJobType,
 )
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
@@ -84,7 +84,6 @@ class JobHandler(AbstractHandler):
         self._rule_service = rule_service
         self._platform_service = platform_service
 
-        self._licensed_rulesets_cache = cache.factory()
         self._tenant_licenses = cache.factory()
 
     @classmethod
@@ -161,17 +160,6 @@ class JobHandler(AbstractHandler):
         self._tenant_licenses[tenant.name] = licenses
         return licenses
 
-    def _get_licensed_ruleset(self, name: str) -> Ruleset | None:
-        if name in self._licensed_rulesets_cache:
-            _LOG.debug('Return cached ruleset item')
-            return self._licensed_rulesets_cache[name]
-        item = self._ruleset_service.get_licensed(name)
-        if not item:
-            _LOG.error('Somehow licensed ruleset does not exist in DB')
-            return
-        self._licensed_rulesets_cache[name] = item
-        return item
-
     def _resolve_all_from_licenses(
         self, tenant: Tenant, domain: RuleDomain, licenses: tuple[License, ...]
     ) -> tuple[License, list[RulesetName]]:
@@ -181,7 +169,7 @@ class JobHandler(AbstractHandler):
             if not _tlk:
                 continue
             for name in set(lic.ruleset_ids):
-                item = self._get_licensed_ruleset(name)
+                item = self._ruleset_service.get_licensed(name)
                 if not item or item.cloud != domain.value:
                     continue
                 ruleset_name = RulesetName(name, None, lic.license_key)
@@ -265,7 +253,7 @@ class JobHandler(AbstractHandler):
     ) -> Ruleset | None:
         if ruleset_name.name not in lic.ruleset_ids:
             return
-        item = self._get_licensed_ruleset(ruleset_name.name)
+        item = self._ruleset_service.get_licensed(ruleset_name.name)
         if not item:
             return
         if item.cloud != domain.value:
@@ -341,7 +329,7 @@ class JobHandler(AbstractHandler):
         if not ruleset_names and not licenses:
             # or use all local rulesets
             _LOG.warning(
-                'No rulesets were provided and no licenses ' 'are activated'
+                'No rulesets were provided and no licenses are activated'
             )
             raise (
                 ResponseFactory(HTTPStatus.BAD_REQUEST)
@@ -373,7 +361,7 @@ class JobHandler(AbstractHandler):
             lic, licensed_rulesets = None, []
         else:  # both ruleset names and licenses
             _LOG.info(
-                'Some licenses are activated and rulesets were ' 'provided.'
+                'Some licenses are activated and rulesets were provided.'
             )
             standard_rulesets, lic, licensed_rulesets = (
                 self._resolve_from_names_and_licenses(
@@ -571,7 +559,7 @@ class JobHandler(AbstractHandler):
             rules_to_scan=list(rules_to_scan or []),
             ttl=ttl,
             affected_license=lic.license_key if lic else None,
-            status=JobState.PENDING
+            status=JobState.PENDING,
         )
         self._job_service.save(job)
 
@@ -584,8 +572,14 @@ class JobHandler(AbstractHandler):
             if lic
             else None,
         )
-        resp = self._submit_job_to_batch(tenant=tenant, job=job, envs=envs,
-                                         timeout=event.timeout_minutes * 60 if event.timeout_minutes else None)
+        resp = self._submit_job_to_batch(
+            tenant=tenant,
+            job=job,
+            envs=envs,
+            timeout=event.timeout_minutes * 60
+            if event.timeout_minutes
+            else None,
+        )
         self._job_service.update(
             job=job,
             batch_job_id=resp['jobId'],
@@ -597,8 +591,7 @@ class JobHandler(AbstractHandler):
         )
 
     def _submit_job_to_batch(
-        self, tenant: Tenant, job: Job, envs: dict,
-        timeout: int | None = None
+        self, tenant: Tenant, job: Job, envs: dict, timeout: int | None = None
     ) -> BatchJob:
         job_name = f'{tenant.name}-{job.submitted_at}'
         job_name = ''.join(
@@ -610,15 +603,14 @@ class JobHandler(AbstractHandler):
             job_queue=self._environment_service.get_batch_job_queue(),
             job_definition=self._environment_service.get_batch_job_def(),
             environment_variables=envs,
-            timeout=timeout
+            timeout=timeout,
         )
         _LOG.debug(f'Batch job was submitted: {response}')
         return response
 
     def ensure_job_is_allowed(self, tenant: Tenant, tlk: str):
         _LOG.info(
-            f'Going to check for permission to exhaust'
-            f'{tlk} TenantLicense(s).'
+            f'Going to check for permission to exhaust{tlk} TenantLicense(s).'
         )
         if not self._license_manager_service.cl.check_permission(
             customer=tenant.customer_name,
@@ -666,7 +658,9 @@ class JobHandler(AbstractHandler):
                 limit=event.limit,
                 start=event.start_iso,
                 end=event.end_iso,
-                last_evaluated_key=NextToken.deserialize(event.next_token).value,
+                last_evaluated_key=NextToken.deserialize(
+                    event.next_token
+                ).value,
             )
         else:
             cursor = self._job_service.get_by_customer_name(
@@ -675,7 +669,9 @@ class JobHandler(AbstractHandler):
                 limit=event.limit,
                 start=event.start_iso,
                 end=event.end_iso,
-                last_evaluated_key=NextToken.deserialize(event.next_token).value,
+                last_evaluated_key=NextToken.deserialize(
+                    event.next_token
+                ).value,
             )
         jobs = list(cursor)
         return (
@@ -787,7 +783,7 @@ class JobHandler(AbstractHandler):
             ttl=ttl,
             platform_id=platform.id,
             affected_license=lic.license_key if lic else None,
-            status=JobState.PENDING
+            status=JobState.PENDING,
         )
         self._job_service.save(job)
         envs = self._assemble_service.build_job_envs(
@@ -799,8 +795,14 @@ class JobHandler(AbstractHandler):
             if lic
             else None,
         )
-        resp = self._submit_job_to_batch(tenant=tenant, job=job, envs=envs,
-                                         timeout=event.timeout_minutes * 60 if event.timeout_minutes else None)
+        resp = self._submit_job_to_batch(
+            tenant=tenant,
+            job=job,
+            envs=envs,
+            timeout=event.timeout_minutes * 60
+            if event.timeout_minutes
+            else None,
+        )
         self._job_service.update(
             job=job,
             batch_job_id=resp['jobId'],
@@ -827,27 +829,35 @@ class JobHandler(AbstractHandler):
                 )
                 .exc()
             )
-        name = event.name or self._scheduled_job_service.generate_name(tenant.name)
+        name = event.name or self._scheduled_job_service.generate_name(
+            tenant.name
+        )
         if self._scheduled_job_service.get_by_name(tenant.customer_name, name):
-            raise ResponseFactory(HTTPStatus.CONFLICT).message(
-                f'Scheduled job with name {name} already exists'
-            ).exc()
+            raise (
+                ResponseFactory(HTTPStatus.CONFLICT)
+                .message(f'Scheduled job with name {name} already exists')
+                .exc()
+            )
 
         regions_to_scan = self._resolve_regions_to_scan(
             target_regions=event.target_regions, tenant=tenant
         )
-        standard_rulesets, lic, licensed_rulesets = self._get_rulesets_for_scan(
-            tenant=tenant,
-            domain=domain,
-            license_key=event.license_key,
-            ruleset_names=set(event.iter_rulesets()),
+        standard_rulesets, lic, licensed_rulesets = (
+            self._get_rulesets_for_scan(
+                tenant=tenant,
+                domain=domain,
+                license_key=event.license_key,
+                ruleset_names=set(event.iter_rulesets()),
+            )
         )
 
         envs = self._assemble_service.build_job_envs(
             tenant=tenant,
             target_regions=list(regions_to_scan),
             job_type=BatchJobType.SCHEDULED,
-            affected_licenses=lic.tenant_license_key(tenant.customer_name) if lic else None,
+            affected_licenses=lic.tenant_license_key(tenant.customer_name)
+            if lic
+            else None,
             scheduled_job_name=name,
         )
         item = self._scheduled_job_service.create(
@@ -860,19 +870,20 @@ class JobHandler(AbstractHandler):
                 'rulesets': self._serialize_rulesets(
                     standard_rulesets, lic, licensed_rulesets
                 ),
-                'regions': sorted(regions_to_scan)
-            }
+                'regions': sorted(regions_to_scan),
+            },
         )
         self._scheduled_job_service.set_celery_task(
             item=item,
             task='onprem.tasks.run_executor',
             sch=event.celery_schedule(),
-            args=(envs, )
+            args=(envs,),
         )
         self._scheduled_job_service.save(item)
 
         return build_response(
-            code=HTTPStatus.CREATED, content=self._scheduled_job_service.dto(item)
+            code=HTTPStatus.CREATED,
+            content=self._scheduled_job_service.dto(item),
         )
 
     @validate_kwargs
@@ -927,7 +938,7 @@ class JobHandler(AbstractHandler):
             item=item,
             enabled=event.enabled,
             description=event.description,
-            sch=event.celery_schedule()
+            sch=event.celery_schedule(),
         )
         return build_response(content=self._scheduled_job_service.dto(item))
 
