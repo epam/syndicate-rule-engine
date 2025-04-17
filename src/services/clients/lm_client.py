@@ -4,6 +4,8 @@ import re
 from enum import Enum
 from http import HTTPStatus
 
+from typing import Literal
+from typing_extensions import TypedDict, NotRequired
 import requests
 from modular_sdk.services.impl.maestro_credentials_service import AccessMeta
 
@@ -23,6 +25,41 @@ from services.clients.ssm import AbstractSSMClient
 from services.setting_service import SettingsService
 
 _LOG = get_logger(__name__)
+
+
+class LMRulesetDTO(TypedDict):
+    name: str
+    cloud: Literal['AWS', 'AZURE', 'GCP', 'KUBERNETES']
+    description: str
+    version: str
+    creation_date: str
+    compliance_name: str | None
+    rules: list[str]
+    versions: list[str]
+    download_url: NotRequired[str]
+
+
+class LMAllowanceDTO(TypedDict):
+    time_range: str
+    job_balance: int
+    balance_exhaustion_model: str
+
+
+class LMEventDrivenDTO(TypedDict):
+    active: bool
+    quota: int
+
+
+class LMLicenseDTO(TypedDict):
+    customers: dict[str, dict]
+    description: str
+    allowance: LMAllowanceDTO
+    event_driven: LMEventDrivenDTO
+    valid_from: str
+    valid_until: str
+    service_type: str
+    license_key: str
+    rulesets: list[LMRulesetDTO]
 
 
 class LMException(Exception):
@@ -200,7 +237,7 @@ class LMClient:
         customer: str | None = None,
         installation_version: str | None = None,
         include_ruleset_links: bool = True,
-    ) -> dict | None:
+    ) -> LMLicenseDTO | None:
         data = dict(
             license_key=license_key,
             include_ruleset_links=include_ruleset_links,
@@ -254,7 +291,7 @@ class LMClient:
         customer: str,
         tenant: str,
         ruleset_map: dict[str, list[str]],
-        include_ruleset_links: bool = False
+        include_ruleset_links: bool = False,
     ) -> dict:
         resp = self._send_request(
             endpoint=LMEndpoint.JOBS,
@@ -265,7 +302,7 @@ class LMClient:
                 'tenant': tenant,
                 'rulesets': ruleset_map,
                 'installation_version': __version__,
-                'include_ruleset_links': include_ruleset_links
+                'include_ruleset_links': include_ruleset_links,
             },
             token=self._token_producer.produce(customer=customer),
         )

@@ -16,9 +16,15 @@ from helpers.constants import (
 )
 from helpers.system_customer import SystemCustomer
 from helpers.time_helper import utc_iso
-from models.ruleset import RULESET_LICENSES, RULESET_STANDARD, Ruleset
+from models.ruleset import (
+    RULESET_LICENSES,
+    RULESET_STANDARD,
+    Ruleset,
+    EMPTY_VERSION,
+)
 from services.base_data_service import BaseDataService
 from services.clients.s3 import S3Client
+from services.reports_bucket import RulesetsBucketKeys
 from modular_sdk.models.pynamongo.convertors import instance_as_dict
 
 
@@ -61,7 +67,6 @@ class RulesetService(BaseDataService[Ruleset]):
         name: Optional[str] = None,
         version: Optional[str] = None,
         cloud: Optional[str] = None,
-        event_driven: Optional[bool] = False,
         ascending: Optional[bool] = False,
         limit: Optional[int] = None,
         **kwargs,
@@ -71,8 +76,6 @@ class RulesetService(BaseDataService[Ruleset]):
         filter_condition = None
         if cloud:
             filter_condition &= Ruleset.cloud == cloud.upper()
-        if isinstance(event_driven, bool):
-            filter_condition &= Ruleset.event_driven == event_driven
         sort_key = (
             f'{customer}{COMPOUND_KEYS_SEPARATOR}'
             f'{RULESET_STANDARD}{COMPOUND_KEYS_SEPARATOR}'
@@ -89,7 +92,7 @@ class RulesetService(BaseDataService[Ruleset]):
             filter_condition=filter_condition,
         )
 
-    def by_id(self, id: str, attributes_to_get: list = None) -> Ruleset | None:
+    def by_id(self, id: str, attributes_to_get: tuple = ()) -> Ruleset | None:
         return self.get_nullable(
             hash_key=id, attributes_to_get=attributes_to_get
         )
@@ -104,28 +107,6 @@ class RulesetService(BaseDataService[Ruleset]):
                 yield ruleset
             processed.add(_id)
 
-    def by_lm_id(
-        self, lm_id: str, attributes_to_get: Optional[list] = None
-    ) -> Optional[Ruleset]:
-        return next(
-            self.model_class.license_manager_id_index.query(
-                hash_key=lm_id, limit=1, attributes_to_get=attributes_to_get
-            ),
-            None,
-        )
-
-    def iter_by_lm_id(
-        self, lm_ids: Iterable[str]
-    ) -> Generator[Ruleset, None, None]:
-        processed = set()
-        for _id in lm_ids:
-            if _id in processed:
-                continue
-            ruleset = self.by_lm_id(_id)
-            if ruleset:
-                yield ruleset
-            processed.add(_id)
-
     def get_standard(
         self, customer: str, name: str, version: str
     ) -> Ruleset | None:
@@ -134,6 +115,24 @@ class RulesetService(BaseDataService[Ruleset]):
                 customer=customer, licensed=False, name=name, version=version
             )
         )
+
+    def get_licensed(
+        self, name: str, attributes_to_get: tuple = ()
+    ) -> Ruleset | None:
+        return self.by_id(
+            id=self.build_licensed_id(name),
+            attributes_to_get=attributes_to_get,
+        )
+
+    def iter_licensed_by_names(self, names: Iterable[str]):
+        processed = set()
+        for name in names:
+            if name in processed:
+                continue
+            item = self.get_licensed(name)
+            if item:
+                yield item
+            processed.add(name)
 
     def get_latest(self, customer: str, name: str) -> Ruleset | None:
         return next(
@@ -154,7 +153,6 @@ class RulesetService(BaseDataService[Ruleset]):
         status: dict | None = None,
         licensed: bool = False,
         license_keys: list | None = None,
-        license_manager_id: str | None = None,
         versions: list[str] | None = None,
         created_at: str | None = None,
         description: str | None = None,
@@ -164,17 +162,24 @@ class RulesetService(BaseDataService[Ruleset]):
         status = status or {}
         license_keys = license_keys or []
         return Ruleset(
-            id=self.build_id(customer, licensed, name, version),
+            id=self.build_id(customer, licensed, name, version)
+            if not licensed
+            else self.build_licensed_id(name),
             customer=customer,
             cloud=cloud,
             rules=rules,
             s3_path=s3_path or {},
             status=status or {},
             license_keys=license_keys or [],
-            license_manager_id=license_manager_id,
             created_at=created_at or utc_iso(),
             versions=versions or [],
             description=description,
+        )
+
+    @classmethod
+    def build_licensed_id(cls, name: str) -> str:
+        return cls.build_id(
+            SystemCustomer.get_name(), True, name, EMPTY_VERSION
         )
 
     def get_previous_ruleset(
@@ -193,11 +198,12 @@ class RulesetService(BaseDataService[Ruleset]):
             limit=limit,
         )
 
+    @classmethod
     def build_id(
-        self, customer: str, licensed: bool, name: str, version: str
+        cls, customer: str, licensed: bool, name: str, version: str
     ) -> str:
         return COMPOUND_KEYS_SEPARATOR.join(
-            map(str, (customer, self.licensed_tag(licensed), name, version))
+            map(str, (customer, cls.licensed_tag(licensed), name, version))
         )
 
     @staticmethod
@@ -206,9 +212,7 @@ class RulesetService(BaseDataService[Ruleset]):
 
     @staticmethod
     def build_s3_key(ruleset: Ruleset) -> str:
-        return S3Client.safe_key(
-            f'{ruleset.customer}/{ruleset.name}/{ruleset.version}'
-        )
+        return RulesetsBucketKeys.ruleset_key(ruleset)
 
     def delete(self, item: Ruleset):
         super().delete(item)
@@ -229,8 +233,6 @@ class RulesetService(BaseDataService[Ruleset]):
         ruleset_json.pop(ID_ATTR, None)
         ruleset_json.pop('status', None)
         ruleset_json.pop('allowed_for', None)
-        ruleset_json.pop('active', None)
-        ruleset_json.pop('license_manager_id', None)
         ruleset_json.pop('s3_path', None)
 
         for param in params_to_exclude or ():
@@ -345,3 +347,9 @@ class RulesetName(tuple):
         if v := self.version:
             name = f'{name} {v.to_str()}'
         return name
+
+
+class LicensedRulesetProvider:
+    def get(self):
+        pass
+

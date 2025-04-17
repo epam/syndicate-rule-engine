@@ -350,6 +350,9 @@ class MetadataProvider:
             tenant_license_key=tlk,
             installation_version=version.to_str(),
         )
+        # NOTE: lm not necessarily returns the specified version of meta.
+        # it returns <= installation_version, but we store it under exactly
+        # installation_version. Not a critical thing but could be improved
         if not data:
             _LOG.warning('Unsuccessful request to lm. No metadata returned')
             return Metadata.empty()
@@ -384,7 +387,7 @@ class MetadataProvider:
         if meta:
             _LOG.info('Metadata is found in cache. Returning')
             return meta
-        meta = self.get_no_cache(lic)
+        meta = self.get_no_cache(lic, version=version)
         _LOG.info('Saving metadata to cache')
         self._save_to_cache(lic.license_key, version, meta)
         return meta

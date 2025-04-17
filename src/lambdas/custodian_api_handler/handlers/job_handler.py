@@ -165,7 +165,7 @@ class JobHandler(AbstractHandler):
         if name in self._licensed_rulesets_cache:
             _LOG.debug('Return cached ruleset item')
             return self._licensed_rulesets_cache[name]
-        item = self._ruleset_service.by_lm_id(name)
+        item = self._ruleset_service.get_licensed(name)
         if not item:
             _LOG.error('Somehow licensed ruleset does not exist in DB')
             return

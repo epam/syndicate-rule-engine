@@ -114,7 +114,6 @@ class RulesetHandler(AbstractHandler):
             version=version,
             cloud=cloud,
             ascending=False,
-            event_driven=False,
         )
         for rs in it:
             if rs.name not in mapping:
@@ -164,10 +163,10 @@ class RulesetHandler(AbstractHandler):
         licenses = tuple(self.license_service.to_licenses(applications))
         license_keys = {_license.license_key for _license in licenses}
 
-        ids = chain.from_iterable(
+        names = chain.from_iterable(
             _license.ruleset_ids for _license in licenses
         )
-        source = self.ruleset_service.iter_by_lm_id(ids)
+        source = self.ruleset_service.iter_licensed_by_names(names)
         # source contains rule-sets from applications, now we
         # just filter them by input params
         for rs in filter(_check, source):

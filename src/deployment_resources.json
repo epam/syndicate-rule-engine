@@ -106,11 +106,6 @@
         "index_key_type": "S",
         "index_sort_key_name": "id",
         "index_sort_key_type": "S"
-      },
-      {
-        "name": "license_manager_id-index",
-        "index_key_name": "license_manager_id",
-        "index_key_type": "S"
       }
     ]
   },

@@ -1,7 +1,7 @@
-from pynamodb.attributes import UnicodeAttribute, ListAttribute, MapAttribute
+from pynamodb.attributes import ListAttribute, MapAttribute, UnicodeAttribute
 from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
-from helpers.constants import CAASEnv, COMPOUND_KEYS_SEPARATOR
+from helpers.constants import COMPOUND_KEYS_SEPARATOR, CAASEnv
 from helpers.time_helper import utc_iso
 from models import BaseModel
 
@@ -33,16 +33,6 @@ class CustomerIdIndex(GlobalSecondaryIndex):
     id = UnicodeAttribute(range_key=True)
 
 
-class LicenseManagerIdIndex(GlobalSecondaryIndex):
-    class Meta:
-        index_name = 'license_manager_id-index'
-        read_capacity_units = 1
-        write_capacity_units = 1
-        projection = AllProjection()
-
-    license_manager_id = UnicodeAttribute(hash_key=True)
-
-
 class Ruleset(BaseModel):
     class Meta:
         table_name = 'CaaSRulesets'
@@ -54,14 +44,12 @@ class Ruleset(BaseModel):
     rules = ListAttribute(of=UnicodeAttribute, default=list)
     s3_path = S3PathAttribute(default=dict)
     status = RulesetStatusAttribute(default=dict)  # deprecated
-    license_keys = ListAttribute(of=UnicodeAttribute, default=list)
-    license_manager_id = UnicodeAttribute(null=True)  # kind of deprecated
+    license_keys = ListAttribute(default=list)
     created_at = UnicodeAttribute(null=True, default_for_new=utc_iso)
-    versions = ListAttribute(of=UnicodeAttribute, default=list)
+    versions = ListAttribute(default=list)
     description = UnicodeAttribute(null=True)
 
     customer_id_index = CustomerIdIndex()
-    license_manager_id_index = LicenseManagerIdIndex()
 
     @property
     def name(self) -> str:
@@ -84,3 +72,12 @@ class Ruleset(BaseModel):
     @property
     def is_empty_version(self) -> bool:
         return self.version is EMPTY_VERSION
+
+    @property
+    def latest_version(self) -> str:
+        """
+        Supposed to be used for licensed rulesets
+        """
+        if self.licensed:
+            return max(self.versions)
+        return self.version

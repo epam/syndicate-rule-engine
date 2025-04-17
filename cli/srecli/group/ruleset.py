@@ -3,7 +3,7 @@ import click
 from srecli.group import ContextObj, ViewCommand, cli_response
 from srecli.service.constants import RULE_CLOUDS
 
-attributes_order = 'name', 'version', 'cloud', 'licensed', 'license_manager_id'
+attributes_order = 'name', 'version', 'cloud', 'licensed',
 
 
 @click.group(name='ruleset')
