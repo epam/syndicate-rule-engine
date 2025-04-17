@@ -77,7 +77,7 @@ class Job(BaseModel):
     owner = UnicodeAttribute(null=True, attr_name=JOB_OWNER)
 
     regions = ListAttribute(default=list, attr_name=JOB_REGIONS, of=UnicodeAttribute)
-    rulesets = ListAttribute(default=list, attr_name=JOB_RULESETS, of=UnicodeAttribute)
+    rulesets = ListAttribute(default=list, attr_name=JOB_RULESETS)
     reason = UnicodeAttribute(null=True, attr_name=JOB_REASON)
     scheduled_rule_name = UnicodeAttribute(null=True,
                                            attr_name=JOB_SCHEDULED_RULE_NAME)

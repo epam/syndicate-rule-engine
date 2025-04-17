@@ -1,15 +1,7 @@
-from concurrent.futures import ThreadPoolExecutor
 from itertools import chain
-from typing import Iterable, TypedDict, Generator
+from typing import Iterable, TypedDict
 
-import msgspec
-
-from executor.services.environment_service import BatchEnvironmentService
-from helpers import download_url
 from helpers.log_helper import get_logger
-from models.job import Job
-from models.ruleset import Ruleset
-from services.ruleset_service import RulesetService, RulesetName
 
 _LOG = get_logger(__name__)
 
@@ -23,26 +15,7 @@ class PolicyDict(TypedDict):
 
 
 class PoliciesService:
-    __slots__ = '_ruleset_service', '_environment_service'
-
-    def __init__(self, ruleset_service: RulesetService,
-                 environment_service: BatchEnvironmentService):
-        self._ruleset_service = ruleset_service
-        self._environment_service = environment_service
-
-    def get_standard_rulesets(self, job: Job) -> Generator[
-        Ruleset, None, None]:
-        for r in map(RulesetName, job.rulesets):
-            if r.license_key:
-                continue
-            item = self._ruleset_service.get_standard(
-                customer=job.customer_name,
-                name=r.name,
-                version=r.version.to_str()
-            )
-            if not item:
-                continue
-            yield item
+    __slots__ = ()
 
     @staticmethod
     def iter_excluding(policies: Iterable[PolicyDict], exclude: set[str]
@@ -74,22 +47,17 @@ class PoliciesService:
             duplicated.add(name)
             yield p
 
-    def get_policies(self, urls: Iterable[str], keep: set[str] | None = None,
+    def get_policies(self, lists: Iterable[list[dict]],
+                     keep: set[str] | None = None,
                      exclude: set[str] | None = None) -> list[PolicyDict]:
         """
         Downloads multiple files with policies and merges them into one tuple
         of policies.
-        :param urls:
+        :param lists:
         :param keep:
         :param exclude:
         :return:
         """
-        lists = []
-        decoder = msgspec.json.Decoder(type=dict)
-        with ThreadPoolExecutor() as ex:
-            for fp in ex.map(download_url, urls):
-                lists.append(
-                    decoder.decode(fp.getvalue()).get('policies') or ())
         policies = chain.from_iterable(lists)
         if exclude:
             policies = self.iter_excluding(policies, exclude)

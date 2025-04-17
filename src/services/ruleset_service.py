@@ -97,16 +97,6 @@ class RulesetService(BaseDataService[Ruleset]):
             hash_key=id, attributes_to_get=attributes_to_get
         )
 
-    def iter_by_id(self, ids: Iterable[str]) -> Generator[Ruleset, None, None]:
-        processed = set()
-        for _id in ids:
-            if _id in processed:
-                continue
-            ruleset = self.by_id(_id)
-            if ruleset:
-                yield ruleset
-            processed.add(_id)
-
     def get_standard(
         self, customer: str, name: str, version: str
     ) -> Ruleset | None:
@@ -243,13 +233,6 @@ class RulesetService(BaseDataService[Ruleset]):
     def set_s3_path(ruleset: Ruleset, bucket: str, key: str):
         ruleset.s3_path = {'bucket_name': bucket, 'path': key}
 
-    def download(self, ruleset: Ruleset, out: BinaryIO = None) -> BinaryIO:
-        return self._s3_client.gz_get_object(
-            bucket=ruleset.s3_path['bucket_name'],
-            key=ruleset.s3_path['path'],
-            buffer=out,
-        )
-
     def download_url(self, ruleset: Ruleset) -> str:
         """
         Returns a presigned url to the given file
@@ -275,6 +258,15 @@ class RulesetService(BaseDataService[Ruleset]):
         """
         data = msgspec.json.encode(name_to_body, order='deterministic')
         return hashlib.sha256(data).hexdigest()
+
+    def fetch_content(self, rs: Ruleset) -> dict | None:
+        """
+        Only for standard rulesets for now
+        """
+        bucket, key = rs.s3_path.bucket_name, rs.s3_path.path
+        if not (bucket and key):
+            return
+        return self._s3_client.gz_get_json(bucket, key)
 
 
 class RulesetName(tuple):
@@ -347,9 +339,4 @@ class RulesetName(tuple):
         if v := self.version:
             name = f'{name} {v.to_str()}'
         return name
-
-
-class LicensedRulesetProvider:
-    def get(self):
-        pass
 

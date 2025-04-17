@@ -319,13 +319,6 @@ class JobHandler(AbstractHandler):
         ruleset_names: set[RulesetName],
         licenses: tuple[License, ...],
     ) -> tuple[list[RulesetName], License | None, list[RulesetName]]:
-        """
-        :param tenant:
-        :param domain:
-        :param ruleset_names:
-        :param licenses:
-        :return:
-        """
         if not ruleset_names and not licenses:
             # or use all local rulesets
             _LOG.warning(
