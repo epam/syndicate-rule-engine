@@ -71,7 +71,6 @@ class CustodianEndpoint(str, Enum):
     CREDENTIALS_ID = '/credentials/{id}'
     RULE_SOURCES_ID = '/rule-sources/{id}'
     RULESETS_RELEASE = '/rulesets/release'
-    ED_RULESETS = '/rulesets/event-driven'
     DOC_SWAGGER_JSON = '/doc/swagger.json'
     RULE_META_UPDATER = '/rules/update-meta'
     REPORTS_PUSH_DOJO = '/reports/push/dojo'

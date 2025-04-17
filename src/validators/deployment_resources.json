@@ -14,6 +14,14 @@
         "content_type": "application/json",
         "schema": {
           "properties": {
+            "receivers": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Receivers",
+              "type": "array",
+              "uniqueItems": true
+            },
             "types": {
               "items": {
                 "enum": [
@@ -794,69 +802,6 @@
           "type": "object"
         }
       },
-      "EventDrivenRulesetDeleteModel": {
-        "content_type": "application/json",
-        "schema": {
-          "properties": {
-            "cloud": {
-              "enum": [
-                "AWS",
-                "AZURE",
-                "GCP",
-                "KUBERNETES"
-              ],
-              "title": "RuleDomain",
-              "type": "string"
-            },
-            "version": {
-              "description": "Specific version to remove. * can be specified to remove all the versions of a specific ruleset",
-              "title": "Version",
-              "type": "string"
-            }
-          },
-          "required": [
-            "cloud",
-            "version"
-          ],
-          "title": "EventDrivenRulesetDeleteModel",
-          "type": "object"
-        }
-      },
-      "EventDrivenRulesetPostModel": {
-        "content_type": "application/json",
-        "schema": {
-          "properties": {
-            "cloud": {
-              "enum": [
-                "AWS",
-                "AZURE",
-                "GOOGLE",
-                "GCP",
-                "KUBERNETES"
-              ],
-              "title": "Cloud",
-              "type": "string"
-            },
-            "rule_source_id": {
-              "default": null,
-              "description": "Id of rule source object to get rules from. If the type of that source is GITHUB_RELEASE, the version from release tag will be used",
-              "title": "Rule Source Id",
-              "type": "string"
-            },
-            "version": {
-              "default": null,
-              "description": "Ruleset version. If not specified, will be generated automatically based on github release of rules or based on the previous ruleset version",
-              "title": "Version",
-              "type": "string"
-            }
-          },
-          "required": [
-            "cloud"
-          ],
-          "title": "EventDrivenRulesetPostModel",
-          "type": "object"
-        }
-      },
       "EventModel": {
         "content_type": "application/json",
         "schema": {
@@ -984,6 +929,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": true,
                   "properties": {
                     "auth_provider_x509_cert_url": {
                       "title": "Auth Provider X509 Cert Url",
@@ -1042,6 +988,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": true,
                   "properties": {
                     "access_token": {
                       "title": "Access Token",
@@ -1080,6 +1027,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": true,
                   "properties": {
                     "access_token": {
                       "title": "Access Token",
@@ -2114,6 +2062,10 @@
             "items": {
               "items": {
                 "properties": {
+                  "celery_task_id": {
+                    "title": "Celery Task Id",
+                    "type": "string"
+                  },
                   "created_at": {
                     "format": "date-time",
                     "title": "Created At",
@@ -2772,6 +2724,8 @@
                       "AWS",
                       "AZURE",
                       "GCP",
+                      "GCP",
+                      "KUBERNETES",
                       "KUBERNETES"
                     ],
                     "title": "RuleDomain",
@@ -2854,6 +2808,8 @@
                       "AWS",
                       "AZURE",
                       "GCP",
+                      "GCP",
+                      "KUBERNETES",
                       "KUBERNETES"
                     ],
                     "title": "RuleDomain",
@@ -3183,7 +3139,8 @@
                   "RULE",
                   "ATTACK_VECTOR",
                   "FINOPS",
-                  "KUBERNETES"
+                  "KUBERNETES",
+                  "DEPRECATIONS"
                 ],
                 "type": "string"
               },
@@ -3228,22 +3185,35 @@
               "allOf": [
                 {
                   "enum": [
+                    "af-south-1",
+                    "ap-east-1",
                     "ap-northeast-1",
                     "ap-northeast-2",
                     "ap-northeast-3",
                     "ap-south-1",
+                    "ap-south-2",
                     "ap-southeast-1",
                     "ap-southeast-2",
                     "ap-southeast-3",
+                    "ap-southeast-4",
                     "ca-central-1",
+                    "ca-west-1",
                     "eu-central-1",
+                    "eu-central-2",
                     "eu-north-1",
+                    "eu-south-1",
+                    "eu-south-2",
                     "eu-west-1",
                     "eu-west-2",
                     "eu-west-3",
+                    "il-central-1",
+                    "me-central-1",
+                    "me-south-1",
                     "sa-east-1",
                     "us-east-1",
                     "us-east-2",
+                    "us-gov-east-1",
+                    "us-gov-west-1",
                     "us-west-1",
                     "us-west-2",
                     "asia",
@@ -3463,9 +3433,6 @@
                   "system:update_meta",
                   "system:update_metrics",
                   "system:metrics_status",
-                  "meta:update_standards",
-                  "meta:update_mappings",
-                  "meta:update_meta",
                   "ruleset:describe",
                   "ruleset:create",
                   "ruleset:update",
@@ -3602,9 +3569,6 @@
                   "system:update_meta",
                   "system:update_metrics",
                   "system:metrics_status",
-                  "meta:update_standards",
-                  "meta:update_mappings",
-                  "meta:update_meta",
                   "ruleset:describe",
                   "ruleset:create",
                   "ruleset:update",
@@ -3782,9 +3746,6 @@
                   "system:update_meta",
                   "system:update_metrics",
                   "system:metrics_status",
-                  "meta:update_standards",
-                  "meta:update_mappings",
-                  "meta:update_meta",
                   "ruleset:describe",
                   "ruleset:create",
                   "ruleset:update",
@@ -4192,6 +4153,7 @@
               "type": "string"
             },
             "expiration": {
+              "default": null,
               "format": "date-time",
               "title": "Expiration",
               "type": "string"
@@ -4229,6 +4191,8 @@
                     "AWS",
                     "AZURE",
                     "GCP",
+                    "GCP",
+                    "KUBERNETES",
                     "KUBERNETES"
                   ],
                   "title": "RuleDomain",
@@ -4522,12 +4486,17 @@
         "schema": {
           "properties": {
             "force": {
-              "default": false,
+              "default": null,
+              "description": "Force the creation of a new ruleset version even if no there is no changes",
               "title": "Force",
               "type": "boolean"
             },
             "name": {
               "title": "Name",
+              "type": "string"
+            },
+            "new_version": {
+              "title": "New Version",
               "type": "string"
             },
             "rules_to_attach": {
@@ -4550,7 +4519,8 @@
             }
           },
           "required": [
-            "name"
+            "name",
+            "new_version"
           ],
           "title": "RulesetPatchModel",
           "type": "object"
@@ -4560,6 +4530,15 @@
         "content_type": "application/json",
         "schema": {
           "properties": {
+            "categories": {
+              "description": "Rules category to use",
+              "items": {
+                "type": "string"
+              },
+              "title": "Categories",
+              "type": "array",
+              "uniqueItems": true
+            },
             "cloud": {
               "enum": [
                 "AWS",
@@ -4587,17 +4566,18 @@
               "title": "Git Ref",
               "type": "string"
             },
-            "mitre": {
-              "items": {
-                "type": "string"
-              },
-              "title": "Mitre",
-              "type": "array",
-              "uniqueItems": true
-            },
             "name": {
               "title": "Name",
               "type": "string"
+            },
+            "platforms": {
+              "description": "Platform for k8s rules to filter based on",
+              "items": {
+                "type": "string"
+              },
+              "title": "Platforms",
+              "type": "array",
+              "uniqueItems": true
             },
             "rule_source_id": {
               "default": null,
@@ -4611,21 +4591,21 @@
               "type": "array",
               "uniqueItems": true
             },
-            "service_section": {
-              "default": null,
-              "title": "Service Section",
-              "type": "string"
-            },
-            "severity": {
-              "default": null,
-              "title": "Severity",
-              "type": "string"
-            },
-            "standard": {
+            "service_sections": {
+              "description": "Service section to use",
               "items": {
                 "type": "string"
               },
-              "title": "Standard",
+              "title": "Service Sections",
+              "type": "array",
+              "uniqueItems": true
+            },
+            "sources": {
+              "description": "Sources to use",
+              "items": {
+                "type": "string"
+              },
+              "title": "Sources",
               "type": "array",
               "uniqueItems": true
             },
@@ -4680,15 +4660,27 @@
         "content_type": "application/json",
         "schema": {
           "properties": {
+            "description": {
+              "default": null,
+              "title": "Description",
+              "type": "string"
+            },
             "enabled": {
               "default": null,
               "title": "Enabled",
               "type": "boolean"
             },
             "schedule": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ],
               "default": null,
-              "title": "Schedule",
-              "type": "string"
+              "title": "Schedule"
             }
           },
           "title": "ScheduledJobPatchModel",
@@ -4699,6 +4691,10 @@
         "content_type": "application/json",
         "schema": {
           "properties": {
+            "description": {
+              "title": "Description",
+              "type": "string"
+            },
             "license_key": {
               "default": null,
               "description": "License to exhaust for this job. Will be resolved automatically unless an ambiguous occurs",
@@ -4707,6 +4703,7 @@
             },
             "name": {
               "default": null,
+              "description": "Name for this scheduled entry. Will be generated if not provided. Must be unique within a customer",
               "title": "Name",
               "type": "string"
             },
@@ -4727,17 +4724,25 @@
               "uniqueItems": true
             },
             "schedule": {
-              "title": "Schedule",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "title": "Schedule"
             },
             "tenant_name": {
-              "default": null,
               "title": "Tenant Name",
               "type": "string"
             }
           },
           "required": [
-            "schedule"
+            "schedule",
+            "tenant_name",
+            "description"
           ],
           "title": "ScheduledJobPostModel",
           "type": "object"
@@ -5592,6 +5597,10 @@
           "properties": {
             "data": {
               "properties": {
+                "celery_task_id": {
+                  "title": "Celery Task Id",
+                  "type": "string"
+                },
                 "created_at": {
                   "format": "date-time",
                   "title": "Created At",
@@ -6372,6 +6381,8 @@
                     "AWS",
                     "AZURE",
                     "GCP",
+                    "GCP",
+                    "KUBERNETES",
                     "KUBERNETES"
                   ],
                   "title": "RuleDomain",
@@ -6817,7 +6828,6 @@
               "type": "string"
             },
             "role_name": {
-              "default": null,
               "title": "Role Name",
               "type": "string"
             },
@@ -6828,6 +6838,7 @@
           },
           "required": [
             "username",
+            "role_name",
             "password"
           ],
           "title": "UserPostModel",

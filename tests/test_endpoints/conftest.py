@@ -63,7 +63,6 @@ def s3_buckets(mocked_s3_client) -> None:
         CAASEnv.REPORTS_BUCKET_NAME.get(),
         CAASEnv.STATISTICS_BUCKET_NAME.get(),
         CAASEnv.RULESETS_BUCKET_NAME.get(),
-        CAASEnv.METRICS_BUCKET_NAME.get(),
         CAASEnv.RECOMMENDATIONS_BUCKET_NAME.get()
     ]
     for b in buckets:
@@ -278,7 +277,6 @@ def main_license(main_customer) -> 'License':
         event_driven=False,
         licensed=True,
         license_keys=[lic.license_key],
-        license_manager_id='AWS',
         versions=['1.0.0']
     ).save()
     SP.ruleset_service.create(
@@ -290,7 +288,6 @@ def main_license(main_customer) -> 'License':
         event_driven=False,
         licensed=True,
         license_keys=[lic.license_key],
-        license_manager_id='AZURE',
         versions=['1.0.0']
     ).save()
     SP.ruleset_service.create(
@@ -302,7 +299,6 @@ def main_license(main_customer) -> 'License':
         event_driven=False,
         licensed=True,
         license_keys=[lic.license_key],
-        license_manager_id='GOOGLE',
         versions=['1.0.0']
     ).save()
     return lic

@@ -63,7 +63,6 @@ class CustodianEndpoint(str, Enum):
     CREDENTIALS_ID = '/credentials/{id}'
     RULE_SOURCES_ID = '/rule-sources/{id}'
     RULESETS_RELEASE = '/rulesets/release'
-    ED_RULESETS = '/rulesets/event-driven'
     DOC_SWAGGER_JSON = '/doc/swagger.json'
     RULE_META_UPDATER = '/rules/update-meta'
     REPORTS_PUSH_DOJO = '/reports/push/dojo'
@@ -427,16 +426,9 @@ class CAASEnv(EnvEnum):
     LOG_LEVEL = 'SRE_LOG_LEVEL', ('CAAS_LOG_LEVEL', ), 'INFO'
     EXECUTOR_LOGS_FILENAME = 'SRE_EXECUTOR_LOGS_FILENAME', ()
 
-    # inner envs (they are set automatically when request comes)
-    # TODO: remove them and use some ctx object as place for this data
-    API_GATEWAY_HOST = '_SRE_API_GATEWAY_HOST'
-    API_GATEWAY_STAGE = '_SRE_API_GATEWAY_STAGE'
-    INVOCATION_REQUEST_ID = '_SRE_INVOCATION_REQUEST_ID'
-
     # buckets
     RULESETS_BUCKET_NAME = 'SRE_RULESETS_BUCKET_NAME', ('CAAS_RULESETS_BUCKET_NAME',), 'rulesets'
     REPORTS_BUCKET_NAME = 'SRE_REPORTS_BUCKET_NAME', ('CAAS_REPORTS_BUCKET_NAME', ), 'reports'
-    METRICS_BUCKET_NAME = 'SRE_METRICS_BUCKET_NAME', ('CAAS_METRICS_BUCKET_NAME', ), 'metrics'
     STATISTICS_BUCKET_NAME = 'SRE_STATISTICS_BUCKET_NAME', ('CAAS_STATISTICS_BUCKET_NAME', ), 'statistics'
     RECOMMENDATIONS_BUCKET_NAME = (
         'SRE_RECOMMENDATIONS_BUCKET_NAME',
@@ -541,7 +533,6 @@ class BatchJobEnv(EnvEnum):
     TARGET_REGIONS = 'TARGET_REGIONS'
     AFFECTED_LICENSES = 'AFFECTED_LICENSES'
 
-    EXECUTOR_MODE = 'EXECUTOR_MODE'
     JOB_TYPE = 'JOB_TYPE'
     SUBMITTED_AT = 'SUBMITTED_AT'
 
@@ -674,9 +665,6 @@ class Permission(str, Enum):
     RULESET_CREATE = 'ruleset:create'
     RULESET_UPDATE = 'ruleset:update'
     RULESET_DELETE = 'ruleset:delete'
-    RULESET_DESCRIBE_ED = 'ruleset:describe_event_driven', True
-    RULESET_CREATE_ED = 'ruleset:create_event_driven', True
-    RULESET_DELETE_ED = 'ruleset:delete_event_driven', True
     RULESET_RELEASE = 'ruleset:release', False
 
     RULE_SOURCE_DESCRIBE = 'rule_source:describe'
@@ -900,11 +888,6 @@ START_DATE = 'start_date'
 ARTICLE_ATTR = 'article'
 
 COMPOUND_KEYS_SEPARATOR = '#'
-
-ED_AWS_RULESET_NAME = '_ED_AWS'
-ED_AZURE_RULESET_NAME = '_ED_AZURE'
-ED_GOOGLE_RULESET_NAME = '_ED_GOOGLE'
-ED_KUBERNETES_RULESET_NAME = '_ED_KUBERNETES'
 
 
 class RuleSourceType(str, Enum):
@@ -1228,3 +1211,8 @@ class ReportType(str, Enum):
 
 class RabbitCommand(str, Enum):
     SEND_MAIL = 'SEND_MAIL'
+
+
+class ScheduledJobType(str, Enum):
+    STANDARD = 'standard'
+    SYSTEM = 'system'

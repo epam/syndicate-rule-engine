@@ -65,15 +65,6 @@ class BatchEnvironmentService(EnvironmentService):
         env = BatchJobEnv.JOB_TYPE.get(BatchJobType.STANDARD.value)
         return BatchJobType(env)
 
-    def is_standard(self) -> bool:
-        return self.job_type() == BatchJobType.STANDARD
-
-    def is_multi_account_event_driven(self) -> bool:
-        return self.job_type() == BatchJobType.EVENT_DRIVEN
-
-    def is_scheduled(self) -> bool:
-        return self.job_type() == BatchJobType.SCHEDULED
-
     def submitted_at(self):
         return BatchJobEnv.SUBMITTED_AT.get()
 

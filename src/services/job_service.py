@@ -216,6 +216,7 @@ class JobUpdater:
 
         if not rulesets:
             rulesets = []
+        # TODO: get celery task id somehow
         return JobUpdater(
             Job(
                 id=environment.get(BatchJobEnv.CUSTODIAN_JOB_ID.value)

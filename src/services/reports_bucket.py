@@ -4,14 +4,13 @@ from datetime import datetime, timezone
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Optional
 
-from dateutil.relativedelta import relativedelta
-
 from helpers import Version, urljoin
 from helpers.constants import COMPOUND_KEYS_SEPARATOR, Cloud
 from helpers.time_helper import utc_datetime, week_number
 from models.batch_results import BatchResults
 from models.job import Job
 from models.metrics import ReportMetrics
+from models.ruleset import Ruleset
 from services import SP
 from services.clients.s3 import S3Client
 
@@ -175,9 +174,9 @@ class TenantReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
         return Cloud[self._tenant.cloud.upper()]
 
     def job_result(self, job: 'Job') -> str:
-        assert (
-            job.tenant_name == self._tenant.name
-        ), f'Job tenant must be {self._tenant.name}'
+        assert job.tenant_name == self._tenant.name, (
+            f'Job tenant must be {self._tenant.name}'
+        )
         return self.urljoin(
             self.prefix,
             self._tenant.customer_name,
@@ -191,9 +190,9 @@ class TenantReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
         )
 
     def ed_job_result(self, br: 'BatchResults') -> str:
-        assert (
-            br.tenant_name == self._tenant.name
-        ), f'Job tenant must be {self._tenant.name}'
+        assert br.tenant_name == self._tenant.name, (
+            f'Job tenant must be {self._tenant.name}'
+        )
         return self.urljoin(
             self.prefix,
             self._tenant.customer_name,
@@ -207,9 +206,9 @@ class TenantReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
         )
 
     def ed_job_difference(self, br: 'BatchResults') -> str:
-        assert (
-            br.tenant_name == self._tenant.name
-        ), f'Job tenant must be {self._tenant.name}'
+        assert br.tenant_name == self._tenant.name, (
+            f'Job tenant must be {self._tenant.name}'
+        )
         return self.urljoin(
             self.prefix,
             self._tenant.customer_name,
@@ -253,9 +252,9 @@ class PlatformReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
         return Cloud.KUBERNETES
 
     def job_result(self, job: 'Job') -> str:
-        assert (
-            job.platform_id == self._platform.id
-        ), f'Job platform must be {self._platform.id}'
+        assert job.platform_id == self._platform.id, (
+            f'Job platform must be {self._platform.id}'
+        )
 
         return self.urljoin(
             self.prefix,
@@ -411,3 +410,32 @@ class ReportMetaBucketsKeys:
     @classmethod
     def meta_key(cls, license_key: str, version: Version) -> str:
         return urljoin(cls.prefix, license_key, version.to_str(), cls.data)
+
+
+class RulesetsBucketKeys:
+    __slots__ = ()
+    licensed = 'licensed/'
+    standard = 'standard/'
+    data = 'data.gz'
+
+    @classmethod
+    def ruleset_key(cls, rs: Ruleset) -> str:
+        version = rs.version
+        assert version, 'Ruleset must contain version'
+        if rs.licensed:
+            return cls.licensed_ruleset_key(rs.name, version)
+        return cls.standard_ruleset_key(rs.customer, rs.name, version)
+
+    @classmethod
+    def licensed_ruleset_key(cls, name: str, version: str) -> str:
+        return S3Client.safe_key(
+            urljoin(cls.licensed, name, version, cls.data)
+        )
+
+    @classmethod
+    def standard_ruleset_key(
+        cls, customer: str, name: str, version: str
+    ) -> str:
+        return S3Client.safe_key(
+            urljoin(cls.standard, customer, name, version, cls.data)
+        )

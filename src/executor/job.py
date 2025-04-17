@@ -118,7 +118,6 @@ https://github.com/celery/billiard/issues/282
 """
 
 import io
-import operator
 import os
 import sys
 import tempfile
@@ -127,7 +126,7 @@ import traceback
 from abc import ABC, abstractmethod
 from itertools import chain
 from pathlib import Path
-from typing import Generator, cast
+from typing import Generator, Iterable, cast
 
 # import multiprocessing
 import billiard as multiprocessing  # allows to execute child processes from a daemon process
@@ -138,6 +137,7 @@ from c7n.exceptions import PolicyValidationError
 from c7n.policy import Policy, PolicyCollection
 from c7n.provider import clouds
 from c7n.resources import load_resources
+from celery.exceptions import SoftTimeLimitExceeded
 from google.auth.exceptions import GoogleAuthError
 from googleapiclient.errors import HttpError
 from modular_sdk.commons.constants import (
@@ -179,7 +179,6 @@ from helpers.time_helper import utc_datetime, utc_iso
 from models.batch_results import BatchResults
 from models.job import Job
 from models.rule import RuleIndex
-from models.scheduled_job import ScheduledJob
 from services import SP
 from services.ambiguous_job_service import AmbiguousJob
 from services.chronicle_service import ChronicleConverterType
@@ -195,6 +194,7 @@ from services.platform_service import K8STokenKubeconfig, Kubeconfig, Platform
 from services.report_convertors import ShardCollectionDojoConvertor
 from services.reports_bucket import (
     PlatformReportsBucketKeysBuilder,
+    RulesetsBucketKeys,
     StatisticsBucketKeysBuilder,
     TenantReportsBucketKeysBuilder,
 )
@@ -209,7 +209,6 @@ from services.udm_generator import (
     ShardCollectionUDMEntitiesConvertor,
     ShardCollectionUDMEventsConvertor,
 )
-from celery.exceptions import SoftTimeLimitExceeded
 
 _LOG = get_logger(__name__)
 
@@ -514,11 +513,7 @@ class PoliciesLoader:
 class Runner(ABC):
     cloud: Cloud | None = None
 
-    def __init__(
-        self,
-        policies: list[Policy],
-        failed: dict | None = None,
-    ):
+    def __init__(self, policies: list[Policy], failed: dict | None = None):
         self._policies = policies
 
         self._failed = failed or {}
@@ -771,82 +766,33 @@ class K8SRunner(Runner):
             )
 
 
-def fetch_licensed_ruleset_list(tenant: Tenant, licensed: dict):
-    """
-    Designated to execute preliminary licensed Job instantiation, which
-    verifies permissions to create a demanded entity.
-    :parameter tenant: Tenant of the issuer
-    :parameter licensed: Dict - non-empty collection of licensed rulesets
-    :raises: ExecutorException - given parameter absence or prohibited action
-    :return: List[Dict]
-    """
-    job_id = BSP.environment_service.job_id()
-
-    _LOG.debug(f"Going to license a Job:'{job_id}'.")
+def post_lm_job(job: Job):
+    if not job.affected_license:
+        return
+    rulesets = list(
+        filter(lambda x: x.license_key, [RulesetName(r) for r in job.rulesets])
+    )
+    if not rulesets:
+        return
+    lk = rulesets[0].license_key
+    lic = SP.license_service.get_nullable(lk)
+    if not lic:
+        return
 
     try:
-        licensed_job = SP.license_manager_service.cl.post_job(
-            job_id=job_id,
-            customer=tenant.customer_name,
-            tenant=tenant.name,
-            ruleset_map=licensed,
+        SP.license_manager_service.cl.post_job(
+            job_id=job.id,
+            customer=job.customer_name,
+            tenant=job.tenant_name,
+            ruleset_map={
+                lic.tenant_license_key(job.customer_name): [
+                    r.to_str() for r in rulesets
+                ]
+            },
         )
     except LMException as e:
         ExecutorError.LM_DID_NOT_ALLOW.reason = str(e)
         raise ExecutorException(ExecutorError.LM_DID_NOT_ALLOW)
-
-    _LOG.info(f'Job {job_id} was allowed')
-    content = licensed_job['ruleset_content']
-    return [
-        dict(
-            id=ruleset_id,
-            licensed=True,
-            s3_path=source,
-            active=True,
-            status=dict(code='READY_TO_SCAN'),
-        )
-        for ruleset_id, source in content.items()
-    ]
-
-
-@_XRAY.capture('Fetch licensed ruleset')
-def get_licensed_ruleset_dto_list(tenant: Tenant, job: Job) -> list[dict]:
-    """
-    Preliminary step, given an affected license and respective ruleset(s),
-    can raise
-    """
-    licensed, standard = [], []
-    for r in map(RulesetName, job.rulesets):
-        if r.license_key:
-            licensed.append(r)
-        else:
-            standard.append(r)
-    if not licensed:
-        return []
-    license_key = licensed[0].license_key
-    rulesets = [RulesetName(r.name, r.version, None) for r in licensed]
-    lic = SP.license_service.get_nullable(license_key)
-    rulesets = fetch_licensed_ruleset_list(
-        tenant=tenant,
-        licensed={
-            lic.tenant_license_key(tenant.customer_name): [
-                r.to_str() for r in rulesets
-            ]
-        },
-    )
-    # LM returns rulesets of specific versions even if we don't specify
-    # versions. The code below just updates job's rulesets with valid versions
-    licensed = [RulesetName(i['id']) for i in rulesets]
-    _LOG.debug(f'Licensed rulesets are fetched: {licensed}')
-    SP.job_service.update(
-        job,
-        rulesets=[s.to_str() for s in standard]
-        + [
-            RulesetName(i.name, i.version, license_key).to_str()
-            for i in licensed
-        ],
-    )
-    return rulesets
 
 
 @_XRAY.capture('Upload to SIEM')
@@ -1165,13 +1111,15 @@ def batch_results_job(batch_results: BatchResults):
     cloud = Cloud[tenant.cloud.upper()]
     credentials = get_credentials(tenant, batch_results)
 
-    policies = BSP.policies_service.separate_ruleset(
-        from_=BSP.policies_service.ensure_event_driven_ruleset(cloud),
-        exclude=get_rules_to_exclude(tenant),
-        keep=set(
-            chain.from_iterable(batch_results.regions_to_rules().values())
-        ),
-    )
+    # TODO: use standard ruleset
+    policies = []
+    # policies = BSP.policies_service.separate_ruleset(
+    #     from_=BSP.policies_service.ensure_event_driven_ruleset(cloud),
+    #     exclude=get_rules_to_exclude(tenant),
+    #     keep=set(
+    #         chain.from_iterable(batch_results.regions_to_rules().values())
+    #     ),
+    # )
     loader = PoliciesLoader(
         cloud=cloud,
         output_dir=work_dir,
@@ -1266,7 +1214,9 @@ def multi_account_event_driven_job() -> int:
         except SoftTimeLimitExceeded:
             _LOG.error('Job is terminated because of soft timeout')
             actions.append(BatchResults.status.set(JobState.FAILED.value))
-            actions.append(BatchResults.reason.set(ExecutorError.TIMEOUT.with_reason()))
+            actions.append(
+                BatchResults.reason.set(ExecutorError.TIMEOUT.with_reason())
+            )
         except Exception:
             _LOG.exception('Unexpected exception occurred')
             actions.append(BatchResults.status.set(JobState.FAILED.value))
@@ -1276,27 +1226,6 @@ def multi_account_event_driven_job() -> int:
         batch_results.update(actions=actions)
     Path(CACHE_FILE).unlink(missing_ok=True)
     return 0
-
-
-def update_scheduled_job() -> None:
-    """
-    Updates 'last_execution_time' in scheduled job item if
-    this is a scheduled job.
-    """
-    _LOG.info('Updating scheduled job item in DB')
-    scheduled_job_name = BSP.env.scheduled_job_name()
-    if not scheduled_job_name:
-        _LOG.info(
-            'The job is not scheduled. No scheduled job '
-            'item to update. Skipping'
-        )
-        return
-    _LOG.info(
-        'The job is scheduled. Updating the '
-        "'last_execution_time' in scheduled job item"
-    )
-    item = ScheduledJob(id=scheduled_job_name, type=ScheduledJob.default_type)
-    item.update(actions=[ScheduledJob.last_execution_time.set(utc_iso())])
 
 
 def single_account_standard_job() -> int:
@@ -1312,22 +1241,19 @@ def single_account_standard_job() -> int:
         else:
             updater = NullJobUpdater(job)  # updated in caas-job-updater
     else:  # scheduled job, generating it dynamically
-        scheduled = ScheduledJob.get_nullable(BSP.env.scheduled_job_name())
+        scheduled = SP.scheduled_job_service.get_by_name(
+            customer_name=tenant.customer_name,
+            name=BatchJobEnv.SCHEDULED_JOB_NAME.get(),
+        )
         updater = JobUpdater.from_batch_env(
             environment=dict(os.environ),
-            rulesets=scheduled.context.scan_rulesets,
+            rulesets=scheduled.meta.as_dict().get('rulesets', []),
         )
         updater.save()
         job = updater.job
         BSP.env.override_environment(
             {BatchJobEnv.CUSTODIAN_JOB_ID.value: job.id}
         )
-
-    if BSP.env.is_scheduled():  # locking scanned regions
-        TenantSettingJobLock(tenant_name).acquire(
-            job_id=job.id, regions=BSP.env.target_regions() or {GLOBAL_REGION}
-        )
-        update_scheduled_job()
 
     updater.created_at = utc_iso()
     updater.started_at = utc_iso()
@@ -1455,6 +1381,76 @@ def fix_s3_regions(latest: 'ShardsCollection'):
             )
 
 
+def resolve_standard_ruleset(
+    customer_name: str, ruleset: RulesetName
+) -> tuple[RulesetName, list[dict]] | None:
+    rs = SP.ruleset_service
+    if v := ruleset.version:
+        item = rs.get_standard(
+            customer=customer_name, name=ruleset.name, version=v.to_str()
+        )
+    else:
+        item = rs.get_latest(customer=customer_name, name=ruleset.name)
+    if not item:
+        _LOG.warning(f'Somehow ruleset does not exist: {ruleset}')
+        return
+    content = rs.fetch_content(item)
+    if not content:
+        _LOG.warning(f'Somehow ruleset does not have content: {ruleset}')
+        return
+    return RulesetName(
+        ruleset.name, ruleset.version.to_str() if ruleset.version else None
+    ), content.get('policies') or []
+
+
+def resolve_licensed_ruleset(
+    customer_name: str, ruleset: RulesetName
+) -> tuple[RulesetName, list[dict]] | None:
+    s3 = SP.s3
+    if v := ruleset.version:
+        content = s3.gz_get_json(
+            bucket=SP.environment_service.get_rulesets_bucket_name(),
+            key=RulesetsBucketKeys.licensed_ruleset_key(
+                ruleset.name, v.to_str()
+            ),
+        )
+        if not content:
+            _LOG.warning(f'Content of {ruleset} does not exist')
+            return
+        return ruleset, content.get('policies', [])
+    # no version, resolving latest
+    item = SP.ruleset_service.get_licensed(name=ruleset.name)
+    if not item:
+        _LOG.warning(f'Ruleset {ruleset} does not exist')
+        return
+    content = s3.gz_get_json(
+        bucket=SP.environment_service.get_rulesets_bucket_name(),
+        key=RulesetsBucketKeys.licensed_ruleset_key(
+            ruleset.name, item.latest_version
+        ),
+    )
+    if not content:
+        _LOG.warning(f'Content of {ruleset} does not exist')
+        return
+    return RulesetName(
+        ruleset.name, item.latest_version, ruleset.license_key
+    ), content.get('policies') or []
+
+
+def resolve_job_rulesets(
+    customer_name: str, rulesets: Iterable[RulesetName]
+) -> Generator[tuple[RulesetName, list[dict]], None, None]:
+    for rs in rulesets:
+        if rs.license_key:
+            resolver = resolve_licensed_ruleset
+        else:
+            resolver = resolve_standard_ruleset
+        result = resolver(customer_name, rs)
+        if result is None:
+            continue
+        yield result
+
+
 @_XRAY.capture('Standard job')
 def standard_job(job: Job, tenant: Tenant, work_dir: Path):
     cloud: Cloud  # not cloud but rather domain
@@ -1483,17 +1479,22 @@ def standard_job(job: Job, tenant: Tenant, work_dir: Path):
     else:
         credentials = get_credentials(tenant)
 
-    licensed_urls = map(
-        operator.itemgetter('s3_path'),
-        get_licensed_ruleset_dto_list(tenant, job),
-    )
-    standard_urls = map(
-        SP.ruleset_service.download_url,
-        BSP.policies_service.get_standard_rulesets(job),
-    )
+    names = []
+    lists = []
+    for name, lst in resolve_job_rulesets(
+        job.customer_name, map(RulesetName, job.rulesets)
+    ):
+        names.append(name)
+        lists.append(lst)
+
+    SP.job_service.update(job, rulesets=[r.to_str() for r in names])
+
+    if job.affected_license:
+        _LOG.info('The job is licensed. Making post job request to lm')
+        post_lm_job(job)
 
     policies = BSP.policies_service.get_policies(
-        urls=chain(licensed_urls, standard_urls),
+        lists=lists,
         keep=set(job.rules_to_scan),
         exclude=get_rules_to_exclude(tenant),
     )

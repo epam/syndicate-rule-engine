@@ -154,6 +154,7 @@ class CeleryJobClient:
         self,
         job_name: str,
         environment_variables: dict[str, str] | None = None,
+        timeout: int | None = None,
         **kwargs,
     ) -> BatchJob:
         job_id = str(uuid.uuid4())
@@ -163,7 +164,7 @@ class CeleryJobClient:
             BatchJobEnv.JOB_ID.value: job_id,
             BatchJobEnv.SUBMITTED_AT.value: utc_iso(),
         }
-        res = run_executor.delay(envs)
+        res = run_executor.apply_async((envs, ), soft_time_limit=timeout)
         return {
             'jobId': job_id,
             'jobName': job_name,
@@ -179,9 +180,3 @@ class CeleryJobClient:
             return
         # TODO: handle terminate signal inside the job.
         celery_app.control.revoke(job.celery_task_id, terminate=True)
-
-
-# TODO: remove
-class SubprocessBatchClient:
-    def __init__(self):
-        self._jobs = {}  # job_id to Job

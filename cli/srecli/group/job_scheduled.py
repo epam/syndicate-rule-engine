@@ -19,6 +19,8 @@ def scheduled():
               multiple=True,
               help='Rulesets to scan. If not specified, '
                    'all available rulesets will be used')
+@click.option('--description', '-d', type=str, required=True,
+              help='Description for this scheduled job entry')
 @click.option('--region', '-r', type=str, required=False,
               multiple=True,
               help='Regions to scan. If not specified, '
@@ -28,7 +30,7 @@ def scheduled():
                    'given, will be generated automatically')
 @cli_response(attributes_order=attributes_order)
 def add(ctx: ContextObj, tenant_name, schedule,
-        ruleset, region, name, customer_id):
+        ruleset, description, region, name, customer_id):
     """
     Registers a scheduled job
     """
@@ -37,6 +39,7 @@ def add(ctx: ContextObj, tenant_name, schedule,
         schedule=schedule,
         target_rulesets=ruleset,
         target_regions=region,
+        description=description,
         name=name,
         customer_id=customer_id
     )

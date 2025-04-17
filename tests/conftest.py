@@ -88,17 +88,6 @@ def pytest_unconfigure(config):
         patcher.stop()
 
 
-@pytest.fixture(autouse=True)
-def clear_envs():
-    """
-    These are envs that can be set dynamically for internal purposes. So
-    we clear it after each test. Maybe should redesign this thing
-    """
-    os.environ.pop(CAASEnv.INVOCATION_REQUEST_ID.value, None)
-    os.environ.pop(CAASEnv.API_GATEWAY_STAGE.value, None)
-    os.environ.pop(CAASEnv.API_GATEWAY_HOST.value, None)
-
-
 @pytest.fixture(scope='session')
 def aws_scan_result() -> Path:
     return DATA / 'cloud_custodian' / 'aws'

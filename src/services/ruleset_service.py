@@ -7,10 +7,6 @@ import msgspec
 from helpers import Version
 from helpers.constants import (
     COMPOUND_KEYS_SEPARATOR,
-    ED_AWS_RULESET_NAME,
-    ED_AZURE_RULESET_NAME,
-    ED_GOOGLE_RULESET_NAME,
-    ED_KUBERNETES_RULESET_NAME,
     ID_ATTR,
     LICENSED_ATTR,
     NAME_ATTR,
@@ -20,9 +16,15 @@ from helpers.constants import (
 )
 from helpers.system_customer import SystemCustomer
 from helpers.time_helper import utc_iso
-from models.ruleset import RULESET_LICENSES, RULESET_STANDARD, Ruleset
+from models.ruleset import (
+    RULESET_LICENSES,
+    RULESET_STANDARD,
+    Ruleset,
+    EMPTY_VERSION,
+)
 from services.base_data_service import BaseDataService
 from services.clients.s3 import S3Client
+from services.reports_bucket import RulesetsBucketKeys
 from modular_sdk.models.pynamongo.convertors import instance_as_dict
 
 
@@ -65,7 +67,6 @@ class RulesetService(BaseDataService[Ruleset]):
         name: Optional[str] = None,
         version: Optional[str] = None,
         cloud: Optional[str] = None,
-        event_driven: Optional[bool] = False,
         ascending: Optional[bool] = False,
         limit: Optional[int] = None,
         **kwargs,
@@ -75,8 +76,6 @@ class RulesetService(BaseDataService[Ruleset]):
         filter_condition = None
         if cloud:
             filter_condition &= Ruleset.cloud == cloud.upper()
-        if isinstance(event_driven, bool):
-            filter_condition &= Ruleset.event_driven == event_driven
         sort_key = (
             f'{customer}{COMPOUND_KEYS_SEPARATOR}'
             f'{RULESET_STANDARD}{COMPOUND_KEYS_SEPARATOR}'
@@ -93,42 +92,10 @@ class RulesetService(BaseDataService[Ruleset]):
             filter_condition=filter_condition,
         )
 
-    def by_id(self, id: str, attributes_to_get: list = None) -> Ruleset | None:
+    def by_id(self, id: str, attributes_to_get: tuple = ()) -> Ruleset | None:
         return self.get_nullable(
             hash_key=id, attributes_to_get=attributes_to_get
         )
-
-    def iter_by_id(self, ids: Iterable[str]) -> Generator[Ruleset, None, None]:
-        processed = set()
-        for _id in ids:
-            if _id in processed:
-                continue
-            ruleset = self.by_id(_id)
-            if ruleset:
-                yield ruleset
-            processed.add(_id)
-
-    def by_lm_id(
-        self, lm_id: str, attributes_to_get: Optional[list] = None
-    ) -> Optional[Ruleset]:
-        return next(
-            self.model_class.license_manager_id_index.query(
-                hash_key=lm_id, limit=1, attributes_to_get=attributes_to_get
-            ),
-            None,
-        )
-
-    def iter_by_lm_id(
-        self, lm_ids: Iterable[str]
-    ) -> Generator[Ruleset, None, None]:
-        processed = set()
-        for _id in lm_ids:
-            if _id in processed:
-                continue
-            ruleset = self.by_lm_id(_id)
-            if ruleset:
-                yield ruleset
-            processed.add(_id)
 
     def get_standard(
         self, customer: str, name: str, version: str
@@ -138,6 +105,24 @@ class RulesetService(BaseDataService[Ruleset]):
                 customer=customer, licensed=False, name=name, version=version
             )
         )
+
+    def get_licensed(
+        self, name: str, attributes_to_get: tuple = ()
+    ) -> Ruleset | None:
+        return self.by_id(
+            id=self.build_licensed_id(name),
+            attributes_to_get=attributes_to_get,
+        )
+
+    def iter_licensed_by_names(self, names: Iterable[str]):
+        processed = set()
+        for name in names:
+            if name in processed:
+                continue
+            item = self.get_licensed(name)
+            if item:
+                yield item
+            processed.add(name)
 
     def get_latest(self, customer: str, name: str) -> Ruleset | None:
         return next(
@@ -154,12 +139,10 @@ class RulesetService(BaseDataService[Ruleset]):
         version: str,
         cloud: str,
         rules: list,
-        event_driven: bool = False,
         s3_path: dict | None = None,
         status: dict | None = None,
         licensed: bool = False,
         license_keys: list | None = None,
-        license_manager_id: str | None = None,
         versions: list[str] | None = None,
         created_at: str | None = None,
         description: str | None = None,
@@ -169,32 +152,24 @@ class RulesetService(BaseDataService[Ruleset]):
         status = status or {}
         license_keys = license_keys or []
         return Ruleset(
-            id=self.build_id(customer, licensed, name, version),
+            id=self.build_id(customer, licensed, name, version)
+            if not licensed
+            else self.build_licensed_id(name),
             customer=customer,
             cloud=cloud,
-            event_driven=event_driven,
             rules=rules,
             s3_path=s3_path or {},
             status=status or {},
             license_keys=license_keys or [],
-            license_manager_id=license_manager_id,
             created_at=created_at or utc_iso(),
             versions=versions or [],
             description=description,
         )
 
-    def create_event_driven(
-        self, cloud: str, version: str, rules: list[str]
-    ) -> Ruleset:
-        return self.create(
-            customer=SystemCustomer.get_name(),
-            name=self.ed_ruleset_name(cloud),
-            version=version,
-            cloud=cloud,
-            rules=rules,
-            event_driven=True,
-            licensed=False,
-            description='System event driven ruleset',
+    @classmethod
+    def build_licensed_id(cls, name: str) -> str:
+        return cls.build_id(
+            SystemCustomer.get_name(), True, name, EMPTY_VERSION
         )
 
     def get_previous_ruleset(
@@ -213,11 +188,12 @@ class RulesetService(BaseDataService[Ruleset]):
             limit=limit,
         )
 
+    @classmethod
     def build_id(
-        self, customer: str, licensed: bool, name: str, version: str
+        cls, customer: str, licensed: bool, name: str, version: str
     ) -> str:
         return COMPOUND_KEYS_SEPARATOR.join(
-            map(str, (customer, self.licensed_tag(licensed), name, version))
+            map(str, (customer, cls.licensed_tag(licensed), name, version))
         )
 
     @staticmethod
@@ -226,9 +202,7 @@ class RulesetService(BaseDataService[Ruleset]):
 
     @staticmethod
     def build_s3_key(ruleset: Ruleset) -> str:
-        return S3Client.safe_key(
-            f'{ruleset.customer}/{ruleset.name}/{ruleset.version}'
-        )
+        return RulesetsBucketKeys.ruleset_key(ruleset)
 
     def delete(self, item: Ruleset):
         super().delete(item)
@@ -249,8 +223,6 @@ class RulesetService(BaseDataService[Ruleset]):
         ruleset_json.pop(ID_ATTR, None)
         ruleset_json.pop('status', None)
         ruleset_json.pop('allowed_for', None)
-        ruleset_json.pop('active', None)
-        ruleset_json.pop('license_manager_id', None)
         ruleset_json.pop('s3_path', None)
 
         for param in params_to_exclude or ():
@@ -260,47 +232,6 @@ class RulesetService(BaseDataService[Ruleset]):
     @staticmethod
     def set_s3_path(ruleset: Ruleset, bucket: str, key: str):
         ruleset.s3_path = {'bucket_name': bucket, 'path': key}
-
-    def iter_event_driven(
-        self, cloud: str, ascending: bool = False, limit: int | None = None
-    ) -> Iterator[Ruleset]:
-        """
-        Iterates over event-driven rulesets for cloud
-        :param cloud:
-        :param ascending:
-        :param limit:
-        :return:
-        """
-        sk = self.build_id(
-            customer=SystemCustomer.get_name(),
-            licensed=False,
-            name=self.ed_ruleset_name(cloud),
-            version='',
-        )
-        return Ruleset.customer_id_index.query(
-            hash_key=SystemCustomer.get_name(),
-            range_key_condition=Ruleset.id.startswith(sk),
-            filter_condition=(Ruleset.event_driven == True),
-            scan_index_forward=ascending,
-            limit=limit,
-        )
-
-    def get_latest_event_driven(self, cloud: str) -> Ruleset | None:
-        return next(self.iter_event_driven(cloud, limit=1), None)
-
-    def get_event_driven(self, cloud: str, version: str) -> Ruleset | None:
-        return self.get_standard(
-            customer=SystemCustomer.get_name(),
-            name=self.ed_ruleset_name(cloud),
-            version=version,
-        )
-
-    def download(self, ruleset: Ruleset, out: BinaryIO = None) -> BinaryIO:
-        return self._s3_client.gz_get_object(
-            bucket=ruleset.s3_path['bucket_name'],
-            key=ruleset.s3_path['path'],
-            buffer=out,
-        )
 
     def download_url(self, ruleset: Ruleset) -> str:
         """
@@ -318,15 +249,6 @@ class RulesetService(BaseDataService[Ruleset]):
         )
 
     @staticmethod
-    def payload_hash(payload: list | dict) -> str:
-        if isinstance(payload, dict):
-            policies = payload.get('policies') or []
-        else:
-            policies = payload
-        name_to_body = {p['name']: p for p in policies}
-        return RulesetService.hash_from_name_to_body(name_to_body)
-
-    @staticmethod
     def hash_from_name_to_body(name_to_body: dict) -> str:
         """
         Calculates hash of ruleset's policies. Does not consider other from
@@ -337,17 +259,14 @@ class RulesetService(BaseDataService[Ruleset]):
         data = msgspec.json.encode(name_to_body, order='deterministic')
         return hashlib.sha256(data).hexdigest()
 
-    @staticmethod
-    def ed_ruleset_name(cloud: str) -> str:
-        match cloud:
-            case 'AWS':
-                return ED_AWS_RULESET_NAME
-            case 'AZURE':
-                return ED_AZURE_RULESET_NAME
-            case 'GOOGLE' | 'GCP':
-                return ED_GOOGLE_RULESET_NAME
-            case 'KUBERNETES' | 'K8S':
-                return ED_KUBERNETES_RULESET_NAME
+    def fetch_content(self, rs: Ruleset) -> dict | None:
+        """
+        Only for standard rulesets for now
+        """
+        bucket, key = rs.s3_path.bucket_name, rs.s3_path.path
+        if not (bucket and key):
+            return
+        return self._s3_client.gz_get_json(bucket, key)
 
 
 class RulesetName(tuple):
@@ -420,3 +339,4 @@ class RulesetName(tuple):
         if v := self.version:
             name = f'{name} {v.to_str()}'
         return name
+

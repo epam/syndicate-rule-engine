@@ -110,21 +110,22 @@ class ExpandEnvironmentEventProcessor(AbstractEventProcessor):
         """
         Adds some useful data to internal environment variables
         """
-        envs = {CAASEnv.INVOCATION_REQUEST_ID.value: context.aws_request_id}
+
+        tls = SP.tls
+
+        tls.aws_request_id = context.aws_request_id
         if host := deep_get(event, ('headers', 'Host')):
             _LOG.debug(f'Resolved host from header: {host}')
-            envs[CAASEnv.API_GATEWAY_HOST.value] = host
+            tls.host = host
+
         stage = self._resolve_stage(event)
         if stage:
             _LOG.debug(f'Resolved stage: {stage}')
-            envs[CAASEnv.API_GATEWAY_STAGE.value] = stage
+            tls.stage = stage
 
         if context.invoked_function_arn:
-            _LOG.debug('Extracting account id from event context')
-            envs[CAASEnv.ACCOUNT_ID.value] = RequestContext.extract_account_id(
-                context.invoked_function_arn
-            )
-        self._env.override_environment(envs)
+            tls.account_id = RequestContext.extract_account_id(context.invoked_function_arn)
+
         return event, context
 
 
@@ -230,9 +231,6 @@ class RestrictCustomerEventProcessor(AbstractEventProcessor):
         (CustodianEndpoint.METRICS_UPDATE, HTTPMethod.POST),
         (CustodianEndpoint.METRICS_STATUS, HTTPMethod.GET),
 
-        (CustodianEndpoint.ED_RULESETS, HTTPMethod.GET),
-        (CustodianEndpoint.ED_RULESETS, HTTPMethod.POST),
-        (CustodianEndpoint.ED_RULESETS, HTTPMethod.DELETE),
         (CustodianEndpoint.RULESETS, HTTPMethod.GET),
         (CustodianEndpoint.RULESETS, HTTPMethod.POST),
         (CustodianEndpoint.RULESETS, HTTPMethod.PATCH),
