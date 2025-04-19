@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  Release:
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: get_version
+        run: |
+          RELEASE_VERSION=$(awk -F'__version__ =' '{print $2}' src/helpers/__version__.py| tr -d "[] '\"")
+          echo "RELEASE_VERSION=$RELEASE_VERSION" >> $GITHUB_ENV
+          echo "release_version=$RELEASE_VERSION" >> $GITHUB_OUTPUT
+          echo "Name ${{ github.ref_name }}. Version $RELEASE_VERSION"
+
+      - name: Downloads artifacts
+        run: |
+          curl "https://public-open-source-syndicate-artifacts.s3.amazonaws.com/ecc/${{ github.ref_name }}/rule-engine-ami-artifacts.linux-arm64.zip -o rule-engine-ami-artifacts.linux-arm64.zip"
+
+      - name: Create tag
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: 'refs/tags/${{ steps.get_version.outputs.release_version }}',
+              sha: context.sha
+            })
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_version.outputs.release_version }}
+          name: ${{ steps.get_version.outputs.release_version }}
+          body: "Release ${{ steps.get_version.outputs.release_version }}"
+          prerelease: false
+          draft: false
+          make_latest: true
+          files: rule-engine-ami-artifacts.linux-arm64.zip
