@@ -1,4 +1,4 @@
-from pynamodb.attributes import UnicodeAttribute, ListAttribute, TTLAttribute
+from pynamodb.attributes import ListAttribute, TTLAttribute, UnicodeAttribute
 from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
 from helpers.constants import CAASEnv, JobState
@@ -26,6 +26,7 @@ JOB_RULES_TO_SCAN = 'ru'
 JOB_PLATFORM_ID = 'p'
 JOB_TTL = 'ttl'
 JOB_AFFECTED_LICENSE = 'al'
+JOB_CREDENTIALS_KEY = 'ck'
 
 
 class TenantNameSubmittedAtIndex(GlobalSecondaryIndex):
@@ -46,8 +47,9 @@ class CustomerNameSubmittedAtIndex(GlobalSecondaryIndex):
         write_capacity_units = 1
         projection = AllProjection()
 
-    customer_name = UnicodeAttribute(hash_key=True,
-                                     attr_name=JOB_CUSTOMER_NAME)
+    customer_name = UnicodeAttribute(
+        hash_key=True, attr_name=JOB_CUSTOMER_NAME
+    )
     submitted_at = UnicodeAttribute(range_key=True, attr_name=JOB_SUBMITTED_AT)
 
 
@@ -57,16 +59,19 @@ class Job(BaseModel):
         region = CAASEnv.AWS_REGION.get()
         mongo_attributes = True  # ttl attribute is patched
 
-    id = UnicodeAttribute(hash_key=True, attr_name=JOB_ID)
+    id = UnicodeAttribute(hash_key=True, attr_name=JOB_ID)  # our unique id
     batch_job_id = UnicodeAttribute(null=True, attr_name=JOB_BATCH_JOB_ID)
     celery_task_id = UnicodeAttribute(null=True, attr_name=JOB_CELERY_TASK_ID)
+
     tenant_name = UnicodeAttribute(attr_name=JOB_TENANT_NAME)
     customer_name = UnicodeAttribute(attr_name=JOB_CUSTOMER_NAME)
 
-    submitted_at = UnicodeAttribute(attr_name=JOB_SUBMITTED_AT,
-                                    default=utc_iso)
-    status = UnicodeAttribute(attr_name=JOB_STATUS,
-                              default=JobState.SUBMITTED.value)
+    submitted_at = UnicodeAttribute(
+        attr_name=JOB_SUBMITTED_AT, default=utc_iso
+    )
+    status = UnicodeAttribute(
+        attr_name=JOB_STATUS, default=JobState.SUBMITTED.value
+    )
 
     created_at = UnicodeAttribute(null=True, attr_name=JOB_CREATED_AT)
     started_at = UnicodeAttribute(null=True, attr_name=JOB_STARTED_AT)
@@ -76,16 +81,20 @@ class Job(BaseModel):
     definition = UnicodeAttribute(null=True, attr_name=JOB_DEFINITION)
     owner = UnicodeAttribute(null=True, attr_name=JOB_OWNER)
 
-    regions = ListAttribute(default=list, attr_name=JOB_REGIONS, of=UnicodeAttribute)
+    regions = ListAttribute(default=list, attr_name=JOB_REGIONS)
     rulesets = ListAttribute(default=list, attr_name=JOB_RULESETS)
     reason = UnicodeAttribute(null=True, attr_name=JOB_REASON)
-    scheduled_rule_name = UnicodeAttribute(null=True,
-                                           attr_name=JOB_SCHEDULED_RULE_NAME)
-    rules_to_scan = ListAttribute(default=list, attr_name=JOB_RULES_TO_SCAN,
-                                  of=UnicodeAttribute)
+    scheduled_rule_name = UnicodeAttribute(
+        null=True, attr_name=JOB_SCHEDULED_RULE_NAME
+    )
+    rules_to_scan = ListAttribute(default=list, attr_name=JOB_RULES_TO_SCAN)
     platform_id = UnicodeAttribute(null=True, attr_name=JOB_PLATFORM_ID)
-    affected_license = UnicodeAttribute(null=True,
-                                        attr_name=JOB_AFFECTED_LICENSE)
+    affected_license = UnicodeAttribute(
+        null=True, attr_name=JOB_AFFECTED_LICENSE
+    )
+    credentials_key = UnicodeAttribute(
+        null=True, attr_name=JOB_CREDENTIALS_KEY
+    )
 
     ttl = TTLAttribute(null=True, attr_name=JOB_TTL)
 

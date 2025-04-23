@@ -15,7 +15,7 @@ class MongoClientSingleton:
     @classmethod
     def get_instance(cls) -> pymongo.MongoClient:
         if cls._instance is None:
-            cls._instance = pymongo.MongoClient(CAASEnv.MONGO_URI.get())
+            cls._instance = pymongo.MongoClient(CAASEnv.MONGO_URI.as_str())
         return cls._instance
 
 
@@ -25,7 +25,11 @@ class PynamoDBToPymongoAdapterSingleton:
     @classmethod
     def get_instance(cls) -> PynamoDBToPymongoAdapter:
         if cls._instance is None:
-            cls._instance = PynamoDBToPymongoAdapter(db=MongoClientSingleton.get_instance().get_database(CAASEnv.MONGO_DATABASE.get()))
+            cls._instance = PynamoDBToPymongoAdapter(
+                db=MongoClientSingleton.get_instance().get_database(
+                    CAASEnv.MONGO_DATABASE.as_str()
+                )
+            )
         return cls._instance
 
 

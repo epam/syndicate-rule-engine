@@ -14,9 +14,10 @@ def _expiration(key: Any, value: Any, now: float) -> float:
     :param now:
     :return:
     """
-    return now + float(CAASEnv.INNER_CACHE_TTL_SECONDS.get())
+    return now + CAASEnv.INNER_CACHE_TTL_SECONDS.as_float()
 
 
-def factory(maxsize=50, ttu: Callable[[Any, Any, float], float] = _expiration
-            ) -> TLRUCache:
+def factory(
+    maxsize=50, ttu: Callable[[Any, Any, float], float] = _expiration
+) -> TLRUCache:
     return TLRUCache(maxsize=maxsize, ttu=ttu)

@@ -117,20 +117,16 @@ https://stackoverflow.com/questions/54858326/python-multiprocessing-billiard-vs-
 https://github.com/celery/billiard/issues/282
 """
 
-import io
-import os
-import sys
 import tempfile
 import time
 import traceback
 from abc import ABC, abstractmethod
 from itertools import chain
 from pathlib import Path
-from typing import Generator, Iterable, cast
+from typing import Generator, Iterable, cast, TYPE_CHECKING
 
 # import multiprocessing
 import billiard as multiprocessing  # allows to execute child processes from a daemon process
-import msgspec.json
 from botocore.exceptions import ClientError
 from c7n.config import Config
 from c7n.exceptions import PolicyValidationError
@@ -146,7 +142,6 @@ from modular_sdk.commons.constants import (
     ENV_KUBECONFIG,
     ParentType,
 )
-from modular_sdk.models.parent import Parent
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.environment_service import EnvironmentContext
 from msrestazure.azure_exceptions import CloudError
@@ -155,11 +150,9 @@ from executor.helpers.constants import (
     ACCESS_DENIED_ERROR_CODE,
     AWS_DEFAULT_REGION,
     CACHE_FILE,
-    ENV_AWS_DEFAULT_REGION,
     INVALID_CREDENTIALS_ERROR_CODES,
     ExecutorError,
 )
-from executor.helpers.profiling import BytesEmitter
 from executor.helpers.profiling import xray_recorder as _XRAY
 from executor.services import BSP
 from executor.services.policy_service import PolicyDict
@@ -168,11 +161,11 @@ from helpers.constants import (
     GLOBAL_REGION,
     TS_EXCLUDED_RULES_KEY,
     BatchJobEnv,
-    BatchJobType,
     Cloud,
     JobState,
     PlatformType,
     PolicyErrorType,
+    CAASEnv,
 )
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime, utc_iso
@@ -189,7 +182,7 @@ from services.clients.eks_client import EKSClient
 from services.clients.lm_client import LMException
 from services.clients.sts import StsClient, TokenGenerator
 from services.job_lock import TenantSettingJobLock
-from services.job_service import JobUpdater, NullJobUpdater
+from services.job_service import JobUpdater
 from services.platform_service import K8STokenKubeconfig, Kubeconfig, Platform
 from services.report_convertors import ShardCollectionDojoConvertor
 from services.reports_bucket import (
@@ -200,7 +193,6 @@ from services.reports_bucket import (
 )
 from services.ruleset_service import RulesetName
 from services.sharding import (
-    ShardPart,
     ShardsCollection,
     ShardsCollectionFactory,
     ShardsS3IO,
@@ -209,6 +201,8 @@ from services.udm_generator import (
     ShardCollectionUDMEntitiesConvertor,
     ShardCollectionUDMEventsConvertor,
 )
+if TYPE_CHECKING:
+    from celery import Task  # noqa
 
 _LOG = get_logger(__name__)
 
@@ -233,7 +227,7 @@ class PoliciesLoader:
         cloud: Cloud,
         output_dir: Path,
         regions: set[str] | None = None,
-        cache: str = CACHE_FILE,
+        cache: str | None = 'memory',
         cache_period: int = 30,
     ):
         """
@@ -860,54 +854,15 @@ def upload_to_siem(
                 )
 
 
-@_XRAY.capture('Get credentials')
-def get_credentials(
-    tenant: Tenant, batch_results: BatchResults | None = None
-) -> dict:
+def get_tenant_credentials(tenant: Tenant) -> dict | None:
     """
-    Tries to retrieve credentials to scan the given tenant with such
-    priorities:
-    1. env "CREDENTIALS_KEY" - gets key name and then gets credentials
-       from SSM. This is the oldest solution, in can sometimes be used if
-       the job is standard and a user has given credentials directly;
-       The SSM parameter is removed after the creds are received.
-    2. Only for event-driven jobs. Gets credentials_key (SSM parameter name)
-       from "batch_result.credentials_key". Currently, the option is obsolete.
-       API in no way will set credentials key there. But maybe some time...
-    3. 'CUSTODIAN_ACCESS' key in the tenant's parent_map. It points to the
-       parent with type 'CUSTODIAN_ACCESS' as well. That parent is linked
-       to an application with credentials
-    4. Maestro management_parent_id -> management creds. Tries to resolve
-       management parent from tenant and then management credentials. This
-       option can be used only if the corresponding env is set to 'true'.
-       Must be explicitly allowed because the option is not safe.
-    5. Checks whether instance by default has access to the given tenant
-    If not credentials are found, ExecutorException is raised
+    If dict is returned it means that we should export that dict to envs
+    and start the scan even if the dict is empty
     """
     mcs = SP.modular_client.maestro_credentials_service()
-    _log_start = 'Trying to get credentials from '
-    credentials = {}
-    # 1.
-    if not credentials:
-        _LOG.info(_log_start + "'CREDENTIALS_KEY' env")
-        credentials = BSP.credentials_service.get_credentials_from_ssm()
-        if credentials and tenant.cloud == Cloud.GOOGLE:
-            credentials = BSP.credentials_service.google_credentials_to_file(
-                credentials
-            )
-    # 2.
-    if not credentials and batch_results and batch_results.credentials_key:
-        _LOG.info(_log_start + 'batch_results.credentials_key')
-        credentials = BSP.credentials_service.get_credentials_from_ssm(
-            batch_results.credentials_key
-        )
-        if credentials and tenant.cloud == Cloud.GOOGLE:
-            credentials = BSP.credentials_service.google_credentials_to_file(
-                credentials
-            )
-    # 3.
-    if not credentials:
-        _LOG.info(_log_start + '`CUSTODIAN_ACCESS` parent')
+    credentials = None
+    if credentials is None:
+        _LOG.info('Trying to get creds from `CUSTODIAN_ACCESS` parent')
         parent = (
             SP.modular_client.parent_service().get_linked_parent_by_tenant(
                 tenant=tenant, type_=ParentType.CUSTODIAN_ACCESS
@@ -923,19 +878,15 @@ def get_credentials(
                 _creds = mcs.get_by_application(application, tenant)
                 if _creds:
                     credentials = _creds.dict()
-    # 4.
-    if (
-        not credentials
-        and BSP.environment_service.is_management_creds_allowed()
-    ):
-        _LOG.info(_log_start + 'Maestro management parent & application')
+    if credentials is None and BatchJobEnv.ALLOW_MANAGEMENT_CREDS.as_bool():
+        _LOG.info(
+            'Trying to get creds from maestro management parent & application'
+        )
         _creds = mcs.get_by_tenant(tenant=tenant)
         if _creds:  # not a dict
             credentials = _creds.dict()
-    # 5
-    if not credentials:
-        _LOG.info(_log_start + 'instance profile')
-        # TODO refactor
+    if credentials is None:
+        _LOG.info('Trying to get creds from instance profile')
         match tenant.cloud:
             case Cloud.AWS:
                 try:
@@ -945,7 +896,7 @@ def get_credentials(
                         _LOG.info(
                             'Instance profile credentials match to tenant id'
                         )
-                        return {}
+                        credentials = {}
                 except (Exception, ClientError) as e:
                     _LOG.warning(f'No instance credentials found: {e}')
             case Cloud.AZURE:
@@ -956,40 +907,46 @@ def get_credentials(
                     _LOG.info('subscription id found')
                     if aid == tenant.project:
                         _LOG.info('Subscription id matches to tenant id')
-                        return {}
+                        credentials = {}
                 except BaseException:  # catch sys.exit(1)
                     _LOG.warning('Could not find azure subscription id')
-    if credentials:
+    if credentials is not None:
         credentials = mcs.complete_credentials_dict(
             credentials=credentials, tenant=tenant
         )
-        return credentials
-    raise ExecutorException(ExecutorError.NO_CREDENTIALS)
+    return credentials
 
 
-def get_platform_credentials(platform: Platform) -> dict:
+def get_job_credentials(job: Job | BatchResults, cloud: Cloud) -> dict | None:
+    _LOG.info('Trying to resolve credentials from job')
+    if not job.credentials_key:
+        return
+    creds = BSP.credentials_service.get_credentials_from_ssm(
+        job.credentials_key, remove=True
+    )
+    if creds is None:
+        return
+    if cloud is Cloud.GOOGLE:
+        creds = BSP.credentials_service.google_credentials_to_file(creds)
+    return creds
+
+
+def get_platform_credentials(job: Job, platform: Platform) -> dict | None:
     """
     Credentials for platform (k8s) only. This should be refactored somehow.
     Raises ExecutorException if not credentials are found
     :param platform:
     :return:
     """
-    # TODO K8S request a short-lived token here from long-lived in case
-    #  it's possible
-    # if creds.token:
-    #     _LOG.info('Request a temp token')
-    #     conf = kubernetes.client.Configuration()
-    #     conf.host = creds.endpoint
-    #     conf.api_key['authorization'] = creds.token
-    #     conf.api_key_prefix['authorization'] = 'Bearer'
-    #     conf.ssl_ca_cert = creds.ca_file()
-    #     kubernetes.client.AuthenticationV1TokenRequest()
-    #     with kubernetes.client.ApiClient(conf) as client:
-    #         kubernetes.client.CoreV1Api(client).create_namespaced_service_account_token('readonly-user')
+    token = None
+    if job.credentials_key:
+        token = BSP.credentials_service.get_credentials_from_ssm(
+            job.credentials_key
+        )
+
     app = SP.modular_client.application_service().get_application_by_id(
         platform.parent.application_id
     )
-    token = BSP.credentials_service.get_credentials_from_ssm()
     kubeconfig = {}
     if app.secret:
         kubeconfig = (
@@ -1017,7 +974,7 @@ def get_platform_credentials(platform: Platform) -> dict:
         return {ENV_KUBECONFIG: str(config.to_temp_file())}
     if platform.type != PlatformType.EKS:
         _LOG.warning('No kubeconfig provided and platform is not EKS')
-        raise ExecutorException(ExecutorError.NO_CREDENTIALS)
+        return
     _LOG.debug(
         'Kubeconfig and token are not provided. Using management creds for EKS'
     )
@@ -1028,7 +985,7 @@ def get_platform_credentials(platform: Platform) -> dict:
     # TODO: get tenant credentials here somehow
     if not parent:
         _LOG.warning('Parent AWS_MANAGEMENT not found')
-        raise ExecutorException(ExecutorError.NO_CREDENTIALS)
+        return
     application = (
         SP.modular_client.application_service().get_application_by_id(
             parent.application_id
@@ -1036,7 +993,7 @@ def get_platform_credentials(platform: Platform) -> dict:
     )
     if not application:
         _LOG.warning('Management application is not found')
-        raise ExecutorException(ExecutorError.NO_CREDENTIALS)
+        return
     creds = SP.modular_client.maestro_credentials_service().get_by_application(
         application, tenant
     )
@@ -1044,7 +1001,7 @@ def get_platform_credentials(platform: Platform) -> dict:
         _LOG.warning(
             f'No credentials in application: {application.application_id}'
         )
-        raise ExecutorException(ExecutorError.NO_CREDENTIALS)
+        return
     cl = EKSClient.build()
     cl.client = Boto3ClientFactory(EKSClient.service_name).build(
         region_name=platform.region,
@@ -1058,7 +1015,7 @@ def get_platform_credentials(platform: Platform) -> dict:
             f'No cluster with name: {platform.name} '
             f'in region: {platform.region}'
         )
-        raise ExecutorException(ExecutorError.NO_CREDENTIALS)
+        return
     sts = Boto3ClientFactory('sts').from_keys(
         aws_access_key_id=creds.AWS_ACCESS_KEY_ID,
         aws_secret_access_key=creds.AWS_SECRET_ACCESS_KEY,
@@ -1163,8 +1120,6 @@ def batch_results_job(batch_results: BatchResults):
     _LOG.debug('Pulling latest state')
     latest.fetch_by_indexes(collection.shards.keys())
     latest.fetch_meta()
-    _LOG.info('Self-healing regions')  # todo remove after a couple of releases
-    fix_s3_regions(latest)
 
     difference = collection - latest
 
@@ -1228,94 +1183,8 @@ def multi_account_event_driven_job() -> int:
     return 0
 
 
-def single_account_standard_job() -> int:
-    # in case it's a standard job , tenant_name will always exist
-    tenant_name = cast(str, BSP.env.tenant_name())
-    tenant = cast(Tenant, SP.modular_client.tenant_service().get(tenant_name))
-
-    if job_id := BSP.env.job_id():
-        # custodian job id, present only for standard jobs
-        job = cast(Job, SP.job_service.get_nullable(job_id))
-        if BSP.env.is_docker():
-            updater = JobUpdater(job)
-        else:
-            updater = NullJobUpdater(job)  # updated in caas-job-updater
-    else:  # scheduled job, generating it dynamically
-        scheduled = SP.scheduled_job_service.get_by_name(
-            customer_name=tenant.customer_name,
-            name=BatchJobEnv.SCHEDULED_JOB_NAME.get(),
-        )
-        updater = JobUpdater.from_batch_env(
-            environment=dict(os.environ),
-            rulesets=scheduled.meta.as_dict().get('rulesets', []),
-        )
-        updater.save()
-        job = updater.job
-        BSP.env.override_environment(
-            {BatchJobEnv.CUSTODIAN_JOB_ID.value: job.id}
-        )
-
-    updater.created_at = utc_iso()
-    updater.started_at = utc_iso()
-    updater.status = JobState.RUNNING
-    updater.update()
-
-    temp_dir = tempfile.TemporaryDirectory()
-
-    try:
-        standard_job(job, tenant, Path(temp_dir.name))
-        updater.status = JobState.SUCCEEDED
-        updater.stopped_at = utc_iso()
-        code = 0
-    except ExecutorException as e:
-        _LOG.exception(f'Executor exception {e.error} occurred')
-        # in case the job has failed, we should update it here even if it's
-        # saas installation because we cannot retrieve traceback from
-        # caas-job-updater lambda
-        updater = JobUpdater.from_job_id(job.id)
-        updater.status = JobState.FAILED
-        updater.stopped_at = utc_iso()
-        updater.reason = e.error.with_reason()
-        match e.error:
-            case ExecutorError.LM_DID_NOT_ALLOW:
-                code = 2
-            case _:
-                code = 1
-    except SoftTimeLimitExceeded:
-        _LOG.error('Job is terminated because of soft timeout')
-        updater = JobUpdater.from_job_id(job.id)
-        updater.status = JobState.FAILED
-        updater.stopped_at = utc_iso()
-        updater.reason = ExecutorError.TIMEOUT.with_reason()
-        code = 1
-    except Exception:
-        _LOG.exception('Unexpected error occurred')
-        updater = JobUpdater.from_job_id(job.id)
-        updater.status = JobState.FAILED
-        updater.stopped_at = utc_iso()
-        updater.reason = ExecutorError.INTERNAL.with_reason()
-        code = 1
-    finally:
-        Path(CACHE_FILE).unlink(missing_ok=True)
-        TenantSettingJobLock(tenant_name).release(job.id)
-        temp_dir.cleanup()
-    updater.update()
-
-    if BSP.env.is_docker() and BSP.env.is_licensed_job():
-        _LOG.info('The job is licensed on premises. Updating in LM')
-        SP.license_manager_service.cl.update_job(
-            job_id=job.id,
-            customer=job.customer_name,
-            created_at=job.created_at,
-            started_at=job.started_at,
-            stopped_at=job.stopped_at,
-            status=job.status,
-        )
-    return code
-
-
 def process_job_concurrent(
-    filename: str, work_dir: Path, cloud: Cloud, region: str
+    items: list[PolicyDict], work_dir: Path, cloud: Cloud, region: str
 ):
     """
     Cloud Custodian keeps consuming RAM for some reason. After 9th-10th region
@@ -1326,14 +1195,12 @@ def process_job_concurrent(
     (any way the results is flushed to files).
     """
     _LOG.debug(f'Running scan process for region {region}')
-    with open(filename, 'rb') as file:
-        data = msgspec.json.decode(file.read())
     loader = PoliciesLoader(
         cloud=cloud, output_dir=work_dir, regions={region}, cache_period=120
     )
     try:
         _LOG.debug('Loading policies')
-        policies = loader.load_from_policies(data)
+        policies = loader.load_from_policies(items)
         _LOG.info(f'{len(policies)} were loaded')
         runner = Runner.factory(cloud, policies)
         _LOG.info('Starting runner')
@@ -1346,39 +1213,6 @@ def process_job_concurrent(
         #  those policies that should've been executed here. Must be fixed
         _LOG.exception('Unexpected error occurred trying to scan')
         return {}
-
-
-def fix_s3_regions(latest: 'ShardsCollection'):
-    """
-    Self-healing s3 regions. They are kept as global. This patch rewrites each
-    global s3 part as multiple region-specific parts. The function should be
-    just removed in a couple of releases
-    """
-    meta = latest.meta
-    for part in tuple(latest.iter_parts()):
-        if part.location != GLOBAL_REGION:
-            continue
-        resource = meta.get(part.policy, {}).get('resource')
-        if not resource or resource not in ('s3', 'aws.s3'):
-            continue
-        # s3 with global
-        latest.drop_part(part.policy, part.location)
-        _region_buckets = {}
-        for res in part.resources:
-            r = (
-                res.get('Location', {}).get('LocationConstraint')
-                or AWS_DEFAULT_REGION
-            )
-            _region_buckets.setdefault(r, []).append(res)
-        for r, buckets in _region_buckets.items():
-            latest.put_part(
-                ShardPart(
-                    policy=part.policy,
-                    location=r,
-                    timestamp=part.timestamp,
-                    resources=buckets,
-                )
-            )
 
 
 def resolve_standard_ruleset(
@@ -1451,33 +1285,137 @@ def resolve_job_rulesets(
         yield result
 
 
-@_XRAY.capture('Standard job')
-def standard_job(job: Job, tenant: Tenant, work_dir: Path):
-    cloud: Cloud  # not cloud but rather domain
-    platform: Platform | None = None
-    if pid := BSP.env.platform_id():
-        parent = cast(
-            Parent, SP.modular_client.parent_service().get_parent_by_id(pid)
+class JobExecutionContext:
+    def __init__(
+        self,
+        job: Job,
+        tenant: Tenant,
+        platform: Platform | None = None,
+        cache: str | None = 'memory',
+        cache_period: int = 30,
+    ):
+        self.job = job
+        self.tenant = tenant
+        self.platform = platform
+        self.cache = cache
+        self.cache_period = cache_period
+
+        self.updater = JobUpdater(job)
+
+        self._work_dir = None
+        self._exit_code = 0
+
+    def is_platform_job(self) -> bool:
+        return self.platform is not None
+
+    def is_scheduled_job(self) -> bool:
+        return self.job.scheduled_rule_name is not None
+
+    def cloud(self) -> Cloud:
+        if self.is_platform_job():
+            return Cloud.KUBERNETES
+        return cast(Cloud, Cloud.parse(self.tenant.cloud))  # cannot be None
+
+    @property
+    def work_dir(self) -> Path:
+        if not self._work_dir:
+            raise RuntimeError('can be used only within context')
+        return Path(self._work_dir.name)
+
+    def __enter__(self):
+        _LOG.info(f'Acquiring lock for job {self.job.id}')
+        TenantSettingJobLock(self.tenant.name).acquire(
+            job_id=self.job.id, regions=self.job.regions
         )
-        platform = Platform(parent)
-        cloud = Cloud.KUBERNETES
-    else:
-        cloud = Cloud[tenant.cloud.upper()]
+        _LOG.info('Setting job status to RUNNING')
+        self.updater.started_at = utc_iso()
+        self.updater.status = JobState.RUNNING
+        self.updater.update()
 
-    _LOG.info(
-        f"{BSP.env.job_type().capitalize()} job '{job.id}' "
-        f'has started: {cloud=}, {tenant.name=}, {platform=}'
-    )
-    _LOG.debug(f'Entire sys.argv: {sys.argv}')
-    _LOG.debug(f'Environment: {BSP.env}')
-    _XRAY.put_annotation('job_id', job.id)
-    _XRAY.put_annotation('tenant_name', tenant.name)
-    _XRAY.put_metadata('cloud', cloud.value)
+        _LOG.info('Creating a working dir')
+        self._work_dir = tempfile.TemporaryDirectory()
 
-    if platform:
-        credentials = get_platform_credentials(platform)
-    else:
-        credentials = get_credentials(tenant)
+    def _cleanup_cache(self) -> None:
+        if self.cache is None or self.cache == 'memory':
+            return
+        f = Path(self.cache)
+        if f.exists():
+            f.unlink(missing_ok=True)
+
+    def _cleanup_work_dir(self) -> None:
+        if not self._work_dir:
+            return
+        self._work_dir.cleanup()
+        self._work_dir = None
+
+    def _update_lm_job(self):
+        if not self.job.affected_license or not CAASEnv.is_docker():
+            return
+        _LOG.info('Updating job in license manager')
+        SP.license_manager_service.client.update_job(
+            job_id=self.job.id,
+            customer=self.job.customer_name,
+            created_at=self.job.created_at,
+            started_at=self.job.started_at,
+            stopped_at=self.job.stopped_at,
+            status=self.job.status,
+        )
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        _LOG.info('Cleaning cache after job')
+        self._cleanup_cache()
+        _LOG.info('Cleaning work dir')
+        self._cleanup_work_dir()
+        _LOG.info('Releasing job lock')
+        TenantSettingJobLock(self.tenant.name).release(self.job.id)
+
+        if exc_val is None:
+            _LOG.info(
+                f'Job {self.job.id} finished without exceptions. Setting SUCCEEDED status'
+            )
+            self.updater.status = JobState.SUCCEEDED
+            self.updater.stopped_at = utc_iso()
+            self.updater.update()
+            self._update_lm_job()
+            return
+
+        _LOG.info(
+            f'Job {self.job.id} finished with exception. Setting FAILED status'
+        )
+        self.updater.status = JobState.FAILED
+        self.updater.stopped_at = utc_iso()
+        if isinstance(exc_val, ExecutorException):
+            _LOG.exception(f'Executor exception {exc_val} occurred')
+            # in case the job has failed, we should update it here even if it's
+            # saas installation because we cannot retrieve traceback from
+            # caas-job-updater lambda
+            self.updater.reason = exc_val.error.with_reason()
+            if exc_val.error is ExecutorError.LM_DID_NOT_ALLOW:
+                self._exit_code = 2
+            else:
+                self._exit_code = 1
+        elif isinstance(exc_val, SoftTimeLimitExceeded):
+            _LOG.error('Job is terminated because of soft timeout')
+            self.updater.reason = ExecutorError.TIMEOUT.with_reason()
+            self._exit_code = 1
+        else:
+            _LOG.exception('Unexpected error occurred')
+            self.updater.reason = ExecutorError.INTERNAL.with_reason()
+            self._exit_code = 1
+
+        _LOG.info('Updating job status')
+        self.updater.update()
+        self._update_lm_job()
+        return True
+
+
+def run_standard_job(ctx: JobExecutionContext):
+    """
+    Accepts a job item full of data and runs it. Does not use envs to
+    get info about the job
+    """
+    cloud = ctx.cloud()
+    job = ctx.job
 
     names = []
     lists = []
@@ -1491,27 +1429,38 @@ def standard_job(job: Job, tenant: Tenant, work_dir: Path):
 
     if job.affected_license:
         _LOG.info('The job is licensed. Making post job request to lm')
-        post_lm_job(job)
+        post_lm_job(job)  # can raise ExecutorException
+
+    if pl := ctx.platform:
+        credentials = get_platform_credentials(job, pl)
+        keys_builder = PlatformReportsBucketKeysBuilder(pl)
+    else:
+        credentials = get_job_credentials(
+            job, cloud
+        ) or get_tenant_credentials(ctx.tenant)
+        keys_builder = TenantReportsBucketKeysBuilder(ctx.tenant)
+
+    if credentials is None:
+        raise ExecutorException(ExecutorError.NO_CREDENTIALS)
 
     policies = BSP.policies_service.get_policies(
         lists=lists,
         keep=set(job.rules_to_scan),
-        exclude=get_rules_to_exclude(tenant),
+        exclude=get_rules_to_exclude(ctx.tenant),
     )
-    with tempfile.NamedTemporaryFile(delete=False) as policies_file:
-        policies_file.write(msgspec.json.encode(policies))
+    regions = set(job.regions) | {GLOBAL_REGION}
+
     failed = {}
+    # NOTE: how these envs would behave if one worked for multiple tasks?
     with EnvironmentContext(credentials, reset_all=False):
-        for region in [GLOBAL_REGION] + sorted(BSP.env.target_regions()):
+        for region in sorted(regions):
             with multiprocessing.Pool(1) as pool:
                 res = pool.apply(
                     process_job_concurrent,
-                    (policies_file.name, work_dir, cloud, region),
+                    (policies, ctx.work_dir, cloud, region),
                 )
                 failed.update(res)
 
-    _LOG.info(f'Removing temp files: {policies_file.name} and credentials')
-    Path(policies_file.name).unlink(missing_ok=True)
     if cloud is Cloud.GOOGLE and (
         filename := credentials.get(ENV_GOOGLE_APPLICATION_CREDENTIALS)
     ):
@@ -1521,11 +1470,7 @@ def standard_job(job: Job, tenant: Tenant, work_dir: Path):
     ):
         Path(filename).unlink(missing_ok=True)
 
-    result = JobResult(work_dir, cloud)
-    if platform:
-        keys_builder = PlatformReportsBucketKeysBuilder(platform)
-    else:
-        keys_builder = TenantReportsBucketKeysBuilder(tenant)
+    result = JobResult(ctx.work_dir, cloud)
 
     collection = ShardsCollectionFactory.from_cloud(cloud)
     collection.put_parts(result.iter_shard_parts())
@@ -1534,10 +1479,10 @@ def standard_job(job: Job, tenant: Tenant, work_dir: Path):
 
     _LOG.info('Going to upload to SIEM')
     upload_to_siem(
-        tenant=tenant,
+        tenant=ctx.tenant,
         collection=collection,
         job=AmbiguousJob(job),
-        platform=platform,
+        platform=ctx.platform,
     )
 
     collection.io = ShardsS3IO(
@@ -1559,8 +1504,6 @@ def standard_job(job: Job, tenant: Tenant, work_dir: Path):
     _LOG.debug('Pulling latest state')
     latest.fetch_by_indexes(collection.shards.keys())
     latest.fetch_meta()
-    _LOG.info('Self-healing regions')  # todo remove after a couple of releases
-    fix_s3_regions(latest)
 
     _LOG.debug('Writing latest state')
     latest.update(collection)
@@ -1572,45 +1515,118 @@ def standard_job(job: Job, tenant: Tenant, work_dir: Path):
     SP.s3.gz_put_json(
         bucket=SP.environment_service.get_statistics_bucket_name(),
         key=StatisticsBucketKeysBuilder.job_statistics(job),
-        obj=result.statistics(tenant, failed),
+        obj=result.statistics(ctx.tenant, failed),
     )
     _LOG.info(f"Job '{job.id}' has ended")
 
 
-def main(environment: dict[str, str] | None = None) -> int:
-    env = environment or {}
-    env.setdefault(ENV_AWS_DEFAULT_REGION, AWS_DEFAULT_REGION)
-    BSP.environment_service.override_environment(env)
+# celery tasks
+def task_standard_job(self: 'Task | None', job_id: str):
+    """
+    Runs a single job by the given id
+    """
+    job = SP.job_service.get_nullable(job_id)
+    if not job:
+        _LOG.error('Task started for not existing job')
+        return
 
-    buffer = io.BytesIO()
-    _XRAY.configure(emitter=BytesEmitter(buffer))  # noqa
-
-    _XRAY.begin_segment('AWS Batch job')
-    sampled = _XRAY.is_sampled()
-    _LOG.info(f'Batch job is {"" if sampled else "NOT "}sampled')
-    _XRAY.put_annotation('batch_job_id', BSP.env.batch_job_id())
-
-    match BSP.environment_service.job_type():
-        case BatchJobType.EVENT_DRIVEN:
-            _LOG.info('Starting event driven job')
-            code = multi_account_event_driven_job()
-        case BatchJobType.STANDARD | BatchJobType.SCHEDULED:
-            _LOG.info('Starting standard job')
-            code = single_account_standard_job()
-
-    _XRAY.end_segment()
-
-    if sampled:
-        _LOG.debug('Writing xray data to S3')
-        buffer.seek(0)
-        SP.s3.gz_put_object(
-            bucket=SP.environment_service.get_statistics_bucket_name(),
-            key=StatisticsBucketKeysBuilder.xray_log(BSP.env.batch_job_id()),
-            body=buffer,
-        )
-    _LOG.info('Finished')
-    return code
+    tenant = SP.modular_client.tenant_service().get(job.tenant_name)
+    if not tenant:
+        _LOG.error('Task started for not existing tenant')
+        return
+    platform = None
+    if job.platform_id:
+        parent = SP.modular_client.parent_service().get_parent_by_id(job.platform_id)
+        if not parent:
+            _LOG.error('Task started for not existing parent')
+            return
+        platform = Platform(parent)
+    ctx = JobExecutionContext(
+        job=job,
+        tenant=tenant,
+        platform=platform
+    )
+    with ctx:
+        run_standard_job(ctx)
 
 
-if __name__ == '__main__':
-    sys.exit(main())
+def task_scheduled_job(self: 'Task | None', customer_name: str, name: str):
+    sch_job = SP.scheduled_job_service.get_by_name(
+        customer_name=customer_name,
+        name=name
+    )
+    if not sch_job:
+        _LOG.error('Cannot start scheduled job for not existing sch item')
+        return
+    tenant = SP.modular_client.tenant_service().get(sch_job.tenant_name)
+    if not tenant:
+        _LOG.error('Task started for not existing tenant')
+        return
+
+    _LOG.info('Building job item from scheduled')
+    rulesets = sch_job.meta.as_dict().get('rulesets', [])
+    licensed = [r for r in map(RulesetName, rulesets) if r.license_key]
+    license_key = licensed[0].license_key if licensed else None
+
+    job = SP.job_service.create(
+        customer_name=sch_job.customer_name,
+        tenant_name=sch_job.tenant_name,
+        regions=sch_job.meta.as_dict().get('regions', []),
+        rulesets=sch_job.meta.as_dict().get('rulesets', []),
+        rules_to_scan=[],
+        affected_license=license_key,
+        status=JobState.STARTING,
+        batch_job_id=BatchJobEnv.JOB_ID.get(),
+        celery_job_id=self.request.id if self is not None else None,
+        scheduled_rule_name=name,
+    )
+    SP.job_service.save(job)
+
+    ctx = JobExecutionContext(
+        job=job,
+        tenant=tenant,
+        platform=None
+    )
+    with ctx:
+        run_standard_job(ctx)
+    
+
+# def main(environment: dict[str, str] | None = None) -> int:
+#     env = environment or {}
+#     env.setdefault(ENV_AWS_DEFAULT_REGION, AWS_DEFAULT_REGION)
+#     BSP.environment_service.override_environment(env)
+#
+#     buffer = io.BytesIO()
+#     _XRAY.configure(emitter=BytesEmitter(buffer))  # noqa
+#
+#     _XRAY.begin_segment('AWS Batch job')
+#     sampled = _XRAY.is_sampled()
+#     _LOG.info(f'Batch job is {"" if sampled else "NOT "}sampled')
+#     _XRAY.put_annotation('batch_job_id', BSP.env.batch_job_id())
+#
+#     match BSP.environment_service.job_type():
+#         case BatchJobType.EVENT_DRIVEN:
+#             _LOG.info('Starting event driven job')
+#             code = multi_account_event_driven_job()
+#         case BatchJobType.STANDARD | BatchJobType.SCHEDULED:
+#             _LOG.info('Starting standard job')
+#             code = single_account_standard_job()
+#         case _:  # unreachable
+#             code = 1
+#
+#     _XRAY.end_segment()
+#
+#     if sampled:
+#         _LOG.debug('Writing xray data to S3')
+#         buffer.seek(0)
+#         SP.s3.gz_put_object(
+#             bucket=SP.environment_service.get_statistics_bucket_name(),
+#             key=StatisticsBucketKeysBuilder.xray_log(BSP.env.batch_job_id()),
+#             body=buffer,
+#         )
+#     _LOG.info('Finished')
+#     return code
+#
+#
+# if __name__ == '__main__':
+#     sys.exit(main())

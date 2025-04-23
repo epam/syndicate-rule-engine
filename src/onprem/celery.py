@@ -45,7 +45,10 @@ app.conf.task_routes = {
     'onprem.tasks.collect_metrics': {
         'queue': 'b-scheduled'
     },
-    'onprem.tasks.run_executor': {
+    'onprem.tasks.run_standard_job': {
+        'queue': 'a-jobs'
+    },
+    'onprem.tasks.run_scheduled_job': {
         'queue': 'a-jobs'
     }
 }

@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 from enum import Enum
 from itertools import filterfalse, chain
-from typing import Iterator, MutableMapping
+from typing import Iterator, MutableMapping, Callable
 
 from dateutil.relativedelta import SU, relativedelta
 from typing_extensions import Self
@@ -360,7 +360,7 @@ class EnvEnum(str, Enum):
     Abstract enumeration class for holding environment variables
     """
 
-    default: str | None
+    _default: str | Callable[[type['EnvEnum']], str | None] | None
     aliases: tuple[str, ...]
 
     @staticmethod
@@ -371,7 +371,7 @@ class EnvEnum(str, Enum):
         cls,
         value: str,
         aliases: tuple[str, ...] | str = (),
-        default: str = None,  # pyright: ignore
+        default: str | Callable[[type['EnvEnum']], str | None] = None,  # pyright: ignore
     ):
         """
         All environment variables and optionally their default values.
@@ -382,11 +382,22 @@ class EnvEnum(str, Enum):
         obj = str.__new__(cls, value)
         obj._value_ = value
 
-        obj.default = default
-        obj.aliases = (aliases, ) if isinstance(aliases, str) else aliases
+        obj._default = default
+        obj.aliases = (aliases,) if isinstance(aliases, str) else aliases
         return obj
 
-    def get(self, default=_SENTINEL) -> str | None:
+    def __str__(self) -> str:
+        return self.value
+
+    @property
+    def default(self) -> str | None:
+        if self._default is None:
+            return
+        if callable(self._default):
+            return self._default(self.__class__)
+        return self._default
+
+    def get(self, default=_SENTINEL, /) -> str | None:
         # TODO: improve typing
         source = self.source()
         for k in chain((self.value,), self.aliases):
@@ -403,17 +414,57 @@ class EnvEnum(str, Enum):
     def discard(self) -> None:
         self.source().pop(self.value, None)
 
-    def set(self, val: str | None):
+    def set(self, val: str | None, /):
         if val is None:
             self.discard()
         else:
             self.source()[self.value] = str(val)
 
-    @property
-    def alias(self) -> str | None:
-        if not self.aliases:
+    def alias(self, n: int = 0, /) -> str | None:
+        try:
+            return self.aliases[n]
+        except IndexError:
             return
-        return self.aliases[0]
+
+    def is_set(self) -> bool:
+        """
+        Checks whether this environment variable is set
+        """
+        return self.get() is not None
+
+    def as_bool(
+        self, allowed: str | tuple[str, ...] = ('y', 'yes', 'true', '1'), /
+    ) -> bool:
+        """
+        Treats env as boolean variable
+        """
+        allowed = (allowed,) if isinstance(allowed, str) else tuple(allowed)
+        return str(self.get()).lower() in allowed
+
+    def as_str(self) -> str:
+        """
+        Makes sure that the env exists. Supposed to be used with envs
+        that are requires to be set otherwise there's no even need to start
+        the server
+        """
+        val = self.get()
+        if val is None:
+            raise RuntimeError(f'Env {self.value} is required')
+        return val
+
+    def as_int(self) -> int:
+        val = self.as_str()
+        try:
+            return int(float(val))
+        except (ValueError, OverflowError):
+            raise RuntimeError(f'Env {self.value} must contain integer')
+
+    def as_float(self) -> float:
+        val = self.as_str()
+        try:
+            return float(val)
+        except ValueError:
+            raise RuntimeError(f'Env {self.value} must contain float')
 
 
 class CAASEnv(EnvEnum):
@@ -421,91 +472,155 @@ class CAASEnv(EnvEnum):
     Envs that can be set for lambdas of custodian service
     """
 
-    SERVICE_MODE = 'SRE_SERVICE_MODE', ('CAAS_SERVICE_MODE', )
-    SYSTEM_CUSTOMER_NAME = 'SRE_SYSTEM_CUSTOMER_NAME', ('SYSTEM_CUSTOMER_NAME',), DEFAULT_SYSTEM_CUSTOMER
-    LOG_LEVEL = 'SRE_LOG_LEVEL', ('CAAS_LOG_LEVEL', ), 'INFO'
+    SERVICE_MODE = 'SRE_SERVICE_MODE', ('CAAS_SERVICE_MODE',)
+    SYSTEM_CUSTOMER_NAME = (
+        'SRE_SYSTEM_CUSTOMER_NAME',
+        ('SYSTEM_CUSTOMER_NAME',),
+        DEFAULT_SYSTEM_CUSTOMER,
+    )
+    LOG_LEVEL = 'SRE_LOG_LEVEL', ('CAAS_LOG_LEVEL',), 'INFO'
     EXECUTOR_LOGS_FILENAME = 'SRE_EXECUTOR_LOGS_FILENAME', ()
 
     # buckets
-    RULESETS_BUCKET_NAME = 'SRE_RULESETS_BUCKET_NAME', ('CAAS_RULESETS_BUCKET_NAME',), 'rulesets'
-    REPORTS_BUCKET_NAME = 'SRE_REPORTS_BUCKET_NAME', ('CAAS_REPORTS_BUCKET_NAME', ), 'reports'
-    STATISTICS_BUCKET_NAME = 'SRE_STATISTICS_BUCKET_NAME', ('CAAS_STATISTICS_BUCKET_NAME', ), 'statistics'
+    RULESETS_BUCKET_NAME = (
+        'SRE_RULESETS_BUCKET_NAME',
+        ('CAAS_RULESETS_BUCKET_NAME',),
+        'rulesets',
+    )
+    REPORTS_BUCKET_NAME = (
+        'SRE_REPORTS_BUCKET_NAME',
+        ('CAAS_REPORTS_BUCKET_NAME',),
+        'reports',
+    )
+    STATISTICS_BUCKET_NAME = (
+        'SRE_STATISTICS_BUCKET_NAME',
+        ('CAAS_STATISTICS_BUCKET_NAME',),
+        'statistics',
+    )
     RECOMMENDATIONS_BUCKET_NAME = (
         'SRE_RECOMMENDATIONS_BUCKET_NAME',
-        ('CAAS_RECOMMENDATIONS_BUCKET_NAME', ),
+        ('CAAS_RECOMMENDATIONS_BUCKET_NAME',),
         'recommendation',
     )
 
     # Cognito either one will work, but ID faster and safer
-    USER_POOL_NAME = 'SRE_USER_POOL_NAME', ('CAAS_USER_POOL_NAME', )
-    USER_POOL_ID = 'SRE_USER_POOL_ID', ('CAAS_USER_POOL_ID', )
+    USER_POOL_NAME = 'SRE_USER_POOL_NAME', ('CAAS_USER_POOL_NAME',)
+    USER_POOL_ID = 'SRE_USER_POOL_ID', ('CAAS_USER_POOL_ID',)
 
     # rbac
     ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS = (
         'SRE_ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS',
-        ('CAAS_ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS', )
+        ('CAAS_ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS',),
     )
 
     # lm
-    LM_TOKEN_LIFETIME_MINUTES = 'SRE_LM_TOKEN_LIFETIME_MINUTES',('CAAS_LM_TOKEN_LIFETIME_MINUTES',), '120'
+    LM_TOKEN_LIFETIME_MINUTES = (
+        'SRE_LM_TOKEN_LIFETIME_MINUTES',
+        ('CAAS_LM_TOKEN_LIFETIME_MINUTES',),
+        '120',
+    )
 
     # some deployment options
-    ACCOUNT_ID = 'SRE_ACCOUNT_ID', ('CAAS_ACCOUNT_ID', )
-    LAMBDA_ALIAS_NAME = 'SRE_LAMBDA_ALIAS_NAME', ('CAAS_LAMBDA_ALIAS_NAME', )
+    ACCOUNT_ID = 'SRE_ACCOUNT_ID', ('CAAS_ACCOUNT_ID',)
+    LAMBDA_ALIAS_NAME = 'SRE_LAMBDA_ALIAS_NAME', ('CAAS_LAMBDA_ALIAS_NAME',)
 
     # batch options
-    BATCH_JOB_DEF_NAME = 'SRE_BATCH_JOB_DEF_NAME', ('CAAS_BATCH_JOB_DEF_NAME', )
-    BATCH_JOB_QUEUE_NAME = 'SRE_BATCH_JOB_QUEUE_NAME', ('CAAS_BATCH_JOB_QUEUE_NAME', )
-    BATCH_JOB_LOG_LEVEL = 'SRE_BATCH_JOB_LOG_LEVEL', ('CAAS_BATCH_JOB_LOG_LEVEL',), 'DEBUG'
-    BATCH_JOB_LIFETIME_MINUTES = 'SRE_BATCH_JOB_LIFETIME_MINUTES', ('CAAS_BATCH_JOB_LIFETIME_MINUTES', ), '180'
-    EB_SERVICE_ROLE_TO_INVOKE_BATCH = 'SRE_EB_SERVICE_ROLE_TO_INVOKE_BATCH', ('CAAS_EB_SERVICE_ROLE_TO_INVOKE_BATCH', )
+    BATCH_JOB_DEF_NAME = 'SRE_BATCH_JOB_DEF_NAME', ('CAAS_BATCH_JOB_DEF_NAME',)
+    BATCH_JOB_QUEUE_NAME = (
+        'SRE_BATCH_JOB_QUEUE_NAME',
+        ('CAAS_BATCH_JOB_QUEUE_NAME',),
+    )
+    BATCH_JOB_LOG_LEVEL = (
+        'SRE_BATCH_JOB_LOG_LEVEL',
+        ('CAAS_BATCH_JOB_LOG_LEVEL',),
+        'DEBUG',
+    )
+    BATCH_JOB_LIFETIME_MINUTES = (
+        'SRE_BATCH_JOB_LIFETIME_MINUTES',
+        ('CAAS_BATCH_JOB_LIFETIME_MINUTES',),
+        '180',
+    )
+    EB_SERVICE_ROLE_TO_INVOKE_BATCH = (
+        'SRE_EB_SERVICE_ROLE_TO_INVOKE_BATCH',
+        ('CAAS_EB_SERVICE_ROLE_TO_INVOKE_BATCH',),
+    )
 
     # events
-    EVENTS_TTL_HOURS = 'SRE_EVENTS_TTL_HOURS', ('CAAS_EVENTS_TTL_HOURS', ), '48'
-    NATIVE_EVENTS_PER_ITEM = 'SRE_NATIVE_EVENTS_PER_ITEM', ('CAAS_NATIVE_EVENTS_PER_ITEM', ), '100'
+    EVENTS_TTL_HOURS = 'SRE_EVENTS_TTL_HOURS', ('CAAS_EVENTS_TTL_HOURS',), '48'
+    NATIVE_EVENTS_PER_ITEM = (
+        'SRE_NATIVE_EVENTS_PER_ITEM',
+        ('CAAS_NATIVE_EVENTS_PER_ITEM',),
+        '100',
+    )
     EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE = (
         'SRE_EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE',
-        ('CAAS_EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE', ),
+        ('CAAS_EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE',),
         '100',
     )
     NUMBER_OF_PARTITIONS_FOR_EVENTS = (
         'SRE_NUMBER_OF_PARTITIONS_FOR_EVENTS',
-        ('CAAS_NUMBER_OF_PARTITIONS_FOR_EVENTS', ),
+        ('CAAS_NUMBER_OF_PARTITIONS_FOR_EVENTS',),
         '10',
     )
 
     # jobs
-    JOBS_TIME_TO_LIVE_DAYS = 'SRE_JOBS_TIME_TO_LIVE_DAYS', ('CAAS_JOBS_TIME_TO_LIVE_DAYS', )
+    JOBS_TIME_TO_LIVE_DAYS = (
+        'SRE_JOBS_TIME_TO_LIVE_DAYS',
+        ('CAAS_JOBS_TIME_TO_LIVE_DAYS',),
+    )
 
     # some logic setting
-    SKIP_CLOUD_IDENTIFIER_VALIDATION = 'SRE_SKIP_CLOUD_IDENTIFIER_VALIDATION', ('CAAS_SKIP_CLOUD_IDENTIFIER_VALIDATION', )
+    SKIP_CLOUD_IDENTIFIER_VALIDATION = (
+        'SRE_SKIP_CLOUD_IDENTIFIER_VALIDATION',
+        ('CAAS_SKIP_CLOUD_IDENTIFIER_VALIDATION',),
+    )
     ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT = (
         'SRE_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT',
-        ('CAAS_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT', )
+        ('CAAS_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT',),
     )
 
     # cache
-    INNER_CACHE_TTL_SECONDS = 'SRE_INNER_CACHE_TTL_SECONDS', ('CAAS_INNER_CACHE_TTL_SECONDS', ), '300'
+    INNER_CACHE_TTL_SECONDS = (
+        'SRE_INNER_CACHE_TTL_SECONDS',
+        ('CAAS_INNER_CACHE_TTL_SECONDS',),
+        '300',
+    )
 
     # on-prem access
-    MINIO_ENDPOINT = 'SRE_MINIO_ENDPOINT', ('CAAS_MINIO_ENDPOINT', )
-    MINIO_ACCESS_KEY_ID = 'SRE_MINIO_ACCESS_KEY_ID', ('CAAS_MINIO_ACCESS_KEY_ID', )
-    MINIO_SECRET_ACCESS_KEY = 'SRE_MINIO_SECRET_ACCESS_KEY', ('CAAS_MINIO_SECRET_ACCESS_KEY', )
-    MINIO_PRESIGNED_URL_HOST = 'SRE_MINIO_PRESIGNED_URL_HOST', ('CAAS_MINIO_PRESIGNED_URL_HOST', )
+    MINIO_ENDPOINT = 'SRE_MINIO_ENDPOINT', ('CAAS_MINIO_ENDPOINT',)
+    MINIO_ACCESS_KEY_ID = (
+        'SRE_MINIO_ACCESS_KEY_ID',
+        ('CAAS_MINIO_ACCESS_KEY_ID',),
+    )
+    MINIO_SECRET_ACCESS_KEY = (
+        'SRE_MINIO_SECRET_ACCESS_KEY',
+        ('CAAS_MINIO_SECRET_ACCESS_KEY',),
+    )
+    MINIO_PRESIGNED_URL_HOST = (
+        'SRE_MINIO_PRESIGNED_URL_HOST',
+        ('CAAS_MINIO_PRESIGNED_URL_HOST',),
+    )
 
-    VAULT_ENDPOINT = 'SRE_VAULT_ENDPOINT', ('CAAS_VAULT_ENDPOINT', )
-    VAULT_TOKEN = 'SRE_VAULT_TOKEN', ('CAAS_VAULT_TOKEN', )
+    VAULT_ENDPOINT = 'SRE_VAULT_ENDPOINT', ('CAAS_VAULT_ENDPOINT',)
+    VAULT_TOKEN = 'SRE_VAULT_TOKEN', ('CAAS_VAULT_TOKEN',)
 
-    MONGO_URI = 'SRE_MONGO_URI', ('CAAS_MONGO_URI', )
-    MONGO_DATABASE = 'SRE_MONGO_DB_NAME', ('CAAS_MONGO_DATABASE',), 'custodian_as_a_service'
+    MONGO_URI = 'SRE_MONGO_URI', ('CAAS_MONGO_URI',)
+    MONGO_DATABASE = (
+        'SRE_MONGO_DB_NAME',
+        ('CAAS_MONGO_DATABASE',),
+        'custodian_as_a_service',
+    )
 
     AWS_REGION = 'AWS_REGION', 'us-east-1'  # default lambda env so without SRE
 
     # init envs
-    SYSTEM_USER_PASSWORD = 'SRE_SYSTEM_USER_PASSWORD', ('CAAS_SYSTEM_USER_PASSWORD', )
+    SYSTEM_USER_PASSWORD = (
+        'SRE_SYSTEM_USER_PASSWORD',
+        ('CAAS_SYSTEM_USER_PASSWORD',),
+    )
 
     # Celery
-    CELERY_BROKER_URL = 'SRE_CELERY_BROKER_URL', ('CAAS_CELERY_BROKER_URL', )
+    CELERY_BROKER_URL = 'SRE_CELERY_BROKER_URL', ('CAAS_CELERY_BROKER_URL',)
 
     # Cloud Custodian
     CC_LOG_LEVEL = 'SRE_CC_LOG_LEVEL', (), 'INFO'
@@ -521,27 +636,10 @@ class BatchJobEnv(EnvEnum):
     lambdas, but these that are listed here -> only for batch
     """
 
-    # common
     AWS_REGION = 'AWS_REGION', 'us-east-1'
-    SYSTEM_CUSTOMER_NAME = 'SRE_SYSTEM_CUSTOMER_NAME', ('SYSTEM_CUSTOMER_NAME', ), DEFAULT_SYSTEM_CUSTOMER
-
-    # specific to executor
-    JOB_ID = 'AWS_BATCH_JOB_ID'  # default batch env
-    CUSTODIAN_JOB_ID = 'CUSTODIAN_JOB_ID'
-    BATCH_RESULTS_IDS = 'BATCH_RESULTS_IDS'
-
-    TARGET_REGIONS = 'TARGET_REGIONS'
-    AFFECTED_LICENSES = 'AFFECTED_LICENSES'
-
-    JOB_TYPE = 'JOB_TYPE'
-    SUBMITTED_AT = 'SUBMITTED_AT'
-
+    JOB_ID = 'AWS_BATCH_JOB_ID'
     AWS_DEFAULT_REGION = 'AWS_DEFAULT_REGION', 'us-east-1'
-    CREDENTIALS_KEY = 'CREDENTIALS_KEY'
 
-    SCHEDULED_JOB_NAME = 'SCHEDULED_JOB_NAME'
-    TENANT_NAME = 'TENANT_NAME'
-    PLATFORM_ID = 'PLATFORM_ID'
     ALLOW_MANAGEMENT_CREDS = 'ALLOW_MANAGEMENT_CREDENTIALS'
 
 

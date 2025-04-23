@@ -325,8 +325,10 @@ class LMClient:
         created_at: str | None = None,
         started_at: str | None = None,
         stopped_at: str | None = None,
-        status: JobState | None = None,
+        status: JobState | str | None = None,
     ) -> bool:
+        if isinstance(status, JobState):
+            status = status.value
         resp = self._send_request(
             endpoint=LMEndpoint.JOBS,
             method=HTTPMethod.PATCH,

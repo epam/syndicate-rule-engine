@@ -7,7 +7,6 @@ from helpers import SingletonMeta
 if TYPE_CHECKING:
     from services.clients.mongo_ssm_auth_client import MongoAndSSMAuthClient
     from services.ambiguous_job_service import AmbiguousJobService
-    from services.assemble_service import AssembleService
     from services.batch_results_service import BatchResultsService
     from services.clients.cognito import CognitoClient
     from services.clients.event_bridge import EventBridgeClient
@@ -210,11 +209,6 @@ class ServiceProvider(metaclass=SingletonMeta):
     def event_service(self) -> 'EventService':
         from services.event_service import EventService
         return EventService(environment_service=self.environment_service)
-
-    @cached_property
-    def assemble_service(self) -> 'AssembleService':
-        from services.assemble_service import AssembleService
-        return AssembleService(environment_service=self.environment_service)
 
     @cached_property
     def batch_results_service(self) -> 'BatchResultsService':

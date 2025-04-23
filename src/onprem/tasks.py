@@ -1,21 +1,30 @@
-import uuid
-from executor.job import main
+from executor.job import task_scheduled_job, task_standard_job
 from helpers import RequestContext
-from helpers.constants import CAASEnv, BatchJobEnv, BatchJobType
+from helpers.constants import CAASEnv
 from lambdas.custodian_license_updater.handler import LicenseUpdater
 from lambdas.custodian_metrics_updater.handler import MetricsUpdater
-from lambdas.custodian_metrics_updater.processors.findings_processor import \
-    FindingsUpdater
+from lambdas.custodian_metrics_updater.processors.findings_processor import (
+    FindingsUpdater,
+)
 from onprem.celery import app
-from helpers.time_helper import utc_iso
 
 
-@app.task(time_limit=3600*4, soft_time_limit=float(CAASEnv.BATCH_JOB_LIFETIME_MINUTES.get()) * 60)
-def run_executor(environment: dict[str, str]):
-    environment.setdefault(BatchJobEnv.SUBMITTED_AT.value, utc_iso())
-    environment.setdefault(BatchJobEnv.JOB_ID.value, str(uuid.uuid4()))
-    environment.setdefault(BatchJobEnv.JOB_TYPE.value, BatchJobType.STANDARD.value)
-    return main(environment)
+@app.task(
+    bind=True,
+    time_limit=3600 * 4,
+    soft_time_limit=CAASEnv.BATCH_JOB_LIFETIME_MINUTES.as_float() * 60,
+)
+def run_standard_job(self, job_id: str):
+    return task_standard_job(self, job_id)
+
+
+@app.task(
+    bind=True,
+    time_limit=3600 * 4,
+    soft_time_limit=CAASEnv.BATCH_JOB_LIFETIME_MINUTES.as_float() * 60,
+)
+def run_scheduled_job(self, customer_name: str, name: str):
+    return task_scheduled_job(self, customer_name, name)
 
 
 @app.task
@@ -28,10 +37,13 @@ def sync_license(license_keys: list[str] | None = None):
     event = {}
     if license_keys:
         event['license_key'] = license_keys
-    LicenseUpdater.build().lambda_handler(event=event, context=RequestContext())
+    LicenseUpdater.build().lambda_handler(
+        event=event, context=RequestContext()
+    )
 
 
 @app.task
 def collect_metrics():
-    MetricsUpdater.build().lambda_handler(event={'data_type': 'metrics'},
-                                          context=RequestContext())
+    MetricsUpdater.build().lambda_handler(
+        event={'data_type': 'metrics'}, context=RequestContext()
+    )

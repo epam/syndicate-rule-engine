@@ -10,7 +10,6 @@ from handlers import AbstractHandler, Mapping
 from helpers import NextToken
 from helpers.constants import (
     GLOBAL_REGION,
-    BatchJobType,
     Cloud,
     CustodianEndpoint,
     HTTPMethod,
@@ -25,7 +24,6 @@ from models.job import Job
 from models.ruleset import Ruleset
 from services import SERVICE_PROVIDER, cache, modular_helpers
 from services.abs_lambda import ProcessedEvent
-from services.assemble_service import AssembleService
 from services.clients.batch import BatchClient, BatchJob
 from services.clients.ssm import AbstractSSMClient
 from services.clients.sts import StsClient
@@ -62,7 +60,6 @@ class JobHandler(AbstractHandler):
         license_service: LicenseService,
         license_manager_service: LicenseManagerService,
         ruleset_service: RulesetService,
-        assemble_service: AssembleService,
         batch_client: BatchClient,
         sts_client: StsClient,
         ssm: AbstractSSMClient,
@@ -76,7 +73,6 @@ class JobHandler(AbstractHandler):
         self._license_service = license_service
         self._license_manager_service = license_manager_service
         self._ruleset_service = ruleset_service
-        self._assemble_service = assemble_service
         self._batch_client = batch_client
         self._sts_client = sts_client
         self._ssm = ssm
@@ -95,7 +91,6 @@ class JobHandler(AbstractHandler):
             license_service=SERVICE_PROVIDER.license_service,
             license_manager_service=SERVICE_PROVIDER.license_manager_service,
             ruleset_service=SERVICE_PROVIDER.ruleset_service,
-            assemble_service=SERVICE_PROVIDER.assemble_service,
             batch_client=SERVICE_PROVIDER.batch,
             sts_client=SERVICE_PROVIDER.sts,
             ssm=SERVICE_PROVIDER.ssm,
@@ -462,6 +457,22 @@ class JobHandler(AbstractHandler):
                 .exc()
             )
 
+        regions_to_scan = self._resolve_regions_to_scan(
+            target_regions=event.target_regions, tenant=tenant
+        )
+
+        if jid := TenantSettingJobLock(tenant.name).locked_for(
+            regions_to_scan
+        ):
+            raise (
+                ResponseFactory(HTTPStatus.FORBIDDEN)
+                .message(
+                    f'Some requested regions are already being '
+                    f'scanned in another tenant`s job {jid}'
+                )
+                .exc()
+            )
+
         credentials_key = None
         if event.credentials:
             _LOG.info('Credentials were provided. Saving to secrets manager')
@@ -479,23 +490,6 @@ class JobHandler(AbstractHandler):
                 secret_value=credentials,
                 ttl=1800,  # should be enough for on-prem
             )
-
-        regions_to_scan = self._resolve_regions_to_scan(
-            target_regions=event.target_regions, tenant=tenant
-        )
-
-        if not self._environment_service.allow_simultaneous_jobs_for_one_tenant():
-            _LOG.debug('Setting job lock')
-            lock = TenantSettingJobLock(event.tenant_name)
-            if job_id := lock.locked_for(regions_to_scan):
-                raise (
-                    ResponseFactory(HTTPStatus.FORBIDDEN)
-                    .message(
-                        f'Some requested regions are already being '
-                        f'scanned in another tenant`s job {job_id}'
-                    )
-                    .exc()
-                )
 
         standard_rulesets, lic, licensed_rulesets = (
             self._get_rulesets_for_scan(
@@ -553,23 +547,14 @@ class JobHandler(AbstractHandler):
             ttl=ttl,
             affected_license=lic.license_key if lic else None,
             status=JobState.PENDING,
+            credentials_key=credentials_key
         )
         self._job_service.save(job)
 
-        envs = self._assemble_service.build_job_envs(
-            tenant=tenant,
-            job_id=job.id,
-            target_regions=list(regions_to_scan),
-            credentials_key=credentials_key,
-            affected_licenses=lic.tenant_license_key(tenant.customer_name)
-            if lic
-            else None,
-        )
         resp = self._submit_job_to_batch(
             tenant=tenant,
             job=job,
-            envs=envs,
-            timeout=event.timeout_minutes * 60
+            timeout=int(event.timeout_minutes * 60)
             if event.timeout_minutes
             else None,
         )
@@ -578,13 +563,12 @@ class JobHandler(AbstractHandler):
             batch_job_id=resp['jobId'],
             celery_task_id=resp.get('celeryTaskId'),
         )
-        TenantSettingJobLock(tenant.name).acquire(job.id, regions_to_scan)
         return build_response(
             code=HTTPStatus.CREATED, content=self._job_service.dto(job)
         )
 
     def _submit_job_to_batch(
-        self, tenant: Tenant, job: Job, envs: dict, timeout: int | None = None
+        self, tenant: Tenant, job: Job, timeout: int | None = None
     ) -> BatchJob:
         job_name = f'{tenant.name}-{job.submitted_at}'
         job_name = ''.join(
@@ -592,10 +576,10 @@ class JobHandler(AbstractHandler):
         )
         _LOG.debug(f'Going to submit AWS Batch job with name {job_name}')
         response = self._batch_client.submit_job(
+            job_id=job.id,
             job_name=job_name,
             job_queue=self._environment_service.get_batch_job_queue(),
             job_definition=self._environment_service.get_batch_job_def(),
-            environment_variables=envs,
             timeout=timeout,
         )
         _LOG.debug(f'Batch job was submitted: {response}')
@@ -734,14 +718,17 @@ class JobHandler(AbstractHandler):
         tenant = self._obtain_tenant(
             platform.tenant_name, _tap, event.customer
         )
-        if not self._environment_service.allow_simultaneous_jobs_for_one_tenant():
-            lock = TenantSettingJobLock(tenant.name)
-            if job_id := lock.locked_for({platform.platform_id}):
-                return build_response(
-                    code=HTTPStatus.FORBIDDEN,
-                    content=f'Job {job_id} is already running '
-                    f'for tenant {tenant.name}',
+        if jid := TenantSettingJobLock(tenant.name).locked_for(
+            platform.platform_id
+        ):
+            raise (
+                ResponseFactory(HTTPStatus.FORBIDDEN)
+                .message(
+                    f'Job {jid} is already running for platform {platform.name}'
                 )
+                .exc()
+            )
+
         standard_rulesets, lic, licensed_rulesets = (
             self._get_rulesets_for_scan(
                 tenant=tenant,
@@ -777,22 +764,13 @@ class JobHandler(AbstractHandler):
             platform_id=platform.id,
             affected_license=lic.license_key if lic else None,
             status=JobState.PENDING,
+            credentials_key=credentials_key
         )
         self._job_service.save(job)
-        envs = self._assemble_service.build_job_envs(
-            tenant=tenant,
-            job_id=job.id,
-            platform_id=platform.id,
-            credentials_key=credentials_key,
-            affected_licenses=lic.tenant_license_key(tenant.customer_name)
-            if lic
-            else None,
-        )
         resp = self._submit_job_to_batch(
             tenant=tenant,
             job=job,
-            envs=envs,
-            timeout=event.timeout_minutes * 60
+            timeout=int(event.timeout_minutes * 60)
             if event.timeout_minutes
             else None,
         )
@@ -800,9 +778,6 @@ class JobHandler(AbstractHandler):
             job=job,
             batch_job_id=resp['jobId'],
             celery_task_id=resp.get('celeryTaskId'),
-        )
-        TenantSettingJobLock(tenant.name).acquire(
-            job.id, {platform.platform_id}
         )
         return build_response(
             code=HTTPStatus.CREATED, content=self._job_service.dto(job)
@@ -844,15 +819,6 @@ class JobHandler(AbstractHandler):
             )
         )
 
-        envs = self._assemble_service.build_job_envs(
-            tenant=tenant,
-            target_regions=list(regions_to_scan),
-            job_type=BatchJobType.SCHEDULED,
-            affected_licenses=lic.tenant_license_key(tenant.customer_name)
-            if lic
-            else None,
-            scheduled_job_name=name,
-        )
         item = self._scheduled_job_service.create(
             name=name,
             customer_name=tenant.customer_name,
@@ -868,9 +834,9 @@ class JobHandler(AbstractHandler):
         )
         self._scheduled_job_service.set_celery_task(
             item=item,
-            task='onprem.tasks.run_executor',
+            task='onprem.tasks.run_scheduled_job',
             sch=event.celery_schedule(),
-            args=(envs,),
+            args=(tenant.customer_name, tenant.name),
         )
         self._scheduled_job_service.save(item)
 
