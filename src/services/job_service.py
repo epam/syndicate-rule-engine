@@ -62,6 +62,7 @@ class JobService(BaseDataService[Job]):
         queue: str | None = None,
         definition: str | None = None,
         rulesets: list[str] | None = None,
+        warnings: list[str] | None = None,
     ):
         actions = []
         if batch_job_id:
@@ -84,6 +85,8 @@ class JobService(BaseDataService[Job]):
             actions.append(Job.definition.set(definition))
         if rulesets:
             actions.append(Job.rulesets.set(rulesets))
+        if warnings:
+            actions.append(Job.warnings.set(warnings))
         if actions:
             job.update(actions)
 
@@ -225,3 +228,9 @@ class JobUpdater:
     rulesets = JobAttributeSetterDescriptor(lambda x: sorted(x))
     celery_task_id = JobAttributeSetterDescriptor()
     batch_job_id = JobAttributeSetterDescriptor()
+    warnings = JobAttributeSetterDescriptor(lambda x: sorted(x))
+
+    def add_warnings(self, *warns):
+        self._actions.append(
+            Job.warnings.set(Job.warnings.append(list(warns)))
+        )

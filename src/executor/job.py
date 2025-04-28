@@ -117,14 +117,15 @@ https://stackoverflow.com/questions/54858326/python-multiprocessing-billiard-vs-
 https://github.com/celery/billiard/issues/282
 """
 
+import os
 import tempfile
 import time
 import traceback
 from abc import ABC, abstractmethod
 from itertools import chain
 from pathlib import Path
-from typing import Generator, Iterable, cast, TYPE_CHECKING
-
+from typing import TYPE_CHECKING, Generator, Iterable, cast
+from typing_extensions import TypedDict, NotRequired
 # import multiprocessing
 import billiard as multiprocessing  # allows to execute child processes from a daemon process
 from botocore.exceptions import ClientError
@@ -155,17 +156,16 @@ from executor.helpers.constants import (
 )
 from executor.helpers.profiling import xray_recorder as _XRAY
 from executor.services import BSP
-from executor.services.policy_service import PolicyDict
 from executor.services.report_service import JobResult
 from helpers.constants import (
     GLOBAL_REGION,
     TS_EXCLUDED_RULES_KEY,
     BatchJobEnv,
+    CAASEnv,
     Cloud,
     JobState,
     PlatformType,
     PolicyErrorType,
-    CAASEnv,
 )
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime, utc_iso
@@ -201,6 +201,14 @@ from services.udm_generator import (
     ShardCollectionUDMEntitiesConvertor,
     ShardCollectionUDMEventsConvertor,
 )
+
+class PolicyDict(TypedDict):
+    name: str
+    resource: str
+    comment: NotRequired[str]
+    description: str
+
+
 if TYPE_CHECKING:
     from celery import Task  # noqa
 
@@ -539,7 +547,6 @@ class Runner(ABC):
     def failed(self) -> dict:
         return self._failed
 
-    @_XRAY.capture('Run policies consistently')
     def start(self):
         self._is_ongoing = True
         while self._policies:
@@ -789,13 +796,12 @@ def post_lm_job(job: Job):
         raise ExecutorException(ExecutorError.LM_DID_NOT_ALLOW)
 
 
-@_XRAY.capture('Upload to SIEM')
-def upload_to_siem(
-    tenant: Tenant,
-    collection: ShardsCollection,
-    job: AmbiguousJob,
-    platform: Platform | None = None,
-):
+def upload_to_siem(ctx: 'JobExecutionContext', collection: ShardsCollection):
+    tenant = ctx.tenant
+    job = AmbiguousJob(ctx.job)
+    platform = ctx.platform
+    warnings = []
+
     metadata = SP.license_service.get_customer_metadata(tenant.customer_name)
     for dojo, configuration in SP.integration_service.get_dojo_adapters(
         tenant, True
@@ -820,6 +826,7 @@ def upload_to_siem(
             )
         except Exception:
             _LOG.exception('Unexpected error occurred pushing to dojo')
+            warnings.append(f'could not upload data to DefectDojo {dojo.id}')
     mcs = SP.modular_client.maestro_credentials_service()
     for (
         chronicle,
@@ -842,7 +849,9 @@ def upload_to_siem(
                 convertor = ShardCollectionUDMEventsConvertor(
                     metadata, tenant=tenant
                 )
-                client.create_udm_events(events=convertor.convert(collection))
+                success = client.create_udm_events(
+                    events=convertor.convert(collection)
+                )
             case _:  # ENTITIES
                 _LOG.debug('Converting our collection to UDM entities')
                 convertor = ShardCollectionUDMEntitiesConvertor(
@@ -852,6 +861,12 @@ def upload_to_siem(
                     entities=convertor.convert(collection),
                     log_type='AWS_API_GATEWAY',  # todo use a generic log type or smt
                 )
+        if not success:
+            warnings.append(
+                f'could not upload data to Chronicle {chronicle.id}'
+            )
+    if warnings:
+        ctx.add_warnings(*warnings)
 
 
 def get_tenant_credentials(tenant: Tenant) -> dict | None:
@@ -1030,7 +1045,6 @@ def get_platform_credentials(job: Job, platform: Platform) -> dict | None:
     return {ENV_KUBECONFIG: str(token_config.to_temp_file())}
 
 
-@_XRAY.capture('Get rules to exclude')
 def get_rules_to_exclude(tenant: Tenant) -> set[str]:
     """
     Takes into consideration rules that are excluded for that specific tenant
@@ -1055,7 +1069,6 @@ def get_rules_to_exclude(tenant: Tenant) -> set[str]:
     return excluded
 
 
-@_XRAY.capture('Batch results job')
 def batch_results_job(batch_results: BatchResults):
     _XRAY.put_annotation('batch_results_id', batch_results.id)
 
@@ -1099,9 +1112,9 @@ def batch_results_job(batch_results: BatchResults):
     collection.meta = meta
 
     _LOG.info('Going to upload to SIEM')
-    upload_to_siem(
-        tenant=tenant, collection=collection, job=AmbiguousJob(batch_results)
-    )
+    # upload_to_siem(
+    #     tenant=tenant, collection=collection, job=AmbiguousJob(batch_results)
+    # )
 
     collection.io = ShardsS3IO(
         bucket=SP.environment_service.default_reports_bucket_name(),
@@ -1322,6 +1335,10 @@ class JobExecutionContext:
             raise RuntimeError('can be used only within context')
         return Path(self._work_dir.name)
 
+    def add_warnings(self, *warnings) -> None:
+        self.updater.add_warnings(*warnings)
+        self.updater.update()
+
     def __enter__(self):
         _LOG.info(f'Acquiring lock for job {self.job.id}')
         TenantSettingJobLock(self.tenant.name).acquire(
@@ -1409,6 +1426,40 @@ class JobExecutionContext:
         return True
 
 
+def filter_policies(
+    it: Iterable[dict],
+    keep: set[str] | None = None,
+    exclude: set[str] | None = None,
+) -> Iterable[dict]:
+    if exclude:
+        it = filter(lambda p: p['name'] not in exclude, it)
+    if keep:
+        it = filter(lambda p: p['name'] in keep, it)
+    return it
+
+
+def skip_duplicated_policies(
+    ctx: JobExecutionContext, it: Iterable[dict]
+) -> Iterable[dict]:
+    emitted = set()
+    duplicated = []
+    for p in it:
+        name = p['name']
+        if name in emitted:
+            _LOG.warning(f'Duplicated policy found {name}. Skipping')
+            duplicated.append(name)
+            continue
+        emitted.add(name)
+        yield p
+    if duplicated:
+        ctx.add_warnings(
+            *[
+                f'multiple policies with name {name}'
+                for name in sorted(duplicated)
+            ]
+        )
+
+
 def run_standard_job(ctx: JobExecutionContext):
     """
     Accepts a job item full of data and runs it. Does not use envs to
@@ -1443,23 +1494,32 @@ def run_standard_job(ctx: JobExecutionContext):
     if credentials is None:
         raise ExecutorException(ExecutorError.NO_CREDENTIALS)
 
-    policies = BSP.policies_service.get_policies(
-        lists=lists,
-        keep=set(job.rules_to_scan),
-        exclude=get_rules_to_exclude(ctx.tenant),
+    policies = list(
+        skip_duplicated_policies(
+            ctx=ctx,
+            it=filter_policies(
+                it=chain.from_iterable(lists),
+                keep=set(job.rules_to_scan),
+                exclude=get_rules_to_exclude(ctx.tenant),
+            ),
+        )
     )
     regions = set(job.regions) | {GLOBAL_REGION}
 
     failed = {}
-    # NOTE: how these envs would behave if one worked for multiple tasks?
-    with EnvironmentContext(credentials, reset_all=False):
-        for region in sorted(regions):
-            with multiprocessing.Pool(1) as pool:
-                res = pool.apply(
-                    process_job_concurrent,
-                    (policies, ctx.work_dir, cloud, region),
-                )
-                failed.update(res)
+    for region in sorted(regions):
+        # NOTE: read the documentation for this module to see why we need
+        # this Pool. Basically it isolates rules run for one region and
+        # prevents high ram usage
+        with multiprocessing.Pool(
+            processes=1,
+            initializer=lambda x: os.environ.update(x),
+            initargs=(credentials,),
+        ) as pool:
+            res = pool.apply(
+                process_job_concurrent, (policies, ctx.work_dir, cloud, region)
+            )
+            failed.update(res)
 
     if cloud is Cloud.GOOGLE and (
         filename := credentials.get(ENV_GOOGLE_APPLICATION_CREDENTIALS)
@@ -1478,12 +1538,7 @@ def run_standard_job(ctx: JobExecutionContext):
     collection.meta = meta
 
     _LOG.info('Going to upload to SIEM')
-    upload_to_siem(
-        tenant=ctx.tenant,
-        collection=collection,
-        job=AmbiguousJob(job),
-        platform=ctx.platform,
-    )
+    upload_to_siem(ctx=ctx, collection=collection)
 
     collection.io = ShardsS3IO(
         bucket=SP.environment_service.default_reports_bucket_name(),
@@ -1536,24 +1591,21 @@ def task_standard_job(self: 'Task | None', job_id: str):
         return
     platform = None
     if job.platform_id:
-        parent = SP.modular_client.parent_service().get_parent_by_id(job.platform_id)
+        parent = SP.modular_client.parent_service().get_parent_by_id(
+            job.platform_id
+        )
         if not parent:
             _LOG.error('Task started for not existing parent')
             return
         platform = Platform(parent)
-    ctx = JobExecutionContext(
-        job=job,
-        tenant=tenant,
-        platform=platform
-    )
+    ctx = JobExecutionContext(job=job, tenant=tenant, platform=platform)
     with ctx:
         run_standard_job(ctx)
 
 
 def task_scheduled_job(self: 'Task | None', customer_name: str, name: str):
     sch_job = SP.scheduled_job_service.get_by_name(
-        customer_name=customer_name,
-        name=name
+        customer_name=customer_name, name=name
     )
     if not sch_job:
         _LOG.error('Cannot start scheduled job for not existing sch item')
@@ -1582,14 +1634,10 @@ def task_scheduled_job(self: 'Task | None', customer_name: str, name: str):
     )
     SP.job_service.save(job)
 
-    ctx = JobExecutionContext(
-        job=job,
-        tenant=tenant,
-        platform=None
-    )
+    ctx = JobExecutionContext(job=job, tenant=tenant, platform=None)
     with ctx:
         run_standard_job(ctx)
-    
+
 
 # def main(environment: dict[str, str] | None = None) -> int:
 #     env = environment or {}

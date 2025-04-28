@@ -12,7 +12,6 @@ from services import SP
 
 if TYPE_CHECKING:
     from executor.services.credentials_service import CredentialsService
-    from executor.services.policy_service import PoliciesService
 
 _LOG = get_logger(__name__)
 
@@ -27,16 +26,7 @@ class BatchServiceProvider(metaclass=SingletonMeta):
         from executor.services.credentials_service import CredentialsService
 
         _LOG.debug('Creating CredentialsService')
-        return CredentialsService(
-            ssm_client=SP.ssm
-        )
-
-    @cached_property
-    def policies_service(self) -> 'PoliciesService':
-        from executor.services.policy_service import PoliciesService
-
-        _LOG.debug('Creating PoliciesService')
-        return PoliciesService()
+        return CredentialsService(ssm_client=SP.ssm)
 
 
 BSP = BatchServiceProvider()

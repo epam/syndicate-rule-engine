@@ -27,6 +27,7 @@ JOB_PLATFORM_ID = 'p'
 JOB_TTL = 'ttl'
 JOB_AFFECTED_LICENSE = 'al'
 JOB_CREDENTIALS_KEY = 'ck'
+JOB_WARNINGS = 'w'
 
 
 class TenantNameSubmittedAtIndex(GlobalSecondaryIndex):
@@ -83,11 +84,14 @@ class Job(BaseModel):
 
     regions = ListAttribute(default=list, attr_name=JOB_REGIONS)
     rulesets = ListAttribute(default=list, attr_name=JOB_RULESETS)
+    rules_to_scan = ListAttribute(default=list, attr_name=JOB_RULES_TO_SCAN)
+
     reason = UnicodeAttribute(null=True, attr_name=JOB_REASON)
+    warnings = ListAttribute(default=list, attr_name=JOB_WARNINGS)
+
     scheduled_rule_name = UnicodeAttribute(
         null=True, attr_name=JOB_SCHEDULED_RULE_NAME
     )
-    rules_to_scan = ListAttribute(default=list, attr_name=JOB_RULES_TO_SCAN)
     platform_id = UnicodeAttribute(null=True, attr_name=JOB_PLATFORM_ID)
     affected_license = UnicodeAttribute(
         null=True, attr_name=JOB_AFFECTED_LICENSE

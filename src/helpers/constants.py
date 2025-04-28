@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 from enum import Enum
 from itertools import filterfalse, chain
-from typing import Iterator, MutableMapping, Callable
+from typing import Iterator, MutableMapping, Callable, TypeVar
 
 from dateutil.relativedelta import SU, relativedelta
 from typing_extensions import Self
@@ -353,6 +353,7 @@ EXTERNAL_DATA_BUCKET_ATTR = 'externalDataBucket'
 
 
 _SENTINEL = object()
+_E = TypeVar('_E', bound=Enum)
 
 
 class EnvEnum(str, Enum):
@@ -465,6 +466,15 @@ class EnvEnum(str, Enum):
             return float(val)
         except ValueError:
             raise RuntimeError(f'Env {self.value} must contain float')
+
+    def as_enum(self, typ: type[_E], /) -> _E:
+        val = self.as_str()
+        try:
+            return typ(val)
+        except ValueError:
+            raise RuntimeError(
+                f'Env {self.value} must be one of: {[i.value for i in typ]}'
+            )
 
 
 class CAASEnv(EnvEnum):
