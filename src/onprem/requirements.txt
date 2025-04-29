@@ -4,8 +4,6 @@ amqp==5.3.1
     # via kombu
 annotated-types==0.7.0
     # via pydantic
-apscheduler==3.11.0
-    # via syndicate-rule-engine (pyproject.toml)
 async-timeout==5.0.1
     # via redis
 aws-xray-sdk==2.14.0
@@ -93,7 +91,7 @@ jwcrypto==1.5.6
     # via syndicate-rule-engine (pyproject.toml)
 kombu==5.5.0
     # via celery
-modular-sdk @ git+https://github.com/epam/modular-sdk@0f72340e46e9202b99414b1dd95487a3f9fb4298
+modular-sdk==7.0.0
     # via syndicate-rule-engine (pyproject.toml)
 msgspec==0.18.6
     # via syndicate-rule-engine (pyproject.toml)
@@ -174,8 +172,6 @@ tzdata==2025.1
     #   celery
     #   kombu
     #   pytz-deprecation-shim
-tzlocal==5.3.1
-    # via apscheduler
 uritemplate==4.1.1
     # via google-api-python-client
 urllib3==2.3.0

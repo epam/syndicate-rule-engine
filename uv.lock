@@ -2456,8 +2456,8 @@ wheels = [
 
 [[package]]
 name = "modular-sdk"
-version = "7.0.0a1"
-source = { git = "https://github.com/epam/modular-sdk?rev=0f72340e46e9202b99414b1dd95487a3f9fb4298#0f72340e46e9202b99414b1dd95487a3f9fb4298" }
+version = "7.0.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "boto3" },
     { name = "botocore" },
@@ -2466,6 +2466,10 @@ dependencies = [
     { name = "pymongo" },
     { name = "pynamodb" },
     { name = "python-dateutil" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a3/11/65469d496a964c5bebda7354aed5b930c60c26f369d86a8eb21584265199/modular_sdk-7.0.0.tar.gz", hash = "sha256:968811fc3ca69b160b8e271c49ad34776a7abce14cd15c18699b8012d3c43bd9", size = 78556 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9a/32/0730bcb35570ebfa0e4bce8238a25d1bcc64828568a95c2694a779acf322/modular_sdk-7.0.0-py3-none-any.whl", hash = "sha256:fdf7257c316285fd6a78f3ad11bc57104ae9763dac9165ce7d8ef232bd654852", size = 99352 },
 ]
 
 [[package]]
@@ -3380,7 +3384,7 @@ requires-dist = [
     { name = "gunicorn", specifier = "~=23.0.0" },
     { name = "hvac", specifier = "~=2.3.0" },
     { name = "jwcrypto", specifier = "==1.5.6" },
-    { name = "modular-sdk", git = "https://github.com/epam/modular-sdk?rev=0f72340e46e9202b99414b1dd95487a3f9fb4298" },
+    { name = "modular-sdk", specifier = "~=7.0.0" },
     { name = "msgspec", specifier = "==0.18.6" },
     { name = "openpyxl", specifier = "==3.0.10" },
     { name = "pydantic", specifier = "==2.8.2" },
