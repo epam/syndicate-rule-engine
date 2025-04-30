@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - added warnings to jobs
 - moved onprem scheduler and scheduled jobs to celery
 - cache rulesets retrieved from LM locally
+- lock jobs when they start running
 - removed old event-driven rulesets
 
 ## [5.8.0] - 2025-02-27
