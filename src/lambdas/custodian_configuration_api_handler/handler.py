@@ -31,6 +31,7 @@ from helpers.constants import (
     RULE_META_UPDATER_LAMBDA_NAME,
     RULE_SOURCE_ID_ATTR,
     STATUS_ATTR,
+    RuleSourceSyncingStatus
 )
 from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
@@ -140,6 +141,10 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
                 ids_to_sync.append(rule_source.id)
                 response = self.build_update_event_response(
                     rule_source=rule_source
+                )
+                self.rule_source_service.update_latest_sync(
+                    item=rule_source,
+                    current_status=RuleSourceSyncingStatus.SYNCING
                 )
             else:
                 _LOG.warning(f'{log_head} is not allowed to update')

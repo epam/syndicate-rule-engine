@@ -1,14 +1,13 @@
 import uuid
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Callable
 
 from pynamodb.expressions.condition import Condition
 from pynamodb.pagination import ResultIterator
 
-from helpers.constants import BatchJobEnv, JobState
-from helpers.time_helper import utc_datetime, utc_iso
+from helpers.constants import JobState
+from helpers.time_helper import utc_iso
 from models.job import Job
-from services import SP
 from services.base_data_service import BaseDataService
 from services.ruleset_service import RulesetName
 
@@ -25,7 +24,11 @@ class JobService(BaseDataService[Job]):
         ttl: timedelta | None = None,
         owner: str | None = None,
         affected_license: str | None = None,
-        status: JobState = JobState.SUBMITTED
+        status: JobState = JobState.SUBMITTED,
+        batch_job_id: str | None = None,
+        celery_job_id: str | None = None,
+        scheduled_rule_name: str | None = None,
+        credentials_key: str | None = None,
     ) -> Job:
         return super().create(
             id=str(uuid.uuid4()),
@@ -38,7 +41,12 @@ class JobService(BaseDataService[Job]):
             ttl=ttl,
             owner=owner,
             affected_license=affected_license,
-            status=status.value
+            status=status.value,
+            batch_job_id=batch_job_id,
+            celery_job_id=celery_job_id,
+            scheduled_rule_name=scheduled_rule_name,
+            created_at=utc_iso(),
+            credentials_key=credentials_key,
         )
 
     def update(
@@ -54,6 +62,7 @@ class JobService(BaseDataService[Job]):
         queue: str | None = None,
         definition: str | None = None,
         rulesets: list[str] | None = None,
+        warnings: list[str] | None = None,
     ):
         actions = []
         if batch_job_id:
@@ -76,6 +85,8 @@ class JobService(BaseDataService[Job]):
             actions.append(Job.definition.set(definition))
         if rulesets:
             actions.append(Job.rulesets.set(rulesets))
+        if warnings:
+            actions.append(Job.warnings.set(warnings))
         if actions:
             job.update(actions)
 
@@ -152,6 +163,7 @@ class JobService(BaseDataService[Job]):
         raw.pop('owner', None)
         raw.pop('rules_to_scan', None)
         raw.pop('ttl', None)
+        raw.pop('credentials_key', None)
         rulesets = []
         for r in item.rulesets:
             rulesets.append(RulesetName(r).to_str(False))
@@ -159,24 +171,19 @@ class JobService(BaseDataService[Job]):
         return raw
 
 
-class NullJobUpdater:
-    """
-    For standard jobs (not scheduled and not event-driven). Standard jobs
-    are updated by caas-job-updater
-    """
+class JobAttributeSetterDescriptor:
+    __slots__ = ('_cb', '_name')
 
-    def __init__(self, job: Job):
-        self._job = job
+    def __init__(self, callback: Callable | None = None):
+        self._cb = callback
 
-    def save(self):
-        pass
+    def __set_name__(self, owner, name):
+        self._name = name
 
-    def update(self):
-        pass
-
-    @property
-    def job(self) -> Job:
-        return self._job
+    def __set__(self, instance: 'JobUpdater', value):
+        if self._cb:
+            value = self._cb(value)
+        instance._actions.append(getattr(Job, self._name).set(value))
 
 
 class JobUpdater:
@@ -184,65 +191,14 @@ class JobUpdater:
     Allows to update job attributes more easily
     """
 
-    __slots__ = ('_job', '_actions')
-
     def __init__(self, job: Job):
         self._job = job
 
         self._actions = []
 
     @classmethod
-    def from_batch_env(
-        cls, environment: dict[str, str], rulesets: list[str] | None = None
-    ) -> 'JobUpdater':
-        """
-        A situation when the job does not exist in db is possible
-        :param environment:
-        :param rulesets:
-        :return:
-        """
-        rulesets = rulesets or []
-        licensed = [r for r in map(RulesetName, rulesets) if r.license_key]
-        license_key = licensed[0].license_key if licensed else None
-
-        tenant = SP.modular_client.tenant_service().get(
-            environment[BatchJobEnv.TENANT_NAME.value]
-        )
-        submitted_at = utc_iso()
-        if BatchJobEnv.SUBMITTED_AT.value in environment:
-            submitted_at = utc_iso(
-                utc_datetime(environment[BatchJobEnv.SUBMITTED_AT.value])
-            )
-
-        if not rulesets:
-            rulesets = []
-        return JobUpdater(
-            Job(
-                id=environment.get(BatchJobEnv.CUSTODIAN_JOB_ID.value)
-                or str(uuid.uuid4()),
-                batch_job_id=environment.get(BatchJobEnv.JOB_ID.value),
-                tenant_name=tenant.name,
-                customer_name=tenant.customer_name,
-                submitted_at=submitted_at,
-                status=JobState.SUBMITTED.value,
-                owner=tenant.customer_name,
-                regions=environment.get(
-                    BatchJobEnv.TARGET_REGIONS.value, ''
-                ).split(','),
-                rulesets=rulesets,
-                scheduled_rule_name=environment.get(
-                    BatchJobEnv.SCHEDULED_JOB_NAME.value
-                ),
-                affected_license=license_key,
-            )
-        )
-
-    @classmethod
     def from_job_id(cls, job_id) -> 'JobUpdater':
         return JobUpdater(Job(id=job_id))
-
-    def save(self):
-        self._job.save()
 
     def update(self):
         if not self._actions:
@@ -254,39 +210,27 @@ class JobUpdater:
     def job(self) -> Job:
         return self._job
 
-    def status(self, status: str | JobState):
-        if isinstance(status, str):
-            status = JobState(status)
-        self._actions.append(Job.status.set(status.value))
+    @staticmethod
+    def _dt_callback(dt: datetime | str):
+        if isinstance(dt, datetime):
+            dt = utc_iso(dt)
+        return dt
 
-    def reason(self, reason: str | None):
-        self._actions.append(Job.reason.set(reason))
+    status = JobAttributeSetterDescriptor(
+        lambda x: x.value if isinstance(x, JobState) else x
+    )
+    reason = JobAttributeSetterDescriptor()
+    created_at = JobAttributeSetterDescriptor(_dt_callback)
+    started_at = JobAttributeSetterDescriptor(_dt_callback)
+    stopped_at = JobAttributeSetterDescriptor(_dt_callback)
+    queue = JobAttributeSetterDescriptor()
+    definition = JobAttributeSetterDescriptor()
+    rulesets = JobAttributeSetterDescriptor(lambda x: sorted(x))
+    celery_task_id = JobAttributeSetterDescriptor()
+    batch_job_id = JobAttributeSetterDescriptor()
+    warnings = JobAttributeSetterDescriptor(lambda x: sorted(x))
 
-    def created_at(self, created_at: datetime | str):
-        if isinstance(created_at, datetime):
-            created_at = utc_iso(created_at)
-        self._actions.append(Job.created_at.set(created_at))
-
-    def started_at(self, started_at: datetime | str):
-        if isinstance(started_at, datetime):
-            started_at = utc_iso(started_at)
-        self._actions.append(Job.started_at.set(started_at))
-
-    def stopped_at(self, stopped_at: datetime | str):
-        if isinstance(stopped_at, datetime):
-            stopped_at = utc_iso(stopped_at)
-        self._actions.append(Job.stopped_at.set(stopped_at))
-
-    def queue(self, queue: str):
-        self._actions.append(Job.queue.set(queue))
-
-    def definition(self, definition: str):
-        self._actions.append(Job.definition.set(definition))
-
-    status = property(None, status)
-    reason = property(None, reason)
-    created_at = property(None, created_at)
-    started_at = property(None, started_at)
-    stopped_at = property(None, stopped_at)
-    queue = property(None, queue)
-    definition = property(None, definition)
+    def add_warnings(self, *warns):
+        self._actions.append(
+            Job.warnings.set(Job.warnings.append(list(warns)))
+        )

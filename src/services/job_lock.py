@@ -1,38 +1,27 @@
 import time
 import uuid
-from abc import ABC, abstractmethod
-from typing import Generator, TYPE_CHECKING
+from typing import TYPE_CHECKING, Generator
 
 from modular_sdk.models.tenant_settings import TenantSettings
 
-from helpers.constants import TS_JOB_LOCK_KEY
+from helpers.constants import TS_JOB_LOCK_KEY, CAASEnv
 from services import SP
+from helpers.log_helper import get_logger
 
 if TYPE_CHECKING:
-    from modular_sdk.services.tenant_settings_service import \
-        TenantSettingsService
+    from modular_sdk.services.tenant_settings_service import (
+        TenantSettingsService,
+    )
 
-
-class AbstractJobLock(ABC):
-
-    @abstractmethod
-    def acquire(self, *args, **kwargs):
-        pass
-
-    @abstractmethod
-    def release(self, *args, **kwargs):
-        pass
-
-    @abstractmethod
-    def locked(self, *args, **kwargs) -> bool:
-        pass
+_LOG = get_logger(__name__)
 
 
 class JobPayload:
     __slots__ = ('expiration', 'regions')
 
-    def __init__(self, expiration: float | None = None,
-                 regions: set[str] | None = None):
+    def __init__(
+        self, expiration: float | None = None, regions: set[str] | None = None
+    ):
         if not expiration:
             expiration = time.time() + 3600 * 1.5
 
@@ -40,28 +29,23 @@ class JobPayload:
         self.regions: set[str] = regions or set()
 
     def serialize(self) -> dict:
-        return {
-            'e': self.expiration,
-            'r': list(self.regions)
-        }
+        return {'e': self.expiration, 'r': sorted(self.regions)}
+
+    def is_expired(self) -> bool:
+        return self.expiration < time.time()
 
     @classmethod
     def deserialize(cls, data: dict) -> 'JobPayload':
-        return cls(
-            expiration=data.get('e'),
-            regions=set(data.get('r') or [])
-        )
+        return cls(expiration=data.get('e'), regions=set(data.get('r') or []))
 
     def intersected(self, regions: set[str]) -> set[str]:
         return self.regions & regions
 
     def is_locked(self, regions: set[str]) -> bool:
-        _intersection = bool(self.intersected(regions))
-        _expired = self.expiration < time.time()
-        return not _expired and _intersection
+        return bool(self.intersected(regions)) and not self.is_expired()
 
 
-class TenantSettingJobLock(AbstractJobLock):
+class TenantSettingJobLock:
     """
     {
         "k": "CUSTODIAN_JOB_LOCK",
@@ -100,14 +84,22 @@ class TenantSettingJobLock(AbstractJobLock):
         """
         return SP.modular_client.tenant_settings_service()
 
-    @property
-    def tenant_name(self) -> str:
-        return self._tenant_name
+    @staticmethod
+    def _covert_regions(
+        r: set[str] | tuple[str, ...] | list[str] | str, /
+    ) -> set[str]:
+        return {r} if isinstance(r, str) else set(r)
 
-    def acquire(self, job_id: str, regions: set[str]):
+    def acquire(
+        self,
+        job_id: str,
+        regions: set[str] | tuple[str, ...] | list[str] | str,
+    ):
         """
         You must check whether the lock is locked before calling acquire().
         """
+        regions = self._covert_regions(regions)
+
         payload = JobPayload(regions=regions).serialize()
         item = self.tss.get(tenant_name=self._tenant_name, key=TS_JOB_LOCK_KEY)
         if not item:
@@ -118,30 +110,30 @@ class TenantSettingJobLock(AbstractJobLock):
             self.tss.create(
                 tenant_name=self._tenant_name,
                 key=TS_JOB_LOCK_KEY,
-                value={job_id: payload}
+                value={job_id: payload},
             ).save()
             return
         # item found
-        self.tss.update(item, actions=[
-            TenantSettings.value[job_id].set(payload)
-        ])
+        self.tss.update(
+            item, actions=[TenantSettings.value[job_id].set(payload)]
+        )
 
-    def release(self, job_id: str):
+    def release(self, job_id: str, /):
         item = self.tss.create(
-            tenant_name=self._tenant_name,
-            key=TS_JOB_LOCK_KEY
+            tenant_name=self._tenant_name, key=TS_JOB_LOCK_KEY
         )
         try:
-            self.tss.update(item, actions=[
-                TenantSettings.value[job_id].remove()
-            ])
+            self.tss.update(
+                item, actions=[TenantSettings.value[job_id].remove()]
+            )
         except Exception:  # noqa
             # update will fail in case item does not exist in db
             pass
 
     @staticmethod
-    def _iter_payloads(data: dict
-                       ) -> Generator[tuple[str, JobPayload], None, None]:
+    def _iter_payloads(
+        data: dict[str, dict],
+    ) -> Generator[tuple[str, JobPayload], None, None]:
         """
         Iterates over setting value and yields valid payloads, skipping
         invalid ones
@@ -156,13 +148,24 @@ class TenantSettingJobLock(AbstractJobLock):
             # payload is also valid
             yield key, payload
 
-    def locked(self, regions: set[str]) -> bool:
-        return bool(self.locked_for(regions))
+    def locked(
+        self, r: set[str] | tuple[str, ...] | list[str] | str, /
+    ) -> bool:
+        return self.locked_for(r) is not None
 
-    def locked_for(self, regions: set[str]) -> str | None:
+    def locked_for(
+        self, r: set[str] | tuple[str, ...] | list[str] | str, /
+    ) -> str | None:
         """
         The same as above but allows to get the job that is running
         """
+        if CAASEnv.ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT.as_bool():
+            _LOG.debug(
+                f'Ignoring job lock for {self._tenant_name} because env is set'
+            )
+            return
+        regions = self._covert_regions(r)
+
         item = self.tss.get(self._tenant_name, TS_JOB_LOCK_KEY)
         if not item:
             return

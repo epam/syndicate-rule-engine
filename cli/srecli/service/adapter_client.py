@@ -354,27 +354,6 @@ class CustodianApiClient:
             data=sifted(kwargs)
         )
 
-    def ed_ruleset_add(self, **kwargs):
-        return self.make_request(
-            path=CustodianEndpoint.ED_RULESETS,
-            method=HTTPMethod.POST,
-            data=sifted(kwargs)
-        )
-
-    def ed_ruleset_get(self, **kwargs):
-        return self.make_request(
-            path=CustodianEndpoint.ED_RULESETS,
-            method=HTTPMethod.GET,
-            query=sifted(kwargs)
-        )
-
-    def ed_ruleset_delete(self, **kwargs):
-        return self.make_request(
-            path=CustodianEndpoint.ED_RULESETS,
-            method=HTTPMethod.DELETE,
-            data=sifted(kwargs)
-        )
-
     def rule_source_get(self, id: str, **kwargs):
         return self.make_request(
             path=CustodianEndpoint.RULE_SOURCES_ID,

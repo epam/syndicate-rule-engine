@@ -10,7 +10,7 @@ from executor.helpers.constants import AWS_DEFAULT_REGION
 from helpers import json_path_get
 from helpers.constants import (Cloud, GLOBAL_REGION, PolicyErrorType)
 from helpers.log_helper import get_logger
-from services.sharding import ShardPart
+from services.sharding import RuleMeta, ShardPart
 
 _LOG = get_logger(__name__)
 
@@ -331,7 +331,7 @@ class JobResult:
                 resources=resources
             )
 
-    def rules_meta(self) -> dict[str, dict]:
+    def rules_meta(self) -> dict[str, RuleMeta]:
         """
         Collect some meta for each policy, currently it's everything that
         policy has except filters

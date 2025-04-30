@@ -13,7 +13,6 @@ from services.health_check_service import (
     AbstractHealthCheck,
     AllS3BucketsExist,
     CheckResult,
-    EventDrivenRulesetsExist,
     LicenseManagerClientKeyCheck,
     LicenseManagerIntegrationCheck,
     LiveCheck,
@@ -42,7 +41,6 @@ class HealthCheckHandler(AbstractHandler):
     saas_specific_checks = (
         RulesMetaAccessDataCheck,
         RulesMetaCheck,
-        EventDrivenRulesetsExist,
         RabbitMQConnectionCheck,
     )
     common_checks = (

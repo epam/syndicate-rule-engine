@@ -86,7 +86,7 @@ class SwaggerHandler(AbstractHandler):
             version='latest',  # get from env?
             url=urljoin(
                 '/',
-                self._env.api_gateway_stage(),
+                SP.tls.__dict__.get('stage', ''),
                 CustodianEndpoint.DOC_SWAGGER_JSON.value
             )
         )
@@ -102,7 +102,7 @@ class SwaggerHandler(AbstractHandler):
             title='Rule Engine - OpenAPI 3.0',
             description='Rule engine rest api',
             url=self._resolve_urls(_pe['headers']),
-            stages=self._env.api_gateway_stage(),
+            stages=SP.tls.__dict__.get('stage', ''),
             version=__version__,
             endpoints=iter_all()
         ).generate()

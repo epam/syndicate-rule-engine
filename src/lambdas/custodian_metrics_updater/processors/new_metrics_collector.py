@@ -2164,7 +2164,7 @@ class MetricsCollector:
         for lic in licenses:
             for ruleset_id in lic.ruleset_ids:
                 if ruleset_id not in rulesets:
-                    rulesets[ruleset_id] = self._rss.by_lm_id(ruleset_id)
+                    rulesets[ruleset_id] = self._rss.get_licensed(ruleset_id)
         return licenses, rulesets
 
     @staticmethod

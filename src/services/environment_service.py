@@ -65,14 +65,6 @@ class EnvironmentService:
         """
         return CAASEnv.RULESETS_BUCKET_NAME.get()
 
-    def get_metrics_bucket_name(self) -> str:
-        """
-        Lambdas:
-        caas-metrics-updater
-        caas-report-generator-handler
-        """
-        return CAASEnv.METRICS_BUCKET_NAME.get()
-
     def get_user_pool_name(self) -> str | None:
         """
         Api lambdas:
@@ -148,12 +140,6 @@ class EnvironmentService:
         - caas-api-handler
         """
         return int(CAASEnv.NATIVE_EVENTS_PER_ITEM.get())
-
-    def api_gateway_host(self) -> str | None:
-        return CAASEnv.API_GATEWAY_HOST.get()
-
-    def api_gateway_stage(self) -> str | None:
-        return CAASEnv.API_GATEWAY_STAGE.get()
 
     def get_recommendation_bucket(self) -> str | None:
         return CAASEnv.RECOMMENDATIONS_BUCKET_NAME.get()

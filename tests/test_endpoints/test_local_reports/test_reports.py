@@ -118,7 +118,14 @@ def test_errors_report_aws_job(
         },  # on behalf because system
     )
     assert resp.status_int == 200
-    assert resp.json == load_expected('aws_job_errors')
+
+    def key(x):
+        return x['policy']
+    returned = resp.json
+    expected = load_expected('aws_job_errors')
+    returned['items'].sort(key=key)
+    expected['items'].sort(key=key)
+    assert returned == expected
 
 
 def test_raw_report_aws_job(

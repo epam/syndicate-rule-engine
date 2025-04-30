@@ -92,7 +92,7 @@ class EventAssemblerHandler:
         """
         Supposed to be used with licensed rule-sets.
         """
-        return self._ruleset_service.by_lm_id(_id)
+        return self._ruleset_service.get_licensed(_id)
 
     @classmethod
     def instantiate(cls) -> 'EventAssemblerHandler':

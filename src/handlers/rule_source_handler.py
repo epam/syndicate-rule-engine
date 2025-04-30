@@ -6,6 +6,7 @@ from helpers.constants import (
     CustodianEndpoint,
     HTTPMethod,
     RULE_META_UPDATER_LAMBDA_NAME,
+    RuleSourceSyncingStatus
 )
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
@@ -181,6 +182,10 @@ class RuleSourceHandler(AbstractHandler):
             raise ResponseFactory(HTTPStatus.CONFLICT).message(
                 'Rule source is already being synced'
             ).exc()
+        self._rule_source_service.update_latest_sync(
+            item=entity,
+            current_status=RuleSourceSyncingStatus.SYNCING
+        )
 
         # todo handle error?
         self._lambda_client.invoke_function_async(
