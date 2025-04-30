@@ -1,6 +1,4 @@
-import operator
 from datetime import datetime
-from itertools import chain
 from typing import Any, Generator, Iterable, Iterator, Literal, TypedDict
 
 from modular_sdk.commons.constants import ApplicationType, ParentType
@@ -17,6 +15,7 @@ from helpers.time_helper import utc_datetime, utc_iso
 from models.ruleset import Ruleset
 from services import SERVICE_PROVIDER
 from services.base_data_service import BaseDataService
+from services.clients.lm_client import LMAllowanceDTO, LMEventDrivenDTO
 from services.metadata import Metadata, MetadataProvider, merge_metadata
 from services.modular_helpers import LinkedParentsIterator
 
@@ -51,6 +50,7 @@ class License:
     _event_driven = 'ed'
     _ruleset_ids = 'r'
     _expiration = 'e'
+    _valid_from = 'v'
     _latest_sync = 's'
     __slots__ = ('_app', '_meta')
 
@@ -147,6 +147,17 @@ class License:
         self._app.meta[self._expiration] = value
 
     @property
+    def valid_from(self) -> datetime | None:
+        if self._valid_from in self._app.meta:
+            return utc_datetime(self._app.meta[self._valid_from])
+
+    @valid_from.setter
+    def valid_from(self, value: str | datetime):
+        if isinstance(value, datetime):
+            value = utc_iso(value)
+        self._app.meta[self._valid_from] = value
+
+    @property
     def latest_sync(self) -> datetime | None:
         if self._latest_sync in self._app.meta:
             return utc_datetime(self._app.meta[self._latest_sync])
@@ -190,6 +201,7 @@ class LicenseService(BaseDataService[License]):
         customers: dict | None = None,
         description: str | None = None,
         expiration: str | None = None,
+        valid_from: str | None = None,
         ruleset_ids: list[str] | None = None,
         allowance: Allowance | None = None,
         event_driven: EventDriven | None = None,
@@ -206,6 +218,8 @@ class LicenseService(BaseDataService[License]):
         lic = License(app)
         if expiration:
             lic.expiration = expiration
+        if valid_from:
+            lic.valid_from = valid_from
         if customers:
             lic.customers = customers
         if ruleset_ids:
@@ -219,9 +233,11 @@ class LicenseService(BaseDataService[License]):
     def dto(self, item: License) -> dict[str, Any]:
         ls = item.latest_sync
         ex = item.expiration
+        vf = item.valid_from
         return {
             'license_key': item.license_key,
             'expiration': utc_iso(ex) if ex else None,
+            'valid_from': utc_iso(vf) if vf else None,
             'latest_sync': utc_iso(ls) if ls else None,
             'description': item.description,
             'ruleset_ids': item.ruleset_ids,
@@ -241,36 +257,38 @@ class LicenseService(BaseDataService[License]):
     def delete(self, lic: License):
         self._aps.force_delete(lic.application)
 
-    @staticmethod
-    def remove_rulesets_for_license(lic: License):
+    @classmethod
+    def remove_rulesets_for_license(cls, lic: License):
         """
         Removes rulesets items from DB completely only if license by
         key `license_key` is the only license by which there rulesets
         were received. In other case just removes the given license_key
         from `license_keys` list
         """
-        ruleset_service = SERVICE_PROVIDER.ruleset_service  # circular import
-        delete, update = [], []
-        for _id in lic.ruleset_ids:
-            item = ruleset_service.by_lm_id(_id)
-            if not item:
-                _LOG.warning('Strangely enough -> ruleset by lm id not found')
-                continue
-            if (
-                len(item.license_keys) == 1
-                and item.license_keys[0] == lic.license_key
-            ):
-                delete.append(item)
-            else:
-                item.license_keys = list(
-                    set(item.license_keys) - {lic.license_key}
-                )
-                update.append(item)
-        with Ruleset.batch_write() as batch:
-            for item in delete:
-                batch.delete(item)
-            for item in update:
-                batch.save(item)
+        for name in lic.ruleset_ids:
+            cls.remove_ruleset_for_license(name, lic.license_key)
+
+    @staticmethod
+    def remove_ruleset_for_license(name: str, license_key: str) -> None:
+        """
+        Handles the case when we know that this ruleset name does not belong
+        to the provided license. Can either remove the ruleset or update its
+        field
+        """
+        rs = SERVICE_PROVIDER.ruleset_service  # circular import
+        existing = rs.get_licensed(
+            name, attributes_to_get=(Ruleset.license_keys,)
+        )
+        if not existing:
+            _LOG.warning('Strangely enough -> ruleset by lm id not found')
+            return
+        lks = existing.license_keys
+        if len(lks) == 1 and lks[0] == license_key:
+            rs.delete(existing)
+        else:
+            keys = set(lks)
+            keys.discard(license_key)
+            existing.update(actions=[Ruleset.license_keys.set(sorted(keys))])
 
     def batch_delete(self, items: Iterable[License]):
         raise NotImplementedError()
@@ -329,7 +347,10 @@ class LicenseService(BaseDataService[License]):
 
     def get_customer_metadata(self, customer: str) -> Metadata:
         return merge_metadata(
-            *[self._mp.get(lic) for lic in self.iter_customer_licenses(customer)]
+            *[
+                self._mp.get(lic)
+                for lic in self.iter_customer_licenses(customer)
+            ]
         )
 
     @staticmethod
@@ -352,31 +373,6 @@ class LicenseService(BaseDataService[License]):
             else False
         )
 
-    def get_event_driven_licenses(self) -> Iterator[License]:
-        """
-        I strongly object to such a method, i think the whole thing should be
-        refactored.
-        :return:
-        """
-        names = map(operator.attrgetter('name'), self._cs.i_get_customer())
-        licenses = self.to_licenses(
-            chain.from_iterable(
-                self._aps.i_get_application_by_customer(
-                    customer_id=name,
-                    application_type=ApplicationType.CUSTODIAN_LICENSES,
-                    deleted=False,
-                )
-                for name in names
-            )
-        )
-        now = utc_datetime()
-        return filter(
-            lambda lic: lic.event_driven.get('active')
-            and lic.expiration
-            and lic.expiration > now,
-            licenses,
-        )
-
     def iter_by_ids(
         self, ids: Iterable[str]
     ) -> Generator[License, None, None]:
@@ -390,12 +386,13 @@ class LicenseService(BaseDataService[License]):
         self,
         item: License,
         description: str | None = None,
-        allowance: dict | None = None,
+        allowance: LMAllowanceDTO | None = None,
         customers: dict | None = None,
-        event_driven: dict | None = None,
+        event_driven: LMEventDrivenDTO | None = None,
         rulesets: list[str] | None = None,
         latest_sync: str | None = None,
         valid_until: str | None = None,
+        valid_from: str | None = None,
     ):
         actions = []
         if description:
@@ -419,6 +416,10 @@ class LicenseService(BaseDataService[License]):
         if valid_until:
             actions.append(
                 Application.meta[License._expiration].set(valid_until)
+            )
+        if valid_from:
+            actions.append(
+                Application.meta[License._valid_from].set(valid_from)
             )
         if actions:
             item.application.update(actions=actions)

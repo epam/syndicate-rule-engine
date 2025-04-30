@@ -89,7 +89,6 @@ class Ruleset(TypedDict):
     customer: str
     last_update_time: datetime
     license_keys: list[str]
-    license_manager_id: NotRequired[str]
     licensed: bool
     name: str
     rules_number: int

@@ -15,7 +15,6 @@ from helpers.constants import (
     S3_PATH_ATTR,
     CustodianEndpoint,
     HTTPMethod,
-    RuleSourceType,
 )
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
@@ -34,9 +33,6 @@ from services.rule_meta_service import RuleNamesResolver, RuleService
 from services.rule_source_service import RuleSourceService
 from services.ruleset_service import RulesetService
 from validators.swagger_request_models import (
-    EventDrivenRulesetDeleteModel,
-    EventDrivenRulesetGetModel,
-    EventDrivenRulesetPostModel,
     RulesetDeleteModel,
     RulesetGetModel,
     RulesetPatchModel,
@@ -91,154 +87,10 @@ class RulesetHandler(AbstractHandler):
                 HTTPMethod.PATCH: self.update_ruleset,
                 HTTPMethod.DELETE: self.delete_ruleset,
             },
-            CustodianEndpoint.ED_RULESETS: {
-                HTTPMethod.GET: self.get_event_driven_ruleset,
-                HTTPMethod.POST: self.post_event_driven_ruleset,
-                HTTPMethod.DELETE: self.delete_event_driven_ruleset,
-            },
             CustodianEndpoint.RULESETS_RELEASE: {
                 HTTPMethod.POST: self.release_ruleset
             },
         }
-
-    @validate_kwargs
-    def get_event_driven_ruleset(self, event: EventDrivenRulesetGetModel):
-        _LOG.debug('Get event-driven rulesets')
-        items = self.ruleset_service.iter_standard(
-            customer=SystemCustomer.get_name(), event_driven=True, cloud=event.cloud
-        )
-        params_to_exclude = {EVENT_DRIVEN_ATTR}
-        if not event.get_rules:
-            params_to_exclude.add(RULES_ATTR)
-        return build_response(
-            code=HTTPStatus.OK,
-            content=(
-                self.ruleset_service.dto(item, params_to_exclude)
-                for item in items
-            ),
-        )
-
-    @validate_kwargs
-    def post_event_driven_ruleset(self, event: EventDrivenRulesetPostModel):
-        _LOG.debug('Create event-driven rulesets')
-        customer = event.customer or SystemCustomer.get_name()
-
-        rs: RuleSource | None = None
-        desired_version: Version
-        if event.rule_source_id:
-            rs = self.rule_source_service.get_nullable(event.rule_source_id)
-            if not rs or rs.customer != customer:
-                raise (
-                    ResponseFactory(HTTPStatus.NOT_FOUND)
-                    .message(
-                        self.rule_source_service.not_found_message(
-                            event.rule_source_id
-                        )
-                    )
-                    .exc()
-                )
-
-        if event.version:
-            _LOG.debug(
-                'User specified the version of ruleset '
-                'he wants to create. Checking whether we can'
-            )
-            desired_version = Version(event.version)  # validated
-            ruleset = self.ruleset_service.get_event_driven(
-                cloud=event.cloud, version=desired_version.to_str()
-            )
-            if ruleset:
-                raise (
-                    ResponseFactory(HTTPStatus.CONFLICT)
-                    .message(
-                        f'Event driven ruleset {desired_version} already exists'
-                    )
-                    .exc()
-                )
-        else:
-            _LOG.debug('User did not provide the version. ')
-            release_version = None
-            if rs and rs.type == RuleSourceType.GITHUB_RELEASE:
-                try:
-                    release_version = Version(rs.latest_sync.release_tag or '')
-                except ValueError:
-                    pass
-            if release_version:
-                ruleset = self.ruleset_service.get_event_driven(
-                    cloud=event.cloud, version=release_version.to_str()
-                )
-                if ruleset:
-                    raise (
-                        ResponseFactory(HTTPStatus.CONFLICT)
-                        .message(
-                            f'Event driven ruleset for rules release '
-                            f'{release_version} already exists'
-                        )
-                        .exc()
-                    )
-                desired_version = release_version
-            else:
-                latest = self.ruleset_service.get_latest_event_driven(
-                    cloud=event.cloud
-                )
-                if latest:
-                    _LOG.debug(
-                        'The previous ruleset found. Creating the '
-                        'next version'
-                    )
-                    desired_version = Version(latest.version).next_major()
-                else:
-                    _LOG.debug(
-                        'The previous ruleset not found. Creating the '
-                        'first version'
-                    )
-                    desired_version = Version.first_version()
-
-        if event.rule_source_id:
-            _LOG.debug('Querying rules by rule source')
-            rs = cast(RuleSource, rs)
-            rules = self.rule_service.get_by_rule_source(
-                rule_source=rs, cloud=event.cloud
-            )
-        else:
-            _LOG.debug('Querying all the rules for cloud')
-            rules = self.rule_service.get_by_id_index(customer, event.cloud)
-        rules = list(self.rule_service.without_duplicates(rules=rules))
-        if not rules:
-            _LOG.warning('No rules by given parameters were found')
-            return build_response(
-                code=HTTPStatus.NOT_FOUND, content='No rules found'
-            )
-        ruleset = self.ruleset_service.create_event_driven(
-            version=desired_version.to_str(),
-            cloud=event.cloud,
-            rules=[rule.name for rule in rules],
-        )
-        self.upload_ruleset(ruleset, self.build_policy(rules))
-        self.ruleset_service.save(ruleset)
-        return build_response(
-            self.ruleset_service.dto(ruleset, params_to_exclude={RULES_ATTR}),
-            code=HTTPStatus.CREATED,
-        )
-
-    @validate_kwargs
-    def delete_event_driven_ruleset(
-        self, event: EventDrivenRulesetDeleteModel
-    ):
-        _LOG.debug('Delete event-driven rulesets')
-        if event.is_all_versions:
-            _LOG.debug('Removing all versions of a specific ruleset')
-            items = self.ruleset_service.iter_event_driven(cloud=event.cloud)
-            with ThreadPoolExecutor() as ex:
-                ex.map(self.ruleset_service.delete, items)
-        else:
-            _LOG.debug('Removing a specific version of a ruleset')
-            item = self.ruleset_service.get_event_driven(
-                cloud=event.cloud, version=Version(event.version).to_str()
-            )
-            if item:
-                self.ruleset_service.delete(item)
-        return build_response(code=HTTPStatus.NO_CONTENT)
 
     def yield_standard_rulesets(
         self,
@@ -262,7 +114,6 @@ class RulesetHandler(AbstractHandler):
             version=version,
             cloud=cloud,
             ascending=False,
-            event_driven=False,
         )
         for rs in it:
             if rs.name not in mapping:
@@ -312,10 +163,10 @@ class RulesetHandler(AbstractHandler):
         licenses = tuple(self.license_service.to_licenses(applications))
         license_keys = {_license.license_key for _license in licenses}
 
-        ids = chain.from_iterable(
+        names = chain.from_iterable(
             _license.ruleset_ids for _license in licenses
         )
-        source = self.ruleset_service.iter_by_lm_id(ids)
+        source = self.ruleset_service.iter_licensed_by_names(names)
         # source contains rule-sets from applications, now we
         # just filter them by input params
         for rs in filter(_check, source):
@@ -556,7 +407,6 @@ class RulesetHandler(AbstractHandler):
             version=desired_version.to_str(),
             cloud=event.cloud,
             rules=[rule.name for rule in rules],
-            event_driven=False,
             licensed=False,
         )
         # TODO: add changelog or metadata from release

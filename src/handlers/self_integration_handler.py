@@ -147,8 +147,8 @@ class SelfIntegrationHandler(AbstractHandler):
         meta = CustodianApplicationMeta.from_dict({})
         if event.auto_resolve_access:
             meta.update_host(
-                host=self._env.api_gateway_host(),
-                stage=self._env.api_gateway_stage()
+                host=SP.tls.__dict__.get('host'),
+                stage=SP.tls.__dict__.get('stage')
             )
         else:  # url
             url = event.url

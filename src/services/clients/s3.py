@@ -84,13 +84,9 @@ class S3Client(Boto3ClientWrapper):
         )
 
     def _init_minio(self) -> None:
-        endpoint = CAASEnv.MINIO_ENDPOINT.get()
-        access_key = CAASEnv.MINIO_ACCESS_KEY_ID.get()
-        secret_key = CAASEnv.MINIO_SECRET_ACCESS_KEY.get()
-        assert endpoint and access_key and secret_key, (
-            'Minio endpoint, access key and secret key must be '
-            'provided for on-prem'
-        )
+        endpoint = CAASEnv.MINIO_ENDPOINT.as_str()
+        access_key = CAASEnv.MINIO_ACCESS_KEY_ID.as_str()
+        secret_key = CAASEnv.MINIO_SECRET_ACCESS_KEY.as_str()
         self._resource = Boto3ClientFactory(self.service_name).build_resource(
             aws_access_key_id=access_key,
             aws_secret_access_key=secret_key,

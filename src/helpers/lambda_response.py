@@ -8,8 +8,8 @@ from helpers.__version__ import __version__
 from helpers.constants import (
     JSON_CONTENT_TYPE,
     LAMBDA_URL_HEADER_CONTENT_TYPE_UPPER,
-    CAASEnv,
 )
+from services import SP
 from helpers.log_helper import get_logger
 
 _LOG = get_logger(__name__)
@@ -97,7 +97,7 @@ class LambdaResponse:
             'Access-Control-Allow-Methods': '*',
             'Accept-Version': __version__,  # TODO API think about header name
         }
-        if trace_id := CAASEnv.INVOCATION_REQUEST_ID.get(None):
+        if trace_id := SP.tls.__dict__.get('aws_request_id'):
             headers['Lambda-Invocation-Trace-Id'] = trace_id
         if not self.ok:
             headers['x-amzn-ErrorType'] = str(self._code.value)
