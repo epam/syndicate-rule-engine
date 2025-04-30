@@ -1196,6 +1196,11 @@ def multi_account_event_driven_job() -> int:
     return 0
 
 
+def job_initializer(envs):
+    _LOG.info(f'Initializing subprocess for a region: {multiprocessing.current_process()}')
+    os.environ.update(envs)
+
+
 def process_job_concurrent(
     items: list[PolicyDict], work_dir: Path, cloud: Cloud, region: str
 ):
@@ -1493,6 +1498,7 @@ def run_standard_job(ctx: JobExecutionContext):
 
     if credentials is None:
         raise ExecutorException(ExecutorError.NO_CREDENTIALS)
+    credentials = {str(k): str(v) for k, v in credentials.items() if v}
 
     policies = list(
         skip_duplicated_policies(
@@ -1504,6 +1510,7 @@ def run_standard_job(ctx: JobExecutionContext):
             ),
         )
     )
+    _LOG.info(f'Policies are collected: {len(policies)}')
     regions = set(job.regions) | {GLOBAL_REGION}
 
     failed = {}
@@ -1511,9 +1518,10 @@ def run_standard_job(ctx: JobExecutionContext):
         # NOTE: read the documentation for this module to see why we need
         # this Pool. Basically it isolates rules run for one region and
         # prevents high ram usage
+        _LOG.info(f'Going to init pool for region {region}')
         with multiprocessing.Pool(
             processes=1,
-            initializer=lambda x: os.environ.update(x),
+            initializer=job_initializer,
             initargs=(credentials,),
         ) as pool:
             res = pool.apply(

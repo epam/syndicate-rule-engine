@@ -33,10 +33,12 @@ def make_findings_snapshot():
 
 
 @app.task
-def sync_license(license_keys: list[str] | None = None):
+def sync_license(license_keys: list[str] | str | None = None):
+    if isinstance(license_keys, str):
+        license_keys = [license_keys]
     event = {}
     if license_keys:
-        event['license_key'] = license_keys
+        event['license_keys'] = list(license_keys)
     LicenseUpdater.build().lambda_handler(
         event=event, context=RequestContext()
     )
