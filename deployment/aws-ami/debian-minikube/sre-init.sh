@@ -895,16 +895,17 @@ make_backup() {
     return 1
   fi
   while true; do
-    if minikube ssh "sudo tar -czf /tmp/$1.tar.gz -C $host_path ." >/dev/null 2>&1
+    if minikube ssh "sudo tar -czf /data/$1.tar.gz -C $host_path ." >/dev/null 2>&1
     then
       break
     fi
     warn "error occurred making tar archive. Trying again in 1 sec"
     sleep 1
   done
-  minikube cp "$HELM_RELEASE_NAME:/tmp/$1.tar.gz" "$2/"
+  minikube cp "$HELM_RELEASE_NAME:/data/$1.tar.gz" "$2/"
   sha256sum "$2/$1.tar.gz" > "$2/$1.sha256"
   chmod 440 "$2/$1.tar.gz" "$2/$1.sha256"
+  minikube ssh "sudo rm -f /data/$1.tar.gz"
 }
 restore_backup() {
   # accepts k8s persistent volume name as first parameter and folder with backup as second parameter
@@ -915,8 +916,6 @@ restore_backup() {
     warn "volume $1 does not have hostPath"
     return 1
   fi
-  # TODO: probably the two checks whether files exist can be removed
-  #  because sha256sum checks all that
   if [ ! -f "$2/$1.tar.gz" ]; then
     warn "tar archive does not exist for $1"
     return 1
@@ -926,8 +925,8 @@ restore_backup() {
     return 1
   fi
   sha256sum "$2/$1.sha256" --check || return 1
-  minikube cp "$2/$1.tar.gz" "$HELM_RELEASE_NAME:/tmp/$1.tar.gz"
-  minikube ssh "sudo rm -rf $host_path; sudo mkdir -p $host_path ; sudo tar --same-owner --overwrite -xzf /tmp/$1.tar.gz -C $host_path"  # todo what if error here
+  minikube cp "$2/$1.tar.gz" "$HELM_RELEASE_NAME:/data/$1.tar.gz"
+  minikube ssh "sudo rm -rf $host_path; sudo mkdir -p $host_path ; sudo tar --same-owner --overwrite -xzf /data/$1.tar.gz -C $host_path; rm -f /data/$1.tar.gz"  # todo what if error here
 }
 make_secrets_backup() {
   # accepts target file as a first parameter and secrets names as other parameters
