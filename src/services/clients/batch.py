@@ -3,11 +3,10 @@ import uuid
 from typing_extensions import TYPE_CHECKING, NotRequired, TypedDict
 
 from helpers import title_keys
-from helpers.constants import BatchJobEnv, JobState
+from helpers.constants import JobState
 from helpers.log_helper import get_logger
-from helpers.time_helper import utc_iso
 from onprem.celery import app as celery_app
-from onprem.tasks import run_executor
+from onprem.tasks import run_standard_job
 from services import SP
 from services.clients import Boto3ClientWrapper
 from services.clients.sts import StsClient
@@ -112,15 +111,16 @@ class BatchClient(Boto3ClientWrapper):
 
     def submit_job(
         self,
+        job_id: str,
         job_name: str,
         job_queue: str,
         job_definition: str,
-        command: str = None,
-        size: int = None,
-        depends_on: list = None,
+        command: str | None = None,
+        size: int | None = None,
+        depends_on: list | None = None,
         parameters=None,
-        retry_strategy: int = None,
-        timeout: int = None,
+        retry_strategy: int | None = None,
+        timeout: int | None = None,
         environment_variables: dict = None,
     ) -> BatchJob:
         params = {
@@ -152,20 +152,15 @@ class CeleryJobClient:
 
     def submit_job(
         self,
+        job_id: str,
         job_name: str,
         environment_variables: dict[str, str] | None = None,
+        timeout: int | None = None,
         **kwargs,
     ) -> BatchJob:
-        job_id = str(uuid.uuid4())
-        envs = {
-            # **os.environ,
-            **(environment_variables or {}),
-            BatchJobEnv.JOB_ID.value: job_id,
-            BatchJobEnv.SUBMITTED_AT.value: utc_iso(),
-        }
-        res = run_executor.delay(envs)
+        res = run_standard_job.apply_async((job_id,), soft_time_limit=timeout)
         return {
-            'jobId': job_id,
+            'jobId': str(uuid.uuid4()),
             'jobName': job_name,
             'celeryTaskId': res.id,
             'status': JobState.SUBMITTED.value,
@@ -177,11 +172,4 @@ class CeleryJobClient:
                 f'Job {job.id} does not contain celery task id. Cannot terminate'
             )
             return
-        # TODO: handle terminate signal inside the job.
         celery_app.control.revoke(job.celery_task_id, terminate=True)
-
-
-# TODO: remove
-class SubprocessBatchClient:
-    def __init__(self):
-        self._jobs = {}  # job_id to Job

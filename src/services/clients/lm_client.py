@@ -4,6 +4,8 @@ import re
 from enum import Enum
 from http import HTTPStatus
 
+from typing import Literal
+from typing_extensions import TypedDict, NotRequired
 import requests
 from modular_sdk.services.impl.maestro_credentials_service import AccessMeta
 
@@ -23,6 +25,41 @@ from services.clients.ssm import AbstractSSMClient
 from services.setting_service import SettingsService
 
 _LOG = get_logger(__name__)
+
+
+class LMRulesetDTO(TypedDict):
+    name: str
+    cloud: Literal['AWS', 'AZURE', 'GCP', 'KUBERNETES']
+    description: str
+    version: str
+    creation_date: str
+    compliance_name: str | None
+    rules: list[str]
+    versions: list[str]
+    download_url: NotRequired[str]
+
+
+class LMAllowanceDTO(TypedDict):
+    time_range: str
+    job_balance: int
+    balance_exhaustion_model: str
+
+
+class LMEventDrivenDTO(TypedDict):
+    active: bool
+    quota: int
+
+
+class LMLicenseDTO(TypedDict):
+    customers: dict[str, dict]
+    description: str
+    allowance: LMAllowanceDTO
+    event_driven: LMEventDrivenDTO
+    valid_from: str
+    valid_until: str
+    service_type: str
+    license_key: str
+    rulesets: list[LMRulesetDTO]
 
 
 class LMException(Exception):
@@ -195,12 +232,22 @@ class LMClient:
             return
 
     def sync_license(
-        self, license_key: str, customer: str | None = None
-    ) -> dict | None:
+        self,
+        license_key: str,
+        customer: str | None = None,
+        installation_version: str | None = None,
+        include_ruleset_links: bool = True,
+    ) -> LMLicenseDTO | None:
+        data = dict(
+            license_key=license_key,
+            include_ruleset_links=include_ruleset_links,
+        )
+        if installation_version:
+            data['installation_version'] = installation_version
         resp = self._send_request(
             endpoint=LMEndpoint.LICENSE_SYNC,
             method=HTTPMethod.POST,
-            data={'license_key': license_key},
+            data=data,
             token=self._token_producer.produce(customer=customer),
         )
         if resp is None or not resp.ok:
@@ -244,6 +291,7 @@ class LMClient:
         customer: str,
         tenant: str,
         ruleset_map: dict[str, list[str]],
+        include_ruleset_links: bool = False,
     ) -> dict:
         resp = self._send_request(
             endpoint=LMEndpoint.JOBS,
@@ -254,6 +302,7 @@ class LMClient:
                 'tenant': tenant,
                 'rulesets': ruleset_map,
                 'installation_version': __version__,
+                'include_ruleset_links': include_ruleset_links,
             },
             token=self._token_producer.produce(customer=customer),
         )
@@ -276,8 +325,10 @@ class LMClient:
         created_at: str | None = None,
         started_at: str | None = None,
         stopped_at: str | None = None,
-        status: JobState | None = None,
+        status: JobState | str | None = None,
     ) -> bool:
+        if isinstance(status, JobState):
+            status = status.value
         resp = self._send_request(
             endpoint=LMEndpoint.JOBS,
             method=HTTPMethod.PATCH,
@@ -432,24 +483,18 @@ class LMClientFactory:
 
         if not version:
             _LOG.info(
-                'No desired api version supplied. ' 'Using after 2.7.0 client'
+                'No desired api version supplied. Using after 2.7.0 client'
             )
             return LMClientAfter2p7(baseurl=ad.url, token_producer=producer)
         if Version(version) >= Version('3.3.0'):
-            _LOG.info(
-                f'Desired version is {version}. ' f'Using client for 3.3.0+'
-            )
+            _LOG.info(f'Desired version is {version}. Using client for 3.3.0+')
             return LMClientAfter3p3(baseurl=ad.url, token_producer=producer)
         if Version(version) >= Version('3.0.0'):
-            _LOG.info(
-                f'Desired version is {version}. ' f'Using client for 3.0.0+'
-            )
+            _LOG.info(f'Desired version is {version}. Using client for 3.0.0+')
             return LMClientAfter3p0(baseurl=ad.url, token_producer=producer)
         if Version(version) >= Version('2.7.0'):
-            _LOG.info(
-                f'Desired version is {version}. ' f'Using client for 2.7.0+'
-            )
+            _LOG.info(f'Desired version is {version}. Using client for 2.7.0+')
             return LMClientAfter2p7(baseurl=ad.url, token_producer=producer)
         # < 2.7.0
-        _LOG.info(f'Desired version is {version}. ' f'Using client for <2.7.0')
+        _LOG.info(f'Desired version is {version}. Using client for <2.7.0')
         return cl

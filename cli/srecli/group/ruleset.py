@@ -1,10 +1,9 @@
 import click
 
 from srecli.group import ContextObj, ViewCommand, cli_response
-from srecli.group.ruleset_eventdriven import eventdriven
 from srecli.service.constants import RULE_CLOUDS
 
-attributes_order = 'name', 'version', 'cloud', 'licensed', 'license_manager_id'
+attributes_order = 'name', 'version', 'cloud', 'licensed',
 
 
 @click.group(name='ruleset')
@@ -181,6 +180,3 @@ def release(ctx: ContextObj, customer_id, name, version, display_name,
         display_name=display_name,
         description=description
     )
-
-
-ruleset.add_command(eventdriven)
