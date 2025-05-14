@@ -7,6 +7,7 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timedelta
 from typing import BinaryIO, Generator, Iterable, Optional, TypedDict, cast
+from urllib.parse import urlencode
 
 import msgspec
 from botocore.config import Config
@@ -243,8 +244,7 @@ class S3Client(Boto3ClientWrapper):
             if e.response['Error']['Code'] in ('NoSuchKey', '404'):
                 return
             _LOG.exception(
-                f'Unexpected error occurred in '
-                f'get_object: s3://{bucket}/{key}'
+                f'Unexpected error occurred in get_object: s3://{bucket}/{key}'
             )
             raise e
         buffer.seek(0)
@@ -405,7 +405,9 @@ class S3Client(Boto3ClientWrapper):
     def create_bucket(self, bucket: str, region: str | None = None):
         params = dict(Bucket=bucket)
         if region:
-            params.update(CreateBucketConfiguration={'LocationConstraint': region})
+            params.update(
+                CreateBucketConfiguration={'LocationConstraint': region}
+            )
         self.client.create_bucket(**params)
 
     def bucket_exists(self, bucket: str) -> bool:
@@ -426,11 +428,26 @@ class S3Client(Boto3ClientWrapper):
         key: str,
         destination_bucket: str,
         destination_key: str,
+        destination_tags: dict | None = None,
+        destination_content_type: str | None = None,
+        destination_content_encoding: str | None = None,
     ):
-        self.client.copy(
+        ct, ce = self._resolve_content_type(
+            key, destination_content_type, destination_content_encoding
+        )
+        extra = {}
+        if destination_tags:
+            extra['Tagging'] = urlencode(destination_tags)
+            extra['TaggingDirective'] = 'REPLACE'
+        if ct:
+            extra['ContentType'] = ct
+        if ce:
+            extra['ContentEncoding'] = ce
+        self.client.copy_object(
             CopySource=dict(Bucket=bucket, Key=key),
             Bucket=destination_bucket,
             Key=destination_key,
+            **extra,
         )
 
     def download_url(

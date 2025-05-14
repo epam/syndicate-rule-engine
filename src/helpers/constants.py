@@ -1148,7 +1148,8 @@ class ReportType(str, Enum):
     If start date is omitted it means that either start date is not important
     for this type of report (for example report as of specific date) or
     the report needs all historical data available without lower bound. It
-    depends on report type but currently there are no the latters.
+    depends on report type but currently there are no those
+    "without lower bound" (fortunately).
     Also, the principal entity for any report depends on report type.
 
     Currently, it can be described as:
