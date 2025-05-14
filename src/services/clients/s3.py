@@ -503,23 +503,33 @@ class S3Client(Boto3ClientWrapper):
             bucket, self._gz_key(key), expires_in, filename, response_encoding
         )
 
-    def put_path_expiration(self, bucket: str, rules: list[tuple[str, int]]):
+    @staticmethod
+    def build_lifecycle_rule(
+        days: int,
+        enabled: bool = True,
+        prefix: str | None = None,
+        tag: tuple[str, str] | None = None,
+    ) -> dict:
+        assert prefix or tag, 'Either prefix or tag must be specified'
+        f = {}
+        if prefix:
+            f['Prefix'] = prefix
+        if tag:
+            f['Tag'] = {'Key': tag[0], 'Value': tag[1]}
+        return {
+            'Expiration': {'Days': days},
+            'Filter': f,
+            'Status': 'Enabled' if enabled else 'Disabled',
+        }
+
+    def put_bucket_lifecycle_rules(self, bucket: str, rules: list[dict]):
         """
         Creates a lifecycle rule with expiration for the given prefixes
         :return:
         """
         return self.client.put_bucket_lifecycle_configuration(
             Bucket=bucket,
-            LifecycleConfiguration={
-                'Rules': [
-                    {
-                        'Expiration': {'Days': days},
-                        'Filter': {'Prefix': key},
-                        'Status': 'Enabled',
-                    }
-                    for key, days in rules
-                ]
-            },
+            LifecycleConfiguration={'Rules': rules},
         )
 
     @cache.cachedmethod(lambda self: self._ipv4_cache)
