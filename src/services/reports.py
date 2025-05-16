@@ -197,7 +197,7 @@ class ShardsCollectionDataSource:
 
         self.__resources = None
 
-    def iter_resources(self):
+    def iter_resources(self) -> ResourcesGenerator:
         for part in self._col.iter_parts():
             for res in part.resources:
                 yield part.policy, part.location, res, part.timestamp
@@ -649,15 +649,6 @@ class ShardsCollectionDataSource:
         ) in unique_resource_to_attack_rules.items():
             yield region, s, rt, CustomAttribute.pop_custom(res), attacks
 
-    def iter_resource_attacks_flat(
-        self,
-    ) -> Generator[
-        tuple[str, str, str, dict, MitreAttack, list[str]], None, None
-    ]:
-        for region, s, rt, res, attacks in self.iter_resource_attacks():
-            for attack, rules in attacks.items():
-                yield region, s, rt, res, attack, rules
-
     def tactic_to_severities(self) -> dict[str, dict[str, int]]:
         """ """
         # not sure about its correctness because this kind of data mapping
@@ -783,6 +774,7 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
         end: datetime,
         start: datetime | None = None,
         tenants: Iterable[str] = (),
+        created_at: datetime | None = None
     ) -> ReportMetrics:
         assert key.count(COMPOUND_KEYS_SEPARATOR) == 5, 'Invalid key'
         customer = key.split(COMPOUND_KEYS_SEPARATOR, 2)[1]
@@ -792,6 +784,7 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
             start=utc_iso(start) if start else None,
             customer=customer,
             tenants=list(tenants),
+            _created_at=utc_iso(created_at) if created_at else None
         )
 
     def query(
@@ -831,7 +824,7 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
         attributes_to_get: tuple | None = None,
     ) -> Iterator[ReportMetrics]:
         """
-        Queries reports with exaclty matching time
+        Queries reports with exactly matching time
         """
         assert key.count(COMPOUND_KEYS_SEPARATOR) == 5, 'Invalid key'
         rkc = None

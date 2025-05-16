@@ -2250,7 +2250,6 @@ class MetricsCollector:
             is_active=True
         ):
             _LOG.info(f'Collecting metrics for customer: {customer.name}')
-            # TODO: merge metadata if there are multiple licenses
             metadata = self._ls.get_customer_metadata(customer.name)
             with MetricsContext(customer, metadata, now) as ctx:
                 try:

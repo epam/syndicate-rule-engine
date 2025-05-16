@@ -23,15 +23,30 @@ class ReportMetrics(BaseModel):
 
     # type#customer#project#cloud#tenant#region
     key = UnicodeAttribute(hash_key=True, attr_name='k')
+    # report data is relevant as of this date
     end = UnicodeAttribute(range_key=True, attr_name='e')
+    # start date for a reporting period (if "period" can be applied to the sort of data)
     start = UnicodeAttribute(null=True, default=None, attr_name='s')
+
+    # date when the report was created, it can be different from the date
+    # as of which data is collected. In case we generate a report retroactively
+    _created_at = UnicodeAttribute(null=True, attr_name='cd')
+
     data = MapAttribute(default=dict, attr_name='d')
+    # url to payload
     s3_url = UnicodeAttribute(null=True, default=None, attr_name='l')
+
     customer = UnicodeAttribute(attr_name='c')
 
     # holds tenants that were involved in collecting this report
     tenants = ListAttribute(of=UnicodeAttribute, default=list,
                             attr_name='t')
+
+    @property
+    def created_at(self) -> str:
+        if self._created_at:
+            return self._created_at
+        return self.end
 
     @property
     def type(self) -> ReportType:

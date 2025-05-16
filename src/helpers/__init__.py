@@ -307,35 +307,14 @@ class NotHereDescriptor:
         raise AttributeError
 
 
-JSON_PATH_LIST_INDEXES = re.compile(r'\w*\[(-?\d+)\]')
-
-
-def json_path_get(d: dict | list, path: str) -> Any:
-    """
-    Simple json paths with only basic operations supported
-    >>> json_path_get({'a': 'b', 'c': [1,2,3, [{'b': 'c'}]]}, 'c[-1][0].b')
-    'c'
-    >>> json_path_get([-1, {'one': 'two'}], 'c[-1][0].b') is None
-    True
-    >>> json_path_get([-1, {'one': 'two'}], '[-1].one')
-    'two'
-    """
-    if path.startswith('$'):
-        path = path[1:]
-    if path.startswith('.'):
-        path = path[1:]
-    parts = path.split('.')
-
+def get_path(d: dict, path: str) -> Any:
+    if '.' not in path:
+        return d.get(path)
     item = d
-    for part in parts:
+    for part in path.split('.'):
         try:
-            _key = part.split('[')[0]
-            _indexes = re.findall(JSON_PATH_LIST_INDEXES, part)
-            if _key:
-                item = item.get(_key)
-            for i in _indexes:
-                item = item[int(i)]
-        except (IndexError, TypeError, AttributeError):
+            item = item.get(part)
+        except (TypeError, AttributeError):
             item = None
             break
     return item
