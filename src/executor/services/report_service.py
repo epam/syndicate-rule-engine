@@ -7,7 +7,6 @@ from c7n.resources import load_resources
 from modular_sdk.models.tenant import Tenant
 
 from executor.helpers.constants import AWS_DEFAULT_REGION
-from helpers import json_path_get
 from helpers.constants import (Cloud, GLOBAL_REGION, PolicyErrorType)
 from helpers.log_helper import get_logger
 from services.sharding import RuleMeta, ShardPart
@@ -34,78 +33,6 @@ class StatisticsItemFail(StatisticsItem):
 class StatisticsItemSuccess(StatisticsItem):
     scanned_resources: int
     failed_resources: int
-
-
-class ReportFieldsLoader:
-    """
-    What you need to understand is that each resource type has its unique
-    json representation of its instances. We cannot know what field inside
-    that json is considered to be a logical ID, name (or arn in case AWS) of
-    that resource. Fortunately, this information is present inside Cloud
-    Custodian, and we can get it.
-    For K8S name is always inside "metadata.name", id - "metadata.uid",
-    namespace - "metadata.namespace".
-    For AZURE they are also always the same due to consistent api.
-    For AWS, GOOGLE we must retrieve these values for each resource type
-    """
-    class Fields(TypedDict, total=False):
-        id: str
-        name: str
-        arn: str | None
-        namespace: str | None
-        date: str | None
-
-    _mapping: dict[str, Fields] = {}
-
-    @classmethod
-    def _load_for_resource_type(cls, rt: str) -> Fields | None:
-        """
-        Updates mapping for the given resource type.
-        It must be loaded beforehand
-        :param rt:
-        :return:
-        """
-        _LOG.debug(f'Loading meta for resource type: {rt}')
-        try:
-            factory = get_resource_class(rt)
-        except (KeyError, AssertionError):
-            _LOG.warning(f'Could not load resource type: {rt}')
-            return
-        resource_type = getattr(factory, 'resource_type')
-        _id = getattr(resource_type, 'id', None)
-        _name = getattr(resource_type, 'name', None)
-        if not _id:
-            _LOG.warning('Resource type has no id')
-        if not _name:
-            _LOG.warning('Resource type has no name')
-
-        return {
-            'id': cast(str, _id),
-            'name': cast(str, _name),
-            'arn': getattr(resource_type, 'arn', None),
-            'namespace': 'metadata.namespace',  # for k8s always this way
-            'date': getattr(resource_type, 'date', None)
-        }
-
-    @classmethod
-    def get(cls, rt: str) -> Fields:
-        if rt not in cls._mapping:
-            fields = cls._load_for_resource_type(rt)
-            if not isinstance(fields, dict):
-                return {}
-            cls._mapping[rt] = fields
-        return cls._mapping[rt]
-
-    @classmethod
-    def load(cls, resource_types: tuple = ('*',)):
-        """
-        Loads all the modules. In theory, we must use this class after
-        performing scan. Till that moment all the necessary resources must be
-        already loaded
-        :param resource_types:
-        :return:
-        """
-        load_resources(set(resource_types))
 
 
 class RuleRawMetadata:
@@ -211,22 +138,6 @@ class JobResult:
         with open(root / 'metadata.json', 'rb') as fp:
             return RuleRawMetadata(self._metadata_decoder.decode(fp.read()))
 
-    def _extend_resources(self, resources: list[dict], rt: str):
-        """
-        Adds some report fields (id, name, arn, namespace, date) to each resource
-        """
-        rt = self.adjust_resource_type(rt)
-        ReportFieldsLoader.load((rt,))  # should be loaded before
-        fields = ReportFieldsLoader.get(rt)
-        for res in resources:
-            for field, path in fields.items():
-                if not path:
-                    continue
-                val = json_path_get(res, path)
-                if not val:
-                    continue
-                res.setdefault(field, val)
-
     def iter_raw(self, with_resources: bool = False
                  ) -> Generator[RegionRuleOutput, None, None]:
         dirs = filter(Path.is_dir, self._work_dir.iterdir())
@@ -280,12 +191,28 @@ class JobResult:
             for r, buckets in _region_buckets.items():
                 yield r, rule, metadata, buckets
 
+    @staticmethod
+    def resolve_google_location_id(it: Iterable[RegionRuleOutput]) -> Generator[RegionRuleOutput, None, None]:
+        for region, rule, metadata, resources in it:
+            if resources is None or not resources:
+                yield region, rule, metadata, resources
+                continue
+            _loc_res = {}
+            for res in resources:
+                loc = res.get('locationId') or GLOBAL_REGION
+                _loc_res.setdefault(loc, []).append(res)
+            for loc, res in _loc_res.items():
+                yield loc, rule, metadata, res
+
     def build_default_iterator(self) -> Iterable[RegionRuleOutput]:
         it = self.iter_raw(with_resources=True)
         if self._cloud == Cloud.AZURE:
             it = self.resolve_azure_locations(it)
         elif self._cloud == Cloud.AWS:
             it = self.resolve_aws_s3_location_constraint(it)
+        # can be handled here or later, but will require a path of here
+        # elif self._cloud == Cloud.GOOGLE:
+        #     it = self.resolve_google_location_id(it)
         return it
 
     def statistics(self, tenant: Tenant, failed: dict) -> list[dict]:
@@ -323,8 +250,8 @@ class JobResult:
 
     def iter_shard_parts(self) -> Generator[ShardPart, None, None]:
         for region, rule, metadata, resources in self.build_default_iterator():
-            if resources is None: continue
-            self._extend_resources(resources, metadata.resource_type)
+            if resources is None:
+                continue
             yield ShardPart(
                 policy=rule,
                 location=region,

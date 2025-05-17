@@ -26,7 +26,7 @@ from helpers.constants import (
     HTTPMethod,
     Permission,
     SettingKey,
-    DEFAULT_SYSTEM_CUSTOMER
+    DEFAULT_SYSTEM_CUSTOMER,
 )
 from onprem.api.deployment_resources_parser import (
     DeploymentResourcesApiGatewayWrapper,
@@ -269,12 +269,19 @@ class InitMinio(ActionHandler):
         for name in self.buckets():
             self.create_bucket(name)
 
-        _LOG.info(f'Setting expiration for s3 paths')
-        SP.s3.put_path_expiration(
-            bucket=SP.environment_service.default_reports_bucket_name(),
+        _LOG.info(f'Setting lifecycle rules for reports bucket')
+        SP.s3.put_bucket_lifecycle_rules(
+            bucket=CAASEnv.REPORTS_BUCKET_NAME.as_str(),
             rules=[
-                (ReportsBucketKeysBuilder.on_demand, 7),
-                (ReportMetaBucketsKeys.prefix, 7),
+                SP.s3.build_lifecycle_rule(
+                    days=7, prefix=ReportsBucketKeysBuilder.on_demand
+                ),
+                SP.s3.build_lifecycle_rule(
+                    days=7, prefix=ReportMetaBucketsKeys.prefix
+                ),
+                SP.s3.build_lifecycle_rule(
+                    days=35, tag=('Type', 'DataSnapshot')
+                ),
             ],
         )
 
@@ -503,7 +510,8 @@ class InitAction(ActionHandler):
         if not Setting.get_nullable(SettingKey.SYSTEM_CUSTOMER):
             _LOG.info('Setting system customer name')
             Setting(
-                name=SettingKey.SYSTEM_CUSTOMER.value, value=DEFAULT_SYSTEM_CUSTOMER
+                name=SettingKey.SYSTEM_CUSTOMER.value,
+                value=DEFAULT_SYSTEM_CUSTOMER,
             ).save()
         Setting(name=SettingKey.SEND_REPORTS, value=True).save()
         users_client = SP.users_client

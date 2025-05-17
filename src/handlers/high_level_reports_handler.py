@@ -608,7 +608,7 @@ class MaestroReportToS3Packer:
     # actual Maestro RabbitMQ limit seems to be 5mb, but the data that we
     # send is converted/compressed somehow inside modular-sdk before being sent
     # to Maestro. So I put 4mb here (just in case)
-    _default_size_limit = (2 << 19) * 4
+    _default_size_limit = (1 << 20) * 4
     _encoder = msgspec.json.Encoder()
 
     __slots__ = '_s3', '_bucket', '_limit', '_mapping'
