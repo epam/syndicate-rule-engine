@@ -1,24 +1,49 @@
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Generator, cast, Iterator
 from itertools import chain
+from typing import TYPE_CHECKING, Generator, Generic, Iterator, TypeVar, cast
+
+from typing_extensions import Self
 
 from helpers import get_path
 from helpers.constants import GLOBAL_REGION, Cloud
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime, utc_iso
-from services.modular_helpers import tenant_cloud
 
 if TYPE_CHECKING:
     from c7n.manager import ResourceManager
-    from c7n_gcp.query import TypeInfo as GCPTypeInfo  # noqa
     from c7n.query import TypeInfo as AWSTypeInfo
+    from c7n_gcp.query import TypeInfo as GCPTypeInfo  # noqa
 
-    from services.metadata import RuleMetadata, Metadata
+    from services.metadata import Metadata, RuleMetadata
     from services.sharding import BaseShardPart, ShardsCollection
-    from modular_sdk.models.tenant import Tenant
 
 _LOG = get_logger(__name__)
+
+T = TypeVar('T')
+
+
+class ResourceVisitor(ABC, Generic[T]):
+    @abstractmethod
+    def visitAWSResource(
+        self, resource: 'AWSResource', /, *args, **kwargs
+    ) -> T: ...
+
+    @abstractmethod
+    def visitAZUREResource(
+        self, resource: 'AZUREResource', /, *args, **kwargs
+    ) -> T: ...
+
+    @abstractmethod
+    def visitGOOGLEResource(
+        self, resource: 'GOOGLEResource', /, *args, **kwargs
+    ) -> T: ...
+
+    @abstractmethod
+    def visitK8SResource(
+        self, resource: 'K8SResource', /, *args, **kwargs
+    ) -> T: ...
 
 
 class CloudResource(ABC):
@@ -56,23 +81,42 @@ class CloudResource(ABC):
         self._hash = None
         self._frozen = True
 
+    @contextmanager
+    def unsafe_unfreeze(self) -> Generator[Self, None, None]:
+        """
+        If you know what you're doing
+        """
+        previous = self._frozen
+        object.__setattr__(self, '_frozen', False)
+        try:
+            yield self
+        finally:
+            object.__setattr__(self, '_frozen', previous)
+
+    def unsafe_reset_hash(self):
+        """
+        You should understand that this method can cause bugs if you kept 
+        the resource inside some hashable collections.
+        """
+        with self.unsafe_unfreeze():
+            self._hash = None
+
+    @abstractmethod
+    def accept(self, visitor: ResourceVisitor[T], /, *args, **kwargs) -> T: ...
+
+    @abstractmethod
+    def _members(self) -> tuple:
+        """
+        Should return a tuple of members that must be used for hashing and
+        comparing two different resources
+        """
+
     def __setattr__(self, key, value):
         if getattr(self, '_frozen', False):
             raise AttributeError(
                 'Trying to set attribute on a frozen instance'
             )
         return super().__setattr__(key, value)
-
-    @property
-    def region(self) -> str:
-        return self.location
-
-    @abstractmethod
-    def _members(self) -> tuple:
-        """
-        Should return a tuple of members that must be used for caching and
-        comparing two different resources
-        """
 
     def __eq__(self, other):
         if type(self) is not type(other):
@@ -81,11 +125,15 @@ class CloudResource(ABC):
 
     def __hash__(self) -> int:
         if self._hash is None:
-            self._hash = hash(self._members())
+            object.__setattr__(self, '_hash', hash(self._members()))
         return self._hash
 
     def __repr__(self) -> str:
         return f'<{self.resource_type}: {self.id}>'
+
+    @property
+    def region(self) -> str:
+        return self.location
 
 
 class AWSResource(CloudResource):
@@ -116,6 +164,9 @@ class AWSResource(CloudResource):
             self.resource_type,
             self._discriminators,
         )
+
+    def accept(self, visitor: ResourceVisitor[T], /, *args, **kwargs) -> T:
+        return visitor.visitAWSResource(self, *args, **kwargs)
 
     def date_as_utc_iso(self) -> str | None:
         if self.date is None:
@@ -160,6 +211,9 @@ class AZUREResource(CloudResource):
             self._discriminators,
         )
 
+    def accept(self, visitor: ResourceVisitor[T], /, *args, **kwargs) -> T:
+        return visitor.visitAZUREResource(self, *args, **kwargs)
+
 
 class GOOGLEResource(CloudResource):
     __slots__ = ('urn',)
@@ -186,6 +240,9 @@ class GOOGLEResource(CloudResource):
             self._discriminators,
         )
 
+    def accept(self, visitor: ResourceVisitor[T], /, *args, **kwargs) -> T:
+        return visitor.visitGOOGLEResource(self, *args, **kwargs)
+
 
 class K8SResource(CloudResource):
     __slots__ = ('namespace',)
@@ -210,6 +267,68 @@ class K8SResource(CloudResource):
             self.resource_type,
             self._discriminators,
         )
+
+    def accept(self, visitor: ResourceVisitor[T], /, *args, **kwargs) -> T:
+        return visitor.visitK8SResource(self, *args, **kwargs)
+
+
+class InPlaceResourceView(ResourceVisitor[dict]):
+    """
+    Converts resource to its dict representation. Does not create a new dict
+    object but uses the one inside the resource for performance purpose. So,
+    be careful.
+    """
+
+    def __init__(self, full: bool = False):
+        self._full = full
+
+    def _get_base(
+        self, resource: 'CloudResource', fields: tuple[str, ...]
+    ) -> dict:
+        if self._full:
+            return resource.data
+        else:
+            return {k: resource.data[k] for k in fields if k in resource.data}
+
+    def visitAWSResource(
+        self, resource: 'AWSResource', /, *args, **kwargs
+    ) -> dict:
+        base = self._get_base(resource, kwargs.get('report_fields', ()))
+        base['id'] = resource.id
+        base['name'] = resource.name
+        if resource.arn is not None:
+            base['arn'] = resource.arn
+        if resource.date is not None:
+            base['date'] = resource.date_as_utc_iso()
+        return base
+
+    def visitAZUREResource(
+        self, resource: 'AZUREResource', /, *args, **kwargs
+    ) -> dict:
+        base = self._get_base(resource, kwargs.get('report_fields', ()))
+        base['id'] = resource.id
+        base['name'] = resource.name
+        return base
+
+    def visitGOOGLEResource(
+        self, resource: 'GOOGLEResource', /, *args, **kwargs
+    ) -> dict:
+        base = self._get_base(resource, kwargs.get('report_fields', ()))
+        base['id'] = resource.id
+        base['name'] = resource.name
+        if resource.urn is not None:
+            base['urn'] = resource.urn
+        return base
+
+    def visitK8SResource(
+        self, resource: 'K8SResource', /, *args, **kwargs
+    ) -> dict:
+        base = self._get_base(resource, kwargs.get('report_fields', ()))
+        base['id'] = resource.id
+        base['name'] = resource.name
+        if resource.namespace is not None:
+            base['namespace'] = resource.namespace
+        return base
 
 
 def load_cc_providers():
@@ -414,7 +533,9 @@ def iter_rule_resources_iterator(
 
     if resource_types:
         typ = set if len(resource_types) > 128 else tuple
-        resource_types = typ(prepare_resource_type(rt, cloud) for rt in resource_types)
+        resource_types = typ(
+            prepare_resource_type(rt, cloud) for rt in resource_types
+        )
 
     meta = collection.meta
 

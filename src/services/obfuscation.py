@@ -1,14 +1,15 @@
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from helpers import iter_values, flip_dict
+from helpers import flip_dict, iter_values
 
 if TYPE_CHECKING:
     from services.sharding import ShardsCollection
 
 
-def obfuscate_finding(finding: dict, dictionary_out: dict,
-                      dictionary: dict | None = None) -> dict:
+def obfuscate_finding(
+    finding: dict, dictionary_out: dict, dictionary: dict | None = None
+) -> dict:
     """
     Changes the given finding in-place. Does not change dictionary but
     writes into dictionary_out. Returns the same object that was given in
@@ -24,17 +25,29 @@ def obfuscate_finding(finding: dict, dictionary_out: dict,
         real = next(gen)
         gen_id = uuid.uuid4
         while True:
-            alias = dictionary_out.setdefault(
-                real, dictionary.get(real) or str(gen_id())
-            )
+            if real in dictionary_out:
+                alias = dictionary_out[real]
+            else:
+                alias = dictionary.get(real) or str(gen_id())
+                dictionary_out[real] = alias
             real = gen.send(alias)
     except StopIteration:
         pass
     return finding
 
 
-def obfuscate_collection(collection: 'ShardsCollection',
-                         dictionary_out: dict):
+def obfuscate_item(
+    real: Any, dictionary_out: dict, dictionary: dict | None = None
+) -> str:
+    if real in dictionary_out:
+        return dictionary_out[real]
+    dictionary = dictionary or {}
+    alias = dictionary.get(real) or str(uuid.uuid4())
+    dictionary_out[real] = alias
+    return alias
+
+
+def obfuscate_collection(collection: 'ShardsCollection', dictionary_out: dict):
     """
     Changes everything in place
     :param collection:
