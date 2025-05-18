@@ -3,18 +3,19 @@ https://cloud.google.com/chronicle/docs/reference/udm-field-list
 
 These models contain only fields that we needed
 """
+
 import enum
 from datetime import datetime, timezone
 
 import msgspec
 from modular_sdk.models.tenant import Tenant
 
-from helpers import filter_dict, hashable
-from helpers.constants import REPORT_FIELDS, CAASEnv, Severity
+from helpers.constants import Severity, Cloud
 from helpers.mappings.udm_resource_type import (
     UDMResourceType,
     from_cc_resource_type,
 )
+from services.resources import CloudResource, iter_rule_resource
 from helpers.time_helper import utc_datetime
 from services.metadata import Metadata, RuleMetadata
 from services.report_convertors import ShardCollectionConvertor
@@ -54,8 +55,7 @@ class UDMCloudEnvironment(str, enum.Enum):
     UNSPECIFIED_CLOUD_ENVIRONMENT = 'UNSPECIFIED_CLOUD_ENVIRONMENT'
 
     @classmethod
-    def from_local_cloud(cls, name: str | enum.Enum
-                         ) -> 'UDMCloudEnvironment':
+    def from_local_cloud(cls, name: str | enum.Enum) -> 'UDMCloudEnvironment':
         if isinstance(name, enum.Enum):
             name = name.value
         match name:
@@ -267,37 +267,42 @@ class UDMEvent(msgspec.Struct, kw_only=True):
 class UDMSecurityResultBuilder:
     __slots__ = 'policy', 'description', 'meta', 'rule_set'
 
-    def __init__(self, policy: str, description: str,
-                 metadata: RuleMetadata,
-                 rule_set: str | None = None):
+    def __init__(
+        self,
+        policy: str,
+        description: str,
+        metadata: RuleMetadata,
+        rule_set: str | None = None,
+    ):
         self.policy = policy
         self.description = description
         self.meta = metadata
         self.rule_set = rule_set
 
     def _build_mitre(self) -> UDMAttackDetails:
-        item = UDMAttackDetails(
-            tactics=[],
-            techniques=[]
-        )
+        item = UDMAttackDetails(tactics=[], techniques=[])
         mitre = self.meta.mitre
         for tactic, techniques in mitre.items():
             item.tactics.append(UDMAttackDetailsTactic(name=tactic))
             for technique in techniques:
                 sub = technique.get('st', [])
                 if not sub:
-                    item.techniques.append(UDMAttackDetailsTechnique(
-                        id=technique.get('tn_id'),
-                        name=technique.get('tn_name')
-                    ))
-                else:
-                    for i in sub:
-                        item.techniques.append(UDMAttackDetailsTechnique(
+                    item.techniques.append(
+                        UDMAttackDetailsTechnique(
                             id=technique.get('tn_id'),
                             name=technique.get('tn_name'),
-                            subtechnique_id=i.get('st_id'),
-                            subtechnique_name=i.get('st_name')
-                        ))
+                        )
+                    )
+                else:
+                    for i in sub:
+                        item.techniques.append(
+                            UDMAttackDetailsTechnique(
+                                id=technique.get('tn_id'),
+                                name=technique.get('tn_name'),
+                                subtechnique_id=i.get('st_id'),
+                                subtechnique_name=i.get('st_name'),
+                            )
+                        )
         return item
 
     def build(self) -> UDMSecurityResult:
@@ -307,7 +312,7 @@ class UDMSecurityResultBuilder:
             rule_author='Syndicate Rule Engine',
             rule_id=self.policy,
             rule_name=self.policy,
-            attack_details=self._build_mitre()
+            attack_details=self._build_mitre(),
         )
         if self.rule_set:
             item.rule_set = self.rule_set
@@ -319,12 +324,22 @@ class UDMSecurityResultBuilder:
 
 
 class UDMVulnerabilityBuilder:
-    __slots__ = 'policy', 'description', 'meta', 'scan_start_time', 'scan_end_time'
+    __slots__ = (
+        'policy',
+        'description',
+        'meta',
+        'scan_start_time',
+        'scan_end_time',
+    )
 
-    def __init__(self, policy: str, description: str,
-                 metadata: RuleMetadata,
-                 scan_start_time: str | datetime | None = None,
-                 scan_end_time: str | datetime | None = None):
+    def __init__(
+        self,
+        policy: str,
+        description: str,
+        metadata: RuleMetadata,
+        scan_start_time: str | datetime | None = None,
+        scan_end_time: str | datetime | None = None,
+    ):
         self.policy = policy
         self.description = description
         self.meta = metadata
@@ -365,21 +380,17 @@ class ShardCollectionUDMEntitiesConvertor(ShardCollectionConvertor):
     represents one resource with inner list of all its violations
     """
 
-    def __init__(self, metadata: Metadata, tenant: Tenant,
-                 rule_set: str | None = None, **kwargs):
-        super().__init__(metadata)
+    def __init__(
+        self,
+        cloud: Cloud,
+        metadata: Metadata,
+        tenant: Tenant,
+        rule_set: str | None = None,
+        **kwargs,
+    ):
+        super().__init__(cloud, metadata)
         self._tenant = tenant
         self._rule_set = rule_set
-
-    @staticmethod
-    def _parse_date(date: str | float) -> datetime | None:
-        try:
-            if isinstance(date, float):
-                return datetime.fromtimestamp(date, tz=timezone.utc)
-            else:  # str
-                return utc_datetime(date)
-        except Exception:
-            return
 
     def convert(self, collection: 'ShardsCollection') -> list[dict]:
         """
@@ -387,73 +398,85 @@ class ShardCollectionUDMEntitiesConvertor(ShardCollectionConvertor):
         :return:
         """
         meta = collection.meta
-        datas = {}
+        datas: dict[CloudResource, list] = {}
         policies_results = {}
-        for part in collection.iter_parts():
-            for res in part.resources:
-                unique = hashable((
-                    filter_dict(res, REPORT_FIELDS),
-                    part.location,
-                    meta.get(part.policy, {}).get('resource')
-                ))
-                inner = datas.setdefault(unique, [set(), res, part.timestamp])
-                inner[0].add(part.policy)
-                inner[1].update(res)
-                inner[2] = max(inner[2], part.timestamp)
+        it = iter_rule_resource(
+            collection=collection,
+            cloud=self.cloud,
+            metadata=self.meta,
+            account_id=self._tenant.project,
+        )
+        for rule, resource in it:
+            inner = datas.setdefault(resource, [[], resource.sync_date])
+            inner[0].append(rule)
+            inner[1] = max(inner[1], resource.sync_date)
 
-                if part.policy not in policies_results:
-                    policies_results[part.policy] = UDMSecurityResultBuilder(
-                        policy=part.policy,
-                        description=meta.get(part.policy, {}).get('description'),
-                        metadata=self.meta.rule(part.policy),
-                        rule_set=self._rule_set
-                    ).build()
+            if rule not in policies_results:
+                policies_results[rule] = UDMSecurityResultBuilder(
+                    policy=rule,
+                    description=meta.get(rule, {}).get('description', ''),
+                    metadata=self.meta.rule(rule),
+                    rule_set=self._rule_set,
+                ).build()
+
         entities = []
         for unique, inner in datas.items():
-            policies, full_res, ts = inner
-            res, region, rt = unique
+            policies, ts = inner
 
-            resource_id = res.get('arn') or res.get('id') or res.get('name')
-            resource_name = res.get('name') or res.get('id') or res.get('arn')
-            resource_type = from_cc_resource_type(rt)
-            if resource_type is UDMResourceType.UNSPECIFIED:  # todo currently api does not accept this one(
+            resource_id = (
+                getattr(unique, 'arn', None)
+                or getattr(unique, 'urn', None)
+                or unique.id
+                or unique.name
+            )
+            resource_name = unique.name or unique.id
+            resource_type = from_cc_resource_type(unique.resource_type)
+            if (
+                resource_type is UDMResourceType.UNSPECIFIED
+            ):  # todo currently api does not accept this one(
                 resource_type = UDMResourceType.CLOUD_PROJECT
 
             entity = UDMEntity(
                 metadata=UDMEntityMetadata(
                     entity_type=UDMEntityType.RESOURCE,
-                    collected_timestamp=datetime.fromtimestamp(ts, tz=timezone.utc),
+                    collected_timestamp=datetime.fromtimestamp(
+                        ts, tz=timezone.utc
+                    ),
                     product_entity_id=resource_id,
                     product_name=self._tenant.name,
                     source_type=UDMSourceType.ENTITY_CONTEXT,
-                    vendor_name=self._tenant.customer_name
+                    vendor_name=self._tenant.customer_name,
                 ),
                 entity=UDMNoun(
-                    security_result=[policies_results.get(p) for p in policies],
-                    location=UDMLocation(region),
+                    security_result=[policies_results[p] for p in policies],
+                    location=UDMLocation(unique.location),
                     resource=UDMResource(
                         product_object_id=resource_id,
                         name=resource_name,
-                        resource_subtype=rt,
+                        resource_subtype=unique.resource_type,
                         resource_type=resource_type,
                         attribute=UDMAttribute(
                             cloud=UDMCloud(
-                                environment=UDMCloudEnvironment.from_local_cloud(self._tenant.cloud),
+                                environment=UDMCloudEnvironment.from_local_cloud(
+                                    self._tenant.cloud
+                                )
                             ),
-                            labels=[]
-                        )
-                    )
-                )
+                            labels=[],
+                        ),
+                    ),
+                ),
             )
             if service := self.meta.rule(next(iter(policies))).service:
                 entity.entity.application = service
-            if date := full_res.get('date'):
-                dt = self._parse_date(date)
+            if getattr(unique, 'date', None):
+                dt = unique.date_as_utc_iso()
                 if dt:
-                    entity.entity.resource.attribute.creation_time = dt
-            if tags := full_res.get('Tags'):
+                    entity.entity.resource.attribute.creation_time = (
+                        utc_datetime(dt)
+                    )
+            if tags := unique.tags:
                 entity.entity.resource.attribute.labels.extend(
-                    UDMLabel(key=t['Key'], value=t['Value']) for t in tags
+                    UDMLabel(key=k, value=v) for k, v in tags.items()
                 )
             entities.append(msgspec.to_builtins(entity))
         return entities
@@ -468,21 +491,17 @@ class ShardCollectionUDMEventsConvertor(ShardCollectionConvertor):
     Converts a collection to a list of UDM Events
     """
 
-    def __init__(self, metadata: Metadata, tenant: Tenant,
-                 rule_set: str | None = None, **kwargs):
-        super().__init__(metadata)
+    def __init__(
+        self,
+        cloud: Cloud,
+        metadata: Metadata,
+        tenant: Tenant,
+        rule_set: str | None = None,
+        **kwargs,
+    ):
+        super().__init__(cloud, metadata)
         self._tenant = tenant
         self._rule_set = rule_set
-
-    @staticmethod
-    def _parse_date(date: str | float) -> datetime | None:
-        try:
-            if isinstance(date, float):
-                return datetime.fromtimestamp(date, tz=timezone.utc)
-            else:  # str
-                return utc_datetime(date)
-        except Exception:
-            return
 
     def convert(self, collection: 'ShardsCollection') -> list[dict]:
         """
@@ -490,80 +509,93 @@ class ShardCollectionUDMEventsConvertor(ShardCollectionConvertor):
         :return:
         """
         meta = collection.meta
-        datas = {}
+        datas: dict[CloudResource, list] = {}
         policies_results = {}
-        for part in collection.iter_parts():
-            for res in part.resources:
-                unique = hashable((
-                    filter_dict(res, REPORT_FIELDS),
-                    part.location,
-                    meta.get(part.policy, {}).get('resource')
-                ))
-                inner = datas.setdefault(unique, [set(), res, part.timestamp])
-                inner[0].add(part.policy)
-                inner[1].update(res)
-                inner[2] = max(inner[2], part.timestamp)
+        it = iter_rule_resource(
+            collection=collection,
+            cloud=self.cloud,
+            metadata=self.meta,
+            account_id=self._tenant.project,
+        )
+        for rule, resource in it:
+            inner = datas.setdefault(resource, [[], resource.sync_date])
+            inner[0].append(rule)
+            inner[1] = max(inner[1], resource.sync_date)
 
-                if part.policy not in policies_results:
-                    policies_results[part.policy] = UDMVulnerabilityBuilder(
-                        policy=part.policy,
-                        description=meta.get(part.policy, {}).get('description'),
-                        metadata=self.meta.rule(part.policy),
-                    ).build()
+            if rule not in policies_results:
+                policies_results[rule] = UDMVulnerabilityBuilder(
+                    policy=rule,
+                    description=meta.get(rule, {}).get('description', ''),
+                    metadata=self.meta.rule(rule),
+                ).build()
         events = []
         for unique, inner in datas.items():
-            policies, full_res, ts = inner
-            res, region, rt = unique
+            policies, ts = inner
 
-            resource_id = res.get('arn') or res.get('id') or res.get('name')
-            resource_name = res.get('name') or res.get('id') or res.get('arn')
-            resource_type = from_cc_resource_type(rt)
-            if resource_type is UDMResourceType.UNSPECIFIED:  # todo currently api does not accept this one(
+            resource_id = (
+                getattr(unique, 'arn', None)
+                or getattr(unique, 'urn', None)
+                or unique.id
+                or unique.name
+            )
+            resource_name = unique.name or unique.id
+            resource_type = from_cc_resource_type(unique.resource_type)
+            if (
+                resource_type is UDMResourceType.UNSPECIFIED
+            ):  # todo currently api does not accept this one(
                 resource_type = UDMResourceType.CLOUD_PROJECT
 
             event = UDMEvent(
                 metadata=UDMEventMetadata(
-                    collected_timestamp=datetime.fromtimestamp(ts, tz=timezone.utc),
+                    collected_timestamp=datetime.fromtimestamp(
+                        ts, tz=timezone.utc
+                    ),
                     description='Syndicate Rule Engine scanned target product',
                     event_type=UDMEventType.SCAN_VULN_HOST,
                     product_name=self._tenant.name,
-                    vendor_name=self._tenant.customer_name
+                    vendor_name=self._tenant.customer_name,
                 ),
                 principal=UDMNoun(
                     application='Syndicate Rule Engine',  # todo maybe add other data
-                    hostname=SP.tls.__dict__.get('host', 'rule-engine'),  # todo maybe get from ec2 metadata
+                    hostname=SP.tls.__dict__.get(
+                        'host', 'rule-engine'
+                    ),  # todo maybe get from ec2 metadata
                 ),
                 target=UDMNoun(
-                    location=UDMLocation(region),
+                    location=UDMLocation(unique.location),
                     resource=UDMResource(
                         product_object_id=resource_id,
                         name=resource_name,
-                        resource_subtype=rt,
+                        resource_subtype=unique.resource_type,
                         resource_type=resource_type,
                         attribute=UDMAttribute(
                             cloud=UDMCloud(
-                                environment=UDMCloudEnvironment.from_local_cloud(self._tenant.cloud),
+                                environment=UDMCloudEnvironment.from_local_cloud(
+                                    self._tenant.cloud
+                                )
                             ),
-                            labels=[]
-                        )
-                    )
+                            labels=[],
+                        ),
+                    ),
                 ),
                 extensions=UDMExtensions(
                     vulns=UDMVulnerabilities(
-                        vulnerabilities=[policies_results.get(p) for p in policies]
+                        vulnerabilities=[policies_results[p] for p in policies]
                     )
-                )
+                ),
             )
 
             if service := self.meta.rule(next(iter(policies))).service:
                 event.target.application = service
-            if date := full_res.get('date'):
-                dt = self._parse_date(date)
+            if getattr(unique, 'date', None):
+                dt = unique.date_as_utc_iso()
                 if dt:
-                    event.target.resource.attribute.creation_time = dt
-            if tags := full_res.get('Tags'):
+                    event.target.resource.attribute.creation_time = (
+                        utc_datetime(dt)
+                    )
+            if tags := unique.tags:
                 event.target.resource.attribute.labels.extend(
-                    UDMLabel(key=t['Key'], value=t['Value']) for t in tags
+                    UDMLabel(key=k, value=v) for k, v in tags.items()
                 )
             events.append(msgspec.to_builtins(event))
         return events

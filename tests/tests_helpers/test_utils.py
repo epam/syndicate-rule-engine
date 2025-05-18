@@ -9,7 +9,6 @@ from helpers import (
     deep_set,
     title_keys,
     setdefault,
-    filter_dict,
     hashable,
     urljoin,
     skip_indexes,
@@ -88,14 +87,6 @@ def test_setdefault():
     assert instance.attr == 1
     setdefault(instance, 'attr', 2)
     assert instance.attr == 1
-
-
-def test_filter_dict(dictionary):
-    assert filter_dict(dictionary, ()) == dictionary
-    assert filter_dict(dictionary, ('one', 3)) == {
-        'one': 'two',
-        3: {'four': 'five'},
-    }
 
 
 def test_hashable(dictionary):

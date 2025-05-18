@@ -43,7 +43,7 @@ from services.resources import (
     InPlaceResourceView,
     K8SResource,
     ResourceVisitor,
-    iter_rule_resources,
+    iter_rule_resource,
 )
 from services.sharding import ShardsCollection
 from services.xlsx_writer import CellContent, Table, XlsxRowsWriter
@@ -202,10 +202,10 @@ class MatchedResourcesIterator(Iterator[Payload]):
         return self._collection
 
     def __iter__(self):
-        self._it = iter_rule_resources(
+        self._it = iter_rule_resource(
             collection=self._collection,
-            metadata=self._metadata,
             cloud=self._cloud,
+            metadata=self._metadata,
             account_id=self._account_id,
             regions=(self._region,) if self._region else (),
             resource_types=(self._resource_type,)

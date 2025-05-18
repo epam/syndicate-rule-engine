@@ -3,16 +3,20 @@ import io
 from abc import ABC, abstractmethod
 from base64 import b64encode
 from datetime import datetime, timezone
-from functools import partial
 from typing import TYPE_CHECKING, Literal, TypedDict
 
 import msgspec
 from typing_extensions import NotRequired
 from xlsxwriter.workbook import Workbook
 
-from helpers import filter_dict, hashable
-from helpers.constants import REPORT_FIELDS
+from helpers.constants import Cloud
 from services.metadata import Metadata
+from services.resources import (
+    CloudResource,
+    InPlaceResourceView,
+    iter_rule_region_resources,
+    iter_rule_resource_region_resources,
+)
 from services.xlsx_writer import CellContent, Table, XlsxRowsWriter
 
 if TYPE_CHECKING:
@@ -20,7 +24,8 @@ if TYPE_CHECKING:
 
 
 class ShardCollectionConvertor(ABC):
-    def __init__(self, metadata: Metadata) -> None:
+    def __init__(self, cloud: Cloud, metadata: Metadata) -> None:
+        self.cloud = cloud
         self.meta = metadata
 
     @abstractmethod
@@ -42,23 +47,24 @@ class ShardCollectionDojoConvertor(ShardCollectionConvertor):
 
     @classmethod
     def from_scan_type(
-        cls, scan_type: str, metadata: Metadata, **kwargs
+        cls, scan_type: str, cloud: Cloud, metadata: Metadata, **kwargs
     ) -> 'ShardCollectionDojoConvertor':
         """
         Returns a generic dojo convertor by default
-        :param scan_type:
-        :param kwargs:
-        :return:
         """
         match scan_type:
             case 'Generic Findings Import':
-                return ShardsCollectionGenericDojoConvertor(metadata, **kwargs)
+                return ShardsCollectionGenericDojoConvertor(
+                    cloud, metadata, **kwargs
+                )
             case 'Cloud Custodian Scan':
                 return ShardsCollectionCloudCustodianDojoConvertor(
-                    metadata, **kwargs
+                    cloud, metadata, **kwargs
                 )
             case _:
-                return ShardsCollectionGenericDojoConvertor(metadata, **kwargs)
+                return ShardsCollectionGenericDojoConvertor(
+                    cloud, metadata, **kwargs
+                )
 
 
 # for generic dojo parser
@@ -88,6 +94,7 @@ class Findings(TypedDict):
 class ShardsCollectionGenericDojoConvertor(ShardCollectionDojoConvertor):
     def __init__(
         self,
+        cloud: Cloud,
         metadata: Metadata,
         attachment: Literal['json', 'xlsx', 'csv'] | None = None,
         **kwargs,
@@ -99,11 +106,11 @@ class ShardsCollectionGenericDojoConvertor(ShardCollectionDojoConvertor):
         :param attachment:
         :param kwargs:
         """
-        super().__init__(metadata)
+        super().__init__(cloud, metadata)
         self._attachment = attachment
 
     @staticmethod
-    def _make_table(resources: list[dict]) -> str:
+    def _make_table(resources: list[CloudResource]) -> str:
         """
         In case resource have arn, we don't show id and name and namespace
         (cause arn can be really long and can break dojo description),
@@ -113,14 +120,20 @@ class ShardsCollectionGenericDojoConvertor(ShardCollectionDojoConvertor):
         """
         from tabulate import tabulate
 
-        if resources[0].get('arn'):  # can be sure IndexError won't occur
-            # all resources within a table are similar
-            headers = ('arn',)
-        else:  # id name, namespace
-            headers = ('id', 'name', 'namespace')
+        r = resources[0]
+        if getattr(r, 'arn', None):
+            headers = ('arn', 'id', 'name')
+        elif getattr(r, 'urn', None):
+            headers = ('urn', 'id', 'name')
+        elif getattr(r, 'namespace', None):
+            headers = ('namespace', 'id', 'name')
+        else:
+            headers = ('id', 'name')
 
         return tabulate(
-            tabular_data=[[res.get(h) for h in headers] for res in resources],
+            tabular_data=[
+                [getattr(res, h, None) for h in headers] for res in resources
+            ],
             headers=map(str.title, headers),  # type: ignore
             tablefmt='rounded_grid',
             stralign='center',
@@ -141,15 +154,19 @@ class ShardsCollectionGenericDojoConvertor(ShardCollectionDojoConvertor):
         return data.decode('utf-8')
 
     @staticmethod
-    def _make_json_file(resources: list[dict]) -> str:
+    def _make_json_file(resources: list[CloudResource]) -> str:
         """
         Dumps resources to json and encodes to base64 as dojo expects
         :return:
         """
-        return b64encode(msgspec.json.encode(resources)).decode()
+        view = InPlaceResourceView(full=True)
+
+        return b64encode(
+            msgspec.json.encode([r.accept(view) for r in resources])
+        ).decode()
 
     @staticmethod
-    def _make_xlsx_file(resources: list[dict]) -> str:
+    def _make_xlsx_file(resources: list[CloudResource]) -> str:
         """
         Dumps resources to xlsx file and encodes to base64 as dojo expects
         :param resources:
@@ -169,14 +186,14 @@ class ShardsCollectionGenericDojoConvertor(ShardCollectionDojoConvertor):
                 table.new_row()
                 table.add_cells(CellContent(i))
                 for h in headers:
-                    table.add_cells(CellContent(r.get(h)))
+                    table.add_cells(CellContent(getattr(r, h, None)))
 
             wsh = wb.add_worksheet('resources')
             XlsxRowsWriter().write(wsh, table)
         return b64encode(buffer.getvalue()).decode()
 
     @staticmethod
-    def _make_csv_file(resources: list[dict]) -> str:
+    def _make_csv_file(resources: list[CloudResource]) -> str:
         """
         Dumps resources to csv file and encodes to base64 as dojo expects
         :param resources:
@@ -189,10 +206,10 @@ class ShardsCollectionGenericDojoConvertor(ShardCollectionDojoConvertor):
         writer.writerows(
             (
                 i,
-                res.get('arn'),
-                res.get('id'),
-                res.get('name'),
-                res.get('namespace'),
+                getattr(res, 'arn', None) or getattr(res, 'urn', None) or None,
+                res.id,
+                res.name,
+                getattr(res, 'namespace', None),
             )
             for i, res in enumerate(resources, 1)
         )
@@ -203,17 +220,20 @@ class ShardsCollectionGenericDojoConvertor(ShardCollectionDojoConvertor):
         findings = []
         meta = collection.meta
 
-        for part in collection.iter_parts():
-            if not part.resources:
+        it = iter_rule_resource_region_resources(
+            collection=collection, cloud=self.cloud, metadata=self.meta
+        )
+
+        for rule, region, resources in it:
+            if not resources:
                 continue
-            pm = meta.get(part.policy) or {}  # part meta
-            p = part.policy
+            pm = meta.get(rule) or {}  # part meta
             pm2 = self.meta.rule(
-                p, comment=pm.get('comment'), resource=pm.get('resource')
+                rule, comment=pm.get('comment'), resource=pm.get('resource')
             )
 
             # tags
-            tags = [part.location, pm.get('resource')]
+            tags = [region, pm.get('resource')]
             if service_section := pm2.service_section:
                 tags.append(service_section)
 
@@ -223,8 +243,8 @@ class ShardsCollectionGenericDojoConvertor(ShardCollectionDojoConvertor):
                         'description': pm2.article,
                         'files': [
                             {
-                                'title': f'{p}.xlsx',
-                                'data': self._make_xlsx_file(part.resources),
+                                'title': f'{rule}.xlsx',
+                                'data': self._make_xlsx_file(resources),
                             }
                         ],
                     }
@@ -233,8 +253,8 @@ class ShardsCollectionGenericDojoConvertor(ShardCollectionDojoConvertor):
                         'description': pm2.article,
                         'files': [
                             {
-                                'title': f'{p}.json',
-                                'data': self._make_json_file(part.resources),
+                                'title': f'{rule}.json',
+                                'data': self._make_json_file(resources),
                             }
                         ],
                     }
@@ -243,27 +263,29 @@ class ShardsCollectionGenericDojoConvertor(ShardCollectionDojoConvertor):
                         'description': pm2.article,
                         'files': [
                             {
-                                'title': f'{p}.csv',
-                                'data': self._make_csv_file(part.resources),
+                                'title': f'{rule}.csv',
+                                'data': self._make_csv_file(resources),
                             }
                         ],
                     }
                 case _:  # None or some unexpected
-                    table = self._make_table(part.resources)
+                    table = self._make_table(resources)
                     extra = {'description': f'{pm2.article}\n{table}'}
 
             findings.append(
                 {
-                    'title': pm['description'] if 'description' in pm else p,
+                    'title': pm['description']
+                    if 'description' in pm
+                    else rule,
                     'date': datetime.fromtimestamp(
-                        part.timestamp, tz=timezone.utc
+                        resources[0].sync_date, tz=timezone.utc
                     ).isoformat(),
                     'severity': pm2.severity.value,
                     'mitigation': pm2.remediation,
                     'impact': pm2.impact,
                     'references': self._make_references(pm2.standard),
                     'tags': tags,
-                    'vuln_id_from_tool': p,
+                    'vuln_id_from_tool': rule,
                     'service': pm2.service,
                     **extra,
                 }
@@ -296,9 +318,13 @@ class ShardsCollectionCloudCustodianDojoConvertor(
         tags: list[str]
 
     def __init__(
-        self, metadata: Metadata, resource_per_finding: bool = False, **kwargs
+        self,
+        cloud: Cloud,
+        metadata: Metadata,
+        resource_per_finding: bool = False,
+        **kwargs,
     ):
-        super().__init__(metadata)
+        super().__init__(cloud, metadata)
         self._rpf = resource_per_finding
 
     @staticmethod
@@ -309,27 +335,17 @@ class ShardsCollectionCloudCustodianDojoConvertor(
                 res.setdefault(name, []).append(version)
         return res
 
-    @staticmethod
-    def _prepare_resources(resources: list[dict]) -> list[dict]:
-        """
-        Keeps only report fields and sorts by
-        :param resources:
-        :return:
-        """
-        skey = 'id'
-        ftr = partial(filter_dict, keys=REPORT_FIELDS)
-        return sorted(
-            map(ftr, resources), key=lambda r: r.get(skey) or chr(123)
-        )
-
     def convert(self, collection: 'ShardsCollection') -> list[Model]:
         result = []
         meta = collection.meta
+        view = InPlaceResourceView(full=False)
 
-        for part in collection.iter_parts():
-            if not part.resources:
+        it = iter_rule_resource_region_resources(
+            collection=collection, cloud=self.cloud, metadata=self.meta
+        )
+        for rule, region, resources in it:
+            if not resources:
                 continue
-            rule = part.policy
             pm = self.meta.rule(
                 rule,
                 comment=meta.get(rule, {}).get('comment'),
@@ -344,15 +360,16 @@ class ShardsCollectionCloudCustodianDojoConvertor(
                 'article': pm.article,
                 'service': pm.service,
                 'vuln_id_from_tool': rule,
-                'tags': [part.location],
+                'tags': [region],
             }
             if self._rpf:
-                for res in part.resources:
-                    result.append(
-                        {**base, 'resources': filter_dict(res, REPORT_FIELDS)}
-                    )
+                for res in resources:
+                    result.append({**base, 'resources': res.accept(view)})
             else:
-                base['resources'] = self._prepare_resources(part.resources)
+                base['resources'] = sorted(
+                    (res.accept(view) for res in resources),
+                    key=lambda r: r.get('id') or chr(123),
+                )
                 result.append(base)
         return result
 
@@ -365,55 +382,57 @@ class ShardsCollectionDigestConvertor(ShardCollectionConvertor):
         violating_resources: int
 
     def convert(self, collection: 'ShardsCollection') -> DigestsReport:
-        total_checks = 0
-        successful_checks = 0
+        total = 0  # total number of rules checked
+        successful = 0  # number of rules that found nothing
+        by_severity = {}
         total_resources = set()
-        failed_checks = {'total': 0}
-        failed_by_severity = {}
-        for part in collection.iter_parts():
-            total_checks += 1
-            sev = self.meta.rule(part.policy).severity.value
-            if part.resources:
-                failed_checks['total'] += 1
-                failed_by_severity.setdefault(sev, 0)
-                failed_by_severity[sev] += 1
+
+        it = iter_rule_region_resources(
+            collection, self.cloud, self.meta, ''
+        )
+        for rule, _, resources in it:
+            total += 1
+            sev = self.meta.rule(rule).severity.value
+            resources = tuple(resources)
+            if resources:
+                by_severity.setdefault(sev, 0)
+                by_severity[sev] += 1
             else:
-                successful_checks += 1
-            keep_report_fields = partial(filter_dict, keys=REPORT_FIELDS)
-            total_resources.update(
-                map(hashable, map(keep_report_fields, part.resources))
-            )
-        failed_checks['severity'] = failed_by_severity
+                successful += 1
+
+            total_resources.update(resources)
         return {
-            'total_checks': total_checks,
-            'successful_checks': successful_checks,
-            'failed_checks': failed_checks,
+            'total_checks': total,
+            'successful_checks': successful,
+            'failed_checks': {
+                'severity': by_severity,
+                'total': sum(by_severity.values()),
+            },
             'violating_resources': len(total_resources),
         }
 
 
 class ShardsCollectionDetailsConvertor(ShardCollectionConvertor):
-    def __init__(self) -> None:
-        pass
+    def __init__(self, cloud: Cloud) -> None:
+        self.cloud = cloud
 
     def convert(self, collection: 'ShardsCollection') -> dict[str, list[dict]]:
-        res = {}
-        for part in collection.iter_parts():
-            res.setdefault(part.location, []).append(
+        result = {}
+        it = iter_rule_region_resources(collection, self.cloud)
+        view = InPlaceResourceView(full=True)
+        for rule, region, resources in it:
+            result.setdefault(region, []).append(
                 {
-                    'policy': {
-                        'name': part.policy,
-                        **(collection.meta.get(part.policy) or {}),
-                    },
-                    'resources': part.resources,
+                    'policy': {'name': rule, **collection.meta[rule]},
+                    'resources': [r.accept(view) for r in resources],
                 }
             )
-        return res
+        return result
 
 
 class ShardsCollectionFindingsConvertor(ShardCollectionConvertor):
-    def __init__(self) -> None:
-        pass
+    def __init__(self, cloud: Cloud) -> None:
+        self.cloud = cloud
 
     def convert(self, collection: 'ShardsCollection') -> dict[str, dict]:
         """
@@ -421,11 +440,12 @@ class ShardsCollectionFindingsConvertor(ShardCollectionConvertor):
         :param collection:
         :return:
         """
-        res = {}
+        view = InPlaceResourceView(full=True)
+        result = {}
         meta = collection.meta
-        for part in collection.iter_parts():
-            inner = res.setdefault(
-                part.policy, {'resources': {}, **(meta.get(part.policy) or {})}
-            )
-            inner['resources'][part.location] = part.resources
-        return res
+
+        it = iter_rule_region_resources(collection, self.cloud)
+        for rule, region, resources in it:
+            inner = result.setdefault(rule, {'resources': {}, **meta[rule]})
+            inner['resources'][region] = [r.accept(view) for r in resources]
+        return result

@@ -801,13 +801,14 @@ def upload_to_siem(ctx: 'JobExecutionContext', collection: ShardsCollection):
     job = AmbiguousJob(ctx.job)
     platform = ctx.platform
     warnings = []
+    cloud = ctx.cloud()
 
     metadata = SP.license_service.get_customer_metadata(tenant.customer_name)
     for dojo, configuration in SP.integration_service.get_dojo_adapters(
         tenant, True
     ):
         convertor = ShardCollectionDojoConvertor.from_scan_type(
-            configuration.scan_type, metadata
+            configuration.scan_type, cloud, metadata
         )
         configuration = configuration.substitute_fields(job, platform)
         client = DojoV2Client(
@@ -847,7 +848,7 @@ def upload_to_siem(ctx: 'JobExecutionContext', collection: ShardsCollection):
             case ChronicleConverterType.EVENTS:
                 _LOG.debug('Converting our collection to UDM events')
                 convertor = ShardCollectionUDMEventsConvertor(
-                    metadata, tenant=tenant
+                    cloud, metadata, tenant=tenant
                 )
                 success = client.create_udm_events(
                     events=convertor.convert(collection)
@@ -855,7 +856,7 @@ def upload_to_siem(ctx: 'JobExecutionContext', collection: ShardsCollection):
             case _:  # ENTITIES
                 _LOG.debug('Converting our collection to UDM entities')
                 convertor = ShardCollectionUDMEntitiesConvertor(
-                    metadata, tenant=tenant
+                    cloud, metadata, tenant=tenant
                 )
                 success = client.create_udm_entities(
                     entities=convertor.convert(collection),

@@ -113,12 +113,6 @@ def batches(iterable: Iterable, n: int) -> Generator[list, None, None]:
         batch = list(islice(it, n))
 
 
-def filter_dict(d: dict, keys: set | list | tuple) -> dict:
-    if keys:
-        return {k: v for k, v in d.items() if k in keys}
-    return d
-
-
 class HashableDict(dict):
     def __hash__(self) -> int:
         if hasattr(self, '__calculated_hash'):

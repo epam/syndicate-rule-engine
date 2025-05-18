@@ -10,13 +10,13 @@ from helpers import get_path
 from helpers.constants import GLOBAL_REGION, Cloud
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime, utc_iso
+from services.metadata import EMPTY_METADATA, Metadata, RuleMetadata
 
 if TYPE_CHECKING:
     from c7n.manager import ResourceManager
     from c7n.query import TypeInfo as AWSTypeInfo
     from c7n_gcp.query import TypeInfo as GCPTypeInfo  # noqa
 
-    from services.metadata import Metadata, RuleMetadata
     from services.sharding import BaseShardPart, ShardsCollection
 
 _LOG = get_logger(__name__)
@@ -95,7 +95,7 @@ class CloudResource(ABC):
 
     def unsafe_reset_hash(self):
         """
-        You should understand that this method can cause bugs if you kept 
+        You should understand that this method can cause bugs if you kept
         the resource inside some hashable collections.
         """
         with self.unsafe_unfreeze():
@@ -135,6 +135,15 @@ class CloudResource(ABC):
     def region(self) -> str:
         return self.location
 
+    @property
+    @abstractmethod
+    def tags(self) -> dict:
+        ...
+
+    @property
+    def labels(self) -> dict:
+        return self.tags
+
 
 class AWSResource(CloudResource):
     __slots__ = 'arn', 'date'
@@ -150,10 +159,6 @@ class AWSResource(CloudResource):
     def tags(self) -> dict:
         t = self.data.get('Tags') or []
         return {pair['Key']: pair['Value'] for pair in t}
-
-    @property
-    def labels(self) -> dict:
-        return self.tags
 
     def _members(self) -> tuple:
         return (
@@ -191,10 +196,6 @@ class AZUREResource(CloudResource):
         return self.data.get('tags') or {}
 
     @property
-    def labels(self) -> dict:
-        return self.tags
-
-    @property
     def group(self) -> str | None:
         return self.data.get('resourceGroup')
 
@@ -223,12 +224,8 @@ class GOOGLEResource(CloudResource):
         super().__init__(**kwargs)
 
     @property
-    def labels(self) -> dict:
-        return self.data.get('labels') or {}
-
-    @property
     def tags(self) -> dict:
-        return self.labels
+        return self.data.get('labels') or {}
 
     def _members(self) -> tuple:
         return (
@@ -252,12 +249,8 @@ class K8SResource(CloudResource):
         super().__init__(**kwargs)
 
     @property
-    def labels(self) -> dict:
-        return self.data.get('labels') or {}
-
-    @property
     def tags(self) -> dict:
-        return self.labels
+        return self.data.get('labels') or {}
 
     def _members(self) -> tuple:
         return (
@@ -364,11 +357,40 @@ def load_manager(rt: str) -> type['ResourceManager'] | None:
         return
 
 
-def _get_arn(
-    res: dict, model: 'AWSTypeInfo', account_id: str, region: str
-) -> str:
+class _ExecutionContext:
+    __slots__ = ('options',)
+
+    def __init__(self, options):
+        self.options = options
+
+    def __getattr__(self, item):
+        return None
+
+
+def _get_arns(
+    factory: type['ResourceManager'],
+    resources: list[dict],
+    region: str,
+    account_id: str,
+) -> list[str]:
     """
-    Tries to retrieve resource arn
+    Invokes get_arns from resource manager as a last resort. Requires us
+    to initialize manager class so we set mocked context.
+    factory.has_arns must be checked beforehand
+    """
+
+    from c7n.config import Config
+
+    # TODO: make sure to check against breaking changes from CC
+    config = Config.empty(region=region, account_id=account_id)
+    manager = factory(ctx=_ExecutionContext(config), data={})
+    return manager.get_arns(resources)
+
+
+def _get_arn_fast(res: dict, model: 'AWSTypeInfo') -> str | None:
+    """
+    Tries to resolve arn from the resource without invoking generate_arn.
+    factory.has_arns must be checked beforehand
     """
     arn_key = getattr(model, 'arn', None)
     assert arn_key is not False, 'Should be checked beforehand'
@@ -378,23 +400,18 @@ def _get_arn(
     _id: str = get_path(res, cast(str, model.id))
     if _id.startswith('arn'):
         return _id
-    from c7n.utils import generate_arn
-
-    return generate_arn(
-        service=model.arn_service or model.service,
-        resource=_id,
-        region=''
-        if model.global_resource or region == GLOBAL_REGION
-        else region,
-        account_id=account_id,
-        resource_type=model.arn_type,
-        separator=model.arn_separator,
-    )
 
 
 def to_aws_resources(
-    part: 'BaseShardPart', rt: str, metadata: 'RuleMetadata', account_id: str
+    part: 'BaseShardPart',
+    rt: str,
+    metadata: 'RuleMetadata',
+    account_id: str = '',
 ) -> Generator[AWSResource, None, None]:
+    """
+    If account_id is provided it will be used to generated arns where possible
+    and where there is no arn provided by AWS
+    """
     if len(part.resources) == 0:
         return
 
@@ -408,9 +425,11 @@ def to_aws_resources(
         return
 
     has_arn = factory.has_arn()
+    arns: list[str] | None = None  # initialized first when needed
+
     is_cloudtrail = rt == 'aws.cloudtrail'
 
-    for res in part.resources:
+    for i, res in enumerate(part.resources):
         date = get_path(res, m.date) if m.date else None
         # needed to distinguish different resources with the same resource
         # type (aws.account) for example
@@ -423,9 +442,24 @@ def to_aws_resources(
             )
             region = GLOBAL_REGION
 
+        # bear with me
+        if has_arn and arns:
+            arn = arns[i]
+        elif has_arn:  # and not arns
+            arn = _get_arn_fast(res, m)
+            if arn is None and account_id and hasattr(factory, 'has_arns'):
+                # - not trying to generate arn if account id is not provided
+                # - hasattr checks against their bugs
+                arns = _get_arns(
+                    factory, part.resources, part.location, account_id
+                )
+                arn = arns[i]
+        else:  # not has_arn
+            arn = None
+
         yield AWSResource(
             region=region,
-            arn=None if not has_arn else _get_arn(res, m, account_id, region),
+            arn=arn,
             date=date,
             id=get_path(res, m.id),
             name=get_path(res, m.name),
@@ -463,7 +497,10 @@ def to_azure_resources(
 
 
 def to_google_resources(
-    part: 'BaseShardPart', rt: str, metadata: 'RuleMetadata', account_id: str
+    part: 'BaseShardPart',
+    rt: str,
+    metadata: 'RuleMetadata',
+    account_id: str = '',
 ) -> Generator[GOOGLEResource, None, None]:
     if len(part.resources) == 0:
         return
@@ -477,12 +514,19 @@ def to_google_resources(
         _LOG.warning(f'{factory} has no resource_type')
         return
 
+    urn_has_project = m.urn_has_project
+
     for res in part.resources:
         service = metadata.service
-        # TODO: some how test against breaking changes
 
+        if account_id or not urn_has_project:
+            urn = m._get_urn(res, account_id)
+        else:
+            urn = None
+
+        # TODO: some how test against breaking changes
         yield GOOGLEResource(
-            urn=m._get_urn(res, account_id),
+            urn=urn,
             id=get_path(res, m.id),
             name=get_path(res, m.name),
             location=m._get_location(res),
@@ -519,16 +563,25 @@ def to_k8s_resources(
         )
 
 
-def iter_rule_resources_iterator(
+def iter_rule_region_resources(
     collection: 'ShardsCollection',
-    metadata: 'Metadata',
     cloud: Cloud,
+    metadata: Metadata = EMPTY_METADATA,
     account_id: str = '',
     *,
     policies: tuple[str, ...] | set[str] = (),
     regions: tuple[str, ...] | set[str] = (),
     resource_types: tuple[str, ...] | set[str] = (),
-) -> Generator[tuple[str, Iterator[CloudResource]], None, None]:
+) -> Generator[tuple[str, str, Iterator[CloudResource]], None, None]:
+    """
+    Each rule & region pair is yielded only once. Yields a tuple of
+    rule, region and resources that were found by executing that rule against
+    that region (meaning that individual region of each
+    exceptional resource is not resolved here.). Filtering by regions is
+    performed based on that global region scope
+    """
+    assert collection.meta, 'Collection meta should be fetched'
+
     load_cc_providers()
 
     if resource_types:
@@ -539,27 +592,31 @@ def iter_rule_resources_iterator(
 
     meta = collection.meta
 
-    rule_to_iters = {}
-
     for part in collection.iter_parts():
         policy = part.policy
+        location = part.location
         if policies and policy not in policies:
+            continue
+
+        if regions and location not in regions:
             continue
 
         rt = prepare_resource_type(meta[policy]['resource'], cloud)
         if resource_types and rt not in resource_types:
             continue
 
+        if len(part.resources) == 0:
+            yield policy, location, iter(())
+            continue
+
         match cloud:
             case Cloud.AWS:
-                assert account_id, 'Account id must be provided for AWS'
                 it = to_aws_resources(
                     part, rt, metadata.rule(policy), account_id
                 )
             case Cloud.AZURE:
                 it = to_azure_resources(part, rt)
             case Cloud.GOOGLE | Cloud.GCP:
-                assert account_id, 'Account id must be provided for GOOGLE'
                 it = to_google_resources(
                     part, rt, metadata.rule(policy), account_id
                 )
@@ -567,29 +624,89 @@ def iter_rule_resources_iterator(
                 it = to_k8s_resources(part, rt)
             case _:
                 raise  # never
+        yield policy, location, it
 
+
+def iter_rule_resources(
+    collection: 'ShardsCollection',
+    cloud: Cloud,
+    metadata: Metadata = EMPTY_METADATA,
+    account_id: str = '',
+    *,
+    policies: tuple[str, ...] | set[str] = (),
+    regions: tuple[str, ...] | set[str] = (),
+    resource_types: tuple[str, ...] | set[str] = (),
+) -> Generator[tuple[str, Iterator[CloudResource]], None, None]:
+    """
+    Each rule is yielded only once. This method skips regions from shard parts
+    assuming that you will prefer regions from individual resource.
+    """
+    it = iter_rule_region_resources(
+        collection=collection,
+        cloud=cloud,
+        metadata=metadata,
+        account_id=account_id,
+        policies=policies,
+        regions=(),  # important, we will filter based by regions here
+        resource_types=resource_types,
+    )
+
+    rule_to_iters = {}
+    for rule, _, resources in it:
         if regions:
-            it = (item for item in it if item.location in regions)
-        rule_to_iters.setdefault(policy, []).append(it)
+            resources = (
+                item for item in resources if item.location in regions
+            )
+        rule_to_iters.setdefault(rule, []).append(resources)
 
     for rule, iters in rule_to_iters.items():
         yield rule, chain(*iters)
 
 
-def iter_rule_resources(
+def iter_rule_resource_region_resources(
     collection: 'ShardsCollection',
-    metadata: 'Metadata',
     cloud: Cloud,
+    metadata: Metadata = EMPTY_METADATA,
+    account_id: str = '',
+    *,
+    policies: tuple[str, ...] | set[str] = (),
+    regions: tuple[str, ...] | set[str] = (),
+    resource_types: tuple[str, ...] | set[str] = (),
+) -> Generator[tuple[str, str, list[CloudResource]], None, None]:
+    """
+    Groups by individual resource region
+    """
+    it = iter_rule_resources(
+        collection=collection,
+        cloud=cloud,
+        metadata=metadata,
+        account_id=account_id,
+        policies=policies,
+        regions=regions,
+        resource_types=resource_types,
+    )
+    for rule, resources in it:
+        mapped = {}
+        for r in resources:
+            mapped.setdefault(r.location, []).append(r)
+        for k, v in mapped.items():
+            yield rule, k, v
+
+
+def iter_rule_resource(
+    collection: 'ShardsCollection',
+    cloud: Cloud,
+    metadata: 'Metadata' = EMPTY_METADATA,
     account_id: str = '',
     *,
     policies: tuple[str, ...] | set[str] = (),
     regions: tuple[str, ...] | set[str] = (),
     resource_types: tuple[str, ...] | set[str] = (),
 ) -> Generator[tuple[str, CloudResource], None, None]:
-    it = iter_rule_resources_iterator(
+    it = iter_rule_resources(
         collection=collection,
-        metadata=metadata,
         cloud=cloud,
+        metadata=metadata,
         account_id=account_id,
         policies=policies,
         regions=regions,
