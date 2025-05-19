@@ -447,7 +447,7 @@ def to_aws_resources(
             arn = arns[i]
         elif has_arn:  # and not arns
             arn = _get_arn_fast(res, m)
-            if arn is None and account_id and hasattr(factory, 'has_arns'):
+            if arn is None and account_id and hasattr(factory, 'get_arns'):
                 # - not trying to generate arn if account id is not provided
                 # - hasattr checks against their bugs
                 arns = _get_arns(
