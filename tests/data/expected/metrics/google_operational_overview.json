@@ -1,28 +1,70 @@
 {
   "total_scans": 3,
-  "outdated_tenants": [],
   "failed_scans": 1,
   "succeeded_scans": 2,
   "activated_regions": [],
-  "last_scan_date": "2025-02-04T00:14:20.422230Z",
+  "last_scan_date": "2025-05-20T00:25:37.702151Z",
   "id": "testing-project-123",
   "resources_violated": 9,
   "total_findings": 14,
   "regions_data": {
     "global": {
       "severity": {
-        "Unknown": 9
+        "Unknown": 5
       },
       "service": {
         "Vpc": 1,
-        "Firewall": 4,
-        "Subnet": 4
+        "Firewall": 4
       },
       "resource_types": {
         "Vpc": 1,
-        "Firewall": 4,
-        "Subnet": 4
+        "Firewall": 4
+      }
+    },
+    "europe-west10": {
+      "severity": {
+        "Unknown": 1
+      },
+      "service": {
+        "Subnet": 1
+      },
+      "resource_types": {
+        "Subnet": 1
+      }
+    },
+    "africa-south1": {
+      "severity": {
+        "Unknown": 1
+      },
+      "service": {
+        "Subnet": 1
+      },
+      "resource_types": {
+        "Subnet": 1
+      }
+    },
+    "us-west8": {
+      "severity": {
+        "Unknown": 1
+      },
+      "service": {
+        "Subnet": 1
+      },
+      "resource_types": {
+        "Subnet": 1
+      }
+    },
+    "northamerica-south1": {
+      "severity": {
+        "Unknown": 1
+      },
+      "service": {
+        "Subnet": 1
+      },
+      "resource_types": {
+        "Subnet": 1
       }
     }
-  }
+  },
+  "outdated_tenants": []
 }

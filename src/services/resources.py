@@ -267,10 +267,11 @@ class K8SResource(CloudResource):
 
 class InPlaceResourceView(ResourceVisitor[dict]):
     """
-    Converts resource to its dict representation. Does not create a new dict
-    object but uses the one inside the resource for performance purpose. So,
-    be careful.
+    Converts resource to its dict representation. If full = True, it 
+    does not create a new dict object but uses the one inside the resource 
+    for performance purpose. So, be careful.
     """
+    __slots__ = '_full',
 
     def __init__(self, full: bool = False):
         self._full = full
@@ -279,7 +280,7 @@ class InPlaceResourceView(ResourceVisitor[dict]):
         self, resource: 'CloudResource', fields: tuple[str, ...]
     ) -> dict:
         if self._full:
-            return resource.data
+            return resource.data  # not a copy !!!
         else:
             return {k: resource.data[k] for k in fields if k in resource.data}
 
@@ -291,8 +292,8 @@ class InPlaceResourceView(ResourceVisitor[dict]):
         base['name'] = resource.name
         if resource.arn is not None:
             base['arn'] = resource.arn
-        if resource.date is not None:
-            base['date'] = resource.date_as_utc_iso()
+        # if resource.date is not None:
+        #     base['date'] = resource.date_as_utc_iso()
         return base
 
     def visitAZUREResource(
@@ -401,6 +402,16 @@ def _get_arn_fast(res: dict, model: 'AWSTypeInfo') -> str | None:
     if _id.startswith('arn'):
         return _id
 
+def _get_id_name(res: dict, rt: str, model) -> tuple[str | None, str | None]:
+    _id = get_path(res, model.id)
+    if not _id:
+        _LOG.warning(f'Resource {res} of type {rt} does not have an id')
+    name = get_path(res, model.name)
+    if not name:
+        _LOG.warning(f'Resource: {res} of type {rt} does not have name')
+        name = _id
+    return _id, name
+
 
 def to_aws_resources(
     part: 'BaseShardPart',
@@ -457,12 +468,14 @@ def to_aws_resources(
         else:  # not has_arn
             arn = None
 
+        _id, name = _get_id_name(res, rt, m)
+
         yield AWSResource(
             region=region,
             arn=arn,
             date=date,
-            id=get_path(res, m.id),
-            name=get_path(res, m.name),
+            id=_id,
+            name=name,
             resource_type=rt,
             sync_date=part.timestamp,
             data=res,
@@ -486,9 +499,10 @@ def to_azure_resources(
         return
 
     for res in part.resources:
+        _id, name = _get_id_name(res, rt, m)
         yield AZUREResource(
-            id=get_path(res, m.id),
-            name=get_path(res, m.name),
+            id=_id,
+            name=name,
             location=part.location,
             resource_type=rt,
             sync_date=part.timestamp,
@@ -524,11 +538,19 @@ def to_google_resources(
         else:
             urn = None
 
+        _id, name = _get_id_name(res, rt, m)
+        if 'id' in res and _id != res['id']:
+            # for some reason CC defines id the same as name for many google
+            # resources that do have a separate id. Maybe that's because
+            # Google's id is just a number, and it's better to show the name.
+            # Anyway, it's still an id
+            _id = res['id']
+
         # TODO: some how test against breaking changes
         yield GOOGLEResource(
             urn=urn,
-            id=get_path(res, m.id),
-            name=get_path(res, m.name),
+            id=_id,
+            name=name,
             location=m._get_location(res),
             resource_type=rt,
             sync_date=part.timestamp,
@@ -553,10 +575,11 @@ def to_k8s_resources(
         return
 
     for res in part.resources:
+        _id, name = _get_id_name(res, rt, m)
         yield K8SResource(
             namespace=get_path(res, 'metadata.namespace'),
-            id=get_path(res, m.id),
-            name=get_path(res, m.name),
+            id=_id,
+            name=name,
             resource_type=rt,
             sync_date=part.timestamp,
             data=res,

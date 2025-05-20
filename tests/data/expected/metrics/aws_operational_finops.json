@@ -1,6 +1,5 @@
 {
   "id": "123456789012",
-  "outdated_tenants": [],
   "data": {
     "Compute": [
       {
@@ -12,27 +11,31 @@
         "resources": {
           "eu-central-1": [
             {
+              "id": "sg-09d19538187df66cf",
+              "name": "asia",
+              "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-09d19538187df66cf"
+            },
+            {
               "id": "sg-05209ceeb761317e5",
-              "name": "west-eu"
+              "name": "west-eu",
+              "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-05209ceeb761317e5"
             },
             {
               "id": "sg-0ae266faddaef17e9",
-              "name": "packer-ssh-access"
-            },
-            {
-              "id": "sg-09d19538187df66cf",
-              "name": "asia"
+              "name": "packer-ssh-access",
+              "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-0ae266faddaef17e9"
             }
           ]
         }
       }
     ]
   },
-  "last_scan_date": "2025-02-04T00:15:05.088388Z",
+  "last_scan_date": "2025-05-20T00:42:41.234955Z",
   "activated_regions": [
     "eu-central-1",
     "eu-north-1",
     "eu-west-1",
     "eu-west-3"
-  ]
+  ],
+  "outdated_tenants": []
 }

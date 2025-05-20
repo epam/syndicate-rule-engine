@@ -107,9 +107,9 @@ class MetricsContext:
 
     def add_report(self, report: ReportMetrics, data: dict):
         key = report.entity, report.type
-        assert (
-            key not in self._reports
-        ), 'adding the same report twice within one context, smt is wrong'
+        assert key not in self._reports, (
+            'adding the same report twice within one context, smt is wrong'
+        )
         self._reports[key] = (report, data)
 
     def add_reports(self, reports: Iterator[tuple[ReportMetrics, dict]]):
@@ -641,13 +641,12 @@ class MetricsCollector:
             col = sc_provider.get_for_tenant(tenant, end)
             if col is None:
                 _LOG.warning(
-                    f'Cannot get shards collection for '
-                    f'{tenant.name} for {end}'
+                    f'Cannot get shards collection for {tenant.name} for {end}'
                 )
                 continue
             tjs = js.subset(tenant=tenant.name)
             scd = ShardsCollectionDataSource(
-                col, ctx.metadata, tenant_cloud(tenant)
+                col, ctx.metadata, tenant_cloud(tenant), tenant.project
             )
             # NOTE: ignoring jobs that are not finished
             succeeded, failed = tjs.n_succeeded, tjs.n_failed
@@ -716,8 +715,7 @@ class MetricsCollector:
             col = sc_provider.get_for_tenant(tenant, end)
             if col is None:
                 _LOG.warning(
-                    f'Cannot get shards collection for '
-                    f'{tenant.name} for {end}'
+                    f'Cannot get shards collection for {tenant.name} for {end}'
                 )
                 continue
             outdated = []
@@ -732,7 +730,7 @@ class MetricsCollector:
                 'id': tenant.project,
                 'data': list(
                     ShardsCollectionDataSource(
-                        col, ctx.metadata, tenant_cloud(tenant)
+                        col, ctx.metadata, tenant_cloud(tenant), tenant.project
                     ).resources()
                 ),
                 'last_scan_date': lsd,
@@ -834,8 +832,7 @@ class MetricsCollector:
             col = sc_provider.get_for_tenant(tenant, end)
             if col is None:
                 _LOG.warning(
-                    f'Cannot get shards collection for '
-                    f'{tenant.name} for {end}'
+                    f'Cannot get shards collection for {tenant.name} for {end}'
                 )
                 continue
 
@@ -849,7 +846,7 @@ class MetricsCollector:
             data = {
                 'id': tenant.project,
                 'data': ShardsCollectionDataSource(
-                    col, ctx.metadata, tenant_cloud(tenant)
+                    col, ctx.metadata, tenant_cloud(tenant), tenant.project
                 ).finops(),
                 'last_scan_date': lsd,
                 'activated_regions': sorted(
@@ -887,8 +884,7 @@ class MetricsCollector:
             col = sc_provider.get_for_tenant(tenant, end)
             if col is None:
                 _LOG.warning(
-                    f'Cannot get shards collection for '
-                    f'{tenant.name} for {end}'
+                    f'Cannot get shards collection for {tenant.name} for {end}'
                 )
                 continue
             if tenant.cloud == Cloud.AWS:
@@ -969,13 +965,12 @@ class MetricsCollector:
             col = sc_provider.get_for_tenant(tenant, end)
             if col is None:
                 _LOG.warning(
-                    f'Cannot get shards collection for '
-                    f'{tenant.name} for {end}'
+                    f'Cannot get shards collection for {tenant.name} for {end}'
                 )
                 continue
             mitre_data = []
             ds = ShardsCollectionDataSource(
-                col, ctx.metadata, tenant_cloud(tenant)
+                col, ctx.metadata, tenant_cloud(tenant), tenant.project
             )
             for (
                 region,
@@ -1164,8 +1159,7 @@ class MetricsCollector:
             col = sc_provider.get_for_tenant(tenant, end)
             if col is None:
                 _LOG.warning(
-                    f'Cannot get shards collection for '
-                    f'{tenant.name} for {end}'
+                    f'Cannot get shards collection for {tenant.name} for {end}'
                 )
                 continue
             outdated = []
@@ -1183,7 +1177,7 @@ class MetricsCollector:
                 ),
                 'data': list(
                     ShardsCollectionDataSource(
-                        col, ctx.metadata, tenant_cloud(tenant)
+                        col, ctx.metadata, tenant_cloud(tenant), tenant.project
                     ).deprecation()
                 ),
                 'outdated_tenants': outdated,
@@ -1530,8 +1524,7 @@ class MetricsCollector:
             col = sc_provider.get_for_tenant(tenant, end)
             if col is None:
                 _LOG.warning(
-                    f'Cannot get shards collection for '
-                    f'{tenant.name} for {end}'
+                    f'Cannot get shards collection for {tenant.name} for {end}'
                 )
                 continue
             tjs = js.subset(tenant=tenant.name)
@@ -1544,7 +1537,9 @@ class MetricsCollector:
                 ).last_succeeded_scan_date
             all_tenants.add(tenant.name)
 
-            sdc = ShardsCollectionDataSource(col, ctx.metadata, cloud)
+            sdc = ShardsCollectionDataSource(
+                col, ctx.metadata, cloud, tenant.project
+            )
 
             cloud_tenant.setdefault(cloud.value, []).append(
                 {
@@ -1617,7 +1612,9 @@ class MetricsCollector:
                     continue
                 tjs = js.subset(tenant=tenant.name)
                 # TODO: cache shards collection data source for the same dates
-                sdc = ShardsCollectionDataSource(col, ctx.metadata, cloud)
+                sdc = ShardsCollectionDataSource(
+                    col, ctx.metadata, cloud, tenant.project
+                )
 
                 lsd = tjs.last_succeeded_scan_date
                 if not lsd:
@@ -1686,8 +1683,7 @@ class MetricsCollector:
             col = sc_provider.get_for_tenant(tenant, end)
             if col is None:
                 _LOG.warning(
-                    f'Cannot get shards collection for '
-                    f'{tenant.name} for {end}'
+                    f'Cannot get shards collection for {tenant.name} for {end}'
                 )
                 continue
             if not js.subset(tenant=tenant.name).last_succeeded_scan_date:
@@ -1821,8 +1817,7 @@ class MetricsCollector:
             col = sc_provider.get_for_tenant(tenant, end)
             if col is None:
                 _LOG.warning(
-                    f'Cannot get shards collection for '
-                    f'{tenant.name} for {end}'
+                    f'Cannot get shards collection for {tenant.name} for {end}'
                 )
                 continue
             tjs = js.subset(tenant=tenant.name)
@@ -1835,7 +1830,9 @@ class MetricsCollector:
                 ).last_succeeded_scan_date
             all_tenants.add(tenant.name)
 
-            scd = ShardsCollectionDataSource(col, ctx.metadata, cloud)
+            scd = ShardsCollectionDataSource(
+                col, ctx.metadata, cloud, tenant.project
+            )
 
             tactic_severity = scd.tactic_to_severities()
 
@@ -1911,7 +1908,9 @@ class MetricsCollector:
                         f'{tenant.name} for {end}'
                     )
                     continue
-                sdc = ShardsCollectionDataSource(col, ctx.metadata, cloud)
+                sdc = ShardsCollectionDataSource(
+                    col, ctx.metadata, cloud, tenant.project
+                )
                 if not js.subset(tenant=tenant.name).last_succeeded_scan_date:
                     outdated.add(tenant.name)
                 all_tenants.add(tenant.name)
@@ -1990,7 +1989,7 @@ class MetricsCollector:
                     outdated.add(tenant.name)
 
                 sdc = ShardsCollectionDataSource(
-                    col, ctx.metadata, tenant_cloud(tenant)
+                    col, ctx.metadata, tenant_cloud(tenant), tenant.project
                 )
                 self._update_dict_values(rt_data, sdc.resource_types())
 

@@ -13,7 +13,7 @@ from dateutil.relativedelta import relativedelta
 from executor.services.report_service import JobResult
 from helpers.constants import Cloud, JobState, PolicyErrorType, ReportType
 from helpers.time_helper import utc_datetime
-from lambdas.custodian_metrics_updater.processors.new_metrics_collector import (
+from lambdas.custodian_metrics_updater.processors.metrics_collector import (
     MetricsCollector,
 )
 from services import SP
@@ -480,7 +480,7 @@ def test_metrics_update_department_c_level(
 
     with (
         patch(
-            'lambdas.custodian_metrics_updater.processors.new_metrics_collector.utc_datetime',
+            'lambdas.custodian_metrics_updater.processors.metrics_collector.utc_datetime',
             mocked,
         ),
         patch('services.reports.utc_datetime', mocked),
