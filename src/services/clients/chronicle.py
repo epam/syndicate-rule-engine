@@ -39,7 +39,7 @@ class ChronicleV2Client:
     https://cloud.google.com/chronicle/docs/reference/ingestion-api
     """
     _scopes = ['https://www.googleapis.com/auth/malachite-ingestion']
-    _payload_size_limit = 2 << 19  # 1mb
+    _payload_size_limit = 1 << 20
 
     __slots__ = '_baseurl', '_session', '_customer_id', '_encoder'
 

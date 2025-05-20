@@ -512,6 +512,11 @@ class CAASEnv(EnvEnum):
         ('CAAS_RECOMMENDATIONS_BUCKET_NAME',),
         'recommendation',
     )
+    REPORTS_SNAPSHOTS_LIFETIME_DAYS = (
+        'SRE_REPORTS_SNAPSHOTS_LIFETIME_DAYS',
+        (),
+        '60',
+    )
 
     # Cognito either one will work, but ID faster and safer
     USER_POOL_NAME = 'SRE_USER_POOL_NAME', ('CAAS_USER_POOL_NAME',)

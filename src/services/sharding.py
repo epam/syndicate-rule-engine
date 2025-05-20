@@ -270,7 +270,8 @@ class ShardsS3IO(ShardsIO):
     """
     Writer V1
     """
-    __slots__ = '_bucket', '_root', '_client', '_encoder'
+    __slots__ = '_bucket', '_root', '_client',
+    _encoder = msgspec.json.Encoder()
 
     def __init__(self, bucket: str, key: str, client: S3Client):
         """
@@ -280,7 +281,6 @@ class ShardsS3IO(ShardsIO):
         self._bucket = bucket
         self._root = key
         self._client = client
-        self._encoder = msgspec.json.Encoder()
 
     @property
     def key(self) -> str:

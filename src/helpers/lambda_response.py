@@ -19,7 +19,7 @@ Content = dict | list | str | Iterable | None
 
 # https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-limits.html
 # https://zaccharles.medium.com/deep-dive-lambdas-response-payload-size-limit-8aedba9530ed
-PAYLOAD_SIZE_LIMIT: Final[int] = (2 << 19) * 6
+PAYLOAD_SIZE_LIMIT: Final[int] = (1 << 20) * 6
 
 
 class LambdaOutput(TypedDict):

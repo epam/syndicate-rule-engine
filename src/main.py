@@ -280,7 +280,8 @@ class InitMinio(ActionHandler):
                     days=7, prefix=ReportMetaBucketsKeys.prefix
                 ),
                 SP.s3.build_lifecycle_rule(
-                    days=35, tag=('Type', 'DataSnapshot')
+                    days=CAASEnv.REPORTS_SNAPSHOTS_LIFETIME_DAYS.as_int(),
+                    tag=('Type', 'DataSnapshot')
                 ),
             ],
         )
