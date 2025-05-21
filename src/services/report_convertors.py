@@ -9,7 +9,7 @@ import msgspec
 from typing_extensions import NotRequired
 from xlsxwriter.workbook import Workbook
 
-from helpers.constants import Cloud
+from helpers.constants import Cloud, Severity
 from services.metadata import Metadata
 from services.resources import (
     CloudResource,
@@ -66,6 +66,12 @@ class ShardCollectionDojoConvertor(ShardCollectionConvertor):
                     cloud, metadata, **kwargs
                 )
 
+    @staticmethod
+    def to_dojo_severity(sev: Severity) -> Severity:
+        if sev is Severity.UNKNOWN:
+            return Severity.MEDIUM  # Why?.. Why not?
+        return sev
+
 
 # for generic dojo parser
 class FindingFile(TypedDict):
@@ -76,7 +82,7 @@ class FindingFile(TypedDict):
 class Finding(TypedDict):
     title: str
     date: str  # when discovered, iso
-    severity: str  # Info, Low, Medium, High, Critical. Info, if we don't know
+    severity: str  # Info, Low, Medium, High, Critical. Medium, if we don't know
     description: str
     mitigation: str | None
     impact: str | None
@@ -280,7 +286,7 @@ class ShardsCollectionGenericDojoConvertor(ShardCollectionDojoConvertor):
                     'date': datetime.fromtimestamp(
                         resources[0].sync_date, tz=timezone.utc
                     ).isoformat(),
-                    'severity': pm2.severity.value,
+                    'severity': self.to_dojo_severity(pm2.severity).value,
                     'mitigation': pm2.remediation,
                     'impact': pm2.impact,
                     'references': self._make_references(pm2.standard),
@@ -355,7 +361,7 @@ class ShardsCollectionCloudCustodianDojoConvertor(
                 'description': meta.get(rule, {}).get('description'),
                 'remediation': pm.remediation,
                 'impact': pm.impact,
-                'severity': pm.severity.value,
+                'severity': self.to_dojo_severity(pm.severity.value).value,
                 'standard': self._convert_standards(pm.standard),
                 'article': pm.article,
                 'service': pm.service,
