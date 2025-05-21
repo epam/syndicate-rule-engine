@@ -14,16 +14,15 @@ logging.basicConfig(
 )
 _LOG = logging.getLogger(__name__)
 
-TAGS = [{"Key": "Type", "Value": "DataSnapshot"}] 
+TAGS = [{'Key': 'Type', 'Value': 'DataSnapshot'}]
 
 def _init_minio() -> ServiceResource:
     endpoint = os.environ.get('SRE_MINIO_ENDPOINT')
     access_key = os.environ.get('SRE_MINIO_ACCESS_KEY_ID')
     secret_key = os.environ.get('SRE_MINIO_SECRET_ACCESS_KEY')
-    if not access_key:
-        _LOG.warning("No minio access key")
-    if not secret_key:
-        _LOG.warning("No minio secret key")
+    assert endpoint
+    assert access_key
+    assert secret_key
     resource = Session().resource(
         service_name='s3', 
         aws_access_key_id=access_key,
@@ -47,6 +46,7 @@ def patch() -> None:
         'Bucket': os.environ.get('SRE_REPORTS_BUCKET_NAME'),
         'MaxKeys': 1000
     }
+    assert params.get('Bucket')
 
     _LOG.debug(f"Bucket: {params['Bucket']}")
 
@@ -57,7 +57,6 @@ def patch() -> None:
         for item in response['Contents']:
             if re.match(r'(^|.*/)snapshots/.*', item['Key']):
                 client.put_object_tagging(Bucket=params['Bucket'], Key=item['Key'], Tagging={'TagSet': TAGS})
-                assert client.get_object_tagging(Bucket=params['Bucket'], Key=item['Key']).get('TagSet')
                 count += 1
         
         if response.get('IsTruncated'):
@@ -72,7 +71,7 @@ def main() -> int:
         patch()
         return 0
     except Exception as e:
-        _LOG.error(f"Unexpected exception. Type: {type(e)}. Error: {e}")
+        _LOG.exception(f"Unexpected exception. Error: {e}")
         return 1
 
 
