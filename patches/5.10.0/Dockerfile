@@ -2,8 +2,6 @@ FROM public.ecr.aws/docker/library/python:3.10-alpine
 
 RUN pip install --no-cache-dir boto3==1.36.11
 
-ENV SRE_MINIO_ENDPOINT="http://minio:9000"
-
 COPY --chmod=711 main.py /usr/local/bin/srepatch.py
 
 ENTRYPOINT ["python", "/usr/local/bin/srepatch.py"]
