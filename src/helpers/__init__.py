@@ -255,7 +255,7 @@ def peek(iterable) -> Optional[tuple[Any, chain]]:
         first = next(iterable)
     except StopIteration:
         return
-    return first, chain([first], iterable)
+    return first, chain((first, ), iterable)
 
 
 def urljoin(*args: str | int) -> str:

@@ -344,8 +344,6 @@ AUTHORIZATION_PARAM = 'authorization'
 # on-prem
 DOCKER_SERVICE_MODE, SAAS_SERVICE_MODE = 'docker', 'saas'
 
-ENV_TRUE = {'1', 'true', 'yes', 'y'}
-
 # RabbitMQ request
 EXTERNAL_DATA_ATTR = 'externalData'
 EXTERNAL_DATA_KEY_ATTR = 'externalDataKey'

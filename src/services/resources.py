@@ -413,6 +413,29 @@ def _get_id_name(res: dict, rt: str, model) -> tuple[str | None, str | None]:
     return _id, name
 
 
+def _resolve_s3_location(res: dict) -> str:
+    # LocationConstraint is None if region is us-east-1
+    return res.get('Location', {}).get('LocationConstraint') or 'us-east-1'
+
+
+def _resolve_azure_location(res: dict) -> str:
+    if 'location' in res:
+        return res['location']
+    return GLOBAL_REGION
+
+
+def _resolve_google_location(res: dict, model: 'GCPTypeInfo') -> str:
+    """
+    All Google rules are global, but each individual resource can have its specific region
+    """
+    # TODO: check for breaking changes, implement tests
+    loc = model._get_location(res)
+    if loc == 'global' and 'locationId' in res:
+        _LOG.warning('Resource contains locationId but CC returned global')
+        return res['locationId']
+    return loc
+
+
 def to_aws_resources(
     part: 'BaseShardPart',
     rt: str,
@@ -439,19 +462,22 @@ def to_aws_resources(
     arns: list[str] | None = None  # initialized first when needed
 
     is_cloudtrail = rt == 'aws.cloudtrail'
+    is_s3 = rt == 'aws.s3'
+    disc = (metadata.service, ) if metadata.service else ()
 
     for i, res in enumerate(part.resources):
         date = get_path(res, m.date) if m.date else None
-        # needed to distinguish different resources with the same resource
-        # type (aws.account) for example
-        service = metadata.service
-        region = part.location
 
         if is_cloudtrail and res.get('IsMultiRegionTrail'):
             _LOG.debug(
                 'Found multiregional trail. Moving it to multiregional region'
             )
             region = GLOBAL_REGION
+        elif is_s3:
+            _LOG.debug('Found S3 bucket. Resolving region from region constraints')
+            region = _resolve_s3_location(res)
+        else:
+            region = part.location
 
         # bear with me
         if has_arn and arns:
@@ -479,7 +505,7 @@ def to_aws_resources(
             resource_type=rt,
             sync_date=part.timestamp,
             data=res,
-            discriminators=(service,) if service else (),
+            discriminators=disc,
         )
 
 
@@ -503,7 +529,7 @@ def to_azure_resources(
         yield AZUREResource(
             id=_id,
             name=name,
-            location=part.location,
+            location=_resolve_azure_location(res),
             resource_type=rt,
             sync_date=part.timestamp,
             data=res,
@@ -529,9 +555,9 @@ def to_google_resources(
         return
 
     urn_has_project = m.urn_has_project
+    disc = (metadata.service, ) if metadata.service else ()
 
     for res in part.resources:
-        service = metadata.service
 
         if account_id or not urn_has_project:
             urn = m._get_urn(res, account_id)
@@ -546,16 +572,15 @@ def to_google_resources(
             # Anyway, it's still an id
             _id = res['id']
 
-        # TODO: some how test against breaking changes
         yield GOOGLEResource(
             urn=urn,
             id=_id,
             name=name,
-            location=m._get_location(res),
+            location=_resolve_google_location(res, m),
             resource_type=rt,
             sync_date=part.timestamp,
             data=res,
-            discriminators=(service,) if service else (),
+            discriminators=disc,
         )
 
 

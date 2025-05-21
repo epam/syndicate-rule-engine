@@ -8,11 +8,9 @@ from typing import Any, Callable, Generator, Iterable, Iterator, Literal, cast
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
 
-from helpers import deep_get, hashable, iter_key_values
+from helpers import deep_get, iter_key_values
 from helpers.constants import (
     COMPOUND_KEYS_SEPARATOR,
-    GLOBAL_REGION,
-    REPORT_FIELDS,
     Cloud,
     JobState,
     ReportType,
@@ -20,7 +18,6 @@ from helpers.constants import (
 from helpers.log_helper import get_logger
 from helpers.reports import (
     SeverityCmp,
-    adjust_resource_type,
     keep_highest,
     service_from_resource_type,
 )
@@ -34,13 +31,12 @@ from services.metadata import Metadata, MitreAttack
 from services.platform_service import Platform
 from services.report_service import ReportService
 from services.reports_bucket import ReportMetricsBucketKeysBuilder
-from services.sharding import ShardsCollection
 from services.resources import (
     CloudResource,
     iter_rule_resources,
     InPlaceResourceView,
 )
-
+from services.sharding import ShardsCollection
 
 _LOG = get_logger(__name__)
 

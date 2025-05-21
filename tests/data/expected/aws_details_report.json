@@ -359,7 +359,6 @@
               "c7n:MatchedFilters": [
                 "Versioning.MFADelete"
               ],
-              "date": "2024-07-16T13:24:02Z",
               "id": "example-artifacts",
               "name": "example-artifacts"
             }
@@ -466,7 +465,6 @@
                 "Status": "Suspended"
               },
               "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
-              "date": "2024-07-16T13:24:02Z",
               "id": "example-artifacts",
               "name": "example-artifacts"
             }
@@ -516,7 +514,6 @@
               "c7n:MatchedFilters": [
                 "Versioning.MFADelete"
               ],
-              "date": "2020-08-13T13:37:17Z",
               "id": "macro-delivery",
               "name": "macro-delivery"
             }
@@ -1041,7 +1038,6 @@
               "UsageOperationUpdateTime": "2024-10-16T09:03:25+00:00",
               "VirtualizationType": "hvm",
               "VpcId": "vpc-0fd123269e7109aa0",
-              "date": "2024-10-16T09:03:25Z",
               "id": "i-0580697d712fb5b56",
               "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673"
             },
@@ -1181,7 +1177,6 @@
               "UsageOperationUpdateTime": "2024-06-25T09:35:34+00:00",
               "VirtualizationType": "hvm",
               "VpcId": "vpc-b78b9ad3",
-              "date": "2024-06-25T09:35:34Z",
               "id": "i-0771a4eb028bda937",
               "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673"
             }
@@ -1332,7 +1327,6 @@
               "c7n:MatchedFilters": [
                 "Versioning.MFADelete"
               ],
-              "date": "2022-06-20T10:54:56Z",
               "id": "example-reports-dev",
               "name": "example-reports-dev"
             },
@@ -1372,7 +1366,6 @@
               "c7n:MatchedFilters": [
                 "Versioning.MFADelete"
               ],
-              "date": "2024-05-30T08:05:41Z",
               "id": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1",
               "name": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1"
             },
@@ -1417,7 +1410,6 @@
               "c7n:MatchedFilters": [
                 "Versioning.MFADelete"
               ],
-              "date": "2022-07-05T10:17:37Z",
               "id": "example-rulesets-dev",
               "name": "example-rulesets-dev"
             }
@@ -1482,7 +1474,6 @@
               ],
               "Versioning": {},
               "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
-              "date": "2022-06-20T10:54:56Z",
               "id": "example-reports-dev",
               "name": "example-reports-dev"
             },
@@ -1519,7 +1510,6 @@
               "Tags": [],
               "Versioning": {},
               "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
-              "date": "2024-05-30T08:05:41Z",
               "id": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1",
               "name": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1"
             },
@@ -1556,7 +1546,6 @@
               "Tags": [],
               "Versioning": {},
               "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
-              "date": "2019-05-08T15:03:20Z",
               "id": "example-meta-storage-eu-west-1-tmp",
               "name": "example-meta-storage-eu-west-1-tmp"
             }
@@ -1626,7 +1615,6 @@
               "c7n:MatchedFilters": [
                 "Versioning.MFADelete"
               ],
-              "date": "2019-12-17T17:05:18Z",
               "id": "example-meta-storage-eu-west-3-par",
               "name": "example-meta-storage-eu-west-3-par"
             }
@@ -1649,7 +1637,6 @@
               "GroupName": "example-dev-extended-group",
               "Path": "/",
               "arn": "arn:aws:iam::123456789012:group/example-dev-extended-group",
-              "date": "2022-06-06T07:35:04Z",
               "id": "example-dev-extended-group",
               "name": "example-dev-extended-group"
             },
@@ -1660,7 +1647,6 @@
               "GroupName": "example-dev-group",
               "Path": "/",
               "arn": "arn:aws:iam::123456789012:group/example-dev-group",
-              "date": "2022-05-24T12:47:26Z",
               "id": "example-dev-group",
               "name": "example-dev-group"
             },
@@ -1671,7 +1657,6 @@
               "GroupName": "DeployGroupWithoutIAM",
               "Path": "/",
               "arn": "arn:aws:iam::123456789012:group/DeployGroupWithoutIAM",
-              "date": "2017-07-10T11:39:45Z",
               "id": "DeployGroupWithoutIAM",
               "name": "DeployGroupWithoutIAM"
             }
@@ -1681,7 +1666,7 @@
     },
     "customer_name": "TEST_CUSTOMER",
     "format": "json",
-    "job_id": "eca216d5-50e7-475b-875c-2b6408b05322",
+    "job_id": "6cb6c2e2-3b2a-4271-9983-52bf5e4cde58",
     "job_type": "manual",
     "obfuscated": false,
     "tenant_name": "AWS-TESTING"
