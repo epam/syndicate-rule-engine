@@ -21,9 +21,9 @@ def _init_minio() -> ServiceResource:
     access_key = os.environ.get('SRE_MINIO_ACCESS_KEY_ID')
     secret_key = os.environ.get('SRE_MINIO_SECRET_ACCESS_KEY')
     if not access_key:
-        _LOG.warning("No access key")
+        _LOG.warning("No minio access key")
     if not secret_key:
-        _LOG.warning("No secret key")
+        _LOG.warning("No minio secret key")
     resource = Session().resource(
         service_name='s3', 
         aws_access_key_id=access_key,
@@ -38,7 +38,7 @@ def _init_minio() -> ServiceResource:
 
 def patch() -> None:
     """
-    This patch tags all the files with */snapshot/* prefix as `Type: DataSnapshot`
+    This patch tags all the files with `snapshots/*` or `*/snapshots/*` prefixes as `Type: DataSnapshot`
     """
     _LOG.info("Starting patch")
 
@@ -57,7 +57,7 @@ def patch() -> None:
         for item in response['Contents']:
             if re.match(r'(^|.*/)snapshots/.*', item['Key']):
                 client.put_object_tagging(Bucket=params['Bucket'], Key=item['Key'], Tagging={'TagSet': TAGS})
-                assert client.get_object_tagging(Bucket=params['Bucket'], Key=item['Key'])['TagSet']
+                assert client.get_object_tagging(Bucket=params['Bucket'], Key=item['Key']).get('TagSet')
                 count += 1
         
         if response.get('IsTruncated'):
@@ -72,7 +72,7 @@ def main() -> int:
         patch()
         return 0
     except Exception as e:
-        _LOG.error(f"Unexpected exception type: {type(e)}, error: {e}")
+        _LOG.error(f"Unexpected exception. Type: {type(e)}. Error: {e}")
         return 1
 
 
