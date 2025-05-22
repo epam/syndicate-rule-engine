@@ -68,7 +68,7 @@ class ChronicleV2Client:
     def _batches(self, entities: list[dict]
                  ) -> Generator[list[dict], None, None]:
         """
-        Chronicle accepts only payloads less or eq that 1mb. This method
+        Chronicle accepts only payloads less or eq than 1mb. This method
         calculates the total length of payload for given list of entities
         splits them to batches less than 1mb. We do this assuming that each
         entity has more or less the same size
@@ -106,7 +106,7 @@ class ChronicleV2Client:
             )
             if resp is None or not resp.ok:
                 _LOG.warning(f'Error occurred creating events: '
-                             f'{self._load_json(resp.json())}')
+                             f'{self._load_json(resp)}')
                 success = False
         return success
 
@@ -131,7 +131,7 @@ class ChronicleV2Client:
             )
             if resp is None or not resp.ok:
                 _LOG.warning(f'Error occurred creating entities: '
-                             f'{self._load_json(resp.json())}')
+                             f'{self._load_json(resp)}')
                 success = False
         return success
 

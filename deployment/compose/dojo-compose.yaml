@@ -33,6 +33,8 @@ services:
       DD_CELERY_BROKER_URL: "redis://redis:6379/0"
       DD_SECRET_KEY: "${DD_SECRET_KEY:-jCewZxIy6zqdSHUgYoQTvbck98FsPunD=}"
       DD_CREDENTIAL_AES_256_KEY: "${DD_CREDENTIAL_AES_256_KEY:-apzguVI15D6WqXt0YMHGA9RSkylw8cfv=}"
+      DD_DATA_UPLOAD_MAX_MEMORY_SIZE: "${DD_DATA_UPLOAD_MAX_MEMORY_SIZE:-512}"
+      DD_SCAN_FILE_MAX_SIZE: "${DD_SCAN_FILE_MAX_SIZE:-1}"
     volumes:
 #      - type: bind  # todo provide extra settings for rule engine
 #        source: ./docker/extra_settings
