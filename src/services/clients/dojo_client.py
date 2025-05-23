@@ -1,5 +1,7 @@
 from datetime import datetime
 from typing import Generator
+from collections import defaultdict
+import os
 
 import requests
 import msgspec
@@ -15,23 +17,6 @@ class DojoV2Client:
     __slots__ = ('_url', '_session')
 
     encoder = msgspec.json.Encoder()
-
-    # There are three limits one in nginx and two in dojo
-    # In nginx it set to 800MB (by default it's 1MB) 
-    # In dojo first set to 8MB for POST requests
-    # In dojo second set to 100MB for file size for scan added via API
-    # nginx.conf:
-    # 14  client_max_body_size 800m;
-    # settings.dist.py:
-    # 95  DD_DATA_UPLOAD_MAX_MEMORY_SIZE=(int, 8388608)
-    # ...
-    # 272 DD_SCAN_FILE_MAX_SIZE=(int, 100)
-
-    # tested limit for POST requests (DD_DATA_UPLOAD_MAX_MEMORY_SIZE) 
-    # and couldn't reproduced described error
-
-    # TODO: test with ngingx limit and file size limit (DD_SCAN_FILE_MAX_SIZE)
-
 
     _payload_size_limit = SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES
 
@@ -81,25 +66,40 @@ class DojoV2Client:
         """
         yield from batches_with_critic(
             iterable = entities, 
-            critic = lambda x: len(self.encoder.encode(x)), 
+            critic = lambda x: len(self.encoder.encode(x))+2, # +2 for spaces and commas
             limit = self._payload_size_limit,
             drop_violating_items=True
         )
+    
+    @staticmethod
+    def _generate_mock_findings(n: int) -> list[dict]:
+        return [{
+            'title': f'Mock finding {i}',
+            'date': '2025-05-15T11:20:00.070237+00:00',
+            'description': f'Mock description {i}',
+            'severity': 'Medium',
+            'files': {
+                'title': f'mock_file_{i}.csv',
+                'data': os.urandom(1024)
+            }
+        } for i in range(n)]
 
     def import_scan(self, scan_type: str, scan_date: datetime,
                     product_type_name: str,
                     product_name: str, engagement_name: str, test_title: str,
                     data: dict, auto_create_context: bool = True,
                     tags: list[str] | None = None, reimport: bool = True,
-                    ) -> requests.Response | None:
-        # TODO: it should return bool or list of responses. 
-        # Using final_response to not break existing logic with it.
-        final_response = None
+                    ) -> tuple[dict[str, int], list]:
         _LOG.debug(f'Data bytes: {len(self.encoder.encode(data))}')
         _LOG.debug(f'Data elements: {len(data["findings"])}')
+
+        result = defaultdict(int)
+        failure_codes = []
         for batch in self._batches(data['findings']):
+        
             _LOG.debug(f'Batch bytes: {len(self.encoder.encode(batch))}')
             _LOG.debug(f'Batch elements: {len(batch)}')
+
             resp = self._request(
                 path='/reimport-scan/' if reimport else '/import-scan/',
                 method=HTTPMethod.POST,
@@ -117,10 +117,15 @@ class DojoV2Client:
                     'file': ('report.json', self.encoder.encode({'findings': batch}))
                 }
             )
+            
             if resp is None or not resp.ok:
                 _LOG.warning(f'Error occurred. Resp: {self._load_json(resp)}')
-            final_response = resp
-        return final_response
+                result['failure'] += 1
+                failure_codes.append(getattr(resp, 'status_code', None))
+            else:
+                result['success'] += 1
+        
+        return result, failure_codes
 
     def _request(self, path: str, method: HTTPMethod,
                  params: dict | None = None, data: dict | None = None,
