@@ -1,9 +1,13 @@
 from datetime import datetime
+from typing import Generator
+from collections import defaultdict
+import os
 
 import requests
 import msgspec
 
-from helpers.constants import HTTPMethod
+from helpers import batches_with_critic
+from helpers.constants import HTTPMethod, SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES
 from helpers.log_helper import get_logger
 
 _LOG = get_logger(__name__)
@@ -13,6 +17,8 @@ class DojoV2Client:
     __slots__ = ('_url', '_session')
 
     encoder = msgspec.json.Encoder()
+
+    _payload_size_limit = SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES
 
     def __init__(self, url: str, api_key: str):
         """
@@ -41,30 +47,85 @@ class DojoV2Client:
         if resp is None or not resp.ok:
             return
         return resp.json()
+    
+    @staticmethod
+    def _load_json(resp) -> dict | list | None:
+        try:
+            return resp.json()
+        except Exception:
+            return
+    
+    def _batches(self, entities: list
+                 ) -> Generator[list[dict], None, None]:
+        """
+        Dojo accepts only payloads of limited size. 
+        This function batch data into batches 
+        that can't be bigger than specified limit
+        :param entities:
+        :return:
+        """
+        yield from batches_with_critic(
+            iterable = entities, 
+            critic = lambda x: len(self.encoder.encode(x))+2, # +2 for spaces and commas
+            limit = self._payload_size_limit,
+            drop_violating_items=True
+        )
+    
+    @staticmethod
+    def _generate_mock_findings(n: int) -> list[dict]:
+        return [{
+            'title': f'Mock finding {i}',
+            'date': '2025-05-15T11:20:00.070237+00:00',
+            'description': f'Mock description {i}',
+            'severity': 'Medium',
+            'files': {
+                'title': f'mock_file_{i}.csv',
+                'data': os.urandom(1024)
+            }
+        } for i in range(n)]
 
     def import_scan(self, scan_type: str, scan_date: datetime,
                     product_type_name: str,
                     product_name: str, engagement_name: str, test_title: str,
                     data: dict, auto_create_context: bool = True,
                     tags: list[str] | None = None, reimport: bool = True,
-                    ) -> requests.Response | None:
-        return self._request(
-            path='/reimport-scan/' if reimport else '/import-scan/',
-            method=HTTPMethod.POST,
-            data={
-                'product_type_name': product_type_name,
-                'product_name': product_name,
-                'engagement_name': engagement_name,
-                'test_title': test_title,
-                'auto_create_context': auto_create_context,
-                'tags': tags or [],
-                'scan_type': scan_type,
-                'scan_date': scan_date.date().isoformat()
-            },
-            files={
-                'file': ('report.json', self.encoder.encode(data))
-            }
-        )
+                    ) -> tuple[dict[str, int], list]:
+        _LOG.debug(f'Data bytes: {len(self.encoder.encode(data))}')
+        _LOG.debug(f'Data elements: {len(data["findings"])}')
+
+        result = defaultdict(int)
+        failure_codes = []
+        for batch in self._batches(data['findings']):
+        
+            _LOG.debug(f'Batch bytes: {len(self.encoder.encode(batch))}')
+            _LOG.debug(f'Batch elements: {len(batch)}')
+
+            resp = self._request(
+                path='/reimport-scan/' if reimport else '/import-scan/',
+                method=HTTPMethod.POST,
+                data={
+                    'product_type_name': product_type_name,
+                    'product_name': product_name,
+                    'engagement_name': engagement_name,
+                    'test_title': test_title,
+                    'auto_create_context': auto_create_context,
+                    'tags': tags or [],
+                    'scan_type': scan_type,
+                    'scan_date': scan_date.date().isoformat()
+                },
+                files={
+                    'file': ('report.json', self.encoder.encode({'findings': batch}))
+                }
+            )
+            
+            if resp is None or not resp.ok:
+                _LOG.warning(f'Error occurred. Resp: {self._load_json(resp)}')
+                result['failure'] += 1
+                failure_codes.append(getattr(resp, 'status_code', None))
+            else:
+                result['success'] += 1
+        
+        return result, failure_codes
 
     def _request(self, path: str, method: HTTPMethod,
                  params: dict | None = None, data: dict | None = None,

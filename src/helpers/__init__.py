@@ -112,6 +112,45 @@ def batches(iterable: Iterable, n: int) -> Generator[list, None, None]:
         yield batch
         batch = list(islice(it, n))
 
+def batches_with_critic(
+        iterable: Iterable[T], 
+        critic: Callable[[T], float], 
+        limit: float,
+        drop_violating_items: bool = False
+    ) -> Generator[list[T], None, None]:
+    """
+    Batch data into lists based on their value. 
+    Sum of items in batch can't be bigger than `limit`.
+    :param iterable: 
+    :param critic:
+    :param limit:
+    :param drop_violating_items: 
+    :return:
+    """
+    current_batch = []
+    current_sum = 0
+
+    for item in iterable:
+        item_value = critic(item)
+        if item_value > limit:
+            if drop_violating_items:
+                _LOG.warning(f"Violating item was droped. Value: {item_value}")
+                continue
+            else:
+                raise ValueError(
+                    f"One of the items have value: {item_value} that is bigger then limit"
+                )
+        if current_sum + item_value <= limit:
+            current_batch.append(item)
+            current_sum += item_value
+        else:
+            yield current_batch
+            current_batch = [item]
+            current_sum = item_value
+
+    if current_batch:
+        yield current_batch
+
 
 class HashableDict(dict):
     def __hash__(self) -> int:

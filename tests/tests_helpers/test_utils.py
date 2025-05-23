@@ -17,6 +17,7 @@ from helpers import (
     MultipleCursorsWithOneLimitIterator,
     catchdefault,
     batches,
+    batches_with_critic,
     dereference_json,
     NextToken,
     iter_values,
@@ -65,6 +66,22 @@ def test_batches():
     assert next(it) == [3, 4]
     assert next(it) == [5]
     with pytest.raises(StopIteration):
+        next(it)
+
+def test_batches_with_critic():
+    gen = (i%20 for i in range(400))
+    it = batches_with_critic(gen, lambda x: x, 20)
+    for i in it:
+        assert sum(i) <= 20
+    
+    gen = (i%20 for i in range(400))
+    it = batches_with_critic(gen, lambda x: x, 10, True)
+    for i in it:
+        assert sum(i) <= 10
+    
+    gen = (i%20 for i in range(400))
+    it = batches_with_critic(gen, lambda x: x, 0.5)
+    with pytest.raises(ValueError):
         next(it)
 
 

@@ -77,8 +77,11 @@ class SwaggerHandler(AbstractHandler):
         if scheme:
             return [f'{scheme.lower()}://{host}']
         parsed: Url = parse_url(host)
-        port = parsed.port or 443
-        scheme = parsed.scheme or ('https' if port == 443 else 'http')
+        port = parsed.port or 80
+        if parsed.scheme not in ['https', 'http']:
+            scheme = ('https' if port == 443 else 'http')
+        else:
+            scheme = parsed.scheme
         return [f'{scheme}://{host}']
 
     def get(self, event: dict):

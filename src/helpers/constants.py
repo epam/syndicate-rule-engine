@@ -1328,3 +1328,6 @@ class RabbitCommand(str, Enum):
 class ScheduledJobType(str, Enum):
     STANDARD = 'standard'
     SYSTEM = 'system'
+
+# dojo
+SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES=int(os.environ.get("SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES", "8388608"))
