@@ -515,6 +515,8 @@ def to_aws_resources(
     is_cloudtrail = rt == 'aws.cloudtrail'
     is_s3 = rt == 'aws.s3'
     disc = (metadata.service, ) if metadata.service else ()
+    timestamp = part.last_successful_timestamp()
+    assert timestamp, 'Only parts that executed successfully allowed'
 
     for i, res in enumerate(part.resources):
         date = get_path(res, m.date) if m.date else None
@@ -554,7 +556,7 @@ def to_aws_resources(
             id=_id,
             name=name,
             resource_type=rt,
-            sync_date=part.timestamp,
+            sync_date=timestamp,
             data=res,
             discriminators=disc,
         )
@@ -574,6 +576,8 @@ def to_azure_resources(
     if not m:
         _LOG.warning(f'{factory} has no resource_type')
         return
+    timestamp = part.last_successful_timestamp()
+    assert timestamp, 'Only parts that executed successfully allowed'
 
     for res in part.resources:
         _id, name = _get_id_name(res, rt, m)
@@ -582,7 +586,7 @@ def to_azure_resources(
             name=name,
             location=_resolve_azure_location(res),
             resource_type=rt,
-            sync_date=part.timestamp,
+            sync_date=timestamp,
             data=res,
         )
 
@@ -607,6 +611,8 @@ def to_google_resources(
 
     urn_has_project = m.urn_has_project
     disc = (metadata.service, ) if metadata.service else ()
+    timestamp = part.last_successful_timestamp()
+    assert timestamp, 'Only parts that executed successfully allowed'
 
     for res in part.resources:
 
@@ -629,7 +635,7 @@ def to_google_resources(
             name=name,
             location=_resolve_google_location(res, m),
             resource_type=rt,
-            sync_date=part.timestamp,
+            sync_date=timestamp,
             data=res,
             discriminators=disc,
         )
@@ -649,6 +655,8 @@ def to_k8s_resources(
     if not m:
         _LOG.warning(f'{factory} has no resource_type')
         return
+    timestamp = part.last_successful_timestamp()
+    assert timestamp, 'Only parts that executed successfully allowed'
 
     for res in part.resources:
         _id, name = _get_id_name(res, rt, m)
@@ -657,7 +665,7 @@ def to_k8s_resources(
             id=_id,
             name=name,
             resource_type=rt,
-            sync_date=part.timestamp,
+            sync_date=timestamp,
             data=res,
         )
 
@@ -690,6 +698,8 @@ def iter_rule_region_resources(
 
     meta = collection.meta
 
+    # NOTE: here we iterate only over those rules that executed successfully
+    # at least once even if their latest execution was failed
     for part in collection.iter_parts():
         policy = part.policy
         location = part.location

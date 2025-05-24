@@ -439,8 +439,27 @@ class ShardsCollection(Iterable[tuple[int, Shard]]):
         return self.shards.__len__()
 
     def iter_parts(self) -> Generator[ShardPart, None, None]:
+        """
+        Yields only parts that executed successfully at least once.
+        """
+        for _, shard in self:
+            for part in shard:
+                # if part.last_successful_timestamp()
+                if part.error is None or part.previous_timestamp:
+                    yield part
+
+    def iter_all_parts(self) -> Generator[ShardPart, None, None]:
+        """
+        Yields all parts even those without resources. So, you should handle
+        """
         for _, shard in self:
             yield from shard
+
+    def iter_error_parts(self) -> Generator[ShardPart, None, None]:
+        for _, shard in self:
+            for part in shard:
+                if part.error is not None:
+                    yield part
 
     def update(self, other: 'ShardsCollection'):
         """

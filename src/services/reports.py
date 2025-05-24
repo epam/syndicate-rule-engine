@@ -1,9 +1,19 @@
 import bisect
 from datetime import datetime, date
-from enum import Enum
+from abc import ABC, abstractmethod
 from functools import cached_property, cmp_to_key
 from itertools import chain
-from typing import Any, Callable, Generator, Iterable, Iterator, Literal, cast
+from typing import (
+    Any,
+    Callable,
+    Generator,
+    Iterable,
+    Iterator,
+    Literal,
+    cast,
+    Generic,
+    TypeVar,
+)
 
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
@@ -35,24 +45,11 @@ from services.resources import (
     CloudResource,
     iter_rule_resources,
     InPlaceResourceView,
+    ResourceVisitor
 )
-from services.sharding import ShardsCollection
+from services.sharding import ShardsCollection, RuleMeta
 
 _LOG = get_logger(__name__)
-
-
-class CustomAttribute(str, Enum):
-    REGION = 'sre:region'
-    SERVICE = 'sre:service'
-
-    @classmethod
-    def pop_custom(cls, dct: dict) -> dict:
-        """
-        Returns the same instance for convenience
-        """
-        for attr in cls:
-            dct.pop(attr.value, None)
-        return dct
 
 
 class JobMetricsDataSource:
@@ -186,6 +183,223 @@ class JobMetricsDataSource:
         return tuple(
             set(j.platform_id for j in self._jobs if j.is_platform_job)
         )
+
+
+T = TypeVar('T')
+
+
+class ReportVisitor(ABC, Generic[T]):
+    def visitDefault(self, report: 'Report', /, *args, **kwargs) -> T:
+        _LOG.warning('Default visitor entered, can a bug')
+
+class Report:
+    __slots__ = ()
+    def accept(self, visitor: ReportVisitor[T], /, **kwargs) -> T:
+        method = getattr(
+            visitor, f'visit{self.__class__.__name__}', visitor.visitDefault
+        )
+        return method(self, **kwargs)
+
+
+class ResourcesReport(Report):
+    pass
+
+
+class DeprecationReport(Report):
+    pass
+
+
+class FinopsReport(Report):
+    pass
+
+
+class AttacksReport(Report):
+    pass
+
+
+class ScopedRulesSelector(ReportVisitor[set[str]]):
+    __slots__ = ('_metadata',)
+
+    def __init__(self, metadata: Metadata):
+        self._metadata = metadata
+
+    def visitDefault(
+        self, report: 'Report', /, rules: Iterable[str], **kwargs
+    ) -> set[str]:
+        return set(rules)
+
+    def visitResourcesReport(
+        self, report: 'ResourcesReport', /, rules: Iterable[str], **kwargs
+    ) -> set[str]:
+        """
+        Resources report contains all rules
+        """
+        return set(rules)
+
+    def visitDeprecationReport(
+        self, report: 'DeprecationReport', /, rules: Iterable[str], **kwargs
+    ) -> set[str]:
+        meta = self._metadata
+        return {rule for rule in rules if meta.rule(rule).is_deprecation()}
+
+    def visitFinopsReport(
+        self, report: 'FinopsReport', /, rules: Iterable[str], **kwargs
+    ) -> set[str]:
+        meta = self._metadata
+        return {rule for rule in rules if meta.rule(rule).is_finops()}
+
+    def visitAttacksReport(
+        self, report: 'AttacksReport', /, rules: Iterable[str], **kwargs
+    ) -> set[str]:
+        meta = self._metadata
+        return {rule for rule in rules if meta.rule(rule).mitre}
+
+
+class OperationalReportGenerator(ReportVisitor[Generator[dict, None, None]]):
+    """
+    Defines methods to generate some operational reports payloads
+    """
+    __slots__ = ('_metadata', '_view')
+
+    def __init__(self, metadata: Metadata, view: ReportVisitor[dict]):
+        self._metadata = metadata
+        self._view = view
+
+    def visitDefault(self, report: 'Report', /, **kwargs) -> Generator[dict, None, None]:
+        yield from ()
+
+    def visitResourcesReport(self, report: 'ResourcesReport', /,
+                             rule_resources: dict[str, set[CloudResource]],
+                             meta: dict[str, RuleMeta],
+                             **kwargs) -> Generator[dict, None, None]:
+        for rule in rule_resources:
+            rm = meta.get(rule, {})
+            by_region = {}
+            for r in rule_resources[rule]:
+                by_region.setdefault(r.location, []).append(r.accept(self._view))
+            yield {
+                'policy': rule,
+                'resource_type': service_from_resource_type(rm['resource']),
+                'description': rm.get('description') or '',
+                'severity': self._metadata.rule(rule).severity.value,
+                'resources': by_region,
+            }
+
+    def visitDeprecationReport(self, report: 'DeprecationReport', /,
+                               rule_resources: dict[str, set[CloudResource]],
+                               meta: dict[str, RuleMeta],
+                               **kwargs) -> Generator[dict, None, None]:
+        for rule in rule_resources:
+            rm = self._metadata.rule(rule)
+            category = rm.deprecation_category()
+            if not category:
+                continue  # not a deprecation rule
+            by_region = {}
+            for r in rule_resources[rule]:
+                by_region.setdefault(r.location, []).append(r.accept(self._view))
+
+            yield {
+                'category': category,
+                'deprecation_date': rm.deprecation.date.isoformat()
+                if isinstance(rm.deprecation.date, date)
+                else None,
+                'is_deprecated': rm.deprecation.is_deprecated,
+                'deprecation_severity': rm.deprecation.severity.value,
+                'deprecation_link': rm.deprecation.link,
+                'remediation_complexity': rm.remediation_complexity.value,
+                'remediation': rm.remediation,
+                'policy': rule,
+                'description': meta[rule].get('description', ''),
+                'resource_type': service_from_resource_type(
+                    meta[rule]['resource']
+                ),
+                'resources': by_region,
+            }
+
+    def visitFinopsReport(self, report: 'FinopsReport', /,
+                          rule_resources: dict[str, set[CloudResource]],
+                          meta: dict[str, RuleMeta],
+                          **kwargs) -> Generator[dict, None, None]:
+        mapping = {}
+        for rule in rule_resources:
+            rm = self._metadata.rule(rule)
+            finops_category = rm.finops_category()
+            if not finops_category:
+                continue
+            ss = rm.service_section
+            if not ss:
+                _LOG.warning(f'Rule {rule} does not have service section')
+                continue
+            by_region = {}
+            for r in rule_resources[rule]:
+                by_region.setdefault(r.location, []).append(r.accept(self._view))
+            mapping.setdefault(ss, []).append(
+                {
+                    'rule': meta[rule].get('description', rule),
+                    'service': rm.service
+                    or service_from_resource_type(meta[rule]['resource']),
+                    'category': finops_category,
+                    'severity': rm.severity.value,
+                    'resource_type': service_from_resource_type(meta[rule]['resource']),
+                    'resources': by_region,
+                }
+            )
+        for ss, data in mapping.items():
+            yield {
+                'service_section': ss,
+                'rules_data': data
+            }
+
+    def visitAttacksReport(self, report: 'AttacksReport', /,
+                           rule_resources: dict[str, set[CloudResource]],
+                           meta: dict[str, RuleMeta],
+                           **kwargs) -> Generator[dict, None, None]:
+        """
+        Yields a unique attack, a target resource and rules that can cause
+        such an attack:
+        region, service, resource_type, resource, dict[MitreAttack, list[str]]
+        """
+
+        unique_resource_to_attack_rules = {}
+        for rule in rule_resources:
+            s = self._metadata.rule(rule).service
+            rule_attacks = tuple(self._metadata.rule(rule).iter_mitre_attacks())
+            if not rule_attacks:
+                _LOG.warning(f'No attacks found for rule: {rule}')
+                continue
+            for res in rule_resources[rule]:
+                _, attacks = unique_resource_to_attack_rules.setdefault(
+                    res, (s, {})
+                )
+                for attack in rule_attacks:
+                    attacks.setdefault(attack, []).append(rule)
+        for res, (s, attacks) in unique_resource_to_attack_rules.items():
+            at = []
+            for attack, rules in attacks.items():
+                inner = attack.to_dict()
+                inner['severity'] = sorted(
+                    (self._metadata.rule(r).severity.value for r in rules),
+                    key=cmp_to_key(SeverityCmp()),
+                )[-1]
+                inner['violations'] = [
+                    {
+                        'description': meta[rule]['description'],
+                        'remediation': self._metadata.rule(rule).remediation,
+                        'remediation_complexity': self._metadata.rule(
+                            rule
+                        ).remediation_complexity.value,
+                        'severity': self._metadata.rule(rule).severity.value,
+                    }
+                    for rule in rules
+                ]
+                at.append(inner)
+            yield {
+                'region': res.region,
+                'service': s,
+                'resource_type': res.resource_type,
+                'resource': res.accept(self._view),
+                'attacks': at
+            }
 
 
 class ShardsCollectionDataSource:
