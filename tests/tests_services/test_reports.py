@@ -16,6 +16,7 @@ from services.reports import (
     add_diff,
 )
 from services.sharding import AWSRegionDistributor, ShardPart, ShardsCollection
+from ..commons import AWS_ACCOUNT_ID
 
 
 @pytest.fixture
@@ -173,7 +174,8 @@ class TestShardsCollectionDataSource:
         source = ShardsCollectionDataSource(
             collection=aws_shards_collection,
             metadata=metadata,
-            cloud=Cloud.AWS
+            cloud=Cloud.AWS,
+            account_id=AWS_ACCOUNT_ID
         )
         assert source.n_unique == 26
 
@@ -181,7 +183,8 @@ class TestShardsCollectionDataSource:
         source = ShardsCollectionDataSource(
             collection=aws_shards_collection,
             metadata=metadata,
-            cloud=Cloud.AWS
+            cloud=Cloud.AWS,
+            account_id=AWS_ACCOUNT_ID
         )
         assert source.region_severities(unique=True) == {
             'eu-central-1': {'Unknown': 6, 'Info': 2, 'High': 1},
@@ -197,7 +200,8 @@ class TestShardsCollectionDataSource:
         source = ShardsCollectionDataSource(
             collection=aws_shards_collection,
             metadata=metadata,
-            cloud=Cloud.AWS
+            cloud=Cloud.AWS,
+            account_id=AWS_ACCOUNT_ID
         )
         assert source.region_severities(unique=False) == {
             'eu-central-1': {'Unknown': 6, 'Medium': 1, 'Info': 2, 'High': 1},
@@ -211,7 +215,8 @@ class TestShardsCollectionDataSource:
         source = ShardsCollectionDataSource(
             collection=aws_shards_collection,
             metadata=metadata,
-            cloud=Cloud.AWS
+            cloud=Cloud.AWS,
+            account_id=AWS_ACCOUNT_ID
         )
         assert source.severities() == {
             'Unknown': 16,
@@ -224,7 +229,8 @@ class TestShardsCollectionDataSource:
         source = ShardsCollectionDataSource(
             collection=aws_shards_collection,
             metadata=metadata,
-            cloud=Cloud.AWS
+            cloud=Cloud.AWS,
+            account_id=AWS_ACCOUNT_ID
         )
         assert source.region_services() == {
             'eu-central-1': {
@@ -244,7 +250,8 @@ class TestShardsCollectionDataSource:
         source = ShardsCollectionDataSource(
             collection=aws_shards_collection,
             metadata=metadata,
-            cloud=Cloud.AWS
+            cloud=Cloud.AWS,
+            account_id=AWS_ACCOUNT_ID
         )
         assert source.services() == {
             'Security Group': 3,

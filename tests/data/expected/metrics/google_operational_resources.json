@@ -1,6 +1,5 @@
 {
   "id": "testing-project-123",
-  "outdated_tenants": [],
   "data": [
     {
       "policy": "ecc-gcp-025-no_default_network",
@@ -11,7 +10,8 @@
         "global": [
           {
             "id": "877139587449282054",
-            "name": "default"
+            "name": "default",
+            "urn": "gcp:compute::testing-project-123:vpc/default"
           }
         ]
       }
@@ -24,20 +24,24 @@
       "resources": {
         "global": [
           {
-            "id": "1227136820292673506",
-            "name": "default-allow-icmp"
-          },
-          {
             "id": "3339756659677913058",
-            "name": "default-allow-internal"
+            "name": "default-allow-internal",
+            "urn": "gcp:compute::testing-project-123:firewall/default-allow-internal"
           },
           {
             "id": "2342562096469303266",
-            "name": "default-allow-rdp"
+            "name": "default-allow-rdp",
+            "urn": "gcp:compute::testing-project-123:firewall/default-allow-rdp"
           },
           {
             "id": "2007825320515264482",
-            "name": "default-allow-ssh"
+            "name": "default-allow-ssh",
+            "urn": "gcp:compute::testing-project-123:firewall/default-allow-ssh"
+          },
+          {
+            "id": "1227136820292673506",
+            "name": "default-allow-icmp",
+            "urn": "gcp:compute::testing-project-123:firewall/default-allow-icmp"
           }
         ]
       }
@@ -51,7 +55,8 @@
         "global": [
           {
             "id": "3339756659677913058",
-            "name": "default-allow-internal"
+            "name": "default-allow-internal",
+            "urn": "gcp:compute::testing-project-123:firewall/default-allow-internal"
           }
         ]
       }
@@ -64,20 +69,24 @@
       "resources": {
         "global": [
           {
-            "id": "1227136820292673506",
-            "name": "default-allow-icmp"
-          },
-          {
             "id": "3339756659677913058",
-            "name": "default-allow-internal"
+            "name": "default-allow-internal",
+            "urn": "gcp:compute::testing-project-123:firewall/default-allow-internal"
           },
           {
             "id": "2342562096469303266",
-            "name": "default-allow-rdp"
+            "name": "default-allow-rdp",
+            "urn": "gcp:compute::testing-project-123:firewall/default-allow-rdp"
           },
           {
             "id": "2007825320515264482",
-            "name": "default-allow-ssh"
+            "name": "default-allow-ssh",
+            "urn": "gcp:compute::testing-project-123:firewall/default-allow-ssh"
+          },
+          {
+            "id": "1227136820292673506",
+            "name": "default-allow-icmp",
+            "urn": "gcp:compute::testing-project-123:firewall/default-allow-icmp"
           }
         ]
       }
@@ -88,27 +97,38 @@
       "description": "Description for ecc-gcp-033-vpc_flow_logs_for_every_subnet",
       "severity": "Unknown",
       "resources": {
-        "global": [
-          {
-            "id": "2708525157271002654",
-            "name": "default"
-          },
-          {
-            "id": "80118305852546590",
-            "name": "default"
-          },
-          {
-            "id": "3115367106910640951",
-            "name": "default"
-          },
+        "northamerica-south1": [
           {
             "id": "816596276746100793",
-            "name": "default"
+            "name": "default",
+            "urn": "gcp:compute:northamerica-south1:testing-project-123:subnet/default"
+          }
+        ],
+        "us-west8": [
+          {
+            "id": "3115367106910640951",
+            "name": "default",
+            "urn": "gcp:compute:us-west8:testing-project-123:subnet/default"
+          }
+        ],
+        "africa-south1": [
+          {
+            "id": "80118305852546590",
+            "name": "default",
+            "urn": "gcp:compute:africa-south1:testing-project-123:subnet/default"
+          }
+        ],
+        "europe-west10": [
+          {
+            "id": "2708525157271002654",
+            "name": "default",
+            "urn": "gcp:compute:europe-west10:testing-project-123:subnet/default"
           }
         ]
       }
     }
   ],
-  "last_scan_date": "2025-01-23T00:39:25.574884Z",
-  "activated_regions": []
+  "last_scan_date": "2025-05-20T00:41:37.020299Z",
+  "activated_regions": [],
+  "outdated_tenants": []
 }

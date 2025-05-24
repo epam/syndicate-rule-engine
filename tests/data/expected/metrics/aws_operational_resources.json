@@ -1,6 +1,5 @@
 {
   "id": "123456789012",
-  "outdated_tenants": [],
   "data": [
     {
       "policy": "ecc-aws-070-unused_ec2_security_groups",
@@ -11,15 +10,18 @@
         "eu-central-1": [
           {
             "id": "sg-05209ceeb761317e5",
-            "name": "west-eu"
+            "name": "west-eu",
+            "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-05209ceeb761317e5"
           },
           {
             "id": "sg-0ae266faddaef17e9",
-            "name": "packer-ssh-access"
+            "name": "packer-ssh-access",
+            "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-0ae266faddaef17e9"
           },
           {
             "id": "sg-09d19538187df66cf",
-            "name": "asia"
+            "name": "asia",
+            "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-09d19538187df66cf"
           }
         ]
       }
@@ -48,15 +50,18 @@
         "eu-central-1": [
           {
             "id": "arn:aws:sns:eu-central-1:123456789012:testing-guard-duty-topic",
-            "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673"
+            "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+            "arn": "arn:aws:sns:eu-central-1:123456789012:testing-guard-duty-topic"
           },
           {
             "id": "arn:aws:sns:eu-central-1:123456789012:m3-inspector-topic",
-            "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673"
+            "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+            "arn": "arn:aws:sns:eu-central-1:123456789012:m3-inspector-topic"
           },
           {
             "id": "arn:aws:sns:eu-central-1:123456789012:dead",
-            "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673"
+            "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+            "arn": "arn:aws:sns:eu-central-1:123456789012:dead"
           }
         ]
       }
@@ -67,36 +72,42 @@
       "description": "Description for ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
       "severity": "Unknown",
       "resources": {
+        "eu-west-1": [
+          {
+            "id": "example-rulesets-dev",
+            "name": "example-rulesets-dev",
+            "arn": "arn:aws:s3:::example-rulesets-dev"
+          },
+          {
+            "id": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1",
+            "name": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1",
+            "arn": "arn:aws:s3:::appcomposer-4bzknnwy0n3wuuhd-eu-west-1"
+          },
+          {
+            "id": "example-reports-dev",
+            "name": "example-reports-dev",
+            "arn": "arn:aws:s3:::example-reports-dev"
+          }
+        ],
         "eu-central-1": [
           {
             "id": "example-artifacts",
-            "name": "example-artifacts"
+            "name": "example-artifacts",
+            "arn": "arn:aws:s3:::example-artifacts"
           }
         ],
         "eu-north-1": [
           {
             "id": "macro-delivery",
-            "name": "macro-delivery"
-          }
-        ],
-        "eu-west-1": [
-          {
-            "id": "example-rulesets-dev",
-            "name": "example-rulesets-dev"
-          },
-          {
-            "id": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1",
-            "name": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1"
-          },
-          {
-            "id": "example-reports-dev",
-            "name": "example-reports-dev"
+            "name": "macro-delivery",
+            "arn": "arn:aws:s3:::macro-delivery"
           }
         ],
         "eu-west-3": [
           {
             "id": "example-meta-storage-eu-west-3-par",
-            "name": "example-meta-storage-eu-west-3-par"
+            "name": "example-meta-storage-eu-west-3-par",
+            "arn": "arn:aws:s3:::example-meta-storage-eu-west-3-par"
           }
         ]
       }
@@ -109,9 +120,9 @@
       "resources": {
         "global": [
           {
-            "id": "example-dev-extended-group",
-            "name": "example-dev-extended-group",
-            "arn": "arn:aws:iam::123456789012:group/example-dev-extended-group"
+            "id": "DeployGroupWithoutIAM",
+            "name": "DeployGroupWithoutIAM",
+            "arn": "arn:aws:iam::123456789012:group/DeployGroupWithoutIAM"
           },
           {
             "id": "example-dev-group",
@@ -119,9 +130,9 @@
             "arn": "arn:aws:iam::123456789012:group/example-dev-group"
           },
           {
-            "id": "DeployGroupWithoutIAM",
-            "name": "DeployGroupWithoutIAM",
-            "arn": "arn:aws:iam::123456789012:group/DeployGroupWithoutIAM"
+            "id": "example-dev-extended-group",
+            "name": "example-dev-extended-group",
+            "arn": "arn:aws:iam::123456789012:group/example-dev-extended-group"
           }
         ]
       }
@@ -135,21 +146,25 @@
         "eu-central-1": [
           {
             "id": "example-artifacts",
-            "name": "example-artifacts"
+            "name": "example-artifacts",
+            "arn": "arn:aws:s3:::example-artifacts"
           }
         ],
         "eu-west-1": [
           {
             "id": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1",
-            "name": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1"
-          },
-          {
-            "id": "example-reports-dev",
-            "name": "example-reports-dev"
+            "name": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1",
+            "arn": "arn:aws:s3:::appcomposer-4bzknnwy0n3wuuhd-eu-west-1"
           },
           {
             "id": "example-meta-storage-eu-west-1-tmp",
-            "name": "example-meta-storage-eu-west-1-tmp"
+            "name": "example-meta-storage-eu-west-1-tmp",
+            "arn": "arn:aws:s3:::example-meta-storage-eu-west-1-tmp"
+          },
+          {
+            "id": "example-reports-dev",
+            "name": "example-reports-dev",
+            "arn": "arn:aws:s3:::example-reports-dev"
           }
         ]
       }
@@ -163,11 +178,13 @@
         "eu-west-1": [
           {
             "id": "vol-080f1194e8b86e0a7",
-            "name": "vol-080f1194e8b86e0a7"
+            "name": "vol-080f1194e8b86e0a7",
+            "arn": "arn:aws:ec2:eu-west-1:123456789012:volume/vol-080f1194e8b86e0a7"
           },
           {
             "id": "vol-060f342d89d8bb757",
-            "name": "vol-060f342d89d8bb757"
+            "name": "vol-060f342d89d8bb757",
+            "arn": "arn:aws:ec2:eu-west-1:123456789012:volume/vol-060f342d89d8bb757"
           }
         ]
       }
@@ -180,12 +197,14 @@
       "resources": {
         "eu-west-1": [
           {
-            "id": "i-0771a4eb028bda937",
-            "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673"
+            "id": "i-0580697d712fb5b56",
+            "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+            "arn": "arn:aws:ec2:eu-west-1:123456789012:instance/i-0580697d712fb5b56"
           },
           {
-            "id": "i-0580697d712fb5b56",
-            "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673"
+            "id": "i-0771a4eb028bda937",
+            "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+            "arn": "arn:aws:ec2:eu-west-1:123456789012:instance/i-0771a4eb028bda937"
           }
         ]
       }
@@ -211,11 +230,12 @@
       }
     }
   ],
-  "last_scan_date": "2024-11-17T00:02:53.992185Z",
+  "last_scan_date": "2025-05-20T00:32:55.025870Z",
   "activated_regions": [
     "eu-central-1",
     "eu-north-1",
     "eu-west-1",
     "eu-west-3"
-  ]
+  ],
+  "outdated_tenants": []
 }

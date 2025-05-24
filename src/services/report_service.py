@@ -2,7 +2,7 @@ import statistics
 import msgspec
 from datetime import datetime
 from itertools import chain
-from typing import BinaryIO, Generator, TypedDict, Iterable
+from typing import BinaryIO, Generator, Iterable
 
 from modular_sdk.models.tenant import Tenant
 
@@ -30,7 +30,7 @@ from services.sharding import (
     ShardsCollection,
     ShardsCollectionFactory,
     ShardsS3IO,
-    BaseShardPart,
+    ShardPart
 )
 
 _LOG = get_logger(__name__)
@@ -385,7 +385,7 @@ class ReportService:
     @staticmethod
     def iter_successful_parts(
         col: ShardsCollection,
-    ) -> Generator[BaseShardPart, None, None]:
+    ) -> Generator[ShardPart, None, None]:
         unsuccessful = set()
         for part in col.iter_parts():
             # TODO: filters here
@@ -397,8 +397,8 @@ class ReportService:
 
     @staticmethod
     def group_parts_iterator_by_location(
-        it: Iterable[BaseShardPart],
-    ) -> dict[str, list[BaseShardPart]]:
+        it: Iterable[ShardPart],
+    ) -> dict[str, list[ShardPart]]:
         res = {}
         for item in it:
             res.setdefault(item.location, []).append(item)
@@ -406,7 +406,7 @@ class ReportService:
 
     @staticmethod
     def get_standard_to_controls_to_rules(
-        it: Iterable[BaseShardPart], metadata: Metadata
+        it: Iterable[ShardPart], metadata: Metadata
     ) -> dict[Standard, dict[str, int]]:
         res = {}
         checked = set()

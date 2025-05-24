@@ -15,6 +15,21 @@ from ...commons import dicts_equal
 @pytest.fixture(autouse=True)
 def aws_job(aws_tenant, aws_scan_result, create_tenant_job):
     # don't need to keep results of individual jobs, but need their statistics
+    failed = {
+        (
+            'eu-west-1',
+            'ecc-aws-427-rds_cluster_without_tag_information',
+        ): (
+            PolicyErrorType.ACCESS,
+            'AccessDenied Exception',
+            [],
+        ),
+        ('global', 'ecc-aws-527-waf_global_webacl_not_empty'): (
+            PolicyErrorType.ACCESS,
+            'AccessDenied Exception',
+            [],
+        ),
+    },
 
     job = create_tenant_job(aws_tenant, utc_datetime(), JobState.SUCCEEDED)
     job.save()
@@ -22,7 +37,7 @@ def aws_job(aws_tenant, aws_scan_result, create_tenant_job):
     # prepare data for pipeline
     result = JobResult(aws_scan_result, Cloud.AWS)
     collection = ShardsCollectionFactory.from_cloud(Cloud.AWS)
-    collection.put_parts(result.iter_shard_parts())
+    collection.put_parts(result.iter_shard_parts(failed))
     collection.meta = result.rules_meta()
     collection.io = ShardsS3IO(
         bucket=SP.environment_service.default_reports_bucket_name(),
@@ -44,21 +59,7 @@ def aws_job(aws_tenant, aws_scan_result, create_tenant_job):
         key=StatisticsBucketKeysBuilder.job_statistics(job),
         obj=result.statistics(
             aws_tenant,
-            {
-                (
-                    'eu-west-1',
-                    'ecc-aws-427-rds_cluster_without_tag_information',
-                ): (
-                    PolicyErrorType.ACCESS,
-                    'AccessDenied Exception',
-                    [],
-                ),
-                ('global', 'ecc-aws-527-waf_global_webacl_not_empty'): (
-                    PolicyErrorType.ACCESS,
-                    'AccessDenied Exception',
-                    [],
-                ),
-            },
+            failed
         ),
     )
     return job

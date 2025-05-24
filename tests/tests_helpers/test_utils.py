@@ -9,7 +9,6 @@ from helpers import (
     deep_set,
     title_keys,
     setdefault,
-    filter_dict,
     hashable,
     urljoin,
     skip_indexes,
@@ -26,6 +25,7 @@ from helpers import (
     comparable,
     iter_key_values,
     group_by,
+    get_path
 )
 
 
@@ -87,14 +87,6 @@ def test_setdefault():
     assert instance.attr == 1
     setdefault(instance, 'attr', 2)
     assert instance.attr == 1
-
-
-def test_filter_dict(dictionary):
-    assert filter_dict(dictionary, ()) == dictionary
-    assert filter_dict(dictionary, ('one', 3)) == {
-        'one': 'two',
-        3: {'four': 'five'},
-    }
 
 
 def test_hashable(dictionary):
@@ -381,3 +373,13 @@ def test_group_by():
     assert o2 in groupped[1]
     assert o3 in groupped[2]
     assert o4 in groupped[3]
+
+
+def test_json_get_path():
+
+    assert get_path({'a': {'b': 'c'}}, 'a.b') == 'c'
+    assert get_path({'one': 'two'}, 'one') == 'two'
+    assert get_path({'one': [1,2,3]}, 'one') == [1,2,3]
+    assert get_path({'one': [1,2,3]}, 'one.two') is None
+    assert get_path({'one': {'two': {'three': 10}}}, 'one.two.three') == 10
+    assert get_path({'one': {'two': {'three': 10}}}, 'one.two.three.four') is None

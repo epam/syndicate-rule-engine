@@ -4,7 +4,7 @@ from modular_sdk.services.tenant_service import TenantService
 
 from handlers import AbstractHandler, Mapping
 from helpers.constants import CustodianEndpoint, HTTPMethod, JobState, \
-    ReportFormat
+    ReportFormat, Cloud
 from helpers.lambda_response import build_response
 from services import SP
 from services import modular_helpers
@@ -12,6 +12,7 @@ from services.ambiguous_job_service import AmbiguousJob, AmbiguousJobService
 from services.platform_service import PlatformService
 from services.report_convertors import ShardsCollectionDetailsConvertor
 from services.report_service import ReportResponse, ReportService
+from services.modular_helpers import tenant_cloud
 from services import obfuscation
 from services.sharding import ShardsCollection
 from validators.swagger_request_models import (
@@ -73,19 +74,22 @@ class DetailedReportHandler(AbstractHandler):
                 )
             collection = self._rs.platform_job_collection(platform, job.job)
             collection.meta = self._rs.fetch_meta(platform)
+            cloud = Cloud.KUBERNETES
         else:
             tenant = self._ts.get(job.tenant_name)
             modular_helpers.assert_tenant_valid(tenant, event.customer)
             collection = self._rs.ambiguous_job_collection(tenant, job)
             collection.meta = self._rs.fetch_meta(tenant)
+            cloud = tenant_cloud(tenant)
 
         return build_response(
-            content=self._collection_response(job, collection, event.href,
+            content=self._collection_response(job, collection, cloud, event.href,
                                               event.obfuscated)
         )
 
     def _collection_response(self, job: AmbiguousJob,
                              collection: ShardsCollection,
+                             cloud: Cloud,
                              href: bool = False,
                              obfuscated: bool = False
                              ) -> dict:
@@ -103,7 +107,7 @@ class DetailedReportHandler(AbstractHandler):
             dct = obfuscation.get_obfuscation_dictionary(collection)
             dictionary_url = self._rs.one_time_url_json(dct,
                                                         'dictionary.json')
-        report = ShardsCollectionDetailsConvertor().convert(collection)
+        report = ShardsCollectionDetailsConvertor(cloud).convert(collection)
         if href:
             return ReportResponse(
                 job,
@@ -142,9 +146,9 @@ class DetailedReportHandler(AbstractHandler):
             col = self._rs.ambiguous_job_collection(tenant, job)
             col.meta = meta
             job_collection.append((job, col))
-        # TODO _collection_response to threads?
         return build_response(content=map(
-            lambda pair: self._collection_response(*pair, href=event.href,
+            lambda pair: self._collection_response(*pair, tenant_cloud(tenant),
+                                                   href=event.href,
                                                    obfuscated=event.obfuscated),
             job_collection
         ))

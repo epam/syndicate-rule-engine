@@ -37,22 +37,22 @@ def build_logging_config():
         },
         'loggers': {
             ROOT_MODULE: {
-                'level': CAASEnv.LOG_LEVEL.get(),
+                'level': CAASEnv.LOG_LEVEL.as_str(),
                 'handlers': ['console_handler'],
                 'propagate': False,
             },
             'modular_sdk': {
-                'level': ModularSDKEnv.LOG_LEVEL.get(),
+                'level': ModularSDKEnv.LOG_LEVEL.as_str(),
                 'handlers': ['console_handler'],
                 'propagate': False,
             },
             'custodian': {  # Cloud Custodian logger
-                'level': CAASEnv.CC_LOG_LEVEL.get(),
+                'level': CAASEnv.CC_LOG_LEVEL.as_str(),
                 'handlers': ['console_handler'],
                 'propagate': False,
             },
             'c7n': {
-                'level': CAASEnv.CC_LOG_LEVEL.get(),
+                'level': CAASEnv.CC_LOG_LEVEL.as_str(),
                 'handlers': ['console_handler'],
                 'propagate': False,
             },

@@ -1,4 +1,5 @@
 import tempfile
+from collections import ChainMap
 from datetime import datetime
 from functools import cmp_to_key
 from http import HTTPStatus
@@ -11,18 +12,17 @@ from xlsxwriter import Workbook
 from xlsxwriter.worksheet import Worksheet
 
 from handlers import AbstractHandler, Mapping
-from helpers import filter_dict, flip_dict, hashable
+from helpers import flip_dict
 from helpers.constants import (
     JOB_ID_ATTR,
-    REPORT_FIELDS,
     TYPE_ATTR,
+    Cloud,
     CustodianEndpoint,
     HTTPMethod,
     JobState,
     JobType,
     ReportFormat,
     Severity,
-    Cloud
 )
 from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
@@ -35,7 +35,16 @@ from services.metadata import Metadata
 from services.modular_helpers import tenant_cloud
 from services.platform_service import Platform, PlatformService
 from services.report_service import ReportResponse, ReportService
-from services.reports import ShardsCollectionDataSource
+from services.resources import (
+    AWSResource,
+    AZUREResource,
+    CloudResource,
+    GOOGLEResource,
+    InPlaceResourceView,
+    K8SResource,
+    ResourceVisitor,
+    iter_rule_resource,
+)
 from services.sharding import ShardsCollection
 from services.xlsx_writer import CellContent, Table, XlsxRowsWriter
 from validators.swagger_request_models import (
@@ -48,8 +57,115 @@ from validators.utils import validate_kwargs
 
 _LOG = get_logger(__name__)
 
-# rule, region, dto, matched_dto, timestamp
-Payload = tuple[str, str, dict, dict, float]
+# rule, resource, matched_dto
+Payload = tuple[str, CloudResource, dict]
+
+
+class ResourceMatcher(ResourceVisitor[dict]):
+    def __init__(
+        self, search_by: dict, exact_match: bool, search_by_all: bool
+    ):
+        self._search_by = search_by
+        self._exact_match = exact_match
+
+        if search_by_all:
+            self._match_any = set(map(str, self._search_by.values()))
+        else:
+            self._match_any = None
+
+    def _does_match(self, provided: Any, real: Any) -> bool:
+        if isinstance(real, (list, dict)):
+            return False
+        if self._exact_match:
+            return str(provided) == str(real)
+        return str(provided).lower() in str(real).lower()
+
+    @staticmethod
+    def _aws_view_map(resource: AWSResource) -> dict:
+        keys = {'id': resource.id, 'name': resource.name}
+        if resource.arn is not None:
+            keys['arn'] = resource.arn
+        if resource.date is not None:
+            keys['date'] = resource.date_as_utc_iso()
+        return ChainMap(keys, resource.data)
+
+    @staticmethod
+    def _azure_view_map(resource: AZUREResource) -> dict:
+        keys = {'id': resource.id, 'name': resource.name}
+        return ChainMap(keys, resource.data)
+
+    @staticmethod
+    def _google_view_map(resource: GOOGLEResource) -> dict:
+        keys = {'id': resource.id, 'name': resource.name}
+        if resource.urn is not None:
+            keys['urn'] = resource.urn
+        return ChainMap(keys, resource.data)
+
+    @staticmethod
+    def _k8s_view_map(resource: K8SResource) -> dict:
+        keys = {'id': resource.id, 'name': resource.name}
+        if resource.namespace is not None:
+            keys['namespace'] = resource.namespace
+        return ChainMap(keys, resource.data)
+
+    def _match_by_all(self, dto: dict) -> dict:
+        """
+        Takes all the values from search_by and tries to match all the keys.
+        Returns the first matched
+        """
+        for key, real in dto.items():
+            for provided in self._match_any:
+                if self._does_match(provided, real):
+                    return {key: real}
+        return {}
+
+    def _match(self, dto: dict) -> dict:
+        """
+        Matches by all the keys and values from search_by
+        """
+        result = {}
+        for key, provided in self._search_by.items():
+            real = dto.get(key)
+            if not self._does_match(provided, real):
+                return {}
+            result[key] = real
+        return result
+
+    def visitAWSResource(
+        self, resource: 'AWSResource', /, *args, **kwargs
+    ) -> dict:
+        view = self._aws_view_map(resource)
+        if self._match_any:
+            return self._match_by_all(view)
+        else:
+            return self._match(view)
+
+    def visitAZUREResource(
+        self, resource: 'AZUREResource', /, *args, **kwargs
+    ) -> dict:
+        view = self._azure_view_map(resource)
+        if self._match_any:
+            return self._match_by_all(view)
+        else:
+            return self._match(view)
+
+    def visitGOOGLEResource(
+        self, resource: 'GOOGLEResource', /, *args, **kwargs
+    ) -> dict:
+        view = self._google_view_map(resource)
+        if self._match_any:
+            return self._match_by_all(view)
+        else:
+            return self._match(view)
+
+    def visitK8SResource(
+        self, resource: 'K8SResource', /, *args, **kwargs
+    ) -> dict:
+        view = self._k8s_view_map(resource)
+        if self._match_any:
+            return self._match_by_all(view)
+        else:
+            return self._match(view)
 
 
 class MatchedResourcesIterator(Iterator[Payload]):
@@ -57,99 +173,58 @@ class MatchedResourcesIterator(Iterator[Payload]):
         self,
         collection: ShardsCollection,
         cloud: Cloud,
+        metadata: Metadata,
+        account_id: str = '',
         resource_type: Optional[str] = None,
         region: Optional[str] = None,
         exact_match: bool = True,
         search_by_all: bool = False,
         search_by: Optional[dict] = None,
-        dictionary_out: dict | None = None,
     ):
         self._collection = collection
         self._cloud = cloud
+        self._metadata = metadata
+        self._account_id = account_id
         self._resource_type = resource_type
         self._region = region
 
-        self._exact_match = exact_match
-        self._search_by_all = search_by_all
-        self._search_by = search_by or {}
-        self._dictionary_out = dictionary_out
-
-        self._it = None
+        if search_by:
+            self._matcher = ResourceMatcher(
+                search_by=search_by or {},
+                exact_match=exact_match,
+                search_by_all=search_by_all,
+            )
+        else:
+            self._matcher = None
 
     @property
     def collection(self) -> ShardsCollection:
         return self._collection
 
-    def create_resources_generator(
-        self,
-    ) -> ShardsCollectionDataSource.ResourcesGenerator:
-        """
-        See metrics_service.create_resources_generator
-        :return:
-        """
-        source = ShardsCollectionDataSource(
+    def __iter__(self):
+        self._it = iter_rule_resource(
             collection=self._collection,
-            metadata=Metadata.empty(),
-            cloud=self._cloud
-        )
-        return source.create_resources_generator(
-            only_report_fields=False,
-            active_regions=(self._region,) if self._region else (),
+            cloud=self._cloud,
+            metadata=self._metadata,
+            account_id=self._account_id,
+            regions=(self._region,) if self._region else (),
             resource_types=(self._resource_type,)
             if self._resource_type
             else (),
         )
-
-    def __iter__(self):
-        self._it = self.create_resources_generator()
         return self
-
-    def does_match(self, provided: Any, real: Any) -> bool:
-        if isinstance(real, (list, dict)):
-            return False
-        if self._exact_match:
-            return str(provided) == str(real)
-        return str(provided).lower() in str(real).lower()
-
-    def match_by_all(self, dto: dict) -> dict:
-        """
-        Takes all the values from search_by and tries to match all the keys.
-        Returns the first matched
-        """
-        expected = set(map(str, self._search_by.values()))
-        for key, real in dto.items():  # nested_items(dto)
-            for provided in expected:
-                if self.does_match(provided, real):
-                    return {key: real}
-        return {}
-
-    def match(self, dto: dict) -> dict:
-        """
-        Matches by all the keys and values from search_by
-        """
-        result = {}
-        for key, provided in self._search_by.items():
-            real = dto.get(key)
-            if not self.does_match(provided, real):
-                return {}
-            result[key] = real
-        return result
 
     def __next__(self) -> Payload:
         while True:
-            rule, region, dto, ts = next(self._it)
-            if not self._search_by:
-                if isinstance(self._dictionary_out, dict):
-                    obfuscation.obfuscate_finding(dto, self._dictionary_out)
-                return rule, region, dto, {}, ts
-            if self._search_by_all:
-                match = self.match_by_all(dto)
-            else:
-                match = self.match(dto)
+            rule, res = next(self._it)
+
+            if not self._matcher:
+                return rule, res, {}
+
+            # self._matcher exists
+            match = res.accept(self._matcher)
             if match:
-                if isinstance(self._dictionary_out, dict):
-                    obfuscation.obfuscate_finding(dto, self._dictionary_out)
-                return rule, region, dto, match, ts
+                return rule, res, match
 
 
 class ResourceReportBuilder:
@@ -169,13 +244,16 @@ class ResourceReportBuilder:
         entity: Tenant | Platform,
         metadata: Metadata,
         full: bool = True,
+        dictionary_out: dict | None = None,
     ):
         self._it = matched_findings_iterator
         self._entity = entity
         self._full = full
         self._meta = metadata
 
-    def _build_rules(self, rules: set[str]) -> list[dict]:
+        self._dictionary_out = dictionary_out
+
+    def _build_rules(self, rules: list[str]) -> list[dict]:
         res = []
         for rule in rules:
             rm = self._meta.rule(rule)
@@ -195,44 +273,39 @@ class ResourceReportBuilder:
 
     def build(self) -> list[ResourceReport]:
         datas = {}
-
-        # the same resources have the same resource_type,
-        # region and REPORT_FIELDS (id, name, arn)
-        def get_report_fields(r):
-            return set(self._meta.rule(r).report_fields) | REPORT_FIELDS
-
-        for rule, region, dto, match_dto, ts in self._it:
-            unique = hashable(
-                (
-                    filter_dict(dto, REPORT_FIELDS),
-                    region,
-                    self._it.collection.meta.get(rule, {}).get('resource'),
-                )
-            )
-            # data, rules, matched_by, timestamp
-            inner = datas.setdefault(unique, [{}, set(), {}, ts])
-            if not self._full:
-                dto = filter_dict(dto, get_report_fields(rule))
-            inner[0].update(dto)
-            inner[1].add(rule)
-            inner[2].update(match_dto)
-            inner[3] = max(inner[3], ts)
+        for rule, resource, match_dto in self._it:
+            # [rules, match_dto, sync_date]
+            inner = datas.setdefault(resource, [[], {}, resource.sync_date])
+            inner[0].append(rule)
+            inner[1].update(match_dto)
+            inner[2] = max(inner[2], resource.sync_date)
         result = []
         identifier = (
             {'account_id': self._entity.project}
             if isinstance(self._entity, Tenant)
             else {'platform_id': self._entity.id}
         )
+
+        view = InPlaceResourceView(self._full)
         for unique, inner in datas.items():
+            data = unique.accept(view)
+            if self._dictionary_out is not None:
+                data = obfuscation.obfuscate_finding(
+                    data, self._dictionary_out
+                )
+                inner[1] = obfuscation.obfuscate_finding(
+                    inner[1], self._dictionary_out
+                )
+
             result.append(
                 {
                     **identifier,
-                    'data': inner[0],
-                    'violated_rules': self._build_rules(inner[1]),
-                    'matched_by': inner[2],
-                    'region': unique[1],
-                    'resource_type': unique[2],
-                    'last_found': inner[3],
+                    'data': data,
+                    'violated_rules': self._build_rules(inner[0]),
+                    'matched_by': inner[1],
+                    'region': unique.location,
+                    'resource_type': unique.resource_type,
+                    'last_found': inner[2],
                 }
             )
         return result
@@ -258,35 +331,24 @@ class ResourceReportXlsxWriter:
         metadata: Metadata,
         full: bool = True,
         keep_region: bool = True,
+        dictionary_out: dict | None = None,
     ):
         self._it = it
         self._full = full
         self._keep_region = keep_region
         self._meta = metadata
 
-    def _aggregated(self) -> dict[tuple, list]:
+        self._dictionary_out = dictionary_out
+
+    def _aggregated(self) -> dict[CloudResource, list]:
         """
         Just makes a mapping of a unique resource to rules it violates
         """
-
-        def get_report_fields(r):
-            return set(self._meta.rule(r).report_fields) | REPORT_FIELDS
-
         res = {}
-        for rule, region, dto, match_dto, ts in self._it:
-            unique = hashable(
-                (
-                    filter_dict(dto, REPORT_FIELDS),
-                    region,
-                    self._it.collection.meta.get(rule, {}).get('resource'),
-                )
-            )
-            data = res.setdefault(unique, [set(), {}, ts])
-            data[0].add(rule)
-            if not self._full:
-                dto = filter_dict(dto, get_report_fields(rule))
-            data[1].update(dto)
-            data[2] = max(data[2], ts)
+        for rule, resource, _ in self._it:
+            inner = res.setdefault(resource, [[], resource.sync_date])
+            inner[0].append(rule)
+            inner[1] = max(inner[1], resource.sync_date)
         return res
 
     def write(self, wsh: Worksheet, wb: Workbook):
@@ -337,10 +399,11 @@ class ResourceReportXlsxWriter:
                 reverse=True,
             )
         )
+        view = InPlaceResourceView(self._full)
+
         i = 0
         for unique, data in aggregated.items():
-            _, region, resource = unique
-            rules, dto, ts = data
+            rules, ts = data
             rules = sorted(
                 rules,
                 key=lambda x: key(self._meta.rule(x).severity.value),
@@ -355,9 +418,14 @@ class ResourceReportXlsxWriter:
                 table.add_cells(CellContent(', '.join(services)))
             else:
                 table.add_cells()
+
+            dto = unique.accept(view)
+            if self._dictionary_out is not None:
+                dto = obfuscation.obfuscate_finding(dto, self._dictionary_out)
+
             table.add_cells(CellContent(dto))
             if self._keep_region:
-                table.add_cells(CellContent(region))
+                table.add_cells(CellContent(unique.location))
             else:
                 table.add_cells(CellContent())
             table.add_cells(CellContent(utc_iso(datetime.fromtimestamp(ts))))
@@ -466,11 +534,11 @@ class ResourceReportHandler(AbstractHandler):
         matched = MatchedResourcesIterator(
             collection=collection,
             cloud=Cloud.KUBERNETES,
+            metadata=metadata,
             resource_type=event.resource_type,
             exact_match=event.exact_match,
             search_by_all=event.search_by_all,
             search_by=event.extras,
-            dictionary_out=dictionary if event.obfuscated else None,
         )
         content = {}
         match event.format:
@@ -480,6 +548,7 @@ class ResourceReportHandler(AbstractHandler):
                     entity=platform,
                     full=event.full,
                     metadata=metadata,
+                    dictionary_out=dictionary if event.obfuscated else None,
                 ).build()
                 if event.obfuscated:
                     flip_dict(dictionary)
@@ -501,6 +570,9 @@ class ResourceReportHandler(AbstractHandler):
                         full=event.full,
                         keep_region=False,
                         metadata=metadata,
+                        dictionary_out=dictionary
+                        if event.obfuscated
+                        else None,
                     ).write(wb=wb, wsh=wb.add_worksheet('resources'))
                 if event.obfuscated:
                     flip_dict(dictionary)
@@ -526,7 +598,7 @@ class ResourceReportHandler(AbstractHandler):
         collection = self._report_service.tenant_latest_collection(tenant_item)
         if event.region:
             _LOG.debug(
-                'Region is provided. Fetching only shard with ' 'this region'
+                'Region is provided. Fetching only shard with this region'
             )
             collection.fetch(region=event.region)
         else:
@@ -541,12 +613,13 @@ class ResourceReportHandler(AbstractHandler):
         matched = MatchedResourcesIterator(
             collection=collection,
             cloud=tenant_cloud(tenant_item),
+            metadata=metadata,
+            account_id=tenant_item.project,
             resource_type=event.resource_type,
             region=event.region,
             exact_match=event.exact_match,
             search_by_all=event.search_by_all,
             search_by=event.extras,
-            dictionary_out=dictionary if event.obfuscated else None,
         )
         content = {}
         match event.format:
@@ -556,6 +629,7 @@ class ResourceReportHandler(AbstractHandler):
                     entity=tenant_item,
                     full=event.full,
                     metadata=metadata,
+                    dictionary_out=dictionary if event.obfuscated else None,
                 ).build()
                 if event.obfuscated:
                     flip_dict(dictionary)
@@ -572,9 +646,15 @@ class ResourceReportHandler(AbstractHandler):
             case ReportFormat.XLSX:
                 buffer = tempfile.TemporaryFile()
                 with Workbook(buffer, {'strings_to_numbers': True}) as wb:
-                    ResourceReportXlsxWriter(matched, metadata).write(
-                        wb=wb, wsh=wb.add_worksheet(tenant_name)
-                    )
+                    ResourceReportXlsxWriter(
+                        it=matched,
+                        metadata=metadata,
+                        full=event.full,
+                        keep_region=True,
+                        dictionary_out=dictionary
+                        if event.obfuscated
+                        else None,
+                    ).write(wb=wb, wsh=wb.add_worksheet(tenant_name))
                 if event.obfuscated:
                     flip_dict(dictionary)
                     dictionary_url = self._report_service.one_time_url_json(
@@ -619,8 +699,7 @@ class ResourceReportHandler(AbstractHandler):
                 )
             if event.region:
                 _LOG.debug(
-                    'Region is provided. Fetching only shard with '
-                    'this region'
+                    'Region is provided. Fetching only shard with this region'
                 )
                 collection.fetch(region=event.region)
             else:
@@ -630,6 +709,8 @@ class ResourceReportHandler(AbstractHandler):
             matched = MatchedResourcesIterator(
                 collection=collection,
                 cloud=tenant_cloud(tenant_item),
+                metadata=metadata,
+                account_id=tenant_item.project,
                 resource_type=event.resource_type,
                 region=event.region,
                 exact_match=event.exact_match,
@@ -677,7 +758,7 @@ class ResourceReportHandler(AbstractHandler):
             )
         if event.region:
             _LOG.debug(
-                'Region is provided. Fetching only shard with ' 'this region'
+                'Region is provided. Fetching only shard with this region'
             )
             collection.fetch(region=event.region)
         else:
@@ -691,18 +772,20 @@ class ResourceReportHandler(AbstractHandler):
         matched = MatchedResourcesIterator(
             collection=collection,
             cloud=tenant_cloud(tenant),
+            metadata=metadata,
+            account_id=tenant.project,
             resource_type=event.resource_type,
             region=event.region,
             exact_match=event.exact_match,
             search_by_all=event.search_by_all,
             search_by=event.extras,
-            dictionary_out=dictionary if event.obfuscated else None,
         )
         response = ResourceReportBuilder(
             matched_findings_iterator=matched,
             entity=tenant,
             full=event.full,
             metadata=metadata,
+            dictionary_out=dictionary if event.obfuscated else None,
         ).build()
         if event.obfuscated:
             flip_dict(dictionary)

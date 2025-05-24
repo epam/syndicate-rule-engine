@@ -52,7 +52,7 @@ def test_statistics_aws(aws_tenant, aws_scan_result, load_expected):
 
 def test_iter_shard_parts_aws(aws_scan_result):
     item = JobResult(aws_scan_result, Cloud.AWS)
-    parts = tuple(item.iter_shard_parts())
+    parts = tuple(item.iter_shard_parts({}))
     assert len(parts) == 17
     dct = {}
     for part in parts:
@@ -72,7 +72,7 @@ def test_iter_shard_parts_aws(aws_scan_result):
 
 def test_iter_shard_parts_azure(azure_scan_result):
     item = JobResult(azure_scan_result, Cloud.AZURE)
-    parts = tuple(item.iter_shard_parts())
+    parts = tuple(item.iter_shard_parts({}))
     assert len(parts) == 8
     dct = {}
     for part in parts:

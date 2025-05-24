@@ -4,7 +4,6 @@ from typing import Mapping
 from helpers.constants import (
     CAASEnv,
     DOCKER_SERVICE_MODE,
-    ENV_TRUE,
 )
 
 
@@ -26,7 +25,7 @@ class EnvironmentService:
         - caas-api-handler
         - caas-report-generator
         """
-        return CAASEnv.REPORTS_BUCKET_NAME.get()
+        return CAASEnv.REPORTS_BUCKET_NAME.as_str()
 
     def batch_job_log_level(self) -> str:
         """
@@ -63,7 +62,7 @@ class EnvironmentService:
         caas-report-generator
         caas-ruleset-compiler
         """
-        return CAASEnv.RULESETS_BUCKET_NAME.get()
+        return CAASEnv.RULESETS_BUCKET_NAME.as_str()
 
     def get_user_pool_name(self) -> str | None:
         """
@@ -85,13 +84,13 @@ class EnvironmentService:
         return CAASEnv.USER_POOL_ID.get()
 
     def get_statistics_bucket_name(self) -> str:
-        return CAASEnv.STATISTICS_BUCKET_NAME.get()
+        return CAASEnv.STATISTICS_BUCKET_NAME.as_str()
 
     def skip_cloud_identifier_validation(self) -> bool:
         """
         caas-api-handler
         """
-        return CAASEnv.SKIP_CLOUD_IDENTIFIER_VALIDATION.get('').lower() in ENV_TRUE
+        return CAASEnv.SKIP_CLOUD_IDENTIFIER_VALIDATION.as_bool()
 
     def is_docker(self) -> bool:
         return CAASEnv.SERVICE_MODE.get() == DOCKER_SERVICE_MODE
@@ -120,29 +119,29 @@ class EnvironmentService:
             return int(from_env)
         return
 
-    def events_ttl_hours(self) -> int | None:
+    def events_ttl_hours(self) -> int:
         """
         Lambdas:
         - caas-api-handler
         """
-        return int(CAASEnv.EVENTS_TTL_HOURS.get())
+        return CAASEnv.EVENTS_TTL_HOURS.as_int()
 
     def event_assembler_pull_item_limit(self) -> int:
         """
         Lambdas:
         - caas-event-handler
         """
-        return int(CAASEnv.EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE.get())
+        return CAASEnv.EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE.as_int()
 
     def number_of_native_events_in_event_item(self) -> int:
         """
         Lambdas:
         - caas-api-handler
         """
-        return int(CAASEnv.NATIVE_EVENTS_PER_ITEM.get())
+        return CAASEnv.NATIVE_EVENTS_PER_ITEM.as_int()
 
-    def get_recommendation_bucket(self) -> str | None:
-        return CAASEnv.RECOMMENDATIONS_BUCKET_NAME.get()
+    def get_recommendation_bucket(self) -> str:
+        return CAASEnv.RECOMMENDATIONS_BUCKET_NAME.as_str()
 
     def allow_simultaneous_jobs_for_one_tenant(self) -> bool:
         """
@@ -150,7 +149,7 @@ class EnvironmentService:
         jobs, not event-driven.
         :return:
         """
-        return CAASEnv.ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT.get('').lower() in ENV_TRUE
+        return CAASEnv.ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT.as_bool()
 
     def number_of_partitions_for_events(self) -> int:
         """
@@ -161,13 +160,13 @@ class EnvironmentService:
         The more of them, the better will be writing throughput and harder read
         :return:
         """
-        return int(CAASEnv.NUMBER_OF_PARTITIONS_FOR_EVENTS.get())
+        return CAASEnv.NUMBER_OF_PARTITIONS_FOR_EVENTS.as_int()
 
     def lm_token_lifetime_minutes(self) -> int:
-        return int(CAASEnv.LM_TOKEN_LIFETIME_MINUTES.get())
+        return CAASEnv.LM_TOKEN_LIFETIME_MINUTES.as_int()
 
     def allow_disabled_permissions(self) -> bool:
-        return CAASEnv.ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS.get('').lower() in ENV_TRUE
+        return CAASEnv.ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS.as_bool()
 
     def minio_presigned_url_host(self) -> str | None:
         host = CAASEnv.MINIO_PRESIGNED_URL_HOST.get()
