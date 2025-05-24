@@ -1138,6 +1138,7 @@ _previous_month_start = relativedelta(
 _this_month_start = relativedelta(
     hour=0, minute=0, second=0, microsecond=0, day=1
 )
+_relative_now = relativedelta()
 
 
 class ReportType(str, Enum):
@@ -1178,7 +1179,7 @@ class ReportType(str, Enum):
         obj._value_ = value
 
         obj.description = description
-        obj.r_end = r_end or relativedelta()
+        obj.r_end = r_end or _relative_now
         obj.r_start = r_start
         return obj
 
@@ -1192,6 +1193,9 @@ class ReportType(str, Enum):
         if not self.r_start:
             return
         return now + self.r_start
+
+    def is_as_of_now(self) -> bool:
+        return self.r_end == _relative_now
 
     # Operational, kind of for one tenant
     OPERATIONAL_OVERVIEW = (

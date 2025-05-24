@@ -10,6 +10,7 @@ from helpers.time_helper import utc_iso
 from models.job import Job
 from services.base_data_service import BaseDataService
 from services.ruleset_service import RulesetName
+from services.platform_service import Platform
 
 
 class JobService(BaseDataService[Job]):
@@ -101,11 +102,8 @@ class JobService(BaseDataService[Job]):
         limit: int | None = None,
         last_evaluated_key: dict | None = None,
     ) -> ResultIterator[Job]:
-        rkc = None
         if start and end:
-            rkc = Job.submitted_at.between(
-                lower=utc_iso(start), upper=utc_iso(end)
-            )
+            rkc = (Job.submitted_at >= utc_iso(start)) & (Job.submitted_at < utc_iso(end))
         elif start:
             rkc = Job.submitted_at >= utc_iso(start)
         elif end:
@@ -135,9 +133,7 @@ class JobService(BaseDataService[Job]):
         last_evaluated_key: dict | None = None,
     ) -> ResultIterator[Job]:
         if start and end:
-            rkc = Job.submitted_at.between(
-                lower=utc_iso(start), upper=utc_iso(end)
-            )
+            rkc = (Job.submitted_at >= utc_iso(start)) & (Job.submitted_at < utc_iso(end))
         elif start:
             rkc = Job.submitted_at >= utc_iso(start)
         elif end:
@@ -169,6 +165,30 @@ class JobService(BaseDataService[Job]):
             rulesets.append(RulesetName(r).to_str(False))
         raw['rulesets'] = rulesets
         return raw
+
+    def get_tenant_last_job_date(self, tenant_name: str) -> str | None:
+        job = next(Job.tenant_name_submitted_at_index.query(
+            hash_key=tenant_name,
+            filter_condition=(Job.status == JobState.SUCCEEDED.value) & Job.platform_id.does_not_exist(),
+            scan_index_forward=False,
+            limit=1,
+            attributes_to_get=(Job.submitted_at, )
+        ), None)
+        if not job:
+            return
+        return job.submitted_at
+
+    def get_platform_last_job_date(self, platform: Platform) -> str | None:
+        job = next(Job.tenant_name_submitted_at_index.query(
+            hash_key=platform.tenant_name,
+            filter_condition=(Job.status == JobState.SUCCEEDED.value) & Job.platform_id.exists(),
+            scan_index_forward=False,
+            limit=1,
+            attributes_to_get=(Job.submitted_at, )
+        ), None)
+        if not job:
+            return
+        return job.submitted_at
 
 
 class JobAttributeSetterDescriptor:

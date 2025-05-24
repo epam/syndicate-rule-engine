@@ -174,6 +174,17 @@ class License:
             return True
         return exp <= utc_datetime()
 
+    def __hash__(self) -> int:
+        """
+        Just to be able to use license instances as dict keys
+        """
+        return hash(self.license_key)
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, License):
+            return False
+        return self._app.application_id == other._app.application_id
+
 
 class LicenseService(BaseDataService[License]):
     def __init__(
@@ -345,13 +356,15 @@ class LicenseService(BaseDataService[License]):
             )
         )
 
+    def get_metadata_for_licenses(self, licenses: Iterable[License]) -> Metadata:
+        """
+        Returns a collected metadata for all licenses
+        """
+        return merge_metadata(*map(self._mp.get, licenses))
+
     def get_customer_metadata(self, customer: str) -> Metadata:
-        return merge_metadata(
-            *[
-                self._mp.get(lic)
-                for lic in self.iter_customer_licenses(customer)
-            ]
-        )
+        licenses = self.iter_customer_licenses(customer)
+        return self.get_metadata_for_licenses(licenses)
 
     @staticmethod
     def is_subject_applicable(

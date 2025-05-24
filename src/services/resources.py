@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from c7n.query import TypeInfo as AWSTypeInfo
     from c7n_gcp.query import TypeInfo as GCPTypeInfo  # noqa
 
-    from services.sharding import BaseShardPart, ShardsCollection
+    from services.sharding import ShardPart, ShardsCollection
 
 _LOG = get_logger(__name__)
 
@@ -325,6 +325,57 @@ class InPlaceResourceView(ResourceVisitor[dict]):
         return base
 
 
+class MaestroReportResourceView(ResourceVisitor[dict]):
+    """
+    TODO: add report fields handling
+    """
+
+    def visitAWSResource(self, resource: 'AWSResource', /, *args,
+                         **kwargs) -> dict:
+
+        dct = {
+            'id': resource.id,
+            'name': resource.name,
+            'sre:date': resource.sync_date,
+        }
+        if arn := resource.arn:
+            dct['arn'] = arn
+        return dct
+
+    def visitAZUREResource(self, resource: 'AZUREResource', /, *args,
+                           **kwargs) -> dict:
+        dct = {
+            'id': resource.id,
+            'name': resource.name,
+            'sre:date': resource.sync_date,
+        }
+        if rg := resource.group:
+            dct['resourceGroup'] = rg
+        return dct
+
+    def visitGOOGLEResource(self, resource: 'GOOGLEResource', /, *args,
+                            **kwargs) -> dict:
+        dct = {
+            'id': resource.id,
+            'name': resource.name,
+            'sre:date': resource.sync_date
+        }
+        if urn := resource.urn:
+            dct['urn'] = urn
+        return dct
+
+    def visitK8SResource(self, resource: 'K8SResource', /, *args,
+                         **kwargs) -> dict:
+        dct = {
+            'id': resource.id,
+            'name': resource.name,
+            'sre:date': resource.sync_date
+        }
+        if namespace := resource.namespace:
+            dct['namespace'] = namespace
+        return dct
+
+
 def load_cc_providers():
     from c7n.resources import load_available
 
@@ -437,7 +488,7 @@ def _resolve_google_location(res: dict, model: 'GCPTypeInfo') -> str:
 
 
 def to_aws_resources(
-    part: 'BaseShardPart',
+    part: 'ShardPart',
     rt: str,
     metadata: 'RuleMetadata',
     account_id: str = '',
@@ -510,7 +561,7 @@ def to_aws_resources(
 
 
 def to_azure_resources(
-    part: 'BaseShardPart', rt: str
+    part: 'ShardPart', rt: str
 ) -> Generator[AZUREResource, None, None]:
     if len(part.resources) == 0:
         return
@@ -537,7 +588,7 @@ def to_azure_resources(
 
 
 def to_google_resources(
-    part: 'BaseShardPart',
+    part: 'ShardPart',
     rt: str,
     metadata: 'RuleMetadata',
     account_id: str = '',
@@ -585,7 +636,7 @@ def to_google_resources(
 
 
 def to_k8s_resources(
-    part: 'BaseShardPart', rt: str
+    part: 'ShardPart', rt: str
 ) -> Generator[K8SResource, None, None]:
     if len(part.resources) == 0:
         return
@@ -633,9 +684,8 @@ def iter_rule_region_resources(
     load_cc_providers()
 
     if resource_types:
-        typ = set if len(resource_types) > 128 else tuple
-        resource_types = typ(
-            prepare_resource_type(rt, cloud) for rt in resource_types
+        resource_types = resource_types.__class__(
+            [prepare_resource_type(rt, cloud) for rt in resource_types]
         )
 
     meta = collection.meta

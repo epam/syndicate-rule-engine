@@ -149,6 +149,10 @@ class JobMetricsDataSource:
         return sum(map(lambda j: j.is_succeeded, self._jobs))
 
     @cached_property
+    def n_finished(self) -> int:
+        return sum(map(lambda j: j.is_finished, self._jobs))
+
+    @cached_property
     def n_failed(self) -> int:
         return sum(map(lambda j: j.is_failed, self._jobs))
 

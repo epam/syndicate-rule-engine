@@ -1108,7 +1108,7 @@ def batch_results_job(batch_results: BatchResults):
     result = JobResult(work_dir, cloud)
     keys_builder = TenantReportsBucketKeysBuilder(tenant)
     collection = ShardsCollectionFactory.from_cloud(cloud)
-    collection.put_parts(result.iter_shard_parts())
+    collection.put_parts(result.iter_shard_parts(runner.failed))
     meta = result.rules_meta()
     collection.meta = meta
 
@@ -1542,7 +1542,7 @@ def run_standard_job(ctx: JobExecutionContext):
     result = JobResult(ctx.work_dir, cloud)
 
     collection = ShardsCollectionFactory.from_cloud(cloud)
-    collection.put_parts(result.iter_shard_parts())
+    collection.put_parts(result.iter_shard_parts(failed))
     meta = result.rules_meta()
     collection.meta = meta
 
