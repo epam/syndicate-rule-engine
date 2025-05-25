@@ -109,6 +109,52 @@ def k8s_scan_result() -> Path:
 
 
 @pytest.fixture(scope='session')
+def aws_rules(aws_scan_result: Path) -> set[str]:
+    rules = set()
+    for region in aws_scan_result.iterdir():
+        if not region.is_dir():
+            continue
+        for rule in region.iterdir():
+            if rule.is_dir():
+                rules.add(rule.name)
+    return rules
+
+@pytest.fixture(scope='session')
+def azure_rules(azure_scan_result: Path) -> set[str]:
+    rules = set()
+    for region in azure_scan_result.iterdir():
+        if not region.is_dir():
+            continue
+        for rule in region.iterdir():
+            if rule.is_dir():
+                rules.add(rule.name)
+    return rules
+
+@pytest.fixture(scope='session')
+def google_rules(google_scan_result: Path) -> set[str]:
+    rules = set()
+    for region in google_scan_result.iterdir():
+        if not region.is_dir():
+            continue
+        for rule in region.iterdir():
+            if rule.is_dir():
+                rules.add(rule.name)
+    return rules
+
+
+@pytest.fixture(scope='session')
+def k8s_rules(k8s_scan_result: Path) -> set[str]:
+    rules = set()
+    for region in k8s_scan_result.iterdir():
+        if not region.is_dir():
+            continue
+        for rule in region.iterdir():
+            if rule.is_dir():
+                rules.add(rule.name)
+    return rules
+
+
+@pytest.fixture(scope='session')
 def aws_shards_path() -> Path:
     return DATA / 'shards' / 'aws'
 
@@ -132,6 +178,20 @@ def load_expected():
             with open(fn, 'rb') as fp:
                 _cache[filename] = _decoder.decode(fp.read())
         return _cache[filename]
+
+    return inner
+
+
+@pytest.fixture(scope='session')
+def save_expected():
+
+    def inner(filename: str, data):
+        if not filename.endswith('.json'):
+            filename = f'{filename}.json'
+        fn = DATA / 'expected' / filename
+
+        with open(fn, 'wb') as fp:
+            fp.write(msgspec.json.encode(data, order='sorted'))
 
     return inner
 

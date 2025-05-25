@@ -28,7 +28,7 @@ from ...commons import dicts_equal
 
 @pytest.fixture()
 def aws_jobs(
-    aws_tenant, aws_scan_result, create_tenant_job, create_tenant_br, utcnow
+    aws_tenant, aws_scan_result, create_tenant_job, utcnow
 ):
     failed = {
         (
@@ -40,7 +40,7 @@ def aws_jobs(
             'AccessDenied Exception',
             [],
         ),
-    },
+    }
     # don't need to keep results of individual jobs, but need their statistics
     start = utcnow.replace(hour=0)
 
@@ -50,12 +50,8 @@ def aws_jobs(
     create_tenant_job(
         aws_tenant, start + timedelta(seconds=2), JobState.FAILED
     ).save()
-    br = create_tenant_br(
-        aws_tenant, start + timedelta(seconds=3), JobState.SUCCEEDED
-    )
 
     job.save()
-    br.save()
 
     # prepare data for pipeline
     result = JobResult(aws_scan_result, Cloud.AWS)
@@ -84,7 +80,6 @@ def azure_jobs(
     azure_tenant,
     azure_scan_result,
     create_tenant_job,
-    create_tenant_br,
     utcnow,
 ):
     failed = {
@@ -98,7 +93,7 @@ def azure_jobs(
             'AccessDenied exception',
             [],
         ),
-    },
+    }
     # don't need to keep results of individual jobs, but need their statistics
     start = utcnow.replace(hour=0)
 
@@ -108,12 +103,8 @@ def azure_jobs(
     create_tenant_job(
         azure_tenant, start + timedelta(seconds=2), JobState.FAILED
     ).save()
-    br = create_tenant_br(
-        azure_tenant, start + timedelta(seconds=3), JobState.SUCCEEDED
-    )
 
     job.save()
-    br.save()
 
     # prepare data for pipeline
     result = JobResult(azure_scan_result, Cloud.AZURE)
@@ -142,7 +133,6 @@ def google_jobs(
     google_tenant,
     google_scan_result,
     create_tenant_job,
-    create_tenant_br,
     utcnow,
 ):
     failed = {
@@ -159,7 +149,7 @@ def google_jobs(
             'AccessDenied exception',
             [],
         ),
-    },
+    }
     # don't need to keep results of individual jobs, but need their statistics
     start = utcnow.replace(hour=0)
 
@@ -169,12 +159,8 @@ def google_jobs(
     create_tenant_job(
         google_tenant, start + timedelta(seconds=2), JobState.FAILED
     ).save()
-    br = create_tenant_br(
-        google_tenant, start + timedelta(seconds=3), JobState.SUCCEEDED
-    )
 
     job.save()
-    br.save()
 
     # prepare data for pipeline
     result = JobResult(google_scan_result, Cloud.GOOGLE)

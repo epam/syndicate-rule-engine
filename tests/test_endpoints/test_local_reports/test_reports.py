@@ -29,7 +29,7 @@ def aws_job(aws_tenant, aws_scan_result, create_tenant_job):
             'AccessDenied Exception',
             [],
         ),
-    },
+    }
 
     job = create_tenant_job(aws_tenant, utc_datetime(), JobState.SUCCEEDED)
     job.save()

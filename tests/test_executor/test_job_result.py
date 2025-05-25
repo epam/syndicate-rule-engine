@@ -53,7 +53,7 @@ def test_statistics_aws(aws_tenant, aws_scan_result, load_expected):
 def test_iter_shard_parts_aws(aws_scan_result):
     item = JobResult(aws_scan_result, Cloud.AWS)
     parts = tuple(item.iter_shard_parts({}))
-    assert len(parts) == 17
+    assert len(parts) == 19
     dct = {}
     for part in parts:
         dct[(part.location, part.policy)] = part
@@ -64,8 +64,7 @@ def test_iter_shard_parts_aws(aws_scan_result):
     assert len(dct[('eu-north-1', 'ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled')].resources) == 1
 
     assert len(dct[('global', 'ecc-aws-499-iam_group_has_users_check')].resources) == 3
-    with pytest.raises(KeyError):
-        _ = dct[('global', 'ecc-aws-527-waf_global_webacl_not_empty')]
+    assert dct[('global', 'ecc-aws-527-waf_global_webacl_not_empty')].error is not None
 
     assert len(dct[('eu-central-1', 'ecc-aws-070-unused_ec2_security_groups')].resources) == 3
 
@@ -73,7 +72,7 @@ def test_iter_shard_parts_aws(aws_scan_result):
 def test_iter_shard_parts_azure(azure_scan_result):
     item = JobResult(azure_scan_result, Cloud.AZURE)
     parts = tuple(item.iter_shard_parts({}))
-    assert len(parts) == 8
+    assert len(parts) == 10
     dct = {}
     for part in parts:
         dct[(part.location, part.policy)] = part

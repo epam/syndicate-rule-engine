@@ -2,7 +2,6 @@
   "receivers": [
     "admin@gmail.com"
   ],
-  "report_type": "FINOPS",
   "customer": "TEST_CUSTOMER",
   "from": "2025-01-28T15:17:55.159237Z",
   "to": "2025-02-04T15:17:55.159237Z",

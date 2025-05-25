@@ -1,15 +1,39 @@
 {
-  "id": "3d615fa8-05c6-47ea-990d-9d162testing",
-  "outdated_tenants": [],
-  "last_scan_date": "2025-01-27T00:31:46.313689Z",
-  "activated_regions": [],
+  "metadata": {
+    "licenses": [
+      {
+        "id": "license-key",
+        "rulesets": [
+          "AZURE"
+        ],
+        "total_rules": 10,
+        "jobs": 10,
+        "per": "DAY",
+        "description": "Testing license",
+        "valid_until": "2100-02-01T15:24:26.175778Z",
+        "valid_from": "2025-05-25T12:56:35.620288Z"
+      }
+    ],
+    "is_automatic_scans_enabled": true,
+    "in_progress_scans": 0,
+    "finished_scans": 2,
+    "succeeded_scans": 1,
+    "last_scan_date": "2025-05-25T00:56:34.256160Z",
+    "active_regions": [],
+    "rules": {
+      "total": 1,
+      "disabled": [],
+      "passed": [],
+      "failed": []
+    }
+  },
   "data": [
     {
       "category": "Runtime version",
       "deprecation_date": "2100-01-27",
+      "is_deprecated": false,
       "deprecation_severity": "Low",
       "deprecation_link": "https://example.com",
-      "is_deprecated": false,
       "remediation_complexity": "Medium-High",
       "remediation": "Remediation text here",
       "policy": "ecc-azure-096-cis_sec_defender_azure_sql",
@@ -19,10 +43,12 @@
         "global": [
           {
             "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/SqlServers",
-            "name": "SqlServers"
+            "name": "SqlServers",
+            "sre:date": 1729502334.624495
           }
         ]
       }
     }
-  ]
+  ],
+  "id": "3d615fa8-05c6-47ea-990d-9d162testing"
 }

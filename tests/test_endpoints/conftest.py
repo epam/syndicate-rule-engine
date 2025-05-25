@@ -8,6 +8,7 @@ import pytest
 from moto.backends import get_backend
 from webtest import TestApp
 
+from modular_sdk.commons.constants import ParentType
 from helpers.constants import Permission, CAASEnv, PolicyEffect, JobState
 from helpers.time_helper import utc_iso
 from services import SP  # probably the only safe import we can use in conftest
@@ -248,7 +249,7 @@ def create_tenant_br():
 
 
 @pytest.fixture()
-def main_license(main_customer) -> 'License':
+def main_license(main_customer, aws_rules, azure_rules, google_rules, k8s_rules) -> 'License':
     lic = SP.license_service.create(
         license_key='license-key',
         customer=main_customer.name,
@@ -256,7 +257,7 @@ def main_license(main_customer) -> 'License':
         customers={main_customer.name: {'attachment_model': 'permitted', 'tenants': [], 'tenant_license_key': 'tlk'}},
         description='Testing license',
         expiration=datetime(2100, 2, 1, 15, 24, 26, 175778, tzinfo=timezone.utc),
-        ruleset_ids=['AWS', 'AZURE', 'GOOGLE'],
+        ruleset_ids=['AWS', 'AZURE', 'GOOGLE', 'KUBERNETES'],
         allowance={
             'balance_exhaustion_model': 'independent',
             'job_balance': 10,
@@ -273,7 +274,7 @@ def main_license(main_customer) -> 'License':
         name='AWS',
         version='',
         cloud='AWS',
-        rules=[],
+        rules=list(aws_rules),
         event_driven=False,
         licensed=True,
         license_keys=[lic.license_key],
@@ -284,7 +285,7 @@ def main_license(main_customer) -> 'License':
         name='AZURE',
         version='',
         cloud='AZURE',
-        rules=[],
+        rules=list(azure_rules),
         event_driven=False,
         licensed=True,
         license_keys=[lic.license_key],
@@ -295,12 +296,32 @@ def main_license(main_customer) -> 'License':
         name='GOOGLE',
         version='',
         cloud='GCP',
-        rules=[],
+        rules=list(google_rules),
         event_driven=False,
         licensed=True,
         license_keys=[lic.license_key],
         versions=['1.0.0']
     ).save()
+    SP.ruleset_service.create(
+        customer=CAASEnv.SYSTEM_CUSTOMER_NAME.get(),
+        name='KUBERNETES',
+        version='',
+        cloud='KUBERNETES',
+        rules=list(k8s_rules),
+        event_driven=False,
+        licensed=True,
+        license_keys=[lic.license_key],
+        versions=['1.0.0']
+    ).save()
+
+    SP.modular_client.parent_service().create_all_scope(
+        application_id=lic.license_key,
+        customer_id=main_customer.name,
+        type_=ParentType.CUSTODIAN_LICENSES,
+        created_by='test',
+        meta={}
+    ).save()
+
     return lic
 
 

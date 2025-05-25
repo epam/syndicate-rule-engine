@@ -26,9 +26,9 @@
           "severity_data": {
             "Unknown": 23
           },
-          "succeeded_scans": 2,
+          "succeeded_scans": 1,
           "tenant_name": "AWS-TESTING",
-          "total_scans": 3
+          "total_scans": 2
         },
         "AZURE": {
           "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
@@ -42,9 +42,9 @@
           "severity_data": {
             "Unknown": 5
           },
-          "succeeded_scans": 2,
+          "succeeded_scans": 1,
           "tenant_name": "AZURE-TESTING",
-          "total_scans": 3
+          "total_scans": 2
         },
         "GOOGLE": {
           "account_id": "testing-project-123",
@@ -60,9 +60,9 @@
           "severity_data": {
             "Unknown": 9
           },
-          "succeeded_scans": 2,
+          "succeeded_scans": 1,
           "tenant_name": "GOOGLE-TESTING",
-          "total_scans": 3
+          "total_scans": 2
         }
       },
       "sort_by": 37,
