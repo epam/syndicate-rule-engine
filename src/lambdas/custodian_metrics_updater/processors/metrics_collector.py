@@ -20,6 +20,7 @@ from helpers.constants import (
     PolicyErrorType,
     ReportType,
 )
+from helpers.system_customer import SystemCustomer
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime, utc_iso
 from models.metrics import ReportMetrics
@@ -2383,6 +2384,9 @@ class MetricsCollector:
         for customer in self._mc.customer_service().i_get_customer(
             is_active=True
         ):
+            if customer.name == SystemCustomer.get_name():
+                _LOG.info(f'Skipping metrics for {customer.name}')
+                continue
             _LOG.info(f'Collecting metrics for customer: {customer.name}')
             licenses = tuple(self._ls.iter_customer_licenses(customer.name))
             if not licenses:
