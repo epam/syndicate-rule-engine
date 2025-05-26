@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from pynamodb.attributes import MapAttribute, UnicodeAttribute, ListAttribute
+from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
 from helpers.constants import (
     COMPOUND_KEYS_SEPARATOR,
@@ -14,6 +15,15 @@ if TYPE_CHECKING:
     from modular_sdk.models.tenant import Tenant
 
     from services.platform_service import Platform
+
+class CustomerEndIndex(GlobalSecondaryIndex):
+    class Meta:
+        index_name = 'c_e_index'
+        projection = AllProjection()
+    
+    customer = UnicodeAttribute(hash_key=True, attr_name='c')
+    end = UnicodeAttribute(range_key=True, attr_name='e')
+
 
 
 class ReportMetrics(BaseModel):
@@ -41,6 +51,8 @@ class ReportMetrics(BaseModel):
     # holds tenants that were involved in collecting this report
     tenants = ListAttribute(of=UnicodeAttribute, default=list,
                             attr_name='t')
+    
+    customer_end_index = CustomerEndIndex()
 
     @property
     def created_at(self) -> str:

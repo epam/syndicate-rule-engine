@@ -7,7 +7,7 @@ import requests
 import msgspec
 
 from helpers import batches_with_critic
-from helpers.constants import HTTPMethod, SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES
+from helpers.constants import HTTPMethod, CAASEnv
 from helpers.log_helper import get_logger
 
 _LOG = get_logger(__name__)
@@ -18,7 +18,7 @@ class DojoV2Client:
 
     encoder = msgspec.json.Encoder()
 
-    _payload_size_limit = SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES
+    _payload_size_limit = CAASEnv.DOJO_PAYLOAD_SIZE_LIMIT_BYTES.as_int()
 
     def __init__(self, url: str, api_key: str):
         """

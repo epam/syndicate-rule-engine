@@ -50,6 +50,9 @@ app.conf.task_routes = {
     },
     'onprem.tasks.run_scheduled_job': {
         'queue': 'a-jobs'
+    },
+    'onprem.tasks.delete_expired_metrics': {
+        'queue': 'a-jobs'
     }
 }
 app.conf.timezone = 'UTC'
