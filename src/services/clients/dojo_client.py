@@ -7,7 +7,7 @@ import requests
 import msgspec
 
 from helpers import batches_with_critic
-from helpers.constants import HTTPMethod, SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES
+from helpers.constants import HTTPMethod, CAASEnv
 from helpers.log_helper import get_logger
 
 _LOG = get_logger(__name__)
@@ -17,8 +17,6 @@ class DojoV2Client:
     __slots__ = ('_url', '_session')
 
     encoder = msgspec.json.Encoder()
-
-    _payload_size_limit = SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES
 
     def __init__(self, url: str, api_key: str):
         """
@@ -66,8 +64,8 @@ class DojoV2Client:
         """
         yield from batches_with_critic(
             iterable = entities, 
-            critic = lambda x: len(self.encoder.encode(x))+2, # +2 for spaces and commas
-            limit = self._payload_size_limit,
+            critic = lambda x: len(self.encoder.encode(x))+1, # +1 for comma
+            limit = CAASEnv.DOJO_PAYLOAD_SIZE_LIMIT_BYTES.as_int(),
             drop_violating_items=True
         )
     

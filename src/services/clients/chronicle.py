@@ -1,5 +1,4 @@
 from enum import Enum
-import math
 from pathlib import Path
 from typing import Generator
 from urllib.parse import urljoin
@@ -8,7 +7,7 @@ from google.auth.transport import requests
 from google.oauth2 import service_account
 import msgspec
 
-from helpers import batches
+from helpers import batches_with_critic
 from helpers.constants import HTTPMethod
 from helpers.log_helper import get_logger
 
@@ -75,10 +74,12 @@ class ChronicleV2Client:
         :param entities:
         :return:
         """
-        # TODO maybe rewrite because this logic is not ideal
-        total = len(self._encoder.encode(entities))  # total bytes
-        number = math.ceil(total / self._payload_size_limit) + 2  # number of requests
-        yield from batches(entities, max(1, len(entities) // number))
+        yield from batches_with_critic(
+            iterable=entities,
+            critic=lambda x: len(self._encoder.encode(x))+1,  # for comma
+            limit=self._payload_size_limit,
+            drop_violating_items=True
+        )
 
     @staticmethod
     def _load_json(resp) -> dict | list | None:

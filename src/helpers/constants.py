@@ -638,6 +638,9 @@ class CAASEnv(EnvEnum):
     # Cloud Custodian
     CC_LOG_LEVEL = 'SRE_CC_LOG_LEVEL', (), 'INFO'
 
+    # dojo
+    DOJO_PAYLOAD_SIZE_LIMIT_BYTES = 'SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES', (), '8388608'
+
     @classmethod
     def is_docker(cls) -> bool:
         return cls.SERVICE_MODE.get() == 'docker'
@@ -1332,6 +1335,3 @@ class RabbitCommand(str, Enum):
 class ScheduledJobType(str, Enum):
     STANDARD = 'standard'
     SYSTEM = 'system'
-
-# dojo
-SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES=int(os.environ.get("SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES", "8388608"))
