@@ -90,16 +90,9 @@ class DojoV2Client:
                     data: dict, auto_create_context: bool = True,
                     tags: list[str] | None = None, reimport: bool = True,
                     ) -> tuple[dict[str, int], list]:
-        _LOG.debug(f'Data bytes: {len(self.encoder.encode(data))}')
-        _LOG.debug(f'Data elements: {len(data["findings"])}')
-
         result = defaultdict(int)
         failure_codes = []
         for batch in self._batches(data['findings']):
-        
-            _LOG.debug(f'Batch bytes: {len(self.encoder.encode(batch))}')
-            _LOG.debug(f'Batch elements: {len(batch)}')
-
             resp = self._request(
                 path='/reimport-scan/' if reimport else '/import-scan/',
                 method=HTTPMethod.POST,
