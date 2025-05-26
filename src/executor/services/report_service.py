@@ -1,13 +1,11 @@
 from pathlib import Path
-from typing import Generator, TypedDict, Iterable, cast
+from typing import Generator, Iterable, TypedDict
 
 import msgspec
-from c7n.provider import get_resource_class
-from c7n.resources import load_resources
 from modular_sdk.models.tenant import Tenant
 
 from executor.helpers.constants import AWS_DEFAULT_REGION
-from helpers.constants import (Cloud, GLOBAL_REGION, PolicyErrorType)
+from helpers.constants import GLOBAL_REGION, Cloud, PolicyErrorType
 from helpers.log_helper import get_logger
 from services.sharding import RuleMeta, ShardPart
 
@@ -40,6 +38,7 @@ class RuleRawMetadata:
     Simple wrapper over metadata.json that is returned by Cloud Custodian.
     Allows to extract some data
     """
+
     __slots__ = ('data',)
 
     class MetricItem(TypedDict):
@@ -96,10 +95,6 @@ class RuleRawMetadata:
 
 
 class JobResult:
-    class FormattedItem(TypedDict):  # our detailed report item
-        policy: dict
-        resources: list[dict]
-
     RegionRuleOutput = tuple[str, str, RuleRawMetadata, list[dict] | None]
 
     def __init__(self, work_dir: Path, cloud: Cloud):
@@ -115,14 +110,14 @@ class JobResult:
             Cloud.AWS: 'aws',
             Cloud.AZURE: 'azure',
             Cloud.GOOGLE: 'gcp',
-            Cloud.KUBERNETES: 'k8s'
+            Cloud.KUBERNETES: 'k8s',
         }
 
     def adjust_resource_type(self, rt: str) -> str:
         rt = rt.split('.', maxsplit=1)[-1]
-        return '.'.join((
-            self.cloud_to_resource_type_prefix()[self._cloud], rt
-        ))
+        return '.'.join(
+            (self.cloud_to_resource_type_prefix()[self._cloud], rt)
+        )
 
     @staticmethod
     def _resources_exist(root: Path) -> bool:
@@ -130,7 +125,8 @@ class JobResult:
 
     def _load_resources(self, root: Path) -> list[dict] | None:
         resources = root / 'resources.json'
-        if not resources.exists(): return
+        if not resources.exists():
+            return
         with open(resources, 'rb') as fp:
             return self._res_decoded.decode(fp.read())
 
@@ -138,8 +134,9 @@ class JobResult:
         with open(root / 'metadata.json', 'rb') as fp:
             return RuleRawMetadata(self._metadata_decoder.decode(fp.read()))
 
-    def iter_raw(self, with_resources: bool = False
-                 ) -> Generator[RegionRuleOutput, None, None]:
+    def iter_raw(
+        self, with_resources: bool = False
+    ) -> Generator[RegionRuleOutput, None, None]:
         dirs = filter(Path.is_dir, self._work_dir.iterdir())
         for region in dirs:
             for rule in filter(Path.is_dir, region.iterdir()):
@@ -151,8 +148,9 @@ class JobResult:
                 yield region.name, rule.name, metadata, resources
 
     @staticmethod
-    def resolve_azure_locations(it: Iterable[RegionRuleOutput]
-                                ) -> Generator[RegionRuleOutput, None, None]:
+    def resolve_azure_locations(
+        it: Iterable[RegionRuleOutput],
+    ) -> Generator[RegionRuleOutput, None, None]:
         """
         The thing is: Custodian Custom Core cannot scan Azure
         region-dependently. A rule covers the whole subscription and then
@@ -174,8 +172,9 @@ class JobResult:
                 yield loc, rule, metadata, res
 
     @staticmethod
-    def resolve_aws_s3_location_constraint(it: Iterable[RegionRuleOutput]
-                                           ) -> Generator[RegionRuleOutput, None, None]:
+    def resolve_aws_s3_location_constraint(
+        it: Iterable[RegionRuleOutput],
+    ) -> Generator[RegionRuleOutput, None, None]:
         for region, rule, metadata, resources in it:
             if resources is None or not resources:
                 yield region, rule, metadata, resources
@@ -186,13 +185,18 @@ class JobResult:
             _region_buckets = {}
             for bucket in resources:
                 # LocationConstraint is None if region is us-east-1
-                r = bucket.get('Location', {}).get('LocationConstraint') or AWS_DEFAULT_REGION
+                r = (
+                    bucket.get('Location', {}).get('LocationConstraint')
+                    or AWS_DEFAULT_REGION
+                )
                 _region_buckets.setdefault(r, []).append(bucket)
             for r, buckets in _region_buckets.items():
                 yield r, rule, metadata, buckets
 
     @staticmethod
-    def resolve_google_location_id(it: Iterable[RegionRuleOutput]) -> Generator[RegionRuleOutput, None, None]:
+    def resolve_google_location_id(
+        it: Iterable[RegionRuleOutput],
+    ) -> Generator[RegionRuleOutput, None, None]:
         for region, rule, metadata, resources in it:
             if resources is None or not resources:
                 yield region, rule, metadata, resources
@@ -224,7 +228,9 @@ class JobResult:
         """
         failed = failed or {}
         res = []
-        for region, rule, metadata, resources in self.iter_raw(with_resources=False):
+        for region, rule, metadata, resources in self.iter_raw(
+            with_resources=False
+        ):
             item = {
                 'policy': rule,
                 'region': region,
@@ -242,21 +248,38 @@ class JobResult:
                 item['reason'] = _failed[1]
                 item['traceback'] = _failed[2]
             else:
-                _LOG.warning(f'Rule {rule}:{region} has was not executed but '
-                             f'failed map does not contain its info')
+                _LOG.warning(
+                    f'Rule {rule}:{region} has was not executed but '
+                    f'failed map does not contain its info'
+                )
                 item['error_type'] = PolicyErrorType.INTERNAL
             res.append(item)
         return res
 
-    def iter_shard_parts(self) -> Generator[ShardPart, None, None]:
+    def iter_shard_parts(
+        self, failed: dict
+    ) -> Generator[ShardPart, None, None]:
         for region, rule, metadata, resources in self.build_default_iterator():
             if resources is None:
-                continue
-            yield ShardPart(
-                policy=rule,
-                location=region,
-                resources=resources
-            )
+                # policy error occurred
+                if er := failed.get((region, rule)):
+                    error = er[0], er[1]
+                else:
+                    error = PolicyErrorType.INTERNAL, 'Unknown policy error'
+
+                yield ShardPart(
+                    policy=rule,
+                    location=region,
+                    timestamp=metadata.end_time,
+                    error=':'.join(error),
+                )
+            else:
+                yield ShardPart(
+                    policy=rule,
+                    location=region,
+                    timestamp=metadata.end_time,
+                    resources=resources,
+                )
 
     def rules_meta(self) -> dict[str, RuleMeta]:
         """
@@ -267,7 +290,8 @@ class JobResult:
         result = {}
         for _, rule, metadata, _ in self.iter_raw(with_resources=False):
             meta = {
-                k: v for k, v in metadata.policy.items()
+                k: v
+                for k, v in metadata.policy.items()
                 if k not in ('filters', 'name')
             }
             if 'resource' in meta:

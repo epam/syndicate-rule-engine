@@ -1,41 +1,72 @@
 {
-  "id": "123456789012",
-  "data": {
-    "Compute": [
+  "metadata": {
+    "licenses": [
       {
-        "rule": "Description for ecc-aws-070-unused_ec2_security_groups",
-        "service": "Security Group",
-        "category": "Unused Resources",
-        "severity": "Unknown",
-        "resource_type": "Security Group",
-        "resources": {
-          "eu-central-1": [
-            {
-              "id": "sg-09d19538187df66cf",
-              "name": "asia",
-              "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-09d19538187df66cf"
-            },
-            {
-              "id": "sg-05209ceeb761317e5",
-              "name": "west-eu",
-              "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-05209ceeb761317e5"
-            },
-            {
-              "id": "sg-0ae266faddaef17e9",
-              "name": "packer-ssh-access",
-              "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-0ae266faddaef17e9"
-            }
-          ]
-        }
+        "id": "license-key",
+        "rulesets": [
+          "AWS"
+        ],
+        "total_rules": 14,
+        "jobs": 10,
+        "per": "DAY",
+        "description": "Testing license",
+        "valid_until": "2100-02-01T15:24:26.175778Z",
+        "valid_from": "2025-05-25T12:47:41.104114Z"
       }
-    ]
+    ],
+    "is_automatic_scans_enabled": true,
+    "in_progress_scans": 0,
+    "finished_scans": 2,
+    "succeeded_scans": 1,
+    "last_scan_date": "2025-05-25T00:47:41.942771Z",
+    "activated_regions": [
+      "eu-central-1",
+      "eu-north-1",
+      "eu-west-3",
+      "eu-west-1"
+    ],
+    "rules": {
+      "total": 1,
+      "disabled": [],
+      "passed": [],
+      "failed": []
+    }
   },
-  "last_scan_date": "2025-05-20T00:42:41.234955Z",
-  "activated_regions": [
-    "eu-central-1",
-    "eu-north-1",
-    "eu-west-1",
-    "eu-west-3"
+  "data": [
+    {
+      "service_section": "Compute",
+      "rules_data": [
+        {
+          "rule": "Description for ecc-aws-070-unused_ec2_security_groups",
+          "service": "Security Group",
+          "category": "Unused Resources",
+          "severity": "Unknown",
+          "resource_type": "Security Group",
+          "resources": {
+            "eu-central-1": [
+              {
+                "id": "sg-0ae266faddaef17e9",
+                "name": "packer-ssh-access",
+                "sre:date": 1729253757.393474,
+                "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-0ae266faddaef17e9"
+              },
+              {
+                "id": "sg-05209ceeb761317e5",
+                "name": "west-eu",
+                "sre:date": 1729253757.393474,
+                "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-05209ceeb761317e5"
+              },
+              {
+                "id": "sg-09d19538187df66cf",
+                "name": "asia",
+                "sre:date": 1729253757.393474,
+                "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-09d19538187df66cf"
+              }
+            ]
+          }
+        }
+      ]
+    }
   ],
-  "outdated_tenants": []
+  "id": "123456789012"
 }

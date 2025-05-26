@@ -54,7 +54,7 @@ def obfuscate_collection(collection: 'ShardsCollection', dictionary_out: dict):
     :param dictionary_out:
     :return:
     """
-    for part in collection.iter_parts():
+    for part in collection.iter_all_parts():
         for res in part.resources:
             obfuscate_finding(res, dictionary_out)
 

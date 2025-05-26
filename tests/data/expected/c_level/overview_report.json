@@ -2,7 +2,6 @@
   "receivers": [
     "admin@gmail.com"
   ],
-  "report_type": "OVERVIEW",
   "customer": "TEST_CUSTOMER",
   "from": "2025-01-01T00:00:00Z",
   "to": "2025-02-01T00:00:00Z",
@@ -49,11 +48,11 @@
         }
       },
       "succeeded_scans": {
-        "value": 2
+        "value": 1
       },
       "total_scanned_tenants": 1,
       "total_scans": {
-        "value": 3
+        "value": 2
       },
       "activated": true,
       "license_properties": {
@@ -85,11 +84,11 @@
         }
       },
       "succeeded_scans": {
-        "value": 2
+        "value": 1
       },
       "total_scanned_tenants": 1,
       "total_scans": {
-        "value": 3
+        "value": 2
       },
       "activated": true,
       "license_properties": {
@@ -127,11 +126,11 @@
         }
       },
       "succeeded_scans": {
-        "value": 2
+        "value": 1
       },
       "total_scanned_tenants": 1,
       "total_scans": {
-        "value": 3
+        "value": 2
       },
       "activated": true,
       "license_properties": {

@@ -3,7 +3,6 @@ Metrics pipeline collects data for the current week for all customers and
 tenants. These tests check whether the data is processed as we expect
 """
 
-import time
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
@@ -29,8 +28,19 @@ from ...commons import dicts_equal
 
 @pytest.fixture()
 def aws_jobs(
-    aws_tenant, aws_scan_result, create_tenant_job, create_tenant_br, utcnow
+    aws_tenant, aws_scan_result, create_tenant_job, utcnow
 ):
+    failed = {
+        (
+            'eu-west-1',
+            'ecc-aws-427-rds_cluster_without_tag_information',
+        ): (PolicyErrorType.ACCESS, 'AccessDenied Exception', []),
+        ('global', 'ecc-aws-527-waf_global_webacl_not_empty'): (
+            PolicyErrorType.ACCESS,
+            'AccessDenied Exception',
+            [],
+        ),
+    }
     # don't need to keep results of individual jobs, but need their statistics
     start = utcnow.replace(hour=0)
 
@@ -40,17 +50,13 @@ def aws_jobs(
     create_tenant_job(
         aws_tenant, start + timedelta(seconds=2), JobState.FAILED
     ).save()
-    br = create_tenant_br(
-        aws_tenant, start + timedelta(seconds=3), JobState.SUCCEEDED
-    )
 
     job.save()
-    br.save()
 
     # prepare data for pipeline
     result = JobResult(aws_scan_result, Cloud.AWS)
     collection = ShardsCollectionFactory.from_cloud(Cloud.AWS)
-    collection.put_parts(result.iter_shard_parts())
+    collection.put_parts(result.iter_shard_parts(failed))
     collection.meta = result.rules_meta()
     collection.io = ShardsS3IO(
         bucket=SP.environment_service.default_reports_bucket_name(),
@@ -64,17 +70,7 @@ def aws_jobs(
         key=StatisticsBucketKeysBuilder.job_statistics(job),
         obj=result.statistics(
             aws_tenant,
-            {
-                (
-                    'eu-west-1',
-                    'ecc-aws-427-rds_cluster_without_tag_information',
-                ): (PolicyErrorType.ACCESS, 'AccessDenied Exception', []),
-                ('global', 'ecc-aws-527-waf_global_webacl_not_empty'): (
-                    PolicyErrorType.ACCESS,
-                    'AccessDenied Exception',
-                    [],
-                ),
-            },
+            failed
         ),
     )
 
@@ -84,9 +80,20 @@ def azure_jobs(
     azure_tenant,
     azure_scan_result,
     create_tenant_job,
-    create_tenant_br,
     utcnow,
 ):
+    failed = {
+        ('global', 'ecc-azure-125-nsg_mysql'): (
+            PolicyErrorType.ACCESS.value,
+            'AccessDenied exception',
+            [],
+        ),
+        ('global', 'ecc-azure-313-cis_postgresql_log_min_messages'): (
+            PolicyErrorType.ACCESS.value,
+            'AccessDenied exception',
+            [],
+        ),
+    }
     # don't need to keep results of individual jobs, but need their statistics
     start = utcnow.replace(hour=0)
 
@@ -96,17 +103,13 @@ def azure_jobs(
     create_tenant_job(
         azure_tenant, start + timedelta(seconds=2), JobState.FAILED
     ).save()
-    br = create_tenant_br(
-        azure_tenant, start + timedelta(seconds=3), JobState.SUCCEEDED
-    )
 
     job.save()
-    br.save()
 
     # prepare data for pipeline
     result = JobResult(azure_scan_result, Cloud.AZURE)
     collection = ShardsCollectionFactory.from_cloud(Cloud.AZURE)
-    collection.put_parts(result.iter_shard_parts())
+    collection.put_parts(result.iter_shard_parts(failed))
     collection.meta = result.rules_meta()
     collection.io = ShardsS3IO(
         bucket=SP.environment_service.default_reports_bucket_name(),
@@ -120,18 +123,7 @@ def azure_jobs(
         key=StatisticsBucketKeysBuilder.job_statistics(job),
         obj=result.statistics(
             azure_tenant,
-            {
-                ('global', 'ecc-azure-125-nsg_mysql'): (
-                    PolicyErrorType.ACCESS.value,
-                    'AccessDenied exception',
-                    [],
-                ),
-                ('global', 'ecc-azure-313-cis_postgresql_log_min_messages'): (
-                    PolicyErrorType.ACCESS.value,
-                    'AccessDenied exception',
-                    [],
-                ),
-            },
+            failed
         ),
     )
 
@@ -141,9 +133,23 @@ def google_jobs(
     google_tenant,
     google_scan_result,
     create_tenant_job,
-    create_tenant_br,
     utcnow,
 ):
+    failed = {
+        ('global', 'ecc-gcp-027-dnssec_for_cloud_dns'): (
+            PolicyErrorType.ACCESS.value,
+            'AccessDenied exception',
+            [],
+        ),
+        (
+            'global',
+            'ecc-gcp-101-load_balancer_access_logging_disabled',
+        ): (
+            PolicyErrorType.ACCESS.value,
+            'AccessDenied exception',
+            [],
+        ),
+    }
     # don't need to keep results of individual jobs, but need their statistics
     start = utcnow.replace(hour=0)
 
@@ -153,17 +159,13 @@ def google_jobs(
     create_tenant_job(
         google_tenant, start + timedelta(seconds=2), JobState.FAILED
     ).save()
-    br = create_tenant_br(
-        google_tenant, start + timedelta(seconds=3), JobState.SUCCEEDED
-    )
 
     job.save()
-    br.save()
 
     # prepare data for pipeline
     result = JobResult(google_scan_result, Cloud.GOOGLE)
     collection = ShardsCollectionFactory.from_cloud(Cloud.GOOGLE)
-    collection.put_parts(result.iter_shard_parts())
+    collection.put_parts(result.iter_shard_parts(failed))
     collection.meta = result.rules_meta()
     collection.io = ShardsS3IO(
         bucket=SP.environment_service.default_reports_bucket_name(),
@@ -177,21 +179,7 @@ def google_jobs(
         key=StatisticsBucketKeysBuilder.job_statistics(job),
         obj=result.statistics(
             google_tenant,
-            {
-                ('global', 'ecc-gcp-027-dnssec_for_cloud_dns'): (
-                    PolicyErrorType.ACCESS.value,
-                    'AccessDenied exception',
-                    [],
-                ),
-                (
-                    'global',
-                    'ecc-gcp-101-load_balancer_access_logging_disabled',
-                ): (
-                    PolicyErrorType.ACCESS.value,
-                    'AccessDenied exception',
-                    [],
-                ),
-            },
+            failed
         ),
     )
 
@@ -214,7 +202,7 @@ def k8s_platform_jobs(
     # prepare data for pipeline
     result = JobResult(k8s_scan_result, Cloud.KUBERNETES)
     collection = ShardsCollectionFactory.from_cloud(Cloud.KUBERNETES)
-    collection.put_parts(result.iter_shard_parts())
+    collection.put_parts(result.iter_shard_parts({}))
     collection.meta = result.rules_meta()
     collection.io = ShardsS3IO(
         bucket=SP.environment_service.default_reports_bucket_name(),

@@ -74,7 +74,6 @@ class TestMaestroModelBuilder:
         )
         assert res == {
             'receivers': (),
-            'report_type': 'COMPLIANCE_BY_CLOUD',
             'customer': 'TEST_CUSTOMER',
             'from': datetime(2025, 1, 1, 0, 0, tzinfo=timezone.utc),
             'to': datetime(2025, 2, 1, 0, 0, tzinfo=timezone.utc),
@@ -193,7 +192,6 @@ class TestMaestroModelBuilder:
         )
         assert res == {
             'receivers': (),
-            'report_type': 'RESOURCES_BY_CLOUD',
             'customer': 'TEST_CUSTOMER',
             'from': datetime(2025, 1, 1, 0, 0, tzinfo=timezone.utc),
             'to': datetime(2025, 2, 1, 0, 0, tzinfo=timezone.utc),

@@ -1,120 +1,115 @@
 {
-  "id": "testing-project-123",
   "data": [
     {
+      "description": "Description for ecc-gcp-025-no_default_network",
       "policy": "ecc-gcp-025-no_default_network",
       "resource_type": "Vpc",
-      "description": "Description for ecc-gcp-025-no_default_network",
-      "severity": "Unknown",
       "resources": {
         "global": [
           {
             "id": "877139587449282054",
             "name": "default",
+            "sre:date": 1729502743.654542,
             "urn": "gcp:compute::testing-project-123:vpc/default"
           }
         ]
-      }
+      },
+      "severity": "Unknown"
     },
     {
+      "description": "Description for ecc-gcp-272-firewall_logging_enabled",
       "policy": "ecc-gcp-272-firewall_logging_enabled",
       "resource_type": "Firewall",
-      "description": "Description for ecc-gcp-272-firewall_logging_enabled",
-      "severity": "Unknown",
       "resources": {
         "global": [
           {
-            "id": "3339756659677913058",
-            "name": "default-allow-internal",
-            "urn": "gcp:compute::testing-project-123:firewall/default-allow-internal"
+            "id": "1227136820292673506",
+            "name": "default-allow-icmp",
+            "sre:date": 1729502744.540606,
+            "urn": "gcp:compute::testing-project-123:firewall/default-allow-icmp"
           },
           {
             "id": "2342562096469303266",
             "name": "default-allow-rdp",
+            "sre:date": 1729502744.540606,
             "urn": "gcp:compute::testing-project-123:firewall/default-allow-rdp"
+          },
+          {
+            "id": "3339756659677913058",
+            "name": "default-allow-internal",
+            "sre:date": 1729502744.540606,
+            "urn": "gcp:compute::testing-project-123:firewall/default-allow-internal"
           },
           {
             "id": "2007825320515264482",
             "name": "default-allow-ssh",
+            "sre:date": 1729502744.540606,
             "urn": "gcp:compute::testing-project-123:firewall/default-allow-ssh"
-          },
-          {
-            "id": "1227136820292673506",
-            "name": "default-allow-icmp",
-            "urn": "gcp:compute::testing-project-123:firewall/default-allow-icmp"
           }
         ]
-      }
+      },
+      "severity": "Unknown"
     },
     {
+      "description": "Description for ecc-gcp-109-prevent_allow_all_ingress",
       "policy": "ecc-gcp-109-prevent_allow_all_ingress",
       "resource_type": "Firewall",
-      "description": "Description for ecc-gcp-109-prevent_allow_all_ingress",
-      "severity": "Unknown",
       "resources": {
         "global": [
           {
             "id": "3339756659677913058",
             "name": "default-allow-internal",
+            "sre:date": 1729502743.7096498,
             "urn": "gcp:compute::testing-project-123:firewall/default-allow-internal"
           }
         ]
-      }
+      },
+      "severity": "Unknown"
     },
     {
+      "description": "Description for ecc-gcp-104-default_firewall_rule_in_use",
       "policy": "ecc-gcp-104-default_firewall_rule_in_use",
       "resource_type": "Firewall",
-      "description": "Description for ecc-gcp-104-default_firewall_rule_in_use",
-      "severity": "Unknown",
       "resources": {
         "global": [
           {
-            "id": "3339756659677913058",
-            "name": "default-allow-internal",
-            "urn": "gcp:compute::testing-project-123:firewall/default-allow-internal"
+            "id": "1227136820292673506",
+            "name": "default-allow-icmp",
+            "sre:date": 1729502743.708413,
+            "urn": "gcp:compute::testing-project-123:firewall/default-allow-icmp"
           },
           {
             "id": "2342562096469303266",
             "name": "default-allow-rdp",
+            "sre:date": 1729502743.708413,
             "urn": "gcp:compute::testing-project-123:firewall/default-allow-rdp"
+          },
+          {
+            "id": "3339756659677913058",
+            "name": "default-allow-internal",
+            "sre:date": 1729502743.708413,
+            "urn": "gcp:compute::testing-project-123:firewall/default-allow-internal"
           },
           {
             "id": "2007825320515264482",
             "name": "default-allow-ssh",
+            "sre:date": 1729502743.708413,
             "urn": "gcp:compute::testing-project-123:firewall/default-allow-ssh"
-          },
-          {
-            "id": "1227136820292673506",
-            "name": "default-allow-icmp",
-            "urn": "gcp:compute::testing-project-123:firewall/default-allow-icmp"
           }
         ]
-      }
+      },
+      "severity": "Unknown"
     },
     {
+      "description": "Description for ecc-gcp-033-vpc_flow_logs_for_every_subnet",
       "policy": "ecc-gcp-033-vpc_flow_logs_for_every_subnet",
       "resource_type": "Subnet",
-      "description": "Description for ecc-gcp-033-vpc_flow_logs_for_every_subnet",
-      "severity": "Unknown",
       "resources": {
-        "northamerica-south1": [
-          {
-            "id": "816596276746100793",
-            "name": "default",
-            "urn": "gcp:compute:northamerica-south1:testing-project-123:subnet/default"
-          }
-        ],
-        "us-west8": [
-          {
-            "id": "3115367106910640951",
-            "name": "default",
-            "urn": "gcp:compute:us-west8:testing-project-123:subnet/default"
-          }
-        ],
         "africa-south1": [
           {
             "id": "80118305852546590",
             "name": "default",
+            "sre:date": 1729502743.66139,
             "urn": "gcp:compute:africa-south1:testing-project-123:subnet/default"
           }
         ],
@@ -122,13 +117,93 @@
           {
             "id": "2708525157271002654",
             "name": "default",
+            "sre:date": 1729502743.66139,
             "urn": "gcp:compute:europe-west10:testing-project-123:subnet/default"
           }
+        ],
+        "northamerica-south1": [
+          {
+            "id": "816596276746100793",
+            "name": "default",
+            "sre:date": 1729502743.66139,
+            "urn": "gcp:compute:northamerica-south1:testing-project-123:subnet/default"
+          }
+        ],
+        "us-west8": [
+          {
+            "id": "3115367106910640951",
+            "name": "default",
+            "sre:date": 1729502743.66139,
+            "urn": "gcp:compute:us-west8:testing-project-123:subnet/default"
+          }
         ]
-      }
+      },
+      "severity": "Unknown"
     }
   ],
-  "last_scan_date": "2025-05-20T00:41:37.020299Z",
-  "activated_regions": [],
-  "outdated_tenants": []
+  "id": "testing-project-123",
+  "metadata": {
+    "activated_regions": [],
+    "finished_scans": 2,
+    "in_progress_scans": 0,
+    "is_automatic_scans_enabled": true,
+    "last_scan_date": "2025-05-25T00:46:25.324274Z",
+    "licenses": [
+      {
+        "description": "Testing license",
+        "id": "license-key",
+        "jobs": 10,
+        "per": "DAY",
+        "rulesets": [
+          "GOOGLE"
+        ],
+        "total_rules": 10,
+        "valid_from": "2025-05-25T12:46:26.885262Z",
+        "valid_until": "2100-02-01T15:24:26.175778Z"
+      }
+    ],
+    "rules": {
+      "disabled": [],
+      "failed": [
+        {
+          "description": "Description for ecc-gcp-027-dnssec_for_cloud_dns",
+          "error": "AccessDenied exception",
+          "error_type": "ACCESS",
+          "id": "ecc-gcp-027-dnssec_for_cloud_dns",
+          "region": "global",
+          "when": 1729502743.6555269
+        },
+        {
+          "description": "Description for ecc-gcp-101-load_balancer_access_logging_disabled",
+          "error": "AccessDenied exception",
+          "error_type": "ACCESS",
+          "id": "ecc-gcp-101-load_balancer_access_logging_disabled",
+          "region": "global",
+          "when": 1729502743.7062569
+        }
+      ],
+      "passed": [
+        {
+          "description": "Description for ecc-gcp-240-slow_query_log_database_flag_for_cloud_sql_mysql",
+          "id": "ecc-gcp-240-slow_query_log_database_flag_for_cloud_sql_mysql",
+          "region": "global",
+          "when": 1729502743.8048089
+        },
+        {
+          "description": "Description for ecc-gcp-237-postgresql_use_the_latest_major_version",
+          "id": "ecc-gcp-237-postgresql_use_the_latest_major_version",
+          "region": "global",
+          "when": 1729502743.8026721
+        },
+        {
+          "description": "Description for ecc-gcp-153-vm_instances_without_any_label_information",
+          "id": "ecc-gcp-153-vm_instances_without_any_label_information",
+          "region": "global",
+          "when": 1729502743.730919
+        }
+      ],
+      "total": 10
+    },
+    "succeeded_scans": 1
+  }
 }
