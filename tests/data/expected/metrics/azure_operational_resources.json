@@ -78,7 +78,7 @@
   ],
   "id": "3d615fa8-05c6-47ea-990d-9d162testing",
   "metadata": {
-    "active_regions": [],
+    "activated_regions": [],
     "finished_scans": 2,
     "in_progress_scans": 0,
     "is_automatic_scans_enabled": true,

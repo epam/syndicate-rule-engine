@@ -71,7 +71,7 @@
     "finished_scans": 2,
     "succeeded_scans": 1,
     "last_scan_date": "2025-05-25T00:47:41.942771Z",
-    "active_regions": [
+    "activated_regions": [
       "eu-central-1",
       "eu-north-1",
       "eu-west-3",

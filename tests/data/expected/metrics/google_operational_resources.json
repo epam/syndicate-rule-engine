@@ -143,7 +143,7 @@
   ],
   "id": "testing-project-123",
   "metadata": {
-    "active_regions": [],
+    "activated_regions": [],
     "finished_scans": 2,
     "in_progress_scans": 0,
     "is_automatic_scans_enabled": true,

@@ -197,7 +197,7 @@ class TenantReportMetadata(msgspec.Struct, kw_only=True, frozen=True):
     finished_scans: int = 0
     succeeded_scans: int = 0
     last_scan_date: str | None = None
-    active_regions: tuple[str, ...] = ()
+    activated_regions: tuple[str, ...] = ()
     rules: ReportRulesMetadata = msgspec.field(
         default_factory=ReportRulesMetadata
     )
@@ -663,7 +663,7 @@ class MetricsCollector:
             empty_meta = TenantReportMetadata(
                 licenses=licenses,
                 is_automatic_scans_enabled=True,  # because maestro is active for tenant
-                active_regions=active_regions,
+                activated_regions=active_regions,
             )
             selector = ScopedRulesSelector(ctx.metadata)
             for typ in types:
@@ -723,7 +723,7 @@ class MetricsCollector:
                 finished_scans=job_source.n_finished,
                 succeeded_scans=job_source.n_succeeded,
                 last_scan_date=ls,
-                active_regions=active_regions,
+                activated_regions=active_regions,
                 rules=ReportRulesMetadata(
                     total=total,
                     disabled=disabled,
@@ -1493,7 +1493,7 @@ class MetricsCollector:
                     'account_id': item[1]['id'],
                     'tenant_name': tenant.name,
                     'last_scan_date': item[1]['metadata'].last_scan_date,
-                    'activated_regions': item[1]['metadata'].active_regions,
+                    'activated_regions': item[1]['metadata'].activated_regions,
                     'data': policies_data,
                 }
 
@@ -1552,7 +1552,7 @@ class MetricsCollector:
                     'account_id': item[1]['id'],
                     'tenant_name': tenant.name,
                     'last_scan_date': item[1]['metadata'].last_scan_date,
-                    'activated_regions': item[1]['metadata'].active_regions,
+                    'activated_regions': item[1]['metadata'].activated_regions,
                     'attacks': [
                         {**attack.to_dict(), 'regions': regions_data}
                         for attack, regions_data in new_mitre_data.items()
@@ -1621,7 +1621,7 @@ class MetricsCollector:
                     'account_id': item[1]['id'],
                     'tenant_name': tenant.name,
                     'last_scan_date': item[1]['metadata'].last_scan_date,
-                    'activated_regions': item[1]['metadata'].active_regions,
+                    'activated_regions': item[1]['metadata'].activated_regions,
                     'service_data': service_data,
                 }
 
