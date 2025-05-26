@@ -87,12 +87,15 @@ class DojoV2Client:
     def import_scan(self, scan_type: str, scan_date: datetime,
                     product_type_name: str,
                     product_name: str, engagement_name: str, test_title: str,
-                    data: dict, auto_create_context: bool = True,
+                    data: dict|list, auto_create_context: bool = True,
                     tags: list[str] | None = None, reimport: bool = True,
                     ) -> tuple[dict[str, int], list]:
+        if isinstance(data, dict):
+            data = data['findings']
+        
         result = defaultdict(int)
         failure_codes = []
-        for batch in self._batches(data['findings']):
+        for batch in self._batches(data):
             resp = self._request(
                 path='/reimport-scan/' if reimport else '/import-scan/',
                 method=HTTPMethod.POST,
