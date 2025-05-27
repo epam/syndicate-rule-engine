@@ -55,15 +55,16 @@ class ExpiredMetricsCleaner:
                 till=till,
                 attributes_to_get=[ReportMetrics.s3_url],
             )
+            to_remove = []
             for metric in metrics:
                 if metric.s3_url:
                     u = S3Url(metric.s3_url)
-                    bucket = u.bucket
-                    key = u.key
-                    self._s3_client.delete_object(bucket=bucket, key=key)
+                    self._s3_client.delete_object(bucket=u.bucket, key=u.key)
                     deleted_obj += 1
-                self._rms.delete(metric)
-                deleted_metrics += 1
+                to_remove.append(metric)
+
+            self._rms.batch_delete(to_remove)
+            deleted_metrics += len(to_remove)
         _LOG.info(
             f'Cleaning finished. '
             f'Deleted metrics: {deleted_metrics}. '
