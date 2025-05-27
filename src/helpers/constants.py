@@ -642,7 +642,7 @@ class CAASEnv(EnvEnum):
     DOJO_PAYLOAD_SIZE_LIMIT_BYTES = 'SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES', (),
 
     # Metrics
-    METRICS_EXPIRATION_DAYS = 'SRE_METRICS_EXPIRATION_DAYS', (), '35'
+    METRICS_EXPIRATION_DAYS = 'SRE_METRICS_EXPIRATION_DAYS', (),
 
     @classmethod
     def is_docker(cls) -> bool:

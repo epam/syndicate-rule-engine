@@ -931,7 +931,7 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
         ascending: bool = False,
         limit: int | None = None,
         rate_limit: int | None = None,
-        attributes_to_get: list[str] | None = None,
+        attributes_to_get: list | None = None,
     ) -> Iterator[ReportMetrics]:
         key = customer.name if isinstance(customer, Customer) else customer
         rkc = None
