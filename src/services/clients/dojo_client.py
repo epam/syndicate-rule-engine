@@ -91,7 +91,7 @@ class DojoV2Client:
             yield buf
 
     def _iter_files(
-        self, data: list | 'Findings'
+        self, data: 'list | Findings'
     ) -> Generator[tuple[int | None, bytearray], None, None]:
         if isinstance(data, list) and not data:
             yield None, bytearray(b'[]')
