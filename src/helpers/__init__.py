@@ -114,8 +114,8 @@ def batches(iterable: Iterable, n: int) -> Generator[list, None, None]:
 
 def batches_with_critic(
     iterable: Iterable[T],
-    critic: Callable[[T], float],
-    limit: float,
+    critic: Callable[[T], int],
+    limit: int,
     drop_violating_items: bool = False,
 ) -> Generator[list[T], None, None]:
     """
