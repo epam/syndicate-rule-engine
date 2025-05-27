@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - added a cron job that will remove old metrics
 - added errors information to internal shard parts
 - fixed versions comparing issue inside `sre-init`
+- changed format of OPERATIONAL ATTACKS, DEPRECATIONS, FINOPS, RESOURCES reports.
+  Added tenant licenses, rules and errors metadata
 
 ## [5.9.0] - 2025-04-29
 - added warnings to jobs
