@@ -1,4 +1,3 @@
-import base64
 from http import HTTPStatus
 from typing import Any, Final, Iterable, TypedDict, TypeVar
 
@@ -120,32 +119,6 @@ class LambdaResponse:
         return exc_type(response=self)
 
 
-class BinaryResponse(LambdaResponse):
-    """
-    Returns binary data
-    """
-
-    def __init__(
-        self,
-        code: HTTPStatus = HTTPStatus.OK,
-        content: bytes = b'',
-        content_type: str | None = None,
-    ):
-        super().__init__(
-            code=code,
-            content=content,
-            headers={'Content-Type': content_type} if content_type else {},
-        )
-
-    def build(self) -> LambdaOutput:
-        return {
-            'headers': self._common_headers(),
-            'body': base64.b64encode(self._content).decode(),
-            'isBase64Encoded': True,
-            'statusCode': self._code.value,
-        }
-
-
 class JsonLambdaResponse(LambdaResponse):
     def __init__(
         self,
@@ -190,9 +163,10 @@ class JsonLambdaResponse(LambdaResponse):
                 )
                 .exc()
             )
+        # NOTE: don't forget to decode body here if we move back to lambda
         return {
             'headers': self._common_headers(),
-            'body': body.decode(),
+            'body': body,
             'isBase64Encoded': False,
             'statusCode': self._code.value,
         }
