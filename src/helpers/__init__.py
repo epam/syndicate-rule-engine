@@ -704,9 +704,10 @@ def map_by(
     return res
 
 
+
 def encode_into(
-    it: Iterable[dict],
-    enc: msgspec.json.Encoder,
+    it: Iterable[T],
+    encode: Callable[[T, bytearray, int], None],
     limit: int,
     new: Callable[[], bytearray] = bytearray,
     sep: bytes = b',',
@@ -728,24 +729,23 @@ def encode_into(
 
     for item in it:
         len_before = len(buf)
-        enc.encode_into(item, buf, len_before)
+        encode(item, buf, len_before)
+        len_after = len(buf)
+        if (len_after - len_before) > limit:
+            raise ValueError('One encoded item exceeds the limit')
 
-        if len(buf)-len_orig == limit:
-            # fast yield
+        # by here we are sure that one item by itself does not exceed limit,
+        # but we cannot be sure that the total len of buffer does not exceed
+        size = len_after - len_orig
+        if size == limit or (size < limit <= size + sep_len):
+            # fast yield since we know
             yield buf
             buf = new()
             len_orig = len(buf)
             continue
 
         buf.extend(sep)
-
-        len_after = len(buf)
-
-        if (len_after - len_before) > limit:
-            raise ValueError('One encoded item with a separator exceeds a limit')
-
-        # size with a separator
-        size = len_after - len_orig
+        size += sep_len
 
         if size > limit:
             # NOTE: if we got here it means that we were within limit
@@ -769,17 +769,7 @@ def encode_into(
             # we should not get here if len_before-sep_len == 0
             del to_yield[len_before-sep_len:]
             yield to_yield
-        elif size == limit:
-            # size with a separator is equal to limit, just remove the last separator and yield
-            to_yield = buf
 
-            buf = new()
-            len_orig = len(buf)
-
-            if sep_len > 0:
-                # NOTE: buf[-0:] will remove whole buffer so need to handle
-                del to_yield[-sep_len:]
-            yield to_yield
     if len(buf) > len_orig:
         if sep_len > 0:
             # NOTE: buf[-0:] will remove whole buffer so need to handle

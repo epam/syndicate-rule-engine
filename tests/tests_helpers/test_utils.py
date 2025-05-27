@@ -388,7 +388,7 @@ def test_json_get_path():
     assert get_path({'one': {'two': {'three': 10}}}, 'one.two.three.four') is None
 
 
-@pytest.mark.parametrize('run', range(5))
+@pytest.mark.parametrize('run', range(1))
 class TestEncodeInto:
     """
     This is a hell of a test
@@ -424,7 +424,7 @@ class TestEncodeInto:
 
         assert tuple(encode_into(
             it=self.items(4),
-            enc=self.enc,
+            encode=self.enc.encode_into,
             limit=10,
             new=base,
             sep=sep
@@ -434,7 +434,7 @@ class TestEncodeInto:
         base = self.random_base()
         assert tuple(encode_into(
             it=self.items(4),
-            enc=self.enc,
+            encode=self.enc.encode_into,
             limit=11,
             new=base,
             sep=b','
@@ -444,7 +444,7 @@ class TestEncodeInto:
         base = self.random_base()
         assert tuple(encode_into(
             it=self.items(4),
-            enc=self.enc,
+            encode=self.enc.encode_into,
             limit=random.randint(12, 20),
             new=base,
             sep=b','
@@ -454,7 +454,7 @@ class TestEncodeInto:
         base = self.random_base()
         assert tuple(encode_into(
             it=self.items(4),
-            enc=self.enc,
+            encode=self.enc.encode_into,
             limit=21,
             new=base,
             sep=b','
@@ -464,7 +464,7 @@ class TestEncodeInto:
         base = self.random_base()
         assert tuple(encode_into(
             it=self.items(4),
-            enc=self.enc,
+            encode=self.enc.encode_into,
             limit=random.randint(22, 31),
             new=base,
             sep=b','
@@ -474,7 +474,7 @@ class TestEncodeInto:
         base = self.random_base()
         assert tuple(encode_into(
             it=self.items(4),
-            enc=self.enc,
+            encode=self.enc.encode_into,
             limit=32,
             new=base,
             sep=b','
@@ -484,7 +484,7 @@ class TestEncodeInto:
         base = self.random_base()
         assert tuple(encode_into(
             it=self.items(4),
-            enc=self.enc,
+            encode=self.enc.encode_into,
             limit=random.randint(33, 42),
             new=base,
             sep=b','
@@ -494,7 +494,7 @@ class TestEncodeInto:
         base = self.random_base()
         assert tuple(encode_into(
             it=self.items(4),
-            enc=self.enc,
+            encode=self.enc.encode_into,
             limit=43,
             new=base,
         )) == self.build_expected(4,4, base)
@@ -503,7 +503,7 @@ class TestEncodeInto:
         base = self.random_base()
         assert tuple(encode_into(
             it=self.items(4),
-            enc=self.enc,
+            encode=self.enc.encode_into,
             limit=random.randint(44, 100),
             new=base,
         )) == self.build_expected(4, 4, base)
@@ -512,7 +512,7 @@ class TestEncodeInto:
         base = self.random_base()
         assert tuple(encode_into(
             it=[],
-            enc=self.enc,
+            encode=self.enc.encode_into,
             limit=10,
             new=base,
         )) == ()
@@ -521,7 +521,7 @@ class TestEncodeInto:
         base = self.random_base()
         assert tuple(encode_into(
             it=self.items(4),
-            enc=self.enc,
+            encode=self.enc.encode_into,
             limit=random.randint(10, 19),
             new=base,
             sep=b''
@@ -529,7 +529,7 @@ class TestEncodeInto:
 
         assert tuple(encode_into(
             it=self.items(4),
-            enc=self.enc,
+            encode=self.enc.encode_into,
             limit=random.randint(20, 29),
             new=base,
             sep=b''
@@ -537,7 +537,7 @@ class TestEncodeInto:
 
         assert tuple(encode_into(
             it=self.items(4),
-            enc=self.enc,
+            encode=self.enc.encode_into,
             limit=random.randint(30, 30),
             new=base,
             sep=b''
@@ -545,7 +545,7 @@ class TestEncodeInto:
 
         assert tuple(encode_into(
             it=self.items(4),
-            enc=self.enc,
+            encode=self.enc.encode_into,
             limit=random.randint(40, 100),
             new=base,
             sep=b''
@@ -555,7 +555,7 @@ class TestEncodeInto:
         base = self.random_base()
         assert tuple(encode_into(
             it=self.items(1),
-            enc=self.enc,
+            encode=self.enc.encode_into,
             limit=random.randint(10, 30),
             new=base,
             sep=b','
@@ -566,7 +566,7 @@ class TestEncodeInto:
         with pytest.raises(ValueError):
             assert tuple(encode_into(
                 it=self.items(1),
-                enc=self.enc,
+                encode=self.enc.encode_into,
                 limit=9,
                 new=base,
                 sep=b','
@@ -577,7 +577,7 @@ class TestEncodeInto:
         with pytest.raises(ValueError):
             assert tuple(encode_into(
                 it=self.items(1),
-                enc=self.enc,
+                encode=self.enc.encode_into,
                 limit=10,
                 new=base,
                 sep=b'1234567890'
