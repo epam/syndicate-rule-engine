@@ -89,6 +89,7 @@ executorLogLevel: INFO
 executorCCLogLevel: INFO
 executorLogsFilename:
 allowSimultaneousJobsForOneTenant: false
+metricsExpirationDays:
 recommendationsBucket:
 
 

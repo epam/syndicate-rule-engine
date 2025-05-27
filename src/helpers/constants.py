@@ -638,8 +638,11 @@ class CAASEnv(EnvEnum):
     # Cloud Custodian
     CC_LOG_LEVEL = 'SRE_CC_LOG_LEVEL', (), 'INFO'
 
-    # dojo
-    DOJO_PAYLOAD_SIZE_LIMIT_BYTES = 'SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES', ()
+    # Dojo
+    DOJO_PAYLOAD_SIZE_LIMIT_BYTES = 'SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES', (),
+
+    # Metrics
+    METRICS_EXPIRATION_DAYS = 'SRE_METRICS_EXPIRATION_DAYS', (),
 
     @classmethod
     def is_docker(cls) -> bool:

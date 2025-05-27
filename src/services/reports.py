@@ -922,6 +922,31 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
             ascending=ascending,
             limit=limit,
         )
+    
+    def query_all_by_customer(
+        self,
+        customer: Customer | str,
+        since: datetime | None = None,
+        till: datetime | None = None,
+        ascending: bool = False,
+        limit: int | None = None,
+        rate_limit: int | None = None,
+        attributes_to_get: list | None = None,
+    ) -> Iterator[ReportMetrics]:
+        key = customer.name if isinstance(customer, Customer) else customer
+        rkc = None
+        if since:
+            rkc &= ReportMetrics.start >= utc_iso(since)
+        if till:
+            rkc &= ReportMetrics.end < utc_iso(till)
+        return self.model_class.customer_end_index.query(
+            hash_key=key,
+            range_key_condition=rkc,
+            scan_index_forward=ascending,
+            limit=limit,
+            rate_limit=rate_limit,
+            attributes_to_get=attributes_to_get
+        )
 
     def query_by_platform(
         self,

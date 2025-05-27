@@ -405,7 +405,7 @@ def test_json_get_path():
     assert get_path({'one': {'two': {'three': 10}}}, 'one.two.three.four') is None
 
 
-@pytest.mark.parametrize('run', range(1))
+@pytest.mark.parametrize('run', range(1))  # put 100
 class TestEncodeInto:
     """
     This is a hell of a test

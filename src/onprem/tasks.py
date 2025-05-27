@@ -6,6 +6,9 @@ from lambdas.custodian_metrics_updater.handler import MetricsUpdater
 from lambdas.custodian_metrics_updater.processors.findings_processor import (
     FindingsUpdater,
 )
+from lambdas.custodian_metrics_updater.processors.expired_metrics_processor import(
+    ExpiredMetricsCleaner
+)
 from onprem.celery import app
 
 
@@ -49,3 +52,7 @@ def collect_metrics():
     MetricsUpdater.build().lambda_handler(
         event={'data_type': 'metrics'}, context=RequestContext()
     )
+
+@app.task
+def delete_expired_metrics():
+    ExpiredMetricsCleaner.build().__call__()
