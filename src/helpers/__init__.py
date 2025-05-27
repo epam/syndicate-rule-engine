@@ -1,16 +1,15 @@
 import base64
 import binascii
-from contextlib import contextmanager
-from enum import Enum as _Enum
-import json
-from dateutil.parser import isoparse
-from functools import reduce
 import io
-from itertools import chain, islice
+import json
 import math
 import re
-import msgspec
 import time
+import uuid
+from contextlib import contextmanager
+from enum import Enum as _Enum
+from functools import reduce
+from itertools import chain, islice
 from types import NoneType
 from typing import (
     Any,
@@ -23,14 +22,14 @@ from typing import (
     Optional,
     TypeVar,
 )
-from typing_extensions import Self
-import uuid
 
+import msgspec
 import requests
+from dateutil.parser import isoparse
+from typing_extensions import Self
 
-from helpers.constants import RuleDomain, Cloud
+from helpers.constants import Cloud, RuleDomain
 from helpers.log_helper import get_logger
-
 
 T = TypeVar('T')
 
@@ -112,19 +111,20 @@ def batches(iterable: Iterable, n: int) -> Generator[list, None, None]:
         yield batch
         batch = list(islice(it, n))
 
+
 def batches_with_critic(
-        iterable: Iterable[T], 
-        critic: Callable[[T], float], 
-        limit: float,
-        drop_violating_items: bool = False
-    ) -> Generator[list[T], None, None]:
+    iterable: Iterable[T],
+    critic: Callable[[T], int],
+    limit: int,
+    drop_violating_items: bool = False,
+) -> Generator[list[T], None, None]:
     """
-    Batch data into lists based on their value. 
+    Batch data into lists based on their value.
     Sum of items in batch can't be bigger than `limit`.
-    :param iterable: 
+    :param iterable:
     :param critic:
     :param limit:
-    :param drop_violating_items: 
+    :param drop_violating_items:
     :return:
     """
     current_batch = []
@@ -134,11 +134,11 @@ def batches_with_critic(
         item_value = critic(item)
         if item_value > limit:
             if drop_violating_items:
-                _LOG.warning(f"Violating item was droped. Value: {item_value}")
+                _LOG.warning(f'Violating item was droped. Value: {item_value}')
                 continue
             else:
                 raise ValueError(
-                    f"One of the items have value: {item_value} that is bigger then limit"
+                    f'One of the items have value: {item_value} that is bigger then limit'
                 )
         if current_sum + item_value <= limit:
             current_batch.append(item)
@@ -294,7 +294,7 @@ def peek(iterable) -> Optional[tuple[Any, chain]]:
         first = next(iterable)
     except StopIteration:
         return
-    return first, chain((first, ), iterable)
+    return first, chain((first,), iterable)
 
 
 def urljoin(*args: str | int) -> str:
@@ -734,14 +734,11 @@ def group_by(
     return res
 
 
-def map_by(
-    it: Iterable[T], key: Callable[[T], Hashable]
-) -> dict[Hashable, T]:
+def map_by(it: Iterable[T], key: Callable[[T], Hashable]) -> dict[Hashable, T]:
     res = {}
     for item in it:
         res.setdefault(key(item), item)
     return res
-
 
 
 def encode_into(
@@ -774,10 +771,11 @@ def encode_into(
             raise ValueError('One encoded item exceeds the limit')
 
         # by here we are sure that one item by itself does not exceed limit,
-        # but we cannot be sure that the total len of buffer does not exceed
+        # but we cannot be sure that the total len of buffer does not
         size = len_after - len_orig
         if size == limit or (size < limit <= size + sep_len):
-            # fast yield since we know
+            # fast yield since we know that we already reached the limit
+            # or will reach if add a separator
             yield buf
             buf = new()
             len_orig = len(buf)
@@ -806,7 +804,7 @@ def encode_into(
             # if the current size with a separator is bigger that limit.
             # It means that ... it's kind of difficult to explain, but
             # we should not get here if len_before-sep_len == 0
-            del to_yield[len_before-sep_len:]
+            del to_yield[len_before - sep_len :]
             yield to_yield
 
     if len(buf) > len_orig:

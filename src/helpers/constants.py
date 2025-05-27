@@ -351,7 +351,7 @@ EXTERNAL_DATA_BUCKET_ATTR = 'externalDataBucket'
 
 
 _SENTINEL = object()
-_E = TypeVar('_E', bound=Enum)
+_E = TypeVar('_E')
 
 
 class EnvEnum(str, Enum):
@@ -639,7 +639,7 @@ class CAASEnv(EnvEnum):
     CC_LOG_LEVEL = 'SRE_CC_LOG_LEVEL', (), 'INFO'
 
     # dojo
-    DOJO_PAYLOAD_SIZE_LIMIT_BYTES = 'SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES', (), '8388608'
+    DOJO_PAYLOAD_SIZE_LIMIT_BYTES = 'SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES', ()
 
     @classmethod
     def is_docker(cls) -> bool:
