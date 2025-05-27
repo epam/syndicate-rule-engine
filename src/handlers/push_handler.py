@@ -126,7 +126,7 @@ class SiemPushHandler(AbstractHandler):
             metadata,
             attachment=configuration.attachment,
         )
-        resp = client.import_scan(
+        resp_result, codes = client.import_scan(
             scan_type=configuration.scan_type,
             scan_date=utc_datetime(job.stopped_at),
             product_type_name=configuration.product_type,
@@ -136,29 +136,16 @@ class SiemPushHandler(AbstractHandler):
             data=convertor.convert(collection),
             tags=self._integration_service.job_tags_dojo(job),
         )
-        match getattr(resp, 'status_code', None):  # handles None
-            case HTTPStatus.CREATED:
-                return HTTPStatus.OK, 'Pushed'
-            case HTTPStatus.FORBIDDEN:
-                return (
-                    HTTPStatus.FORBIDDEN,
-                    'Not enough permission to push to dojo',
-                )
-            case HTTPStatus.INTERNAL_SERVER_ERROR:
-                return (
-                    HTTPStatus.SERVICE_UNAVAILABLE,
-                    'Dojo failed with internal',
-                )
-            case HTTPStatus.REQUEST_ENTITY_TOO_LARGE:
-                return (
-                    HTTPStatus.SERVICE_UNAVAILABLE,
-                    'Report is too large to be pushed',
-                )
-            case _:
-                return (
-                    HTTPStatus.SERVICE_UNAVAILABLE,
-                    'Could not make request to dojo server',
-                )
+        if 'failure' not in resp_result:
+            return HTTPStatus.OK, f'Pushed {resp_result["success"]} batches'
+        else:
+            return (
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                'Error occured during pushing reports. '\
+                f'Successful batches: {resp_result["success"]}. '\
+                f'Unsuccessful batches: {resp_result["failure"]}. '\
+                f'Failure codes: {codes}'
+            )
 
     @staticmethod
     def _push_chronicle(
