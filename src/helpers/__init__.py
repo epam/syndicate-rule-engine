@@ -741,3 +741,76 @@ def map_by(
     for item in it:
         res.setdefault(key(item), item)
     return res
+
+
+
+def encode_into(
+    it: Iterable[T],
+    encode: Callable[[T, bytearray, int], None],
+    limit: int,
+    new: Callable[[], bytearray] = bytearray,
+    sep: bytes = b',',
+) -> Generator[bytearray, None, None]:
+    """
+    This is a hell of a function.
+
+    It is useful if we have a list of entities that we want to send to some
+    external API, and we know that API has payload limit of N bytes. This
+    function encodes entities into bytearrays respecting the limit. It also
+    handles separators and some initial data inside bytearrays
+    """
+    sep_len = len(sep)
+    if sep_len >= limit:
+        raise ValueError('separator len exceeds limit')
+
+    buf = new()
+    len_orig = len(buf)
+
+    for item in it:
+        len_before = len(buf)
+        encode(item, buf, len_before)
+        len_after = len(buf)
+        if (len_after - len_before) > limit:
+            raise ValueError('One encoded item exceeds the limit')
+
+        # by here we are sure that one item by itself does not exceed limit,
+        # but we cannot be sure that the total len of buffer does not exceed
+        size = len_after - len_orig
+        if size == limit or (size < limit <= size + sep_len):
+            # fast yield since we know
+            yield buf
+            buf = new()
+            len_orig = len(buf)
+            continue
+
+        buf.extend(sep)
+        size += sep_len
+
+        if size > limit:
+            # NOTE: if we got here it means that we were within limit
+            # in the previous iteration but this one exceeded the limit.
+            # So, we need to get previous and move this new encoded to the next
+            # buffer
+            to_yield = buf
+
+            buf = new()
+            len_orig = len(buf)
+
+            # NOTE: here seems like the only place we make a copy here
+            # though I hope it's optimized internally to be fast and not
+            # produce intermediate slice
+            buf[len_orig:] = to_yield[len_before:]  # with a separator
+
+            # NOTE, here you need to be aware that the whole buffer will
+            # be removed if len_before-sep_len is equal to 0. We can get here
+            # if the current size with a separator is bigger that limit.
+            # It means that ... it's kind of difficult to explain, but
+            # we should not get here if len_before-sep_len == 0
+            del to_yield[len_before-sep_len:]
+            yield to_yield
+
+    if len(buf) > len_orig:
+        if sep_len > 0:
+            # NOTE: buf[-0:] will remove whole buffer so need to handle
+            del buf[-sep_len:]
+        yield buf

@@ -513,7 +513,7 @@ class CAASEnv(EnvEnum):
     REPORTS_SNAPSHOTS_LIFETIME_DAYS = (
         'SRE_REPORTS_SNAPSHOTS_LIFETIME_DAYS',
         (),
-        '60',
+        '65',
     )
 
     # Cognito either one will work, but ID faster and safer

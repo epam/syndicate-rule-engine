@@ -2,10 +2,14 @@ import logging
 import os
 import re
 import sys
+from urllib.parse import urlparse
 
+import pymongo
 from boto3.resources.base import ServiceResource
 from boto3.session import Session
 from botocore.config import Config
+from pymongo.collection import Collection
+from pymongo.database import Database
 
 logging.basicConfig(
     format='%(asctime)s %(levelname)s %(name)s.%(funcName)s:%(lineno)d %(message)s',
@@ -13,7 +17,9 @@ logging.basicConfig(
 )
 _LOG = logging.getLogger(__name__)
 
-TAGS = [{'Key': 'Type', 'Value': 'DataSnapshot'}]
+
+KEY = 'Type'
+VALUE = 'DataSnapshot'
 
 
 def _init_minio() -> ServiceResource:
@@ -36,33 +42,62 @@ def _init_minio() -> ServiceResource:
     return resource.meta.client
 
 
-def patch() -> None:
+def _init_mongo() -> Database:
+    host = os.environ.get('SRE_MONGO_URI')
+    db = os.environ.get('SRE_MONGO_DB_NAME')
+    assert host, 'Host is required'
+    assert db, 'db name is required'
+
+    client = pymongo.MongoClient(host=host)
+    return client.get_database(db)
+
+
+def _needs_tag(tag_set: list[dict], key: str, value: str) -> bool:
+    for item in tag_set:
+        if item.get('Key') == key and item.get('Value') == value:
+            return False
+    return True
+
+
+def patch_snapshots(minio_client) -> None:
     """
     This patch tags all the files with `snapshots/*` or `*/snapshots/*` prefixes as `Type: DataSnapshot`
     """
     _LOG.info('Starting patch')
 
-    client = _init_minio()
     params = {
-        'Bucket': os.environ.get('SRE_REPORTS_BUCKET_NAME'),
+        'Bucket': os.environ.get('SRE_REPORTS_BUCKET_NAME') or 'reports',
         'MaxKeys': 1000,
     }
     assert params.get('Bucket')
 
-    _LOG.debug(f'Bucket: {params["Bucket"]}')
+    _LOG.info(f'Bucket: {params["Bucket"]}')
 
     count = 0
     while True:
-        response = client.list_objects_v2(**params)
+        response = minio_client.list_objects_v2(**params)
 
         for item in response['Contents']:
-            if re.match(r'(^|.*/)snapshots/.*', item['Key']):
-                client.put_object_tagging(
-                    Bucket=params['Bucket'],
-                    Key=item['Key'],
-                    Tagging={'TagSet': TAGS},
-                )
-                count += 1
+            if not re.match(r'(^|.*/)snapshots/.*', item['Key']):
+                continue
+            tag_set = (
+                minio_client.get_object_tagging(
+                    Bucket=params['Bucket'], Key=item['Key']
+                ).get('TagSet')
+                or []
+            )
+
+            if not _needs_tag(tag_set, KEY, VALUE):
+                _LOG.info(f'Skipping {item["Key"]} because already has tag')
+                continue
+            tag_set.append({'Key': KEY, 'Value': VALUE})
+
+            minio_client.put_object_tagging(
+                Bucket=params['Bucket'],
+                Key=item['Key'],
+                Tagging={'TagSet': tag_set},
+            )
+            count += 1
 
         if response.get('IsTruncated'):
             params['ContinuationToken'] = response['NextContinuationToken']
@@ -72,9 +107,45 @@ def patch() -> None:
     _LOG.info(f'Patch has finished. Tagged: {count} files')
 
 
+def _need_metrics_patch(collection: Collection):
+    """
+    Checks if metrics are already patched
+    """
+    # TODO: implement some system to track executed patches in order not to use such hacks
+    return bool(collection.find_one({'d': {'$type': 'object'}}))
+
+
+def patch_report_metrics(minio_client, database):
+    _LOG.info('Going to patch report metrics')
+    collection = database.get_collection('CaaSReportMetrics')
+    if not _need_metrics_patch(collection):
+        _LOG.info('Metrics were already patched')
+        return
+
+    query = {'d': {'$type': 'object'}}
+
+    ids = []
+    for item in collection.find(query):
+        link = item.get('l')
+        if link:
+            parsed = urlparse(link)
+            bucket = parsed.netloc
+            key = parsed.path.lstrip('/')
+            _LOG.info(f'Going to remove from minio: {link}')
+            minio_client.delete_object(Bucket=bucket, Key=key)
+        ids.append(item['_id'])
+
+    _LOG.info('Going to remove old metrics items')
+    collection.delete_many({'_id': {'$in': ids}})
+
+
 def main() -> int:
     try:
-        patch()
+        client = _init_minio()
+        database = _init_mongo()
+
+        patch_report_metrics(client, database)
+        patch_snapshots(client)
         return 0
     except Exception:
         _LOG.exception('Unexpected exception')
