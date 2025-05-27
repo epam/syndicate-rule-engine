@@ -1,7 +1,9 @@
 import io
 import json
 from itertools import islice
+import random
 
+import msgspec.json
 import pytest
 
 from helpers import (
@@ -25,7 +27,8 @@ from helpers import (
     comparable,
     iter_key_values,
     group_by,
-    get_path
+    get_path,
+    encode_into,
 )
 
 
@@ -383,3 +386,199 @@ def test_json_get_path():
     assert get_path({'one': [1,2,3]}, 'one.two') is None
     assert get_path({'one': {'two': {'three': 10}}}, 'one.two.three') == 10
     assert get_path({'one': {'two': {'three': 10}}}, 'one.two.three.four') is None
+
+
+@pytest.mark.parametrize('run', range(5))
+class TestEncodeInto:
+    """
+    This is a hell of a test
+    """
+    enc = msgspec.json.Encoder()
+
+    @staticmethod
+    def items(n) -> list[dict]:
+        """
+        One such encoded dict takes 10 bytes. So, there are 40 bytes here
+        in total. Plus add separator bytes: (len(items) - 1) * len(separator)
+        """
+        assert n < 11, ('10 should be enough to cover all cases but and it '
+                        'makes it easy to calculate bytes')
+        return [{'k': f'v{i}'} for i in range(n)]
+
+    def build_expected(self, n: int, batch: int, base=bytearray, sep=b',') -> tuple:
+        res = []
+        for items in batches(self.items(n), batch):
+            b = base()
+            b.extend(sep.join([self.enc.encode(item) for item in items]))
+            res.append(b)
+        return tuple(res)
+
+    def random_base(self):
+        prefix = b'0' * random.randint(0, 50)
+        return lambda: bytearray(prefix)
+
+    def test_one_item_within_limit_exactly(self, run):
+        # here sep does not matter since one item is within limit.
+        sep = ''.join([',' for _ in range(random.randint(0,9))]).encode()
+        base = self.random_base()
+
+        assert tuple(encode_into(
+            it=self.items(4),
+            enc=self.enc,
+            limit=10,
+            new=base,
+            sep=sep
+        )) == self.build_expected(4, 1, base)
+
+    def test_one_item_with_separator_within_limit_exactly(self, run):
+        base = self.random_base()
+        assert tuple(encode_into(
+            it=self.items(4),
+            enc=self.enc,
+            limit=11,
+            new=base,
+            sep=b','
+        )) == self.build_expected(4, 1, base)
+
+    def test_one_item_with_separator_within_limit_excessively(self, run):
+        base = self.random_base()
+        assert tuple(encode_into(
+            it=self.items(4),
+            enc=self.enc,
+            limit=random.randint(12, 20),
+            new=base,
+            sep=b','
+        )) == self.build_expected(4,1, base)
+
+    def test_two_items_with_separator_within_limit_exactly(self, run):
+        base = self.random_base()
+        assert tuple(encode_into(
+            it=self.items(4),
+            enc=self.enc,
+            limit=21,
+            new=base,
+            sep=b','
+        )) == self.build_expected(4, 2, base)
+
+    def test_two_items_with_separator_within_limit_excessively(self, run):
+        base = self.random_base()
+        assert tuple(encode_into(
+            it=self.items(4),
+            enc=self.enc,
+            limit=random.randint(22, 31),
+            new=base,
+            sep=b','
+        )) == self.build_expected(4, 2, base)
+
+    def test_three_items_with_separator_within_limit_exactly(self, run):
+        base = self.random_base()
+        assert tuple(encode_into(
+            it=self.items(4),
+            enc=self.enc,
+            limit=32,
+            new=base,
+            sep=b','
+        )) == self.build_expected(4, 3, base)
+
+    def test_three_items_with_separator_within_limit_excessively(self, run):
+        base = self.random_base()
+        assert tuple(encode_into(
+            it=self.items(4),
+            enc=self.enc,
+            limit=random.randint(33, 42),
+            new=base,
+            sep=b','
+        )) == self.build_expected(4,3,base)
+
+    def test_four_with_separators_within_limit_exactly(self, run):
+        base = self.random_base()
+        assert tuple(encode_into(
+            it=self.items(4),
+            enc=self.enc,
+            limit=43,
+            new=base,
+        )) == self.build_expected(4,4, base)
+
+    def test_four_within_limit_excessively(self, run):
+        base = self.random_base()
+        assert tuple(encode_into(
+            it=self.items(4),
+            enc=self.enc,
+            limit=random.randint(44, 100),
+            new=base,
+        )) == self.build_expected(4, 4, base)
+
+    def test_empty_iterable(self, run):
+        base = self.random_base()
+        assert tuple(encode_into(
+            it=[],
+            enc=self.enc,
+            limit=10,
+            new=base,
+        )) == ()
+
+    def test_no_separator(self, run):
+        base = self.random_base()
+        assert tuple(encode_into(
+            it=self.items(4),
+            enc=self.enc,
+            limit=random.randint(10, 19),
+            new=base,
+            sep=b''
+        )) == self.build_expected(4, 1, base)
+
+        assert tuple(encode_into(
+            it=self.items(4),
+            enc=self.enc,
+            limit=random.randint(20, 29),
+            new=base,
+            sep=b''
+        )) == self.build_expected(4,2,base, sep=b'')
+
+        assert tuple(encode_into(
+            it=self.items(4),
+            enc=self.enc,
+            limit=random.randint(30, 30),
+            new=base,
+            sep=b''
+        )) == self.build_expected(4, 3, base, sep=b'')
+
+        assert tuple(encode_into(
+            it=self.items(4),
+            enc=self.enc,
+            limit=random.randint(40, 100),
+            new=base,
+            sep=b''
+        )) == self.build_expected(4,4, base, sep=b'')
+
+    def test_single_item_with_separator(self, run):
+        base = self.random_base()
+        assert tuple(encode_into(
+            it=self.items(1),
+            enc=self.enc,
+            limit=random.randint(10, 30),
+            new=base,
+            sep=b','
+        )) == self.build_expected(1, 1, base)
+
+    def test_one_item_exceeds_limit(self, run):
+        base = self.random_base()
+        with pytest.raises(ValueError):
+            assert tuple(encode_into(
+                it=self.items(1),
+                enc=self.enc,
+                limit=9,
+                new=base,
+                sep=b','
+            ))
+
+    def test_separator_exceeds_limit(self, run):
+        base = self.random_base()
+        with pytest.raises(ValueError):
+            assert tuple(encode_into(
+                it=self.items(1),
+                enc=self.enc,
+                limit=10,
+                new=base,
+                sep=b'1234567890'
+            ))
