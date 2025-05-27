@@ -275,6 +275,9 @@ class Metadata(msgspec.Struct, frozen=True, eq=False):
         return f'{self.__class__.__name__}(...{len(self.rules)} rules)'
 
 
+EMPTY_METADATA = Metadata.empty()
+
+
 def merge_metadata(*metadata: Metadata) -> Metadata:
     rules = {}
     domains = {}

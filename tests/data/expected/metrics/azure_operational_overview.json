@@ -1,8 +1,8 @@
 {
-  "total_scans": 3,
+  "total_scans": 2,
   "outdated_tenants": [],
   "failed_scans": 1,
-  "succeeded_scans": 2,
+  "succeeded_scans": 1,
   "activated_regions": [],
   "last_scan_date": "2025-02-04T00:12:48.301627Z",
   "id": "3d615fa8-05c6-47ea-990d-9d162testing",

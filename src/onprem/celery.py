@@ -10,19 +10,24 @@ app = Celery(broker=redis,
              include=['onprem.tasks'])
 
 app.conf.beat_schedule = {
-    'make-findings-snapshots-every-4-hours': {
+    'make-findings-snapshots': {
         'task': 'onprem.tasks.make_findings_snapshot',
         'schedule': crontab(minute='0', hour='*/4'),
         'args': ()
     },
-    'sync-license-every-4-hours': {
+    'sync-license': {
         'task': 'onprem.tasks.sync_license',
         'schedule': 3600 * 4,
         'args': ()
     },
-    'collect-metrics-twice-a-day': {
+    'collect-metrics': {
         'task': 'onprem.tasks.collect_metrics',
         'schedule': crontab(minute='0', hour='3,15'),
+        'args': ()
+    },
+    'remove-expired-metrics': {
+        'task': 'onprem.tasks.delete_expired_metrics',
+        'schedule': 20,
         'args': ()
     }
 }
@@ -49,6 +54,9 @@ app.conf.task_routes = {
         'queue': 'a-jobs'
     },
     'onprem.tasks.run_scheduled_job': {
+        'queue': 'a-jobs'
+    },
+    'onprem.tasks.delete_expired_metrics': {
         'queue': 'a-jobs'
     }
 }

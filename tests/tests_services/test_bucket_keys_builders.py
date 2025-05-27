@@ -184,7 +184,7 @@ class TestReportMetricsBucketKeysBuilder:
         )
         assert (
             ReportMetricsBucketKeysBuilder.metrics_key(item)
-            == 'metrics/TEST_CUSTOMER/OPERATIONAL_OVERVIEW/AWS/AWS-TESTING/2025-02-01-00-00-00-000000/data.json.gz'
+            == 'metrics/TEST_CUSTOMER/OPERATIONAL_OVERVIEW/AWS/AWS-TESTING/2025-02-01-00-00-00-000000/data'
         )
 
     def test_metrics_key_platform(self, k8s_platform):
@@ -197,7 +197,7 @@ class TestReportMetricsBucketKeysBuilder:
         )
         assert (
             ReportMetricsBucketKeysBuilder.metrics_key(item)
-            == 'metrics/TEST_CUSTOMER/OPERATIONAL_KUBERNETES/KUBERNETES/platform_id/2025-02-01-00-00-00-000000/data.json.gz'
+            == 'metrics/TEST_CUSTOMER/OPERATIONAL_KUBERNETES/KUBERNETES/platform_id/2025-02-01-00-00-00-000000/data'
         )
 
     def test_metrics_key_project(self):
@@ -210,7 +210,7 @@ class TestReportMetricsBucketKeysBuilder:
         )
         assert (
             ReportMetricsBucketKeysBuilder.metrics_key(item)
-            == 'metrics/TEST_CUSTOMER/PROJECT_OVERVIEW/testing/2025-02-01-00-00-00-000000/data.json.gz'
+            == 'metrics/TEST_CUSTOMER/PROJECT_OVERVIEW/testing/2025-02-01-00-00-00-000000/data'
         )
 
     def test_metrics_key_customer(self):
@@ -223,5 +223,5 @@ class TestReportMetricsBucketKeysBuilder:
         )
         assert (
             ReportMetricsBucketKeysBuilder.metrics_key(item)
-            == 'metrics/TEST_CUSTOMER/C_LEVEL_ATTACKS/2025-02-01-00-00-00-000000/data.json.gz'
+            == 'metrics/TEST_CUSTOMER/C_LEVEL_ATTACKS/2025-02-01-00-00-00-000000/data'
         )

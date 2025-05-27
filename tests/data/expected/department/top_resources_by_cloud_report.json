@@ -1,6 +1,5 @@
 {
   "receivers": [],
-  "report_type": "RESOURCES_BY_CLOUD",
   "customer": "TEST_CUSTOMER",
   "from": "2025-01-01T00:00:00Z",
   "to": "2025-02-01T00:00:00Z",
@@ -55,11 +54,11 @@
             }
           },
           "succeeded_scans": {
-            "value": 2
+            "value": 1
           },
           "tenant_name": "AWS-TESTING",
           "total_scans": {
-            "value": 3
+            "value": 2
           }
         },
         "sort_by": 23,
@@ -88,11 +87,11 @@
             }
           },
           "succeeded_scans": {
-            "value": 2
+            "value": 1
           },
           "tenant_name": "AZURE-TESTING",
           "total_scans": {
-            "value": 3
+            "value": 2
           }
         },
         "sort_by": 5,
@@ -127,11 +126,11 @@
             }
           },
           "succeeded_scans": {
-            "value": 2
+            "value": 1
           },
           "tenant_name": "GOOGLE-TESTING",
           "total_scans": {
-            "value": 3
+            "value": 2
           }
         },
         "sort_by": 9,

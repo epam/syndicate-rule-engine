@@ -1,14 +1,14 @@
 from http import HTTPStatus
 
 from modular_sdk.models.tenant import Tenant
-from modular_sdk.modular import Modular
+from modular_sdk.modular import ModularServiceProvider
 from modular_sdk.services.impl.maestro_credentials_service import (
     MaestroCredentialsService,
 )
 from modular_sdk.services.parent_service import ParentService
 
 from handlers import AbstractHandler, Mapping
-from helpers.constants import CustodianEndpoint, HTTPMethod, JobState
+from helpers.constants import Cloud, CustodianEndpoint, HTTPMethod, JobState
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime
@@ -29,6 +29,7 @@ from services.defect_dojo_service import (
 from services.integration_service import IntegrationService
 from services.license_service import LicenseService
 from services.metadata import Metadata
+from services.modular_helpers import tenant_cloud
 from services.platform_service import PlatformService
 from services.report_convertors import ShardCollectionDojoConvertor
 from services.report_service import ReportService
@@ -52,7 +53,7 @@ class SiemPushHandler(AbstractHandler):
         self,
         ambiguous_job_service: AmbiguousJobService,
         report_service: ReportService,
-        modular_client: Modular,
+        modular_client: ModularServiceProvider,
         platform_service: PlatformService,
         integration_service: IntegrationService,
         defect_dojo_service: DefectDojoService,
@@ -109,6 +110,7 @@ class SiemPushHandler(AbstractHandler):
         job: AmbiguousJob,
         collection: ShardsCollection,
         metadata: Metadata,
+        cloud: Cloud,
     ) -> tuple[HTTPStatus, str]:
         """
         All data is provided, just push
@@ -120,10 +122,11 @@ class SiemPushHandler(AbstractHandler):
         """
         convertor = ShardCollectionDojoConvertor.from_scan_type(
             configuration.scan_type,
+            cloud,
             metadata,
             attachment=configuration.attachment,
         )
-        resp = client.import_scan(
+        resp_result, codes = client.import_scan(
             scan_type=configuration.scan_type,
             scan_date=utc_datetime(job.stopped_at),
             product_type_name=configuration.product_type,
@@ -133,29 +136,16 @@ class SiemPushHandler(AbstractHandler):
             data=convertor.convert(collection),
             tags=self._integration_service.job_tags_dojo(job),
         )
-        match getattr(resp, 'status_code', None):  # handles None
-            case HTTPStatus.CREATED:
-                return HTTPStatus.OK, 'Pushed'
-            case HTTPStatus.FORBIDDEN:
-                return (
-                    HTTPStatus.FORBIDDEN,
-                    'Not enough permission to push to dojo',
-                )
-            case HTTPStatus.INTERNAL_SERVER_ERROR:
-                return (
-                    HTTPStatus.SERVICE_UNAVAILABLE,
-                    'Dojo failed with internal',
-                )
-            case HTTPStatus.REQUEST_ENTITY_TOO_LARGE:
-                return (
-                    HTTPStatus.SERVICE_UNAVAILABLE,
-                    'Report is too large to be pushed'
-                )
-            case _:
-                return (
-                    HTTPStatus.SERVICE_UNAVAILABLE,
-                    'Could not make request to dojo server',
-                )
+        if 'failure' not in resp_result:
+            return HTTPStatus.OK, f'Pushed {resp_result["success"]} batches'
+        else:
+            return (
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                'Error occured during pushing reports. '\
+                f'Successful batches: {resp_result["success"]}. '\
+                f'Unsuccessful batches: {resp_result["failure"]}. '\
+                f'Failure codes: {codes}'
+            )
 
     @staticmethod
     def _push_chronicle(
@@ -164,12 +154,13 @@ class SiemPushHandler(AbstractHandler):
         tenant: Tenant,
         collection: ShardsCollection,
         metadata: Metadata,
+        cloud: Cloud,
     ) -> tuple[HTTPStatus, str]:
         match configuration.converter_type:
             case ChronicleConverterType.EVENTS:
                 _LOG.debug('Converting our collection to UDM events')
                 convertor = ShardCollectionUDMEventsConvertor(
-                    metadata=metadata, tenant=tenant
+                    cloud=cloud, metadata=metadata, tenant=tenant
                 )
                 success = client.create_udm_events(
                     events=convertor.convert(collection)
@@ -177,7 +168,7 @@ class SiemPushHandler(AbstractHandler):
             case _:  # ENTITIES
                 _LOG.debug('Converting our collection to UDM entities')
                 convertor = ShardCollectionUDMEntitiesConvertor(
-                    metadata=metadata, tenant=tenant
+                    cloud=cloud, metadata=metadata, tenant=tenant
                 )
                 success = client.create_udm_entities(
                     entities=convertor.convert(collection),
@@ -231,9 +222,11 @@ class SiemPushHandler(AbstractHandler):
                 )
             collection = self._rs.platform_job_collection(platform, job.job)
             collection.meta = self._rs.fetch_meta(platform)
+            cloud = Cloud.KUBERNETES
         else:
             collection = self._rs.ambiguous_job_collection(tenant, job)
             collection.meta = self._rs.fetch_meta(tenant)
+            cloud = tenant_cloud(tenant)
         collection.fetch_all()
         metadata = self._ls.get_customer_metadata(tenant.customer_name)
 
@@ -244,6 +237,7 @@ class SiemPushHandler(AbstractHandler):
             job=job,
             collection=collection,
             metadata=metadata,
+            cloud=cloud,
         )
         match code:
             case HTTPStatus.OK:
@@ -356,9 +350,11 @@ class SiemPushHandler(AbstractHandler):
                         platform, job.job
                     )
                     collection.meta = meta
+                    cloud = Cloud.KUBERNETES
                 case _:  # only False can be, but underscore for linter
                     collection = self._rs.ambiguous_job_collection(tenant, job)
                     collection.meta = tenant_meta
+                    cloud = tenant_cloud(tenant)
             collection.fetch_all()
 
             _configuration = configuration.substitute_fields(
@@ -370,6 +366,7 @@ class SiemPushHandler(AbstractHandler):
                 job=job,
                 collection=collection,
                 metadata=metadata,
+                cloud=cloud,
             )
             match code:
                 case HTTPStatus.OK:
@@ -441,9 +438,11 @@ class SiemPushHandler(AbstractHandler):
                 )
             collection = self._rs.platform_job_collection(platform, job.job)
             collection.meta = self._rs.fetch_meta(platform)
+            cloud = Cloud.KUBERNETES
         else:
             collection = self._rs.ambiguous_job_collection(tenant, job)
             collection.meta = self._rs.fetch_meta(tenant)
+            cloud = tenant_cloud(tenant)
         collection.fetch_all()
         metadata = self._ls.get_customer_metadata(tenant.customer_name)
         code, message = self._push_chronicle(
@@ -452,6 +451,7 @@ class SiemPushHandler(AbstractHandler):
             tenant=tenant,
             collection=collection,
             metadata=metadata,
+            cloud=cloud
         )
         match code:
             case HTTPStatus.OK:
@@ -507,6 +507,7 @@ class SiemPushHandler(AbstractHandler):
             tenant=tenant,
             collection=collection,
             metadata=metadata,
+            cloud=tenant_cloud(tenant)
         )
         match code:
             case HTTPStatus.OK:

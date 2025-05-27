@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.10.0] - 2025-05-14
+- changed dojo client to import scans in batches
+- added 65 days ttl for findings snapshots
+- added a cron job that will remove old metrics
+- added errors information to internal shard parts
+- fixed versions comparing issue inside `sre-init`
+- changed format of OPERATIONAL ATTACKS, DEPRECATIONS, FINOPS, RESOURCES reports.
+  Added tenant licenses, rules and errors metadata
+
 ## [5.9.0] - 2025-04-29
 - added warnings to jobs
 - moved onprem scheduler and scheduled jobs to celery

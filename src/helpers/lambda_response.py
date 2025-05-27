@@ -1,4 +1,3 @@
-import base64
 from http import HTTPStatus
 from typing import Any, Final, Iterable, TypedDict, TypeVar
 
@@ -19,7 +18,7 @@ Content = dict | list | str | Iterable | None
 
 # https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-limits.html
 # https://zaccharles.medium.com/deep-dive-lambdas-response-payload-size-limit-8aedba9530ed
-PAYLOAD_SIZE_LIMIT: Final[int] = (2 << 19) * 6
+PAYLOAD_SIZE_LIMIT: Final[int] = (1 << 20) * 6
 
 
 class LambdaOutput(TypedDict):
@@ -120,32 +119,6 @@ class LambdaResponse:
         return exc_type(response=self)
 
 
-class BinaryResponse(LambdaResponse):
-    """
-    Returns binary data
-    """
-
-    def __init__(
-        self,
-        code: HTTPStatus = HTTPStatus.OK,
-        content: bytes = b'',
-        content_type: str | None = None,
-    ):
-        super().__init__(
-            code=code,
-            content=content,
-            headers={'Content-Type': content_type} if content_type else {},
-        )
-
-    def build(self) -> LambdaOutput:
-        return {
-            'headers': self._common_headers(),
-            'body': base64.b64encode(self._content).decode(),
-            'isBase64Encoded': True,
-            'statusCode': self._code.value,
-        }
-
-
 class JsonLambdaResponse(LambdaResponse):
     def __init__(
         self,
@@ -190,9 +163,10 @@ class JsonLambdaResponse(LambdaResponse):
                 )
                 .exc()
             )
+        # NOTE: don't forget to decode body here if we move back to lambda
         return {
             'headers': self._common_headers(),
-            'body': body.decode(),
+            'body': body,
             'isBase64Encoded': False,
             'statusCode': self._code.value,
         }

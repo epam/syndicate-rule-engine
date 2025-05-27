@@ -232,23 +232,64 @@ def build_parents(
     return to_create
 
 
-def get_activation_dto(parents: Iterable[Parent]) -> dict:
-    result = {
-        'activated_for_all': False,
-        'within_clouds': [],
-        'excluding': [],
-        'activated_for': [],
-    }
+class ActivationInfo:
+    __slots__ = 'is_all', 'clouds', 'including', 'excluding'
+
+    def __init__(self, is_all: bool, clouds: set[str],
+                 including: set[str], excluding: set[str]):
+        self.is_all = is_all
+        self.clouds = clouds
+        self.including = including
+        self.excluding = excluding
+
+    def is_active_for(self, tenant: 'Tenant') -> bool:
+        if tenant.name in self.excluding:
+            return False
+        # definitely not excluded
+        if not self.is_all:
+            return tenant.name in self.including
+        # is all
+        if self.clouds and tenant.cloud not in self.clouds:
+            return False
+        return True
+
+
+def get_activation_info(parents: Iterable[Parent]) -> ActivationInfo:
+    """
+    Given a collection of scoped parents of the same type, this function gives information whether:
+    - logic is activated for all tenants (optionally within some clouds)
+    - for specific tenants (optionally excluding some)
+    """
+    is_all = False
+    clouds = set()
+    including = set()
+    excluding = set()
     for parent in parents:
         match parent.scope:
             case ParentScope.SPECIFIC:
-                result['activated_for'].append(parent.tenant_name)
+                including.add(parent.tenant_name)
             case ParentScope.DISABLED:
-                result['excluding'].append(parent.tenant_name)
-            case _:  # ALL
-                result['activated_for_all'] = True
-                if parent.cloud:
-                    result['within_clouds'].append(parent.cloud)
+                excluding.add(parent.tenant_name)
+            case _:   # ALL
+                is_all = True
+                if cl := parent.cloud:
+                    clouds.add(cl)
+    return ActivationInfo(
+        is_all=is_all,
+        clouds=clouds,
+        including=including,
+        excluding=excluding
+    )
+
+
+def get_activation_dto(parents: Iterable[Parent]) -> dict:
+    info = get_activation_info(parents)
+    result = {
+        'activated_for_all': info.is_all,
+        'within_clouds': sorted(info.clouds),
+        'excluding': sorted(info.excluding),
+        'activated_for': sorted(info.including),
+    }
     if result['activated_for_all']:
         result.pop('activated_for')
     if not result['within_clouds']:

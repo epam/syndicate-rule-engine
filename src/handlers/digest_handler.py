@@ -4,11 +4,12 @@ from modular_sdk.services.tenant_service import TenantService
 
 from handlers import AbstractHandler, Mapping
 from helpers.constants import HTTPMethod, JobState, ReportFormat, \
-    CustodianEndpoint
+    CustodianEndpoint, Cloud
 from helpers.lambda_response import build_response
 from services import SP
 from services import modular_helpers
 from services.ambiguous_job_service import AmbiguousJobService, AmbiguousJob
+from services.modular_helpers import tenant_cloud
 from services.platform_service import PlatformService
 from services.report_convertors import ShardsCollectionDigestConvertor
 from services.report_service import ReportService, ReportResponse
@@ -74,25 +75,29 @@ class DigestReportHandler(AbstractHandler):
                     code=HTTPStatus.NOT_FOUND
                 )
             collection = self._rs.platform_job_collection(platform, job.job)
+            collection.meta = self._rs.fetch_meta(platform)
+            cloud = Cloud.KUBERNETES
         else:
             tenant = self._ts.get(job.tenant_name)
             tenant = modular_helpers.assert_tenant_valid(tenant, event.customer)
             collection = self._rs.ambiguous_job_collection(tenant, job)
+            collection.meta = self._rs.fetch_meta(tenant)
+            cloud = tenant_cloud(tenant)
         metadata = self._ls.get_customer_metadata(job.customer_name)
         return build_response(
-            content=self._collection_response(job, collection, metadata)
+            content=self._collection_response(job, collection, metadata, cloud)
         )
 
     @staticmethod
     def _collection_response(job: AmbiguousJob, collection: ShardsCollection,
-                             metadata: Metadata
+                             metadata: Metadata, cloud: Cloud
                              ) -> dict:
         """
         Builds response for the given collection
         """
         collection.fetch_all()
 
-        report = ShardsCollectionDigestConvertor(metadata).convert(collection)
+        report = ShardsCollectionDigestConvertor(cloud, metadata).convert(collection)
         return ReportResponse(job, report, fmt=ReportFormat.JSON).dict()
 
     @validate_kwargs
@@ -100,6 +105,7 @@ class DigestReportHandler(AbstractHandler):
                            tenant_name: str):
         tenant = self._ts.get(tenant_name)
         tenant = modular_helpers.assert_tenant_valid(tenant, event.customer)
+        cloud = tenant_cloud(tenant)
 
         jobs = self._ambiguous_job_service.get_by_tenant_name(
             tenant_name=tenant_name,
@@ -111,13 +117,14 @@ class DigestReportHandler(AbstractHandler):
         jobs = filter(lambda x: not x.is_platform_job,
                       self._ambiguous_job_service.to_ambiguous(jobs))
         metadata = self._ls.get_customer_metadata(tenant.customer_name)
+        meta = self._rs.fetch_meta(tenant)
 
         job_collection = []
         for job in jobs:
             col = self._rs.ambiguous_job_collection(tenant, job)
+            col.meta = meta
             job_collection.append((job, col))
-        # TODO _collection_response to threads?
         return build_response(content=map(
-            lambda pair: self._collection_response(*(pair + (metadata, ))),
+            lambda pair: self._collection_response(*(pair + (metadata, )), cloud),
             job_collection
         ))

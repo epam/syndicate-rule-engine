@@ -1,9 +1,10 @@
 {
+  "outdated_tenants": [],
   "data": {
     "AWS": {
       "account_id": "123456789012",
       "tenant_name": "AWS-TESTING",
-      "last_scan_date": "2025-01-28T00:20:16.359026Z",
+      "last_scan_date": "2025-05-25T00:30:25.000333Z",
       "activated_regions": [
         "eu-central-1",
         "eu-north-1",
@@ -19,6 +20,17 @@
           "regions_data": {
             "eu-central-1": {
               "total_violated_resources": 3
+            }
+          }
+        },
+        {
+          "policy": "ecc-aws-374-cloudtrail_logs_data_events",
+          "description": "Description for ecc-aws-374-cloudtrail_logs_data_events",
+          "severity": "Unknown",
+          "resource_type": "Cloudtrail",
+          "regions_data": {
+            "global": {
+              "total_violated_resources": 1
             }
           }
         },
@@ -42,38 +54,13 @@
             "eu-central-1": {
               "total_violated_resources": 1
             },
-            "eu-north-1": {
-              "total_violated_resources": 1
-            },
             "eu-west-1": {
               "total_violated_resources": 3
             },
             "eu-west-3": {
               "total_violated_resources": 1
-            }
-          }
-        },
-        {
-          "policy": "ecc-aws-516-s3_event_notifications_enabled",
-          "description": "Description for ecc-aws-516-s3_event_notifications_enabled",
-          "severity": "Unknown",
-          "resource_type": "S3",
-          "regions_data": {
-            "eu-central-1": {
-              "total_violated_resources": 1
             },
-            "eu-west-1": {
-              "total_violated_resources": 3
-            }
-          }
-        },
-        {
-          "policy": "ecc-aws-374-cloudtrail_logs_data_events",
-          "description": "Description for ecc-aws-374-cloudtrail_logs_data_events",
-          "severity": "Unknown",
-          "resource_type": "Cloudtrail",
-          "regions_data": {
-            "global": {
+            "eu-north-1": {
               "total_violated_resources": 1
             }
           }
@@ -86,6 +73,20 @@
           "regions_data": {
             "global": {
               "total_violated_resources": 3
+            }
+          }
+        },
+        {
+          "policy": "ecc-aws-516-s3_event_notifications_enabled",
+          "description": "Description for ecc-aws-516-s3_event_notifications_enabled",
+          "severity": "Unknown",
+          "resource_type": "S3",
+          "regions_data": {
+            "eu-west-1": {
+              "total_violated_resources": 3
+            },
+            "eu-central-1": {
+              "total_violated_resources": 1
             }
           }
         },
@@ -127,7 +128,7 @@
     "AZURE": {
       "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
       "tenant_name": "AZURE-TESTING",
-      "last_scan_date": "2025-01-28T00:20:16.359026Z",
+      "last_scan_date": "2025-05-25T00:30:25.000333Z",
       "activated_regions": [],
       "data": [
         {
@@ -190,7 +191,7 @@
     "GOOGLE": {
       "account_id": "testing-project-123",
       "tenant_name": "GOOGLE-TESTING",
-      "last_scan_date": "2025-01-28T00:20:16.359026Z",
+      "last_scan_date": "2025-05-25T00:30:25.000333Z",
       "activated_regions": [],
       "data": [
         {
@@ -243,13 +244,21 @@
           "severity": "Unknown",
           "resource_type": "Subnet",
           "regions_data": {
-            "global": {
-              "total_violated_resources": 4
+            "northamerica-south1": {
+              "total_violated_resources": 1
+            },
+            "europe-west10": {
+              "total_violated_resources": 1
+            },
+            "us-west8": {
+              "total_violated_resources": 1
+            },
+            "africa-south1": {
+              "total_violated_resources": 1
             }
           }
         }
       ]
     }
-  },
-  "outdated_tenants": []
+  }
 }
