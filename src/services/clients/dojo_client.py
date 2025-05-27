@@ -64,7 +64,7 @@ class DojoV2Client:
         it = encode_into(
             it=data,
             encode=self.encoder.encode_into,
-            limit=limit,
+            limit=limit-2,
             new=build_buf,
             sep=b',',
         )
@@ -82,7 +82,7 @@ class DojoV2Client:
         it = encode_into(
             it=data.get('findings') or [],
             encode=self.encoder.encode_into,
-            limit=limit,
+            limit=limit-15,
             new=build_buf,
             sep=b',',
         )
