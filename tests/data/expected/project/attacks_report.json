@@ -2,7 +2,6 @@
   "receivers": [
     "admin@gmail.com"
   ],
-  "report_type": "ATTACK_VECTOR",
   "customer": "TEST_CUSTOMER",
   "from": "2025-02-26T12:53:53.209296Z",
   "to": "2025-03-05T12:53:53.209296Z",

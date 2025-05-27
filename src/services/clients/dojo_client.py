@@ -1,14 +1,16 @@
-from datetime import datetime
-from typing import Generator
 from collections import defaultdict
-import os
+from datetime import datetime
+from typing import Generator, TYPE_CHECKING
 
-import requests
 import msgspec
+import requests
 
-from helpers import batches_with_critic
-from helpers.constants import HTTPMethod, CAASEnv
+from helpers import encode_into
+from helpers.constants import CAASEnv, HTTPMethod
 from helpers.log_helper import get_logger
+
+if TYPE_CHECKING:
+    from services.report_convertors import Findings
 
 _LOG = get_logger(__name__)
 
@@ -17,8 +19,6 @@ class DojoV2Client:
     __slots__ = ('_url', '_session')
 
     encoder = msgspec.json.Encoder()
-
-    _payload_size_limit = CAASEnv.DOJO_PAYLOAD_SIZE_LIMIT_BYTES.as_int()
 
     def __init__(self, url: str, api_key: str):
         """
@@ -47,55 +47,96 @@ class DojoV2Client:
         if resp is None or not resp.ok:
             return
         return resp.json()
-    
+
     @staticmethod
     def _load_json(resp) -> dict | list | None:
         try:
             return resp.json()
         except Exception:
             return
-    
-    def _batches(self, entities: list
-                 ) -> Generator[list[dict], None, None]:
-        """
-        Dojo accepts only payloads of limited size. 
-        This function batch data into batches 
-        that can't be bigger than specified limit
-        :param entities:
-        :return:
-        """
-        yield from batches_with_critic(
-            iterable = entities, 
-            critic = lambda x: len(self.encoder.encode(x))+2, # +2 for spaces and commas
-            limit = self._payload_size_limit,
-            drop_violating_items=True
-        )
-    
-    @staticmethod
-    def _generate_mock_findings(n: int) -> list[dict]:
-        return [{
-            'title': f'Mock finding {i}',
-            'date': '2025-05-15T11:20:00.070237+00:00',
-            'description': f'Mock description {i}',
-            'severity': 'Medium',
-            'files': {
-                'title': f'mock_file_{i}.csv',
-                'data': os.urandom(1024)
-            }
-        } for i in range(n)]
 
-    def import_scan(self, scan_type: str, scan_date: datetime,
-                    product_type_name: str,
-                    product_name: str, engagement_name: str, test_title: str,
-                    data: dict|list, auto_create_context: bool = True,
-                    tags: list[str] | None = None, reimport: bool = True,
-                    ) -> tuple[dict[str, int], list]:
-        if isinstance(data, dict):
-            data = data['findings']
-        
+    def _yield_list_report(
+        self, data: list[dict], limit: int
+    ) -> Generator[bytearray, None, None]:
+        def build_buf():
+            return bytearray(b'[')
+
+        it = encode_into(
+            it=data,
+            encode=self.encoder.encode_into,
+            limit=limit,
+            new=build_buf,
+            sep=b',',
+        )
+        for buf in it:
+            buf.append(ord(b']'))
+            yield buf
+
+    def _yield_dict_report(
+        self, data: 'Findings', limit: int
+    ) -> Generator[bytearray, None, None]:
+        def build_buf():
+            return bytearray(b'{"findings":[')
+
+        # TODO: handle case if one item is bigger than limit
+        it = encode_into(
+            it=data.get('findings') or [],
+            encode=self.encoder.encode_into,
+            limit=limit,
+            new=build_buf,
+            sep=b',',
+        )
+        for buf in it:
+            buf.extend(b']}')
+            yield buf
+
+    def _iter_files(
+        self, data: 'list | Findings'
+    ) -> Generator[tuple[int | None, bytearray], None, None]:
+        if isinstance(data, list) and not data:
+            yield None, bytearray(b'[]')
+            return
+        if isinstance(data, dict) and not data.get('findings'):
+            yield None, bytearray(b'{"findings":[]}')
+            return
+
+        limit = CAASEnv.DOJO_PAYLOAD_SIZE_LIMIT_BYTES.get()
+        if limit is None or not limit.isalnum():
+            _LOG.info('No dojo limit, encoding the whole report')
+            buf = bytearray()
+            self.encoder.encode_into(data, buf)
+            yield None, buf
+            return
+        limit = int(limit)
+        _LOG.info(f'Dojo limit is {limit}')
+        if isinstance(data, list):
+            gen = self._yield_list_report
+        else:
+            gen = self._yield_dict_report
+        for i, buf in enumerate(gen(data, limit)):
+            yield i, buf
+
+    def import_scan(
+        self,
+        scan_type: str,
+        scan_date: datetime,
+        product_type_name: str,
+        product_name: str,
+        engagement_name: str,
+        test_title: str,
+        data: 'list | Findings',
+        auto_create_context: bool = True,
+        tags: list[str] | None = None,
+        reimport: bool = True,
+    ) -> tuple[dict[str, int], list]:
         result = defaultdict(int)
         failure_codes = []
-        for batch in self._batches(data):
+        for i, buf in self._iter_files(data):
+            if i is not None:
+                tt = f'{test_title}-{i}'
+            else:
+                tt = f'{test_title}'
+
             resp = self._request(
                 path='/reimport-scan/' if reimport else '/import-scan/',
                 method=HTTPMethod.POST,
@@ -103,30 +144,33 @@ class DojoV2Client:
                     'product_type_name': product_type_name,
                     'product_name': product_name,
                     'engagement_name': engagement_name,
-                    'test_title': test_title,
+                    'test_title': tt,
                     'auto_create_context': auto_create_context,
                     'tags': tags or [],
                     'scan_type': scan_type,
-                    'scan_date': scan_date.date().isoformat()
+                    'scan_date': scan_date.date().isoformat(),
                 },
-                files={
-                    'file': ('report.json', self.encoder.encode({'findings': batch}))
-                }
+                files={'file': ('report.json', buf)},
             )
-            
+
             if resp is None or not resp.ok:
                 _LOG.warning(f'Error occurred. Resp: {self._load_json(resp)}')
                 result['failure'] += 1
                 failure_codes.append(getattr(resp, 'status_code', None))
             else:
                 result['success'] += 1
-        
+
         return result, failure_codes
 
-    def _request(self, path: str, method: HTTPMethod,
-                 params: dict | None = None, data: dict | None = None,
-                 files: dict | None = None, timeout: int | None = None
-                 ) -> requests.Response | None:
+    def _request(
+        self,
+        path: str,
+        method: HTTPMethod,
+        params: dict | None = None,
+        data: dict | None = None,
+        files: dict | None = None,
+        timeout: int | None = None,
+    ) -> requests.Response | None:
         _LOG.info(f'Making dojo request {method.value} {path}')
         try:
             resp = self._session.request(
@@ -135,7 +179,7 @@ class DojoV2Client:
                 params=params,
                 data=data,
                 files=files,
-                timeout=timeout
+                timeout=timeout,
             )
             _LOG.info(f'Response status code: {resp.status_code}')
             _LOG.debug(f'Response body: {resp.text}')

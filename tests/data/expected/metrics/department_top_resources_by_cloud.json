@@ -25,9 +25,9 @@
           "severity_data": {
             "Unknown": 23
           },
-          "succeeded_scans": 2,
+          "succeeded_scans": 1,
           "tenant_name": "AWS-TESTING",
-          "total_scans": 3
+          "total_scans": 2
         },
         "sort_by": 23,
         "tenant_display_name": "testing"
@@ -46,9 +46,9 @@
           "severity_data": {
             "Unknown": 5
           },
-          "succeeded_scans": 2,
+          "succeeded_scans": 1,
           "tenant_name": "AZURE-TESTING",
-          "total_scans": 3
+          "total_scans": 2
         },
         "sort_by": 5,
         "tenant_display_name": "testing"
@@ -69,9 +69,9 @@
           "severity_data": {
             "Unknown": 9
           },
-          "succeeded_scans": 2,
+          "succeeded_scans": 1,
           "tenant_name": "GOOGLE-TESTING",
-          "total_scans": 3
+          "total_scans": 2
         },
         "sort_by": 9,
         "tenant_display_name": "testing"

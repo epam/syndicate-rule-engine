@@ -1,6 +1,7 @@
 import json
 
 import pytest
+from datetime import timedelta
 
 from helpers.constants import ReportType
 from models.metrics import ReportMetrics
@@ -16,6 +17,7 @@ def aws_operational_overview_metrics(aws_tenant, load_expected, utcnow):
             ReportType.OPERATIONAL_OVERVIEW, aws_tenant
         ),
         end=utcnow,
+        start=utcnow - timedelta(days=1)
     )
     SP.report_metrics_service.save(
         item, load_expected('metrics/aws_operational_overview')
@@ -29,6 +31,7 @@ def aws_operational_resources_metrics(aws_tenant, load_expected, utcnow):
             ReportType.OPERATIONAL_RESOURCES, aws_tenant
         ),
         end=utcnow,
+        start=utcnow - timedelta(days=1)
     )
     SP.report_metrics_service.save(
         item, load_expected('metrics/aws_operational_resources')
@@ -42,6 +45,7 @@ def aws_operational_rules_metrics(aws_tenant, load_expected, utcnow):
             ReportType.OPERATIONAL_RULES, aws_tenant
         ),
         end=utcnow,
+        start=utcnow - timedelta(days=1)
     )
     SP.report_metrics_service.save(
         item, load_expected('metrics/aws_operational_rules')
@@ -55,6 +59,7 @@ def aws_operational_attacks_metrics(aws_tenant, load_expected, utcnow):
             ReportType.OPERATIONAL_ATTACKS, aws_tenant
         ),
         end=utcnow,
+        start=utcnow - timedelta(days=1)
     )
     SP.report_metrics_service.save(
         item, load_expected('metrics/aws_operational_attacks')
@@ -68,6 +73,7 @@ def aws_operational_finops_metrics(aws_tenant, load_expected, utcnow):
             ReportType.OPERATIONAL_FINOPS, aws_tenant
         ),
         end=utcnow,
+        start=utcnow - timedelta(days=1)
     )
     SP.report_metrics_service.save(
         item, load_expected('metrics/aws_operational_finops')
@@ -81,6 +87,7 @@ def aws_operational_compliance_metrics(aws_tenant, load_expected, utcnow):
             ReportType.OPERATIONAL_COMPLIANCE, aws_tenant
         ),
         end=utcnow,
+        start=utcnow - timedelta(days=1)
     )
     SP.report_metrics_service.save(
         item, load_expected('metrics/aws_operational_compliance')
@@ -94,6 +101,7 @@ def k8s_operational_metrics(k8s_platform, load_expected, utcnow):
             ReportType.OPERATIONAL_KUBERNETES, k8s_platform
         ),
         end=utcnow,
+        start=utcnow - timedelta(days=1)
     )
     SP.report_metrics_service.save(
         item, load_expected('metrics/k8s_operational')
@@ -109,6 +117,7 @@ def azure_operational_deprecations_metrics(
             ReportType.OPERATIONAL_DEPRECATION, azure_tenant
         ),
         end=utcnow,
+        start=utcnow - timedelta(days=1)
     )
     SP.report_metrics_service.save(
         item, load_expected('metrics/azure_operational_deprecations')

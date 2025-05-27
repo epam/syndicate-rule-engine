@@ -1,7 +1,7 @@
 {
-  "total_scans": 3,
+  "total_scans": 2,
   "failed_scans": 1,
-  "succeeded_scans": 2,
+  "succeeded_scans": 1,
   "activated_regions": [],
   "last_scan_date": "2025-05-20T00:25:37.702151Z",
   "id": "testing-project-123",

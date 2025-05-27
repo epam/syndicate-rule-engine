@@ -1,6 +1,6 @@
 {
   "tenant_name": "AWS-TESTING",
-  "last_scan_date": "2025-03-05T00:41:34.367561Z",
+  "last_scan_date": "2025-05-25T00:15:40.754806Z",
   "region": "eu-west-1",
   "name": "test",
   "type": "EKS",
@@ -14,6 +14,7 @@
         {
           "id": "3f287bc9-94dc-47b1-96a1-827dce683a92",
           "name": "test-node-58cm6",
+          "sre:date": 1736955267.6884868,
           "namespace": "kube-system"
         }
       ]
@@ -27,6 +28,7 @@
         {
           "id": "337c51cd-35f0-4f47-b27e-55e61ab14921",
           "name": "test-opertor-77hwxcq",
+          "sre:date": 1736955267.080916,
           "namespace": "09c64sffas"
         }
       ]
@@ -40,11 +42,13 @@
         {
           "id": "ae55fb56-619a-49af-b282-8e63cdee6b24",
           "name": "test-pod-123l2hxk",
+          "sre:date": 1736955267.572546,
           "namespace": "acf0f67f"
         },
         {
           "id": "67d19da5-f0fe-4083-bf7e-7584127cb5a3",
           "name": "frontend-app-7dfc594f8f-ch966",
+          "sre:date": 1736955267.572546,
           "namespace": "team3-frontend-app-develop"
         }
       ]
@@ -58,10 +62,11 @@
     {
       "region": "global",
       "service": "Service Account",
-      "resource_type": "Service Account",
+      "resource_type": "k8s.service-account",
       "resource": {
         "id": "337c51cd-35f0-4f47-b27e-55e61ab14921",
         "name": "test-opertor-77hwxcq",
+        "sre:date": 1736955267.080916,
         "namespace": "09c64sffas"
       },
       "attacks": [

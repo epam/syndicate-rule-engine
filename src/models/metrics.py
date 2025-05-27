@@ -10,6 +10,7 @@ from helpers.constants import (
     ReportType,
 )
 from models import BaseModel
+from modular_sdk.models.pynamongo.attributes import BinaryAttribute
 
 if TYPE_CHECKING:
     from modular_sdk.models.tenant import Tenant
@@ -42,10 +43,6 @@ class ReportMetrics(BaseModel):
     # as of which data is collected. In case we generate a report retroactively
     _created_at = UnicodeAttribute(null=True, attr_name='cd')
 
-    data = MapAttribute(default=dict, attr_name='d')
-    # url to payload
-    s3_url = UnicodeAttribute(null=True, default=None, attr_name='l')
-
     customer = UnicodeAttribute(attr_name='c')
 
     # holds tenants that were involved in collecting this report
@@ -53,6 +50,15 @@ class ReportMetrics(BaseModel):
                             attr_name='t')
     
     customer_end_index = CustomerEndIndex()
+
+    # either of these can be stored
+    data = BinaryAttribute(null=True, attr_name='b')
+
+    # url to payload
+    s3_url = UnicodeAttribute(null=True, default=None, attr_name='l')
+
+    content_type = UnicodeAttribute(null=True, attr_name='ct')
+    content_encoding = UnicodeAttribute(null=True, attr_name='ce')
 
     @property
     def created_at(self) -> str:
@@ -86,13 +92,6 @@ class ReportMetrics(BaseModel):
         if self.cloud is Cloud.KUBERNETES:
             return self.key.split(COMPOUND_KEYS_SEPARATOR, 5)[4] or None
         return
-
-    @property
-    def is_fetched(self) -> bool:
-        if not self.s3_url:
-            return True
-        # s3 path exists
-        return bool(self.data.as_dict())
 
     @property
     def entity(self) -> str:

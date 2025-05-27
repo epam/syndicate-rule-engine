@@ -101,6 +101,7 @@ class AmbiguousJob:
         """
         return getattr(self.job, item, None)
 
+    @property
     def is_finished(self) -> bool:
         return bool(self.stopped_at) and self.status in (
             JobState.SUCCEEDED,

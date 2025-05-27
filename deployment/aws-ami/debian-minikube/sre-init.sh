@@ -96,6 +96,7 @@ Options:
   --check              Checks whether update is available but do not try to update
   --no-backup          Do not do backup
   --defectdojo         Specify this flag to update Defect Dojo chart instead of Syndicate Rule Engine
+  --same-version       Fetches images and artifacts for the version of Syndicate Rule Engine that is currently installed and updates
   -h, --help           Show this message and exit
   -y, --yes            Automatic yes to prompts
 EOF
@@ -329,7 +330,7 @@ get_new_github_release() {
 
   while IFS= read -r item; do
     tag_name=$(jq -r '.tag_name' <<<"$item")
-    if [[ "$current_release" < "$tag_name" ]]; then
+    if dpkg --compare-versions "$tag_name" gt "$current_release"; then
       result="$item"
     elif [ -n "$result" ]; then  # higher or equal
       echo "$result"
@@ -722,10 +723,12 @@ cmd_update_list() {
   current_release="$(get_helm_release_version "$HELM_RELEASE_NAME")"
   while IFS= read -r item; do
     tag_name=$(jq -r '.tag_name' <<< "$item")
-    if [[ "$current_release" = "$tag_name" ]]; then
+    if [[ "$current_release" == "$tag_name" ]]; then
       jq -rj '"\(.tag_name)* \(.published_at) \(.html_url) \(.prerelease) \(.draft)"' <<<"$item" | colorize GREEN
     fi
-    [[ ! "$current_release" < "$tag_name" ]] && break
+    if dpkg --compare-versions "$tag_name" le "$current_release"; then
+      break
+    fi
     jq -rj '"\(.tag_name) \(.published_at) \(.html_url) \(.prerelease) \(.draft)\n"' <<<"$item"
   done < <(iter_github_releases "${iter_params[@]}") | column --table --table-columns RELEASE,DATE,URL,PRERELEASE,DRAFT
 }

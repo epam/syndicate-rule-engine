@@ -369,7 +369,7 @@ class ReportMetricsBucketKeysBuilder:
 
     date_delimiter = '-'
     prefix = 'metrics/'
-    data = 'data.json.gz'
+    data = 'data'
 
     @staticmethod
     def datetime(end: datetime) -> str:

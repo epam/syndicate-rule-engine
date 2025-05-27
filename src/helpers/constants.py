@@ -351,7 +351,7 @@ EXTERNAL_DATA_BUCKET_ATTR = 'externalDataBucket'
 
 
 _SENTINEL = object()
-_E = TypeVar('_E', bound=Enum)
+_E = TypeVar('_E')
 
 
 class EnvEnum(str, Enum):
@@ -513,7 +513,7 @@ class CAASEnv(EnvEnum):
     REPORTS_SNAPSHOTS_LIFETIME_DAYS = (
         'SRE_REPORTS_SNAPSHOTS_LIFETIME_DAYS',
         (),
-        '60',
+        '65',
     )
 
     # Cognito either one will work, but ID faster and safer
@@ -639,18 +639,10 @@ class CAASEnv(EnvEnum):
     CC_LOG_LEVEL = 'SRE_CC_LOG_LEVEL', (), 'INFO'
 
     # Dojo
-    DOJO_PAYLOAD_SIZE_LIMIT_BYTES=(
-        'SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES', 
-        ("DOJO_PAYLOAD_SIZE_LIMIT_BYTES",), 
-        '104857600'
-    )
+    DOJO_PAYLOAD_SIZE_LIMIT_BYTES = 'SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES', (),
 
     # Metrics
-    METRICS_EXPIRATION_DAYS=(
-        'SRE_METRICS_EXPIRATION_DAYS',
-        ('METRICS_EXPIRATION_DAYS',),
-        '35'
-    )
+    METRICS_EXPIRATION_DAYS = 'SRE_METRICS_EXPIRATION_DAYS', (), '35'
 
     @classmethod
     def is_docker(cls) -> bool:
@@ -1152,6 +1144,7 @@ _previous_month_start = relativedelta(
 _this_month_start = relativedelta(
     hour=0, minute=0, second=0, microsecond=0, day=1
 )
+_relative_now = relativedelta()
 
 
 class ReportType(str, Enum):
@@ -1192,7 +1185,7 @@ class ReportType(str, Enum):
         obj._value_ = value
 
         obj.description = description
-        obj.r_end = r_end or relativedelta()
+        obj.r_end = r_end or _relative_now
         obj.r_start = r_start
         return obj
 
@@ -1206,6 +1199,9 @@ class ReportType(str, Enum):
         if not self.r_start:
             return
         return now + self.r_start
+
+    def is_as_of_now(self) -> bool:
+        return self.r_end == _relative_now
 
     # Operational, kind of for one tenant
     OPERATIONAL_OVERVIEW = (

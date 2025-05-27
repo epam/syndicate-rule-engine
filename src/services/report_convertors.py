@@ -243,40 +243,35 @@ class ShardsCollectionGenericDojoConvertor(ShardCollectionDojoConvertor):
             if service_section := pm2.service_section:
                 tags.append(service_section)
 
+            table = self._make_table(resources)
+            description = pm2.article or pm['description']
+            extra = {'description': f'{description}\n{table}'}
+            if '042' not in rule:
+                continue
+            ts = int(resources[0].sync_date)  # all the same
+
             match self._attachment:
                 case 'xlsx':
-                    extra = {
-                        'description': pm2.article,
-                        'files': [
-                            {
-                                'title': f'{rule}.xlsx',
-                                'data': self._make_xlsx_file(resources),
-                            }
-                        ],
-                    }
+                    extra.update(files=[
+                        {
+                            'title': f'{rule}-{region}-{ts}.xlsx',
+                            'data': self._make_xlsx_file(resources),
+                        }
+                    ])
                 case 'json':
-                    extra = {
-                        'description': pm2.article,
-                        'files': [
-                            {
-                                'title': f'{rule}.json',
-                                'data': self._make_json_file(resources),
-                            }
-                        ],
-                    }
+                    extra.update(files=[
+                        {
+                            'title': f'{rule}-{region}-{ts}.json',
+                            'data': self._make_json_file(resources),
+                        }
+                    ])
                 case 'csv':
-                    extra = {
-                        'description': pm2.article,
-                        'files': [
-                            {
-                                'title': f'{rule}.csv',
-                                'data': self._make_csv_file(resources),
-                            }
-                        ],
-                    }
-                case _:  # None or some unexpected
-                    table = self._make_table(resources)
-                    extra = {'description': f'{pm2.article}\n{table}'}
+                    extra.update(files=[
+                        {
+                            'title': f'{rule}-{region}-{ts}.csv',
+                            'data': self._make_csv_file(resources),
+                        }
+                    ])
 
             findings.append(
                 {

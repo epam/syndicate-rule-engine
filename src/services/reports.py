@@ -1,16 +1,30 @@
 import bisect
-from datetime import datetime, date
-from enum import Enum
+import gzip
+import io
+from abc import ABC
+from datetime import date, datetime
 from functools import cached_property, cmp_to_key
 from itertools import chain
-from typing import Any, Callable, Generator, Iterable, Iterator, Literal, cast
+from typing import (
+    Any,
+    Callable,
+    Generator,
+    Generic,
+    Iterable,
+    Iterator,
+    Literal,
+    TypeVar,
+    cast,
+)
 
+import msgspec
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
 
 from helpers import deep_get, iter_key_values
 from helpers.constants import (
     COMPOUND_KEYS_SEPARATOR,
+    CAASEnv,
     Cloud,
     JobState,
     ReportType,
@@ -26,33 +40,17 @@ from models.metrics import ReportMetrics
 from services.ambiguous_job_service import AmbiguousJob
 from services.base_data_service import BaseDataService
 from services.clients.s3 import S3Client, S3Url
-from services.environment_service import EnvironmentService
-from services.metadata import Metadata, MitreAttack
+from services.metadata import Metadata
 from services.platform_service import Platform
 from services.report_service import ReportService
 from services.reports_bucket import ReportMetricsBucketKeysBuilder
 from services.resources import (
     CloudResource,
     iter_rule_resources,
-    InPlaceResourceView,
 )
-from services.sharding import ShardsCollection
+from services.sharding import RuleMeta, ShardsCollection
 
 _LOG = get_logger(__name__)
-
-
-class CustomAttribute(str, Enum):
-    REGION = 'sre:region'
-    SERVICE = 'sre:service'
-
-    @classmethod
-    def pop_custom(cls, dct: dict) -> dict:
-        """
-        Returns the same instance for convenience
-        """
-        for attr in cls:
-            dct.pop(attr.value, None)
-        return dct
 
 
 class JobMetricsDataSource:
@@ -149,6 +147,10 @@ class JobMetricsDataSource:
         return sum(map(lambda j: j.is_succeeded, self._jobs))
 
     @cached_property
+    def n_finished(self) -> int:
+        return sum(map(lambda j: j.is_finished, self._jobs))
+
+    @cached_property
     def n_failed(self) -> int:
         return sum(map(lambda j: j.is_failed, self._jobs))
 
@@ -184,6 +186,369 @@ class JobMetricsDataSource:
         )
 
 
+T = TypeVar('T')
+
+
+class ReportVisitor(ABC, Generic[T]):
+    def visitDefault(self, *args, **kwargs) -> T:
+        _LOG.warning('Default visitor entered, can a bug')
+
+    @classmethod
+    def derive_visitor(cls, typ: ReportType, **kwargs) -> 'ReportVisitor':
+        # NOTE: you should get necessary visitor and report yourself,
+        match typ:
+            case ReportType.OPERATIONAL_RESOURCES:
+                return ResourcesReportGenerator(**kwargs)
+            case ReportType.OPERATIONAL_DEPRECATION:
+                return DeprecationReportGenerator(**kwargs)
+            case ReportType.OPERATIONAL_ATTACKS:
+                return AttacksReportGenerator(**kwargs)
+            case ReportType.OPERATIONAL_FINOPS:
+                return FinopsReportGenerator(**kwargs)
+            case _:
+                raise NotImplementedError('')
+
+
+class Report(ABC):
+    """
+    TODO: write something here
+    """
+
+    __slots__ = ('typ',)
+
+    def __init__(self, typ: ReportType, /):
+        self.typ = typ
+
+    def accept(self, visitor: ReportVisitor[T], /, **kwargs) -> T:
+        method = getattr(
+            visitor, f'visit{self.__class__.__name__}', visitor.visitDefault
+        )
+        return method(self, **kwargs)
+
+    @classmethod
+    def derive_report(cls, typ: ReportType, /) -> 'Report':
+        match typ:
+            case ReportType.OPERATIONAL_RESOURCES:
+                return ResourcesReport(typ)
+            case ReportType.OPERATIONAL_DEPRECATION:
+                return DeprecationReport(typ)
+            case ReportType.OPERATIONAL_ATTACKS:
+                return AttacksReport(typ)
+            case ReportType.OPERATIONAL_FINOPS:
+                return FinopsReport(typ)
+            case ReportType.OPERATIONAL_KUBERNETES:
+                return KubernetesReport(typ)
+            case _:
+                raise NotImplementedError('')
+
+
+class ResourcesReport(Report):
+    pass
+
+
+class DeprecationReport(Report):
+    pass
+
+
+class FinopsReport(Report):
+    pass
+
+
+class AttacksReport(Report):
+    pass
+
+
+class KubernetesReport(Report):
+    pass
+
+
+class ScopedRulesSelector(ReportVisitor[set[str]]):
+    __slots__ = ('_metadata',)
+
+    def __init__(self, metadata: Metadata):
+        self._metadata = metadata
+
+    def visitDefault(
+        self, report: 'Report', /, rules: Iterable[str], **kwargs
+    ) -> set[str]:
+        return set(rules)
+
+    def visitResourcesReport(
+        self, report: 'ResourcesReport', /, rules: Iterable[str], **kwargs
+    ) -> set[str]:
+        """
+        Resources report contains all rules
+        """
+        return set(rules)
+
+    def visitDeprecationReport(
+        self, report: 'DeprecationReport', /, rules: Iterable[str], **kwargs
+    ) -> set[str]:
+        meta = self._metadata
+        return {rule for rule in rules if meta.rule(rule).is_deprecation()}
+
+    def visitFinopsReport(
+        self, report: 'FinopsReport', /, rules: Iterable[str], **kwargs
+    ) -> set[str]:
+        meta = self._metadata
+        return {rule for rule in rules if meta.rule(rule).is_finops()}
+
+    def visitAttacksReport(
+        self, report: 'AttacksReport', /, rules: Iterable[str], **kwargs
+    ) -> set[str]:
+        meta = self._metadata
+        return {rule for rule in rules if meta.rule(rule).mitre}
+
+
+class ResourcesReportGenerator(ReportVisitor[Generator[dict, None, None]]):
+    __slots__ = ('_metadata', '_view', 'scope')
+
+    def __init__(
+        self,
+        metadata: Metadata,
+        view: ReportVisitor[dict],
+        scope: set[str] | None = None,
+    ):
+        self._metadata = metadata
+        self._view = view
+        self.scope = scope
+
+    def visitDefault(
+        self,
+        report: 'ResourcesReport',
+        /,
+        rule_resources: dict[str, set[CloudResource]],
+        meta: dict[str, RuleMeta],
+        **kwargs,
+    ) -> Generator[dict, None, None]:
+        for rule in rule_resources:
+            if self.scope is not None and rule not in self.scope:
+                continue
+            rm = meta.get(rule, {})
+            by_region = {}
+            for r in rule_resources[rule]:
+                by_region.setdefault(r.location, []).append(
+                    r.accept(self._view)
+                )
+            yield {
+                'policy': rule,
+                'resource_type': service_from_resource_type(rm['resource']),
+                'description': rm.get('description') or '',
+                'severity': self._metadata.rule(rule).severity.value,
+                'resources': by_region,
+            }
+
+    def visitKubernetesReport(
+        self,
+        report: 'KubernetesReport',
+        /,
+        rule_resources: dict[str, set[CloudResource]],
+        meta: dict[str, RuleMeta],
+        **kwargs,
+    ) -> Generator[dict, None, None]:
+        for res in self.visitDefault(report, rule_resources, meta, **kwargs):
+            res['resources'] = list(
+                chain.from_iterable(res['resources'].values())
+            )
+            yield res
+
+
+class DeprecationReportGenerator(ReportVisitor[Generator[dict, None, None]]):
+    """
+    Defines methods to generate some operational reports payloads
+    """
+
+    __slots__ = ('_metadata', '_view', 'scope')
+
+    def __init__(
+        self,
+        metadata: Metadata,
+        view: ReportVisitor[dict],
+        scope: set[str] | None = None,
+    ):
+        self._metadata = metadata
+        self._view = view
+        self.scope = scope
+
+    def visitDefault(
+        self,
+        report: 'DeprecationReport',
+        /,
+        rule_resources: dict[str, set[CloudResource]],
+        meta: dict[str, RuleMeta],
+        **kwargs,
+    ) -> Generator[dict, None, None]:
+        for rule in rule_resources:
+            if self.scope is not None and rule not in self.scope:
+                continue
+            rm = self._metadata.rule(rule)
+            category = rm.deprecation_category()
+            if not category:
+                continue  # not a deprecation rule
+            by_region = {}
+            for r in rule_resources[rule]:
+                by_region.setdefault(r.location, []).append(
+                    r.accept(self._view)
+                )
+
+            yield {
+                'category': category,
+                'deprecation_date': rm.deprecation.date.isoformat()
+                if isinstance(rm.deprecation.date, date)
+                else None,
+                'is_deprecated': rm.deprecation.is_deprecated,
+                'deprecation_severity': rm.deprecation.severity.value,
+                'deprecation_link': rm.deprecation.link,
+                'remediation_complexity': rm.remediation_complexity.value,
+                'remediation': rm.remediation,
+                'policy': rule,
+                'description': meta[rule].get('description', ''),
+                'resource_type': service_from_resource_type(
+                    meta[rule]['resource']
+                ),
+                'resources': by_region,
+            }
+
+
+class FinopsReportGenerator(ReportVisitor[Generator[dict, None, None]]):
+    """
+    Defines methods to generate some operational reports payloads
+    """
+
+    __slots__ = ('_metadata', '_view', 'scope')
+
+    def __init__(
+        self,
+        metadata: Metadata,
+        view: ReportVisitor[dict],
+        scope: set[str] | None = None,
+    ):
+        self._metadata = metadata
+        self._view = view
+        self.scope = scope
+
+    def visitDefault(
+        self,
+        report: 'FinopsReport',
+        /,
+        rule_resources: dict[str, set[CloudResource]],
+        meta: dict[str, RuleMeta],
+        **kwargs,
+    ) -> Generator[dict, None, None]:
+        mapping = {}
+        for rule in rule_resources:
+            if self.scope is not None and rule not in self.scope:
+                continue
+            rm = self._metadata.rule(rule)
+            finops_category = rm.finops_category()
+            if not finops_category:
+                continue
+            ss = rm.service_section
+            if not ss:
+                _LOG.warning(f'Rule {rule} does not have service section')
+                continue
+            by_region = {}
+            for r in rule_resources[rule]:
+                by_region.setdefault(r.location, []).append(
+                    r.accept(self._view)
+                )
+            mapping.setdefault(ss, []).append(
+                {
+                    'rule': meta[rule].get('description', rule),
+                    'service': rm.service
+                    or service_from_resource_type(meta[rule]['resource']),
+                    'category': finops_category,
+                    'severity': rm.severity.value,
+                    'resource_type': service_from_resource_type(
+                        meta[rule]['resource']
+                    ),
+                    'resources': by_region,
+                }
+            )
+        for ss, data in mapping.items():
+            yield {'service_section': ss, 'rules_data': data}
+
+
+class AttacksReportGenerator(ReportVisitor[Generator[dict, None, None]]):
+    """
+    Defines methods to generate some operational reports payloads
+    """
+
+    __slots__ = ('_metadata', '_view', 'scope')
+
+    def __init__(
+        self,
+        metadata: Metadata,
+        view: ReportVisitor[dict],
+        scope: set[str] | None = None,
+    ):
+        self._metadata = metadata
+        self._view = view
+        self.scope = scope
+
+    def visitDefault(
+        self,
+        report: 'AttacksReport',
+        /,
+        rule_resources: dict[str, set[CloudResource]],
+        meta: dict[str, RuleMeta],
+        **kwargs,
+    ) -> Generator[dict, None, None]:
+        """
+        Yields a unique attack, a target resource and rules that can cause
+        such an attack:
+        region, service, resource_type, resource, dict[MitreAttack, list[str]]
+        """
+
+        unique_resource_to_attack_rules = {}
+        for rule in rule_resources:
+            if self.scope is not None and rule not in self.scope:
+                continue
+            s = self._metadata.rule(
+                rule
+            ).service or service_from_resource_type(meta[rule]['resource'])
+            rule_attacks = tuple(
+                self._metadata.rule(rule).iter_mitre_attacks()
+            )
+            if not rule_attacks:
+                _LOG.warning(f'No attacks found for rule: {rule}')
+                continue
+            for res in rule_resources[rule]:
+                _, attacks = unique_resource_to_attack_rules.setdefault(
+                    res, (s, {})
+                )
+                for attack in rule_attacks:
+                    attacks.setdefault(attack, []).append(rule)
+        for res, (s, attacks) in unique_resource_to_attack_rules.items():
+            at = []
+            for attack, rules in attacks.items():
+                inner = attack.to_dict()
+                inner['severity'] = sorted(
+                    (self._metadata.rule(r).severity.value for r in rules),
+                    key=cmp_to_key(SeverityCmp()),
+                )[-1]
+                inner['violations'] = [
+                    {
+                        'description': meta[rule]['description'],
+                        'remediation': self._metadata.rule(rule).remediation,
+                        'remediation_complexity': self._metadata.rule(
+                            rule
+                        ).remediation_complexity.value,
+                        'severity': self._metadata.rule(rule).severity.value,
+                    }
+                    for rule in rules
+                ]
+                at.append(inner)
+            yield {
+                'region': res.region,
+                'service': s,
+                'resource_type': res.resource_type,
+                'resource': res.accept(self._view),
+                'attacks': at,
+            }
+
+
+# TODO: remove
 class ShardsCollectionDataSource:
     def __init__(
         self,
@@ -302,30 +667,6 @@ class ShardsCollectionDataSource:
                 res[name] += n
         return res
 
-    def resources(self) -> Generator[dict, None, None]:
-        view = InPlaceResourceView(full=False)
-
-        meta = self._col.meta
-        for rule in self._resources:
-            rm = meta.get(rule, {})
-            by_region = {}
-            for r in self._resources[rule]:
-                by_region.setdefault(r.location, []).append(r.accept(view))
-            yield {
-                'policy': rule,
-                'resource_type': service_from_resource_type(rm['resource']),
-                'description': rm.get('description') or '',
-                'severity': self._meta.rule(rule).severity.value,
-                'resources': by_region,
-            }
-
-    def resources_no_regions(self) -> Generator[dict, None, None]:
-        for res in self.resources():
-            res['resources'] = list(
-                chain.from_iterable(res['resources'].values())
-            )
-            yield res
-
     def region_resource_types(self) -> dict[str, dict[str, int]]:
         region_resource = {}
         for rule in self._resources:
@@ -374,103 +715,6 @@ class ShardsCollectionDataSource:
                 res.setdefault(name, 0)
                 res[name] += n
         return res
-
-    def finops(self) -> dict[str, list[dict]]:
-        """
-        Produces finops data in its old format
-        """
-        view = InPlaceResourceView(full=False)
-
-        result = {}
-        for rule in self._resources:
-            rm = self._meta.rule(rule)
-            finops_category = rm.finops_category()
-            if not finops_category:
-                continue
-            ss = rm.service_section
-            if not ss:
-                _LOG.warning(f'Rule {rule} does not have service section')
-                continue
-            by_region = {}
-            for r in self._resources[rule]:
-                by_region.setdefault(r.location, []).append(r.accept(view))
-            result.setdefault(ss, []).append(
-                {
-                    'rule': self._col.meta[rule].get('description', rule),
-                    'service': rm.service
-                    or service_from_resource_type(
-                        self._col.meta[rule]['resource']
-                    ),
-                    'category': finops_category,
-                    'severity': rm.severity.value,
-                    'resource_type': service_from_resource_type(
-                        self._col.meta[rule]['resource']
-                    ),
-                    'resources': by_region,
-                }
-            )
-        return result
-
-    def deprecation(self) -> Generator[dict, None, None]:
-        """
-        Produces deprecations data in the format required by maestro
-        """
-        view = InPlaceResourceView(full=False)
-
-        for rule in self._resources:
-            rm = self._meta.rule(rule)
-            category = rm.deprecation_category()
-            if not category:
-                continue  # not a deprecation rule
-            by_region = {}
-            for r in self._resources[rule]:
-                by_region.setdefault(r.location, []).append(r.accept(view))
-
-            yield {
-                'category': category,
-                'deprecation_date': rm.deprecation.date.isoformat()
-                if isinstance(rm.deprecation.date, date)
-                else None,
-                'is_deprecated': rm.deprecation.is_deprecated,
-                'deprecation_severity': rm.deprecation.severity.value,
-                'deprecation_link': rm.deprecation.link,
-                'remediation_complexity': rm.remediation_complexity.value,
-                'remediation': rm.remediation,
-                'policy': rule,
-                'description': self._col.meta[rule].get('description', ''),
-                'resource_type': service_from_resource_type(
-                    self._col.meta[rule]['resource']
-                ),
-                'resources': by_region,
-            }
-
-    def iter_resource_attacks(
-        self,
-    ) -> Generator[
-        tuple[str, str, str, dict, dict[MitreAttack, list[str]]], None, None
-    ]:
-        """
-        Yields a unique attack, a target resource and rules that can cause
-        such an attack:
-        region, service, resource_type, resource, dict[MitreAttack, list[str]]
-        """
-        view = InPlaceResourceView(full=False)
-
-        unique_resource_to_attack_rules = {}
-        for rule in self._resources:
-            s = self._meta.rule(rule).service
-            rule_attacks = tuple(self._meta.rule(rule).iter_mitre_attacks())
-            if not rule_attacks:
-                _LOG.warning(f'No attacks found for rule: {rule}')
-                continue
-            for res in self._resources[rule]:
-                _, attacks = unique_resource_to_attack_rules.setdefault(
-                    res, (s, {})
-                )
-                for attack in rule_attacks:
-                    attacks.setdefault(attack, []).append(rule)
-        for res, (s, attacks) in unique_resource_to_attack_rules.items():
-            yield res.region, s, res.resource_type, res.accept(view), attacks
 
     def tactic_to_severities(self) -> dict[str, dict[str, int]]:
         """ """
@@ -580,14 +824,16 @@ class ShardsCollectionProvider:
         return col
 
 
-class ReportMetricsService(BaseDataService[ReportMetrics]):
-    def __init__(
-        self, s3_client: S3Client, environment_service: EnvironmentService
-    ):
-        super().__init__()
+MT = TypeVar('MT', bound=type)
 
+
+class ReportMetricsService(BaseDataService[ReportMetrics]):
+    payload_size_threshold = 1 << 20
+    enc = msgspec.msgpack.Encoder()
+
+    def __init__(self, s3_client: S3Client):
+        super().__init__()
         self._s3 = s3_client
-        self._env = environment_service
 
     def create(
         self,
@@ -784,39 +1030,6 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
             None,
         )
 
-    def save(self, item: ReportMetrics, data: dict | None = None) -> None:
-        if data is None:
-            return super().save(item)
-
-        # TODO: do that based on item size
-        if item.type in (
-            ReportType.OPERATIONAL_RULES,
-            ReportType.OPERATIONAL_RESOURCES,
-            ReportType.OPERATIONAL_ATTACKS,
-            ReportType.OPERATIONAL_KUBERNETES,
-        ):
-            # large
-            bucket = self._env.default_reports_bucket_name()
-            key = ReportMetricsBucketKeysBuilder.metrics_key(item)
-            self._s3.gz_put_json(bucket, key, data)
-            item.data = {}
-            item.s3_url = str(S3Url.build(bucket, key))
-            return super().save(item)
-        item.data = data
-        return super().save(item)
-
-    def fetch_data(self, item: ReportMetrics) -> dict:
-        if item.is_fetched:
-            return item.data.as_dict()
-        if not item.s3_url:
-            # should not happen. This means there no data in S3 and in DB,
-            # so the report is corrupted
-            return {}
-        url = S3Url(item.s3_url)
-        data = cast(dict, self._s3.gz_get_json(url.bucket, url.key))
-        # item.data = data  # no need to create a lot of other objects
-        return data
-
     def was_collected_for_customer(
         self, customer: Customer | str, type_: ReportType, now: datetime
     ) -> bool:
@@ -834,6 +1047,95 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
                 None,
             )
         )
+
+    def save(self, item: ReportMetrics, data: Any) -> None:
+        # NOTE: data will always be something
+        self.set_compressed_data(
+            item=item,
+            data=self.enc.encode(data),
+            content_type='application/vnd.msgpack',
+        )
+        return super().save(item)
+
+    def fetch_data(self, item: ReportMetrics, typ: MT = Any) -> MT:
+        return msgspec.msgpack.decode(self.get_compressed_data(item), type=typ)
+
+    def set_data(
+        self,
+        item: ReportMetrics,
+        buf: io.BytesIO,
+        content_type: str,
+        content_encoding: str,
+        length: int | None = None,
+    ):
+        if length is None:
+            length = len(buf.getvalue())
+        if length > self.payload_size_threshold:
+            _LOG.info('Data exceeds threshold. Storing to S3')
+            buf.seek(0)
+            bucket = CAASEnv.REPORTS_BUCKET_NAME.as_str()
+            key = ReportMetricsBucketKeysBuilder.metrics_key(item)
+            self._s3.put_object(
+                bucket=bucket,
+                key=key,
+                body=buf,
+                content_type=content_type,
+                content_encoding=content_encoding,
+            )
+            item.s3_url = str(S3Url.build(bucket, key))
+        else:
+            _LOG.info(
+                'Compressed data size is within limits. Setting as DynamoDB Binary attribute'
+            )
+            item.data = buf.getvalue()
+        item.content_type = content_type
+        item.content_encoding = content_encoding
+
+    def get_data(self, item: ReportMetrics) -> io.BytesIO | None:
+        if item.s3_url:
+            _LOG.info(f'Going to get item {item} data from s3')
+            url = S3Url(item.s3_url)
+            buf = self._s3.get_object(bucket=url.bucket, key=url.key)
+            if not buf:
+                return
+            buf = cast(io.BytesIO, buf)
+        else:
+            d = item.data
+            if not d:
+                return
+            buf = io.BytesIO(d)
+        return buf
+
+    def set_compressed_data(
+        self, item: ReportMetrics, data: bytes, content_type: str
+    ) -> None:
+        """
+        Changes the given data attribute and may write to s3
+        """
+        len_orig = len(data)
+        buf = io.BytesIO()
+        with gzip.GzipFile(fileobj=buf, mode='wb') as f:
+            f.write(data)
+        len_compressed = buf.tell()
+        _log = _LOG.info if len_orig >= len_compressed else _LOG.warning
+        _log(
+            f'Original data size: {len_orig}. Compressed data size: {len_compressed}'
+        )
+
+        self.set_data(
+            item=item,
+            buf=buf,
+            length=len_compressed,
+            content_type=content_type,
+            content_encoding='gzip',
+        )
+
+    def get_compressed_data(self, item: ReportMetrics) -> bytes | None:
+        buf = self.get_data(item)
+        if not buf:
+            return
+        with gzip.GzipFile(fileobj=buf, mode='rb') as f:
+            return f.read()
 
 
 def _default_diff_callback(key, new, old) -> dict:
