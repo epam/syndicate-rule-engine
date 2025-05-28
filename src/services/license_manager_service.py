@@ -3,6 +3,7 @@ from functools import cached_property
 from helpers.log_helper import get_logger
 from helpers.system_customer import SystemCustomer
 from helpers.time_helper import utc_iso
+from helpers import Version
 from models.ruleset import EMPTY_VERSION, Ruleset
 from services.clients.lm_client import LMClient, LMClientFactory, LMRulesetDTO
 from services.clients.ssm import AbstractSSMClient
@@ -56,6 +57,8 @@ class LicenseManagerService:
             *(dto.get('versions') or ()),
             *versions,
         }
+        all_versions.discard(None)
+
         return self.ruleset_service.create(
             customer=SystemCustomer.get_name(),
             name=dto['name'],
@@ -65,7 +68,7 @@ class LicenseManagerService:
             status={'last_update_time': utc_iso()},
             licensed=True,
             license_keys=sorted(set(license_keys)),
-            versions=sorted(all_versions, reverse=True),
+            versions=sorted(all_versions, key=Version, reverse=True),
             created_at=dto.get('creation_date'),
             description=dto.get('description'),
         )

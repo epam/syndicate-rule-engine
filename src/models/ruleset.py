@@ -1,6 +1,7 @@
 from pynamodb.attributes import ListAttribute, MapAttribute, UnicodeAttribute
 from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
+from helpers import Version
 from helpers.constants import COMPOUND_KEYS_SEPARATOR, CAASEnv
 from helpers.time_helper import utc_iso
 from models import BaseModel
@@ -78,6 +79,6 @@ class Ruleset(BaseModel):
         """
         Supposed to be used for licensed rulesets
         """
-        if self.licensed:
-            return max(self.versions)
+        if self.licensed and self.versions:
+            return max(self.versions, key=Version)
         return self.version
