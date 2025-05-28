@@ -785,8 +785,10 @@ class ShardsCollectionProvider:
             return self._cache[key]
 
         if is_latest:
+            _LOG.debug(f'Going to fetch latest collection for tenant {tenant.name}')
             col = self._rs.tenant_latest_collection(tenant)
         else:
+            _LOG.debug(f'Going to fetch snapshot collection for tenant {tenant.name} and date {date}')
             # TODO: cache for actual nearest key instead of given date in case
             #  we can have slightly different incoming "date". If the parameter
             #  most likely to be the same, we better keep it as is.

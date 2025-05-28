@@ -27,7 +27,7 @@ app.conf.beat_schedule = {
     },
     'remove-expired-metrics': {
         'task': 'onprem.tasks.delete_expired_metrics',
-        'schedule': 20,
+        'schedule': crontab(minute=0, hour=12),
         'args': ()
     }
 }
@@ -57,7 +57,7 @@ app.conf.task_routes = {
         'queue': 'a-jobs'
     },
     'onprem.tasks.delete_expired_metrics': {
-        'queue': 'a-jobs'
+        'queue': 'b-scheduled'
     }
 }
 app.conf.timezone = 'UTC'
