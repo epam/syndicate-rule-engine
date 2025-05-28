@@ -325,16 +325,17 @@ class ResourcesReportGenerator(ReportVisitor[Generator[dict, None, None]]):
             if self.scope is not None and rule not in self.scope:
                 continue
             rm = meta.get(rule, {})
+            rm2 = self._metadata.rule(rule)
             by_region = {}
             for r in rule_resources[rule]:
                 by_region.setdefault(r.location, []).append(
-                    r.accept(self._view)
+                    r.accept(self._view, report_fields=rm2.report_fields)
                 )
             yield {
                 'policy': rule,
                 'resource_type': service_from_resource_type(rm['resource']),
                 'description': rm.get('description') or '',
-                'severity': self._metadata.rule(rule).severity.value,
+                'severity': rm2.severity.value,
                 'resources': by_region,
             }
 
@@ -388,7 +389,7 @@ class DeprecationReportGenerator(ReportVisitor[Generator[dict, None, None]]):
             by_region = {}
             for r in rule_resources[rule]:
                 by_region.setdefault(r.location, []).append(
-                    r.accept(self._view)
+                    r.accept(self._view, report_fields=rm.report_fields)
                 )
 
             yield {
@@ -450,7 +451,7 @@ class FinopsReportGenerator(ReportVisitor[Generator[dict, None, None]]):
             by_region = {}
             for r in rule_resources[rule]:
                 by_region.setdefault(r.location, []).append(
-                    r.accept(self._view)
+                    r.accept(self._view, report_fields=rm.report_fields)
                 )
             mapping.setdefault(ss, []).append(
                 {
@@ -504,12 +505,9 @@ class AttacksReportGenerator(ReportVisitor[Generator[dict, None, None]]):
         for rule in rule_resources:
             if self.scope is not None and rule not in self.scope:
                 continue
-            s = self._metadata.rule(
-                rule
-            ).service or service_from_resource_type(meta[rule]['resource'])
-            rule_attacks = tuple(
-                self._metadata.rule(rule).iter_mitre_attacks()
-            )
+            rm = self._metadata.rule(rule)
+            s = rm.service or service_from_resource_type(meta[rule]['resource'])
+            rule_attacks = tuple(rm.iter_mitre_attacks())
             if not rule_attacks:
                 _LOG.warning(f'No attacks found for rule: {rule}')
                 continue
@@ -521,6 +519,7 @@ class AttacksReportGenerator(ReportVisitor[Generator[dict, None, None]]):
                     attacks.setdefault(attack, []).append(rule)
         for res, (s, attacks) in unique_resource_to_attack_rules.items():
             at = []
+            report_fields = ()
             for attack, rules in attacks.items():
                 inner = attack.to_dict()
                 inner['severity'] = sorted(
@@ -539,11 +538,13 @@ class AttacksReportGenerator(ReportVisitor[Generator[dict, None, None]]):
                     for rule in rules
                 ]
                 at.append(inner)
+                if not report_fields:
+                    report_fields = self._metadata.rule(rules[0]).report_fields
             yield {
                 'region': res.region,
                 'service': s,
                 'resource_type': res.resource_type,
-                'resource': res.accept(self._view),
+                'resource': res.accept(self._view, report_fields=report_fields),
                 'attacks': at,
             }
 
