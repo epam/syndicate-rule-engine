@@ -263,3 +263,25 @@ class TestShardCollection:
         assert (len(p1.resources) == 2 and {'k2': 'v2'} in p1.resources
                 and {'k3': 'v3'} in p1.resources)
         assert p2.resources == [{'k3': 'v3'}]
+
+    def test_bool(self, make_shard_part):
+        collection = self.create_collection()
+        assert not collection
+
+        part = make_shard_part(
+            location='eu-west-1',
+            policy='policy2',
+            resources=[{'k3': 'v3'}]
+        )
+        collection.put_part(part)
+        assert collection
+
+        collection.drop_part(part)
+        assert not collection
+
+        collection.put_part(part)
+
+        assert collection
+
+        collection.drop_part('policy2', 'eu-west-1')
+        assert not collection

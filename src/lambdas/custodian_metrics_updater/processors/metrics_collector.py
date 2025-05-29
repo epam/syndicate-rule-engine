@@ -704,8 +704,8 @@ class MetricsCollector:
         collection = scp.get_for_tenant(
             tenant, ReportType.OPERATIONAL_RESOURCES.end(ctx.now)
         )
-        if collection is None:
-            _LOG.warning('Somehow collection for operational reports is not found')
+        if not collection:
+            _LOG.warning('Somehow collection for operational reports is not found or empty even though the tenant has at least one successful jobs')
             return
 
         rule_resources = self._get_rule_resources(
@@ -1052,9 +1052,9 @@ class MetricsCollector:
                 _LOG.warning(f'Tenant with name {tenant_name} not found!')
                 continue
             col = sc_provider.get_for_tenant(tenant, end)
-            if col is None:
+            if not col:
                 _LOG.warning(
-                    f'Cannot get shards collection for {tenant.name} for {end}'
+                    f'Shards collection for {tenant.name} for {end} is empty'
                 )
                 continue
             tjs = js.subset(tenant=tenant.name)
@@ -1189,9 +1189,9 @@ class MetricsCollector:
                 _LOG.warning(f'Tenant with name {tenant_name} not found!')
                 continue
             col = sc_provider.get_for_tenant(tenant, end)
-            if col is None:
+            if not col:
                 _LOG.warning(
-                    f'Cannot get shards collection for {tenant.name} for {end}'
+                    f'Shards collection for {tenant.name} for {end} is empty'
                 )
                 continue
             if tenant.cloud == Cloud.AWS:
@@ -1270,10 +1270,9 @@ class MetricsCollector:
                 _LOG.warning(f'Platform with id {platform_id} not found!')
                 continue
             col = sc_provider.get_for_platform(platform, end)
-            if col is None:
+            if not col:
                 _LOG.warning(
-                    f'Cannot get shards collection for '
-                    f'{platform.platform_id} for {end}'
+                    f'Shards collection for {platform_id} for {end} is empty'
                 )
                 continue
 
@@ -1666,9 +1665,9 @@ class MetricsCollector:
                 continue
             cloud = tenant_cloud(tenant)
             col = sc_provider.get_for_tenant(tenant, end)
-            if col is None:
+            if not col:
                 _LOG.warning(
-                    f'Cannot get shards collection for {tenant.name} for {end}'
+                    f'Shards collection for {tenant.name} for {end} is empty'
                 )
                 continue
             tjs = js.subset(tenant=tenant.name)
@@ -1748,10 +1747,9 @@ class MetricsCollector:
             sort_by = 0
             for cloud, tenant in self.yield_one_per_cloud(tenants):
                 col = sc_provider.get_for_tenant(tenant, end)
-                if col is None:
+                if not col:
                     _LOG.warning(
-                        f'Cannot get shards collection for '
-                        f'{tenant.name} for {end}'
+                        f'Shards collection for {tenant.name} for {end} is empty'
                     )
                     continue
                 tjs = js.subset(tenant=tenant.name)
@@ -1825,9 +1823,9 @@ class MetricsCollector:
                 continue
             cloud = tenant_cloud(tenant)
             col = sc_provider.get_for_tenant(tenant, end)
-            if col is None:
+            if not col:
                 _LOG.warning(
-                    f'Cannot get shards collection for {tenant.name} for {end}'
+                    f'Shards collection for {tenant.name} for {end} is empty'
                 )
                 continue
             if not js.subset(tenant=tenant.name).last_succeeded_scan_date:
@@ -1890,10 +1888,9 @@ class MetricsCollector:
             percents = []
             for cloud, tenant in self.yield_one_per_cloud(tenants):
                 col = sc_provider.get_for_tenant(tenant, end)
-                if col is None:
+                if not col:
                     _LOG.warning(
-                        f'Cannot get shards collection for '
-                        f'{tenant.name} for {end}'
+                        f'Shards collection for {tenant.name} for {end} is empty'
                     )
                     continue
                 tjs = js.subset(tenant=tenant.name)
@@ -1959,9 +1956,9 @@ class MetricsCollector:
                 continue
             cloud = tenant_cloud(tenant)
             col = sc_provider.get_for_tenant(tenant, end)
-            if col is None:
+            if not col:
                 _LOG.warning(
-                    f'Cannot get shards collection for {tenant.name} for {end}'
+                    f'Shards collection for {tenant.name} for {end} is empty'
                 )
                 continue
             tjs = js.subset(tenant=tenant.name)
@@ -2046,10 +2043,9 @@ class MetricsCollector:
             sort_by = 0
             for cloud, tenant in self.yield_one_per_cloud(tenants):
                 col = sc_provider.get_for_tenant(tenant, end)
-                if col is None:
+                if not col:
                     _LOG.warning(
-                        f'Cannot get shards collection for '
-                        f'{tenant.name} for {end}'
+                        f'Shards collection for {tenant.name} for {end} is empty'
                     )
                     continue
                 sdc = ShardsCollectionDataSource(
@@ -2122,10 +2118,9 @@ class MetricsCollector:
             used_tenants = []
             for tenant in tenants:
                 col = sc_provider.get_for_tenant(tenant, end)
-                if col is None:
+                if not col:
                     _LOG.warning(
-                        f'Cannot get shards collection for '
-                        f'{tenant.name} for {end}'
+                        f'Shards collection for {tenant.name} for {end} is empty'
                     )
                     continue
                 all_tenants.add(tenant.name)
@@ -2193,10 +2188,9 @@ class MetricsCollector:
             calc = MappingAverageCalculator()
             for tenant in tenants:
                 col = sc_provider.get_for_tenant(tenant, end)
-                if col is None:
+                if not col:
                     _LOG.warning(
-                        f'Cannot get shards collection for '
-                        f'{tenant.name} for {end}'
+                        f'Shards collection for {tenant.name} for {end} is empty'
                     )
                     continue
                 all_tenants.add(tenant.name)
@@ -2254,10 +2248,9 @@ class MetricsCollector:
             tactic_severities = {}
             for tenant in tenants:
                 col = sc_provider.get_for_tenant(tenant, end)
-                if col is None:
+                if not col:
                     _LOG.warning(
-                        f'Cannot get shards collection for '
-                        f'{tenant.name} for {end}'
+                        f'Shards collection for {tenant.name} for {end} is empty'
                     )
                     continue
                 all_tenants.add(tenant.name)

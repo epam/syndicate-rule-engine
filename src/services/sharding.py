@@ -142,6 +142,9 @@ class Shard(Iterable[ShardPart]):
     def __len__(self) -> int:
         return self._data.__len__()
 
+    def __bool__(self) -> bool:
+        return bool(self._data)
+
     @property
     def raw(self) -> dict[tuple[str, str], ShardPart]:
         return self._data
@@ -437,6 +440,9 @@ class ShardsCollection(Iterable[tuple[int, Shard]]):
 
     def __len__(self) -> int:
         return self.shards.__len__()
+
+    def __bool__(self) -> bool:
+        return any([bool(shard) for shard in self.shards.values()])
 
     def iter_parts(self) -> Generator[ShardPart, None, None]:
         """
