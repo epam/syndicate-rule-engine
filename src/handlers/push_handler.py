@@ -141,7 +141,7 @@ class SiemPushHandler(AbstractHandler):
         else:
             return (
                 HTTPStatus.SERVICE_UNAVAILABLE,
-                'Error occured during pushing reports. '\
+                'Error occurred during pushing reports. '\
                 f'Successful batches: {resp_result["success"]}. '\
                 f'Unsuccessful batches: {resp_result["failure"]}. '\
                 f'Failure codes: {codes}'
