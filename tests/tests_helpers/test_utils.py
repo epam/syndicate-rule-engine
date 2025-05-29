@@ -376,6 +376,16 @@ def test_version():
     assert Version(ver) is ver
 
 
+def test_version_sort():
+    items = ['10.9.0', '10.10.0', '10.10.1', '9.9.0', '9.10.0', '9.10.1']
+    assert sorted(items, key=Version) == [
+        '9.9.0', '9.10.0', '9.10.1', '10.9.0', '10.10.0', '10.10.1'
+    ]
+
+    assert max(items, key=Version) == '10.10.1'
+    assert min(items, key=Version) == '9.9.0'
+
+
 def test_group_by():
     assert group_by(range(10), key=lambda n: n % 2 == 0) == {
         True: [0, 2, 4, 6, 8],

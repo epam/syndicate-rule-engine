@@ -126,10 +126,10 @@ class JsonLambdaResponse(LambdaResponse):
         content: Content = None,
         headers: dict[str, str] | None = None,
     ):
-        headers = headers or {}
-        headers.update(
-            {LAMBDA_URL_HEADER_CONTENT_TYPE_UPPER: JSON_CONTENT_TYPE}
-        )
+        if headers:
+            headers[LAMBDA_URL_HEADER_CONTENT_TYPE_UPPER] = JSON_CONTENT_TYPE
+        else:
+            headers = {LAMBDA_URL_HEADER_CONTENT_TYPE_UPPER: JSON_CONTENT_TYPE}
         super().__init__(code=code, content=content, headers=headers)
 
     @staticmethod
@@ -141,8 +141,11 @@ class JsonLambdaResponse(LambdaResponse):
         """
         if hasattr(obj, '__json__'):
             return obj.__json__()
-        if isinstance(obj, bytes):
-            return obj.decode()
+        match obj:
+            case bytes():
+                return obj.decode('utf-8')
+            case tuple() | list():
+                return obj
         if isinstance(obj, Iterable):
             return list(obj)
         raise TypeError

@@ -691,17 +691,23 @@ class MetricsCollector:
                     {'metadata': meta, 'data': (), 'id': tenant.project},
                 )
             return
+        _LOG.info(f'Last scan date for tenant {tenant.name} is {ls}')
 
         selector = ScopedRulesSelector(ctx.metadata)
         view = MaestroReportResourceView()
 
         # NOTE, actually we should retrieve a separate collection for
         # each report type, because they could have different dates. But here
-        # we can afford it because we assert that each has the samet date
+        # we can afford it because we assert that each has the same date
+        _LOG.info(f'Going to retrieve shards collection for operation reports '
+                  f'for tenant {tenant.name} and date {ReportType.OPERATIONAL_RESOURCES.end(ctx.now)}')
         collection = scp.get_for_tenant(
             tenant, ReportType.OPERATIONAL_RESOURCES.end(ctx.now)
         )
-        assert collection, 'Collection must exist here'
+        if collection is None:
+            _LOG.warning('Somehow collection for operational reports is not found')
+            return
+
         rule_resources = self._get_rule_resources(
             collection, cloud, ctx.metadata, tenant.project
         )
@@ -709,9 +715,11 @@ class MetricsCollector:
         for typ in types:
             start = typ.start(ctx.now)
             end = typ.end(ctx.now)
+            _LOG.info(f'Going to collect operational report {typ} for tenant {tenant.name}: {start} - {end}')
             job_source = js.subset(
                 start=start, end=end, tenant=tenant.name, affiliation='tenant'
             )
+            _LOG.info(f'Tenant had {len(job_source)} jobs in the period')
             report = Report.derive_report(typ)
             scope = report.accept(selector, rules=cloud_rules)
             total = len(scope)

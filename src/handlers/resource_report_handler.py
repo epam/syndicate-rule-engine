@@ -207,10 +207,8 @@ class MatchedResourcesIterator(Iterator[Payload]):
             cloud=self._cloud,
             metadata=self._metadata,
             account_id=self._account_id,
-            regions=(self._region,) if self._region else (),
-            resource_types=(self._resource_type,)
-            if self._resource_type
-            else (),
+            regions=(self._region,) if self._region else None,
+            resource_types=(self._resource_type,) if self._resource_type else None,
         )
         return self
 

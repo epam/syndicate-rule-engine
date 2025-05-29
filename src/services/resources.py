@@ -1,8 +1,17 @@
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from itertools import chain
-from typing import TYPE_CHECKING, Generator, Generic, Iterator, TypeVar, cast
+from typing import (
+    TYPE_CHECKING,
+    Generator,
+    Generic,
+    Iterable,
+    Iterator,
+    TypeVar,
+    cast,
+)
 
 from typing_extensions import Self
 
@@ -277,12 +286,13 @@ class InPlaceResourceView(ResourceVisitor[dict]):
         self._full = full
 
     def _get_base(
-        self, resource: 'CloudResource', fields: tuple[str, ...]
+        self, resource: 'CloudResource', fields: tuple[str, ...] = ()
     ) -> dict:
         if self._full:
             return resource.data  # not a copy !!!
-        else:
-            return {k: resource.data[k] for k in fields if k in resource.data}
+        if not fields:
+            return {}
+        return {k: resource.data[k] for k in fields if k in resource.data}
 
     def visitAWSResource(
         self, resource: 'AWSResource', /, *args, **kwargs
@@ -326,56 +336,84 @@ class InPlaceResourceView(ResourceVisitor[dict]):
 
 
 class MaestroReportResourceView(ResourceVisitor[dict]):
-    """
-    TODO: add report fields handling
-    """
+    @staticmethod
+    def _extend_with_report_fields(
+        dct: dict, fields: tuple[str, ...], resource: 'CloudResource'
+    ) -> None:
+        for field in fields:
+            _LOG.debug(f'Checking {field}')
+            val = get_path(resource.data, field)
+            if not val:
+                _LOG.warning(
+                    f'Resource {resource} does not have field {field}'
+                )
+                continue
+            if any([str(val) in str(existing) for existing in dct.values()]):
+                _LOG.debug(f'Field {field} will not be added to {resource}')
+                continue
+            _LOG.debug(f'Adding field {field} with value {val} to {resource}')
+            dct[field] = val
 
     def visitAWSResource(
-        self, resource: 'AWSResource', /, *args, **kwargs
+        self,
+        resource: 'AWSResource',
+        /,
+        report_fields: tuple[str, ...] = (),
+        **kwargs,
     ) -> dict:
-        dct = {
-            'id': resource.id,
-            'name': resource.name,
-            'sre:date': resource.sync_date,
-        }
+        dct = {'id': resource.id, 'name': resource.name}
         if arn := resource.arn:
             dct['arn'] = arn
+
+        if report_fields:
+            self._extend_with_report_fields(dct, report_fields, resource)
+
+        dct['sre:date'] = resource.sync_date
         return dct
 
     def visitAZUREResource(
-        self, resource: 'AZUREResource', /, *args, **kwargs
+        self,
+        resource: 'AZUREResource',
+        /,
+        report_fields: tuple[str, ...] = (),
+        **kwargs,
     ) -> dict:
-        dct = {
-            'id': resource.id,
-            'name': resource.name,
-            'sre:date': resource.sync_date,
-        }
+        dct = {'id': resource.id, 'name': resource.name}
         if rg := resource.group:
             dct['resourceGroup'] = rg
+        if report_fields:
+            self._extend_with_report_fields(dct, report_fields, resource)
+        dct['sre:date'] = resource.sync_date
         return dct
 
     def visitGOOGLEResource(
-        self, resource: 'GOOGLEResource', /, *args, **kwargs
+        self,
+        resource: 'GOOGLEResource',
+        /,
+        report_fields: tuple[str, ...] = (),
+        **kwargs,
     ) -> dict:
-        dct = {
-            'id': resource.id,
-            'name': resource.name,
-            'sre:date': resource.sync_date,
-        }
+        dct = {'id': resource.id, 'name': resource.name}
         if urn := resource.urn:
             dct['urn'] = urn
+        if report_fields:
+            self._extend_with_report_fields(dct, report_fields, resource)
+        dct['sre:date'] = resource.sync_date
         return dct
 
     def visitK8SResource(
-        self, resource: 'K8SResource', /, *args, **kwargs
+        self,
+        resource: 'K8SResource',
+        /,
+        report_fields: tuple[str, ...] = (),
+        **kwargs,
     ) -> dict:
-        dct = {
-            'id': resource.id,
-            'name': resource.name,
-            'sre:date': resource.sync_date,
-        }
+        dct = {'id': resource.id, 'name': resource.name}
         if namespace := resource.namespace:
             dct['namespace'] = namespace
+        if report_fields:
+            self._extend_with_report_fields(dct, report_fields, resource)
+        dct['sre:date'] = resource.sync_date
         return dct
 
 
@@ -464,11 +502,11 @@ def _get_arn_fast(res: dict, model: 'AWSTypeInfo') -> str | None:
 def _get_id_name(res: dict, rt: str, model) -> tuple[str | None, str | None]:
     _id = get_path(res, model.id)
     if not _id:
-        _LOG.warning(f'Resource {res} of type {rt} does not have an id')
+        _LOG.error(f'Resource {res} of type {rt} does not have an id')
+        # we can almost be sure that id exists
     name = get_path(res, model.name)
     if not name:
         _LOG.warning(f'Resource: {res} of type {rt} does not have name')
-        name = _id
     return _id, name
 
 
@@ -493,6 +531,14 @@ def _resolve_google_location(res: dict, model: 'GCPTypeInfo') -> str:
         _LOG.warning('Resource contains locationId but CC returned global')
         return res['locationId']
     return loc
+
+
+def _resolve_name_from_aws_tags(
+    tags: Iterable[dict], allowed=('Name', 'name')
+) -> str | None:
+    for tag in tags:
+        if tag['Key'] in allowed:
+            return tag['Value']
 
 
 def to_aws_resources(
@@ -555,6 +601,11 @@ def to_aws_resources(
             arn = None
 
         _id, name = _get_id_name(res, rt, m)
+        if not name and (tags := res.get('Tags')):
+            # try to resolve name from tags
+            name = _resolve_name_from_aws_tags(tags)
+        if not name:
+            name = _id
 
         yield AWSResource(
             region=region,
@@ -588,6 +639,8 @@ def to_azure_resources(
 
     for res in part.resources:
         _id, name = _get_id_name(res, rt, m)
+        if not name:
+            name = _id
         yield AZUREResource(
             id=_id,
             name=name,
@@ -625,6 +678,8 @@ def to_google_resources(
             urn = None
 
         _id, name = _get_id_name(res, rt, m)
+        if not name:
+            name = _id
         if 'id' in res and _id != res['id']:
             # for some reason CC defines id the same as name for many google
             # resources that do have a separate id. Maybe that's because
@@ -663,6 +718,8 @@ def to_k8s_resources(
 
     for res in part.resources:
         _id, name = _get_id_name(res, rt, m)
+        if not name:
+            name = _id
         yield K8SResource(
             namespace=get_path(res, 'metadata.namespace'),
             id=_id,
@@ -762,13 +819,13 @@ def iter_rule_resources(
         resource_types=resource_types,
     )
 
-    rule_to_iters = {}
+    rule_to_iters = defaultdict(list)
     for rule, _, resources in it:
         if regions is not None:
             resources = (
                 item for item in resources if item.location in regions
             )
-        rule_to_iters.setdefault(rule, []).append(resources)
+        rule_to_iters[rule].append(resources)
 
     for rule, iters in rule_to_iters.items():
         yield rule, chain(*iters)
@@ -797,9 +854,9 @@ def iter_rule_resource_region_resources(
         resource_types=resource_types,
     )
     for rule, resources in it:
-        mapped = {}
+        mapped = defaultdict(list)
         for r in resources:
-            mapped.setdefault(r.location, []).append(r)
+            mapped[r.location].append(r)
         for k, v in mapped.items():
             yield rule, k, v
 
