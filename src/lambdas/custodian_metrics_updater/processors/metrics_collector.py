@@ -766,7 +766,10 @@ class MetricsCollector:
         start, end = self.whole_period(ctx.now, *ReportType)
         jobs = self._ajs.to_ambiguous(
             self._ajs.job_service.get_by_customer_name(
-                customer_name=ctx.customer.name, start=start, end=end
+                customer_name=ctx.customer.name,
+                start=start,
+                end=end,
+                ascending=True,  # important to have jobs in order
             )
         )
         js = JobMetricsDataSource(jobs)
