@@ -100,7 +100,6 @@ def _compliance_diff_callback(key, new, old) -> dict:
     return res
 
 
-
 class MaestroModelBuilder:
     """
     Keeps all the dirty logic of transforming our report metrics to the
@@ -150,12 +149,12 @@ class MaestroModelBuilder:
             item['regions_data'] = rd
             result.append(item)
         return {
-            'tenant_name':rep.tenant,
+            'tenant_name': rep.tenant,
             'id': data['id'],
             'cloud': rep.cloud.value,  # pyright: ignore
             'tenant_metadata': data['metadata'],
             'data': result,
-            'externalData': False
+            'externalData': False,
         }
 
     @staticmethod
@@ -177,7 +176,12 @@ class MaestroModelBuilder:
     @staticmethod
     def _operational_finops_custom(rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.OPERATIONAL_FINOPS
-
+        for item in data.setdefault('data', []):
+            for rules_data in item.setdefault('rules_data', []):
+                rd = {}
+                for region, res in rules_data.pop('resources', {}).items():
+                    rd[region] = {'resources': res}
+                rules_data['regions_data'] = rd
         return {
             'tenant_name': rep.tenant,
             'id': data['id'],
@@ -242,7 +246,9 @@ class MaestroModelBuilder:
     def _operational_k8s_custom(self, rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.OPERATIONAL_KUBERNETES
         return {
-            'metadata': self.build_report_metadata(rep),  # kludge, remove when fixed
+            'metadata': self.build_report_metadata(
+                rep
+            ),  # kludge, remove when fixed
             'tenant_name': data['tenant_name'],
             'last_scan_date': data['last_scan_date'],
             'outdated_tenants': data['outdated_tenants'],
@@ -498,7 +504,7 @@ class MaestroModelBuilder:
             version='2.0.0',  # maybe use version of sre
             created_at=rep.created_at,
             to=rep.end,
-            from_=rep.start
+            from_=rep.start,
         )
 
     def convert(
@@ -687,8 +693,7 @@ class MaestroReportToS3Packer:
         if not self._is_too_big(data):
             return report
         _LOG.info(
-            f'Report size is bigger than limit: {self._limit}. '
-            f'Writing to S3'
+            f'Report size is bigger than limit: {self._limit}. Writing to S3'
         )
         customer = report['customer']
         key = f'{customer}/{str(uuid.uuid4())}.jsonl'

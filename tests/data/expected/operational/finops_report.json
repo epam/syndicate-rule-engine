@@ -21,27 +21,29 @@
           "category": "Unused Resources",
           "severity": "Unknown",
           "resource_type": "Security Group",
-          "resources": {
-            "eu-central-1": [
-              {
-                "id": "sg-0ae266faddaef17e9",
-                "name": "packer-ssh-access",
-                "sre:date": 1729253757.393474,
-                "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-0ae266faddaef17e9"
-              },
-              {
-                "id": "sg-05209ceeb761317e5",
-                "name": "west-eu",
-                "sre:date": 1729253757.393474,
-                "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-05209ceeb761317e5"
-              },
-              {
-                "id": "sg-09d19538187df66cf",
-                "name": "asia",
-                "sre:date": 1729253757.393474,
-                "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-09d19538187df66cf"
-              }
-            ]
+          "regions_data": {
+            "eu-central-1": {
+              "resources": [
+                {
+                  "id": "sg-0ae266faddaef17e9",
+                  "name": "packer-ssh-access",
+                  "sre:date": 1729253757.393474,
+                  "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-0ae266faddaef17e9"
+                },
+                {
+                  "id": "sg-05209ceeb761317e5",
+                  "name": "west-eu",
+                  "sre:date": 1729253757.393474,
+                  "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-05209ceeb761317e5"
+                },
+                {
+                  "id": "sg-09d19538187df66cf",
+                  "name": "asia",
+                  "sre:date": 1729253757.393474,
+                  "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-09d19538187df66cf"
+                }
+              ]
+            }
           }
         }
       ]
