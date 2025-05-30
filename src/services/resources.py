@@ -502,11 +502,11 @@ def _get_arn_fast(res: dict, model: 'AWSTypeInfo') -> str | None:
 def _get_id_name(res: dict, rt: str, model) -> tuple[str | None, str | None]:
     _id = get_path(res, model.id)
     if not _id:
-        _LOG.error(f'Resource {res} of type {rt} does not have an id')
+        _LOG.error(f'Resource of type {rt} does not have an id')
         # we can almost be sure that id exists
     name = get_path(res, model.name)
     if not name:
-        _LOG.warning(f'Resource: {res} of type {rt} does not have name')
+        _LOG.warning(f'Resource of type {rt} does not have name')
     return _id, name
 
 

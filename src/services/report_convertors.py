@@ -246,8 +246,6 @@ class ShardsCollectionGenericDojoConvertor(ShardCollectionDojoConvertor):
             table = self._make_table(resources)
             description = pm2.article or pm['description']
             extra = {'description': f'{description}\n{table}'}
-            if '042' not in rule:
-                continue
             ts = int(resources[0].sync_date)  # all the same
 
             match self._attachment:
