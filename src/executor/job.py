@@ -122,10 +122,11 @@ import tempfile
 import time
 import traceback
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from itertools import chain
 from pathlib import Path
 from typing import TYPE_CHECKING, Generator, Iterable, cast
-from typing_extensions import TypedDict, NotRequired
+
 # import multiprocessing
 import billiard as multiprocessing  # allows to execute child processes from a daemon process
 from botocore.exceptions import ClientError
@@ -146,6 +147,7 @@ from modular_sdk.commons.constants import (
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.environment_service import EnvironmentContext
 from msrestazure.azure_exceptions import CloudError
+from typing_extensions import NotRequired, TypedDict
 
 from executor.helpers.constants import (
     ACCESS_DENIED_ERROR_CODE,
@@ -168,6 +170,7 @@ from helpers.constants import (
     PolicyErrorType,
 )
 from helpers.log_helper import get_logger
+from helpers.regions import AWS_REGIONS
 from helpers.time_helper import utc_datetime, utc_iso
 from models.batch_results import BatchResults
 from models.job import Job
@@ -201,6 +204,7 @@ from services.udm_generator import (
     ShardCollectionUDMEntitiesConvertor,
     ShardCollectionUDMEventsConvertor,
 )
+
 
 class PolicyDict(TypedDict):
     name: str
@@ -256,6 +260,16 @@ class PoliciesLoader:
         self._cache = cache
         self._cache_period = cache_period
         self._load_global = not self._regions or GLOBAL_REGION in self._regions
+
+    @property
+    def cc_provider_name(self) -> str:
+        match self._cloud:
+            case Cloud.GOOGLE | Cloud.GCP:
+                return 'gcp'
+            case Cloud.KUBERNETES | Cloud.K8S:
+                return 'k8s'
+            case _:
+                return self._cloud.value.lower()
 
     def set_global_output(self, policy: Policy) -> None:
         policy.options.output_dir = str(
@@ -392,6 +406,38 @@ class PoliciesLoader:
         _LOG.debug(f'Global policies: {n_global}')
         _LOG.debug(f'Not global policies: {n_not_global}')
 
+    @staticmethod
+    def _load_provider_aws(
+        policies: list['Policy'], options: Config
+    ) -> 'PolicyCollection':
+        provider = clouds['aws']()
+        p_options = provider.initialize(options)  # same object returned
+        try:
+            return provider.initialize_policies(
+                PolicyCollection(policies, p_options), p_options
+            )
+        except ClientError:
+            _LOG.warning(
+                'Error initializing policies, probably cannot describe regions'
+                'Trying again with specific regions',
+                exc_info=True,
+            )
+            p_options.regions = AWS_REGIONS
+            return provider.initialize_policies(
+                PolicyCollection(policies, p_options), p_options
+            )
+
+    @staticmethod
+    def _load_provider(
+        provider_name: str, policies: list['Policy'], options: Config
+    ) -> 'PolicyCollection':
+        # initialize providers (copied from Cloud Custodian)
+        provider = clouds[provider_name]()
+        p_options = provider.initialize(options)
+        return provider.initialize_policies(
+            PolicyCollection(policies, p_options), p_options
+        )
+
     def _load(
         self, policies: list[PolicyDict], options: Config | None = None
     ) -> list[Policy]:
@@ -407,12 +453,15 @@ class PoliciesLoader:
         :param policies:
         :return:
         """
+        if not policies:
+            return []
+
         if not options:
             options = self._base_config()
         options.region = ''
         load_resources(self._get_resource_types(policies))
         # here we should probably validate schema, but it's too time-consuming
-        provider_policies = {}
+        provider_policies = defaultdict(list)
         for policy in policies:
             try:
                 pol = Policy(policy, options)
@@ -423,17 +472,33 @@ class PoliciesLoader:
                     exc_info=True,
                 )
                 continue
-            provider_policies.setdefault(pol.provider_name, []).append(pol)
+            provider_policies[pol.provider_name].append(pol)
 
-        # initialize providers (copied from Cloud Custodian)
-        collection = PolicyCollection.from_data({}, options)
-        for provider_name in provider_policies:
-            provider = clouds[provider_name]()
-            p_options = provider.initialize(options)
-            collection += provider.initialize_policies(
-                PolicyCollection(provider_policies[provider_name], p_options),
-                p_options,
+        if not provider_policies:
+            return []
+        # provider_policies contains something
+        if len(provider_policies) > 1:
+            _LOG.warning(
+                f'Multiple policies providers {provider_policies.keys()} are loaded but only one is expected'
             )
+            p_name, p_policies = (
+                self.cc_provider_name,
+                provider_policies.get(self.cc_provider_name, ()),
+            )
+        else:
+            p_name, p_policies = next(iter(provider_policies.items()))
+
+        if not p_policies:
+            return []
+        _LOG.info(
+            f'Loaded {len(p_policies)} policies for provider {p_name}. '
+            f'Going to initialize the provider'
+        )
+
+        if p_name == 'aws':
+            collection = self._load_provider_aws(p_policies, options)
+        else:
+            collection = self._load_provider(p_name, p_policies, options)
 
         # Variable expansion and non schema validation
         result = []
@@ -441,7 +506,7 @@ class PoliciesLoader:
             p.expand_variables(p.get_variables())
             try:
                 p.validate()
-            except PolicyValidationError as e:
+            except PolicyValidationError:
                 _LOG.warning(
                     f'Policy {p.name} validation failed', exc_info=True
                 )
@@ -1198,7 +1263,9 @@ def multi_account_event_driven_job() -> int:
 
 
 def job_initializer(envs):
-    _LOG.info(f'Initializing subprocess for a region: {multiprocessing.current_process()}')
+    _LOG.info(
+        f'Initializing subprocess for a region: {multiprocessing.current_process()}'
+    )
     os.environ.update(envs)
 
 
@@ -1521,9 +1588,7 @@ def run_standard_job(ctx: JobExecutionContext):
         # prevents high ram usage
         _LOG.info(f'Going to init pool for region {region}')
         with multiprocessing.Pool(
-            processes=1,
-            initializer=job_initializer,
-            initargs=(credentials,),
+            processes=1, initializer=job_initializer, initargs=(credentials,)
         ) as pool:
             res = pool.apply(
                 process_job_concurrent, (policies, ctx.work_dir, cloud, region)
