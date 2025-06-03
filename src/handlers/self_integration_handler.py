@@ -128,6 +128,20 @@ class SelfIntegrationHandler(AbstractHandler):
     @validate_kwargs
     def put(self, event: SelfIntegrationPutModel, _pe: ProcessedEvent):
         customer = event.customer
+        
+        if event.tenant_names:
+            if event.customer:
+                tenants = self._ps.tenant_service\
+                    .i_get_tenant_by_customer(event.customer, active=True)
+            else:
+                tenants = self._ps.tenant_service.scan_tenants(only_active=True)
+            tenants = {tenant.name for tenant in tenants}
+            for tenant in event.tenant_names:
+                if tenant not in tenants:
+                    raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                        f'Tenant {tenant} does not exist in customer {event.customer}'
+                    ).exc()
+
         application = next(self._aps.list(
             customer=customer,
             _type=ApplicationType.CUSTODIAN.value,

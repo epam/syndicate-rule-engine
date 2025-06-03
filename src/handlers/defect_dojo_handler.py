@@ -135,6 +135,20 @@ class DefectDojoHandler(AbstractHandler):
             raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
                 self._dds.not_found_message(id)
             ).exc()
+        
+        if event.tenant_names:
+            if event.customer:
+                tenants = self._ps.tenant_service\
+                    .i_get_tenant_by_customer(event.customer, active=True)
+            else:
+                tenants = self._ps.tenant_service.scan_tenants(only_active=True)
+            tenants = {tenant.name for tenant in tenants}
+            for tenant in event.tenant_names:
+                if tenant not in tenants:
+                    raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                        f'Tenant {tenant} does not exist in customer {event.customer}'
+                    ).exc()
+                
         for parent in self.get_all_activations(item.id, event.customer):
             self._ps.force_delete(parent)
 
