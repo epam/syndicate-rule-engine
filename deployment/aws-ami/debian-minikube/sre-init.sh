@@ -1246,7 +1246,7 @@ verify_installation() {
 }
 
 # Start
-VERSION="1.1.0"
+VERSION="1.1.1"
 PROGRAM="${0##*/}"
 COMMAND="$1"
 

@@ -10,6 +10,8 @@ from boto3.session import Session
 from botocore.config import Config
 from pymongo.collection import Collection
 from pymongo.database import Database
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 logging.basicConfig(
     format='%(asctime)s %(levelname)s %(name)s.%(funcName)s:%(lineno)d %(message)s',
@@ -59,6 +61,41 @@ def _needs_tag(tag_set: list[dict], key: str, value: str) -> bool:
     return True
 
 
+class Counter:
+    __slots__ = 'count', 'lock'
+    def __init__(self):
+        self.count = 0
+        self.lock = threading.Lock()
+
+    def increment(self):
+        with self.lock:
+            self.count += 1
+
+    def get(self) -> int:
+        with self.lock:
+            return self.count
+
+
+def _tag_object(bucket: str, key: str, minio_client, counter: Counter) -> None:
+    """
+    Tags an object in the specified bucket with the provided tag set.
+    """
+    tag_set = minio_client.get_object_tagging(Bucket=bucket, Key=key).get('TagSet') or []
+
+    if not _needs_tag(tag_set, KEY, VALUE):
+        _LOG.info(f'Skipping {key} because already has tag')
+        return
+    tag_set.append({'Key': KEY, 'Value': VALUE})
+
+    minio_client.put_object_tagging(
+        Bucket=bucket,
+        Key=key,
+        Tagging={'TagSet': tag_set},
+    )
+    _LOG.info(f'Tagged {key} with {tag_set}')
+    counter.increment()
+
+
 def patch_snapshots(minio_client) -> None:
     """
     This patch tags all the files with `snapshots/*` or `*/snapshots/*` prefixes as `Type: DataSnapshot`
@@ -73,38 +110,29 @@ def patch_snapshots(minio_client) -> None:
 
     _LOG.info(f'Bucket: {params["Bucket"]}')
 
-    count = 0
+
+    _LOG.info('Going to create a thread pool executor')
+    executor = ThreadPoolExecutor(max_workers=10)
+
+    counter = Counter()
     while True:
         response = minio_client.list_objects_v2(**params)
 
         for item in response['Contents']:
             if not re.match(r'(^|.*/)snapshots/.*', item['Key']):
+                _LOG.debug(f'Skipping {item["Key"]} because it does not match snapshots/* or */snapshots/*')
                 continue
-            tag_set = (
-                minio_client.get_object_tagging(
-                    Bucket=params['Bucket'], Key=item['Key']
-                ).get('TagSet')
-                or []
-            )
 
-            if not _needs_tag(tag_set, KEY, VALUE):
-                _LOG.info(f'Skipping {item["Key"]} because already has tag')
-                continue
-            tag_set.append({'Key': KEY, 'Value': VALUE})
-
-            minio_client.put_object_tagging(
-                Bucket=params['Bucket'],
-                Key=item['Key'],
-                Tagging={'TagSet': tag_set},
-            )
-            count += 1
+            executor.submit(_tag_object, params['Bucket'], item['Key'], minio_client, counter)
 
         if response.get('IsTruncated'):
             params['ContinuationToken'] = response['NextContinuationToken']
         else:
             break
 
-    _LOG.info(f'Patch has finished. Tagged: {count} files')
+    _LOG.info('Waiting for all tasks to complete')
+    executor.shutdown(wait=True)
+    _LOG.info(f'Patch has finished. Tagged: {counter.get()} files')
 
 
 def _need_metrics_patch(collection: Collection):

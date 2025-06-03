@@ -38,6 +38,7 @@ podman push public.ecr.aws/x4s4z8e1/syndicate/patches:rule-engine-"$PATCH_VERSIO
 Create image manifest
 
 ```bash
+podman manifest rm public.ecr.aws/x4s4z8e1/syndicate/patches:rule-engine-"$PATCH_VERSION" || true
 podman manifest create public.ecr.aws/x4s4z8e1/syndicate/patches:rule-engine-"$PATCH_VERSION" public.ecr.aws/x4s4z8e1/syndicate/patches:rule-engine-"$PATCH_VERSION"-arm64 public.ecr.aws/x4s4z8e1/syndicate/patches:rule-engine-"$PATCH_VERSION"-amd64
 podman manifest annotate public.ecr.aws/x4s4z8e1/syndicate/patches:rule-engine-"$PATCH_VERSION" public.ecr.aws/x4s4z8e1/syndicate/patches:rule-engine-"$PATCH_VERSION"-arm64 --arch arm64
 podman manifest annotate public.ecr.aws/x4s4z8e1/syndicate/patches:rule-engine-"$PATCH_VERSION" public.ecr.aws/x4s4z8e1/syndicate/patches:rule-engine-"$PATCH_VERSION"-amd64 --arch amd64
