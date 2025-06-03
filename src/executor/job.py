@@ -578,57 +578,46 @@ class PoliciesLoader:
 
 
 class Runner(ABC):
-    cloud: Cloud | None = None
+    cloud: Cloud
 
     def __init__(self, policies: list[Policy], failed: dict | None = None):
         self._policies = policies
 
-        self._failed = failed or {}
+        self.failed = failed or {}
+        self.n_successful = 0
 
-        self._is_ongoing = False
-        self._error_type: PolicyErrorType = PolicyErrorType.SKIPPED  # default
-        self._message = None
-        self._exception = None
+        self._err = None
+        self._err_msg = None
+        self._err_exc = None
 
     @classmethod
     def factory(
         cls, cloud: Cloud, policies: list[Policy], failed: dict | None = None
     ) -> 'Runner':
-        """
-        Builds a necessary runner instance based on cloud.
-        :param cloud:
-        :param policies:
-        :param failed:
-        :return:
-        """
-        # TODO refactor, make runner not abstract and move policy
-        #  error handling (depending on policy's cloud) to a separate class
         _class = next(
             filter(lambda sub: sub.cloud == cloud, cls.__subclasses__())
         )
         return _class(policies, failed)
 
-    @property
-    def failed(self) -> dict:
-        return self._failed
-
     def start(self):
-        self._is_ongoing = True
         while self._policies:
-            self._handle_errors(policy=self._policies.pop(0))
-        self._is_ongoing = False
+            self._call_policy(policy=self._policies.pop())
 
     def _call_policy(self, policy: Policy):
-        if not self._is_ongoing:
-            self._add_failed(
-                region=PoliciesLoader.get_policy_region(policy),
-                policy=policy.name,
-                error_type=self._error_type,
-                message=self._message,
-                exception=self._exception,
-            )
+        if self._err is None:
+            self._handle_errors(policy)  # won't raise
             return
-        policy()
+        _LOG.debug(
+            'Some previous policy failed with error that will recur. '
+            f'Skipping policy {policy.name}'
+        )
+        self._add_failed(
+            region=PoliciesLoader.get_policy_region(policy),
+            policy=policy.name,
+            error_type=self._err,
+            message=self._err_msg,
+            exception=self._err_exc,
+        )
 
     @staticmethod
     def add_failed(
@@ -656,7 +645,7 @@ class Runner(ABC):
         message: str | None = None,
     ):
         self.add_failed(
-            self._failed, region, policy, error_type, exception, message
+            self.failed, region, policy, error_type, exception, message
         )
 
     @abstractmethod
@@ -667,55 +656,56 @@ class AWSRunner(Runner):
     cloud = Cloud.AWS
 
     def _handle_errors(self, policy: Policy):
-        name, region = policy.name, PoliciesLoader.get_policy_region(policy)
         try:
-            self._call_policy(policy)
+            policy()
+            self.n_successful += 1
         except ClientError as error:
-            error_code = error.response.get('Error', {}).get('Code')
-            error_reason = error.response.get('Error', {}).get('Message')
+            ec = error.response.get('Error', {}).get('Code')
+            er = error.response.get('Error', {}).get('Message')
 
-            if error_code in ACCESS_DENIED_ERROR_CODE.get(self.cloud):
+            if ec in ACCESS_DENIED_ERROR_CODE.get(self.cloud):
                 _LOG.warning(
-                    f"Policy '{name}' is skipped. Reason: '{error_reason}'"
+                    f"Policy '{policy.name}' is skipped. Reason: '{er}'"
                 )
                 self._add_failed(
-                    region=region,
-                    policy=name,
+                    region=PoliciesLoader.get_policy_region(policy),
+                    policy=policy.name,
                     error_type=PolicyErrorType.ACCESS,
-                    message=error_reason,
+                    message=er,
                 )
-            elif error_code in INVALID_CREDENTIALS_ERROR_CODES.get(self.cloud):
+            elif ec in INVALID_CREDENTIALS_ERROR_CODES.get(self.cloud, ()):
                 _LOG.warning(
-                    f"Policy '{name}' is skipped due to invalid "
+                    f"Policy '{policy.name}' is skipped due to invalid "
                     f'credentials. All the subsequent rules will be skipped'
                 )
                 self._add_failed(
-                    region=region,
-                    policy=name,
+                    region=PoliciesLoader.get_policy_region(policy),
+                    policy=policy.name,
                     error_type=PolicyErrorType.CREDENTIALS,
-                    message=error_reason,
+                    message=er,
                 )
-                self._is_ongoing = False
-                self._error_type = PolicyErrorType.CREDENTIALS
-                self._message = error_reason
+                self._err = PolicyErrorType.CREDENTIALS
+                self._err_msg = er
             else:
                 _LOG.warning(
-                    f"Policy '{name}' has failed. "
+                    f"Policy '{policy.name}' has failed. "
                     f'Client error occurred. '
-                    f"Code: '{error_code}'. "
-                    f'Reason: {error_reason}'
+                    f"Code: '{ec}'. "
+                    f'Reason: {er}'
                 )
                 self._add_failed(
-                    region=region,
-                    policy=name,
+                    region=PoliciesLoader.get_policy_region(policy),
+                    policy=policy.name,
                     error_type=PolicyErrorType.CLIENT,
                     exception=error,
                 )
         except Exception as error:
-            _LOG.exception(f'Policy {name} has failed with unexpected error')
+            _LOG.exception(
+                f'Policy {policy.name} has failed with unexpected error'
+            )
             self._add_failed(
-                region=region,
-                policy=name,
+                region=PoliciesLoader.get_policy_region(policy),
+                policy=policy.name,
                 error_type=PolicyErrorType.INTERNAL,
                 exception=error,
             )
@@ -725,44 +715,45 @@ class AZURERunner(Runner):
     cloud = Cloud.AZURE
 
     def _handle_errors(self, policy: Policy):
-        name, region = policy.name, PoliciesLoader.get_policy_region(policy)
         try:
-            self._call_policy(policy)
+            policy()
+            self.n_successful += 1
         except CloudError as error:
-            error_code = error.error
-            error_reason = error.message.split(':')[-1].strip()
-            if error_code in INVALID_CREDENTIALS_ERROR_CODES.get(self.cloud):
+            ec = error.error
+            er = error.message.split(':')[-1].strip()
+            if ec in INVALID_CREDENTIALS_ERROR_CODES.get(self.cloud, ()):
                 _LOG.warning(
-                    f"Policy '{name}' is skipped due to invalid "
+                    f"Policy '{policy.name}' is skipped due to invalid "
                     f'credentials. All the subsequent rules will be skipped'
                 )
                 self._add_failed(
-                    region=region,
-                    policy=name,
+                    region=PoliciesLoader.get_policy_region(policy),
+                    policy=policy.name,
                     error_type=PolicyErrorType.CREDENTIALS,
-                    message=error_reason,
+                    message=er,
                 )
-                self._is_ongoing = False
-                self._error_type = PolicyErrorType.CREDENTIALS
-                self._message = error_reason
+                self._err = PolicyErrorType.CREDENTIALS
+                self._err_msg = er
             else:
                 _LOG.warning(
-                    f"Policy '{name}' has failed. "
+                    f"Policy '{policy.name}' has failed. "
                     f'Client error occurred. '
-                    f"Code: '{error_code}'. "
-                    f'Reason: {error_reason}'
+                    f"Code: '{ec}'. "
+                    f'Reason: {er}'
                 )
                 self._add_failed(
-                    region=region,
-                    policy=name,
+                    region=PoliciesLoader.get_policy_region(policy),
+                    policy=policy.name,
                     error_type=PolicyErrorType.CLIENT,
                     exception=error,
                 )
         except Exception as error:
-            _LOG.exception(f'Policy {name} has failed with unexpected error')
+            _LOG.exception(
+                f'Policy {policy.name} has failed with unexpected error'
+            )
             self._add_failed(
-                region=region,
-                policy=name,
+                region=PoliciesLoader.get_policy_region(policy),
+                policy=policy.name,
                 error_type=PolicyErrorType.INTERNAL,
                 exception=error,
             )
@@ -772,44 +763,45 @@ class GCPRunner(Runner):
     cloud = Cloud.GOOGLE
 
     def _handle_errors(self, policy: Policy):
-        name, region = policy.name, PoliciesLoader.get_policy_region(policy)
         try:
-            self._call_policy(policy)
+            policy()
+            self.n_successful = 1
         except GoogleAuthError as error:
             error_reason = str(error.args[-1])
             _LOG.warning(
-                f"Policy '{name}' is skipped due to invalid "
+                f"Policy '{policy.name}' is skipped due to invalid "
                 f'credentials. All the subsequent rules will be skipped'
             )
             self._add_failed(
-                region=region,
-                policy=name,
+                region=PoliciesLoader.get_policy_region(policy),
+                policy=policy.name,
                 error_type=PolicyErrorType.CREDENTIALS,
                 message=error_reason,
             )
-            self._is_ongoing = False
-            self._error_type = PolicyErrorType.CREDENTIALS
-            self._message = error_reason
+            self._err = PolicyErrorType.CREDENTIALS
+            self._err_msg = error_reason
         except HttpError as error:
             if error.status_code == 403:
                 self._add_failed(
-                    region=region,
-                    policy=name,
+                    region=PoliciesLoader.get_policy_region(policy),
+                    policy=policy.name,
                     error_type=PolicyErrorType.ACCESS,
                     message=error.reason,
                 )
             else:
                 self._add_failed(
-                    region=region,
-                    policy=name,
+                    region=PoliciesLoader.get_policy_region(policy),
+                    policy=policy.name,
                     error_type=PolicyErrorType.CLIENT,
                     exception=error,
                 )
         except Exception as error:
-            _LOG.exception(f'Policy {name} has failed with unexpected error')
+            _LOG.exception(
+                f'Policy {policy.name} has failed with unexpected error'
+            )
             self._add_failed(
-                region=region,
-                policy=name,
+                region=PoliciesLoader.get_policy_region(policy),
+                policy=policy.name,
                 error_type=PolicyErrorType.INTERNAL,
                 exception=error,
             )
@@ -819,14 +811,16 @@ class K8SRunner(Runner):
     cloud = Cloud.KUBERNETES
 
     def _handle_errors(self, policy: Policy):
-        name, region = policy.name, PoliciesLoader.get_policy_region(policy)
         try:
-            self._call_policy(policy)
+            policy()
+            self.n_successful += 1
         except Exception as error:
-            _LOG.exception(f'Policy {name} has failed with unexpected error')
+            _LOG.exception(
+                f'Policy {policy.name} has failed with unexpected error'
+            )
             self._add_failed(
-                region=region,
-                policy=name,
+                region=PoliciesLoader.get_policy_region(policy),
+                policy=policy.name,
                 error_type=PolicyErrorType.INTERNAL,
                 exception=error,
             )
@@ -1271,7 +1265,7 @@ def job_initializer(envs):
 
 def process_job_concurrent(
     items: list[PolicyDict], work_dir: Path, cloud: Cloud, region: str
-):
+) -> tuple[int, dict | None]:
     """
     Cloud Custodian keeps consuming RAM for some reason. After 9th-10th region
     scanned the used memory can be more than 1GI, and it does get free. Not
@@ -1285,20 +1279,27 @@ def process_job_concurrent(
         cloud=cloud, output_dir=work_dir, regions={region}, cache_period=120
     )
     try:
-        _LOG.debug('Loading policies')
+        _LOG.debug(f'Going to load {len(items)} policies dicts')
         policies = loader.load_from_policies(items)
-        _LOG.info(f'{len(policies)} were loaded')
-        runner = Runner.factory(cloud, policies)
-        _LOG.info('Starting runner')
-        runner.start()
-        _LOG.info('Runner has finished')
-        return runner.failed
-    except Exception:  # not considered
-        # TODO this exception can occur if, say, credentials are invalid.
-        #  In such a case PolicyErrorType.CREDENTIALS won't be assigned to
-        #  those policies that should've been executed here. Must be fixed
-        _LOG.exception('Unexpected error occurred trying to scan')
-        return {}
+    except Exception:
+        _LOG.exception(
+            f'Unexpected error occurred trying to load policies for region {region}'
+        )
+        return 0, None
+
+    _LOG.info(
+        f'{len(policies)} policies instances were loaded and due '
+        f'to be executed (one policy instance per available region)'
+    )
+    # len(policies) is the number of invocations we need to make. If at
+    # least one is successful, we consider the job successful but
+    # with warnings
+    failed = {}
+    _LOG.info('Starting runner')
+    runner = Runner.factory(cloud, policies, failed)
+    runner.start()
+    _LOG.info('Runner has finished')
+    return runner.n_successful, failed
 
 
 def resolve_standard_ruleset(
@@ -1408,7 +1409,7 @@ class JobExecutionContext:
             raise RuntimeError('can be used only within context')
         return Path(self._work_dir.name)
 
-    def add_warnings(self, *warnings) -> None:
+    def add_warnings(self, *warnings: str) -> None:
         self.updater.add_warnings(*warnings)
         self.updater.update()
 
@@ -1581,7 +1582,10 @@ def run_standard_job(ctx: JobExecutionContext):
     _LOG.info(f'Policies are collected: {len(policies)}')
     regions = set(job.regions) | {GLOBAL_REGION}
 
+    successful = 0
     failed = {}
+    warnings = []
+
     for region in sorted(regions):
         # NOTE: read the documentation for this module to see why we need
         # this Pool. Basically it isolates rules run for one region and
@@ -1590,10 +1594,23 @@ def run_standard_job(ctx: JobExecutionContext):
         with multiprocessing.Pool(
             processes=1, initializer=job_initializer, initargs=(credentials,)
         ) as pool:
-            res = pool.apply(
+            pair = pool.apply(
                 process_job_concurrent, (policies, ctx.work_dir, cloud, region)
             )
-            failed.update(res)
+
+        if pair[1] is None:
+            _LOG.warning(
+                f'Job for region {region} has failed with no policies loaded'
+            )
+            warnings.append(f'Could not load policies for region {region}')
+            continue
+
+        successful += pair[0]
+        if pair[1]:
+            warnings.append(
+                f'{len(pair[1])} policies failed for region {region}'
+            )
+        failed.update(pair[1])
 
     if cloud is Cloud.GOOGLE and (
         filename := credentials.get(ENV_GOOGLE_APPLICATION_CREDENTIALS)
@@ -1603,6 +1620,12 @@ def run_standard_job(ctx: JobExecutionContext):
         filename := credentials.get(ENV_AZURE_CLIENT_CERTIFICATE_PATH)
     ):
         Path(filename).unlink(missing_ok=True)
+    ctx.add_warnings(*warnings)
+    del warnings
+    del credentials
+
+    # NOTE: here we should collect all the data about this scan, but make
+    # it failed if number of successful policies is 0
 
     result = JobResult(ctx.work_dir, cloud)
 
@@ -1611,8 +1634,9 @@ def run_standard_job(ctx: JobExecutionContext):
     meta = result.rules_meta()
     collection.meta = meta
 
-    _LOG.info('Going to upload to SIEM')
-    upload_to_siem(ctx=ctx, collection=collection)
+    if successful:
+        _LOG.info('Going to upload to SIEM')
+        upload_to_siem(ctx=ctx, collection=collection)
 
     collection.io = ShardsS3IO(
         bucket=SP.environment_service.default_reports_bucket_name(),
@@ -1646,6 +1670,8 @@ def run_standard_job(ctx: JobExecutionContext):
         key=StatisticsBucketKeysBuilder.job_statistics(job),
         obj=result.statistics(ctx.tenant, failed),
     )
+    if not successful:
+        raise ExecutorException(ExecutorError.NO_SUCCESSFUL_POLICIES)
     _LOG.info(f"Job '{job.id}' has ended")
 
 
