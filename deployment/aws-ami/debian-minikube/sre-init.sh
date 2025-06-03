@@ -929,7 +929,7 @@ restore_backup() {
   fi
   sha256sum "$2/$1.sha256" --check || return 1
   minikube cp "$2/$1.tar.gz" "$HELM_RELEASE_NAME:/data/$1.tar.gz"
-  minikube ssh "sudo rm -rf $host_path; sudo mkdir -p $host_path ; sudo tar --same-owner --overwrite -xzf /data/$1.tar.gz -C $host_path; rm -f /data/$1.tar.gz"  # todo what if error here
+  minikube ssh "sudo rm -rf $host_path; sudo mkdir -p $host_path ; sudo tar --same-owner --overwrite -xzf /data/$1.tar.gz -C $host_path; sudo rm -f /data/$1.tar.gz"  # TODO: what if error here
 }
 make_secrets_backup() {
   # accepts target file as a first parameter and secrets names as other parameters
@@ -1258,7 +1258,7 @@ SRE_BACKUPS_PATH="${SRE_BACKUPS_PATH:-$SRE_LOCAL_PATH/backups}"
 GITHUB_REPO="${GITHUB_REPO:-epam/syndicate-rule-engine}"
 HELM_RELEASE_NAME="${HELM_RELEASE_NAME:-rule-engine}"
 DEFECTDOJO_HELM_RELEASE_NAME="${DEFECTDOJO_HELM_RELEASE_NAME:-defectdojo}"
-HELM_UPGRADE_TIMEOUT="${HELM_UPGRADE_TIMEOUT:-120}"
+HELM_UPGRADE_TIMEOUT="${HELM_UPGRADE_TIMEOUT:-1200}"
 DO_NOT_ACTIVATE_LICENSE="${DO_NOT_ACTIVATE_LICENSE:-}"
 DO_NOT_ACTIVATE_TENANT="${DO_NOT_ACTIVATE_TENANT:-}"
 
