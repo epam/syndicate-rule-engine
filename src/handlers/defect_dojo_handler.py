@@ -3,6 +3,7 @@ from typing import Iterable
 
 from modular_sdk.commons.constants import ApplicationType, ParentType
 from modular_sdk.models.parent import Parent
+from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.application_service import ApplicationService
 from modular_sdk.services.parent_service import ParentService
 
@@ -16,6 +17,7 @@ from services.modular_helpers import (
     ResolveParentsPayload,
     build_parents,
     get_activation_dto,
+    iter_tenants_by_names
 )
 from validators.swagger_request_models import (
     BaseModel,
@@ -135,19 +137,19 @@ class DefectDojoHandler(AbstractHandler):
             raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
                 self._dds.not_found_message(id)
             ).exc()
-        
+
         if event.tenant_names:
-            if event.customer:
-                tenants = self._ps.tenant_service\
-                    .i_get_tenant_by_customer(event.customer, active=True)
-            else:
-                tenants = self._ps.tenant_service.scan_tenants(only_active=True)
-            tenants = {tenant.name for tenant in tenants}
-            for tenant in event.tenant_names:
-                if tenant not in tenants:
-                    raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
-                        f'Tenant {tenant} does not exist in customer {event.customer}'
-                    ).exc()
+            it = iter_tenants_by_names(
+                tenant_service=self._ps.tenant_service,
+                customer=event.customer_id,
+                names=event.tenant_names,
+                attributes_to_get=(Tenant.name, )
+            )
+            tenants = {tenant.name for tenant in it}
+            if missing := event.tenant_names - tenants:
+                raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                    f'Active tenant(s) {", ".join(missing)} not found'
+                ).exc()
                 
         for parent in self.get_all_activations(item.id, event.customer):
             self._ps.force_delete(parent)
