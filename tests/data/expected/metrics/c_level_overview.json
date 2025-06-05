@@ -17,9 +17,9 @@
       "severity_data": {
         "Unknown": 23
       },
-      "succeeded_scans": 2,
+      "succeeded_scans": 1,
       "total_scanned_tenants": 1,
-      "total_scans": 3,
+      "total_scans": 2,
       "activated": true,
       "license_properties": {
         "Rulesets": [
@@ -41,9 +41,9 @@
       "severity_data": {
         "Unknown": 5
       },
-      "succeeded_scans": 2,
+      "succeeded_scans": 1,
       "total_scanned_tenants": 1,
-      "total_scans": 3,
+      "total_scans": 2,
       "activated": true,
       "license_properties": {
         "Rulesets": [
@@ -67,9 +67,9 @@
       "severity_data": {
         "Unknown": 9
       },
-      "succeeded_scans": 2,
+      "succeeded_scans": 1,
       "total_scanned_tenants": 1,
-      "total_scans": 3,
+      "total_scans": 2,
       "activated": true,
       "license_properties": {
         "Rulesets": [

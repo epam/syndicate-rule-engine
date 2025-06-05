@@ -1,16 +1,15 @@
 import base64
 import binascii
-from contextlib import contextmanager
-from enum import Enum as _Enum
-import json
-from dateutil.parser import isoparse
-from functools import reduce
 import io
-from itertools import chain, islice
+import json
 import math
 import re
-import msgspec
 import time
+import uuid
+from contextlib import contextmanager
+from enum import Enum as _Enum
+from functools import reduce
+from itertools import chain, islice
 from types import NoneType
 from typing import (
     Any,
@@ -23,14 +22,14 @@ from typing import (
     Optional,
     TypeVar,
 )
-from typing_extensions import Self
-import uuid
 
+import msgspec
 import requests
+from dateutil.parser import isoparse
+from typing_extensions import Self
 
-from helpers.constants import RuleDomain, Cloud
+from helpers.constants import Cloud, RuleDomain
 from helpers.log_helper import get_logger
-
 
 T = TypeVar('T')
 
@@ -113,10 +112,44 @@ def batches(iterable: Iterable, n: int) -> Generator[list, None, None]:
         batch = list(islice(it, n))
 
 
-def filter_dict(d: dict, keys: set | list | tuple) -> dict:
-    if keys:
-        return {k: v for k, v in d.items() if k in keys}
-    return d
+def batches_with_critic(
+    iterable: Iterable[T],
+    critic: Callable[[T], int],
+    limit: int,
+    drop_violating_items: bool = False,
+) -> Generator[list[T], None, None]:
+    """
+    Batch data into lists based on their value.
+    Sum of items in batch can't be bigger than `limit`.
+    :param iterable:
+    :param critic:
+    :param limit:
+    :param drop_violating_items:
+    :return:
+    """
+    current_batch = []
+    current_sum = 0
+
+    for item in iterable:
+        item_value = critic(item)
+        if item_value > limit:
+            if drop_violating_items:
+                _LOG.warning(f'Violating item was droped. Value: {item_value}')
+                continue
+            else:
+                raise ValueError(
+                    f'One of the items have value: {item_value} that is bigger then limit'
+                )
+        if current_sum + item_value <= limit:
+            current_batch.append(item)
+            current_sum += item_value
+        else:
+            yield current_batch
+            current_batch = [item]
+            current_sum = item_value
+
+    if current_batch:
+        yield current_batch
 
 
 class HashableDict(dict):
@@ -261,7 +294,7 @@ def peek(iterable) -> Optional[tuple[Any, chain]]:
         first = next(iterable)
     except StopIteration:
         return
-    return first, chain([first], iterable)
+    return first, chain((first,), iterable)
 
 
 def urljoin(*args: str | int) -> str:
@@ -307,35 +340,14 @@ class NotHereDescriptor:
         raise AttributeError
 
 
-JSON_PATH_LIST_INDEXES = re.compile(r'\w*\[(-?\d+)\]')
-
-
-def json_path_get(d: dict | list, path: str) -> Any:
-    """
-    Simple json paths with only basic operations supported
-    >>> json_path_get({'a': 'b', 'c': [1,2,3, [{'b': 'c'}]]}, 'c[-1][0].b')
-    'c'
-    >>> json_path_get([-1, {'one': 'two'}], 'c[-1][0].b') is None
-    True
-    >>> json_path_get([-1, {'one': 'two'}], '[-1].one')
-    'two'
-    """
-    if path.startswith('$'):
-        path = path[1:]
-    if path.startswith('.'):
-        path = path[1:]
-    parts = path.split('.')
-
+def get_path(d: dict, path: str) -> Any:
+    if '.' not in path:
+        return d.get(path)
     item = d
-    for part in parts:
+    for part in path.split('.'):
         try:
-            _key = part.split('[')[0]
-            _indexes = re.findall(JSON_PATH_LIST_INDEXES, part)
-            if _key:
-                item = item.get(_key)
-            for i in _indexes:
-                item = item[int(i)]
-        except (IndexError, TypeError, AttributeError):
+            item = item.get(part)
+        except (TypeError, AttributeError):
             item = None
             break
     return item
@@ -722,10 +734,81 @@ def group_by(
     return res
 
 
-def map_by(
-    it: Iterable[T], key: Callable[[T], Hashable]
-) -> dict[Hashable, T]:
+def map_by(it: Iterable[T], key: Callable[[T], Hashable]) -> dict[Hashable, T]:
     res = {}
     for item in it:
         res.setdefault(key(item), item)
     return res
+
+
+def encode_into(
+    it: Iterable[T],
+    encode: Callable[[T, bytearray, int], None],
+    limit: int,
+    new: Callable[[], bytearray] = bytearray,
+    sep: bytes = b',',
+) -> Generator[bytearray, None, None]:
+    """
+    This is a hell of a function.
+
+    It is useful if we have a list of entities that we want to send to some
+    external API, and we know that API has payload limit of N bytes. This
+    function encodes entities into bytearrays respecting the limit. It also
+    handles separators and some initial data inside bytearrays
+    """
+    sep_len = len(sep)
+    if sep_len >= limit:
+        raise ValueError('separator len exceeds limit')
+
+    buf = new()
+    len_orig = len(buf)
+
+    for item in it:
+        len_before = len(buf)
+        encode(item, buf, len_before)
+        len_after = len(buf)
+        if (len_after - len_before) > limit:
+            raise ValueError('One encoded item exceeds the limit')
+
+        # by here we are sure that one item by itself does not exceed limit,
+        # but we cannot be sure that the total len of buffer does not
+        size = len_after - len_orig
+        if size == limit or (size < limit <= size + sep_len):
+            # fast yield since we know that we already reached the limit
+            # or will reach if add a separator
+            yield buf
+            buf = new()
+            len_orig = len(buf)
+            continue
+
+        buf.extend(sep)
+        size += sep_len
+
+        if size > limit:
+            # NOTE: if we got here it means that we were within limit
+            # in the previous iteration but this one exceeded the limit.
+            # So, we need to get previous and move this new encoded to the next
+            # buffer
+            to_yield = buf
+
+            buf = new()
+            len_orig = len(buf)
+
+            # NOTE: here seems like the only place we make a copy here
+            # though I hope it's optimized internally to be fast and not
+            # produce intermediate slice
+            buf[len_orig:] = to_yield[len_before:]  # with a separator
+
+            # NOTE, here you need to be aware that the whole buffer will
+            # be removed if len_before-sep_len is equal to 0. We can get here
+            # if the current size with a separator is bigger that limit.
+            # It means that ... it's kind of difficult to explain, but
+            # we should not get here if len_before-sep_len == 0
+            del to_yield[len_before - sep_len :]
+            yield to_yield
+
+    if len(buf) > len_orig:
+        if sep_len > 0:
+            # NOTE: buf[-0:] will remove whole buffer so need to handle
+            del buf[-sep_len:]
+        yield buf

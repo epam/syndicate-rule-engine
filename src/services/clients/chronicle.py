@@ -1,5 +1,4 @@
 from enum import Enum
-import math
 from pathlib import Path
 from typing import Generator
 from urllib.parse import urljoin
@@ -8,7 +7,7 @@ from google.auth.transport import requests
 from google.oauth2 import service_account
 import msgspec
 
-from helpers import batches
+from helpers import batches_with_critic
 from helpers.constants import HTTPMethod
 from helpers.log_helper import get_logger
 
@@ -39,7 +38,7 @@ class ChronicleV2Client:
     https://cloud.google.com/chronicle/docs/reference/ingestion-api
     """
     _scopes = ['https://www.googleapis.com/auth/malachite-ingestion']
-    _payload_size_limit = 2 << 19  # 1mb
+    _payload_size_limit = 1 << 20
 
     __slots__ = '_baseurl', '_session', '_customer_id', '_encoder'
 
@@ -68,17 +67,19 @@ class ChronicleV2Client:
     def _batches(self, entities: list[dict]
                  ) -> Generator[list[dict], None, None]:
         """
-        Chronicle accepts only payloads less or eq that 1mb. This method
+        Chronicle accepts only payloads less or eq than 1mb. This method
         calculates the total length of payload for given list of entities
         splits them to batches less than 1mb. We do this assuming that each
         entity has more or less the same size
         :param entities:
         :return:
         """
-        # TODO maybe rewrite because this logic is not ideal
-        total = len(self._encoder.encode(entities))  # total bytes
-        number = math.ceil(total / self._payload_size_limit) + 2  # number of requests
-        yield from batches(entities, max(1, len(entities) // number))
+        yield from batches_with_critic(
+            iterable=entities,
+            critic=lambda x: len(self._encoder.encode(x))+1,  # for comma
+            limit=self._payload_size_limit,
+            drop_violating_items=True
+        )
 
     @staticmethod
     def _load_json(resp) -> dict | list | None:
@@ -106,7 +107,7 @@ class ChronicleV2Client:
             )
             if resp is None or not resp.ok:
                 _LOG.warning(f'Error occurred creating events: '
-                             f'{self._load_json(resp.json())}')
+                             f'{self._load_json(resp)}')
                 success = False
         return success
 
@@ -131,7 +132,7 @@ class ChronicleV2Client:
             )
             if resp is None or not resp.ok:
                 _LOG.warning(f'Error occurred creating entities: '
-                             f'{self._load_json(resp.json())}')
+                             f'{self._load_json(resp)}')
                 success = False
         return success
 

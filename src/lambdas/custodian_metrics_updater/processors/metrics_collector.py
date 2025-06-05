@@ -2,10 +2,11 @@ import copy
 import heapq
 import statistics
 from datetime import datetime
-from functools import cmp_to_key
+from itertools import chain
 from typing import TYPE_CHECKING, Generator, Iterable, Iterator, cast
 
 import msgspec
+from modular_sdk.commons.constants import ParentType
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.modular import Modular
@@ -13,13 +14,15 @@ from modular_sdk.modular import Modular
 from helpers.constants import (
     GLOBAL_REGION,
     TACTICS_ID_MAPPING,
+    TS_EXCLUDED_RULES_KEY,
     Cloud,
     JobState,
+    PolicyErrorType,
     ReportType,
 )
+from helpers.system_customer import SystemCustomer
 from helpers.log_helper import get_logger
-from helpers.reports import SeverityCmp, service_from_resource_type
-from helpers.time_helper import utc_datetime
+from helpers.time_helper import utc_datetime, utc_iso
 from models.metrics import ReportMetrics
 from models.ruleset import Ruleset
 from services import SP, modular_helpers
@@ -31,12 +34,24 @@ from services.modular_helpers import tenant_cloud
 from services.platform_service import Platform, PlatformService
 from services.report_service import ReportService
 from services.reports import (
+    AttacksReportGenerator,
     JobMetricsDataSource,
+    KubernetesReport,
+    Report,
     ReportMetricsService,
+    ReportVisitor,
+    ResourcesReportGenerator,
+    ScopedRulesSelector,
     ShardsCollectionDataSource,
     ShardsCollectionProvider,
 )
+from services.resources import (
+    CloudResource,
+    MaestroReportResourceView,
+    iter_rule_resources,
+)
 from services.ruleset_service import RulesetName, RulesetService
+from services.sharding import ShardsCollection
 
 if TYPE_CHECKING:
     from services.report_service import AverageStatisticsItem
@@ -67,12 +82,17 @@ class MetricsContext:
     Keeps some common context and data for one task of collecting metrics
     """
 
-    __slots__ = '_cst', '_dt', '_meta', '_reports'
+    __slots__ = '_cst', '_l', '_dt', '_meta', '_reports'
 
     def __init__(
-        self, cst: Customer, metadata: Metadata, now: datetime | None = None
+        self,
+        cst: Customer,
+        licenses: tuple[License, ...],
+        metadata: Metadata,
+        now: datetime | None = None,
     ):
         self._cst = cst
+        self._l = licenses
         self._dt = now
         self._meta = metadata
         self._reports = {}
@@ -88,14 +108,16 @@ class MetricsContext:
 
     @property
     def now(self) -> datetime:
-        if not self._dt:
-            # not a use case actually
-            return utc_datetime()
+        assert self._dt, 'now can be accessed only within the context'
         return self._dt
 
     @property
     def customer(self) -> Customer:
         return self._cst
+
+    @property
+    def licenses(self) -> tuple[License, ...]:
+        return self._l
 
     @property
     def metadata(self) -> Metadata:
@@ -105,11 +127,14 @@ class MetricsContext:
     def n_reports(self) -> int:
         return self._reports.__len__()
 
+    def has_reports(self) -> bool:
+        return bool(self._reports)
+
     def add_report(self, report: ReportMetrics, data: dict):
         key = report.entity, report.type
-        assert (
-            key not in self._reports
-        ), 'adding the same report twice within one context, smt is wrong'
+        assert key not in self._reports, (
+            'adding the same report twice within one context, smt is wrong'
+        )
         self._reports[key] = (report, data)
 
     def add_reports(self, reports: Iterator[tuple[ReportMetrics, dict]]):
@@ -130,6 +155,53 @@ class MetricsContext:
         self, entity: str, typ: ReportType
     ) -> tuple[ReportMetrics, dict] | None:
         return self._reports.get((entity, typ))
+
+    def pop_report(self) -> tuple[ReportMetrics, dict]:
+        return self._reports.popitem()[1]
+
+
+class RuleCheck(msgspec.Struct, kw_only=True, frozen=True):
+    id: str
+    description: str
+    region: str
+    when: float
+    error_type: PolicyErrorType | msgspec.UnsetType = msgspec.UNSET
+    error: str | msgspec.UnsetType = msgspec.UNSET
+    found: int | msgspec.UnsetType = msgspec.UNSET
+
+
+class LicenseMetadata(msgspec.Struct, kw_only=True, frozen=True):
+    id: str
+    rulesets: tuple[str, ...] = ()
+    total_rules: int
+    jobs: int
+    per: str
+    description: str
+    valid_until: str
+    valid_from: str
+
+
+class ReportRulesMetadata(msgspec.Struct, kw_only=True, frozen=True):
+    total: int = 0
+    disabled: tuple[str, ...] = ()
+    passed: tuple[RuleCheck, ...] = ()
+    failed: tuple[RuleCheck, ...] = ()
+
+    violated: tuple[RuleCheck, ...] | msgspec.UnsetType = msgspec.UNSET
+    not_executed: tuple[str, ...] | msgspec.UnsetType = msgspec.UNSET
+
+
+class TenantReportMetadata(msgspec.Struct, kw_only=True, frozen=True):
+    licenses: tuple[LicenseMetadata, ...] = ()
+    is_automatic_scans_enabled: bool = True
+    in_progress_scans: int = 0
+    finished_scans: int = 0
+    succeeded_scans: int = 0
+    last_scan_date: str | None = None
+    activated_regions: tuple[str, ...] = ()
+    rules: ReportRulesMetadata = msgspec.field(
+        default_factory=ReportRulesMetadata
+    )
 
 
 class MetricsCollector:
@@ -195,6 +267,7 @@ class MetricsCollector:
 
         self._tenants_cache = {}
         self._platforms_cache = {}
+        self._rulesets_cache = {}
 
     @staticmethod
     def nlargest(
@@ -303,6 +376,15 @@ class MetricsCollector:
             target.setdefault(k, 0)
             target[k] += v
 
+    def _get_licensed_ruleset(self, name: str) -> Ruleset | None:
+        if name in self._rulesets_cache:
+            return self._rulesets_cache[name]
+        item = self._rss.get_licensed(name)
+        if not item:
+            return
+        self._rulesets_cache[name] = item
+        return item
+
     def _get_tenant(self, name: str) -> Tenant | None:
         # TODO: support is_active
         if name in self._tenants_cache:
@@ -337,28 +419,400 @@ class MetricsCollector:
                 data['resources_violated'] = ov[1]['resources_violated']
             yield rep, data
 
-    def collect_metrics_for_customer(self, ctx: MetricsContext):
+    def _get_license_activation(
+        self, lic: License
+    ) -> modular_helpers.ActivationInfo:
+        it = self._mc.parent_service().i_list_application_parents(
+            application_id=lic.license_key,
+            type_=ParentType.CUSTODIAN_LICENSES,
+            rate_limit=3,
+        )
+        it = filter(lambda p: p.customer_id == lic.customer, it)
+        # either ALL & [cloud] & [exclude] or tenant_names
+        # Should not be many
+
+        return modular_helpers.get_activation_info(it)
+
+    def _iter_tenants_for_metrics(
+        self, ctx: MetricsContext
+    ) -> Generator[tuple[Tenant, tuple[License, ...]], None, None]:
+        """
+        Yields tenants for which metrics must be collected.
+        Currently, we collect metrics only for tenants that are activated
+        for maestro scans
+        """
+        if not ctx.licenses:
+            _LOG.warning(
+                'No licenses exist inside the customer, no metrics will be collected'
+            )
+            return
+        mapping = {
+            lic: self._get_license_activation(lic) for lic in ctx.licenses
+        }
+        if any([info.is_all for info in mapping.values()]):
+            _LOG.info('At least one license is activated for all tenants')
+            excluding = set.union(
+                *[info.excluding for info in mapping.values()]
+            )
+            clouds = set.union(*[info.clouds for info in mapping.values()])
+            # TODO: use method from modular_sdk
+            fc = None
+            if clouds:
+                fc &= Tenant.cloud.is_in(*clouds)
+            if excluding:
+                fc &= ~Tenant.name.is_in(*excluding)
+            tenants = Tenant.customer_name_index.query(
+                hash_key=ctx.customer.name, filter_condition=fc
+            )
+        else:
+            including = set.union(
+                *[info.including for info in mapping.values()]
+            )
+            excluding = set.union(
+                *[info.excluding for info in mapping.values()]
+            )
+            names = including - excluding
+
+            tenants = filter(None, map(self._mc.tenant_service().get, names))
+        for tenant in tenants:
+            applicable = []
+            for lic in mapping:
+                if not self._ls.is_subject_applicable(
+                    lic, customer=ctx.customer.name, tenant_name=tenant.name
+                ):
+                    _LOG.warning(
+                        f'Tenant {tenant.name} is not allowed for license'
+                    )
+                    continue
+                if mapping[lic].is_active_for(tenant):
+                    applicable.append(lic)
+            if not applicable:
+                _LOG.warning(
+                    f'Some license is activated for {tenant.name} not no licenses is applicable for it'
+                )
+                continue
+            yield tenant, tuple(applicable)
+
+    def _get_license_cloud_metadata(
+        self, lic: License, cloud: Cloud
+    ) -> tuple[LicenseMetadata, set[str]] | None:
+        """
+        Builds license metadata for the given cloud and also returns
+        a set of all rules
+        """
+        rulesets = []
+        for name in lic.ruleset_ids:
+            rs = self._get_licensed_ruleset(name)
+            if not rs:
+                _LOG.warning(f'Somehow licensed ruleset {name} does not exist')
+                continue
+            cl = rs.cloud
+            if cl == 'GCP':
+                cl = 'GOOGLE'
+            if cl == cloud:
+                rulesets.append(rs)
+        if not rulesets:
+            return
+        rules = set(chain.from_iterable(r.rules for r in rulesets))
+        meta = LicenseMetadata(
+            id=lic.license_key,
+            rulesets=tuple([r.name for r in rulesets]),
+            total_rules=len(rules),
+            jobs=lic.allowance['job_balance'],
+            per=lic.allowance['time_range'],
+            description=lic.description,
+            valid_until=utc_iso(lic.expiration),
+            valid_from=utc_iso(lic.valid_from),
+        )
+        return meta, rules
+
+    def _get_tenant_disabled_rules(self, tenant: Tenant) -> set[str]:
+        """
+        Takes into consideration rules that are excluded for that specific tenant
+        and for its customer
+        """
+        _LOG.info(f'Querying disabled rules for {tenant.name} rules')
+        excluded = set()
+        ts = SP.modular_client.tenant_settings_service().get(
+            tenant_name=tenant.name, key=TS_EXCLUDED_RULES_KEY
+        )
+        if ts:
+            _LOG.info('Tenant setting with excluded rules is found')
+            excluded.update(ts.value.as_dict().get('rules') or ())
+        cs = SP.modular_client.customer_settings_service().get_nullable(
+            customer_name=tenant.customer_name, key=TS_EXCLUDED_RULES_KEY
+        )
+        if cs:
+            _LOG.info('Customer setting with excluded rules is found')
+            excluded.update(cs.value.get('rules') or ())
+        return excluded
+
+    def _iter_failed_checks(
+        self, collection: 'ShardsCollection', scope: set[str]
+    ) -> Generator[RuleCheck, None, None]:
+        meta = collection.meta
+        for part in collection.iter_error_parts():
+            if part.policy not in scope:
+                continue
+            assert part.has_error(), 'part must have an error'
+            yield RuleCheck(
+                id=part.policy,
+                description=meta.get(part.policy, {}).get('description') or '',
+                region=part.location,
+                when=part.timestamp,
+                error_type=part.error_type,
+                error=part.error_message,
+            )
+
+    def _iter_passed_checks(
+        self, collection: 'ShardsCollection', scope: set[str]
+    ) -> Generator[RuleCheck, None, None]:
+        # NOTE: currently it skips failed checks even though we can include
+        # them, and it will not violate any logic. It is more a matter of
+        # what is better to display for the user (rule could pass and then
+        # fail, maybe due to missing credentials and it will mean that data
+        # is slightly outdated, but this rule still passed before)
+        meta = collection.meta
+        for part in collection.iter_all_parts():
+            if (
+                part.has_error()
+                or len(part.resources) > 0
+                or part.policy not in scope
+            ):
+                continue
+            yield RuleCheck(
+                id=part.policy,
+                description=meta.get(part.policy, {}).get('description') or '',
+                region=part.location,
+                when=part.timestamp,
+            )
+
+    def _get_rule_resources(
+        self,
+        collection: 'ShardsCollection',
+        cloud: Cloud,
+        metadata: Metadata,
+        account_id: str = '',
+    ) -> dict[str, set[CloudResource]]:
+        # NOTE: Generally we should not expect duplicated resources within one
+        #  rule. Something is definitely wrong if one rule returns multiple
+        #  equal resources within one region. If one rule returns multiple
+        #  equal resources within different regions that rule must be global.
+        #  But, we perform some custom processing of resources which involves
+        #  changing their regions. For example, the same multi-regional
+        #  CloudTrail can be returns multiple times by executing the same rule
+        #  against different regions. So, if we encounter a multi-regional
+        #  trail during processing we manually change ist region to 'global'.
+        #  So, there is a real point here to de-duplicate resources
+        #  WITHIN ONE rule here.
+        it = iter_rule_resources(
+            collection=collection,
+            cloud=cloud,
+            metadata=metadata,
+            account_id=account_id,
+        )
+        dct = {}
+        for k, v in it:
+            resources = set(v)
+            if not resources:
+                continue
+            dct[k] = resources
+        return dct
+
+    def _save_all(self, ctx: MetricsContext, msg: str):
+        _LOG.info(msg)
+        while ctx.has_reports():
+            self._rms.save(*ctx.pop_report())
+
+    def collect_operational_for_tenant(
+        self,
+        ctx: MetricsContext,
+        scp: ShardsCollectionProvider,
+        js: JobMetricsDataSource,
+        tenant: Tenant,
+        licenses: tuple[License, ...],
+    ) -> ReportsGen:
+        """
+        Collects some operational reports for a tenant. Since they all
+        have a lot similar we can reuse the data and make it here all at once
+        sacrificing code readability
+        """
+        types = (
+            ReportType.OPERATIONAL_RESOURCES,
+            ReportType.OPERATIONAL_FINOPS,
+            ReportType.OPERATIONAL_ATTACKS,
+            ReportType.OPERATIONAL_DEPRECATION,
+        )
+        cloud = tenant_cloud(tenant)
+        _licenses_meta = []
+        cloud_rules = set()
+        for lic in licenses:
+            pair = self._get_license_cloud_metadata(lic, cloud)
+            if pair is None:
+                continue  # should not happen
+            _licenses_meta.append(pair[0])
+            cloud_rules.update(pair[1])
+
+        licenses = tuple(_licenses_meta)
+        disabled = tuple(self._get_tenant_disabled_rules(tenant))
+        active_regions = tuple(modular_helpers.get_tenant_regions(tenant))
+
+        ls = self._ajs.job_service.get_tenant_last_job_date(tenant.name)
+        if not ls:
+            # case when tenant had no scans, so we yield empty reports
+            _LOG.warning(f'No jobs for tenant {tenant} found')
+            empty_meta = TenantReportMetadata(
+                licenses=licenses,
+                is_automatic_scans_enabled=True,  # because maestro is active for tenant
+                activated_regions=active_regions,
+            )
+            selector = ScopedRulesSelector(ctx.metadata)
+            for typ in types:
+                report = Report.derive_report(typ)
+                scope = report.accept(selector, rules=cloud_rules)
+
+                meta = msgspec.structs.replace(
+                    empty_meta,
+                    rules=ReportRulesMetadata(
+                        total=len(scope),
+                        disabled=disabled,
+                        # not_executed=tuple(report_rules)
+                    ),
+                )
+
+                item = self._rms.create(
+                    key=ReportMetrics.build_key_for_tenant(typ, tenant),
+                    end=typ.end(ctx.now),
+                    start=typ.start(ctx.now),
+                    tenants=(tenant.name,),
+                )
+                yield (
+                    item,
+                    {'metadata': meta, 'data': (), 'id': tenant.project},
+                )
+            return
+        _LOG.info(f'Last scan date for tenant {tenant.name} is {ls}')
+
+        selector = ScopedRulesSelector(ctx.metadata)
+        view = MaestroReportResourceView()
+
+        # NOTE, actually we should retrieve a separate collection for
+        # each report type, because they could have different dates. But here
+        # we can afford it because we assert that each has the same date
+        _LOG.info(f'Going to retrieve shards collection for operation reports '
+                  f'for tenant {tenant.name} and date {ReportType.OPERATIONAL_RESOURCES.end(ctx.now)}')
+        collection = scp.get_for_tenant(
+            tenant, ReportType.OPERATIONAL_RESOURCES.end(ctx.now)
+        )
+        if not collection:
+            _LOG.warning('Somehow collection for operational reports is not found or empty even though the tenant has at least one successful jobs')
+            return
+
+        rule_resources = self._get_rule_resources(
+            collection, cloud, ctx.metadata, tenant.project
+        )
+
+        for typ in types:
+            start = typ.start(ctx.now)
+            end = typ.end(ctx.now)
+            _LOG.info(f'Going to collect operational report {typ} for tenant {tenant.name}: {start} - {end}')
+            job_source = js.subset(
+                start=start, end=end, tenant=tenant.name, affiliation='tenant'
+            )
+            _LOG.info(f'Tenant had {len(job_source)} jobs in the period')
+            report = Report.derive_report(typ)
+            scope = report.accept(selector, rules=cloud_rules)
+            total = len(scope)
+            scope.difference_update(disabled)
+
+            meta = TenantReportMetadata(
+                licenses=licenses,
+                is_automatic_scans_enabled=True,
+                in_progress_scans=job_source.n_in_progress,
+                finished_scans=job_source.n_finished,
+                succeeded_scans=job_source.n_succeeded,
+                last_scan_date=ls,
+                activated_regions=active_regions,
+                rules=ReportRulesMetadata(
+                    total=total,
+                    disabled=disabled,
+                    passed=tuple(self._iter_passed_checks(collection, scope)),
+                    failed=tuple(self._iter_failed_checks(collection, scope)),
+                ),
+            )
+            generator = ReportVisitor.derive_visitor(
+                typ, metadata=ctx.metadata, view=view, scope=scope
+            )
+            data = tuple(
+                report.accept(
+                    generator,
+                    rule_resources=rule_resources,
+                    meta=collection.meta,
+                )
+            )
+
+            item = self._rms.create(
+                key=ReportMetrics.build_key_for_tenant(typ, tenant),
+                end=end,
+                start=start,
+                tenants=(tenant.name,),
+            )
+            yield item, {'metadata': meta, 'data': data, 'id': tenant.project}
+
+    def collect_metrics(self, ctx: MetricsContext):
+        # TODO: make here some assertions about report types
+        #  about dates,
+
+        start, end = self.whole_period(ctx.now, *ReportType)
+        jobs = self._ajs.to_ambiguous(
+            self._ajs.job_service.get_by_customer_name(
+                customer_name=ctx.customer.name,
+                start=start,
+                end=end,
+                ascending=True,  # important to have jobs in order
+            )
+        )
+        js = JobMetricsDataSource(jobs)
+        if not js:
+            _LOG.warning('No jobs for customer found')
+
+        scp = ShardsCollectionProvider(self._rs)
+
+        _LOG.info(
+            f'Going to collect operational reports for customer {ctx.customer.name}'
+        )
+
+        for tenant, licenses in self._iter_tenants_for_metrics(ctx):
+            _LOG.info(
+                f'Going to collect operational reports for tenant {tenant.name}'
+            )
+            ctx.add_reports(
+                self.collect_operational_for_tenant(
+                    ctx=ctx, scp=scp, js=js, tenant=tenant, licenses=licenses
+                )
+            )
+
+        # TODO: refactor old metrics
+        self._collect_old(
+            ctx=ctx, start=start, end=end, job_source=js, sc_provider=scp
+        )
+
+    def _collect_old(
+        self,
+        *,
+        ctx: MetricsContext,
+        start: datetime,
+        end: datetime,
+        job_source: JobMetricsDataSource,
+        sc_provider: ShardsCollectionProvider,
+    ):
         """
         Collects predefined hard-coded set of reports. Here we definitely know
         that all the reports are collected as of "now" date, so we can cache
         some sources of data and use lower-level metrics to calculate higher
         level
         """
-        start, end = self.whole_period(ctx.now, *ReportType)
         _LOG.info(f'Need to collect jobs data from {start} to {end}')
-        jobs = self._ajs.to_ambiguous(
-            self._ajs.get_by_customer_name(
-                customer_name=ctx.customer.name,
-                start=start,
-                end=end,  # TODO: here end must be not including
-                ascending=True,  # important
-            )
-        )
-        job_source = JobMetricsDataSource(jobs)
-        if not job_source:
-            _LOG.warning('No jobs for customer found')
-
-        sc_provider = ShardsCollectionProvider(self._rs)
 
         _LOG.info('Generating operational overview for all tenants')
         ctx.add_reports(
@@ -369,16 +823,6 @@ class MetricsCollector:
                 report_type=ReportType.OPERATIONAL_OVERVIEW,
             )
         )
-        _LOG.info('Generating operational resources for all tenants')
-        ctx.add_reports(
-            self.operational_resources(
-                ctx=ctx,
-                job_source=job_source,
-                sc_provider=sc_provider,
-                report_type=ReportType.OPERATIONAL_RESOURCES,
-            )
-        )
-
         _LOG.info('Generating operational rules for all tenants')
         ctx.add_reports(
             self._complete_rules_report(
@@ -391,15 +835,6 @@ class MetricsCollector:
                 ctx,
             )
         )
-        _LOG.info('Generating operational finops for all tenants')
-        ctx.add_reports(
-            self.operational_finops(
-                ctx=ctx,
-                job_source=job_source,
-                sc_provider=sc_provider,
-                report_type=ReportType.OPERATIONAL_FINOPS,
-            )
-        )
         _LOG.info('Generating operational compliance for all tenants')
         ctx.add_reports(
             self.operational_compliance(
@@ -409,15 +844,6 @@ class MetricsCollector:
                 report_type=ReportType.OPERATIONAL_COMPLIANCE,
             )
         )
-        _LOG.info('Generating operational attacks for all tenants')
-        ctx.add_reports(
-            self.operational_attacks(
-                ctx=ctx,
-                job_source=job_source,
-                sc_provider=sc_provider,
-                report_type=ReportType.OPERATIONAL_ATTACKS,
-            )
-        )
         _LOG.info('Generating operational k8s report for all platforms')
         ctx.add_reports(
             self.operational_k8s(
@@ -425,15 +851,6 @@ class MetricsCollector:
                 job_source=job_source,
                 sc_provider=sc_provider,
                 report_type=ReportType.OPERATIONAL_KUBERNETES,
-            )
-        )
-        _LOG.info('Generating operational deprecations report for all tenants')
-        ctx.add_reports(
-            self.operational_deprecation(
-                ctx=ctx,
-                job_source=job_source,
-                sc_provider=sc_provider,
-                report_type=ReportType.OPERATIONAL_DEPRECATION,
             )
         )
 
@@ -492,6 +909,7 @@ class MetricsCollector:
                 report_type=ReportType.PROJECT_FINOPS,
             )
         )
+        self._save_all(ctx, 'saving operational and project')
 
         # Department
         if not self._rms.was_collected_for_customer(
@@ -618,9 +1036,7 @@ class MetricsCollector:
                 )
             )
 
-        _LOG.info(f'Saving all reports items: {ctx.n_reports}')
-        for rep, data in ctx.iter_reports():
-            self._rms.save(rep, data)
+        self._save_all(ctx, 'saving department and c-level')
 
     def operational_overview(
         self,
@@ -639,15 +1055,14 @@ class MetricsCollector:
                 _LOG.warning(f'Tenant with name {tenant_name} not found!')
                 continue
             col = sc_provider.get_for_tenant(tenant, end)
-            if col is None:
+            if not col:
                 _LOG.warning(
-                    f'Cannot get shards collection for '
-                    f'{tenant.name} for {end}'
+                    f'Shards collection for {tenant.name} for {end} is empty'
                 )
                 continue
             tjs = js.subset(tenant=tenant.name)
             scd = ShardsCollectionDataSource(
-                col, ctx.metadata, tenant_cloud(tenant)
+                col, ctx.metadata, tenant_cloud(tenant), tenant.project
             )
             # NOTE: ignoring jobs that are not finished
             succeeded, failed = tjs.n_succeeded, tjs.n_failed
@@ -697,61 +1112,6 @@ class MetricsCollector:
                 tenants=[tenant.name],
             )
             yield item, data
-
-    def operational_resources(
-        self,
-        ctx: MetricsContext,
-        job_source: JobMetricsDataSource,
-        sc_provider: ShardsCollectionProvider,
-        report_type: ReportType,
-    ) -> ReportsGen:
-        start = report_type.start(ctx.now)
-        end = report_type.end(ctx.now)
-        js = job_source.subset(start=start, end=end, affiliation='tenant')
-        for tenant_name in js.scanned_tenants:
-            tenant = self._get_tenant(tenant_name)
-            if not tenant:
-                _LOG.warning(f'Tenant with name {tenant_name} not found!')
-                continue
-            col = sc_provider.get_for_tenant(tenant, end)
-            if col is None:
-                _LOG.warning(
-                    f'Cannot get shards collection for '
-                    f'{tenant.name} for {end}'
-                )
-                continue
-            outdated = []
-            lsd = js.subset(tenant=tenant.name).last_succeeded_scan_date
-            if not lsd:
-                outdated.append(tenant.name)
-                lsd = job_source.subset(
-                    tenant=tenant.name
-                ).last_succeeded_scan_date
-
-            data = {
-                'id': tenant.project,
-                'data': list(
-                    ShardsCollectionDataSource(
-                        col, ctx.metadata, tenant_cloud(tenant)
-                    ).resources()
-                ),
-                'last_scan_date': lsd,
-                'activated_regions': sorted(
-                    modular_helpers.get_tenant_regions(tenant)
-                ),
-                'outdated_tenants': outdated,
-            }
-            yield (
-                self._rms.create(
-                    key=ReportMetrics.build_key_for_tenant(
-                        report_type, tenant
-                    ),
-                    end=end,
-                    start=start,
-                    tenants=[tenant.name],
-                ),
-                data,
-            )
 
     def _expand_rules_statistics(
         self, it: Iterable['AverageStatisticsItem'], meta: dict | None = None
@@ -816,59 +1176,6 @@ class MetricsCollector:
                 data,
             )
 
-    def operational_finops(
-        self,
-        ctx: MetricsContext,
-        job_source: JobMetricsDataSource,
-        sc_provider: ShardsCollectionProvider,
-        report_type: ReportType,
-    ) -> ReportsGen:
-        start = report_type.start(ctx.now)
-        end = report_type.end(ctx.now)
-        js = job_source.subset(start=start, end=end, affiliation='tenant')
-        for tenant_name in js.scanned_tenants:
-            tenant = self._get_tenant(tenant_name)
-            if not tenant:
-                _LOG.warning(f'Tenant with name {tenant_name} not found!')
-                continue
-            col = sc_provider.get_for_tenant(tenant, end)
-            if col is None:
-                _LOG.warning(
-                    f'Cannot get shards collection for '
-                    f'{tenant.name} for {end}'
-                )
-                continue
-
-            outdated = []
-            lsd = js.subset(tenant=tenant.name).last_succeeded_scan_date
-            if not lsd:
-                outdated.append(tenant.name)
-                lsd = job_source.subset(
-                    tenant=tenant.name
-                ).last_succeeded_scan_date
-            data = {
-                'id': tenant.project,
-                'data': ShardsCollectionDataSource(
-                    col, ctx.metadata, tenant_cloud(tenant)
-                ).finops(),
-                'last_scan_date': lsd,
-                'activated_regions': sorted(
-                    modular_helpers.get_tenant_regions(tenant)
-                ),
-                'outdated_tenants': outdated,
-            }
-            yield (
-                self._rms.create(
-                    key=ReportMetrics.build_key_for_tenant(
-                        report_type, tenant
-                    ),
-                    end=end,
-                    start=start,
-                    tenants=[tenant.name],
-                ),
-                data,
-            )
-
     def operational_compliance(
         self,
         ctx: MetricsContext,
@@ -885,10 +1192,9 @@ class MetricsCollector:
                 _LOG.warning(f'Tenant with name {tenant_name} not found!')
                 continue
             col = sc_provider.get_for_tenant(tenant, end)
-            if col is None:
+            if not col:
                 _LOG.warning(
-                    f'Cannot get shards collection for '
-                    f'{tenant.name} for {end}'
+                    f'Shards collection for {tenant.name} for {end} is empty'
                 )
                 continue
             if tenant.cloud == Cloud.AWS:
@@ -951,97 +1257,6 @@ class MetricsCollector:
                 data,
             )
 
-    def operational_attacks(
-        self,
-        ctx: MetricsContext,
-        job_source: JobMetricsDataSource,
-        sc_provider: ShardsCollectionProvider,
-        report_type: ReportType,
-    ) -> ReportsGen:
-        start = report_type.start(ctx.now)
-        end = report_type.end(ctx.now)
-        js = job_source.subset(start=start, end=end, affiliation='tenant')
-        for tenant_name in js.scanned_tenants:
-            tenant = self._get_tenant(tenant_name)
-            if not tenant:
-                _LOG.warning(f'Tenant with name {tenant_name} not found!')
-                continue
-            col = sc_provider.get_for_tenant(tenant, end)
-            if col is None:
-                _LOG.warning(
-                    f'Cannot get shards collection for '
-                    f'{tenant.name} for {end}'
-                )
-                continue
-            mitre_data = []
-            ds = ShardsCollectionDataSource(
-                col, ctx.metadata, tenant_cloud(tenant)
-            )
-            for (
-                region,
-                service,
-                rt,
-                res,
-                attacks,
-            ) in ds.iter_resource_attacks():
-                at = []
-                for attack, rules in attacks.items():
-                    inner = attack.to_dict()
-                    inner['severity'] = sorted(
-                        (ctx.metadata.rule(r).severity.value for r in rules),
-                        key=cmp_to_key(SeverityCmp()),
-                    )[-1]
-                    inner['violations'] = [
-                        {
-                            'description': col.meta[rule]['description'],
-                            'remediation': ctx.metadata.rule(rule).remediation,
-                            'remediation_complexity': ctx.metadata.rule(
-                                rule
-                            ).remediation_complexity.value,
-                            'severity': ctx.metadata.rule(rule).severity.value,
-                        }
-                        for rule in rules
-                    ]
-                    at.append(inner)
-
-                mitre_data.append(
-                    {
-                        'region': region,
-                        'service': service,
-                        'resource_type': service_from_resource_type(rt),
-                        'resource': res,
-                        'attacks': at,
-                    }
-                )
-
-            outdated = []
-            lsd = js.subset(tenant=tenant.name).last_succeeded_scan_date
-            if not lsd:
-                outdated.append(tenant.name)
-                lsd = job_source.subset(
-                    tenant=tenant.name
-                ).last_succeeded_scan_date
-            data = {
-                'id': tenant.project,
-                'last_scan_date': lsd,
-                'activated_regions': sorted(
-                    modular_helpers.get_tenant_regions(tenant)
-                ),
-                'data': mitre_data,
-                'outdated_tenants': outdated,
-            }
-            yield (
-                self._rms.create(
-                    key=ReportMetrics.build_key_for_tenant(
-                        report_type, tenant
-                    ),
-                    end=end,
-                    start=start,
-                    tenants=[tenant.name],
-                ),
-                data,
-            )
-
     def operational_k8s(
         self,
         ctx: MetricsContext,
@@ -1058,52 +1273,11 @@ class MetricsCollector:
                 _LOG.warning(f'Platform with id {platform_id} not found!')
                 continue
             col = sc_provider.get_for_platform(platform, end)
-            if col is None:
+            if not col:
                 _LOG.warning(
-                    f'Cannot get shards collection for '
-                    f'{platform.platform_id} for {end}'
+                    f'Shards collection for {platform_id} for {end} is empty'
                 )
                 continue
-            ds = ShardsCollectionDataSource(
-                col, ctx.metadata, Cloud.KUBERNETES
-            )
-            mitre_data = []
-            for (
-                region,
-                service,
-                rt,
-                res,
-                attacks,
-            ) in ds.iter_resource_attacks():
-                at = []
-                for attack, rules in attacks.items():
-                    inner = attack.to_dict()
-                    inner['severity'] = sorted(
-                        (ctx.metadata.rule(r).severity.value for r in rules),
-                        key=cmp_to_key(SeverityCmp()),
-                    )[-1]
-                    inner['violations'] = [
-                        {
-                            'description': col.meta[rule]['description'],
-                            'remediation': ctx.metadata.rule(rule).remediation,
-                            'remediation_complexity': ctx.metadata.rule(
-                                rule
-                            ).remediation_complexity.value,
-                            'severity': ctx.metadata.rule(rule).severity.value,
-                        }
-                        for rule in rules
-                    ]
-                    at.append(inner)
-
-                mitre_data.append(
-                    {
-                        'region': region,
-                        'service': service,
-                        'resource_type': service_from_resource_type(rt),
-                        'resource': res,
-                        'attacks': at,
-                    }
-                )
 
             coverages = self._rs.calculate_coverages(
                 successful=self._rs.get_standard_to_controls_to_rules(
@@ -1120,17 +1294,40 @@ class MetricsCollector:
                 lsd = job_source.subset(
                     platform=platform_id
                 ).last_succeeded_scan_date
+
+            rule_resources = self._get_rule_resources(
+                collection=col, cloud=Cloud.KUBERNETES, metadata=ctx.metadata
+            )
+
+            view = MaestroReportResourceView()
+            attacks_gen = AttacksReportGenerator(
+                metadata=ctx.metadata, view=view
+            )
+            resources_gen = ResourcesReportGenerator(
+                metadata=ctx.metadata, view=view
+            )
+            resources = tuple(
+                KubernetesReport(report_type).accept(
+                    resources_gen, rule_resources=rule_resources, meta=col.meta
+                )
+            )
+            attacks = tuple(
+                KubernetesReport(report_type).accept(
+                    attacks_gen, rule_resources=rule_resources, meta=col.meta
+                )
+            )
+
             data = {
                 'tenant_name': platform.tenant_name,
                 'last_scan_date': lsd,
                 'region': platform.region,
                 'name': platform.name,
                 'type': platform.type.value,
-                'resources': list(ds.resources_no_regions()),
+                'resources': resources,
                 'compliance': {
                     st.full_name: cov for st, cov in coverages.items()
                 },
-                'mitre': mitre_data,
+                'mitre': attacks,
                 'outdated_tenants': outdated,
             }
 
@@ -1142,60 +1339,6 @@ class MetricsCollector:
                     end=end,
                     start=start,
                     tenants=[platform.tenant_name],
-                ),
-                data,
-            )
-
-    def operational_deprecation(
-        self,
-        ctx: MetricsContext,
-        job_source: JobMetricsDataSource,
-        sc_provider: ShardsCollectionProvider,
-        report_type: ReportType,
-    ) -> ReportsGen:
-        start = report_type.start(ctx.now)
-        end = report_type.end(ctx.now)
-        js = job_source.subset(start=start, end=end, affiliation='tenant')
-        for tenant_name in js.scanned_tenants:
-            tenant = self._get_tenant(tenant_name)
-            if not tenant:
-                _LOG.warning(f'Tenant with name {tenant_name} not found!')
-                continue
-            col = sc_provider.get_for_tenant(tenant, end)
-            if col is None:
-                _LOG.warning(
-                    f'Cannot get shards collection for '
-                    f'{tenant.name} for {end}'
-                )
-                continue
-            outdated = []
-            lsd = js.subset(tenant=tenant.name).last_succeeded_scan_date
-            if not lsd:
-                outdated.append(tenant.name)
-                lsd = job_source.subset(
-                    tenant=tenant.name
-                ).last_succeeded_scan_date
-            data = {
-                'id': tenant.project,
-                'last_scan_date': lsd,
-                'activated_regions': sorted(
-                    modular_helpers.get_tenant_regions(tenant)
-                ),
-                'data': list(
-                    ShardsCollectionDataSource(
-                        col, ctx.metadata, tenant_cloud(tenant)
-                    ).deprecation()
-                ),
-                'outdated_tenants': outdated,
-            }
-            yield (
-                self._rms.create(
-                    key=ReportMetrics.build_key_for_tenant(
-                        report_type, tenant
-                    ),
-                    end=end,
-                    start=start,
-                    tenants=[tenant.name],
                 ),
                 data,
             )
@@ -1337,12 +1480,10 @@ class MetricsCollector:
 
         for dn, reports in dn_to_reports.items():
             data = self.base_cloud_payload_dict()
-            outdated_tenants = set()
             tenants = set()
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
                 tenants.add(tenant.name)
-                outdated_tenants.update(item[1]['outdated_tenants'])
 
                 policies_data = []
                 for policy in item[1].get('data', []):
@@ -1362,8 +1503,8 @@ class MetricsCollector:
                 data[tenant_cloud(tenant).value] = {
                     'account_id': item[1]['id'],
                     'tenant_name': tenant.name,
-                    'last_scan_date': item[1]['last_scan_date'],
-                    'activated_regions': item[1]['activated_regions'],
+                    'last_scan_date': item[1]['metadata'].last_scan_date,
+                    'activated_regions': item[1]['metadata'].activated_regions,
                     'data': policies_data,
                 }
 
@@ -1376,7 +1517,7 @@ class MetricsCollector:
                     start=start,
                     tenants=tenants,
                 ),
-                {'outdated_tenants': list(outdated_tenants), 'data': data},
+                {'outdated_tenants': [], 'data': data},
             )
 
     def project_attacks(
@@ -1402,12 +1543,10 @@ class MetricsCollector:
 
         for dn, reports in dn_to_reports.items():
             data = self.base_cloud_payload_dict()
-            outdated_tenants = set()
             tenants = set()
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
                 tenants.add(tenant.name)
-                outdated_tenants.update(item[1]['outdated_tenants'])
 
                 new_mitre_data = {}
                 for res in item[1].get('data', ()):
@@ -1423,8 +1562,8 @@ class MetricsCollector:
                 data[tenant_cloud(tenant).value] = {
                     'account_id': item[1]['id'],
                     'tenant_name': tenant.name,
-                    'last_scan_date': item[1]['last_scan_date'],
-                    'activated_regions': item[1]['activated_regions'],
+                    'last_scan_date': item[1]['metadata'].last_scan_date,
+                    'activated_regions': item[1]['metadata'].activated_regions,
                     'attacks': [
                         {**attack.to_dict(), 'regions': regions_data}
                         for attack, regions_data in new_mitre_data.items()
@@ -1440,7 +1579,7 @@ class MetricsCollector:
                     start=start,
                     tenants=tenants,
                 ),
-                {'outdated_tenants': list(outdated_tenants), 'data': data},
+                {'outdated_tenants': [], 'data': data},
             )
 
     def project_finops(
@@ -1466,15 +1605,16 @@ class MetricsCollector:
 
         for dn, reports in dn_to_reports.items():
             data = self.base_cloud_payload_dict()
-            outdated_tenants = set()
             tenants = set()
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
                 tenants.add(tenant.name)
-                outdated_tenants.update(item[1]['outdated_tenants'])
 
                 service_data = []
-                for ss, ss_data in item[1].get('data', {}).items():
+                for finops_data in item[1].get('data', ()):
+                    ss = finops_data['service_section']
+                    ss_data = finops_data.get('rules_data', [])
+
                     rules_data = copy.deepcopy(ss_data)
                     for rule in rules_data:
                         rule['regions_data'] = {
@@ -1491,8 +1631,8 @@ class MetricsCollector:
                 data[tenant_cloud(tenant).value] = {
                     'account_id': item[1]['id'],
                     'tenant_name': tenant.name,
-                    'last_scan_date': item[1]['last_scan_date'],
-                    'activated_regions': item[1]['activated_regions'],
+                    'last_scan_date': item[1]['metadata'].last_scan_date,
+                    'activated_regions': item[1]['metadata'].activated_regions,
                     'service_data': service_data,
                 }
 
@@ -1505,7 +1645,7 @@ class MetricsCollector:
                     start=start,
                     tenants=tenants,
                 ),
-                {'outdated_tenants': list(outdated_tenants), 'data': data},
+                {'outdated_tenants': [], 'data': data},
             )
 
     def top_resources_by_cloud(
@@ -1528,10 +1668,9 @@ class MetricsCollector:
                 continue
             cloud = tenant_cloud(tenant)
             col = sc_provider.get_for_tenant(tenant, end)
-            if col is None:
+            if not col:
                 _LOG.warning(
-                    f'Cannot get shards collection for '
-                    f'{tenant.name} for {end}'
+                    f'Shards collection for {tenant.name} for {end} is empty'
                 )
                 continue
             tjs = js.subset(tenant=tenant.name)
@@ -1544,7 +1683,9 @@ class MetricsCollector:
                 ).last_succeeded_scan_date
             all_tenants.add(tenant.name)
 
-            sdc = ShardsCollectionDataSource(col, ctx.metadata, cloud)
+            sdc = ShardsCollectionDataSource(
+                col, ctx.metadata, cloud, tenant.project
+            )
 
             cloud_tenant.setdefault(cloud.value, []).append(
                 {
@@ -1609,15 +1750,16 @@ class MetricsCollector:
             sort_by = 0
             for cloud, tenant in self.yield_one_per_cloud(tenants):
                 col = sc_provider.get_for_tenant(tenant, end)
-                if col is None:
+                if not col:
                     _LOG.warning(
-                        f'Cannot get shards collection for '
-                        f'{tenant.name} for {end}'
+                        f'Shards collection for {tenant.name} for {end} is empty'
                     )
                     continue
                 tjs = js.subset(tenant=tenant.name)
                 # TODO: cache shards collection data source for the same dates
-                sdc = ShardsCollectionDataSource(col, ctx.metadata, cloud)
+                sdc = ShardsCollectionDataSource(
+                    col, ctx.metadata, cloud, tenant.project
+                )
 
                 lsd = tjs.last_succeeded_scan_date
                 if not lsd:
@@ -1684,10 +1826,9 @@ class MetricsCollector:
                 continue
             cloud = tenant_cloud(tenant)
             col = sc_provider.get_for_tenant(tenant, end)
-            if col is None:
+            if not col:
                 _LOG.warning(
-                    f'Cannot get shards collection for '
-                    f'{tenant.name} for {end}'
+                    f'Shards collection for {tenant.name} for {end} is empty'
                 )
                 continue
             if not js.subset(tenant=tenant.name).last_succeeded_scan_date:
@@ -1750,10 +1891,9 @@ class MetricsCollector:
             percents = []
             for cloud, tenant in self.yield_one_per_cloud(tenants):
                 col = sc_provider.get_for_tenant(tenant, end)
-                if col is None:
+                if not col:
                     _LOG.warning(
-                        f'Cannot get shards collection for '
-                        f'{tenant.name} for {end}'
+                        f'Shards collection for {tenant.name} for {end} is empty'
                     )
                     continue
                 tjs = js.subset(tenant=tenant.name)
@@ -1819,10 +1959,9 @@ class MetricsCollector:
                 continue
             cloud = tenant_cloud(tenant)
             col = sc_provider.get_for_tenant(tenant, end)
-            if col is None:
+            if not col:
                 _LOG.warning(
-                    f'Cannot get shards collection for '
-                    f'{tenant.name} for {end}'
+                    f'Shards collection for {tenant.name} for {end} is empty'
                 )
                 continue
             tjs = js.subset(tenant=tenant.name)
@@ -1835,7 +1974,9 @@ class MetricsCollector:
                 ).last_succeeded_scan_date
             all_tenants.add(tenant.name)
 
-            scd = ShardsCollectionDataSource(col, ctx.metadata, cloud)
+            scd = ShardsCollectionDataSource(
+                col, ctx.metadata, cloud, tenant.project
+            )
 
             tactic_severity = scd.tactic_to_severities()
 
@@ -1905,13 +2046,14 @@ class MetricsCollector:
             sort_by = 0
             for cloud, tenant in self.yield_one_per_cloud(tenants):
                 col = sc_provider.get_for_tenant(tenant, end)
-                if col is None:
+                if not col:
                     _LOG.warning(
-                        f'Cannot get shards collection for '
-                        f'{tenant.name} for {end}'
+                        f'Shards collection for {tenant.name} for {end} is empty'
                     )
                     continue
-                sdc = ShardsCollectionDataSource(col, ctx.metadata, cloud)
+                sdc = ShardsCollectionDataSource(
+                    col, ctx.metadata, cloud, tenant.project
+                )
                 if not js.subset(tenant=tenant.name).last_succeeded_scan_date:
                     outdated.add(tenant.name)
                 all_tenants.add(tenant.name)
@@ -1979,10 +2121,9 @@ class MetricsCollector:
             used_tenants = []
             for tenant in tenants:
                 col = sc_provider.get_for_tenant(tenant, end)
-                if col is None:
+                if not col:
                     _LOG.warning(
-                        f'Cannot get shards collection for '
-                        f'{tenant.name} for {end}'
+                        f'Shards collection for {tenant.name} for {end} is empty'
                     )
                     continue
                 all_tenants.add(tenant.name)
@@ -1990,7 +2131,7 @@ class MetricsCollector:
                     outdated.add(tenant.name)
 
                 sdc = ShardsCollectionDataSource(
-                    col, ctx.metadata, tenant_cloud(tenant)
+                    col, ctx.metadata, tenant_cloud(tenant), tenant.project
                 )
                 self._update_dict_values(rt_data, sdc.resource_types())
 
@@ -2050,10 +2191,9 @@ class MetricsCollector:
             calc = MappingAverageCalculator()
             for tenant in tenants:
                 col = sc_provider.get_for_tenant(tenant, end)
-                if col is None:
+                if not col:
                     _LOG.warning(
-                        f'Cannot get shards collection for '
-                        f'{tenant.name} for {end}'
+                        f'Shards collection for {tenant.name} for {end} is empty'
                     )
                     continue
                 all_tenants.add(tenant.name)
@@ -2111,10 +2251,9 @@ class MetricsCollector:
             tactic_severities = {}
             for tenant in tenants:
                 col = sc_provider.get_for_tenant(tenant, end)
-                if col is None:
+                if not col:
                     _LOG.warning(
-                        f'Cannot get shards collection for '
-                        f'{tenant.name} for {end}'
+                        f'Shards collection for {tenant.name} for {end} is empty'
                     )
                     continue
                 all_tenants.add(tenant.name)
@@ -2244,17 +2383,26 @@ class MetricsCollector:
 
     def __call__(self):
         _LOG.info('Starting metrics collector')
-        now = utc_datetime()  # TODO: allow to get from somewhere
+        now = utc_datetime()
 
         for customer in self._mc.customer_service().i_get_customer(
             is_active=True
         ):
+            if customer.name == SystemCustomer.get_name():
+                _LOG.info(f'Skipping metrics for {customer.name}')
+                continue
             _LOG.info(f'Collecting metrics for customer: {customer.name}')
-            # TODO: merge metadata if there are multiple licenses
-            metadata = self._ls.get_customer_metadata(customer.name)
-            with MetricsContext(customer, metadata, now) as ctx:
+            licenses = tuple(self._ls.iter_customer_licenses(customer.name))
+            if not licenses:
+                _LOG.warning(f'Customer {customer.name} has no licenses')
+            metadata = self._ls.get_metadata_for_licenses(licenses)
+            ctx = MetricsContext(
+                cst=customer, licenses=licenses, metadata=metadata, now=now
+            )
+
+            with ctx:
                 try:
-                    self.collect_metrics_for_customer(ctx)
+                    self.collect_metrics(ctx)
                 except Exception:
                     _LOG.exception(
                         f'Unexpected error occurred collecting metrics for {customer.name}'
@@ -2262,4 +2410,5 @@ class MetricsCollector:
                     raise
             self._tenants_cache.clear()
             self._platforms_cache.clear()
+            self._rulesets_cache.clear()
         return {}

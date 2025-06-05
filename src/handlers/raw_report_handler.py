@@ -64,7 +64,7 @@ class RawReportHandler(AbstractHandler):
             )
         # msgspec can dump parts directly
         resp['url'] = self._rs.one_time_url_json(
-            tuple(collection.iter_parts()),
+            tuple(collection.iter_all_parts()),
             f'{tenant.name}-raw.json'
         )
         if event.meta:

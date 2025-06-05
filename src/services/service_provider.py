@@ -295,7 +295,6 @@ class ServiceProvider(metaclass=SingletonMeta):
         from services.reports import ReportMetricsService
         return ReportMetricsService(
             s3_client=self.s3,
-            environment_service=self.environment_service
         )
 
     @cached_property

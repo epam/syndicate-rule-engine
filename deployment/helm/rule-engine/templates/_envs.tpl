@@ -89,6 +89,14 @@ env:
     value: {{ .Values.noProxy }}
   - name: SRE_LOG_LEVEL
     value: {{ .Values.logLevel }}
+  {{- if .Values.metricsExpirationDays }}
+  - name: SRE_METRICS_EXPIRATION_DAYS
+    value: {{ .Values.metricsExpirationDays | quote }}
+  {{- end }}
+  {{- if .Values.dojoPayloadSizeLimitBytes }}
+  - name: SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES
+    value: {{ .Values.dojoPayloadSizeLimitBytes | quote }}
+  {{- end }}
   - name: SRE_BATCH_JOB_LOG_LEVEL
     value: {{ .Values.executorLogLevel }}
   {{- if .Values.allowSimultaneousJobsForOneTenant }}

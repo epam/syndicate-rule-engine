@@ -172,22 +172,6 @@ class RulesetService(BaseDataService[Ruleset]):
             SystemCustomer.get_name(), True, name, EMPTY_VERSION
         )
 
-    def get_previous_ruleset(
-        self, ruleset: Ruleset, limit: Optional[int] = None
-    ) -> Iterator[Ruleset]:
-        """
-        Returns previous versions of the same ruleset
-        :param ruleset:
-        :param limit:
-        :return:
-        """
-        return self.model_class.customer_id_index.query(
-            hash_key=ruleset.customer,
-            range_key_condition=(self.model_class.id < ruleset.id),
-            scan_index_forward=False,
-            limit=limit,
-        )
-
     @classmethod
     def build_id(
         cls, customer: str, licensed: bool, name: str, version: str

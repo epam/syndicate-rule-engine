@@ -96,6 +96,7 @@ Options:
   --check              Checks whether update is available but do not try to update
   --no-backup          Do not do backup
   --defectdojo         Specify this flag to update Defect Dojo chart instead of Syndicate Rule Engine
+  --same-version       Fetches images and artifacts for the version of Syndicate Rule Engine that is currently installed and updates
   -h, --help           Show this message and exit
   -y, --yes            Automatic yes to prompts
 EOF
@@ -329,7 +330,7 @@ get_new_github_release() {
 
   while IFS= read -r item; do
     tag_name=$(jq -r '.tag_name' <<<"$item")
-    if [[ "$current_release" < "$tag_name" ]]; then
+    if dpkg --compare-versions "$tag_name" gt "$current_release"; then
       result="$item"
     elif [ -n "$result" ]; then  # higher or equal
       echo "$result"
@@ -722,10 +723,12 @@ cmd_update_list() {
   current_release="$(get_helm_release_version "$HELM_RELEASE_NAME")"
   while IFS= read -r item; do
     tag_name=$(jq -r '.tag_name' <<< "$item")
-    if [[ "$current_release" = "$tag_name" ]]; then
+    if [[ "$current_release" == "$tag_name" ]]; then
       jq -rj '"\(.tag_name)* \(.published_at) \(.html_url) \(.prerelease) \(.draft)"' <<<"$item" | colorize GREEN
     fi
-    [[ ! "$current_release" < "$tag_name" ]] && break
+    if dpkg --compare-versions "$tag_name" le "$current_release"; then
+      break
+    fi
     jq -rj '"\(.tag_name) \(.published_at) \(.html_url) \(.prerelease) \(.draft)\n"' <<<"$item"
   done < <(iter_github_releases "${iter_params[@]}") | column --table --table-columns RELEASE,DATE,URL,PRERELEASE,DRAFT
 }
@@ -926,7 +929,7 @@ restore_backup() {
   fi
   sha256sum "$2/$1.sha256" --check || return 1
   minikube cp "$2/$1.tar.gz" "$HELM_RELEASE_NAME:/data/$1.tar.gz"
-  minikube ssh "sudo rm -rf $host_path; sudo mkdir -p $host_path ; sudo tar --same-owner --overwrite -xzf /data/$1.tar.gz -C $host_path; rm -f /data/$1.tar.gz"  # todo what if error here
+  minikube ssh "sudo rm -rf $host_path; sudo mkdir -p $host_path ; sudo tar --same-owner --overwrite -xzf /data/$1.tar.gz -C $host_path; sudo rm -f /data/$1.tar.gz"  # TODO: what if error here
 }
 make_secrets_backup() {
   # accepts target file as a first parameter and secrets names as other parameters
@@ -1243,7 +1246,7 @@ verify_installation() {
 }
 
 # Start
-VERSION="1.1.0"
+VERSION="1.1.1"
 PROGRAM="${0##*/}"
 COMMAND="$1"
 
@@ -1255,7 +1258,7 @@ SRE_BACKUPS_PATH="${SRE_BACKUPS_PATH:-$SRE_LOCAL_PATH/backups}"
 GITHUB_REPO="${GITHUB_REPO:-epam/syndicate-rule-engine}"
 HELM_RELEASE_NAME="${HELM_RELEASE_NAME:-rule-engine}"
 DEFECTDOJO_HELM_RELEASE_NAME="${DEFECTDOJO_HELM_RELEASE_NAME:-defectdojo}"
-HELM_UPGRADE_TIMEOUT="${HELM_UPGRADE_TIMEOUT:-120}"
+HELM_UPGRADE_TIMEOUT="${HELM_UPGRADE_TIMEOUT:-1200}"
 DO_NOT_ACTIVATE_LICENSE="${DO_NOT_ACTIVATE_LICENSE:-}"
 DO_NOT_ACTIVATE_TENANT="${DO_NOT_ACTIVATE_TENANT:-}"
 

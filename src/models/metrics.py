@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
-from pynamodb.attributes import MapAttribute, UnicodeAttribute, ListAttribute
+from pynamodb.attributes import UnicodeAttribute, ListAttribute
+from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
 from helpers.constants import (
     COMPOUND_KEYS_SEPARATOR,
@@ -9,11 +10,21 @@ from helpers.constants import (
     ReportType,
 )
 from models import BaseModel
+from modular_sdk.models.pynamongo.attributes import BinaryAttribute
 
 if TYPE_CHECKING:
     from modular_sdk.models.tenant import Tenant
 
     from services.platform_service import Platform
+
+
+class CustomerEndIndex(GlobalSecondaryIndex):
+    class Meta:
+        index_name = 'c-e-index'
+        projection = AllProjection()
+
+    customer = UnicodeAttribute(hash_key=True, attr_name='c')
+    end = UnicodeAttribute(range_key=True, attr_name='e')
 
 
 class ReportMetrics(BaseModel):
@@ -23,15 +34,36 @@ class ReportMetrics(BaseModel):
 
     # type#customer#project#cloud#tenant#region
     key = UnicodeAttribute(hash_key=True, attr_name='k')
+    # report data is relevant as of this date
     end = UnicodeAttribute(range_key=True, attr_name='e')
+    # start date for a reporting period (if "period" can be applied to the sort of data)
     start = UnicodeAttribute(null=True, default=None, attr_name='s')
-    data = MapAttribute(default=dict, attr_name='d')
-    s3_url = UnicodeAttribute(null=True, default=None, attr_name='l')
+
+    # date when the report was created, it can be different from the date
+    # as of which data is collected. In case we generate a report retroactively
+    _created_at = UnicodeAttribute(null=True, attr_name='cd')
+
     customer = UnicodeAttribute(attr_name='c')
 
     # holds tenants that were involved in collecting this report
-    tenants = ListAttribute(of=UnicodeAttribute, default=list,
-                            attr_name='t')
+    tenants = ListAttribute(of=UnicodeAttribute, default=list, attr_name='t')
+
+    customer_end_index = CustomerEndIndex()
+
+    # either of these can be stored
+    data = BinaryAttribute(null=True, attr_name='b')
+
+    # url to payload
+    s3_url = UnicodeAttribute(null=True, default=None, attr_name='l')
+
+    content_type = UnicodeAttribute(null=True, attr_name='ct')
+    content_encoding = UnicodeAttribute(null=True, attr_name='ce')
+
+    @property
+    def created_at(self) -> str:
+        if self._created_at:
+            return self._created_at
+        return self.end
 
     @property
     def type(self) -> ReportType:
@@ -59,13 +91,6 @@ class ReportMetrics(BaseModel):
         if self.cloud is Cloud.KUBERNETES:
             return self.key.split(COMPOUND_KEYS_SEPARATOR, 5)[4] or None
         return
-
-    @property
-    def is_fetched(self) -> bool:
-        if not self.s3_url:
-            return True
-        # s3 path exists
-        return bool(self.data.as_dict())
 
     @property
     def entity(self) -> str:

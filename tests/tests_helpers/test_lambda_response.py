@@ -70,46 +70,46 @@ def test_json_lambda_response():
             'Lambda-Invocation-Trace-Id': 'mock'
         },
         'isBase64Encoded': False,
-        'body': '{"list":[1,2,3],"str":"value"}',
+        'body': b'{"list":[1,2,3],"str":"value"}',
     }
 
 
 class TestResponseFactory:
     def test_build_items(self):
         data = ResponseFactory(HTTPStatus.OK).items([1, 2, 3]).build()
-        assert data['body'] == '{"items":[1,2,3]}'
+        assert data['body'] == b'{"items":[1,2,3]}'
         data = ResponseFactory(HTTPStatus.OK).items(range(5)).build()
-        assert data['body'] == '{"items":[0,1,2,3,4]}'
+        assert data['body'] == b'{"items":[0,1,2,3,4]}'
 
     def test_build_data(self):
         data = ResponseFactory(HTTPStatus.OK).data({'key': 'value'}).build()
-        assert data['body'] == '{"data":{"key":"value"}}'
+        assert data['body'] == b'{"data":{"key":"value"}}'
 
     def test_build_message(self):
         data = ResponseFactory(HTTPStatus.OK).message('hello world').build()
-        assert data['body'] == '{"message":"hello world"}'
+        assert data['body'] == b'{"message":"hello world"}'
 
     def test_build_errors(self):
         data = ResponseFactory(HTTPStatus.OK).errors(
             [{'key': 'value'}]).build()
-        assert data['body'] == '{"errors":[{"key":"value"}]}'
+        assert data['body'] == b'{"errors":[{"key":"value"}]}'
 
     def test_build_raw(self):
         data = ResponseFactory(HTTPStatus.OK).raw({'token': '123'}).build()
-        assert data['body'] == '{"token":"123"}'
+        assert data['body'] == b'{"token":"123"}'
 
     def test_build_default(self):
         data = ResponseFactory(
             HTTPStatus.INSUFFICIENT_STORAGE).default().build()
-        assert data['body'] == '{"message":"Insufficient Storage"}'
+        assert data['body'] == b'{"message":"Insufficient Storage"}'
 
 
 def test_build_response():
-    assert build_response('hello')['body'] == '{"message":"hello"}'
+    assert build_response('hello')['body'] == b'{"message":"hello"}'
     assert (build_response({'key': 'value'})['body'] ==
-            '{"data":{"key":"value"}}')
+            b'{"data":{"key":"value"}}')
     assert (build_response([{'key': 'value'}])['body'] ==
-            '{"items":[{"key":"value"}]}')
+            b'{"items":[{"key":"value"}]}')
 
     def gen():
         yield {'k1': 'v1'}
@@ -117,7 +117,7 @@ def test_build_response():
         yield {'k3': 'v3'}
 
     assert (build_response(gen())['body'] ==
-            '{"items":[{"k1":"v1"},{"k2":"v2"},{"k3":"v3"}]}')
+            b'{"items":[{"k1":"v1"},{"k2":"v2"},{"k3":"v3"}]}')
 
     with pytest.raises(CustodianException):
         build_response(code=HTTPStatus.NOT_FOUND)

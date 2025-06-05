@@ -4,6 +4,7 @@ from unittest.mock import create_autospec, MagicMock
 
 import pytest
 
+from helpers.constants import PolicyErrorType
 from services.clients.s3 import S3Client
 from services.sharding import (SingleShardDistributor, ShardPart,
                                AWSRegionDistributor, Shard, ShardsIterator,
@@ -13,11 +14,14 @@ from services.sharding import (SingleShardDistributor, ShardPart,
 @pytest.fixture
 def make_shard_part():
     def _make_shard_part(location='global',
-                         policy='example-policy', resources=None):
+                         policy='example-policy', resources=None,
+                         error=None, previous_timestamp: float | None = None):
         return ShardPart(
             policy=policy,
             location=location,
-            resources=resources or []
+            resources=resources or [],
+            error=error,
+            previous_timestamp=previous_timestamp
         )
 
     return _make_shard_part
@@ -74,18 +78,15 @@ class TestShardDistributors:
 
 
 class TestShardPart:
-    def test_serialize_deserialize(self, make_shard_part):
-        part = make_shard_part('eu-central-1')
-        serialized = part.serialize()
-        assert 'p' in serialized
-        assert 'l' in serialized
-        assert 'r' in serialized
-        assert 't' in serialized
-
     def test_ts(self, make_shard_part):
         part1 = make_shard_part()
         part2 = make_shard_part()
         assert part1.timestamp <= part2.timestamp
+
+    def test_error(self, make_shard_part):
+        part = make_shard_part('global', 'policy', [], 'ACCESS:User: admin is not authorized')
+        assert part.error_type is PolicyErrorType.ACCESS
+        assert part.error_message == 'User: admin is not authorized'
 
 
 class TestShard:
@@ -161,9 +162,14 @@ class TestShardsS3IO:
         client.gz_get_object.return_value = io.BytesIO(
             b'[{"p":"policy","l":"global","t":1711309249.0,"r":[]}]'
         )
-        res = writer.read_raw(1)
-        assert res == [ShardPart(policy='policy', location='global',
-                                 timestamp=1711309249.0, resources=[])]
+        res = writer.read_raw(1)[0]
+        assert res.policy == 'policy'
+        assert res.location == 'global'
+        assert res.timestamp == 1711309249.0
+        assert res.resources == []
+        assert res.error is None
+        assert res.previous_timestamp is None
+
         client.gz_get_object.assert_called()
 
     def test_read_meta(self):
@@ -257,3 +263,25 @@ class TestShardCollection:
         assert (len(p1.resources) == 2 and {'k2': 'v2'} in p1.resources
                 and {'k3': 'v3'} in p1.resources)
         assert p2.resources == [{'k3': 'v3'}]
+
+    def test_bool(self, make_shard_part):
+        collection = self.create_collection()
+        assert not collection
+
+        part = make_shard_part(
+            location='eu-west-1',
+            policy='policy2',
+            resources=[{'k3': 'v3'}]
+        )
+        collection.put_part(part)
+        assert collection
+
+        collection.drop_part(part)
+        assert not collection
+
+        collection.put_part(part)
+
+        assert collection
+
+        collection.drop_part('policy2', 'eu-west-1')
+        assert not collection

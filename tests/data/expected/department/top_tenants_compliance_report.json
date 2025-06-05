@@ -1,6 +1,5 @@
 {
   "receivers": [],
-  "report_type": "COMPLIANCE_BY_TENANT",
   "customer": "TEST_CUSTOMER",
   "from": "2025-01-01T00:00:00Z",
   "to": "2025-02-01T00:00:00Z",

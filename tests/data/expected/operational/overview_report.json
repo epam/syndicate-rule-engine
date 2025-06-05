@@ -2,16 +2,15 @@
   "receivers": [
     "admin@gmail.com"
   ],
-  "report_type": "OVERVIEW",
   "customer": "TEST_CUSTOMER",
   "from": "2025-01-28T15:20:06.140240Z",
   "to": "2025-02-04T15:20:06.140240Z",
   "outdated_tenants": [],
   "externalData": false,
   "data": {
-    "total_scans": 3,
+    "total_scans": 2,
     "failed_scans": 1,
-    "succeeded_scans": 2,
+    "succeeded_scans": 1,
     "resources_violated": 23,
     "regions_data": {
       "eu-central-1": {

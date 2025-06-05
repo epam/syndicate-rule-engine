@@ -2,7 +2,6 @@
   "receivers": [
     "admin@gmail.com"
   ],
-  "report_type": "RULE",
   "customer": "TEST_CUSTOMER",
   "from": "2025-01-28T12:19:03.513541Z",
   "to": "2025-02-04T12:19:03.513541Z",

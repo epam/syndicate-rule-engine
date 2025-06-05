@@ -71,18 +71,26 @@ SRE_REPORTS_TYPE_TO_M3_MAPPING = {
 }
 
 
-class MaestroReport(TypedDict):
-    receivers: list[str] | tuple[str, ...]
-    report_type: str
-    customer: str
-    # from
+class ReportMetadata(msgspec.Struct, kw_only=True, eq=False, frozen=True):
+    type: ReportType
+    description: str
+    version: str
+    created_at: str
     to: str
-    outdated_tenants: list
+    from_: str | None = msgspec.field(default=None, name='from')
+
+
+class MaestroReport(TypedDict, total=False):
+    # NOTE: these are not all the fields
+    receivers: list[str] | tuple[str, ...]
+    metadata: ReportMetadata
+    customer: str
+
+    data: list | dict
+
     externalData: bool
     externalDataKey: NotRequired[str]
     externalDataBucket: NotRequired[str]
-
-    data: list | dict
 
 
 def _compliance_diff_callback(key, new, old) -> dict:
@@ -101,56 +109,6 @@ class MaestroModelBuilder:
     """
 
     __slots__ = ('_receivers',)
-
-    @staticmethod
-    def convert_to_old_rt(rt: ReportType) -> str:
-        """
-        Some field that Maestro needs (or does not). Anyway it's in the model
-        """
-        match rt:
-            case (
-                ReportType.OPERATIONAL_RESOURCES
-                | ReportType.PROJECT_RESOURCES
-            ):
-                return 'RESOURCES'
-            case (
-                ReportType.OPERATIONAL_OVERVIEW
-                | ReportType.PROJECT_OVERVIEW
-                | ReportType.C_LEVEL_OVERVIEW
-            ):
-                return 'OVERVIEW'
-            case (
-                ReportType.OPERATIONAL_COMPLIANCE
-                | ReportType.PROJECT_COMPLIANCE
-                | ReportType.C_LEVEL_COMPLIANCE
-            ):
-                return 'COMPLIANCE'
-            case (
-                ReportType.OPERATIONAL_ATTACKS
-                | ReportType.PROJECT_ATTACKS
-                | ReportType.C_LEVEL_ATTACKS
-            ):
-                return 'ATTACK_VECTOR'
-            case ReportType.OPERATIONAL_RULES:
-                return 'RULE'
-            case ReportType.OPERATIONAL_FINOPS | ReportType.PROJECT_FINOPS:
-                return 'FINOPS'
-            case ReportType.OPERATIONAL_KUBERNETES:
-                return 'KUBERNETES'
-            case ReportType.OPERATIONAL_DEPRECATION:
-                return 'DEPRECATIONS'
-            case ReportType.DEPARTMENT_TOP_RESOURCES_BY_CLOUD:
-                return 'RESOURCES_BY_CLOUD'
-            case ReportType.DEPARTMENT_TOP_TENANTS_RESOURCES:
-                return 'RESOURCES_BY_TENANT'
-            case ReportType.DEPARTMENT_TOP_TENANTS_COMPLIANCE:
-                return 'COMPLIANCE_BY_TENANT'
-            case ReportType.DEPARTMENT_TOP_COMPLIANCE_BY_CLOUD:
-                return 'COMPLIANCE_BY_CLOUD'
-            case ReportType.DEPARTMENT_TOP_TENANTS_ATTACKS:
-                return 'ATTACK_BY_TENANT'
-            case ReportType.DEPARTMENT_TOP_ATTACK_BY_CLOUD:
-                return 'ATTACK_BY_CLOUD'
 
     def __init__(self, receivers: tuple[str, ...] = ()):
         self._receivers = receivers  # base receivers
@@ -184,7 +142,7 @@ class MaestroModelBuilder:
     def _operational_resources_custom(rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.OPERATIONAL_RESOURCES
         result = []
-        for item in data.get('data', []):
+        for item in data.get('data', ()):
             rd = {}
             for region, res in item.pop('resources', {}).items():
                 rd[region] = {'resources': res}
@@ -193,11 +151,10 @@ class MaestroModelBuilder:
         return {
             'tenant_name': rep.tenant,
             'id': data['id'],
-            'outdated_tenants': data['outdated_tenants'],
             'cloud': rep.cloud.value,  # pyright: ignore
-            'activated_regions': data['activated_regions'],
-            'last_scan_date': data['last_scan_date'],
+            'tenant_metadata': data['metadata'],
             'data': result,
+            'externalData': False,
         }
 
     @staticmethod
@@ -219,24 +176,18 @@ class MaestroModelBuilder:
     @staticmethod
     def _operational_finops_custom(rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.OPERATIONAL_FINOPS
-        result = []
-        for ss, rules in data['data'].items():
-            for rule in rules:
-                rule['regions_data'] = {
-                    region: {'resources': resources}
-                    for region, resources in rule.pop('resources', {}).items()
-                }
-
-            result.append({'service_section': ss, 'rules_data': rules})
-
+        for item in data.setdefault('data', []):
+            for rules_data in item.setdefault('rules_data', []):
+                rd = {}
+                for region, res in rules_data.pop('resources', {}).items():
+                    rd[region] = {'resources': res}
+                rules_data['regions_data'] = rd
         return {
             'tenant_name': rep.tenant,
             'id': data['id'],
-            'outdated_tenants': data['outdated_tenants'],
             'cloud': rep.cloud.value,  # pyright: ignore
-            'activated_regions': data['activated_regions'],
-            'last_scan_date': data['last_scan_date'],
-            'data': result,
+            'tenant_metadata': data['metadata'],
+            'data': data['data'],
         }
 
     @staticmethod
@@ -252,10 +203,8 @@ class MaestroModelBuilder:
         return {
             'tenant_name': rep.tenant,
             'id': data['id'],
-            'outdated_tenants': data['outdated_tenants'],
             'cloud': rep.cloud.value,  # pyright: ignore
-            'activated_regions': data['activated_regions'],
-            'last_scan_date': data['last_scan_date'],
+            'tenant_metadata': data['metadata'],
             'data': data['data'],
         }
 
@@ -290,16 +239,16 @@ class MaestroModelBuilder:
             'tenant_name': rep.tenant,
             'id': data['id'],
             'cloud': rep.cloud.value,  # pyright: ignore
-            'outdated_tenants': data['outdated_tenants'],
-            'activated_regions': data['activated_regions'],
-            'last_scan_date': data['last_scan_date'],
+            'tenant_metadata': data['metadata'],
             'data': data['data'],
         }
 
-    @staticmethod
-    def _operational_k8s_custom(rep: ReportMetrics, data: dict) -> dict:
+    def _operational_k8s_custom(self, rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.OPERATIONAL_KUBERNETES
         return {
+            'metadata': self.build_report_metadata(
+                rep
+            ),  # kludge, remove when fixed
             'tenant_name': data['tenant_name'],
             'last_scan_date': data['last_scan_date'],
             'outdated_tenants': data['outdated_tenants'],
@@ -319,7 +268,6 @@ class MaestroModelBuilder:
     def build_base(self, rep: ReportMetrics) -> MaestroReport:
         return {
             'receivers': self._receivers,
-            'report_type': self.convert_to_old_rt(rep.type),
             'customer': rep.customer,
             'from': rep.start
             if rep.start
@@ -328,6 +276,15 @@ class MaestroModelBuilder:
             ),  # TODO: fix on maestro side. Not every report can have "from"
             'to': rep.end,
             'outdated_tenants': [],
+            'externalData': False,
+            'data': {},
+        }
+
+    def new_base(self, rep: ReportMetrics) -> MaestroReport:
+        return {
+            'receivers': self._receivers,
+            'customer': rep.customer,
+            'metadata': self.build_report_metadata(rep),
             'externalData': False,
             'data': {},
         }
@@ -539,6 +496,17 @@ class MaestroModelBuilder:
             ]
         return data
 
+    @staticmethod
+    def build_report_metadata(rep: ReportMetrics) -> ReportMetadata:
+        return ReportMetadata(
+            type=rep.type,
+            description=rep.type.description,
+            version='2.0.0',  # maybe use version of sre
+            created_at=rep.created_at,
+            to=rep.end,
+            from_=rep.start,
+        )
+
     def convert(
         self, rep: ReportMetrics, data: dict, previous_data: dict | None = None
     ) -> MaestroReport:
@@ -548,18 +516,22 @@ class MaestroModelBuilder:
             case ReportType.OPERATIONAL_OVERVIEW:
                 custom = self._operational_overview_custom(rep, data)
             case ReportType.OPERATIONAL_RESOURCES:
+                base = self.new_base(rep)
                 custom = self._operational_resources_custom(rep, data)
             case ReportType.OPERATIONAL_RULES:
                 custom = self._operational_rules_custom(rep, data)
             case ReportType.OPERATIONAL_FINOPS:
+                base = self.new_base(rep)
                 custom = self._operational_finops_custom(rep, data)
             case ReportType.OPERATIONAL_COMPLIANCE:
                 custom = self._operational_compliance_custom(rep, data)
             case ReportType.OPERATIONAL_ATTACKS:
+                base = self.new_base(rep)
                 custom = self._operational_attacks_custom(rep, data)
             case ReportType.OPERATIONAL_KUBERNETES:
                 custom = self._operational_k8s_custom(rep, data)
             case ReportType.OPERATIONAL_DEPRECATION:
+                base = self.new_base(rep)
                 custom = self._operational_deprecations_custom(rep, data)
             case ReportType.PROJECT_OVERVIEW:
                 custom = self._project_overview_custom(rep, data)
@@ -595,6 +567,8 @@ class MaestroModelBuilder:
                 custom = self._c_level_compliance_custom(
                     rep, data, previous_data
                 )
+            case _:
+                raise
         base.update(custom)
         return base
 
@@ -608,7 +582,7 @@ class MaestroReportToS3Packer:
     # actual Maestro RabbitMQ limit seems to be 5mb, but the data that we
     # send is converted/compressed somehow inside modular-sdk before being sent
     # to Maestro. So I put 4mb here (just in case)
-    _default_size_limit = (2 << 19) * 4
+    _default_size_limit = (1 << 20) * 4
     _encoder = msgspec.json.Encoder()
 
     __slots__ = '_s3', '_bucket', '_limit', '_mapping'
@@ -623,10 +597,10 @@ class MaestroReportToS3Packer:
         self._bucket = bucket
         self._limit = size_limit
         self._mapping = {
-            'KUBERNETES': self._pack_k8s,
-            'FINOPS': self._pack_finops,
-            'RESOURCES': self._pack_resources,
-            'ATTACK_VECTOR': self._pack_attacks,
+            ReportType.OPERATIONAL_KUBERNETES: self._pack_k8s,
+            ReportType.OPERATIONAL_FINOPS: self._pack_finops,
+            ReportType.OPERATIONAL_RESOURCES: self._pack_resources,
+            ReportType.OPERATIONAL_ATTACKS: self._pack_attacks,
         }
 
     def _pack_k8s(self, data: dict) -> bytearray:
@@ -705,7 +679,13 @@ class MaestroReportToS3Packer:
         change the given "report" dict in place and also returns it (just for
         convenience).
         """
-        typ = report['report_type']
+        # TODO: this is a kludge, rewrite it when all reports have same format
+        typ = getattr(report.get('metadata'), 'type', None)
+        if not typ:
+            return report
+        if typ is ReportType.OPERATIONAL_KUBERNETES:
+            # kludge, remove when fixed
+            report.pop('metadata')
         if typ not in self._mapping:
             return report
         # typ in mapping
@@ -713,8 +693,7 @@ class MaestroReportToS3Packer:
         if not self._is_too_big(data):
             return report
         _LOG.info(
-            f'Report size is bigger than limit: {self._limit}. '
-            f'Writing to S3'
+            f'Report size is bigger than limit: {self._limit}. Writing to S3'
         )
         customer = report['customer']
         key = f'{customer}/{str(uuid.uuid4())}.jsonl'

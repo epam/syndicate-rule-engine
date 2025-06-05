@@ -344,8 +344,6 @@ AUTHORIZATION_PARAM = 'authorization'
 # on-prem
 DOCKER_SERVICE_MODE, SAAS_SERVICE_MODE = 'docker', 'saas'
 
-ENV_TRUE = {'1', 'true', 'yes', 'y'}
-
 # RabbitMQ request
 EXTERNAL_DATA_ATTR = 'externalData'
 EXTERNAL_DATA_KEY_ATTR = 'externalDataKey'
@@ -353,7 +351,7 @@ EXTERNAL_DATA_BUCKET_ATTR = 'externalDataBucket'
 
 
 _SENTINEL = object()
-_E = TypeVar('_E', bound=Enum)
+_E = TypeVar('_E')
 
 
 class EnvEnum(str, Enum):
@@ -512,6 +510,11 @@ class CAASEnv(EnvEnum):
         ('CAAS_RECOMMENDATIONS_BUCKET_NAME',),
         'recommendation',
     )
+    REPORTS_SNAPSHOTS_LIFETIME_DAYS = (
+        'SRE_REPORTS_SNAPSHOTS_LIFETIME_DAYS',
+        (),
+        '65',
+    )
 
     # Cognito either one will work, but ID faster and safer
     USER_POOL_NAME = 'SRE_USER_POOL_NAME', ('CAAS_USER_POOL_NAME',)
@@ -634,6 +637,12 @@ class CAASEnv(EnvEnum):
 
     # Cloud Custodian
     CC_LOG_LEVEL = 'SRE_CC_LOG_LEVEL', (), 'INFO'
+
+    # Dojo
+    DOJO_PAYLOAD_SIZE_LIMIT_BYTES = 'SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES', (),
+
+    # Metrics
+    METRICS_EXPIRATION_DAYS = 'SRE_METRICS_EXPIRATION_DAYS', (),
 
     @classmethod
     def is_docker(cls) -> bool:
@@ -1135,6 +1144,7 @@ _previous_month_start = relativedelta(
 _this_month_start = relativedelta(
     hour=0, minute=0, second=0, microsecond=0, day=1
 )
+_relative_now = relativedelta()
 
 
 class ReportType(str, Enum):
@@ -1148,7 +1158,8 @@ class ReportType(str, Enum):
     If start date is omitted it means that either start date is not important
     for this type of report (for example report as of specific date) or
     the report needs all historical data available without lower bound. It
-    depends on report type but currently there are no the latters.
+    depends on report type but currently there are no those
+    "without lower bound" (fortunately).
     Also, the principal entity for any report depends on report type.
 
     Currently, it can be described as:
@@ -1174,7 +1185,7 @@ class ReportType(str, Enum):
         obj._value_ = value
 
         obj.description = description
-        obj.r_end = r_end or relativedelta()
+        obj.r_end = r_end or _relative_now
         obj.r_start = r_start
         return obj
 
@@ -1188,6 +1199,9 @@ class ReportType(str, Enum):
         if not self.r_start:
             return
         return now + self.r_start
+
+    def is_as_of_now(self) -> bool:
+        return self.r_end == _relative_now
 
     # Operational, kind of for one tenant
     OPERATIONAL_OVERVIEW = (

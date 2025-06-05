@@ -84,7 +84,8 @@ class DefectDojoHandler(AbstractHandler):
     def query(self, event: DefectDojoQueryModel):
         cursor = self._aps.i_get_application_by_customer(
             customer_id=event.customer,
-            application_type=ApplicationType.DEFECT_DOJO.value
+            application_type=ApplicationType.DEFECT_DOJO.value,
+            deleted=False
         )
         cursor = self._dds.to_dojos(cursor)
         return build_response(content=map(self._dds.dto, cursor))
