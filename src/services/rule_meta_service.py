@@ -452,7 +452,7 @@ class RuleService(BaseDataService[Rule]):
             # duplicate and either no rules_version or
             # rule.version != rules_version
             if (name_rule[_name].version != rules_version and
-                    name_rule[_name].version < rule.version):
+                    name_rule[_name].normalized_version < rule.normalized_version):
                 name_rule[_name] = rule  # override with the largest version
         yield from name_rule.values()
 

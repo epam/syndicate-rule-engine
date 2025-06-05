@@ -10,6 +10,7 @@ from helpers.constants import (
     Cloud,
     RuleSourceType,
 )
+from helpers.rules import from_normalized_version, to_normalized_version
 from models import BaseModel
 
 R_ID_ATTR = 'id'
@@ -291,7 +292,21 @@ class Rule(BaseModel):
         :return:
         """
         v = self.id.split(COMPOUND_KEYS_SEPARATOR)[3]
-        return None if v == self.latest_version_tag() else v
+        if not v or v == self.latest_version_tag():
+            return None
+        return from_normalized_version(v)
+    
+    @property
+    def normalized_version(self) -> str:
+        """
+        Return normalized version. Latest or absent version will return ':', 
+        so that it is bigger then any other version
+        :return:
+        """
+        v = self.id.split(COMPOUND_KEYS_SEPARATOR)[3]
+        if not v or v == self.latest_version_tag():
+            return ':' # : > 999999.999999.999999
+        return to_normalized_version(v)
 
     @property
     def git_project(self) -> str | None:

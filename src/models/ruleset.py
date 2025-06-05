@@ -4,6 +4,7 @@ from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 from helpers import Version
 from helpers.constants import COMPOUND_KEYS_SEPARATOR, CAASEnv
 from helpers.time_helper import utc_iso
+from helpers.rules import to_normalized_version, from_normalized_version
 from models import BaseModel
 
 RULESET_LICENSES = 'L'
@@ -58,12 +59,13 @@ class Ruleset(BaseModel):
 
     @property
     def version(self) -> str:
-        return self.id.split(COMPOUND_KEYS_SEPARATOR)[3]
+        v = self.id.split(COMPOUND_KEYS_SEPARATOR)[3]
+        return from_normalized_version(v) if v else v
 
     @version.setter
     def version(self, value: str):
         items = self.id.split(COMPOUND_KEYS_SEPARATOR)
-        items[3] = value
+        items[3] = to_normalized_version(value) if value else value
         self.id = COMPOUND_KEYS_SEPARATOR.join(items)
 
     @property

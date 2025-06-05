@@ -3,6 +3,7 @@ from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
 from helpers.constants import CAASEnv, CUSTOMER_ATTR, \
     GIT_PROJECT_ID_ATTR, RuleSourceType
+from helpers.rules import from_normalized_version
 from models import BaseModel
 
 
@@ -67,8 +68,10 @@ class RuleSource(BaseModel):
 
     @property
     def version(self) -> str | None:
-        return self.latest_sync.version
+        return from_normalized_version(self.latest_sync.version)\
+            if self.latest_sync.version else None
 
     @property
     def cc_version(self) -> str | None:
-        return self.latest_sync.cc_version
+        return from_normalized_version(self.latest_sync.cc_version)\
+            if self.latest_sync.cc_version else None

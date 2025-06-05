@@ -1338,3 +1338,5 @@ class RabbitCommand(str, Enum):
 class ScheduledJobType(str, Enum):
     STANDARD = 'standard'
     SYSTEM = 'system'
+
+VERSION_NORM_LENGTH = 6
