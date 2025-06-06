@@ -2480,8 +2480,8 @@ wheels = [
 
 [[package]]
 name = "modular-sdk"
-version = "7.0.0"
-source = { registry = "https://pypi.org/simple" }
+version = "7.1.0"
+source = { git = "https://github.com/epam/modular-sdk?rev=rabbitmq-size-limit#5c3088c5fd01bb57d9a36681d7b66332d01bcd66" }
 dependencies = [
     { name = "boto3" },
     { name = "botocore" },
@@ -2490,10 +2490,6 @@ dependencies = [
     { name = "pymongo" },
     { name = "pynamodb" },
     { name = "python-dateutil" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/a3/11/65469d496a964c5bebda7354aed5b930c60c26f369d86a8eb21584265199/modular_sdk-7.0.0.tar.gz", hash = "sha256:968811fc3ca69b160b8e271c49ad34776a7abce14cd15c18699b8012d3c43bd9", size = 78556 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9a/32/0730bcb35570ebfa0e4bce8238a25d1bcc64828568a95c2694a779acf322/modular_sdk-7.0.0-py3-none-any.whl", hash = "sha256:fdf7257c316285fd6a78f3ad11bc57104ae9763dac9165ce7d8ef232bd654852", size = 99352 },
 ]
 
 [[package]]
@@ -2906,14 +2902,15 @@ wheels = [
 
 [[package]]
 name = "pynamodb"
-version = "5.5.1"
+version = "6.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "botocore" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d1/e6/60f364b45f72311b3213b102d2a9b4c2f0a72d1757dc55c7336099e594ab/pynamodb-5.5.1.tar.gz", hash = "sha256:b9d9a59afd9edbc3db63a267e67db764831f277477ae744ed4febb778ef1a098", size = 93091 }
+sdist = { url = "https://files.pythonhosted.org/packages/af/0b/35d24cdfe532fd9c774c184fbd09118b0a8c94eb51ca9598c0c5ef21174d/pynamodb-6.1.0.tar.gz", hash = "sha256:c7d09700ace9f428e67ecf73fa867633c632de3acf402b2c7c136be695afda79", size = 96283 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/29/bc/6c64c75ca93de0c95d48cf1b61400a1241676c2cb8f21618e7127f117b00/pynamodb-5.5.1-py3-none-any.whl", hash = "sha256:6aa659c11d4a8a18ef2d75392a08828d45ab9eefb9638871d455929a52d66fc3", size = 60212 },
+    { url = "https://files.pythonhosted.org/packages/d4/86/71e355d232f28adb50c89b806b018548c095a6cf3d631b645918f415212a/pynamodb-6.1.0-py3-none-any.whl", hash = "sha256:9c0f1a0f177208640b2336ed56c557c5187b0012d356e9c7399c3923c5f93c7f", size = 61685 },
 ]
 
 [[package]]
@@ -3410,12 +3407,12 @@ requires-dist = [
     { name = "gunicorn", specifier = "~=23.0.0" },
     { name = "hvac", specifier = "~=2.3.0" },
     { name = "jwcrypto", specifier = "==1.5.6" },
-    { name = "modular-sdk", specifier = "~=7.0.0" },
+    { name = "modular-sdk", git = "https://github.com/epam/modular-sdk?rev=rabbitmq-size-limit" },
     { name = "msgspec", specifier = "==0.18.6" },
     { name = "openpyxl", specifier = "==3.0.10" },
     { name = "pydantic", specifier = "==2.8.2" },
     { name = "pymongo", specifier = "==4.11.2" },
-    { name = "pynamodb", specifier = "==5.5.1" },
+    { name = "pynamodb", specifier = "==6.1.0" },
     { name = "python-dateutil", specifier = ">=2.9.0.post0" },
     { name = "pytz-deprecation-shim", specifier = "==0.1.0.post0" },
     { name = "redis", specifier = "==5.2.1" },
