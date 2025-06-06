@@ -68,10 +68,8 @@ class RuleSource(BaseModel):
 
     @property
     def version(self) -> str | None:
-        return from_normalized_version(self.latest_sync.version)\
-            if self.latest_sync.version else None
+        return self.latest_sync.version
 
     @property
     def cc_version(self) -> str | None:
-        return from_normalized_version(self.latest_sync.cc_version)\
-            if self.latest_sync.cc_version else None
+        return self.latest_sync.cc_version
