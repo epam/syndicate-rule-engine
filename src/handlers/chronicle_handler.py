@@ -3,6 +3,7 @@ from typing import Iterable
 
 from modular_sdk.commons.constants import ApplicationType, ParentType
 from modular_sdk.models.parent import Parent
+from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.application_service import ApplicationService
 from modular_sdk.services.parent_service import ParentService
 
@@ -15,7 +16,7 @@ from services.abs_lambda import ProcessedEvent
 from services.chronicle_service import ChronicleInstanceService, \
     ChronicleParentMeta
 from services.modular_helpers import ResolveParentsPayload, \
-    build_parents, get_activation_dto
+    build_parents, get_activation_dto, iter_tenants_by_names
 from validators.swagger_request_models import (
     BaseModel,
     BasePaginationModel,
@@ -141,6 +142,18 @@ class ChronicleHandler(AbstractHandler):
             raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
                 self._chr.not_found_message(id)
             ).exc()
+        if event.tenant_names:
+            it = iter_tenants_by_names(
+                tenant_service=self._ps.tenant_service,
+                customer=event.customer_id,
+                names=event.tenant_names,
+                attributes_to_get=(Tenant.name, )
+            )
+            tenants = {tenant.name for tenant in it}
+            if missing := event.tenant_names - tenants:
+                raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                    f'Active tenant(s) {", ".join(missing)} not found'
+                ).exc()
         for parent in self.get_all_activations(item.id, event.customer):
             self._ps.force_delete(parent)
 

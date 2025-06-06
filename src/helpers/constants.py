@@ -1338,3 +1338,7 @@ class RabbitCommand(str, Enum):
 class ScheduledJobType(str, Enum):
     STANDARD = 'standard'
     SYSTEM = 'system'
+
+
+TENANTS_QUERY_THRESHOLD = 20
+

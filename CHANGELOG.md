@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.11.0] - 2025-06-04
+- [EPMCEOOS-5765] added validations whether tenants exists for all "activation" endpoints
+- 
+
 ## [5.10.0] - 2025-05-14
 - changed dojo client to import scans in batches
 - added 65 days ttl for findings snapshots
