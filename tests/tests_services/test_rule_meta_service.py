@@ -1,5 +1,7 @@
 from helpers.constants import RuleDomain
+from models.rule import Rule
 from services.rule_meta_service import RuleName
+from services.rule_meta_service import RuleService
 
 
 def test_rule_name():
@@ -32,3 +34,22 @@ def test_rule_name():
     assert rule.cloud == RuleDomain.KUBERNETES
 
     assert RuleName('').vendor == ''
+
+def test_rule_without_duplicates():
+    rules = [
+        Rule(id='customer#AWS#name_1#000001.000002.000003'),
+        Rule(id='customer#AWS#name_1#000001.000005.000012'),
+        Rule(id='customer#AWS#name_1#000001.000012.000003'),
+        Rule(id='customer#AWS#name_2#000003.000002.000003'),
+        Rule(id='customer#AWS#name_2#000012.000002.000004'),
+    ]
+    
+    distinct_rules = list(RuleService.without_duplicates(rules, '1.2.3'))
+    assert len(distinct_rules) == 2
+    assert {rule.id for rule in distinct_rules} == \
+        {'customer#AWS#name_1#000001.000002.000003', 'customer#AWS#name_2#000012.000002.000004'}
+    
+    distinct_rules = list(RuleService.without_duplicates(rules))
+    assert len(distinct_rules) == 2
+    assert {rule.id for rule in distinct_rules} == \
+        {'customer#AWS#name_1#000001.000012.000003', 'customer#AWS#name_2#000012.000002.000004'}
