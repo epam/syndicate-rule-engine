@@ -1339,4 +1339,6 @@ class ScheduledJobType(str, Enum):
     STANDARD = 'standard'
     SYSTEM = 'system'
 
+
 VERSION_NORM_LENGTH = 6
+TENANTS_QUERY_THRESHOLD = 20
