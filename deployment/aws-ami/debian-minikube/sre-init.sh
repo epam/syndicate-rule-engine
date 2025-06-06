@@ -272,6 +272,12 @@ die() {
   exit 1
 }
 warn() { echo "Warning:" "$@" >&2; }
+_debug() {
+  if [ -z "$SRE_INIT_DEBUG" ]; then
+    return 0
+  fi
+  echo "Debug:" "$@" >&2
+}
 cmd_unrecognized() {
   cat <<EOF
 Error: unrecognized command \`$PROGRAM $COMMAND\`
@@ -280,15 +286,6 @@ EOF
 }
 
 # helper functions
-
-get_file_size() {
-  # accepts one parameter -> file path
-  if [ -f "$1" ]; then
-    stat -c '%s' "$1"
-  else
-    echo '0'
-  fi
-}
 
 get_latest_local_release() { ls "$SRE_RELEASES_PATH" | sort -r | head -n 1; }
 get_helm_release_version() {
@@ -710,6 +707,17 @@ download_from_github_url() {
     return 1
   fi
 }
+check_asset_digest() {
+  # accepts path to file and asset json
+  local digest
+  if [ ! -f "$1" ]; then
+    return 1
+  fi
+  digest="$(jq -r '.digest' <<<"$2" | sed 's/^sha256://')"
+  if [ "$(sha256sum "$1" | awk '{print $1}')" != "$digest" ]; then
+    return 1
+  fi
+}
 
 pull_artifact() {
   # accepts two parameters: destination folder and github's asset json
@@ -719,18 +727,17 @@ pull_artifact() {
   destination="$1/$name"
 
   if [ -f "$destination" ]; then
-    digest="$(jq -r '.digest' <<<"$2" | sed 's/^sha256://')"
-    if [ "$(sha256sum "$destination" | awk '{print $1}')" = "$digest" ]; then
-      echo "Artifact $name already exists and has the same digest. Skipping download"
-      return 0
+    if ! check_asset_digest "$destination" "$2"; then
+      _debug "Artifact $name already exists but has different digest. Going to download it again"
     else
-      echo "Artifact $name already exists but has different digest. Going to download it again"
+      _debug "Artifact $name already exists and has the same digest. Skipping download"
+      return 0
     fi
   fi
 
   url="$(jq -r '.url' <<<"$2")"
   if download_from_github_url "$destination" "$url"; then
-    echo "Downloaded $name to $destination"
+    _debug "Downloaded $name to $destination"
     return 0
   else
     warn "could not download $name from release from $url"
@@ -739,13 +746,16 @@ pull_artifact() {
 }
 
 pull_artifacts() {
-  # todo is that efficient at all?
   local tag
   tag="$(jq -r '.tag_name' <<<"$1")"
   mkdir -p "$SRE_RELEASES_PATH/$tag"
 
   while IFS= read -r asset; do
-    pull_artifact "$SRE_RELEASES_PATH/$tag" "$asset" || true
+    if pull_artifact "$SRE_RELEASES_PATH/$tag" "$asset"; then
+      echo "Pulled artifact $(jq -r '.name' <<<"$asset") for release $tag"
+    else
+      warn "could not pull artifact $(jq -r '.name' <<<"$asset") for release $tag"
+    fi
   done < <(jq -c '.assets[]' <<<"$1")
 }
 get_release_type() {
@@ -760,12 +770,15 @@ get_release_type() {
 
 update_sre_init() {
   # assuming that the target version already exists locally
-  local err=0
-  sudo cp "$SRE_RELEASES_PATH/$1/$SRE_INIT_ARTIFACT_NAME" /usr/local/bin/sre-init || err=1
-  if [ "$err" -eq 0 ]; then
-    sudo chmod +x /usr/local/bin/sre-init
-  else
-    echo "Could not update sre-init"
+  sudo ln -sf "$SRE_RELEASES_PATH/$1/$SRE_INIT_ARTIFACT_NAME" "$SELF_PATH" || {
+    warn "Could not link sre-init to $SELF_PATH"
+    return 1
+  }
+  if [ ! -x "$SRE_RELEASES_PATH/$1/$SRE_INIT_ARTIFACT_NAME" ]; then
+    sudo chmod +x "$SRE_RELEASES_PATH/$1/$SRE_INIT_ARTIFACT_NAME" || {
+      warn "Could not add x permission to sre-init"
+      return 1
+    }
   fi
 }
 warn_if_update_available() {
@@ -825,6 +838,40 @@ cmd_update_list() {
     fi
     jq -rj '"\(.tag_name) \(.published_at) \(.html_url) \(.prerelease) \(.draft)\n"' <<<"$item"
   done < <(iter_github_releases "${iter_params[@]}") | column --table --table-columns RELEASE,DATE,URL,PRERELEASE,DRAFT
+}
+
+find_asset_by_name() {
+  # accepts release data returned by github api and asset name. Returns asset json if found
+  local asset
+  asset="$(jq --arg name "$2" '.assets[] | select(.name == $name)' <<<"$1")"
+  if [ -z "$asset" ]; then
+    return 1
+  fi
+  echo "$asset"
+}
+
+perform_self_update() {
+  local tag asset new_version
+  tag="$(jq -r '.tag_name' <<<"$1")"
+
+  if ! asset="$(find_asset_by_name "$1" "$SRE_INIT_ARTIFACT_NAME")"; then
+    return 1
+  fi
+  if check_asset_digest "$SELF_PATH" "$asset"; then
+    return 0
+  fi
+
+  pull_artifact "$SRE_RELEASES_PATH/$tag" "$asset" || {
+    warn "could not pull self update artifact $SRE_INIT_ARTIFACT_NAME"
+    return 1
+  }
+  update_sre_init "$tag" || {
+    warn "could not update sre-init to $tag"
+    return 1
+  }
+  new_version=$("$SELF_PATH" --version | awk '{print $2}')
+  echo "Automatically updated sre-init from $VERSION to $new_version"
+  exec "$SELF_PATH" "${_ORIGINAL_ARGS[@]}"
 }
 
 cmd_update() {
@@ -915,6 +962,13 @@ cmd_update() {
     warn "new $(get_release_type "$release_data") $latest_tag is available. Use 'sre-init update'"
     exit 1
   fi
+
+  if [ -n "$release_data" ] && [ -z "$FORBID_SELF_UPDATE" ]; then
+    # if release data is available here then we can self update
+    # if it fails we just try to update using the current version of sre-init
+    perform_self_update "$release_data" || true
+  fi
+
   echo "The current installed version is $current_release"
   echo "New github $(get_release_type "$release_data") $latest_tag is available"
 
@@ -928,6 +982,7 @@ cmd_update() {
   fi
   if [ -n "$release_data" ]; then
     echo "Pulling new artifacts"
+    # TODO: check artifacts from previous release? and copy if totally the same
     pull_artifacts "$release_data"
   fi
   echo "Verifying that necessary helm chart exists"
@@ -956,8 +1011,8 @@ cmd_update() {
     MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pipx install --force "$SRE_RELEASES_PATH/$latest_tag/${MODULAR_CLI_ARTIFACT_NAME}" >/dev/null
   fi
   if [ -f "$SRE_RELEASES_PATH/$latest_tag/$SRE_INIT_ARTIFACT_NAME" ]; then
-    echo "Trying to update sre-init"
-    update_sre_init "$latest_tag"
+    echo "Updating sre-init"
+    update_sre_init "$latest_tag" || true
   fi
   echo "Done"
 }
@@ -1474,11 +1529,13 @@ verify_installation() {
 }
 
 # Start
-VERSION="1.1.1"
+VERSION="1.2.0"
 PROGRAM="${0##*/}"
 COMMAND="$1"
+SELF_PATH=/usr/local/bin/sre-init # TODO: resolve dynamically?
+readonly _ORIGINAL_ARGS=("$@")
 
-# Some global variables that can be provided from outside
+# Some variables that configure how cli behaves
 AUTO_BACKUP_PREFIX="${AUTO_BACKUP_PREFIX:-autobackup-}"
 SRE_LOCAL_PATH="${SRE_LOCAL_PATH:-/usr/local/sre}"
 SRE_RELEASES_PATH="${SRE_RELEASES_PATH:-$SRE_LOCAL_PATH/releases}"
@@ -1487,10 +1544,11 @@ GITHUB_REPO="${GITHUB_REPO:-epam/syndicate-rule-engine}"
 HELM_RELEASE_NAME="${HELM_RELEASE_NAME:-rule-engine}"
 DEFECTDOJO_HELM_RELEASE_NAME="${DEFECTDOJO_HELM_RELEASE_NAME:-defectdojo}"
 HELM_UPGRADE_TIMEOUT="${HELM_UPGRADE_TIMEOUT:-1200}"
-DO_NOT_ACTIVATE_LICENSE="${DO_NOT_ACTIVATE_LICENSE:-}"
-DO_NOT_ACTIVATE_TENANT="${DO_NOT_ACTIVATE_TENANT:-}"
+FORBID_SELF_UPDATE="${FORBID_SELF_UPDATE:-}" # autoupdate
 
 # for --system configuration
+DO_NOT_ACTIVATE_LICENSE="${DO_NOT_ACTIVATE_LICENSE:-}"
+DO_NOT_ACTIVATE_TENANT="${DO_NOT_ACTIVATE_TENANT:-}"
 MODULAR_SERVICE_USERNAME="${MODULAR_SERVICE_USERNAME:-admin}"
 RULE_ENGINE_USERNAME="${RULE_ENGINE_USERNAME:-admin}"
 TENANT_AWS_REGIONS="${TENANT_AWS_REGIONS:-us-east-1 us-east-2 us-west-1 us-west-2 af-south-1 ap-east-1 ap-south-2 ap-southeast-3 ap-southeast-4 ap-south-1 ap-northeast-3 ap-northeast-2 ap-southeast-1 ap-southeast-2 ap-northeast-1 ca-central-1 ca-west-1 eu-central-1 eu-west-1 eu-west-2 eu-south-1 eu-west-3 eu-south-2 eu-north-1 eu-central-2 il-central-1 me-south-1 me-central-1 sa-east-1 us-gov-east-1 us-gov-west-1}"
@@ -1506,55 +1564,58 @@ FIRST_USER="${FIRST_USER:-$(getent passwd 1000 | cut -d : -f 1)}"
 # specify emails split by " "
 
 # All variables below are constants and should not be changed
-DEFECTDOJO_SECRET_NAME=defectdojo-secret
-LM_DATA_SECRET_NAME=lm-data
-MINIO_SECRET_NAME=minio-secret
-MODULAR_API_SECRET_NAME=modular-api-secret
-MODULAR_SERVICE_SECRET_NAME=modular-service-secret
-MONGO_SECRET_NAME=mongo-secret
-RULE_ENGINE_SECRET_NAME=rule-engine-secret
-VAULT_SECRET_NAME=vault-secret
+readonly DEFECTDOJO_SECRET_NAME=defectdojo-secret
+readonly LM_DATA_SECRET_NAME=lm-data
+readonly MINIO_SECRET_NAME=minio-secret
+readonly MODULAR_API_SECRET_NAME=modular-api-secret
+readonly MODULAR_SERVICE_SECRET_NAME=modular-service-secret
+readonly MONGO_SECRET_NAME=mongo-secret
+readonly RULE_ENGINE_SECRET_NAME=rule-engine-secret
+readonly VAULT_SECRET_NAME=vault-secret
 
-ALL_SECRETS=("$DEFECTDOJO_SECRET_NAME" "$LM_DATA_SECRET_NAME" "$MINIO_SECRET_NAME" "$MODULAR_API_SECRET_NAME" "$MODULAR_SERVICE_SECRET_NAME" "$MONGO_SECRET_NAME" "$RULE_ENGINE_SECRET_NAME" "$VAULT_SECRET_NAME")
+readonly ALL_SECRETS=("$DEFECTDOJO_SECRET_NAME" "$LM_DATA_SECRET_NAME" "$MINIO_SECRET_NAME" "$MODULAR_API_SECRET_NAME" "$MODULAR_SERVICE_SECRET_NAME" "$MONGO_SECRET_NAME" "$RULE_ENGINE_SECRET_NAME" "$VAULT_SECRET_NAME")
 
-BACKUP_SECRETS_FILENAME=${BACKUP_SECRETS_FILENAME:-_k8s_secrets}
-BACKUP_HELM_VALUES_FILENAME=${BACKUP_HELM_VALUES_FILENAME:-_helm_values}
+readonly BACKUP_SECRETS_FILENAME=${BACKUP_SECRETS_FILENAME:-_k8s_secrets}
+readonly BACKUP_HELM_VALUES_FILENAME=${BACKUP_HELM_VALUES_FILENAME:-_helm_values}
 
 MODULAR_CLI_ENTRY_POINT=syndicate
 
-declare -A SECRETS_MAPPING
-SECRETS_MAPPING["dojo-system-password"]="$DEFECTDOJO_SECRET_NAME,system-password"
-SECRETS_MAPPING["modular-service-system-password"]="$MODULAR_SERVICE_SECRET_NAME,system-password"
-SECRETS_MAPPING["modular-service-admin-password"]="$MODULAR_SERVICE_SECRET_NAME,admin-password"
-SECRETS_MAPPING["rule-engine-system-password"]="$RULE_ENGINE_SECRET_NAME,system-password"
-SECRETS_MAPPING["rule-engine-admin-password"]="$RULE_ENGINE_SECRET_NAME,admin-password"
-SECRETS_MAPPING["modular-api-system-password"]="$MODULAR_API_SECRET_NAME,system-password"
+declare -rA SECRETS_MAPPING=(
+  ["dojo-system-password"]="$DEFECTDOJO_SECRET_NAME,system-password"
+  ["modular-service-system-password"]="$MODULAR_SERVICE_SECRET_NAME,system-password"
+  ["modular-service-admin-password"]="$MODULAR_SERVICE_SECRET_NAME,admin-password"
+  ["rule-engine-system-password"]="$RULE_ENGINE_SECRET_NAME,system-password"
+  ["rule-engine-admin-password"]="$RULE_ENGINE_SECRET_NAME,admin-password"
+  ["modular-api-system-password"]="$MODULAR_API_SECRET_NAME,system-password"
+)
 
 # FOR backups to scale up/down
-declare -A PV_TO_DEPLOYMENTS
-PV_TO_DEPLOYMENTS["minio"]="minio"
-PV_TO_DEPLOYMENTS["vault"]="vault"
-PV_TO_DEPLOYMENTS["mongo"]="mongo"
-PV_TO_DEPLOYMENTS["defectdojo-cache"]="defectdojo-redis"
-PV_TO_DEPLOYMENTS["defectdojo-data"]="defectdojo-postgres"
-PV_TO_DEPLOYMENTS["defectdojo-media"]="defectdojo-nginx,defectdojo-uwsgi,defectdojo-celeryworker"
+declare -rA PV_TO_DEPLOYMENTS=(
+  ["minio"]="minio"
+  ["vault"]="vault"
+  ["mongo"]="mongo"
+  ["defectdojo-cache"]="defectdojo-redis"
+  ["defectdojo-data"]="defectdojo-postgres"
+  ["defectdojo-media"]="defectdojo-nginx,defectdojo-uwsgi,defectdojo-celeryworker"
+)
 
 GITHUB_CURL_HEADERS=('-H' 'X-GitHub-Api-Version: 2022-11-28')
 if [ -n "$GITHUB_TOKEN" ]; then
   GITHUB_CURL_HEADERS+=('-H' "Authorization: Bearer $GITHUB_TOKEN")
 fi
+readonly GITHUB_CURL_HEADERS
 
-MODULAR_CLI_ARTIFACT_NAME=modular_cli.tar.gz
-OBFUSCATOR_ARTIFACT_NAME=sre_obfuscator.tar.gz
-SRE_INIT_ARTIFACT_NAME=sre-init.sh
-
-# in seconds
-INSTALLATION_PERIOD_THRESHOLD="${INSTALLATION_PERIOD_THRESHOLD:-900}"
-LOG_PATH="${LOG_PATH:-/var/log/sre-init.log}" # that is a default log path and should not be changed
+readonly MODULAR_CLI_ARTIFACT_NAME=modular_cli.tar.gz
+readonly OBFUSCATOR_ARTIFACT_NAME=sre_obfuscator.tar.gz
+readonly SRE_INIT_ARTIFACT_NAME=sre-init.sh
 
 # in seconds
-UPDATE_NOTIFICATION_PERIOD="${UPDATE_NOTIFICATION_PERIOD:-3600}"
-UPDATE_NOTIFICATION_FILE="$SRE_LOCAL_PATH/.update-notification"
+readonly INSTALLATION_PERIOD_THRESHOLD="${INSTALLATION_PERIOD_THRESHOLD:-900}"
+readonly LOG_PATH="${LOG_PATH:-/var/log/sre-init.log}" # that is a default log path and should not be changed
+
+# in seconds
+readonly UPDATE_NOTIFICATION_PERIOD="${UPDATE_NOTIFICATION_PERIOD:-3600}"
+readonly UPDATE_NOTIFICATION_FILE="$SRE_LOCAL_PATH/.update-notification"
 
 if [ ! "$1" = "init" ] && [ ! "$1" = '--system' ]; then
   verify_installation
@@ -1603,4 +1664,3 @@ case "$1" in
   '') cmd_usage ;;
   *) die "$(cmd_unrecognized)" ;;
 esac
-exit 0
