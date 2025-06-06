@@ -60,6 +60,7 @@ class ExecutorError(str, Enum):
         obj.reason = reason
         return obj
 
+    NO_SUCCESSFUL_POLICIES = 'All policies have failed'  # exit code 1
     LM_DID_NOT_ALLOW = 'License manager did not allow this job'  # exit code 2
     NO_CREDENTIALS = 'Could not resolve any credentials'
     TIMEOUT = 'Task timeout exceeded'

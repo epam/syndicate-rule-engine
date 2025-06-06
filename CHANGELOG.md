@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.11.0] - 2025-06-04
 - [EPMCEOOS-5765] added validations whether tenants exists for all "activation" endpoints
-- 
+- [EPMCEOOS-6545] make `describe regions` AWS permission not required for job to start; fail a job if all its rules have failed.
 
 ## [5.10.0] - 2025-05-14
 - changed dojo client to import scans in batches
