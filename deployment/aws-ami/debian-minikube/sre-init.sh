@@ -277,6 +277,16 @@ EOF
 }
 
 # helper functions
+
+get_file_size() {
+  # accepts one parameter -> file path
+  if [ -f "$1" ]; then
+	stat -c '%s' "$1"
+  else
+	echo '0'
+  fi
+}
+
 get_latest_local_release() { ls "$SRE_RELEASES_PATH" | sort -r | head -n 1; }
 get_helm_release_version() {
   # currently the version of rule engine chart corresponds to the version of app inside
@@ -645,22 +655,56 @@ EOF
   echo "Done"
 }
 
+download_from_github_url(){
+	# accepts two parameters: destination path and url
+	local tmp_file
+	tmp_file="$(mktemp -t sre-init.XXXXXX)"
+
+	if curl -fLs "${GITHUB_CURL_HEADERS[@]}" -o "$tmp_file" -H "Accept: application/octet-stream" "$2"; then
+		mkdir -p "$(dirname "$1")"
+		mv "$tmp_file" "$1"
+		return 0
+	else
+		rm -f "$tmp_file"
+		return 1
+	fi
+}
+
+pull_artifact() {
+	# accepts two parameters: destination folder and github's asset json
+	local name destination digest url tmp_file
+
+	name="$(jq -r '.name' <<<"$2")"
+	destination="$1/$name"
+
+	if [ -f "$destination" ]; then
+		digest="$(jq -r '.digest' <<<"$2" | sed 's/^sha256://')"
+		if [ "$(sha256sum "$destination" | awk '{print $1}')" = "$digest" ]; then
+			echo "Artifact $name already exists and has the same digest. Skipping download"
+			return 0
+		else
+			echo "Artifact $name already exists but has different digest. Going to download it again"
+		fi
+	fi
+
+	url="$(jq -r '.url' <<<"$2")"
+	if download_from_github_url "$destination" "$url"; then
+		echo "Downloaded $name to $destination"
+		return 0
+	else
+		warn "could not download $name from release from $url"
+		return 1
+	fi
+}
+
 pull_artifacts () {
   # todo is that efficient at all?
-  local tag name url
+  local tag
   tag="$(jq -r '.tag_name' <<<"$1")"
   mkdir -p "$SRE_RELEASES_PATH/$tag"
 
   while IFS= read -r asset; do
-    name="$(jq -r '.name' <<< "$asset")"
-    url="$(jq -r '.url' <<< "$asset")"
-    echo "Going to download $name for release $tag"
-    if curl -fLs "${GITHUB_CURL_HEADERS[@]}" -o "/tmp/$name" -H "Accept: application/octet-stream" "$url"; then
-      mv "/tmp/$name" "$SRE_RELEASES_PATH/$tag/$name"
-    else
-      rm -f "/tmp/$name"
-      warn "could not download $asset from release $1"
-    fi
+	  pull_artifact "$SRE_RELEASES_PATH/$tag" "$asset" || true
   done < <(jq -c '.assets[]' <<<"$1")
 }
 get_release_type() {
@@ -927,7 +971,7 @@ restore_backup() {
     warn "sha256 sum does not match for volume $1"
     return 1
   fi
-  sha256sum "$2/$1.sha256" --check || return 1
+  sha256sum --check "$2/$1.sha256" || return 1
   minikube cp "$2/$1.tar.gz" "$HELM_RELEASE_NAME:/data/$1.tar.gz"
   minikube ssh "sudo rm -rf $host_path; sudo mkdir -p $host_path ; sudo tar --same-owner --overwrite -xzf /data/$1.tar.gz -C $host_path; sudo rm -f /data/$1.tar.gz"  # TODO: what if error here
 }
@@ -944,7 +988,7 @@ make_secrets_backup() {
 }
 restore_secrets_backup() {
   local target_file="$1"
-  if ! sha256sum "$target_file.sha256" --check; then
+  if ! sha256sum --check "$target_file.sha256"; then
     warn "Could not verify sha256 for secrets file"
     return 1
   fi
@@ -962,7 +1006,7 @@ make_helm_values_backup() {
 }
 restore_helm_values_backup() {
   local target_file="$1"
-  if ! sha256sum "$target_file.sha256" --check; then
+  if ! sha256sum --check "$target_file.sha256"; then
     warn "Could not verify sha256 for helm values file"
     return 1
   fi
