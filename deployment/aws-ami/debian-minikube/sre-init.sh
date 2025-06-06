@@ -268,15 +268,15 @@ cmd_version() {
   echo "$PROGRAM: $VERSION"
 }
 die() {
-  echo "Error:" "$@" >&2
+  echo "ERROR:" "$@" >&2
   exit 1
 }
-warn() { echo "Warning:" "$@" >&2; }
+warn() { echo "WARNING:" "$@" >&2; }
 _debug() {
   if [ -z "$SRE_INIT_DEBUG" ]; then
     return 0
   fi
-  echo "Debug:" "$@" >&2
+  echo "DEBUG:" "$@" >&2
 }
 cmd_unrecognized() {
   cat <<EOF
