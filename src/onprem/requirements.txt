@@ -142,7 +142,7 @@ pytz-deprecation-shim==0.1.0.post0
     # via syndicate-rule-engine (pyproject.toml)
 redis==5.2.1
     # via syndicate-rule-engine (pyproject.toml)
-requests==2.32.3
+requests==2.32.4
     # via
     #   syndicate-rule-engine (pyproject.toml)
     #   google-api-core
