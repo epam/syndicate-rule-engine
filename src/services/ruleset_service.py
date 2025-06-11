@@ -1,10 +1,11 @@
 import hashlib
 import uuid
-from typing import BinaryIO, Generator, Iterable, Iterator, Optional
+from typing import Iterable, Iterator, Optional
 
 import msgspec
+from modular_sdk.models.pynamongo.convertors import instance_as_dict
 
-from helpers import Version
+from helpers import Version, to_normalized_version
 from helpers.constants import (
     COMPOUND_KEYS_SEPARATOR,
     ID_ATTR,
@@ -20,12 +21,9 @@ from models.ruleset import (
     RULESET_LICENSES,
     RULESET_STANDARD,
     Ruleset,
-    EMPTY_VERSION,
 )
 from services.base_data_service import BaseDataService
 from services.clients.s3 import S3Client
-from services.reports_bucket import RulesetsBucketKeys
-from modular_sdk.models.pynamongo.convertors import instance_as_dict
 
 
 class RulesetService(BaseDataService[Ruleset]):
@@ -33,30 +31,27 @@ class RulesetService(BaseDataService[Ruleset]):
         super().__init__()
         self._s3_client = s3_client
 
+    @staticmethod
+    def build_licensed_id(name: str | None) -> str:
+        base = f'{SystemCustomer.get_name()}{COMPOUND_KEYS_SEPARATOR}{RULESET_LICENSES}{COMPOUND_KEYS_SEPARATOR}'
+        if name:
+            base += f'{name}{COMPOUND_KEYS_SEPARATOR}'
+        return base
+
     def iter_licensed(
         self,
         name: Optional[str] = None,
-        version: Optional[str] = None,
         cloud: Optional[str] = None,
         ascending: bool = False,
         limit: Optional[int] = None,
     ) -> Iterator[Ruleset]:
-        if version and not name:
-            raise AssertionError('Invalid usage')
         filter_condition = None
         if cloud:
             filter_condition &= Ruleset.cloud == cloud.upper()
-        sort_key = (
-            f'{SystemCustomer.get_name()}{COMPOUND_KEYS_SEPARATOR}'
-            f'{RULESET_LICENSES}{COMPOUND_KEYS_SEPARATOR}'
-        )
-        if name:
-            sort_key += f'{name}{COMPOUND_KEYS_SEPARATOR}'
-        if version:
-            sort_key += f'{version}'
+        sort_key = self.build_licensed_id(name)
         return self.model_class.customer_id_index.query(
             hash_key=SystemCustomer.get_name(),
-            range_key_condition=(self.model_class.id.startswith(sort_key)),
+            range_key_condition=self.model_class.id.startswith(sort_key),
             scan_index_forward=ascending,
             limit=limit,
         )
@@ -83,10 +78,10 @@ class RulesetService(BaseDataService[Ruleset]):
         if name:
             sort_key += f'{name}{COMPOUND_KEYS_SEPARATOR}'
         if version:
-            sort_key += f'{version}'
+            sort_key += f'{to_normalized_version(version, length=6)}'
         return self.model_class.customer_id_index.query(
             hash_key=customer,
-            range_key_condition=(self.model_class.id.startswith(sort_key)),
+            range_key_condition=self.model_class.id.startswith(sort_key),
             scan_index_forward=ascending,
             limit=limit,
             filter_condition=filter_condition,
@@ -101,8 +96,8 @@ class RulesetService(BaseDataService[Ruleset]):
         self, customer: str, name: str, version: str
     ) -> Ruleset | None:
         return self.by_id(
-            id=self.build_id(
-                customer=customer, licensed=False, name=name, version=version
+            id=self.build_standard_id(
+                customer=customer, name=name, version=version
             )
         )
 
@@ -151,10 +146,14 @@ class RulesetService(BaseDataService[Ruleset]):
         s3_path = s3_path or {}
         status = status or {}
         license_keys = license_keys or []
+        if licensed:
+            _id = self.build_licensed_id(name)
+        else:
+            _id = self.build_standard_id(
+                customer=customer, name=name, version=version
+            )
         return Ruleset(
-            id=self.build_id(customer, licensed, name, version)
-            if not licensed
-            else self.build_licensed_id(name),
+            id=_id,
             customer=customer,
             cloud=cloud,
             rules=rules,
@@ -166,27 +165,16 @@ class RulesetService(BaseDataService[Ruleset]):
             description=description,
         )
 
-    @classmethod
-    def build_licensed_id(cls, name: str) -> str:
-        return cls.build_id(
-            SystemCustomer.get_name(), True, name, EMPTY_VERSION
-        )
-
-    @classmethod
-    def build_id(
-        cls, customer: str, licensed: bool, name: str, version: str
-    ) -> str:
+    @staticmethod
+    def build_standard_id(customer: str, name: str, version: str) -> str:
         return COMPOUND_KEYS_SEPARATOR.join(
-            map(str, (customer, cls.licensed_tag(licensed), name, version))
+            (
+                customer,
+                RULESET_STANDARD,
+                name,
+                to_normalized_version(version, length=6, parts=3),
+            )
         )
-
-    @staticmethod
-    def licensed_tag(licensed: bool) -> str:
-        return RULESET_LICENSES if licensed else RULESET_STANDARD
-
-    @staticmethod
-    def build_s3_key(ruleset: Ruleset) -> str:
-        return RulesetsBucketKeys.ruleset_key(ruleset)
 
     def delete(self, item: Ruleset):
         super().delete(item)
@@ -323,4 +311,3 @@ class RulesetName(tuple):
         if v := self.version:
             name = f'{name} {v.to_str()}'
         return name
-

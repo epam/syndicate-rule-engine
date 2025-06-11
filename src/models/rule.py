@@ -9,7 +9,9 @@ from helpers.constants import (
     CAASEnv,
     Cloud,
     RuleSourceType,
+    LATEST_VERSION_TAG,
 )
+from helpers import to_normalized_version, from_normalized_version
 from models import BaseModel
 
 R_ID_ATTR = 'id'
@@ -236,22 +238,11 @@ class RuleIndex:
 
 
 class Rule(BaseModel):
-    @classmethod
-    def latest_version_tag(cls) -> str:
-        """
-        ascii table:
-        Index: 55  56  57  58
-        Value: "7" "8" "9" ":"
-        This makes sorting work properly
-        :return:
-        """
-        return chr(58)  # ":"
-
     class Meta:
         table_name = 'CaaSRules'
         region = CAASEnv.AWS_REGION.get()
 
-    # "customer#cloud#name#version"
+    # "customer#cloud#name#normalized_version"
     id = UnicodeAttribute(hash_key=True, attr_name=R_ID_ATTR)
     customer = UnicodeAttribute(attr_name=R_CUSTOMER_ATTR)
     resource = UnicodeAttribute(attr_name=R_RESOURCE_ATTR)
@@ -291,7 +282,21 @@ class Rule(BaseModel):
         :return:
         """
         v = self.id.split(COMPOUND_KEYS_SEPARATOR)[3]
-        return None if v == self.latest_version_tag() else v
+        if not v or v == LATEST_VERSION_TAG:
+            return None
+        return from_normalized_version(v)
+
+    @property
+    def normalized_version(self) -> str:
+        """
+        Return normalized version. Latest or absent version will return ':',
+        so that it is bigger then any other version
+        :return:
+        """
+        v = self.id.split(COMPOUND_KEYS_SEPARATOR)[3]
+        if not v or v == LATEST_VERSION_TAG:
+            return LATEST_VERSION_TAG
+        return to_normalized_version(v)
 
     @property
     def git_project(self) -> str | None:

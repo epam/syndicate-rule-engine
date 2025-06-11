@@ -28,7 +28,7 @@ import requests
 from dateutil.parser import isoparse
 from typing_extensions import Self
 
-from helpers.constants import Cloud, RuleDomain
+from helpers.constants import VERSION_NORM_LENGTH, Cloud, RuleDomain
 from helpers.log_helper import get_logger
 
 T = TypeVar('T')
@@ -812,3 +812,39 @@ def encode_into(
             # NOTE: buf[-0:] will remove whole buffer so need to handle
             del buf[-sep_len:]
         yield buf
+
+
+def to_normalized_version(
+    version: str, length: int = VERSION_NORM_LENGTH, parts: int | None = None
+) -> str:
+    """
+    Convert plain version string to normalized version:
+    1.12.3 -> 000001.000012.000003
+    :param version:
+    :param length:
+    :param parts:
+    :return:
+    """
+    if not version:
+        version = '0.0.0'
+    items = version.strip().split('.')
+    if parts is not None:
+        if len(items) > parts:
+            items = items[:parts]
+        elif len(items) < parts:
+            items.extend(['0' for _ in range(parts - len(items))])
+
+    return '.'.join([item.zfill(length) for item in items])
+
+
+def from_normalized_version(version: str) -> str:
+    """
+    Convert normalized version string to plain version:
+    01.000012.003 -> 1.12.3
+    :param version:
+    :return:
+    """
+    if not version:
+        return '0.0.0'
+    parts = version.split('.')
+    return '.'.join([str(int(part)) for part in parts])

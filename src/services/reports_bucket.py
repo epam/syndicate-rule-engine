@@ -10,7 +10,6 @@ from helpers.time_helper import utc_datetime, week_number
 from models.batch_results import BatchResults
 from models.job import Job
 from models.metrics import ReportMetrics
-from models.ruleset import Ruleset
 from services import SP
 from services.clients.s3 import S3Client
 
@@ -417,14 +416,6 @@ class RulesetsBucketKeys:
     licensed = 'licensed/'
     standard = 'standard/'
     data = 'data.gz'
-
-    @classmethod
-    def ruleset_key(cls, rs: Ruleset) -> str:
-        version = rs.version
-        assert version, 'Ruleset must contain version'
-        if rs.licensed:
-            return cls.licensed_ruleset_key(rs.name, version)
-        return cls.standard_ruleset_key(rs.customer, rs.name, version)
 
     @classmethod
     def licensed_ruleset_key(cls, name: str, version: str) -> str:
