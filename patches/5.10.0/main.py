@@ -118,7 +118,7 @@ def patch_snapshots(minio_client) -> None:
     while True:
         response = minio_client.list_objects_v2(**params)
 
-        for item in response['Contents']:
+        for item in response.get('Contents') or ():
             if not re.match(r'(^|.*/)snapshots/.*', item['Key']):
                 _LOG.debug(f'Skipping {item["Key"]} because it does not match snapshots/* or */snapshots/*')
                 continue
