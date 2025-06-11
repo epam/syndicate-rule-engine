@@ -1,10 +1,9 @@
 from pynamodb.attributes import ListAttribute, MapAttribute, UnicodeAttribute
 from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
-from helpers import Version
+from helpers import Version, to_normalized_version, from_normalized_version
 from helpers.constants import COMPOUND_KEYS_SEPARATOR, CAASEnv
 from helpers.time_helper import utc_iso
-from helpers.rules import to_normalized_version, from_normalized_version
 from models import BaseModel
 
 RULESET_LICENSES = 'L'
@@ -40,7 +39,7 @@ class Ruleset(BaseModel):
         table_name = 'CaaSRulesets'
         region = CAASEnv.AWS_REGION.get()
 
-    id = UnicodeAttribute(hash_key=True)  # "customer#L|S#name#version"
+    id = UnicodeAttribute(hash_key=True)  # "customer#L|S#name#normalized_version"
     customer = UnicodeAttribute()
     cloud = UnicodeAttribute()
     rules = ListAttribute(of=UnicodeAttribute, default=list)
@@ -48,7 +47,7 @@ class Ruleset(BaseModel):
     status = RulesetStatusAttribute(default=dict)  # deprecated
     license_keys = ListAttribute(default=list)
     created_at = UnicodeAttribute(null=True, default_for_new=utc_iso)
-    versions = ListAttribute(default=list)
+    versions = ListAttribute(default=list)  # list of not normalized versions
     description = UnicodeAttribute(null=True)
 
     customer_id_index = CustomerIdIndex()
@@ -59,13 +58,28 @@ class Ruleset(BaseModel):
 
     @property
     def version(self) -> str:
-        v = self.id.split(COMPOUND_KEYS_SEPARATOR)[3]
-        return from_normalized_version(v) if v else v
+        """
+        Returns an empty string if version is not set
+        """
+        nv = self.normalized_version
+        if not nv:
+            return EMPTY_VERSION
+        return from_normalized_version(nv)
+
+    @property
+    def normalized_version(self) -> str:
+        """
+        Returns a normalized version, which is always 6 characters long
+        """
+        return self.id.split(COMPOUND_KEYS_SEPARATOR, maxsplit=3)[-1]
 
     @version.setter
-    def version(self, value: str):
+    def version(self, value: str) -> None:
+        """
+        Accepts a standard version and sets normalized one
+        """
         items = self.id.split(COMPOUND_KEYS_SEPARATOR)
-        items[3] = to_normalized_version(value) if value else value
+        items[3] = to_normalized_version(value, length=6, parts=3) if value else value
         self.id = COMPOUND_KEYS_SEPARATOR.join(items)
 
     @property

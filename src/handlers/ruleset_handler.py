@@ -22,7 +22,7 @@ from helpers.system_customer import SystemCustomer
 from helpers.time_helper import utc_iso
 from models.rule import Rule, RuleIndex
 from models.rule_source import RuleSource
-from models.ruleset import EMPTY_VERSION, Ruleset
+from models.ruleset import Ruleset
 from services import SERVICE_PROVIDER
 from services.clients.lm_client import LMClientAfter3p0
 from services.clients.s3 import S3Client
@@ -31,6 +31,7 @@ from services.license_manager_service import LicenseManagerService
 from services.license_service import LicenseService
 from services.rule_meta_service import RuleNamesResolver, RuleService
 from services.rule_source_service import RuleSourceService
+from services.reports_bucket import RulesetsBucketKeys
 from services.ruleset_service import RulesetService
 from validators.swagger_request_models import (
     RulesetDeleteModel,
@@ -107,7 +108,7 @@ class RulesetHandler(AbstractHandler):
         :param cloud:
         :return:
         """
-        mapping = {}
+        mapping = {}  # name to list of two elements: Ruleset and its versions
         it = self.ruleset_service.iter_standard(
             customer=customer,
             name=name,
@@ -116,15 +117,20 @@ class RulesetHandler(AbstractHandler):
             ascending=False,
         )
         for rs in it:
+            version = rs.version
+            assert version, 'Standard ruleset must have a version'
             if rs.name not in mapping:
-                if v := rs.version:
-                    rs.versions.append(v)
-                rs.version = EMPTY_VERSION
-                mapping[rs.name] = rs
+                mapping[rs.name] = [
+                    rs, {version}
+                ]
             else:
-                if v := rs.version:
-                    mapping[rs.name].versions.append(v)
-        yield from mapping.values()
+                pair = mapping[rs.name]
+                if rs.normalized_version > pair[0].normalized_version:
+                    pair[0] = rs
+                pair[1].add(version)
+        for name, (rs, versions) in mapping.items():
+            rs.versions = sorted(versions, key=Version, reverse=True)
+            yield rs
 
     def yield_licensed_rulesets(
         self,
@@ -142,7 +148,7 @@ class RulesetHandler(AbstractHandler):
             """
             if name and ruleset.name != name:
                 return False
-            if version and ruleset.version != version:
+            if version and version not in ruleset.versions:
                 return False
             if cloud and ruleset.cloud != cloud.upper():
                 return False
@@ -151,7 +157,7 @@ class RulesetHandler(AbstractHandler):
         if not customer:  # SYSTEM
             # TODO probably remove
             yield from self.ruleset_service.iter_licensed(
-                name=name, version=version, cloud=cloud
+                name=name, cloud=cloud
             )
             return
         applications = self.application_service.list(
@@ -431,7 +437,13 @@ class RulesetHandler(AbstractHandler):
         :return:
         """
         bucket = self.environment_service.get_rulesets_bucket_name()
-        key = self.ruleset_service.build_s3_key(ruleset)
+        version = ruleset.version
+        assert version, 'Ruleset version must be set'
+        key = RulesetsBucketKeys.standard_ruleset_key(
+            customer=ruleset.customer,
+            name=ruleset.name,
+            version=version
+        )
         self.s3_client.gz_put_json(bucket=bucket, key=key, obj=content)
         self.ruleset_service.set_s3_path(ruleset, bucket=bucket, key=key)
 

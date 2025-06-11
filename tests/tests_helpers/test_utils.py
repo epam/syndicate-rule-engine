@@ -30,6 +30,8 @@ from helpers import (
     group_by,
     get_path,
     encode_into,
+    to_normalized_version,
+    from_normalized_version
 )
 
 
@@ -609,3 +611,19 @@ class TestEncodeInto:
                 new=base,
                 sep=b'1234567890'
             ))
+
+
+def test_to_normalized_version():
+    assert to_normalized_version('1.2.3', 3) == '001.002.003'
+    assert to_normalized_version('100.200.300', 3) == '100.200.300'
+    assert to_normalized_version('1.2.0', 3) == '001.002.000'
+    assert to_normalized_version('1.2') == '000001.000002'
+    assert to_normalized_version('1.2.333', 3, 4) == '001.002.333.000'
+
+
+def test_from_normalized_version():
+    assert from_normalized_version('001.2.00003') == '1.2.3'
+    assert from_normalized_version('100.200.300') == '100.200.300'
+    assert from_normalized_version('001.002.000') == '1.2.0'
+    assert from_normalized_version('000001.000002') == '1.2'
+    assert from_normalized_version('1.2.3.4.5') == '1.2.3.4.5'

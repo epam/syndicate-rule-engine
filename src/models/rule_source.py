@@ -3,7 +3,6 @@ from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
 from helpers.constants import CAASEnv, CUSTOMER_ATTR, \
     GIT_PROJECT_ID_ATTR, RuleSourceType
-from helpers.rules import from_normalized_version
 from models import BaseModel
 
 
