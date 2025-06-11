@@ -3,17 +3,21 @@ Provides some modular sdk helper functions and classes
 """
 
 from http import HTTPStatus
-from typing import Iterable, Iterator, Literal, cast
+from typing import Generator, Iterable, Iterator, Literal, cast
 
 from modular_sdk.commons.constants import ParentScope, ParentType
 from modular_sdk.models.parent import Parent
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.parent_service import ParentService
+from modular_sdk.services.tenant_service import TenantService
 from typing_extensions import Self
 
 from helpers import MultipleCursorsWithOneLimitIterator
-from helpers.constants import Cloud
+from helpers.constants import TENANTS_QUERY_THRESHOLD, Cloud
 from helpers.lambda_response import ResponseFactory
+from helpers.log_helper import get_logger
+
+_LOG = get_logger(__name__)
 
 
 class ResolveParentsPayload:
@@ -235,8 +239,13 @@ def build_parents(
 class ActivationInfo:
     __slots__ = 'is_all', 'clouds', 'including', 'excluding'
 
-    def __init__(self, is_all: bool, clouds: set[str],
-                 including: set[str], excluding: set[str]):
+    def __init__(
+        self,
+        is_all: bool,
+        clouds: set[str],
+        including: set[str],
+        excluding: set[str],
+    ):
         self.is_all = is_all
         self.clouds = clouds
         self.including = including
@@ -270,15 +279,12 @@ def get_activation_info(parents: Iterable[Parent]) -> ActivationInfo:
                 including.add(parent.tenant_name)
             case ParentScope.DISABLED:
                 excluding.add(parent.tenant_name)
-            case _:   # ALL
+            case _:  # ALL
                 is_all = True
                 if cl := parent.cloud:
                     clouds.add(cl)
     return ActivationInfo(
-        is_all=is_all,
-        clouds=clouds,
-        including=including,
-        excluding=excluding
+        is_all=is_all, clouds=clouds, including=including, excluding=excluding
     )
 
 
@@ -429,3 +435,46 @@ def tenant_cloud(tenant: Tenant) -> Cloud:
         raise AssertionError(
             'There is probably a bug if we reach a tenant of not supported cloud'
         )
+
+
+def iter_tenants_by_names(
+    tenant_service: TenantService,
+    customer: str,
+    names: Iterable[str],
+    attributes_to_get: list | tuple | None = None,
+) -> Generator[Tenant, None, None]:
+    names = set(names)
+    if not names:
+        return
+
+    if len(names) > TENANTS_QUERY_THRESHOLD:
+        if attributes_to_get:
+            attributes_to_get = [*attributes_to_get, Tenant.name]
+        _LOG.debug(f'Need to fetch {len(names)} tenants. Querying')
+        it = tenant_service.i_get_tenant_by_customer(
+            customer_id=customer,
+            active=True,
+            attributes_to_get=attributes_to_get,
+        )
+        for tenant in it:
+            if tenant.name in names:
+                yield tenant
+    else:
+        _LOG.debug(f'Need to fetch {len(names)} tenants. Using get')
+        if attributes_to_get:
+            attributes_to_get = [
+                *attributes_to_get,
+                Tenant.name,
+                Tenant.is_active,
+                Tenant.customer_name,
+            ]
+        for name in names:
+            tenant = tenant_service.get(
+                name, attributes_to_get=attributes_to_get
+            )
+            if (
+                tenant
+                and tenant.is_active
+                and tenant.customer_name == customer
+            ):
+                yield tenant

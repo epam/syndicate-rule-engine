@@ -6,6 +6,7 @@ from typing import Iterable
 from modular_sdk.commons.constants import ApplicationType, ParentType, \
     ParentScope
 from modular_sdk.models.parent import Parent
+from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.application_service import ApplicationService
 from modular_sdk.services.parent_service import ParentService
 
@@ -27,7 +28,8 @@ from services.modular_helpers import (
     build_parents,
     get_activation_dto,
     split_into_to_keep_to_delete,
-    get_main_scope
+    get_main_scope,
+    iter_tenants_by_names
 )
 from services.ruleset_service import RulesetService
 from validators.swagger_request_models import (
@@ -112,6 +114,19 @@ class LicenseHandler(AbstractHandler):
             raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
                 f'License {license_key} not found'
             ).exc()
+        if event.tenant_names:
+            it = iter_tenants_by_names(
+                tenant_service=self.ps.tenant_service,
+                customer=event.customer_id,
+                names=event.tenant_names,
+                attributes_to_get=(Tenant.name, )
+            )
+            tenants = {tenant.name for tenant in it}
+            if missing := event.tenant_names - tenants:
+                raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                    f'Active tenant(s) {", ".join(missing)} not found'
+                ).exc()
+
         # either ALL & [cloud] & [exclude] or tenant_names
         # Should not be many
         payload = ResolveParentsPayload(

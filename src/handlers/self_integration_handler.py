@@ -5,6 +5,7 @@ from typing import Iterable
 from modular_sdk.commons.constants import ApplicationType, ParentScope, ParentType
 from modular_sdk.models.application import Application
 from modular_sdk.models.parent import Parent
+from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.application_service import ApplicationService
 from modular_sdk.services.impl.maestro_credentials_service import (
     CustodianApplicationMeta,
@@ -26,6 +27,7 @@ from services.modular_helpers import (
     get_activation_dto,
     get_main_scope,
     split_into_to_keep_to_delete,
+    iter_tenants_by_names,
 )
 from validators.swagger_request_models import (
     BaseModel,
@@ -128,6 +130,20 @@ class SelfIntegrationHandler(AbstractHandler):
     @validate_kwargs
     def put(self, event: SelfIntegrationPutModel, _pe: ProcessedEvent):
         customer = event.customer
+        
+        if event.tenant_names:
+            it = iter_tenants_by_names(
+                tenant_service=self._ps.tenant_service,
+                customer=event.customer_id,
+                names=event.tenant_names,
+                attributes_to_get=(Tenant.name, )
+            )
+            tenants = {tenant.name for tenant in it}
+            if missing := event.tenant_names - tenants:
+                raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                    f'Active tenant(s) {", ".join(missing)} not found'
+                ).exc()
+
         application = next(self._aps.list(
             customer=customer,
             _type=ApplicationType.CUSTODIAN.value,
