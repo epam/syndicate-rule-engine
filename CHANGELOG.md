@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [EPMCEOOS-5765] added validations whether tenants exists for all "activation" endpoints
 - [EPMCEOOS-6545] make `describe regions` AWS permission not required for job to start; fail a job if all its rules have failed.
 - store normalized versions of standard rulesets instead of just semver
+- updated `sre-init` so that it first fetch a newer version of itself and then perform update of sre
 
 
 ## [5.10.0] - 2025-05-14

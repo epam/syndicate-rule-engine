@@ -3342,7 +3342,7 @@ wheels = [
 
 [[package]]
 name = "syndicate-rule-engine"
-version = "5.10.0"
+version = "5.11.0"
 source = { virtual = "." }
 dependencies = [
     { name = "aws-xray-sdk" },

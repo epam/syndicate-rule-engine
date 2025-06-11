@@ -1261,6 +1261,7 @@ def job_initializer(envs):
         f'Initializing subprocess for a region: {multiprocessing.current_process()}'
     )
     os.environ.update(envs)
+    os.environ.setdefault('AWS_DEFAULT_REGION', AWS_DEFAULT_REGION)
 
 
 def process_job_concurrent(

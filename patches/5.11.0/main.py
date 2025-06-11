@@ -1,7 +1,6 @@
-import re
+import logging
 import os
 import sys
-import logging
 
 import pymongo
 from pymongo.database import Database
@@ -12,7 +11,6 @@ logging.basicConfig(
 )
 _LOG = logging.getLogger(__name__)
 
-LATEST_VERSION = '000005.000011.000000'
 
 def _init_mongo() -> Database:
     host = os.environ.get('SRE_MONGO_URI')
@@ -23,42 +21,34 @@ def _init_mongo() -> Database:
     client = pymongo.MongoClient(host=host)
     return client.get_database(db)
 
-def _normalize_version(version:str) -> str:
-    if not version or version == ':':
-        return LATEST_VERSION
-    
-    pattern = r'\.'.join(r'\d+' for _ in range(3))
-    if not re.fullmatch(pattern, version):
-        _LOG.warning(f'Bad version string: {version}')
-        return '000000.000000.000000'
-    
-    major, minor, patch = version.split('.')
-    return f'{major:>06}.{minor:>06}.{patch:>06}'
+
+def _normalize_version(
+    version: str, length: int = 6, parts: int | None = None
+) -> str:
+    if not version:
+        version = '0.0.0'
+    items = version.strip().split('.')
+    if parts is not None:
+        if len(items) > parts:
+            items = items[:parts]
+        elif len(items) < parts:
+            items.extend(['0' for _ in range(parts - len(items))])
+
+    return '.'.join([item.zfill(length) for item in items])
+
 
 def patch_rule_versions():
     db = _init_mongo()
-    
-    collection = db.get_collection('CaaSRules')
-
-    _LOG.info('Processing rules')
-    for rule in collection.find():
-        items = rule['id'].split('#')
-        items[3] = _normalize_version(items[3])
-        collection.update_one(
-            {'_id': rule['_id']}, 
-            {'$set': {'id': '#'.join(items)}}
-        )
-    _LOG.info('Finished processing rules')
 
     collection = db.get_collection('CaaSRulesets')
 
     _LOG.info('Processing rulesets')
-    for ruleset in collection.find():
+    for ruleset in collection.find({'id': {'$regex': '^.*#S#.*#.+$'}}):
+        _LOG.info('Processing ruleset %s', ruleset['id'])
         items = ruleset['id'].split('#')
         items[3] = _normalize_version(items[3])
         collection.update_one(
-            {'_id': ruleset['_id']}, 
-            {'$set': {'id': '#'.join(items)}}
+            {'_id': ruleset['_id']}, {'$set': {'id': '#'.join(items)}}
         )
     _LOG.info('Finished processing rulesets')
 
@@ -71,5 +61,7 @@ def main() -> int:
         _LOG.exception('Unexpected exception')
         return 1
 
+
 if __name__ == '__main__':
     sys.exit(main())
+
