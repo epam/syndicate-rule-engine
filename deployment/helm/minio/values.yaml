@@ -12,9 +12,10 @@ consoleService:
 console:
   enabled: false
 
+# previous RELEASE.2025-03-12T18-04-18Z
 image:
   repository: quay.io/minio/minio
-  tag: RELEASE.2025-03-12T18-04-18Z
+  tag: RELEASE.2025-05-24T17-08-30Z
   pullPolicy: IfNotPresent
 
 

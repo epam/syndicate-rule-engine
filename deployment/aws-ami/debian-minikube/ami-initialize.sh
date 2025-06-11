@@ -21,12 +21,11 @@ GITHUB_REPO="${GITHUB_REPO:-epam/syndicate-rule-engine}"
 FIRST_USER="${FIRST_USER:-$(getent passwd 1000 | cut -d : -f 1)}"
 DO_NOT_ACTIVATE_LICENSE="${DO_NOT_ACTIVATE_LICENSE:-}"
 
-
-log() { echo "[INFO] $(date) $1" >> "$LOG_PATH"; }
-log_err() { echo "[ERROR] $(date) $1" >> "$ERROR_LOG_PATH"; }
+log() { echo "[INFO] $(date) $1" >>"$LOG_PATH"; }
+log_err() { echo "[ERROR] $(date) $1" >>"$ERROR_LOG_PATH"; }
 # shellcheck disable=SC2120
-get_imds_token () {
-  duration="10"  # must be an integer
+get_imds_token() {
+  duration="10" # must be an integer
   if [ -n "$1" ]; then
     duration="$1"
   fi
@@ -48,9 +47,9 @@ generate_password() {
   fi
   openssl rand "$typ" "$chars"
 }
-minikube_ip(){ sudo su "$FIRST_USER" -c "minikube ip"; }
+minikube_ip() { sudo su "$FIRST_USER" -c "minikube ip"; }
 enable_minikube_service() {
-  sudo tee /etc/systemd/system/rule-engine-minikube.service <<EOF > /dev/null
+  sudo tee /etc/systemd/system/rule-engine-minikube.service <<EOF >/dev/null
 [Unit]
 Description=Rule engine minikube start up
 After=docker.service
@@ -82,8 +81,8 @@ install_docker() {
   # Add git apt repo
   echo \
     "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
-    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-    sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" |
+    sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
   sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
   sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce="$1" docker-ce-cli="$1" containerd.io
 }
@@ -101,7 +100,7 @@ install_kubectl() {
 }
 install_helm() {
   # https://helm.sh/docs/intro/install/
-  curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
+  curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg >/dev/null
   sudo apt-get install apt-transport-https --yes
   echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
   sudo apt-get update
@@ -301,7 +300,7 @@ sudo mkdir -p "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE" || true
 sudo wget -q -O "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE/sre-init.sh" "https://github.com/$GITHUB_REPO/releases/download/$RULE_ENGINE_RELEASE/sre-init.sh"
 sudo cp "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE/sre-init.sh" /usr/local/bin/sre-init
 sudo chmod +x /usr/local/bin/sre-init
-sudo wget -q -O "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE/modular_cli.tar.gz" "https://github.com/$GITHUB_REPO/releases/download/$RULE_ENGINE_RELEASE/modular_cli.tar.gz"  # todo get from modular-cli repo
+sudo wget -q -O "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE/modular_cli.tar.gz" "https://github.com/$GITHUB_REPO/releases/download/$RULE_ENGINE_RELEASE/modular_cli.tar.gz" # todo get from modular-cli repo
 sudo wget -q -O "$SRE_LOCAL_PATH/releases/$RULE_ENGINE_RELEASE/sre_obfuscator.tar.gz" "https://github.com/$GITHUB_REPO/releases/download/$RULE_ENGINE_RELEASE/sre_obfuscator.tar.gz"
 sudo chown -R "$FIRST_USER":"$FIRST_USER" "$SRE_LOCAL_PATH"
 
@@ -354,7 +353,6 @@ helm install "$HELM_RELEASE_NAME" syndicate/rule-engine --version $RULE_ENGINE_R
 helm install "$DEFECTDOJO_HELM_RELEASE_NAME" syndicate/defectdojo
 EOF
 
-
 if [ -z "$lm_response" ]; then
   sudo su - "$FIRST_USER" <<EOF
 kubectl create secret generic lm-data --from-literal=api-link='$LM_API_LINK'
@@ -369,7 +367,7 @@ log "Getting Defect dojo password (usually takes 3-4 minutes)"
 while ! dojo_pass="$(sudo su "$FIRST_USER" -c "kubectl logs job.batch/defectdojo-initializer" 2>/dev/null | grep -oP "Admin password: \K\w+")"; do
   sleep 5
 done
-dojo_pass="$(base64 <<< "$dojo_pass")"
+dojo_pass="$(base64 <<<"$dojo_pass")"
 
 sudo su - "$FIRST_USER" <<EOF
 kubectl patch secret defectdojo-secret -p="{\"data\":{\"system-password\":\"$dojo_pass\"}}"
@@ -385,14 +383,14 @@ sudo rm -f /etc/nginx/sites-available/*
 sudo mkdir /etc/nginx/streams-available || true
 sudo mkdir /etc/nginx/streams-enabled || true
 
-nginx_conf | sudo tee /etc/nginx/nginx.conf > /dev/null
-nginx_defectdojo_conf | sudo tee /etc/nginx/sites-available/defectdojo > /dev/null
-nginx_minio_api_conf | sudo tee /etc/nginx/sites-available/minio > /dev/null
-nginx_minio_console_conf | sudo tee /etc/nginx/sites-available/minio-console > /dev/null
-nginx_vault_conf | sudo tee /etc/nginx/sites-available/vault > /dev/null
-nginx_mongo_conf | sudo tee /etc/nginx/streams-available/mongo > /dev/null
-nginx_sre_conf | sudo tee /etc/nginx/sites-available/sre > /dev/null  # rule-engine + modular-service
-nginx_modular_api_conf | sudo tee /etc/nginx/sites-available/modular-api > /dev/null
+nginx_conf | sudo tee /etc/nginx/nginx.conf >/dev/null
+nginx_defectdojo_conf | sudo tee /etc/nginx/sites-available/defectdojo >/dev/null
+nginx_minio_api_conf | sudo tee /etc/nginx/sites-available/minio >/dev/null
+nginx_minio_console_conf | sudo tee /etc/nginx/sites-available/minio-console >/dev/null
+nginx_vault_conf | sudo tee /etc/nginx/sites-available/vault >/dev/null
+nginx_mongo_conf | sudo tee /etc/nginx/streams-available/mongo >/dev/null
+nginx_sre_conf | sudo tee /etc/nginx/sites-available/sre >/dev/null # rule-engine + modular-service
+nginx_modular_api_conf | sudo tee /etc/nginx/sites-available/modular-api >/dev/null
 
 sudo ln -sf /etc/nginx/sites-available/defectdojo /etc/nginx/sites-enabled/
 sudo ln -sf /etc/nginx/sites-available/modular-api /etc/nginx/sites-enabled/
