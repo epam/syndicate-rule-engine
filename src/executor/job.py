@@ -422,7 +422,7 @@ class PoliciesLoader:
                 'Trying again with specific regions',
                 exc_info=True,
             )
-            p_options.regions = AWS_REGIONS
+            p_options.regions = sorted(AWS_REGIONS)
             return provider.initialize_policies(
                 PolicyCollection(policies, p_options), p_options
             )
@@ -583,7 +583,7 @@ class Runner(ABC):
     def __init__(self, policies: list[Policy], failed: dict | None = None):
         self._policies = policies
 
-        self.failed = failed or {}
+        self.failed = failed if isinstance(failed, dict) else {}
         self.n_successful = 0
 
         self._err = None
@@ -1295,12 +1295,11 @@ def process_job_concurrent(
     # len(policies) is the number of invocations we need to make. If at
     # least one is successful, we consider the job successful but
     # with warnings
-    failed = {}
     _LOG.info('Starting runner')
-    runner = Runner.factory(cloud, policies, failed)
+    runner = Runner.factory(cloud, policies)
     runner.start()
     _LOG.info('Runner has finished')
-    return runner.n_successful, failed
+    return runner.n_successful, runner.failed
 
 
 def resolve_standard_ruleset(
