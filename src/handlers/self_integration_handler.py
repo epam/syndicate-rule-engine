@@ -256,6 +256,21 @@ class SelfIntegrationHandler(AbstractHandler):
             raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
                 f'Self integration was not created for customer {customer}'
             ).exc()
+
+        if event.add_tenants:
+            it = iter_tenants_by_names(
+                tenant_service=self._ps.tenant_service,
+                customer=event.customer_id,
+                names=event.add_tenants,
+                attributes_to_get=(Tenant.name, )
+            )
+            tenants = {tenant.name for tenant in it}
+            if missing := event.add_tenants - tenants:
+                raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                    f'Active tenant(s) {", ".join(missing)} not found'
+                ).exc()
+
+
         parents = list(self.get_all_activations(existing.application_id))
         payload = ResolveParentsPayload.from_parents_list(parents)
         match get_main_scope(parents):
