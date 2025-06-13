@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.11.0] - 2025-06-11
+## [5.11.0] - 2025-06-13
 - updated `modular-sdk` version to `7.1.0`
 - updated minio server inside chart to `RELEASE.2025-05-24T17-08-30Z`
 - updated vault server inside chart to `1.19.5`
@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [EPMCEOOS-6545] make `describe regions` AWS permission not required for job to start; fail a job if all its rules have failed.
 - store normalized versions of standard rulesets instead of just semver
 - updated `sre-init` so that it first fetch a newer version of itself and then perform update of sre
+- [EPMCEOOS-7745] created a separate application type for DEFECT_DOJO and RABBIT_MQ applications for Syndicate Rule Engine
 
 
 ## [5.10.0] - 2025-05-14
