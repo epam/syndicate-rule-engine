@@ -40,13 +40,23 @@ class RabbitMQService:
         self.customer_rabbit_cache = cache.factory()
         self._encoder = msgspec.json.Encoder()
 
-    def get_rabbitmq_application(self, customer: str) -> Application | None:
+    def get_rabbitmq_application(self, customer: str, legacy: bool = False) -> Application | None:
+        """
+        Get RabbitMQ application for a given customer.
+        If `legacy` is True, it will try to find an application with type
+        ApplicationType.RABBITMQ, otherwise it will look for
+        ApplicationType.CUSTODIAN_RABBITMQ.
+        :param customer:
+        :param resolve_type: Whether to resolve to ApplicationType.RABBITMQ
+        :return: Application instance or None if not found
+        """
         aps = self.modular_client.application_service()
         _LOG.debug(f'Getting rabbit mq application by customer: {customer}')
         return next(
             aps.list(
                 customer=customer,
-                _type=ApplicationType.RABBITMQ.value,
+                _type=ApplicationType.CUSTODIAN_RABBITMQ.value \
+                    if not legacy else ApplicationType.RABBITMQ.value,
                 deleted=False,
                 limit=1,
             ),
@@ -62,7 +72,8 @@ class RabbitMQService:
     def build_maestro_mq_transport(
         self, application: Application
     ) -> MaestroRabbitMQTransport | None:
-        assert application.type == ApplicationType.RABBITMQ.value
+        assert application.type == ApplicationType.RABBITMQ.value \
+            or application.type == ApplicationType.CUSTODIAN_RABBITMQ.value
         mcs = MaestroCredentialsService.build()
         creds: RabbitMQCredentials = mcs.get_by_application(application)
         if not creds:
@@ -123,11 +134,18 @@ class RabbitMQService:
 
         application = self.get_rabbitmq_application(customer)
         if not application:
-            _LOG.warning(
-                f'No application with type {ApplicationType.RABBITMQ.value} '
-                f'found for customer {customer}'
+            application = self.get_rabbitmq_application(
+                customer, legacy=True
             )
-            return
+            if not application:
+                _LOG.warning(
+                    f'No application with type {ApplicationType.CUSTODIAN_RABBITMQ.value} '
+                    f'or {ApplicationType.RABBITMQ.value} found for customer {customer}'
+                )
+                return
+            _LOG.warning(
+                f'Using legacy RabbitMQ application type for customer: {customer}'
+            )
         _LOG.debug(f'Application found: {application}')
         rabbitmq = self.build_maestro_mq_transport(application)
         if not rabbitmq:

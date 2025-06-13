@@ -4,6 +4,7 @@ from typing import Iterable
 from modular_sdk.commons.constants import ApplicationType, ParentType
 from modular_sdk.models.parent import Parent
 from modular_sdk.models.tenant import Tenant
+from modular_sdk.models.application import Application
 from modular_sdk.services.application_service import ApplicationService
 from modular_sdk.services.parent_service import ParentService
 
@@ -84,10 +85,15 @@ class DefectDojoHandler(AbstractHandler):
 
     @validate_kwargs
     def query(self, event: DefectDojoQueryModel):
-        cursor = self._aps.i_get_application_by_customer(
-            customer_id=event.customer,
-            application_type=ApplicationType.DEFECT_DOJO.value,
-            deleted=False
+        rkc = Application.type.is_in(
+            ApplicationType.CUSTODIAN_DEFECT_DOJO.value, ApplicationType.DEFECT_DOJO.value
+        )
+        fc = (Application.is_deleted == False)
+        
+        cursor = self._aps.query_by_customer(
+            customer=event.customer,
+            range_key_condition=rkc,
+            filter_condition=fc
         )
         cursor = self._dds.to_dojos(cursor)
         return build_response(content=map(self._dds.dto, cursor))

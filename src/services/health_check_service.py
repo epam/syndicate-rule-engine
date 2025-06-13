@@ -255,17 +255,31 @@ class RabbitMQConnectionCheck(AbstractHealthCheck):
         app = next(
             self._modular_client.application_service().list(
                 customer=customer,
-                _type=ApplicationType.RABBITMQ.value,
+                _type=ApplicationType.CUSTODIAN_RABBITMQ.value,
                 limit=1,
                 deleted=False,
             ),
             None,
         )
         if not app:
-            return {
-                customer: f'Application with type '
-                f'{ApplicationType.RABBITMQ} not found'
-            }, False
+            app = next(
+                self._modular_client.application_service().list(
+                    customer=customer,
+                    _type=ApplicationType.RABBITMQ.value,
+                    limit=1,
+                    deleted=False,
+                ),
+                None,
+            )
+            if not app:
+                message = {
+                    customer: f'Application with type {ApplicationType.CUSTODIAN_RABBITMQ}'
+                    f' or {ApplicationType.RABBITMQ.value} not found'
+                }
+                return message, False
+            _LOG.warning(
+                f'Using legacy RabbitMQ application type for customer: {customer}'
+            )
         creds = self._modular_client.maestro_credentials_service().get_by_application(
             app
         )
