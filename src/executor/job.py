@@ -1608,7 +1608,7 @@ def run_standard_job(ctx: JobExecutionContext):
         successful += pair[0]
         if pair[1]:
             warnings.append(
-                f'{len(pair[1])} policies failed for region {region}'
+                f'{len(pair[1])}/{len(pair[1])+successful} policies failed for region {region}'
             )
         failed.update(pair[1])
 
