@@ -129,6 +129,7 @@ from typing import TYPE_CHECKING, Generator, Iterable, cast
 
 # import multiprocessing
 import billiard as multiprocessing  # allows to execute child processes from a daemon process
+from azure.core.exceptions import ClientAuthenticationError
 from botocore.exceptions import ClientError
 from c7n.config import Config
 from c7n.exceptions import PolicyValidationError
@@ -757,6 +758,22 @@ class AZURERunner(Runner):
                 error_type=PolicyErrorType.INTERNAL,
                 exception=error,
             )
+        except SystemExit as error:
+            if isinstance(error.__context__, ClientAuthenticationError):
+                _LOG.warning(
+                    f"Policy '{policy.name}' is skipped due to invalid "
+                    f'credentials. All the subsequent rules will be skipped'
+                )
+                self._add_failed(
+                    region=PoliciesLoader.get_policy_region(policy),
+                    policy=policy.name,
+                    error_type=PolicyErrorType.CREDENTIALS,
+                    message=error.__context__.message,
+                )
+                self._err = PolicyErrorType.CREDENTIALS
+                self._err_msg = error.__context__.message
+            else:
+                raise
 
 
 class GCPRunner(Runner):
@@ -1607,9 +1624,11 @@ def run_standard_job(ctx: JobExecutionContext):
 
         successful += pair[0]
         if pair[1]:
-            warnings.append(
-                f'{len(pair[1])}/{len(pair[1])+pair[0]} policies failed for region {region}'
-            )
+            if region == GLOBAL_REGION:
+                w = f'{len(pair[1])}/{len(pair[1]) + pair[0]} global policies failed'
+            else:
+                w = f'{len(pair[1])}/{len(pair[1]) + pair[0]} policies failed in region {region}'
+            warnings.append(w)
         failed.update(pair[1])
 
     if cloud is Cloud.GOOGLE and (
