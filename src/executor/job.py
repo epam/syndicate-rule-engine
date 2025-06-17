@@ -1269,7 +1269,7 @@ def process_job_concurrent(
 ) -> tuple[int, dict | None]:
     """
     Cloud Custodian keeps consuming RAM for some reason. After 9th-10th region
-    scanned the used memory can be more than 1GI, and it does get free. Not
+    scanned the used memory can be more than 1GI, and it isn't freed. Not
     sure about correctness and legality of this workaround, but it
     seems to help. We execute scan for each region in a separate process
     consequently. When one process finished its memory is freed
@@ -1608,7 +1608,7 @@ def run_standard_job(ctx: JobExecutionContext):
         successful += pair[0]
         if pair[1]:
             warnings.append(
-                f'{len(pair[1])} policies failed for region {region}'
+                f'{len(pair[1])}/{len(pair[1])+pair[0]} policies failed for region {region}'
             )
         failed.update(pair[1])
 

@@ -33,7 +33,7 @@ def rabbitmq_application(main_customer, mocked_mongo_client, mocked_hvac_client
     )
     app = SP.modular_client.application_service().build(
         customer_id=main_customer.name,
-        type=ApplicationType.RABBITMQ,
+        type=ApplicationType.CUSTODIAN_RABBITMQ,
         created_by='testing',
         is_deleted=False,
         description='Mocked rabbitmq',

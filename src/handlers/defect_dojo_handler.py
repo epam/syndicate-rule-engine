@@ -1,6 +1,7 @@
 from http import HTTPStatus
 from typing import Iterable
 
+from itertools import chain
 from modular_sdk.commons.constants import ApplicationType, ParentType
 from modular_sdk.models.parent import Parent
 from modular_sdk.models.tenant import Tenant
@@ -84,12 +85,17 @@ class DefectDojoHandler(AbstractHandler):
 
     @validate_kwargs
     def query(self, event: DefectDojoQueryModel):
-        cursor = self._aps.i_get_application_by_customer(
-            customer_id=event.customer,
+        current = self._aps.i_get_application_by_customer(
+            customer_id=event.customer_id,
+            application_type=ApplicationType.CUSTODIAN_DEFECT_DOJO.value,
+            deleted=False
+        )
+        legacy = self._aps.i_get_application_by_customer(
+            customer_id=event.customer_id,
             application_type=ApplicationType.DEFECT_DOJO.value,
             deleted=False
         )
-        cursor = self._dds.to_dojos(cursor)
+        cursor = self._dds.to_dojos(chain(current, legacy))
         return build_response(content=map(self._dds.dto, cursor))
 
     @validate_kwargs

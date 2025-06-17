@@ -44,10 +44,7 @@ from services.metadata import Metadata
 from services.platform_service import Platform
 from services.report_service import ReportService
 from services.reports_bucket import ReportMetricsBucketKeysBuilder
-from services.resources import (
-    CloudResource,
-    iter_rule_resources,
-)
+from services.resources import CloudResource, iter_rule_resources
 from services.sharding import RuleMeta, ShardsCollection
 
 _LOG = get_logger(__name__)
@@ -506,7 +503,9 @@ class AttacksReportGenerator(ReportVisitor[Generator[dict, None, None]]):
             if self.scope is not None and rule not in self.scope:
                 continue
             rm = self._metadata.rule(rule)
-            s = rm.service or service_from_resource_type(meta[rule]['resource'])
+            s = rm.service or service_from_resource_type(
+                meta[rule]['resource']
+            )
             rule_attacks = tuple(rm.iter_mitre_attacks())
             if not rule_attacks:
                 _LOG.warning(f'No attacks found for rule: {rule}')
@@ -544,7 +543,9 @@ class AttacksReportGenerator(ReportVisitor[Generator[dict, None, None]]):
                 'region': res.region,
                 'service': s,
                 'resource_type': res.resource_type,
-                'resource': res.accept(self._view, report_fields=report_fields),
+                'resource': res.accept(
+                    self._view, report_fields=report_fields
+                ),
                 'attacks': at,
             }
 
@@ -786,10 +787,14 @@ class ShardsCollectionProvider:
             return self._cache[key]
 
         if is_latest:
-            _LOG.debug(f'Going to fetch latest collection for tenant {tenant.name}')
+            _LOG.debug(
+                f'Going to fetch latest collection for tenant {tenant.name}'
+            )
             col = self._rs.tenant_latest_collection(tenant)
         else:
-            _LOG.debug(f'Going to fetch snapshot collection for tenant {tenant.name} and date {date}')
+            _LOG.debug(
+                f'Going to fetch snapshot collection for tenant {tenant.name} and date {date}'
+            )
             # TODO: cache for actual nearest key instead of given date in case
             #  we can have slightly different incoming "date". If the parameter
             #  most likely to be the same, we better keep it as is.
@@ -872,7 +877,7 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
         assert key.count(COMPOUND_KEYS_SEPARATOR) == 5, 'Invalid key'
         rkc = None
         if since:
-            rkc &= ReportMetrics.start >= utc_iso(since)
+            rkc &= ReportMetrics.end >= utc_iso(since)
         if till:
             rkc &= ReportMetrics.end < utc_iso(till)
         return self.model_class.query(
@@ -898,13 +903,15 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
         """
         assert key.count(COMPOUND_KEYS_SEPARATOR) == 5, 'Invalid key'
         rkc = None
+        fc = None
         if start:
-            rkc &= ReportMetrics.start == utc_iso(start)
+            fc = ReportMetrics.start == utc_iso(start)
         if end:
-            rkc &= ReportMetrics.end == utc_iso(end)
+            rkc = ReportMetrics.end == utc_iso(end)
         return self.model_class.query(
             hash_key=key,
             range_key_condition=rkc,
+            filter_condition=fc,
             scan_index_forward=ascending,
             limit=limit,
             rate_limit=rate_limit,
@@ -925,7 +932,7 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
             ascending=ascending,
             limit=limit,
         )
-    
+
     def query_all_by_customer(
         self,
         customer: Customer | str,
@@ -948,7 +955,7 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
             scan_index_forward=ascending,
             limit=limit,
             rate_limit=rate_limit,
-            attributes_to_get=attributes_to_get
+            attributes_to_get=attributes_to_get,
         )
 
     def query_by_platform(
