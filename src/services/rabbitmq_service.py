@@ -46,9 +46,6 @@ class RabbitMQService:
         If `legacy` is True, it will try to find an application with type
         ApplicationType.RABBITMQ, otherwise it will look for
         ApplicationType.CUSTODIAN_RABBITMQ.
-        :param customer:
-        :param resolve_type: Whether to resolve to ApplicationType.RABBITMQ
-        :return: Application instance or None if not found
         """
         aps = self.modular_client.application_service()
         _LOG.debug(f'Getting rabbit mq application by customer: {customer}')

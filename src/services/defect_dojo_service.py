@@ -220,7 +220,7 @@ class DefectDojoService(BaseDataService[DefectDojoConfiguration]):
     def get_nullable(self, id: str) -> DefectDojoConfiguration | None:
         app = self._aps.get_application_by_id(id)
         if not app or app.is_deleted or \
-            app.type not in [ApplicationType.CUSTODIAN_DEFECT_DOJO, ApplicationType.DEFECT_DOJO]:
+            app.type not in (ApplicationType.CUSTODIAN_DEFECT_DOJO, ApplicationType.DEFECT_DOJO):
             return
         if app.type == ApplicationType.DEFECT_DOJO:
             _LOG.warning('Using legacy Defect Dojo application type.')

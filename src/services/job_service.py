@@ -102,12 +102,13 @@ class JobService(BaseDataService[Job]):
         limit: int | None = None,
         last_evaluated_key: dict | None = None,
     ) -> ResultIterator[Job]:
+
         if start and end:
-            rkc = (Job.submitted_at >= utc_iso(start)) & (Job.submitted_at < utc_iso(end))
+            rkc = Job.submitted_at.between(utc_iso(start), utc_iso(end))
         elif start:
             rkc = Job.submitted_at >= utc_iso(start)
         elif end:
-            rkc = Job.submitted_at < utc_iso(end)
+            rkc = Job.submitted_at <= utc_iso(end)
         else:
             rkc = None
         if status:
@@ -133,11 +134,11 @@ class JobService(BaseDataService[Job]):
         last_evaluated_key: dict | None = None,
     ) -> ResultIterator[Job]:
         if start and end:
-            rkc = (Job.submitted_at >= utc_iso(start)) & (Job.submitted_at < utc_iso(end))
+            rkc = Job.submitted_at.between(utc_iso(start), utc_iso(end))
         elif start:
             rkc = Job.submitted_at >= utc_iso(start)
         elif end:
-            rkc = Job.submitted_at < utc_iso(end)
+            rkc = Job.submitted_at <= utc_iso(end)
         else:
             rkc = None
         if status:
