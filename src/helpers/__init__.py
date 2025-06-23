@@ -834,6 +834,12 @@ def to_normalized_version(
         elif len(items) < parts:
             items.extend(['0' for _ in range(parts - len(items))])
 
+    if any([len(item) > length for item in items]):
+        raise ValueError(
+            f'Cannot normalize version {version}. '
+            f'One of the parts is longer than {length} characters'
+        )
+
     return '.'.join([item.zfill(length) for item in items])
 
 
