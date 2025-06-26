@@ -131,18 +131,24 @@ def _iter_loaded_resources(
             yield res
 
 
-def register_all() -> None:
+def register() -> None:
+    """
+    Register the GenericRelatedFilter for all resources loaded resources
+    """
     from c7n.provider import clouds
-    from c7n.resources import load_available
 
-    load_available(True)
-
+    _LOG.info('Going to resister GenericRelatedFilter for all resources')
     for res in _iter_loaded_resources(clouds):
         if not hasattr(res.filter_registry, 'register') or not callable(
             res.filter_registry.register
         ):
             _LOG.warning(
                 f'Skipping {res} because it does not have a filter registry'
+            )
+            continue
+        if 'related' in res.filter_registry:
+            _LOG.warning(
+                f'Skipping {res} because it already has a "related" filter registered'
             )
             continue
         res.filter_registry.register('related', GenericRelatedFilter)

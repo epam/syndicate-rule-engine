@@ -205,7 +205,7 @@ from services.udm_generator import (
     ShardCollectionUDMEntitiesConvertor,
     ShardCollectionUDMEventsConvertor,
 )
-from executor.services.cc_plugin import register_all
+from executor.plugins import register_all
 
 
 class PolicyDict(TypedDict):
