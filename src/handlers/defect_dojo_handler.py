@@ -112,6 +112,10 @@ class DefectDojoHandler(AbstractHandler):
         item = self._dds.get_nullable(id)
         if not item or event.customer and item.customer != event.customer:
             return build_response(code=HTTPStatus.NO_CONTENT)
+        if item.application.type == ApplicationType.DEFECT_DOJO:
+            raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
+                'Cannot manage legacy Defect Dojo application type.'
+            ).exc()
         self._dds.delete(item)
         for parent in self.get_all_activations(item.id, event.customer):
             self._ps.force_delete(parent)
