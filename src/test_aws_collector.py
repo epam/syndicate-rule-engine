@@ -28,9 +28,6 @@ def get_all_aws_policies():
                 aws_resources.append(resource_type)
         
         for resource_type in aws_resources:
-            if resource_type in excluded_resources:
-                continue
-                
             clean_name = resource_type.replace('aws.', '').replace('-', '_')
             
             policy = {
