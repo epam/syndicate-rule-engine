@@ -160,6 +160,21 @@ class RabbitMQHandler(AbstractHandler):
             None,
         )
         if not application:
+            legacy = next(
+                self._application_service.list(
+                    customer=customer,
+                    _type=ApplicationType.RABBITMQ,
+                    limit=1,
+                    deleted=False,
+                ),
+                None,
+            )
+            if legacy:
+                raise (
+                    ResponseFactory(HTTPStatus.BAD_REQUEST)
+                    .message('Cannot delete legacy RabbitMQ application type.')
+                    .exc()
+                )
             raise ResponseFactory(HTTPStatus.NOT_FOUND).default().exc()
         self._application_service.mark_deleted(application)
         if application.secret:
