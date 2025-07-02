@@ -222,14 +222,20 @@ class AWSResourceCollector(ResourceCollector[AWSResource]):
 
         :return: List of collected resources.
         """
-        if not query:
-            query = '*'
+        args = {
+            'ViewArn': self.view_arn,
+            'MaxResults': 1000,
+        }
+        if query:
+            args['Filters'] = {
+                'FilterString': query,
+            }
 
-        paginator = self.explorer_client.get_paginator('search')
+        paginator = self.explorer_client.get_paginator('list_resources')
 
         resource_items = []
         for page in paginator.paginate(
-            QueryString=query, ViewArn=self.view_arn
+            **args
         ):
             resource_items.extend(page.get('Resources', []))
 
@@ -304,6 +310,7 @@ class AZUREResourceCollector(ResourceCollector[AZUREResource]):
             resource_pager = resource_client.resources.list(filter=filter_param)
             
             for resource in resource_pager:
+                _LOG.info(resource.as_dict())
                 resources.append(
                     self._resource_item_to_azure_resource(resource.as_dict())
                 )
