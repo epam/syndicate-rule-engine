@@ -5,7 +5,8 @@ from typing import TypeVar, Generic
 from boto3 import Session
 from botocore.client import BaseClient
 from azure.identity import DefaultAzureCredential
-from azure.mgmt.resource import ResourceManagementClient
+from azure.mgmt.resourcegraph import ResourceGraphClient
+from azure.mgmt.resourcegraph.models import QueryRequest, QueryRequestOptions
 
 from helpers.log_helper import get_logger
 from services.resources import CloudResource, AWSResource, AZUREResource
@@ -201,11 +202,11 @@ class AWSResourceCollector(ResourceCollector[AWSResource]):
             id=resource_id,
             name=name,
             data=data,
-            sync_date=datetime.now(timezone.utc).isoformat(),
             resource_type=resource_item.get('ResourceType'),
             arn=arn,
             region=resource_item.get('Region'),
-            date=datetime.now(timezone.utc).isoformat(),
+            date=datetime.now(timezone.utc).date().isoformat(),
+            sync_date=datetime.now(timezone.utc).timestamp(),
         )
 
     def collect(
@@ -218,7 +219,7 @@ class AWSResourceCollector(ResourceCollector[AWSResource]):
 
         :param query: A query string to filter resources.
             If None, all resources will be collected.
-            Example query: `us-east-1 AND ec2`.
+            Example query: `service:ec2`.
 
         :return: List of collected resources.
         """
@@ -270,18 +271,26 @@ class AZUREResourceCollector(ResourceCollector[AZUREResource]):
         self, resource_item: dict
     ) -> AZUREResource:
         """
-        Convert a resource item from Azure Resource Management to an AZUREResource object.
+        Convert a resource item from Azure Resource Graph to an AZUREResource object.
 
-        :param resource_item: A dictionary representing a resource item.
+        :param resource_item: A dictionary representing a resource item from Resource Graph.
         :return: An AZUREResource object.
         """
+        data = {}
+        
+        if res_group := resource_item.get('resourceGroup'):
+            data['resourceGroup'] = res_group
+            
+        if tags := resource_item.get('tags'):
+            data['tags'] = tags
+            
         return AZUREResource(
             id=resource_item['id'],
             name=resource_item['name'],
             location=resource_item['location'],
-            data=resource_item.get('tags', {}),
-            sync_date=datetime.now(timezone.utc).isoformat(),
+            data=data,
             resource_type=resource_item['type'],
+            sync_date=datetime.now(timezone.utc).timestamp(),
         )
 
     def collect(
@@ -289,37 +298,63 @@ class AZUREResourceCollector(ResourceCollector[AZUREResource]):
         query: str | None = None,
     ) -> list[AZUREResource]:
         """
-        Collect resources of specified types from given locations.
+        Collect resources of specified types from given locations using Azure Resource Graph.
 
-        :param query: A query string to filter resources.
+        :param query: A KQL query string to filter resources.
             If None, all resources will be collected.
-            Example query: `resourceType eq 'Microsoft.Compute/virtualMachines'`.
+            Example query: `where type == 'microsoft.compute/virtualmachines'`.
         :return: List of collected resources.
         """
-        resource_client = ResourceManagementClient(
-            credential=self._credential, subscription_id=self._subscription_id
+        resource_graph_client = ResourceGraphClient(
+            credential=self._credential
         )
         
-        filter_param = None
+        base_query = """
+        resources
+        | project id, name, type, location, resourceGroup, tags
+        """
+        
         if query:
-            filter_param = query
+            if query.strip().startswith('resources'):
+                kql_query = query
+            else:
+                kql_query = f"{base_query.strip()} | {query}"
+        else:
+            kql_query = base_query
 
         resources = []
+        skip = 0
+        top = 1000
         
         try:
-            resource_pager = resource_client.resources.list(filter=filter_param)
-            
-            for resource in resource_pager:
-                _LOG.info(resource.as_dict())
-                resources.append(
-                    self._resource_item_to_azure_resource(resource.as_dict())
+            while True:
+                query_options = QueryRequestOptions(
+                    skip=skip,
+                    top=top,
+                    result_format='objectArray'
                 )
                 
+                query_request = QueryRequest(
+                    subscriptions=[self._subscription_id],
+                    query=kql_query,
+                    options=query_options
+                )
+                
+                response = resource_graph_client.resources(query_request).as_dict()
+                resources.extend(response['data'])
+
+                skip += top
+                if skip >= response['total_records']:
+                    break
+                
         except Exception as e:
-            _LOG.error(f"Failed to collect Azure resources: {e}")
+            _LOG.error(f"Failed to collect Azure resources using Resource Graph: {e}")
             raise
             
-        return resources
+        return [
+            self._resource_item_to_azure_resource(resource_dict)
+            for resource_dict in resources
+        ]
 
     def collect_all(self) -> list[AZUREResource]:
         """
