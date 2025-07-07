@@ -1,3 +1,4 @@
+import sys
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -101,10 +102,20 @@ original_count = len(resources)
 print("="*40)
 print(f"Collection took {original_time} seconds")
 print(f"Collected {original_count} resources")
+for resource in resources[-10:]:
+    print("="*40)
+    print(f'Type: {resource.resource_type}')
+    print(f'ID: {resource.id}')
+    print(f'Name: {resource.name}')
+    print(f'Location: {resource.location}')
+    print(f'Data: {resource.data}')
+    print(f'Sync Date: {resource.sync_date}')
+
+sys.exit(0)
 
 print("\n==============Concurrent Cloud Custodian Collection================")
 
-policies = get_all_aws_policies()[:5]
+policies = get_all_aws_policies()[:1]
 print(f"Generated {len(policies)} policies for all AWS resource types")
 
 regions = AWS_REGIONS
