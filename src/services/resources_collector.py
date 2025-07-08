@@ -114,8 +114,8 @@ class ResourceCollector:
             modular_service=SP.modular_client
         )
 
+    @staticmethod
     def _get_policies(
-            self,
             resource_map: dict,
             cloud: Cloud,
             resource_types: Iterable[str] | None = None,
@@ -153,44 +153,47 @@ class ResourceCollector:
 
         return policy_loader.load_from_policies(policy_dicts)
 
+    @staticmethod
     def get_aws_policies(
-            self, 
             resource_types: Iterable[str]|None = None, 
             regions: Iterable[str]|None = None
     ) -> list[Policy]:
-        return self._get_policies(
+        return ResourceCollector._get_policies(
             resource_map=AWSResourceMap,
             cloud=Cloud.AWS,
             resource_types=resource_types,
             regions=regions,
         )
 
+    @staticmethod
     def get_azure_policies(
-            self, 
             resource_types: Iterable[str]|None = None, 
             regions: Iterable[str]|None = None
     ) -> list[Policy]:
-        return self._get_policies(
+        return ResourceCollector._get_policies(
             resource_map=AzureResourceMap,
             cloud=Cloud.AZURE,
             resource_types=resource_types,
             regions=regions,
         )
     
+    @staticmethod
     def get_gcp_policies(
-            self, 
             resource_types: Iterable[str]|None = None, 
             regions: Iterable[str]|None = None
         ) -> list[Policy]:
-        return self._get_policies(
-            resource_map=GCPResourceMap,
+        # can't create policy for region resource type
+        gcp_map = {k: v for k, v in GCPResourceMap.items() if k != 'gcp.region'} 
+        return ResourceCollector._get_policies(
+            resource_map=gcp_map,
             cloud=Cloud.GCP,
             resource_types=resource_types,
             regions=regions,
         )
 
     # TODO: better error handling
-    def _process_policy(self, policy: Policy, resource_type: str, region: str) -> tuple[list, str, str] | None:
+    @staticmethod
+    def _process_policy(policy: Policy, resource_type: str, region: str) -> tuple[list, str, str] | None:
         try:
             return policy(), resource_type, region
         except Exception as e:
@@ -202,15 +205,17 @@ class ResourceCollector:
         return sha256(encode(data)).hexdigest()
     
     # TODO: add creds handling for Kube
-    def _get_credentials(self, tenant: Tenant) -> dict:
+    @staticmethod
+    def _get_credentials(tenant: Tenant) -> dict:
         credentials = get_tenant_credentials(tenant)
 
         if credentials is None:
             raise ExecutorException(ExecutorError.NO_CREDENTIALS)
 
-        return credentials    
-        
-    def _build_resource(self, data: dict, resource_type: str, region: str) -> Resource:
+        return credentials
+
+    @staticmethod
+    def _build_resource(data: dict, resource_type: str, region: str) -> Resource:
         """
         Builds a CloudResource object from the data collected by the policy.
         """
@@ -239,7 +244,7 @@ class ResourceCollector:
             resource_type=resource_type,
             data=data,
             sync_date=datetime.now(timezone.utc).isoformat(),
-            hash=self._compute_hash(data)
+            hash=ResourceCollector._compute_hash(data)
         )
         return resource
 
@@ -273,8 +278,8 @@ class ResourceCollector:
             )
         else:
             raise ValueError(f"Unsupported cloud: {cloud}")
-        
-        credentials = self._get_credentials(tenant)
+
+        credentials = ResourceCollector._get_credentials(tenant)
         with ThreadPoolExecutor(
             max_workers=workers,
             initializer=job_initializer,

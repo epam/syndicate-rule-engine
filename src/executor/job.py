@@ -475,6 +475,12 @@ class PoliciesLoader:
                     exc_info=True,
                 )
                 continue
+            except AssertionError:
+                _LOG.warning(
+                    f'Cannot load {policy["name"]}. '
+                    'Skipping'
+                )
+                continue
             provider_policies[pol.provider_name].append(pol)
 
         if not provider_policies:
