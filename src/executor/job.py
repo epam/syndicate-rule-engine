@@ -238,7 +238,7 @@ class PoliciesLoader:
     def __init__(
         self,
         cloud: Cloud,
-        output_dir: Path,
+        output_dir: Path | None = None, # NOTE: output_dir should be None only if policy execution mode don't use it
         regions: set[str] | None = None,
         cache: str | None = 'memory',
         cache_period: int = 30,
@@ -273,14 +273,16 @@ class PoliciesLoader:
                 return self._cloud.value.lower()
 
     def set_global_output(self, policy: Policy) -> None:
-        policy.options.output_dir = str(
-            (self._output_dir / GLOBAL_REGION).resolve()
-        )
+        if self._output_dir:
+            policy.options.output_dir = str(
+                (self._output_dir / GLOBAL_REGION).resolve()
+            )
 
     def set_regional_output(self, policy: Policy) -> None:
-        policy.options.output_dir = str(
-            (self._output_dir / policy.options.region).resolve()
-        )
+        if self._output_dir:
+            policy.options.output_dir = str(
+                (self._output_dir / policy.options.region).resolve()
+            )
 
     @staticmethod
     def is_global(policy: Policy) -> bool:
@@ -324,7 +326,7 @@ class PoliciesLoader:
             command='c7n.commands.run',
             config=None,
             configs=[],
-            output_dir=str(self._output_dir),
+            output_dir=str(self._output_dir) if self._output_dir else '',
             subparser='run',
             policy_filters=[],
             resource_types=[],
