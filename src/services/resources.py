@@ -747,7 +747,6 @@ def iter_rule_region_resources(
     exceptional resource is not resolved here.). Filtering by regions is
     performed based on that global region scope
     """
-    assert collection.meta, 'Collection meta should be fetched'
 
     load_cc_providers()
 

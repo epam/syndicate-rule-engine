@@ -1,41 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "EPAM Syndicate Rule Engine AMI deployment template"
-Mappings:
-  RegionMap:
-    eu-north-1:
-      ImageId: ami-xxxxxxxxxxxxxxxxx
-    ap-south-1:
-      ImageId: ami-xxxxxxxxxxxxxxxxx
-    eu-west-3:
-      ImageId: ami-xxxxxxxxxxxxxxxxx
-    eu-west-2:
-      ImageId: ami-xxxxxxxxxxxxxxxxx
-    eu-west-1:
-      ImageId: ami-xxxxxxxxxxxxxxxxx
-    ap-northeast-3:
-      ImageId: ami-xxxxxxxxxxxxxxxxx
-    ap-northeast-2:
-      ImageId: ami-xxxxxxxxxxxxxxxxx
-    ap-northeast-1:
-      ImageId: ami-xxxxxxxxxxxxxxxxx
-    sa-east-1:
-      ImageId: ami-xxxxxxxxxxxxxxxxx
-    ca-central-1:
-      ImageId: ami-xxxxxxxxxxxxxxxxx
-    ap-southeast-1:
-      ImageId: ami-xxxxxxxxxxxxxxxxx
-    ap-southeast-2:
-      ImageId: ami-xxxxxxxxxxxxxxxxx
-    eu-central-1:
-      ImageId: ami-xxxxxxxxxxxxxxxxx
-    us-east-1:
-      ImageId: ami-0598d4d9cd501bbb3
-    us-east-2:
-      ImageId: ami-xxxxxxxxxxxxxxxxx
-    us-west-1:
-      ImageId: ami-xxxxxxxxxxxxxxxxx
-    us-west-2:
-      ImageId: ami-xxxxxxxxxxxxxxxxx
 Parameters:
   SubnetId:
     Description: "Choose a subnet to launch the instance in"
@@ -47,6 +11,9 @@ Parameters:
     Description: "Choose key pair. Make sure you have access to the selected keys"
     Type: "AWS::EC2::KeyPair::KeyName"
     ConstraintDescription: "Name of an existing EC2 Key Pair"
+  ImageId:
+    Type: AWS::EC2::Image::Id
+    Description: "AMI ID to launch the instance"
   InstanceType:
     Description: "Choose a type for the instance"
     Type: String
@@ -111,22 +78,6 @@ Parameters:
       - "ap-southeast-5"
       - "ap-southeast-7"
       - "mx-central-1"
-  TenantPrimaryContacts:
-    Description: "Primary emails for the main tenant split by ,"
-    Type: CommaDelimitedList
-    Default: ""
-  TenantSecondaryContacts:
-    Description: "Secondary emails for the main tenant split by ,"
-    Type: CommaDelimitedList
-    Default: ""
-  TenantManagerContacts:
-    Description: "Tenant manager for the main tenant split by ,"
-    Type: CommaDelimitedList
-    Default: ""
-  TenantOwnerEmail:
-    Description: "One email of the tenant's owner"
-    Type: String
-    Default: ""
   ActivateTenant:
     Description: "Whether to activate the default tenant the represents this account"
     Default: "true"
@@ -134,10 +85,6 @@ Parameters:
     AllowedValues:
       - "true"
       - "false"
-  AdminEmails:
-    Description: "Administrator emails split by a comma"
-    Default: ""
-    Type: CommaDelimitedList
   ActivateLicense:
     Description: "Whether to activate Syndicate Rule Engine license. Highly recommended"
     Default: "true"
@@ -247,6 +194,8 @@ Metadata:
         default: "SSH Key pair name"
       InstanceName:
         default: "Instance name"
+      ImageId:
+        default: "Image ID"
       InstanceType:
         default: "Instance Type"
       InstanceRoleName:
@@ -255,16 +204,6 @@ Metadata:
         default: "Tenant Name"
       TenantRegionsToActivate:
         default: "Tenant regions to activate"
-      AdminEmails:
-        default: "Emails of installation administrators"
-      TenantOwnerEmail:
-        default: "Email of tenant's owner"
-      TenantPrimaryContacts:
-        default: "Primary emails for the tenant"
-      TenantSecondaryContacts:
-        default: "Secondary emails for the tenant"
-      TenantManagerContacts:
-        default: "Management emails for the tenant"
       RuleEngineUsername:
         default: "Syndicate Rule Engine admin username"
       ModularServiceUsername:
@@ -301,6 +240,7 @@ Metadata:
           default: "EC2 Instance Configuration"
         Parameters:
           - InstanceName
+          - ImageId
           - InstanceType
           - KeyName
           - InstanceRoleName
@@ -310,11 +250,6 @@ Metadata:
         Parameters:
           - TenantName
           - TenantRegionsToActivate
-          - TenantOwnerEmail
-          - TenantPrimaryContacts
-          - TenantSecondaryContacts
-          - TenantManagerContacts
-          - AdminEmails
           - RuleEngineUsername
           - ModularServiceUsername
       - Label:
@@ -383,11 +318,6 @@ Resources:
             export CF_STACK_NAME="${AWS::StackName}"
             export TENANT_NAME="${TenantName}"
             export TENANT_AWS_REGIONS="${TenantRegionsToActivateEnv}"
-            export ADMIN_EMAILS="${AdminEmailsEnv}"
-            export TENANT_OWNER_EMAIL="${TenantOwnerEmail}"
-            export TENANT_PRIMARY_CONTACTS="${TenantPrimaryContactsEnv}"
-            export TENANT_SECONDARY_CONTACTS="${TenantSecondaryContactsEnv}"
-            export TENANT_MANAGER_CONTACTS="${TenantManagerContactsEnv}"
             export MODULAR_SERVICE_USERNAME="${ModularServiceUsername}"
             export RULE_ENGINE_USERNAME="${RuleEngineUsername}"
             export MODULAR_SDK_ROLE_ARN="${ModularSdkAssumeRoleArnEnv}"
@@ -400,11 +330,7 @@ Resources:
             export CUSTOMER_NAME="${CustomerName}"
             export DO_NOT_ACTIVATE_TENANT="${DoNotActivateTenantEnv}"
             export LM_API_LINK="${LicenseManagerApiLink}"
-          - AdminEmailsEnv: !Join [" ", !Ref AdminEmails]
-            TenantPrimaryContactsEnv: !Join [" ", !Ref TenantPrimaryContacts]
-            TenantSecondaryContactsEnv: !Join [" ", !Ref TenantSecondaryContacts]
-            TenantManagerContactsEnv: !Join [" ", !Ref TenantManagerContacts]
-            TenantRegionsToActivateEnv: !Join [" ", !Ref TenantRegionsToActivate]
+          - TenantRegionsToActivateEnv: !Join [" ", !Ref TenantRegionsToActivate]
             ModularSdkAssumeRoleArnEnv: !Join [",", !Ref ModularSdkAssumeRoleArn]
             RuleEngineVersionEnv: !If [IsLatestRuleEngineVersion, "", !Ref RuleEngineVersion]
             DoNotActivateLicenseEnv: !If [WhetherToActivateLicense, "", "y"]

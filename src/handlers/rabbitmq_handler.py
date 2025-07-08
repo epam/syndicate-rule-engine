@@ -72,7 +72,7 @@ class RabbitMQHandler(AbstractHandler):
         item = next(
             self._application_service.list(
                 customer=customer,
-                _type=ApplicationType.RABBITMQ.value,
+                _type=ApplicationType.CUSTODIAN_RABBITMQ.value,
                 limit=1,
                 deleted=False,
             ),
@@ -103,7 +103,7 @@ class RabbitMQHandler(AbstractHandler):
         )
         application = self._application_service.build(
             customer_id=customer,
-            type=ApplicationType.RABBITMQ,
+            type=ApplicationType.CUSTODIAN_RABBITMQ,
             created_by=_pe['cognito_user_id'],
             is_deleted=False,
             description='RabbitMQ configuration for Custodian',
@@ -120,17 +120,30 @@ class RabbitMQHandler(AbstractHandler):
         application = next(
             self._application_service.list(
                 customer=customer,
-                _type=ApplicationType.RABBITMQ,
+                _type=ApplicationType.CUSTODIAN_RABBITMQ,
                 limit=1,
                 deleted=False,
             ),
             None,
         )
         if not application:
-            raise (
-                ResponseFactory(HTTPStatus.NOT_FOUND)
-                .message('RabbitMQ configuration not found')
-                .exc()
+            application = next(
+                self._application_service.list(
+                    customer=customer,
+                    _type=ApplicationType.RABBITMQ,
+                    limit=1,
+                    deleted=False,
+                ),
+                None,
+            )
+            if not application:
+                raise (
+                    ResponseFactory(HTTPStatus.NOT_FOUND)
+                    .message('RabbitMQ configuration not found')
+                    .exc()
+                )
+            _LOG.warning(
+                f'Using legacy RabbitMQ application type for customer: {customer}'
             )
         return build_response(content=self.get_dto(application))
 
@@ -140,13 +153,28 @@ class RabbitMQHandler(AbstractHandler):
         application = next(
             self._application_service.list(
                 customer=customer,
-                _type=ApplicationType.RABBITMQ,
+                _type=ApplicationType.CUSTODIAN_RABBITMQ,
                 limit=1,
                 deleted=False,
             ),
             None,
         )
         if not application:
+            legacy = next(
+                self._application_service.list(
+                    customer=customer,
+                    _type=ApplicationType.RABBITMQ,
+                    limit=1,
+                    deleted=False,
+                ),
+                None,
+            )
+            if legacy:
+                raise (
+                    ResponseFactory(HTTPStatus.BAD_REQUEST)
+                    .message('Cannot delete legacy RabbitMQ application type.')
+                    .exc()
+                )
             raise ResponseFactory(HTTPStatus.NOT_FOUND).default().exc()
         self._application_service.mark_deleted(application)
         if application.secret:

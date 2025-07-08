@@ -210,7 +210,7 @@ class DefectDojoService(BaseDataService[DefectDojoConfiguration]):
         app = self._aps.build(
             customer_id=customer,
             description=description,
-            type=ApplicationType.DEFECT_DOJO.value,
+            type=ApplicationType.CUSTODIAN_DEFECT_DOJO.value,
             created_by=created_by,
             is_deleted=False,
             meta={},
@@ -219,8 +219,11 @@ class DefectDojoService(BaseDataService[DefectDojoConfiguration]):
 
     def get_nullable(self, id: str) -> DefectDojoConfiguration | None:
         app = self._aps.get_application_by_id(id)
-        if not app or app.is_deleted or app.type != ApplicationType.DEFECT_DOJO:
+        if not app or app.is_deleted or \
+            app.type not in (ApplicationType.CUSTODIAN_DEFECT_DOJO, ApplicationType.DEFECT_DOJO):
             return
+        if app.type == ApplicationType.DEFECT_DOJO:
+            _LOG.warning('Using legacy Defect Dojo application type.')
         return DefectDojoConfiguration(app)
 
     def save(self, item: DefectDojoConfiguration):

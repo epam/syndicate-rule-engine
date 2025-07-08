@@ -267,8 +267,17 @@ EOF
 cmd_version() {
   echo "$PROGRAM: $VERSION"
 }
-die() { echo "Error:" "$@" >&2; exit 1; }
-warn() { echo "Warning:" "$@" >&2; }
+die() {
+  echo "ERROR:" "$@" >&2
+  exit 1
+}
+warn() { echo "WARNING:" "$@" >&2; }
+_debug() {
+  if [ -z "$SRE_INIT_DEBUG" ]; then
+    return 0
+  fi
+  echo "DEBUG:" "$@" >&2
+}
 cmd_unrecognized() {
   cat <<EOF
 Error: unrecognized command \`$PROGRAM $COMMAND\`
@@ -277,6 +286,7 @@ EOF
 }
 
 # helper functions
+
 get_latest_local_release() { ls "$SRE_RELEASES_PATH" | sort -r | head -n 1; }
 get_helm_release_version() {
   # currently the version of rule engine chart corresponds to the version of app inside
@@ -291,10 +301,22 @@ iter_github_releases() {
   eval set -- "$opts"
   while true; do
     case "$1" in
-      --draft) draft=1; shift ;;
-      --prerelease) prerelease=1; shift ;;
-      --per-page) per_page="$2"; shift 2 ;;
-      '--') shift; break ;;
+      --draft)
+        draft=1
+        shift
+        ;;
+      --prerelease)
+        prerelease=1
+        shift
+        ;;
+      --per-page)
+        per_page="$2"
+        shift 2
+        ;;
+      '--')
+        shift
+        break
+        ;;
     esac
   done
   # todo couldn't think of other solution fast
@@ -304,7 +326,7 @@ iter_github_releases() {
     filter='.[] | select(.draft == false)'
   elif [ "$draft" -eq 1 ] && [ "$prerelease" -eq 0 ]; then
     filter='.[] | select(.prerelease == false)'
-  else  # both 0
+  else # both 0
     filter='.[] | select(.prerelease == false and .draft == false)'
   fi
   # todo add pagination if needed
@@ -332,7 +354,7 @@ get_new_github_release() {
     tag_name=$(jq -r '.tag_name' <<<"$item")
     if dpkg --compare-versions "$tag_name" gt "$current_release"; then
       result="$item"
-    elif [ -n "$result" ]; then  # higher or equal
+    elif [ -n "$result" ]; then # higher or equal
       echo "$result"
       return 0
     else
@@ -354,7 +376,7 @@ generate_password() {
   fi
   openssl rand "$typ" "$chars"
 }
-get_imds_token () {
+get_imds_token() {
   curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 20"
 }
 get_from_metadata() { curl -sf -H "X-aws-ec2-metadata-token: $(get_imds_token)" "http://169.254.169.254/latest$1"; }
@@ -364,10 +386,10 @@ get_kubectl_secret() {
   kubectl get secret "$1" -o jsonpath="{.data.$2}" | base64 --decode
 }
 yesno() {
-	[[ -t 0 ]] || return 0
-	local response
-	read -r -p "$1 [y/N] " response
-	[[ $response == [yY] ]] || exit 1
+  [[ -t 0 ]] || return 0
+  local response
+  read -r -p "$1 [y/N] " response
+  [[ $response == [yY] ]] || exit 1
 }
 colorize() {
   local color
@@ -375,7 +397,7 @@ colorize() {
     GREEN) color="\033[0;32m" ;;
     RED) color="\033[31m" ;;
     YELLOW) color="\033[0;33m" ;;
-    *) color=""
+    *) color="" ;;
   esac
   printf "%b" "$color"
   cat -
@@ -383,7 +405,7 @@ colorize() {
 }
 patch_kubectl_secret() {
   local secret
-  secret=$(base64 <<< "$3")
+  secret=$(base64 <<<"$3")
   kubectl patch secret "$1" -p="{\"data\":{\"$2\":\"$secret\"}}"
 }
 
@@ -405,7 +427,7 @@ resolve_tenant_name() {
     echo "${tn^^}"
     return
   fi
-  echo TENANT_1  # default
+  echo TENANT_1 # default
 }
 resolve_customer_name() {
   # used only if license activation is disabled
@@ -495,7 +517,7 @@ initialize_system() {
   if [ -z "$DO_NOT_ACTIVATE_LICENSE" ]; then
     echo "Adding tenant license"
     license_key=$(syndicate re license add --tenant_license_key "$(jq ".tenant_license_key" -r <<<"$lm_response")" --json | jq ".items[0].license_key" -r)
-    syndicate re license activate --license_key "$license_key" --all_tenants --json  # can be removed with new version of sre
+    syndicate re license activate --license_key "$license_key" --all_tenants --json # can be removed with new version of sre
   fi
 
   if [ -z "$DO_NOT_ACTIVATE_TENANT" ]; then
@@ -503,14 +525,14 @@ initialize_system() {
     echo "Activating tenant $tenant_name for the current aws account"
     local err=0
     syndicate admin tenant create --name "$tenant_name" \
-                                  --display_name "Tenant $(account_id)" \
-                                  --cloud AWS \
-                                  --account_id "$(account_id)" \
-                                  $(build_multiple_params --primary_contacts "$TENANT_PRIMARY_CONTACTS") \
-                                  $(build_multiple_params --secondary_contacts "$TENANT_SECONDARY_CONTACTS") \
-                                  $(build_multiple_params --tenant_manager_contacts "$TENANT_MANAGER_CONTACTS") \
-                                  $(build_multiple_params --default_owner "$TENANT_OWNER_EMAIL" 1) \
-                                  --json || err=1
+      --display_name "Tenant $(account_id)" \
+      --cloud AWS \
+      --account_id "$(account_id)" \
+      $(build_multiple_params --primary_contacts "$TENANT_PRIMARY_CONTACTS") \
+      $(build_multiple_params --secondary_contacts "$TENANT_SECONDARY_CONTACTS") \
+      $(build_multiple_params --tenant_manager_contacts "$TENANT_MANAGER_CONTACTS") \
+      $(build_multiple_params --default_owner "$TENANT_OWNER_EMAIL" 1) \
+      --json || err=1
     if [ "$err" -ne 0 ]; then
       warn "could not create tenant"
     else
@@ -518,7 +540,7 @@ initialize_system() {
       for r in $TENANT_AWS_REGIONS; do
         [ -z "$r" ] && continue
         echo "Activating $r for tenant"
-        syndicate admin tenant regions activate --tenant_name "$tenant_name" --region_name "$r" --json > /dev/null || warn "could not activate region $r"
+        syndicate admin tenant regions activate --tenant_name "$tenant_name" --region_name "$r" --json >/dev/null || warn "could not activate region $r"
       done
     fi
   fi
@@ -543,15 +565,42 @@ cmd_init() {
   eval set -- "$opts"
   while true; do
     case "$1" in
-      '-h'|'--help') cmd_init_usage; exit 0 ;;
-      '--system') init_system="true"; shift ;;
-      '--user') target_user="$2"; shift 2 ;;
-      '--public-ssh-key') public_ssh_key="$2"; shift 2 ;;
-      '--re-username') re_username="$2"; shift 2 ;;
-      '--re-password') re_password="$2"; shift 2 ;;
-      '--admin-username') admin_username="$2"; shift 2 ;;
-      '--admin-password') admin_password="$2"; shift 2 ;;
-      '--') shift; break ;;
+      '-h' | '--help')
+        cmd_init_usage
+        exit 0
+        ;;
+      '--system')
+        init_system="true"
+        shift
+        ;;
+      '--user')
+        target_user="$2"
+        shift 2
+        ;;
+      '--public-ssh-key')
+        public_ssh_key="$2"
+        shift 2
+        ;;
+      '--re-username')
+        re_username="$2"
+        shift 2
+        ;;
+      '--re-password')
+        re_password="$2"
+        shift 2
+        ;;
+      '--admin-username')
+        admin_username="$2"
+        shift 2
+        ;;
+      '--admin-password')
+        admin_password="$2"
+        shift 2
+        ;;
+      '--')
+        shift
+        break
+        ;;
     esac
   done
 
@@ -576,14 +625,14 @@ cmd_init() {
   local _username=1 _password=1
   [ -n "$re_username" ] && _username=0
   [ -n "$re_password" ] && _password=0
-  if [ "$(( _username ^ _password ))" -eq 1 ]; then
+  if [ "$((_username ^ _password))" -eq 1 ]; then
     die "--re-username and --re-password must be specified together"
   fi
 
   _username=1 _password=1
   [ -n "$admin_username" ] && _username=0
   [ -n "$admin_password" ] && _password=0
-  if [ "$(( _username ^ _password ))" -eq 1 ]; then
+  if [ "$((_username ^ _password))" -eq 1 ]; then
     die "--admin-username and --admin-password must be specified together"
   fi
 
@@ -626,7 +675,6 @@ EOF
     echo "Modular api user has been initialized before"
   fi
 
-
   if [ -n "$re_username" ]; then
     echo "Logging in to Syndicate Rule Engine"
     sudo su - "$target_user" <<EOF
@@ -645,26 +693,73 @@ EOF
   echo "Done"
 }
 
-pull_artifacts () {
-  # todo is that efficient at all?
-  local tag name url
+download_from_github_url() {
+  # accepts two parameters: destination path and url
+  local tmp_file
+  tmp_file="$(mktemp -t sre-init.XXXXXX)"
+
+  if curl -fLs "${GITHUB_CURL_HEADERS[@]}" -o "$tmp_file" -H "Accept: application/octet-stream" "$2"; then
+    mkdir -p "$(dirname "$1")"
+    mv "$tmp_file" "$1"
+    return 0
+  else
+    rm -f "$tmp_file"
+    return 1
+  fi
+}
+check_asset_digest() {
+  # accepts path to file and asset json
+  local digest
+  if [ ! -f "$1" ]; then
+    return 1
+  fi
+  digest="$(jq -r '.digest' <<<"$2" | sed 's/^sha256://')"
+  if [ "$(sha256sum "$1" | awk '{print $1}')" != "$digest" ]; then
+    return 1
+  fi
+}
+
+pull_artifact() {
+  # accepts two parameters: destination folder and github's asset json
+  local name destination digest url tmp_file
+
+  name="$(jq -r '.name' <<<"$2")"
+  destination="$1/$name"
+
+  if [ -f "$destination" ]; then
+    if ! check_asset_digest "$destination" "$2"; then
+      _debug "Artifact $name already exists but has different digest. Going to download it again"
+    else
+      _debug "Artifact $name already exists and has the same digest. Skipping download"
+      return 0
+    fi
+  fi
+
+  url="$(jq -r '.url' <<<"$2")"
+  if download_from_github_url "$destination" "$url"; then
+    _debug "Downloaded $name to $destination"
+    return 0
+  else
+    warn "could not download $name from release from $url"
+    return 1
+  fi
+}
+
+pull_artifacts() {
+  local tag
   tag="$(jq -r '.tag_name' <<<"$1")"
   mkdir -p "$SRE_RELEASES_PATH/$tag"
 
   while IFS= read -r asset; do
-    name="$(jq -r '.name' <<< "$asset")"
-    url="$(jq -r '.url' <<< "$asset")"
-    echo "Going to download $name for release $tag"
-    if curl -fLs "${GITHUB_CURL_HEADERS[@]}" -o "/tmp/$name" -H "Accept: application/octet-stream" "$url"; then
-      mv "/tmp/$name" "$SRE_RELEASES_PATH/$tag/$name"
+    if pull_artifact "$SRE_RELEASES_PATH/$tag" "$asset"; then
+      echo "Pulled artifact $(jq -r '.name' <<<"$asset") for release $tag"
     else
-      rm -f "/tmp/$name"
-      warn "could not download $asset from release $1"
+      warn "could not pull artifact $(jq -r '.name' <<<"$asset") for release $tag"
     fi
   done < <(jq -c '.assets[]' <<<"$1")
 }
 get_release_type() {
-  if [ "$(jq '.draft' <<<"$1")" = 'true'  ]; then
+  if [ "$(jq '.draft' <<<"$1")" = 'true' ]; then
     echo 'draft'
   elif [ "$(jq '.prerelease' <<<"$1")" = 'true' ]; then
     echo 'prerelease'
@@ -675,12 +770,15 @@ get_release_type() {
 
 update_sre_init() {
   # assuming that the target version already exists locally
-  local err=0
-  sudo cp "$SRE_RELEASES_PATH/$1/$SRE_INIT_ARTIFACT_NAME" /usr/local/bin/sre-init || err=1
-  if [ "$err" -eq 0 ]; then
-    sudo chmod +x /usr/local/bin/sre-init
-  else
-    echo "Could not update sre-init"
+  sudo ln -sf "$SRE_RELEASES_PATH/$1/$SRE_INIT_ARTIFACT_NAME" "$SELF_PATH" || {
+    warn "Could not link sre-init to $SELF_PATH"
+    return 1
+  }
+  if [ ! -x "$SRE_RELEASES_PATH/$1/$SRE_INIT_ARTIFACT_NAME" ]; then
+    sudo chmod +x "$SRE_RELEASES_PATH/$1/$SRE_INIT_ARTIFACT_NAME" || {
+      warn "Could not add x permission to sre-init"
+      return 1
+    }
   fi
 }
 warn_if_update_available() {
@@ -694,15 +792,15 @@ warn_if_update_available() {
 make_update_notification() {
   if [ ! -f "$UPDATE_NOTIFICATION_FILE" ]; then
     warn_if_update_available || return 1
-    echo "$UPDATE_NOTIFICATION_PERIOD:$(( $(date +%s) / UPDATE_NOTIFICATION_PERIOD ))" > "$UPDATE_NOTIFICATION_FILE"
+    echo "$UPDATE_NOTIFICATION_PERIOD:$(($(date +%s) / UPDATE_NOTIFICATION_PERIOD))" >"$UPDATE_NOTIFICATION_FILE"
     return
   fi
   # file exists
   local period passed
   IFS=':' read -r period passed <"$UPDATE_NOTIFICATION_FILE"
-  if [ "$(( $(date +%s) / period ))" -ne "$passed" ]; then
+  if [ "$(($(date +%s) / period))" -ne "$passed" ]; then
     warn_if_update_available || return 1
-    echo "$UPDATE_NOTIFICATION_PERIOD:$(( $(date +%s) / UPDATE_NOTIFICATION_PERIOD ))" > "$UPDATE_NOTIFICATION_FILE"
+    echo "$UPDATE_NOTIFICATION_PERIOD:$(($(date +%s) / UPDATE_NOTIFICATION_PERIOD))" >"$UPDATE_NOTIFICATION_FILE"
     return
   fi
 }
@@ -713,16 +811,25 @@ cmd_update_list() {
   eval set -- "$opts"
   while true; do
     case "$1" in
-      -h|--help) cmd_update_list_usage; exit 0 ;;
-      --allow-prereleases) iter_params=(--prerelease --draft); shift ;;
-      '--') shift; break ;;
+      -h | --help)
+        cmd_update_list_usage
+        exit 0
+        ;;
+      --allow-prereleases)
+        iter_params=(--prerelease --draft)
+        shift
+        ;;
+      '--')
+        shift
+        break
+        ;;
     esac
   done
 
   local tag_name current_release
   current_release="$(get_helm_release_version "$HELM_RELEASE_NAME")"
   while IFS= read -r item; do
-    tag_name=$(jq -r '.tag_name' <<< "$item")
+    tag_name=$(jq -r '.tag_name' <<<"$item")
     if [[ "$current_release" == "$tag_name" ]]; then
       jq -rj '"\(.tag_name)* \(.published_at) \(.html_url) \(.prerelease) \(.draft)"' <<<"$item" | colorize GREEN
     fi
@@ -733,22 +840,86 @@ cmd_update_list() {
   done < <(iter_github_releases "${iter_params[@]}") | column --table --table-columns RELEASE,DATE,URL,PRERELEASE,DRAFT
 }
 
+find_asset_by_name() {
+  # accepts release data returned by github api and asset name. Returns asset json if found
+  local asset
+  asset="$(jq --arg name "$2" '.assets[] | select(.name == $name)' <<<"$1")"
+  if [ -z "$asset" ]; then
+    return 1
+  fi
+  echo "$asset"
+}
+
+perform_self_update() {
+  local tag asset new_version
+  tag="$(jq -r '.tag_name' <<<"$1")"
+
+  if ! asset="$(find_asset_by_name "$1" "$SRE_INIT_ARTIFACT_NAME")"; then
+    return 1
+  fi
+  if check_asset_digest "$SELF_PATH" "$asset"; then
+    return 0
+  fi
+
+  pull_artifact "$SRE_RELEASES_PATH/$tag" "$asset" || {
+    warn "could not pull self update artifact $SRE_INIT_ARTIFACT_NAME"
+    return 1
+  }
+  update_sre_init "$tag" || {
+    warn "could not update sre-init to $tag"
+    return 1
+  }
+  new_version=$("$SELF_PATH" --version | awk '{print $2}')
+  echo "Automatically updated sre-init from $VERSION to $new_version"
+  exec "$SELF_PATH" "${_ORIGINAL_ARGS[@]}"
+}
+
 cmd_update() {
   local opts auto_yes=0 current_release release_data latest_tag backup_name="" iter_params=() check=0 same_version=0 do_backup=1 do_patch='true' helm_values update_defectdojo=0
   opts="$(getopt -o "hy" --long "help,yes,check,no-backup,no-patch,defectdojo,allow-prereleases,same-version,backup-name:" -n "$PROGRAM" -- "$@")"
   eval set -- "$opts"
   while true; do
     case "$1" in
-      '-h'|'--help') cmd_update_usage; exit 0 ;;
-      '-y'|'--yes') auto_yes=1; shift ;;
-      '--check') check=1; shift ;;
-      '--no-backup') do_backup=0; shift ;;
-      '--no-patch') do_patch='false'; shift ;;
-      '--backup-name') backup_name="$2"; shift 2 ;;
-      '--allow-prereleases') iter_params=(--prerelease --draft); shift ;;
-      '--same-version') same_version=1; shift ;;
-      '--defectdojo') update_defectdojo=1; shift ;;
-      '--') shift; break ;;
+      '-h' | '--help')
+        cmd_update_usage
+        exit 0
+        ;;
+      '-y' | '--yes')
+        auto_yes=1
+        shift
+        ;;
+      '--check')
+        check=1
+        shift
+        ;;
+      '--no-backup')
+        do_backup=0
+        shift
+        ;;
+      '--no-patch')
+        do_patch='false'
+        shift
+        ;;
+      '--backup-name')
+        backup_name="$2"
+        shift 2
+        ;;
+      '--allow-prereleases')
+        iter_params=(--prerelease --draft)
+        shift
+        ;;
+      '--same-version')
+        same_version=1
+        shift
+        ;;
+      '--defectdojo')
+        update_defectdojo=1
+        shift
+        ;;
+      '--')
+        shift
+        break
+        ;;
     esac
   done
   if [ "$update_defectdojo" -eq 1 ]; then
@@ -791,6 +962,13 @@ cmd_update() {
     warn "new $(get_release_type "$release_data") $latest_tag is available. Use 'sre-init update'"
     exit 1
   fi
+
+  if [ -n "$release_data" ] && [ -z "$FORBID_SELF_UPDATE" ]; then
+    # if release data is available here then we can self update
+    # if it fails we just try to update using the current version of sre-init
+    perform_self_update "$release_data" || true
+  fi
+
   echo "The current installed version is $current_release"
   echo "New github $(get_release_type "$release_data") $latest_tag is available"
 
@@ -804,13 +982,14 @@ cmd_update() {
   fi
   if [ -n "$release_data" ]; then
     echo "Pulling new artifacts"
+    # TODO: check artifacts from previous release? and copy if totally the same
     pull_artifacts "$release_data"
   fi
   echo "Verifying that necessary helm chart exists"
   helm repo update syndicate || die "helm repo update failed"
   helm search repo syndicate/rule-engine --version "$latest_tag" --fail-on-no-result >/dev/null 2>&1 || die "$latest_tag version $HELM_RELEASE_NAME chart not found. Cannot update"
-  echo "Making helm upgrade. It should not take more than $(( HELM_UPGRADE_TIMEOUT / 60 )) minutes"
-  helm_values="$(helm get values "$HELM_RELEASE_NAME" -o json)"  # preserve only user-set values
+  echo "Making helm upgrade. It should not take more than $((HELM_UPGRADE_TIMEOUT / 60)) minutes"
+  helm_values="$(helm get values "$HELM_RELEASE_NAME" -o json)" # preserve only user-set values
   if ! helm upgrade "$HELM_RELEASE_NAME" syndicate/rule-engine --timeout "${HELM_UPGRADE_TIMEOUT}s" --wait --wait-for-jobs --version "$latest_tag" --reset-values --values <(echo "$helm_values") --set=patch.enabled="$do_patch"; then
     warn "helm upgrade failed. Rolling back to the previous version..."
     helm rollback "$HELM_RELEASE_NAME" 0 --wait || die "Helm rollback failed... Contact the support team"
@@ -832,18 +1011,30 @@ cmd_update() {
     MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pipx install --force "$SRE_RELEASES_PATH/$latest_tag/${MODULAR_CLI_ARTIFACT_NAME}" >/dev/null
   fi
   if [ -f "$SRE_RELEASES_PATH/$latest_tag/$SRE_INIT_ARTIFACT_NAME" ]; then
-    echo "Trying to update sre-init"
-    update_sre_init "$latest_tag"
+    echo "Updating sre-init"
+    update_sre_init "$latest_tag" || true
   fi
   echo "Done"
 }
 
 cmd_nginx() {
   case "$1" in
-    -h|--help) shift; cmd_nginx_usage "$@" ;;
-    enable) shift; cmd_nginx_enable "$@" ;;
-    disable) shift; cmd_nginx_disable "$@" ;;
-    ls) shift; cmd_nginx_list "$@" ;;
+    -h | --help)
+      shift
+      cmd_nginx_usage "$@"
+      ;;
+    enable)
+      shift
+      cmd_nginx_enable "$@"
+      ;;
+    disable)
+      shift
+      cmd_nginx_disable "$@"
+      ;;
+    ls)
+      shift
+      cmd_nginx_list "$@"
+      ;;
     '') cmd_nginx_list "$@" ;;
     *) die "$(cmd_unrecognized)" ;;
   esac
@@ -853,7 +1044,7 @@ cmd_nginx_list() {
   # TODO can be rewritten
   local port filename rows="" enabled=":"
   for file in /etc/nginx/sites-enabled/*; do
-    port="$(grep -oP "listen \K\d+" < "$file")"
+    port="$(grep -oP "listen \K\d+" <"$file")"
     filename="${file##*/}"
     rows+="$filename Enabled $port\n"
     enabled+="$filename:"
@@ -863,7 +1054,7 @@ cmd_nginx_list() {
     if [[ "$enabled" = *:$filename:* ]]; then
       continue
     fi
-    port="$(grep -oP "listen \K\d+" < "$file")"
+    port="$(grep -oP "listen \K\d+" <"$file")"
     rows+="$filename Disabled $port\n"
   done
   printf "%b" "$rows" | column --table --table-columns NAME,STATUS,PORT
@@ -885,7 +1076,7 @@ scale_for_volume() {
   local deploy
   while read -r -d ',' deploy; do
     kubectl scale deployment "$deploy" --replicas="$2"
-  done <<<"${PV_TO_DEPLOYMENTS["$1"]},"  # comma added here to make sure read catches the last segment
+  done <<<"${PV_TO_DEPLOYMENTS["$1"]}," # comma added here to make sure read catches the last segment
 }
 
 make_backup() {
@@ -898,15 +1089,14 @@ make_backup() {
     return 1
   fi
   while true; do
-    if minikube ssh "sudo tar -czf /data/$1.tar.gz -C $host_path ." >/dev/null 2>&1
-    then
+    if minikube ssh "sudo tar -czf /data/$1.tar.gz -C $host_path ." >/dev/null 2>&1; then
       break
     fi
     warn "error occurred making tar archive. Trying again in 1 sec"
     sleep 1
   done
   minikube cp "$HELM_RELEASE_NAME:/data/$1.tar.gz" "$2/"
-  sha256sum "$2/$1.tar.gz" > "$2/$1.sha256"
+  sha256sum "$2/$1.tar.gz" >"$2/$1.sha256"
   chmod 440 "$2/$1.tar.gz" "$2/$1.sha256"
   minikube ssh "sudo rm -f /data/$1.tar.gz"
 }
@@ -927,24 +1117,24 @@ restore_backup() {
     warn "sha256 sum does not match for volume $1"
     return 1
   fi
-  sha256sum "$2/$1.sha256" --check || return 1
+  sha256sum --check "$2/$1.sha256" || return 1
   minikube cp "$2/$1.tar.gz" "$HELM_RELEASE_NAME:/data/$1.tar.gz"
-  minikube ssh "sudo rm -rf $host_path; sudo mkdir -p $host_path ; sudo tar --same-owner --overwrite -xzf /data/$1.tar.gz -C $host_path; sudo rm -f /data/$1.tar.gz"  # TODO: what if error here
+  minikube ssh "sudo rm -rf $host_path; sudo mkdir -p $host_path ; sudo tar --same-owner --overwrite -xzf /data/$1.tar.gz -C $host_path; sudo rm -f /data/$1.tar.gz" # TODO: what if error here
 }
 make_secrets_backup() {
   # accepts target file as a first parameter and secrets names as other parameters
   local target_file="$1"
   shift
-  if ! kubectl get secrets -o json --ignore-not-found=false "$@" | jq -c > "$target_file" 2>/dev/null; then
+  if ! kubectl get secrets -o json --ignore-not-found=false "$@" | jq -c >"$target_file" 2>/dev/null; then
     warn "Could not dump secrets to $target_file"
     return 1
   fi
-  sha256sum "$target_file" > "$target_file.sha256"
+  sha256sum "$target_file" >"$target_file.sha256"
   chmod 440 "$target_file" "$target_file.sha256"
 }
 restore_secrets_backup() {
   local target_file="$1"
-  if ! sha256sum "$target_file.sha256" --check; then
+  if ! sha256sum --check "$target_file.sha256"; then
     warn "Could not verify sha256 for secrets file"
     return 1
   fi
@@ -953,16 +1143,16 @@ restore_secrets_backup() {
 
 make_helm_values_backup() {
   local target_file="$1"
-  if ! helm get values -o json "$HELM_RELEASE_NAME" > "$target_file" 2>/dev/null; then
+  if ! helm get values -o json "$HELM_RELEASE_NAME" >"$target_file" 2>/dev/null; then
     warn "Could not dump helm values to $target_file"
     return 1
   fi
-  sha256sum "$target_file" > "$target_file.sha256"
+  sha256sum "$target_file" >"$target_file.sha256"
   chmod 440 "$target_file" "$target_file.sha256"
 }
 restore_helm_values_backup() {
   local target_file="$1"
-  if ! sha256sum "$target_file.sha256" --check; then
+  if ! sha256sum --check "$target_file.sha256"; then
     warn "Could not verify sha256 for helm values file"
     return 1
   fi
@@ -974,11 +1164,26 @@ EOF
 
 cmd_backup() {
   case "$1" in
-    -h|--help) shift; cmd_backup_usage "$@" ;;
-    create) shift; cmd_backup_create "$@" ;;
-    ls) shift; cmd_backup_list "$@" ;;
-    rm) shift; cmd_backup_rm "$@";;
-    restore) shift; cmd_backup_restore "$@" ;;
+    -h | --help)
+      shift
+      cmd_backup_usage "$@"
+      ;;
+    create)
+      shift
+      cmd_backup_create "$@"
+      ;;
+    ls)
+      shift
+      cmd_backup_list "$@"
+      ;;
+    rm)
+      shift
+      cmd_backup_rm "$@"
+      ;;
+    restore)
+      shift
+      cmd_backup_restore "$@"
+      ;;
     '') cmd_backup_list "$@" ;;
     *) die "$(cmd_unrecognized)" ;;
   esac
@@ -1003,10 +1208,22 @@ cmd_backup_list() {
   eval set -- "$opts"
   while true; do
     case "$1" in
-      -h|--help) cmd_backup_list_usage; exit 0 ;;
-      -v|--version) version="$2"; shift 2 ;;
-      -p|--path) path="$2"; shift 2 ;;
-      '--') shift; break ;;
+      -h | --help)
+        cmd_backup_list_usage
+        exit 0
+        ;;
+      -v | --version)
+        version="$2"
+        shift 2
+        ;;
+      -p | --path)
+        path="$2"
+        shift 2
+        ;;
+      '--')
+        shift
+        break
+        ;;
     esac
   done
   path="$(resolve_backup_path "$path" "$version")"
@@ -1019,12 +1236,12 @@ cmd_backup_list() {
     size="$(du -hsc "$fp"/*.tar.gz "$fp/$BACKUP_HELM_VALUES_FILENAME" "$fp/$BACKUP_SECRETS_FILENAME" 2>/dev/null | grep total | cut -f1 || true)"
     [ -f "$fp/$BACKUP_HELM_VALUES_FILENAME" ] && helm_values=yes || helm_values=no
     if [ -f "$fp/$BACKUP_SECRETS_FILENAME" ]; then
-#      local kind=$(jq -r '.kind' <"$fp/$BACKUP_SECRETS_FILENAME")
-#      if [ "$kind" = 'Secret' ]; then
-#        secrets=$(jq -r '.metadata.name' <"$fp/$BACKUP_SECRETS_FILENAME")
-#      else
-#        secrets=$(jq -r '.items[].metadata.name' <"$fp/$BACKUP_SECRETS_FILENAME" | sort | tr '\n' ',' | sed 's/,$//')
-#      fi
+      #      local kind=$(jq -r '.kind' <"$fp/$BACKUP_SECRETS_FILENAME")
+      #      if [ "$kind" = 'Secret' ]; then
+      #        secrets=$(jq -r '.metadata.name' <"$fp/$BACKUP_SECRETS_FILENAME")
+      #      else
+      #        secrets=$(jq -r '.items[].metadata.name' <"$fp/$BACKUP_SECRETS_FILENAME" | sort | tr '\n' ',' | sed 's/,$//')
+      #      fi
       secrets=yes
     else
       secrets=no
@@ -1039,12 +1256,30 @@ cmd_backup_rm() {
   eval set -- "$opts"
   while true; do
     case "$1" in
-      -h|--help) cmd_backup_rm_usage; exit 0 ;;
-      -v|--version) version="$2"; shift 2 ;;
-      -p|--path) path="$2"; shift 2 ;;
-      -n|--name) name="$2"; shift 2 ;;
-      -y|--yes) auto_yes=1; shift ;;
-      '--') shift; break ;;
+      -h | --help)
+        cmd_backup_rm_usage
+        exit 0
+        ;;
+      -v | --version)
+        version="$2"
+        shift 2
+        ;;
+      -p | --path)
+        path="$2"
+        shift 2
+        ;;
+      -n | --name)
+        name="$2"
+        shift 2
+        ;;
+      -y | --yes)
+        auto_yes=1
+        shift
+        ;;
+      '--')
+        shift
+        break
+        ;;
     esac
   done
   [ -z "$name" ] && die "--name is required"
@@ -1064,13 +1299,34 @@ cmd_backup_create() {
   eval set -- "$opts"
   while true; do
     case "$1" in
-      -h|--help) cmd_backup_create_usage; exit 0 ;;
-      -p|--path) path="$2"; shift 2 ;;
-      -n|--name) name="$2"; shift 2 ;;
-      --volumes) volumes="$2"; shift 2 ;;
-      --secrets) secrets="$2"; shift 2 ;;
-      --helm-values) helm_values='y'; shift 1 ;;
-      '--') shift; break ;;
+      -h | --help)
+        cmd_backup_create_usage
+        exit 0
+        ;;
+      -p | --path)
+        path="$2"
+        shift 2
+        ;;
+      -n | --name)
+        name="$2"
+        shift 2
+        ;;
+      --volumes)
+        volumes="$2"
+        shift 2
+        ;;
+      --secrets)
+        secrets="$2"
+        shift 2
+        ;;
+      --helm-values)
+        helm_values='y'
+        shift 1
+        ;;
+      '--')
+        shift
+        break
+        ;;
     esac
   done
   [ -z "$name" ] && die "--name is required"
@@ -1081,7 +1337,7 @@ cmd_backup_create() {
 
   # checking secrets
   if [ "$secrets" = 'all' ]; then
-    items_secrets+=( "${ALL_SECRETS[@]}" )
+    items_secrets+=("${ALL_SECRETS[@]}")
   elif [ -n "$secrets" ]; then
     while read -r -d ',' sec; do
       [ -z "$sec" ] && continue
@@ -1094,7 +1350,7 @@ cmd_backup_create() {
   # By here we have an array of secrets names to make a backup
 
   # checking volumes
-  if [ "$volumes" = 'all'  ]; then
+  if [ "$volumes" = 'all' ]; then
     for vol in $(kubectl get pv -o=jsonpath="{.items[*].metadata.name}" 2>/dev/null); do
       items+=("$vol")
     done
@@ -1137,13 +1393,34 @@ cmd_backup_restore() {
   eval set -- "$opts"
   while true; do
     case "$1" in
-      -h|--help) cmd_backup_restore_usage; exit 0 ;;
-      -p|--path) path="$2"; shift 2 ;;
-      -v|--version) version="$2"; shift 2 ;;
-      -n|--name) name="$2"; shift 2 ;;
-      -f|--force) force=1; shift ;;
-      --volumes) volumes="$2"; shift 2 ;;
-      '--') shift; break ;;
+      -h | --help)
+        cmd_backup_restore_usage
+        exit 0
+        ;;
+      -p | --path)
+        path="$2"
+        shift 2
+        ;;
+      -v | --version)
+        version="$2"
+        shift 2
+        ;;
+      -n | --name)
+        name="$2"
+        shift 2
+        ;;
+      -f | --force)
+        force=1
+        shift
+        ;;
+      --volumes)
+        volumes="$2"
+        shift 2
+        ;;
+      '--')
+        shift
+        break
+        ;;
     esac
   done
   [ -z "$name" ] && die "--name is required"
@@ -1158,7 +1435,7 @@ cmd_backup_restore() {
       items+=("$(basename --suffix='.tar.gz' "$REPLY")")
     done < <(find "$path/$name" -name '*.tar.gz' -type f -print0)
   else
-    IFS=',' read -ra items <<< "$volumes"
+    IFS=',' read -ra items <<<"$volumes"
   fi
 
   # TODO add some input flags to control whether secrets are restored
@@ -1191,7 +1468,7 @@ cmd_secrets() {
     return
   fi
   [ ! -v SECRETS_MAPPING["$1"] ] && die "there is no secret $1"
-  IFS=',' read -ra values <<< "${SECRETS_MAPPING[$1]}"
+  IFS=',' read -ra values <<<"${SECRETS_MAPPING[$1]}"
   get_kubectl_secret "${values[0]}" "${values[1]}" || die "cannot reach secret. Probably, you don't have access"
 }
 
@@ -1201,11 +1478,17 @@ cmd_health() {
   eval set -- "$opts"
   while true; do
     case "$1" in
-      -h|--help) cmd_health_usage; exit 0 ;;
-      '--') shift; break ;;
+      -h | --help)
+        cmd_health_usage
+        exit 0
+        ;;
+      '--')
+        shift
+        break
+        ;;
     esac
   done
-  declare -A checks  # numbers specify priority
+  declare -A checks # numbers specify priority
   checks["1:/usr/local/sre/.success"]="test -f /usr/local/sre/.success"
   checks["2:Syndicate Rule Engine helm release"]="helm get metadata $HELM_RELEASE_NAME"
   checks["3:Syndicate entrypoint"]="syndicate version"
@@ -1233,7 +1516,7 @@ verify_installation() {
   # .success does not exist
   local passed=""
   if [ -f "$LOG_PATH" ]; then
-    passed="$(( $(date +%s) - $(stat --format "%W" "$LOG_PATH") ))"
+    passed="$(($(date +%s) - $(stat --format "%W" "$LOG_PATH")))"
   fi
   if [ -z "$passed" ] || [ "$passed" -gt "$INSTALLATION_PERIOD_THRESHOLD" ]; then
     # smt went wrong
@@ -1241,16 +1524,18 @@ verify_installation() {
     exit 1
   fi
   # .success does not exist but we are still within a threshold
-  sre_being_initialized_msg "$(( "$INSTALLATION_PERIOD_THRESHOLD" - "$passed" ))" >&2
+  sre_being_initialized_msg "$(("$INSTALLATION_PERIOD_THRESHOLD" - "$passed"))" >&2
   exit 1
 }
 
 # Start
-VERSION="1.1.1"
+VERSION="1.2.0"
 PROGRAM="${0##*/}"
 COMMAND="$1"
+SELF_PATH=/usr/local/bin/sre-init # TODO: resolve dynamically?
+readonly _ORIGINAL_ARGS=("$@")
 
-# Some global variables that can be provided from outside
+# Some variables that configure how cli behaves
 AUTO_BACKUP_PREFIX="${AUTO_BACKUP_PREFIX:-autobackup-}"
 SRE_LOCAL_PATH="${SRE_LOCAL_PATH:-/usr/local/sre}"
 SRE_RELEASES_PATH="${SRE_RELEASES_PATH:-$SRE_LOCAL_PATH/releases}"
@@ -1259,10 +1544,11 @@ GITHUB_REPO="${GITHUB_REPO:-epam/syndicate-rule-engine}"
 HELM_RELEASE_NAME="${HELM_RELEASE_NAME:-rule-engine}"
 DEFECTDOJO_HELM_RELEASE_NAME="${DEFECTDOJO_HELM_RELEASE_NAME:-defectdojo}"
 HELM_UPGRADE_TIMEOUT="${HELM_UPGRADE_TIMEOUT:-1200}"
-DO_NOT_ACTIVATE_LICENSE="${DO_NOT_ACTIVATE_LICENSE:-}"
-DO_NOT_ACTIVATE_TENANT="${DO_NOT_ACTIVATE_TENANT:-}"
+FORBID_SELF_UPDATE="${FORBID_SELF_UPDATE:-}" # autoupdate
 
 # for --system configuration
+DO_NOT_ACTIVATE_LICENSE="${DO_NOT_ACTIVATE_LICENSE:-}"
+DO_NOT_ACTIVATE_TENANT="${DO_NOT_ACTIVATE_TENANT:-}"
 MODULAR_SERVICE_USERNAME="${MODULAR_SERVICE_USERNAME:-admin}"
 RULE_ENGINE_USERNAME="${RULE_ENGINE_USERNAME:-admin}"
 TENANT_AWS_REGIONS="${TENANT_AWS_REGIONS:-us-east-1 us-east-2 us-west-1 us-west-2 af-south-1 ap-east-1 ap-south-2 ap-southeast-3 ap-southeast-4 ap-south-1 ap-northeast-3 ap-northeast-2 ap-southeast-1 ap-southeast-2 ap-northeast-1 ca-central-1 ca-west-1 eu-central-1 eu-west-1 eu-west-2 eu-south-1 eu-west-3 eu-south-2 eu-north-1 eu-central-2 il-central-1 me-south-1 me-central-1 sa-east-1 us-gov-east-1 us-gov-west-1}"
@@ -1277,60 +1563,59 @@ FIRST_USER="${FIRST_USER:-$(getent passwd 1000 | cut -d : -f 1)}"
 #TENANT_OWNER_EMAIL=
 # specify emails split by " "
 
-
 # All variables below are constants and should not be changed
-DEFECTDOJO_SECRET_NAME=defectdojo-secret
-LM_DATA_SECRET_NAME=lm-data
-MINIO_SECRET_NAME=minio-secret
-MODULAR_API_SECRET_NAME=modular-api-secret
-MODULAR_SERVICE_SECRET_NAME=modular-service-secret
-MONGO_SECRET_NAME=mongo-secret
-RULE_ENGINE_SECRET_NAME=rule-engine-secret
-VAULT_SECRET_NAME=vault-secret
+readonly DEFECTDOJO_SECRET_NAME=defectdojo-secret
+readonly LM_DATA_SECRET_NAME=lm-data
+readonly MINIO_SECRET_NAME=minio-secret
+readonly MODULAR_API_SECRET_NAME=modular-api-secret
+readonly MODULAR_SERVICE_SECRET_NAME=modular-service-secret
+readonly MONGO_SECRET_NAME=mongo-secret
+readonly RULE_ENGINE_SECRET_NAME=rule-engine-secret
+readonly VAULT_SECRET_NAME=vault-secret
 
-ALL_SECRETS=("$DEFECTDOJO_SECRET_NAME" "$LM_DATA_SECRET_NAME" "$MINIO_SECRET_NAME" "$MODULAR_API_SECRET_NAME" "$MODULAR_SERVICE_SECRET_NAME" "$MONGO_SECRET_NAME" "$RULE_ENGINE_SECRET_NAME" "$VAULT_SECRET_NAME")
+readonly ALL_SECRETS=("$DEFECTDOJO_SECRET_NAME" "$LM_DATA_SECRET_NAME" "$MINIO_SECRET_NAME" "$MODULAR_API_SECRET_NAME" "$MODULAR_SERVICE_SECRET_NAME" "$MONGO_SECRET_NAME" "$RULE_ENGINE_SECRET_NAME" "$VAULT_SECRET_NAME")
 
-BACKUP_SECRETS_FILENAME=${BACKUP_SECRETS_FILENAME:-_k8s_secrets}
-BACKUP_HELM_VALUES_FILENAME=${BACKUP_HELM_VALUES_FILENAME:-_helm_values}
+readonly BACKUP_SECRETS_FILENAME=${BACKUP_SECRETS_FILENAME:-_k8s_secrets}
+readonly BACKUP_HELM_VALUES_FILENAME=${BACKUP_HELM_VALUES_FILENAME:-_helm_values}
 
 MODULAR_CLI_ENTRY_POINT=syndicate
 
-declare -A SECRETS_MAPPING
-SECRETS_MAPPING["dojo-system-password"]="$DEFECTDOJO_SECRET_NAME,system-password"
-SECRETS_MAPPING["modular-service-system-password"]="$MODULAR_SERVICE_SECRET_NAME,system-password"
-SECRETS_MAPPING["modular-service-admin-password"]="$MODULAR_SERVICE_SECRET_NAME,admin-password"
-SECRETS_MAPPING["rule-engine-system-password"]="$RULE_ENGINE_SECRET_NAME,system-password"
-SECRETS_MAPPING["rule-engine-admin-password"]="$RULE_ENGINE_SECRET_NAME,admin-password"
-SECRETS_MAPPING["modular-api-system-password"]="$MODULAR_API_SECRET_NAME,system-password"
+declare -rA SECRETS_MAPPING=(
+  ["dojo-system-password"]="$DEFECTDOJO_SECRET_NAME,system-password"
+  ["modular-service-system-password"]="$MODULAR_SERVICE_SECRET_NAME,system-password"
+  ["modular-service-admin-password"]="$MODULAR_SERVICE_SECRET_NAME,admin-password"
+  ["rule-engine-system-password"]="$RULE_ENGINE_SECRET_NAME,system-password"
+  ["rule-engine-admin-password"]="$RULE_ENGINE_SECRET_NAME,admin-password"
+  ["modular-api-system-password"]="$MODULAR_API_SECRET_NAME,system-password"
+)
 
 # FOR backups to scale up/down
-declare -A PV_TO_DEPLOYMENTS
-PV_TO_DEPLOYMENTS["minio"]="minio"
-PV_TO_DEPLOYMENTS["vault"]="vault"
-PV_TO_DEPLOYMENTS["mongo"]="mongo"
-PV_TO_DEPLOYMENTS["defectdojo-cache"]="defectdojo-redis"
-PV_TO_DEPLOYMENTS["defectdojo-data"]="defectdojo-postgres"
-PV_TO_DEPLOYMENTS["defectdojo-media"]="defectdojo-nginx,defectdojo-uwsgi,defectdojo-celeryworker"
-
+declare -rA PV_TO_DEPLOYMENTS=(
+  ["minio"]="minio"
+  ["vault"]="vault"
+  ["mongo"]="mongo"
+  ["defectdojo-cache"]="defectdojo-redis"
+  ["defectdojo-data"]="defectdojo-postgres"
+  ["defectdojo-media"]="defectdojo-nginx,defectdojo-uwsgi,defectdojo-celeryworker"
+)
 
 GITHUB_CURL_HEADERS=('-H' 'X-GitHub-Api-Version: 2022-11-28')
 if [ -n "$GITHUB_TOKEN" ]; then
   GITHUB_CURL_HEADERS+=('-H' "Authorization: Bearer $GITHUB_TOKEN")
 fi
+readonly GITHUB_CURL_HEADERS
 
-
-MODULAR_CLI_ARTIFACT_NAME=modular_cli.tar.gz
-OBFUSCATOR_ARTIFACT_NAME=sre_obfuscator.tar.gz
-SRE_INIT_ARTIFACT_NAME=sre-init.sh
-
-# in seconds
-INSTALLATION_PERIOD_THRESHOLD="${INSTALLATION_PERIOD_THRESHOLD:-900}"
-LOG_PATH="${LOG_PATH:-/var/log/sre-init.log}"  # that is a default log path and should not be changed
+readonly MODULAR_CLI_ARTIFACT_NAME=modular_cli.tar.gz
+readonly OBFUSCATOR_ARTIFACT_NAME=sre_obfuscator.tar.gz
+readonly SRE_INIT_ARTIFACT_NAME=sre-init.sh
 
 # in seconds
-UPDATE_NOTIFICATION_PERIOD="${UPDATE_NOTIFICATION_PERIOD:-3600}"
-UPDATE_NOTIFICATION_FILE="$SRE_LOCAL_PATH/.update-notification"
+readonly INSTALLATION_PERIOD_THRESHOLD="${INSTALLATION_PERIOD_THRESHOLD:-900}"
+readonly LOG_PATH="${LOG_PATH:-/var/log/sre-init.log}" # that is a default log path and should not be changed
 
+# in seconds
+readonly UPDATE_NOTIFICATION_PERIOD="${UPDATE_NOTIFICATION_PERIOD:-3600}"
+readonly UPDATE_NOTIFICATION_FILE="$SRE_LOCAL_PATH/.update-notification"
 
 if [ ! "$1" = "init" ] && [ ! "$1" = '--system' ]; then
   verify_installation
@@ -1339,17 +1624,43 @@ fi
 make_update_notification || true
 
 case "$1" in
-  backup) shift; cmd_backup "$@" ;;
-  help|-h|--help) shift; cmd_usage "$@" ;;
-  version|--version) shift; cmd_version "$@" ;;
-  update) shift; cmd_update "$@" ;;
-  list) shift; cmd_update_list "$@" ;;
-  init) shift; cmd_init "$@" ;;
-  nginx) shift; cmd_nginx "$@" ;;
-  secrets) shift; cmd_secrets "$@" ;;
-  health) shift; cmd_health "$@" ;;
-  --system|--user) cmd_init "$@" ;;  # redirect to init as default one
+  backup)
+    shift
+    cmd_backup "$@"
+    ;;
+  help | -h | --help)
+    shift
+    cmd_usage "$@"
+    ;;
+  version | --version)
+    shift
+    cmd_version "$@"
+    ;;
+  update)
+    shift
+    cmd_update "$@"
+    ;;
+  list)
+    shift
+    cmd_update_list "$@"
+    ;;
+  init)
+    shift
+    cmd_init "$@"
+    ;;
+  nginx)
+    shift
+    cmd_nginx "$@"
+    ;;
+  secrets)
+    shift
+    cmd_secrets "$@"
+    ;;
+  health)
+    shift
+    cmd_health "$@"
+    ;;
+  --system | --user) cmd_init "$@" ;; # redirect to init as default one
   '') cmd_usage ;;
   *) die "$(cmd_unrecognized)" ;;
 esac
-exit 0

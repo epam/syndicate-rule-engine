@@ -1338,3 +1338,8 @@ class RabbitCommand(str, Enum):
 class ScheduledJobType(str, Enum):
     STANDARD = 'standard'
     SYSTEM = 'system'
+
+
+VERSION_NORM_LENGTH = 6
+TENANTS_QUERY_THRESHOLD = 20
+LATEST_VERSION_TAG = ':'  # ':' > '999999.999999.999999'

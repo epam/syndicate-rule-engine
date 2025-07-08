@@ -44,11 +44,11 @@ class BatchResultsService(BaseDataService[BatchResults]):
                              last_evaluated_key: dict | None = None,
                              ) -> ResultIterator[BatchResults]:
         if start and end:
-            rkc = (BatchResults.submitted_at >= utc_iso(start)) & (BatchResults.submitted_at < utc_iso(end))
+            rkc = BatchResults.submitted_at.between(utc_iso(start), utc_iso(end))
         elif start:
             rkc = (BatchResults.submitted_at >= utc_iso(start))
         elif end:
-            rkc = (BatchResults.submitted_at < utc_iso(end))
+            rkc = (BatchResults.submitted_at <= utc_iso(end))
         else:
             rkc = None
         if status:
@@ -69,11 +69,11 @@ class BatchResultsService(BaseDataService[BatchResults]):
                            last_evaluated_key: dict | None = None,
                            ) -> ResultIterator[BatchResults]:
         if start and end:
-            rkc = (BatchResults.submitted_at >= utc_iso(start)) & (BatchResults.submitted_at < utc_iso(end))
+            rkc = BatchResults.submitted_at.between(utc_iso(start), utc_iso(end))
         elif start:
             rkc = (BatchResults.submitted_at >= utc_iso(start))
         elif end:
-            rkc = (BatchResults.submitted_at < utc_iso(end))
+            rkc = (BatchResults.submitted_at <= utc_iso(end))
         else:
             rkc = None
         if status:

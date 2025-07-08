@@ -1,8 +1,10 @@
 from http import HTTPStatus
 from typing import Iterable
 
+from itertools import chain
 from modular_sdk.commons.constants import ApplicationType, ParentType
 from modular_sdk.models.parent import Parent
+from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.application_service import ApplicationService
 from modular_sdk.services.parent_service import ParentService
 
@@ -16,6 +18,7 @@ from services.modular_helpers import (
     ResolveParentsPayload,
     build_parents,
     get_activation_dto,
+    iter_tenants_by_names
 )
 from validators.swagger_request_models import (
     BaseModel,
@@ -82,12 +85,17 @@ class DefectDojoHandler(AbstractHandler):
 
     @validate_kwargs
     def query(self, event: DefectDojoQueryModel):
-        cursor = self._aps.i_get_application_by_customer(
-            customer_id=event.customer,
+        current = self._aps.i_get_application_by_customer(
+            customer_id=event.customer_id,
+            application_type=ApplicationType.CUSTODIAN_DEFECT_DOJO.value,
+            deleted=False
+        )
+        legacy = self._aps.i_get_application_by_customer(
+            customer_id=event.customer_id,
             application_type=ApplicationType.DEFECT_DOJO.value,
             deleted=False
         )
-        cursor = self._dds.to_dojos(cursor)
+        cursor = self._dds.to_dojos(chain(current, legacy))
         return build_response(content=map(self._dds.dto, cursor))
 
     @validate_kwargs
@@ -104,6 +112,10 @@ class DefectDojoHandler(AbstractHandler):
         item = self._dds.get_nullable(id)
         if not item or event.customer and item.customer != event.customer:
             return build_response(code=HTTPStatus.NO_CONTENT)
+        if item.application.type == ApplicationType.DEFECT_DOJO:
+            raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
+                'Cannot manage legacy Defect Dojo application type.'
+            ).exc()
         self._dds.delete(item)
         for parent in self.get_all_activations(item.id, event.customer):
             self._ps.force_delete(parent)
@@ -135,6 +147,20 @@ class DefectDojoHandler(AbstractHandler):
             raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
                 self._dds.not_found_message(id)
             ).exc()
+
+        if event.tenant_names:
+            it = iter_tenants_by_names(
+                tenant_service=self._ps.tenant_service,
+                customer=event.customer_id,
+                names=event.tenant_names,
+                attributes_to_get=(Tenant.name, )
+            )
+            tenants = {tenant.name for tenant in it}
+            if missing := event.tenant_names - tenants:
+                raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                    f'Active tenant(s) {", ".join(missing)} not found'
+                ).exc()
+                
         for parent in self.get_all_activations(item.id, event.customer):
             self._ps.force_delete(parent)
 
