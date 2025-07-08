@@ -961,23 +961,22 @@ def get_tenant_credentials(tenant: Tenant) -> dict | None:
     """
     mcs = SP.modular_client.maestro_credentials_service()
     credentials = None
-    if credentials is None:
-        _LOG.info('Trying to get creds from `CUSTODIAN_ACCESS` parent')
-        parent = (
-            SP.modular_client.parent_service().get_linked_parent_by_tenant(
-                tenant=tenant, type_=ParentType.CUSTODIAN_ACCESS
+    _LOG.info('Trying to get creds from `CUSTODIAN_ACCESS` parent')
+    parent = (
+        SP.modular_client.parent_service().get_linked_parent_by_tenant(
+            tenant=tenant, type_=ParentType.CUSTODIAN_ACCESS
+        )
+    )
+    if parent:
+        application = (
+            SP.modular_client.application_service().get_application_by_id(
+                parent.application_id
             )
         )
-        if parent:
-            application = (
-                SP.modular_client.application_service().get_application_by_id(
-                    parent.application_id
-                )
-            )
-            if application:
-                _creds = mcs.get_by_application(application, tenant)
-                if _creds:
-                    credentials = _creds.dict()
+        if application:
+            _creds = mcs.get_by_application(application, tenant)
+            if _creds:
+                credentials = _creds.dict()
     if credentials is None and BatchJobEnv.ALLOW_MANAGEMENT_CREDS.as_bool():
         _LOG.info(
             'Trying to get creds from maestro management parent & application'

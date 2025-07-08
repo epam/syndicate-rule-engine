@@ -3,6 +3,7 @@ from functools import cached_property
 from typing_extensions import Self
 
 from handlers import Mapping
+from handlers.resource_handler import ResourceHandler
 from helpers import RequestContext
 from helpers.log_helper import get_logger
 from lambdas.custodian_api_handler.handlers.batch_result_handler import (
@@ -49,7 +50,8 @@ class ApiHandler(ApiEventProcessorLambdaHandler):
             HealthCheckHandler,
             MetricsStatusHandler,
             EventsHandler,
-            SwaggerHandler
+            SwaggerHandler,
+            ResourceHandler
         ]
 
     @classmethod

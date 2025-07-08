@@ -610,7 +610,7 @@ def main(args: list[str] | None = None):
     try:
         func(**vars(arguments))
     except Exception as e:
-        _LOG.exception(f'Unexpected exception occurred: {e}')
+        _LOG.error(f'Unexpected exception occurred: {e}')
         exit(1)  # some connection errors for entrypoint.sh
 
 

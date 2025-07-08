@@ -40,6 +40,7 @@ class CustodianEndpoint(str, Enum):
     LICENSES = '/licenses'
     POLICIES = '/policies'
     JOBS_K8S = '/jobs/k8s'
+    RESOURCES = '/resources'
     CUSTOMERS = '/customers'
     HEALTH_ID = '/health/{id}'
     JOBS_JOB = '/jobs/{job_id}'
@@ -868,6 +869,8 @@ class Permission(str, Enum):
     USERS_DELETE = 'users:delete'
     USERS_GET_CALLER = 'users:get_caller'
     USERS_RESET_PASSWORD = 'users:reset_password'
+
+    RESOURCES_GET = 'resources:get'
 
     @classmethod
     def iter_enabled(cls) -> Iterator[Self]:

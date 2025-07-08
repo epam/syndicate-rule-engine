@@ -1,11 +1,7 @@
 from typing import Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
-from hashlib import sha256
 import time
-
-from msgspec.json import encode
-
 
 from c7n import utils
 from c7n.version import version
@@ -25,18 +21,21 @@ from helpers.log_helper import get_logger
 from helpers.regions import CLOUD_REGIONS
 from executor.job import (
     ExecutorException,
-    PolicyDict, 
-    job_initializer, 
+    PolicyDict,
+    job_initializer,
     PoliciesLoader,
-    get_tenant_credentials
+    get_tenant_credentials,
 )
 from models.resource import Resource
 from services import SP
+from services.resources_service import ResourcesService
 
 _LOG = get_logger(__name__)
 
+
 # CC by default stores retrieved information on disk
 # This mode turn off this behavior
+# Though it stops storing scan's metadata
 @execution.register('collect')
 class CollectMode(PolicyExecutionMode):
     """
@@ -51,7 +50,7 @@ class CollectMode(PolicyExecutionMode):
             return []
 
         self.policy.log.debug(
-            "Running policy:%s resource:%s region:%s c7n:%s",
+            'Running policy:%s resource:%s region:%s c7n:%s',
             self.policy.name,
             self.policy.resource_type,
             self.policy.options.region or 'default',
@@ -67,7 +66,7 @@ class CollectMode(PolicyExecutionMode):
 
         rt = time.time() - s
         self.policy.log.info(
-            "policy:%s resource:%s region:%s count:%d time:%0.2f",
+            'policy:%s resource:%s region:%s count:%d time:%0.2f',
             self.policy.name,
             self.policy.resource_type,
             self.policy.options.region,
@@ -79,31 +78,37 @@ class CollectMode(PolicyExecutionMode):
             return []
 
         if self.policy.options.dryrun:
-            self.policy.log.debug("dryrun: skipping actions")
+            self.policy.log.debug('dryrun: skipping actions')
             return resources
 
         for a in self.policy.resource_manager.actions:
             s = time.time()
             self.policy.log.info(
-                "policy:%s action:%s"
-                " resources:%d"
-                " execution_time:%0.2f"
+                'policy:%s action:%s'
+                ' resources:%d'
+                ' execution_time:%0.2f'
                 % (self.policy.name, a.name, len(resources), time.time() - s)
             )
         return resources
+
 
 # TODO: add resource retrieval for Kubernetes
 class ResourceCollector:
     """
     Collects resources from cloud using Cloud Custodian policies.
-    It first creates policies with no filters for specified resource types and 
+    It first creates policies with no filters for specified resource types and
     regions, by default it collects all resources for the cloud.
     Then it runs the policies to collect resources and saves them in temp folder.
     After that, all the resource are saved in the mongodb.
     """
 
-    def __init__(self, modular_service: ModularServiceProvider):
+    def __init__(
+        self,
+        modular_service: ModularServiceProvider,
+        resources_service: ResourcesService,
+    ):
         self._ms = modular_service
+        self._rs = resources_service
 
     @classmethod
     def build(cls) -> 'ResourceCollector':
@@ -111,27 +116,35 @@ class ResourceCollector:
         Builds a ResourceCollector instance.
         """
         return ResourceCollector(
-            modular_service=SP.modular_client
+            modular_service=SP.modular_client,
+            resources_service=SP.resources_service,
         )
 
     @staticmethod
     def _get_policies(
-            resource_map: dict,
-            cloud: Cloud,
-            resource_types: Iterable[str] | None = None,
-            regions: Iterable[str] | None = None,
+        resource_map: dict,
+        cloud: Cloud,
+        resource_types: Iterable[str] | None = None,
+        regions: Iterable[str] | None = None,
     ) -> list[Policy]:
         if not resource_types:
             resource_types = list(resource_map.keys())
         else:
             if not all(rt in resource_map.keys() for rt in resource_types):
-                raise ValueError(f"Some resource types {resource_types} are not valid {cloud} resource types.")
+                raise ValueError(
+                    f'Some resource types {resource_types} are not valid {cloud} resource types.'
+                )
 
         if not regions:
             regions = CLOUD_REGIONS[cloud] | {'global'}
         else:
-            if not all(region in CLOUD_REGIONS[cloud] | {'global'} for region in regions):
-                raise ValueError(f"Some regions {regions} are not valid {cloud} regions.")
+            if not all(
+                region in CLOUD_REGIONS[cloud] | {'global'}
+                for region in regions
+            ):
+                raise ValueError(
+                    f'Some regions {regions} are not valid {cloud} regions.'
+                )
             regions = set(regions)
 
         policy_dicts = []
@@ -140,23 +153,18 @@ class ResourceCollector:
                 'name': f'retrieve-{resource_type}',
                 'resource': resource_type,
                 'description': f'policy to retrieve all {resource_type} resources',
-                'mode': {
-                    'type': 'collect'
-                }
+                'mode': {'type': 'collect'},
             }
             policy_dicts.append(PolicyDict(**policy))
 
-        policy_loader = PoliciesLoader(
-            cloud=cloud,
-            regions=regions
-        )
+        policy_loader = PoliciesLoader(cloud=cloud, regions=regions)
 
         return policy_loader.load_from_policies(policy_dicts)
 
     @staticmethod
     def get_aws_policies(
-            resource_types: Iterable[str]|None = None, 
-            regions: Iterable[str]|None = None
+        resource_types: Iterable[str] | None = None,
+        regions: Iterable[str] | None = None,
     ) -> list[Policy]:
         return ResourceCollector._get_policies(
             resource_map=AWSResourceMap,
@@ -167,8 +175,8 @@ class ResourceCollector:
 
     @staticmethod
     def get_azure_policies(
-            resource_types: Iterable[str]|None = None, 
-            regions: Iterable[str]|None = None
+        resource_types: Iterable[str] | None = None,
+        regions: Iterable[str] | None = None,
     ) -> list[Policy]:
         return ResourceCollector._get_policies(
             resource_map=AzureResourceMap,
@@ -176,14 +184,16 @@ class ResourceCollector:
             resource_types=resource_types,
             regions=regions,
         )
-    
+
     @staticmethod
     def get_gcp_policies(
-            resource_types: Iterable[str]|None = None, 
-            regions: Iterable[str]|None = None
-        ) -> list[Policy]:
-        # can't create policy for region resource type
-        gcp_map = {k: v for k, v in GCPResourceMap.items() if k != 'gcp.region'} 
+        resource_types: Iterable[str] | None = None,
+        regions: Iterable[str] | None = None,
+    ) -> list[Policy]:
+        # NOTE: can't create policy for 'region' resource type
+        gcp_map = {
+            k: v for k, v in GCPResourceMap.items() if k != 'gcp.region'
+        }
         return ResourceCollector._get_policies(
             resource_map=gcp_map,
             cloud=Cloud.GCP,
@@ -193,17 +203,15 @@ class ResourceCollector:
 
     # TODO: better error handling
     @staticmethod
-    def _process_policy(policy: Policy, resource_type: str, region: str) -> tuple[list, str, str] | None:
+    def _process_policy(
+        policy: Policy, resource_type: str, region: str
+    ) -> tuple[list, str, str] | None:
         try:
             return policy(), resource_type, region
         except Exception as e:
-            _LOG.error(f"Error processing policy {policy.name}: {e}")
+            _LOG.error(f'Error processing policy {policy.name}: {e}')
             return None
-    
-    @staticmethod
-    def _compute_hash(data: dict) -> str:
-        return sha256(encode(data)).hexdigest()
-    
+
     # TODO: add creds handling for Kube
     @staticmethod
     def _get_credentials(tenant: Tenant) -> dict:
@@ -214,8 +222,14 @@ class ResourceCollector:
 
         return credentials
 
-    @staticmethod
-    def _build_resource(data: dict, resource_type: str, region: str) -> Resource:
+    def _load_scan(
+        self,
+        data: dict,
+        resource_type: str,
+        region: str,
+        tenant_name: str,
+        customer_name: str,
+    ):
         """
         Builds a CloudResource object from the data collected by the policy.
         """
@@ -226,71 +240,73 @@ class ResourceCollector:
         elif 'id' in data:
             resource_id = data['id']
         else:
-            _LOG.warning(f"Resource {resource_type} does not have an 'id' field in data: {data}")
+            _LOG.warning(
+                f"Resource {resource_type} does not have an 'id' field in data: {data}"
+            )
             resource_id = ''
-        
+
         if hasattr(resource_class.resource_type, 'name'):
             resource_name = data.get(resource_class.resource_type.name, '')
         elif 'name' in data:
             resource_name = data['name']
         else:
-            _LOG.warning(f"Resource {resource_type} does not have a 'name' field in data: {data}")
+            _LOG.warning(
+                f"Resource {resource_type} does not have a 'name' field in data: {data}"
+            )
             resource_name = ''
-        
-        resource = Resource(
+
+        self._rs.load_new_scan(
             id=resource_id,
             name=resource_name,
             location=region,
             resource_type=resource_type,
+            tenant_name=tenant_name,
+            customer_name=customer_name,
             data=data,
             sync_date=datetime.now(timezone.utc).isoformat(),
-            hash=ResourceCollector._compute_hash(data)
         )
-        return resource
 
-    def collect_resources(
+    def collect_tenant_resources(
         self,
         tenant_name: str,
         regions: Iterable[str] | None = None,
         resource_types: Iterable[str] | None = None,
-        workers: int = 10
+        workers: int = 10,
     ):
         tenant = self._ms.tenant_service().get(tenant_name)
         if not tenant:
-            raise ValueError(f"Tenant {tenant_name} not found")
+            raise ValueError(f'Tenant {tenant_name} not found')
 
         cloud = Cloud(tenant.cloud)
 
         if cloud == Cloud.AWS:
             policies = self.get_aws_policies(
-                resource_types=resource_types,
-                regions=regions
+                resource_types=resource_types, regions=regions
             )
         elif cloud == Cloud.AZURE:
             policies = self.get_azure_policies(
-                resource_types=resource_types,
-                regions=regions
+                resource_types=resource_types, regions=regions
             )
         elif cloud == Cloud.GCP:
             policies = self.get_gcp_policies(
-                resource_types=resource_types,
-                regions=regions
+                resource_types=resource_types, regions=regions
             )
         else:
-            raise ValueError(f"Unsupported cloud: {cloud}")
+            raise ValueError(f'Unsupported cloud: {cloud}')
 
         credentials = ResourceCollector._get_credentials(tenant)
         with ThreadPoolExecutor(
             max_workers=workers,
             initializer=job_initializer,
-            initargs=(credentials,)
+            initargs=(credentials,),
         ) as executor:
             results = []
             for policy in policies:
                 result = executor.submit(
-                    self._process_policy, 
-                    policy, policy.resource_type, 
-                    policy.options.region
+                    self._process_policy,
+                    policy,
+                    policy.resource_type,
+                    policy.options.region,
                 )
                 results.append(result)
 
@@ -298,4 +314,33 @@ class ResourceCollector:
                 res, resource_type, region = result.result()
                 if res:
                     for data in res:
-                        self._build_resource(data, resource_type, region).save()
+                        self._load_scan(
+                            data,
+                            resource_type,
+                            region,
+                            tenant.name,
+                            tenant.customer_name,
+                        )
+
+    def collect_all_resources(
+        self,
+        regions: Iterable[str] | None = None,
+        resource_types: Iterable[str] | None = None,
+        workers: int = 10,
+    ):
+        """
+        Collects resources for all tenants.
+        """
+        tenants = self._ms.tenant_service().scan_tenants(only_active=True)
+        for tenant in tenants:
+            try:
+                self.collect_tenant_resources(
+                    tenant_name=tenant.name,
+                    regions=regions,
+                    resource_types=resource_types,
+                    workers=workers,
+                )
+            except Exception as e:
+                _LOG.error(
+                    f'Error collecting resources for tenant {tenant.name}: {e}'
+                )

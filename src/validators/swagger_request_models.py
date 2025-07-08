@@ -33,7 +33,8 @@ from helpers.constants import (
     GITLAB_API_URL_DEFAULT,
     PolicyEffect,
     ReportType,
-    CAASEnv
+    CAASEnv,
+    Cloud
 )
 from helpers import Version
 from helpers.regions import AllRegions, AllRegionsWithGlobal
@@ -41,21 +42,24 @@ from helpers.time_helper import utc_datetime
 from services.chronicle_service import ChronicleConverterType
 from services.ruleset_service import RulesetName
 from models.rule import RuleIndex
-from celery.schedules import BaseSchedule, schedule as celery_schedule, crontab as celery_crontab
+from celery.schedules import (
+    BaseSchedule,
+    schedule as celery_schedule,
+    crontab as celery_crontab,
+)
 
 
 class BaseModel(PydanticBaseModel):
     model_config = ConfigDict(
-        coerce_numbers_to_str=True,
-        populate_by_name=True,
+        coerce_numbers_to_str=True, populate_by_name=True
     )
     customer_id: SkipJsonSchema[str] = Field(
         None,
         alias='customer',
         description='Special parameter. Allows to perform actions on behalf '
-                    'on the specified customer. This can be allowed only '
-                    'for system users. Parameter will be ignored for '
-                    'standard users',
+        'on the specified customer. This can be allowed only '
+        'for system users. Parameter will be ignored for '
+        'standard users',
     )
 
     @property
@@ -69,14 +73,11 @@ class BaseModel(PydanticBaseModel):
 
 class BasePaginationModel(BaseModel):
     limit: int = Field(
-        50, 
-        ge=1, 
-        le=50, 
-        description='Max number of items to return'
+        50, ge=1, le=50, description='Max number of items to return'
     )
     next_token: str = Field(
-        None, 
-        description='Provide next_token received from the previous request'
+        None,
+        description='Provide next_token received from the previous request',
     )
 
 
@@ -121,13 +122,15 @@ class TimeRangedMixin:
         if start:
             start = start.astimezone(timezone.utc)
             if start > now:
-                raise ValueError('value of \'from\' must be less '
-                                 'than current date')
+                raise ValueError(
+                    "value of 'from' must be less than current date"
+                )
         if end:
             end = end.astimezone(timezone.utc)
             if end > now:
-                raise ValueError('value of \'to\' must be less '
-                                 'than current date')
+                raise ValueError(
+                    "value of 'to' must be less than current date"
+                )
         if start and end:
             pass
         elif start:
@@ -142,22 +145,60 @@ class TimeRangedMixin:
             end = now
             start = end - max_range
         if start >= end:
-            raise ValueError('value of \'to\' must '
-                             'be bigger than \'from\' date')
+            raise ValueError("value of 'to' must be bigger than 'from' date")
 
         if (end - start) > max_range:
             raise ValueError(
-                f'Time range between \'from\' and \'to\' must '
-                f'not overflow {max_range}')
+                f"Time range between 'from' and 'to' must "
+                f'not overflow {max_range}'
+            )
         self.start_iso = start
         self.end_iso = end
         return self
+
+
+class ResourcesGetModel(BasePaginationModel):
+    customer_name: str | None = Field(None)
+    tenant_name: str | None = Field(None)
+    resource_type: str | None = Field(
+        None,
+        description='Cloud Custodian resource type with cloud prefix, e.g. aws.ec2',
+    )
+    location: str | None = Field(
+        None,
+        description='Location of the resource, e.g. us-east-1, eastus, europe-west1, etc.',
+    )
+    name: str | None = Field(None)
+    id: str | None = Field(None)
+
+    @property
+    def cloud(self) -> Cloud | None:
+        """
+        Returns cloud name based on resource_type
+        :return: cloud name or None if resource_type is not specified
+        """
+        if not self.resource_type:
+            return None
+        return Cloud(self.resource_type.split('.')[0].upper())
+
+    @field_validator('resource_type', mode='after')
+    @classmethod
+    def validate_resource_type(cls, resource_type: str | None) -> str | None:
+        """
+        Validate resource_type and convert it to set of Cloud
+        :param resource_type: str or list of str
+        :return: set of Cloud or None if resource_type is not specified
+        """
+        if not resource_type:
+            return None
+        return resource_type
 
 
 class CustomerGetModel(BaseModel):
     """
     GET
     """
+
     name: str = Field(None)
 
     @model_validator(mode='after')
@@ -171,6 +212,7 @@ class MultipleTenantsGetModel(BasePaginationModel):
     """
     GET
     """
+
     # cloud_identifier: Optional[str]  # TODO API separate endpoint for this
     active: bool = Field(None)
     cloud: ModularCloud = Field(None)
@@ -218,14 +260,14 @@ class RulesetPostModel(BaseModel):
     version: str = Field(
         None,
         description='Ruleset version. If not specified, '
-                    'will be generated automatically based on github '
-                    'release of rules or based on the previous ruleset version'
+        'will be generated automatically based on github '
+        'release of rules or based on the previous ruleset version',
     )
     rule_source_id: str = Field(
         None,
         description='Id of rule source object to get rules from. '
-                    'If the type of that source is GITHUB_RELEASE, '
-                    'the version from release tag will be used'
+        'If the type of that source is GITHUB_RELEASE, '
+        'the version from release tag will be used',
     )
     git_project_id: str = Field(None)
     git_ref: str = Field(None)
@@ -238,16 +280,13 @@ class RulesetPostModel(BaseModel):
         description='Platform for k8s rules to filter based on',
     )
     categories: set[str] = Field(
-        default_factory=set,
-        description='Rules category to use'
+        default_factory=set, description='Rules category to use'
     )
     service_sections: set[str] = Field(
-        default_factory=set,
-        description='Service section to use'
+        default_factory=set, description='Service section to use'
     )
     sources: set[str] = Field(
-        default_factory=set,
-        description='Sources to use'
+        default_factory=set, description='Sources to use'
     )
 
     @field_validator('platforms', mode='after')
@@ -255,11 +294,15 @@ class RulesetPostModel(BaseModel):
     def validate_platforms(cls, platforms: set[str]) -> set[str]:
         if not platforms:
             return platforms
-        all_platforms = {i.lower() for i in RuleIndex.platform_map.values() if i}
+        all_platforms = {
+            i.lower() for i in RuleIndex.platform_map.values() if i
+        }
         platforms = {p.strip().lower() for p in platforms}
         not_existing = platforms - all_platforms
         if not_existing:
-            raise ValueError(f'not available platforms: {", ".join(not_existing)}. Choose from: {", ".join(all_platforms)}')
+            raise ValueError(
+                f'not available platforms: {", ".join(not_existing)}. Choose from: {", ".join(all_platforms)}'
+            )
         return platforms
 
     @field_validator('categories', mode='after')
@@ -267,11 +310,15 @@ class RulesetPostModel(BaseModel):
     def validate_categories(cls, categories: set[str]) -> set[str]:
         if not categories:
             return categories
-        all_categories = {i.lower() for i in RuleIndex.category_map.values() if i}
+        all_categories = {
+            i.lower() for i in RuleIndex.category_map.values() if i
+        }
         categories = {c.strip().lower() for c in categories}
         not_existing = categories - all_categories
         if not_existing:
-            raise ValueError(f'not available categories: {", ".join(not_existing)}. Choose from: {", ".join(all_categories)}')
+            raise ValueError(
+                f'not available categories: {", ".join(not_existing)}. Choose from: {", ".join(all_categories)}'
+            )
         return categories
 
     @field_validator('service_sections', mode='after')
@@ -279,11 +326,15 @@ class RulesetPostModel(BaseModel):
     def validate_service_sections(cls, service_sections: set[str]) -> set[str]:
         if not service_sections:
             return service_sections
-        all_sections = {i.lower() for i in RuleIndex.service_section_map.values() if i}
+        all_sections = {
+            i.lower() for i in RuleIndex.service_section_map.values() if i
+        }
         service_sections = {ss.strip().lower() for ss in service_sections}
         not_existing = service_sections - all_sections
         if not_existing:
-            raise ValueError(f'not available service sections: {", ".join(not_existing)}. Choose from: {", ".join(all_sections)}')
+            raise ValueError(
+                f'not available service sections: {", ".join(not_existing)}. Choose from: {", ".join(all_sections)}'
+            )
         return service_sections
 
     @field_validator('sources', mode='after')
@@ -295,7 +346,9 @@ class RulesetPostModel(BaseModel):
         sources = {s.strip().lower() for s in sources}
         not_existing = sources - all_sources
         if not_existing:
-            raise ValueError(f'not available sources: {", ".join(not_existing)}. Choose from: {", ".join(all_sources)}')
+            raise ValueError(
+                f'not available sources: {", ".join(not_existing)}. Choose from: {", ".join(all_sources)}'
+            )
         return sources
 
     @field_validator('name', mode='after')
@@ -325,8 +378,10 @@ class RulesetPostModel(BaseModel):
         if self.git_ref and not self.git_project_id:
             raise ValueError('git_project_id must be specified with git_ref')
         if self.rule_source_id and (self.git_ref or self.git_project_id):
-            raise ValueError('Do not specify git_ref or git_project_id '
-                             'if rule_source_id is specified')
+            raise ValueError(
+                'Do not specify git_ref or git_project_id '
+                'if rule_source_id is specified'
+            )
         return self
 
 
@@ -335,16 +390,16 @@ class RulesetPatchModel(BaseModel):
     version: str = Field(
         None,
         description='A version of the ruleset you want to update. '
-                    'If not specified, the latest previous ruleset will '
-                    'be used as base to update'
+        'If not specified, the latest previous ruleset will '
+        'be used as base to update',
     )
     new_version: str
 
     rules_to_attach: set = Field(default_factory=set)
     rules_to_detach: set = Field(default_factory=set)
     force: bool = Field(
-        None, 
-        description='Force the creation of a new ruleset version even if no there is no changes'
+        None,
+        description='Force the creation of a new ruleset version even if no there is no changes',
     )
 
     @field_validator('name', mode='after')
@@ -373,7 +428,7 @@ class RulesetDeleteModel(BaseModel):
     name: str
     version: str = Field(
         description='Specific version to remove. * can be specified to '
-                    'remove all the versions of a specific ruleset'
+        'remove all the versions of a specific ruleset'
     )
 
     @field_validator('name', mode='after')
@@ -400,6 +455,7 @@ class RulesetGetModel(BaseModel):
     """
     GET
     """
+
     name: str = Field(None)
     version: str = Field(None)
     cloud: RuleDomain = Field(None)
@@ -418,11 +474,12 @@ class RulesetGetModel(BaseModel):
     @model_validator(mode='after')
     def validate_codependent_params(self) -> Self:
         if self.version and not self.name:
-            raise ValueError('\'name\' is required if \'version\' is given')
+            raise ValueError("'name' is required if 'version' is given")
         if self.name and self.version and self.cloud:
             raise ValueError(
-                'you don\'t have to specify \'cloud\' or \'active\' '
-                'if \'name\' and \'version\' are given')
+                "you don't have to specify 'cloud' or 'active' "
+                "if 'name' and 'version' are given"
+            )
         return self
 
 
@@ -431,8 +488,8 @@ class RulesetReleasePostModel(BaseModel):
     version: str = Field(
         None,
         description='Specific version to release to LM. * can be specified to '
-                    'release all the versions of a specific ruleset. '
-                    'If not specified, the latest version will be released'
+        'release all the versions of a specific ruleset. '
+        'If not specified, the latest version will be released',
     )
     description: str
     display_name: str
@@ -450,6 +507,7 @@ class RulesetReleasePostModel(BaseModel):
     @property
     def is_all_versions(self) -> bool:
         return self.version == '*'
+
     # other params
 
 
@@ -470,6 +528,7 @@ class RuleGetModel(BasePaginationModel):
     """
     GET
     """
+
     rule: str = Field(None)
     cloud: RuleDomain = Field(None)
     git_project_id: str = Field(None)
@@ -497,19 +556,19 @@ class RuleSourcePostModel(BaseModel):
     description: str
     type: RuleSourceType = Field(
         None,
-        description='If not specified will be inferred from git_project_id.'
+        description='If not specified will be inferred from git_project_id.',
     )
 
     git_url: HttpUrl = Field(
         None,
         description=f'If not specified will be inferred from git_project_id. '
-                    f'"{GITHUB_API_URL_DEFAULT}" will be used for GitHub, '
-                    f'"{GITLAB_API_URL_DEFAULT}" will be used for GitLab'
+        f'"{GITHUB_API_URL_DEFAULT}" will be used for GitHub, '
+        f'"{GITLAB_API_URL_DEFAULT}" will be used for GitLab',
     )  # can be inferred
     git_ref: str = Field(
         'main',
         description='Git branch to pull rules from. Not used for '
-                    'GITHUB_RELEASE'
+        'GITHUB_RELEASE',
     )
     git_rules_prefix: str = '/'
     git_access_secret: str = Field(None)
@@ -564,7 +623,7 @@ class RuleSourcesListModel(BasePaginationModel):
     type: RuleSourceType = Field(None)
     project_id: str = Field(
         None,
-        description='Gitlab project id (12345) or Github project id (epam/ecc)'
+        description='Gitlab project id (12345) or Github project id (epam/ecc)',
     )
     has_secret: bool = Field(None)
 
@@ -594,7 +653,11 @@ class RolePatchModel(BaseModel):
 
     @model_validator(mode='after')
     def to_attach_or_to_detach(self) -> Self:
-        if not self.policies_to_detach and not self.policies_to_attach and not self.expiration:
+        if (
+            not self.policies_to_detach
+            and not self.policies_to_attach
+            and not self.expiration
+        ):
             raise ValueError('Provide some parameter to update')
         return self
 
@@ -612,8 +675,10 @@ class PolicyPostModel(BaseModel):
     @classmethod
     def validate_hidden(cls, permission: set[Permission]) -> set[Permission]:
         if not_allowed := permission & set(Permission.iter_disabled()):
-            raise ValueError(f'Permissions: {", ".join(not_allowed)} are '
-                             f'currently not allowed')
+            raise ValueError(
+                f'Permissions: {", ".join(not_allowed)} are '
+                f'currently not allowed'
+            )
         return permission
 
     @model_validator(mode='after')
@@ -637,15 +702,24 @@ class PolicyPatchModel(BaseModel):
     @classmethod
     def validate_hidden(cls, permission: set[Permission]) -> set[Permission]:
         if not_allowed := permission & set(Permission.iter_disabled()):
-            raise ValueError(f'Permissions: {", ".join(not_allowed)} are '
-                             f'currently not allowed')
+            raise ValueError(
+                f'Permissions: {", ".join(not_allowed)} are '
+                f'currently not allowed'
+            )
         return permission
 
     @model_validator(mode='after')
     def _(self) -> Self:
-        if not any((self.permissions_to_attach, self.permissions_to_detach,
-                    self.effect, self.tenants_to_add, self.tenants_to_remove,
-                    self.description)):
+        if not any(
+            (
+                self.permissions_to_attach,
+                self.permissions_to_detach,
+                self.effect,
+                self.tenants_to_add,
+                self.tenants_to_remove,
+                self.description,
+            )
+        ):
             raise ValueError('Provide some attribute to update')
         return self
 
@@ -711,25 +785,27 @@ class GOOGLECredentials3(PydanticBaseModel):
 
 
 class JobPostModel(BaseModel):
-    credentials: AWSCredentials | AZURECredentials | GOOGLECredentials1 | GOOGLECredentials2 | GOOGLECredentials3 = Field(
-        None)
+    credentials: (
+        AWSCredentials
+        | AZURECredentials
+        | GOOGLECredentials1
+        | GOOGLECredentials2
+        | GOOGLECredentials3
+    ) = Field(None)
     tenant_name: str
-    target_rulesets: set[str] = Field(
-        default_factory=set,
-        alias='rulesets',
-    )
+    target_rulesets: set[str] = Field(default_factory=set, alias='rulesets')
     target_regions: set[str] = Field(default_factory=set, alias='regions')
     rules_to_scan: set[str] = Field(default_factory=set, alias='rules')
     timeout_minutes: float = Field(
         None,
         description='Job timeout in minutes. This timeout is soft '
-                    'meaning that when the desired number of minutes have '
-                    'passed job termination will be triggered'
+        'meaning that when the desired number of minutes have '
+        'passed job termination will be triggered',
     )
     license_key: str = Field(
         None,
         description='License to exhaust for this job. Will be resolved '
-                    'automatically unless an ambiguous occurs'
+        'automatically unless an ambiguous occurs',
     )
 
     @field_validator('target_rulesets', mode='after')
@@ -747,8 +823,9 @@ class JobPostModel(BaseModel):
             name_to_items.setdefault(i.name, []).append(i)
             rulesets.add(RulesetName(i.name, i.version, None).to_str())
         if any(len(items) > 1 for items in name_to_items.values()):
-            raise ValueError('Only one version of specific ruleset can be '
-                             'used')
+            raise ValueError(
+                'Only one version of specific ruleset can be used'
+            )
         return rulesets
 
     def iter_rulesets(self) -> Generator[RulesetName, None, None]:
@@ -772,14 +849,31 @@ def sanitize_schedule(schedule: str) -> str:
         # consider the value to be rate expression only if explicitly
         # specified "rate"
         try:
-            value, unit = schedule.replace('rate', '').strip(' ()').split(maxsplit=1)
+            value, unit = (
+                schedule.replace('rate', '').strip(' ()').split(maxsplit=1)
+            )
             value = int(value)
-            if unit not in ('minute', 'minutes', 'hour', 'hours', 'day',
-                            'days', 'week', 'weeks', 'second', 'seconds',):
+            if unit not in (
+                'minute',
+                'minutes',
+                'hour',
+                'hours',
+                'day',
+                'days',
+                'week',
+                'weeks',
+                'second',
+                'seconds',
+            ):
                 raise ValueError
             if value < 1:
                 raise ValueError
-            if value == 1 and unit.endswith('s') or value > 1 and not unit.endswith('s'):
+            if (
+                value == 1
+                and unit.endswith('s')
+                or value > 1
+                and not unit.endswith('s')
+            ):
                 raise ValueError
         except ValueError:
             raise ValueError(_rate_error_message)
@@ -794,9 +888,11 @@ def sanitize_schedule(schedule: str) -> str:
     # valid, but it does some things to make the difference less visible
     raw = schedule.replace('cron', '').strip(' ()').split()
     if len(raw) not in (5, 6):
-        raise ValueError('Invalid cron expression. '
-                         'Must contain 5 fields: '
-                         '(minute hour day-of-month month day-of-week)')
+        raise ValueError(
+            'Invalid cron expression. '
+            'Must contain 5 fields: '
+            '(minute hour day-of-month month day-of-week)'
+        )
     if CAASEnv.is_docker():
         # on-prem supports only 5 fields and does not support "?"
         raw = ['*' if i == '?' else i for i in raw]
@@ -829,7 +925,10 @@ def to_celery_schedule(sch: int | str) -> 'BaseSchedule':
 class ScheduledJobPostModel(BaseModel):
     schedule: int | str
     tenant_name: str
-    name: str = Field(None, description='Name for this scheduled entry. Will be generated if not provided. Must be unique within a customer')
+    name: str = Field(
+        None,
+        description='Name for this scheduled entry. Will be generated if not provided. Must be unique within a customer',
+    )
     description: str
     target_rulesets: set[str] = Field(default_factory=set, alias='rulesets')
     target_regions: set[str] = Field(default_factory=set, alias='regions')
@@ -837,7 +936,7 @@ class ScheduledJobPostModel(BaseModel):
     license_key: str = Field(
         None,
         description='License to exhaust for this job. Will be resolved '
-                    'automatically unless an ambiguous occurs'
+        'automatically unless an ambiguous occurs',
     )
 
     @field_validator('schedule')
@@ -873,6 +972,7 @@ class ScheduledJobGetModel(BasePaginationModel):
     """
     GET
     """
+
     tenant_name: str = Field(None)
 
 
@@ -883,7 +983,11 @@ class ScheduledJobPatchModel(BaseModel):
 
     @model_validator(mode='after')
     def at_least_one_given(self) -> Self:
-        if not self.schedule and self.enabled is None and self.description is None:
+        if (
+            not self.schedule
+            and self.enabled is None
+            and self.description is None
+        ):
             raise ValueError('Provide attributes to update')
         return self
 
@@ -903,8 +1007,13 @@ class ScheduledJobPatchModel(BaseModel):
 class EventPostModel(BaseModel):
     version: Annotated[
         Literal['1.0.0'],
-        WithJsonSchema({'type': 'string', 'title': 'Event type version',
-                        'default': '1.0.0'})
+        WithJsonSchema(
+            {
+                'type': 'string',
+                'title': 'Event type version',
+                'default': '1.0.0',
+            }
+        ),
     ] = '1.0.0'
     vendor: Literal['AWS', 'MAESTRO']
     events: list[dict]
@@ -955,6 +1064,7 @@ class MailSettingGetModel(BaseModel):
     """
     GET
     """
+
     disclose: bool = False
 
 
@@ -978,7 +1088,7 @@ class LicenseManagerConfigSettingPostModel(BaseModel):
     port: int = Field(None)
     protocol: Annotated[
         Literal['HTTP', 'HTTPS', 'http', 'https'],
-        StringConstraints(to_upper=True)
+        StringConstraints(to_upper=True),
     ] = Field(None)
     stage: str = Field(None)
 
@@ -987,8 +1097,13 @@ class LicenseManagerClientSettingPostModel(BaseModel):
     key_id: str
     algorithm: Annotated[
         Literal['ECC:p521_DSS_SHA:256'],
-        WithJsonSchema({'type': 'string', 'title': 'LM algorithm',
-                        'default': 'ECC:p521_DSS_SHA:256'})
+        WithJsonSchema(
+            {
+                'type': 'string',
+                'title': 'LM algorithm',
+                'default': 'ECC:p521_DSS_SHA:256',
+            }
+        ),
     ] = 'ECC:p521_DSS_SHA:256'
     private_key: str
     b64_encoded: bool
@@ -1001,8 +1116,7 @@ class LicenseManagerClientSettingPostModel(BaseModel):
             self.private_key = standard_b64decode(self.private_key).decode()
         except (TypeError, BaseException):
             raise ValueError(
-                '\'private_key\' must be a safe to decode'
-                ' base64-string.'
+                "'private_key' must be a safe to decode base64-string."
             )
         return self
 
@@ -1093,6 +1207,7 @@ class ReportPushByJobIdModel(BaseModel):
     /reports/push/security-hub/{job_id}/
     /reports/push/chronicle/{job_id}/
     """
+
     type: JobType = JobType.MANUAL
 
 
@@ -1101,6 +1216,7 @@ class ReportPushMultipleModel(TimeRangedMixin, BaseModel):
     /reports/push/dojo
     /reports/push/security-hub
     """
+
     tenant_name: str
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
@@ -1108,10 +1224,14 @@ class ReportPushMultipleModel(TimeRangedMixin, BaseModel):
 
 
 class ProjectGetReportModel(BaseModel):
-    tenant_display_names: set[Annotated[
-        str, StringConstraints(to_lower=True, strip_whitespace=True)
-    ]]
-    types: set[Literal['OVERVIEW', 'RESOURCES', 'COMPLIANCE', 'ATTACK_VECTOR', 'FINOPS']] = Field(default_factory=set)
+    tenant_display_names: set[
+        Annotated[str, StringConstraints(to_lower=True, strip_whitespace=True)]
+    ]
+    types: set[
+        Literal[
+            'OVERVIEW', 'RESOURCES', 'COMPLIANCE', 'ATTACK_VECTOR', 'FINOPS'
+        ]
+    ] = Field(default_factory=set)
     receivers: set[str] = Field(default_factory=set)
     # attempt: SkipJsonSchema[int] = 0
     # execution_job_id: SkipJsonSchema[str] = Field(None)
@@ -1123,7 +1243,7 @@ class ProjectGetReportModel(BaseModel):
             'RESOURCES': ReportType.PROJECT_RESOURCES,
             'COMPLIANCE': ReportType.PROJECT_COMPLIANCE,
             'ATTACK_VECTOR': ReportType.PROJECT_ATTACKS,
-            'FINOPS': ReportType.PROJECT_FINOPS
+            'FINOPS': ReportType.PROJECT_FINOPS,
         }
         if not self.types:
             return tuple(old_new.values())
@@ -1136,7 +1256,18 @@ class ProjectGetReportModel(BaseModel):
 
 class OperationalGetReportModel(BaseModel):
     tenant_names: set[str]
-    types: set[Literal['OVERVIEW', 'RESOURCES', 'COMPLIANCE', 'RULE', 'ATTACK_VECTOR', 'FINOPS', 'KUBERNETES', 'DEPRECATIONS']] = Field(default_factory=set)
+    types: set[
+        Literal[
+            'OVERVIEW',
+            'RESOURCES',
+            'COMPLIANCE',
+            'RULE',
+            'ATTACK_VECTOR',
+            'FINOPS',
+            'KUBERNETES',
+            'DEPRECATIONS',
+        ]
+    ] = Field(default_factory=set)
     receivers: set[str] = Field(default_factory=set)
     # attempt: SkipJsonSchema[int] = 0
     # execution_job_id: SkipJsonSchema[str] = Field(None)
@@ -1154,7 +1285,7 @@ class OperationalGetReportModel(BaseModel):
             'FINOPS': ReportType.OPERATIONAL_FINOPS,
             'ATTACK_VECTOR': ReportType.OPERATIONAL_ATTACKS,
             'KUBERNETES': ReportType.OPERATIONAL_KUBERNETES,
-            'DEPRECATIONS': ReportType.OPERATIONAL_DEPRECATION
+            'DEPRECATIONS': ReportType.OPERATIONAL_DEPRECATION,
         }
         if not self.types:
             return tuple(old_new.values())
@@ -1166,7 +1297,16 @@ class OperationalGetReportModel(BaseModel):
 
 
 class DepartmentGetReportModel(BaseModel):
-    types: set[Literal['TOP_RESOURCES_BY_CLOUD', 'TOP_TENANTS_RESOURCES', 'TOP_TENANTS_COMPLIANCE', 'TOP_COMPLIANCE_BY_CLOUD', 'TOP_TENANTS_ATTACKS', 'TOP_ATTACK_BY_CLOUD']] = Field(default_factory=set)
+    types: set[
+        Literal[
+            'TOP_RESOURCES_BY_CLOUD',
+            'TOP_TENANTS_RESOURCES',
+            'TOP_TENANTS_COMPLIANCE',
+            'TOP_COMPLIANCE_BY_CLOUD',
+            'TOP_TENANTS_ATTACKS',
+            'TOP_ATTACK_BY_CLOUD',
+        ]
+    ] = Field(default_factory=set)
     # attempt: SkipJsonSchema[int] = 0
     # execution_job_id: SkipJsonSchema[str] = Field(None)
 
@@ -1179,9 +1319,9 @@ class DepartmentGetReportModel(BaseModel):
             'TOP_RESOURCES_BY_CLOUD': ReportType.DEPARTMENT_TOP_RESOURCES_BY_CLOUD,
             'TOP_TENANTS_RESOURCES': ReportType.DEPARTMENT_TOP_TENANTS_RESOURCES,
             'TOP_TENANTS_COMPLIANCE': ReportType.DEPARTMENT_TOP_TENANTS_COMPLIANCE,
-            'TOP_COMPLIANCE_BY_CLOUD': ReportType.DEPARTMENT_TOP_COMPLIANCE_BY_CLOUD, 
-            'TOP_TENANTS_ATTACKS': ReportType.DEPARTMENT_TOP_TENANTS_ATTACKS, 
-            'TOP_ATTACK_BY_CLOUD': ReportType.DEPARTMENT_TOP_ATTACK_BY_CLOUD
+            'TOP_COMPLIANCE_BY_CLOUD': ReportType.DEPARTMENT_TOP_COMPLIANCE_BY_CLOUD,
+            'TOP_TENANTS_ATTACKS': ReportType.DEPARTMENT_TOP_TENANTS_ATTACKS,
+            'TOP_ATTACK_BY_CLOUD': ReportType.DEPARTMENT_TOP_ATTACK_BY_CLOUD,
         }
         if not self.types:
             return tuple(old_new.values())
@@ -1194,7 +1334,9 @@ class DepartmentGetReportModel(BaseModel):
 
 class CLevelGetReportModel(BaseModel):
     receivers: set[str] = Field(default_factory=set)
-    types: set[Literal['OVERVIEW', 'COMPLIANCE', 'ATTACK_VECTOR']] = Field(default_factory=set)
+    types: set[Literal['OVERVIEW', 'COMPLIANCE', 'ATTACK_VECTOR']] = Field(
+        default_factory=set
+    )
     # attempt: SkipJsonSchema[int] = 0
     # execution_job_id: SkipJsonSchema[str] = Field(None)
 
@@ -1206,7 +1348,7 @@ class CLevelGetReportModel(BaseModel):
         old_new = {
             'OVERVIEW': ReportType.C_LEVEL_OVERVIEW,
             'COMPLIANCE': ReportType.C_LEVEL_COMPLIANCE,
-            'ATTACK_VECTOR': ReportType.C_LEVEL_ATTACKS
+            'ATTACK_VECTOR': ReportType.C_LEVEL_ATTACKS,
         }
         if not self.types:
             return tuple(old_new.values())
@@ -1248,8 +1390,8 @@ class ResourcesReportGetModel(BaseModel):
     model_config = ConfigDict(extra='allow')
 
     resource_type: Annotated[
-        str, StringConstraints(to_lower=True, strip_whitespace=True)] = Field(
-        None)
+        str, StringConstraints(to_lower=True, strip_whitespace=True)
+    ] = Field(None)
     region: AllRegionsWithGlobal = Field(None)
 
     full: bool = False
@@ -1275,11 +1417,18 @@ class ResourcesReportGetModel(BaseModel):
     @model_validator(mode='after')
     def root(self) -> Self:
         if self.search_by_all and not self.__pydantic_extra__:
-            raise ValueError('If search_by_all, an least one query to search '
-                             'by must be provided')
-        if self.obfuscated and self.format == ReportFormat.JSON and not self.href:
-            raise ValueError('Obfuscation is currently not supported for '
-                             'raw json report')
+            raise ValueError(
+                'If search_by_all, an least one query to search '
+                'by must be provided'
+            )
+        if (
+            self.obfuscated
+            and self.format == ReportFormat.JSON
+            and not self.href
+        ):
+            raise ValueError(
+                'Obfuscation is currently not supported for raw json report'
+            )
         return self
 
     # all the other attributes to search by can be provided as well.
@@ -1290,8 +1439,8 @@ class PlatformK8sResourcesReportGetModel(BaseModel):
     model_config = ConfigDict(extra='allow')
 
     resource_type: Annotated[
-        str, StringConstraints(to_lower=True, strip_whitespace=True)] = Field(
-        None)
+        str, StringConstraints(to_lower=True, strip_whitespace=True)
+    ] = Field(None)
     full: bool = False
     obfuscated: bool = False
     exact_match: bool = True
@@ -1309,11 +1458,18 @@ class PlatformK8sResourcesReportGetModel(BaseModel):
     @model_validator(mode='after')
     def root(self) -> Self:
         if self.search_by_all and not self.__pydantic_extra__:
-            raise ValueError('If search_by_all, an least one query to search '
-                             'by must be provided')
-        if self.obfuscated and self.format == ReportFormat.JSON and not self.href:
-            raise ValueError('Obfuscation is currently not supported for '
-                             'raw json report')
+            raise ValueError(
+                'If search_by_all, an least one query to search '
+                'by must be provided'
+            )
+        if (
+            self.obfuscated
+            and self.format == ReportFormat.JSON
+            and not self.href
+        ):
+            raise ValueError(
+                'Obfuscation is currently not supported for raw json report'
+            )
         return self
 
     # all the other attributes to search by can be provided as well.
@@ -1328,7 +1484,8 @@ class ResourceReportJobsGetModel(TimeRangedMixin, BaseModel):
     job_type: JobType = JobType.MANUAL
 
     resource_type: Annotated[
-        str, StringConstraints(to_lower=True, strip_whitespace=True)] = None
+        str, StringConstraints(to_lower=True, strip_whitespace=True)
+    ] = None
     region: AllRegionsWithGlobal = Field(None)
     full: bool = False
     exact_match: bool = True
@@ -1350,8 +1507,10 @@ class ResourceReportJobsGetModel(TimeRangedMixin, BaseModel):
     @model_validator(mode='after')
     def root(self) -> Self:
         if self.search_by_all and not self.__pydantic_extra__:
-            raise ValueError('If search_by_all, an least one query to search '
-                             'by must be provided')
+            raise ValueError(
+                'If search_by_all, an least one query to search '
+                'by must be provided'
+            )
         return self
 
 
@@ -1361,8 +1520,8 @@ class ResourceReportJobGetModel(BaseModel):
     job_type: JobType = JobType.MANUAL
 
     resource_type: Annotated[
-        str, StringConstraints(to_lower=True, strip_whitespace=True)] = Field(
-        None)
+        str, StringConstraints(to_lower=True, strip_whitespace=True)
+    ] = Field(None)
     region: AllRegionsWithGlobal = Field(None)
     full: bool = False
     obfuscated: bool = False
@@ -1386,17 +1545,21 @@ class ResourceReportJobGetModel(BaseModel):
     @model_validator(mode='after')
     def root(self) -> Self:
         if self.search_by_all and not self.__pydantic_extra__:
-            raise ValueError('If search_by_all, an least one query to search '
-                             'by must be provided')
+            raise ValueError(
+                'If search_by_all, an least one query to search '
+                'by must be provided'
+            )
         if self.obfuscated and not self.href:
-            raise ValueError('Currently obfuscation is supported only if href '
-                             'is true')
+            raise ValueError(
+                'Currently obfuscation is supported only if href is true'
+            )
         return self
 
 
 class PlatformK8SPostModel(BaseModel):
     tenant_name: Annotated[
-        str, StringConstraints(to_upper=True, strip_whitespace=True)]
+        str, StringConstraints(to_upper=True, strip_whitespace=True)
+    ]
     name: str
     region: AllRegions = Field(None)
     type: PlatformType
@@ -1408,12 +1571,10 @@ class PlatformK8SPostModel(BaseModel):
 
     @model_validator(mode='after')
     def root(self) -> Self:
-        if (self.type != PlatformType.SELF_MANAGED
-                and not self.region):
+        if self.type != PlatformType.SELF_MANAGED and not self.region:
             raise ValueError('region is required if platform is cloud managed')
         if self.type != PlatformType.EKS and not self.endpoint:
-            raise ValueError('endpoint must be '
-                             'specified if type is not EKS')
+            raise ValueError('endpoint must be specified if type is not EKS')
         return self
 
 
@@ -1425,6 +1586,7 @@ class K8sJobPostModel(BaseModel):
     """
     K8s platform job
     """
+
     platform_id: str
     target_rulesets: set[str] = Field(default_factory=set, alias='rulesets')
     token: str = Field(None)  # temp jwt token
@@ -1432,13 +1594,13 @@ class K8sJobPostModel(BaseModel):
     timeout_minutes: float = Field(
         None,
         description='Job timeout in minutes. This timeout is soft '
-                    'meaning that when the desired number of minutes have '
-                    'passed job termination will be triggered'
+        'meaning that when the desired number of minutes have '
+        'passed job termination will be triggered',
     )
     license_key: str = Field(
         None,
         description='License to exhaust for this job. Will be resolved '
-                    'automatically unless an ambiguous occurs'
+        'automatically unless an ambiguous occurs',
     )
 
     @field_validator('target_rulesets', mode='after')
@@ -1463,6 +1625,7 @@ class ReportStatusGetModel(BaseModel):
     """
     GET
     """
+
     job_id: str
     complete: bool = False
 
@@ -1488,22 +1651,29 @@ class LicenseActivationPutModel(BaseModel):
     tenant_names: set[str] = Field(default_factory=set)
 
     all_tenants: bool = False
-    clouds: set[Literal['AWS', 'AZURE', 'GOOGLE', 'KUBERNETES']] = Field(default_factory=set)
+    clouds: set[Literal['AWS', 'AZURE', 'GOOGLE', 'KUBERNETES']] = Field(
+        default_factory=set
+    )
     exclude_tenants: set[str] = Field(default_factory=set)
 
     @model_validator(mode='after')
     def _(self) -> Self:
-        if self.tenant_names and any((self.all_tenants, self.clouds,
-                                      self.exclude_tenants)):
-            raise ValueError('do not provide all_tenants, clouds or '
-                             'exclude_tenants if specific '
-                             'tenant names are provided')
+        if self.tenant_names and any(
+            (self.all_tenants, self.clouds, self.exclude_tenants)
+        ):
+            raise ValueError(
+                'do not provide all_tenants, clouds or '
+                'exclude_tenants if specific '
+                'tenant names are provided'
+            )
         if not self.all_tenants and not self.tenant_names:
-            raise ValueError('either all_tenants or specific tenant names '
-                             'must be given')
+            raise ValueError(
+                'either all_tenants or specific tenant names must be given'
+            )
         if (self.clouds or self.exclude_tenants) and not self.all_tenants:
-            raise ValueError('set all tenants to true if you provide clouds '
-                             'or excluded')
+            raise ValueError(
+                'set all tenants to true if you provide clouds or excluded'
+            )
         return self
 
 
@@ -1545,27 +1715,32 @@ class ChronicleActivationPutModel(BaseModel):
 
     send_after_job: bool = Field(
         False,
-        description='Whether to send the results to dojo after each scan'
+        description='Whether to send the results to dojo after each scan',
     )
     convert_to: ChronicleConverterType = Field(
         ChronicleConverterType.EVENTS,
         description='How to convert Rule Engine data '
-                    'before sending to Chronicle'
+        'before sending to Chronicle',
     )
 
     @model_validator(mode='after')
     def _(self) -> Self:
-        if self.tenant_names and any((self.all_tenants, self.clouds,
-                                      self.exclude_tenants)):
-            raise ValueError('do not provide all_tenants, clouds or '
-                             'exclude_tenants if specific '
-                             'tenant names are provided')
+        if self.tenant_names and any(
+            (self.all_tenants, self.clouds, self.exclude_tenants)
+        ):
+            raise ValueError(
+                'do not provide all_tenants, clouds or '
+                'exclude_tenants if specific '
+                'tenant names are provided'
+            )
         if not self.all_tenants and not self.tenant_names:
-            raise ValueError('either all_tenants or specific tenant names '
-                             'must be given')
+            raise ValueError(
+                'either all_tenants or specific tenant names must be given'
+            )
         if (self.clouds or self.exclude_tenants) and not self.all_tenants:
-            raise ValueError('set all tenants to true if you provide clouds '
-                             'or excluded')
+            raise ValueError(
+                'set all tenants to true if you provide clouds or excluded'
+            )
         return self
 
 
@@ -1580,33 +1755,43 @@ class DefectDojoActivationPutModel(BaseModel):
     clouds: set[Literal['AWS', 'AZURE', 'GOOGLE']] = Field(default_factory=set)
     exclude_tenants: set[str] = Field(default_factory=set)
 
-    scan_type: Literal['Generic Findings Import', 'Cloud Custodian Scan'] = Field('Generic Findings Import', description='Defect dojo scan type')
-    product_type: str = Field('Rule Engine',
-                              description='Defect dojo product type name')
-    product: str = Field('{tenant_name}',
-                         description='Defect dojo product name')
-    engagement: str = Field('Rule-Engine Main',
-                            description='Defect dojo engagement name')
+    scan_type: Literal['Generic Findings Import', 'Cloud Custodian Scan'] = (
+        Field('Generic Findings Import', description='Defect dojo scan type')
+    )
+    product_type: str = Field(
+        'Rule Engine', description='Defect dojo product type name'
+    )
+    product: str = Field(
+        '{tenant_name}', description='Defect dojo product name'
+    )
+    engagement: str = Field(
+        'Rule-Engine Main', description='Defect dojo engagement name'
+    )
     test: str = Field('{job_id}', description='Defect dojo test')
     send_after_job: bool = Field(
         False,
-        description='Whether to send the results to dojo after each scan'
+        description='Whether to send the results to dojo after each scan',
     )
     attachment: Literal['json', 'xlsx', 'csv'] = Field(None)
 
     @model_validator(mode='after')
     def _(self) -> Self:
-        if self.tenant_names and any((self.all_tenants, self.clouds,
-                                      self.exclude_tenants)):
-            raise ValueError('do not provide all_tenants, clouds or '
-                             'exclude_tenants if specific '
-                             'tenant names are provided')
+        if self.tenant_names and any(
+            (self.all_tenants, self.clouds, self.exclude_tenants)
+        ):
+            raise ValueError(
+                'do not provide all_tenants, clouds or '
+                'exclude_tenants if specific '
+                'tenant names are provided'
+            )
         if not self.all_tenants and not self.tenant_names:
-            raise ValueError('either all_tenants or specific tenant names '
-                             'must be given')
+            raise ValueError(
+                'either all_tenants or specific tenant names must be given'
+            )
         if (self.clouds or self.exclude_tenants) and not self.all_tenants:
-            raise ValueError('set all tenants to true if you provide clouds '
-                             'or excluded')
+            raise ValueError(
+                'set all tenants to true if you provide clouds or excluded'
+            )
         return self
 
 
@@ -1626,20 +1811,26 @@ class SelfIntegrationPutModel(BaseModel):
 
     @model_validator(mode='after')
     def _(self) -> Self:
-        if self.tenant_names and any((self.all_tenants, self.clouds,
-                                      self.exclude_tenants)):
-            raise ValueError('do not provide all_tenants, clouds or '
-                             'exclude_tenants if specific '
-                             'tenant names are provided')
+        if self.tenant_names and any(
+            (self.all_tenants, self.clouds, self.exclude_tenants)
+        ):
+            raise ValueError(
+                'do not provide all_tenants, clouds or '
+                'exclude_tenants if specific '
+                'tenant names are provided'
+            )
         if not self.all_tenants and not self.tenant_names:
-            raise ValueError('either all_tenants or specific tenant names '
-                             'must be given')
+            raise ValueError(
+                'either all_tenants or specific tenant names must be given'
+            )
         if (self.clouds or self.exclude_tenants) and not self.all_tenants:
-            raise ValueError('set all tenants to true if you provide clouds '
-                             'or excluded')
+            raise ValueError(
+                'set all tenants to true if you provide clouds or excluded'
+            )
         if not self.auto_resolve_access and not self.url:
-            raise ValueError('url must be given in case '
-                             'auto_resolve_access is not True')
+            raise ValueError(
+                'url must be given in case auto_resolve_access is not True'
+            )
         return self
 
 
@@ -1675,15 +1866,19 @@ class CredentialsBindModel(BaseModel):
     @model_validator(mode='after')
     def _(self) -> Self:
         if self.tenant_names and any((self.all_tenants, self.exclude_tenants)):
-            raise ValueError('do not provide all_tenants  or '
-                             'exclude_tenants if specific '
-                             'tenant names are provided')
+            raise ValueError(
+                'do not provide all_tenants  or '
+                'exclude_tenants if specific '
+                'tenant names are provided'
+            )
         if not self.all_tenants and not self.tenant_names:
-            raise ValueError('either all_tenants or specific tenant names '
-                             'must be given')
+            raise ValueError(
+                'either all_tenants or specific tenant names must be given'
+            )
         if self.exclude_tenants and not self.all_tenants:
-            raise ValueError('set all tenants to true if you provide  '
-                             'excluded')
+            raise ValueError(
+                'set all tenants to true if you provide  excluded'
+            )
         return self
 
 
@@ -1691,6 +1886,7 @@ class UserPatchModel(BaseModel):
     """
     System admin endpoint
     """
+
     role_name: str = Field(None)
     password: str = Field(None)
 

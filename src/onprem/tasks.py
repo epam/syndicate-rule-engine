@@ -9,6 +9,7 @@ from lambdas.custodian_metrics_updater.processors.findings_processor import (
 from lambdas.custodian_metrics_updater.processors.expired_metrics_processor import(
     ExpiredMetricsCleaner
 )
+from services.resources_collector import ResourceCollector
 from onprem.celery import app
 
 
@@ -56,3 +57,10 @@ def collect_metrics():
 @app.task
 def delete_expired_metrics():
     ExpiredMetricsCleaner.build().__call__()
+
+@app.task
+def collect_resources(tenant_name: str):
+    ResourceCollector.build().collect_tenant_resources(
+        tenant_name=tenant_name
+    )
+

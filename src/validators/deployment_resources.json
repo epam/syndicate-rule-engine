@@ -2502,6 +2502,76 @@
           "type": "object"
         }
       },
+      "MultipleResourcesModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "items": {
+              "items": {
+                "properties": {
+                  "customer_name": {
+                    "title": "Customer Name",
+                    "type": "string"
+                  },
+                  "data": {
+                    "title": "Data",
+                    "type": "object"
+                  },
+                  "hash": {
+                    "title": "Hash",
+                    "type": "string"
+                  },
+                  "id": {
+                    "title": "Id",
+                    "type": "string"
+                  },
+                  "location": {
+                    "title": "Location",
+                    "type": "string"
+                  },
+                  "name": {
+                    "title": "Name",
+                    "type": "string"
+                  },
+                  "resource_type": {
+                    "title": "Resource Type",
+                    "type": "string"
+                  },
+                  "sync_date": {
+                    "format": "date-time",
+                    "title": "Sync Date",
+                    "type": "string"
+                  },
+                  "tenant_name": {
+                    "title": "Tenant Name",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "location",
+                  "resource_type",
+                  "tenant_name",
+                  "customer_name",
+                  "data",
+                  "sync_date",
+                  "hash"
+                ],
+                "title": "Resource",
+                "type": "object"
+              },
+              "title": "Items",
+              "type": "array"
+            }
+          },
+          "required": [
+            "items"
+          ],
+          "title": "MultipleResourcesModel",
+          "type": "object"
+        }
+      },
       "MultipleRoleModel": {
         "content_type": "application/json",
         "schema": {
@@ -2830,10 +2900,6 @@
                     },
                     "title": "License Keys",
                     "type": "array"
-                  },
-                  "license_manager_id": {
-                    "title": "License Manager Id",
-                    "type": "string"
                   },
                   "licensed": {
                     "title": "Licensed",
@@ -3437,9 +3503,6 @@
                   "ruleset:create",
                   "ruleset:update",
                   "ruleset:delete",
-                  "ruleset:describe_event_driven",
-                  "ruleset:create_event_driven",
-                  "ruleset:delete_event_driven",
                   "ruleset:release",
                   "rule_source:describe",
                   "rule_source:create",
@@ -3505,7 +3568,8 @@
                   "users:update",
                   "users:delete",
                   "users:get_caller",
-                  "users:reset_password"
+                  "users:reset_password",
+                  "resources:get"
                 ],
                 "title": "Permission",
                 "type": "string"
@@ -3573,9 +3637,6 @@
                   "ruleset:create",
                   "ruleset:update",
                   "ruleset:delete",
-                  "ruleset:describe_event_driven",
-                  "ruleset:create_event_driven",
-                  "ruleset:delete_event_driven",
                   "ruleset:release",
                   "rule_source:describe",
                   "rule_source:create",
@@ -3641,7 +3702,8 @@
                   "users:update",
                   "users:delete",
                   "users:get_caller",
-                  "users:reset_password"
+                  "users:reset_password",
+                  "resources:get"
                 ],
                 "title": "Permission",
                 "type": "string"
@@ -3750,9 +3812,6 @@
                   "ruleset:create",
                   "ruleset:update",
                   "ruleset:delete",
-                  "ruleset:describe_event_driven",
-                  "ruleset:create_event_driven",
-                  "ruleset:delete_event_driven",
                   "ruleset:release",
                   "rule_source:describe",
                   "rule_source:create",
@@ -3818,7 +3877,8 @@
                   "users:update",
                   "users:delete",
                   "users:get_caller",
-                  "users:reset_password"
+                  "users:reset_password",
+                  "resources:get"
                 ],
                 "title": "Permission",
                 "type": "string"
@@ -6403,10 +6463,6 @@
                   },
                   "title": "License Keys",
                   "type": "array"
-                },
-                "license_manager_id": {
-                  "title": "License Manager Id",
-                  "type": "string"
                 },
                 "licensed": {
                   "title": "Licensed",

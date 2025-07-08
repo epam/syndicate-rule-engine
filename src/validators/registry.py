@@ -89,6 +89,7 @@ from validators.swagger_request_models import (
     UserPatchModel,
     UserPostModel,
     UserResetPasswordModel,
+    ResourcesGetModel
 )
 from validators.swagger_response_models import (
     CredentialsActivationModel,
@@ -122,6 +123,7 @@ from validators.swagger_response_models import (
     MultipleScheduledJobsModel,
     MultipleTenantsModel,
     MultipleUsersModel,
+    MultipleResourcesModel,
     RawReportModel,
     RulesReportModel,
     SignInModel,
@@ -152,7 +154,7 @@ from validators.swagger_response_models import (
     SingleSelfIntegration,
     SingleTenantExcludedRules,
     SingleTenantsModel,
-    SingleUserModel,
+    SingleUserModel
 )
 
 
@@ -293,6 +295,16 @@ data: tuple[EndpointInfo, ...] = (
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.SCHEDULED_JOB_DELETE,
         description='Allows to deregister a scheduled job'
+    ),
+
+    # resources
+    EndpointInfo(
+        path=CustodianEndpoint.RESOURCES,
+        method=HTTPMethod.GET,
+        request_model=ResourcesGetModel,
+        responses=[(HTTPStatus.OK, MultipleResourcesModel, None)],
+        permission=Permission.RESOURCES_GET,
+        description='Allows to get resources information'
     ),
 
     # customers
