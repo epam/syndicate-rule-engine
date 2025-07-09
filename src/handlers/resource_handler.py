@@ -37,9 +37,6 @@ class ResourceHandler(AbstractHandler):
         """
         _LOG.debug('Getting resources')
         
-        next_token_value = NextToken.deserialize(event.next_token).value
-        last_evaluated_key = next_token_value if isinstance(next_token_value, dict) else None
-        
         resources_iterator = self._resources_service.get_resources(
             id=event.id,
             name=event.name,
@@ -48,7 +45,7 @@ class ResourceHandler(AbstractHandler):
             tenant_name=event.tenant_name,
             customer_name=event.customer_name,
             limit=event.limit,
-            last_evaluated_key=last_evaluated_key
+            last_evaluated_key=NextToken.deserialize(event.next_token).value
         )
         
         resources = list(resources_iterator)

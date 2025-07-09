@@ -52,26 +52,15 @@ class Resource(BaseModel):
 
     def __init__(
         self,
-        id: str,
-        name: str,
-        location: str,
-        resource_type: str,
-        tenant_name: str,
-        customer_name: str,
-        data: dict,
-        sync_date: str,
+        *args,
+        **kwargs,
     ):
         super().__init__(
-            id=id,
-            name=name,
-            location=location,
-            resource_type=resource_type,
-            tenant_name=tenant_name,
-            customer_name=customer_name,
-            _data=data,
-            sync_date=sync_date,
+            *args,
+            **kwargs,
         )
-        self._hash = self._compute_hash(data)
+        if self._data:
+            self._hash = self._compute_hash(self._data.as_dict())
 
     @staticmethod
     def _compute_hash(data: dict) -> str:

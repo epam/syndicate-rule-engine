@@ -6,14 +6,16 @@ class TestResource:
         initial_data = {"key1": "value1", "key2": "value2"}
 
         resource = Resource(
-            id="test-id",
-            name="test-resource",
-            location="us-east-1",
-            resource_type="EC2",
-            tenant_name="test-tenant",
-            customer_name="test-customer",
-            data=initial_data,
-            sync_date="2023-10-01T12:00:00Z"
+            **{
+                "id": "test-id",
+                "name": "test-resource",
+                "location": "us-east-1",
+                "resource_type": "EC2",
+                "tenant_name": "test-tenant",
+                "customer_name": "test-customer",
+                "_data": initial_data,
+                "sync_date": "2023-10-01T12:00:00Z"
+            }
         )
         
         initial_hash = resource.hash
