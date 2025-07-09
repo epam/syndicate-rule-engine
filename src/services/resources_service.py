@@ -27,7 +27,7 @@ class ResourcesService(BaseDataService[Resource]):
             resource_type=resource_type,
             tenant_name=tenant_name,
             customer_name=customer_name,
-            data=data,
+            _data=data,
             sync_date=sync_date,
         )
     

@@ -26,7 +26,6 @@ from executor.job import (
     PoliciesLoader,
     get_tenant_credentials,
 )
-from models.resource import Resource
 from services import SP
 from services.resources_service import ResourcesService
 
@@ -202,15 +201,31 @@ class ResourceCollector:
         )
 
     # TODO: better error handling
-    @staticmethod
     def _process_policy(
-        policy: Policy, resource_type: str, region: str
-    ) -> tuple[list, str, str] | None:
+        self,
+        policy: Policy,
+        resource_type: str,
+        region: str,
+        tenant_name: str,
+        customer_name: str,
+    ) -> bool:
         try:
-            return policy(), resource_type, region
+            resources = policy()
+            if resources:
+                _LOG.info(
+                    f'Policy {policy.name} completed, saving {len(resources)} resources'
+                )
+                for data in resources:
+                    self._load_scan(
+                        data, resource_type, region, tenant_name, customer_name
+                    )
+                return True
+            else:
+                _LOG.warning(f'Policy {policy.name} returned no results')
+                return True
         except Exception as e:
             _LOG.error(f'Error processing policy {policy.name}: {e}')
-            return None
+            return False
 
     # TODO: add creds handling for Kube
     @staticmethod
@@ -294,33 +309,24 @@ class ResourceCollector:
         else:
             raise ValueError(f'Unsupported cloud: {cloud}')
 
+        _LOG.info(f'Starting resource collection for tenant: {tenant_name}')
+        _LOG.info(f'Policies to run: {len(policies)}')
+
         credentials = ResourceCollector._get_credentials(tenant)
         with ThreadPoolExecutor(
             max_workers=workers,
             initializer=job_initializer,
             initargs=(credentials,),
         ) as executor:
-            results = []
             for policy in policies:
-                result = executor.submit(
+                executor.submit(
                     self._process_policy,
                     policy,
                     policy.resource_type,
                     policy.options.region,
+                    tenant.name,
+                    tenant.customer_name,
                 )
-                results.append(result)
-
-            for result in as_completed(results):
-                res, resource_type, region = result.result()
-                if res:
-                    for data in res:
-                        self._load_scan(
-                            data,
-                            resource_type,
-                            region,
-                            tenant.name,
-                            tenant.customer_name,
-                        )
 
     def collect_all_resources(
         self,
