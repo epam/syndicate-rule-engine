@@ -1,54 +1,86 @@
 from pynamodb.pagination import ResultIterator
 
+from helpers.constants import COMPOUND_KEYS_SEPARATOR, Cloud
 from helpers.log_helper import get_logger
 from models.resource import Resource
 from services.base_data_service import BaseDataService
+
+try:
+    from c7n.resources.resource_map import ResourceMap as AWSResourceMap
+    from c7n_azure.resources.resource_map import ResourceMap as AzureResourceMap
+    from c7n_gcp.resources.resource_map import ResourceMap as GCPResourceMap
+    from c7n_kube.resources.resource_map import ResourceMap as K8sResourceMap
+except ImportError:
+    _LOG.warning(
+        'c7n resources are not available. '
+        'Ensure that c7n, c7n-azure, and c7n-gcp packages are installed.'
+    )
+    AWSResourceMap = None
+    AzureResourceMap = None
+    GCPResourceMap = None
+    K8sResourceMap = None
 
 _LOG = get_logger(__name__)
 
 
 class ResourcesService(BaseDataService[Resource]):
-
     def create(
         self,
         id: str,
         name: str,
         location: str,
         resource_type: str,
+        account_id: str,
         tenant_name: str,
         customer_name: str,
         data: dict,
-        sync_date: str,
+        sync_date: float,
+        arn: str | None = None,
     ):
         return Resource(
             id=id,
             name=name,
             location=location,
             resource_type=resource_type,
+            account_id=account_id,
             tenant_name=tenant_name,
             customer_name=customer_name,
             _data=data,
             sync_date=sync_date,
+            arn=arn,
         )
-    
+
     def update(
         self,
         resource: Resource,
         data: dict | None = None,
-        sync_date: str | None = None,
+        sync_date: float | None = None,
     ):
-        actions = False
+        actions = []
         if data:
-            resource.data = data
-            actions = True
+            actions.append(Resource._data.set(data))
+            actions.append(Resource._hash.set(Resource._compute_hash(data)))
         if sync_date:
-            resource.sync_date = sync_date
-            actions = True
-        
-        # NOTE: using save because update does not change hash
-        # and we need to update it after data change
+            actions.append(Resource.sync_date.set(sync_date))
+
         if actions:
-            resource.save()
+            resource.update(actions=actions)
+
+    def get_resource_by_id(
+        self, id: str, location: str, resource_type: str, account_id: str
+    ) -> Resource | None:
+        res = Resource.get_nullable(
+            hash_key=COMPOUND_KEYS_SEPARATOR.join(
+                [account_id, location, resource_type, id]
+            )
+        )
+        return res
+
+    def get_resource_by_arn(self, arn: str) -> Resource | None:
+        # NOTE: it's not actual scan, we use sparse index in mongo
+        res = list(Resource.scan(Resource.arn == arn, limit=1))
+
+        return res[0] if res else None
 
     def get_resource(
         self,
@@ -59,58 +91,20 @@ class ResourcesService(BaseDataService[Resource]):
         tenant_name: str,
         customer_name: str,
     ) -> Resource | None:
-        filter_condition = (Resource.id == id) \
-            & (Resource.name == name) \
-            & (Resource.location == location) \
-            & (Resource.resource_type == resource_type) \
-            & (Resource.tenant_name == tenant_name) \
+        filter_condition = (
+            (Resource.id == id)
+            & (Resource.name == name)
+            & (Resource.location == location)
+            & (Resource.resource_type == resource_type)
+            & (Resource.tenant_name == tenant_name)
             & (Resource.customer_name == customer_name)
-        
-        # NOTE: it's not actual scan, we use compound index in mongo 
-        # that is not supported in modular SDK
-        res = list(Resource.scan(filter_condition))
-        return res[0] if res else None
-    
-    def load_new_scan(
-        self,
-        id: str,
-        name: str,
-        location: str,
-        resource_type: str,
-        tenant_name: str,
-        customer_name: str,
-        data: dict,
-        sync_date: str
-    ) -> Resource:
-        """
-        Loads a new scan or updates existing one.
-        """
-        resource = self.get_resource(
-            id=id,
-            name=name,
-            location=location,
-            resource_type=resource_type,
-            tenant_name=tenant_name,
-            customer_name=customer_name
         )
-        
-        if not resource:
-            resource = self.create(
-                id=id,
-                name=name,
-                location=location,
-                resource_type=resource_type,
-                tenant_name=tenant_name,
-                customer_name=customer_name,
-                data=data,
-                sync_date=sync_date
-            )
-            resource.save()
-            return resource
-        
-        self.update(resource, data=data, sync_date=sync_date)
-        return resource
-    
+
+        # NOTE: it's not actual scan, we use compound index in mongo
+        # that is not supported in modular SDK
+        res = list(Resource.scan(filter_condition, limit=1))
+        return res[0] if res else None
+
     def get_resources(
         self,
         id: str | None = None,
@@ -128,22 +122,19 @@ class ResourcesService(BaseDataService[Resource]):
 
         filter_condition = None
         if id:
-            filter_condition &= (Resource.id == id)
+            filter_condition &= Resource.id == id
         if name:
-            filter_condition &= (Resource.name == name)
+            filter_condition &= Resource.name == name
         if location:
-            filter_condition &= (Resource.location == location)
+            filter_condition &= Resource.location == location
         if resource_type:
-            filter_condition &= (Resource.resource_type == resource_type)
+            filter_condition &= Resource.resource_type == resource_type
         if tenant_name:
-            filter_condition &= (Resource.tenant_name == tenant_name)
+            filter_condition &= Resource.tenant_name == tenant_name
         if customer_name:
-            filter_condition &= (Resource.customer_name == customer_name)
+            filter_condition &= Resource.customer_name == customer_name
 
-        
-        kwargs = {
-            'limit': limit
-        }
+        kwargs = {'limit': limit}
         if last_evaluated_key:
             kwargs['last_evaluated_key'] = last_evaluated_key
 
@@ -153,3 +144,36 @@ class ResourcesService(BaseDataService[Resource]):
             return Resource.scan(filter_condition, **kwargs)
         else:
             return Resource.scan(**kwargs)
+    
+    @staticmethod
+    def get_resource_types_by_cloud(cloud: Cloud) -> list[str]:
+        """
+        Returns a list of resource types for the specified cloud.
+        """
+        if cloud == Cloud.AWS and AWSResourceMap:
+            return list(AWSResourceMap.keys())
+        elif cloud == Cloud.AZURE and AzureResourceMap:
+            return list(AzureResourceMap.keys())
+        elif cloud == Cloud.GCP and GCPResourceMap:
+            return list(GCPResourceMap.keys())
+        elif cloud == Cloud.K8S and K8sResourceMap:
+            return list(K8sResourceMap.keys())
+        else:
+            _LOG.warning(f'Unsupported cloud: {cloud}')
+            return []
+    
+    @staticmethod
+    def cloud_to_prefix(cloud: Cloud) -> str:
+        """
+        Returns the cloud provider prefix for the specified cloud.
+        """
+        if cloud == Cloud.AWS:
+            return 'aws.'
+        elif cloud == Cloud.AZURE:
+            return 'azure.'
+        elif cloud == Cloud.GCP:
+            return 'gcp.'
+        elif cloud == Cloud.K8S:
+            return 'k8s.'
+        else:
+            raise ValueError(f'Unsupported cloud: {cloud}')

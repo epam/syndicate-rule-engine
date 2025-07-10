@@ -1,21 +1,23 @@
 import hashlib
 
-from pynamodb.attributes import UnicodeAttribute, MapAttribute
-from pynamodb.expressions.update import Action
+from pynamodb.attributes import UnicodeAttribute, MapAttribute, NumberAttribute
+from pynamodb.indexes import GlobalSecondaryIndex, AllProjection
 from pymongo.database import Database
-import msgspec.json
+import msgspec
 
-from helpers.constants import CAASEnv, Cloud
+from helpers.constants import CAASEnv, Cloud, COMPOUND_KEYS_SEPARATOR
 from helpers.log_helper import get_logger
 from models import BaseModel
 
 _LOG = get_logger(__name__)
 
 
-def create_compound_index(db: Database):
+def create_caasresources_indexes(db: Database):
     """
     Create a compound index on the 'CaaSResources' collection.
     The index is on 'id', 'name', 'location', 'resource_type', 'tenant_name'.
+
+    Create a sparse index on the 'arn' field.
     """
     db.CaaSResources.create_index(
         [
@@ -29,47 +31,70 @@ def create_compound_index(db: Database):
         name='resource_id_name_location_type_tenant_index',
         unique=True,
     )
-
+    db.CaaSResources.create_index(
+        [('arn', 1)],
+        name='resource_arn_index',
+        sparse=True,
+    )
 
 class Resource(BaseModel):
     class Meta:
         table_name = 'CaaSResources'
         region = CAASEnv.AWS_REGION.get()
 
-    id = UnicodeAttribute(hash_key=True)
+    # account_id#location#resource_type#id
+    did = UnicodeAttribute(hash_key=True)
+
+
+    id = UnicodeAttribute()
     name = UnicodeAttribute()
     location = UnicodeAttribute()
-    # custodian resource type
+
+    # custodian resource type with cloud prefix
     resource_type = UnicodeAttribute()
+
     tenant_name = UnicodeAttribute()
     customer_name = UnicodeAttribute()
+
+    arn = UnicodeAttribute(null=True)
 
     # all attributes of the resource
     _data = MapAttribute(default=dict, attr_name='data')
 
-    sync_date = UnicodeAttribute()  # ISO8601
+    sync_date = NumberAttribute() # timestamp
     _hash = UnicodeAttribute(attr_name='sha256')
+
+    encoder = msgspec.json.Encoder()
 
     def __init__(
         self,
         *args,
         **kwargs,
     ):
+        did = COMPOUND_KEYS_SEPARATOR.join([
+            kwargs.get('account_id', ''),
+            kwargs.get('location', ''),
+            kwargs.get('resource_type', ''),
+            kwargs.get('id', ''),
+        ])
+        kwargs['did'] = did
+        kwargs.pop('account_id', None)
+        
         super().__init__(
             *args,
             **kwargs,
         )
-        if self._data:
+        if self._data is not None:
             self._hash = self._compute_hash(self._data.as_dict())
 
-    @staticmethod
-    def _compute_hash(data: dict) -> str:
+    @classmethod
+    def _compute_hash(cls, data: dict) -> str:
         """
-        Computes SHA256 hash of the resource data using deterministic JSON encoding.
+        Computes SHA256 hash of the resource data using JSON encoding.
         :param data: Dictionary to hash
         :return: SHA256 hash string
         """
-        encoded_data = msgspec.json.encode(data, order='deterministic')
+        encoded_data = cls.encoder.encode(data)
         return hashlib.sha256(encoded_data).hexdigest()
 
     @property
@@ -83,8 +108,6 @@ class Resource(BaseModel):
 
     @property
     def hash(self) -> str:
-        if not self._hash:
-            self._hash = self._compute_hash(self._data.as_dict())
         return self._hash
 
     def save(self, *args, **kwargs):
@@ -92,18 +115,7 @@ class Resource(BaseModel):
 
     @property
     def cloud(self) -> Cloud:
-        """
-        Returns cloud name based on resource_type
-        :return: cloud name or None if resource_type is not specified
-        """
-        return Cloud(self.resource_type.split('.')[0].upper())
-
-    def __str__(self):
-        return (
-            f'Resource(id={self.id}, name={self.name}, '
-            f'location={self.location}, resource_type={self.resource_type}, '
-            f'tenant_name={self.tenant_name}, customer_name={self.customer_name})'
-        )
+        return Cloud[self.resource_type.split('.')[0].upper()]
 
     def __repr__(self):
         return (

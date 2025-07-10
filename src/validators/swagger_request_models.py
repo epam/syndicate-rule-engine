@@ -33,11 +33,10 @@ from helpers.constants import (
     GITLAB_API_URL_DEFAULT,
     PolicyEffect,
     ReportType,
-    CAASEnv,
-    Cloud
+    CAASEnv
 )
 from helpers import Version
-from helpers.regions import AllRegions, AllRegionsWithGlobal
+from helpers.regions import AllRegions, AllRegionsWithGlobal, get_region_by_cloud
 from helpers.time_helper import utc_datetime
 from services.chronicle_service import ChronicleConverterType
 from services.ruleset_service import RulesetName
@@ -162,7 +161,7 @@ class ResourcesGetModel(BasePaginationModel):
     tenant_name: str | None = Field(None)
     resource_type: str | None = Field(
         None,
-        description='Cloud Custodian resource type with cloud prefix, e.g. aws.ec2',
+        description='Cloud Custodian resource type with or without cloud prefix, e.g. aws.ec2 or ec2',
     )
     location: str | None = Field(
         None,
@@ -170,28 +169,6 @@ class ResourcesGetModel(BasePaginationModel):
     )
     name: str | None = Field(None)
     id: str | None = Field(None)
-
-    @property
-    def cloud(self) -> Cloud | None:
-        """
-        Returns cloud name based on resource_type
-        :return: cloud name or None if resource_type is not specified
-        """
-        if not self.resource_type:
-            return None
-        return Cloud(self.resource_type.split('.')[0].upper())
-
-    @field_validator('resource_type', mode='after')
-    @classmethod
-    def validate_resource_type(cls, resource_type: str | None) -> str | None:
-        """
-        Validate resource_type and convert it to set of Cloud
-        :param resource_type: str or list of str
-        :return: set of Cloud or None if resource_type is not specified
-        """
-        if not resource_type:
-            return None
-        return resource_type
 
 
 class CustomerGetModel(BaseModel):

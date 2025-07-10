@@ -1,5 +1,5 @@
 from typing import Iterable
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import time
 
@@ -18,7 +18,7 @@ from modular_sdk.models.tenant import Tenant
 from executor.helpers.constants import ExecutorError
 from helpers.constants import Cloud
 from helpers.log_helper import get_logger
-from helpers.regions import CLOUD_REGIONS
+from helpers.regions import get_region_by_cloud_with_global
 from executor.job import (
     ExecutorException,
     PolicyDict,
@@ -31,6 +31,10 @@ from services.resources_service import ResourcesService
 
 _LOG = get_logger(__name__)
 
+EXCLUDE_RESOURCE_TYPES = {
+    'aws.service-quota',
+    'gcp.region',
+}
 
 # CC by default stores retrieved information on disk
 # This mode turn off this behavior
@@ -127,18 +131,23 @@ class ResourceCollector:
         regions: Iterable[str] | None = None,
     ) -> list[Policy]:
         if not resource_types:
-            resource_types = list(resource_map.keys())
+            resource_types = set(resource_map.keys())
         else:
             if not all(rt in resource_map.keys() for rt in resource_types):
                 raise ValueError(
                     f'Some resource types {resource_types} are not valid {cloud} resource types.'
                 )
+            resource_types = set(resource_types)
 
         if not regions:
-            regions = CLOUD_REGIONS[cloud] | {'global'}
+            regions = (
+                get_region_by_cloud_with_global(cloud)
+                if cloud == Cloud.AWS
+                else {'global'}
+            )
         else:
             if not all(
-                region in CLOUD_REGIONS[cloud] | {'global'}
+                region in get_region_by_cloud_with_global(cloud)
                 for region in regions
             ):
                 raise ValueError(
@@ -147,7 +156,7 @@ class ResourceCollector:
             regions = set(regions)
 
         policy_dicts = []
-        for resource_type in resource_types:
+        for resource_type in resource_types - EXCLUDE_RESOURCE_TYPES:
             policy = {
                 'name': f'retrieve-{resource_type}',
                 'resource': resource_type,
@@ -206,6 +215,7 @@ class ResourceCollector:
         policy: Policy,
         resource_type: str,
         region: str,
+        account_id: str,
         tenant_name: str,
         customer_name: str,
     ) -> bool:
@@ -217,7 +227,12 @@ class ResourceCollector:
                 )
                 for data in resources:
                     self._load_scan(
-                        data, resource_type, region, tenant_name, customer_name
+                        data,
+                        resource_type,
+                        region,
+                        account_id,
+                        tenant_name,
+                        customer_name,
                     )
                 return True
             else:
@@ -242,6 +257,7 @@ class ResourceCollector:
         data: dict,
         resource_type: str,
         region: str,
+        account_id: str,
         tenant_name: str,
         customer_name: str,
     ):
@@ -250,15 +266,7 @@ class ResourceCollector:
         """
         resource_class = get_resource_class(resource_type)
 
-        if hasattr(resource_class.resource_type, 'id'):
-            resource_id = data.get(resource_class.resource_type.id, '')
-        elif 'id' in data:
-            resource_id = data['id']
-        else:
-            _LOG.warning(
-                f"Resource {resource_type} does not have an 'id' field in data: {data}"
-            )
-            resource_id = ''
+        resource_id = data[resource_class.resource_type.id]
 
         if hasattr(resource_class.resource_type, 'name'):
             resource_name = data.get(resource_class.resource_type.name, '')
@@ -269,17 +277,28 @@ class ResourceCollector:
                 f"Resource {resource_type} does not have a 'name' field in data: {data}"
             )
             resource_name = ''
+        
+        # TODO: generate arn if not present
+        if hasattr(resource_class.resource_type, 'arn'):
+            arn = data.get(resource_class.resource_type.arn, None)
+        else:
+            _LOG.warning(
+                f"Resource {resource_type} does not have an 'arn' field in data: {data}"
+            )
+            arn = None
 
-        self._rs.load_new_scan(
+        self._rs.create(
             id=resource_id,
             name=resource_name,
             location=region,
             resource_type=resource_type,
+            account_id=account_id,
             tenant_name=tenant_name,
             customer_name=customer_name,
             data=data,
-            sync_date=datetime.now(timezone.utc).isoformat(),
-        )
+            sync_date=datetime.now(timezone.utc).timestamp(),
+            arn=arn,
+        ).save()
 
     def collect_tenant_resources(
         self,
@@ -324,6 +343,7 @@ class ResourceCollector:
                     policy,
                     policy.resource_type,
                     policy.options.region,
+                    tenant.project,
                     tenant.name,
                     tenant.customer_name,
                 )
