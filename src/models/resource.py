@@ -110,9 +110,6 @@ class Resource(BaseModel):
     def hash(self) -> str:
         return self._hash
 
-    def save(self, *args, **kwargs):
-        return super().save(*args, **kwargs)
-
     @property
     def cloud(self) -> Cloud:
         return Cloud[self.resource_type.split('.')[0].upper()]
