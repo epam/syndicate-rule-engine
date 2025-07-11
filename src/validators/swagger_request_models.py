@@ -170,6 +170,9 @@ class ResourcesGetModel(BasePaginationModel):
     name: str | None = Field(None)
     id: str | None = Field(None)
 
+class ResourcesArnGetModel(BaseModel):
+    arn: str
+
 
 class CustomerGetModel(BaseModel):
     """

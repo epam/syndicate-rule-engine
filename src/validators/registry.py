@@ -89,7 +89,8 @@ from validators.swagger_request_models import (
     UserPatchModel,
     UserPostModel,
     UserResetPasswordModel,
-    ResourcesGetModel
+    ResourcesGetModel,
+    ResourcesArnGetModel
 )
 from validators.swagger_response_models import (
     CredentialsActivationModel,
@@ -310,7 +311,7 @@ data: tuple[EndpointInfo, ...] = (
     EndpointInfo(
         path=CustodianEndpoint.RESOURCES_ARN,
         method=HTTPMethod.GET,
-        request_model=BaseModel,
+        request_model=ResourcesArnGetModel,
         responses=[(HTTPStatus.OK, SingleResourceModel, None)],
         permission=Permission.RESOURCES_GET,
         description='Allows to get a resource by its ARN'

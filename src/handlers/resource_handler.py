@@ -16,7 +16,10 @@ from helpers.regions import (
 )
 from services import SP
 from services.resources_service import ResourcesService
-from validators.swagger_request_models import ResourcesGetModel, BaseModel
+from validators.swagger_request_models import (
+    ResourcesGetModel,
+    ResourcesArnGetModel,
+)
 from validators.utils import validate_kwargs
 
 _LOG = get_logger(__name__)
@@ -41,9 +44,7 @@ class ResourceHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.RESOURCES: {
-                HTTPMethod.GET: self.get_resources
-            },
+            CustodianEndpoint.RESOURCES: {HTTPMethod.GET: self.get_resources},
             CustodianEndpoint.RESOURCES_ARN: {
                 HTTPMethod.GET: self.get_resource_by_arn
             },
@@ -144,7 +145,7 @@ class ResourceHandler(AbstractHandler):
         )
 
         self._validate_location(event.location, cloud=cloud)
-    
+
     def _build_resource_dto(self, resource):
         return {
             'id': resource.id,
@@ -191,24 +192,23 @@ class ResourceHandler(AbstractHandler):
             .build()
         )
 
-    def get_resource_by_arn(self, event: BaseModel, arn: str):
+    @validate_kwargs
+    def get_resource_by_arn(self, event: ResourcesArnGetModel):
         """
         Get a resource by its ARN.
         """
-        _LOG.debug(f'Getting resource by ARN: {arn}')
+        _LOG.debug(f'Getting resource by ARN: {event.arn}')
 
-        resource = self._rs.get_resource_by_arn(arn)
+        resource = self._rs.get_resource_by_arn(event.arn)
         if not resource:
             raise (
                 ResponseFactory(HTTPStatus.NOT_FOUND)
-                .message(f'Resource with ARN {arn} not found')
+                .message(f'Resource with ARN {event.arn} not found')
                 .exc()
             )
 
         return (
             ResponseFactory()
-            .data(
-                data=self._build_resource_dto(resource),
-            )
+            .data(data=self._build_resource_dto(resource))
             .build()
         )

@@ -16,7 +16,7 @@ from modular_sdk.modular import ModularServiceProvider
 from modular_sdk.models.tenant import Tenant
 
 from executor.helpers.constants import ExecutorError
-from helpers.constants import Cloud
+from helpers.constants import Cloud, EXCLUDE_RESOURCE_TYPES
 from helpers.log_helper import get_logger
 from helpers.regions import get_region_by_cloud_with_global
 from executor.job import (
@@ -30,11 +30,6 @@ from services import SP
 from services.resources_service import ResourcesService
 
 _LOG = get_logger(__name__)
-
-EXCLUDE_RESOURCE_TYPES = {
-    'aws.service-quota',
-    'gcp.region',
-}
 
 # CC by default stores retrieved information on disk
 # This mode turn off this behavior

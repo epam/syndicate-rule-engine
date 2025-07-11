@@ -49,6 +49,7 @@ class CustodianEndpoint(str, Enum):
     CREDENTIALS = '/credentials'
     RULE_SOURCES = '/rule-sources'
     USERS_WHOAMI = '/users/whoami'
+    RESOURCES_ARN = '/resources/arn'
     SCHEDULED_JOB = '/scheduled-job'
     PLATFORMS_K8S = '/platforms/k8s'
     SETTINGS_MAIL = '/settings/mail'
@@ -65,7 +66,6 @@ class CustodianEndpoint(str, Enum):
     RULE_SOURCES_ID = '/rule-sources/{id}'
     RULESETS_RELEASE = '/rulesets/release'
     DOC_SWAGGER_JSON = '/doc/swagger.json'
-    RESOURCES_ARN = '/resources/arn/{arn}'
     RULE_META_UPDATER = '/rules/update-meta'
     REPORTS_PUSH_DOJO = '/reports/push/dojo'
     CUSTOMERS_RABBITMQ = '/customers/rabbitmq'
@@ -1348,3 +1348,7 @@ VERSION_NORM_LENGTH = 6
 TENANTS_QUERY_THRESHOLD = 20
 LATEST_VERSION_TAG = ':'  # ':' > '999999.999999.999999'
 
+EXCLUDE_RESOURCE_TYPES = {
+    'aws.service-quota',
+    'gcp.region',
+}
