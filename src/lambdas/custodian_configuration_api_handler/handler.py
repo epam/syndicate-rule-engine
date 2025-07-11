@@ -22,6 +22,7 @@ from handlers.ruleset_handler import RulesetHandler
 from handlers.self_integration_handler import SelfIntegrationHandler
 from handlers.send_report_setting_handler import ReportsSendingSettingHandler
 from handlers.tenant_handler import TenantHandler
+from handlers.resource_handler import ResourceHandler
 from helpers.constants import (
     CUSTOMER_ATTR,
     CustodianEndpoint,
@@ -89,7 +90,8 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
         LicenseManagerConfigHandler,
         RuleSourceHandler,
         CredentialsHandler,
-        ChronicleHandler
+        ChronicleHandler,
+        ResourceHandler
     )
 
     def __init__(self, lambda_client: LambdaClient,

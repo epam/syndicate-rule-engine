@@ -24,6 +24,16 @@ class BaseActivation(TypedDict):
     excluding: list[str]
     activated_for: NotRequired[list[str]]
 
+class Resource(TypedDict):
+    id: str
+    name: str
+    location: str
+    resource_type: str
+    tenant_name: str
+    customer_name: str
+    data: dict
+    sync_date: datetime
+    hash: str  
 
 class Customer(TypedDict):
     name: str
@@ -514,6 +524,12 @@ class SignInModel(BaseModel):
     refresh_token: str
     expires_in: int
 
+
+class MultipleResourcesModel(BaseModel):
+    items: list[Resource]
+
+class SingleResourceModel(BaseModel):
+    data: Resource
 
 class MultipleCustomersModel(BaseModel):
     items: list[Customer]
