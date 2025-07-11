@@ -114,7 +114,6 @@ def mock_regions():
 
 def test_validate_event_valid(resource_handler, valid_event, mock_customer, mock_tenant, mock_regions):
     """Test validation of a valid event with all correct parameters."""
-    # Setup mocks
     resource_handler._ms.customer_service().get.return_value = mock_customer
     resource_handler._ms.tenant_service().get.return_value = mock_tenant
     resource_handler._rs.get_resource_types_by_cloud.return_value = ['aws.ec2']  # Include the expected resource type
@@ -146,11 +145,11 @@ def test_validate_event_bad_location(resource_handler, invalid_event_bad_locatio
         resource_handler._validate_event(invalid_event_bad_location)
 
 def test_validate_event_mismatch_of_clouds(
-    resource_handler, invalid_event_bad_resource_type_and_location_from_different_cloud, mock_customer, mock_tenant
+    resource_handler, invalid_event_mismatch_of_clouds, mock_customer, mock_tenant
 ):
     """Test validation of an event with resource type and location from different clouds."""
     resource_handler._ms.customer_service().get.return_value = mock_customer
     resource_handler._ms.tenant_service().get.return_value = mock_tenant
     
     with pytest.raises(ValueError, match="Resource type azure.vm does not match tenant cloud AWS"):
-        resource_handler._validate_event(invalid_event_bad_resource_type_and_location_from_different_cloud)
+        resource_handler._validate_event(invalid_event_mismatch_of_clouds)
