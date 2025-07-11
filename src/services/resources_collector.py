@@ -159,7 +159,8 @@ class ResourceCollector:
                 'mode': {'type': 'collect'},
             }
             policy_dicts.append(PolicyDict(**policy))
-
+        
+        # TODO: PolicyLoader ignores regions. We should get around that
         policy_loader = PoliciesLoader(cloud=cloud, regions=regions)
 
         return policy_loader.load_from_policies(policy_dicts)
@@ -212,23 +213,16 @@ class ResourceCollector:
     ) -> bool:
         try:
             resources = policy()
-            if resources:
-                _LOG.info(
-                    f'Policy {policy.name} completed, saving {len(resources)} resources'
+            for data in resources:
+                self._load_scan(
+                    data,
+                    resource_type,
+                    region,
+                    account_id,
+                    tenant_name,
+                    customer_name,
                 )
-                for data in resources:
-                    self._load_scan(
-                        data,
-                        resource_type,
-                        region,
-                        account_id,
-                        tenant_name,
-                        customer_name,
-                    )
-                return True
-            else:
-                _LOG.warning(f'Policy {policy.name} returned no results')
-                return True
+            return True
         except Exception as e:
             _LOG.error(f'Error processing policy {policy.name}: {e}')
             return False
@@ -273,9 +267,6 @@ class ResourceCollector:
         if hasattr(resource_class.resource_type, 'arn'):
             arn = data.get(resource_class.resource_type.arn, None)
         else:
-            _LOG.warning(
-                f"Resource {resource_type} does not have an 'arn' field in data: {data}"
-            )
             arn = None
 
         self._rs.create(
