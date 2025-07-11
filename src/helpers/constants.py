@@ -65,6 +65,7 @@ class CustodianEndpoint(str, Enum):
     RULE_SOURCES_ID = '/rule-sources/{id}'
     RULESETS_RELEASE = '/rulesets/release'
     DOC_SWAGGER_JSON = '/doc/swagger.json'
+    RESOURCES_ARN = '/resources/arn/{arn}'
     RULE_META_UPDATER = '/rules/update-meta'
     REPORTS_PUSH_DOJO = '/reports/push/dojo'
     CUSTOMERS_RABBITMQ = '/customers/rabbitmq'

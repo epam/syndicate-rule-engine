@@ -1,3 +1,6 @@
+from http import HTTPStatus
+from datetime import datetime
+
 from modular_sdk.modular import ModularServiceProvider
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
@@ -13,7 +16,7 @@ from helpers.regions import (
 )
 from services import SP
 from services.resources_service import ResourcesService
-from validators.swagger_request_models import ResourcesGetModel
+from validators.swagger_request_models import ResourcesGetModel, BaseModel
 from validators.utils import validate_kwargs
 
 _LOG = get_logger(__name__)
@@ -38,7 +41,12 @@ class ResourceHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.RESOURCES: {HTTPMethod.GET: self.get_resources}
+            CustodianEndpoint.RESOURCES: {
+                HTTPMethod.GET: self.get_resources
+            },
+            CustodianEndpoint.RESOURCES_ARN: {
+                HTTPMethod.GET: self.get_resource_by_arn
+            },
         }
 
     def _validate_customer(self, customer_name: str | None) -> Customer | None:
@@ -121,7 +129,7 @@ class ResourceHandler(AbstractHandler):
 
     def _validate_event(self, event: ResourcesGetModel):
         """
-        Validate the event parameters. Tries to add cloud provider prefix
+        Validate the event's parameters. Tries to add cloud provider prefix
         to resource_type if it is not specified.
         """
         customer = self._validate_customer(event.customer_name)
@@ -136,6 +144,18 @@ class ResourceHandler(AbstractHandler):
         )
 
         self._validate_location(event.location, cloud=cloud)
+    
+    def _build_resource_dto(self, resource):
+        return {
+            'id': resource.id,
+            'name': resource.name,
+            'location': resource.location,
+            'resource_type': resource.resource_type,
+            'tenant_name': resource.tenant_name,
+            'customer_name': resource.customer_name,
+            'data': resource.data,
+            'sync_date': datetime.fromtimestamp(resource.sync_date),
+        }
 
     @validate_kwargs
     def get_resources(self, event: ResourcesGetModel):
@@ -158,16 +178,7 @@ class ResourceHandler(AbstractHandler):
         )
 
         resource_dtos = [
-            {
-                'id': resource.id,
-                'name': resource.name,
-                'location': resource.location,
-                'resource_type': resource.resource_type,
-                'tenant_name': resource.tenant_name,
-                'customer_name': resource.customer_name,
-                'data': resource.data,
-                'sync_date': resource.sync_date,
-            }
+            self._build_resource_dto(resource)
             for resource in resources_iterator
         ]
 
@@ -176,6 +187,28 @@ class ResourceHandler(AbstractHandler):
             .items(
                 it=resource_dtos,
                 next_token=NextToken(resources_iterator.last_evaluated_key),
+            )
+            .build()
+        )
+
+    def get_resource_by_arn(self, event: BaseModel, arn: str):
+        """
+        Get a resource by its ARN.
+        """
+        _LOG.debug(f'Getting resource by ARN: {arn}')
+
+        resource = self._rs.get_resource_by_arn(arn)
+        if not resource:
+            raise (
+                ResponseFactory(HTTPStatus.NOT_FOUND)
+                .message(f'Resource with ARN {arn} not found')
+                .exc()
+            )
+
+        return (
+            ResponseFactory()
+            .data(
+                data=self._build_resource_dto(resource),
             )
             .build()
         )

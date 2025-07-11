@@ -5,6 +5,8 @@ from helpers.log_helper import get_logger
 from models.resource import Resource
 from services.base_data_service import BaseDataService
 
+_LOG = get_logger(__name__)
+
 try:
     from c7n.resources.resource_map import ResourceMap as AWSResourceMap
     from c7n_azure.resources.resource_map import ResourceMap as AzureResourceMap
@@ -19,8 +21,6 @@ except ImportError:
     AzureResourceMap = None
     GCPResourceMap = None
     K8sResourceMap = None
-
-_LOG = get_logger(__name__)
 
 
 class ResourcesService(BaseDataService[Resource]):
@@ -159,7 +159,7 @@ class ResourcesService(BaseDataService[Resource]):
         elif cloud == Cloud.K8S and K8sResourceMap:
             return list(K8sResourceMap.keys())
         else:
-            _LOG.warning(f'Unsupported cloud: {cloud}')
+            _LOG.warning(f'Cannot get resource types for cloud: {cloud}')
             return []
     
     @staticmethod
@@ -168,12 +168,12 @@ class ResourcesService(BaseDataService[Resource]):
         Returns the cloud provider prefix for the specified cloud.
         """
         if cloud == Cloud.AWS:
-            return 'aws.'
+            return 'aws'
         elif cloud == Cloud.AZURE:
-            return 'azure.'
+            return 'azure'
         elif cloud == Cloud.GCP:
-            return 'gcp.'
+            return 'gcp'
         elif cloud == Cloud.K8S:
-            return 'k8s.'
+            return 'k8s'
         else:
             raise ValueError(f'Unsupported cloud: {cloud}')

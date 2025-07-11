@@ -154,7 +154,8 @@ from validators.swagger_response_models import (
     SingleSelfIntegration,
     SingleTenantExcludedRules,
     SingleTenantsModel,
-    SingleUserModel
+    SingleUserModel,
+    SingleResourceModel
 )
 
 
@@ -305,6 +306,14 @@ data: tuple[EndpointInfo, ...] = (
         responses=[(HTTPStatus.OK, MultipleResourcesModel, None)],
         permission=Permission.RESOURCES_GET,
         description='Allows to get resources information'
+    ),
+    EndpointInfo(
+        path=CustodianEndpoint.RESOURCES_ARN,
+        method=HTTPMethod.GET,
+        request_model=BaseModel,
+        responses=[(HTTPStatus.OK, SingleResourceModel, None)],
+        permission=Permission.RESOURCES_GET,
+        description='Allows to get a resource by its ARN'
     ),
 
     # customers

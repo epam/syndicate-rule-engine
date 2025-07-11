@@ -528,6 +528,9 @@ class SignInModel(BaseModel):
 class MultipleResourcesModel(BaseModel):
     items: list[Resource]
 
+class SingleResourceModel(BaseModel):
+    data: Resource
+
 class MultipleCustomersModel(BaseModel):
     items: list[Customer]
 

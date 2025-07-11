@@ -6272,6 +6272,72 @@
           "type": "object"
         }
       },
+      "SingleResourceModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "data": {
+              "properties": {
+                "customer_name": {
+                  "title": "Customer Name",
+                  "type": "string"
+                },
+                "data": {
+                  "title": "Data",
+                  "type": "object"
+                },
+                "hash": {
+                  "title": "Hash",
+                  "type": "string"
+                },
+                "id": {
+                  "title": "Id",
+                  "type": "string"
+                },
+                "location": {
+                  "title": "Location",
+                  "type": "string"
+                },
+                "name": {
+                  "title": "Name",
+                  "type": "string"
+                },
+                "resource_type": {
+                  "title": "Resource Type",
+                  "type": "string"
+                },
+                "sync_date": {
+                  "format": "date-time",
+                  "title": "Sync Date",
+                  "type": "string"
+                },
+                "tenant_name": {
+                  "title": "Tenant Name",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "location",
+                "resource_type",
+                "tenant_name",
+                "customer_name",
+                "data",
+                "sync_date",
+                "hash"
+              ],
+              "title": "Resource",
+              "type": "object"
+            }
+          },
+          "required": [
+            "data"
+          ],
+          "title": "SingleResourceModel",
+          "type": "object"
+        }
+      },
       "SingleRoleModel": {
         "content_type": "application/json",
         "schema": {

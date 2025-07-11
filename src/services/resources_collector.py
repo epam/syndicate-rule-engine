@@ -198,12 +198,8 @@ class ResourceCollector:
         resource_types: Iterable[str] | None = None,
         regions: Iterable[str] | None = None,
     ) -> list[Policy]:
-        # NOTE: can't create policy for 'region' resource type
-        gcp_map = {
-            k: v for k, v in GCPResourceMap.items() if k != 'gcp.region'
-        }
         return ResourceCollector._get_policies(
-            resource_map=gcp_map,
+            resource_map=GCPResourceMap,
             cloud=Cloud.GCP,
             resource_types=resource_types,
             regions=regions,
