@@ -1,6 +1,6 @@
 from typing import Generator, Iterable
 
-from helpers.constants import Severity
+from helpers.constants import Severity, Cloud
 
 
 class Standard(tuple):
@@ -151,3 +151,30 @@ def service_from_resource_type(rt: str, /) -> str:
     Best try to convert CC resource name to human-readable service name
     """
     return adjust_resource_type(rt).replace('-', ' ').replace('_', ' ').title()
+
+def prefix_from_cloud(cloud: Cloud) -> str:
+    """
+    Returns the prefix for the given cloud.
+    """
+    match cloud:
+        case Cloud.AWS:
+            return 'aws'
+        case Cloud.GCP:
+            return 'gcp'
+        case Cloud.AZURE:
+            return 'azure'
+        case Cloud.KUBERNETES:
+            return 'k8s'
+        case _:
+            raise ValueError(f'Unknown cloud: {cloud}')
+
+def resource_type_from_service(service: str | None = None, cloud: Cloud | None = None) -> str:
+    """
+    Backward conversion from service name to resource type.
+    """
+    if not service:
+        return ""
+    if not cloud:
+        cloud = Cloud.AWS
+    service = service.lower().replace(' ', '-').replace('_', '-')
+    return f'{prefix_from_cloud(cloud)}.{service}'

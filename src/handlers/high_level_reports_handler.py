@@ -20,6 +20,7 @@ from helpers.constants import (
     RabbitCommand,
     ReportType,
 )
+from helpers.reports import resource_type_from_service
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime, utc_iso
@@ -108,7 +109,7 @@ class MaestroModelBuilder:
     congested.
     """
 
-    __slots__ = ('_receivers',)
+    __slots__ = ('_receivers', '_ls')
 
     def __init__(self, receivers: tuple[str, ...] = ()):
         self._receivers = receivers  # base receivers
@@ -160,6 +161,25 @@ class MaestroModelBuilder:
     @staticmethod
     def _operational_rules_custom(rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.OPERATIONAL_RULES
+
+        metadata = SP.license_service.get_customer_metadata(rep.customer)
+        
+        enriched_rules_data = []
+        for rule_data in data.get('data', []):
+            policy_name = rule_data.get('policy', '')
+            
+            rule_meta = metadata.rule(policy_name)
+
+            enriched_rule = dict(rule_data)
+            enriched_rule.update({
+                'resource_type': resource_type_from_service(
+                    rule_meta.service, rep.cloud
+                ),
+                'severity': rule_meta.severity.value,
+                'service': rule_meta.service,
+            })
+            enriched_rules_data.append(enriched_rule)
+
         return {
             'tenant_name': rep.tenant,
             'id': data['id'],
@@ -168,7 +188,7 @@ class MaestroModelBuilder:
             'activated_regions': data['activated_regions'],
             'last_scan_date': data['last_scan_date'],
             'data': {
-                'rules_data': data.get('data', []),
+                'rules_data': enriched_rules_data,
                 'violated_resources_length': data['resources_violated'],
             },
         }

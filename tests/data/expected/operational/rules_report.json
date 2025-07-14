@@ -10,6 +10,9 @@
   "data": {
     "rules_data": [
       {
+        "resource_type": "",
+        "service": "",
+        "severity": "Unknown",
         "policy": "Description for ecc-aws-427-rds_cluster_without_tag_information",
         "region": "eu-west-1",
         "invocations": 1,
@@ -26,6 +29,9 @@
         "average_resources_failed": 0
       },
       {
+        "resource_type": "",
+        "service": "",
+        "severity": "Unknown",
         "policy": "Description for ecc-aws-149-rds_public_access_disabled",
         "region": "eu-west-1",
         "invocations": 1,
@@ -42,6 +48,9 @@
         "average_resources_failed": 0
       },
       {
+        "resource_type": "",
+        "service": "",
+        "severity": "Unknown",
         "policy": "Description for ecc-aws-167-security_group_ingress_is_restricted_traffic_to_port_143",
         "region": "eu-west-1",
         "invocations": 1,
@@ -58,6 +67,9 @@
         "average_resources_failed": 0
       },
       {
+        "resource_type": "",
+        "service": "",
+        "severity": "Unknown",
         "policy": "Description for ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances",
         "region": "eu-west-1",
         "invocations": 1,
@@ -76,6 +88,9 @@
         "average_resources_failed": 2
       },
       {
+        "resource_type": "",
+        "service": "",
+        "severity": "Unknown",
         "policy": "Description for ecc-aws-490-ec2_token_hop_limit_check",
         "region": "eu-west-1",
         "invocations": 1,
@@ -92,6 +107,9 @@
         "average_resources_failed": 2
       },
       {
+        "resource_type": "",
+        "service": "",
+        "severity": "Unknown",
         "policy": "Description for ecc-aws-229-ecr_repository_kms_encryption_enabled",
         "region": "eu-west-1",
         "invocations": 1,
@@ -108,6 +126,9 @@
         "average_resources_failed": 2
       },
       {
+        "resource_type": "",
+        "service": "",
+        "severity": "Unknown",
         "policy": "Description for ecc-aws-374-cloudtrail_logs_data_events",
         "region": "eu-west-1",
         "invocations": 1,
@@ -126,6 +147,9 @@
         "average_resources_failed": 1
       },
       {
+        "resource_type": "",
+        "service": "",
+        "severity": "Unknown",
         "policy": "Description for ecc-aws-150-api_gateway_rest_api_encryption_at_rest",
         "region": "eu-central-1",
         "invocations": 1,
@@ -144,6 +168,9 @@
         "average_resources_failed": 0
       },
       {
+        "resource_type": "",
+        "service": "",
+        "severity": "Unknown",
         "policy": "Description for ecc-aws-070-unused_ec2_security_groups",
         "region": "eu-central-1",
         "invocations": 1,
@@ -171,6 +198,9 @@
         "average_resources_failed": 3
       },
       {
+        "resource_type": "",
+        "service": "",
+        "severity": "Unknown",
         "policy": "Description for ecc-aws-374-cloudtrail_logs_data_events",
         "region": "eu-central-1",
         "invocations": 1,
@@ -189,6 +219,9 @@
         "average_resources_failed": 1
       },
       {
+        "resource_type": "",
+        "service": "",
+        "severity": "Unknown",
         "policy": "Description for ecc-aws-221-sns_kms_encryption_enabled",
         "region": "eu-central-1",
         "invocations": 1,
@@ -209,6 +242,9 @@
         "average_resources_failed": 3
       },
       {
+        "resource_type": "",
+        "service": "",
+        "severity": "Unknown",
         "policy": "Description for ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
         "region": "global",
         "invocations": 1,
@@ -225,6 +261,9 @@
         "average_resources_failed": 6
       },
       {
+        "resource_type": "",
+        "service": "",
+        "severity": "Unknown",
         "policy": "Description for ecc-aws-499-iam_group_has_users_check",
         "region": "global",
         "invocations": 1,
@@ -243,6 +282,9 @@
         "average_resources_failed": 3
       },
       {
+        "resource_type": "",
+        "service": "",
+        "severity": "Unknown",
         "policy": "Description for ecc-aws-516-s3_event_notifications_enabled",
         "region": "global",
         "invocations": 1,
@@ -259,6 +301,9 @@
         "average_resources_failed": 4
       },
       {
+        "resource_type": "",
+        "service": "",
+        "severity": "Unknown",
         "policy": "Description for ecc-aws-527-waf_global_webacl_not_empty",
         "region": "global",
         "invocations": 1,
