@@ -109,7 +109,7 @@ class MaestroModelBuilder:
     congested.
     """
 
-    __slots__ = ('_receivers', '_ls')
+    __slots__ = ('_receivers')
 
     def __init__(self, receivers: tuple[str, ...] = ()):
         self._receivers = receivers  # base receivers
