@@ -23,10 +23,7 @@ from helpers.constants import (
     Severity,
 )
 from helpers.log_helper import get_logger
-from helpers.reports import (
-    resource_type_from_service,
-    service_from_resource_type,
-)
+from helpers.reports import service_from_resource_type
 from helpers.system_customer import SystemCustomer
 from helpers.time_helper import utc_datetime, utc_iso
 from models.metrics import ReportMetrics
@@ -433,9 +430,6 @@ class MetricsCollector:
                 data['resources_violated'] = ov[1]['resources_violated']
                 for rule in data['data']:
                     rule_meta = ctx.metadata.rule(rule.policy)
-                    rule.resource_type = resource_type_from_service(
-                        rule_meta.service
-                    )
                     rule.service = rule_meta.service
                     rule.severity = rule_meta.severity
 
@@ -1185,6 +1179,7 @@ class MetricsCollector:
         for item in it:
             p = item.policy
             item.policy = meta.get(p, {}).get('description', p)
+            item.resource_type = meta.get(p, {}).get('resource', '')
             yield item
 
     def operational_rules(
