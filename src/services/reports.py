@@ -397,13 +397,7 @@ class DeprecationReportGenerator(ReportVisitor[Generator[dict, None, None]]):
                 'is_deprecated': rm.deprecation.is_deprecated,
                 'deprecation_severity': rm.deprecation.severity.value,
                 'deprecation_link': rm.deprecation.link,
-                'remediation_complexity': rm.remediation_complexity.value,
-                'remediation': rm.remediation,
                 'policy': rule,
-                'description': meta[rule].get('description', ''),
-                'resource_type': service_from_resource_type(
-                    meta[rule]['resource']
-                ),
                 'resources': by_region,
             }
 
@@ -453,6 +447,7 @@ class FinopsReportGenerator(ReportVisitor[Generator[dict, None, None]]):
             mapping.setdefault(ss, []).append(
                 {
                     'rule': meta[rule].get('description', rule),
+                    'policy': rule,
                     'service': rm.service
                     or service_from_resource_type(meta[rule]['resource']),
                     'category': finops_category,
@@ -527,12 +522,7 @@ class AttacksReportGenerator(ReportVisitor[Generator[dict, None, None]]):
                 )[-1]
                 inner['violations'] = [
                     {
-                        'description': meta[rule]['description'],
-                        'remediation': self._metadata.rule(rule).remediation,
-                        'remediation_complexity': self._metadata.rule(
-                            rule
-                        ).remediation_complexity.value,
-                        'severity': self._metadata.rule(rule).severity.value,
+                        'policy': rule,
                     }
                     for rule in rules
                 ]

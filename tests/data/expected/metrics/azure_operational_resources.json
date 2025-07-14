@@ -82,7 +82,7 @@
     "finished_scans": 2,
     "in_progress_scans": 0,
     "is_automatic_scans_enabled": true,
-    "last_scan_date": "2025-05-25T00:46:25.324274Z",
+    "last_scan_date": "2025-07-14T00:12:14.526620Z",
     "licenses": [
       {
         "description": "Testing license",
@@ -93,7 +93,7 @@
           "AZURE"
         ],
         "total_rules": 10,
-        "valid_from": "2025-05-25T12:46:26.850750Z",
+        "valid_from": "2025-07-14T13:12:15.835933Z",
         "valid_until": "2100-02-01T15:24:26.175778Z"
       }
     ],
@@ -137,7 +137,54 @@
           "when": 1729502357.324336
         }
       ],
-      "total": 10
+      "total": 10,
+      "violated": [
+        {
+          "description": "Description for ecc-azure-310-asb_defender_open_source_rds",
+          "id": "ecc-azure-310-asb_defender_open_source_rds",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "resource_type": "azure.defender-pricing",
+          "service": "Defender Pricing",
+          "severity": "Unknown"
+        },
+        {
+          "description": "Description for ecc-azure-096-cis_sec_defender_azure_sql",
+          "id": "ecc-azure-096-cis_sec_defender_azure_sql",
+          "remediation": "Remediation text here",
+          "remediation_complexity": "Medium-High",
+          "resource_type": "azure.defender-pricing",
+          "service": "Defender Pricing",
+          "severity": "Unknown"
+        },
+        {
+          "description": "Description for ecc-azure-376-cis_defender_cosmodb",
+          "id": "ecc-azure-376-cis_defender_cosmodb",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "resource_type": "azure.defender-pricing",
+          "service": "Defender Pricing",
+          "severity": "Unknown"
+        },
+        {
+          "description": "Description for ecc-azure-099-cis_sec_defender_aks",
+          "id": "ecc-azure-099-cis_sec_defender_aks",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "resource_type": "azure.defender-pricing",
+          "service": "Defender Pricing",
+          "severity": "Unknown"
+        },
+        {
+          "description": "Description for ecc-azure-213-asb_lt_defender_dns",
+          "id": "ecc-azure-213-asb_lt_defender_dns",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "resource_type": "azure.defender-pricing",
+          "service": "Defender Pricing",
+          "severity": "Unknown"
+        }
+      ]
     },
     "succeeded_scans": 1
   }

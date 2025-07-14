@@ -2,15 +2,16 @@
   "receivers": [
     "admin@gmail.com"
   ],
+  "customer": "TEST_CUSTOMER",
   "metadata": {
     "type": "OPERATIONAL_DEPRECATION",
     "description": "Displays resources that will be soon deprecated",
     "version": "2.0.0",
-    "created_at": "2025-05-25T13:53:03.994249Z",
-    "to": "2025-05-25T13:53:03.994249Z",
-    "from": "2025-05-24T13:53:03.994249Z"
+    "created_at": "2025-07-14T13:39:52.801635Z",
+    "to": "2025-07-14T13:39:52.801635Z",
+    "from": "2025-07-13T13:39:52.801635Z"
   },
-  "customer": "TEST_CUSTOMER",
+  "externalData": false,
   "data": [
     {
       "category": "Runtime version",
@@ -18,11 +19,7 @@
       "is_deprecated": false,
       "deprecation_severity": "Low",
       "deprecation_link": "https://example.com",
-      "remediation_complexity": "Medium-High",
-      "remediation": "Remediation text here",
       "policy": "ecc-azure-096-cis_sec_defender_azure_sql",
-      "description": "Description for ecc-azure-096-cis_sec_defender_azure_sql",
-      "resource_type": "Defender Pricing",
       "regions_data": {
         "global": {
           "resources": [
@@ -36,7 +33,6 @@
       }
     }
   ],
-  "externalData": false,
   "tenant_name": "AZURE-TESTING",
   "id": "3d615fa8-05c6-47ea-990d-9d162testing",
   "cloud": "AZURE",
@@ -52,20 +48,31 @@
         "per": "DAY",
         "description": "Testing license",
         "valid_until": "2100-02-01T15:24:26.175778Z",
-        "valid_from": "2025-05-25T12:56:35.620288Z"
+        "valid_from": "2025-07-14T13:20:58.461705Z"
       }
     ],
     "is_automatic_scans_enabled": true,
     "in_progress_scans": 0,
     "finished_scans": 2,
     "succeeded_scans": 1,
-    "last_scan_date": "2025-05-25T00:56:34.256160Z",
+    "last_scan_date": "2025-07-14T00:20:56.992711Z",
     "activated_regions": [],
     "rules": {
       "total": 1,
       "disabled": [],
       "passed": [],
-      "failed": []
+      "failed": [],
+      "violated": [
+        {
+          "id": "ecc-azure-096-cis_sec_defender_azure_sql",
+          "description": "Description for ecc-azure-096-cis_sec_defender_azure_sql",
+          "remediation": "Remediation text here",
+          "remediation_complexity": "Medium-High",
+          "severity": "Unknown",
+          "service": "Defender Pricing",
+          "resource_type": "azure.defender-pricing"
+        }
+      ]
     }
   }
 }

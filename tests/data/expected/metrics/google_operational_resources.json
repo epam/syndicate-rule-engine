@@ -23,10 +23,10 @@
       "resources": {
         "global": [
           {
-            "id": "1227136820292673506",
-            "name": "default-allow-icmp",
+            "id": "2007825320515264482",
+            "name": "default-allow-ssh",
             "sre:date": 1729502744.540606,
-            "urn": "gcp:compute::testing-project-123:firewall/default-allow-icmp"
+            "urn": "gcp:compute::testing-project-123:firewall/default-allow-ssh"
           },
           {
             "id": "2342562096469303266",
@@ -35,16 +35,16 @@
             "urn": "gcp:compute::testing-project-123:firewall/default-allow-rdp"
           },
           {
+            "id": "1227136820292673506",
+            "name": "default-allow-icmp",
+            "sre:date": 1729502744.540606,
+            "urn": "gcp:compute::testing-project-123:firewall/default-allow-icmp"
+          },
+          {
             "id": "3339756659677913058",
             "name": "default-allow-internal",
             "sre:date": 1729502744.540606,
             "urn": "gcp:compute::testing-project-123:firewall/default-allow-internal"
-          },
-          {
-            "id": "2007825320515264482",
-            "name": "default-allow-ssh",
-            "sre:date": 1729502744.540606,
-            "urn": "gcp:compute::testing-project-123:firewall/default-allow-ssh"
           }
         ]
       },
@@ -73,10 +73,10 @@
       "resources": {
         "global": [
           {
-            "id": "1227136820292673506",
-            "name": "default-allow-icmp",
+            "id": "2007825320515264482",
+            "name": "default-allow-ssh",
             "sre:date": 1729502743.708413,
-            "urn": "gcp:compute::testing-project-123:firewall/default-allow-icmp"
+            "urn": "gcp:compute::testing-project-123:firewall/default-allow-ssh"
           },
           {
             "id": "2342562096469303266",
@@ -85,16 +85,16 @@
             "urn": "gcp:compute::testing-project-123:firewall/default-allow-rdp"
           },
           {
+            "id": "1227136820292673506",
+            "name": "default-allow-icmp",
+            "sre:date": 1729502743.708413,
+            "urn": "gcp:compute::testing-project-123:firewall/default-allow-icmp"
+          },
+          {
             "id": "3339756659677913058",
             "name": "default-allow-internal",
             "sre:date": 1729502743.708413,
             "urn": "gcp:compute::testing-project-123:firewall/default-allow-internal"
-          },
-          {
-            "id": "2007825320515264482",
-            "name": "default-allow-ssh",
-            "sre:date": 1729502743.708413,
-            "urn": "gcp:compute::testing-project-123:firewall/default-allow-ssh"
           }
         ]
       },
@@ -147,7 +147,7 @@
     "finished_scans": 2,
     "in_progress_scans": 0,
     "is_automatic_scans_enabled": true,
-    "last_scan_date": "2025-05-25T00:46:25.324274Z",
+    "last_scan_date": "2025-07-14T00:15:04.372508Z",
     "licenses": [
       {
         "description": "Testing license",
@@ -158,7 +158,7 @@
           "GOOGLE"
         ],
         "total_rules": 10,
-        "valid_from": "2025-05-25T12:46:26.885262Z",
+        "valid_from": "2025-07-14T13:15:05.787594Z",
         "valid_until": "2100-02-01T15:24:26.175778Z"
       }
     ],
@@ -202,7 +202,54 @@
           "when": 1729502743.730919
         }
       ],
-      "total": 10
+      "total": 10,
+      "violated": [
+        {
+          "description": "Description for ecc-gcp-025-no_default_network",
+          "id": "ecc-gcp-025-no_default_network",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "resource_type": "gcp.vpc",
+          "service": "Vpc",
+          "severity": "Unknown"
+        },
+        {
+          "description": "Description for ecc-gcp-272-firewall_logging_enabled",
+          "id": "ecc-gcp-272-firewall_logging_enabled",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "resource_type": "gcp.firewall",
+          "service": "Firewall",
+          "severity": "Unknown"
+        },
+        {
+          "description": "Description for ecc-gcp-109-prevent_allow_all_ingress",
+          "id": "ecc-gcp-109-prevent_allow_all_ingress",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "resource_type": "gcp.firewall",
+          "service": "Firewall",
+          "severity": "Unknown"
+        },
+        {
+          "description": "Description for ecc-gcp-104-default_firewall_rule_in_use",
+          "id": "ecc-gcp-104-default_firewall_rule_in_use",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "resource_type": "gcp.firewall",
+          "service": "Firewall",
+          "severity": "Unknown"
+        },
+        {
+          "description": "Description for ecc-gcp-033-vpc_flow_logs_for_every_subnet",
+          "id": "ecc-gcp-033-vpc_flow_logs_for_every_subnet",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "resource_type": "gcp.subnet",
+          "service": "Subnet",
+          "severity": "Unknown"
+        }
+      ]
     },
     "succeeded_scans": 1
   }

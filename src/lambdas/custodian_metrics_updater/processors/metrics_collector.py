@@ -19,7 +19,10 @@ from helpers.constants import (
     JobState,
     PolicyErrorType,
     ReportType,
+    RemediationComplexity,
+    Severity
 )
+from helpers.reports import service_from_resource_type
 from helpers.system_customer import SystemCustomer
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime, utc_iso
@@ -162,9 +165,15 @@ class MetricsContext:
 
 class RuleCheck(msgspec.Struct, kw_only=True, frozen=True):
     id: str
-    description: str
-    region: str
-    when: float
+    description: str | msgspec.UnsetType = msgspec.UNSET
+    remediation: str | msgspec.UnsetType = msgspec.UNSET
+    remediation_complexity: RemediationComplexity | msgspec.UnsetType = msgspec.UNSET
+    severity: Severity | msgspec.UnsetType = msgspec.UNSET
+    service: str | msgspec.UnsetType = msgspec.UNSET
+    resource_type: str | msgspec.UnsetType = msgspec.UNSET
+
+    region: str | msgspec.UnsetType = msgspec.UNSET
+    when: float | msgspec.UnsetType = msgspec.UNSET
     error_type: PolicyErrorType | msgspec.UnsetType = msgspec.UNSET
     error: str | msgspec.UnsetType = msgspec.UNSET
     found: int | msgspec.UnsetType = msgspec.UNSET
@@ -186,8 +195,8 @@ class ReportRulesMetadata(msgspec.Struct, kw_only=True, frozen=True):
     disabled: tuple[str, ...] = ()
     passed: tuple[RuleCheck, ...] = ()
     failed: tuple[RuleCheck, ...] = ()
-
     violated: tuple[RuleCheck, ...] | msgspec.UnsetType = msgspec.UNSET
+
     not_executed: tuple[str, ...] | msgspec.UnsetType = msgspec.UNSET
 
 
@@ -587,6 +596,30 @@ class MetricsCollector:
                 when=part.timestamp,
             )
 
+    @staticmethod
+    def _iter_violated_checks( collection: 'ShardsCollection', metadata: Metadata,
+                              scope: set[str]) -> Generator[RuleCheck, None, None]:
+        """
+        These duplicate the rules inside reports payload, but contains rules
+        metadata without duplicates
+        """
+        yielded = set()
+        meta = collection.meta
+        for part in collection.iter_parts():
+            if (part.policy not in scope) or len(part.resources) == 0 or (part in yielded):
+                continue
+            rm = metadata.rule(part.policy)
+            rt = meta[part.policy]['resource']
+            yield RuleCheck(
+                id=part.policy,
+                description=meta[part.policy].get('description') or '',
+                remediation=rm.remediation,
+                remediation_complexity=rm.remediation_complexity,
+                severity=rm.severity,
+                service=rm.service or service_from_resource_type(rt),
+                resource_type=rt
+            )
+
     def _get_rule_resources(
         self,
         collection: 'ShardsCollection',
@@ -738,6 +771,7 @@ class MetricsCollector:
                     disabled=disabled,
                     passed=tuple(self._iter_passed_checks(collection, scope)),
                     failed=tuple(self._iter_failed_checks(collection, scope)),
+                    violated=tuple(self._iter_violated_checks(collection, ctx.metadata, scope))
                 ),
             )
             generator = ReportVisitor.derive_visitor(
