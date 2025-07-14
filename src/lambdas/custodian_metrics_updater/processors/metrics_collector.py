@@ -689,6 +689,7 @@ class MetricsCollector:
             ReportType.OPERATIONAL_FINOPS,
             ReportType.OPERATIONAL_ATTACKS,
             ReportType.OPERATIONAL_DEPRECATION,
+            ReportType.OPERATIONAL_OVERVIEW
         )
         cloud = tenant_cloud(tenant)
         _licenses_meta = []
@@ -872,15 +873,6 @@ class MetricsCollector:
         """
         _LOG.info(f'Need to collect jobs data from {start} to {end}')
 
-        _LOG.info('Generating operational overview for all tenants')
-        ctx.add_reports(
-            self.operational_overview(
-                ctx=ctx,
-                job_source=job_source,
-                sc_provider=sc_provider,
-                report_type=ReportType.OPERATIONAL_OVERVIEW,
-            )
-        )
         _LOG.info('Generating operational rules for all tenants')
         ctx.add_reports(
             self._complete_rules_report(
@@ -1095,81 +1087,6 @@ class MetricsCollector:
             )
 
         self._save_all(ctx, 'saving department and c-level')
-
-    def operational_overview(
-        self,
-        ctx: MetricsContext,
-        job_source: JobMetricsDataSource,
-        sc_provider: ShardsCollectionProvider,
-        report_type: ReportType,
-    ) -> ReportsGen:
-        start = report_type.start(ctx.now)
-        end = report_type.end(ctx.now)
-        # holds all tenants' jobs for this reporting period
-        js = job_source.subset(start=start, end=end, affiliation='tenant')
-        for tenant_name in js.scanned_tenants:
-            tenant = self._get_tenant(tenant_name)
-            if not tenant:
-                _LOG.warning(f'Tenant with name {tenant_name} not found!')
-                continue
-            col = sc_provider.get_for_tenant(tenant, end)
-            if not col:
-                _LOG.warning(
-                    f'Shards collection for {tenant.name} for {end} is empty'
-                )
-                continue
-            tjs = js.subset(tenant=tenant.name)
-            scd = ShardsCollectionDataSource(
-                col, ctx.metadata, tenant_cloud(tenant), tenant.project
-            )
-            # NOTE: ignoring jobs that are not finished
-            succeeded, failed = tjs.n_succeeded, tjs.n_failed
-
-            region_data = {}
-            for region, data in scd.region_severities(unique=True).items():
-                region_data.setdefault(region, {})['severity'] = data
-            for region, data in scd.region_services().items():
-                region_data.setdefault(region, {})['service'] = data
-            for region, data in scd.region_resource_types().items():
-                region_data.setdefault(region, {})['resource_types'] = data
-
-            outdated = []
-            lsd = tjs.last_succeeded_scan_date
-            if not lsd:
-                # means that tenants has some jobs for this period, but no
-                # succeeded jobs. There were some activity regarding this
-                # tenant so we collect metrics but if there are no succeeded
-                # jobs we make this tenant outdated for this reporting
-                # period and set last scan date to real last scan date.
-                # here i a problem: to get real last scan date we need all
-                # jobs but here we have only a period starting from previous
-                # month beginning. Will do for now, but this seems a bug
-                outdated.append(tenant.name)
-                lsd = job_source.subset(
-                    tenant=tenant.name
-                ).last_succeeded_scan_date
-
-            data = {
-                'total_scans': succeeded + failed,
-                'failed_scans': failed,
-                'succeeded_scans': succeeded,
-                'activated_regions': sorted(
-                    modular_helpers.get_tenant_regions(tenant)
-                ),
-                'last_scan_date': lsd,
-                'id': tenant.project,
-                'resources_violated': scd.n_unique,
-                'total_findings': scd.n_findings,
-                'regions_data': region_data,
-                'outdated_tenants': outdated,
-            }
-            item = self._rms.create(
-                key=ReportMetrics.build_key_for_tenant(report_type, tenant),
-                end=end,
-                start=start,
-                tenants=[tenant.name],
-            )
-            yield item, data
 
     def _expand_rules_statistics(
         self, it: Iterable['AverageStatisticsItem'], meta: dict | None = None
