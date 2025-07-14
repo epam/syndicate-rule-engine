@@ -6,6 +6,9 @@
   "id": "testing-project-123",
   "data": [
     {
+      "resource_type": "",
+      "service": "",
+      "severity": "Unknown",
       "policy": "Description for ecc-gcp-240-slow_query_log_database_flag_for_cloud_sql_mysql",
       "region": "global",
       "invocations": 1,
@@ -22,6 +25,9 @@
       "average_resources_failed": 0
     },
     {
+      "resource_type": "",
+      "service": "",
+      "severity": "Unknown",
       "policy": "Description for ecc-gcp-237-postgresql_use_the_latest_major_version",
       "region": "global",
       "invocations": 1,
@@ -38,6 +44,9 @@
       "average_resources_failed": 0
     },
     {
+      "resource_type": "",
+      "service": "",
+      "severity": "Unknown",
       "policy": "Description for ecc-gcp-153-vm_instances_without_any_label_information",
       "region": "global",
       "invocations": 1,
@@ -54,6 +63,9 @@
       "average_resources_failed": 0
     },
     {
+      "resource_type": "",
+      "service": "",
+      "severity": "Unknown",
       "policy": "Description for ecc-gcp-025-no_default_network",
       "region": "global",
       "invocations": 1,
@@ -70,6 +82,9 @@
       "average_resources_failed": 1
     },
     {
+      "resource_type": "",
+      "service": "",
+      "severity": "Unknown",
       "policy": "Description for ecc-gcp-272-firewall_logging_enabled",
       "region": "global",
       "invocations": 1,
@@ -86,6 +101,9 @@
       "average_resources_failed": 4
     },
     {
+      "resource_type": "",
+      "service": "",
+      "severity": "Unknown",
       "policy": "Description for ecc-gcp-109-prevent_allow_all_ingress",
       "region": "global",
       "invocations": 1,
@@ -102,6 +120,9 @@
       "average_resources_failed": 1
     },
     {
+      "resource_type": "",
+      "service": "",
+      "severity": "Unknown",
       "policy": "Description for ecc-gcp-104-default_firewall_rule_in_use",
       "region": "global",
       "invocations": 1,
@@ -118,6 +139,9 @@
       "average_resources_failed": 4
     },
     {
+      "resource_type": "",
+      "service": "",
+      "severity": "Unknown",
       "policy": "Description for ecc-gcp-033-vpc_flow_logs_for_every_subnet",
       "region": "global",
       "invocations": 1,
@@ -134,6 +158,9 @@
       "average_resources_failed": 4
     },
     {
+      "resource_type": "",
+      "service": "",
+      "severity": "Unknown",
       "policy": "Description for ecc-gcp-027-dnssec_for_cloud_dns",
       "region": "global",
       "invocations": 1,
@@ -150,6 +177,9 @@
       "average_resources_failed": 0
     },
     {
+      "resource_type": "",
+      "service": "",
+      "severity": "Unknown",
       "policy": "Description for ecc-gcp-101-load_balancer_access_logging_disabled",
       "region": "global",
       "invocations": 1,
