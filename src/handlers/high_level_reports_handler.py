@@ -160,7 +160,6 @@ class MaestroModelBuilder:
     @staticmethod
     def _operational_rules_custom(rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.OPERATIONAL_RULES
-
         return {
             'tenant_name': rep.tenant,
             'id': data['id'],
@@ -169,7 +168,7 @@ class MaestroModelBuilder:
             'activated_regions': data['activated_regions'],
             'last_scan_date': data['last_scan_date'],
             'data': {
-                'rules_data': data['data'],
+                'rules_data': data.get('data', []),
                 'violated_resources_length': data['resources_violated'],
             },
         }
