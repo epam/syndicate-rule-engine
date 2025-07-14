@@ -1,6 +1,6 @@
 from typing import Generator, Iterable
 
-from helpers.constants import Severity, Cloud
+from helpers.constants import Severity
 
 
 class Standard(tuple):

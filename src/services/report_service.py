@@ -57,8 +57,8 @@ class StatisticsItem(msgspec.Struct, kw_only=True, eq=False):
 class AverageStatisticsItem(msgspec.Struct, kw_only=True, eq=False):
     policy: str
     region: str
-    resource_type: str = ''
-    service: str = ''
+    resource_type: str | msgspec.UnsetType = msgspec.UNSET
+    service: str | msgspec.UnsetType = msgspec.UNSET
     severity: Severity = Severity.UNKNOWN
     invocations: int
     succeeded_invocations: int

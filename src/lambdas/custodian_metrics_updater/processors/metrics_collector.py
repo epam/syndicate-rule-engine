@@ -430,7 +430,7 @@ class MetricsCollector:
                 data['resources_violated'] = ov[1]['resources_violated']
                 for rule in data['data']:
                     rule_meta = ctx.metadata.rule(rule.policy)
-                    rule.service = rule_meta.service
+                    rule.service = rule_meta.service or service_from_resource_type(rule.resource_type)
                     rule.severity = rule_meta.severity
 
             yield rep, data
@@ -689,7 +689,6 @@ class MetricsCollector:
             ReportType.OPERATIONAL_FINOPS,
             ReportType.OPERATIONAL_ATTACKS,
             ReportType.OPERATIONAL_DEPRECATION,
-            ReportType.OPERATIONAL_OVERVIEW,
         )
         cloud = tenant_cloud(tenant)
         _licenses_meta = []
