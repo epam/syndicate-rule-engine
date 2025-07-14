@@ -419,10 +419,10 @@ class MetricsCollector:
             elif rep.type is ReportType.OPERATIONAL_RULES:
                 data['resources_violated'] = ov[1]['resources_violated']
                 for rule in data['data']:
-                    rule_meta = ctx.metadata.rule(rule['name'])
-                    rule['resource_type'] = resource_type_from_service(rule_meta.service)
-                    rule['service'] = rule_meta.service
-                    rule['severity'] = rule_meta.severity
+                    rule_meta = ctx.metadata.rule(rule.policy)
+                    rule.resource_type = resource_type_from_service(rule_meta.service)
+                    rule.service = rule_meta.service
+                    rule.severity = rule_meta.severity
 
             yield rep, data
 
