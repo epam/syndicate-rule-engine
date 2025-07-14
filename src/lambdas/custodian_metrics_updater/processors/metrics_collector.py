@@ -18,15 +18,17 @@ from helpers.constants import (
     Cloud,
     JobState,
     PolicyErrorType,
-    ReportType,
     RemediationComplexity,
-    Severity
+    ReportType,
+    Severity,
 )
-from helpers.reports import service_from_resource_type
-from helpers.system_customer import SystemCustomer
 from helpers.log_helper import get_logger
+from helpers.reports import (
+    resource_type_from_service,
+    service_from_resource_type,
+)
+from helpers.system_customer import SystemCustomer
 from helpers.time_helper import utc_datetime, utc_iso
-from helpers.reports import resource_type_from_service
 from models.metrics import ReportMetrics
 from models.ruleset import Ruleset
 from services import SP, modular_helpers
@@ -168,7 +170,9 @@ class RuleCheck(msgspec.Struct, kw_only=True, frozen=True):
     id: str
     description: str | msgspec.UnsetType = msgspec.UNSET
     remediation: str | msgspec.UnsetType = msgspec.UNSET
-    remediation_complexity: RemediationComplexity | msgspec.UnsetType = msgspec.UNSET
+    remediation_complexity: RemediationComplexity | msgspec.UnsetType = (
+        msgspec.UNSET
+    )
     severity: Severity | msgspec.UnsetType = msgspec.UNSET
     service: str | msgspec.UnsetType = msgspec.UNSET
     resource_type: str | msgspec.UnsetType = msgspec.UNSET
@@ -429,7 +433,9 @@ class MetricsCollector:
                 data['resources_violated'] = ov[1]['resources_violated']
                 for rule in data['data']:
                     rule_meta = ctx.metadata.rule(rule.policy)
-                    rule.resource_type = resource_type_from_service(rule_meta.service)
+                    rule.resource_type = resource_type_from_service(
+                        rule_meta.service
+                    )
                     rule.service = rule_meta.service
                     rule.severity = rule_meta.severity
 
@@ -563,8 +569,9 @@ class MetricsCollector:
             excluded.update(cs.value.get('rules') or ())
         return excluded
 
+    @staticmethod
     def _iter_failed_checks(
-        self, collection: 'ShardsCollection', scope: set[str]
+        collection: 'ShardsCollection', scope: set[str]
     ) -> Generator[RuleCheck, None, None]:
         meta = collection.meta
         for part in collection.iter_error_parts():
@@ -580,8 +587,9 @@ class MetricsCollector:
                 error=part.error_message,
             )
 
+    @staticmethod
     def _iter_passed_checks(
-        self, collection: 'ShardsCollection', scope: set[str]
+        collection: 'ShardsCollection', scope: set[str]
     ) -> Generator[RuleCheck, None, None]:
         # NOTE: currently it skips failed checks even though we can include
         # them, and it will not violate any logic. It is more a matter of
@@ -604,8 +612,9 @@ class MetricsCollector:
             )
 
     @staticmethod
-    def _iter_violated_checks( collection: 'ShardsCollection', metadata: Metadata,
-                              scope: set[str]) -> Generator[RuleCheck, None, None]:
+    def _iter_violated_checks(
+        collection: 'ShardsCollection', metadata: Metadata, scope: set[str]
+    ) -> Generator[RuleCheck, None, None]:
         """
         These duplicate the rules inside reports payload, but contains rules
         metadata without duplicates
@@ -613,7 +622,11 @@ class MetricsCollector:
         yielded = set()
         meta = collection.meta
         for part in collection.iter_parts():
-            if (part.policy not in scope) or len(part.resources) == 0 or (part in yielded):
+            if (
+                (part.policy not in scope)
+                or len(part.resources) == 0
+                or (part in yielded)
+            ):
                 continue
             rm = metadata.rule(part.policy)
             rt = meta[part.policy]['resource']
@@ -624,11 +637,11 @@ class MetricsCollector:
                 remediation_complexity=rm.remediation_complexity,
                 severity=rm.severity,
                 service=rm.service or service_from_resource_type(rt),
-                resource_type=rt
+                resource_type=rt,
             )
 
+    @staticmethod
     def _get_rule_resources(
-        self,
         collection: 'ShardsCollection',
         cloud: Cloud,
         metadata: Metadata,
@@ -682,6 +695,7 @@ class MetricsCollector:
             ReportType.OPERATIONAL_FINOPS,
             ReportType.OPERATIONAL_ATTACKS,
             ReportType.OPERATIONAL_DEPRECATION,
+            ReportType.OPERATIONAL_OVERVIEW,
         )
         cloud = tenant_cloud(tenant)
         _licenses_meta = []
@@ -739,13 +753,17 @@ class MetricsCollector:
         # NOTE, actually we should retrieve a separate collection for
         # each report type, because they could have different dates. But here
         # we can afford it because we assert that each has the same date
-        _LOG.info(f'Going to retrieve shards collection for operation reports '
-                  f'for tenant {tenant.name} and date {ReportType.OPERATIONAL_RESOURCES.end(ctx.now)}')
+        _LOG.info(
+            f'Going to retrieve shards collection for operation reports '
+            f'for tenant {tenant.name} and date {ReportType.OPERATIONAL_RESOURCES.end(ctx.now)}'
+        )
         collection = scp.get_for_tenant(
             tenant, ReportType.OPERATIONAL_RESOURCES.end(ctx.now)
         )
         if not collection:
-            _LOG.warning('Somehow collection for operational reports is not found or empty even though the tenant has at least one successful jobs')
+            _LOG.warning(
+                'Somehow collection for operational reports is not found or empty even though the tenant has at least one successful jobs'
+            )
             return
 
         rule_resources = self._get_rule_resources(
@@ -755,7 +773,9 @@ class MetricsCollector:
         for typ in types:
             start = typ.start(ctx.now)
             end = typ.end(ctx.now)
-            _LOG.info(f'Going to collect operational report {typ} for tenant {tenant.name}: {start} - {end}')
+            _LOG.info(
+                f'Going to collect operational report {typ} for tenant {tenant.name}: {start} - {end}'
+            )
             job_source = js.subset(
                 start=start, end=end, tenant=tenant.name, affiliation='tenant'
             )
@@ -778,7 +798,11 @@ class MetricsCollector:
                     disabled=disabled,
                     passed=tuple(self._iter_passed_checks(collection, scope)),
                     failed=tuple(self._iter_failed_checks(collection, scope)),
-                    violated=tuple(self._iter_violated_checks(collection, ctx.metadata, scope))
+                    violated=tuple(
+                        self._iter_violated_checks(
+                            collection, ctx.metadata, scope
+                        )
+                    ),
                 ),
             )
             generator = ReportVisitor.derive_visitor(
