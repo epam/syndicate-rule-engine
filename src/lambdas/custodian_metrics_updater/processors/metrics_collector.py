@@ -23,6 +23,7 @@ from helpers.constants import (
 from helpers.system_customer import SystemCustomer
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime, utc_iso
+from helpers.reports import resource_type_from_service
 from models.metrics import ReportMetrics
 from models.ruleset import Ruleset
 from services import SP, modular_helpers
@@ -417,6 +418,12 @@ class MetricsCollector:
                 )
             elif rep.type is ReportType.OPERATIONAL_RULES:
                 data['resources_violated'] = ov[1]['resources_violated']
+                for rule in data['data']:
+                    rule_meta = ctx.metadata.rule(rule['name'])
+                    rule['resource_type'] = resource_type_from_service(rule_meta.service)
+                    rule['service'] = rule_meta.service
+                    rule['severity'] = rule_meta.severity
+
             yield rep, data
 
     def _get_license_activation(
