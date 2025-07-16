@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from typing import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -16,7 +17,7 @@ from modular_sdk.modular import ModularServiceProvider
 from modular_sdk.models.tenant import Tenant
 
 from executor.helpers.constants import ExecutorError
-from helpers.constants import Cloud, EXCLUDE_RESOURCE_TYPES
+from helpers.constants import Cloud, EXCLUDE_RESOURCE_TYPES, ResourcesCollectorType
 from helpers.log_helper import get_logger
 from helpers.regions import get_region_by_cloud_with_global
 from executor.job import (
@@ -89,9 +90,35 @@ class CollectMode(PolicyExecutionMode):
             )
         return resources
 
+class BaseResourceCollector(ABC):
+    """
+    Abstract base class for resource collectors.
+    All resource collectors should inherit from this class and implement its methods.
+    """
+
+    @property
+    @abstractmethod
+    def collector_type(self) -> ResourcesCollectorType: ...
+
+    @abstractmethod
+    def collect_tenant_resources(
+        self,
+        tenant_name: str,
+        regions: Iterable[str] | None = None,
+        resource_types: Iterable[str] | None = None,
+        workers: int = 10,
+    ): ...
+
+    @abstractmethod
+    def collect_all_resources(
+        self,
+        regions: Iterable[str] | None = None,
+        resource_types: Iterable[str] | None = None,
+        workers: int = 10,
+    ): ...
 
 # TODO: add resource retrieval for Kubernetes
-class ResourceCollector:
+class CustodianResourceCollector(BaseResourceCollector):
     """
     Collects resources from cloud using Cloud Custodian policies.
     It first creates policies with no filters for specified resource types and
@@ -99,6 +126,8 @@ class ResourceCollector:
     Then it runs the policies to collect resources and saves them in temp folder.
     After that, all the resource are saved in the mongodb.
     """
+
+    collector_type = ResourcesCollectorType.CUSTODIAN
 
     def __init__(
         self,
@@ -109,11 +138,11 @@ class ResourceCollector:
         self._rs = resources_service
 
     @classmethod
-    def build(cls) -> 'ResourceCollector':
+    def build(cls) -> 'CustodianResourceCollector':
         """
         Builds a ResourceCollector instance.
         """
-        return ResourceCollector(
+        return CustodianResourceCollector(
             modular_service=SP.modular_client,
             resources_service=SP.resources_service,
         )
@@ -170,7 +199,7 @@ class ResourceCollector:
         resource_types: Iterable[str] | None = None,
         regions: Iterable[str] | None = None,
     ) -> list[Policy]:
-        return ResourceCollector._get_policies(
+        return CustodianResourceCollector._get_policies(
             resource_map=AWSResourceMap,
             cloud=Cloud.AWS,
             resource_types=resource_types,
@@ -182,7 +211,7 @@ class ResourceCollector:
         resource_types: Iterable[str] | None = None,
         regions: Iterable[str] | None = None,
     ) -> list[Policy]:
-        return ResourceCollector._get_policies(
+        return CustodianResourceCollector._get_policies(
             resource_map=AzureResourceMap,
             cloud=Cloud.AZURE,
             resource_types=resource_types,
@@ -194,7 +223,7 @@ class ResourceCollector:
         resource_types: Iterable[str] | None = None,
         regions: Iterable[str] | None = None,
     ) -> list[Policy]:
-        return ResourceCollector._get_policies(
+        return CustodianResourceCollector._get_policies(
             resource_map=GCPResourceMap,
             cloud=Cloud.GCP,
             resource_types=resource_types,
@@ -279,6 +308,7 @@ class ResourceCollector:
             customer_name=customer_name,
             data=data,
             sync_date=datetime.now(timezone.utc).timestamp(),
+            collector_type=self.collector_type,
             arn=arn,
         ).save()
 
@@ -313,7 +343,8 @@ class ResourceCollector:
         _LOG.info(f'Starting resource collection for tenant: {tenant_name}')
         _LOG.info(f'Policies to run: {len(policies)}')
 
-        credentials = ResourceCollector._get_credentials(tenant)
+        credentials = CustodianResourceCollector._get_credentials(tenant)
+        account_id = tenant.project if tenant.project is not None else ""
         with ThreadPoolExecutor(
             max_workers=workers,
             initializer=job_initializer,
@@ -325,7 +356,7 @@ class ResourceCollector:
                     policy,
                     policy.resource_type,
                     policy.options.region,
-                    tenant.project,
+                    account_id,
                     tenant.name,
                     tenant.customer_name,
                 )
@@ -352,3 +383,4 @@ class ResourceCollector:
                 _LOG.error(
                     f'Error collecting resources for tenant {tenant.name}: {e}'
                 )
+

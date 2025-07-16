@@ -1,6 +1,10 @@
 from pynamodb.pagination import ResultIterator
 
-from helpers.constants import COMPOUND_KEYS_SEPARATOR, Cloud
+from helpers.constants import (
+    COMPOUND_KEYS_SEPARATOR,
+    Cloud,
+    ResourcesCollectorType,
+)
 from helpers.log_helper import get_logger
 from models.resource import Resource
 from services.base_data_service import BaseDataService
@@ -9,7 +13,9 @@ _LOG = get_logger(__name__)
 
 try:
     from c7n.resources.resource_map import ResourceMap as AWSResourceMap
-    from c7n_azure.resources.resource_map import ResourceMap as AzureResourceMap
+    from c7n_azure.resources.resource_map import (
+        ResourceMap as AzureResourceMap,
+    )
     from c7n_gcp.resources.resource_map import ResourceMap as GCPResourceMap
     from c7n_kube.resources.resource_map import ResourceMap as K8sResourceMap
 except ImportError:
@@ -35,6 +41,7 @@ class ResourcesService(BaseDataService[Resource]):
         customer_name: str,
         data: dict,
         sync_date: float,
+        collector_type: ResourcesCollectorType,
         arn: str | None = None,
     ):
         return Resource(
@@ -47,6 +54,7 @@ class ResourcesService(BaseDataService[Resource]):
             customer_name=customer_name,
             _data=data,
             sync_date=sync_date,
+            _collector_type=collector_type.value,
             arn=arn,
         )
 
@@ -144,7 +152,7 @@ class ResourcesService(BaseDataService[Resource]):
             return Resource.scan(filter_condition, **kwargs)
         else:
             return Resource.scan(**kwargs)
-    
+
     @staticmethod
     def get_resource_types_by_cloud(cloud: Cloud) -> list[str]:
         """
@@ -161,7 +169,7 @@ class ResourcesService(BaseDataService[Resource]):
         else:
             _LOG.warning(f'Cannot get resource types for cloud: {cloud}')
             return []
-    
+
     @staticmethod
     def cloud_to_prefix(cloud: Cloud) -> str:
         """

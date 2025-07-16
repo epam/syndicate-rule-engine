@@ -1353,3 +1353,7 @@ EXCLUDE_RESOURCE_TYPES = {
     # 'azure.roledefinition', # there is huge number (~700 in my subscription) of these and I'm not sure how useful they are
     'gcp.region',
 }
+
+class ResourcesCollectorType(str, Enum):
+    FOCUS = 'focus'
+    CUSTODIAN = 'custodian'

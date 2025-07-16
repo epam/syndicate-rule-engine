@@ -5,7 +5,7 @@ from pynamodb.indexes import GlobalSecondaryIndex, AllProjection
 from pymongo.database import Database
 import msgspec
 
-from helpers.constants import CAASEnv, Cloud, COMPOUND_KEYS_SEPARATOR
+from helpers.constants import CAASEnv, Cloud, COMPOUND_KEYS_SEPARATOR, ResourcesCollectorType
 from helpers.log_helper import get_logger
 from models import BaseModel
 
@@ -62,6 +62,8 @@ class Resource(BaseModel):
     _data = MapAttribute(default=dict, attr_name='data')
 
     sync_date = NumberAttribute() # timestamp
+    # collector used to get this resource, e.g., 'custodian', 'focus'
+    _collector_type = UnicodeAttribute(attr_name='collector_type') 
     _hash = UnicodeAttribute(attr_name='sha256')
 
     encoder = msgspec.json.Encoder()
@@ -113,6 +115,10 @@ class Resource(BaseModel):
     @property
     def cloud(self) -> Cloud:
         return Cloud[self.resource_type.split('.')[0].upper()]
+    
+    @property
+    def collector_type(self) -> ResourcesCollectorType:
+        return ResourcesCollectorType[self._collector_type]
 
     def __repr__(self):
         return (

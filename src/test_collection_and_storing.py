@@ -10,7 +10,7 @@ from boto3 import Session
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from services.resources_collector import ResourceCollector
+from services.resources_collector import CustodianResourceCollector
 
 def get_aws_credentials():
     """Get AWS credentials from boto3 session"""
@@ -58,14 +58,14 @@ def get_azure_credentials():
 def mock_get_credentials(tenant):
     """Mock function to return test credentials instead of real ones"""
 
-    return get_azure_credentials()
+    return get_aws_credentials()
 
 if __name__ == '__main__':
     print("Testing Resource Collector with patched credentials...")
     print("=" * 60)
     
-    with patch.object(ResourceCollector, '_get_credentials', side_effect=mock_get_credentials):
-        collector = ResourceCollector.build()
+    with patch.object(CustodianResourceCollector, '_get_credentials', side_effect=mock_get_credentials):
+        collector = CustodianResourceCollector.build()
         
         print("✓ ResourceCollector created successfully")
 
@@ -77,7 +77,7 @@ if __name__ == '__main__':
         try:
             collector.collect_tenant_resources(
                 tenant_name=tenant_name,
-                regions=['eastus'],
+                regions=['us-east-1'],
             )
             print("✅ Resource collection completed successfully!")
         except Exception as e:
