@@ -9,7 +9,7 @@ import msgspec
 from modular_sdk.commons.constants import ParentType
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
-from modular_sdk.modular import Modular
+from modular_sdk.modular import ModularServiceProvider
 
 from helpers.constants import (
     GLOBAL_REGION,
@@ -47,6 +47,7 @@ from services.reports import (
     ScopedRulesSelector,
     ShardsCollectionDataSource,
     ShardsCollectionProvider,
+    EmptyOperationalReportGenerator,
 )
 from services.resources import (
     CloudResource,
@@ -260,7 +261,7 @@ class MetricsCollector:
 
     def __init__(
         self,
-        modular_client: Modular,
+        modular_client: ModularServiceProvider,
         ambiguous_job_service: AmbiguousJobService,
         report_service: ReportService,
         report_metrics_service: ReportMetricsService,
@@ -427,10 +428,13 @@ class MetricsCollector:
                     'Cannot complete rules report because correspond operational is not found'
                 )
             elif rep.type is ReportType.OPERATIONAL_RULES:
-                data['resources_violated'] = ov[1]['resources_violated']
+                data['resources_violated'] = ov[1]['data']['resources_violated']
                 for rule in data['data']:
                     rule_meta = ctx.metadata.rule(rule.policy)
-                    rule.service = rule_meta.service or service_from_resource_type(rule.resource_type)
+                    rule.service = (
+                        rule_meta.service
+                        or service_from_resource_type(rule.resource_type)
+                    )
                     rule.severity = rule_meta.severity
 
             yield rep, data
@@ -689,7 +693,7 @@ class MetricsCollector:
             ReportType.OPERATIONAL_FINOPS,
             ReportType.OPERATIONAL_ATTACKS,
             ReportType.OPERATIONAL_DEPRECATION,
-            ReportType.OPERATIONAL_OVERVIEW
+            ReportType.OPERATIONAL_OVERVIEW,
         )
         cloud = tenant_cloud(tenant)
         _licenses_meta = []
@@ -715,6 +719,7 @@ class MetricsCollector:
                 activated_regions=active_regions,
             )
             selector = ScopedRulesSelector(ctx.metadata)
+            empty_report_generator = EmptyOperationalReportGenerator()
             for typ in types:
                 report = Report.derive_report(typ)
                 scope = report.accept(selector, rules=cloud_rules)
@@ -736,7 +741,11 @@ class MetricsCollector:
                 )
                 yield (
                     item,
-                    {'metadata': meta, 'data': (), 'id': tenant.project},
+                    {
+                        'metadata': meta,
+                        'data': report.accept(empty_report_generator),
+                        'id': tenant.project,
+                    },
                 )
             return
         _LOG.info(f'Last scan date for tenant {tenant.name} is {ls}')
@@ -802,13 +811,17 @@ class MetricsCollector:
             generator = ReportVisitor.derive_visitor(
                 typ, metadata=ctx.metadata, view=view, scope=scope
             )
-            data = tuple(
-                report.accept(
-                    generator,
-                    rule_resources=rule_resources,
-                    meta=collection.meta,
-                )
+            data = report.accept(
+                generator,
+                rule_resources=rule_resources,
+                collection=collection,
+                start=start,
+                end=end,
+                meta=collection.meta,
             )
+            if not isinstance(data, dict):
+                # TODO: somehow move this info to visitors abstraction
+                data = tuple(data)
 
             item = self._rms.create(
                 key=ReportMetrics.build_key_for_tenant(typ, tenant),
@@ -1346,28 +1359,26 @@ class MetricsCollector:
                     'Something is wrong: one project contains more than one tenant per cloud'
                 )
             data = self.base_cloud_payload_dict()
-            outdated_tenants = set()
             tenants = set()
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
                 tenants.add(tenant.name)
-                outdated_tenants.update(item[1]['outdated_tenants'])
 
                 data[tenant_cloud(tenant).value] = {
                     'account_id': item[1]['id'],
                     'tenant_name': tenant.name,
-                    'last_scan_date': item[1]['last_scan_date'],
-                    'activated_regions': item[1]['activated_regions'],
-                    'total_scans': item[1]['total_scans'],
-                    'failed_scans': item[1]['failed_scans'],
-                    'succeeded_scans': item[1]['succeeded_scans'],
-                    'resources_violated': item[1]['resources_violated'],
+                    'last_scan_date': item[1]['metadata'].last_scan_date,
+                    'activated_regions': item[1]['metadata'].activated_regions,
+                    'total_scans': item[1]['metadata'].finished_scans,
+                    'failed_scans': item[1]['metadata'].finished_scans - item[1]['metadata'].succeeded_scans,
+                    'succeeded_scans': item[1]['metadata'].succeeded_scans,
+                    'resources_violated': item[1]['data']['resources_violated'],
                     'regions_data': {
                         r: {
-                            'severity_data': d['severity'],
+                            'severity_data': d['resources'],
                             'resource_types_data': d['resource_types'],
                         }
-                        for r, d in item[1]['regions_data'].items()
+                        for r, d in item[1]['data']['regions'].items()
                     },
                 }
 
@@ -1380,7 +1391,7 @@ class MetricsCollector:
                     start=start,
                     tenants=tenants,
                 ),
-                {'outdated_tenants': list(outdated_tenants), 'data': data},
+                {'outdated_tenants': (), 'data': data},
             )
 
     def project_compliance(

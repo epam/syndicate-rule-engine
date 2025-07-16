@@ -116,27 +116,27 @@ class MaestroModelBuilder:
     @staticmethod
     def _operational_overview_custom(rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.OPERATIONAL_OVERVIEW
-
-        for r, inner in data.setdefault('regions_data', {}).items():
-            inner.pop('service', None)
-            inner.pop('resource_types', None)
-            inner['severity_data'] = inner.pop('severity', {})
-
+        inner = data['data']
+        inner['rules_data'] = inner.pop('rules')
+        regions_data = {}
+        for region, rd in inner.pop('regions', {}).items():
+            rd['resources_data'] = rd.pop('resources')
+            rd['violations_data'] = rd.pop('violations', {})
+            rd['attacks_data'] = rd.pop('attacks', {})
+            rd['standards_data'] = rd.pop('standards', {})
+            rd.pop('resource_types', None)
+            rd.pop('services', None)
+            regions_data[region] = rd
+        inner['regions_data'] = regions_data
         return {
             'tenant_name': rep.tenant,
             'id': data['id'],
             'cloud': rep.cloud.value,  # pyright: ignore
-            'activated_regions': data['activated_regions'],
-            'last_scan_date': data['last_scan_date'],
-            'outdated_tenants': data['outdated_tenants'],
-            'data': {
-                'total_scans': data['total_scans'],
-                'failed_scans': data['failed_scans'],
-                'succeeded_scans': data['succeeded_scans'],
-                'resources_violated': data['resources_violated'],
-                'regions_data': data['regions_data'],
-            },
+            'tenant_metadata': data['metadata'],
+            'data': data['data'],
+            'externalData': False,
         }
+
 
     @staticmethod
     def _operational_resources_custom(rep: ReportMetrics, data: dict) -> dict:
@@ -533,6 +533,7 @@ class MaestroModelBuilder:
         previous_data = previous_data or {}
         match rep.type:
             case ReportType.OPERATIONAL_OVERVIEW:
+                base = self.new_base(rep)
                 custom = self._operational_overview_custom(rep, data)
             case ReportType.OPERATIONAL_RESOURCES:
                 base = self.new_base(rep)
