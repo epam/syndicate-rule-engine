@@ -1355,5 +1355,7 @@ EXCLUDE_RESOURCE_TYPES = {
 }
 
 class ResourcesCollectorType(str, Enum):
+    AWS_RESOURCE_EXPLORER = 'aws_resource_explorer'
+    AZURE_RESOURCE_GRAPH = 'azure_resource_graph'
     FOCUS = 'focus'
     CUSTODIAN = 'custodian'

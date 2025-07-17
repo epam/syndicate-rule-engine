@@ -2,7 +2,12 @@ from abc import ABC, abstractmethod
 from typing import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from importlib import import_module
+from functools import lru_cache
 import time
+
+from azure.mgmt.resourcegraph import ResourceGraphClient
+from azure.mgmt.resourcegraph.models import QueryRequest, QueryRequestOptions
 
 from c7n import utils
 from c7n.version import version
@@ -16,12 +21,10 @@ from c7n_gcp.resources.resource_map import ResourceMap as GCPResourceMap
 from modular_sdk.modular import ModularServiceProvider
 from modular_sdk.models.tenant import Tenant
 
-from executor.helpers.constants import ExecutorError
 from helpers.constants import Cloud, EXCLUDE_RESOURCE_TYPES, ResourcesCollectorType
 from helpers.log_helper import get_logger
 from helpers.regions import get_region_by_cloud_with_global
 from executor.job import (
-    ExecutorException,
     PolicyDict,
     job_initializer,
     PoliciesLoader,
@@ -31,6 +34,25 @@ from services import SP
 from services.resources_service import ResourcesService
 
 _LOG = get_logger(__name__)
+
+def get_factory(class_path: str):
+    """
+    Returns a factory function that imports a class from the given path.
+    """
+    module_path, class_name = class_path.rsplit('.', 1)
+    module = import_module(module_path)
+    return getattr(module, class_name)
+
+@lru_cache(maxsize=1)
+def azure_custodian_resource_type_map() -> dict[str, str]:
+    """
+    Maps Azure resource types to Cloud Custodian resource types.
+    """
+    type_map = {}
+    for resource_type, class_ in AzureResourceMap.items():
+        type_map[get_factory(class_).resource_type.resource_type.lower()] = resource_type
+    return type_map
+        
 
 # CC by default stores retrieved information on disk
 # This mode turn off this behavior
@@ -262,7 +284,9 @@ class CustodianResourceCollector(BaseResourceCollector):
         credentials = get_tenant_credentials(tenant)
 
         if credentials is None:
-            raise ExecutorException(ExecutorError.NO_CREDENTIALS)
+            raise ValueError(
+                f'No credentials found for tenant {tenant.name}'
+            )
 
         return credentials
 
@@ -373,6 +397,7 @@ class CustodianResourceCollector(BaseResourceCollector):
         tenants = self._ms.tenant_service().scan_tenants(only_active=True)
         for tenant in tenants:
             try:
+                _LOG.info(f'Collecting resources for tenant: {tenant.name}')
                 self.collect_tenant_resources(
                     tenant_name=tenant.name,
                     regions=regions,
@@ -384,3 +409,151 @@ class CustodianResourceCollector(BaseResourceCollector):
                     f'Error collecting resources for tenant {tenant.name}: {e}'
                 )
 
+class AzureGraphResourceCollector(BaseResourceCollector):
+    """ 
+    Collect resources from Azure using Resource Management API.
+    """
+
+    collector_type = ResourcesCollectorType.AZURE_RESOURCE_GRAPH
+
+    def __init__(
+        self,
+        modular_service: ModularServiceProvider,
+        resources_service: ResourcesService,
+    ):
+        self._ms = modular_service
+        self._rs = resources_service
+
+    def _get_credentials(self, tenant: Tenant) -> dict:
+        credentials = get_tenant_credentials(tenant)
+        if not credentials:
+            raise ValueError(f'No credentials found for tenant {tenant.name}')
+
+        return credentials
+
+    def _load_scan(
+        self,
+        data: dict,
+        account_id: str,
+        tenant_name: str,
+        customer_name: str,
+    ):
+        resource_id = data['id']
+        resource_name = data.get('name') or resource_id
+        location = data['location']
+        
+        resource_type = azure_custodian_resource_type_map().get(
+            data['type'].lower()
+        )
+        if not resource_type:
+            _LOG.warning(
+                f"Resource type {data['type']} not found in Azure resource map. "
+                "Skipping resource."
+            )
+            return
+
+        self._rs.create(
+            id=resource_id,
+            name=resource_name,
+            location=location,
+            resource_type=resource_type,
+            account_id=account_id,
+            tenant_name=tenant_name,
+            customer_name=customer_name,
+            data=data,
+            sync_date=datetime.now(timezone.utc).timestamp(),
+            collector_type=self.collector_type,
+        ).save()
+    
+    def collect_tenant_resources(
+        self,
+        tenant_name: str,
+        regions: Iterable[str] | None = None,
+        resource_types: Iterable[str] | None = None,
+        workers: int = 10,
+    ):
+        tenant = self._ms.tenant_service().get(tenant_name)
+        if not tenant:
+            raise ValueError(f'Tenant {tenant_name} not found')
+        account_id = tenant.project if tenant.project else ""
+
+
+        resource_graph_client = ResourceGraphClient(
+            credential=self._get_credentials(tenant)
+        )
+        
+        # NOTE: we can use just `resources` query to get all resources
+        # but it will return all the attributes of resources that can be too much
+        query = """
+        resources
+        | project id, name, type, location, tags
+        """
+        if regions:
+            regions = [region.lower() for region in regions]
+            query += ' | where location in ' + ', '.join(f"'{r}'" for r in regions)
+        if resource_types:
+            resource_types = [rt.lower() for rt in resource_types]
+            query += ' | where type in ' + ', '.join(f"'{rt}'" for rt in resource_types)
+
+        resources = []
+        skip = 0
+        top = 1000
+        
+        try:
+            while True:
+                query_options = QueryRequestOptions(
+                    skip=skip,
+                    top=top,
+                    result_format='objectArray'
+                )
+                
+                query_request = QueryRequest(
+                    subscriptions=[account_id],
+                    query=query,
+                    options=query_options
+                )
+                
+                response = resource_graph_client.resources(query_request).as_dict()
+                resources.extend(response['data'])
+
+                skip += top
+                if skip >= response['total_records']:
+                    break
+                
+        except Exception as e:
+            _LOG.error(f"Failed to collect Azure resources using Resource Graph: {e}")
+            raise
+            
+        for resource in resources:
+            self._load_scan(
+                data=resource,
+                account_id=account_id,
+                tenant_name=tenant.name,
+                customer_name=tenant.customer_name,
+            )
+
+    def collect_all_resources(
+        self,
+        regions: Iterable[str] | None = None,
+        resource_types: Iterable[str] | None = None,
+        workers: int = 10,
+    ):
+        """
+        Collect all Azure resources in the subscription using Resource Graph.
+        """
+        tenants = self._ms.tenant_service().scan_tenants(only_active=True)
+        for tenant in tenants:
+            if tenant.cloud != Cloud.AZURE:
+                continue
+            try:
+                _LOG.info(f'Collecting resources for tenant: {tenant.name}')
+                self.collect_tenant_resources(
+                    tenant_name=tenant.name,
+                    regions=regions,
+                    resource_types=resource_types,
+                    workers=workers,
+                )
+            except Exception as e:
+                _LOG.error(
+                    f'Error collecting resources for tenant {tenant.name}: {e}'
+                )
