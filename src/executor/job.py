@@ -205,6 +205,7 @@ from services.udm_generator import (
     ShardCollectionUDMEntitiesConvertor,
     ShardCollectionUDMEventsConvertor,
 )
+from executor.plugins import register_all
 
 
 class PolicyDict(TypedDict):
@@ -1292,6 +1293,9 @@ def process_job_concurrent(
     consequently. When one process finished its memory is freed
     (any way the results is flushed to files).
     """
+    if CAASEnv.ENABLE_CUSTOM_CC_PLUGINS.is_set():
+        register_all()
+
     _LOG.debug(f'Running scan process for region {region}')
     loader = PoliciesLoader(
         cloud=cloud, output_dir=work_dir, regions={region}, cache_period=120
