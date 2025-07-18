@@ -691,7 +691,7 @@ class OverviewReportGenerator(ReportVisitor[dict]):
             if end is not None and part.timestamp >= end:
                 continue
             info.applied += 1
-            if part.has_error:
+            if part.has_error():
                 info.failed += 1
             elif part.resources:
                 info.violated += 1
