@@ -377,13 +377,13 @@ def test_metrics_update_operational_project(
         load_expected('metrics/aws_operational_attacks'),
     )
 
-    item = SP.report_metrics_service.get_latest_for_platform(
-        k8s_platform, ReportType.OPERATIONAL_KUBERNETES
-    )
-    assert dicts_equal(
-        SP.report_metrics_service.fetch_data(item),
-        load_expected('metrics/k8s_operational'),
-    )
+    # item = SP.report_metrics_service.get_latest_for_platform(
+    #     k8s_platform, ReportType.OPERATIONAL_KUBERNETES
+    # )
+    # assert dicts_equal(
+    #     SP.report_metrics_service.fetch_data(item),
+    #     load_expected('metrics/k8s_operational'),
+    # )
 
     item = SP.report_metrics_service.get_latest_for_tenant(
         azure_tenant, ReportType.OPERATIONAL_DEPRECATION

@@ -11,20 +11,32 @@
         "per": "DAY",
         "description": "Testing license",
         "valid_until": "2100-02-01T15:24:26.175778Z",
-        "valid_from": "2025-05-25T12:56:35.620288Z"
+        "valid_from": "2025-07-18T08:56:51.494908Z"
       }
     ],
     "is_automatic_scans_enabled": true,
     "in_progress_scans": 0,
     "finished_scans": 2,
     "succeeded_scans": 1,
-    "last_scan_date": "2025-05-25T00:56:34.256160Z",
+    "last_scan_date": "2025-07-18T00:56:49.991441Z",
     "activated_regions": [],
     "rules": {
       "total": 1,
       "disabled": [],
       "passed": [],
-      "failed": []
+      "failed": [],
+      "violated": [
+        {
+          "id": "ecc-azure-096-cis_sec_defender_azure_sql",
+          "description": "Description for ecc-azure-096-cis_sec_defender_azure_sql",
+          "remediation": "Remediation text here",
+          "remediation_complexity": "Medium-High",
+          "severity": "Unknown",
+          "service": "Defender Pricing",
+          "resource_type": "azure.defender-pricing",
+          "when": 1729502334.624495
+        }
+      ]
     }
   },
   "data": [
@@ -34,11 +46,7 @@
       "is_deprecated": false,
       "deprecation_severity": "Low",
       "deprecation_link": "https://example.com",
-      "remediation_complexity": "Medium-High",
-      "remediation": "Remediation text here",
       "policy": "ecc-azure-096-cis_sec_defender_azure_sql",
-      "description": "Description for ecc-azure-096-cis_sec_defender_azure_sql",
-      "resource_type": "Defender Pricing",
       "resources": {
         "global": [
           {

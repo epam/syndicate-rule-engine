@@ -28,6 +28,7 @@ from helpers.constants import (
     Cloud,
     JobState,
     ReportType,
+    Severity,
 )
 from helpers.log_helper import get_logger
 from helpers.reports import (
@@ -188,11 +189,14 @@ T = TypeVar('T')
 
 class ReportVisitor(ABC, Generic[T]):
     def visitDefault(self, *args, **kwargs) -> T:
-        _LOG.warning('Default visitor entered, can a bug')
+        _LOG.warning('Default visitor entered, maybe a bug')
 
     @classmethod
     def derive_visitor(cls, typ: ReportType, **kwargs) -> 'ReportVisitor':
         # NOTE: you should get necessary visitor and report yourself,
+        # because there could multiple different visitors for each report type
+        # and the needed one depends on context. This method tries to resolve
+        # the visitor that generated report
         match typ:
             case ReportType.OPERATIONAL_RESOURCES:
                 return ResourcesReportGenerator(**kwargs)
@@ -202,6 +206,8 @@ class ReportVisitor(ABC, Generic[T]):
                 return AttacksReportGenerator(**kwargs)
             case ReportType.OPERATIONAL_FINOPS:
                 return FinopsReportGenerator(**kwargs)
+            case ReportType.OPERATIONAL_OVERVIEW:
+                return OverviewReportGenerator(**kwargs)
             case _:
                 raise NotImplementedError('')
 
@@ -235,6 +241,8 @@ class Report(ABC):
                 return FinopsReport(typ)
             case ReportType.OPERATIONAL_KUBERNETES:
                 return KubernetesReport(typ)
+            case ReportType.OPERATIONAL_OVERVIEW:
+                return OverviewReport(typ)
             case _:
                 raise NotImplementedError('')
 
@@ -257,6 +265,20 @@ class AttacksReport(Report):
 
 class KubernetesReport(Report):
     pass
+
+
+class OverviewReport(Report):
+    pass
+
+
+class EmptyOperationalReportGenerator(ReportVisitor[tuple | dict]):
+    def visitDefault(self, report: 'Report', /, **kwargs) -> tuple:
+        return ()
+
+    def visitOverviewReport(
+        self, report: 'OverviewReport', /, **kwargs
+    ) -> dict:
+        return {'resources_violated': 0, 'resources_scanned': 0, 'regions': {}}
 
 
 class ScopedRulesSelector(ReportVisitor[set[str]]):
@@ -295,6 +317,11 @@ class ScopedRulesSelector(ReportVisitor[set[str]]):
     ) -> set[str]:
         meta = self._metadata
         return {rule for rule in rules if meta.rule(rule).mitre}
+
+    def visitOverviewReport(
+        self, report: 'OverviewReport', /, rules: Iterable[str], **kwargs
+    ) -> set[str]:
+        return set(rules)
 
 
 class ResourcesReportGenerator(ReportVisitor[Generator[dict, None, None]]):
@@ -397,13 +424,7 @@ class DeprecationReportGenerator(ReportVisitor[Generator[dict, None, None]]):
                 'is_deprecated': rm.deprecation.is_deprecated,
                 'deprecation_severity': rm.deprecation.severity.value,
                 'deprecation_link': rm.deprecation.link,
-                'remediation_complexity': rm.remediation_complexity.value,
-                'remediation': rm.remediation,
                 'policy': rule,
-                'description': meta[rule].get('description', ''),
-                'resource_type': service_from_resource_type(
-                    meta[rule]['resource']
-                ),
                 'resources': by_region,
             }
 
@@ -453,6 +474,7 @@ class FinopsReportGenerator(ReportVisitor[Generator[dict, None, None]]):
             mapping.setdefault(ss, []).append(
                 {
                     'rule': meta[rule].get('description', rule),
+                    'policy': rule,
                     'service': rm.service
                     or service_from_resource_type(meta[rule]['resource']),
                     'category': finops_category,
@@ -525,17 +547,7 @@ class AttacksReportGenerator(ReportVisitor[Generator[dict, None, None]]):
                     (self._metadata.rule(r).severity.value for r in rules),
                     key=cmp_to_key(SeverityCmp()),
                 )[-1]
-                inner['violations'] = [
-                    {
-                        'description': meta[rule]['description'],
-                        'remediation': self._metadata.rule(rule).remediation,
-                        'remediation_complexity': self._metadata.rule(
-                            rule
-                        ).remediation_complexity.value,
-                        'severity': self._metadata.rule(rule).severity.value,
-                    }
-                    for rule in rules
-                ]
+                inner['violations'] = [{'policy': rule} for rule in rules]
                 at.append(inner)
                 if not report_fields:
                     report_fields = self._metadata.rule(rules[0]).report_fields
@@ -548,6 +560,184 @@ class AttacksReportGenerator(ReportVisitor[Generator[dict, None, None]]):
                 ),
                 'attacks': at,
             }
+
+
+class OverviewReportGenerator(ReportVisitor[dict]):
+    """
+    Contains logic how to collect overview data
+    """
+
+    class RulesPeriodInfo(
+        msgspec.Struct, kw_only=True, eq=False, frozen=False
+    ):
+        violated: int = 0
+        passed: int = 0
+        failed: int = 0
+        applied: int = 0
+
+    def __init__(self, metadata: Metadata, **kwargs):
+        self._metadata = metadata
+
+    def get_resources_severities(
+        self,
+        rule_resources: dict[str, set[CloudResource]],
+        unique: bool = True,
+    ) -> dict:
+        sev_resources = {}
+        for rule in rule_resources:
+            sev = self._metadata.rule(rule).severity.value
+            sev_resources.setdefault(sev, set()).update(rule_resources[rule])
+        if unique:
+            keep_highest(
+                *[
+                    sev_resources[k]
+                    for k in sorted(
+                        sev_resources.keys(), key=cmp_to_key(SeverityCmp())
+                    )
+                ]
+            )
+        res = {sev.value: 0 for sev in Severity}
+        for sev, resources in sev_resources.items():
+            res[sev] += len(resources)
+        return res
+
+    def get_violations_severities(
+        self, rule_resources: dict[str, set[CloudResource]]
+    ) -> dict:
+        res = {sev.value: 0 for sev in Severity}
+        for rule, resources in rule_resources.items():
+            res[self._metadata.rule(rule).severity.value] += len(resources)
+        return res
+
+    def get_attacks_severities(
+        self, rule_resources: dict[str, set[CloudResource]]
+    ) -> dict:
+        """
+        Each rule has N possible attacks. It means, that if a rule
+        finds M resources then theoratically we have N*M possible attacks.
+        This logic somewhat similar to that of AttacksReportGenerator
+        """
+        unique_resource_to_attack_rules = {}
+        for rule in rule_resources:
+            rm = self._metadata.rule(rule)
+            # TODO: can be cached
+            rule_attacks = tuple(rm.iter_mitre_attacks())
+            if not rule_attacks:
+                continue
+            for resource in rule_resources[rule]:
+                inner = unique_resource_to_attack_rules.setdefault(
+                    resource, {}
+                )
+                for attack in rule_attacks:
+                    inner.setdefault(attack, []).append(rule)
+
+        res = {sev.value: 0 for sev in Severity}
+        for resource in unique_resource_to_attack_rules:
+            for attack, rules in unique_resource_to_attack_rules[
+                resource
+            ].items():
+                sev = sorted(
+                    [self._metadata.rule(r).severity.value for r in rules],
+                    key=cmp_to_key(SeverityCmp()),
+                )[-1]
+                res[sev] += 1
+        return res
+
+    def get_resources_types(
+        self,
+        rule_resources: dict[str, set[CloudResource]],
+        meta: dict[str, RuleMeta],
+    ) -> dict[str, int]:
+        rt_resources = {}
+        for rule in rule_resources:
+            rt = service_from_resource_type(meta[rule]['resource'])
+            rt_resources.setdefault(rt, set()).update(rule_resources[rule])
+        return {rt: len(resources) for rt, resources in rt_resources.items()}
+
+    def get_resources_services(
+        self,
+        rule_resources: dict[str, set[CloudResource]],
+        meta: dict[str, RuleMeta],
+    ) -> dict[str, int]:
+        service_resources = {}
+        for rule in rule_resources:
+            rm = self._metadata.rule(rule)
+            service = rm.service or service_from_resource_type(
+                meta[rule]['resource']
+            )
+            service_resources.setdefault(service, set()).update(
+                rule_resources[rule]
+            )
+        return {
+            service: len(resources)
+            for service, resources in service_resources.items()
+        }
+
+    def collect_rules_info(
+        self,
+        collection: ShardsCollection,
+        start: float | None,
+        end: float | None,
+    ) -> RulesPeriodInfo:
+        """
+        Returns a dict of region to RulePeriodInfo. Will always contain
+        all regions from the collection. Rules info will be according to
+        the given period
+        """
+        info = self.RulesPeriodInfo()
+        for part in collection.iter_all_parts():
+            if start is not None and part.timestamp < start:
+                continue
+            if end is not None and part.timestamp >= end:
+                continue
+            info.applied += 1
+            if part.has_error():
+                info.failed += 1
+            elif part.resources:
+                info.violated += 1
+            else:
+                info.passed += 1
+        return info
+
+    def visitDefault(
+        self,
+        report: 'OverviewReport',
+        /,
+        rule_resources: dict[str, set[CloudResource]],
+        collection: ShardsCollection,
+        start: datetime,
+        end: datetime,
+        meta: dict[str, RuleMeta],
+        **kwargs,
+    ) -> dict:
+        region_rule_resources = {}
+        for rule, resources in rule_resources.items():
+            for res in resources:
+                region_rule_resources.setdefault(res.region, {}).setdefault(
+                    rule, set()
+                ).add(res)
+
+        regions = {}
+        for region in region_rule_resources:
+            rr = region_rule_resources[region]
+            regions[region] = {
+                'resources': self.get_resources_severities(rr, unique=True),
+                'violations': self.get_violations_severities(rr),
+                'attacks': self.get_attacks_severities(rr),
+                'standards': [],
+                'services': self.get_resources_services(rr, meta),
+                'resource_types': self.get_resources_types(rr, meta),
+            }
+        return {
+            'resources_violated': len(
+                set(chain.from_iterable(rule_resources.values()))
+            ),
+            'resources_scanned': 0,  # TODO: get from assets management
+            'regions': regions,
+            'rules': self.collect_rules_info(
+                collection, start.timestamp(), end.timestamp()
+            ),
+        }
 
 
 # TODO: remove
@@ -602,13 +792,6 @@ class ShardsCollectionDataSource:
     @cached_property
     def n_unique(self) -> int:
         return len(set(chain.from_iterable(self._resources.values())))
-
-    @cached_property
-    def n_findings(self) -> int:
-        n = 0
-        for resources in self._resources.values():
-            n += len(resources)
-        return n
 
     def region_severities(
         self, unique: bool = True
