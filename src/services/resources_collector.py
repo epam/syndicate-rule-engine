@@ -50,7 +50,19 @@ def azure_custodian_resource_type_map() -> dict[str, str]:
     """
     type_map = {}
     for resource_type, class_ in AzureResourceMap.items():
-        type_map[get_factory(class_).resource_type.resource_type.lower()] = resource_type
+        if hasattr(get_factory(class_).resource_type, 'resource_type'):
+            type_map[get_factory(class_).resource_type.resource_type.lower()] = resource_type
+    return type_map
+
+@lru_cache(maxsize=1)
+def custodian_azure_resource_type_map() -> dict[str, str]:
+    """
+    Maps Cloud Custodian resource types to Azure resource types.
+    """
+    type_map = {}
+    for resource_type, class_ in AzureResourceMap.items():
+        if hasattr(get_factory(class_).resource_type, 'resource_type'):
+            type_map[resource_type] = get_factory(class_).resource_type.resource_type.lower()
     return type_map
         
 
@@ -288,7 +300,7 @@ class CustodianResourceCollector(BaseResourceCollector):
                 f'No credentials found for tenant {tenant.name}'
             )
 
-        return credentials
+        return TokenCredential(**credentials)
 
     def _load_scan(
         self,
@@ -424,6 +436,16 @@ class AzureGraphResourceCollector(BaseResourceCollector):
         self._ms = modular_service
         self._rs = resources_service
 
+    @classmethod
+    def build(cls) -> 'AzureGraphResourceCollector':
+        """
+        Builds a ResourceCollector instance.
+        """
+        return AzureGraphResourceCollector(
+            modular_service=SP.modular_client,
+            resources_service=SP.resources_service,
+        )
+
     def _get_credentials(self, tenant: Tenant) -> dict:
         credentials = get_tenant_credentials(tenant)
         if not credentials:
@@ -482,18 +504,17 @@ class AzureGraphResourceCollector(BaseResourceCollector):
             credential=self._get_credentials(tenant)
         )
         
-        # NOTE: we can use just `resources` query to get all resources
-        # but it will return all the attributes of resources that can be too much
-        query = """
-        resources
-        | project id, name, type, location, tags
-        """
+        # NOTE: We can use just `resources` query to get all resources
+        # but it will return all the attributes of resources. That can be too much
+        query = "resources"
         if regions:
             regions = [region.lower() for region in regions]
-            query += ' | where location in ' + ', '.join(f"'{r}'" for r in regions)
+            query += ' | where location in (' + ', '.join(f"'{r}'" for r in regions) + ')'
         if resource_types:
-            resource_types = [rt.lower() for rt in resource_types]
-            query += ' | where type in ' + ', '.join(f"'{rt}'" for rt in resource_types)
+            type_map = custodian_azure_resource_type_map()
+            resource_types = [type_map[rt.lower()] for rt in resource_types]
+            query += ' | where type in (' + ', '.join(f"'{rt}'" for rt in resource_types) + ')'
+        query += ' | project id, name, type, location, tags'
 
         resources = []
         skip = 0
