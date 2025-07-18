@@ -11,14 +11,14 @@
         "per": "DAY",
         "description": "Testing license",
         "valid_until": "2100-02-01T15:24:26.175778Z",
-        "valid_from": "2025-07-16T14:58:09.457045Z"
+        "valid_from": "2025-07-18T08:54:56.004341Z"
       }
     ],
     "is_automatic_scans_enabled": true,
     "in_progress_scans": 0,
     "finished_scans": 2,
     "succeeded_scans": 1,
-    "last_scan_date": "2025-07-16T00:58:08.090463Z",
+    "last_scan_date": "2025-07-18T00:54:54.356378Z",
     "activated_regions": [],
     "rules": {
       "total": 10,
@@ -69,7 +69,8 @@
           "remediation_complexity": "Unknown",
           "severity": "Unknown",
           "service": "Vpc",
-          "resource_type": "gcp.vpc"
+          "resource_type": "gcp.vpc",
+          "when": 1729502743.654542
         },
         {
           "id": "ecc-gcp-272-firewall_logging_enabled",
@@ -78,7 +79,8 @@
           "remediation_complexity": "Unknown",
           "severity": "Unknown",
           "service": "Firewall",
-          "resource_type": "gcp.firewall"
+          "resource_type": "gcp.firewall",
+          "when": 1729502744.540606
         },
         {
           "id": "ecc-gcp-109-prevent_allow_all_ingress",
@@ -87,7 +89,8 @@
           "remediation_complexity": "Unknown",
           "severity": "Unknown",
           "service": "Firewall",
-          "resource_type": "gcp.firewall"
+          "resource_type": "gcp.firewall",
+          "when": 1729502743.7096498
         },
         {
           "id": "ecc-gcp-104-default_firewall_rule_in_use",
@@ -96,7 +99,8 @@
           "remediation_complexity": "Unknown",
           "severity": "Unknown",
           "service": "Firewall",
-          "resource_type": "gcp.firewall"
+          "resource_type": "gcp.firewall",
+          "when": 1729502743.708413
         },
         {
           "id": "ecc-gcp-033-vpc_flow_logs_for_every_subnet",
@@ -105,7 +109,8 @@
           "remediation_complexity": "Unknown",
           "severity": "Unknown",
           "service": "Subnet",
-          "resource_type": "gcp.subnet"
+          "resource_type": "gcp.subnet",
+          "when": 1729502743.66139
         }
       ]
     }
@@ -146,37 +151,7 @@
           "Firewall": 4
         }
       },
-      "europe-west10": {
-        "resources": {
-          "Info": 0,
-          "Low": 0,
-          "Medium": 0,
-          "High": 0,
-          "Unknown": 1
-        },
-        "violations": {
-          "Info": 0,
-          "Low": 0,
-          "Medium": 0,
-          "High": 0,
-          "Unknown": 1
-        },
-        "attacks": {
-          "Info": 0,
-          "Low": 0,
-          "Medium": 0,
-          "High": 0,
-          "Unknown": 0
-        },
-        "standards": [],
-        "services": {
-          "Subnet": 1
-        },
-        "resource_types": {
-          "Subnet": 1
-        }
-      },
-      "us-west8": {
+      "africa-south1": {
         "resources": {
           "Info": 0,
           "Low": 0,
@@ -236,7 +211,37 @@
           "Subnet": 1
         }
       },
-      "africa-south1": {
+      "europe-west10": {
+        "resources": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 1
+        },
+        "violations": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 1
+        },
+        "attacks": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 0
+        },
+        "standards": [],
+        "services": {
+          "Subnet": 1
+        },
+        "resource_types": {
+          "Subnet": 1
+        }
+      },
+      "us-west8": {
         "resources": {
           "Info": 0,
           "Low": 0,

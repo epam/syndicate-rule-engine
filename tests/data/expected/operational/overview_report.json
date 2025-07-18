@@ -7,9 +7,9 @@
     "type": "OPERATIONAL_OVERVIEW",
     "description": "Data for a specific tenant of any cloud for a week period from Sunday till Sunday. Contains number of different jobs, total number of resources by region and by severities",
     "version": "2.0.0",
-    "created_at": "2025-07-16T15:11:31.887377Z",
-    "to": "2025-07-16T15:11:31.887377Z",
-    "from": "2025-07-15T15:11:31.887377Z"
+    "created_at": "2025-07-18T08:59:35.905175Z",
+    "to": "2025-07-18T08:59:35.905175Z",
+    "from": "2025-07-17T08:59:35.905175Z"
   },
   "externalData": false,
   "data": {
@@ -159,19 +159,19 @@
         "per": "DAY",
         "description": "Testing license",
         "valid_until": "2100-02-01T15:24:26.175778Z",
-        "valid_from": "2025-07-16T14:57:14.821062Z"
+        "valid_from": "2025-07-18T08:53:38.940914Z"
       }
     ],
     "is_automatic_scans_enabled": true,
     "in_progress_scans": 0,
     "finished_scans": 2,
     "succeeded_scans": 1,
-    "last_scan_date": "2025-07-16T00:57:15.595404Z",
+    "last_scan_date": "2025-07-18T00:53:39.740595Z",
     "activated_regions": [
-      "eu-north-1",
       "eu-central-1",
-      "eu-west-1",
-      "eu-west-3"
+      "eu-west-3",
+      "eu-north-1",
+      "eu-west-1"
     ],
     "rules": {
       "total": 14,
@@ -222,7 +222,8 @@
           "remediation_complexity": "Unknown",
           "severity": "Unknown",
           "service": "Security Group",
-          "resource_type": "aws.security-group"
+          "resource_type": "aws.security-group",
+          "when": 1729253757.393474
         },
         {
           "id": "ecc-aws-374-cloudtrail_logs_data_events",
@@ -231,7 +232,8 @@
           "remediation_complexity": "Unknown",
           "severity": "Unknown",
           "service": "Cloudtrail",
-          "resource_type": "aws.cloudtrail"
+          "resource_type": "aws.cloudtrail",
+          "when": 1729253780.092237
         },
         {
           "id": "ecc-aws-221-sns_kms_encryption_enabled",
@@ -240,7 +242,8 @@
           "remediation_complexity": "Unknown",
           "severity": "Unknown",
           "service": "Sns",
-          "resource_type": "aws.sns"
+          "resource_type": "aws.sns",
+          "when": 1729253769.274071
         },
         {
           "id": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
@@ -249,7 +252,8 @@
           "remediation_complexity": "Unknown",
           "severity": "Unknown",
           "service": "S3",
-          "resource_type": "aws.s3"
+          "resource_type": "aws.s3",
+          "when": 1729253612.904913
         },
         {
           "id": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
@@ -258,7 +262,8 @@
           "remediation_complexity": "Unknown",
           "severity": "Unknown",
           "service": "S3",
-          "resource_type": "aws.s3"
+          "resource_type": "aws.s3",
+          "when": 1729253612.904913
         },
         {
           "id": "ecc-aws-499-iam_group_has_users_check",
@@ -267,7 +272,8 @@
           "remediation_complexity": "Unknown",
           "severity": "Unknown",
           "service": "Iam Group",
-          "resource_type": "aws.iam-group"
+          "resource_type": "aws.iam-group",
+          "when": 1729253695.934546
         },
         {
           "id": "ecc-aws-516-s3_event_notifications_enabled",
@@ -276,7 +282,8 @@
           "remediation_complexity": "Unknown",
           "severity": "Unknown",
           "service": "S3",
-          "resource_type": "aws.s3"
+          "resource_type": "aws.s3",
+          "when": 1729253632.1969962
         },
         {
           "id": "ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances",
@@ -285,7 +292,8 @@
           "remediation_complexity": "Unknown",
           "severity": "Unknown",
           "service": "Ebs",
-          "resource_type": "aws.ebs"
+          "resource_type": "aws.ebs",
+          "when": 1729253990.192673
         },
         {
           "id": "ecc-aws-490-ec2_token_hop_limit_check",
@@ -294,7 +302,8 @@
           "remediation_complexity": "Unknown",
           "severity": "Unknown",
           "service": "Ec2",
-          "resource_type": "aws.ec2"
+          "resource_type": "aws.ec2",
+          "when": 1729253946.722402
         },
         {
           "id": "ecc-aws-229-ecr_repository_kms_encryption_enabled",
@@ -303,7 +312,8 @@
           "remediation_complexity": "Unknown",
           "severity": "Unknown",
           "service": "Ecr",
-          "resource_type": "aws.ecr"
+          "resource_type": "aws.ecr",
+          "when": 1729253920.7997608
         },
         {
           "id": "ecc-aws-374-cloudtrail_logs_data_events",
@@ -312,7 +322,8 @@
           "remediation_complexity": "Unknown",
           "severity": "Unknown",
           "service": "Cloudtrail",
-          "resource_type": "aws.cloudtrail"
+          "resource_type": "aws.cloudtrail",
+          "when": 1729253935.660345
         },
         {
           "id": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
@@ -321,7 +332,8 @@
           "remediation_complexity": "Unknown",
           "severity": "Unknown",
           "service": "S3",
-          "resource_type": "aws.s3"
+          "resource_type": "aws.s3",
+          "when": 1729253612.904913
         },
         {
           "id": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
@@ -330,7 +342,8 @@
           "remediation_complexity": "Unknown",
           "severity": "Unknown",
           "service": "S3",
-          "resource_type": "aws.s3"
+          "resource_type": "aws.s3",
+          "when": 1729253612.904913
         },
         {
           "id": "ecc-aws-516-s3_event_notifications_enabled",
@@ -339,7 +352,8 @@
           "remediation_complexity": "Unknown",
           "severity": "Unknown",
           "service": "S3",
-          "resource_type": "aws.s3"
+          "resource_type": "aws.s3",
+          "when": 1729253632.1969962
         }
       ]
     }

@@ -11,19 +11,19 @@
         "per": "DAY",
         "description": "Testing license",
         "valid_until": "2100-02-01T15:24:26.175778Z",
-        "valid_from": "2025-07-14T13:15:45.916054Z"
+        "valid_from": "2025-07-18T08:56:49.203236Z"
       }
     ],
     "is_automatic_scans_enabled": true,
     "in_progress_scans": 0,
     "finished_scans": 2,
     "succeeded_scans": 1,
-    "last_scan_date": "2025-07-14T00:15:46.779810Z",
+    "last_scan_date": "2025-07-18T00:56:49.991441Z",
     "activated_regions": [
-      "eu-west-1",
       "eu-north-1",
       "eu-west-3",
-      "eu-central-1"
+      "eu-central-1",
+      "eu-west-1"
     ],
     "rules": {
       "total": 1,
@@ -38,7 +38,8 @@
           "remediation_complexity": "Unknown",
           "severity": "Unknown",
           "service": "Security Group",
-          "resource_type": "aws.security-group"
+          "resource_type": "aws.security-group",
+          "when": 1729253757.393474
         }
       ]
     }
@@ -57,12 +58,6 @@
           "resources": {
             "eu-central-1": [
               {
-                "id": "sg-09d19538187df66cf",
-                "name": "asia",
-                "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-09d19538187df66cf",
-                "sre:date": 1729253757.393474
-              },
-              {
                 "id": "sg-0ae266faddaef17e9",
                 "name": "packer-ssh-access",
                 "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-0ae266faddaef17e9",
@@ -72,6 +67,12 @@
                 "id": "sg-05209ceeb761317e5",
                 "name": "west-eu",
                 "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-05209ceeb761317e5",
+                "sre:date": 1729253757.393474
+              },
+              {
+                "id": "sg-09d19538187df66cf",
+                "name": "asia",
+                "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-09d19538187df66cf",
                 "sre:date": 1729253757.393474
               }
             ]

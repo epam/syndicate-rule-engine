@@ -626,6 +626,7 @@ class MetricsCollector:
                 or (part in yielded)
             ):
                 continue
+            yielded.add(part.policy)
             rm = metadata.rule(part.policy)
             rt = meta[part.policy]['resource']
             yield RuleCheck(
@@ -636,6 +637,7 @@ class MetricsCollector:
                 severity=rm.severity,
                 service=rm.service or service_from_resource_type(rt),
                 resource_type=rt,
+                when=part.timestamp,
             )
 
     @staticmethod

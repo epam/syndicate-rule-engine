@@ -11,14 +11,14 @@
         "per": "DAY",
         "description": "Testing license",
         "valid_until": "2100-02-01T15:24:26.175778Z",
-        "valid_from": "2025-07-16T14:58:09.421667Z"
+        "valid_from": "2025-07-18T08:54:55.968538Z"
       }
     ],
     "is_automatic_scans_enabled": true,
     "in_progress_scans": 0,
     "finished_scans": 2,
     "succeeded_scans": 1,
-    "last_scan_date": "2025-07-16T00:58:08.090463Z",
+    "last_scan_date": "2025-07-18T00:54:54.356378Z",
     "activated_regions": [],
     "rules": {
       "total": 10,
@@ -69,7 +69,8 @@
           "remediation_complexity": "Unknown",
           "severity": "Unknown",
           "service": "Defender Pricing",
-          "resource_type": "azure.defender-pricing"
+          "resource_type": "azure.defender-pricing",
+          "when": 1729502354.6635
         },
         {
           "id": "ecc-azure-096-cis_sec_defender_azure_sql",
@@ -78,7 +79,8 @@
           "remediation_complexity": "Medium-High",
           "severity": "Unknown",
           "service": "Defender Pricing",
-          "resource_type": "azure.defender-pricing"
+          "resource_type": "azure.defender-pricing",
+          "when": 1729502334.624495
         },
         {
           "id": "ecc-azure-376-cis_defender_cosmodb",
@@ -87,7 +89,8 @@
           "remediation_complexity": "Unknown",
           "severity": "Unknown",
           "service": "Defender Pricing",
-          "resource_type": "azure.defender-pricing"
+          "resource_type": "azure.defender-pricing",
+          "when": 1729502359.150423
         },
         {
           "id": "ecc-azure-099-cis_sec_defender_aks",
@@ -96,7 +99,8 @@
           "remediation_complexity": "Unknown",
           "severity": "Unknown",
           "service": "Defender Pricing",
-          "resource_type": "azure.defender-pricing"
+          "resource_type": "azure.defender-pricing",
+          "when": 1729502334.630253
         },
         {
           "id": "ecc-azure-213-asb_lt_defender_dns",
@@ -105,7 +109,8 @@
           "remediation_complexity": "Unknown",
           "severity": "Unknown",
           "service": "Defender Pricing",
-          "resource_type": "azure.defender-pricing"
+          "resource_type": "azure.defender-pricing",
+          "when": 1729502348.720908
         }
       ]
     }
