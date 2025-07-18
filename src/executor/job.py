@@ -239,7 +239,7 @@ class PoliciesLoader:
     def __init__(
         self,
         cloud: Cloud,
-        output_dir: Path,
+        output_dir: Path | None = None, # NOTE: output_dir should be None only if policy execution mode don't use it
         regions: set[str] | None = None,
         cache: str | None = 'memory',
         cache_period: int = 30,
@@ -274,14 +274,16 @@ class PoliciesLoader:
                 return self._cloud.value.lower()
 
     def set_global_output(self, policy: Policy) -> None:
-        policy.options.output_dir = str(
-            (self._output_dir / GLOBAL_REGION).resolve()
-        )
+        if self._output_dir:
+            policy.options.output_dir = str(
+                (self._output_dir / GLOBAL_REGION).resolve()
+            )
 
     def set_regional_output(self, policy: Policy) -> None:
-        policy.options.output_dir = str(
-            (self._output_dir / policy.options.region).resolve()
-        )
+        if self._output_dir:
+            policy.options.output_dir = str(
+                (self._output_dir / policy.options.region).resolve()
+            )
 
     @staticmethod
     def is_global(policy: Policy) -> bool:
@@ -325,7 +327,7 @@ class PoliciesLoader:
             command='c7n.commands.run',
             config=None,
             configs=[],
-            output_dir=str(self._output_dir),
+            output_dir=str(self._output_dir) if self._output_dir else '',
             subparser='run',
             policy_filters=[],
             resource_types=[],
@@ -472,6 +474,12 @@ class PoliciesLoader:
                     f'Cannot load policy {policy["name"]} '
                     f'dict to object. Skipping',
                     exc_info=True,
+                )
+                continue
+            except AssertionError:
+                _LOG.warning(
+                    f'Cannot load {policy["name"]}. '
+                    'Skipping'
                 )
                 continue
             provider_policies[pol.provider_name].append(pol)
@@ -954,23 +962,22 @@ def get_tenant_credentials(tenant: Tenant) -> dict | None:
     """
     mcs = SP.modular_client.maestro_credentials_service()
     credentials = None
-    if credentials is None:
-        _LOG.info('Trying to get creds from `CUSTODIAN_ACCESS` parent')
-        parent = (
-            SP.modular_client.parent_service().get_linked_parent_by_tenant(
-                tenant=tenant, type_=ParentType.CUSTODIAN_ACCESS
+    _LOG.info('Trying to get creds from `CUSTODIAN_ACCESS` parent')
+    parent = (
+        SP.modular_client.parent_service().get_linked_parent_by_tenant(
+            tenant=tenant, type_=ParentType.CUSTODIAN_ACCESS
+        )
+    )
+    if parent:
+        application = (
+            SP.modular_client.application_service().get_application_by_id(
+                parent.application_id
             )
         )
-        if parent:
-            application = (
-                SP.modular_client.application_service().get_application_by_id(
-                    parent.application_id
-                )
-            )
-            if application:
-                _creds = mcs.get_by_application(application, tenant)
-                if _creds:
-                    credentials = _creds.dict()
+        if application:
+            _creds = mcs.get_by_application(application, tenant)
+            if _creds:
+                credentials = _creds.dict()
     if credentials is None and BatchJobEnv.ALLOW_MANAGEMENT_CREDS.as_bool():
         _LOG.info(
             'Trying to get creds from maestro management parent & application'
