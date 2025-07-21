@@ -11,14 +11,14 @@
         "per": "DAY",
         "description": "Testing license",
         "valid_until": "2100-02-01T15:24:26.175778Z",
-        "valid_from": "2025-07-18T08:56:51.494908Z"
+        "valid_from": "2025-07-21T12:39:26.974694Z"
       }
     ],
     "is_automatic_scans_enabled": true,
     "in_progress_scans": 0,
     "finished_scans": 2,
     "succeeded_scans": 1,
-    "last_scan_date": "2025-07-18T00:56:49.991441Z",
+    "last_scan_date": "2025-07-21T00:39:26.603795Z",
     "activated_regions": [],
     "rules": {
       "total": 10,
@@ -117,79 +117,79 @@
   },
   "data": [
     {
-      "policy": "ecc-azure-310-asb_defender_open_source_rds",
-      "resource_type": "Defender Pricing",
-      "description": "Description for ecc-azure-310-asb_defender_open_source_rds",
+      "region": "global",
+      "resource_type": "azure.defender-pricing",
+      "service": "Defender Pricing",
       "severity": "Unknown",
-      "resources": {
-        "global": [
-          {
-            "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/OpenSourceRelationalDatabases",
-            "name": "OpenSourceRelationalDatabases",
-            "sre:date": 1729502354.6635
-          }
-        ]
-      }
+      "resource": {
+        "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/OpenSourceRelationalDatabases",
+        "name": "OpenSourceRelationalDatabases"
+      },
+      "violations": [
+        {
+          "policy": "ecc-azure-310-asb_defender_open_source_rds"
+        }
+      ]
     },
     {
-      "policy": "ecc-azure-096-cis_sec_defender_azure_sql",
-      "resource_type": "Defender Pricing",
-      "description": "Description for ecc-azure-096-cis_sec_defender_azure_sql",
+      "region": "global",
+      "resource_type": "azure.defender-pricing",
+      "service": "Defender Pricing",
       "severity": "Unknown",
-      "resources": {
-        "global": [
-          {
-            "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/SqlServers",
-            "name": "SqlServers",
-            "sre:date": 1729502334.624495
-          }
-        ]
-      }
+      "resource": {
+        "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/SqlServers",
+        "name": "SqlServers"
+      },
+      "violations": [
+        {
+          "policy": "ecc-azure-096-cis_sec_defender_azure_sql"
+        }
+      ]
     },
     {
-      "policy": "ecc-azure-376-cis_defender_cosmodb",
-      "resource_type": "Defender Pricing",
-      "description": "Description for ecc-azure-376-cis_defender_cosmodb",
+      "region": "global",
+      "resource_type": "azure.defender-pricing",
+      "service": "Defender Pricing",
       "severity": "Unknown",
-      "resources": {
-        "global": [
-          {
-            "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/CosmosDbs",
-            "name": "CosmosDbs",
-            "sre:date": 1729502359.150423
-          }
-        ]
-      }
+      "resource": {
+        "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/CosmosDbs",
+        "name": "CosmosDbs"
+      },
+      "violations": [
+        {
+          "policy": "ecc-azure-376-cis_defender_cosmodb"
+        }
+      ]
     },
     {
-      "policy": "ecc-azure-099-cis_sec_defender_aks",
-      "resource_type": "Defender Pricing",
-      "description": "Description for ecc-azure-099-cis_sec_defender_aks",
+      "region": "global",
+      "resource_type": "azure.defender-pricing",
+      "service": "Defender Pricing",
       "severity": "Unknown",
-      "resources": {
-        "global": [
-          {
-            "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/KubernetesService",
-            "name": "KubernetesService",
-            "sre:date": 1729502334.630253
-          }
-        ]
-      }
+      "resource": {
+        "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/KubernetesService",
+        "name": "KubernetesService"
+      },
+      "violations": [
+        {
+          "policy": "ecc-azure-099-cis_sec_defender_aks"
+        }
+      ]
     },
     {
-      "policy": "ecc-azure-213-asb_lt_defender_dns",
-      "resource_type": "Defender Pricing",
-      "description": "Description for ecc-azure-213-asb_lt_defender_dns",
+      "region": "global",
+      "resource_type": "azure.defender-pricing",
+      "service": "Defender Pricing",
       "severity": "Unknown",
-      "resources": {
-        "global": [
-          {
-            "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/Dns",
-            "name": "Dns",
-            "sre:date": 1729502348.720908
-          }
-        ]
-      }
+      "resource": {
+        "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/Dns",
+        "name": "Dns"
+      },
+      "violations": [
+        {
+          "policy": "ecc-azure-213-asb_lt_defender_dns"
+        }
+      ]
     }
   ],
   "id": "3d615fa8-05c6-47ea-990d-9d162testing"

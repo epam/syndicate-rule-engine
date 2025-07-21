@@ -345,22 +345,46 @@ class ResourcesReportGenerator(ReportVisitor[Generator[dict, None, None]]):
         meta: dict[str, RuleMeta],
         **kwargs,
     ) -> Generator[dict, None, None]:
-        for rule in rule_resources:
+        unique_resources_dict = dict()
+        for rule, resources in rule_resources.items():
             if self.scope is not None and rule not in self.scope:
                 continue
-            rm = meta.get(rule, {})
+            rm = meta.get(rule, None)
             rm2 = self._metadata.rule(rule)
-            by_region = {}
-            for r in rule_resources[rule]:
-                by_region.setdefault(r.location, []).append(
-                    r.accept(self._view, report_fields=rm2.report_fields)
+            for resource in resources:
+                unique_resources_dict.setdefault(resource, list()).append(
+                    (rule, rm, rm2, resource.sync_date)
                 )
+
+        for resource, rules_data in unique_resources_dict.items():
+            
+            severity = Severity.INFO
+            violations = []
+            for rule, rm, rm2, sync_date in rules_data:
+                if SeverityCmp()(rm2.severity, severity) > 0:
+                    severity = rm2.severity
+                violations.append({
+                    'policy': rule,
+                    # NOTE: This attributes could be retrieved from metadata.rules
+                    # 'severity': rm2.severity.value,
+                    # 'description': rm.get('description') or '',
+                    # 'sre:date': sync_date
+                })
+
+            res = resource.accept(
+                self._view, report_fields=rules_data[0][2].report_fields
+            )
+            res.pop('sre:date')
+            service = service_from_resource_type(
+                rules_data[0][1]['resource']
+            )
             yield {
-                'policy': rule,
-                'resource_type': service_from_resource_type(rm['resource']),
-                'description': rm.get('description') or '',
-                'severity': rm2.severity.value,
-                'resources': by_region,
+                'region': resource.location,
+                'resource_type': resource.resource_type,
+                'service': service,
+                'severity': severity.value,
+                'resource': res,
+                'violations': violations,
             }
 
     def visitKubernetesReport(
@@ -372,9 +396,7 @@ class ResourcesReportGenerator(ReportVisitor[Generator[dict, None, None]]):
         **kwargs,
     ) -> Generator[dict, None, None]:
         for res in self.visitDefault(report, rule_resources, meta, **kwargs):
-            res['resources'] = list(
-                chain.from_iterable(res['resources'].values())
-            )
+            res.pop('region')
             yield res
 
 
