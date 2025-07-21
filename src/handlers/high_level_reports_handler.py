@@ -143,15 +143,8 @@ class MaestroModelBuilder:
         assert rep.type == ReportType.OPERATIONAL_RESOURCES
         result = []
         for item in data.get('data', ()):
-            rd = {}
-            for region, res in item.pop('resources', {}).items():
-                rd[region] = {'resources': res}
-            item['regions_data'] = rd
+            item['violations_data'] = item.pop('violations', [])
             result.append(item)
-
-            item.pop('resource_types', None)
-            item.pop('description', None)
-            item.pop('severity', None)
         return {
             'tenant_name': rep.tenant,
             'id': data['id'],
