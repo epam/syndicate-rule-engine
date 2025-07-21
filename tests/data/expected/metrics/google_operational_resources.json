@@ -11,14 +11,14 @@
         "per": "DAY",
         "description": "Testing license",
         "valid_until": "2100-02-01T15:24:26.175778Z",
-        "valid_from": "2025-07-18T08:56:51.534251Z"
+        "valid_from": "2025-07-21T09:19:53.538652Z"
       }
     ],
     "is_automatic_scans_enabled": true,
     "in_progress_scans": 0,
     "finished_scans": 2,
     "succeeded_scans": 1,
-    "last_scan_date": "2025-07-18T00:56:49.991441Z",
+    "last_scan_date": "2025-07-21T00:19:52.315331Z",
     "activated_regions": [],
     "rules": {
       "total": 10,
@@ -140,15 +140,15 @@
       "resources": {
         "global": [
           {
-            "id": "2342562096469303266",
-            "name": "default-allow-rdp",
-            "urn": "gcp:compute::testing-project-123:firewall/default-allow-rdp",
-            "sre:date": 1729502744.540606
-          },
-          {
             "id": "2007825320515264482",
             "name": "default-allow-ssh",
             "urn": "gcp:compute::testing-project-123:firewall/default-allow-ssh",
+            "sre:date": 1729502744.540606
+          },
+          {
+            "id": "2342562096469303266",
+            "name": "default-allow-rdp",
+            "urn": "gcp:compute::testing-project-123:firewall/default-allow-rdp",
             "sre:date": 1729502744.540606
           },
           {
@@ -190,15 +190,15 @@
       "resources": {
         "global": [
           {
-            "id": "2342562096469303266",
-            "name": "default-allow-rdp",
-            "urn": "gcp:compute::testing-project-123:firewall/default-allow-rdp",
-            "sre:date": 1729502743.708413
-          },
-          {
             "id": "2007825320515264482",
             "name": "default-allow-ssh",
             "urn": "gcp:compute::testing-project-123:firewall/default-allow-ssh",
+            "sre:date": 1729502743.708413
+          },
+          {
+            "id": "2342562096469303266",
+            "name": "default-allow-rdp",
+            "urn": "gcp:compute::testing-project-123:firewall/default-allow-rdp",
             "sre:date": 1729502743.708413
           },
           {
@@ -222,19 +222,19 @@
       "description": "Description for ecc-gcp-033-vpc_flow_logs_for_every_subnet",
       "severity": "Unknown",
       "resources": {
+        "northamerica-south1": [
+          {
+            "id": "816596276746100793",
+            "name": "default",
+            "urn": "gcp:compute:northamerica-south1:testing-project-123:subnet/default",
+            "sre:date": 1729502743.66139
+          }
+        ],
         "europe-west10": [
           {
             "id": "2708525157271002654",
             "name": "default",
             "urn": "gcp:compute:europe-west10:testing-project-123:subnet/default",
-            "sre:date": 1729502743.66139
-          }
-        ],
-        "africa-south1": [
-          {
-            "id": "80118305852546590",
-            "name": "default",
-            "urn": "gcp:compute:africa-south1:testing-project-123:subnet/default",
             "sre:date": 1729502743.66139
           }
         ],
@@ -246,11 +246,11 @@
             "sre:date": 1729502743.66139
           }
         ],
-        "northamerica-south1": [
+        "africa-south1": [
           {
-            "id": "816596276746100793",
+            "id": "80118305852546590",
             "name": "default",
-            "urn": "gcp:compute:northamerica-south1:testing-project-123:subnet/default",
+            "urn": "gcp:compute:africa-south1:testing-project-123:subnet/default",
             "sre:date": 1729502743.66139
           }
         ]

@@ -617,21 +617,22 @@ class MetricsCollector:
         These duplicate the rules inside reports payload, but contains rules
         metadata without duplicates
         """
-        yielded = set()
+        yielded: set[str] = set()
         meta = collection.meta
         for part in collection.iter_parts():
+            policy = part.policy
             if (
-                (part.policy not in scope)
+                (policy not in scope)
                 or len(part.resources) == 0
-                or (part in yielded)
+                or (policy in yielded)
             ):
                 continue
-            yielded.add(part.policy)
-            rm = metadata.rule(part.policy)
-            rt = meta[part.policy]['resource']
+            yielded.add(policy)
+            rm = metadata.rule(policy)
+            rt = meta[policy]['resource']
             yield RuleCheck(
-                id=part.policy,
-                description=meta[part.policy].get('description') or '',
+                id=policy,
+                description=meta[policy].get('description') or '',
                 remediation=rm.remediation,
                 remediation_complexity=rm.remediation_complexity,
                 severity=rm.severity,
