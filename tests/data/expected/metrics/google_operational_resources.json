@@ -127,9 +127,18 @@
         "urn": "gcp:compute::testing-project-123:firewall/default-allow-internal"
       },
       "violations": [
-        { "policy": "ecc-gcp-109-prevent_allow_all_ingress" },
-        { "policy": "ecc-gcp-272-firewall_logging_enabled" },
-        { "policy": "ecc-gcp-104-default_firewall_rule_in_use" }
+        {
+          "policy": "ecc-gcp-109-prevent_allow_all_ingress",
+          "sre:date": 1729502743.7096498
+        },
+        {
+          "policy": "ecc-gcp-272-firewall_logging_enabled",
+          "sre:date": 1729502744.540606
+        },
+        {
+          "policy": "ecc-gcp-104-default_firewall_rule_in_use",
+          "sre:date": 1729502743.708413
+        }
       ]
     },
     {
@@ -143,7 +152,10 @@
         "urn": "gcp:compute::testing-project-123:vpc/default"
       },
       "violations": [
-        { "policy": "ecc-gcp-025-no_default_network" }
+        {
+          "policy": "ecc-gcp-025-no_default_network",
+          "sre:date": 1729502743.654542
+        }
       ]
     },
     {
@@ -157,7 +169,10 @@
         "urn": "gcp:compute:europe-west10:testing-project-123:subnet/default"
       },
       "violations": [
-        { "policy": "ecc-gcp-033-vpc_flow_logs_for_every_subnet" }
+        {
+          "policy": "ecc-gcp-033-vpc_flow_logs_for_every_subnet",
+          "sre:date": 1729502743.66139
+        }
       ]
     },
     {
@@ -171,7 +186,10 @@
         "urn": "gcp:compute:northamerica-south1:testing-project-123:subnet/default"
       },
       "violations": [
-        { "policy": "ecc-gcp-033-vpc_flow_logs_for_every_subnet" }
+        {
+          "policy": "ecc-gcp-033-vpc_flow_logs_for_every_subnet",
+          "sre:date": 1729502743.66139
+        }
       ]
     },
     {
@@ -185,7 +203,10 @@
         "urn": "gcp:compute:us-west8:testing-project-123:subnet/default"
       },
       "violations": [
-        { "policy": "ecc-gcp-033-vpc_flow_logs_for_every_subnet" }
+        {
+          "policy": "ecc-gcp-033-vpc_flow_logs_for_every_subnet",
+          "sre:date": 1729502743.66139
+        }
       ]
     },
     {
@@ -199,7 +220,10 @@
         "urn": "gcp:compute:africa-south1:testing-project-123:subnet/default"
       },
       "violations": [
-        { "policy": "ecc-gcp-033-vpc_flow_logs_for_every_subnet" }
+        {
+          "policy": "ecc-gcp-033-vpc_flow_logs_for_every_subnet",
+          "sre:date": 1729502743.66139
+        }
       ]
     },
     {
@@ -213,8 +237,14 @@
         "urn": "gcp:compute::testing-project-123:firewall/default-allow-rdp"
       },
       "violations": [
-        { "policy": "ecc-gcp-272-firewall_logging_enabled" },
-        { "policy": "ecc-gcp-104-default_firewall_rule_in_use" }
+        {
+          "policy": "ecc-gcp-272-firewall_logging_enabled",
+          "sre:date": 1729502744.540606
+        },
+        {
+          "policy": "ecc-gcp-104-default_firewall_rule_in_use",
+          "sre:date": 1729502743.708413
+        }
       ]
     },
     {
@@ -228,8 +258,14 @@
         "urn": "gcp:compute::testing-project-123:firewall/default-allow-ssh"
       },
       "violations": [
-        { "policy": "ecc-gcp-272-firewall_logging_enabled" },
-        { "policy": "ecc-gcp-104-default_firewall_rule_in_use" }
+        {
+          "policy": "ecc-gcp-272-firewall_logging_enabled",
+          "sre:date": 1729502744.540606
+        },
+        {
+          "policy": "ecc-gcp-104-default_firewall_rule_in_use",
+          "sre:date": 1729502743.708413
+        }
       ]
     },
     {
@@ -243,8 +279,14 @@
         "urn": "gcp:compute::testing-project-123:firewall/default-allow-icmp"
       },
       "violations": [
-        { "policy": "ecc-gcp-272-firewall_logging_enabled" },
-        { "policy": "ecc-gcp-104-default_firewall_rule_in_use" }
+        {
+          "policy": "ecc-gcp-272-firewall_logging_enabled",
+          "sre:date": 1729502744.540606
+        },
+        {
+          "policy": "ecc-gcp-104-default_firewall_rule_in_use",
+          "sre:date": 1729502743.708413
+        }
       ]
     }
   ],

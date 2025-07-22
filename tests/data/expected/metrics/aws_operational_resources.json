@@ -19,7 +19,6 @@
     "finished_scans": 2,
     "succeeded_scans": 1,
     "last_scan_date": "2025-07-21T00:07:52.074854Z",
-    "last_scan_date": "2025-07-21T00:19:52.315331Z",
     "activated_regions": [
       "eu-north-1",
       "eu-west-1",
@@ -174,7 +173,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-aws-070-unused_ec2_security_groups"
+          "policy": "ecc-aws-070-unused_ec2_security_groups",
+          "sre:date": 1729253757.393474
         }
       ]
     },
@@ -190,7 +190,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-aws-070-unused_ec2_security_groups"
+          "policy": "ecc-aws-070-unused_ec2_security_groups",
+          "sre:date": 1729253757.393474
         }
       ]
     },
@@ -206,7 +207,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-aws-070-unused_ec2_security_groups"
+          "policy": "ecc-aws-070-unused_ec2_security_groups",
+          "sre:date": 1729253757.393474
         }
       ]
     },
@@ -222,7 +224,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-aws-374-cloudtrail_logs_data_events"
+          "policy": "ecc-aws-374-cloudtrail_logs_data_events",
+          "sre:date": 1729253780.092237
         }
       ]
     },
@@ -238,7 +241,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-aws-221-sns_kms_encryption_enabled"
+          "policy": "ecc-aws-221-sns_kms_encryption_enabled",
+          "sre:date": 1729253769.274071
         }
       ]
     },
@@ -254,7 +258,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-aws-221-sns_kms_encryption_enabled"
+          "policy": "ecc-aws-221-sns_kms_encryption_enabled",
+          "sre:date": 1729253769.274071
         }
       ]
     },
@@ -270,7 +275,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-aws-221-sns_kms_encryption_enabled"
+          "policy": "ecc-aws-221-sns_kms_encryption_enabled",
+          "sre:date": 1729253769.274071
         }
       ]
     },
@@ -286,10 +292,12 @@
       },
       "violations": [
         {
-          "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled"
+          "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+          "sre:date": 1729253612.904913
         },
         {
-          "policy": "ecc-aws-516-s3_event_notifications_enabled"
+          "policy": "ecc-aws-516-s3_event_notifications_enabled",
+          "sre:date": 1729253632.1969962
         }
       ]
     },
@@ -305,7 +313,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled"
+          "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+          "sre:date": 1729253612.904913
         }
       ]
     },
@@ -321,10 +330,12 @@
       },
       "violations": [
         {
-          "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled"
+          "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+          "sre:date": 1729253612.904913
         },
         {
-          "policy": "ecc-aws-516-s3_event_notifications_enabled"
+          "policy": "ecc-aws-516-s3_event_notifications_enabled",
+          "sre:date": 1729253632.1969962
         }
       ]
     },
@@ -340,10 +351,12 @@
       },
       "violations": [
         {
-          "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled"
+          "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+          "sre:date": 1729253612.904913
         },
         {
-          "policy": "ecc-aws-516-s3_event_notifications_enabled"
+          "policy": "ecc-aws-516-s3_event_notifications_enabled",
+          "sre:date": 1729253632.1969962
         }
       ]
     },
@@ -359,7 +372,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled"
+          "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+          "sre:date": 1729253612.904913
         }
       ]
     },
@@ -375,7 +389,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled"
+          "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+          "sre:date": 1729253612.904913
         }
       ]
     },
@@ -391,7 +406,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-aws-499-iam_group_has_users_check"
+          "policy": "ecc-aws-499-iam_group_has_users_check",
+          "sre:date": 1729253695.934546
         }
       ]
     },
@@ -407,7 +423,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-aws-499-iam_group_has_users_check"
+          "policy": "ecc-aws-499-iam_group_has_users_check",
+          "sre:date": 1729253695.934546
         }
       ]
     },
@@ -423,7 +440,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-aws-499-iam_group_has_users_check"
+          "policy": "ecc-aws-499-iam_group_has_users_check",
+          "sre:date": 1729253695.934546
         }
       ]
     },
@@ -439,7 +457,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-aws-516-s3_event_notifications_enabled"
+          "policy": "ecc-aws-516-s3_event_notifications_enabled",
+          "sre:date": 1729253632.1969962
         }
       ]
     },
@@ -455,7 +474,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances"
+          "policy": "ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances",
+          "sre:date": 1729253990.192673
         }
       ]
     },
@@ -471,7 +491,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances"
+          "policy": "ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances",
+          "sre:date": 1729253990.192673
         }
       ]
     },
@@ -487,7 +508,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-aws-490-ec2_token_hop_limit_check"
+          "policy": "ecc-aws-490-ec2_token_hop_limit_check",
+          "sre:date": 1729253946.722402
         }
       ]
     },
@@ -503,7 +525,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-aws-490-ec2_token_hop_limit_check"
+          "policy": "ecc-aws-490-ec2_token_hop_limit_check",
+          "sre:date": 1729253946.722402
         }
       ]
     },
@@ -519,7 +542,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-aws-229-ecr_repository_kms_encryption_enabled"
+          "policy": "ecc-aws-229-ecr_repository_kms_encryption_enabled",
+          "sre:date": 1729253920.7997608
         }
       ]
     },
@@ -535,7 +559,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-aws-229-ecr_repository_kms_encryption_enabled"
+          "policy": "ecc-aws-229-ecr_repository_kms_encryption_enabled",
+          "sre:date": 1729253920.7997608
         }
       ]
     }

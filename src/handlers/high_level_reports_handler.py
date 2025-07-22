@@ -141,16 +141,12 @@ class MaestroModelBuilder:
     @staticmethod
     def _operational_resources_custom(rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.OPERATIONAL_RESOURCES
-        result = []
-        for item in data.get('data', ()):
-            item['violations_data'] = item.pop('violations', [])
-            result.append(item)
         return {
             'tenant_name': rep.tenant,
             'id': data['id'],
             'cloud': rep.cloud.value,  # pyright: ignore
             'tenant_metadata': data['metadata'],
-            'data': result,
+            'data': data['data'],
             'externalData': False,
         }
 

@@ -365,10 +365,9 @@ class ResourcesReportGenerator(ReportVisitor[Generator[dict, None, None]]):
                     severity = rm2.severity
                 violations.append({
                     'policy': rule,
-                    # NOTE: This attributes could be retrieved from metadata.rules
                     # 'severity': rm2.severity.value,
                     # 'description': rm.get('description') or '',
-                    # 'sre:date': sync_date
+                    'sre:date': sync_date
                 })
 
             res = resource.accept(

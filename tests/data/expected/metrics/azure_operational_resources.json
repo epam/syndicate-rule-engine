@@ -127,7 +127,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-azure-310-asb_defender_open_source_rds"
+          "policy": "ecc-azure-310-asb_defender_open_source_rds",
+          "sre:date": 1729502354.6635
         }
       ]
     },
@@ -142,7 +143,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-azure-096-cis_sec_defender_azure_sql"
+          "policy": "ecc-azure-096-cis_sec_defender_azure_sql",
+          "sre:date": 1729502334.624495
         }
       ]
     },
@@ -157,7 +159,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-azure-376-cis_defender_cosmodb"
+          "policy": "ecc-azure-376-cis_defender_cosmodb",
+          "sre:date": 1729502359.150423
         }
       ]
     },
@@ -172,7 +175,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-azure-099-cis_sec_defender_aks"
+          "policy": "ecc-azure-099-cis_sec_defender_aks",
+          "sre:date": 1729502334.630253
         }
       ]
     },
@@ -187,7 +191,8 @@
       },
       "violations": [
         {
-          "policy": "ecc-azure-213-asb_lt_defender_dns"
+          "policy": "ecc-azure-213-asb_lt_defender_dns",
+          "sre:date": 1729502348.720908
         }
       ]
     }
