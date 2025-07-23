@@ -122,8 +122,8 @@ def _iter_loaded_resources(
     assert reg.plugin_type == 'c7n.providers', (
         'Expected a registry for c7n.providers'
     )
-    for provider in reg.values():
-        for res in provider.resources.values():
+    for _, provider in reg.items():
+        for _, res in provider.resources.items():
             yield res
 
 
