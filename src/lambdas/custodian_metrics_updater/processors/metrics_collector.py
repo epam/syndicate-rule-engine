@@ -38,7 +38,6 @@ from services.platform_service import Platform, PlatformService
 from services.report_service import ReportService
 from services.reports import (
     AttacksReportGenerator,
-    EmptyOperationalReportGenerator,
     JobMetricsDataSource,
     KubernetesReport,
     Report,
@@ -48,6 +47,7 @@ from services.reports import (
     ScopedRulesSelector,
     ShardsCollectionDataSource,
     ShardsCollectionProvider,
+    EmptyOperationalReportGenerator,
 )
 from services.resources import (
     CloudResource,
@@ -428,9 +428,7 @@ class MetricsCollector:
                     'Cannot complete rules report because correspond operational is not found'
                 )
             elif rep.type is ReportType.OPERATIONAL_RULES:
-                data['resources_violated'] = ov[1]['data'][
-                    'resources_violated'
-                ]
+                data['resources_violated'] = ov[1]['data']['resources_violated']
                 for rule in data['data']:
                     rule_meta = ctx.metadata.rule(rule.policy)
                     rule.service = (
@@ -949,7 +947,7 @@ class MetricsCollector:
 
         _LOG.info('Generating project resources reports for all tenant groups')
         ctx.add_reports(
-            self.project_resources(
+            self.project_resources_with_new_schema(
                 ctx=ctx,
                 operational_reports=list(
                     ctx.iter_reports(typ=ReportType.OPERATIONAL_RESOURCES)
@@ -1375,12 +1373,9 @@ class MetricsCollector:
                     'last_scan_date': item[1]['metadata'].last_scan_date,
                     'activated_regions': item[1]['metadata'].activated_regions,
                     'total_scans': item[1]['metadata'].finished_scans,
-                    'failed_scans': item[1]['metadata'].finished_scans
-                    - item[1]['metadata'].succeeded_scans,
+                    'failed_scans': item[1]['metadata'].finished_scans - item[1]['metadata'].succeeded_scans,
                     'succeeded_scans': item[1]['metadata'].succeeded_scans,
-                    'resources_violated': item[1]['data'][
-                        'resources_violated'
-                    ],
+                    'resources_violated': item[1]['data']['resources_violated'],
                     'regions_data': {
                         r: {
                             'severity_data': d['resources'],
@@ -1452,6 +1447,7 @@ class MetricsCollector:
                 {'outdated_tenants': list(outdated_tenants), 'data': data},
             )
 
+    # TODO: rewrite to not rely on operational resources
     def project_resources(
         self,
         ctx: MetricsContext,
@@ -2407,3 +2403,80 @@ class MetricsCollector:
             self._platforms_cache.clear()
             self._rulesets_cache.clear()
         return {}
+
+    # NOTE: This function is just temporary solution and very inefficient
+    # TODO: rewrite previous project_resources function without operational report
+    def project_resources_with_new_schema(
+        self,
+        ctx: MetricsContext,
+        operational_reports: list[tuple[ReportMetrics, dict]],
+        report_type: ReportType,
+    ) -> ReportsGen:
+        assert all(
+            r[0].type is ReportType.OPERATIONAL_RESOURCES
+            for r in operational_reports
+        )
+
+        # they are totally the same as operational compliance
+        start = report_type.start(ctx.now)
+        end = report_type.end(ctx.now)
+        dn_to_reports = {}
+        for item in operational_reports:
+            tenant = cast(Tenant, self._get_tenant(item[0].tenant))
+            dn_to_reports.setdefault(
+                tenant.display_name_to_lower.lower(), []
+            ).append(item)
+
+        for dn, reports in dn_to_reports.items():
+            data = self.base_cloud_payload_dict()
+            tenants = set()
+            for item in reports:
+                tenant = cast(Tenant, self._get_tenant(item[0].tenant))
+                tenants.add(tenant.name)
+
+                policies_dict = {}
+                for policy in item[1]['metadata'].rules.violated:
+                    policies_dict[policy.id] = {
+                        'description': policy.description,
+                        'severity': policy.severity.value,
+                    }
+                policies_data = {}
+                for resource in item[1]['data']:
+                    for policy in resource['violations']:
+                        if policy['policy'] in policies_data:
+                            region = policies_data[policy['policy']]['regions_data']
+                            if resource['region'] not in region:
+                                region[resource['region']] = {
+                                    'total_violated_resources': 1
+                                }
+                            else:
+                                region[resource['region']]['total_violated_resources'] += 1
+                        else:
+                            policies_data[policy['policy']] = {
+                                'policy': policy['policy'],
+                                'description': policies_dict[policy['policy']]['description'],
+                                'severity': policies_dict[policy['policy']]['severity'],
+                                'resource_type': resource['service'],
+                                'regions_data': {
+                                    resource['region']: {'total_violated_resources': 1}
+                                },
+                            }
+                data[tenant_cloud(tenant).value] = {
+                    'account_id': item[1]['id'],
+                    'tenant_name': tenant.name,
+                    'last_scan_date': item[1]['metadata'].last_scan_date,
+                    'activated_regions': item[1]['metadata'].activated_regions,
+                    'data': list(policies_data.values()),
+                }
+
+            yield (
+                self._rms.create(
+                    key=ReportMetrics.build_key_for_project(
+                        report_type, ctx.customer.name, dn
+                    ),
+                    end=end,
+                    start=start,
+                    tenants=tenants,
+                ),
+                {'outdated_tenants': [], 'data': data},
+            )

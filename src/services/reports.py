@@ -345,22 +345,43 @@ class ResourcesReportGenerator(ReportVisitor[Generator[dict, None, None]]):
         meta: dict[str, RuleMeta],
         **kwargs,
     ) -> Generator[dict, None, None]:
-        for rule in rule_resources:
+        """
+        Yields dict items. Each item is a unique resource with a list
+        of rules it violates
+        """
+        unique_resources_dict = dict()
+        for rule, resources in rule_resources.items():
             if self.scope is not None and rule not in self.scope:
                 continue
-            rm = meta.get(rule, {})
-            rm2 = self._metadata.rule(rule)
-            by_region = {}
-            for r in rule_resources[rule]:
-                by_region.setdefault(r.location, []).append(
-                    r.accept(self._view, report_fields=rm2.report_fields)
+            for resource in resources:
+                unique_resources_dict.setdefault(resource, list()).append(
+                    (rule, resource.sync_date)
                 )
+        sev_key = cmp_to_key(SeverityCmp())
+
+        for resource, rules in unique_resources_dict.items():
+            # think we can assume that service and report fields of
+            # same resource type are the same independently on rules
+            rm = self._metadata.rule(rules[0][0])
+            res = resource.accept(self._view, report_fields=rm.report_fields)
+            res.pop('sre:date', None)
+
+            sev = max(
+                [self._metadata.rule(r[0]).severity.value for r in rules],
+                key=sev_key,
+            )
+
             yield {
-                'policy': rule,
-                'resource_type': service_from_resource_type(rm['resource']),
-                'description': rm.get('description') or '',
-                'severity': rm2.severity.value,
-                'resources': by_region,
+                'region': resource.location,
+                'resource_type': resource.resource_type,
+                'service': rm.service
+                or service_from_resource_type(resource.resource_type),
+                'resource': res,
+                'severity': sev,
+                'violations': [
+                    {'policy': rule[0], 'sre:date': rule[1]} for rule in rules
+                    # NOTE: this sre:date is not exact here, but more or less
+                ],
             }
 
     def visitKubernetesReport(
@@ -372,9 +393,7 @@ class ResourcesReportGenerator(ReportVisitor[Generator[dict, None, None]]):
         **kwargs,
     ) -> Generator[dict, None, None]:
         for res in self.visitDefault(report, rule_resources, meta, **kwargs):
-            res['resources'] = list(
-                chain.from_iterable(res['resources'].values())
-            )
+            res.pop('region', None)
             yield res
 
 

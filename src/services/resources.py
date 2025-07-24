@@ -417,12 +417,21 @@ class MaestroReportResourceView(ResourceVisitor[dict]):
         return dct
 
 
-def load_cc_providers():
-    from c7n.resources import load_available
+_CC_PROVIDERS_LOADED = False
 
-    _LOG.info('Going to load all available Cloud Custodian providers')
-    load_available(resources=True)
-    _LOG.info('Providers were loaded')
+
+def load_cc_providers():
+    global _CC_PROVIDERS_LOADED
+
+    if not _CC_PROVIDERS_LOADED:
+        from c7n.resources import load_available
+
+        _LOG.info('Going to load all available Cloud Custodian providers')
+        loaded = load_available(resources=True)
+        _CC_PROVIDERS_LOADED = True
+        _LOG.info('Loaded providers: ' + ', '.join(loaded))
+    else:
+        _LOG.info('Cloud Custodian providers were already loaded')
 
 
 def prepare_resource_type(rt: str, cloud: Cloud) -> str:

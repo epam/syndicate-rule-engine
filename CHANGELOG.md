@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [5.12.0] - 2025-07-17
 - added severity, service and resource type to operational rules report
 - changed operational overview report to new format
+- changed operational resources to correspond to overview
 
 
 ## [5.11.0] - 2025-06-13
