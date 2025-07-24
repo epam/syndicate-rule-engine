@@ -416,7 +416,9 @@ class MaestroReportResourceView(ResourceVisitor[dict]):
         dct['sre:date'] = resource.sync_date
         return dct
 
+
 _CC_PROVIDERS_LOADED = False
+
 
 def load_cc_providers():
     global _CC_PROVIDERS_LOADED
