@@ -58,9 +58,8 @@ def collect_metrics():
 def delete_expired_metrics():
     ExpiredMetricsCleaner.build().__call__()
 
+
 @app.task
-def collect_resources(tenant_name: str):
-    CustodianResourceCollector.build().collect_tenant_resources(
-        tenant_name=tenant_name
-    )
+def collect_resources():
+    CustodianResourceCollector.build().collect_all_resources()
 

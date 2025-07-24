@@ -2,7 +2,6 @@ from http import HTTPStatus
 from datetime import datetime
 
 from modular_sdk.modular import ModularServiceProvider
-from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
 
 from handlers import AbstractHandler, Mapping
@@ -50,28 +49,19 @@ class ResourceHandler(AbstractHandler):
             },
         }
 
-    def _validate_customer(self, customer_name: str | None) -> Customer | None:
-        if not customer_name:
-            return None
-
-        customer = self._ms.customer_service().get(customer_name)
-        if not customer:
-            raise ValueError(f'Customer {customer_name} does not exist')
-        return customer
-
     def _validate_tenant(
-        self, tenant_name: str | None, customer: Customer | None = None
+        self, tenant_name: str | None, customer: str | None = None
     ) -> Tenant | None:
         if not tenant_name:
             return None
 
         tenant = self._ms.tenant_service().get(tenant_name)
-        if not tenant:
+        if not tenant or not tenant.is_active:
             raise ValueError(f'Tenant {tenant_name} does not exist')
 
-        if customer and tenant.customer_name != customer.name:
+        if customer and tenant.customer_name != customer:
             raise ValueError(
-                f'Tenant {tenant_name} does not belong to customer {customer.name}'
+                f'Tenant {tenant_name} does not belong to customer {customer}'
             )
 
         return tenant
@@ -133,9 +123,8 @@ class ResourceHandler(AbstractHandler):
         Validate the event's parameters. Tries to add cloud provider prefix
         to resource_type if it is not specified.
         """
-        customer = self._validate_customer(event.customer_name)
 
-        tenant = self._validate_tenant(event.tenant_name, customer=customer)
+        tenant = self._validate_tenant(event.tenant_name, event.customer_id)
 
         pair = self._validate_resource_type(event.resource_type, tenant=tenant)
 
@@ -200,7 +189,7 @@ class ResourceHandler(AbstractHandler):
         _LOG.debug(f'Getting resource by ARN: {event.arn}')
 
         resource = self._rs.get_resource_by_arn(event.arn)
-        if not resource:
+        if not resource or resource.customer_name != event.customer_id:
             raise (
                 ResponseFactory(HTTPStatus.NOT_FOUND)
                 .message(f'Resource with ARN {event.arn} not found')

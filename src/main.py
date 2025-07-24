@@ -327,7 +327,7 @@ class InitMongo(ActionHandler):
     def __call__(self):
         _LOG.debug('Going to sync indexes with code')
         from models import PynamoDBToPymongoAdapterSingleton, BaseModel
-        from models.resource import create_caasresources_indexes
+        from models.resource import create_resources_indexes
 
         if not BaseModel.is_mongo_model():
             _LOG.warning('Cannot create indexes for DynamoDB')
@@ -341,7 +341,7 @@ class InitMongo(ActionHandler):
             creator.sync(model, always_keep=('_id_', 'next_run_time_1'))
         
         _LOG.info('Syncing indexes for CaaSResources')
-        create_caasresources_indexes(
+        create_resources_indexes(
             PynamoDBToPymongoAdapterSingleton.get_instance().mongo_database
         )
 

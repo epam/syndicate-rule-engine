@@ -19,12 +19,14 @@ from modular_sdk.models.tenant import Tenant
 from helpers.constants import Cloud, EXCLUDE_RESOURCE_TYPES, ResourcesCollectorType
 from helpers.log_helper import get_logger
 from helpers.regions import get_region_by_cloud_with_global
+from services.license_service import LicenseService
 from executor.job import (
     PolicyDict,
     job_initializer,
     PoliciesLoader,
     get_tenant_credentials,
 )
+from services.reports import ActivatedTenantsIterator
 from services import SP
 from services.resources_service import ResourcesService
 
@@ -88,6 +90,7 @@ class CollectMode(PolicyExecutionMode):
             )
         return resources
 
+
 class BaseResourceCollector(ABC):
     """
     Abstract base class for resource collectors.
@@ -115,6 +118,7 @@ class BaseResourceCollector(ABC):
         **kwargs
     ): ...
 
+
 # TODO: add resource retrieval for Kubernetes
 class CustodianResourceCollector(BaseResourceCollector):
     """
@@ -129,9 +133,11 @@ class CustodianResourceCollector(BaseResourceCollector):
         self,
         modular_service: ModularServiceProvider,
         resources_service: ResourcesService,
+        license_service: LicenseService
     ):
         self._ms = modular_service
         self._rs = resources_service
+        self._ls = license_service
 
     @property
     def collector_type(self) -> ResourcesCollectorType:
@@ -145,6 +151,7 @@ class CustodianResourceCollector(BaseResourceCollector):
         return CustodianResourceCollector(
             modular_service=SP.modular_client,
             resources_service=SP.resources_service,
+            license_service=SP.license_service,
         )
 
     @staticmethod
@@ -184,10 +191,9 @@ class CustodianResourceCollector(BaseResourceCollector):
             policy = {
                 'name': f'retrieve-{resource_type}',
                 'resource': resource_type,
-                'description': f'policy to retrieve all {resource_type} resources',
                 'mode': {'type': 'collect'},
             }
-            policy_dicts.append(PolicyDict(**policy))
+            policy_dicts.append(policy)
         
         # TODO: PolicyLoader ignores regions. We should get around that
         policy_loader = PoliciesLoader(cloud=cloud, regions=regions)
@@ -230,7 +236,6 @@ class CustodianResourceCollector(BaseResourceCollector):
             regions=regions,
         )
 
-    # TODO: better error handling
     def _process_policy(
         self,
         policy: Policy,
@@ -239,9 +244,11 @@ class CustodianResourceCollector(BaseResourceCollector):
         account_id: str,
         tenant_name: str,
         customer_name: str,
+        cloud: Cloud
     ) -> bool:
         try:
             resources = policy()
+            # TODO: process all resources returned from policy at once
             for data in resources:
                 self._load_scan(
                     data,
@@ -250,6 +257,7 @@ class CustodianResourceCollector(BaseResourceCollector):
                     account_id,
                     tenant_name,
                     customer_name,
+                    cloud
                 )
             return True
         except Exception as e:
@@ -265,8 +273,7 @@ class CustodianResourceCollector(BaseResourceCollector):
             raise ValueError(
                 f'No credentials found for tenant {tenant.name}'
             )
-
-        return TokenCredential(**credentials)
+        return credentials
 
     def _load_scan(
         self,
@@ -276,6 +283,7 @@ class CustodianResourceCollector(BaseResourceCollector):
         account_id: str,
         tenant_name: str,
         customer_name: str,
+        cloud: Cloud
     ):
         """
         Builds a CloudResource object from the data collected by the policy.
@@ -362,6 +370,7 @@ class CustodianResourceCollector(BaseResourceCollector):
                     account_id,
                     tenant.name,
                     tenant.customer_name,
+                    cloud
                 )
 
     def collect_all_resources(
@@ -374,8 +383,11 @@ class CustodianResourceCollector(BaseResourceCollector):
         """
         Collects resources for all tenants.
         """
-        tenants = self._ms.tenant_service().scan_tenants(only_active=True)
-        for tenant in tenants:
+        it = ActivatedTenantsIterator(
+            mc=self._ms,
+            ls=self._ls
+        )
+        for _, tenant, _ in it:
             try:
                 _LOG.info(f'Collecting resources for tenant: {tenant.name}')
                 self.collect_tenant_resources(

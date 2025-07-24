@@ -77,12 +77,11 @@ class ResourcesService(BaseDataService[Resource]):
     def get_resource_by_id(
         self, id: str, location: str, resource_type: str, account_id: str
     ) -> Resource | None:
-        res = Resource.get_nullable(
+        return Resource.get_nullable(
             hash_key=COMPOUND_KEYS_SEPARATOR.join(
                 [account_id, location, resource_type, id]
             )
         )
-        return res
 
     def get_resource_by_arn(self, arn: str) -> Resource | None:
         # NOTE: it's not actual scan, we use sparse index in mongo

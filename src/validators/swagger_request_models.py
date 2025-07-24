@@ -157,18 +157,18 @@ class TimeRangedMixin:
 
 
 class ResourcesGetModel(BasePaginationModel):
-    customer_name: str | None = Field(None)
-    tenant_name: str | None = Field(None)
-    resource_type: str | None = Field(
+    tenant_name: str = Field(None)
+    resource_type: str = Field(
         None,
         description='Cloud Custodian resource type with or without cloud prefix, e.g. aws.ec2 or ec2',
     )
-    location: str | None = Field(
+    location: str = Field(
         None,
         description='Location of the resource, e.g. us-east-1, eastus, europe-west1, etc.',
     )
-    name: str | None = Field(None)
-    id: str | None = Field(None)
+    name: str = Field(None)
+    id: str = Field(None)
+
 
 class ResourcesArnGetModel(BaseModel):
     arn: str

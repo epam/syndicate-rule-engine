@@ -1,18 +1,15 @@
 import hashlib
 
 from pynamodb.attributes import UnicodeAttribute, MapAttribute, NumberAttribute
-from pynamodb.indexes import GlobalSecondaryIndex, AllProjection
 from pymongo.database import Database
 import msgspec
 
 from helpers.constants import CAASEnv, Cloud, COMPOUND_KEYS_SEPARATOR, ResourcesCollectorType
-from helpers.log_helper import get_logger
 from models import BaseModel
 
-_LOG = get_logger(__name__)
 
 
-def create_caasresources_indexes(db: Database):
+def create_resources_indexes(db: Database):
     """
     Create a compound index on the 'CaaSResources' collection.
     The index is on 'id', 'name', 'location', 'resource_type', 'tenant_name'.
