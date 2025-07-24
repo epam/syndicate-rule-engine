@@ -1,144 +1,201 @@
 {
-  "data": [
-    {
-      "description": "Description for ecc-azure-310-asb_defender_open_source_rds",
-      "policy": "ecc-azure-310-asb_defender_open_source_rds",
-      "resource_type": "Defender Pricing",
-      "resources": {
-        "global": [
-          {
-            "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/OpenSourceRelationalDatabases",
-            "name": "OpenSourceRelationalDatabases",
-            "sre:date": 1729502354.6635
-          }
-        ]
-      },
-      "severity": "Unknown"
-    },
-    {
-      "description": "Description for ecc-azure-096-cis_sec_defender_azure_sql",
-      "policy": "ecc-azure-096-cis_sec_defender_azure_sql",
-      "resource_type": "Defender Pricing",
-      "resources": {
-        "global": [
-          {
-            "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/SqlServers",
-            "name": "SqlServers",
-            "sre:date": 1729502334.624495
-          }
-        ]
-      },
-      "severity": "Unknown"
-    },
-    {
-      "description": "Description for ecc-azure-376-cis_defender_cosmodb",
-      "policy": "ecc-azure-376-cis_defender_cosmodb",
-      "resource_type": "Defender Pricing",
-      "resources": {
-        "global": [
-          {
-            "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/CosmosDbs",
-            "name": "CosmosDbs",
-            "sre:date": 1729502359.150423
-          }
-        ]
-      },
-      "severity": "Unknown"
-    },
-    {
-      "description": "Description for ecc-azure-099-cis_sec_defender_aks",
-      "policy": "ecc-azure-099-cis_sec_defender_aks",
-      "resource_type": "Defender Pricing",
-      "resources": {
-        "global": [
-          {
-            "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/KubernetesService",
-            "name": "KubernetesService",
-            "sre:date": 1729502334.630253
-          }
-        ]
-      },
-      "severity": "Unknown"
-    },
-    {
-      "description": "Description for ecc-azure-213-asb_lt_defender_dns",
-      "policy": "ecc-azure-213-asb_lt_defender_dns",
-      "resource_type": "Defender Pricing",
-      "resources": {
-        "global": [
-          {
-            "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/Dns",
-            "name": "Dns",
-            "sre:date": 1729502348.720908
-          }
-        ]
-      },
-      "severity": "Unknown"
-    }
-  ],
-  "id": "3d615fa8-05c6-47ea-990d-9d162testing",
   "metadata": {
-    "activated_regions": [],
-    "finished_scans": 2,
-    "in_progress_scans": 0,
-    "is_automatic_scans_enabled": true,
-    "last_scan_date": "2025-05-25T00:46:25.324274Z",
     "licenses": [
       {
-        "description": "Testing license",
         "id": "license-key",
-        "jobs": 10,
-        "per": "DAY",
         "rulesets": [
           "AZURE"
         ],
         "total_rules": 10,
-        "valid_from": "2025-05-25T12:46:26.850750Z",
-        "valid_until": "2100-02-01T15:24:26.175778Z"
+        "jobs": 10,
+        "per": "DAY",
+        "description": "Testing license",
+        "valid_until": "2100-02-01T15:24:26.175778Z",
+        "valid_from": "2025-07-21T12:39:26.974694Z"
       }
     ],
+    "is_automatic_scans_enabled": true,
+    "in_progress_scans": 0,
+    "finished_scans": 2,
+    "succeeded_scans": 1,
+    "last_scan_date": "2025-07-21T00:39:26.603795Z",
+    "activated_regions": [],
     "rules": {
+      "total": 10,
       "disabled": [],
-      "failed": [
-        {
-          "description": "Description for ecc-azure-125-nsg_mysql",
-          "error": "AccessDenied exception",
-          "error_type": "ACCESS",
-          "id": "ecc-azure-125-nsg_mysql",
-          "region": "global",
-          "when": 1729502337.143594
-        },
-        {
-          "description": "Description for ecc-azure-313-cis_postgresql_log_min_messages",
-          "error": "AccessDenied exception",
-          "error_type": "ACCESS",
-          "id": "ecc-azure-313-cis_postgresql_log_min_messages",
-          "region": "global",
-          "when": 1729502354.665709
-        }
-      ],
       "passed": [
         {
-          "description": "Description for ecc-azure-347-mysql_cmk",
           "id": "ecc-azure-347-mysql_cmk",
+          "description": "Description for ecc-azure-347-mysql_cmk",
           "region": "global",
           "when": 1729502356.692846
         },
         {
-          "description": "Description for ecc-azure-109-cis_sa_logging_blob",
           "id": "ecc-azure-109-cis_sa_logging_blob",
+          "description": "Description for ecc-azure-109-cis_sa_logging_blob",
           "region": "global",
           "when": 1729502335.680994
         },
         {
-          "description": "Description for ecc-azure-358-synapse_workspace_managed_vnet",
           "id": "ecc-azure-358-synapse_workspace_managed_vnet",
+          "description": "Description for ecc-azure-358-synapse_workspace_managed_vnet",
           "region": "global",
           "when": 1729502357.324336
         }
       ],
-      "total": 10
+      "failed": [
+        {
+          "id": "ecc-azure-125-nsg_mysql",
+          "description": "Description for ecc-azure-125-nsg_mysql",
+          "region": "global",
+          "when": 1729502337.143594,
+          "error_type": "ACCESS",
+          "error": "AccessDenied exception"
+        },
+        {
+          "id": "ecc-azure-313-cis_postgresql_log_min_messages",
+          "description": "Description for ecc-azure-313-cis_postgresql_log_min_messages",
+          "region": "global",
+          "when": 1729502354.665709,
+          "error_type": "ACCESS",
+          "error": "AccessDenied exception"
+        }
+      ],
+      "violated": [
+        {
+          "id": "ecc-azure-310-asb_defender_open_source_rds",
+          "description": "Description for ecc-azure-310-asb_defender_open_source_rds",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "severity": "Unknown",
+          "service": "Defender Pricing",
+          "resource_type": "azure.defender-pricing",
+          "when": 1729502354.6635
+        },
+        {
+          "id": "ecc-azure-096-cis_sec_defender_azure_sql",
+          "description": "Description for ecc-azure-096-cis_sec_defender_azure_sql",
+          "remediation": "Remediation text here",
+          "remediation_complexity": "Medium-High",
+          "severity": "Unknown",
+          "service": "Defender Pricing",
+          "resource_type": "azure.defender-pricing",
+          "when": 1729502334.624495
+        },
+        {
+          "id": "ecc-azure-376-cis_defender_cosmodb",
+          "description": "Description for ecc-azure-376-cis_defender_cosmodb",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "severity": "Unknown",
+          "service": "Defender Pricing",
+          "resource_type": "azure.defender-pricing",
+          "when": 1729502359.150423
+        },
+        {
+          "id": "ecc-azure-099-cis_sec_defender_aks",
+          "description": "Description for ecc-azure-099-cis_sec_defender_aks",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "severity": "Unknown",
+          "service": "Defender Pricing",
+          "resource_type": "azure.defender-pricing",
+          "when": 1729502334.630253
+        },
+        {
+          "id": "ecc-azure-213-asb_lt_defender_dns",
+          "description": "Description for ecc-azure-213-asb_lt_defender_dns",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "severity": "Unknown",
+          "service": "Defender Pricing",
+          "resource_type": "azure.defender-pricing",
+          "when": 1729502348.720908
+        }
+      ]
+    }
+  },
+  "data": [
+    {
+      "region": "global",
+      "resource_type": "azure.defender-pricing",
+      "service": "Defender Pricing",
+      "severity": "Unknown",
+      "resource": {
+        "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/OpenSourceRelationalDatabases",
+        "name": "OpenSourceRelationalDatabases"
+      },
+      "violations": [
+        {
+          "policy": "ecc-azure-310-asb_defender_open_source_rds",
+          "sre:date": 1729502354.6635
+        }
+      ]
     },
-    "succeeded_scans": 1
-  }
+    {
+      "region": "global",
+      "resource_type": "azure.defender-pricing",
+      "service": "Defender Pricing",
+      "severity": "Unknown",
+      "resource": {
+        "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/SqlServers",
+        "name": "SqlServers"
+      },
+      "violations": [
+        {
+          "policy": "ecc-azure-096-cis_sec_defender_azure_sql",
+          "sre:date": 1729502334.624495
+        }
+      ]
+    },
+    {
+      "region": "global",
+      "resource_type": "azure.defender-pricing",
+      "service": "Defender Pricing",
+      "severity": "Unknown",
+      "resource": {
+        "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/CosmosDbs",
+        "name": "CosmosDbs"
+      },
+      "violations": [
+        {
+          "policy": "ecc-azure-376-cis_defender_cosmodb",
+          "sre:date": 1729502359.150423
+        }
+      ]
+    },
+    {
+      "region": "global",
+      "resource_type": "azure.defender-pricing",
+      "service": "Defender Pricing",
+      "severity": "Unknown",
+      "resource": {
+        "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/KubernetesService",
+        "name": "KubernetesService"
+      },
+      "violations": [
+        {
+          "policy": "ecc-azure-099-cis_sec_defender_aks",
+          "sre:date": 1729502334.630253
+        }
+      ]
+    },
+    {
+      "region": "global",
+      "resource_type": "azure.defender-pricing",
+      "service": "Defender Pricing",
+      "severity": "Unknown",
+      "resource": {
+        "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/Dns",
+        "name": "Dns"
+      },
+      "violations": [
+        {
+          "policy": "ecc-azure-213-asb_lt_defender_dns",
+          "sre:date": 1729502348.720908
+        }
+      ]
+    }
+  ],
+  "id": "3d615fa8-05c6-47ea-990d-9d162testing"
 }

@@ -1,13 +1,15 @@
 {
   "succeeded_scans": 1,
-  "outdated_tenants": [],
   "activated_regions": [],
-  "last_scan_date": "2025-02-04T00:16:00.289094Z",
+  "last_scan_date": "2025-07-14T00:20:39.006558Z",
   "id": "3d615fa8-05c6-47ea-990d-9d162testing",
   "data": [
     {
       "policy": "Description for ecc-azure-347-mysql_cmk",
       "region": "global",
+      "resource_type": "azure.mysql-flexibleserver",
+      "service": "Mysql Flexibleserver",
+      "severity": "Unknown",
       "invocations": 1,
       "succeeded_invocations": 1,
       "failed_invocations": 0,
@@ -24,6 +26,9 @@
     {
       "policy": "Description for ecc-azure-109-cis_sa_logging_blob",
       "region": "global",
+      "resource_type": "azure.storage",
+      "service": "Storage",
+      "severity": "Unknown",
       "invocations": 1,
       "succeeded_invocations": 1,
       "failed_invocations": 0,
@@ -40,6 +45,9 @@
     {
       "policy": "Description for ecc-azure-358-synapse_workspace_managed_vnet",
       "region": "global",
+      "resource_type": "azure.synapse",
+      "service": "Synapse",
+      "severity": "Unknown",
       "invocations": 1,
       "succeeded_invocations": 1,
       "failed_invocations": 0,
@@ -56,6 +64,9 @@
     {
       "policy": "Description for ecc-azure-125-nsg_mysql",
       "region": "global",
+      "resource_type": "azure.networksecuritygroup",
+      "service": "Networksecuritygroup",
+      "severity": "Unknown",
       "invocations": 1,
       "succeeded_invocations": 0,
       "failed_invocations": 1,
@@ -72,6 +83,9 @@
     {
       "policy": "Description for ecc-azure-313-cis_postgresql_log_min_messages",
       "region": "global",
+      "resource_type": "azure.postgresql-server",
+      "service": "Postgresql Server",
+      "severity": "Unknown",
       "invocations": 1,
       "succeeded_invocations": 0,
       "failed_invocations": 1,
@@ -88,6 +102,9 @@
     {
       "policy": "Description for ecc-azure-310-asb_defender_open_source_rds",
       "region": "global",
+      "resource_type": "azure.defender-pricing",
+      "service": "Defender Pricing",
+      "severity": "Unknown",
       "invocations": 1,
       "succeeded_invocations": 1,
       "failed_invocations": 0,
@@ -104,6 +121,9 @@
     {
       "policy": "Description for ecc-azure-096-cis_sec_defender_azure_sql",
       "region": "global",
+      "resource_type": "azure.defender-pricing",
+      "service": "Defender Pricing",
+      "severity": "Unknown",
       "invocations": 1,
       "succeeded_invocations": 1,
       "failed_invocations": 0,
@@ -120,6 +140,9 @@
     {
       "policy": "Description for ecc-azure-376-cis_defender_cosmodb",
       "region": "global",
+      "resource_type": "azure.defender-pricing",
+      "service": "Defender Pricing",
+      "severity": "Unknown",
       "invocations": 1,
       "succeeded_invocations": 1,
       "failed_invocations": 0,
@@ -136,6 +159,9 @@
     {
       "policy": "Description for ecc-azure-099-cis_sec_defender_aks",
       "region": "global",
+      "resource_type": "azure.defender-pricing",
+      "service": "Defender Pricing",
+      "severity": "Unknown",
       "invocations": 1,
       "succeeded_invocations": 1,
       "failed_invocations": 0,
@@ -152,6 +178,9 @@
     {
       "policy": "Description for ecc-azure-213-asb_lt_defender_dns",
       "region": "global",
+      "resource_type": "azure.defender-pricing",
+      "service": "Defender Pricing",
+      "severity": "Unknown",
       "invocations": 1,
       "succeeded_invocations": 1,
       "failed_invocations": 0,
@@ -166,5 +195,6 @@
       "average_resources_failed": 1
     }
   ],
+  "outdated_tenants": [],
   "resources_violated": 5
 }
