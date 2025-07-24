@@ -6,7 +6,6 @@ from itertools import chain
 from typing import TYPE_CHECKING, Generator, Iterable, Iterator, cast
 
 import msgspec
-from modular_sdk.commons.constants import ParentType
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.modular import ModularServiceProvider
@@ -24,7 +23,6 @@ from helpers.constants import (
 )
 from helpers.log_helper import get_logger
 from helpers.reports import service_from_resource_type
-from helpers.system_customer import SystemCustomer
 from helpers.time_helper import utc_datetime, utc_iso
 from models.metrics import ReportMetrics
 from models.ruleset import Ruleset
@@ -37,7 +35,9 @@ from services.modular_helpers import tenant_cloud
 from services.platform_service import Platform, PlatformService
 from services.report_service import ReportService
 from services.reports import (
+    ActivatedTenantsIterator,
     AttacksReportGenerator,
+    EmptyOperationalReportGenerator,
     JobMetricsDataSource,
     KubernetesReport,
     Report,
@@ -47,7 +47,6 @@ from services.reports import (
     ScopedRulesSelector,
     ShardsCollectionDataSource,
     ShardsCollectionProvider,
-    EmptyOperationalReportGenerator,
 )
 from services.resources import (
     CloudResource,
@@ -281,6 +280,8 @@ class MetricsCollector:
         self._platforms_cache = {}
         self._rulesets_cache = {}
 
+        self._entities_it = ActivatedTenantsIterator(mc=self._mc, ls=self._ls)
+
     @staticmethod
     def nlargest(
         items: list[dict], n: int, reverse: bool = False
@@ -428,7 +429,9 @@ class MetricsCollector:
                     'Cannot complete rules report because correspond operational is not found'
                 )
             elif rep.type is ReportType.OPERATIONAL_RULES:
-                data['resources_violated'] = ov[1]['data']['resources_violated']
+                data['resources_violated'] = ov[1]['data'][
+                    'resources_violated'
+                ]
                 for rule in data['data']:
                     rule_meta = ctx.metadata.rule(rule.policy)
                     rule.service = (
@@ -438,80 +441,6 @@ class MetricsCollector:
                     rule.severity = rule_meta.severity
 
             yield rep, data
-
-    def _get_license_activation(
-        self, lic: License
-    ) -> modular_helpers.ActivationInfo:
-        it = self._mc.parent_service().i_list_application_parents(
-            application_id=lic.license_key,
-            type_=ParentType.CUSTODIAN_LICENSES,
-            rate_limit=3,
-        )
-        it = filter(lambda p: p.customer_id == lic.customer, it)
-        # either ALL & [cloud] & [exclude] or tenant_names
-        # Should not be many
-
-        return modular_helpers.get_activation_info(it)
-
-    def _iter_tenants_for_metrics(
-        self, ctx: MetricsContext
-    ) -> Generator[tuple[Tenant, tuple[License, ...]], None, None]:
-        """
-        Yields tenants for which metrics must be collected.
-        Currently, we collect metrics only for tenants that are activated
-        for maestro scans
-        """
-        if not ctx.licenses:
-            _LOG.warning(
-                'No licenses exist inside the customer, no metrics will be collected'
-            )
-            return
-        mapping = {
-            lic: self._get_license_activation(lic) for lic in ctx.licenses
-        }
-        if any([info.is_all for info in mapping.values()]):
-            _LOG.info('At least one license is activated for all tenants')
-            excluding = set.union(
-                *[info.excluding for info in mapping.values()]
-            )
-            clouds = set.union(*[info.clouds for info in mapping.values()])
-            # TODO: use method from modular_sdk
-            fc = None
-            if clouds:
-                fc &= Tenant.cloud.is_in(*clouds)
-            if excluding:
-                fc &= ~Tenant.name.is_in(*excluding)
-            tenants = Tenant.customer_name_index.query(
-                hash_key=ctx.customer.name, filter_condition=fc
-            )
-        else:
-            including = set.union(
-                *[info.including for info in mapping.values()]
-            )
-            excluding = set.union(
-                *[info.excluding for info in mapping.values()]
-            )
-            names = including - excluding
-
-            tenants = filter(None, map(self._mc.tenant_service().get, names))
-        for tenant in tenants:
-            applicable = []
-            for lic in mapping:
-                if not self._ls.is_subject_applicable(
-                    lic, customer=ctx.customer.name, tenant_name=tenant.name
-                ):
-                    _LOG.warning(
-                        f'Tenant {tenant.name} is not allowed for license'
-                    )
-                    continue
-                if mapping[lic].is_active_for(tenant):
-                    applicable.append(lic)
-            if not applicable:
-                _LOG.warning(
-                    f'Some license is activated for {tenant.name} not no licenses is applicable for it'
-                )
-                continue
-            yield tenant, tuple(applicable)
 
     def _get_license_cloud_metadata(
         self, lic: License, cloud: Cloud
@@ -857,7 +786,9 @@ class MetricsCollector:
             f'Going to collect operational reports for customer {ctx.customer.name}'
         )
 
-        for tenant, licenses in self._iter_tenants_for_metrics(ctx):
+        for tenant, licenses in self._entities_it.iter_tenant_licenses(
+            ctx.customer, ctx.licenses
+        ):
             _LOG.info(
                 f'Going to collect operational reports for tenant {tenant.name}'
             )
@@ -1373,9 +1304,12 @@ class MetricsCollector:
                     'last_scan_date': item[1]['metadata'].last_scan_date,
                     'activated_regions': item[1]['metadata'].activated_regions,
                     'total_scans': item[1]['metadata'].finished_scans,
-                    'failed_scans': item[1]['metadata'].finished_scans - item[1]['metadata'].succeeded_scans,
+                    'failed_scans': item[1]['metadata'].finished_scans
+                    - item[1]['metadata'].succeeded_scans,
                     'succeeded_scans': item[1]['metadata'].succeeded_scans,
-                    'resources_violated': item[1]['data']['resources_violated'],
+                    'resources_violated': item[1]['data'][
+                        'resources_violated'
+                    ],
                     'regions_data': {
                         r: {
                             'severity_data': d['resources'],
@@ -2375,15 +2309,10 @@ class MetricsCollector:
     def __call__(self):
         _LOG.info('Starting metrics collector')
         now = utc_datetime()
-
-        for customer in self._mc.customer_service().i_get_customer(
-            is_active=True
+        for customer, licenses in self._entities_it.iter_customer_licenses(
+            True
         ):
-            if customer.name == SystemCustomer.get_name():
-                _LOG.info(f'Skipping metrics for {customer.name}')
-                continue
             _LOG.info(f'Collecting metrics for customer: {customer.name}')
-            licenses = tuple(self._ls.iter_customer_licenses(customer.name))
             if not licenses:
                 _LOG.warning(f'Customer {customer.name} has no licenses')
             metadata = self._ls.get_metadata_for_licenses(licenses)
@@ -2444,21 +2373,31 @@ class MetricsCollector:
                 for resource in item[1]['data']:
                     for policy in resource['violations']:
                         if policy['policy'] in policies_data:
-                            region = policies_data[policy['policy']]['regions_data']
+                            region = policies_data[policy['policy']][
+                                'regions_data'
+                            ]
                             if resource['region'] not in region:
                                 region[resource['region']] = {
                                     'total_violated_resources': 1
                                 }
                             else:
-                                region[resource['region']]['total_violated_resources'] += 1
+                                region[resource['region']][
+                                    'total_violated_resources'
+                                ] += 1
                         else:
                             policies_data[policy['policy']] = {
                                 'policy': policy['policy'],
-                                'description': policies_dict[policy['policy']]['description'],
-                                'severity': policies_dict[policy['policy']]['severity'],
+                                'description': policies_dict[policy['policy']][
+                                    'description'
+                                ],
+                                'severity': policies_dict[policy['policy']][
+                                    'severity'
+                                ],
                                 'resource_type': resource['service'],
                                 'regions_data': {
-                                    resource['region']: {'total_violated_resources': 1}
+                                    resource['region']: {
+                                        'total_violated_resources': 1
+                                    }
                                 },
                             }
                 data[tenant_cloud(tenant).value] = {

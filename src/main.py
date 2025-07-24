@@ -304,6 +304,7 @@ class InitMongo(ActionHandler):
         from models.scheduled_job import ScheduledJob
         from models.setting import Setting
         from models.user import User
+        from models.resource import Resource
 
         return (
             BatchResults,
@@ -320,11 +321,13 @@ class InitMongo(ActionHandler):
             Setting,
             User,
             ReportMetrics,
+            Resource
         )
 
     def __call__(self):
         _LOG.debug('Going to sync indexes with code')
         from models import PynamoDBToPymongoAdapterSingleton, BaseModel
+        from models.resource import create_resources_indexes
 
         if not BaseModel.is_mongo_model():
             _LOG.warning('Cannot create indexes for DynamoDB')
@@ -336,6 +339,11 @@ class InitMongo(ActionHandler):
         for model in self.models():
             _LOG.info(f'Syncing indexes for {model.Meta.table_name}')
             creator.sync(model, always_keep=('_id_', 'next_run_time_1'))
+        
+        _LOG.info('Syncing indexes for CaaSResources')
+        create_resources_indexes(
+            PynamoDBToPymongoAdapterSingleton.get_instance().mongo_database
+        )
 
 
 class Run(ActionHandler):

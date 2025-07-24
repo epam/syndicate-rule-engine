@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from services.license_service import LicenseService
     from services.rabbitmq_service import RabbitMQService
     from services.report_service import ReportService
+    from services.resources_service import ResourcesService
     from services.rule_meta_service import RuleService
     from services.rule_source_service import RuleSourceService
     from services.ruleset_service import RulesetService
@@ -309,3 +310,8 @@ class ServiceProvider(metaclass=SingletonMeta):
     @cached_property
     def tls(self) -> threading.local:
         return threading.local()
+    
+    @cached_property
+    def resources_service(self) -> 'ResourcesService':
+        from services.resources_service import ResourcesService
+        return ResourcesService()
