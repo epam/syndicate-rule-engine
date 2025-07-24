@@ -38,6 +38,7 @@ from services.platform_service import Platform, PlatformService
 from services.report_service import ReportService
 from services.reports import (
     AttacksReportGenerator,
+    EmptyOperationalReportGenerator,
     JobMetricsDataSource,
     KubernetesReport,
     Report,
@@ -47,7 +48,6 @@ from services.reports import (
     ScopedRulesSelector,
     ShardsCollectionDataSource,
     ShardsCollectionProvider,
-    EmptyOperationalReportGenerator,
 )
 from services.resources import (
     CloudResource,
@@ -428,7 +428,9 @@ class MetricsCollector:
                     'Cannot complete rules report because correspond operational is not found'
                 )
             elif rep.type is ReportType.OPERATIONAL_RULES:
-                data['resources_violated'] = ov[1]['data']['resources_violated']
+                data['resources_violated'] = ov[1]['data'][
+                    'resources_violated'
+                ]
                 for rule in data['data']:
                     rule_meta = ctx.metadata.rule(rule.policy)
                     rule.service = (
@@ -1373,9 +1375,12 @@ class MetricsCollector:
                     'last_scan_date': item[1]['metadata'].last_scan_date,
                     'activated_regions': item[1]['metadata'].activated_regions,
                     'total_scans': item[1]['metadata'].finished_scans,
-                    'failed_scans': item[1]['metadata'].finished_scans - item[1]['metadata'].succeeded_scans,
+                    'failed_scans': item[1]['metadata'].finished_scans
+                    - item[1]['metadata'].succeeded_scans,
                     'succeeded_scans': item[1]['metadata'].succeeded_scans,
-                    'resources_violated': item[1]['data']['resources_violated'],
+                    'resources_violated': item[1]['data'][
+                        'resources_violated'
+                    ],
                     'regions_data': {
                         r: {
                             'severity_data': d['resources'],
