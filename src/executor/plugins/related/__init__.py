@@ -5,13 +5,9 @@ from c7n.filters import Filter
 from c7n.filters.core import OPERATORS
 from c7n.utils import jmespath_search, type_schema
 
-from helpers.log_helper import get_logger
-
 if TYPE_CHECKING:
     from c7n.manager import ResourceManager
     from c7n.registry import PluginRegistry
-
-_LOG = get_logger(__name__)
 
 
 class GenericRelatedFilter(Filter):
@@ -126,8 +122,8 @@ def _iter_loaded_resources(
     assert reg.plugin_type == 'c7n.providers', (
         'Expected a registry for c7n.providers'
     )
-    for provider in reg.values():
-        for res in provider.resources.values():
+    for _, provider in reg.items():
+        for _, res in provider.resources.items():
             yield res
 
 
@@ -137,18 +133,11 @@ def register() -> None:
     """
     from c7n.provider import clouds
 
-    _LOG.info('Going to resister GenericRelatedFilter for all resources')
     for res in _iter_loaded_resources(clouds):
         if not hasattr(res.filter_registry, 'register') or not callable(
             res.filter_registry.register
         ):
-            _LOG.warning(
-                f'Skipping {res} because it does not have a filter registry'
-            )
             continue
         if 'related' in res.filter_registry:
-            _LOG.warning(
-                f'Skipping {res} because it already has a "related" filter registered'
-            )
             continue
         res.filter_registry.register('related', GenericRelatedFilter)
