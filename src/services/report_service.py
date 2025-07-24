@@ -7,7 +7,7 @@ from typing import BinaryIO, Generator, Iterable
 from modular_sdk.models.tenant import Tenant
 
 from helpers.log_helper import get_logger
-from helpers.constants import Cloud, PolicyErrorType, ReportFormat
+from helpers.constants import Cloud, PolicyErrorType, ReportFormat, Severity
 from helpers.reports import Standard
 from models.batch_results import BatchResults
 from models.job import Job
@@ -57,6 +57,9 @@ class StatisticsItem(msgspec.Struct, kw_only=True, eq=False):
 class AverageStatisticsItem(msgspec.Struct, kw_only=True, eq=False):
     policy: str
     region: str
+    resource_type: str | msgspec.UnsetType = msgspec.UNSET
+    service: str | msgspec.UnsetType = msgspec.UNSET
+    severity: Severity = Severity.UNKNOWN
     invocations: int
     succeeded_invocations: int
     failed_invocations: int

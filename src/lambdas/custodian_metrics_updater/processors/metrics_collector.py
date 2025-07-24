@@ -9,7 +9,7 @@ import msgspec
 from modular_sdk.commons.constants import ParentType
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
-from modular_sdk.modular import Modular
+from modular_sdk.modular import ModularServiceProvider
 
 from helpers.constants import (
     GLOBAL_REGION,
@@ -18,10 +18,13 @@ from helpers.constants import (
     Cloud,
     JobState,
     PolicyErrorType,
+    RemediationComplexity,
     ReportType,
+    Severity,
 )
-from helpers.system_customer import SystemCustomer
 from helpers.log_helper import get_logger
+from helpers.reports import service_from_resource_type
+from helpers.system_customer import SystemCustomer
 from helpers.time_helper import utc_datetime, utc_iso
 from models.metrics import ReportMetrics
 from models.ruleset import Ruleset
@@ -35,6 +38,7 @@ from services.platform_service import Platform, PlatformService
 from services.report_service import ReportService
 from services.reports import (
     AttacksReportGenerator,
+    EmptyOperationalReportGenerator,
     JobMetricsDataSource,
     KubernetesReport,
     Report,
@@ -162,9 +166,17 @@ class MetricsContext:
 
 class RuleCheck(msgspec.Struct, kw_only=True, frozen=True):
     id: str
-    description: str
-    region: str
-    when: float
+    description: str | msgspec.UnsetType = msgspec.UNSET
+    remediation: str | msgspec.UnsetType = msgspec.UNSET
+    remediation_complexity: RemediationComplexity | msgspec.UnsetType = (
+        msgspec.UNSET
+    )
+    severity: Severity | msgspec.UnsetType = msgspec.UNSET
+    service: str | msgspec.UnsetType = msgspec.UNSET
+    resource_type: str | msgspec.UnsetType = msgspec.UNSET
+
+    region: str | msgspec.UnsetType = msgspec.UNSET
+    when: float | msgspec.UnsetType = msgspec.UNSET
     error_type: PolicyErrorType | msgspec.UnsetType = msgspec.UNSET
     error: str | msgspec.UnsetType = msgspec.UNSET
     found: int | msgspec.UnsetType = msgspec.UNSET
@@ -186,8 +198,8 @@ class ReportRulesMetadata(msgspec.Struct, kw_only=True, frozen=True):
     disabled: tuple[str, ...] = ()
     passed: tuple[RuleCheck, ...] = ()
     failed: tuple[RuleCheck, ...] = ()
-
     violated: tuple[RuleCheck, ...] | msgspec.UnsetType = msgspec.UNSET
+
     not_executed: tuple[str, ...] | msgspec.UnsetType = msgspec.UNSET
 
 
@@ -249,7 +261,7 @@ class MetricsCollector:
 
     def __init__(
         self,
-        modular_client: Modular,
+        modular_client: ModularServiceProvider,
         ambiguous_job_service: AmbiguousJobService,
         report_service: ReportService,
         report_metrics_service: ReportMetricsService,
@@ -416,7 +428,17 @@ class MetricsCollector:
                     'Cannot complete rules report because correspond operational is not found'
                 )
             elif rep.type is ReportType.OPERATIONAL_RULES:
-                data['resources_violated'] = ov[1]['resources_violated']
+                data['resources_violated'] = ov[1]['data'][
+                    'resources_violated'
+                ]
+                for rule in data['data']:
+                    rule_meta = ctx.metadata.rule(rule.policy)
+                    rule.service = (
+                        rule_meta.service
+                        or service_from_resource_type(rule.resource_type)
+                    )
+                    rule.severity = rule_meta.severity
+
             yield rep, data
 
     def _get_license_activation(
@@ -547,8 +569,9 @@ class MetricsCollector:
             excluded.update(cs.value.get('rules') or ())
         return excluded
 
+    @staticmethod
     def _iter_failed_checks(
-        self, collection: 'ShardsCollection', scope: set[str]
+        collection: 'ShardsCollection', scope: set[str]
     ) -> Generator[RuleCheck, None, None]:
         meta = collection.meta
         for part in collection.iter_error_parts():
@@ -564,8 +587,9 @@ class MetricsCollector:
                 error=part.error_message,
             )
 
+    @staticmethod
     def _iter_passed_checks(
-        self, collection: 'ShardsCollection', scope: set[str]
+        collection: 'ShardsCollection', scope: set[str]
     ) -> Generator[RuleCheck, None, None]:
         # NOTE: currently it skips failed checks even though we can include
         # them, and it will not violate any logic. It is more a matter of
@@ -587,8 +611,40 @@ class MetricsCollector:
                 when=part.timestamp,
             )
 
+    @staticmethod
+    def _iter_violated_checks(
+        collection: 'ShardsCollection', metadata: Metadata, scope: set[str]
+    ) -> Generator[RuleCheck, None, None]:
+        """
+        These duplicate the rules inside reports payload, but contains rules
+        metadata without duplicates
+        """
+        yielded: set[str] = set()
+        meta = collection.meta
+        for part in collection.iter_parts():
+            policy = part.policy
+            if (
+                (policy not in scope)
+                or len(part.resources) == 0
+                or (policy in yielded)
+            ):
+                continue
+            yielded.add(policy)
+            rm = metadata.rule(policy)
+            rt = meta[policy]['resource']
+            yield RuleCheck(
+                id=policy,
+                description=meta[policy].get('description') or '',
+                remediation=rm.remediation,
+                remediation_complexity=rm.remediation_complexity,
+                severity=rm.severity,
+                service=rm.service or service_from_resource_type(rt),
+                resource_type=rt,
+                when=part.timestamp,
+            )
+
+    @staticmethod
     def _get_rule_resources(
-        self,
         collection: 'ShardsCollection',
         cloud: Cloud,
         metadata: Metadata,
@@ -642,6 +698,7 @@ class MetricsCollector:
             ReportType.OPERATIONAL_FINOPS,
             ReportType.OPERATIONAL_ATTACKS,
             ReportType.OPERATIONAL_DEPRECATION,
+            ReportType.OPERATIONAL_OVERVIEW,
         )
         cloud = tenant_cloud(tenant)
         _licenses_meta = []
@@ -667,6 +724,7 @@ class MetricsCollector:
                 activated_regions=active_regions,
             )
             selector = ScopedRulesSelector(ctx.metadata)
+            empty_report_generator = EmptyOperationalReportGenerator()
             for typ in types:
                 report = Report.derive_report(typ)
                 scope = report.accept(selector, rules=cloud_rules)
@@ -688,7 +746,11 @@ class MetricsCollector:
                 )
                 yield (
                     item,
-                    {'metadata': meta, 'data': (), 'id': tenant.project},
+                    {
+                        'metadata': meta,
+                        'data': report.accept(empty_report_generator),
+                        'id': tenant.project,
+                    },
                 )
             return
         _LOG.info(f'Last scan date for tenant {tenant.name} is {ls}')
@@ -699,13 +761,17 @@ class MetricsCollector:
         # NOTE, actually we should retrieve a separate collection for
         # each report type, because they could have different dates. But here
         # we can afford it because we assert that each has the same date
-        _LOG.info(f'Going to retrieve shards collection for operation reports '
-                  f'for tenant {tenant.name} and date {ReportType.OPERATIONAL_RESOURCES.end(ctx.now)}')
+        _LOG.info(
+            f'Going to retrieve shards collection for operation reports '
+            f'for tenant {tenant.name} and date {ReportType.OPERATIONAL_RESOURCES.end(ctx.now)}'
+        )
         collection = scp.get_for_tenant(
             tenant, ReportType.OPERATIONAL_RESOURCES.end(ctx.now)
         )
         if not collection:
-            _LOG.warning('Somehow collection for operational reports is not found or empty even though the tenant has at least one successful jobs')
+            _LOG.warning(
+                'Somehow collection for operational reports is not found or empty even though the tenant has at least one successful jobs'
+            )
             return
 
         rule_resources = self._get_rule_resources(
@@ -715,7 +781,9 @@ class MetricsCollector:
         for typ in types:
             start = typ.start(ctx.now)
             end = typ.end(ctx.now)
-            _LOG.info(f'Going to collect operational report {typ} for tenant {tenant.name}: {start} - {end}')
+            _LOG.info(
+                f'Going to collect operational report {typ} for tenant {tenant.name}: {start} - {end}'
+            )
             job_source = js.subset(
                 start=start, end=end, tenant=tenant.name, affiliation='tenant'
             )
@@ -738,18 +806,27 @@ class MetricsCollector:
                     disabled=disabled,
                     passed=tuple(self._iter_passed_checks(collection, scope)),
                     failed=tuple(self._iter_failed_checks(collection, scope)),
+                    violated=tuple(
+                        self._iter_violated_checks(
+                            collection, ctx.metadata, scope
+                        )
+                    ),
                 ),
             )
             generator = ReportVisitor.derive_visitor(
                 typ, metadata=ctx.metadata, view=view, scope=scope
             )
-            data = tuple(
-                report.accept(
-                    generator,
-                    rule_resources=rule_resources,
-                    meta=collection.meta,
-                )
+            data = report.accept(
+                generator,
+                rule_resources=rule_resources,
+                collection=collection,
+                start=start,
+                end=end,
+                meta=collection.meta,
             )
+            if not isinstance(data, dict):
+                # TODO: somehow move this info to visitors abstraction
+                data = tuple(data)
 
             item = self._rms.create(
                 key=ReportMetrics.build_key_for_tenant(typ, tenant),
@@ -814,15 +891,6 @@ class MetricsCollector:
         """
         _LOG.info(f'Need to collect jobs data from {start} to {end}')
 
-        _LOG.info('Generating operational overview for all tenants')
-        ctx.add_reports(
-            self.operational_overview(
-                ctx=ctx,
-                job_source=job_source,
-                sc_provider=sc_provider,
-                report_type=ReportType.OPERATIONAL_OVERVIEW,
-            )
-        )
         _LOG.info('Generating operational rules for all tenants')
         ctx.add_reports(
             self._complete_rules_report(
@@ -1038,81 +1106,6 @@ class MetricsCollector:
 
         self._save_all(ctx, 'saving department and c-level')
 
-    def operational_overview(
-        self,
-        ctx: MetricsContext,
-        job_source: JobMetricsDataSource,
-        sc_provider: ShardsCollectionProvider,
-        report_type: ReportType,
-    ) -> ReportsGen:
-        start = report_type.start(ctx.now)
-        end = report_type.end(ctx.now)
-        # holds all tenants' jobs for this reporting period
-        js = job_source.subset(start=start, end=end, affiliation='tenant')
-        for tenant_name in js.scanned_tenants:
-            tenant = self._get_tenant(tenant_name)
-            if not tenant:
-                _LOG.warning(f'Tenant with name {tenant_name} not found!')
-                continue
-            col = sc_provider.get_for_tenant(tenant, end)
-            if not col:
-                _LOG.warning(
-                    f'Shards collection for {tenant.name} for {end} is empty'
-                )
-                continue
-            tjs = js.subset(tenant=tenant.name)
-            scd = ShardsCollectionDataSource(
-                col, ctx.metadata, tenant_cloud(tenant), tenant.project
-            )
-            # NOTE: ignoring jobs that are not finished
-            succeeded, failed = tjs.n_succeeded, tjs.n_failed
-
-            region_data = {}
-            for region, data in scd.region_severities(unique=True).items():
-                region_data.setdefault(region, {})['severity'] = data
-            for region, data in scd.region_services().items():
-                region_data.setdefault(region, {})['service'] = data
-            for region, data in scd.region_resource_types().items():
-                region_data.setdefault(region, {})['resource_types'] = data
-
-            outdated = []
-            lsd = tjs.last_succeeded_scan_date
-            if not lsd:
-                # means that tenants has some jobs for this period, but no
-                # succeeded jobs. There were some activity regarding this
-                # tenant so we collect metrics but if there are no succeeded
-                # jobs we make this tenant outdated for this reporting
-                # period and set last scan date to real last scan date.
-                # here i a problem: to get real last scan date we need all
-                # jobs but here we have only a period starting from previous
-                # month beginning. Will do for now, but this seems a bug
-                outdated.append(tenant.name)
-                lsd = job_source.subset(
-                    tenant=tenant.name
-                ).last_succeeded_scan_date
-
-            data = {
-                'total_scans': succeeded + failed,
-                'failed_scans': failed,
-                'succeeded_scans': succeeded,
-                'activated_regions': sorted(
-                    modular_helpers.get_tenant_regions(tenant)
-                ),
-                'last_scan_date': lsd,
-                'id': tenant.project,
-                'resources_violated': scd.n_unique,
-                'total_findings': scd.n_findings,
-                'regions_data': region_data,
-                'outdated_tenants': outdated,
-            }
-            item = self._rms.create(
-                key=ReportMetrics.build_key_for_tenant(report_type, tenant),
-                end=end,
-                start=start,
-                tenants=[tenant.name],
-            )
-            yield item, data
-
     def _expand_rules_statistics(
         self, it: Iterable['AverageStatisticsItem'], meta: dict | None = None
     ) -> Generator['AverageStatisticsItem', None, None]:
@@ -1120,6 +1113,7 @@ class MetricsCollector:
         for item in it:
             p = item.policy
             item.policy = meta.get(p, {}).get('description', p)
+            item.resource_type = meta.get(p, {}).get('resource', '')
             yield item
 
     def operational_rules(
@@ -1370,28 +1364,29 @@ class MetricsCollector:
                     'Something is wrong: one project contains more than one tenant per cloud'
                 )
             data = self.base_cloud_payload_dict()
-            outdated_tenants = set()
             tenants = set()
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
                 tenants.add(tenant.name)
-                outdated_tenants.update(item[1]['outdated_tenants'])
 
                 data[tenant_cloud(tenant).value] = {
                     'account_id': item[1]['id'],
                     'tenant_name': tenant.name,
-                    'last_scan_date': item[1]['last_scan_date'],
-                    'activated_regions': item[1]['activated_regions'],
-                    'total_scans': item[1]['total_scans'],
-                    'failed_scans': item[1]['failed_scans'],
-                    'succeeded_scans': item[1]['succeeded_scans'],
-                    'resources_violated': item[1]['resources_violated'],
+                    'last_scan_date': item[1]['metadata'].last_scan_date,
+                    'activated_regions': item[1]['metadata'].activated_regions,
+                    'total_scans': item[1]['metadata'].finished_scans,
+                    'failed_scans': item[1]['metadata'].finished_scans
+                    - item[1]['metadata'].succeeded_scans,
+                    'succeeded_scans': item[1]['metadata'].succeeded_scans,
+                    'resources_violated': item[1]['data'][
+                        'resources_violated'
+                    ],
                     'regions_data': {
                         r: {
-                            'severity_data': d['severity'],
+                            'severity_data': d['resources'],
                             'resource_types_data': d['resource_types'],
                         }
-                        for r, d in item[1]['regions_data'].items()
+                        for r, d in item[1]['data']['regions'].items()
                     },
                 }
 
@@ -1404,7 +1399,7 @@ class MetricsCollector:
                     start=start,
                     tenants=tenants,
                 ),
-                {'outdated_tenants': list(outdated_tenants), 'data': data},
+                {'outdated_tenants': (), 'data': data},
             )
 
     def project_compliance(

@@ -1,70 +1,283 @@
 {
-  "total_scans": 2,
-  "failed_scans": 1,
-  "succeeded_scans": 1,
-  "activated_regions": [],
-  "last_scan_date": "2025-05-20T00:25:37.702151Z",
-  "id": "testing-project-123",
-  "resources_violated": 9,
-  "total_findings": 14,
-  "regions_data": {
-    "global": {
-      "severity": {
-        "Unknown": 5
-      },
-      "service": {
-        "Vpc": 1,
-        "Firewall": 4
-      },
-      "resource_types": {
-        "Vpc": 1,
-        "Firewall": 4
+  "metadata": {
+    "licenses": [
+      {
+        "id": "license-key",
+        "rulesets": [
+          "GOOGLE"
+        ],
+        "total_rules": 10,
+        "jobs": 10,
+        "per": "DAY",
+        "description": "Testing license",
+        "valid_until": "2100-02-01T15:24:26.175778Z",
+        "valid_from": "2025-07-21T09:18:01.030737Z"
       }
-    },
-    "europe-west10": {
-      "severity": {
-        "Unknown": 1
-      },
-      "service": {
-        "Subnet": 1
-      },
-      "resource_types": {
-        "Subnet": 1
-      }
-    },
-    "africa-south1": {
-      "severity": {
-        "Unknown": 1
-      },
-      "service": {
-        "Subnet": 1
-      },
-      "resource_types": {
-        "Subnet": 1
-      }
-    },
-    "us-west8": {
-      "severity": {
-        "Unknown": 1
-      },
-      "service": {
-        "Subnet": 1
-      },
-      "resource_types": {
-        "Subnet": 1
-      }
-    },
-    "northamerica-south1": {
-      "severity": {
-        "Unknown": 1
-      },
-      "service": {
-        "Subnet": 1
-      },
-      "resource_types": {
-        "Subnet": 1
-      }
+    ],
+    "is_automatic_scans_enabled": true,
+    "in_progress_scans": 0,
+    "finished_scans": 2,
+    "succeeded_scans": 1,
+    "last_scan_date": "2025-07-21T00:17:59.841685Z",
+    "activated_regions": [],
+    "rules": {
+      "total": 10,
+      "disabled": [],
+      "passed": [
+        {
+          "id": "ecc-gcp-240-slow_query_log_database_flag_for_cloud_sql_mysql",
+          "description": "Description for ecc-gcp-240-slow_query_log_database_flag_for_cloud_sql_mysql",
+          "region": "global",
+          "when": 1729502743.8048089
+        },
+        {
+          "id": "ecc-gcp-237-postgresql_use_the_latest_major_version",
+          "description": "Description for ecc-gcp-237-postgresql_use_the_latest_major_version",
+          "region": "global",
+          "when": 1729502743.8026721
+        },
+        {
+          "id": "ecc-gcp-153-vm_instances_without_any_label_information",
+          "description": "Description for ecc-gcp-153-vm_instances_without_any_label_information",
+          "region": "global",
+          "when": 1729502743.730919
+        }
+      ],
+      "failed": [
+        {
+          "id": "ecc-gcp-027-dnssec_for_cloud_dns",
+          "description": "Description for ecc-gcp-027-dnssec_for_cloud_dns",
+          "region": "global",
+          "when": 1729502743.6555269,
+          "error_type": "ACCESS",
+          "error": "AccessDenied exception"
+        },
+        {
+          "id": "ecc-gcp-101-load_balancer_access_logging_disabled",
+          "description": "Description for ecc-gcp-101-load_balancer_access_logging_disabled",
+          "region": "global",
+          "when": 1729502743.7062569,
+          "error_type": "ACCESS",
+          "error": "AccessDenied exception"
+        }
+      ],
+      "violated": [
+        {
+          "id": "ecc-gcp-025-no_default_network",
+          "description": "Description for ecc-gcp-025-no_default_network",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "severity": "Unknown",
+          "service": "Vpc",
+          "resource_type": "gcp.vpc",
+          "when": 1729502743.654542
+        },
+        {
+          "id": "ecc-gcp-272-firewall_logging_enabled",
+          "description": "Description for ecc-gcp-272-firewall_logging_enabled",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "severity": "Unknown",
+          "service": "Firewall",
+          "resource_type": "gcp.firewall",
+          "when": 1729502744.540606
+        },
+        {
+          "id": "ecc-gcp-109-prevent_allow_all_ingress",
+          "description": "Description for ecc-gcp-109-prevent_allow_all_ingress",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "severity": "Unknown",
+          "service": "Firewall",
+          "resource_type": "gcp.firewall",
+          "when": 1729502743.7096498
+        },
+        {
+          "id": "ecc-gcp-104-default_firewall_rule_in_use",
+          "description": "Description for ecc-gcp-104-default_firewall_rule_in_use",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "severity": "Unknown",
+          "service": "Firewall",
+          "resource_type": "gcp.firewall",
+          "when": 1729502743.708413
+        },
+        {
+          "id": "ecc-gcp-033-vpc_flow_logs_for_every_subnet",
+          "description": "Description for ecc-gcp-033-vpc_flow_logs_for_every_subnet",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "severity": "Unknown",
+          "service": "Subnet",
+          "resource_type": "gcp.subnet",
+          "when": 1729502743.66139
+        }
+      ]
     }
   },
-  "outdated_tenants": []
+  "data": {
+    "resources_violated": 9,
+    "resources_scanned": 0,
+    "regions": {
+      "global": {
+        "resources": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 5
+        },
+        "violations": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 10
+        },
+        "attacks": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 0
+        },
+        "standards": [],
+        "services": {
+          "Vpc": 1,
+          "Firewall": 4
+        },
+        "resource_types": {
+          "Vpc": 1,
+          "Firewall": 4
+        }
+      },
+      "europe-west10": {
+        "resources": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 1
+        },
+        "violations": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 1
+        },
+        "attacks": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 0
+        },
+        "standards": [],
+        "services": {
+          "Subnet": 1
+        },
+        "resource_types": {
+          "Subnet": 1
+        }
+      },
+      "northamerica-south1": {
+        "resources": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 1
+        },
+        "violations": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 1
+        },
+        "attacks": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 0
+        },
+        "standards": [],
+        "services": {
+          "Subnet": 1
+        },
+        "resource_types": {
+          "Subnet": 1
+        }
+      },
+      "africa-south1": {
+        "resources": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 1
+        },
+        "violations": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 1
+        },
+        "attacks": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 0
+        },
+        "standards": [],
+        "services": {
+          "Subnet": 1
+        },
+        "resource_types": {
+          "Subnet": 1
+        }
+      },
+      "us-west8": {
+        "resources": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 1
+        },
+        "violations": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 1
+        },
+        "attacks": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 0
+        },
+        "standards": [],
+        "services": {
+          "Subnet": 1
+        },
+        "resource_types": {
+          "Subnet": 1
+        }
+      }
+    },
+    "rules": {
+      "violated": 0,
+      "passed": 0,
+      "failed": 0,
+      "applied": 0
+    }
+  },
+  "id": "testing-project-123"
 }

@@ -1,4 +1,3 @@
-version: "3.8"
 services:
   modular-api:
     image: public.ecr.aws/x4s4z8e1/syndicate/modular-api:5.4.0-rule-engine
