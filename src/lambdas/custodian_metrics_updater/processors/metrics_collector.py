@@ -732,6 +732,7 @@ class MetricsCollector:
                     rules=ReportRulesMetadata(
                         total=len(scope),
                         disabled=disabled,
+                        violated=()
                         # not_executed=tuple(report_rules)
                     ),
                 )
