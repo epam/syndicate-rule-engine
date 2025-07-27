@@ -508,7 +508,7 @@ def _get_arn_fast(res: dict, model: 'AWSTypeInfo') -> str | None:
         return _id
 
 
-def _get_id_name(res: dict, rt: str, model) -> tuple[str | None, str | None]:
+def get_id_name(res: dict, rt: str, model) -> tuple[str | None, str | None]:
     _id = get_path(res, model.id)
     if not _id:
         _LOG.error(f'Resource of type {rt} does not have an id')
@@ -519,18 +519,18 @@ def _get_id_name(res: dict, rt: str, model) -> tuple[str | None, str | None]:
     return _id, name
 
 
-def _resolve_s3_location(res: dict) -> str:
+def resolve_s3_location(res: dict) -> str:
     # LocationConstraint is None if region is us-east-1
     return res.get('Location', {}).get('LocationConstraint') or 'us-east-1'
 
 
-def _resolve_azure_location(res: dict) -> str:
+def resolve_azure_location(res: dict) -> str:
     if 'location' in res:
         return res['location']
     return GLOBAL_REGION
 
 
-def _resolve_google_location(res: dict, model: 'GCPTypeInfo') -> str:
+def resolve_google_location(res: dict, model: 'GCPTypeInfo') -> str:
     """
     All Google rules are global, but each individual resource can have its specific region
     """
@@ -590,7 +590,7 @@ def to_aws_resources(
             _LOG.debug(
                 'Found S3 bucket. Resolving region from region constraints'
             )
-            region = _resolve_s3_location(res)
+            region = resolve_s3_location(res)
         else:
             region = part.location
 
@@ -609,7 +609,7 @@ def to_aws_resources(
         else:  # not has_arn
             arn = None
 
-        _id, name = _get_id_name(res, rt, m)
+        _id, name = get_id_name(res, rt, m)
         if not name and (tags := res.get('Tags')):
             # try to resolve name from tags
             name = _resolve_name_from_aws_tags(tags)
@@ -647,13 +647,13 @@ def to_azure_resources(
     assert timestamp, 'Only parts that executed successfully allowed'
 
     for res in part.resources:
-        _id, name = _get_id_name(res, rt, m)
+        _id, name = get_id_name(res, rt, m)
         if not name:
             name = _id
         yield AZUREResource(
             id=_id,
             name=name,
-            location=_resolve_azure_location(res),
+            location=resolve_azure_location(res),
             resource_type=rt,
             sync_date=timestamp,
             data=res,
@@ -686,7 +686,7 @@ def to_google_resources(
         else:
             urn = None
 
-        _id, name = _get_id_name(res, rt, m)
+        _id, name = get_id_name(res, rt, m)
         if not name:
             name = _id
         if 'id' in res and _id != res['id']:
@@ -700,7 +700,7 @@ def to_google_resources(
             urn=urn,
             id=_id,
             name=name,
-            location=_resolve_google_location(res, m),
+            location=resolve_google_location(res, m),
             resource_type=rt,
             sync_date=timestamp,
             data=res,
@@ -726,7 +726,7 @@ def to_k8s_resources(
     assert timestamp, 'Only parts that executed successfully allowed'
 
     for res in part.resources:
-        _id, name = _get_id_name(res, rt, m)
+        _id, name = get_id_name(res, rt, m)
         if not name:
             name = _id
         yield K8SResource(

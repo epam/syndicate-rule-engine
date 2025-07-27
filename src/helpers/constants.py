@@ -40,6 +40,7 @@ class CustodianEndpoint(str, Enum):
     LICENSES = '/licenses'
     POLICIES = '/policies'
     JOBS_K8S = '/jobs/k8s'
+    RESOURCES = '/resources'
     CUSTOMERS = '/customers'
     HEALTH_ID = '/health/{id}'
     JOBS_JOB = '/jobs/{job_id}'
@@ -48,6 +49,7 @@ class CustodianEndpoint(str, Enum):
     CREDENTIALS = '/credentials'
     RULE_SOURCES = '/rule-sources'
     USERS_WHOAMI = '/users/whoami'
+    RESOURCES_ARN = '/resources/arn'
     SCHEDULED_JOB = '/scheduled-job'
     PLATFORMS_K8S = '/platforms/k8s'
     SETTINGS_MAIL = '/settings/mail'
@@ -870,6 +872,8 @@ class Permission(str, Enum):
     USERS_GET_CALLER = 'users:get_caller'
     USERS_RESET_PASSWORD = 'users:reset_password'
 
+    RESOURCES_GET = 'resources:get'
+
     @classmethod
     def iter_enabled(cls) -> Iterator[Self]:
         """
@@ -1344,3 +1348,16 @@ class ScheduledJobType(str, Enum):
 VERSION_NORM_LENGTH = 6
 TENANTS_QUERY_THRESHOLD = 20
 LATEST_VERSION_TAG = ':'  # ':' > '999999.999999.999999'
+
+EXCLUDE_RESOURCE_TYPES = {
+    'aws.service-quota',
+    'aws.codedeploy-config',
+    'azure.roledefinition', # there is huge number (~700 in my subscription) of these and I'm not sure how useful they are
+    'gcp.region',
+}
+
+class ResourcesCollectorType(str, Enum):
+    AWS_RESOURCE_EXPLORER = 'aws_resource_explorer'
+    AZURE_RESOURCE_GRAPH = 'azure_resource_graph'
+    FOCUS = 'focus'
+    CUSTODIAN = 'cloud_custodian'

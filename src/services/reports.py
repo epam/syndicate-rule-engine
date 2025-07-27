@@ -6,6 +6,7 @@ from datetime import date, datetime
 from functools import cached_property, cmp_to_key
 from itertools import chain
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Generator,
@@ -18,6 +19,7 @@ from typing import (
 )
 
 import msgspec
+from modular_sdk.commons.constants import ParentType
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
 
@@ -36,8 +38,10 @@ from helpers.reports import (
     keep_highest,
     service_from_resource_type,
 )
+from helpers.system_customer import SystemCustomer
 from helpers.time_helper import utc_datetime, utc_iso
 from models.metrics import ReportMetrics
+from services import modular_helpers
 from services.ambiguous_job_service import AmbiguousJob
 from services.base_data_service import BaseDataService
 from services.clients.s3 import S3Client, S3Url
@@ -47,6 +51,11 @@ from services.report_service import ReportService
 from services.reports_bucket import ReportMetricsBucketKeysBuilder
 from services.resources import CloudResource, iter_rule_resources
 from services.sharding import RuleMeta, ShardsCollection
+
+if TYPE_CHECKING:
+    from modular_sdk.modular import ModularServiceProvider
+
+    from services.license_service import License, LicenseService
 
 _LOG = get_logger(__name__)
 
@@ -379,7 +388,8 @@ class ResourcesReportGenerator(ReportVisitor[Generator[dict, None, None]]):
                 'resource': res,
                 'severity': sev,
                 'violations': [
-                    {'policy': rule[0], 'sre:date': rule[1]} for rule in rules
+                    {'policy': rule[0], 'sre:date': rule[1]}
+                    for rule in rules
                     # NOTE: this sre:date is not exact here, but more or less
                 ],
             }
@@ -1386,3 +1396,104 @@ def add_diff(
 
     # TODO: we can possibly have values that exist in previous dict and
     #  do not exist in the current one. They are ignored for now
+
+
+class ActivatedTenantsIterator:
+    __slots__ = '_mc', '_ls'
+
+    def __init__(self, mc: 'ModularServiceProvider', ls: 'LicenseService'):
+        self._mc = mc
+        self._ls = ls
+
+    def _get_license_activation(
+        self, lic: 'License'
+    ) -> modular_helpers.ActivationInfo:
+        it = self._mc.parent_service().i_list_application_parents(
+            application_id=lic.license_key,
+            type_=ParentType.CUSTODIAN_LICENSES,
+            rate_limit=3,
+        )
+        it = filter(lambda p: p.customer_id == lic.customer, it)
+        # either ALL & [cloud] & [exclude] or tenant_names
+        # Should not be many
+
+        return modular_helpers.get_activation_info(it)
+
+    def iter_tenant_licenses(
+        self, customer: Customer, licenses: tuple['License', ...]
+    ) -> Generator[tuple[Tenant, tuple['License', ...]], None, None]:
+        if not licenses:
+            _LOG.warning(
+                'No licenses exist inside the customer, no metrics will be collected'
+            )
+            return
+        mapping = {lic: self._get_license_activation(lic) for lic in licenses}
+        if any([info.is_all for info in mapping.values()]):
+            _LOG.info('At least one license is activated for all tenants')
+            excluding = set.union(
+                *[info.excluding for info in mapping.values()]
+            )
+            clouds = set.union(*[info.clouds for info in mapping.values()])
+            # TODO: use method from modular_sdk
+            fc = None
+            if clouds:
+                fc &= Tenant.cloud.is_in(*clouds)
+            if excluding:
+                fc &= ~Tenant.name.is_in(*excluding)
+            tenants = Tenant.customer_name_index.query(
+                hash_key=customer.name, filter_condition=fc
+            )
+        else:
+            including = set.union(
+                *[info.including for info in mapping.values()]
+            )
+            excluding = set.union(
+                *[info.excluding for info in mapping.values()]
+            )
+            names = including - excluding
+
+            tenants = filter(None, map(self._mc.tenant_service().get, names))
+        for tenant in tenants:
+            applicable = []
+            for lic in mapping:
+                if not self._ls.is_subject_applicable(
+                    lic, customer=customer.name, tenant_name=tenant.name
+                ):
+                    _LOG.warning(
+                        f'Tenant {tenant.name} is not allowed for license'
+                    )
+                    continue
+                if mapping[lic].is_active_for(tenant):
+                    applicable.append(lic)
+            if not applicable:
+                _LOG.warning(
+                    f'Some license is activated for {tenant.name} not no licenses is applicable for it'
+                )
+                continue
+            yield tenant, tuple(applicable)
+
+    def iter_customer_licenses(
+        self, allow_empty_licenses: bool = False
+    ) -> Generator[tuple[Customer, tuple['License', ...]], None, None]:
+        for customer in self._mc.customer_service().i_get_customer(
+            is_active=True
+        ):
+            if customer.name == SystemCustomer.get_name():
+                continue
+            licenses = tuple(
+                self._ls.iter_customer_licenses(customer=customer.name)
+            )
+            if not allow_empty_licenses and not licenses:
+                continue
+            yield customer, licenses
+
+    def __iter__(
+        self,
+    ) -> Generator[tuple[Customer, Tenant, tuple['License', ...]], None, None]:
+        for customer, c_licenses in self.iter_customer_licenses(
+            allow_empty_licenses=False
+        ):
+            for tenant, t_licenses in self.iter_tenant_licenses(
+                customer=customer, licenses=c_licenses
+            ):
+                yield customer, tenant, t_licenses

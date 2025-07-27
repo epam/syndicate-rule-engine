@@ -27,7 +27,12 @@ app.conf.beat_schedule = {
     },
     'remove-expired-metrics': {
         'task': 'onprem.tasks.delete_expired_metrics',
-        'schedule': crontab(minute=0, hour=12),
+        'schedule': crontab(minute='0', hour='12'),
+        'args': ()
+    },
+    'scan-resources': {
+        'task': 'onprem.tasks.collect_resources',
+        'schedule': crontab(minute='0', hour='4'),
         'args': ()
     }
 }
@@ -57,6 +62,9 @@ app.conf.task_routes = {
         'queue': 'a-jobs'
     },
     'onprem.tasks.delete_expired_metrics': {
+        'queue': 'b-scheduled'
+    },
+    'onprem.tasks.collect_resources': {
         'queue': 'b-scheduled'
     }
 }
