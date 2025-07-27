@@ -1351,7 +1351,8 @@ LATEST_VERSION_TAG = ':'  # ':' > '999999.999999.999999'
 
 EXCLUDE_RESOURCE_TYPES = {
     'aws.service-quota',
-    # 'azure.roledefinition', # there is huge number (~700 in my subscription) of these and I'm not sure how useful they are
+    'aws.codedeploy-config',
+    'azure.roledefinition', # there is huge number (~700 in my subscription) of these and I'm not sure how useful they are
     'gcp.region',
 }
 
@@ -1359,4 +1360,4 @@ class ResourcesCollectorType(str, Enum):
     AWS_RESOURCE_EXPLORER = 'aws_resource_explorer'
     AZURE_RESOURCE_GRAPH = 'azure_resource_graph'
     FOCUS = 'focus'
-    CUSTODIAN = 'custodian'
+    CUSTODIAN = 'cloud_custodian'

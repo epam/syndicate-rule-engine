@@ -84,7 +84,6 @@ Then they made this new c7n.credentials.CustodianSession class that was
 probably supposed to completely mitigate the issue, but it was reverted:
 https://github.com/cloud-custodian/cloud-custodian/pull/9569. The problem
 persists.
-Here is my PR (hopefully merged):
 
 Our solution:
 ---------------------------------------
@@ -263,15 +262,15 @@ class PoliciesLoader:
         self._cache_period = cache_period
         self._load_global = not self._regions or GLOBAL_REGION in self._regions
 
-    @property
-    def cc_provider_name(self) -> str:
-        match self._cloud:
+    @staticmethod
+    def cc_provider_name(cloud: Cloud) -> str:
+        match cloud:
             case Cloud.GOOGLE | Cloud.GCP:
                 return 'gcp'
             case Cloud.KUBERNETES | Cloud.K8S:
                 return 'k8s'
             case _:
-                return self._cloud.value.lower()
+                return cloud.value.lower()
 
     def set_global_output(self, policy: Policy) -> None:
         if self._output_dir:
@@ -492,8 +491,8 @@ class PoliciesLoader:
                 f'Multiple policies providers {provider_policies.keys()} are loaded but only one is expected'
             )
             p_name, p_policies = (
-                self.cc_provider_name,
-                provider_policies.get(self.cc_provider_name, ()),
+                self.cc_provider_name(self._cloud),
+                provider_policies.get(self.cc_provider_name(self._cloud), ()),
             )
         else:
             p_name, p_policies = next(iter(provider_policies.items()))
@@ -545,8 +544,9 @@ class PoliciesLoader:
             case Cloud.AWS:
                 items = list(self.prepare_policies(items))
             case _:
-                for pol in items:
-                    self.set_global_output(pol)
+                if self._output_dir:
+                    for pol in items:
+                        self.set_global_output(pol)
         _LOG.info('Policies were loaded')
         return items
 

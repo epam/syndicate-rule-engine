@@ -1,90 +1,102 @@
 import hashlib
 
-from pynamodb.attributes import UnicodeAttribute, MapAttribute, NumberAttribute
-from pymongo.database import Database
 import msgspec
+from pymongo.database import Database
+from pynamodb.attributes import MapAttribute, NumberAttribute, UnicodeAttribute
+from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
-from helpers.constants import CAASEnv, Cloud, COMPOUND_KEYS_SEPARATOR, ResourcesCollectorType
+from helpers.constants import (
+    COMPOUND_KEYS_SEPARATOR,
+    CAASEnv,
+    Cloud,
+    ResourcesCollectorType,
+)
+from helpers.log_helper import get_logger
 from models import BaseModel
 
+_LOG = get_logger(__name__)
 
 
 def create_resources_indexes(db: Database):
-    """
-    Create a compound index on the 'CaaSResources' collection.
-    The index is on 'id', 'name', 'location', 'resource_type', 'tenant_name'.
+    collection = db.get_collection(Resource.Meta.table_name)
+    name = 'aid_1_l_1_rt_1_i_1'
+    indexes = collection.index_information()
+    if name not in indexes:
+        _LOG.info(f'Index {name} does not exist yet')
+        collection.create_index(
+            [('aid', 1), ('l', 1), ('rt', 1), ('i', 1)], name=name, unique=True
+        )
 
-    Create a sparse index on the 'arn' field.
-    """
-    db.CaaSResources.create_index(
-        [
-            ('customer_name', 1),
-            ('tenant_name', 1),
-            ('resource_type', 1),
-            ('location', 1),
-            ('name', 1),
-            ('id', 1),
-        ],
-        name='resource_id_name_location_type_tenant_index',
-        unique=True,
-    )
-    db.CaaSResources.create_index(
-        [('arn', 1)],
-        name='resource_arn_index',
-        sparse=True,
-    )
+    name = 'cn_1_tn_1_l_1_rt_1_n_1_i_1'
+    if name not in indexes:
+        _LOG.info(f'Index {name} does not exist yet')
+        collection.create_index(
+            [('cn', 1), ('tn', 1), ('l', 1), ('rt', 1), ('n', 1), ('i', 1)],
+            name=name,
+        )
+
+
+
+class ResourceARNIndex(GlobalSecondaryIndex):
+    class Meta:
+        index_name = 'arn-index'
+        projection = AllProjection()
+
+    # TODO: make it a sparse index and maybe unique?
+    arn = UnicodeAttribute(hash_key=True, attr_name='arn')
+
 
 class Resource(BaseModel):
+    encoder = msgspec.json.Encoder()
+
     class Meta:
         table_name = 'CaaSResources'
         region = CAASEnv.AWS_REGION.get()
 
+    # just to please our DynamoDB's inheritance. It looks like:
     # account_id#location#resource_type#id
-    did = UnicodeAttribute(hash_key=True)
+    # where:
+    # - account id is AWS account id or Azure subscription id or GCP project id
+    # - location is SRE's entity that represents region against which Cloud Custodian policy was executed.
+    #   For AZURE/GOOGLE/KUBERNETES it is literally "global". For AWS it's either a real region name or "global" for S3, IAM and other    global services
+    # - resource_type is resource type of Cloud Custodian containing cloud prefix
+    # - id is resource's unique identifier, taken from Cloud Custodian
+    did = UnicodeAttribute(hash_key=True, attr_name='id')
+    # what does "did" stand for? probably DynamoDB ID
 
+    account_id = UnicodeAttribute(attr_name='aid')
+    location = UnicodeAttribute(attr_name='l')
+    resource_type = UnicodeAttribute(attr_name='rt')
+    id = UnicodeAttribute(attr_name='i')
 
-    id = UnicodeAttribute()
-    name = UnicodeAttribute()
-    location = UnicodeAttribute()
+    name = UnicodeAttribute(
+        attr_name='n', null=True
+    )  # human-readable name if available
+    # ARN for AWS, URN for GOOGLE and ID for AZURE
+    arn = UnicodeAttribute(attr_name='arn', null=True)
 
-    # custodian resource type with cloud prefix
-    resource_type = UnicodeAttribute()
+    _data = MapAttribute(default=dict, attr_name='d')
+    sync_date = NumberAttribute(attr_name='s')
+    sha256 = UnicodeAttribute(attr_name='sha256')
+    _collector_type = UnicodeAttribute(attr_name='c')
 
-    tenant_name = UnicodeAttribute()
-    customer_name = UnicodeAttribute()
+    tenant_name = UnicodeAttribute(attr_name='tn')
+    customer_name = UnicodeAttribute(attr_name='cn')
 
-    arn = UnicodeAttribute(null=True)
+    arn_index = ResourceARNIndex()
 
-    # all attributes of the resource
-    _data = MapAttribute(default=dict, attr_name='data')
-
-    sync_date = NumberAttribute() # timestamp
-    # collector used to get this resource, e.g., 'custodian', 'focus'
-    _collector_type = UnicodeAttribute(attr_name='collector_type') 
-    _hash = UnicodeAttribute(attr_name='sha256')
-
-    encoder = msgspec.json.Encoder()
-
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
-        did = COMPOUND_KEYS_SEPARATOR.join([
-            kwargs.get('account_id', ''),
-            kwargs.get('location', ''),
-            kwargs.get('resource_type', ''),
-            kwargs.get('id', ''),
-        ])
-        kwargs['did'] = did
-        kwargs.pop('account_id', None)
-        
-        super().__init__(
-            *args,
-            **kwargs,
+    def __init__(self, *args, **kwargs):
+        kwargs['did'] = COMPOUND_KEYS_SEPARATOR.join(
+            (
+                kwargs.get('account_id', ''),
+                kwargs.get('location', ''),
+                kwargs.get('resource_type', ''),
+                kwargs.get('id', ''),
+            )
         )
-        if self._data is not None:
-            self._hash = self._compute_hash(self._data.as_dict())
+
+        super().__init__(*args, **kwargs)
+        self.sha256 = self._compute_hash(self._data.as_dict())
 
     @classmethod
     def _compute_hash(cls, data: dict) -> str:
@@ -102,20 +114,16 @@ class Resource(BaseModel):
 
     @data.setter
     def data(self, value: dict):
-        self._hash = self._compute_hash(value)
+        self.sha256 = self._compute_hash(value)
         self._data = value
-
-    @property
-    def hash(self) -> str:
-        return self._hash
 
     @property
     def cloud(self) -> Cloud:
         return Cloud[self.resource_type.split('.')[0].upper()]
-    
+
     @property
     def collector_type(self) -> ResourcesCollectorType:
-        return ResourcesCollectorType[self._collector_type]
+        return ResourcesCollectorType(self._collector_type)
 
     def __repr__(self):
         return (

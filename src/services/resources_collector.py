@@ -1,36 +1,46 @@
-from abc import ABC, abstractmethod
-from typing import Iterable
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
 import time
+from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor
+from typing import Generator
 
 from c7n import utils
-from c7n.version import version
-from c7n.provider import get_resource_class
-from c7n.policy import Policy, execution, PolicyExecutionMode
 from c7n.exceptions import ResourceLimitExceeded
+from c7n.policy import Policy, PolicyExecutionMode, execution
 from c7n.resources.resource_map import ResourceMap as AWSResourceMap
+from c7n.version import version
 from c7n_azure.resources.resource_map import ResourceMap as AzureResourceMap
 from c7n_gcp.resources.resource_map import ResourceMap as GCPResourceMap
-
-from modular_sdk.modular import ModularServiceProvider
+from c7n_kube.resources.resource_map import ResourceMap as K8sResourceMap
 from modular_sdk.models.tenant import Tenant
+from modular_sdk.modular import ModularServiceProvider
 
-from helpers.constants import Cloud, EXCLUDE_RESOURCE_TYPES, ResourcesCollectorType
-from helpers.log_helper import get_logger
-from helpers.regions import get_region_by_cloud_with_global
-from services.license_service import LicenseService
 from executor.job import (
-    PolicyDict,
-    job_initializer,
     PoliciesLoader,
     get_tenant_credentials,
+    job_initializer,
 )
+from helpers.constants import (
+    EXCLUDE_RESOURCE_TYPES,
+    Cloud,
+    ResourcesCollectorType, GLOBAL_REGION,
+)
+from helpers.log_helper import get_logger
+from models.resource import Resource
+from services import SP, modular_helpers
+from services.license_service import LicenseService
+from services.metadata import EMPTY_RULE_METADATA
 from services.reports import ActivatedTenantsIterator
-from services import SP
+from services.resources import (
+    to_aws_resources,
+    to_azure_resources,
+    to_google_resources,
+    to_k8s_resources,
+)
 from services.resources_service import ResourcesService
+from services.sharding import ShardPart
 
 _LOG = get_logger(__name__)
+
 
 # CC by default stores retrieved information on disk
 # This mode turn off this behavior
@@ -72,23 +82,7 @@ class CollectMode(PolicyExecutionMode):
             len(resources),
             rt,
         )
-
-        if not resources:
-            return []
-
-        if self.policy.options.dryrun:
-            self.policy.log.debug('dryrun: skipping actions')
-            return resources
-
-        for a in self.policy.resource_manager.actions:
-            s = time.time()
-            self.policy.log.info(
-                'policy:%s action:%s'
-                ' resources:%d'
-                ' execution_time:%0.2f'
-                % (self.policy.name, a.name, len(resources), time.time() - s)
-            )
-        return resources
+        return resources or []
 
 
 class BaseResourceCollector(ABC):
@@ -97,25 +91,23 @@ class BaseResourceCollector(ABC):
     All resource collectors should inherit from this class and implement its methods.
     """
 
-    @property
-    @abstractmethod
-    def collector_type(self) -> ResourcesCollectorType: ...
+    collector_type: ResourcesCollectorType
 
     @abstractmethod
     def collect_tenant_resources(
         self,
         tenant_name: str,
-        regions: Iterable[str] | None = None,
-        resource_types: Iterable[str] | None = None,
-        **kwargs
+        regions: set[str] | None = None,
+        resource_types: set[str] | None = None,
+        **kwargs,
     ): ...
 
     @abstractmethod
     def collect_all_resources(
         self,
-        regions: Iterable[str] | None = None,
-        resource_types: Iterable[str] | None = None,
-        **kwargs
+        regions: set[str] | None = None,
+        resource_types: set[str] | None = None,
+        **kwargs,
     ): ...
 
 
@@ -129,19 +121,17 @@ class CustodianResourceCollector(BaseResourceCollector):
     After that, all the resource are saved in the mongodb.
     """
 
+    collector_type = ResourcesCollectorType.CUSTODIAN
+
     def __init__(
         self,
         modular_service: ModularServiceProvider,
         resources_service: ResourcesService,
-        license_service: LicenseService
+        license_service: LicenseService,
     ):
         self._ms = modular_service
         self._rs = resources_service
         self._ls = license_service
-
-    @property
-    def collector_type(self) -> ResourcesCollectorType:
-        return ResourcesCollectorType.CUSTODIAN
 
     @classmethod
     def build(cls) -> 'CustodianResourceCollector':
@@ -154,115 +144,282 @@ class CustodianResourceCollector(BaseResourceCollector):
             license_service=SP.license_service,
         )
 
-    @staticmethod
-    def _get_policies(
-        resource_map: dict,
+    def load_policies(
+        self,
         cloud: Cloud,
-        resource_types: Iterable[str] | None = None,
-        regions: Iterable[str] | None = None,
-    ) -> list[Policy]:
+        resource_types: set[str],
+        regions: set[str] | None = None,
+    ) -> tuple[Policy, ...]:
+        """
+        Specify regions including 'global'. Policies for all regions will be
+        loaded if not specified.
+        Make sure to validate cloud and resource types before calling this method.
+        Make sure resource types contain clouds
+        """
         if not resource_types:
-            resource_types = set(resource_map.keys())
-        else:
-            if not all(rt in resource_map.keys() for rt in resource_types):
-                raise ValueError(
-                    f'Some resource types {resource_types} are not valid {cloud} resource types.'
-                )
-            resource_types = set(resource_types)
+            return ()
 
-        if not regions:
-            regions = (
-                get_region_by_cloud_with_global(cloud)
-                if cloud == Cloud.AWS
-                else {'global'}
-            )
-        else:
-            if not all(
-                region in get_region_by_cloud_with_global(cloud)
-                for region in regions
-            ):
-                raise ValueError(
-                    f'Some regions {regions} are not valid {cloud} regions.'
-                )
-            regions = set(regions)
-
-        policy_dicts = []
-        for resource_type in resource_types - EXCLUDE_RESOURCE_TYPES:
-            policy = {
-                'name': f'retrieve-{resource_type}',
-                'resource': resource_type,
+        loader = PoliciesLoader(
+            cloud=cloud, output_dir=None, regions=regions, cache=None
+        )
+        policies = [
+            {
+                'name': f'collect-{t}',
+                'resource': t,
                 'mode': {'type': 'collect'},
             }
-            policy_dicts.append(policy)
-        
-        # TODO: PolicyLoader ignores regions. We should get around that
-        policy_loader = PoliciesLoader(cloud=cloud, regions=regions)
-
-        return policy_loader.load_from_policies(policy_dicts)
+            for t in resource_types
+        ]
+        return tuple(loader.load_from_policies(policies))
 
     @staticmethod
-    def get_aws_policies(
-        resource_types: Iterable[str] | None = None,
-        regions: Iterable[str] | None = None,
-    ) -> list[Policy]:
-        return CustodianResourceCollector._get_policies(
-            resource_map=AWSResourceMap,
+    def _resolve_resource_types(
+        cloud: Cloud,
+        scope: set[str],
+        included: set[str] | None = None,
+        excluded: set[str] | None = None,
+    ) -> set[str]:
+        """
+        Scope and excluded must contain resource cloud
+        """
+        p = PoliciesLoader.cc_provider_name(cloud)
+        if included is None:
+            base = scope
+        else:
+            base = set()
+            for item in included:
+                if not item.startswith(p):
+                    item = f'{p}.{item}'
+                base.add(item)
+        if excluded is not None:
+            base.difference_update(excluded)
+        if invalid := (scope - base):
+            raise ValueError(f'Not supported: {invalid}')
+        return base
+
+    def load_aws_policies(
+        self,
+        resource_types: set[str] | None = None,
+        regions: set[str] | None = None,
+    ) -> tuple[Policy, ...]:
+        return self.load_policies(
             cloud=Cloud.AWS,
-            resource_types=resource_types,
+            resource_types=self._resolve_resource_types(
+                cloud=Cloud.AWS,
+                scope=set(AWSResourceMap),
+                included=resource_types,
+                excluded=EXCLUDE_RESOURCE_TYPES,
+            ),
             regions=regions,
         )
 
-    @staticmethod
-    def get_azure_policies(
-        resource_types: Iterable[str] | None = None,
-        regions: Iterable[str] | None = None,
-    ) -> list[Policy]:
-        return CustodianResourceCollector._get_policies(
-            resource_map=AzureResourceMap,
+    def load_azure_policies(
+        self, resource_types: set[str] | None = None, **kwargs
+    ) -> tuple[Policy, ...]:
+        """
+        Loads Azure policies for all resource types.
+        """
+
+        # regions are not specified because azure supports only global scan
+        #  and there is no sense in scanning nothing
+        return self.load_policies(
             cloud=Cloud.AZURE,
-            resource_types=resource_types,
-            regions=regions,
+            resource_types=self._resolve_resource_types(
+                cloud=Cloud.AZURE,
+                scope=set(AzureResourceMap),
+                included=resource_types,
+                excluded=EXCLUDE_RESOURCE_TYPES,
+            ),
+        )
+
+    def load_google_policies(
+        self, resource_types: set[str] | None = None, **kwargs
+    ) -> tuple[Policy, ...]:
+        return self.load_policies(
+            cloud=Cloud.GOOGLE,
+            resource_types=self._resolve_resource_types(
+                cloud=Cloud.GOOGLE,
+                scope=set(GCPResourceMap),
+                included=resource_types,
+                excluded=EXCLUDE_RESOURCE_TYPES,
+            ),
+        )
+
+    def load_k8s_policies(
+        self, resource_types: set[str] | None = None, **kwargs
+    ) -> tuple[Policy, ...]:
+        return self.load_policies(
+            cloud=Cloud.KUBERNETES,
+            resource_types=self._resolve_resource_types(
+                cloud=Cloud.KUBERNETES,
+                scope=set(K8sResourceMap),
+                included=resource_types,
+                excluded=EXCLUDE_RESOURCE_TYPES,
+            ),
         )
 
     @staticmethod
-    def get_gcp_policies(
-        resource_types: Iterable[str] | None = None,
-        regions: Iterable[str] | None = None,
-    ) -> list[Policy]:
-        return CustodianResourceCollector._get_policies(
-            resource_map=GCPResourceMap,
-            cloud=Cloud.GCP,
-            resource_types=resource_types,
-            regions=regions,
-        )
+    def _invoke_policy(policy: Policy) -> list[dict] | None:
+        try:
+            return policy()
+        except Exception:
+            _LOG.exception('Error invoking policy')
+            return None
+
+    def iter_aws_resources(
+        self,
+        part: ShardPart,
+        account_id: str,
+        location: str,
+        resource_type: str,
+        customer_name: str,
+        tenant_name: str,
+    ) -> Generator[Resource, None, None]:
+        for res in to_aws_resources(
+            part, resource_type, EMPTY_RULE_METADATA, account_id
+        ):
+            yield self._rs.create(
+                account_id=account_id,
+                location=location,  # important, not resolved region but policy location
+                resource_type=resource_type,
+                id=res.id,
+                name=res.name,
+                arn=res.arn,
+                data=res.data,
+                sync_date=part.timestamp,
+                collector_type=self.collector_type,
+                tenant_name=tenant_name,
+                customer_name=customer_name,
+            )
+
+    def iter_azure_resources(
+        self,
+        part: ShardPart,
+        account_id: str,
+        location: str,
+        resource_type: str,
+        customer_name: str,
+        tenant_name: str,
+    ) -> Generator[Resource, None, None]:
+        for res in to_azure_resources(part, resource_type):
+            yield self._rs.create(
+                account_id=account_id,
+                location=location,
+                resource_type=resource_type,
+                id=res.id,
+                name=res.name,
+                arn=res.id,
+                data=res.data,
+                sync_date=part.timestamp,
+                collector_type=self.collector_type,
+                tenant_name=tenant_name,
+                customer_name=customer_name,
+            )
+
+    def iter_google_resources(
+        self,
+        part: ShardPart,
+        account_id: str,
+        location: str,
+        resource_type: str,
+        customer_name: str,
+        tenant_name: str,
+    ) -> Generator[Resource, None, None]:
+        for res in to_google_resources(
+            part, resource_type, EMPTY_RULE_METADATA, account_id
+        ):
+            yield self._rs.create(
+                account_id=account_id,
+                location=location,
+                resource_type=resource_type,
+                id=res.id,
+                name=res.name,
+                arn=res.urn,
+                data=res.data,
+                sync_date=part.timestamp,
+                collector_type=self.collector_type,
+                tenant_name=tenant_name,
+                customer_name=customer_name,
+            )
+
+    def iter_k8s_resources(
+        self,
+        part: ShardPart,
+        account_id: str,
+        location: str,
+        resource_type: str,
+        customer_name: str,
+        tenant_name: str,
+    ) -> Generator[Resource, None, None]:
+        for res in to_k8s_resources(part, resource_type):
+            yield self._rs.create(
+                account_id=account_id,
+                location=location,
+                resource_type=resource_type,
+                id=res.id,
+                name=res.name,
+                arn=res.id,
+                data=res.data,
+                sync_date=part.timestamp,
+                collector_type=self.collector_type,
+                tenant_name=tenant_name,
+                customer_name=customer_name,
+            )
 
     def _process_policy(
         self,
         policy: Policy,
-        resource_type: str,
-        region: str,
-        account_id: str,
-        tenant_name: str,
+        cloud: Cloud,
         customer_name: str,
-        cloud: Cloud
-    ) -> bool:
-        try:
-            resources = policy()
-            # TODO: process all resources returned from policy at once
-            for data in resources:
-                self._load_scan(
-                    data,
-                    resource_type,
-                    region,
-                    account_id,
-                    tenant_name,
-                    customer_name,
-                    cloud
+        tenant_name: str,
+        account_id: str,
+    ) -> None:
+        """
+        Invokes one policy and saves its result to the database
+        """
+        resources = self._invoke_policy(policy)
+        if resources is None:
+            # error
+            return
+        location = PoliciesLoader.get_policy_region(policy)
+        rt = policy.resource_type
+        # THIS is the location that is stored in the database. It does not
+        # necessarily match the region of the resource
+
+        # NOTE: here the returns resources are the actual ones while
+        # those in DB are obsolete. We should basically remove all
+        # resources return by such policy from DN and save all these new.
+        # Second option: we can iterate over those from DB and process
+        # one by one, check if one was removed, if not update it, them save
+        # all that left. Not sure what will be more efficient, but the first
+        # one is definitely easier to implement.
+        self._rs.remove_policy_resources(
+            account_id=account_id, location=location, resource_type=rt
+        )
+        part = ShardPart(
+            policy=policy.name,  # does not matter here
+            location=location,
+            timestamp=time.time(),
+            resources=resources,
+        )
+        match cloud:
+            case Cloud.AWS:
+                it = self.iter_aws_resources(
+                    part, account_id, location, rt, customer_name, tenant_name
                 )
-            return True
-        except Exception as e:
-            _LOG.error(f'Error processing policy {policy.name}: {e}')
-            return False
+            case Cloud.AZURE:
+                it = self.iter_azure_resources(
+                    part, account_id, location, rt, customer_name, tenant_name
+                )
+            case Cloud.GOOGLE | Cloud.GCP:
+                it = self.iter_google_resources(
+                    part, account_id, location, rt, customer_name, tenant_name
+                )
+            case Cloud.KUBERNETES | Cloud.K8S:
+                it = self.iter_k8s_resources(
+                    part, account_id, location, rt, customer_name, tenant_name
+                )
+        self._rs.batch_save(it)
 
     # TODO: add creds handling for Kube
     @staticmethod
@@ -270,92 +427,51 @@ class CustodianResourceCollector(BaseResourceCollector):
         credentials = get_tenant_credentials(tenant)
 
         if credentials is None:
-            raise ValueError(
-                f'No credentials found for tenant {tenant.name}'
-            )
+            raise ValueError(f'No credentials found for tenant {tenant.name}')
         return credentials
-
-    def _load_scan(
-        self,
-        data: dict,
-        resource_type: str,
-        region: str,
-        account_id: str,
-        tenant_name: str,
-        customer_name: str,
-        cloud: Cloud
-    ):
-        """
-        Builds a CloudResource object from the data collected by the policy.
-        """
-        resource_class = get_resource_class(resource_type)
-
-        resource_id = data[resource_class.resource_type.id]
-
-        if hasattr(resource_class.resource_type, 'name'):
-            resource_name = data.get(resource_class.resource_type.name, '')
-        elif 'name' in data:
-            resource_name = data['name']
-        else:
-            _LOG.warning(
-                f"Resource {resource_type} does not have a 'name' field in data: {data}"
-            )
-            resource_name = ''
-        
-        # TODO: generate arn if not present
-        if hasattr(resource_class.resource_type, 'arn'):
-            arn = data.get(resource_class.resource_type.arn, None)
-        else:
-            arn = None
-
-        self._rs.create(
-            id=resource_id,
-            name=resource_name,
-            location=region,
-            resource_type=resource_type,
-            account_id=account_id,
-            tenant_name=tenant_name,
-            customer_name=customer_name,
-            data=data,
-            sync_date=datetime.now(timezone.utc).timestamp(),
-            collector_type=self.collector_type,
-            arn=arn,
-        ).save()
 
     def collect_tenant_resources(
         self,
         tenant_name: str,
-        regions: Iterable[str] | None = None,
-        resource_types: Iterable[str] | None = None,
-        workers: int = 10,
-        **kwargs
+        regions: set[str] | None = None,
+        resource_types: set[str] | None = None,
+        workers: int | None = None,
+        **kwargs,
     ):
         tenant = self._ms.tenant_service().get(tenant_name)
         if not tenant:
             raise ValueError(f'Tenant {tenant_name} not found')
+        if regions is None:
+            regions = modular_helpers.get_tenant_regions(tenant) | {GLOBAL_REGION}
 
-        cloud = Cloud(tenant.cloud)
+        cloud = modular_helpers.tenant_cloud(tenant)
 
-        if cloud == Cloud.AWS:
-            policies = self.get_aws_policies(
-                resource_types=resource_types, regions=regions
-            )
-        elif cloud == Cloud.AZURE:
-            policies = self.get_azure_policies(
-                resource_types=resource_types, regions=regions
-            )
-        elif cloud == Cloud.GCP:
-            policies = self.get_gcp_policies(
-                resource_types=resource_types, regions=regions
-            )
-        else:
-            raise ValueError(f'Unsupported cloud: {cloud}')
+        match cloud:
+            case Cloud.AWS:
+                policies = self.load_aws_policies(
+                    resource_types=resource_types,
+                    regions=regions
+                )
+            case Cloud.AZURE:
+                policies = self.load_azure_policies(
+                    resource_types=resource_types
+                )
+            case Cloud.GCP | Cloud.GOOGLE:
+                policies = self.load_google_policies(
+                    resource_types=resource_types
+                )
+            case Cloud.KUBERNETES | Cloud.K8S:
+                policies = self.load_k8s_policies(
+                    resource_types=resource_types
+                )
+            case _:
+                raise ValueError(f'Unsupported cloud {cloud}')
 
         _LOG.info(f'Starting resource collection for tenant: {tenant_name}')
         _LOG.info(f'Policies to run: {len(policies)}')
 
         credentials = CustodianResourceCollector._get_credentials(tenant)
-        account_id = tenant.project if tenant.project is not None else ""
+        # TODO: check process pool executor vs Billiard pool
         with ThreadPoolExecutor(
             max_workers=workers,
             initializer=job_initializer,
@@ -365,34 +481,37 @@ class CustodianResourceCollector(BaseResourceCollector):
                 executor.submit(
                     self._process_policy,
                     policy,
-                    policy.resource_type,
-                    policy.options.region,
-                    account_id,
-                    tenant.name,
+                    cloud,
                     tenant.customer_name,
-                    cloud
+                    tenant.name,
+                    str(tenant.project)
                 )
 
     def collect_all_resources(
         self,
-        regions: Iterable[str] | None = None,
-        resource_types: Iterable[str] | None = None,
-        workers: int = 10,
-        **kwargs
+        regions: set[str] | None = None,
+        resource_types: set[str] | None = None,
+        workers: int | None = None,
+        **kwargs,
     ):
         """
-        Collects resources for all tenants.
+        Collects resources for all tenants. If regions are not specified
+        all active regions will be collected
         """
-        it = ActivatedTenantsIterator(
-            mc=self._ms,
-            ls=self._ls
+        it = ActivatedTenantsIterator(mc=self._ms, ls=self._ls)
+        self.collect_tenant_resources(
+            tenant_name='AWS-EPMC-EOOS',
         )
         for _, tenant, _ in it:
+            if regions is None:
+                tenant_regions = modular_helpers.get_tenant_regions(tenant) | {GLOBAL_REGION}
+            else:
+                tenant_regions = regions
             try:
                 _LOG.info(f'Collecting resources for tenant: {tenant.name}')
                 self.collect_tenant_resources(
                     tenant_name=tenant.name,
-                    regions=regions,
+                    regions=tenant_regions,
                     resource_types=resource_types,
                     workers=workers,
                 )

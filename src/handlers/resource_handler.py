@@ -1,23 +1,23 @@
-from http import HTTPStatus
 from datetime import datetime
+from http import HTTPStatus
 
-from modular_sdk.modular import ModularServiceProvider
 from modular_sdk.models.tenant import Tenant
+from modular_sdk.modular import ModularServiceProvider
 
 from handlers import AbstractHandler, Mapping
 from helpers import NextToken
-from helpers.constants import CustodianEndpoint, HTTPMethod, Cloud
+from helpers.constants import Cloud, CustodianEndpoint, HTTPMethod
 from helpers.lambda_response import ResponseFactory
 from helpers.log_helper import get_logger
 from helpers.regions import (
-    get_region_by_cloud_with_global,
     AllRegionsWithGlobal,
+    get_region_by_cloud_with_global,
 )
 from services import SP
 from services.resources_service import ResourcesService
 from validators.swagger_request_models import (
-    ResourcesGetModel,
     ResourcesArnGetModel,
+    ResourcesGetModel,
 )
 from validators.utils import validate_kwargs
 
@@ -162,7 +162,7 @@ class ResourceHandler(AbstractHandler):
             location=event.location,
             resource_type=event.resource_type,
             tenant_name=event.tenant_name,
-            customer_name=event.customer_name,
+            customer_name=event.customer_id,
             limit=event.limit,
             last_evaluated_key=NextToken.deserialize(event.next_token).value,
         )

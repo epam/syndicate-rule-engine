@@ -30,49 +30,52 @@ except ImportError:
 
 
 class ResourcesService(BaseDataService[Resource]):
+    def remove_policy_resources(
+        self, account_id: str, location: str, resource_type: str
+    ):
+        """
+        Breaks DynamoDB's abstraction and just removes all resources using index
+        """
+        assert self.model_class.is_mongo_model(), 'only MongoDB is supported'
+        col = self.model_class.mongo_adapter().get_collection(self.model_class)
+        res = col.delete_many(
+            {
+                Resource.account_id.attr_name: account_id,
+                Resource.location.attr_name: location,
+                Resource.resource_type.attr_name: resource_type,
+            }
+        )
+        _LOG.info(
+            f'Removed {res.deleted_count} resources {account_id=}:{location=}:{resource_type=}'
+        )
+
     def create(
         self,
-        id: str,
-        name: str,
+        account_id: str,
         location: str,
         resource_type: str,
-        account_id: str,
-        tenant_name: str,
-        customer_name: str,
+        id: str,
+        name: str | None,
+        arn: str | None,
         data: dict,
         sync_date: float,
         collector_type: ResourcesCollectorType,
-        arn: str | None = None,
+        tenant_name: str,
+        customer_name: str,
     ):
         return Resource(
-            id=id,
-            name=name,
+            account_id=account_id,
             location=location,
             resource_type=resource_type,
-            account_id=account_id,
-            tenant_name=tenant_name,
-            customer_name=customer_name,
+            id=id,
+            name=name,
+            arn=arn,
             _data=data,
             sync_date=sync_date,
             _collector_type=collector_type.value,
-            arn=arn,
+            tenant_name=tenant_name,
+            customer_name=customer_name,
         )
-
-    def update(
-        self,
-        resource: Resource,
-        data: dict | None = None,
-        sync_date: float | None = None,
-    ):
-        actions = []
-        if data:
-            actions.append(Resource._data.set(data))
-            actions.append(Resource._hash.set(Resource._compute_hash(data)))
-        if sync_date:
-            actions.append(Resource.sync_date.set(sync_date))
-
-        if actions:
-            resource.update(actions=actions)
 
     def get_resource_by_id(
         self, id: str, location: str, resource_type: str, account_id: str
@@ -87,29 +90,6 @@ class ResourcesService(BaseDataService[Resource]):
         # NOTE: it's not actual scan, we use sparse index in mongo
         res = list(Resource.scan(Resource.arn == arn, limit=1))
 
-        return res[0] if res else None
-
-    def get_resource(
-        self,
-        id: str,
-        name: str,
-        location: str,
-        resource_type: str,
-        tenant_name: str,
-        customer_name: str,
-    ) -> Resource | None:
-        filter_condition = (
-            (Resource.id == id)
-            & (Resource.name == name)
-            & (Resource.location == location)
-            & (Resource.resource_type == resource_type)
-            & (Resource.tenant_name == tenant_name)
-            & (Resource.customer_name == customer_name)
-        )
-
-        # NOTE: it's not actual scan, we use compound index in mongo
-        # that is not supported in modular SDK
-        res = list(Resource.scan(filter_condition, limit=1))
         return res[0] if res else None
 
     def get_resources(

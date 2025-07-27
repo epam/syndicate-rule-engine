@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - added `GET /resources` and `GET /resources/arn/{arn}` endpoints to retrieve resources with optional filtering and pagination.
 - added `ResourceCollector` class for retrieving resources using Cloud Custodian filters.
 
+
 ## [5.11.0] - 2025-06-13
 - updated `modular-sdk` version to `7.1.0`
 - updated minio server inside chart to `RELEASE.2025-05-24T17-08-30Z`
