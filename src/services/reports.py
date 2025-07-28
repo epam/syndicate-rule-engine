@@ -604,8 +604,9 @@ class OverviewReportGenerator(ReportVisitor[dict]):
         failed: int = 0
         applied: int = 0
 
-    def __init__(self, metadata: Metadata, **kwargs):
+    def __init__(self, metadata: Metadata, scope: set[str], **kwargs):
         self._metadata = metadata
+        self.scope = scope
 
     def get_resources_severities(
         self,
@@ -741,6 +742,8 @@ class OverviewReportGenerator(ReportVisitor[dict]):
     ) -> dict:
         region_rule_resources = {}
         for rule, resources in rule_resources.items():
+            if self.scope is not None and rule not in self.scope:
+                continue
             for res in resources:
                 region_rule_resources.setdefault(res.region, {}).setdefault(
                     rule, set()
@@ -759,7 +762,9 @@ class OverviewReportGenerator(ReportVisitor[dict]):
             }
         return {
             'resources_violated': len(
-                set(chain.from_iterable(rule_resources.values()))
+                set(chain.from_iterable([
+                    res for rule in region_rule_resources.values() for res in rule.values()
+                ]))
             ),
             'resources_scanned': 0,  # TODO: get from assets management
             'regions': regions,

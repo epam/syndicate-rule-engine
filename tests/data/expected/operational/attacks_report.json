@@ -189,7 +189,7 @@
         "rulesets": [
           "AWS"
         ],
-        "total_rules": 14,
+        "total_rules": 15,
         "jobs": 10,
         "per": "DAY",
         "description": "Testing license",
@@ -211,6 +211,7 @@
     "rules": {
       "total": 1,
       "disabled": [],
+      "deprecated": [],
       "passed": [],
       "failed": [],
       "violated": [

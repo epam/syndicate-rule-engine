@@ -16,7 +16,7 @@ from typing import (
 from typing_extensions import Self
 
 from helpers import get_path
-from helpers.constants import GLOBAL_REGION, Cloud
+from helpers.constants import GLOBAL_REGION, Cloud, DEPRECATED_RULE_SUFFIX
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime, utc_iso
 from services.metadata import EMPTY_METADATA, Metadata, RuleMetadata
@@ -748,6 +748,7 @@ def iter_rule_region_resources(
     policies: list[str] | tuple[str, ...] | set[str] | None = None,
     regions: list[str] | tuple[str, ...] | set[str] | None = None,
     resource_types: list[str] | tuple[str, ...] | set[str] | None = None,
+    include_deprecated: bool = False
 ) -> Generator[tuple[str, str, Iterator[CloudResource]], None, None]:
     """
     Each rule & region pair is yielded only once. Yields a tuple of
@@ -769,6 +770,8 @@ def iter_rule_region_resources(
     # NOTE: here we iterate only over those rules that executed successfully
     # at least once even if their latest execution was failed
     for part in collection.iter_parts():
+        if not include_deprecated and part.policy.endswith(DEPRECATED_RULE_SUFFIX):
+            continue
         policy = part.policy
         location = part.location
         if policies is not None and policy not in policies:
