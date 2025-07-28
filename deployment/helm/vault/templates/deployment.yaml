@@ -44,8 +44,8 @@ spec:
             exec:
               command: ["/bin/sh", "-ec", "vault status -tls-skip-verify"]
             failureThreshold: 2
-            initialDelaySeconds: 5
-            periodSeconds: 5
+            initialDelaySeconds: 10
+            periodSeconds: 30
             successThreshold: 1
             timeoutSeconds: 3
           livenessProbe:
@@ -55,7 +55,7 @@ spec:
               scheme: HTTP
             failureThreshold: 2
             initialDelaySeconds: 30
-            periodSeconds: 5
+            periodSeconds: 30
             successThreshold: 1
             timeoutSeconds: 3
           volumeMounts:
@@ -67,11 +67,20 @@ spec:
             - name: vault-config
               mountPath: "/vault/config/config.hcl"
               subPath: config.hcl
+          resources:
+            requests:
+              memory: '256Mi'
+            limits:
+              memory: '512Mi'
           ports:
             - containerPort: 8200
               name: http
               protocol: TCP
-          args: ["server"]
+          command: ["/bin/sh"]
+          args:
+            - "-c"
+            - |
+              exec vault server -config=/vault/config/config.hcl
           env:
             - name: VAULT_ADDR
               value: http://127.0.0.1:8200
