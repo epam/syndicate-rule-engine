@@ -59,9 +59,15 @@ class MongoAndSSMAuthClient(BaseAuthClient):
     def __init__(self, ssm_client: AbstractSSMClient):
         self._ssm = ssm_client
         self._jwt_client = None
-        self._refresh_col = MongoClientSingleton.get_instance().get_database(
-            CAASEnv.MONGO_DATABASE.get()
-        ).get_collection('CaaSRefreshTokenChains')
+        self._refresh_col = None
+
+    @property
+    def refresh_col(self):
+        if self._refresh_col is None:
+            self._refresh_col = MongoClientSingleton.get_instance().get_database(
+                CAASEnv.MONGO_DATABASE.get()
+            ).get_collection('CaaSRefreshTokenChains')
+        return self._refresh_col
 
     @property
     def jwt_client(self) -> JWTManagementClient:
@@ -176,7 +182,7 @@ class MongoAndSSMAuthClient(BaseAuthClient):
 
         rt_version = self._gen_refresh_token_version()
         refresh_token = self._gen_refresh_token(username, rt_version)
-        self._refresh_col.replace_one(
+        self.refresh_col.replace_one(
             {'_id': username},
             {
                 'v': rt_version  # latest version for user
@@ -200,7 +206,7 @@ class MongoAndSSMAuthClient(BaseAuthClient):
             _LOG.info('Invalid refresh token provided. Cannot refresh')
             return
         username, rt_version = tpl
-        latest = self._refresh_col.find_one({'_id': username})
+        latest = self.refresh_col.find_one({'_id': username})
         if not latest or not latest.get('v'):
             _LOG.warning(
                 'Latest version of token not found in DB '
@@ -214,10 +220,10 @@ class MongoAndSSMAuthClient(BaseAuthClient):
                 'DB do not match. Stolen refresh token or user '
                 'reused one. Invalidating existing version'
             )
-            self._refresh_col.delete_one({'_id': username})
+            self.refresh_col.delete_one({'_id': username})
             return
         rt_version = self._gen_refresh_token_version()
-        self._refresh_col.replace_one(
+        self.refresh_col.replace_one(
             {'_id': username},
             {
                 'v': rt_version  # latest version for user
