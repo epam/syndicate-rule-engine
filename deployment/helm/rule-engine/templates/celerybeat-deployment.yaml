@@ -40,6 +40,11 @@ spec:
           args: ["celerybeat"]
           image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          resources:
+            limits:
+              memory: "{{ .Values.celery.beatMemoryLimit }}"
+            requests:
+              memory: "{{ .Values.celery.beatMemoryRequest }}"
           securityContext:
             runAsNonRoot: true
             runAsUser: 1001

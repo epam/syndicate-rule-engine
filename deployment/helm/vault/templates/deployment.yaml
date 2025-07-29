@@ -69,9 +69,9 @@ spec:
               subPath: config.hcl
           resources:
             requests:
-              memory: '256Mi'
+              memory: "{{ .Values.memoryRequest }}"
             limits:
-              memory: '512Mi'
+              memory: "{{ .Values.memoryLimit }}"
           ports:
             - containerPort: 8200
               name: http

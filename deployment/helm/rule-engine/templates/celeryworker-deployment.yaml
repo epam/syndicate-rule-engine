@@ -41,9 +41,9 @@ spec:
           image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
           resources:
             limits:
-              memory: "1.5Gi"
+              memory: "{{ .Values.celery.workerMemoryLimit }}"
             requests:
-              memory: "0.5Gi"
+              memory: "{{ .Values.celery.workerMemoryRequest }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             runAsNonRoot: true

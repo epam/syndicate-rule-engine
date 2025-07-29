@@ -1,3 +1,6 @@
+memoryLimit: 512Mi
+memoryRequest: 256Mi
+
 service:
   type: ClusterIP
   port: 8200

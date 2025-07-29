@@ -2,6 +2,8 @@ databaseName: custodian_as_a_service
 mongoUri:
 innerCacheTTLSeconds: '300'
 workers: 3
+memoryLimit: 768Mi
+memoryRequest: 512Mi
 
 service:
   type: ClusterIP
@@ -104,3 +106,8 @@ persistence:
 
 celery:
   logLevel: INFO
+  workerMemoryLimit: "1536Mi"
+  workerMemoryRequest: "512Mi"
+  beatMemoryLimit: "256Mi"
+  beatMemoryRequest: "128Mi"
+

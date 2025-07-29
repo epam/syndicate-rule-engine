@@ -23,6 +23,11 @@ spec:
     spec:
       containers:
         - command: ["/wait-for-it.sh", '{{ include "defectdojo.fullname" . }}-postgres:5432', "-t", "30", "--", "/entrypoint-uwsgi.sh"]
+          resources:
+            requests:
+              memory: "256Mi"
+            limits:
+              memory: "512Mi"
           ports:
             - containerPort: 3031
           env:

@@ -24,6 +24,11 @@ spec:
       containers:
         - image: "{{ .Values.redisImage }}:{{ .Values.redisTag }}"
           imagePullPolicy: {{ .Values.imagePullPolicy }}
+          resources:
+            requests:
+              memory: "32Mi"
+            limits:
+              memory: "64Mi"
           name: redis
           ports:
             - containerPort: 6379
