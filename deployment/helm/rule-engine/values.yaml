@@ -1,6 +1,7 @@
 databaseName: custodian_as_a_service
 mongoUri:
 innerCacheTTLSeconds: '300'
+workers: 3
 
 service:
   type: ClusterIP

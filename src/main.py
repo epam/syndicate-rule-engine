@@ -3,15 +3,12 @@ import argparse
 import base64
 import json
 import logging.config
-import multiprocessing
 import secrets
 import string
 import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Callable, Literal
-
-from bottle import Bottle
 
 from modular_sdk.models.pynamongo.indexes_creator import IndexesCreator
 
@@ -28,15 +25,12 @@ from helpers.constants import (
     SettingKey,
     DEFAULT_SYSTEM_CUSTOMER,
 )
-from onprem.api.deployment_resources_parser import (
-    DeploymentResourcesApiGatewayWrapper,
-)
+from onprem.api.app import OnPremApiBuilder
 from services import SP
 from services.openapi_spec_generator import OpenApiGenerator
 
 
 SRC = Path(__file__).parent.resolve()
-ROOT = SRC.parent.resolve()
 
 DEPLOYMENT_RESOURCES_FILENAME = 'deployment_resources.json'
 
@@ -56,8 +50,6 @@ INIT_ACTION = 'init'
 
 DEFAULT_HOST = '0.0.0.0'
 DEFAULT_PORT = 8000
-DEFAULT_NUMBER_OF_WORKERS = (multiprocessing.cpu_count() * 2) + 1
-DEFAULT_API_GATEWAY_NAME = 'custodian-as-a-service-api'
 
 SYSTEM_USER = 'system_user'
 
@@ -154,21 +146,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser_run = sub_parsers.add_parser(RUN_ACTION, help='Run on-prem server')
     parser_run.add_argument(
-        '-g',
-        '--gunicorn',
-        action='store_true',
-        default=False,
-        help='Specify the flag is you want to run the server via Gunicorn',
-    )
-    parser_run.add_argument(
-        '-nw',
-        '--workers',
-        type=int,
-        required=False,
-        help='Number of gunicorn workers. Must be specified only '
-        'if --gunicorn flag is set',
-    )
-    parser_run.add_argument(
         '--host',
         default=DEFAULT_HOST,
         type=str,
@@ -184,17 +161,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 class ActionHandler(ABC):
-    @staticmethod
-    def load_api_dr() -> dict:
-        with open(SRC / DEPLOYMENT_RESOURCES_FILENAME, 'r') as f:
-            data1 = json.load(f).get(DEFAULT_API_GATEWAY_NAME) or {}
-        with open(
-            SRC / 'validators' / DEPLOYMENT_RESOURCES_FILENAME, 'r'
-        ) as f:
-            data2 = json.load(f).get(DEFAULT_API_GATEWAY_NAME) or {}
-        data1['models'] = data2.get('models') or {}
-        return data1
-
     @abstractmethod
     def __call__(self, **kwargs): ...
 
@@ -347,20 +313,10 @@ class InitMongo(ActionHandler):
 
 
 class Run(ActionHandler):
-    @staticmethod
-    def make_app(dp_wrapper: DeploymentResourcesApiGatewayWrapper) -> Bottle:
-        """For gunicorn"""
-        from onprem.api.app import OnPremApiBuilder
-
-        builder = OnPremApiBuilder(dp_wrapper=dp_wrapper)
-        return builder.build()
-
     def __call__(
         self,
         host: str = DEFAULT_HOST,
         port: int = DEFAULT_PORT,
-        gunicorn: bool = False,
-        workers: int | None = None,
     ):
         # needed here to override logging config from this file
         setup_logging()
@@ -368,32 +324,11 @@ class Run(ActionHandler):
         self._host = host
         self._port = port
 
-        if not gunicorn and workers:
-            _LOG.warning(
-                '--workers is ignored because you are not running Gunicorn'
-            )
-
         if CAASEnv.SERVICE_MODE.get() != DOCKER_SERVICE_MODE:
             CAASEnv.SERVICE_MODE.set(DOCKER_SERVICE_MODE)
 
-        dr_wrapper = DeploymentResourcesApiGatewayWrapper(self.load_api_dr())
-        app = self.make_app(dr_wrapper)
-
-        if gunicorn:
-            workers = workers or DEFAULT_NUMBER_OF_WORKERS
-            from onprem.api.app_gunicorn import CustodianGunicornApplication
-
-            # todo allow to specify these settings from outside
-            options = {
-                'bind': f'{host}:{port}',
-                'workers': workers,
-                'timeout': 60,
-                'max_requests': 512,
-                'max_requests_jitter': 64,
-            }
-            CustodianGunicornApplication(app, options).run()
-        else:
-            app.run(host=host, port=port)
+        app = OnPremApiBuilder('caas').build()
+        app.run(host=host, port=port)
 
 
 class UpdateApiGatewayModels(ActionHandler):
@@ -548,13 +483,11 @@ class InitAction(ActionHandler):
 class GenerateOpenApi(ActionHandler):
     def __call__(self):
         from validators import registry
-
-        data = self.load_api_dr()
         generator = OpenApiGenerator(
             title='Rule Engine - OpenAPI 3.0',
             description='Rule engine rest api',
             url=f'http://{DEFAULT_HOST}:{DEFAULT_PORT}',
-            stages=DeploymentResourcesApiGatewayWrapper(data).stage,
+            stages='caas',
             version=__version__,
             endpoints=registry.iter_all(),
         )

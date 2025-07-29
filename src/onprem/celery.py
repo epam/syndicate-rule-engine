@@ -12,7 +12,7 @@ app = Celery(broker=redis,
 app.conf.beat_schedule = {
     'make-findings-snapshots': {
         'task': 'onprem.tasks.make_findings_snapshot',
-        'schedule': crontab(minute='0', hour='*/4'),
+        'schedule': crontab(minute='0', hour='*/12'),
         'args': ()
     },
     'sync-license': {

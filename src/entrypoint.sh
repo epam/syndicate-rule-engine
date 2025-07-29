@@ -21,7 +21,7 @@ start_server() {
   python main.py init
 
   log "Starting server"
-  exec python main.py run --gunicorn
+  exec gunicorn
 }
 
 start_celeryworker() {
