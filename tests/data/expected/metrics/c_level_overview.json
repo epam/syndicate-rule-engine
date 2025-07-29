@@ -2,17 +2,17 @@
   "data": {
     "AWS": {
       "failed_scans": 1,
-      "last_scan_date": "2025-03-26T00:28:39.367318Z",
+      "last_scan_date": "2025-07-28T00:59:27.298066Z",
       "resources_violated": 23,
       "resource_types_data": {
-        "Security Group": 3,
-        "Sns": 3,
-        "S3": 7,
-        "Cloudtrail": 1,
-        "Iam Group": 3,
-        "Ebs": 2,
-        "Ec2": 2,
-        "Ecr": 2
+        "aws.security-group": 3,
+        "aws.sns": 3,
+        "aws.s3": 7,
+        "aws.cloudtrail": 1,
+        "aws.iam-group": 3,
+        "aws.ebs": 2,
+        "aws.ec2": 2,
+        "aws.ecr": 2
       },
       "severity_data": {
         "Unknown": 23
@@ -33,10 +33,10 @@
     },
     "AZURE": {
       "failed_scans": 1,
-      "last_scan_date": "2025-03-26T00:28:39.367318Z",
+      "last_scan_date": "2025-07-28T00:59:27.298066Z",
       "resources_violated": 5,
       "resource_types_data": {
-        "Defender Pricing": 5
+        "azure.defender-pricing": 5
       },
       "severity_data": {
         "Unknown": 5
@@ -57,12 +57,12 @@
     },
     "GOOGLE": {
       "failed_scans": 1,
-      "last_scan_date": "2025-03-26T00:28:39.367318Z",
+      "last_scan_date": "2025-07-28T00:59:27.298066Z",
       "resources_violated": 9,
       "resource_types_data": {
-        "Vpc": 1,
-        "Firewall": 4,
-        "Subnet": 4
+        "gcp.vpc": 1,
+        "gcp.firewall": 4,
+        "gcp.subnet": 4
       },
       "severity_data": {
         "Unknown": 9

@@ -508,9 +508,7 @@ class FinopsReportGenerator(ReportVisitor[Generator[dict, None, None]]):
                     or service_from_resource_type(meta[rule]['resource']),
                     'category': finops_category,
                     'severity': rm.severity.value,
-                    'resource_type': service_from_resource_type(
-                        meta[rule]['resource']
-                    ),
+                    'resource_type': meta[rule]['resource'],
                     'resources': by_region,
                 }
             )
@@ -679,7 +677,7 @@ class OverviewReportGenerator(ReportVisitor[dict]):
     ) -> dict[str, int]:
         rt_resources = {}
         for rule in rule_resources:
-            rt = service_from_resource_type(meta[rule]['resource'])
+            rt = meta[rule]['resource']
             rt_resources.setdefault(rt, set()).update(rule_resources[rule])
         return {rt: len(resources) for rt, resources in rt_resources.items()}
 
@@ -884,7 +882,7 @@ class ShardsCollectionDataSource:
     def region_resource_types(self) -> dict[str, dict[str, int]]:
         region_resource = {}
         for rule in self._resources:
-            rt = service_from_resource_type(self._col.meta[rule]['resource'])
+            rt = self._col.meta[rule]['resource']
             for res in self._resources[rule]:
                 _inner = region_resource.setdefault(res.region, {})
                 _inner.setdefault(rt, set()).add(res)

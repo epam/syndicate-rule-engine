@@ -11,19 +11,19 @@
         "per": "DAY",
         "description": "Testing license",
         "valid_until": "2100-02-01T15:24:26.175778Z",
-        "valid_from": "2025-07-18T08:56:49.203236Z"
+        "valid_from": "2025-07-28T13:48:06.314168Z"
       }
     ],
     "is_automatic_scans_enabled": true,
     "in_progress_scans": 0,
     "finished_scans": 2,
     "succeeded_scans": 1,
-    "last_scan_date": "2025-07-18T00:56:49.991441Z",
+    "last_scan_date": "2025-07-28T00:48:07.120839Z",
     "activated_regions": [
-      "eu-north-1",
-      "eu-west-3",
       "eu-central-1",
-      "eu-west-1"
+      "eu-west-1",
+      "eu-west-3",
+      "eu-north-1"
     ],
     "rules": {
       "total": 1,
@@ -45,6 +45,61 @@
     }
   },
   "data": [
+    {
+      "region": "eu-central-1",
+      "service": "Security Group",
+      "resource_type": "aws.security-group",
+      "resource": {
+        "id": "sg-09d19538187df66cf",
+        "name": "asia",
+        "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-09d19538187df66cf",
+        "sre:date": 1729253757.393474
+      },
+      "attacks": [
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing0",
+          "technique_id": "T0",
+          "sub_technique_name": "sub0",
+          "sub_technique_id": "T0.0",
+          "severity": "Unknown",
+          "violations": [
+            {
+              "policy": "ecc-aws-070-unused_ec2_security_groups"
+            }
+          ]
+        },
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing0",
+          "technique_id": "T0",
+          "sub_technique_name": "sub1",
+          "sub_technique_id": "T0.1",
+          "severity": "Unknown",
+          "violations": [
+            {
+              "policy": "ecc-aws-070-unused_ec2_security_groups"
+            }
+          ]
+        },
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing1",
+          "technique_id": "T1",
+          "sub_technique_name": "sub0",
+          "sub_technique_id": "T1.0",
+          "severity": "Unknown",
+          "violations": [
+            {
+              "policy": "ecc-aws-070-unused_ec2_security_groups"
+            }
+          ]
+        }
+      ]
+    },
     {
       "region": "eu-central-1",
       "service": "Security Group",
@@ -108,61 +163,6 @@
         "id": "sg-05209ceeb761317e5",
         "name": "west-eu",
         "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-05209ceeb761317e5",
-        "sre:date": 1729253757.393474
-      },
-      "attacks": [
-        {
-          "tactic_name": "Collection",
-          "tactic_id": "TA0009",
-          "technique_name": "testing0",
-          "technique_id": "T0",
-          "sub_technique_name": "sub0",
-          "sub_technique_id": "T0.0",
-          "severity": "Unknown",
-          "violations": [
-            {
-              "policy": "ecc-aws-070-unused_ec2_security_groups"
-            }
-          ]
-        },
-        {
-          "tactic_name": "Collection",
-          "tactic_id": "TA0009",
-          "technique_name": "testing0",
-          "technique_id": "T0",
-          "sub_technique_name": "sub1",
-          "sub_technique_id": "T0.1",
-          "severity": "Unknown",
-          "violations": [
-            {
-              "policy": "ecc-aws-070-unused_ec2_security_groups"
-            }
-          ]
-        },
-        {
-          "tactic_name": "Collection",
-          "tactic_id": "TA0009",
-          "technique_name": "testing1",
-          "technique_id": "T1",
-          "sub_technique_name": "sub0",
-          "sub_technique_id": "T1.0",
-          "severity": "Unknown",
-          "violations": [
-            {
-              "policy": "ecc-aws-070-unused_ec2_security_groups"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "region": "eu-central-1",
-      "service": "Security Group",
-      "resource_type": "aws.security-group",
-      "resource": {
-        "id": "sg-09d19538187df66cf",
-        "name": "asia",
-        "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-09d19538187df66cf",
         "sre:date": 1729253757.393474
       },
       "attacks": [

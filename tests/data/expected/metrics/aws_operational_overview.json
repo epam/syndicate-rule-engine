@@ -11,19 +11,19 @@
         "per": "DAY",
         "description": "Testing license",
         "valid_until": "2100-02-01T15:24:26.175778Z",
-        "valid_from": "2025-07-21T09:17:59.048344Z"
+        "valid_from": "2025-07-28T13:45:45.937830Z"
       }
     ],
     "is_automatic_scans_enabled": true,
     "in_progress_scans": 0,
     "finished_scans": 2,
     "succeeded_scans": 1,
-    "last_scan_date": "2025-07-21T00:17:59.841685Z",
+    "last_scan_date": "2025-07-28T00:45:46.721344Z",
     "activated_regions": [
-      "eu-central-1",
+      "eu-west-1",
       "eu-north-1",
-      "eu-west-3",
-      "eu-west-1"
+      "eu-central-1",
+      "eu-west-3"
     ],
     "rules": {
       "total": 14,
@@ -193,9 +193,9 @@
           "S3": 1
         },
         "resource_types": {
-          "Security Group": 3,
-          "Sns": 3,
-          "S3": 1
+          "aws.security-group": 3,
+          "aws.sns": 3,
+          "aws.s3": 1
         }
       },
       "global": {
@@ -226,8 +226,8 @@
           "Iam Group": 3
         },
         "resource_types": {
-          "Cloudtrail": 1,
-          "Iam Group": 3
+          "aws.cloudtrail": 1,
+          "aws.iam-group": 3
         }
       },
       "eu-west-1": {
@@ -260,40 +260,10 @@
           "Ecr": 2
         },
         "resource_types": {
-          "S3": 4,
-          "Ebs": 2,
-          "Ec2": 2,
-          "Ecr": 2
-        }
-      },
-      "eu-north-1": {
-        "resources": {
-          "Info": 0,
-          "Low": 0,
-          "Medium": 0,
-          "High": 0,
-          "Unknown": 1
-        },
-        "violations": {
-          "Info": 0,
-          "Low": 0,
-          "Medium": 0,
-          "High": 0,
-          "Unknown": 1
-        },
-        "attacks": {
-          "Info": 0,
-          "Low": 0,
-          "Medium": 0,
-          "High": 0,
-          "Unknown": 0
-        },
-        "standards": [],
-        "services": {
-          "S3": 1
-        },
-        "resource_types": {
-          "S3": 1
+          "aws.s3": 4,
+          "aws.ebs": 2,
+          "aws.ec2": 2,
+          "aws.ecr": 2
         }
       },
       "eu-west-3": {
@@ -323,7 +293,37 @@
           "S3": 1
         },
         "resource_types": {
+          "aws.s3": 1
+        }
+      },
+      "eu-north-1": {
+        "resources": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 1
+        },
+        "violations": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 1
+        },
+        "attacks": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 0
+        },
+        "standards": [],
+        "services": {
           "S3": 1
+        },
+        "resource_types": {
+          "aws.s3": 1
         }
       }
     },

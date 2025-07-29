@@ -2394,7 +2394,7 @@ class MetricsCollector:
                                 'severity': policies_dict[policy['policy']][
                                     'severity'
                                 ],
-                                'resource_type': resource['service'],
+                                'resource_type': resource['resource_type'],
                                 'regions_data': {
                                     resource['region']: {
                                         'total_violated_resources': 1

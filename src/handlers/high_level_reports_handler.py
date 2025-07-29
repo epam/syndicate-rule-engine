@@ -850,7 +850,11 @@ class HighLevelReportsHandler(AbstractHandler):
         builder = MaestroModelBuilder(receivers=tuple(event.receivers))
         types = event.new_types
         only_k8s = (
-            len(types) == 1 and types[0] == ReportType.OPERATIONAL_KUBERNETES
+            len(types) == 1 and types[0] is ReportType.OPERATIONAL_KUBERNETES
+        )
+        # TODO: temp solution to disable deprecation reports for aws, google, k8s
+        only_depr = (
+            len(types) == 1 and types[0] is ReportType.OPERATIONAL_DEPRECATION
         )
 
         for tenant_name in event.tenant_names:
@@ -863,6 +867,14 @@ class HighLevelReportsHandler(AbstractHandler):
             tenant = self._mc.tenant_service().get(tenant_name)
             modular_helpers.assert_tenant_valid(tenant, event.customer)
             tenant = cast(Tenant, tenant)
+            tenant_cloud = modular_helpers.tenant_cloud(tenant)
+
+            if tenant_cloud is not Cloud.AZURE and only_depr:
+                raise (
+                    ResponseFactory(HTTPStatus.BAD_REQUEST)
+                    .message('Deprecation reports are currently allowed only for AZURE tenants')
+                    .exc()
+                )
 
             for typ in types:
                 if typ is ReportType.OPERATIONAL_KUBERNETES:
@@ -898,6 +910,10 @@ class HighLevelReportsHandler(AbstractHandler):
                         )
                         for i in k8s_datas
                     )
+                    continue
+
+                if typ is ReportType.OPERATIONAL_DEPRECATION and tenant_cloud is not Cloud.AZURE:
+                    _LOG.info(f'Skipping deprecation report for non-AZURE tenant {tenant}')
                     continue
 
                 _LOG.debug(f'Going to generate {typ} for {tenant.name}')
