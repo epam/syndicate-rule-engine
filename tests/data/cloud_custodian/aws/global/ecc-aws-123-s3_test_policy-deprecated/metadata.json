@@ -1,0 +1,74 @@
+{
+  "policy": {
+    "name": "ecc-aws-123-s3_test_policy-deprecated",
+    "resource": "s3",
+    "description": "Description for ecc-aws-123-s3_test_policy-deprecated",
+    "comment": "010047042901"
+  },
+  "version": "0.9.40",
+  "execution": {
+    "id": "f18efda1-500d-45eb-9f4d-1ee9b35b864b",
+    "start": 1729253612.897642,
+    "end_time": 1729253612.904913,
+    "duration": 0.0072710514068603516
+  },
+  "config": {
+    "region": "us-east-1",
+    "regions": [
+      "all"
+    ],
+    "cache": "cloud-custodian.cache",
+    "profile": null,
+    "account_id": "123456789012",
+    "assume_role": null,
+    "session_policy": null,
+    "external_id": null,
+    "log_group": null,
+    "tracer": "default",
+    "metrics_enabled": false,
+    "metrics": null,
+    "output_dir": "./global",
+    "cache_period": 120,
+    "dryrun": false,
+    "authorization_file": null,
+    "command": "c7n.commands.run",
+    "config": null,
+    "configs": [],
+    "subparser": "run",
+    "policy_filters": [],
+    "resource_types": [],
+    "verbose": null,
+    "quiet": false,
+    "debug": false,
+    "skip_validation": false,
+    "vars": null
+  },
+  "sys-stats": {
+    "snapshot_time": 0.007266998291015625,
+    "num_fds": 1,
+    "cpu_user": 0.0064163840000013295,
+    "cpu_system": 0.0008739840000000498,
+    "pfaults": 16
+  },
+  "api-stats": {},
+  "metrics": [
+    {
+      "MetricName": "ResourceCount",
+      "Timestamp": "2024-10-18T15:13:32.900409",
+      "Value": 6,
+      "Unit": "Count"
+    },
+    {
+      "MetricName": "ResourceTime",
+      "Timestamp": "2024-10-18T15:13:32.900413",
+      "Value": 0.002443075180053711,
+      "Unit": "Seconds"
+    },
+    {
+      "MetricName": "ActionTime",
+      "Timestamp": "2024-10-18T15:13:32.904905",
+      "Value": 4.76837158203125e-06,
+      "Unit": "Seconds"
+    }
+  ]
+}
