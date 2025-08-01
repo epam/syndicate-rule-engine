@@ -9,6 +9,8 @@ metadata:
     helm.sh/chart: {{ include "defectdojo.chart" . }}
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "defectdojo.name" . }}-nginx
@@ -27,6 +29,11 @@ spec:
               value: "false"
           image: "{{ .Values.nginxImage }}:{{ .Values.nginxTag }}"
           imagePullPolicy: {{ .Values.imagePullPolicy }}
+          resources:
+            requests:
+              memory: "16Mi"
+            limits:
+              memory: "32Mi"
           name: nginx
           ports:
             - containerPort: 8080

@@ -1133,9 +1133,15 @@ TS_JOB_LOCK_KEY = 'CUSTODIAN_JOB_LOCK'
 GITHUB_API_URL_DEFAULT = 'https://api.github.com'
 GITLAB_API_URL_DEFAULT = 'https://git.epam.com'
 
-# lambda names
-RULE_META_UPDATER_LAMBDA_NAME = 'caas-rule-meta-updater'
-METRICS_UPDATER_LAMBDA_NAME = 'caas-metrics-updater'
+
+class LambdaName(str, Enum):
+    API_HANDLER = 'caas-api-handler'
+    CONFIGURATION_API_HANDLER = 'caas-configuration-api-handler'
+    EVENT_HANDLER = 'caas-event-handler'
+    LICENSE_UPDATER = 'caas-license-updater'
+    METRICS_UPDATER = 'caas-metrics-updater'
+    REPORT_GENERATOR = 'caas-report-generator'
+    RULE_META_UPDATER = 'caas-rule-meta-updater'
 
 
 # some common deltas for reports

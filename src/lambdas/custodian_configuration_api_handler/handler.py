@@ -28,8 +28,7 @@ from helpers.constants import (
     CustodianEndpoint,
     GIT_PROJECT_ID_ATTR,
     HTTPMethod,
-    METRICS_UPDATER_LAMBDA_NAME,
-    RULE_META_UPDATER_LAMBDA_NAME,
+    LambdaName,
     RULE_SOURCE_ID_ATTR,
     STATUS_ATTR,
     RuleSourceSyncingStatus
@@ -157,14 +156,14 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
 
         if ids_to_sync:
             self.lambda_client.invoke_function_async(
-                RULE_META_UPDATER_LAMBDA_NAME,
+                LambdaName.RULE_META_UPDATER,
                 event={'rule_source_ids': ids_to_sync}
             )
-            _LOG.debug(f'{RULE_META_UPDATER_LAMBDA_NAME} has been triggered')
+            _LOG.debug(f'{LambdaName.RULE_META_UPDATER} has been triggered')
         else:
             _LOG.warning(
                 f'No rule-sources allowed to update. '
-                f'{RULE_META_UPDATER_LAMBDA_NAME} has not been triggered')
+                f'{LambdaName.RULE_META_UPDATER} has not been triggered')
             return build_response(
                 code=HTTPStatus.NOT_FOUND,
                 content='No rule sources were found'
@@ -177,7 +176,6 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
 
     @validate_kwargs
     def update_metrics(self, event: BaseModel):
-        _LOG.debug(f'Going to trigger: {METRICS_UPDATER_LAMBDA_NAME}')
         collect_metrics.delay()
         return build_response(
             code=HTTPStatus.ACCEPTED,

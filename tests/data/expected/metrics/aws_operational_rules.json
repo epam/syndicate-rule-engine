@@ -6,7 +6,7 @@
     "eu-west-1",
     "eu-west-3"
   ],
-  "last_scan_date": "2025-07-16T00:32:09.857161Z",
+  "last_scan_date": "2025-08-01T00:46:28.310337Z",
   "id": "123456789012",
   "data": [
     {
@@ -150,7 +150,7 @@
       "policy": "Description for ecc-aws-150-api_gateway_rest_api_encryption_at_rest",
       "region": "eu-central-1",
       "resource_type": "aws.rest-stage",
-      "service": "Rest Stage",
+      "service": "Security Group",
       "severity": "Unknown",
       "invocations": 1,
       "succeeded_invocations": 1,

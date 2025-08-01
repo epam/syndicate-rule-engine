@@ -31,10 +31,12 @@ from helpers.constants import (
     JobState,
     ReportType,
     Severity,
+    GLOBAL_REGION,
 )
 from helpers.log_helper import get_logger
 from helpers.reports import (
     SeverityCmp,
+    Standard,
     keep_highest,
     service_from_resource_type,
 )
@@ -56,6 +58,7 @@ if TYPE_CHECKING:
     from modular_sdk.modular import ModularServiceProvider
 
     from services.license_service import License, LicenseService
+    from services.report_service import ReportService
 
 _LOG = get_logger(__name__)
 
@@ -341,6 +344,7 @@ class ResourcesReportGenerator(ReportVisitor[Generator[dict, None, None]]):
         metadata: Metadata,
         view: ReportVisitor[dict],
         scope: set[str] | None = None,
+        **kwargs,
     ):
         self._metadata = metadata
         self._view = view
@@ -419,6 +423,7 @@ class DeprecationReportGenerator(ReportVisitor[Generator[dict, None, None]]):
         metadata: Metadata,
         view: ReportVisitor[dict],
         scope: set[str] | None = None,
+        **kwargs,
     ):
         self._metadata = metadata
         self._view = view
@@ -470,6 +475,7 @@ class FinopsReportGenerator(ReportVisitor[Generator[dict, None, None]]):
         metadata: Metadata,
         view: ReportVisitor[dict],
         scope: set[str] | None = None,
+        **kwargs,
     ):
         self._metadata = metadata
         self._view = view
@@ -508,9 +514,7 @@ class FinopsReportGenerator(ReportVisitor[Generator[dict, None, None]]):
                     or service_from_resource_type(meta[rule]['resource']),
                     'category': finops_category,
                     'severity': rm.severity.value,
-                    'resource_type': service_from_resource_type(
-                        meta[rule]['resource']
-                    ),
+                    'resource_type': meta[rule]['resource'],
                     'resources': by_region,
                 }
             )
@@ -530,6 +534,7 @@ class AttacksReportGenerator(ReportVisitor[Generator[dict, None, None]]):
         metadata: Metadata,
         view: ReportVisitor[dict],
         scope: set[str] | None = None,
+        **kwargs,
     ):
         self._metadata = metadata
         self._view = view
@@ -604,9 +609,16 @@ class OverviewReportGenerator(ReportVisitor[dict]):
         failed: int = 0
         applied: int = 0
 
-    def __init__(self, metadata: Metadata, scope: set[str], **kwargs):
+    def __init__(
+        self,
+        metadata: Metadata,
+        scope: set[str],
+        report_service: 'ReportService',
+        **kwargs,
+    ):
         self._metadata = metadata
         self.scope = scope
+        self._rs = report_service
 
     def get_resources_severities(
         self,
@@ -680,7 +692,7 @@ class OverviewReportGenerator(ReportVisitor[dict]):
     ) -> dict[str, int]:
         rt_resources = {}
         for rule in rule_resources:
-            rt = service_from_resource_type(meta[rule]['resource'])
+            rt = meta[rule]['resource']
             rt_resources.setdefault(rt, set()).update(rule_resources[rule])
         return {rt: len(resources) for rt, resources in rt_resources.items()}
 
@@ -729,6 +741,27 @@ class OverviewReportGenerator(ReportVisitor[dict]):
                 info.passed += 1
         return info
 
+    def _calculate_region_coverages(
+        self, col: ShardsCollection, cloud: Cloud
+    ) -> dict[str, dict[Standard, float]]:
+        if cloud is Cloud.AWS:
+            mapping = self._rs.group_parts_iterator_by_location(
+                self._rs.iter_successful_parts(col)
+            )
+        else:
+            mapping = {
+                GLOBAL_REGION: list(self._rs.iter_successful_parts(col))
+            }
+        region_coverages = {}
+        for location, parts in mapping.items():
+            region_coverages[location] = self._rs.calculate_coverages(
+                successful=self._rs.get_standard_to_controls_to_rules(
+                    it=parts, metadata=self._metadata
+                ),
+                full=self._metadata.domain(cloud).full_cov,
+            )
+        return region_coverages
+
     def visitDefault(
         self,
         report: 'OverviewReport',
@@ -738,6 +771,7 @@ class OverviewReportGenerator(ReportVisitor[dict]):
         start: datetime,
         end: datetime,
         meta: dict[str, RuleMeta],
+        cloud: Cloud,
         **kwargs,
     ) -> dict:
         region_rule_resources = {}
@@ -748,6 +782,9 @@ class OverviewReportGenerator(ReportVisitor[dict]):
                 region_rule_resources.setdefault(res.region, {}).setdefault(
                     rule, set()
                 ).add(res)
+        region_coverages = self._calculate_region_coverages(
+            col=collection, cloud=cloud
+        )
 
         regions = {}
         for region in region_rule_resources:
@@ -756,15 +793,24 @@ class OverviewReportGenerator(ReportVisitor[dict]):
                 'resources': self.get_resources_severities(rr, unique=True),
                 'violations': self.get_violations_severities(rr),
                 'attacks': self.get_attacks_severities(rr),
-                'standards': [],
+                'standards': [
+                    {'name': st.full_name, 'value': cov}
+                    for st, cov in region_coverages.get(region, {}).items()
+                ],
                 'services': self.get_resources_services(rr, meta),
                 'resource_types': self.get_resources_types(rr, meta),
             }
         return {
             'resources_violated': len(
-                set(chain.from_iterable([
-                    res for rule in region_rule_resources.values() for res in rule.values()
-                ]))
+                set(
+                    chain.from_iterable(
+                        [
+                            res
+                            for rule in region_rule_resources.values()
+                            for res in rule.values()
+                        ]
+                    )
+                )
             ),
             'resources_scanned': 0,  # TODO: get from assets management
             'regions': regions,
@@ -889,7 +935,7 @@ class ShardsCollectionDataSource:
     def region_resource_types(self) -> dict[str, dict[str, int]]:
         region_resource = {}
         for rule in self._resources:
-            rt = service_from_resource_type(self._col.meta[rule]['resource'])
+            rt = self._col.meta[rule]['resource']
             for res in self._resources[rule]:
                 _inner = region_resource.setdefault(res.region, {})
                 _inner.setdefault(rt, set()).add(res)

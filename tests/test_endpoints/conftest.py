@@ -134,10 +134,7 @@ def deployment_resources():
     scope='session')  # todo think about scope and look at the performance
 def wsgi_app(deployment_resources):
     from onprem.api.app import OnPremApiBuilder
-    from onprem.api.deployment_resources_parser import \
-        DeploymentResourcesApiGatewayWrapper
-    dr_wrapper = DeploymentResourcesApiGatewayWrapper(deployment_resources)
-    builder = OnPremApiBuilder(dr_wrapper)
+    builder = OnPremApiBuilder('caas')
     return builder.build()
 
 

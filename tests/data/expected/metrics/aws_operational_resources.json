@@ -11,19 +11,19 @@
         "per": "DAY",
         "description": "Testing license",
         "valid_until": "2100-02-01T15:24:26.175778Z",
-        "valid_from": "2025-07-21T12:07:51.164456Z"
+        "valid_from": "2025-07-28T13:48:06.314168Z"
       }
     ],
     "is_automatic_scans_enabled": true,
     "in_progress_scans": 0,
     "finished_scans": 2,
     "succeeded_scans": 1,
-    "last_scan_date": "2025-07-21T00:07:52.074854Z",
+    "last_scan_date": "2025-07-28T00:48:07.120839Z",
     "activated_regions": [
-      "eu-north-1",
-      "eu-west-1",
       "eu-central-1",
-      "eu-west-3"
+      "eu-west-1",
+      "eu-west-3",
+      "eu-north-1"
     ],
     "rules": {
       "total": 15,
@@ -166,46 +166,46 @@
       "region": "eu-central-1",
       "resource_type": "aws.security-group",
       "service": "Security Group",
-      "severity": "Unknown",
-      "resource": {
-        "id": "sg-0ae266faddaef17e9",
-        "name": "packer-ssh-access",
-        "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-0ae266faddaef17e9"
-      },
-      "violations": [
-        {
-          "policy": "ecc-aws-070-unused_ec2_security_groups",
-          "sre:date": 1729253757.393474
-        }
-      ]
-    },
-    {
-      "region": "eu-central-1",
-      "resource_type": "aws.security-group",
-      "service": "Security Group",
-      "severity": "Unknown",
-      "resource": {
-        "id": "sg-05209ceeb761317e5",
-        "name": "west-eu",
-        "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-05209ceeb761317e5"
-      },
-      "violations": [
-        {
-          "policy": "ecc-aws-070-unused_ec2_security_groups",
-          "sre:date": 1729253757.393474
-        }
-      ]
-    },
-    {
-      "region": "eu-central-1",
-      "resource_type": "aws.security-group",
-      "service": "Security Group",
-      "severity": "Unknown",
       "resource": {
         "id": "sg-09d19538187df66cf",
         "name": "asia",
         "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-09d19538187df66cf"
       },
+      "severity": "Unknown",
+      "violations": [
+        {
+          "policy": "ecc-aws-070-unused_ec2_security_groups",
+          "sre:date": 1729253757.393474
+        }
+      ]
+    },
+    {
+      "region": "eu-central-1",
+      "resource_type": "aws.security-group",
+      "service": "Security Group",
+      "resource": {
+        "id": "sg-0ae266faddaef17e9",
+        "name": "packer-ssh-access",
+        "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-0ae266faddaef17e9"
+      },
+      "severity": "Unknown",
+      "violations": [
+        {
+          "policy": "ecc-aws-070-unused_ec2_security_groups",
+          "sre:date": 1729253757.393474
+        }
+      ]
+    },
+    {
+      "region": "eu-central-1",
+      "resource_type": "aws.security-group",
+      "service": "Security Group",
+      "resource": {
+        "id": "sg-05209ceeb761317e5",
+        "name": "west-eu",
+        "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-05209ceeb761317e5"
+      },
+      "severity": "Unknown",
       "violations": [
         {
           "policy": "ecc-aws-070-unused_ec2_security_groups",
@@ -217,12 +217,12 @@
       "region": "global",
       "resource_type": "aws.cloudtrail",
       "service": "Cloudtrail",
-      "severity": "Unknown",
       "resource": {
         "id": "arn:aws:cloudtrail:eu-central-1:111111111111:trail/testing-org",
         "name": "testing-org",
         "arn": "arn:aws:cloudtrail:eu-central-1:111111111111:trail/testing-org"
       },
+      "severity": "Unknown",
       "violations": [
         {
           "policy": "ecc-aws-374-cloudtrail_logs_data_events",
@@ -234,29 +234,12 @@
       "region": "eu-central-1",
       "resource_type": "aws.sns",
       "service": "Sns",
-      "severity": "Unknown",
-      "resource": {
-        "id": "arn:aws:sns:eu-central-1:123456789012:testing-guard-duty-topic",
-        "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
-        "arn": "arn:aws:sns:eu-central-1:123456789012:testing-guard-duty-topic"
-      },
-      "violations": [
-        {
-          "policy": "ecc-aws-221-sns_kms_encryption_enabled",
-          "sre:date": 1729253769.274071
-        }
-      ]
-    },
-    {
-      "region": "eu-central-1",
-      "resource_type": "aws.sns",
-      "service": "Sns",
-      "severity": "Unknown",
       "resource": {
         "id": "arn:aws:sns:eu-central-1:123456789012:m3-inspector-topic",
         "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
         "arn": "arn:aws:sns:eu-central-1:123456789012:m3-inspector-topic"
       },
+      "severity": "Unknown",
       "violations": [
         {
           "policy": "ecc-aws-221-sns_kms_encryption_enabled",
@@ -268,12 +251,12 @@
       "region": "eu-central-1",
       "resource_type": "aws.sns",
       "service": "Sns",
-      "severity": "Unknown",
       "resource": {
-        "id": "arn:aws:sns:eu-central-1:123456789012:dead",
+        "id": "arn:aws:sns:eu-central-1:123456789012:testing-guard-duty-topic",
         "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
-        "arn": "arn:aws:sns:eu-central-1:123456789012:dead"
+        "arn": "arn:aws:sns:eu-central-1:123456789012:testing-guard-duty-topic"
       },
+      "severity": "Unknown",
       "violations": [
         {
           "policy": "ecc-aws-221-sns_kms_encryption_enabled",
@@ -282,61 +265,19 @@
       ]
     },
     {
-      "region": "eu-west-1",
-      "resource_type": "aws.s3",
-      "service": "S3",
-      "severity": "Unknown",
+      "region": "eu-central-1",
+      "resource_type": "aws.sns",
+      "service": "Sns",
       "resource": {
-        "id": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1",
-        "name": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1",
-        "arn": "arn:aws:s3:::appcomposer-4bzknnwy0n3wuuhd-eu-west-1"
+        "id": "arn:aws:sns:eu-central-1:123456789012:dead",
+        "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+        "arn": "arn:aws:sns:eu-central-1:123456789012:dead"
       },
+      "severity": "Unknown",
       "violations": [
         {
-          "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
-          "sre:date": 1729253612.904913
-        },
-        {
-          "policy": "ecc-aws-516-s3_event_notifications_enabled",
-          "sre:date": 1729253632.1969962
-        }
-      ]
-    },
-    {
-      "region": "eu-west-1",
-      "resource_type": "aws.s3",
-      "service": "S3",
-      "severity": "Unknown",
-      "resource": {
-        "id": "example-rulesets-dev",
-        "name": "example-rulesets-dev",
-        "arn": "arn:aws:s3:::example-rulesets-dev"
-      },
-      "violations": [
-        {
-          "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
-          "sre:date": 1729253612.904913
-        }
-      ]
-    },
-    {
-      "region": "eu-west-1",
-      "resource_type": "aws.s3",
-      "service": "S3",
-      "severity": "Unknown",
-      "resource": {
-        "id": "example-reports-dev",
-        "name": "example-reports-dev",
-        "arn": "arn:aws:s3:::example-reports-dev"
-      },
-      "violations": [
-        {
-          "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
-          "sre:date": 1729253612.904913
-        },
-        {
-          "policy": "ecc-aws-516-s3_event_notifications_enabled",
-          "sre:date": 1729253632.1969962
+          "policy": "ecc-aws-221-sns_kms_encryption_enabled",
+          "sre:date": 1729253769.274071
         }
       ]
     },
@@ -344,12 +285,88 @@
       "region": "eu-central-1",
       "resource_type": "aws.s3",
       "service": "S3",
-      "severity": "Unknown",
       "resource": {
         "id": "example-artifacts",
         "name": "example-artifacts",
         "arn": "arn:aws:s3:::example-artifacts"
       },
+      "severity": "Unknown",
+      "violations": [
+        {
+          "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+          "sre:date": 1729253612.904913
+        },
+        {
+          "policy": "ecc-aws-516-s3_event_notifications_enabled",
+          "sre:date": 1729253632.1969962
+        }
+      ]
+    },
+    {
+      "region": "eu-west-1",
+      "resource_type": "aws.s3",
+      "service": "S3",
+      "resource": {
+        "id": "example-rulesets-dev",
+        "name": "example-rulesets-dev",
+        "arn": "arn:aws:s3:::example-rulesets-dev"
+      },
+      "severity": "Unknown",
+      "violations": [
+        {
+          "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+          "sre:date": 1729253612.904913
+        }
+      ]
+    },
+    {
+      "region": "eu-west-1",
+      "resource_type": "aws.s3",
+      "service": "S3",
+      "resource": {
+        "id": "example-reports-dev",
+        "name": "example-reports-dev",
+        "arn": "arn:aws:s3:::example-reports-dev"
+      },
+      "severity": "Unknown",
+      "violations": [
+        {
+          "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+          "sre:date": 1729253612.904913
+        },
+        {
+          "policy": "ecc-aws-516-s3_event_notifications_enabled",
+          "sre:date": 1729253632.1969962
+        }
+      ]
+    },
+    {
+      "region": "eu-north-1",
+      "resource_type": "aws.s3",
+      "service": "S3",
+      "resource": {
+        "id": "macro-delivery",
+        "name": "macro-delivery",
+        "arn": "arn:aws:s3:::macro-delivery"
+      },
+      "severity": "Unknown",
+      "violations": [
+        {
+          "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
+          "sre:date": 1729253612.904913
+        }
+      ]
+    },
+    {
+      "region": "eu-west-1",
+      "resource_type": "aws.s3",
+      "service": "S3",
+      "resource": {
+        "id": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1",
+        "name": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1",
+        "arn": "arn:aws:s3:::appcomposer-4bzknnwy0n3wuuhd-eu-west-1"
+      },
+      "severity": "Unknown",
       "violations": [
         {
           "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
@@ -365,29 +382,12 @@
       "region": "eu-west-3",
       "resource_type": "aws.s3",
       "service": "S3",
-      "severity": "Unknown",
       "resource": {
         "id": "example-meta-storage-eu-west-3-par",
         "name": "example-meta-storage-eu-west-3-par",
         "arn": "arn:aws:s3:::example-meta-storage-eu-west-3-par"
       },
-      "violations": [
-        {
-          "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
-          "sre:date": 1729253612.904913
-        }
-      ]
-    },
-    {
-      "region": "eu-north-1",
-      "resource_type": "aws.s3",
-      "service": "S3",
       "severity": "Unknown",
-      "resource": {
-        "id": "macro-delivery",
-        "name": "macro-delivery",
-        "arn": "arn:aws:s3:::macro-delivery"
-      },
       "violations": [
         {
           "policy": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
@@ -399,29 +399,12 @@
       "region": "global",
       "resource_type": "aws.iam-group",
       "service": "Iam Group",
-      "severity": "Unknown",
-      "resource": {
-        "id": "example-dev-extended-group",
-        "name": "example-dev-extended-group",
-        "arn": "arn:aws:iam::123456789012:group/example-dev-extended-group"
-      },
-      "violations": [
-        {
-          "policy": "ecc-aws-499-iam_group_has_users_check",
-          "sre:date": 1729253695.934546
-        }
-      ]
-    },
-    {
-      "region": "global",
-      "resource_type": "aws.iam-group",
-      "service": "Iam Group",
-      "severity": "Unknown",
       "resource": {
         "id": "DeployGroupWithoutIAM",
         "name": "DeployGroupWithoutIAM",
         "arn": "arn:aws:iam::123456789012:group/DeployGroupWithoutIAM"
       },
+      "severity": "Unknown",
       "violations": [
         {
           "policy": "ecc-aws-499-iam_group_has_users_check",
@@ -433,12 +416,29 @@
       "region": "global",
       "resource_type": "aws.iam-group",
       "service": "Iam Group",
-      "severity": "Unknown",
       "resource": {
         "id": "example-dev-group",
         "name": "example-dev-group",
         "arn": "arn:aws:iam::123456789012:group/example-dev-group"
       },
+      "severity": "Unknown",
+      "violations": [
+        {
+          "policy": "ecc-aws-499-iam_group_has_users_check",
+          "sre:date": 1729253695.934546
+        }
+      ]
+    },
+    {
+      "region": "global",
+      "resource_type": "aws.iam-group",
+      "service": "Iam Group",
+      "resource": {
+        "id": "example-dev-extended-group",
+        "name": "example-dev-extended-group",
+        "arn": "arn:aws:iam::123456789012:group/example-dev-extended-group"
+      },
+      "severity": "Unknown",
       "violations": [
         {
           "policy": "ecc-aws-499-iam_group_has_users_check",
@@ -450,12 +450,12 @@
       "region": "eu-west-1",
       "resource_type": "aws.s3",
       "service": "S3",
-      "severity": "Unknown",
       "resource": {
         "id": "example-meta-storage-eu-west-1-tmp",
         "name": "example-meta-storage-eu-west-1-tmp",
         "arn": "arn:aws:s3:::example-meta-storage-eu-west-1-tmp"
       },
+      "severity": "Unknown",
       "violations": [
         {
           "policy": "ecc-aws-516-s3_event_notifications_enabled",
@@ -467,12 +467,12 @@
       "region": "eu-west-1",
       "resource_type": "aws.ebs",
       "service": "Ebs",
-      "severity": "Unknown",
       "resource": {
-        "id": "vol-060f342d89d8bb757",
-        "name": "vol-060f342d89d8bb757",
-        "arn": "arn:aws:ec2:eu-west-1:123456789012:volume/vol-060f342d89d8bb757"
+        "id": "vol-080f1194e8b86e0a7",
+        "name": "vol-080f1194e8b86e0a7",
+        "arn": "arn:aws:ec2:eu-west-1:123456789012:volume/vol-080f1194e8b86e0a7"
       },
+      "severity": "Unknown",
       "violations": [
         {
           "policy": "ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances",
@@ -484,12 +484,12 @@
       "region": "eu-west-1",
       "resource_type": "aws.ebs",
       "service": "Ebs",
-      "severity": "Unknown",
       "resource": {
-        "id": "vol-080f1194e8b86e0a7",
-        "name": "vol-080f1194e8b86e0a7",
-        "arn": "arn:aws:ec2:eu-west-1:123456789012:volume/vol-080f1194e8b86e0a7"
+        "id": "vol-060f342d89d8bb757",
+        "name": "vol-060f342d89d8bb757",
+        "arn": "arn:aws:ec2:eu-west-1:123456789012:volume/vol-060f342d89d8bb757"
       },
+      "severity": "Unknown",
       "violations": [
         {
           "policy": "ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances",
@@ -501,12 +501,12 @@
       "region": "eu-west-1",
       "resource_type": "aws.ec2",
       "service": "Ec2",
-      "severity": "Unknown",
       "resource": {
         "id": "i-0580697d712fb5b56",
         "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
         "arn": "arn:aws:ec2:eu-west-1:123456789012:instance/i-0580697d712fb5b56"
       },
+      "severity": "Unknown",
       "violations": [
         {
           "policy": "ecc-aws-490-ec2_token_hop_limit_check",
@@ -518,12 +518,12 @@
       "region": "eu-west-1",
       "resource_type": "aws.ec2",
       "service": "Ec2",
-      "severity": "Unknown",
       "resource": {
         "id": "i-0771a4eb028bda937",
         "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
         "arn": "arn:aws:ec2:eu-west-1:123456789012:instance/i-0771a4eb028bda937"
       },
+      "severity": "Unknown",
       "violations": [
         {
           "policy": "ecc-aws-490-ec2_token_hop_limit_check",
@@ -535,12 +535,12 @@
       "region": "eu-west-1",
       "resource_type": "aws.ecr",
       "service": "Ecr",
-      "severity": "Unknown",
       "resource": {
         "id": "example-developer-test",
         "name": "example-developer-test",
         "arn": "arn:aws:ecr:eu-west-1:123456789012:repository/example-developer-test"
       },
+      "severity": "Unknown",
       "violations": [
         {
           "policy": "ecc-aws-229-ecr_repository_kms_encryption_enabled",
@@ -552,12 +552,12 @@
       "region": "eu-west-1",
       "resource_type": "aws.ecr",
       "service": "Ecr",
-      "severity": "Unknown",
       "resource": {
         "id": "application-dev",
         "name": "application-dev",
         "arn": "arn:aws:ecr:eu-west-1:123456789012:repository/application-dev"
       },
+      "severity": "Unknown",
       "violations": [
         {
           "policy": "ecc-aws-229-ecr_repository_kms_encryption_enabled",

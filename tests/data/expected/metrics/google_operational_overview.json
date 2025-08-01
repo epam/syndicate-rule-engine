@@ -11,14 +11,14 @@
         "per": "DAY",
         "description": "Testing license",
         "valid_until": "2100-02-01T15:24:26.175778Z",
-        "valid_from": "2025-07-21T09:18:01.030737Z"
+        "valid_from": "2025-07-28T13:48:08.461548Z"
       }
     ],
     "is_automatic_scans_enabled": true,
     "in_progress_scans": 0,
     "finished_scans": 2,
     "succeeded_scans": 1,
-    "last_scan_date": "2025-07-21T00:17:59.841685Z",
+    "last_scan_date": "2025-07-28T00:48:07.120839Z",
     "activated_regions": [],
     "rules": {
       "total": 10,
@@ -148,38 +148,8 @@
           "Firewall": 4
         },
         "resource_types": {
-          "Vpc": 1,
-          "Firewall": 4
-        }
-      },
-      "europe-west10": {
-        "resources": {
-          "Info": 0,
-          "Low": 0,
-          "Medium": 0,
-          "High": 0,
-          "Unknown": 1
-        },
-        "violations": {
-          "Info": 0,
-          "Low": 0,
-          "Medium": 0,
-          "High": 0,
-          "Unknown": 1
-        },
-        "attacks": {
-          "Info": 0,
-          "Low": 0,
-          "Medium": 0,
-          "High": 0,
-          "Unknown": 0
-        },
-        "standards": [],
-        "services": {
-          "Subnet": 1
-        },
-        "resource_types": {
-          "Subnet": 1
+          "gcp.vpc": 1,
+          "gcp.firewall": 4
         }
       },
       "northamerica-south1": {
@@ -209,37 +179,7 @@
           "Subnet": 1
         },
         "resource_types": {
-          "Subnet": 1
-        }
-      },
-      "africa-south1": {
-        "resources": {
-          "Info": 0,
-          "Low": 0,
-          "Medium": 0,
-          "High": 0,
-          "Unknown": 1
-        },
-        "violations": {
-          "Info": 0,
-          "Low": 0,
-          "Medium": 0,
-          "High": 0,
-          "Unknown": 1
-        },
-        "attacks": {
-          "Info": 0,
-          "Low": 0,
-          "Medium": 0,
-          "High": 0,
-          "Unknown": 0
-        },
-        "standards": [],
-        "services": {
-          "Subnet": 1
-        },
-        "resource_types": {
-          "Subnet": 1
+          "gcp.subnet": 1
         }
       },
       "us-west8": {
@@ -269,7 +209,67 @@
           "Subnet": 1
         },
         "resource_types": {
+          "gcp.subnet": 1
+        }
+      },
+      "europe-west10": {
+        "resources": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 1
+        },
+        "violations": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 1
+        },
+        "attacks": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 0
+        },
+        "standards": [],
+        "services": {
           "Subnet": 1
+        },
+        "resource_types": {
+          "gcp.subnet": 1
+        }
+      },
+      "africa-south1": {
+        "resources": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 1
+        },
+        "violations": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 1
+        },
+        "attacks": {
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "High": 0,
+          "Unknown": 0
+        },
+        "standards": [],
+        "services": {
+          "Subnet": 1
+        },
+        "resource_types": {
+          "gcp.subnet": 1
         }
       }
     },

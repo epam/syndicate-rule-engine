@@ -34,13 +34,18 @@ spec:
         - name: rule-engine
           image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          resources:
+            limits:
+              memory: "{{ .Values.memoryLimit }}"
+            requests:
+              memory: "{{ .Values.memoryRequest }}"
           livenessProbe:
             httpGet:
               path: '/caas/health/live'
               scheme: HTTP
               port: 8000
             initialDelaySeconds: 20
-            periodSeconds: 40
+            periodSeconds: 60
             timeoutSeconds: 5
             successThreshold: 1
             failureThreshold: 3

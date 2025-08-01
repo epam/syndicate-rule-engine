@@ -5144,64 +5144,6 @@
           ]
         }
       },
-      "/rule-meta/standards": {
-        "policy_statement_singleton": true,
-        "enable_cors": true,
-        "POST": {
-          "integration_type": "lambda",
-          "enable_proxy": true,
-          "lambda_alias": "${lambdas_alias_name}",
-          "authorization_type": "authorizer",
-          "lambda_name": "caas-configuration-api-handler",
-          "method_request_models": {
-            "application/json": "BaseModel"
-          },
-          "responses": [
-            {
-              "status_code": "202",
-              "response_models": {
-                "application/json": "MessageModel"
-              }
-            },
-            {
-              "status_code": "400",
-              "response_models": {
-                "application/json": "ErrorsModel"
-              }
-            },
-            {
-              "status_code": "401",
-              "response_models": {
-                "application/json": "MessageModel"
-              }
-            },
-            {
-              "status_code": "403",
-              "response_models": {
-                "application/json": "MessageModel"
-              }
-            },
-            {
-              "status_code": "500",
-              "response_models": {
-                "application/json": "MessageModel"
-              }
-            },
-            {
-              "status_code": "503",
-              "response_models": {
-                "application/json": "MessageModel"
-              }
-            },
-            {
-              "status_code": "504",
-              "response_models": {
-                "application/json": "MessageModel"
-              }
-            }
-          ]
-        }
-      },
       "/reports/resources/platforms/k8s/{platform_id}/state/latest": {
         "policy_statement_singleton": true,
         "enable_cors": true,
