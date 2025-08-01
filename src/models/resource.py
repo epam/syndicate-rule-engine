@@ -50,7 +50,7 @@ class Resource(BaseModel):
     encoder = msgspec.json.Encoder()
 
     class Meta:
-        table_name = 'CaaSResources'
+        table_name = 'SREResources'
         region = CAASEnv.AWS_REGION.get()
 
     # just to please our DynamoDB's inheritance. It looks like:

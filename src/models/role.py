@@ -7,7 +7,7 @@ from models import BaseModel
 
 class Role(BaseModel):
     class Meta:
-        table_name = 'CaaSRoles'
+        table_name = 'SRERoles'
         region = CAASEnv.AWS_REGION.get()
 
     customer = UnicodeAttribute(hash_key=True)

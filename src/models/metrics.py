@@ -29,7 +29,7 @@ class CustomerEndIndex(GlobalSecondaryIndex):
 
 class ReportMetrics(BaseModel):
     class Meta:
-        table_name = 'CaaSReportMetrics'
+        table_name = 'SREReportMetrics'
         region = CAASEnv.AWS_REGION.get()
 
     # type#customer#project#cloud#tenant#region

@@ -6,7 +6,7 @@ from models import BaseModel
 
 class Policy(BaseModel):
     class Meta:
-        table_name = 'CaaSPolicies'
+        table_name = 'SREPolicies'
         region = CAASEnv.AWS_REGION.get()
 
     customer = UnicodeAttribute(hash_key=True)  # todo hot partition?

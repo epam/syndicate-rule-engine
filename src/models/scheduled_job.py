@@ -34,7 +34,7 @@ class ScheduledJob(BaseSafeUpdateModel):
     """
 
     class Meta:
-        table_name = 'CaaSScheduledJobs'
+        table_name = 'SREScheduledJobs'
         region = CAASEnv.AWS_REGION.get()
 
     id = UnicodeAttribute(hash_key=True, attr_name='id')

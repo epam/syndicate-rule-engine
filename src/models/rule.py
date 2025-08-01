@@ -239,7 +239,7 @@ class RuleIndex:
 
 class Rule(BaseModel):
     class Meta:
-        table_name = 'CaaSRules'
+        table_name = 'SRERules'
         region = CAASEnv.AWS_REGION.get()
 
     # "customer#cloud#name#normalized_version"

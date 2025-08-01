@@ -36,7 +36,7 @@ class CustomerIdIndex(GlobalSecondaryIndex):
 
 class Ruleset(BaseModel):
     class Meta:
-        table_name = 'CaaSRulesets'
+        table_name = 'SRERulesets'
         region = CAASEnv.AWS_REGION.get()
 
     id = UnicodeAttribute(hash_key=True)  # "customer#L|S#name#normalized_version"

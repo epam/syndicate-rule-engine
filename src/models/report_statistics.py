@@ -28,7 +28,7 @@ class StatusIndex(GlobalSecondaryIndex):
 
 class ReportStatistics(BaseModel):
     class Meta:
-        table_name = 'CaaSReportStatistics'
+        table_name = 'SREReportStatistics'
         region = CAASEnv.AWS_REGION.get()
 
     id = UnicodeAttribute(hash_key=True)
