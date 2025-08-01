@@ -11,24 +11,26 @@
         "per": "DAY",
         "description": "Testing license",
         "valid_until": "2100-02-01T15:24:26.175778Z",
-        "valid_from": "2025-07-28T13:45:45.937830Z"
+        "valid_from": "2025-08-01T12:19:06.850812Z"
       }
     ],
     "is_automatic_scans_enabled": true,
     "in_progress_scans": 0,
     "finished_scans": 2,
     "succeeded_scans": 1,
-    "last_scan_date": "2025-07-28T00:45:46.721344Z",
+    "last_scan_date": "2025-08-01T00:19:07.628071Z",
     "activated_regions": [
-      "eu-west-1",
-      "eu-north-1",
       "eu-central-1",
-      "eu-west-3"
+      "eu-west-3",
+      "eu-north-1",
+      "eu-west-1"
     ],
     "rules": {
       "total": 15,
       "disabled": [],
-      "deprecated": ["ecc-aws-123-s3_test_policy-deprecated"],
+      "deprecated": [
+        "ecc-aws-123-s3_test_policy-deprecated"
+      ],
       "passed": [
         {
           "id": "ecc-aws-150-api_gateway_rest_api_encryption_at_rest",
@@ -187,7 +189,20 @@
           "High": 0,
           "Unknown": 9
         },
-        "standards": [],
+        "standards": [
+          {
+            "name": "Standard1 v1.0.0",
+            "value": 0.5
+          },
+          {
+            "name": "Standard1 v2.0.0",
+            "value": 0.25
+          },
+          {
+            "name": "Standard2",
+            "value": 0.125
+          }
+        ],
         "services": {
           "Security Group": 3,
           "Sns": 3,
@@ -267,7 +282,7 @@
           "aws.ecr": 2
         }
       },
-      "eu-west-3": {
+      "eu-north-1": {
         "resources": {
           "Info": 0,
           "Low": 0,
@@ -297,7 +312,7 @@
           "aws.s3": 1
         }
       },
-      "eu-north-1": {
+      "eu-west-3": {
         "resources": {
           "Info": 0,
           "Low": 0,

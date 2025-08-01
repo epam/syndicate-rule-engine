@@ -746,7 +746,11 @@ class MetricsCollector:
                 ),
             )
             generator = ReportVisitor.derive_visitor(
-                typ, metadata=ctx.metadata, view=view, scope=scope
+                typ,
+                metadata=ctx.metadata,
+                view=view,
+                scope=scope,
+                report_service=self._rs,
             )
             data = report.accept(
                 generator,
@@ -755,6 +759,7 @@ class MetricsCollector:
                 start=start,
                 end=end,
                 meta=collection.meta,
+                cloud=cloud,
             )
             if not isinstance(data, dict):
                 # TODO: somehow move this info to visitors abstraction

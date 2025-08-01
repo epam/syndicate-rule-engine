@@ -123,7 +123,10 @@ class MaestroModelBuilder:
             rd['resources_data'] = rd.pop('resources')
             rd['violations_data'] = rd.pop('violations', {})
             rd['attacks_data'] = rd.pop('attacks', {})
-            rd['standards_data'] = rd.pop('standards', {})
+            rd['standards_data'] = [{
+                'name': st['name'],
+                'value': round(st['value'] * 100, 2),
+            } for st in rd.pop('standards', ())]
             rd.pop('resource_types', None)
             rd.pop('services', None)
             regions_data[region] = rd
