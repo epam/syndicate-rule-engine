@@ -19,6 +19,6 @@ persistence:
 
 replicas: 1
 strategy:
-  type: RollingUpdate
+  type: Recreate
   maxUnavailable: 0
   maxSurge: 100%

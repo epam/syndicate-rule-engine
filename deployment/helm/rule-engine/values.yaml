@@ -3,7 +3,7 @@ mongoUri:
 innerCacheTTLSeconds: '300'
 workers: 3
 memoryLimit: 768Mi
-memoryRequest: 512Mi
+memoryRequest: 128Mi
 
 service:
   type: ClusterIP
@@ -17,7 +17,7 @@ image:
 
 replicas: 1
 strategy:
-  type: RollingUpdate
+  type: Recreate
   maxUnavailable: 0
   maxSurge: 100%
 
@@ -56,7 +56,7 @@ modular-api:
   fullnameOverride: modular-api
   disableRateLimiter: "true"
   image:
-    tag: 4.2.10-rule-engine
+    tag: 4.3.0-rule-engine
 
 patch:
   enabled: false
@@ -107,7 +107,7 @@ persistence:
 celery:
   logLevel: INFO
   workerMemoryLimit: "1536Mi"
-  workerMemoryRequest: "512Mi"
+  workerMemoryRequest: "128Mi"
   beatMemoryLimit: "256Mi"
   beatMemoryRequest: "128Mi"
 

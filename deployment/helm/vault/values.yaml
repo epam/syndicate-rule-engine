@@ -1,5 +1,5 @@
 memoryLimit: 512Mi
-memoryRequest: 256Mi
+memoryRequest: 128Mi
 
 service:
   type: ClusterIP
@@ -24,6 +24,6 @@ persistence:
 
 replicas: 1
 strategy:
-  type: RollingUpdate
+  type: Recreate
   maxUnavailable: 0
   maxSurge: 100%
