@@ -1367,3 +1367,5 @@ class ResourcesCollectorType(str, Enum):
     AZURE_RESOURCE_GRAPH = 'azure_resource_graph'
     FOCUS = 'focus'
     CUSTODIAN = 'cloud_custodian'
+
+DEPRECATED_RULE_SUFFIX = '-deprecated'

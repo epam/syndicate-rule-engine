@@ -20,6 +20,7 @@ from helpers.constants import (
     RemediationComplexity,
     ReportType,
     Severity,
+    DEPRECATED_RULE_SUFFIX
 )
 from helpers.log_helper import get_logger
 from helpers.reports import service_from_resource_type
@@ -195,6 +196,7 @@ class LicenseMetadata(msgspec.Struct, kw_only=True, frozen=True):
 class ReportRulesMetadata(msgspec.Struct, kw_only=True, frozen=True):
     total: int = 0
     disabled: tuple[str, ...] = ()
+    deprecated: tuple[str, ...] = ()
     passed: tuple[RuleCheck, ...] = ()
     failed: tuple[RuleCheck, ...] = ()
     violated: tuple[RuleCheck, ...] | msgspec.UnsetType = msgspec.UNSET
@@ -706,6 +708,8 @@ class MetricsCollector:
             collection, cloud, ctx.metadata, tenant.project
         )
 
+        deprecated = tuple(self._iter_deprecated_rules(collection))
+
         for typ in types:
             start = typ.start(ctx.now)
             end = typ.end(ctx.now)
@@ -719,7 +723,14 @@ class MetricsCollector:
             report = Report.derive_report(typ)
             scope = report.accept(selector, rules=cloud_rules)
             total = len(scope)
+
+            # Some selectors can filter disabled and deprecated rules,
+            # so we don't want to include them in that report
+            disabled_loc = tuple(scope.intersection(disabled))
+            deprecated_loc = tuple(scope.intersection(deprecated))
+
             scope.difference_update(disabled)
+            scope.difference_update(deprecated)
 
             meta = TenantReportMetadata(
                 licenses=licenses,
@@ -731,7 +742,8 @@ class MetricsCollector:
                 activated_regions=active_regions,
                 rules=ReportRulesMetadata(
                     total=total,
-                    disabled=disabled,
+                    disabled=disabled_loc,
+                    deprecated=deprecated_loc,
                     passed=tuple(self._iter_passed_checks(collection, scope)),
                     failed=tuple(self._iter_failed_checks(collection, scope)),
                     violated=tuple(
@@ -1042,6 +1054,9 @@ class MetricsCollector:
         meta = meta or {}
         for item in it:
             p = item.policy
+            # Exclude deprecated rules
+            if p.endswith(DEPRECATED_RULE_SUFFIX):
+                continue
             item.policy = meta.get(p, {}).get('description', p)
             item.resource_type = meta.get(p, {}).get('resource', '')
             yield item
@@ -2420,3 +2435,15 @@ class MetricsCollector:
                 ),
                 {'outdated_tenants': [], 'data': data},
             )
+    
+    def _iter_deprecated_rules(
+        self, collection: ShardsCollection
+    ) -> Iterable[str]:
+        """
+        Iterates over deprecated rules in the collection.
+        """
+        for policy in collection.meta:
+            if policy.endswith(DEPRECATED_RULE_SUFFIX):
+                yield policy
+
+

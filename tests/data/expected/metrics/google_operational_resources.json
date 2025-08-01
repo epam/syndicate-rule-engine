@@ -23,6 +23,7 @@
     "rules": {
       "total": 10,
       "disabled": [],
+      "deprecated": [],
       "passed": [
         {
           "id": "ecc-gcp-240-slow_query_log_database_flag_for_cloud_sql_mysql",

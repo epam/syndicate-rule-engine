@@ -60,6 +60,7 @@
     "rules": {
       "total": 1,
       "disabled": [],
+      "deprecated": [],
       "passed": [],
       "failed": [],
       "violated": [

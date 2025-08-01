@@ -6,7 +6,7 @@
         "rulesets": [
           "AWS"
         ],
-        "total_rules": 14,
+        "total_rules": 15,
         "jobs": 10,
         "per": "DAY",
         "description": "Testing license",
@@ -26,8 +26,9 @@
       "eu-north-1"
     ],
     "rules": {
-      "total": 14,
+      "total": 15,
       "disabled": [],
+      "deprecated": ["ecc-aws-123-s3_test_policy-deprecated"],
       "passed": [
         {
           "id": "ecc-aws-150-api_gateway_rest_api_encryption_at_rest",

@@ -23,6 +23,7 @@
     "rules": {
       "total": 10,
       "disabled": [],
+      "deprecated": [],
       "passed": [
         {
           "id": "ecc-azure-347-mysql_cmk",
