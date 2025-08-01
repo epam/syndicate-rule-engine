@@ -32,7 +32,7 @@ app.conf.beat_schedule = {
     },
     'scan-resources': {
         'task': 'onprem.tasks.collect_resources',
-        'schedule': crontab(minute='0', hour='4'),
+        'schedule': crontab(minute='0', hour='14'),
         'args': ()
     }
 }

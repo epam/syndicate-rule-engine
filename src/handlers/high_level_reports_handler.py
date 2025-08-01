@@ -852,6 +852,13 @@ class HighLevelReportsHandler(AbstractHandler):
 
         builder = MaestroModelBuilder(receivers=tuple(event.receivers))
         types = event.new_types
+        if ReportType.OPERATIONAL_OVERVIEW in types:
+            # TODO: quick fix to put operational overview in the end
+            _types = list(types)
+            _types.remove(ReportType.OPERATIONAL_OVERVIEW)
+            _types.append(ReportType.OPERATIONAL_OVERVIEW)
+            types = tuple(_types)
+
         only_k8s = (
             len(types) == 1 and types[0] is ReportType.OPERATIONAL_KUBERNETES
         )

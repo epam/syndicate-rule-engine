@@ -1,3 +1,4 @@
+import os
 import time
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
@@ -14,10 +15,10 @@ from c7n_kube.resources.resource_map import ResourceMap as K8sResourceMap
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.modular import ModularServiceProvider
 
+from executor.helpers.constants import AWS_DEFAULT_REGION
 from executor.job import (
     PoliciesLoader,
     get_tenant_credentials,
-    job_initializer,
 )
 from helpers.constants import (
     EXCLUDE_RESOURCE_TYPES,
@@ -109,6 +110,21 @@ class BaseResourceCollector(ABC):
         resource_types: set[str] | None = None,
         **kwargs,
     ): ...
+
+
+class CredentialsContext:
+    def __init__(self, creds: dict):
+        self._c = creds
+
+    def __enter__(self):
+        os.environ.update(self._c)
+        os.environ.setdefault('AWS_DEFAULT_REGION', AWS_DEFAULT_REGION)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # Clear credentials from environment variables
+        for key in self._c:
+            os.environ.pop(key, None)
+        os.environ.setdefault('AWS_DEFAULT_REGION', AWS_DEFAULT_REGION)
 
 
 # TODO: add resource retrieval for Kubernetes
@@ -445,47 +461,45 @@ class CustodianResourceCollector(BaseResourceCollector):
             regions = modular_helpers.get_tenant_regions(tenant) | {GLOBAL_REGION}
 
         cloud = modular_helpers.tenant_cloud(tenant)
-
-        match cloud:
-            case Cloud.AWS:
-                policies = self.load_aws_policies(
-                    resource_types=resource_types,
-                    regions=regions
-                )
-            case Cloud.AZURE:
-                policies = self.load_azure_policies(
-                    resource_types=resource_types
-                )
-            case Cloud.GCP | Cloud.GOOGLE:
-                policies = self.load_google_policies(
-                    resource_types=resource_types
-                )
-            case Cloud.KUBERNETES | Cloud.K8S:
-                policies = self.load_k8s_policies(
-                    resource_types=resource_types
-                )
-            case _:
-                raise ValueError(f'Unsupported cloud {cloud}')
-
-        _LOG.info(f'Starting resource collection for tenant: {tenant_name}')
-        _LOG.info(f'Policies to run: {len(policies)}')
-
         credentials = CustodianResourceCollector._get_credentials(tenant)
-        # TODO: check process pool executor vs Billiard pool
-        with ThreadPoolExecutor(
-            max_workers=workers,
-            initializer=job_initializer,
-            initargs=(credentials,),
-        ) as executor:
-            for policy in policies:
-                executor.submit(
-                    self._process_policy,
-                    policy,
-                    cloud,
-                    tenant.customer_name,
-                    tenant.name,
-                    str(tenant.project)
-                )
+        with CredentialsContext(credentials):
+            match cloud:
+                case Cloud.AWS:
+                    policies = self.load_aws_policies(
+                        resource_types=resource_types,
+                        regions=regions
+                    )
+                case Cloud.AZURE:
+                    policies = self.load_azure_policies(
+                        resource_types=resource_types
+                    )
+                case Cloud.GCP | Cloud.GOOGLE:
+                    policies = self.load_google_policies(
+                        resource_types=resource_types
+                    )
+                case Cloud.KUBERNETES | Cloud.K8S:
+                    policies = self.load_k8s_policies(
+                        resource_types=resource_types
+                    )
+                case _:
+                    raise ValueError(f'Unsupported cloud {cloud}')
+
+            _LOG.info(f'Starting resource collection for tenant: {tenant_name}')
+            _LOG.info(f'Policies to run: {len(policies)}')
+
+            # TODO: check process pool executor vs Billiard pool
+            with ThreadPoolExecutor(
+                max_workers=workers,
+            ) as executor:
+                for policy in policies:
+                    executor.submit(
+                        self._process_policy,
+                        policy,
+                        cloud,
+                        tenant.customer_name,
+                        tenant.name,
+                        str(tenant.project)
+                    )
 
     def collect_all_resources(
         self,
@@ -499,9 +513,6 @@ class CustodianResourceCollector(BaseResourceCollector):
         all active regions will be collected
         """
         it = ActivatedTenantsIterator(mc=self._ms, ls=self._ls)
-        self.collect_tenant_resources(
-            tenant_name='AWS-EPMC-EOOS',
-        )
         for _, tenant, _ in it:
             if regions is None:
                 tenant_regions = modular_helpers.get_tenant_regions(tenant) | {GLOBAL_REGION}
