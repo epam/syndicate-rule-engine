@@ -11,6 +11,7 @@ from modular_sdk.models.tenant import Tenant
 from modular_sdk.modular import ModularServiceProvider
 
 from helpers.constants import (
+    DEPRECATED_RULE_SUFFIX,
     GLOBAL_REGION,
     TACTICS_ID_MAPPING,
     TS_EXCLUDED_RULES_KEY,
@@ -20,7 +21,6 @@ from helpers.constants import (
     RemediationComplexity,
     ReportType,
     Severity,
-    DEPRECATED_RULE_SUFFIX
 )
 from helpers.log_helper import get_logger
 from helpers.reports import service_from_resource_type
@@ -434,14 +434,6 @@ class MetricsCollector:
                 data['resources_violated'] = ov[1]['data'][
                     'resources_violated'
                 ]
-                for rule in data['data']:
-                    rule_meta = ctx.metadata.rule(rule.policy)
-                    rule.service = (
-                        rule_meta.service
-                        or service_from_resource_type(rule.resource_type)
-                    )
-                    rule.severity = rule_meta.severity
-
             yield rep, data
 
     def _get_license_cloud_metadata(
@@ -663,7 +655,7 @@ class MetricsCollector:
                     rules=ReportRulesMetadata(
                         total=len(scope),
                         disabled=disabled,
-                        violated=()
+                        violated=(),
                         # not_executed=tuple(report_rules)
                     ),
                 )
@@ -837,7 +829,7 @@ class MetricsCollector:
         ctx.add_reports(
             self._complete_rules_report(
                 self.operational_rules(
-                    now=ctx.now,
+                    ctx=ctx,
                     job_source=job_source,
                     sc_provider=sc_provider,
                     report_type=ReportType.OPERATIONAL_RULES,
@@ -1049,7 +1041,10 @@ class MetricsCollector:
         self._save_all(ctx, 'saving department and c-level')
 
     def _expand_rules_statistics(
-        self, it: Iterable['AverageStatisticsItem'], meta: dict | None = None
+        self,
+        it: Iterable['AverageStatisticsItem'],
+        ctx: MetricsContext,
+        meta: dict | None = None,
     ) -> Generator['AverageStatisticsItem', None, None]:
         meta = meta or {}
         for item in it:
@@ -1059,17 +1054,24 @@ class MetricsCollector:
                 continue
             item.policy = meta.get(p, {}).get('description', p)
             item.resource_type = meta.get(p, {}).get('resource', '')
+
+            rm = ctx.metadata.rule(p)
+            item.service = rm.service or service_from_resource_type(
+                item.resource_type
+            )
+            item.severity = rm.severity
+
             yield item
 
     def operational_rules(
         self,
-        now: datetime,
+        ctx: MetricsContext,
         job_source: JobMetricsDataSource,
         sc_provider: ShardsCollectionProvider,
         report_type: ReportType,
     ) -> ReportsGen:
-        start = report_type.start(now)
-        end = report_type.end(now)
+        start = report_type.start(ctx.now)
+        end = report_type.end(ctx.now)
         js = job_source.subset(start=start, end=end, affiliation='tenant')
         for tenant_name in js.scanned_tenants:
             tenant = self._get_tenant(tenant_name)
@@ -1095,10 +1097,11 @@ class MetricsCollector:
                 'id': tenant.project,
                 'data': list(
                     self._expand_rules_statistics(
-                        self._rs.average_statistics(
+                        it=self._rs.average_statistics(
                             *map(self._rs.job_statistics, tjs)
                         ),
-                        col.meta if col else {},
+                        ctx=ctx,
+                        meta=col.meta if col else {},
                     )
                 ),
                 'outdated_tenants': outdated,
@@ -2435,7 +2438,7 @@ class MetricsCollector:
                 ),
                 {'outdated_tenants': [], 'data': data},
             )
-    
+
     def _iter_deprecated_rules(
         self, collection: ShardsCollection
     ) -> Iterable[str]:
@@ -2445,5 +2448,3 @@ class MetricsCollector:
         for policy in collection.meta:
             if policy.endswith(DEPRECATED_RULE_SUFFIX):
                 yield policy
-
-
