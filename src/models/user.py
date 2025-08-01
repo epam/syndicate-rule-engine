@@ -8,7 +8,7 @@ from models import BaseModel
 # used only for on-prem
 class User(BaseModel):
     class Meta:
-        table_name = 'CaaSUsers'
+        table_name = 'SREUsers'
         region = CAASEnv.AWS_REGION.get()
 
     user_id = UnicodeAttribute(hash_key=True)

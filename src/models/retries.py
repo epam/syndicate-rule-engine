@@ -6,7 +6,7 @@ from models import BaseModel
 
 class Retries(BaseModel):
     class Meta:
-        table_name = 'CaaSRetries'
+        table_name = 'SRERetries'
         region = CAASEnv.AWS_REGION.get()
 
     id = UnicodeAttribute(hash_key=True)

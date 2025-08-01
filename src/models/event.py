@@ -17,7 +17,7 @@ class Event(BaseModel):
     """
 
     class Meta:
-        table_name = "CaaSEvents"
+        table_name = "SREEvents"
         region = CAASEnv.AWS_REGION.get()
 
     partition = NumberAttribute(hash_key=True,

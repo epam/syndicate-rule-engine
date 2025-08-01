@@ -48,7 +48,7 @@ class TenantNameSubmittedAtIndex(GlobalSecondaryIndex):
 
 class BatchResults(BaseModel):
     class Meta:
-        table_name = "CaaSBatchResults"
+        table_name = "SREBatchResults"
         region = CAASEnv.AWS_REGION.get()
 
     id = UnicodeAttribute(hash_key=True, attr_name=BR_ID)  # uuid

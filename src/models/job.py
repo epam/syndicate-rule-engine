@@ -56,7 +56,7 @@ class CustomerNameSubmittedAtIndex(GlobalSecondaryIndex):
 
 class Job(BaseModel):
     class Meta:
-        table_name = 'CaaSJobs'
+        table_name = 'SREJobs'
         region = CAASEnv.AWS_REGION.get()
         mongo_attributes = True  # ttl attribute is patched
 

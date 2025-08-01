@@ -29,7 +29,7 @@ class CustomerGitProjectIdIndex(GlobalSecondaryIndex):
 
 class RuleSource(BaseModel):
     class Meta:
-        table_name = 'CaaSRuleSources'
+        table_name = 'SRERuleSources'
         region = CAASEnv.AWS_REGION.get()
 
     id = UnicodeAttribute(hash_key=True)
