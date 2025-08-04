@@ -1,13 +1,15 @@
 {
   "succeeded_scans": 1,
-  "outdated_tenants": [],
   "activated_regions": [],
-  "last_scan_date": "2025-02-04T00:16:00.289094Z",
+  "last_scan_date": "2025-08-01T00:46:28.310337Z",
   "id": "testing-project-123",
   "data": [
     {
       "policy": "Description for ecc-gcp-240-slow_query_log_database_flag_for_cloud_sql_mysql",
       "region": "global",
+      "resource_type": "gcp.sql-instance",
+      "service": "Sql Instance",
+      "severity": "Unknown",
       "invocations": 1,
       "succeeded_invocations": 1,
       "failed_invocations": 0,
@@ -24,6 +26,9 @@
     {
       "policy": "Description for ecc-gcp-237-postgresql_use_the_latest_major_version",
       "region": "global",
+      "resource_type": "gcp.sql-instance",
+      "service": "Sql Instance",
+      "severity": "Unknown",
       "invocations": 1,
       "succeeded_invocations": 1,
       "failed_invocations": 0,
@@ -40,6 +45,9 @@
     {
       "policy": "Description for ecc-gcp-153-vm_instances_without_any_label_information",
       "region": "global",
+      "resource_type": "gcp.instance",
+      "service": "Instance",
+      "severity": "Unknown",
       "invocations": 1,
       "succeeded_invocations": 1,
       "failed_invocations": 0,
@@ -56,6 +64,9 @@
     {
       "policy": "Description for ecc-gcp-025-no_default_network",
       "region": "global",
+      "resource_type": "gcp.vpc",
+      "service": "Vpc",
+      "severity": "Unknown",
       "invocations": 1,
       "succeeded_invocations": 1,
       "failed_invocations": 0,
@@ -72,6 +83,9 @@
     {
       "policy": "Description for ecc-gcp-272-firewall_logging_enabled",
       "region": "global",
+      "resource_type": "gcp.firewall",
+      "service": "Firewall",
+      "severity": "Unknown",
       "invocations": 1,
       "succeeded_invocations": 1,
       "failed_invocations": 0,
@@ -88,6 +102,9 @@
     {
       "policy": "Description for ecc-gcp-109-prevent_allow_all_ingress",
       "region": "global",
+      "resource_type": "gcp.firewall",
+      "service": "Firewall",
+      "severity": "Unknown",
       "invocations": 1,
       "succeeded_invocations": 1,
       "failed_invocations": 0,
@@ -104,6 +121,9 @@
     {
       "policy": "Description for ecc-gcp-104-default_firewall_rule_in_use",
       "region": "global",
+      "resource_type": "gcp.firewall",
+      "service": "Firewall",
+      "severity": "Unknown",
       "invocations": 1,
       "succeeded_invocations": 1,
       "failed_invocations": 0,
@@ -120,6 +140,9 @@
     {
       "policy": "Description for ecc-gcp-033-vpc_flow_logs_for_every_subnet",
       "region": "global",
+      "resource_type": "gcp.subnet",
+      "service": "Subnet",
+      "severity": "Unknown",
       "invocations": 1,
       "succeeded_invocations": 1,
       "failed_invocations": 0,
@@ -136,6 +159,9 @@
     {
       "policy": "Description for ecc-gcp-027-dnssec_for_cloud_dns",
       "region": "global",
+      "resource_type": "gcp.dns-managed-zone",
+      "service": "Dns Managed Zone",
+      "severity": "Unknown",
       "invocations": 1,
       "succeeded_invocations": 0,
       "failed_invocations": 1,
@@ -152,6 +178,9 @@
     {
       "policy": "Description for ecc-gcp-101-load_balancer_access_logging_disabled",
       "region": "global",
+      "resource_type": "gcp.loadbalancer-backend-service",
+      "service": "Loadbalancer Backend Service",
+      "severity": "Unknown",
       "invocations": 1,
       "succeeded_invocations": 0,
       "failed_invocations": 1,
@@ -166,5 +195,6 @@
       "average_resources_failed": 0
     }
   ],
+  "outdated_tenants": [],
   "resources_violated": 9
 }

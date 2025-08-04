@@ -1,5 +1,4 @@
 import inspect
-import json
 import re
 from http import HTTPStatus
 from typing import Callable
@@ -7,6 +6,7 @@ from typing import Callable
 from bottle import Bottle, HTTPResponse, request
 
 from helpers import RequestContext
+from helpers.constants import LambdaName
 from helpers.lambda_response import CustodianException, LambdaResponse, \
     ResponseFactory
 from helpers.log_helper import get_logger
@@ -18,7 +18,7 @@ from lambdas.custodian_configuration_api_handler.handler import (
 from lambdas.custodian_report_generator.handler import (
     lambda_handler as report_generator_lambda,
 )
-from onprem.api.deployment_resources_parser import DeploymentResourcesApiGatewayWrapper
+from validators import registry
 from services import SERVICE_PROVIDER
 from services.clients.mongo_ssm_auth_client import UNAUTHORIZED_MESSAGE
 
@@ -87,15 +87,15 @@ class AuthPlugin:
 class OnPremApiBuilder:
     dynamic_resource_regex = re.compile(r'([^{/]+)(?=})')
     lambda_name_to_handler = {
-        'caas-api-handler': api_handler_lambda,
-        'caas-configuration-api-handler': configuration_api_handler_lambda,
-        'caas-report-generator': report_generator_lambda,
+        LambdaName.API_HANDLER: api_handler_lambda,
+        LambdaName.CONFIGURATION_API_HANDLER: configuration_api_handler_lambda,
+        LambdaName.REPORT_GENERATOR: report_generator_lambda,
     }
+    __slots__ = ('_endpoint_to_lambda', '_stage',)
 
-    def __init__(self, dp_wrapper: DeploymentResourcesApiGatewayWrapper):
-        self._dp_wrapper = dp_wrapper
-
+    def __init__(self, stage: str = 'caas'):
         self._endpoint_to_lambda = {}
+        self._stage = stage.strip('/')
 
     @staticmethod
     def _build_generic_error_handler(code: HTTPStatus) -> Callable:
@@ -105,7 +105,7 @@ class OnPremApiBuilder:
         :return:
         """
         def f(error):
-            return json.dumps({'message': code.phrase}, separators=(',', ':'))
+            return '{"message":"%s"}' % code.phrase
         return f
 
     def _register_errors(self, application: Bottle) -> None:
@@ -132,23 +132,19 @@ class OnPremApiBuilder:
 
         custodian_app = Bottle()
         self._register_errors(custodian_app)
-        it = self._dp_wrapper.iter_path_method_lambda()
-        auth_plugin = AuthPlugin()
-        for path, method, ln, has_auth in it:
-            path = self.to_bottle_route(path)
-            method = method.value
-
-            self._endpoint_to_lambda[(path, method)] = ln
+        auth_plugin = (AuthPlugin(), )
+        for info in registry.iter_all():
             params = dict(
-                path=path,
-                method=method,
+                path=self.to_bottle_route(info.path),
+                method=info.method.value,
                 callback=self._callback
             )
-            if has_auth:
-                params['apply'] = [auth_plugin]
+            if info.auth:
+                params.update(apply=auth_plugin)
+            self._endpoint_to_lambda[(params['path'], params['method'])] = info.lambda_name
             custodian_app.route(**params)
 
-        app.mount(self._dp_wrapper.stage.strip('/'), custodian_app)
+        app.mount(self._stage, custodian_app)
         return app
 
     @classmethod
@@ -186,7 +182,7 @@ class OnPremApiBuilder:
             'path': request.path,
             'headers': dict(request.headers),
             'requestContext': {
-                'stage': self._dp_wrapper.stage,
+                'stage': self._stage,
                 'resourcePath': path.replace('<', '{').replace('>', '}').replace('proxy', 'proxy+'),  # kludge
                 'path': request.fullpath
             },
@@ -219,3 +215,11 @@ class OnPremApiBuilder:
             status=response['statusCode'],
             headers=response['headers']
         )
+
+
+def make_app():
+    """
+    Creates a Bottle application with all routes and handlers.
+    :return: Bottle application
+    """
+    return OnPremApiBuilder('caas').build()

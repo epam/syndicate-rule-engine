@@ -190,5 +190,16 @@
     "error_type": "ACCESS",
     "reason": "AccessDenied Exception",
     "traceback": []
+  },
+  {
+    "policy": "ecc-aws-123-s3_test_policy-deprecated",
+    "region": "global",
+    "tenant_name": "AWS-TESTING",
+    "customer_name": "TEST_CUSTOMER",
+    "start_time": 1729253612.897642,
+    "end_time": 1729253612.904913,
+    "api_calls": {},
+    "scanned_resources": null,
+    "failed_resources": 6
   }
 ]

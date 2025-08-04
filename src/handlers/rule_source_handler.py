@@ -5,8 +5,8 @@ from helpers import NextToken
 from helpers.constants import (
     CustodianEndpoint,
     HTTPMethod,
-    RULE_META_UPDATER_LAMBDA_NAME,
-    RuleSourceSyncingStatus
+    RuleSourceSyncingStatus,
+    LambdaName
 )
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
@@ -189,7 +189,7 @@ class RuleSourceHandler(AbstractHandler):
 
         # todo handle error?
         self._lambda_client.invoke_function_async(
-            RULE_META_UPDATER_LAMBDA_NAME,
+            LambdaName.RULE_META_UPDATER.value,
             event={'rule_source_ids': [entity.id]}
         )
         return build_response(

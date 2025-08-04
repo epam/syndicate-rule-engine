@@ -174,3 +174,6 @@ AllRegionsWithGlobal = Enum.build(
 
 def get_region_by_cloud(cloud: str) -> Set[str]:
     return CLOUD_REGIONS.get(cloud) or set()
+
+def get_region_by_cloud_with_global(cloud: str) -> Set[str]:
+    return get_region_by_cloud(cloud) | {GLOBAL_REGION}

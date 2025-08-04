@@ -12,7 +12,7 @@ app = Celery(broker=redis,
 app.conf.beat_schedule = {
     'make-findings-snapshots': {
         'task': 'onprem.tasks.make_findings_snapshot',
-        'schedule': crontab(minute='0', hour='*/4'),
+        'schedule': crontab(minute='0', hour='*/12'),
         'args': ()
     },
     'sync-license': {
@@ -27,7 +27,12 @@ app.conf.beat_schedule = {
     },
     'remove-expired-metrics': {
         'task': 'onprem.tasks.delete_expired_metrics',
-        'schedule': crontab(minute=0, hour=12),
+        'schedule': crontab(minute='0', hour='12'),
+        'args': ()
+    },
+    'scan-resources': {
+        'task': 'onprem.tasks.collect_resources',
+        'schedule': crontab(minute='0', hour='14'),
         'args': ()
     }
 }
@@ -57,6 +62,9 @@ app.conf.task_routes = {
         'queue': 'a-jobs'
     },
     'onprem.tasks.delete_expired_metrics': {
+        'queue': 'b-scheduled'
+    },
+    'onprem.tasks.collect_resources': {
         'queue': 'b-scheduled'
     }
 }

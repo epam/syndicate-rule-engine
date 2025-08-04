@@ -1,4 +1,9 @@
 {
+  "ecc-aws-123-s3_test_policy-deprecated": {
+    "resource": "aws.s3",
+    "description": "Description for ecc-aws-123-s3_test_policy-deprecated",
+    "comment": "010047042901"
+  },
   "ecc-aws-427-rds_cluster_without_tag_information": {
     "resource": "aws.rds-cluster",
     "description": "Description for ecc-aws-427-rds_cluster_without_tag_information",

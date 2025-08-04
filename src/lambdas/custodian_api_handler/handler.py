@@ -49,7 +49,7 @@ class ApiHandler(ApiEventProcessorLambdaHandler):
             HealthCheckHandler,
             MetricsStatusHandler,
             EventsHandler,
-            SwaggerHandler
+            SwaggerHandler,
         ]
 
     @classmethod

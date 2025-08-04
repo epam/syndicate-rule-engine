@@ -1,6 +1,9 @@
 databaseName: custodian_as_a_service
 mongoUri:
 innerCacheTTLSeconds: '300'
+workers: 3
+memoryLimit: 768Mi
+memoryRequest: 128Mi
 
 service:
   type: ClusterIP
@@ -9,12 +12,12 @@ service:
 
 image:
   repository: public.ecr.aws/x4s4z8e1/syndicate/rule-engine
-  tag: 5.11.0
+  tag: 5.12.0
   pullPolicy: Always
 
 replicas: 1
 strategy:
-  type: RollingUpdate
+  type: Recreate
   maxUnavailable: 0
   maxSurge: 100%
 
@@ -53,15 +56,15 @@ modular-api:
   fullnameOverride: modular-api
   disableRateLimiter: "true"
   image:
-    tag: 4.2.10-rule-engine
+    tag: 4.3.0-rule-engine
 
 patch:
-  enabled: true
+  enabled: false
   backoffLimit: 10
   ttlSecondsAfterFinished: 3600
   image:
     repository: public.ecr.aws/x4s4z8e1/syndicate/patches
-    tag: 'rule-engine-5.11.0'
+    tag: ''
     pullPolicy: Always
 
 modularSdk:
@@ -103,3 +106,8 @@ persistence:
 
 celery:
   logLevel: INFO
+  workerMemoryLimit: "1536Mi"
+  workerMemoryRequest: "128Mi"
+  beatMemoryLimit: "256Mi"
+  beatMemoryRequest: "128Mi"
+

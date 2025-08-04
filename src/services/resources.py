@@ -16,7 +16,7 @@ from typing import (
 from typing_extensions import Self
 
 from helpers import get_path
-from helpers.constants import GLOBAL_REGION, Cloud
+from helpers.constants import GLOBAL_REGION, Cloud, DEPRECATED_RULE_SUFFIX
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime, utc_iso
 from services.metadata import EMPTY_METADATA, Metadata, RuleMetadata
@@ -417,12 +417,21 @@ class MaestroReportResourceView(ResourceVisitor[dict]):
         return dct
 
 
-def load_cc_providers():
-    from c7n.resources import load_available
+_CC_PROVIDERS_LOADED = False
 
-    _LOG.info('Going to load all available Cloud Custodian providers')
-    load_available(resources=True)
-    _LOG.info('Providers were loaded')
+
+def load_cc_providers():
+    global _CC_PROVIDERS_LOADED
+
+    if not _CC_PROVIDERS_LOADED:
+        from c7n.resources import load_available
+
+        _LOG.info('Going to load all available Cloud Custodian providers')
+        loaded = load_available(resources=True)
+        _CC_PROVIDERS_LOADED = True
+        _LOG.info('Loaded providers: ' + ', '.join(loaded))
+    else:
+        _LOG.info('Cloud Custodian providers were already loaded')
 
 
 def prepare_resource_type(rt: str, cloud: Cloud) -> str:
@@ -499,7 +508,7 @@ def _get_arn_fast(res: dict, model: 'AWSTypeInfo') -> str | None:
         return _id
 
 
-def _get_id_name(res: dict, rt: str, model) -> tuple[str | None, str | None]:
+def get_id_name(res: dict, rt: str, model) -> tuple[str | None, str | None]:
     _id = get_path(res, model.id)
     if not _id:
         _LOG.error(f'Resource of type {rt} does not have an id')
@@ -510,18 +519,18 @@ def _get_id_name(res: dict, rt: str, model) -> tuple[str | None, str | None]:
     return _id, name
 
 
-def _resolve_s3_location(res: dict) -> str:
+def resolve_s3_location(res: dict) -> str:
     # LocationConstraint is None if region is us-east-1
     return res.get('Location', {}).get('LocationConstraint') or 'us-east-1'
 
 
-def _resolve_azure_location(res: dict) -> str:
+def resolve_azure_location(res: dict) -> str:
     if 'location' in res:
         return res['location']
     return GLOBAL_REGION
 
 
-def _resolve_google_location(res: dict, model: 'GCPTypeInfo') -> str:
+def resolve_google_location(res: dict, model: 'GCPTypeInfo') -> str:
     """
     All Google rules are global, but each individual resource can have its specific region
     """
@@ -581,7 +590,7 @@ def to_aws_resources(
             _LOG.debug(
                 'Found S3 bucket. Resolving region from region constraints'
             )
-            region = _resolve_s3_location(res)
+            region = resolve_s3_location(res)
         else:
             region = part.location
 
@@ -600,7 +609,7 @@ def to_aws_resources(
         else:  # not has_arn
             arn = None
 
-        _id, name = _get_id_name(res, rt, m)
+        _id, name = get_id_name(res, rt, m)
         if not name and (tags := res.get('Tags')):
             # try to resolve name from tags
             name = _resolve_name_from_aws_tags(tags)
@@ -638,13 +647,13 @@ def to_azure_resources(
     assert timestamp, 'Only parts that executed successfully allowed'
 
     for res in part.resources:
-        _id, name = _get_id_name(res, rt, m)
+        _id, name = get_id_name(res, rt, m)
         if not name:
             name = _id
         yield AZUREResource(
             id=_id,
             name=name,
-            location=_resolve_azure_location(res),
+            location=resolve_azure_location(res),
             resource_type=rt,
             sync_date=timestamp,
             data=res,
@@ -677,7 +686,7 @@ def to_google_resources(
         else:
             urn = None
 
-        _id, name = _get_id_name(res, rt, m)
+        _id, name = get_id_name(res, rt, m)
         if not name:
             name = _id
         if 'id' in res and _id != res['id']:
@@ -691,7 +700,7 @@ def to_google_resources(
             urn=urn,
             id=_id,
             name=name,
-            location=_resolve_google_location(res, m),
+            location=resolve_google_location(res, m),
             resource_type=rt,
             sync_date=timestamp,
             data=res,
@@ -717,7 +726,7 @@ def to_k8s_resources(
     assert timestamp, 'Only parts that executed successfully allowed'
 
     for res in part.resources:
-        _id, name = _get_id_name(res, rt, m)
+        _id, name = get_id_name(res, rt, m)
         if not name:
             name = _id
         yield K8SResource(
@@ -739,6 +748,7 @@ def iter_rule_region_resources(
     policies: list[str] | tuple[str, ...] | set[str] | None = None,
     regions: list[str] | tuple[str, ...] | set[str] | None = None,
     resource_types: list[str] | tuple[str, ...] | set[str] | None = None,
+    include_deprecated: bool = False
 ) -> Generator[tuple[str, str, Iterator[CloudResource]], None, None]:
     """
     Each rule & region pair is yielded only once. Yields a tuple of
@@ -760,6 +770,8 @@ def iter_rule_region_resources(
     # NOTE: here we iterate only over those rules that executed successfully
     # at least once even if their latest execution was failed
     for part in collection.iter_parts():
+        if not include_deprecated and part.policy.endswith(DEPRECATED_RULE_SUFFIX):
+            continue
         policy = part.policy
         location = part.location
         if policies is not None and policy not in policies:

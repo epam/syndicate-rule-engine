@@ -36,6 +36,11 @@ spec:
         - name: redis
           image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          resources:
+            requests:
+              memory: "{{ .Values.memoryRequest }}"
+            limits:
+              memory: "{{ .Values.memoryLimit }}"
           env:
             - name: MONGO_PASSWORD
               valueFrom:

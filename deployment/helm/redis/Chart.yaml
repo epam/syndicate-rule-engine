@@ -3,4 +3,4 @@ appVersion: "7.2.3"
 description: A Helm chart for Redis
 name: redis
 type: application
-version: "1.0.0"
+version: "1.1.0"

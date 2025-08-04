@@ -3,8 +3,8 @@
     "admin@gmail.com"
   ],
   "customer": "TEST_CUSTOMER",
-  "from": "2025-01-28T12:19:03.513541Z",
-  "to": "2025-02-04T12:19:03.513541Z",
+  "from": "2025-07-31T11:48:41.606029Z",
+  "to": "2025-08-01T11:48:41.606029Z",
   "outdated_tenants": [],
   "externalData": false,
   "data": {
@@ -12,6 +12,9 @@
       {
         "policy": "Description for ecc-aws-427-rds_cluster_without_tag_information",
         "region": "eu-west-1",
+        "resource_type": "aws.rds-cluster",
+        "service": "Rds Cluster",
+        "severity": "Unknown",
         "invocations": 1,
         "succeeded_invocations": 0,
         "failed_invocations": 1,
@@ -28,6 +31,9 @@
       {
         "policy": "Description for ecc-aws-149-rds_public_access_disabled",
         "region": "eu-west-1",
+        "resource_type": "aws.rds",
+        "service": "Rds",
+        "severity": "Unknown",
         "invocations": 1,
         "succeeded_invocations": 1,
         "failed_invocations": 0,
@@ -44,6 +50,9 @@
       {
         "policy": "Description for ecc-aws-167-security_group_ingress_is_restricted_traffic_to_port_143",
         "region": "eu-west-1",
+        "resource_type": "aws.security-group",
+        "service": "Security Group",
+        "severity": "Unknown",
         "invocations": 1,
         "succeeded_invocations": 1,
         "failed_invocations": 0,
@@ -60,6 +69,9 @@
       {
         "policy": "Description for ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances",
         "region": "eu-west-1",
+        "resource_type": "aws.ebs",
+        "service": "Ebs",
+        "severity": "Unknown",
         "invocations": 1,
         "succeeded_invocations": 1,
         "failed_invocations": 0,
@@ -78,6 +90,9 @@
       {
         "policy": "Description for ecc-aws-490-ec2_token_hop_limit_check",
         "region": "eu-west-1",
+        "resource_type": "aws.ec2",
+        "service": "Ec2",
+        "severity": "Unknown",
         "invocations": 1,
         "succeeded_invocations": 1,
         "failed_invocations": 0,
@@ -94,6 +109,9 @@
       {
         "policy": "Description for ecc-aws-229-ecr_repository_kms_encryption_enabled",
         "region": "eu-west-1",
+        "resource_type": "aws.ecr",
+        "service": "Ecr",
+        "severity": "Unknown",
         "invocations": 1,
         "succeeded_invocations": 1,
         "failed_invocations": 0,
@@ -110,6 +128,9 @@
       {
         "policy": "Description for ecc-aws-374-cloudtrail_logs_data_events",
         "region": "eu-west-1",
+        "resource_type": "aws.cloudtrail",
+        "service": "Cloudtrail",
+        "severity": "Unknown",
         "invocations": 1,
         "succeeded_invocations": 1,
         "failed_invocations": 0,
@@ -128,6 +149,9 @@
       {
         "policy": "Description for ecc-aws-150-api_gateway_rest_api_encryption_at_rest",
         "region": "eu-central-1",
+        "resource_type": "aws.rest-stage",
+        "service": "Security Group",
+        "severity": "Unknown",
         "invocations": 1,
         "succeeded_invocations": 1,
         "failed_invocations": 0,
@@ -146,6 +170,9 @@
       {
         "policy": "Description for ecc-aws-070-unused_ec2_security_groups",
         "region": "eu-central-1",
+        "resource_type": "aws.security-group",
+        "service": "Security Group",
+        "severity": "Unknown",
         "invocations": 1,
         "succeeded_invocations": 1,
         "failed_invocations": 0,
@@ -173,6 +200,9 @@
       {
         "policy": "Description for ecc-aws-374-cloudtrail_logs_data_events",
         "region": "eu-central-1",
+        "resource_type": "aws.cloudtrail",
+        "service": "Cloudtrail",
+        "severity": "Unknown",
         "invocations": 1,
         "succeeded_invocations": 1,
         "failed_invocations": 0,
@@ -191,6 +221,9 @@
       {
         "policy": "Description for ecc-aws-221-sns_kms_encryption_enabled",
         "region": "eu-central-1",
+        "resource_type": "aws.sns",
+        "service": "Sns",
+        "severity": "Unknown",
         "invocations": 1,
         "succeeded_invocations": 1,
         "failed_invocations": 0,
@@ -211,6 +244,9 @@
       {
         "policy": "Description for ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
         "region": "global",
+        "resource_type": "aws.s3",
+        "service": "S3",
+        "severity": "Unknown",
         "invocations": 1,
         "succeeded_invocations": 1,
         "failed_invocations": 0,
@@ -227,6 +263,9 @@
       {
         "policy": "Description for ecc-aws-499-iam_group_has_users_check",
         "region": "global",
+        "resource_type": "aws.iam-group",
+        "service": "Iam Group",
+        "severity": "Unknown",
         "invocations": 1,
         "succeeded_invocations": 1,
         "failed_invocations": 0,
@@ -245,6 +284,9 @@
       {
         "policy": "Description for ecc-aws-516-s3_event_notifications_enabled",
         "region": "global",
+        "resource_type": "aws.s3",
+        "service": "S3",
+        "severity": "Unknown",
         "invocations": 1,
         "succeeded_invocations": 1,
         "failed_invocations": 0,
@@ -261,6 +303,9 @@
       {
         "policy": "Description for ecc-aws-527-waf_global_webacl_not_empty",
         "region": "global",
+        "resource_type": "aws.waf",
+        "service": "Waf",
+        "severity": "Unknown",
         "invocations": 1,
         "succeeded_invocations": 0,
         "failed_invocations": 1,
@@ -286,5 +331,5 @@
     "eu-west-1",
     "eu-west-3"
   ],
-  "last_scan_date": "2025-02-04T00:16:00.289094Z"
+  "last_scan_date": "2025-08-01T00:46:28.310337Z"
 }

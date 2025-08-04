@@ -1,6 +1,6 @@
 version = 1
 revision = 2
-requires-python = ">=3.10"
+requires-python = ">=3.10.2, <4.0.0"
 resolution-markers = [
     "python_full_version >= '3.13'",
     "python_full_version >= '3.11' and python_full_version < '3.13'",
@@ -229,21 +229,21 @@ wheels = [
 
 [[package]]
 name = "azure-keyvault-certificates"
-version = "4.9.0"
+version = "4.10.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "azure-core" },
     { name = "isodate" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d7/d0/b0a60e0f6435d3aa08583a11de98a5a98f5b99539de5e6d852343dff8a62/azure_keyvault_certificates-4.9.0.tar.gz", hash = "sha256:9dd04f8ffe4091588282eb75480bb31e584dd9940d09f9dea67fac8363e97e59", size = 152006, upload-time = "2024-10-17T23:27:42.012Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2c/bc/07497d7118178729f59043153083bcdfdfc9629a365cbc5bc5690b4ff21b/azure_keyvault_certificates-4.10.0.tar.gz", hash = "sha256:004ff47a73152f9f40f678e5a07719b753a3ca86f0460bfeaaf6a23304872e05", size = 179157, upload-time = "2025-06-16T22:52:24.547Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4a/05/7603c9e22ce57e6243582f56a359279ed17543300107746034d8cbf8aa96/azure_keyvault_certificates-4.9.0-py3-none-any.whl", hash = "sha256:f1610a9228ce28c8a30ce04b54ee25c3838de13fd5d252effe0dad7fd561980f", size = 118304, upload-time = "2024-10-17T23:27:43.546Z" },
+    { url = "https://files.pythonhosted.org/packages/fc/03/71cfb1ee68a625ca1c211a3b18e1051a4dd9fe8774329e48bb3c67afcf86/azure_keyvault_certificates-4.10.0-py3-none-any.whl", hash = "sha256:fa76cbc329274cb5f4ab61b0ed7d209d44377df4b4d6be2fd01e741c2fbb83a9", size = 155683, upload-time = "2025-06-16T22:52:26.02Z" },
 ]
 
 [[package]]
 name = "azure-keyvault-keys"
-version = "4.10.0"
+version = "4.11.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "azure-core" },
@@ -251,23 +251,23 @@ dependencies = [
     { name = "isodate" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/56/f9/85c95072c4f396126a8ae145ffb45fb3e7bea660b6cb8ff8b2f702944a57/azure_keyvault_keys-4.10.0.tar.gz", hash = "sha256:511206ae90aec1726a4d6ff5a92d754bd0c0f1e8751891368d30fb70b62955f1", size = 216961, upload-time = "2024-10-17T23:27:52.872Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/69/ed/450c9389d76be1a95a056528ec2b832a3721858dd47b1f4eb12dab7060a1/azure_keyvault_keys-4.11.0.tar.gz", hash = "sha256:f257b1917a2c3a88983e3f5675a6419449eb262318888d5b51e1cb3bed79779a", size = 241309, upload-time = "2025-06-16T22:52:04.296Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0a/63/04fc6ab70fc30bae3448837411ded3c17bb1ace5bf3cfdf353961fe3f7fa/azure_keyvault_keys-4.10.0-py3-none-any.whl", hash = "sha256:210227e0061f641a79755f0e0bcbcf27bbfb4df630a933c43a99a29962283d0d", size = 153660, upload-time = "2024-10-17T23:27:55.213Z" },
+    { url = "https://files.pythonhosted.org/packages/c3/ac/fa42e6b316712604a63bf7b3cb60d619d92890e038b87e1b4bba7437bc36/azure_keyvault_keys-4.11.0-py3-none-any.whl", hash = "sha256:fa5febd5805f0fed4c0a1d13c9096081c72a6fa36ccae1299a137f34280eda53", size = 191303, upload-time = "2025-06-16T22:52:06.1Z" },
 ]
 
 [[package]]
 name = "azure-keyvault-secrets"
-version = "4.9.0"
+version = "4.10.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "azure-core" },
     { name = "isodate" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/51/53/188681c8b7ec49b6945605efdb91ec9a86ebfa77f8eab8b9a50f458c504a/azure_keyvault_secrets-4.9.0.tar.gz", hash = "sha256:2a03bb2ffd9a0d6c8ad1c330d9d0310113985a9de06607ece378fd72a5889fe1", size = 97722, upload-time = "2024-10-17T23:27:40.825Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/97/e5/3074e581b6e8923c4a1f2e42192ea6f390bb52de3600c68baaaed529ef05/azure_keyvault_secrets-4.10.0.tar.gz", hash = "sha256:666fa42892f9cee749563e551a90f060435ab878977c95265173a8246d546a36", size = 129695, upload-time = "2025-06-16T22:52:20.986Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bf/ad/e5dd4c09ed80196b1b35f107502b12e32d06eb2d965adf4673df0d5cf85e/azure_keyvault_secrets-4.9.0-py3-none-any.whl", hash = "sha256:33c7e2aca2cc2092cebc8c6e96eca36a5cc30c767e16ea429c5fa21270e9fba6", size = 87006, upload-time = "2024-10-17T23:27:42.846Z" },
+    { url = "https://files.pythonhosted.org/packages/26/94/7c902e966b28e7cb5080a8e0dd6bffc22ba44bc907f09c4c633d2b7c4f6a/azure_keyvault_secrets-4.10.0-py3-none-any.whl", hash = "sha256:9dbde256077a4ee1a847646671580692e3f9bea36bcfc189c3cf2b9a94eb38b9", size = 125237, upload-time = "2025-06-16T22:52:22.489Z" },
 ]
 
 [[package]]
@@ -537,16 +537,16 @@ wheels = [
 
 [[package]]
 name = "azure-mgmt-datalake-analytics"
-version = "0.5.0"
+version = "0.6.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "azure-common" },
     { name = "azure-mgmt-datalake-nspkg" },
     { name = "msrestazure" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/79/aa/b5e66c8fa450d95ed044c5db213fd496921cd0c0f67d3131fa0f927eb6b8/azure-mgmt-datalake-analytics-0.5.0.zip", hash = "sha256:1f5dc7d8012a11357bbf1d6fb5bf7ce35d31e5dc3da78412807a3c8d15896ae3", size = 230967, upload-time = "2018-06-14T20:56:14.076Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6f/e9/91da6cea4cccb268237e7f16bddefb2dbb1507f75b78c13a79eae16eb1cc/azure-mgmt-datalake-analytics-0.6.0.zip", hash = "sha256:0d64c4689a67d6138eb9ffbaff2eda2bace7d30b846401673183dcb42714de8f", size = 309915, upload-time = "2018-06-26T19:14:26.505Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f4/b2/78a9da99c7f573b081d49e1b41cd2faaab8a126cc0076cf36047cb4e5ea1/azure_mgmt_datalake_analytics-0.5.0-py2.py3-none-any.whl", hash = "sha256:c3dd997e807aaafa970e73e767398d2c680afe640a06a6aafd37a36a45c6cde5", size = 211739, upload-time = "2018-06-14T20:56:12.594Z" },
+    { url = "https://files.pythonhosted.org/packages/73/e7/5d909ef5812fc31f2871f3510ef43af93157ba51be03b6f798afba7a29d8/azure_mgmt_datalake_analytics-0.6.0-py2.py3-none-any.whl", hash = "sha256:ac96c9777314831db37461f0602e75298bc25277ba7f4d0d3e7966a926669b7e", size = 288251, upload-time = "2018-06-26T19:14:25.174Z" },
 ]
 
 [[package]]
@@ -1210,30 +1210,30 @@ wheels = [
 
 [[package]]
 name = "boto3"
-version = "1.38.25"
+version = "1.39.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "botocore" },
     { name = "jmespath" },
     { name = "s3transfer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0d/af/404827da46c67359e6d2a63b0f4fadd5b6150551d25c405b3bd480c19319/boto3-1.38.25.tar.gz", hash = "sha256:85c1556a110896f68de8573a9b4757c81071448dbf6ffc1074941bfc8a43195e", size = 111819, upload-time = "2025-05-28T19:26:49.018Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6a/1f/b7510dcd26eb14735d6f4b2904e219b825660425a0cf0b6f35b84c7249b0/boto3-1.39.4.tar.gz", hash = "sha256:6c955729a1d70181bc8368e02a7d3f350884290def63815ebca8408ee6d47571", size = 111829, upload-time = "2025-07-09T19:23:01.512Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5b/27/b2ea9d2494b1d35c3de23485bf6b0a7b8539dea965349c8829a1fd84d08e/boto3-1.38.25-py3-none-any.whl", hash = "sha256:2f2cd517dd31d33ace0eefe567dc903fdf74221513e32f1e9445bdfac7554db7", size = 139938, upload-time = "2025-05-28T19:26:44.902Z" },
+    { url = "https://files.pythonhosted.org/packages/12/5c/93292e4d8c809950c13950b3168e0eabdac828629c21047959251ad3f28c/boto3-1.39.4-py3-none-any.whl", hash = "sha256:f8e9534b429121aa5c5b7c685c6a94dd33edf14f87926e9a182d5b50220ba284", size = 139908, upload-time = "2025-07-09T19:22:59.808Z" },
 ]
 
 [[package]]
 name = "botocore"
-version = "1.38.25"
+version = "1.39.15"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jmespath" },
     { name = "python-dateutil" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6b/00/bed5bf325d1fdb98d6212d106bd44cd0bbe65563e3a2c3f87b64cc4d75c2/botocore-1.38.25.tar.gz", hash = "sha256:8c73e97d9662a6c92be33dab66cd1e2b59797154c7ec379ce3bb5d6779d9d78c", size = 13914295, upload-time = "2025-05-28T19:26:35.457Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2f/e2/8cd9560e7e44cf977dc0cc2e48da7634e78b7104ae6e47f4e1dfc1093965/botocore-1.39.15.tar.gz", hash = "sha256:2aa29a717f14f8c7ca058c2e297aaed0aa10ecea24b91514eee802814d1b7600", size = 14237556, upload-time = "2025-07-28T19:56:39.397Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2f/ae/3b52634df58cbd506ad804315a1c979ea06942cf88b591dcd671f45adf63/botocore-1.38.25-py3-none-any.whl", hash = "sha256:5a960bd990a11cdb78865e908a58ed712d87d9b419f55ad21c99d7d21f0d6726", size = 13574906, upload-time = "2025-05-28T19:26:31.029Z" },
+    { url = "https://files.pythonhosted.org/packages/7b/6e/f25b8633e7ab2008de4c27466c9bc39e32dc73816619ffebbea12936135a/botocore-1.39.15-py3-none-any.whl", hash = "sha256:eb9cfe918ebfbfb8654e1b153b29f0c129d586d2c0d7fb4032731d49baf04cff", size = 13894884, upload-time = "2025-07-28T19:56:33.715Z" },
 ]
 
 [[package]]
@@ -1247,282 +1247,140 @@ wheels = [
 
 [[package]]
 name = "c7n"
-version = "0.9.45"
+version = "0.9.46"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "argcomplete", marker = "python_full_version < '4.0'" },
-    { name = "attrs", marker = "python_full_version < '4.0'" },
-    { name = "boto3", marker = "python_full_version < '4.0'" },
-    { name = "botocore", marker = "python_full_version < '4.0'" },
-    { name = "cffi", marker = "python_full_version < '4.0' and platform_python_implementation != 'PyPy'" },
-    { name = "cryptography", marker = "python_full_version < '4.0'" },
-    { name = "docutils", marker = "python_full_version < '4.0'" },
-    { name = "importlib-metadata", marker = "python_full_version < '4.0'" },
-    { name = "jmespath", marker = "python_full_version < '4.0'" },
-    { name = "jsonschema", marker = "python_full_version < '4.0'" },
-    { name = "jsonschema-specifications", marker = "python_full_version < '4.0'" },
-    { name = "pycparser", marker = "python_full_version < '4.0' and platform_python_implementation != 'PyPy'" },
-    { name = "python-dateutil", marker = "python_full_version < '4.0'" },
-    { name = "pyyaml", marker = "python_full_version < '4.0'" },
-    { name = "referencing", marker = "python_full_version < '4.0'" },
-    { name = "rpds-py", marker = "python_full_version < '4.0'" },
-    { name = "s3transfer", marker = "python_full_version < '4.0'" },
-    { name = "six", marker = "python_full_version < '4.0'" },
-    { name = "tabulate", marker = "python_full_version < '4.0'" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
-    { name = "urllib3", marker = "python_full_version < '4.0'" },
-    { name = "zipp", marker = "python_full_version < '4.0'" },
+    { name = "argcomplete" },
+    { name = "boto3" },
+    { name = "cryptography" },
+    { name = "jsonschema" },
+    { name = "python-dateutil" },
+    { name = "pyyaml" },
+    { name = "tabulate" },
+    { name = "urllib3" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bf/37/bc11b57622c1dd0c24d9efcf1c04321d44cbecf472b22a53e8511846ef16/c7n-0.9.45-py3-none-any.whl", hash = "sha256:0fdfc5fac88de42f7327f39d478c2c9453a05060de2b8bf5f604f900cf9f33dd", size = 687257, upload-time = "2025-06-02T20:24:26.536Z" },
+    { url = "https://files.pythonhosted.org/packages/60/44/01f65a4cf0440bed7310afc81b78630105ce2d22554c4032a5202036f430/c7n-0.9.46-py3-none-any.whl", hash = "sha256:1e03d5b40e8d27aa87c1f13a772b584a7ec6cddc9d5b06049097bd0b0db19dd5", size = 690704, upload-time = "2025-07-17T18:41:30.999Z" },
 ]
 
 [[package]]
 name = "c7n-azure"
-version = "0.7.44"
+version = "0.7.45"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "adal", marker = "python_full_version < '4.0'" },
-    { name = "applicationinsights", marker = "python_full_version < '4.0'" },
-    { name = "apscheduler", marker = "python_full_version < '4.0'" },
-    { name = "argcomplete", marker = "python_full_version < '4.0'" },
-    { name = "attrs", marker = "python_full_version < '4.0'" },
-    { name = "azure-common", marker = "python_full_version < '4.0'" },
-    { name = "azure-core", marker = "python_full_version < '4.0'" },
-    { name = "azure-cosmos", marker = "python_full_version < '4.0'" },
-    { name = "azure-cosmosdb-nspkg", marker = "python_full_version < '4.0'" },
-    { name = "azure-cosmosdb-table", marker = "python_full_version < '4.0'" },
-    { name = "azure-functions", marker = "python_full_version < '4.0'" },
-    { name = "azure-graphrbac", marker = "python_full_version < '4.0'" },
-    { name = "azure-identity", marker = "python_full_version < '4.0'" },
-    { name = "azure-keyvault", marker = "python_full_version < '4.0'" },
-    { name = "azure-keyvault-certificates", marker = "python_full_version < '4.0'" },
-    { name = "azure-keyvault-keys", marker = "python_full_version < '4.0'" },
-    { name = "azure-keyvault-secrets", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-advisor", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-apimanagement", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-appconfiguration", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-applicationinsights", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-appplatform", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-authorization", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-automation", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-batch", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-cdn", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-cognitiveservices", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-compute", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-containerinstance", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-containerregistry", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-containerservice", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-core", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-cosmosdb", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-costmanagement", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-databricks", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-datafactory", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-datalake-analytics", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-datalake-nspkg", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-datalake-store", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-desktopvirtualization", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-dns", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-eventgrid", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-eventhub", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-frontdoor", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-hdinsight", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-iothub", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-keyvault", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-kusto", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-logic", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-machinelearningservices", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-managementgroups", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-monitor", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-msi", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-network", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-nspkg", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-policyinsights", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-rdbms", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-recoveryservices", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-recoveryservicesbackup", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-redhatopenshift", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-redis", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-resource", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-resourcegraph", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-search", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-security", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-servicebus", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-servicefabric", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-signalr", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-sql", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-storage", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-streamanalytics", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-subscription", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-synapse", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-trafficmanager", marker = "python_full_version < '4.0'" },
-    { name = "azure-mgmt-web", marker = "python_full_version < '4.0'" },
-    { name = "azure-nspkg", marker = "python_full_version < '4.0'" },
-    { name = "azure-storage-blob", marker = "python_full_version < '4.0'" },
-    { name = "azure-storage-common", marker = "python_full_version < '4.0'" },
-    { name = "azure-storage-file", marker = "python_full_version < '4.0'" },
-    { name = "azure-storage-file-share", marker = "python_full_version < '4.0'" },
-    { name = "azure-storage-queue", marker = "python_full_version < '4.0'" },
-    { name = "boto3", marker = "python_full_version < '4.0'" },
-    { name = "botocore", marker = "python_full_version < '4.0'" },
-    { name = "c7n", marker = "python_full_version < '4.0'" },
-    { name = "certifi", marker = "python_full_version < '4.0'" },
-    { name = "cffi", marker = "python_full_version < '4.0' and platform_python_implementation != 'PyPy'" },
-    { name = "charset-normalizer", marker = "python_full_version < '4.0'" },
-    { name = "click", marker = "python_full_version < '4.0'" },
-    { name = "colorama", marker = "python_full_version < '4.0' and sys_platform == 'win32'" },
-    { name = "cryptography", marker = "python_full_version < '4.0'" },
-    { name = "distlib", marker = "python_full_version < '4.0'" },
-    { name = "docutils", marker = "python_full_version < '4.0'" },
-    { name = "idna", marker = "python_full_version < '4.0'" },
-    { name = "importlib-metadata", marker = "python_full_version < '4.0'" },
-    { name = "isodate", marker = "python_full_version < '4.0'" },
-    { name = "jmespath", marker = "python_full_version < '4.0'" },
-    { name = "jsonschema", marker = "python_full_version < '4.0'" },
-    { name = "jsonschema-specifications", marker = "python_full_version < '4.0'" },
-    { name = "markupsafe", marker = "python_full_version < '4.0'" },
-    { name = "msal", marker = "python_full_version < '4.0'" },
-    { name = "msal-extensions", marker = "python_full_version < '4.0'" },
-    { name = "msrest", marker = "python_full_version < '4.0'" },
-    { name = "msrestazure", marker = "python_full_version < '4.0'" },
-    { name = "netaddr", marker = "python_full_version < '4.0'" },
-    { name = "oauthlib", marker = "python_full_version < '4.0'" },
-    { name = "pycparser", marker = "python_full_version < '4.0' and platform_python_implementation != 'PyPy'" },
-    { name = "pyjwt", marker = "python_full_version < '4.0'" },
-    { name = "python-dateutil", marker = "python_full_version < '4.0'" },
-    { name = "pyyaml", marker = "python_full_version < '4.0'" },
-    { name = "referencing", marker = "python_full_version < '4.0'" },
-    { name = "requests", marker = "python_full_version < '4.0'" },
-    { name = "requests-oauthlib", marker = "python_full_version < '4.0'" },
-    { name = "rpds-py", marker = "python_full_version < '4.0'" },
-    { name = "s3transfer", marker = "python_full_version < '4.0'" },
-    { name = "six", marker = "python_full_version < '4.0'" },
-    { name = "tabulate", marker = "python_full_version < '4.0'" },
-    { name = "typing-extensions", marker = "python_full_version < '4.0'" },
-    { name = "tzdata", marker = "python_full_version < '4.0' and sys_platform == 'win32'" },
-    { name = "tzlocal", marker = "python_full_version < '4.0'" },
-    { name = "urllib3", marker = "python_full_version < '4.0'" },
-    { name = "werkzeug", marker = "python_full_version < '4.0'" },
-    { name = "zipp", marker = "python_full_version < '4.0'" },
+    { name = "adal" },
+    { name = "applicationinsights" },
+    { name = "apscheduler" },
+    { name = "azure-cosmos" },
+    { name = "azure-cosmosdb-table" },
+    { name = "azure-functions" },
+    { name = "azure-graphrbac" },
+    { name = "azure-identity" },
+    { name = "azure-keyvault" },
+    { name = "azure-keyvault-certificates" },
+    { name = "azure-keyvault-keys" },
+    { name = "azure-keyvault-secrets" },
+    { name = "azure-mgmt-advisor" },
+    { name = "azure-mgmt-apimanagement" },
+    { name = "azure-mgmt-appconfiguration" },
+    { name = "azure-mgmt-applicationinsights" },
+    { name = "azure-mgmt-appplatform" },
+    { name = "azure-mgmt-authorization" },
+    { name = "azure-mgmt-automation" },
+    { name = "azure-mgmt-batch" },
+    { name = "azure-mgmt-cdn" },
+    { name = "azure-mgmt-cognitiveservices" },
+    { name = "azure-mgmt-compute" },
+    { name = "azure-mgmt-containerinstance" },
+    { name = "azure-mgmt-containerregistry" },
+    { name = "azure-mgmt-containerservice" },
+    { name = "azure-mgmt-cosmosdb" },
+    { name = "azure-mgmt-costmanagement" },
+    { name = "azure-mgmt-databricks" },
+    { name = "azure-mgmt-datafactory" },
+    { name = "azure-mgmt-datalake-analytics" },
+    { name = "azure-mgmt-datalake-store" },
+    { name = "azure-mgmt-desktopvirtualization" },
+    { name = "azure-mgmt-dns" },
+    { name = "azure-mgmt-eventgrid" },
+    { name = "azure-mgmt-eventhub" },
+    { name = "azure-mgmt-frontdoor" },
+    { name = "azure-mgmt-hdinsight" },
+    { name = "azure-mgmt-iothub" },
+    { name = "azure-mgmt-keyvault" },
+    { name = "azure-mgmt-kusto" },
+    { name = "azure-mgmt-logic" },
+    { name = "azure-mgmt-machinelearningservices" },
+    { name = "azure-mgmt-managementgroups" },
+    { name = "azure-mgmt-monitor" },
+    { name = "azure-mgmt-msi" },
+    { name = "azure-mgmt-network" },
+    { name = "azure-mgmt-policyinsights" },
+    { name = "azure-mgmt-rdbms" },
+    { name = "azure-mgmt-recoveryservices" },
+    { name = "azure-mgmt-recoveryservicesbackup" },
+    { name = "azure-mgmt-redhatopenshift" },
+    { name = "azure-mgmt-redis" },
+    { name = "azure-mgmt-resource" },
+    { name = "azure-mgmt-resourcegraph" },
+    { name = "azure-mgmt-search" },
+    { name = "azure-mgmt-security" },
+    { name = "azure-mgmt-servicebus" },
+    { name = "azure-mgmt-servicefabric" },
+    { name = "azure-mgmt-signalr" },
+    { name = "azure-mgmt-sql" },
+    { name = "azure-mgmt-storage" },
+    { name = "azure-mgmt-streamanalytics" },
+    { name = "azure-mgmt-subscription" },
+    { name = "azure-mgmt-synapse" },
+    { name = "azure-mgmt-trafficmanager" },
+    { name = "azure-mgmt-web" },
+    { name = "azure-storage-blob" },
+    { name = "azure-storage-file" },
+    { name = "azure-storage-file-share" },
+    { name = "azure-storage-queue" },
+    { name = "c7n" },
+    { name = "click" },
+    { name = "cryptography" },
+    { name = "distlib" },
+    { name = "jmespath" },
+    { name = "netaddr" },
+    { name = "pyjwt" },
+    { name = "requests" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e9/da/21cd62f99fc5c9c1a67c0f8104e2983e820a099bd95b704e84574afe582b/c7n_azure-0.7.44-py3-none-any.whl", hash = "sha256:4f0ecc20e1d444aad849ec8e328d155a04e250be46f989518ddb910678a73fcf", size = 196468, upload-time = "2025-06-02T20:24:55.319Z" },
+    { url = "https://files.pythonhosted.org/packages/03/ca/c3ff600f492a71b39ee52b61965ae0098fd6f7ee5468f51a5b3613886436/c7n_azure-0.7.45-py3-none-any.whl", hash = "sha256:6b6070b529f1bc7a9cb2fa9aa0d61f4cde931c7bebb78155cc3574f989ad3116", size = 196482, upload-time = "2025-07-17T18:41:14.189Z" },
 ]
 
 [[package]]
 name = "c7n-gcp"
-version = "0.4.44"
+version = "0.4.45"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "argcomplete", marker = "python_full_version < '4.0'" },
-    { name = "attrs", marker = "python_full_version < '4.0'" },
-    { name = "boto3", marker = "python_full_version < '4.0'" },
-    { name = "botocore", marker = "python_full_version < '4.0'" },
-    { name = "c7n", marker = "python_full_version < '4.0'" },
-    { name = "cachetools", marker = "python_full_version < '4.0'" },
-    { name = "certifi", marker = "python_full_version < '4.0'" },
-    { name = "cffi", marker = "python_full_version < '4.0' and platform_python_implementation != 'PyPy'" },
-    { name = "charset-normalizer", marker = "python_full_version < '4.0'" },
-    { name = "cryptography", marker = "python_full_version < '4.0'" },
-    { name = "deprecated", marker = "python_full_version < '4.0'" },
-    { name = "docutils", marker = "python_full_version < '4.0'" },
-    { name = "google-api-core", marker = "python_full_version < '4.0'" },
-    { name = "google-api-python-client", marker = "python_full_version < '4.0'" },
-    { name = "google-auth", marker = "python_full_version < '4.0'" },
-    { name = "google-auth-httplib2", marker = "python_full_version < '4.0'" },
-    { name = "google-cloud-appengine-logging", marker = "python_full_version < '4.0'" },
-    { name = "google-cloud-audit-log", marker = "python_full_version < '4.0'" },
-    { name = "google-cloud-core", marker = "python_full_version < '4.0'" },
-    { name = "google-cloud-logging", marker = "python_full_version < '4.0'" },
-    { name = "google-cloud-monitoring", marker = "python_full_version < '4.0'" },
-    { name = "google-cloud-storage", marker = "python_full_version < '4.0'" },
-    { name = "google-crc32c", marker = "python_full_version < '4.0'" },
-    { name = "google-resumable-media", marker = "python_full_version < '4.0'" },
-    { name = "googleapis-common-protos", marker = "python_full_version < '4.0'" },
-    { name = "grpc-google-iam-v1", marker = "python_full_version < '4.0'" },
-    { name = "grpcio", marker = "python_full_version < '4.0'" },
-    { name = "grpcio-status", marker = "python_full_version < '4.0'" },
-    { name = "httplib2", marker = "python_full_version < '4.0'" },
-    { name = "idna", marker = "python_full_version < '4.0'" },
-    { name = "importlib-metadata", marker = "python_full_version < '4.0'" },
-    { name = "jmespath", marker = "python_full_version < '4.0'" },
-    { name = "jsonschema", marker = "python_full_version < '4.0'" },
-    { name = "jsonschema-specifications", marker = "python_full_version < '4.0'" },
-    { name = "opentelemetry-api", marker = "python_full_version < '4.0'" },
-    { name = "proto-plus", marker = "python_full_version < '4.0'" },
-    { name = "protobuf", marker = "python_full_version < '4.0'" },
-    { name = "pyasn1", marker = "python_full_version < '4.0'" },
-    { name = "pyasn1-modules", marker = "python_full_version < '4.0'" },
-    { name = "pycparser", marker = "python_full_version < '4.0' and platform_python_implementation != 'PyPy'" },
-    { name = "pyparsing", marker = "python_full_version < '4.0'" },
-    { name = "pyrate-limiter", marker = "python_full_version < '4.0'" },
-    { name = "python-dateutil", marker = "python_full_version < '4.0'" },
-    { name = "pyyaml", marker = "python_full_version < '4.0'" },
-    { name = "referencing", marker = "python_full_version < '4.0'" },
-    { name = "requests", marker = "python_full_version < '4.0'" },
-    { name = "retrying", marker = "python_full_version < '4.0'" },
-    { name = "rpds-py", marker = "python_full_version < '4.0'" },
-    { name = "rsa", marker = "python_full_version < '4.0'" },
-    { name = "s3transfer", marker = "python_full_version < '4.0'" },
-    { name = "six", marker = "python_full_version < '4.0'" },
-    { name = "tabulate", marker = "python_full_version < '4.0'" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
-    { name = "uritemplate", marker = "python_full_version < '4.0'" },
-    { name = "urllib3", marker = "python_full_version < '4.0'" },
-    { name = "wrapt", marker = "python_full_version < '4.0'" },
-    { name = "zipp", marker = "python_full_version < '4.0'" },
+    { name = "c7n" },
+    { name = "google-api-python-client" },
+    { name = "google-auth" },
+    { name = "google-cloud-logging" },
+    { name = "google-cloud-monitoring" },
+    { name = "google-cloud-storage" },
+    { name = "pyrate-limiter" },
+    { name = "retrying" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c7/b7/d065e88da20c5f91dbbf653c2162fec166dad698c48c1dbbe77aeeb75f9a/c7n_gcp-0.4.44-py3-none-any.whl", hash = "sha256:4a02a12f60a767cc2b149d9e985af41429553d92192adf1df92494ae0aa5f096", size = 106467, upload-time = "2025-06-02T20:24:32.177Z" },
+    { url = "https://files.pythonhosted.org/packages/3a/00/fc5c0a97c2dfa2c2cc60179f10ab43e4aac82168226a6576947a12ffac23/c7n_gcp-0.4.45-py3-none-any.whl", hash = "sha256:94a2f78ce086b2174c1af7ccabcc4833e55e09ff9152932c2c9a8bc5850c454d", size = 105750, upload-time = "2025-07-17T18:41:15.418Z" },
 ]
 
 [[package]]
 name = "c7n-kube"
-version = "0.2.44"
+version = "0.2.45"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "argcomplete", marker = "python_full_version < '4.0'" },
-    { name = "attrs", marker = "python_full_version < '4.0'" },
-    { name = "boto3", marker = "python_full_version < '4.0'" },
-    { name = "botocore", marker = "python_full_version < '4.0'" },
-    { name = "c7n", marker = "python_full_version < '4.0'" },
-    { name = "cachetools", marker = "python_full_version < '4.0'" },
-    { name = "certifi", marker = "python_full_version < '4.0'" },
-    { name = "cffi", marker = "python_full_version < '4.0' and platform_python_implementation != 'PyPy'" },
-    { name = "charset-normalizer", marker = "python_full_version < '4.0'" },
-    { name = "cryptography", marker = "python_full_version < '4.0'" },
-    { name = "docutils", marker = "python_full_version < '4.0'" },
-    { name = "durationpy", marker = "python_full_version < '4.0'" },
-    { name = "google-auth", marker = "python_full_version < '4.0'" },
-    { name = "idna", marker = "python_full_version < '4.0'" },
-    { name = "importlib-metadata", marker = "python_full_version < '4.0'" },
-    { name = "jmespath", marker = "python_full_version < '4.0'" },
-    { name = "jsonpatch", marker = "python_full_version < '4.0'" },
-    { name = "jsonpointer", marker = "python_full_version < '4.0'" },
-    { name = "jsonschema", marker = "python_full_version < '4.0'" },
-    { name = "jsonschema-specifications", marker = "python_full_version < '4.0'" },
-    { name = "kubernetes", marker = "python_full_version < '4.0'" },
-    { name = "oauthlib", marker = "python_full_version < '4.0'" },
-    { name = "pyasn1", marker = "python_full_version < '4.0'" },
-    { name = "pyasn1-modules", marker = "python_full_version < '4.0'" },
-    { name = "pycparser", marker = "python_full_version < '4.0' and platform_python_implementation != 'PyPy'" },
-    { name = "python-dateutil", marker = "python_full_version < '4.0'" },
-    { name = "pyyaml", marker = "python_full_version < '4.0'" },
-    { name = "referencing", marker = "python_full_version < '4.0'" },
-    { name = "requests", marker = "python_full_version < '4.0'" },
-    { name = "requests-oauthlib", marker = "python_full_version < '4.0'" },
-    { name = "rpds-py", marker = "python_full_version < '4.0'" },
-    { name = "rsa", marker = "python_full_version < '4.0'" },
-    { name = "s3transfer", marker = "python_full_version < '4.0'" },
-    { name = "six", marker = "python_full_version < '4.0'" },
-    { name = "tabulate", marker = "python_full_version < '4.0'" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
-    { name = "urllib3", marker = "python_full_version < '4.0'" },
-    { name = "websocket-client", marker = "python_full_version < '4.0'" },
-    { name = "zipp", marker = "python_full_version < '4.0'" },
+    { name = "c7n" },
+    { name = "jsonpatch" },
+    { name = "kubernetes" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f6/13/987fdacc6b7f49a207aef0e2534a9958b525a2598198a26e620a940c1820/c7n_kube-0.2.44-py3-none-any.whl", hash = "sha256:aef240c8c05a4fc8bb7f59a8665679c7cb49807e9f3c4a8b3c2a5626dda041ca", size = 26003, upload-time = "2025-06-02T20:24:34.545Z" },
+    { url = "https://files.pythonhosted.org/packages/e8/5e/0af8d530cd4513977337ca895dd6769462f3deac866a3d0055dce6a53f50/c7n_kube-0.2.45-py3-none-any.whl", hash = "sha256:db0958b6c7202968069afb3e046209e308c3b76ced7c5ed3c0439df18eabde53", size = 25448, upload-time = "2025-07-17T18:41:16.819Z" },
 ]
 
 [[package]]
@@ -1683,14 +1541,14 @@ wheels = [
 
 [[package]]
 name = "click"
-version = "8.1.8"
+version = "8.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b9/2e/0090cbf739cee7d23781ad4b89a9894a41538e4fcf4c31dcdd705b78eb8b/click-8.1.8.tar.gz", hash = "sha256:ed53c9d8990d83c2a27deae68e4ee337473f6330c040a31d4225c9574d16096a", size = 226593, upload-time = "2024-12-21T18:38:44.339Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/60/6c/8ca2efa64cf75a977a0d7fac081354553ebe483345c734fb6b6515d96bbc/click-8.2.1.tar.gz", hash = "sha256:27c491cc05d968d271d5a1db13e3b5a184636d9d930f148c50b038f0d0646202", size = 286342, upload-time = "2025-05-20T23:19:49.832Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7e/d4/7ebdbd03970677812aac39c869717059dbb71a4cfc033ca6e5221787892c/click-8.1.8-py3-none-any.whl", hash = "sha256:63c132bbbed01578a06712a2d1f497bb62d9c1c0d329b7903a866228027263b2", size = 98188, upload-time = "2024-12-21T18:38:41.666Z" },
+    { url = "https://files.pythonhosted.org/packages/85/32/10bb5764d90a8eee674e9dc6f4db6a0ab47c8c4d0d83c27f7c39ac415a4d/click-8.2.1-py3-none-any.whl", hash = "sha256:61a3265b914e850b85317d0b3109c7f8cd35a670f963866005d6ef1d5175a12b", size = 102215, upload-time = "2025-05-20T23:19:47.796Z" },
 ]
 
 [[package]]
@@ -1882,15 +1740,6 @@ wheels = [
 ]
 
 [[package]]
-name = "docutils"
-version = "0.18.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/57/b1/b880503681ea1b64df05106fc7e3c4e3801736cf63deffc6fa7fc5404cf5/docutils-0.18.1.tar.gz", hash = "sha256:679987caf361a7539d76e584cbeddc311e3aee937877c87346f31debc63e9d06", size = 2043249, upload-time = "2021-11-23T17:49:42.043Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/8d/14/69b4bad34e3f250afe29a854da03acb6747711f3df06c359fa053fae4e76/docutils-0.18.1-py2.py3-none-any.whl", hash = "sha256:23010f129180089fbcd3bc08cfefccb3b890b0050e1ca00c867036e9d161b98c", size = 570050, upload-time = "2021-11-23T17:49:38.556Z" },
-]
-
-[[package]]
 name = "durationpy"
 version = "0.10"
 source = { registry = "https://pypi.org/simple" }
@@ -1950,7 +1799,7 @@ grpc = [
 
 [[package]]
 name = "google-api-python-client"
-version = "2.170.0"
+version = "2.176.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "google-api-core" },
@@ -1959,23 +1808,23 @@ dependencies = [
     { name = "httplib2" },
     { name = "uritemplate" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/db/86/1bd09aea2664a46bc65713cb7876381ec8949a4b1e71be97dfc359c79781/google_api_python_client-2.170.0.tar.gz", hash = "sha256:75f3a1856f11418ea3723214e0abc59d9b217fd7ed43dcf743aab7f06ab9e2b1", size = 12971933, upload-time = "2025-05-22T20:39:52.802Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3e/38/daf70faf6d05556d382bac640bc6765f09fcfb9dfb51ac4a595d3453a2a9/google_api_python_client-2.176.0.tar.gz", hash = "sha256:2b451cdd7fd10faeb5dd20f7d992f185e1e8f4124c35f2cdcc77c843139a4cf1", size = 13154773, upload-time = "2025-07-08T18:07:10.354Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ca/ab/928fb4551ce9c791de96b0681924d46de9a5b50931394fd19850383a08a1/google_api_python_client-2.170.0-py3-none-any.whl", hash = "sha256:7bf518a0527ad23322f070fa69f4f24053170d5c766821dc970ff0571ec22748", size = 13490660, upload-time = "2025-05-22T20:39:49.834Z" },
+    { url = "https://files.pythonhosted.org/packages/b1/2c/758f415a19a12c3c6d06902794b0dd4c521d912a59b98ab752bba48812df/google_api_python_client-2.176.0-py3-none-any.whl", hash = "sha256:e22239797f1d085341e12cd924591fc65c56d08e0af02549d7606092e6296510", size = 13678445, upload-time = "2025-07-08T18:07:07.799Z" },
 ]
 
 [[package]]
 name = "google-auth"
-version = "2.40.2"
+version = "2.40.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cachetools" },
     { name = "pyasn1-modules" },
     { name = "rsa" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/66/84/f67f53c505a6b2c5da05c988e2a5483f5ba9eee4b1841d2e3ff22f547cd5/google_auth-2.40.2.tar.gz", hash = "sha256:a33cde547a2134273226fa4b853883559947ebe9207521f7afc707efbf690f58", size = 280990, upload-time = "2025-05-21T18:04:59.816Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9e/9b/e92ef23b84fa10a64ce4831390b7a4c2e53c0132568d99d4ae61d04c8855/google_auth-2.40.3.tar.gz", hash = "sha256:500c3a29adedeb36ea9cf24b8d10858e152f2412e3ca37829b3fa18e33d63b77", size = 281029, upload-time = "2025-06-04T18:04:57.577Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6a/c7/e2d82e6702e2a9e2311c138f8e1100f21d08aed0231290872b229ae57a86/google_auth-2.40.2-py2.py3-none-any.whl", hash = "sha256:f7e568d42eedfded58734f6a60c58321896a621f7c116c411550a4b4a13da90b", size = 216102, upload-time = "2025-05-21T18:04:57.547Z" },
+    { url = "https://files.pythonhosted.org/packages/17/63/b19553b658a1692443c62bd07e5868adaa0ad746a0751ba62c59568cd45b/google_auth-2.40.3-py2.py3-none-any.whl", hash = "sha256:1370d4593e86213563547f97a92752fc658456fe4514c809544f330fed45a7ca", size = 216137, upload-time = "2025-06-04T18:04:55.573Z" },
 ]
 
 [[package]]
@@ -2054,7 +1903,7 @@ wheels = [
 
 [[package]]
 name = "google-cloud-monitoring"
-version = "2.27.1"
+version = "2.27.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "google-api-core", extra = ["grpc"] },
@@ -2062,9 +1911,9 @@ dependencies = [
     { name = "proto-plus" },
     { name = "protobuf" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/2e/77/2813251757c6d265256d9455597a8661b265506401457e0c316cc478292d/google_cloud_monitoring-2.27.1.tar.gz", hash = "sha256:f4700900a658cd6c9b7f714bb29d007facef0cf0d628d0075699c3a73bce8a55", size = 391810, upload-time = "2025-03-17T11:34:00.647Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/03/19/17b438b0fd628770ed01a79b8a2fcdbfb11a61a02bcdc769a225f50ea094/google_cloud_monitoring-2.27.2.tar.gz", hash = "sha256:d0f00205a5f94530dc72c3b96f681be14abdf1d6144dae5d2b922b54a90c43fa", size = 392827, upload-time = "2025-06-11T23:21:24.072Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/dd/1f/31764b43e2cc32e1334ad9c86462556b917b638e8fb9c57393d03695ec51/google_cloud_monitoring-2.27.1-py3-none-any.whl", hash = "sha256:cb38e2295e87ff68644bda9eaa2cd9094ebb63f2f4efd1090a7af1c1f0b142cc", size = 382249, upload-time = "2025-03-17T11:33:59.08Z" },
+    { url = "https://files.pythonhosted.org/packages/b4/64/00a0027ee6bb6a69bc210037720477157e161ebcea20704c50fb0a7ba76f/google_cloud_monitoring-2.27.2-py3-none-any.whl", hash = "sha256:70b2e877d6267a3548ca17be301a4253fe83d4bebf7ea5cd8ee68b9dd3a70a02", size = 383687, upload-time = "2025-06-11T23:21:22.88Z" },
 ]
 
 [[package]]
@@ -2397,7 +2246,7 @@ wheels = [
 
 [[package]]
 name = "kubernetes"
-version = "32.0.1"
+version = "33.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
@@ -2412,9 +2261,9 @@ dependencies = [
     { name = "urllib3" },
     { name = "websocket-client" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b7/e8/0598f0e8b4af37cd9b10d8b87386cf3173cb8045d834ab5f6ec347a758b3/kubernetes-32.0.1.tar.gz", hash = "sha256:42f43d49abd437ada79a79a16bd48a604d3471a117a8347e87db693f2ba0ba28", size = 946691, upload-time = "2025-02-18T21:06:34.148Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ae/52/19ebe8004c243fdfa78268a96727c71e08f00ff6fe69a301d0b7fcbce3c2/kubernetes-33.1.0.tar.gz", hash = "sha256:f64d829843a54c251061a8e7a14523b521f2dc5c896cf6d65ccf348648a88993", size = 1036779, upload-time = "2025-06-09T21:57:58.521Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/08/10/9f8af3e6f569685ce3af7faab51c8dd9d93b9c38eba339ca31c746119447/kubernetes-32.0.1-py2.py3-none-any.whl", hash = "sha256:35282ab8493b938b08ab5526c7ce66588232df00ef5e1dbe88a419107dc10998", size = 1988070, upload-time = "2025-02-18T21:06:31.391Z" },
+    { url = "https://files.pythonhosted.org/packages/89/43/d9bebfc3db7dea6ec80df5cb2aad8d274dd18ec2edd6c4f21f32c237cbbb/kubernetes-33.1.0-py2.py3-none-any.whl", hash = "sha256:544de42b24b64287f7e0aa9513c93cb503f7f40eea39b20f66810011a86eabc5", size = 1941335, upload-time = "2025-06-09T21:57:56.327Z" },
 ]
 
 [[package]]
@@ -2623,11 +2472,11 @@ wheels = [
 
 [[package]]
 name = "netaddr"
-version = "0.7.20"
+version = "0.10.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/47/1b/d115c8cfe20f33176982807a3624b82930ff508196f0d875f6985cd28911/netaddr-0.7.20.tar.gz", hash = "sha256:d09252e5aec3913815d77eb8e8ea8fa6eb33521253e52f977f6abaa964776f3e", size = 1889698, upload-time = "2020-06-18T23:23:55.995Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/af/96/f4878091248450bbdebfbd01bf1d95821bd47eb38e756815a0431baa6b07/netaddr-0.10.1.tar.gz", hash = "sha256:f4da4222ca8c3f43c8e18a8263e5426c750a3a837fdfeccf74c68d0408eaa3bf", size = 2225283, upload-time = "2024-01-02T19:05:07.814Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f4/7a/d514cd5ab61bfc9d09d0c2bd52a2336134515cc3c9949b9054dfc1c2f7ac/netaddr-0.7.20-py2.py3-none-any.whl", hash = "sha256:7a9c8f58d048b820df1882439bb04fb2de13c03ec8af3112a1099822b0a2a4b8", size = 1895904, upload-time = "2020-06-18T23:23:44.956Z" },
+    { url = "https://files.pythonhosted.org/packages/b6/a6/aa2c645188e00f7db040d1b0b1dd353b5b51c67984ada4f6d60aa388982f/netaddr-0.10.1-py2.py3-none-any.whl", hash = "sha256:9822305b42ea1020d54fee322d43cee5622b044c07a1f0130b459bb467efcf88", size = 2220012, upload-time = "2024-01-02T19:05:03.613Z" },
 ]
 
 [[package]]
@@ -2842,11 +2691,11 @@ wheels = [
 
 [[package]]
 name = "pyjwt"
-version = "2.10.1"
+version = "2.9.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e7/46/bd74733ff231675599650d3e47f361794b22ef3e3770998dda30d3b63726/pyjwt-2.10.1.tar.gz", hash = "sha256:3cc5772eb20009233caf06e9d8a0577824723b44e6648ee0a2aedb6cf9381953", size = 87785, upload-time = "2024-11-28T03:43:29.933Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/fb/68/ce067f09fca4abeca8771fe667d89cc347d1e99da3e093112ac329c6020e/pyjwt-2.9.0.tar.gz", hash = "sha256:7e1e5b56cc735432a7369cbfa0efe50fa113ebecdc04ae6922deba8b84582d0c", size = 78825, upload-time = "2024-08-01T15:01:08.445Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/61/ad/689f02752eeec26aed679477e80e632ef1b682313be70793d798c1d5fc8f/PyJWT-2.10.1-py3-none-any.whl", hash = "sha256:dcdd193e30abefd5debf142f9adfcdd2b58004e644f25406ffaebd50bd98dacb", size = 22997, upload-time = "2024-11-28T03:43:27.893Z" },
+    { url = "https://files.pythonhosted.org/packages/79/84/0fdf9b18ba31d69877bd39c9cd6052b47f3761e9910c15de788e519f079f/PyJWT-2.9.0-py3-none-any.whl", hash = "sha256:3b02fb0f44517787776cf48f2ae25d8e14f300e6d7545a4315cee571a415e850", size = 22344, upload-time = "2024-08-01T15:01:06.481Z" },
 ]
 
 [package.optional-dependencies]
@@ -3089,7 +2938,7 @@ wheels = [
 
 [[package]]
 name = "requests"
-version = "2.32.3"
+version = "2.32.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
@@ -3097,9 +2946,9 @@ dependencies = [
     { name = "idna" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/63/70/2bf7780ad2d390a8d301ad0b550f1581eadbd9a20f896afe06353c2a2913/requests-2.32.3.tar.gz", hash = "sha256:55365417734eb18255590a9ff9eb97e9e1da868d4ccd6402399eaf68af20a760", size = 131218, upload-time = "2024-05-29T15:37:49.536Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e1/0a/929373653770d8a0d7ea76c37de6e41f11eb07559b103b1c02cafb3f7cf8/requests-2.32.4.tar.gz", hash = "sha256:27d0316682c8a29834d3264820024b62a36942083d52caf2f14c0591336d3422", size = 135258, upload-time = "2025-06-09T16:43:07.34Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f9/9b/335f9764261e915ed497fcdeb11df5dfd6f7bf257d4a6a2a686d80da4d54/requests-2.32.3-py3-none-any.whl", hash = "sha256:70761cfe03c773ceb22aa2f671b4757976145175cdfca038c02654d061d6dcc6", size = 64928, upload-time = "2024-05-29T15:37:47.027Z" },
+    { url = "https://files.pythonhosted.org/packages/7c/e4/56027c4a6b4ae70ca9de302488c5ca95ad4a39e190093d6c1a8ace08341b/requests-2.32.4-py3-none-any.whl", hash = "sha256:27babd3cda2a6d50b30443204ee89830707d396671944c998b5975b031ac2b2c", size = 64847, upload-time = "2025-06-09T16:43:05.728Z" },
 ]
 
 [[package]]
@@ -3131,14 +2980,11 @@ wheels = [
 
 [[package]]
 name = "retrying"
-version = "1.3.4"
+version = "1.4.0"
 source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "six" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/ce/70/15ce8551d65b324e18c5aa6ef6998880f21ead51ebe5ed743c0950d7d9dd/retrying-1.3.4.tar.gz", hash = "sha256:345da8c5765bd982b1d1915deb9102fd3d1f7ad16bd84a9700b85f64d24e8f3e", size = 10929, upload-time = "2022-11-25T09:57:49.43Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4e/e5/986cabb44cc073a8bf50c3d8d4c85514c6741fff78ebf853a0ebcd441a97/retrying-1.4.0.tar.gz", hash = "sha256:efa99c78bf4fbdbe6f0cba4101470fbc684b93d30ca45ffa1288443a9805172f", size = 11202, upload-time = "2025-06-24T10:08:59.091Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8f/04/9e36f28be4c0532c0e9207ff9dc01fb13a2b0eb036476a213b0000837d0e/retrying-1.3.4-py3-none-any.whl", hash = "sha256:8cc4d43cb8e1125e0ff3344e9de678fefd85db3b750b81b2240dc0183af37b35", size = 11602, upload-time = "2022-11-25T09:57:47.494Z" },
+    { url = "https://files.pythonhosted.org/packages/96/7e/5a83e2c56761d347128e58b3f23af829fd145bfb1afeff18927bc5915459/retrying-1.4.0-py3-none-any.whl", hash = "sha256:6509d829c70271937605bce361c8f76e91f9123d355d14df7dc6972b1518064a", size = 11972, upload-time = "2025-06-24T10:08:57.794Z" },
 ]
 
 [[package]]
@@ -3346,7 +3192,7 @@ wheels = [
 
 [[package]]
 name = "syndicate-rule-engine"
-version = "5.11.0"
+version = "5.12.0"
 source = { virtual = "." }
 dependencies = [
     { name = "aws-xray-sdk" },
@@ -3400,13 +3246,13 @@ test = [
 requires-dist = [
     { name = "aws-xray-sdk", specifier = "~=2.14.0" },
     { name = "bcrypt", specifier = "~=4.0.1" },
-    { name = "boto3", specifier = "~=1.38.25" },
-    { name = "botocore", specifier = "~=1.38.0" },
+    { name = "boto3", specifier = "~=1.39.4" },
+    { name = "botocore", specifier = "~=1.39.4" },
     { name = "bottle", specifier = "~=0.12.25" },
     { name = "cachetools", specifier = "~=5.5.2" },
     { name = "celery", specifier = "==5.4.0" },
     { name = "cryptography", specifier = "~=44.0.2" },
-    { name = "google-api-python-client", specifier = "~=2.170.0" },
+    { name = "google-api-python-client", specifier = "~=2.176.0" },
     { name = "google-auth", specifier = "~=2.40.0" },
     { name = "gunicorn", specifier = "~=23.0.0" },
     { name = "hvac", specifier = "~=2.3.0" },
@@ -3430,10 +3276,10 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 c7n = [
-    { name = "c7n", specifier = "==0.9.45" },
-    { name = "c7n-azure", specifier = "==0.7.44" },
-    { name = "c7n-gcp", specifier = "==0.4.44" },
-    { name = "c7n-kube", specifier = "==0.2.44" },
+    { name = "c7n", specifier = "==0.9.46" },
+    { name = "c7n-azure", specifier = "==0.7.45" },
+    { name = "c7n-gcp", specifier = "==0.4.45" },
+    { name = "c7n-kube", specifier = "==0.2.45" },
 ]
 test = [
     { name = "coverage", specifier = ">=7.6.12" },
@@ -3534,11 +3380,11 @@ wheels = [
 
 [[package]]
 name = "urllib3"
-version = "1.26.20"
+version = "2.5.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e4/e8/6ff5e6bc22095cfc59b6ea711b687e2b7ed4bdb373f7eeec370a97d7392f/urllib3-1.26.20.tar.gz", hash = "sha256:40c2dc0c681e47eb8f90e7e27bf6ff7df2e677421fd46756da1161c39ca70d32", size = 307380, upload-time = "2024-08-29T15:43:11.37Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/15/22/9ee70a2574a4f4599c47dd506532914ce044817c7752a79b6a51286319bc/urllib3-2.5.0.tar.gz", hash = "sha256:3fc47733c7e419d4bc3f6b3dc2b4f890bb743906a30d56ba4a5bfa4bbff92760", size = 393185, upload-time = "2025-06-18T14:07:41.644Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/33/cf/8435d5a7159e2a9c83a95896ed596f68cf798005fe107cc655b5c5c14704/urllib3-1.26.20-py2.py3-none-any.whl", hash = "sha256:0ed14ccfbf1c30a9072c7ca157e4319b70d65f623e91e7b32fadb2853431016e", size = 144225, upload-time = "2024-08-29T15:43:08.921Z" },
+    { url = "https://files.pythonhosted.org/packages/a7/c2/fe1e52489ae3122415c51f387e221dd0773709bad6c6cdaa599e8a2c5185/urllib3-2.5.0-py3-none-any.whl", hash = "sha256:e6b01673c0fa6a13e374b50871808eb3bf7046c4b125b216f6bf1cc604cff0dc", size = 129795, upload-time = "2025-06-18T14:07:40.39Z" },
 ]
 
 [[package]]

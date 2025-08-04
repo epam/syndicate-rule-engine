@@ -3,20 +3,20 @@
     "admin@gmail.com"
   ],
   "customer": "TEST_CUSTOMER",
-  "from": "2025-05-18T14:41:49.926725Z",
-  "to": "2025-05-25T14:41:49.926725Z",
+  "from": "2025-07-21T14:35:05.244043Z",
+  "to": "2025-07-28T14:35:05.244043Z",
   "outdated_tenants": [],
   "externalData": false,
   "data": {
     "AWS": {
       "account_id": "123456789012",
       "tenant_name": "AWS-TESTING",
-      "last_scan_date": "2025-05-25T00:28:20.743937Z",
+      "last_scan_date": "2025-07-28T00:48:07.120839Z",
       "activated_regions": [
         "eu-central-1",
-        "eu-north-1",
         "eu-west-1",
-        "eu-west-3"
+        "eu-west-3",
+        "eu-north-1"
       ],
       "total_scans": 2,
       "failed_scans": 1,
@@ -25,48 +25,68 @@
       "regions_data": {
         "eu-central-1": {
           "severity_data": {
+            "Info": 0,
+            "Low": 0,
+            "Medium": 0,
+            "High": 0,
             "Unknown": 7
           },
           "resource_types_data": {
-            "Security Group": 3,
-            "Sns": 3,
-            "S3": 1
+            "aws.security-group": 3,
+            "aws.sns": 3,
+            "aws.s3": 1
           }
         },
         "global": {
           "severity_data": {
+            "Info": 0,
+            "Low": 0,
+            "Medium": 0,
+            "High": 0,
             "Unknown": 4
           },
           "resource_types_data": {
-            "Cloudtrail": 1,
-            "Iam Group": 3
+            "aws.cloudtrail": 1,
+            "aws.iam-group": 3
           }
         },
         "eu-west-1": {
           "severity_data": {
+            "Info": 0,
+            "Low": 0,
+            "Medium": 0,
+            "High": 0,
             "Unknown": 10
           },
           "resource_types_data": {
-            "S3": 4,
-            "Ebs": 2,
-            "Ec2": 2,
-            "Ecr": 2
-          }
-        },
-        "eu-west-3": {
-          "severity_data": {
-            "Unknown": 1
-          },
-          "resource_types_data": {
-            "S3": 1
+            "aws.s3": 4,
+            "aws.ebs": 2,
+            "aws.ec2": 2,
+            "aws.ecr": 2
           }
         },
         "eu-north-1": {
           "severity_data": {
+            "Info": 0,
+            "Low": 0,
+            "Medium": 0,
+            "High": 0,
             "Unknown": 1
           },
           "resource_types_data": {
-            "S3": 1
+            "aws.s3": 1
+          }
+        },
+        "eu-west-3": {
+          "severity_data": {
+            "Info": 0,
+            "Low": 0,
+            "Medium": 0,
+            "High": 0,
+            "Unknown": 1
+          },
+          "resource_types_data": {
+            "aws.s3": 1
           }
         }
       }
@@ -74,7 +94,7 @@
     "AZURE": {
       "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
       "tenant_name": "AZURE-TESTING",
-      "last_scan_date": "2025-05-25T00:28:20.743937Z",
+      "last_scan_date": "2025-07-28T00:48:07.120839Z",
       "activated_regions": [],
       "total_scans": 2,
       "failed_scans": 1,
@@ -83,10 +103,14 @@
       "regions_data": {
         "global": {
           "severity_data": {
+            "Info": 0,
+            "Low": 0,
+            "Medium": 0,
+            "High": 0,
             "Unknown": 5
           },
           "resource_types_data": {
-            "Defender Pricing": 5
+            "azure.defender-pricing": 5
           }
         }
       }
@@ -94,7 +118,7 @@
     "GOOGLE": {
       "account_id": "testing-project-123",
       "tenant_name": "GOOGLE-TESTING",
-      "last_scan_date": "2025-05-25T00:28:20.743937Z",
+      "last_scan_date": "2025-07-28T00:48:07.120839Z",
       "activated_regions": [],
       "total_scans": 2,
       "failed_scans": 1,
@@ -103,43 +127,63 @@
       "regions_data": {
         "global": {
           "severity_data": {
+            "Info": 0,
+            "Low": 0,
+            "Medium": 0,
+            "High": 0,
             "Unknown": 5
           },
           "resource_types_data": {
-            "Vpc": 1,
-            "Firewall": 4
-          }
-        },
-        "europe-west10": {
-          "severity_data": {
-            "Unknown": 1
-          },
-          "resource_types_data": {
-            "Subnet": 1
-          }
-        },
-        "us-west8": {
-          "severity_data": {
-            "Unknown": 1
-          },
-          "resource_types_data": {
-            "Subnet": 1
-          }
-        },
-        "africa-south1": {
-          "severity_data": {
-            "Unknown": 1
-          },
-          "resource_types_data": {
-            "Subnet": 1
+            "gcp.vpc": 1,
+            "gcp.firewall": 4
           }
         },
         "northamerica-south1": {
           "severity_data": {
+            "Info": 0,
+            "Low": 0,
+            "Medium": 0,
+            "High": 0,
             "Unknown": 1
           },
           "resource_types_data": {
-            "Subnet": 1
+            "gcp.subnet": 1
+          }
+        },
+        "us-west8": {
+          "severity_data": {
+            "Info": 0,
+            "Low": 0,
+            "Medium": 0,
+            "High": 0,
+            "Unknown": 1
+          },
+          "resource_types_data": {
+            "gcp.subnet": 1
+          }
+        },
+        "europe-west10": {
+          "severity_data": {
+            "Info": 0,
+            "Low": 0,
+            "Medium": 0,
+            "High": 0,
+            "Unknown": 1
+          },
+          "resource_types_data": {
+            "gcp.subnet": 1
+          }
+        },
+        "africa-south1": {
+          "severity_data": {
+            "Info": 0,
+            "Low": 0,
+            "Medium": 0,
+            "High": 0,
+            "Unknown": 1
+          },
+          "resource_types_data": {
+            "gcp.subnet": 1
           }
         }
       }

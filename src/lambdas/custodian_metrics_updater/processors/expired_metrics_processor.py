@@ -35,8 +35,8 @@ class ExpiredMetricsCleaner:
     def __call__(self, *args, **kwargs):
         """
         When this processor is executed all metrics
-        and coresponding files in s3 is deleted
-        if they older then  specified limit
+        and corresponding files in s3 is deleted
+        if they older than specified limit
         """
         expiration = CAASEnv.METRICS_EXPIRATION_DAYS.get()
         if expiration is None or not expiration.isalnum():

@@ -2,80 +2,17 @@
   "receivers": [
     "admin@gmail.com"
   ],
+  "customer": "TEST_CUSTOMER",
   "metadata": {
     "type": "OPERATIONAL_ATTACKS",
     "description": "MITRE Attacks report per tenant as of date of generation",
     "version": "2.0.0",
-    "created_at": "2025-05-25T13:51:04.847562Z",
-    "to": "2025-05-25T13:51:04.847562Z",
-    "from": "2025-05-24T13:51:04.847562Z"
+    "created_at": "2025-07-18T09:01:08.318114Z",
+    "to": "2025-07-18T09:01:08.318114Z",
+    "from": "2025-07-17T09:01:08.318114Z"
   },
-  "customer": "TEST_CUSTOMER",
+  "externalData": false,
   "data": [
-    {
-      "region": "eu-central-1",
-      "service": "Security Group",
-      "resource_type": "aws.security-group",
-      "resource": {
-        "id": "sg-09d19538187df66cf",
-        "name": "asia",
-        "sre:date": 1729253757.393474,
-        "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-09d19538187df66cf"
-      },
-      "attacks": [
-        {
-          "tactic_name": "Collection",
-          "tactic_id": "TA0009",
-          "technique_name": "testing0",
-          "technique_id": "T0",
-          "sub_technique_name": "sub0",
-          "sub_technique_id": "T0.0",
-          "severity": "Unknown",
-          "violations": [
-            {
-              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
-              "remediation": "",
-              "remediation_complexity": "Unknown",
-              "severity": "Unknown"
-            }
-          ]
-        },
-        {
-          "tactic_name": "Collection",
-          "tactic_id": "TA0009",
-          "technique_name": "testing0",
-          "technique_id": "T0",
-          "sub_technique_name": "sub1",
-          "sub_technique_id": "T0.1",
-          "severity": "Unknown",
-          "violations": [
-            {
-              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
-              "remediation": "",
-              "remediation_complexity": "Unknown",
-              "severity": "Unknown"
-            }
-          ]
-        },
-        {
-          "tactic_name": "Collection",
-          "tactic_id": "TA0009",
-          "technique_name": "testing1",
-          "technique_id": "T1",
-          "sub_technique_name": "sub0",
-          "sub_technique_id": "T1.0",
-          "severity": "Unknown",
-          "violations": [
-            {
-              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
-              "remediation": "",
-              "remediation_complexity": "Unknown",
-              "severity": "Unknown"
-            }
-          ]
-        }
-      ]
-    },
     {
       "region": "eu-central-1",
       "service": "Security Group",
@@ -83,8 +20,8 @@
       "resource": {
         "id": "sg-0ae266faddaef17e9",
         "name": "packer-ssh-access",
-        "sre:date": 1729253757.393474,
-        "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-0ae266faddaef17e9"
+        "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-0ae266faddaef17e9",
+        "sre:date": 1729253757.393474
       },
       "attacks": [
         {
@@ -97,10 +34,7 @@
           "severity": "Unknown",
           "violations": [
             {
-              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
-              "remediation": "",
-              "remediation_complexity": "Unknown",
-              "severity": "Unknown"
+              "policy": "ecc-aws-070-unused_ec2_security_groups"
             }
           ]
         },
@@ -114,10 +48,7 @@
           "severity": "Unknown",
           "violations": [
             {
-              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
-              "remediation": "",
-              "remediation_complexity": "Unknown",
-              "severity": "Unknown"
+              "policy": "ecc-aws-070-unused_ec2_security_groups"
             }
           ]
         },
@@ -131,10 +62,7 @@
           "severity": "Unknown",
           "violations": [
             {
-              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
-              "remediation": "",
-              "remediation_complexity": "Unknown",
-              "severity": "Unknown"
+              "policy": "ecc-aws-070-unused_ec2_security_groups"
             }
           ]
         }
@@ -147,8 +75,8 @@
       "resource": {
         "id": "sg-05209ceeb761317e5",
         "name": "west-eu",
-        "sre:date": 1729253757.393474,
-        "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-05209ceeb761317e5"
+        "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-05209ceeb761317e5",
+        "sre:date": 1729253757.393474
       },
       "attacks": [
         {
@@ -161,10 +89,7 @@
           "severity": "Unknown",
           "violations": [
             {
-              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
-              "remediation": "",
-              "remediation_complexity": "Unknown",
-              "severity": "Unknown"
+              "policy": "ecc-aws-070-unused_ec2_security_groups"
             }
           ]
         },
@@ -178,10 +103,7 @@
           "severity": "Unknown",
           "violations": [
             {
-              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
-              "remediation": "",
-              "remediation_complexity": "Unknown",
-              "severity": "Unknown"
+              "policy": "ecc-aws-070-unused_ec2_security_groups"
             }
           ]
         },
@@ -195,17 +117,68 @@
           "severity": "Unknown",
           "violations": [
             {
-              "description": "Description for ecc-aws-070-unused_ec2_security_groups",
-              "remediation": "",
-              "remediation_complexity": "Unknown",
-              "severity": "Unknown"
+              "policy": "ecc-aws-070-unused_ec2_security_groups"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "region": "eu-central-1",
+      "service": "Security Group",
+      "resource_type": "aws.security-group",
+      "resource": {
+        "id": "sg-09d19538187df66cf",
+        "name": "asia",
+        "arn": "arn:aws:ec2:eu-central-1:123456789012:security-group/sg-09d19538187df66cf",
+        "sre:date": 1729253757.393474
+      },
+      "attacks": [
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing0",
+          "technique_id": "T0",
+          "sub_technique_name": "sub0",
+          "sub_technique_id": "T0.0",
+          "severity": "Unknown",
+          "violations": [
+            {
+              "policy": "ecc-aws-070-unused_ec2_security_groups"
+            }
+          ]
+        },
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing0",
+          "technique_id": "T0",
+          "sub_technique_name": "sub1",
+          "sub_technique_id": "T0.1",
+          "severity": "Unknown",
+          "violations": [
+            {
+              "policy": "ecc-aws-070-unused_ec2_security_groups"
+            }
+          ]
+        },
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing1",
+          "technique_id": "T1",
+          "sub_technique_name": "sub0",
+          "sub_technique_id": "T1.0",
+          "severity": "Unknown",
+          "violations": [
+            {
+              "policy": "ecc-aws-070-unused_ec2_security_groups"
             }
           ]
         }
       ]
     }
   ],
-  "externalData": false,
   "tenant_name": "AWS-TESTING",
   "id": "123456789012",
   "cloud": "AWS",
@@ -216,30 +189,43 @@
         "rulesets": [
           "AWS"
         ],
-        "total_rules": 14,
+        "total_rules": 15,
         "jobs": 10,
         "per": "DAY",
         "description": "Testing license",
         "valid_until": "2100-02-01T15:24:26.175778Z",
-        "valid_from": "2025-05-25T12:55:04.694694Z"
+        "valid_from": "2025-07-18T08:56:49.203236Z"
       }
     ],
     "is_automatic_scans_enabled": true,
     "in_progress_scans": 0,
     "finished_scans": 2,
     "succeeded_scans": 1,
-    "last_scan_date": "2025-05-25T00:55:05.475807Z",
+    "last_scan_date": "2025-07-18T00:56:49.991441Z",
     "activated_regions": [
-      "eu-central-1",
+      "eu-north-1",
       "eu-west-3",
-      "eu-west-1",
-      "eu-north-1"
+      "eu-central-1",
+      "eu-west-1"
     ],
     "rules": {
       "total": 1,
       "disabled": [],
+      "deprecated": [],
       "passed": [],
-      "failed": []
+      "failed": [],
+      "violated": [
+        {
+          "id": "ecc-aws-070-unused_ec2_security_groups",
+          "description": "Description for ecc-aws-070-unused_ec2_security_groups",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "severity": "Unknown",
+          "service": "Security Group",
+          "resource_type": "aws.security-group",
+          "when": 1729253757.393474
+        }
+      ]
     }
   }
 }

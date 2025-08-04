@@ -84,7 +84,6 @@ Then they made this new c7n.credentials.CustodianSession class that was
 probably supposed to completely mitigate the issue, but it was reverted:
 https://github.com/cloud-custodian/cloud-custodian/pull/9569. The problem
 persists.
-Here is my PR (hopefully merged):
 
 Our solution:
 ---------------------------------------
@@ -169,6 +168,7 @@ from helpers.constants import (
     JobState,
     PlatformType,
     PolicyErrorType,
+    DEPRECATED_RULE_SUFFIX
 )
 from helpers.log_helper import get_logger
 from helpers.regions import AWS_REGIONS
@@ -205,6 +205,7 @@ from services.udm_generator import (
     ShardCollectionUDMEntitiesConvertor,
     ShardCollectionUDMEventsConvertor,
 )
+from executor.plugins import register_all
 
 
 class PolicyDict(TypedDict):
@@ -238,7 +239,7 @@ class PoliciesLoader:
     def __init__(
         self,
         cloud: Cloud,
-        output_dir: Path,
+        output_dir: Path | None = None, # NOTE: output_dir should be None only if policy execution mode don't use it
         regions: set[str] | None = None,
         cache: str | None = 'memory',
         cache_period: int = 30,
@@ -262,25 +263,27 @@ class PoliciesLoader:
         self._cache_period = cache_period
         self._load_global = not self._regions or GLOBAL_REGION in self._regions
 
-    @property
-    def cc_provider_name(self) -> str:
-        match self._cloud:
+    @staticmethod
+    def cc_provider_name(cloud: Cloud) -> str:
+        match cloud:
             case Cloud.GOOGLE | Cloud.GCP:
                 return 'gcp'
             case Cloud.KUBERNETES | Cloud.K8S:
                 return 'k8s'
             case _:
-                return self._cloud.value.lower()
+                return cloud.value.lower()
 
     def set_global_output(self, policy: Policy) -> None:
-        policy.options.output_dir = str(
-            (self._output_dir / GLOBAL_REGION).resolve()
-        )
+        if self._output_dir:
+            policy.options.output_dir = str(
+                (self._output_dir / GLOBAL_REGION).resolve()
+            )
 
     def set_regional_output(self, policy: Policy) -> None:
-        policy.options.output_dir = str(
-            (self._output_dir / policy.options.region).resolve()
-        )
+        if self._output_dir:
+            policy.options.output_dir = str(
+                (self._output_dir / policy.options.region).resolve()
+            )
 
     @staticmethod
     def is_global(policy: Policy) -> bool:
@@ -324,7 +327,7 @@ class PoliciesLoader:
             command='c7n.commands.run',
             config=None,
             configs=[],
-            output_dir=str(self._output_dir),
+            output_dir=str(self._output_dir) if self._output_dir else '',
             subparser='run',
             policy_filters=[],
             resource_types=[],
@@ -464,6 +467,12 @@ class PoliciesLoader:
         # here we should probably validate schema, but it's too time-consuming
         provider_policies = defaultdict(list)
         for policy in policies:
+            # if policy['name'].endswith(DEPRECATED_RULE_SUFFIX):
+            #     _LOG.warning(
+            #         f'Policy {policy["name"]} is deprecated. '
+            #         'Skipping'
+            #     )
+            #     continue
             try:
                 pol = Policy(policy, options)
             except PolicyValidationError:
@@ -471,6 +480,12 @@ class PoliciesLoader:
                     f'Cannot load policy {policy["name"]} '
                     f'dict to object. Skipping',
                     exc_info=True,
+                )
+                continue
+            except AssertionError:
+                _LOG.warning(
+                    f'Cannot load {policy["name"]}. '
+                    'Skipping'
                 )
                 continue
             provider_policies[pol.provider_name].append(pol)
@@ -483,8 +498,8 @@ class PoliciesLoader:
                 f'Multiple policies providers {provider_policies.keys()} are loaded but only one is expected'
             )
             p_name, p_policies = (
-                self.cc_provider_name,
-                provider_policies.get(self.cc_provider_name, ()),
+                self.cc_provider_name(self._cloud),
+                provider_policies.get(self.cc_provider_name(self._cloud), ()),
             )
         else:
             p_name, p_policies = next(iter(provider_policies.items()))
@@ -536,8 +551,9 @@ class PoliciesLoader:
             case Cloud.AWS:
                 items = list(self.prepare_policies(items))
             case _:
-                for pol in items:
-                    self.set_global_output(pol)
+                if self._output_dir:
+                    for pol in items:
+                        self.set_global_output(pol)
         _LOG.info('Policies were loaded')
         return items
 
@@ -953,23 +969,22 @@ def get_tenant_credentials(tenant: Tenant) -> dict | None:
     """
     mcs = SP.modular_client.maestro_credentials_service()
     credentials = None
-    if credentials is None:
-        _LOG.info('Trying to get creds from `CUSTODIAN_ACCESS` parent')
-        parent = (
-            SP.modular_client.parent_service().get_linked_parent_by_tenant(
-                tenant=tenant, type_=ParentType.CUSTODIAN_ACCESS
+    _LOG.info('Trying to get creds from `CUSTODIAN_ACCESS` parent')
+    parent = (
+        SP.modular_client.parent_service().get_linked_parent_by_tenant(
+            tenant=tenant, type_=ParentType.CUSTODIAN_ACCESS
+        )
+    )
+    if parent:
+        application = (
+            SP.modular_client.application_service().get_application_by_id(
+                parent.application_id
             )
         )
-        if parent:
-            application = (
-                SP.modular_client.application_service().get_application_by_id(
-                    parent.application_id
-                )
-            )
-            if application:
-                _creds = mcs.get_by_application(application, tenant)
-                if _creds:
-                    credentials = _creds.dict()
+        if application:
+            _creds = mcs.get_by_application(application, tenant)
+            if _creds:
+                credentials = _creds.dict()
     if credentials is None and BatchJobEnv.ALLOW_MANAGEMENT_CREDS.as_bool():
         _LOG.info(
             'Trying to get creds from maestro management parent & application'
@@ -1292,6 +1307,9 @@ def process_job_concurrent(
     consequently. When one process finished its memory is freed
     (any way the results is flushed to files).
     """
+    if CAASEnv.ENABLE_CUSTOM_CC_PLUGINS.is_set():
+        register_all()
+
     _LOG.debug(f'Running scan process for region {region}')
     loader = PoliciesLoader(
         cloud=cloud, output_dir=work_dir, regions={region}, cache_period=120
