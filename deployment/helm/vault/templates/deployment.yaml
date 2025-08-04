@@ -40,24 +40,24 @@ spec:
         - name: vault
           image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          readinessProbe:
-            exec:
-              command: ["/bin/sh", "-ec", "vault status -tls-skip-verify"]
-            failureThreshold: 2
-            initialDelaySeconds: 10
-            periodSeconds: 30
-            successThreshold: 1
-            timeoutSeconds: 3
-          livenessProbe:
-            httpGet:
-              path: "/v1/sys/health?standbyok=true"
-              port: 8200
-              scheme: HTTP
-            failureThreshold: 2
-            initialDelaySeconds: 30
-            periodSeconds: 30
-            successThreshold: 1
-            timeoutSeconds: 3
+#          readinessProbe:
+#            exec:
+#              command: ["/bin/sh", "-ec", "vault status -tls-skip-verify"]
+#            failureThreshold: 2
+#            initialDelaySeconds: 10
+#            periodSeconds: 30
+#            successThreshold: 1
+#            timeoutSeconds: 3
+#          livenessProbe:
+#            httpGet:
+#              path: "/v1/sys/health?standbyok=true"
+#              port: 8200
+#              scheme: HTTP
+#            failureThreshold: 2
+#            initialDelaySeconds: 30
+#            periodSeconds: 30
+#            successThreshold: 1
+#            timeoutSeconds: 3
           volumeMounts:
             - name: vault-storage
               mountPath: "/vault/file"
