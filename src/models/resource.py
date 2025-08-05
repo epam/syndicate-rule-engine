@@ -7,7 +7,7 @@ from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
 from helpers.constants import (
     COMPOUND_KEYS_SEPARATOR,
-    CAASEnv,
+    Env,
     Cloud,
     ResourcesCollectorType,
 )
@@ -51,7 +51,7 @@ class Resource(BaseModel):
 
     class Meta:
         table_name = 'SREResources'
-        region = CAASEnv.AWS_REGION.get()
+        region = Env.AWS_REGION.get()
 
     # just to please our DynamoDB's inheritance. It looks like:
     # account_id#location#resource_type#id

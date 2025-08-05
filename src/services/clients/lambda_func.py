@@ -4,7 +4,7 @@ from threading import Thread
 from typing import Callable
 
 from helpers import RequestContext
-from helpers.lambda_response import CustodianException
+from helpers.lambda_response import SREException
 from helpers.log_helper import get_logger
 from services.environment_service import EnvironmentService
 from services.clients import Boto3ClientFactory
@@ -111,7 +111,7 @@ class LambdaClient:
     def _handle_execution(handler: Callable, *args):
         try:
             response = handler(*args)
-        except CustodianException as e:
+        except SREException as e:
             resp = e.response.build()
             response = dict(code=resp['statusCode'], body=resp['body'])
         return response

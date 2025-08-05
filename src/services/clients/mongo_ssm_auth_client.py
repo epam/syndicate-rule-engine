@@ -15,7 +15,7 @@ from helpers.constants import (
     CUSTOM_ROLE_ATTR,
     CUSTOM_TENANTS_ATTR,
     PRIVATE_KEY_SECRET_NAME,
-    CAASEnv,
+    Env,
 )
 from helpers.lambda_response import ResponseFactory
 from helpers.log_helper import get_logger
@@ -65,8 +65,8 @@ class MongoAndSSMAuthClient(BaseAuthClient):
     def refresh_col(self):
         if self._refresh_col is None:
             self._refresh_col = MongoClientSingleton.get_instance().get_database(
-                CAASEnv.MONGO_DATABASE.get()
-            ).get_collection('CaaSRefreshTokenChains')
+                Env.MONGO_DATABASE.get()
+            ).get_collection('SRERefreshTokenChains')
         return self._refresh_col
 
     @property

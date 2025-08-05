@@ -1,7 +1,7 @@
 from pathlib import PurePosixPath
 
 from helpers import get_logger
-from helpers.constants import CAASEnv
+from helpers.constants import Env
 from services import SP
 from services.clients.s3 import S3Client
 from services.reports_bucket import ReportsBucketKeysBuilder
@@ -24,7 +24,7 @@ class FindingsUpdater:
         :param event:
         :return:
         """
-        bucket = CAASEnv.REPORTS_BUCKET_NAME.as_str()
+        bucket = Env.REPORTS_BUCKET_NAME.as_str()
         prefixes = self._s3_client.common_prefixes(
             bucket=bucket,
             delimiter=ReportsBucketKeysBuilder.latest,

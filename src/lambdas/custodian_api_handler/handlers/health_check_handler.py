@@ -4,7 +4,7 @@ from http import HTTPStatus
 from typing import Generator, Iterable
 
 from handlers import AbstractHandler, Mapping
-from helpers.constants import CustodianEndpoint, HTTPMethod
+from helpers.constants import Endpoint, HTTPMethod
 from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
 from services import SERVICE_PROVIDER
@@ -61,8 +61,8 @@ class HealthCheckHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.HEALTH: {HTTPMethod.GET: self.list},
-            CustodianEndpoint.HEALTH_ID: {HTTPMethod.GET: self.get},
+            Endpoint.HEALTH: {HTTPMethod.GET: self.list},
+            Endpoint.HEALTH_ID: {HTTPMethod.GET: self.get},
         }
 
     def checks(self) -> tuple[type[AbstractHealthCheck], ...]:

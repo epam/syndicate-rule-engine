@@ -6,7 +6,7 @@ from modular_sdk.modular import ModularServiceProvider
 
 from handlers import AbstractHandler, Mapping
 from helpers import NextToken
-from helpers.constants import Cloud, CustodianEndpoint, HTTPMethod
+from helpers.constants import Cloud, Endpoint, HTTPMethod
 from helpers.lambda_response import ResponseFactory
 from helpers.log_helper import get_logger
 from helpers.regions import (
@@ -43,8 +43,8 @@ class ResourceHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.RESOURCES: {HTTPMethod.GET: self.get_resources},
-            CustodianEndpoint.RESOURCES_ARN: {
+            Endpoint.RESOURCES: {HTTPMethod.GET: self.get_resources},
+            Endpoint.RESOURCES_ARN: {
                 HTTPMethod.GET: self.get_resource_by_arn
             },
         }

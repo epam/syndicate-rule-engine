@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Generator
 
 from modular_sdk.models.tenant_settings import TenantSettings
 
-from helpers.constants import TS_JOB_LOCK_KEY, CAASEnv
+from helpers.constants import TS_JOB_LOCK_KEY, Env
 from services import SP
 from helpers.log_helper import get_logger
 
@@ -159,7 +159,7 @@ class TenantSettingJobLock:
         """
         The same as above but allows to get the job that is running
         """
-        if CAASEnv.ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT.as_bool():
+        if Env.ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT.as_bool():
             _LOG.debug(
                 f'Ignoring job lock for {self._tenant_name} because env is set'
             )

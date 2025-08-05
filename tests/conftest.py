@@ -10,7 +10,7 @@ import pytest
 from modular_sdk.commons.constants import ParentScope, ParentType
 from moto import mock_aws
 
-from helpers.constants import CAASEnv
+from helpers.constants import Env
 from helpers.time_helper import utc_datetime, utc_iso
 
 from .commons import (
@@ -63,11 +63,11 @@ TEST_ENVS = {
 
 def pytest_configure(config):
     os.environ.update(TEST_ENVS)
-    os.environ['MOTO_S3_CUSTOM_ENDPOINTS'] = CAASEnv.MINIO_ENDPOINT.get('')
+    os.environ['MOTO_S3_CUSTOM_ENDPOINTS'] = Env.MINIO_ENDPOINT.get('')
 
-    mongo_patcher = mongomock.patch(servers=CAASEnv.MONGO_URI.get())
+    mongo_patcher = mongomock.patch(servers=Env.MONGO_URI.get())
     cl = mongo_patcher.start()
-    config.mongo_client = cl(host=CAASEnv.MONGO_URI.get())
+    config.mongo_client = cl(host=Env.MONGO_URI.get())
     config._mongo_patcher = mongo_patcher
 
     aws_patcher = mock_aws()

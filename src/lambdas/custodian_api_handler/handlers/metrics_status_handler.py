@@ -4,7 +4,7 @@ from modular_sdk.models.job import Job
 from modular_sdk.modular import Modular
 
 from handlers import AbstractHandler, Mapping
-from helpers.constants import CustodianEndpoint, HTTPMethod
+from helpers.constants import Endpoint, HTTPMethod
 from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_iso
@@ -34,7 +34,7 @@ class MetricsStatusHandler(AbstractHandler):
 
     @property
     def mapping(self) -> Mapping:
-        return {CustodianEndpoint.METRICS_STATUS: {HTTPMethod.GET: self.get}}
+        return {Endpoint.METRICS_STATUS: {HTTPMethod.GET: self.get}}
 
     @validate_kwargs
     def get(self, event: MetricsStatusGetModel):

@@ -1,7 +1,7 @@
 from pynamodb.attributes import UnicodeAttribute, MapAttribute
 from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
-from helpers.constants import CAASEnv, JobState
+from helpers.constants import Env, JobState
 from helpers.time_helper import utc_iso
 from models import BaseModel
 
@@ -49,7 +49,7 @@ class TenantNameSubmittedAtIndex(GlobalSecondaryIndex):
 class BatchResults(BaseModel):
     class Meta:
         table_name = "SREBatchResults"
-        region = CAASEnv.AWS_REGION.get()
+        region = Env.AWS_REGION.get()
 
     id = UnicodeAttribute(hash_key=True, attr_name=BR_ID)  # uuid
     job_id = UnicodeAttribute(attr_name=BR_JOB_ID, null=True)  # Batch job id
@@ -57,7 +57,7 @@ class BatchResults(BaseModel):
 
     credentials_key = UnicodeAttribute(null=True, attr_name=BR_CREDENTIALS_KEY)
     status = UnicodeAttribute(default=JobState.SUBMITTED.value,
-                              attr_name=BR_STATUS)  # the same as in CaaSJobs
+                              attr_name=BR_STATUS)  # the same as in SREJobs
     reason = UnicodeAttribute(null=True, attr_name=BR_FAILURE_REASON)
     cloud_identifier = UnicodeAttribute(null=True,
                                         attr_name=BR_CLOUD_ID)  # AWS:account_id AZURE:subscription_id

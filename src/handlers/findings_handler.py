@@ -3,7 +3,7 @@ from http import HTTPStatus
 from modular_sdk.services.tenant_service import TenantService
 
 from handlers import AbstractHandler, Mapping
-from helpers.constants import CustodianEndpoint, HTTPMethod, JobState, \
+from helpers.constants import Endpoint, HTTPMethod, JobState, \
     ReportFormat, Cloud
 from helpers.lambda_response import build_response
 from services import SP
@@ -44,10 +44,10 @@ class FindingsReportHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.REPORTS_FINDINGS_JOBS_JOB_ID: {
+            Endpoint.REPORTS_FINDINGS_JOBS_JOB_ID: {
                 HTTPMethod.GET: self.get_by_job
             },
-            CustodianEndpoint.REPORTS_FINDINGS_TENANTS_TENANT_NAME_JOBS: {
+            Endpoint.REPORTS_FINDINGS_TENANTS_TENANT_NAME_JOBS: {
                 HTTPMethod.GET: self.get_by_tenant_jobs
             },
             # '/reports/findings/platforms/k8s/{platform_id}/state/latest': {

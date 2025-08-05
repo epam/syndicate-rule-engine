@@ -1,10 +1,10 @@
 from celery import Celery
 from celery.schedules import crontab
 
-from helpers.constants import CAASEnv
+from helpers.constants import Env
 from kombu import Queue
 
-redis = CAASEnv.CELERY_BROKER_URL.get()
+redis = Env.CELERY_BROKER_URL.get()
 
 app = Celery(broker=redis,
              include=['onprem.tasks'])

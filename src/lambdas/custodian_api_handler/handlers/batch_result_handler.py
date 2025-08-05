@@ -1,6 +1,6 @@
 from http import HTTPStatus
 
-from helpers.constants import CustodianEndpoint, HTTPMethod
+from helpers.constants import Endpoint, HTTPMethod
 from helpers import NextToken
 from helpers.lambda_response import ResponseFactory, build_response
 from handlers import AbstractHandler, Mapping
@@ -24,10 +24,10 @@ class BatchResultsHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.BATCH_RESULTS_JOB_ID: {
+            Endpoint.BATCH_RESULTS_JOB_ID: {
                 HTTPMethod.GET: self.get
             },
-            CustodianEndpoint.BATCH_RESULTS: {
+            Endpoint.BATCH_RESULTS: {
                 HTTPMethod.GET: self.query
             }
         }

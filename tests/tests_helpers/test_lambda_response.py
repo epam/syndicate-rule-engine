@@ -3,7 +3,7 @@ from http import HTTPStatus
 import pytest
 from helpers.__version__ import __version__
 
-from helpers.lambda_response import LambdaResponse, CustodianException, \
+from helpers.lambda_response import LambdaResponse, SREException, \
     JsonLambdaResponse, ResponseFactory, build_response
 from services import SP
 
@@ -35,7 +35,7 @@ def test_ok_lambda_response():
 def test_not_ok_lambda_response():
     resp = LambdaResponse(code=HTTPStatus.NOT_FOUND)
     assert not resp.ok
-    with pytest.raises(CustodianException):
+    with pytest.raises(SREException):
         raise resp.exc()
 
 
@@ -44,7 +44,7 @@ def test_too_large_lambda_response():
         code=HTTPStatus.OK,
         content={'data': (b'a' * (6291456 - 11)).decode()}
     )  # 11 for {"data":""}
-    with pytest.raises(CustodianException):
+    with pytest.raises(SREException):
         resp.build()
     resp = JsonLambdaResponse(
         code=HTTPStatus.OK,
@@ -119,5 +119,5 @@ def test_build_response():
     assert (build_response(gen())['body'] ==
             b'{"items":[{"k1":"v1"},{"k2":"v2"},{"k3":"v3"}]}')
 
-    with pytest.raises(CustodianException):
+    with pytest.raises(SREException):
         build_response(code=HTTPStatus.NOT_FOUND)

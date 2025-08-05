@@ -20,7 +20,7 @@ class HTTPMethod(str, Enum):
     PUT = 'PUT'
 
 
-class CustodianEndpoint(str, Enum):
+class Endpoint(str, Enum):
     """
     Should correspond to Api gateway models
     """
@@ -153,9 +153,9 @@ class CustodianEndpoint(str, Enum):
         - /path/to/resource
         - /path/to/resource/
         This method does the following:
-        >>> CustodianEndpoint.match('/jobs/{job_id}') == CustodianEndpoint.JOBS_JOB
-        >>> CustodianEndpoint.match('jobs/{job_id}') == CustodianEndpoint.JOBS_JOB
-        >>> CustodianEndpoint.match('jobs/{job_id}/') == CustodianEndpoint.JOBS_JOB
+        >>> Endpoint.match('/jobs/{job_id}') == Endpoint.JOBS_JOB
+        >>> Endpoint.match('jobs/{job_id}') == Endpoint.JOBS_JOB
+        >>> Endpoint.match('jobs/{job_id}/') == Endpoint.JOBS_JOB
         :param resource:
         :return:
         """
@@ -477,7 +477,7 @@ class EnvEnum(str, Enum):
             )
 
 
-class CAASEnv(EnvEnum):
+class Env(EnvEnum):
     """
     Envs that can be set for lambdas of custodian service
     """
@@ -625,7 +625,7 @@ class CAASEnv(EnvEnum):
     MONGO_DATABASE = (
         'SRE_MONGO_DB_NAME',
         ('CAAS_MONGO_DATABASE',),
-        'custodian_as_a_service',
+        'syndicate_rule_engine',
     )
 
     AWS_REGION = 'AWS_REGION', 'us-east-1'  # default lambda env so without SRE

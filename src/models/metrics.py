@@ -5,7 +5,7 @@ from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
 from helpers.constants import (
     COMPOUND_KEYS_SEPARATOR,
-    CAASEnv,
+    Env,
     Cloud,
     ReportType,
 )
@@ -30,7 +30,7 @@ class CustomerEndIndex(GlobalSecondaryIndex):
 class ReportMetrics(BaseModel):
     class Meta:
         table_name = 'SREReportMetrics'
-        region = CAASEnv.AWS_REGION.get()
+        region = Env.AWS_REGION.get()
 
     # type#customer#project#cloud#tenant#region
     key = UnicodeAttribute(hash_key=True, attr_name='k')

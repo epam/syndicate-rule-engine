@@ -1,7 +1,7 @@
 from http import HTTPStatus
 from typing import Generator
 
-from helpers.constants import CustodianEndpoint, HTTPMethod, Permission, LambdaName
+from helpers.constants import Endpoint, HTTPMethod, Permission, LambdaName
 from services.openapi_spec_generator import EndpointInfo
 from validators.swagger_request_models import (
     BaseModel,
@@ -163,7 +163,7 @@ from validators.swagger_response_models import (
 data: tuple[EndpointInfo, ...] = (
     # auth
     EndpointInfo(
-        path=CustodianEndpoint.SIGNUP,
+        path=Endpoint.SIGNUP,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.API_HANDLER,
         request_model=SignUpModel,
@@ -174,7 +174,7 @@ data: tuple[EndpointInfo, ...] = (
                     'and admin role for that user'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SIGNIN,
+        path=Endpoint.SIGNIN,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.API_HANDLER,
         request_model=SignInPostModel,
@@ -183,7 +183,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows log in and receive access and refresh tokens'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REFRESH,
+        path=Endpoint.REFRESH,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.API_HANDLER,
         request_model=RefreshPostModel,
@@ -193,7 +193,7 @@ data: tuple[EndpointInfo, ...] = (
     ),
     # event
     EndpointInfo(
-        path=CustodianEndpoint.EVENT,
+        path=Endpoint.EVENT,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.API_HANDLER,
         request_model=EventPostModel,
@@ -204,7 +204,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # health
     EndpointInfo(
-        path=CustodianEndpoint.HEALTH,
+        path=Endpoint.HEALTH,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.API_HANDLER,
         request_model=HealthCheckQueryModel,
@@ -213,7 +213,7 @@ data: tuple[EndpointInfo, ...] = (
         auth=False
     ),
     EndpointInfo(
-        path=CustodianEndpoint.HEALTH_ID,
+        path=Endpoint.HEALTH_ID,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.API_HANDLER,
         request_model=BaseModel,
@@ -223,7 +223,7 @@ data: tuple[EndpointInfo, ...] = (
     ),
 
     EndpointInfo(
-        path=CustodianEndpoint.JOBS_K8S,
+        path=Endpoint.JOBS_K8S,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.API_HANDLER,
         request_model=K8sJobPostModel,
@@ -232,7 +232,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to submit a licensed job for a K8S cluster'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.JOBS,
+        path=Endpoint.JOBS,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.API_HANDLER,
         request_model=JobGetModel,
@@ -241,7 +241,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to query jobs'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.JOBS,
+        path=Endpoint.JOBS,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.API_HANDLER,
         request_model=JobPostModel,
@@ -250,7 +250,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to submit a licensed job for a cloud'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.JOBS_JOB,
+        path=Endpoint.JOBS_JOB,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.API_HANDLER,
         request_model=BaseModel,
@@ -259,7 +259,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get a specific job by id'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.JOBS_JOB,
+        path=Endpoint.JOBS_JOB,
         method=HTTPMethod.DELETE,
         lambda_name=LambdaName.API_HANDLER,
         request_model=BaseModel,
@@ -270,7 +270,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # scheduled jobs
     EndpointInfo(
-        path=CustodianEndpoint.SCHEDULED_JOB,
+        path=Endpoint.SCHEDULED_JOB,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.API_HANDLER,
         request_model=ScheduledJobGetModel,
@@ -279,7 +279,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to query registered scheduled jobs'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SCHEDULED_JOB,
+        path=Endpoint.SCHEDULED_JOB,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.API_HANDLER,
         request_model=ScheduledJobPostModel,
@@ -288,7 +288,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to register a scheduled job'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SCHEDULED_JOB_NAME,
+        path=Endpoint.SCHEDULED_JOB_NAME,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.API_HANDLER,
         request_model=BaseModel,
@@ -297,7 +297,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get a registered scheduled job by its name'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SCHEDULED_JOB_NAME,
+        path=Endpoint.SCHEDULED_JOB_NAME,
         method=HTTPMethod.PATCH,
         lambda_name=LambdaName.API_HANDLER,
         request_model=ScheduledJobPatchModel,
@@ -306,7 +306,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to update a registered scheduled job by name'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SCHEDULED_JOB_NAME,
+        path=Endpoint.SCHEDULED_JOB_NAME,
         method=HTTPMethod.DELETE,
         lambda_name=LambdaName.API_HANDLER,
         request_model=BaseModel,
@@ -317,7 +317,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # resources
     EndpointInfo(
-        path=CustodianEndpoint.RESOURCES,
+        path=Endpoint.RESOURCES,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=ResourcesGetModel,
@@ -326,7 +326,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get resources information'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RESOURCES_ARN,
+        path=Endpoint.RESOURCES_ARN,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=ResourcesArnGetModel,
@@ -337,7 +337,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # customers
     EndpointInfo(
-        path=CustodianEndpoint.CUSTOMERS,
+        path=Endpoint.CUSTOMERS,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=CustomerGetModel,
@@ -346,7 +346,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to describe customers'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.CUSTOMERS_RABBITMQ,
+        path=Endpoint.CUSTOMERS_RABBITMQ,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=RabbitMQGetModel,
@@ -355,7 +355,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to describe RabbitMQ configuration'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.CUSTOMERS_RABBITMQ,
+        path=Endpoint.CUSTOMERS_RABBITMQ,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=RabbitMQPostModel,
@@ -364,7 +364,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to create a RabbitMQ configuration for customer'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.CUSTOMERS_RABBITMQ,
+        path=Endpoint.CUSTOMERS_RABBITMQ,
         method=HTTPMethod.DELETE,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=RabbitMQDeleteModel,
@@ -373,7 +373,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to remove a RabbitMQ configuration'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.CUSTOMERS_EXCLUDED_RULES,
+        path=Endpoint.CUSTOMERS_EXCLUDED_RULES,
         method=HTTPMethod.PUT,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=CustomerExcludedRulesPutModel,
@@ -382,7 +382,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to exclude rules for customer'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.CUSTOMERS_EXCLUDED_RULES,
+        path=Endpoint.CUSTOMERS_EXCLUDED_RULES,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -393,7 +393,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # tenants
     EndpointInfo(
-        path=CustodianEndpoint.TENANTS,
+        path=Endpoint.TENANTS,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=MultipleTenantsGetModel,
@@ -402,7 +402,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to query tenants'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.TENANTS_TENANT_NAME,
+        path=Endpoint.TENANTS_TENANT_NAME,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -411,7 +411,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get a tenant by name'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.TENANTS_TENANT_NAME_ACTIVE_LICENSES,
+        path=Endpoint.TENANTS_TENANT_NAME_ACTIVE_LICENSES,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=TenantGetActiveLicensesModel,
@@ -420,7 +420,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get licenses that are activated for a specific tenant'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.TENANTS_TENANT_NAME_EXCLUDED_RULES,
+        path=Endpoint.TENANTS_TENANT_NAME_EXCLUDED_RULES,
         method=HTTPMethod.PUT,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=TenantExcludedRulesPutModel,
@@ -429,7 +429,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to exclude rules for tenant'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.TENANTS_TENANT_NAME_EXCLUDED_RULES,
+        path=Endpoint.TENANTS_TENANT_NAME_EXCLUDED_RULES,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -440,7 +440,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # credentials
     EndpointInfo(
-        path=CustodianEndpoint.CREDENTIALS,
+        path=Endpoint.CREDENTIALS,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=CredentialsQueryModel,
@@ -449,7 +449,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get credentials configurations within a customer'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.CREDENTIALS_ID,
+        path=Endpoint.CREDENTIALS_ID,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -458,7 +458,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get a credentials configuration by id'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.CREDENTIALS_ID_BINDING,
+        path=Endpoint.CREDENTIALS_ID_BINDING,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -467,7 +467,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to show tenants that are linked to specific credentials configuration'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.CREDENTIALS_ID_BINDING,
+        path=Endpoint.CREDENTIALS_ID_BINDING,
         method=HTTPMethod.PUT,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=CredentialsBindModel,
@@ -476,7 +476,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to link tenants to a specific credentials configuration'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.CREDENTIALS_ID_BINDING,
+        path=Endpoint.CREDENTIALS_ID_BINDING,
         method=HTTPMethod.DELETE,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -487,7 +487,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # rules
     EndpointInfo(
-        path=CustodianEndpoint.RULES,
+        path=Endpoint.RULES,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=RuleGetModel,
@@ -496,7 +496,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to describe locally available rules'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RULES,
+        path=Endpoint.RULES,
         method=HTTPMethod.DELETE,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=RuleDeleteModel,
@@ -505,7 +505,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to delete local rules content'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RULE_META_UPDATER,
+        path=Endpoint.RULE_META_UPDATER,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=RuleUpdateMetaPostModel,
@@ -516,7 +516,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # metrics
     EndpointInfo(
-        path=CustodianEndpoint.METRICS_UPDATE,
+        path=Endpoint.METRICS_UPDATE,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -525,7 +525,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to submit a job that will update metrics'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.METRICS_STATUS,
+        path=Endpoint.METRICS_STATUS,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.API_HANDLER,
         request_model=MetricsStatusGetModel,
@@ -536,7 +536,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # rulesets
     EndpointInfo(
-        path=CustodianEndpoint.RULESETS,
+        path=Endpoint.RULESETS,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=RulesetGetModel,
@@ -545,7 +545,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to query available rulesets'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RULESETS,
+        path=Endpoint.RULESETS,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=RulesetPostModel,
@@ -554,7 +554,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to create a local ruleset from local rules'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RULESETS,
+        path=Endpoint.RULESETS,
         method=HTTPMethod.PATCH,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=RulesetPatchModel,
@@ -563,7 +563,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to update a local ruleset'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RULESETS,
+        path=Endpoint.RULESETS,
         method=HTTPMethod.DELETE,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=RulesetDeleteModel,
@@ -572,7 +572,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to delete a local ruleset'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RULESETS_RELEASE,
+        path=Endpoint.RULESETS_RELEASE,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=RulesetReleasePostModel,
@@ -583,7 +583,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # rulesources
     EndpointInfo(
-        path=CustodianEndpoint.RULE_SOURCES,
+        path=Endpoint.RULE_SOURCES,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=RuleSourcesListModel,
@@ -592,7 +592,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to list all locally added rule sources'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RULE_SOURCES,
+        path=Endpoint.RULE_SOURCES,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=RuleSourcePostModel,
@@ -601,7 +601,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to add a rule-source locally'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RULE_SOURCES_ID,
+        path=Endpoint.RULE_SOURCES_ID,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -610,7 +610,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get a single rule source item'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RULE_SOURCES_ID,
+        path=Endpoint.RULE_SOURCES_ID,
         method=HTTPMethod.PATCH,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=RuleSourcePatchModel,
@@ -619,7 +619,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to update a local rule-source'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RULE_SOURCES_ID,
+        path=Endpoint.RULE_SOURCES_ID,
         method=HTTPMethod.DELETE,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=RuleSourceDeleteModel,
@@ -628,7 +628,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to delete a local rule-source'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RULE_SOURCES_ID_SYNC,
+        path=Endpoint.RULE_SOURCES_ID_SYNC,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -639,7 +639,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # policies
     EndpointInfo(
-        path=CustodianEndpoint.POLICIES,
+        path=Endpoint.POLICIES,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BasePaginationModel,
@@ -648,7 +648,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to list rbac policies'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.POLICIES_NAME,
+        path=Endpoint.POLICIES_NAME,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -657,7 +657,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get a policy by name'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.POLICIES,
+        path=Endpoint.POLICIES,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=PolicyPostModel,
@@ -666,7 +666,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to create a policy'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.POLICIES_NAME,
+        path=Endpoint.POLICIES_NAME,
         method=HTTPMethod.PATCH,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=PolicyPatchModel,
@@ -675,7 +675,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to update a policy name'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.POLICIES_NAME,
+        path=Endpoint.POLICIES_NAME,
         method=HTTPMethod.DELETE,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -686,7 +686,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # roles
     EndpointInfo(
-        path=CustodianEndpoint.ROLES,
+        path=Endpoint.ROLES,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BasePaginationModel,
@@ -695,7 +695,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to list rbac roles'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.ROLES_NAME,
+        path=Endpoint.ROLES_NAME,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -704,7 +704,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get a role by name'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.ROLES,
+        path=Endpoint.ROLES,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=RolePostModel,
@@ -713,7 +713,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to create a role'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.ROLES_NAME,
+        path=Endpoint.ROLES_NAME,
         method=HTTPMethod.PATCH,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=RolePatchModel,
@@ -722,7 +722,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to update a role by name'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.ROLES_NAME,
+        path=Endpoint.ROLES_NAME,
         method=HTTPMethod.DELETE,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -733,7 +733,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # licenses
     EndpointInfo(
-        path=CustodianEndpoint.LICENSES,
+        path=Endpoint.LICENSES,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=LicensePostModel,
@@ -742,7 +742,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to add a license from LM by tenant license key'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.LICENSES,
+        path=Endpoint.LICENSES,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -751,7 +751,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to list locally added licenses'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.LICENSES_LICENSE_KEY,
+        path=Endpoint.LICENSES_LICENSE_KEY,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -760,7 +760,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to describe a specific license by license key'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.LICENSES_LICENSE_KEY,
+        path=Endpoint.LICENSES_LICENSE_KEY,
         method=HTTPMethod.DELETE,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -769,7 +769,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to delete a specific license'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.LICENSES_LICENSE_KEY_SYNC,
+        path=Endpoint.LICENSES_LICENSE_KEY_SYNC,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -778,7 +778,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to trigger license sync'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.LICENSE_LICENSE_KEY_ACTIVATION,
+        path=Endpoint.LICENSE_LICENSE_KEY_ACTIVATION,
         method=HTTPMethod.DELETE,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -787,7 +787,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to deactivate a specific license'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.LICENSE_LICENSE_KEY_ACTIVATION,
+        path=Endpoint.LICENSE_LICENSE_KEY_ACTIVATION,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -796,7 +796,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to list tenants a license is activated for'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.LICENSE_LICENSE_KEY_ACTIVATION,
+        path=Endpoint.LICENSE_LICENSE_KEY_ACTIVATION,
         method=HTTPMethod.PUT,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=LicenseActivationPutModel,
@@ -805,7 +805,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to activate a specific license for some tenants'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.LICENSE_LICENSE_KEY_ACTIVATION,
+        path=Endpoint.LICENSE_LICENSE_KEY_ACTIVATION,
         method=HTTPMethod.PATCH,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=LicenseActivationPatchModel,
@@ -816,7 +816,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # settings
     EndpointInfo(
-        path=CustodianEndpoint.SETTINGS_MAIL,
+        path=Endpoint.SETTINGS_MAIL,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=MailSettingGetModel,
@@ -825,7 +825,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to describe mail configuration'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SETTINGS_MAIL,
+        path=Endpoint.SETTINGS_MAIL,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=MailSettingPostModel,
@@ -834,7 +834,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to set mail configuration'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SETTINGS_MAIL,
+        path=Endpoint.SETTINGS_MAIL,
         method=HTTPMethod.DELETE,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -843,7 +843,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to delete mail configuration'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SETTINGS_SEND_REPORTS,
+        path=Endpoint.SETTINGS_SEND_REPORTS,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=ReportsSendingSettingPostModel,
@@ -852,7 +852,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to enable or disable high-level reports sending'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CONFIG,
+        path=Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -861,7 +861,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get license manager configuration'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CONFIG,
+        path=Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=LicenseManagerConfigSettingPostModel,
@@ -870,7 +870,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to set license manager configuration'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CONFIG,
+        path=Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG,
         method=HTTPMethod.DELETE,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -879,7 +879,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to delete license manager configuration'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
+        path=Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -888,7 +888,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to describe license manager client'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
+        path=Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=LicenseManagerClientSettingPostModel,
@@ -897,7 +897,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to add license manager client'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
+        path=Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
         method=HTTPMethod.DELETE,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=LicenseManagerClientSettingDeleteModel,
@@ -908,7 +908,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # batch results
     EndpointInfo(
-        path=CustodianEndpoint.BATCH_RESULTS,
+        path=Endpoint.BATCH_RESULTS,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.API_HANDLER,
         request_model=BatchResultsQueryModel,
@@ -917,7 +917,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to query event driven jobs'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.BATCH_RESULTS_JOB_ID,
+        path=Endpoint.BATCH_RESULTS_JOB_ID,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.API_HANDLER,
         request_model=BaseModel,
@@ -928,7 +928,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # digest reports
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_DIGESTS_JOBS_JOB_ID,
+        path=Endpoint.REPORTS_DIGESTS_JOBS_JOB_ID,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=JobDigestReportGetModel,
@@ -937,7 +937,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get a digest report by job id'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_DIGESTS_TENANTS_TENANT_NAME_JOBS,
+        path=Endpoint.REPORTS_DIGESTS_TENANTS_TENANT_NAME_JOBS,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=TenantJobsDigestsReportGetModel,
@@ -948,7 +948,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # details reports
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_DETAILS_JOBS_JOB_ID,
+        path=Endpoint.REPORTS_DETAILS_JOBS_JOB_ID,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=JobDetailsReportGetModel,
@@ -957,7 +957,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get a detailed report by job id'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_DETAILS_TENANTS_TENANT_NAME_JOBS,
+        path=Endpoint.REPORTS_DETAILS_TENANTS_TENANT_NAME_JOBS,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=TenantJobsDetailsReportGetModel,
@@ -968,7 +968,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # findings reports
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_FINDINGS_JOBS_JOB_ID,
+        path=Endpoint.REPORTS_FINDINGS_JOBS_JOB_ID,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=JobFindingsReportGetModel,
@@ -977,7 +977,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get findings by job id'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_FINDINGS_TENANTS_TENANT_NAME_JOBS,
+        path=Endpoint.REPORTS_FINDINGS_TENANTS_TENANT_NAME_JOBS,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=TenantJobsFindingsReportGetModel,
@@ -988,7 +988,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # compliance reports
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_COMPLIANCE_JOBS_JOB_ID,
+        path=Endpoint.REPORTS_COMPLIANCE_JOBS_JOB_ID,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=JobComplianceReportGetModel,
@@ -997,7 +997,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get compliance report by a job'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_COMPLIANCE_TENANTS_TENANT_NAME,
+        path=Endpoint.REPORTS_COMPLIANCE_TENANTS_TENANT_NAME,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=TenantComplianceReportGetModel,
@@ -1008,7 +1008,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # errors report
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_ERRORS_JOBS_JOB_ID,
+        path=Endpoint.REPORTS_ERRORS_JOBS_JOB_ID,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=JobErrorReportGetModel,
@@ -1019,7 +1019,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # rules report
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_RULES_JOBS_JOB_ID,
+        path=Endpoint.REPORTS_RULES_JOBS_JOB_ID,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=JobRuleReportGetModel,
@@ -1028,7 +1028,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get information about rules executed during a job'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_RULES_TENANTS_TENANT_NAME,
+        path=Endpoint.REPORTS_RULES_TENANTS_TENANT_NAME,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=TenantRuleReportGetModel,
@@ -1039,7 +1039,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # push to dojo report
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_PUSH_DOJO_JOB_ID,
+        path=Endpoint.REPORTS_PUSH_DOJO_JOB_ID,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=ReportPushByJobIdModel,
@@ -1048,7 +1048,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to push a specific job to Defect Dojo'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_PUSH_DOJO,
+        path=Endpoint.REPORTS_PUSH_DOJO,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=ReportPushMultipleModel,
@@ -1059,7 +1059,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # high level reports
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_OPERATIONAL,
+        path=Endpoint.REPORTS_OPERATIONAL,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=OperationalGetReportModel,
@@ -1068,7 +1068,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to request operational report'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_PROJECT,
+        path=Endpoint.REPORTS_PROJECT,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=ProjectGetReportModel,
@@ -1077,7 +1077,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to request project report'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_DEPARTMENT,
+        path=Endpoint.REPORTS_DEPARTMENT,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=DepartmentGetReportModel,
@@ -1086,7 +1086,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to request department report'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_CLEVEL,
+        path=Endpoint.REPORTS_CLEVEL,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=CLevelGetReportModel,
@@ -1095,7 +1095,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to request clevel report'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_DIAGNOSTIC,
+        path=Endpoint.REPORTS_DIAGNOSTIC,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=BaseModel,
@@ -1104,7 +1104,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get diagnostic report'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_STATUS,
+        path=Endpoint.REPORTS_STATUS,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=ReportStatusGetModel,
@@ -1115,7 +1115,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # resources reports
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_RESOURCES_PLATFORMS_K8S_PLATFORM_ID_LATEST,
+        path=Endpoint.REPORTS_RESOURCES_PLATFORMS_K8S_PLATFORM_ID_LATEST,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=PlatformK8sResourcesReportGetModel,
@@ -1124,7 +1124,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get latest resources report by K8S platform'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_RESOURCES_TENANTS_TENANT_NAME_LATEST,
+        path=Endpoint.REPORTS_RESOURCES_TENANTS_TENANT_NAME_LATEST,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=ResourcesReportGetModel,
@@ -1133,7 +1133,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get latest resources report by tenant'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_RESOURCES_TENANTS_TENANT_NAME_JOBS,
+        path=Endpoint.REPORTS_RESOURCES_TENANTS_TENANT_NAME_JOBS,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=ResourceReportJobsGetModel,
@@ -1142,7 +1142,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get latest resources report by latest tenant jobs'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_RESOURCES_JOBS_JOB_ID,
+        path=Endpoint.REPORTS_RESOURCES_JOBS_JOB_ID,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=ResourceReportJobGetModel,
@@ -1151,7 +1151,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get latest resources report by job'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_RAW_TENANTS_TENANT_NAME_STATE_LATEST,
+        path=Endpoint.REPORTS_RAW_TENANTS_TENANT_NAME_STATE_LATEST,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=RawReportGetModel,
@@ -1162,7 +1162,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # platforms
     EndpointInfo(
-        path=CustodianEndpoint.PLATFORMS_K8S,
+        path=Endpoint.PLATFORMS_K8S,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=PlatformK8sQueryModel,
@@ -1171,7 +1171,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to query registered K8S platforms'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.PLATFORMS_K8S,
+        path=Endpoint.PLATFORMS_K8S,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=PlatformK8SPostModel,
@@ -1180,7 +1180,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to register K8S platform'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.PLATFORMS_K8S_ID,
+        path=Endpoint.PLATFORMS_K8S_ID,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -1189,7 +1189,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to register K8S platform'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.PLATFORMS_K8S_ID,
+        path=Endpoint.PLATFORMS_K8S_ID,
         method=HTTPMethod.DELETE,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -1200,7 +1200,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # dojo integrations
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_DEFECT_DOJO,
+        path=Endpoint.INTEGRATIONS_DEFECT_DOJO,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=DefectDojoPostModel,
@@ -1209,7 +1209,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to register Defect Dojo integration'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_DEFECT_DOJO,
+        path=Endpoint.INTEGRATIONS_DEFECT_DOJO,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=DefectDojoQueryModel,
@@ -1218,7 +1218,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to list registered Defect Dojo integrations'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_DEFECT_DOJO_ID,
+        path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID,
         method=HTTPMethod.DELETE,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -1227,7 +1227,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to delete Defect Dojo integration by id'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_DEFECT_DOJO_ID,
+        path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -1236,7 +1236,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to describe Defect Dojo integration by id'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION,
+        path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION,
         method=HTTPMethod.PUT,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=DefectDojoActivationPutModel,
@@ -1245,7 +1245,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to activate Defect Dojo integration for tenants'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION,
+        path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -1254,7 +1254,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get tenants Defect Dojo integration is activated for'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION,
+        path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION,
         method=HTTPMethod.DELETE,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -1265,7 +1265,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # self integration
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_SELF,
+        path=Endpoint.INTEGRATIONS_SELF,
         method=HTTPMethod.PUT,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=SelfIntegrationPutModel,
@@ -1274,7 +1274,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to create an application with type CUSTODIAN for integration with Maestro'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_SELF,
+        path=Endpoint.INTEGRATIONS_SELF,
         method=HTTPMethod.PATCH,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=SelfIntegrationPatchModel,
@@ -1283,7 +1283,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to change tenants that are active for integrations with Maestro'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_SELF,
+        path=Endpoint.INTEGRATIONS_SELF,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -1292,7 +1292,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get integration with Maestro'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_SELF,
+        path=Endpoint.INTEGRATIONS_SELF,
         method=HTTPMethod.DELETE,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -1303,7 +1303,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # Users
     EndpointInfo(
-        path=CustodianEndpoint.USERS_USERNAME,
+        path=Endpoint.USERS_USERNAME,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.API_HANDLER,
         request_model=BaseModel,
@@ -1312,7 +1312,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get an API user by name'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.USERS,
+        path=Endpoint.USERS,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.API_HANDLER,
         request_model=UserPostModel,
@@ -1322,7 +1322,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to create a new API user'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.USERS_USERNAME,
+        path=Endpoint.USERS_USERNAME,
         method=HTTPMethod.PATCH,
         lambda_name=LambdaName.API_HANDLER,
         request_model=UserPatchModel,
@@ -1331,7 +1331,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to update a specific user'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.USERS_USERNAME,
+        path=Endpoint.USERS_USERNAME,
         method=HTTPMethod.DELETE,
         lambda_name=LambdaName.API_HANDLER,
         request_model=BaseModel,
@@ -1340,7 +1340,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to delete a specific user'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.USERS,
+        path=Endpoint.USERS,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.API_HANDLER,
         request_model=BasePaginationModel,
@@ -1349,7 +1349,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to list API users'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.USERS_WHOAMI,
+        path=Endpoint.USERS_WHOAMI,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.API_HANDLER,
         request_model=BaseModel,
@@ -1358,7 +1358,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to describe the user making this call'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.USERS_RESET_PASSWORD,
+        path=Endpoint.USERS_RESET_PASSWORD,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.API_HANDLER,
         request_model=UserResetPasswordModel,
@@ -1368,7 +1368,7 @@ data: tuple[EndpointInfo, ...] = (
     ),
 
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_CHRONICLE,
+        path=Endpoint.INTEGRATIONS_CHRONICLE,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=ChroniclePostModel,
@@ -1377,7 +1377,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Registers a google Chronicle instance'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_CHRONICLE,
+        path=Endpoint.INTEGRATIONS_CHRONICLE,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BasePaginationModel,
@@ -1386,7 +1386,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Queries google Chronicle instances'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_CHRONICLE_ID,
+        path=Endpoint.INTEGRATIONS_CHRONICLE_ID,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -1395,7 +1395,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Retrieves a specific google Chronicle instance'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_CHRONICLE_ID,
+        path=Endpoint.INTEGRATIONS_CHRONICLE_ID,
         method=HTTPMethod.DELETE,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -1404,7 +1404,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Deregisters a specific google Chronicle instance'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION,
+        path=Endpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION,
         method=HTTPMethod.PUT,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=ChronicleActivationPutModel,
@@ -1413,7 +1413,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to activate Chronicle integration for tenants'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION,
+        path=Endpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -1422,7 +1422,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get tenants Chronicle integration is activated for'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION,
+        path=Endpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION,
         method=HTTPMethod.DELETE,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -1431,7 +1431,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to deactivate Chronicle integration'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_PUSH_CHRONICLE_JOB_ID,
+        path=Endpoint.REPORTS_PUSH_CHRONICLE_JOB_ID,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=ReportPushByJobIdModel,
@@ -1440,7 +1440,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to push a specific job to Chronicle'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_PUSH_CHRONICLE_TENANTS_TENANT_NAME,
+        path=Endpoint.REPORTS_PUSH_CHRONICLE_TENANTS_TENANT_NAME,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=BaseModel,
@@ -1449,7 +1449,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to push tenant data to Chronicle'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.DOC,
+        path=Endpoint.DOC,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.API_HANDLER,
         request_model=None,
@@ -1457,7 +1457,7 @@ data: tuple[EndpointInfo, ...] = (
         auth=False,
     ),
     EndpointInfo(
-        path=CustodianEndpoint.DOC_SWAGGER_JSON,
+        path=Endpoint.DOC_SWAGGER_JSON,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.API_HANDLER,
         request_model=None,
@@ -1516,6 +1516,6 @@ def iter_models(without_get: bool = True
 
 
 permissions_mapping = {
-    (CustodianEndpoint(e.path), e.method): e.permission
+    (Endpoint(e.path), e.method): e.permission
     for e in iter_all()
 }

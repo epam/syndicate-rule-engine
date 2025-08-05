@@ -7,7 +7,7 @@ from modular_sdk.services.customer_service import CustomerService
 
 from handlers import AbstractHandler, Mapping
 from helpers import NextToken
-from helpers.constants import CustodianEndpoint, HTTPMethod, Permission, PolicyEffect
+from helpers.constants import Endpoint, HTTPMethod, Permission, PolicyEffect
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime
@@ -51,28 +51,28 @@ class UsersHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.USERS_RESET_PASSWORD: {
+            Endpoint.USERS_RESET_PASSWORD: {
                 HTTPMethod.POST: self.reset_password
             },
-            CustodianEndpoint.USERS_WHOAMI: {
+            Endpoint.USERS_WHOAMI: {
                 HTTPMethod.GET: self.whoami
             },
-            CustodianEndpoint.USERS: {
+            Endpoint.USERS: {
                 HTTPMethod.GET: self.query,
                 HTTPMethod.POST: self.post
             },
-            CustodianEndpoint.USERS_USERNAME: {
+            Endpoint.USERS_USERNAME: {
                 HTTPMethod.GET: self.get,
                 HTTPMethod.PATCH: self.patch,
                 HTTPMethod.DELETE: self.delete
             },
-            CustodianEndpoint.SIGNUP: {
+            Endpoint.SIGNUP: {
                 HTTPMethod.POST: self.signup
             },
-            CustodianEndpoint.SIGNIN: {
+            Endpoint.SIGNIN: {
                 HTTPMethod.POST: self.signin
             },
-            CustodianEndpoint.REFRESH: {
+            Endpoint.REFRESH: {
                 HTTPMethod.POST: self.refresh,
             },
         }

@@ -7,7 +7,7 @@ from bottle import Bottle, HTTPResponse, request
 
 from helpers import RequestContext
 from helpers.constants import LambdaName
-from helpers.lambda_response import CustodianException, LambdaResponse, \
+from helpers.lambda_response import SREException, LambdaResponse, \
     ResponseFactory
 from helpers.log_helper import get_logger
 from lambdas.custodian_api_handler.handler import \
@@ -71,7 +71,7 @@ class AuthPlugin:
                 decoded = SERVICE_PROVIDER.onprem_users_client.decode_token(
                     token
                 )
-            except CustodianException as e:
+            except SREException as e:
                 return self._to_bottle_resp(e.response)
 
             _LOG.info('Token decoded successfully')

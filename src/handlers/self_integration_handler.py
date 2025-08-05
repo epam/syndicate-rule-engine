@@ -14,7 +14,7 @@ from modular_sdk.services.parent_service import ParentService
 from modular_sdk.services.ssm_service import AbstractSSMClient
 
 from handlers import AbstractHandler, Mapping
-from helpers.constants import CustodianEndpoint, HTTPMethod
+from helpers.constants import Endpoint, HTTPMethod
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
 from services import SP
@@ -70,7 +70,7 @@ class SelfIntegrationHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.INTEGRATIONS_SELF: {
+            Endpoint.INTEGRATIONS_SELF: {
                 HTTPMethod.PUT: self.put,
                 HTTPMethod.GET: self.get,
                 HTTPMethod.DELETE: self.delete,
@@ -80,7 +80,7 @@ class SelfIntegrationHandler(AbstractHandler):
 
     def validate_username(self, username: str, customer: str):
         """
-        May raise CustodianException
+        May raise SREException
         :param customer:
         :param username:
         :return:
