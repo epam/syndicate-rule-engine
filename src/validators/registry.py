@@ -1,7 +1,7 @@
 from http import HTTPStatus
 from typing import Generator
 
-from helpers.constants import CustodianEndpoint, HTTPMethod, Permission
+from helpers.constants import Endpoint, HTTPMethod, Permission
 from services.openapi_spec_generator import EndpointInfo
 from validators.swagger_request_models import (
     BaseModel,
@@ -163,7 +163,7 @@ from validators.swagger_response_models import (
 data: tuple[EndpointInfo, ...] = (
     # auth
     EndpointInfo(
-        path=CustodianEndpoint.SIGNUP,
+        path=Endpoint.SIGNUP,
         method=HTTPMethod.POST,
         request_model=SignUpModel,
         responses=[(HTTPStatus.CREATED, MessageModel, None),
@@ -173,7 +173,7 @@ data: tuple[EndpointInfo, ...] = (
                     'and admin role for that user'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SIGNIN,
+        path=Endpoint.SIGNIN,
         method=HTTPMethod.POST,
         request_model=SignInPostModel,
         responses=[(HTTPStatus.OK, SignInModel, None)],
@@ -181,7 +181,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows log in and receive access and refresh tokens'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REFRESH,
+        path=Endpoint.REFRESH,
         method=HTTPMethod.POST,
         request_model=RefreshPostModel,
         responses=[(HTTPStatus.OK, SignInModel, None)],
@@ -190,7 +190,7 @@ data: tuple[EndpointInfo, ...] = (
     ),
     # event
     EndpointInfo(
-        path=CustodianEndpoint.EVENT,
+        path=Endpoint.EVENT,
         method=HTTPMethod.POST,
         request_model=EventPostModel,
         responses=[(HTTPStatus.ACCEPTED, EventModel, None)],
@@ -200,7 +200,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # health
     EndpointInfo(
-        path=CustodianEndpoint.HEALTH,
+        path=Endpoint.HEALTH,
         method=HTTPMethod.GET,
         request_model=HealthCheckQueryModel,
         responses=[(HTTPStatus.OK, MultipleHealthChecksModel, None)],
@@ -208,7 +208,7 @@ data: tuple[EndpointInfo, ...] = (
         auth=False
     ),
     EndpointInfo(
-        path=CustodianEndpoint.HEALTH_ID,
+        path=Endpoint.HEALTH_ID,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleHealthCheckModel, None)],
@@ -217,7 +217,7 @@ data: tuple[EndpointInfo, ...] = (
     ),
 
     EndpointInfo(
-        path=CustodianEndpoint.JOBS_K8S,
+        path=Endpoint.JOBS_K8S,
         method=HTTPMethod.POST,
         request_model=K8sJobPostModel,
         responses=[(HTTPStatus.ACCEPTED, SingleJobModel, None)],
@@ -225,7 +225,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to submit a licensed job for a K8S cluster'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.JOBS,
+        path=Endpoint.JOBS,
         method=HTTPMethod.GET,
         request_model=JobGetModel,
         responses=[(HTTPStatus.OK, MultipleJobsModel, None)],
@@ -233,7 +233,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to query jobs'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.JOBS,
+        path=Endpoint.JOBS,
         method=HTTPMethod.POST,
         request_model=JobPostModel,
         responses=[(HTTPStatus.ACCEPTED, SingleJobModel, None)],
@@ -241,7 +241,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to submit a licensed job for a cloud'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.JOBS_JOB,
+        path=Endpoint.JOBS_JOB,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleJobModel, None)],
@@ -249,7 +249,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get a specific job by id'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.JOBS_JOB,
+        path=Endpoint.JOBS_JOB,
         method=HTTPMethod.DELETE,
         request_model=BaseModel,
         responses=[(HTTPStatus.ACCEPTED, MessageModel, None)],
@@ -259,7 +259,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # scheduled jobs
     EndpointInfo(
-        path=CustodianEndpoint.SCHEDULED_JOB,
+        path=Endpoint.SCHEDULED_JOB,
         method=HTTPMethod.GET,
         request_model=ScheduledJobGetModel,
         responses=[(HTTPStatus.OK, MultipleScheduledJobsModel, None)],
@@ -267,7 +267,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to query registered scheduled jobs'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SCHEDULED_JOB,
+        path=Endpoint.SCHEDULED_JOB,
         method=HTTPMethod.POST,
         request_model=ScheduledJobPostModel,
         responses=[(HTTPStatus.CREATED, SingleScheduledJobModel, None)],
@@ -275,7 +275,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to register a scheduled job'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SCHEDULED_JOB_NAME,
+        path=Endpoint.SCHEDULED_JOB_NAME,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleScheduledJobModel, None)],
@@ -283,7 +283,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get a registered scheduled job by its name'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SCHEDULED_JOB_NAME,
+        path=Endpoint.SCHEDULED_JOB_NAME,
         method=HTTPMethod.PATCH,
         request_model=ScheduledJobPatchModel,
         responses=[(HTTPStatus.OK, SingleScheduledJobModel, None)],
@@ -291,7 +291,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to update a registered scheduled job by name'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SCHEDULED_JOB_NAME,
+        path=Endpoint.SCHEDULED_JOB_NAME,
         method=HTTPMethod.DELETE,
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
@@ -301,7 +301,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # resources
     EndpointInfo(
-        path=CustodianEndpoint.RESOURCES,
+        path=Endpoint.RESOURCES,
         method=HTTPMethod.GET,
         request_model=ResourcesGetModel,
         responses=[(HTTPStatus.OK, MultipleResourcesModel, None)],
@@ -309,7 +309,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get resources information'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RESOURCES_ARN,
+        path=Endpoint.RESOURCES_ARN,
         method=HTTPMethod.GET,
         request_model=ResourcesArnGetModel,
         responses=[(HTTPStatus.OK, SingleResourceModel, None)],
@@ -319,7 +319,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # customers
     EndpointInfo(
-        path=CustodianEndpoint.CUSTOMERS,
+        path=Endpoint.CUSTOMERS,
         method=HTTPMethod.GET,
         request_model=CustomerGetModel,
         responses=[(HTTPStatus.OK, MultipleCustomersModel, None)],
@@ -327,7 +327,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to describe customers'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.CUSTOMERS_RABBITMQ,
+        path=Endpoint.CUSTOMERS_RABBITMQ,
         method=HTTPMethod.GET,
         request_model=RabbitMQGetModel,
         responses=[(HTTPStatus.OK, SingleRabbitMQModel, None)],
@@ -335,7 +335,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to describe RabbitMQ configuration'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.CUSTOMERS_RABBITMQ,
+        path=Endpoint.CUSTOMERS_RABBITMQ,
         method=HTTPMethod.POST,
         request_model=RabbitMQPostModel,
         responses=[(HTTPStatus.OK, SingleRabbitMQModel, None)],
@@ -343,7 +343,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to create a RabbitMQ configuration for customer'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.CUSTOMERS_RABBITMQ,
+        path=Endpoint.CUSTOMERS_RABBITMQ,
         method=HTTPMethod.DELETE,
         request_model=RabbitMQDeleteModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
@@ -351,7 +351,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to remove a RabbitMQ configuration'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.CUSTOMERS_EXCLUDED_RULES,
+        path=Endpoint.CUSTOMERS_EXCLUDED_RULES,
         method=HTTPMethod.PUT,
         request_model=CustomerExcludedRulesPutModel,
         responses=[(HTTPStatus.OK, SingleCustomerExcludedRules, None)],
@@ -359,7 +359,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to exclude rules for customer'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.CUSTOMERS_EXCLUDED_RULES,
+        path=Endpoint.CUSTOMERS_EXCLUDED_RULES,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleCustomerExcludedRules, None)],
@@ -369,7 +369,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # tenants
     EndpointInfo(
-        path=CustodianEndpoint.TENANTS,
+        path=Endpoint.TENANTS,
         method=HTTPMethod.GET,
         request_model=MultipleTenantsGetModel,
         responses=[(HTTPStatus.OK, MultipleTenantsModel, None)],
@@ -377,7 +377,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to query tenants'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.TENANTS_TENANT_NAME,
+        path=Endpoint.TENANTS_TENANT_NAME,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleTenantsModel, None)],
@@ -385,7 +385,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get a tenant by name'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.TENANTS_TENANT_NAME_ACTIVE_LICENSES,
+        path=Endpoint.TENANTS_TENANT_NAME_ACTIVE_LICENSES,
         method=HTTPMethod.GET,
         request_model=TenantGetActiveLicensesModel,
         responses=[(HTTPStatus.OK, MultipleLicensesModel, None)],
@@ -393,7 +393,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get licenses that are activated for a specific tenant'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.TENANTS_TENANT_NAME_EXCLUDED_RULES,
+        path=Endpoint.TENANTS_TENANT_NAME_EXCLUDED_RULES,
         method=HTTPMethod.PUT,
         request_model=TenantExcludedRulesPutModel,
         responses=[(HTTPStatus.OK, SingleTenantExcludedRules, None)],
@@ -401,7 +401,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to exclude rules for tenant'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.TENANTS_TENANT_NAME_EXCLUDED_RULES,
+        path=Endpoint.TENANTS_TENANT_NAME_EXCLUDED_RULES,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleTenantExcludedRules, None)],
@@ -411,7 +411,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # credentials
     EndpointInfo(
-        path=CustodianEndpoint.CREDENTIALS,
+        path=Endpoint.CREDENTIALS,
         method=HTTPMethod.GET,
         request_model=CredentialsQueryModel,
         responses=[(HTTPStatus.OK, MultipleCredentialsModel, None)],
@@ -419,7 +419,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get credentials configurations within a customer'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.CREDENTIALS_ID,
+        path=Endpoint.CREDENTIALS_ID,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleCredentialsModel, None)],
@@ -427,7 +427,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get a credentials configuration by id'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.CREDENTIALS_ID_BINDING,
+        path=Endpoint.CREDENTIALS_ID_BINDING,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, CredentialsActivationModel, None)],
@@ -435,7 +435,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to show tenants that are linked to specific credentials configuration'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.CREDENTIALS_ID_BINDING,
+        path=Endpoint.CREDENTIALS_ID_BINDING,
         method=HTTPMethod.PUT,
         request_model=CredentialsBindModel,
         responses=[(HTTPStatus.OK, CredentialsActivationModel, None)],
@@ -443,7 +443,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to link tenants to a specific credentials configuration'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.CREDENTIALS_ID_BINDING,
+        path=Endpoint.CREDENTIALS_ID_BINDING,
         method=HTTPMethod.DELETE,
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
@@ -453,7 +453,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # rules
     EndpointInfo(
-        path=CustodianEndpoint.RULES,
+        path=Endpoint.RULES,
         method=HTTPMethod.GET,
         request_model=RuleGetModel,
         responses=[(HTTPStatus.OK, MultipleRulesModel, None)],
@@ -461,7 +461,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to describe locally available rules'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RULES,
+        path=Endpoint.RULES,
         method=HTTPMethod.DELETE,
         request_model=RuleDeleteModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
@@ -469,7 +469,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to delete local rules content'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RULE_META_UPDATER,
+        path=Endpoint.RULE_META_UPDATER,
         method=HTTPMethod.POST,
         request_model=RuleUpdateMetaPostModel,
         responses=[(HTTPStatus.ACCEPTED, MultipleRuleMetaUpdateModel, None)],
@@ -479,7 +479,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # metrics
     EndpointInfo(
-        path=CustodianEndpoint.METRICS_UPDATE,
+        path=Endpoint.METRICS_UPDATE,
         method=HTTPMethod.POST,
         request_model=BaseModel,
         responses=[(HTTPStatus.ACCEPTED, MessageModel, None)],
@@ -487,7 +487,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to submit a job that will update metrics'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.METRICS_STATUS,
+        path=Endpoint.METRICS_STATUS,
         method=HTTPMethod.GET,
         request_model=MetricsStatusGetModel,
         responses=[(HTTPStatus.OK, MultipleMetricsStatusesModel, None)],
@@ -497,7 +497,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # rulesets
     EndpointInfo(
-        path=CustodianEndpoint.RULESETS,
+        path=Endpoint.RULESETS,
         method=HTTPMethod.GET,
         request_model=RulesetGetModel,
         responses=[(HTTPStatus.OK, MultipleRulesetsModel, None)],
@@ -505,7 +505,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to query available rulesets'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RULESETS,
+        path=Endpoint.RULESETS,
         method=HTTPMethod.POST,
         request_model=RulesetPostModel,
         responses=[(HTTPStatus.CREATED, SingleRulesetModel, None)],
@@ -513,7 +513,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to create a local ruleset from local rules'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RULESETS,
+        path=Endpoint.RULESETS,
         method=HTTPMethod.PATCH,
         request_model=RulesetPatchModel,
         responses=[(HTTPStatus.OK, SingleRulesetModel, None)],
@@ -521,7 +521,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to update a local ruleset'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RULESETS,
+        path=Endpoint.RULESETS,
         method=HTTPMethod.DELETE,
         request_model=RulesetDeleteModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
@@ -529,7 +529,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to delete a local ruleset'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RULESETS_RELEASE,
+        path=Endpoint.RULESETS_RELEASE,
         method=HTTPMethod.POST,
         request_model=RulesetReleasePostModel,
         responses=[(HTTPStatus.OK, None, None)],
@@ -539,7 +539,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # rulesources
     EndpointInfo(
-        path=CustodianEndpoint.RULE_SOURCES,
+        path=Endpoint.RULE_SOURCES,
         method=HTTPMethod.GET,
         request_model=RuleSourcesListModel,
         responses=[(HTTPStatus.OK, MultipleRuleSourceModel, None)],
@@ -547,7 +547,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to list all locally added rule sources'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RULE_SOURCES,
+        path=Endpoint.RULE_SOURCES,
         method=HTTPMethod.POST,
         request_model=RuleSourcePostModel,
         responses=[(HTTPStatus.CREATED, SingleRuleSourceModel, None)],
@@ -555,7 +555,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to add a rule-source locally'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RULE_SOURCES_ID,
+        path=Endpoint.RULE_SOURCES_ID,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleRuleSourceModel, None)],
@@ -563,7 +563,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get a single rule source item'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RULE_SOURCES_ID,
+        path=Endpoint.RULE_SOURCES_ID,
         method=HTTPMethod.PATCH,
         request_model=RuleSourcePatchModel,
         responses=[(HTTPStatus.OK, SingleRuleSourceModel, None)],
@@ -571,7 +571,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to update a local rule-source'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RULE_SOURCES_ID,
+        path=Endpoint.RULE_SOURCES_ID,
         method=HTTPMethod.DELETE,
         request_model=RuleSourceDeleteModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
@@ -579,7 +579,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to delete a local rule-source'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.RULE_SOURCES_ID_SYNC,
+        path=Endpoint.RULE_SOURCES_ID_SYNC,
         method=HTTPMethod.POST,
         request_model=BaseModel,
         responses=[(HTTPStatus.ACCEPTED, None, None)],
@@ -589,7 +589,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # policies
     EndpointInfo(
-        path=CustodianEndpoint.POLICIES,
+        path=Endpoint.POLICIES,
         method=HTTPMethod.GET,
         request_model=BasePaginationModel,
         responses=[(HTTPStatus.OK, MultiplePoliciesModel, None)],
@@ -597,7 +597,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to list rbac policies'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.POLICIES_NAME,
+        path=Endpoint.POLICIES_NAME,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SinglePolicyModel, None)],
@@ -605,7 +605,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get a policy by name'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.POLICIES,
+        path=Endpoint.POLICIES,
         method=HTTPMethod.POST,
         request_model=PolicyPostModel,
         responses=[(HTTPStatus.CREATED, SinglePolicyModel, None)],
@@ -613,7 +613,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to create a policy'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.POLICIES_NAME,
+        path=Endpoint.POLICIES_NAME,
         method=HTTPMethod.PATCH,
         request_model=PolicyPatchModel,
         responses=[(HTTPStatus.OK, SinglePolicyModel, None)],
@@ -621,7 +621,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to update a policy name'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.POLICIES_NAME,
+        path=Endpoint.POLICIES_NAME,
         method=HTTPMethod.DELETE,
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
@@ -631,7 +631,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # roles
     EndpointInfo(
-        path=CustodianEndpoint.ROLES,
+        path=Endpoint.ROLES,
         method=HTTPMethod.GET,
         request_model=BasePaginationModel,
         responses=[(HTTPStatus.OK, MultipleRoleModel, None)],
@@ -639,7 +639,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to list rbac roles'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.ROLES_NAME,
+        path=Endpoint.ROLES_NAME,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleRoleModel, None)],
@@ -647,7 +647,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get a role by name'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.ROLES,
+        path=Endpoint.ROLES,
         method=HTTPMethod.POST,
         request_model=RolePostModel,
         responses=[(HTTPStatus.CREATED, SingleRoleModel, None)],
@@ -655,7 +655,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to create a role'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.ROLES_NAME,
+        path=Endpoint.ROLES_NAME,
         method=HTTPMethod.PATCH,
         request_model=RolePatchModel,
         responses=[(HTTPStatus.OK, SingleRoleModel, None)],
@@ -663,7 +663,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to update a role by name'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.ROLES_NAME,
+        path=Endpoint.ROLES_NAME,
         method=HTTPMethod.DELETE,
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
@@ -673,7 +673,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # licenses
     EndpointInfo(
-        path=CustodianEndpoint.LICENSES,
+        path=Endpoint.LICENSES,
         method=HTTPMethod.POST,
         request_model=LicensePostModel,
         responses=[(HTTPStatus.ACCEPTED, None, None)],
@@ -681,7 +681,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to add a license from LM by tenant license key'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.LICENSES,
+        path=Endpoint.LICENSES,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, MultipleLicensesModel, None)],
@@ -689,7 +689,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to list locally added licenses'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.LICENSES_LICENSE_KEY,
+        path=Endpoint.LICENSES_LICENSE_KEY,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleLicenseModel, None)],
@@ -697,7 +697,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to describe a specific license by license key'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.LICENSES_LICENSE_KEY,
+        path=Endpoint.LICENSES_LICENSE_KEY,
         method=HTTPMethod.DELETE,
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
@@ -705,7 +705,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to delete a specific license'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.LICENSES_LICENSE_KEY_SYNC,
+        path=Endpoint.LICENSES_LICENSE_KEY_SYNC,
         method=HTTPMethod.POST,
         request_model=BaseModel,
         responses=[(HTTPStatus.ACCEPTED, MessageModel, None)],
@@ -713,7 +713,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to trigger license sync'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.LICENSE_LICENSE_KEY_ACTIVATION,
+        path=Endpoint.LICENSE_LICENSE_KEY_ACTIVATION,
         method=HTTPMethod.DELETE,
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
@@ -721,7 +721,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to deactivate a specific license'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.LICENSE_LICENSE_KEY_ACTIVATION,
+        path=Endpoint.LICENSE_LICENSE_KEY_ACTIVATION,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleLicenseActivationModel, None)],
@@ -729,7 +729,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to list tenants a license is activated for'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.LICENSE_LICENSE_KEY_ACTIVATION,
+        path=Endpoint.LICENSE_LICENSE_KEY_ACTIVATION,
         method=HTTPMethod.PUT,
         request_model=LicenseActivationPutModel,
         responses=[(HTTPStatus.OK, SingleLicenseActivationModel, None)],
@@ -737,7 +737,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to activate a specific license for some tenants'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.LICENSE_LICENSE_KEY_ACTIVATION,
+        path=Endpoint.LICENSE_LICENSE_KEY_ACTIVATION,
         method=HTTPMethod.PATCH,
         request_model=LicenseActivationPatchModel,
         responses=[(HTTPStatus.OK, SingleLicenseActivationModel, None)],
@@ -747,7 +747,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # settings
     EndpointInfo(
-        path=CustodianEndpoint.SETTINGS_MAIL,
+        path=Endpoint.SETTINGS_MAIL,
         method=HTTPMethod.GET,
         request_model=MailSettingGetModel,
         responses=[(HTTPStatus.OK, SingleMailSettingModel, None)],
@@ -755,7 +755,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to describe mail configuration'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SETTINGS_MAIL,
+        path=Endpoint.SETTINGS_MAIL,
         method=HTTPMethod.POST,
         request_model=MailSettingPostModel,
         responses=[(HTTPStatus.CREATED, SingleMailSettingModel, None)],
@@ -763,7 +763,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to set mail configuration'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SETTINGS_MAIL,
+        path=Endpoint.SETTINGS_MAIL,
         method=HTTPMethod.DELETE,
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
@@ -771,7 +771,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to delete mail configuration'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SETTINGS_SEND_REPORTS,
+        path=Endpoint.SETTINGS_SEND_REPORTS,
         method=HTTPMethod.POST,
         request_model=ReportsSendingSettingPostModel,
         responses=[(HTTPStatus.OK, MessageModel, None)],
@@ -779,7 +779,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to enable or disable high-level reports sending'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CONFIG,
+        path=Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleLMConfigModel, None)],
@@ -787,7 +787,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get license manager configuration'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CONFIG,
+        path=Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG,
         method=HTTPMethod.POST,
         request_model=LicenseManagerConfigSettingPostModel,
         responses=[(HTTPStatus.CREATED, SingleLMConfigModel, None)],
@@ -795,7 +795,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to set license manager configuration'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CONFIG,
+        path=Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG,
         method=HTTPMethod.DELETE,
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
@@ -803,7 +803,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to delete license manager configuration'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
+        path=Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleLMClientModel, None)],
@@ -811,7 +811,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to describe license manager client'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
+        path=Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
         method=HTTPMethod.POST,
         request_model=LicenseManagerClientSettingPostModel,
         responses=[(HTTPStatus.CREATED, SingleLMClientModel, None)],
@@ -819,7 +819,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to add license manager client'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
+        path=Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
         method=HTTPMethod.DELETE,
         request_model=LicenseManagerClientSettingDeleteModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
@@ -829,7 +829,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # batch results
     EndpointInfo(
-        path=CustodianEndpoint.BATCH_RESULTS,
+        path=Endpoint.BATCH_RESULTS,
         method=HTTPMethod.GET,
         request_model=BatchResultsQueryModel,
         responses=[(HTTPStatus.OK, MultipleBatchResultsModel, None)],
@@ -837,7 +837,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to query event driven jobs'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.BATCH_RESULTS_JOB_ID,
+        path=Endpoint.BATCH_RESULTS_JOB_ID,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleBatchResultModel, None)],
@@ -847,7 +847,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # digest reports
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_DIGESTS_JOBS_JOB_ID,
+        path=Endpoint.REPORTS_DIGESTS_JOBS_JOB_ID,
         method=HTTPMethod.GET,
         request_model=JobDigestReportGetModel,
         responses=[(HTTPStatus.OK, SingleJobReportModel, None)],
@@ -855,7 +855,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get a digest report by job id'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_DIGESTS_TENANTS_TENANT_NAME_JOBS,
+        path=Endpoint.REPORTS_DIGESTS_TENANTS_TENANT_NAME_JOBS,
         method=HTTPMethod.GET,
         request_model=TenantJobsDigestsReportGetModel,
         responses=[(HTTPStatus.OK, MultipleJobReportModel, None)],
@@ -865,7 +865,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # details reports
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_DETAILS_JOBS_JOB_ID,
+        path=Endpoint.REPORTS_DETAILS_JOBS_JOB_ID,
         method=HTTPMethod.GET,
         request_model=JobDetailsReportGetModel,
         responses=[(HTTPStatus.OK, SingleJobReportModel, None)],
@@ -873,7 +873,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get a detailed report by job id'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_DETAILS_TENANTS_TENANT_NAME_JOBS,
+        path=Endpoint.REPORTS_DETAILS_TENANTS_TENANT_NAME_JOBS,
         method=HTTPMethod.GET,
         request_model=TenantJobsDetailsReportGetModel,
         responses=[(HTTPStatus.OK, MultipleJobReportModel, None)],
@@ -883,7 +883,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # findings reports
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_FINDINGS_JOBS_JOB_ID,
+        path=Endpoint.REPORTS_FINDINGS_JOBS_JOB_ID,
         method=HTTPMethod.GET,
         request_model=JobFindingsReportGetModel,
         responses=[(HTTPStatus.OK, SingleJobReportModel, None)],
@@ -891,7 +891,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get findings by job id'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_FINDINGS_TENANTS_TENANT_NAME_JOBS,
+        path=Endpoint.REPORTS_FINDINGS_TENANTS_TENANT_NAME_JOBS,
         method=HTTPMethod.GET,
         request_model=TenantJobsFindingsReportGetModel,
         responses=[(HTTPStatus.OK, MultipleJobReportModel, None)],
@@ -901,7 +901,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # compliance reports
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_COMPLIANCE_JOBS_JOB_ID,
+        path=Endpoint.REPORTS_COMPLIANCE_JOBS_JOB_ID,
         method=HTTPMethod.GET,
         request_model=JobComplianceReportGetModel,
         responses=[(HTTPStatus.OK, SingleJobReportModel, None)],
@@ -909,7 +909,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get compliance report by a job'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_COMPLIANCE_TENANTS_TENANT_NAME,
+        path=Endpoint.REPORTS_COMPLIANCE_TENANTS_TENANT_NAME,
         method=HTTPMethod.GET,
         request_model=TenantComplianceReportGetModel,
         responses=[(HTTPStatus.OK, SingleEntityReportModel, None)],
@@ -919,7 +919,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # errors report
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_ERRORS_JOBS_JOB_ID,
+        path=Endpoint.REPORTS_ERRORS_JOBS_JOB_ID,
         method=HTTPMethod.GET,
         request_model=JobErrorReportGetModel,
         responses=[(HTTPStatus.OK, ErrorsReportModel, None)],
@@ -929,7 +929,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # rules report
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_RULES_JOBS_JOB_ID,
+        path=Endpoint.REPORTS_RULES_JOBS_JOB_ID,
         method=HTTPMethod.GET,
         request_model=JobRuleReportGetModel,
         responses=[(HTTPStatus.OK, RulesReportModel, None)],
@@ -937,7 +937,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get information about rules executed during a job'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_RULES_TENANTS_TENANT_NAME,
+        path=Endpoint.REPORTS_RULES_TENANTS_TENANT_NAME,
         method=HTTPMethod.GET,
         request_model=TenantRuleReportGetModel,
         responses=[(HTTPStatus.OK, EntityRulesReportModel, None)],
@@ -947,7 +947,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # push to dojo report
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_PUSH_DOJO_JOB_ID,
+        path=Endpoint.REPORTS_PUSH_DOJO_JOB_ID,
         method=HTTPMethod.POST,
         request_model=ReportPushByJobIdModel,
         responses=[(HTTPStatus.OK, SingleDefectDojoPushResult, None)],
@@ -955,7 +955,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to push a specific job to Defect Dojo'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_PUSH_DOJO,
+        path=Endpoint.REPORTS_PUSH_DOJO,
         method=HTTPMethod.POST,
         request_model=ReportPushMultipleModel,
         responses=[(HTTPStatus.OK, MultipleDefectDojoPushResult, None)],
@@ -965,7 +965,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # high level reports
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_OPERATIONAL,
+        path=Endpoint.REPORTS_OPERATIONAL,
         method=HTTPMethod.POST,
         request_model=OperationalGetReportModel,
         responses=[(HTTPStatus.OK, MessageModel, None)],
@@ -973,7 +973,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to request operational report'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_PROJECT,
+        path=Endpoint.REPORTS_PROJECT,
         method=HTTPMethod.POST,
         request_model=ProjectGetReportModel,
         responses=[(HTTPStatus.OK, MessageModel, None)],
@@ -981,7 +981,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to request project report'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_DEPARTMENT,
+        path=Endpoint.REPORTS_DEPARTMENT,
         method=HTTPMethod.POST,
         request_model=DepartmentGetReportModel,
         responses=[(HTTPStatus.OK, MessageModel, None)],
@@ -989,7 +989,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to request department report'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_CLEVEL,
+        path=Endpoint.REPORTS_CLEVEL,
         method=HTTPMethod.POST,
         request_model=CLevelGetReportModel,
         responses=[(HTTPStatus.OK, MessageModel, None)],
@@ -997,7 +997,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to request clevel report'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_DIAGNOSTIC,
+        path=Endpoint.REPORTS_DIAGNOSTIC,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, MessageModel, None)],
@@ -1005,7 +1005,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get diagnostic report'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_STATUS,
+        path=Endpoint.REPORTS_STATUS,
         method=HTTPMethod.GET,
         request_model=ReportStatusGetModel,
         responses=[(HTTPStatus.OK, MultipleReportStatusModel, None)],
@@ -1015,7 +1015,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # resources reports
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_RESOURCES_PLATFORMS_K8S_PLATFORM_ID_LATEST,
+        path=Endpoint.REPORTS_RESOURCES_PLATFORMS_K8S_PLATFORM_ID_LATEST,
         method=HTTPMethod.GET,
         request_model=PlatformK8sResourcesReportGetModel,
         responses=[(HTTPStatus.OK, EntityResourcesReportModel, None)],
@@ -1023,7 +1023,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get latest resources report by K8S platform'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_RESOURCES_TENANTS_TENANT_NAME_LATEST,
+        path=Endpoint.REPORTS_RESOURCES_TENANTS_TENANT_NAME_LATEST,
         method=HTTPMethod.GET,
         request_model=ResourcesReportGetModel,
         responses=[(HTTPStatus.OK, EntityResourcesReportModel, None)],
@@ -1031,7 +1031,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get latest resources report by tenant'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_RESOURCES_TENANTS_TENANT_NAME_JOBS,
+        path=Endpoint.REPORTS_RESOURCES_TENANTS_TENANT_NAME_JOBS,
         method=HTTPMethod.GET,
         request_model=ResourceReportJobsGetModel,
         responses=[(HTTPStatus.OK, JobResourcesReportModel, None)],
@@ -1039,7 +1039,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get latest resources report by latest tenant jobs'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_RESOURCES_JOBS_JOB_ID,
+        path=Endpoint.REPORTS_RESOURCES_JOBS_JOB_ID,
         method=HTTPMethod.GET,
         request_model=ResourceReportJobGetModel,
         responses=[(HTTPStatus.OK, JobResourcesReportModel, None)],
@@ -1047,7 +1047,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get latest resources report by job'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_RAW_TENANTS_TENANT_NAME_STATE_LATEST,
+        path=Endpoint.REPORTS_RAW_TENANTS_TENANT_NAME_STATE_LATEST,
         method=HTTPMethod.GET,
         request_model=RawReportGetModel,
         responses=[(HTTPStatus.OK, RawReportModel, None)],
@@ -1057,7 +1057,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # platforms
     EndpointInfo(
-        path=CustodianEndpoint.PLATFORMS_K8S,
+        path=Endpoint.PLATFORMS_K8S,
         method=HTTPMethod.GET,
         request_model=PlatformK8sQueryModel,
         responses=[(HTTPStatus.OK, MultipleK8SPlatformsModel, None)],
@@ -1065,7 +1065,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to query registered K8S platforms'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.PLATFORMS_K8S,
+        path=Endpoint.PLATFORMS_K8S,
         method=HTTPMethod.POST,
         request_model=PlatformK8SPostModel,
         responses=[(HTTPStatus.OK, SingleK8SPlatformModel, None)],
@@ -1073,7 +1073,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to register K8S platform'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.PLATFORMS_K8S_ID,
+        path=Endpoint.PLATFORMS_K8S_ID,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleK8SPlatformModel, None)],
@@ -1081,7 +1081,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to register K8S platform'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.PLATFORMS_K8S_ID,
+        path=Endpoint.PLATFORMS_K8S_ID,
         method=HTTPMethod.DELETE,
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
@@ -1091,7 +1091,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # dojo integrations
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_DEFECT_DOJO,
+        path=Endpoint.INTEGRATIONS_DEFECT_DOJO,
         method=HTTPMethod.POST,
         request_model=DefectDojoPostModel,
         responses=[(HTTPStatus.CREATED, SingleDefeDojoModel, None)],
@@ -1099,7 +1099,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to register Defect Dojo integration'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_DEFECT_DOJO,
+        path=Endpoint.INTEGRATIONS_DEFECT_DOJO,
         method=HTTPMethod.GET,
         request_model=DefectDojoQueryModel,
         responses=[(HTTPStatus.OK, MultipleDefectDojoModel, None)],
@@ -1107,7 +1107,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to list registered Defect Dojo integrations'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_DEFECT_DOJO_ID,
+        path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID,
         method=HTTPMethod.DELETE,
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
@@ -1115,7 +1115,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to delete Defect Dojo integration by id'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_DEFECT_DOJO_ID,
+        path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleDefeDojoModel, None)],
@@ -1123,7 +1123,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to describe Defect Dojo integration by id'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION,
+        path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION,
         method=HTTPMethod.PUT,
         request_model=DefectDojoActivationPutModel,
         responses=[(HTTPStatus.CREATED, SingleDefectDojoActivation, None)],
@@ -1131,7 +1131,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to activate Defect Dojo integration for tenants'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION,
+        path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleDefectDojoActivation, None)],
@@ -1139,7 +1139,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get tenants Defect Dojo integration is activated for'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION,
+        path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION,
         method=HTTPMethod.DELETE,
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
@@ -1149,7 +1149,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # self integration
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_SELF,
+        path=Endpoint.INTEGRATIONS_SELF,
         method=HTTPMethod.PUT,
         request_model=SelfIntegrationPutModel,
         responses=[(HTTPStatus.CREATED, SingleSelfIntegration, None)],
@@ -1157,7 +1157,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to create an application with type CUSTODIAN for integration with Maestro'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_SELF,
+        path=Endpoint.INTEGRATIONS_SELF,
         method=HTTPMethod.PATCH,
         request_model=SelfIntegrationPatchModel,
         responses=[(HTTPStatus.OK, SingleSelfIntegration, None)],
@@ -1165,7 +1165,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to change tenants that are active for integrations with Maestro'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_SELF,
+        path=Endpoint.INTEGRATIONS_SELF,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleSelfIntegration, None)],
@@ -1173,7 +1173,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get integration with Maestro'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_SELF,
+        path=Endpoint.INTEGRATIONS_SELF,
         method=HTTPMethod.DELETE,
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
@@ -1183,7 +1183,7 @@ data: tuple[EndpointInfo, ...] = (
 
     # Users
     EndpointInfo(
-        path=CustodianEndpoint.USERS_USERNAME,
+        path=Endpoint.USERS_USERNAME,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleUserModel, None)],
@@ -1191,7 +1191,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get an API user by name'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.USERS,
+        path=Endpoint.USERS,
         method=HTTPMethod.POST,
         request_model=UserPostModel,
         responses=[(HTTPStatus.OK, SingleUserModel, None),
@@ -1200,7 +1200,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to create a new API user'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.USERS_USERNAME,
+        path=Endpoint.USERS_USERNAME,
         method=HTTPMethod.PATCH,
         request_model=UserPatchModel,
         responses=[(HTTPStatus.OK, SingleUserModel, None)],
@@ -1208,7 +1208,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to update a specific user'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.USERS_USERNAME,
+        path=Endpoint.USERS_USERNAME,
         method=HTTPMethod.DELETE,
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
@@ -1216,7 +1216,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to delete a specific user'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.USERS,
+        path=Endpoint.USERS,
         method=HTTPMethod.GET,
         request_model=BasePaginationModel,
         responses=[(HTTPStatus.OK, MultipleUsersModel, None)],
@@ -1224,7 +1224,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to list API users'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.USERS_WHOAMI,
+        path=Endpoint.USERS_WHOAMI,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleUserModel, None)],
@@ -1232,7 +1232,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to describe the user making this call'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.USERS_RESET_PASSWORD,
+        path=Endpoint.USERS_RESET_PASSWORD,
         method=HTTPMethod.POST,
         request_model=UserResetPasswordModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
@@ -1241,7 +1241,7 @@ data: tuple[EndpointInfo, ...] = (
     ),
 
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_CHRONICLE,
+        path=Endpoint.INTEGRATIONS_CHRONICLE,
         method=HTTPMethod.POST,
         request_model=ChroniclePostModel,
         responses=[(HTTPStatus.CREATED, SingleChronicleModel, None)],
@@ -1249,7 +1249,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Registers a google Chronicle instance'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_CHRONICLE,
+        path=Endpoint.INTEGRATIONS_CHRONICLE,
         method=HTTPMethod.GET,
         request_model=BasePaginationModel,
         responses=[(HTTPStatus.OK, MultipleChronicleModel, None)],
@@ -1257,7 +1257,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Queries google Chronicle instances'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_CHRONICLE_ID,
+        path=Endpoint.INTEGRATIONS_CHRONICLE_ID,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleChronicleModel, None)],
@@ -1265,7 +1265,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Retrieves a specific google Chronicle instance'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_CHRONICLE_ID,
+        path=Endpoint.INTEGRATIONS_CHRONICLE_ID,
         method=HTTPMethod.DELETE,
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
@@ -1273,7 +1273,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Deregisters a specific google Chronicle instance'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION,
+        path=Endpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION,
         method=HTTPMethod.PUT,
         request_model=ChronicleActivationPutModel,
         responses=[(HTTPStatus.CREATED, SingleChronicleActivationModel, None)],
@@ -1281,7 +1281,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to activate Chronicle integration for tenants'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION,
+        path=Endpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION,
         method=HTTPMethod.GET,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleDefectDojoActivation, None)],
@@ -1289,7 +1289,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get tenants Chronicle integration is activated for'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION,
+        path=Endpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION,
         method=HTTPMethod.DELETE,
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
@@ -1297,7 +1297,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to deactivate Chronicle integration'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_PUSH_CHRONICLE_JOB_ID,
+        path=Endpoint.REPORTS_PUSH_CHRONICLE_JOB_ID,
         method=HTTPMethod.POST,
         request_model=ReportPushByJobIdModel,
         responses=[(HTTPStatus.OK, SingleChroniclePushResult, None)],
@@ -1305,7 +1305,7 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to push a specific job to Chronicle'
     ),
     EndpointInfo(
-        path=CustodianEndpoint.REPORTS_PUSH_CHRONICLE_TENANTS_TENANT_NAME,
+        path=Endpoint.REPORTS_PUSH_CHRONICLE_TENANTS_TENANT_NAME,
         method=HTTPMethod.POST,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleChroniclePushResult, None)],
@@ -1364,6 +1364,6 @@ def iter_models(without_get: bool = True
 
 
 permissions_mapping = {
-    (CustodianEndpoint(e.path), e.method): e.permission
+    (Endpoint(e.path), e.method): e.permission
     for e in iter_all()
 }

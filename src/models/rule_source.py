@@ -1,7 +1,7 @@
 from pynamodb.attributes import UnicodeAttribute, MapAttribute
 from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
-from helpers.constants import CAASEnv, CUSTOMER_ATTR, \
+from helpers.constants import Env, CUSTOMER_ATTR, \
     GIT_PROJECT_ID_ATTR, RuleSourceType
 from models import BaseModel
 
@@ -30,7 +30,7 @@ class CustomerGitProjectIdIndex(GlobalSecondaryIndex):
 class RuleSource(BaseModel):
     class Meta:
         table_name = 'SRERuleSources'
-        region = CAASEnv.AWS_REGION.get()
+        region = Env.AWS_REGION.get()
 
     id = UnicodeAttribute(hash_key=True)
     customer = UnicodeAttribute()

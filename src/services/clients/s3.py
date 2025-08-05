@@ -15,7 +15,7 @@ from botocore.exceptions import ClientError
 from modular_sdk.services.aws_creds_provider import ModularAssumeRoleClient
 from urllib3.util import Url, parse_url
 
-from helpers.constants import CAASEnv
+from helpers.constants import Env
 from helpers.log_helper import get_logger
 from services import cache
 from services.clients import Boto3ClientFactory, Boto3ClientWrapper
@@ -85,9 +85,9 @@ class S3Client(Boto3ClientWrapper):
         )
 
     def _init_minio(self) -> None:
-        endpoint = CAASEnv.MINIO_ENDPOINT.as_str()
-        access_key = CAASEnv.MINIO_ACCESS_KEY_ID.as_str()
-        secret_key = CAASEnv.MINIO_SECRET_ACCESS_KEY.as_str()
+        endpoint = Env.MINIO_ENDPOINT.as_str()
+        access_key = Env.MINIO_ACCESS_KEY_ID.as_str()
+        secret_key = Env.MINIO_SECRET_ACCESS_KEY.as_str()
         self._resource = Boto3ClientFactory(self.service_name).build_resource(
             aws_access_key_id=access_key,
             aws_secret_access_key=secret_key,
@@ -99,7 +99,7 @@ class S3Client(Boto3ClientWrapper):
 
     def _init_s3(self) -> None:
         self._resource = Boto3ClientFactory(self.service_name).build_resource(
-            region_name=CAASEnv.AWS_REGION.get(), config=self._base_config()
+            region_name=Env.AWS_REGION.get(), config=self._base_config()
         )
         self._client = self._resource.meta.client
         _LOG.info('S3 connection was successfully initialized')
@@ -107,7 +107,7 @@ class S3Client(Boto3ClientWrapper):
     @property
     def client(self):
         if self._client is None:
-            if CAASEnv.is_docker():
+            if Env.is_docker():
                 self._init_minio()
             else:
                 self._init_s3()
@@ -116,7 +116,7 @@ class S3Client(Boto3ClientWrapper):
     @property
     def resource(self):
         if self._resource is None:
-            if CAASEnv.is_docker():
+            if Env.is_docker():
                 self._init_minio()
             else:
                 self._init_s3()
@@ -565,7 +565,7 @@ class S3Client(Boto3ClientWrapper):
         parsed: Url = parse_url(url)
         if host:
             new_host = host
-        elif _env := CAASEnv.MINIO_PRESIGNED_URL_HOST.get():
+        elif _env := Env.MINIO_PRESIGNED_URL_HOST.get():
             new_host = _env
         elif ipv4 := self._resolve_instance_public_ipv4():
             new_host = ipv4

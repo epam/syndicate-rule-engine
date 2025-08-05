@@ -4,7 +4,7 @@ from modular_sdk.services.tenant_service import TenantService
 
 from handlers import AbstractHandler, Mapping
 from helpers.constants import HTTPMethod, JobState, ReportFormat, \
-    CustodianEndpoint, Cloud
+    Endpoint, Cloud
 from helpers.lambda_response import build_response
 from services import SP
 from services import modular_helpers
@@ -46,10 +46,10 @@ class DigestReportHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.REPORTS_DIGESTS_JOBS_JOB_ID: {
+            Endpoint.REPORTS_DIGESTS_JOBS_JOB_ID: {
                 HTTPMethod.GET: self.get_by_job
             },
-            CustodianEndpoint.REPORTS_DIGESTS_TENANTS_TENANT_NAME_JOBS: {
+            Endpoint.REPORTS_DIGESTS_TENANTS_TENANT_NAME_JOBS: {
                 HTTPMethod.GET: self.get_by_tenant_jobs
             }
         }

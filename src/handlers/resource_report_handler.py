@@ -17,7 +17,7 @@ from helpers.constants import (
     JOB_ID_ATTR,
     TYPE_ATTR,
     Cloud,
-    CustodianEndpoint,
+    Endpoint,
     HTTPMethod,
     JobState,
     JobType,
@@ -493,16 +493,16 @@ class ResourceReportHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.REPORTS_RESOURCES_PLATFORMS_K8S_PLATFORM_ID_LATEST: {
+            Endpoint.REPORTS_RESOURCES_PLATFORMS_K8S_PLATFORM_ID_LATEST: {
                 HTTPMethod.GET: self.k8s_platform_get_latest
             },
-            CustodianEndpoint.REPORTS_RESOURCES_TENANTS_TENANT_NAME_LATEST: {
+            Endpoint.REPORTS_RESOURCES_TENANTS_TENANT_NAME_LATEST: {
                 HTTPMethod.GET: self.get_latest
             },
-            CustodianEndpoint.REPORTS_RESOURCES_TENANTS_TENANT_NAME_JOBS: {
+            Endpoint.REPORTS_RESOURCES_TENANTS_TENANT_NAME_JOBS: {
                 HTTPMethod.GET: self.get_jobs
             },
-            CustodianEndpoint.REPORTS_RESOURCES_JOBS_JOB_ID: {
+            Endpoint.REPORTS_RESOURCES_JOBS_JOB_ID: {
                 HTTPMethod.GET: self.get_specific_job
             },
         }

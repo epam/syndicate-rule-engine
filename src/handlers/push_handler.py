@@ -8,7 +8,7 @@ from modular_sdk.services.impl.maestro_credentials_service import (
 from modular_sdk.services.parent_service import ParentService
 
 from handlers import AbstractHandler, Mapping
-from helpers.constants import Cloud, CustodianEndpoint, HTTPMethod, JobState
+from helpers.constants import Cloud, Endpoint, HTTPMethod, JobState
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime
@@ -85,16 +85,16 @@ class SiemPushHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.REPORTS_PUSH_DOJO_JOB_ID: {
+            Endpoint.REPORTS_PUSH_DOJO_JOB_ID: {
                 HTTPMethod.POST: self.push_dojo_by_job_id
             },
-            CustodianEndpoint.REPORTS_PUSH_DOJO: {
+            Endpoint.REPORTS_PUSH_DOJO: {
                 HTTPMethod.POST: self.push_dojo_multiple_jobs
             },
-            CustodianEndpoint.REPORTS_PUSH_CHRONICLE_JOB_ID: {
+            Endpoint.REPORTS_PUSH_CHRONICLE_JOB_ID: {
                 HTTPMethod.POST: self.push_chronicle_by_job_id
             },
-            CustodianEndpoint.REPORTS_PUSH_CHRONICLE_TENANTS_TENANT_NAME: {
+            Endpoint.REPORTS_PUSH_CHRONICLE_TENANTS_TENANT_NAME: {
                 HTTPMethod.POST: self.push_chronicle_by_tenant
             },
         }

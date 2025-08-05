@@ -22,7 +22,7 @@ from helpers.constants import (
     DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME,
     DOCKER_SERVICE_MODE,
     PRIVATE_KEY_SECRET_NAME,
-    CAASEnv,
+    Env,
     HTTPMethod,
     Permission,
     SettingKey,
@@ -271,7 +271,7 @@ class InitMinio(ActionHandler):
 
         _LOG.info(f'Setting lifecycle rules for reports bucket')
         SP.s3.put_bucket_lifecycle_rules(
-            bucket=CAASEnv.REPORTS_BUCKET_NAME.as_str(),
+            bucket=Env.REPORTS_BUCKET_NAME.as_str(),
             rules=[
                 SP.s3.build_lifecycle_rule(
                     days=7, prefix=ReportsBucketKeysBuilder.on_demand
@@ -280,7 +280,7 @@ class InitMinio(ActionHandler):
                     days=7, prefix=ReportMetaBucketsKeys.prefix
                 ),
                 SP.s3.build_lifecycle_rule(
-                    days=CAASEnv.REPORTS_SNAPSHOTS_LIFETIME_DAYS.as_int(),
+                    days=Env.REPORTS_SNAPSHOTS_LIFETIME_DAYS.as_int(),
                     tag=('Type', 'DataSnapshot')
                 ),
             ],
@@ -340,7 +340,7 @@ class InitMongo(ActionHandler):
             _LOG.info(f'Syncing indexes for {model.Meta.table_name}')
             creator.sync(model, always_keep=('_id_', 'next_run_time_1'))
         
-        _LOG.info('Syncing indexes for CaaSResources')
+        _LOG.info('Syncing indexes for SREResources')
         create_resources_indexes(
             PynamoDBToPymongoAdapterSingleton.get_instance().mongo_database
         )
@@ -373,8 +373,8 @@ class Run(ActionHandler):
                 '--workers is ignored because you are not running Gunicorn'
             )
 
-        if CAASEnv.SERVICE_MODE.get() != DOCKER_SERVICE_MODE:
-            CAASEnv.SERVICE_MODE.set(DOCKER_SERVICE_MODE)
+        if Env.SERVICE_MODE.get() != DOCKER_SERVICE_MODE:
+            Env.SERVICE_MODE.set(DOCKER_SERVICE_MODE)
 
         dr_wrapper = DeploymentResourcesApiGatewayWrapper(self.load_api_dr())
         app = self.make_app(dr_wrapper)
@@ -526,7 +526,7 @@ class InitAction(ActionHandler):
         users_client = SP.users_client
         if not users_client.get_user_by_username(SYSTEM_USER):
             _LOG.info('Creating a system user')
-            password = CAASEnv.SYSTEM_USER_PASSWORD.get(None)
+            password = Env.SYSTEM_USER_PASSWORD.get(None)
             from_env = bool(password)
             if not from_env:
                 password = gen_password()

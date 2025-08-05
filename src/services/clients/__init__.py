@@ -6,7 +6,7 @@ from botocore.client import BaseClient
 from botocore.config import Config
 from typing_extensions import Self
 
-from helpers.constants import CAASEnv
+from helpers.constants import Env
 from helpers.log_helper import get_logger
 
 _LOG = get_logger(__name__)
@@ -93,7 +93,7 @@ class Boto3ClientWrapper:
     def client(self) -> 'BaseClient':
         if self._client is None:
             self._client = Boto3ClientFactory(self.service_name).build(
-                region_name=CAASEnv.AWS_REGION.get()
+                region_name=Env.AWS_REGION.get()
             )
         return self._client
 
@@ -109,7 +109,7 @@ class Boto3ClientWrapper:
     def resource(self) -> 'ServiceResource':
         if self._resource is None:
             self._resource = Boto3ClientFactory(self.service_name).build_resource(
-                region_name=CAASEnv.AWS_REGION.get()
+                region_name=Env.AWS_REGION.get()
             )
         return self._resource
 

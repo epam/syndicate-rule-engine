@@ -10,7 +10,7 @@ from modular_sdk.services.impl.maestro_credentials_service import (
 )
 
 from handlers import AbstractHandler, Mapping
-from helpers.constants import CUSTOMER_ATTR, CustodianEndpoint, HTTPMethod
+from helpers.constants import CUSTOMER_ATTR, Endpoint, HTTPMethod
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
 from services import SP
@@ -47,7 +47,7 @@ class RabbitMQHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.CUSTOMERS_RABBITMQ: {
+            Endpoint.CUSTOMERS_RABBITMQ: {
                 HTTPMethod.POST: self.post,
                 HTTPMethod.GET: self.get,
                 HTTPMethod.DELETE: self.delete,

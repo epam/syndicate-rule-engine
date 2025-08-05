@@ -6,7 +6,7 @@ from pynamodb.pagination import ResultIterator
 
 from helpers import get_logger
 from helpers.constants import ReportDispatchStatus
-from helpers.lambda_response import ReportNotSendException, CustodianException
+from helpers.lambda_response import ReportNotSendException, SREException
 from helpers.time_helper import utc_iso
 from models.report_statistics import ReportStatistics
 from services.abs_lambda import ProcessedEvent
@@ -63,7 +63,7 @@ class ReportStatisticsService:
         )
 
     def create_failed(self, event: ProcessedEvent,
-                      exception: ReportNotSendException | CustodianException
+                      exception: ReportNotSendException | SREException
                       ) -> ReportStatistics:
         item = self.create_from_processed_event(event)
         item.status = ReportDispatchStatus.FAILED.value

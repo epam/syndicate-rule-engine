@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 
 from helpers import urljoin
 from helpers.__version__ import __version__
-from helpers.constants import CustodianEndpoint, HTTPMethod
+from helpers.constants import Endpoint, HTTPMethod
 from helpers.lambda_response import LambdaResponse, ResponseFactory
 from helpers.log_helper import get_logger
 from handlers import AbstractHandler, Mapping
@@ -62,10 +62,10 @@ class SwaggerHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.DOC: {
+            Endpoint.DOC: {
                 HTTPMethod.GET: self.get
             },
-            CustodianEndpoint.DOC_SWAGGER_JSON: {
+            Endpoint.DOC_SWAGGER_JSON: {
                 HTTPMethod.GET: self.get_spec
             }
         }
@@ -91,7 +91,7 @@ class SwaggerHandler(AbstractHandler):
             url=urljoin(
                 '/',
                 SP.tls.__dict__.get('stage', ''),
-                CustodianEndpoint.DOC_SWAGGER_JSON.value
+                Endpoint.DOC_SWAGGER_JSON.value
             )
         )
         return LambdaResponse(

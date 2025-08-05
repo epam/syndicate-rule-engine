@@ -33,7 +33,7 @@ from helpers.constants import (
     GITLAB_API_URL_DEFAULT,
     PolicyEffect,
     ReportType,
-    CAASEnv
+    Env
 )
 from helpers import Version
 from helpers.regions import AllRegions, AllRegionsWithGlobal, get_region_by_cloud
@@ -873,7 +873,7 @@ def sanitize_schedule(schedule: str) -> str:
             'Must contain 5 fields: '
             '(minute hour day-of-month month day-of-week)'
         )
-    if CAASEnv.is_docker():
+    if Env.is_docker():
         # on-prem supports only 5 fields and does not support "?"
         raw = ['*' if i == '?' else i for i in raw]
         if len(raw) == 6:

@@ -5,7 +5,7 @@ are set before importing from here. Otherwise, it could lead to timeout or
 an undesirable request to AWS.
 """
 
-from helpers.constants import CAASEnv
+from helpers.constants import Env
 from helpers.log_helper import get_logger
 from services import SP
 
@@ -19,7 +19,7 @@ class SystemCustomer:
     def get_name(cls) -> str:
         if cls._name is None:
             cls._name = (
-                CAASEnv.SYSTEM_CUSTOMER_NAME.get(None)
+                Env.SYSTEM_CUSTOMER_NAME.get(None)
                 or SP.settings_service.get_system_customer_name()
             )
             _LOG.info(f'System customer name was initialized: {cls._name}')

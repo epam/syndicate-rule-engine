@@ -1,7 +1,7 @@
 from http import HTTPStatus
 
 from helpers import KeepValueGenerator, batches
-from helpers.constants import CustodianEndpoint, HTTPMethod
+from helpers.constants import Endpoint, HTTPMethod
 from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
 from handlers import AbstractHandler, Mapping
@@ -36,7 +36,7 @@ class EventsHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.EVENT: {
+            Endpoint.EVENT: {
                 HTTPMethod.POST: self.event_action
             }
         }

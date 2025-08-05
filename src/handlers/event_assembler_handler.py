@@ -13,7 +13,7 @@ from helpers.constants import (
     AWS_VENDOR,
     BatchJobEnv,
     BatchJobType,
-    CAASEnv,
+    Env,
     MAESTRO_VENDOR,
 )
 from helpers.lambda_response import build_response
@@ -454,11 +454,11 @@ class EventAssemblerHandler:
 
     def _build_common_envs(self) -> dict:
         return {
-            CAASEnv.REPORTS_BUCKET_NAME.value:
+            Env.REPORTS_BUCKET_NAME.value:
                 self._environment_service.default_reports_bucket_name(),
-            CAASEnv.STATISTICS_BUCKET_NAME.value:
+            Env.STATISTICS_BUCKET_NAME.value:
                 self._environment_service.get_statistics_bucket_name(),
-            CAASEnv.RULESETS_BUCKET_NAME.value:
+            Env.RULESETS_BUCKET_NAME.value:
                 self._environment_service.get_rulesets_bucket_name(),
             BatchJobEnv.AWS_REGION.value:
                 self._environment_service.aws_region(),
@@ -543,7 +543,7 @@ class EventRemoverHandler:
             _LOG.info('No events have been collected.')
             return build_response(
                 content=f'No events till {event_cursor} exist in DB')
-        _LOG.info(f'Going to remove {_len} old events from CaaSEvents')
+        _LOG.info(f'Going to remove {_len} old events from SREEvents')
         self._event_service.batch_delete(iter(events))
         message = f'{_len} old events were removed successfully'
         _LOG.info(message)

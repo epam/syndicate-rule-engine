@@ -2,7 +2,7 @@ from pynamodb.attributes import ListAttribute, MapAttribute, UnicodeAttribute
 from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
 from helpers import Version, to_normalized_version, from_normalized_version
-from helpers.constants import COMPOUND_KEYS_SEPARATOR, CAASEnv
+from helpers.constants import COMPOUND_KEYS_SEPARATOR, Env
 from helpers.time_helper import utc_iso
 from models import BaseModel
 
@@ -37,7 +37,7 @@ class CustomerIdIndex(GlobalSecondaryIndex):
 class Ruleset(BaseModel):
     class Meta:
         table_name = 'SRERulesets'
-        region = CAASEnv.AWS_REGION.get()
+        region = Env.AWS_REGION.get()
 
     id = UnicodeAttribute(hash_key=True)  # "customer#L|S#name#normalized_version"
     customer = UnicodeAttribute()

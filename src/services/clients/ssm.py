@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 
 from botocore.client import ClientError
 
-from helpers.constants import CAASEnv
+from helpers.constants import Env
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime
 from services import cache
@@ -59,8 +59,8 @@ class VaultSSMClient(AbstractSSMClient):
 
     def _init_client(self):
         import hvac
-        token = CAASEnv.VAULT_TOKEN.as_str()
-        endpoint = CAASEnv.VAULT_ENDPOINT.as_str()
+        token = Env.VAULT_TOKEN.as_str()
+        endpoint = Env.VAULT_ENDPOINT.as_str()
         _LOG.info('Initializing hvac client')
         self._client = hvac.Client(url=endpoint, token=token)
         _LOG.info('Hvac client was initialized')

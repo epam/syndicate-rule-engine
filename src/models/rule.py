@@ -6,7 +6,7 @@ from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
 from helpers.constants import (
     COMPOUND_KEYS_SEPARATOR,
-    CAASEnv,
+    Env,
     Cloud,
     RuleSourceType,
     LATEST_VERSION_TAG,
@@ -240,7 +240,7 @@ class RuleIndex:
 class Rule(BaseModel):
     class Meta:
         table_name = 'SRERules'
-        region = CAASEnv.AWS_REGION.get()
+        region = Env.AWS_REGION.get()
 
     # "customer#cloud#name#normalized_version"
     id = UnicodeAttribute(hash_key=True, attr_name=R_ID_ATTR)

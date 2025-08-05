@@ -3,7 +3,7 @@ from modular_sdk.models.pynamongo.adapter import PynamoDBToPymongoAdapter
 from modular_sdk.models.pynamongo.models import Model, SafeUpdateModel
 from modular_sdk.models.pynamongo.patch import patch_attributes
 
-from helpers.constants import DOCKER_SERVICE_MODE, CAASEnv
+from helpers.constants import DOCKER_SERVICE_MODE, Env
 
 # Just for models.job.Job.ttl
 patch_attributes()
@@ -15,7 +15,7 @@ class MongoClientSingleton:
     @classmethod
     def get_instance(cls) -> pymongo.MongoClient:
         if cls._instance is None:
-            cls._instance = pymongo.MongoClient(CAASEnv.MONGO_URI.as_str())
+            cls._instance = pymongo.MongoClient(Env.MONGO_URI.as_str())
         return cls._instance
 
 
@@ -27,7 +27,7 @@ class PynamoDBToPymongoAdapterSingleton:
         if cls._instance is None:
             cls._instance = PynamoDBToPymongoAdapter(
                 db=MongoClientSingleton.get_instance().get_database(
-                    CAASEnv.MONGO_DATABASE.as_str()
+                    Env.MONGO_DATABASE.as_str()
                 )
             )
         return cls._instance
@@ -36,7 +36,7 @@ class PynamoDBToPymongoAdapterSingleton:
 class BaseModel(Model):
     @classmethod
     def is_mongo_model(cls) -> bool:
-        return CAASEnv.SERVICE_MODE.get() == DOCKER_SERVICE_MODE
+        return Env.SERVICE_MODE.get() == DOCKER_SERVICE_MODE
 
     @classmethod
     def mongo_adapter(cls) -> PynamoDBToPymongoAdapter:
@@ -46,7 +46,7 @@ class BaseModel(Model):
 class BaseSafeUpdateModel(SafeUpdateModel):
     @classmethod
     def is_mongo_model(cls) -> bool:
-        return CAASEnv.SERVICE_MODE.get() == DOCKER_SERVICE_MODE
+        return Env.SERVICE_MODE.get() == DOCKER_SERVICE_MODE
 
     @classmethod
     def mongo_adapter(cls) -> PynamoDBToPymongoAdapter:

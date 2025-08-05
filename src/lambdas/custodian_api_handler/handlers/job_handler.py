@@ -11,7 +11,7 @@ from helpers import NextToken
 from helpers.constants import (
     GLOBAL_REGION,
     Cloud,
-    CustodianEndpoint,
+    Endpoint,
     HTTPMethod,
     JobState,
     RuleDomain,
@@ -107,20 +107,20 @@ class JobHandler(AbstractHandler):
         :return:
         """
         return {
-            CustodianEndpoint.JOBS: {
+            Endpoint.JOBS: {
                 HTTPMethod.POST: self.post,
                 HTTPMethod.GET: self.query,
             },
-            CustodianEndpoint.JOBS_K8S: {HTTPMethod.POST: self.post_k8s},
-            CustodianEndpoint.JOBS_JOB: {
+            Endpoint.JOBS_K8S: {HTTPMethod.POST: self.post_k8s},
+            Endpoint.JOBS_JOB: {
                 HTTPMethod.GET: self.get,
                 HTTPMethod.DELETE: self.delete,
             },
-            CustodianEndpoint.SCHEDULED_JOB: {
+            Endpoint.SCHEDULED_JOB: {
                 HTTPMethod.POST: self.post_scheduled,
                 HTTPMethod.GET: self.query_scheduled,
             },
-            CustodianEndpoint.SCHEDULED_JOB_NAME: {
+            Endpoint.SCHEDULED_JOB_NAME: {
                 HTTPMethod.GET: self.get_scheduled,
                 HTTPMethod.DELETE: self.delete_scheduled,
                 HTTPMethod.PATCH: self.patch_scheduled,
