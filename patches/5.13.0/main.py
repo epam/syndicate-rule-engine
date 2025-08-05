@@ -14,7 +14,8 @@ logging.basicConfig(
 )
 _LOG = logging.getLogger(__name__)
 
-NEW_DB_NAME = 'syndicate-rule-engine-new'
+OLD_DB_NAME = 'custodian_as_a_service'
+NEW_DB_NAME = 'syndicate_rule_engine'
 
 def _init_mongo() -> tuple[MongoClient, Database]:
     host = os.environ.get('SRE_MONGO_URI')
@@ -123,7 +124,7 @@ def main() -> int:
     try:
         client, db = _init_mongo()
         
-        old_db_name = 'syndicate-rule-engine'
+        old_db_name = OLD_DB_NAME
         new_db_name = NEW_DB_NAME
         
         _LOG.info(f'Starting migration from {old_db_name} to {new_db_name}')
