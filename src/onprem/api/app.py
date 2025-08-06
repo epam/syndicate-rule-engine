@@ -10,12 +10,12 @@ from helpers import RequestContext
 from helpers.lambda_response import SREException, LambdaResponse, \
     ResponseFactory
 from helpers.log_helper import get_logger
-from lambdas.custodian_api_handler.handler import \
+from lambdas.api_handler.handler import \
     lambda_handler as api_handler_lambda
-from lambdas.custodian_configuration_api_handler.handler import (
+from lambdas.configuration_api_handler.handler import (
     lambda_handler as configuration_api_handler_lambda,
 )
-from lambdas.custodian_report_generator.handler import (
+from lambdas.report_generator.handler import (
     lambda_handler as report_generator_lambda,
 )
 from onprem.api.deployment_resources_parser import DeploymentResourcesApiGatewayWrapper

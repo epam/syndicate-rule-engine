@@ -8,9 +8,9 @@ from helpers.lambda_response import (
     ResponseFactory,
     build_response,
 )
-from lambdas.custodian_metrics_updater.processors.findings_processor import \
+from lambdas.metrics_updater.processors.findings_processor import \
     FindingsUpdater
-from lambdas.custodian_metrics_updater.processors.metrics_collector import \
+from lambdas.metrics_updater.processors.metrics_collector import \
     MetricsCollector
 from services import SERVICE_PROVIDER
 from services.abs_lambda import EventProcessorLambdaHandler
