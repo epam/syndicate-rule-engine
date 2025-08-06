@@ -1,12 +1,12 @@
 from executor.job import task_scheduled_job, task_standard_job
 from helpers import RequestContext
 from helpers.constants import Env
-from lambdas.custodian_license_updater.handler import LicenseUpdater
-from lambdas.custodian_metrics_updater.handler import MetricsUpdater
-from lambdas.custodian_metrics_updater.processors.findings_processor import (
+from lambdas.license_updater.handler import LicenseUpdater
+from lambdas.metrics_updater.handler import MetricsUpdater
+from lambdas.metrics_updater.processors.findings_processor import (
     FindingsUpdater,
 )
-from lambdas.custodian_metrics_updater.processors.expired_metrics_processor import(
+from lambdas.metrics_updater.processors.expired_metrics_processor import(
     ExpiredMetricsCleaner
 )
 from services.resources_collector import CustodianResourceCollector
