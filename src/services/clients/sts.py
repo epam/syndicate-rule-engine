@@ -5,7 +5,6 @@ from typing import TypedDict
 
 from botocore.client import BaseClient
 
-from helpers.constants import CAASEnv
 from helpers.log_helper import get_logger
 from services import SP
 from services.clients import Boto3ClientWrapper, Boto3ClientFactory

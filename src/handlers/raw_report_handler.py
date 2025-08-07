@@ -5,7 +5,7 @@ from modular_sdk.services.tenant_service import TenantService
 
 from handlers import AbstractHandler, Mapping
 from helpers import flip_dict
-from helpers.constants import CustodianEndpoint, HTTPMethod
+from helpers.constants import Endpoint, HTTPMethod
 from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
 from services import SP
@@ -36,7 +36,7 @@ class RawReportHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.REPORTS_RAW_TENANTS_TENANT_NAME_STATE_LATEST: {
+            Endpoint.REPORTS_RAW_TENANTS_TENANT_NAME_STATE_LATEST: {
                 HTTPMethod.GET: self.get_by_tenant
             },
         }

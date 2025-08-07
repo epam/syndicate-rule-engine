@@ -10,9 +10,9 @@ from modular_sdk.commons.exception import ModularException
 from modular_sdk.services.customer_service import CustomerService
 
 from helpers import RequestContext, deep_get
-from helpers.constants import CAASEnv, CustodianEndpoint, HTTPMethod, Permission
+from helpers.constants import Env, Endpoint, HTTPMethod, Permission
 from helpers.lambda_response import (
-    CustodianException,
+    SREException,
     LambdaOutput,
     MetricsUpdateException,
     ResponseFactory,
@@ -56,7 +56,7 @@ class ProcessedEvent(TypedDict):
     kwargs and all the path params as other kwargs.
     """
     method: HTTPMethod
-    resource: CustodianEndpoint | None  # our resource if it can be matched: /jobs/{id}
+    resource: Endpoint | None  # our resource if it can be matched: /jobs/{id}
     path: str  # real path without stage: /jobs/123 or /jobs/123/
     fullpath: str  # full real path with stage /dev/jobs/123
     cognito_username: str | None
@@ -133,7 +133,7 @@ class ApiGatewayEventProcessor(AbstractEventProcessor):
     __slots__ = '_mapping',
     _decoder = msgspec.json.Decoder(type=dict)
 
-    def __init__(self, mapping: dict[tuple[CustodianEndpoint, HTTPMethod], Permission | None]):
+    def __init__(self, mapping: dict[tuple[Endpoint, HTTPMethod], Permission | None]):
         """
         :param mapping: permissions mapping. Currently, we have one inside
         validators.registry
@@ -193,7 +193,7 @@ class ApiGatewayEventProcessor(AbstractEventProcessor):
         rc = event.get('requestContext') or {}
         return {
             'method': (method := HTTPMethod(event['httpMethod'])),
-            'resource': (res := CustodianEndpoint.match(rc['resourcePath'])),
+            'resource': (res := Endpoint.match(rc['resourcePath'])),
             'path': event['path'],  # todo may be wrong if we use custom domain
             'fullpath': rc['path'],
             'cognito_username': deep_get(rc, ('authorizer', 'claims',
@@ -226,52 +226,52 @@ class RestrictCustomerEventProcessor(AbstractEventProcessor):
 
     # TODO organize this collection somehow else
     can_work_without_customer_id = {
-        (CustodianEndpoint.CUSTOMERS, HTTPMethod.GET),
+        (Endpoint.CUSTOMERS, HTTPMethod.GET),
 
-        (CustodianEndpoint.METRICS_UPDATE, HTTPMethod.POST),
-        (CustodianEndpoint.METRICS_STATUS, HTTPMethod.GET),
+        (Endpoint.METRICS_UPDATE, HTTPMethod.POST),
+        (Endpoint.METRICS_STATUS, HTTPMethod.GET),
 
-        (CustodianEndpoint.RULESETS, HTTPMethod.GET),
-        (CustodianEndpoint.RULESETS, HTTPMethod.POST),
-        (CustodianEndpoint.RULESETS, HTTPMethod.PATCH),
-        (CustodianEndpoint.RULESETS, HTTPMethod.DELETE),
-        (CustodianEndpoint.RULESETS_RELEASE, HTTPMethod.POST),
+        (Endpoint.RULESETS, HTTPMethod.GET),
+        (Endpoint.RULESETS, HTTPMethod.POST),
+        (Endpoint.RULESETS, HTTPMethod.PATCH),
+        (Endpoint.RULESETS, HTTPMethod.DELETE),
+        (Endpoint.RULESETS_RELEASE, HTTPMethod.POST),
 
-        (CustodianEndpoint.RULE_SOURCES_ID, HTTPMethod.GET),
-        (CustodianEndpoint.RULE_SOURCES, HTTPMethod.GET),
-        (CustodianEndpoint.RULE_SOURCES, HTTPMethod.POST),
-        (CustodianEndpoint.RULE_SOURCES_ID, HTTPMethod.DELETE),
-        (CustodianEndpoint.RULE_SOURCES_ID, HTTPMethod.PATCH),
-        (CustodianEndpoint.RULE_SOURCES_ID_SYNC, HTTPMethod.POST),
+        (Endpoint.RULE_SOURCES_ID, HTTPMethod.GET),
+        (Endpoint.RULE_SOURCES, HTTPMethod.GET),
+        (Endpoint.RULE_SOURCES, HTTPMethod.POST),
+        (Endpoint.RULE_SOURCES_ID, HTTPMethod.DELETE),
+        (Endpoint.RULE_SOURCES_ID, HTTPMethod.PATCH),
+        (Endpoint.RULE_SOURCES_ID_SYNC, HTTPMethod.POST),
 
-        (CustodianEndpoint.RULES, HTTPMethod.GET),
-        (CustodianEndpoint.RULES, HTTPMethod.DELETE),
-        (CustodianEndpoint.RULE_META_UPDATER, HTTPMethod.POST),
+        (Endpoint.RULES, HTTPMethod.GET),
+        (Endpoint.RULES, HTTPMethod.DELETE),
+        (Endpoint.RULE_META_UPDATER, HTTPMethod.POST),
 
-        (CustodianEndpoint.LICENSES_LICENSE_KEY_SYNC, HTTPMethod.POST),
+        (Endpoint.LICENSES_LICENSE_KEY_SYNC, HTTPMethod.POST),
 
-        (CustodianEndpoint.SETTINGS_MAIL, HTTPMethod.GET),
-        (CustodianEndpoint.SETTINGS_MAIL, HTTPMethod.POST),
-        (CustodianEndpoint.SETTINGS_MAIL, HTTPMethod.DELETE),
-        (CustodianEndpoint.SETTINGS_SEND_REPORTS, HTTPMethod.POST),
-        (CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CLIENT, HTTPMethod.POST),
-        (CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CLIENT, HTTPMethod.GET),
-        (CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CLIENT, HTTPMethod.DELETE),
-        (CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CONFIG, HTTPMethod.POST),
-        (CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CONFIG, HTTPMethod.GET),
-        (CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CONFIG, HTTPMethod.DELETE),
+        (Endpoint.SETTINGS_MAIL, HTTPMethod.GET),
+        (Endpoint.SETTINGS_MAIL, HTTPMethod.POST),
+        (Endpoint.SETTINGS_MAIL, HTTPMethod.DELETE),
+        (Endpoint.SETTINGS_SEND_REPORTS, HTTPMethod.POST),
+        (Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT, HTTPMethod.POST),
+        (Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT, HTTPMethod.GET),
+        (Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT, HTTPMethod.DELETE),
+        (Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG, HTTPMethod.POST),
+        (Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG, HTTPMethod.GET),
+        (Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG, HTTPMethod.DELETE),
 
-        (CustodianEndpoint.EVENT, HTTPMethod.POST),
+        (Endpoint.EVENT, HTTPMethod.POST),
 
-        (CustodianEndpoint.USERS_WHOAMI, HTTPMethod.GET),
-        (CustodianEndpoint.USERS_RESET_PASSWORD, HTTPMethod.POST),
-        (CustodianEndpoint.USERS, HTTPMethod.GET),
-        (CustodianEndpoint.USERS_USERNAME, HTTPMethod.PATCH),
-        (CustodianEndpoint.USERS_USERNAME, HTTPMethod.DELETE),
-        (CustodianEndpoint.USERS_USERNAME, HTTPMethod.GET),
+        (Endpoint.USERS_WHOAMI, HTTPMethod.GET),
+        (Endpoint.USERS_RESET_PASSWORD, HTTPMethod.POST),
+        (Endpoint.USERS, HTTPMethod.GET),
+        (Endpoint.USERS_USERNAME, HTTPMethod.PATCH),
+        (Endpoint.USERS_USERNAME, HTTPMethod.DELETE),
+        (Endpoint.USERS_USERNAME, HTTPMethod.GET),
 
-        (CustodianEndpoint.SCHEDULED_JOB, HTTPMethod.GET),
-        (CustodianEndpoint.SCHEDULED_JOB_NAME, HTTPMethod.GET)
+        (Endpoint.SCHEDULED_JOB, HTTPMethod.GET),
+        (Endpoint.SCHEDULED_JOB_NAME, HTTPMethod.GET)
     }
 
     def __init__(self, customer_service: CustomerService):
@@ -590,7 +590,7 @@ class EventProcessorLambdaHandler(AbstractLambdaHandler):
             #  from here
             _LOG.warning('Metrics update exception occurred', exc_info=True)
             raise e  # needed for ModularJobs to track failed jobs
-        except CustodianException as e:
+        except SREException as e:
             _LOG.warning(f'Application exception occurred: {e}')
             return e.build()
         except ModularException as e:

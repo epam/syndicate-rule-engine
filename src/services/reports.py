@@ -26,7 +26,7 @@ from modular_sdk.models.tenant import Tenant
 from helpers import deep_get, iter_key_values
 from helpers.constants import (
     COMPOUND_KEYS_SEPARATOR,
-    CAASEnv,
+    Env,
     Cloud,
     JobState,
     ReportType,
@@ -1346,7 +1346,7 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
         if length > self.payload_size_threshold:
             _LOG.info('Data exceeds threshold. Storing to S3')
             buf.seek(0)
-            bucket = CAASEnv.REPORTS_BUCKET_NAME.as_str()
+            bucket = Env.REPORTS_BUCKET_NAME.as_str()
             key = ReportMetricsBucketKeysBuilder.metrics_key(item)
             self._s3.put_object(
                 bucket=bucket,

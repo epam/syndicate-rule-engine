@@ -25,7 +25,7 @@ from handlers.tenant_handler import TenantHandler
 from handlers.resource_handler import ResourceHandler
 from helpers.constants import (
     CUSTOMER_ATTR,
-    CustodianEndpoint,
+    Endpoint,
     GIT_PROJECT_ID_ATTR,
     HTTPMethod,
     LambdaName,
@@ -101,10 +101,10 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
     @cached_property
     def mapping(self):
         res = {
-            CustodianEndpoint.RULE_META_UPDATER: {
+            Endpoint.RULE_META_UPDATER: {
                 HTTPMethod.POST: self.invoke_rule_meta_updater
             },
-            CustodianEndpoint.METRICS_UPDATE: {
+            Endpoint.METRICS_UPDATE: {
                 HTTPMethod.POST: self.update_metrics
             },
         }

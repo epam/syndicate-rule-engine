@@ -2,7 +2,7 @@ from modular_sdk.models.pynamongo.attributes import BinaryAttribute
 from pynamodb.attributes import UnicodeAttribute, MapAttribute, BooleanAttribute
 from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
-from helpers.constants import CAASEnv
+from helpers.constants import Env
 from helpers.time_helper import utc_iso
 from models import BaseSafeUpdateModel
 
@@ -34,8 +34,8 @@ class ScheduledJob(BaseSafeUpdateModel):
     """
 
     class Meta:
-        table_name = 'CaaSScheduledJobs'
-        region = CAASEnv.AWS_REGION.get()
+        table_name = 'SREScheduledJobs'
+        region = Env.AWS_REGION.get()
 
     id = UnicodeAttribute(hash_key=True, attr_name='id')
     typ = UnicodeAttribute(attr_name='t')

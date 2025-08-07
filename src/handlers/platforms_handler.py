@@ -7,7 +7,7 @@ from modular_sdk.services.application_service import ApplicationService
 from modular_sdk.services.tenant_service import TenantService
 
 from handlers import AbstractHandler, Mapping
-from helpers.constants import CustodianEndpoint, HTTPMethod
+from helpers.constants import Endpoint, HTTPMethod
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
 from services import SP
@@ -50,11 +50,11 @@ class PlatformsHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.PLATFORMS_K8S: {
+            Endpoint.PLATFORMS_K8S: {
                 HTTPMethod.POST: self.post_k8s,
                 HTTPMethod.GET: self.list_k8s,
             },
-            CustodianEndpoint.PLATFORMS_K8S_ID: {
+            Endpoint.PLATFORMS_K8S_ID: {
                 HTTPMethod.GET: self.get_k8s,
                 HTTPMethod.DELETE: self.delete_k8s
             }

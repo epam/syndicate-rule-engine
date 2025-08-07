@@ -3,7 +3,7 @@ from http import HTTPStatus
 from modular_sdk.services.customer_service import CustomerService
 
 from handlers import AbstractHandler, Mapping
-from helpers.constants import CustodianEndpoint, HTTPMethod
+from helpers.constants import Endpoint, HTTPMethod
 from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
 from helpers.system_customer import SystemCustomer
@@ -33,7 +33,7 @@ class ReportsSendingSettingHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.SETTINGS_SEND_REPORTS: {
+            Endpoint.SETTINGS_SEND_REPORTS: {
                 HTTPMethod.POST: self.post
             }
         }
@@ -48,7 +48,7 @@ class ReportsSendingSettingHandler(AbstractHandler):
 
     @staticmethod
     def build_retry_event() -> dict:
-        res = CustodianEndpoint.REPORTS_RETRY.value
+        res = Endpoint.REPORTS_RETRY.value
         return {
             'resource': res,
             'path': res,

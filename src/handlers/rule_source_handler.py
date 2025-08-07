@@ -3,7 +3,7 @@ from http import HTTPStatus
 from handlers import AbstractHandler, Mapping
 from helpers import NextToken
 from helpers.constants import (
-    CustodianEndpoint,
+    Endpoint,
     HTTPMethod,
     RuleSourceSyncingStatus,
     LambdaName
@@ -47,16 +47,16 @@ class RuleSourceHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.RULE_SOURCES: {
+            Endpoint.RULE_SOURCES: {
                 HTTPMethod.GET: self.list_rule_sources,
                 HTTPMethod.POST: self.create_rule_source,
             },
-            CustodianEndpoint.RULE_SOURCES_ID: {
+            Endpoint.RULE_SOURCES_ID: {
                 HTTPMethod.GET: self.get_rule_source,
                 HTTPMethod.DELETE: self.delete_rule_source,
                 HTTPMethod.PATCH: self.update_rule_source,
             },
-            CustodianEndpoint.RULE_SOURCES_ID_SYNC: {
+            Endpoint.RULE_SOURCES_ID_SYNC: {
                 HTTPMethod.POST: self.sync_rule_source
             }
         }

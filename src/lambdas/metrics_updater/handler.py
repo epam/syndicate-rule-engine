@@ -3,14 +3,14 @@ from http import HTTPStatus
 from modular_sdk.commons.trace_helper import tracer_decorator
 
 from helpers.lambda_response import (
-    CustodianException,
+    SREException,
     MetricsUpdateException,
     ResponseFactory,
     build_response,
 )
-from lambdas.custodian_metrics_updater.processors.findings_processor import \
+from lambdas.metrics_updater.processors.findings_processor import \
     FindingsUpdater
-from lambdas.custodian_metrics_updater.processors.metrics_collector import \
+from lambdas.metrics_updater.processors.metrics_collector import \
     MetricsCollector
 from services import SERVICE_PROVIDER
 from services.abs_lambda import EventProcessorLambdaHandler
@@ -42,7 +42,7 @@ class MetricsUpdater(EventProcessorLambdaHandler):
                 ).exc()
         try:
             handler()
-        except CustodianException as e:
+        except SREException as e:
             resp = e.response
             raise MetricsUpdateException(
                 response=ResponseFactory(resp.code).message(

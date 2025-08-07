@@ -15,7 +15,7 @@ from handlers import AbstractHandler, Mapping
 from helpers import map_by
 from helpers.constants import (
     Cloud,
-    CustodianEndpoint,
+    Endpoint,
     HTTPMethod,
     RabbitCommand,
     ReportType,
@@ -759,16 +759,16 @@ class HighLevelReportsHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.REPORTS_CLEVEL: {
+            Endpoint.REPORTS_CLEVEL: {
                 HTTPMethod.POST: self.post_c_level
             },
-            CustodianEndpoint.REPORTS_PROJECT: {
+            Endpoint.REPORTS_PROJECT: {
                 HTTPMethod.POST: self.post_project
             },
-            CustodianEndpoint.REPORTS_DEPARTMENT: {
+            Endpoint.REPORTS_DEPARTMENT: {
                 HTTPMethod.POST: self.post_department
             },
-            CustodianEndpoint.REPORTS_OPERATIONAL: {
+            Endpoint.REPORTS_OPERATIONAL: {
                 HTTPMethod.POST: self.post_operational
             },
         }

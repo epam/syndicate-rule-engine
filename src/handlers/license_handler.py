@@ -12,7 +12,7 @@ from modular_sdk.services.parent_service import ParentService
 
 from handlers import AbstractHandler, Mapping
 from helpers.constants import (
-    CustodianEndpoint,
+    Endpoint,
     HTTPMethod,
 )
 from helpers.lambda_response import ResponseFactory, build_response
@@ -76,21 +76,21 @@ class LicenseHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.LICENSES: {
+            Endpoint.LICENSES: {
                 HTTPMethod.POST: self.post_license,
                 HTTPMethod.GET: self.query_licenses
             },
-            CustodianEndpoint.LICENSES_LICENSE_KEY: {
+            Endpoint.LICENSES_LICENSE_KEY: {
                 HTTPMethod.GET: self.get_license,
                 HTTPMethod.DELETE: self.delete_license
             },
-            CustodianEndpoint.LICENSE_LICENSE_KEY_ACTIVATION: {
+            Endpoint.LICENSE_LICENSE_KEY_ACTIVATION: {
                 HTTPMethod.PUT: self.activate_license,
                 HTTPMethod.PATCH: self.update_activation,
                 HTTPMethod.DELETE: self.deactivate_license,
                 HTTPMethod.GET: self.get_activation
             },
-            CustodianEndpoint.LICENSES_LICENSE_KEY_SYNC: {
+            Endpoint.LICENSES_LICENSE_KEY_SYNC: {
                 HTTPMethod.POST: self.license_sync
             },
         }

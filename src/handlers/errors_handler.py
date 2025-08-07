@@ -6,7 +6,7 @@ from xlsxwriter import Workbook
 from xlsxwriter.worksheet import Worksheet
 
 from handlers import AbstractHandler, Mapping
-from helpers.constants import CustodianEndpoint, HTTPMethod, ReportFormat
+from helpers.constants import Endpoint, HTTPMethod, ReportFormat
 from helpers.lambda_response import build_response
 from services import SP
 from services.ambiguous_job_service import AmbiguousJobService
@@ -65,7 +65,7 @@ class ErrorsReportHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.REPORTS_ERRORS_JOBS_JOB_ID: {
+            Endpoint.REPORTS_ERRORS_JOBS_JOB_ID: {
                 HTTPMethod.GET: self.get_by_job
             }
         }
