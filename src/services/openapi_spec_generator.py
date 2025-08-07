@@ -51,10 +51,11 @@ class EndpointInfo:
     """
     Just container for data
     """
-    __slots__ = ('path', 'method', 'summary', 'description', 'request_model',
+    __slots__ = ('path', 'method', 'lambda_name','summary', 'description', 'request_model',
                  'responses', 'auth', 'tags', 'permission')
 
     def __init__(self, path: str | Enum, method: HTTPMethod,
+                 lambda_name: str | Enum,
                  summary: str | None = None,
                  description: str | None = None,
                  request_model: type[BaseModel] | None = None,
@@ -65,6 +66,7 @@ class EndpointInfo:
 
         :param path:
         :param method:
+        :param lambda_name:
         :param summary:
         :param description:
         :param request_model:
@@ -75,6 +77,7 @@ class EndpointInfo:
         """
         self.path: str = path.value if isinstance(path, Enum) else path
         self.method: HTTPMethod = method
+        self.lambda_name: str = lambda_name.value if isinstance(lambda_name, Enum) else lambda_name
         self.summary: str | None = summary
         self.description: str | None = description
         self.request_model: type[BaseModel] | None = request_model

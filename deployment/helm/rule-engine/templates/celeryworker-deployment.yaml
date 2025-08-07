@@ -9,6 +9,8 @@ metadata:
     helm.sh/chart: {{ include "rule-engine.chart" . }}
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "rule-engine.name" . }}-celeryworker
@@ -41,9 +43,9 @@ spec:
           image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
           resources:
             limits:
-              memory: "1.5Gi"
+              memory: "{{ .Values.celery.workerMemoryLimit }}"
             requests:
-              memory: "0.5Gi"
+              memory: "{{ .Values.celery.workerMemoryRequest }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             runAsNonRoot: true

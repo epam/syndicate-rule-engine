@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - changed operational resources to correspond to overview
 - added `GET /resources` and `GET /resources/arn/{arn}` endpoints to retrieve resources with optional filtering and pagination.
 - added `ResourceCollector` class for retrieving resources using Cloud Custodian filters.
+- updated `c7n` to 0.9.46
+- filter out deprecated rules when generating reports
 
 
 ## [5.11.0] - 2025-06-13

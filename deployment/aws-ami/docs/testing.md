@@ -299,3 +299,31 @@ sre-init backup restore --name main
 ```
 
 ## Troubleshooting
+
+### Resetting cached rules metadata for Rule Engine AMI
+
+Metadata is cached for some time and will eventually be rotated automatically.
+The default expiration period is 7 days. If you want to reset it manually for 
+testing purposes, you can use commands:
+
+```bash
+ssh admin@$INSTANCE_IP
+```
+
+Use the following command to get minio `$SECRET_KEY`
+```bash
+kubectl get secrets minio-secret -o json | jq -r '.data.password' | base64 -d
+```
+
+```bash
+kubectl exec -it deployment/minio -- bash
+```
+```bash
+mc alias set sre http://localhost:9000 miniouser $SECRET_KEY
+```
+
+```bash
+mc rm -r sre/reports/meta
+```
+
+After these steps new metadata will be requested from LM on demand

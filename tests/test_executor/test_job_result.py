@@ -25,7 +25,7 @@ def test_adjust_resource_type():
 def test_rules_meta_aws(aws_scan_result: Path, load_expected):
     item = JobResult(aws_scan_result, Cloud.AWS)
     meta = item.rules_meta()
-    assert len(meta) == 14  # that is a number of unique rules in our stubs
+    assert len(meta) == 15  # that is a number of unique rules in our stubs
     assert meta == load_expected('aws_rules_meta')
 
 
@@ -44,16 +44,17 @@ def test_statistics_aws(aws_tenant, aws_scan_result, load_expected):
         ),
     }
     stats = item.statistics(aws_tenant, failed)
-    assert len(stats) == 15
+    assert len(stats) == 16
     def k(i):
         return i['policy'], i['region']
+    print(sorted(stats, key=k))
     assert sorted(stats, key=k) == sorted(load_expected('aws_job_statistics'), key=k)
 
 
 def test_iter_shard_parts_aws(aws_scan_result):
     item = JobResult(aws_scan_result, Cloud.AWS)
     parts = tuple(item.iter_shard_parts({}))
-    assert len(parts) == 19
+    assert len(parts) == 23
     dct = {}
     for part in parts:
         dct[(part.location, part.policy)] = part

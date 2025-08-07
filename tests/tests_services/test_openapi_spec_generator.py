@@ -32,6 +32,7 @@ def test_generate():
             EndpointInfo(
                 path='/users/{id}',
                 method=HTTPMethod.GET,
+                lambda_name='caas-api-handler',
                 summary='Get a specific user',
                 description='long description',
                 responses=[(HTTPStatus.OK, User, 'User model'),
@@ -41,6 +42,7 @@ def test_generate():
             EndpointInfo(
                 path='/users',
                 method=HTTPMethod.GET,
+                lambda_name='caas-api-handler',
                 summary='List all users',
                 description='long description',
                 request_model=UsersList,
@@ -50,6 +52,7 @@ def test_generate():
             EndpointInfo(
                 path='/users',
                 method=HTTPMethod.POST,
+                lambda_name='caas-api-handler',
                 summary='user-summary',
                 description='user-description',
                 request_model=User,

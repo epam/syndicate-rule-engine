@@ -168,6 +168,7 @@ from helpers.constants import (
     JobState,
     PlatformType,
     PolicyErrorType,
+    DEPRECATED_RULE_SUFFIX
 )
 from helpers.log_helper import get_logger
 from helpers.regions import AWS_REGIONS
@@ -466,6 +467,12 @@ class PoliciesLoader:
         # here we should probably validate schema, but it's too time-consuming
         provider_policies = defaultdict(list)
         for policy in policies:
+            # if policy['name'].endswith(DEPRECATED_RULE_SUFFIX):
+            #     _LOG.warning(
+            #         f'Policy {policy["name"]} is deprecated. '
+            #         'Skipping'
+            #     )
+            #     continue
             try:
                 pol = Policy(policy, options)
             except PolicyValidationError:

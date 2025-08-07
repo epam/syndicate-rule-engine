@@ -37,6 +37,11 @@ spec:
         - name: minio
           image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          resources:
+            requests:
+              memory: "{{ .Values.memoryRequest }}"
+            limits:
+              memory: "{{ .Values.memoryLimit }}"
           livenessProbe:
             httpGet:
               path: /minio/health/live

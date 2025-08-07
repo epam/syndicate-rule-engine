@@ -3,8 +3,8 @@
     "admin@gmail.com"
   ],
   "customer": "TEST_CUSTOMER",
-  "from": "2025-01-01T00:00:00Z",
-  "to": "2025-02-01T00:00:00Z",
+  "from": "2025-06-01T00:00:00Z",
+  "to": "2025-07-01T00:00:00Z",
   "outdated_tenants": [],
   "externalData": false,
   "data": {
@@ -12,33 +12,33 @@
       "failed_scans": {
         "value": 1
       },
-      "last_scan_date": "2025-02-01T00:17:25.830309Z",
+      "last_scan_date": "2025-07-28T00:59:27.298066Z",
       "resources_violated": {
         "value": 23
       },
       "resource_types_data": {
-        "Security Group": {
+        "aws.security-group": {
           "value": 3
         },
-        "Sns": {
+        "aws.sns": {
           "value": 3
         },
-        "S3": {
+        "aws.s3": {
           "value": 7
         },
-        "Cloudtrail": {
+        "aws.cloudtrail": {
           "value": 1
         },
-        "Iam Group": {
+        "aws.iam-group": {
           "value": 3
         },
-        "Ebs": {
+        "aws.ebs": {
           "value": 2
         },
-        "Ec2": {
+        "aws.ec2": {
           "value": 2
         },
-        "Ecr": {
+        "aws.ecr": {
           "value": 2
         }
       },
@@ -69,12 +69,12 @@
       "failed_scans": {
         "value": 1
       },
-      "last_scan_date": "2025-02-01T00:17:25.830309Z",
+      "last_scan_date": "2025-07-28T00:59:27.298066Z",
       "resources_violated": {
         "value": 5
       },
       "resource_types_data": {
-        "Defender Pricing": {
+        "azure.defender-pricing": {
           "value": 5
         }
       },
@@ -105,18 +105,18 @@
       "failed_scans": {
         "value": 1
       },
-      "last_scan_date": "2025-02-01T00:17:25.830309Z",
+      "last_scan_date": "2025-07-28T00:59:27.298066Z",
       "resources_violated": {
         "value": 9
       },
       "resource_types_data": {
-        "Vpc": {
+        "gcp.vpc": {
           "value": 1
         },
-        "Firewall": {
+        "gcp.firewall": {
           "value": 4
         },
-        "Subnet": {
+        "gcp.subnet": {
           "value": 4
         }
       },

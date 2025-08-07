@@ -3,4 +3,4 @@ appVersion: "RELEASE.2025-05-24T17-08-30Z"
 description: A Helm chart for MinIO
 name: minio
 type: application
-version: "1.2.0"
+version: "1.3.0"

@@ -3,8 +3,8 @@
     "admin@gmail.com"
   ],
   "customer": "TEST_CUSTOMER",
-  "from": "2025-07-13T14:23:18.350872Z",
-  "to": "2025-07-14T14:23:18.350872Z",
+  "from": "2025-07-31T11:48:41.606029Z",
+  "to": "2025-08-01T11:48:41.606029Z",
   "outdated_tenants": [],
   "externalData": false,
   "data": {
@@ -150,7 +150,7 @@
         "policy": "Description for ecc-aws-150-api_gateway_rest_api_encryption_at_rest",
         "region": "eu-central-1",
         "resource_type": "aws.rest-stage",
-        "service": "Rest Stage",
+        "service": "Security Group",
         "severity": "Unknown",
         "invocations": 1,
         "succeeded_invocations": 1,
@@ -331,5 +331,5 @@
     "eu-west-1",
     "eu-west-3"
   ],
-  "last_scan_date": "2025-07-14T00:20:39.006558Z"
+  "last_scan_date": "2025-08-01T00:46:28.310337Z"
 }
