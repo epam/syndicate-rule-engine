@@ -1,11 +1,10 @@
 from pathlib import Path
-from typing import Generator, Iterable, TypedDict
+from typing import Generator, TypedDict
 
 import msgspec
 from modular_sdk.models.tenant import Tenant
 
-from executor.helpers.constants import AWS_DEFAULT_REGION
-from helpers.constants import GLOBAL_REGION, Cloud, PolicyErrorType
+from helpers.constants import Cloud, PolicyErrorType
 from helpers.log_helper import get_logger
 from services.sharding import RuleMeta, ShardPart
 
@@ -147,78 +146,6 @@ class JobResult:
                     resources = [] if self._resources_exist(rule) else None
                 yield region.name, rule.name, metadata, resources
 
-    @staticmethod
-    def resolve_azure_locations(
-        it: Iterable[RegionRuleOutput],
-    ) -> Generator[RegionRuleOutput, None, None]:
-        """
-        The thing is: Custodian Custom Core cannot scan Azure
-        region-dependently. A rule covers the whole subscription and then
-        each found resource has 'location' field with its real location.
-        In order to adhere to AWS logic, when a user wants to receive
-        reports only for regions he activated, we need to filter out only
-        appropriate resources.
-        """
-        for _, rule, metadata, resources in it:
-            if resources is None or not resources:
-                yield GLOBAL_REGION, rule, metadata, resources
-                continue
-            # resources exist
-            _loc_res = {}
-            for res in resources:
-                loc = res.get('location') or GLOBAL_REGION
-                _loc_res.setdefault(loc, []).append(res)
-            for loc, res in _loc_res.items():
-                yield loc, rule, metadata, res
-
-    @staticmethod
-    def resolve_aws_s3_location_constraint(
-        it: Iterable[RegionRuleOutput],
-    ) -> Generator[RegionRuleOutput, None, None]:
-        for region, rule, metadata, resources in it:
-            if resources is None or not resources:
-                yield region, rule, metadata, resources
-                continue
-            if metadata.resource_type not in ('s3', 'aws.s3'):
-                yield region, rule, metadata, resources
-                continue
-            _region_buckets = {}
-            for bucket in resources:
-                # LocationConstraint is None if region is us-east-1
-                r = (
-                    bucket.get('Location', {}).get('LocationConstraint')
-                    or AWS_DEFAULT_REGION
-                )
-                _region_buckets.setdefault(r, []).append(bucket)
-            for r, buckets in _region_buckets.items():
-                yield r, rule, metadata, buckets
-
-    @staticmethod
-    def resolve_google_location_id(
-        it: Iterable[RegionRuleOutput],
-    ) -> Generator[RegionRuleOutput, None, None]:
-        for region, rule, metadata, resources in it:
-            if resources is None or not resources:
-                yield region, rule, metadata, resources
-                continue
-            _loc_res = {}
-            for res in resources:
-                loc = res.get('locationId') or GLOBAL_REGION
-                _loc_res.setdefault(loc, []).append(res)
-            for loc, res in _loc_res.items():
-                yield loc, rule, metadata, res
-
-    def build_default_iterator(self) -> Iterable[RegionRuleOutput]:
-        it = self.iter_raw(with_resources=True)
-        if self._cloud == Cloud.AZURE:
-            it = self.resolve_azure_locations(it)
-        elif self._cloud == Cloud.AWS:
-            it = self.resolve_aws_s3_location_constraint(it)
-        # can be handled here or later, but will require a path of here
-        # elif self._cloud == Cloud.GOOGLE:
-        #     it = self.resolve_google_location_id(it)
-        return it
-
     def statistics(self, tenant: Tenant, failed: dict) -> list[dict]:
         """
         :param tenant:
@@ -259,7 +186,7 @@ class JobResult:
     def iter_shard_parts(
         self, failed: dict
     ) -> Generator[ShardPart, None, None]:
-        for region, rule, metadata, resources in self.build_default_iterator():
+        for region, rule, metadata, resources in self.iter_raw(with_resources=True):
             if resources is None:
                 # policy error occurred
                 if er := failed.get((region, rule)):
