@@ -798,7 +798,7 @@ class GCPRunner(Runner):
     def _handle_errors(self, policy: Policy):
         try:
             policy()
-            self.n_successful = 1
+            self.n_successful += 1
         except GoogleAuthError as error:
             error_reason = str(error.args[-1])
             _LOG.warning(
