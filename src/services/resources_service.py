@@ -62,7 +62,7 @@ class ResourcesService(BaseDataService[Resource]):
         collector_type: ResourcesCollectorType,
         tenant_name: str,
         customer_name: str,
-    ):
+    ) -> Resource:
         return Resource(
             account_id=account_id,
             location=location,
@@ -87,10 +87,8 @@ class ResourcesService(BaseDataService[Resource]):
         )
 
     def get_resource_by_arn(self, arn: str) -> Resource | None:
-        # NOTE: it's not actual scan, we use sparse index in mongo
-        res = list(Resource.scan(Resource.arn == arn, limit=1))
-
-        return res[0] if res else None
+        res = Resource.arn_index.query(arn, limit=1)
+        return next(res, None)
 
     def get_resources(
         self,

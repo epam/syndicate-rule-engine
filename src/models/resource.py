@@ -72,7 +72,7 @@ class Resource(BaseModel):
     name = UnicodeAttribute(
         attr_name='n', null=True
     )  # human-readable name if available
-    # ARN for AWS, URN for GOOGLE and ID for AZURE
+    # ARN for AWS, URN for GOOGLE and ID for AZURE or K8S
     arn = UnicodeAttribute(attr_name='arn', null=True)
 
     _data = MapAttribute(default=dict, attr_name='d')

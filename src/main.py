@@ -294,6 +294,7 @@ class InitMongo(ActionHandler):
         _LOG.debug('Going to sync indexes with code')
         from models import PynamoDBToPymongoAdapterSingleton, BaseModel
         from models.resource import create_resources_indexes
+        from models.resource_exception import create_resource_exceptions_indexes
 
         if not BaseModel.is_mongo_model():
             _LOG.warning('Cannot create indexes for DynamoDB')
@@ -308,6 +309,10 @@ class InitMongo(ActionHandler):
         
         _LOG.info('Syncing indexes for SREResources')
         create_resources_indexes(
+            PynamoDBToPymongoAdapterSingleton.get_instance().mongo_database
+        )
+        _LOG.info('Syncing indexes for SREResourceExceptions')
+        create_resource_exceptions_indexes(
             PynamoDBToPymongoAdapterSingleton.get_instance().mongo_database
         )
 

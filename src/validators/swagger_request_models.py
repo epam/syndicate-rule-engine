@@ -33,10 +33,11 @@ from helpers.constants import (
     GITLAB_API_URL_DEFAULT,
     PolicyEffect,
     ReportType,
-    Env
+    Env,
+    TAGS_KEY_VALUE_SEPARATOR,
 )
 from helpers import Version
-from helpers.regions import AllRegions, AllRegionsWithGlobal, get_region_by_cloud
+from helpers.regions import AllRegions, AllRegionsWithGlobal
 from helpers.time_helper import utc_datetime
 from services.chronicle_service import ChronicleConverterType
 from services.ruleset_service import RulesetName
@@ -172,6 +173,124 @@ class ResourcesGetModel(BasePaginationModel):
 
 class ResourcesArnGetModel(BaseModel):
     arn: str
+
+
+
+class ResourcesExceptionsGetModel(BasePaginationModel):
+    tenant_name: str = Field(None)
+    customer_name: str = Field(None)
+    resource_type: str = Field(
+        None,
+        description='Cloud Custodian resource type with or without cloud prefix, e.g. aws.ec2 or ec2',
+    )
+    location: str = Field(
+        None,
+        description='Location of the resource, e.g. us-east-1, eastus, europe-west1, etc.',
+    )
+    resource_id: str = Field(None)
+    arn: str = Field(
+        None, description='ARN for AWS, URN for GOOGLE and ID for AZURE or K8S'
+    )
+    tags_filters: list[str] = Field(
+        None,
+        description='List of tags to filter resources by.',
+        examples=[['tag1=value1', 'tag2=value2']],
+    )
+
+    @field_validator('tags_filters', mode='after')
+    @classmethod
+    def validate_tags_filters(
+        cls, value: list[str] | None
+    ) -> list[str] | None:
+        if value and not all(
+            len(tag.split(TAGS_KEY_VALUE_SEPARATOR)) == 2 for tag in value
+        ):
+            raise ValueError(
+                f'All tags must be strings in the format key{TAGS_KEY_VALUE_SEPARATOR}value'
+            )
+        return value
+
+    @model_validator(mode='after')
+    def validate_arn_and_params(self) -> Self:
+        if self.arn and (
+            self.tenant_name
+            or self.location
+            or self.resource_type
+            or self.resource_id
+            or self.tags_filters
+        ):
+            raise ValueError(
+                'ARN is provided, so tenant_name, location, resource_type, resource_id, and tags_filters should not be specified'
+            )
+
+        return self
+
+class ResourcesExceptionsPostModel(BaseModel):
+    tenant_name: str
+    location: str | None = Field(None)
+    resource_type: str | None = Field(None)
+    resource_id: str | None = Field(None)
+    arn: str | None = Field(
+        None, description='ARN for AWS, URN for GOOGLE and ID for AZURE or K8S'
+    )
+    tags_filters: list[str] | None = Field(
+        None,
+        description='List of tags to filter resources by.',
+        examples=[['tag1=value1', 'tag2=value2']],
+    )
+    expire_at: datetime | date = Field(
+        default=datetime.now() + timedelta(days=1),
+        description='Expiration date of the exception',
+    )
+
+    @field_validator('expire_at', mode='after')
+    @classmethod
+    def validate_expire_at(cls, value: datetime | date) -> datetime | date:
+        if value < datetime.now(timezone.utc):
+            raise ValueError('Expiration date must be in the future')
+        if value > datetime.now(timezone.utc) + timedelta(
+            days=Env.RESOURCES_EXCEPTIONS_MAX_EXPIRATION_DAYS.as_int()
+        ):
+            raise ValueError(
+                f'Expiration date must be within {Env.RESOURCES_EXCEPTIONS_MAX_EXPIRATION_DAYS.as_int()} days from now'
+            )
+        return value
+
+    @field_validator('tags_filters', mode='after')
+    @classmethod
+    def validate_tags_filters(
+        cls, value: list[str] | None
+    ) -> list[str] | None:
+        if value and not all(
+            len(tag.split(TAGS_KEY_VALUE_SEPARATOR)) == 2 for tag in value
+        ):
+            raise ValueError(
+                f'All tags must be strings in the format key{TAGS_KEY_VALUE_SEPARATOR}value'
+            )
+        return value
+
+    @model_validator(mode='after')
+    def validate_arn_and_params(self) -> Self:
+        if self.arn and (
+            self.location
+            or self.resource_type
+            or self.resource_id
+            or self.tags_filters
+        ):
+            raise ValueError(
+                'ARN is provided, so tenant_name, location, resource_type, resource_id, and tags_filters should not be specified'
+            )
+        if (not self.arn
+            and not self.location
+            and not self.resource_type
+            and not self.resource_id
+            and not self.tags_filters
+        ):
+            raise ValueError(
+                'At least one of ARN, tenant_name, location, resource_type, resource_id, or tags_filters must be specified'
+            )
+
+        return self
 
 
 class CustomerGetModel(BaseModel):

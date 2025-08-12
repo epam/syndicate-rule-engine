@@ -90,7 +90,9 @@ from validators.swagger_request_models import (
     UserPostModel,
     UserResetPasswordModel,
     ResourcesGetModel,
-    ResourcesArnGetModel
+    ResourcesArnGetModel,
+    ResourcesExceptionsGetModel,
+    ResourcesExceptionsPostModel
 )
 from validators.swagger_response_models import (
     CredentialsActivationModel,
@@ -125,6 +127,7 @@ from validators.swagger_response_models import (
     MultipleTenantsModel,
     MultipleUsersModel,
     MultipleResourcesModel,
+    MultipleResourcesExceptionsModel,
     RawReportModel,
     RulesReportModel,
     SignInModel,
@@ -156,7 +159,8 @@ from validators.swagger_response_models import (
     SingleTenantExcludedRules,
     SingleTenantsModel,
     SingleUserModel,
-    SingleResourceModel
+    SingleResourceModel,
+    SingleResourceExceptionModel
 )
 
 
@@ -333,6 +337,53 @@ data: tuple[EndpointInfo, ...] = (
         responses=[(HTTPStatus.OK, SingleResourceModel, None)],
         permission=Permission.RESOURCES_GET,
         description='Allows to get a resource by its ARN'
+    ),
+
+    # resources exceptions
+    EndpointInfo(
+        path=Endpoint.RESOURCES_EXCEPTIONS,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
+        request_model=ResourcesExceptionsGetModel,
+        responses=[(HTTPStatus.OK, MultipleResourcesExceptionsModel, None)],
+        permission=Permission.RESOURCES_EXCEPTIONS_GET,
+        description='Allows to get resource exceptions'
+    ),
+    EndpointInfo(
+        path=Endpoint.RESOURCES_EXCEPTIONS,
+        method=HTTPMethod.POST,
+        lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
+        request_model=ResourcesExceptionsPostModel,
+        responses=[(HTTPStatus.CREATED, SingleResourceExceptionModel, None)],
+        permission=Permission.RESOURCES_EXCEPTIONS_CREATE,
+        description='Allows to create a resource exception'
+    ),
+    EndpointInfo(
+        path=Endpoint.RESOURCES_EXCEPTIONS_ID,
+        method=HTTPMethod.PUT,
+        lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
+        request_model=ResourcesExceptionsPostModel,
+        responses=[(HTTPStatus.OK, SingleResourceExceptionModel, None)],
+        permission=Permission.RESOURCES_EXCEPTIONS_UPDATE,
+        description='Allows to update a resource exception'
+    ),
+    EndpointInfo(
+        path=Endpoint.RESOURCES_EXCEPTIONS_ID,
+        method=HTTPMethod.DELETE,
+        lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
+        request_model=BaseModel,
+        responses=[(HTTPStatus.NO_CONTENT, None, None)],
+        permission=Permission.RESOURCES_EXCEPTIONS_DELETE,
+        description='Allows to delete a resource exception'
+    ),
+    EndpointInfo(
+        path=Endpoint.RESOURCES_EXCEPTIONS_ID,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
+        request_model=ResourcesExceptionsGetModel,
+        responses=[(HTTPStatus.OK, SingleResourceExceptionModel, None)],
+        permission=Permission.RESOURCES_EXCEPTIONS_GET,
+        description='Allows to get a resource exception by ID'
     ),
 
     # customers

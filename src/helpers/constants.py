@@ -77,12 +77,14 @@ class Endpoint(str, Enum):
     TENANTS_TENANT_NAME = '/tenants/{tenant_name}'
     USERS_RESET_PASSWORD = '/users/reset-password'
     REPORTS_EVENT_DRIVEN = '/reports/event_driven'
+    RESOURCES_EXCEPTIONS = '/resources/exceptions'
     RULE_SOURCES_ID_SYNC = '/rule-sources/{id}/sync'
     LICENSES_LICENSE_KEY = '/licenses/{license_key}'
     SETTINGS_SEND_REPORTS = '/settings/send_reports'
     PLATFORMS_K8S_ID = '/platforms/k8s/{platform_id}'
     INTEGRATIONS_CHRONICLE = '/integrations/chronicle'
     CREDENTIALS_ID_BINDING = '/credentials/{id}/binding'
+    RESOURCES_EXCEPTIONS_ID = '/resources/exceptions/{id}'
     CUSTOMERS_EXCLUDED_RULES = '/customers/excluded-rules'
     INTEGRATIONS_DEFECT_DOJO = '/integrations/defect-dojo'
     REPORTS_PUSH_DOJO_JOB_ID = '/reports/push/dojo/{job_id}'
@@ -641,13 +643,20 @@ class Env(EnvEnum):
 
     # Cloud Custodian
     CC_LOG_LEVEL = 'SRE_CC_LOG_LEVEL', (), 'INFO'
-    ENABLE_CUSTOM_CC_PLUGINS = 'SRE_ENABLE_CUSTOM_CC_PLUGINS', (),
+    ENABLE_CUSTOM_CC_PLUGINS = 'SRE_ENABLE_CUSTOM_CC_PLUGINS', ()
 
     # Dojo
-    DOJO_PAYLOAD_SIZE_LIMIT_BYTES = 'SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES', (),
+    DOJO_PAYLOAD_SIZE_LIMIT_BYTES = 'SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES', ()
 
     # Metrics
-    METRICS_EXPIRATION_DAYS = 'SRE_METRICS_EXPIRATION_DAYS', (),
+    METRICS_EXPIRATION_DAYS = 'SRE_METRICS_EXPIRATION_DAYS', ()
+
+    # Resources Exceptions
+    RESOURCES_EXCEPTIONS_MAX_EXPIRATION_DAYS = (
+        'SRE_RESOURCES_EXCEPTIONS_MAX_EXPIRATION_DAYS',
+        (),
+        '90',
+    )
 
     @classmethod
     def is_docker(cls) -> bool:
@@ -876,6 +885,11 @@ class Permission(str, Enum):
 
     RESOURCES_GET = 'resources:get'
 
+    RESOURCES_EXCEPTIONS_GET = 'resources_exceptions:get'
+    RESOURCES_EXCEPTIONS_CREATE = 'resources_exceptions:create'
+    RESOURCES_EXCEPTIONS_UPDATE = 'resources_exceptions:update'
+    RESOURCES_EXCEPTIONS_DELETE = 'resources_exceptions:delete'
+
     @classmethod
     def iter_enabled(cls) -> Iterator[Self]:
         """
@@ -1012,6 +1026,7 @@ START_DATE = 'start_date'
 ARTICLE_ATTR = 'article'
 
 COMPOUND_KEYS_SEPARATOR = '#'
+TAGS_KEY_VALUE_SEPARATOR = '='
 
 
 class RuleSourceType(str, Enum):
@@ -1360,7 +1375,7 @@ LATEST_VERSION_TAG = ':'  # ':' > '999999.999999.999999'
 EXCLUDE_RESOURCE_TYPES = {
     'aws.service-quota',
     'aws.codedeploy-config',
-    'azure.roledefinition', # there is huge number (~700 in my subscription) of these and I'm not sure how useful they are
+    'azure.roledefinition',  # there is huge number (~700 in my subscription) of these and I'm not sure how useful they are
     'gcp.region',
 }
 
