@@ -96,6 +96,10 @@ dojoPayloadSizeLimitBytes:
 metricsExpirationDays:
 recommendationsBucket:
 
+# minio presigned url configuration (any value is considered as true)
+minioPresignedUrl: ''
+minioPresignedUrlPublicIpv4: ''
+minioPresignedUrlPrivateIpv4: 'y'
 
 persistence:
   accessMode: ReadWriteOnce
