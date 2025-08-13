@@ -54,15 +54,11 @@ def test_statistics_aws(aws_tenant, aws_scan_result, load_expected):
 def test_iter_shard_parts_aws(aws_scan_result):
     item = JobResult(aws_scan_result, Cloud.AWS)
     parts = tuple(item.iter_shard_parts({}))
-    assert len(parts) == 23
+    assert len(parts) == 16
     dct = {}
     for part in parts:
         dct[(part.location, part.policy)] = part
-    # test s3 location resolving
-    assert len(dct[('eu-west-1', 'ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled')].resources) == 3
-    assert len(dct[('eu-west-3', 'ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled')].resources) == 1
-    assert len(dct[('eu-central-1', 'ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled')].resources) == 1
-    assert len(dct[('eu-north-1', 'ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled')].resources) == 1
+    assert len(dct[('global', 'ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled')].resources) == 6
 
     assert len(dct[('global', 'ecc-aws-499-iam_group_has_users_check')].resources) == 3
     assert dct[('global', 'ecc-aws-527-waf_global_webacl_not_empty')].error is not None

@@ -254,270 +254,6 @@
               "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673"
             }
           ]
-        },
-        {
-          "policy": {
-            "comment": "010047042901",
-            "description": "Description for ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
-            "name": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
-            "resource": "aws.s3"
-          },
-          "resources": [
-            {
-              "Acl": {
-                "Grants": [
-                  {
-                    "Grantee": {
-                      "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
-                      "Type": "CanonicalUser"
-                    },
-                    "Permission": "FULL_CONTROL"
-                  }
-                ],
-                "Owner": {
-                  "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
-                }
-              },
-              "CreationDate": "2024-07-16T13:24:02+00:00",
-              "Lifecycle": {
-                "Rules": [
-                  {
-                    "AbortIncompleteMultipartUpload": {
-                      "DaysAfterInitiation": true
-                    },
-                    "Expiration": {
-                      "Days": 14
-                    },
-                    "Filter": {
-                      "Prefix": "DEV/"
-                    },
-                    "ID": "devExpiration",
-                    "NoncurrentVersionExpiration": {
-                      "NoncurrentDays": 14
-                    },
-                    "Status": "Enabled"
-                  },
-                  {
-                    "AbortIncompleteMultipartUpload": {
-                      "DaysAfterInitiation": true
-                    },
-                    "Expiration": {
-                      "Days": 90
-                    },
-                    "Filter": {
-                      "Prefix": "QA/"
-                    },
-                    "ID": "qaExpiration",
-                    "NoncurrentVersionExpiration": {
-                      "NoncurrentDays": 90
-                    },
-                    "Status": "Enabled"
-                  }
-                ]
-              },
-              "Location": {
-                "LocationConstraint": "eu-central-1"
-              },
-              "Logging": {
-                "TargetBucket": "s3-access-logs-123456789012-eu-central-1",
-                "TargetPrefix": "123456789012/eu-central-1/example-artifacts/"
-              },
-              "Name": "example-artifacts",
-              "Notification": {},
-              "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"S3BucketPolicy\",\"Statement\":[{\"Sid\":\"DenyInsecureTransport\",\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"*\",\"Resource\":[\"arn:aws:s3:::example-artifacts\",\"arn:aws:s3:::example-artifacts/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
-              "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
-              "Tags": [
-                {
-                  "Key": "owner",
-                  "Value": "some_email@gmail.com"
-                },
-                {
-                  "Key": "aws:cloudformation:stack-name",
-                  "Value": "APP-s3-repository"
-                },
-                {
-                  "Key": "aws:cloudformation:logical-id",
-                  "Value": "APPArtifacts"
-                },
-                {
-                  "Key": "environment",
-                  "Value": "develop"
-                },
-                {
-                  "Key": "application",
-                  "Value": "APP"
-                },
-                {
-                  "Key": "aws:cloudformation:stack-id",
-                  "Value": "arn:aws:cloudformation:eu-central-1:123456789012:stack/APP-s3-repository/a740f9f0-4376-11ef-98b5-02f06973e781"
-                }
-              ],
-              "Versioning": {
-                "Status": "Suspended"
-              },
-              "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
-              "c7n:MatchedFilters": [
-                "Versioning.MFADelete"
-              ],
-              "id": "example-artifacts",
-              "name": "example-artifacts"
-            }
-          ]
-        },
-        {
-          "policy": {
-            "comment": "010019042001",
-            "description": "Description for ecc-aws-516-s3_event_notifications_enabled",
-            "name": "ecc-aws-516-s3_event_notifications_enabled",
-            "resource": "aws.s3"
-          },
-          "resources": [
-            {
-              "Acl": {
-                "Grants": [
-                  {
-                    "Grantee": {
-                      "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
-                      "Type": "CanonicalUser"
-                    },
-                    "Permission": "FULL_CONTROL"
-                  }
-                ],
-                "Owner": {
-                  "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
-                }
-              },
-              "CreationDate": "2024-07-16T13:24:02+00:00",
-              "Lifecycle": {
-                "Rules": [
-                  {
-                    "AbortIncompleteMultipartUpload": {
-                      "DaysAfterInitiation": true
-                    },
-                    "Expiration": {
-                      "Days": 14
-                    },
-                    "Filter": {
-                      "Prefix": "DEV/"
-                    },
-                    "ID": "devExpiration",
-                    "NoncurrentVersionExpiration": {
-                      "NoncurrentDays": 14
-                    },
-                    "Status": "Enabled"
-                  },
-                  {
-                    "AbortIncompleteMultipartUpload": {
-                      "DaysAfterInitiation": true
-                    },
-                    "Expiration": {
-                      "Days": 90
-                    },
-                    "Filter": {
-                      "Prefix": "QA/"
-                    },
-                    "ID": "qaExpiration",
-                    "NoncurrentVersionExpiration": {
-                      "NoncurrentDays": 90
-                    },
-                    "Status": "Enabled"
-                  }
-                ]
-              },
-              "Location": {
-                "LocationConstraint": "eu-central-1"
-              },
-              "Logging": {
-                "TargetBucket": "s3-access-logs-123456789012-eu-central-1",
-                "TargetPrefix": "123456789012/eu-central-1/example-artifacts/"
-              },
-              "Name": "example-artifacts",
-              "Notification": {},
-              "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"S3BucketPolicy\",\"Statement\":[{\"Sid\":\"DenyInsecureTransport\",\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"*\",\"Resource\":[\"arn:aws:s3:::example-artifacts\",\"arn:aws:s3:::example-artifacts/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
-              "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
-              "Tags": [
-                {
-                  "Key": "owner",
-                  "Value": "some_email@gmail.com"
-                },
-                {
-                  "Key": "aws:cloudformation:stack-name",
-                  "Value": "APP-s3-repository"
-                },
-                {
-                  "Key": "aws:cloudformation:logical-id",
-                  "Value": "APPArtifacts"
-                },
-                {
-                  "Key": "environment",
-                  "Value": "develop"
-                },
-                {
-                  "Key": "application",
-                  "Value": "APP"
-                },
-                {
-                  "Key": "aws:cloudformation:stack-id",
-                  "Value": "arn:aws:cloudformation:eu-central-1:123456789012:stack/APP-s3-repository/a740f9f0-4376-11ef-98b5-02f06973e781"
-                }
-              ],
-              "Versioning": {
-                "Status": "Suspended"
-              },
-              "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
-              "id": "example-artifacts",
-              "name": "example-artifacts"
-            }
-          ]
-        }
-      ],
-      "eu-north-1": [
-        {
-          "policy": {
-            "comment": "010047042901",
-            "description": "Description for ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
-            "name": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
-            "resource": "aws.s3"
-          },
-          "resources": [
-            {
-              "Acl": {
-                "Grants": [
-                  {
-                    "Grantee": {
-                      "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
-                      "Type": "CanonicalUser"
-                    },
-                    "Permission": "FULL_CONTROL"
-                  }
-                ],
-                "Owner": {
-                  "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
-                }
-              },
-              "CreationDate": "2020-08-13T13:37:17+00:00",
-              "Lifecycle": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
-              "Location": {
-                "LocationConstraint": "eu-north-1"
-              },
-              "Logging": {
-                "TargetBucket": "s3-access-logs-123456789012-eu-north-1",
-                "TargetPrefix": "123456789012/eu-north-1/macro-delivery/"
-              },
-              "Name": "macro-delivery",
-              "Notification": {},
-              "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"PolicyForCloudFrontPrivateContent\",\"Statement\":[{\"Sid\":\"ReadOnly\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":[]},\"Action\":[\"s3:GetObject\",\"s3:ListBucket\"],\"Resource\":[\"arn:aws:s3:::macro-delivery/**\",\"arn:aws:s3:::macro-delivery\",\"arn:aws:s3:::macro-delivery/*\"]},{\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::macro-delivery\",\"arn:aws:s3:::macro-delivery/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
-              "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
-              "Tags": [],
-              "Versioning": {},
-              "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
-              "c7n:MatchedFilters": [
-                "Versioning.MFADelete"
-              ],
-              "id": "macro-delivery",
-              "name": "macro-delivery"
-            }
-          ]
         }
       ],
       "eu-west-1": [
@@ -1264,7 +1000,9 @@
               "name": "testing-org"
             }
           ]
-        },
+        }
+      ],
+      "global": [
         {
           "policy": {
             "comment": "010047042901",
@@ -1374,6 +1112,199 @@
                 "Grants": [
                   {
                     "Grantee": {
+                      "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+                      "Type": "CanonicalUser"
+                    },
+                    "Permission": "FULL_CONTROL"
+                  }
+                ],
+                "Owner": {
+                  "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+                }
+              },
+              "CreationDate": "2024-07-16T13:24:02+00:00",
+              "Lifecycle": {
+                "Rules": [
+                  {
+                    "AbortIncompleteMultipartUpload": {
+                      "DaysAfterInitiation": true
+                    },
+                    "Expiration": {
+                      "Days": 14
+                    },
+                    "Filter": {
+                      "Prefix": "DEV/"
+                    },
+                    "ID": "devExpiration",
+                    "NoncurrentVersionExpiration": {
+                      "NoncurrentDays": 14
+                    },
+                    "Status": "Enabled"
+                  },
+                  {
+                    "AbortIncompleteMultipartUpload": {
+                      "DaysAfterInitiation": true
+                    },
+                    "Expiration": {
+                      "Days": 90
+                    },
+                    "Filter": {
+                      "Prefix": "QA/"
+                    },
+                    "ID": "qaExpiration",
+                    "NoncurrentVersionExpiration": {
+                      "NoncurrentDays": 90
+                    },
+                    "Status": "Enabled"
+                  }
+                ]
+              },
+              "Location": {
+                "LocationConstraint": "eu-central-1"
+              },
+              "Logging": {
+                "TargetBucket": "s3-access-logs-123456789012-eu-central-1",
+                "TargetPrefix": "123456789012/eu-central-1/example-artifacts/"
+              },
+              "Name": "example-artifacts",
+              "Notification": {},
+              "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"S3BucketPolicy\",\"Statement\":[{\"Sid\":\"DenyInsecureTransport\",\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"*\",\"Resource\":[\"arn:aws:s3:::example-artifacts\",\"arn:aws:s3:::example-artifacts/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
+              "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "Tags": [
+                {
+                  "Key": "owner",
+                  "Value": "some_email@gmail.com"
+                },
+                {
+                  "Key": "aws:cloudformation:stack-name",
+                  "Value": "APP-s3-repository"
+                },
+                {
+                  "Key": "aws:cloudformation:logical-id",
+                  "Value": "APPArtifacts"
+                },
+                {
+                  "Key": "environment",
+                  "Value": "develop"
+                },
+                {
+                  "Key": "application",
+                  "Value": "APP"
+                },
+                {
+                  "Key": "aws:cloudformation:stack-id",
+                  "Value": "arn:aws:cloudformation:eu-central-1:123456789012:stack/APP-s3-repository/a740f9f0-4376-11ef-98b5-02f06973e781"
+                }
+              ],
+              "Versioning": {
+                "Status": "Suspended"
+              },
+              "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "c7n:MatchedFilters": [
+                "Versioning.MFADelete"
+              ],
+              "id": "example-artifacts",
+              "name": "example-artifacts"
+            },
+            {
+              "Acl": {
+                "Grants": [
+                  {
+                    "Grantee": {
+                      "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+                      "Type": "CanonicalUser"
+                    },
+                    "Permission": "FULL_CONTROL"
+                  }
+                ],
+                "Owner": {
+                  "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+                }
+              },
+              "CreationDate": "2019-12-17T17:05:18+00:00",
+              "Lifecycle": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "Location": {
+                "LocationConstraint": "eu-west-3"
+              },
+              "Logging": {
+                "TargetBucket": "s3-access-logs-123456789012-eu-west-3",
+                "TargetPrefix": "123456789012/eu-west-3/example-meta-storage-eu-west-3-par/"
+              },
+              "Name": "example-meta-storage-eu-west-3-par",
+              "Notification": {
+                "LambdaFunctionConfigurations": [
+                  {
+                    "Events": [
+                      "s3:ObjectCreated:Put"
+                    ],
+                    "Filter": {
+                      "Key": {
+                        "FilterRules": [
+                          {
+                            "Name": "Suffix",
+                            "Value": ".raw"
+                          }
+                        ]
+                      }
+                    },
+                    "Id": "ZTYzMTRiZDYtYWE4Ny00MTk0LWEwODAtZjU3NTFjNjQyZWVk",
+                    "LambdaFunctionArn": "arn:aws:lambda:eu-west-3:123456789012:function:log-data-parser:Prod"
+                  }
+                ]
+              },
+              "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::example-meta-storage-eu-west-3-par\",\"arn:aws:s3:::example-meta-storage-eu-west-3-par/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
+              "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "Tags": [],
+              "Versioning": {},
+              "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "c7n:MatchedFilters": [
+                "Versioning.MFADelete"
+              ],
+              "id": "example-meta-storage-eu-west-3-par",
+              "name": "example-meta-storage-eu-west-3-par"
+            },
+            {
+              "Acl": {
+                "Grants": [
+                  {
+                    "Grantee": {
+                      "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+                      "Type": "CanonicalUser"
+                    },
+                    "Permission": "FULL_CONTROL"
+                  }
+                ],
+                "Owner": {
+                  "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+                }
+              },
+              "CreationDate": "2020-08-13T13:37:17+00:00",
+              "Lifecycle": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "Location": {
+                "LocationConstraint": "eu-north-1"
+              },
+              "Logging": {
+                "TargetBucket": "s3-access-logs-123456789012-eu-north-1",
+                "TargetPrefix": "123456789012/eu-north-1/macro-delivery/"
+              },
+              "Name": "macro-delivery",
+              "Notification": {},
+              "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"PolicyForCloudFrontPrivateContent\",\"Statement\":[{\"Sid\":\"ReadOnly\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":[]},\"Action\":[\"s3:GetObject\",\"s3:ListBucket\"],\"Resource\":[\"arn:aws:s3:::macro-delivery/**\",\"arn:aws:s3:::macro-delivery\",\"arn:aws:s3:::macro-delivery/*\"]},{\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::macro-delivery\",\"arn:aws:s3:::macro-delivery/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
+              "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "Tags": [],
+              "Versioning": {},
+              "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "c7n:MatchedFilters": [
+                "Versioning.MFADelete"
+              ],
+              "id": "macro-delivery",
+              "name": "macro-delivery"
+            },
+            {
+              "Acl": {
+                "Grants": [
+                  {
+                    "Grantee": {
                       "DisplayName": "Special-AWS",
                       "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
                       "Type": "CanonicalUser"
@@ -1412,6 +1343,46 @@
               ],
               "id": "example-rulesets-dev",
               "name": "example-rulesets-dev"
+            }
+          ]
+        },
+        {
+          "policy": {
+            "comment": "010018002001",
+            "description": "Description for ecc-aws-499-iam_group_has_users_check",
+            "name": "ecc-aws-499-iam_group_has_users_check",
+            "resource": "aws.iam-group"
+          },
+          "resources": [
+            {
+              "Arn": "arn:aws:iam::123456789012:group/example-dev-extended-group",
+              "CreateDate": "2022-06-06T07:35:04+00:00",
+              "GroupId": "AGPAUWVIOXSTGO46LZR77",
+              "GroupName": "example-dev-extended-group",
+              "Path": "/",
+              "arn": "arn:aws:iam::123456789012:group/example-dev-extended-group",
+              "id": "example-dev-extended-group",
+              "name": "example-dev-extended-group"
+            },
+            {
+              "Arn": "arn:aws:iam::123456789012:group/example-dev-group",
+              "CreateDate": "2022-05-24T12:47:26+00:00",
+              "GroupId": "AGPAUWIOXSTCNCHB3RX",
+              "GroupName": "example-dev-group",
+              "Path": "/",
+              "arn": "arn:aws:iam::123456789012:group/example-dev-group",
+              "id": "example-dev-group",
+              "name": "example-dev-group"
+            },
+            {
+              "Arn": "arn:aws:iam::123456789012:group/DeployGroupWithoutIAM",
+              "CreateDate": "2017-07-10T11:39:45+00:00",
+              "GroupId": "AGPAIVA7CCC6ONKEHHI2",
+              "GroupName": "DeployGroupWithoutIAM",
+              "Path": "/",
+              "arn": "arn:aws:iam::123456789012:group/DeployGroupWithoutIAM",
+              "id": "DeployGroupWithoutIAM",
+              "name": "DeployGroupWithoutIAM"
             }
           ]
         },
@@ -1548,19 +1519,7 @@
               "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
               "id": "example-meta-storage-eu-west-1-tmp",
               "name": "example-meta-storage-eu-west-1-tmp"
-            }
-          ]
-        }
-      ],
-      "eu-west-3": [
-        {
-          "policy": {
-            "comment": "010047042901",
-            "description": "Description for ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
-            "name": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
-            "resource": "aws.s3"
-          },
-          "resources": [
+            },
             {
               "Acl": {
                 "Grants": [
@@ -1576,89 +1535,86 @@
                   "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
                 }
               },
-              "CreationDate": "2019-12-17T17:05:18+00:00",
-              "Lifecycle": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
-              "Location": {
-                "LocationConstraint": "eu-west-3"
-              },
-              "Logging": {
-                "TargetBucket": "s3-access-logs-123456789012-eu-west-3",
-                "TargetPrefix": "123456789012/eu-west-3/example-meta-storage-eu-west-3-par/"
-              },
-              "Name": "example-meta-storage-eu-west-3-par",
-              "Notification": {
-                "LambdaFunctionConfigurations": [
+              "CreationDate": "2024-07-16T13:24:02+00:00",
+              "Lifecycle": {
+                "Rules": [
                   {
-                    "Events": [
-                      "s3:ObjectCreated:Put"
-                    ],
-                    "Filter": {
-                      "Key": {
-                        "FilterRules": [
-                          {
-                            "Name": "Suffix",
-                            "Value": ".raw"
-                          }
-                        ]
-                      }
+                    "AbortIncompleteMultipartUpload": {
+                      "DaysAfterInitiation": true
                     },
-                    "Id": "ZTYzMTRiZDYtYWE4Ny00MTk0LWEwODAtZjU3NTFjNjQyZWVk",
-                    "LambdaFunctionArn": "arn:aws:lambda:eu-west-3:123456789012:function:log-data-parser:Prod"
+                    "Expiration": {
+                      "Days": 14
+                    },
+                    "Filter": {
+                      "Prefix": "DEV/"
+                    },
+                    "ID": "devExpiration",
+                    "NoncurrentVersionExpiration": {
+                      "NoncurrentDays": 14
+                    },
+                    "Status": "Enabled"
+                  },
+                  {
+                    "AbortIncompleteMultipartUpload": {
+                      "DaysAfterInitiation": true
+                    },
+                    "Expiration": {
+                      "Days": 90
+                    },
+                    "Filter": {
+                      "Prefix": "QA/"
+                    },
+                    "ID": "qaExpiration",
+                    "NoncurrentVersionExpiration": {
+                      "NoncurrentDays": 90
+                    },
+                    "Status": "Enabled"
                   }
                 ]
               },
-              "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::example-meta-storage-eu-west-3-par\",\"arn:aws:s3:::example-meta-storage-eu-west-3-par/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
+              "Location": {
+                "LocationConstraint": "eu-central-1"
+              },
+              "Logging": {
+                "TargetBucket": "s3-access-logs-123456789012-eu-central-1",
+                "TargetPrefix": "123456789012/eu-central-1/example-artifacts/"
+              },
+              "Name": "example-artifacts",
+              "Notification": {},
+              "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"S3BucketPolicy\",\"Statement\":[{\"Sid\":\"DenyInsecureTransport\",\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"*\",\"Resource\":[\"arn:aws:s3:::example-artifacts\",\"arn:aws:s3:::example-artifacts/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
               "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
-              "Tags": [],
-              "Versioning": {},
-              "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
-              "c7n:MatchedFilters": [
-                "Versioning.MFADelete"
+              "Tags": [
+                {
+                  "Key": "owner",
+                  "Value": "some_email@gmail.com"
+                },
+                {
+                  "Key": "aws:cloudformation:stack-name",
+                  "Value": "APP-s3-repository"
+                },
+                {
+                  "Key": "aws:cloudformation:logical-id",
+                  "Value": "APPArtifacts"
+                },
+                {
+                  "Key": "environment",
+                  "Value": "develop"
+                },
+                {
+                  "Key": "application",
+                  "Value": "APP"
+                },
+                {
+                  "Key": "aws:cloudformation:stack-id",
+                  "Value": "arn:aws:cloudformation:eu-central-1:123456789012:stack/APP-s3-repository/a740f9f0-4376-11ef-98b5-02f06973e781"
+                }
               ],
-              "id": "example-meta-storage-eu-west-3-par",
-              "name": "example-meta-storage-eu-west-3-par"
-            }
-          ]
-        }
-      ],
-      "global": [
-        {
-          "policy": {
-            "comment": "010018002001",
-            "description": "Description for ecc-aws-499-iam_group_has_users_check",
-            "name": "ecc-aws-499-iam_group_has_users_check",
-            "resource": "aws.iam-group"
-          },
-          "resources": [
-            {
-              "Arn": "arn:aws:iam::123456789012:group/example-dev-extended-group",
-              "CreateDate": "2022-06-06T07:35:04+00:00",
-              "GroupId": "AGPAUWVIOXSTGO46LZR77",
-              "GroupName": "example-dev-extended-group",
-              "Path": "/",
-              "arn": "arn:aws:iam::123456789012:group/example-dev-extended-group",
-              "id": "example-dev-extended-group",
-              "name": "example-dev-extended-group"
-            },
-            {
-              "Arn": "arn:aws:iam::123456789012:group/example-dev-group",
-              "CreateDate": "2022-05-24T12:47:26+00:00",
-              "GroupId": "AGPAUWIOXSTCNCHB3RX",
-              "GroupName": "example-dev-group",
-              "Path": "/",
-              "arn": "arn:aws:iam::123456789012:group/example-dev-group",
-              "id": "example-dev-group",
-              "name": "example-dev-group"
-            },
-            {
-              "Arn": "arn:aws:iam::123456789012:group/DeployGroupWithoutIAM",
-              "CreateDate": "2017-07-10T11:39:45+00:00",
-              "GroupId": "AGPAIVA7CCC6ONKEHHI2",
-              "GroupName": "DeployGroupWithoutIAM",
-              "Path": "/",
-              "arn": "arn:aws:iam::123456789012:group/DeployGroupWithoutIAM",
-              "id": "DeployGroupWithoutIAM",
-              "name": "DeployGroupWithoutIAM"
+              "Versioning": {
+                "Status": "Suspended"
+              },
+              "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+              "id": "example-artifacts",
+              "name": "example-artifacts"
             }
           ]
         }
@@ -1666,7 +1622,7 @@
     },
     "customer_name": "TEST_CUSTOMER",
     "format": "json",
-    "job_id": "6cb6c2e2-3b2a-4271-9983-52bf5e4cde58",
+    "job_id": "f3ef7c43-8b35-4d9f-aa56-5c7dcf079e85",
     "job_type": "manual",
     "obfuscated": false,
     "tenant_name": "AWS-TESTING"

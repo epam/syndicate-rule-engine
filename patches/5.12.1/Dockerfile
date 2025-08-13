@@ -1,7 +1,7 @@
 FROM public.ecr.aws/docker/library/python:3.10 as builder
 COPY --from=ghcr.io/astral-sh/uv:0.6.6 /uv /uvx /bin/
 
-ARG PATCH_VERSION=5.13.0
+ARG PATCH_VERSION=5.12.1
 
 WORKDIR /src
 
