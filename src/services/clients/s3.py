@@ -3,8 +3,6 @@ import io
 import mimetypes
 import re
 import shutil
-import urllib.error
-import urllib.request
 from datetime import datetime, timedelta
 from typing import BinaryIO, Generator, Iterable, Optional, TypedDict, cast
 from urllib.parse import urlencode
@@ -16,8 +14,8 @@ from modular_sdk.services.aws_creds_provider import ModularAssumeRoleClient
 from urllib3.util import Url, parse_url
 
 from helpers.constants import CAASEnv
+from helpers.ec2_metadata import ec2_metadata
 from helpers.log_helper import get_logger
-from services import cache
 from services.clients import Boto3ClientFactory, Boto3ClientWrapper
 
 _LOG = get_logger(__name__)
@@ -68,9 +66,6 @@ class S3Client(Boto3ClientWrapper):
     s3_not_available = re.compile(r'[^a-zA-Z0-9!-_.*()]')
     _enc = msgspec.json.Encoder()
     _dec = msgspec.json.Decoder()
-
-    def __init__(self):
-        self._ipv4_cache = cache.TTLCache(maxsize=2, ttl=3600)
 
     @classmethod
     def _base_config(cls) -> Config:
@@ -528,46 +523,23 @@ class S3Client(Boto3ClientWrapper):
         :return:
         """
         return self.client.put_bucket_lifecycle_configuration(
-            Bucket=bucket,
-            LifecycleConfiguration={'Rules': rules},
+            Bucket=bucket, LifecycleConfiguration={'Rules': rules}
         )
 
-    @cache.cachedmethod(lambda self: self._ipv4_cache)
-    def _resolve_instance_public_ipv4(self) -> str | None:
-        _LOG.info('Trying to resolve instance ipv4')
-        token = None
-        try:
-            _LOG.info('Getting imds token')
-            req = urllib.request.Request(
-                'http://169.254.169.254/latest/api/token',
-                headers={'X-aws-ec2-metadata-token-ttl-seconds': '30'},
-                method='PUT',
-            )
-            with urllib.request.urlopen(req, timeout=1) as resp:
-                token = resp.read().decode()
-        except TimeoutError:
-            _LOG.warning('Could not get imds token. Timeout')
-        except urllib.error.URLError:
-            _LOG.warning('Could not get imds token')
-        try:
-            req = urllib.request.Request(
-                'http://169.254.169.254/latest/meta-data/public-ipv4',
-                headers={'X-aws-ec2-metadata-token': token} if token else {},
-            )
-            with urllib.request.urlopen(req, timeout=1) as resp:
-                return resp.read().decode()
-        except TimeoutError:
-            _LOG.warning('Could not get imds token. Timeout')
-        except urllib.error.URLError:
-            _LOG.warning('Cannot resolve public-ipv4 from instance metadata')
-
-    def prepare_presigned_url(self, url: str, host: str | None = None) -> str:
+    @staticmethod
+    def prepare_presigned_url(url: str, host: str | None = None) -> str:
         parsed: Url = parse_url(url)
         if host:
             new_host = host
         elif _env := CAASEnv.MINIO_PRESIGNED_URL_HOST.get():
             new_host = _env
-        elif ipv4 := self._resolve_instance_public_ipv4():
+        elif CAASEnv.MINIO_PRESIGNED_URL_PUBLIC_IPV4.is_set() and (
+            ipv4 := ec2_metadata.public_ipv4
+        ):
+            new_host = ipv4
+        elif CAASEnv.MINIO_PRESIGNED_URL_PRIVATE_IPV4.is_set() and (
+            ipv4 := ec2_metadata.private_ipv4
+        ):
             new_host = ipv4
         elif parsed.host == 'minio':  # exception for docker
             new_host = '127.0.0.1'

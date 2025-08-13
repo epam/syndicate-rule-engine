@@ -55,6 +55,7 @@ class StatisticsItem(msgspec.Struct, kw_only=True, eq=False):
         return self.error_type is None
 
 class AverageStatisticsItem(msgspec.Struct, kw_only=True, eq=False):
+    id: str | msgspec.UnsetType = msgspec.UNSET
     policy: str
     region: str
     resource_type: str | msgspec.UnsetType = msgspec.UNSET

@@ -12,7 +12,7 @@ service:
 
 image:
   repository: public.ecr.aws/x4s4z8e1/syndicate/rule-engine
-  tag: 5.12.0
+  tag: 5.12.1
   pullPolicy: Always
 
 replicas: 1
@@ -56,15 +56,15 @@ modular-api:
   fullnameOverride: modular-api
   disableRateLimiter: "true"
   image:
-    tag: 4.3.0-rule-engine
+    tag: 4.3.1-rule-engine
 
 patch:
-  enabled: false
+  enabled: true
   backoffLimit: 10
   ttlSecondsAfterFinished: 3600
   image:
     repository: public.ecr.aws/x4s4z8e1/syndicate/patches
-    tag: ''
+    tag: 'rule-engine-5.12.1'
     pullPolicy: Always
 
 modularSdk:
@@ -96,6 +96,10 @@ dojoPayloadSizeLimitBytes:
 metricsExpirationDays:
 recommendationsBucket:
 
+# minio presigned url configuration (any value is considered as true)
+minioPresignedUrl: ''
+minioPresignedUrlPublicIpv4: ''
+minioPresignedUrlPrivateIpv4: 'y'
 
 persistence:
   accessMode: ReadWriteOnce

@@ -3,4 +3,4 @@ appVersion: "1.19.5"
 description: A Helm chart for Vault
 name: vault
 type: application
-version: "1.2.0"
+version: "1.2.1"

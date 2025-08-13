@@ -10,6 +10,7 @@ from services.environment_service import EnvironmentService
 _LOG = get_logger(__name__)
 
 
+# TODO: remove because it is obsolete
 class S3SettingsService:
     SETTINGS_PREFIX = 'caas-settings'
     FILE_SUFFIX = '.json.gz'

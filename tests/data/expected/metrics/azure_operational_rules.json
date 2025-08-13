@@ -1,10 +1,11 @@
 {
   "succeeded_scans": 1,
   "activated_regions": [],
-  "last_scan_date": "2025-08-01T00:46:28.310337Z",
+  "last_scan_date": "2025-08-13T00:54:38.131601Z",
   "id": "3d615fa8-05c6-47ea-990d-9d162testing",
   "data": [
     {
+      "id": "ecc-azure-347-mysql_cmk",
       "policy": "Description for ecc-azure-347-mysql_cmk",
       "region": "global",
       "resource_type": "azure.mysql-flexibleserver",
@@ -24,6 +25,7 @@
       "average_resources_failed": 0
     },
     {
+      "id": "ecc-azure-109-cis_sa_logging_blob",
       "policy": "Description for ecc-azure-109-cis_sa_logging_blob",
       "region": "global",
       "resource_type": "azure.storage",
@@ -43,6 +45,7 @@
       "average_resources_failed": 0
     },
     {
+      "id": "ecc-azure-358-synapse_workspace_managed_vnet",
       "policy": "Description for ecc-azure-358-synapse_workspace_managed_vnet",
       "region": "global",
       "resource_type": "azure.synapse",
@@ -62,6 +65,7 @@
       "average_resources_failed": 0
     },
     {
+      "id": "ecc-azure-125-nsg_mysql",
       "policy": "Description for ecc-azure-125-nsg_mysql",
       "region": "global",
       "resource_type": "azure.networksecuritygroup",
@@ -81,6 +85,7 @@
       "average_resources_failed": 0
     },
     {
+      "id": "ecc-azure-313-cis_postgresql_log_min_messages",
       "policy": "Description for ecc-azure-313-cis_postgresql_log_min_messages",
       "region": "global",
       "resource_type": "azure.postgresql-server",
@@ -100,6 +105,7 @@
       "average_resources_failed": 0
     },
     {
+      "id": "ecc-azure-310-asb_defender_open_source_rds",
       "policy": "Description for ecc-azure-310-asb_defender_open_source_rds",
       "region": "global",
       "resource_type": "azure.defender-pricing",
@@ -119,6 +125,7 @@
       "average_resources_failed": 1
     },
     {
+      "id": "ecc-azure-096-cis_sec_defender_azure_sql",
       "policy": "Description for ecc-azure-096-cis_sec_defender_azure_sql",
       "region": "global",
       "resource_type": "azure.defender-pricing",
@@ -138,6 +145,7 @@
       "average_resources_failed": 1
     },
     {
+      "id": "ecc-azure-376-cis_defender_cosmodb",
       "policy": "Description for ecc-azure-376-cis_defender_cosmodb",
       "region": "global",
       "resource_type": "azure.defender-pricing",
@@ -157,6 +165,7 @@
       "average_resources_failed": 1
     },
     {
+      "id": "ecc-azure-099-cis_sec_defender_aks",
       "policy": "Description for ecc-azure-099-cis_sec_defender_aks",
       "region": "global",
       "resource_type": "azure.defender-pricing",
@@ -176,6 +185,7 @@
       "average_resources_failed": 1
     },
     {
+      "id": "ecc-azure-213-asb_lt_defender_dns",
       "policy": "Description for ecc-azure-213-asb_lt_defender_dns",
       "region": "global",
       "resource_type": "azure.defender-pricing",
