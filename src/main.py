@@ -329,11 +329,6 @@ class Run(ActionHandler):
         self._host = host
         self._port = port
 
-        if not gunicorn and workers:
-            _LOG.warning(
-                '--workers is ignored because you are not running Gunicorn'
-            )
-
         if Env.SERVICE_MODE.get() != DOCKER_SERVICE_MODE:
             Env.SERVICE_MODE.set(DOCKER_SERVICE_MODE)
 

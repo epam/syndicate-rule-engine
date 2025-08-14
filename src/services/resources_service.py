@@ -1,4 +1,5 @@
 from pynamodb.pagination import ResultIterator
+from modular_sdk.models.tenant import Tenant
 
 from helpers.constants import (
     COMPOUND_KEYS_SEPARATOR,
@@ -8,6 +9,7 @@ from helpers.constants import (
 from helpers.log_helper import get_logger
 from models.resource import Resource
 from services.base_data_service import BaseDataService
+from services.sharding import RuleMeta
 
 _LOG = get_logger(__name__)
 
@@ -162,3 +164,22 @@ class ResourcesService(BaseDataService[Resource]):
             return 'k8s'
         else:
             raise ValueError(f'Unsupported cloud: {cloud}')
+
+    def get_type_resources_for_tenant(
+        self, tenant: 'Tenant', metadata: dict[str, RuleMeta]
+    ) -> dict[str, list[Resource]]:
+        """
+        Returns a dictionary with resource types as keys and their counts as values
+        for the specified tenant.
+        """
+        types = {rule['resource'] for rule in metadata.values()}
+
+        type_resources = {}
+        for type_ in types:
+            type_resources[type_] = list(self.get_resources(
+                resource_type=type_,
+                tenant_name=tenant.name,
+                customer_name=tenant.customer_name,
+            ))
+
+        return type_resources

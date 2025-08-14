@@ -16,7 +16,7 @@ from helpers.regions import (
 from models.resource_exception import ResourceException
 from services import SP
 from services.resources_service import ResourcesService
-from services.resource_exception_service import ResourcesExceptionService
+from services.resource_exception_service import ResourceExceptionsService
 from validators.swagger_request_models import (
     BaseModel,
     ResourcesExceptionsGetModel,
@@ -32,7 +32,7 @@ class ResourceExceptionHandler(AbstractHandler):
         self,
         modular_service: ModularServiceProvider,
         resources_service: ResourcesService,
-        resource_exception_service: ResourcesExceptionService,
+        resource_exception_service: ResourceExceptionsService,
     ):
         self._ms = modular_service
         self._rs = resources_service

@@ -137,6 +137,7 @@ class MaestroModelBuilder:
             'cloud': rep.cloud.value,  # pyright: ignore
             'tenant_metadata': data['metadata'],
             'data': data['data'],
+            'exceptions_data': data['exceptions_data'],
             'externalData': False,
         }
 
@@ -150,6 +151,7 @@ class MaestroModelBuilder:
             'cloud': rep.cloud.value,  # pyright: ignore
             'tenant_metadata': data['metadata'],
             'data': data['data'],
+            'exceptions_data': data['exceptions_data'],
             'externalData': False,
         }
 
@@ -188,6 +190,7 @@ class MaestroModelBuilder:
             'cloud': rep.cloud.value,  # pyright: ignore
             'tenant_metadata': data['metadata'],
             'data': data['data'],
+            'exceptions_data': data['exceptions_data'],
         }
 
     @staticmethod
@@ -210,6 +213,7 @@ class MaestroModelBuilder:
             'cloud': rep.cloud.value,  # pyright: ignore
             'tenant_metadata': data['metadata'],
             'data': data['data'],
+            'exceptions_data': data['exceptions_data'],
         }
 
     @staticmethod
@@ -252,6 +256,7 @@ class MaestroModelBuilder:
             'cloud': rep.cloud.value,  # pyright: ignore
             'tenant_metadata': data['metadata'],
             'data': data['data'],
+            'exceptions_data': data['exceptions_data'],
         }
 
     def _operational_k8s_custom(self, rep: ReportMetrics, data: dict) -> dict:

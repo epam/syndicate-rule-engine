@@ -56,6 +56,8 @@ from services.resources import (
 )
 from services.ruleset_service import RulesetName, RulesetService
 from services.sharding import ShardsCollection
+from services.resources_service import ResourcesService
+from services.resource_exception_service import ResourceExceptionsService
 
 if TYPE_CHECKING:
     from services.report_service import AverageStatisticsItem
@@ -269,6 +271,8 @@ class MetricsCollector:
         license_service: LicenseService,
         ruleset_service: RulesetService,
         platform_service: PlatformService,
+        resource_service: ResourcesService,
+        resource_exception_service: ResourceExceptionsService,
     ):
         self._mc = modular_client
         self._ajs = ambiguous_job_service
@@ -277,6 +281,8 @@ class MetricsCollector:
         self._ls = license_service
         self._rss = ruleset_service
         self._ps = platform_service
+        self._res_ser = resource_service
+        self._res_exp_ser = resource_exception_service
 
         self._tenants_cache = {}
         self._platforms_cache = {}
@@ -350,6 +356,8 @@ class MetricsCollector:
             license_service=SP.license_service,
             ruleset_service=SP.ruleset_service,
             platform_service=SP.platform_service,
+            resource_service=SP.resources_service,
+            resource_exception_service=SP.resource_exception_service,
         )
 
     @staticmethod
@@ -695,9 +703,21 @@ class MetricsCollector:
                 'Somehow collection for operational reports is not found or empty even though the tenant has at least one successful jobs'
             )
             return
+        exceptions = (
+            self._res_exp_ser.get_resource_exceptions_collection_by_tenant(
+                tenant
+            )
+        )
+        exceptions_data, collection = exceptions.filter_exception_resources(
+            collection, cloud, ctx.metadata, tenant.project
+        )
 
         rule_resources = self._get_rule_resources(
             collection, cloud, ctx.metadata, tenant.project
+        )
+
+        type_resources = self._res_ser.get_type_resources_for_tenant(
+            tenant, collection.meta
         )
 
         deprecated = tuple(self._iter_deprecated_rules(collection))
@@ -756,6 +776,7 @@ class MetricsCollector:
                 generator,
                 rule_resources=rule_resources,
                 collection=collection,
+                type_resources=type_resources,
                 start=start,
                 end=end,
                 meta=collection.meta,
@@ -771,7 +792,15 @@ class MetricsCollector:
                 start=start,
                 tenants=(tenant.name,),
             )
-            yield item, {'metadata': meta, 'data': data, 'id': tenant.project}
+            yield (
+                item,
+                {
+                    'metadata': meta,
+                    'data': data,
+                    'id': tenant.project,
+                    'exceptions_data': exceptions_data,
+                },
+            )
 
     def collect_metrics(self, ctx: MetricsContext):
         # TODO: make here some assertions about report types
@@ -1086,6 +1115,14 @@ class MetricsCollector:
                 continue
             tjs = js.subset(tenant=tenant.name, job_state=JobState.SUCCEEDED)
             col = sc_provider.get_for_tenant(tenant, end)
+            exceptions = (
+                self._res_exp_ser.get_resource_exceptions_collection_by_tenant(
+                    tenant
+                )
+            )
+            exceptions_data, col = exceptions.filter_exception_resources(
+                col, tenant_cloud(tenant), ctx.metadata, tenant.project
+            )
 
             outdated = []
             lsd = tjs.last_succeeded_scan_date
@@ -1221,6 +1258,21 @@ class MetricsCollector:
                 _LOG.warning(f'Platform with id {platform_id} not found!')
                 continue
             col = sc_provider.get_for_platform(platform, end)
+
+            tenant = self._get_tenant(platform.tenant_name)
+            if not tenant:
+                _LOG.warning(
+                    f'Tenant with name {platform.tenant_name} for platform {platform_id} not found!'
+                )
+                continue
+            exceptions = (
+                self._res_exp_ser.get_resource_exceptions_collection_by_tenant(
+                    tenant
+                )
+            )
+            exceptions_data, col = exceptions.filter_exception_resources(
+                col, Cloud.KUBERNETES, ctx.metadata, tenant.project
+            )
             if not col:
                 _LOG.warning(
                     f'Shards collection for {platform_id} for {end} is empty'

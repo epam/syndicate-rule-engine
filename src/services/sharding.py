@@ -106,6 +106,12 @@ class ShardPart(
             return self.timestamp
         # error exists
         return self.previous_timestamp
+    
+    def empty(self) -> bool:
+        """
+        Returns True if this part has no resources
+        """
+        return not self.resources
 
     @property
     def error_type(self) -> PolicyErrorType | None:

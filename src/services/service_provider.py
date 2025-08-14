@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from services.license_service import LicenseService
     from services.rabbitmq_service import RabbitMQService
     from services.report_service import ReportService
-    from services.resource_exception_service import ResourcesExceptionService
+    from services.resource_exception_service import ResourceExceptionsService
     from services.resources_service import ResourcesService
     from services.rule_meta_service import RuleService
     from services.rule_source_service import RuleSourceService
@@ -318,8 +318,8 @@ class ServiceProvider(metaclass=SingletonMeta):
         return ResourcesService()
     
     @cached_property
-    def resource_exception_service(self) -> 'ResourcesExceptionService':
-        from services.resource_exception_service import ResourcesExceptionService
-        return ResourcesExceptionService()
+    def resource_exception_service(self) -> 'ResourceExceptionsService':
+        from services.resource_exception_service import ResourceExceptionsService
+        return ResourceExceptionsService()
     
 

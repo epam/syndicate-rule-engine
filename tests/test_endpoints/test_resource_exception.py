@@ -144,8 +144,7 @@ def test_create_resource_exception_success(
         'resource_type': 'aws.ec2',
         'location': 'us-east-1',
         'resource_id': 'i-1234567890abcdef0',
-        'tags_filters': ['Environment=Production', 'Team=Backend'],
-        'expire_at': '2025-09-01T23:59:59Z',
+        'expire_at': '2025-09-01T23:59:59',
     }
     
     resp = sre_client.request(
@@ -165,7 +164,6 @@ def test_create_resource_exception_success(
     assert data['resource_type'] == request_data['resource_type']
     assert data['location'] == request_data['location']
     assert data['resource_id'] == request_data['resource_id']
-    assert data['tags_filters'] == request_data['tags_filters']
     assert 'id' in data
     assert 'created_at' in data
     assert 'updated_at' in data
@@ -186,8 +184,7 @@ def test_update_resource_exception_success(
         'resource_type': sample_resource_exception.resource_type,
         'location': 'us-west-2',
         'resource_id': 'i-updated123456789abcdef',
-        'tags_filters': ['Environment=Staging', 'Team=Frontend'],
-        'expire_at': '2025-09-01T23:59:59Z',
+        'expire_at': '2025-09-01T23:59:59',
     }
     
     resp = sre_client.request(
@@ -207,7 +204,6 @@ def test_update_resource_exception_success(
     assert data['tenant_name'] == update_data['tenant_name']
     assert data['location'] == update_data['location']
     assert data['resource_id'] == update_data['resource_id']
-    assert data['tags_filters'] == update_data['tags_filters']
 
 
 def test_delete_resource_exception_success(

@@ -179,6 +179,7 @@
       ]
     }
   ],
+  "exceptions_data": [],
   "tenant_name": "AWS-TESTING",
   "id": "123456789012",
   "cloud": "AWS",

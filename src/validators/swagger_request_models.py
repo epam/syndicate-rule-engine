@@ -175,7 +175,6 @@ class ResourcesArnGetModel(BaseModel):
     arn: str
 
 
-
 class ResourcesExceptionsGetModel(BasePaginationModel):
     tenant_name: str = Field(None)
     customer_name: str = Field(None)
@@ -225,6 +224,7 @@ class ResourcesExceptionsGetModel(BasePaginationModel):
 
         return self
 
+
 class ResourcesExceptionsPostModel(BaseModel):
     tenant_name: str
     location: str | None = Field(None)
@@ -246,9 +246,9 @@ class ResourcesExceptionsPostModel(BaseModel):
     @field_validator('expire_at', mode='after')
     @classmethod
     def validate_expire_at(cls, value: datetime | date) -> datetime | date:
-        if value < datetime.now(timezone.utc):
+        if value < datetime.now():
             raise ValueError('Expiration date must be in the future')
-        if value > datetime.now(timezone.utc) + timedelta(
+        if value > datetime.now() + timedelta(
             days=Env.RESOURCES_EXCEPTIONS_MAX_EXPIRATION_DAYS.as_int()
         ):
             raise ValueError(
@@ -271,23 +271,22 @@ class ResourcesExceptionsPostModel(BaseModel):
 
     @model_validator(mode='after')
     def validate_arn_and_params(self) -> Self:
-        if self.arn and (
-            self.location
-            or self.resource_type
-            or self.resource_id
-            or self.tags_filters
-        ):
+        is_arn = bool(self.arn)
+        is_resource = self.location and self.resource_type and self.resource_id
+        is_tags = bool(self.tags_filters)
+
+        if not (is_arn or is_resource or is_tags):
             raise ValueError(
-                'ARN is provided, so tenant_name, location, resource_type, resource_id, and tags_filters should not be specified'
+                'At least one of ARN, (location, resource_type, resource_id), or tags_filters must be specified'
             )
-        if (not self.arn
-            and not self.location
-            and not self.resource_type
-            and not self.resource_id
-            and not self.tags_filters
+
+        if (
+            (is_arn and is_resource)
+            or (is_arn and is_tags)
+            or (is_resource and is_tags)
         ):
             raise ValueError(
-                'At least one of ARN, tenant_name, location, resource_type, resource_id, or tags_filters must be specified'
+                'Only one of ARN, (location, resource_type, resource_id), and tags_filters must be specified'
             )
 
         return self

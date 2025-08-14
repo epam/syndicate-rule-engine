@@ -43,6 +43,8 @@ from helpers.reports import (
 from helpers.system_customer import SystemCustomer
 from helpers.time_helper import utc_datetime, utc_iso
 from models.metrics import ReportMetrics
+from models.resource import Resource
+from models.resource_exception import ResourceException
 from services import modular_helpers
 from services.ambiguous_job_service import AmbiguousJob
 from services.base_data_service import BaseDataService
@@ -370,6 +372,7 @@ class ResourcesReportGenerator(ReportVisitor[Generator[dict, None, None]]):
                 unique_resources_dict.setdefault(resource, list()).append(
                     (rule, resource.sync_date)
                 )
+                
         sev_key = cmp_to_key(SeverityCmp())
 
         for resource, rules in unique_resources_dict.items():
@@ -445,7 +448,7 @@ class DeprecationReportGenerator(ReportVisitor[Generator[dict, None, None]]):
             if not category:
                 continue  # not a deprecation rule
             by_region = {}
-            for r in rule_resources[rule]:
+            for r in rule_resources.get(rule, ()):
                 by_region.setdefault(r.location, []).append(
                     r.accept(self._view, report_fields=rm.report_fields)
                 )
@@ -502,7 +505,7 @@ class FinopsReportGenerator(ReportVisitor[Generator[dict, None, None]]):
                 _LOG.warning(f'Rule {rule} does not have service section')
                 continue
             by_region = {}
-            for r in rule_resources[rule]:
+            for r in rule_resources.get(rule, ()):
                 by_region.setdefault(r.location, []).append(
                     r.accept(self._view, report_fields=rm.report_fields)
                 )
@@ -572,6 +575,7 @@ class AttacksReportGenerator(ReportVisitor[Generator[dict, None, None]]):
                 )
                 for attack in rule_attacks:
                     attacks.setdefault(attack, []).append(rule)
+
         for res, (s, attacks) in unique_resource_to_attack_rules.items():
             at = []
             report_fields = ()
@@ -767,6 +771,7 @@ class OverviewReportGenerator(ReportVisitor[dict]):
         report: 'OverviewReport',
         /,
         rule_resources: dict[str, set[CloudResource]],
+        type_resources: dict[str, list[Resource]],
         collection: ShardsCollection,
         start: datetime,
         end: datetime,
@@ -812,7 +817,7 @@ class OverviewReportGenerator(ReportVisitor[dict]):
                     )
                 )
             ),
-            'resources_scanned': 0,  # TODO: get from assets management
+            'resources_scanned': sum(map(len, type_resources.values())),
             'regions': regions,
             'rules': self.collect_rules_info(
                 collection, start.timestamp(), end.timestamp()

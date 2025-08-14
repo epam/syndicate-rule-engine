@@ -6,7 +6,7 @@ from pynamodb.attributes import (
 from pymongo.database import Database
 from modular_sdk.models.pynamongo.attributes import MongoTTLAttribute
 
-from helpers.constants import Env
+from helpers.constants import Env, ResourceExceptionType
 from helpers.log_helper import get_logger
 from models import BaseModel
 
@@ -56,9 +56,9 @@ class ResourceException(BaseModel):
     # In mongo we can create a multikey index on this field
     # and we can use it to filter resources by tags
     # Example:
-    # data: {"f": ["tag1=value1", "tag2=value2"]}
+    # data: {"tf": ["tag1=value1", "tag2=value2"]}
     # filters that uses index:
-    # {"f": /^tag1=/}, {"f": "tag2=value2"}, {"f": ["tag1=value1", "tag2=value2"]}
+    # {"tf": /^tag1=/}, {"tf": "tag2=value2"}, {"tf": ["tag1=value1", "tag2=value2"]}
     # https://www.mongodb.com/docs/manual/core/indexes/index-types/index-multikey/
     tags_filters = ListAttribute(attr_name='tf', of=UnicodeAttribute, null=True)
 
@@ -70,3 +70,28 @@ class ResourceException(BaseModel):
     created_at = NumberAttribute(attr_name='ca')
     updated_at = NumberAttribute(attr_name='ua')
     expire_at = MongoTTLAttribute(attr_name='ea')
+
+    @property
+    def type(self) -> ResourceExceptionType:
+        if self.arn:
+            return ResourceExceptionType.ARN
+        elif self.location and self.resource_type and self.resource_id:
+            return ResourceExceptionType.RESOURCE
+        elif self.tags_filters:
+            return ResourceExceptionType.TAG_FILTER
+        else:
+            raise ValueError('ResourceException must have at least one type set')
+    
+    def to_dict(self) -> dict:
+        d = {'id': self.id}
+        if self.type == ResourceExceptionType.ARN:
+            d['arn'] = self.arn
+        elif self.type == ResourceExceptionType.RESOURCE:
+            d.update({
+                'location': self.location,
+                'resource_type': self.resource_type,
+                'resource_id': self.resource_id,
+            })
+        elif self.type == ResourceExceptionType.TAG_FILTER:
+            d['tags_filters'] = self.tags_filters
+        return d
