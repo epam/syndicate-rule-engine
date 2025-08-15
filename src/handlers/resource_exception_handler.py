@@ -245,6 +245,7 @@ class ResourceExceptionHandler(AbstractHandler):
             .build()
         )
 
+    @validate_kwargs
     def get_resource_exception_by_id(self, event: BaseModel, id:str):
         """
         Get a resource exception by its ID.
@@ -340,7 +341,7 @@ class ResourceExceptionHandler(AbstractHandler):
             .build()
         )
 
-
+    @validate_kwargs
     def delete_resource_exception(self, event: BaseModel, id: str):
         """
         Delete a resource exception by its ID.

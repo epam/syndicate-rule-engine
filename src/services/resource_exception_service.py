@@ -408,7 +408,6 @@ class ResourceExceptionsService(BaseDataService[ResourceException]):
         """
         return ResourceException.get_nullable(id)
 
-    # TODO: implement search for tags_filters
     def get_resources_exceptions(
         self,
         resource_id: str | None = None,
@@ -438,6 +437,9 @@ class ResourceExceptionsService(BaseDataService[ResourceException]):
             )
         if arn:
             filter_condition &= ResourceException.arn == arn
+        if tags_filters:
+            for tag in tags_filters:
+                filter_condition &= ResourceException.tags_filters.contains(tag)
 
         kwargs = dict()
         if limit is not None:

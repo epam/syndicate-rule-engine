@@ -263,6 +263,7 @@ def test_metrics_update_operational_project(
     azure_jobs,
     google_jobs,
     k8s_platform_jobs,
+    seed_resources,
     load_expected,
     aws_tenant,
     azure_tenant,

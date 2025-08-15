@@ -328,3 +328,66 @@ def load_metadata() -> Callable:
         with open(path, 'rb') as fp:
             return msgspec.json.decode(fp.read(), type=load_as)
     return _inner
+
+
+# Resources test data and fixtures
+
+@pytest.fixture(scope='session')
+def resources_json_path() -> Path:
+    """Path to mock resources JSON dataset."""
+    return DATA / 'resources' / 'resources.json'
+
+
+@pytest.fixture(scope='session')
+def resources_data(resources_json_path: Path) -> list[dict]:
+    """Load resources from JSON for tests."""
+    with open(resources_json_path, 'rb') as fp:
+        return msgspec.json.decode(fp.read())
+
+
+@pytest.fixture()
+def seed_resources(resources_data: list[dict]):
+    """Create and persist Resource items into the test DB.
+
+    Returns a list of created Resource models.
+    """
+    from services.resources_service import ResourcesService
+    from helpers.constants import ResourcesCollectorType
+
+    svc = ResourcesService()
+    created = []
+    for r in resources_data:
+        item = svc.create(
+            account_id=r['account_id'],
+            location=r['location'],
+            resource_type=r['resource_type'],
+            id=r['id'],
+            name=r.get('name'),
+            arn=r.get('arn'),
+            data=r.get('data', {}),
+            sync_date=float(r.get('sync_date', 0)),
+            collector_type=ResourcesCollectorType(r.get('collector_type', 'focus')),
+            tenant_name=r['tenant_name'],
+            customer_name=r['customer_name'],
+        )
+        svc.save(item)
+        created.append(item)
+    return created
+
+
+@pytest.fixture()
+def seed_aws_resources(seed_resources):
+    """Ensure mock AWS resources are present (subset of seed_resources)."""
+    return [r for r in seed_resources if r.resource_type.startswith('aws.')]
+
+
+@pytest.fixture()
+def seed_azure_resources(seed_resources):
+    """Ensure mock Azure resources are present (subset of seed_resources)."""
+    return [r for r in seed_resources if r.resource_type.startswith('azure.')]
+
+
+@pytest.fixture()
+def seed_gcp_resources(seed_resources):
+    """Ensure mock GCP resources are present (subset of seed_resources)."""
+    return [r for r in seed_resources if r.resource_type.startswith('gcp.')]
