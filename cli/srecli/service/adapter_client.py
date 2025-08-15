@@ -274,10 +274,12 @@ class CustodianApiClient:
         )
 
     def customer_set_excluded_rules(self, **kwargs):
+        if kwargs.get('customer_id') is None:
+            kwargs.pop('customer_id', None)
         return self.make_request(
             path=CustodianEndpoint.CUSTOMERS_EXCLUDED_RULES,
             method=HTTPMethod.PUT,
-            data=sifted(kwargs)
+            data=dict(kwargs)
         )
 
     def tenant_get(self, tenant_name: str, **kwargs):
@@ -304,11 +306,14 @@ class CustodianApiClient:
         )
 
     def tenant_set_excluded_rules(self, tenant_name: str, **kwargs):
+        # we cannot use sifted here because an empty list is accepted
+        if kwargs.get('customer_id') is None:
+            kwargs.pop('customer_id', None)
         return self.make_request(
             path=CustodianEndpoint.TENANTS_TENANT_NAME_EXCLUDED_RULES,
             method=HTTPMethod.PUT,
             path_params={'tenant_name': tenant_name},
-            data=sifted(kwargs)
+            data=dict(kwargs)
         )
 
     def tenant_get_active_licenses(self, tenant_name: str, **kwargs):

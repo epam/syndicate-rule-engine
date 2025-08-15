@@ -1057,6 +1057,7 @@ class MetricsCollector:
             # Exclude deprecated rules
             if p.endswith(DEPRECATED_RULE_SUFFIX):
                 continue
+            item.id = item.policy
             item.policy = meta.get(p, {}).get('description', p)
             item.resource_type = meta.get(p, {}).get('resource', '')
 

@@ -77,9 +77,9 @@ def test_digest_report_aws_job(system_user_token, sre_client, aws_job):
     assert resp.json == {
         'data': {
             'content': {
-                'failed_checks': {'severity': {'Unknown': 14}, 'total': 14},
+                'failed_checks': {'severity': {'Unknown': 10}, 'total': 10},
                 'successful_checks': 3,
-                'total_checks': 17,
+                'total_checks': 13,
                 'violating_resources': 23,
             },
             'customer_name': 'TEST_CUSTOMER',

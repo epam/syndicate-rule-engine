@@ -6,10 +6,11 @@
     "eu-west-1",
     "eu-west-3"
   ],
-  "last_scan_date": "2025-08-01T00:46:28.310337Z",
+  "last_scan_date": "2025-08-13T00:54:38.131601Z",
   "id": "123456789012",
   "data": [
     {
+      "id": "ecc-aws-427-rds_cluster_without_tag_information",
       "policy": "Description for ecc-aws-427-rds_cluster_without_tag_information",
       "region": "eu-west-1",
       "resource_type": "aws.rds-cluster",
@@ -29,6 +30,7 @@
       "average_resources_failed": 0
     },
     {
+      "id": "ecc-aws-149-rds_public_access_disabled",
       "policy": "Description for ecc-aws-149-rds_public_access_disabled",
       "region": "eu-west-1",
       "resource_type": "aws.rds",
@@ -48,6 +50,7 @@
       "average_resources_failed": 0
     },
     {
+      "id": "ecc-aws-167-security_group_ingress_is_restricted_traffic_to_port_143",
       "policy": "Description for ecc-aws-167-security_group_ingress_is_restricted_traffic_to_port_143",
       "region": "eu-west-1",
       "resource_type": "aws.security-group",
@@ -67,6 +70,7 @@
       "average_resources_failed": 0
     },
     {
+      "id": "ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances",
       "policy": "Description for ecc-aws-575-ebs_volumes_attached_to_stopped_ec2_instances",
       "region": "eu-west-1",
       "resource_type": "aws.ebs",
@@ -88,6 +92,7 @@
       "average_resources_failed": 2
     },
     {
+      "id": "ecc-aws-490-ec2_token_hop_limit_check",
       "policy": "Description for ecc-aws-490-ec2_token_hop_limit_check",
       "region": "eu-west-1",
       "resource_type": "aws.ec2",
@@ -107,6 +112,7 @@
       "average_resources_failed": 2
     },
     {
+      "id": "ecc-aws-229-ecr_repository_kms_encryption_enabled",
       "policy": "Description for ecc-aws-229-ecr_repository_kms_encryption_enabled",
       "region": "eu-west-1",
       "resource_type": "aws.ecr",
@@ -126,6 +132,7 @@
       "average_resources_failed": 2
     },
     {
+      "id": "ecc-aws-374-cloudtrail_logs_data_events",
       "policy": "Description for ecc-aws-374-cloudtrail_logs_data_events",
       "region": "eu-west-1",
       "resource_type": "aws.cloudtrail",
@@ -147,6 +154,7 @@
       "average_resources_failed": 1
     },
     {
+      "id": "ecc-aws-150-api_gateway_rest_api_encryption_at_rest",
       "policy": "Description for ecc-aws-150-api_gateway_rest_api_encryption_at_rest",
       "region": "eu-central-1",
       "resource_type": "aws.rest-stage",
@@ -168,6 +176,7 @@
       "average_resources_failed": 0
     },
     {
+      "id": "ecc-aws-070-unused_ec2_security_groups",
       "policy": "Description for ecc-aws-070-unused_ec2_security_groups",
       "region": "eu-central-1",
       "resource_type": "aws.security-group",
@@ -198,6 +207,7 @@
       "average_resources_failed": 3
     },
     {
+      "id": "ecc-aws-374-cloudtrail_logs_data_events",
       "policy": "Description for ecc-aws-374-cloudtrail_logs_data_events",
       "region": "eu-central-1",
       "resource_type": "aws.cloudtrail",
@@ -219,6 +229,7 @@
       "average_resources_failed": 1
     },
     {
+      "id": "ecc-aws-221-sns_kms_encryption_enabled",
       "policy": "Description for ecc-aws-221-sns_kms_encryption_enabled",
       "region": "eu-central-1",
       "resource_type": "aws.sns",
@@ -242,6 +253,7 @@
       "average_resources_failed": 3
     },
     {
+      "id": "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
       "policy": "Description for ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled",
       "region": "global",
       "resource_type": "aws.s3",
@@ -261,6 +273,7 @@
       "average_resources_failed": 6
     },
     {
+      "id": "ecc-aws-499-iam_group_has_users_check",
       "policy": "Description for ecc-aws-499-iam_group_has_users_check",
       "region": "global",
       "resource_type": "aws.iam-group",
@@ -282,6 +295,7 @@
       "average_resources_failed": 3
     },
     {
+      "id": "ecc-aws-516-s3_event_notifications_enabled",
       "policy": "Description for ecc-aws-516-s3_event_notifications_enabled",
       "region": "global",
       "resource_type": "aws.s3",
@@ -301,6 +315,7 @@
       "average_resources_failed": 4
     },
     {
+      "id": "ecc-aws-527-waf_global_webacl_not_empty",
       "policy": "Description for ecc-aws-527-waf_global_webacl_not_empty",
       "region": "global",
       "resource_type": "aws.waf",

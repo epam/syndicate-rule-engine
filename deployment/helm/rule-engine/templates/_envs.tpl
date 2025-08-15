@@ -108,7 +108,19 @@ env:
   {{- if .Values.recommendationsBucket }}
   - name: SRE_RECOMMENDATIONS_BUCKET_NAME
     value: {{ .Values.recommendationsBucket }}
-  {{- end}}
+  {{- end }}
+  {{- if .Values.minioPresignedUrl }}
+  - name: SRE_MINIO_PRESIGNED_URL_HOST
+    value: {{ .Values.minioPresignedUrl | quote }}
+  {{- end }}
+  {{- if .Values.minioPresignedUrlPublicIpv4 }}
+  - name: SRE_MINIO_PRESIGNED_URL_PUBLIC_IPV4
+    value: {{ .Values.minioPresignedUrlPublicIpv4 | quote }}
+  {{- end }}
+  {{- if .Values.minioPresignedUrlPrivateIpv4 }}
+  - name: SRE_MINIO_PRESIGNED_URL_PRIVATE_IPV4
+    value: {{ .Values.minioPresignedUrlPrivateIpv4 | quote }}
+  {{- end }}
   - name: REDIS_PASSWORD
     valueFrom:
       secretKeyRef:
