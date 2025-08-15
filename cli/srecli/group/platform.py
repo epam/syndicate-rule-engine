@@ -6,7 +6,7 @@ from srecli.group.platform_k8s import k8s
 @click.group(name='platform')
 def platform():
     """
-    Manages Custodian Service platforms
+    Manages K8S platforms
     """
 
 

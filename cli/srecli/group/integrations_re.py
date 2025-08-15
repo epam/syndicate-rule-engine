@@ -36,9 +36,9 @@ def re():
 @click.option('--password', '-p', type=str, required=True,
               help='Password to set to application')
 @click.option('--url', '-U', type=str,
-              help='Url to Custodian installation')
+              help='Url to SRE installation')
 @click.option('--auto_resolve_access', '-ara', is_flag=True,
-              help='If specified, Custodian will try to '
+              help='If specified, SRE will try to '
                    'resolve access automatically. '
                    'Otherwise you must specify url')
 @click.option('--results_storage', '-rs', type=str,

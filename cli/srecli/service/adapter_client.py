@@ -8,7 +8,7 @@ import urllib.error
 from urllib.parse import quote, urlencode
 import urllib.request
 
-from srecli.service.config import AbstractCustodianConfig
+from srecli.service.config import AbstractSREConfig
 from srecli.service.constants import (
     CONF_ACCESS_TOKEN,
     CONF_REFRESH_TOKEN,
@@ -29,8 +29,8 @@ _LOG = get_logger(__name__)
 class ApiClient:
     """
     Simple JSON API client which is enough to cover our needs. It does not own
-    custodian-bound logic, i.e, access/refresh tokens and other. It knows
-    how to build urls and make requests without handling custodian-specific
+    sre-bound logic, i.e, access/refresh tokens and other. It knows
+    how to build urls and make requests without handling sre-specific
     exceptions
     """
     __slots__ = ('_api_link',)
@@ -45,7 +45,7 @@ class ApiClient:
                   query: dict | None = None) -> str:
         """
         The methods return full built url which can be used to make request
-        :param path: some custodian resource. One variable from
+        :param path: some sre resource. One variable from
         Endpoints class
         :param params: path params
         :param query: dict with query params
@@ -80,7 +80,7 @@ class ApiClient:
         return urllib.request.urlopen(*args, **kwargs)
 
 
-class CustodianResponse:
+class SREResponse:
     __slots__ = ('method', 'path', 'code', 'data', 'trace_id', 'api_version',
                  'exc')
 
@@ -120,7 +120,7 @@ class CustodianResponse:
     @classmethod
     def build(cls, content: str | list | dict | Iterable,
               code: HTTPStatus = HTTPStatus.OK
-              ) -> 'CustodianResponse':
+              ) -> 'SREResponse':
         body = {}
         if isinstance(content, str):
             body.update({MESSAGE_ATTR: content})
@@ -137,14 +137,14 @@ class CustodianResponse:
         return self.code is not None and 200 <= self.code < 400
 
 
-class CustodianApiClient:
+class SREApiClient:
     """
-    This api client contains custodian-specific logic. It uses the ApiClient
+    This api client contains sre-specific logic. It uses the ApiClient
     from above for making requests
     """
     __slots__ = '_config', '_client', '_auto_refresh'
 
-    def __init__(self, config: AbstractCustodianConfig):
+    def __init__(self, config: AbstractSREConfig):
         # api_link and access_token presence is validated before
         self._config = config
         self._client = ApiClient(api_link=config.api_link)
@@ -180,8 +180,8 @@ class CustodianApiClient:
 
         rec.add_header(header, at)
 
-    def _custodian_open(self, request: urllib.request.Request,
-                        response: CustodianResponse) -> None:
+    def _sre_open(self, request: urllib.request.Request,
+                        response: SREResponse) -> None:
         """
         Sends the given request instance. Fills the response instance with data
         :param request:
@@ -210,7 +210,7 @@ class CustodianApiClient:
                      method: HTTPMethod | None = None,
                      path_params: dict | None = None,
                      query: dict | None = None,
-                     data: dict | None = None) -> CustodianResponse:
+                     data: dict | None = None) -> SREResponse:
         """
         High-level request method. Adds token.
         :param path:
@@ -228,8 +228,8 @@ class CustodianApiClient:
             data=data
         )
         self.add_token(req)
-        response = CustodianResponse(method=method, path=path)
-        self._custodian_open(req, response)
+        response = SREResponse(method=method, path=path)
+        self._sre_open(req, response)
         return response
 
     def refresh(self, token: str):
@@ -238,9 +238,9 @@ class CustodianApiClient:
             method=HTTPMethod.POST,
             data={'refresh_token': token}
         )
-        response = CustodianResponse(HTTPMethod.POST,
+        response = SREResponse(HTTPMethod.POST,
                                      Endpoint.REFRESH)
-        self._custodian_open(req, response)
+        self._sre_open(req, response)
         return response
 
     def login(self, username: str, password: str):
@@ -249,8 +249,8 @@ class CustodianApiClient:
             method=HTTPMethod.POST,
             data={'username': username, 'password': password}
         )
-        response = CustodianResponse(HTTPMethod.POST, Endpoint.SIGNIN)
-        self._custodian_open(req, response)
+        response = SREResponse(HTTPMethod.POST, Endpoint.SIGNIN)
+        self._sre_open(req, response)
         return response
 
     def whoami(self):

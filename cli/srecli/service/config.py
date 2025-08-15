@@ -19,7 +19,7 @@ SYSTEM_LOG = get_logger(__name__)
 Json = dict | list | float | int | str | bool
 
 
-class AbstractCustodianConfig(ABC):
+class AbstractSREConfig(ABC):
     @property
     @abstractmethod
     def api_link(self) -> str | None:
@@ -77,7 +77,7 @@ class AbstractCustodianConfig(ABC):
         ...
 
 
-class CustodianCLIConfig(JSONFileCache, AbstractCustodianConfig):
+class SRECLIConfig(JSONFileCache, AbstractSREConfig):
     """
     The inner implementation can be rewritten to YAML. Or i you want, you
     can same all the data in one file. The important thin is, data must be
@@ -181,7 +181,7 @@ class CustodianCLIConfig(JSONFileCache, AbstractCustodianConfig):
                 executor.submit(prop.fdel, self)
 
 
-class CustodianWithCliSDKConfig(AbstractCustodianConfig):
+class SREWithCliSDKConfig(AbstractSREConfig):
     """
     For integration with modular cli sdk
     """

@@ -20,7 +20,7 @@ REPORT_JOB_MISSING_PARAMS_MESSAGE = 'Either \'--account_name\' or ' \
 
 @click.group(name='report')
 def report():
-    """Manages Custodian Service reports"""
+    """Manages reports"""
 
 
 @report.command(cls=ViewCommand, name='operational')

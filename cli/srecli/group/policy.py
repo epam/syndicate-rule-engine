@@ -10,7 +10,7 @@ attributes_order = 'name', 'permissions', 'customer'
 
 @click.group(name='policy')
 def policy():
-    """Manages Custodian Service Policy Entities"""
+    """Manages Entities"""
 
 
 @policy.command(cls=ViewCommand, name='describe')
@@ -19,7 +19,7 @@ def policy():
 @cli_response(attributes_order=attributes_order)
 def describe(ctx: ContextObj, customer_id, name):
     """
-    Describes Custodian Service policies of a customer
+    Describes policies of a customer
     """
     if name:
         return ctx['api_client'].policy_get(
@@ -52,7 +52,7 @@ def describe(ctx: ContextObj, customer_id, name):
 def add(ctx: ContextObj, customer_id, name, permission,
         path_to_permissions, permissions_admin, effect, tenant, description):
     """
-    Creates a Custodian Service policy for a customer
+    Creates a policy for a customer
     """
     if not permission and not path_to_permissions and not permissions_admin:
         raise click.ClickException(
@@ -104,7 +104,7 @@ def add(ctx: ContextObj, customer_id, name, permission,
 def update(ctx: ContextObj, customer_id, name, attach_permission,
            detach_permission, effect, add_tenant, remove_tenant, description):
     """
-    Updates permission-list within a Custodian Service policy
+    Updates permission-list within a policy
     """
 
     if not attach_permission and not detach_permission and not effect and not add_tenant and not remove_tenant and not description:
@@ -130,7 +130,7 @@ def update(ctx: ContextObj, customer_id, name, attach_permission,
 @cli_response()
 def delete(ctx: ContextObj, customer_id, name):
     """
-    Deletes a Custodian Service policy of a customer
+    Deletes a policy of a customer
     """
     return ctx['api_client'].policy_delete(
         name=name,
