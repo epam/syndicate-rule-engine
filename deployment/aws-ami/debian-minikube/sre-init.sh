@@ -499,7 +499,7 @@ initialize_system() {
   syndicate admin role add --name admin_role --policies admin_policy --customer_id "$customer_name" --json
   syndicate admin users create --username "$MODULAR_SERVICE_USERNAME" --password "$modular_service_password" --role_name admin_role --customer_id "$customer_name" --json
 
-  echo "Creating custodian customer users"
+  echo "Creating SRE customer users"
   syndicate re policy add --name admin_policy --permissions_admin --effect allow --tenant '*' --description "Full admin access policy for customer" --customer_id "$customer_name" --json
   syndicate re role add --name admin_role --policies admin_policy --description "Admin customer role" --customer_id "$customer_name" --json
   syndicate re users create --username "$RULE_ENGINE_USERNAME" --password "$rule_engine_password" --role_name admin_role --customer_id "$customer_name" --json

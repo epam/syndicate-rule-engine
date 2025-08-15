@@ -26,7 +26,7 @@ to_date_results_option = build_iso_date_option(
 
 @click.group(name='results')
 def results():
-    """Manages Custodian Service Results of Batched Scan Entities"""
+    """Manages Syndicate Rule Engine Results of Batched Scan Entities"""
 
 
 @results.command(cls=ViewCommand, name='describe')
@@ -42,7 +42,7 @@ def describe(ctx: ContextObj, batch_result_id: str,  tenant_name: str,
              customer_id: str, from_date: datetime, to_date: datetime,
              limit: int, next_token: str):
     """
-    Describes results of Custodian Service reactive, batched scans
+    Describes results of Syndicate Rule Engine reactive, batched scans
     """
     if batch_result_id:
         return ctx['api_client'].batch_results_get(br_id=batch_result_id,

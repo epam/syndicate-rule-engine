@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.13.0] - 2025-08-05
+- added endpoints for interacting with resource exceptions: `GET /resources/exceptions`, `GET /resources/exceptions/{id}`, `POST /resources/exceptions`, `PUT /resources/exceptions/{id}`, `DELETE /resources/exceptions/{id}`.
+- changed operational overview, resources, deprecations, finops, and attacks reports to add exceptions information.
+- changed operational overview report to include total resources scanned.
+- renamed database, collections and other occurrences from `custodian_as_a_service` to `syndicate_rule_engine`.
+
+
 ## [5.12.1] - 2025-08-08 (hotfix)
 - fixed a bug with small number of executed google policies
 - fixed a bug with inconsistent shards collection

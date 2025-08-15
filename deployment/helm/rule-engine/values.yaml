@@ -1,4 +1,4 @@
-databaseName: custodian_as_a_service
+databaseName: syndicate_rule_engine
 mongoUri:
 innerCacheTTLSeconds: '300'
 workers: 2
@@ -48,9 +48,9 @@ redis:
 modular-service:
   enabled: true
   fullnameOverride: modular-service
-  databaseName: custodian_as_a_service
+  databaseName: syndicate_rule_engine
   modularSdk:
-    databaseName: custodian_as_a_service
+    databaseName: syndicate_rule_engine
 modular-api:
   enabled: true
   fullnameOverride: modular-api
@@ -76,7 +76,7 @@ modularSdk:
 
   # for "mongo" dbBackend
   mongoUri:
-  databaseName: custodian_as_a_service
+  databaseName: syndicate_rule_engine
 
   # for "dynamo" dbBackend
   awsRegion:

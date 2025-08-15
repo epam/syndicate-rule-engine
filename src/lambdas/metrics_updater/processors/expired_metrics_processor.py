@@ -3,7 +3,7 @@ from datetime import timedelta
 from modular_sdk.modular import ModularServiceProvider
 
 from helpers import get_logger
-from helpers.constants import CAASEnv
+from helpers.constants import Env
 from helpers.time_helper import utc_datetime
 from models.metrics import ReportMetrics
 from services import SP
@@ -38,7 +38,7 @@ class ExpiredMetricsCleaner:
         and corresponding files in s3 is deleted
         if they older than specified limit
         """
-        expiration = CAASEnv.METRICS_EXPIRATION_DAYS.get()
+        expiration = Env.METRICS_EXPIRATION_DAYS.get()
         if expiration is None or not expiration.isalnum():
             _LOG.info('Expiration env is not set. Metrics won`t be removed')
             return

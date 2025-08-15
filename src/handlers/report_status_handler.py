@@ -2,7 +2,7 @@ from http import HTTPStatus
 
 from handlers import AbstractHandler, Mapping
 from helpers import get_logger
-from helpers.constants import CustodianEndpoint, HTTPMethod
+from helpers.constants import Endpoint, HTTPMethod
 from helpers.lambda_response import build_response
 from services import SP
 from services.report_statistics_service import ReportStatisticsService
@@ -20,7 +20,7 @@ class ReportStatusHandlerHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.REPORTS_STATUS: {
+            Endpoint.REPORTS_STATUS: {
                 HTTPMethod.GET: self.get_status
             }
         }
@@ -33,7 +33,7 @@ class ReportStatusHandlerHandler(AbstractHandler):
 
     @validate_kwargs
     def get_status(self, event: ReportStatusGetModel):
-        _LOG.debug(f'Retrieving items from CaaSReportStatistics table with id '
+        _LOG.debug(f'Retrieving items from SREReportStatistics table with id '
                    f'{event.job_id} and customer {event.customer}')
         items = self.report_statistics_service.iter_by_id(
             job_id=event.job_id,

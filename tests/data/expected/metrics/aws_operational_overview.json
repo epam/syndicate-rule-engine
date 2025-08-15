@@ -165,7 +165,7 @@
   },
   "data": {
     "resources_violated": 23,
-    "resources_scanned": 0,
+    "resources_scanned": 23,
     "regions": {
       "eu-central-1": {
         "resources": {
@@ -350,5 +350,6 @@
       "applied": 0
     }
   },
+  "exceptions_data": [],
   "id": "123456789012"
 }

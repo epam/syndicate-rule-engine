@@ -35,7 +35,7 @@ get_from_metadata() { curl -sf -H "X-aws-ec2-metadata-token: $(get_imds_token)" 
 identity_document() { get_from_metadata "/dynamic/instance-identity/document"; }
 document_signature() { get_from_metadata "/dynamic/instance-identity/signature" | tr -d '\n'; }
 region() { get_from_metadata "/dynamic/instance-identity/document" | jq -r ".region"; }
-request_to_lm() { curl -sf -X POST -d "{\"signature\":\"$(document_signature)\",\"document\":\"$(identity_document | base64 -w 0)\"}" "$LM_API_LINK/marketplace/custodian/init"; }
+request_to_lm() { curl -sf -X POST -d "{\"signature\":\"$(document_signature)\",\"document\":\"$(identity_document | base64 -w 0)\"}" "$LM_API_LINK/marketplace/rule-engine/init"; }
 generate_password() {
   chars="20"
   typ='-base64'

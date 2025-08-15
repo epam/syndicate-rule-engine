@@ -52,7 +52,7 @@ class LambdaForceExit(Exception):
         return self._response.build()
 
 
-class CustodianException(LambdaForceExit): ...
+class SREException(LambdaForceExit): ...
 
 
 class MetricsUpdateException(LambdaForceExit): ...
@@ -115,7 +115,7 @@ class LambdaResponse:
             'body': self._content,
         }
 
-    def exc(self, exc_type: type[TE] = CustodianException) -> TE:
+    def exc(self, exc_type: type[TE] = SREException) -> TE:
         return exc_type(response=self)
 
 

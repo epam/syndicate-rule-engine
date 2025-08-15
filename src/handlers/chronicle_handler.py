@@ -9,7 +9,7 @@ from modular_sdk.services.parent_service import ParentService
 
 from handlers import AbstractHandler, Mapping
 from helpers import NextToken
-from helpers.constants import CustodianEndpoint, HTTPMethod
+from helpers.constants import Endpoint, HTTPMethod
 from helpers.lambda_response import ResponseFactory, build_response
 from services import SP
 from services.abs_lambda import ProcessedEvent
@@ -45,15 +45,15 @@ class ChronicleHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.INTEGRATIONS_CHRONICLE: {
+            Endpoint.INTEGRATIONS_CHRONICLE: {
                 HTTPMethod.POST: self.post,
                 HTTPMethod.GET: self.query
             },
-            CustodianEndpoint.INTEGRATIONS_CHRONICLE_ID: {
+            Endpoint.INTEGRATIONS_CHRONICLE_ID: {
                 HTTPMethod.GET: self.get,
                 HTTPMethod.DELETE: self.delete
             },
-            CustodianEndpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION: {
+            Endpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION: {
                 HTTPMethod.PUT: self.put_activation,
                 HTTPMethod.DELETE: self.delete_activation,
                 HTTPMethod.GET: self.get_activation

@@ -7,7 +7,7 @@ from srecli.group.integrations_chronicle import chronicle
 
 @click.group(name='integrations')
 def integrations():
-    """Manages Custodian Service Integrations"""
+    """Manages Integrations"""
 
 
 integrations.add_command(dojo)

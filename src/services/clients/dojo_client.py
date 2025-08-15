@@ -6,7 +6,7 @@ import msgspec
 import requests
 
 from helpers import encode_into
-from helpers.constants import CAASEnv, HTTPMethod
+from helpers.constants import Env, HTTPMethod
 from helpers.log_helper import get_logger
 
 if TYPE_CHECKING:
@@ -100,7 +100,7 @@ class DojoV2Client:
             yield None, bytearray(b'{"findings":[]}')
             return
 
-        limit = CAASEnv.DOJO_PAYLOAD_SIZE_LIMIT_BYTES.get()
+        limit = Env.DOJO_PAYLOAD_SIZE_LIMIT_BYTES.get()
         if limit is None or not limit.isalnum():
             _LOG.info('No dojo limit, encoding the whole report')
             buf = bytearray()

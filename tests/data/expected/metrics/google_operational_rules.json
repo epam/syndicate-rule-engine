@@ -80,8 +80,8 @@
       "total_exec": 0.0008008480072021484,
       "average_exec": 0.0008008480072021484,
       "resources_failed": 1,
-      "resources_scanned": 0,
-      "average_resources_scanned": 0,
+      "resources_scanned": 1,
+      "average_resources_scanned": 1,
       "average_resources_failed": 1
     },
     {
@@ -100,8 +100,8 @@
       "total_exec": 0.010553836822509766,
       "average_exec": 0.010553836822509766,
       "resources_failed": 4,
-      "resources_scanned": 0,
-      "average_resources_scanned": 0,
+      "resources_scanned": 4,
+      "average_resources_scanned": 4,
       "average_resources_failed": 4
     },
     {
@@ -120,8 +120,8 @@
       "total_exec": 0.0009238719940185547,
       "average_exec": 0.0009238719940185547,
       "resources_failed": 1,
-      "resources_scanned": 0,
-      "average_resources_scanned": 0,
+      "resources_scanned": 4,
+      "average_resources_scanned": 4,
       "average_resources_failed": 1
     },
     {
@@ -140,8 +140,8 @@
       "total_exec": 0.0007839202880859375,
       "average_exec": 0.0007839202880859375,
       "resources_failed": 4,
-      "resources_scanned": 0,
-      "average_resources_scanned": 0,
+      "resources_scanned": 4,
+      "average_resources_scanned": 4,
       "average_resources_failed": 4
     },
     {
@@ -160,8 +160,8 @@
       "total_exec": 0.0016372203826904297,
       "average_exec": 0.0016372203826904297,
       "resources_failed": 4,
-      "resources_scanned": 0,
-      "average_resources_scanned": 0,
+      "resources_scanned": 4,
+      "average_resources_scanned": 4,
       "average_resources_failed": 4
     },
     {

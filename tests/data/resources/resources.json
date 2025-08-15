@@ -1,0 +1,2161 @@
+[
+  {
+    "account_id": "123456789012",
+    "location": "global",
+    "resource_type": "aws.s3",
+    "id": "example-reports-dev",
+    "name": "example-reports-dev",
+    "arn": "arn:aws:s3:::example-reports-dev",
+    "data": {
+      "Name": "example-reports-dev",
+      "CreationDate": "2022-06-20T10:54:56+00:00",
+      "Location": {
+        "LocationConstraint": "eu-west-1"
+      },
+      "Tags": [
+        {
+          "Key": "environment",
+          "Value": "example"
+        }
+      ],
+      "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::example-reports-dev\",\"arn:aws:s3:::example-reports-dev/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
+      "Acl": {
+        "Owner": {
+          "DisplayName": "Special-AWS",
+          "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+        },
+        "Grants": [
+          {
+            "Grantee": {
+              "DisplayName": "Special-AWS",
+              "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+              "Type": "CanonicalUser"
+            },
+            "Permission": "FULL_CONTROL"
+          }
+        ]
+      },
+      "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+      "Versioning": {},
+      "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+      "Logging": {
+        "TargetBucket": "s3-access-logs-123456789012-eu-west-1",
+        "TargetPrefix": "123456789012/eu-west-1/example-reports-dev/"
+      },
+      "Notification": {},
+      "Lifecycle": {
+        "Rules": [
+          {
+            "Expiration": {
+              "Days": true
+            },
+            "ID": "Remove old",
+            "Filter": {
+              "Prefix": "on-demand/"
+            },
+            "Status": "Enabled"
+          }
+        ]
+      },
+      "c7n:MatchedFilters": [
+        "Versioning.MFADelete"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AWS-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "123456789012",
+    "location": "global",
+    "resource_type": "aws.s3",
+    "id": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1",
+    "name": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1",
+    "arn": "arn:aws:s3:::appcomposer-4bzknnwy0n3wuuhd-eu-west-1",
+    "data": {
+      "Name": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1",
+      "CreationDate": "2024-05-30T08:05:41+00:00",
+      "Location": {
+        "LocationConstraint": "eu-west-1"
+      },
+      "Tags": [],
+      "Policy": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+      "Acl": {
+        "Owner": {
+          "DisplayName": "Special-AWS",
+          "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+        },
+        "Grants": [
+          {
+            "Grantee": {
+              "DisplayName": "Special-AWS",
+              "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+              "Type": "CanonicalUser"
+            },
+            "Permission": "FULL_CONTROL"
+          }
+        ]
+      },
+      "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+      "Versioning": {},
+      "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+      "Logging": {
+        "TargetBucket": "s3-access-logs-123456789012-eu-west-1",
+        "TargetPrefix": "123456789012/eu-west-1/appcomposer-4bzknnwy0n3wuuhd-eu-west-1/"
+      },
+      "Notification": {},
+      "Lifecycle": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+      "c7n:MatchedFilters": [
+        "Versioning.MFADelete"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AWS-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "123456789012",
+    "location": "global",
+    "resource_type": "aws.s3",
+    "id": "example-artifacts",
+    "name": "example-artifacts",
+    "arn": "arn:aws:s3:::example-artifacts",
+    "data": {
+      "Name": "example-artifacts",
+      "CreationDate": "2024-07-16T13:24:02+00:00",
+      "Location": {
+        "LocationConstraint": "eu-central-1"
+      },
+      "Tags": [
+        {
+          "Key": "owner",
+          "Value": "some_email@gmail.com"
+        },
+        {
+          "Key": "aws:cloudformation:stack-name",
+          "Value": "APP-s3-repository"
+        },
+        {
+          "Key": "aws:cloudformation:logical-id",
+          "Value": "APPArtifacts"
+        },
+        {
+          "Key": "environment",
+          "Value": "develop"
+        },
+        {
+          "Key": "application",
+          "Value": "APP"
+        },
+        {
+          "Key": "aws:cloudformation:stack-id",
+          "Value": "arn:aws:cloudformation:eu-central-1:123456789012:stack/APP-s3-repository/a740f9f0-4376-11ef-98b5-02f06973e781"
+        }
+      ],
+      "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"S3BucketPolicy\",\"Statement\":[{\"Sid\":\"DenyInsecureTransport\",\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"*\",\"Resource\":[\"arn:aws:s3:::example-artifacts\",\"arn:aws:s3:::example-artifacts/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
+      "Acl": {
+        "Owner": {
+          "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+        },
+        "Grants": [
+          {
+            "Grantee": {
+              "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+              "Type": "CanonicalUser"
+            },
+            "Permission": "FULL_CONTROL"
+          }
+        ]
+      },
+      "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+      "Versioning": {
+        "Status": "Suspended"
+      },
+      "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+      "Logging": {
+        "TargetBucket": "s3-access-logs-123456789012-eu-central-1",
+        "TargetPrefix": "123456789012/eu-central-1/example-artifacts/"
+      },
+      "Notification": {},
+      "Lifecycle": {
+        "Rules": [
+          {
+            "Expiration": {
+              "Days": 14
+            },
+            "ID": "devExpiration",
+            "Filter": {
+              "Prefix": "DEV/"
+            },
+            "Status": "Enabled",
+            "NoncurrentVersionExpiration": {
+              "NoncurrentDays": 14
+            },
+            "AbortIncompleteMultipartUpload": {
+              "DaysAfterInitiation": true
+            }
+          },
+          {
+            "Expiration": {
+              "Days": 90
+            },
+            "ID": "qaExpiration",
+            "Filter": {
+              "Prefix": "QA/"
+            },
+            "Status": "Enabled",
+            "NoncurrentVersionExpiration": {
+              "NoncurrentDays": 90
+            },
+            "AbortIncompleteMultipartUpload": {
+              "DaysAfterInitiation": true
+            }
+          }
+        ]
+      },
+      "c7n:MatchedFilters": [
+        "Versioning.MFADelete"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AWS-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "123456789012",
+    "location": "global",
+    "resource_type": "aws.s3",
+    "id": "example-meta-storage-eu-west-3-par",
+    "name": "example-meta-storage-eu-west-3-par",
+    "arn": "arn:aws:s3:::example-meta-storage-eu-west-3-par",
+    "data": {
+      "Name": "example-meta-storage-eu-west-3-par",
+      "CreationDate": "2019-12-17T17:05:18+00:00",
+      "Location": {
+        "LocationConstraint": "eu-west-3"
+      },
+      "Tags": [],
+      "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::example-meta-storage-eu-west-3-par\",\"arn:aws:s3:::example-meta-storage-eu-west-3-par/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
+      "Acl": {
+        "Owner": {
+          "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+        },
+        "Grants": [
+          {
+            "Grantee": {
+              "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+              "Type": "CanonicalUser"
+            },
+            "Permission": "FULL_CONTROL"
+          }
+        ]
+      },
+      "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+      "Versioning": {},
+      "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+      "Logging": {
+        "TargetBucket": "s3-access-logs-123456789012-eu-west-3",
+        "TargetPrefix": "123456789012/eu-west-3/example-meta-storage-eu-west-3-par/"
+      },
+      "Notification": {
+        "LambdaFunctionConfigurations": [
+          {
+            "Id": "ZTYzMTRiZDYtYWE4Ny00MTk0LWEwODAtZjU3NTFjNjQyZWVk",
+            "LambdaFunctionArn": "arn:aws:lambda:eu-west-3:123456789012:function:log-data-parser:Prod",
+            "Events": [
+              "s3:ObjectCreated:Put"
+            ],
+            "Filter": {
+              "Key": {
+                "FilterRules": [
+                  {
+                    "Name": "Suffix",
+                    "Value": ".raw"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "Lifecycle": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+      "c7n:MatchedFilters": [
+        "Versioning.MFADelete"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AWS-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "123456789012",
+    "location": "global",
+    "resource_type": "aws.s3",
+    "id": "macro-delivery",
+    "name": "macro-delivery",
+    "arn": "arn:aws:s3:::macro-delivery",
+    "data": {
+      "Name": "macro-delivery",
+      "CreationDate": "2020-08-13T13:37:17+00:00",
+      "Location": {
+        "LocationConstraint": "eu-north-1"
+      },
+      "Tags": [],
+      "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"PolicyForCloudFrontPrivateContent\",\"Statement\":[{\"Sid\":\"ReadOnly\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":[]},\"Action\":[\"s3:GetObject\",\"s3:ListBucket\"],\"Resource\":[\"arn:aws:s3:::macro-delivery/**\",\"arn:aws:s3:::macro-delivery\",\"arn:aws:s3:::macro-delivery/*\"]},{\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::macro-delivery\",\"arn:aws:s3:::macro-delivery/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
+      "Acl": {
+        "Owner": {
+          "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+        },
+        "Grants": [
+          {
+            "Grantee": {
+              "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+              "Type": "CanonicalUser"
+            },
+            "Permission": "FULL_CONTROL"
+          }
+        ]
+      },
+      "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+      "Versioning": {},
+      "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+      "Logging": {
+        "TargetBucket": "s3-access-logs-123456789012-eu-north-1",
+        "TargetPrefix": "123456789012/eu-north-1/macro-delivery/"
+      },
+      "Notification": {},
+      "Lifecycle": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+      "c7n:MatchedFilters": [
+        "Versioning.MFADelete"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AWS-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "123456789012",
+    "location": "global",
+    "resource_type": "aws.s3",
+    "id": "example-rulesets-dev",
+    "name": "example-rulesets-dev",
+    "arn": "arn:aws:s3:::example-rulesets-dev",
+    "data": {
+      "Name": "example-rulesets-dev",
+      "CreationDate": "2022-07-05T10:17:37+00:00",
+      "Location": {
+        "LocationConstraint": "eu-west-1"
+      },
+      "Tags": [
+        {
+          "Key": "environment",
+          "Value": "example"
+        }
+      ],
+      "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::example-rulesets-dev\",\"arn:aws:s3:::example-rulesets-dev/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
+      "Acl": {
+        "Owner": {
+          "DisplayName": "Special-AWS",
+          "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+        },
+        "Grants": [
+          {
+            "Grantee": {
+              "DisplayName": "Special-AWS",
+              "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+              "Type": "CanonicalUser"
+            },
+            "Permission": "FULL_CONTROL"
+          }
+        ]
+      },
+      "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+      "Versioning": {},
+      "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+      "Logging": {
+        "TargetBucket": "s3-access-logs-123456789012-eu-west-1",
+        "TargetPrefix": "123456789012/eu-west-1/example-rulesets-dev/"
+      },
+      "Notification": {},
+      "Lifecycle": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+      "c7n:MatchedFilters": [
+        "Versioning.MFADelete"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AWS-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "123456789012",
+    "location": "global",
+    "resource_type": "aws.iam-group",
+    "id": "AGPAUWVIOXSTGO46LZR77",
+    "name": "example-dev-extended-group",
+    "arn": "arn:aws:iam::123456789012:group/example-dev-extended-group",
+    "data": {
+      "Path": "/",
+      "GroupName": "example-dev-extended-group",
+      "GroupId": "AGPAUWVIOXSTGO46LZR77",
+      "Arn": "arn:aws:iam::123456789012:group/example-dev-extended-group",
+      "CreateDate": "2022-06-06T07:35:04+00:00"
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AWS-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "123456789012",
+    "location": "global",
+    "resource_type": "aws.iam-group",
+    "id": "AGPAUWIOXSTCNCHB3RX",
+    "name": "example-dev-group",
+    "arn": "arn:aws:iam::123456789012:group/example-dev-group",
+    "data": {
+      "Path": "/",
+      "GroupName": "example-dev-group",
+      "GroupId": "AGPAUWIOXSTCNCHB3RX",
+      "Arn": "arn:aws:iam::123456789012:group/example-dev-group",
+      "CreateDate": "2022-05-24T12:47:26+00:00"
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AWS-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "123456789012",
+    "location": "global",
+    "resource_type": "aws.iam-group",
+    "id": "AGPAIVA7CCC6ONKEHHI2",
+    "name": "DeployGroupWithoutIAM",
+    "arn": "arn:aws:iam::123456789012:group/DeployGroupWithoutIAM",
+    "data": {
+      "Path": "/",
+      "GroupName": "DeployGroupWithoutIAM",
+      "GroupId": "AGPAIVA7CCC6ONKEHHI2",
+      "Arn": "arn:aws:iam::123456789012:group/DeployGroupWithoutIAM",
+      "CreateDate": "2017-07-10T11:39:45+00:00"
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AWS-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "123456789012",
+    "location": "global",
+    "resource_type": "aws.s3",
+    "id": "example-meta-storage-eu-west-1-tmp",
+    "name": "example-meta-storage-eu-west-1-tmp",
+    "arn": "arn:aws:s3:::example-meta-storage-eu-west-1-tmp",
+    "data": {
+      "Name": "example-meta-storage-eu-west-1-tmp",
+      "CreationDate": "2019-05-08T15:03:20+00:00",
+      "Location": {
+        "LocationConstraint": "eu-west-1"
+      },
+      "Tags": [],
+      "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::example-meta-storage-eu-west-1-tmp\",\"arn:aws:s3:::example-meta-storage-eu-west-1-tmp/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
+      "Acl": {
+        "Owner": {
+          "DisplayName": "Special-AWS",
+          "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+        },
+        "Grants": [
+          {
+            "Grantee": {
+              "DisplayName": "Special-AWS",
+              "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+              "Type": "CanonicalUser"
+            },
+            "Permission": "FULL_CONTROL"
+          }
+        ]
+      },
+      "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+      "Versioning": {},
+      "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+      "Logging": {
+        "TargetBucket": "s3-access-logs-123456789012-eu-west-1",
+        "TargetPrefix": "123456789012/eu-west-1/example-meta-storage-eu-west-1-tmp/"
+      },
+      "Notification": {},
+      "Lifecycle": "7ac2e51b-1a38-44f1-9c3e-da1297934799"
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AWS-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "123456789012",
+    "location": "global",
+    "resource_type": "aws.cloudtrail",
+    "id": "testing-org",
+    "name": "testing-org",
+    "arn": "arn:aws:cloudtrail:global:123456789012:testing-org",
+    "data": {
+      "Name": "testing-org",
+      "S3BucketName": "testing-org-csup6",
+      "IncludeGlobalServiceEvents": true,
+      "IsMultiRegionTrail": true,
+      "HomeRegion": "eu-central-1",
+      "TrailARN": "arn:aws:cloudtrail:eu-central-1:111111111111:trail/testing-org",
+      "LogFileValidationEnabled": true,
+      "HasCustomEventSelectors": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+      "HasInsightSelectors": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+      "IsOrganizationTrail": true,
+      "Tags": [],
+      "c7n:TrailEventSelectors": {
+        "TrailARN": "arn:aws:cloudtrail:eu-central-1:111111111111:trail/testing-org",
+        "EventSelectors": [
+          {
+            "ReadWriteType": "All",
+            "IncludeManagementEvents": true,
+            "DataResources": [],
+            "ExcludeManagementEventSources": []
+          }
+        ]
+      }
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AWS-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "123456789012",
+    "location": "eu-central-1",
+    "resource_type": "aws.sns",
+    "id": "arn:aws:sns:eu-central-1:123456789012:dead",
+    "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+    "arn": "arn:aws:sns:eu-central-1:123456789012:dead",
+    "data": {
+      "TopicArn": "arn:aws:sns:eu-central-1:123456789012:dead",
+      "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"__default_policy_ID\",\"Statement\":[{\"Sid\":\"__default_statement_ID\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":[\"SNS:GetTopicAttributes\",\"SNS:SetTopicAttributes\",\"SNS:AddPermission\",\"SNS:RemovePermission\",\"SNS:DeleteTopic\",\"SNS:Subscribe\",\"SNS:ListSubscriptionsByTopic\",\"SNS:Publish\",\"SNS:Receive\"],\"Resource\":\"arn:aws:sns:eu-central-1:123456789012:dead\",\"Condition\":{\"StringEquals\":{\"AWS:SourceOwner\":\"123456789012\"}}}]}",
+      "Owner": "123456789012",
+      "SubscriptionsPending": "0",
+      "EffectiveDeliveryPolicy": "{\"http\":{\"defaultHealthyRetryPolicy\":{\"minDelayTarget\":20,\"maxDelayTarget\":20,\"numRetries\":3,\"numMaxDelayRetries\":0,\"numNoDelayRetries\":0,\"numMinDelayRetries\":0,\"backoffFunction\":\"linear\"},\"disableSubscriptionOverrides\":false,\"defaultRequestPolicy\":{\"headerContentType\":\"text/plain; charset=UTF-8\"}}}",
+      "SubscriptionsConfirmed": "1",
+      "DisplayName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+      "SubscriptionsDeleted": "0",
+      "Tags": [],
+      "c7n:MatchedFilters": [
+        "KmsMasterKeyId"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AWS-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "123456789012",
+    "location": "eu-central-1",
+    "resource_type": "aws.sns",
+    "id": "arn:aws:sns:eu-central-1:123456789012:testing-guard-duty-topic",
+    "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+    "arn": "arn:aws:sns:eu-central-1:123456789012:testing-guard-duty-topic",
+    "data": {
+      "TopicArn": "arn:aws:sns:eu-central-1:123456789012:testing-guard-duty-topic",
+      "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"__default_policy_ID\",\"Statement\":[{\"Sid\":\"__default_statement_ID\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":[\"SNS:GetTopicAttributes\",\"SNS:SetTopicAttributes\",\"SNS:AddPermission\",\"SNS:RemovePermission\",\"SNS:DeleteTopic\",\"SNS:Subscribe\",\"SNS:ListSubscriptionsByTopic\",\"SNS:Publish\",\"SNS:Receive\"],\"Resource\":\"arn:aws:sns:eu-central-1:123456789012:testing-guard-duty-topic\",\"Condition\":{\"StringEquals\":{\"AWS:SourceOwner\":\"123456789012\"}}},{\"Sid\":\"15c86ff9-b139-11ea-b98f-02c2a2ced469\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"events.amazonaws.com\"},\"Action\":\"sns:Publish\",\"Resource\":\"arn:aws:sns:eu-central-1:123456789012:testing-guard-duty-topic\"}]}",
+      "Owner": "123456789012",
+      "SubscriptionsPending": "0",
+      "EffectiveDeliveryPolicy": "{\"http\":{\"defaultHealthyRetryPolicy\":{\"minDelayTarget\":20,\"maxDelayTarget\":20,\"numRetries\":3,\"numMaxDelayRetries\":0,\"numNoDelayRetries\":0,\"numMinDelayRetries\":0,\"backoffFunction\":\"linear\"},\"disableSubscriptionOverrides\":false,\"defaultRequestPolicy\":{\"headerContentType\":\"text/plain; charset=UTF-8\"}}}",
+      "SubscriptionsConfirmed": "1",
+      "DisplayName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+      "SubscriptionsDeleted": "0",
+      "Tags": [],
+      "c7n:MatchedFilters": [
+        "KmsMasterKeyId"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AWS-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "123456789012",
+    "location": "eu-central-1",
+    "resource_type": "aws.sns",
+    "id": "arn:aws:sns:eu-central-1:123456789012:m3-inspector-topic",
+    "name": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+    "arn": "arn:aws:sns:eu-central-1:123456789012:m3-inspector-topic",
+    "data": {
+      "TopicArn": "arn:aws:sns:eu-central-1:123456789012:m3-inspector-topic",
+      "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"__default_policy_ID\",\"Statement\":[{\"Sid\":\"__default_statement_ID\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":[\"SNS:GetTopicAttributes\",\"SNS:SetTopicAttributes\",\"SNS:AddPermission\",\"SNS:RemovePermission\",\"SNS:DeleteTopic\",\"SNS:Subscribe\",\"SNS:ListSubscriptionsByTopic\",\"SNS:Publish\",\"SNS:Receive\"],\"Resource\":\"arn:aws:sns:eu-central-1:123456789012:m3-inspector-topic\",\"Condition\":{\"StringEquals\":{\"AWS:SourceOwner\":\"123456789012\"}}}]}",
+      "Owner": "123456789012",
+      "SubscriptionsPending": "0",
+      "EffectiveDeliveryPolicy": "{\"http\":{\"defaultHealthyRetryPolicy\":{\"minDelayTarget\":20,\"maxDelayTarget\":20,\"numRetries\":3,\"numMaxDelayRetries\":0,\"numNoDelayRetries\":0,\"numMinDelayRetries\":0,\"backoffFunction\":\"linear\"},\"disableSubscriptionOverrides\":false,\"defaultRequestPolicy\":{\"headerContentType\":\"text/plain; charset=UTF-8\"}}}",
+      "SubscriptionsConfirmed": "1",
+      "DisplayName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+      "SubscriptionsDeleted": "0",
+      "Tags": [],
+      "c7n:MatchedFilters": [
+        "KmsMasterKeyId"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AWS-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "123456789012",
+    "location": "eu-central-1",
+    "resource_type": "aws.security-group",
+    "id": "sg-05209ceeb761317e5",
+    "name": "west-eu",
+    "arn": "arn:aws:security-group:eu-central-1:123456789012:sg-05209ceeb761317e5",
+    "data": {
+      "Description": "Europe West",
+      "GroupName": "west-eu",
+      "IpPermissions": [
+        {
+          "IpProtocol": "-1",
+          "IpRanges": [],
+          "Ipv6Ranges": [],
+          "PrefixListIds": [
+            {
+              "Description": "west-eu prefix list",
+              "PrefixListId": "pl-087e65b29d25c5dcc"
+            }
+          ],
+          "UserIdGroupPairs": [
+            {
+              "GroupId": "sg-05209ceeb761317e5",
+              "UserId": "123456789012"
+            }
+          ]
+        }
+      ],
+      "OwnerId": "123456789012",
+      "GroupId": "sg-05209ceeb761317e5",
+      "IpPermissionsEgress": [
+        {
+          "IpProtocol": "-1",
+          "IpRanges": [
+            {
+              "CidrIp": "0.0.0.0/0"
+            }
+          ],
+          "Ipv6Ranges": [],
+          "PrefixListIds": [],
+          "UserIdGroupPairs": []
+        }
+      ],
+      "Tags": [
+        {
+          "Key": "created-by",
+          "Value": "testing"
+        }
+      ],
+      "VpcId": "vpc-7ce45c14"
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AWS-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "123456789012",
+    "location": "eu-central-1",
+    "resource_type": "aws.security-group",
+    "id": "sg-0ae266faddaef17e9",
+    "name": "packer-ssh-access",
+    "arn": "arn:aws:security-group:eu-central-1:123456789012:sg-0ae266faddaef17e9",
+    "data": {
+      "Description": "Allow ssh access to packer ami build",
+      "GroupName": "packer-ssh-access",
+      "IpPermissions": [
+        {
+          "FromPort": 22,
+          "IpProtocol": "tcp",
+          "IpRanges": [
+            {
+              "CidrIp": "195.56.111.209/32",
+              "Description": "VPN EU"
+            },
+            {
+              "CidrIp": "192.168.222.0/24",
+              "Description": "CICD VPC"
+            }
+          ],
+          "Ipv6Ranges": [],
+          "PrefixListIds": [],
+          "ToPort": 22,
+          "UserIdGroupPairs": []
+        }
+      ],
+      "OwnerId": "123456789012",
+      "GroupId": "sg-0ae266faddaef17e9",
+      "IpPermissionsEgress": [
+        {
+          "IpProtocol": "-1",
+          "IpRanges": [
+            {
+              "CidrIp": "0.0.0.0/0"
+            }
+          ],
+          "Ipv6Ranges": [],
+          "PrefixListIds": [],
+          "UserIdGroupPairs": []
+        }
+      ],
+      "VpcId": "vpc-7ce45c14"
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AWS-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "123456789012",
+    "location": "eu-central-1",
+    "resource_type": "aws.security-group",
+    "id": "sg-09d19538187df66cf",
+    "name": "asia",
+    "arn": "arn:aws:security-group:eu-central-1:123456789012:sg-09d19538187df66cf",
+    "data": {
+      "Description": "Asia",
+      "GroupName": "asia",
+      "IpPermissions": [
+        {
+          "IpProtocol": "-1",
+          "IpRanges": [],
+          "Ipv6Ranges": [],
+          "PrefixListIds": [
+            {
+              "Description": "asia prefix list",
+              "PrefixListId": "pl-0dc15f62b6e30b603"
+            }
+          ],
+          "UserIdGroupPairs": [
+            {
+              "GroupId": "sg-09d19538187df66cf",
+              "UserId": "123456789012"
+            }
+          ]
+        }
+      ],
+      "OwnerId": "123456789012",
+      "GroupId": "sg-09d19538187df66cf",
+      "IpPermissionsEgress": [
+        {
+          "IpProtocol": "-1",
+          "IpRanges": [
+            {
+              "CidrIp": "0.0.0.0/0"
+            }
+          ],
+          "Ipv6Ranges": [],
+          "PrefixListIds": [],
+          "UserIdGroupPairs": []
+        }
+      ],
+      "Tags": [
+        {
+          "Key": "created-by",
+          "Value": "testing"
+        }
+      ],
+      "VpcId": "vpc-7ce45c14"
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AWS-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "123456789012",
+    "location": "eu-west-1",
+    "resource_type": "aws.ebs",
+    "id": "unknown-6722",
+    "name": "unknown-6722",
+    "arn": "arn:aws:ebs:eu-west-1:123456789012:unknown-6722",
+    "data": {
+      "Attachments": [
+        {
+          "AttachTime": "2024-07-18T11:46:19+00:00",
+          "Device": "/dev/xvda",
+          "InstanceId": "i-005d97ab81a8b56a5",
+          "State": "attached",
+          "VolumeId": "vol-060f342d89d8bb757",
+          "DeleteOnTermination": true
+        }
+      ],
+      "AvailabilityZone": "eu-west-1b",
+      "CreateTime": "2024-07-18T11:46:19.170000+00:00",
+      "Encrypted": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+      "Size": 30,
+      "SnapshotId": "snap-05843dfabfa9b2353",
+      "State": "in-use",
+      "VolumeId": "vol-060f342d89d8bb757",
+      "Iops": 3000,
+      "VolumeType": "gp3",
+      "MultiAttachEnabled": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+      "Throughput": 125,
+      "Instance": {
+        "AmiLaunchIndex": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+        "ImageId": "ami-0983f1f9ba9026e4e",
+        "InstanceId": "i-005d97ab81a8b56a5",
+        "InstanceType": "t3.medium",
+        "KeyName": "application-ami",
+        "LaunchTime": "2024-09-17T11:14:38+00:00",
+        "Monitoring": {
+          "State": "disabled"
+        },
+        "Placement": {
+          "AvailabilityZone": "eu-west-1b",
+          "GroupName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+          "Tenancy": "default"
+        },
+        "PrivateDnsName": "ip-192-168-111-222.eu-west-1.compute.internal",
+        "PrivateIpAddress": "192.168.111.222",
+        "ProductCodes": [],
+        "PublicDnsName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+        "State": {
+          "Code": 80,
+          "Name": "stopped"
+        },
+        "StateTransitionReason": "User initiated (2024-09-17 13:38:26 GMT)",
+        "SubnetId": "subnet-0fd97a4fe475ce4a0",
+        "VpcId": "vpc-0fd123269e7109aa0",
+        "Architecture": "x86_64",
+        "BlockDeviceMappings": [
+          {
+            "DeviceName": "/dev/xvda",
+            "Ebs": {
+              "AttachTime": "2024-07-18T11:46:19+00:00",
+              "DeleteOnTermination": true,
+              "Status": "attached",
+              "VolumeId": "vol-060f342d89d8bb757"
+            }
+          }
+        ],
+        "ClientToken": "314c55a8-3b4e-4e81-a7c2-ca0d6400af0b",
+        "EbsOptimized": true,
+        "EnaSupport": true,
+        "Hypervisor": "xen",
+        "IamInstanceProfile": {
+          "Arn": "arn:aws:iam::123456789012:instance-profile/testing-default-ec2-profile",
+          "Id": "AIPAIV7EAZ2KRZ75EKE"
+        },
+        "NetworkInterfaces": [
+          {
+            "Attachment": {
+              "AttachTime": "2024-07-18T11:46:18+00:00",
+              "AttachmentId": "eni-attach-0405671de1a0ffdb5",
+              "DeleteOnTermination": true,
+              "DeviceIndex": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+              "Status": "attached",
+              "NetworkCardIndex": "ec47f3e8-3f01-460f-a086-f45df83fd152"
+            },
+            "Description": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+            "Groups": [
+              {
+                "GroupName": "example-ami-build",
+                "GroupId": "sg-09603e6a7501e7194"
+              },
+              {
+                "GroupName": "defect-dojo-sg",
+                "GroupId": "sg-051ba793e1b956043"
+              },
+              {
+                "GroupName": "defect-dojo-extended-sg",
+                "GroupId": "sg-00f7d5cd7c8bed802"
+              }
+            ],
+            "Ipv6Addresses": [],
+            "MacAddress": "06:57:5c:8d:b7:0f",
+            "NetworkInterfaceId": "eni-0be81fc7ed0241b73",
+            "OwnerId": "123456789012",
+            "PrivateDnsName": "ip-192-168-111-222.eu-west-1.compute.internal",
+            "PrivateIpAddress": "192.168.111.222",
+            "PrivateIpAddresses": [
+              {
+                "Primary": true,
+                "PrivateDnsName": "ip-192-168-111-222.eu-west-1.compute.internal",
+                "PrivateIpAddress": "192.168.111.222"
+              }
+            ],
+            "SourceDestCheck": true,
+            "Status": "in-use",
+            "SubnetId": "subnet-0fd97a4fe475ce4a0",
+            "VpcId": "vpc-0fd123269e7109aa0",
+            "InterfaceType": "interface"
+          }
+        ],
+        "RootDeviceName": "/dev/xvda",
+        "RootDeviceType": "ebs",
+        "SecurityGroups": [
+          {
+            "GroupName": "example-ami-build",
+            "GroupId": "sg-09603e6a7501e7194"
+          },
+          {
+            "GroupName": "defect-dojo-sg",
+            "GroupId": "sg-051ba793e1b956043"
+          },
+          {
+            "GroupName": "defect-dojo-extended-sg",
+            "GroupId": "sg-00f7d5cd7c8bed802"
+          }
+        ],
+        "SourceDestCheck": true,
+        "StateReason": {
+          "Code": "Client.UserInitiatedShutdown",
+          "Message": "Client.UserInitiatedShutdown: User initiated shutdown"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "application-minikube"
+          }
+        ],
+        "VirtualizationType": "hvm",
+        "CpuOptions": {
+          "CoreCount": true,
+          "ThreadsPerCore": 2
+        },
+        "CapacityReservationSpecification": {
+          "CapacityReservationPreference": "open"
+        },
+        "HibernationOptions": {
+          "Configured": "ec47f3e8-3f01-460f-a086-f45df83fd152"
+        },
+        "MetadataOptions": {
+          "State": "applied",
+          "HttpTokens": "required",
+          "HttpPutResponseHopLimit": true,
+          "HttpEndpoint": "enabled",
+          "HttpProtocolIpv6": "disabled",
+          "InstanceMetadataTags": "disabled"
+        },
+        "EnclaveOptions": {
+          "Enabled": "ec47f3e8-3f01-460f-a086-f45df83fd152"
+        },
+        "PlatformDetails": "Linux/UNIX",
+        "UsageOperation": "RunInstances",
+        "UsageOperationUpdateTime": "2024-07-18T11:46:18+00:00",
+        "PrivateDnsNameOptions": {
+          "HostnameType": "ip-name",
+          "EnableResourceNameDnsARecord": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+          "EnableResourceNameDnsAAAARecord": "ec47f3e8-3f01-460f-a086-f45df83fd152"
+        },
+        "MaintenanceOptions": {
+          "AutoRecovery": "default"
+        }
+      },
+      "c7n:MatchedFilters": [
+        "instance-State.Name"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AWS-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "123456789012",
+    "location": "eu-west-1",
+    "resource_type": "aws.ebs",
+    "id": "unknown-3596",
+    "name": "unknown-3596",
+    "arn": "arn:aws:ebs:eu-west-1:123456789012:unknown-3596",
+    "data": {
+      "Attachments": [
+        {
+          "AttachTime": "2024-10-16T09:03:25+00:00",
+          "Device": "/dev/xvda",
+          "InstanceId": "i-0580697d712fb5b56",
+          "State": "attached",
+          "VolumeId": "vol-080f1194e8b86e0a7",
+          "DeleteOnTermination": true
+        }
+      ],
+      "AvailabilityZone": "eu-west-1a",
+      "CreateTime": "2024-10-16T09:03:25.833000+00:00",
+      "Encrypted": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+      "Size": 30,
+      "SnapshotId": "snap-03233c26af4dd36d0",
+      "State": "in-use",
+      "VolumeId": "vol-080f1194e8b86e0a7",
+      "Iops": 3000,
+      "VolumeType": "gp3",
+      "MultiAttachEnabled": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+      "Throughput": 125,
+      "Instance": {
+        "AmiLaunchIndex": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+        "ImageId": "ami-09b4aff9223a76a18",
+        "InstanceId": "i-0580697d712fb5b56",
+        "InstanceType": "m7g.medium",
+        "KeyName": "example-key",
+        "LaunchTime": "2024-10-16T09:03:25+00:00",
+        "Monitoring": {
+          "State": "disabled"
+        },
+        "Placement": {
+          "AvailabilityZone": "eu-west-1a",
+          "GroupName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+          "Tenancy": "default"
+        },
+        "PrivateDnsName": "ip-192-168-121-31.eu-west-1.compute.internal",
+        "PrivateIpAddress": "192.168.121.31",
+        "ProductCodes": [],
+        "PublicDnsName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+        "State": {
+          "Code": 80,
+          "Name": "stopped"
+        },
+        "StateTransitionReason": "User initiated (2024-10-16 09:12:17 GMT)",
+        "SubnetId": "subnet-0bcf600231c491d63",
+        "VpcId": "vpc-0fd123269e7109aa0",
+        "Architecture": "arm64",
+        "BlockDeviceMappings": [
+          {
+            "DeviceName": "/dev/xvda",
+            "Ebs": {
+              "AttachTime": "2024-10-16T09:03:25+00:00",
+              "DeleteOnTermination": true,
+              "Status": "attached",
+              "VolumeId": "vol-080f1194e8b86e0a7"
+            }
+          }
+        ],
+        "ClientToken": "5f1f7bf5-67d2-4e31-ac60-6293113a0723",
+        "EbsOptimized": true,
+        "EnaSupport": true,
+        "Hypervisor": "xen",
+        "IamInstanceProfile": {
+          "Arn": "arn:aws:iam::123456789012:instance-profile/example-ami-role",
+          "Id": "AIPAUWVIOXSTP3WM3RA"
+        },
+        "NetworkInterfaces": [
+          {
+            "Attachment": {
+              "AttachTime": "2024-10-16T09:03:25+00:00",
+              "AttachmentId": "eni-attach-044350aff2ea042f5",
+              "DeleteOnTermination": true,
+              "DeviceIndex": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+              "Status": "attached",
+              "NetworkCardIndex": "ec47f3e8-3f01-460f-a086-f45df83fd152"
+            },
+            "Description": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+            "Groups": [
+              {
+                "GroupName": "basic",
+                "GroupId": "sg-0d29c0f45fb83b5cd"
+              }
+            ],
+            "Ipv6Addresses": [],
+            "MacAddress": "02:9c:21:21:01:91",
+            "NetworkInterfaceId": "eni-0bb2ae5e4db2945f9",
+            "OwnerId": "123456789012",
+            "PrivateDnsName": "ip-192-168-121-31.eu-west-1.compute.internal",
+            "PrivateIpAddress": "192.168.121.31",
+            "PrivateIpAddresses": [
+              {
+                "Primary": true,
+                "PrivateDnsName": "ip-192-168-121-31.eu-west-1.compute.internal",
+                "PrivateIpAddress": "192.168.121.31"
+              }
+            ],
+            "SourceDestCheck": true,
+            "Status": "in-use",
+            "SubnetId": "subnet-0bcf600231c491d63",
+            "VpcId": "vpc-0fd123269e7109aa0",
+            "InterfaceType": "interface"
+          }
+        ],
+        "RootDeviceName": "/dev/xvda",
+        "RootDeviceType": "ebs",
+        "SecurityGroups": [
+          {
+            "GroupName": "basic",
+            "GroupId": "sg-0d29c0f45fb83b5cd"
+          }
+        ],
+        "SourceDestCheck": true,
+        "StateReason": {
+          "Code": "Client.UserInitiatedShutdown",
+          "Message": "Client.UserInitiatedShutdown: User initiated shutdown"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "example"
+          }
+        ],
+        "VirtualizationType": "hvm",
+        "CpuOptions": {
+          "CoreCount": true,
+          "ThreadsPerCore": true
+        },
+        "CapacityReservationSpecification": {
+          "CapacityReservationPreference": "open"
+        },
+        "HibernationOptions": {
+          "Configured": "ec47f3e8-3f01-460f-a086-f45df83fd152"
+        },
+        "MetadataOptions": {
+          "State": "applied",
+          "HttpTokens": "required",
+          "HttpPutResponseHopLimit": 4,
+          "HttpEndpoint": "enabled",
+          "HttpProtocolIpv6": "disabled",
+          "InstanceMetadataTags": "disabled"
+        },
+        "EnclaveOptions": {
+          "Enabled": "ec47f3e8-3f01-460f-a086-f45df83fd152"
+        },
+        "BootMode": "uefi",
+        "PlatformDetails": "Linux/UNIX",
+        "UsageOperation": "RunInstances",
+        "UsageOperationUpdateTime": "2024-10-16T09:03:25+00:00",
+        "PrivateDnsNameOptions": {
+          "HostnameType": "ip-name",
+          "EnableResourceNameDnsARecord": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+          "EnableResourceNameDnsAAAARecord": "ec47f3e8-3f01-460f-a086-f45df83fd152"
+        },
+        "MaintenanceOptions": {
+          "AutoRecovery": "default"
+        }
+      },
+      "c7n:MatchedFilters": [
+        "instance-State.Name"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AWS-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "123456789012",
+    "location": "eu-west-1",
+    "resource_type": "aws.ecr",
+    "id": "unknown-8025",
+    "name": "unknown-8025",
+    "arn": "arn:aws:ecr:eu-west-1:123456789012:unknown-8025",
+    "data": {
+      "repositoryArn": "arn:aws:ecr:eu-west-1:123456789012:repository/application-dev",
+      "registryId": "123456789012",
+      "repositoryName": "application-dev",
+      "repositoryUri": "123456789012.dkr.ecr.eu-west-1.amazonaws.com/application-dev",
+      "createdAt": "2022-08-04T16:27:44+03:00",
+      "imageTagMutability": "MUTABLE",
+      "imageScanningConfiguration": {
+        "scanOnPush": true
+      },
+      "encryptionConfiguration": {
+        "encryptionType": "AES256"
+      },
+      "Tags": []
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AWS-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "123456789012",
+    "location": "eu-west-1",
+    "resource_type": "aws.ecr",
+    "id": "unknown-4356",
+    "name": "unknown-4356",
+    "arn": "arn:aws:ecr:eu-west-1:123456789012:unknown-4356",
+    "data": {
+      "repositoryArn": "arn:aws:ecr:eu-west-1:123456789012:repository/example-developer-test",
+      "registryId": "123456789012",
+      "repositoryName": "example-developer-test",
+      "repositoryUri": "123456789012.dkr.ecr.eu-west-1.amazonaws.com/example-developer-test",
+      "createdAt": "2018-12-10T16:26:16+02:00",
+      "imageTagMutability": "MUTABLE",
+      "imageScanningConfiguration": {
+        "scanOnPush": true
+      },
+      "encryptionConfiguration": {
+        "encryptionType": "AES256"
+      },
+      "Tags": []
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AWS-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "123456789012",
+    "location": "eu-west-1",
+    "resource_type": "aws.ec2",
+    "id": "i-0580697d712fb5b56",
+    "name": "example",
+    "arn": "arn:aws:ec2:eu-west-1:123456789012:instance/i-0580697d712fb5b56",
+    "data": {
+      "AmiLaunchIndex": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+      "ImageId": "ami-09b4aff9223a76a18",
+      "InstanceId": "i-0580697d712fb5b56",
+      "InstanceType": "m7g.medium",
+      "KeyName": "example-key",
+      "LaunchTime": "2024-10-16T09:03:25+00:00",
+      "Monitoring": {
+        "State": "disabled"
+      },
+      "Placement": {
+        "AvailabilityZone": "eu-west-1a",
+        "GroupName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+        "Tenancy": "default"
+      },
+      "PrivateDnsName": "ip-192-168-121-31.eu-west-1.compute.internal",
+      "PrivateIpAddress": "192.168.121.31",
+      "ProductCodes": [],
+      "PublicDnsName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+      "State": {
+        "Code": 80,
+        "Name": "stopped"
+      },
+      "StateTransitionReason": "User initiated (2024-10-16 09:12:17 GMT)",
+      "SubnetId": "subnet-0bcf600231c491d63",
+      "VpcId": "vpc-0fd123269e7109aa0",
+      "Architecture": "arm64",
+      "BlockDeviceMappings": [
+        {
+          "DeviceName": "/dev/xvda",
+          "Ebs": {
+            "AttachTime": "2024-10-16T09:03:25+00:00",
+            "DeleteOnTermination": true,
+            "Status": "attached",
+            "VolumeId": "vol-080f1194e8b86e0a7"
+          }
+        }
+      ],
+      "ClientToken": "5f1f7bf5-67d2-4e31-ac60-6293113a0723",
+      "EbsOptimized": true,
+      "EnaSupport": true,
+      "Hypervisor": "xen",
+      "IamInstanceProfile": {
+        "Arn": "arn:aws:iam::123456789012:instance-profile/example-ami-role",
+        "Id": "AIPAUWVIOXSTP3WM3RA"
+      },
+      "NetworkInterfaces": [
+        {
+          "Attachment": {
+            "AttachTime": "2024-10-16T09:03:25+00:00",
+            "AttachmentId": "eni-attach-044350aff2ea042f5",
+            "DeleteOnTermination": true,
+            "DeviceIndex": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+            "Status": "attached",
+            "NetworkCardIndex": "ec47f3e8-3f01-460f-a086-f45df83fd152"
+          },
+          "Description": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+          "Groups": [
+            {
+              "GroupName": "basic",
+              "GroupId": "sg-0d29c0f45fb83b5cd"
+            }
+          ],
+          "Ipv6Addresses": [],
+          "MacAddress": "02:9c:21:21:01:91",
+          "NetworkInterfaceId": "eni-0bb2ae5e4db2945f9",
+          "OwnerId": "123456789012",
+          "PrivateDnsName": "ip-192-168-121-31.eu-west-1.compute.internal",
+          "PrivateIpAddress": "192.168.121.31",
+          "PrivateIpAddresses": [
+            {
+              "Primary": true,
+              "PrivateDnsName": "ip-192-168-121-31.eu-west-1.compute.internal",
+              "PrivateIpAddress": "192.168.121.31"
+            }
+          ],
+          "SourceDestCheck": true,
+          "Status": "in-use",
+          "SubnetId": "subnet-0bcf600231c491d63",
+          "VpcId": "vpc-0fd123269e7109aa0",
+          "InterfaceType": "interface"
+        }
+      ],
+      "RootDeviceName": "/dev/xvda",
+      "RootDeviceType": "ebs",
+      "SecurityGroups": [
+        {
+          "GroupName": "basic",
+          "GroupId": "sg-0d29c0f45fb83b5cd"
+        }
+      ],
+      "SourceDestCheck": true,
+      "StateReason": {
+        "Code": "Client.UserInitiatedShutdown",
+        "Message": "Client.UserInitiatedShutdown: User initiated shutdown"
+      },
+      "Tags": [
+        {
+          "Key": "Name",
+          "Value": "example"
+        }
+      ],
+      "VirtualizationType": "hvm",
+      "CpuOptions": {
+        "CoreCount": true,
+        "ThreadsPerCore": true
+      },
+      "CapacityReservationSpecification": {
+        "CapacityReservationPreference": "open"
+      },
+      "HibernationOptions": {
+        "Configured": "ec47f3e8-3f01-460f-a086-f45df83fd152"
+      },
+      "MetadataOptions": {
+        "State": "applied",
+        "HttpTokens": "required",
+        "HttpPutResponseHopLimit": 4,
+        "HttpEndpoint": "enabled",
+        "HttpProtocolIpv6": "disabled",
+        "InstanceMetadataTags": "disabled"
+      },
+      "EnclaveOptions": {
+        "Enabled": "ec47f3e8-3f01-460f-a086-f45df83fd152"
+      },
+      "BootMode": "uefi",
+      "PlatformDetails": "Linux/UNIX",
+      "UsageOperation": "RunInstances",
+      "UsageOperationUpdateTime": "2024-10-16T09:03:25+00:00",
+      "PrivateDnsNameOptions": {
+        "HostnameType": "ip-name",
+        "EnableResourceNameDnsARecord": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+        "EnableResourceNameDnsAAAARecord": "ec47f3e8-3f01-460f-a086-f45df83fd152"
+      },
+      "MaintenanceOptions": {
+        "AutoRecovery": "default"
+      }
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AWS-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "123456789012",
+    "location": "eu-west-1",
+    "resource_type": "aws.ec2",
+    "id": "i-0771a4eb028bda937",
+    "name": "application-ami-test",
+    "arn": "arn:aws:ec2:eu-west-1:123456789012:instance/i-0771a4eb028bda937",
+    "data": {
+      "AmiLaunchIndex": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+      "ImageId": "ami-08ba52a61087f1bd6",
+      "InstanceId": "i-0771a4eb028bda937",
+      "InstanceType": "t2.micro",
+      "KeyName": "application-ami-dev",
+      "LaunchTime": "2024-06-25T09:35:34+00:00",
+      "Monitoring": {
+        "State": "disabled"
+      },
+      "Placement": {
+        "AvailabilityZone": "eu-west-1b",
+        "GroupName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+        "Tenancy": "default"
+      },
+      "PrivateDnsName": "ip-172-44-22-143.eu-west-1.compute.internal",
+      "PrivateIpAddress": "172.44.22.143",
+      "ProductCodes": [],
+      "PublicDnsName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+      "State": {
+        "Code": 80,
+        "Name": "stopped"
+      },
+      "StateTransitionReason": "User initiated (2024-06-26 09:48:58 GMT)",
+      "SubnetId": "subnet-14f0e962",
+      "VpcId": "vpc-b78b9ad3",
+      "Architecture": "x86_64",
+      "BlockDeviceMappings": [
+        {
+          "DeviceName": "/dev/xvda",
+          "Ebs": {
+            "AttachTime": "2024-06-25T09:35:35+00:00",
+            "DeleteOnTermination": true,
+            "Status": "attached",
+            "VolumeId": "vol-06663a095c7de10d2"
+          }
+        }
+      ],
+      "ClientToken": "4826535c-901a-4cab-b4a4-9952e9be1385",
+      "EbsOptimized": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+      "EnaSupport": true,
+      "Hypervisor": "xen",
+      "IamInstanceProfile": {
+        "Arn": "arn:aws:iam::123456789012:instance-profile/testing-default-ec2-profile",
+        "Id": "AIPAIV7EAZ2KRZ75EKE"
+      },
+      "NetworkInterfaces": [
+        {
+          "Attachment": {
+            "AttachTime": "2024-06-25T09:35:34+00:00",
+            "AttachmentId": "eni-attach-021a5b1a91b636f5a",
+            "DeleteOnTermination": true,
+            "DeviceIndex": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+            "Status": "attached",
+            "NetworkCardIndex": "ec47f3e8-3f01-460f-a086-f45df83fd152"
+          },
+          "Description": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+          "Groups": [
+            {
+              "GroupName": "west-eu",
+              "GroupId": "sg-0ea2f014d35531a10"
+            }
+          ],
+          "Ipv6Addresses": [],
+          "MacAddress": "06:3b:bd:9e:39:55",
+          "NetworkInterfaceId": "eni-0189a4bcc8e9098db",
+          "OwnerId": "123456789012",
+          "PrivateDnsName": "ip-172-44-22-143.eu-west-1.compute.internal",
+          "PrivateIpAddress": "172.44.22.143",
+          "PrivateIpAddresses": [
+            {
+              "Primary": true,
+              "PrivateDnsName": "ip-172-44-22-143.eu-west-1.compute.internal",
+              "PrivateIpAddress": "172.44.22.143"
+            }
+          ],
+          "SourceDestCheck": true,
+          "Status": "in-use",
+          "SubnetId": "subnet-14f0e962",
+          "VpcId": "vpc-b78b9ad3",
+          "InterfaceType": "interface"
+        }
+      ],
+      "RootDeviceName": "/dev/xvda",
+      "RootDeviceType": "ebs",
+      "SecurityGroups": [
+        {
+          "GroupName": "west-eu",
+          "GroupId": "sg-0ea2f014d35531a10"
+        }
+      ],
+      "SourceDestCheck": true,
+      "StateReason": {
+        "Code": "Client.UserInitiatedShutdown",
+        "Message": "Client.UserInitiatedShutdown: User initiated shutdown"
+      },
+      "Tags": [
+        {
+          "Key": "Name",
+          "Value": "application-ami-test"
+        }
+      ],
+      "VirtualizationType": "hvm",
+      "CpuOptions": {
+        "CoreCount": true,
+        "ThreadsPerCore": true
+      },
+      "CapacityReservationSpecification": {
+        "CapacityReservationPreference": "open"
+      },
+      "HibernationOptions": {
+        "Configured": "ec47f3e8-3f01-460f-a086-f45df83fd152"
+      },
+      "MetadataOptions": {
+        "State": "applied",
+        "HttpTokens": "required",
+        "HttpPutResponseHopLimit": 2,
+        "HttpEndpoint": "enabled",
+        "HttpProtocolIpv6": "disabled",
+        "InstanceMetadataTags": "disabled"
+      },
+      "EnclaveOptions": {
+        "Enabled": "ec47f3e8-3f01-460f-a086-f45df83fd152"
+      },
+      "BootMode": "uefi-preferred",
+      "PlatformDetails": "Linux/UNIX",
+      "UsageOperation": "RunInstances",
+      "UsageOperationUpdateTime": "2024-06-25T09:35:34+00:00",
+      "PrivateDnsNameOptions": {
+        "HostnameType": "ip-name",
+        "EnableResourceNameDnsARecord": true,
+        "EnableResourceNameDnsAAAARecord": "ec47f3e8-3f01-460f-a086-f45df83fd152"
+      },
+      "MaintenanceOptions": {
+        "AutoRecovery": "default"
+      }
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AWS-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "test-project-123456",
+    "location": "global",
+    "resource_type": "gcp.firewall",
+    "id": "3339756659677913058",
+    "name": "default-allow-internal",
+    "arn": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/firewalls/default-allow-internal",
+    "data": {
+      "kind": "compute#firewall",
+      "id": "3339756659677913058",
+      "creationTimestamp": "2024-09-26T06:26:37.596-07:00",
+      "name": "default-allow-internal",
+      "description": "Allow internal traffic on the default network",
+      "network": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/networks/default",
+      "priority": 65534,
+      "sourceRanges": [
+        "10.128.0.0/9"
+      ],
+      "allowed": [
+        {
+          "IPProtocol": "tcp",
+          "ports": [
+            "0-65535"
+          ],
+          "portRanges": [
+            {
+              "beginPort": "0",
+              "endPort": "65535"
+            }
+          ]
+        },
+        {
+          "IPProtocol": "udp",
+          "ports": [
+            "0-65535"
+          ],
+          "portRanges": [
+            {
+              "beginPort": "0",
+              "endPort": "65535"
+            }
+          ]
+        },
+        {
+          "IPProtocol": "icmp"
+        }
+      ],
+      "direction": "INGRESS",
+      "logConfig": {
+        "enable": false
+      },
+      "disabled": false,
+      "selfLink": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/firewalls/default-allow-internal",
+      "c7n:MatchedFilters": [
+        "direction",
+        "allowed[].IPProtocol",
+        "allowed[].ports[]"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "GOOGLE-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "test-project-123456",
+    "location": "global",
+    "resource_type": "gcp.vpc",
+    "id": "877139587449282054",
+    "name": "default",
+    "arn": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/networks/default",
+    "data": {
+      "kind": "compute#network",
+      "id": "877139587449282054",
+      "creationTimestamp": "2024-09-26T06:26:01.219-07:00",
+      "name": "default",
+      "description": "Default network for the project",
+      "selfLink": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/networks/default",
+      "selfLinkWithId": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/networks/877139587449282054",
+      "autoCreateSubnetworks": true,
+      "subnetworks": [
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-west6/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-central2/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-west3/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/asia-northeast3/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-west9/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/asia-east2/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/asia-east1/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/me-west1/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-west2/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-east5/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/asia-northeast1/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-west10/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-central1/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-west1/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-west1/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/me-central1/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-east4/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/northamerica-northeast2/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/southamerica-east1/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/australia-southeast1/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-west4/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-southwest1/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/asia-south2/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/australia-southeast2/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/southamerica-west1/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/northamerica-northeast1/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-west4/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-west8/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/asia-northeast2/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-east7/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-west12/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-north1/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-south1/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/asia-south1/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-west3/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/asia-southeast1/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/northamerica-south1/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/africa-south1/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-west2/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-east1/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-west8/subnetworks/default",
+        "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/asia-southeast2/subnetworks/default"
+      ],
+      "routingConfig": {
+        "routingMode": "REGIONAL"
+      },
+      "networkFirewallPolicyEnforcementOrder": "AFTER_CLASSIC_FIREWALL",
+      "c7n:MatchedFilters": [
+        "name"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "GOOGLE-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "test-project-123456",
+    "location": "global",
+    "resource_type": "gcp.subnet",
+    "id": "2708525157271002654",
+    "name": "default",
+    "arn": "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-west10/subnetworks/default",
+    "data": {
+      "kind": "compute#subnetwork",
+      "id": "2708525157271002654",
+      "creationTimestamp": "2024-09-26T06:26:09.230-07:00",
+      "name": "default",
+      "network": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/networks/default",
+      "ipCidrRange": "10.214.0.0/20",
+      "gatewayAddress": "10.214.0.1",
+      "region": "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-west10",
+      "selfLink": "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-west10/subnetworks/default",
+      "privateIpGoogleAccess": false,
+      "fingerprint": "JK5-4lOXoEI=",
+      "privateIpv6GoogleAccess": "DISABLE_GOOGLE_ACCESS",
+      "purpose": "PRIVATE",
+      "stackType": "IPV4_ONLY",
+      "c7n:MatchedFilters": [
+        "purpose",
+        "enableFlowLogs"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "GOOGLE-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "test-project-123456",
+    "location": "global",
+    "resource_type": "gcp.subnet",
+    "id": "80118305852546590",
+    "name": "default",
+    "arn": "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/africa-south1/subnetworks/default",
+    "data": {
+      "kind": "compute#subnetwork",
+      "id": "80118305852546590",
+      "creationTimestamp": "2024-09-26T06:26:09.500-07:00",
+      "name": "default",
+      "network": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/networks/default",
+      "ipCidrRange": "10.218.0.0/20",
+      "gatewayAddress": "10.218.0.1",
+      "region": "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/africa-south1",
+      "selfLink": "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/africa-south1/subnetworks/default",
+      "privateIpGoogleAccess": false,
+      "fingerprint": "CEy_lCx0uBQ=",
+      "privateIpv6GoogleAccess": "DISABLE_GOOGLE_ACCESS",
+      "purpose": "PRIVATE",
+      "stackType": "IPV4_ONLY",
+      "c7n:MatchedFilters": [
+        "purpose",
+        "enableFlowLogs"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "GOOGLE-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "test-project-123456",
+    "location": "global",
+    "resource_type": "gcp.subnet",
+    "id": "3115367106910640951",
+    "name": "default",
+    "arn": "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-west8/subnetworks/default",
+    "data": {
+      "kind": "compute#subnetwork",
+      "id": "3115367106910640951",
+      "creationTimestamp": "2024-09-26T15:53:12.433-07:00",
+      "name": "default",
+      "network": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/networks/default",
+      "ipCidrRange": "10.220.0.0/20",
+      "gatewayAddress": "10.220.0.1",
+      "region": "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-west8",
+      "selfLink": "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-west8/subnetworks/default",
+      "privateIpGoogleAccess": false,
+      "fingerprint": "m-Dy8RmfB7U=",
+      "purpose": "PRIVATE",
+      "stackType": "IPV4_ONLY",
+      "c7n:MatchedFilters": [
+        "purpose",
+        "enableFlowLogs"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "GOOGLE-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "test-project-123456",
+    "location": "global",
+    "resource_type": "gcp.subnet",
+    "id": "816596276746100793",
+    "name": "default",
+    "arn": "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/northamerica-south1/subnetworks/default",
+    "data": {
+      "kind": "compute#subnetwork",
+      "id": "816596276746100793",
+      "creationTimestamp": "2024-09-26T19:56:22.083-07:00",
+      "name": "default",
+      "network": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/networks/default",
+      "ipCidrRange": "10.224.0.0/20",
+      "gatewayAddress": "10.224.0.1",
+      "region": "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/northamerica-south1",
+      "selfLink": "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/northamerica-south1/subnetworks/default",
+      "privateIpGoogleAccess": false,
+      "fingerprint": "0SkfP8rL-Lo=",
+      "purpose": "PRIVATE",
+      "stackType": "IPV4_ONLY",
+      "c7n:MatchedFilters": [
+        "purpose",
+        "enableFlowLogs"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "GOOGLE-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "test-project-123456",
+    "location": "global",
+    "resource_type": "gcp.firewall",
+    "id": "1227136820292673506",
+    "name": "default-allow-icmp",
+    "arn": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/firewalls/default-allow-icmp",
+    "data": {
+      "kind": "compute#firewall",
+      "id": "1227136820292673506",
+      "creationTimestamp": "2024-09-26T06:26:37.661-07:00",
+      "name": "default-allow-icmp",
+      "description": "Allow ICMP from anywhere",
+      "network": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/networks/default",
+      "priority": 65534,
+      "sourceRanges": [
+        "0.0.0.0/0"
+      ],
+      "allowed": [
+        {
+          "IPProtocol": "icmp"
+        }
+      ],
+      "direction": "INGRESS",
+      "logConfig": {
+        "enable": false
+      },
+      "disabled": false,
+      "selfLink": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/firewalls/default-allow-icmp",
+      "c7n:MatchedFilters": [
+        "logConfig.enable"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "GOOGLE-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "test-project-123456",
+    "location": "global",
+    "resource_type": "gcp.firewall",
+    "id": "2342562096469303266",
+    "name": "default-allow-rdp",
+    "arn": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/firewalls/default-allow-rdp",
+    "data": {
+      "kind": "compute#firewall",
+      "id": "2342562096469303266",
+      "creationTimestamp": "2024-09-26T06:26:37.639-07:00",
+      "name": "default-allow-rdp",
+      "description": "Allow RDP from anywhere",
+      "network": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/networks/default",
+      "priority": 65534,
+      "sourceRanges": [
+        "0.0.0.0/0"
+      ],
+      "allowed": [
+        {
+          "IPProtocol": "tcp",
+          "ports": [
+            "3389"
+          ],
+          "portRanges": [
+            {
+              "beginPort": "3389",
+              "endPort": "3389"
+            }
+          ]
+        }
+      ],
+      "direction": "INGRESS",
+      "logConfig": {
+        "enable": false
+      },
+      "disabled": false,
+      "selfLink": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/firewalls/default-allow-rdp",
+      "c7n:MatchedFilters": [
+        "logConfig.enable"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "GOOGLE-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "test-project-123456",
+    "location": "global",
+    "resource_type": "gcp.firewall",
+    "id": "2007825320515264482",
+    "name": "default-allow-ssh",
+    "arn": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/firewalls/default-allow-ssh",
+    "data": {
+      "kind": "compute#firewall",
+      "id": "2007825320515264482",
+      "creationTimestamp": "2024-09-26T06:26:37.617-07:00",
+      "name": "default-allow-ssh",
+      "description": "Allow SSH from anywhere",
+      "network": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/networks/default",
+      "priority": 65534,
+      "sourceRanges": [
+        "0.0.0.0/0"
+      ],
+      "allowed": [
+        {
+          "IPProtocol": "tcp",
+          "ports": [
+            "22"
+          ],
+          "portRanges": [
+            {
+              "beginPort": "22",
+              "endPort": "22"
+            }
+          ]
+        }
+      ],
+      "direction": "INGRESS",
+      "logConfig": {
+        "enable": false
+      },
+      "disabled": false,
+      "selfLink": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/firewalls/default-allow-ssh",
+      "c7n:MatchedFilters": [
+        "logConfig.enable"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "GOOGLE-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "test-cluster",
+    "location": "global",
+    "resource_type": "k8s.service-account",
+    "id": "337c51cd-35f0-4f47-b27e-55e61ab14921",
+    "name": "test-opertor-77hwxcq",
+    "arn": "337c51cd-35f0-4f47-b27e-55e61ab14921",
+    "data": {
+      "api_version": null,
+      "kind": null,
+      "metadata": {
+        "annotations": null,
+        "cluster_name": null,
+        "creation_timestamp": "2025-01-15T15:09:18+00:00",
+        "deletion_grace_period_seconds": null,
+        "deletion_timestamp": null,
+        "finalizers": null,
+        "generate_name": "test-operator-123",
+        "generation": null,
+        "initializers": null,
+        "labels": {
+          "name": "cd-pipeline-operator",
+          "pod-template-hash": "77f8c9"
+        },
+        "managed_fields": [],
+        "name": "test-opertor-77hwxcq",
+        "namespace": "09c64sffas",
+        "owner_references": [],
+        "resource_version": "241695298",
+        "self_link": null,
+        "uid": "337c51cd-35f0-4f47-b27e-55e61ab14921"
+      },
+      "spec": {},
+      "status": {},
+      "c7n:MatchedFilters": [
+        "automount_service_account_token"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "K8S-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "test-cluster",
+    "location": "global",
+    "resource_type": "k8s.pod",
+    "id": "ae55fb56-619a-49af-b282-8e63cdee6b24",
+    "name": "test-pod-123l2hxk",
+    "arn": "ae55fb56-619a-49af-b282-8e63cdee6b24",
+    "data": {
+      "api_version": null,
+      "kind": null,
+      "metadata": {
+        "annotations": null,
+        "cluster_name": null,
+        "creation_timestamp": "2025-01-15T04:31:51+00:00",
+        "deletion_grace_period_seconds": null,
+        "deletion_timestamp": null,
+        "finalizers": null,
+        "generate_name": "test-pod-123",
+        "generation": null,
+        "initializers": null,
+        "labels": {},
+        "name": "test-pod-123l2hxk",
+        "namespace": "acf0f67f",
+        "resource_version": "241084905",
+        "self_link": null,
+        "uid": "ae55fb56-619a-49af-b282-8e63cdee6b24"
+      }
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "K8S-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "test-cluster",
+    "location": "global",
+    "resource_type": "k8s.pod",
+    "id": "67d19da5-f0fe-4083-bf7e-7584127cb5a3",
+    "name": "frontend-app-7dfc594f8f-ch966",
+    "arn": "67d19da5-f0fe-4083-bf7e-7584127cb5a3",
+    "data": {
+      "api_version": null,
+      "kind": null,
+      "metadata": {
+        "annotations": {
+          "kubernetes.io/limit-ranger": "LimitRanger plugin set: cpu, memory request for container frontend-app; cpu, memory limit for container frontend-app"
+        },
+        "cluster_name": null,
+        "creation_timestamp": "2025-01-15T11:10:21+00:00",
+        "deletion_grace_period_seconds": null,
+        "deletion_timestamp": null,
+        "finalizers": null,
+        "generate_name": "frontend-app-7dfc594f8f-",
+        "generation": null,
+        "initializers": null,
+        "labels": {},
+        "name": "frontend-app-7dfc594f8f-ch966",
+        "namespace": "team3-frontend-app-develop",
+        "owner_references": [],
+        "resource_version": "241425653",
+        "self_link": null,
+        "uid": "67d19da5-f0fe-4083-bf7e-7584127cb5a3"
+      }
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "K8S-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "test-cluster",
+    "location": "global",
+    "resource_type": "k8s.pod",
+    "id": "3f287bc9-94dc-47b1-96a1-827dce683a92",
+    "name": "test-node-58cm6",
+    "arn": "3f287bc9-94dc-47b1-96a1-827dce683a92",
+    "data": {
+      "api_version": null,
+      "kind": null,
+      "metadata": {
+        "annotations": null,
+        "cluster_name": null,
+        "creation_timestamp": "2025-01-15T06:57:16+00:00",
+        "deletion_grace_period_seconds": null,
+        "deletion_timestamp": null,
+        "finalizers": null,
+        "generate_name": "aws-node-",
+        "generation": null,
+        "initializers": null,
+        "labels": {},
+        "managed_fields": [],
+        "name": "test-node-58cm6",
+        "namespace": "kube-system",
+        "owner_references": [],
+        "resource_version": "241126241",
+        "self_link": null,
+        "uid": "3f287bc9-94dc-47b1-96a1-827dce683a92"
+      },
+      "c7n:MatchedFilters": [
+        "spec.volumes && length(spec.volumes[?host_path!=null])!=`0`"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "K8S-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
+    "location": "global",
+    "resource_type": "azure.defender-pricing",
+    "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/SqlServers",
+    "name": "SqlServers",
+    "arn": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/SqlServers",
+    "data": {
+      "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/SqlServers",
+      "name": "SqlServers",
+      "type": "Microsoft.Security/pricings",
+      "properties": {
+        "pricingTier": "Free",
+        "freeTrialRemainingTime": "P30D"
+      },
+      "c7n:MatchedFilters": [
+        "name"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AZURE-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
+    "location": "global",
+    "resource_type": "azure.defender-pricing",
+    "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/CosmosDbs",
+    "name": "CosmosDbs",
+    "arn": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/CosmosDbs",
+    "data": {
+      "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/CosmosDbs",
+      "name": "CosmosDbs",
+      "type": "Microsoft.Security/pricings",
+      "properties": {
+        "pricingTier": "Free",
+        "freeTrialRemainingTime": "P30D"
+      },
+      "c7n:MatchedFilters": [
+        "name"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AZURE-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
+    "location": "global",
+    "resource_type": "azure.defender-pricing",
+    "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/Dns",
+    "name": "Dns",
+    "arn": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/Dns",
+    "data": {
+      "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/Dns",
+      "name": "Dns",
+      "type": "Microsoft.Security/pricings",
+      "properties": {
+        "pricingTier": "Free",
+        "freeTrialRemainingTime": "P30D"
+      },
+      "c7n:MatchedFilters": [
+        "name"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AZURE-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
+    "location": "global",
+    "resource_type": "azure.defender-pricing",
+    "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/OpenSourceRelationalDatabases",
+    "name": "OpenSourceRelationalDatabases",
+    "arn": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/OpenSourceRelationalDatabases",
+    "data": {
+      "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/OpenSourceRelationalDatabases",
+      "name": "OpenSourceRelationalDatabases",
+      "type": "Microsoft.Security/pricings",
+      "properties": {
+        "pricingTier": "Free",
+        "freeTrialRemainingTime": "P30D"
+      },
+      "c7n:MatchedFilters": [
+        "name",
+        "properties.pricingTier"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AZURE-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  },
+  {
+    "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
+    "location": "global",
+    "resource_type": "azure.defender-pricing",
+    "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/KubernetesService",
+    "name": "KubernetesService",
+    "arn": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/KubernetesService",
+    "data": {
+      "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/KubernetesService",
+      "name": "KubernetesService",
+      "type": "Microsoft.Security/pricings",
+      "properties": {
+        "pricingTier": "Free",
+        "freeTrialRemainingTime": "P30D"
+      },
+      "c7n:MatchedFilters": [
+        "name"
+      ]
+    },
+    "sync_date": 1755266704.1316636,
+    "collector_type": "cloud_custodian",
+    "tenant_name": "AZURE-TESTING",
+    "customer_name": "TEST_CUSTOMER"
+  }
+]

@@ -7,7 +7,7 @@ from modular_sdk.services.application_service import ApplicationService
 from modular_sdk.services.customer_service import CustomerService
 from modular_sdk.services.parent_service import ParentService
 
-from helpers.constants import CAASEnv
+from helpers.constants import Env
 from helpers import download_url
 from helpers.__version__ import __version__
 from helpers.lambda_response import build_response
@@ -38,7 +38,7 @@ class LicenseSync:
 
     def _store_ruleset(self, rs: LMRulesetDTO):
         s3 = self._sp.s3
-        bucket = CAASEnv.RULESETS_BUCKET_NAME.as_str()
+        bucket = Env.RULESETS_BUCKET_NAME.as_str()
         name, version = rs['name'], rs['version']
         key = RulesetsBucketKeys.licensed_ruleset_key(name, version)
         if s3.gz_object_exists(bucket, key):

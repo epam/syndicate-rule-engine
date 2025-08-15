@@ -13,7 +13,7 @@ from modular_sdk.services.parent_service import ParentService
 
 from handlers import AbstractHandler, Mapping
 from helpers import NextToken
-from helpers.constants import Cloud, CustodianEndpoint, HTTPMethod
+from helpers.constants import Cloud, Endpoint, HTTPMethod
 from helpers.lambda_response import ResponseFactory, build_response
 from services import SP
 from services.abs_lambda import ProcessedEvent
@@ -62,13 +62,13 @@ class CredentialsHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.CREDENTIALS: {
+            Endpoint.CREDENTIALS: {
                 HTTPMethod.GET: self.query
             },
-            CustodianEndpoint.CREDENTIALS_ID: {
+            Endpoint.CREDENTIALS_ID: {
                 HTTPMethod.GET: self.get
             },
-            CustodianEndpoint.CREDENTIALS_ID_BINDING: {
+            Endpoint.CREDENTIALS_ID_BINDING: {
                 HTTPMethod.PUT: self.bind,
                 HTTPMethod.DELETE: self.unbind,
                 HTTPMethod.GET: self.get_binding

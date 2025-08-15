@@ -94,7 +94,7 @@ ms configure --api_link http://0.0.0.0:8040/dev
 
 Login as system users:
 ```bash
-sre login --username system_user --password "$CAAS_SYSTEM_USER_PASSWORD"
+sre login --username system_user --password "$SRE_SYSTEM_USER_PASSWORD"
 ```
 
 ```bash

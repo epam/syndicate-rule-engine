@@ -17,7 +17,7 @@ def role():
 @cli_response(attributes_order=attributes_order)
 def describe(ctx: ContextObj, customer_id, name):
     """
-    Describes a Custodian Service roles for the given customer.
+    Describes roles for the given customer.
     """
     if name:
         return ctx['api_client'].role_get(

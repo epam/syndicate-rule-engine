@@ -4,7 +4,7 @@
 
 ## Configure user credentials
 
-    sre configure --api_link <Custodian_Service_API_link>
+    sre configure --api_link <Syndicate Rule Engine host>
 
     sre login --username <username> --password <password>
 
@@ -12,13 +12,13 @@
 
 ### Commands
 
-[`login`](#login)      Authenticates user to work with Custodian Service.
+[`login`](#login)      Authenticates user to work with Syndicate Rule Engine Service.
 
-[`configure`](#configure)  Configures sre tool to work with Custodian Service.
+[`configure`](#configure)  Configures sre tool to work with Syndicate Rule Engine Service.
 
 [`cleanup`](#cleanup)  Removes all the configuration data related to the tool.
 
-[`health`](#health)  Checks Custodian Service components availability (for onprem mode).
+[`health`](#health)  Checks Syndicate Rule Engine Service components availability (for onprem mode).
 
 ### Command groups
 
@@ -26,13 +26,13 @@
 
 [`customer`](#customer)   Manages Customer Entity
 
-[`job`](#job)       Manages Custodian Service jobs
+[`job`](#job)       Manages Syndicate Rule Engine Service jobs
 
 [`lm`](#lm)      Manages License Entity
 
 [`policy`](#policy)      Manages Policy Entity
 
-[`report`](#report)      Manages Custodian Service reports
+[`report`](#report)      Manages Syndicate Rule Engine Service reports
 
 [`role`](#role)        Manages Role Entity
 
@@ -42,7 +42,7 @@
 
 [`ruleset`](#ruleset)      Manages Ruleset Entity
 
-[`setting`](#setting)      Manages Custodian Service Settings
+[`setting`](#setting)      Manages Syndicate Rule Engine Service Settings
 
 [`siem`](#siem)      Manages SIEM configuration
 
@@ -58,22 +58,22 @@
 
     sre login --username USERNAME --password PASSWORD
 
-_Authenticates user to work with Custodian as a Service. Pay attention that,
+_Authenticates user to work with Syndicate Rule Engine. Pay attention that,
 the password can be entered in an interactive mode_
 
-`-u,--username` `TEXT` Custodian Service user username. [Required]
+`-u,--username` `TEXT` Syndicate Rule Engine username. [Required]
 
-`-p,--password` `TEXT` Custodian Service user password. [Required]
+`-p,--password` `TEXT` Syndicate Rule Engine password. [Required]
 
 ### configure
 
 **Usage:**
 
-    sre configure --api_link <Custodian_Service_API_link>
+    sre configure --api_link <Syndicate Rule Engine host>
 
-_Configures sre tool to work with Custodian as a Service._
+_Configures sre tool to work with SRE._
 
-`-api,--api_link` `TEXT` Link to the Custodian as a Service host. [Required]
+`-api,--api_link` `TEXT` Link to the Syndicate Rule Engine host. [Required]
 
 ### cleanup
 
@@ -87,31 +87,6 @@ _Removes all the configuration data related to the tool._
 
 ----------------------------------------
 
-### `account`
-
-**Usage:** `sre account  COMMAND [ARGS]...`
-
-_Manages Account Entity_
-
-### Commands
-
-[`activate`](#account-activate) Creates Custodian Service Account entity.
-
-[`deactivate`](#account-deactivate) Deletes the account entity by the provided
-account name.
-
-[`describe`](#account-describe) Describes Custodian Service account entities.
-
-[`update`](#account-update) Updates Custodian Service Account entity.
-
-### Command groups
-
-[`region`](#account-region) Manages Account Region entity
-
-[`findings`](#account-findings) Manages Account Findings state
-
-----------------------------------------
-
 ### `customer`
 
 **Usage:** `sre customer  COMMAND [ARGS]...`
@@ -120,14 +95,14 @@ _Manages Customer Entity_
 
 ### Commands
 
-[`activate`](#customer-activate) Creates Custodian Service Customer entity.
+[`activate`](#customer-activate) Creates Syndicate Ruole Engine Customer entity.
 
 [`deactivate`](#customer-deactivate) Deletes the Customer entity by the
 provided name.
 
-[`describe`](#customer-describe) Describes Custodian Service customer entities.
+[`describe`](#customer-describe) Describes Syndicate Rule Engine customer entities.
 
-[`update`](#customer-update) Updates Custodian Service Customer entity.
+[`update`](#customer-update) Updates Syndicate Rule Engine Customer entity.
 
 ----------------------------------------
 
@@ -135,13 +110,13 @@ provided name.
 
 **Usage:** `sre job  COMMAND [ARGS]...`
 
-_Manages Custodian Service jobs_
+_Manages Syndicate Rule Engine jobs_
 
 ### Commands
 
-[`describe`](#job-describe) Describes Custodian Service Scans
+[`describe`](#job-describe) Describes Syndicate Rule Engine Scans
 
-[`terminate`](#job-terminate) Terminates Custodian Service Scan
+[`terminate`](#job-terminate) Terminates Syndicate Rule Engine Scan
 
 ### Command groups
 
@@ -155,13 +130,13 @@ _Manages Custodian Service jobs_
 
 _Manages Policy Entity_
 
-[`add`](#policy-add) Creates a Custodian Service policy for the specified customer.
+[`add`](#policy-add) Creates a Syndicate Rule Engine policy for the specified customer.
 
 [`clean-cache`](#policy-clean-cache) Cleans cached policy from lambda.
 
 [`delete`](#policy-delete) Deletes customers policy.
 
-[`describe`](#policy-describe) Describes a Custodian Service policies for the given
+[`describe`](#policy-describe) Describes a Syndicate Rule Engine policies for the given
 customer.
 
 [`update`](#policy-update) Updates list of permissions attached to the policy.
@@ -173,7 +148,7 @@ customer.
 
 **Usage:** `sre report  COMMAND [ARGS]...`
 
-_Manages Custodian Service reports_
+_Manages Syndicate Rule Engine reports_
 
 [`compliance`](#report-compliance) Generates compliance report
 
@@ -197,7 +172,7 @@ _Manages Role Entity_
 
 [`delete`](#role-delete) Deletes customers role.
 
-[`describe`](#role-describe) Describes a Custodian Service roles for the given customer.
+[`describe`](#role-describe) Describes a Syndicate Rule Engine roles for the given customer.
 
 [`update`](#role-update) Updates role configuration.
 
@@ -209,11 +184,11 @@ _Manages Role Entity_
 
 _Manages Rule Entity_
 
-[`describe-rules`](#rule-describe) Describes Custodian Service rules for the given customer.
+[`describe-rules`](#rule-describe) Describes Syndicate Rule Engine rules for the given customer.
 
 [`update-rules`](#rule-update-rules) Updates Customer's rules meta
 
-[`delete-rules`](#rule-delete) Deletes Custodian Service rules for the given customer
+[`delete-rules`](#rule-delete) Deletes Syndicate Rule Engine rules for the given customer
 
 ----------------------------------------
 
@@ -225,14 +200,14 @@ _Manages Tenant Entity_
 
 ### Commands
 
-[`activate`](#tenant-activate) Creates Custodian Service Tenant entity.
+[`activate`](#tenant-activate) Creates Syndicate Rule Engine Tenant entity.
 
 [`deactivate`](#tenant-deactivate) Deletes the Tenant entity by the provided
 name.
 
-[`describe`](#tenant-describe) Describes Custodian Service tenant entities.
+[`describe`](#tenant-describe) Describes Syndicate Rule Engine tenant entities.
 
-[`update`](#tenant-update) Updates Custodian Service Tenant entity.
+[`update`](#tenant-update) Updates Syndicate Rule Engine Tenant entity.
 
 ---------------------------------------
 
@@ -258,7 +233,7 @@ name.
 
 [`lm`](#setting-lm) Manages License Manager Setting(s)
 
-[`mail`](#setting-mail) Manages Custodian Service Mail configuration
+[`mail`](#setting-mail) Manages Syndicate Rule Engine Mail configuration
 
 -----------------------------------------
 
@@ -278,7 +253,7 @@ _Manages Rule User Entity_
 
 **Usage:** `sre account activate`
 
-_Creates Custodian Service Account entity._
+_Creates Syndicate Rule Engine Account entity._
 
 `-n,--name` `TEXT` [Required]
 
@@ -353,7 +328,7 @@ view [Optional]
 
 **Usage:** `sre account describe`
 
-_Describes Custodian Service account entities._
+_Describes Syndicate Rule Engine account entities._
 
 `-n,--name` `TEXT` Account name to describe [Optional]
 
@@ -398,7 +373,7 @@ view [Optional]
 
 **Usage:** `sre account update`
 
-_Updates Custodian Service Account entity._
+_Updates Syndicate Rule Engine Account entity._
 
 `-n,--name` `TEXT` [Required]
 
@@ -448,7 +423,7 @@ view [Optional]
 
 **Usage:** `sre customer activate`
 
-_Creates Custodian Service Customer entity._
+_Creates Syndicate Rule Engine Customer entity._
 
 `-n,--name` `TEXT` Customer name to activate [Required]
 
@@ -507,7 +482,7 @@ view [Optional]
 
 **Usage:** `sre customer describe`
 
-_Describes Custodian Service customer entities._
+_Describes Syndicate Rule Engine customer entities._
 
 `-n,--name` `TEXT` Customer name to describe.
 
@@ -538,7 +513,7 @@ view [Optional]
 
 **Usage:** `sre customer update`
 
-_Updates Custodian Service Customer entity._
+_Updates Syndicate Rule Engine Customer entity._
 
 `-n,--name` `TEXT` Customer name to update [Optional]
 
@@ -572,7 +547,7 @@ view [Optional]
 
 **Usage:** `sre job describe`
 
-_Describes Custodian Service Scans_
+_Describes Syndicate Rule Engine Scans_
 
 `-id,--job_id` `TEXT` Job id to describe [Optional]
 
@@ -630,7 +605,7 @@ view [Optional]
 
 **Usage:** `sre job terminate`
 
-_Terminates Custodian Service Scan_
+_Terminates Syndicate Rule Engine Scan_
 
 `-id,--job_id` `TEXT` Job id to terminate [Required]
 
@@ -699,7 +674,7 @@ _Remove one registered scheduled job_
 
 **Usage:** `sre policy add`
 
-_Creates a Custodian Service policy for the specified customer._
+_Creates a Syndicate Rule Engine policy for the specified customer._
 
 `-cust, --customer` `TEXT` Customer name to attach policy to [Required]
 
@@ -797,7 +772,7 @@ view [Optional]
 
 **Usage:** `sre policy describe`
 
-_Describes a Custodian Service policies for the given customer._
+_Describes a Syndicate Rule Engine policies for the given customer._
 
 `-cust,--customer` `TEXT` Customer name to describe policy [Optional]
 
@@ -1148,7 +1123,7 @@ view [Optional]
 
 **Usage:** `sre role describe`
 
-_Describes a Custodian Service roles for the given customer._
+_Describes a Syndicate Rule Engine roles for the given customer._
 
 `-cust,--customer` `TEXT` Customer name to describe role [Optional]
 
@@ -1223,7 +1198,7 @@ view [Optional]
 
 **Usage:** `sre rule describe`
 
-_Describes a Custodian Service rules for the given customer._
+_Describes a Syndicate Rule Engine rules for the given customer._
 
 `-cust,--customer` `TEXT` Customer name to describe rules [Optional]
 
@@ -1324,7 +1299,7 @@ view [Optional]
 
 **Usage:** `sre rule delete`
 
-_Deletes a Custodian Service rules for the given customer._
+_Deletes a Syndicate Rule Engine rules for the given customer._
 
 `-cust,--customer` `TEXT` Customer name to delete rules
 
@@ -1375,7 +1350,7 @@ view [Optional]
 
 **Usage:** `sre tenant activate`
 
-_Creates Custodian Service Tenant entity._
+_Creates Syndicate Rule Engine Tenant entity._
 
 `-n,--name` `TEXT` [Required]
 
@@ -1436,7 +1411,7 @@ view [Optional]
 
 **Usage:** `sre tenant describe`
 
-_Describes Custodian Service tenant entities._
+_Describes Syndicate Rule Engine tenant entities._
 
 `-n,--name` `TEXT` Tenant name to describe.
 
@@ -1468,7 +1443,7 @@ view [Optional]
 
 **Usage:** `sre tenant update`
 
-_Updates Custodian Service Tenant entity._
+_Updates Syndicate Rule Engine Tenant entity._
 
 `-n,--name` `TEXT` [Required]
 
@@ -1747,11 +1722,11 @@ view [Optional]
 
 _Manages Job submit action_
 
-[`aws`](#job-submit-aws) Initiates Custodian Service Scan on AWS account
+[`aws`](#job-submit-aws) Initiates Syndicate Rule Engine Scan on AWS account
 
-[`azure`](#job-submit-azure) Initiates Custodian Service Scan on AZURE account
+[`azure`](#job-submit-azure) Initiates Syndicate Rule Engine Scan on AZURE account
 
-[`gcp`](#job-submit-gcp) Initiates Custodian Service Scan on GCP account
+[`gcp`](#job-submit-gcp) Initiates Syndicate Rule Engine Scan on GCP account
 
 ----------------------------------------
 
@@ -1759,7 +1734,7 @@ _Manages Job submit action_
 
 **Usage:** `sre job submit aws`
 
-_Initiates Custodian Service Scan on AWS account_
+_Initiates Syndicate Rule Engine Scan on AWS account_
 
 `-acc,--account` `TEXT` Account name to initiate scan [Required]
 
@@ -1810,7 +1785,7 @@ view [Optional]
 
 **Usage:** `sre job submit azure`
 
-_Initiates Custodian Service Scan on AZURE account_
+_Initiates Syndicate Rule Engine Scan on AZURE account_
 
 `-acc,--account` `TEXT` Account name to initiate scan [Required]
 
@@ -1861,7 +1836,7 @@ view [Optional]
 
 **Usage:** `sre job submit gcp`
 
-_Initiates Custodian Service Scan on GCP account_
+_Initiates Syndicate Rule Engine Scan on GCP account_
 
 `-acc,--account` `TEXT` Account name to initiate scan [Required]
 
@@ -2051,7 +2026,7 @@ _Adds security hub configuration_
 
 Usage: sre lm add[OPTIONS]
 
-_Creates a Custodian Service License for the specified customer_
+_Creates a Syndicate Rule Engine License for the specified customer_
 
 `-cust, --customer` `TEXT` Customer name to attach license to. Required for SYSTEM customer
 
@@ -2083,7 +2058,7 @@ _Deletes license_
 
 Usage: sre lm describe [OPTIONS]
 
-_Describes a Custodian Service Licences for the given customer_
+_Describes a Syndicate Rule Engine Licences for the given customer_
 
 `-cust, --customer` `TEXT` Customer name to delete license from
 
@@ -2117,13 +2092,13 @@ _Upload report to DefectDojo_
 
 ### Commands
 
-[`add`](#account-credentials-manager-add) Creates Custodian Service Credentials Manager configuration
+[`add`](#account-credentials-manager-add) Creates Syndicate Rule Engine Credentials Manager configuration
 
-[`update`](#account-credentials-manager-update) Updates Custodian Service Credentials Manager configuration
+[`update`](#account-credentials-manager-update) Updates Syndicate Rule Engine Credentials Manager configuration
 
-[`delete`](#account-credentials-manager-delete) Terminates Custodian Service Credentials Manager configuration
+[`delete`](#account-credentials-manager-delete) Terminates Syndicate Rule Engine Credentials Manager configuration
 
-[`describe`](#account-credentials-manager-describe) Describes Custodian Service Credentials Manager configuration
+[`describe`](#account-credentials-manager-describe) Describes Syndicate Rule Engine Credentials Manager configuration
 
 -------------------------------
 
@@ -2131,7 +2106,7 @@ _Upload report to DefectDojo_
 
 Usage: sre account credentials-manager add[OPTIONS]
 
-_Creates Custodian Service Credentials Manager configuration_
+_Creates Syndicate Rule Engine Credentials Manager configuration_
 
 `-c, --cloud` `TEXT` The cloud to which the credentials configuration belongs [Required]
 
@@ -2844,15 +2819,15 @@ _Describes current License Manager access configuration data_
 
 **Usage:** `sre setting mail [OPTIONS] COMMAND [ARGS]...`
 
-_Manages Custodian Service Mail configuration_
+_Manages Syndicate Rule Engine Mail configuration_
 
 ### Commands
 
-[`add`](#setting-mail-add) Creates Custodian Service Mail configuration
+[`add`](#setting-mail-add) Creates Syndicate Rule Engine Mail configuration
 
-[`delete`](#setting-mail-delete) Deletes Custodian Service Mail configuration
+[`delete`](#setting-mail-delete) Deletes Syndicate Rule Engine Mail configuration
 
-[`describe`](#setting-mail-describe) Describes Custodian Service Mail configuration
+[`describe`](#setting-mail-describe) Describes Syndicate Rule Engine Mail configuration
 
 -----------------------------
 
@@ -2860,7 +2835,7 @@ _Manages Custodian Service Mail configuration_
 
 Usage: sre setting mail add [OPTIONS]
 
-_Creates Custodian Service Mail configuration_
+_Creates Syndicate Rule Engine Mail configuration_
 
 `-u, --username` `TEXT` Username of mail account [Required]
 
@@ -2890,7 +2865,7 @@ _Creates Custodian Service Mail configuration_
 
 Usage: sre setting mail delete [OPTIONS]
 
-_Deletes Custodian Service Mail configuration_
+_Deletes Syndicate Rule Engine Mail configuration_
 
 `--json`                Response as a JSON
 
@@ -2904,7 +2879,7 @@ _Deletes Custodian Service Mail configuration_
 
 Usage: sre setting mail describe [OPTIONS]
 
-_Describes Custodian Service Mail configuration_
+_Describes Syndicate Rule Engine Mail configuration_
 
 `-dp, --display_password` `FLAG` Denote to whether display a configured password
 
@@ -2924,9 +2899,9 @@ _Describes Custodian Service Mail configuration_
 * `@group_name.command()` decorator must contain `name` attribute.
 
 ### Examples of Proper Command Formatting
-| Do's                                                                         | Don'ts                                                   |
-|------------------------------------------------------------------------------|----------------------------------------------------------|
-| sre caas add                                                                 | sre linked_caas add                                      |
-| @ruleset.command(cls=ViewCommand, name='describe')                           | @ruleset.command(cls=ViewCommand)                        |
-| @cli_response(secured_params=['password'])<br>def login(..., password:str):  | @cli_response()<br>def login(..., password: str):        |
-| """<br>Describes Custodian Service policies of a customer<br>"""             | """Describes Custodian Service policies of a customer""" |
+| Do's                                                                        | Don'ts                                                   |
+|-----------------------------------------------------------------------------|----------------------------------------------------------|
+| sre caas add                                                                | sre linked_caas add                                      |
+| @ruleset.command(cls=ViewCommand, name='describe')                          | @ruleset.command(cls=ViewCommand)                        |
+| @cli_response(secured_params=['password'])<br>def login(..., password:str): | @cli_response()<br>def login(..., password: str):        |
+| """<br>Describes Syndicate Rule Engine policies of a customer<br>"""        | """Describes Syndicate Rule Engine policies of a customer""" |
