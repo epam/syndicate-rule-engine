@@ -91,7 +91,7 @@ _LOG = logging.getLogger(__name__)
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description='Custodian configuration cli entering point'
+        description='Syndicate Rule Engine configuration cli entering point'
     )
     # -- top level sub-parser
     sub_parsers = parser.add_subparsers(
@@ -355,13 +355,13 @@ class UpdateApiGatewayModels(ActionHandler):
         return SRC / DEPLOYMENT_RESOURCES_FILENAME
 
     @property
-    def custodian_api_gateway_name(self) -> str:
+    def sre_api_gateway_name(self) -> str:
         return 'custodian-as-a-service-api'
 
     @property
-    def custodian_api_definition(self) -> dict:
+    def sre_api_definition(self) -> dict:
         return {
-            self.custodian_api_gateway_name: {
+            self.sre_api_gateway_name: {
                 'resource_type': 'api_gateway',
                 'dependencies': [],
                 'resources': {},
@@ -372,12 +372,12 @@ class UpdateApiGatewayModels(ActionHandler):
     def __call__(self, **kwargs):
         from validators import registry
 
-        api_def = self.custodian_api_definition
+        api_def = self.sre_api_definition
         for model in registry.iter_models(without_get=True):
             schema = model.model_json_schema()
             dereference_json(schema)
             schema.pop('$defs', None)
-            api_def[self.custodian_api_gateway_name]['models'].update(
+            api_def[self.sre_api_gateway_name]['models'].update(
                 {
                     model.__name__: {
                         'content_type': 'application/json',
@@ -400,7 +400,7 @@ class UpdateApiGatewayModels(ActionHandler):
         _LOG.info(f'Updating {path}')
         with open(path, 'r') as file:
             deployment_resources = json.load(file)
-        api = deployment_resources.get(self.custodian_api_gateway_name)
+        api = deployment_resources.get(self.sre_api_gateway_name)
         if not api:
             _LOG.warning('Api gateway not found in deployment_resources')
             return

@@ -480,9 +480,6 @@ class EnvEnum(str, Enum):
 
 
 class Env(EnvEnum):
-    """
-    Envs that can be set for lambdas of custodian service
-    """
 
     SERVICE_MODE = 'SRE_SERVICE_MODE', ('CAAS_SERVICE_MODE',)
     SYSTEM_CUSTOMER_NAME = (
@@ -1152,13 +1149,13 @@ GITLAB_API_URL_DEFAULT = 'https://git.epam.com'
 
 
 class LambdaName(str, Enum):
-    API_HANDLER = 'caas-api-handler'
-    CONFIGURATION_API_HANDLER = 'caas-configuration-api-handler'
-    EVENT_HANDLER = 'caas-event-handler'
-    LICENSE_UPDATER = 'caas-license-updater'
-    METRICS_UPDATER = 'caas-metrics-updater'
-    REPORT_GENERATOR = 'caas-report-generator'
-    RULE_META_UPDATER = 'caas-rule-meta-updater'
+    API_HANDLER = 'api-handler'
+    CONFIGURATION_API_HANDLER = 'configuration-api-handler'
+    EVENT_HANDLER = 'event-handler'
+    LICENSE_UPDATER = 'license-updater'
+    METRICS_UPDATER = 'metrics-updater'
+    REPORT_GENERATOR = 'report-generator'
+    RULE_META_UPDATER = 'rule-meta-updater'
 
 
 # some common deltas for reports

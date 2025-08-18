@@ -33,19 +33,19 @@ This lambda uses the following resources:
 
 #### DynamoDB
 
-* CaaSCustomers - the table used by service to get and store data about
+* SRECustomers - the table used by service to get and store data about
   activated Customers;
-* CaaSRules - the table used by service to get and store data about rules which
+* SRERules - the table used by service to get and store data about rules which
   are used for scans;
-* CaaSTenants - the table used by service to get and store data about activated
+* SRETenants - the table used by service to get and store data about activated
   Tenants;
-* CaaSRoles - the table used by service to get and store data about roles;
-* CaaSPolicies - the table used by service to get and store data about policies;
-* CaaSJobs - the table used by service to store data about scans;
-* CaaSSettings - the table used by service to get and store settings data;
-* CaaSUsers - the table used by service to get and store user data: user_id and
+* SRERoles - the table used by service to get and store data about roles;
+* SREPolicies - the table used by service to get and store data about policies;
+* SREJobs - the table used by service to store data about scans;
+* SRESettings - the table used by service to get and store settings data;
+* SREUsers - the table used by service to get and store user data: user_id and
   tenant;
-* CaaSRulesets - the table used by service to get and store data about custom and licensed rulesets.
+* SRERulesets - the table used by service to get and store data about custom and licensed rulesets.
 
 ### Lambda Configuration
 
@@ -185,7 +185,7 @@ There are 7 events lambda accepts as the lambda is a handler for 7 API handler.
         ]
     }
     ```
-    * account: [Required] Name (`CaasAccounts.display_name`) of the account to
+    * account: [Required] Name (`SREAccounts.display_name`) of the account to
       initiate the scan for;
     * credentials: [Required] Account credentials;
     * target_ruleset: [Optional] List of rulesets that will be used for the
@@ -213,9 +213,9 @@ There are 7 events lambda accepts as the lambda is a handler for 7 API handler.
         "detailed": "true"
     }
     ```
-    * job_id: [Optional] Id (`CaasJobs.job_id`) of the job which report will be
+    * job_id: [Optional] Id (`SREJobs.job_id`) of the job which report will be
       displayed. Either job_id or account required;
-    * account: [Optional] Name (`CaasAccounts.display_name`) of the account
+    * account: [Optional] Name (`SREAccounts.display_name`) of the account
       whose reports will be displayed. Either job_id or account required;
     * detailed: [Optional] Use this boolean parameter to return scan details
       with the detailed result reports contents.
@@ -245,7 +245,7 @@ There are 7 events lambda accepts as the lambda is a handler for 7 API handler.
         "job_id": "JOB_ID"
     }
     ```
-    * job_id: [Required] Job id (`CaasJobs.job_id`) which details will be
+    * job_id: [Required] Job id (`SREJobs.job_id`) which details will be
       displayed;
 
    _Without query params, it will return the full list of jobs within the
@@ -298,7 +298,7 @@ There are 7 events lambda accepts as the lambda is a handler for 7 API handler.
         "job_id": "JOB_ID"
     }
     ```
-    * job_id: [Required] Id (`CaasJobs.job_id`) of the job to terminate.
+    * job_id: [Required] Id (`SREJobs.job_id`) of the job to terminate.
 
    Response body format:
     ```json lines

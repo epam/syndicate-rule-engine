@@ -11,44 +11,44 @@
   "logs_expiration": "${logs_expiration}",
   "dependencies": [
     {
-      "resource_name": "CaaSRules",
+      "resource_name": "SRERules",
       "resource_type": "dynamodb_table"
     },
     {
-      "resource_name": "CaaSJobs",
+      "resource_name": "SREJobs",
       "resource_type": "dynamodb_table"
     },
     {
-      "resource_name": "CaaSSettings",
+      "resource_name": "SRESettings",
       "resource_type": "dynamodb_table"
     },
     {
-      "resource_name": "CaaSRoles",
+      "resource_name": "SRERoles",
       "resource_type": "dynamodb_table"
     },
     {
-      "resource_name": "CaaSPolicies",
+      "resource_name": "SREPolicies",
       "resource_type": "dynamodb_table"
     }
   ],
   "event_sources": [],
   "env_variables": {
-    "CAAS_BATCH_JOB_DEF_NAME": "${reports-submit-job-definition}",
-    "CAAS_BATCH_JOB_QUEUE_NAME": "${reports-submit-job-queue}",
-    "CAAS_REPORTS_BUCKET_NAME": "${reports-bucket}",
-    "CAAS_RULESETS_BUCKET_NAME": "${caas_rulesets_bucket}",
-    "CAAS_BATCH_JOB_LOG_LEVEL": "DEBUG",
-    "CAAS_USER_POOL_NAME": "${caas_user_pool_name}",
-    "CAAS_SKIP_CLOUD_IDENTIFIER_VALIDATION": "${feature_skip_cloud_identifier_validation}",
-    "CAAS_BATCH_JOB_LIFETIME_MINUTES": "${job_lifetime_min}",
-    "CAAS_EB_SERVICE_ROLE_TO_INVOKE_BATCH": "${event-bridge-service-role-to-invoke-batch}",
-    "CAAS_JOBS_TIME_TO_LIVE_DAYS": "${JOBS_TIME_TO_LIVE_DAYS}",
-    "CAAS_STATISTICS_BUCKET_NAME": "${stats_s3_bucket_name}",
-    "CAAS_METRICS_BUCKET_NAME": "${caas_metrics_bucket_name}",
+    "SRE_BATCH_JOB_DEF_NAME": "${reports-submit-job-definition}",
+    "SRE_BATCH_JOB_QUEUE_NAME": "${reports-submit-job-queue}",
+    "SRE_REPORTS_BUCKET_NAME": "${reports-bucket}",
+    "SRE_RULESETS_BUCKET_NAME": "${caas_rulesets_bucket}",
+    "SRE_BATCH_JOB_LOG_LEVEL": "DEBUG",
+    "SRE_USER_POOL_NAME": "${caas_user_pool_name}",
+    "SRE_SKIP_CLOUD_IDENTIFIER_VALIDATION": "${feature_skip_cloud_identifier_validation}",
+    "SRE_BATCH_JOB_LIFETIME_MINUTES": "${job_lifetime_min}",
+    "SRE_EB_SERVICE_ROLE_TO_INVOKE_BATCH": "${event-bridge-service-role-to-invoke-batch}",
+    "SRE_JOBS_TIME_TO_LIVE_DAYS": "${JOBS_TIME_TO_LIVE_DAYS}",
+    "SRE_STATISTICS_BUCKET_NAME": "${stats_s3_bucket_name}",
+    "SRE_METRICS_BUCKET_NAME": "${caas_metrics_bucket_name}",
     "component_name": "custodian-as-a-service",
     "modular_assume_role_arn": "${modular_assume_role_arn}",
     "MODULAR_AWS_REGION": "${MODULAR_AWS_REGION}",
-    "CAAS_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT": "true"
+    "SRE_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT": "true"
   },
   "publish_version": true,
   "alias": "${lambdas_alias_name}",

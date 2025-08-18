@@ -3,11 +3,12 @@ from helpers import RequestContext
 from helpers.constants import Env
 from lambdas.license_updater.handler import LicenseUpdater
 from lambdas.metrics_updater.handler import MetricsUpdater
+from lambdas.rule_meta_updater.handler import RuleMetaUpdaterLambdaHandler
 from lambdas.metrics_updater.processors.findings_processor import (
     FindingsUpdater,
 )
-from lambdas.metrics_updater.processors.expired_metrics_processor import(
-    ExpiredMetricsCleaner
+from lambdas.metrics_updater.processors.expired_metrics_processor import (
+    ExpiredMetricsCleaner,
 )
 from services.resources_collector import CustodianResourceCollector
 from onprem.celery import app
@@ -49,10 +50,20 @@ def sync_license(license_keys: list[str] | str | None = None):
 
 
 @app.task
+def sync_rulesource(rule_source_ids: list[str] | str):
+    if isinstance(rule_source_ids, str):
+        rule_source_ids = [rule_source_ids]
+    RuleMetaUpdaterLambdaHandler.build().lambda_handler(
+        event={'rule_source_ids': rule_source_ids}, context=RequestContext()
+    )
+
+
+@app.task
 def collect_metrics():
     MetricsUpdater.build().lambda_handler(
         event={'data_type': 'metrics'}, context=RequestContext()
     )
+
 
 @app.task
 def delete_expired_metrics():
@@ -62,4 +73,3 @@ def delete_expired_metrics():
 @app.task
 def collect_resources():
     CustodianResourceCollector.build().collect_all_resources()
-

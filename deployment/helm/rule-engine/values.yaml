@@ -12,7 +12,7 @@ service:
 
 image:
   repository: public.ecr.aws/x4s4z8e1/syndicate/rule-engine
-  tag: 5.12.1
+  tag: 5.13.0
   pullPolicy: Always
 
 replicas: 1
@@ -64,7 +64,7 @@ patch:
   ttlSecondsAfterFinished: 3600
   image:
     repository: public.ecr.aws/x4s4z8e1/syndicate/patches
-    tag: 'rule-engine-5.12.1'
+    tag: 'rule-engine-5.13.0'
     pullPolicy: Always
 
 modularSdk:

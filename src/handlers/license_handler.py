@@ -20,7 +20,6 @@ from helpers.log_helper import get_logger
 from onprem.tasks import sync_license
 from services import SP
 from services.abs_lambda import ProcessedEvent
-from services.clients.lambda_func import LambdaClient
 from services.license_manager_service import LicenseManagerService
 from services.license_service import LicenseService
 from services.modular_helpers import (
@@ -52,12 +51,10 @@ class LicenseHandler(AbstractHandler):
                  self_service: LicenseService,
                  ruleset_service: RulesetService,
                  license_manager_service: LicenseManagerService,
-                 lambda_client: LambdaClient,
                  application_service: ApplicationService,
                  parent_service: ParentService):
         self.service = self_service
         self.ruleset_service = ruleset_service
-        self.lambda_client = lambda_client
         self.license_manager_service = license_manager_service
         self.aps = application_service
         self.ps = parent_service
@@ -68,7 +65,6 @@ class LicenseHandler(AbstractHandler):
             self_service=SP.license_service,
             ruleset_service=SP.ruleset_service,
             license_manager_service=SP.license_manager_service,
-            lambda_client=SP.lambda_client,
             application_service=SP.modular_client.application_service(),
             parent_service=SP.modular_client.parent_service()
         )

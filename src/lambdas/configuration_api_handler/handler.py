@@ -23,13 +23,13 @@ from handlers.self_integration_handler import SelfIntegrationHandler
 from handlers.send_report_setting_handler import ReportsSendingSettingHandler
 from handlers.tenant_handler import TenantHandler
 from handlers.resource_handler import ResourceHandler
+from onprem.tasks import sync_rulesource
 from handlers.resource_exception_handler import ResourceExceptionHandler
 from helpers.constants import (
     CUSTOMER_ATTR,
     Endpoint,
     GIT_PROJECT_ID_ATTR,
     HTTPMethod,
-    LambdaName,
     RULE_SOURCE_ID_ATTR,
     STATUS_ATTR,
     RuleSourceSyncingStatus
@@ -47,7 +47,6 @@ from services.abs_lambda import (
     RestrictCustomerEventProcessor,
     RestrictTenantEventProcessor,
 )
-from services.clients.lambda_func import LambdaClient
 from services.rule_source_service import RuleSourceService
 from validators.registry import permissions_mapping
 from validators.swagger_request_models import BaseModel, RuleUpdateMetaPostModel
@@ -95,9 +94,7 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
         ResourceExceptionHandler
     )
 
-    def __init__(self, lambda_client: LambdaClient,
-                 rule_source_service: RuleSourceService):
-        self.lambda_client = lambda_client
+    def __init__(self, rule_source_service: RuleSourceService):
         self.rule_source_service = rule_source_service
 
     @cached_property
@@ -157,15 +154,9 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
             responses.append(response)
 
         if ids_to_sync:
-            self.lambda_client.invoke_function_async(
-                LambdaName.RULE_META_UPDATER,
-                event={'rule_source_ids': ids_to_sync}
-            )
-            _LOG.debug(f'{LambdaName.RULE_META_UPDATER} has been triggered')
+            sync_rulesource.dalay(ids_to_sync)
         else:
-            _LOG.warning(
-                f'No rule-sources allowed to update. '
-                f'{LambdaName.RULE_META_UPDATER} has not been triggered')
+            _LOG.warning('No rule-sources allowed to update')
             return build_response(
                 code=HTTPStatus.NOT_FOUND,
                 content='No rule sources were found'
@@ -198,7 +189,6 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
 
 
 API_HANDLER = ConfigurationApiHandler(
-    lambda_client=SERVICE_PROVIDER.lambda_client,
     rule_source_service=SERVICE_PROVIDER.rule_source_service
 )
 

@@ -42,7 +42,7 @@ _LOG = get_logger(__name__)
 class SelfIntegrationHandler(AbstractHandler):
     """
     Self integration means that we create an application with type CUSTODIAN
-    that contains access to custodian instance so that other users of
+    that contains access to SRE instance so that other users of
     modular sdk (maestro) could use it. One integration per customer is allowed
     """
 
@@ -102,7 +102,7 @@ class SelfIntegrationHandler(AbstractHandler):
         if not secret_name:
             secret_name = self._ssm.safe_name(
                 name=application.customer_id,
-                prefix='m3.custodian.application',
+                prefix='m3.sre.application',
                 date=False
             )
         _LOG.debug('Saving password to SSM')

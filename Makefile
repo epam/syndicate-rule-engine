@@ -116,7 +116,6 @@ syndicate-update-step-functions: check-syndicate
 	SDCT_CONF=$(SYNDICATE_CONFIG_PATH) $(SYNDICATE_EXECUTABLE_PATH) deploy --deploy_only_types step_functions --replace_output --bundle_name $(SYNDICATE_BUNDLE_NAME)
 
 
-# images with fork which is default for now. Use src/onprem/Dockerfile-opensource for c7n from open source
 #make image-arm64
 #make image-amd64
 #make push-arm64

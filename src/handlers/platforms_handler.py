@@ -71,7 +71,7 @@ class PlatformsHandler(AbstractHandler):
         application = self.aps.build(
             customer_id=tenant.customer_name,
             type=ApplicationType.K8S_KUBE_CONFIG.value,
-            description='Custodian auto created k8s application',
+            description='SRE auto created k8s application',
             created_by=_pe['cognito_user_id'],
             meta={}
         )
@@ -80,7 +80,7 @@ class PlatformsHandler(AbstractHandler):
             cl = self._modular_client.assume_role_ssm_service()
             secret_name = cl.safe_name(
                 name=application.customer_id,
-                prefix='m3.custodian.k8s',
+                prefix='m3.sre.k8s',
                 date=True
             )
             secret = cl.put_parameter(

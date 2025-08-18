@@ -11,32 +11,32 @@
   "logs_expiration": "${logs_expiration}",
   "dependencies": [
     {
-      "resource_name": "CaaSRules",
+      "resource_name": "SRERules",
       "resource_type": "dynamodb_table"
     },
     {
-      "resource_name": "CaaSJobs",
+      "resource_name": "SREJobs",
       "resource_type": "dynamodb_table"
     },
     {
-      "resource_name": "CaaSSettings",
+      "resource_name": "SRESettings",
       "resource_type": "dynamodb_table"
     },
     {
-      "resource_name": "CaaSRoles",
+      "resource_name": "SRERoles",
       "resource_type": "dynamodb_table"
     },
     {
-      "resource_name": "CaaSPolicies",
+      "resource_name": "SREPolicies",
       "resource_type": "dynamodb_table"
     }
   ],
   "event_sources": [],
   "env_variables": {
-    "CAAS_USER_POOL_NAME": "custodian_as_a_service",
-    "CAAS_RULESETS_BUCKET_NAME": "${caas_rulesets_bucket}",
-    "CAAS_STATISTICS_BUCKET_NAME": "${stats_s3_bucket_name}",
-    "CAAS_LAMBDA_ALIAS_NAME": "${lambdas_alias_name}",
+    "SRE_USER_POOL_NAME": "custodian_as_a_service",
+    "SRE_RULESETS_BUCKET_NAME": "${caas_rulesets_bucket}",
+    "SRE_STATISTICS_BUCKET_NAME": "${stats_s3_bucket_name}",
+    "SRE_LAMBDA_ALIAS_NAME": "${lambdas_alias_name}",
     "modular_assume_role_arn": "${modular_assume_role_arn}",
     "MODULAR_AWS_REGION": "${MODULAR_AWS_REGION}"
   },

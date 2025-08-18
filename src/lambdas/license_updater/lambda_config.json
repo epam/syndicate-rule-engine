@@ -17,7 +17,7 @@
     }
   ],
   "env_variables": {
-    "CAAS_RULESETS_BUCKET_NAME": "${caas_rulesets_bucket}",
+    "SRE_RULESETS_BUCKET_NAME": "${caas_rulesets_bucket}",
     "modular_assume_role_arn": "${modular_assume_role_arn}",
     "MODULAR_AWS_REGION": "${MODULAR_AWS_REGION}"
   },

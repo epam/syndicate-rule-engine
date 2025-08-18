@@ -6,16 +6,15 @@ from helpers.constants import (
     Endpoint,
     HTTPMethod,
     RuleSourceSyncingStatus,
-    LambdaName
 )
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
 from helpers.system_customer import SystemCustomer
 from models.rule_source import RuleSource
 from services import SP
-from services.clients.lambda_func import LambdaClient
 from services.rule_meta_service import RuleService
 from services.rule_source_service import RuleSourceService
+from onprem.tasks import sync_rulesource
 from validators.swagger_request_models import (
     BaseModel,
     RuleSourceDeleteModel,
@@ -30,18 +29,15 @@ _LOG = get_logger(__name__)
 
 class RuleSourceHandler(AbstractHandler):
     def __init__(self, rule_source_service: RuleSourceService,
-                 rule_service: RuleService,
-                 lambda_client: LambdaClient):
+                 rule_service: RuleService):
         self._rule_source_service = rule_source_service
         self._rule_service = rule_service
-        self._lambda_client = lambda_client
 
     @classmethod
     def build(cls):
         return cls(
             rule_source_service=SP.rule_source_service,
             rule_service=SP.rule_service,
-            lambda_client=SP.lambda_client
         )
 
     @property
@@ -186,12 +182,8 @@ class RuleSourceHandler(AbstractHandler):
             item=entity,
             current_status=RuleSourceSyncingStatus.SYNCING
         )
+        sync_rulesource.dalay([entity.id])
 
-        # todo handle error?
-        self._lambda_client.invoke_function_async(
-            LambdaName.RULE_META_UPDATER.value,
-            event={'rule_source_ids': [entity.id]}
-        )
         return build_response(
             code=HTTPStatus.ACCEPTED,
             content=f'Rule source {id} is being synced'

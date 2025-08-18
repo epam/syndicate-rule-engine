@@ -19,8 +19,6 @@ from services.health_check_service import (
     MinioConnectionCheck,
     MongoConnectionCheck,
     RabbitMQConnectionCheck,
-    RulesMetaAccessDataCheck,
-    RulesMetaCheck,
     SystemCustomerSettingCheck,
     VaultAuthTokenIsSetCheck,
     VaultConnectionCheck,
@@ -39,8 +37,6 @@ class HealthCheckHandler(AbstractHandler):
         MinioConnectionCheck,
     )
     saas_specific_checks = (
-        RulesMetaAccessDataCheck,
-        RulesMetaCheck,
         RabbitMQConnectionCheck,
     )
     common_checks = (

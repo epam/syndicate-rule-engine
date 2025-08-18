@@ -32,7 +32,7 @@ class AuthPlugin:
     __slots__ = 'name',
 
     def __init__(self):
-        self.name = 'custodian-auth'
+        self.name = 'sre-auth'
 
     @staticmethod
     def get_token_from_header(header: str) -> str | None:
@@ -130,8 +130,8 @@ class OnPremApiBuilder:
         app = Bottle()
         self._add_hooks(app)
 
-        custodian_app = Bottle()
-        self._register_errors(custodian_app)
+        sre_app = Bottle()
+        self._register_errors(sre_app)
         auth_plugin = (AuthPlugin(), )
         for info in registry.iter_all():
             params = dict(
@@ -142,9 +142,9 @@ class OnPremApiBuilder:
             if info.auth:
                 params.update(apply=auth_plugin)
             self._endpoint_to_lambda[(params['path'], params['method'])] = info.lambda_name
-            custodian_app.route(**params)
+            sre_app.route(**params)
 
-        app.mount(self._stage, custodian_app)
+        app.mount(self._stage, sre_app)
         return app
 
     @classmethod

@@ -11,23 +11,23 @@
   "logs_expiration": "${logs_expiration}",
   "dependencies": [
     {
-      "resource_name": "CaaSJobs",
+      "resource_name": "SREJobs",
       "resource_type": "dynamodb_table"
     },
     {
-      "resource_name": "CaaSBatchResults",
+      "resource_name": "SREBatchResults",
       "resource_type": "dynamodb_table"
     },
     {
-      "resource_name": "CaaSCustomerMetrics",
+      "resource_name": "SRECustomerMetrics",
       "resource_type": "dynamodb_table"
     },
     {
-      "resource_name": "CaaSTenantMetrics",
+      "resource_name": "SRETenantMetrics",
       "resource_type": "dynamodb_table"
     },
     {
-      "resource_name": "CaaSSettings",
+      "resource_name": "SRESettings",
       "resource_type": "dynamodb_table"
     }
   ],
@@ -52,14 +52,14 @@
     }
   ],
   "env_variables": {
-    "CAAS_RULESETS_BUCKET_NAME": "${caas_rulesets_bucket}",
-    "CAAS_STATISTICS_BUCKET_NAME": "${stats_s3_bucket_name}",
+    "SRE_RULESETS_BUCKET_NAME": "${caas_rulesets_bucket}",
+    "SRE_STATISTICS_BUCKET_NAME": "${stats_s3_bucket_name}",
     "application_name": "custodian-service",
     "component_name": "custodian-as-a-service",
-    "CAAS_METRICS_BUCKET_NAME": "${caas_metrics_bucket_name}",
-    "CAAS_LAMBDA_ALIAS_NAME": "${lambdas_alias_name}",
-    "CAAS_RECOMMENDATIONS_BUCKET_NAME": "${caas_recommendations_bucket}",
-    "CAAS_REPORTS_BUCKET_NAME": "${reports-bucket}",
+    "SRE_METRICS_BUCKET_NAME": "${caas_metrics_bucket_name}",
+    "SRE_LAMBDA_ALIAS_NAME": "${lambdas_alias_name}",
+    "SRE_RECOMMENDATIONS_BUCKET_NAME": "${caas_recommendations_bucket}",
+    "SRE_REPORTS_BUCKET_NAME": "${reports-bucket}",
     "modular_assume_role_arn": "${modular_assume_role_arn}",
     "MODULAR_AWS_REGION": "${MODULAR_AWS_REGION}"
   },

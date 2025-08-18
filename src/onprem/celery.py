@@ -6,67 +6,50 @@ from kombu import Queue
 
 redis = Env.CELERY_BROKER_URL.get()
 
-app = Celery(broker=redis,
-             include=['onprem.tasks'])
+app = Celery(broker=redis, include=['onprem.tasks'])
 
 app.conf.beat_schedule = {
     'make-findings-snapshots': {
         'task': 'onprem.tasks.make_findings_snapshot',
         'schedule': crontab(minute='0', hour='*/12'),
-        'args': ()
+        'args': (),
     },
     'sync-license': {
         'task': 'onprem.tasks.sync_license',
         'schedule': 3600 * 4,
-        'args': ()
+        'args': (),
     },
     'collect-metrics': {
         'task': 'onprem.tasks.collect_metrics',
         'schedule': crontab(minute='0', hour='3,15'),
-        'args': ()
+        'args': (),
     },
     'remove-expired-metrics': {
         'task': 'onprem.tasks.delete_expired_metrics',
         'schedule': crontab(minute='0', hour='12'),
-        'args': ()
+        'args': (),
     },
     'scan-resources': {
         'task': 'onprem.tasks.collect_resources',
         'schedule': crontab(minute='0', hour='14'),
-        'args': ()
-    }
+        'args': (),
+    },
 }
 app.conf.beat_scheduler = 'onprem.scheduler:MongoScheduler'
 
 # TODO: celery docs are abstruse but this seems to work. Anyway, we should
 #  pay attention
 app.conf.task_create_missing_queues = True
-app.conf.task_queues = (
-    Queue("a-jobs"),
-    Queue("b-scheduled"),
-)
+app.conf.task_queues = (Queue('a-jobs'), Queue('b-scheduled'))
 app.conf.task_routes = {
-    'onprem.tasks.make_findings_snapshot': {
-        'queue': 'b-scheduled'
-    },
-    'onprem.tasks.sync_license': {
-        'queue': 'b-scheduled'
-    },
-    'onprem.tasks.collect_metrics': {
-        'queue': 'b-scheduled'
-    },
-    'onprem.tasks.run_standard_job': {
-        'queue': 'a-jobs'
-    },
-    'onprem.tasks.run_scheduled_job': {
-        'queue': 'a-jobs'
-    },
-    'onprem.tasks.delete_expired_metrics': {
-        'queue': 'b-scheduled'
-    },
-    'onprem.tasks.collect_resources': {
-        'queue': 'b-scheduled'
-    }
+    'onprem.tasks.make_findings_snapshot': {'queue': 'b-scheduled'},
+    'onprem.tasks.sync_license': {'queue': 'b-scheduled'},
+    'onprem.tasks.sync_rulesource': {'queue': 'b-scheduled'},
+    'onprem.tasks.collect_metrics': {'queue': 'b-scheduled'},
+    'onprem.tasks.run_standard_job': {'queue': 'a-jobs'},
+    'onprem.tasks.run_scheduled_job': {'queue': 'a-jobs'},
+    'onprem.tasks.delete_expired_metrics': {'queue': 'b-scheduled'},
+    'onprem.tasks.collect_resources': {'queue': 'b-scheduled'},
 }
 app.conf.timezone = 'UTC'
 app.conf.broker_connection_retry_on_startup = True
@@ -77,8 +60,9 @@ app.conf.worker_log_color = False
 app.conf.worker_send_task_event = False
 app.conf.task_ignore_result = True  # custom results logic
 app.conf.broker_transport_options = {
-    "queue_order_strategy": "sorted",
-    "visibility_timeout": 3600 * 4 + 300  # more than hard task limit because we cannot afford to deliver one task twice
+    'queue_order_strategy': 'sorted',
+    'visibility_timeout': 3600 * 4
+    + 300,  # more than hard task limit because we cannot afford to deliver one task twice
 }
 
 # app.conf.task_annotations = {

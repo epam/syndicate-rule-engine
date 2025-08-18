@@ -13,7 +13,7 @@ class EnvironmentService:
 
     def aws_region(self) -> str:
         """
-        caas-api-handler, caas-event-handler to build envs for jobs.
+        api-handler, event-handler to build envs for jobs.
         All the lambdas to init connections to clients.
         """
         return Env.AWS_REGION.get()
@@ -21,55 +21,55 @@ class EnvironmentService:
     def default_reports_bucket_name(self) -> str:
         """
         Lambdas:
-        - caas-event-handler
-        - caas-api-handler
-        - caas-report-generator
+        - event-handler
+        - api-handler
+        - report-generator
         """
         return Env.REPORTS_BUCKET_NAME.as_str()
 
     def batch_job_log_level(self) -> str:
         """
         Lambdas:
-        caas-api-handler
-        caas-event-handler
+        api-handler
+        event-handler
         """
         return Env.BATCH_JOB_LOG_LEVEL.get()
 
     def get_batch_job_queue(self) -> str | None:
         """
         Lambdas:
-        caas-api-handler
-        caas-event-handler
+        api-handler
+        event-handler
         """
         return Env.BATCH_JOB_QUEUE_NAME.get()
 
     def get_batch_job_def(self) -> str | None:
         """
         Lambdas:
-        caas-api-handler
-        caas-event-handler
+        api-handler
+        event-handler
         """
         return Env.BATCH_JOB_DEF_NAME.get()
 
     def get_rulesets_bucket_name(self) -> str:
         """
         Lambdas:
-        caas-api-handler
-        caas-configuration-api-handler
-        caas-configuration-updater
-        caas-event-handler
-        caas-license-updater
-        caas-report-generator
-        caas-ruleset-compiler
+        api-handler
+        configuration-api-handler
+        configuration-updater
+        event-handler
+        license-updater
+        report-generator
+        ruleset-compiler
         """
         return Env.RULESETS_BUCKET_NAME.as_str()
 
     def get_user_pool_name(self) -> str | None:
         """
         Api lambdas:
-        caas-api-handler
-        caas-configuration-api-handler
-        caas-report-generator
+        api-handler
+        configuration-api-handler
+        report-generator
         """
         return Env.USER_POOL_NAME.get()
 
@@ -77,9 +77,9 @@ class EnvironmentService:
         """
         It's optional but is preferred to use this instead of user_pool_name
         Api lambdas:
-        caas-api-handler
-        caas-configuration-api-handler
-        caas-report-generator
+        api-handler
+        configuration-api-handler
+        report-generator
         """
         return Env.USER_POOL_ID.get()
 
@@ -88,7 +88,7 @@ class EnvironmentService:
 
     def skip_cloud_identifier_validation(self) -> bool:
         """
-        caas-api-handler
+        api-handler
         """
         return Env.SKIP_CLOUD_IDENTIFIER_VALIDATION.as_bool()
 
@@ -112,7 +112,7 @@ class EnvironmentService:
     def jobs_time_to_live_days(self) -> int | None:
         """live_days
         Lambdas:
-        - caas-api-handler
+        - api-handler
         """
         from_env = Env.JOBS_TIME_TO_LIVE_DAYS.get('')
         if from_env.isdigit():
@@ -122,21 +122,21 @@ class EnvironmentService:
     def events_ttl_hours(self) -> int:
         """
         Lambdas:
-        - caas-api-handler
+        - api-handler
         """
         return Env.EVENTS_TTL_HOURS.as_int()
 
     def event_assembler_pull_item_limit(self) -> int:
         """
         Lambdas:
-        - caas-event-handler
+        - event-handler
         """
         return Env.EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE.as_int()
 
     def number_of_native_events_in_event_item(self) -> int:
         """
         Lambdas:
-        - caas-api-handler
+        - api-handler
         """
         return Env.NATIVE_EVENTS_PER_ITEM.as_int()
 
@@ -145,7 +145,7 @@ class EnvironmentService:
 
     def allow_simultaneous_jobs_for_one_tenant(self) -> bool:
         """
-        caas-api-handler. Here we are talking about standard licensed
+        api-handler. Here we are talking about standard licensed
         jobs, not event-driven.
         :return:
         """
@@ -154,7 +154,7 @@ class EnvironmentService:
     def number_of_partitions_for_events(self) -> int:
         """
         https://aws.amazon.com/blogs/database/choosing-the-right-dynamodb-partition-key/
-        We must be able to query CaaSEvents starting from some date. We
+        We must be able to query SREEvents starting from some date. We
         cannot just scan the table, and also we cannot use one Partition key
         for all the events. So this setting defines the number of partitions.
         The more of them, the better will be writing throughput and harder read

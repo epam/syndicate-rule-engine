@@ -11,7 +11,7 @@
   "logs_expiration": "${logs_expiration}",
   "dependencies": [
     {
-      "resource_name": "CaaSRules",
+      "resource_name": "SRERules",
       "resource_type": "dynamodb_table"
     }
   ],
@@ -22,7 +22,7 @@
     }
   ],
   "env_variables": {
-    "CAAS_RULESETS_BUCKET_NAME": "${caas_rulesets_bucket}"
+    "SRE_RULESETS_BUCKET_NAME": "${caas_rulesets_bucket}"
   },
   "publish_version": true,
   "alias": "${lambdas_alias_name}",
