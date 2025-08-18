@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - changed operational overview, resources, deprecations, finops, and attacks reports to add exceptions information.
 - changed operational overview report to include total resources scanned.
 - renamed database, collections and other occurrences from `custodian_as_a_service` to `syndicate_rule_engine`.
-
+- update modular-related environment variables in the HELM chart
 
 ## [5.12.1] - 2025-08-08 (hotfix)
 - fixed a bug with small number of executed google policies

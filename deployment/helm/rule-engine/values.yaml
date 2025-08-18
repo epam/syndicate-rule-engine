@@ -49,12 +49,18 @@ modular-service:
   enabled: true
   fullnameOverride: modular-service
   databaseName: syndicate_rule_engine
+  logLevel: WARNING
   modularSdk:
     databaseName: syndicate_rule_engine
+    logLevel: WARNING
 modular-api:
   enabled: true
   fullnameOverride: modular-api
   disableRateLimiter: "true"
+  modularApiServerLogLevel: ERROR
+  modularApiCliLogLevel: ERROR
+  modularApiM3adminLogLevel: WARNING
+  modularApiModularSdkLogLevel: WARNING
   image:
     tag: 4.3.1-rule-engine
 
@@ -88,8 +94,8 @@ httpsProxy: ''
 noProxy: 'localhost,127.0.0.1,169.254.169.254,mongo,vault,minio,defectdojo'
 
 logLevel: INFO
-executorLogLevel: INFO
-executorCCLogLevel: INFO
+executorLogLevel: ERROR
+executorCCLogLevel: ERROR
 executorLogsFilename:
 allowSimultaneousJobsForOneTenant: false
 dojoPayloadSizeLimitBytes:
