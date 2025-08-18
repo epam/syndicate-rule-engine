@@ -12,7 +12,7 @@ service:
 
 image:
   repository: public.ecr.aws/x4s4z8e1/syndicate/rule-engine
-  tag: 5.12.1
+  tag: 5.13.0
   pullPolicy: Always
 
 replicas: 1
@@ -49,12 +49,18 @@ modular-service:
   enabled: true
   fullnameOverride: modular-service
   databaseName: custodian_as_a_service
+  logLevel: WARNING
   modularSdk:
     databaseName: custodian_as_a_service
+    logLevel: WARNING
 modular-api:
   enabled: true
   fullnameOverride: modular-api
   disableRateLimiter: "true"
+  modularApiServerLogLevel: ERROR
+  modularApiCliLogLevel: ERROR
+  modularApiM3adminLogLevel: WARNING
+  modularApiModularSdkLogLevel: WARNING
   image:
     tag: 4.3.1-rule-engine
 
@@ -64,7 +70,7 @@ patch:
   ttlSecondsAfterFinished: 3600
   image:
     repository: public.ecr.aws/x4s4z8e1/syndicate/patches
-    tag: 'rule-engine-5.12.1'
+    tag: 'rule-engine-5.13.0'
     pullPolicy: Always
 
 modularSdk:
@@ -88,8 +94,8 @@ httpsProxy: ''
 noProxy: 'localhost,127.0.0.1,169.254.169.254,mongo,vault,minio,defectdojo'
 
 logLevel: INFO
-executorLogLevel: INFO
-executorCCLogLevel: INFO
+executorLogLevel: ERROR
+executorCCLogLevel: ERROR
 executorLogsFilename:
 allowSimultaneousJobsForOneTenant: false
 dojoPayloadSizeLimitBytes:
