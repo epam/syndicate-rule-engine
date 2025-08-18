@@ -14,7 +14,7 @@
   "externalData": false,
   "data": {
     "resources_violated": 23,
-    "resources_scanned": 0,
+    "resources_scanned": 23,
     "rules_data": {
       "violated": 0,
       "passed": 0,

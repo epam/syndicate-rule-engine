@@ -118,7 +118,7 @@
   },
   "data": {
     "resources_violated": 9,
-    "resources_scanned": 0,
+    "resources_scanned": 9,
     "regions": {
       "global": {
         "resources": {

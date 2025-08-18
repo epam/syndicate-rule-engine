@@ -1079,6 +1079,7 @@ class MetricsCollector:
         it: Iterable['AverageStatisticsItem'],
         ctx: MetricsContext,
         meta: dict | None = None,
+        type_resources: dict | None = None,
     ) -> Generator['AverageStatisticsItem', None, None]:
         meta = meta or {}
         for item in it:
@@ -1095,6 +1096,15 @@ class MetricsCollector:
                 item.resource_type
             )
             item.severity = rm.severity
+
+            # TODO: implement average resources scanned
+            if type_resources:
+                resources = [
+                    res for res in type_resources.get(meta[p]['resource'], [])
+                    if res.location == item.region or res.location == GLOBAL_REGION
+                ]
+                item.resources_scanned = len(resources)
+                item.average_resources_scanned = item.resources_scanned
 
             yield item
 
@@ -1123,6 +1133,7 @@ class MetricsCollector:
             exceptions_data, col = exceptions.filter_exception_resources(
                 col, tenant_cloud(tenant), ctx.metadata, tenant.project
             )
+            type_resources = self._res_ser.get_type_resources_for_tenant(tenant, col.meta)
 
             outdated = []
             lsd = tjs.last_succeeded_scan_date
@@ -1145,6 +1156,7 @@ class MetricsCollector:
                         ),
                         ctx=ctx,
                         meta=col.meta if col else {},
+                        type_resources=type_resources if type_resources else {},
                     )
                 ),
                 'outdated_tenants': outdated,
