@@ -37,6 +37,7 @@ class Resource(TypedDict):
 
 class ResourceException(TypedDict):
     id: str
+    type: str
     resource_id: str | None
     location: str | None
     resource_type: str | None

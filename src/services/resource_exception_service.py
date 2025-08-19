@@ -219,6 +219,8 @@ class ResourceExceptionsCollection:
         )
         return exceptions, non_exceptions
 
+    # TODO: it's the same as in OverviewReportGenerator
+    # maybe we should move it somewhere so there is no code duplication
     def _get_resources_data(
         self,
         rule_resources: dict[str, set[CloudResource]],
