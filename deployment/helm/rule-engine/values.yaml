@@ -120,4 +120,11 @@ celery:
   workerMemoryRequest: "128Mi"
   beatMemoryLimit: "256Mi"
   beatMemoryRequest: "128Mi"
+  schedule:
+    timezone: UTC
+    makeFindingsSnapshots: '0 */12 * * *'
+    syncLicense: '14400'
+    collectMetrics: '0 3,15 * * *'
+    removeExpiredMetrics: '0 12 * * *'
+    scanResources: ''  # disabled
 

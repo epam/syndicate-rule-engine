@@ -2,8 +2,8 @@ import operator
 import os
 from datetime import datetime
 from enum import Enum
-from itertools import filterfalse, chain
-from typing import Iterator, MutableMapping, Callable, TypeVar
+from itertools import chain, filterfalse
+from typing import Callable, Iterator, MutableMapping, TypeVar
 
 from dateutil.relativedelta import SU, relativedelta
 from typing_extensions import Self
@@ -480,7 +480,6 @@ class EnvEnum(str, Enum):
 
 
 class Env(EnvEnum):
-
     SERVICE_MODE = 'SRE_SERVICE_MODE', ('CAAS_SERVICE_MODE',)
     SYSTEM_CUSTOMER_NAME = (
         'SRE_SYSTEM_CUSTOMER_NAME',
@@ -614,8 +613,10 @@ class Env(EnvEnum):
         'SRE_MINIO_PRESIGNED_URL_HOST',
         ('CAAS_MINIO_PRESIGNED_URL_HOST',),
     )
-    MINIO_PRESIGNED_URL_PUBLIC_IPV4 = 'SRE_MINIO_PRESIGNED_URL_PUBLIC_IPV4',
-    MINIO_PRESIGNED_URL_PRIVATE_IPV4 = 'SRE_MINIO_PRESIGNED_URL_PRIVATE_IPV4',
+    MINIO_PRESIGNED_URL_PUBLIC_IPV4 = ('SRE_MINIO_PRESIGNED_URL_PUBLIC_IPV4',)
+    MINIO_PRESIGNED_URL_PRIVATE_IPV4 = (
+        'SRE_MINIO_PRESIGNED_URL_PRIVATE_IPV4',
+    )
 
     VAULT_ENDPOINT = 'SRE_VAULT_ENDPOINT', ('CAAS_VAULT_ENDPOINT',)
     VAULT_TOKEN = 'SRE_VAULT_TOKEN', ('CAAS_VAULT_TOKEN',)
@@ -637,6 +638,44 @@ class Env(EnvEnum):
 
     # Celery
     CELERY_BROKER_URL = 'SRE_CELERY_BROKER_URL', ('CAAS_CELERY_BROKER_URL',)
+    CELERY_TIMEZONE = 'SRE_CELERY_TIMEZONE', (), 'UTC'
+    CELERY_TASK_COMPRESSION = 'SRE_CELERY_TASK_COMPRESSION', (), 'gzip'
+    CELERY_WORKER_PREFETCH_MULTIPLIER = (
+        'SRE_CELERY_WORKER_PREFETCH_MULTIPLIER',
+        (),
+        '1',
+    )
+    CELERY_WORKER_MAX_TASK_PER_CHILD = (
+        'SRE_CELERY_WORKER_MAX_TASK_PER_CHILD',
+        (),
+        '16',
+    )
+
+    CELERY_MAKE_FINDINGS_SNAPSHOTS_SCHEDULE = (
+        'SRE_CELERY_MAKE_FINDINGS_SNAPSHOTS_SCHEDULE',
+        (),
+        '0 */12 * * *',  # every 12 hours
+    )
+    CELERY_SYNC_LICENSE_SCHEDULE = (
+        'SRE_CELERY_SYNC_LICENSE_SCHEDULE',
+        (),
+        '14400',  # every 4 hours
+    )
+    CELERY_COLLECT_METRICS_SCHEDULE = (
+        'SRE_CELERY_COLLECT_METRICS_SCHEDULE',
+        (),
+        '0 3,15 * * *',  # every day at 03:00 and 15:00 UTC
+    )
+    CELERY_REMOVE_EXPIRED_METRICS_SCHEDULE = (
+        'SRE_CELERY_REMOVE_EXPIRED_METRICS_SCHEDULE',
+        (),
+        '0 12 * * *',  # every day at 12:00 UTC
+    )
+    CELERY_SCAN_RESOURCES_SCHEDULE = (
+        'SRE_CELERY_SCAN_RESOURCES_SCHEDULE',
+        (),
+        '0 14 * * *',  # every day at 14:00 UTC
+    )
 
     # Cloud Custodian
     CC_LOG_LEVEL = 'SRE_CC_LOG_LEVEL', (), 'INFO'
@@ -1376,13 +1415,16 @@ EXCLUDE_RESOURCE_TYPES = {
     'gcp.region',
 }
 
+
 class ResourcesCollectorType(str, Enum):
     AWS_RESOURCE_EXPLORER = 'aws_resource_explorer'
     AZURE_RESOURCE_GRAPH = 'azure_resource_graph'
     FOCUS = 'focus'
     CUSTODIAN = 'cloud_custodian'
 
+
 DEPRECATED_RULE_SUFFIX = '-deprecated'
+
 
 class ResourceExceptionType(str, Enum):
     """

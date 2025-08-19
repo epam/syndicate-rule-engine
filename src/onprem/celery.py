@@ -1,40 +1,72 @@
 from celery import Celery
 from celery.schedules import crontab
+from kombu import Queue
 
 from helpers.constants import Env
-from kombu import Queue
+
+
+def crontab_from_string(ct: str) -> crontab:
+    """
+    Taken from the newer version of celery
+    """
+    return crontab(*ct.split(' '))
+
+
+def schedule_from_string(sch: str) -> int | crontab:
+    if sch.isdigit():
+        return int(sch)
+    return crontab_from_string(sch)
+
+
+def prepare_beat_schedule() -> dict[str, dict]:
+    schedule = {
+        'make-findings-snapshots': {
+            'task': 'onprem.tasks.make_findings_snapshot',
+            'schedule': Env.CELERY_MAKE_FINDINGS_SNAPSHOTS_SCHEDULE,
+            'args': (),
+        },
+        'sync-license': {
+            'task': 'onprem.tasks.sync_license',
+            'schedule': Env.CELERY_SYNC_LICENSE_SCHEDULE,
+            'args': (),
+        },
+        'collect-metrics': {
+            'task': 'onprem.tasks.collect_metrics',
+            'schedule': Env.CELERY_COLLECT_METRICS_SCHEDULE,
+            'args': (),
+        },
+        'remove-expired-metrics': {
+            'task': 'onprem.tasks.delete_expired_metrics',
+            'schedule': Env.CELERY_REMOVE_EXPIRED_METRICS_SCHEDULE,
+            'args': (),
+        },
+        'scan-resources': {
+            'task': 'onprem.tasks.collect_resources',
+            'schedule': Env.CELERY_SCAN_RESOURCES_SCHEDULE,
+            'args': (),
+        },
+    }
+    disabled = []
+    for name, inner in schedule.items():
+        s = inner['schedule']
+        if not isinstance(s, Env):
+            continue
+        val = s.get()
+        if not val:  # can be forced empty from outside
+            disabled.append(name)
+            continue
+        inner['schedule'] = schedule_from_string(val)
+    for name in disabled:
+        schedule.pop(name)
+    return schedule
+
 
 redis = Env.CELERY_BROKER_URL.get()
 
 app = Celery(broker=redis, include=['onprem.tasks'])
 
-app.conf.beat_schedule = {
-    'make-findings-snapshots': {
-        'task': 'onprem.tasks.make_findings_snapshot',
-        'schedule': crontab(minute='0', hour='*/12'),
-        'args': (),
-    },
-    'sync-license': {
-        'task': 'onprem.tasks.sync_license',
-        'schedule': 3600 * 4,
-        'args': (),
-    },
-    'collect-metrics': {
-        'task': 'onprem.tasks.collect_metrics',
-        'schedule': crontab(minute='0', hour='3,15'),
-        'args': (),
-    },
-    'remove-expired-metrics': {
-        'task': 'onprem.tasks.delete_expired_metrics',
-        'schedule': crontab(minute='0', hour='12'),
-        'args': (),
-    },
-    'scan-resources': {
-        'task': 'onprem.tasks.collect_resources',
-        'schedule': crontab(minute='0', hour='14'),
-        'args': (),
-    },
-}
+
+app.conf.beat_schedule = prepare_beat_schedule()
 app.conf.beat_scheduler = 'onprem.scheduler:MongoScheduler'
 
 # TODO: celery docs are abstruse but this seems to work. Anyway, we should
@@ -51,11 +83,11 @@ app.conf.task_routes = {
     'onprem.tasks.delete_expired_metrics': {'queue': 'b-scheduled'},
     'onprem.tasks.collect_resources': {'queue': 'b-scheduled'},
 }
-app.conf.timezone = 'UTC'
+app.conf.timezone = Env.CELERY_TIMEZONE.as_str()
 app.conf.broker_connection_retry_on_startup = True
-app.conf.worker_prefetch_multiplier = 1  # https://docs.celeryq.dev/en/stable/userguide/optimizing.html#prefetch-limits
-app.conf.task_compression = 'gzip'
-app.conf.worker_max_tasks_per_child = 16
+app.conf.worker_prefetch_multiplier = Env.CELERY_WORKER_PREFETCH_MULTIPLIER.as_int()  # https://docs.celeryq.dev/en/stable/userguide/optimizing.html#prefetch-limits
+app.conf.task_compression = Env.CELERY_TASK_COMPRESSION.as_str()
+app.conf.worker_max_tasks_per_child = Env.CELERY_WORKER_MAX_TASK_PER_CHILD.as_int()
 app.conf.worker_log_color = False
 app.conf.worker_send_task_event = False
 app.conf.task_ignore_result = True  # custom results logic
