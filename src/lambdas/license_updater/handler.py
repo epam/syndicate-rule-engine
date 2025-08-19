@@ -18,7 +18,7 @@ from services import SERVICE_PROVIDER, ServiceProvider
 from services.abs_lambda import EventProcessorLambdaHandler
 from services.clients.lm_client import LMRulesetDTO
 from services.license_manager_service import LicenseManagerService
-from services.license_service import License, LicenseService
+from services.license_service import License, LicenseService, SUCCESS_SYNC
 from services.reports_bucket import RulesetsBucketKeys
 from services.ruleset_service import RulesetService
 
@@ -120,7 +120,12 @@ class LicenseSync:
             installation_version=__version__,
             include_ruleset_links=True,
         )
-        if not data:
+        if isinstance(data, str):
+            self._sp.license_service.update(
+                item=lic,
+                latest_sync=utc_iso(),
+                latest_sync_result=data
+            )
             raise LicenseSyncError('Request to the License manager failed')
 
         new_rulesets = data.get('rulesets', [])
@@ -144,6 +149,7 @@ class LicenseSync:
             latest_sync=utc_iso(),
             valid_until=data.get('valid_until'),
             valid_from=data.get('valid_from'),
+            latest_sync_result=SUCCESS_SYNC,
         )
 
         _LOG.debug('Updating rulesets')
