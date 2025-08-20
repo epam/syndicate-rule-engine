@@ -27,5 +27,5 @@ dependencies:
     condition: modular-service.enabled
   - name: modular-api
     repository: "s3://charts-repository/syndicate/"
-    version: "4.3.2"
+    version: "4.3.1"
     condition: modular-api.enabled

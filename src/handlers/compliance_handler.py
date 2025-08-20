@@ -10,7 +10,7 @@ from handlers import AbstractHandler, Mapping
 from helpers.constants import (
     GLOBAL_REGION,
     Cloud,
-    CustodianEndpoint,
+    Endpoint,
     HTTPMethod,
     ReportFormat,
 )
@@ -82,10 +82,10 @@ class ComplianceReportHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.REPORTS_COMPLIANCE_JOBS_JOB_ID: {
+            Endpoint.REPORTS_COMPLIANCE_JOBS_JOB_ID: {
                 HTTPMethod.GET: self.get_by_job
             },
-            CustodianEndpoint.REPORTS_COMPLIANCE_TENANTS_TENANT_NAME: {
+            Endpoint.REPORTS_COMPLIANCE_TENANTS_TENANT_NAME: {
                 HTTPMethod.GET: self.get_by_tenant
             },
         }

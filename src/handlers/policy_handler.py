@@ -2,7 +2,7 @@ from http import HTTPStatus
 
 from handlers import AbstractHandler, Mapping
 from helpers import NextToken
-from helpers.constants import CustodianEndpoint, HTTPMethod
+from helpers.constants import Endpoint, HTTPMethod
 from helpers.lambda_response import ResponseFactory, build_response
 from services import SP
 from services.rbac_service import PolicyService
@@ -30,11 +30,11 @@ class PolicyHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.POLICIES: {
+            Endpoint.POLICIES: {
                 HTTPMethod.POST: self.create_policy,
                 HTTPMethod.GET: self.list_policies
             },
-            CustodianEndpoint.POLICIES_NAME: {
+            Endpoint.POLICIES_NAME: {
                 HTTPMethod.GET: self.get_policy,
                 HTTPMethod.PATCH: self.update_policy,
                 HTTPMethod.DELETE: self.delete_policy,

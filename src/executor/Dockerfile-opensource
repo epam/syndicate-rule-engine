@@ -1,21 +1,21 @@
 FROM public.ecr.aws/docker/library/python:3.10 as compile-image
 
-ARG CUSTODIAN_SERVICE_PATH=.
+ARG SRE_SERVICE_PATH=.
 ARG CLOUD_CUSTODIAN_PACKAGE="c7n~=0.9.43"
 ARG CLOUD_CUSTODIAN_PROVIDERS="c7n-gcp~=0.4.42 c7n-azure~=0.7.42 c7n-kube~=0.2.42"
 
 # some dependency error occurred when installing all with one pip install command. So
 RUN pip install --user "$CLOUD_CUSTODIAN_PACKAGE" && for pkg in $CLOUD_CUSTODIAN_PROVIDERS; do pip install --user "$pkg"; done
 
-COPY $CUSTODIAN_SERVICE_PATH/src/executor/requirements.txt /src/executor/requirements.txt
+COPY $SRE_SERVICE_PATH/src/executor/requirements.txt /src/executor/requirements.txt
 RUN pip install --user -r /src/executor/requirements.txt
 
-COPY $CUSTODIAN_SERVICE_PATH/src/executor/helpers /src/executor/helpers
-COPY $CUSTODIAN_SERVICE_PATH/src/executor/services /src/executor/services
-COPY $CUSTODIAN_SERVICE_PATH/src/helpers /src/helpers
-COPY $CUSTODIAN_SERVICE_PATH/src/models /src/models
-COPY $CUSTODIAN_SERVICE_PATH/src/services /src/services
-COPY $CUSTODIAN_SERVICE_PATH/src/run.py /src/
+COPY $SRE_SERVICE_PATH/src/executor/helpers /src/executor/helpers
+COPY $SRE_SERVICE_PATH/src/executor/services /src/executor/services
+COPY $SRE_SERVICE_PATH/src/helpers /src/helpers
+COPY $SRE_SERVICE_PATH/src/models /src/models
+COPY $SRE_SERVICE_PATH/src/services /src/services
+COPY $SRE_SERVICE_PATH/src/run.py /src/
 
 
 FROM public.ecr.aws/docker/library/python:3.10-slim AS build-image

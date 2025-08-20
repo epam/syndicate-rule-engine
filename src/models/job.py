@@ -1,7 +1,7 @@
 from pynamodb.attributes import ListAttribute, TTLAttribute, UnicodeAttribute
 from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
-from helpers.constants import CAASEnv, JobState
+from helpers.constants import Env, JobState
 from helpers.time_helper import utc_iso
 from models import BaseModel
 
@@ -56,8 +56,8 @@ class CustomerNameSubmittedAtIndex(GlobalSecondaryIndex):
 
 class Job(BaseModel):
     class Meta:
-        table_name = 'CaaSJobs'
-        region = CAASEnv.AWS_REGION.get()
+        table_name = 'SREJobs'
+        region = Env.AWS_REGION.get()
         mongo_attributes = True  # ttl attribute is patched
 
     id = UnicodeAttribute(hash_key=True, attr_name=JOB_ID)  # our unique id

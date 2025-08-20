@@ -1,11 +1,11 @@
 FROM public.ecr.aws/docker/library/python:3.10 as executor-compile-image
 
-# default values expect that user has cloned core to the Custodian's
-# root and execute build with build context pointing to Custodian's root:
+# default values expect that user has cloned core to the SRE's
+# root and execute build with build context pointing to SRE's root:
 # pwd
-# ../custodian-as-a-service
+# ../syndicate-rule-engine
 # docker build -f src/executor/Dockerfile .
-ARG CUSTODIAN_SERVICE_PATH=.
+ARG SRE_SERVICE_PATH=.
 ARG CLOUD_CUSTODIAN_PATH=cloudcustodian-sre-core
 # it's not enough to just add a provider here, you must copy its files below
 ARG PROVIDERS="gcp azure kube"
@@ -39,7 +39,7 @@ COPY $CLOUD_CUSTODIAN_PATH/tools/c7n_kube/pyproject.toml $CLOUD_CUSTODIAN_PATH/t
 RUN for pkg in $PROVIDERS; do . /root/.local/bin/activate && cd tools/c7n_$pkg && poetry install --no-interaction --without dev --no-root && cd ../..; done
 
 # executor requirements
-COPY $CUSTODIAN_SERVICE_PATH/src/executor/requirements.txt ../src/executor/requirements.txt
+COPY $SRE_SERVICE_PATH/src/executor/requirements.txt ../src/executor/requirements.txt
 RUN . /root/.local/bin/activate && pip install -r ../src/executor/requirements.txt
 
 
@@ -49,7 +49,7 @@ COPY $CLOUD_CUSTODIAN_PATH/tools/c7n_kube tools/c7n_kube/
 RUN for pkg in $PROVIDERS; do . /root/.local/bin/activate && cd tools/c7n_$pkg && pip install --no-deps . && cd ../..; done
 
 
-COPY $CUSTODIAN_SERVICE_PATH/src ../src
+COPY $SRE_SERVICE_PATH/src ../src
 # by here we have executor built in /root/.local
 
 

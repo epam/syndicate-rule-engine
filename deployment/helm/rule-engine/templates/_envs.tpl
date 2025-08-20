@@ -133,6 +133,16 @@ env:
     value: "{{ .Values.redisPort }}"
   - name: SRE_CELERY_LOG_LEVEL
     value: {{ .Values.celery.logLevel }}
+  - name: SRE_CELERY_MAKE_FINDINGS_SNAPSHOTS_SCHEDULE
+    value: '{{ .Values.celery.schedule.makeFindingsSnapshots }}'
+  - name: SRE_CELERY_SYNC_LICENSE_SCHEDULE
+    value: '{{ .Values.celery.schedule.syncLicense }}'
+  - name: SRE_CELERY_COLLECT_METRICS_SCHEDULE
+    value: '{{ .Values.celery.schedule.collectMetrics }}'
+  - name: SRE_CELERY_REMOVE_EXPIRED_METRICS_SCHEDULE
+    value: '{{ .Values.celery.schedule.removeExpiredMetrics }}'
+  - name: SRE_CELERY_SCAN_RESOURCES_SCHEDULE
+    value: '{{ .Values.celery.schedule.scanResources }}'
   - name: SRE_CC_LOG_LEVEL
     value: {{ .Values.executorCCLogLevel }}
   {{- if .Values.executorLogsFilename }}

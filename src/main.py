@@ -19,7 +19,7 @@ from helpers.constants import (
     DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME,
     DOCKER_SERVICE_MODE,
     PRIVATE_KEY_SECRET_NAME,
-    CAASEnv,
+    Env,
     HTTPMethod,
     Permission,
     SettingKey,
@@ -91,7 +91,7 @@ _LOG = logging.getLogger(__name__)
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description='Custodian configuration cli entering point'
+        description='Syndicate Rule Engine configuration cli entering point'
     )
     # -- top level sub-parser
     sub_parsers = parser.add_subparsers(
@@ -237,7 +237,7 @@ class InitMinio(ActionHandler):
 
         _LOG.info(f'Setting lifecycle rules for reports bucket')
         SP.s3.put_bucket_lifecycle_rules(
-            bucket=CAASEnv.REPORTS_BUCKET_NAME.as_str(),
+            bucket=Env.REPORTS_BUCKET_NAME.as_str(),
             rules=[
                 SP.s3.build_lifecycle_rule(
                     days=7, prefix=ReportsBucketKeysBuilder.on_demand
@@ -246,7 +246,7 @@ class InitMinio(ActionHandler):
                     days=7, prefix=ReportMetaBucketsKeys.prefix
                 ),
                 SP.s3.build_lifecycle_rule(
-                    days=CAASEnv.REPORTS_SNAPSHOTS_LIFETIME_DAYS.as_int(),
+                    days=Env.REPORTS_SNAPSHOTS_LIFETIME_DAYS.as_int(),
                     tag=('Type', 'DataSnapshot')
                 ),
             ],
@@ -294,6 +294,7 @@ class InitMongo(ActionHandler):
         _LOG.debug('Going to sync indexes with code')
         from models import PynamoDBToPymongoAdapterSingleton, BaseModel
         from models.resource import create_resources_indexes
+        from models.resource_exception import create_resource_exceptions_indexes
 
         if not BaseModel.is_mongo_model():
             _LOG.warning('Cannot create indexes for DynamoDB')
@@ -306,8 +307,12 @@ class InitMongo(ActionHandler):
             _LOG.info(f'Syncing indexes for {model.Meta.table_name}')
             creator.sync(model, always_keep=('_id_', 'next_run_time_1'))
         
-        _LOG.info('Syncing indexes for CaaSResources')
+        _LOG.info('Syncing indexes for SREResources')
         create_resources_indexes(
+            PynamoDBToPymongoAdapterSingleton.get_instance().mongo_database
+        )
+        _LOG.info('Syncing indexes for SREResourceExceptions')
+        create_resource_exceptions_indexes(
             PynamoDBToPymongoAdapterSingleton.get_instance().mongo_database
         )
 
@@ -324,8 +329,8 @@ class Run(ActionHandler):
         self._host = host
         self._port = port
 
-        if CAASEnv.SERVICE_MODE.get() != DOCKER_SERVICE_MODE:
-            CAASEnv.SERVICE_MODE.set(DOCKER_SERVICE_MODE)
+        if Env.SERVICE_MODE.get() != DOCKER_SERVICE_MODE:
+            Env.SERVICE_MODE.set(DOCKER_SERVICE_MODE)
 
         app = OnPremApiBuilder('caas').build()
         app.run(host=host, port=port)
@@ -350,13 +355,13 @@ class UpdateApiGatewayModels(ActionHandler):
         return SRC / DEPLOYMENT_RESOURCES_FILENAME
 
     @property
-    def custodian_api_gateway_name(self) -> str:
+    def sre_api_gateway_name(self) -> str:
         return 'custodian-as-a-service-api'
 
     @property
-    def custodian_api_definition(self) -> dict:
+    def sre_api_definition(self) -> dict:
         return {
-            self.custodian_api_gateway_name: {
+            self.sre_api_gateway_name: {
                 'resource_type': 'api_gateway',
                 'dependencies': [],
                 'resources': {},
@@ -367,12 +372,12 @@ class UpdateApiGatewayModels(ActionHandler):
     def __call__(self, **kwargs):
         from validators import registry
 
-        api_def = self.custodian_api_definition
+        api_def = self.sre_api_definition
         for model in registry.iter_models(without_get=True):
             schema = model.model_json_schema()
             dereference_json(schema)
             schema.pop('$defs', None)
-            api_def[self.custodian_api_gateway_name]['models'].update(
+            api_def[self.sre_api_gateway_name]['models'].update(
                 {
                     model.__name__: {
                         'content_type': 'application/json',
@@ -395,7 +400,7 @@ class UpdateApiGatewayModels(ActionHandler):
         _LOG.info(f'Updating {path}')
         with open(path, 'r') as file:
             deployment_resources = json.load(file)
-        api = deployment_resources.get(self.custodian_api_gateway_name)
+        api = deployment_resources.get(self.sre_api_gateway_name)
         if not api:
             _LOG.warning('Api gateway not found in deployment_resources')
             return
@@ -461,7 +466,7 @@ class InitAction(ActionHandler):
         users_client = SP.users_client
         if not users_client.get_user_by_username(SYSTEM_USER):
             _LOG.info('Creating a system user')
-            password = CAASEnv.SYSTEM_USER_PASSWORD.get(None)
+            password = Env.SYSTEM_USER_PASSWORD.get(None)
             from_env = bool(password)
             if not from_env:
                 password = gen_password()

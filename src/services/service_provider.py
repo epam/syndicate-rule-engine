@@ -23,11 +23,11 @@ if TYPE_CHECKING:
     from services.license_service import LicenseService
     from services.rabbitmq_service import RabbitMQService
     from services.report_service import ReportService
+    from services.resource_exception_service import ResourceExceptionsService
     from services.resources_service import ResourcesService
     from services.rule_meta_service import RuleService
     from services.rule_source_service import RuleSourceService
     from services.ruleset_service import RulesetService
-    from services.s3_settings_service import S3SettingsService
     from services.scheduled_job_service import ScheduledJobService
     from services.setting_service import CachedSettingsService
     from services.platform_service import PlatformService
@@ -99,11 +99,6 @@ class ServiceProvider(metaclass=SingletonMeta):
         return self.saas_users_client
 
     @cached_property
-    def lambda_client(self):
-        from services.clients.lambda_func import LambdaClient
-        return LambdaClient(environment_service=self.environment_service)
-
-    @cached_property
     def modular_client(self) -> 'ModularServiceProvider':
         from modular_sdk.modular import ModularServiceProvider
         return ModularServiceProvider()
@@ -143,11 +138,9 @@ class ServiceProvider(metaclass=SingletonMeta):
 
     @cached_property
     def s3_settings_service(self) -> 'S3SettingsService':
-        from services.s3_settings_service import S3SettingsService
-        return S3SettingsService(
-            s3_client=self.s3,
-            environment_service=self.environment_service
-        )
+        # TODO: this service is obsolete. The code using it is also obsolete,
+        #  so it should be refactored or removed
+        return None
 
     @cached_property
     def role_service(self) -> 'RoleService':
@@ -315,3 +308,10 @@ class ServiceProvider(metaclass=SingletonMeta):
     def resources_service(self) -> 'ResourcesService':
         from services.resources_service import ResourcesService
         return ResourcesService()
+    
+    @cached_property
+    def resource_exception_service(self) -> 'ResourceExceptionsService':
+        from services.resource_exception_service import ResourceExceptionsService
+        return ResourceExceptionsService()
+    
+

@@ -7,15 +7,15 @@ from bottle import Bottle, HTTPResponse, request
 
 from helpers import RequestContext
 from helpers.constants import LambdaName
-from helpers.lambda_response import CustodianException, LambdaResponse, \
+from helpers.lambda_response import SREException, LambdaResponse, \
     ResponseFactory
 from helpers.log_helper import get_logger
-from lambdas.custodian_api_handler.handler import \
+from lambdas.api_handler.handler import \
     lambda_handler as api_handler_lambda
-from lambdas.custodian_configuration_api_handler.handler import (
+from lambdas.configuration_api_handler.handler import (
     lambda_handler as configuration_api_handler_lambda,
 )
-from lambdas.custodian_report_generator.handler import (
+from lambdas.report_generator.handler import (
     lambda_handler as report_generator_lambda,
 )
 from validators import registry
@@ -25,6 +25,40 @@ from services.clients.mongo_ssm_auth_client import UNAUTHORIZED_MESSAGE
 _LOG = get_logger(__name__)
 
 
+def normalize_query_parameters(query_items):
+    """
+    Normalize query parameters to handle multiple values for the same parameter.
+    
+    When multiple values are provided for the same query parameter 
+    (like ?tag=value1&tag=value2), this function ensures all values are 
+    captured instead of only keeping the last one.
+    
+    :param query_items: Query items from request (e.g., request.query from Bottle framework)
+    :return: Dict where keys with single values remain as strings, 
+             and keys with multiple values become lists of strings.
+    """
+    result = {}
+    
+    if hasattr(query_items, 'allitems'):
+        items = query_items.allitems()
+    elif hasattr(query_items, 'items'):
+        items = query_items.items()
+    else:
+        items = query_items
+    
+    for key, value in items:
+        if key in result:
+            existing = result[key]
+            if isinstance(existing, list):
+                existing.append(value)
+            else:
+                result[key] = [existing, value]
+        else:
+            result[key] = value
+    
+    return result
+
+
 class AuthPlugin:
     """
     Authenticates the user
@@ -32,7 +66,7 @@ class AuthPlugin:
     __slots__ = 'name',
 
     def __init__(self):
-        self.name = 'custodian-auth'
+        self.name = 'sre-auth'
 
     @staticmethod
     def get_token_from_header(header: str) -> str | None:
@@ -71,7 +105,7 @@ class AuthPlugin:
                 decoded = SERVICE_PROVIDER.onprem_users_client.decode_token(
                     token
                 )
-            except CustodianException as e:
+            except SREException as e:
                 return self._to_bottle_resp(e.response)
 
             _LOG.info('Token decoded successfully')
@@ -130,8 +164,8 @@ class OnPremApiBuilder:
         app = Bottle()
         self._add_hooks(app)
 
-        custodian_app = Bottle()
-        self._register_errors(custodian_app)
+        sre_app = Bottle()
+        self._register_errors(sre_app)
         auth_plugin = (AuthPlugin(), )
         for info in registry.iter_all():
             params = dict(
@@ -142,9 +176,9 @@ class OnPremApiBuilder:
             if info.auth:
                 params.update(apply=auth_plugin)
             self._endpoint_to_lambda[(params['path'], params['method'])] = info.lambda_name
-            custodian_app.route(**params)
+            sre_app.route(**params)
 
-        app.mount(self._stage, custodian_app)
+        app.mount(self._stage, sre_app)
         return app
 
     @classmethod
@@ -201,7 +235,7 @@ class OnPremApiBuilder:
             }
 
         if method == 'GET':
-            event['queryStringParameters'] = dict(request.query)
+            event['queryStringParameters'] = normalize_query_parameters(request.query)
         else:
             event['body'] = request.body.read().decode()
             event['isBase64Encoded'] = False

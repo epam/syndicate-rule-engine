@@ -28,7 +28,7 @@ class HTTPMethod(str, Enum):
     PUT = 'PUT'
 
 
-class CustodianEndpoint(str, Enum):
+class Endpoint(str, Enum):
     """
     Should correspond to Api gateway models
     """

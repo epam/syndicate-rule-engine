@@ -4,6 +4,7 @@ import pytest
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
 
+from helpers.lambda_response import SREException
 from handlers.resource_handler import ResourceHandler
 from helpers.constants import Cloud
 from validators.swagger_request_models import ResourcesGetModel
@@ -167,7 +168,7 @@ def test_validate_event_bad_resource_type(
     ]  # Don't include the unsupported type
 
     with pytest.raises(
-        ValueError,
+        SREException,
         match='Resource type aws.unsupported_resource is not supported for cloud AWS',
     ):
         resource_handler._validate_event(invalid_event_bad_resource_type)
@@ -188,7 +189,7 @@ def test_validate_event_bad_location(
     mock_get_regions.return_value = ['us-east-1', 'us-west-2']
 
     with pytest.raises(
-        ValueError,
+        SREException,
         match='Location invalid-region is not supported for cloud AWS',
     ):
         resource_handler._validate_event(invalid_event_bad_location)
@@ -205,7 +206,7 @@ def test_validate_event_mismatch_of_clouds(
     resource_handler._ms.tenant_service().get.return_value = mock_tenant
 
     with pytest.raises(
-        ValueError,
+        SREException,
         match='Resource type azure.vm does not match tenant cloud AWS',
     ):
         resource_handler._validate_event(invalid_event_mismatch_of_clouds)

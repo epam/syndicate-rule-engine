@@ -16,7 +16,7 @@ EXECUTOR_IMAGE_TAG := latest
 SERVER_IMAGE_NAME := public.ecr.aws/x4s4z8e1/syndicate/rule-engine
 SERVER_IMAGE_TAG ?= $(shell PYTHONPATH=./src python -B -c "from src.helpers.__version__ import __version__; print(__version__)")
 
-DOCKERFILE_NAME := Dockerfile
+DOCKERFILE_NAME := Dockerfile-opensource-uv
 ADDITIONAL_BUILD_PARAMS ?=
 
 SYNDICATE_EXECUTABLE_PATH ?= $(shell which syndicate)
@@ -116,7 +116,6 @@ syndicate-update-step-functions: check-syndicate
 	SDCT_CONF=$(SYNDICATE_CONFIG_PATH) $(SYNDICATE_EXECUTABLE_PATH) deploy --deploy_only_types step_functions --replace_output --bundle_name $(SYNDICATE_BUNDLE_NAME)
 
 
-# images with fork which is default for now. Use src/onprem/Dockerfile-opensource for c7n from open source
 #make image-arm64
 #make image-amd64
 #make push-arm64

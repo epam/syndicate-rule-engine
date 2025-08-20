@@ -216,8 +216,8 @@ def build_parser() -> argparse.ArgumentParser:
         'obfuscate', help='Obfuscates an existing dump'
     )
     obfuscate_parser.add_argument(
-        '--dump-directory', default='custodian_dump', type=Path,
-        help='Path to the folder where custodian dump is sited '
+        '--dump-directory', default='sre_dump', type=Path,
+        help='Path to the folder where SRE dump is sited '
              '(default: %(default)s)'
     )
     obfuscate_parser.add_argument(
@@ -248,8 +248,8 @@ def build_parser() -> argparse.ArgumentParser:
         'deobfuscate', help='De-obfuscates an existing dump'
     )
     deobfuscate_parser.add_argument(
-        '--dump-directory', default='custodian_dump', type=Path,
-        help='Path to the folder where the obfuscated custodian dump is '
+        '--dump-directory', default='sre_dump', type=Path,
+        help='Path to the folder where the obfuscated SRE dump is '
              'sited. Can be also a path to concrete file '
              '(default: %(default)s)'
     )

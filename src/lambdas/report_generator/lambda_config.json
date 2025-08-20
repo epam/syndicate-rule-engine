@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "name": "caas-report-generator",
+  "func_name": "handler.lambda_handler",
+  "resource_type": "lambda",
+  "iam_role_name": "report-api-handler-role",
+  "runtime": "python3.10",
+  "memory": 1024,
+  "timeout": 300,
+  "lambda_path": "/lambdas/custodian_report_generator",
+  "logs_expiration": "${logs_expiration}",
+  "dependencies": [
+    {
+      "resource_name": "SREJobs",
+      "resource_type": "dynamodb_table"
+    },
+    {
+      "resource_name": "SRESettings",
+      "resource_type": "dynamodb_table"
+    }
+  ],
+  "env_variables": {
+    "SRE_RULESETS_BUCKET_NAME": "${caas_rulesets_bucket}",
+    "SRE_REPORTS_BUCKET_NAME": "${reports-bucket}",
+    "SRE_STATISTICS_BUCKET_NAME": "${stats_s3_bucket_name}",
+    "SRE_USER_POOL_NAME": "${caas_user_pool_name}",
+    "modular_assume_role_arn": "${modular_assume_role_arn}",
+    "MODULAR_AWS_REGION": "${MODULAR_AWS_REGION}"
+  },
+  "publish_version": true,
+  "alias": "${lambdas_alias_name}",
+  "subnet_ids": [
+    "${lambda_private_subnet_id_1}"
+  ],
+  "security_group_ids": [
+    "${lambda_security_group_1}" 
+    ],
+  "layers": [
+    "custodian_common_dependencies_layer"
+  ],
+  "platforms": [
+    "manylinux2014_x86_64"
+  ]
+}

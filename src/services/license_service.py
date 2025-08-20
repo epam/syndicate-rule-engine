@@ -21,6 +21,8 @@ from services.modular_helpers import LinkedParentsIterator
 
 _LOG = get_logger(__name__)
 
+SUCCESS_SYNC = 'Success'
+
 PERMITTED_ATTACHMENT = 'permitted'
 PROHIBITED_ATTACHMENT = 'prohibited'
 ALLOWED_ATTACHMENT_MODELS = (PERMITTED_ATTACHMENT, PERMITTED_ATTACHMENT)
@@ -52,6 +54,7 @@ class License:
     _expiration = 'e'
     _valid_from = 'v'
     _latest_sync = 's'
+    _latest_sync_result = 'sr'
     __slots__ = ('_app', '_meta')
 
     def __init__(self, app: Application):
@@ -167,6 +170,15 @@ class License:
         if isinstance(value, datetime):
             value = utc_iso(value)
         self._app.meta[self._latest_sync] = value
+    
+    @property
+    def latest_sync_result(self) -> str | None:
+        if self._latest_sync_result in self._app.meta:
+            return self._app.meta[self._latest_sync_result]
+
+    @latest_sync_result.setter
+    def latest_sync_result(self, value: str | None):
+        self._app.meta[self._latest_sync_result] = value
 
     def is_expired(self) -> bool:
         exp = self.expiration
@@ -254,6 +266,7 @@ class LicenseService(BaseDataService[License]):
             'ruleset_ids': item.ruleset_ids,
             'event_driven': item.event_driven,
             'allowance': item.allowance,
+            'latest_sync_result': item.latest_sync_result,
         }
 
     def get_nullable(self, license_key: str) -> License | None:
@@ -406,6 +419,7 @@ class LicenseService(BaseDataService[License]):
         latest_sync: str | None = None,
         valid_until: str | None = None,
         valid_from: str | None = None,
+        latest_sync_result: str | None = None,
     ):
         actions = []
         if description:
@@ -433,6 +447,12 @@ class LicenseService(BaseDataService[License]):
         if valid_from:
             actions.append(
                 Application.meta[License._valid_from].set(valid_from)
+            )
+        if latest_sync_result:
+            actions.append(
+                Application.meta[License._latest_sync_result].set(
+                    latest_sync_result
+                )
             )
         if actions:
             item.application.update(actions=actions)

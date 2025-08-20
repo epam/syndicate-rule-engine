@@ -11,7 +11,7 @@ from cryptography.hazmat.primitives.serialization import (
 from handlers import AbstractHandler, Mapping
 from helpers.constants import (
     ALG_ATTR,
-    CustodianEndpoint,
+    Endpoint,
     HTTPMethod,
     KID_ATTR,
     VALUE_ATTR,
@@ -51,7 +51,7 @@ class LicenseManagerClientHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CLIENT: {
+            Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT: {
                 HTTPMethod.GET: self.get,
                 HTTPMethod.POST: self.post,
                 HTTPMethod.DELETE: self.delete,
@@ -204,7 +204,7 @@ class LicenseManagerConfigHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CONFIG: {
+            Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG: {
                 HTTPMethod.GET: self.get,
                 HTTPMethod.POST: self.post,
                 HTTPMethod.DELETE: self.delete,

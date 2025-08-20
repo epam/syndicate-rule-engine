@@ -33,14 +33,14 @@ def sre():
 
 @sre.command(cls=ViewCommand, name='configure')
 @click.option('--api_link', '-api', type=str,
-              help='Link to the Custodian as a Service host.')
+              help='Link to the Syndicate Rule Engine host.')
 @click.option('--items_per_column', '-ipc', type=click.IntRange(min=0),
               help='Specify how many items per table. '
                    'Set `0` to disable the limitation')
 @cli_response(check_api_link=False, check_access_token=False, )
 def configure(ctx: ContextObj, api_link, items_per_column, **kwargs):
     """
-    Configures sre tool to work with Custodian as a Service.
+    Configures sre tool to work with Syndicate Rule Engine.
     """
     _is_given = lambda x: x is not None
     if not any(_is_given(param) for param in (api_link, items_per_column)):
@@ -62,14 +62,14 @@ def configure(ctx: ContextObj, api_link, items_per_column, **kwargs):
 @sre.command(cls=ViewCommand, name='login')
 @click.option('--username', '-u', type=str,
               required=True,
-              help='Custodian Service username.')
+              help='Your username.')
 @click.option('--password', '-p', type=str,
               required=True, hide_input=True, prompt=True,
-              help='Custodian Service user password.')
+              help='Your password.')
 @cli_response(check_access_token=False)
 def login(ctx: ContextObj, username: str, password: str, **kwargs):
     """
-    Authenticates user to work with Custodian as a Service.
+    Authenticates user to work with Syndicate Rule Engine.
     """
     adapter = ctx['api_client']
     resp = adapter.login(username=username, password=password)
@@ -112,7 +112,7 @@ def cleanup(ctx: ContextObj, **kwargs):
                                 'remediation'))
 def health_check(ctx: ContextObj, identifier, status, **kwargs):
     """
-    Checks Custodian Service components availability
+    Checks SRE components availability
     """
     if identifier:
         return ctx['api_client'].health_check_get(identifier)
