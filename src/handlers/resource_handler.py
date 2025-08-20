@@ -144,7 +144,7 @@ class ResourceHandler(AbstractHandler):
             )
 
     def _build_resource_dto(self, resource):
-        return {
+        dto = {
             'id': resource.id,
             'name': resource.name,
             'location': resource.location,
@@ -154,6 +154,10 @@ class ResourceHandler(AbstractHandler):
             'data': resource.data,
             'sync_date': datetime.fromtimestamp(resource.sync_date),
         }
+        if resource.arn:
+            dto['arn'] = resource.arn
+        
+        return dto
 
     @validate_kwargs
     def get_resources(self, event: ResourcesGetModel):

@@ -181,26 +181,28 @@ class ResourceExceptionHandler(AbstractHandler):
             _LOG.warning(str(e))
             raise ResponseFactory(HTTPStatus.UNPROCESSABLE_ENTITY).message(str(e)).exc()
 
-    def _build_resource_exception_dto(self, resource: ResourceException) -> dict:
+    def _build_resource_exception_dto(self, resource_exc: ResourceException) -> dict:
         dto = {
-            'id': resource.id,
-            'customer_name': resource.customer_name,
-            'created_at': resource.created_at,
-            'updated_at': resource.updated_at,
-            'expire_at': self._to_timestamp(resource.expire_at),
+            'id': resource_exc.id,
+            'type': resource_exc.type.value,
+            'tenant_name': resource_exc.tenant_name,
+            'customer_name': resource_exc.customer_name,
+            'created_at': resource_exc.created_at,
+            'updated_at': resource_exc.updated_at,
+            # we store datetime object in mongodb
+            # this because we need for it to be TTL
+            'expire_at': self._to_timestamp(resource_exc.expire_at),
         }
-        if resource.resource_id:
-            dto['resource_id'] = resource.resource_id
-        if resource.location:
-            dto['location'] = resource.location 
-        if resource.resource_type:
-            dto['resource_type'] = resource.resource_type
-        if resource.tenant_name:
-            dto['tenant_name'] = resource.tenant_name
-        if resource.arn:
-            dto['arn'] = resource.arn
-        if resource.tags_filters:
-            dto['tags_filters'] = resource.tags_filters
+        if resource_exc.resource_id:
+            dto['resource_id'] = resource_exc.resource_id
+        if resource_exc.location:
+            dto['location'] = resource_exc.location 
+        if resource_exc.resource_type:
+            dto['resource_type'] = resource_exc.resource_type
+        if resource_exc.arn:
+            dto['arn'] = resource_exc.arn
+        if resource_exc.tags_filters:
+            dto['tags_filters'] = resource_exc.tags_filters
 
         return dto
 
@@ -231,7 +233,7 @@ class ResourceExceptionHandler(AbstractHandler):
             last_evaluated_key=NextToken.deserialize(event.next_token).value,
         )
 
-        resource_dtos = [
+        resources_exc_dtos = [
             self._build_resource_exception_dto(resource)
             for resource in resources_iterator
         ]
@@ -239,7 +241,7 @@ class ResourceExceptionHandler(AbstractHandler):
         return (
             ResponseFactory()
             .items(
-                it=resource_dtos,
+                it=resources_exc_dtos,
                 next_token=NextToken(resources_iterator.last_evaluated_key),
             )
             .build()

@@ -25,6 +25,40 @@ from services.clients.mongo_ssm_auth_client import UNAUTHORIZED_MESSAGE
 _LOG = get_logger(__name__)
 
 
+def normalize_query_parameters(query_items):
+    """
+    Normalize query parameters to handle multiple values for the same parameter.
+    
+    When multiple values are provided for the same query parameter 
+    (like ?tag=value1&tag=value2), this function ensures all values are 
+    captured instead of only keeping the last one.
+    
+    :param query_items: Query items from request (e.g., request.query from Bottle framework)
+    :return: Dict where keys with single values remain as strings, 
+             and keys with multiple values become lists of strings.
+    """
+    result = {}
+    
+    if hasattr(query_items, 'allitems'):
+        items = query_items.allitems()
+    elif hasattr(query_items, 'items'):
+        items = query_items.items()
+    else:
+        items = query_items
+    
+    for key, value in items:
+        if key in result:
+            existing = result[key]
+            if isinstance(existing, list):
+                existing.append(value)
+            else:
+                result[key] = [existing, value]
+        else:
+            result[key] = value
+    
+    return result
+
+
 class AuthPlugin:
     """
     Authenticates the user
@@ -201,7 +235,7 @@ class OnPremApiBuilder:
             }
 
         if method == 'GET':
-            event['queryStringParameters'] = dict(request.query)
+            event['queryStringParameters'] = normalize_query_parameters(request.query)
         else:
             event['body'] = request.body.read().decode()
             event['isBase64Encoded'] = False

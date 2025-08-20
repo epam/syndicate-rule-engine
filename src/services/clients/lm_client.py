@@ -237,7 +237,7 @@ class LMClient:
         customer: str | None = None,
         installation_version: str | None = None,
         include_ruleset_links: bool = True,
-    ) -> LMLicenseDTO | None:
+    ) -> LMLicenseDTO | str:
         data = dict(
             license_key=license_key,
             include_ruleset_links=include_ruleset_links,
@@ -250,9 +250,14 @@ class LMClient:
             data=data,
             token=self._token_producer.produce(customer=customer),
         )
-        if resp is None or not resp.ok:
+        if resp is None:
             _LOG.warning('Failed license sync')
-            return
+            return 'Failed license sync'
+        if not resp.ok:
+            err = resp.json().get('message', 'Failed license sync')
+            _LOG.warning(f'Failed license sync: {err}')
+            return err
+
         return resp.json()['items'].pop()
 
     def check_permission(

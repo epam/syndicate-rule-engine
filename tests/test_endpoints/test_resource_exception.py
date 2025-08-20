@@ -55,7 +55,6 @@ def sample_resource_exception(create_resource_exception, main_customer, aws_tena
         resource_type='aws.ec2',
         location='us-east-1',
         resource_id='i-1234567890abcdef0',
-        tags_filters=['Environment=Production', 'Team=Backend'],
         expire_days=30
     )
 
@@ -82,17 +81,17 @@ def test_get_resource_exception_by_id_success(
     
     expected_data = {
         'id': sample_resource_exception.id,
+        'type': sample_resource_exception.type,
         'customer_name': sample_resource_exception.customer_name,
         'tenant_name': sample_resource_exception.tenant_name,
         'resource_type': sample_resource_exception.resource_type,
         'location': sample_resource_exception.location,
         'resource_id': sample_resource_exception.resource_id,
-        'tags_filters': sample_resource_exception.tags_filters,
         'created_at': sample_resource_exception.created_at,
         'updated_at': sample_resource_exception.updated_at,
         'expire_at': sample_resource_exception.expire_at.timestamp(),
     }
-    
+
     assert resp.json == {
         'data': expected_data
     }

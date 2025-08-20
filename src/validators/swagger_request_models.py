@@ -176,6 +176,10 @@ class ResourcesArnGetModel(BaseModel):
 
 
 class ResourcesExceptionsGetModel(BasePaginationModel):
+    """
+    GET
+    """
+
     tenant_name: str = Field(None)
     customer_name: str = Field(None)
     resource_type: str = Field(
@@ -190,17 +194,25 @@ class ResourcesExceptionsGetModel(BasePaginationModel):
     arn: str = Field(
         None, description='ARN for AWS, URN for GOOGLE and ID for AZURE or K8S'
     )
-    tags_filters: list[str] = Field(
-        None,
+    tags_filters: set[str] = Field(
+        default_factory=set,
         description='List of tags to filter resources by.',
-        examples=[['tag1=value1', 'tag2=value2']],
+        examples=[{'tag1=value1', 'tag2=value2'}],
     )
+
+    @field_validator('tags_filters', mode='before')
+    @classmethod
+    def normalize_tags_filters(cls, value):
+        """Convert single string to set for single-value query parameters."""
+        if isinstance(value, str):
+            return {value}
+        return value
 
     @field_validator('tags_filters', mode='after')
     @classmethod
     def validate_tags_filters(
-        cls, value: list[str] | None
-    ) -> list[str] | None:
+        cls, value: set[str] | None
+    ) -> set[str] | None:
         if value and not all(
             len(tag.split(TAGS_KEY_VALUE_SEPARATOR)) == 2 for tag in value
         ):
@@ -233,7 +245,7 @@ class ResourcesExceptionsPostModel(BaseModel):
     arn: str | None = Field(
         None, description='ARN for AWS, URN for GOOGLE and ID for AZURE or K8S'
     )
-    tags_filters: list[str] | None = Field(
+    tags_filters: set[str] | None = Field(
         None,
         description='List of tags to filter resources by.',
         examples=[['tag1=value1', 'tag2=value2']],
@@ -242,6 +254,14 @@ class ResourcesExceptionsPostModel(BaseModel):
         default=datetime.now() + timedelta(days=1),
         description='Expiration date of the exception',
     )
+
+    @field_validator('tags_filters', mode='before')
+    @classmethod
+    def normalize_tags_filters(cls, value):
+        """Convert single string to set for single-value query parameters."""
+        if isinstance(value, str):
+            return {value}
+        return value
 
     @field_validator('expire_at', mode='after')
     @classmethod
@@ -286,7 +306,7 @@ class ResourcesExceptionsPostModel(BaseModel):
             or (is_resource and is_tags)
         ):
             raise ValueError(
-                'Only one of ARN, (location, resource_type, resource_id), and tags_filters must be specified'
+                'Only one of ARN, (location, resource_type, resource_id), or tags_filters must be specified'
             )
 
         return self
