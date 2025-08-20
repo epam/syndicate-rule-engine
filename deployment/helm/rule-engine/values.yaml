@@ -12,7 +12,7 @@ service:
 
 image:
   repository: public.ecr.aws/x4s4z8e1/syndicate/rule-engine
-  tag: 5.12.1
+  tag: 5.12.2
   pullPolicy: Always
 
 replicas: 1
@@ -59,12 +59,12 @@ modular-api:
     tag: 4.3.1-rule-engine
 
 patch:
-  enabled: true
+  enabled: false
   backoffLimit: 10
   ttlSecondsAfterFinished: 3600
   image:
     repository: public.ecr.aws/x4s4z8e1/syndicate/patches
-    tag: 'rule-engine-5.12.1'
+    tag: ''
     pullPolicy: Always
 
 modularSdk:
@@ -114,4 +114,11 @@ celery:
   workerMemoryRequest: "128Mi"
   beatMemoryLimit: "256Mi"
   beatMemoryRequest: "128Mi"
+  schedule:
+    timezone: UTC
+    makeFindingsSnapshots: '0 */12 * * *'
+    syncLicense: '14400'
+    collectMetrics: '0 3,15 * * *'
+    removeExpiredMetrics: '0 12 * * *'
+    scanResources: ''  # disabled
 
