@@ -49,20 +49,20 @@ modular-service:
   enabled: true
   fullnameOverride: modular-service
   databaseName: syndicate_rule_engine
-  logLevel: WARNING
+  logLevel: ERROR
   modularSdk:
     databaseName: syndicate_rule_engine
-    logLevel: WARNING
+    logLevel: ERROR
 modular-api:
   enabled: true
   fullnameOverride: modular-api
   disableRateLimiter: "true"
   modularApiServerLogLevel: ERROR
   modularApiCliLogLevel: ERROR
-  modularApiM3adminLogLevel: WARNING
-  modularApiModularSdkLogLevel: WARNING
+  modularApiM3adminLogLevel: ERROR
+  modularApiModularSdkLogLevel: ERROR
   image:
-    tag: 4.3.1-rule-engine
+    tag: 4.3.3-rule-engine
 
 patch:
   enabled: true
@@ -74,7 +74,7 @@ patch:
     pullPolicy: Always
 
 modularSdk:
-  logLevel: WARNING
+  logLevel: ERROR
 
   serviceMode: docker
   dbBackend: ''
@@ -93,7 +93,7 @@ httpProxy: ''
 httpsProxy: ''
 noProxy: 'localhost,127.0.0.1,169.254.169.254,mongo,vault,minio,defectdojo'
 
-logLevel: INFO
+logLevel: ERROR
 executorLogLevel: ERROR
 executorCCLogLevel: ERROR
 executorLogsFilename:
@@ -115,7 +115,7 @@ persistence:
 
 
 celery:
-  logLevel: INFO
+  logLevel: ERROR
   workerMemoryLimit: "1536Mi"
   workerMemoryRequest: "128Mi"
   beatMemoryLimit: "256Mi"
