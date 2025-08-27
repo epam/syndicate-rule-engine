@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - renamed database, collections and other occurrences from `custodian_as_a_service` to `syndicate_rule_engine`.
 - update modular-related environment variables in the HELM chart
 
+## [5.12.2] - 2025-08-19 (hotfix)
+- moved cron configurations outside
+- disabled scan resources job by default
+
 ## [5.12.1] - 2025-08-08 (hotfix)
 - fixed a bug with small number of executed google policies
 - fixed a bug with inconsistent shards collection
