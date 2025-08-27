@@ -118,7 +118,7 @@ class SettingsService:
         Returns the name of SYSTEM customer. If the setting is not found,
         default system customer name is returned.
         """
-        _LOG.info('Querying CaaSSettings in order to get SYSTEM Customer name')
+        _LOG.info('Querying SRESettings in order to get SYSTEM Customer name')
         name: Optional[str] = None
         try:
             name = self.get(SettingKey.SYSTEM_CUSTOMER)

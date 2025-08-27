@@ -9,7 +9,7 @@ from modular_sdk.services.application_service import ApplicationService
 from modular_sdk.services.parent_service import ParentService
 
 from handlers import AbstractHandler, Mapping
-from helpers.constants import CustodianEndpoint, HTTPMethod
+from helpers.constants import Endpoint, HTTPMethod
 from helpers.lambda_response import ResponseFactory, build_response
 from services import SP
 from services.abs_lambda import ProcessedEvent
@@ -48,15 +48,15 @@ class DefectDojoHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.INTEGRATIONS_DEFECT_DOJO: {
+            Endpoint.INTEGRATIONS_DEFECT_DOJO: {
                 HTTPMethod.POST: self.post,
                 HTTPMethod.GET: self.query
             },
-            CustodianEndpoint.INTEGRATIONS_DEFECT_DOJO_ID: {
+            Endpoint.INTEGRATIONS_DEFECT_DOJO_ID: {
                 HTTPMethod.GET: self.get,
                 HTTPMethod.DELETE: self.delete
             },
-            CustodianEndpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION: {
+            Endpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION: {
                 HTTPMethod.PUT: self.put_activation,
                 HTTPMethod.DELETE: self.delete_activation,
                 HTTPMethod.GET: self.get_activation

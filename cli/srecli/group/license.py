@@ -13,7 +13,7 @@ attributes_order = 'license_key', 'ruleset_ids', 'expiration', 'latest_sync'
 
 @click.group(name='license')
 def license():
-    """Manages Custodian Service License Entities"""
+    """Manages License Entities"""
 
 
 @license.command(cls=ViewCommand, name='describe')
@@ -22,7 +22,7 @@ def license():
 @cli_response()
 def describe(ctx: ContextObj, license_key, customer_id):
     """
-    Describes a Custodian Service Licenses
+    Describes licenses
     """
     if license_key:
         return ctx['api_client'].license_get(license_key,
@@ -52,7 +52,7 @@ def add(ctx: ContextObj, tenant_license_key: str,
 @cli_response()
 def delete(ctx: ContextObj, license_key, customer_id):
     """
-    Deletes Custodian Service Licenses
+    Deletes Licenses
     """
     return ctx['api_client'].license_delete(license_key=license_key,
                                             customer_id=customer_id)
@@ -64,7 +64,7 @@ def delete(ctx: ContextObj, license_key, customer_id):
 @cli_response(attributes_order=attributes_order)
 def sync(ctx: ContextObj, license_key, customer_id):
     """
-    Synchronizes Custodian Service Licenses
+    Synchronizes Licenses
     """
     return ctx['api_client'].license_sync(license_key, customer_id=customer_id)
 

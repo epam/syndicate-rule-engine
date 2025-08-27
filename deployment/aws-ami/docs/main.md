@@ -98,7 +98,7 @@ or AWS `Account Id` where the instance is launched. Specific unique licenses can
 #### 1.5.2.2. AWS Serverless based
 
 License can be created by Rule Engine License Manager team and issued to a customer. After that either customer by himself or 
-the support team must activate this license for Custodian installation they use
+the support team must activate this license for SRE installation they use
 
 ### 1.5.3. How to prolong existing License
 

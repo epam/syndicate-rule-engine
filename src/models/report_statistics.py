@@ -1,7 +1,7 @@
 from pynamodb.attributes import UnicodeAttribute, MapAttribute, NumberAttribute
 from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
-from helpers.constants import CAASEnv
+from helpers.constants import Env
 from models import BaseModel
 
 
@@ -28,8 +28,8 @@ class StatusIndex(GlobalSecondaryIndex):
 
 class ReportStatistics(BaseModel):
     class Meta:
-        table_name = 'CaaSReportStatistics'
-        region = CAASEnv.AWS_REGION.get()
+        table_name = 'SREReportStatistics'
+        region = Env.AWS_REGION.get()
 
     id = UnicodeAttribute(hash_key=True)
     triggered_at = UnicodeAttribute(range_key=True)

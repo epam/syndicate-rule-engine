@@ -1,4 +1,4 @@
-databaseName: custodian_as_a_service
+databaseName: syndicate_rule_engine
 mongoUri:
 innerCacheTTLSeconds: '300'
 workers: 2
@@ -48,21 +48,21 @@ redis:
 modular-service:
   enabled: true
   fullnameOverride: modular-service
-  databaseName: custodian_as_a_service
-  logLevel: WARNING
+  databaseName: syndicate_rule_engine
+  logLevel: ERROR
   modularSdk:
-    databaseName: custodian_as_a_service
-    logLevel: WARNING
+    databaseName: syndicate_rule_engine
+    logLevel: ERROR
 modular-api:
   enabled: true
   fullnameOverride: modular-api
   disableRateLimiter: "true"
   modularApiServerLogLevel: ERROR
   modularApiCliLogLevel: ERROR
-  modularApiM3adminLogLevel: WARNING
-  modularApiModularSdkLogLevel: WARNING
+  modularApiM3adminLogLevel: ERROR
+  modularApiModularSdkLogLevel: ERROR
   image:
-    tag: 4.3.1-rule-engine
+    tag: 4.3.3-rule-engine
 
 patch:
   enabled: true
@@ -74,7 +74,7 @@ patch:
     pullPolicy: Always
 
 modularSdk:
-  logLevel: WARNING
+  logLevel: ERROR
 
   serviceMode: docker
   dbBackend: ''
@@ -82,7 +82,7 @@ modularSdk:
 
   # for "mongo" dbBackend
   mongoUri:
-  databaseName: custodian_as_a_service
+  databaseName: syndicate_rule_engine
 
   # for "dynamo" dbBackend
   awsRegion:
@@ -93,7 +93,7 @@ httpProxy: ''
 httpsProxy: ''
 noProxy: 'localhost,127.0.0.1,169.254.169.254,mongo,vault,minio,defectdojo'
 
-logLevel: INFO
+logLevel: ERROR
 executorLogLevel: ERROR
 executorCCLogLevel: ERROR
 executorLogsFilename:
@@ -115,9 +115,16 @@ persistence:
 
 
 celery:
-  logLevel: INFO
+  logLevel: ERROR
   workerMemoryLimit: "1536Mi"
   workerMemoryRequest: "128Mi"
   beatMemoryLimit: "256Mi"
   beatMemoryRequest: "128Mi"
+  schedule:
+    timezone: UTC
+    makeFindingsSnapshots: '0 */12 * * *'
+    syncLicense: '14400'
+    collectMetrics: '0 3,15 * * *'
+    removeExpiredMetrics: '0 12 * * *'
+    scanResources: ''  # disabled
 

@@ -1,0 +1,67 @@
+{
+  "version": "1.0",
+  "name": "caas-api-handler",
+  "func_name": "handler.lambda_handler",
+  "resource_type": "lambda",
+  "iam_role_name": "api-handler-role",
+  "runtime": "python3.10",
+  "memory": 512,
+  "timeout": 100,
+  "lambda_path": "/lambdas/custodian_api_handler",
+  "logs_expiration": "${logs_expiration}",
+  "dependencies": [
+    {
+      "resource_name": "SRERules",
+      "resource_type": "dynamodb_table"
+    },
+    {
+      "resource_name": "SREJobs",
+      "resource_type": "dynamodb_table"
+    },
+    {
+      "resource_name": "SRESettings",
+      "resource_type": "dynamodb_table"
+    },
+    {
+      "resource_name": "SRERoles",
+      "resource_type": "dynamodb_table"
+    },
+    {
+      "resource_name": "SREPolicies",
+      "resource_type": "dynamodb_table"
+    }
+  ],
+  "event_sources": [],
+  "env_variables": {
+    "SRE_BATCH_JOB_DEF_NAME": "${reports-submit-job-definition}",
+    "SRE_BATCH_JOB_QUEUE_NAME": "${reports-submit-job-queue}",
+    "SRE_REPORTS_BUCKET_NAME": "${reports-bucket}",
+    "SRE_RULESETS_BUCKET_NAME": "${caas_rulesets_bucket}",
+    "SRE_BATCH_JOB_LOG_LEVEL": "DEBUG",
+    "SRE_USER_POOL_NAME": "${caas_user_pool_name}",
+    "SRE_SKIP_CLOUD_IDENTIFIER_VALIDATION": "${feature_skip_cloud_identifier_validation}",
+    "SRE_BATCH_JOB_LIFETIME_MINUTES": "${job_lifetime_min}",
+    "SRE_EB_SERVICE_ROLE_TO_INVOKE_BATCH": "${event-bridge-service-role-to-invoke-batch}",
+    "SRE_JOBS_TIME_TO_LIVE_DAYS": "${JOBS_TIME_TO_LIVE_DAYS}",
+    "SRE_STATISTICS_BUCKET_NAME": "${stats_s3_bucket_name}",
+    "SRE_METRICS_BUCKET_NAME": "${caas_metrics_bucket_name}",
+    "component_name": "custodian-as-a-service",
+    "modular_assume_role_arn": "${modular_assume_role_arn}",
+    "MODULAR_AWS_REGION": "${MODULAR_AWS_REGION}",
+    "SRE_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT": "true"
+  },
+  "publish_version": true,
+  "alias": "${lambdas_alias_name}",
+  "subnet_ids": [
+    "${lambda_private_subnet_id_1}"
+  ],
+  "security_group_ids": [
+    "${lambda_security_group_1}"
+  ],
+  "layers": [
+    "custodian_common_dependencies_layer"
+  ],
+  "platforms": [
+    "manylinux2014_x86_64"
+  ]
+}

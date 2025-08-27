@@ -12,7 +12,7 @@ def metrics():
 @cli_response()
 def update(ctx: ContextObj, customer_id):
     """
-    Triggers a metrics update for Custodian Service reports. Report data will
+    Triggers a metrics update for Syndicate Rule Engine reports. Report data will
     contain data up to the time when the trigger was executed
     """
     return ctx['api_client'].trigger_metrics_update()

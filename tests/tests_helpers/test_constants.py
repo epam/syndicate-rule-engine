@@ -1,19 +1,19 @@
 import os
 from unittest.mock import patch
 
-from helpers.constants import CustodianEndpoint, EnvEnum
+from helpers.constants import Endpoint, EnvEnum
 
 
 def test_custodian_endpoint_match():
-    assert CustodianEndpoint.match('jobs') == CustodianEndpoint.JOBS
-    assert CustodianEndpoint.match('jobs/') == CustodianEndpoint.JOBS
-    assert CustodianEndpoint.match('/jobs/') == CustodianEndpoint.JOBS
-    assert CustodianEndpoint.match(
-        '/jobs/{job_id}') == CustodianEndpoint.JOBS_JOB
-    assert CustodianEndpoint.match(
-        '/jobs/{job_id}/') == CustodianEndpoint.JOBS_JOB
-    assert CustodianEndpoint.match(
-        'jobs/{job_id}/') == CustodianEndpoint.JOBS_JOB
+    assert Endpoint.match('jobs') == Endpoint.JOBS
+    assert Endpoint.match('jobs/') == Endpoint.JOBS
+    assert Endpoint.match('/jobs/') == Endpoint.JOBS
+    assert Endpoint.match(
+        '/jobs/{job_id}') == Endpoint.JOBS_JOB
+    assert Endpoint.match(
+        '/jobs/{job_id}/') == Endpoint.JOBS_JOB
+    assert Endpoint.match(
+        'jobs/{job_id}/') == Endpoint.JOBS_JOB
 
 
 def test_env_enum():

@@ -33,7 +33,21 @@ class Resource(TypedDict):
     customer_name: str
     data: dict
     sync_date: datetime
-    hash: str  
+    hash: str
+
+class ResourceException(TypedDict):
+    id: str
+    type: str
+    resource_id: str | None
+    location: str | None
+    resource_type: str | None
+    arn: str | None
+    tags_filters: list[str] | None
+    tenant_name: str
+    customer_name: str
+    created_at: float
+    updated_at: float
+    expire_at: float
 
 class Customer(TypedDict):
     name: str
@@ -530,6 +544,12 @@ class MultipleResourcesModel(BaseModel):
 
 class SingleResourceModel(BaseModel):
     data: Resource
+
+class MultipleResourcesExceptionsModel(BaseModel):
+    items: list[ResourceException]
+
+class SingleResourceExceptionModel(BaseModel):
+    data: ResourceException
 
 class MultipleCustomersModel(BaseModel):
     items: list[Customer]

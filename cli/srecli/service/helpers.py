@@ -299,7 +299,7 @@ class Version(tuple):
 
 def check_version_compatibility(api: str, cli: str, /) -> None:
     if not api:
-        print('Custodian API did not return the version number!',
+        print('SRE API did not return the version number!',
               file=sys.stderr)
         return
     cli_version = Version(cli)

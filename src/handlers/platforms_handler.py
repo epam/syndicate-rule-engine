@@ -7,7 +7,7 @@ from modular_sdk.services.application_service import ApplicationService
 from modular_sdk.services.tenant_service import TenantService
 
 from handlers import AbstractHandler, Mapping
-from helpers.constants import CustodianEndpoint, HTTPMethod
+from helpers.constants import Endpoint, HTTPMethod
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
 from services import SP
@@ -50,11 +50,11 @@ class PlatformsHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.PLATFORMS_K8S: {
+            Endpoint.PLATFORMS_K8S: {
                 HTTPMethod.POST: self.post_k8s,
                 HTTPMethod.GET: self.list_k8s,
             },
-            CustodianEndpoint.PLATFORMS_K8S_ID: {
+            Endpoint.PLATFORMS_K8S_ID: {
                 HTTPMethod.GET: self.get_k8s,
                 HTTPMethod.DELETE: self.delete_k8s
             }
@@ -71,7 +71,7 @@ class PlatformsHandler(AbstractHandler):
         application = self.aps.build(
             customer_id=tenant.customer_name,
             type=ApplicationType.K8S_KUBE_CONFIG.value,
-            description='Custodian auto created k8s application',
+            description='SRE auto created k8s application',
             created_by=_pe['cognito_user_id'],
             meta={}
         )
@@ -80,7 +80,7 @@ class PlatformsHandler(AbstractHandler):
             cl = self._modular_client.assume_role_ssm_service()
             secret_name = cl.safe_name(
                 name=application.customer_id,
-                prefix='m3.custodian.k8s',
+                prefix='m3.sre.k8s',
                 date=True
             )
             secret = cl.put_parameter(

@@ -105,7 +105,7 @@ class RuleSourceService(BaseDataService[RuleSource]):
     @staticmethod
     def build_ssm_secret_name(item: RuleSource) -> str:
         ts = int(utc_datetime().timestamp())
-        return f'caas.{item.id}.{ts}.repo_secret'
+        return f'sre.{item.id}.{ts}.repo_secret'
 
     def set_secret(self, item: RuleSource, secret: str):
         if item.git_access_secret:

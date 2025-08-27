@@ -1,7 +1,7 @@
 from http import HTTPStatus
 
 from handlers import AbstractHandler, Mapping
-from helpers.constants import CustodianEndpoint, HTTPMethod
+from helpers.constants import Endpoint, HTTPMethod
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
 from helpers import NextToken
@@ -35,7 +35,7 @@ class RuleHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.RULES: {
+            Endpoint.RULES: {
                 HTTPMethod.GET: self.get_rule,
                 HTTPMethod.DELETE: self.delete_rule
             }
