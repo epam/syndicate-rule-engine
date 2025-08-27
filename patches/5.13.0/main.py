@@ -111,15 +111,25 @@ def rename_database(old_db_name: str, new_db_name: str) -> bool:
 
 def main() -> int:
     try:
-        if OLD_DB_NAME != NEW_DB_NAME:
-            _LOG.info(
-                f'Starting migration from {OLD_DB_NAME} to {NEW_DB_NAME}')
-            if not rename_database(OLD_DB_NAME, NEW_DB_NAME):
-                _LOG.error('Database rename failed')
-                return 1
-
-
+        if OLD_DB_NAME == NEW_DB_NAME:
+            _LOG.info('Old and new database names are the same, no action needed')
+            return 0
         client = MongoClient(host=HOST)
+        names = client.list_database_names()
+        if OLD_DB_NAME not in names:
+            _LOG.error(f'Old database {OLD_DB_NAME} does not exist')
+            return 1
+        if NEW_DB_NAME in names:
+            _LOG.info('New database already exists, no action needed')
+            return 0
+
+        _LOG.info(
+            f'Starting migration from {OLD_DB_NAME} to {NEW_DB_NAME}')
+        if not rename_database(OLD_DB_NAME, NEW_DB_NAME):
+            _LOG.error('Database rename failed')
+            return 1
+
+
         db = client.get_database(NEW_DB_NAME)
 
         for name in db.list_collection_names():
