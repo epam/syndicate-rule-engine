@@ -6,7 +6,7 @@ from modular_sdk.modular import ModularServiceProvider
 
 from handlers import AbstractHandler, Mapping
 from helpers import NextToken
-from helpers.constants import Cloud, CustodianEndpoint, HTTPMethod
+from helpers.constants import Cloud, Endpoint, HTTPMethod
 from helpers.lambda_response import ResponseFactory
 from helpers.log_helper import get_logger
 from helpers.regions import (
@@ -43,10 +43,8 @@ class ResourceHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.RESOURCES: {HTTPMethod.GET: self.get_resources},
-            CustodianEndpoint.RESOURCES_ARN: {
-                HTTPMethod.GET: self.get_resource_by_arn
-            },
+            Endpoint.RESOURCES: {HTTPMethod.GET: self.get_resources},
+            Endpoint.RESOURCES_ARN: {HTTPMethod.GET: self.get_resource_by_arn},
         }
 
     def _validate_tenant(
@@ -75,7 +73,7 @@ class ResourceHandler(AbstractHandler):
         resource_cloud = None
         if '.' in resource_type:
             resource_cloud = resource_type.split('.')[0].upper()
-        tenant_cloud = tenant.cloud if tenant else None
+        tenant_cloud = tenant.cloud.upper() if tenant else None
         if resource_cloud and tenant_cloud and resource_cloud != tenant_cloud:
             raise ValueError(
                 f'Resource type {resource_type} does not match tenant cloud {tenant_cloud}'
@@ -84,7 +82,7 @@ class ResourceHandler(AbstractHandler):
         if resource_cloud:
             cloud = Cloud[resource_cloud]
         elif tenant_cloud:
-            cloud = Cloud[tenant_cloud.upper()]
+            cloud = Cloud[tenant_cloud]
         else:
             cloud = Cloud.AWS
 
@@ -123,20 +121,30 @@ class ResourceHandler(AbstractHandler):
         Validate the event's parameters. Tries to add cloud provider prefix
         to resource_type if it is not specified.
         """
+        try:
+            tenant = self._validate_tenant(
+                event.tenant_name, event.customer_id
+            )
 
-        tenant = self._validate_tenant(event.tenant_name, event.customer_id)
+            pair = self._validate_resource_type(
+                event.resource_type, tenant=tenant
+            )
 
-        pair = self._validate_resource_type(event.resource_type, tenant=tenant)
+            event.resource_type = pair[0] if pair else None
+            cloud = (pair[1] if pair else None) or (
+                Cloud[tenant.cloud] if tenant else None
+            )
 
-        event.resource_type = pair[0] if pair else None
-        cloud = (pair[1] if pair else None) or (
-            Cloud[tenant.cloud] if tenant else None
-        )
-
-        self._validate_location(event.location, cloud=cloud)
+            self._validate_location(event.location, cloud=cloud)
+        except ValueError as e:
+            raise (
+                ResponseFactory(HTTPStatus.UNPROCESSABLE_ENTITY)
+                .message(str(e))
+                .exc()
+            )
 
     def _build_resource_dto(self, resource):
-        return {
+        dto = {
             'id': resource.id,
             'name': resource.name,
             'location': resource.location,
@@ -146,6 +154,10 @@ class ResourceHandler(AbstractHandler):
             'data': resource.data,
             'sync_date': datetime.fromtimestamp(resource.sync_date),
         }
+        if resource.arn:
+            dto['arn'] = resource.arn
+        
+        return dto
 
     @validate_kwargs
     def get_resources(self, event: ResourcesGetModel):

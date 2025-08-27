@@ -36,13 +36,13 @@ def random_pass2(n: int = 32) -> str:
 
 def generate_rule_engine() -> None:
     envs = {
-        'CAAS_VAULT_TOKEN': random_pass(),
-        'CAAS_MONGO_USERNAME': 'mongouser',
-        'CAAS_MONGO_PASSWORD': random_pass(),
-        'CAAS_MONGO_DATABASE': 'custodian_as_a_service',
-        'CAAS_MINIO_ACCESS_KEY_ID': random_pass(),
-        'CAAS_MINIO_SECRET_ACCESS_KEY': random_pass(),
-        'CAAS_SYSTEM_USER_PASSWORD': random_pass(),
+        'SRE_VAULT_TOKEN': random_pass(),
+        'SRE_MONGO_USERNAME': 'mongouser',
+        'SRE_MONGO_PASSWORD': random_pass(),
+        'SRE_MONGO_DATABASE': 'syndicate_rule_engine',
+        'SRE_MINIO_ACCESS_KEY_ID': random_pass(),
+        'SRE_MINIO_SECRET_ACCESS_KEY': random_pass(),
+        'SRE_SYSTEM_USER_PASSWORD': random_pass(),
 
         'MODULAR_API_SECRET_KEY': random_pass(),
         'MODULAR_API_INIT_PASSWORD': random_pass(),

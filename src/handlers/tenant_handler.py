@@ -11,7 +11,7 @@ from modular_sdk.models.tenant import Tenant
 from handlers import AbstractHandler, Mapping
 from helpers import NextToken
 from helpers.constants import (
-    CustodianEndpoint,
+    Endpoint,
     DEFAULT_OWNER_ATTR,
     HTTPMethod,
     PRIMARY_CONTACTS_ATTR,
@@ -84,21 +84,21 @@ class TenantHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.TENANTS: {
+            Endpoint.TENANTS: {
                 HTTPMethod.GET: self.query,
                 # HTTPMethod.POST: self.post
             },
-            CustodianEndpoint.TENANTS_TENANT_NAME: {
+            Endpoint.TENANTS_TENANT_NAME: {
                 HTTPMethod.GET: self.get,
                 # HTTPMethod.DELETE: self.delete
             },
-            # CustodianEndpoint.TENANTS_TENANT_NAME_REGIONS: {
+            # Endpoint.TENANTS_TENANT_NAME_REGIONS: {
             #     HTTPMethod.POST: self.add_region
             # },
-            CustodianEndpoint.TENANTS_TENANT_NAME_ACTIVE_LICENSES: {
+            Endpoint.TENANTS_TENANT_NAME_ACTIVE_LICENSES: {
                 HTTPMethod.GET: self.get_tenant_active_license
             },
-            CustodianEndpoint.TENANTS_TENANT_NAME_EXCLUDED_RULES: {
+            Endpoint.TENANTS_TENANT_NAME_EXCLUDED_RULES: {
                 HTTPMethod.PUT: self.set_excluded_rules,
                 HTTPMethod.GET: self.get_excluded_rules
             }

@@ -1,13 +1,14 @@
 from executor.job import task_scheduled_job, task_standard_job
 from helpers import RequestContext
-from helpers.constants import CAASEnv
-from lambdas.custodian_license_updater.handler import LicenseUpdater
-from lambdas.custodian_metrics_updater.handler import MetricsUpdater
-from lambdas.custodian_metrics_updater.processors.findings_processor import (
+from helpers.constants import Env
+from lambdas.license_updater.handler import LicenseUpdater
+from lambdas.metrics_updater.handler import MetricsUpdater
+from lambdas.rule_meta_updater.handler import RuleMetaUpdaterLambdaHandler
+from lambdas.metrics_updater.processors.findings_processor import (
     FindingsUpdater,
 )
-from lambdas.custodian_metrics_updater.processors.expired_metrics_processor import(
-    ExpiredMetricsCleaner
+from lambdas.metrics_updater.processors.expired_metrics_processor import (
+    ExpiredMetricsCleaner,
 )
 from services.resources_collector import CustodianResourceCollector
 from onprem.celery import app
@@ -16,7 +17,7 @@ from onprem.celery import app
 @app.task(
     bind=True,
     time_limit=3600 * 4,
-    soft_time_limit=CAASEnv.BATCH_JOB_LIFETIME_MINUTES.as_float() * 60,
+    soft_time_limit=Env.BATCH_JOB_LIFETIME_MINUTES.as_float() * 60,
 )
 def run_standard_job(self, job_id: str):
     return task_standard_job(self, job_id)
@@ -25,7 +26,7 @@ def run_standard_job(self, job_id: str):
 @app.task(
     bind=True,
     time_limit=3600 * 4,
-    soft_time_limit=CAASEnv.BATCH_JOB_LIFETIME_MINUTES.as_float() * 60,
+    soft_time_limit=Env.BATCH_JOB_LIFETIME_MINUTES.as_float() * 60,
 )
 def run_scheduled_job(self, customer_name: str, name: str):
     return task_scheduled_job(self, customer_name, name)
@@ -49,10 +50,20 @@ def sync_license(license_keys: list[str] | str | None = None):
 
 
 @app.task
+def sync_rulesource(rule_source_ids: list[str] | str):
+    if isinstance(rule_source_ids, str):
+        rule_source_ids = [rule_source_ids]
+    RuleMetaUpdaterLambdaHandler.build().lambda_handler(
+        event={'rule_source_ids': rule_source_ids}, context=RequestContext()
+    )
+
+
+@app.task
 def collect_metrics():
     MetricsUpdater.build().lambda_handler(
         event={'data_type': 'metrics'}, context=RequestContext()
     )
+
 
 @app.task
 def delete_expired_metrics():
@@ -62,4 +73,3 @@ def delete_expired_metrics():
 @app.task
 def collect_resources():
     CustodianResourceCollector.build().collect_all_resources()
-

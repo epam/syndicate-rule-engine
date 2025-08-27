@@ -2,7 +2,7 @@ import logging
 from itertools import chain
 from typing import Generator
 import sys
-from helpers.constants import CAASEnv, Cloud, GLOBAL_REGION
+from helpers.constants import Env, Cloud, GLOBAL_REGION
 from services.sharding import ShardsCollectionFactory, ShardsS3IO, ShardsCollection, ShardPart
 from services import SP
 from services.reports_bucket import ReportsBucketKeysBuilder
@@ -16,7 +16,7 @@ _LOG = logging.getLogger(__name__)
 
 def iter_shard_prefixes() -> Generator[str, None, None]:
     return SP.s3.common_prefixes(
-        bucket=CAASEnv.REPORTS_BUCKET_NAME.as_str(),
+        bucket=Env.REPORTS_BUCKET_NAME.as_str(),
         delimiter=ReportsBucketKeysBuilder.latest,
         prefix=ReportsBucketKeysBuilder.prefix
     )
@@ -100,7 +100,7 @@ def patch_shards():
             continue
         collection = ShardsCollectionFactory.from_cloud(cloud)
         collection.io = ShardsS3IO(
-            bucket=CAASEnv.REPORTS_BUCKET_NAME.as_str(),
+            bucket=Env.REPORTS_BUCKET_NAME.as_str(),
             key=root,
             client=SP.s3
         )

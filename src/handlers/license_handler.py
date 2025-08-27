@@ -12,7 +12,7 @@ from modular_sdk.services.parent_service import ParentService
 
 from handlers import AbstractHandler, Mapping
 from helpers.constants import (
-    CustodianEndpoint,
+    Endpoint,
     HTTPMethod,
 )
 from helpers.lambda_response import ResponseFactory, build_response
@@ -20,7 +20,6 @@ from helpers.log_helper import get_logger
 from onprem.tasks import sync_license
 from services import SP
 from services.abs_lambda import ProcessedEvent
-from services.clients.lambda_func import LambdaClient
 from services.license_manager_service import LicenseManagerService
 from services.license_service import LicenseService
 from services.modular_helpers import (
@@ -52,12 +51,10 @@ class LicenseHandler(AbstractHandler):
                  self_service: LicenseService,
                  ruleset_service: RulesetService,
                  license_manager_service: LicenseManagerService,
-                 lambda_client: LambdaClient,
                  application_service: ApplicationService,
                  parent_service: ParentService):
         self.service = self_service
         self.ruleset_service = ruleset_service
-        self.lambda_client = lambda_client
         self.license_manager_service = license_manager_service
         self.aps = application_service
         self.ps = parent_service
@@ -68,7 +65,6 @@ class LicenseHandler(AbstractHandler):
             self_service=SP.license_service,
             ruleset_service=SP.ruleset_service,
             license_manager_service=SP.license_manager_service,
-            lambda_client=SP.lambda_client,
             application_service=SP.modular_client.application_service(),
             parent_service=SP.modular_client.parent_service()
         )
@@ -76,21 +72,21 @@ class LicenseHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.LICENSES: {
+            Endpoint.LICENSES: {
                 HTTPMethod.POST: self.post_license,
                 HTTPMethod.GET: self.query_licenses
             },
-            CustodianEndpoint.LICENSES_LICENSE_KEY: {
+            Endpoint.LICENSES_LICENSE_KEY: {
                 HTTPMethod.GET: self.get_license,
                 HTTPMethod.DELETE: self.delete_license
             },
-            CustodianEndpoint.LICENSE_LICENSE_KEY_ACTIVATION: {
+            Endpoint.LICENSE_LICENSE_KEY_ACTIVATION: {
                 HTTPMethod.PUT: self.activate_license,
                 HTTPMethod.PATCH: self.update_activation,
                 HTTPMethod.DELETE: self.deactivate_license,
                 HTTPMethod.GET: self.get_activation
             },
-            CustodianEndpoint.LICENSES_LICENSE_KEY_SYNC: {
+            Endpoint.LICENSES_LICENSE_KEY_SYNC: {
                 HTTPMethod.POST: self.license_sync
             },
         }

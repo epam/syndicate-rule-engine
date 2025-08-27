@@ -22,7 +22,7 @@ optional_job_id_option = build_job_id_option(
 
 @click.group(name='push')
 def push():
-    """Pushes Custodian Service job reports to SIEMs"""
+    """Pushes job reports to SIEMs"""
 
 
 @push.command(cls=ViewCommand, name='dojo')

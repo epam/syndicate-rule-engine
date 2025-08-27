@@ -118,7 +118,7 @@
   },
   "data": {
     "resources_violated": 5,
-    "resources_scanned": 0,
+    "resources_scanned": 5,
     "regions": {
       "global": {
         "resources": {
@@ -158,5 +158,6 @@
       "applied": 0
     }
   },
+  "exceptions_data": [],
   "id": "3d615fa8-05c6-47ea-990d-9d162testing"
 }

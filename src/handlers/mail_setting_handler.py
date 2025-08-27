@@ -2,7 +2,7 @@ from http import HTTPStatus
 
 from handlers import AbstractHandler, Mapping
 from helpers.constants import (
-    CustodianEndpoint,
+    Endpoint,
     HTTPMethod,
     PASSWORD_ATTR,
 )
@@ -40,7 +40,7 @@ class MailSettingHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.SETTINGS_MAIL: {
+            Endpoint.SETTINGS_MAIL: {
                 HTTPMethod.GET: self.get,
                 HTTPMethod.POST: self.post,
                 HTTPMethod.DELETE: self.delete,

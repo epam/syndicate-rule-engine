@@ -3,7 +3,7 @@ from typing import Iterable
 
 from handlers import AbstractHandler, Mapping
 from helpers import NextToken
-from helpers.constants import CustodianEndpoint, HTTPMethod
+from helpers.constants import Endpoint, HTTPMethod
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.time_helper import utc_iso
 from services import SP
@@ -35,11 +35,11 @@ class RoleHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.ROLES: {
+            Endpoint.ROLES: {
                 HTTPMethod.POST: self.create_role,
                 HTTPMethod.GET: self.list_roles
             },
-            CustodianEndpoint.ROLES_NAME: {
+            Endpoint.ROLES_NAME: {
                 HTTPMethod.GET: self.get_role,
                 HTTPMethod.DELETE: self.delete_role,
                 HTTPMethod.PATCH: self.update_role

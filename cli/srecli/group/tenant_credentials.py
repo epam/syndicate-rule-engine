@@ -3,7 +3,7 @@ import click
 from srecli.group import ViewCommand, cli_response, ContextObj, limit_option, \
     next_option, build_tenant_option
 from srecli.service.constants import AWS, AZURE, GOOGLE
-from srecli.service.adapter_client import CustodianResponse
+from srecli.service.adapter_client import SREResponse
 
 
 @click.group(name='credentials')
@@ -28,7 +28,7 @@ def describe(ctx: ContextObj, application_id, limit, next_token, cloud,
     Lists all available applications with credentials
     """
     if not any((cloud, application_id)):
-        return CustodianResponse.build(
+        return SREResponse.build(
             'Provide either --application_id or --cloud'
         )
     if application_id:
@@ -59,16 +59,16 @@ def link(ctx: ContextObj, application_id: str, tenant_name: tuple[str, ...],
     Each activation overrides the existing one
     """
     if tenant_name and any((all_tenants, exclude_tenant)):
-        return CustodianResponse.build(
+        return SREResponse.build(
             'Do not provide --all_tenants or '
             '--exclude_tenants if --tenant_name given'
         )
     if not all_tenants and not tenant_name:
-        return CustodianResponse.build(
+        return SREResponse.build(
             'Either --all_tenants or --tenant_name must be given'
         )
     if exclude_tenant and not all_tenants:
-        return CustodianResponse.build(
+        return SREResponse.build(
             'set --all_tenants if you provide --clouds or --exclude_tenants'
         )
     return ctx['api_client'].credentials_bind(

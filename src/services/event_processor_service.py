@@ -10,8 +10,6 @@ from helpers.constants import AWS_VENDOR, MAESTRO_VENDOR, \
 from helpers.log_helper import get_logger
 from services.clients.sts import StsClient
 from services.environment_service import EnvironmentService
-from services.s3_settings_service import S3SettingsService, \
-    S3SettingsServiceLocalWrapper
 _LOG = get_logger(__name__)
 
 # CloudTrail event
@@ -56,7 +54,7 @@ DEV = '323549576358'
 
 
 class EventProcessorService:
-    def __init__(self, s3_settings_service: S3SettingsService,
+    def __init__(self, s3_settings_service,
                  environment_service: EnvironmentService,
                  sts_client: StsClient):
         self.s3_settings_service = s3_settings_service
@@ -85,12 +83,11 @@ class BaseEventProcessor(ABC):
     keep_where: Dict[Tuple[str, ...], Set] = {}
     params_to_keep: Tuple[Tuple[str, ...], ...] = ()
 
-    def __init__(self, s3_settings_service: S3SettingsService,
+    def __init__(self, s3_settings_service,
                  environment_service: EnvironmentService,
                  sts_client: StsClient,
                  mappings_collector: dict):
-        self.s3_settings_service = S3SettingsServiceLocalWrapper(
-            s3_settings_service)
+        self.s3_settings_service = s3_settings_service
         self.environment_service = environment_service
         self.sts_client = sts_client
         self.mappings_collector = mappings_collector
@@ -370,7 +367,7 @@ class EventBridgeEventProcessor(BaseEventProcessor):
         (EB_DETAIL, CT_REGION)
     )
 
-    def __init__(self, s3_settings_service: S3SettingsService,
+    def __init__(self, s3_settings_service,
                  environment_service: EnvironmentService,
                  sts_client: StsClient,
                  mappings_collector: dict):

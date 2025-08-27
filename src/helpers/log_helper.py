@@ -5,7 +5,7 @@ import logging.config
 from datetime import datetime, timezone
 from typing import TypeVar
 
-from helpers.constants import CAASEnv
+from helpers.constants import Env
 from modular_sdk.commons.constants import Env as ModularSDKEnv
 
 LOG_FORMAT = (
@@ -37,7 +37,7 @@ def build_logging_config():
         },
         'loggers': {
             ROOT_MODULE: {
-                'level': CAASEnv.LOG_LEVEL.as_str(),
+                'level': Env.LOG_LEVEL.as_str(),
                 'handlers': ['console_handler'],
                 'propagate': False,
             },
@@ -47,18 +47,18 @@ def build_logging_config():
                 'propagate': False,
             },
             'custodian': {  # Cloud Custodian logger
-                'level': CAASEnv.CC_LOG_LEVEL.as_str(),
+                'level': Env.CC_LOG_LEVEL.as_str(),
                 'handlers': ['console_handler'],
                 'propagate': False,
             },
             'c7n': {
-                'level': CAASEnv.CC_LOG_LEVEL.as_str(),
+                'level': Env.CC_LOG_LEVEL.as_str(),
                 'handlers': ['console_handler'],
                 'propagate': False,
             },
         },
     }
-    if fn := CAASEnv.EXECUTOR_LOGS_FILENAME.get():
+    if fn := Env.EXECUTOR_LOGS_FILENAME.get():
         Path(fn).parent.mkdir(parents=True, exist_ok=True)
         config['handlers']['executor_file_handler'] = {
             'class': 'logging.FileHandler',

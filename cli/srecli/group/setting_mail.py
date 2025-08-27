@@ -5,7 +5,7 @@ from srecli.group import ContextObj, ViewCommand, cli_response
 
 @click.group(name='mail')
 def mail():
-    """Manages Custodian Service Mail configuration"""
+    """Manages Mail configuration"""
 
 
 @mail.command(cls=ViewCommand, name='describe')
@@ -14,7 +14,7 @@ def mail():
 @cli_response()
 def describe(ctx: ContextObj, display_password: bool, customer_id):
     """
-    Describes Custodian Service Mail configuration
+    Describes Mail configuration
     """
     return ctx['api_client'].mail_setting_get(disclose=display_password)
 
@@ -42,7 +42,7 @@ def add(ctx: ContextObj,
         username, password, password_label, host, port,
         use_tls, sender_name, emails_per_session, customer_id):
     """
-    Creates Custodian Service Mail configuration
+    Creates Mail configuration
     """
     if emails_per_session < 1:
         raise click.ClickException(
@@ -66,7 +66,7 @@ def add(ctx: ContextObj,
 @cli_response()
 def delete(ctx: ContextObj, confirm: bool, customer_id):
     """
-    Deletes Custodian Service Mail configuration
+    Deletes Mail configuration
     """
     if not confirm:
         raise click.ClickException('Please, specify `--confirm` flag')

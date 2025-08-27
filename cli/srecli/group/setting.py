@@ -7,7 +7,7 @@ from srecli.group.setting_report import report
 
 @click.group(name='setting')
 def setting():
-    """Manages Custodian Service Settings"""
+    """Manages Settings"""
 
 
 setting.add_command(mail)

@@ -1,4 +1,5 @@
 from pynamodb.pagination import ResultIterator
+from modular_sdk.models.tenant import Tenant
 
 from helpers.constants import (
     COMPOUND_KEYS_SEPARATOR,
@@ -8,6 +9,7 @@ from helpers.constants import (
 from helpers.log_helper import get_logger
 from models.resource import Resource
 from services.base_data_service import BaseDataService
+from services.sharding import RuleMeta
 
 _LOG = get_logger(__name__)
 
@@ -62,7 +64,7 @@ class ResourcesService(BaseDataService[Resource]):
         collector_type: ResourcesCollectorType,
         tenant_name: str,
         customer_name: str,
-    ):
+    ) -> Resource:
         return Resource(
             account_id=account_id,
             location=location,
@@ -87,10 +89,8 @@ class ResourcesService(BaseDataService[Resource]):
         )
 
     def get_resource_by_arn(self, arn: str) -> Resource | None:
-        # NOTE: it's not actual scan, we use sparse index in mongo
-        res = list(Resource.scan(Resource.arn == arn, limit=1))
-
-        return res[0] if res else None
+        res = Resource.arn_index.query(arn, limit=1)
+        return next(res, None)
 
     def get_resources(
         self,
@@ -164,3 +164,22 @@ class ResourcesService(BaseDataService[Resource]):
             return 'k8s'
         else:
             raise ValueError(f'Unsupported cloud: {cloud}')
+
+    def get_type_resources_for_tenant(
+        self, tenant: 'Tenant', metadata: dict[str, RuleMeta]
+    ) -> dict[str, list[Resource]]:
+        """
+        Returns a dictionary with resource types as keys and their counts as values
+        for the specified tenant.
+        """
+        types = {rule['resource'] for rule in metadata.values()}
+
+        type_resources = {}
+        for type_ in types:
+            type_resources[type_] = list(self.get_resources(
+                resource_type=type_,
+                tenant_name=tenant.name,
+                customer_name=tenant.customer_name,
+            ))
+
+        return type_resources

@@ -20,7 +20,7 @@ attributes_order = 'id', 'tenant_name', 'status', 'submitted_at',
 
 @click.group(name='job')
 def job():
-    """Manages Custodian Service jobs"""
+    """Manages jobs"""
 
 
 @job.command(cls=ViewCommand, name='describe')
@@ -42,7 +42,7 @@ def describe(ctx: ContextObj, job_id: str, tenant_name: str, customer_id: str,
              limit: int, next_token: str, status: str, from_date: str,
              to_date: str):
     """
-    Describes Custodian Service Scans
+    Describes Scans
     """
 
     if job_id and tenant_name:
@@ -76,7 +76,7 @@ def describe(ctx: ContextObj, job_id: str, tenant_name: str, customer_id: str,
                    'all active regions will be used')
 @click.option('--rules_to_scan', required=False, multiple=True, type=str,
               help='Rules that must be scanned. Ruleset must contain them. '
-                   'You can specify some subpart of rule names. Custodian '
+                   'You can specify some subpart of rule names. SRE '
                    'will try to resolve the full names: aws-002 -> '
                    'ecc-aws-002-encryption... Also you can specify some part '
                    'that is common to multiple rules. All the them will be '
@@ -187,7 +187,7 @@ def submit_k8s(ctx: ContextObj, platform_id: str, ruleset: tuple,
 @cli_response()
 def terminate(ctx: ContextObj, job_id: str, customer_id):
     """
-    Terminates Custodian Service Scan
+    Terminates Scan
     """
     return ctx['api_client'].job_delete(job_id=job_id, customer_id=customer_id)
 

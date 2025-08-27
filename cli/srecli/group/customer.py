@@ -8,7 +8,7 @@ attributes_order = 'name', 'display_name', 'admins'
 
 @click.group(name='customer')
 def customer():
-    """Manages Custodian Service Customer Entities"""
+    """Manages Syndicate Rule Engine Customer Entities"""
 
 
 @customer.command(cls=ViewCommand, name='describe')

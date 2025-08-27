@@ -15,11 +15,11 @@ import click
 from dateutil.parser import isoparse
 from tabulate import tabulate
 
-from srecli.service.adapter_client import CustodianApiClient, CustodianResponse
+from srecli.service.adapter_client import SREApiClient, SREResponse
 from srecli.service.config import (
-    AbstractCustodianConfig,
-    CustodianCLIConfig,
-    CustodianWithCliSDKConfig,
+    AbstractSREConfig,
+    SRECLIConfig,
+    SREWithCliSDKConfig,
 )
 from srecli.service.constants import (
     CONTEXT_MODULAR_ADMIN_USERNAME,
@@ -73,12 +73,12 @@ class ContextObj(TypedDict):
     Make sure to sync it with constants, 'cause we cannot use variables
     as keys in TypedDict
     class ContextObj(TypedDict):
-        CONTEXT_CONFIG: CustodianCLIConfig
-        CONTEXT_API_CLIENT: CustodianApiClient
+        CONTEXT_CONFIG: AbstractSREConfig
+        CONTEXT_API_CLIENT: SREApiClient
     - that does not work
     """
-    config: AbstractCustodianConfig
-    api_client: CustodianApiClient
+    config: AbstractSREConfig
+    api_client: SREApiClient
 
 
 class cli_response:  # noqa
@@ -111,7 +111,7 @@ class cli_response:  # noqa
             ctx.obj = {}
         if CredentialsProvider:
             _LOG.debug('Cli sdk is installed. Using its credentials provider')
-            config = CustodianWithCliSDKConfig(
+            config = SREWithCliSDKConfig(
                 credentials_manager=CredentialsProvider(
                     module_name=MODULE_NAME, context=ctx
                 ).credentials_manager
@@ -123,13 +123,13 @@ class cli_response:  # noqa
             )
             m3_username = ctx.obj.get(CONTEXT_MODULAR_ADMIN_USERNAME)
             if isinstance(m3_username, str):  # basically if not None
-                config = CustodianCLIConfig(prefix=m3_username)  # modular
+                config = SRECLIConfig(prefix=m3_username)  # modular
             else:
-                config = CustodianCLIConfig()  # standard
+                config = SRECLIConfig()  # standard
 
         # ContextObj
         ctx.obj.update({
-            'api_client': CustodianApiClient(config),
+            'api_client': SREApiClient(config),
             'config': config
         })
 
@@ -143,12 +143,12 @@ class cli_response:  # noqa
         config = obj['config']
         if self._check_api_link and not config.api_link:
             raise click.UsageError(
-                'Custodian Service API link is not configured. '
+                'SRE API link is not configured. '
                 'Run \'sre configure\' and try again.'
             )
         if self._check_access_token and not config.access_token:
             raise click.UsageError(
-                'Custodian access token not found. Run \'sre login\' '
+                'SRE access token not found. Run \'sre login\' '
                 'to receive the token'
             )
 
@@ -169,7 +169,7 @@ class cli_response:  # noqa
             self.update_context(ctx)
             try:
                 self._check_context(ctx)
-                resp: CustodianResponse = click.pass_obj(func)(*args, **kwargs)
+                resp: SREResponse = click.pass_obj(func)(*args, **kwargs)
             except click.ClickException as e:
                 _LOG.info('Click exception has occurred')
                 resp = response(e.format_message(), code=HTTPStatus.BAD_REQUEST)
@@ -230,7 +230,7 @@ class cli_response:  # noqa
 
 class ResponseProcessor(ABC):
     @abstractmethod
-    def format(self, resp: CustodianResponse) -> Any:
+    def format(self, resp: SREResponse) -> Any:
         """
         Returns a dict that can be printed or used for printing
         :param resp:
@@ -243,7 +243,7 @@ class JsonResponseProcessor(ResponseProcessor):
     Processes the json before it can be printed
     """
 
-    def format(self, resp: CustodianResponse) -> dict:
+    def format(self, resp: SREResponse) -> dict:
         if resp.code == HTTPStatus.NO_CONTENT:
             return {MESSAGE_ATTR: NO_CONTENT_RESPONSE_MESSAGE}
         elif isinstance(resp.exc, json.JSONDecodeError):
@@ -260,7 +260,7 @@ class TableResponseProcessor(JsonResponseProcessor):
     Processes the json before it can be converted to table and printed
     """
 
-    def format(self, resp: CustodianResponse) -> list[dict]:
+    def format(self, resp: SREResponse) -> list[dict]:
         dct = super().format(resp)
         if data := dct.get(DATA_ATTR):
             return [data]
@@ -302,7 +302,7 @@ class ModularResponseProcessor(JsonResponseProcessor):
                 return description
         return '\n'.join(map(_format_er, errors))
 
-    def format(self, resp: CustodianResponse) -> dict:
+    def format(self, resp: SREResponse) -> dict:
         base = {
             CODE_ATTR: resp.code or HTTPStatus.SERVICE_UNAVAILABLE.value,
             STATUS_ATTR: SUCCESS_STATUS if resp.ok else ERROR_STATUS,
@@ -456,7 +456,7 @@ def response(*args, **kwargs):
     if kwargs.get('err'):
         kwargs['code'] = HTTPStatus.BAD_REQUEST
     kwargs.pop('err', None)
-    return CustodianResponse.build(*args, **kwargs)
+    return SREResponse.build(*args, **kwargs)
 
 
 # callbacks

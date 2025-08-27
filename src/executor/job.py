@@ -163,7 +163,7 @@ from helpers.constants import (
     GLOBAL_REGION,
     TS_EXCLUDED_RULES_KEY,
     BatchJobEnv,
-    CAASEnv,
+    Env,
     Cloud,
     JobState,
     PlatformType,
@@ -1307,7 +1307,7 @@ def process_job_concurrent(
     consequently. When one process finished its memory is freed
     (any way the results is flushed to files).
     """
-    if CAASEnv.ENABLE_CUSTOM_CC_PLUGINS.is_set():
+    if Env.ENABLE_CUSTOM_CC_PLUGINS.is_set():
         register_all()
 
     _LOG.debug(f'Running scan process for region {region}')
@@ -1475,7 +1475,7 @@ class JobExecutionContext:
         self._work_dir = None
 
     def _update_lm_job(self):
-        if not self.job.affected_license or not CAASEnv.is_docker():
+        if not self.job.affected_license or not Env.is_docker():
             return
         _LOG.info('Updating job in license manager')
         SP.license_manager_service.client.update_job(

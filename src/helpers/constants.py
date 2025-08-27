@@ -20,7 +20,7 @@ class HTTPMethod(str, Enum):
     PUT = 'PUT'
 
 
-class CustodianEndpoint(str, Enum):
+class Endpoint(str, Enum):
     """
     Should correspond to Api gateway models
     """
@@ -77,12 +77,14 @@ class CustodianEndpoint(str, Enum):
     TENANTS_TENANT_NAME = '/tenants/{tenant_name}'
     USERS_RESET_PASSWORD = '/users/reset-password'
     REPORTS_EVENT_DRIVEN = '/reports/event_driven'
+    RESOURCES_EXCEPTIONS = '/resources/exceptions'
     RULE_SOURCES_ID_SYNC = '/rule-sources/{id}/sync'
     LICENSES_LICENSE_KEY = '/licenses/{license_key}'
     SETTINGS_SEND_REPORTS = '/settings/send_reports'
     PLATFORMS_K8S_ID = '/platforms/k8s/{platform_id}'
     INTEGRATIONS_CHRONICLE = '/integrations/chronicle'
     CREDENTIALS_ID_BINDING = '/credentials/{id}/binding'
+    RESOURCES_EXCEPTIONS_ID = '/resources/exceptions/{id}'
     CUSTOMERS_EXCLUDED_RULES = '/customers/excluded-rules'
     INTEGRATIONS_DEFECT_DOJO = '/integrations/defect-dojo'
     REPORTS_PUSH_DOJO_JOB_ID = '/reports/push/dojo/{job_id}'
@@ -153,9 +155,9 @@ class CustodianEndpoint(str, Enum):
         - /path/to/resource
         - /path/to/resource/
         This method does the following:
-        >>> CustodianEndpoint.match('/jobs/{job_id}') == CustodianEndpoint.JOBS_JOB
-        >>> CustodianEndpoint.match('jobs/{job_id}') == CustodianEndpoint.JOBS_JOB
-        >>> CustodianEndpoint.match('jobs/{job_id}/') == CustodianEndpoint.JOBS_JOB
+        >>> Endpoint.match('/jobs/{job_id}') == Endpoint.JOBS_JOB
+        >>> Endpoint.match('jobs/{job_id}') == Endpoint.JOBS_JOB
+        >>> Endpoint.match('jobs/{job_id}/') == Endpoint.JOBS_JOB
         :param resource:
         :return:
         """
@@ -477,11 +479,7 @@ class EnvEnum(str, Enum):
             )
 
 
-class CAASEnv(EnvEnum):
-    """
-    Envs that can be set for lambdas of custodian service
-    """
-
+class Env(EnvEnum):
     SERVICE_MODE = 'SRE_SERVICE_MODE', ('CAAS_SERVICE_MODE',)
     SYSTEM_CUSTOMER_NAME = (
         'SRE_SYSTEM_CUSTOMER_NAME',
@@ -615,8 +613,10 @@ class CAASEnv(EnvEnum):
         'SRE_MINIO_PRESIGNED_URL_HOST',
         ('CAAS_MINIO_PRESIGNED_URL_HOST',),
     )
-    MINIO_PRESIGNED_URL_PUBLIC_IPV4 = 'SRE_MINIO_PRESIGNED_URL_PUBLIC_IPV4',
-    MINIO_PRESIGNED_URL_PRIVATE_IPV4 = 'SRE_MINIO_PRESIGNED_URL_PRIVATE_IPV4',
+    MINIO_PRESIGNED_URL_PUBLIC_IPV4 = ('SRE_MINIO_PRESIGNED_URL_PUBLIC_IPV4',)
+    MINIO_PRESIGNED_URL_PRIVATE_IPV4 = (
+        'SRE_MINIO_PRESIGNED_URL_PRIVATE_IPV4',
+    )
 
     VAULT_ENDPOINT = 'SRE_VAULT_ENDPOINT', ('CAAS_VAULT_ENDPOINT',)
     VAULT_TOKEN = 'SRE_VAULT_TOKEN', ('CAAS_VAULT_TOKEN',)
@@ -625,7 +625,7 @@ class CAASEnv(EnvEnum):
     MONGO_DATABASE = (
         'SRE_MONGO_DB_NAME',
         ('CAAS_MONGO_DATABASE',),
-        'custodian_as_a_service',
+        'syndicate_rule_engine',
     )
 
     AWS_REGION = 'AWS_REGION', 'us-east-1'  # default lambda env so without SRE
@@ -679,13 +679,20 @@ class CAASEnv(EnvEnum):
 
     # Cloud Custodian
     CC_LOG_LEVEL = 'SRE_CC_LOG_LEVEL', (), 'INFO'
-    ENABLE_CUSTOM_CC_PLUGINS = 'SRE_ENABLE_CUSTOM_CC_PLUGINS', (),
+    ENABLE_CUSTOM_CC_PLUGINS = 'SRE_ENABLE_CUSTOM_CC_PLUGINS', ()
 
     # Dojo
-    DOJO_PAYLOAD_SIZE_LIMIT_BYTES = 'SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES', (),
+    DOJO_PAYLOAD_SIZE_LIMIT_BYTES = 'SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES', ()
 
     # Metrics
-    METRICS_EXPIRATION_DAYS = 'SRE_METRICS_EXPIRATION_DAYS', (),
+    METRICS_EXPIRATION_DAYS = 'SRE_METRICS_EXPIRATION_DAYS', ()
+
+    # Resources Exceptions
+    RESOURCES_EXCEPTIONS_MAX_EXPIRATION_DAYS = (
+        'SRE_RESOURCES_EXCEPTIONS_MAX_EXPIRATION_DAYS',
+        (),
+        '90',
+    )
 
     @classmethod
     def is_docker(cls) -> bool:
@@ -914,6 +921,11 @@ class Permission(str, Enum):
 
     RESOURCES_GET = 'resources:get'
 
+    RESOURCES_EXCEPTIONS_GET = 'resources_exceptions:get'
+    RESOURCES_EXCEPTIONS_CREATE = 'resources_exceptions:create'
+    RESOURCES_EXCEPTIONS_UPDATE = 'resources_exceptions:update'
+    RESOURCES_EXCEPTIONS_DELETE = 'resources_exceptions:delete'
+
     @classmethod
     def iter_enabled(cls) -> Iterator[Self]:
         """
@@ -1050,6 +1062,7 @@ START_DATE = 'start_date'
 ARTICLE_ATTR = 'article'
 
 COMPOUND_KEYS_SEPARATOR = '#'
+TAGS_KEY_VALUE_SEPARATOR = '='
 
 
 class RuleSourceType(str, Enum):
@@ -1175,13 +1188,13 @@ GITLAB_API_URL_DEFAULT = 'https://git.epam.com'
 
 
 class LambdaName(str, Enum):
-    API_HANDLER = 'caas-api-handler'
-    CONFIGURATION_API_HANDLER = 'caas-configuration-api-handler'
-    EVENT_HANDLER = 'caas-event-handler'
-    LICENSE_UPDATER = 'caas-license-updater'
-    METRICS_UPDATER = 'caas-metrics-updater'
-    REPORT_GENERATOR = 'caas-report-generator'
-    RULE_META_UPDATER = 'caas-rule-meta-updater'
+    API_HANDLER = 'api-handler'
+    CONFIGURATION_API_HANDLER = 'configuration-api-handler'
+    EVENT_HANDLER = 'event-handler'
+    LICENSE_UPDATER = 'license-updater'
+    METRICS_UPDATER = 'metrics-updater'
+    REPORT_GENERATOR = 'report-generator'
+    RULE_META_UPDATER = 'rule-meta-updater'
 
 
 # some common deltas for reports
@@ -1398,9 +1411,10 @@ LATEST_VERSION_TAG = ':'  # ':' > '999999.999999.999999'
 EXCLUDE_RESOURCE_TYPES = {
     'aws.service-quota',
     'aws.codedeploy-config',
-    'azure.roledefinition', # there is huge number (~700 in my subscription) of these and I'm not sure how useful they are
+    'azure.roledefinition',  # there is huge number (~700 in my subscription) of these and I'm not sure how useful they are
     'gcp.region',
 }
+
 
 class ResourcesCollectorType(str, Enum):
     AWS_RESOURCE_EXPLORER = 'aws_resource_explorer'
@@ -1408,4 +1422,15 @@ class ResourcesCollectorType(str, Enum):
     FOCUS = 'focus'
     CUSTODIAN = 'cloud_custodian'
 
+
 DEPRECATED_RULE_SUFFIX = '-deprecated'
+
+
+class ResourceExceptionType(str, Enum):
+    """
+    Types of resource exceptions
+    """
+
+    TAG_FILTER = 'tag_filter'
+    RESOURCE = 'resource'
+    ARN = 'arn'

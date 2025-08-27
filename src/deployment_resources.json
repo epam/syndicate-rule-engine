@@ -1,5 +1,5 @@
 {
-  "CaaSJobs": {
+  "SREJobs": {
     "resource_type": "dynamodb_table",
     "hash_key_name": "i",
     "hash_key_type": "S",
@@ -22,7 +22,7 @@
       }
     ]
   },
-  "CaaSScheduledJobs": {
+  "SREScheduledJobs": {
     "resource_type": "dynamodb_table",
     "hash_key_name": "id",
     "hash_key_type": "S",
@@ -40,7 +40,7 @@
       }
     ]
   },
-  "CaaSReportStatistics": {
+  "SREReportStatistics": {
     "resource_type": "dynamodb_table",
     "hash_key_name": "id",
     "hash_key_type": "S",
@@ -63,7 +63,7 @@
       }
     ]
   },
-  "CaaSRules": {
+  "SRERules": {
     "resource_type": "dynamodb_table",
     "hash_key_name": "id",
     "hash_key_type": "S",
@@ -93,7 +93,7 @@
       }
     ]
   },
-  "CaaSRulesets": {
+  "SRERulesets": {
     "resource_type": "dynamodb_table",
     "hash_key_name": "id",
     "hash_key_type": "S",
@@ -109,7 +109,7 @@
       }
     ]
   },
-  "CaaSRuleSources": {
+  "SRERuleSources": {
     "resource_type": "dynamodb_table",
     "hash_key_name": "id",
     "hash_key_type": "S",
@@ -125,14 +125,14 @@
       }
     ]
   },
-  "CaaSSettings": {
+  "SRESettings": {
     "resource_type": "dynamodb_table",
     "hash_key_name": "name",
     "hash_key_type": "S",
     "read_capacity": 1,
     "write_capacity": 1
   },
-  "CaaSPolicies": {
+  "SREPolicies": {
     "resource_type": "dynamodb_table",
     "hash_key_name": "customer",
     "hash_key_type": "S",
@@ -141,7 +141,7 @@
     "read_capacity": 1,
     "write_capacity": 1
   },
-  "CaaSRoles": {
+  "SRERoles": {
     "resource_type": "dynamodb_table",
     "hash_key_name": "customer",
     "hash_key_type": "S",
@@ -150,7 +150,7 @@
     "read_capacity": 1,
     "write_capacity": 1
   },
-  "CaaSEvents": {
+  "SREEvents": {
     "resource_type": "dynamodb_table",
     "hash_key_name": "p",
     "hash_key_type": "N",
@@ -160,7 +160,7 @@
     "write_capacity": 1,
     "global_indexes": []
   },
-  "CaaSEventStatistics": {
+  "SREEventStatistics": {
     "resource_type": "dynamodb_table",
     "hash_key_name": "t",
     "hash_key_type": "S",
@@ -170,7 +170,7 @@
     "write_capacity": 1,
     "global_indexes": []
   },
-  "CaaSTenantMetrics": {
+  "SRETenantMetrics": {
     "resource_type": "dynamodb_table",
     "hash_key_name": "id",
     "hash_key_type": "S",
@@ -195,7 +195,7 @@
       }
     ]
   },
-  "CaaSCustomerMetrics": {
+  "SRECustomerMetrics": {
     "resource_type": "dynamodb_table",
     "hash_key_name": "id",
     "hash_key_type": "S",
@@ -213,7 +213,7 @@
       }
     ]
   },
-  "CaaSBatchResults": {
+  "SREBatchResults": {
     "resource_type": "dynamodb_table",
     "hash_key_name": "id",
     "hash_key_type": "S",
@@ -236,7 +236,7 @@
       }
     ]
   },
-  "CaaSJobStatistics": {
+  "SREJobStatistics": {
     "resource_type": "dynamodb_table",
     "hash_key_name": "id",
     "hash_key_type": "S",

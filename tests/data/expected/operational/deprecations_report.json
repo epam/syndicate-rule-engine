@@ -33,6 +33,7 @@
       }
     }
   ],
+  "exceptions_data": [],
   "tenant_name": "AZURE-TESTING",
   "id": "3d615fa8-05c6-47ea-990d-9d162testing",
   "cloud": "AZURE",

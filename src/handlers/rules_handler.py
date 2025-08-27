@@ -8,7 +8,7 @@ from xlsxwriter.worksheet import Worksheet
 
 from handlers import AbstractHandler, Mapping
 from helpers.constants import (
-    CustodianEndpoint,
+    Endpoint,
     HTTPMethod,
     JobState,
     ReportFormat,
@@ -139,10 +139,10 @@ class JobsRulesHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.REPORTS_RULES_JOBS_JOB_ID: {
+            Endpoint.REPORTS_RULES_JOBS_JOB_ID: {
                 HTTPMethod.GET: self.get_by_job
             },
-            CustodianEndpoint.REPORTS_RULES_TENANTS_TENANT_NAME: {
+            Endpoint.REPORTS_RULES_TENANTS_TENANT_NAME: {
                 HTTPMethod.GET: self.get_by_tenant_accumulated
             },
         }

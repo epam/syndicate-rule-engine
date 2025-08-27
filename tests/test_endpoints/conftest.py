@@ -9,7 +9,7 @@ from moto.backends import get_backend
 from webtest import TestApp
 
 from modular_sdk.commons.constants import ParentType
-from helpers.constants import Permission, CAASEnv, PolicyEffect, JobState
+from helpers.constants import Permission, Env, PolicyEffect, JobState
 from helpers.time_helper import utc_iso
 from services import SP  # probably the only safe import we can use in conftest
 from ..commons import SOURCE, InMemoryHvacClient, SREClient
@@ -61,10 +61,10 @@ def vault_token(mocked_hvac_client) -> None:
 @pytest.fixture(autouse=True)
 def s3_buckets(mocked_s3_client) -> None:
     buckets = [
-        CAASEnv.REPORTS_BUCKET_NAME.get(),
-        CAASEnv.STATISTICS_BUCKET_NAME.get(),
-        CAASEnv.RULESETS_BUCKET_NAME.get(),
-        CAASEnv.RECOMMENDATIONS_BUCKET_NAME.get()
+        Env.REPORTS_BUCKET_NAME.get(),
+        Env.STATISTICS_BUCKET_NAME.get(),
+        Env.RULESETS_BUCKET_NAME.get(),
+        Env.RECOMMENDATIONS_BUCKET_NAME.get()
     ]
     for b in buckets:
         SP.s3.create_bucket(b, 'eu-central-1')
@@ -77,7 +77,7 @@ def system_user(mocked_mongo_client, vault_token) -> tuple[str, str]:
     """
     from models.user import User
     SP.policy_service.create(
-        customer=CAASEnv.SYSTEM_CUSTOMER_NAME.get(),
+        customer=Env.SYSTEM_CUSTOMER_NAME.get(),
         name='system',
         description='system policy',
         permissions=[p.value for p in Permission],
@@ -85,16 +85,16 @@ def system_user(mocked_mongo_client, vault_token) -> tuple[str, str]:
         effect=PolicyEffect.ALLOW
     ).save()
     SP.role_service.create(
-        customer=CAASEnv.SYSTEM_CUSTOMER_NAME.get(),
+        customer=Env.SYSTEM_CUSTOMER_NAME.get(),
         name='system',
         expiration=None,
         policies=['system'],
         description='system role',
     )
-    col = mocked_mongo_client[CAASEnv.MONGO_DATABASE.get()][User.Meta.table_name]
+    col = mocked_mongo_client[Env.MONGO_DATABASE.get()][User.Meta.table_name]
     col.insert_one({
         'user_id': 'system',
-        'customer': CAASEnv.SYSTEM_CUSTOMER_NAME.get(),
+        'customer': Env.SYSTEM_CUSTOMER_NAME.get(),
         'role': 'system',
         'created_at': utc_iso(),
         'password': b'$2b$12$KZdrVss.Juxf.HB/TjtqvefpSNTW7gUdXLxLTXJXv7.3bCiDNqpXm'  # noqa
@@ -105,7 +105,7 @@ def system_user(mocked_mongo_client, vault_token) -> tuple[str, str]:
     # SP.users_client.signup_user(
     #     username='system',
     #     password='system',
-    #     customer=CAASEnv.SYSTEM_CUSTOMER_NAME.get(),
+    #     customer=Env.SYSTEM_CUSTOMER_NAME.get(),
     #     role='system'
     # )
     return 'system', 'system'
@@ -267,7 +267,7 @@ def main_license(main_customer, aws_rules, azure_rules, google_rules, k8s_rules)
     )
     SP.license_service.save(lic)
     SP.ruleset_service.create(
-        customer=CAASEnv.SYSTEM_CUSTOMER_NAME.get(),
+        customer=Env.SYSTEM_CUSTOMER_NAME.get(),
         name='AWS',
         version='',
         cloud='AWS',
@@ -278,7 +278,7 @@ def main_license(main_customer, aws_rules, azure_rules, google_rules, k8s_rules)
         versions=['1.0.0']
     ).save()
     SP.ruleset_service.create(
-        customer=CAASEnv.SYSTEM_CUSTOMER_NAME.get(),
+        customer=Env.SYSTEM_CUSTOMER_NAME.get(),
         name='AZURE',
         version='',
         cloud='AZURE',
@@ -289,7 +289,7 @@ def main_license(main_customer, aws_rules, azure_rules, google_rules, k8s_rules)
         versions=['1.0.0']
     ).save()
     SP.ruleset_service.create(
-        customer=CAASEnv.SYSTEM_CUSTOMER_NAME.get(),
+        customer=Env.SYSTEM_CUSTOMER_NAME.get(),
         name='GOOGLE',
         version='',
         cloud='GCP',
@@ -300,7 +300,7 @@ def main_license(main_customer, aws_rules, azure_rules, google_rules, k8s_rules)
         versions=['1.0.0']
     ).save()
     SP.ruleset_service.create(
-        customer=CAASEnv.SYSTEM_CUSTOMER_NAME.get(),
+        customer=Env.SYSTEM_CUSTOMER_NAME.get(),
         name='KUBERNETES',
         version='',
         cloud='KUBERNETES',

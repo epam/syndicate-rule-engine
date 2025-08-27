@@ -13,7 +13,7 @@ from helpers.constants import (
     EVENT_DRIVEN_ATTR,
     RULES_ATTR,
     S3_PATH_ATTR,
-    CustodianEndpoint,
+    Endpoint,
     HTTPMethod,
 )
 from helpers.lambda_response import ResponseFactory, build_response
@@ -82,13 +82,13 @@ class RulesetHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.RULESETS: {
+            Endpoint.RULESETS: {
                 HTTPMethod.GET: self.get_ruleset,
                 HTTPMethod.POST: self.create_ruleset,
                 HTTPMethod.PATCH: self.update_ruleset,
                 HTTPMethod.DELETE: self.delete_ruleset,
             },
-            CustodianEndpoint.RULESETS_RELEASE: {
+            Endpoint.RULESETS_RELEASE: {
                 HTTPMethod.POST: self.release_ruleset
             },
         }

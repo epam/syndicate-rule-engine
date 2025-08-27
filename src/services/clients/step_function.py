@@ -44,7 +44,7 @@ class ScriptClient(AbstractStepFunctionClient):
     # def _handle_execution(handler: Callable, *args):
     #     try:
     #         response = handler(*args)
-    #     except CustodianException as e:
+    #     except SREException as e:
     #         resp = e.response.build()
     #         response = dict(code=resp['statusCode'], body=resp['body'])
     #     return response
