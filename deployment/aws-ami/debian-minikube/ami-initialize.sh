@@ -253,7 +253,7 @@ get_ssm_parameter() {
   aws ssm get-parameter --name="$1" --with-decryption --query='Parameter.Value' --output=text
 }
 build_helm_values() {
-  local params="" mongo_uri=""
+  local params="--set=patch.enabled=false " mongo_uri=""
   if [ -n "$MODULAR_SDK_ROLE_ARN" ]; then
     local modular_region
     modular_region="${MODULAR_SDK_REGION:-$(region)}"
