@@ -45,7 +45,24 @@ generate_password() {
   if [ -n "$2" ]; then
     typ="$2"
   fi
-  openssl rand "$typ" "$chars"
+
+  while true; do
+    password=$(openssl rand "$typ" "$chars")
+
+    # NOTE: -hex cannot pass the checks below
+    if [ "$typ" = "-hex" ]; then
+      echo "$password"
+      break
+    fi
+
+    if echo "$password" | grep -q '[0-9]' && \
+       echo "$password" | grep -q '[A-Z]' && \
+       echo "$password" | grep -q '[a-z]' && \
+       echo "$password" | grep -q '[^A-Za-z0-9]'; then
+      echo "$password"
+      break
+    fi
+  done
 }
 minikube_ip() { sudo su "$FIRST_USER" -c "minikube ip"; }
 enable_minikube_service() {
@@ -253,7 +270,7 @@ get_ssm_parameter() {
   aws ssm get-parameter --name="$1" --with-decryption --query='Parameter.Value' --output=text
 }
 build_helm_values() {
-  local params="" mongo_uri=""
+  local params="--set=patch.enabled=false " mongo_uri=""
   if [ -n "$MODULAR_SDK_ROLE_ARN" ]; then
     local modular_region
     modular_region="${MODULAR_SDK_REGION:-$(region)}"

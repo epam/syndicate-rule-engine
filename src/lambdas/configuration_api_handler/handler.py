@@ -154,7 +154,7 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
             responses.append(response)
 
         if ids_to_sync:
-            sync_rulesource.dalay(ids_to_sync)
+            sync_rulesource.delay(ids_to_sync)
         else:
             _LOG.warning('No rule-sources allowed to update')
             return build_response(

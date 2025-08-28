@@ -182,7 +182,7 @@ class RuleSourceHandler(AbstractHandler):
             item=entity,
             current_status=RuleSourceSyncingStatus.SYNCING
         )
-        sync_rulesource.dalay([entity.id])
+        sync_rulesource.delay([entity.id])
 
         return build_response(
             code=HTTPStatus.ACCEPTED,
