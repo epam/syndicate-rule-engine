@@ -49,6 +49,12 @@ generate_password() {
   while true; do
     password=$(openssl rand "$typ" "$chars")
 
+    # NOTE: -hex cannot pass the checks below
+    if [ "$typ" = "-hex" ]; then
+      echo "$password"
+      break
+    fi
+
     if echo "$password" | grep -q '[0-9]' && \
        echo "$password" | grep -q '[A-Z]' && \
        echo "$password" | grep -q '[a-z]' && \
