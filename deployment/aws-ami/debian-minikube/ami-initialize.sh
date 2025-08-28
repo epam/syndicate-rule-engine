@@ -45,7 +45,18 @@ generate_password() {
   if [ -n "$2" ]; then
     typ="$2"
   fi
-  openssl rand "$typ" "$chars"
+
+  while true; do
+    password=$(openssl rand "$typ" "$chars")
+
+    if echo "$password" | grep -q '[0-9]' && \
+       echo "$password" | grep -q '[A-Z]' && \
+       echo "$password" | grep -q '[a-z]' && \
+       echo "$password" | grep -q '[^A-Za-z0-9]'; then
+      echo "$password"
+      break
+    fi
+  done
 }
 minikube_ip() { sudo su "$FIRST_USER" -c "minikube ip"; }
 enable_minikube_service() {
