@@ -66,20 +66,26 @@ class WorkspacesDirectoryVpcEndpointFilter(ValueFilter):
         results = []
         for directory in directories:
             try:
+                subnet_settings = directory.get('SubnetIds', [])
                 vpc_settings = ds_client.describe_directories(
                     DirectoryIds=[directory['DirectoryId']]).get(
                     'DirectoryDescriptions')[0].get('VpcSettings')
-                if vpc_settings:
+                if vpc_settings and subnet_settings:
                     vpc_id = vpc_settings.get('VpcId')
                     vpc_endpoints = ec2_client.describe_vpc_endpoints(Filters=[{
                         'Name': 'vpc-id',
                         'Values': [vpc_id]
                     }]).get('VpcEndpoints')
-                    if len(vpc_endpoints) == 0 or not (
-                        vpc_endpoints[0].get('VpcEndpointType') == 'Interface'
-                        and re.match('^com\\.amazonaws\\..*\\.workspaces$',
-                                     vpc_endpoints[0].get('ServiceName'))
-                        and vpc_endpoints[0].get('State') == 'available'):
+                    match = False
+                    for vpc_endpoint in vpc_endpoints:
+                        if (vpc_endpoint.get('VpcEndpointType') == 'Interface'
+                            and re.match('^com\\.amazonaws\\.{self.manager.config.region}\\.workspaces$',
+                                             vpc_endpoint.get('ServiceName'))
+                            and vpc_endpoint.get('State') == 'available')\
+                            and all(subnet_id in vpc_endpoint.get('SubnetIds', []) for subnet_id in subnet_settings):
+                            match = True
+                            break
+                    if not match:
                         results.append(directory)
             except Exception:
                 continue
