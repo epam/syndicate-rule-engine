@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.8.1] - 2025-09-03
+- Add resource management commands to CLI:
+  - `ecc resource describe` - Retrieve cloud resources with filtering and pagination
+  - Support for retrieving resources by ARN
+- Add resource exception management commands to CLI
+  - `ecc resource exception describe` - List resource exceptions with filtering
+  - `ecc resource exception add` - Create new resource exceptions (resource-specific, ARN-based, or tag-based)
+  - `ecc resource exception update` - Update existing resource exceptions
+  - `ecc resource exception delete` - Delete resource exceptions
+
 ## [5.8.0] - 2025-08-15
 - renamed `Custodian` to `Syndicate Rule Engine (SRE)`
 

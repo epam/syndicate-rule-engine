@@ -638,6 +638,8 @@ class ApiEventProcessorLambdaHandler(EventProcessorLambdaHandler):
                 body = event['query']
             case _:
                 body = event['body']
+        # EVENT is not a good name for this param (use 'body', 'model' instead)
+        #  params = dict(body=body, **event['path_params'])
         params = dict(event=body, **event['path_params'])
         parameters = inspect.signature(handler).parameters
         if '_pe' in parameters:

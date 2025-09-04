@@ -206,11 +206,14 @@ class SREApiClient:
         resp.close()
         return
 
-    def make_request(self, path: Endpoint,
-                     method: HTTPMethod | None = None,
-                     path_params: dict | None = None,
-                     query: dict | None = None,
-                     data: dict | None = None) -> SREResponse:
+    def make_request(
+        self,
+        path: Endpoint,
+        method: HTTPMethod | None = None,
+        path_params: dict | None = None,
+        query: dict | None = None,
+        data: dict | None = None,
+    ) -> SREResponse:
         """
         High-level request method. Adds token.
         :param path:
@@ -976,6 +979,70 @@ class SREApiClient:
             data=sifted(kwargs)
         )
 
+    def resources_get(self, **kwargs) -> SREResponse:
+        return self.make_request(
+            path=Endpoint.RESOURCES,
+            method=HTTPMethod.GET,
+            query=sifted(kwargs)
+        )
+
+    def resources_by_arn_get(self, **kwargs) -> SREResponse:
+        return self.make_request(
+            path=Endpoint.RESOURCES_ARN,
+            method=HTTPMethod.GET,
+            query=sifted(kwargs)
+        )
+
+    def resource_exception_get(self, **kwargs) -> SREResponse:
+        return self.make_request(
+            path=Endpoint.RESOURCES_EXCEPTIONS,
+            method=HTTPMethod.GET,
+            query=sifted(kwargs)
+        )
+
+    def resource_exception_get_by_id(
+        self,
+        exception_id: str,
+        customer_id: str | None = None,
+    ) -> SREResponse:
+        return self.make_request(
+            path=Endpoint.RESOURCES_EXCEPTIONS,
+            method=HTTPMethod.GET,
+            path_params={'id': exception_id},
+            query=sifted({'customer_id': customer_id})
+        )
+
+    def resource_exception_add(self, **kwargs) -> SREResponse:
+        return self.make_request(
+            path=Endpoint.RESOURCES_EXCEPTIONS,
+            method=HTTPMethod.POST,
+            data=sifted(kwargs)
+        )
+
+    def resource_exception_update(
+        self,
+        exception_id: str,
+        **kwargs,
+    ) -> SREResponse:
+        return self.make_request(
+            path=Endpoint.RESOURCES_EXCEPTIONS,
+            method=HTTPMethod.PUT,
+            path_params={'id': exception_id},
+            data=sifted(kwargs)
+        )
+
+    def resource_exception_delete(
+        self,
+        exception_id: str,
+        customer_id: str | None = None,
+    ) -> SREResponse:
+        return self.make_request(
+            path=Endpoint.RESOURCES_EXCEPTIONS,
+            method=HTTPMethod.DELETE,
+            path_params={'id': exception_id},
+            query=sifted({'customer_id': customer_id}),
+        )
+
     def dojo_add(self, **kwargs):
         return self.make_request(
             path=Endpoint.INTEGRATIONS_DEFECT_DOJO,
@@ -985,7 +1052,9 @@ class SREApiClient:
 
     def dojo_delete(self, id: str, **kwargs):
         return self.make_request(
-            path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID, method=HTTPMethod.DELETE, path_params={'id': id},
+            path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID,
+            method=HTTPMethod.DELETE,
+            path_params={'id': id},
             data=sifted(kwargs)
         )
 
