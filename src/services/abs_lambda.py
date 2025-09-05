@@ -335,9 +335,12 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
     """
     __slots__ = '_rs', '_ps', '_env'
 
-    def __init__(self, role_service: RoleService,
-                 policy_service: PolicyService,
-                 environment_service: EnvironmentService):
+    def __init__(
+        self,
+        role_service: RoleService,
+        policy_service: PolicyService,
+        environment_service: EnvironmentService,
+    ) -> None:
         self._rs = role_service
         self._ps = policy_service
         self._env = environment_service

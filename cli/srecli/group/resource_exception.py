@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import click
 
 from srecli.group import (
@@ -171,7 +173,7 @@ def _validate_and_prepare_exception_params(
 def add(
     ctx: ContextObj,
     tenant_name: str,
-    expire_at: str,
+    expire_at: datetime,
     resource_type: str | None = None,
     location: str | None = None,
     resource_id: str | None = None,
@@ -202,7 +204,7 @@ def add(
     payload = {
         'customer_id': customer_id,
         'tenant_name': tenant_name,
-        'expire_at': expire_at,
+        'expire_at': expire_at.isoformat(),
         **exception_params,
     }
 
@@ -239,7 +241,7 @@ def update(
     resource_id: str | None = None,
     arn: str | None = None,
     tags_filters: tuple[str] | None = None,
-    expire_at: str = None,
+    expire_at: datetime | None = None,
     customer_id: str | None = None,
 ) -> SREResponse:
     """
@@ -268,7 +270,7 @@ def update(
     payload = {
         'customer_id': customer_id,
         'tenant_name': tenant_name,
-        'expire_at': expire_at,
+        'expire_at': expire_at.isoformat() if expire_at else None,
         **exception_params,
     }
 
