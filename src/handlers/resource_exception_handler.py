@@ -70,7 +70,9 @@ class ResourceExceptionHandler(AbstractHandler):
             raise TypeError(f'Unsupported type: {type(dt)}')
 
     def _validate_tenant(
-        self, tenant_name: str | None, customer: str | None = None
+        self,
+        tenant_name: str | None,
+        customer: str | None = None,
     ) -> Tenant | None:
         if not tenant_name:
             return None
