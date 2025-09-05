@@ -1025,7 +1025,7 @@ class SREApiClient:
         **kwargs,
     ) -> SREResponse:
         return self.make_request(
-            path=Endpoint.RESOURCES_EXCEPTIONS,
+            path=Endpoint.RESOURCES_EXCEPTIONS_ID,
             method=HTTPMethod.PUT,
             path_params={'id': exception_id},
             data=sifted(kwargs)
