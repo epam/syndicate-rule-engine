@@ -1,4 +1,4 @@
-## custodian-configuration-api-handler
+## configuration-api-handler
 
 This lambda is designed to handle the API for Customers, Tenants, Accounts,
 Rulesets, Rule Sources and Account Regions configurations
@@ -1403,13 +1403,13 @@ This lambda uses the following resource:
 
 #### DynamoDB
 
-* CaaSRules - the table used to store rules data;
-* Customers, Tenants, CaaSRulesets, CaaSRuleSources - tables with customer, tenant, account,
+* SRERules - the table used to store rules data;
+* Customers, Tenants, SRERulesets, SRERuleSources - tables with customer, tenant, account,
  ruleset and rule source configurations
-* CaaSRoles, CaaSPolicies - the tables used by service to get and store data about roles and policies;
-* CaaSJobs - the table used by service to store data about scans;
-* CaaSSettings - the table used by service to get and store settings data;
-* CaaSUsers - the table used by service to store user data;
+* SRERoles, SREPolicies - the tables used by service to get and store data about roles and policies;
+* SREJobs - the table used by service to store data about scans;
+* SRESettings - the table used by service to get and store settings data;
+* SREUsers - the table used by service to store user data;
 
 #### Systems Manager Parameter Store
 
@@ -1418,7 +1418,7 @@ rule sources
 
 #### Env Variables:
 
-* `caas_user_pool_name` - Cognito user pool name for custodian users;
+* `caas_user_pool_name` - Cognito user pool name for SRE users;
 
 
 #### Should have next permission actions:
