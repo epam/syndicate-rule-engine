@@ -138,7 +138,7 @@ def test_create_resource_exception_success(
     Test successful creation of a resource exception
     """
     # Calculate a future date (30 days from now)
-    future_date = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+    future_date = (datetime.now() + timedelta(days=30)).isoformat()
 
     request_data = {
         'customer_id': main_customer.name,
@@ -179,7 +179,7 @@ def test_update_resource_exception_success(
     Test successful update of a resource exception
     """
     # Calculate a future date (30 days from now)
-    future_date = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+    future_date = (datetime.now() + timedelta(days=30)).isoformat()
 
     sample_resource_exception.save()
     
