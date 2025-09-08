@@ -1,4 +1,4 @@
-## custodian-report-api-handler
+## report-api-handler
 
 This lambda generates statistics reports based on a Batch jobs result.
 
