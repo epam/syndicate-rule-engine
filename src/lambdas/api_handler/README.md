@@ -1,4 +1,4 @@
-### custodian-api-handler
+### api-handler
 
 This lambda is designed as a handler for all API resources:
 
