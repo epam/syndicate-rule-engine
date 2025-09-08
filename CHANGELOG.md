@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - changed operational overview report to include total resources scanned.
 - renamed database, collections and other occurrences from `custodian_as_a_service` to `syndicate_rule_engine`.
 - update modular-related environment variables in the HELM chart
+- Rename CAAS/custodian to SRE
+- Update README.md
+- Update QUICKSTART.md
 
 ## [5.12.2] - 2025-08-19 (hotfix)
 - moved cron configurations outside
