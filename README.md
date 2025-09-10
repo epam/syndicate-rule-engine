@@ -1,53 +1,43 @@
 ### Syndicate Rule Engine
 
 Syndicate Rule Engine is a solution that allows checking and assessing virtual infrastructures in AWS, Azure, GCP infrastructures against different types of standards, requirements and rulesets.
-By default, the solution covers hundreds of security, compliance, utilization and cost effectiveness rules, which cover world-known standards like GDPR, PCI DSS, CIS Benchmark, and a bunch of others.
+By default, the solution covers hundreds of security, compliance, utilization and cost-effectiveness rules, which cover world-known standards like GDPR, PCI DSS, CIS Benchmark, and a bunch of others.
 
 ### Notice
 
-All the technical details described below are actual for the particular version,
-or a range of versions of the software.
+All the technical details described below are actual for the particular version, or a range of versions of the software.
 
 ### Actual for versions: 5.0.0
 
 ## Lambdas description
 
-### Lambda `custodian-api-handler`
+### Lambda `api-handler` 
 
 This lambda is designed as a handler for all API resources:
 
-* `/jobs POST` - initiates the custodian scan for the requested account;
+* `/jobs POST` - initiates the SRE scan for the requested account;
 * `/jobs GET` - returns job details for the requested query with the paths to
   result reports (if any);
-* `/jobs DELETE` - terminates the custodian scan;
+* `/jobs DELETE` - terminates the SRE scan;
 * `/signin POST` - returns access and refresh tokens for specific user. This
   user must be in Cognito user pool
   (first go through the signup resource);
-* `/signup POST` - resource for registering a new Custodian user. Saves the user
+* `/signup POST` - resource for registering a new SRE user. Saves the user
   in Cognito user pool;
-* `/scheduled-job GET|POST|PATCH|DELETE` - resource for retrieving/registering/updating/deregistering a scheduled job
+* `/scheduled-job GET|POST|PATCH|DELETE` - resource for retrieving/registering/updating/unregistering a scheduled job
   which will be executed according to the given cron;
 * `/event POST` - resource for starting job in event-driven;
 
-Refer to [custodian-api-handler](src/lambdas/custodian_api_handler/README.md)
+Additionally: This lambda can update Jobs state in `SREJobs` DynamoDB table.
+Triggered by CloudWatch Rule `sre-job-state-update`.
+
+Refer to [api-handler](src/lambdas/api_handler/README.md)
 for more details.
 
----
-
-### Lambda `custodian-job-updater`
-
-This lambda is designed to update Jobs state in `CaaSJobs` DynamoDB table.
-Triggered by CloudWatch Rule `custodian-job-state-update`.
-
-Refer to [custodian-job-updater](src/lambdas/custodian_job_updater/README.md)
-for more details.
-
----
-
-### Lambda `custodian-rule-meta-updater`
+### Lambda `rule-meta-updater`
 
 This lambda is designed to pull the latest data from rules GIT repository and
-store the data in `CaaSRules` DynamoDB table. The Rule model:
+store the data in `SRERules` DynamoDB table. The Rule model:
 
 * `id (str)`. Format: `name_version`
 * `name (str)`
@@ -59,28 +49,28 @@ store the data in `CaaSRules` DynamoDB table. The Rule model:
 * `source (str)`
 
 Refer
-to [custodian-rule-meta-updater](src/lambdas/custodian_rule_meta_updater/README.md)
+to [rule-meta-updater](src/lambdas/rule_meta_updater/README.md)
 for more details.
 
 ---
 
-### Lambda `custodian-report-generator`
+### Lambda `report-generator`
 
 This lambda generates statistics reports based on a Batch jobs result.
 
 Refer
-to [custodian-report-generator](src/lambdas/custodian_report_generator/README.md)
+to [report-generator](src/lambdas/report_generator/README.md)
 for more details.
 
 ---
 
-### Lambda `custodian-configuration-api-handler`
+### Lambda `configuration-api-handler`
 
 This lambda is designed to handle the API for Accounts,
 Rulesets, Rule Sources and Account Regions configurations
 
 Refer
-to [custodian-configuration-api-handler](src/lambdas/custodian_configuration_api_handler/README.md)
+to [configuration-api-handler](src/lambdas/configuration_api_handler/README.md)
 for more details.
 
 ## Rules format
@@ -124,10 +114,10 @@ If there is no need to scan the entire cloud account, but only certain resources
 event-driven scans.
 
 
-Using `/account/credentials-manager` endpoint or `c7n account credentials-manager add` command add credentials
+Using `/account/credentials-manager` endpoint or `sre account credentials-manager add` command add credentials
 configuration: cloud name, cloud identifier, trusted role ARN using which service can get temporary credits from
 specified account for event-driven scan.
-Temporary credentials are stored in the `CaaSCredentials` table along with their expiration. If expiration time is
+Temporary credentials are stored in the `SRECredentials` table along with their expiration. If expiration time is
 less than 15 minutes, the new credentials will be obtained from the assumed role, otherwise the existing credentials
 will be used.
 

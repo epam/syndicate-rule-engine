@@ -1,8 +1,8 @@
-## custodian-rule-meta-updater
+## rule-meta-updater
 
 This lambda is designed to pull the latest data from rules GIT repository and
-store the data in `CaaSRules` DynamoDB table. Repository path and SSM parameter
-for credentials are stored in `CaaSCustomers` DynamoDB table. The Rule model:
+store the data in `SRERules` DynamoDB table. Repository path and SSM parameter
+for credentials are stored in `SRECustomers` DynamoDB table. The Rule model:
 
 * `customer (str)`
 * `id (str)`. Format: `name_version`
@@ -47,8 +47,8 @@ This lambda uses the following resource:
 
 #### DynamoDB
 
-* `CaaSRules` - the table used to store data about rules;
-* `CaaSCustomers`, `CaaSTenants`, - tables with customer, tenant
+* `SRERules` - the table used to store data about rules;
+* `SRECustomers`, `SRETenants`, - tables with customer, tenant
   configurations where the information about repositories are stored
 
 ### Lambda Configuration

@@ -70,7 +70,9 @@ class ResourceExceptionHandler(AbstractHandler):
             raise TypeError(f'Unsupported type: {type(dt)}')
 
     def _validate_tenant(
-        self, tenant_name: str | None, customer: str | None = None
+        self,
+        tenant_name: str | None,
+        customer: str | None = None,
     ) -> Tenant | None:
         if not tenant_name:
             return None
@@ -87,7 +89,9 @@ class ResourceExceptionHandler(AbstractHandler):
         return tenant
 
     def _validate_resource_type(
-        self, resource_type: str | None, tenant: Tenant | None = None
+        self,
+        resource_type: str | None,
+        tenant: Tenant | None = None,
     ) -> tuple[str, Cloud] | None:
         if not resource_type:
             return None
@@ -96,10 +100,12 @@ class ResourceExceptionHandler(AbstractHandler):
         if '.' in resource_type:
             resource_cloud = resource_type.split('.')[0].upper()
         tenant_cloud = tenant.cloud if tenant else None
-        if resource_cloud and tenant_cloud and resource_cloud != tenant_cloud:
-            raise ValueError(
-                f'Resource type {resource_type} does not match tenant cloud {tenant_cloud}'
-            )
+        if resource_cloud and tenant_cloud:
+            if Cloud.parse(resource_cloud) != Cloud.parse(tenant_cloud):
+                raise ValueError(
+                    f'Resource type {resource_type} does not match tenant '
+                    f'cloud {tenant_cloud}'
+                )
 
         if resource_cloud:
             cloud = Cloud[resource_cloud]

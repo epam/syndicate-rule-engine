@@ -17,6 +17,8 @@ from srecli.group.rulesource import rulesource
 from srecli.group.setting import setting
 from srecli.group.tenant import tenant
 from srecli.group.users import users
+from srecli.group.resource import resource
+
 from srecli.service.helpers import validate_api_link, check_version_compatibility
 from srecli.service.logger import get_logger
 from srecli import __version__
@@ -144,3 +146,4 @@ sre.add_command(metrics)
 sre.add_command(platform)
 sre.add_command(integrations)
 sre.add_command(users)
+sre.add_command(resource)
