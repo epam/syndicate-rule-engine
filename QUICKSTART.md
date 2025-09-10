@@ -128,7 +128,7 @@ Of course, SRE can be a standalone installation without a need to have Maestro. 
 
 ## Installation
 
-Detailed installation guide available in the installation documentation.
+Detailed installation guide available in the [installation documentation](./docs/esre01_user_guide.pdf).
 
 ## Configuration
 
