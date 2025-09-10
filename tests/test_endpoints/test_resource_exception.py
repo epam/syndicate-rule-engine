@@ -1,5 +1,5 @@
 import pytest
-from datetime import timedelta
+from datetime import timedelta, datetime
 from time import time
 from uuid import uuid4
 
@@ -137,13 +137,16 @@ def test_create_resource_exception_success(
     """
     Test successful creation of a resource exception
     """
+    # Calculate a future date (30 days from now)
+    future_date = (datetime.now() + timedelta(days=30)).isoformat()
+
     request_data = {
         'customer_id': main_customer.name,
         'tenant_name': aws_tenant.name,
         'resource_type': 'aws.ec2',
         'location': 'us-east-1',
         'resource_id': 'i-1234567890abcdef0',
-        'expire_at': '2025-09-01T23:59:59',
+        'expire_at': future_date,
     }
     
     resp = sre_client.request(
@@ -175,6 +178,9 @@ def test_update_resource_exception_success(
     """
     Test successful update of a resource exception
     """
+    # Calculate a future date (30 days from now)
+    future_date = (datetime.now() + timedelta(days=30)).isoformat()
+
     sample_resource_exception.save()
     
     update_data = {
@@ -183,7 +189,7 @@ def test_update_resource_exception_success(
         'resource_type': sample_resource_exception.resource_type,
         'location': 'us-west-2',
         'resource_id': 'i-updated123456789abcdef',
-        'expire_at': '2025-09-01T23:59:59',
+        'expire_at': future_date,
     }
     
     resp = sre_client.request(
