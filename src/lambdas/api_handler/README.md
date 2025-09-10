@@ -339,7 +339,7 @@ There are 7 events lambda accepts as the lambda is a handler for 7 API handler.
         "password": "PASSWORD"
     }
     ```
-    * username: [Required] Name of Custodian user;
+    * username: [Required] Name of SRE user;
     * password: [Required] User's password.
 
    Response body format:
