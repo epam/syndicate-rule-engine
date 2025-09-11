@@ -70,7 +70,7 @@ patch:
   ttlSecondsAfterFinished: 3600
   image:
     repository: public.ecr.aws/x4s4z8e1/syndicate/patches
-    tag: 'rule-engine-5.14.0'
+    tag: 'rule-engine-5.13.0'
     pullPolicy: Always
 
 modularSdk:
