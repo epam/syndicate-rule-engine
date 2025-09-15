@@ -112,8 +112,8 @@ class RoleHandler(AbstractHandler):
             ).exc()
         self.ensure_policies_exist(customer, event.policies_to_attach)
         policies = set(role.policies or [])
-        policies -= event.policies_to_attach
-        policies |= event.policies_to_detach
+        policies |= event.policies_to_attach
+        policies -= event.policies_to_detach
         role.policies = list(policies)
 
         if event.expiration:
