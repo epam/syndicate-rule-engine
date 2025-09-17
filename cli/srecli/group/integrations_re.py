@@ -24,8 +24,8 @@ def re():
 @click.option('--clouds', '-cl',
               type=click.Choice((AWS, AZURE, GOOGLE, KUBERNETES)),
               multiple=True,
-              help='Tenant clouds to activate this dojo for. '
-                   'Can be specific together with --all_tenants flag')
+              help='Tenant clouds to activate the service for. '
+                   'Can be specified together with --all_tenants flag')
 @click.option('--exclude_tenant', '-et', type=str, multiple=True,
               help='Tenants to exclude for this integration. '
                    'Can be specified together with --all_tenants flag')

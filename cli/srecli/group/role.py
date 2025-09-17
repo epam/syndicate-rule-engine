@@ -64,7 +64,7 @@ def add(ctx: ContextObj, customer_id, name, policies, description, expiration):
               help='Role name to modify', required=True)
 @click.option('--attach_policy', '-a', multiple=True,
               help='List of policies to attach to the role')
-@click.option('--detach_policy', '-d', multiple=True,
+@click.option('--detach_policy', '-dp', multiple=True,
               help='List of policies to detach from role')
 @click.option('--expiration', '-e', type=str, required=False,
               help='Expiration date, ISO 8601. Example: 2021-08-01T15:30:00')
@@ -75,10 +75,11 @@ def update(ctx: ContextObj, customer_id, name, attach_policy, detach_policy, exp
     """
     Updates role configuration.
     """
+    req_param_names = ('--attach_policy', '--detach_policy', '--expiration')
     required = (attach_policy, detach_policy, expiration)
     if not any(required):
         raise click.ClickException(
-            f'At least one of: {", ".join(required)} must be specified'
+            f'At least one of: {", ".join(req_param_names)} must be specified'
         )
 
     if expiration:

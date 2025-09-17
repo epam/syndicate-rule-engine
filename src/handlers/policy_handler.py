@@ -5,7 +5,7 @@ from helpers import NextToken
 from helpers.constants import Endpoint, HTTPMethod
 from helpers.lambda_response import ResponseFactory, build_response
 from services import SP
-from services.rbac_service import PolicyService
+from services.rbac_service import PolicyService, RoleService
 from validators.swagger_request_models import (
     BaseModel,
     BasePaginationModel,
@@ -20,12 +20,16 @@ class PolicyHandler(AbstractHandler):
     Manage Policy API
     """
 
-    def __init__(self, policy_service: PolicyService):
+    def __init__(self, policy_service: PolicyService, role_service: RoleService):
         self._policy_service = policy_service
+        self._role_service = role_service
 
     @classmethod
     def build(cls):
-        return cls(policy_service=SP.policy_service)
+        return cls(
+            policy_service=SP.policy_service,
+            role_service=SP.role_service
+        )
 
     @property
     def mapping(self) -> Mapping:
@@ -122,6 +126,12 @@ class PolicyHandler(AbstractHandler):
     def delete_policy(self, event: BaseModel, name: str):
         policy = self._policy_service.get_nullable(event.customer_id, name)
         if policy:
+            if roles := self._policy_roles(name, event.customer_id):
+                return build_response(
+                    code=HTTPStatus.CONFLICT,
+                    content=f'Policy {name} cannot be deleted because it is '
+                            f'attached to role(s): {", ".join(roles)}'
+                )
             self._policy_service.delete(policy)
         return build_response(code=HTTPStatus.NO_CONTENT)
 
@@ -131,3 +141,20 @@ class PolicyHandler(AbstractHandler):
     #     customer = event.customer
     #     self._iam_service.clean_policy_cache(customer=customer, name=name)
     #     return build_response(code=HTTPStatus.NO_CONTENT)
+
+    def _policy_roles(self, policy_name: str, customer_id: str) -> list[str]:
+        roles = []
+        next_token = True
+        while next_token:
+            cursor = self._role_service.query(
+                customer_id,
+                limit=25,
+                last_evaluated_key= \
+                    next_token.value if isinstance(next_token,
+                                                   NextToken) else None
+            )
+            roles.extend(
+                [r.name for r in cursor if policy_name in (r.policies or ())]
+            )
+            next_token = NextToken(cursor.last_evaluated_key)
+        return roles

@@ -7,6 +7,7 @@ from helpers.constants import Endpoint, HTTPMethod
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.time_helper import utc_iso
 from services import SP
+from services.clients.cognito import BaseAuthClient
 from services.rbac_service import PolicyService, RoleService
 from validators.swagger_request_models import (
     BaseModel,
@@ -23,14 +24,17 @@ class RoleHandler(AbstractHandler):
     """
 
     def __init__(self, role_service: RoleService, 
-                 policy_service: PolicyService):
+                 policy_service: PolicyService,
+                 user_client: BaseAuthClient):
         self._role_service = role_service
         self._policy_service = policy_service
+        self._user_client = user_client
 
     @classmethod
     def build(cls):
         return cls(role_service=SP.role_service, 
-                   policy_service=SP.policy_service)
+                   policy_service=SP.policy_service,
+                   user_client=SP.users_client)
 
     @property
     def mapping(self) -> Mapping:
@@ -108,8 +112,8 @@ class RoleHandler(AbstractHandler):
             ).exc()
         self.ensure_policies_exist(customer, event.policies_to_attach)
         policies = set(role.policies or [])
-        policies -= event.policies_to_attach
-        policies |= event.policies_to_detach
+        policies |= event.policies_to_attach
+        policies -= event.policies_to_detach
         role.policies = list(policies)
 
         if event.expiration:
@@ -128,6 +132,12 @@ class RoleHandler(AbstractHandler):
     def delete_role(self, event: BaseModel, name: str):
         role = self._role_service.get_nullable(event.customer_id, name)
         if role:
+            if role_users := self._roles_users(name, event.customer_id):
+                return build_response(
+                    code=HTTPStatus.CONFLICT,
+                    content=f'Role {name} cannot be deleted because it is '
+                            f'attached to user(s): {", ".join(role_users)}'
+                )
             self._role_service.delete(role)
         return build_response(code=HTTPStatus.NO_CONTENT)
 
@@ -137,3 +147,19 @@ class RoleHandler(AbstractHandler):
     #     customer = event.customer
     #     self._iam_service.clean_role_cache(customer=customer, name=name)
     #     return build_response(code=HTTPStatus.NO_CONTENT)
+
+    def _roles_users(self, role_name: str, customer_id: str) -> list[str]:
+        users = []
+        next_token = True
+        while next_token:
+            cursor = self._user_client.query_users(
+                customer_id,
+                limit=25,
+                next_token= next_token.value if isinstance(next_token,
+                                                           NextToken) else None
+            )
+            users.extend(
+                [u.username for u in cursor if role_name == u.role]
+            )
+            next_token = NextToken(cursor.next_token)
+        return users
