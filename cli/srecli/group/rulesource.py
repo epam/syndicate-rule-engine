@@ -50,7 +50,8 @@ def describe(ctx: ContextObj, rule_source_id, git_project_id, type, limit,
               type=click.Choice(('GITHUB', 'GITLAB', 'GITHUB_RELEASE')),
               required=False, help='Rule source type')
 @click.option('--git_url', '-gurl', type=str,
-              help=f'Link to GitLab repository with sre rules',
+              help=f'API endpoint of a Git-based platform that hosts the '
+                   f'repository containing the rules',
               show_default=True)
 @click.option('--git_ref', '-gref', type=str, default='main',
               show_default=True, help='Name of the branch to grab rules from')
