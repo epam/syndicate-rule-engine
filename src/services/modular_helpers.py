@@ -393,7 +393,8 @@ class LinkedParentsIterator(Iterator[Parent]):
 
 
 def is_tenant_valid(
-    tenant: Tenant | None = None, customer: str | None = None
+    tenant: Tenant | None = None,
+    customer: str | None = None,
 ) -> bool:
     if not tenant or (
         customer and tenant.customer_name != customer or not tenant.is_active
