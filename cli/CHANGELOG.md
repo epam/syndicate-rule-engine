@@ -8,8 +8,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multiple options' help messages extended with the word `[multiple]`
 - Fixed issue related to CLI and API version comparison
 - Fixed issue with the `detach_policy` parameter alias in the `role update` command
-
-## [5.8.1] - 2025-09-03
 - Add resource management commands to CLI:
   - `ecc resource describe` - Retrieve cloud resources with filtering and pagination
   - Support for retrieving resources by ARN
