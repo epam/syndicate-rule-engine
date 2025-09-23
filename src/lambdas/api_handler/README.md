@@ -79,7 +79,7 @@ This lambda uses the following resources:
 * `batch_job_queue_name`: name of the AWS Batch Job Queue to submit a job to;
 * `reports_bucket_name`: name of the S3 Bucket where the result reports should
   be uploaded;
-* `caas_user_pool_name`: name of the Cognito User Pool to resolve users from;
+* `sre_user_pool_name`: name of the Cognito User Pool to resolve users from;
 * `stats_s3_bucket_name`: name of the bucket to store scan statistics;
 * `job_lifetime_min`: lifetime of the job in minutes. After this time, the job
   will be forcibly stopped;

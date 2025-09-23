@@ -408,7 +408,7 @@ Request paths:
                 "git_access_type": "TOKEN",
                 "git_url": "https://git.epam.com/epmc-sec/cloudlab/cloud_custodian/poc/custodian-epam-cloud",
                 "git_project_id": "102030",
-                "git_access_secret": "sre.3aa91ba4-4d10-4a04-b66f-a88e1f4f5335.2021.08.25.08.43.45.rules_repo_secret"
+                "git_access_secret": "caas.3aa91ba4-4d10-4a04-b66f-a88e1f4f5335.2021.08.25.08.43.45.rules_repo_secret"
             }
         ]
     }
@@ -1418,7 +1418,7 @@ rule sources
 
 #### Env Variables:
 
-* `caas_user_pool_name` - Cognito user pool name for SRE users;
+* `sre_user_pool_name` - Cognito user pool name for SRE users;
 
 
 #### Should have next permission actions:
