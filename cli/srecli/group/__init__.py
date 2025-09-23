@@ -426,6 +426,7 @@ class TablePrinter:
 class ViewCommand(click.core.Command):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._highlight_multiple_options()
         self.params.append(
             click.core.Option(
                 ('--json',),
@@ -450,6 +451,11 @@ class ViewCommand(click.core.Command):
                 hidden=True
             )
         )
+
+    def _highlight_multiple_options(self):
+        for p in self.params:
+            if isinstance(p, click.core.Option) and p.multiple:
+                p.help = f'{p.help} [multiple]'
 
 
 def response(*args, **kwargs):
