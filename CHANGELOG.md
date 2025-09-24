@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed role deletion issue when the role is still attached to user(s)
 - Fixed policy deletion issue when the policy is still attached to role(s)
 - Fixed an issue with updating role policies
-- fix validation for GOOGLE/GCP cloud alias handling in the method `_validate_resource_type`
+- fix validation for GOOGLE/GCP cloud alias in `GET /resources`
 
 ## [5.13.0] - 2025-08-05
 - added endpoints for interacting with resource exceptions: `GET /resources/exceptions`, `GET /resources/exceptions/{id}`, `POST /resources/exceptions`, `PUT /resources/exceptions/{id}`, `DELETE /resources/exceptions/{id}`.
