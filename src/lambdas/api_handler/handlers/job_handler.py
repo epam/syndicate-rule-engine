@@ -612,17 +612,21 @@ class JobHandler(AbstractHandler):
             f'permission to submit a licensed job.'
         )
 
-    def _resolve_regions_to_scan(self,
-        target_regions: set[str], tenant: Tenant
+    def _resolve_regions_to_scan(
+        self,
+        target_regions: set[str],
+        tenant: Tenant
     ) -> set[str]:
         cloud = modular_helpers.tenant_cloud(tenant)
         if cloud == Cloud.AZURE or cloud == Cloud.GOOGLE:
             return {GLOBAL_REGION}  # cannot scan individual regions
-        scan_hidden_setting = self._tss.get(tenant_name=tenant.name,
-                                            key=TS_SCAN_HIDDEN_REGIONS)
+        scan_hidden_setting = self._tss.get(
+            tenant_name=tenant.name, key=TS_SCAN_HIDDEN_REGIONS
+        )
         scan_hidden = bool(
-            scan_hidden_setting.value.as_dict().get(ENABLED) if
-                scan_hidden_setting else False)
+            scan_hidden_setting.value.as_dict().get(ENABLED)
+            if scan_hidden_setting else False
+        )
         _LOG.debug(f'SCAN_HIDDEN_REGIONS is resolved as {scan_hidden}')
         tenant_region = modular_helpers.get_tenant_regions(tenant, scan_hidden)
         missing = target_regions - tenant_region
