@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [5.13.1] - 2025-09-15
+- Added tenant settings key `SCAN_HIDDEN_REGIONS` that enables scanning of hidden regions 
 - Fixed role deletion issue when the role is still attached to user(s)
 - Fixed policy deletion issue when the policy is still attached to role(s)
 - Fixed an issue with updating role policies

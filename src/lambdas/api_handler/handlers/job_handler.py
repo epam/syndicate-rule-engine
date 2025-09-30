@@ -1,6 +1,7 @@
 from datetime import timedelta
 from http import HTTPStatus
 from itertools import chain
+from typing import TYPE_CHECKING
 
 from botocore.exceptions import ClientError
 from modular_sdk.models.tenant import Tenant
@@ -15,7 +16,7 @@ from helpers.constants import (
     HTTPMethod,
     JobState,
     RuleDomain,
-    ScheduledJobType,
+    ScheduledJobType, TS_SCAN_HIDDEN_REGIONS, ENABLED,
 )
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
@@ -48,6 +49,9 @@ from validators.swagger_request_models import (
 )
 from validators.utils import validate_kwargs
 
+if TYPE_CHECKING:
+    from modular_sdk.services.tenant_settings_service import TenantSettingsService
+
 _LOG = get_logger(__name__)
 
 
@@ -66,6 +70,7 @@ class JobHandler(AbstractHandler):
         scheduled_job_service: ScheduledJobService,
         rule_service: RuleService,
         platform_service: PlatformService,
+        tenant_settings_service: 'TenantSettingsService',
     ):
         self._tenant_service = tenant_service
         self._environment_service = environment_service
@@ -79,6 +84,7 @@ class JobHandler(AbstractHandler):
         self._scheduled_job_service = scheduled_job_service
         self._rule_service = rule_service
         self._platform_service = platform_service
+        self._tss = tenant_settings_service
 
         self._tenant_licenses = cache.factory()
 
@@ -97,6 +103,8 @@ class JobHandler(AbstractHandler):
             scheduled_job_service=SERVICE_PROVIDER.scheduled_job_service,
             rule_service=SERVICE_PROVIDER.rule_service,
             platform_service=SERVICE_PROVIDER.platform_service,
+            tenant_settings_service=\
+                SERVICE_PROVIDER.modular_client.tenant_settings_service(),
         )
 
     @property
@@ -604,14 +612,19 @@ class JobHandler(AbstractHandler):
             f'permission to submit a licensed job.'
         )
 
-    @staticmethod
-    def _resolve_regions_to_scan(
+    def _resolve_regions_to_scan(self,
         target_regions: set[str], tenant: Tenant
     ) -> set[str]:
         cloud = modular_helpers.tenant_cloud(tenant)
         if cloud == Cloud.AZURE or cloud == Cloud.GOOGLE:
             return {GLOBAL_REGION}  # cannot scan individual regions
-        tenant_region = modular_helpers.get_tenant_regions(tenant)
+        scan_hidden_setting = self._tss.get(tenant_name=tenant.name,
+                                            key=TS_SCAN_HIDDEN_REGIONS)
+        scan_hidden = bool(
+            scan_hidden_setting.value.as_dict().get(ENABLED) if
+                scan_hidden_setting else False)
+        _LOG.debug(f'SCAN_HIDDEN_REGIONS is resolved as {scan_hidden}')
+        tenant_region = modular_helpers.get_tenant_regions(tenant, scan_hidden)
         missing = target_regions - tenant_region
         if missing:
             raise (

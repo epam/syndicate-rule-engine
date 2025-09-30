@@ -414,7 +414,7 @@ def assert_tenant_valid(
     return cast(Tenant, tenant)
 
 
-def get_tenant_regions(tenant: Tenant) -> set[str]:
+def get_tenant_regions(tenant: Tenant, include_hidden: bool = False) -> set[str]:
     """
     Returns active tenant's regions
     """
@@ -423,7 +423,7 @@ def get_tenant_regions(tenant: Tenant) -> set[str]:
     # regions listed in an active tenant to be active as well. So do we
     regions = set()
     for region in tenant.regions:
-        if bool(region.is_hidden):
+        if bool(region.is_hidden) and not include_hidden:
             continue
         regions.add(region.native_name)
     return regions
