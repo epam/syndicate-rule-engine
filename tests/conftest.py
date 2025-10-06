@@ -247,7 +247,8 @@ def aws_tenant(main_customer: 'Customer') -> 'Tenant':
                 maestro_name='EU_WEST_3',
                 native_name='eu-west-3',
                 cloud='AWS',
-                region_id='4'
+                region_id='4',
+                is_hidden=True
             ),
         ],
     )
@@ -288,6 +289,16 @@ def google_tenant(main_customer: 'Customer') -> 'Tenant':
         activation_date=utc_iso(utc_datetime() - timedelta(days=30)),
     )
 
+
+@pytest.fixture()
+def aws_tenant_settings(aws_tenant):
+    from modular_sdk.models.tenant_settings import TenantSettings
+
+    TenantSettings(
+        tenant_name=aws_tenant.name,
+        key='SCAN_HIDDEN_REGIONS',
+        value={'enabled': True}
+    ).save()
 
 @pytest.fixture
 def k8s_platform(
