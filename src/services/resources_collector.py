@@ -2,7 +2,7 @@ import os
 import time
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
-from typing import Generator
+from typing import Generator, TYPE_CHECKING
 
 from c7n import utils
 from c7n.exceptions import ResourceLimitExceeded
@@ -39,6 +39,9 @@ from services.resources import (
 )
 from services.resources_service import ResourcesService
 from services.sharding import ShardPart
+
+if TYPE_CHECKING:
+    from modular_sdk.services.tenant_settings_service import TenantSettingsService
 
 _LOG = get_logger(__name__)
 
@@ -144,10 +147,12 @@ class CustodianResourceCollector(BaseResourceCollector):
         modular_service: ModularServiceProvider,
         resources_service: ResourcesService,
         license_service: LicenseService,
+        tenant_settings_service: 'TenantSettingsService',
     ):
         self._ms = modular_service
         self._rs = resources_service
         self._ls = license_service
+        self._tss = tenant_settings_service
 
     @classmethod
     def build(cls) -> 'CustodianResourceCollector':
@@ -158,6 +163,8 @@ class CustodianResourceCollector(BaseResourceCollector):
             modular_service=SP.modular_client,
             resources_service=SP.resources_service,
             license_service=SP.license_service,
+            tenant_settings_service=
+            SP.modular_client.tenant_settings_service(),
         )
 
     def load_policies(
@@ -458,7 +465,10 @@ class CustodianResourceCollector(BaseResourceCollector):
         if not tenant:
             raise ValueError(f'Tenant {tenant_name} not found')
         if regions is None:
-            regions = modular_helpers.get_tenant_regions(tenant) | {GLOBAL_REGION}
+            regions = modular_helpers.get_tenant_regions(
+            tenant,
+            self._tss
+            ) | {GLOBAL_REGION}
 
         cloud = modular_helpers.tenant_cloud(tenant)
         credentials = CustodianResourceCollector._get_credentials(tenant)
@@ -515,7 +525,9 @@ class CustodianResourceCollector(BaseResourceCollector):
         it = ActivatedTenantsIterator(mc=self._ms, ls=self._ls)
         for _, tenant, _ in it:
             if regions is None:
-                tenant_regions = modular_helpers.get_tenant_regions(tenant) | {GLOBAL_REGION}
+                tenant_regions = modular_helpers.get_tenant_regions(
+                tenant, self._tss
+                ) | {GLOBAL_REGION}
             else:
                 tenant_regions = regions
             try:

@@ -61,6 +61,7 @@ from services.resource_exception_service import ResourceExceptionsService
 
 if TYPE_CHECKING:
     from services.report_service import AverageStatisticsItem
+    from modular_sdk.services.tenant_settings_service import TenantSettingsService
 
 ReportsGen = Generator[tuple[ReportMetrics, dict], None, None]
 
@@ -273,6 +274,7 @@ class MetricsCollector:
         platform_service: PlatformService,
         resource_service: ResourcesService,
         resource_exception_service: ResourceExceptionsService,
+        tenant_settings_service: 'TenantSettingsService',
     ):
         self._mc = modular_client
         self._ajs = ambiguous_job_service
@@ -283,6 +285,7 @@ class MetricsCollector:
         self._ps = platform_service
         self._res_ser = resource_service
         self._res_exp_ser = resource_exception_service
+        self._tss = tenant_settings_service
 
         self._tenants_cache = {}
         self._platforms_cache = {}
@@ -358,6 +361,8 @@ class MetricsCollector:
             platform_service=SP.platform_service,
             resource_service=SP.resources_service,
             resource_exception_service=SP.resource_exception_service,
+            tenant_settings_service=
+            SP.modular_client.tenant_settings_service(),
         )
 
     @staticmethod
@@ -641,7 +646,10 @@ class MetricsCollector:
 
         licenses = tuple(_licenses_meta)
         disabled = tuple(self._get_tenant_disabled_rules(tenant))
-        active_regions = tuple(modular_helpers.get_tenant_regions(tenant))
+        active_regions = tuple(modular_helpers.get_tenant_regions(
+            tenant,
+            self._tss
+        ))
 
         ls = self._ajs.job_service.get_tenant_last_job_date(tenant.name)
         if not ls:
@@ -1145,7 +1153,7 @@ class MetricsCollector:
             data = {
                 'succeeded_scans': len(tjs),
                 'activated_regions': sorted(
-                    modular_helpers.get_tenant_regions(tenant)
+                    modular_helpers.get_tenant_regions(tenant, self._tss)
                 ),
                 'last_scan_date': lsd,
                 'id': tenant.project,
@@ -1229,7 +1237,7 @@ class MetricsCollector:
                 'id': tenant.project,
                 'last_scan_date': lsd,
                 'activated_regions': sorted(
-                    modular_helpers.get_tenant_regions(tenant)
+                    modular_helpers.get_tenant_regions(tenant, self._tss)
                 ),
                 'data': {
                     'regions': {
@@ -1707,7 +1715,10 @@ class MetricsCollector:
                     'sort_by': (n_unique := sdc.n_unique),
                     'data': {
                         'activated_regions': sorted(
-                            modular_helpers.get_tenant_regions(tenant)
+                            modular_helpers.get_tenant_regions(
+                            tenant,
+                            self._tss
+                            )
                         ),
                         'tenant_name': tenant_name,
                         'last_scan_date': lsd,
@@ -1787,7 +1798,7 @@ class MetricsCollector:
                 clouds_data[cloud.value] = {
                     'last_scan_date': lsd,
                     'activated_regions': sorted(
-                        modular_helpers.get_tenant_regions(tenant)
+                        modular_helpers.get_tenant_regions(tenant, self._tss)
                     ),
                     'tenant_name': tenant.name,
                     'account_id': tenant.project,
@@ -1925,7 +1936,7 @@ class MetricsCollector:
                 clouds_data[cloud.value] = {
                     'last_scan_date': lsd,
                     'activated_regions': sorted(
-                        modular_helpers.get_tenant_regions(tenant)
+                        modular_helpers.get_tenant_regions(tenant, self._tss)
                     ),
                     'tenant_name': tenant.name,
                     'average_data': {
@@ -1999,7 +2010,7 @@ class MetricsCollector:
                     'tenant_display_name': tenant.display_name_to_lower.lower(),
                     'last_scan_date': lsd,
                     'activated_regions': sorted(
-                        modular_helpers.get_tenant_regions(tenant)
+                        modular_helpers.get_tenant_regions(tenant, self._tss)
                     ),
                     'tenant_name': tenant.name,
                     'account_id': tenant.project,
