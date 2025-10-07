@@ -1716,8 +1716,8 @@ class MetricsCollector:
                     'data': {
                         'activated_regions': sorted(
                             modular_helpers.get_tenant_regions(
-                            tenant,
-                            self._tss
+                                tenant,
+                                self._tss,
                             )
                         ),
                         'tenant_name': tenant_name,

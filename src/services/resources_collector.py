@@ -466,8 +466,8 @@ class CustodianResourceCollector(BaseResourceCollector):
             raise ValueError(f'Tenant {tenant_name} not found')
         if regions is None:
             regions = modular_helpers.get_tenant_regions(
-            tenant,
-            self._tss
+                tenant,
+                self._tss,
             ) | {GLOBAL_REGION}
 
         cloud = modular_helpers.tenant_cloud(tenant)
@@ -526,7 +526,8 @@ class CustodianResourceCollector(BaseResourceCollector):
         for _, tenant, _ in it:
             if regions is None:
                 tenant_regions = modular_helpers.get_tenant_regions(
-                tenant, self._tss
+                    tenant,
+                    self._tss,
                 ) | {GLOBAL_REGION}
             else:
                 tenant_regions = regions

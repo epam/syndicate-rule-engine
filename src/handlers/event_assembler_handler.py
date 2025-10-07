@@ -110,8 +110,8 @@ class EventAssemblerHandler:
             environment_service=SERVICE_PROVIDER.environment_service,
             batch_results_service=SERVICE_PROVIDER.batch_results_service,
             batch_client=SERVICE_PROVIDER.batch,
-            tenant_settings_service=
-            SERVICE_PROVIDER.modular_client.tenant_settings_service(),
+            tenant_settings_service=\
+                SERVICE_PROVIDER.modular_client.tenant_settings_service(),
         )
 
     @property
