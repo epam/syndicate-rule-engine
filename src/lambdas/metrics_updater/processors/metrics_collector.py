@@ -361,8 +361,8 @@ class MetricsCollector:
             platform_service=SP.platform_service,
             resource_service=SP.resources_service,
             resource_exception_service=SP.resource_exception_service,
-            tenant_settings_service=
-            SP.modular_client.tenant_settings_service(),
+            tenant_settings_service=\
+                SP.modular_client.tenant_settings_service(),
         )
 
     @staticmethod
