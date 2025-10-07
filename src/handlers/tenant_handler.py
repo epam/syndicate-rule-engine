@@ -196,7 +196,10 @@ class TenantHandler(AbstractHandler):
         if not tenant:
             raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
                 'Tenant not found').exc()
-        if event.region in modular_helpers.get_tenant_regions(tenant):
+        if event.region in modular_helpers.get_tenant_regions(
+            tenant,
+            self._tss
+        ):
             return build_response(
                 code=HTTPStatus.CONFLICT,
                 content=f'Region: {event.region} already active for tenant'

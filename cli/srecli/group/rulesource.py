@@ -84,7 +84,7 @@ def add(ctx: ContextObj, git_project_id, type, git_url, git_ref,
 @build_rule_source_id_option(required=True)
 @click.option('--git_access_secret', '-gsecret', type=str, required=False)
 @click.option('--description', '-d', type=str,
-              help='Human-readable description or the repo')
+              help='Human-readable description of the repo')
 @cli_response(attributes_order=attributes_order)
 def update(ctx: ContextObj, rule_source_id,
            git_access_secret, description, customer_id):

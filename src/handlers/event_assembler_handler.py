@@ -3,7 +3,7 @@ from http import HTTPStatus
 from itertools import chain
 import operator
 import time
-from typing import Generator
+from typing import Generator, TYPE_CHECKING
 
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.tenant_service import TenantService
@@ -39,6 +39,9 @@ from services.license_service import License, LicenseService
 from services.ruleset_service import Ruleset, RulesetService
 from services.setting_service import EVENT_CURSOR_TIMESTAMP_ATTR, SettingsService
 
+if TYPE_CHECKING:
+    from modular_sdk.services.tenant_settings_service import TenantSettingsService
+
 DEFAULT_NOT_FOUND_RESPONSE = 'No events to assemble and process.'
 DEFAULT_UNRESOLVED_RESPONSE = 'Request has run into an unresolvable issue.'
 
@@ -59,7 +62,7 @@ class EventAssemblerHandler:
             environment_service: EnvironmentService,
             batch_results_service: BatchResultsService,
             batch_client: BatchClient,
-
+            tenant_settings_service: 'TenantSettingsService',
     ):
         self._event_service = event_service
         self._event_processor_service = event_processor_service
@@ -70,6 +73,7 @@ class EventAssemblerHandler:
         self._license_service = license_service
         self._batch_results_service = batch_results_service
         self._batch_client = batch_client
+        self._tss = tenant_settings_service
 
         # this cache does not affect user directly, so we can put custom
         # ttl that does not depend on env
@@ -106,6 +110,8 @@ class EventAssemblerHandler:
             environment_service=SERVICE_PROVIDER.environment_service,
             batch_results_service=SERVICE_PROVIDER.batch_results_service,
             batch_client=SERVICE_PROVIDER.batch,
+            tenant_settings_service=\
+                SERVICE_PROVIDER.modular_client.tenant_settings_service(),
         )
 
     @property
@@ -384,8 +390,8 @@ class EventAssemblerHandler:
             limit=1
         ), None)
 
-    @staticmethod
-    def _obtain_tenant_based_region_rule_map(tenant: Tenant,
+    def _obtain_tenant_based_region_rule_map(self,
+                                             tenant: Tenant,
                                              region_rule_map: RegionRuleMap):
         tn = tenant.name
         _LOG.info(f'Going to restrict {list(region_rule_map)} regions, '
@@ -394,7 +400,7 @@ class EventAssemblerHandler:
         # Maestro's regions in tenants have attribute "is_active" ("act").
         # But currently (30.01.2023) they ignore it. They deem all the
         # regions listed in an active tenant to be active as well. So do we
-        active_rg = modular_helpers.get_tenant_regions(tenant)
+        active_rg = modular_helpers.get_tenant_regions(tenant, self._tss)
         for region in region_rule_map:
             if region not in active_rg:
                 _LOG.warning(f'Going to exclude `{region}` region(s) based '

@@ -5,6 +5,7 @@ import pytest
 from modular_sdk.commons.constants import ParentScope, ParentType
 from modular_sdk.models.parent import Parent
 from modular_sdk.services.parent_service import ParentService
+from modular_sdk.services.tenant_settings_service import TenantSettingsService
 
 from services.modular_helpers import (ResolveParentsPayload,
                                       split_into_to_keep_to_delete,
@@ -219,12 +220,13 @@ def test_get_main_scope(parent_factory):
     assert get_main_scope([p8]) == ParentScope.ALL
 
 
-def test_get_tenant_regions(aws_tenant, azure_tenant, google_tenant):
-    assert get_tenant_regions(aws_tenant) == {
+def test_get_tenant_regions(aws_tenant, azure_tenant, google_tenant,
+                            aws_tenant_settings):
+    assert get_tenant_regions(aws_tenant, TenantSettingsService()) == {
         'eu-west-1',
         'eu-central-1',
         'eu-north-1',
         'eu-west-3'
     }
-    assert get_tenant_regions(azure_tenant) == set()
-    assert get_tenant_regions(google_tenant) == set()
+    assert get_tenant_regions(azure_tenant, TenantSettingsService()) == set()
+    assert get_tenant_regions(google_tenant, TenantSettingsService()) == set()
