@@ -39,16 +39,6 @@ def create_resource_exceptions_indexes(db: Database):
         _LOG.info(f'Index {name} does not exist yet')
         collection.create_index([('tf', 1)], name=name, sparse=True)
 
-    name = 'ea_ttl'
-    if name not in indexes:
-        _LOG.info(f'TTL index {name} does not exist yet')
-        collection.create_index(
-            [('ea', 1)],
-            name=name,
-            expireAfterSeconds=0,
-            sparse=True,
-        )
-
 
 class ResourceException(BaseModel):
     class Meta:
