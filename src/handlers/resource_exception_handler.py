@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, UTC
 from http import HTTPStatus
 
 from modular_sdk.models.tenant import Tenant
@@ -217,7 +217,7 @@ class ResourceExceptionHandler(AbstractHandler):
         """
         Get resources with optional filtering and pagination.
         """
-        _LOG.debug('Getting resources')
+        _LOG.debug('Getting resource exceptions')
 
         resource_type = self._validate_resource_exception(
             customer_id=event.customer_id,
@@ -227,6 +227,11 @@ class ResourceExceptionHandler(AbstractHandler):
             arn=event.arn
         )
 
+        now = datetime.now(UTC)
+        if event.include_expired:
+            _LOG.debug('Expired exceptions will be included')
+            now = None
+
         resources_iterator = self._res.get_resources_exceptions(
             resource_id=event.resource_id,
             location=event.location,
@@ -235,6 +240,7 @@ class ResourceExceptionHandler(AbstractHandler):
             customer_name=event.customer_id,
             arn=event.arn,
             tags_filters=event.tags_filters,
+            datetime_filter=now,
             limit=event.limit,
             last_evaluated_key=NextToken.deserialize(event.next_token).value,
         )

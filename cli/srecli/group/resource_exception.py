@@ -32,6 +32,9 @@ def exception():
 @click.option('--tags_filters', '-tf', type=str, multiple=True,
               help='Tag filters to apply to the results '
                    '(e.g., key=value)')
+@click.option('--include_expired', '-ie', is_flag=True,
+              help='Determines whether to include expired exceptions in the '
+                   'results.')
 @build_limit_option()
 @next_option
 @cli_response()
@@ -44,6 +47,7 @@ def describe(
     resource_id: str | None = None,
     arn: str | None = None,
     tags_filters: tuple[str] | None = None,
+    include_expired: bool | None = None,
     limit: int | None = None,
     next_token: str | None = None,
     customer_id: str | None = None,
@@ -68,6 +72,7 @@ def describe(
         resource_id=resource_id,
         arn=arn,
         tags_filters=list(tags_filters) if tags_filters else None,
+        include_expired=include_expired,
         limit=limit,
         next_token=next_token,
         customer_id=customer_id,
