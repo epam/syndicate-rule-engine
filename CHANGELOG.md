@@ -8,10 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [5.14.0] - 2025-10-03
 - Added tenant settings key `SCAN_HIDDEN_REGIONS` that enables scanning of hidden regions
 - Implemented the division of findings by resource for pushing to Defect Dojo
+- Updated `modular-sdk` version to `7.1.3`
 - Fixed role deletion issue when the role is still attached to user(s)
 - Fixed policy deletion issue when the policy is still attached to role(s)
 - Fixed an issue with updating role policies
-- Fix validation for GOOGLE/GCP cloud alias in `GET /resources`
+- Fixed validation for GOOGLE/GCP cloud alias in `GET /resources`
+- Fixed tests for metrics and resources
 
 ## [5.13.0] - 2025-08-05
 - added endpoints for interacting with resource exceptions: `GET /resources/exceptions`, `GET /resources/exceptions/{id}`, `POST /resources/exceptions`, `PUT /resources/exceptions/{id}`, `DELETE /resources/exceptions/{id}`.
