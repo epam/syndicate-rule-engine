@@ -24,6 +24,7 @@ from .commons import (
 if TYPE_CHECKING:
     from modular_sdk.models.customer import Customer
     from modular_sdk.models.tenant import Tenant
+    from modular_sdk.models.tenant_settings import TenantSettings
 
     from services.metadata import Metadata
     from services.platform_service import Platform
@@ -291,14 +292,18 @@ def google_tenant(main_customer: 'Customer') -> 'Tenant':
 
 
 @pytest.fixture()
-def aws_tenant_settings(aws_tenant):
+def aws_tenant_settings(aws_tenant) -> 'TenantSettings':
     from modular_sdk.models.tenant_settings import TenantSettings
 
-    TenantSettings(
+    aws_ts = TenantSettings(
         tenant_name=aws_tenant.name,
         key='SCAN_HIDDEN_REGIONS',
         value={'enabled': True}
-    ).save()
+    )
+
+    aws_ts.save()
+
+    return aws_ts
 
 @pytest.fixture
 def k8s_platform(
