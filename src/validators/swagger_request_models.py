@@ -1,5 +1,6 @@
 # classes for swagger models are not instantiated directly in code.
 # PreparedEvent models are used instead.
+import ast
 from base64 import standard_b64decode
 from datetime import date, datetime, timedelta, timezone
 from typing import Literal, Generator
@@ -207,7 +208,7 @@ class ResourcesExceptionsGetModel(BasePaginationModel):
     def normalize_tags_filters(cls, value):
         """Convert single string to set for single-value query parameters."""
         if isinstance(value, str):
-            return {value}
+            return set(ast.literal_eval(value))
         return value
 
     @field_validator('tags_filters', mode='after')

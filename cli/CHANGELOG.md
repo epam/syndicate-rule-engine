@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.9.1] - 2025-10-13
+- Changed an alias name from `-l` to `-loc` for the `--location` parameter in the command `resource exception describe` because of duplication with the `--limit` parameter alias in the same command
+
 ## [5.9.0] - 2025-09-15
 - Multiple options' help messages extended with the word `[multiple]`
 - Fixed issue related to CLI and API version comparison

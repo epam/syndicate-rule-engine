@@ -22,7 +22,7 @@ def exception():
 @click.option('--resource_type', '-rt', type=str,
               help='Resource type to filter the results '
                    '(e.g., aws.ec2, azure.vm)')
-@click.option('--location', '-l', type=str, required=False,
+@click.option('--location', '-loc', type=str, required=False,
               help='Location/region to filter the results')
 @click.option('--resource_id', '-resid', type=str,
               help='Resource ID to filter the results')

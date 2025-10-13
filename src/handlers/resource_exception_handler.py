@@ -245,9 +245,20 @@ class ResourceExceptionHandler(AbstractHandler):
             last_evaluated_key=NextToken.deserialize(event.next_token).value,
         )
 
+        resources = list(resources_iterator)
+
+        if event.tags_filters:
+            resources = [
+                resource for resource in resources
+                    if resource.tags_filters and all(
+                        tag in resource.tags_filters for tag in event.tags_filters
+                    )
+            ]
+
         resources_exc_dtos = [
-            self._build_resource_exception_dto(resource)
-            for resource in resources_iterator
+            self._build_resource_exception_dto(
+                resource_exc=resource
+            ) for resource in resources
         ]
 
         return (
