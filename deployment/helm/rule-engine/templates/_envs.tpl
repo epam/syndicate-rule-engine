@@ -39,11 +39,11 @@ env:
   - name: MODULAR_SDK_LOG_LEVEL
     value: {{ .Values.modularSdk.logLevel }}
   - name: MODULAR_SDK_VAULT_URL
-    value: "http://{{ .Values.vaultService }}:{{ .Values.vaultPort }}"
+    value: "http://{{ .Values.modularSdk.vaultService }}:{{ .Values.modularSdk.vaultPort }}"
   - name: MODULAR_SDK_VAULT_TOKEN
     valueFrom:
       secretKeyRef:
-        name: vault-secret
+        name: {{ default "vault-secret" .Values.modularSdk.vaultSecretName }}
         key: token
   - name: SRE_SERVICE_MODE
     value: docker
@@ -148,5 +148,7 @@ env:
   {{- if .Values.executorLogsFilename }}
   - name: SRE_EXECUTOR_LOGS_FILENAME
     value: {{ .Values.executorLogsFilename }}
+  - name: SRE_ENABLE_CUSTOM_CC_PLUGINS # TODO Unset if value is empty
+    value: {{ default "" .Values.celery.enableCustomCcPlugins | quote }}
 {{- end }}
 {{- end -}}
