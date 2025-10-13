@@ -23,7 +23,7 @@ dependencies:
     condition: redis.enabled
   - name: modular-service
     repository: "s3://charts-repository/syndicate/"
-    version: "3.3.1"
+    version: "3.3.2"
     condition: modular-service.enabled
   - name: modular-api
     repository: "s3://charts-repository/syndicate/"

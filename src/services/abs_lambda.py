@@ -335,9 +335,12 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
     """
     __slots__ = '_rs', '_ps', '_env'
 
-    def __init__(self, role_service: RoleService,
-                 policy_service: PolicyService,
-                 environment_service: EnvironmentService):
+    def __init__(
+        self,
+        role_service: RoleService,
+        policy_service: PolicyService,
+        environment_service: EnvironmentService,
+    ) -> None:
         self._rs = role_service
         self._ps = policy_service
         self._env = environment_service
@@ -638,6 +641,8 @@ class ApiEventProcessorLambdaHandler(EventProcessorLambdaHandler):
                 body = event['query']
             case _:
                 body = event['body']
+        # EVENT is not a good name for this param (use 'body', 'model' instead)
+        #  params = dict(body=body, **event['path_params'])
         params = dict(event=body, **event['path_params'])
         parameters = inspect.signature(handler).parameters
         if '_pe' in parameters:

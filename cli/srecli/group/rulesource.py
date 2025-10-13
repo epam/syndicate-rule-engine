@@ -50,7 +50,8 @@ def describe(ctx: ContextObj, rule_source_id, git_project_id, type, limit,
               type=click.Choice(('GITHUB', 'GITLAB', 'GITHUB_RELEASE')),
               required=False, help='Rule source type')
 @click.option('--git_url', '-gurl', type=str,
-              help=f'Link to GitLab repository with sre rules',
+              help=f'API endpoint of a Git-based platform that hosts the '
+                   f'repository containing the rules',
               show_default=True)
 @click.option('--git_ref', '-gref', type=str, default='main',
               show_default=True, help='Name of the branch to grab rules from')
@@ -83,7 +84,7 @@ def add(ctx: ContextObj, git_project_id, type, git_url, git_ref,
 @build_rule_source_id_option(required=True)
 @click.option('--git_access_secret', '-gsecret', type=str, required=False)
 @click.option('--description', '-d', type=str,
-              help='Human-readable description or the repo')
+              help='Human-readable description of the repo')
 @cli_response(attributes_order=attributes_order)
 def update(ctx: ContextObj, rule_source_id,
            git_access_secret, description, customer_id):

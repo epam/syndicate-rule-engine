@@ -426,6 +426,7 @@ class TablePrinter:
 class ViewCommand(click.core.Command):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._highlight_multiple_options()
         self.params.append(
             click.core.Option(
                 ('--json',),
@@ -450,6 +451,11 @@ class ViewCommand(click.core.Command):
                 hidden=True
             )
         )
+
+    def _highlight_multiple_options(self):
+        for p in self.params:
+            if isinstance(p, click.core.Option) and p.multiple:
+                p.help = f'{p.help} [multiple]'
 
 
 def response(*args, **kwargs):
@@ -554,6 +560,8 @@ optional_job_type_option = build_job_type_option()
 
 from_date_iso_args = ('--from_date', '-from')
 to_date_iso_args = ('--to_date', '-to')
+exception_expire_at_iso_args = ('--expire_at', '-exp')
+
 from_date_report_option = build_iso_date_option(
     *from_date_iso_args, required=False,
     help='Generate report FROM date.'
@@ -561,6 +569,11 @@ from_date_report_option = build_iso_date_option(
 to_date_report_option = build_iso_date_option(
     *to_date_iso_args, required=False,
     help='Generate report TILL date.'
+)
+exception_expire_at_required_option = build_iso_date_option(
+    *exception_expire_at_iso_args,
+    required=True,
+    help="Date and time when this exception should expire."
 )
 
 limit_option = build_limit_option()

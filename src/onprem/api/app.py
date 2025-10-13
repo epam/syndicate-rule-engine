@@ -227,8 +227,7 @@ class OnPremApiBuilder:
                 'claims': {
                     'cognito:username': decoded_token.get('cognito:username'),
                     'sub': decoded_token.get('sub'),
-                    'custom:customer': decoded_token.get(
-                        'custom:customer'),
+                    'custom:customer': decoded_token.get('custom:customer'),
                     'custom:role': decoded_token.get('custom:role'),
                     'custom:tenants': decoded_token.get('custom:tenants') or ''
                 }

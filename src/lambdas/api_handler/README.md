@@ -1,4 +1,4 @@
-### custodian-api-handler
+### api-handler
 
 This lambda is designed as a handler for all API resources:
 
@@ -79,7 +79,7 @@ This lambda uses the following resources:
 * `batch_job_queue_name`: name of the AWS Batch Job Queue to submit a job to;
 * `reports_bucket_name`: name of the S3 Bucket where the result reports should
   be uploaded;
-* `caas_user_pool_name`: name of the Cognito User Pool to resolve users from;
+* `sre_user_pool_name`: name of the Cognito User Pool to resolve users from;
 * `stats_s3_bucket_name`: name of the bucket to store scan statistics;
 * `job_lifetime_min`: lifetime of the job in minutes. After this time, the job
   will be forcibly stopped;
@@ -339,7 +339,7 @@ There are 7 events lambda accepts as the lambda is a handler for 7 API handler.
         "password": "PASSWORD"
     }
     ```
-    * username: [Required] Name of Custodian user;
+    * username: [Required] Name of SRE user;
     * password: [Required] User's password.
 
    Response body format:

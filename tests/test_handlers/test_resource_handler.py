@@ -169,7 +169,7 @@ def test_validate_event_bad_resource_type(
 
     with pytest.raises(
         SREException,
-        match='Resource type aws.unsupported_resource is not supported for cloud AWS',
+        match='Resource type aws.unsupported_resource is not supported for cloud Cloud.AWS',
     ):
         resource_handler._validate_event(invalid_event_bad_resource_type)
 
@@ -190,7 +190,7 @@ def test_validate_event_bad_location(
 
     with pytest.raises(
         SREException,
-        match='Location invalid-region is not supported for cloud AWS',
+        match='Location invalid-region is not supported for cloud Cloud.AWS',
     ):
         resource_handler._validate_event(invalid_event_bad_location)
 

@@ -1,5 +1,5 @@
 import pytest
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
 from time import time
 from uuid import uuid4
 

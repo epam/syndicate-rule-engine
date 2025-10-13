@@ -38,7 +38,7 @@
     "SRE_REPORTS_BUCKET_NAME": "${reports-bucket}",
     "SRE_RULESETS_BUCKET_NAME": "${caas_rulesets_bucket}",
     "SRE_BATCH_JOB_LOG_LEVEL": "DEBUG",
-    "SRE_USER_POOL_NAME": "${caas_user_pool_name}",
+    "SRE_USER_POOL_NAME": "${sre_user_pool_name}",
     "SRE_SKIP_CLOUD_IDENTIFIER_VALIDATION": "${feature_skip_cloud_identifier_validation}",
     "SRE_BATCH_JOB_LIFETIME_MINUTES": "${job_lifetime_min}",
     "SRE_EB_SERVICE_ROLE_TO_INVOKE_BATCH": "${event-bridge-service-role-to-invoke-batch}",

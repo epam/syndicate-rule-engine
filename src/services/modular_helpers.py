@@ -10,10 +10,12 @@ from modular_sdk.models.parent import Parent
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.parent_service import ParentService
 from modular_sdk.services.tenant_service import TenantService
+from modular_sdk.services.tenant_settings_service import TenantSettingsService
 from typing_extensions import Self
 
 from helpers import MultipleCursorsWithOneLimitIterator
-from helpers.constants import TENANTS_QUERY_THRESHOLD, Cloud
+from helpers.constants import TENANTS_QUERY_THRESHOLD, Cloud, \
+    TS_SCAN_HIDDEN_REGIONS, ENABLED
 from helpers.lambda_response import ResponseFactory
 from helpers.log_helper import get_logger
 
@@ -393,7 +395,8 @@ class LinkedParentsIterator(Iterator[Parent]):
 
 
 def is_tenant_valid(
-    tenant: Tenant | None = None, customer: str | None = None
+    tenant: Tenant | None = None,
+    customer: str | None = None,
 ) -> bool:
     if not tenant or (
         customer and tenant.customer_name != customer or not tenant.is_active
@@ -413,16 +416,24 @@ def assert_tenant_valid(
     return cast(Tenant, tenant)
 
 
-def get_tenant_regions(tenant: Tenant) -> set[str]:
+def get_tenant_regions(tenant: Tenant, tss: TenantSettingsService) -> set[str]:
     """
     Returns active tenant's regions
     """
     # Maestro's regions in tenants have attribute "is_active" ("act").
     # But currently (22.06.2023) they ignore it. They deem all the
     # regions listed in an active tenant to be active as well. So do we
+    scan_hidden_setting = tss.get(
+        tenant_name=tenant.name, key=TS_SCAN_HIDDEN_REGIONS
+    )
+    scan_hidden = bool(
+        scan_hidden_setting.value.as_dict().get(ENABLED)
+        if scan_hidden_setting else False
+    )
+    _LOG.debug(f'SCAN_HIDDEN_REGIONS is resolved as {scan_hidden}')
     regions = set()
     for region in tenant.regions:
-        if bool(region.is_hidden):
+        if bool(region.is_hidden) and not scan_hidden:
             continue
         regions.add(region.native_name)
     return regions
