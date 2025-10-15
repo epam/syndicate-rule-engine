@@ -103,6 +103,7 @@ class ShardsCollectionGenericDojoConvertor(ShardCollectionDojoConvertor):
         cloud: Cloud,
         metadata: Metadata,
         attachment: Literal['json', 'xlsx', 'csv'] | None = None,
+        resource_per_finding: bool = True,
         **kwargs,
     ):
         """
@@ -114,6 +115,7 @@ class ShardsCollectionGenericDojoConvertor(ShardCollectionDojoConvertor):
         """
         super().__init__(cloud, metadata)
         self._attachment = attachment
+        self._rpf = resource_per_finding
 
     @staticmethod
     def _make_table(resources: list[CloudResource]) -> str:
@@ -158,6 +160,17 @@ class ShardsCollectionGenericDojoConvertor(ShardCollectionDojoConvertor):
         # TODO: check and fix null version
         # TODO: add mitre here
         return data.decode('utf-8')
+
+    def _make_attachment(self, resources: list[CloudResource]) -> str | None:
+        match self._attachment:
+            case 'xlsx':
+                return self._make_xlsx_file(resources)
+            case 'json':
+                return self._make_json_file(resources)
+            case 'csv':
+                return self._make_csv_file(resources)
+            case _:
+                return None
 
     @staticmethod
     def _make_json_file(resources: list[CloudResource]) -> str:
@@ -243,52 +256,48 @@ class ShardsCollectionGenericDojoConvertor(ShardCollectionDojoConvertor):
             if service_section := pm2.service_section:
                 tags.append(service_section)
 
-            table = self._make_table(resources)
             description = pm2.article or pm['description']
-            extra = {'description': f'{description}\n{table}'}
-            ts = int(resources[0].sync_date)  # all the same
+            ts = resources[0].sync_date  # all the same
 
-            match self._attachment:
-                case 'xlsx':
-                    extra.update(files=[
-                        {
-                            'title': f'{rule}-{region}-{ts}.xlsx',
-                            'data': self._make_xlsx_file(resources),
-                        }
-                    ])
-                case 'json':
-                    extra.update(files=[
-                        {
-                            'title': f'{rule}-{region}-{ts}.json',
-                            'data': self._make_json_file(resources),
-                        }
-                    ])
-                case 'csv':
-                    extra.update(files=[
-                        {
-                            'title': f'{rule}-{region}-{ts}.csv',
-                            'data': self._make_csv_file(resources),
-                        }
-                    ])
-
-            findings.append(
-                {
+            base = {
                     'title': pm['description']
                     if 'description' in pm
                     else rule,
-                    'date': datetime.fromtimestamp(
-                        resources[0].sync_date, tz=timezone.utc
-                    ).isoformat(),
+                    'date':
+                        datetime.fromtimestamp(ts, tz=timezone.utc).isoformat(),
                     'severity': self.to_dojo_severity(pm2.severity).value,
                     'mitigation': pm2.remediation,
                     'impact': pm2.impact,
                     'references': self._make_references(pm2.standard),
                     'tags': tags,
                     'vuln_id_from_tool': rule,
-                    'service': pm2.service,
-                    **extra,
+                    'service': pm2.service
                 }
-            )
+
+            if self._rpf:
+                for i, resource in enumerate(resources):
+                    table = self._make_table([resource])
+                    extra = {'description': f'{description}\n{table}'}
+                    if attachment := self._make_attachment([resource]):
+                        extra.update(files=[
+                            {
+                                'title': f'{rule}-{region}-{int(ts) + i}.{self._attachment}',
+                                'data': attachment,
+                            }
+                        ])
+                    findings.append({**base, **extra})
+            else:
+                table = self._make_table(resources)
+                extra = {'description': f'{description}\n{table}'}
+                if attachment := self._make_attachment(resources):
+                    extra.update(files=[
+                        {
+                            'title': f'{rule}-{region}-{int(ts)}.{self._attachment}',
+                            'data': attachment,
+                        }
+                    ])
+                findings.append({**base, **extra})
+
         return {'findings': findings}
 
 
@@ -320,7 +329,7 @@ class ShardsCollectionCloudCustodianDojoConvertor(
         self,
         cloud: Cloud,
         metadata: Metadata,
-        resource_per_finding: bool = False,
+        resource_per_finding: bool = True,
         **kwargs,
     ):
         super().__init__(cloud, metadata)
