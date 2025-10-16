@@ -1,4 +1,4 @@
-from datetime import datetime, date, UTC
+from datetime import datetime, date, timezone
 from http import HTTPStatus
 
 from modular_sdk.models.tenant import Tenant
@@ -227,7 +227,7 @@ class ResourceExceptionHandler(AbstractHandler):
             arn=event.arn
         )
 
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         if event.include_expired:
             _LOG.debug('Expired exceptions will be included')
             now = None
