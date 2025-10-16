@@ -201,7 +201,8 @@ class ResourcesExceptionsGetModel(BasePaginationModel):
         examples=[{'tag1=value1', 'tag2=value2'}],
     )
     include_expired: bool = Field(
-        False, description='Include expired exceptions.')
+        False, description='Include expired exceptions.'
+    )
 
     @field_validator('tags_filters', mode='before')
     @classmethod

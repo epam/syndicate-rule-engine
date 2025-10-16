@@ -47,7 +47,7 @@ def describe(
     resource_id: str | None = None,
     arn: str | None = None,
     tags_filters: tuple[str] | None = None,
-    include_expired: bool | None = None,
+    include_expired: bool = False,
     limit: int | None = None,
     next_token: str | None = None,
     customer_id: str | None = None,
