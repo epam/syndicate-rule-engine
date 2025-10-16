@@ -644,7 +644,12 @@ class Version(tuple):
         Raises ValueError
         """
         prepared = re.sub(cls._not_allowed, '', version).strip('.')
-        items = tuple(map(int, prepared.split('.')))
+
+        try:
+            items = tuple(map(int, prepared.split('.')))
+        except ValueError:
+            items = tuple()
+
         match len(items):
             case 3:
                 return items
@@ -654,8 +659,8 @@ class Version(tuple):
                 return items[0], 0, 0
             case _:
                 raise ValueError(
-                    f'Cannot parse. Version must have one '
-                    f'of formats: 1, 2.3, 4.5.6'
+                    f"Cannot parse '{version}'. Version must have one "
+                    "of formats: 1, 2.3, 4.5.6"
                 )
 
     @property
