@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.15.0] - 2025-10-16
 - Added hiding expired resource exceptions
-- Fixed and issue with filtering resource exceptions by `--tags_filters`
+- Fixed an issue with filtering resource exceptions by `--tags_filters`
 
 
 ## [5.14.0] - 2025-10-03
