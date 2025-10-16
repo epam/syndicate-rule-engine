@@ -9,7 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added hiding expired resource exceptions
 - Fixed and issue with filtering resource exceptions by `--tags_filters`
 
+
 ## [5.14.0] - 2025-10-03
+- Updated the ami-initialize.sh script
+  - Updated the ami-initialize.sh script to migrate the Helm APT repository to Buildkite as per the changes detailed in https://helm.sh/blog/debian-helm-repository-move/
+  - Fixed an issue during generate password for Modular
+  - Fixed issue with running patches during initial configuration of Syndicate Rule Engine
 - Added tenant settings key `SCAN_HIDDEN_REGIONS` that enables scanning of hidden regions
 - Implemented the division of findings by resource for pushing to Defect Dojo
 - Updated `modular-sdk` version to `7.1.3`
