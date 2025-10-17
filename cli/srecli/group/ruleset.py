@@ -173,13 +173,13 @@ def delete(ctx: ContextObj, customer_id, name, version):
 @cli_response()
 def release(
     ctx: ContextObj,
-    customer_id: str | None,
     name: str,
     version: str | None,
     display_name: str,
     description: str,
-    overwrite: bool,
-)-> SREResponse:
+    overwrite: bool = False,
+    customer_id: str | None = None,
+) -> SREResponse:
     """
     Released a specific version of ruleset
     """
