@@ -415,6 +415,7 @@ class LMClientAfter3p0(LMClientAfter2p7):
         display_name: str,
         download_url: str,
         rules: list[str],
+        overwrite: bool,
     ) -> tuple[HTTPStatus, str] | None:
         """
         Returns boolean whether the ruleset was released. If None is returned
@@ -431,6 +432,7 @@ class LMClientAfter3p0(LMClientAfter2p7):
                 'display_name': display_name,
                 'download_url': download_url,
                 'rules': rules,
+                'overwrite': overwrite,
             },
             token=self._token_producer.produce(lifetime=15, cached=False),
         )

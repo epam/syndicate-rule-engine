@@ -616,6 +616,11 @@ class RulesetReleasePostModel(BaseModel):
     description: str
     display_name: str
 
+    overwrite: bool = Field(
+        default=False,
+        description='Determines whether to overwrite an existing ruleset version'
+    )
+
     @field_validator('version', mode='after')
     @classmethod
     def validate_version(cls, version: str | None) -> str | None:

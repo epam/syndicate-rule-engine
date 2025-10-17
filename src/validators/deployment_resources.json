@@ -2502,6 +2502,128 @@
           "type": "object"
         }
       },
+      "MultipleResourcesExceptionsModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "items": {
+              "items": {
+                "properties": {
+                  "arn": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Arn"
+                  },
+                  "created_at": {
+                    "title": "Created At",
+                    "type": "number"
+                  },
+                  "customer_name": {
+                    "title": "Customer Name",
+                    "type": "string"
+                  },
+                  "expire_at": {
+                    "title": "Expire At",
+                    "type": "number"
+                  },
+                  "id": {
+                    "title": "Id",
+                    "type": "string"
+                  },
+                  "location": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Location"
+                  },
+                  "resource_id": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Resource Id"
+                  },
+                  "resource_type": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Resource Type"
+                  },
+                  "tags_filters": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Tags Filters"
+                  },
+                  "tenant_name": {
+                    "title": "Tenant Name",
+                    "type": "string"
+                  },
+                  "type": {
+                    "title": "Type",
+                    "type": "string"
+                  },
+                  "updated_at": {
+                    "title": "Updated At",
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "id",
+                  "type",
+                  "resource_id",
+                  "location",
+                  "resource_type",
+                  "arn",
+                  "tags_filters",
+                  "tenant_name",
+                  "customer_name",
+                  "created_at",
+                  "updated_at",
+                  "expire_at"
+                ],
+                "title": "ResourceException",
+                "type": "object"
+              },
+              "title": "Items",
+              "type": "array"
+            }
+          },
+          "required": [
+            "items"
+          ],
+          "title": "MultipleResourcesExceptionsModel",
+          "type": "object"
+        }
+      },
       "MultipleResourcesModel": {
         "content_type": "application/json",
         "schema": {
@@ -3569,7 +3691,11 @@
                   "users:delete",
                   "users:get_caller",
                   "users:reset_password",
-                  "resources:get"
+                  "resources:get",
+                  "resources_exceptions:get",
+                  "resources_exceptions:create",
+                  "resources_exceptions:update",
+                  "resources_exceptions:delete"
                 ],
                 "title": "Permission",
                 "type": "string"
@@ -3703,7 +3829,11 @@
                   "users:delete",
                   "users:get_caller",
                   "users:reset_password",
-                  "resources:get"
+                  "resources:get",
+                  "resources_exceptions:get",
+                  "resources_exceptions:create",
+                  "resources_exceptions:update",
+                  "resources_exceptions:delete"
                 ],
                 "title": "Permission",
                 "type": "string"
@@ -3878,7 +4008,11 @@
                   "users:delete",
                   "users:get_caller",
                   "users:reset_password",
-                  "resources:get"
+                  "resources:get",
+                  "resources_exceptions:get",
+                  "resources_exceptions:create",
+                  "resources_exceptions:update",
+                  "resources_exceptions:delete"
                 ],
                 "title": "Permission",
                 "type": "string"
@@ -4165,6 +4299,109 @@
             }
           },
           "title": "ReportsSendingSettingPostModel",
+          "type": "object"
+        }
+      },
+      "ResourcesExceptionsPostModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "arn": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "ARN for AWS, URN for GOOGLE and ID for AZURE or K8S",
+              "title": "Arn"
+            },
+            "expire_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "format": "date",
+                  "type": "string"
+                }
+              ],
+              "default": "2025-10-18T15:12:46.909639",
+              "description": "Expiration date of the exception",
+              "title": "Expire At"
+            },
+            "location": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Location"
+            },
+            "resource_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Resource Id"
+            },
+            "resource_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Resource Type"
+            },
+            "tags_filters": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "uniqueItems": true
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "List of tags to filter resources by.",
+              "examples": [
+                [
+                  "tag1=value1",
+                  "tag2=value2"
+                ]
+              ],
+              "title": "Tags Filters"
+            },
+            "tenant_name": {
+              "title": "Tenant Name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "tenant_name"
+          ],
+          "title": "ResourcesExceptionsPostModel",
           "type": "object"
         }
       },
@@ -4699,6 +4936,12 @@
             "name": {
               "title": "Name",
               "type": "string"
+            },
+            "overwrite": {
+              "default": false,
+              "description": "Determines whether to overwrite an existing ruleset version",
+              "title": "Overwrite",
+              "type": "boolean"
             },
             "version": {
               "default": null,
@@ -6269,6 +6512,124 @@
             "data"
           ],
           "title": "SingleRabbitMQModel",
+          "type": "object"
+        }
+      },
+      "SingleResourceExceptionModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "data": {
+              "properties": {
+                "arn": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Arn"
+                },
+                "created_at": {
+                  "title": "Created At",
+                  "type": "number"
+                },
+                "customer_name": {
+                  "title": "Customer Name",
+                  "type": "string"
+                },
+                "expire_at": {
+                  "title": "Expire At",
+                  "type": "number"
+                },
+                "id": {
+                  "title": "Id",
+                  "type": "string"
+                },
+                "location": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Location"
+                },
+                "resource_id": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Resource Id"
+                },
+                "resource_type": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Resource Type"
+                },
+                "tags_filters": {
+                  "anyOf": [
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Tags Filters"
+                },
+                "tenant_name": {
+                  "title": "Tenant Name",
+                  "type": "string"
+                },
+                "type": {
+                  "title": "Type",
+                  "type": "string"
+                },
+                "updated_at": {
+                  "title": "Updated At",
+                  "type": "number"
+                }
+              },
+              "required": [
+                "id",
+                "type",
+                "resource_id",
+                "location",
+                "resource_type",
+                "arn",
+                "tags_filters",
+                "tenant_name",
+                "customer_name",
+                "created_at",
+                "updated_at",
+                "expire_at"
+              ],
+              "title": "ResourceException",
+              "type": "object"
+            }
+          },
+          "required": [
+            "data"
+          ],
+          "title": "SingleResourceExceptionModel",
           "type": "object"
         }
       },

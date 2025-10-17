@@ -1,6 +1,7 @@
 import click
 
 from srecli.group import ContextObj, ViewCommand, cli_response
+from srecli.service.adapter_client import SREResponse
 from srecli.service.constants import RULE_CLOUDS
 
 attributes_order = 'name', 'version', 'cloud', 'licensed',
@@ -167,9 +168,18 @@ def delete(ctx: ContextObj, customer_id, name, version):
               help='Ruleset display name')
 @click.option('--description', '-d', type=str, required=True,
               help='Ruleset description')
+@click.option('--overwrite', '-o', is_flag=True,
+              help='Determines whether to overwrite an existing ruleset version')
 @cli_response()
-def release(ctx: ContextObj, customer_id, name, version, display_name,
-            description):
+def release(
+    ctx: ContextObj,
+    name: str,
+    version: str | None,
+    display_name: str,
+    description: str,
+    overwrite: bool = False,
+    customer_id: str | None = None,
+) -> SREResponse:
     """
     Released a specific version of ruleset
     """
@@ -178,5 +188,6 @@ def release(ctx: ContextObj, customer_id, name, version, display_name,
         name=name,
         version=version,
         display_name=display_name,
-        description=description
+        description=description,
+        overwrite=overwrite,
     )
