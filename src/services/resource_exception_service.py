@@ -419,6 +419,7 @@ class ResourceExceptionsService(BaseDataService[ResourceException]):
         customer_name: str | None = None,
         arn: str | None = None,
         tags_filters: list[str] | None = None,
+        datetime_filter: datetime | None = None,
         limit: int | None = None,
         last_evaluated_key: dict | None = None,
     ) -> ResultIterator[ResourceException]:
@@ -442,6 +443,8 @@ class ResourceExceptionsService(BaseDataService[ResourceException]):
         if tags_filters:
             for tag in tags_filters:
                 filter_condition &= ResourceException.tags_filters.contains(tag)
+        if datetime_filter:
+            filter_condition &= ResourceException.expire_at > datetime_filter
 
         kwargs = dict()
         if limit is not None:
