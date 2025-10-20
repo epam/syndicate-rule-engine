@@ -4,7 +4,7 @@
 
 ### What is Syndicate Rule Engine
 
-Syndicate Rule Engine is a serverless service-wrapper over another opensource tool - [Cloud Custodian](https://cloudcustodian.io/). This quickstart guide is written assuming that you are familiar with it. 
+Syndicate Rule Engine is a service-wrapper over another opensource tool - [Cloud Custodian](https://cloudcustodian.io/). This quickstart guide is written assuming that you are familiar with it. 
 
 ### What does Syndicate Rule Engine do?
 
@@ -23,8 +23,8 @@ It allows to manage such repositories, pull rules from them, build rule-sets fro
 ## Architecture
 
 ### AWS infrastructure
-The API of the service is built on AWS Lambdas and API Gateway (or K8s and bottle/gunicorn server). DynamoDB (or MongoDB) is the primary database. Together with S3 (or MinIO) they are used to keep data. 
-AWS Batch (or K8s) is used to perform scans. Here is a superficial diagram:
+The API of the service can be built on AWS Lambdas and API Gateway (or K8s and bottle/gunicorn server). DynamoDB (or MongoDB) is the primary database. Together with S3 (or MinIO) they are used to keep data. 
+AWS Batch (or K8S) is used to perform scans. Here is a superficial diagram:
 
 ![Syndicate Rule Engine](./docs/assets/context_diagram.png)
 
@@ -128,6 +128,8 @@ Of course, SRE can be a standalone installation without a need to have Maestro. 
 
 ## Installation
 
+Currently, the primary installation method is setting up an EC2 instance using the SRE AMI.
+
 Detailed installation guide available in the [installation documentation](./docs/esre01_user_guide.pdf).
 
 ## Configuration
@@ -228,16 +230,30 @@ python main.py env create_user --username $YOUR_CUSTOMER_USER --customer_name $Y
 
 The configuration is finished if SYSTEM customer & user and at least one standard customer & user are created, necessary settings are set.
 
+## CLI Overview
+The SRE CLI is a command-line interface tool that allows users to interact with the Syndicate Rule Engine API.
+
+### SRE CLI Installation
+Before installing the CLI, make sure that the following pre-requisites are met:
+- Python is installed.
+- The SRE repository is cloned to the environment from where you will use the CLI.
+- A virtual environment is created and activated if the CLI needs to be installed in the Python virtual environment. 
+
+To install the CLI run the following command in the terminal:
+```bash
+  pip install <path/to/sre/sli/directory>
+```
+
 ## Usage
 
-To use the tool you must own an API link (received in [Installation](#installation) section) and username & password from your user. You can use the api directly ([link to api documentation](docs/api/README.md)) or use the CLI tool. Here we will demonstrate basic CLI actions.
+To use the tool you must own an API link (received in [Installation](#installation) section) and username & password from your user. You can use the api directly ([link to api documentation](docs/api-resources-documentation.md)) or use the CLI tool. Here we will demonstrate basic CLI actions.
 
 
 ### Initialization
 First, make sure you have `sre` CLI installed:
 ```bash
 $ sre --version
-sre, version 5.8.1
+sre, version X.Y.Z
 ```
 
 Before executing any valuable commands you must configure the tool (specifying a link to the API) and log in using the credentials you've been supplied with. In the case below `$SRE_API_LINK` contains the link to the API, 
@@ -313,7 +329,7 @@ $ sre policy describe --json
 
 ## Licensed flow
 
-License flow is quite simple. You can receive so-called tenant-license-key from the license manager. Then you just need to add this license on SRE side and execute the job for some tenant. 
+License flow is quite simple. You can receive so-called tenant-license-key from the Syndicate License Manager team. Then you just need to add this license on SRE side and execute the job for some tenant. 
 The following commands assume that your tenant license key is in env `$TENANT_LICENSE_KEY` and the license under this key allows some AWS ruleset for tenant `EXAMPLE_TENANT_AWS`. 
 All the keys or IDs that are used in the tutorial are mocked.
 
@@ -580,10 +596,20 @@ $ sre job describe --limit 1
 ```
 If the job has finished its status becomes `SUCCEEDED`. Now you can generate reports the same way as for licensed jobs.
 
-To clean up the resources you need to remove ruleset and rule-source:
+To clean up the rule-sources you need to remove ruleset and rule-source:
 
 ```bash
 $ sre ruleset delete -n HIPAA -v 1
 $ sre ruleset delete -n FULL_AWS -v 1
 $ sre rulesource delete -gpid 94960
 ```
+
+## Uninstallation
+
+- To uninstall the Syndicate Rule Engine installed as an EC2 instance, stop or terminate the instance.
+- To uninstall the Syndicate Rule Engine deployed in SaaS mode using AWS-Syndicate, run the following command:
+    ```bash
+    syndicate clean
+    ```
+- In case of alternative deployment, use an appropriate deinstallation flow.
+
