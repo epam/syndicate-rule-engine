@@ -1,6 +1,7 @@
 from collections import defaultdict
 from datetime import datetime
 from typing import Generator, TYPE_CHECKING
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import msgspec
 import requests
@@ -128,37 +129,69 @@ class DojoV2Client:
         auto_create_context: bool = True,
         tags: list[str] | None = None,
         reimport: bool = True,
+        concurrency: int = 5,
+        request_timeout: int | None = 60,
     ) -> tuple[dict[str, int], list]:
+
         result = defaultdict(int)
         failure_codes = []
-        for i, buf in self._iter_files(data):
-            if i is not None:
-                tt = f'{test_title}-{i}'
-            else:
-                tt = f'{test_title}'
 
-            resp = self._request(
-                path='/reimport-scan/' if reimport else '/import-scan/',
-                method=HTTPMethod.POST,
-                data={
-                    'product_type_name': product_type_name,
-                    'product_name': product_name,
-                    'engagement_name': engagement_name,
-                    'test_title': tt,
-                    'auto_create_context': auto_create_context,
-                    'tags': tags or [],
-                    'scan_type': scan_type,
-                    'scan_date': scan_date.date().isoformat(),
-                },
-                files={'file': ('report.json', buf)},
+        def _do_upload(tt: str, buf: bytes):
+            path = '/reimport-scan/' if reimport else '/import-scan/'
+            _LOG.info(
+                f'Making dojo request {HTTPMethod.POST.value} {path} '
+                f'(test_title={tt})'
             )
+            try:
+                # Using a per-call Session to avoid thread-safety issues
+                with requests.Session() as s:
+                    s.headers.update(self._session.headers)
+                    resp = s.request(
+                        method=HTTPMethod.POST.value,
+                        url=self._url + path,
+                        data={
+                            'product_type_name': product_type_name,
+                            'product_name': product_name,
+                            'engagement_name': engagement_name,
+                            'test_title': tt,
+                            'auto_create_context': auto_create_context,
+                            'tags': tags or [],
+                            'scan_type': scan_type,
+                            'scan_date': scan_date.date().isoformat(),
+                        },
+                        files={
+                            'file': ('report.json', buf, 'application/json')},
+                        timeout=request_timeout,
+                    )
+                    _LOG.info(
+                        f'Response status code: {resp.status_code} '
+                        f'(test_title={tt})')
+                    _LOG.debug(f'Response body: {resp.text}')
+                    return resp
+            except requests.RequestException:
+                _LOG.exception(
+                    f'Error occurred making request to dojo (test_title={tt})'
+                )
 
-            if resp is None or not resp.ok:
-                _LOG.warning(f'Error occurred. Resp: {self._load_json(resp)}')
-                result['failure'] += 1
-                failure_codes.append(getattr(resp, 'status_code', None))
-            else:
-                result['success'] += 1
+        futures = []
+        with ThreadPoolExecutor(
+            max_workers=max(1, int(concurrency))) as executor:
+            for i, buf in self._iter_files(data):
+                tt = f'{test_title}-{i}' if i is not None else f'{test_title}'
+                # detach the mutable bytearray immediately to avoid reuse issues
+                futures.append(
+                    executor.submit(_do_upload, tt, bytes(buf))
+                )
+
+            for fut in as_completed(futures):
+                resp = fut.result()
+                if resp is None or not getattr(resp, 'ok', False):
+                    _LOG.warning(
+                        f'Error occurred. Resp: {self._load_json(resp)}')
+                    result['failure'] += 1
+                    failure_codes.append(getattr(resp, 'status_code', None))
+                else:
+                    result['success'] += 1
 
         return result, failure_codes
 
