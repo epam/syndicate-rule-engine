@@ -130,7 +130,6 @@ class DojoV2Client:
         tags: list[str] | None = None,
         reimport: bool = True,
         concurrency: int = 5,
-        request_timeout: int | None = 60,
     ) -> tuple[dict[str, int], list]:
 
         result = defaultdict(int)
@@ -161,7 +160,6 @@ class DojoV2Client:
                         },
                         files={
                             'file': ('report.json', buf, 'application/json')},
-                        timeout=request_timeout,
                     )
                     _LOG.info(
                         f'Response status code: {resp.status_code} '
