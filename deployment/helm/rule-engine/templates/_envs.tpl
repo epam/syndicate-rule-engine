@@ -91,6 +91,8 @@ env:
     value: {{ .Values.logLevel }}
   - name: SRE_GUNICORN_WORKERS
     value: {{ .Values.workers | quote}}
+  - name: SRE_GUNICORN_WORKERS_TIMEOUT
+    value: {{ .Values.workers_timeout | quote}}
   {{- if .Values.metricsExpirationDays }}
   - name: SRE_METRICS_EXPIRATION_DAYS
     value: {{ .Values.metricsExpirationDays | quote }}

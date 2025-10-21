@@ -2,6 +2,7 @@ databaseName: syndicate_rule_engine
 mongoUri:
 innerCacheTTLSeconds: '300'
 workers: 2
+workers_timeout: 60
 memoryLimit: 768Mi
 memoryRequest: 128Mi
 
@@ -12,7 +13,7 @@ service:
 
 image:
   repository: public.ecr.aws/x4s4z8e1/syndicate/rule-engine
-  tag: 5.14.0
+  tag: 5.15.0
   pullPolicy: Always
 
 replicas: 1
