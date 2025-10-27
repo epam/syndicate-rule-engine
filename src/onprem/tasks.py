@@ -1,4 +1,4 @@
-from executor.job import task_scheduled_job, task_standard_job
+from executor.job import task_scheduled_job, task_standard_job, upload_to_dojo
 from helpers import RequestContext
 from helpers.constants import Env
 from lambdas.license_updater.handler import LicenseUpdater
@@ -73,3 +73,10 @@ def delete_expired_metrics():
 @app.task
 def collect_resources():
     CustodianResourceCollector.build().collect_all_resources()
+
+
+@app.task
+def push_to_dojo(job_ids: list[str] | str):
+    if isinstance(job_ids, str):
+        job_ids = [job_ids]
+    upload_to_dojo(job_ids)

@@ -709,7 +709,7 @@ class JobHandler(AbstractHandler):
 
         return build_response(
             code=HTTPStatus.ACCEPTED,
-            content=f"The job with id '{job.id}' will is terminated",
+            content=f"The job with id '{job.id}' will be terminated",
         )
 
     @validate_kwargs
