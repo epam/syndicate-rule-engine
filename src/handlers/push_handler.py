@@ -12,6 +12,7 @@ from helpers.constants import Cloud, Endpoint, HTTPMethod, JobState
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime
+from onprem.tasks import push_to_dojo
 from services import SP, modular_helpers
 from services.ambiguous_job_service import AmbiguousJob, AmbiguousJobService
 from services.chronicle_service import (
@@ -182,7 +183,11 @@ class SiemPushHandler(AbstractHandler):
         )
 
     @validate_kwargs
-    def push_dojo_by_job_id(self, event: ReportPushByJobIdModel, job_id: str):
+    def push_dojo_by_job_id(
+        self,
+        event: ReportPushByJobIdModel,
+        job_id: str,
+    ):
         job = self._ambiguous_job_service.get_job(
             job_id=job_id, typ=event.type, customer=event.customer
         )
@@ -209,70 +214,12 @@ class SiemPushHandler(AbstractHandler):
                 .exc()
             )
 
-        client = DojoV2Client(
-            url=dojo.url, api_key=self._dds.get_api_key(dojo)
+        push_to_dojo.apply_async((job_id,), countdown=3)
+
+        return build_response(
+            code=HTTPStatus.ACCEPTED,
+            content=f'Job {job_id} has been submitted for upload to DefectDojo',
         )
-
-        platform = None
-        if job.is_platform_job:
-            platform = self._platform_service.get_nullable(job.platform_id)
-            if not platform:
-                return build_response(
-                    content='Job platform not found', code=HTTPStatus.NOT_FOUND
-                )
-            collection = self._rs.platform_job_collection(platform, job.job)
-            collection.meta = self._rs.fetch_meta(platform)
-            cloud = Cloud.KUBERNETES
-        else:
-            collection = self._rs.ambiguous_job_collection(tenant, job)
-            collection.meta = self._rs.fetch_meta(tenant)
-            cloud = tenant_cloud(tenant)
-        collection.fetch_all()
-        metadata = self._ls.get_customer_metadata(tenant.customer_name)
-
-        configuration = configuration.substitute_fields(job, platform)
-        code, message = self._push_dojo(
-            client=client,
-            configuration=configuration,
-            job=job,
-            collection=collection,
-            metadata=metadata,
-            cloud=cloud,
-        )
-        match code:
-            case HTTPStatus.OK:
-                return build_response(
-                    self.get_dojo_dto(job, dojo, configuration)
-                )
-            case _:
-                return build_response(
-                    content=message, code=HTTPStatus.SERVICE_UNAVAILABLE
-                )
-
-    @staticmethod
-    def get_dojo_dto(
-        job: AmbiguousJob,
-        dojo: DefectDojoConfiguration,
-        configuration: DefectDojoParentMeta,
-        error: str | None = None,
-    ) -> dict:
-        data = {
-            'job_id': job.id,
-            'scan_type': configuration.scan_type,
-            'product_type_name': configuration.product_type,
-            'product_name': configuration.product,
-            'engagement_name': configuration.engagement,
-            'test_title': configuration.test,
-            'attachment': configuration.attachment,
-            'tenant_name': job.tenant_name,
-            'dojo_integration_id': dojo.id,
-            'success': not error,
-        }
-        if job.is_platform_job:
-            data['platform_id'] = job.platform_id
-        if error:
-            data['error'] = error
-        return data
 
     @staticmethod
     def get_chronicle_dto(
@@ -295,7 +242,10 @@ class SiemPushHandler(AbstractHandler):
         return data
 
     @validate_kwargs
-    def push_dojo_multiple_jobs(self, event: ReportPushMultipleModel):
+    def push_dojo_multiple_jobs(
+        self,
+        event: ReportPushMultipleModel,
+    ):
         tenant = self._modular_client.tenant_service().get(event.tenant_name)
         tenant = modular_helpers.assert_tenant_valid(tenant, event.customer)
 
@@ -310,9 +260,6 @@ class SiemPushHandler(AbstractHandler):
                 )
                 .exc()
             )
-        client = DojoV2Client(
-            url=dojo.url, api_key=self._dds.get_api_key(dojo)
-        )
 
         jobs = self._ambiguous_job_service.get_by_tenant_name(
             tenant_name=tenant.name,
@@ -321,67 +268,19 @@ class SiemPushHandler(AbstractHandler):
             start=event.start_iso,
             end=event.end_iso,
         )
-
-        tenant_meta = self._rs.fetch_meta(tenant)
-        metadata = self._ls.get_customer_metadata(tenant.customer_name)
-        responses = []
-        platforms = {}  # cache locally platform_id to platform and meta
-        for job in self._ambiguous_job_service.to_ambiguous(jobs):
-            platform = None
-            match job.is_platform_job:
-                case True:
-                    # A bit of devilish logic because we need to handle both
-                    # tenant and platforms in one endpoint. I think it will
-                    # be split into two endpoints
-                    pid = job.platform_id
-                    if pid not in platforms:
-                        platform = self._platform_service.get_nullable(pid)
-                        meta = {}
-                        if platform:
-                            meta = self._rs.fetch_meta(platform)
-                        platforms[pid] = (
-                            self._platform_service.get_nullable(pid),
-                            meta,
-                        )
-                    platform, meta = platforms[pid]
-                    if not platform:
-                        continue
-                    collection = self._rs.platform_job_collection(
-                        platform, job.job
-                    )
-                    collection.meta = meta
-                    cloud = Cloud.KUBERNETES
-                case _:  # only False can be, but underscore for linter
-                    collection = self._rs.ambiguous_job_collection(tenant, job)
-                    collection.meta = tenant_meta
-                    cloud = tenant_cloud(tenant)
-            collection.fetch_all()
-
-            _configuration = configuration.substitute_fields(
-                job=job, platform=platform
+        job_ids = [job.id for job in jobs]
+        if not job_ids:
+            return build_response(
+                content='No succeeded jobs found',
+                code=HTTPStatus.NOT_FOUND,
             )
-            code, message = self._push_dojo(
-                client=client,
-                configuration=_configuration,
-                job=job,
-                collection=collection,
-                metadata=metadata,
-                cloud=cloud,
-            )
-            match code:
-                case HTTPStatus.OK:
-                    resp = self.get_dojo_dto(
-                        job=job, dojo=dojo, configuration=_configuration
-                    )
-                case _:
-                    resp = self.get_dojo_dto(
-                        job=job,
-                        dojo=dojo,
-                        configuration=_configuration,
-                        error=message,
-                    )
-            responses.append(resp)
-        return build_response(responses)
+
+        push_to_dojo.apply_async((job_ids,), countdown=3)
+
+        return build_response(
+            code=HTTPStatus.ACCEPTED,
+            content=f'Jobs: {job_ids} submitted for loading to DefectDojo',
+        )
 
     @validate_kwargs
     def push_chronicle_by_job_id(
