@@ -218,7 +218,7 @@ class SiemPushHandler(AbstractHandler):
 
         return build_response(
             code=HTTPStatus.ACCEPTED,
-            content=f'Job {job_id} has been submitted for upload to DefectDojo'
+            content=f'Job {job_id} has been submitted for upload to DefectDojo',
         )
 
     @staticmethod
@@ -279,7 +279,7 @@ class SiemPushHandler(AbstractHandler):
 
         return build_response(
             code=HTTPStatus.ACCEPTED,
-            content=f'Jobs: {job_ids} submitted for loading to DefectDojo'
+            content=f'Jobs: {job_ids} submitted for loading to DefectDojo',
         )
 
     @validate_kwargs

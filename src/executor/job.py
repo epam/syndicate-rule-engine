@@ -910,8 +910,9 @@ def upload_to_dojo(job_ids: Iterable[str]):
                 _LOG.warning('Job platform not found. Skipping upload to dojo')
                 continue
             collection = _rs.platform_job_collection(
-                platform,
-                job.job)
+                platform=platform,
+                job=job.job,
+            )
             collection.meta = _rs.fetch_meta(platform)
             cloud = Cloud.KUBERNETES
         else:
@@ -922,9 +923,7 @@ def upload_to_dojo(job_ids: Iterable[str]):
         collection.fetch_all()
         metadata = _ls.get_customer_metadata(tenant.customer_name)
 
-        for dojo, configuration in _is.get_dojo_adapters(
-            tenant
-        ):
+        for dojo, configuration in _is.get_dojo_adapters(tenant):
             configuration = configuration.substitute_fields(job, platform)
             client = DojoV2Client(
                 url=dojo.url,
