@@ -104,50 +104,6 @@ class SiemPushHandler(AbstractHandler):
     def ps(self) -> ParentService:
         return self._modular_client.parent_service()
 
-    def _push_dojo(
-        self,
-        client: DojoV2Client,
-        configuration: DefectDojoParentMeta,
-        job: AmbiguousJob,
-        collection: ShardsCollection,
-        metadata: Metadata,
-        cloud: Cloud,
-    ) -> tuple[HTTPStatus, str]:
-        """
-        All data is provided, just push
-        :param client:
-        :param configuration:
-        :param job:
-        :param collection:
-        :return: return human-readable code and message
-        """
-        convertor = ShardCollectionDojoConvertor.from_scan_type(
-            configuration.scan_type,
-            cloud,
-            metadata,
-            attachment=configuration.attachment,
-        )
-        resp_result, codes = client.import_scan(
-            scan_type=configuration.scan_type,
-            scan_date=utc_datetime(job.stopped_at),
-            product_type_name=configuration.product_type,
-            product_name=configuration.product,
-            engagement_name=configuration.engagement,
-            test_title=configuration.test,
-            data=convertor.convert(collection),
-            tags=self._integration_service.job_tags_dojo(job),
-        )
-        if 'failure' not in resp_result:
-            return HTTPStatus.OK, f'Pushed {resp_result["success"]} batches'
-        else:
-            return (
-                HTTPStatus.SERVICE_UNAVAILABLE,
-                'Error occurred during pushing reports. '\
-                f'Successful batches: {resp_result["success"]}. '\
-                f'Unsuccessful batches: {resp_result["failure"]}. '\
-                f'Failure codes: {codes}'
-            )
-
     @staticmethod
     def _push_chronicle(
         client: ChronicleV2Client,
