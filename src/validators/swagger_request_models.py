@@ -54,7 +54,7 @@ class BaseModel(PydanticBaseModel):
         coerce_numbers_to_str=True, populate_by_name=True
     )
     customer_id: SkipJsonSchema[str] = Field(
-        None,
+        default=None,
         alias='customer',
         description='Special parameter. Allows to perform actions on behalf '
         'on the specified customer. This can be allowed only '

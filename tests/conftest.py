@@ -24,6 +24,7 @@ from .commons import (
 if TYPE_CHECKING:
     from modular_sdk.models.customer import Customer
     from modular_sdk.models.tenant import Tenant
+    from modular_sdk.models.tenant_settings import TenantSettings
 
     from services.metadata import Metadata
     from services.platform_service import Platform
@@ -247,7 +248,8 @@ def aws_tenant(main_customer: 'Customer') -> 'Tenant':
                 maestro_name='EU_WEST_3',
                 native_name='eu-west-3',
                 cloud='AWS',
-                region_id='4'
+                region_id='4',
+                is_hidden=True
             ),
         ],
     )
@@ -288,6 +290,20 @@ def google_tenant(main_customer: 'Customer') -> 'Tenant':
         activation_date=utc_iso(utc_datetime() - timedelta(days=30)),
     )
 
+
+@pytest.fixture()
+def aws_tenant_settings(aws_tenant) -> 'TenantSettings':
+    from modular_sdk.models.tenant_settings import TenantSettings
+
+    aws_ts = TenantSettings(
+        tenant_name=aws_tenant.name,
+        key='SCAN_HIDDEN_REGIONS',
+        value={'enabled': True}
+    )
+
+    aws_ts.save()
+
+    return aws_ts
 
 @pytest.fixture
 def k8s_platform(

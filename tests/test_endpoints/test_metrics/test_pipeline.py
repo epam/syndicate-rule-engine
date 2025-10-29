@@ -271,6 +271,7 @@ def test_metrics_update_operational_project(
     k8s_platform,
     main_customer,
     set_license_metadata,
+    aws_tenant_settings,
 ):
     set_license_metadata('metrics_metadata')
     # resp = sre_client.request(
@@ -458,6 +459,7 @@ def test_metrics_update_department_c_level(
     main_customer,
     utcnow,
     set_license_metadata,
+    aws_tenant_settings,
 ):
     set_license_metadata('metrics_metadata')
     future_date = utcnow + relativedelta(months=+1)

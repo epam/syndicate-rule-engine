@@ -23,7 +23,7 @@
     "SRE_RULESETS_BUCKET_NAME": "${caas_rulesets_bucket}",
     "SRE_REPORTS_BUCKET_NAME": "${reports-bucket}",
     "SRE_STATISTICS_BUCKET_NAME": "${stats_s3_bucket_name}",
-    "SRE_USER_POOL_NAME": "${caas_user_pool_name}",
+    "SRE_USER_POOL_NAME": "${sre_user_pool_name}",
     "modular_assume_role_arn": "${modular_assume_role_arn}",
     "MODULAR_AWS_REGION": "${MODULAR_AWS_REGION}"
   },
