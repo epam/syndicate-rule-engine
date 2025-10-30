@@ -220,7 +220,7 @@ When an instance is launched from AMI one tenant is created automatically. Its d
 
 ### 3.4.1 Activating Tenants linked to cloud accounts
 
-If you want to scan an account other than the one where the EPAM Syndicate Rule Engine instance is launched, you must do three configuration steps:
+If you want to scan an account other than the one where the EPAM Syndicate Rule Engine instance is launched, you must do the next configuration steps:
 
 **1. Create a tenant entity that represents the account you want to scan:**
 
@@ -240,18 +240,17 @@ syndicate admin tenant regions activate --tenant_name MY_OTHER_ACCOUNT --region_
 > **Note:** Access keys can be provided individually for each scan which is definitely the case, but it's somewhat inconvenient:
 
 ```console
-syndicate re job submit_aws --tenant_name CURRENT_ACCOUNT --access_key $AWS_ACCESS_KEY_ID --secret_key $AWS_SECRET_ACCESS_KEY --session_token $AWS_SESSION_TOKEN --region eu-west-1
+syndicate admin application create_aws_credentials --access_key $AWS_ACCESS_KEY_ID --secret_key $AWS_SECRET_ACCESS_KEY --session_token $AWS_SESSION_TOKEN --description
 ```
 
 You can configure an AWS role or, for instance, AZURE Certificate to be used for scanning multiple times. To do this, you must create a so-called Application entity and then bound it to some tenants. Let's take a look at an AWS Role example.
 
-**1. Create an application:**
 
 ```console
 syndicate admin application create_aws_role --role_name rule-engine-scanner --account_id 111111111111 --description "Generic role for AWS tenants"
 ```
 
-**2. Link the application to ALL the tenants**
+**4. Link the application to ALL the tenants**
 
 ```console
 syndicate re tenant credentials link --application_id <application id received from command above> --all_tenants
@@ -360,7 +359,7 @@ The `reason` can be one of these:
 - **`Could not resolve any credentials`**: the executor cannot find cloud credentials to use during the scan. In case you are going to scan the same account where the instance is running you can create an EC2 Instance profile role and attach it to the instance. If you are going to scan another account you can provide temp credentials to CLI commands:
 
 ```console
-syndicate re job submit_aws ... --access_key $AWS_ACCESS_KEY_ID --secret_key $AWS_SECRET_ACCESS_KEY --session_token $AWS_SESSION_TOKEN
+syndicate re job submit ... --access_key $AWS_ACCESS_KEY_ID --secret_key $AWS_SECRET_ACCESS_KEY --session_token $AWS_SESSION_TOKEN
 ``` 
 > **Note:** Also, you can configure AWS role, etc. using `syndicate admin` commands.
 
