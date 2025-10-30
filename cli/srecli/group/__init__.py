@@ -380,7 +380,7 @@ class TablePrinter:
                     # if it is a naive object
                     obj.replace(tzinfo=timezone.utc)
                     return obj.astimezone().strftime(self._datetime_format)
-                except ValueError:
+                except (ValueError, OSError):
                     return value
             case _:  # bool, int
                 return str(value)

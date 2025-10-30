@@ -8,19 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed an alias name from `-l` to `-loc` for the `--location` parameter in the command `resource exception describe` because of duplication with the `--limit` parameter alias in the same command
 - Added the flag `--include_expired` to the command `resource exception describe` to allow retrieving expired resource exceptions
 - Added the `--overwrite` flag to the `ruleset release` command, enabling overwriting of an existing ruleset version
+- Fixed an issue with formatting datetime for `sre setting lm config describe` command
 
 ## [5.9.0] - 2025-09-15
 - Multiple options' help messages extended with the word `[multiple]`
 - Fixed issue related to CLI and API version comparison
 - Fixed issue with the `detach_policy` parameter alias in the `role update` command
 - Add resource management commands to CLI:
-  - `ecc resource describe` - Retrieve cloud resources with filtering and pagination
+  - `sre resource describe` - Retrieve cloud resources with filtering and pagination
   - Support for retrieving resources by ARN
 - Add resource exception management commands to CLI
-  - `ecc resource exception describe` - List resource exceptions with filtering
-  - `ecc resource exception add` - Create new resource exceptions (resource-specific, ARN-based, or tag-based)
-  - `ecc resource exception update` - Update existing resource exceptions
-  - `ecc resource exception delete` - Delete resource exceptions
+  - `sre resource exception describe` - List resource exceptions with filtering
+  - `sre resource exception add` - Create new resource exceptions (resource-specific, ARN-based, or tag-based)
+  - `sre resource exception update` - Update existing resource exceptions
+  - `sre resource exception delete` - Delete resource exceptions
 
 ## [5.8.0] - 2025-08-15
 - renamed `Custodian` to `Syndicate Rule Engine (SRE)`
