@@ -1666,15 +1666,15 @@ def run_standard_job(ctx: JobExecutionContext):
         failed.update(pair[1])
 
     if cloud is Cloud.GOOGLE and (
-        filename := credentials.get(ENV_GOOGLE_APPLICATION_CREDENTIALS)
+        filename := os.environ.get(ENV_GOOGLE_APPLICATION_CREDENTIALS)
     ):
         Path(filename).unlink(missing_ok=True)
     if cloud is Cloud.AZURE and (
-        filename := credentials.get(ENV_AZURE_CLIENT_CERTIFICATE_PATH)
+        filename := os.environ.get(ENV_AZURE_CLIENT_CERTIFICATE_PATH)
     ):
         Path(filename).unlink(missing_ok=True)
     if cloud is Cloud.KUBERNETES and (
-        filename := credentials.get(ENV_KUBECONFIG)
+        filename := os.environ.get(ENV_KUBECONFIG)
     ):
         Path(filename).unlink(missing_ok=True)
     ctx.add_warnings(*warnings)
