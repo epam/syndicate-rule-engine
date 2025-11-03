@@ -1315,7 +1315,10 @@ def job_initializer(
 
 
 def process_job_concurrent(
-    items: list[PolicyDict], work_dir: Path, cloud: Cloud, region: str
+    items: list[PolicyDict],
+    work_dir: Path,
+    cloud: Cloud,
+    region: str,
 ) -> tuple[int, dict | None]:
     """
     Cloud Custodian keeps consuming RAM for some reason. After 9th-10th region
@@ -1352,6 +1355,25 @@ def process_job_concurrent(
     runner = Runner.factory(cloud, policies)
     runner.start()
     _LOG.info('Runner has finished')
+
+    if cloud is Cloud.GOOGLE and (
+        filename := os.environ.get(ENV_GOOGLE_APPLICATION_CREDENTIALS)
+    ):
+        _LOG.debug(f'Removing temporary google credentials file {filename}')
+        Path(filename).unlink(missing_ok=True)
+
+    if cloud is Cloud.AZURE and (
+        filename := os.environ.get(ENV_AZURE_CLIENT_CERTIFICATE_PATH)
+    ):
+        _LOG.debug(f'Removing temporary azure certificate file {filename}')
+        Path(filename).unlink(missing_ok=True)
+
+    if cloud is Cloud.KUBERNETES and (
+        filename := os.environ.get(ENV_KUBECONFIG)
+    ):
+        _LOG.debug(f'Removing temporary kubeconfig file {filename}')
+        Path(filename).unlink(missing_ok=True)
+
     return runner.n_successful, runner.failed
 
 
@@ -1668,18 +1690,6 @@ def run_standard_job(ctx: JobExecutionContext):
             warnings.append(w)
         failed.update(pair[1])
 
-    if cloud is Cloud.GOOGLE and (
-        filename := os.environ.get(ENV_GOOGLE_APPLICATION_CREDENTIALS)
-    ):
-        Path(filename).unlink(missing_ok=True)
-    if cloud is Cloud.AZURE and (
-        filename := os.environ.get(ENV_AZURE_CLIENT_CERTIFICATE_PATH)
-    ):
-        Path(filename).unlink(missing_ok=True)
-    if cloud is Cloud.KUBERNETES and (
-        filename := os.environ.get(ENV_KUBECONFIG)
-    ):
-        Path(filename).unlink(missing_ok=True)
     ctx.add_warnings(*warnings)
     del warnings
     del credentials
