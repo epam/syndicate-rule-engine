@@ -1034,7 +1034,10 @@ def get_job_credentials(job: Job | BatchResults, cloud: Cloud) -> dict | None:
     if creds is None:
         return
     if cloud is Cloud.GOOGLE:
-        creds = BSP.credentials_service.google_credentials_to_file(creds)
+        # creds = BSP.credentials_service.google_credentials_to_file(creds)
+        return {
+            ENV_GOOGLE_APPLICATION_CREDENTIALS: creds,
+        }
     return creds
 
 
@@ -1042,6 +1045,7 @@ def get_platform_credentials(job: Job, platform: Platform) -> dict | None:
     """
     Credentials for platform (k8s) only. This should be refactored somehow.
     Raises ExecutorException if not credentials are found
+    :param job:
     :param platform:
     :return:
     """
@@ -1074,11 +1078,11 @@ def get_platform_credentials(job: Job, platform: Platform) -> dict | None:
         config.add_user(user, token)
         config.add_context(context, cluster, user)
         config.current_context = context
-        return {ENV_KUBECONFIG: str(config.to_temp_file())}
+        return {ENV_KUBECONFIG: config.raw}
     elif kubeconfig:
         _LOG.debug('Only kubeconfig is provided')
         config = Kubeconfig(kubeconfig)
-        return {ENV_KUBECONFIG: str(config.to_temp_file())}
+        return {ENV_KUBECONFIG: config.raw}
     if platform.type != PlatformType.EKS:
         _LOG.warning('No kubeconfig provided and platform is not EKS')
         return
@@ -1134,7 +1138,7 @@ def get_platform_credentials(job: Job, platform: Platform) -> dict | None:
         ca=cluster['certificateAuthority']['data'],
         token=TokenGenerator(sts).get_token(platform.name),
     )
-    return {ENV_KUBECONFIG: str(token_config.to_temp_file())}
+    return {ENV_KUBECONFIG: token_config.build_config()}
 
 
 def get_rules_to_exclude(tenant: Tenant) -> set[str]:
@@ -1288,10 +1292,21 @@ def multi_account_event_driven_job() -> int:
     return 0
 
 
-def job_initializer(envs):
+def job_initializer(envs: dict, cloud: Cloud):
     _LOG.info(
         f'Initializing subprocess for a region: {multiprocessing.current_process()}'
     )
+    if cloud is Cloud.GOOGLE and ENV_GOOGLE_APPLICATION_CREDENTIALS in envs:
+        envs = BSP.credentials_service.google_credentials_to_file(
+            envs[ENV_GOOGLE_APPLICATION_CREDENTIALS]
+        )
+    elif cloud is Cloud.KUBERNETES and ENV_KUBECONFIG in envs:
+        envs = BSP.credentials_service.k8s_credentials_to_file(
+            envs[ENV_KUBECONFIG]
+        )
+
+    envs = {str(k): str(v) for k, v in envs.items() if v}
+
     os.environ.update(envs)
     os.environ.setdefault('AWS_DEFAULT_REGION', AWS_DEFAULT_REGION)
 
@@ -1602,7 +1617,6 @@ def run_standard_job(ctx: JobExecutionContext):
 
     if credentials is None:
         raise ExecutorException(ExecutorError.NO_CREDENTIALS)
-    credentials = {str(k): str(v) for k, v in credentials.items() if v}
 
     policies = list(
         skip_duplicated_policies(
@@ -1627,7 +1641,9 @@ def run_standard_job(ctx: JobExecutionContext):
         # prevents high ram usage
         _LOG.info(f'Going to init pool for region {region}')
         with multiprocessing.Pool(
-            processes=1, initializer=job_initializer, initargs=(credentials,)
+            processes=1,
+            initializer=job_initializer,
+            initargs=(credentials, cloud,)
         ) as pool:
             pair = pool.apply(
                 process_job_concurrent, (policies, ctx.work_dir, cloud, region)
@@ -1655,6 +1671,10 @@ def run_standard_job(ctx: JobExecutionContext):
         Path(filename).unlink(missing_ok=True)
     if cloud is Cloud.AZURE and (
         filename := credentials.get(ENV_AZURE_CLIENT_CERTIFICATE_PATH)
+    ):
+        Path(filename).unlink(missing_ok=True)
+    if cloud is Cloud.KUBERNETES and (
+        filename := credentials.get(ENV_KUBECONFIG)
     ):
         Path(filename).unlink(missing_ok=True)
     ctx.add_warnings(*warnings)
