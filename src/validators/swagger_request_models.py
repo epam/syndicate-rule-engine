@@ -647,6 +647,12 @@ class RuleGetModel(BasePaginationModel):
     GET
     """
 
+    model_config = ConfigDict(
+        coerce_numbers_to_str=True,
+        populate_by_name=True,
+        use_enum_values=True,
+    )
+
     rule: str = Field(None)
     cloud: RuleDomain = Field(None)
     git_project_id: str = Field(None)
