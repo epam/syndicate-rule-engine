@@ -7,8 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.14.1] - 2025-11-03
 - Disabled the plugin `gcp_cloudrun`
-- Fix plugin `aws.workspaces-directory.filter.check-vpc-endpoints-availability`
-- Fix issue with kube-confid file during k8s scan
+- Fixed plugin `aws.workspaces-directory.filter.check-vpc-endpoints-availability`
+- Fixed issue with kube-confid file during k8s scan
 - Fixed an issue with describing rules by the cloud name
 
 ## [5.14.0] - 2025-10-03
