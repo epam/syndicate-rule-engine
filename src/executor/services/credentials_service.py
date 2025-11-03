@@ -14,11 +14,16 @@ _LOG = get_logger(__name__)
 
 
 class CredentialsService:
-    def __init__(self, ssm_client: AbstractSSMClient):
+    def __init__(
+        self,
+        ssm_client: AbstractSSMClient,
+    ):
         self.ssm = ssm_client
 
     def get_credentials_from_ssm(
-        self, credentials_key: str, remove: bool = True
+        self,
+        credentials_key: str,
+        remove: bool = True,
     ) -> dict | str | None:
         """
         Get our (not maestro) credentials from ssm. For AWS and AZURE
@@ -36,7 +41,10 @@ class CredentialsService:
             self.ssm.delete_parameter(credentials_key)
         return val
 
-    def google_credentials_to_file(self, credentials: dict) -> dict:
+    def google_credentials_to_file(
+        self,
+        credentials: dict,
+    ) -> dict:
         file_path = self._to_tmp_file(credentials)
         _LOG.debug(f'Writing credentials to {file_path}')
 
@@ -45,14 +53,19 @@ class CredentialsService:
             ENV_CLOUDSDK_CORE_PROJECT: credentials.get('project_id'),
         }
 
-    def k8s_credentials_to_file(self, credentials: dict) -> dict:
+    def k8s_credentials_to_file(
+        self,
+        credentials: dict,
+    ) -> dict:
         file_path = self._to_tmp_file(credentials)
         _LOG.debug(f'Writing credentials to {file_path}')
 
         return {ENV_KUBECONFIG: file_path}
 
     @staticmethod
-    def _to_tmp_file(credentials: dict) -> str:
+    def _to_tmp_file(
+        credentials: dict,
+    ) -> str:
         with tempfile.NamedTemporaryFile('w', delete=False) as fp:
             json.dump(credentials, fp)
 

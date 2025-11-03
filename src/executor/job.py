@@ -1292,7 +1292,10 @@ def multi_account_event_driven_job() -> int:
     return 0
 
 
-def job_initializer(envs: dict, cloud: Cloud):
+def job_initializer(
+    envs: dict,
+    cloud: Cloud,
+):
     _LOG.info(
         f'Initializing subprocess for a region: {multiprocessing.current_process()}'
     )
@@ -1643,7 +1646,7 @@ def run_standard_job(ctx: JobExecutionContext):
         with multiprocessing.Pool(
             processes=1,
             initializer=job_initializer,
-            initargs=(credentials, cloud,)
+            initargs=(credentials, cloud,),
         ) as pool:
             pair = pool.apply(
                 process_job_concurrent, (policies, ctx.work_dir, cloud, region)
