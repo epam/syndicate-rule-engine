@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the parameter `overwrite` to the `POST /rulesets/release` endpoint that allows to overwrite existing ruleset version
 - Added the possibility to configure gunicorn workers timeout via the `SRE_GUNICORN_WORKERS_TIMEOUT` env variable
 - Push to Defect Dojo changed from synchronous to asynchronous
-- Fixed timezone comparison error in `RolePostModel.expiration` validator that caused `TypeError` when creating roles with expiration dates. The `astimezone()` result is now properly assigned before datetime comparison.
+- Fixed an issue with handling the `expiration` parameter in `sre role add/update` commands
 
 ## [5.14.0] - 2025-10-03
 - Updated the ami-initialize.sh script
