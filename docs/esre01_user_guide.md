@@ -204,8 +204,6 @@ sre-init --user "username" --public-ssh-key "ssh-..." --re-username job_submitte
 
 A user with name **username** will be created if it does not exist yet. If **`--public-ssh-key`** is specified, it will be added to `~/.ssh/authorized_keys` of that user. You can also provide **`--re-username`** & **`--re-password`** of an S.RE user created before to set these credentials.
 
-{{ pagebreak }}
-
 ## User Registration
 
 A user is needed for the EPAM Syndicate Rule Engine to perform. Before creating one, it is necessary to create a separate policy and role for them.
@@ -246,8 +244,6 @@ syndicate re job describe
 ```console
 syndicate re role update --name run_scans_role --attach_policy admin_policy --detach_policy run_scan_for_all_tenants
 ```
-
-{{ pagebreak }}
 
 ## Activating Tenants
 
@@ -308,8 +304,6 @@ syndicate re tenant credentials link --application_id <application_id_received_f
 ```
 
 Now, if you submit a scan for any tenant within the customer, S.RE will try to use that `rule-engine-scanner` AWS Role. Account ID is generic so `111111111111` is just the default value. Tenant's account ID will be used dynamically, i.e. `arn:aws:iam::123123123123:role/rule-engine-scanner` for tenant with account id `123123123123` and so on. The same way one Application with Azure Certificate can be linked to multiple Azure tenants (remember, one tenant is one subscription).
-
-{{ pagebreak }}
 
 ### Creating API Users
 
@@ -393,8 +387,6 @@ To perform the health check procedure, run:
 syndicate re health_check
 ```
 
-{{ pagebreak }}
-
 ## Product Troubleshooting
 
 The health check procedure can return several statuses that need your attention.
@@ -433,8 +425,6 @@ syndicate re job submit ... \
 #### Internal executor error
 
 The executor failed with internal reason. Contact the support team.
-
-{{ pagebreak }}
 
 ### Status: Cannot submit job
 
@@ -475,8 +465,6 @@ Also, you can export docker volumes:
 - `defectdojo_postgres`
 - `defectdojo_media`
 - `defectdojo_redis`
-
-{{ pagebreak }}
 
 ## Upgrades and Patches
 
@@ -537,8 +525,6 @@ syndicate setup --username $MODULAR_API_USER --password $NEW_PASSWORD --api_path
 - Vault, Mongo, Minio credentials
 - Defect Dojo credentials and secret keys
 - S.RE Secret keys
-
-{{ pagebreak }}
 
 ## Policies and Privileges
 
@@ -601,8 +587,6 @@ syndicate login
 
 > **Note:** Credentials are stored here: `~/.modular_cli/`
 
-{{ pagebreak }}
-
 ### Available Entities and Resources
 
 From the beginning, the only entity that represents the AWS account where the instance is running is activated. Such entities are called Tenants.
@@ -650,8 +634,6 @@ S.RE will use rulesets that are available by license and credentials from the in
 ```console
 syndicate re job describe --limit 1
 ```
-
-{{ pagebreak }}
 
 ### Retrieving Reports
 
@@ -715,8 +697,6 @@ syndicate re job submit \
 > - **Azure:** <https://github.com/epam/ecc-azure-rulepack/tree/main/iam>
 > - **Google Cloud:** <https://github.com/epam/ecc-gcp-rulepack/blob/main/iam/iam.tf>
 
-{{ pagebreak }}
-
 ## Disabling Rules for a Tenant
 
 You can exclude some rules for a specific tenant or for the whole customer if you know that you won't need those although the ruleset has them.
@@ -774,8 +754,6 @@ syndicate re report resource latest \
   --name my-lambda \
   --json
 ```
-
-{{ pagebreak }}
 
 ### Errors Report
 
