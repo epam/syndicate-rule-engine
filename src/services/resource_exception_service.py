@@ -31,6 +31,13 @@ from services.metadata import Metadata, RuleMetadata
 _LOG = get_logger(__name__)
 
 
+class ConflictError(ValueError):
+    """
+    Raised when a resource exception with the same parameters already exists.
+    """
+    pass
+
+
 class ResourceExceptionsCollection:
     _tag_end = '$$'
 
@@ -367,6 +374,38 @@ class ResourceExceptionsCollection:
 
 
 class ResourceExceptionsService(BaseDataService[ResourceException]):
+    def _validate_existing_resource_exception(
+        self,
+        id: str | None = None,
+        resource_id: str | None = None,
+        location: str | None = None,
+        resource_type: str | None = None,
+        tenant_name: str | None = None,
+        customer_name: str | None = None,
+        arn: str | None = None,
+        tags_filters: list[str] | None = None,
+    ) -> None:
+        existing_resource_exceptions = self.get_resources_exceptions(
+            resource_id=resource_id,
+            location=location,
+            resource_type=resource_type,
+            tenant_name=tenant_name,
+            customer_name=customer_name,
+            arn=arn,
+            tags_filters=tags_filters,
+        )
+        existing_resource_exceptions = list(existing_resource_exceptions)
+
+        if not existing_resource_exceptions:
+            return
+
+        for exception in existing_resource_exceptions:
+            if exception.id != id:
+                raise ConflictError(
+                    'Resource exception with same parameters'
+                    f' already exists. ID: {exception.id!r}.'
+                )
+
     def create(
         self,
         resource_id: str | None,
@@ -378,6 +417,15 @@ class ResourceExceptionsService(BaseDataService[ResourceException]):
         tags_filters: list[str] | None,
         expire_at: float,
     ) -> ResourceException:
+        self._validate_existing_resource_exception(
+            resource_id=resource_id,
+            location=location,
+            resource_type=resource_type,
+            tenant_name=tenant_name,
+            customer_name=customer_name,
+            arn=arn,
+            tags_filters=tags_filters,
+        )
         return ResourceException(
             id=str(uuid4()),
             resource_id=resource_id,
@@ -490,6 +538,17 @@ class ResourceExceptionsService(BaseDataService[ResourceException]):
         resource_exception = self.get_resource_exception_by_id(id)
         if not resource_exception:
             raise ValueError(f'Resource exception with ID {id} not found')
+
+        self._validate_existing_resource_exception(
+            id=id,
+            resource_id=resource_id,
+            location=location,
+            resource_type=resource_type,
+            tenant_name=tenant_name,
+            customer_name=customer_name,
+            arn=arn,
+            tags_filters=tags_filters,
+        )
 
         resource_exception.resource_id = resource_id
         resource_exception.location = location
