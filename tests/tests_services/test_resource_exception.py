@@ -222,7 +222,10 @@ def test_filter_one_exception():
                 date=aws_resource_match['date']
             )
             yield AWSResource(
-                id=aws_resource_no_match['id'], uv run pytest tests/tests_services/test_resource_exception.py -v
+                id=aws_resource_no_match['id'],
+                name=aws_resource_no_match['name'],
+                region=aws_resource_no_match['region'],
+                resource_type=aws_resource_no_match['resource_type'],
                 sync_date=aws_resource_no_match['sync_date'],
                 data=aws_resource_no_match,
                 arn=aws_resource_no_match['arn'],
