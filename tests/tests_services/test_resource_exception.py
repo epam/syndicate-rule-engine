@@ -21,16 +21,16 @@ from services.sharding import (
 from services.metadata import Metadata
 
 
-@pytest.fixture()
-def service():
+@pytest.fixture
+def service() -> ResourceExceptionsService:
     """Fixture for ResourceExceptionsService"""
     return ResourceExceptionsService()
 
 
 @pytest.fixture
-def expire_at():
-    """Fixture for expire_at"""
-    return (datetime.now(timezone.utc) + timedelta(days=1)).timestamp()
+def expire_at() -> float:
+    """Fixture for expire_at timestamp"""
+    return (datetime.now(timezone.utc) + timedelta(days=30)).timestamp()
 
 
 def test_filter_no_exceptions():
