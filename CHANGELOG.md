@@ -5,14 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.15.0] - 2025-10-16
+## [5.15.0] - 2025-11-06
 - Added hiding expired resource exceptions
 - Fixed an issue with filtering resource exceptions by `--tags_filters`
 - Added the parameter `overwrite` to the `POST /rulesets/release` endpoint that allows to overwrite existing ruleset version
 - Added the possibility to configure gunicorn workers timeout via the `SRE_GUNICORN_WORKERS_TIMEOUT` env variable
 - Push to Defect Dojo changed from synchronous to asynchronous
 - Added user guide and commands reference guide to the documentation
-
+- Disabled the plugin `gcp_cloudrun`
+- Fixed plugin `aws.workspaces-directory.filter.check-vpc-endpoints-availability`
+- Fixed issue with kube-confid file during k8s scan
+- Fixed an issue with describing rules by the cloud name
 
 ## [5.14.0] - 2025-10-03
 - Updated the ami-initialize.sh script
