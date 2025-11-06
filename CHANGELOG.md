@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the parameter `overwrite` to the `POST /rulesets/release` endpoint that allows to overwrite existing ruleset version
 - Added the possibility to configure gunicorn workers timeout via the `SRE_GUNICORN_WORKERS_TIMEOUT` env variable
 - Push to Defect Dojo changed from synchronous to asynchronous
+- Added user guide and commands reference guide to the documentation
 
 
 ## [5.14.0] - 2025-10-03
