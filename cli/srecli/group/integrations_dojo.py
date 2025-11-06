@@ -90,7 +90,7 @@ def delete(ctx: ContextObj, integration_id: str, customer_id):
               help='Specify this flag to send results to dojo after each job '
                    'automatically')
 @click.option('--product_type', type=str, default='Rule Engine',
-              help='Product name to create in Dojo, '
+              help='Product type to create in Dojo, '
                    '"Rule Engine" is used by default. "tenant_name", '
                    '"customer_name" and "job_id" can be used as generic '
                    'placeholders inside curly brackets')
