@@ -80,6 +80,7 @@ app.conf.task_routes = {
     'onprem.tasks.collect_metrics': {'queue': 'b-scheduled'},
     'onprem.tasks.run_standard_job': {'queue': 'a-jobs'},
     'onprem.tasks.run_scheduled_job': {'queue': 'a-jobs'},
+    'onprem.tasks.push_to_dojo': {'queue': 'a-jobs'},
     'onprem.tasks.delete_expired_metrics': {'queue': 'b-scheduled'},
     'onprem.tasks.collect_resources': {'queue': 'b-scheduled'},
 }

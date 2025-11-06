@@ -1,5 +1,6 @@
 # classes for swagger models are not instantiated directly in code.
 # PreparedEvent models are used instead.
+import ast
 from base64 import standard_b64decode
 from datetime import date, datetime, timedelta, timezone
 from typing import Literal, Generator
@@ -199,13 +200,16 @@ class ResourcesExceptionsGetModel(BasePaginationModel):
         description='List of tags to filter resources by.',
         examples=[{'tag1=value1', 'tag2=value2'}],
     )
+    include_expired: bool = Field(
+        False, description='Include expired exceptions.'
+    )
 
     @field_validator('tags_filters', mode='before')
     @classmethod
     def normalize_tags_filters(cls, value):
         """Convert single string to set for single-value query parameters."""
         if isinstance(value, str):
-            return {value}
+            return set(ast.literal_eval(value))
         return value
 
     @field_validator('tags_filters', mode='after')
@@ -611,6 +615,11 @@ class RulesetReleasePostModel(BaseModel):
     )
     description: str
     display_name: str
+
+    overwrite: bool = Field(
+        default=False,
+        description='Determines whether to overwrite an existing ruleset version'
+    )
 
     @field_validator('version', mode='after')
     @classmethod

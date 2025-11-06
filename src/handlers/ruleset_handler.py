@@ -652,6 +652,7 @@ class RulesetHandler(AbstractHandler):
                 display_name=event.display_name,
                 download_url=self.ruleset_service.download_url(rs),
                 rules=rs.rules,
+                overwrite=event.overwrite,
             )
             if not result:
                 code = HTTPStatus.SERVICE_UNAVAILABLE
