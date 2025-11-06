@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the flag `--include_expired` to the command `resource exception describe` to allow retrieving expired resource exceptions
 - Added the `--overwrite` flag to the `ruleset release` command, enabling overwriting of an existing ruleset version
 - Fixed an issue with formatting datetime for `sre setting lm config describe` command
+- Updated `--expiration` parameter help text to clarify UTC interpretation for naive datetime values
 
 ## [5.9.0] - 2025-09-15
 - Multiple options' help messages extended with the word `[multiple]`

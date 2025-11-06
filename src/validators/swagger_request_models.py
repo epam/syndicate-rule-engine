@@ -656,6 +656,12 @@ class RuleGetModel(BasePaginationModel):
     GET
     """
 
+    model_config = ConfigDict(
+        coerce_numbers_to_str=True,
+        populate_by_name=True,
+        use_enum_values=True,
+    )
+
     rule: str = Field(None)
     cloud: RuleDomain = Field(None)
     git_project_id: str = Field(None)
@@ -766,7 +772,10 @@ class RolePostModel(BaseModel):
     def _(cls, expiration: datetime | None) -> datetime | None:
         if not expiration:
             return expiration
-        expiration.astimezone(timezone.utc)
+        if expiration.tzinfo is None:
+            expiration = expiration.replace(tzinfo=timezone.utc)
+        else:
+            expiration.astimezone(timezone.utc)
         if expiration < datetime.now(tz=timezone.utc):
             raise ValueError('Expiration date has already passed')
         return expiration
