@@ -23,10 +23,10 @@ def update(ctx: ContextObj, customer_id):
 
 @metrics.command(cls=ViewCommand, name='status')
 @click.option('--from_date', '-from', type=str,
-              help=f'Query metrics statuses from this date. Accepts date ISO '
+              help='Query metrics statuses from this date. Accepts date ISO '
                    f'string. Example: {DYNAMIC_DATE_PAST_EXAMPLE}')
 @click.option('--to_date', '-to', type=str,
-              help=f'Query metrics statuses till this date. Accepts date ISO '
+              help='Query metrics statuses till this date. Accepts date ISO '
                    f'string. Example: {DYNAMIC_DATE_ONLY_EXAMPLE}')
 @cli_response()
 def status(ctx: ContextObj, from_date: str, to_date: str, customer_id):

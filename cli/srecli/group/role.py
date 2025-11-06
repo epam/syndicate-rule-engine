@@ -41,7 +41,7 @@ def describe(ctx: ContextObj, customer_id, name):
     '--expiration', '-e',
     type=str,
     help=f'Expiration date in ISO 8601 format (e.g. {DYNAMIC_DATE_EXAMPLE}). '
-         f'If no timezone (tz) is specified, it will be interpreted as UTC.')
+         'If no timezone (tz) is specified, it will be interpreted as UTC.')
 @click.option('--description', '-d', type=str, required=True,
               help='Description for the created role')
 @cli_response(attributes_order=attributes_order)
@@ -75,7 +75,7 @@ def add(ctx: ContextObj, customer_id, name, policies, description, expiration):
 @click.option(
     '--expiration', '-e', type=str, required=False,
     help=f'Expiration date in ISO 8601 format (e.g. {DYNAMIC_DATE_EXAMPLE}). '
-         f'If no timezone (tz) is specified, it will be interpreted as UTC.')
+         'If no timezone (tz) is specified, it will be interpreted as UTC.')
 @click.option('--description', '-d', type=str,
               help='Description for the created role')
 @cli_response(attributes_order=attributes_order)

@@ -33,10 +33,10 @@ def job():
 @click.option('--status', '-s', type=click.Choice(tuple(JobState.iter())),
               required=False, help='Status to query jobs by')
 @click.option('--from_date', '-from', type=str,
-              help=f'Query jobs from this date. Accepts date ISO string. '
+              help='Query jobs from this date. Accepts date ISO string. '
                    f'Example: {DYNAMIC_DATE_PAST_EXAMPLE}')
 @click.option('--to_date', '-to', type=str,
-              help=f'Query jobs till this date. Accepts date ISO string. '
+              help='Query jobs till this date. Accepts date ISO string. '
                    f'Example: {DYNAMIC_DATE_ONLY_EXAMPLE}')
 @limit_option
 @next_option
