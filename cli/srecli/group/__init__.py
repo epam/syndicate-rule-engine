@@ -4,7 +4,7 @@ import shutil
 import sys
 import urllib.error
 from abc import ABC, abstractmethod
-from datetime import timezone
+from datetime import datetime, timezone, timedelta
 from functools import reduce, wraps
 from http import HTTPStatus
 from itertools import islice
@@ -48,6 +48,27 @@ except ImportError:
 
 
 _LOG = get_logger(__name__)
+
+
+def _get_dynamic_date_example(days_offset: int = 90, date_only: bool = False) -> str:
+    """
+    Generates a dynamic date example based on current date with optional offset. 
+    The time is rounded to the start of the hour (set minutes and seconds to 00).
+    
+    :param days_offset: Number of days to add to current date (default: 30)
+    :param date_only: If True, returns only date part (YYYY-MM-DD), otherwise full ISO 8601
+    :return: ISO 8601 formatted date string
+    """
+    future_date = datetime.now() + timedelta(days=days_offset)
+    future_date = future_date.replace(minute=0, second=0, microsecond=0)
+    if date_only:
+        return future_date.strftime('%Y-%m-%d')
+    return future_date.strftime('%Y-%m-%dT%H:%M:%S')
+
+
+DYNAMIC_DATE_EXAMPLE = _get_dynamic_date_example()
+DYNAMIC_DATE_ONLY_EXAMPLE = _get_dynamic_date_example(date_only=True)
+DYNAMIC_DATE_PAST_EXAMPLE = _get_dynamic_date_example(days_offset=-90, date_only=True)
 
 
 class TableException(Exception):
@@ -502,12 +523,12 @@ def build_account_option(**kwargs) -> Callable:
 
 
 def build_iso_date_option(*args, **kwargs) -> Callable:
-    help_iso = 'ISO 8601 format. Example: 2021-09-22T00:00:00.000000'
+    help_iso = f'ISO 8601 format. Example: {DYNAMIC_DATE_EXAMPLE}'
     params = dict(type=isoparse, required=False)
 
     if 'help' in kwargs:
         _help: str = kwargs.pop('help')
-        if help_iso not in _help:
+        if 'ISO 8601 format' not in _help:
             _help = f'{_help.rstrip(".")}. {help_iso}'
         kwargs['help'] = _help
 

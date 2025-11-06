@@ -2,7 +2,10 @@ from datetime import datetime
 
 import click
 
-from srecli.group import ContextObj, ViewCommand, cli_response
+from srecli.group import (
+    ContextObj, ViewCommand, cli_response,
+    DYNAMIC_DATE_EXAMPLE,
+)
 
 attributes_order = 'name', 'expiration', 'policies'
 
@@ -37,8 +40,8 @@ def describe(ctx: ContextObj, customer_id, name):
 @click.option(
     '--expiration', '-e',
     type=str,
-    help='Expiration date in ISO 8601 format (e.g. 2021-08-01T15:30:00). '
-         'If no timezone (tz) is specified, it will be interpreted as UTC.')
+    help=f'Expiration date in ISO 8601 format (e.g. {DYNAMIC_DATE_EXAMPLE}). '
+         f'If no timezone (tz) is specified, it will be interpreted as UTC.')
 @click.option('--description', '-d', type=str, required=True,
               help='Description for the created role')
 @cli_response(attributes_order=attributes_order)
@@ -71,8 +74,8 @@ def add(ctx: ContextObj, customer_id, name, policies, description, expiration):
               help='List of policies to detach from role')
 @click.option(
     '--expiration', '-e', type=str, required=False,
-    help='Expiration date in ISO 8601 format (e.g. 2021-08-01T15:30:00). '
-         'If no timezone (tz) is specified, it will be interpreted as UTC.')
+    help=f'Expiration date in ISO 8601 format (e.g. {DYNAMIC_DATE_EXAMPLE}). '
+         f'If no timezone (tz) is specified, it will be interpreted as UTC.')
 @click.option('--description', '-d', type=str,
               help='Description for the created role')
 @cli_response(attributes_order=attributes_order)
