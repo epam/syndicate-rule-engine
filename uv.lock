@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.10.2, <4.0.0"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -2335,7 +2335,7 @@ wheels = [
 
 [[package]]
 name = "modular-sdk"
-version = "7.1.0"
+version = "7.1.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "boto3" },
@@ -2346,9 +2346,9 @@ dependencies = [
     { name = "pynamodb" },
     { name = "python-dateutil" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fa/b4/5a4b3b222c4bdde4577afe24cb5f5235f937df0c8114f8f6ab09e173f550/modular_sdk-7.1.0.tar.gz", hash = "sha256:5d84ceed11971384e16c8682f9bbc806814ba1327be19bfa82bbf9bc53863ae5", size = 79778, upload-time = "2025-06-24T11:37:47.816Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/58/cc/d89a8da7e97c851414b5d21097fa25b6346e47f28b623f2c7c0bffcd3976/modular_sdk-7.1.3.tar.gz", hash = "sha256:58fdd0df7ca8e16af002aa3d62f93d0c344ab43e22c763a7cfc0e9c241c728e1", size = 80040, upload-time = "2025-10-10T08:36:45.625Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f4/ac/66886469b4901e2656d46963f3a259f707bb71f3152bfdbed02f3dd4a145/modular_sdk-7.1.0-py3-none-any.whl", hash = "sha256:db830e7a0939a75a971ed7ed6712171e7054e5c70d91b910f0138c8669069d6f", size = 100609, upload-time = "2025-06-24T11:37:46.022Z" },
+    { url = "https://files.pythonhosted.org/packages/84/e5/2d0c003bb3254adfba0f7758610447c0260ed19f60e91741796f69b4010e/modular_sdk-7.1.3-py3-none-any.whl", hash = "sha256:733f92abf86cf4eb8bf4e1cafecf963f4fca417017b931b926cc37008324723e", size = 100763, upload-time = "2025-10-10T08:36:44.002Z" },
 ]
 
 [[package]]
@@ -3192,7 +3192,7 @@ wheels = [
 
 [[package]]
 name = "syndicate-rule-engine"
-version = "5.14.0"
+version = "5.15.0"
 source = { virtual = "." }
 dependencies = [
     { name = "aws-xray-sdk" },
@@ -3257,7 +3257,7 @@ requires-dist = [
     { name = "gunicorn", specifier = "~=23.0.0" },
     { name = "hvac", specifier = "~=2.3.0" },
     { name = "jwcrypto", specifier = "~=1.5.6" },
-    { name = "modular-sdk", specifier = "==7.1.0" },
+    { name = "modular-sdk", specifier = "==7.1.3" },
     { name = "msgspec", specifier = "~=0.18.6" },
     { name = "openpyxl", specifier = "~=3.0.10" },
     { name = "pydantic", specifier = "~=2.8.2" },

@@ -16,10 +16,7 @@ from helpers.regions import (
 from models.resource_exception import ResourceException
 from services import SP
 from services.resources_service import ResourcesService
-from services.resource_exception_service import (
-    ConflictError,
-    ResourceExceptionsService,
-)
+from services.resource_exception_service import ResourceExceptionsService
 from validators.swagger_request_models import (
     BaseModel,
     ResourcesExceptionsGetModel,
@@ -309,25 +306,39 @@ class ResourceExceptionHandler(AbstractHandler):
             arn=event.arn
         )
 
-        try:
-            resource_exception = self._res.create(
-                resource_id=event.resource_id,
-                location=event.location,
-                resource_type=resource_type,
-                tenant_name=event.tenant_name,
-                customer_name=event.customer_id,
-                arn=event.arn,
-                tags_filters=event.tags_filters,
-                expire_at=self._to_timestamp(event.expire_at)
-            )
-            self._res.save(resource_exception)
-        except ConflictError as e:
-            _LOG.warning(str(e))
+        existing_resource_exceptions = self._res.get_resources_exceptions(
+            resource_id=event.resource_id,
+            location=event.location,
+            resource_type=resource_type,
+            tenant_name=event.tenant_name,
+            customer_name=event.customer_id,
+            arn=event.arn,
+            tags_filters=event.tags_filters,
+        )
+        existing_resource_exceptions = list(existing_resource_exceptions)
+        if existing_resource_exceptions:
+            exception_id = existing_resource_exceptions[0].id
             raise (
                 ResponseFactory(HTTPStatus.CONFLICT)
-                .message(str(e))
+                .message(
+                    'Resource exception with same parameters'
+                    f' already exists. ID: {exception_id!r}.'
+                )
                 .exc()
             )
+
+        resource_exception = self._res.create(
+            resource_id=event.resource_id,
+            location=event.location,
+            resource_type=resource_type,
+            tenant_name=event.tenant_name,
+            customer_name=event.customer_id,
+            arn=event.arn,
+            tags_filters=event.tags_filters,
+            expire_at=self._to_timestamp(event.expire_at)
+        )
+        self._res.save(resource_exception)
+
 
         return (
             ResponseFactory()
@@ -362,13 +373,6 @@ class ResourceExceptionHandler(AbstractHandler):
                 customer_name=event.customer_id,
                 arn=event.arn,
                 tags_filters=event.tags_filters,
-            )
-        except ConflictError as e:
-            _LOG.warning(str(e))
-            raise (
-                ResponseFactory(HTTPStatus.CONFLICT)
-                .message(str(e))
-                .exc()
             )
         except ValueError as e:
             _LOG.warning(str(e))
