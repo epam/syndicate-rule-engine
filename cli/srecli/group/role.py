@@ -34,8 +34,11 @@ def describe(ctx: ContextObj, customer_id, name):
 @click.option('--policies', '-p', multiple=True,
               required=True,
               help='List of policies to attach to the role')
-@click.option('--expiration', '-e', type=str,
-              help='Expiration date, ISO 8601. Example: 2021-08-01T15:30:00')
+@click.option(
+    '--expiration', '-e',
+    type=str,
+    help='Expiration date in ISO 8601 format (e.g. 2021-08-01T15:30:00). '
+         'If no timezone (tz) is specified, it will be interpreted as UTC.')
 @click.option('--description', '-d', type=str, required=True,
               help='Description for the created role')
 @cli_response(attributes_order=attributes_order)
@@ -66,8 +69,10 @@ def add(ctx: ContextObj, customer_id, name, policies, description, expiration):
               help='List of policies to attach to the role')
 @click.option('--detach_policy', '-dp', multiple=True,
               help='List of policies to detach from role')
-@click.option('--expiration', '-e', type=str, required=False,
-              help='Expiration date, ISO 8601. Example: 2021-08-01T15:30:00')
+@click.option(
+    '--expiration', '-e', type=str, required=False,
+    help='Expiration date in ISO 8601 format (e.g. 2021-08-01T15:30:00). '
+         'If no timezone (tz) is specified, it will be interpreted as UTC.')
 @click.option('--description', '-d', type=str,
               help='Description for the created role')
 @cli_response(attributes_order=attributes_order)
