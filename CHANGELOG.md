@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed issue with kube-confid file during k8s scan
 - Fixed an issue with describing rules by the cloud name
 - Fixed an issue with handling the `expiration` parameter in `sre role add/update` commands
+- Fixed an issue with creating resource exceptions with the same parameters
 
 ## [5.14.0] - 2025-10-03
 - Updated the ami-initialize.sh script
