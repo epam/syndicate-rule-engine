@@ -13,9 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Push to Defect Dojo changed from synchronous to asynchronous
 - Added user guide and commands reference guide to the documentation
 - Disabled the plugin `gcp_cloudrun`
+- Fixed an issue with filtering resource exceptions by `--tags_filters`
 - Fixed plugin `aws.workspaces-directory.filter.check-vpc-endpoints-availability`
 - Fixed issue with kube-confid file during k8s scan
 - Fixed an issue with describing rules by the cloud name
+- Fixed an issue with handling the `expiration` parameter in `sre role add/update` commands
 - Added the possibility to submit jobs and push reports to dojo with custom `product`, `engagement`, and `test` names
 
 ## [5.14.0] - 2025-10-03
