@@ -50,7 +50,7 @@ except ImportError:
 _LOG = get_logger(__name__)
 
 
-def _get_dynamic_date_example(days_offset: int = 90, date_only: bool = False) -> str:
+def _get_dynamic_date_example(days_offset: int = 30, date_only: bool = False) -> str:
     """
     Generates a dynamic date example based on current date with optional offset. 
     The time is rounded to the start of the hour (set minutes and seconds to 00).
@@ -68,7 +68,7 @@ def _get_dynamic_date_example(days_offset: int = 90, date_only: bool = False) ->
 
 DYNAMIC_DATE_EXAMPLE = _get_dynamic_date_example()
 DYNAMIC_DATE_ONLY_EXAMPLE = _get_dynamic_date_example(date_only=True)
-DYNAMIC_DATE_PAST_EXAMPLE = _get_dynamic_date_example(days_offset=-90, date_only=True)
+DYNAMIC_DATE_ONLY_PAST_EXAMPLE = _get_dynamic_date_example(days_offset=-30, date_only=True)
 
 
 class TableException(Exception):

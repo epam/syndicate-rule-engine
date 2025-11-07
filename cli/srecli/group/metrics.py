@@ -2,7 +2,7 @@ import click
 
 from srecli.group import (
     ContextObj, ViewCommand, cli_response,
-    DYNAMIC_DATE_ONLY_EXAMPLE, DYNAMIC_DATE_PAST_EXAMPLE
+    DYNAMIC_DATE_ONLY_EXAMPLE, DYNAMIC_DATE_ONLY_PAST_EXAMPLE
 )
 
 
@@ -24,7 +24,7 @@ def update(ctx: ContextObj, customer_id):
 @metrics.command(cls=ViewCommand, name='status')
 @click.option('--from_date', '-from', type=str,
               help='Query metrics statuses from this date. Accepts date ISO '
-                   f'string. Example: {DYNAMIC_DATE_PAST_EXAMPLE}')
+                   f'string. Example: {DYNAMIC_DATE_ONLY_PAST_EXAMPLE}')
 @click.option('--to_date', '-to', type=str,
               help='Query metrics statuses till this date. Accepts date ISO '
                    f'string. Example: {DYNAMIC_DATE_ONLY_EXAMPLE}')

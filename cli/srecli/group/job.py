@@ -5,7 +5,7 @@ import click
 
 from srecli.group import (
     ContextObj, ViewCommand, cli_response,
-    DYNAMIC_DATE_ONLY_EXAMPLE, DYNAMIC_DATE_PAST_EXAMPLE
+    DYNAMIC_DATE_ONLY_EXAMPLE, DYNAMIC_DATE_ONLY_PAST_EXAMPLE
 )
 from srecli.group import limit_option, next_option, tenant_option, \
     build_tenant_option, response
@@ -34,7 +34,7 @@ def job():
               required=False, help='Status to query jobs by')
 @click.option('--from_date', '-from', type=str,
               help='Query jobs from this date. Accepts date ISO string. '
-                   f'Example: {DYNAMIC_DATE_PAST_EXAMPLE}')
+                   f'Example: {DYNAMIC_DATE_ONLY_PAST_EXAMPLE}')
 @click.option('--to_date', '-to', type=str,
               help='Query jobs till this date. Accepts date ISO string. '
                    f'Example: {DYNAMIC_DATE_ONLY_EXAMPLE}')
