@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed plugin `aws.workspaces-directory.filter.check-vpc-endpoints-availability`
 - Fixed issue with kube-confid file during k8s scan
 - Fixed an issue with describing rules by the cloud name
+- Added the possibility to submit jobs and push reports to dojo with custom `product`, `engagement`, and `test` names
 
 ## [5.14.0] - 2025-10-03
 - Updated the ami-initialize.sh script

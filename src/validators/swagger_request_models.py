@@ -917,6 +917,12 @@ class GOOGLECredentials3(PydanticBaseModel):
     project_id: str
 
 
+class DojoStructure(PydanticBaseModel):
+    product: str | None = None
+    engagement: str | None = None
+    test: str | None = None
+
+
 class JobPostModel(BaseModel):
     credentials: (
         AWSCredentials
@@ -941,6 +947,22 @@ class JobPostModel(BaseModel):
         'automatically unless an ambiguous occurs',
     )
 
+    dojo_product: str = Field(
+        None,
+        description='Defect Dojo product name to which the results will be '
+                    'uploaded',
+    )
+    dojo_engagement: str = Field(
+        None,
+        description='Defect Dojo engagement name to which the results will be '
+                    'uploaded',
+    )
+    dojo_test: str = Field(
+        None,
+        description='Defect Dojo test name to which the results will be '
+                    'uploaded',
+    )
+
     @field_validator('target_rulesets', mode='after')
     @classmethod
     def validate_rulesets(cls, value: set[str]) -> set[str]:
@@ -963,6 +985,13 @@ class JobPostModel(BaseModel):
 
     def iter_rulesets(self) -> Generator[RulesetName, None, None]:
         yield from map(RulesetName, self.target_rulesets)
+
+    def dojo_structure(self) -> dict:
+        return DojoStructure(
+            product=self.dojo_product,
+            engagement=self.dojo_engagement,
+            test=self.dojo_test
+        ).model_dump(exclude_none=True)
 
 
 def sanitize_schedule(schedule: str) -> str:
@@ -1343,6 +1372,34 @@ class ReportPushByJobIdModel(BaseModel):
 
     type: JobType = JobType.MANUAL
 
+class ReportPushDojoByJobIdModel(ReportPushByJobIdModel):
+    """
+    /reports/push/dojo/{job_id}/
+    """
+
+    dojo_product: str = Field(
+        None,
+        description='Defect Dojo product name to which the results will be '
+                    'uploaded',
+    )
+    dojo_engagement: str = Field(
+        None,
+        description='Defect Dojo engagement name to which the results will be '
+                    'uploaded',
+    )
+    dojo_test: str = Field(
+        None,
+        description='Defect Dojo test name to which the results will be '
+                    'uploaded',
+    )
+
+    def dojo_structure(self) -> dict:
+        return DojoStructure(
+            product=self.dojo_product,
+            engagement=self.dojo_engagement,
+            test=self.dojo_test
+        ).model_dump(exclude_none=True)
+
 
 class ReportPushMultipleModel(TimeRangedMixin, BaseModel):
     """
@@ -1354,6 +1411,34 @@ class ReportPushMultipleModel(TimeRangedMixin, BaseModel):
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
     type: JobType = Field(None)
+
+class ReportPushDojoMultipleModel(ReportPushMultipleModel):
+    """
+    /reports/push/dojo
+    """
+
+    dojo_product: str = Field(
+        None,
+        description='Defect Dojo product name to which the results will be '
+                    'uploaded',
+    )
+    dojo_engagement: str = Field(
+        None,
+        description='Defect Dojo engagement name to which the results will be '
+                    'uploaded',
+    )
+    dojo_test: str = Field(
+        None,
+        description='Defect Dojo test name to which the results will be '
+                    'uploaded',
+    )
+
+    def dojo_structure(self) -> dict:
+        return DojoStructure(
+            product=self.dojo_product,
+            engagement=self.dojo_engagement,
+            test=self.dojo_test
+        ).model_dump(exclude_none=True)
 
 
 class ProjectGetReportModel(BaseModel):
@@ -1736,6 +1821,22 @@ class K8sJobPostModel(BaseModel):
         'automatically unless an ambiguous occurs',
     )
 
+    dojo_product: str = Field(
+        None,
+        description='Defect Dojo product name to which the results will be '
+                    'uploaded',
+    )
+    dojo_engagement: str = Field(
+        None,
+        description='Defect Dojo engagement name to which the results will be '
+                    'uploaded',
+    )
+    dojo_test: str = Field(
+        None,
+        description='Defect Dojo test name to which the results will be '
+                    'uploaded',
+    )
+
     @field_validator('target_rulesets', mode='after')
     @classmethod
     def validate_rulesets(cls, value: set[str]) -> set[str]:
@@ -1752,6 +1853,13 @@ class K8sJobPostModel(BaseModel):
 
     def iter_rulesets(self) -> Generator[RulesetName, None, None]:
         yield from map(RulesetName, self.target_rulesets)
+
+    def dojo_structure(self) -> dict:
+        return DojoStructure(
+            product=self.dojo_product,
+            engagement=self.dojo_engagement,
+            test=self.dojo_test
+        ).model_dump(exclude_none=True)
 
 
 class ReportStatusGetModel(BaseModel):
