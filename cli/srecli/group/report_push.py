@@ -3,7 +3,8 @@ from typing import Optional
 
 import click
 
-from srecli.group import build_job_id_option, optional_job_type_option
+from srecli.group import build_job_id_option, optional_job_type_option, \
+    dojo_product_option, dojo_engagement_option, dojo_test_option
 from srecli.group import (
     ContextObj,
     ViewCommand,
@@ -31,16 +32,33 @@ def push():
 @from_date_report_option
 @to_date_report_option
 @tenant_option
+@dojo_product_option
+@dojo_engagement_option
+@dojo_test_option
 @cli_response()
-def dojo(ctx: ContextObj, job_id: Optional[str], job_type: Optional[str],
-         from_date: Optional[datetime], to_date: Optional[datetime],
-         customer_id: Optional[str], tenant_name: Optional[str]):
+def dojo(
+    ctx: ContextObj,
+    job_id: Optional[str],
+    job_type: Optional[str],
+    from_date: Optional[datetime],
+    to_date: Optional[datetime],
+    customer_id: Optional[str],
+    tenant_name: Optional[str],
+    dojo_product: Optional[str],
+    dojo_engagement: Optional[str],
+    dojo_test: Optional[str],
+):
     """
     Pushes job detailed report(s) to the Dojo SIEM
     """
     if job_id:
-        return ctx['api_client'].push_dojo_by_job_id(job_id=job_id,
-                                                     customer_id=customer_id)
+        return ctx['api_client'].push_dojo_by_job_id(
+            job_id=job_id,
+            customer_id=customer_id,
+            dojo_product=dojo_product,
+            dojo_engagement=dojo_engagement,
+            dojo_test=dojo_test,
+        )
     if not tenant_name:
         raise click.UsageError("Missing option '--tenant_name' / '-tn'.")
     return ctx['api_client'].push_dojo_multiple(
@@ -48,7 +66,10 @@ def dojo(ctx: ContextObj, job_id: Optional[str], job_type: Optional[str],
         end_date=to_date.isoformat() if to_date else None,
         customer_id=customer_id,
         tenant_name=tenant_name,
-        job_type=job_type
+        job_type=job_type,
+        dojo_product=dojo_product,
+        dojo_engagement=dojo_engagement,
+        dojo_test=dojo_test,
     )
 
 
