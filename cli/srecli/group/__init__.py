@@ -576,7 +576,8 @@ def build_limit_option(**kwargs) -> Callable:
 
 def build_dojo_product_option(**kwargs) -> Callable:
     params = dict(
-        type=str, required=False,
+        type=str,
+        required=False,
         help='Defect Dojo product name to which the results will be '
              'uploaded in case Defect Dojo integration is configured. '
              '"tenant_name", "customer_name" and "job_id" can be used '
@@ -588,7 +589,8 @@ def build_dojo_product_option(**kwargs) -> Callable:
 
 def build_dojo_engagement_option(**kwargs) -> Callable:
     params = dict(
-        type=str, required=False,
+        type=str,
+        required=False,
         help='Defect Dojo engagement name to which the results will be '
              'uploaded in case Defect Dojo integration is configured. '
              '"tenant_name", "customer_name" and "job_id" can be used '
@@ -600,7 +602,8 @@ def build_dojo_engagement_option(**kwargs) -> Callable:
 
 def build_dojo_test_option(**kwargs) -> Callable:
     params = dict(
-        type=str, required=False,
+        type=str,
+        required=False,
         help='Defect Dojo test title to which the results will be '
              'uploaded in case Defect Dojo integration is configured. '
              '"tenant_name", "customer_name" and "job_id" can be used '

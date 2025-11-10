@@ -993,7 +993,7 @@ class JobPostModel(BaseModel):
         return DojoStructure(
             product=self.dojo_product,
             engagement=self.dojo_engagement,
-            test=self.dojo_test
+            test=self.dojo_test,
         ).model_dump(exclude_none=True)
 
 
@@ -1400,7 +1400,7 @@ class ReportPushDojoByJobIdModel(ReportPushByJobIdModel):
         return DojoStructure(
             product=self.dojo_product,
             engagement=self.dojo_engagement,
-            test=self.dojo_test
+            test=self.dojo_test,
         ).model_dump(exclude_none=True)
 
 
@@ -1861,7 +1861,7 @@ class K8sJobPostModel(BaseModel):
         return DojoStructure(
             product=self.dojo_product,
             engagement=self.dojo_engagement,
-            test=self.dojo_test
+            test=self.dojo_test,
         ).model_dump(exclude_none=True)
 
 

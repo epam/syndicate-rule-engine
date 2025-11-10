@@ -902,8 +902,8 @@ def import_to_dojo(
     warnings = []
 
     for dojo, configuration in SP.integration_service.get_dojo_adapters(
-        tenant,
-        send_after_job,
+        tenant=tenant,
+        send_after_job=send_after_job,
     ):
 
         convertor = ShardCollectionDojoConvertor.from_scan_type(
@@ -911,7 +911,8 @@ def import_to_dojo(
         )
         configuration = configuration.substitute_fields(job, platform)
         client = DojoV2Client(
-            url=dojo.url, api_key=SP.defect_dojo_service.get_api_key(dojo)
+            url=dojo.url,
+            api_key=SP.defect_dojo_service.get_api_key(dojo),
         )
         try:
             client.import_scan(
