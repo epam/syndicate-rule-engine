@@ -187,6 +187,7 @@ from services.clients.lm_client import LMException
 from services.clients.sts import StsClient, TokenGenerator
 from services.job_lock import TenantSettingJobLock
 from services.job_service import JobUpdater
+from services.metadata import Metadata
 from services.modular_helpers import tenant_cloud
 from services.platform_service import K8STokenKubeconfig, Kubeconfig, Platform
 from services.report_convertors import ShardCollectionDojoConvertor
@@ -889,89 +890,29 @@ def post_lm_job(job: Job):
         raise ExecutorException(ExecutorError.LM_DID_NOT_ALLOW)
 
 
-def upload_to_dojo(job_ids: Iterable[str]):
-    _ts = SP.modular_client.tenant_service()
-    _ps = SP.platform_service
-    _rs = SP.report_service
-    _ls = SP.license_service
-    _is = SP.integration_service
-    _dds = SP.defect_dojo_service
-
-    for job_id in job_ids:
-        _LOG.info(f'Uploading job {job_id} to dojo')
-        job_ = SP.job_service.get_nullable(job_id)
-        job = AmbiguousJob(job_)
-        tenant = _ts.get(job.tenant_name)
-
-        platform = None
-        if job.is_platform_job:
-            platform = _ps.get_nullable(job.platform_id)
-            if not platform:
-                _LOG.warning('Job platform not found. Skipping upload to dojo')
-                continue
-            collection = _rs.platform_job_collection(
-                platform=platform,
-                job=job.job,
-            )
-            collection.meta = _rs.fetch_meta(platform)
-            cloud = Cloud.KUBERNETES
-        else:
-            collection = _rs.ambiguous_job_collection(tenant, job)
-            collection.meta = _rs.fetch_meta(tenant)
-            cloud = tenant_cloud(tenant)
-
-        collection.fetch_all()
-        metadata = _ls.get_customer_metadata(tenant.customer_name)
-
-        for dojo, configuration in _is.get_dojo_adapters(tenant):
-            configuration = configuration.substitute_fields(job, platform)
-            client = DojoV2Client(
-                url=dojo.url,
-                api_key=_dds.get_api_key(dojo),
-            )
-
-            convertor = ShardCollectionDojoConvertor.from_scan_type(
-                scan_type=configuration.scan_type,
-                cloud=cloud,
-                metadata=metadata,
-                attachment=configuration.attachment,
-            )
-
-            try:
-                client.import_scan(
-                    scan_type=configuration.scan_type,
-                    scan_date=utc_datetime(job.stopped_at),
-                    product_type_name=configuration.product_type,
-                    product_name=configuration.product,
-                    engagement_name=configuration.engagement,
-                    test_title=configuration.test,
-                    data=convertor.convert(collection),
-                    tags=_is.job_tags_dojo(job),
-                )
-            except Exception:
-                _LOG.exception(
-                    f'Unexpected error occurred pushing to dojo. '
-                    f'Could not upload data to DefectDojo {dojo.id}'
-                )
-
-
-def upload_to_siem(ctx: 'JobExecutionContext', collection: ShardsCollection):
-    tenant = ctx.tenant
-    job = AmbiguousJob(ctx.job)
-    platform = ctx.platform
+def import_to_dojo(
+    job: AmbiguousJob,
+    tenant: Tenant,
+    cloud: Cloud,
+    platform: Platform,
+    collection: ShardsCollection,
+    metadata: Metadata,
+    send_after_job: bool | None = None,
+) -> list:
     warnings = []
-    cloud = ctx.cloud()
 
-    metadata = SP.license_service.get_customer_metadata(tenant.customer_name)
     for dojo, configuration in SP.integration_service.get_dojo_adapters(
-        tenant, True
+        tenant=tenant,
+        send_after_job=send_after_job,
     ):
+
         convertor = ShardCollectionDojoConvertor.from_scan_type(
             configuration.scan_type, cloud, metadata
         )
         configuration = configuration.substitute_fields(job, platform)
         client = DojoV2Client(
-            url=dojo.url, api_key=SP.defect_dojo_service.get_api_key(dojo)
+            url=dojo.url,
+            api_key=SP.defect_dojo_service.get_api_key(dojo),
         )
         try:
             client.import_scan(
@@ -984,9 +925,71 @@ def upload_to_siem(ctx: 'JobExecutionContext', collection: ShardsCollection):
                 data=convertor.convert(collection),
                 tags=SP.integration_service.job_tags_dojo(job),
             )
-        except Exception:
-            _LOG.exception('Unexpected error occurred pushing to dojo')
+        except Exception as e:
+            _LOG.exception(f'Unexpected error occurred pushing to dojo: {e}')
             warnings.append(f'could not upload data to DefectDojo {dojo.id}')
+
+    return warnings
+
+
+def upload_to_dojo(job_ids: Iterable[str]):
+    for job_id in job_ids:
+        _LOG.info(f'Uploading job {job_id} to dojo')
+        job_ = SP.job_service.get_nullable(job_id)
+        job = AmbiguousJob(job_)
+        tenant = SP.modular_client.tenant_service().get(job.tenant_name)
+
+        platform = None
+        if job.is_platform_job:
+            platform = SP.platform_service.get_nullable(job.platform_id)
+            if not platform:
+                _LOG.warning('Job platform not found. Skipping upload to dojo')
+                continue
+            collection = SP.report_service.platform_job_collection(
+                platform=platform,
+                job=job.job,
+            )
+            collection.meta = SP.report_service.fetch_meta(platform)
+            cloud = Cloud.KUBERNETES
+        else:
+            collection = SP.report_service.ambiguous_job_collection(tenant, job)
+            collection.meta = SP.report_service.fetch_meta(tenant)
+            cloud = tenant_cloud(tenant)
+
+        collection.fetch_all()
+
+        metadata = SP.license_service.get_customer_metadata(tenant.customer_name)
+
+        import_to_dojo(
+            job=job,
+            tenant=tenant,
+            cloud=cloud,
+            platform=platform,
+            collection= collection,
+            metadata=metadata,
+        )
+
+
+def upload_to_siem(ctx: 'JobExecutionContext', collection: ShardsCollection):
+    tenant = ctx.tenant
+    job = AmbiguousJob(ctx.job)
+    platform = ctx.platform
+    warnings = []
+    cloud = ctx.cloud()
+
+    metadata = SP.license_service.get_customer_metadata(tenant.customer_name)
+
+    dojo_warnings = import_to_dojo(
+        job=job,
+        tenant=tenant,
+        cloud=cloud,
+        platform=platform,
+        collection=collection,
+        metadata=metadata,
+        send_after_job=True,
+    )
+    warnings.extend(dojo_warnings)
+
     mcs = SP.modular_client.maestro_credentials_service()
     for (
         chronicle,

@@ -150,9 +150,11 @@ class DefectDojoParentMeta:
     def from_parent(cls, parent: Parent):
         return cls.from_dict(parent.meta.as_dict())
 
-    def substitute_fields(self, job: AmbiguousJob,
-                          platform: Platform | None = None
-                          ) -> 'DefectDojoParentMeta':
+    def substitute_fields(
+        self,
+        job: AmbiguousJob,
+        platform: Platform | None = None,
+        ) -> 'DefectDojoParentMeta':
         """
         Changes this dict in place.
         Available keys:
@@ -166,20 +168,23 @@ class DefectDojoParentMeta:
         tenant_name = job.tenant_name
         if job.is_platform_job and platform:
             tenant_name = platform.name
+
         dct = DefectDojoParentMeta.SkipKeyErrorDict(
             tenant_name=tenant_name,
             job_id=job.id,
             customer_name=job.customer_name
         )
 
+        product, engagement, test = job.dojo_structure
+
         return DefectDojoParentMeta(
             scan_type=self.scan_type,
             product_type=self.product_type.format_map(dct),
-            product=self.product.format_map(dct),
-            engagement=self.engagement.format_map(dct),
-            test=self.test.format_map(dct),
+            product=product.format_map(dct) or self.product.format_map(dct),
+            engagement=engagement.format_map(dct) or self.engagement.format_map(dct),
+            test= test.format_map(dct) or self.test.format_map(dct),
             send_after_job=self.send_after_job,
-            attachment=self.attachment
+            attachment=self.attachment,
         )
 
 

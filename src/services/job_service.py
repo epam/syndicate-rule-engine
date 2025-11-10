@@ -30,6 +30,7 @@ class JobService(BaseDataService[Job]):
         celery_job_id: str | None = None,
         scheduled_rule_name: str | None = None,
         credentials_key: str | None = None,
+        dojo_structure: dict[str, str] | None = None,
     ) -> Job:
         return super().create(
             id=str(uuid.uuid4()),
@@ -48,6 +49,7 @@ class JobService(BaseDataService[Job]):
             scheduled_rule_name=scheduled_rule_name,
             created_at=utc_iso(),
             credentials_key=credentials_key,
+            dojo_structure=dojo_structure,
         )
 
     def update(
@@ -64,6 +66,7 @@ class JobService(BaseDataService[Job]):
         definition: str | None = None,
         rulesets: list[str] | None = None,
         warnings: list[str] | None = None,
+        dojo_structure: dict[str, str] | None = None,
     ):
         actions = []
         if batch_job_id:
@@ -88,6 +91,8 @@ class JobService(BaseDataService[Job]):
             actions.append(Job.rulesets.set(rulesets))
         if warnings:
             actions.append(Job.warnings.set(warnings))
+        if dojo_structure:
+            actions.append(Job.dojo_structure.set(dojo_structure))
         if actions:
             job.update(actions)
 
@@ -165,6 +170,9 @@ class JobService(BaseDataService[Job]):
         for r in item.rulesets:
             rulesets.append(RulesetName(r).to_str(False))
         raw['rulesets'] = rulesets
+        dojo_structure = raw.pop('dojo_structure').as_dict()
+        if dojo_structure:
+            raw['dojo_structure'] = dojo_structure
         return raw
 
     def get_tenant_last_job_date(self, tenant_name: str) -> str | None:

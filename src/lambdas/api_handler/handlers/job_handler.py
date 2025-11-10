@@ -555,7 +555,8 @@ class JobHandler(AbstractHandler):
             ttl=ttl,
             affected_license=lic.license_key if lic else None,
             status=JobState.PENDING,
-            credentials_key=credentials_key
+            credentials_key=credentials_key,
+            dojo_structure=event.dojo_structure(),
         )
         self._job_service.save(job)
 
@@ -773,7 +774,8 @@ class JobHandler(AbstractHandler):
             platform_id=platform.id,
             affected_license=lic.license_key if lic else None,
             status=JobState.PENDING,
-            credentials_key=credentials_key
+            credentials_key=credentials_key,
+            dojo_structure=event.dojo_structure(),
         )
         self._job_service.save(job)
         resp = self._submit_job_to_batch(

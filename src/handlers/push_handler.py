@@ -28,6 +28,7 @@ from services.defect_dojo_service import (
     DefectDojoService,
 )
 from services.integration_service import IntegrationService
+from services.job_service import JobService
 from services.license_service import LicenseService
 from services.metadata import Metadata
 from services.modular_helpers import tenant_cloud
@@ -43,6 +44,8 @@ from validators.swagger_request_models import (
     BaseModel,
     ReportPushByJobIdModel,
     ReportPushMultipleModel,
+    ReportPushDojoByJobIdModel,
+    ReportPushDojoMultipleModel,
 )
 from validators.utils import validate_kwargs
 
@@ -53,6 +56,7 @@ class SiemPushHandler(AbstractHandler):
     def __init__(
         self,
         ambiguous_job_service: AmbiguousJobService,
+        job_service: JobService,
         report_service: ReportService,
         modular_client: ModularServiceProvider,
         platform_service: PlatformService,
@@ -62,6 +66,7 @@ class SiemPushHandler(AbstractHandler):
         license_service: LicenseService,
     ):
         self._ambiguous_job_service = ambiguous_job_service
+        self._job_service = job_service
         self._rs = report_service
         self._modular_client = modular_client
         self._platform_service = platform_service
@@ -74,6 +79,7 @@ class SiemPushHandler(AbstractHandler):
     def build(cls) -> 'AbstractHandler':
         return cls(
             ambiguous_job_service=SP.ambiguous_job_service,
+            job_service=SP.job_service,
             report_service=SP.report_service,
             modular_client=SP.modular_client,
             platform_service=SP.platform_service,
@@ -141,7 +147,7 @@ class SiemPushHandler(AbstractHandler):
     @validate_kwargs
     def push_dojo_by_job_id(
         self,
-        event: ReportPushByJobIdModel,
+        event: ReportPushDojoByJobIdModel,
         job_id: str,
     ):
         job = self._ambiguous_job_service.get_job(
@@ -168,6 +174,14 @@ class SiemPushHandler(AbstractHandler):
                     f'Tenant {tenant.name} does not have linked dojo configuration'
                 )
                 .exc()
+            )
+
+        if event.dojo_structure():
+            _LOG.debug('Updating job dojo structure before pushing to Dojo')
+            job = self._job_service.get_nullable(job_id)
+            self._job_service.update(
+                job=job,
+                dojo_structure=event.dojo_structure()
             )
 
         push_to_dojo.apply_async((job_id,), countdown=3)
@@ -200,7 +214,7 @@ class SiemPushHandler(AbstractHandler):
     @validate_kwargs
     def push_dojo_multiple_jobs(
         self,
-        event: ReportPushMultipleModel,
+        event: ReportPushDojoMultipleModel,
     ):
         tenant = self._modular_client.tenant_service().get(event.tenant_name)
         tenant = modular_helpers.assert_tenant_valid(tenant, event.customer)
@@ -230,6 +244,15 @@ class SiemPushHandler(AbstractHandler):
                 content='No succeeded jobs found',
                 code=HTTPStatus.NOT_FOUND,
             )
+
+        if event.dojo_structure():
+            _LOG.debug('Updating jobs dojo structure before pushing to Dojo')
+            for job_id in job_ids:
+                job = self._job_service.get_nullable(job_id)
+                self._job_service.update(
+                    job=job,
+                    dojo_structure=event.dojo_structure()
+                )
 
         push_to_dojo.apply_async((job_ids,), countdown=3)
 

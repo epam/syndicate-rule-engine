@@ -4,7 +4,7 @@ import shutil
 import sys
 import urllib.error
 from abc import ABC, abstractmethod
-from datetime import timezone
+from datetime import datetime, timezone, timedelta
 from functools import reduce, wraps
 from http import HTTPStatus
 from itertools import islice
@@ -48,6 +48,27 @@ except ImportError:
 
 
 _LOG = get_logger(__name__)
+
+
+def _get_dynamic_date_example(days_offset: int = 30, date_only: bool = False) -> str:
+    """
+    Generates a dynamic date example based on current date with optional offset. 
+    The time is rounded to the start of the hour (set minutes and seconds to 00).
+    
+    :param days_offset: Number of days to add to current date (default: 30)
+    :param date_only: If True, returns only date part (YYYY-MM-DD), otherwise full ISO 8601
+    :return: ISO 8601 formatted date string
+    """
+    future_date = datetime.now() + timedelta(days=days_offset)
+    future_date = future_date.replace(minute=0, second=0, microsecond=0)
+    if date_only:
+        return future_date.strftime('%Y-%m-%d')
+    return future_date.strftime('%Y-%m-%dT%H:%M:%S')
+
+
+DYNAMIC_DATE_EXAMPLE = _get_dynamic_date_example()
+DYNAMIC_DATE_ONLY_EXAMPLE = _get_dynamic_date_example(date_only=True)
+DYNAMIC_DATE_ONLY_PAST_EXAMPLE = _get_dynamic_date_example(days_offset=-30, date_only=True)
 
 
 class TableException(Exception):
@@ -514,12 +535,12 @@ def build_account_option(**kwargs) -> Callable:
 
 
 def build_iso_date_option(*args, **kwargs) -> Callable:
-    help_iso = 'ISO 8601 format. Example: 2021-09-22T00:00:00.000000'
+    help_iso = f'ISO 8601 format. Example: {DYNAMIC_DATE_EXAMPLE}'
     params = dict(type=isoparse, required=False)
 
     if 'help' in kwargs:
         _help: str = kwargs.pop('help')
-        if help_iso not in _help:
+        if 'ISO 8601 format' not in _help:
             _help = f'{_help.rstrip(".")}. {help_iso}'
         kwargs['help'] = _help
 
@@ -565,6 +586,45 @@ def build_limit_option(**kwargs) -> Callable:
     return click.option('--limit', '-l', **params)
 
 
+def build_dojo_product_option(**kwargs) -> Callable:
+    params = dict(
+        type=str,
+        required=False,
+        help='Defect Dojo product name to which the results will be '
+             'uploaded in case Defect Dojo integration is configured. '
+             '"tenant_name", "customer_name" and "job_id" can be used '
+             'as generic placeholders inside curly brackets'
+    )
+    params.update(**kwargs)
+    return click.option('--dojo_product', '-dp', **params)
+
+
+def build_dojo_engagement_option(**kwargs) -> Callable:
+    params = dict(
+        type=str,
+        required=False,
+        help='Defect Dojo engagement name to which the results will be '
+             'uploaded in case Defect Dojo integration is configured. '
+             '"tenant_name", "customer_name" and "job_id" can be used '
+             'as generic placeholders inside curly brackets'
+    )
+    params.update(**kwargs)
+    return click.option('--dojo_engagement', '-de', **params)
+
+
+def build_dojo_test_option(**kwargs) -> Callable:
+    params = dict(
+        type=str,
+        required=False,
+        help='Defect Dojo test title to which the results will be '
+             'uploaded in case Defect Dojo integration is configured. '
+             '"tenant_name", "customer_name" and "job_id" can be used '
+             'as generic placeholders inside curly brackets'
+    )
+    params.update(**kwargs)
+    return click.option('--dojo_test', '-dt', **params)
+
+
 tenant_option = build_tenant_option()
 account_option = build_account_option()
 
@@ -591,3 +651,7 @@ exception_expire_at_required_option = build_iso_date_option(
 limit_option = build_limit_option()
 next_option = click.option('--next_token', '-nt', type=str, required=False,
                            help='Token to start record-pagination from')
+
+dojo_product_option = build_dojo_product_option()
+dojo_engagement_option = build_dojo_engagement_option()
+dojo_test_option = build_dojo_test_option()

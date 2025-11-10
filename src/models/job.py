@@ -1,4 +1,5 @@
-from pynamodb.attributes import ListAttribute, TTLAttribute, UnicodeAttribute
+from pynamodb.attributes import ListAttribute, TTLAttribute, UnicodeAttribute, \
+    MapAttribute
 from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
 from helpers.constants import Env, JobState
@@ -28,6 +29,7 @@ JOB_TTL = 'ttl'
 JOB_AFFECTED_LICENSE = 'al'
 JOB_CREDENTIALS_KEY = 'ck'
 JOB_WARNINGS = 'w'
+JOB_DOJO_STRUCTURE = 'ds'
 
 
 class TenantNameSubmittedAtIndex(GlobalSecondaryIndex):
@@ -52,6 +54,12 @@ class CustomerNameSubmittedAtIndex(GlobalSecondaryIndex):
         hash_key=True, attr_name=JOB_CUSTOMER_NAME
     )
     submitted_at = UnicodeAttribute(range_key=True, attr_name=JOB_SUBMITTED_AT)
+
+
+class DojoStructureAttribute(MapAttribute):
+    product = UnicodeAttribute(null=True)
+    engagement = UnicodeAttribute(null=True)
+    test = UnicodeAttribute(null=True)
 
 
 class Job(BaseModel):
@@ -101,6 +109,8 @@ class Job(BaseModel):
     )
 
     ttl = TTLAttribute(null=True, attr_name=JOB_TTL)
+
+    dojo_structure = DojoStructureAttribute(default=dict, attr_name=JOB_DOJO_STRUCTURE)
 
     customer_name_submitted_at_index = CustomerNameSubmittedAtIndex()
     tenant_name_submitted_at_index = TenantNameSubmittedAtIndex()
