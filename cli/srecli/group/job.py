@@ -6,7 +6,7 @@ import click
 from srecli.group import (
     ContextObj, ViewCommand, cli_response,
     DYNAMIC_DATE_ONLY_EXAMPLE, DYNAMIC_DATE_ONLY_PAST_EXAMPLE,
-dojo_product_option, dojo_engagement_option, dojo_test_option
+    dojo_product_option, dojo_engagement_option, dojo_test_option,
 )
 from srecli.group import limit_option, next_option, tenant_option, \
     build_tenant_option, response
