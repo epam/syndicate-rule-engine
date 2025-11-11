@@ -51,7 +51,7 @@ from services.rule_source_service import RuleSourceService
 from validators.registry import permissions_mapping
 from validators.swagger_request_models import BaseModel, RuleUpdateMetaPostModel
 from validators.utils import validate_kwargs
-from onprem.tasks import collect_metrics
+from onprem.tasks import collect_metrics, update_metadata
 
 _LOG = get_logger(__name__)
 
@@ -105,6 +105,9 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
             },
             Endpoint.METRICS_UPDATE: {
                 HTTPMethod.POST: self.update_metrics
+            },
+            Endpoint.METADATA_UPDATE: {
+                HTTPMethod.POST: self.update_metadata_handler
             },
         }
         for h in self.handlers:
@@ -173,6 +176,14 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
         return build_response(
             code=HTTPStatus.ACCEPTED,
             content='Metrics update has been submitted'
+        )
+
+    @validate_kwargs
+    def update_metadata_handler(self, event: BaseModel):
+        update_metadata.delay()
+        return build_response(
+            code=HTTPStatus.ACCEPTED,
+            content='Metadata update has been submitted'
         )
 
     @staticmethod

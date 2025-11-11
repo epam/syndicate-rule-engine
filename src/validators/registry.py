@@ -585,6 +585,17 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to get latest metrics update status'
     ),
 
+    # metadata
+    EndpointInfo(
+        path=Endpoint.METADATA_UPDATE,
+        method=HTTPMethod.POST,
+        lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
+        request_model=BaseModel,
+        responses=[(HTTPStatus.ACCEPTED, MessageModel, None)],
+        permission=Permission.METADATA_UPDATE,
+        description='Allows to submit a job that will update locally stored metadata'
+    ),
+
     # rulesets
     EndpointInfo(
         path=Endpoint.RULESETS,

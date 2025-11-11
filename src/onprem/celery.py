@@ -83,6 +83,7 @@ app.conf.task_routes = {
     'onprem.tasks.push_to_dojo': {'queue': 'a-jobs'},
     'onprem.tasks.delete_expired_metrics': {'queue': 'b-scheduled'},
     'onprem.tasks.collect_resources': {'queue': 'b-scheduled'},
+    'onprem.tasks.update_metadata': {'queue': 'b-scheduled'},
 }
 app.conf.timezone = Env.CELERY_TIMEZONE.as_str()
 app.conf.broker_connection_retry_on_startup = True
