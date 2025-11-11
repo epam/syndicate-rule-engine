@@ -508,7 +508,7 @@ def validate_file_optional(ctx, param, value):
     """
     if value:
         import os
-        if not os.path.exists(value):
+        if not os.path.isfile(value):
             raise click.UsageError(f'File not found: {value}')
     return value
 
