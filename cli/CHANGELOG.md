@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the `--overwrite` flag to the `ruleset release` command, enabling overwriting of an existing ruleset version
 - Fixed an issue with formatting datetime for `sre setting lm config describe` command
 - Updated `--expiration` parameter help text to clarify UTC interpretation for naive datetime values
+- Added `sre metadata update` command to updating locally stored metadata
 
 ## [5.9.0] - 2025-09-15
 - Multiple options' help messages extended with the word `[multiple]`

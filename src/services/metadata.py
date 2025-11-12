@@ -394,3 +394,42 @@ class MetadataProvider:
         _LOG.info('Saving metadata to cache')
         self._save_to_cache(lic.license_key, version, meta)
         return meta
+
+    def refresh(
+        self, lic: 'License', version: Version = DEFAULT_VERSION
+    ) -> Metadata:
+        """
+        Refreshes metadata by fetching from LM, ignoring S3 and cache.
+        Updates both S3 storage and in-memory cache with fresh data.
+        """
+        _LOG.info(f'Refreshing metadata for {lic.license_key} from LM')
+        cst = lic.first_customer
+        tlk = lic.tenant_license_key(cst)
+        if not tlk:
+            _LOG.warning(
+                f'Tenant license key not found when refreshing metadata for license {lic.license_key}'
+            )
+            return Metadata.empty()
+        
+        data = self._lm.cl.get_all_metadata(
+            customer=cst,
+            tenant_license_key=tlk,
+            installation_version=version.to_str(),
+        )
+        
+        if not data:
+            _LOG.warning('Unsuccessful request to lm. No metadata returned')
+            return Metadata.empty()
+        
+        _LOG.info('Storing refreshed metadata from LM in S3')
+        self._s3.put_object(
+            bucket=self._env.default_reports_bucket_name(),
+            key=ReportMetaBucketsKeys.meta_key(lic.license_key, version),
+            body=data,
+            content_encoding='gzip',
+        )
+        
+        meta = self._dec.decode(gzip.decompress(data))
+        _LOG.info('Updating cache with refreshed metadata')
+        self._save_to_cache(lic.license_key, version, meta)
+        return meta
