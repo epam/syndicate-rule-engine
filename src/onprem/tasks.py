@@ -2,7 +2,6 @@ from executor.job import task_scheduled_job, task_standard_job, upload_to_dojo, 
     update_metadata
 from helpers import RequestContext
 from helpers.constants import Env
-from helpers.log_helper import get_logger
 from lambdas.license_updater.handler import LicenseUpdater
 from lambdas.metrics_updater.handler import MetricsUpdater
 from lambdas.rule_meta_updater.handler import RuleMetaUpdaterLambdaHandler
@@ -14,8 +13,6 @@ from lambdas.metrics_updater.processors.expired_metrics_processor import (
 )
 from services.resources_collector import CustodianResourceCollector
 from onprem.celery import app
-
-_LOG = get_logger(__name__)
 
 
 @app.task(
