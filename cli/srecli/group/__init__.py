@@ -501,6 +501,18 @@ def convert_in_lower_case_if_present(ctx, param, value):
         return value.lower()
 
 
+def validate_file_optional(ctx, param, value):
+    """
+    Validates that file exists if value is provided.
+    Used by modular API to recognize file parameters.
+    """
+    if value:
+        import os
+        if not os.path.isfile(value):
+            raise click.UsageError(f'File not found: {value}')
+    return value
+
+
 def build_tenant_option(**kwargs) -> Callable:
     params = dict(
         type=str,

@@ -9,7 +9,7 @@ from srecli.group import (
     dojo_product_option, dojo_engagement_option, dojo_test_option,
 )
 from srecli.group import limit_option, next_option, tenant_option, \
-    build_tenant_option, response
+    build_tenant_option, response, validate_file_optional
 from srecli.group.job_scheduled import scheduled
 from srecli.service.constants import Env
 from srecli.service.constants import JobState, TenantModel
@@ -100,6 +100,7 @@ def describe(ctx: ContextObj, job_id: str, tenant_name: str, customer_id: str,
 @click.option('--azure_client_id', type=str, help='Azure client id')
 @click.option('--azure_client_secret', type=str, help='Azure client secret')
 @click.option('--google_application_credentials_path', type=str,
+              callback=validate_file_optional,
               help='Path to file with google credentials')
 @click.option('--only_preconfigured_credentials', is_flag=True,
               help='Specify flag to ignore any credentials that can be found '
