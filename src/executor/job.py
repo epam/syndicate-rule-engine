@@ -931,9 +931,15 @@ def update_metadata():
         license_key = license_obj.license_key
         try:
             _LOG.info(f'Updating metadata for license: {license_key}')
-            metadata_provider.refresh(license_obj)
-            _LOG.info(f'Successfully updated metadata for license: {license_key}')
-            successful_updates += 1
+            metadata = metadata_provider.refresh(license_obj)
+            if not metadata.rules and not metadata.domains:
+                _LOG.warning(
+                    f'Metadata update returned empty metadata for license: {license_key}'
+                )
+                failed_updates += 1
+            else:
+                _LOG.info(f'Successfully updated metadata for license: {license_key}')
+                successful_updates += 1
         except Exception as e:
             _LOG.error(
                 f'Failed to update metadata for license {license_key}: {e}',
