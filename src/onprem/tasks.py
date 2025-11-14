@@ -1,4 +1,5 @@
-from executor.job import task_scheduled_job, task_standard_job, upload_to_dojo
+from executor.job import task_scheduled_job, task_standard_job, upload_to_dojo, \
+    update_metadata
 from helpers import RequestContext
 from helpers.constants import Env
 from lambdas.license_updater.handler import LicenseUpdater
@@ -63,6 +64,11 @@ def collect_metrics():
     MetricsUpdater.build().lambda_handler(
         event={'data_type': 'metrics'}, context=RequestContext()
     )
+
+
+@app.task
+def run_update_metadata():
+    update_metadata()
 
 
 @app.task
