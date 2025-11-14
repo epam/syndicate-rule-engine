@@ -54,7 +54,9 @@ from validators.swagger_request_models import (
     RawReportGetModel,
     RefreshPostModel,
     ReportPushByJobIdModel,
+    ReportPushDojoByJobIdModel,
     ReportPushMultipleModel,
+    ReportPushDojoMultipleModel,
     ReportStatusGetModel,
     ReportsSendingSettingPostModel,
     ResourceReportJobGetModel,
@@ -1104,7 +1106,7 @@ data: tuple[EndpointInfo, ...] = (
         path=Endpoint.REPORTS_PUSH_DOJO_JOB_ID,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.REPORT_GENERATOR,
-        request_model=ReportPushByJobIdModel,
+        request_model=ReportPushDojoByJobIdModel,
         responses=[(HTTPStatus.OK, SingleDefectDojoPushResult, None)],
         permission=Permission.REPORT_PUSH_TO_DOJO,
         description='Allows to push a specific job to Defect Dojo'
@@ -1113,7 +1115,7 @@ data: tuple[EndpointInfo, ...] = (
         path=Endpoint.REPORTS_PUSH_DOJO,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.REPORT_GENERATOR,
-        request_model=ReportPushMultipleModel,
+        request_model=ReportPushDojoMultipleModel,
         responses=[(HTTPStatus.OK, MultipleDefectDojoPushResult, None)],
         permission=Permission.REPORT_PUSH_TO_DOJO_BATCH,
         description='Allows to push multiple jobs to Defect Dojo'

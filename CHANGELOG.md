@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.15.0] - 2025-11-06
 - Added hiding expired resource exceptions
+- Fixed an issue with filtering resource exceptions by `--tags_filters`
 - Added the parameter `overwrite` to the `POST /rulesets/release` endpoint that allows to overwrite existing ruleset version
 - Added the possibility to configure gunicorn workers timeout via the `SRE_GUNICORN_WORKERS_TIMEOUT` env variable
 - Push to Defect Dojo changed from synchronous to asynchronous
@@ -19,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed issue with kube-confid file during k8s scan
 - Fixed an issue with describing rules by the cloud name
 - Fixed an issue with handling the `expiration` parameter in `sre role add/update` commands
+- Fixed an issue with creating resource exceptions with the same parameters
+- Added the possibility to submit jobs and push reports to dojo with custom `product`, `engagement`, and `test` names
 
 ## [5.14.0] - 2025-10-03
 - Updated the ami-initialize.sh script

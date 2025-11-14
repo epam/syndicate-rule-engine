@@ -162,12 +162,10 @@ _db_name=syndicate_rule_engine
 SERVICE_MODE=${_service_mode}
 
 # <buckets>
-reports_bucket_name=reports
-caas_rulesets_bucket=rulesets
-caas_ssm_backup_bucket=ssm-backup
-stats_s3_bucket_name=statistics
-templates_s3_bucket_name=templates
-caas_metrics_bucket_name=metrics
+SRE_REPORTS_BUCKET_NAME=reports
+SRE_RULESETS_BUCKET_NAME=rulesets
+SRE_STATISTICS_BUCKET_NAME=statistics
+SRE_METRICS_BUCKET_NAME=metrics
 ...
 ```
 

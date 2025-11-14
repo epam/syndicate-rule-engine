@@ -8,9 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed an alias name from `-l` to `-loc` for the `--location` parameter in the command `resource exception describe` because of duplication with the `--limit` parameter alias in the same command
 - Added the flag `--include_expired` to the command `resource exception describe` to allow retrieving expired resource exceptions
 - Added the `--overwrite` flag to the `ruleset release` command, enabling overwriting of an existing ruleset version
-- Fixed an issue with formatting datetime for `sre setting lm config describe` command
 - Updated `--expiration` parameter help text to clarify UTC interpretation for naive datetime values
 - Added `sre metadata update` command to updating locally stored metadata
+- Updated help messages for date parameters to use dynamic date examples in `sre role add|update`, `sre job describe` and `sre metrics status` commands
+- Added `dojo_product`, `dojo_engagement`, and `dojo_test` parameters to commands `job submit`, `job submit_k8s`, and `repot push dojo`
+- Fixed an issue with `--google_application_credentials_path` parameter not being recognized as a file parameter in `re job submit` command when SRE CLI is installed as a module within Modular API, causing "${file} not found" error
+- Fixed an issue with formatting datetime for `sre setting lm config describe` command
 
 ## [5.9.0] - 2025-09-15
 - Multiple options' help messages extended with the word `[multiple]`

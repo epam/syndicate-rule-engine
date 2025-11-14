@@ -306,6 +306,27 @@ class ResourceExceptionHandler(AbstractHandler):
             arn=event.arn
         )
 
+        existing_resource_exceptions = self._res.get_resources_exceptions(
+            resource_id=event.resource_id,
+            location=event.location,
+            resource_type=resource_type,
+            tenant_name=event.tenant_name,
+            customer_name=event.customer_id,
+            arn=event.arn,
+            tags_filters=event.tags_filters,
+        )
+        existing_resource_exceptions = list(existing_resource_exceptions)
+        if existing_resource_exceptions:
+            exception_id = existing_resource_exceptions[0].id
+            raise (
+                ResponseFactory(HTTPStatus.CONFLICT)
+                .message(
+                    'Resource exception with same parameters'
+                    f' already exists. ID: {exception_id!r}.'
+                )
+                .exc()
+            )
+
         resource_exception = self._res.create(
             resource_id=event.resource_id,
             location=event.location,
@@ -317,6 +338,7 @@ class ResourceExceptionHandler(AbstractHandler):
             expire_at=self._to_timestamp(event.expire_at)
         )
         self._res.save(resource_exception)
+
 
         return (
             ResponseFactory()

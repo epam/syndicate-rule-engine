@@ -4,7 +4,8 @@ from datetime import datetime
 from functools import cached_property
 from typing import Callable, Iterable, Iterator, Optional, Union
 
-from helpers.constants import JobState, JobType
+from helpers.constants import JobState, JobType, DOJO_PRODUCT_ATTR, \
+    DOJO_ENGAGEMENT_ATTR, DOJO_TEST_ATTR
 from services.batch_results_service import BatchResults, BatchResultsService
 from services.job_service import Job, JobService
 
@@ -107,6 +108,16 @@ class AmbiguousJob:
             JobState.SUCCEEDED,
             JobState.FAILED,
         )
+
+    @property
+    def dojo_structure(self) -> tuple:
+        params = self.job.dojo_structure.as_dict()
+
+        product = params.get(DOJO_PRODUCT_ATTR, '')
+        engagement = params.get(DOJO_ENGAGEMENT_ATTR, '')
+        test = params.get(DOJO_TEST_ATTR, '')
+
+        return product, engagement, test
 
 
 class AmbiguousJobService:

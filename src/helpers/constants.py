@@ -209,6 +209,9 @@ CLOUD_ATTR = 'cloud'
 CLOUD_IDENTIFIER_ATTR = 'cloud_identifier'
 REGION_ATTR = 'region'
 JOB_ID_ATTR = 'job_id'
+DOJO_PRODUCT_ATTR = 'product'
+DOJO_ENGAGEMENT_ATTR = 'engagement'
+DOJO_TEST_ATTR = 'test'
 
 
 class Cloud(str, Enum):
