@@ -505,10 +505,7 @@ class LMClientFactory:
             
         if Version(version) >= Version('3.3.0'):
             _LOG.info(f'Desired version is {version}. Using client for 3.3.0+')
-            return LMClientAfter3p3(
-                baseurl=url,
-                token_producer=producer,
-            )
+            return cl
         if Version(version) >= Version('3.0.0'):
             _LOG.info(f'Desired version is {version}. Using client for 3.0.0+')
             return LMClientAfter3p0(
