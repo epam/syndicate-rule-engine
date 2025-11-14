@@ -179,11 +179,14 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
         )
 
     @validate_kwargs
-    def update_metadata_handler(self, event: BaseModel):
+    def update_metadata_handler(
+        self, 
+        event: BaseModel,
+    ):
         run_update_metadata.delay()
         return build_response(
             code=HTTPStatus.ACCEPTED,
-            content='Metadata update has been submitted'
+            content='Metadata update has been submitted',
         )
 
     @staticmethod

@@ -595,7 +595,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.ACCEPTED, MessageModel, None)],
         permission=Permission.METADATA_UPDATE,
-        description='Allows to submit a job that will update locally stored metadata'
+        description='Allows to submit a job that will update locally stored metadata',
     ),
 
     # rulesets

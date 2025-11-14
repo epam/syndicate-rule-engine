@@ -891,9 +891,11 @@ def post_lm_job(job: Job):
 
 
 def update_metadata():
-    from itertools import chain
     import operator
+    from itertools import chain
+    
     from modular_sdk.commons.constants import ApplicationType
+
     from services import SERVICE_PROVIDER
 
     _LOG.info('Starting metadata update task for all customers')
@@ -906,13 +908,13 @@ def update_metadata():
     _LOG.info('Collecting licenses from all customers')
     customer_names = map(
         operator.attrgetter('name'), 
-        customer_service.i_get_customer()
+        customer_service.i_get_customer(),
     )
     license_applications = chain.from_iterable(
         application_service.i_get_application_by_customer(
             customer_name, 
             ApplicationType.CUSTODIAN_LICENSES.value, 
-            deleted=False
+            deleted=False,
         )
         for customer_name in customer_names
     )

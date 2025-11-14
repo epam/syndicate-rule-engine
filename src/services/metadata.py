@@ -396,7 +396,9 @@ class MetadataProvider:
         return meta
 
     def refresh(
-        self, lic: 'License', version: Version = DEFAULT_VERSION
+        self, 
+        lic: 'License', 
+        version: Version = DEFAULT_VERSION,
     ) -> Metadata:
         """
         Refreshes metadata by fetching from LM, ignoring S3 and cache.
@@ -424,12 +426,19 @@ class MetadataProvider:
         _LOG.info('Storing refreshed metadata from LM in S3')
         self._s3.put_object(
             bucket=self._env.default_reports_bucket_name(),
-            key=ReportMetaBucketsKeys.meta_key(lic.license_key, version),
+            key=ReportMetaBucketsKeys.meta_key(
+                license_key=lic.license_key, 
+                version=version,
+            ),
             body=data,
             content_encoding='gzip',
         )
         
         meta = self._dec.decode(gzip.decompress(data))
         _LOG.info('Updating cache with refreshed metadata')
-        self._save_to_cache(lic.license_key, version, meta)
+        self._save_to_cache(
+            license_key=lic.license_key, 
+            version=version, 
+            meta=meta,
+        )
         return meta
