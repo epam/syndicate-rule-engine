@@ -481,27 +481,46 @@ class LMClientFactory:
         ad = LMAccessData.from_dict(
             self._ss.get_license_manager_access_data() or {}
         )
-        producer = LmTokenProducer(self._ss, self._ssm)
+        url = ad.url
+        _LOG.debug(f'License manager URL: {url}')
 
-        cl = LMClient(baseurl=ad.url, token_producer=producer)
+        producer = LmTokenProducer(
+            settings_service=self._ss,
+            ssm=self._ssm,
+        )
+        cl = LMClientAfter3p3(
+            baseurl=url, 
+            token_producer=producer,
+        )
+
         _LOG.debug('Making whoami request to get version')
         _, version = cl.whoami()
         _LOG.debug(f'Received api version: {version}')
 
         if not version:
             _LOG.info(
-                'No desired api version supplied. Using after 2.7.0 client'
+                'No desired api version supplied. Using client for 3.3.0+'
             )
-            return LMClientAfter2p7(baseurl=ad.url, token_producer=producer)
+            return cl
+            
         if Version(version) >= Version('3.3.0'):
             _LOG.info(f'Desired version is {version}. Using client for 3.3.0+')
-            return LMClientAfter3p3(baseurl=ad.url, token_producer=producer)
+            return LMClientAfter3p3(
+                baseurl=url,
+                token_producer=producer,
+            )
         if Version(version) >= Version('3.0.0'):
             _LOG.info(f'Desired version is {version}. Using client for 3.0.0+')
-            return LMClientAfter3p0(baseurl=ad.url, token_producer=producer)
+            return LMClientAfter3p0(
+                baseurl=url,
+                token_producer=producer,
+            )
         if Version(version) >= Version('2.7.0'):
             _LOG.info(f'Desired version is {version}. Using client for 2.7.0+')
-            return LMClientAfter2p7(baseurl=ad.url, token_producer=producer)
-        # < 2.7.0
-        _LOG.info(f'Desired version is {version}. Using client for <2.7.0')
+            return LMClientAfter2p7(
+                baseurl=url,
+                token_producer=producer,
+            )
+
+        _LOG.info(f'Desired version is {version}. Using client for 3.3.0+')
         return cl
