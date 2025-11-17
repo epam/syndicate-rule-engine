@@ -228,7 +228,7 @@ class LMClient:
             _LOG.debug(f'Response from {resp}')
             return resp
         except (requests.RequestException, Exception) as e:
-            _LOG.exception('Error occurred while executing request.')
+            _LOG.exception(f'Error occurred while executing request: {e}')
             return
 
     def sync_license(
