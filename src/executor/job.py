@@ -1370,6 +1370,7 @@ def job_initializer(
         f'Initializing subprocess for a region: {multiprocessing.current_process()}'
     )
     try:
+        _LOG.debug(f'envs: {envs}, cloud: {cloud}')
         if cloud is Cloud.GOOGLE and ENV_GOOGLE_APPLICATION_CREDENTIALS in envs:
             envs = BSP.credentials_service.google_credentials_to_file(
                 envs[ENV_GOOGLE_APPLICATION_CREDENTIALS]
