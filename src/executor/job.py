@@ -1369,19 +1369,22 @@ def job_initializer(
     _LOG.info(
         f'Initializing subprocess for a region: {multiprocessing.current_process()}'
     )
-    if cloud is Cloud.GOOGLE and ENV_GOOGLE_APPLICATION_CREDENTIALS in envs:
-        envs = BSP.credentials_service.google_credentials_to_file(
-            envs[ENV_GOOGLE_APPLICATION_CREDENTIALS]
-        )
-    elif cloud is Cloud.KUBERNETES and ENV_KUBECONFIG in envs:
-        envs = BSP.credentials_service.k8s_credentials_to_file(
-            envs[ENV_KUBECONFIG]
-        )
+    try:
+        if cloud is Cloud.GOOGLE and ENV_GOOGLE_APPLICATION_CREDENTIALS in envs:
+            envs = BSP.credentials_service.google_credentials_to_file(
+                envs[ENV_GOOGLE_APPLICATION_CREDENTIALS]
+            )
+        elif cloud is Cloud.KUBERNETES and ENV_KUBECONFIG in envs:
+            envs = BSP.credentials_service.k8s_credentials_to_file(
+                envs[ENV_KUBECONFIG]
+            )
 
-    envs = {str(k): str(v) for k, v in envs.items() if v}
+        envs = {str(k): str(v) for k, v in envs.items() if v}
 
-    os.environ.update(envs)
-    os.environ.setdefault('AWS_DEFAULT_REGION', AWS_DEFAULT_REGION)
+        os.environ.update(envs)
+        os.environ.setdefault('AWS_DEFAULT_REGION', AWS_DEFAULT_REGION)
+    except Exception as e:
+        _LOG.exception(f'Unexpected error occurred during job initialization {e}')
 
 
 def process_job_concurrent(
