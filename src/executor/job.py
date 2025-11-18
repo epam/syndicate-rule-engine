@@ -1104,10 +1104,10 @@ def get_job_credentials(job: Job | BatchResults, cloud: Cloud) -> dict | None:
     if creds is None:
         return
     if cloud is Cloud.GOOGLE:
-        # creds = BSP.credentials_service.google_credentials_to_file(creds)
-        return {
-            ENV_GOOGLE_APPLICATION_CREDENTIALS: creds,
-        }
+        creds = BSP.credentials_service.google_credentials_to_file(creds)
+        # return {
+        #     ENV_GOOGLE_APPLICATION_CREDENTIALS: creds,
+        # }
     return creds
 
 
@@ -1370,12 +1370,12 @@ def job_initializer(
         f'Initializing subprocess for a region: {multiprocessing.current_process()}'
     )
     try:
-        _LOG.debug(f'envs: {envs}, cloud: {cloud}')
-        if cloud is Cloud.GOOGLE and ENV_GOOGLE_APPLICATION_CREDENTIALS in envs:
-            envs = BSP.credentials_service.google_credentials_to_file(
-                envs[ENV_GOOGLE_APPLICATION_CREDENTIALS]
-            )
-        elif cloud is Cloud.KUBERNETES and ENV_KUBECONFIG in envs:
+        # _LOG.debug(f'envs: {envs}, cloud: {cloud}')
+        # if cloud is Cloud.GOOGLE and ENV_GOOGLE_APPLICATION_CREDENTIALS in envs:
+        #     envs = BSP.credentials_service.google_credentials_to_file(
+        #         envs[ENV_GOOGLE_APPLICATION_CREDENTIALS]
+        #     )
+        if cloud is Cloud.KUBERNETES and ENV_KUBECONFIG in envs:
             envs = BSP.credentials_service.k8s_credentials_to_file(
                 envs[ENV_KUBECONFIG]
             )
@@ -1739,6 +1739,7 @@ def run_standard_job(ctx: JobExecutionContext):
         # this Pool. Basically it isolates rules run for one region and
         # prevents high ram usage
         _LOG.info(f'Going to init pool for region {region}')
+        job_initializer(credentials, cloud,)
         with multiprocessing.Pool(
             processes=1,
             initializer=job_initializer,
