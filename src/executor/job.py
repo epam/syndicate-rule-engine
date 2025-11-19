@@ -895,7 +895,7 @@ def post_lm_job(job: Job):
     is_job=True, 
     component=BackgroundJobName.METADATA.value,
 )
-def update_metadata(event=None, context=None):
+def update_metadata():
     import operator
     from itertools import chain
     
@@ -955,13 +955,18 @@ def update_metadata(event=None, context=None):
             )
             failed_updates += 1
     
+    if failed_updates > 0:
+        reason = (
+            f'Failed to update metadata for {failed_updates}/{total_licenses} '
+            'license(s)'
+        )
+        ExecutorError.METADATA_UPDATE_FAILED.reason = reason
+        raise ExecutorException(ExecutorError.METADATA_UPDATE_FAILED)
+    
     _LOG.info(
-        f'Metadata update completed. '
-        f'Total: {total_licenses}, '
-        f'Successful: {successful_updates}, '
-        f'Failed: {failed_updates}'
+        f'Metadata for {successful_updates}/{total_licenses} '
+        'licenses updated successfully'
     )
-
 
 def import_to_dojo(
     job: AmbiguousJob,

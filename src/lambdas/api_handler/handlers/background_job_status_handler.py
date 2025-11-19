@@ -18,8 +18,16 @@ _LOG = get_logger(__name__)
 
 class BackgroundJobStatusHandler(AbstractHandler):
     """
-    Unified endpoint to get the status of all background jobs
-    Support background job types: metrics and metadata via the path parameter: /{background_job_name}/status
+    Unified handler for retrieving the status of background jobs.
+    
+    Supports multiple background job types (e.g., metrics, metadata) through
+    the path parameter `background_job_name`. Allows optional filtering by
+    date range using `start_iso` and `end_iso` query parameters.
+    
+    Endpoint: /{background_job_name}/status
+    Method: GET
+    
+    Returns a list of job statuses with their start time and current state.
     """
     
     def __init__(

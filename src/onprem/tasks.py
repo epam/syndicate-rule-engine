@@ -68,7 +68,7 @@ def collect_metrics():
 
 @app.task
 def run_update_metadata():
-    update_metadata(event={}, context=RequestContext())
+    update_metadata()
 
 
 @app.task
