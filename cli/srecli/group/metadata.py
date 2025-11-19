@@ -51,4 +51,3 @@ def status(
         background_job_name='metadata',
         **params
     )
-
