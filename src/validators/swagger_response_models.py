@@ -231,13 +231,9 @@ class Event(TypedDict):
     saved: int
 
 
-class MetricsStatus(TypedDict):
+class BackgroundJobStatus(TypedDict):
     started_at: datetime
     state: str
-
-
-class BackgroundJobStatus(MetricsStatus):
-    pass
 
 
 class LicenseAllowance(TypedDict):
@@ -590,10 +586,6 @@ class MultipleRulesModel(BaseModel):
 
 class MultipleRuleMetaUpdateModel(BaseModel):
     items: list[RuleMetaUpdate]
-
-
-class MultipleMetricsStatusesModel(BaseModel):
-    items: list[MetricsStatus]
 
 
 class MultipleBackgroundJobStatusesModel(BaseModel):

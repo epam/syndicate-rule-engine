@@ -1874,7 +1874,7 @@ class ReportStatusGetModel(BaseModel):
     complete: bool = False
 
 
-class MetricsStatusGetModel(TimeRangedMixin, BaseModel):
+class BackgroundJobStatusGetModel(TimeRangedMixin, BaseModel):
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
 
@@ -1886,9 +1886,6 @@ class MetricsStatusGetModel(TimeRangedMixin, BaseModel):
     def skip_validation_if_no_input(cls) -> bool:
         return True
 
-
-class BackgroundJobStatusGetModel(MetricsStatusGetModel):
-    pass
 
 class LicensePostModel(BaseModel):
     tenant_license_key: str = Field(alias='license_key')
