@@ -57,7 +57,6 @@ class Endpoint(str, Enum):
     REPORTS_RETRY = '/reports/retry'
     POLICIES_NAME = '/policies/{name}'
     BACKGROUND_JOB_STATUS = '/{background_job_name}/status'
-    # METRICS_STATUS = '/metrics/status'
     REPORTS_CLEVEL = '/reports/clevel'
     METRICS_UPDATE = '/metrics/update'
     METADATA_UPDATE = '/metadata/update'
@@ -844,7 +843,6 @@ class Permission(str, Enum):
     RULE_UPDATE_META = 'system:update_meta'
 
     METRICS_UPDATE = 'system:update_metrics', True
-    METRICS_STATUS = 'system:metrics_status'
     METADATA_UPDATE = 'system:update_metadata', True
 
     BACKGROUND_JOB_STATUS = 'background_job:status'

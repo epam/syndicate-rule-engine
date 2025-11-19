@@ -231,7 +231,6 @@ class RestrictCustomerEventProcessor(AbstractEventProcessor):
         (Endpoint.CUSTOMERS, HTTPMethod.GET),
 
         (Endpoint.METRICS_UPDATE, HTTPMethod.POST),
-        # (Endpoint.METRICS_STATUS, HTTPMethod.GET),
         (Endpoint.METADATA_UPDATE, HTTPMethod.POST),
 
         (Endpoint.RULESETS, HTTPMethod.GET),

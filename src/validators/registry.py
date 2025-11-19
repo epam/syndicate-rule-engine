@@ -577,15 +577,6 @@ data: tuple[EndpointInfo, ...] = (
         permission=Permission.METRICS_UPDATE,
         description='Allows to submit a job that will update metrics'
     ),
-    # EndpointInfo(
-    #     path=Endpoint.METRICS_STATUS,
-    #     method=HTTPMethod.GET,
-    #     lambda_name=LambdaName.API_HANDLER,
-    #     request_model=MetricsStatusGetModel,
-    #     responses=[(HTTPStatus.OK, MultipleMetricsStatusesModel, None)],
-    #     permission=Permission.METRICS_STATUS,
-    #     description='Allows to get latest metrics update status'
-    # ),
 
     # metadata
     EndpointInfo(
