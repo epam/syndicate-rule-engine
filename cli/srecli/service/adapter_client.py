@@ -498,10 +498,11 @@ class SREApiClient:
             data=sifted(kwargs)
         )
 
-    def metrics_status(self, **kwargs):
+    def background_job_status(self, background_job_name: str, **kwargs):
         return self.make_request(
-            path=Endpoint.METRICS_STATUS,
+            path=Endpoint.BACKGROUND_JOB_STATUS,
             method=HTTPMethod.GET,
+            path_params={'background_job_name': background_job_name},
             query=sifted(kwargs)
         )
 

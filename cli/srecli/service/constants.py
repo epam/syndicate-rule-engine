@@ -64,7 +64,7 @@ class Endpoint(str, Enum):
     BATCH_RESULTS = '/batch-results'
     REPORTS_RETRY = '/reports/retry'
     POLICIES_NAME = '/policies/{name}'
-    METRICS_STATUS = '/metrics/status'
+    BACKGROUND_JOB_STATUS = '/{background_job_name}/status'
     REPORTS_CLEVEL = '/reports/clevel'
     METRICS_UPDATE = '/metrics/update'
     METADATA_UPDATE = '/metadata/update'

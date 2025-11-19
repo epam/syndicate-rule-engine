@@ -1887,6 +1887,9 @@ class MetricsStatusGetModel(TimeRangedMixin, BaseModel):
         return True
 
 
+class BackgroundJobStatusGetModel(MetricsStatusGetModel):
+    pass
+
 class LicensePostModel(BaseModel):
     tenant_license_key: str = Field(alias='license_key')
 

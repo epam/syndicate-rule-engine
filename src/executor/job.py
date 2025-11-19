@@ -138,6 +138,7 @@ from c7n.resources import load_resources
 from celery.exceptions import SoftTimeLimitExceeded
 from google.auth.exceptions import GoogleAuthError
 from googleapiclient.errors import HttpError
+from modular_sdk.commons.trace_helper import tracer_decorator
 from modular_sdk.commons.constants import (
     ENV_AZURE_CLIENT_CERTIFICATE_PATH,
     ENV_GOOGLE_APPLICATION_CREDENTIALS,
@@ -168,7 +169,7 @@ from helpers.constants import (
     JobState,
     PlatformType,
     PolicyErrorType,
-    DEPRECATED_RULE_SUFFIX
+    BackgroundJobName
 )
 from helpers.log_helper import get_logger
 from helpers.regions import AWS_REGIONS
@@ -890,7 +891,11 @@ def post_lm_job(job: Job):
         raise ExecutorException(ExecutorError.LM_DID_NOT_ALLOW)
 
 
-def update_metadata():
+@tracer_decorator(
+    is_job=True, 
+    component=BackgroundJobName.METADATA.value,
+)
+def update_metadata(event=None, context=None):
     import operator
     from itertools import chain
     

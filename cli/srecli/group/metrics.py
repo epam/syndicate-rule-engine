@@ -6,7 +6,10 @@ from srecli.group import (
 )
 
 
-@click.group(name='metrics')
+_GROUP_NAME = 'metrics'
+
+
+@click.group(name=_GROUP_NAME)
 def metrics():
     """Manages Scan and Tenant Metrics"""
 
@@ -29,7 +32,12 @@ def update(ctx: ContextObj, customer_id):
               help='Query metrics statuses till this date. Accepts date ISO '
                    f'string. Example: {DYNAMIC_DATE_ONLY_EXAMPLE}')
 @cli_response()
-def status(ctx: ContextObj, from_date: str, to_date: str, customer_id):
+def status(
+    ctx: ContextObj,
+    from_date: str,
+    to_date: str,
+    customer_id: str | None = None,
+):
     """
     Execution status of the last metrics update
     """
@@ -37,4 +45,7 @@ def status(ctx: ContextObj, from_date: str, to_date: str, customer_id):
         'from': from_date,
         'to': to_date
     }
-    return ctx['api_client'].metrics_status(**params)
+    return ctx['api_client'].background_job_status(
+        background_job_name=_GROUP_NAME,
+        **params
+    )

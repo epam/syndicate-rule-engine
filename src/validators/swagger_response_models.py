@@ -236,6 +236,10 @@ class MetricsStatus(TypedDict):
     state: str
 
 
+class BackgroundJobStatus(MetricsStatus):
+    pass
+
+
 class LicenseAllowance(TypedDict):
     balance_exhaustion_model: Literal['collective', 'independent']
     job_balance: int
@@ -590,6 +594,10 @@ class MultipleRuleMetaUpdateModel(BaseModel):
 
 class MultipleMetricsStatusesModel(BaseModel):
     items: list[MetricsStatus]
+
+
+class MultipleBackgroundJobStatusesModel(BaseModel):
+    items: list[BackgroundJobStatus]
 
 
 class SingleRulesetModel(BaseModel):

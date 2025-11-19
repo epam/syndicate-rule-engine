@@ -10,7 +10,9 @@ from modular_sdk.commons.exception import ModularException
 from modular_sdk.services.customer_service import CustomerService
 
 from helpers import RequestContext, deep_get
-from helpers.constants import Env, Endpoint, HTTPMethod, Permission
+from helpers.constants import (
+    Env, Endpoint, HTTPMethod, Permission, ALLOWED_BACKGROUND_JOB_NAMES
+)
 from helpers.lambda_response import (
     SREException,
     LambdaOutput,
@@ -229,7 +231,7 @@ class RestrictCustomerEventProcessor(AbstractEventProcessor):
         (Endpoint.CUSTOMERS, HTTPMethod.GET),
 
         (Endpoint.METRICS_UPDATE, HTTPMethod.POST),
-        (Endpoint.METRICS_STATUS, HTTPMethod.GET),
+        # (Endpoint.METRICS_STATUS, HTTPMethod.GET),
         (Endpoint.METADATA_UPDATE, HTTPMethod.POST),
 
         (Endpoint.RULESETS, HTTPMethod.GET),
@@ -272,7 +274,9 @@ class RestrictCustomerEventProcessor(AbstractEventProcessor):
         (Endpoint.USERS_USERNAME, HTTPMethod.GET),
 
         (Endpoint.SCHEDULED_JOB, HTTPMethod.GET),
-        (Endpoint.SCHEDULED_JOB_NAME, HTTPMethod.GET)
+        (Endpoint.SCHEDULED_JOB_NAME, HTTPMethod.GET),
+
+        (Endpoint.BACKGROUND_JOB_STATUS, HTTPMethod.GET),
     }
 
     def __init__(self, customer_service: CustomerService):
@@ -467,6 +471,33 @@ class RestrictTenantEventProcessor(AbstractEventProcessor):
         self._ps = platform_service
         self._ls = license_service
 
+    def __call__(
+        self,
+        event: ProcessedEvent,
+        context: RequestContext,
+    ) -> tuple[ProcessedEvent, RequestContext]:
+        res = event['resource']
+        perm = event['permission']
+        
+        # Validate background_job_name regardless of depends_on_tenant
+        if res and '{background_job_name}' in res:
+            return self._restrict_background_job_name(event, context)
+        
+        if not res or not perm or not perm.depends_on_tenant:
+            return event, context
+
+        if '{tenant_name}' in res:
+            return self._restrict_tenant_name(event, context)
+        if '{job_id}' in res:
+            return self._restrict_job_id(event, context)
+        if '{batch_results_id}' in res:
+            return self._restrict_batch_results(event, context)
+        if '{platform_id}' in res:
+            return self._restrict_platform_id(event, context)
+        if '{license_key}' in res:
+            return self._restrict_license_key(event, context)
+        return event, context
+
     @classmethod
     def build(cls) -> 'RestrictTenantEventProcessor':
         return cls(
@@ -475,6 +506,21 @@ class RestrictTenantEventProcessor(AbstractEventProcessor):
             platform_service=SP.platform_service,
             license_service=SP.license_service
         )
+
+    def _restrict_background_job_name(
+        self, 
+        event: ProcessedEvent,
+        context: RequestContext,
+    ) -> tuple[ProcessedEvent, RequestContext]:
+        """Validate that background_job_name is one of allowed values"""
+        background_job_name = cast(str, event['path_params'].get('background_job_name'))
+        
+        if background_job_name not in ALLOWED_BACKGROUND_JOB_NAMES:
+            raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
+                f'Background job name "{background_job_name}" is not supported. '
+                f'Allowed values: {", ".join(sorted(ALLOWED_BACKGROUND_JOB_NAMES))}'
+            ).exc()
+        return event, context
 
     def _restrict_tenant_name(self, event: ProcessedEvent,
                               context: RequestContext
@@ -525,25 +571,6 @@ class RestrictTenantEventProcessor(AbstractEventProcessor):
                               context: RequestContext
                               ) -> tuple[ProcessedEvent, RequestContext]:
         # todo check if license is applicable at least for one allowed tenant
-        return event, context
-
-    def __call__(self, event: ProcessedEvent, context: RequestContext
-                 ) -> tuple[ProcessedEvent, RequestContext]:
-        res = event['resource']
-        perm = event['permission']
-        if not res or not perm or not perm.depends_on_tenant:
-            return event, context
-
-        if '{tenant_name}' in res:
-            return self._restrict_tenant_name(event, context)
-        if '{job_id}' in res:
-            return self._restrict_job_id(event, context)
-        if '{batch_results_id}' in res:
-            return self._restrict_batch_results(event, context)
-        if '{platform_id}' in res:
-            return self._restrict_platform_id(event, context)
-        if '{license_key}' in res:
-            return self._restrict_license_key(event, context)
         return event, context
 
 
