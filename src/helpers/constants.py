@@ -59,6 +59,7 @@ class Endpoint(str, Enum):
     METRICS_STATUS = '/metrics/status'
     REPORTS_CLEVEL = '/reports/clevel'
     METRICS_UPDATE = '/metrics/update'
+    METADATA_UPDATE = '/metadata/update'
     REPORTS_STATUS = '/reports/status'
     REPORTS_PROJECT = '/reports/project'
     USERS_USERNAME = '/users/{username}'
@@ -830,6 +831,7 @@ class Permission(str, Enum):
 
     METRICS_UPDATE = 'system:update_metrics', True
     METRICS_STATUS = 'system:metrics_status'
+    METADATA_UPDATE = 'system:update_metadata', True
 
     RULESET_DESCRIBE = 'ruleset:describe', False  # True
     RULESET_CREATE = 'ruleset:create'

@@ -512,6 +512,13 @@ class SREApiClient:
             data={}
         )
 
+    def trigger_metadata_update(self, **kwargs):
+        return self.make_request(
+            path=Endpoint.METADATA_UPDATE,
+            method=HTTPMethod.POST,
+            data=sifted(kwargs),
+        )
+
     def trigger_rule_meta_updater(self, **kwargs):
         return self.make_request(
             path=Endpoint.RULE_META_UPDATER,
