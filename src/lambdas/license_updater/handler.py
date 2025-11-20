@@ -3,11 +3,12 @@ from itertools import chain
 from typing import Generator
 
 from modular_sdk.commons.constants import ApplicationType
+from modular_sdk.commons.trace_helper import tracer_decorator
 from modular_sdk.services.application_service import ApplicationService
 from modular_sdk.services.customer_service import CustomerService
 from modular_sdk.services.parent_service import ParentService
 
-from helpers.constants import Env
+from helpers.constants import BackgroundJobName, Env
 from helpers import download_url
 from helpers.__version__ import __version__
 from helpers.lambda_response import build_response
@@ -204,6 +205,10 @@ class LicenseUpdater(EventProcessorLambdaHandler):
         )
         yield from self.license_service.to_licenses(apps)
 
+    @tracer_decorator(
+        is_job=True,
+        component=BackgroundJobName.LICENSE_SYNC.value,
+    )
     def handle_request(self, event, context):
         it = self.iter_licenses(event.get('license_keys', ()))
         for lic in it:

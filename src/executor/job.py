@@ -1010,6 +1010,10 @@ def import_to_dojo(
     return warnings
 
 
+@tracer_decorator(
+    is_job=True,
+    component=BackgroundJobName.PUSH_DOJO.value,
+)
 def upload_to_dojo(job_ids: Iterable[str]):
     for job_id in job_ids:
         _LOG.info(f'Uploading job {job_id} to dojo')

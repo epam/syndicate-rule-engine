@@ -2,15 +2,13 @@ import click
 
 from srecli.group import (
     ContextObj, ViewCommand, cli_response,
-    DYNAMIC_DATE_ONLY_EXAMPLE, DYNAMIC_DATE_ONLY_PAST_EXAMPLE
+    build_background_job_status_command
 )
 from srecli.service.adapter_client import SREResponse
+from srecli.service.constants import BackgroundJobName
 
 
-_GROUP_NAME = 'metadata'
-
-
-@click.group(name=_GROUP_NAME)
+@click.group(name='metadata')
 def metadata():
     """Manages locally stored metadata"""
 
@@ -36,45 +34,8 @@ def update(
     return ctx['api_client'].trigger_metadata_update()
 
 
-@metadata.command(cls=ViewCommand, name='status')
-@click.option(
-    '--from_date', '-from', 
-    type=str,
-    help=(
-        'Query metadata statuses from this date. Accepts date ISO '
-        f'string. Example: {DYNAMIC_DATE_ONLY_PAST_EXAMPLE}'
-    ),
+build_background_job_status_command(
+    group=metadata,
+    background_job_name=BackgroundJobName.METADATA,
+    help_text='Execution status of the last metadata update',
 )
-@click.option(
-    '--to_date', '-to', 
-    help=(
-        'Query metadata statuses from this date. Accepts date ISO '
-        f'string. Example: {DYNAMIC_DATE_ONLY_PAST_EXAMPLE}'
-    ),
-)
-@click.option(
-    '--to_date', '-to', 
-    type=str,
-    help=(
-        'Query metadata statuses till this date. Accepts date ISO '
-        f'string. Example: {DYNAMIC_DATE_ONLY_EXAMPLE}'
-    ),
-)
-@cli_response()
-def status(
-    ctx: ContextObj,
-    from_date: str,
-    to_date: str,
-    customer_id: str | None = None,
-) -> SREResponse:
-    """
-    Execution status of the last metadata update
-    """
-    params = {
-        'from': from_date,
-        'to': to_date
-    }
-    return ctx['api_client'].background_job_status(
-        background_job_name=_GROUP_NAME,
-        **params
-    )

@@ -2,15 +2,13 @@ import click
 
 from srecli.group import (
     ContextObj, ViewCommand, cli_response,
-    DYNAMIC_DATE_ONLY_EXAMPLE, DYNAMIC_DATE_ONLY_PAST_EXAMPLE
+    build_background_job_status_command
 )
 from srecli.service.adapter_client import SREResponse
+from srecli.service.constants import BackgroundJobName
 
 
-_GROUP_NAME = 'metrics'
-
-
-@click.group(name=_GROUP_NAME)
+@click.group(name='metrics')
 def metrics():
     """Manages Scan and Tenant Metrics"""
 
@@ -31,38 +29,8 @@ def update(
     return ctx['api_client'].trigger_metrics_update()
 
 
-@metrics.command(cls=ViewCommand, name='status')
-@click.option(
-    '--from_date', '-from', 
-    type=str,
-    help=(
-        'Query metrics statuses from this date. Accepts date ISO '
-        f'string. Example: {DYNAMIC_DATE_ONLY_PAST_EXAMPLE}'
-    ),
+build_background_job_status_command(
+    group=metrics,
+    background_job_name=BackgroundJobName.METRICS,
+    help_text='Execution status of the last metrics update',
 )
-@click.option(
-    '--to_date', '-to', 
-    type=str,
-    help=(
-        'Query metrics statuses till this date. Accepts date ISO '
-        f'string. Example: {DYNAMIC_DATE_ONLY_EXAMPLE}'
-    ),
-)
-@cli_response()
-def status(
-    ctx: ContextObj,
-    from_date: str,
-    to_date: str,
-    customer_id: str | None = None,
-) -> SREResponse:
-    """
-    Execution status of the last metrics update
-    """
-    params = {
-        'from': from_date,
-        'to': to_date
-    }
-    return ctx['api_client'].background_job_status(
-        background_job_name=_GROUP_NAME,
-        **params
-    )

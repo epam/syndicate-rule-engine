@@ -12,7 +12,10 @@ from srecli.group import (
     from_date_report_option,
     tenant_option,
     to_date_report_option,
+    build_background_job_status_command,
 )
+from srecli.service.constants import BackgroundJobName
+
 
 optional_job_id_option = build_job_id_option(
     required=False,
@@ -71,6 +74,14 @@ def dojo(
         dojo_engagement=dojo_engagement,
         dojo_test=dojo_test,
     )
+
+
+build_background_job_status_command(
+    group=push,
+    background_job_name=BackgroundJobName.PUSH_DOJO,
+    help_text='Execution status of the last push dojo operation',
+    command_name='dojo-status',
+)
 
 
 @push.command(cls=ViewCommand, name='chronicle')

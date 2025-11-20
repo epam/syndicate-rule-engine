@@ -4,11 +4,12 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Generator, Iterable, cast
 
+from modular_sdk.commons.trace_helper import tracer_decorator
 from pydantic import ValidationError
 from ruamel.yaml import YAML, YAMLError, __with_libyaml__
 
 from helpers import RequestContext
-from helpers.constants import RuleSourceSyncingStatus, RuleSourceType
+from helpers.constants import BackgroundJobName, RuleSourceSyncingStatus, RuleSourceType
 from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_iso
@@ -316,6 +317,10 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
             for rule in rules:
                 executor.submit(method, rule, client)
 
+    @tracer_decorator(
+        is_job=True,
+        component=BackgroundJobName.RULE_SOURCE_SYNC.value,
+    )
     def handle_request(self, event: dict, context: RequestContext):
         """
         Receives an event from EventBridge cron rule. By default -> the event

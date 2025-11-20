@@ -34,8 +34,14 @@ from srecli.service.constants import (
     JobType,
     Env,
     MODULAR_ADMIN,
-    STATUS_ATTR, SUCCESS_STATUS, ERROR_STATUS, CODE_ATTR, TABLE_TITLE_ATTR,
-    REVERT_TO_JSON_MESSAGE, COLUMN_OVERFLOW
+    STATUS_ATTR,
+    SUCCESS_STATUS,
+    ERROR_STATUS,
+    CODE_ATTR,
+    TABLE_TITLE_ATTR,
+    REVERT_TO_JSON_MESSAGE,
+    COLUMN_OVERFLOW,
+    BackgroundJobName,
 )
 from srecli.service.logger import get_logger, enable_verbose_logs
 
@@ -623,6 +629,67 @@ def build_dojo_test_option(**kwargs) -> Callable:
     )
     params.update(**kwargs)
     return click.option('--dojo_test', '-dt', **params)
+
+
+def build_background_job_status_command(
+    *,
+    group: click.Group,
+    background_job_name: BackgroundJobName,
+    help_text: str | None = None,
+    command_name: str = 'status',
+) -> None:
+    """
+    Creates a status command for background job tracking and attaches it to the group.
+
+    :param group: Click group to attach the command to
+    :param background_job_name: Name of the background job (e.g., 'metrics', 'metadata')
+    :param help_text: Optional custom help text for the status command
+    :param command_name: Name of the command (default: 'status')
+    """
+    background_job_name_str = background_job_name.value
+
+    if help_text is None:
+        help_text = f'Execution status of {background_job_name_str} operations'
+    
+    @group.command(
+        cls=ViewCommand, 
+        name=command_name, 
+        help=help_text,
+    )
+    @click.option(
+        '--from_date', '-from',
+        type=str,
+        default=None,
+        help=(
+            f'Query {background_job_name_str} statuses from this date. '
+            f'Accepts date ISO string. Example: {DYNAMIC_DATE_ONLY_PAST_EXAMPLE}'
+        ),
+    )
+    @click.option(
+        '--to_date', '-to',
+        type=str,
+        default=None,
+        help=(
+            f'Query {background_job_name_str} statuses till this date. '
+            f'Accepts date ISO string. Example: {DYNAMIC_DATE_ONLY_EXAMPLE}'
+        ),
+    )
+    @cli_response()
+    def status(
+        ctx: ContextObj,
+        from_date: str | None,
+        to_date: str | None,
+        customer_id: str | None = None,
+    ) -> SREResponse:
+        params = {}
+        if from_date:
+            params['from'] = from_date
+        if to_date:
+            params['to'] = to_date
+        return ctx['api_client'].background_job_status(
+            background_job_name=background_job_name_str,
+            **params
+        )
 
 
 tenant_option = build_tenant_option()

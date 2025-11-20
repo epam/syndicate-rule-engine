@@ -264,6 +264,9 @@ class BackgroundJobName(str, Enum):
 
     METRICS = 'metrics'
     METADATA = 'metadata'
+    PUSH_DOJO = 'push-dojo'
+    RULE_SOURCE_SYNC = 'rule-source-sync'
+    LICENSE_SYNC = 'license-sync'
 
 
 # Set of allowed background job names for easy validation
