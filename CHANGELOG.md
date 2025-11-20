@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Push to Defect Dojo changed from synchronous to asynchronous
 - Added user guide and commands reference guide to the documentation
 - Added `/metadata/update` endpoint to updating locally stored metadata
+- Added `/{background_job_name}/status` endpoint to get the status of background jobs where `background_job_name` is one of:
+  - `metrics`
+  - `metadata`
+  - `push-dojo`
+  - `rule-source-sync`
+  - `license-sync`
+- Added `Permission.BACKGROUND_JOB_STATUS` permission for getting the status of background jobs
 - Disabled the plugin `gcp_cloudrun`
 - Fixed an issue with filtering resource exceptions by `--tags_filters`
 - Fixed plugin `aws.workspaces-directory.filter.check-vpc-endpoints-availability`
@@ -22,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed an issue with creating resource exceptions with the same parameters
 - Added the possibility to submit jobs and push reports to dojo with custom `product`, `engagement`, and `test` names
 - Resolved a problem caused by the license manager being temporarily unavailable.
+- Deleted `Permission.METRICS_STATUS` permission, and replaced it with `Permission.BACKGROUND_JOB_STATUS`
 
 ## [5.14.0] - 2025-10-03
 - Updated the ami-initialize.sh script
