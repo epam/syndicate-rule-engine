@@ -1,8 +1,16 @@
 
 import click
 
-from srecli.group import cli_response, ViewCommand, \
-    ContextObj, build_rule_source_id_option, next_option, limit_option
+from srecli.group import (
+    cli_response, 
+    ViewCommand, 
+    ContextObj, 
+    build_rule_source_id_option, 
+    next_option, 
+    limit_option, 
+    build_background_job_status_command,
+)
+from srecli.service.constants import BackgroundJobName
 
 attributes_order = ('id', 'type', 'description', 'git_project_id', 'git_url',
                     'git_ref', 'git_rules_prefix')
@@ -130,3 +138,10 @@ def sync(ctx: ContextObj, rule_source_id, customer_id):
         id=rule_source_id,
         customer_id=customer_id
     )
+
+
+build_background_job_status_command(
+    group=rulesource,
+    background_job_name=BackgroundJobName.RULE_SOURCE_SYNC,
+    help_text='Execution status of the last rule source sync operation',
+)

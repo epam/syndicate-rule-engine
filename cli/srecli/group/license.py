@@ -5,7 +5,9 @@ from srecli.group import (
     ViewCommand,
     build_tenant_option,
     cli_response,
+    build_background_job_status_command,
 )
+from srecli.group import BackgroundJobName
 from srecli.service.constants import AWS, AZURE, GOOGLE, KUBERNETES
 
 attributes_order = 'license_key', 'ruleset_ids', 'expiration', 'latest_sync'
@@ -157,3 +159,10 @@ def update_activation(ctx: ContextObj, license_key, customer_id, add_tenant,
         remove_tenants=exclude_tenant,
         customer_id=customer_id
     )
+
+
+build_background_job_status_command(
+    group=license,
+    background_job_name=BackgroundJobName.LICENSE_SYNC,
+    help_text='Execution status of the last license sync operation',
+)

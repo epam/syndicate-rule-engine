@@ -39,7 +39,6 @@ from validators.swagger_request_models import (
     LicensePostModel,
     MailSettingGetModel,
     MailSettingPostModel,
-    MetricsStatusGetModel,
     MultipleTenantsGetModel,
     OperationalGetReportModel,
     PlatformK8SPostModel,
@@ -55,7 +54,6 @@ from validators.swagger_request_models import (
     RefreshPostModel,
     ReportPushByJobIdModel,
     ReportPushDojoByJobIdModel,
-    ReportPushMultipleModel,
     ReportPushDojoMultipleModel,
     ReportStatusGetModel,
     ReportsSendingSettingPostModel,
@@ -117,7 +115,7 @@ from validators.swagger_response_models import (
     MultipleJobsModel,
     MultipleK8SPlatformsModel,
     MultipleLicensesModel,
-    MultipleMetricsStatusesModel,
+    MultipleBackgroundJobStatusesModel,
     MultiplePoliciesModel,
     MultipleReportStatusModel,
     MultipleRoleModel,
@@ -577,15 +575,6 @@ data: tuple[EndpointInfo, ...] = (
         permission=Permission.METRICS_UPDATE,
         description='Allows to submit a job that will update metrics'
     ),
-    EndpointInfo(
-        path=Endpoint.METRICS_STATUS,
-        method=HTTPMethod.GET,
-        lambda_name=LambdaName.API_HANDLER,
-        request_model=MetricsStatusGetModel,
-        responses=[(HTTPStatus.OK, MultipleMetricsStatusesModel, None)],
-        permission=Permission.METRICS_STATUS,
-        description='Allows to get latest metrics update status'
-    ),
 
     # metadata
     EndpointInfo(
@@ -596,6 +585,17 @@ data: tuple[EndpointInfo, ...] = (
         responses=[(HTTPStatus.ACCEPTED, MessageModel, None)],
         permission=Permission.METADATA_UPDATE,
         description='Allows to submit a job that will update locally stored metadata',
+    ),
+
+    # background job status
+    EndpointInfo(
+        path=Endpoint.BACKGROUND_JOB_STATUS,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.API_HANDLER,
+        request_model=BaseModel,
+        responses=[(HTTPStatus.OK, MultipleBackgroundJobStatusesModel, None)],
+        permission=Permission.BACKGROUND_JOB_STATUS,
+        description='Allows to get the status of all background jobs'
     ),
 
     # rulesets

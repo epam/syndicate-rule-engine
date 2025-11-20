@@ -1874,7 +1874,7 @@ class ReportStatusGetModel(BaseModel):
     complete: bool = False
 
 
-class MetricsStatusGetModel(TimeRangedMixin, BaseModel):
+class BackgroundJobStatusGetModel(TimeRangedMixin, BaseModel):
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
 

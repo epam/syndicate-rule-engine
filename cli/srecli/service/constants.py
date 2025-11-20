@@ -64,7 +64,7 @@ class Endpoint(str, Enum):
     BATCH_RESULTS = '/batch-results'
     REPORTS_RETRY = '/reports/retry'
     POLICIES_NAME = '/policies/{name}'
-    METRICS_STATUS = '/metrics/status'
+    BACKGROUND_JOB_STATUS = '/{background_job_name}/status'
     REPORTS_CLEVEL = '/reports/clevel'
     METRICS_UPDATE = '/metrics/update'
     METADATA_UPDATE = '/metadata/update'
@@ -258,6 +258,18 @@ class JobState(str, Enum):
     @classmethod
     def iter(cls):
         return map(operator.attrgetter('value'), cls)
+
+
+class BackgroundJobName(str, Enum):
+    """
+    Allowed background job names for status tracking endpoint
+    """
+
+    METRICS = 'metrics'
+    METADATA = 'metadata'
+    PUSH_DOJO = 'push-dojo'
+    RULE_SOURCE_SYNC = 'rule-source-sync'
+    LICENSE_SYNC = 'license-sync'
 
 
 class PolicyErrorType(str, Enum):
