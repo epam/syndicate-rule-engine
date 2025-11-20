@@ -83,4 +83,4 @@ package = false
 prerelease = "allow"  # for some azure lib
 
 [tool.uv.sources]
-modular-sdk = { git = "https://github.com/epam/modular-sdk.git", rev = "enhance/tracer-decorator" }
+modular-sdk = { git = "https://github.com/epam/modular-sdk.git", rev = "develop" }

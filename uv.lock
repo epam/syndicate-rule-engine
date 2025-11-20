@@ -2336,7 +2336,7 @@ wheels = [
 [[package]]
 name = "modular-sdk"
 version = "7.1.4"
-source = { git = "https://github.com/epam/modular-sdk.git?rev=enhance%2Ftracer-decorator#944e13ec7711b1ab3e1d8c16a1fc7e09e67e20e2" }
+source = { git = "https://github.com/epam/modular-sdk.git?rev=develop#2b1d04bc0d87ee3aadb10fdf54588ce480e2404f" }
 dependencies = [
     { name = "boto3" },
     { name = "botocore" },
@@ -3253,7 +3253,7 @@ requires-dist = [
     { name = "gunicorn", specifier = "~=23.0.0" },
     { name = "hvac", specifier = "~=2.3.0" },
     { name = "jwcrypto", specifier = "~=1.5.6" },
-    { name = "modular-sdk", git = "https://github.com/epam/modular-sdk.git?rev=enhance%2Ftracer-decorator" },
+    { name = "modular-sdk", git = "https://github.com/epam/modular-sdk.git?rev=develop" },
     { name = "msgspec", specifier = "~=0.18.6" },
     { name = "openpyxl", specifier = "~=3.0.10" },
     { name = "pydantic", specifier = "~=2.8.2" },
