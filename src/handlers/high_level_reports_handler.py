@@ -853,6 +853,7 @@ class HighLevelReportsHandler(AbstractHandler):
         packer = MaestroReportToS3Packer(
             s3_client=self._assume_role_s3,
             bucket=self._env.get_recommendation_bucket(),
+            size_limit=0,  # TODO: remove after investigation
         )
 
         builder = MaestroModelBuilder(receivers=tuple(event.receivers))
