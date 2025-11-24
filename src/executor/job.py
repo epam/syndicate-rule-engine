@@ -135,6 +135,7 @@ from c7n.exceptions import PolicyValidationError
 from c7n.policy import Policy, PolicyCollection
 from c7n.provider import clouds
 from c7n.resources import load_resources
+from c7n_kube.query import DescribeSource, sources
 from celery.exceptions import SoftTimeLimitExceeded
 from google.auth.exceptions import GoogleAuthError
 from googleapiclient.errors import HttpError
@@ -552,6 +553,13 @@ class PoliciesLoader:
         match self._cloud:
             case Cloud.AWS:
                 items = list(self.prepare_policies(items))
+            case Cloud.KUBERNETES:
+                for pol in items:
+                    self.set_global_output(pol)
+                    pol.data.setdefault(
+                        'source',
+                        self._ensure_source(pol.resource_type),
+                    )
             case _:
                 if self._output_dir:
                     for pol in items:
@@ -594,6 +602,26 @@ class PoliciesLoader:
             elif policy.name in (mapping.get(policy.options.region) or ()):
                 items.append(policy)
         return items
+
+    @staticmethod
+    def _ensure_source(resource_type: str) -> str:
+        source_name = f'describe-{resource_type.replace(".", "-")}'
+        if sources.get(source_name):
+            _LOG.debug(f'Source {source_name} already registered')
+            return source_name
+
+        # create a new subclass purely to give it a unique registered name so
+        # c7n properly handles caching
+        _LOG.debug(f'Registering new source: {source_name}')
+        cls = type(
+            f'Describe{resource_type.title().replace(".", "")}',
+            (DescribeSource,),
+            {"__doc__": f"Auto source for {resource_type}"}
+        )
+
+        sources.register(source_name)(cls)
+
+        return source_name
 
 
 class Runner(ABC):
@@ -1468,7 +1496,10 @@ def process_job_concurrent(
 
     _LOG.debug(f'Running scan process for region {region}')
     loader = PoliciesLoader(
-        cloud=cloud, output_dir=work_dir, regions={region}, cache_period=120
+        cloud=cloud,
+        output_dir=work_dir,
+        regions={region},
+        cache_period=120,
     )
     try:
         _LOG.debug(f'Going to load {len(items)} policies dicts')
