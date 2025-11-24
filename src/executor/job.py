@@ -1394,13 +1394,6 @@ def process_job_concurrent(
     consequently. When one process finished its memory is freed
     (any way the results is flushed to files).
     """
-    #TODO remove after investigation
-    import json
-    if conf_filename:= os.getenv(ENV_KUBECONFIG):
-        _LOG.debug(f'Using Kubernetes config file: {conf_filename}')
-        with open(conf_filename, 'r') as file:
-            data = json.load(file)
-            _LOG.debug(f'Content of config file {data}')
 
     if Env.ENABLE_CUSTOM_CC_PLUGINS.is_set():
         register_all()
@@ -1440,12 +1433,6 @@ def process_job_concurrent(
         filename := os.environ.get(ENV_AZURE_CLIENT_CERTIFICATE_PATH)
     ):
         _LOG.debug(f'Removing temporary azure certificate file {filename}')
-        Path(filename).unlink(missing_ok=True)
-
-    if cloud is Cloud.KUBERNETES and (
-        filename := os.environ.get(ENV_KUBECONFIG)
-    ):
-        _LOG.debug(f'Removing temporary kubeconfig file {filename}')
         Path(filename).unlink(missing_ok=True)
 
     return runner.n_successful, runner.failed
