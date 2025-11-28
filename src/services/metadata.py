@@ -418,6 +418,32 @@ class MetadataProvider:
             tenant_license_key=tlk,
             installation_version=version.to_str(),
         )
+
+        # TODO: remove this after investigation
+        import gzip
+        import msgpack
+        import json
+
+        try:
+            if data and data[:2] == b"\x1f\x8b":
+                raw = gzip.decompress(data)
+            else:
+                raw = data
+
+            try:
+                text = raw.decode("utf-8")
+                print(text)
+            except UnicodeDecodeError:
+                try:
+                    obj = msgpack.unpackb(raw, strict_map_key=False, raw=False)
+                    with open('data.json', 'wb') as f:
+                        f.write(json.dumps(obj, indent=4).encode('utf-8'))
+                except Exception:
+                    print(raw.hex())
+
+        except Exception as e:
+            print(f"[ERROR decoding metadata: {e}]")
+        
         
         if not data:
             _LOG.warning('Unsuccessful request to lm. No metadata returned')
@@ -435,6 +461,14 @@ class MetadataProvider:
         )
         
         meta = self._dec.decode(gzip.decompress(data))
+
+        # TODO: remove this after investigation
+        import json
+        meta_dict = msgspec.to_builtins(meta)
+        with open('data_meta.json', 'w', encoding='utf-8') as f:
+            json.dump(meta_dict, f, indent=2, ensure_ascii=False, default=str)
+
+
         _LOG.info('Updating cache with refreshed metadata')
         self._save_to_cache(
             license_key=lic.license_key, 
