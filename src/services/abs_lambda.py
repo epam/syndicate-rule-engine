@@ -11,7 +11,7 @@ from modular_sdk.services.customer_service import CustomerService
 
 from helpers import RequestContext, deep_get
 from helpers.constants import (
-    Env, Endpoint, HTTPMethod, Permission, ALLOWED_BACKGROUND_JOB_NAMES
+    Endpoint, HTTPMethod, Permission
 )
 from helpers.lambda_response import (
     SREException,
@@ -275,7 +275,7 @@ class RestrictCustomerEventProcessor(AbstractEventProcessor):
         (Endpoint.SCHEDULED_JOB, HTTPMethod.GET),
         (Endpoint.SCHEDULED_JOB_NAME, HTTPMethod.GET),
 
-        (Endpoint.BACKGROUND_JOB_STATUS, HTTPMethod.GET),
+        (Endpoint.SERVICE_JOB_STATUS, HTTPMethod.GET),
     }
 
     def __init__(self, customer_service: CustomerService):
@@ -478,10 +478,6 @@ class RestrictTenantEventProcessor(AbstractEventProcessor):
         res = event['resource']
         perm = event['permission']
         
-        # Validate background_job_name regardless of depends_on_tenant
-        if res and '{background_job_name}' in res:
-            return self._restrict_background_job_name(event, context)
-        
         if not res or not perm or not perm.depends_on_tenant:
             return event, context
 
@@ -505,21 +501,6 @@ class RestrictTenantEventProcessor(AbstractEventProcessor):
             platform_service=SP.platform_service,
             license_service=SP.license_service
         )
-
-    def _restrict_background_job_name(
-        self, 
-        event: ProcessedEvent,
-        context: RequestContext,
-    ) -> tuple[ProcessedEvent, RequestContext]:
-        """Validate that background_job_name is one of allowed values"""
-        background_job_name = cast(str, event['path_params'].get('background_job_name'))
-        
-        if background_job_name not in ALLOWED_BACKGROUND_JOB_NAMES:
-            raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
-                f'Background job name "{background_job_name}" is not supported. '
-                f'Allowed values: {", ".join(sorted(ALLOWED_BACKGROUND_JOB_NAMES))}'
-            ).exc()
-        return event, context
 
     def _restrict_tenant_name(self, event: ProcessedEvent,
                               context: RequestContext

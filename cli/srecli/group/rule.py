@@ -5,10 +5,9 @@ from srecli.group import (
     ViewCommand,
     build_rule_source_id_option,
     cli_response,
-    build_background_job_status_command,
 )
 from srecli.group import limit_option, next_option
-from srecli.service.constants import RULE_CLOUDS, BackgroundJobName
+from srecli.service.constants import RULE_CLOUDS
 
 attributes_order = ('name', 'cloud', 'resource', 'description', 'branch',
                     'project')
@@ -72,13 +71,6 @@ def update(ctx: ContextObj, rule_source_id, customer_id):
         rule_source_id=rule_source_id,
         customer_id=customer_id,
     )
-
-
-build_background_job_status_command(
-    group=rule,
-    background_job_name=BackgroundJobName.RULE_SOURCE_SYNC,
-    help_text='Execution status of the last rule source sync operation',
-)
 
 
 @rule.command(cls=ViewCommand, name='delete')

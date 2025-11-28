@@ -12,9 +12,12 @@ from srecli.group import (
     from_date_report_option,
     tenant_option,
     to_date_report_option,
-    build_background_job_status_command,
+    service_job_from_date_option,
+    service_job_to_date_option,
+    get_service_job_status,
 )
-from srecli.service.constants import BackgroundJobName
+from srecli.service.adapter_client import SREResponse
+from srecli.service.constants import ServiceJobType
 
 
 optional_job_id_option = build_job_id_option(
@@ -29,7 +32,10 @@ def push():
     """Pushes job reports to SIEMs"""
 
 
-@push.command(cls=ViewCommand, name='dojo')
+@push.command(
+    cls=ViewCommand,
+    name='dojo',
+)
 @optional_job_id_option
 @optional_job_type_option
 @from_date_report_option
@@ -38,7 +44,9 @@ def push():
 @dojo_product_option
 @dojo_engagement_option
 @dojo_test_option
-@cli_response()
+@cli_response(
+    hint="Use 'sre report push push_dojo_status' to check execution status",
+)
 def dojo(
     ctx: ContextObj,
     job_id: Optional[str],
@@ -76,12 +84,23 @@ def dojo(
     )
 
 
-build_background_job_status_command(
-    group=push,
-    background_job_name=BackgroundJobName.PUSH_DOJO,
-    help_text='Execution status of the last push dojo operation',
-    command_name='dojo-status',
-)
+@push.command(cls=ViewCommand, name='push_dojo_status')
+@service_job_from_date_option
+@service_job_to_date_option
+@cli_response()
+def push_dojo_status(
+    ctx: ContextObj,
+    from_date: str | None,
+    to_date: str | None,
+    customer_id: str | None = None,
+) -> SREResponse:
+    """Execution status of the last push dojo operation"""
+    return get_service_job_status(
+        ctx=ctx, 
+        service_job_type=ServiceJobType.PUSH_DOJO.value,
+        from_date=from_date,
+        to_date=to_date,
+    )
 
 
 @push.command(cls=ViewCommand, name='chronicle')

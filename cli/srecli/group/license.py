@@ -5,10 +5,12 @@ from srecli.group import (
     ViewCommand,
     build_tenant_option,
     cli_response,
-    build_background_job_status_command,
+    service_job_from_date_option,
+    service_job_to_date_option,
+    get_service_job_status,
 )
-from srecli.group import BackgroundJobName
-from srecli.service.constants import AWS, AZURE, GOOGLE, KUBERNETES
+from srecli.service.adapter_client import SREResponse
+from srecli.service.constants import AWS, AZURE, GOOGLE, KUBERNETES, ServiceJobType
 
 attributes_order = 'license_key', 'ruleset_ids', 'expiration', 'latest_sync'
 
@@ -60,10 +62,20 @@ def delete(ctx: ContextObj, license_key, customer_id):
                                             customer_id=customer_id)
 
 
-@license.command(cls=ViewCommand, name='sync')
-@click.option('--license_key', '-lk', type=str, required=True,
-              help='License key to synchronize')
-@cli_response(attributes_order=attributes_order)
+@license.command(
+    cls=ViewCommand, 
+    name='sync',
+)
+@click.option(
+    '--license_key', '-lk',
+    type=str,
+    required=True,
+    help='License key to synchronize',
+)
+@cli_response(
+    attributes_order=attributes_order,
+    hint="Use 'sre license sync_status' to check execution status",
+)
 def sync(ctx: ContextObj, license_key, customer_id):
     """
     Synchronizes Licenses
@@ -161,8 +173,20 @@ def update_activation(ctx: ContextObj, license_key, customer_id, add_tenant,
     )
 
 
-build_background_job_status_command(
-    group=license,
-    background_job_name=BackgroundJobName.LICENSE_SYNC,
-    help_text='Execution status of the last license sync operation',
-)
+@license.command(cls=ViewCommand, name='sync_status')
+@service_job_from_date_option
+@service_job_to_date_option
+@cli_response()
+def sync_status(
+    ctx: ContextObj,
+    from_date: str | None,
+    to_date: str | None,
+    customer_id: str | None = None,
+) -> SREResponse:
+    """Execution status of the last license sync operation"""
+    return get_service_job_status(
+        ctx=ctx,
+        service_job_type=ServiceJobType.LICENSE_SYNC.value,
+        from_date=from_date,
+        to_date=to_date,
+    )

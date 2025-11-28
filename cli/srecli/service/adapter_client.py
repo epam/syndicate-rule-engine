@@ -498,12 +498,11 @@ class SREApiClient:
             data=sifted(kwargs)
         )
 
-    def background_job_status(self, background_job_name: str, **kwargs):
+    def service_job_status(self, service_job_type: str, **kwargs):
         return self.make_request(
-            path=Endpoint.BACKGROUND_JOB_STATUS,
+            path=Endpoint.SERVICE_JOB_STATUS,
             method=HTTPMethod.GET,
-            path_params={'background_job_name': background_job_name},
-            query=sifted(kwargs)
+            query=sifted({'type': service_job_type, **kwargs})
         )
 
     def trigger_metrics_update(self):

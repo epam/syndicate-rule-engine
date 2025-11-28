@@ -13,8 +13,8 @@ from lambdas.api_handler.handlers.health_check_handler import (
     HealthCheckHandler,
 )
 from lambdas.api_handler.handlers.job_handler import JobHandler
-from lambdas.api_handler.handlers.background_job_status_handler import (
-    BackgroundJobStatusHandler,
+from lambdas.api_handler.handlers.service_job_status_handler import (
+    ServiceJobStatusHandler,
 )
 from lambdas.api_handler.handlers.new_swagger_handler import \
     SwaggerHandler
@@ -49,7 +49,7 @@ class ApiHandler(ApiEventProcessorLambdaHandler):
             HealthCheckHandler,
             EventsHandler,
             SwaggerHandler,
-            BackgroundJobStatusHandler,
+            ServiceJobStatusHandler,
         ]
 
     @classmethod

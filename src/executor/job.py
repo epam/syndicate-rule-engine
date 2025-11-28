@@ -169,7 +169,7 @@ from helpers.constants import (
     JobState,
     PlatformType,
     PolicyErrorType,
-    BackgroundJobName
+    ServiceJobType
 )
 from helpers.log_helper import get_logger
 from helpers.regions import AWS_REGIONS
@@ -893,7 +893,7 @@ def post_lm_job(job: Job):
 
 @tracer_decorator(
     is_job=True, 
-    component=BackgroundJobName.METADATA.value,
+    component=ServiceJobType.METADATA.value,
 )
 def update_metadata():
     import operator
@@ -1012,7 +1012,7 @@ def import_to_dojo(
 
 @tracer_decorator(
     is_job=True,
-    component=BackgroundJobName.PUSH_DOJO.value,
+    component=ServiceJobType.PUSH_DOJO.value,
 )
 def upload_to_dojo(job_ids: Iterable[str]):
     for job_id in job_ids:

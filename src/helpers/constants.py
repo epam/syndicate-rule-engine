@@ -56,7 +56,7 @@ class Endpoint(str, Enum):
     BATCH_RESULTS = '/batch-results'
     REPORTS_RETRY = '/reports/retry'
     POLICIES_NAME = '/policies/{name}'
-    BACKGROUND_JOB_STATUS = '/{background_job_name}/status'
+    SERVICE_JOB_STATUS = '/service-job/status'
     REPORTS_CLEVEL = '/reports/clevel'
     METRICS_UPDATE = '/metrics/update'
     METADATA_UPDATE = '/metadata/update'
@@ -257,9 +257,9 @@ class JobType(str, Enum):
     REACTIVE = 'reactive'
 
 
-class BackgroundJobName(str, Enum):
+class ServiceJobType(str, Enum):
     """
-    Allowed background job names for status tracking endpoint
+    Allowed service job types for status tracking endpoint
     """
 
     METRICS = 'metrics'
@@ -267,10 +267,6 @@ class BackgroundJobName(str, Enum):
     PUSH_DOJO = 'push-dojo'
     RULE_SOURCE_SYNC = 'rule-source-sync'
     LICENSE_SYNC = 'license-sync'
-
-
-# Set of allowed background job names for easy validation
-ALLOWED_BACKGROUND_JOB_NAMES = {job.value for job in BackgroundJobName}
 
 
 class ReportFormat(str, Enum):
@@ -848,7 +844,7 @@ class Permission(str, Enum):
     METRICS_UPDATE = 'system:update_metrics', True
     METADATA_UPDATE = 'system:update_metadata', True
 
-    BACKGROUND_JOB_STATUS = 'background_job:status'
+    SERVICE_JOB_STATUS = 'service_job:status'
 
     RULESET_DESCRIBE = 'ruleset:describe', False  # True
     RULESET_CREATE = 'ruleset:create'

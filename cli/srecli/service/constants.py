@@ -64,7 +64,7 @@ class Endpoint(str, Enum):
     BATCH_RESULTS = '/batch-results'
     REPORTS_RETRY = '/reports/retry'
     POLICIES_NAME = '/policies/{name}'
-    BACKGROUND_JOB_STATUS = '/{background_job_name}/status'
+    SERVICE_JOB_STATUS = '/service-job/status'
     REPORTS_CLEVEL = '/reports/clevel'
     METRICS_UPDATE = '/metrics/update'
     METADATA_UPDATE = '/metadata/update'
@@ -260,9 +260,9 @@ class JobState(str, Enum):
         return map(operator.attrgetter('value'), cls)
 
 
-class BackgroundJobName(str, Enum):
+class ServiceJobType(str, Enum):
     """
-    Allowed background job names for status tracking endpoint
+    Allowed service job types for status tracking endpoint
     """
 
     METRICS = 'metrics'

@@ -41,7 +41,6 @@ from srecli.service.constants import (
     TABLE_TITLE_ATTR,
     REVERT_TO_JSON_MESSAGE,
     COLUMN_OVERFLOW,
-    BackgroundJobName,
 )
 from srecli.service.logger import get_logger, enable_verbose_logs
 
@@ -109,14 +108,35 @@ class ContextObj(TypedDict):
 
 
 class cli_response:  # noqa
-    __slots__ = ('_attributes_order', '_check_api_link', '_check_access_token')
+    __slots__ = ('_attributes_order', '_check_api_link', '_check_access_token', '_hint')
 
-    def __init__(self, attributes_order: tuple[str, ...] = (),
-                 check_api_link: bool = True,
-                 check_access_token: bool = True):
+    def __init__(
+        self, attributes_order: tuple[str, ...] = (),
+        check_api_link: bool = True,
+        check_access_token: bool = True,
+        hint: str | Callable[..., str | None] | None = None,
+    ) -> None:
+        """
+        Creates a cli_response decorator.
+
+        :param attributes_order: Order of attributes to display in the table
+        :param check_api_link: Whether to check if the API link is configured
+        :param check_access_token: Whether to check if the access token is configured
+        :param hint: Static string or callable that receives same kwargs as 
+                     the command and returns a hint string (or None to skip)
+        """
         self._attributes_order = attributes_order
         self._check_api_link = check_api_link
         self._check_access_token = check_access_token
+        self._hint = hint
+    
+    def _resolve_hint(self, kwargs: dict) -> str | None:
+        """Resolve hint - call if callable, return as-is if string."""
+        if self._hint is None:
+            return None
+        if callable(self._hint):
+            return self._hint(**kwargs)
+        return self._hint
 
     @staticmethod
     def to_exit_code(code: HTTPStatus | None) -> int:
@@ -210,12 +230,17 @@ class cli_response:  # noqa
                 formatted = ModularResponseProcessor().format(resp)
                 return json.dumps(formatted, separators=(',', ':'))
 
+            hint = self._resolve_hint(kwargs) if resp.ok else None
+
             if not json_view:  # table view
 
                 _LOG.info('Returning table view')
                 prepared = TableResponseProcessor().format(resp)
                 trace_id = resp.trace_id
                 next_token = (resp.data or {}).get(NEXT_TOKEN_ATTR)
+
+                if hint and prepared:
+                    prepared[0]['Hint'] = hint
 
                 try:
                     printer = TablePrinter(
@@ -249,6 +274,8 @@ class cli_response:  # noqa
             if json_view:
                 _LOG.info('Returning json view')
                 data = JsonResponseProcessor().format(resp)
+                if hint:
+                    data['hint'] = hint
                 click.echo(json.dumps(data, indent=4))
             sys.exit(self.to_exit_code(resp.code))
 
@@ -631,65 +658,46 @@ def build_dojo_test_option(**kwargs) -> Callable:
     return click.option('--dojo_test', '-dt', **params)
 
 
-def build_background_job_status_command(
-    *,
-    group: click.Group,
-    background_job_name: BackgroundJobName,
-    help_text: str | None = None,
-    command_name: str = 'status',
-) -> None:
-    """
-    Creates a status command for background job tracking and attaches it to the group.
-
-    :param group: Click group to attach the command to
-    :param background_job_name: Name of the background job (e.g., 'metrics', 'metadata')
-    :param help_text: Optional custom help text for the status command
-    :param command_name: Name of the command (default: 'status')
-    """
-    background_job_name_str = background_job_name.value
-
-    if help_text is None:
-        help_text = f'Execution status of {background_job_name_str} operations'
-    
-    @group.command(
-        cls=ViewCommand, 
-        name=command_name, 
-        help=help_text,
-    )
-    @click.option(
-        '--from_date', '-from',
+def build_service_job_from_date_option(**kwargs) -> Callable:
+    params = dict(
         type=str,
         default=None,
-        help=(
-            f'Query {background_job_name_str} statuses from this date. '
-            f'Accepts date ISO string. Example: {DYNAMIC_DATE_ONLY_PAST_EXAMPLE}'
-        ),
+        help=f'Query statuses from this date. Example: {DYNAMIC_DATE_ONLY_PAST_EXAMPLE}',
     )
-    @click.option(
-        '--to_date', '-to',
+    params.update(**kwargs)
+    return click.option('--from_date', '-from', **params)
+
+
+def build_service_job_to_date_option(**kwargs) -> Callable:
+    params = dict(
         type=str,
         default=None,
-        help=(
-            f'Query {background_job_name_str} statuses till this date. '
-            f'Accepts date ISO string. Example: {DYNAMIC_DATE_ONLY_EXAMPLE}'
-        ),
+        help=f'Query statuses till this date. Example: {DYNAMIC_DATE_ONLY_EXAMPLE}',
     )
-    @cli_response()
-    def status(
-        ctx: ContextObj,
-        from_date: str | None,
-        to_date: str | None,
-        customer_id: str | None = None,
-    ) -> SREResponse:
-        params = {}
-        if from_date:
-            params['from'] = from_date
-        if to_date:
-            params['to'] = to_date
-        return ctx['api_client'].background_job_status(
-            background_job_name=background_job_name_str,
-            **params
-        )
+    params.update(**kwargs)
+    return click.option('--to_date', '-to', **params)
+
+
+service_job_from_date_option = build_service_job_from_date_option()
+service_job_to_date_option = build_service_job_to_date_option()
+
+
+def get_service_job_status(
+    ctx: ContextObj,
+    service_job_type: str,
+    from_date: str | None = None,
+    to_date: str | None = None,
+) -> SREResponse:
+    """Helper to get service job status with date range filtering."""
+    params = {}
+    if from_date:
+        params['from'] = from_date
+    if to_date:
+        params['to'] = to_date
+    return ctx['api_client'].service_job_status(
+        service_job_type=service_job_type,
+        **params,
+    )
 
 
 tenant_option = build_tenant_option()
