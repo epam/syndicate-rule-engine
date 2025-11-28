@@ -262,8 +262,8 @@ class ServiceJobType(str, Enum):
     Allowed service job types for status tracking endpoint
     """
 
-    METRICS = 'metrics'
-    METADATA = 'metadata'
+    UPDATE_METRICS = 'update-metrics'
+    UPDATE_METADATA = 'update-metadata'
     PUSH_DOJO = 'push-dojo'
     RULE_SOURCE_SYNC = 'rule-source-sync'
     LICENSE_SYNC = 'license-sync'

@@ -45,7 +45,7 @@ def push():
 @dojo_engagement_option
 @dojo_test_option
 @cli_response(
-    hint="Use 'sre report push push_dojo_status' to check execution status",
+    hint="Use 'sre report push dojo_status' to check execution status",
 )
 def dojo(
     ctx: ContextObj,
@@ -84,11 +84,11 @@ def dojo(
     )
 
 
-@push.command(cls=ViewCommand, name='push_dojo_status')
+@push.command(cls=ViewCommand, name='dojo_status')
 @service_job_from_date_option
 @service_job_to_date_option
 @cli_response()
-def push_dojo_status(
+def dojo_status(
     ctx: ContextObj,
     from_date: str | None,
     to_date: str | None,

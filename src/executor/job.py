@@ -893,7 +893,7 @@ def post_lm_job(job: Job):
 
 @tracer_decorator(
     is_job=True, 
-    component=ServiceJobType.METADATA.value,
+    component=ServiceJobType.UPDATE_METADATA.value,
 )
 def update_metadata():
     import operator

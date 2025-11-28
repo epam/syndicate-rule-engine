@@ -48,7 +48,7 @@ def update_status(
     """Execution status of the last metrics update"""
     return get_service_job_status(
         ctx=ctx,
-        service_job_type=ServiceJobType.METRICS.value,
+        service_job_type=ServiceJobType.UPDATE_METRICS.value,
         from_date=from_date,
         to_date=to_date,
     )

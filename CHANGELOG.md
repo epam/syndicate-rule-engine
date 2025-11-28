@@ -13,13 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Push to Defect Dojo changed from synchronous to asynchronous
 - Added user guide and commands reference guide to the documentation
 - Added `/metadata/update` endpoint to updating locally stored metadata
-- Added `/{background_job_name}/status` endpoint to get the status of background jobs where `background_job_name` is one of:
-  - `metrics`
-  - `metadata`
+- Added `/service-job/status?type={service_job_type}` endpoint to get the status of service jobs where `service_job_type` is one of:
+  - `update-metrics`
+  - `update-metadata`
   - `push-dojo`
   - `rule-source-sync`
   - `license-sync`
-- Added `Permission.BACKGROUND_JOB_STATUS` permission for getting the status of background jobs
+- Added `Permission.SERVICE_JOB_STATUS` permission for getting the status of service jobs
 - Disabled the plugin `gcp_cloudrun`
 - Fixed an issue with filtering resource exceptions by `--tags_filters`
 - Fixed plugin `aws.workspaces-directory.filter.check-vpc-endpoints-availability`

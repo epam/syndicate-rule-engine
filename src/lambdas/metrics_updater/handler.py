@@ -25,7 +25,7 @@ class MetricsUpdater(EventProcessorLambdaHandler):
 
     @tracer_decorator(
         is_job=True, 
-        component=ServiceJobType.METRICS.value,
+        component=ServiceJobType.UPDATE_METRICS.value,
     )
     def handle_request(self, event, context):
         # todo validate event
