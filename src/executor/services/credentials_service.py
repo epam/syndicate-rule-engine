@@ -54,19 +54,6 @@ class CredentialsService:
             ENV_CLOUDSDK_CORE_PROJECT: credentials.get('project_id'),
         }
 
-    def k8s_credentials_to_file(
-        self,
-        credentials: dict,
-    ) -> dict:
-        # file_path = self._to_tmp_file(credentials)
-        # _LOG.debug(f'Writing credentials to {file_path}')
-
-        # We write to the default kube config location because sometimes the
-        # env var KUBECONFIG is invisible for Kubernetes libs
-        file_path = self._to_default_kube_config_file(credentials)
-
-        return {ENV_KUBECONFIG: file_path}
-
     @staticmethod
     def _to_tmp_file(
         credentials: dict,
@@ -75,20 +62,3 @@ class CredentialsService:
             json.dump(credentials, fp)
 
         return fp.name
-
-    @staticmethod
-    def _to_default_kube_config_file(
-        credentials: dict,
-    ) -> str:
-        path = Path.home() / '.kube' / 'config'
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-        except Exception as e:
-            _LOG.warning(f'Failed to create kube directory {path.parent}: {e}')
-        try:
-            path.write_text(json.dumps(credentials))
-        except Exception as e:
-            _LOG.error(f'Failed writing kube config to {path}: {e}')
-            raise
-        _LOG.debug(f'Wrote kube config credentials to {path}')
-        return str(path)
