@@ -250,7 +250,6 @@ class LMClient:
             data=data,
             token=self._token_producer.produce(customer=customer),
         )
-        print(f'resp: {resp}')
         if resp is None:
             _LOG.warning('Failed license sync')
             return 'Failed license sync'
