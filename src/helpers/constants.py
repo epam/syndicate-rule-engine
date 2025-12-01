@@ -265,7 +265,6 @@ class ServiceOperationType(str, Enum):
     UPDATE_METRICS = 'metrics-update'
     UPDATE_METADATA = 'metadata-update'
     PUSH_DOJO = 'push-dojo'
-    RULE_SOURCE_SYNC = 'rule-source-sync'
     LICENSE_SYNC = 'license-sync'
 
 

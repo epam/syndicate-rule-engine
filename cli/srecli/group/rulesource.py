@@ -130,11 +130,7 @@ def delete(ctx: ContextObj, rule_source_id, delete_rules, customer_id):
 
 @rulesource.command(cls=ViewCommand, name='sync')
 @build_rule_source_id_option(required=True)
-@cli_response(
-    hint=OPERATION_STATUS_HINT.format(
-        operation_type=ServiceOperationType.RULE_SOURCE_SYNC.value[0],
-    ),
-)
+@cli_response()
 def sync(ctx: ContextObj, rule_source_id, customer_id):
     """
     Updates rules for this rule source

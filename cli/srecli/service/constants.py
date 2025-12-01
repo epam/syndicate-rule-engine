@@ -277,7 +277,6 @@ class ServiceOperationType(Enum):
     UPDATE_METRICS = ('metrics_update', 'metrics-update')
     UPDATE_METADATA = ('metadata_update', 'metadata-update')
     PUSH_DOJO = ('push_dojo', 'push-dojo')
-    RULE_SOURCE_SYNC = ('rule_source_sync', 'rule-source-sync')
     LICENSE_SYNC = ('license_sync', 'license-sync')
 
 
