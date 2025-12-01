@@ -361,8 +361,9 @@ class PoliciesLoader:
     def _session_factory(self) -> Callable | None:
         """Returns a session factory callable or None"""
         session_factory = None
-        if self._cloud == Cloud.KUBERNETES and self._kubeconfig_path:
-            session_factory = self._kube_session_factory(self._kubeconfig_path)
+        config_path = self._kubeconfig_path
+        if self._cloud == Cloud.KUBERNETES and config_path:
+            session_factory = self._kube_session_factory(config_path)
 
         return session_factory
 
