@@ -64,7 +64,7 @@ class Endpoint(str, Enum):
     BATCH_RESULTS = '/batch-results'
     REPORTS_RETRY = '/reports/retry'
     POLICIES_NAME = '/policies/{name}'
-    SERVICE_JOB_STATUS = '/service-job/status'
+    SERVICE_OPERATION_STATUS = '/service-operation/status'
     REPORTS_CLEVEL = '/reports/clevel'
     METRICS_UPDATE = '/metrics/update'
     METADATA_UPDATE = '/metadata/update'
@@ -260,16 +260,22 @@ class JobState(str, Enum):
         return map(operator.attrgetter('value'), cls)
 
 
-class ServiceJobType(str, Enum):
+class ServiceOperationType(Enum):
     """
-    Allowed service job types for status tracking endpoint
+    Allowed service operation types for status tracking endpoint and CLI commands
+
+    For the CLI commands, use the following format:
+    sre service_operation status --operation {service_operation_type} (snake_case)
+
+    For the API endpoint, use the following format:
+    /service-operation/status?type={service-operation-type} (kebab-case)
     """
 
-    UPDATE_METRICS = 'update-metrics'
-    UPDATE_METADATA = 'update-metadata'
-    PUSH_DOJO = 'push-dojo'
-    RULE_SOURCE_SYNC = 'rule-source-sync'
-    LICENSE_SYNC = 'license-sync'
+    UPDATE_METRICS = ('metrics_update', 'metrics-update')
+    UPDATE_METADATA = ('metadata_update', 'metadata-update')
+    PUSH_DOJO = ('push_dojo', 'push-dojo')
+    RULE_SOURCE_SYNC = ('rule_source_sync', 'rule-source-sync')
+    LICENSE_SYNC = ('license_sync', 'license-sync')
 
 
 class PolicyErrorType(str, Enum):

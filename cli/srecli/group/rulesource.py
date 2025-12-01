@@ -7,12 +7,7 @@ from srecli.group import (
     build_rule_source_id_option, 
     next_option, 
     limit_option, 
-    service_job_from_date_option,
-    service_job_to_date_option,
-    get_service_job_status,
 )
-from srecli.service.adapter_client import SREResponse
-from srecli.service.constants import ServiceJobType
 
 attributes_order = ('id', 'type', 'description', 'git_project_id', 'git_url',
                     'git_ref', 'git_rules_prefix')
@@ -131,7 +126,7 @@ def delete(ctx: ContextObj, rule_source_id, delete_rules, customer_id):
 
 @rulesource.command(cls=ViewCommand, name='sync')
 @build_rule_source_id_option(required=True)
-@cli_response(hint="Use 'sre rulesource sync_status' to check execution status")
+@cli_response(hint="Use 'sre service_operation status --operation rule_source_sync' to check execution status")
 def sync(ctx: ContextObj, rule_source_id, customer_id):
     """
     Updates rules for this rule source
@@ -139,23 +134,4 @@ def sync(ctx: ContextObj, rule_source_id, customer_id):
     return ctx['api_client'].rule_source_sync(
         id=rule_source_id,
         customer_id=customer_id
-    )
-
-
-@rulesource.command(cls=ViewCommand, name='sync_status')
-@service_job_from_date_option
-@service_job_to_date_option
-@cli_response()
-def sync_status(
-    ctx: ContextObj,
-    from_date: str | None,
-    to_date: str | None,
-    customer_id: str | None = None,
-) -> SREResponse:
-    """Execution status of the last rule source sync operation"""
-    return get_service_job_status(
-        ctx=ctx,
-        service_job_type=ServiceJobType.RULE_SOURCE_SYNC.value,
-        from_date=from_date,
-        to_date=to_date,
     )

@@ -115,7 +115,7 @@ from validators.swagger_response_models import (
     MultipleJobsModel,
     MultipleK8SPlatformsModel,
     MultipleLicensesModel,
-    MultipleServiceJobStatusesModel,
+    MultipleServiceOperationStatusesModel,
     MultiplePoliciesModel,
     MultipleReportStatusModel,
     MultipleRoleModel,
@@ -587,15 +587,15 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to submit a job that will update locally stored metadata',
     ),
 
-    # service job status
+    # service operation status
     EndpointInfo(
-        path=Endpoint.SERVICE_JOB_STATUS,
+        path=Endpoint.SERVICE_OPERATION_STATUS,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.API_HANDLER,
         request_model=BaseModel,
-        responses=[(HTTPStatus.OK, MultipleServiceJobStatusesModel, None)],
-        permission=Permission.SERVICE_JOB_STATUS,
-        description='Allows to get the status of service jobs'
+        responses=[(HTTPStatus.OK, MultipleServiceOperationStatusesModel, None)],
+        permission=Permission.SERVICE_OPERATION_STATUS,
+        description='Allows to get the status of service operations'
     ),
 
     # rulesets

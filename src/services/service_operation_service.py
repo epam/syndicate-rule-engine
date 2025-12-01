@@ -4,40 +4,40 @@ from typing import Iterator
 from modular_sdk.models.job import Job
 from pynamodb.expressions.condition import Condition
 
-from helpers.constants import ServiceJobType
+from helpers.constants import ServiceOperationType
 from helpers.time_helper import utc_iso
 
 
-class ServiceJobService:
+class ServiceOperationService:
     """
-    Service for managing service job status tracking.
+    Service for managing service operation status tracking.
     """
     
     @staticmethod
     def get_by_type(
-        service_job_type: ServiceJobType | str,
+        service_operation_type: ServiceOperationType | str,
         start: datetime | date | None = None,
         end: datetime | date | None = None,
         limit: int | None = None,
         ascending: bool = False,
     ) -> Iterator[Job]:
         """
-        Query service jobs by type with optional date range filtering.
+        Query service operations by type with optional date range filtering.
         
-        :param service_job_type: Type of service job to query
+        :param service_operation_type: Type of service operation to query
         :param start: Start date/datetime for filtering (inclusive)
         :param end: End date/datetime for filtering (exclusive for upper bound)
         :param limit: Maximum number of results to return
         :param ascending: If True, return oldest first; if False, return newest first
         :return: Iterator of Job objects
         """
-        if isinstance(service_job_type, ServiceJobType):
-            service_job_type = service_job_type.value
+        if isinstance(service_operation_type, ServiceOperationType):
+            service_operation_type = service_operation_type.value
             
-        rkc = ServiceJobService._build_range_key_condition(start, end)
+        rkc = ServiceOperationService._build_range_key_condition(start, end)
         
         return Job.job_started_at_index.query(
-            hash_key=service_job_type,
+            hash_key=service_operation_type,
             range_key_condition=rkc,
             limit=limit,
             scan_index_forward=ascending,
@@ -45,16 +45,16 @@ class ServiceJobService:
     
     @staticmethod
     def get_latest_by_type(
-        service_job_type: ServiceJobType | str,
+        service_operation_type: ServiceOperationType | str,
     ) -> Job | None:
         """
-        Get the most recent service job of a specific type.
+        Get the most recent service operation of a specific type.
         
-        :param service_job_type: Type of service job to query
+        :param service_operation_type: Type of service operation to query
         :return: The latest Job object or None if not found
         """
-        jobs = ServiceJobService.get_by_type(
-            service_job_type=service_job_type,
+        jobs = ServiceOperationService.get_by_type(
+            service_operation_type=service_operation_type,
             limit=1,
             ascending=False,
         )
@@ -98,3 +98,4 @@ class ServiceJobService:
         elif end:
             return Job.started_at < utc_iso(end)
         return None
+

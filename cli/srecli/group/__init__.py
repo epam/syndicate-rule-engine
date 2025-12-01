@@ -55,7 +55,11 @@ except ImportError:
 _LOG = get_logger(__name__)
 
 
-def _get_dynamic_date_example(days_offset: int = 30, date_only: bool = False) -> str:
+def _get_dynamic_date_example(
+    days_offset: int = 30,
+    date_only: bool = False,
+    keep_time: bool = False,
+) -> str:
     """
     Generates a dynamic date example based on current date with optional offset. 
     The time is rounded to the start of the hour (set minutes and seconds to 00).
@@ -65,13 +69,22 @@ def _get_dynamic_date_example(days_offset: int = 30, date_only: bool = False) ->
     :return: ISO 8601 formatted date string
     """
     future_date = datetime.now() + timedelta(days=days_offset)
-    future_date = future_date.replace(minute=0, second=0, microsecond=0)
+
     if date_only:
         return future_date.strftime('%Y-%m-%d')
+
+    if not keep_time:
+        future_date = future_date.replace(
+            minute=0, 
+            second=0, 
+            microsecond=0,
+        )
+
     return future_date.strftime('%Y-%m-%dT%H:%M:%S')
 
 
 DYNAMIC_DATE_EXAMPLE = _get_dynamic_date_example()
+DYNAMIC_DATE_NOW_WITH_TIME_EXAMPLE = _get_dynamic_date_example(days_offset=0, keep_time=True)
 DYNAMIC_DATE_ONLY_EXAMPLE = _get_dynamic_date_example(date_only=True)
 DYNAMIC_DATE_ONLY_PAST_EXAMPLE = _get_dynamic_date_example(days_offset=-30, date_only=True)
 
@@ -658,44 +671,20 @@ def build_dojo_test_option(**kwargs) -> Callable:
     return click.option('--dojo_test', '-dt', **params)
 
 
-def build_service_job_from_date_option(**kwargs) -> Callable:
-    params = dict(
-        type=str,
-        default=None,
-        help=f'Query statuses from this date. Example: {DYNAMIC_DATE_ONLY_PAST_EXAMPLE}',
-    )
-    params.update(**kwargs)
-    return click.option('--from_date', '-from', **params)
-
-
-def build_service_job_to_date_option(**kwargs) -> Callable:
-    params = dict(
-        type=str,
-        default=None,
-        help=f'Query statuses till this date. Example: {DYNAMIC_DATE_ONLY_EXAMPLE}',
-    )
-    params.update(**kwargs)
-    return click.option('--to_date', '-to', **params)
-
-
-service_job_from_date_option = build_service_job_from_date_option()
-service_job_to_date_option = build_service_job_to_date_option()
-
-
-def get_service_job_status(
+def get_service_operation_status(
     ctx: ContextObj,
-    service_job_type: str,
+    service_operation_type: str,
     from_date: str | None = None,
     to_date: str | None = None,
 ) -> SREResponse:
-    """Helper to get service job status with date range filtering."""
+    """Helper to get service operation status with date range filtering."""
     params = {}
     if from_date:
         params['from'] = from_date
     if to_date:
         params['to'] = to_date
-    return ctx['api_client'].service_job_status(
-        service_job_type=service_job_type,
+    return ctx['api_client'].service_operation_status(
+        service_operation_type=service_operation_type,
         **params,
     )
 

@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     from services.chronicle_service import ChronicleInstanceService
     from services.reports import ReportMetricsService
     from services.metadata import MetadataProvider
-    from services.service_job_service import ServiceJobService
+    from services.service_operation_service import ServiceOperationService
     from modular_sdk.modular import ModularServiceProvider
 
 
@@ -316,8 +316,8 @@ class ServiceProvider(metaclass=SingletonMeta):
         return ResourceExceptionsService()
 
     @cached_property
-    def service_job_service(self) -> 'ServiceJobService':
-        from services.service_job_service import ServiceJobService
-        return ServiceJobService()
+    def service_operation_service(self) -> 'ServiceOperationService':
+        from services.service_operation_service import ServiceOperationService
+        return ServiceOperationService()
     
 

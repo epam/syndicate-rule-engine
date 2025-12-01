@@ -12,12 +12,7 @@ from srecli.group import (
     from_date_report_option,
     tenant_option,
     to_date_report_option,
-    service_job_from_date_option,
-    service_job_to_date_option,
-    get_service_job_status,
 )
-from srecli.service.adapter_client import SREResponse
-from srecli.service.constants import ServiceJobType
 
 
 optional_job_id_option = build_job_id_option(
@@ -45,7 +40,7 @@ def push():
 @dojo_engagement_option
 @dojo_test_option
 @cli_response(
-    hint="Use 'sre report push dojo_status' to check execution status",
+    hint="Use 'sre service_operation status --operation push_dojo' to check execution status",
 )
 def dojo(
     ctx: ContextObj,
@@ -81,25 +76,6 @@ def dojo(
         dojo_product=dojo_product,
         dojo_engagement=dojo_engagement,
         dojo_test=dojo_test,
-    )
-
-
-@push.command(cls=ViewCommand, name='dojo_status')
-@service_job_from_date_option
-@service_job_to_date_option
-@cli_response()
-def dojo_status(
-    ctx: ContextObj,
-    from_date: str | None,
-    to_date: str | None,
-    customer_id: str | None = None,
-) -> SREResponse:
-    """Execution status of the last push dojo operation"""
-    return get_service_job_status(
-        ctx=ctx, 
-        service_job_type=ServiceJobType.PUSH_DOJO.value,
-        from_date=from_date,
-        to_date=to_date,
     )
 
 

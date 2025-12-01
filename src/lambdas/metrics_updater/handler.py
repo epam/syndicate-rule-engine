@@ -2,7 +2,7 @@ from http import HTTPStatus
 
 from modular_sdk.commons.trace_helper import tracer_decorator
 
-from helpers.constants import ServiceJobType
+from helpers.constants import ServiceOperationType
 from helpers.lambda_response import (
     SREException,
     MetricsUpdateException,
@@ -25,7 +25,7 @@ class MetricsUpdater(EventProcessorLambdaHandler):
 
     @tracer_decorator(
         is_job=True, 
-        component=ServiceJobType.UPDATE_METRICS.value,
+        component=ServiceOperationType.UPDATE_METRICS.value,
     )
     def handle_request(self, event, context):
         # todo validate event

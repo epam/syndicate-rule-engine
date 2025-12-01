@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from ruamel.yaml import YAML, YAMLError, __with_libyaml__
 
 from helpers import RequestContext
-from helpers.constants import ServiceJobType, RuleSourceSyncingStatus, RuleSourceType
+from helpers.constants import ServiceOperationType, RuleSourceSyncingStatus, RuleSourceType
 from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_iso
@@ -319,7 +319,7 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
 
     @tracer_decorator(
         is_job=True,
-        component=ServiceJobType.RULE_SOURCE_SYNC.value,
+        component=ServiceOperationType.RULE_SOURCE_SYNC.value,
     )
     def handle_request(self, event: dict, context: RequestContext):
         """

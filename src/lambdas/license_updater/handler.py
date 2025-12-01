@@ -9,7 +9,7 @@ from modular_sdk.services.application_service import ApplicationService
 from modular_sdk.services.customer_service import CustomerService
 from modular_sdk.services.parent_service import ParentService
 
-from helpers.constants import ServiceJobType, Env
+from helpers.constants import ServiceOperationType, Env
 from helpers import RequestContext, download_url
 from helpers.__version__ import __version__
 from helpers.lambda_response import build_response, ResponseFactory
@@ -208,7 +208,7 @@ class LicenseUpdater(EventProcessorLambdaHandler):
 
     @tracer_decorator(
         is_job=True, 
-        component=ServiceJobType.LICENSE_SYNC.value,
+        component=ServiceOperationType.LICENSE_SYNC.value,
     )
     def handle_request(
         self,

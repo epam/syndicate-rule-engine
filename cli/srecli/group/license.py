@@ -5,12 +5,8 @@ from srecli.group import (
     ViewCommand,
     build_tenant_option,
     cli_response,
-    service_job_from_date_option,
-    service_job_to_date_option,
-    get_service_job_status,
 )
-from srecli.service.adapter_client import SREResponse
-from srecli.service.constants import AWS, AZURE, GOOGLE, KUBERNETES, ServiceJobType
+from srecli.service.constants import AWS, AZURE, GOOGLE, KUBERNETES
 
 attributes_order = 'license_key', 'ruleset_ids', 'expiration', 'latest_sync'
 
@@ -74,7 +70,7 @@ def delete(ctx: ContextObj, license_key, customer_id):
 )
 @cli_response(
     attributes_order=attributes_order,
-    hint="Use 'sre license sync_status' to check execution status",
+    hint="Use 'sre service_operation status --operation license_sync' to check execution status",
 )
 def sync(ctx: ContextObj, license_key, customer_id):
     """
@@ -170,23 +166,4 @@ def update_activation(ctx: ContextObj, license_key, customer_id, add_tenant,
         add_tenants=add_tenant,
         remove_tenants=exclude_tenant,
         customer_id=customer_id
-    )
-
-
-@license.command(cls=ViewCommand, name='sync_status')
-@service_job_from_date_option
-@service_job_to_date_option
-@cli_response()
-def sync_status(
-    ctx: ContextObj,
-    from_date: str | None,
-    to_date: str | None,
-    customer_id: str | None = None,
-) -> SREResponse:
-    """Execution status of the last license sync operation"""
-    return get_service_job_status(
-        ctx=ctx,
-        service_job_type=ServiceJobType.LICENSE_SYNC.value,
-        from_date=from_date,
-        to_date=to_date,
     )

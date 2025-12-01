@@ -231,7 +231,7 @@ class Event(TypedDict):
     saved: int
 
 
-class ServiceJobStatus(TypedDict):
+class ServiceOperationStatus(TypedDict):
     started_at: datetime
     state: str
 
@@ -588,8 +588,8 @@ class MultipleRuleMetaUpdateModel(BaseModel):
     items: list[RuleMetaUpdate]
 
 
-class MultipleServiceJobStatusesModel(BaseModel):
-    items: list[ServiceJobStatus]
+class MultipleServiceOperationStatusesModel(BaseModel):
+    items: list[ServiceOperationStatus]
 
 
 class SingleRulesetModel(BaseModel):

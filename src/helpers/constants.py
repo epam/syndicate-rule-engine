@@ -56,7 +56,7 @@ class Endpoint(str, Enum):
     BATCH_RESULTS = '/batch-results'
     REPORTS_RETRY = '/reports/retry'
     POLICIES_NAME = '/policies/{name}'
-    SERVICE_JOB_STATUS = '/service-job/status'
+    SERVICE_OPERATION_STATUS = '/service-operation/status'
     REPORTS_CLEVEL = '/reports/clevel'
     METRICS_UPDATE = '/metrics/update'
     METADATA_UPDATE = '/metadata/update'
@@ -257,13 +257,13 @@ class JobType(str, Enum):
     REACTIVE = 'reactive'
 
 
-class ServiceJobType(str, Enum):
+class ServiceOperationType(str, Enum):
     """
-    Allowed service job types for status tracking endpoint
+    Allowed service operation types for status tracking endpoint
     """
 
-    UPDATE_METRICS = 'update-metrics'
-    UPDATE_METADATA = 'update-metadata'
+    UPDATE_METRICS = 'metrics-update'
+    UPDATE_METADATA = 'metadata-update'
     PUSH_DOJO = 'push-dojo'
     RULE_SOURCE_SYNC = 'rule-source-sync'
     LICENSE_SYNC = 'license-sync'
@@ -844,7 +844,7 @@ class Permission(str, Enum):
     METRICS_UPDATE = 'system:update_metrics', True
     METADATA_UPDATE = 'system:update_metadata', True
 
-    SERVICE_JOB_STATUS = 'service_job:status'
+    SERVICE_OPERATION_STATUS = 'service_operation:status'
 
     RULESET_DESCRIBE = 'ruleset:describe', False  # True
     RULESET_CREATE = 'ruleset:create'
