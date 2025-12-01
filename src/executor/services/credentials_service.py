@@ -1,5 +1,6 @@
 import json
 import tempfile
+from pathlib import Path
 
 from modular_sdk.commons.constants import ENV_KUBECONFIG
 
@@ -52,15 +53,6 @@ class CredentialsService:
             ENV_GOOGLE_APPLICATION_CREDENTIALS: file_path,
             ENV_CLOUDSDK_CORE_PROJECT: credentials.get('project_id'),
         }
-
-    def k8s_credentials_to_file(
-        self,
-        credentials: dict,
-    ) -> dict:
-        file_path = self._to_tmp_file(credentials)
-        _LOG.debug(f'Writing credentials to {file_path}')
-
-        return {ENV_KUBECONFIG: file_path}
 
     @staticmethod
     def _to_tmp_file(

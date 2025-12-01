@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the possibility to submit jobs and push reports to dojo with custom `product`, `engagement`, and `test` names
 - Resolved a problem caused by the license manager being temporarily unavailable.
 - Deleted `Permission.METRICS_STATUS` permission, and replaced it with `Permission.SERVICE_OPERATION_STATUS`
+- Fixed an issue with inaccurate K8S scan results
+
 
 ## [5.14.0] - 2025-10-03
 - Updated the ami-initialize.sh script
