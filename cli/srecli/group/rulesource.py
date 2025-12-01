@@ -8,6 +8,10 @@ from srecli.group import (
     next_option, 
     limit_option, 
 )
+from srecli.service.constants import (
+    ServiceOperationType, 
+    OPERATION_STATUS_HINT,
+)
 
 attributes_order = ('id', 'type', 'description', 'git_project_id', 'git_url',
                     'git_ref', 'git_rules_prefix')
@@ -126,7 +130,11 @@ def delete(ctx: ContextObj, rule_source_id, delete_rules, customer_id):
 
 @rulesource.command(cls=ViewCommand, name='sync')
 @build_rule_source_id_option(required=True)
-@cli_response(hint="Use 'sre service_operation status --operation rule_source_sync' to check execution status")
+@cli_response(
+    hint=OPERATION_STATUS_HINT.format(
+        operation_type=ServiceOperationType.RULE_SOURCE_SYNC.value[0],
+    ),
+)
 def sync(ctx: ContextObj, rule_source_id, customer_id):
     """
     Updates rules for this rule source

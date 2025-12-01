@@ -260,6 +260,9 @@ class JobState(str, Enum):
         return map(operator.attrgetter('value'), cls)
 
 
+OPERATION_STATUS_HINT = "Use 'sre service_operation status --operation {operation_type}' to check execution status"
+
+
 class ServiceOperationType(Enum):
     """
     Allowed service operation types for status tracking endpoint and CLI commands

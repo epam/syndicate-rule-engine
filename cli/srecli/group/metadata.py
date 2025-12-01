@@ -1,7 +1,15 @@
 import click
 
-from srecli.group import ContextObj, ViewCommand, cli_response
+from srecli.group import (
+    ContextObj, 
+    ViewCommand, 
+    cli_response, 
+)
 from srecli.service.adapter_client import SREResponse
+from srecli.service.constants import (
+    ServiceOperationType, 
+    OPERATION_STATUS_HINT,
+)
 
 
 @click.group(name='metadata')
@@ -14,7 +22,9 @@ def metadata():
     name='update',
 )
 @cli_response(
-    hint="Use 'sre service_operation status --operation metadata_update' to check execution status",
+    hint=OPERATION_STATUS_HINT.format(
+        operation_type=ServiceOperationType.UPDATE_METADATA.value[0],
+    ),
 )
 def update(
     ctx: ContextObj,

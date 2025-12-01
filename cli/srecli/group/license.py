@@ -6,7 +6,14 @@ from srecli.group import (
     build_tenant_option,
     cli_response,
 )
-from srecli.service.constants import AWS, AZURE, GOOGLE, KUBERNETES
+from srecli.service.constants import (
+    AWS, 
+    AZURE, 
+    GOOGLE, 
+    KUBERNETES, 
+    OPERATION_STATUS_HINT,
+    ServiceOperationType,
+)
 
 attributes_order = 'license_key', 'ruleset_ids', 'expiration', 'latest_sync'
 
@@ -70,7 +77,9 @@ def delete(ctx: ContextObj, license_key, customer_id):
 )
 @cli_response(
     attributes_order=attributes_order,
-    hint="Use 'sre service_operation status --operation license_sync' to check execution status",
+    hint=OPERATION_STATUS_HINT.format(
+        operation_type=ServiceOperationType.LICENSE_SYNC.value[0],
+    ),
 )
 def sync(ctx: ContextObj, license_key, customer_id):
     """

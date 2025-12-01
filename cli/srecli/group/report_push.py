@@ -13,6 +13,10 @@ from srecli.group import (
     tenant_option,
     to_date_report_option,
 )
+from srecli.service.constants import (
+    ServiceOperationType, 
+    OPERATION_STATUS_HINT,
+)
 
 
 optional_job_id_option = build_job_id_option(
@@ -40,7 +44,9 @@ def push():
 @dojo_engagement_option
 @dojo_test_option
 @cli_response(
-    hint="Use 'sre service_operation status --operation push_dojo' to check execution status",
+    hint=OPERATION_STATUS_HINT.format(
+        operation_type=ServiceOperationType.PUSH_DOJO.value[0],
+    ),
 )
 def dojo(
     ctx: ContextObj,
