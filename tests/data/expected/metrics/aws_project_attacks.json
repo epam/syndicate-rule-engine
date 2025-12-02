@@ -51,21 +51,24 @@
             }
           }
         }
-      ]
+      ],
+      "exceptions_data": []
     },
     "AZURE": {
       "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
       "tenant_name": "AZURE-TESTING",
       "last_scan_date": "2025-03-05T00:47:08.089396Z",
       "activated_regions": [],
-      "attacks": []
+      "attacks": [],
+      "exceptions_data": []
     },
     "GOOGLE": {
       "account_id": "testing-project-123",
       "tenant_name": "GOOGLE-TESTING",
       "last_scan_date": "2025-03-05T00:47:08.089396Z",
       "activated_regions": [],
-      "attacks": []
+      "attacks": [],
+      "exceptions_data": []
     }
   }
 }
