@@ -6,12 +6,7 @@ from srecli.group import (
     build_tenant_option,
     cli_response,
 )
-from srecli.service.constants import (
-    AWS, 
-    AZURE, 
-    GOOGLE, 
-    KUBERNETES,
-)
+from srecli.service.constants import AWS, AZURE, GOOGLE, KUBERNETES
 
 attributes_order = 'license_key', 'ruleset_ids', 'expiration', 'latest_sync'
 
@@ -197,5 +192,3 @@ def update_activation(ctx: ContextObj, license_key, customer_id, add_tenant,
         remove_tenants=exclude_tenant,
         customer_id=customer_id
     )
-
-
