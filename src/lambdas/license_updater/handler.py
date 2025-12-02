@@ -1,18 +1,16 @@
-from http import HTTPStatus
 import operator
 from itertools import chain
-from typing import Any, Generator, Mapping
+from typing import Generator
 
 from modular_sdk.commons.constants import ApplicationType
-from modular_sdk.commons.trace_helper import tracer_decorator
 from modular_sdk.services.application_service import ApplicationService
 from modular_sdk.services.customer_service import CustomerService
 from modular_sdk.services.parent_service import ParentService
 
-from helpers.constants import ServiceOperationType, Env
-from helpers import RequestContext, download_url
+from helpers.constants import Env
+from helpers import download_url
 from helpers.__version__ import __version__
-from helpers.lambda_response import build_response, ResponseFactory
+from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_iso
 from models.ruleset import Ruleset
@@ -206,70 +204,19 @@ class LicenseUpdater(EventProcessorLambdaHandler):
         )
         yield from self.license_service.to_licenses(apps)
 
-    @tracer_decorator(
-        is_job=True, 
-        component=ServiceOperationType.LICENSE_SYNC.value,
-    )
-    def handle_request(
-        self,
-        event: Mapping[str, Any],
-        context: RequestContext,
-    ):
-        license_keys: list[str] = list(event.get('license_keys', ()))
-        
-        if not license_keys:
-            raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
-                'No license keys provided'
-            ).exc()
-        
-        licenses = list(self.iter_licenses(license_keys))
-        total = len(licenses)
-        
-        if total != len(license_keys):
-            raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
-                f'No licenses found for keys: {", ".join(license_keys)}'
-            ).exc()
-        
-        _LOG.info(f'Starting sync for {total} license(s)')
-        
-        successful_licenses = []
-        failed_licenses = []
-        
-        for idx, lic in enumerate(licenses, start=1):
-            license_key = lic.license_key
-            _LOG.info(f'[{idx}/{total}] Syncing license: {license_key}')
-            
+    def handle_request(self, event, context):
+        it = self.iter_licenses(event.get('license_keys', ()))
+        for lic in it:
+            _LOG.info(f'Going to sync license: {lic.license_key}')
             try:
                 sync = LicenseSync(SERVICE_PROVIDER)
                 sync(lic)
-                _LOG.info(
-                    f'[{idx}/{total}] Successfully synced: {license_key}',
-                )
-                successful_licenses.append(license_key)
+                _LOG.info('License was synced')
             except LicenseSyncError as e:
-                _LOG.warning(
-                    f'[{idx}/{total}] Sync error for {license_key}: {e}',
-                )
-                failed_licenses.append(license_key)
+                _LOG.warning(f'Error occurred: {e}')
             except Exception:
-                _LOG.exception(
-                    f'[{idx}/{total}] Unexpected error for {license_key}'
-                )
-                failed_licenses.append(license_key)
-        
-        _LOG.info(
-            f'Sync completed: {len(successful_licenses)}/{total} successful.',
-        )
-        
-        if failed_licenses:
-            raise ResponseFactory(HTTPStatus.INTERNAL_SERVER_ERROR).message(
-                f'Failed to sync {len(failed_licenses)}/{total} license(s). '
-                f'Failed: {", ".join(failed_licenses)}'
-            ).exc()
-        
-        return build_response(
-            content=f'All {total} license(s) synced successfully',
-        )
+                _LOG.exception('Unexpected error occurred')
+        return build_response()
 
 
 def lambda_handler(event, context):

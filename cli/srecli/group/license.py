@@ -10,12 +10,28 @@ from srecli.service.constants import (
     AWS, 
     AZURE, 
     GOOGLE, 
-    KUBERNETES, 
-    OPERATION_STATUS_HINT,
-    ServiceOperationType,
+    KUBERNETES,
 )
 
 attributes_order = 'license_key', 'ruleset_ids', 'expiration', 'latest_sync'
+
+
+def _sync_hint(
+    license_key: str, 
+    customer_id: str | None = None,
+) -> str:
+    template = (
+        "Use 'sre license describe -lk {license_key} -cid {customer_id}' "
+        "to check status"
+    )
+
+    if not customer_id:
+        customer_id = '$customer_id'
+
+    return template.format(
+        license_key=license_key, 
+        customer_id=customer_id,
+    )
 
 
 @click.group(name='license')
@@ -77,15 +93,20 @@ def delete(ctx: ContextObj, license_key, customer_id):
 )
 @cli_response(
     attributes_order=attributes_order,
-    hint=OPERATION_STATUS_HINT.format(
-        operation_type=ServiceOperationType.LICENSE_SYNC.value[0],
-    ),
+    hint=_sync_hint
 )
-def sync(ctx: ContextObj, license_key, customer_id):
+def sync(
+    ctx: ContextObj, 
+    license_key: str, 
+    customer_id: str | None,
+):
     """
     Synchronizes Licenses
     """
-    return ctx['api_client'].license_sync(license_key, customer_id=customer_id)
+    return ctx['api_client'].license_sync(
+        license_key=license_key,
+        customer_id=customer_id,
+    )
 
 
 @license.command(cls=ViewCommand, name='activate')
@@ -176,3 +197,5 @@ def update_activation(ctx: ContextObj, license_key, customer_id, add_tenant,
         remove_tenants=exclude_tenant,
         customer_id=customer_id
     )
+
+

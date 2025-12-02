@@ -17,7 +17,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `metrics-update`
   - `metadata-update`
   - `push-dojo`
-  - `license-sync`
 - Added `Permission.SERVICE_OPERATION_STATUS` permission for getting the status of service operations
 - Disabled the plugin `gcp_cloudrun`
 - Fixed an issue with filtering resource exceptions by `--tags_filters`
