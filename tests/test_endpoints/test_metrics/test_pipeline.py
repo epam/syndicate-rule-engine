@@ -4,7 +4,9 @@ tenants. These tests check whether the data is processed as we expect
 """
 
 from datetime import datetime, timedelta, timezone
+from time import time
 from unittest.mock import patch
+from uuid import uuid4
 
 import pytest
 from dateutil.relativedelta import relativedelta
@@ -15,6 +17,7 @@ from helpers.time_helper import utc_datetime
 from lambdas.metrics_updater.processors.metrics_collector import (
     MetricsCollector,
 )
+from models.resource_exception import ResourceException
 from services import SP
 from services.reports_bucket import (
     PlatformReportsBucketKeysBuilder,
@@ -254,6 +257,58 @@ def test_whole_period():
     start, end = MetricsCollector.whole_period(now, r3, r4)  # pyright: ignore
     assert start is None
     assert end == now
+
+
+@pytest.fixture()
+def aws_resource_exception(main_customer, aws_tenant, utcnow):
+    """
+    Creates a resource exception for one of the security groups in test data.
+    This matches sg-05209ceeb761317e5 from ecc-aws-070-unused_ec2_security_groups
+    """
+    now = utcnow
+    expire_at = now + timedelta(days=30)
+    
+    exception = ResourceException(
+        id=str(uuid4()),
+        customer_name=main_customer.name,
+        tenant_name=aws_tenant.name,
+        resource_type='aws.security-group',
+        location='eu-central-1',
+        resource_id='sg-05209ceeb761317e5',
+        arn=None,
+        tags_filters=None,
+        created_at=time(),
+        updated_at=time(),
+        expire_at=expire_at,
+    )
+    exception.save()
+    return exception
+
+
+@pytest.fixture()
+def google_resource_exception(main_customer, google_tenant, utcnow):
+    """
+    Creates a resource exception for one of the firewalls in test data.
+    This matches default-allow-icmp (id: 1227136820292673506) from ecc-gcp-272-firewall_logging_enabled
+    """
+    now = utcnow
+    expire_at = now + timedelta(days=30)
+    
+    exception = ResourceException(
+        id=str(uuid4()),
+        customer_name=main_customer.name,
+        tenant_name=google_tenant.name,
+        resource_type='gcp.firewall',
+        location='global',
+        resource_id='1227136820292673506',
+        arn=None,
+        tags_filters=None,
+        created_at=time(),
+        updated_at=time(),
+        expire_at=expire_at,
+    )
+    exception.save()
+    return exception
 
 
 def test_metrics_update_operational_project(
@@ -553,3 +608,91 @@ def test_metrics_update_department_c_level(
         SP.report_metrics_service.fetch_data(item),
         load_expected('metrics/department_top_tenants_attacks'),
     )
+
+
+def test_metrics_with_resource_exceptions(
+    sre_client,
+    system_user_token,
+    aws_jobs,
+    azure_jobs,
+    google_jobs,
+    k8s_platform_jobs,
+    seed_resources,
+    aws_resource_exception,
+    google_resource_exception,
+    aws_tenant,
+    azure_tenant,
+    google_tenant,
+    k8s_platform,
+    main_customer,
+    set_license_metadata,
+    aws_tenant_settings,
+):
+    """
+    Test that exceptions_data is populated when resource exceptions exist.
+    Verifies AWS and GCP exceptions dynamically based on created fixtures.
+    """
+    set_license_metadata('metrics_metadata')
+    MetricsCollector.build().__call__()
+
+    expected_exceptions = {
+        'AWS': aws_resource_exception,
+        'GOOGLE': google_resource_exception,
+    }
+    clouds_without_exceptions = {'AZURE'}
+    report_types = [
+        ReportType.PROJECT_OVERVIEW,
+        ReportType.PROJECT_COMPLIANCE,
+        ReportType.PROJECT_RESOURCES,
+        ReportType.PROJECT_ATTACKS,
+        ReportType.PROJECT_FINOPS,
+    ]
+
+    for report_type in report_types:
+        item = SP.report_metrics_service.get_latest_for_project(
+            customer=main_customer.name,
+            project=aws_tenant.display_name_to_lower,
+            type_=report_type,
+        )
+        data = SP.report_metrics_service.fetch_data(item)
+
+        for cloud, fixture in expected_exceptions.items():
+            cloud_data = data['data'][cloud]
+            assert 'exceptions_data' in cloud_data, \
+                f'{cloud} should have exceptions_data in {report_type.value}'
+            assert len(cloud_data['exceptions_data']) > 0, \
+                f'exceptions_data should not be empty for {cloud} in {report_type.value}'
+
+            exception_item = cloud_data['exceptions_data'][0]
+            _verify_exception_structure(exception_item)
+            _verify_exception_matches_fixture(exception_item, fixture)
+
+        for cloud in clouds_without_exceptions:
+            assert data['data'][cloud].get('exceptions_data', []) == [], \
+                f'{cloud} should have empty exceptions_data in {report_type.value}'
+
+
+def _verify_exception_structure(exception_item: dict) -> None:
+    """Helper to verify exception item has all required fields."""
+    assert 'exception' in exception_item
+    assert 'type' in exception_item
+    assert 'added_date' in exception_item
+    assert 'expiration_data' in exception_item
+    assert 'summary' in exception_item
+    
+    # Verify summary contains expected fields
+    summary = exception_item['summary']
+    assert 'resources_data' in summary
+    assert 'violations_data' in summary
+    assert 'attacks_data' in summary
+
+
+def _verify_exception_matches_fixture(
+    exception_item: dict, 
+    fixture: ResourceException
+) -> None:
+    """Helper to verify exception data matches the created fixture."""
+    exc = exception_item['exception']
+    assert exc['resource_id'] == fixture.resource_id
+    assert exc['resource_type'] == fixture.resource_type
+    assert exc['location'] == fixture.location
