@@ -275,7 +275,7 @@ class RestrictCustomerEventProcessor(AbstractEventProcessor):
         (Endpoint.SCHEDULED_JOB, HTTPMethod.GET),
         (Endpoint.SCHEDULED_JOB_NAME, HTTPMethod.GET),
 
-        (Endpoint.SERVICE_OPERATION_STATUS, HTTPMethod.GET),
+        (Endpoint.SERVICE_OPERATIONS_STATUS, HTTPMethod.GET),
     }
 
     def __init__(self, customer_service: CustomerService):

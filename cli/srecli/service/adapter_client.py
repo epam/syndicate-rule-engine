@@ -498,9 +498,9 @@ class SREApiClient:
             data=sifted(kwargs)
         )
 
-    def service_operation_status(self, service_operation_type: str, **kwargs):
+    def service_operations_status(self, service_operation_type: str, **kwargs):
         return self.make_request(
-            path=Endpoint.SERVICE_OPERATION_STATUS,
+            path=Endpoint.SERVICE_OPERATIONS_STATUS,
             method=HTTPMethod.GET,
             query=sifted({'type': service_operation_type, **kwargs})
         )

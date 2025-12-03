@@ -142,14 +142,6 @@ class cli_response:  # noqa
         self._check_api_link = check_api_link
         self._check_access_token = check_access_token
         self._hint = hint
-    
-    def _resolve_hint(self, kwargs: dict) -> str | None:
-        """Resolve hint - call if callable, return as-is if string."""
-        if self._hint is None:
-            return None
-        if callable(self._hint):
-            return self._hint(**kwargs)
-        return self._hint
 
     @staticmethod
     def to_exit_code(code: HTTPStatus | None) -> int:
@@ -212,6 +204,25 @@ class cli_response:  # noqa
                 'to receive the token'
             )
 
+    def _resolve_hint(self, kwargs: dict) -> str | None:
+        """Resolve hint - call if callable, return as-is if string."""
+        if callable(self._hint):
+            return self._hint(**kwargs)
+        return self._hint
+
+    def _format_hint(
+        self,
+        message: str | None,
+        hint: str,
+    ) -> str:
+        """Format hint - add a dot and a space if message does not end with it."""
+        if message:
+            if message.endswith('.'):
+                return f'{message} {hint}'
+            else:
+                return f'{message}. {hint}'
+        return hint
+
     def __call__(self, func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -253,7 +264,10 @@ class cli_response:  # noqa
                 next_token = (resp.data or {}).get(NEXT_TOKEN_ATTR)
 
                 if hint and prepared:
-                    prepared[0]['Hint'] = hint
+                    prepared[0][MESSAGE_ATTR] = self._format_hint(
+                        message=prepared[0].get(MESSAGE_ATTR),
+                        hint=hint,
+                    )
 
                 try:
                     printer = TablePrinter(
@@ -288,7 +302,10 @@ class cli_response:  # noqa
                 _LOG.info('Returning json view')
                 data = JsonResponseProcessor().format(resp)
                 if hint:
-                    data['hint'] = hint
+                    data[MESSAGE_ATTR] = self._format_hint(
+                        message=data.get(MESSAGE_ATTR),
+                        hint=hint,
+                    )
                 click.echo(json.dumps(data, indent=4))
             sys.exit(self.to_exit_code(resp.code))
 
@@ -669,24 +686,6 @@ def build_dojo_test_option(**kwargs) -> Callable:
     )
     params.update(**kwargs)
     return click.option('--dojo_test', '-dt', **params)
-
-
-def get_service_operation_status(
-    ctx: ContextObj,
-    service_operation_type: str,
-    from_date: str | None = None,
-    to_date: str | None = None,
-) -> SREResponse:
-    """Helper to get service operation status with date range filtering."""
-    params = {}
-    if from_date:
-        params['from'] = from_date
-    if to_date:
-        params['to'] = to_date
-    return ctx['api_client'].service_operation_status(
-        service_operation_type=service_operation_type,
-        **params,
-    )
 
 
 tenant_option = build_tenant_option()

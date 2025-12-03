@@ -13,11 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Push to Defect Dojo changed from synchronous to asynchronous
 - Added user guide and commands reference guide to the documentation
 - Added `/metadata/update` endpoint to updating locally stored metadata
-- Added `/service-operation/status?type={service_operation_type}` endpoint to get the status of service operations where `service_operation_type` is one of:
+- Added `/service-operations/status?type={service_operation_type}` endpoint to get the status of service operations where `service_operation_type` is one of:
   - `metrics-update`
   - `metadata-update`
   - `push-dojo`
-- Added `Permission.SERVICE_OPERATION_STATUS` permission for getting the status of service operations
+- Added `Permission.SERVICE_OPERATIONS_STATUS` permission for getting the status of service operations
 - Disabled the plugin `gcp_cloudrun`
 - Fixed an issue with filtering resource exceptions by `--tags_filters`
 - Fixed plugin `aws.workspaces-directory.filter.check-vpc-endpoints-availability`
@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed an issue with creating resource exceptions with the same parameters
 - Added the possibility to submit jobs and push reports to dojo with custom `product`, `engagement`, and `test` names
 - Resolved a problem caused by the license manager being temporarily unavailable.
-- Deleted `Permission.METRICS_STATUS` permission, and replaced it with `Permission.SERVICE_OPERATION_STATUS`
+- Deleted `Permission.METRICS_STATUS` permission, and replaced it with `Permission.SERVICE_OPERATIONS_STATUS`
 - Fixed an issue with inaccurate K8S scan results
 
 

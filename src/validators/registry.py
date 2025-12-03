@@ -589,12 +589,12 @@ data: tuple[EndpointInfo, ...] = (
 
     # service operation status
     EndpointInfo(
-        path=Endpoint.SERVICE_OPERATION_STATUS,
+        path=Endpoint.SERVICE_OPERATIONS_STATUS,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.API_HANDLER,
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, MultipleServiceOperationStatusesModel, None)],
-        permission=Permission.SERVICE_OPERATION_STATUS,
+        permission=Permission.SERVICE_OPERATIONS_STATUS,
         description='Allows to get the status of service operations'
     ),
 

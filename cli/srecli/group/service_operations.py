@@ -2,22 +2,20 @@ import click
 
 from srecli.group import (
     ContextObj, ViewCommand, cli_response,
-    get_service_operation_status,
     DYNAMIC_DATE_ONLY_PAST_EXAMPLE, DYNAMIC_DATE_NOW_WITH_TIME_EXAMPLE,
 )
 from srecli.service.adapter_client import SREResponse
 from srecli.service.constants import ServiceOperationType
 
-
 _CLI_TO_API = {member.value[0]: member.value[1] for member in ServiceOperationType}
 
 
-@click.group(name='service_operation')
-def service_operation():
-    """Manages service operations status tracking"""
+@click.group(name='operations')
+def operations():
+    """Manages Service Operations"""
 
 
-@service_operation.command(
+@operations.command(
     cls=ViewCommand,
     name='status',
 )
@@ -48,10 +46,12 @@ def status(
     customer_id: str | None = None,
 ) -> SREResponse:
     """Execution status of the specified service operation"""
-    return get_service_operation_status(
-        ctx=ctx,
+    params = {}
+    if from_date:
+        params['from'] = from_date
+    if to_date:
+        params['to'] = to_date
+    return ctx['api_client'].service_operations_status(
         service_operation_type=_CLI_TO_API[operation],
-        from_date=from_date,
-        to_date=to_date,
+        **params,
     )
-

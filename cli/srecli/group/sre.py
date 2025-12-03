@@ -15,7 +15,7 @@ from srecli.group.role import role
 from srecli.group.rule import rule
 from srecli.group.ruleset import ruleset
 from srecli.group.rulesource import rulesource
-from srecli.group.service_operation import service_operation
+from srecli.group.service import service
 from srecli.group.setting import setting
 from srecli.group.tenant import tenant
 from srecli.group.users import users
@@ -142,7 +142,7 @@ sre.add_command(report)
 sre.add_command(ruleset)
 sre.add_command(rulesource)
 sre.add_command(license)
-sre.add_command(service_operation)
+sre.add_command(service)
 sre.add_command(setting)
 sre.add_command(results)
 sre.add_command(metadata)

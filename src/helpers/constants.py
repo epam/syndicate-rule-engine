@@ -56,7 +56,7 @@ class Endpoint(str, Enum):
     BATCH_RESULTS = '/batch-results'
     REPORTS_RETRY = '/reports/retry'
     POLICIES_NAME = '/policies/{name}'
-    SERVICE_OPERATION_STATUS = '/service-operation/status'
+    SERVICE_OPERATIONS_STATUS = '/service-operations/status'
     REPORTS_CLEVEL = '/reports/clevel'
     METRICS_UPDATE = '/metrics/update'
     METADATA_UPDATE = '/metadata/update'
@@ -842,7 +842,7 @@ class Permission(str, Enum):
     METRICS_UPDATE = 'system:update_metrics', True
     METADATA_UPDATE = 'system:update_metadata', True
 
-    SERVICE_OPERATION_STATUS = 'service_operation:status'
+    SERVICE_OPERATIONS_STATUS = 'service_operations:status'
 
     RULESET_DESCRIBE = 'ruleset:describe', False  # True
     RULESET_CREATE = 'ruleset:create'

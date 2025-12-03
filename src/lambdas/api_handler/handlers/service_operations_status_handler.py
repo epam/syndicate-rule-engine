@@ -12,7 +12,7 @@ from validators.utils import validate_kwargs
 _LOG = get_logger(__name__)
 
 
-class ServiceOperationStatusHandler(AbstractHandler):
+class ServiceOperationsStatusHandler(AbstractHandler):
     """
     Unified handler for retrieving the status of service operations.
     
@@ -37,7 +37,7 @@ class ServiceOperationStatusHandler(AbstractHandler):
 
     @property
     def mapping(self) -> Mapping:
-        return {Endpoint.SERVICE_OPERATION_STATUS: {HTTPMethod.GET: self.get}}
+        return {Endpoint.SERVICE_OPERATIONS_STATUS: {HTTPMethod.GET: self.get}}
 
     @validate_kwargs
     def get(self, event: ServiceOperationStatusGetModel):
