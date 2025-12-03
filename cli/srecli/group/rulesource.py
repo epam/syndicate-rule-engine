@@ -129,7 +129,7 @@ def delete(ctx: ContextObj, rule_source_id, delete_rules, customer_id):
 @build_rule_source_id_option(required=True)
 @cli_response(
     hint=lambda rule_source_id, **kwargs: (
-        f"Use 'sre rulesource describe -rsid {rule_source_id}' to check status"
+        f"Use 'sre rulesource describe -rsid {rule_source_id}' to check status."
     ),
 )
 def sync(

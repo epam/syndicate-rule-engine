@@ -17,7 +17,7 @@ def _sync_hint(
 ) -> str:
     template = (
         "Use 'sre license describe -lk {license_key} -cid {customer_id}' "
-        "to check status"
+        "to check status."
     )
 
     if not customer_id:
