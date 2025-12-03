@@ -45,7 +45,9 @@ def status(
     to_date: str | None,
     customer_id: str | None = None,
 ) -> SREResponse:
-    """Execution status of the specified service operation"""
+    """
+    Execution status of the specified service operation
+    """
     params = {}
     if from_date:
         params['from'] = from_date
