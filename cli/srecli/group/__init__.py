@@ -241,6 +241,17 @@ class cli_response:  # noqa
             try:
                 self._check_context(ctx)
                 resp: SREResponse = click.pass_obj(func)(*args, **kwargs)
+
+                hint = self._resolve_hint(kwargs)
+                if hint and resp.ok:
+                    data = resp.data or {}
+                    if message := data.get(MESSAGE_ATTR):
+                        data[MESSAGE_ATTR] = self._format_hint(
+                            message=message,
+                            hint=hint,
+                        )
+                    resp.data = data
+
             except click.ClickException as e:
                 _LOG.info('Click exception has occurred')
                 resp = response(e.format_message(), code=HTTPStatus.BAD_REQUEST)
@@ -254,20 +265,12 @@ class cli_response:  # noqa
                 formatted = ModularResponseProcessor().format(resp)
                 return json.dumps(formatted, separators=(',', ':'))
 
-            hint = self._resolve_hint(kwargs) if resp.ok else None
-
             if not json_view:  # table view
 
                 _LOG.info('Returning table view')
                 prepared = TableResponseProcessor().format(resp)
                 trace_id = resp.trace_id
                 next_token = (resp.data or {}).get(NEXT_TOKEN_ATTR)
-
-                if hint and prepared:
-                    prepared[0][MESSAGE_ATTR] = self._format_hint(
-                        message=prepared[0].get(MESSAGE_ATTR),
-                        hint=hint,
-                    )
 
                 try:
                     printer = TablePrinter(
@@ -301,11 +304,6 @@ class cli_response:  # noqa
             if json_view:
                 _LOG.info('Returning json view')
                 data = JsonResponseProcessor().format(resp)
-                if hint:
-                    data[MESSAGE_ATTR] = self._format_hint(
-                        message=data.get(MESSAGE_ATTR),
-                        hint=hint,
-                    )
                 click.echo(json.dumps(data, indent=4))
             sys.exit(self.to_exit_code(resp.code))
 
