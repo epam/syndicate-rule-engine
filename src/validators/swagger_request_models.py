@@ -36,6 +36,7 @@ from helpers.constants import (
     ReportType,
     Env,
     TAGS_KEY_VALUE_SEPARATOR,
+    ServiceOperationType,
 )
 from helpers import Version
 from helpers.regions import AllRegions, AllRegionsWithGlobal
@@ -1874,7 +1875,8 @@ class ReportStatusGetModel(BaseModel):
     complete: bool = False
 
 
-class MetricsStatusGetModel(TimeRangedMixin, BaseModel):
+class ServiceOperationStatusGetModel(TimeRangedMixin, BaseModel):
+    type: ServiceOperationType
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
 

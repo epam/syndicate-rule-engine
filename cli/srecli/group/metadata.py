@@ -1,7 +1,14 @@
 import click
 
 from srecli.group import (
-    ContextObj, ViewCommand, cli_response
+    ContextObj, 
+    ViewCommand, 
+    cli_response, 
+)
+from srecli.service.adapter_client import SREResponse
+from srecli.service.constants import (
+    ServiceOperationType, 
+    OPERATION_STATUS_HINT,
 )
 
 
@@ -10,9 +17,19 @@ def metadata():
     """Manages locally stored metadata"""
 
 
-@metadata.command(cls=ViewCommand, name='update')
-@cli_response()
-def update(ctx: ContextObj, customer_id: str | None = None):
+@metadata.command(
+    cls=ViewCommand, 
+    name='update',
+)
+@cli_response(
+    hint=OPERATION_STATUS_HINT.format(
+        operation_type=ServiceOperationType.UPDATE_METADATA.value[0],
+    ),
+)
+def update(
+    ctx: ContextObj,
+    customer_id: str | None = None,
+) -> SREResponse:
     """
     Triggers a complete synchronization with License Manager for all customers.
     
@@ -23,4 +40,3 @@ def update(ctx: ContextObj, customer_id: str | None = None):
     - Ruleset metadata in DB (versions, license associations)
     """
     return ctx['api_client'].trigger_metadata_update()
-

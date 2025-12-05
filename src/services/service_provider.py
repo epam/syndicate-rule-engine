@@ -40,6 +40,7 @@ if TYPE_CHECKING:
     from services.chronicle_service import ChronicleInstanceService
     from services.reports import ReportMetricsService
     from services.metadata import MetadataProvider
+    from services.service_operation_service import ServiceOperationService
     from modular_sdk.modular import ModularServiceProvider
 
 
@@ -313,5 +314,10 @@ class ServiceProvider(metaclass=SingletonMeta):
     def resource_exception_service(self) -> 'ResourceExceptionsService':
         from services.resource_exception_service import ResourceExceptionsService
         return ResourceExceptionsService()
+
+    @cached_property
+    def service_operation_service(self) -> 'ServiceOperationService':
+        from services.service_operation_service import ServiceOperationService
+        return ServiceOperationService()
     
 

@@ -139,6 +139,7 @@ from c7n_kube.query import DescribeSource, sources
 from celery.exceptions import SoftTimeLimitExceeded
 from google.auth.exceptions import GoogleAuthError
 from googleapiclient.errors import HttpError
+from modular_sdk.commons.trace_helper import tracer_decorator
 from modular_sdk.commons.constants import (
     ENV_AZURE_CLIENT_CERTIFICATE_PATH,
     ENV_GOOGLE_APPLICATION_CREDENTIALS,
@@ -169,7 +170,7 @@ from helpers.constants import (
     JobState,
     PlatformType,
     PolicyErrorType,
-    DEPRECATED_RULE_SUFFIX
+    ServiceOperationType
 )
 from helpers.log_helper import get_logger
 from helpers.regions import AWS_REGIONS
@@ -947,6 +948,10 @@ def post_lm_job(job: Job):
         raise ExecutorException(ExecutorError.LM_DID_NOT_ALLOW)
 
 
+@tracer_decorator(
+    is_job=True, 
+    component=ServiceOperationType.UPDATE_METADATA.value,
+)
 def update_metadata():
     import operator
     from itertools import chain
@@ -1007,13 +1012,18 @@ def update_metadata():
             )
             failed_updates += 1
     
+    if failed_updates > 0:
+        reason = (
+            f'Failed to update metadata for {failed_updates}/{total_licenses} '
+            'license(s)'
+        )
+        ExecutorError.METADATA_UPDATE_FAILED.reason = reason
+        raise ExecutorException(ExecutorError.METADATA_UPDATE_FAILED)
+    
     _LOG.info(
-        f'Metadata update completed. '
-        f'Total: {total_licenses}, '
-        f'Successful: {successful_updates}, '
-        f'Failed: {failed_updates}'
+        f'Metadata for {successful_updates}/{total_licenses} '
+        'licenses updated successfully'
     )
-
 
 def import_to_dojo(
     job: AmbiguousJob,
@@ -1057,6 +1067,10 @@ def import_to_dojo(
     return warnings
 
 
+@tracer_decorator(
+    is_job=True,
+    component=ServiceOperationType.PUSH_DOJO.value,
+)
 def upload_to_dojo(job_ids: Iterable[str]):
     for job_id in job_ids:
         _LOG.info(f'Uploading job {job_id} to dojo')

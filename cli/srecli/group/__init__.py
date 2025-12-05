@@ -34,8 +34,13 @@ from srecli.service.constants import (
     JobType,
     Env,
     MODULAR_ADMIN,
-    STATUS_ATTR, SUCCESS_STATUS, ERROR_STATUS, CODE_ATTR, TABLE_TITLE_ATTR,
-    REVERT_TO_JSON_MESSAGE, COLUMN_OVERFLOW
+    STATUS_ATTR,
+    SUCCESS_STATUS,
+    ERROR_STATUS,
+    CODE_ATTR,
+    TABLE_TITLE_ATTR,
+    REVERT_TO_JSON_MESSAGE,
+    COLUMN_OVERFLOW,
 )
 from srecli.service.logger import get_logger, enable_verbose_logs
 
@@ -50,7 +55,10 @@ except ImportError:
 _LOG = get_logger(__name__)
 
 
-def _get_dynamic_date_example(days_offset: int = 30, date_only: bool = False) -> str:
+def _get_dynamic_date_example(
+    days_offset: int = 30,
+    date_only: bool = False,
+) -> str:
     """
     Generates a dynamic date example based on current date with optional offset. 
     The time is rounded to the start of the hour (set minutes and seconds to 00).
@@ -60,13 +68,21 @@ def _get_dynamic_date_example(days_offset: int = 30, date_only: bool = False) ->
     :return: ISO 8601 formatted date string
     """
     future_date = datetime.now() + timedelta(days=days_offset)
-    future_date = future_date.replace(minute=0, second=0, microsecond=0)
+
     if date_only:
         return future_date.strftime('%Y-%m-%d')
+
+    future_date = future_date.replace(
+        minute=0, 
+        second=0, 
+        microsecond=0,
+    )
+
     return future_date.strftime('%Y-%m-%dT%H:%M:%S')
 
 
 DYNAMIC_DATE_EXAMPLE = _get_dynamic_date_example()
+DYNAMIC_DATE_ONLY_NOW_EXAMPLE = _get_dynamic_date_example(days_offset=0, date_only=True)
 DYNAMIC_DATE_ONLY_EXAMPLE = _get_dynamic_date_example(date_only=True)
 DYNAMIC_DATE_ONLY_PAST_EXAMPLE = _get_dynamic_date_example(days_offset=-30, date_only=True)
 
@@ -103,14 +119,27 @@ class ContextObj(TypedDict):
 
 
 class cli_response:  # noqa
-    __slots__ = ('_attributes_order', '_check_api_link', '_check_access_token')
+    __slots__ = ('_attributes_order', '_check_api_link', '_check_access_token', '_hint')
 
-    def __init__(self, attributes_order: tuple[str, ...] = (),
-                 check_api_link: bool = True,
-                 check_access_token: bool = True):
+    def __init__(
+        self, attributes_order: tuple[str, ...] = (),
+        check_api_link: bool = True,
+        check_access_token: bool = True,
+        hint: str | Callable[..., str | None] | None = None,
+    ) -> None:
+        """
+        Creates a cli_response decorator.
+
+        :param attributes_order: Order of attributes to display in the table
+        :param check_api_link: Whether to check if the API link is configured
+        :param check_access_token: Whether to check if the access token is configured
+        :param hint: Static string or callable that receives same kwargs as 
+                     the command and returns a hint string (or None to skip)
+        """
         self._attributes_order = attributes_order
         self._check_api_link = check_api_link
         self._check_access_token = check_access_token
+        self._hint = hint
 
     @staticmethod
     def to_exit_code(code: HTTPStatus | None) -> int:
@@ -173,6 +202,25 @@ class cli_response:  # noqa
                 'to receive the token'
             )
 
+    def _resolve_hint(self, kwargs: dict) -> str | None:
+        """Resolve hint - call if callable, return as-is if string."""
+        if callable(self._hint):
+            return self._hint(**kwargs)
+        return self._hint
+
+    def _format_hint(
+        self,
+        message: str | None,
+        hint: str,
+    ) -> str:
+        """Format hint - add a dot and a space if message does not end with it."""
+        if message:
+            if message.endswith('.'):
+                return f'{message} {hint}'
+            else:
+                return f'{message}. {hint}'
+        return hint
+
     def __call__(self, func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -191,6 +239,17 @@ class cli_response:  # noqa
             try:
                 self._check_context(ctx)
                 resp: SREResponse = click.pass_obj(func)(*args, **kwargs)
+
+                hint = self._resolve_hint(kwargs)
+                if hint and resp.ok:
+                    data = resp.data or {}
+                    if message := data.get(MESSAGE_ATTR):
+                        data[MESSAGE_ATTR] = self._format_hint(
+                            message=message,
+                            hint=hint,
+                        )
+                    resp.data = data
+
             except click.ClickException as e:
                 _LOG.info('Click exception has occurred')
                 resp = response(e.format_message(), code=HTTPStatus.BAD_REQUEST)

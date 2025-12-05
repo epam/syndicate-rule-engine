@@ -13,6 +13,11 @@ from srecli.group import (
     tenant_option,
     to_date_report_option,
 )
+from srecli.service.constants import (
+    ServiceOperationType, 
+    OPERATION_STATUS_HINT,
+)
+
 
 optional_job_id_option = build_job_id_option(
     required=False,
@@ -26,7 +31,10 @@ def push():
     """Pushes job reports to SIEMs"""
 
 
-@push.command(cls=ViewCommand, name='dojo')
+@push.command(
+    cls=ViewCommand,
+    name='dojo',
+)
 @optional_job_id_option
 @optional_job_type_option
 @from_date_report_option
@@ -35,7 +43,11 @@ def push():
 @dojo_product_option
 @dojo_engagement_option
 @dojo_test_option
-@cli_response()
+@cli_response(
+    hint=OPERATION_STATUS_HINT.format(
+        operation_type=ServiceOperationType.PUSH_DOJO.value[0],
+    ),
+)
 def dojo(
     ctx: ContextObj,
     job_id: Optional[str],
