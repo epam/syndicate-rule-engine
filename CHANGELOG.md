@@ -18,6 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `metadata-update`
   - `push-dojo`
 - Added `Permission.SERVICE_OPERATIONS_STATUS` permission for getting the status of service operations
+- Added exceptions information (`exceptions_data`) to project-level reports: 
+  - Project Overview
+  - Project Compliance
+  - Project Resources
+  - Project Attacks
+  - Project FinOps
 - Disabled the plugin `gcp_cloudrun`
 - Fixed an issue with filtering resource exceptions by `--tags_filters`
 - Fixed plugin `aws.workspaces-directory.filter.check-vpc-endpoints-availability`

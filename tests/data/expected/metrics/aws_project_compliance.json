@@ -24,7 +24,8 @@
           "Standard1 v2.0.0": 0.25,
           "Standard2": 0.125
         }
-      }
+      },
+      "exceptions_data": []
     },
     "AZURE": {
       "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
@@ -36,7 +37,8 @@
           "global": {}
         },
         "total": {}
-      }
+      },
+      "exceptions_data": []
     },
     "GOOGLE": {
       "account_id": "testing-project-123",
@@ -48,7 +50,8 @@
           "global": {}
         },
         "total": {}
-      }
+      },
+      "exceptions_data": []
     }
   },
   "outdated_tenants": []
