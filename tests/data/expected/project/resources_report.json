@@ -130,7 +130,8 @@
             }
           }
         }
-      ]
+      ],
+      "exceptions_data": []
     },
     "AZURE": {
       "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
@@ -193,7 +194,8 @@
             }
           }
         }
-      ]
+      ],
+      "exceptions_data": []
     },
     "GOOGLE": {
       "account_id": "testing-project-123",
@@ -265,7 +267,8 @@
             }
           }
         }
-      ]
+      ],
+      "exceptions_data": []
     }
   },
   "tenant_display_name": "testing"

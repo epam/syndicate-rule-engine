@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Push to Defect Dojo changed from synchronous to asynchronous
 - Added user guide and commands reference guide to the documentation
 - Added `/metadata/update` endpoint to updating locally stored metadata
+- Added exceptions information (`exceptions_data`) to project-level reports: 
+  - Project Overview
+  - Project Compliance
+  - Project Resources
+  - Project Attacks
+  - Project FinOps
 - Disabled the plugin `gcp_cloudrun`
 - Fixed an issue with filtering resource exceptions by `--tags_filters`
 - Fixed plugin `aws.workspaces-directory.filter.check-vpc-endpoints-availability`
