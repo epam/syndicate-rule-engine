@@ -2,7 +2,7 @@ import click
 
 from srecli.group import (
     ContextObj, ViewCommand, cli_response,
-    DYNAMIC_DATE_ONLY_PAST_EXAMPLE, DYNAMIC_DATE_NOW_WITH_TIME_EXAMPLE,
+    DYNAMIC_DATE_ONLY_PAST_EXAMPLE, DYNAMIC_DATE_ONLY_NOW_EXAMPLE,
 )
 from srecli.service.adapter_client import SREResponse
 from srecli.service.constants import ServiceOperationType
@@ -35,7 +35,7 @@ def operations():
     '--to_date', '-to',
     type=str,
     default=None,
-    help=f'Query statuses till this date. Example: {DYNAMIC_DATE_NOW_WITH_TIME_EXAMPLE}',
+    help=f'Query statuses till this date. Example: {DYNAMIC_DATE_ONLY_NOW_EXAMPLE}',
 )
 @cli_response()
 def status(

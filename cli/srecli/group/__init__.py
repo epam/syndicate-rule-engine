@@ -58,7 +58,6 @@ _LOG = get_logger(__name__)
 def _get_dynamic_date_example(
     days_offset: int = 30,
     date_only: bool = False,
-    keep_time: bool = False,
 ) -> str:
     """
     Generates a dynamic date example based on current date with optional offset. 
@@ -73,18 +72,17 @@ def _get_dynamic_date_example(
     if date_only:
         return future_date.strftime('%Y-%m-%d')
 
-    if not keep_time:
-        future_date = future_date.replace(
-            minute=0, 
-            second=0, 
-            microsecond=0,
-        )
+    future_date = future_date.replace(
+        minute=0, 
+        second=0, 
+        microsecond=0,
+    )
 
     return future_date.strftime('%Y-%m-%dT%H:%M:%S')
 
 
 DYNAMIC_DATE_EXAMPLE = _get_dynamic_date_example()
-DYNAMIC_DATE_NOW_WITH_TIME_EXAMPLE = _get_dynamic_date_example(days_offset=0, keep_time=True)
+DYNAMIC_DATE_ONLY_NOW_EXAMPLE = _get_dynamic_date_example(days_offset=0, date_only=True)
 DYNAMIC_DATE_ONLY_EXAMPLE = _get_dynamic_date_example(date_only=True)
 DYNAMIC_DATE_ONLY_PAST_EXAMPLE = _get_dynamic_date_example(days_offset=-30, date_only=True)
 

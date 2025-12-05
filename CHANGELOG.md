@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed an issue with creating resource exceptions with the same parameters
 - Added the possibility to submit jobs and push reports to dojo with custom `product`, `engagement`, and `test` names
 - Resolved a problem caused by the license manager being temporarily unavailable.
-- Deleted `Permission.METRICS_STATUS` permission, and replaced it with `Permission.SERVICE_OPERATIONS_STATUS`
+- `Permission.METRICS_STATUS` permission replaced with `Permission.SERVICE_OPERATIONS_STATUS`
 - Fixed an issue with inaccurate K8S scan results
 
 
