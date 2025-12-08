@@ -715,8 +715,9 @@ class MaestroReportToS3Packer:
         customer = report['customer']
         key = f'{customer}/{str(uuid.uuid4())}.jsonl'
 
+        buf = self._mapping[typ](data)
         try:
-            self._write_to_s3(key, data)
+            self._write_to_s3(key, buf)
         except ClientError:
             _LOG.exception('Could not write packed report to s3')
             raise (

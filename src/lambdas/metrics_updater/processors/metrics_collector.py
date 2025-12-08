@@ -1410,14 +1410,9 @@ class MetricsCollector(BaseProcessor):
                 )
             data = self.base_cloud_payload_dict()
             tenants = set()
-            exceptions_data = []
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
                 tenants.add(tenant.name)
-
-                # Collect exceptions data from operational reports
-                if item[1].get('exceptions_data'):
-                    exceptions_data.extend(item[1]['exceptions_data'])
 
                 data[tenant_cloud(tenant).value] = {
                     'account_id': item[1]['id'],
@@ -1449,7 +1444,7 @@ class MetricsCollector(BaseProcessor):
                     start=start,
                     tenants=tenants,
                 ),
-                {'outdated_tenants': (), 'data': data, 'exceptions_data': exceptions_data},
+                {'outdated_tenants': (), 'data': data},
             )
 
     def project_compliance(
@@ -1589,15 +1584,10 @@ class MetricsCollector(BaseProcessor):
 
         for dn, reports in dn_to_reports.items():
             data = self.base_cloud_payload_dict()
-            tenants = set()
-            exceptions_data = []
+            tenants = set()       
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
                 tenants.add(tenant.name)
-
-                # Collect exceptions data from operational reports
-                if item[1].get('exceptions_data'):
-                    exceptions_data.extend(item[1]['exceptions_data'])
 
                 new_mitre_data = {}
                 for res in item[1].get('data', ()):
@@ -1630,7 +1620,7 @@ class MetricsCollector(BaseProcessor):
                     start=start,
                     tenants=tenants,
                 ),
-                {'outdated_tenants': [], 'data': data, 'exceptions_data': exceptions_data},
+                {'outdated_tenants': [], 'data': data},
             )
 
     def project_finops(
@@ -1657,14 +1647,9 @@ class MetricsCollector(BaseProcessor):
         for dn, reports in dn_to_reports.items():
             data = self.base_cloud_payload_dict()
             tenants = set()
-            exceptions_data = []
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
                 tenants.add(tenant.name)
-
-                # Collect exceptions data from operational reports
-                if item[1].get('exceptions_data'):
-                    exceptions_data.extend(item[1]['exceptions_data'])
 
                 service_data = []
                 for finops_data in item[1].get('data', ()):
@@ -1701,7 +1686,7 @@ class MetricsCollector(BaseProcessor):
                     start=start,
                     tenants=tenants,
                 ),
-                {'outdated_tenants': [], 'data': data, 'exceptions_data': exceptions_data},
+                {'outdated_tenants': [], 'data': data},
             )
 
     def top_resources_by_cloud(
@@ -2495,15 +2480,10 @@ class MetricsCollector(BaseProcessor):
 
         for dn, reports in dn_to_reports.items():
             data = self.base_cloud_payload_dict()
-            tenants = set()
-            exceptions_data = []
+            tenants = set()        
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
                 tenants.add(tenant.name)
-
-                # Collect exceptions data from operational reports
-                if item[1].get('exceptions_data'):
-                    exceptions_data.extend(item[1]['exceptions_data'])
 
                 policies_dict = {}
                 for policy in item[1]['metadata'].rules.violated:
@@ -2559,7 +2539,7 @@ class MetricsCollector(BaseProcessor):
                     start=start,
                     tenants=tenants,
                 ),
-                {'outdated_tenants': [], 'data': data, 'exceptions_data': exceptions_data},
+                {'outdated_tenants': [], 'data': data},
             )
 
     def _iter_deprecated_rules(
