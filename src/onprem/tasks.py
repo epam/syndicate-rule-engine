@@ -65,6 +65,15 @@ def collect_metrics():
         event={'data_type': 'metrics'}, context=RequestContext()
     )
 
+@app.task
+def collect_recommendations():
+    # After findings are collected, findings trigger recommendations.
+    # This feature works only in `MetricsUpdater` lambda.
+    MetricsUpdater.build().lambda_handler(
+        event={'data_type': 'findings'},
+        context=RequestContext(),
+    )
+
 
 @app.task
 def run_update_metadata():

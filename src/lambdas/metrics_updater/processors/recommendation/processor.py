@@ -79,8 +79,8 @@ class RecommendationProcessor(BaseProcessor):
 
     def __call__(
         self,
-        event: MutableMapping,
-        context: RequestContext,
+        event: Optional[MutableMapping] = None,
+        context: Optional[RequestContext] = None,
     ) -> Optional[NextLambdaEvent]:
         self._process_data()
 

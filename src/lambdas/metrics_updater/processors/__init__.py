@@ -14,7 +14,7 @@ from lambdas.metrics_updater.processors.findings_processor import (
 from lambdas.metrics_updater.processors.metrics_collector import (
     MetricsCollector,
 )
-from lambdas.metrics_updater.processors.reccommendation import (
+from lambdas.metrics_updater.processors.recommendation import (
     RecommendationProcessor,
 )
 

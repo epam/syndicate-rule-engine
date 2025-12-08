@@ -671,6 +671,11 @@ class Env(EnvEnum):
         (),
         '0 3,15 * * *',  # every day at 03:00 and 15:00 UTC
     )
+    CELERY_COLLECT_RECOMMENDATIONS_SCHEDULE = (
+        'SRE_CELERY_COLLECT_RECOMMENDATIONS_SCHEDULE',
+        (),
+        '0 3,15 * * *',  # every day at 03:00 and 15:00 UTC
+    )
     CELERY_REMOVE_EXPIRED_METRICS_SCHEDULE = (
         'SRE_CELERY_REMOVE_EXPIRED_METRICS_SCHEDULE',
         (),

@@ -35,6 +35,11 @@ def prepare_beat_schedule() -> dict[str, dict]:
             'schedule': Env.CELERY_COLLECT_METRICS_SCHEDULE,
             'args': (),
         },
+        "collect-recommendations": {
+            'task': 'onprem.tasks.collect_recommendations',
+            'schedule': Env.CELERY_COLLECT_RECOMMENDATIONS_SCHEDULE,
+            'args': (),
+        },
         'remove-expired-metrics': {
             'task': 'onprem.tasks.delete_expired_metrics',
             'schedule': Env.CELERY_REMOVE_EXPIRED_METRICS_SCHEDULE,

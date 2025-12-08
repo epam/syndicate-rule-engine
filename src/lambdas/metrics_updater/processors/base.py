@@ -33,8 +33,8 @@ class BaseProcessor(ABC):
     @abstractmethod
     def __call__(
         self,
-        event: MutableMapping,
-        context: RequestContext,
+        event: Optional[MutableMapping] = None,
+        context: Optional[RequestContext] = None,
     ) -> Optional[NextLambdaEvent]:
         """
         Processes the event.

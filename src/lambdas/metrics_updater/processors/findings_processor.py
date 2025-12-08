@@ -31,8 +31,8 @@ class FindingsUpdater(BaseProcessor):
 
     def __call__(
         self,
-        event: MutableMapping,
-        context: RequestContext,
+        event: Optional[MutableMapping] = None,
+        context: Optional[RequestContext] = None,
     ) -> Optional[NextLambdaEvent]:
         """
         When this processor is executed we make a snapshot of existing
@@ -72,7 +72,8 @@ class FindingsUpdater(BaseProcessor):
                     destination_tags={'Type': 'DataSnapshot'},
                 )
 
-        return self._return_next_event(
-            current_event=event,
-            next_processor_name=NEXT_DATA_TYPE,
-        )
+        if event:
+            return self._return_next_event(
+                current_event=event,
+                next_processor_name=NEXT_DATA_TYPE,
+            )

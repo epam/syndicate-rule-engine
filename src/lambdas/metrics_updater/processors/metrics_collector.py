@@ -2427,8 +2427,8 @@ class MetricsCollector(BaseProcessor):
 
     def __call__(
         self, 
-        event: MutableMapping, 
-        context: RequestContext
+        event: Optional[MutableMapping] = None, 
+        context: Optional[RequestContext] = None,
     ) -> Optional[NextLambdaEvent]:
         _LOG.info('Starting metrics collector')
         now = utc_datetime()
