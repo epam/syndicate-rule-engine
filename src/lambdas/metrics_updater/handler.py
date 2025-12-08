@@ -4,6 +4,7 @@ from typing import MutableMapping, cast
 from modular_sdk.commons.trace_helper import tracer_decorator
 
 from helpers import RequestContext
+from helpers.constants import ServiceOperationType
 from helpers.lambda_response import (
     LambdaOutput,
     MetricsUpdateException,
@@ -36,7 +37,10 @@ class MetricsUpdater(EventProcessorLambdaHandler):
             registry=ProcessorsRegistry.build(),
         )
 
-    @tracer_decorator(is_job=True, component="metrics")
+    @tracer_decorator(
+        is_job=True, 
+        component=ServiceOperationType.UPDATE_METRICS.value,
+    )
     def handle_request(
         self,
         event: MutableMapping,

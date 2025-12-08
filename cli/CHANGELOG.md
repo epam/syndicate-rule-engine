@@ -10,10 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the `--overwrite` flag to the `ruleset release` command, enabling overwriting of an existing ruleset version
 - Updated `--expiration` parameter help text to clarify UTC interpretation for naive datetime values
 - Added `sre metadata update` command to updating locally stored metadata
+- Added unified command to get the status of service operations:
+  - `sre service_operation status --operation <operation_type>`
+  - Available operations: `metrics_update`, `metadata_update`, `push_dojo`
 - Updated help messages for date parameters to use dynamic date examples in `sre role add|update`, `sre job describe` and `sre metrics status` commands
 - Added `dojo_product`, `dojo_engagement`, and `dojo_test` parameters to commands `job submit`, `job submit_k8s`, and `repot push dojo`
 - Fixed an issue with `--google_application_credentials_path` parameter not being recognized as a file parameter in `re job submit` command when SRE CLI is installed as a module within Modular API, causing "${file} not found" error
 - Fixed an issue with formatting datetime for `sre setting lm config describe` command
+- `sre metrics status` command replaced with `sre service_operation status --operation metrics_update`
 
 ## [5.9.0] - 2025-09-15
 - Multiple options' help messages extended with the word `[multiple]`

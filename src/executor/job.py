@@ -124,7 +124,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from itertools import chain
 from pathlib import Path
-from typing import TYPE_CHECKING, Generator, Iterable, cast
+from typing import TYPE_CHECKING, Generator, Iterable, cast, Callable
 
 # import multiprocessing
 import billiard as multiprocessing  # allows to execute child processes from a daemon process
@@ -135,9 +135,11 @@ from c7n.exceptions import PolicyValidationError
 from c7n.policy import Policy, PolicyCollection
 from c7n.provider import clouds
 from c7n.resources import load_resources
+from c7n_kube.query import DescribeSource, sources
 from celery.exceptions import SoftTimeLimitExceeded
 from google.auth.exceptions import GoogleAuthError
 from googleapiclient.errors import HttpError
+from modular_sdk.commons.trace_helper import tracer_decorator
 from modular_sdk.commons.constants import (
     ENV_AZURE_CLIENT_CERTIFICATE_PATH,
     ENV_GOOGLE_APPLICATION_CREDENTIALS,
@@ -168,7 +170,7 @@ from helpers.constants import (
     JobState,
     PlatformType,
     PolicyErrorType,
-    DEPRECATED_RULE_SUFFIX
+    ServiceOperationType
 )
 from helpers.log_helper import get_logger
 from helpers.regions import AWS_REGIONS
@@ -312,6 +314,10 @@ class PoliciesLoader:
             return GLOBAL_REGION
         return policy.options.region
 
+    @property
+    def _kubeconfig_path(self) -> str | None:
+        return os.getenv(ENV_KUBECONFIG)
+
     def _base_config(self) -> Config:
         match self._cloud:
             case Cloud.AWS:
@@ -341,6 +347,26 @@ class PoliciesLoader:
             log_group='null',
             tracer='default',
         )
+
+    @staticmethod
+    def _kube_session_factory(kubeconfig_path: str) -> Callable:
+        """Returns a factory function that creates Session with config_file"""
+        from c7n_kube.client import Session
+
+        _LOG.debug(f'Creating Kubernetes session factory')
+
+        def factory():
+            return Session(config_file=kubeconfig_path)
+        return factory
+
+    def _session_factory(self) -> Callable | None:
+        """Returns a session factory callable or None"""
+        session_factory = None
+        config_path = self._kubeconfig_path
+        if self._cloud == Cloud.KUBERNETES and config_path:
+            session_factory = self._kube_session_factory(config_path)
+
+        return session_factory
 
     @staticmethod
     def _get_resource_types(policies: list[PolicyDict]) -> set[str]:
@@ -468,6 +494,7 @@ class PoliciesLoader:
         load_resources(self._get_resource_types(policies))
         # here we should probably validate schema, but it's too time-consuming
         provider_policies = defaultdict(list)
+        session_factory = self._session_factory()
         for policy in policies:
             # if policy['name'].endswith(DEPRECATED_RULE_SUFFIX):
             #     _LOG.warning(
@@ -476,7 +503,11 @@ class PoliciesLoader:
             #     )
             #     continue
             try:
-                pol = Policy(policy, options)
+                pol = Policy(
+                    data=policy,
+                    options=options,
+                    session_factory=session_factory,
+                )
             except PolicyValidationError:
                 _LOG.warning(
                     f'Cannot load policy {policy["name"]} '
@@ -552,6 +583,13 @@ class PoliciesLoader:
         match self._cloud:
             case Cloud.AWS:
                 items = list(self.prepare_policies(items))
+            case Cloud.KUBERNETES:
+                for pol in items:
+                    self.set_global_output(pol)
+                    pol.data.setdefault(
+                        'source',
+                        self._ensure_source(pol.resource_type),
+                    )
             case _:
                 if self._output_dir:
                     for pol in items:
@@ -594,6 +632,26 @@ class PoliciesLoader:
             elif policy.name in (mapping.get(policy.options.region) or ()):
                 items.append(policy)
         return items
+
+    @staticmethod
+    def _ensure_source(resource_type: str) -> str:
+        source_name = f'describe-{resource_type.replace(".", "-")}'
+        if sources.get(source_name):
+            _LOG.debug(f'Source {source_name} already registered')
+            return source_name
+
+        # create a new subclass purely to give it a unique registered name so
+        # c7n properly handles caching
+        _LOG.debug(f'Registering new source: {source_name}')
+        cls = type(
+            f'Describe{resource_type.title().replace(".", "")}',
+            (DescribeSource,),
+            {"__doc__": f"Auto source for {resource_type}"}
+        )
+
+        sources.register(source_name)(cls)
+
+        return source_name
 
 
 class Runner(ABC):
@@ -890,6 +948,10 @@ def post_lm_job(job: Job):
         raise ExecutorException(ExecutorError.LM_DID_NOT_ALLOW)
 
 
+@tracer_decorator(
+    is_job=True, 
+    component=ServiceOperationType.UPDATE_METADATA.value,
+)
 def update_metadata():
     import operator
     from itertools import chain
@@ -950,13 +1012,18 @@ def update_metadata():
             )
             failed_updates += 1
     
+    if failed_updates > 0:
+        reason = (
+            f'Failed to update metadata for {failed_updates}/{total_licenses} '
+            'license(s)'
+        )
+        ExecutorError.METADATA_UPDATE_FAILED.reason = reason
+        raise ExecutorException(ExecutorError.METADATA_UPDATE_FAILED)
+    
     _LOG.info(
-        f'Metadata update completed. '
-        f'Total: {total_licenses}, '
-        f'Successful: {successful_updates}, '
-        f'Failed: {failed_updates}'
+        f'Metadata for {successful_updates}/{total_licenses} '
+        'licenses updated successfully'
     )
-
 
 def import_to_dojo(
     job: AmbiguousJob,
@@ -1000,6 +1067,10 @@ def import_to_dojo(
     return warnings
 
 
+@tracer_decorator(
+    is_job=True,
+    component=ServiceOperationType.PUSH_DOJO.value,
+)
 def upload_to_dojo(job_ids: Iterable[str]):
     for job_id in job_ids:
         _LOG.info(f'Uploading job {job_id} to dojo')
@@ -1213,11 +1284,11 @@ def get_platform_credentials(job: Job, platform: Platform) -> dict | None:
         config.add_user(user, token)
         config.add_context(context, cluster, user)
         config.current_context = context
-        return {ENV_KUBECONFIG: config.raw}
+        return {ENV_KUBECONFIG: str(config.to_temp_file())}
     elif kubeconfig:
         _LOG.debug('Only kubeconfig is provided')
         config = Kubeconfig(kubeconfig)
-        return {ENV_KUBECONFIG: config.raw}
+        return {ENV_KUBECONFIG: str(config.to_temp_file())}
     if platform.type != PlatformType.EKS:
         _LOG.warning('No kubeconfig provided and platform is not EKS')
         return
@@ -1273,7 +1344,7 @@ def get_platform_credentials(job: Job, platform: Platform) -> dict | None:
         ca=cluster['certificateAuthority']['data'],
         token=TokenGenerator(sts).get_token(platform.name),
     )
-    return {ENV_KUBECONFIG: token_config.build_config()}
+    return {ENV_KUBECONFIG: str(token_config.to_temp_file())}
 
 
 def get_rules_to_exclude(tenant: Tenant) -> set[str]:
@@ -1429,23 +1500,12 @@ def multi_account_event_driven_job() -> int:
 
 def job_initializer(
     envs: dict,
-    cloud: Cloud,
 ):
     _LOG.info(
         f'Initializing subprocess for a region: {multiprocessing.current_process()}'
     )
-    try:
-        if cloud is Cloud.KUBERNETES and ENV_KUBECONFIG in envs:
-            envs = BSP.credentials_service.k8s_credentials_to_file(
-                envs[ENV_KUBECONFIG]
-            )
-
-        envs = {str(k): str(v) for k, v in envs.items() if v}
-
-        os.environ.update(envs)
-        os.environ.setdefault('AWS_DEFAULT_REGION', AWS_DEFAULT_REGION)
-    except Exception as e:
-        _LOG.exception(f'Unexpected error occurred during job initialization {e}')
+    os.environ.update(envs)
+    os.environ.setdefault('AWS_DEFAULT_REGION', AWS_DEFAULT_REGION)
 
 
 def process_job_concurrent(
@@ -1468,7 +1528,10 @@ def process_job_concurrent(
 
     _LOG.debug(f'Running scan process for region {region}')
     loader = PoliciesLoader(
-        cloud=cloud, output_dir=work_dir, regions={region}, cache_period=120
+        cloud=cloud,
+        output_dir=work_dir,
+        regions={region},
+        cache_period=120,
     )
     try:
         _LOG.debug(f'Going to load {len(items)} policies dicts')
@@ -1501,6 +1564,12 @@ def process_job_concurrent(
         filename := os.environ.get(ENV_AZURE_CLIENT_CERTIFICATE_PATH)
     ):
         _LOG.debug(f'Removing temporary azure certificate file {filename}')
+        Path(filename).unlink(missing_ok=True)
+
+    if cloud is Cloud.KUBERNETES and (
+        filename := os.environ.get(ENV_KUBECONFIG)
+    ):
+        _LOG.debug(f'Removing temporary kubeconfig file {filename}')
         Path(filename).unlink(missing_ok=True)
 
     return runner.n_successful, runner.failed
@@ -1772,6 +1841,8 @@ def run_standard_job(ctx: JobExecutionContext):
     if credentials is None:
         raise ExecutorException(ExecutorError.NO_CREDENTIALS)
 
+    credentials = {str(k): str(v) for k, v in credentials.items() if v}
+
     policies = list(
         skip_duplicated_policies(
             ctx=ctx,
@@ -1797,7 +1868,7 @@ def run_standard_job(ctx: JobExecutionContext):
         with multiprocessing.Pool(
             processes=1,
             initializer=job_initializer,
-            initargs=(credentials, cloud,),
+            initargs=(credentials,),
         ) as pool:
             pair = pool.apply(
                 process_job_concurrent, (policies, ctx.work_dir, cloud, region)

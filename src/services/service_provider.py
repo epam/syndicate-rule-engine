@@ -41,6 +41,7 @@ if TYPE_CHECKING:
     from services.reports import ReportMetricsService
     from services.metadata import MetadataProvider
     from services.cadf_event_sender import CadfEventSender
+    from services.service_operation_service import ServiceOperationService
     from modular_sdk.modular import ModularServiceProvider
 
 
@@ -314,6 +315,11 @@ class ServiceProvider(metaclass=SingletonMeta):
     def resource_exception_service(self) -> 'ResourceExceptionsService':
         from services.resource_exception_service import ResourceExceptionsService
         return ResourceExceptionsService()
+
+    @cached_property
+    def service_operation_service(self) -> 'ServiceOperationService':
+        from services.service_operation_service import ServiceOperationService
+        return ServiceOperationService()
 
     @cached_property
     def cadf_event_sender(self) -> 'CadfEventSender':

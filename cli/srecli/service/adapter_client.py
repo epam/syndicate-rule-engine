@@ -498,11 +498,11 @@ class SREApiClient:
             data=sifted(kwargs)
         )
 
-    def metrics_status(self, **kwargs):
+    def service_operations_status(self, service_operation_type: str, **kwargs):
         return self.make_request(
-            path=Endpoint.METRICS_STATUS,
+            path=Endpoint.SERVICE_OPERATIONS_STATUS,
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted({'type': service_operation_type, **kwargs})
         )
 
     def trigger_metrics_update(self):

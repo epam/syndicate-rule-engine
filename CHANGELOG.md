@@ -13,6 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Push to Defect Dojo changed from synchronous to asynchronous
 - Added user guide and commands reference guide to the documentation
 - Added `/metadata/update` endpoint to updating locally stored metadata
+- Added `/service-operations/status?type={service_operation_type}` endpoint to get the status of service operations where `service_operation_type` is one of:
+  - `metrics-update`
+  - `metadata-update`
+  - `push-dojo`
+- Added `Permission.SERVICE_OPERATIONS_STATUS` permission for getting the status of service operations
+- Added exceptions information (`exceptions_data`) to project-level reports: 
+  - Project Overview
+  - Project Compliance
+  - Project Resources
+  - Project Attacks
+  - Project FinOps
 - Disabled the plugin `gcp_cloudrun`
 - Fixed an issue with filtering resource exceptions by `--tags_filters`
 - Fixed plugin `aws.workspaces-directory.filter.check-vpc-endpoints-availability`
@@ -22,6 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed an issue with creating resource exceptions with the same parameters
 - Added the possibility to submit jobs and push reports to dojo with custom `product`, `engagement`, and `test` names
 - Resolved a problem caused by the license manager being temporarily unavailable.
+- `Permission.METRICS_STATUS` permission replaced with `Permission.SERVICE_OPERATIONS_STATUS`
+- Fixed an issue with inaccurate K8S scan results
+
 
 ## [5.14.0] - 2025-10-03
 - Updated the ami-initialize.sh script
