@@ -715,27 +715,15 @@ class MaestroReportToS3Packer:
         customer = report['customer']
         key = f'{customer}/{str(uuid.uuid4())}.jsonl'
 
-        # TODO: remove this after investigation
-        import json
-        import os
-        from uuid import uuid4
-        id_ = str(uuid4())
-        id_ = id_[:8]
-        dir_name = ".results"
-        if not os.path.exists(dir_name):
-            os.makedirs(dir_name)
-        with open(os.path.join(dir_name, f"results_{customer}_{id_}.json"), "a") as f:
-            f.write(json.dumps(data, indent=4))
-
-        # try:
-        #     self._write_to_s3(key, buf)
-        # except ClientError:
-        #     _LOG.exception('Could not write packed report to s3')
-        #     raise (
-        #         ResponseFactory(HTTPStatus.SERVICE_UNAVAILABLE)
-        #         .message('Could not send data to Maestro S3')
-        #         .exc()
-        #     )
+        try:
+            self._write_to_s3(key, data)
+        except ClientError:
+            _LOG.exception('Could not write packed report to s3')
+            raise (
+                ResponseFactory(HTTPStatus.SERVICE_UNAVAILABLE)
+                .message('Could not send data to Maestro S3')
+                .exc()
+            )
 
         report['externalData'] = True
         report['externalDataKey'] = key
@@ -858,14 +846,12 @@ class HighLevelReportsHandler(AbstractHandler):
         self, event: OperationalGetReportModel, _tap: TenantsAccessPayload
     ):
         models = []
-        # TODO: remove this after investigation
-        # rabbitmq = self._rmq.get_customer_rabbitmq(event.customer_id)
-        # if not rabbitmq:
-        #     raise self._rmq.no_rabbitmq_response().exc()
+        rabbitmq = self._rmq.get_customer_rabbitmq(event.customer_id)
+        if not rabbitmq:
+            raise self._rmq.no_rabbitmq_response().exc()
         packer = MaestroReportToS3Packer(
             s3_client=self._assume_role_s3,
             bucket=self._env.get_recommendation_bucket(),
-            size_limit=0,  # TODO: remove after investigation
         )
 
         builder = MaestroModelBuilder(receivers=tuple(event.receivers))
@@ -971,16 +957,15 @@ class HighLevelReportsHandler(AbstractHandler):
                 )
                 .exc()
             )
-        # TODO: remove this after investigation
-        # code = self._rmq.send_to_m3(
-        #     rabbitmq=rabbitmq, command=RabbitCommand.SEND_MAIL, models=models
-        # )
-        # if code != 200:
-        #     raise (
-        #         ResponseFactory(HTTPStatus.SERVICE_UNAVAILABLE)
-        #         .message('Could not send message to RabbitMQ')
-        #         .exc()
-        #     )
+        code = self._rmq.send_to_m3(
+            rabbitmq=rabbitmq, command=RabbitCommand.SEND_MAIL, models=models
+        )
+        if code != 200:
+            raise (
+                ResponseFactory(HTTPStatus.SERVICE_UNAVAILABLE)
+                .message('Could not send message to RabbitMQ')
+                .exc()
+            )
         return build_response(
             code=HTTPStatus.ACCEPTED, content='Successfully sent'
         )

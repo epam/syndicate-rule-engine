@@ -10,6 +10,7 @@ from services import SP
 from services.clients.s3 import S3Client, S3Url
 from services.reports import ReportMetricsService
 
+
 _LOG = get_logger(__name__)
 
 

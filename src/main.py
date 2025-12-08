@@ -213,6 +213,7 @@ class InitMinio(ActionHandler):
             environment.get_statistics_bucket_name(),
             environment.get_rulesets_bucket_name(),
             environment.default_reports_bucket_name(),
+            environment.get_recommendation_bucket(),
         )
 
     @staticmethod

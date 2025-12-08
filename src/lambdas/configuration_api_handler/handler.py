@@ -172,7 +172,7 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
 
     @validate_kwargs
     def update_metrics(self, event: BaseModel):
-        collect_metrics.delay()
+        collect_metrics()
         return build_response(
             code=HTTPStatus.ACCEPTED,
             content='Metrics update has been submitted'
@@ -183,7 +183,7 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
         self, 
         event: BaseModel,
     ):
-        run_update_metadata.delay()
+        run_update_metadata()
         return build_response(
             code=HTTPStatus.ACCEPTED,
             content='Metadata update has been submitted',

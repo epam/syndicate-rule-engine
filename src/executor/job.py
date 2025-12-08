@@ -1794,17 +1794,14 @@ def run_standard_job(ctx: JobExecutionContext):
         # this Pool. Basically it isolates rules run for one region and
         # prevents high ram usage
         _LOG.info(f'Going to init pool for region {region}')
-        # TODO: remove this after investigation
-        # with multiprocessing.Pool(
-        #     processes=1,
-        #     initializer=job_initializer,
-        #     initargs=(credentials, cloud,),
-        # ) as pool:
-        #     pair = pool.apply(
-        #         process_job_concurrent, (policies, ctx.work_dir, cloud, region)
-        #     )
-        job_initializer(credentials, cloud)
-        pair = process_job_concurrent(policies, ctx.work_dir, cloud, region)
+        with multiprocessing.Pool(
+            processes=1,
+            initializer=job_initializer,
+            initargs=(credentials, cloud,),
+        ) as pool:
+            pair = pool.apply(
+                process_job_concurrent, (policies, ctx.work_dir, cloud, region)
+            )
 
         if pair[1] is None:
             _LOG.warning(

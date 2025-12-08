@@ -62,7 +62,7 @@ def sync_rulesource(rule_source_ids: list[str] | str):
 @app.task
 def collect_metrics():
     MetricsUpdater.build().lambda_handler(
-        event={'data_type': 'metrics'}, context=RequestContext()
+        event={'data_type': 'findings'}, context=RequestContext()
     )
 
 

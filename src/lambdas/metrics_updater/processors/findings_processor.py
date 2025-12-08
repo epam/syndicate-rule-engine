@@ -1,23 +1,39 @@
 from pathlib import PurePosixPath
+from typing import MutableMapping, Optional
 
-from helpers import get_logger
-from helpers.constants import Env
+from typing_extensions import Self
+
+from helpers import RequestContext, get_logger
+from helpers.constants import START_DATE, Env
+from lambdas.metrics_updater.processors.base import (
+    BaseProcessor,
+    NextLambdaEvent,
+)
 from services import SP
 from services.clients.s3 import S3Client
 from services.reports_bucket import ReportsBucketKeysBuilder
 
+
+NEXT_DATA_TYPE = "recommendations"
+
 _LOG = get_logger(__name__)
 
 
-class FindingsUpdater:
+class FindingsUpdater(BaseProcessor):
+    processor_name = "findings"
+
     def __init__(self, s3_client: S3Client):
         self._s3_client = s3_client
 
     @classmethod
-    def build(cls) -> 'FindingsUpdater':
+    def build(cls) -> Self:
         return cls(s3_client=SP.s3)
 
-    def __call__(self, *args, **kwargs):
+    def __call__(
+        self,
+        event: MutableMapping,
+        context: RequestContext,
+    ) -> Optional[NextLambdaEvent]:
         """
         When this processor is executed we make a snapshot of existing
         findings for specified tenants.
@@ -55,4 +71,8 @@ class FindingsUpdater:
                     destination_key=destination,
                     destination_tags={'Type': 'DataSnapshot'},
                 )
-        return {}
+
+        return self._return_next_event(
+            current_event=event,
+            next_processor_name=NEXT_DATA_TYPE,
+        )

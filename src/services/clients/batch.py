@@ -158,12 +158,11 @@ class CeleryJobClient:
         timeout: int | None = None,
         **kwargs,
     ) -> BatchJob:
-        # TODO: remove this after investigation
-        # res = run_standard_job.apply_async((job_id,), soft_time_limit=timeout)
+        res = run_standard_job.apply_async((job_id,), soft_time_limit=timeout)
         return {
             'jobId': str(uuid.uuid4()),
             'jobName': job_name,
-            'celeryTaskId': "res.id",
+            'celeryTaskId': res.id,
             'status': JobState.SUBMITTED.value,
         }
 
