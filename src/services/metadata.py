@@ -435,7 +435,6 @@ class MetadataProvider:
         )
         
         meta = self._dec.decode(gzip.decompress(data))
-
         _LOG.info('Updating cache with refreshed metadata')
         self._save_to_cache(
             license_key=lic.license_key, 
