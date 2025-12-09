@@ -1643,7 +1643,7 @@ class MetricsCollector(BaseProcessor):
 
         for dn, reports in dn_to_reports.items():
             data = self.base_cloud_payload_dict()
-            tenants = set()       
+            tenants = set()
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
                 tenants.add(tenant.name)

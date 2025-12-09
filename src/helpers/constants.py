@@ -296,7 +296,6 @@ EXPIRATION_ATTR = 'expiration'
 
 NAME_ATTR = 'name'
 IMPACT_ATTR = 'impact'
-SEVERITY_ATTR = 'severity'
 RESOURCE_TYPE_ATTR = 'resource_type'
 VERSION_ATTR = 'version'
 FILTERS_ATTR = 'filters'
