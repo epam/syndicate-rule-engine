@@ -3,7 +3,7 @@ from typing import MutableMapping, cast
 
 from modular_sdk.commons.trace_helper import tracer_decorator
 
-from helpers import RequestContext
+from helpers import RequestContext, get_logger
 from helpers.constants import ServiceOperationType
 from helpers.lambda_response import (
     LambdaOutput,
@@ -20,6 +20,8 @@ from services.abs_lambda import EventProcessorLambdaHandler
 
 
 DATA_TYPE_KEY = "data_type"
+
+_LOG = get_logger(__name__)
 
 
 class MetricsUpdater(EventProcessorLambdaHandler):
@@ -76,20 +78,28 @@ class MetricsUpdater(EventProcessorLambdaHandler):
         event: MutableMapping,
         context: RequestContext,
     ) -> None:
-        """
-        Execute processor and handle chained next event if returned.
-        Currently supports only one level of chaining.
-        """
+        """Execute processor chain until no next event is returned."""
         next_event = processor(event=event, context=context)
+        visited: set[str] = set()
 
-        if not next_event:
-            return
+        while next_event:
+            next_data_type = next_event.get("data_type", "")
+            if next_data_type in visited:
+                _LOG.warning(
+                    f"Possible infinite loop detected: '{next_data_type}' "
+                    f"already processed. Chain: {visited}"
+                )
+                break
+            visited.add(next_data_type)
 
-        next_data_type = next_event.get("data_type", "")
-        next_processor = self._registry.get_processor(next_data_type, required=False)
-
-        if next_processor:
-            next_processor(event=cast(MutableMapping, next_event), context=context)
+            next_processor = self._registry.get_processor(
+                next_data_type, required=False
+            )
+            if not next_processor:
+                break
+            next_event = next_processor(
+                event=cast(MutableMapping, next_event), context=context
+            )
 
     @staticmethod
     def _wrap_exception(
