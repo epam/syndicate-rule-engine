@@ -40,7 +40,7 @@ class MetricsUpdater(EventProcessorLambdaHandler):
         )
 
     @tracer_decorator(
-        is_job=True, 
+        is_job=True,
         component=ServiceOperationType.UPDATE_METRICS.value,
     )
     def handle_request(

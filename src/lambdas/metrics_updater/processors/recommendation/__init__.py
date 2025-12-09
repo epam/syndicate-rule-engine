@@ -3,6 +3,4 @@ from .processor import (
 )
 
 
-__all__ = (
-    'RecommendationProcessor',
-)
+__all__ = ("RecommendationProcessor",)

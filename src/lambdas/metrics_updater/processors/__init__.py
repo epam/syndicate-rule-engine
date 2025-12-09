@@ -79,10 +79,10 @@ class ProcessorsRegistry:
 
 
 __all__ = (
-    'BaseProcessor',
-    'NextLambdaEvent',
-    'FindingsUpdater',
-    'MetricsCollector',
-    'RecommendationProcessor',
-    'ProcessorsRegistry',
+    "BaseProcessor",
+    "NextLambdaEvent",
+    "FindingsUpdater",
+    "MetricsCollector",
+    "RecommendationProcessor",
+    "ProcessorsRegistry",
 )
