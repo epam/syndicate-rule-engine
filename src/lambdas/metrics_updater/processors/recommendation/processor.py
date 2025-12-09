@@ -32,13 +32,13 @@ from services.reports_bucket import (
 )
 
 from ._builder import (
-    BucketKeyBuilder,
     CloudRecommendationBuilder,
     K8SRecommendationBuilder,
     K8SRecommendationItem,
     K8SRecommendationsMapping,
     RecommendationItem,
     RecommendationsMapping,
+    build_bucket_key,
 )
 
 
@@ -121,6 +121,10 @@ class RecommendationProcessor(BaseProcessor):
             if not tenant or not tenant.project:
                 continue
             metadata = self._license_service.get_customer_metadata(tenant.customer_name)
+            cloud = Cloud.parse(tenant.cloud)
+            if not cloud:
+                _LOG.warning(f"Cannot find cloud for tenant {tenant.name}")
+                continue
             tenant_obj_mapping[tenant.project] = tenant
 
             key_builder = PlatformReportsBucketKeysBuilder(platform)
@@ -139,6 +143,7 @@ class RecommendationProcessor(BaseProcessor):
             recommendations = self._get_platform_cloud_recommendations(
                 platform=platform,
                 metadata=metadata,
+                cloud=cloud,
             )
 
             if not recommendations:
@@ -269,11 +274,12 @@ class RecommendationProcessor(BaseProcessor):
         self,
         platform: Platform,
         metadata: Metadata,
+        cloud: Cloud,
     ) -> RecommendationsMapping:
         collection = self._report_service.platform_latest_collection(platform)
         collection.fetch_all()
         collection.fetch_meta()
-        builder = CloudRecommendationBuilder(collection, metadata)
+        builder = CloudRecommendationBuilder(collection, metadata, cloud)
         return builder.build()
 
     def _get_platform_k8s_recommendations(
@@ -297,7 +303,13 @@ class RecommendationProcessor(BaseProcessor):
         metadata = self._license_service.get_customer_metadata(tenant.customer_name)
         collection.fetch_all()
         collection.fetch_meta()
-        builder = CloudRecommendationBuilder(collection, metadata)
+
+        cloud = Cloud.parse(tenant.cloud)
+        if not cloud:
+            _LOG.warning(f"Cannot find cloud for tenant {tenant.name}")
+            return {}
+
+        builder = CloudRecommendationBuilder(collection, metadata, cloud)
         return builder.build()
 
     def _save_recommendation(
@@ -307,7 +319,7 @@ class RecommendationProcessor(BaseProcessor):
         content: str,
         timestamp: int,
     ) -> None:
-        file_path = BucketKeyBuilder.build(tenant, timestamp, region)
+        file_path = build_bucket_key(tenant, timestamp, region)
         _LOG.debug(f"Saving file {file_path}, region {region}")
         self._s3_client.put_object(
             bucket=self._recommendations_bucket,

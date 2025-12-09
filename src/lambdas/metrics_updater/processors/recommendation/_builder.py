@@ -1,18 +1,13 @@
 from abc import ABC, abstractmethod
-from copy import deepcopy
-from functools import cached_property
+from datetime import datetime
 from typing import Any, Generic, Iterator, Optional, TypedDict, TypeVar
 
 from modular_sdk.models.tenant import Tenant
 
 from helpers import get_logger
-from helpers.constants import (
-    ARTICLE_ATTR,
-    IMPACT_ATTR,
-    RESOURCE_TYPE_ATTR,
-    SEVERITY_ATTR,
-)
-from services.metadata import Metadata
+from helpers.constants import Cloud
+from services.metadata import Metadata, RuleMetadata
+from services.resources import iter_rule_region_resources
 from services.sharding import ShardPart, ShardsCollection
 
 
@@ -39,7 +34,7 @@ class K8SRecommendation(BaseRecommendation):
 
 
 class RecommendationItem(TypedDict):
-    resource_id: Optional[str]
+    resource_id: str
     resource_type: str
     source: str
     severity: str
@@ -74,40 +69,17 @@ K8S_RESOURCE_TO_ACTION: dict[str, str] = {
     "Namespace": "NAMESPACE",
 }
 
-RESOURCE_ID_KEYS: tuple[str, ...] = ("GroupId", "InstanceId", "selfLink", "id")
 
 DEFAULT_K8S_ACTION = "POD"
 DEFAULT_DESCRIPTION = "Description"
 
 
-class PolicyMetadataCache:
-    """Cache for policy metadata to avoid repeated lookups."""
-
-    def __init__(self, metadata: Metadata) -> None:
-        self._metadata = metadata
-        self._cache: dict[str, dict[str, str]] = {}
-
-    def get(self, policy: str) -> dict[str, str]:
-        if policy not in self._cache:
-            rule_meta = self._metadata.rules.get(policy)
-            self._cache[policy] = {
-                ARTICLE_ATTR: rule_meta.article if rule_meta else "",
-                IMPACT_ATTR: rule_meta.impact if rule_meta else "",
-                RESOURCE_TYPE_ATTR: rule_meta.service if rule_meta else "",
-                SEVERITY_ATTR: rule_meta.severity if rule_meta else "",
-            }
-        return self._cache[policy]
-
-
-class BucketKeyBuilder:
-    """Builds S3 bucket keys for recommendations."""
-
-    @staticmethod
-    def build(tenant: Tenant, timestamp: int, region: str) -> str:
-        return (
-            f"{tenant.customer_name}/{tenant.cloud}/{tenant.name}/"
-            f"{timestamp}/{region}.jsonl"
-        )
+def build_bucket_key(tenant: Tenant, timestamp: int, region: str) -> str:
+    """Build S3 bucket key for recommendations."""
+    return (
+        f"{tenant.customer_name}/{tenant.cloud}/{tenant.name}/"
+        f"{timestamp}/{region}.jsonl"
+    )
 
 
 class BaseRecommendationBuilder(ABC, Generic[T]):
@@ -123,71 +95,65 @@ class BaseRecommendationBuilder(ABC, Generic[T]):
     def build(self) -> T:
         """Build recommendations mapping."""
 
-    @cached_property
-    def _policy_cache(self) -> PolicyMetadataCache:
-        return PolicyMetadataCache(self._metadata)
-
-    def _iter_shard_parts(self) -> Iterator[ShardPart]:
-        """Iterate over all shard parts in the collection."""
-        for _, shard in self._collection:
-            yield from shard
-
     def _get_description(self, policy: str) -> str:
         return self._collection.meta.get(policy, {}).get(
             "description", DEFAULT_DESCRIPTION
         )
 
-    @staticmethod
-    def _create_stats() -> RecommendationStats:
-        return {
-            "scan_date": None,
-            "status": "OK",
-            "message": "Processed successfully",
-        }
-
-    @staticmethod
-    def _extract_resource_id(resource: dict[str, Any]) -> Optional[str]:
-        """Extract resource ID from resource dict using known keys."""
-        for key in RESOURCE_ID_KEYS:
-            if key in resource:
-                return str(resource[key])
-        return None
-
 
 class CloudRecommendationBuilder(BaseRecommendationBuilder[RecommendationsMapping]):
     """Builder for cloud (AWS/GCP/Azure) recommendations."""
 
+    def __init__(
+        self,
+        collection: ShardsCollection,
+        metadata: Metadata,
+        cloud: Cloud,
+    ) -> None:
+        super().__init__(collection, metadata)
+        self._cloud = cloud
+
     def build(self) -> RecommendationsMapping:
         recommendations: RecommendationsMapping = {}
 
-        for part in self._iter_shard_parts():
-            policy_meta = self._policy_cache.get(part.policy)
-            template = self._create_item_template(part.policy, policy_meta)
+        # Use iter_rule_region_resources to get CloudResource objects with proper IDs
+        for policy, location, resources in iter_rule_region_resources(
+            collection=self._collection,
+            cloud=self._cloud,
+            metadata=self._metadata,
+        ):
+            rule_meta = self._metadata.rules.get(policy)
+            if not rule_meta:
+                _LOG.warning(
+                    f"Rule metadata not found for policy: {policy}, skipping..."
+                )
+                continue
 
-            for resource in part.resources:
-                item = deepcopy(template)
-                item["resource_id"] = self._extract_resource_id(resource)
-                recommendations.setdefault(part.location, []).append(item)
+            description = self._get_description(policy)
+            for resource in resources:
+                item = RecommendationItem(
+                    resource_id=resource.id or "unknown",
+                    resource_type=rule_meta.service,
+                    source=self.SOURCE,
+                    severity=rule_meta.severity,
+                    stats={
+                        "scan_date": datetime.fromtimestamp(
+                            resource.sync_date
+                        ).isoformat(),
+                        "status": "OK",
+                        "message": "Processed successfully",
+                    },
+                    meta=None,
+                    general_actions=[],
+                    recommendation={
+                        "article": rule_meta.article,
+                        "impact": rule_meta.impact,
+                        "description": description,
+                    },
+                )
+                recommendations.setdefault(location, []).append(item)
 
         return recommendations
-
-    def _create_item_template(
-        self, policy: str, policy_meta: dict[str, str]
-    ) -> RecommendationItem:
-        return RecommendationItem(
-            resource_id=None,
-            resource_type=policy_meta[RESOURCE_TYPE_ATTR],
-            source=self.SOURCE,
-            severity=policy_meta[SEVERITY_ATTR],
-            stats=self._create_stats(),
-            meta=None,
-            general_actions=[],
-            recommendation=BaseRecommendation(
-                article=policy_meta[ARTICLE_ATTR],
-                impact=policy_meta[IMPACT_ATTR],
-                description=self._get_description(policy),
-            ),
-        )
 
 
 class K8SRecommendationBuilder(BaseRecommendationBuilder[K8SRecommendationsMapping]):
@@ -207,37 +173,46 @@ class K8SRecommendationBuilder(BaseRecommendationBuilder[K8SRecommendationsMappi
     def build(self) -> K8SRecommendationsMapping:
         recommendations: K8SRecommendationsMapping = {}
 
-        for part in self._iter_shard_parts():
-            policy_meta = self._policy_cache.get(part.policy)
-            template = self._create_item_template(part.policy, policy_meta)
+        for part, rule_meta in self._iter_parts_with_metadata():
+            scan_date = datetime.fromtimestamp(part.timestamp).isoformat()
             location = self._region or part.location
+            resource_type = rule_meta.service
+            action = K8S_RESOURCE_TO_ACTION.get(resource_type, DEFAULT_K8S_ACTION)
+            description = self._get_description(part.policy)
 
             for resource in part.resources:
-                item = deepcopy(template)
-                item["recommendation"]["resource_id"] = resource.get("id")
+                item = K8SRecommendationItem(
+                    resource_id=self._application_uuid,
+                    resource_type=resource_type,
+                    source=self.SOURCE,
+                    severity=rule_meta.severity,
+                    stats={
+                        "scan_date": scan_date,
+                        "status": "OK",
+                        "message": "Processed successfully",
+                    },
+                    meta=None,
+                    general_actions=[action],
+                    recommendation={
+                        "resource_id": resource.get("id"),
+                        "resource_type": resource_type,
+                        "article": rule_meta.article,
+                        "impact": rule_meta.impact,
+                        "description": description,
+                    },
+                )
                 recommendations.setdefault(location, []).append(item)
 
         return recommendations
 
-    def _create_item_template(
-        self, policy: str, policy_meta: dict[str, str]
-    ) -> K8SRecommendationItem:
-        resource_type = policy_meta[RESOURCE_TYPE_ATTR]
-        action = K8S_RESOURCE_TO_ACTION.get(resource_type, DEFAULT_K8S_ACTION)
-
-        return K8SRecommendationItem(
-            resource_id=self._application_uuid,
-            resource_type=resource_type,
-            source=self.SOURCE,
-            severity=policy_meta[SEVERITY_ATTR],
-            stats=self._create_stats(),
-            meta=None,
-            general_actions=[action],
-            recommendation=K8SRecommendation(
-                resource_id=None,
-                resource_type=resource_type,
-                article=policy_meta[ARTICLE_ATTR],
-                impact=policy_meta[IMPACT_ATTR],
-                description=self._get_description(policy),
-            ),
-        )
+    def _iter_parts_with_metadata(self) -> Iterator[tuple[ShardPart, RuleMetadata]]:
+        """Iterate over shard parts that have valid rule metadata."""
+        for _, shard in self._collection:
+            for part in shard:
+                rule_meta = self._metadata.rules.get(part.policy)
+                if not rule_meta:
+                    _LOG.warning(
+                        f"Rule metadata not found for policy: {part.policy}, skipping..."
+                    )
+                    continue
+                yield part, rule_meta
