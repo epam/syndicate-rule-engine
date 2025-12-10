@@ -33,7 +33,9 @@ from services.reports_bucket import (
 
 from ._builder import (
     CloudRecommendationBuilder,
+    OldCloudRecommendationBuilder,
     K8SRecommendationBuilder,
+    OldK8SRecommendationBuilder,
     K8SRecommendationItem,
     K8SRecommendationsMapping,
     RecommendationItem,
@@ -51,6 +53,12 @@ class RecommendationProcessor(BaseProcessor):
     """
 
     processor_name = "recommendations"
+    _cloud_recommendation_builder_cls: type[CloudRecommendationBuilder] = (
+        OldCloudRecommendationBuilder
+    )
+    _k8s_recommendation_builder_cls: type[K8SRecommendationBuilder] = (
+        OldK8SRecommendationBuilder
+    )
 
     def __init__(
         self,
@@ -279,7 +287,11 @@ class RecommendationProcessor(BaseProcessor):
         collection = self._report_service.platform_latest_collection(platform)
         collection.fetch_all()
         collection.fetch_meta()
-        builder = CloudRecommendationBuilder(collection, metadata, cloud)
+        builder = self._cloud_recommendation_builder_cls(
+            collection=collection,
+            metadata=metadata,
+            cloud=cloud,
+        )
         return builder.build()
 
     def _get_platform_k8s_recommendations(
@@ -290,7 +302,7 @@ class RecommendationProcessor(BaseProcessor):
         collection = self._report_service.platform_latest_collection(platform)
         collection.fetch_all()
         collection.fetch_meta()
-        builder = K8SRecommendationBuilder(
+        builder = self._k8s_recommendation_builder_cls(
             collection=collection,
             metadata=metadata,
             application_uuid=platform.id,
@@ -309,7 +321,11 @@ class RecommendationProcessor(BaseProcessor):
             _LOG.warning(f"Cannot find cloud for tenant {tenant.name}")
             return {}
 
-        builder = CloudRecommendationBuilder(collection, metadata, cloud)
+        builder = self._cloud_recommendation_builder_cls(
+            collection=collection,
+            metadata=metadata,
+            cloud=cloud,
+        )
         return builder.build()
 
     def _save_recommendation(
