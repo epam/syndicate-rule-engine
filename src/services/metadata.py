@@ -30,6 +30,18 @@ if TYPE_CHECKING:
 _LOG = get_logger(__name__)
 
 
+class MetadataError(Exception):
+    """Metadata error"""
+
+
+class LicenseNotFoundError(MetadataError):
+    """License not found on LM"""
+
+    def __init__(self, license_key: str):
+        self.license_key = license_key
+        super().__init__(f'License {license_key} not found on LM.')
+
+
 class MitreAttack(msgspec.Struct, frozen=True, eq=True, kw_only=True):
     """
     Represents one specific MITRE Attack
@@ -404,6 +416,10 @@ class MetadataProvider:
         Refreshes metadata by fetching from LM, ignoring S3 and cache.
         Updates both S3 storage and in-memory cache with fresh data.
         """
+        license_or_error = self._lm.cl.sync_license(license_key=lic.license_key)
+        if isinstance(license_or_error, str):
+            raise LicenseNotFoundError(lic.license_key)
+
         _LOG.info(f'Refreshing metadata for {lic.license_key} from LM')
         cst = lic.first_customer
         tlk = lic.tenant_license_key(cst)

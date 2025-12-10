@@ -959,6 +959,7 @@ def update_metadata():
     from modular_sdk.commons.constants import ApplicationType
 
     from services import SERVICE_PROVIDER
+    from services.metadata import LicenseNotFoundError
 
     _LOG.info('Starting metadata update task for all customers')
     
@@ -982,15 +983,16 @@ def update_metadata():
     )
     licenses = list(license_service.to_licenses(license_applications))
     
-    total_licenses = len(licenses)
-    _LOG.info(f'Found {total_licenses} license(s) to update')
+    total = len(licenses)
+    _LOG.info(f'Found {total} license(s) to update')
     
     if not licenses:
         _LOG.warning('No licenses found - skipping metadata update')
         return
     
-    successful_updates = 0
-    failed_updates = 0
+    successful = 0
+    skipped = 0
+    failed = 0
     
     for license_obj in licenses:
         license_key = license_obj.license_key
@@ -1001,28 +1003,31 @@ def update_metadata():
                 _LOG.warning(
                     f'Metadata update returned empty metadata for license: {license_key}'
                 )
-                failed_updates += 1
+                failed += 1
             else:
                 _LOG.info(f'Successfully updated metadata for license: {license_key}')
-                successful_updates += 1
+                successful += 1
+        except LicenseNotFoundError as e:
+            _LOG.warning(f'{e} Skipping..')
+            skipped += 1
         except Exception as e:
             _LOG.error(
                 f'Failed to update metadata for license {license_key}: {e}',
                 exc_info=True
             )
-            failed_updates += 1
+            failed += 1
     
-    if failed_updates > 0:
+    if failed > 0:
         reason = (
-            f'Failed to update metadata for {failed_updates}/{total_licenses} '
-            'license(s)'
+            f'Failed to update metadata for {failed}/{total} '
+            f'license(s). Skipped: {skipped}'
         )
         ExecutorError.METADATA_UPDATE_FAILED.reason = reason
         raise ExecutorException(ExecutorError.METADATA_UPDATE_FAILED)
     
     _LOG.info(
-        f'Metadata for {successful_updates}/{total_licenses} '
-        'licenses updated successfully'
+        f'Metadata for {successful}/{total} license(s) updated successfully. '
+        f'Skipped: {skipped}'
     )
 
 def import_to_dojo(
