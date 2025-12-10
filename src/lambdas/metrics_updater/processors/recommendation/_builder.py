@@ -7,7 +7,7 @@ from modular_sdk.models.tenant import Tenant
 from helpers import get_logger
 from helpers.constants import Cloud
 from services.metadata import Metadata, RuleMetadata
-from services.resources import iter_rule_region_resources
+from services.resources import iter_rule_region_resources, service_to_resource_type
 from services.sharding import ShardPart, ShardsCollection
 
 
@@ -129,11 +129,12 @@ class CloudRecommendationBuilder(BaseRecommendationBuilder[RecommendationsMappin
                 )
                 continue
 
+            resource_type = service_to_resource_type(rule_meta.service, self._cloud)
             description = self._get_description(policy)
             for resource in resources:
                 item = RecommendationItem(
                     resource_id=resource.id or "unknown",
-                    resource_type=rule_meta.service,
+                    resource_type=resource_type,
                     source=self.SOURCE,
                     severity=rule_meta.severity,
                     stats={
@@ -159,6 +160,8 @@ class CloudRecommendationBuilder(BaseRecommendationBuilder[RecommendationsMappin
 class K8SRecommendationBuilder(BaseRecommendationBuilder[K8SRecommendationsMapping]):
     """Builder for Kubernetes recommendations."""
 
+    _cloud = Cloud.K8S
+
     def __init__(
         self,
         collection: ShardsCollection,
@@ -176,7 +179,7 @@ class K8SRecommendationBuilder(BaseRecommendationBuilder[K8SRecommendationsMappi
         for part, rule_meta in self._iter_parts_with_metadata():
             scan_date = datetime.fromtimestamp(part.timestamp).isoformat()
             location = self._region or part.location
-            resource_type = rule_meta.service
+            resource_type = service_to_resource_type(rule_meta.service, self._cloud)
             action = K8S_RESOURCE_TO_ACTION.get(resource_type, DEFAULT_K8S_ACTION)
             description = self._get_description(part.policy)
 
