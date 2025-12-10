@@ -6,7 +6,7 @@ from typing import Any, Generic, Iterator, Optional, TypedDict, TypeVar, cast
 from modular_sdk.models.tenant import Tenant
 
 from helpers import get_logger
-from helpers.constants import Cloud, ARTICLE_ATTR, IMPACT_ATTR, RESOURCE_TYPE_ATTR
+from helpers.constants import Cloud, ARTICLE_ATTR, IMPACT_ATTR
 from services.metadata import Metadata, RuleMetadata
 from services.resources import iter_rule_region_resources, service_to_resource_type
 from services.sharding import ShardPart, ShardsCollection

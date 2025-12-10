@@ -1,7 +1,7 @@
 import io
 import json
 from datetime import datetime, timezone
-from typing import Any, MutableMapping, Optional
+from typing import MutableMapping, Optional
 
 from modular_sdk.commons.constants import ParentType
 from modular_sdk.models.tenant import Tenant
