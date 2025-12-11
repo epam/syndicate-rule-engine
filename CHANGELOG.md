@@ -5,7 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-
 ## [5.15.0] - 2025-11-06
 - Added hiding expired resource exceptions
 - Fixed an issue with filtering resource exceptions by `--tags_filters`
@@ -36,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolved a problem caused by the license manager being temporarily unavailable.
 - `Permission.METRICS_STATUS` permission replaced with `Permission.SERVICE_OPERATIONS_STATUS`
 - Fixed an issue with inaccurate K8S scan results
+
 
 ## [5.14.0] - 2025-10-03
 - Updated the ami-initialize.sh script
