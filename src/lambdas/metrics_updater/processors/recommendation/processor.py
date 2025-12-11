@@ -255,7 +255,7 @@ class RecommendationProcessor(BaseProcessor):
         attachment = CadfAttachment(
             contentType="map",
             content={"tenant": tenant.name, "timestamp": timestamp},
-            name="collectCustodianRecommendations",
+            name="collectSyndicateRuleEngineRecommendations",
         )
         return self._cadf_event_sender.send_event(
             tenant=tenant,

@@ -129,6 +129,7 @@ class CadfEventSender:
         customer = tenant.customer_name
         transport = self._get_or_build_transport(customer)
         if not transport:
+            _LOG.warning(f"No transport found for customer {customer}")
             return None
 
         if attachments:
