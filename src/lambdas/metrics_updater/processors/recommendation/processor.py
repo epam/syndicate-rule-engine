@@ -96,7 +96,7 @@ class RecommendationProcessor(BaseProcessor):
     def build(cls) -> "RecommendationProcessor":
         return RecommendationProcessor(
             environment_service=SP.environment_service,
-            s3_client=SP.s3,
+            s3_client=SP.assume_role_s3,  # Because of the recommendation bucket in another account or environment
             modular_client=SP.modular_client,
             cadf_event_sender=SP.cadf_event_sender,
             license_service=SP.license_service,
