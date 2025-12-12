@@ -346,10 +346,13 @@ class RecommendationProcessor(BaseProcessor):
         for cust in self._modular_client.customer_service().i_get_customer():
             parents = self._modular_client.parent_service().i_get_parent_by_customer(
                 customer_id=cust.name,
-                parent_type=ParentType.PLATFORM_K8S,
+                # TODO: Need additional investigation why parent_type is not working via string/enum value
+                # For now using list of parent_type to filter parents by type and is_deleted
+                parent_type=[ParentType.PLATFORM_K8S],
                 is_deleted=False,
             )
             for parent in parents:
+                _LOG.debug(f"Found parent {parent.parent_id} for customer {cust.name}")
                 platform = Platform(parent)
                 self._platform_service.fetch_application(platform)
                 cluster_platform_mapping[platform.name] = platform
