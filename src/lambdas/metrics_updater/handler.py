@@ -1,62 +1,115 @@
 from http import HTTPStatus
+from typing import MutableMapping, cast
 
 from modular_sdk.commons.trace_helper import tracer_decorator
 
+from helpers import RequestContext, get_logger
 from helpers.constants import ServiceOperationType
 from helpers.lambda_response import (
-    SREException,
+    LambdaOutput,
     MetricsUpdateException,
     ResponseFactory,
+    SREException,
     build_response,
 )
-from lambdas.metrics_updater.processors.findings_processor import \
-    FindingsUpdater
-from lambdas.metrics_updater.processors.metrics_collector import \
-    MetricsCollector
+from lambdas.metrics_updater.processors import (
+    BaseProcessor,
+    ProcessorsRegistry,
+)
 from services.abs_lambda import EventProcessorLambdaHandler
 
 
+DATA_TYPE_KEY = "data_type"
+
+_LOG = get_logger(__name__)
+
+
 class MetricsUpdater(EventProcessorLambdaHandler):
-    processors = ()
+    """
+    Lambda handler for processing metrics updates.
+    Supports chained processing where one processor can trigger another.
+    """
+
+    def __init__(self, registry: ProcessorsRegistry):
+        self._registry = registry
 
     @classmethod
-    def build(cls) -> 'MetricsUpdater':
-        return cls()
+    def build(cls) -> "MetricsUpdater":
+        return cls(
+            registry=ProcessorsRegistry.build(),
+        )
 
     @tracer_decorator(
-        is_job=True, 
+        is_job=True,
         component=ServiceOperationType.UPDATE_METRICS.value,
     )
-    def handle_request(self, event, context):
-        # todo validate event
-        dt = event.get('data_type')
-        match dt:
-            case 'findings':
-                handler = FindingsUpdater.build()
-            case 'metrics':
-                handler = MetricsCollector.build()
-            case _:
-                raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
-                    f'Invalid pipeline type {dt}'
-                ).exc()
+    def handle_request(
+        self,
+        event: MutableMapping,
+        context: RequestContext,
+    ) -> LambdaOutput:
+        data_type = event.get(DATA_TYPE_KEY, "")
+        processor = self._registry.get_processor(data_type)
+
         try:
-            handler()
+            self._execute_processor_chain(
+                processor=processor,
+                event=event,
+                context=context,
+            )
         except SREException as e:
-            resp = e.response
-            raise MetricsUpdateException(
-                response=ResponseFactory(resp.code).message(
-                    f'Stage {dt}: {resp.content}'
-                )
+            raise self._wrap_exception(
+                stage=data_type,
+                status=e.response.code,
+                message=e.response.content,
             )
         except Exception as e:
-            raise MetricsUpdateException(
-                response=ResponseFactory(
-                    HTTPStatus.INTERNAL_SERVER_ERROR).message(
-                    f'Stage {dt}: {e}'
-                )
+            raise self._wrap_exception(
+                stage=data_type,
+                status=HTTPStatus.INTERNAL_SERVER_ERROR,
+                message=str(e),
             )
-        return build_response(
-            content=f'Stage \'{dt}\' executed successfully.',
+
+        return build_response(content=f"Stage '{data_type}' executed successfully.")
+
+    def _execute_processor_chain(
+        self,
+        processor: BaseProcessor,
+        event: MutableMapping,
+        context: RequestContext,
+    ) -> None:
+        """Execute processor chain until no next event is returned."""
+        next_event = processor(event=event, context=context)
+        visited: set[str] = set()
+
+        while next_event:
+            next_data_type = next_event.get("data_type", "")
+            if next_data_type in visited:
+                _LOG.warning(
+                    f"Possible infinite loop detected: '{next_data_type}' "
+                    f"already processed. Chain: {visited}"
+                )
+                break
+            visited.add(next_data_type)
+
+            next_processor = self._registry.get_processor(
+                next_data_type, required=False
+            )
+            if not next_processor:
+                break
+            next_event = next_processor(
+                event=cast(MutableMapping, next_event), context=context
+            )
+
+    @staticmethod
+    def _wrap_exception(
+        stage: str,
+        status: HTTPStatus,
+        message: str,
+    ) -> MetricsUpdateException:
+        """Wrap exception with stage context for better error reporting."""
+        return MetricsUpdateException(
+            response=ResponseFactory(status).message(f"Stage {stage}: {message}")
         )
 
 

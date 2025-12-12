@@ -1,8 +1,10 @@
+SOURCE = "SYNDICATE_RULE_ENGINE"
+
 RULE_RECOMMENDATION_MAPPING = {
     "ecc-aws-027-prevent_0-65535_ingress_and_all": {
         "resource_id": "{GroupId}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -22,7 +24,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-aws-028-security_group_ingress_is_restricted_traffic_to_dns_port_53": {
         "resource_id": "{GroupId}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -42,7 +44,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-aws-030-security_group_ingress_is_restricted_traffic_to_http_port_80": {
         "resource_id": "{GroupId}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -62,7 +64,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-aws-032-security_group_ingress_is_restricted_traffic_to_mongodb_port_27017": {
         "resource_id": "{GroupId}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -82,7 +84,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-aws-035-security_group_ingress_is_restricted_traffic_to_oracle_db_port_1521": {
         "resource_id": "{GroupId}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -102,7 +104,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-aws-036-security_group_ingress_is_restricted_traffic_to_pop3_port_110": {
         "resource_id": "{GroupId}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -122,7 +124,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-aws-039-security_group_ingress_is_restricted_traffic_to_telnet_port_23": {
         "resource_id": "{GroupId}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -142,7 +144,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-aws-062-security_group_ingress_is_restricted_22": {
         "resource_id": "{GroupId}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -162,7 +164,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-aws-063-security_group_ingress_is_restricted_3389": {
         "resource_id": "{GroupId}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -182,7 +184,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-aws-131-instance_with_unencrypted_service_is_exposed_to_public_internet": {
         "resource_id": "{InstanceId}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -218,7 +220,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-aws-132-public_instance_with_sensitive_service_is_exposed_to_entire_internet": {
         "resource_id": "{InstanceId}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -270,7 +272,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-aws-151-security_group_ingress_is_restricted_traffic_to_port_20": {
         "resource_id": "{GroupId}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -290,7 +292,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-aws-167-security_group_ingress_is_restricted_traffic_to_port_143": {
         "resource_id": "{GroupId}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -310,7 +312,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-aws-168-security_group_ingress_is_restricted_traffic_to_mssql_ports": {
         "resource_id": "{GroupId}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -331,7 +333,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-aws-186-ec2_instance_no_public_ip": {
         "resource_id": "{InstanceId}",
         "resource_type": "INSTANCE",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -348,7 +350,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-031-no_rdp_from_internet": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -368,7 +370,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-033-vpc_flow_logs_for_every_subnet": {
         "resource_id": "{selfLink}",
         "resource_type": "SUBNET",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -384,7 +386,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-032-private_google_access_for_all_subnetworks": {
         "resource_id": "{selfLink}",
         "resource_type": "SUBNET",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -400,7 +402,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-034-no_instances_default_service_account_with_full_cloud_api_access": {
         "resource_id": "{selfLink}",
         "resource_type": "INSTANCE",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -416,7 +418,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-035-block_project-wide_ssh_keys_for_instances": {
         "resource_id": "{selfLink}",
         "resource_type": "INSTANCE",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -432,7 +434,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-038-not_ip_forwarding_on_instance": {
         "resource_id": "{selfLink}",
         "resource_type": "INSTANCE",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -448,7 +450,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-071-inbound_traffic_restricted_to_that_which_is_necessary": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -468,7 +470,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-072-outbound_traffic_restricted_to_that_which_is_necessary": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -488,7 +490,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-104-default_firewall_rule_in_use": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -505,7 +507,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-109-prevent_allow_all_ingress": {
             "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -525,7 +527,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-110-firewall_allows_internet_traffic_to_dns_port_53": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -545,7 +547,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-111-firewal_allows_internet_traffic_to_ftp_port_21": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -565,7 +567,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-112-firewall_allows_internet_traffic_to_http": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -585,7 +587,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-113-firewall_allows_internet_traffic_microsoft-ds": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -605,7 +607,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-114-firewall_allows_internet_traffic_to_mongodb": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -625,7 +627,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-115-firewall_allows_internet_traffic_to_mysql_db": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -645,7 +647,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-116-firewall_allows_internet_traffic_to_netbios-ssn": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -665,7 +667,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-117-firewall_allows_internet_traffic_to_oracle_db": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -685,7 +687,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-118-firewal_allows_internet_traffic_to_pop3": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -705,7 +707,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-119-firewall_allows_internet_traffic_to_postgresql": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -725,7 +727,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-120-firewall_allows_internet_traffic_to_smtp": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -745,7 +747,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-121-firewall_allows_internet_traffic_to_telnet": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -765,7 +767,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-151-vm_instances_enabled_with_pre-emptible_termination": {
         "resource_id": "{selfLink}",
         "resource_type": "INSTANCE",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -781,7 +783,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-171-not_default_service_account_on_instance": {
         "resource_id": "{selfLink}",
         "resource_type": "INSTANCE",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -797,7 +799,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-173-instance_do_not_have_public_ip": {
         "resource_id": "{selfLink}",
         "resource_type": "INSTANCE",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -813,7 +815,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-194-oslogin_disabled_for_instance": {
         "resource_id": "{selfLink}",
         "resource_type": "INSTANCE",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -829,7 +831,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-195-clouddns_logging_is_enabled_for_all_vpc_networks": {
         "resource_id": "{gcp.vpc}",
         "resource_type": "VPC",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -845,7 +847,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-228-on_host_maintenance_set_to_migrate_for_instance": {
         "resource_id": "{selfLink}",
         "resource_type": "INSTANCE",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -861,7 +863,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-232-instance_configured_with_enable_oslogin_2fa": {
         "resource_id": "{selfLink}",
         "resource_type": "INSTANCE",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -877,7 +879,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-278-firewall_allows_internet_traffic_to_elastic_search": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -898,7 +900,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-279-firewall_allows_internet_traffic_to_ftp_port_20": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -918,7 +920,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-280-firewall_allows_internet_traffic_to_kibana": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -938,7 +940,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-283-firewall_allows_internet_traffic_to_sql_server": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -958,7 +960,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-285-firewall_allows_internet_traffic_to_winrm": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -979,7 +981,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-288-firewall_allow_unrestricted_inbound_access_using_icmp": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -997,7 +999,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-289-firewall_allow_unrestricted_inbound_access_using_rpc": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1017,7 +1019,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-342-firewall_allows_internet_traffic_Hadoop-HDFS": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1037,7 +1039,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-gcp-337-firewall_allows_internet_traffic_VNC-Server": {
         "resource_id": "{selfLink}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1058,7 +1060,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-azure-113-cis_vm_utilizing_managed_disks": {
         "resource_id": "{id}",
         "resource_type": "INSTANCE",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1074,7 +1076,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-azure-116-cis_vm_endpoint_protection": {
         "resource_id": "{id}",
         "resource_type": "INSTANCE",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1090,7 +1092,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-azure-184-asb_vm_linux_ssh_auth_req": {
         "resource_id": "{id}",
         "resource_type": "INSTANCE",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1106,7 +1108,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-azure-197-asb_vm_disk_encryption_on": {
         "resource_id": "{id}",
         "resource_type": "INSTANCE",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1122,7 +1124,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-azure-231-asb_vm_wo_mma": {
         "resource_id": "{id}",
         "resource_type": "INSTANCE",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1138,7 +1140,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-azure-275-asb_vm_backup": {
         "resource_id": "{id}",
         "resource_type": "INSTANCE",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1154,7 +1156,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-azure-367-vm_omi_vulnerability": {
         "resource_id": "{id}",
         "resource_type": "INSTANCE",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1170,7 +1172,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-azure-048-cis_net_rdp": {
         "resource_id": "{id}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1190,7 +1192,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-azure-049-cis_net_ssh": {
         "resource_id": "{id}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1210,7 +1212,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-azure-052-cis_net_udp": {
         "resource_id": "{id}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1230,7 +1232,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-azure-119-nsg_all": {
         "resource_id": "{id}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1250,7 +1252,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-azure-120-nsg_dns": {
         "resource_id": "{id}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1270,7 +1272,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-azure-121-nsg_ftp": {
         "resource_id": "{id}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1290,7 +1292,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-azure-122-cis_nsg_http": {
         "resource_id": "{id}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1310,7 +1312,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-azure-123-nsg_microsoft_ds": {
         "resource_id": "{id}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1330,7 +1332,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-azure-124-nsg_mongo_db": {
         "resource_id": "{id}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1350,7 +1352,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-azure-125-nsg_mysql": {
         "resource_id": "{id}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1370,7 +1372,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-azure-126-nsg_netbios": {
         "resource_id": "{id}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1390,7 +1392,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-azure-127-nsg_oracle_db": {
         "resource_id": "{id}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1410,7 +1412,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-azure-128-nsg_pop3": {
         "resource_id": "{id}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1430,7 +1432,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-azure-129-nsg_postgresql": {
         "resource_id": "{id}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1450,7 +1452,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-azure-130-nsg_smtp": {
         "resource_id": "{id}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1470,7 +1472,7 @@ RULE_RECOMMENDATION_MAPPING = {
     "ecc-azure-131-nsg_telnet": {
         "resource_id": "{id}",
         "resource_type": "SECURITY_GROUP",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,
@@ -1492,7 +1494,7 @@ RULE_RECOMMENDATION_MAPPING = {
 K8S_RECOMMENDATION_MODEL = {
         "resource_id": "{cluster_id}",
         "resource_type": "K8S_CLUSTER",
-        "source": "CUSTODIAN",
+        "source": SOURCE,
         "severity": "HIGH",
         "stats": {
             "scan_date": None,

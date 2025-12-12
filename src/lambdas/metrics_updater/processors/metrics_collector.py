@@ -3,13 +3,22 @@ import heapq
 import statistics
 from datetime import datetime
 from itertools import chain
-from typing import TYPE_CHECKING, Generator, Iterable, Iterator, cast
+from typing import (
+    TYPE_CHECKING,
+    Generator,
+    Iterable,
+    Iterator,
+    MutableMapping,
+    Optional,
+    cast,
+)
 
 import msgspec
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.modular import ModularServiceProvider
 
+from helpers import RequestContext
 from helpers.constants import (
     DEPRECATED_RULE_SUFFIX,
     GLOBAL_REGION,
@@ -25,6 +34,10 @@ from helpers.constants import (
 from helpers.log_helper import get_logger
 from helpers.reports import service_from_resource_type
 from helpers.time_helper import utc_datetime, utc_iso
+from lambdas.metrics_updater.processors.base import (
+    BaseProcessor,
+    NextLambdaEvent,
+)
 from models.metrics import ReportMetrics
 from models.ruleset import Ruleset
 from services import SP, modular_helpers
@@ -49,19 +62,23 @@ from services.reports import (
     ShardsCollectionDataSource,
     ShardsCollectionProvider,
 )
+from services.resource_exception_service import ResourceExceptionsService
 from services.resources import (
     CloudResource,
     MaestroReportResourceView,
     iter_rule_resources,
 )
+from services.resources_service import ResourcesService
 from services.ruleset_service import RulesetName, RulesetService
 from services.sharding import ShardsCollection
-from services.resources_service import ResourcesService
-from services.resource_exception_service import ResourceExceptionsService
+
 
 if TYPE_CHECKING:
+    from modular_sdk.services.tenant_settings_service import (
+        TenantSettingsService,
+    )
+
     from services.report_service import AverageStatisticsItem
-    from modular_sdk.services.tenant_settings_service import TenantSettingsService
 
 ReportsGen = Generator[tuple[ReportMetrics, dict], None, None]
 
@@ -220,7 +237,7 @@ class TenantReportMetadata(msgspec.Struct, kw_only=True, frozen=True):
     )
 
 
-class MetricsCollector:
+class MetricsCollector(BaseProcessor):
     """
     Here when i say "collect data for reports", "collect metrics",
     "collect reports" i generally mean the same thing.
@@ -262,6 +279,8 @@ class MetricsCollector:
     different periods. But here i do that anyway because i know reports
     are collected for the same period here.
     """
+
+    processor_name = "metrics"
 
     def __init__(
         self,
@@ -2493,7 +2512,11 @@ class MetricsCollector:
             },
         }
 
-    def __call__(self):
+    def __call__(
+        self, 
+        event: Optional[MutableMapping] = None, 
+        context: Optional[RequestContext] = None,
+    ) -> Optional[NextLambdaEvent]:
         _LOG.info('Starting metrics collector')
         now = utc_datetime()
         for customer, licenses in self._entities_it.iter_customer_licenses(
@@ -2518,7 +2541,6 @@ class MetricsCollector:
             self._tenants_cache.clear()
             self._platforms_cache.clear()
             self._rulesets_cache.clear()
-        return {}
 
     # NOTE: This function is just temporary solution and very inefficient
     # TODO: rewrite previous project_resources function without operational report

@@ -35,7 +35,12 @@ def run_scheduled_job(self, customer_name: str, name: str):
 
 @app.task
 def make_findings_snapshot():
-    FindingsUpdater.build().__call__()
+    # After findings are collected, findings trigger recommendations.
+    # This feature works only in `MetricsUpdater` lambda.
+    MetricsUpdater.build().lambda_handler(
+        event={'data_type': 'findings'},
+        context=RequestContext(),
+    )
 
 
 @app.task

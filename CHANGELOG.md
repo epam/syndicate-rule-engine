@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Project Resources
   - Project Attacks
   - Project FinOps
+- Restored recommendations processing flow in `metrics_updater` lambda
 - Disabled the plugin `gcp_cloudrun`
 - Fixed plugin `aws.workspaces-directory.filter.check-vpc-endpoints-availability`
 - Fixed issue with kube-confid file during k8s scan

@@ -447,6 +447,9 @@ def prepare_resource_type(rt: str, cloud: Cloud) -> str:
         case Cloud.KUBERNETES | Cloud.K8S:
             return 'k8s.' + rt
 
+def service_to_resource_type(service: str, cloud: Cloud) -> str:
+    rt = service.replace(' ', '-').lower()
+    return prepare_resource_type(rt, cloud)
 
 def load_manager(rt: str) -> type['ResourceManager'] | None:
     from c7n.provider import get_resource_class
