@@ -1,7 +1,7 @@
 import io
 import json
 from datetime import datetime, timezone
-from typing import MutableMapping, Optional
+from typing import MutableMapping, Optional, Sequence
 
 from modular_sdk.commons.constants import ParentType
 from modular_sdk.models.tenant import Tenant
@@ -110,7 +110,7 @@ class RecommendationProcessor(BaseProcessor):
 
     @staticmethod
     def _json_to_jsonl(
-        recommendations: list[RecommendationItem] | list[K8SRecommendationItem],
+        recommendations: Sequence[RecommendationItem | K8SRecommendationItem],
     ) -> str:
         buffer = io.StringIO()
         for item in recommendations:
@@ -164,26 +164,14 @@ class RecommendationProcessor(BaseProcessor):
                 platform=platform,
                 metadata=metadata,
             )
-
-            # TODO: remove after debugging
-            try:
-                rec_as_json = json.dumps(k8s_recommendations, indent=2)
-            except Exception:
-                rec_as_json = k8s_recommendations
-            _LOG.debug(f"K8s recommendations: {rec_as_json}")
-            # TODO: remove after debugging
-
             if not k8s_recommendations:
                 _LOG.debug(f"No k8s recommendations based on findings {file}")
-                continue
 
             tenant_key_builder = TenantReportsBucketKeysBuilder(tenant)
             latest_key = tenant_key_builder.latest_key()
             _LOG.debug(f"Get file {latest_key} content")
-            recommendations = self._get_platform_cloud_recommendations(
-                platform=platform,
-                metadata=metadata,
-                cloud=cloud,
+            recommendations = self._get_tenant_recommendations(
+                tenant=tenant,
             )
 
             if not recommendations:
@@ -213,14 +201,12 @@ class RecommendationProcessor(BaseProcessor):
                     f"Platform {platform.name}: merging K8s and cloud recommendations "
                     f"for tenant {tenant.name}"
                 )
-                for region, recommend in recommendations.items():
-                    if k8s_region_recommend := k8s_recommendations.get(region):
-                        _LOG.debug(
-                            f"Merging {len(k8s_region_recommend)} K8s recommendations "
-                            f"with {len(recommend)} cloud recommendations for region {region}"
-                        )
-                        recommend.extend(k8s_region_recommend)
-                    content = self._json_to_jsonl(recommend)
+                all_regions = set(recommendations.keys()) | set(k8s_recommendations.keys())
+                for region in all_regions:
+                    cloud_recs = recommendations.get(region, [])
+                    k8s_recs = k8s_recommendations.get(region, [])
+                    merged = cloud_recs + k8s_recs
+                    content = self._json_to_jsonl(merged)
                     self._save_recommendation(
                         region=region,
                         tenant=tenant,
@@ -228,8 +214,8 @@ class RecommendationProcessor(BaseProcessor):
                         timestamp=timestamp,
                     )
                     _LOG.debug(
-                        f"Saved {len(recommend)} merged recommendations "
-                        f"for tenant {tenant.name}, region {region}"
+                        f"Saved {len(merged)} recommendations (cloud: {len(cloud_recs)}, "
+                        f"k8s: {len(k8s_recs)}) for tenant {tenant.name}, region {region}"
                     )
                 self._send_event_to_maestro(
                     tenant=tenant,
