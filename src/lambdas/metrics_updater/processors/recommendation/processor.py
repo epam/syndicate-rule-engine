@@ -127,14 +127,33 @@ class RecommendationProcessor(BaseProcessor):
         tenant_service = self._modular_client.tenant_service()
         tenant_obj_mapping: dict[str, Tenant] = {}
 
+        _LOG.info(
+            f"Starting platform-level processing. "
+            f"Found {len(cluster_platform_mapping)} K8s platforms"
+        )
+
         for _, platform in cluster_platform_mapping.items():
+            _LOG.info(f"Processing K8s platform: {platform.name}")
             tenant = tenant_service.get(platform.tenant_name)
             if not tenant or not tenant.project:
+                _LOG.warning(
+                    f"Skipping platform {platform.name}: "
+                    f"no tenant or project found for tenant_name={platform.tenant_name}"
+                )
                 continue
+
+            _LOG.debug(
+                f"Platform {platform.name} -> tenant: {tenant.name}, "
+                f"project: {tenant.project}, customer: {tenant.customer_name}"
+            )
+
             metadata = self._license_service.get_customer_metadata(tenant.customer_name)
             cloud = Cloud.parse(tenant.cloud)
             if not cloud:
-                _LOG.warning(f"Cannot find cloud for tenant {tenant.name}")
+                _LOG.warning(
+                    f"Skipping platform {platform.name}: "
+                    f"cannot parse cloud {tenant.cloud!r} for tenant {tenant.name}"
+                )
                 continue
             tenant_obj_mapping[tenant.project] = tenant
 
@@ -145,7 +164,17 @@ class RecommendationProcessor(BaseProcessor):
                 platform=platform,
                 metadata=metadata,
             )
+
+            # TODO: remove after debugging
+            try:
+                rec_as_json = json.dumps(k8s_recommendations, indent=2)
+            except Exception:
+                rec_as_json = k8s_recommendations
+            _LOG.debug(f"K8s recommendations: {rec_as_json}")
+            # TODO: remove after debugging
+
             if not k8s_recommendations:
+                _LOG.debug(f"No k8s recommendations based on findings {file}")
                 continue
 
             tenant_key_builder = TenantReportsBucketKeysBuilder(tenant)
@@ -158,8 +187,11 @@ class RecommendationProcessor(BaseProcessor):
             )
 
             if not recommendations:
+                _LOG.info(
+                    f"Platform {platform.name}: no cloud recommendations, "
+                    f"saving K8s-only recommendations for tenant {tenant.name}"
+                )
                 for region, recommend in k8s_recommendations.items():
-                    _LOG.debug(f"No recommendations based on findings {latest_key}")
                     content = self._json_to_jsonl(recommend)
                     self._save_recommendation(
                         region=region,
@@ -167,14 +199,26 @@ class RecommendationProcessor(BaseProcessor):
                         content=content,
                         timestamp=timestamp,
                     )
+                    _LOG.debug(
+                        f"Saved {len(recommend)} K8s recommendations "
+                        f"for tenant {tenant.name}, region {region}"
+                    )
                 self._send_event_to_maestro(
                     tenant=tenant,
                     timestamp=timestamp,
                     now=now,
                 )
             else:
+                _LOG.info(
+                    f"Platform {platform.name}: merging K8s and cloud recommendations "
+                    f"for tenant {tenant.name}"
+                )
                 for region, recommend in recommendations.items():
                     if k8s_region_recommend := k8s_recommendations.get(region):
+                        _LOG.debug(
+                            f"Merging {len(k8s_region_recommend)} K8s recommendations "
+                            f"with {len(recommend)} cloud recommendations for region {region}"
+                        )
                         recommend.extend(k8s_region_recommend)
                     content = self._json_to_jsonl(recommend)
                     self._save_recommendation(
@@ -183,23 +227,39 @@ class RecommendationProcessor(BaseProcessor):
                         content=content,
                         timestamp=timestamp,
                     )
+                    _LOG.debug(
+                        f"Saved {len(recommend)} merged recommendations "
+                        f"for tenant {tenant.name}, region {region}"
+                    )
                 self._send_event_to_maestro(
                     tenant=tenant,
                     timestamp=timestamp,
                     now=now,
                 )
 
-        # get tenant recommendations
-        prefixes = self._s3.common_prefixes(
-            bucket=self._reports_bucket,
-            delimiter=ReportsBucketKeysBuilder.latest,
-            prefix=ReportsBucketKeysBuilder.prefix,
+        _LOG.info(
+            f"Platform-level processing complete. "
+            f"Processed {len(tenant_obj_mapping)} tenants"
         )
+
+        # get tenant recommendations
+        _LOG.info("Starting tenant-level processing")
+        prefixes = list(
+            self._s3.common_prefixes(
+                bucket=self._reports_bucket,
+                delimiter=ReportsBucketKeysBuilder.latest,
+                prefix=ReportsBucketKeysBuilder.prefix,
+            )
+        )
+        _LOG.debug(f"Found {len(prefixes)} prefixes in reports bucket")
         for prefix in prefixes:
             if Cloud.KUBERNETES in prefix:
-                _LOG.debug("Skipping folder with k8s findings - already processed")
+                _LOG.debug(
+                    f"Skipping K8s prefix {prefix}: already processed on platform level"
+                )
                 continue
-            _LOG.debug(f"Processing key: {prefix}")
+
+            _LOG.debug(f"Processing prefix: {prefix}")
             objects: list[ReportMetrics] = [
                 o
                 for o in self._s3.list_objects(
@@ -212,7 +272,10 @@ class RecommendationProcessor(BaseProcessor):
                 project_id = obj.key.split("/")[3]
                 tenant = tenant_obj_mapping.get(project_id)
                 if tenant:
-                    _LOG.debug(f"Tenant {tenant.name} have already been processed")
+                    _LOG.debug(
+                        f"Skipping project {project_id}: "
+                        f"tenant {tenant.name} already processed on platform level"
+                    )
                     continue
 
                 tenant: Tenant | None = next(
@@ -222,10 +285,15 @@ class RecommendationProcessor(BaseProcessor):
                     None,
                 )
                 if not tenant:
-                    _LOG.warning(f"Cannot find tenant with project id {project_id}")
+                    _LOG.warning(
+                        f"Cannot find active tenant for project_id {project_id}, "
+                        f"key: {obj.key}"
+                    )
                     continue
                 tenant_obj_mapping[project_id] = tenant
+                tenant_name: str = tenant.name
 
+                _LOG.info(f"Processing tenant {tenant_name} (project: {project_id})")
                 recommendations = self._get_tenant_recommendations(
                     tenant=tenant,
                 )
@@ -238,6 +306,10 @@ class RecommendationProcessor(BaseProcessor):
                         content=content,
                         timestamp=timestamp,
                     )
+                    _LOG.debug(
+                        f"Saved {len(recommend)} recommendations "
+                        f"for tenant {tenant_name}, region {region}"
+                    )
                 if not recommendations:
                     _LOG.debug(f"No recommendations based on findings {obj.key}")
                     continue
@@ -247,6 +319,8 @@ class RecommendationProcessor(BaseProcessor):
                     timestamp=timestamp,
                     now=now,
                 )
+
+        _LOG.info("Tenant-level processing complete")
 
     def _send_event_to_maestro(
         self,
