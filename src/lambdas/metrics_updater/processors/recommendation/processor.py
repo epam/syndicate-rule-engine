@@ -63,7 +63,8 @@ class RecommendationProcessor(BaseProcessor):
     def __init__(
         self,
         environment_service: EnvironmentService,
-        s3_client: S3Client,
+        s3: S3Client,
+        assume_role_s3: S3Client,
         modular_client: ModularServiceProvider,
         cadf_event_sender: CadfEventSender,
         license_service: LicenseService,
@@ -72,7 +73,8 @@ class RecommendationProcessor(BaseProcessor):
         platform_service: PlatformService,
     ) -> None:
         self._environment_service = environment_service
-        self._s3_client = s3_client
+        self._s3 = s3
+        self._assume_role_s3 = assume_role_s3
         self._modular_client = modular_client
         self._cadf_event_sender = cadf_event_sender
         self._license_service = license_service
@@ -96,7 +98,8 @@ class RecommendationProcessor(BaseProcessor):
     def build(cls) -> "RecommendationProcessor":
         return RecommendationProcessor(
             environment_service=SP.environment_service,
-            s3_client=SP.assume_role_s3,  # Because of the recommendation bucket in another account or environment
+            s3=SP.s3,
+            assume_role_s3=SP.assume_role_s3,  # For saving recommendations in another account or environment
             modular_client=SP.modular_client,
             cadf_event_sender=SP.cadf_event_sender,
             license_service=SP.license_service,
@@ -187,7 +190,7 @@ class RecommendationProcessor(BaseProcessor):
                 )
 
         # get tenant recommendations
-        prefixes = self._s3_client.common_prefixes(
+        prefixes = self._s3.common_prefixes(
             bucket=self._reports_bucket,
             delimiter=ReportsBucketKeysBuilder.latest,
             prefix=ReportsBucketKeysBuilder.prefix,
@@ -199,7 +202,7 @@ class RecommendationProcessor(BaseProcessor):
             _LOG.debug(f"Processing key: {prefix}")
             objects: list[ReportMetrics] = [
                 o
-                for o in self._s3_client.list_objects(
+                for o in self._s3.list_objects(
                     bucket=self._reports_bucket, prefix=prefix
                 )
                 if o.key.endswith("json.gz") or o.key.endswith("json")
@@ -337,7 +340,7 @@ class RecommendationProcessor(BaseProcessor):
     ) -> None:
         file_path = build_bucket_key(tenant, timestamp, region)
         _LOG.debug(f"Saving file {file_path}, region {region}")
-        self._s3_client.put_object(
+        self._assume_role_s3.put_object(
             bucket=self._recommendations_bucket,
             key=file_path,
             body=content.encode(),
