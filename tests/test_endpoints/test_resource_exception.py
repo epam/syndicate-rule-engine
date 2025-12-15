@@ -1,9 +1,9 @@
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from time import time
 from uuid import uuid4
 
-from helpers.time_helper import utc_datetime
+from helpers.time_helper import utc_datetime, utc_iso
 from models.resource_exception import ResourceException
 
 
@@ -79,6 +79,15 @@ def test_get_resource_exception_by_id_success(
     
     assert resp.status_int == 200
     
+    created_at_dt = datetime.fromtimestamp(
+        sample_resource_exception.created_at, 
+        tz=timezone.utc,
+    )
+    updated_at_dt = datetime.fromtimestamp(
+        sample_resource_exception.updated_at, 
+        tz=timezone.utc,
+    )
+    expire_at_dt = sample_resource_exception.expire_at
     expected_data = {
         'id': sample_resource_exception.id,
         'type': sample_resource_exception.type,
@@ -87,9 +96,9 @@ def test_get_resource_exception_by_id_success(
         'resource_type': sample_resource_exception.resource_type,
         'location': sample_resource_exception.location,
         'resource_id': sample_resource_exception.resource_id,
-        'created_at': sample_resource_exception.created_at,
-        'updated_at': sample_resource_exception.updated_at,
-        'expire_at': sample_resource_exception.expire_at.timestamp(),
+        'created_at': utc_iso(created_at_dt),
+        'updated_at': utc_iso(updated_at_dt),
+        'expire_at': utc_iso(expire_at_dt),
     }
 
     assert resp.json == {
