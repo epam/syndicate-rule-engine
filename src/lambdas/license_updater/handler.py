@@ -49,14 +49,11 @@ class LicenseSync:
         name, version = rs['name'], rs['version']
         key = RulesetsBucketKeys.licensed_ruleset_key(name, version)
         if s3.gz_object_exists(bucket, key):
+            common_msg = f'Ruleset {name}:{version} already exists in S3.'
             if not self._overwrite:
-                _LOG.info(
-                    f'Ruleset {name}:{version} already exists in S3. Skipping...'
-                )
+                _LOG.info(f'{common_msg} Skipping...')
                 return
-            _LOG.info(
-                f'Ruleset {name}:{version} already exists in S3. Overwriting...'
-            )
+            _LOG.info(f'{common_msg} Overwriting...')
 
         url = rs.get('download_url')
         if not url:
