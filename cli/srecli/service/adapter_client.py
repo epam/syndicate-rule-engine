@@ -1013,7 +1013,7 @@ class SREApiClient:
         customer_id: str | None = None,
     ) -> SREResponse:
         return self.make_request(
-            path=Endpoint.RESOURCES_EXCEPTIONS,
+            path=Endpoint.RESOURCES_EXCEPTIONS_ID,
             method=HTTPMethod.GET,
             path_params={'id': exception_id},
             query=sifted({'customer_id': customer_id})

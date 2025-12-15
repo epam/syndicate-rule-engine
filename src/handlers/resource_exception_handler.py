@@ -9,6 +9,7 @@ from helpers import NextToken
 from helpers.constants import Cloud, Endpoint, HTTPMethod
 from helpers.lambda_response import ResponseFactory
 from helpers.log_helper import get_logger
+from helpers.time_helper import utc_iso
 from helpers.regions import (
     AllRegionsWithGlobal,
     get_region_by_cloud_with_global,
@@ -188,16 +189,25 @@ class ResourceExceptionHandler(AbstractHandler):
             raise ResponseFactory(HTTPStatus.UNPROCESSABLE_ENTITY).message(str(e)).exc()
 
     def _build_resource_exception_dto(self, resource_exc: ResourceException) -> dict:
+        expire_at = resource_exc.expire_at
+        if not isinstance(expire_at, datetime):
+            expire_at = datetime.fromtimestamp(expire_at, tz=timezone.utc)
+        created_at_dt = datetime.fromtimestamp(
+            resource_exc.created_at, 
+            tz=timezone.utc,
+        )
+        updated_at_dt = datetime.fromtimestamp(
+            resource_exc.updated_at, 
+            tz=timezone.utc,
+        )
         dto = {
             'id': resource_exc.id,
             'type': resource_exc.type.value,
             'tenant_name': resource_exc.tenant_name,
             'customer_name': resource_exc.customer_name,
-            'created_at': resource_exc.created_at,
-            'updated_at': resource_exc.updated_at,
-            # we store datetime object in mongodb
-            # this because we need for it to be TTL
-            'expire_at': self._to_timestamp(resource_exc.expire_at),
+            'created_at': utc_iso(created_at_dt),
+            'updated_at': utc_iso(updated_at_dt),
+            'expire_at': utc_iso(expire_at),
         }
         if resource_exc.resource_id:
             dto['resource_id'] = resource_exc.resource_id
