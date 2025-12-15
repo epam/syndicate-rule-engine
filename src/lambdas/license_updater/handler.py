@@ -2,6 +2,7 @@ import operator
 from itertools import chain
 from typing import Generator
 
+import msgspec
 from modular_sdk.commons.constants import ApplicationType
 from modular_sdk.services.application_service import ApplicationService
 from modular_sdk.services.customer_service import CustomerService
@@ -30,11 +31,17 @@ class LicenseSyncError(Exception):
 
 
 class LicenseSync:
-    __slots__ = '_sp', '_cache'
+    __slots__ = '_sp', '_cache', '_overwrite'
 
-    def __init__(self, sp: ServiceProvider, cache_rulesets: bool = False):
+    def __init__(
+        self,
+        sp: ServiceProvider,
+        cache_rulesets: bool = False,
+        overwrite: bool = False,
+    ):
         self._sp = sp
         self._cache = {} if cache_rulesets else None
+        self._overwrite = overwrite
 
     def _store_ruleset(self, rs: LMRulesetDTO):
         s3 = self._sp.s3
@@ -42,8 +49,14 @@ class LicenseSync:
         name, version = rs['name'], rs['version']
         key = RulesetsBucketKeys.licensed_ruleset_key(name, version)
         if s3.gz_object_exists(bucket, key):
-            _LOG.info(f'Ruleset {name}:{version} already exists in S3')
-            return
+            if not self._overwrite:
+                _LOG.info(
+                    f'Ruleset {name}:{version} already exists in S3. Skipping...'
+                )
+                return
+            _LOG.info(
+                f'Ruleset {name}:{version} already exists in S3. Overwriting...'
+            )
 
         url = rs.get('download_url')
         if not url:
@@ -55,8 +68,18 @@ class LicenseSync:
             _LOG.warning(f'Could not download from url: {url}')
             return
         data.seek(0)
+        raw_content = data.getvalue()
+
+        # Validate that downloaded data is valid JSON before storing
+        try:
+            msgspec.json.decode(raw_content)
+        except msgspec.DecodeError as e:
+            raise LicenseSyncError(
+                f'Downloaded ruleset {name}:{version} is not valid JSON: {e}'
+            ) from e
+
         if self._cache is not None:
-            self._cache[(name, version)] = data.getvalue()
+            self._cache[(name, version)] = raw_content
         s3.gz_put_object(
             bucket=bucket,
             key=key,
@@ -206,10 +229,11 @@ class LicenseUpdater(EventProcessorLambdaHandler):
 
     def handle_request(self, event, context):
         it = self.iter_licenses(event.get('license_keys', ()))
+        overwrite = event.get('overwrite', False)
         for lic in it:
             _LOG.info(f'Going to sync license: {lic.license_key}')
             try:
-                sync = LicenseSync(SERVICE_PROVIDER)
+                sync = LicenseSync(SERVICE_PROVIDER, overwrite=overwrite)
                 sync(lic)
                 _LOG.info('License was synced')
             except LicenseSyncError as e:
