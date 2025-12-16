@@ -152,9 +152,13 @@ class ResourceExceptionHandler(AbstractHandler):
         if not tenant:
             return None
 
-        if tenant.project and tenant.project not in arn:
+        # Validate that the ARN exists in the resources database for this tenant.
+        # This approach handles organization-level resources where the ARN may 
+        # contain an organization account ID rather than the tenant's own account ID.
+        resource = self._rs.get_resource_by_arn_and_tenant(arn, tenant.name)
+        if not resource:
             raise ValueError(
-                f'ARN {arn} does not match tenant account id {tenant.project}'
+                f'ARN {arn} does not exist in resources for tenant {tenant.name}'
             )
 
     def _validate_resource_exception(
