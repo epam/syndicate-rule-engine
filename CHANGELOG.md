@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolved a problem caused by the license manager being temporarily unavailable.
 - `Permission.METRICS_STATUS` permission replaced with `Permission.SERVICE_OPERATIONS_STATUS`
 - Fixed an issue with inaccurate K8S scan results
+- Fixed rulesets double compression issue
 
 
 ## [5.14.0] - 2025-10-03
