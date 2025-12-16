@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Project Resources
   - Project Attacks
   - Project FinOps
+- Added violated rules information (`cluster_metadata.rules.violated`) to operational Kubernetes report
 - Restored recommendations processing flow in `metrics_updater` lambda
 - Disabled the plugin `gcp_cloudrun`
 - Fixed plugin `aws.workspaces-directory.filter.check-vpc-endpoints-availability`

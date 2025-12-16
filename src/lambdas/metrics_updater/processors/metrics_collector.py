@@ -1379,6 +1379,12 @@ class MetricsCollector(BaseProcessor):
                 )
             )
 
+            # Collect violated rules for cluster metadata
+            k8s_rules_scope = {p.policy for p in col.iter_parts()}
+            violated_rules = tuple(
+                self._iter_violated_checks(col, ctx.metadata, k8s_rules_scope)
+            )
+
             data = {
                 'tenant_name': platform.tenant_name,
                 'last_scan_date': lsd,
@@ -1391,6 +1397,7 @@ class MetricsCollector(BaseProcessor):
                 },
                 'mitre': attacks,
                 'outdated_tenants': outdated,
+                'violated_rules': violated_rules,
             }
 
             yield (
