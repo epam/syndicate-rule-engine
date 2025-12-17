@@ -368,6 +368,14 @@ def download_url(url: str, out: FT | None = None) -> FT | io.BytesIO | None:
         out = io.BytesIO()
     try:
         with requests.get(url, stream=True) as resp:
+            if not resp.ok:
+                status_code = resp.status_code
+                reason = resp.reason or resp.text or "Unknown error"
+                _LOG.warning(
+                    f"Failed to download from url: {url}, "
+                    f"status code: {status_code}, reason: {reason}"
+                )
+                return
             for chunk in resp.raw.stream(decode_content=True):
                 out.write(chunk)
         out.seek(0)
