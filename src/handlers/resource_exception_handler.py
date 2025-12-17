@@ -157,9 +157,9 @@ class ResourceExceptionHandler(AbstractHandler):
         # contain an organization account ID rather than the tenant's own account ID.
         resource = self._rs.get_resource_by_arn_and_tenant(arn, tenant.name)
         if not resource:
-            raise ValueError(
+            raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
                 f'ARN {arn} does not exist in resources for tenant {tenant.name}'
-            )
+            ).exc()
 
     def _validate_resource_exception(
         self,

@@ -295,6 +295,36 @@ def test_create_resource_exception_duplicate_conflict(
     assert first_exception_id in resp2.json['message']
 
 
+def test_create_resource_exception_arn_not_found(
+    system_user_token, sre_client, main_customer, aws_tenant
+):
+    """
+    Test that creating an ARN-based resource exception fails with 404
+    when the resource does not exist in the database.
+    """
+    future_date = (datetime.now() + timedelta(days=30)).isoformat()
+    non_existent_arn = 'arn:aws:ec2:us-east-1:123456789012:instance/i-nonexistent'
+
+    request_data = {
+        'customer_id': main_customer.name,
+        'tenant_name': aws_tenant.name,
+        'arn': non_existent_arn,
+        'expire_at': future_date,
+    }
+    
+    resp = sre_client.request(
+        '/resources/exceptions',
+        method='POST',
+        auth=system_user_token,
+        data=request_data,
+    )
+    
+    assert resp.status_int == 404
+    assert 'message' in resp.json
+    assert non_existent_arn in resp.json['message']
+    assert 'does not exist' in resp.json['message']
+
+
 def test_delete_resource_exception_success(
     system_user_token, sre_client, sample_resource_exception, main_customer
 ):
