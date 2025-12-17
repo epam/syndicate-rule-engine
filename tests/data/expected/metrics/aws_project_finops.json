@@ -30,21 +30,24 @@
             }
           ]
         }
-      ]
+      ],
+      "exceptions_data": []
     },
     "AZURE": {
       "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
       "tenant_name": "AZURE-TESTING",
       "last_scan_date": "2025-07-28T00:57:21.839386Z",
       "activated_regions": [],
-      "service_data": []
+      "service_data": [],
+      "exceptions_data": []
     },
     "GOOGLE": {
       "account_id": "testing-project-123",
       "tenant_name": "GOOGLE-TESTING",
       "last_scan_date": "2025-07-28T00:57:21.839386Z",
       "activated_regions": [],
-      "service_data": []
+      "service_data": [],
+      "exceptions_data": []
     }
   }
 }

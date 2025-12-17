@@ -54,7 +54,8 @@
           "name": "Standard2",
           "value": 12.5
         }
-      ]
+      ],
+      "exceptions_data": []
     },
     "AZURE": {
       "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
@@ -67,7 +68,8 @@
           "standards_data": []
         }
       ],
-      "average_data": []
+      "average_data": [],
+      "exceptions_data": []
     },
     "GOOGLE": {
       "account_id": "testing-project-123",
@@ -80,7 +82,8 @@
           "standards_data": []
         }
       ],
-      "average_data": []
+      "average_data": [],
+      "exceptions_data": []
     }
   },
   "tenant_display_name": "testing"

@@ -3,13 +3,22 @@ import heapq
 import statistics
 from datetime import datetime
 from itertools import chain
-from typing import TYPE_CHECKING, Generator, Iterable, Iterator, cast
+from typing import (
+    TYPE_CHECKING,
+    Generator,
+    Iterable,
+    Iterator,
+    MutableMapping,
+    Optional,
+    cast,
+)
 
 import msgspec
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.modular import ModularServiceProvider
 
+from helpers import RequestContext
 from helpers.constants import (
     DEPRECATED_RULE_SUFFIX,
     GLOBAL_REGION,
@@ -25,6 +34,10 @@ from helpers.constants import (
 from helpers.log_helper import get_logger
 from helpers.reports import service_from_resource_type
 from helpers.time_helper import utc_datetime, utc_iso
+from lambdas.metrics_updater.processors.base import (
+    BaseProcessor,
+    NextLambdaEvent,
+)
 from models.metrics import ReportMetrics
 from models.ruleset import Ruleset
 from services import SP, modular_helpers
@@ -49,19 +62,23 @@ from services.reports import (
     ShardsCollectionDataSource,
     ShardsCollectionProvider,
 )
+from services.resource_exception_service import ResourceExceptionsService
 from services.resources import (
     CloudResource,
     MaestroReportResourceView,
     iter_rule_resources,
 )
+from services.resources_service import ResourcesService
 from services.ruleset_service import RulesetName, RulesetService
 from services.sharding import ShardsCollection
-from services.resources_service import ResourcesService
-from services.resource_exception_service import ResourceExceptionsService
+
 
 if TYPE_CHECKING:
+    from modular_sdk.services.tenant_settings_service import (
+        TenantSettingsService,
+    )
+
     from services.report_service import AverageStatisticsItem
-    from modular_sdk.services.tenant_settings_service import TenantSettingsService
 
 ReportsGen = Generator[tuple[ReportMetrics, dict], None, None]
 
@@ -220,7 +237,7 @@ class TenantReportMetadata(msgspec.Struct, kw_only=True, frozen=True):
     )
 
 
-class MetricsCollector:
+class MetricsCollector(BaseProcessor):
     """
     Here when i say "collect data for reports", "collect metrics",
     "collect reports" i generally mean the same thing.
@@ -262,6 +279,8 @@ class MetricsCollector:
     different periods. But here i do that anyway because i know reports
     are collected for the same period here.
     """
+
+    processor_name = "metrics"
 
     def __init__(
         self,
@@ -502,6 +521,24 @@ class MetricsCollector:
             _LOG.info('Customer setting with excluded rules is found')
             excluded.update(cs.value.get('rules') or ())
         return excluded
+
+    def _get_tenant_exceptions_data(
+        self,
+        tenant: Tenant,
+        collection: ShardsCollection | None,
+        cloud: Cloud,
+        metadata: Metadata,
+    ) -> list[dict]:
+        """
+        Returns exceptions data for tenant if collection exists.
+        """
+        if not collection:
+            return []
+        exceptions = self._res_exp_ser.get_resource_exceptions_collection_by_tenant(tenant)
+        exceptions_data, _ = exceptions.filter_exception_resources(
+            collection, cloud, metadata, tenant.project
+        )
+        return exceptions_data
 
     @staticmethod
     def _iter_failed_checks(
@@ -907,6 +944,7 @@ class MetricsCollector:
                     ctx.iter_reports(typ=ReportType.OPERATIONAL_OVERVIEW)
                 ),
                 report_type=ReportType.PROJECT_OVERVIEW,
+                scp=sc_provider,
             )
         )
 
@@ -920,6 +958,7 @@ class MetricsCollector:
                     ctx.iter_reports(typ=ReportType.OPERATIONAL_COMPLIANCE)
                 ),
                 report_type=ReportType.PROJECT_COMPLIANCE,
+                scp=sc_provider,
             )
         )
 
@@ -931,6 +970,7 @@ class MetricsCollector:
                     ctx.iter_reports(typ=ReportType.OPERATIONAL_RESOURCES)
                 ),
                 report_type=ReportType.PROJECT_RESOURCES,
+                scp=sc_provider,
             )
         )
         _LOG.info('Generating project attacks reports for all tenant groups')
@@ -941,6 +981,7 @@ class MetricsCollector:
                     ctx.iter_reports(typ=ReportType.OPERATIONAL_ATTACKS)
                 ),
                 report_type=ReportType.PROJECT_ATTACKS,
+                scp=sc_provider,
             )
         )
         _LOG.info('Generating project finops reports for all tenant groups')
@@ -951,6 +992,7 @@ class MetricsCollector:
                     ctx.iter_reports(typ=ReportType.OPERATIONAL_FINOPS)
                 ),
                 report_type=ReportType.PROJECT_FINOPS,
+                scp=sc_provider,
             )
         )
         self._save_all(ctx, 'saving operational and project')
@@ -1138,7 +1180,7 @@ class MetricsCollector:
                     tenant
                 )
             )
-            exceptions_data, col = exceptions.filter_exception_resources(
+            _, col = exceptions.filter_exception_resources(
                 col, tenant_cloud(tenant), ctx.metadata, tenant.project
             )
             type_resources = self._res_ser.get_type_resources_for_tenant(tenant, col.meta)
@@ -1290,7 +1332,7 @@ class MetricsCollector:
                     tenant
                 )
             )
-            exceptions_data, col = exceptions.filter_exception_resources(
+            _, col = exceptions.filter_exception_resources(
                 col, Cloud.KUBERNETES, ctx.metadata, tenant.project
             )
             if not col:
@@ -1337,6 +1379,12 @@ class MetricsCollector:
                 )
             )
 
+            # Collect violated rules for cluster metadata
+            k8s_rules_scope = {p.policy for p in col.iter_parts()}
+            violated_rules = tuple(
+                self._iter_violated_checks(col, ctx.metadata, k8s_rules_scope)
+            )
+
             data = {
                 'tenant_name': platform.tenant_name,
                 'last_scan_date': lsd,
@@ -1349,6 +1397,7 @@ class MetricsCollector:
                 },
                 'mitre': attacks,
                 'outdated_tenants': outdated,
+                'violated_rules': violated_rules,
             }
 
             yield (
@@ -1368,6 +1417,7 @@ class MetricsCollector:
         ctx: MetricsContext,
         operational_reports: list[tuple[ReportMetrics, dict]],
         report_type: ReportType,
+        scp: ShardsCollectionProvider,
     ) -> ReportsGen:
         assert all(
             r[0].type is ReportType.OPERATIONAL_OVERVIEW
@@ -1394,8 +1444,14 @@ class MetricsCollector:
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
                 tenants.add(tenant.name)
+                cloud = tenant_cloud(tenant)
+                collection = scp.get_for_tenant(tenant, end)
+                
+                exceptions_data = self._get_tenant_exceptions_data(
+                    tenant, collection, cloud, ctx.metadata
+                )
 
-                data[tenant_cloud(tenant).value] = {
+                data[cloud.value] = {
                     'account_id': item[1]['id'],
                     'tenant_name': tenant.name,
                     'last_scan_date': item[1]['metadata'].last_scan_date,
@@ -1414,6 +1470,7 @@ class MetricsCollector:
                         }
                         for r, d in item[1]['data']['regions'].items()
                     },
+                    'exceptions_data': exceptions_data,
                 }
 
             yield (
@@ -1433,6 +1490,7 @@ class MetricsCollector:
         ctx: MetricsContext,
         operational_reports: list[tuple[ReportMetrics, dict]],
         report_type: ReportType,
+        scp: ShardsCollectionProvider,
     ) -> ReportsGen:
         assert all(
             r[0].type is ReportType.OPERATIONAL_COMPLIANCE
@@ -1457,13 +1515,26 @@ class MetricsCollector:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
                 tenants.add(tenant.name)
                 outdated_tenants.update(item[1]['outdated_tenants'])
+                cloud = tenant_cloud(tenant)
 
-                data[tenant_cloud(tenant).value] = {
+                collection = scp.get_for_tenant(
+                    tenant=tenant, 
+                    date=end,
+                )
+                exceptions_data = self._get_tenant_exceptions_data(
+                    tenant=tenant, 
+                    collection=collection, 
+                    cloud=cloud, 
+                    metadata=ctx.metadata,
+                )
+
+                data[cloud.value] = {
                     'account_id': item[1]['id'],
                     'tenant_name': tenant.name,
                     'last_scan_date': item[1]['last_scan_date'],
                     'activated_regions': item[1]['activated_regions'],
                     'data': item[1]['data'],
+                    'exceptions_data': exceptions_data,
                 }
 
             yield (
@@ -1484,6 +1555,7 @@ class MetricsCollector:
         ctx: MetricsContext,
         operational_reports: list[tuple[ReportMetrics, dict]],
         report_type: ReportType,
+        scp: ShardsCollectionProvider,
     ) -> ReportsGen:
         assert all(
             r[0].type is ReportType.OPERATIONAL_RESOURCES
@@ -1506,6 +1578,18 @@ class MetricsCollector:
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
                 tenants.add(tenant.name)
+                cloud = tenant_cloud(tenant)
+
+                collection = scp.get_for_tenant(
+                    tenant=tenant,
+                    date=end,
+                )
+                exceptions_data = self._get_tenant_exceptions_data(
+                    tenant=tenant,
+                    collection=collection,
+                    cloud=cloud,
+                    metadata=ctx.metadata,
+                )
 
                 policies_data = []
                 for policy in item[1].get('data', []):
@@ -1521,13 +1605,13 @@ class MetricsCollector:
                             },
                         }
                     )
-
-                data[tenant_cloud(tenant).value] = {
+                data[cloud.value] = {
                     'account_id': item[1]['id'],
                     'tenant_name': tenant.name,
                     'last_scan_date': item[1]['metadata'].last_scan_date,
                     'activated_regions': item[1]['metadata'].activated_regions,
                     'data': policies_data,
+                    'exceptions_data': exceptions_data,
                 }
 
             yield (
@@ -1547,6 +1631,7 @@ class MetricsCollector:
         ctx: MetricsContext,
         operational_reports: list[tuple[ReportMetrics, dict]],
         report_type: ReportType,
+        scp: ShardsCollectionProvider,
     ) -> ReportsGen:
         assert all(
             r[0].type is ReportType.OPERATIONAL_ATTACKS
@@ -1569,6 +1654,18 @@ class MetricsCollector:
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
                 tenants.add(tenant.name)
+                cloud = tenant_cloud(tenant)
+
+                collection = scp.get_for_tenant(
+                    tenant=tenant,
+                    date=end,
+                )
+                exceptions_data = self._get_tenant_exceptions_data(
+                    tenant=tenant,
+                    collection=collection,
+                    cloud=cloud,
+                    metadata=ctx.metadata,
+                )
 
                 new_mitre_data = {}
                 for res in item[1].get('data', ()):
@@ -1581,7 +1678,7 @@ class MetricsCollector:
                         )
                         inner[res['region']][attack['severity']] += 1
 
-                data[tenant_cloud(tenant).value] = {
+                data[cloud.value] = {
                     'account_id': item[1]['id'],
                     'tenant_name': tenant.name,
                     'last_scan_date': item[1]['metadata'].last_scan_date,
@@ -1590,6 +1687,7 @@ class MetricsCollector:
                         {**attack.to_dict(), 'regions': regions_data}
                         for attack, regions_data in new_mitre_data.items()
                     ],
+                    'exceptions_data': exceptions_data,
                 }
 
             yield (
@@ -1609,6 +1707,7 @@ class MetricsCollector:
         ctx: MetricsContext,
         operational_reports: list[tuple[ReportMetrics, dict]],
         report_type: ReportType,
+        scp: ShardsCollectionProvider,
     ) -> ReportsGen:
         assert all(
             r[0].type is ReportType.OPERATIONAL_FINOPS
@@ -1631,6 +1730,19 @@ class MetricsCollector:
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
                 tenants.add(tenant.name)
+                cloud = tenant_cloud(tenant)
+
+                collection = scp.get_for_tenant(
+                    tenant=tenant,
+                    date=end,
+                )
+                exceptions_data = self._get_tenant_exceptions_data(
+                    tenant=tenant, 
+                    collection=collection, 
+                    cloud=cloud, 
+                    metadata=ctx.metadata,
+                )
+
 
                 service_data = []
                 for finops_data in item[1].get('data', ()):
@@ -1650,12 +1762,13 @@ class MetricsCollector:
                         {'service_section': ss, 'rules_data': rules_data}
                     )
 
-                data[tenant_cloud(tenant).value] = {
+                data[cloud.value] = {
                     'account_id': item[1]['id'],
                     'tenant_name': tenant.name,
                     'last_scan_date': item[1]['metadata'].last_scan_date,
                     'activated_regions': item[1]['metadata'].activated_regions,
                     'service_data': service_data,
+                    'exceptions_data': exceptions_data,
                 }
 
             yield (
@@ -2406,7 +2519,11 @@ class MetricsCollector:
             },
         }
 
-    def __call__(self):
+    def __call__(
+        self, 
+        event: Optional[MutableMapping] = None, 
+        context: Optional[RequestContext] = None,
+    ) -> Optional[NextLambdaEvent]:
         _LOG.info('Starting metrics collector')
         now = utc_datetime()
         for customer, licenses in self._entities_it.iter_customer_licenses(
@@ -2431,7 +2548,6 @@ class MetricsCollector:
             self._tenants_cache.clear()
             self._platforms_cache.clear()
             self._rulesets_cache.clear()
-        return {}
 
     # NOTE: This function is just temporary solution and very inefficient
     # TODO: rewrite previous project_resources function without operational report
@@ -2440,6 +2556,7 @@ class MetricsCollector:
         ctx: MetricsContext,
         operational_reports: list[tuple[ReportMetrics, dict]],
         report_type: ReportType,
+        scp: ShardsCollectionProvider,
     ) -> ReportsGen:
         assert all(
             r[0].type is ReportType.OPERATIONAL_RESOURCES
@@ -2462,6 +2579,18 @@ class MetricsCollector:
             for item in reports:
                 tenant = cast(Tenant, self._get_tenant(item[0].tenant))
                 tenants.add(tenant.name)
+                cloud = tenant_cloud(tenant)
+
+                collection = scp.get_for_tenant(
+                    tenant=tenant, 
+                    date=end,
+                )
+                exceptions_data = self._get_tenant_exceptions_data(
+                    tenant=tenant, 
+                    collection=collection, 
+                    cloud=cloud, 
+                    metadata=ctx.metadata,
+                )
 
                 policies_dict = {}
                 for policy in item[1]['metadata'].rules.violated:
@@ -2500,12 +2629,13 @@ class MetricsCollector:
                                     }
                                 },
                             }
-                data[tenant_cloud(tenant).value] = {
+                data[cloud.value] = {
                     'account_id': item[1]['id'],
                     'tenant_name': tenant.name,
                     'last_scan_date': item[1]['metadata'].last_scan_date,
                     'activated_regions': item[1]['metadata'].activated_regions,
                     'data': list(policies_data.values()),
+                    'exceptions_data': exceptions_data,
                 }
 
             yield (

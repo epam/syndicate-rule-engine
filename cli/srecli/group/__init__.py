@@ -4,7 +4,7 @@ import shutil
 import sys
 import urllib.error
 from abc import ABC, abstractmethod
-from datetime import timezone
+from datetime import datetime, timezone, timedelta
 from functools import reduce, wraps
 from http import HTTPStatus
 from itertools import islice
@@ -34,8 +34,13 @@ from srecli.service.constants import (
     JobType,
     Env,
     MODULAR_ADMIN,
-    STATUS_ATTR, SUCCESS_STATUS, ERROR_STATUS, CODE_ATTR, TABLE_TITLE_ATTR,
-    REVERT_TO_JSON_MESSAGE, COLUMN_OVERFLOW
+    STATUS_ATTR,
+    SUCCESS_STATUS,
+    ERROR_STATUS,
+    CODE_ATTR,
+    TABLE_TITLE_ATTR,
+    REVERT_TO_JSON_MESSAGE,
+    COLUMN_OVERFLOW,
 )
 from srecli.service.logger import get_logger, enable_verbose_logs
 
@@ -48,6 +53,38 @@ except ImportError:
 
 
 _LOG = get_logger(__name__)
+
+
+def _get_dynamic_date_example(
+    days_offset: int = 30,
+    date_only: bool = False,
+) -> str:
+    """
+    Generates a dynamic date example based on current date with optional offset. 
+    The time is rounded to the start of the hour (set minutes and seconds to 00).
+    
+    :param days_offset: Number of days to add to current date (default: 30)
+    :param date_only: If True, returns only date part (YYYY-MM-DD), otherwise full ISO 8601
+    :return: ISO 8601 formatted date string
+    """
+    future_date = datetime.now() + timedelta(days=days_offset)
+
+    if date_only:
+        return future_date.strftime('%Y-%m-%d')
+
+    future_date = future_date.replace(
+        minute=0, 
+        second=0, 
+        microsecond=0,
+    )
+
+    return future_date.strftime('%Y-%m-%dT%H:%M:%S')
+
+
+DYNAMIC_DATE_EXAMPLE = _get_dynamic_date_example()
+DYNAMIC_DATE_ONLY_NOW_EXAMPLE = _get_dynamic_date_example(days_offset=0, date_only=True)
+DYNAMIC_DATE_ONLY_EXAMPLE = _get_dynamic_date_example(date_only=True)
+DYNAMIC_DATE_ONLY_PAST_EXAMPLE = _get_dynamic_date_example(days_offset=-30, date_only=True)
 
 
 class TableException(Exception):
@@ -82,14 +119,27 @@ class ContextObj(TypedDict):
 
 
 class cli_response:  # noqa
-    __slots__ = ('_attributes_order', '_check_api_link', '_check_access_token')
+    __slots__ = ('_attributes_order', '_check_api_link', '_check_access_token', '_hint')
 
-    def __init__(self, attributes_order: tuple[str, ...] = (),
-                 check_api_link: bool = True,
-                 check_access_token: bool = True):
+    def __init__(
+        self, attributes_order: tuple[str, ...] = (),
+        check_api_link: bool = True,
+        check_access_token: bool = True,
+        hint: str | Callable[..., str | None] | None = None,
+    ) -> None:
+        """
+        Creates a cli_response decorator.
+
+        :param attributes_order: Order of attributes to display in the table
+        :param check_api_link: Whether to check if the API link is configured
+        :param check_access_token: Whether to check if the access token is configured
+        :param hint: Static string or callable that receives same kwargs as 
+                     the command and returns a hint string (or None to skip)
+        """
         self._attributes_order = attributes_order
         self._check_api_link = check_api_link
         self._check_access_token = check_access_token
+        self._hint = hint
 
     @staticmethod
     def to_exit_code(code: HTTPStatus | None) -> int:
@@ -152,6 +202,25 @@ class cli_response:  # noqa
                 'to receive the token'
             )
 
+    def _resolve_hint(self, kwargs: dict) -> str | None:
+        """Resolve hint - call if callable, return as-is if string."""
+        if callable(self._hint):
+            return self._hint(**kwargs)
+        return self._hint
+
+    def _format_hint(
+        self,
+        message: str | None,
+        hint: str,
+    ) -> str:
+        """Format hint - add a dot and a space if message does not end with it."""
+        if message:
+            if message.endswith('.'):
+                return f'{message} {hint}'
+            else:
+                return f'{message}. {hint}'
+        return hint
+
     def __call__(self, func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -170,6 +239,17 @@ class cli_response:  # noqa
             try:
                 self._check_context(ctx)
                 resp: SREResponse = click.pass_obj(func)(*args, **kwargs)
+
+                hint = self._resolve_hint(kwargs)
+                if hint and resp.ok:
+                    data = resp.data or {}
+                    if message := data.get(MESSAGE_ATTR):
+                        data[MESSAGE_ATTR] = self._format_hint(
+                            message=message,
+                            hint=hint,
+                        )
+                    resp.data = data
+
             except click.ClickException as e:
                 _LOG.info('Click exception has occurred')
                 resp = response(e.format_message(), code=HTTPStatus.BAD_REQUEST)
@@ -380,7 +460,7 @@ class TablePrinter:
                     # if it is a naive object
                     obj.replace(tzinfo=timezone.utc)
                     return obj.astimezone().strftime(self._datetime_format)
-                except ValueError:
+                except (ValueError, OSError):
                     return value
             case _:  # bool, int
                 return str(value)
@@ -480,6 +560,18 @@ def convert_in_lower_case_if_present(ctx, param, value):
         return value.lower()
 
 
+def validate_file_optional(ctx, param, value):
+    """
+    Validates that file exists if value is provided.
+    Used by modular API to recognize file parameters.
+    """
+    if value:
+        import os
+        if not os.path.isfile(value):
+            raise click.UsageError(f'File not found: {value}')
+    return value
+
+
 def build_tenant_option(**kwargs) -> Callable:
     params = dict(
         type=str,
@@ -502,12 +594,12 @@ def build_account_option(**kwargs) -> Callable:
 
 
 def build_iso_date_option(*args, **kwargs) -> Callable:
-    help_iso = 'ISO 8601 format. Example: 2021-09-22T00:00:00.000000'
+    help_iso = f'ISO 8601 format. Example: {DYNAMIC_DATE_EXAMPLE}'
     params = dict(type=isoparse, required=False)
 
     if 'help' in kwargs:
         _help: str = kwargs.pop('help')
-        if help_iso not in _help:
+        if 'ISO 8601 format' not in _help:
             _help = f'{_help.rstrip(".")}. {help_iso}'
         kwargs['help'] = _help
 
@@ -553,6 +645,45 @@ def build_limit_option(**kwargs) -> Callable:
     return click.option('--limit', '-l', **params)
 
 
+def build_dojo_product_option(**kwargs) -> Callable:
+    params = dict(
+        type=str,
+        required=False,
+        help='Defect Dojo product name to which the results will be '
+             'uploaded in case Defect Dojo integration is configured. '
+             '"tenant_name", "customer_name" and "job_id" can be used '
+             'as generic placeholders inside curly brackets'
+    )
+    params.update(**kwargs)
+    return click.option('--dojo_product', '-dp', **params)
+
+
+def build_dojo_engagement_option(**kwargs) -> Callable:
+    params = dict(
+        type=str,
+        required=False,
+        help='Defect Dojo engagement name to which the results will be '
+             'uploaded in case Defect Dojo integration is configured. '
+             '"tenant_name", "customer_name" and "job_id" can be used '
+             'as generic placeholders inside curly brackets'
+    )
+    params.update(**kwargs)
+    return click.option('--dojo_engagement', '-de', **params)
+
+
+def build_dojo_test_option(**kwargs) -> Callable:
+    params = dict(
+        type=str,
+        required=False,
+        help='Defect Dojo test title to which the results will be '
+             'uploaded in case Defect Dojo integration is configured. '
+             '"tenant_name", "customer_name" and "job_id" can be used '
+             'as generic placeholders inside curly brackets'
+    )
+    params.update(**kwargs)
+    return click.option('--dojo_test', '-dt', **params)
+
+
 tenant_option = build_tenant_option()
 account_option = build_account_option()
 
@@ -579,3 +710,7 @@ exception_expire_at_required_option = build_iso_date_option(
 limit_option = build_limit_option()
 next_option = click.option('--next_token', '-nt', type=str, required=False,
                            help='Token to start record-pagination from')
+
+dojo_product_option = build_dojo_product_option()
+dojo_engagement_option = build_dojo_engagement_option()
+dojo_test_option = build_dojo_test_option()

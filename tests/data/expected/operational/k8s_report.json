@@ -139,5 +139,41 @@
   "last_scan_date": "2025-05-25T00:15:40.754806Z",
   "cluster_id": "platform_id",
   "cloud": "AWS",
-  "region": "eu-west-1"
+  "region": "eu-west-1",
+  "cluster_metadata": {
+    "rules": {
+      "violated": [
+        {
+          "id": "ecc-k8s-058-sa_tokens_are_only_mounted_where_necessary",
+          "description": "Description for ecc-k8s-058-sa_tokens_are_only_mounted_where_necessary",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "severity": "High",
+          "service": "Service Account",
+          "resource_type": "k8s.service-account",
+          "when": 1736955267.080916
+        },
+        {
+          "id": "ecc-k8s-059-service_account_tokens_are_only_mounted_where_necessary_in_pods",
+          "description": "Description for ecc-k8s-059-service_account_tokens_are_only_mounted_where_necessary_in_pods",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "severity": "Info",
+          "service": "Pod",
+          "resource_type": "k8s.pod",
+          "when": 1736955267.572546
+        },
+        {
+          "id": "ecc-k8s-060-minimize_the_admission_of_hostpath_volumes",
+          "description": "Description for ecc-k8s-060-minimize_the_admission_of_hostpath_volumes",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "severity": "Medium",
+          "service": "Pod",
+          "resource_type": "k8s.pod",
+          "when": 1736955267.6884868
+        }
+      ]
+    }
+  }
 }

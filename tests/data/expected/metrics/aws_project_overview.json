@@ -82,7 +82,8 @@
             "aws.s3": 1
           }
         }
-      }
+      },
+      "exceptions_data": []
     },
     "AZURE": {
       "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
@@ -106,7 +107,8 @@
             "azure.defender-pricing": 5
           }
         }
-      }
+      },
+      "exceptions_data": []
     },
     "GOOGLE": {
       "account_id": "testing-project-123",
@@ -179,7 +181,8 @@
             "gcp.subnet": 1
           }
         }
-      }
+      },
+      "exceptions_data": []
     }
   }
 }

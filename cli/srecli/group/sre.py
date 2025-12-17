@@ -5,6 +5,7 @@ from srecli.group.customer import customer
 from srecli.group.integrations import integrations
 from srecli.group.job import job
 from srecli.group.license import license
+from srecli.group.metadata import metadata
 from srecli.group.metrics import metrics
 from srecli.group.platform import platform
 from srecli.group.policy import policy
@@ -14,6 +15,7 @@ from srecli.group.role import role
 from srecli.group.rule import rule
 from srecli.group.ruleset import ruleset
 from srecli.group.rulesource import rulesource
+from srecli.group.service import service
 from srecli.group.setting import setting
 from srecli.group.tenant import tenant
 from srecli.group.users import users
@@ -140,8 +142,10 @@ sre.add_command(report)
 sre.add_command(ruleset)
 sre.add_command(rulesource)
 sre.add_command(license)
+sre.add_command(service)
 sre.add_command(setting)
 sre.add_command(results)
+sre.add_command(metadata)
 sre.add_command(metrics)
 sre.add_command(platform)
 sre.add_command(integrations)

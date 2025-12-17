@@ -10,7 +10,9 @@ from modular_sdk.commons.exception import ModularException
 from modular_sdk.services.customer_service import CustomerService
 
 from helpers import RequestContext, deep_get
-from helpers.constants import Env, Endpoint, HTTPMethod, Permission
+from helpers.constants import (
+    Endpoint, HTTPMethod, Permission
+)
 from helpers.lambda_response import (
     SREException,
     LambdaOutput,
@@ -229,7 +231,7 @@ class RestrictCustomerEventProcessor(AbstractEventProcessor):
         (Endpoint.CUSTOMERS, HTTPMethod.GET),
 
         (Endpoint.METRICS_UPDATE, HTTPMethod.POST),
-        (Endpoint.METRICS_STATUS, HTTPMethod.GET),
+        (Endpoint.METADATA_UPDATE, HTTPMethod.POST),
 
         (Endpoint.RULESETS, HTTPMethod.GET),
         (Endpoint.RULESETS, HTTPMethod.POST),
@@ -271,7 +273,9 @@ class RestrictCustomerEventProcessor(AbstractEventProcessor):
         (Endpoint.USERS_USERNAME, HTTPMethod.GET),
 
         (Endpoint.SCHEDULED_JOB, HTTPMethod.GET),
-        (Endpoint.SCHEDULED_JOB_NAME, HTTPMethod.GET)
+        (Endpoint.SCHEDULED_JOB_NAME, HTTPMethod.GET),
+
+        (Endpoint.SERVICE_OPERATIONS_STATUS, HTTPMethod.GET),
     }
 
     def __init__(self, customer_service: CustomerService):
@@ -466,6 +470,29 @@ class RestrictTenantEventProcessor(AbstractEventProcessor):
         self._ps = platform_service
         self._ls = license_service
 
+    def __call__(
+        self,
+        event: ProcessedEvent,
+        context: RequestContext,
+    ) -> tuple[ProcessedEvent, RequestContext]:
+        res = event['resource']
+        perm = event['permission']
+        
+        if not res or not perm or not perm.depends_on_tenant:
+            return event, context
+
+        if '{tenant_name}' in res:
+            return self._restrict_tenant_name(event, context)
+        if '{job_id}' in res:
+            return self._restrict_job_id(event, context)
+        if '{batch_results_id}' in res:
+            return self._restrict_batch_results(event, context)
+        if '{platform_id}' in res:
+            return self._restrict_platform_id(event, context)
+        if '{license_key}' in res:
+            return self._restrict_license_key(event, context)
+        return event, context
+
     @classmethod
     def build(cls) -> 'RestrictTenantEventProcessor':
         return cls(
@@ -524,25 +551,6 @@ class RestrictTenantEventProcessor(AbstractEventProcessor):
                               context: RequestContext
                               ) -> tuple[ProcessedEvent, RequestContext]:
         # todo check if license is applicable at least for one allowed tenant
-        return event, context
-
-    def __call__(self, event: ProcessedEvent, context: RequestContext
-                 ) -> tuple[ProcessedEvent, RequestContext]:
-        res = event['resource']
-        perm = event['permission']
-        if not res or not perm or not perm.depends_on_tenant:
-            return event, context
-
-        if '{tenant_name}' in res:
-            return self._restrict_tenant_name(event, context)
-        if '{job_id}' in res:
-            return self._restrict_job_id(event, context)
-        if '{batch_results_id}' in res:
-            return self._restrict_batch_results(event, context)
-        if '{platform_id}' in res:
-            return self._restrict_platform_id(event, context)
-        if '{license_key}' in res:
-            return self._restrict_license_key(event, context)
         return event, context
 
 
