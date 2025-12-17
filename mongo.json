@@ -1,0 +1,56 @@
+[
+    {
+        "id": "852587906425#eu-central-1#aws.cloudtrail#arn:aws:cloudtrail:eu-central-1:852587906425:trail/or2-epam-org",
+        "aid": "852587906425",
+        "l": "eu-central-1",
+        "rt": "aws.cloudtrail",
+        "i": "arn:aws:cloudtrail:eu-central-1:852587906425:trail/or2-epam-org",
+        "n": "or2-epam-org",
+        "arn": "arn:aws:cloudtrail:eu-central-1:852587906425:trail/or2-epam-org",
+        "d": {
+            "HasCustomEventSelectors": false,
+            "HasInsightSelectors": false,
+            "HomeRegion": "eu-central-1",
+            "IncludeGlobalServiceEvents": true,
+            "IsMultiRegionTrail": true,
+            "IsOrganizationTrail": true,
+            "LogFileValidationEnabled": true,
+            "Name": "or2-epam-org",
+            "S3BucketName": "or2-epam-org-epm-csup6",
+            "Tags": [],
+            "TrailARN": "arn:aws:cloudtrail:eu-central-1:852587906425:trail/or2-epam-org"
+        },
+        "s": 1723644074.392199,
+        "sha256": "59f981b21292df58fa0e491bbbea02ea3a0af23b574c9f1d34a91063b4fd0ba9",
+        "c": "cloud_custodian",
+        "tn": "AWS_ACCOUNT",
+        "cn": "myhun"
+    },
+    {
+        "id": "852587906425#eu-west-1#aws.cloudtrail#arn:aws:cloudtrail:eu-central-1:852587906425:trail/or2-epam-org",
+        "aid": "852587906425",
+        "l": "eu-west-1",
+        "rt": "aws.cloudtrail",
+        "i": "arn:aws:cloudtrail:eu-central-1:852587906425:trail/or2-epam-org",
+        "n": "or2-epam-org",
+        "arn": "arn:aws:cloudtrail:eu-central-1:852587906425:trail/or2-epam-org",
+        "d": {
+            "HasCustomEventSelectors": false,
+            "HasInsightSelectors": false,
+            "HomeRegion": "eu-central-1",
+            "IncludeGlobalServiceEvents": true,
+            "IsMultiRegionTrail": true,
+            "IsOrganizationTrail": true,
+            "LogFileValidationEnabled": true,
+            "Name": "or2-epam-org",
+            "S3BucketName": "or2-epam-org-epm-csup6",
+            "Tags": [],
+            "TrailARN": "arn:aws:cloudtrail:eu-central-1:852587906425:trail/or2-epam-org"
+        },
+        "s": 1723644088.805483,
+        "sha256": "59f981b21292df58fa0e491bbbea02ea3a0af23b574c9f1d34a91063b4fd0ba9",
+        "c": "cloud_custodian",
+        "tn": "AWS_ACCOUNT",
+        "cn": "myhun"
+    }
+]
