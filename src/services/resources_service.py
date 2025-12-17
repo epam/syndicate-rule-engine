@@ -92,6 +92,18 @@ class ResourcesService(BaseDataService[Resource]):
         res = Resource.arn_index.query(arn, limit=1)
         return next(res, None)
 
+    def get_resource_by_arn_and_tenant(
+        self, arn: str, tenant_name: str
+    ) -> Resource | None:
+        """
+        Retrieves a resource by ARN and tenant name.
+        """
+        filter_condition = Resource.tenant_name == tenant_name
+        res = Resource.arn_index.query(
+            arn, filter_condition=filter_condition, limit=1
+        )
+        return next(res, None)
+
     def get_resources(
         self,
         id: str | None = None,

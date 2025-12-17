@@ -15,7 +15,7 @@ def exception():
 
 
 @exception.command(cls=ViewCommand, name='describe')
-@click.option('--exception_id', '-excid', type=str,
+@click.option('--exception_id', '-exid', type=str,
               help='Resource exception ID. '
                    'If provided, other filters are ignored')
 @build_tenant_option()
