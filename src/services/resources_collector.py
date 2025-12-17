@@ -117,7 +117,12 @@ class BaseResourceCollector(ABC):
 
 class CredentialsContext:
     def __init__(self, creds: dict):
-        self._c = creds
+        # Convert Path objects to strings for os.environ compatibility
+        self._c = {
+            k: str(v) 
+            if v is not None else '' 
+            for k, v in creds.items()
+        }
 
     def __enter__(self):
         os.environ.update(self._c)
