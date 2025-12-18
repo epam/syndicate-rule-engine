@@ -1,4 +1,5 @@
-from executor.job import task_scheduled_job, task_standard_job
+from executor.job import task_scheduled_job, task_standard_job, upload_to_dojo, \
+    update_metadata
 from helpers import RequestContext
 from helpers.constants import Env
 from lambdas.license_updater.handler import LicenseUpdater
@@ -34,7 +35,12 @@ def run_scheduled_job(self, customer_name: str, name: str):
 
 @app.task
 def make_findings_snapshot():
-    FindingsUpdater.build().__call__()
+    # After findings are collected, findings trigger recommendations.
+    # This feature works only in `MetricsUpdater` lambda.
+    MetricsUpdater.build().lambda_handler(
+        event={'data_type': 'findings'},
+        context=RequestContext(),
+    )
 
 
 @app.task
@@ -66,6 +72,11 @@ def collect_metrics():
 
 
 @app.task
+def run_update_metadata():
+    update_metadata()
+
+
+@app.task
 def delete_expired_metrics():
     ExpiredMetricsCleaner.build().__call__()
 
@@ -73,3 +84,10 @@ def delete_expired_metrics():
 @app.task
 def collect_resources():
     CustodianResourceCollector.build().collect_all_resources()
+
+
+@app.task
+def push_to_dojo(job_ids: list[str] | str):
+    if isinstance(job_ids, str):
+        job_ids = [job_ids]
+    upload_to_dojo(job_ids)

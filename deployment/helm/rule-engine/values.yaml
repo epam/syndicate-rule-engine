@@ -12,7 +12,7 @@ service:
 
 image:
   repository: public.ecr.aws/x4s4z8e1/syndicate/rule-engine
-  tag: 5.14.0
+  tag: 5.15.0
   pullPolicy: Always
 
 replicas: 1
@@ -62,7 +62,7 @@ modular-api:
   modularApiM3adminLogLevel: ERROR
   modularApiModularSdkLogLevel: ERROR
   image:
-    tag: 4.3.5-rule-engine
+    tag: 4.3.5-rule-engine-5.10.0
 
 patch:
   enabled: true

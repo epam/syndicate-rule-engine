@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from http import HTTPStatus
 
 from modular_sdk.models.tenant import Tenant
@@ -217,7 +217,7 @@ class ResourceExceptionHandler(AbstractHandler):
         """
         Get resources with optional filtering and pagination.
         """
-        _LOG.debug('Getting resources')
+        _LOG.debug('Getting resource exceptions')
 
         resource_type = self._validate_resource_exception(
             customer_id=event.customer_id,
@@ -227,6 +227,11 @@ class ResourceExceptionHandler(AbstractHandler):
             arn=event.arn
         )
 
+        now = datetime.now(timezone.utc)
+        if event.include_expired:
+            _LOG.debug('Expired exceptions will be included')
+            now = None
+
         resources_iterator = self._res.get_resources_exceptions(
             resource_id=event.resource_id,
             location=event.location,
@@ -235,13 +240,25 @@ class ResourceExceptionHandler(AbstractHandler):
             customer_name=event.customer_id,
             arn=event.arn,
             tags_filters=event.tags_filters,
+            datetime_filter=now,
             limit=event.limit,
             last_evaluated_key=NextToken.deserialize(event.next_token).value,
         )
 
+        resources = list(resources_iterator)
+
+        if event.tags_filters:
+            resources = [
+                resource for resource in resources
+                    if resource.tags_filters and all(
+                        tag in resource.tags_filters for tag in event.tags_filters
+                    )
+            ]
+
         resources_exc_dtos = [
-            self._build_resource_exception_dto(resource)
-            for resource in resources_iterator
+            self._build_resource_exception_dto(
+                resource_exc=resource
+            ) for resource in resources
         ]
 
         return (
@@ -289,6 +306,27 @@ class ResourceExceptionHandler(AbstractHandler):
             arn=event.arn
         )
 
+        existing_resource_exceptions = self._res.get_resources_exceptions(
+            resource_id=event.resource_id,
+            location=event.location,
+            resource_type=resource_type,
+            tenant_name=event.tenant_name,
+            customer_name=event.customer_id,
+            arn=event.arn,
+            tags_filters=event.tags_filters,
+        )
+        existing_resource_exceptions = list(existing_resource_exceptions)
+        if existing_resource_exceptions:
+            exception_id = existing_resource_exceptions[0].id
+            raise (
+                ResponseFactory(HTTPStatus.CONFLICT)
+                .message(
+                    'Resource exception with same parameters'
+                    f' already exists. ID: {exception_id!r}.'
+                )
+                .exc()
+            )
+
         resource_exception = self._res.create(
             resource_id=event.resource_id,
             location=event.location,
@@ -300,6 +338,7 @@ class ResourceExceptionHandler(AbstractHandler):
             expire_at=self._to_timestamp(event.expire_at)
         )
         self._res.save(resource_exception)
+
 
         return (
             ResponseFactory()

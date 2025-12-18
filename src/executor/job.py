@@ -124,7 +124,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from itertools import chain
 from pathlib import Path
-from typing import TYPE_CHECKING, Generator, Iterable, cast
+from typing import TYPE_CHECKING, Generator, Iterable, cast, Callable
 
 # import multiprocessing
 import billiard as multiprocessing  # allows to execute child processes from a daemon process
@@ -135,9 +135,11 @@ from c7n.exceptions import PolicyValidationError
 from c7n.policy import Policy, PolicyCollection
 from c7n.provider import clouds
 from c7n.resources import load_resources
+from c7n_kube.query import DescribeSource, sources
 from celery.exceptions import SoftTimeLimitExceeded
 from google.auth.exceptions import GoogleAuthError
 from googleapiclient.errors import HttpError
+from modular_sdk.commons.trace_helper import tracer_decorator
 from modular_sdk.commons.constants import (
     ENV_AZURE_CLIENT_CERTIFICATE_PATH,
     ENV_GOOGLE_APPLICATION_CREDENTIALS,
@@ -168,7 +170,7 @@ from helpers.constants import (
     JobState,
     PlatformType,
     PolicyErrorType,
-    DEPRECATED_RULE_SUFFIX
+    ServiceOperationType
 )
 from helpers.log_helper import get_logger
 from helpers.regions import AWS_REGIONS
@@ -187,6 +189,8 @@ from services.clients.lm_client import LMException
 from services.clients.sts import StsClient, TokenGenerator
 from services.job_lock import TenantSettingJobLock
 from services.job_service import JobUpdater
+from services.metadata import Metadata
+from services.modular_helpers import tenant_cloud
 from services.platform_service import K8STokenKubeconfig, Kubeconfig, Platform
 from services.report_convertors import ShardCollectionDojoConvertor
 from services.reports_bucket import (
@@ -310,6 +314,10 @@ class PoliciesLoader:
             return GLOBAL_REGION
         return policy.options.region
 
+    @property
+    def _kubeconfig_path(self) -> str | None:
+        return os.getenv(ENV_KUBECONFIG)
+
     def _base_config(self) -> Config:
         match self._cloud:
             case Cloud.AWS:
@@ -339,6 +347,26 @@ class PoliciesLoader:
             log_group='null',
             tracer='default',
         )
+
+    @staticmethod
+    def _kube_session_factory(kubeconfig_path: str) -> Callable:
+        """Returns a factory function that creates Session with config_file"""
+        from c7n_kube.client import Session
+
+        _LOG.debug(f'Creating Kubernetes session factory')
+
+        def factory():
+            return Session(config_file=kubeconfig_path)
+        return factory
+
+    def _session_factory(self) -> Callable | None:
+        """Returns a session factory callable or None"""
+        session_factory = None
+        config_path = self._kubeconfig_path
+        if self._cloud == Cloud.KUBERNETES and config_path:
+            session_factory = self._kube_session_factory(config_path)
+
+        return session_factory
 
     @staticmethod
     def _get_resource_types(policies: list[PolicyDict]) -> set[str]:
@@ -466,6 +494,7 @@ class PoliciesLoader:
         load_resources(self._get_resource_types(policies))
         # here we should probably validate schema, but it's too time-consuming
         provider_policies = defaultdict(list)
+        session_factory = self._session_factory()
         for policy in policies:
             # if policy['name'].endswith(DEPRECATED_RULE_SUFFIX):
             #     _LOG.warning(
@@ -474,7 +503,11 @@ class PoliciesLoader:
             #     )
             #     continue
             try:
-                pol = Policy(policy, options)
+                pol = Policy(
+                    data=policy,
+                    options=options,
+                    session_factory=session_factory,
+                )
             except PolicyValidationError:
                 _LOG.warning(
                     f'Cannot load policy {policy["name"]} '
@@ -550,6 +583,13 @@ class PoliciesLoader:
         match self._cloud:
             case Cloud.AWS:
                 items = list(self.prepare_policies(items))
+            case Cloud.KUBERNETES:
+                for pol in items:
+                    self.set_global_output(pol)
+                    pol.data.setdefault(
+                        'source',
+                        self._ensure_source(pol.resource_type),
+                    )
             case _:
                 if self._output_dir:
                     for pol in items:
@@ -592,6 +632,26 @@ class PoliciesLoader:
             elif policy.name in (mapping.get(policy.options.region) or ()):
                 items.append(policy)
         return items
+
+    @staticmethod
+    def _ensure_source(resource_type: str) -> str:
+        source_name = f'describe-{resource_type.replace(".", "-")}'
+        if sources.get(source_name):
+            _LOG.debug(f'Source {source_name} already registered')
+            return source_name
+
+        # create a new subclass purely to give it a unique registered name so
+        # c7n properly handles caching
+        _LOG.debug(f'Registering new source: {source_name}')
+        cls = type(
+            f'Describe{resource_type.title().replace(".", "")}',
+            (DescribeSource,),
+            {"__doc__": f"Auto source for {resource_type}"}
+        )
+
+        sources.register(source_name)(cls)
+
+        return source_name
 
 
 class Runner(ABC):
@@ -888,23 +948,106 @@ def post_lm_job(job: Job):
         raise ExecutorException(ExecutorError.LM_DID_NOT_ALLOW)
 
 
-def upload_to_siem(ctx: 'JobExecutionContext', collection: ShardsCollection):
-    tenant = ctx.tenant
-    job = AmbiguousJob(ctx.job)
-    platform = ctx.platform
-    warnings = []
-    cloud = ctx.cloud()
+@tracer_decorator(
+    is_job=True, 
+    component=ServiceOperationType.UPDATE_METADATA.value,
+)
+def update_metadata():
+    import operator
+    from itertools import chain
+    
+    from modular_sdk.commons.constants import ApplicationType
 
-    metadata = SP.license_service.get_customer_metadata(tenant.customer_name)
+    from services import SERVICE_PROVIDER
+
+    _LOG.info('Starting metadata update task for all customers')
+    
+    license_service = SERVICE_PROVIDER.license_service
+    metadata_provider = SERVICE_PROVIDER.metadata_provider
+    customer_service = SERVICE_PROVIDER.modular_client.customer_service()
+    application_service = SERVICE_PROVIDER.modular_client.application_service()
+    
+    _LOG.info('Collecting licenses from all customers')
+    customer_names = map(
+        operator.attrgetter('name'), 
+        customer_service.i_get_customer(),
+    )
+    license_applications = chain.from_iterable(
+        application_service.i_get_application_by_customer(
+            customer_name, 
+            ApplicationType.CUSTODIAN_LICENSES.value, 
+            deleted=False,
+        )
+        for customer_name in customer_names
+    )
+    licenses = list(license_service.to_licenses(license_applications))
+    
+    total_licenses = len(licenses)
+    _LOG.info(f'Found {total_licenses} license(s) to update')
+    
+    if not licenses:
+        _LOG.warning('No licenses found - skipping metadata update')
+        return
+    
+    successful_updates = 0
+    failed_updates = 0
+    
+    for license_obj in licenses:
+        license_key = license_obj.license_key
+        try:
+            _LOG.info(f'Updating metadata for license: {license_key}')
+            metadata = metadata_provider.refresh(license_obj)
+            if not metadata.rules and not metadata.domains:
+                _LOG.warning(
+                    f'Metadata update returned empty metadata for license: {license_key}'
+                )
+                failed_updates += 1
+            else:
+                _LOG.info(f'Successfully updated metadata for license: {license_key}')
+                successful_updates += 1
+        except Exception as e:
+            _LOG.error(
+                f'Failed to update metadata for license {license_key}: {e}',
+                exc_info=True
+            )
+            failed_updates += 1
+    
+    if failed_updates > 0:
+        reason = (
+            f'Failed to update metadata for {failed_updates}/{total_licenses} '
+            'license(s)'
+        )
+        ExecutorError.METADATA_UPDATE_FAILED.reason = reason
+        raise ExecutorException(ExecutorError.METADATA_UPDATE_FAILED)
+    
+    _LOG.info(
+        f'Metadata for {successful_updates}/{total_licenses} '
+        'licenses updated successfully'
+    )
+
+def import_to_dojo(
+    job: AmbiguousJob,
+    tenant: Tenant,
+    cloud: Cloud,
+    platform: Platform,
+    collection: ShardsCollection,
+    metadata: Metadata,
+    send_after_job: bool | None = None,
+) -> list:
+    warnings = []
+
     for dojo, configuration in SP.integration_service.get_dojo_adapters(
-        tenant, True
+        tenant=tenant,
+        send_after_job=send_after_job,
     ):
+
         convertor = ShardCollectionDojoConvertor.from_scan_type(
             configuration.scan_type, cloud, metadata
         )
         configuration = configuration.substitute_fields(job, platform)
         client = DojoV2Client(
-            url=dojo.url, api_key=SP.defect_dojo_service.get_api_key(dojo)
+            url=dojo.url,
+            api_key=SP.defect_dojo_service.get_api_key(dojo),
         )
         try:
             client.import_scan(
@@ -917,9 +1060,75 @@ def upload_to_siem(ctx: 'JobExecutionContext', collection: ShardsCollection):
                 data=convertor.convert(collection),
                 tags=SP.integration_service.job_tags_dojo(job),
             )
-        except Exception:
-            _LOG.exception('Unexpected error occurred pushing to dojo')
+        except Exception as e:
+            _LOG.exception(f'Unexpected error occurred pushing to dojo: {e}')
             warnings.append(f'could not upload data to DefectDojo {dojo.id}')
+
+    return warnings
+
+
+@tracer_decorator(
+    is_job=True,
+    component=ServiceOperationType.PUSH_DOJO.value,
+)
+def upload_to_dojo(job_ids: Iterable[str]):
+    for job_id in job_ids:
+        _LOG.info(f'Uploading job {job_id} to dojo')
+        job_ = SP.job_service.get_nullable(job_id)
+        job = AmbiguousJob(job_)
+        tenant = SP.modular_client.tenant_service().get(job.tenant_name)
+
+        platform = None
+        if job.is_platform_job:
+            platform = SP.platform_service.get_nullable(job.platform_id)
+            if not platform:
+                _LOG.warning('Job platform not found. Skipping upload to dojo')
+                continue
+            collection = SP.report_service.platform_job_collection(
+                platform=platform,
+                job=job.job,
+            )
+            collection.meta = SP.report_service.fetch_meta(platform)
+            cloud = Cloud.KUBERNETES
+        else:
+            collection = SP.report_service.ambiguous_job_collection(tenant, job)
+            collection.meta = SP.report_service.fetch_meta(tenant)
+            cloud = tenant_cloud(tenant)
+
+        collection.fetch_all()
+
+        metadata = SP.license_service.get_customer_metadata(tenant.customer_name)
+
+        import_to_dojo(
+            job=job,
+            tenant=tenant,
+            cloud=cloud,
+            platform=platform,
+            collection= collection,
+            metadata=metadata,
+        )
+
+
+def upload_to_siem(ctx: 'JobExecutionContext', collection: ShardsCollection):
+    tenant = ctx.tenant
+    job = AmbiguousJob(ctx.job)
+    platform = ctx.platform
+    warnings = []
+    cloud = ctx.cloud()
+
+    metadata = SP.license_service.get_customer_metadata(tenant.customer_name)
+
+    dojo_warnings = import_to_dojo(
+        job=job,
+        tenant=tenant,
+        cloud=cloud,
+        platform=platform,
+        collection=collection,
+        metadata=metadata,
+        send_after_job=True,
+    )
+    warnings.extend(dojo_warnings)
+
     mcs = SP.modular_client.maestro_credentials_service()
     for (
         chronicle,
@@ -1042,6 +1251,7 @@ def get_platform_credentials(job: Job, platform: Platform) -> dict | None:
     """
     Credentials for platform (k8s) only. This should be refactored somehow.
     Raises ExecutorException if not credentials are found
+    :param job:
     :param platform:
     :return:
     """
@@ -1288,7 +1498,9 @@ def multi_account_event_driven_job() -> int:
     return 0
 
 
-def job_initializer(envs):
+def job_initializer(
+    envs: dict,
+):
     _LOG.info(
         f'Initializing subprocess for a region: {multiprocessing.current_process()}'
     )
@@ -1297,7 +1509,10 @@ def job_initializer(envs):
 
 
 def process_job_concurrent(
-    items: list[PolicyDict], work_dir: Path, cloud: Cloud, region: str
+    items: list[PolicyDict],
+    work_dir: Path,
+    cloud: Cloud,
+    region: str,
 ) -> tuple[int, dict | None]:
     """
     Cloud Custodian keeps consuming RAM for some reason. After 9th-10th region
@@ -1307,12 +1522,16 @@ def process_job_concurrent(
     consequently. When one process finished its memory is freed
     (any way the results is flushed to files).
     """
+
     if Env.ENABLE_CUSTOM_CC_PLUGINS.is_set():
         register_all()
 
     _LOG.debug(f'Running scan process for region {region}')
     loader = PoliciesLoader(
-        cloud=cloud, output_dir=work_dir, regions={region}, cache_period=120
+        cloud=cloud,
+        output_dir=work_dir,
+        regions={region},
+        cache_period=120,
     )
     try:
         _LOG.debug(f'Going to load {len(items)} policies dicts')
@@ -1334,6 +1553,25 @@ def process_job_concurrent(
     runner = Runner.factory(cloud, policies)
     runner.start()
     _LOG.info('Runner has finished')
+
+    if cloud is Cloud.GOOGLE and (
+        filename := os.environ.get(ENV_GOOGLE_APPLICATION_CREDENTIALS)
+    ):
+        _LOG.debug(f'Removing temporary google credentials file {filename}')
+        Path(filename).unlink(missing_ok=True)
+
+    if cloud is Cloud.AZURE and (
+        filename := os.environ.get(ENV_AZURE_CLIENT_CERTIFICATE_PATH)
+    ):
+        _LOG.debug(f'Removing temporary azure certificate file {filename}')
+        Path(filename).unlink(missing_ok=True)
+
+    if cloud is Cloud.KUBERNETES and (
+        filename := os.environ.get(ENV_KUBECONFIG)
+    ):
+        _LOG.debug(f'Removing temporary kubeconfig file {filename}')
+        Path(filename).unlink(missing_ok=True)
+
     return runner.n_successful, runner.failed
 
 
@@ -1602,6 +1840,7 @@ def run_standard_job(ctx: JobExecutionContext):
 
     if credentials is None:
         raise ExecutorException(ExecutorError.NO_CREDENTIALS)
+
     credentials = {str(k): str(v) for k, v in credentials.items() if v}
 
     policies = list(
@@ -1627,7 +1866,9 @@ def run_standard_job(ctx: JobExecutionContext):
         # prevents high ram usage
         _LOG.info(f'Going to init pool for region {region}')
         with multiprocessing.Pool(
-            processes=1, initializer=job_initializer, initargs=(credentials,)
+            processes=1,
+            initializer=job_initializer,
+            initargs=(credentials,),
         ) as pool:
             pair = pool.apply(
                 process_job_concurrent, (policies, ctx.work_dir, cloud, region)
@@ -1649,14 +1890,6 @@ def run_standard_job(ctx: JobExecutionContext):
             warnings.append(w)
         failed.update(pair[1])
 
-    if cloud is Cloud.GOOGLE and (
-        filename := credentials.get(ENV_GOOGLE_APPLICATION_CREDENTIALS)
-    ):
-        Path(filename).unlink(missing_ok=True)
-    if cloud is Cloud.AZURE and (
-        filename := credentials.get(ENV_AZURE_CLIENT_CERTIFICATE_PATH)
-    ):
-        Path(filename).unlink(missing_ok=True)
     ctx.add_warnings(*warnings)
     del warnings
     del credentials

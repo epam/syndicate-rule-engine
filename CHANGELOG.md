@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.15.0] - 2025-11-06
+- Added hiding expired resource exceptions
+- Added the parameter `overwrite` to the `POST /rulesets/release` endpoint that allows to overwrite existing ruleset version
+- Added the possibility to configure gunicorn workers timeout via the `SRE_GUNICORN_WORKERS_TIMEOUT` env variable
+- Added user guide and commands reference guide to the documentation
+- Added `/metadata/update` endpoint to updating locally stored metadata
+- Added `/service-operations/status?type={service_operation_type}` endpoint to get the status of service operations where `service_operation_type` is one of:
+  - `metrics-update`
+  - `metadata-update`
+  - `push-dojo`
+- Added `Permission.SERVICE_OPERATIONS_STATUS` permission for getting the status of service operations
+- Added exceptions information (`exceptions_data`) to project-level reports: 
+  - Project Overview
+  - Project Compliance
+  - Project Resources
+  - Project Attacks
+  - Project FinOps
+- Added violated rules information (`cluster_metadata.rules.violated`) to operational Kubernetes report
+- Added the possibility to submit jobs and push reports to dojo with custom `product`, `engagement`, and `test` names
+- Push to Defect Dojo changed from synchronous to asynchronous
+- Restored recommendations processing flow in `metrics_updater` lambda
+- `Permission.METRICS_STATUS` permission replaced with `Permission.SERVICE_OPERATIONS_STATUS`
+- Disabled the plugin `gcp_cloudrun`
+- Resolved a problem caused by the license manager being temporarily unavailable.
+- Fixed plugin `aws.workspaces-directory.filter.check-vpc-endpoints-availability`
+- Fixed an issue with filtering resource exceptions by `--tags_filters`
+- Fixed issue with kube-confid file during k8s scan
+- Fixed an issue with describing rules by the cloud name
+- Fixed an issue with handling the `expiration` parameter in `sre role add/update` commands
+- Fixed an issue with creating resource exceptions with the same parameters
+- Fixed an issue with inaccurate K8S scan results
+- Fixed rulesets double compression issue
+
 
 ## [5.14.0] - 2025-10-03
 - Updated the ami-initialize.sh script

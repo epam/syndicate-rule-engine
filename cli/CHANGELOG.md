@@ -4,18 +4,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.10.0] - 2025-10-16
+- Added the flag `--include_expired` to the command `resource exception describe` to allow retrieving expired resource exceptions
+- Added the `--overwrite` flag to the `ruleset release` command, enabling overwriting of an existing ruleset version
+- Added `sre metadata update` command to updating locally stored metadata
+- Added unified command to get the status of service operations:
+  - `sre service_operation status --operation <operation_type>`
+  - Available operations: `metrics_update`, `metadata_update`, `push_dojo`
+- Added `dojo_product`, `dojo_engagement`, and `dojo_test` parameters to commands `job submit`, `job submit_k8s`, and `repot push dojo`
+- Updated help messages for date parameters to use dynamic date examples in `sre role add|update`, `sre job describe` and `sre metrics status` commands
+- Updated `--expiration` parameter help text to clarify UTC interpretation for naive datetime values
+- Changed an alias name from `-l` to `-loc` for the `--location` parameter in the command `resource exception describe` because of duplication with the `--limit` parameter alias in the same command
+- Fixed an issue with `--google_application_credentials_path` parameter not being recognized as a file parameter in `re job submit` command when SRE CLI is installed as a module within Modular API, causing "${file} not found" error
+- Fixed an issue with formatting datetime for `sre setting lm config describe` command
+- `sre metrics status` command replaced with `sre service_operation status --operation metrics_update`
+
 ## [5.9.0] - 2025-09-15
 - Multiple options' help messages extended with the word `[multiple]`
 - Fixed issue related to CLI and API version comparison
 - Fixed issue with the `detach_policy` parameter alias in the `role update` command
 - Add resource management commands to CLI:
-  - `ecc resource describe` - Retrieve cloud resources with filtering and pagination
+  - `sre resource describe` - Retrieve cloud resources with filtering and pagination
   - Support for retrieving resources by ARN
 - Add resource exception management commands to CLI
-  - `ecc resource exception describe` - List resource exceptions with filtering
-  - `ecc resource exception add` - Create new resource exceptions (resource-specific, ARN-based, or tag-based)
-  - `ecc resource exception update` - Update existing resource exceptions
-  - `ecc resource exception delete` - Delete resource exceptions
+  - `sre resource exception describe` - List resource exceptions with filtering
+  - `sre resource exception add` - Create new resource exceptions (resource-specific, ARN-based, or tag-based)
+  - `sre resource exception update` - Update existing resource exceptions
+  - `sre resource exception delete` - Delete resource exceptions
 
 ## [5.8.0] - 2025-08-15
 - renamed `Custodian` to `Syndicate Rule Engine (SRE)`

@@ -56,9 +56,10 @@ class Endpoint(str, Enum):
     BATCH_RESULTS = '/batch-results'
     REPORTS_RETRY = '/reports/retry'
     POLICIES_NAME = '/policies/{name}'
-    METRICS_STATUS = '/metrics/status'
+    SERVICE_OPERATIONS_STATUS = '/service-operations/status'
     REPORTS_CLEVEL = '/reports/clevel'
     METRICS_UPDATE = '/metrics/update'
+    METADATA_UPDATE = '/metadata/update'
     REPORTS_STATUS = '/reports/status'
     REPORTS_PROJECT = '/reports/project'
     USERS_USERNAME = '/users/{username}'
@@ -208,6 +209,9 @@ CLOUD_ATTR = 'cloud'
 CLOUD_IDENTIFIER_ATTR = 'cloud_identifier'
 REGION_ATTR = 'region'
 JOB_ID_ATTR = 'job_id'
+DOJO_PRODUCT_ATTR = 'product'
+DOJO_ENGAGEMENT_ATTR = 'engagement'
+DOJO_TEST_ATTR = 'test'
 
 
 class Cloud(str, Enum):
@@ -251,6 +255,16 @@ class RuleDomain(str, Enum):
 class JobType(str, Enum):
     MANUAL = 'manual'
     REACTIVE = 'reactive'
+
+
+class ServiceOperationType(str, Enum):
+    """
+    Allowed service operation types for status tracking endpoint
+    """
+
+    UPDATE_METRICS = 'metrics-update'
+    UPDATE_METADATA = 'metadata-update'
+    PUSH_DOJO = 'push-dojo'
 
 
 class ReportFormat(str, Enum):
@@ -826,7 +840,9 @@ class Permission(str, Enum):
     RULE_UPDATE_META = 'system:update_meta'
 
     METRICS_UPDATE = 'system:update_metrics', True
-    METRICS_STATUS = 'system:metrics_status'
+    METADATA_UPDATE = 'system:update_metadata', True
+
+    SERVICE_OPERATIONS_STATUS = 'service_operations:status'
 
     RULESET_DESCRIBE = 'ruleset:describe', False  # True
     RULESET_CREATE = 'ruleset:create'

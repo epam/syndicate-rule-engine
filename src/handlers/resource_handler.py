@@ -95,7 +95,7 @@ class ResourceHandler(AbstractHandler):
 
         if resource_type not in resources_types:
             raise ValueError(
-                f'Resource type {resource_type} is not supported for cloud {cloud}'
+                f'Resource type {resource_type} is not supported for cloud {cloud.value}'
             )
 
         return resource_type, cloud
@@ -113,7 +113,7 @@ class ResourceHandler(AbstractHandler):
 
         if location not in locations:
             raise ValueError(
-                f'Location {location} is not supported for cloud {cloud}'
+                f'Location {location} is not supported for cloud {cloud.value}'
             )
 
     def _validate_event(self, event: ResourcesGetModel):

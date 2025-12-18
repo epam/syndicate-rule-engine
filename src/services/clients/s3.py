@@ -181,6 +181,32 @@ class S3Client(Boto3ClientWrapper):
             Fileobj=body, Key=key, ExtraArgs=params
         )
 
+    @staticmethod
+    def _is_gzip_stream(body: bytes | bytearray | BinaryIO) -> bool:
+        gz_magic = b"\x1f\x8b"
+        if isinstance(body, (bytes, bytearray)):
+            return body.startswith(gz_magic)
+
+        if hasattr(body, "peek"):
+            try:
+                return body.peek(2)[:2] == gz_magic
+            except Exception:
+                return False
+
+        try:
+            pos = body.tell()
+        except Exception:
+            return False
+
+        try:
+            head = body.read(2)
+            return head == gz_magic
+        finally:
+            try:
+                body.seek(pos)
+            except Exception:
+                pass
+
     def gz_put_object(
         self,
         bucket: str,
@@ -192,7 +218,7 @@ class S3Client(Boto3ClientWrapper):
     ):
         """
         Uploads the file adding .gz to the file extension and compressing the
-        body
+        body if it's not already compressed.
         :param bucket:
         :param key:
         :param body:
@@ -202,6 +228,24 @@ class S3Client(Boto3ClientWrapper):
         :param content_encoding:
         :return:
         """
+
+        already_gzipped = self._is_gzip_stream(body)
+
+        if already_gzipped:
+            stream = body if not isinstance(body, (bytes, bytearray)) \
+                else io.BytesIO(body)
+            try:
+                stream.seek(0)
+            except Exception:
+                pass
+            return self.put_object(
+                bucket=bucket,
+                key=self._gz_key(key),
+                body=stream,
+                content_type=content_type,
+                content_encoding=content_encoding,
+            )
+
         if not gz_buffer:
             gz_buffer = io.BytesIO()
         with gzip.GzipFile(fileobj=gz_buffer, mode='wb') as gz:
@@ -211,11 +255,11 @@ class S3Client(Boto3ClientWrapper):
                 shutil.copyfileobj(body, gz)
         gz_buffer.seek(0)
         return self.put_object(
-            bucket,
-            self._gz_key(key),
-            gz_buffer,
-            content_type,
-            content_encoding,
+            bucket=bucket,
+            key=self._gz_key(key),
+            body=gz_buffer,
+            content_type=content_type,
+            content_encoding=content_encoding,
         )
 
     def get_object(

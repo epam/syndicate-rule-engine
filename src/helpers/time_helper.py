@@ -27,5 +27,15 @@ def utc_iso(_from: datetime | None = None) -> str:
     return obj.astimezone(timezone.utc).isoformat().replace('+00:00', 'Z')
 
 
+def as_milliseconds(timestamp: float) -> int:
+    """
+    Converts timestamp to milliseconds
+
+    :param timestamp: float
+    :returns: int
+    """
+    return int(timestamp * 1000)
+
+
 def week_number(_from: datetime | date | None = None) -> int:
     return (_from.day - 1) // 7 + 1

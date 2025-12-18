@@ -22,7 +22,7 @@ def exception():
 @click.option('--resource_type', '-rt', type=str,
               help='Resource type to filter the results '
                    '(e.g., aws.ec2, azure.vm)')
-@click.option('--location', '-l', type=str, required=False,
+@click.option('--location', '-loc', type=str, required=False,
               help='Location/region to filter the results')
 @click.option('--resource_id', '-resid', type=str,
               help='Resource ID to filter the results')
@@ -32,6 +32,9 @@ def exception():
 @click.option('--tags_filters', '-tf', type=str, multiple=True,
               help='Tag filters to apply to the results '
                    '(e.g., key=value)')
+@click.option('--include_expired', '-ie', is_flag=True,
+              help='Determines whether to include expired exceptions in the '
+                   'results.')
 @build_limit_option()
 @next_option
 @cli_response()
@@ -44,6 +47,7 @@ def describe(
     resource_id: str | None = None,
     arn: str | None = None,
     tags_filters: tuple[str] | None = None,
+    include_expired: bool = False,
     limit: int | None = None,
     next_token: str | None = None,
     customer_id: str | None = None,
@@ -68,6 +72,7 @@ def describe(
         resource_id=resource_id,
         arn=arn,
         tags_filters=list(tags_filters) if tags_filters else None,
+        include_expired=include_expired,
         limit=limit,
         next_token=next_token,
         customer_id=customer_id,

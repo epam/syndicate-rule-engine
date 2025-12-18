@@ -211,6 +211,54 @@ def test_update_resource_exception_success(
     assert data['resource_id'] == update_data['resource_id']
 
 
+@pytest.mark.parametrize(
+    'exception_params',
+    [
+        {'resource_type': 'aws.ec2', 'location': 'us-east-1', 'resource_id': 'i-duplicate-test-123'},
+        {'arn': 'arn:aws:ec2:us-east-1:123456789012:instance/i-duplicate-arn-test'},
+        {'tags_filters': ['Environment=Production', 'Team=DevOps']},
+    ],
+    ids=['resource_id', 'arn', 'tags_filters']
+)
+def test_create_resource_exception_duplicate_conflict(
+    system_user_token, sre_client, main_customer, aws_tenant, exception_params
+):
+    """
+    Test that creating a duplicate resource exception returns 409 CONFLICT
+    """
+    future_date = (datetime.now() + timedelta(days=30)).isoformat()
+
+    request_data = {
+        'customer_id': main_customer.name,
+        'tenant_name': aws_tenant.name,
+        'expire_at': future_date,
+        **exception_params
+    }
+    
+    resp1 = sre_client.request(
+        '/resources/exceptions',
+        method='POST',
+        auth=system_user_token,
+        data=request_data,
+    )
+    
+    assert resp1.status_int == 200
+    assert 'data' in resp1.json
+    first_exception_id = resp1.json['data']['id']
+    
+    resp2 = sre_client.request(
+        '/resources/exceptions',
+        method='POST',
+        auth=system_user_token,
+        data=request_data,
+    )
+    
+    assert resp2.status_int == 409
+    assert 'message' in resp2.json
+    assert 'already exists' in resp2.json['message']
+    assert first_exception_id in resp2.json['message']
+
+
 def test_delete_resource_exception_success(
     system_user_token, sre_client, sample_resource_exception, main_customer
 ):

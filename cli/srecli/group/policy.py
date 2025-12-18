@@ -3,7 +3,7 @@ from pathlib import Path
 
 import click
 
-from srecli.group import ContextObj, ViewCommand, cli_response
+from srecli.group import ContextObj, ViewCommand, cli_response, validate_file_optional
 
 attributes_order = 'name', 'permissions', 'customer'
 
@@ -37,6 +37,7 @@ def describe(ctx: ContextObj, customer_id, name):
 @click.option('--permission', '-p', multiple=True,
               help='List of permissions to attach to the policy')
 @click.option('--path_to_permissions', '-path', required=False,
+              callback=validate_file_optional,
               help='Local path to .json file that contains list of '
                    'permissions to attach to the policy')
 @click.option('--permissions_admin', '-admin', is_flag=True,
@@ -62,10 +63,6 @@ def add(ctx: ContextObj, customer_id, name, permission,
     permissions = list(permission)
     if path_to_permissions:
         path = Path(path_to_permissions)
-        if not path.exists() or not path.is_file():
-            raise click.ClickException(
-                f'File {path_to_permissions} does not exist'
-            )
         with open(path, 'r') as file:
             try:
                 data = json.load(file)

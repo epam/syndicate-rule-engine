@@ -11,6 +11,24 @@ from srecli.service.constants import AWS, AZURE, GOOGLE, KUBERNETES
 attributes_order = 'license_key', 'ruleset_ids', 'expiration', 'latest_sync'
 
 
+def _sync_hint(
+    license_key: str, 
+    customer_id: str | None = None,
+) -> str:
+    template = (
+        "Use 'sre license describe -lk {license_key} -cid {customer_id}' "
+        "to check status."
+    )
+
+    if not customer_id:
+        customer_id = '$customer_id'
+
+    return template.format(
+        license_key=license_key, 
+        customer_id=customer_id,
+    )
+
+
 @click.group(name='license')
 def license():
     """Manages License Entities"""
@@ -58,15 +76,32 @@ def delete(ctx: ContextObj, license_key, customer_id):
                                             customer_id=customer_id)
 
 
-@license.command(cls=ViewCommand, name='sync')
-@click.option('--license_key', '-lk', type=str, required=True,
-              help='License key to synchronize')
-@cli_response(attributes_order=attributes_order)
-def sync(ctx: ContextObj, license_key, customer_id):
+@license.command(
+    cls=ViewCommand, 
+    name='sync',
+)
+@click.option(
+    '--license_key', '-lk',
+    type=str,
+    required=True,
+    help='License key to synchronize',
+)
+@cli_response(
+    attributes_order=attributes_order,
+    hint=_sync_hint
+)
+def sync(
+    ctx: ContextObj, 
+    license_key: str, 
+    customer_id: str | None,
+):
     """
     Synchronizes Licenses
     """
-    return ctx['api_client'].license_sync(license_key, customer_id=customer_id)
+    return ctx['api_client'].license_sync(
+        license_key=license_key,
+        customer_id=customer_id,
+    )
 
 
 @license.command(cls=ViewCommand, name='activate')

@@ -1,5 +1,6 @@
 # classes for swagger models are not instantiated directly in code.
 # PreparedEvent models are used instead.
+import ast
 from base64 import standard_b64decode
 from datetime import date, datetime, timedelta, timezone
 from typing import Literal, Generator
@@ -35,6 +36,7 @@ from helpers.constants import (
     ReportType,
     Env,
     TAGS_KEY_VALUE_SEPARATOR,
+    ServiceOperationType,
 )
 from helpers import Version
 from helpers.regions import AllRegions, AllRegionsWithGlobal
@@ -199,13 +201,16 @@ class ResourcesExceptionsGetModel(BasePaginationModel):
         description='List of tags to filter resources by.',
         examples=[{'tag1=value1', 'tag2=value2'}],
     )
+    include_expired: bool = Field(
+        False, description='Include expired exceptions.'
+    )
 
     @field_validator('tags_filters', mode='before')
     @classmethod
     def normalize_tags_filters(cls, value):
         """Convert single string to set for single-value query parameters."""
         if isinstance(value, str):
-            return {value}
+            return set(ast.literal_eval(value))
         return value
 
     @field_validator('tags_filters', mode='after')
@@ -612,6 +617,11 @@ class RulesetReleasePostModel(BaseModel):
     description: str
     display_name: str
 
+    overwrite: bool = Field(
+        default=False,
+        description='Determines whether to overwrite an existing ruleset version'
+    )
+
     @field_validator('version', mode='after')
     @classmethod
     def validate_version(cls, version: str | None) -> str | None:
@@ -646,6 +656,12 @@ class RuleGetModel(BasePaginationModel):
     """
     GET
     """
+
+    model_config = ConfigDict(
+        coerce_numbers_to_str=True,
+        populate_by_name=True,
+        use_enum_values=True,
+    )
 
     rule: str = Field(None)
     cloud: RuleDomain = Field(None)
@@ -757,7 +773,10 @@ class RolePostModel(BaseModel):
     def _(cls, expiration: datetime | None) -> datetime | None:
         if not expiration:
             return expiration
-        expiration.astimezone(timezone.utc)
+        if expiration.tzinfo is None:
+            expiration = expiration.replace(tzinfo=timezone.utc)
+        else:
+            expiration.astimezone(timezone.utc)
         if expiration < datetime.now(tz=timezone.utc):
             raise ValueError('Expiration date has already passed')
         return expiration
@@ -902,6 +921,12 @@ class GOOGLECredentials3(PydanticBaseModel):
     project_id: str
 
 
+class DojoStructure(PydanticBaseModel):
+    product: str | None = None
+    engagement: str | None = None
+    test: str | None = None
+
+
 class JobPostModel(BaseModel):
     credentials: (
         AWSCredentials
@@ -926,6 +951,22 @@ class JobPostModel(BaseModel):
         'automatically unless an ambiguous occurs',
     )
 
+    dojo_product: str = Field(
+        None,
+        description='Defect Dojo product name to which the results will be '
+                    'uploaded',
+    )
+    dojo_engagement: str = Field(
+        None,
+        description='Defect Dojo engagement name to which the results will be '
+                    'uploaded',
+    )
+    dojo_test: str = Field(
+        None,
+        description='Defect Dojo test name to which the results will be '
+                    'uploaded',
+    )
+
     @field_validator('target_rulesets', mode='after')
     @classmethod
     def validate_rulesets(cls, value: set[str]) -> set[str]:
@@ -948,6 +989,13 @@ class JobPostModel(BaseModel):
 
     def iter_rulesets(self) -> Generator[RulesetName, None, None]:
         yield from map(RulesetName, self.target_rulesets)
+
+    def dojo_structure(self) -> dict:
+        return DojoStructure(
+            product=self.dojo_product,
+            engagement=self.dojo_engagement,
+            test=self.dojo_test,
+        ).model_dump(exclude_none=True)
 
 
 def sanitize_schedule(schedule: str) -> str:
@@ -1328,6 +1376,34 @@ class ReportPushByJobIdModel(BaseModel):
 
     type: JobType = JobType.MANUAL
 
+class ReportPushDojoByJobIdModel(ReportPushByJobIdModel):
+    """
+    /reports/push/dojo/{job_id}/
+    """
+
+    dojo_product: str = Field(
+        None,
+        description='Defect Dojo product name to which the results will be '
+                    'uploaded',
+    )
+    dojo_engagement: str = Field(
+        None,
+        description='Defect Dojo engagement name to which the results will be '
+                    'uploaded',
+    )
+    dojo_test: str = Field(
+        None,
+        description='Defect Dojo test name to which the results will be '
+                    'uploaded',
+    )
+
+    def dojo_structure(self) -> dict:
+        return DojoStructure(
+            product=self.dojo_product,
+            engagement=self.dojo_engagement,
+            test=self.dojo_test,
+        ).model_dump(exclude_none=True)
+
 
 class ReportPushMultipleModel(TimeRangedMixin, BaseModel):
     """
@@ -1339,6 +1415,34 @@ class ReportPushMultipleModel(TimeRangedMixin, BaseModel):
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
     type: JobType = Field(None)
+
+class ReportPushDojoMultipleModel(ReportPushMultipleModel):
+    """
+    /reports/push/dojo
+    """
+
+    dojo_product: str = Field(
+        None,
+        description='Defect Dojo product name to which the results will be '
+                    'uploaded',
+    )
+    dojo_engagement: str = Field(
+        None,
+        description='Defect Dojo engagement name to which the results will be '
+                    'uploaded',
+    )
+    dojo_test: str = Field(
+        None,
+        description='Defect Dojo test name to which the results will be '
+                    'uploaded',
+    )
+
+    def dojo_structure(self) -> dict:
+        return DojoStructure(
+            product=self.dojo_product,
+            engagement=self.dojo_engagement,
+            test=self.dojo_test
+        ).model_dump(exclude_none=True)
 
 
 class ProjectGetReportModel(BaseModel):
@@ -1721,6 +1825,22 @@ class K8sJobPostModel(BaseModel):
         'automatically unless an ambiguous occurs',
     )
 
+    dojo_product: str = Field(
+        None,
+        description='Defect Dojo product name to which the results will be '
+                    'uploaded',
+    )
+    dojo_engagement: str = Field(
+        None,
+        description='Defect Dojo engagement name to which the results will be '
+                    'uploaded',
+    )
+    dojo_test: str = Field(
+        None,
+        description='Defect Dojo test name to which the results will be '
+                    'uploaded',
+    )
+
     @field_validator('target_rulesets', mode='after')
     @classmethod
     def validate_rulesets(cls, value: set[str]) -> set[str]:
@@ -1738,6 +1858,13 @@ class K8sJobPostModel(BaseModel):
     def iter_rulesets(self) -> Generator[RulesetName, None, None]:
         yield from map(RulesetName, self.target_rulesets)
 
+    def dojo_structure(self) -> dict:
+        return DojoStructure(
+            product=self.dojo_product,
+            engagement=self.dojo_engagement,
+            test=self.dojo_test,
+        ).model_dump(exclude_none=True)
+
 
 class ReportStatusGetModel(BaseModel):
     """
@@ -1748,7 +1875,8 @@ class ReportStatusGetModel(BaseModel):
     complete: bool = False
 
 
-class MetricsStatusGetModel(TimeRangedMixin, BaseModel):
+class ServiceOperationStatusGetModel(TimeRangedMixin, BaseModel):
+    type: ServiceOperationType
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
 

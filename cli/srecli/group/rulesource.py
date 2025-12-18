@@ -1,8 +1,14 @@
-
 import click
 
-from srecli.group import cli_response, ViewCommand, \
-    ContextObj, build_rule_source_id_option, next_option, limit_option
+from srecli.group import (
+    cli_response, 
+    ViewCommand, 
+    ContextObj, 
+    build_rule_source_id_option, 
+    next_option, 
+    limit_option, 
+)
+from srecli.service.adapter_client import SREResponse
 
 attributes_order = ('id', 'type', 'description', 'git_project_id', 'git_url',
                     'git_ref', 'git_rules_prefix')
@@ -121,8 +127,16 @@ def delete(ctx: ContextObj, rule_source_id, delete_rules, customer_id):
 
 @rulesource.command(cls=ViewCommand, name='sync')
 @build_rule_source_id_option(required=True)
-@cli_response()
-def sync(ctx: ContextObj, rule_source_id, customer_id):
+@cli_response(
+    hint=lambda rule_source_id, **kwargs: (
+        f"Use 'sre rulesource describe -rsid {rule_source_id}' to check status."
+    ),
+)
+def sync(
+    ctx: ContextObj,
+    rule_source_id: str,
+    customer_id: str | None,
+) -> SREResponse:
     """
     Updates rules for this rule source
     """

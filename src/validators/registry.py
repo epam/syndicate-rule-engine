@@ -39,7 +39,6 @@ from validators.swagger_request_models import (
     LicensePostModel,
     MailSettingGetModel,
     MailSettingPostModel,
-    MetricsStatusGetModel,
     MultipleTenantsGetModel,
     OperationalGetReportModel,
     PlatformK8SPostModel,
@@ -54,7 +53,8 @@ from validators.swagger_request_models import (
     RawReportGetModel,
     RefreshPostModel,
     ReportPushByJobIdModel,
-    ReportPushMultipleModel,
+    ReportPushDojoByJobIdModel,
+    ReportPushDojoMultipleModel,
     ReportStatusGetModel,
     ReportsSendingSettingPostModel,
     ResourceReportJobGetModel,
@@ -115,7 +115,7 @@ from validators.swagger_response_models import (
     MultipleJobsModel,
     MultipleK8SPlatformsModel,
     MultipleLicensesModel,
-    MultipleMetricsStatusesModel,
+    MultipleServiceOperationStatusesModel,
     MultiplePoliciesModel,
     MultipleReportStatusModel,
     MultipleRoleModel,
@@ -575,14 +575,27 @@ data: tuple[EndpointInfo, ...] = (
         permission=Permission.METRICS_UPDATE,
         description='Allows to submit a job that will update metrics'
     ),
+
+    # metadata
     EndpointInfo(
-        path=Endpoint.METRICS_STATUS,
+        path=Endpoint.METADATA_UPDATE,
+        method=HTTPMethod.POST,
+        lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
+        request_model=BaseModel,
+        responses=[(HTTPStatus.ACCEPTED, MessageModel, None)],
+        permission=Permission.METADATA_UPDATE,
+        description='Allows to submit a job that will update locally stored metadata',
+    ),
+
+    # service operation status
+    EndpointInfo(
+        path=Endpoint.SERVICE_OPERATIONS_STATUS,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.API_HANDLER,
-        request_model=MetricsStatusGetModel,
-        responses=[(HTTPStatus.OK, MultipleMetricsStatusesModel, None)],
-        permission=Permission.METRICS_STATUS,
-        description='Allows to get latest metrics update status'
+        request_model=BaseModel,
+        responses=[(HTTPStatus.OK, MultipleServiceOperationStatusesModel, None)],
+        permission=Permission.SERVICE_OPERATIONS_STATUS,
+        description='Allows to get the status of service operations'
     ),
 
     # rulesets
@@ -1093,7 +1106,7 @@ data: tuple[EndpointInfo, ...] = (
         path=Endpoint.REPORTS_PUSH_DOJO_JOB_ID,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.REPORT_GENERATOR,
-        request_model=ReportPushByJobIdModel,
+        request_model=ReportPushDojoByJobIdModel,
         responses=[(HTTPStatus.OK, SingleDefectDojoPushResult, None)],
         permission=Permission.REPORT_PUSH_TO_DOJO,
         description='Allows to push a specific job to Defect Dojo'
@@ -1102,7 +1115,7 @@ data: tuple[EndpointInfo, ...] = (
         path=Endpoint.REPORTS_PUSH_DOJO,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.REPORT_GENERATOR,
-        request_model=ReportPushMultipleModel,
+        request_model=ReportPushDojoMultipleModel,
         responses=[(HTTPStatus.OK, MultipleDefectDojoPushResult, None)],
         permission=Permission.REPORT_PUSH_TO_DOJO_BATCH,
         description='Allows to push multiple jobs to Defect Dojo'

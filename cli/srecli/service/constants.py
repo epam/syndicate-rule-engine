@@ -64,9 +64,10 @@ class Endpoint(str, Enum):
     BATCH_RESULTS = '/batch-results'
     REPORTS_RETRY = '/reports/retry'
     POLICIES_NAME = '/policies/{name}'
-    METRICS_STATUS = '/metrics/status'
+    SERVICE_OPERATIONS_STATUS = '/service-operations/status'
     REPORTS_CLEVEL = '/reports/clevel'
     METRICS_UPDATE = '/metrics/update'
+    METADATA_UPDATE = '/metadata/update'
     REPORTS_STATUS = '/reports/status'
     REPORTS_PROJECT = '/reports/project'
     USERS_USERNAME = '/users/{username}'
@@ -257,6 +258,28 @@ class JobState(str, Enum):
     @classmethod
     def iter(cls):
         return map(operator.attrgetter('value'), cls)
+
+
+OPERATION_STATUS_HINT = (
+    "Use 'sre service operations status --operation {operation_type}' "
+    "to check execution status."
+)
+
+
+class ServiceOperationType(Enum):
+    """
+    Allowed service operation types for status tracking endpoint and CLI commands
+
+    For the CLI commands, use the following format:
+    sre service_operation status --operation {service_operation_type} (snake_case)
+
+    For the API endpoint, use the following format:
+    /service-operations/status?type={service_operation_type} (kebab-case)
+    """
+
+    UPDATE_METRICS = ('metrics_update', 'metrics-update')
+    UPDATE_METADATA = ('metadata_update', 'metadata-update')
+    PUSH_DOJO = ('push_dojo', 'push-dojo')
 
 
 class PolicyErrorType(str, Enum):

@@ -3,9 +3,13 @@ from pathlib import Path
 
 import click
 
-from srecli.group import ContextObj, ViewCommand, cli_response
+from srecli.group import (
+    ContextObj, ViewCommand, cli_response,
+    DYNAMIC_DATE_ONLY_EXAMPLE, DYNAMIC_DATE_ONLY_PAST_EXAMPLE,
+    dojo_product_option, dojo_engagement_option, dojo_test_option,
+)
 from srecli.group import limit_option, next_option, tenant_option, \
-    build_tenant_option, response
+    build_tenant_option, response, validate_file_optional
 from srecli.group.job_scheduled import scheduled
 from srecli.service.constants import Env
 from srecli.service.constants import JobState, TenantModel
@@ -31,10 +35,10 @@ def job():
               required=False, help='Status to query jobs by')
 @click.option('--from_date', '-from', type=str,
               help='Query jobs from this date. Accepts date ISO string. '
-                   'Example: 2023-10-20')
+                   f'Example: {DYNAMIC_DATE_ONLY_PAST_EXAMPLE}')
 @click.option('--to_date', '-to', type=str,
               help='Query jobs till this date. Accepts date ISO string. '
-                   'Example: 2023-10-20')
+                   f'Example: {DYNAMIC_DATE_ONLY_EXAMPLE}')
 @limit_option
 @next_option
 @cli_response(attributes_order=attributes_order)
@@ -96,21 +100,37 @@ def describe(ctx: ContextObj, job_id: str, tenant_name: str, customer_id: str,
 @click.option('--azure_client_id', type=str, help='Azure client id')
 @click.option('--azure_client_secret', type=str, help='Azure client secret')
 @click.option('--google_application_credentials_path', type=str,
+              callback=validate_file_optional,
               help='Path to file with google credentials')
 @click.option('--only_preconfigured_credentials', is_flag=True,
               help='Specify flag to ignore any credentials that can be found '
                    'in cli session and use those that are preconfigured '
                    'by admin')
+@dojo_product_option
+@dojo_engagement_option
+@dojo_test_option
 @cli_response(attributes_order=attributes_order)
-def submit(ctx: ContextObj, tenant_name: str,
-           ruleset: tuple[str, ...], region: tuple[str, ...],
-           customer_id: str | None, rules_to_scan: tuple[str, ...],
-           license_key: str, aws_access_key_id: str | None,
-           aws_secret_access_key: str | None, aws_session_token: str | None,
-           azure_subscription_id: str | None, azure_tenant_id: str | None,
-           azure_client_id: str | None, azure_client_secret: str | None,
-           google_application_credentials_path: str | None,
-           only_preconfigured_credentials: bool):
+def submit(
+    ctx: ContextObj,
+    tenant_name: str,
+    ruleset: tuple[str, ...],
+    region: tuple[str, ...],
+    customer_id: str | None,
+    rules_to_scan: tuple[str, ...],
+    license_key: str,
+    aws_access_key_id: str | None,
+    aws_secret_access_key: str | None,
+    aws_session_token: str | None,
+    azure_subscription_id: str | None,
+    azure_tenant_id: str | None,
+    azure_client_id: str | None,
+    azure_client_secret: str | None,
+    google_application_credentials_path: str | None,
+    only_preconfigured_credentials: bool,
+    dojo_product: str | None,
+    dojo_engagement: str | None,
+    dojo_test: str | None,
+):
     """
     Submits a job to scan either AWS, AZURE or GOOGLE account
     """
@@ -150,7 +170,10 @@ def submit(ctx: ContextObj, tenant_name: str,
         credentials=creds,
         customer_id=customer_id,
         rules_to_scan=load_rules_to_scan(rules_to_scan),
-        license_key=license_key
+        license_key=license_key,
+        dojo_product=dojo_product,
+        dojo_engagement=dojo_engagement,
+        dojo_test=dojo_test,
     )
 
 
@@ -165,10 +188,21 @@ def submit(ctx: ContextObj, tenant_name: str,
                    'situation occurs')
 @click.option('--token', '-t', type=str, required=False,
               help='Short-lived token to perform k8s scan with')
+@dojo_product_option
+@dojo_engagement_option
+@dojo_test_option
 @cli_response()
-def submit_k8s(ctx: ContextObj, platform_id: str, ruleset: tuple,
-               license_key: str,
-               customer_id: str | None, token: str | None):
+def submit_k8s(
+    ctx: ContextObj,
+    platform_id: str,
+    ruleset: tuple,
+    license_key: str,
+    customer_id: str | None,
+    token: str | None,
+    dojo_product: str | None,
+    dojo_engagement: str | None,
+    dojo_test: str | None,
+):
     """
     Submits a job for kubernetes cluster
     """
@@ -177,7 +211,10 @@ def submit_k8s(ctx: ContextObj, platform_id: str, ruleset: tuple,
         target_rulesets=ruleset,
         customer_id=customer_id,
         token=token,
-        license_key=license_key
+        license_key=license_key,
+        dojo_product=dojo_product,
+        dojo_engagement=dojo_engagement,
+        dojo_test=dojo_test,
     )
 
 
