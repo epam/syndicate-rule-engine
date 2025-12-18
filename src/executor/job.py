@@ -1171,29 +1171,42 @@ def upload_to_siem(ctx: 'JobExecutionContext', collection: ShardsCollection):
         ctx.add_warnings(*warnings)
 
 
-def get_tenant_credentials(tenant: Tenant) -> dict | None:
+def get_tenant_credentials(
+    tenant: Tenant,
+    application_id: str | None = None,
+) -> dict | None:
     """
     If dict is returned it means that we should export that dict to envs
     and start the scan even if the dict is empty
     """
     mcs = SP.modular_client.maestro_credentials_service()
     credentials = None
-    _LOG.info('Trying to get creds from `CUSTODIAN_ACCESS` parent')
-    parent = (
-        SP.modular_client.parent_service().get_linked_parent_by_tenant(
-            tenant=tenant, type_=ParentType.CUSTODIAN_ACCESS
-        )
-    )
-    if parent:
+    application = None
+    if application_id:
+        _LOG.info('Trying to get creds from application')
         application = (
             SP.modular_client.application_service().get_application_by_id(
-                parent.application_id
+                application_id
+                )
+        )
+    else:
+        _LOG.info('Trying to get creds from `CUSTODIAN_ACCESS` parent')
+        parent = (
+            SP.modular_client.parent_service().get_linked_parent_by_tenant(
+                tenant=tenant, type_=ParentType.CUSTODIAN_ACCESS
             )
         )
-        if application:
-            _creds = mcs.get_by_application(application, tenant)
-            if _creds:
-                credentials = _creds.dict()
+        if parent:
+            application = (
+                SP.modular_client.application_service().get_application_by_id(
+                    parent.application_id
+                )
+            )
+
+    if application:
+        _creds = mcs.get_by_application(application, tenant)
+        if _creds:
+            credentials = _creds.dict()
     if credentials is None and BatchJobEnv.ALLOW_MANAGEMENT_CREDS.as_bool():
         _LOG.info(
             'Trying to get creds from maestro management parent & application'
@@ -1835,7 +1848,7 @@ def run_standard_job(ctx: JobExecutionContext):
     else:
         credentials = get_job_credentials(
             job, cloud
-        ) or get_tenant_credentials(ctx.tenant)
+        ) or get_tenant_credentials(ctx.tenant, job.application_id)
         keys_builder = TenantReportsBucketKeysBuilder(ctx.tenant)
 
     if credentials is None:
