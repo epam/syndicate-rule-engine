@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Project FinOps
 - Added violated rules information (`cluster_metadata.rules.violated`) to operational Kubernetes report
 - Added the possibility to submit jobs and push reports to dojo with custom `product`, `engagement`, and `test` names
+- Added optional parameter `application_id` to the endpoint ` POST /jobs`
 - Push to Defect Dojo changed from synchronous to asynchronous
 - Restored recommendations processing flow in `metrics_updater` lambda
 - `Permission.METRICS_STATUS` permission replaced with `Permission.SERVICE_OPERATIONS_STATUS`
