@@ -28,6 +28,7 @@ JOB_PLATFORM_ID = 'p'
 JOB_TTL = 'ttl'
 JOB_AFFECTED_LICENSE = 'al'
 JOB_CREDENTIALS_KEY = 'ck'
+JOB_APPLICATION_ID = 'aid'
 JOB_WARNINGS = 'w'
 JOB_DOJO_STRUCTURE = 'ds'
 
@@ -106,6 +107,9 @@ class Job(BaseModel):
     )
     credentials_key = UnicodeAttribute(
         null=True, attr_name=JOB_CREDENTIALS_KEY
+    )
+    application_id = UnicodeAttribute(
+        null=True, attr_name=JOB_APPLICATION_ID
     )
 
     ttl = TTLAttribute(null=True, attr_name=JOB_TTL)
