@@ -102,10 +102,9 @@ def describe(ctx: ContextObj, job_id: str, tenant_name: str, customer_id: str,
 @click.option('--google_application_credentials_path', type=str,
               callback=validate_file_optional,
               help='Path to file with google credentials')
-@click.option('--only_preconfigured_credentials', is_flag=True,
-              help='Specify flag to ignore any credentials that can be found '
-                   'in cli session and use those that are preconfigured '
-                   'by admin')
+@click.option('--resolve_local_credentials', is_flag=True,
+              help='Flag to resolve credentials that can be found '
+                   'in the cli session')
 @dojo_product_option
 @dojo_engagement_option
 @dojo_test_option
@@ -126,7 +125,7 @@ def submit(
     azure_client_id: str | None,
     azure_client_secret: str | None,
     google_application_credentials_path: str | None,
-    only_preconfigured_credentials: bool,
+    resolve_local_credentials: bool,
     dojo_product: str | None,
     dojo_engagement: str | None,
     dojo_test: str | None,
@@ -134,20 +133,18 @@ def submit(
     """
     Submits a job to scan either AWS, AZURE or GOOGLE account
     """
-    resp = ctx['api_client'].tenant_get(tenant_name, customer_id=customer_id)
-    # todo cache in temp files
-    if not resp.was_sent or not resp.ok:
-        return resp
-    tenant: TenantModel = next(resp.iter_items())
-    match tenant['cloud']:
-        case 'AWS': resolver = AWSCredentialsResolver(tenant)
-        case 'AZURE': resolver = AZURECredentialsResolver(tenant)
-        case 'GOOGLE' | 'GCP': resolver = GOOGLECredentialsResolver(tenant)
-        case _: return response('Not supported tenant cloud')  # newer happen
+    if resolve_local_credentials:
+        resp = ctx['api_client'].tenant_get(tenant_name, customer_id=customer_id)
+        # todo cache in temp files
+        if not resp.was_sent or not resp.ok:
+            return resp
+        tenant: TenantModel = next(resp.iter_items())
+        match tenant['cloud']:
+            case 'AWS': resolver = AWSCredentialsResolver(tenant)
+            case 'AZURE': resolver = AZURECredentialsResolver(tenant)
+            case 'GOOGLE' | 'GCP': resolver = GOOGLECredentialsResolver(tenant)
+            case _: return response('Not supported tenant cloud')  # newer happen
 
-    if only_preconfigured_credentials:
-        creds = {}
-    else:
         try:
             creds = resolver.resolve(
                 aws_access_key_id=aws_access_key_id,
@@ -162,6 +159,8 @@ def submit(
         except CredentialsLookupError as e:
             _LOG.warning(f'Could not find credentials: {e}')
             creds = {}
+    else:
+        creds = {}
 
     return ctx['api_client'].job_post(
         tenant_name=tenant_name,
