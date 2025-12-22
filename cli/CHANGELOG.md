@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.11.0] - 2025-12-19
+- Added the flag `--resolve_local_credentials` to the `job submit` command
+- Removed the flag `only_preconfigured_credentials` from the command `job submit`
+
 ## [5.10.0] - 2025-10-16
 - Added the flag `--include_expired` to the command `resource exception describe` to allow retrieving expired resource exceptions
 - Added the `--overwrite` flag to the `ruleset release` command, enabling overwriting of an existing ruleset version
