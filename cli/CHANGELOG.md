@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [5.11.0] - 2025-12-15
 - Fixed `sre resource exception describe --exception_id` returning all exceptions instead of filtering by the specified ID
 - Changed an alias name from `-excid` to `-exid` for the `--exception_id` parameter in the command `resource exception describe` to unify with other commands
+- Update library `click` from `==7.1.2` to `==8.3.0`
 - Added the flag `--resolve_local_credentials` to the `job submit` command
 - Removed the flag `only_preconfigured_credentials` from the command `job submit`
 - Improved handling of datatime in the command sre role add | update
