@@ -61,7 +61,7 @@ def _get_dynamic_date_example(
 ) -> str:
     """
     Generates a dynamic date example based on current date with optional offset. 
-    The time is rounded to the start of the hour (set minutes and seconds to 00).
+    The time is rounded to the start of the day (set hours, minutes, and seconds to 00).
     
     :param days_offset: Number of days to add to current date (default: 30)
     :param date_only: If True, returns only date part (YYYY-MM-DD), otherwise full ISO 8601
@@ -73,6 +73,7 @@ def _get_dynamic_date_example(
         return future_date.strftime('%Y-%m-%d')
 
     future_date = future_date.replace(
+        hour=0,
         minute=0, 
         second=0, 
         microsecond=0,
