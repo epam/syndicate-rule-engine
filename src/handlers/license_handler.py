@@ -285,7 +285,7 @@ class LicenseHandler(AbstractHandler):
         """
         sync_license.delay(
             license_keys=[license_key],
-            overwrite=event.overwrite,
+            overwrite_rulesets=event.overwrite_rulesets,
         )
         return build_response(
             code=HTTPStatus.ACCEPTED,

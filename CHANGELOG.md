@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.16.0] - 2025-12-15
 - Added validation of downloaded rulesets to ensure they are valid JSON
-- Added the parameter `overwrite` for the `POST /licenses/{license_key}/sync` endpoint that allows to overwrite existing ruleset data in S3
+- Added the parameter `overwrite_rulesets` for the `POST /licenses/{license_key}/sync` endpoint that allows to overwrite existing ruleset data in S3
 
 ## [5.15.0] - 2025-11-06
 - Added hiding expired resource exceptions

@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [5.11.0] - 2025-12-15
-- Added the `--overwrite`, `-o` flag to the `sre license sync` command, enabling overwriting of an existing ruleset data in S3 when syncing a license
+- Added the `--overwrite_rulesets`, `-o` flag to the `sre license sync` command, enabling overwriting of an existing ruleset data in S3 when syncing a license
 
 ## [5.10.0] - 2025-10-16
 - Changed an alias name from `-l` to `-loc` for the `--location` parameter in the command `resource exception describe` because of duplication with the `--limit` parameter alias in the same command

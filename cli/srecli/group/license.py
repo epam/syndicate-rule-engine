@@ -88,7 +88,7 @@ def delete(ctx: ContextObj, license_key, customer_id):
     help='License key to synchronize',
 )
 @click.option(
-    '--overwrite', '-o',
+    '--overwrite_rulesets', '-o',
     is_flag=True,
     default=False,
     help='Overwrite existing rulesets in S3 even if they already exist',
@@ -101,7 +101,7 @@ def sync(
     ctx: ContextObj, 
     license_key: str, 
     customer_id: str | None,
-    overwrite: bool,
+    overwrite_rulesets: bool,
 ):
     """
     Synchronizes Licenses
@@ -109,7 +109,7 @@ def sync(
     return ctx['api_client'].license_sync(
         license_key=license_key,
         customer_id=customer_id,
-        overwrite=overwrite,
+        overwrite_rulesets=overwrite_rulesets,
     )
 
 

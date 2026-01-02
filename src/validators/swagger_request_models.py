@@ -1935,7 +1935,7 @@ class LicenseActivationPatchModel(BaseModel):
 
 
 class LicenseSyncModel(BaseModel):
-    overwrite: bool = Field(
+    overwrite_rulesets: bool = Field(
         default=False,
         description='Overwrite existing rulesets in S3 even if they already exist',
     )

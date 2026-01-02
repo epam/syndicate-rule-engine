@@ -31,17 +31,17 @@ class LicenseSyncError(Exception):
 
 
 class LicenseSync:
-    __slots__ = '_sp', '_cache', '_overwrite'
+    __slots__ = '_sp', '_cache', '_overwrite_rulesets'
 
     def __init__(
         self,
         sp: ServiceProvider,
         cache_rulesets: bool = False,
-        overwrite: bool = False,
+        overwrite_rulesets: bool = False,
     ):
         self._sp = sp
         self._cache = {} if cache_rulesets else None
-        self._overwrite = overwrite
+        self._overwrite_rulesets = overwrite_rulesets
 
     def _store_ruleset(self, rs: LMRulesetDTO):
         s3 = self._sp.s3
@@ -50,7 +50,7 @@ class LicenseSync:
         key = RulesetsBucketKeys.licensed_ruleset_key(name, version)
         if s3.gz_object_exists(bucket, key):
             common_msg = f'Ruleset {name}:{version} already exists in S3.'
-            if not self._overwrite:
+            if not self._overwrite_rulesets:
                 _LOG.info(f'{common_msg} Skipping...')
                 return
             _LOG.info(f'{common_msg} Overwriting...')
@@ -226,11 +226,14 @@ class LicenseUpdater(EventProcessorLambdaHandler):
 
     def handle_request(self, event, context):
         it = self.iter_licenses(event.get('license_keys', ()))
-        overwrite = event.get('overwrite', False)
+        overwrite_rulesets = event.get('overwrite_rulesets', False)
         for lic in it:
             _LOG.info(f'Going to sync license: {lic.license_key}')
             try:
-                sync = LicenseSync(SERVICE_PROVIDER, overwrite=overwrite)
+                sync = LicenseSync(
+                    sp=SERVICE_PROVIDER, 
+                    overwrite_rulesets=overwrite_rulesets,
+                )
                 sync(lic)
                 _LOG.info('License was synced')
             except LicenseSyncError as e:
