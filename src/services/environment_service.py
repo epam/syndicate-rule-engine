@@ -93,7 +93,7 @@ class EnvironmentService:
         return Env.SKIP_CLOUD_IDENTIFIER_VALIDATION.as_bool()
 
     def is_docker(self) -> bool:
-        return Env.SERVICE_MODE.get() == DOCKER_SERVICE_MODE
+        return Env.is_docker()
 
     def event_bridge_service_role(self) -> str | None:
         return Env.EB_SERVICE_ROLE_TO_INVOKE_BATCH.get()

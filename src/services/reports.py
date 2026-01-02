@@ -1379,7 +1379,8 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
             item.s3_url = str(S3Url.build(bucket, key))
         else:
             _LOG.info(
-                'Compressed data size is within limits. Setting as DynamoDB Binary attribute'
+                'Compressed data size is within limits. '
+                f'Setting as {Env.get_db_type()} binary attribute'
             )
             item.data = buf.getvalue()
         item.content_type = content_type
