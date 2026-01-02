@@ -92,7 +92,8 @@ from validators.swagger_request_models import (
     ResourcesGetModel,
     ResourcesArnGetModel,
     ResourcesExceptionsGetModel,
-    ResourcesExceptionsPostModel
+    ResourcesExceptionsPostModel,
+    LicenseManagerConfigSettingPatchModel,
 )
 from validators.swagger_response_models import (
     CredentialsActivationModel,
@@ -932,6 +933,15 @@ data: tuple[EndpointInfo, ...] = (
         responses=[(HTTPStatus.CREATED, SingleLMConfigModel, None)],
         permission=Permission.SETTINGS_CREATE_LM_CONFIG,
         description='Allows to set license manager configuration'
+    ),
+    EndpointInfo(
+        path=Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG,
+        method=HTTPMethod.PATCH,
+        lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
+        request_model=LicenseManagerConfigSettingPatchModel,
+        responses=[(HTTPStatus.OK, SingleLMConfigModel, None)],
+        permission=Permission.SETTINGS_UPDATE_LM_CONFIG,
+        description='Allows to update license manager configuration'
     ),
     EndpointInfo(
         path=Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG,

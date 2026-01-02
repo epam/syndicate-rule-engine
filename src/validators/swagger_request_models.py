@@ -1275,6 +1275,22 @@ class LicenseManagerConfigSettingPostModel(BaseModel):
     stage: str = Field(None)
 
 
+class LicenseManagerConfigSettingPatchModel(BaseModel):
+    host: str = Field(None)
+    port: int = Field(None)
+    protocol: Annotated[
+        Literal['HTTP', 'HTTPS', 'http', 'https'],
+        StringConstraints(to_upper=True),
+    ] = Field(None)
+    stage: str = Field(None)
+
+    @model_validator(mode='after')
+    def at_least_one_to_update(self) -> Self:
+        if not any((self.host, self.port, self.protocol, self.stage)):
+            raise ValueError('Provide at least one attribute to update')
+        return self
+
+
 class LicenseManagerClientSettingPostModel(BaseModel):
     key_id: str
     algorithm: Annotated[

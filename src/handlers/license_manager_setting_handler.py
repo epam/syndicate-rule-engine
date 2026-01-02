@@ -28,6 +28,7 @@ from validators.swagger_request_models import (
     LicenseManagerClientSettingDeleteModel,
     LicenseManagerClientSettingPostModel,
     LicenseManagerConfigSettingPostModel,
+    LicenseManagerConfigSettingPatchModel,
 )
 from validators.utils import validate_kwargs 
 
@@ -207,6 +208,7 @@ class LicenseManagerConfigHandler(AbstractHandler):
             Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG: {
                 HTTPMethod.GET: self.get,
                 HTTPMethod.POST: self.post,
+                HTTPMethod.PATCH: self.patch,
                 HTTPMethod.DELETE: self.delete,
             }
         }
@@ -242,6 +244,34 @@ class LicenseManagerConfigHandler(AbstractHandler):
         _LOG.info(f'Persisting License Manager config-data: {setting.value}.')
         self.settings_service.save(setting=setting)
         return build_response(code=HTTPStatus.CREATED, content=setting.value)
+
+    @validate_kwargs
+    def patch(
+        self,
+        event: LicenseManagerConfigSettingPatchModel,
+    ):
+        configuration: Setting = self.settings_service. \
+            get_license_manager_access_data(value=False)
+        if not configuration:
+            return build_response(
+                code=HTTPStatus.NOT_FOUND,
+                content='License Manager config-data does not exist.'
+            )
+        # Update existing configuration
+        _LOG.info('Updating License Manager config-data.')
+        updated_configuration = self.settings_service. \
+            update_license_manager_access_data_configuration(
+                setting=configuration,
+                host=event.host,
+                port=event.port,
+                protocol=event.protocol,
+                stage=event.stage,
+            )
+
+        self.settings_service.save(setting=updated_configuration)
+
+        _LOG.info(f'Updated License Manager config-data: {configuration.value}.')
+        return build_response(code=HTTPStatus.OK, content=configuration.value)
 
     @validate_kwargs
     def delete(self, event: BaseModel):
