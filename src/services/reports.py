@@ -1352,6 +1352,8 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
         data = self.get_compressed_data(item)
         if not data:
             return None
+        if typ is None:
+            return msgspec.msgpack.decode(data)
         return msgspec.msgpack.decode(data, type=typ)
 
     def set_data(
