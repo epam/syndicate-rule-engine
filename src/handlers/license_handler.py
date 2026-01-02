@@ -35,7 +35,8 @@ from validators.swagger_request_models import (
     BaseModel,
     LicenseActivationPutModel,
     LicensePostModel,
-    LicenseActivationPatchModel
+    LicenseActivationPatchModel,
+    LicenseSyncModel,
 )
 from validators.utils import validate_kwargs
 
@@ -276,13 +277,16 @@ class LicenseHandler(AbstractHandler):
         return _success()
 
     @validate_kwargs
-    def license_sync(self, event: BaseModel, license_key: str):
+    def license_sync(self, event: LicenseSyncModel, license_key: str):
         """
         Returns a response from an asynchronously invoked
         sync-concerned lambda, `license-updater`.
         :return:Dict[code=202]
         """
-        sync_license.delay([license_key])
+        sync_license.delay(
+            license_keys=[license_key],
+            overwrite_rulesets=event.overwrite_rulesets,
+        )
         return build_response(
             code=HTTPStatus.ACCEPTED,
             content='License is being synchronized'
