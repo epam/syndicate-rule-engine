@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 from enum import Enum
 from itertools import chain, filterfalse
-from typing import Callable, Iterator, MutableMapping, TypeVar
+from typing import Callable, Iterator, Literal, MutableMapping, TypeVar
 
 from dateutil.relativedelta import SU, relativedelta
 from typing_extensions import Self
@@ -710,7 +710,19 @@ class Env(EnvEnum):
 
     @classmethod
     def is_docker(cls) -> bool:
-        return cls.SERVICE_MODE.get() == 'docker'
+        return cls.SERVICE_MODE.get() == DOCKER_SERVICE_MODE
+
+    @classmethod
+    def is_mongo_db(cls) -> bool:
+        """
+        Determines if MongoDB is being used as the database.
+        Currently based on docker mode.
+        """
+        return cls.is_docker()
+
+    @classmethod
+    def get_db_type(cls) -> Literal['MongoDB', 'DynamoDB']:
+        return 'MongoDB' if cls.is_mongo_db() else 'DynamoDB'
 
 
 class BatchJobEnv(EnvEnum):
