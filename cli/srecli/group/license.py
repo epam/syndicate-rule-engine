@@ -88,7 +88,7 @@ def delete(ctx: ContextObj, license_key, customer_id):
     help='License key to synchronize',
 )
 @click.option(
-    '--overwrite_rulesets', '-o',
+    '--overwrite_rulesets', '-or',
     is_flag=True,
     default=False,
     help='Overwrite existing rulesets in S3 even if they already exist',
