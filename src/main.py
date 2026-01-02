@@ -297,7 +297,7 @@ class InitMongo(ActionHandler):
         from models.resource_exception import create_resource_exceptions_indexes
 
         if not BaseModel.is_mongo_model():
-            _LOG.warning('Cannot create indexes for DynamoDB')
+            _LOG.warning(f'Cannot create indexes for {Env.get_db_type()}')
             return
         creator = IndexesCreator(
             db=PynamoDBToPymongoAdapterSingleton.get_instance().mongo_database
@@ -329,7 +329,7 @@ class Run(ActionHandler):
         self._host = host
         self._port = port
 
-        if Env.SERVICE_MODE.get() != DOCKER_SERVICE_MODE:
+        if not Env.is_docker():
             Env.SERVICE_MODE.set(DOCKER_SERVICE_MODE)
 
         app = OnPremApiBuilder('caas').build()
