@@ -2,7 +2,7 @@ import operator
 import uuid
 from datetime import timedelta
 from http import HTTPStatus
-from typing import cast
+from typing import Any, cast
 
 import msgspec.json
 from botocore.exceptions import ClientError
@@ -167,7 +167,7 @@ class MaestroModelBuilder:
             'last_scan_date': data['last_scan_date'],
             'data': {
                 'rules_data': data.get('data', []),
-                'violated_resources_length': data['resources_violated'],
+                'violated_resources_length': data.get('resources_violated', 1),
             },
         }
 
@@ -793,22 +793,26 @@ class HighLevelReportsHandler(AbstractHandler):
         builder = MaestroModelBuilder(receivers=tuple(event.receivers))
         now = utc_datetime()
 
-        for typ in event.new_types:
+        for report_type in event.new_types:
             rep = self._rms.get_exactly_for_customer(
-                event.customer_id, typ, typ.start(now), typ.end(now)
+                customer=event.customer_id,
+                type_=report_type,
+                start=report_type.start(now),
+                end=report_type.end(now),
             )
             if not rep:
                 _LOG.warning(
-                    f'Cannot find {typ} for {event.customer_id} for the current month'
+                    f'Cannot find {report_type} for '
+                    f'{event.customer_id} for the current month'
                 )
                 continue
 
             previous_month = now + relativedelta(months=-1)
             previous = self._rms.get_exactly_for_customer(
                 customer=event.customer_id,
-                type_=typ,
-                start=typ.start(previous_month),
-                end=typ.end(previous_month),
+                type_=report_type,
+                start=report_type.start(previous_month),
+                end=report_type.end(previous_month),
             )
             if not previous:
                 _LOG.info(
@@ -817,12 +821,16 @@ class HighLevelReportsHandler(AbstractHandler):
                 previous_data = {}
             else:
                 previous_data = self._rms.fetch_data(previous)
-            current_data = self._rms.fetch_data(rep)
+            current_data = self._fetch_and_validate_data(
+                rep=rep,
+                report_type=report_type,
+                display_name=event.customer_id,
+            )
             base = builder.convert(rep, current_data, previous_data)
             models.append(
                 self._rmq.build_m3_json_model(
-                    notification_type=SRE_REPORTS_TYPE_TO_M3_MAPPING[typ],
-                    data=base,
+                    notification_type=SRE_REPORTS_TYPE_TO_M3_MAPPING[report_type],
+                    data=cast(dict[str, Any], base),
                 )
             )
 
@@ -896,35 +904,41 @@ class HighLevelReportsHandler(AbstractHandler):
                     .exc()
                 )
 
-            for typ in types:
-                if typ is ReportType.OPERATIONAL_KUBERNETES:
+            for report_type in types:
+                if report_type is ReportType.OPERATIONAL_KUBERNETES:
                     _LOG.debug('Specific handling for k8s reports')
                     k8s_datas = []
                     for platform in self._ps.query_by_tenant(tenant):
-                        rep = self._rms.get_latest_for_platform(platform, typ)
+                        rep = self._rms.get_latest_for_platform(platform, report_type)
                         if not rep:
                             _LOG.warning(
                                 f'Could not find data for platform {platform.id}'
                             )
                             continue
-                        data = builder.convert(rep, self._rms.fetch_data(rep))
+                        platform_display_name = f'{tenant.name} (platform {platform.id})'
+                        fetched_data = self._fetch_and_validate_data(
+                            rep=rep,
+                            report_type=report_type,
+                            display_name=platform_display_name,
+                        )
+                        data = builder.convert(rep, fetched_data)
                         data = packer.pack(data)
                         k8s_datas.append(data)
                     if only_k8s and not k8s_datas:
                         _LOG.debug(
-                            f'Could not find any {typ} for {tenant.name}'
+                            f'Could not find any {report_type} for {tenant.name}'
                         )
                         raise (
                             ResponseFactory(HTTPStatus.NOT_FOUND)
                             .message(
-                                f'Could not find any {typ} for {tenant.name}'
+                                f'Could not find any {report_type} for {tenant.name}'
                             )
                             .exc()
                         )
                     models.extend(
                         self._rmq.build_m3_json_model(
                             notification_type=SRE_REPORTS_TYPE_TO_M3_MAPPING[
-                                typ
+                                report_type
                             ],
                             data=i,
                         )
@@ -932,26 +946,38 @@ class HighLevelReportsHandler(AbstractHandler):
                     )
                     continue
 
-                if typ is ReportType.OPERATIONAL_DEPRECATION and tenant_cloud is not Cloud.AZURE:
-                    _LOG.info(f'Skipping deprecation report for non-AZURE tenant {tenant}')
+                if (
+                    report_type is ReportType.OPERATIONAL_DEPRECATION
+                    and tenant_cloud is not Cloud.AZURE
+                ):
+                    _LOG.info(
+                        f'Skipping deprecation report '
+                        f'for non-AZURE tenant {tenant}'
+                    )
                     continue
 
-                _LOG.debug(f'Going to generate {typ} for {tenant.name}')
-                rep = self._rms.get_latest_for_tenant(tenant=tenant, type_=typ)
-                if not rep:
-                    _LOG.debug(f'Could not find any {typ} for {tenant.name}')
-                    raise (
-                        ResponseFactory(HTTPStatus.NOT_FOUND)
-                        .message(f'Could not find any {typ} for {tenant.name}')
-                        .exc()
-                    )
-                data = builder.convert(rep, self._rms.fetch_data(rep))
+                _LOG.debug(f'Going to generate {report_type} for {tenant.name}')
+                rep = self._rms.get_latest_for_tenant(
+                    tenant=tenant,
+                    type_=report_type,
+                )
+                rep = self._validate_report_exists(
+                    rep=rep,
+                    report_type=report_type,
+                    display_name=tenant.name,
+                )
+                fetched_data = self._fetch_and_validate_data(
+                    rep=rep,
+                    report_type=report_type,
+                    display_name=tenant.name,
+                )
+                data = builder.convert(rep, fetched_data)
                 data = packer.pack(data)
 
                 models.append(
                     self._rmq.build_m3_json_model(
-                        notification_type=SRE_REPORTS_TYPE_TO_M3_MAPPING[typ],
-                        data=data,
+                        notification_type=SRE_REPORTS_TYPE_TO_M3_MAPPING[report_type],
+                        data=cast(dict[str, Any], data),
                     )
                 )
 
@@ -991,24 +1017,29 @@ class HighLevelReportsHandler(AbstractHandler):
                 f'Going to retrieve tenants with display_name: {display_name}'
             )
 
-            for typ in event.new_types:
-                _LOG.debug(f'Going to generate {typ} for {display_name}')
+            for report_type in event.new_types:
+                _LOG.debug(f'Going to generate {report_type} for {display_name}')
                 rep = self._rms.get_latest_for_project(
-                    customer=event.customer_id, project=display_name, type_=typ
+                    customer=event.customer_id,
+                    project=display_name,
+                    type_=report_type,
                 )
-                if not rep:
-                    _LOG.debug(f'Could not find any {typ} for {display_name}')
-                    raise (
-                        ResponseFactory(HTTPStatus.NOT_FOUND)
-                        .message('No active tenant could be found.')
-                        .exc()
-                    )
-                data = builder.convert(rep, self._rms.fetch_data(rep))
+                rep = self._validate_report_exists(
+                    rep=rep,
+                    report_type=report_type,
+                    display_name=display_name,
+                )
+                fetched_data = self._fetch_and_validate_data(
+                    rep=rep,
+                    report_type=report_type,
+                    display_name=display_name,
+                )
+                data = builder.convert(rep, fetched_data)
 
                 models.append(
                     self._rmq.build_m3_json_model(
-                        notification_type=SRE_REPORTS_TYPE_TO_M3_MAPPING[typ],
-                        data=data,
+                        notification_type=SRE_REPORTS_TYPE_TO_M3_MAPPING[report_type],
+                        data=cast(dict[str, Any], data),
                     )
                 )
 
@@ -1043,25 +1074,29 @@ class HighLevelReportsHandler(AbstractHandler):
         builder = MaestroModelBuilder()
         now = utc_datetime()
 
-        for typ in event.new_types:
-            _LOG.debug(f'Going to generate {typ} for {event.customer_id}')
+        for report_type in event.new_types:
+            _LOG.debug(
+                f'Going to generate {report_type} for '
+                f'{event.customer_id}'
+            )
             rep = self._rms.get_exactly_for_customer(
                 customer=event.customer_id,
-                type_=typ,
-                start=typ.start(now),
-                end=typ.end(now),
+                type_=report_type,
+                start=report_type.start(now),
+                end=report_type.end(now),
             )
             if not rep:
                 _LOG.warning(
-                    f'Cannot find {typ} for {event.customer_id} for the current month'
+                    f'Cannot find {report_type} for '
+                    f'{event.customer_id} for the current month'
                 )
                 continue
             previous_month = now + relativedelta(months=-1)
             previous = self._rms.get_exactly_for_customer(
                 customer=event.customer_id,
-                type_=typ,
-                start=typ.start(previous_month),
-                end=typ.end(previous_month),
+                type_=report_type,
+                start=report_type.start(previous_month),
+                end=report_type.end(previous_month),
             )
             if not previous:
                 _LOG.info(
@@ -1070,13 +1105,17 @@ class HighLevelReportsHandler(AbstractHandler):
                 previous_data = {}
             else:
                 previous_data = self._rms.fetch_data(previous)
-            current_data = self._rms.fetch_data(rep)
+            current_data = self._fetch_and_validate_data(
+                rep=rep,
+                report_type=report_type,
+                display_name=event.customer_id,
+            )
 
             base = builder.convert(rep, current_data, previous_data)
             models.append(
                 self._rmq.build_m3_json_model(
-                    notification_type=SRE_REPORTS_TYPE_TO_M3_MAPPING[typ],
-                    data=base,
+                    notification_type=SRE_REPORTS_TYPE_TO_M3_MAPPING[report_type],
+                    data=cast(dict[str, Any], base),
                 )
             )
 
@@ -1100,3 +1139,36 @@ class HighLevelReportsHandler(AbstractHandler):
         return build_response(
             code=HTTPStatus.ACCEPTED, content='Successfully sent'
         )
+
+    def _validate_report_exists(
+        self, 
+        rep: ReportMetrics | None,
+        report_type: ReportType,
+        display_name: str,
+    ) -> ReportMetrics:
+        """Validates that report exists, raises NOT_FOUND if not. Returns validated rep."""
+        if not rep:
+            _LOG.debug(f'Could not find any {report_type} for {display_name}')
+            raise (
+                ResponseFactory(HTTPStatus.NOT_FOUND)
+                .message(f'Could not find any {report_type} for {display_name}')
+                .exc()
+            )
+        return rep
+
+    def _fetch_and_validate_data(
+        self,
+        rep: ReportMetrics,
+        report_type: ReportType,
+        display_name: str,
+    ) -> dict[str, Any]:
+        """Fetches data from report and validates it exists, raises NOT_FOUND if not."""
+        data = self._rms.fetch_data(rep)
+        if not data:
+            _LOG.warning(f'Could not find any {report_type} for {display_name}')
+            raise (
+                ResponseFactory(HTTPStatus.NOT_FOUND)
+                .message(f'Could not find any {report_type} for {display_name}')
+                .exc()
+            )
+        return cast(dict[str, Any], data)
