@@ -6,18 +6,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.11.0] - 2025-12-15
 - Added the `--overwrite_rulesets`, `-or` flag to the `sre license sync` command, enabling overwriting of an existing ruleset data in S3 when syncing a license
+- Fixed `sre resource exception describe --exception_id` returning all exceptions instead of filtering by the specified ID
+- Changed an alias name from `-excid` to `-exid` for the `--exception_id` parameter in the command `resource exception describe` to unify with other commands
+- Update library `click` from `==7.1.2` to `==8.3.0`
+- Added the flag `--resolve_local_credentials` to the `job submit` command
+- Removed the flag `only_preconfigured_credentials` from the command `job submit`
+- Improved handling of datatime in the command sre role add | update
 
 ## [5.10.0] - 2025-10-16
-- Changed an alias name from `-l` to `-loc` for the `--location` parameter in the command `resource exception describe` because of duplication with the `--limit` parameter alias in the same command
 - Added the flag `--include_expired` to the command `resource exception describe` to allow retrieving expired resource exceptions
 - Added the `--overwrite` flag to the `ruleset release` command, enabling overwriting of an existing ruleset version
-- Updated `--expiration` parameter help text to clarify UTC interpretation for naive datetime values
 - Added `sre metadata update` command to updating locally stored metadata
 - Added unified command to get the status of service operations:
   - `sre service_operation status --operation <operation_type>`
   - Available operations: `metrics_update`, `metadata_update`, `push_dojo`
-- Updated help messages for date parameters to use dynamic date examples in `sre role add|update`, `sre job describe` and `sre metrics status` commands
 - Added `dojo_product`, `dojo_engagement`, and `dojo_test` parameters to commands `job submit`, `job submit_k8s`, and `repot push dojo`
+- Updated help messages for date parameters to use dynamic date examples in `sre role add|update`, `sre job describe` and `sre metrics status` commands
+- Updated `--expiration` parameter help text to clarify UTC interpretation for naive datetime values
+- Changed an alias name from `-l` to `-loc` for the `--location` parameter in the command `resource exception describe` because of duplication with the `--limit` parameter alias in the same command
 - Fixed an issue with `--google_application_credentials_path` parameter not being recognized as a file parameter in `re job submit` command when SRE CLI is installed as a module within Modular API, causing "${file} not found" error
 - Fixed an issue with formatting datetime for `sre setting lm config describe` command
 - `sre metrics status` command replaced with `sre service_operation status --operation metrics_update`

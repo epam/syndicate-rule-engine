@@ -788,6 +788,17 @@ class RolePatchModel(BaseModel):
     expiration: datetime = Field(None)
     description: str = Field(None)
 
+    @field_validator('expiration')
+    @classmethod
+    def _(cls, expiration: datetime | None) -> datetime | None:
+        if not expiration:
+            return expiration
+        if expiration.tzinfo is None:
+            expiration = expiration.replace(tzinfo=timezone.utc)
+        else:
+            expiration.astimezone(timezone.utc)
+        return expiration
+
     @model_validator(mode='after')
     def to_attach_or_to_detach(self) -> Self:
         if (
@@ -949,6 +960,11 @@ class JobPostModel(BaseModel):
         None,
         description='License to exhaust for this job. Will be resolved '
         'automatically unless an ambiguous occurs',
+    )
+
+    application_id: str = Field(
+        None,
+        description='Application ID with credentials for this job',
     )
 
     dojo_product: str = Field(

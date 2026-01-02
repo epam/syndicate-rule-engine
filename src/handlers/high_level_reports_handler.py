@@ -271,6 +271,11 @@ class MaestroModelBuilder:
             'cluster_id': rep.platform_id,
             'cloud': Cloud.AWS.value,  # TODO: get from tenant
             'region': data['region'],
+            'cluster_metadata': {
+                'rules': {
+                    'violated': data.get('violated_rules', []),
+                },
+            },
             'data': {
                 'policy_data': data['resources'],
                 'mitre_data': data['mitre'],
