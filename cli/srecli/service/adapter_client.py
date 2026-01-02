@@ -704,12 +704,12 @@ class SREApiClient:
             data=sifted(kwargs)
         )
 
-    def license_sync(self, license_key: str, **kwargs):
+    def license_sync(self, license_key: str, overwrite_rulesets: bool = False, **kwargs):
         return self.make_request(
             path=Endpoint.LICENSES_LICENSE_KEY_SYNC,
             path_params={'license_key': license_key},
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted({'overwrite_rulesets': overwrite_rulesets, **kwargs})
         )
 
     def mail_setting_get(self, **kwargs):

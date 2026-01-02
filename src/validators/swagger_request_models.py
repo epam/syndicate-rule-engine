@@ -1950,6 +1950,13 @@ class LicenseActivationPatchModel(BaseModel):
         return self
 
 
+class LicenseSyncModel(BaseModel):
+    overwrite_rulesets: bool = Field(
+        default=False,
+        description='Overwrite existing rulesets in S3 even if they already exist',
+    )
+
+
 class DefectDojoPostModel(BaseModel):
     url: AnyUrl  # = Field(examples=['http://127.0.0.1:8080/api/v2'])  # api gw models does not support examples
     api_key: str

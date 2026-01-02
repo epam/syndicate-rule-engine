@@ -14,6 +14,7 @@ attributes_order = 'license_key', 'ruleset_ids', 'expiration', 'latest_sync'
 def _sync_hint(
     license_key: str, 
     customer_id: str | None = None,
+    **kwargs,
 ) -> str:
     template = (
         "Use 'sre license describe -lk {license_key} -cid {customer_id}' "
@@ -86,6 +87,12 @@ def delete(ctx: ContextObj, license_key, customer_id):
     required=True,
     help='License key to synchronize',
 )
+@click.option(
+    '--overwrite_rulesets', '-or',
+    is_flag=True,
+    default=False,
+    help='Overwrite existing rulesets in S3 even if they already exist',
+)
 @cli_response(
     attributes_order=attributes_order,
     hint=_sync_hint
@@ -94,6 +101,7 @@ def sync(
     ctx: ContextObj, 
     license_key: str, 
     customer_id: str | None,
+    overwrite_rulesets: bool,
 ):
     """
     Synchronizes Licenses
@@ -101,6 +109,7 @@ def sync(
     return ctx['api_client'].license_sync(
         license_key=license_key,
         customer_id=customer_id,
+        overwrite_rulesets=overwrite_rulesets,
     )
 
 

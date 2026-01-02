@@ -44,10 +44,13 @@ def make_findings_snapshot():
 
 
 @app.task
-def sync_license(license_keys: list[str] | str | None = None):
+def sync_license(
+    license_keys: list[str] | str | None = None,
+    overwrite_rulesets: bool = False,
+):
     if isinstance(license_keys, str):
         license_keys = [license_keys]
-    event = {}
+    event = {'overwrite_rulesets': overwrite_rulesets}
     if license_keys:
         event['license_keys'] = list(license_keys)
     LicenseUpdater.build().lambda_handler(
