@@ -1,10 +1,12 @@
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from time import time
 from uuid import uuid4
 
-from helpers.time_helper import utc_datetime
+from helpers.constants import ResourcesCollectorType
+from helpers.time_helper import utc_datetime, utc_iso
 from models.resource_exception import ResourceException
+from services.resources_service import ResourcesService
 
 
 @pytest.fixture
@@ -79,6 +81,15 @@ def test_get_resource_exception_by_id_success(
     
     assert resp.status_int == 200
     
+    created_at_dt = datetime.fromtimestamp(
+        sample_resource_exception.created_at, 
+        tz=timezone.utc,
+    )
+    updated_at_dt = datetime.fromtimestamp(
+        sample_resource_exception.updated_at, 
+        tz=timezone.utc,
+    )
+    expire_at_dt = sample_resource_exception.expire_at
     expected_data = {
         'id': sample_resource_exception.id,
         'type': sample_resource_exception.type,
@@ -87,9 +98,9 @@ def test_get_resource_exception_by_id_success(
         'resource_type': sample_resource_exception.resource_type,
         'location': sample_resource_exception.location,
         'resource_id': sample_resource_exception.resource_id,
-        'created_at': sample_resource_exception.created_at,
-        'updated_at': sample_resource_exception.updated_at,
-        'expire_at': sample_resource_exception.expire_at.timestamp(),
+        'created_at': utc_iso(created_at_dt),
+        'updated_at': utc_iso(updated_at_dt),
+        'expire_at': utc_iso(expire_at_dt),
     }
 
     assert resp.json == {
@@ -211,6 +222,30 @@ def test_update_resource_exception_success(
     assert data['resource_id'] == update_data['resource_id']
 
 
+@pytest.fixture
+def resource_for_arn_exception(main_customer, aws_tenant):
+    """
+    Create a resource in the database for ARN-based exception tests.
+    The ARN validation requires the resource to exist for the tenant.
+    """
+    svc = ResourcesService()
+    resource = svc.create(
+        account_id=aws_tenant.project,
+        location='us-east-1',
+        resource_type='aws.ec2',
+        id='i-duplicate-arn-test',
+        name='test-instance',
+        arn='arn:aws:ec2:us-east-1:123456789012:instance/i-duplicate-arn-test',
+        data={'InstanceId': 'i-duplicate-arn-test'},
+        sync_date=time(),
+        collector_type=ResourcesCollectorType.FOCUS,
+        tenant_name=aws_tenant.name,
+        customer_name=main_customer.name,
+    )
+    svc.save(resource)
+    return resource
+
+
 @pytest.mark.parametrize(
     'exception_params',
     [
@@ -221,7 +256,8 @@ def test_update_resource_exception_success(
     ids=['resource_id', 'arn', 'tags_filters']
 )
 def test_create_resource_exception_duplicate_conflict(
-    system_user_token, sre_client, main_customer, aws_tenant, exception_params
+    system_user_token, sre_client, main_customer, aws_tenant, exception_params,
+    resource_for_arn_exception,
 ):
     """
     Test that creating a duplicate resource exception returns 409 CONFLICT
@@ -257,6 +293,36 @@ def test_create_resource_exception_duplicate_conflict(
     assert 'message' in resp2.json
     assert 'already exists' in resp2.json['message']
     assert first_exception_id in resp2.json['message']
+
+
+def test_create_resource_exception_arn_not_found(
+    system_user_token, sre_client, main_customer, aws_tenant
+):
+    """
+    Test that creating an ARN-based resource exception fails with 404
+    when the resource does not exist in the database.
+    """
+    future_date = (datetime.now() + timedelta(days=30)).isoformat()
+    non_existent_arn = 'arn:aws:ec2:us-east-1:123456789012:instance/i-nonexistent'
+
+    request_data = {
+        'customer_id': main_customer.name,
+        'tenant_name': aws_tenant.name,
+        'arn': non_existent_arn,
+        'expire_at': future_date,
+    }
+    
+    resp = sre_client.request(
+        '/resources/exceptions',
+        method='POST',
+        auth=system_user_token,
+        data=request_data,
+    )
+    
+    assert resp.status_int == 404
+    assert 'message' in resp.json
+    assert non_existent_arn in resp.json['message']
+    assert 'does not exist' in resp.json['message']
 
 
 def test_delete_resource_exception_success(
