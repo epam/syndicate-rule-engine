@@ -151,7 +151,7 @@ class MaestroModelBuilder:
             'cloud': rep.cloud.value,  # pyright: ignore
             'tenant_metadata': data['metadata'],
             'data': data['data'],
-            'exceptions_data': data['exceptions_data'],
+            'exceptions_data': data.get('exceptions_data', []),
             'externalData': False,
         }
 
