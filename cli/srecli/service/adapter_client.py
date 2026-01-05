@@ -786,6 +786,13 @@ class SREApiClient:
             data=sifted(kwargs)
         )
 
+    def lm_client_setting_patch(self, **kwargs):
+        return self.make_request(
+            path=Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
+            method=HTTPMethod.PATCH,
+            data=sifted(kwargs)
+        )
+
     def lm_client_setting_delete(self, **kwargs):
         return self.make_request(
             path=Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
