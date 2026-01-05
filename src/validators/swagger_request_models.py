@@ -685,6 +685,95 @@ class RuleUpdateMetaPostModel(BaseModel):
     rule_source_id: str = Field(None)
 
 
+class RuleSourceValidator:
+    """
+    Reusable validators for RuleSource fields.
+    Can be used both in Pydantic models and in handlers after merging data.
+    """
+
+    @staticmethod
+    def validate(
+        git_project_id: str,
+        type_: RuleSourceType,
+        git_url: HttpUrl | str,
+    ) -> str:
+        """
+        Full validation of rule source state. Returns normalized git_project_id.
+        Validates:
+        - git_project_id format (owner/repo or numeric id)
+        - type compatibility with git_project_id format
+        - git_url for GitHub projects (must contain github.com)
+        """
+        normalized, is_github, is_gitlab = RuleSourceValidator._parse(git_project_id)
+
+        if not is_github and not is_gitlab:
+            raise ValueError(
+                'unknown git_project_id. '
+                'Specify Gitlab project id or Github owner/repo'
+            )
+
+        is_github_type = type_ in (RuleSourceType.GITHUB, RuleSourceType.GITHUB_RELEASE)
+        if is_github_type and not is_github:
+            raise ValueError('GITHUB is only available for GitHub projects')
+        if type_ is RuleSourceType.GITLAB and not is_gitlab:
+            raise ValueError('GITLAB is only available for GitLab projects')
+
+        # NOTE: GitLab URL is not validated because it can be any self-hosted URL
+        git_url_str = str(git_url).strip().strip('/')
+        if is_github and 'github.com' not in git_url_str:
+            raise ValueError('GitHub URL must be a valid GitHub URL')
+
+        return normalized
+
+    @staticmethod
+    def infer_type(git_project_id: str) -> RuleSourceType:
+        """Infer RuleSourceType from git_project_id format."""
+        _, is_github, is_gitlab = RuleSourceValidator._parse(git_project_id)
+        if is_github:
+            return RuleSourceType.GITHUB
+        if is_gitlab:
+            return RuleSourceType.GITLAB
+        raise ValueError(
+            'unknown git_project_id. '
+            'Specify Gitlab project id or Github owner/repo'
+        )
+
+    @staticmethod
+    def infer_git_url(git_project_id: str) -> str:
+        """Infer default git_url from git_project_id format."""
+        _, is_github, is_gitlab = RuleSourceValidator._parse(git_project_id)
+        if is_github:
+            return GITHUB_API_URL_DEFAULT
+        if is_gitlab:
+            return GITLAB_API_URL_DEFAULT
+        raise ValueError(
+            'unknown git_project_id. '
+            'Specify Gitlab project id or Github owner/repo'
+        )
+
+    @staticmethod
+    def _normalize(git_project_id: str) -> str:
+        return git_project_id.strip().strip('/')
+
+    @staticmethod
+    def _is_github(git_project_id: str) -> bool:
+        return git_project_id.count('/') == 1
+
+    @staticmethod
+    def _is_gitlab(git_project_id: str) -> bool:
+        return git_project_id.isdigit()
+
+    @staticmethod
+    def _parse(git_project_id: str) -> tuple[str, bool, bool]:
+        """Returns (normalized, is_github, is_gitlab)."""
+        normalized = RuleSourceValidator._normalize(git_project_id)
+        return (
+            normalized,
+            RuleSourceValidator._is_github(normalized),
+            RuleSourceValidator._is_gitlab(normalized),
+        )
+
+
 class RuleSourcePostModel(BaseModel):
     git_project_id: str  # "141234124" or "epam/ecc"
     description: str
@@ -713,39 +802,58 @@ class RuleSourcePostModel(BaseModel):
 
     @model_validator(mode='after')
     def root(self) -> Self:
-        self.git_project_id = self.git_project_id.strip().strip('/')
-        is_github = self.git_project_id.count('/') == 1
-        is_gitlab = self.git_project_id.isdigit()
-        if not is_github and not is_gitlab:
-            raise ValueError(
-                'unknown git_project_id. '
-                'Specify Gitlab project id or Github owner/repo'
-            )
         if not self.git_url:
-            if is_github:
-                self.git_url = HttpUrl(GITHUB_API_URL_DEFAULT)
-            elif is_gitlab:
-                self.git_url = HttpUrl(GITLAB_API_URL_DEFAULT)
-        if not self.type:
-            if is_github:
-                self.type = RuleSourceType.GITHUB
-            elif is_gitlab:
-                self.type = RuleSourceType.GITLAB
-        if self.type is RuleSourceType.GITHUB_RELEASE and not is_github:
-            raise ValueError(
-                'GITHUB_RELEASES is only available for GitHub projects'
+            self.git_url = HttpUrl(
+                RuleSourceValidator.infer_git_url(self.git_project_id)
             )
+        if not self.type:
+            self.type = RuleSourceValidator.infer_type(self.git_project_id)
+
+        self.git_project_id = RuleSourceValidator.validate(
+            git_project_id=self.git_project_id,
+            type_=self.type,
+            git_url=self.git_url,
+        )
         return self
 
 
 class RuleSourcePatchModel(BaseModel):
     git_access_secret: str = Field(None)
     description: str = Field(None)
+    type: RuleSourceType = Field(None)
+    git_url: HttpUrl = Field(None)
+    git_ref: str = Field(None)
+    git_project_id: str = Field(None)
+    git_rules_prefix: str = Field(None)
+
+    @property
+    def baseurl(self) -> str | None:
+        if self.git_url:
+            return self.git_url.scheme + '://' + self.git_url.host
+        return None
 
     @model_validator(mode='after')
-    def validate_any_to_update(self) -> Self:
-        if not self.git_access_secret and not self.description:
+    def root(self) -> Self:
+        has_update = any([
+            self.git_access_secret,
+            self.description,
+            self.type,
+            self.git_url,
+            self.git_ref,
+            self.git_project_id,
+            self.git_rules_prefix,
+        ])
+        if not has_update:
             raise ValueError('Provide data to update')
+        if self.git_project_id:
+            self.git_url = self.git_url or HttpUrl(
+                RuleSourceValidator.infer_git_url(self.git_project_id)
+            )
+            self.type = self.type or RuleSourceValidator.infer_type(
+                self.git_project_id
+            )
+        # Other fields are validated in the handler
+        # because we need to first merge fields and then validate
         return self
 
 

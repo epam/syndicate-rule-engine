@@ -4536,14 +4536,51 @@
         "content_type": "application/json",
         "schema": {
           "properties": {
+            "git_access_secret": {
+              "default": null,
+              "title": "Git Access Secret",
+              "type": "string"
+            },
             "description": {
               "default": null,
               "title": "Description",
               "type": "string"
             },
-            "git_access_secret": {
+            "type": {
+              "allOf": [
+                {
+                  "enum": [
+                    "GITHUB",
+                    "GITLAB",
+                    "GITHUB_RELEASE"
+                  ],
+                  "title": "RuleSourceType",
+                  "type": "string"
+                }
+              ],
+              "default": null
+            },
+            "git_url": {
               "default": null,
-              "title": "Git Access Secret",
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "title": "Git Url",
+              "type": "string"
+            },
+            "git_ref": {
+              "default": null,
+              "title": "Git Ref",
+              "type": "string"
+            },
+            "git_project_id": {
+              "default": null,
+              "title": "Git Project Id",
+              "type": "string"
+            },
+            "git_rules_prefix": {
+              "default": null,
+              "title": "Git Rules Prefix",
               "type": "string"
             }
           },

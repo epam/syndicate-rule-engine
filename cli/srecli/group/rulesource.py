@@ -1,80 +1,165 @@
 import click
 
 from srecli.group import (
-    cli_response, 
-    ViewCommand, 
-    ContextObj, 
-    build_rule_source_id_option, 
-    next_option, 
-    limit_option, 
+    cli_response,
+    ViewCommand,
+    ContextObj,
+    build_rule_source_id_option,
+    next_option,
+    limit_option,
 )
 from srecli.service.adapter_client import SREResponse
 
-attributes_order = ('id', 'type', 'description', 'git_project_id', 'git_url',
-                    'git_ref', 'git_rules_prefix')
+attributes_order = (
+    "id",
+    "type",
+    "description",
+    "git_project_id",
+    "git_url",
+    "git_ref",
+    "git_rules_prefix",
+)
 
 
-@click.group(name='rulesource')
+def git_project_id_option(required: bool = False):
+    return click.option(
+        "--git_project_id",
+        "-gpid",
+        type=str,
+        required=required,
+        help="GitLab project id or GitHub owner/repo",
+    )
+
+
+def type_option(required: bool = False):
+    return click.option(
+        "--type",
+        "-t",
+        type=click.Choice(("GITHUB", "GITLAB", "GITHUB_RELEASE")),
+        required=required,
+        help="Rule source type",
+    )
+
+
+def git_url_option(required: bool = False):
+    return click.option(
+        "--git_url",
+        "-gurl",
+        type=str,
+        required=required,
+        help="API endpoint of a Git-based platform",
+    )
+
+
+def git_ref_option(required: bool = False, default: str | None = None):
+    return click.option(
+        "--git_ref",
+        "-gref",
+        type=str,
+        required=required,
+        default=default,
+        show_default=default is not None,
+        help="Name of the branch to grab rules from",
+    )
+
+
+def git_rules_prefix_option(required: bool = False, default: str | None = None):
+    return click.option(
+        "--git_rules_prefix",
+        "-gprefix",
+        type=str,
+        required=required,
+        default=default,
+        show_default=default is not None,
+        help="Rules path prefix",
+    )
+
+
+def git_access_secret_option(required: bool = False):
+    return click.option(
+        "--git_access_secret",
+        "-gsecret",
+        type=str,
+        required=required,
+        help="Secret token to access the repository",
+    )
+
+
+def description_option(required: bool = False):
+    return click.option(
+        "--description",
+        "-d",
+        type=str,
+        required=required,
+        help="Human-readable description of the repo",
+    )
+
+
+@click.group(name="rulesource")
 def rulesource():
     """Manages Rule Source entity"""
 
 
-@rulesource.command(cls=ViewCommand, name='describe')
+@rulesource.command(cls=ViewCommand, name="describe")
 @build_rule_source_id_option(required=False)
-@click.option('--git_project_id', '-gpid', type=str, required=False,
-              help='Git project id to describe rule source')
-@click.option('--type', '-t',
-              type=click.Choice(('GITHUB', 'GITLAB', 'GITHUB_RELEASE')),
-              required=False, help='Rule source type')
-@click.option('--has_secret', '-hs', type=bool,
-              help='Specify whether returned rule sources should have secrets')
+@git_project_id_option()
+@type_option()
+@click.option(
+    "--has_secret",
+    "-hs",
+    type=bool,
+    help="Specify whether returned rule sources should have secrets",
+)
 @limit_option
 @next_option
 @cli_response(attributes_order=attributes_order)
-def describe(ctx: ContextObj, rule_source_id, git_project_id, type, limit,
-             next_token, has_secret, customer_id):
-    """
-    Describes rule source
-    """
+def describe(
+    ctx: ContextObj,
+    rule_source_id,
+    git_project_id,
+    type,
+    limit,
+    next_token,
+    has_secret,
+    customer_id,
+):
+    """Describes rule source"""
     if rule_source_id:
-        return ctx['api_client'].rule_source_get(rule_source_id,
-                                                 customer_id=customer_id)
-    return ctx['api_client'].rule_source_query(
+        return ctx["api_client"].rule_source_get(
+            rule_source_id, customer_id=customer_id
+        )
+    return ctx["api_client"].rule_source_query(
         git_project_id=git_project_id,
         type=type,
         limit=limit,
         next_token=next_token,
         has_secret=has_secret,
-        customer_id=customer_id
+        customer_id=customer_id,
     )
 
 
-@rulesource.command(cls=ViewCommand, name='add')
-@click.option('--git_project_id', '-gpid', type=str, required=True,
-              help='GitLab Project id')
-@click.option('--type', '-t',
-              type=click.Choice(('GITHUB', 'GITLAB', 'GITHUB_RELEASE')),
-              required=False, help='Rule source type')
-@click.option('--git_url', '-gurl', type=str,
-              help=f'API endpoint of a Git-based platform that hosts the '
-                   f'repository containing the rules',
-              show_default=True)
-@click.option('--git_ref', '-gref', type=str, default='main',
-              show_default=True, help='Name of the branch to grab rules from')
-@click.option('--git_rules_prefix', '-gprefix', type=str, default='/',
-              help='Rules path prefix', show_default=True)
-@click.option('--git_access_secret', '-gsecret', type=str,
-              help='Secret token to be able to access the repository')
-@click.option('--description', '-d', type=str, required=True,
-              help='Human-readable description or the repo')
+@rulesource.command(cls=ViewCommand, name="add")
+@git_project_id_option(required=True)
+@type_option()
+@git_url_option()
+@git_ref_option(default="main")
+@git_rules_prefix_option(default="/")
+@git_access_secret_option()
+@description_option(required=True)
 @cli_response(attributes_order=attributes_order)
-def add(ctx: ContextObj, git_project_id, type, git_url, git_ref,
-        git_rules_prefix, git_access_secret,  description, customer_id):
-    """
-    Creates rule source
-    """
-
-    return ctx['api_client'].rule_source_post(
+def add(
+    ctx: ContextObj,
+    git_project_id,
+    type,
+    git_url,
+    git_ref,
+    git_rules_prefix,
+    git_access_secret,
+    description,
+    customer_id,
+):
+    """Creates rule source"""
+    return ctx["api_client"].rule_source_post(
         git_project_id=git_project_id,
         type=type,
         git_url=git_url,
@@ -82,50 +167,79 @@ def add(ctx: ContextObj, git_project_id, type, git_url, git_ref,
         git_rules_prefix=git_rules_prefix,
         git_access_secret=git_access_secret,
         description=description,
-        customer_id=customer_id
-    )
-
-
-@rulesource.command(cls=ViewCommand, name='update')
-@build_rule_source_id_option(required=True)
-@click.option('--git_access_secret', '-gsecret', type=str, required=False)
-@click.option('--description', '-d', type=str,
-              help='Human-readable description of the repo')
-@cli_response(attributes_order=attributes_order)
-def update(ctx: ContextObj, rule_source_id,
-           git_access_secret, description, customer_id):
-    """Updates rule source"""
-
-    if not (git_access_secret or description):
-        raise click.ClickException(
-            'At least one of these parameters must be given'
-            ': \'--git_access_secret\' or \'--description\''
-        )
-    return ctx['api_client'].rule_source_patch(
-        id=rule_source_id,
-        git_access_secret=git_access_secret,
         customer_id=customer_id,
-        description=description
     )
 
 
-@rulesource.command(cls=ViewCommand, name='delete')
+@rulesource.command(cls=ViewCommand, name="update")
 @build_rule_source_id_option(required=True)
-@click.option('--delete_rules', '-dr', is_flag=True,
-              help='Whether to remove all rules belonging to this rule source')
+@git_project_id_option()
+@type_option()
+@git_url_option()
+@git_ref_option()
+@git_rules_prefix_option()
+@git_access_secret_option()
+@description_option()
+@cli_response(attributes_order=attributes_order)
+def update(
+    ctx: ContextObj,
+    rule_source_id,
+    git_project_id,
+    type,
+    git_url,
+    git_ref,
+    git_rules_prefix,
+    git_access_secret,
+    description,
+    customer_id,
+):
+    """Updates rule source"""
+    if not any(
+        [
+            git_project_id,
+            type,
+            git_url,
+            git_ref,
+            git_rules_prefix,
+            git_access_secret,
+            description,
+        ]
+    ):
+        raise click.ClickException("At least one parameter must be given to update")
+    return ctx["api_client"].rule_source_patch(
+        id=rule_source_id,
+        git_project_id=git_project_id,
+        type=type,
+        git_url=git_url,
+        git_ref=git_ref,
+        git_rules_prefix=git_rules_prefix,
+        git_access_secret=git_access_secret,
+        description=description,
+        customer_id=customer_id,
+    )
+
+
+@rulesource.command(cls=ViewCommand, name="delete")
+@build_rule_source_id_option(required=True)
+@click.option(
+    "--delete_rules",
+    "-dr",
+    is_flag=True,
+    help="Whether to remove all rules belonging to this rule source",
+)
 @cli_response()
 def delete(ctx: ContextObj, rule_source_id, delete_rules, customer_id):
     """
     Deletes rule source
     """
-    return ctx['api_client'].rule_source_delete(
+    return ctx["api_client"].rule_source_delete(
         id=rule_source_id,
         delete_rules=delete_rules,
-        customer_id=customer_id
+        customer_id=customer_id,
     )
 
 
-@rulesource.command(cls=ViewCommand, name='sync')
+@rulesource.command(cls=ViewCommand, name="sync")
 @build_rule_source_id_option(required=True)
 @cli_response(
     hint=lambda rule_source_id, **kwargs: (
@@ -140,7 +254,7 @@ def sync(
     """
     Updates rules for this rule source
     """
-    return ctx['api_client'].rule_source_sync(
+    return ctx["api_client"].rule_source_sync(
         id=rule_source_id,
-        customer_id=customer_id
+        customer_id=customer_id,
     )
