@@ -43,7 +43,7 @@ class PynamoDBToPymongoAdapterSingleton:
 class BaseModel(Model):
     @classmethod
     def is_mongo_model(cls) -> bool:
-        return Env.SERVICE_MODE.get() == DOCKER_SERVICE_MODE
+        return Env.is_mongo_db()
 
     @classmethod
     def mongo_adapter(cls) -> PynamoDBToPymongoAdapter:
@@ -53,7 +53,7 @@ class BaseModel(Model):
 class BaseSafeUpdateModel(SafeUpdateModel):
     @classmethod
     def is_mongo_model(cls) -> bool:
-        return Env.SERVICE_MODE.get() == DOCKER_SERVICE_MODE
+        return Env.is_mongo_db()
 
     @classmethod
     def mongo_adapter(cls) -> PynamoDBToPymongoAdapter:
