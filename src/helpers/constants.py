@@ -895,9 +895,11 @@ class Permission(str, Enum):
     )  # TODO make PUT
     SETTINGS_DESCRIBE_LM_CONFIG = 'settings:describe_lm_config'
     SETTINGS_CREATE_LM_CONFIG = 'settings:create_lm_config', True
+    SETTINGS_UPDATE_LM_CONFIG = 'settings:update_lm_config', True
     SETTINGS_DELETE_LM_CONFIG = 'settings:delete_lm_config', True
     SETTINGS_DESCRIBE_LM_CLIENT = 'settings:describe_lm_client'
     SETTINGS_CREATE_LM_CLIENT = 'settings:create_lm_client', True
+    SETTINGS_UPDATE_LM_CLIENT = 'settings:update_lm_client', True
     SETTINGS_DELETE_LM_CLIENT = 'settings:delete_lm_client', True
 
     RABBITMQ_DESCRIBE = 'rabbitmq:describe'
