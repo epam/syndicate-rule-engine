@@ -60,16 +60,37 @@ class SettingsService:
         return self.get(name=SettingKey.ACCESS_DATA_LM, value=value)
 
     def create_license_manager_access_data_configuration(
-            self, host: str,
-            port: Optional[int] = None,
-            protocol: Optional[str] = None,
-            stage: Optional[str] = None) -> Setting:
+        self,
+        host: str,
+        port: Optional[int] = None,
+        protocol: Optional[str] = None,
+        stage: Optional[str] = None,
+    ) -> Setting:
         from services.clients.lm_client import LMAccessData
         model = LMAccessData.from_dict({})
         model.update_host(host=host, port=port, protocol=protocol, stage=stage)
         return self.create(
             name=SettingKey.ACCESS_DATA_LM.value, value=model.dict()
         )
+
+    @staticmethod
+    def update_license_manager_access_data_configuration(
+        setting: Setting,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        protocol: Optional[str] = None,
+        stage: Optional[str] = None,
+    ) -> Setting:
+        from services.clients.lm_client import LMAccessData
+        model = LMAccessData.from_dict(setting.value)
+        model.update_host(
+            host=host,
+            port=port,
+            protocol=protocol,
+            stage=stage,
+        )
+        setting.value = model.dict()
+        return setting
 
     def get_license_manager_client_key_data(self, value: bool = True):
         return self.get(name=SettingKey.LM_CLIENT_KEY, value=value)

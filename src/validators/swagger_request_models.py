@@ -50,6 +50,8 @@ from celery.schedules import (
     crontab as celery_crontab,
 )
 
+DEFAULT_LM_PK_ALGORITHM = 'ECC:p521_DSS_SHA:256'
+
 
 class BaseModel(PydanticBaseModel):
     model_config = ConfigDict(
@@ -1275,6 +1277,22 @@ class LicenseManagerConfigSettingPostModel(BaseModel):
     stage: str = Field(None)
 
 
+class LicenseManagerConfigSettingPatchModel(BaseModel):
+    host: str = Field(None)
+    port: int = Field(None)
+    protocol: Annotated[
+        Literal['HTTP', 'HTTPS', 'http', 'https'],
+        StringConstraints(to_upper=True),
+    ] = Field(None)
+    stage: str = Field(None)
+
+    @model_validator(mode='after')
+    def at_least_one_to_update(self) -> Self:
+        if not any((self.host, self.port, self.protocol, self.stage)):
+            raise ValueError('Provide at least one attribute to update')
+        return self
+
+
 class LicenseManagerClientSettingPostModel(BaseModel):
     key_id: str
     algorithm: Annotated[
@@ -1283,10 +1301,38 @@ class LicenseManagerClientSettingPostModel(BaseModel):
             {
                 'type': 'string',
                 'title': 'LM algorithm',
-                'default': 'ECC:p521_DSS_SHA:256',
+                'default': DEFAULT_LM_PK_ALGORITHM,
             }
         ),
-    ] = 'ECC:p521_DSS_SHA:256'
+    ] = DEFAULT_LM_PK_ALGORITHM
+    private_key: str
+    b64_encoded: bool
+
+    @model_validator(mode='after')
+    def check_properly_encoded_key(self) -> Self:
+        if not self.b64_encoded:
+            return self
+        try:
+            self.private_key = standard_b64decode(self.private_key).decode()
+        except (TypeError, BaseException):
+            raise ValueError(
+                "'private_key' must be a safe to decode base64-string."
+            )
+        return self
+
+
+class LicenseManagerClientSettingPatchModel(BaseModel):
+    key_id: str = Field(None)
+    algorithm: Annotated[
+        Literal['ECC:p521_DSS_SHA:256'],
+        WithJsonSchema(
+            {
+                'type': 'string',
+                'title': 'LM algorithm',
+                'default': DEFAULT_LM_PK_ALGORITHM,
+            }
+        ),
+    ] = DEFAULT_LM_PK_ALGORITHM
     private_key: str
     b64_encoded: bool
 
