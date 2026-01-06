@@ -414,6 +414,7 @@ class RulesetHandler(AbstractHandler):
             cloud=event.cloud,
             rules=[rule.name for rule in rules],
             licensed=False,
+            description=event.description,
         )
         # TODO: add changelog or metadata from release
         self.upload_ruleset(ruleset, self.build_policy(rules))
@@ -559,6 +560,8 @@ class RulesetHandler(AbstractHandler):
         ruleset.version = Version(event.new_version).to_str()
         ruleset.rules = list(new_name_body)
         ruleset.created_at = utc_iso()
+        if event.description is not None:
+            ruleset.description = event.description
 
         self.upload_ruleset(ruleset, {'policies': list(new_name_body.values())})
 

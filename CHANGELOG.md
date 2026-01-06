@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the parameter `overwrite_rulesets` for the `POST /licenses/{license_key}/sync` endpoint that allows to overwrite existing ruleset data in S3
 - Added the possibility to update the rulesource `type`, `git_url`, `git_ref`, `git_rules_prefix` and  `git_project_id` parameters in the `PATCH /rule-sources/{id}` endpoint
 - Added PATCH method to the endpoints `/settings/license-manager/config` and `/settings/license-manager/client`
+- Added the parameter `description` to the `POST /rulesets` and `PATCH /rulesets/{name}/{version}` endpoints
 - Changed `created_at`, `updated_at`, and `expire_at` fields in resource exception responses to return human-readable ISO format dates instead of Unix timestamps
 - Changed the logic of validating ARNs in resource exception creation to check if the ARN exists in the resources database for the specific tenant
 - Changed the log message in the report metrics to use dynamic database terminology based on the database type
