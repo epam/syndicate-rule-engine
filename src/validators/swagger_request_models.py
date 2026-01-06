@@ -382,6 +382,10 @@ class TenantRegionPostModel(BaseModel):
 class RulesetPostModel(BaseModel):
     name: str
     cloud: Literal['AWS', 'AZURE', 'GOOGLE', 'GCP', 'KUBERNETES']
+    description: str = Field(
+        ...,
+        description='Human-readable description of the ruleset',
+    )
     version: str = Field(
         None,
         description='Ruleset version. If not specified, '
@@ -525,6 +529,10 @@ class RulesetPatchModel(BaseModel):
     force: bool = Field(
         None,
         description='Force the creation of a new ruleset version even if no there is no changes',
+    )
+    description: str = Field(
+        None,
+        description='Human-readable description of the ruleset',
     )
 
     @field_validator('name', mode='after')
