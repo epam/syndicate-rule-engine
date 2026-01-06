@@ -48,12 +48,13 @@ class RabbitMQService:
         ApplicationType.CUSTODIAN_RABBITMQ.
         """
         aps = self.modular_client.application_service()
-        _LOG.debug(f'Getting rabbit mq application by customer: {customer}')
+        app_type = ApplicationType.RABBITMQ if legacy else ApplicationType.CUSTODIAN_RABBITMQ
+        app_type_value = app_type.value
+        _LOG.debug(f'Getting {app_type_value} application by customer: {customer}')
         return next(
             aps.list(
                 customer=customer,
-                _type=ApplicationType.CUSTODIAN_RABBITMQ.value \
-                    if not legacy else ApplicationType.RABBITMQ.value,
+                _type=app_type_value,
                 deleted=False,
                 limit=1,
             ),
