@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.11.0] - 2025-12-15
 - Added the `--overwrite_rulesets`, `-or` flag to the `sre license sync` command, enabling overwriting of an existing ruleset data in S3 when syncing a license
+- Added the possibility to update the rulesource `type`, `git_url`, `git_ref`, `git_rules_prefix` and  `git_project_id` parameters in the `sre rulesource update` command
 - Fixed `sre resource exception describe --exception_id` returning all exceptions instead of filtering by the specified ID
 - Changed an alias name from `-excid` to `-exid` for the `--exception_id` parameter in the command `resource exception describe` to unify with other commands
 - Update library `click` from `==7.1.2` to `==8.3.0`
