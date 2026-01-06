@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed `created_at`, `updated_at`, and `expire_at` fields in resource exception responses to return human-readable ISO format dates instead of Unix timestamps
 - Changed the logic of validating ARNs in resource exception creation to check if the ARN exists in the resources database for the specific tenant
 - Changed the log message in the report metrics to use dynamic database terminology based on the database type
+- Fixed an issue returning internal server error when operational reports are generated
 
 ## [5.15.0] - 2025-11-06
 - Added hiding expired resource exceptions

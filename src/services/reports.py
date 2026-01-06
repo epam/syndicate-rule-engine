@@ -16,6 +16,7 @@ from typing import (
     Literal,
     TypeVar,
     cast,
+    overload,
 )
 
 import msgspec
@@ -1100,7 +1101,7 @@ class ShardsCollectionProvider:
         return col
 
 
-MT = TypeVar('MT', bound=type)
+MT = TypeVar('MT')
 
 
 class ReportMetricsService(BaseDataService[ReportMetrics]):
@@ -1335,8 +1336,25 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
         )
         return super().save(item)
 
-    def fetch_data(self, item: ReportMetrics, typ: MT = Any) -> MT:
-        return msgspec.msgpack.decode(self.get_compressed_data(item), type=typ)
+    @overload
+    def fetch_data(self, item: ReportMetrics, typ: type[MT]) -> MT | None:
+        ...
+
+    @overload
+    def fetch_data(self, item: ReportMetrics) -> Any | None:
+        ...
+
+    def fetch_data(
+        self, 
+        item: ReportMetrics, 
+        typ: type[MT] | None = None,
+    ) -> MT | Any | None:
+        data = self.get_compressed_data(item)
+        if not data:
+            return None
+        if typ is None:
+            return msgspec.msgpack.decode(data)
+        return msgspec.msgpack.decode(data, type=typ)
 
     def set_data(
         self,
