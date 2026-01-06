@@ -23,6 +23,8 @@ def _sync_hint(
 
     if not customer_id:
         customer_id = '$customer_id'
+    else:
+        customer_id = f'"{customer_id}"'
 
     return template.format(
         license_key=license_key, 
