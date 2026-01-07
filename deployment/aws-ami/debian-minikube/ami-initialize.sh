@@ -21,8 +21,15 @@ GITHUB_REPO="${GITHUB_REPO:-epam/syndicate-rule-engine}"
 FIRST_USER="${FIRST_USER:-$(getent passwd 1000 | cut -d : -f 1)}"
 DO_NOT_ACTIVATE_LICENSE="${DO_NOT_ACTIVATE_LICENSE:-}"
 
+# NOTE: Keep in sync with ami-initialize.sh / sre-init.sh
+readonly SUPPORT_EMAIL="SupportSyndicateTeam@epam.com"
+
 log() { echo "[INFO] $(date) $1" >>"$LOG_PATH"; }
 log_err() { echo "[ERROR] $(date) $1" >>"$ERROR_LOG_PATH"; }
+log_err_with_support() {
+  echo "[ERROR] $(date) $1" >>"$ERROR_LOG_PATH"
+  echo "[ERROR] $(date) Please contact our support team at $SUPPORT_EMAIL for further assistance." >>"$ERROR_LOG_PATH"
+}
 # shellcheck disable=SC2120
 get_imds_token() {
   duration="10" # must be an integer
@@ -298,7 +305,7 @@ build_helm_values() {
 }
 
 if [ -z "$RULE_ENGINE_RELEASE" ]; then
-  error_log "RULE_ENGINE_RELEASE env is required"
+  log_err "RULE_ENGINE_RELEASE env is required"
   exit 1
 fi
 # some steps that are better to be done before user tries to log in, so put them first
@@ -324,7 +331,7 @@ sudo chown -R "$FIRST_USER":"$FIRST_USER" "$SRE_LOCAL_PATH"
 if [ -z "$DO_NOT_ACTIVATE_LICENSE" ]; then
   log "Going to make request to license manager"
   if ! lm_response="$(request_to_lm)"; then
-    log_err "Unsuccessful response from the license manager"
+    log_err_with_support "Unsuccessful response from the license manager"
     exit 1
   fi
   lm_response=$(jq --indent 0 '.items[0]' <<<"$lm_response")

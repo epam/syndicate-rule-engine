@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the parameter `description` to the `POST /rulesets` and `PATCH /rulesets/{name}/{version}` endpoints
 - Changed `created_at`, `updated_at`, and `expire_at` fields in resource exception responses to return human-readable ISO format dates instead of Unix timestamps
 - Changed the logic of validating ARNs in resource exception creation to check if the ARN exists in the resources database for the specific tenant
+- Updated `sre-init.sh` and `ami-initialize.sh` scripts
+  - Added support contact email to critical error messages (License Manager, Helm failures)
+  - Added success message after backup retry operations
+  - Fixed typo in `ami-initialize.sh`: `error_log` → `log_err`
 - Changed the log message in the report metrics to use dynamic database terminology based on the database type
 - Fixed an issue returning internal server error when operational reports are generated
 
