@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved handling of datatime in the command sre role add | update
 - Added command `update` to `setting lm config` and `setting lm client` groups
 - Added the `--description` parameter to the `ruleset add` and `ruleset update` commands
+- Changed the parameter `--description` from not required to required in the command `platform k8s create`
 
 ## [5.10.0] - 2025-10-16
 - Added the flag `--include_expired` to the command `resource exception describe` to allow retrieving expired resource exceptions
