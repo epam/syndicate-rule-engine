@@ -527,6 +527,7 @@ class CustodianResourceCollector(BaseResourceCollector):
         Collects resources for all tenants. If regions are not specified
         all active regions will be collected
         """
+        _LOG.info('Starting resource collection for all tenants')
         it = ActivatedTenantsIterator(mc=self._ms, ls=self._ls)
         for _, tenant, _ in it:
             if regions is None:
@@ -544,7 +545,9 @@ class CustodianResourceCollector(BaseResourceCollector):
                     resource_types=resource_types,
                     workers=workers,
                 )
+                _LOG.info(f'Resources collected for tenant: {tenant.name}')
             except Exception as e:
                 _LOG.error(
                     f'Error collecting resources for tenant {tenant.name}: {e}'
                 )
+        _LOG.info('Resource collection for all tenants completed')
