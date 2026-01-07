@@ -271,6 +271,11 @@ die() {
   echo "ERROR:" "$@" >&2
   exit 1
 }
+die_with_support() {
+  echo "ERROR:" "$@" >&2
+  echo "Please contact our support team at $SUPPORT_EMAIL for further assistance." >&2
+  exit 1
+}
 warn() { echo "WARNING:" "$@" >&2; }
 _debug() {
   if [ -z "$SRE_INIT_DEBUG" ]; then
@@ -478,9 +483,9 @@ initialize_system() {
   export PATH="$PATH:/home/$FIRST_USER/.local/bin"
 
   echo "Installing obfuscation manager"
-  pipx install --force "$SRE_RELEASES_PATH/$(get_latest_local_release)/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]"
+  pipx install --force "$SRE_RELEASES_PATH/$(get_latest_local_release)/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]" || die_with_support "Failed to install obfuscation manager"
   echo "Installing modular-cli"
-  MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pipx install --force "$SRE_RELEASES_PATH/$(get_latest_local_release)/$MODULAR_CLI_ARTIFACT_NAME"
+  MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pipx install --force "$SRE_RELEASES_PATH/$(get_latest_local_release)/$MODULAR_CLI_ARTIFACT_NAME" || die_with_support "Failed to install modular-cli"
 
   echo "Logging in to modular-cli"
   syndicate setup --username admin --password "$(get_kubectl_secret modular-api-secret system-password)" --api_path "http://127.0.0.1:8085" --json
@@ -501,8 +506,11 @@ initialize_system() {
   patch_kubectl_secret "$MODULAR_SERVICE_SECRET_NAME" "admin-password" "$modular_service_password"
 
   if [ -z "$DO_NOT_ACTIVATE_LICENSE" ]; then
-    customer_name="$(jq ".customer_name" -r <<<"$(get_kubectl_secret lm-data lm-response)")"
-    lm_response="$(get_kubectl_secret lm-data lm-response)"
+    lm_response="$(get_kubectl_secret lm-data lm-response)" || die_with_support "Failed to retrieve license manager response from secrets"
+    customer_name="$(jq ".customer_name" -r <<<"$lm_response")"
+    if [ -z "$customer_name" ] || [ "$customer_name" = "null" ]; then
+      die_with_support "Unsuccessful response from the license manager: customer_name is missing"
+    fi
   else
     customer_name="$(resolve_customer_name)"
   fi
@@ -522,9 +530,9 @@ initialize_system() {
   syndicate re users create --username "$RULE_ENGINE_USERNAME" --password "$rule_engine_password" --role_name admin_role --customer_id "$customer_name" --json
 
   echo "Setting LM related settings"
-  syndicate re setting lm config add --host "$(get_kubectl_secret lm-data api-link)" --json
+  syndicate re setting lm config add --host "$(get_kubectl_secret lm-data api-link)" --json || die_with_support "Failed to configure license manager settings"
   if [ -z "$DO_NOT_ACTIVATE_LICENSE" ]; then
-    syndicate re setting lm client add --key_id "$(jq ".private_key.key_id" -r <<<"$lm_response")" --algorithm "$(jq ".private_key.algorithm" -r <<<"$lm_response")" --private_key "$(jq ".private_key.value" -r <<<"$lm_response")" --b64encoded --json
+    syndicate re setting lm client add --key_id "$(jq ".private_key.key_id" -r <<<"$lm_response")" --algorithm "$(jq ".private_key.algorithm" -r <<<"$lm_response")" --private_key "$(jq ".private_key.value" -r <<<"$lm_response")" --b64encoded --json || die_with_support "Failed to configure license manager client"
   fi
 
   echo "Logging in as customer users"
@@ -533,8 +541,11 @@ initialize_system() {
 
   if [ -z "$DO_NOT_ACTIVATE_LICENSE" ]; then
     echo "Adding tenant license"
-    license_key=$(syndicate re license add --tenant_license_key "$(jq ".tenant_license_key" -r <<<"$lm_response")" --json | jq ".items[0].license_key" -r)
-    syndicate re license activate --license_key "$license_key" --all_tenants --json # can be removed with new version of sre
+    license_key=$(syndicate re license add --tenant_license_key "$(jq ".tenant_license_key" -r <<<"$lm_response")" --json | jq ".items[0].license_key" -r) || die_with_support "Failed to add tenant license"
+    if [ -z "$license_key" ] || [ "$license_key" = "null" ]; then
+      die_with_support "Failed to add tenant license: license key is missing in response"
+    fi
+    syndicate re license activate --license_key "$license_key" --all_tenants --json || die_with_support "Failed to activate license" # can be removed with new version of sre
   fi
 
   if [ -z "$DO_NOT_ACTIVATE_TENANT" ]; then
@@ -951,7 +962,7 @@ cmd_update() {
     helm repo update syndicate
     if ! helm upgrade "$DEFECTDOJO_HELM_RELEASE_NAME" syndicate/defectdojo --wait; then
       warn "helm upgrade failed. Rolling back to the previous version..."
-      helm rollback "$DEFECTDOJO_HELM_RELEASE_NAME" 0 --wait || die "Helm rollback failed... Contact the support team"
+      helm rollback "$DEFECTDOJO_HELM_RELEASE_NAME" 0 --wait || die_with_support "Helm rollback failed"
       if [ "$do_backup" -eq 1 ]; then
         echo "Data patch could've been performed and backup was also created. Restoring backup $backup_name"
         cmd_backup_restore --name "$backup_name"
@@ -1003,13 +1014,13 @@ cmd_update() {
     pull_artifacts "$release_data"
   fi
   echo "Verifying that necessary helm chart exists"
-  helm repo update syndicate || die "helm repo update failed"
-  helm search repo syndicate/rule-engine --version "$latest_tag" --fail-on-no-result >/dev/null 2>&1 || die "$latest_tag version $HELM_RELEASE_NAME chart not found. Cannot update"
+  helm repo update syndicate || die_with_support "helm repo update failed"
+  helm search repo syndicate/rule-engine --version "$latest_tag" --fail-on-no-result >/dev/null 2>&1 || die_with_support "$latest_tag version $HELM_RELEASE_NAME chart not found. Cannot update"
   echo "Making helm upgrade. It should not take more than $((HELM_UPGRADE_TIMEOUT / 60)) minutes"
   helm_values="$(helm get values "$HELM_RELEASE_NAME" -o json)" # preserve only user-set values
   if ! helm upgrade "$HELM_RELEASE_NAME" syndicate/rule-engine --timeout "${HELM_UPGRADE_TIMEOUT}s" --wait --wait-for-jobs --version "$latest_tag" --reset-values --values <(echo "$helm_values") --set=patch.enabled="$do_patch"; then
     warn "helm upgrade failed. Rolling back to the previous version..."
-    helm rollback "$HELM_RELEASE_NAME" 0 --wait || die "Helm rollback failed... Contact the support team"
+    helm rollback "$HELM_RELEASE_NAME" 0 --wait || die_with_support "Helm rollback failed"
     if [ "$do_backup" -eq 1 ] && [ "$do_patch" = 'true' ]; then
       echo "Data patch could've been performed and backup was also created. Restoring backup $backup_name"
       cmd_backup_restore --name "$backup_name"
@@ -1099,7 +1110,7 @@ scale_for_volume() {
 make_backup() {
   # accepts k8s persistent volume name as first parameter and destination folder as second parameter.
   # perform scaling to 0 before this method
-  local host_path
+  local host_path retried=0
   host_path="$(kubectl get pv "$1" -o jsonpath="{.spec.hostPath.path}")"
   if [ -z "$host_path" ]; then
     warn "volume $1 does not have hostPath"
@@ -1107,8 +1118,12 @@ make_backup() {
   fi
   while true; do
     if minikube ssh "sudo tar -czf /data/$1.tar.gz -C $host_path ." >/dev/null 2>&1; then
+      if [ "$retried" -eq 1 ]; then
+        echo "Tar archive for $1 created successfully after retry"
+      fi
       break
     fi
+    retried=1
     warn "error occurred making tar archive. Trying again in 1 sec"
     sleep 1
   done
@@ -1625,6 +1640,9 @@ readonly GITHUB_CURL_HEADERS
 readonly MODULAR_CLI_ARTIFACT_NAME=modular_cli.tar.gz
 readonly OBFUSCATOR_ARTIFACT_NAME=sre_obfuscator.tar.gz
 readonly SRE_INIT_ARTIFACT_NAME=sre-init.sh
+
+# NOTE: Keep in sync with ami-initialize.sh / sre-init.sh
+readonly SUPPORT_EMAIL="SupportSyndicateTeam@epam.com"
 
 # in seconds
 readonly INSTALLATION_PERIOD_THRESHOLD="${INSTALLATION_PERIOD_THRESHOLD:-900}"

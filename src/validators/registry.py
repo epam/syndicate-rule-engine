@@ -92,7 +92,9 @@ from validators.swagger_request_models import (
     ResourcesGetModel,
     ResourcesArnGetModel,
     ResourcesExceptionsGetModel,
-    ResourcesExceptionsPostModel
+    ResourcesExceptionsPostModel,
+    LicenseManagerConfigSettingPatchModel,
+    LicenseManagerClientSettingPatchModel,
 )
 from validators.swagger_response_models import (
     CredentialsActivationModel,
@@ -935,6 +937,15 @@ data: tuple[EndpointInfo, ...] = (
     ),
     EndpointInfo(
         path=Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG,
+        method=HTTPMethod.PATCH,
+        lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
+        request_model=LicenseManagerConfigSettingPatchModel,
+        responses=[(HTTPStatus.OK, SingleLMConfigModel, None)],
+        permission=Permission.SETTINGS_UPDATE_LM_CONFIG,
+        description='Allows to update license manager configuration'
+    ),
+    EndpointInfo(
+        path=Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG,
         method=HTTPMethod.DELETE,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=BaseModel,
@@ -959,6 +970,15 @@ data: tuple[EndpointInfo, ...] = (
         responses=[(HTTPStatus.CREATED, SingleLMClientModel, None)],
         permission=Permission.SETTINGS_CREATE_LM_CLIENT,
         description='Allows to add license manager client'
+    ),
+    EndpointInfo(
+        path=Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
+        method=HTTPMethod.PATCH,
+        lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
+        request_model=LicenseManagerClientSettingPatchModel,
+        responses=[(HTTPStatus.OK, SingleLMClientModel, None)],
+        permission=Permission.SETTINGS_UPDATE_LM_CLIENT,
+        description='Allows to update license manager client'
     ),
     EndpointInfo(
         path=Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT,

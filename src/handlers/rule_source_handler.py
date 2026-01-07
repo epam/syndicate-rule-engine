@@ -21,6 +21,7 @@ from validators.swagger_request_models import (
     RuleSourcePatchModel,
     RuleSourcePostModel,
     RuleSourcesListModel,
+    RuleSourceValidator,
 )
 from validators.utils import validate_kwargs
 
@@ -154,15 +155,66 @@ class RuleSourceHandler(AbstractHandler):
     def update_rule_source(self, event: RuleSourcePatchModel, id: str):
         customer = event.customer or SystemCustomer.get_name()
         entity = self._ensure_rule_source(id, customer)
+
+        id_fields_changed = any([
+            event.git_project_id,
+            event.type,
+            event.git_url,
+            event.git_ref,
+            event.git_rules_prefix,
+        ])
+
+        if event.git_project_id:
+            entity.git_project_id = event.git_project_id
+        if event.type:
+            entity.type_ = event.type.value
+        if event.git_url:
+            entity.git_url = event.baseurl
+        if event.git_ref:
+            entity.git_ref = event.git_ref
+        if event.git_rules_prefix:
+            entity.git_rules_prefix = event.git_rules_prefix
+        if event.description:
+            entity.description = event.description
+
+        try:
+            entity.git_project_id = RuleSourceValidator.validate(
+                git_project_id=entity.git_project_id,
+                type_=entity.type,
+                git_url=entity.git_url,
+            )
+        except ValueError as e:
+            raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(str(e)).exc()
+
+        if id_fields_changed:
+            new_id = self._rule_source_service.generate_id(
+                customer=entity.customer,
+                git_project_id=entity.git_project_id,
+                type_=entity.type,
+                git_url=entity.git_url,
+                git_ref=entity.git_ref,
+                git_rules_prefix=entity.git_rules_prefix,
+            )
+            if new_id != entity.id:
+                existing = self._rule_source_service.get_nullable(new_id)
+                if existing:
+                    raise ResponseFactory(HTTPStatus.CONFLICT).message(
+                        'Rule source with such parameters already exists'
+                    ).exc()
+                # Delete old entity from DB (not using service.delete to keep SSM secret)
+                old_secret_name = entity.git_access_secret
+                entity.delete()
+                entity.id = new_id
+                # Restore secret reference
+                entity.git_access_secret = old_secret_name
+
         if event.git_access_secret:
             self._rule_source_service.validate_git_access_data(
                 item=entity,
                 secret=event.git_access_secret
             )
-            self._rule_source_service.set_secret(entity,
-                                                 event.git_access_secret)
-        if event.description:
-            entity.description = event.description
+            self._rule_source_service.set_secret(entity, event.git_access_secret)
+
         self._rule_source_service.save(entity)
         return build_response(
             code=HTTPStatus.OK,
