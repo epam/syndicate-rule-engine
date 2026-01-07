@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.11.1] - 2026-01-07
+- Updated `modular-cli-sdk` from `3.0.0` to `3.1.0`
+
 ## [5.11.0] - 2025-12-15
 - Added the `--overwrite_rulesets`, `-or` flag to the `sre license sync` command, enabling overwriting of an existing ruleset data in S3 when syncing a license
 - Added the possibility to update the rulesource `type`, `git_url`, `git_ref`, `git_rules_prefix` and  `git_project_id` parameters in the `sre rulesource update` command
