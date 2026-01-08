@@ -18,8 +18,8 @@ def k8s():
               help='Cluster type')
 @click.option('-r', '--region', type=str, required=False,
               help='Cluster region in case the cluster is bound to a cloud')
-@click.option('-d', '--description', type=str, required=False,
-              help='Eks platform description')
+@click.option('-d', '--description', type=str, required=True,
+              help='K8s platform description')
 @click.option('-e', '--endpoint', type=str, required=False,
               help='K8s endpoint')
 @click.option('-ca', '--certificate_authority', type=str, required=False,
@@ -28,10 +28,18 @@ def k8s():
               help='Long lived token. Short-lived tokens will '
                    'be generated base on this one')
 @cli_response()
-def create(ctx: ContextObj, tenant_name: str, name: str, region: Optional[str],
-           description: Optional[str], type: str, endpoint: Optional[str],
-           certificate_authority: Optional[str], token: Optional[str],
-           customer_id):
+def create(
+    ctx: ContextObj,
+    tenant_name: str,
+    name: str,
+    region: Optional[str],
+    description: str,
+    type: str,
+    endpoint: Optional[str],
+    certificate_authority: Optional[str],
+    token: Optional[str],
+    customer_id: str,
+):
     """
     Register a new K8S Platform within a tenant
     """
@@ -51,7 +59,11 @@ def create(ctx: ContextObj, tenant_name: str, name: str, region: Optional[str],
 @k8s.command(cls=ViewCommand, name='describe')
 @build_tenant_option()
 @cli_response()
-def describe(ctx: ContextObj, tenant_name: Optional[str], customer_id):
+def describe(
+    ctx: ContextObj,
+    tenant_name: Optional[str],
+    customer_id: str,
+):
     """
     List registered K8S platforms
     """
@@ -65,7 +77,11 @@ def describe(ctx: ContextObj, tenant_name: Optional[str], customer_id):
 @click.option('-pid', '--platform_id', type=str, required=True,
               help='Platform id')
 @cli_response()
-def delete(ctx: ContextObj, platform_id: str, customer_id):
+def delete(
+    ctx: ContextObj,
+    platform_id: str,
+    customer_id: str,
+):
     """
     Deregister a platform
     """
