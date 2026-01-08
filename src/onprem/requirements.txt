@@ -175,7 +175,7 @@ tzdata==2025.1
     #   pytz-deprecation-shim
 uritemplate==4.1.1
     # via google-api-python-client
-urllib3==2.3.0
+urllib3==2.6.3
     # via
     #   botocore
     #   requests
