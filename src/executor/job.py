@@ -1179,29 +1179,82 @@ def get_tenant_credentials(
     If dict is returned it means that we should export that dict to envs
     and start the scan even if the dict is empty
     """
+
+    def _get_parent():
+        parent_service = SP.modular_client.parent_service()
+        tenant_service = SP.modular_client.tenant_service()
+
+        disabled = next(
+            parent_service.get_by_tenant_scope(
+                customer_id=tenant.customer_name,
+                type_=ParentType.CUSTODIAN_ACCESS,
+                tenant_name=tenant.name,
+                disabled=True,
+                limit=1,
+            ),
+            None,
+        )
+        if disabled:
+            _LOG.info('Disabled parent is found. Returning None')
+            return None
+
+        specific = next(
+            parent_service.get_by_tenant_scope(
+                customer_id=tenant.customer_name,
+                type_=ParentType.CUSTODIAN_ACCESS,
+                tenant_name=tenant.name,
+                disabled=False,
+                limit=1,
+            ),
+            None,
+        )
+        if specific:
+            _LOG.info('Specific parent is found. Returning it')
+            return specific
+
+        if tenant.linked_to:
+            _LOG.debug('Trying to get parent_tenant')
+            parent_tenant = next(
+                tenant_service.i_get_by_dntl(
+                    dntl=tenant.linked_to.lower(),
+                    cloud=tenant.cloud,
+                    limit=1,
+                ),
+                None,
+            )
+
+            if parent_tenant:
+                _LOG.info('Getting parent linked to parent_tenant')
+                return parent_service.get_linked_parent_by_tenant(
+                    tenant=parent_tenant,
+                    type_=ParentType.CUSTODIAN_ACCESS,
+                )
+
+        _LOG.info('Getting parent with scope ALL')
+        return parent_service.get_linked_parent_by_tenant(
+            tenant=tenant,
+            type_=ParentType.CUSTODIAN_ACCESS,
+        )
+
+
     mcs = SP.modular_client.maestro_credentials_service()
+    application_service = SP.modular_client.application_service()
     credentials = None
     application = None
-    if application_id:
-        _LOG.info('Trying to get creds from application')
-        application = (
-            SP.modular_client.application_service().get_application_by_id(
-                application_id
-                )
+
+    _LOG.info('Trying to get creds from `CUSTODIAN_ACCESS` parent')
+    parent = _get_parent()
+
+    if parent:
+        application = application_service.get_application_by_id(
+            parent.application_id,
         )
-    else:
-        _LOG.info('Trying to get creds from `CUSTODIAN_ACCESS` parent')
-        parent = (
-            SP.modular_client.parent_service().get_linked_parent_by_tenant(
-                tenant=tenant, type_=ParentType.CUSTODIAN_ACCESS
-            )
+
+    if not application and application_id:
+        _LOG.info('Trying to get creds directly from application')
+        application = application_service.get_application_by_id(
+            application_id,
         )
-        if parent:
-            application = (
-                SP.modular_client.application_service().get_application_by_id(
-                    parent.application_id
-                )
-            )
 
     if application:
         _creds = mcs.get_by_application(application, tenant)
