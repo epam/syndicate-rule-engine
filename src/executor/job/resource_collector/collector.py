@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import time
 from dataclasses import dataclass
@@ -15,7 +17,6 @@ from c7n_kube.resources.resource_map import ResourceMap as K8sResourceMap
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.modular import ModularServiceProvider
 
-from executor.job import PoliciesLoader, get_tenant_credentials
 from helpers.constants import (
     EXCLUDE_RESOURCE_TYPES,
     GLOBAL_REGION,
@@ -86,14 +87,17 @@ class CollectMode(PolicyExecutionMode):
 
 
 @dataclass(frozen=True, slots=True)
-class TenantTask:
-    """Serializable task data for subprocess."""
+class RegionTask:
+    """
+    Serializable task data for subprocess.
+    Each task represents collection for ONE region of a tenant.
+    """
 
     tenant_name: str
     account_id: str
     customer_name: str
     cloud: str
-    regions: tuple[str, ...]
+    region: str
     resource_types: tuple[str, ...] | None
     credentials: dict
 
@@ -106,10 +110,10 @@ def _subprocess_initializer(creds: dict) -> None:
     os.environ.setdefault("AWS_DEFAULT_REGION", AWS_DEFAULT_REGION)
 
 
-def _collect_in_subprocess(task: TenantTask) -> tuple[int, list[str]]:
+def _collect_region_in_subprocess(task: RegionTask) -> tuple[int, list[str]]:
     """
-    Run resource collection in subprocess.
-    Returns (saved_count, failed_policies).
+    Run resource collection for ONE region in subprocess.
+    Returns (saved_count, failed_resource_types).
     All memory is freed when this process exits.
     """
     from services import SP
@@ -117,7 +121,7 @@ def _collect_in_subprocess(task: TenantTask) -> tuple[int, list[str]]:
     cloud = Cloud(task.cloud)
     rs = SP.resources_service
     saved_total = 0
-    failed_policies: list[str] = []
+    failed_resource_types: list[str] = []
 
     resource_types = _get_resource_types(
         cloud=cloud,
@@ -129,7 +133,7 @@ def _collect_in_subprocess(task: TenantTask) -> tuple[int, list[str]]:
             saved = _process_single_resource_type(
                 cloud=cloud,
                 resource_type=rt,
-                regions=set(task.regions),
+                region=task.region,
                 account_id=task.account_id,
                 customer_name=task.customer_name,
                 tenant_name=task.tenant_name,
@@ -137,10 +141,10 @@ def _collect_in_subprocess(task: TenantTask) -> tuple[int, list[str]]:
             )
             saved_total += saved
         except Exception as e:
-            _LOG.error(f"Failed {rt}: {e}")
-            failed_policies.append(rt)
+            _LOG.error(f"Failed {rt} in {task.region}: {e}")
+            failed_resource_types.append(rt)
 
-    return saved_total, failed_policies
+    return saved_total, failed_resource_types
 
 
 def _resolve_resource_types(
@@ -150,6 +154,8 @@ def _resolve_resource_types(
     excluded: set[str] | None = None,
 ) -> set[str]:
     """Resolve resource types for a cloud provider."""
+    from executor.job import PoliciesLoader
+
     p = PoliciesLoader.cc_provider_name(cloud)
     if included is None:
         base = scope.copy()
@@ -189,27 +195,29 @@ def _get_resource_types(cloud: Cloud, included: tuple[str, ...] | None) -> set[s
 def _process_single_resource_type(
     cloud: Cloud,
     resource_type: str,
-    regions: set[str],
+    region: str,
     account_id: str,
     customer_name: str,
     tenant_name: str,
     rs: ResourcesService,
 ) -> int:
-    """Process one resource type across regions. Returns saved count."""
+    """Process one resource type for one region. Returns saved count."""
+    from executor.job import PoliciesLoader, PolicyDict
+
     loader = PoliciesLoader(
         cloud=cloud,
         output_dir=None,
-        regions=regions if cloud == Cloud.AWS else None,
+        regions={region},
         cache=None,
     )
 
-    policy_dict: dict = {
+    policy_dict: PolicyDict = {
         "name": f"collect-{resource_type}",
         "resource": resource_type,
         "mode": {"type": "collect"},
     }
 
-    policies = loader.load_from_policies([policy_dict])  # type: ignore[arg-type]
+    policies = loader.load_from_policies([policy_dict])
     saved_count = 0
 
     for policy in policies:
@@ -268,14 +276,14 @@ class CustodianResourceCollector(BaseResourceCollector):
     """
     Resource collector with process isolation using multiprocessing.
 
-    Uses same pattern as job.py to prevent Cloud Custodian memory leaks.
-    Each tenant runs in separate subprocess - when it exits, all memory is freed.
+    Uses same pattern as job.py to prevent Cloud Custodian memory leaks:
+    - Each REGION runs in a separate subprocess
+    - When subprocess exits, all memory (including CC leaks) is freed
 
     Key optimizations:
-    1. Process isolation per tenant - prevents Cloud Custodian memory leaks
+    1. Process isolation per REGION - prevents Cloud Custodian memory leaks
     2. Streaming policy processing - one resource type at a time
-    3. Aggressive garbage collection
-    4. multiprocessing.Pool compatible with Celery daemon processes
+    3. billiard.Pool compatible with Celery daemon processes
     """
 
     collector_type = ResourcesCollectorType.CUSTODIAN
@@ -285,7 +293,7 @@ class CustodianResourceCollector(BaseResourceCollector):
         modular_service: ModularServiceProvider,
         resources_service: ResourcesService,
         license_service: LicenseService,
-        tenant_settings_service: "TenantSettingsService",
+        tenant_settings_service: TenantSettingsService,
     ):
         self._ms = modular_service
         self._rs = resources_service
@@ -302,6 +310,60 @@ class CustodianResourceCollector(BaseResourceCollector):
             tenant_settings_service=SP.modular_client.tenant_settings_service(),
         )
 
+    def _collect_tenant_by_regions(
+        self,
+        tenant: Tenant,
+        regions: set[str],
+        resource_types: set[str] | None,
+        credentials: dict,
+    ) -> tuple[int, list[str]]:
+        """
+        Collect resources for a tenant, running each region in separate subprocess.
+        Returns (total_saved, failed_regions).
+        """
+        cloud = modular_helpers.tenant_cloud(tenant)
+        total_saved = 0
+        failed_regions: list[str] = []
+
+        for region in sorted(regions):
+            _LOG.info(f"Processing region {region} for tenant {tenant.name}")
+
+            task = RegionTask(
+                tenant_name=tenant.name,
+                account_id=str(tenant.project),
+                customer_name=tenant.customer_name,
+                cloud=cloud.value,
+                region=region,
+                resource_types=tuple(resource_types) if resource_types else None,
+                credentials=credentials,
+            )
+
+            try:
+                # Each region in separate subprocess
+                # Memory is freed when subprocess exits
+                with multiprocessing.Pool(  # type: ignore[attr-defined]
+                    processes=1,
+                    initializer=_subprocess_initializer,
+                    initargs=(credentials,),
+                ) as pool:
+                    saved, failed_types = pool.apply(
+                        _collect_region_in_subprocess, (task,)
+                    )
+
+                total_saved += saved
+                _LOG.info(f"Completed region {region}: {saved} resources")
+
+                if failed_types:
+                    _LOG.warning(
+                        f"Failed resource types in {region}: {len(failed_types)}"
+                    )
+
+            except Exception as e:
+                _LOG.error(f"Error processing region {region}: {e}")
+                failed_regions.append(region)
+
+        return total_saved, failed_regions
+
     def collect_all_resources(
         self,
         regions: set[str] | None = None,
@@ -310,14 +372,17 @@ class CustodianResourceCollector(BaseResourceCollector):
         """
         Collect resources for all activated tenants.
 
-        Each tenant runs in separate subprocess using multiprocessing.Pool.
-        Process isolation ensures memory doesn't accumulate across tenants.
-        When each subprocess exits, all Cloud Custodian memory leaks are freed.
+        Each REGION runs in separate subprocess using billiard.Pool.
+        This follows the same pattern as job.py:
+        - Process isolation per region prevents CC memory leaks
+        - When subprocess exits, all leaked memory is freed by OS
         """
+        from executor.job import get_tenant_credentials
+
         _LOG.info("Starting resource collection for all tenants")
 
         it = ActivatedTenantsIterator(mc=self._ms, ls=self._ls)
-        processed = 0
+        processed_tenants = 0
         failed_tenants: list[str] = []
         total_resources = 0
 
@@ -329,65 +394,36 @@ class CustodianResourceCollector(BaseResourceCollector):
                 ) | {GLOBAL_REGION}
 
             try:
-                task = self._create_task(
+                credentials = get_tenant_credentials(tenant)
+                if credentials is None:
+                    raise ValueError(f"No credentials found for tenant {tenant.name}")
+
+                _LOG.info(
+                    f"Processing tenant: {tenant.name} ({len(tenant_regions)} regions)"
+                )
+
+                saved, failed_regions = self._collect_tenant_by_regions(
                     tenant=tenant,
                     regions=tenant_regions,
                     resource_types=resource_types,
+                    credentials=credentials,
                 )
 
-                _LOG.info(f"Processing tenant: {tenant.name}")
-
-                # Each tenant in separate subprocess
-                # Memory is freed when subprocess exits
-                with multiprocessing.Pool(  # type: ignore[attr-defined]
-                    processes=1,
-                    initializer=_subprocess_initializer,
-                    initargs=(task.credentials,),
-                ) as pool:
-                    saved, failed = pool.apply(_collect_in_subprocess, (task,))
-
                 total_resources += saved
-                processed += 1
+                processed_tenants += 1
 
-                _LOG.info(f"Completed {tenant.name}: {saved} resources")
-                if failed:
-                    _LOG.warning(f"Failed policies for {tenant.name}: {len(failed)}")
+                _LOG.info(f"Completed tenant {tenant.name}: {saved} resources")
+                if failed_regions:
+                    _LOG.warning(f"Failed regions for {tenant.name}: {failed_regions}")
 
             except Exception as e:
-                _LOG.error(f"Error processing {tenant.name}: {e}")
+                _LOG.error(f"Error processing tenant {tenant.name}: {e}")
                 failed_tenants.append(tenant.name)
 
         _LOG.info(
-            f"Collection complete: {processed} tenants, "
+            f"Collection complete: {processed_tenants} tenants, "
             f"{total_resources} resources, {len(failed_tenants)} failed"
         )
 
         if failed_tenants:
             _LOG.warning(f"Failed tenants: {failed_tenants}")
-
-    def _create_task(
-        self,
-        tenant: Tenant,
-        regions: set[str] | None,
-        resource_types: set[str] | None,
-    ) -> TenantTask:
-        """Create serializable task for subprocess."""
-        if regions is None:
-            regions = modular_helpers.get_tenant_regions(tenant, self._tss) | {
-                GLOBAL_REGION
-            }
-
-        cloud = modular_helpers.tenant_cloud(tenant)
-        credentials = get_tenant_credentials(tenant)
-        if credentials is None:
-            raise ValueError(f"No credentials found for tenant {tenant.name}")
-
-        return TenantTask(
-            tenant_name=tenant.name,
-            account_id=str(tenant.project),
-            customer_name=tenant.customer_name,
-            cloud=cloud.value,
-            regions=tuple(regions),
-            resource_types=tuple(resource_types) if resource_types else None,
-            credentials=credentials,
-        )

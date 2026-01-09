@@ -25,7 +25,7 @@ from helpers.constants import Cloud, ResourcesCollectorType
 from executor.job import get_tenant_credentials
 from services import SP
 from services.resources_service import ResourcesService
-from executor.jobs.resource_collector import BaseResourceCollector
+from executor.job.resource_collector import BaseResourceCollector
 
 _LOG = get_logger(__name__)
 

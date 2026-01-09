@@ -7,10 +7,10 @@ from c7n_gcp.resources.resource_map import ResourceMap as GCPResourceMap
 from c7n_kube.resources.resource_map import ResourceMap as K8sResourceMap
 
 from helpers.constants import Cloud, EXCLUDE_RESOURCE_TYPES
-from executor.jobs.resource_collector.collector import (
+from executor.job.resource_collector.collector import (
     _resolve_resource_types,
     _get_resource_types,
-    TenantTask,
+    RegionTask,
     CollectMode,
 )
 
@@ -133,17 +133,17 @@ class TestGetResourceTypes:
         assert result == {"aws.ec2", "aws.s3"}
 
 
-class TestTenantTask:
-    """Tests for TenantTask dataclass."""
+class TestRegionTask:
+    """Tests for RegionTask dataclass."""
 
     def test_creates_immutable_task(self):
-        """TenantTask is frozen and immutable."""
-        task = TenantTask(
+        """RegionTask is frozen and immutable."""
+        task = RegionTask(
             tenant_name="test-tenant",
             account_id="123456789",
             customer_name="test-customer",
             cloud="AWS",
-            regions=("us-east-1", "eu-west-1"),
+            region="us-east-1",  # Single region, not tuple
             resource_types=("aws.ec2", "aws.s3"),
             credentials={"AWS_ACCESS_KEY_ID": "test"},
         )
@@ -151,10 +151,24 @@ class TestTenantTask:
         assert task.tenant_name == "test-tenant"
         assert task.account_id == "123456789"
         assert task.cloud == "AWS"
-        assert len(task.regions) == 2
+        assert task.region == "us-east-1"
 
         with pytest.raises(AttributeError):
             task.tenant_name = "new-name"  # type: ignore
+
+    def test_accepts_none_resource_types(self):
+        """RegionTask accepts None for resource_types."""
+        task = RegionTask(
+            tenant_name="test-tenant",
+            account_id="123456789",
+            customer_name="test-customer",
+            cloud="AWS",
+            region="eu-west-1",
+            resource_types=None,
+            credentials={},
+        )
+
+        assert task.resource_types is None
 
 
 class TestCollectMode:
@@ -178,7 +192,7 @@ class TestCustodianResourceCollector:
 
     def test_collector_type(self):
         """Collector has correct type."""
-        from executor.jobs.resource_collector import CustodianResourceCollector
+        from executor.job.resource_collector import CustodianResourceCollector
         from helpers.constants import ResourcesCollectorType
 
         assert (
@@ -186,10 +200,10 @@ class TestCustodianResourceCollector:
             == ResourcesCollectorType.CUSTODIAN
         )
 
-    @patch("executor.jobs.resource_collector.collector.SP")
+    @patch("executor.job.resource_collector.collector.SP")
     def test_build_creates_instance(self, mock_sp):
         """build() creates a properly configured instance."""
-        from executor.jobs.resource_collector import CustodianResourceCollector
+        from executor.job.resource_collector import CustodianResourceCollector
 
         mock_sp.modular_client = MagicMock()
         mock_sp.resources_service = MagicMock()

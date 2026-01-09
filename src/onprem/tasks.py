@@ -82,7 +82,7 @@ def delete_expired_metrics():
 
 @app.task
 def collect_resources() -> None:
-    from executor.jobs import CustodianResourceCollector
+    from executor.job import CustodianResourceCollector
     
     collector = CustodianResourceCollector.build()
     collector.collect_all_resources()
