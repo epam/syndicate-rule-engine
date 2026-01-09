@@ -1,7 +1,8 @@
+import gc
 import os
 import time
 from abc import ABC, abstractmethod
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Generator, TYPE_CHECKING
 
 from c7n import utils
@@ -44,6 +45,12 @@ if TYPE_CHECKING:
     from modular_sdk.services.tenant_settings_service import TenantSettingsService
 
 _LOG = get_logger(__name__)
+
+
+DEFAULT_WORKERS = 2
+# Batch size for saving resources to database
+# Helps prevent memory accumulation in batch writer
+BATCH_SAVE_CHUNK_SIZE = 500
 
 
 # CC by default stores retrieved information on disk
@@ -403,16 +410,24 @@ class CustodianResourceCollector(BaseResourceCollector):
         account_id: str,
     ) -> None:
         """
-        Invokes one policy and saves its result to the database
+        Invokes one policy and saves its result to the database.
+        Uses chunked batch saving to prevent memory accumulation.
         """
+        policy_name = policy.name
+        rt = policy.resource_type
+        _LOG.debug(f'Processing policy {policy_name} for {rt}')
+
         resources = self._invoke_policy(policy)
         if resources is None:
-            # error
+            # error occurred during policy execution
             return
+
         location = PoliciesLoader.get_policy_region(policy)
-        rt = policy.resource_type
-        # THIS is the location that is stored in the database. It does not
-        # necessarily match the region of the resource
+        resource_count = len(resources)
+        _LOG.debug(
+            f'Policy {policy_name} returned {resource_count} resources '
+            f'for {rt} in {location}'
+        )
 
         # NOTE: here the returns resources are the actual ones while
         # those in DB are obsolete. We should basically remove all
@@ -424,12 +439,19 @@ class CustodianResourceCollector(BaseResourceCollector):
         self._rs.remove_policy_resources(
             account_id=account_id, location=location, resource_type=rt
         )
+
+        if resource_count == 0:
+            return
+
+        timestamp = time.time()
         part = ShardPart(
-            policy=policy.name,  # does not matter here
+            policy=policy_name,
             location=location,
-            timestamp=time.time(),
+            timestamp=timestamp,
             resources=resources,
         )
+
+        # Get iterator for resources based on cloud type
         match cloud:
             case Cloud.AWS:
                 it = self.iter_aws_resources(
@@ -447,7 +469,21 @@ class CustodianResourceCollector(BaseResourceCollector):
                 it = self.iter_k8s_resources(
                     part, account_id, location, rt, customer_name, tenant_name
                 )
-        self._rs.batch_save(it)
+            case _:
+                _LOG.warning(f'Unsupported cloud type: {cloud}')
+                return
+
+        saved_count = 0
+        for chunk in utils.chunks(it, BATCH_SAVE_CHUNK_SIZE):
+            self._rs.batch_save(chunk)
+            saved_count += len(chunk)
+
+        _LOG.debug(f'Saved {saved_count} resources for policy {policy_name}')
+
+        # Explicit cleanup to help with memory management
+        del resources
+        del part
+        gc.collect()
 
     # TODO: add creds handling for Kube
     @staticmethod
@@ -463,7 +499,7 @@ class CustodianResourceCollector(BaseResourceCollector):
         tenant_name: str,
         regions: set[str] | None = None,
         resource_types: set[str] | None = None,
-        workers: int | None = None,
+        workers: int = DEFAULT_WORKERS,
         **kwargs,
     ):
         tenant = self._ms.tenant_service().get(tenant_name)
@@ -502,25 +538,52 @@ class CustodianResourceCollector(BaseResourceCollector):
             _LOG.info(f'Starting resource collection for tenant: {tenant_name}')
             _LOG.info(f'Policies to run: {len(policies)}')
 
-            # TODO: check process pool executor vs Billiard pool
-            with ThreadPoolExecutor(
-                max_workers=workers,
-            ) as executor:
-                for policy in policies:
+            account_id = str(tenant.project)
+            customer_name = tenant.customer_name
+            failed_policies: list[str] = []
+
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                future_to_policy = {
                     executor.submit(
                         self._process_policy,
                         policy,
                         cloud,
-                        tenant.customer_name,
-                        tenant.name,
-                        str(tenant.project)
-                    )
+                        customer_name,
+                        tenant_name,
+                        account_id
+                    ): policy.name
+                    for policy in policies
+                }
+
+                for future in as_completed(future_to_policy):
+                    policy_name = future_to_policy[future]
+                    try:
+                        future.result()  # Raises exception if task failed
+                    except Exception as e:
+                        _LOG.error(
+                            f'Policy {policy_name} failed with error: {e}'
+                        )
+                        failed_policies.append(policy_name)
+
+            # Force garbage collection after all policies complete
+            gc.collect()
+
+            if failed_policies:
+                _LOG.warning(
+                    f'Resource collection completed with {len(failed_policies)} '
+                    f'failed policies: {failed_policies}'
+                )
+            else:
+                _LOG.info(
+                    f'Resource collection completed successfully for tenant: '
+                    f'{tenant_name}'
+                )
 
     def collect_all_resources(
         self,
         regions: set[str] | None = None,
         resource_types: set[str] | None = None,
-        workers: int | None = None,
+        workers: int = DEFAULT_WORKERS,
         **kwargs,
     ):
         """
@@ -529,6 +592,9 @@ class CustodianResourceCollector(BaseResourceCollector):
         """
         _LOG.info('Starting resource collection for all tenants')
         it = ActivatedTenantsIterator(mc=self._ms, ls=self._ls)
+        processed_tenants = 0
+        failed_tenants: list[str] = []
+
         for _, tenant, _ in it:
             if regions is None:
                 tenant_regions = modular_helpers.get_tenant_regions(
@@ -546,8 +612,19 @@ class CustodianResourceCollector(BaseResourceCollector):
                     workers=workers,
                 )
                 _LOG.info(f'Resources collected for tenant: {tenant.name}')
+                processed_tenants += 1
             except Exception as e:
                 _LOG.error(
                     f'Error collecting resources for tenant {tenant.name}: {e}'
                 )
-        _LOG.info('Resource collection for all tenants completed')
+                failed_tenants.append(tenant.name)
+            finally:
+                # Force garbage collection between tenants to reclaim memory
+                gc.collect()
+
+        _LOG.info(
+            f'Resource collection for all tenants completed. '
+            f'Processed: {processed_tenants}, Failed: {len(failed_tenants)}'
+        )
+        if failed_tenants:
+            _LOG.warning(f'Failed tenants: {failed_tenants}')
