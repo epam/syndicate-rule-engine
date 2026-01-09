@@ -1,11 +1,10 @@
-# NOTE: It 's alternative implementations for resource collector.
+# NOTE: It's alternative implementations for resource collector.
 # It isn't used anywhere. We can plug them in later if needed.
 
 import time
 import csv
 import gzip
 from io import StringIO, BytesIO
-from typing import Iterable
 from datetime import datetime, timezone
 from importlib import import_module
 from functools import lru_cache
@@ -26,7 +25,7 @@ from helpers.constants import Cloud, ResourcesCollectorType
 from executor.job import get_tenant_credentials
 from services import SP
 from services.resources_service import ResourcesService
-from services.resources_collector import BaseResourceCollector
+from executor.jobs.resource_collector import BaseResourceCollector
 
 _LOG = get_logger(__name__)
 
@@ -544,3 +543,4 @@ class AzureFOCUSResourceCollector(BaseResourceCollector):
                 _LOG.error(
                     f'Error collecting FOCUS resources for tenant {tenant.name}: {e}'
                 )
+
