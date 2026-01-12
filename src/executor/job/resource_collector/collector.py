@@ -78,69 +78,76 @@ def _scan_region_in_subprocess(
     from c7n_kube.resources.resource_map import ResourceMap as K8sResourceMap
     from executor.job import PoliciesLoader, PolicyDict, Runner
 
-    cloud = Cloud(cloud_value)
-    work_path = Path(work_dir)
-    successful = 0
-    failed_types: list[str] = []
-
-    # Get resource types for this cloud
-    match cloud:
-        case Cloud.AWS:
-            scope = set(AWSResourceMap)
-        case Cloud.AZURE:
-            scope = set(AzureResourceMap)
-        case Cloud.GOOGLE | Cloud.GCP:
-            scope = set(GCPResourceMap)
-        case Cloud.KUBERNETES | Cloud.K8S:
-            scope = set(K8sResourceMap)
-        case _:
-            return region, 0, []
-
-    prefix = PoliciesLoader.cc_provider_name(cloud)
-    if resource_types_tuple:
-        resource_types = {
-            rt if rt.startswith(prefix) else f"{prefix}.{rt}"
-            for rt in resource_types_tuple
-        }
-    else:
-        resource_types = scope.copy()
-
-    resource_types -= EXCLUDE_RESOURCE_TYPES
-
-    _LOG.info(f"Scanning region {region} ({len(resource_types)} resource types)")
-
-    # Create policies for each resource type
-    policies_dicts: list[PolicyDict] = [
-        {"name": f"collect-{rt}", "resource": rt} for rt in resource_types
-    ]
-
-    loader = PoliciesLoader(
-        cloud=cloud,
-        output_dir=work_path,
-        regions={region},
-        cache=None,
-    )
-
     try:
-        policies = loader.load_from_policies(policies_dicts)
+        cloud = Cloud(cloud_value)
+        work_path = Path(work_dir)
+        successful = 0
+        failed_types: list[str] = []
+
+        # Get resource types for this cloud
+        match cloud:
+            case Cloud.AWS:
+                scope = set(AWSResourceMap)
+            case Cloud.AZURE:
+                scope = set(AzureResourceMap)
+            case Cloud.GOOGLE | Cloud.GCP:
+                scope = set(GCPResourceMap)
+            case Cloud.KUBERNETES | Cloud.K8S:
+                scope = set(K8sResourceMap)
+            case _:
+                return region, 0, []
+
+        prefix = PoliciesLoader.cc_provider_name(cloud)
+        if resource_types_tuple:
+            resource_types = {
+                rt if rt.startswith(prefix) else f"{prefix}.{rt}"
+                for rt in resource_types_tuple
+            }
+        else:
+            resource_types = scope.copy()
+
+        resource_types -= EXCLUDE_RESOURCE_TYPES
+
+        _LOG.info(f"Scanning region {region} ({len(resource_types)} resource types)")
+
+        # Create policies for each resource type
+        policies_dicts: list[PolicyDict] = [
+            {"name": f"collect-{rt}", "resource": rt} for rt in resource_types
+        ]
+
+        loader = PoliciesLoader(
+            cloud=cloud,
+            output_dir=work_path,
+            regions={region},
+            cache=None,
+        )
+
+        try:
+            policies = loader.load_from_policies(policies_dicts)
+        except Exception:
+            _LOG.exception(f"Failed to load policies for region {region}")
+            return region, 0, list(resource_types)
+
+        _LOG.info(f"Loaded {len(policies)} policies for region {region}")
+
+        # Run policies using Runner (saves to files)
+        runner = Runner.factory(cloud, policies)
+        runner.start()
+
+        successful = runner.n_successful
+        for (reg, policy_name), _ in runner.failed.items():
+            # Extract resource type from policy name
+            if policy_name.startswith("collect-"):
+                failed_types.append(policy_name[8:])
+
+        _LOG.info(f"Completed scan for region {region}: {successful} successful")
+        return region, successful, failed_types
+    except SystemExit:
+        _LOG.error(f"SystemExit in subprocess for region {region}")
+        return region, 0, []
     except Exception:
-        _LOG.exception(f"Failed to load policies for region {region}")
-        return region, 0, list(resource_types)
-
-    _LOG.info(f"Loaded {len(policies)} policies for region {region}")
-
-    # Run policies using Runner (saves to files)
-    runner = Runner.factory(cloud, policies)
-    runner.start()
-
-    successful = runner.n_successful
-    for (reg, policy_name), _ in runner.failed.items():
-        # Extract resource type from policy name
-        if policy_name.startswith("collect-"):
-            failed_types.append(policy_name[8:])
-
-    _LOG.info(f"Completed scan for region {region}: {successful} successful")
-    return region, successful, failed_types
+        _LOG.exception(f"Error in subprocess for region {region}")
+        return region, 0, []
 
 
 class ScanResult:
