@@ -691,6 +691,12 @@ class Env(EnvEnum):
         '0 14 * * *',  # every day at 14:00 UTC
     )
 
+    SCAN_RESOURCES_PROCESSORS = (
+        'SRE_SCAN_RESOURCES_PROCESSORS',
+        (),
+        '4',
+    )
+
     # Cloud Custodian
     CC_LOG_LEVEL = 'SRE_CC_LOG_LEVEL', (), 'INFO'
     ENABLE_CUSTOM_CC_PLUGINS = 'SRE_ENABLE_CUSTOM_CC_PLUGINS', ()

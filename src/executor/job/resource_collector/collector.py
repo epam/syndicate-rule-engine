@@ -18,6 +18,7 @@ from modular_sdk.models.tenant import Tenant
 from modular_sdk.modular import ModularServiceProvider
 
 from helpers.constants import (
+    Env,
     EXCLUDE_RESOURCE_TYPES,
     GLOBAL_REGION,
     Cloud,
@@ -110,10 +111,12 @@ def _subprocess_initializer(creds: dict) -> None:
     os.environ.setdefault("AWS_DEFAULT_REGION", AWS_DEFAULT_REGION)
 
 
-def _collect_region_in_subprocess(task: RegionTask) -> tuple[int, list[str]]:
+def _collect_region_in_subprocess(
+    task: RegionTask,
+) -> tuple[str, int, list[str]]:
     """
     Run resource collection for ONE region in subprocess.
-    Returns (saved_count, failed_resource_types).
+    Returns (region, saved_count, failed_resource_types).
     All memory is freed when this process exits.
     """
     from services import SP
@@ -126,6 +129,11 @@ def _collect_region_in_subprocess(task: RegionTask) -> tuple[int, list[str]]:
     resource_types = _get_resource_types(
         cloud=cloud,
         included=task.resource_types,
+    )
+
+    _LOG.info(
+        f"Starting collection for region {task.region} "
+        f"({len(resource_types)} resource types)"
     )
 
     for rt in resource_types:
@@ -144,7 +152,8 @@ def _collect_region_in_subprocess(task: RegionTask) -> tuple[int, list[str]]:
             _LOG.error(f"Failed {rt} in {task.region}: {e}")
             failed_resource_types.append(rt)
 
-    return saved_total, failed_resource_types
+    _LOG.info(f"Completed region {task.region}: {saved_total} resources saved")
+    return task.region, saved_total, failed_resource_types
 
 
 def _resolve_resource_types(
@@ -265,6 +274,10 @@ def _process_single_resource_type(
                 rs.batch_save(chunk)
                 saved_count += len(chunk)
 
+            _LOG.info(
+                f"Saved {saved_count} resources for {resource_type} "
+                f"in {region} for tenant {tenant_name}"
+            )
         except Exception:
             _LOG.exception(f"Error in policy {policy.name}")
 
@@ -281,9 +294,14 @@ class CustodianResourceCollector(BaseResourceCollector):
     - When subprocess exits, all memory (including CC leaks) is freed
 
     Key optimizations:
-    1. Process isolation per REGION - prevents Cloud Custodian memory leaks
-    2. Streaming policy processing - one resource type at a time
-    3. billiard.Pool compatible with Celery daemon processes
+    1. Parallel region processing - configurable via COLLECTOR_WORKERS env var
+    2. Process isolation per REGION - prevents Cloud Custodian memory leaks
+    3. Worker recycling (maxtasksperchild=1) - each worker dies after 1 region
+    4. Streaming policy processing - one resource type at a time
+    5. billiard.Pool compatible with Celery daemon processes
+
+    Environment variables:
+        COLLECTOR_WORKERS: Number of parallel workers (default: 4)
     """
 
     collector_type = ResourcesCollectorType.CUSTODIAN
@@ -318,49 +336,66 @@ class CustodianResourceCollector(BaseResourceCollector):
         credentials: dict,
     ) -> tuple[int, list[str]]:
         """
-        Collect resources for a tenant, running each region in separate subprocess.
+        Collect resources for a tenant, running regions in parallel.
+        Uses a single pool with configurable number of workers.
+        Each worker processes one region at a time, then exits to free memory.
         Returns (total_saved, failed_regions).
         """
         cloud = modular_helpers.tenant_cloud(tenant)
         total_saved = 0
         failed_regions: list[str] = []
 
-        for region in sorted(regions):
-            _LOG.info(f"Processing region {region} for tenant {tenant.name}")
-
-            task = RegionTask(
+        resource_types_tuple = tuple(resource_types) if resource_types else None
+        tasks = [
+            RegionTask(
                 tenant_name=tenant.name,
                 account_id=str(tenant.project),
                 customer_name=tenant.customer_name,
                 cloud=cloud.value,
                 region=region,
-                resource_types=tuple(resource_types) if resource_types else None,
+                resource_types=resource_types_tuple,
                 credentials=credentials,
             )
+            for region in sorted(regions)
+        ]
 
-            try:
-                # Each region in separate subprocess
-                # Memory is freed when subprocess exits
-                with multiprocessing.Pool(  # type: ignore[attr-defined]
-                    processes=1,
-                    initializer=_subprocess_initializer,
-                    initargs=(credentials,),
-                ) as pool:
-                    saved, failed_types = pool.apply(
-                        _collect_region_in_subprocess, (task,)
-                    )
+        if not tasks:
+            return 0, []
 
-                total_saved += saved
-                _LOG.info(f"Completed region {region}: {saved} resources")
+        max_processors = Env.SCAN_RESOURCES_PROCESSORS.as_int()
+        processors_count = min(max_processors, len(tasks))
 
-                if failed_types:
-                    _LOG.warning(
-                        f"Failed resource types in {region}: {len(failed_types)}"
-                    )
+        _LOG.info(
+            f"Processing {len(tasks)} regions for tenant {tenant.name} "
+            f"with {processors_count} parallel workers"
+        )
 
-            except Exception as e:
-                _LOG.error(f"Error processing region {region}: {e}")
-                failed_regions.append(region)
+        try:
+            # Single pool for all regions with worker recycling
+            # maxtasksperchild=1 ensures each worker dies after processing
+            # one region, freeing all Cloud Custodian memory leaks
+            with multiprocessing.Pool(  # type: ignore[attr-defined]
+                processes=processors_count,
+                initializer=_subprocess_initializer,
+                initargs=(credentials,),
+                maxtasksperchild=1,
+            ) as pool:
+                # imap_unordered for better progress visibility
+                for region, saved, failed_types in pool.imap_unordered(
+                    _collect_region_in_subprocess, tasks
+                ):
+                    total_saved += saved
+
+                    if failed_types:
+                        _LOG.warning(
+                            f"Failed {len(failed_types)} resource types "
+                            f"in {region}: {failed_types[:5]}..."
+                        )
+                        failed_regions.append(region)
+
+        except Exception as e:
+            _LOG.error(f"Error in parallel region processing: {e}")
+            failed_regions = [t.region for t in tasks]
 
         return total_saved, failed_regions
 
@@ -372,7 +407,6 @@ class CustodianResourceCollector(BaseResourceCollector):
         """
         Collect resources for all activated tenants.
 
-        Each REGION runs in separate subprocess using billiard.Pool.
         This follows the same pattern as job.py:
         - Process isolation per region prevents CC memory leaks
         - When subprocess exits, all leaked memory is freed by OS
