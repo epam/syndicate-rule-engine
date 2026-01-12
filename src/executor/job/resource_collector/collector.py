@@ -1,19 +1,26 @@
+"""
+Resource collector using Cloud Custodian with subprocess isolation.
+
+Architecture:
+1. SUBPROCESS: Runs CC scans, saves results to files (no MongoDB)
+2. MAIN PROCESS: Reads files, saves to MongoDB (no fork issues)
+
+This separation avoids PyMongo fork issues since MongoDB connections
+are only used in the main process.
+"""
+
 from __future__ import annotations
 
 import os
+import tempfile
 import time
-from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Generator
+from typing_extensions import Self
 
 import billiard as multiprocessing
+import msgspec
 from c7n import utils
-from c7n.exceptions import ResourceLimitExceeded
-from c7n.policy import PolicyExecutionMode, execution
-from c7n.resources.resource_map import ResourceMap as AWSResourceMap
-from c7n.version import version
-from c7n_azure.resources.resource_map import ResourceMap as AzureResourceMap
-from c7n_gcp.resources.resource_map import ResourceMap as GCPResourceMap
-from c7n_kube.resources.resource_map import ResourceMap as K8sResourceMap
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.modular import ModularServiceProvider
 
@@ -37,150 +44,46 @@ from .strategies import get_resource_iterator
 
 
 if TYPE_CHECKING:
-    from modular_sdk.services.tenant_settings_service import (
-        TenantSettingsService,
-    )
+    from modular_sdk.services.tenant_settings_service import TenantSettingsService
 
 _LOG = get_logger(__name__)
-
-
-# CC by default stores retrieved information on disk
-# This mode turns off this behavior
-# Though it stops storing scan's metadata
-@execution.register("collect")
-class CollectMode(PolicyExecutionMode):
-    """
-    Queries resources from cloud provider for filtering and actions.
-    Does not store them on disk.
-    """
-
-    schema = utils.type_schema("pull")
-
-    def run(self, *args, **kw):
-        if not self.policy.is_runnable():
-            return []
-
-        self.policy.log.debug(
-            "Running policy:%s resource:%s region:%s c7n:%s",
-            self.policy.name,
-            self.policy.resource_type,
-            self.policy.options.region or "default",
-            version,
-        )
-
-        s = time.time()
-        try:
-            resources = self.policy.resource_manager.resources()
-        except ResourceLimitExceeded as e:
-            self.policy.log.error(str(e))
-            raise
-
-        rt = time.time() - s
-        self.policy.log.info(
-            "policy:%s resource:%s region:%s count:%d time:%0.2f",
-            self.policy.name,
-            self.policy.resource_type,
-            self.policy.options.region,
-            len(resources),
-            rt,
-        )
-        return resources or []
-
-
-@dataclass(frozen=True, slots=True)
-class RegionTask:
-    """
-    Serializable task data for subprocess.
-    Each task represents collection for ONE region of a tenant.
-    """
-
-    tenant_name: str
-    account_id: str
-    customer_name: str
-    cloud: str
-    region: str
-    resource_types: tuple[str, ...] | None
-    credentials: dict
 
 
 def _subprocess_initializer(creds: dict) -> None:
     """Initialize subprocess environment with credentials."""
     from executor.helpers.constants import AWS_DEFAULT_REGION
 
+    pid = os.getpid()
+    _LOG.info(f"Initializing subprocess: pid={pid}")
     os.environ.update({k: str(v) if v else "" for k, v in creds.items()})
     os.environ.setdefault("AWS_DEFAULT_REGION", AWS_DEFAULT_REGION)
+    _LOG.info(f"Initialized subprocess: pid={pid}")
 
 
-def _collect_region_in_subprocess(
-    task: RegionTask,
+def _scan_region_in_subprocess(
+    args: tuple[str, str, tuple[str, ...] | None, str],
 ) -> tuple[str, int, list[str]]:
     """
-    Run resource collection for ONE region in subprocess.
-    Returns (region, saved_count, failed_resource_types).
-    All memory is freed when this process exits.
+    Run CC scan for ONE region in subprocess, save results to files.
+    NO MongoDB operations here - only file I/O.
+
+    Args is a tuple: (cloud_value, region, resource_types_tuple, work_dir)
+    Returns (region, successful_count, failed_resource_types).
     """
-    from services import SP
+    cloud_value, region, resource_types_tuple, work_dir = args
 
-    cloud = Cloud(task.cloud)
-    rs = SP.resources_service
-    saved_total = 0
-    failed_resource_types: list[str] = []
+    from c7n.resources.resource_map import ResourceMap as AWSResourceMap
+    from c7n_azure.resources.resource_map import ResourceMap as AzureResourceMap
+    from c7n_gcp.resources.resource_map import ResourceMap as GCPResourceMap
+    from c7n_kube.resources.resource_map import ResourceMap as K8sResourceMap
+    from executor.job import PoliciesLoader, PolicyDict, Runner
 
-    resource_types = _get_resource_types(
-        cloud=cloud,
-        included=task.resource_types,
-    )
+    cloud = Cloud(cloud_value)
+    work_path = Path(work_dir)
+    successful = 0
+    failed_types: list[str] = []
 
-    _LOG.info(
-        f"Starting collection for region {task.region} "
-        f"({len(resource_types)} resource types)"
-    )
-
-    for rt in resource_types:
-        try:
-            saved = _process_single_resource_type(
-                cloud=cloud,
-                resource_type=rt,
-                region=task.region,
-                account_id=task.account_id,
-                customer_name=task.customer_name,
-                tenant_name=task.tenant_name,
-                rs=rs,
-            )
-            saved_total += saved
-        except Exception as e:
-            _LOG.error(f"Failed {rt} in {task.region}: {e}")
-            failed_resource_types.append(rt)
-
-    _LOG.info(f"Completed region {task.region}: {saved_total} resources saved")
-    return task.region, saved_total, failed_resource_types
-
-
-def _resolve_resource_types(
-    cloud: Cloud,
-    scope: set[str],
-    included: set[str] | None = None,
-    excluded: set[str] | None = None,
-) -> set[str]:
-    """Resolve resource types for a cloud provider."""
-    from executor.job import PoliciesLoader
-
-    p = PoliciesLoader.cc_provider_name(cloud)
-    if included is None:
-        base = scope.copy()
-    else:
-        base = set()
-        for item in included:
-            if not item.startswith(p):
-                item = f"{p}.{item}"
-            base.add(item)
-    if excluded is not None:
-        base.difference_update(excluded)
-    return base
-
-
-def _get_resource_types(cloud: Cloud, included: tuple[str, ...] | None) -> set[str]:
-    """Get valid resource types for cloud."""
+    # Get resource types for this cloud
     match cloud:
         case Cloud.AWS:
             scope = set(AWSResourceMap)
@@ -191,117 +94,101 @@ def _get_resource_types(cloud: Cloud, included: tuple[str, ...] | None) -> set[s
         case Cloud.KUBERNETES | Cloud.K8S:
             scope = set(K8sResourceMap)
         case _:
-            return set()
+            return region, 0, []
 
-    return _resolve_resource_types(
-        cloud=cloud,
-        scope=scope,
-        included=set(included) if included else None,
-        excluded=EXCLUDE_RESOURCE_TYPES,
-    )
+    prefix = PoliciesLoader.cc_provider_name(cloud)
+    if resource_types_tuple:
+        resource_types = {
+            rt if rt.startswith(prefix) else f"{prefix}.{rt}"
+            for rt in resource_types_tuple
+        }
+    else:
+        resource_types = scope.copy()
 
+    resource_types -= EXCLUDE_RESOURCE_TYPES
 
-def _process_single_resource_type(
-    cloud: Cloud,
-    resource_type: str,
-    region: str,
-    account_id: str,
-    customer_name: str,
-    tenant_name: str,
-    rs: ResourcesService,
-) -> int:
-    """Process one resource type for one region. Returns saved count."""
-    from executor.job import PoliciesLoader, PolicyDict
+    _LOG.info(f"Scanning region {region} ({len(resource_types)} resource types)")
+
+    # Create policies for each resource type
+    policies_dicts: list[PolicyDict] = [
+        {"name": f"collect-{rt}", "resource": rt} for rt in resource_types
+    ]
 
     loader = PoliciesLoader(
         cloud=cloud,
-        output_dir=None,
+        output_dir=work_path,
         regions={region},
         cache=None,
     )
 
-    policy_dict: PolicyDict = {
-        "name": f"collect-{resource_type}",
-        "resource": resource_type,
-        "mode": {"type": "collect"},
-    }
+    try:
+        policies = loader.load_from_policies(policies_dicts)
+    except Exception:
+        _LOG.exception(f"Failed to load policies for region {region}")
+        return region, 0, list(resource_types)
 
-    policies = loader.load_from_policies([policy_dict])
-    saved_count = 0
+    _LOG.info(f"Loaded {len(policies)} policies for region {region}")
 
-    for policy in policies:
-        try:
-            resources = policy()
-            if resources is None:
-                continue
+    # Run policies using Runner (saves to files)
+    runner = Runner.factory(cloud, policies)
+    runner.start()
 
-            location = PoliciesLoader.get_policy_region(policy)
-            rt = policy.resource_type
+    successful = runner.n_successful
+    for (reg, policy_name), _ in runner.failed.items():
+        # Extract resource type from policy name
+        if policy_name.startswith("collect-"):
+            failed_types.append(policy_name[8:])
 
-            rs.remove_policy_resources(
-                account_id=account_id,
-                location=location,
-                resource_type=rt,
-            )
-
-            if not resources:
-                continue
-
-            timestamp = time.time()
-            part = ShardPart(
-                policy=policy.name,
-                location=location,
-                timestamp=timestamp,
-                resources=resources,
-            )
-
-            iterator_strategy = get_resource_iterator(cloud)
-            if not iterator_strategy:
-                continue
-
-            it = iterator_strategy.iterate(
-                part=part,
-                account_id=account_id,
-                location=location,
-                resource_type=rt,
-                customer_name=customer_name,
-                tenant_name=tenant_name,
-                resources_service=rs,
-                collector_type=ResourcesCollectorType.CUSTODIAN,
-            )
-
-            for chunk in utils.chunks(it, BATCH_SAVE_CHUNK_SIZE):
-                rs.batch_save(chunk)
-                saved_count += len(chunk)
-
-            _LOG.info(
-                f"Saved {saved_count} resources for {resource_type} "
-                f"in {region} for tenant {tenant_name}"
-            )
-        except Exception:
-            _LOG.exception(f"Error in policy {policy.name}")
-
-    return saved_count
+    _LOG.info(f"Completed scan for region {region}: {successful} successful")
+    return region, successful, failed_types
 
 
-# TODO: add resource retrieval for Kubernetes
+class ScanResult:
+    """Reads scan results from work_dir and yields resources."""
+
+    def __init__(self, work_dir: Path, cloud: Cloud):
+        self._work_dir = work_dir
+        self._cloud = cloud
+        self._res_decoder = msgspec.json.Decoder(type=list[dict])
+
+    def iter_resources(self) -> Generator[tuple[str, str, list[dict]], None, None]:
+        """
+        Yields (region, resource_type, resources) tuples.
+        Skips policies with no resources.
+        """
+        if not self._work_dir.exists():
+            return
+
+        for region_dir in filter(Path.is_dir, self._work_dir.iterdir()):
+            region = region_dir.name
+            for policy_dir in filter(Path.is_dir, region_dir.iterdir()):
+                resources_file = policy_dir / "resources.json"
+                if not resources_file.exists():
+                    continue
+
+                try:
+                    with open(resources_file, "rb") as f:
+                        resources = self._res_decoder.decode(f.read())
+                except Exception:
+                    _LOG.exception(f"Failed to read {resources_file}")
+                    continue
+
+                if not resources:
+                    continue
+
+                # Extract resource type from policy name (collect-{resource_type})
+                policy_name = policy_dir.name
+                if policy_name.startswith("collect-"):
+                    resource_type = policy_name[8:]
+                else:
+                    resource_type = policy_name
+
+                yield region, resource_type, resources
+
+
 class CustodianResourceCollector(BaseResourceCollector):
     """
-    Resource collector with process isolation using multiprocessing.
-
-    Uses same pattern as job.py to prevent Cloud Custodian memory leaks:
-    - Each REGION runs in a separate subprocess
-    - When subprocess exits, all memory (including CC leaks) is freed
-
-    Key optimizations:
-    1. Parallel region processing - configurable via COLLECTOR_WORKERS env var
-    2. Process isolation per REGION - prevents Cloud Custodian memory leaks
-    3. Worker recycling (maxtasksperchild=1) - each worker dies after 1 region
-    4. Streaming policy processing - one resource type at a time
-    5. billiard.Pool compatible with Celery daemon processes
-
-    Environment variables:
-        COLLECTOR_WORKERS: Number of parallel workers (default: 4)
+    Custodian resource collector.
     """
 
     collector_type = ResourcesCollectorType.CUSTODIAN
@@ -319,16 +206,133 @@ class CustodianResourceCollector(BaseResourceCollector):
         self._tss = tenant_settings_service
 
     @classmethod
-    def build(cls) -> "CustodianResourceCollector":
-        """Builds a ResourceCollector instance."""
-        return CustodianResourceCollector(
+    def build(cls) -> Self:
+        return cls(
             modular_service=SP.modular_client,
             resources_service=SP.resources_service,
-            license_service=SP.license_service,
+            license_service=SP.license_service, 
             tenant_settings_service=SP.modular_client.tenant_settings_service(),
         )
 
-    def _collect_tenant_by_regions(
+    def _scan_all_regions(
+        self,
+        cloud: Cloud,
+        regions: set[str],
+        resource_types: tuple[str, ...] | None,
+        credentials: dict,
+        work_dir: Path,
+    ) -> list[str]:
+        """
+        Run CC scans for all regions in parallel subprocesses.
+
+        Uses configurable number of workers (SCAN_RESOURCES_PROCESSORS env var).
+        Each worker processes one region and exits (maxtasksperchild=1) to free
+        Cloud Custodian memory leaks.
+
+        Returns list of failed regions.
+        """
+        failed_regions: list[str] = []
+        sorted_regions = sorted(regions)
+
+        if not sorted_regions:
+            return []
+
+        # Prepare tasks for parallel processing
+        tasks = [
+            (cloud.value, region, resource_types, str(work_dir))
+            for region in sorted_regions
+        ]
+
+        max_workers = Env.SCAN_RESOURCES_PROCESSORS.as_int()
+        workers_count = min(max_workers, len(tasks))
+
+        _LOG.info(
+            f"Scanning {len(tasks)} regions with {workers_count} parallel workers"
+        )
+
+        try:
+            with multiprocessing.Pool(  # type: ignore[attr-defined]
+                processes=workers_count,
+                initializer=_subprocess_initializer,
+                initargs=(credentials,),
+                maxtasksperchild=1,  # Worker exits after each region to free memory
+            ) as pool:
+                for region, successful, failed_types in pool.imap_unordered(
+                    _scan_region_in_subprocess, tasks
+                ):
+                    _LOG.info(f"Region {region}: {successful} policies successful")
+                    if failed_types:
+                        _LOG.warning(f"Failed types in {region}: {failed_types[:5]}...")
+                        failed_regions.append(region)
+
+        except Exception as e:
+            _LOG.error(f"Error in parallel region scanning: {e}")
+            # Mark all regions as failed
+            failed_regions = sorted_regions
+
+        return failed_regions
+
+    def _save_resources_to_db(
+        self,
+        tenant: Tenant,
+        cloud: Cloud,
+        work_dir: Path,
+    ) -> int:
+        """
+        Read scan results from files and save to MongoDB.
+        Runs in MAIN process - safe MongoDB operations.
+        Returns count of saved resources.
+        """
+        account_id = str(tenant.project)
+        saved_total = 0
+
+        scan_result = ScanResult(work_dir, cloud)
+        iterator_strategy = get_resource_iterator(cloud)
+
+        if not iterator_strategy:
+            _LOG.warning(f"No resource iterator for cloud {cloud}")
+            return 0
+
+        for region, resource_type, resources in scan_result.iter_resources():
+            try:
+                # Remove old resources
+                self._rs.remove_policy_resources(
+                    account_id=account_id,
+                    location=region,
+                    resource_type=resource_type,
+                )
+
+                # Create ShardPart for the iterator
+                timestamp = time.time()
+                part = ShardPart(
+                    policy=f"collect-{resource_type}",
+                    location=region,
+                    timestamp=timestamp,
+                    resources=resources,
+                )
+
+                # Create and save resource objects
+                it = iterator_strategy.iterate(
+                    part=part,
+                    account_id=account_id,
+                    location=region,
+                    resource_type=resource_type,
+                    customer_name=tenant.customer_name,
+                    tenant_name=tenant.name,
+                    resources_service=self._rs,
+                    collector_type=ResourcesCollectorType.CUSTODIAN,
+                )
+
+                for chunk in utils.chunks(it, BATCH_SAVE_CHUNK_SIZE):
+                    self._rs.batch_save(chunk)
+                    saved_total += len(chunk)
+
+            except Exception:
+                _LOG.exception(f"Failed to save {resource_type} in {region}")
+
+        return saved_total
+
+    def _collect_tenant(
         self,
         tenant: Tenant,
         regions: set[str],
@@ -336,81 +340,40 @@ class CustodianResourceCollector(BaseResourceCollector):
         credentials: dict,
     ) -> tuple[int, list[str]]:
         """
-        Collect resources for a tenant, running regions in parallel.
-        Uses a single pool with configurable number of workers.
-        Each worker processes one region at a time, then exits to free memory.
-        Returns (total_saved, failed_regions).
+        Collect resources for one tenant:
+        1. Scan all regions (subprocesses)
+        2. Save to DB (main process)
         """
         cloud = modular_helpers.tenant_cloud(tenant)
-        total_saved = 0
-        failed_regions: list[str] = []
-
         resource_types_tuple = tuple(resource_types) if resource_types else None
-        tasks = [
-            RegionTask(
-                tenant_name=tenant.name,
-                account_id=str(tenant.project),
-                customer_name=tenant.customer_name,
-                cloud=cloud.value,
-                region=region,
+
+        with tempfile.TemporaryDirectory() as work_dir:
+            work_path = Path(work_dir)
+
+            _LOG.info(f"Phase 1: Scanning {len(regions)} regions")
+            failed_regions = self._scan_all_regions(
+                cloud=cloud,
+                regions=regions,
                 resource_types=resource_types_tuple,
                 credentials=credentials,
+                work_dir=work_path,
             )
-            for region in sorted(regions)
-        ]
 
-        if not tasks:
-            return 0, []
+            _LOG.info("Phase 2: Saving resources to database")
+            saved = self._save_resources_to_db(
+                tenant=tenant,
+                cloud=cloud,
+                work_dir=work_path,
+            )
 
-        max_processors = Env.SCAN_RESOURCES_PROCESSORS.as_int()
-        processors_count = min(max_processors, len(tasks))
-
-        _LOG.info(
-            f"Processing {len(tasks)} regions for tenant {tenant.name} "
-            f"with {processors_count} parallel workers"
-        )
-
-        try:
-            # Single pool for all regions with worker recycling
-            # maxtasksperchild=1 ensures each worker dies after processing
-            # one region, freeing all Cloud Custodian memory leaks
-            with multiprocessing.Pool(  # type: ignore[attr-defined]
-                processes=processors_count,
-                initializer=_subprocess_initializer,
-                initargs=(credentials,),
-                maxtasksperchild=1,
-            ) as pool:
-                # imap_unordered for better progress visibility
-                for region, saved, failed_types in pool.imap_unordered(
-                    _collect_region_in_subprocess, tasks
-                ):
-                    total_saved += saved
-
-                    if failed_types:
-                        _LOG.warning(
-                            f"Failed {len(failed_types)} resource types "
-                            f"in {region}: {failed_types[:5]}..."
-                        )
-                        failed_regions.append(region)
-
-        except Exception as e:
-            _LOG.error(f"Error in parallel region processing: {e}")
-            failed_regions = [t.region for t in tasks]
-
-        return total_saved, failed_regions
+        return saved, failed_regions
 
     def collect_all_resources(
         self,
         regions: set[str] | None = None,
         resource_types: set[str] | None = None,
     ) -> None:
-        """
-        Collect resources for all activated tenants.
-
-        This follows the same pattern as job.py:
-        - Process isolation per region prevents CC memory leaks
-        - When subprocess exits, all leaked memory is freed by OS
-        """
+        """Collect resources for all activated tenants."""
         from executor.job import get_tenant_credentials
 
         _LOG.info("Starting resource collection for all tenants")
@@ -430,13 +393,12 @@ class CustodianResourceCollector(BaseResourceCollector):
             try:
                 credentials = get_tenant_credentials(tenant)
                 if credentials is None:
-                    raise ValueError(f"No credentials found for tenant {tenant.name}")
-
+                    raise ValueError(f"No credentials for tenant {tenant.name}")
                 _LOG.info(
-                    f"Processing tenant: {tenant.name} ({len(tenant_regions)} regions)"
+                    f"Processing tenant {tenant.name} ({len(tenant_regions)} regions)"
                 )
 
-                saved, failed_regions = self._collect_tenant_by_regions(
+                saved, failed_regions = self._collect_tenant(
                     tenant=tenant,
                     regions=tenant_regions,
                     resource_types=resource_types,
@@ -448,7 +410,7 @@ class CustodianResourceCollector(BaseResourceCollector):
 
                 _LOG.info(f"Completed tenant {tenant.name}: {saved} resources")
                 if failed_regions:
-                    _LOG.warning(f"Failed regions for {tenant.name}: {failed_regions}")
+                    _LOG.warning(f"Failed regions: {failed_regions}")
 
             except Exception as e:
                 _LOG.error(f"Error processing tenant {tenant.name}: {e}")
@@ -458,6 +420,3 @@ class CustodianResourceCollector(BaseResourceCollector):
             f"Collection complete: {processed_tenants} tenants, "
             f"{total_resources} resources, {len(failed_tenants)} failed"
         )
-
-        if failed_tenants:
-            _LOG.warning(f"Failed tenants: {failed_tenants}")
