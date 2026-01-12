@@ -1,3 +1,6 @@
+from datetime import date, datetime
+from typing import Any
+
 from pynamodb.pagination import ResultIterator
 from modular_sdk.models.tenant import Tenant
 
@@ -12,6 +15,23 @@ from services.base_data_service import BaseDataService
 from services.sharding import RuleMeta
 
 _LOG = get_logger(__name__)
+
+
+def _sanitize_data(data: Any) -> Any:
+    """
+    Recursively converts datetime objects to ISO format strings.
+    PynamoDB's MapAttribute doesn't support datetime in undeclared attributes.
+    """
+    if isinstance(data, datetime):
+        return data.isoformat()
+    if isinstance(data, date):
+        return data.isoformat()
+    if isinstance(data, dict):
+        return {k: _sanitize_data(v) for k, v in data.items()}
+    if isinstance(data, (list, tuple)):
+        return [_sanitize_data(item) for item in data]
+    return data
+
 
 try:
     from c7n.resources.resource_map import ResourceMap as AWSResourceMap
@@ -72,7 +92,7 @@ class ResourcesService(BaseDataService[Resource]):
             id=id,
             name=name,
             arn=arn,
-            _data=data,
+            _data=_sanitize_data(data),
             sync_date=sync_date,
             _collector_type=collector_type.value,
             tenant_name=tenant_name,
