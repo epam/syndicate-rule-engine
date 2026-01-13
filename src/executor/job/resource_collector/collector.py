@@ -17,8 +17,9 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Generator
 from typing_extensions import Self
+from dataclasses import dataclass
 
-import billiard as multiprocessing
+from billiard.pool import ApplyResult, Pool
 import msgspec
 from c7n import utils
 from modular_sdk.models.tenant import Tenant
@@ -49,20 +50,30 @@ if TYPE_CHECKING:
 _LOG = get_logger(__name__)
 
 
+@dataclass
+class ScanRegionResult:
+    region: str
+    successful: int
+    failed_types: list[str]
+
+
 def _subprocess_initializer(creds: dict) -> None:
     """Initialize subprocess environment with credentials."""
     from executor.helpers.constants import AWS_DEFAULT_REGION
 
     pid = os.getpid()
-    _LOG.info(f"Initializing subprocess: pid={pid}")
+    _LOG.debug(f"Initializing subprocess: pid={pid}")
     os.environ.update({k: str(v) if v else "" for k, v in creds.items()})
     os.environ.setdefault("AWS_DEFAULT_REGION", AWS_DEFAULT_REGION)
-    _LOG.info(f"Initialized subprocess: pid={pid}")
+    _LOG.debug(f"Initialized subprocess: pid={pid}")
 
 
 def _scan_region_in_subprocess(
-    args: tuple[str, str, tuple[str, ...] | None, str],
-) -> tuple[str, int, list[str]]:
+    cloud: Cloud,
+    region: str,
+    resource_types_tuple: tuple[str, ...] | None,
+    work_dir: str,
+) -> ScanRegionResult:
     """
     Run CC scan for ONE region in subprocess, save results to files.
     NO MongoDB operations here - only file I/O.
@@ -70,84 +81,86 @@ def _scan_region_in_subprocess(
     Args is a tuple: (cloud_value, region, resource_types_tuple, work_dir)
     Returns (region, successful_count, failed_resource_types).
     """
-    cloud_value, region, resource_types_tuple, work_dir = args
-
     from c7n.resources.resource_map import ResourceMap as AWSResourceMap
     from c7n_azure.resources.resource_map import ResourceMap as AzureResourceMap
     from c7n_gcp.resources.resource_map import ResourceMap as GCPResourceMap
     from c7n_kube.resources.resource_map import ResourceMap as K8sResourceMap
     from executor.job import PoliciesLoader, PolicyDict, Runner
 
+    work_path = Path(work_dir)
+    successful = 0
+    failed_types: list[str] = []
+
+    # Get resource types for this cloud
+    match cloud:
+        case Cloud.AWS:
+            scope = set(AWSResourceMap)
+        case Cloud.AZURE:
+            scope = set(AzureResourceMap)
+        case Cloud.GOOGLE | Cloud.GCP:
+            scope = set(GCPResourceMap)
+        case Cloud.KUBERNETES | Cloud.K8S:
+            scope = set(K8sResourceMap)
+        case _:
+            return ScanRegionResult(
+                region=region,
+                successful=0,
+                failed_types=[],
+            )
+
+    prefix = PoliciesLoader.cc_provider_name(cloud)
+    if resource_types_tuple:
+        resource_types = {
+            rt if rt.startswith(prefix) else f"{prefix}.{rt}"
+            for rt in resource_types_tuple
+        }
+    else:
+        resource_types = scope.copy()
+
+    resource_types -= EXCLUDE_RESOURCE_TYPES
+
+    _LOG.info(f"Scanning region {region} ({len(resource_types)} resource types)")
+
+    # Create policies for each resource type
+    policies_dicts: list[PolicyDict] = [
+        {"name": f"collect-{rt}", "resource": rt} for rt in resource_types
+    ]
+
+    loader = PoliciesLoader(
+        cloud=cloud,
+        output_dir=work_path,
+        regions={region},
+        cache=None,
+    )
+
     try:
-        cloud = Cloud(cloud_value)
-        work_path = Path(work_dir)
-        successful = 0
-        failed_types: list[str] = []
-
-        # Get resource types for this cloud
-        match cloud:
-            case Cloud.AWS:
-                scope = set(AWSResourceMap)
-            case Cloud.AZURE:
-                scope = set(AzureResourceMap)
-            case Cloud.GOOGLE | Cloud.GCP:
-                scope = set(GCPResourceMap)
-            case Cloud.KUBERNETES | Cloud.K8S:
-                scope = set(K8sResourceMap)
-            case _:
-                return region, 0, []
-
-        prefix = PoliciesLoader.cc_provider_name(cloud)
-        if resource_types_tuple:
-            resource_types = {
-                rt if rt.startswith(prefix) else f"{prefix}.{rt}"
-                for rt in resource_types_tuple
-            }
-        else:
-            resource_types = scope.copy()
-
-        resource_types -= EXCLUDE_RESOURCE_TYPES
-
-        _LOG.info(f"Scanning region {region} ({len(resource_types)} resource types)")
-
-        # Create policies for each resource type
-        policies_dicts: list[PolicyDict] = [
-            {"name": f"collect-{rt}", "resource": rt} for rt in resource_types
-        ]
-
-        loader = PoliciesLoader(
-            cloud=cloud,
-            output_dir=work_path,
-            regions={region},
-            cache=None,
+        policies = loader.load_from_policies(policies_dicts)
+    except Exception:
+        _LOG.exception(f"Failed to load policies for region {region}")
+        return ScanRegionResult(
+            region=region,
+            successful=0,
+            failed_types=list(resource_types),
         )
 
-        try:
-            policies = loader.load_from_policies(policies_dicts)
-        except Exception:
-            _LOG.exception(f"Failed to load policies for region {region}")
-            return region, 0, list(resource_types)
+    _LOG.info(f"Loaded {len(policies)} policies for region {region}")
 
-        _LOG.info(f"Loaded {len(policies)} policies for region {region}")
+    # Run policies using Runner (saves to files)
+    runner = Runner.factory(cloud, policies)
+    runner.start()
 
-        # Run policies using Runner (saves to files)
-        runner = Runner.factory(cloud, policies)
-        runner.start()
+    successful = runner.n_successful
+    for (reg, policy_name), _ in runner.failed.items():
+        # Extract resource type from policy name
+        if policy_name.startswith("collect-"):
+            failed_types.append(policy_name[8:])
 
-        successful = runner.n_successful
-        for (reg, policy_name), _ in runner.failed.items():
-            # Extract resource type from policy name
-            if policy_name.startswith("collect-"):
-                failed_types.append(policy_name[8:])
-
-        _LOG.info(f"Completed scan for region {region}: {successful} successful")
-        return region, successful, failed_types
-    except SystemExit:
-        _LOG.error(f"SystemExit in subprocess for region {region}")
-        return region, 0, []
-    except Exception:
-        _LOG.exception(f"Error in subprocess for region {region}")
-        return region, 0, []
+    _LOG.info(f"Completed scan for region {region}: {successful} successful")
+    return ScanRegionResult(
+        region=region,
+        successful=successful,
+        failed_types=failed_types,
+    )
 
 
 class ScanResult:
@@ -217,7 +230,7 @@ class CustodianResourceCollector(BaseResourceCollector):
         return cls(
             modular_service=SP.modular_client,
             resources_service=SP.resources_service,
-            license_service=SP.license_service, 
+            license_service=SP.license_service,
             tenant_settings_service=SP.modular_client.tenant_settings_service(),
         )
 
@@ -246,30 +259,49 @@ class CustodianResourceCollector(BaseResourceCollector):
 
         # Prepare tasks for parallel processing
         tasks = [
-            (cloud.value, region, resource_types, str(work_dir))
-            for region in sorted_regions
+            (cloud, region, resource_types, str(work_dir)) for region in sorted_regions
         ]
 
-        max_workers = Env.SCAN_RESOURCES_PROCESSORS.as_int()
-        workers_count = min(max_workers, len(tasks))
+        max_processes = Env.SCAN_RESOURCES_PROCESSORS.as_int()
+        processes_count = min(max_processes, len(tasks))
 
         _LOG.info(
-            f"Scanning {len(tasks)} regions with {workers_count} parallel workers"
+            f"Scanning {len(tasks)} regions with {max_processes} parallel processes"
         )
 
         try:
-            with multiprocessing.Pool(  # type: ignore[attr-defined]
-                processes=workers_count,
+            with Pool(  # type: ignore[attr-defined]
+                processes=processes_count,
                 initializer=_subprocess_initializer,
                 initargs=(credentials,),
                 maxtasksperchild=1,  # Worker exits after each region to free memory
             ) as pool:
-                for region, successful, failed_types in pool.imap_unordered(
-                    _scan_region_in_subprocess, tasks
-                ):
-                    _LOG.info(f"Region {region}: {successful} policies successful")
-                    if failed_types:
-                        _LOG.warning(f"Failed types in {region}: {failed_types[:5]}...")
+                async_results: list[ApplyResult | None] = [
+                    pool.apply_async(
+                        _scan_region_in_subprocess,
+                        args=task,
+                    )
+                    for task in tasks
+                ]
+
+                for region, ar in zip(regions, async_results):
+                    try:
+                        if ar:
+                            pair: ScanRegionResult = ar.get()
+
+                            if pair.successful == 0:
+                                failed_regions.append(region)
+                            else:
+                                _LOG.info(
+                                    f"Region {region}: {pair.successful} policies successful"
+                                )
+                            if pair.failed_types:
+                                _LOG.warning(
+                                    f"Failed types in {region}: {pair.failed_types[:5]}..."
+                                )
+                                failed_regions.append(region)
+                    except Exception:
+                        _LOG.exception(f"Error in async result for region {region}")
                         failed_regions.append(region)
 
         except Exception as e:
