@@ -263,10 +263,20 @@ class CustodianResourceCollector(BaseResourceCollector):
         ]
 
         max_processes = Env.SCAN_RESOURCES_PROCESSORS.as_int()
-        processes_count = min(max_processes, len(tasks))
+        available_cpus = os.cpu_count() or 1
+        
+        # Limit by env value (for memory control), tasks count, and available CPUs
+        processes_count = min(max_processes, len(tasks), available_cpus)
+        
+        if max_processes > available_cpus:
+            _LOG.warning(
+                f"SCAN_RESOURCES_PROCESSORS ({max_processes}) exceeds available CPUs "
+                f"({available_cpus}), reducing to {available_cpus} to avoid CPU contention"
+            )
 
         _LOG.info(
-            f"Scanning {len(tasks)} regions with {max_processes} parallel processes"
+            f"Scanning {len(tasks)} regions with {processes_count} parallel processes "
+            f"(configured: {max_processes}, available CPUs: {available_cpus})"
         )
 
         try:
