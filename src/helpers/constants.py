@@ -694,7 +694,7 @@ class Env(EnvEnum):
     SCAN_RESOURCES_PROCESSORS = (
         'SRE_SCAN_RESOURCES_PROCESSORS',
         (),
-        '4',
+        '2',  # 2 processors used ~1GB of RAM in the total sum
     )
 
     # Cloud Custodian
