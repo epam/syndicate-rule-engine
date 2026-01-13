@@ -383,10 +383,6 @@ class CustodianResourceCollector(BaseResourceCollector):
         1. Scan all regions (subprocesses)
         2. Save to DB (main process)
         """
-        from services.resources import load_cc_providers
-
-        load_cc_providers()
-
         cloud = modular_helpers.tenant_cloud(tenant)
         resource_types_tuple = tuple(resource_types) if resource_types else None
 

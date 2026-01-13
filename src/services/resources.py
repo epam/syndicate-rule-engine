@@ -560,6 +560,8 @@ def to_aws_resources(
     If account_id is provided it will be used to generated arns where possible
     and where there is no arn provided by AWS
     """
+    load_cc_providers()
+
     if len(part.resources) == 0:
         return
 
@@ -635,6 +637,8 @@ def to_aws_resources(
 def to_azure_resources(
     part: 'ShardPart', rt: str
 ) -> Generator[AZUREResource, None, None]:
+    load_cc_providers()
+
     if len(part.resources) == 0:
         return
 
@@ -666,6 +670,8 @@ def to_azure_resources(
 def to_google_resources(
     part: 'ShardPart', rt: str, metadata: 'RuleMetadata', account_id: str = ''
 ) -> Generator[GOOGLEResource, None, None]:
+    load_cc_providers()
+
     if len(part.resources) == 0:
         return
 
@@ -714,6 +720,8 @@ def to_google_resources(
 def to_k8s_resources(
     part: 'ShardPart', rt: str
 ) -> Generator[K8SResource, None, None]:
+    load_cc_providers()
+
     if len(part.resources) == 0:
         return
 
