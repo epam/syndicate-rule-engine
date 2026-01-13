@@ -297,7 +297,7 @@ class CustodianResourceCollector(BaseResourceCollector):
                                 )
                             if pair.failed_types:
                                 _LOG.warning(
-                                    f"Failed types in {region}: {pair.failed_types[:5]}..."
+                                    f"Failed types in {region}: {pair.failed_types}"
                                 )
                                 failed_regions.append(region)
                     except Exception:
@@ -383,6 +383,10 @@ class CustodianResourceCollector(BaseResourceCollector):
         1. Scan all regions (subprocesses)
         2. Save to DB (main process)
         """
+        from services.resources import load_cc_providers
+
+        load_cc_providers()
+
         cloud = modular_helpers.tenant_cloud(tenant)
         resource_types_tuple = tuple(resource_types) if resource_types else None
 
