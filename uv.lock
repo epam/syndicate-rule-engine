@@ -2336,7 +2336,7 @@ wheels = [
 [[package]]
 name = "modular-sdk"
 version = "7.1.6"
-source = { git = "https://github.com/epam/modular-sdk.git?rev=feature%2Flinked-tenant#5dc01900dd1f989e5cbf6fd233b7a5c08ad4235b" }
+source = { git = "https://github.com/epam/modular-sdk.git?rev=feature%2Flinked-tenant#facf29bd60a2feb4e038f56375a6778e4729ee80" }
 dependencies = [
     { name = "boto3" },
     { name = "botocore" },
