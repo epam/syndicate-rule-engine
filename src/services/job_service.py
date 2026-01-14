@@ -30,7 +30,6 @@ class JobService(BaseDataService[Job]):
         celery_job_id: str | None = None,
         scheduled_rule_name: str | None = None,
         credentials_key: str | None = None,
-        application_id: str | None = None,
         dojo_structure: dict[str, str] | None = None,
     ) -> Job:
         return super().create(
@@ -50,7 +49,6 @@ class JobService(BaseDataService[Job]):
             scheduled_rule_name=scheduled_rule_name,
             created_at=utc_iso(),
             credentials_key=credentials_key,
-            application_id=application_id,
             dojo_structure=dojo_structure,
         )
 

@@ -319,6 +319,8 @@ class MaestroModelBuilder:
     ) -> dict:
         assert rep.type == ReportType.PROJECT_COMPLIANCE
         for t in data['data'].values():
+            if not t.get('data'):
+                continue
             t['regions_data'] = [
                 {
                     'region': region,
@@ -1018,6 +1020,15 @@ class HighLevelReportsHandler(AbstractHandler):
                 f'display_name: {display_name}'
             )
 
+            if event.include_linked:
+                _LOG.info('Retrieving linked tenants')
+                linked_tenants = \
+                    self._mc.tenant_service().i_get_tenant_by_customer(
+                        customer_id=event.customer_id,
+                        active=True,
+                        linked_to=display_name,
+                    )
+
             for report_type in event.new_types:
                 _LOG.debug(f'Going to generate {report_type} for {display_name}')
                 rep = self._rms.get_latest_for_project(
@@ -1037,13 +1048,6 @@ class HighLevelReportsHandler(AbstractHandler):
                 )
 
                 if event.include_linked:
-                    _LOG.info('Retrieving linked tenants')
-                    linked_tenants = \
-                        self._mc.tenant_service().i_get_tenant_by_customer(
-                            customer_id=event.customer_id,
-                            active=True,
-                            linked_to=display_name,
-                        )
                     linked_data = self._collect_linked_tenants_data(
                         linked_tenants=linked_tenants,
                         report_type=report_type,

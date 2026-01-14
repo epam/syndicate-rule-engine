@@ -1080,11 +1080,6 @@ class JobPostModel(BaseModel):
         'automatically unless an ambiguous occurs',
     )
 
-    application_id: str = Field(
-        None,
-        description='Application ID with credentials for this job',
-    )
-
     dojo_product: str = Field(
         None,
         description='Defect Dojo product name to which the results will be '

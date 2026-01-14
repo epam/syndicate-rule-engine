@@ -1173,7 +1173,6 @@ def upload_to_siem(ctx: 'JobExecutionContext', collection: ShardsCollection):
 
 def get_tenant_credentials(
     tenant: Tenant,
-    application_id: str | None = None,
 ) -> dict | None:
     """
     If dict is returned it means that we should export that dict to envs
@@ -1248,12 +1247,6 @@ def get_tenant_credentials(
     if parent:
         application = application_service.get_application_by_id(
             parent.application_id,
-        )
-
-    if not application and application_id:
-        _LOG.info('Trying to get creds directly from application')
-        application = application_service.get_application_by_id(
-            application_id,
         )
 
     if application:
@@ -1901,7 +1894,7 @@ def run_standard_job(ctx: JobExecutionContext):
     else:
         credentials = get_job_credentials(
             job, cloud
-        ) or get_tenant_credentials(ctx.tenant, job.application_id)
+        ) or get_tenant_credentials(ctx.tenant)
         keys_builder = TenantReportsBucketKeysBuilder(ctx.tenant)
 
     if credentials is None:
