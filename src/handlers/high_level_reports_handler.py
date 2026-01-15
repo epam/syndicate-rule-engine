@@ -1020,6 +1020,7 @@ class HighLevelReportsHandler(AbstractHandler):
                 f'display_name: {display_name}'
             )
 
+            linked_tenants = []
             if event.include_linked:
                 _LOG.info('Retrieving linked tenants')
                 linked_tenants = \
@@ -1047,13 +1048,12 @@ class HighLevelReportsHandler(AbstractHandler):
                     display_name=display_name,
                 )
 
-                if event.include_linked:
-                    linked_data = self._collect_linked_tenants_data(
-                        linked_tenants=linked_tenants,
-                        report_type=report_type,
-                    )
-                    if linked_data:
-                        fetched_data['linked_tenants_data'] = linked_data
+                linked_data = self._collect_linked_tenants_data(
+                    linked_tenants=linked_tenants,
+                    report_type=report_type,
+                )
+                if linked_data:
+                    fetched_data['linked_tenants_data'] = linked_data
 
                 data = builder.convert(rep, fetched_data)
 
