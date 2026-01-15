@@ -1027,7 +1027,7 @@ class HighLevelReportsHandler(AbstractHandler):
                     self._mc.tenant_service().i_get_tenant_by_customer(
                         customer_id=event.customer_id,
                         active=True,
-                        linked_to=display_name,
+                        linked_to=display_name.upper(),
                     )
 
             for report_type in event.new_types:
