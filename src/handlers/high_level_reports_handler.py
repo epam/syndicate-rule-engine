@@ -1022,6 +1022,8 @@ class HighLevelReportsHandler(AbstractHandler):
 
             linked_tenants = []
             if event.include_linked:
+                # TODO consider getting linked tenants by case insensitive
+                #  way(to cover display_name with different cases)
                 _LOG.info('Retrieving linked tenants')
                 linked_tenants = \
                     self._mc.tenant_service().i_get_tenant_by_customer(
