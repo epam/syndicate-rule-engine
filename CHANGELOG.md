@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.16.0] - 2025-12-15
+## [5.16.0] - 2026-01-05
 - Added validation of downloaded rulesets to ensure they are valid JSON
 - Added the parameter `overwrite_rulesets` for the `POST /licenses/{license_key}/sync` endpoint that allows to overwrite existing ruleset data in S3
 - Added the possibility to update the rulesource `type`, `git_url`, `git_ref`, `git_rules_prefix` and  `git_project_id` parameters in the `PATCH /rule-sources/{id}` endpoint
@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the parameter `description` to the `POST /rulesets` and `PATCH /rulesets/{name}/{version}` endpoints
 - Changed `created_at`, `updated_at`, and `expire_at` fields in resource exception responses to return human-readable ISO format dates instead of Unix timestamps
 - Changed the logic of validating ARNs in resource exception creation to check if the ARN exists in the resources database for the specific tenant
+- Fixed an issue with credentials environment variables when using PosixPath objects instead of strings for AZURE credentials
 - Updated `sre-init.sh` and `ami-initialize.sh` scripts
   - Added support contact email to critical error messages (License Manager, Helm failures)
   - Added success message after backup retry operations
@@ -20,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed the log message in the report metrics to use dynamic database terminology based on the database type
 - Fixed an issue returning internal server error when operational reports are generated
 - Fixed an issue related to rewriting a k8s platform during creation if the type is not SELF_MANAGED
+- Fixed an issue with resource collection when pod killed during memory limit exceeded
 
 ## [5.15.0] - 2025-11-06
 - Added hiding expired resource exceptions

@@ -211,18 +211,61 @@ from services.udm_generator import (
 )
 from executor.plugins import register_all
 
-
-class PolicyDict(TypedDict):
-    name: str
-    resource: str
-    comment: NotRequired[str]
-    description: str
+from .resource_collector import CustodianResourceCollector
 
 
 if TYPE_CHECKING:
     from celery import Task  # noqa
 
+
 _LOG = get_logger(__name__)
+
+
+__all__ = (
+    "CustodianResourceCollector",
+    "PolicyDict",
+    "ModeDict",
+    "ExecutorException",
+    "PoliciesLoader",
+    "Runner",
+    "AWSRunner",
+    "AZURERunner",
+    "GCPRunner",
+    "K8SRunner",
+    "post_lm_job",
+    "update_metadata",
+    "upload_to_dojo",
+    "upload_to_siem",
+    "get_tenant_credentials",
+    "get_job_credentials",
+    "get_platform_credentials",
+    "get_rules_to_exclude",
+    "batch_results_job",
+    "multi_account_event_driven_job",
+    "job_initializer",
+    "process_job_concurrent",
+    "resolve_standard_ruleset",
+    "resolve_licensed_ruleset",
+    "resolve_job_rulesets",
+    "JobExecutionContext",
+    "filter_policies",
+    "skip_duplicated_policies",
+    "run_standard_job",
+    "task_standard_job",
+    "task_scheduled_job",
+)
+
+
+class ModeDict(TypedDict):
+    type: str
+
+
+class PolicyDict(TypedDict, total=False):
+    name: str
+    resource: str
+    comment: NotRequired[str]
+    description: str
+    mode: ModeDict
 
 
 class ExecutorException(Exception):
