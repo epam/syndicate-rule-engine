@@ -1204,26 +1204,27 @@ class HighLevelReportsHandler(AbstractHandler):
 
         result = []
         for tenant in linked_tenants:
+            dntl = tenant.display_name_to_lower
             _LOG.info(
-                f'Collecting linked tenant: {tenant.display_name} '
+                f'Collecting linked tenant: {dntl} '
                 f'report {report_type} data'
             )
             rep = self._rms.get_latest_for_project(
                 customer=tenant.customer_name,
-                project=tenant.display_name,
+                project=dntl,
                 type_=report_type,
             )
             if not rep:
                 _LOG.info(
                     f'Could not find report {report_type} for linked tenant '
-                    f'{tenant.display_name}'
+                    f'{dntl}'
                 )
                 continue
             data = self._rms.fetch_data(rep)
             if not data:
                 _LOG.info(
                     f'Could not find report {report_type} data for linked '
-                    f'tenant {tenant.display_name}'
+                    f'tenant {dntl}'
                 )
                 continue
             _LOG.debug('Linked tenant data collected successfully')
