@@ -237,7 +237,7 @@ class LMClient:
         customer: str | None = None,
         installation_version: str | None = None,
         include_ruleset_links: bool = True,
-    ) -> Tuple[Union[LMLicenseDTO | str], int]:
+    ) -> Tuple[Union[LMLicenseDTO, str], int]:
         data = dict(
             license_key=license_key,
             include_ruleset_links=include_ruleset_links,
