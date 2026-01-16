@@ -1,4 +1,5 @@
 import operator
+from http import HTTPStatus
 from itertools import chain
 from typing import Generator
 
@@ -134,17 +135,21 @@ class LicenseSync:
         """
         Syncs the given license
         """
-        data = self._sp.license_manager_service.client.sync_license(
+        data, status_code = \
+            self._sp.license_manager_service.client.sync_license(
             license_key=lic.license_key,
             customer=lic.customer,
             installation_version=__version__,
             include_ruleset_links=True,
         )
-        if isinstance(data, str):
+        if status_code != HTTPStatus.OK:
+            now = utc_iso()
+            valid_until = now if status_code == HTTPStatus.NOT_FOUND else None
             self._sp.license_service.update(
                 item=lic,
-                latest_sync=utc_iso(),
-                latest_sync_result=data
+                latest_sync=now,
+                latest_sync_result=data,
+                valid_until=valid_until,
             )
             raise LicenseSyncError('Request to the License manager failed')
 
