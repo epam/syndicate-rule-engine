@@ -2,7 +2,7 @@ import operator
 import uuid
 from datetime import timedelta
 from http import HTTPStatus
-from typing import Any, cast
+from typing import Any, cast, List, Iterable
 
 import msgspec.json
 from botocore.exceptions import ClientError
@@ -319,6 +319,8 @@ class MaestroModelBuilder:
     ) -> dict:
         assert rep.type == ReportType.PROJECT_COMPLIANCE
         for t in data['data'].values():
+            if not t.get('data'):
+                continue
             t['regions_data'] = [
                 {
                     'region': region,
@@ -1014,8 +1016,22 @@ class HighLevelReportsHandler(AbstractHandler):
         builder = MaestroModelBuilder(receivers=tuple(event.receivers))
         for display_name in event.tenant_display_names:
             _LOG.info(
-                f'Going to retrieve tenants with display_name: {display_name}'
+                f'Going to generate reports for tenant with '
+                f'display_name: {display_name}'
             )
+
+            linked_tenants = []
+            if event.include_linked:
+                # TODO consider getting linked tenants by case insensitive
+                #  way(to cover display_name with different cases)
+                _LOG.info('Retrieving linked tenants')
+                linked_tenants = list(
+                    self._mc.tenant_service().i_get_tenant_by_customer(
+                        customer_id=event.customer_id,
+                        active=True,
+                        linked_to=display_name.upper(),
+                    )
+                )
 
             for report_type in event.new_types:
                 _LOG.debug(f'Going to generate {report_type} for {display_name}')
@@ -1034,6 +1050,14 @@ class HighLevelReportsHandler(AbstractHandler):
                     report_type=report_type,
                     display_name=display_name,
                 )
+
+                linked_data = self._collect_linked_tenants_data(
+                    linked_tenants=linked_tenants,
+                    report_type=report_type,
+                )
+                if linked_data:
+                    fetched_data['linked_tenants_data'] = linked_data
+
                 data = builder.convert(rep, fetched_data)
 
                 models.append(
@@ -1172,3 +1196,39 @@ class HighLevelReportsHandler(AbstractHandler):
                 .exc()
             )
         return cast(dict[str, Any], data)
+
+    def _collect_linked_tenants_data(
+        self,
+        linked_tenants: Iterable[Tenant],
+        report_type: ReportType,
+    ) -> List[dict[str, Any]]:
+
+        result = []
+        for tenant in linked_tenants:
+            dntl = tenant.display_name_to_lower
+            _LOG.info(
+                f'Collecting linked tenant: {dntl} '
+                f'report {report_type} data'
+            )
+            rep = self._rms.get_latest_for_project(
+                customer=tenant.customer_name,
+                project=dntl,
+                type_=report_type,
+            )
+            if not rep:
+                _LOG.info(
+                    f'Could not find report {report_type} for linked tenant '
+                    f'{dntl}'
+                )
+                continue
+            data = self._rms.fetch_data(rep)
+            if not data:
+                _LOG.info(
+                    f'Could not find report {report_type} data for linked '
+                    f'tenant {dntl}'
+                )
+                continue
+            _LOG.debug('Linked tenant data collected successfully')
+            result.append(data)
+
+        return result
