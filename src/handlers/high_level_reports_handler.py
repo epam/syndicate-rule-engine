@@ -1025,12 +1025,13 @@ class HighLevelReportsHandler(AbstractHandler):
                 # TODO consider getting linked tenants by case insensitive
                 #  way(to cover display_name with different cases)
                 _LOG.info('Retrieving linked tenants')
-                linked_tenants = \
+                linked_tenants = list(
                     self._mc.tenant_service().i_get_tenant_by_customer(
                         customer_id=event.customer_id,
                         active=True,
                         linked_to=display_name.upper(),
                     )
+                )
 
             for report_type in event.new_types:
                 _LOG.debug(f'Going to generate {report_type} for {display_name}')
