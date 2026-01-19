@@ -1,32 +1,30 @@
-from abc import ABC, abstractmethod
-from http import HTTPStatus
 import inspect
 import json
-import msgspec
-from typing import MutableMapping, TypedDict, cast, TYPE_CHECKING
-from pynamodb.exceptions import PynamoDBConnectionError
+from abc import ABC, abstractmethod
+from http import HTTPStatus
+from typing import TYPE_CHECKING, MutableMapping, TypedDict, cast
 
+import msgspec
 from modular_sdk.commons.exception import ModularException
 from modular_sdk.services.customer_service import CustomerService
+from pynamodb.exceptions import PynamoDBConnectionError
+from typing_extensions import Self
 
 from helpers import RequestContext, deep_get
-from helpers.constants import (
-    Endpoint, HTTPMethod, Permission
-)
+from helpers.constants import Endpoint, HTTPMethod, Permission
 from helpers.lambda_response import (
-    SREException,
     LambdaOutput,
     MetricsUpdateException,
     ResponseFactory,
+    SREException,
 )
 from helpers.log_helper import get_logger, hide_secret_values
 from helpers.system_customer import SystemCustomer
+from services import SP
 from services.environment_service import EnvironmentService
 from services.job_service import JobService
-from services.batch_results_service import BatchResultsService
-from services.platform_service import PlatformService
 from services.license_service import LicenseService
-from services import SP
+from services.platform_service import PlatformService
 from services.rbac_service import (
     PolicyService,
     PolicyStruct,
@@ -34,6 +32,8 @@ from services.rbac_service import (
     TenantAccess,
     TenantsAccessPayload,
 )
+
+
 if TYPE_CHECKING:
     from handlers import Mapping
 
@@ -461,12 +461,13 @@ class RestrictTenantEventProcessor(AbstractEventProcessor):
     """
     __slots__ = '_js', '_brs', '_ps', '_ls'
 
-    def __init__(self, job_service: JobService,
-                 batch_results_service: BatchResultsService,
-                 platform_service: PlatformService,
-                 license_service: LicenseService):
+    def __init__(
+        self,
+        job_service: JobService,
+        platform_service: PlatformService,
+        license_service: LicenseService,
+    ) -> None:
         self._js = job_service
-        self._brs = batch_results_service
         self._ps = platform_service
         self._ls = license_service
 
@@ -485,8 +486,6 @@ class RestrictTenantEventProcessor(AbstractEventProcessor):
             return self._restrict_tenant_name(event, context)
         if '{job_id}' in res:
             return self._restrict_job_id(event, context)
-        if '{batch_results_id}' in res:
-            return self._restrict_batch_results(event, context)
         if '{platform_id}' in res:
             return self._restrict_platform_id(event, context)
         if '{license_key}' in res:
@@ -494,10 +493,9 @@ class RestrictTenantEventProcessor(AbstractEventProcessor):
         return event, context
 
     @classmethod
-    def build(cls) -> 'RestrictTenantEventProcessor':
+    def build(cls) -> Self:
         return cls(
             job_service=SP.job_service,
-            batch_results_service=SP.batch_results_service,
             platform_service=SP.platform_service,
             license_service=SP.license_service
         )
@@ -521,18 +519,6 @@ class RestrictTenantEventProcessor(AbstractEventProcessor):
                 self._js.not_found_message(job_id)
             ).exc()
         event['additional_kwargs']['job_obj'] = job
-        return event, context
-
-    def _restrict_batch_results(self, event: ProcessedEvent,
-                                context: RequestContext
-                                ) -> tuple[ProcessedEvent, RequestContext]:
-        br_id = cast(str, event['path_params'].get('batch_results_id'))
-        job = self._brs.get_nullable(hash_key=br_id)
-        if not job or not event['tenant_access_payload'].is_allowed_for(job.tenant_name):
-            raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
-                self._brs.not_found_message(br_id)
-            ).exc()
-        event['additional_kwargs']['br_obj'] = job
         return event, context
 
     def _restrict_platform_id(self, event: ProcessedEvent,

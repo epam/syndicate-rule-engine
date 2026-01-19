@@ -1,10 +1,13 @@
-from typing import Union, Optional
+from typing import Literal, Optional, Union, overload
 
 from pynamodb.exceptions import PynamoDBException
 
 import services.cache as cache
-from helpers.constants import (DEFAULT_SYSTEM_CUSTOMER, SettingKey,
-                               DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME)
+from helpers.constants import (
+    DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME,
+    DEFAULT_SYSTEM_CUSTOMER,
+    SettingKey,
+)
 from helpers.log_helper import get_logger
 from models.setting import Setting
 from services.environment_service import EnvironmentService
@@ -160,9 +163,28 @@ class SettingsService:
             }
         )
 
-    def get_event_assembler_configuration(self, value: bool = True
-                                          ) -> Optional[Union[Setting, dict]]:
-        return self.get(name=SettingKey.EVENT_ASSEMBLER, value=value)
+    @overload
+    def get_event_assembler_configuration(
+        self,
+        value: Literal[True] = True,
+    ) -> dict | None:
+        ...
+    
+    @overload
+    def get_event_assembler_configuration(
+        self,
+        value: Literal[False],
+    ) -> Setting | None:
+        ...
+
+    def get_event_assembler_configuration(
+        self,
+        value: bool = True,
+    ) -> Setting | dict | None:
+        return self.get(
+            name=SettingKey.EVENT_ASSEMBLER,
+            value=value,
+        )
 
     # metadata
     def rules_metadata_repo_access_data(self) -> str:

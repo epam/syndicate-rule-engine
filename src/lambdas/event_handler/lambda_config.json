@@ -19,10 +19,6 @@
       "resource_type": "dynamodb_table"
     },
     {
-      "resource_name": "SREBatchResults",
-      "resource_type": "dynamodb_table"
-    },
-    {
       "resource_name": "SRERoles",
       "resource_type": "dynamodb_table"
     },

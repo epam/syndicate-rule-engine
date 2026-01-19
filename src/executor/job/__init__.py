@@ -124,7 +124,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from itertools import chain
 from pathlib import Path
-from typing import TYPE_CHECKING, Generator, Iterable, cast, Callable
+from typing import TYPE_CHECKING, Callable, Generator, Iterable, cast
 
 # import multiprocessing
 import billiard as multiprocessing  # allows to execute child processes from a daemon process
@@ -139,15 +139,14 @@ from c7n_kube.query import DescribeSource, sources
 from celery.exceptions import SoftTimeLimitExceeded
 from google.auth.exceptions import GoogleAuthError
 from googleapiclient.errors import HttpError
-from modular_sdk.commons.trace_helper import tracer_decorator
 from modular_sdk.commons.constants import (
     ENV_AZURE_CLIENT_CERTIFICATE_PATH,
     ENV_GOOGLE_APPLICATION_CREDENTIALS,
     ENV_KUBECONFIG,
     ParentType,
 )
+from modular_sdk.commons.trace_helper import tracer_decorator
 from modular_sdk.models.tenant import Tenant
-from modular_sdk.services.environment_service import EnvironmentContext
 from msrestazure.azure_exceptions import CloudError
 from typing_extensions import NotRequired, TypedDict
 
@@ -159,27 +158,26 @@ from executor.helpers.constants import (
     ExecutorError,
 )
 from executor.helpers.profiling import xray_recorder as _XRAY
+from executor.plugins import register_all
 from executor.services import BSP
 from executor.services.report_service import JobResult
 from helpers.constants import (
     GLOBAL_REGION,
     TS_EXCLUDED_RULES_KEY,
     BatchJobEnv,
-    Env,
     Cloud,
+    Env,
     JobState,
     PlatformType,
     PolicyErrorType,
-    ServiceOperationType
+    ServiceOperationType,
 )
 from helpers.log_helper import get_logger
 from helpers.regions import AWS_REGIONS
 from helpers.time_helper import utc_datetime, utc_iso
-from models.batch_results import BatchResults
 from models.job import Job
 from models.rule import RuleIndex
 from services import SP
-from services.ambiguous_job_service import AmbiguousJob
 from services.chronicle_service import ChronicleConverterType
 from services.clients import Boto3ClientFactory
 from services.clients.chronicle import ChronicleV2Client
@@ -209,7 +207,6 @@ from services.udm_generator import (
     ShardCollectionUDMEntitiesConvertor,
     ShardCollectionUDMEventsConvertor,
 )
-from executor.plugins import register_all
 
 from .resource_collector import CustodianResourceCollector
 
@@ -987,8 +984,12 @@ def post_lm_job(job: Job):
             },
         )
     except LMException as e:
-        ExecutorError.LM_DID_NOT_ALLOW.reason = str(e)
-        raise ExecutorException(ExecutorError.LM_DID_NOT_ALLOW)
+        raise ExecutorException(
+            ExecutorError.with_reason(
+                value=ExecutorError.LM_DID_NOT_ALLOW,
+                reason=str(e),
+            )
+        )
 
 
 @tracer_decorator(
@@ -998,7 +999,7 @@ def post_lm_job(job: Job):
 def update_metadata():
     import operator
     from itertools import chain
-    
+
     from modular_sdk.commons.constants import ApplicationType
 
     from services import SERVICE_PROVIDER
@@ -1060,8 +1061,12 @@ def update_metadata():
             f'Failed to update metadata for {failed_updates}/{total_licenses} '
             'license(s)'
         )
-        ExecutorError.METADATA_UPDATE_FAILED.reason = reason
-        raise ExecutorException(ExecutorError.METADATA_UPDATE_FAILED)
+        raise ExecutorException(
+            ExecutorError.with_reason(
+                value=ExecutorError.METADATA_UPDATE_FAILED,
+                reason=reason,
+            )
+        )
     
     _LOG.info(
         f'Metadata for {successful_updates}/{total_licenses} '
@@ -1069,12 +1074,12 @@ def update_metadata():
     )
 
 def import_to_dojo(
-    job: AmbiguousJob,
+    job: Job,
     tenant: Tenant,
     cloud: Cloud,
-    platform: Platform,
     collection: ShardsCollection,
     metadata: Metadata,
+     platform: Platform | None = None,
     send_after_job: bool | None = None,
 ) -> list:
     warnings = []
@@ -1117,9 +1122,20 @@ def import_to_dojo(
 def upload_to_dojo(job_ids: Iterable[str]):
     for job_id in job_ids:
         _LOG.info(f'Uploading job {job_id} to dojo')
-        job_ = SP.job_service.get_nullable(job_id)
-        job = AmbiguousJob(job_)
+        job = SP.job_service.get_nullable(job_id)
+        if not job:
+            _LOG.warning(
+                f'Job {job_id} not found. '
+                'Skipping upload to dojo'
+            )
+            continue
         tenant = SP.modular_client.tenant_service().get(job.tenant_name)
+        if not tenant:
+            _LOG.warning(
+                f'Tenant {job.tenant_name} not found. '
+                'Skipping upload to dojo'
+            )
+            continue
 
         platform = None
         if job.is_platform_job:
@@ -1129,12 +1145,12 @@ def upload_to_dojo(job_ids: Iterable[str]):
                 continue
             collection = SP.report_service.platform_job_collection(
                 platform=platform,
-                job=job.job,
+                job=job,
             )
             collection.meta = SP.report_service.fetch_meta(platform)
             cloud = Cloud.KUBERNETES
         else:
-            collection = SP.report_service.ambiguous_job_collection(tenant, job)
+            collection = SP.report_service.job_collection(tenant, job)
             collection.meta = SP.report_service.fetch_meta(tenant)
             cloud = tenant_cloud(tenant)
 
@@ -1154,7 +1170,7 @@ def upload_to_dojo(job_ids: Iterable[str]):
 
 def upload_to_siem(ctx: 'JobExecutionContext', collection: ShardsCollection):
     tenant = ctx.tenant
-    job = AmbiguousJob(ctx.job)
+    job = ctx.job
     platform = ctx.platform
     warnings = []
     cloud = ctx.cloud()
@@ -1289,7 +1305,7 @@ def get_tenant_credentials(
     return credentials
 
 
-def get_job_credentials(job: Job | BatchResults, cloud: Cloud) -> dict | None:
+def get_job_credentials(job: Job, cloud: Cloud) -> dict | None:
     _LOG.info('Trying to resolve credentials from job')
     if not job.credentials_key:
         return
@@ -1425,133 +1441,6 @@ def get_rules_to_exclude(tenant: Tenant) -> set[str]:
         _LOG.info('Customer setting with excluded rules is found')
         excluded.update(cs.value.get('rules') or ())
     return excluded
-
-
-def batch_results_job(batch_results: BatchResults):
-    _XRAY.put_annotation('batch_results_id', batch_results.id)
-
-    temp_dir = tempfile.TemporaryDirectory()
-    work_dir = Path(temp_dir.name)
-
-    tenant: Tenant = SP.modular_client.tenant_service().get(
-        batch_results.tenant_name
-    )
-    cloud = Cloud[tenant.cloud.upper()]
-    credentials = get_credentials(tenant, batch_results)
-
-    # TODO: use standard ruleset
-    policies = []
-    # policies = BSP.policies_service.separate_ruleset(
-    #     from_=BSP.policies_service.ensure_event_driven_ruleset(cloud),
-    #     exclude=get_rules_to_exclude(tenant),
-    #     keep=set(
-    #         chain.from_iterable(batch_results.regions_to_rules().values())
-    #     ),
-    # )
-    loader = PoliciesLoader(
-        cloud=cloud,
-        output_dir=work_dir,
-        regions=BSP.environment_service.target_regions(),
-    )
-    with EnvironmentContext(credentials, reset_all=False):
-        runner = Runner.factory(
-            cloud,
-            loader.load_from_regions_to_rules(
-                policies, batch_results.regions_to_rules()
-            ),
-        )
-        runner.start()
-
-    result = JobResult(work_dir, cloud)
-    keys_builder = TenantReportsBucketKeysBuilder(tenant)
-    collection = ShardsCollectionFactory.from_cloud(cloud)
-    collection.put_parts(result.iter_shard_parts(runner.failed))
-    meta = result.rules_meta()
-    collection.meta = meta
-
-    _LOG.info('Going to upload to SIEM')
-    # upload_to_siem(
-    #     tenant=tenant, collection=collection, job=AmbiguousJob(batch_results)
-    # )
-
-    collection.io = ShardsS3IO(
-        bucket=SP.environment_service.default_reports_bucket_name(),
-        key=keys_builder.ed_job_result(batch_results),
-        client=SP.s3,
-    )
-    _LOG.debug('Writing job report')
-    collection.write_all()  # writes job report
-
-    latest = ShardsCollectionFactory.from_cloud(cloud)
-    latest.io = ShardsS3IO(
-        bucket=SP.environment_service.default_reports_bucket_name(),
-        key=keys_builder.latest_key(),
-        client=SP.s3,
-    )
-    _LOG.debug('Pulling latest state')
-    latest.fetch_by_indexes(collection.shards.keys())
-    latest.fetch_meta()
-
-    difference = collection - latest
-
-    _LOG.debug('Writing latest state')
-    latest.update(collection)
-    latest.update_meta(meta)
-    latest.write_all()
-    latest.write_meta()
-
-    _LOG.debug('Writing difference')
-    difference.io = ShardsS3IO(
-        bucket=SP.environment_service.default_reports_bucket_name(),
-        key=keys_builder.ed_job_difference(batch_results),
-        client=SP.s3,
-    )
-    difference.write_all()
-
-    _LOG.info('Writing statistics')
-    SP.s3.gz_put_json(
-        bucket=SP.environment_service.get_statistics_bucket_name(),
-        key=StatisticsBucketKeysBuilder.job_statistics(batch_results),
-        obj=result.statistics(tenant, runner.failed),
-    )
-    temp_dir.cleanup()
-
-
-def multi_account_event_driven_job() -> int:
-    for br_uuid in BSP.environment_service.batch_results_ids():
-        _LOG.info(f'Processing batch results with id {br_uuid}')
-        actions = []
-        batch_results = BatchResults.get_nullable(br_uuid)
-        if not batch_results:
-            _LOG.warning('Somehow batch results item does not exist. Skipping')
-            continue
-        if batch_results.status == JobState.SUCCEEDED.value:
-            _LOG.info('Batch results already succeeded. Skipping')
-            continue
-        try:
-            _LOG.info(f'Starting job for batch result')
-            batch_results_job(batch_results)
-            _LOG.info(f'Job for batch result {br_uuid} has finished')
-            actions.append(BatchResults.status.set(JobState.SUCCEEDED.value))
-        except ExecutorException as e:
-            _LOG.exception(f'Executor exception {e.error} occurred')
-            actions.append(BatchResults.status.set(JobState.FAILED.value))
-            actions.append(BatchResults.reason.set(traceback.format_exc()))
-        except SoftTimeLimitExceeded:
-            _LOG.error('Job is terminated because of soft timeout')
-            actions.append(BatchResults.status.set(JobState.FAILED.value))
-            actions.append(
-                BatchResults.reason.set(ExecutorError.TIMEOUT.with_reason())
-            )
-        except Exception:
-            _LOG.exception('Unexpected exception occurred')
-            actions.append(BatchResults.status.set(JobState.FAILED.value))
-            actions.append(BatchResults.reason.set(traceback.format_exc()))
-        actions.append(BatchResults.stopped_at.set(utc_iso()))
-        _LOG.info('Saving batch results item')
-        batch_results.update(actions=actions)
-    Path(CACHE_FILE).unlink(missing_ok=True)
-    return 0
 
 
 def job_initializer(
@@ -1809,18 +1698,18 @@ class JobExecutionContext:
             # in case the job has failed, we should update it here even if it's
             # saas installation because we cannot retrieve traceback from
             # caas-job-updater lambda
-            self.updater.reason = exc_val.error.with_reason()
-            if exc_val.error is ExecutorError.LM_DID_NOT_ALLOW:
+            self.updater.reason = exc_val.error.get_reason()
+            if exc_val.error.value == ExecutorError.LM_DID_NOT_ALLOW.value:
                 self._exit_code = 2
             else:
                 self._exit_code = 1
         elif isinstance(exc_val, SoftTimeLimitExceeded):
             _LOG.error('Job is terminated because of soft timeout')
-            self.updater.reason = ExecutorError.TIMEOUT.with_reason()
+            self.updater.reason = ExecutorError.TIMEOUT.get_reason()
             self._exit_code = 1
         else:
             _LOG.exception('Unexpected error occurred')
-            self.updater.reason = ExecutorError.INTERNAL.with_reason()
+            self.updater.reason = ExecutorError.INTERNAL.get_reason()
             self._exit_code = 1
 
         _LOG.info('Updating job status')

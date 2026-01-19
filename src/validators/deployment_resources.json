@@ -476,7 +476,11 @@
                         "type": "string"
                       },
                       "type": {
+                        "description": "Our inner job type. Used in SREJobs table.",
                         "enum": [
+                          "standard",
+                          "event-driven",
+                          "scheduled",
                           "manual",
                           "reactive"
                         ],
@@ -712,7 +716,11 @@
                       "type": "string"
                     },
                     "job_type": {
+                      "description": "Our inner job type. Used in SREJobs table.",
                       "enum": [
+                        "standard",
+                        "event-driven",
+                        "scheduled",
                         "manual",
                         "reactive"
                       ],
@@ -1154,7 +1162,11 @@
                       "type": "string"
                     },
                     "job_type": {
+                      "description": "Our inner job type. Used in SREJobs table.",
                       "enum": [
+                        "standard",
+                        "event-driven",
+                        "scheduled",
                         "manual",
                         "reactive"
                       ],
@@ -1224,7 +1236,11 @@
                     "type": "string"
                   },
                   "type": {
+                    "description": "Our inner job type. Used in SREJobs table.",
                     "enum": [
+                      "standard",
+                      "event-driven",
+                      "scheduled",
                       "manual",
                       "reactive"
                     ],
@@ -1652,75 +1668,6 @@
           "type": "object"
         }
       },
-      "MultipleBatchResultsModel": {
-        "content_type": "application/json",
-        "schema": {
-          "properties": {
-            "items": {
-              "items": {
-                "properties": {
-                  "cloud_identifier": {
-                    "title": "Cloud Identifier",
-                    "type": "string"
-                  },
-                  "customer_name": {
-                    "title": "Customer Name",
-                    "type": "string"
-                  },
-                  "id": {
-                    "title": "Id",
-                    "type": "string"
-                  },
-                  "status": {
-                    "description": "https://docs.aws.amazon.com/batch/latest/userguide/job_states.html",
-                    "enum": [
-                      "SUBMITTED",
-                      "PENDING",
-                      "RUNNABLE",
-                      "STARTING",
-                      "RUNNING",
-                      "FAILED",
-                      "SUCCEEDED"
-                    ],
-                    "title": "JobState",
-                    "type": "string"
-                  },
-                  "stopped_at": {
-                    "title": "Stopped At",
-                    "type": "string"
-                  },
-                  "submitted_at": {
-                    "title": "Submitted At",
-                    "type": "string"
-                  },
-                  "tenant_name": {
-                    "title": "Tenant Name",
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "cloud_identifier",
-                  "customer_name",
-                  "id",
-                  "status",
-                  "stopped_at",
-                  "submitted_at",
-                  "tenant_name"
-                ],
-                "title": "BatchResult",
-                "type": "object"
-              },
-              "title": "Items",
-              "type": "array"
-            }
-          },
-          "required": [
-            "items"
-          ],
-          "title": "MultipleBatchResultsModel",
-          "type": "object"
-        }
-      },
       "MultipleChronicleModel": {
         "content_type": "application/json",
         "schema": {
@@ -2122,7 +2069,11 @@
                     "type": "string"
                   },
                   "job_type": {
+                    "description": "Our inner job type. Used in SREJobs table.",
                     "enum": [
+                      "standard",
+                      "event-driven",
+                      "scheduled",
                       "manual",
                       "reactive"
                     ],
@@ -4332,7 +4283,11 @@
             "type": {
               "allOf": [
                 {
+                  "description": "Our inner job type. Used in SREJobs table.",
                   "enum": [
+                    "standard",
+                    "event-driven",
+                    "scheduled",
                     "manual",
                     "reactive"
                   ],
@@ -4373,7 +4328,11 @@
             "type": {
               "allOf": [
                 {
+                  "description": "Our inner job type. Used in SREJobs table.",
                   "enum": [
+                    "standard",
+                    "event-driven",
+                    "scheduled",
                     "manual",
                     "reactive"
                   ],
@@ -4446,7 +4405,11 @@
             "type": {
               "allOf": [
                 {
+                  "description": "Our inner job type. Used in SREJobs table.",
                   "enum": [
+                    "standard",
+                    "event-driven",
+                    "scheduled",
                     "manual",
                     "reactive"
                   ],
@@ -4506,7 +4469,7 @@
                   "type": "string"
                 }
               ],
-              "default": "2026-01-07T17:15:11.364385",
+              "default": "2026-01-20T15:16:03.380459",
               "description": "Expiration date of the exception",
               "title": "Expire At"
             },
@@ -4712,14 +4675,37 @@
         "content_type": "application/json",
         "schema": {
           "properties": {
+            "description": {
+              "default": null,
+              "title": "Description",
+              "type": "string"
+            },
             "git_access_secret": {
               "default": null,
               "title": "Git Access Secret",
               "type": "string"
             },
-            "description": {
+            "git_project_id": {
               "default": null,
-              "title": "Description",
+              "title": "Git Project Id",
+              "type": "string"
+            },
+            "git_ref": {
+              "default": null,
+              "title": "Git Ref",
+              "type": "string"
+            },
+            "git_rules_prefix": {
+              "default": null,
+              "title": "Git Rules Prefix",
+              "type": "string"
+            },
+            "git_url": {
+              "default": null,
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "title": "Git Url",
               "type": "string"
             },
             "type": {
@@ -4735,29 +4721,6 @@
                 }
               ],
               "default": null
-            },
-            "git_url": {
-              "default": null,
-              "format": "uri",
-              "maxLength": 2083,
-              "minLength": 1,
-              "title": "Git Url",
-              "type": "string"
-            },
-            "git_ref": {
-              "default": null,
-              "title": "Git Ref",
-              "type": "string"
-            },
-            "git_project_id": {
-              "default": null,
-              "title": "Git Project Id",
-              "type": "string"
-            },
-            "git_rules_prefix": {
-              "default": null,
-              "title": "Git Rules Prefix",
-              "type": "string"
             }
           },
           "title": "RuleSourcePatchModel",
@@ -4872,7 +4835,11 @@
                       "type": "string"
                     },
                     "job_type": {
+                      "description": "Our inner job type. Used in SREJobs table.",
                       "enum": [
+                        "standard",
+                        "event-driven",
+                        "scheduled",
                         "manual",
                         "reactive"
                       ],
@@ -5461,71 +5428,6 @@
             "customer_display_name"
           ],
           "title": "SignUpModel",
-          "type": "object"
-        }
-      },
-      "SingleBatchResultModel": {
-        "content_type": "application/json",
-        "schema": {
-          "properties": {
-            "data": {
-              "properties": {
-                "cloud_identifier": {
-                  "title": "Cloud Identifier",
-                  "type": "string"
-                },
-                "customer_name": {
-                  "title": "Customer Name",
-                  "type": "string"
-                },
-                "id": {
-                  "title": "Id",
-                  "type": "string"
-                },
-                "status": {
-                  "description": "https://docs.aws.amazon.com/batch/latest/userguide/job_states.html",
-                  "enum": [
-                    "SUBMITTED",
-                    "PENDING",
-                    "RUNNABLE",
-                    "STARTING",
-                    "RUNNING",
-                    "FAILED",
-                    "SUCCEEDED"
-                  ],
-                  "title": "JobState",
-                  "type": "string"
-                },
-                "stopped_at": {
-                  "title": "Stopped At",
-                  "type": "string"
-                },
-                "submitted_at": {
-                  "title": "Submitted At",
-                  "type": "string"
-                },
-                "tenant_name": {
-                  "title": "Tenant Name",
-                  "type": "string"
-                }
-              },
-              "required": [
-                "cloud_identifier",
-                "customer_name",
-                "id",
-                "status",
-                "stopped_at",
-                "submitted_at",
-                "tenant_name"
-              ],
-              "title": "BatchResult",
-              "type": "object"
-            }
-          },
-          "required": [
-            "data"
-          ],
-          "title": "SingleBatchResultModel",
           "type": "object"
         }
       },
@@ -6244,7 +6146,11 @@
                   "type": "string"
                 },
                 "job_type": {
+                  "description": "Our inner job type. Used in SREJobs table.",
                   "enum": [
+                    "standard",
+                    "event-driven",
+                    "scheduled",
                     "manual",
                     "reactive"
                   ],

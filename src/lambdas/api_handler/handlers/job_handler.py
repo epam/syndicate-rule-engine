@@ -25,7 +25,12 @@ from models.job import Job
 from models.ruleset import Ruleset
 from services import SERVICE_PROVIDER, cache, modular_helpers
 from services.abs_lambda import ProcessedEvent
-from services.clients.batch import BatchClient, BatchJob
+from services.clients.batch import (
+    BatchClient,
+    BatchJob,
+    CeleryJob,
+    CeleryJobClient,
+)
 from services.clients.ssm import AbstractSSMClient
 from services.clients.sts import StsClient
 from services.environment_service import EnvironmentService
@@ -49,8 +54,11 @@ from validators.swagger_request_models import (
 )
 from validators.utils import validate_kwargs
 
+
 if TYPE_CHECKING:
-    from modular_sdk.services.tenant_settings_service import TenantSettingsService
+    from modular_sdk.services.tenant_settings_service import (
+        TenantSettingsService,
+    )
 
 _LOG = get_logger(__name__)
 
@@ -64,7 +72,7 @@ class JobHandler(AbstractHandler):
         license_service: LicenseService,
         license_manager_service: LicenseManagerService,
         ruleset_service: RulesetService,
-        batch_client: BatchClient,
+        batch_client: BatchClient | CeleryJobClient,
         sts_client: StsClient,
         ssm: AbstractSSMClient,
         scheduled_job_service: ScheduledJobService,
@@ -578,21 +586,36 @@ class JobHandler(AbstractHandler):
         )
 
     def _submit_job_to_batch(
-        self, tenant: Tenant, job: Job, timeout: int | None = None
-    ) -> BatchJob:
+        self,
+        tenant: Tenant,
+        job: Job,
+        timeout: int | None = None,
+    ) -> BatchJob | CeleryJob:
         job_name = f'{tenant.name}-{job.submitted_at}'
         job_name = ''.join(
             ch if ch.isalnum() or ch in ('-', '_') else '_' for ch in job_name
         )
-        _LOG.debug(f'Going to submit AWS Batch job with name {job_name}')
-        response = self._batch_client.submit_job(
-            job_id=job.id,
-            job_name=job_name,
-            job_queue=self._environment_service.get_batch_job_queue(),
-            job_definition=self._environment_service.get_batch_job_def(),
-            timeout=timeout,
-        )
-        _LOG.debug(f'Batch job was submitted: {response}')
+
+        response: BatchJob | CeleryJob
+        if isinstance(self._batch_client, BatchClient):
+            _LOG.debug(f'Going to submit AWS Batch job with name {job_name}')
+            response = self._batch_client.submit_job(
+                job_id=job.id,
+                job_name=job_name,
+                job_queue=self._environment_service.get_batch_job_queue(),
+                job_definition=self._environment_service.get_batch_job_def(),
+                timeout=timeout,
+            )
+            _LOG.debug(f'AWS Batch job was submitted: {response}')
+        else:
+            _LOG.debug(f'Going to submit Celery job with name {job_name}')
+            response = self._batch_client.submit_job(
+                job_id=job.id,
+                job_name=job_name,
+                timeout=timeout,
+            )
+            _LOG.debug(f'Celery job was submitted: {response}')
+
         return response
 
     def ensure_job_is_allowed(self, tenant: Tenant, tlk: str):

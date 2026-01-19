@@ -9,12 +9,12 @@ from helpers.constants import (
     JobState,
     JobType,
     PlatformType,
+    PolicyEffect,
     PolicyErrorType,
     ReportFormat,
-    RuleSourceType,
     RuleDomain,
     RuleSourceSyncingStatus,
-    PolicyEffect
+    RuleSourceType,
 )
 
 
@@ -211,16 +211,6 @@ class K8sPlatform(TypedDict):
     region: NotRequired[str]
     tenant_name: str
     type: PlatformType
-
-
-class BatchResult(TypedDict):
-    cloud_identifier: str
-    customer_name: str
-    id: str
-    status: JobState
-    stopped_at: str
-    submitted_at: str
-    tenant_name: str
 
 
 class Event(TypedDict):
@@ -523,15 +513,6 @@ class MultipleK8SPlatformsModel(BaseModel):
 
 class SingleK8SPlatformModel(BaseModel):
     data: K8sPlatform
-
-
-class MultipleBatchResultsModel(BaseModel):
-    items: list[BatchResult]
-
-
-class SingleBatchResultModel(BaseModel):
-    data: BatchResult
-
 
 class SignInModel(BaseModel):
     access_token: str  # actually it's Congito's id_token

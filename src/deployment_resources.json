@@ -213,29 +213,6 @@
       }
     ]
   },
-  "SREBatchResults": {
-    "resource_type": "dynamodb_table",
-    "hash_key_name": "id",
-    "hash_key_type": "S",
-    "read_capacity": 1,
-    "write_capacity": 1,
-    "global_indexes": [
-      {
-        "name": "c-jsa-index",
-        "index_key_name": "c",
-        "index_key_type": "S",
-        "index_sort_key_name": "jsa",
-        "index_sort_key_type": "S"
-      },
-      {
-        "name": "t-jsa-index",
-        "index_key_name": "t",
-        "index_key_type": "S",
-        "index_sort_key_name": "jsa",
-        "index_sort_key_type": "S"
-      }
-    ]
-  },
   "SREJobStatistics": {
     "resource_type": "dynamodb_table",
     "hash_key_name": "id",
@@ -3820,12 +3797,6 @@
           },
           "responses": [
             {
-              "status_code": "200",
-              "response_models": {
-                "application/json": "MultipleBatchResultsModel"
-              }
-            },
-            {
               "status_code": "400",
               "response_models": {
                 "application/json": "ErrorsModel"
@@ -3877,12 +3848,6 @@
             "method.request.querystring.customer_id": false
           },
           "responses": [
-            {
-              "status_code": "200",
-              "response_models": {
-                "application/json": "SingleBatchResultModel"
-              }
-            },
             {
               "status_code": "400",
               "response_models": {

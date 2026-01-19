@@ -26,7 +26,6 @@ It will save items to `SRETenantMetrics` and `SRECustomerMetrics` DynamoDB table
 * SRETenantMetrics
 * SRECustomerMetrics
 * SREJobs
-* SREBatchResults
 
 #### S3
 * `sre-rulesets-{$suffix}` - rulesets bucket;
@@ -67,7 +66,7 @@ Code logically divided into handler and 3 processors that are called one after t
 
 #### Tenant metrics processor
 The first processor to be called, that collects all necessary information about the last week's scans - data from the 
-`SREJobs` and `SREBatchResults` tables, actual tenant findings from `sre-statistics` bucket. The received data will 
+`SREJobs` table, actual tenant findings from `sre-statistics` bucket. The received data will 
 be structured into a json file of the following format:
 
 ```json

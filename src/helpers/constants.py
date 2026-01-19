@@ -8,6 +8,7 @@ from typing import Callable, Iterator, Literal, MutableMapping, TypeVar
 from dateutil.relativedelta import SU, relativedelta
 from typing_extensions import Self
 
+
 # from http import HTTPMethod  # python3.11+
 
 
@@ -253,7 +254,17 @@ class RuleDomain(str, Enum):
 
 
 class JobType(str, Enum):
+    """
+    Our inner job type. Used in SREJobs table.
+    """
+
+    STANDARD = 'standard'
+    EVENT_DRIVEN = 'event-driven'
+    SCHEDULED = 'scheduled'
+
+    # TODO: deprecate this types
     MANUAL = 'manual'
+    # equals to event-driven job type (backward compatibility)
     REACTIVE = 'reactive'
 
 
@@ -552,10 +563,15 @@ class Env(EnvEnum):
     LAMBDA_ALIAS_NAME = 'SRE_LAMBDA_ALIAS_NAME', ('CAAS_LAMBDA_ALIAS_NAME',)
 
     # batch options
-    BATCH_JOB_DEF_NAME = 'SRE_BATCH_JOB_DEF_NAME', ('CAAS_BATCH_JOB_DEF_NAME',)
+    BATCH_JOB_DEF_NAME = (
+        'SRE_BATCH_JOB_DEF_NAME',
+        ('CAAS_BATCH_JOB_DEF_NAME',),
+        'batch-job-definition',
+    )
     BATCH_JOB_QUEUE_NAME = (
         'SRE_BATCH_JOB_QUEUE_NAME',
         ('CAAS_BATCH_JOB_QUEUE_NAME',),
+        'batch-job-queue',
     )
     BATCH_JOB_LOG_LEVEL = (
         'SRE_BATCH_JOB_LOG_LEVEL',
@@ -689,6 +705,16 @@ class Env(EnvEnum):
         'SRE_CELERY_SCAN_RESOURCES_SCHEDULE',
         (),
         '0 14 * * *',  # every day at 14:00 UTC
+    )
+    CELERY_ASSEMBLE_EVENTS_SCHEDULE = (
+        'SRE_CELERY_ASSEMBLE_EVENTS_SCHEDULE',
+        (),
+        '*/5 * * * *',  # every 5 minutes
+    )
+    CELERY_CLEAR_EVENTS_SCHEDULE = (
+        'SRE_CELERY_CLEAR_EVENTS_SCHEDULE',
+        (),
+        '0 0 * * *',  # every day at 00:00 UTC
     )
 
     SCAN_RESOURCES_PROCESSORS = (
@@ -994,17 +1020,6 @@ MODULAR_IS_DELETED = 'is_deleted'
 MODULAR_DELETION_DATE = 'deletion_date'
 MODULAR_SECRET = 'secret'
 MODULAR_TYPE = 'type'
-
-
-class BatchJobType(str, Enum):
-    """
-    Our inner types
-    """
-
-    STANDARD = 'standard'
-    EVENT_DRIVEN = 'event-driven-multi-account'
-    SCHEDULED = 'scheduled'
-
 
 # event-driven
 AWS_VENDOR = 'AWS'

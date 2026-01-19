@@ -1,5 +1,4 @@
 from typing import Any, Iterable, Iterator, Literal
-from typing_extensions import Self
 
 from modular_sdk.commons.constants import ApplicationType
 from modular_sdk.models.application import Application
@@ -10,13 +9,18 @@ from modular_sdk.services.impl.maestro_credentials_service import (
     DefectDojoApplicationSecret,
 )
 from modular_sdk.services.ssm_service import SSMService
+from typing_extensions import Self
 
 from helpers.log_helper import get_logger
-from services.ambiguous_job_service import AmbiguousJob
+from models.job import Job
 from services.base_data_service import BaseDataService
 from services.platform_service import Platform
 
+
 _LOG = get_logger(__name__)
+
+
+AttachmentType = Literal['json', 'xlsx', 'csv']
 
 
 class DefectDojoConfiguration:
@@ -101,16 +105,23 @@ class DefectDojoParentMeta:
     __slots__ = ('scan_type', 'product_type', 'product', 'engagement',
                  'test', 'send_after_job', 'attachment')
 
-    def __init__(self, scan_type: str, product_type: str, product: str,
-                 engagement: str, test: str, send_after_job: bool,
-                 attachment: Literal['json', 'xlsx', 'csv'] | None = None):
+    def __init__(
+        self,
+        scan_type: str,
+        product_type: str,
+        product: str,
+        engagement: str,
+        test: str,
+        send_after_job: bool,
+        attachment: AttachmentType | None = None,
+    ) -> None:
         self.scan_type = scan_type
         self.product_type = product_type
         self.product = product
         self.engagement = engagement
         self.test = test
         self.send_after_job = send_after_job
-        self.attachment = attachment
+        self.attachment: AttachmentType | None = attachment
 
     def dto(self) -> dict:
         """
@@ -152,7 +163,7 @@ class DefectDojoParentMeta:
 
     def substitute_fields(
         self,
-        job: AmbiguousJob,
+        job: Job,
         platform: Platform | None = None,
         ) -> 'DefectDojoParentMeta':
         """

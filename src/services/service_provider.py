@@ -1,48 +1,48 @@
-from functools import cached_property
+from __future__ import annotations
+
 import threading
-from typing import Union, TYPE_CHECKING
+from functools import cached_property
+from typing import TYPE_CHECKING, Union
 
 from helpers import SingletonMeta
 
+
 if TYPE_CHECKING:
-    from services.clients.mongo_ssm_auth_client import MongoAndSSMAuthClient
-    from services.ambiguous_job_service import AmbiguousJobService
-    from services.batch_results_service import BatchResultsService
-    from services.clients.cognito import CognitoClient
+    from modular_sdk.modular import ModularServiceProvider
+
+    from services.cadf_event_sender import CadfEventSender
+    from services.chronicle_service import ChronicleInstanceService
+    from services.clients.batch import BatchClient, CeleryJobClient
+    from services.clients.cognito import BaseAuthClient, CognitoClient
     from services.clients.event_bridge import EventBridgeClient
     from services.clients.iam import IAMClient
-    from services.clients.s3 import ModularAssumeRoleS3Service
-    from services.clients.s3 import S3Client
+    from services.clients.mongo_ssm_auth_client import MongoAndSSMAuthClient
+    from services.clients.s3 import ModularAssumeRoleS3Service, S3Client
     from services.clients.ssm import CachedSSMClient
+    from services.clients.step_function import ScriptClient, StepFunctionClient
     from services.clients.sts import StsClient
+    from services.defect_dojo_service import DefectDojoService
     from services.environment_service import EnvironmentService
     from services.event_processor_service import EventProcessorService
     from services.event_service import EventService
+    from services.integration_service import IntegrationService
     from services.job_service import JobService
     from services.license_manager_service import LicenseManagerService
     from services.license_service import LicenseService
+    from services.metadata import MetadataProvider
+    from services.platform_service import PlatformService
     from services.rabbitmq_service import RabbitMQService
+    from services.rbac_service import PolicyService, RoleService
     from services.report_service import ReportService
+    from services.reports import ReportMetricsService
     from services.resource_exception_service import ResourceExceptionsService
     from services.resources_service import ResourcesService
     from services.rule_meta_service import RuleService
     from services.rule_source_service import RuleSourceService
     from services.ruleset_service import RulesetService
     from services.scheduled_job_service import ScheduledJobService
-    from services.setting_service import CachedSettingsService
-    from services.platform_service import PlatformService
-    from services.integration_service import IntegrationService
-    from services.clients.batch import CeleryJobClient, BatchClient
-    from services.defect_dojo_service import DefectDojoService
-    from services.clients.cognito import BaseAuthClient
-    from services.rbac_service import RoleService, PolicyService
-    from services.clients.step_function import ScriptClient, StepFunctionClient
-    from services.chronicle_service import ChronicleInstanceService
-    from services.reports import ReportMetricsService
-    from services.metadata import MetadataProvider
-    from services.cadf_event_sender import CadfEventSender
     from services.service_operation_service import ServiceOperationService
-    from modular_sdk.modular import ModularServiceProvider
+    from services.setting_service import CachedSettingsService
 
 
 class ServiceProvider(metaclass=SingletonMeta):
@@ -61,7 +61,11 @@ class ServiceProvider(metaclass=SingletonMeta):
 
     @cached_property
     def ssm(self) -> 'CachedSSMClient':
-        from services.clients.ssm import VaultSSMClient, SSMClient, CachedSSMClient
+        from services.clients.ssm import (
+            CachedSSMClient,
+            SSMClient,
+            VaultSSMClient,
+        )
         env = self.environment_service
         if env.is_docker():
             cl = VaultSSMClient()
@@ -86,7 +90,9 @@ class ServiceProvider(metaclass=SingletonMeta):
 
     @cached_property
     def onprem_users_client(self) -> 'MongoAndSSMAuthClient':
-        from services.clients.mongo_ssm_auth_client import MongoAndSSMAuthClient
+        from services.clients.mongo_ssm_auth_client import (
+            MongoAndSSMAuthClient,
+        )
         return MongoAndSSMAuthClient(ssm_client=self.ssm)
 
     @cached_property
@@ -108,6 +114,7 @@ class ServiceProvider(metaclass=SingletonMeta):
     @cached_property
     def events(self) -> 'EventBridgeClient':
         from services.clients.event_bridge import EventBridgeClient
+
         # TODO: probably not used
         return EventBridgeClient.build()
 
@@ -207,19 +214,6 @@ class ServiceProvider(metaclass=SingletonMeta):
         return EventService(environment_service=self.environment_service)
 
     @cached_property
-    def batch_results_service(self) -> 'BatchResultsService':
-        from services.batch_results_service import BatchResultsService
-        return BatchResultsService()
-
-    @cached_property
-    def ambiguous_job_service(self) -> 'AmbiguousJobService':
-        from services.ambiguous_job_service import AmbiguousJobService
-        return AmbiguousJobService(
-            batch_results_service=self.batch_results_service,
-            job_service=self.job_service
-        )
-
-    @cached_property
     def report_service(self) -> 'ReportService':
         from services.report_service import ReportService
         return ReportService(
@@ -261,8 +255,10 @@ class ServiceProvider(metaclass=SingletonMeta):
 
     @cached_property
     def step_function(self) -> Union['ScriptClient', 'StepFunctionClient']:
-        from services.clients.step_function import ScriptClient, \
-            StepFunctionClient
+        from services.clients.step_function import (
+            ScriptClient,
+            StepFunctionClient,
+        )
         if self.environment_service.is_docker():
             return ScriptClient(environment_service=self.environment_service)
         else:
@@ -313,7 +309,9 @@ class ServiceProvider(metaclass=SingletonMeta):
     
     @cached_property
     def resource_exception_service(self) -> 'ResourceExceptionsService':
-        from services.resource_exception_service import ResourceExceptionsService
+        from services.resource_exception_service import (
+            ResourceExceptionsService,
+        )
         return ResourceExceptionsService()
 
     @cached_property

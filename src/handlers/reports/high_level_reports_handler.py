@@ -39,6 +39,7 @@ from validators.swagger_request_models import (
 )
 from validators.utils import validate_kwargs
 
+
 _LOG = get_logger(__name__)
 
 SRE_REPORTS_TYPE_TO_M3_MAPPING = {

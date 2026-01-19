@@ -3,14 +3,20 @@
 import ast
 from base64 import standard_b64decode
 from datetime import date, datetime, timedelta, timezone
-from typing import Literal, Generator
-from typing_extensions import Annotated, Self
+from typing import Generator, Literal
 
+from celery.schedules import (
+    BaseSchedule,
+)
+from celery.schedules import crontab as celery_crontab
+from celery.schedules import schedule as celery_schedule
 from modular_sdk.commons.constants import Cloud as ModularCloud
 from pydantic import (
     AmqpDsn,
     AnyUrl,
-    BaseModel as PydanticBaseModel,
+)
+from pydantic import BaseModel as PydanticBaseModel
+from pydantic import (
     ConfigDict,
     Field,
     HttpUrl,
@@ -19,36 +25,33 @@ from pydantic import (
     model_validator,
 )
 from pydantic.json_schema import SkipJsonSchema, WithJsonSchema
+from typing_extensions import Annotated, Self
 
+from helpers import Version
 from helpers.constants import (
+    GITHUB_API_URL_DEFAULT,
+    GITLAB_API_URL_DEFAULT,
+    TAGS_KEY_VALUE_SEPARATOR,
+    Env,
     HealthCheckStatus,
     JobState,
     JobType,
     Permission,
     PlatformType,
+    PolicyEffect,
     PolicyErrorType,
     ReportFormat,
+    ReportType,
     RuleDomain,
     RuleSourceType,
-    GITHUB_API_URL_DEFAULT,
-    GITLAB_API_URL_DEFAULT,
-    PolicyEffect,
-    ReportType,
-    Env,
-    TAGS_KEY_VALUE_SEPARATOR,
     ServiceOperationType,
 )
-from helpers import Version
 from helpers.regions import AllRegions, AllRegionsWithGlobal
 from helpers.time_helper import utc_datetime
+from models.rule import RuleIndex
 from services.chronicle_service import ChronicleConverterType
 from services.ruleset_service import RulesetName
-from models.rule import RuleIndex
-from celery.schedules import (
-    BaseSchedule,
-    schedule as celery_schedule,
-    crontab as celery_crontab,
-)
+
 
 DEFAULT_LM_PK_ALGORITHM = 'ECC:p521_DSS_SHA:256'
 
@@ -1467,13 +1470,6 @@ class LicenseManagerClientSettingPatchModel(BaseModel):
 
 class LicenseManagerClientSettingDeleteModel(BaseModel):
     key_id: str
-
-
-class BatchResultsQueryModel(BasePaginationModel):
-    tenant_name: str = Field(None)
-
-    start: datetime = Field(None)
-    end: datetime = Field(None)
 
 
 # reports

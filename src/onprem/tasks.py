@@ -1,13 +1,17 @@
-from executor.job import task_scheduled_job, task_standard_job, upload_to_dojo, \
-    update_metadata
+from executor.job import (
+    task_scheduled_job,
+    task_standard_job,
+    update_metadata,
+    upload_to_dojo,
+)
 from helpers import RequestContext
-from helpers.constants import Env
+from helpers.constants import ACTION_PARAM, Env
 from lambdas.license_updater.handler import LicenseUpdater
 from lambdas.metrics_updater.handler import MetricsUpdater
-from lambdas.rule_meta_updater.handler import RuleMetaUpdaterLambdaHandler
 from lambdas.metrics_updater.processors.expired_metrics_processor import (
     ExpiredMetricsCleaner,
 )
+from lambdas.rule_meta_updater.handler import RuleMetaUpdaterLambdaHandler
 from onprem.celery import app
 
 
@@ -27,6 +31,37 @@ def run_standard_job(self, job_id: str):
 )
 def run_scheduled_job(self, customer_name: str, name: str):
     return task_scheduled_job(self, customer_name, name)
+
+
+@app.task
+def assemble_events() -> None:
+    """
+    OnPrem equivalent of event-handler Lambda (assemble-events action)
+    Runs every 5 minutes to process accumulated events
+    """
+    from lambdas.event_handler.handler import (
+        ASSEMBLE_EVENTS_ACTION,
+        EventHandler,
+    )
+    handler = EventHandler.build()
+    handler.handle_request(
+        event={ACTION_PARAM: ASSEMBLE_EVENTS_ACTION},
+        context=RequestContext(),
+    )
+
+
+@app.task
+def clear_events() -> None:
+    """
+    OnPrem equivalent of event-handler Lambda (clear-events action)
+    Runs daily to clean up old events
+    """
+    from lambdas.event_handler.handler import CLEAR_EVENTS_ACTION, EventHandler
+    handler = EventHandler.build()
+    handler.handle_request(
+        event={ACTION_PARAM: CLEAR_EVENTS_ACTION},
+        context=RequestContext(),
+    )
 
 
 @app.task

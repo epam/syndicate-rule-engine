@@ -1,10 +1,16 @@
-from pynamodb.attributes import ListAttribute, TTLAttribute, UnicodeAttribute, \
-    MapAttribute
+from pynamodb.attributes import (
+    Attribute,
+    ListAttribute,
+    MapAttribute,
+    TTLAttribute,
+    UnicodeAttribute,
+)
 from pynamodb.indexes import AllProjection, GlobalSecondaryIndex
 
-from helpers.constants import Env, JobState
+from helpers.constants import Env, JobState, JobType
 from helpers.time_helper import utc_iso
 from models import BaseModel
+
 
 JOB_ID = 'i'
 JOB_BATCH_JOB_ID = 'b'
@@ -31,6 +37,7 @@ JOB_CREDENTIALS_KEY = 'ck'
 JOB_APPLICATION_ID = 'aid'
 JOB_WARNINGS = 'w'
 JOB_DOJO_STRUCTURE = 'ds'
+JOB_TYPE = 'ty'
 
 
 class TenantNameSubmittedAtIndex(GlobalSecondaryIndex):
@@ -63,6 +70,19 @@ class DojoStructureAttribute(MapAttribute):
     test = UnicodeAttribute(null=True)
 
 
+class JobTypeAttribute(Attribute[JobType]):
+    """
+    Attribute for JobType enum
+    Serializes to and from string
+    """
+
+    def serialize(self, value):
+        return value.value if isinstance(value, JobType) else value
+    
+    def deserialize(self, value):
+        return JobType(value)
+
+
 class Job(BaseModel):
     class Meta:
         table_name = 'SREJobs'
@@ -72,6 +92,11 @@ class Job(BaseModel):
     id = UnicodeAttribute(hash_key=True, attr_name=JOB_ID)  # our unique id
     batch_job_id = UnicodeAttribute(null=True, attr_name=JOB_BATCH_JOB_ID)
     celery_task_id = UnicodeAttribute(null=True, attr_name=JOB_CELERY_TASK_ID)
+    job_type = JobTypeAttribute(
+        null=False,
+        default=JobType.MANUAL,
+        attr_name=JOB_TYPE,
+    )  # enum of 'manual', 'event-driven', 'scheduled'
 
     tenant_name = UnicodeAttribute(attr_name=JOB_TENANT_NAME)
     customer_name = UnicodeAttribute(attr_name=JOB_CUSTOMER_NAME)
@@ -118,3 +143,32 @@ class Job(BaseModel):
 
     customer_name_submitted_at_index = CustomerNameSubmittedAtIndex()
     tenant_name_submitted_at_index = TenantNameSubmittedAtIndex()
+
+    @property
+    def is_platform_job(self) -> bool:
+        return (
+            not self.is_ed_job  # Copy from AmbiguousJob
+            and bool(self.platform_id)
+        )
+    
+    @property
+    def is_ed_job(self) -> bool:
+        """
+        Check if the job is an event-driven job
+        """
+        return self.job_type == JobType.EVENT_DRIVEN
+
+    @property
+    def is_succeeded(self) -> bool:
+        return self.status == JobState.SUCCEEDED.value
+
+    @property
+    def is_failed(self) -> bool:
+        return self.status == JobState.FAILED.value
+
+    @property
+    def is_finished(self) -> bool:
+        return bool(self.stopped_at) and self.status in (
+            JobState.SUCCEEDED,
+            JobState.FAILED,
+        )
