@@ -4,7 +4,7 @@ import re
 from enum import Enum
 from http import HTTPStatus
 
-from typing import Literal
+from typing import Literal, Tuple, Union
 from typing_extensions import TypedDict, NotRequired
 import requests
 from modular_sdk.services.impl.maestro_credentials_service import AccessMeta
@@ -237,7 +237,7 @@ class LMClient:
         customer: str | None = None,
         installation_version: str | None = None,
         include_ruleset_links: bool = True,
-    ) -> LMLicenseDTO | str:
+    ) -> Tuple[Union[LMLicenseDTO, str], int]:
         data = dict(
             license_key=license_key,
             include_ruleset_links=include_ruleset_links,
@@ -252,13 +252,13 @@ class LMClient:
         )
         if resp is None:
             _LOG.warning('Failed license sync')
-            return 'Failed license sync'
+            return 'Failed license sync', HTTPStatus.INTERNAL_SERVER_ERROR
         if not resp.ok:
             err = resp.json().get('message', 'Failed license sync')
             _LOG.warning(f'Failed license sync: {err}')
-            return err
+            return err, resp.status_code
 
-        return resp.json()['items'].pop()
+        return resp.json()['items'].pop(), resp.status_code
 
     def check_permission(
         self, customer: str, tenant: str, tenant_license_key: str
