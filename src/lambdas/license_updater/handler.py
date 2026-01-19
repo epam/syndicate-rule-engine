@@ -142,7 +142,7 @@ class LicenseSync:
             installation_version=__version__,
             include_ruleset_links=True,
         )
-        if isinstance(data, str) or status_code != HTTPStatus.OK:
+        if isinstance(data, str):
             now = utc_iso()
             valid_until = now if status_code == HTTPStatus.NOT_FOUND else None
             self._sp.license_service.update(
