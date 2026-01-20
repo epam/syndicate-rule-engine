@@ -348,11 +348,13 @@ class MaestroModelBuilder:
                 continue
 
             new_data[cloud] = self.linked_base_cloud(c_data)
-            new_data[cloud] = {
-                'succeeded_scans': c_data['succeeded_scans'],
-                'failed_scans': c_data['failed_scans'],
-                'total_scans': c_data['total_scans'],
-            }
+            new_data[cloud].update(
+                {
+                    'succeeded_scans': c_data['succeeded_scans'],
+                    'failed_scans': c_data['failed_scans'],
+                    'total_scans': c_data['total_scans'],
+                }
+            )
 
             high = medium = low = info = unknown = 0
             for r_data in c_data.get('regions_data', {}).values():
@@ -1267,7 +1269,9 @@ class HighLevelReportsHandler(AbstractHandler):
                 # TODO consider getting linked tenants by case insensitive
                 #  way(to cover display_name with different cases)
                 _LOG.info('Retrieving linked tenants')
-                linked_tenants = list(
+                # We need a set here to avoid duplicates because of tenants
+                # for different clouds with the same display name
+                linked_tenants = set(
                     self._mc.tenant_service().i_get_tenant_by_customer(
                         customer_id=event.customer_id,
                         active=True,
