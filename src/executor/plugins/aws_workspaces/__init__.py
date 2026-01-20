@@ -79,7 +79,7 @@ class WorkspacesDirectoryVpcEndpointFilter(ValueFilter):
                     match = False
                     for vpc_endpoint in vpc_endpoints:
                         if (vpc_endpoint.get('VpcEndpointType') == 'Interface'
-                            and re.match('^com\\.amazonaws\\.{self.manager.config.region}\\.workspaces$',
+                            and re.match(f'^com\\.amazonaws\\.{self.manager.config.region}\\.workspaces$',
                                              vpc_endpoint.get('ServiceName'))
                             and vpc_endpoint.get('State') == 'available')\
                             and all(subnet_id in vpc_endpoint.get('SubnetIds', []) for subnet_id in subnet_settings):
