@@ -259,13 +259,12 @@ class JobType(str, Enum):
     """
 
     STANDARD = 'standard'
-    EVENT_DRIVEN = 'event-driven'
+    REACTIVE = 'reactive'
     SCHEDULED = 'scheduled'
 
-    # TODO: deprecate this types
+    # TODO: deprecate this type in future releases
+    # MANUAL is an alias for STANDARD + SCHEDULED
     MANUAL = 'manual'
-    # equals to event-driven job type (backward compatibility)
-    REACTIVE = 'reactive'
 
 
 class ServiceOperationType(str, Enum):
@@ -560,6 +559,11 @@ class Env(EnvEnum):
 
     # some deployment options
     ACCOUNT_ID = 'SRE_ACCOUNT_ID', ('CAAS_ACCOUNT_ID',)
+    DEV_ACCOUNT_ID = (
+        'SRE_DEV_ACCOUNT_ID',
+        ('CAAS_DEV_ACCOUNT_ID',),
+        '323549576358',
+    )
     LAMBDA_ALIAS_NAME = 'SRE_LAMBDA_ALIAS_NAME', ('CAAS_LAMBDA_ALIAS_NAME',)
 
     # batch options
@@ -680,6 +684,11 @@ class Env(EnvEnum):
         (),
         '16',
     )
+    CELERY_RUN_STANDARD_JOB_RATE_LIMIT = (
+        'SRE_CELERY_RUN_STANDARD_JOB_RATE_LIMIT',
+        (),
+        '1/s',  # максимум 1 задача на секунду (обмежує одночасні виконання)
+    )
 
     CELERY_MAKE_FINDINGS_SNAPSHOTS_SCHEDULE = (
         'SRE_CELERY_MAKE_FINDINGS_SNAPSHOTS_SCHEDULE',
@@ -709,7 +718,7 @@ class Env(EnvEnum):
     CELERY_ASSEMBLE_EVENTS_SCHEDULE = (
         'SRE_CELERY_ASSEMBLE_EVENTS_SCHEDULE',
         (),
-        '*/5 * * * *',  # every 5 minutes
+        '*/1 * * * *',  # every 5 minutes
     )
     CELERY_CLEAR_EVENTS_SCHEDULE = (
         'SRE_CELERY_CLEAR_EVENTS_SCHEDULE',

@@ -1,45 +1,57 @@
+from __future__ import annotations
+
 import json
 from abc import ABC
+from typing import TYPE_CHECKING
 from functools import cached_property
-from typing import Optional, Dict, Iterator, List, Generator, Tuple, Set, \
-    Iterable
+from typing import Optional, Dict, Iterator, List, Generator, Tuple, Set, Iterable
 
 from helpers import deep_get, deep_set
-from helpers.constants import AWS_VENDOR, MAESTRO_VENDOR, \
-    S3SettingKey, GLOBAL_REGION, Cloud
+from helpers.constants import (
+    AWS_VENDOR,
+    MAESTRO_VENDOR,
+    S3SettingKey,
+    GLOBAL_REGION,
+    Cloud,
+    Env,
+)
 from helpers.log_helper import get_logger
-from services.clients.sts import StsClient
-from services.environment_service import EnvironmentService
+
+if TYPE_CHECKING:
+    from services.clients.sts import StsClient
+    from services.environment_service import EnvironmentService
+
+
 _LOG = get_logger(__name__)
 
 # CloudTrail event
-CT_USER_IDENTITY = 'userIdentity'
-CT_EVENT_SOURCE = 'eventSource'
-CT_EVENT_NAME = 'eventName'
-CT_ACCOUNT_ID = 'accountId'
-CT_RECORDS = 'Records'
-CT_RESOURCES = 'resources'
-CT_REGION = 'awsRegion'
-CT_EVENT_TIME = 'eventTime'
-CT_EVENT_VERSION = 'eventVersion'
+CT_USER_IDENTITY = "userIdentity"
+CT_EVENT_SOURCE = "eventSource"
+CT_EVENT_NAME = "eventName"
+CT_ACCOUNT_ID = "accountId"
+CT_RECORDS = "Records"
+CT_RESOURCES = "resources"
+CT_REGION = "awsRegion"
+CT_EVENT_TIME = "eventTime"
+CT_EVENT_VERSION = "eventVersion"
 
 # EventBridge event
-EB_ACCOUNT_ID = 'account'
-EB_EVENT_SOURCE = 'source'
-EB_REGION = 'region'
-EB_DETAIL_TYPE = 'detail-type'
-EB_DETAIL = 'detail'
-EB_CLOUDTRAIL_API_CALL_DETAIL_TYPE = 'AWS API Call via CloudTrail'
+EB_ACCOUNT_ID = "account"
+EB_EVENT_SOURCE = "source"
+EB_REGION = "region"
+EB_DETAIL_TYPE = "detail-type"
+EB_DETAIL = "detail"
+EB_CLOUDTRAIL_API_CALL_DETAIL_TYPE = "AWS API Call via CloudTrail"
 
 # Maestro event
-MA_EVENT_ACTION = 'eventAction'
-MA_GROUP = 'group'
-MA_SUB_GROUP = 'subGroup'
-MA_EVENT_METADATA = 'eventMetadata'
-MA_CLOUD = 'cloud'
-MA_TENANT_NAME = 'tenantName'
-MA_REGION_NAME = 'regionName'
-MA_REQUEST = 'request'
+MA_EVENT_ACTION = "eventAction"
+MA_GROUP = "group"
+MA_SUB_GROUP = "subGroup"
+MA_EVENT_METADATA = "eventMetadata"
+MA_CLOUD = "cloud"
+MA_TENANT_NAME = "tenantName"
+MA_REGION_NAME = "regionName"
+MA_REQUEST = "request"
 
 # --AWS--
 RegionRuleMap = Dict[str, Set[str]]
@@ -50,44 +62,48 @@ AccountRegionRuleMap = Dict[str, RegionRuleMap]  # Account means Tenant.project
 CloudTenantRegionRulesMap = Dict[str, Dict[str, Dict[str, Set[str]]]]
 # --MAESTRO--
 
-DEV = '323549576358'
-
 
 class EventProcessorService:
-    def __init__(self, s3_settings_service,
-                 environment_service: EnvironmentService,
-                 sts_client: StsClient):
-        self.s3_settings_service = s3_settings_service
+
+    def __init__(
+        self,
+        environment_service: EnvironmentService,
+        sts_client: StsClient,
+    ) -> None:
         self.environment_service = environment_service
         self.sts_client = sts_client
         self.mappings_collector = {}  # TODO: fix
         self.EVENT_TYPE_PROCESSOR_MAPPING = {
             AWS_VENDOR: EventBridgeEventProcessor,
-            MAESTRO_VENDOR: MaestroEventProcessor
+            MAESTRO_VENDOR: MaestroEventProcessor,
         }
 
-    def get_processor(self, vendor: str) -> 'BaseEventProcessor':
+    def get_processor(self, vendor: str) -> BaseEventProcessor:
         # vendor already validated
         processor_type = self.EVENT_TYPE_PROCESSOR_MAPPING[vendor]
         processor = processor_type(
-            self.s3_settings_service,
             self.environment_service,
             self.sts_client,
-            self.mappings_collector
+            self.mappings_collector,
         )
         return processor
 
 
 class BaseEventProcessor(ABC):
+    """
+    Base class for all event processors.
+    """
+
     skip_where: Dict[Tuple[str, ...], Set] = {}
     keep_where: Dict[Tuple[str, ...], Set] = {}
     params_to_keep: Tuple[Tuple[str, ...], ...] = ()
 
-    def __init__(self, s3_settings_service,
-                 environment_service: EnvironmentService,
-                 sts_client: StsClient,
-                 mappings_collector: dict):
-        self.s3_settings_service = s3_settings_service
+    def __init__(
+        self,
+        environment_service: EnvironmentService,
+        sts_client: StsClient,
+        mappings_collector: dict,
+    ) -> None:
         self.environment_service = environment_service
         self.sts_client = sts_client
         self.mappings_collector = mappings_collector
@@ -96,7 +112,7 @@ class BaseEventProcessor(ABC):
 
     @property
     def ct_mapping(self) -> dict:
-        return self.mappings_collector.aws_events
+        return self.mappings_collector.get("aws_events", {})
 
     @cached_property
     def eb_mapping(self) -> dict:
@@ -104,9 +120,9 @@ class BaseEventProcessor(ABC):
         This mapping exists but it is not used
         :return:
         """
-        return self.s3_settings_service.get(
-            S3SettingKey.EVENT_BRIDGE_EVENT_SOURCE_TO_RULES_MAPPING
-        )
+        from helpers.mappings.event_bridge_event_source_to_rules_mapping import MAPPING
+
+        return MAPPING
 
     def clear(self):
         self._events = []
@@ -145,9 +161,11 @@ class BaseEventProcessor(ABC):
         return True
 
     @staticmethod
-    def sieved_record(record: dict,
-                      to_keep: Optional[Tuple[Tuple[str, ...], ...]],
-                      allow_empty: bool = False) -> dict:
+    def sieved_record(
+        record: dict,
+        to_keep: Optional[Tuple[Tuple[str, ...], ...]],
+        allow_empty: bool = False,
+    ) -> dict:
         to_keep = to_keep or tuple()
         if not to_keep and not allow_empty:
             return record
@@ -167,12 +185,12 @@ class BaseEventProcessor(ABC):
         return hash(json.dumps(dct, sort_keys=True))
 
     @classmethod
-    def without_duplicates(cls, it: Iterable[Dict]) -> Generator[
-        Dict, None, int]:
+    def without_duplicates(cls, it: Iterable[Dict]) -> Generator[Dict, None, int]:
         emitted = set()
         for i in it:
             d = cls.digest(i)
             if d in emitted:
+                _LOG.warning(f"Skipping duplicate event with digest {d}: {i}")
                 continue
             emitted.add(d)
             yield i
@@ -181,9 +199,10 @@ class BaseEventProcessor(ABC):
     def prepared_events(self) -> Generator[dict, None, int]:
         n = 0
         for record in self.i_events:
-            if self.skip_record(record, self.skip_where) or \
-                    not self.keep_record(record, self.keep_where):
-                _LOG.warning(f'Filtering out the record: {record}')
+            if self.skip_record(record, self.skip_where) or not self.keep_record(
+                record, self.keep_where
+            ):
+                _LOG.warning(f"Filtering out the record: {record}")
                 continue
             yield self.sieved_record(record, self.params_to_keep)
             n += 1
@@ -197,29 +216,26 @@ class CloudTrail:
 
     @staticmethod
     def get_rules(record: dict, mapping: dict) -> set:
-        source, name = (
-            record.get(CT_EVENT_SOURCE), record.get(CT_EVENT_NAME)
-        )
+        source, name = (record.get(CT_EVENT_SOURCE), record.get(CT_EVENT_NAME))
         rules = mapping.get(source, {}).get(name, []) or mapping.get(name, [])
         if not rules:
-            _LOG.warning(f'No rules found within CloudTrail {source}:{name}')
+            _LOG.warning(f"No rules found within CloudTrail {source}:{name}")
         return set(rules)
 
     @staticmethod
     def get_region(record: dict) -> Optional[str]:
         region = record.get(CT_REGION)
         if not region:
-            _LOG.warning(
-                f'No regions, found within a CloudTrail record - {record}.'
-            )
+            _LOG.warning(f"No regions, found within a CloudTrail record - {record}.")
         return region
 
     @classmethod
     def get_account_id(cls, record: dict) -> Optional[str]:
         _id = cls._account_id_from_user_identity(record)
         if not _id:
-            _LOG.info(f'Account id not found in `userIdentity` in record: '
-                      f'{record}.')
+            _LOG.info(
+                f"Account id not found in `userIdentity` in record: " f"{record}."
+            )
         return _id
 
     @staticmethod
@@ -248,11 +264,13 @@ class CloudTrail:
 class MaestroEventProcessor(BaseEventProcessor):
     skip_where = {}
     keep_where = {
-        (MA_EVENT_METADATA, MA_REQUEST, MA_CLOUD): {Cloud.AZURE.value,
-                                                    Cloud.GOOGLE.value},
+        (MA_EVENT_METADATA, MA_REQUEST, MA_CLOUD): {
+            Cloud.AZURE.value,
+            Cloud.GOOGLE.value,
+        },
         # (MA_EVENT_METADATA, MA_CLOUD,): {AZURE_CLOUD_ATTR, },
-        (MA_GROUP,): {'MANAGEMENT'},
-        (MA_SUB_GROUP,): {'INSTANCE'}
+        (MA_GROUP,): {"MANAGEMENT"},
+        (MA_SUB_GROUP,): {"INSTANCE"},
     }
     params_to_keep = (
         (MA_EVENT_ACTION,),
@@ -260,31 +278,35 @@ class MaestroEventProcessor(BaseEventProcessor):
         (MA_SUB_GROUP,),
         (MA_EVENT_METADATA, MA_REQUEST, MA_CLOUD),
         (MA_EVENT_METADATA, MA_CLOUD),
-        (MA_TENANT_NAME,)
+        (MA_TENANT_NAME,),
     )
 
     @property
     def azure_mapping(self) -> dict:
-        return self.mappings_collector.azure_events
+        return self.mappings_collector["azure_events"]
 
     @property
     def maestro_azure_mapping(self) -> dict:
-        return self.s3_settings_service.get(
-            S3SettingKey.MAESTRO_SUBGROUP_ACTION_TO_AZURE_EVENTS_MAPPING
+        from helpers.mappings.maestro_subgroup_action_to_azure_events_mapping import (
+            MAPPING,
         )
+
+        return MAPPING
 
     @property
     def google_mapping(self) -> dict:
-        return self.mappings_collector.google_events
+        return self.mappings_collector["google_events"]
 
     @property
     def maestro_google_mapping(self) -> dict:
-        return self.s3_settings_service.get(
-            S3SettingKey.MAESTRO_SUBGROUP_ACTION_TO_GOOGLE_EVENTS_MAPPING
+        from helpers.mappings.maestro_subgroup_action_to_google_events_mapping import (
+            MAPPING,
         )
 
+        return MAPPING
+
     def cloud_tenant_region_rules(
-            self, it: Iterable[Dict]
+        self, it: Iterable[Dict]
     ) -> Generator[Tuple[str, str, str, Set[str]], None, None]:
         """
         Maestro events does not contain account id or subscription id. They
@@ -303,25 +325,36 @@ class MaestroEventProcessor(BaseEventProcessor):
             elif cloud == Cloud.GOOGLE.value:
                 region = GLOBAL_REGION
             else:
-                region = deep_get(event, (MA_REGION_NAME,))
+                region = deep_get(
+                    event,
+                    (
+                        MA_EVENT_METADATA,
+                        MA_REGION_NAME,
+                    ),
+                )  # TODO: remove this after testing
             if not all((cloud, tenant, region)):
+                _LOG.debug(
+                    f"Skipping event: {event} because of missing required data: "
+                    f"cloud: {cloud}, tenant: {tenant}, region: {region}"
+                )
                 continue
             rules = self.get_rules(event, cloud.upper())
             yield cloud.upper(), tenant, region, rules
 
-    def cloud_tenant_region_rules_map(self, it: Iterable[Dict]
-                                      ) -> CloudTenantRegionRulesMap:
+    def cloud_tenant_region_rules_map(
+        self, it: Iterable[Dict]
+    ) -> CloudTenantRegionRulesMap:
         ref = {}
         for cloud, tenant, region, rules in self.cloud_tenant_region_rules(it):
-            ref.setdefault(cloud, {}).setdefault(tenant, {}).setdefault(region,
-                                                                        set()).update(
-                rules)
+            ref.setdefault(cloud, {}).setdefault(tenant, {}).setdefault(
+                region, set()
+            ).update(rules)
         return ref
 
     def get_rules(self, event: dict, cloud: str) -> Set[str]:
         cloud_method = {
             Cloud.AZURE.value: self.get_rules_azure,
-            Cloud.GOOGLE.value: self.get_rules_google
+            Cloud.GOOGLE.value: self.get_rules_google,
         }
         _get_rules = cloud_method.get(cloud) or (lambda e: set())
         return _get_rules(event)
@@ -335,8 +368,7 @@ class MaestroEventProcessor(BaseEventProcessor):
         _azure_map = self.azure_mapping
         sub_group = event.get(MA_SUB_GROUP)
         action = event.get(MA_EVENT_ACTION)
-        azure_events: List[List[str]] = _maestro_map.get(
-            sub_group, {}).get(action, [])
+        azure_events: List[List[str]] = _maestro_map.get(sub_group, {}).get(action, [])
         rules = set()
         for e_source, e_name in azure_events:
             rules.update(_azure_map.get(e_source, {}).get(e_name, []))
@@ -347,8 +379,7 @@ class MaestroEventProcessor(BaseEventProcessor):
         _google_map = self.google_mapping
         sub_group = event.get(MA_SUB_GROUP)
         action = event.get(MA_EVENT_ACTION)
-        google_events: List[List[str]] = _maestro_map.get(
-            sub_group, {}).get(action, [])
+        google_events: List[List[str]] = _maestro_map.get(sub_group, {}).get(action, [])
         rules = set()
         for e_source, e_name in google_events:
             rules.update(_google_map.get(e_source, {}).get(e_name, []))
@@ -364,18 +395,17 @@ class EventBridgeEventProcessor(BaseEventProcessor):
         (EB_DETAIL, CT_EVENT_NAME),
         (EB_DETAIL, CT_EVENT_SOURCE),
         (EB_DETAIL, CT_USER_IDENTITY, CT_ACCOUNT_ID),
-        (EB_DETAIL, CT_REGION)
+        (EB_DETAIL, CT_REGION),
     )
 
-    def __init__(self, s3_settings_service,
-                 environment_service: EnvironmentService,
-                 sts_client: StsClient,
-                 mappings_collector: dict):
+    def __init__(
+        self,
+        environment_service: EnvironmentService,
+        sts_client: StsClient,
+        mappings_collector: dict,
+    ) -> None:
         super().__init__(
-            s3_settings_service,
-            environment_service,
-            sts_client,
-            mappings_collector
+            environment_service, sts_client, mappings_collector
         )
         # self.keep_where = {
         #     (EB_EVENT_SOURCE, ): set(self.eb_mapping.keys())
@@ -385,17 +415,22 @@ class EventBridgeEventProcessor(BaseEventProcessor):
             (EB_DETAIL, CT_EVENT_SOURCE): set(self.ct_mapping.keys()),
             (EB_DETAIL, CT_EVENT_NAME): {
                 name for values in self.ct_mapping.values() for name in values
-            }
+            },
         }
-        account_id = self.sts_client.get_account_id()
-        if account_id != DEV:
-            self.skip_where = {
-                (EB_ACCOUNT_ID,): {account_id, },
-                (EB_DETAIL, CT_USER_IDENTITY, CT_ACCOUNT_ID): {account_id, }
-            }
 
-    def account_region_rule_map(self,
-                                it: Iterable[Dict]) -> AccountRegionRuleMap:
+        if not self.environment_service.is_docker():
+            account_id = self.sts_client.get_account_id()
+            if account_id != Env.DEV_ACCOUNT_ID.get():
+                self.skip_where = {
+                    (EB_ACCOUNT_ID,): {
+                        account_id,
+                    },
+                    (EB_DETAIL, CT_USER_IDENTITY, CT_ACCOUNT_ID): {
+                        account_id,
+                    },
+                }
+
+    def account_region_rule_map(self, it: Iterable[Dict]) -> AccountRegionRuleMap:
         ref = {}
         for event in it:
             account_id = self.get_account_id(record=event)
@@ -427,8 +462,7 @@ class EventBridgeEventProcessor(BaseEventProcessor):
         definitely shall use them to get the rules.
         """
         if CloudTrail.is_cloudtrail_api_call(record):
-            return CloudTrail.get_rules(record.get(EB_DETAIL) or {},
-                                        self.ct_mapping)
+            return CloudTrail.get_rules(record.get(EB_DETAIL) or {}, self.ct_mapping)
         # TODO EB source to list of rules is a temp solution I was able to
         #  make, but it would be better to use EB detail-type here
         source = record.get(EB_EVENT_SOURCE)

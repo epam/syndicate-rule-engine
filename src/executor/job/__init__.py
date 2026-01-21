@@ -124,7 +124,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from itertools import chain
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Generator, Iterable, cast
+from typing import TYPE_CHECKING, Callable, Generator, Iterable, Optional, cast
 
 # import multiprocessing
 import billiard as multiprocessing  # allows to execute child processes from a daemon process
@@ -237,8 +237,6 @@ __all__ = (
     "get_job_credentials",
     "get_platform_credentials",
     "get_rules_to_exclude",
-    "batch_results_job",
-    "multi_account_event_driven_job",
     "job_initializer",
     "process_job_concurrent",
     "resolve_standard_ruleset",
@@ -959,18 +957,18 @@ class K8SRunner(Runner):
             )
 
 
-def post_lm_job(job: Job):
+def post_lm_job(job: Job) -> bool:
     if not job.affected_license:
-        return
+        return False
     rulesets = list(
         filter(lambda x: x.license_key, [RulesetName(r) for r in job.rulesets])
     )
     if not rulesets:
-        return
+        return False
     lk = rulesets[0].license_key
     lic = SP.license_service.get_nullable(lk)
     if not lic:
-        return
+        return False
 
     try:
         SP.license_manager_service.cl.post_job(
@@ -991,6 +989,7 @@ def post_lm_job(job: Job):
             )
         )
 
+    return True
 
 @tracer_decorator(
     is_job=True, 
@@ -1606,9 +1605,15 @@ class JobExecutionContext:
         self.cache_period = cache_period
 
         self.updater = JobUpdater(job)
+        self._lm_job_posted: Optional[bool] = None
 
         self._work_dir = None
         self._exit_code = 0
+    
+    def set_lm_job_posted(self, posted: bool, /) -> None:
+        if not posted:
+            _LOG.warning('License manager job was not posted')
+        self._lm_job_posted = posted
 
     def is_platform_job(self) -> bool:
         return self.platform is not None
@@ -1685,7 +1690,8 @@ class JobExecutionContext:
             self.updater.status = JobState.SUCCEEDED
             self.updater.stopped_at = utc_iso()
             self.updater.update()
-            self._update_lm_job()
+            if self._lm_job_posted:
+                self._update_lm_job()
             return
 
         _LOG.info(
@@ -1714,7 +1720,8 @@ class JobExecutionContext:
 
         _LOG.info('Updating job status')
         self.updater.update()
-        self._update_lm_job()
+        if self._lm_job_posted:
+            self._update_lm_job()
         return True
 
 
@@ -1772,7 +1779,8 @@ def run_standard_job(ctx: JobExecutionContext):
 
     if job.affected_license:
         _LOG.info('The job is licensed. Making post job request to lm')
-        post_lm_job(job)  # can raise ExecutorException
+        posted = post_lm_job(job)  # can raise ExecutorException
+        ctx.set_lm_job_posted(posted)
 
     if pl := ctx.platform:
         credentials = get_platform_credentials(job, pl)
@@ -1952,44 +1960,3 @@ def task_scheduled_job(self: 'Task | None', customer_name: str, name: str):
     ctx = JobExecutionContext(job=job, tenant=tenant, platform=None)
     with ctx:
         run_standard_job(ctx)
-
-
-# def main(environment: dict[str, str] | None = None) -> int:
-#     env = environment or {}
-#     env.setdefault(ENV_AWS_DEFAULT_REGION, AWS_DEFAULT_REGION)
-#     BSP.environment_service.override_environment(env)
-#
-#     buffer = io.BytesIO()
-#     _XRAY.configure(emitter=BytesEmitter(buffer))  # noqa
-#
-#     _XRAY.begin_segment('AWS Batch job')
-#     sampled = _XRAY.is_sampled()
-#     _LOG.info(f'Batch job is {"" if sampled else "NOT "}sampled')
-#     _XRAY.put_annotation('batch_job_id', BSP.env.batch_job_id())
-#
-#     match BSP.environment_service.job_type():
-#         case BatchJobType.EVENT_DRIVEN:
-#             _LOG.info('Starting event driven job')
-#             code = multi_account_event_driven_job()
-#         case BatchJobType.STANDARD | BatchJobType.SCHEDULED:
-#             _LOG.info('Starting standard job')
-#             code = single_account_standard_job()
-#         case _:  # unreachable
-#             code = 1
-#
-#     _XRAY.end_segment()
-#
-#     if sampled:
-#         _LOG.debug('Writing xray data to S3')
-#         buffer.seek(0)
-#         SP.s3.gz_put_object(
-#             bucket=SP.environment_service.get_statistics_bucket_name(),
-#             key=StatisticsBucketKeysBuilder.xray_log(BSP.env.batch_job_id()),
-#             body=buffer,
-#         )
-#     _LOG.info('Finished')
-#     return code
-#
-#
-# if __name__ == '__main__':
-#     sys.exit(main())

@@ -270,7 +270,7 @@ def load_rules_to_scan(rules_to_scan: tuple[str, ...]) -> list:
     return list(rules)
 
 
-if not Env.DEVELOPER_MODE.get():
+if Env.DEVELOPER_MODE.get():
     from srecli.group.job_event import event
 
     job.add_command(event)

@@ -1,8 +1,7 @@
-print('Importing', __file__)
-data = {
+MAPPING = {
     "aws.access-analyzer": [
         "epam-aws-276-iam_access_analyzer_is_enabled",
-        "epam-aws-426-iam_access_analyzer_findings_are_reviewed_and_resolved"
+        "epam-aws-426-iam_access_analyzer_findings_are_reviewed_and_resolved",
     ],
     "aws.acm": [
         "epam-aws-567-acm_without_tag_information",
@@ -11,7 +10,7 @@ data = {
         "epam-aws-249-expired_certificates_are_removed_from_acm",
         "epam-aws-922-acm_certificate_transparency_logging_enabled",
         "epam-aws-821-acm_certificate_not_using_a_minimum_of_2048-bit_key_for_rsa_certificate",
-        "epam-aws-240-acm_has_certificates_single_domain_names"
+        "epam-aws-240-acm_has_certificates_single_domain_names",
     ],
     "aws.apigateway": [
         "epam-aws-549-api_gateway_http_api_and_websocket_api_logs_not_enabled",
@@ -24,11 +23,11 @@ data = {
         "epam-aws-397-rest_api_gateway_contend_encoding_enabled",
         "epam-aws-292-api_gateway_rest_api_encryption_at_rest",
         "epam-aws-251-api_key_is_required_on_method_request",
-        "epam-aws-250-rest_api_gateway_is_set_to_private"
+        "epam-aws-250-rest_api_gateway_is_set_to_private",
     ],
     "aws.appflow": [
         "epam-aws-399-appflow_encrypted_with_kms_cmk",
-        "epam-aws-568-app_flow_without_tag_information"
+        "epam-aws-568-app_flow_without_tag_information",
     ],
     "aws.autoscaling": [
         "epam-aws-433-autoscaling_group_has_associated_elb",
@@ -40,18 +39,18 @@ data = {
         "epam-aws-569-auto_scaling_group_without_tag_information",
         "epam-aws-904-autoscaling_launch_config_hop_limit",
         "epam-aws-703-autoscaling_launchconfig_requires_imdsv2",
-        "epam-aws-430-autoscaling_group_cooldown_period"
+        "epam-aws-430-autoscaling_group_cooldown_period",
     ],
     "aws.backup": [
         "epam-aws-442-backups_encrypted_with_kms_customer_master_keys",
-        "epam-aws-440-backup_service_compliant_lifecycle_enabled"
+        "epam-aws-440-backup_service_compliant_lifecycle_enabled",
     ],
     "aws.batch": [],
     "aws.clouddirectory": [],
     "aws.cloudformation": [
         "epam-aws-711-cloudformation_stack_notification_check",
         "epam-aws-574-cloudformation_stacks_without_tag_information",
-        "epam-aws-710-cloudformation_stack_drift_detection_check"
+        "epam-aws-710-cloudformation_stack_drift_detection_check",
     ],
     "aws.cloudfront": [
         "epam-aws-444-use_secure_ssl_protocols_between_cloudfront_origin",
@@ -67,7 +66,7 @@ data = {
         "epam-aws-324-cloudfront_default_root_object_configured",
         "epam-aws-237-cloudfront_web_distributions_use_custom_ssl_certificates",
         "epam-aws-090-use_secure_ciphers_in_cloudfront_distribution",
-        "epam-aws-325-cloudfront_origin_access_identity_enabled"
+        "epam-aws-325-cloudfront_origin_access_identity_enabled",
     ],
     "aws.cloudhsm": [],
     "aws.cloudsearch": [],
@@ -96,7 +95,7 @@ data = {
         "epam-aws-230-vpc_changes_alarm_exists",
         "epam-aws-192-unauthorized_api_calls_alarm_exists",
         "epam-aws-228-network_gateways_changes_alarm_exists",
-        "epam-aws-229-route_table_changes_alarm_exists"
+        "epam-aws-229-route_table_changes_alarm_exists",
     ],
     "aws.codeartifact": [],
     "aws.codebuild": [
@@ -104,20 +103,18 @@ data = {
         "epam-aws-197-codebuild_project_source_repo_url_check",
         "epam-aws-717-codebuild_project_artifact_encryption",
         "epam-aws-218-codebuild_environment_variables_contain_text_credentials",
-        "epam-aws-719-codebuild_project_logging_enabled"
+        "epam-aws-719-codebuild_project_logging_enabled",
     ],
     "aws.codecommit": [],
     "aws.codedeploy": [
         "epam-aws-722-codedeploy_ec2_minimum_healthy_hosts_configured",
         "epam-aws-723-codedeploy_lambda_allatonce_traffic_shift_disabled",
-        "epam-aws-721-codedeploy_auto_rollback_monitor_enabled"
+        "epam-aws-721-codedeploy_auto_rollback_monitor_enabled",
     ],
     "aws.codepipeline": [],
     "aws.cognito-identity": [],
     "aws.cognito-idp": [],
-    "aws.config": [
-        "epam-aws-183-config_enabled_all_regions"
-    ],
+    "aws.config": ["epam-aws-183-config_enabled_all_regions"],
     "aws.directconnect": [],
     "aws.dlm": [],
     "aws.dms": [
@@ -126,17 +123,17 @@ data = {
         "epam-aws-584-dms_without_tag_information",
         "epam-aws-461-dms_latest_version",
         "epam-aws-469-dms_auto_minor_version_upgrade",
-        "epam-aws-327-dms_replication_not_public"
+        "epam-aws-327-dms_replication_not_public",
     ],
     "aws.ds": [
         "epam-aws-538-ds_directory_not_open_to_large_scope",
-        "epam-aws-546-workspaces_radius_server_uses_strongest_security_protocol"
+        "epam-aws-546-workspaces_radius_server_uses_strongest_security_protocol",
     ],
     "aws.dynamodb": [
         "epam-aws-330-dynamodb_dax_encryption_enabled",
         "epam-aws-256-dynamodb_is_encrypted_using_managed_cmk",
         "epam-aws-329-dynamodb_tables_pitr_enabled",
-        "epam-aws-328-dynamodb_tables_autoscaling_enabled"
+        "epam-aws-328-dynamodb_tables_autoscaling_enabled",
     ],
     "aws.ec2": [
         "epam-aws-109-prevent_0-65535_ingress_and_all",
@@ -223,12 +220,12 @@ data = {
         "epam-aws-265-instance_with_unencrypted_service_is_exposed_to_public_internet",
         "epam-aws-949-key_pair_without_tag_information",
         "epam-aws-563-transit_gateway_attachment_without_tag_information",
-        "epam-aws-550-ami_without_tag_information"
+        "epam-aws-550-ami_without_tag_information",
     ],
     "aws.ecr": [
         "epam-aws-376-ecr_immutable_image_tags",
         "epam-aws-378-ecr_image_scanning_on_push_enabled",
-        "epam-aws-377-ecr_repository_kms_encryption_enabled"
+        "epam-aws-377-ecr_repository_kms_encryption_enabled",
     ],
     "aws.ecs": [
         "epam-aws-906-ecs_containers_readonly_access",
@@ -243,7 +240,7 @@ data = {
         "epam-aws-743_ecs_container_insights_enabled",
         "epam-aws-336-ecs_task_definitions_secure_networking_modes_and_user_definitions",
         "epam-aws-585-ecs_without_tag_information",
-        "epam-aws-244-ecs_cluster_at_rest_encryption"
+        "epam-aws-244-ecs_cluster_at_rest_encryption",
     ],
     "aws.elasticache": [
         "epam-aws-412-elasticache_no_default_ports",
@@ -256,7 +253,7 @@ data = {
         "epam-aws-415-elasticache_encrypted_in_transit",
         "epam-aws-416-elasticache_encrypted_at_rest_using_cmk",
         "epam-aws-419-elasticache_redis_auth_enabled",
-        "epam-aws-418-elasticache_redis_multi_az_enabled"
+        "epam-aws-418-elasticache_redis_multi_az_enabled",
     ],
     "aws.elasticbeanstalk": [
         "epam-aws-661-elastic_beanstalk_imdsv1_disabled",
@@ -264,13 +261,13 @@ data = {
         "epam-aws-443-elastic_beanstalk_notifications_enabled",
         "epam-aws-338-elastic_beanstalk_enhanced_health_reporting_enabled",
         "epam-aws-446-elastic_beanstalk_managed_platform_updates",
-        "epam-aws-662-elastic_beanstalk_x_ray_enabled"
+        "epam-aws-662-elastic_beanstalk_x_ray_enabled",
     ],
     "aws.elasticfilesystem": [
         "epam-aws-257-efs_is_encrypted",
         "epam-aws-337-efs_in_backup_plan",
         "epam-aws-587-efs_without_tag_information",
-        "epam-aws-258-efs_is_encrypted_using_managed_cmk"
+        "epam-aws-258-efs_is_encrypted_using_managed_cmk",
     ],
     "aws.elasticloadbalancing": [
         "epam-aws-709-clb_cross_zone_load_balancing_enabled",
@@ -292,7 +289,7 @@ data = {
         "epam-aws-341-elb_deletion_protection_enabled",
         "epam-aws-092-remove_weak_ciphers_for_clb",
         "epam-aws-707-clb_desync_mode_check",
-        "epam-aws-755-elbv2_multiple_az"
+        "epam-aws-755-elbv2_multiple_az",
     ],
     "aws.elasticmapreduce": [
         "epam-aws-408-emr_logging_to_s3_enabled",
@@ -301,7 +298,7 @@ data = {
         "epam-aws-669-emr_termination_protection_enabled",
         "epam-aws-343-emr_master_nodes_no_public_ip",
         "epam-aws-407-emr_clusters_in_vpc",
-        "epam-aws-405-emr_kerberos_authentication_enabled"
+        "epam-aws-405-emr_kerberos_authentication_enabled",
     ],
     "aws.es": [
         "epam-aws-425-elasticsearch_slow_logs_enabled",
@@ -317,11 +314,9 @@ data = {
         "epam-aws-344-elasticsearch_node_to_node_encryption_enabled",
         "epam-aws-769-opensearch_access_control_enabled",
         "epam-aws-200-elasticsearch_service_domains_in_vpc",
-        "epam-aws-296-elasticsearch_domains_have_at_least_three_data_nodes"
+        "epam-aws-296-elasticsearch_domains_have_at_least_three_data_nodes",
     ],
-    "aws.events": [
-        "epam-aws-453-event_bus_is_exposed_to_everyone"
-    ],
+    "aws.events": ["epam-aws-453-event_bus_is_exposed_to_everyone"],
     "aws.firehose": [],
     "aws.gamelift": [],
     "aws.glacier": [
@@ -333,11 +328,9 @@ data = {
         "epam-aws-404-glue_s3_encryption_enabled",
         "epam-aws-532-glue_connection_passwords_encrypted",
         "epam-aws-401-glue_data_catalog_encrypted_with_kms_customer_master_keys",
-        "epam-aws-403-glue_cloudwatch_logs_encrypted"
+        "epam-aws-403-glue_cloudwatch_logs_encrypted",
     ],
-    "aws.guardduty": [
-        "epam-aws-267-guardduty_service_is_enabled"
-    ],
+    "aws.guardduty": ["epam-aws-267-guardduty_service_is_enabled"],
     "aws.health": [],
     "aws.iam": [
         "epam-aws-227-network_access_control_lists_changes_alarm_exists",
@@ -378,21 +371,21 @@ data = {
         "epam-aws-835-inactive_iam_access_keys_are_not_deleted",
         "epam-aws-192-unauthorized_api_calls_alarm_exists",
         "epam-aws-228-network_gateways_changes_alarm_exists",
-        "epam-aws-229-route_table_changes_alarm_exists"
+        "epam-aws-229-route_table_changes_alarm_exists",
     ],
     "aws.iot": [],
     "aws.kinesis": [
         "epam-aws-254-kinesis_server_data_at_rest_has_sse",
         "epam-aws-613-kinesis_data_stream_without_tag_information",
         "epam-aws-239-kinesis_streams_keys_are_rotated",
-        "epam-aws-253-kinesis_streams_encrypted_kms_customer_master_keys"
+        "epam-aws-253-kinesis_streams_encrypted_kms_customer_master_keys",
     ],
     "aws.kms": [
         "epam-aws-615-kms_key_without_tag_information",
         "epam-aws-911-kms_cmk_not_scheduled_for_deletion",
         "epam-aws-256-dynamodb_is_encrypted_using_managed_cmk",
         "epam-aws-253-kinesis_streams_encrypted_kms_customer_master_keys",
-        "epam-aws-258-efs_is_encrypted_using_managed_cmk"
+        "epam-aws-258-efs_is_encrypted_using_managed_cmk",
     ],
     "aws.lambda": [
         "epam-aws-366-secrets_manager_successful_rotation_check",
@@ -404,7 +397,7 @@ data = {
         "epam-aws-953-lambda_function_settings_check",
         "epam-aws-500-lambda_variables_encrypted_with_kms_cmk",
         "epam-aws-497-lambda_active_tracing_enabled",
-        "epam-aws-365-secrets_manager_rotation_enabled"
+        "epam-aws-365-secrets_manager_rotation_enabled",
     ],
     "aws.logs": [
         "epam-aws-227-network_access_control_lists_changes_alarm_exists",
@@ -431,7 +424,7 @@ data = {
         "epam-aws-192-unauthorized_api_calls_alarm_exists",
         "epam-aws-228-network_gateways_changes_alarm_exists",
         "epam-aws-229-route_table_changes_alarm_exists",
-        "epam-aws-351-rds_mysql_logging_enabled"
+        "epam-aws-351-rds_mysql_logging_enabled",
     ],
     "aws.monitoring": [
         "epam-aws-227-network_access_control_lists_changes_alarm_exists",
@@ -447,14 +440,14 @@ data = {
         "epam-aws-224-s3_bucket_policy_changes_alarm_exists",
         "epam-aws-206-iam_policy_changes_alarm_exist",
         "epam-aws-228-network_gateways_changes_alarm_exists",
-        "epam-aws-229-route_table_changes_alarm_exists"
+        "epam-aws-229-route_table_changes_alarm_exists",
     ],
     "aws.opsworks": [],
     "aws.opsworks-cm": [],
     "aws.qldb": [
         "epam-aws-644-qldb_deletion_protection_enabled",
         "epam-aws-643-qldb_permission_mode_is_standard",
-        "epam-aws-624-qldb_ledgers_without_tag_information"
+        "epam-aws-624-qldb_ledgers_without_tag_information",
     ],
     "aws.rds": [
         "epam-aws-346-rds_instance_enhanced_monitoring_enabled",
@@ -530,7 +523,7 @@ data = {
         "epam-aws-300-rds_db_instances_configured_to_copy_tags_to_snapshots",
         "epam-aws-348-rds_instance_deletion_protection_enabled",
         "epam-aws-481-oracle_resource_limit_flag_enabled",
-        "epam-aws-480-oracle_trace_files_public"
+        "epam-aws-480-oracle_trace_files_public",
     ],
     "aws.redshift": [
         "epam-aws-627-redshift_clusters_without_tag_information",
@@ -547,11 +540,9 @@ data = {
         "epam-aws-361-redshift_cluster_encrypted_in_transit",
         "epam-aws-363-redshift_cluster_automatic_upgrade_to_major_version_enabled",
         "epam-aws-215-redshift_cluster_prohibit_public_access",
-        "epam-aws-364-redshift_cluster_enhanced_vpc_routing_enabled"
+        "epam-aws-364-redshift_cluster_enhanced_vpc_routing_enabled",
     ],
-    "aws.route53": [
-        "epam-aws-513-route53_query_logging_enabled"
-    ],
+    "aws.route53": ["epam-aws-513-route53_query_logging_enabled"],
     "aws.s3": [
         "epam-aws-227-network_access_control_lists_changes_alarm_exists",
         "epam-aws-207-cloudtrail_configuration_changes_alarm_exists",
@@ -586,7 +577,7 @@ data = {
         "epam-aws-230-vpc_changes_alarm_exists",
         "epam-aws-192-unauthorized_api_calls_alarm_exists",
         "epam-aws-901-s3_version_lifecycle_policy_check",
-        "epam-aws-229-route_table_changes_alarm_exists"
+        "epam-aws-229-route_table_changes_alarm_exists",
     ],
     "aws.sagemaker": [
         "epam-aws-499-sagemaker_endpoint_configuration_encrypted",
@@ -594,11 +585,11 @@ data = {
         "epam-aws-464-sagemaker_instances_encrypted_with_kms_cmk",
         "epam-aws-232-sagemaker_does_not_have_direct_internet_access",
         "epam-aws-223-ensure_that_sagemaker_in_vpc",
-        "epam-aws-504-sagemaker_network_isolation_enabled"
+        "epam-aws-504-sagemaker_network_isolation_enabled",
     ],
     "aws.secretsmanager": [
         "epam-aws-366-secrets_manager_successful_rotation_check",
-        "epam-aws-365-secrets_manager_rotation_enabled"
+        "epam-aws-365-secrets_manager_rotation_enabled",
     ],
     "aws.servicecatalog": [],
     "aws.sns": [
@@ -621,19 +612,19 @@ data = {
         "epam-aws-230-vpc_changes_alarm_exists",
         "epam-aws-192-unauthorized_api_calls_alarm_exists",
         "epam-aws-228-network_gateways_changes_alarm_exists",
-        "epam-aws-229-route_table_changes_alarm_exists"
+        "epam-aws-229-route_table_changes_alarm_exists",
     ],
     "aws.sqs": [
         "epam-aws-447-sqs_encrypted_with_kms_cmk",
         "epam-aws-633-sqs_without_tag_information",
         "epam-aws-102-ensures_sqs_encryption_is_enabled",
         "epam-aws-449-sqs_not_open_to_everyone",
-        "epam-aws-450-sqs_dead_letter_queue_enabled"
+        "epam-aws-450-sqs_dead_letter_queue_enabled",
     ],
     "aws.ssm": [
         "epam-aws-221-ec2_managed_ssm_patch_compliance",
         "epam-aws-370-ec2_instance_managed_by_systems_manager",
-        "epam-aws-371-ec2_managed_instance_association_compliance_status_check"
+        "epam-aws-371-ec2_managed_instance_association_compliance_status_check",
     ],
     "aws.states": [],
     "aws.storagegateway": [],
@@ -641,11 +632,9 @@ data = {
     "aws.swf": [],
     "aws.waf": [
         "epam-aws-245-alb_is_protected_by_waf_regional",
-        "epam-aws-917-waf_global_webacl_not_empty"
+        "epam-aws-917-waf_global_webacl_not_empty",
     ],
-    "aws.waf-regional": [
-        "epam-aws-396-rest_api_gateway_is_protected_by_waf"
-    ],
+    "aws.waf-regional": ["epam-aws-396-rest_api_gateway_is_protected_by_waf"],
     "aws.workspaces": [
         "epam-aws-548-workspaces_storage_encrypted_with_cmk",
         "epam-aws-494-workspaces_web_access_disabled",
@@ -654,9 +643,7 @@ data = {
         "epam-aws-546-workspaces_radius_server_uses_strongest_security_protocol",
         "epam-aws-545-workspaces_api_requests_flow_through_vpc_endpoint",
         "epam-aws-541-workspaces_cloudwatch_integration",
-        "epam-aws-543-workspaces_primary_interface_ports_not_open_to_all_inbound_traffic"
+        "epam-aws-543-workspaces_primary_interface_ports_not_open_to_all_inbound_traffic",
     ],
-    "aws.xray": [
-        "epam-aws-434-xray-encrypted_with_kms_cmk"
-    ]
+    "aws.xray": ["epam-aws-434-xray-encrypted_with_kms_cmk"],
 }

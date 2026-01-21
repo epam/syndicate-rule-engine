@@ -5,7 +5,7 @@ from typing import Callable
 import msgspec
 import pytest
 
-from helpers.constants import Cloud
+from helpers.constants import Cloud, JobType
 from helpers.reports import adjust_resource_type
 from helpers.time_helper import utc_datetime
 from models.job import Job
@@ -23,7 +23,7 @@ from ..commons import AWS_ACCOUNT_ID
 @pytest.fixture
 def create_job() -> Callable[[str, str], Job]:
     def factory(_id: str, submitted_at: str) -> Job:
-        return Job(id=_id, submitted_at=submitted_at)
+        return Job(id=_id, submitted_at=submitted_at, job_type=JobType.STANDARD)
 
     return factory
 

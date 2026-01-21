@@ -479,10 +479,9 @@
                         "description": "Our inner job type. Used in SREJobs table.",
                         "enum": [
                           "standard",
-                          "event-driven",
+                          "reactive",
                           "scheduled",
-                          "manual",
-                          "reactive"
+                          "manual"
                         ],
                         "title": "JobType",
                         "type": "string"
@@ -719,10 +718,9 @@
                       "description": "Our inner job type. Used in SREJobs table.",
                       "enum": [
                         "standard",
-                        "event-driven",
+                        "reactive",
                         "scheduled",
-                        "manual",
-                        "reactive"
+                        "manual"
                       ],
                       "title": "JobType",
                       "type": "string"
@@ -1165,10 +1163,9 @@
                       "description": "Our inner job type. Used in SREJobs table.",
                       "enum": [
                         "standard",
-                        "event-driven",
+                        "reactive",
                         "scheduled",
-                        "manual",
-                        "reactive"
+                        "manual"
                       ],
                       "title": "JobType",
                       "type": "string"
@@ -1239,10 +1236,9 @@
                     "description": "Our inner job type. Used in SREJobs table.",
                     "enum": [
                       "standard",
-                      "event-driven",
+                      "reactive",
                       "scheduled",
-                      "manual",
-                      "reactive"
+                      "manual"
                     ],
                     "title": "JobType",
                     "type": "string"
@@ -2072,10 +2068,9 @@
                     "description": "Our inner job type. Used in SREJobs table.",
                     "enum": [
                       "standard",
-                      "event-driven",
+                      "reactive",
                       "scheduled",
-                      "manual",
-                      "reactive"
+                      "manual"
                     ],
                     "title": "JobType",
                     "type": "string"
@@ -4280,22 +4275,40 @@
         "schema": {
           "description": "/reports/push/dojo/{job_id}/\n/reports/push/security-hub/{job_id}/\n/reports/push/chronicle/{job_id}/",
           "properties": {
+            "job_types": {
+              "description": "Job types to include in the report",
+              "items": {
+                "description": "Our inner job type. Used in SREJobs table.",
+                "enum": [
+                  "standard",
+                  "reactive",
+                  "scheduled",
+                  "manual"
+                ],
+                "title": "JobType",
+                "type": "string"
+              },
+              "title": "Job Types",
+              "type": "array",
+              "uniqueItems": true
+            },
             "type": {
               "allOf": [
                 {
                   "description": "Our inner job type. Used in SREJobs table.",
                   "enum": [
                     "standard",
-                    "event-driven",
+                    "reactive",
                     "scheduled",
-                    "manual",
-                    "reactive"
+                    "manual"
                   ],
                   "title": "JobType",
                   "type": "string"
                 }
               ],
-              "default": "manual"
+              "default": "manual",
+              "deprecated": true,
+              "description": "Job type to include in the report (deprecated, use job_types instead)"
             }
           },
           "title": "ReportPushByJobIdModel",
@@ -4325,22 +4338,40 @@
               "title": "Dojo Test",
               "type": "string"
             },
+            "job_types": {
+              "description": "Job types to include in the report",
+              "items": {
+                "description": "Our inner job type. Used in SREJobs table.",
+                "enum": [
+                  "standard",
+                  "reactive",
+                  "scheduled",
+                  "manual"
+                ],
+                "title": "JobType",
+                "type": "string"
+              },
+              "title": "Job Types",
+              "type": "array",
+              "uniqueItems": true
+            },
             "type": {
               "allOf": [
                 {
                   "description": "Our inner job type. Used in SREJobs table.",
                   "enum": [
                     "standard",
-                    "event-driven",
+                    "reactive",
                     "scheduled",
-                    "manual",
-                    "reactive"
+                    "manual"
                   ],
                   "title": "JobType",
                   "type": "string"
                 }
               ],
-              "default": "manual"
+              "default": "manual",
+              "deprecated": true,
+              "description": "Job type to include in the report (deprecated, use job_types instead)"
             }
           },
           "title": "ReportPushDojoByJobIdModel",
@@ -4384,6 +4415,23 @@
               "default": null,
               "title": "From"
             },
+            "job_types": {
+              "description": "Job types to include in the report",
+              "items": {
+                "description": "Our inner job type. Used in SREJobs table.",
+                "enum": [
+                  "standard",
+                  "reactive",
+                  "scheduled",
+                  "manual"
+                ],
+                "title": "JobType",
+                "type": "string"
+              },
+              "title": "Job Types",
+              "type": "array",
+              "uniqueItems": true
+            },
             "tenant_name": {
               "title": "Tenant Name",
               "type": "string"
@@ -4403,21 +4451,25 @@
               "title": "To"
             },
             "type": {
-              "allOf": [
+              "anyOf": [
                 {
                   "description": "Our inner job type. Used in SREJobs table.",
                   "enum": [
                     "standard",
-                    "event-driven",
+                    "reactive",
                     "scheduled",
-                    "manual",
-                    "reactive"
+                    "manual"
                   ],
                   "title": "JobType",
                   "type": "string"
+                },
+                {
+                  "type": "null"
                 }
               ],
-              "default": null
+              "default": null,
+              "deprecated": true,
+              "description": "Job types to include in the report"
             }
           },
           "required": [
@@ -4469,7 +4521,7 @@
                   "type": "string"
                 }
               ],
-              "default": "2026-01-20T15:16:03.380459",
+              "default": "2026-01-22T15:15:24.918651",
               "description": "Expiration date of the exception",
               "title": "Expire At"
             },
@@ -4838,10 +4890,9 @@
                       "description": "Our inner job type. Used in SREJobs table.",
                       "enum": [
                         "standard",
-                        "event-driven",
+                        "reactive",
                         "scheduled",
-                        "manual",
-                        "reactive"
+                        "manual"
                       ],
                       "title": "JobType",
                       "type": "string"
@@ -6149,10 +6200,9 @@
                   "description": "Our inner job type. Used in SREJobs table.",
                   "enum": [
                     "standard",
-                    "event-driven",
+                    "reactive",
                     "scheduled",
-                    "manual",
-                    "reactive"
+                    "manual"
                   ],
                   "title": "JobType",
                   "type": "string"

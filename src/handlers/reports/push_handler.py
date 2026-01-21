@@ -144,9 +144,9 @@ class SiemPushHandler(AbstractHandler):
         job_id: str,
     ):
         job = next(
-            self._job_service.get_by_job_type(
+            self._job_service.get_by_job_types(
                 job_id=job_id,
-                job_type=event.type,
+                job_types=event.job_types,
                 customer_name=event.customer,
             ),
             None,
@@ -268,9 +268,9 @@ class SiemPushHandler(AbstractHandler):
         self, event: ReportPushByJobIdModel, job_id: str
     ):
         job = next(
-            self._job_service.get_by_job_type(
+            self._job_service.get_by_job_types(
                 job_id=job_id,
-                job_type=event.type,
+                job_types=event.job_types,
                 customer_name=event.customer,
             ),
             None,

@@ -3,6 +3,7 @@ from typing import Literal, overload
 
 from typing_extensions import Self
 
+from helpers import SingletonMeta
 from helpers.lambda_response import ResponseFactory
 from lambdas.metrics_updater.processors.base import (
     BaseProcessor,
@@ -19,21 +20,10 @@ from lambdas.metrics_updater.processors.recommendation import (
 )
 
 
-class ProcessorsRegistry:
+class ProcessorsRegistry(metaclass=SingletonMeta):
     """Singleton registry of processors."""
 
-    _instance: "ProcessorsRegistry | None" = None
-
-    def __new__(cls) -> "ProcessorsRegistry":
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._initialized = False
-        return cls._instance
-
-    def __init__(self):
-        if self._initialized:
-            return
-        self._initialized = True
+    def __init__(self) -> None:
         self._processors: dict[str, type[BaseProcessor]] = {
             "findings": FindingsUpdater,
             "metrics": MetricsCollector,

@@ -25,7 +25,7 @@ from pydantic import (
     model_validator,
 )
 from pydantic.json_schema import SkipJsonSchema, WithJsonSchema
-from typing_extensions import Annotated, Self
+from typing_extensions import Annotated, Self, override
 
 from helpers import Version
 from helpers.constants import (
@@ -161,6 +161,75 @@ class TimeRangedMixin:
             )
         self.start_iso = start
         self.end_iso = end
+        return self
+
+
+JobTypeAnnotation = Annotated[
+    JobType, 
+    Field(
+        default=JobType.MANUAL,
+        description=(
+            'Job type to include in the report '
+            '(deprecated, use job_types instead)'
+        ),
+        deprecated=True,
+    )
+]
+JobTypesAnnotation = Annotated[
+    set[JobType],
+    Field(
+        default_factory=lambda: {JobType.STANDARD},
+        description='Job types to include in the report',
+    )
+]
+
+
+class _ValidateJobTypesMixin:
+    """
+    Mixin to validate job types
+    """
+
+    job_types: JobTypesAnnotation
+
+    @field_validator('job_types', mode='after')
+    @classmethod
+    def validate_job_types(cls, value: set[JobType]) -> set[JobType]:
+        """
+        Restrict usage of deprecated JobType.MANUAL
+        """
+        if value and JobType.MANUAL in value:
+            raise ValueError(
+                "'MANUAL' is deprecated, use "
+                "'STANDARD' and 'SCHEDULED' instead"
+            )
+        return value
+    
+    @model_validator(mode='after')
+    def validate_job_type(self) -> Self:
+        if hasattr(self, 'type'):
+            type_ = getattr(self, 'type')
+            if type_.value == JobType.MANUAL.value:
+                self.job_types.update({JobType.STANDARD, JobType.SCHEDULED})
+            else:
+                self.job_types.add(type_)
+        return self
+
+
+class JobTypesMixin(_ValidateJobTypesMixin):
+    """
+    Mixin to validate job types
+    """
+
+    job_type: JobTypeAnnotation
+
+    @model_validator(mode='after')
+    @override
+    def validate_job_type(self) -> Self:
+        if self.job_type:
+            if self.job_type == JobType.MANUAL:
+                self.job_types.update({JobType.STANDARD, JobType.SCHEDULED})
+            else:
+                self.job_types.add(self.job_type)
         return self
 
 
@@ -1473,46 +1542,40 @@ class LicenseManagerClientSettingDeleteModel(BaseModel):
 
 
 # reports
-class JobFindingsReportGetModel(BaseModel):
-    job_type: JobType = JobType.MANUAL
+class JobFindingsReportGetModel(BaseModel, JobTypesMixin):
     href: bool = False
     obfuscated: bool = False
 
 
-class TenantJobsFindingsReportGetModel(TimeRangedMixin, BaseModel):
+class TenantJobsFindingsReportGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
-    job_type: JobType = Field(None)
     href: bool = False
     obfuscated: bool = False
 
 
-class JobDetailsReportGetModel(BaseModel):
-    job_type: JobType = JobType.MANUAL
+class JobDetailsReportGetModel(BaseModel, JobTypesMixin):
     href: bool = False
     obfuscated: bool = False
 
 
-class TenantJobsDetailsReportGetModel(TimeRangedMixin, BaseModel):
+class TenantJobsDetailsReportGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
-    job_type: JobType = Field(None)
     href: bool = False
     obfuscated: bool = False
 
 
-class JobDigestReportGetModel(BaseModel):
-    job_type: JobType = JobType.MANUAL
+class JobDigestReportGetModel(BaseModel, JobTypesMixin):
+    pass
 
 
-class TenantJobsDigestsReportGetModel(TimeRangedMixin, BaseModel):
+class TenantJobsDigestsReportGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
-    job_type: JobType = Field(None)
 
 
-class JobComplianceReportGetModel(BaseModel):
-    job_type: JobType = JobType.MANUAL
+class JobComplianceReportGetModel(BaseModel, JobTypesMixin):
     format: ReportFormat = ReportFormat.JSON
     href: bool = False
 
@@ -1522,33 +1585,30 @@ class TenantComplianceReportGetModel(BaseModel):
     href: bool = False
 
 
-class JobErrorReportGetModel(BaseModel):
-    job_type: JobType = JobType.MANUAL
+class JobErrorReportGetModel(BaseModel, JobTypesMixin):
     href: bool = False
     format: ReportFormat = ReportFormat.JSON
     error_type: PolicyErrorType = Field(None)
 
 
-class JobRuleReportGetModel(BaseModel):
-    job_type: JobType = JobType.MANUAL
+class JobRuleReportGetModel(BaseModel, JobTypesMixin):
     href: bool = False
     format: ReportFormat = ReportFormat.JSON
 
 
-class TenantRuleReportGetModel(TimeRangedMixin, BaseModel):
+class TenantRuleReportGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
-    job_type: JobType = Field(None)
 
 
-class ReportPushByJobIdModel(BaseModel):
+class ReportPushByJobIdModel(_ValidateJobTypesMixin, BaseModel):
     """
     /reports/push/dojo/{job_id}/
     /reports/push/security-hub/{job_id}/
     /reports/push/chronicle/{job_id}/
     """
 
-    type: JobType = JobType.MANUAL
+    type: JobTypeAnnotation
 
 class ReportPushDojoByJobIdModel(ReportPushByJobIdModel):
     """
@@ -1579,7 +1639,7 @@ class ReportPushDojoByJobIdModel(ReportPushByJobIdModel):
         ).model_dump(exclude_none=True)
 
 
-class ReportPushMultipleModel(TimeRangedMixin, BaseModel):
+class ReportPushMultipleModel(TimeRangedMixin, _ValidateJobTypesMixin, BaseModel):
     """
     /reports/push/dojo
     /reports/push/security-hub
@@ -1588,7 +1648,11 @@ class ReportPushMultipleModel(TimeRangedMixin, BaseModel):
     tenant_name: str
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
-    type: JobType = Field(None)
+    type: JobType | None = Field(
+        default=None,
+        description='Job types to include in the report',
+        deprecated=True,
+    )
 
 class ReportPushDojoMultipleModel(ReportPushMultipleModel):
     """
@@ -1872,12 +1936,11 @@ class PlatformK8sResourcesReportGetModel(BaseModel):
     # They are not declared
 
 
-class ResourceReportJobsGetModel(TimeRangedMixin, BaseModel):
+class ResourceReportJobsGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
     model_config = ConfigDict(extra='allow')
 
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
-    job_type: JobType = JobType.MANUAL
 
     resource_type: Annotated[
         str, StringConstraints(to_lower=True, strip_whitespace=True)
@@ -1910,10 +1973,8 @@ class ResourceReportJobsGetModel(TimeRangedMixin, BaseModel):
         return self
 
 
-class ResourceReportJobGetModel(BaseModel):
+class ResourceReportJobGetModel(JobTypesMixin, BaseModel):
     model_config = ConfigDict(extra='allow')
-
-    job_type: JobType = JobType.MANUAL
 
     resource_type: Annotated[
         str, StringConstraints(to_lower=True, strip_whitespace=True)

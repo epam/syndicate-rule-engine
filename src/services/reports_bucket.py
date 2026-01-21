@@ -159,13 +159,13 @@ class TenantReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
         return Cloud[self._tenant.cloud.upper()]
 
     def job_result(self, job: Job) -> str:
-        if job.tenant_name == self._tenant.name:
+        if job.tenant_name != self._tenant.name:
             raise ValueError(
                 f"Job tenant must be {self._tenant.name!r}, "
                 f"got {job.tenant_name!r}"
             )
 
-        if job.job_type in {JobType.EVENT_DRIVEN, JobType.REACTIVE}:
+        if job.job_type == JobType.REACTIVE:
             prefix = self.ed
         else:
             prefix = self.standard
@@ -260,7 +260,7 @@ class StatisticsBucketKeysBuilder:
 
     @classmethod
     def job_statistics(cls, job: Job) -> str:
-        if job.job_type == JobType.EVENT_DRIVEN:
+        if job.job_type == JobType.REACTIVE:
             return urljoin(cls._statistics, cls._ed, job.id, cls._statistics_file)
         return urljoin(cls._statistics, cls._standard, job.id, cls._statistics_file)
 

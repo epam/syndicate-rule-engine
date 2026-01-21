@@ -74,8 +74,10 @@ class FindingsReportHandler(AbstractHandler):
     @validate_kwargs
     def get_by_job(self, event: JobFindingsReportGetModel, job_id: str):
         job = next(
-            self._job_service.get_by_job_type(
-                job_id=job_id, job_type=event.job_type, customer_name=event.customer
+            self._job_service.get_by_job_types(
+                job_id=job_id,
+                job_types=event.job_types,
+                customer_name=event.customer,
             ),
             None,
         )
@@ -143,7 +145,7 @@ class FindingsReportHandler(AbstractHandler):
 
         jobs = self._job_service.get_by_tenant_name(
             tenant_name=tenant_name,
-            job_type=event.job_type,
+            job_types=event.job_types,
             status=JobState.SUCCEEDED,
             start=event.start_iso,
             end=event.end_iso,

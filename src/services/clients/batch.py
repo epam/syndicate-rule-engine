@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Optional
 
 from typing_extensions import TYPE_CHECKING, Any, NotRequired, Self, TypedDict
 
@@ -26,7 +27,7 @@ class CeleryJob(TypedDict):
     Asynchronous job response from Celery.
     """
 
-    jobId: str
+    jobId: Optional[str]
     jobName: str
     celeryTaskId: str
     status: str
@@ -178,7 +179,7 @@ class CeleryJobClient:
     Client for submitting and terminating Celery jobs.
     """
 
-    service_name = "Celery"
+    service_name = "celery"
 
     @classmethod
     def build(cls) -> Self:
@@ -193,7 +194,7 @@ class CeleryJobClient:
     ) -> CeleryJob:
         res = run_standard_job.apply_async((job_id,), soft_time_limit=timeout)
         return {
-            "jobId": str(uuid.uuid4()),
+            "jobId": None,  # JobID is only available for AWS Batch jobs
             "jobName": job_name,
             "celeryTaskId": res.id,
             "status": JobState.SUBMITTED.value,

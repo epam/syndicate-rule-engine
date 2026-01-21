@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from helpers.constants import Cloud, ReportType
+from helpers.constants import Cloud, JobType, ReportType
 from models.job import Job
 from models.metrics import ReportMetrics
 from services.clients.s3 import S3Url
@@ -23,6 +23,7 @@ def standard_job(aws_tenant) -> Job:
         customer_name=aws_tenant.customer_name,
         submitted_at='2023-11-27T14:29:08.694447Z',
         status='SUCCEEDED',
+        job_type=JobType.STANDARD,
     )
 
 
@@ -34,6 +35,7 @@ def platform_job(k8s_platform) -> Job:
         customer_name=k8s_platform.customer,
         submitted_at='2023-11-27T14:29:08.694447Z',
         status='SUCCEEDED',
+        job_type=JobType.STANDARD,
         platform_id=k8s_platform.id,
     )
 

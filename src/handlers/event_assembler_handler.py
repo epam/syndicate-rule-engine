@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import heapq
 import operator
-import time
+from datetime import timedelta
 from http import HTTPStatus
 from itertools import chain
 from typing import TYPE_CHECKING, Generator, MutableMapping
@@ -25,13 +25,12 @@ from helpers.constants import (
 )
 from helpers.lambda_response import LambdaOutput, build_response
 from helpers.log_helper import get_logger
+from helpers.mixins import SubmitJobToBatchMixin
 from models.job import Job
 from models.setting import Setting
 from services import SERVICE_PROVIDER, modular_helpers
 from services.clients.batch import (
     BatchClient,
-    BatchJob,
-    CeleryJob,
     CeleryJobClient,
 )
 from services.environment_service import EnvironmentService
@@ -47,7 +46,7 @@ from services.event_processor_service import (
 from services.event_service import Event, EventService
 from services.job_service import JobService
 from services.license_service import License, LicenseService
-from services.ruleset_service import Ruleset, RulesetName, RulesetService
+from services.ruleset_service import Ruleset, RulesetService
 from services.setting_service import (
     EVENT_CURSOR_TIMESTAMP_ATTR,
     SettingsService,
@@ -65,7 +64,7 @@ DEFAULT_UNRESOLVED_RESPONSE = "Request has run into an unresolvable issue."
 _LOG = get_logger(__name__)
 
 
-class EventAssemblerHandler:
+class EventAssemblerHandler(SubmitJobToBatchMixin):
     """Assembles events and processes them."""
 
     def __init__(
@@ -169,6 +168,9 @@ class EventAssemblerHandler:
         _LOG.info(f"Cursor was obtained: {event_cursor}")
         # Establishes Events: List[$oldest, ... $nearest]
         events = self._obtain_events(since=event_cursor)
+        _LOG.debug(
+            f"Events obtained (count: {len(events)}): {events[:5]}... (showing first 5)"
+        )
 
         if not events:
             _LOG.info("No events have been collected.")
@@ -199,7 +201,6 @@ class EventAssemblerHandler:
                 tenant_jobs.extend(self.handle_maestro_vendor(mapping))
             elif vendor == AWS_VENDOR:
                 tenant_jobs.extend(self.handle_aws_vendor(mapping))
-
         if not tenant_jobs:
             return build_response(
                 code=HTTPStatus.NOT_FOUND,
@@ -232,9 +233,8 @@ class EventAssemblerHandler:
             # all the rules ids from rule-sets
             # Convert to set[str] to ensure proper typing
             allowed_rules = set(
-                str(rule) for rule in chain.from_iterable(
-                    iter(r.rules) for r in _rule_sets if r
-                )
+                str(rule)
+                for rule in chain.from_iterable(iter(r.rules) for r in _rule_sets if r)
             )
             # all the rules Custom Core's names (without versions)
             # allowed_rules = set(
@@ -247,29 +247,31 @@ class EventAssemblerHandler:
             )
             # Convert job rules_to_scan back to region_rules_map format
             # for restriction logic
-            region_rules_map = self._convert_job_to_region_rule_map(job)
+            rules_to_scan = job.rules_to_scan
             _LOG.debug(
-                f"Restricting {region_rules_map} from event to "
+                f"Restricting {rules_to_scan} from event to "
                 f"the scope of allowed rules"
             )
-            restricted_map = self.restrict_region_rule_map(
-                mapping=region_rules_map,
+            restricted_rules_to_scan = self.restrict_rules_to_scan(
+                rules_to_scan=rules_to_scan,
                 allowed_rules=allowed_rules,
             )
-            if not restricted_map:
+            if not restricted_rules_to_scan:
                 _LOG.info("No rules after restricting left. Skipping")
                 continue
-            
+            elif len(restricted_rules_to_scan) != len(rules_to_scan):
+                _LOG.info(
+                    f"From {len(rules_to_scan)} rules to scan, "
+                    f"{len(restricted_rules_to_scan)} rules left"
+                )
+
             # Update job with restricted rules and license info
-            all_rules = set(chain.from_iterable(restricted_map.values()))
-            job.rules_to_scan = list(all_rules)
-            job.regions = list(restricted_map.keys())
-            job.job_type = JobType.EVENT_DRIVEN
+            job.rules_to_scan = restricted_rules_to_scan
             job.affected_license = _license.license_key
             # Set rulesets from license
             job.rulesets = _license.ruleset_ids
             allowed_jobs.append(job)
-        
+
         if not allowed_jobs:
             return build_response(
                 code=HTTPStatus.NOT_FOUND,
@@ -287,12 +289,15 @@ class EventAssemblerHandler:
         # Submit each job individually
         submitted_job_ids = []
         for job in allowed_jobs:
-            resp = self._submit_job_to_batch(tenant=job.tenant_name, job=job)
+            resp = self._submit_job_to_batch(
+                tenant_name=job.tenant_name,
+                job=job,
+            )
             if resp:
                 self._job_service.update(
                     job=job,
-                    batch_job_id=resp.get('jobId'),
-                    celery_task_id=resp.get('celeryTaskId'),
+                    batch_job_id=resp.get("jobId"),
+                    celery_task_id=resp.get("celeryTaskId"),
                 )
                 submitted_job_ids.append(job.id)
 
@@ -333,18 +338,24 @@ class EventAssemblerHandler:
                     f"'{tenant.name}' tenant."
                 )
                 continue
-            
+
             # Convert region_rule_map to regions and rules_to_scan
             regions = list(accessible_rg_rl_map.keys())
             all_rules = set(chain.from_iterable(accessible_rg_rl_map.values()))
-            
+
+            ttl_days = self._environment_service.jobs_time_to_live_days()
+            ttl = None
+            if ttl_days:
+                ttl = timedelta(days=ttl_days)
+
             job = self._job_service.create(
                 customer_name=tenant.customer_name,
                 tenant_name=tenant.name,
                 regions=regions,
-                rulesets=[],  # Will be set later based on license
-                job_type=JobType.EVENT_DRIVEN,
+                job_type=JobType.REACTIVE,
                 rules_to_scan=list(all_rules),
+                ttl=ttl,
+                rulesets=[],  # Will be set later based on license
                 affected_license=None,  # Will be set later based on license
                 status=JobState.PENDING,
             )
@@ -374,19 +385,26 @@ class EventAssemblerHandler:
                     continue
                 # here we skip restrictions by regions for AZURE because
                 # currently I don't know how it's supposed to work
-                
+
                 # Convert region_rule_map to regions and rules_to_scan
                 regions = list(rg_rl_map.keys())
                 all_rules = set(chain.from_iterable(rg_rl_map.values()))
-                
+
+                ttl_days = self._environment_service.jobs_time_to_live_days()
+                ttl = None
+                if ttl_days:
+                    ttl = timedelta(days=ttl_days)
+
                 job = self._job_service.create(
                     customer_name=tenant.customer_name,
                     tenant_name=tenant.name,
                     regions=regions,
-                    rulesets=[],  # Will be set later based on license
-                    job_type=JobType.EVENT_DRIVEN,
+                    job_type=JobType.REACTIVE,
                     rules_to_scan=list(all_rules),
+                    ttl=ttl,
+                    rulesets=[],  # Will be set later based on license
                     affected_license=None,  # Will be set later based on license
+                    credentials_key=None,  # Will be set later based on credentials
                     status=JobState.PENDING,
                 )
                 yield tenant, job
@@ -491,6 +509,16 @@ class EventAssemblerHandler:
         return result
 
     @staticmethod
+    def restrict_rules_to_scan(
+        rules_to_scan: list[str],
+        allowed_rules: set[str],
+    ) -> list[str]:
+        """
+        Restrict rules_to_scan to the scope of allowed rules
+        """
+        return list(set(rules_to_scan) & set(allowed_rules))
+
+    @staticmethod
     def _optimize_region_rule_map_size(mapping: RegionRuleMap) -> dict[str, list[str]]:
         """
         On small payload the benefit is not clearly visible. The method can
@@ -508,6 +536,7 @@ class EventAssemblerHandler:
             'eu-west-2': ['five']
         }
         """
+
         def _rule_to_regions(m: RegionRuleMap) -> dict[str, set[str]]:
             ref: dict[str, set[str]] = {}
             for region, rules in m.items():
@@ -530,61 +559,10 @@ class EventAssemblerHandler:
     #         Env.STATISTICS_BUCKET_NAME.value: self._environment_service.get_statistics_bucket_name(),
     #         Env.RULESETS_BUCKET_NAME.value: self._environment_service.get_rulesets_bucket_name(),
     #         BatchJobEnv.AWS_REGION.value: self._environment_service.aws_region(),
-    #         # BatchJobEnv.JOB_TYPE.value: BatchJobType.EVENT_DRIVEN.value,
+    #         # BatchJobEnv.JOB_TYPE.value: BatchJobType.REACTIVE.value,
     #         "LOG_LEVEL": self._environment_service.batch_job_log_level(),
     #         # BatchJobEnv.SYSTEM_CUSTOMER_NAME.value: SystemCustomer.get_name(),
     #     }
-
-    def _convert_job_to_region_rule_map(self, job: Job) -> RegionRuleMap:
-        """
-        Convert job's regions and rules_to_scan back to RegionRuleMap format
-        for restriction logic. This creates a simple mapping where each region
-        contains all rules_to_scan.
-        """
-        result = {}
-        # job.regions and job.rules_to_scan are ListAttribute, convert to list/set
-        regions_list = list(job.regions) if job.regions else []
-        rules_list = list(job.rules_to_scan) if job.rules_to_scan else []
-        for region in regions_list:
-            result[region] = set(rules_list)
-        return result
-
-    def _submit_job_to_batch(
-        self,
-        tenant: str,
-        job: Job,
-    ) -> BatchJob | CeleryJob | None:
-        """
-        Submit a single job to batch, similar to job_handler.py
-        """
-        job_name = f"{tenant}-{job.submitted_at}"
-        job_name = ''.join(
-            ch if ch.isalnum() or ch in ('-', '_') else '_' for ch in job_name
-        )
-
-        try:
-            if isinstance(self._batch_client, BatchClient):
-                _LOG.debug(f'Going to submit AWS Batch job with name {job_name}')
-                response = self._batch_client.submit_job(
-                    job_id=job.id,
-                    job_name=job_name,
-                    job_queue=self._environment_service.get_batch_job_queue(),
-                    job_definition=self._environment_service.get_batch_job_def(),
-                )
-                _LOG.debug(f'AWS Batch job was submitted: {response}')
-            else:
-                _LOG.debug(f'Going to submit Celery job with name {job_name}')
-                response = self._batch_client.submit_job(
-                    job_id=job.id,
-                    job_name=job_name,
-                )
-                _LOG.debug(f'Celery job was submitted: {response}')
-            return response
-        except (BaseException, Exception) as e:
-            _LOG.exception(
-                f"Some issue has occurred during '{job_name}' submission: {e}"
-            )
-            return None
 
 
 # probably not used anymore because events are removed by their ttl

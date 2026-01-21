@@ -4,7 +4,7 @@ import threading
 from functools import cached_property
 from typing import TYPE_CHECKING, Union
 
-from helpers import SingletonMeta
+from helpers import SingletonMeta, get_logger
 
 
 if TYPE_CHECKING:
@@ -45,9 +45,16 @@ if TYPE_CHECKING:
     from services.setting_service import CachedSettingsService
 
 
+_LOG = get_logger(__name__)
+
+
 class ServiceProvider(metaclass=SingletonMeta):
-    def __str__(self):
-        return id(self)
+    """
+    Service provider for the application.
+    """
+
+    def __str__(self) -> str:
+        return str(id(self))
 
     @cached_property
     def environment_service(self) -> 'EnvironmentService':
@@ -74,7 +81,7 @@ class ServiceProvider(metaclass=SingletonMeta):
         return CachedSSMClient(cl)
 
     @cached_property
-    def sts(self) -> 'StsClient':
+    def sts(self) -> StsClient:
         from services.clients.sts import StsClient
         if self.environment_service.is_docker():
             return StsClient.build()
@@ -146,12 +153,6 @@ class ServiceProvider(metaclass=SingletonMeta):
         )
 
     @cached_property
-    def s3_settings_service(self) -> 'S3SettingsService':
-        # TODO: this service is obsolete. The code using it is also obsolete,
-        #  so it should be refactored or removed
-        return None
-
-    @cached_property
     def role_service(self) -> 'RoleService':
         from services.rbac_service import RoleService
         return RoleService()
@@ -162,10 +163,9 @@ class ServiceProvider(metaclass=SingletonMeta):
         return PolicyService()
 
     @cached_property
-    def event_processor_service(self) -> 'EventProcessorService':
+    def event_processor_service(self) -> EventProcessorService:
         from services.event_processor_service import EventProcessorService
         return EventProcessorService(
-            s3_settings_service=self.s3_settings_service,
             environment_service=self.environment_service,
             sts_client=self.sts,
         )

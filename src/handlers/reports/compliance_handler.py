@@ -94,7 +94,7 @@ class ComplianceReportHandler(AbstractHandler):
         job = self._job_service.get_by_customer_name(
             customer_name=customer_name,
             job_id=job_id,
-            job_type=event.job_type,
+            job_types=event.job_types,
         )
         job = next(job, None)
         if not job:

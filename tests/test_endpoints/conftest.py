@@ -9,7 +9,7 @@ from modular_sdk.commons.constants import ParentType
 from moto.backends import get_backend
 from webtest import TestApp
 
-from helpers.constants import Env, JobState, Permission, PolicyEffect
+from helpers.constants import Env, JobState, JobType, Permission, PolicyEffect
 from helpers.time_helper import utc_iso
 from services import SP  # probably the only safe import we can use in conftest
 
@@ -199,6 +199,7 @@ def create_tenant_job():
             tenant_name=tenant.name,
             customer_name=tenant.customer_name,
             status=status.value,
+            job_type=JobType.STANDARD,
             submitted_at=utc_iso(submitted_at),
             created_at=utc_iso(submitted_at + timedelta(minutes=1)),
             started_at=utc_iso(submitted_at + timedelta(minutes=2)),
@@ -219,6 +220,7 @@ def create_k8s_platform_job():
             tenant_name=platform.tenant_name,
             customer_name=platform.customer,
             status=status.value,
+            job_type=JobType.STANDARD,
             submitted_at=utc_iso(submitted_at),
             created_at=utc_iso(submitted_at + timedelta(minutes=1)),
             started_at=utc_iso(submitted_at + timedelta(minutes=2)),

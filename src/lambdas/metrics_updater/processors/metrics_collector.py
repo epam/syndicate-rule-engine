@@ -689,7 +689,7 @@ class MetricsCollector(BaseProcessor):
             self._tss
         ))
 
-        ls = self._ajs.job_service.get_tenant_last_job_date(tenant.name)
+        ls = self._js.get_tenant_last_job_date(tenant.name)
         if not ls:
             # case when tenant had no scans, so we yield empty reports
             _LOG.warning(f'No jobs for tenant {tenant} found')

@@ -23,9 +23,8 @@ def utc_iso(_from: datetime | date | None = None) -> str:
     :param _from: Optional[datetime]
     :returns: str
     """
-    # add 00:00:00 to date if it's a date
-    if isinstance(_from, date):
-        _from = datetime.combine(_from, datetime.min.time())
+    if isinstance(_from, date) and not isinstance(_from, datetime):
+        return _from.isoformat()
     obj = _from or utc_datetime()
     return obj.astimezone(timezone.utc).isoformat().replace('+00:00', 'Z')
 

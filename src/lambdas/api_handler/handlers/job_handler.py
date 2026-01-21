@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from botocore.exceptions import ClientError
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.tenant_service import TenantService
+from typing_extensions import Self
 
 from handlers import AbstractHandler, Mapping
 from helpers import NextToken
@@ -20,15 +21,13 @@ from helpers.constants import (
 )
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
+from helpers.mixins import SubmitJobToBatchMixin
 from helpers.system_customer import SystemCustomer
-from models.job import Job
 from models.ruleset import Ruleset
 from services import SERVICE_PROVIDER, cache, modular_helpers
 from services.abs_lambda import ProcessedEvent
 from services.clients.batch import (
     BatchClient,
-    BatchJob,
-    CeleryJob,
     CeleryJobClient,
 )
 from services.clients.ssm import AbstractSSMClient
@@ -63,7 +62,7 @@ if TYPE_CHECKING:
 _LOG = get_logger(__name__)
 
 
-class JobHandler(AbstractHandler):
+class JobHandler(AbstractHandler, SubmitJobToBatchMixin):
     def __init__(
         self,
         tenant_service: TenantService,
@@ -97,7 +96,7 @@ class JobHandler(AbstractHandler):
         self._tenant_licenses = cache.factory()
 
     @classmethod
-    def build(cls) -> 'JobHandler':
+    def build(cls) -> Self:
         return cls(
             tenant_service=SERVICE_PROVIDER.modular_client.tenant_service(),
             environment_service=SERVICE_PROVIDER.environment_service,
@@ -570,7 +569,7 @@ class JobHandler(AbstractHandler):
         self._job_service.save(job)
 
         resp = self._submit_job_to_batch(
-            tenant=tenant,
+            tenant_name=tenant.name,
             job=job,
             timeout=int(event.timeout_minutes * 60)
             if event.timeout_minutes
@@ -584,39 +583,6 @@ class JobHandler(AbstractHandler):
         return build_response(
             code=HTTPStatus.CREATED, content=self._job_service.dto(job)
         )
-
-    def _submit_job_to_batch(
-        self,
-        tenant: Tenant,
-        job: Job,
-        timeout: int | None = None,
-    ) -> BatchJob | CeleryJob:
-        job_name = f'{tenant.name}-{job.submitted_at}'
-        job_name = ''.join(
-            ch if ch.isalnum() or ch in ('-', '_') else '_' for ch in job_name
-        )
-
-        response: BatchJob | CeleryJob
-        if isinstance(self._batch_client, BatchClient):
-            _LOG.debug(f'Going to submit AWS Batch job with name {job_name}')
-            response = self._batch_client.submit_job(
-                job_id=job.id,
-                job_name=job_name,
-                job_queue=self._environment_service.get_batch_job_queue(),
-                job_definition=self._environment_service.get_batch_job_def(),
-                timeout=timeout,
-            )
-            _LOG.debug(f'AWS Batch job was submitted: {response}')
-        else:
-            _LOG.debug(f'Going to submit Celery job with name {job_name}')
-            response = self._batch_client.submit_job(
-                job_id=job.id,
-                job_name=job_name,
-                timeout=timeout,
-            )
-            _LOG.debug(f'Celery job was submitted: {response}')
-
-        return response
 
     def ensure_job_is_allowed(self, tenant: Tenant, tlk: str):
         _LOG.info(
