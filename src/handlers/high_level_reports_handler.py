@@ -1279,7 +1279,7 @@ class HighLevelReportsHandler(AbstractHandler):
                             active=True,
                             linked_to=display_name.upper(),
                         )
-                    if tenant.cloud in Cloud
+                    if Cloud.parse(tenant.cloud) is not None
                 }
 
             for report_type in event.new_types:
