@@ -1253,7 +1253,8 @@ class HighLevelReportsHandler(AbstractHandler):
         self, event: ProjectGetReportModel, _tap: TenantsAccessPayload
     ):
         models = []
-        rabbitmq = self._rmq.get_customer_rabbitmq(event.customer_id)
+        customer_id = event.customer_id
+        rabbitmq = self._rmq.get_customer_rabbitmq(customer_id)
         if not rabbitmq:
             raise self._rmq.no_rabbitmq_response().exc()
 
@@ -1264,25 +1265,26 @@ class HighLevelReportsHandler(AbstractHandler):
                 f'display_name: {display_name}'
             )
 
-            linked_tenants = []
+            linked_tenants_dntl = set()
             if event.include_linked:
                 # TODO consider getting linked tenants by case insensitive
                 #  way(to cover display_name with different cases)
                 _LOG.info('Retrieving linked tenants')
                 # We need a set here to avoid duplicates because of tenants
                 # for different clouds with the same display name
-                linked_tenants = set(
-                    self._mc.tenant_service().i_get_tenant_by_customer(
-                        customer_id=event.customer_id,
-                        active=True,
-                        linked_to=display_name.upper(),
-                    )
-                )
+                linked_tenants_dntl = {
+                    tenant.display_name_to_lower for tenant in
+                        self._mc.tenant_service().i_get_tenant_by_customer(
+                            customer_id=customer_id,
+                            active=True,
+                            linked_to=display_name.upper(),
+                        )
+                }
 
             for report_type in event.new_types:
                 _LOG.debug(f'Going to generate {report_type} for {display_name}')
                 rep = self._rms.get_latest_for_project(
-                    customer=event.customer_id,
+                    customer=customer_id,
                     project=display_name,
                     type_=report_type,
                 )
@@ -1298,9 +1300,10 @@ class HighLevelReportsHandler(AbstractHandler):
                 )
 
                 linked_data = self._collect_linked_tenants_data(
-                    builder=builder,
-                    linked_tenants=linked_tenants,
+                    customer_name=customer_id,
+                    linked_tenants_dntl=linked_tenants_dntl,
                     report_type=report_type,
+                    builder=builder,
                 )
                 if linked_data:
                     fetched_data['linked_tenants_data'] = linked_data
@@ -1446,20 +1449,20 @@ class HighLevelReportsHandler(AbstractHandler):
 
     def _collect_linked_tenants_data(
         self,
-        builder: MaestroModelBuilder,
-        linked_tenants: Iterable[Tenant],
+        customer_name: str,
+        linked_tenants_dntl: Iterable[str],
         report_type: ReportType,
+        builder: MaestroModelBuilder,
     ) -> List[dict[str, Any]]:
 
         result = []
-        for tenant in linked_tenants:
-            dntl = tenant.display_name_to_lower
+        for dntl in linked_tenants_dntl:
             _LOG.info(
                 f'Collecting linked tenant: {dntl} '
                 f'report {report_type} data'
             )
             rep = self._rms.get_latest_for_project(
-                customer=tenant.customer_name,
+                customer=customer_name,
                 project=dntl,
                 type_=report_type,
             )
