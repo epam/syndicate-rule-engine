@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `STANDARD`, `SCHEDULED` to the `JobType` enum
 - Changed the `MANUAL` to alias for `STANDARD` + `SCHEDULED` in the `JobType` enum
 - Added Event-Driven (ED) jobs support for AMI installation
+- Fixed license expiration updating in case of 404 status code returned from the license sync request
 
 ## [5.15.0] - 2025-11-06
 - Added hiding expired resource exceptions
