@@ -563,7 +563,6 @@ class JobHandler(AbstractHandler, SubmitJobToBatchMixin):
             affected_license=lic.license_key if lic else None,
             status=JobState.PENDING,
             credentials_key=credentials_key,
-            application_id=event.application_id,
             dojo_structure=event.dojo_structure(),
         )
         self._job_service.save(job)

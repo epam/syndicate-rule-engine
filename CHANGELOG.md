@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the possibility to update the rulesource `type`, `git_url`, `git_ref`, `git_rules_prefix` and  `git_project_id` parameters in the `PATCH /rule-sources/{id}` endpoint
 - Added PATCH method to the endpoints `/settings/license-manager/config` and `/settings/license-manager/client`
 - Added the parameter `description` to the `POST /rulesets` and `PATCH /rulesets/{name}/{version}` endpoints
+- Added the possibility to scan linked tenants
+- Added the possibility to get project-level reports with linked tenants' reports included
 - Changed `created_at`, `updated_at`, and `expire_at` fields in resource exception responses to return human-readable ISO format dates instead of Unix timestamps
 - Changed the logic of validating ARNs in resource exception creation to check if the ARN exists in the resources database for the specific tenant
 - Fixed an issue with credentials environment variables when using PosixPath objects instead of strings for AZURE credentials

@@ -138,7 +138,6 @@ class Job(BaseModel):
     platform_id = UnicodeAttribute(null=True, attr_name=JOB_PLATFORM_ID)
     affected_license = UnicodeAttribute(null=True, attr_name=JOB_AFFECTED_LICENSE)
     credentials_key = UnicodeAttribute(null=True, attr_name=JOB_CREDENTIALS_KEY)
-    application_id = UnicodeAttribute(null=True, attr_name=JOB_APPLICATION_ID)
 
     ttl = TTLAttribute(null=True, attr_name=JOB_TTL)
 

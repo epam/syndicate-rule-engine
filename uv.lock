@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.10.2, <4.0.0"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -2346,6 +2346,7 @@ dependencies = [
     { name = "pynamodb" },
     { name = "python-dateutil" },
 ]
+
 sdist = { url = "https://files.pythonhosted.org/packages/92/5d/d3a952add1743849b996e9b9fd75c17c0f038f73c536f11a8faae2c386a2/modular_sdk-7.1.7.tar.gz", hash = "sha256:26d40c6724e9f50d252d804d4ff3b1b03d6b1f47a0815d9addffae8cc71598d8", size = 81332, upload-time = "2026-01-21T09:12:02.451Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b6/f9/67ffdd56334f79d5ac6f9d2a9ad2f3cecd0f6f30c802c58ad927cf8ac314/modular_sdk-7.1.7-py3-none-any.whl", hash = "sha256:da097e0650d94e63994bb88bbc2b4e2cf0cabe089d1bed8dc40b0f1f9b1a3445", size = 102159, upload-time = "2026-01-21T09:12:00.717Z" },
