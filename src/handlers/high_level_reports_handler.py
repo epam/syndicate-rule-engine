@@ -93,6 +93,11 @@ class MaestroReport(TypedDict, total=False):
     externalDataBucket: NotRequired[str]
 
 
+class MaestroLinkedTenantReport(TypedDict, total=False):
+    tenant_display_name: str
+    data: dict
+
+
 def _compliance_diff_callback(key, new, old) -> dict:
     res = {'value': round(new * 100, 2)}
     if isinstance(old, (int, float)) and not isinstance(old, bool):
@@ -310,9 +315,64 @@ class MaestroModelBuilder:
             'data': {},
         }
 
+    @staticmethod
+    def linked_base(rep: ReportMetrics) -> MaestroLinkedTenantReport:
+        return {
+            'tenant_display_name': rep.project,
+            'data': {},
+        }
+
+    @staticmethod
+    def linked_base_cloud(cloud_data: dict) -> dict:
+        return {
+            'account_id': cloud_data['account_id'],
+            'tenant_name': cloud_data['tenant_name'],
+            'last_scan_date': cloud_data['last_scan_date'],
+        }
+
     def _project_overview_custom(self, rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.PROJECT_OVERVIEW
         return {'tenant_display_name': rep.project, **data}
+
+
+    def _project_overview_linked(
+        self,
+        rep: ReportMetrics,
+        data: dict,
+    ) -> dict:
+        new_data = {}
+        assert rep.type == ReportType.PROJECT_OVERVIEW
+        for cloud, c_data in data['data'].items():
+            if not c_data:
+                new_data[cloud] = {}
+                continue
+
+            new_data[cloud] = self.linked_base_cloud(c_data)
+            new_data[cloud].update(
+                {
+                    'succeeded_scans': c_data['succeeded_scans'],
+                    'failed_scans': c_data['failed_scans'],
+                    'total_scans': c_data['total_scans'],
+                }
+            )
+
+            high = medium = low = info = unknown = 0
+            for r_data in c_data.get('regions_data', {}).values():
+                high += r_data['severity_data'].get('High', 0)
+                medium += r_data['severity_data'].get('Medium', 0)
+                low += r_data['severity_data'].get('Low', 0)
+                info += r_data['severity_data'].get('Info', 0)
+                unknown += r_data['severity_data'].get('Unknown', 0)
+            new_data[cloud]['resources_violated'] = {
+                'High': high,
+                'Medium': medium,
+                'Low': low,
+                'Info': info,
+                'Unknown': unknown,
+            }
+
+        return {'data': new_data}
+
 
     def _project_compliance_custom(
         self, rep: ReportMetrics, data: dict
@@ -339,11 +399,83 @@ class MaestroModelBuilder:
 
         return {'tenant_display_name': rep.project, **data}
 
+
+    def _project_compliance_linked(
+        self,
+        rep: ReportMetrics,
+        data: dict,
+    ) -> dict:
+        new_data = {}
+        assert rep.type == ReportType.PROJECT_COMPLIANCE
+        for cloud, c_data in data['data'].items():
+            if not c_data:
+                new_data[cloud] = {}
+                continue
+
+            new_data[cloud] = self.linked_base_cloud(c_data)
+
+        return {'data': new_data}
+
+
     def _project_resources_custom(
         self, rep: ReportMetrics, data: dict
     ) -> dict:
         assert rep.type == ReportType.PROJECT_RESOURCES
         return {'tenant_display_name': rep.project, **data}
+
+    def _project_resources_linked(
+        self,
+        rep: ReportMetrics,
+        data: dict,
+    ) -> dict:
+        res_count = \
+            lambda i: sum(v['total_violated_resources'] for v in i.values())
+        new_data = {}
+        assert rep.type == ReportType.PROJECT_RESOURCES
+        for cloud, c_data in data['data'].items():
+            if not c_data:
+                new_data[cloud] = {}
+                continue
+
+            new_data[cloud] = self.linked_base_cloud(c_data)
+
+            high = medium = low = info = unknown = 0
+            high_res = medium_res = low_res = info_res = unknown_res = 0
+            for policy_data in c_data.get('data', []):
+                severity = policy_data['severity']
+                match severity:
+                    case 'High':
+                        high += 1
+                        high_res = res_count(policy_data['regions_data'])
+                    case 'Medium':
+                        medium += 1
+                        medium_res = res_count(policy_data['regions_data'])
+                    case 'Low':
+                        low += 1
+                        low_res = res_count(policy_data['regions_data'])
+                    case 'Info':
+                        info += 1
+                        info_res = res_count(policy_data['regions_data'])
+                    case 'Unknown':
+                        unknown += 1
+                        unknown_res = res_count(policy_data['regions_data'])
+            new_data[cloud]['rules_violated'] = {
+                'High': high,
+                'Medium': medium,
+                'Low': low,
+                'Info': info,
+                'Unknown': unknown,
+            }
+            new_data[cloud]['violations_data'] = {
+                'High': high_res,
+                'Medium': medium_res,
+                'Low': low_res,
+                'Info': info_res,
+                'Unknown': unknown_res,
+            }
+
+        return {'data': new_data}
+
 
     def _project_attacks_custom(self, rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.PROJECT_ATTACKS
@@ -356,6 +488,39 @@ class MaestroModelBuilder:
 
         return {'tenant_display_name': rep.project, **data}
 
+    def _project_attacks_linked(
+        self,
+        rep: ReportMetrics,
+        data: dict,
+    ) -> dict:
+        new_data = {}
+        assert rep.type == ReportType.PROJECT_ATTACKS
+        for cloud, c_data in data['data'].items():
+            if not c_data:
+                new_data[cloud] = {}
+                continue
+
+            new_data[cloud] = self.linked_base_cloud(c_data)
+
+            high = medium = low = info = unknown = 0
+            for attack in c_data.get('attacks', []):
+                for regions_data in attack['regions'].values():
+                    high += regions_data.get('High', 0)
+                    medium += regions_data.get('Medium', 0)
+                    low += regions_data.get('Low', 0)
+                    info += regions_data.get('Info', 0)
+                    unknown += regions_data.get('Unknown', 0)
+            new_data[cloud]['attacks_data'] = {
+                'High': high,
+                'Medium': medium,
+                'Low': low,
+                'Info': info,
+                'Unknown': unknown,
+            }
+
+        return {'data': new_data}
+
+
     def _project_finops_custom(self, rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.PROJECT_FINOPS
         for t in data['data'].values():
@@ -364,6 +529,62 @@ class MaestroModelBuilder:
                     add_diff(rule_data, {})
                     # just to replace int leafs with {'value': leaf, 'diff': None}
         return {'tenant_display_name': rep.project, **data}
+
+
+    def _project_finops_linked(
+        self,
+        rep: ReportMetrics,
+        data: dict,
+    ) -> dict:
+        res_count = \
+            lambda i: sum(v['total_violated_resources'] for v in i.values())
+        new_data = {}
+        assert rep.type == ReportType.PROJECT_FINOPS
+        for cloud, c_data in data['data'].items():
+            if not c_data:
+                new_data[cloud] = {}
+                continue
+
+            new_data[cloud] = self.linked_base_cloud(c_data)
+
+            high = medium = low = info = unknown = 0
+            high_res = medium_res = low_res = info_res = unknown_res = 0
+            for s_data in c_data.get('service_data', []):
+                for r_data in s_data.get('rules_data', []):
+                    severity = r_data['severity']
+                    match severity:
+                        case 'High':
+                            high += 1
+                            high_res = res_count(r_data['regions_data'])
+                        case 'Medium':
+                            medium += 1
+                            medium_res = res_count(r_data['regions_data'])
+                        case 'Low':
+                            low += 1
+                            low_res = res_count(r_data['regions_data'])
+                        case 'Info':
+                            info += 1
+                            info_res = res_count(r_data['regions_data'])
+                        case 'Unknown':
+                            unknown += 1
+                            unknown_res = res_count(r_data['regions_data'])
+                new_data[cloud]['rules_violated'] = {
+                    'High': high,
+                    'Medium': medium,
+                    'Low': low,
+                    'Info': info,
+                    'Unknown': unknown,
+                }
+                new_data[cloud]['violations_data'] = {
+                    'High': high_res,
+                    'Medium': medium_res,
+                    'Low': low_res,
+                    'Info': info_res,
+                    'Unknown': unknown_res,
+                }
+
+        return {'data': new_data}
+
 
     def _top_compliance_by_cloud(
         self, rep: ReportMetrics, data: dict, previous_data: dict
@@ -595,6 +816,29 @@ class MaestroModelBuilder:
                 raise
         base.update(custom)
         return base
+
+    def convert_linked(
+        self,
+        rep: ReportMetrics,
+        data: dict,
+    ) -> MaestroLinkedTenantReport:
+        base = self.linked_base(rep)
+        match rep.type:
+            case ReportType.PROJECT_OVERVIEW:
+                custom = self._project_overview_linked(rep, data)
+            case ReportType.PROJECT_COMPLIANCE:
+                custom = self._project_compliance_linked(rep, data)
+            case ReportType.PROJECT_RESOURCES:
+                custom = self._project_resources_linked(rep, data)
+            case ReportType.PROJECT_ATTACKS:
+                custom = self._project_attacks_linked(rep, data)
+            case ReportType.PROJECT_FINOPS:
+                custom = self._project_finops_linked(rep, data)
+            case _:
+                raise
+        base.update(custom)
+        return base
+
 
 
 class MaestroReportToS3Packer:
@@ -1009,7 +1253,8 @@ class HighLevelReportsHandler(AbstractHandler):
         self, event: ProjectGetReportModel, _tap: TenantsAccessPayload
     ):
         models = []
-        rabbitmq = self._rmq.get_customer_rabbitmq(event.customer_id)
+        customer_id = event.customer_id
+        rabbitmq = self._rmq.get_customer_rabbitmq(customer_id)
         if not rabbitmq:
             raise self._rmq.no_rabbitmq_response().exc()
 
@@ -1020,23 +1265,27 @@ class HighLevelReportsHandler(AbstractHandler):
                 f'display_name: {display_name}'
             )
 
-            linked_tenants = []
+            linked_tenants_dntl = set()
             if event.include_linked:
                 # TODO consider getting linked tenants by case insensitive
                 #  way(to cover display_name with different cases)
                 _LOG.info('Retrieving linked tenants')
-                linked_tenants = list(
-                    self._mc.tenant_service().i_get_tenant_by_customer(
-                        customer_id=event.customer_id,
-                        active=True,
-                        linked_to=display_name.upper(),
-                    )
-                )
+                # We need a set here to avoid duplicates because of tenants
+                # for different clouds with the same display name
+                linked_tenants_dntl = {
+                    tenant.display_name_to_lower for tenant in
+                        self._mc.tenant_service().i_get_tenant_by_customer(
+                            customer_id=customer_id,
+                            active=True,
+                            linked_to=display_name.upper(),
+                        )
+                    if Cloud.parse(tenant.cloud) is not None
+                }
 
             for report_type in event.new_types:
                 _LOG.debug(f'Going to generate {report_type} for {display_name}')
                 rep = self._rms.get_latest_for_project(
-                    customer=event.customer_id,
+                    customer=customer_id,
                     project=display_name,
                     type_=report_type,
                 )
@@ -1052,8 +1301,10 @@ class HighLevelReportsHandler(AbstractHandler):
                 )
 
                 linked_data = self._collect_linked_tenants_data(
-                    linked_tenants=linked_tenants,
+                    customer_name=customer_id,
+                    linked_tenants_dntl=linked_tenants_dntl,
                     report_type=report_type,
+                    builder=builder,
                 )
                 if linked_data:
                     fetched_data['linked_tenants_data'] = linked_data
@@ -1199,19 +1450,20 @@ class HighLevelReportsHandler(AbstractHandler):
 
     def _collect_linked_tenants_data(
         self,
-        linked_tenants: Iterable[Tenant],
+        customer_name: str,
+        linked_tenants_dntl: Iterable[str],
         report_type: ReportType,
+        builder: MaestroModelBuilder,
     ) -> List[dict[str, Any]]:
 
         result = []
-        for tenant in linked_tenants:
-            dntl = tenant.display_name_to_lower
+        for dntl in linked_tenants_dntl:
             _LOG.info(
                 f'Collecting linked tenant: {dntl} '
                 f'report {report_type} data'
             )
             rep = self._rms.get_latest_for_project(
-                customer=tenant.customer_name,
+                customer=customer_name,
                 project=dntl,
                 type_=report_type,
             )
@@ -1229,6 +1481,9 @@ class HighLevelReportsHandler(AbstractHandler):
                 )
                 continue
             _LOG.debug('Linked tenant data collected successfully')
+
+            data = builder.convert_linked(rep, data)
+
             result.append(data)
 
         return result
