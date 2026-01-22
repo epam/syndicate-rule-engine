@@ -29,6 +29,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed the `MANUAL` to alias for `STANDARD` + `SCHEDULED` in the `JobType` enum
 - Added Event-Driven (ED) jobs support for AMI installation
 - Fixed license expiration updating in case of 404 status code returned from the license sync request
+- Updated versions of dependencies:
+    - `c7n` from `0.9.46` to `0.9.49`
+    - `c7n-azure` from `0.7.45` to `0.7.48`
+    - `c7n-gcp` from `0.4.45` to `0.4.48`
+    - `c7n-kube` from `0.2.45` to `0.2.48`
+    - `boto3` from `~=1.39.4` to `~=1.42.27`
+    - `botocore` from `~=1.39.4` to `~=1.42.27`
+    - `cryptography` from `~=44.0.2` to `~=45.0.7`
+    - `google-api-python-client` from `~=2.176.0` to `~=2.188.0`
+    - `google-auth` from `~=2.40.0` to `~=2.47.0`
 
 ## [5.15.0] - 2025-11-06
 - Added hiding expired resource exceptions
