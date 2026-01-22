@@ -8,14 +8,14 @@ version = "5.16.0"
 dependencies = [
     "aws-xray-sdk~=2.14.0",
     "bcrypt~=4.0.1",
-    "boto3~=1.39.4",
-    "botocore~=1.39.4",
+    "boto3~=1.42.27",
+    "botocore~=1.42.27",
     "bottle~=0.12.25",
     "cachetools~=5.5.2",
     "celery==5.4.0",
-    "cryptography~=44.0.2",
-    "google-api-python-client~=2.176.0",
-    "google-auth~=2.40.0",
+    "cryptography~=45.0.7",
+    "google-api-python-client~=2.188.0",
+    "google-auth~=2.47.0",
     "gunicorn~=23.0.0",
     "hvac~=2.3.0",
     "jwcrypto~=1.5.6",
@@ -47,10 +47,10 @@ test = [
     "webtest>=3.0.4",
 ]
 c7n = [
-    "c7n==0.9.46",
-    "c7n-azure==0.7.45",
-    "c7n-gcp==0.4.45",
-    "c7n-kube==0.2.45",
+    "c7n==0.9.49",
+    "c7n-azure==0.7.48",
+    "c7n-gcp==0.4.48",
+    "c7n-kube==0.2.48",
 ]
 
 
