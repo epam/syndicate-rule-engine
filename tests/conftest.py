@@ -225,6 +225,7 @@ def aws_tenant(main_customer: 'Customer') -> 'Tenant':
         project=AWS_ACCOUNT_ID,
         contacts={},
         activation_date=utc_iso(utc_datetime() - timedelta(days=30)),
+        linked_to='TESTING',
         regions=[
             RegionAttr(
                 maestro_name='EU_WEST_1',
