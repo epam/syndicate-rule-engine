@@ -20,8 +20,12 @@ from onprem.celery import app
     time_limit=3600 * 4,
     soft_time_limit=Env.BATCH_JOB_LIFETIME_MINUTES.as_float() * 60,
 )
-def run_standard_job(self, job_id: str):
-    return task_standard_job(self, job_id)
+def run_standard_job(self, job_id: str | list[str]):
+    if isinstance(job_id, str):
+        job_id = [job_id]
+
+    for jid in job_id:
+        task_standard_job(self, jid)
 
 
 @app.task(

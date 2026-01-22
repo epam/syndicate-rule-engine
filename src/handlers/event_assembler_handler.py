@@ -286,20 +286,18 @@ class EventAssemblerHandler(SubmitJobToBatchMixin):
             self._job_service.save(job)
             job_ids.append(job.id)
 
-        # Submit each job individually
         submitted_job_ids = []
-        for job in allowed_jobs:
-            resp = self._submit_job_to_batch(
-                tenant_name=job.tenant_name,
-                job=job,
-            )
-            if resp:
+        resp = self._submit_jobs_to_batch(allowed_jobs)
+        if resp:
+            for job in allowed_jobs:
                 self._job_service.update(
                     job=job,
                     batch_job_id=resp.get("jobId"),
                     celery_task_id=resp.get("celeryTaskId"),
+                    status=JobState(resp.get("status")),
                 )
                 submitted_job_ids.append(job.id)
+            _LOG.debug(f"Jobs were submitted: {submitted_job_ids}")
 
         if not submitted_job_ids:
             return build_response(

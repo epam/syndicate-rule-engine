@@ -187,7 +187,7 @@ class CeleryJobClient:
 
     def submit_job(
         self,
-        job_id: str,
+        job_id: str | list[str],
         job_name: str,
         timeout: int | None = None,
         **kwargs: Any,
