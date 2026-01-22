@@ -1,7 +1,12 @@
 import click
-
-from srecli.group import ContextObj, ViewCommand, build_tenant_option, \
-    cli_response, response, convert_in_lower_case_if_present
+from srecli.group import (
+    ContextObj,
+    ViewCommand,
+    build_tenant_option,
+    cli_response,
+    convert_in_lower_case_if_present,
+    response,
+)
 from srecli.group.report_compliance import compliance
 from srecli.group.report_details import details
 from srecli.group.report_digests import digests
@@ -11,6 +16,7 @@ from srecli.group.report_push import push
 from srecli.group.report_raw import raw
 from srecli.group.report_resource import resource
 from srecli.group.report_rules import rules
+
 
 START_END_DATES_MISSING_MESSAGE = 'At least either --start_date and' \
                                   ' --end_date should be specified'

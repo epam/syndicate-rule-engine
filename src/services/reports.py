@@ -126,7 +126,7 @@ class JobMetricsDataSource:
             case None:
                 pass
         if job_state:
-            jobs = filter(lambda j: j.status is job_state, jobs)
+            jobs = filter(lambda j: j.status == job_state.value, jobs)
         return self.__class__(jobs)
 
     def __getitem__(self, key) -> Self:
