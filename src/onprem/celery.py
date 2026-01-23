@@ -96,7 +96,6 @@ app.conf.task_routes = {
     'onprem.tasks.run_update_metadata': {'queue': 'a-jobs'},
     'onprem.tasks.assemble_events': {'queue': 'b-scheduled'},
     'onprem.tasks.clear_events': {'queue': 'b-scheduled'},
-    'onprem.tasks.run_batch_results': {'queue': 'a-jobs'},
 }
 app.conf.timezone = Env.CELERY_TIMEZONE.as_str()
 app.conf.broker_connection_retry_on_startup = True
