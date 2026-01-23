@@ -78,14 +78,17 @@ def operational(
               required=False, help='Report type')
 @click.option('--receiver', '-r', multiple=True, type=str,
               help='Emails that will receive this notification')
+@click.option('--include_linked', '-il', is_flag=True,
+              default=False,
+              help="Indicates whether to include linked tenants' reports in the report")
 @cli_response()
-@require_maestro_integration(integration_type='rabbitmq')
 def project(
     ctx: ContextObj,
-    report_types,
-    tenant_display_name,
-    customer_id,
-    receiver,
+    report_types: tuple[str, ...],
+    tenant_display_name: str,
+    customer_id: str,
+    receiver: tuple[str, ...],
+    include_linked: bool = False,
 ):
     """
     Retrieves project-level reports for tenants
@@ -96,7 +99,8 @@ def project(
         tenant_display_names=[tenant_display_name],
         types=report_types,
         receivers=receiver,
-        customer_id=customer_id
+        customer_id=customer_id,
+        include_linked=include_linked,
     )
     if not res.ok:
         return res

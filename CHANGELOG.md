@@ -5,14 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.16.0] - 2025-12-15
+## [5.16.0] - 2026-01-05
 - Added validation of downloaded rulesets to ensure they are valid JSON
 - Added the parameter `overwrite_rulesets` for the `POST /licenses/{license_key}/sync` endpoint that allows to overwrite existing ruleset data in S3
 - Added the possibility to update the rulesource `type`, `git_url`, `git_ref`, `git_rules_prefix` and  `git_project_id` parameters in the `PATCH /rule-sources/{id}` endpoint
 - Added PATCH method to the endpoints `/settings/license-manager/config` and `/settings/license-manager/client`
 - Added the parameter `description` to the `POST /rulesets` and `PATCH /rulesets/{name}/{version}` endpoints
+- Added the possibility to scan linked tenants
+- Added the possibility to get project-level reports with linked tenants' reports included
 - Changed `created_at`, `updated_at`, and `expire_at` fields in resource exception responses to return human-readable ISO format dates instead of Unix timestamps
 - Changed the logic of validating ARNs in resource exception creation to check if the ARN exists in the resources database for the specific tenant
+- Fixed an issue with credentials environment variables when using PosixPath objects instead of strings for AZURE credentials
 - Updated `sre-init.sh` and `ami-initialize.sh` scripts
   - Added support contact email to critical error messages (License Manager, Helm failures)
   - Added success message after backup retry operations
@@ -20,6 +23,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed the log message in the report metrics to use dynamic database terminology based on the database type
 - Fixed an issue returning internal server error when operational reports are generated
 - Fixed an issue related to rewriting a k8s platform during creation if the type is not SELF_MANAGED
+- Fixed an issue with resource collection when pod killed during memory limit exceeded
+- Fixed license expiration updating in case of 404 status code returned from the license sync request
+- Updated versions of dependencies:
+    - `c7n` from `0.9.46` to `0.9.49`
+    - `c7n-azure` from `0.7.45` to `0.7.48`
+    - `c7n-gcp` from `0.4.45` to `0.4.48`
+    - `c7n-kube` from `0.2.45` to `0.2.48`
+    - `boto3` from `~=1.39.4` to `~=1.42.27`
+    - `botocore` from `~=1.39.4` to `~=1.42.27`
+    - `cryptography` from `~=44.0.2` to `~=45.0.7`
+    - `google-api-python-client` from `~=2.176.0` to `~=2.188.0`
+    - `google-auth` from `~=2.40.0` to `~=2.47.0`
 
 ## [5.15.0] - 2025-11-06
 - Added hiding expired resource exceptions
