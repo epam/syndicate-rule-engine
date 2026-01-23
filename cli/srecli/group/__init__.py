@@ -589,7 +589,6 @@ class ConditionalGroup(click.Group):
     """
     
     def __init__(self, *args, **kwargs):
-        # Store commands that require integration
         self._integration_commands: dict[str, IntegrationType] = {}
         super().__init__(*args, **kwargs)
     
