@@ -82,6 +82,7 @@ def operational(
               default=False,
               help="Indicates whether to include linked tenants' reports in the report")
 @cli_response()
+@require_maestro_integration(integration_type='rabbitmq')
 def project(
     ctx: ContextObj,
     report_types: tuple[str, ...],
