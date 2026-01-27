@@ -25,55 +25,74 @@ def patch_jobs():
     updated_count = 0
     skipped_count = 0
     error_count = 0
+    total_processed = 0
 
     try:
-        # Scan all jobs
         _LOG.info("Scanning all jobs from SREJobs table")
-        total_processed = 0
 
         for job in Job.scan():
             job: Job
-
+            job_id = job.id
             total_processed += 1
+
             try:
-                # Check if job_type attribute exists in raw attribute_values
+                # Check if job_type attribute exists and is None
                 # For old records, JOB_TYPE ('ty') might not be present
                 if hasattr(job, 'job_type') and job.job_type is None:
-                    _LOG.debug(f"Job {job.id} missing job_type, setting to STANDARD")
+                    _LOG.info(f"Job {job_id}: missing job_type, setting to STANDARD")
                     job.update(actions=[Job.job_type.set(JobType.STANDARD)])
                     updated_count += 1
+
                     if updated_count % COUNT_STEP == 0:
-                        _LOG.info(f"Updated {updated_count} jobs so far...")
+                        _LOG.info(
+                            f"Progress update: Updated {updated_count} jobs "
+                            f"(processed {total_processed} total)"
+                        )
                 else:
                     # Job already has job_type, skip
                     skipped_count += 1
-                    if skipped_count % COUNT_STEP == 0:
-                        _LOG.debug(
-                            f"Processed {skipped_count} jobs that already have job_type"
-                        )
+                    _LOG.info(f"Job {job_id}: already has job_type={job.job_type}, skipping")
 
+                # Periodic progress report
                 if total_processed % COUNT_STEP == 0:
                     _LOG.info(
-                        f"Processed {total_processed} jobs total. "
-                        f"Updated: {updated_count}, Skipped: {skipped_count}, Errors: {error_count}"
+                        f"Progress: Processed {total_processed} jobs "
+                        f"(Updated: {updated_count}, Skipped: {skipped_count}, "
+                        f"Errors: {error_count})"
                     )
+
             except Exception as e:
                 error_count += 1
-                _LOG.error(f"Error processing job {job.id}: {e}", exc_info=True)
+                _LOG.error(
+                    f"Failed to process job {job_id}: {e}",
+                    exc_info=True
+                )
                 # Continue processing other jobs even if one fails
 
         _LOG.info(
-            f"Migration completed. Updated: {updated_count}, "
-            f"Skipped: {skipped_count}, Errors: {error_count}"
+            f"Migration completed successfully. "
+            f"Total processed: {total_processed}, "
+            f"Updated: {updated_count}, Skipped: {skipped_count}, Errors: {error_count}"
         )
 
         if error_count > 0:
-            _LOG.warning(f"Migration completed with {error_count} errors")
+            _LOG.warning(
+                f"Migration completed with {error_count} error(s) out of "
+                f"{total_processed} total jobs processed"
+            )
             return 1
 
+        if updated_count == 0:
+            _LOG.info("No jobs required updates - all jobs already have job_type set")
+
         return 0
+
     except Exception as e:
         _LOG.exception(f"Unexpected error during migration: {e}")
+        _LOG.error(
+            f"Migration failed. Processed: {total_processed}, "
+            f"Updated: {updated_count}, Skipped: {skipped_count}, Errors: {error_count}"
+        )
         return 1
 
 
@@ -81,7 +100,7 @@ def main() -> int:
     try:
         return patch_jobs()
     except Exception as e:
-        _LOG.exception(f"Unexpected exception: {e}")
+        _LOG.exception(f"Fatal error in main: {e}")
         return 1
 
 
