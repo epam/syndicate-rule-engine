@@ -635,7 +635,6 @@ class ConditionalGroup(click.Group):
             try:
                 whoami_resp = api_client.whoami()
                 if whoami_resp.ok and whoami_resp.data:
-                    print(whoami_resp.data['data'])
                     customer_id = whoami_resp.data.get('data', {}).get('customer')
             except Exception:
                 pass
@@ -672,7 +671,7 @@ class ConditionalGroup(click.Group):
         commands = super().list_commands(ctx)
         
         # If no integration-dependent commands, return all
-        if not self._integration_commands:
+        if not self._integration_commands or Env.DEVELOPER_MODE.get():
             return commands
 
         has_self, has_rabbitmq = self._check_integration_availability(ctx)
