@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import operator
 import shutil
@@ -5,11 +7,12 @@ import sys
 import urllib.error
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone, timedelta
+from typing import Literal
 from functools import reduce, wraps
 from http import HTTPStatus
 from itertools import islice
 from pathlib import Path
-from typing import Any, Callable, TypedDict, cast
+from typing import Any, Callable, TypedDict, cast, TYPE_CHECKING
 
 import click
 from dateutil.parser import isoparse
@@ -21,6 +24,9 @@ from srecli.service.config import (
     SRECLIConfig,
     SREWithCliSDKConfig,
 )
+
+if TYPE_CHECKING:
+    from srecli.service.adapter_client import SREApiClient
 from srecli.service.constants import (
     CONTEXT_MODULAR_ADMIN_USERNAME,
     DATA_ATTR,
@@ -53,6 +59,43 @@ except ImportError:
 
 
 _LOG = get_logger(__name__)
+
+IntegrationType = Literal['self', 'rabbitmq', 'both']
+
+
+def fetch_and_cache_system_customer_name(
+    api_client: SREApiClient,
+    config: AbstractSREConfig,
+    force_refresh: bool = False,
+) -> str | None:
+    """
+    Fetch system customer name from health check endpoint and cache it.
+    
+    :param api_client: API client instance
+    :param config: Config instance to cache the value
+    :param force_refresh: If True, ignore cache and fetch fresh value
+    :return: System customer name or None if unable to retrieve
+    """
+    # Try to get from cache first (unless forcing refresh)
+    if not force_refresh:
+        cached_name = config.system_customer_name
+        if cached_name:
+            return cached_name
+    
+    # Fetch from health check endpoint
+    try:
+        health_resp = api_client.health_check_get('system_customer_setting')
+        if health_resp.ok and health_resp.data:
+            details = health_resp.data.get('data', {}).get('details', {})
+            system_customer_name = details.get('name')
+            if system_customer_name:
+                # Cache it for future use
+                config.system_customer_name = system_customer_name
+                return system_customer_name
+    except Exception:
+        _LOG.debug('Could not fetch system customer name from health check', exc_info=True)
+    
+    return None
 
 
 def _get_dynamic_date_example(
@@ -539,11 +582,193 @@ class ViewCommand(click.core.Command):
                 p.help = f'{p.help} [multiple]'
 
 
+class ConditionalGroup(click.Group):
+    """
+    A custom Group class that can conditionally hide commands based on
+    Maestro integration availability.
+    """
+    
+    def __init__(self, *args, **kwargs):
+        self._integration_commands: dict[str, IntegrationType] = {}
+        super().__init__(*args, **kwargs)
+    
+    def add_command(self, cmd: click.Command, name: str | None = None) -> None:
+        """Override to track commands that require integration."""
+        super().add_command(cmd, name)
+        # Check if command has integration requirement marker
+        if cmd.callback and hasattr(cmd.callback, '_requires_maestro_integration'):
+            cmd_name = name or cmd.name
+            if cmd_name:
+                integration_type = getattr(cmd.callback, '_requires_maestro_integration')
+                self._integration_commands[cmd_name] = integration_type
+    
+    def _check_integration_availability(
+        self, ctx: click.Context
+    ) -> tuple[bool, bool]:
+        """
+        Check if self and rabbitmq integrations are available.
+        Returns (has_self_integration, has_rabbitmq_integration).
+        """
+        has_self = False
+        has_rabbitmq = False
+        
+        try:
+            # Ensure context is updated
+            if not isinstance(ctx.obj, dict) or 'api_client' not in ctx.obj:
+                cli_response().update_context(ctx)
+            
+            obj: ContextObj = cast(ContextObj, ctx.obj)
+            api_client = obj['api_client']
+            config = obj['config']
+            
+            if not config.api_link or not config.access_token:
+                return (False, False)
+            
+            # Get system customer name (cached or fetched)
+            system_customer_name = fetch_and_cache_system_customer_name(
+                api_client=api_client,
+                config=config,
+            )
+            
+            # Try to get customer_id from whoami
+            customer_id = None
+            try:
+                whoami_resp = api_client.whoami()
+                if whoami_resp.ok and whoami_resp.data:
+                    customer_id = whoami_resp.data.get('data', {}).get('customer')
+            except Exception:
+                pass
+            
+            if not customer_id:
+                return (False, False)
+
+            if system_customer_name and customer_id == system_customer_name:
+                # System user has access to all integrations
+                return (True, True)
+            
+            # Check self integration
+            try:
+                resp = api_client.sre_describe(customer_id=customer_id)
+                has_self = resp.ok and resp.code != HTTPStatus.NOT_FOUND
+            except Exception:
+                pass
+            
+            # Check RabbitMQ integration
+            try:
+                resp = api_client.rabbitmq_get(customer_id=customer_id)
+                has_rabbitmq = resp.ok and resp.code != HTTPStatus.NOT_FOUND
+            except Exception:
+                pass
+            
+        except Exception:
+            _LOG.debug('Could not check integration availability', exc_info=True)
+            return (False, False)
+        
+        return (has_self, has_rabbitmq)
+    
+    def list_commands(self, ctx: click.Context) -> list[str]:
+        """Override to filter commands based on integration availability."""
+        commands = super().list_commands(ctx)
+        
+        # If no integration-dependent commands, return all
+        if not self._integration_commands or Env.DEVELOPER_MODE.get():
+            return commands
+
+        has_self, has_rabbitmq = self._check_integration_availability(ctx)
+        
+        # Filter commands based on integration requirements
+        filtered_commands = []
+        for cmd_name in commands:
+            if cmd_name not in self._integration_commands:
+                # Command doesn't require integration, always show
+                filtered_commands.append(cmd_name)
+            else:
+                # Check if required integration is available
+                required_type = self._integration_commands[cmd_name]
+                if required_type == 'self' and has_self:
+                    filtered_commands.append(cmd_name)
+                elif required_type == 'rabbitmq' and has_rabbitmq:
+                    filtered_commands.append(cmd_name)
+                elif required_type == 'both' and has_self and has_rabbitmq:
+                    filtered_commands.append(cmd_name)
+        
+        return filtered_commands
+
+
 def response(*args, **kwargs):
     if kwargs.get('err'):
         kwargs['code'] = HTTPStatus.BAD_REQUEST
     kwargs.pop('err', None)
     return SREResponse.build(*args, **kwargs)
+
+
+def require_maestro_integration(
+    integration_type: IntegrationType = 'both'
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """
+    Decorator to require Maestro integration before executing command.
+    
+    This decorator checks if the required Maestro integration(s) are configured
+    for the customer before allowing the command to execute.
+    
+    Note: This decorator should be placed AFTER @cli_response decorator
+    in the decorator chain, as it needs the context to be updated by cli_response.
+    The decorator will ensure context is updated if cli_response hasn't been used.
+    
+    :param integration_type: Type of integration to check:
+        - 'self': Check for self integration (CUSTODIAN application)
+        - 'rabbitmq': Check for RabbitMQ integration
+        - 'both': Check for both integrations
+    :raises click.UsageError: If the required integration is not configured
+    """
+    def decorator(func: Callable) -> Callable:
+        # mark function as requiring integration
+        setattr(func, '_requires_maestro_integration', integration_type)
+        
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            ctx = cast(click.Context, click.get_current_context())
+            
+            # Ensure context is updated (api_client and config are available)
+            # This will be done by cli_response if it's used, but we ensure it here too
+            if not isinstance(ctx.obj, dict) or 'api_client' not in ctx.obj:
+                cli_response().update_context(ctx)
+            
+            obj: ContextObj = cast(ContextObj, ctx.obj)
+            api_client = obj['api_client']
+            
+            customer_id = kwargs.get('customer_id')
+            
+            if not customer_id:
+                raise click.UsageError(
+                    'Customer ID is required to check Maestro integration. '
+                    'Please specify --customer_id or configure it.'
+                )
+            
+            check_self = integration_type in ('self', 'both')
+            check_rabbitmq = integration_type in ('rabbitmq', 'both')
+            
+            if check_self:
+                # Check self integration
+                resp = api_client.sre_describe(customer_id=customer_id)
+                if not resp.ok or resp.code == HTTPStatus.NOT_FOUND:
+                    raise click.UsageError(
+                        'Maestro self integration is not configured for this customer. '
+                        'Run \'sre integrations re add\' to create it.'
+                    )
+            
+            if check_rabbitmq:
+                # Check RabbitMQ integration
+                resp = api_client.rabbitmq_get(customer_id=customer_id)
+                if not resp.ok or resp.code == HTTPStatus.NOT_FOUND:
+                    raise click.UsageError(
+                        'RabbitMQ integration is not configured for this customer. '
+                        'Run \'sre customer rabbitmq add\' to create it.'
+                    )
+            
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
 
 
 # callbacks

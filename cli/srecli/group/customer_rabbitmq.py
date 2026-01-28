@@ -1,9 +1,14 @@
 import click
+from srecli.group import (
+    ConditionalGroup,
+    ContextObj,
+    ViewCommand,
+    cli_response,
+    require_maestro_integration,
+)
 
-from srecli.group import ContextObj, ViewCommand, cli_response
 
-
-@click.group(name='rabbitmq')
+@click.group(name='rabbitmq', cls=ConditionalGroup)
 def rabbitmq():
     """
     Manages RabbitMQ configuration for a customer
@@ -44,6 +49,7 @@ def describe(ctx: ContextObj, **kwargs):
 
 @rabbitmq.command(cls=ViewCommand, name='delete')
 @cli_response()
+@require_maestro_integration(integration_type='rabbitmq')
 def delete(ctx: ContextObj, **kwargs):
     """
     Removes rabbitMQ configuration for your customer

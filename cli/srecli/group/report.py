@@ -1,7 +1,14 @@
 import click
-
-from srecli.group import ContextObj, ViewCommand, build_tenant_option, \
-    cli_response, response, convert_in_lower_case_if_present
+from srecli.group import (
+    ConditionalGroup,
+    ContextObj,
+    ViewCommand,
+    build_tenant_option,
+    cli_response,
+    convert_in_lower_case_if_present,
+    require_maestro_integration,
+    response,
+)
 from srecli.group.report_compliance import compliance
 from srecli.group.report_details import details
 from srecli.group.report_digests import digests
@@ -12,13 +19,14 @@ from srecli.group.report_raw import raw
 from srecli.group.report_resource import resource
 from srecli.group.report_rules import rules
 
+
 START_END_DATES_MISSING_MESSAGE = 'At least either --start_date and' \
                                   ' --end_date should be specified'
 REPORT_JOB_MISSING_PARAMS_MESSAGE = 'Either \'--account_name\' or ' \
                                     '\'--job_id\' must be specified'
 
 
-@click.group(name='report')
+@click.group(name='report', cls=ConditionalGroup)
 def report():
     """Manages reports"""
 
@@ -32,10 +40,18 @@ def report():
 @click.option('--receiver', '-r', multiple=True, type=str,
               help='Emails that will receive this notification')
 @cli_response()
-def operational(ctx: ContextObj, tenant_name, report_types, customer_id,
-                receiver):
+@require_maestro_integration(integration_type='rabbitmq')
+def operational(
+    ctx: ContextObj,
+    tenant_name,
+    report_types,
+    customer_id,
+    receiver,
+):
     """
     Retrieves operational-level reports
+    
+    Requires RabbitMQ integration to send reports to Maestro.
     """
     res = ctx['api_client'].operational_report_post(
         tenant_names=tenant_name,
@@ -45,7 +61,7 @@ def operational(ctx: ContextObj, tenant_name, report_types, customer_id,
     )
     if not res.ok:
         return res
-    report_id = res.data.get('data', {}).get('report_id')
+    report_id = (res.data or {}).get('data', {}).get('report_id')
     if not report_id:
         return res
     return response(
@@ -66,6 +82,7 @@ def operational(ctx: ContextObj, tenant_name, report_types, customer_id,
               default=False,
               help="Indicates whether to include linked tenants' reports in the report")
 @cli_response()
+@require_maestro_integration(integration_type='rabbitmq')
 def project(
     ctx: ContextObj,
     report_types: tuple[str, ...],
@@ -76,6 +93,8 @@ def project(
 ):
     """
     Retrieves project-level reports for tenants
+    
+    Requires RabbitMQ integration to send reports to Maestro.
     """
     res = ctx['api_client'].project_report_post(
         tenant_display_names=[tenant_display_name],
@@ -86,7 +105,7 @@ def project(
     )
     if not res.ok:
         return res
-    report_id = res.data.get('data', {}).get('report_id')
+    report_id = (res.data or {}).get('data', {}).get('report_id')
     if not report_id:
         return res
     return response(
@@ -101,9 +120,16 @@ def project(
      'TOP_TENANTS_ATTACKS', 'TOP_ATTACK_BY_CLOUD')), required=False,
               help='Report type')
 @cli_response()
-def department(ctx: ContextObj, report_types, customer_id):
+@require_maestro_integration(integration_type='rabbitmq')
+def department(
+    ctx: ContextObj,
+    report_types,
+    customer_id,
+):
     """
     Retrieves department-level reports
+    
+    Requires RabbitMQ integration to send reports to Maestro.
     """
     res = ctx['api_client'].department_report_post(
         types=report_types,
@@ -111,7 +137,7 @@ def department(ctx: ContextObj, report_types, customer_id):
     )
     if not res.ok:
         return res
-    report_id = res.data.get('data', {}).get('report_id')
+    report_id = (res.data or {}).get('data', {}).get('report_id')
     if not report_id:
         return res
     return response(
@@ -126,9 +152,17 @@ def department(ctx: ContextObj, report_types, customer_id):
 @click.option('--receiver', '-r', multiple=True, type=str,
               help='Emails that will receive this notification')
 @cli_response()
-def clevel(ctx: ContextObj, report_types, receiver, customer_id):
+@require_maestro_integration(integration_type='rabbitmq')
+def clevel(
+    ctx: ContextObj,
+    report_types,
+    receiver,
+    customer_id,
+):
     """
     Retrieves c-level reports
+    
+    Requires RabbitMQ integration to send reports to Maestro.
     """
     res = ctx['api_client'].c_level_report_post(
         types=report_types,
@@ -137,7 +171,7 @@ def clevel(ctx: ContextObj, report_types, receiver, customer_id):
     )
     if not res.ok:
         return res
-    report_id = res.data.get('data', {}).get('report_id')
+    report_id = (res.data or {}).get('data', {}).get('report_id')
     if not report_id:
         return res
     return response(
@@ -145,15 +179,16 @@ def clevel(ctx: ContextObj, report_types, receiver, customer_id):
     )
 
 
-@report.command(cls=ViewCommand, name='diagnostic')
-@cli_response()
-def diagnostic(ctx: ContextObj, customer_id):
-    """
-    Retrieves diagnostic reports
-    """
-    return ctx['api_client'].diagnostic_report_get(
-        customer_id=customer_id
-    )
+# TODO: currently not supported
+# @report.command(cls=ViewCommand, name='diagnostic')
+# @cli_response()
+# def diagnostic(ctx: ContextObj, customer_id):
+#     """
+#     Retrieves diagnostic reports
+#     """
+#     return ctx['api_client'].diagnostic_report_get(
+#         customer_id=customer_id
+#     )
 
 
 @report.command(cls=ViewCommand, name='status')

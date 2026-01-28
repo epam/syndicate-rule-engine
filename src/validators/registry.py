@@ -1178,15 +1178,16 @@ data: tuple[EndpointInfo, ...] = (
         permission=Permission.REPORT_CLEVEL,
         description='Allows to request clevel report'
     ),
-    EndpointInfo(
-        path=Endpoint.REPORTS_DIAGNOSTIC,
-        method=HTTPMethod.GET,
-        lambda_name=LambdaName.REPORT_GENERATOR,
-        request_model=BaseModel,
-        responses=[(HTTPStatus.OK, MessageModel, None)],
-        permission=Permission.REPORT_DIAGNOSTIC,
-        description='Allows to get diagnostic report'
-    ),
+    # TODO: currently not supported
+    # EndpointInfo(
+    #     path=Endpoint.REPORTS_DIAGNOSTIC,
+    #     method=HTTPMethod.GET,
+    #     lambda_name=LambdaName.REPORT_GENERATOR,
+    #     request_model=BaseModel,
+    #     responses=[(HTTPStatus.OK, MessageModel, None)],
+    #     permission=Permission.REPORT_DIAGNOSTIC,
+    #     description='Allows to get diagnostic report'
+    # ),
     EndpointInfo(
         path=Endpoint.REPORTS_STATUS,
         method=HTTPMethod.GET,
