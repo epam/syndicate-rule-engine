@@ -391,13 +391,7 @@ class MaestroEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
             elif cloud == Cloud.GOOGLE.value:
                 region = GLOBAL_REGION
             else:
-                region = deep_get(
-                    event,
-                    (
-                        MA_EVENT_METADATA,
-                        MA_REGION_NAME,
-                    ),
-                )  # TODO: remove this after testing
+                region = deep_get(event, (MA_REGION_NAME,))
             if not all((cloud, tenant_name, region)):
                 _LOG.debug(
                     f"Skipping event: {event} because of missing required data: "
