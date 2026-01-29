@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from helpers.log_helper import get_logger
 from models.job import Job
 from services.clients.batch import (
@@ -8,6 +12,9 @@ from services.clients.batch import (
 )
 from services.environment_service import EnvironmentService
 
+if TYPE_CHECKING:
+    from modular_sdk.models.tenant import Tenant
+    from services.license_service import License, LicenseService
 
 _LOG = get_logger(__name__)
 
@@ -76,3 +83,34 @@ class SubmitJobToBatchMixin:
             _LOG.debug(f"Celery job was submitted: {response}")
 
         return response
+
+
+class EventDrivenLicenseMixin:
+    """
+    Mixin for retrieving event-driven licenses for tenants.
+    Requires _license_service attribute to be present in the class.
+    """
+
+    _license_service: LicenseService
+
+    def get_allowed_event_driven_license(self, tenant: Tenant) -> License | None:
+        """
+        Makes all the necessary steps to retrieve a license item, which
+        allows event-driven for the given tenant if such a license exists
+        """
+        lic = self._license_service.get_tenant_license(tenant)
+        if not lic:
+            _LOG.info(f"Tenant {tenant} does not have linked license")
+            return
+        if lic.is_expired():
+            _LOG.info(f"The license {lic.license_key}has expired")
+            return
+        if not self._license_service.is_subject_applicable(
+            lic=lic, customer=tenant.customer_name, tenant_name=tenant.name
+        ):
+            _LOG.info(f"License {lic.license_key} is not applicable")
+            return
+        if not lic.event_driven.get("active"):
+            _LOG.info(f"Event driven is not active for " f"license {lic.license_key}")
+            return
+        return lic

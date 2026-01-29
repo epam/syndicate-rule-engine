@@ -3,7 +3,7 @@ import io
 import tempfile
 import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Generator, cast
+from typing import TYPE_CHECKING, Generator, Protocol, cast
 from dateutil.relativedelta import relativedelta
 
 import msgspec
@@ -107,7 +107,8 @@ class RuleMetadata(
     Represents the formation in which per rule metadata is returned from LM and
     is stored
     """
-
+     
+    cloud: str
     source: str
     category: str
     service_section: str
@@ -118,6 +119,7 @@ class RuleMetadata(
     article: str
     impact: str
     remediation: str
+    events: dict | None = msgspec.field(default=None)
     standard: dict[str, dict[str, tuple[str, ...]]] = msgspec.field(
         default_factory=dict
     )
@@ -216,6 +218,7 @@ class DomainMetadata(
 
 
 EMPTY_RULE_METADATA = RuleMetadata(
+    cloud='',
     source='',
     category='',
     service_section='',
@@ -248,6 +251,7 @@ class Metadata(msgspec.Struct, frozen=True, eq=False):
             return EMPTY_RULE_METADATA
         index = RuleIndex(comment)
         return RuleMetadata(
+            cloud=index.cloud or '',
             source=index.source or '',
             category=index.category or '',
             service_section=index.service_section or '',
@@ -287,8 +291,31 @@ def merge_metadata(*metadata: Metadata) -> Metadata:
     return Metadata(rules=rules, domains=domains)
 
 
+class MetadataRefreshHook(Protocol):
+    """
+    Hook to be called when metadata is refreshed from LM.
+    """
+
+    def on_refresh(
+        self,
+        metadata: Metadata,
+        license_key: str,
+        version: Version,
+    ) -> None:
+        """
+        Called when metadata is refreshed from LM.
+        Can be used to collect mappings from metadata.
+
+        Args:
+            metadata: Metadata object that was refreshed from LM.
+            license_key: License key that was used to save metadata.
+            version: Version of metadata that was saved.
+        """
+        pass
+
+
 class MetadataProvider:
-    __slots__ = '_lm', '_s3', '_env', '_cache'
+    __slots__ = '_lm', '_s3', '_env', '_cache', '_hooks'
     _dec = msgspec.msgpack.Decoder(type=Metadata)
 
     def __init__(
@@ -296,10 +323,12 @@ class MetadataProvider:
         lm_service: 'LicenseManagerService',
         s3_client: 'S3Client',
         environment_service: 'EnvironmentService',
+        hooks: list[MetadataRefreshHook] | None = None,
     ):
         self._lm = lm_service
         self._s3 = s3_client
         self._env = environment_service
+        self._hooks: list[MetadataRefreshHook] = hooks or []
 
         # cache for 30 minutes
         self._cache = cache.factory(ttu=lambda a, b, now: now + 1800)
@@ -433,12 +462,19 @@ class MetadataProvider:
             body=data,
             content_encoding='gzip',
         )
-        
+
         meta = self._dec.decode(gzip.decompress(data))
+
         _LOG.info('Updating cache with refreshed metadata')
         self._save_to_cache(
             license_key=lic.license_key, 
             version=version, 
             meta=meta,
         )
+        for hook in self._hooks:
+            hook.on_refresh(
+                metadata=meta,
+                license_key=lic.license_key,
+                version=version,
+            )
         return meta

@@ -369,12 +369,34 @@ class RulesetsBucketKeys:
     __slots__ = ()
     licensed = 'licensed/'
     standard = 'standard/'
+    events = 'events/'
+    json_suffix = '.json.gz'
     data = 'data.gz'
 
     @classmethod
     def licensed_ruleset_key(cls, name: str, version: str) -> str:
         return S3Client.safe_key(
             urljoin(cls.licensed, name, version, cls.data)
+        )
+
+    @classmethod
+    def licensed_event_mapping_key(
+        cls,
+        name: str,
+        version: str,
+        cloud: Cloud | str,
+    ) -> str:
+        if isinstance(cloud, Cloud):
+                cloud = cloud.value
+        file_name = cloud + cls.json_suffix
+        return S3Client.safe_key(
+            urljoin(
+                cls.licensed,
+                name, 
+                version,
+                cls.events,
+                file_name,
+            )
         )
 
     @classmethod
