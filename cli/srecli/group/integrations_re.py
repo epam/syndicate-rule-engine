@@ -1,15 +1,16 @@
 import click
-
 from srecli.group import (
+    ConditionalGroup,
     ContextObj,
     ViewCommand,
     build_tenant_option,
     cli_response,
+    require_maestro_integration,
 )
 from srecli.service.constants import AWS, AZURE, GOOGLE, KUBERNETES
 
 
-@click.group(name='re')
+@click.group(name='re', cls=ConditionalGroup)
 def re():
     """
     Manages Rule engine integration (self integration for Maestro)
@@ -95,7 +96,11 @@ def describe(ctx: ContextObj, customer_id):
 
 @re.command(cls=ViewCommand, name='delete')
 @cli_response()
-def delete(ctx: ContextObj, customer_id):
+@require_maestro_integration(integration_type='self')
+def delete(
+    ctx: ContextObj,
+    customer_id,
+):
     """
     Deletes self integration
     """
@@ -108,6 +113,7 @@ def delete(ctx: ContextObj, customer_id):
 @click.option('--exclude_tenant', '-et', type=str, multiple=True,
               help='Tenants to deactivate')
 @cli_response()
+@require_maestro_integration(integration_type='self')
 def update(ctx: ContextObj, customer_id, add_tenant, exclude_tenant):
     """
     Allows to add and remove specific tenants from the activation

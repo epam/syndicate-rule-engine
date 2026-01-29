@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed the parameter `--description` from not required to required in the command `platform k8s create`
 - Unified alias names for the `--location` to `-loc` across all the commands
 - Added the parameter `--include_linked` to the command `report project`
+- Hidden unused command `sre report diagnostic` from the CLI
+- Added logic for checking integration availability in the CLI for hiding commands that require integrations and that are not available without them
+
 
 ## [5.10.0] - 2025-10-16
 - Added the flag `--include_expired` to the command `resource exception describe` to allow retrieving expired resource exceptions

@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `cryptography` from `~=44.0.2` to `~=45.0.7`
     - `google-api-python-client` from `~=2.176.0` to `~=2.188.0`
     - `google-auth` from `~=2.40.0` to `~=2.47.0`
+- Hidden unused endpoint `GET /reports/diagnostic` from the API
 
 ## [5.15.0] - 2025-11-06
 - Added hiding expired resource exceptions
