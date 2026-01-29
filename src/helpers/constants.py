@@ -12,6 +12,13 @@ from typing_extensions import Self
 # from http import HTTPMethod  # python3.11+
 
 
+APP_NAME = 'sre'
+"""Application name in lower case."""
+
+APP_NAME_UPPER = APP_NAME.upper()
+"""Application name in upper case."""
+
+
 class HTTPMethod(str, Enum):
     HEAD = 'HEAD'
     GET = 'GET'

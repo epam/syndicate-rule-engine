@@ -3,6 +3,7 @@
 MAPPING = {
     "INSTANCE": {
         "COMMAND": [
+            # path: some_mapping["compute.googleapis.com"]["beta.compute.images.setIamPolicy"] => list[str] with rules
             ["compute.googleapis.com", "beta.compute.images.setIamPolicy"],
             [
                 "compute.googleapis.com",

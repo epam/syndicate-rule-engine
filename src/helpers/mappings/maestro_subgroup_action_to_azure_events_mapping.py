@@ -2,6 +2,7 @@
 MAPPING = {
     "INSTANCE": {
         "COMMAND": [
+            # path: some_mapping["Microsoft.Compute"]["Microsoft.Compute/snapshots/write"] => list[str] with rules
             ["Microsoft.Compute", "Microsoft.Compute/snapshots/write"],
             ["Microsoft.Compute", "Microsoft.Compute/snapshots/delete"],
             ["Microsoft.Compute", "Microsoft.Compute/virtualMachines/write"],

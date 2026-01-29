@@ -25,7 +25,7 @@ from helpers.constants import (
 )
 from helpers.lambda_response import LambdaOutput, build_response
 from helpers.log_helper import get_logger
-from helpers.mixins import SubmitJobToBatchMixin
+from helpers.mixins import EventDrivenLicenseMixin, SubmitJobToBatchMixin
 from models.job import Job
 from models.setting import Setting
 from services import SERVICE_PROVIDER, modular_helpers
@@ -34,7 +34,7 @@ from services.clients.batch import (
     CeleryJobClient,
 )
 from services.environment_service import EnvironmentService
-from services.event_processor_service import (
+from services.event_driven.event_processor_service import (
     AccountRegionRuleMap,
     BaseEventProcessor,
     CloudTenantRegionRulesMap,
@@ -43,7 +43,7 @@ from services.event_processor_service import (
     MaestroEventProcessor,
     RegionRuleMap,
 )
-from services.event_service import Event, EventService
+from services.event_driven.event_service import Event, EventService
 from services.job_service import JobService
 from services.license_service import License, LicenseService
 from services.ruleset_service import Ruleset, RulesetService
@@ -64,7 +64,7 @@ DEFAULT_UNRESOLVED_RESPONSE = "Request has run into an unresolvable issue."
 _LOG = get_logger(__name__)
 
 
-class EventAssemblerHandler(SubmitJobToBatchMixin):
+class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
     """Assembles events and processes them."""
 
     def __init__(
@@ -127,28 +127,6 @@ class EventAssemblerHandler(SubmitJobToBatchMixin):
             tenant_settings_service=SERVICE_PROVIDER.modular_client.tenant_settings_service(),
         )
 
-    def get_allowed_event_driven_license(self, tenant: Tenant) -> License | None:
-        """
-        Makes all the necessary steps to retrieve a license item, which
-        allows event-driven for the given tenant if such a license exists
-        """
-        lic = self._license_service.get_tenant_license(tenant)
-        if not lic:
-            _LOG.info(f"Tenant {tenant} does not have linked license")
-            return
-        if lic.is_expired():
-            _LOG.info(f"The license {lic.license_key}has expired")
-            return
-        if not self._license_service.is_subject_applicable(
-            lic=lic, customer=tenant.customer_name, tenant_name=tenant.name
-        ):
-            _LOG.info(f"License {lic.license_key} is not applicable")
-            return
-        if not lic.event_driven.get("active"):
-            _LOG.info(f"Event driven is not active for " f"license {lic.license_key}")
-            return
-        return lic
-
     def handler(
         self,
         event: MutableMapping | None = None,
@@ -158,13 +136,13 @@ class EventAssemblerHandler(SubmitJobToBatchMixin):
         # Collect all events since the last execution.
         _LOG.info("Going to obtain cursor value of the event assembler.")
         event_cursor = None
-        config = self._settings_service.get_event_assembler_configuration()
-        if isinstance(config, dict) and EVENT_CURSOR_TIMESTAMP_ATTR in config:
-            event_cursor = float(config[EVENT_CURSOR_TIMESTAMP_ATTR])
-        elif (
-            isinstance(config, Setting) and EVENT_CURSOR_TIMESTAMP_ATTR in config.value
-        ):
-            event_cursor = float(config.value[EVENT_CURSOR_TIMESTAMP_ATTR])
+        # config = self._settings_service.get_event_assembler_configuration()
+        # if isinstance(config, dict) and EVENT_CURSOR_TIMESTAMP_ATTR in config:
+        #     event_cursor = float(config[EVENT_CURSOR_TIMESTAMP_ATTR])
+        # elif (
+        #     isinstance(config, Setting) and EVENT_CURSOR_TIMESTAMP_ATTR in config.value
+        # ):
+        #     event_cursor = float(config.value[EVENT_CURSOR_TIMESTAMP_ATTR])
         _LOG.info(f"Cursor was obtained: {event_cursor}")
         # Establishes Events: List[$oldest, ... $nearest]
         events = self._obtain_events(since=event_cursor)
@@ -181,10 +159,10 @@ class EventAssemblerHandler(SubmitJobToBatchMixin):
 
         start_event = events[0]
         end_event = events[-1]
-        config = self._settings_service.create_event_assembler_configuration(
-            cursor=end_event.timestamp
-        )
-        self._settings_service.save(setting=config)
+        # config = self._settings_service.create_event_assembler_configuration(
+        #     cursor=end_event.timestamp
+        # )
+        # self._settings_service.save(setting=config)
         _LOG.info(
             "Cursor value of the event assembler has bee updated "
             f"to - {end_event.timestamp}"
@@ -437,6 +415,7 @@ class EventAssemblerHandler(SubmitJobToBatchMixin):
             if event.vendor not in vendor_processor:
                 _LOG.warning(f"Not known vendor: {event.vendor}. Skipping")
                 continue
+            _LOG.debug(f"Processing event: {event!r} by vendor: {event.vendor!r}")
             processor: BaseEventProcessor = vendor_processor[event.vendor]
             processor.events.extend(event.events)  # type: ignore[arg-type]
         _LOG.info("All the vendor-processors are initialized with events")
@@ -445,12 +424,17 @@ class EventAssemblerHandler(SubmitJobToBatchMixin):
         maestro_proc = vendor_processor[MAESTRO_VENDOR]
         if isinstance(maestro_proc, MaestroEventProcessor):
             it = maestro_proc.without_duplicates(maestro_proc.prepared_events())
-            result[MAESTRO_VENDOR] = maestro_proc.cloud_tenant_region_rules_map(it)
+            _res = maestro_proc.cloud_tenant_region_rules_map(it)
+            if _res:
+                result[MAESTRO_VENDOR] = _res
 
         aws_proc = vendor_processor[AWS_VENDOR]
         if isinstance(aws_proc, EventBridgeEventProcessor):
             it = aws_proc.without_duplicates(aws_proc.prepared_events())
-            result[AWS_VENDOR] = aws_proc.account_region_rule_map(it)
+            _res = aws_proc.account_region_rule_map(it)
+            if _res:
+                result[AWS_VENDOR] = _res
+    
         return result
 
     def _obtain_tenant(self, name: str) -> Tenant | None:

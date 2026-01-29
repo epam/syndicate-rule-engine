@@ -23,8 +23,7 @@ if TYPE_CHECKING:
     from services.clients.sts import StsClient
     from services.defect_dojo_service import DefectDojoService
     from services.environment_service import EnvironmentService
-    from services.event_processor_service import EventProcessorService
-    from services.event_service import EventService
+    from services.event_driven import EventProcessorService, EventMappingCollector, EventService
     from services.integration_service import IntegrationService
     from services.job_service import JobService
     from services.license_manager_service import LicenseManagerService
@@ -164,10 +163,13 @@ class ServiceProvider(metaclass=SingletonMeta):
 
     @cached_property
     def event_processor_service(self) -> EventProcessorService:
-        from services.event_processor_service import EventProcessorService
+        from services.event_driven.event_processor_service import EventProcessorService
         return EventProcessorService(
             environment_service=self.environment_service,
             sts_client=self.sts,
+            license_service=self.license_service,
+            event_mapping_provider=self.event_mapping_collector,
+            tenant_service=self.modular_client.tenant_service(),
         )
 
     @cached_property
@@ -210,8 +212,16 @@ class ServiceProvider(metaclass=SingletonMeta):
 
     @cached_property
     def event_service(self) -> 'EventService':
-        from services.event_service import EventService
+        from services.event_driven import EventService
         return EventService(environment_service=self.environment_service)
+    
+    @cached_property
+    def event_mapping_collector(self) -> 'EventMappingCollector':
+        from services.event_driven import EventMappingCollector
+        return EventMappingCollector(
+            s3_client=self.s3,
+            environment_service=self.environment_service
+        )
 
     @cached_property
     def report_service(self) -> 'ReportService':
@@ -295,7 +305,8 @@ class ServiceProvider(metaclass=SingletonMeta):
         return MetadataProvider(
             lm_service=self.license_manager_service,
             s3_client=self.s3,
-            environment_service=self.environment_service
+            environment_service=self.environment_service,
+            hooks=[self.event_mapping_collector]
         )
 
     @cached_property
