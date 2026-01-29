@@ -45,7 +45,7 @@ from services.event_driven.event_processor_service import (
 )
 from services.event_driven.event_service import Event, EventService
 from services.job_service import JobService
-from services.license_service import License, LicenseService
+from services.license_service import LicenseService
 from services.ruleset_service import Ruleset, RulesetService
 from services.setting_service import (
     EVENT_CURSOR_TIMESTAMP_ATTR,
@@ -136,13 +136,13 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
         # Collect all events since the last execution.
         _LOG.info("Going to obtain cursor value of the event assembler.")
         event_cursor = None
-        # config = self._settings_service.get_event_assembler_configuration()
-        # if isinstance(config, dict) and EVENT_CURSOR_TIMESTAMP_ATTR in config:
-        #     event_cursor = float(config[EVENT_CURSOR_TIMESTAMP_ATTR])
-        # elif (
-        #     isinstance(config, Setting) and EVENT_CURSOR_TIMESTAMP_ATTR in config.value
-        # ):
-        #     event_cursor = float(config.value[EVENT_CURSOR_TIMESTAMP_ATTR])
+        config = self._settings_service.get_event_assembler_configuration()
+        if isinstance(config, dict) and EVENT_CURSOR_TIMESTAMP_ATTR in config:
+            event_cursor = float(config[EVENT_CURSOR_TIMESTAMP_ATTR])
+        elif (
+            isinstance(config, Setting) and EVENT_CURSOR_TIMESTAMP_ATTR in config.value
+        ):
+            event_cursor = float(config.value[EVENT_CURSOR_TIMESTAMP_ATTR])
         _LOG.info(f"Cursor was obtained: {event_cursor}")
         # Establishes Events: List[$oldest, ... $nearest]
         events = self._obtain_events(since=event_cursor)
@@ -159,10 +159,10 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
 
         start_event = events[0]
         end_event = events[-1]
-        # config = self._settings_service.create_event_assembler_configuration(
-        #     cursor=end_event.timestamp
-        # )
-        # self._settings_service.save(setting=config)
+        config = self._settings_service.create_event_assembler_configuration(
+            cursor=end_event.timestamp
+        )
+        self._settings_service.save(setting=config)
         _LOG.info(
             "Cursor value of the event assembler has bee updated "
             f"to - {end_event.timestamp}"

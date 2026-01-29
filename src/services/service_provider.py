@@ -23,7 +23,12 @@ if TYPE_CHECKING:
     from services.clients.sts import StsClient
     from services.defect_dojo_service import DefectDojoService
     from services.environment_service import EnvironmentService
-    from services.event_driven import EventProcessorService, EventMappingCollector, EventService
+    from services.event_driven import (
+        EventProcessorService,
+        EventMappingCollector,
+        EventService,
+        S3EventMappingProvider,
+    )
     from services.integration_service import IntegrationService
     from services.job_service import JobService
     from services.license_manager_service import LicenseManagerService
@@ -163,12 +168,12 @@ class ServiceProvider(metaclass=SingletonMeta):
 
     @cached_property
     def event_processor_service(self) -> EventProcessorService:
-        from services.event_driven.event_processor_service import EventProcessorService
+        from services.event_driven import EventProcessorService
         return EventProcessorService(
             environment_service=self.environment_service,
             sts_client=self.sts,
             license_service=self.license_service,
-            event_mapping_provider=self.event_mapping_collector,
+            event_mapping_provider=self.s3_event_mapping_provider,
             tenant_service=self.modular_client.tenant_service(),
         )
 
@@ -216,9 +221,17 @@ class ServiceProvider(metaclass=SingletonMeta):
         return EventService(environment_service=self.environment_service)
     
     @cached_property
-    def event_mapping_collector(self) -> 'EventMappingCollector':
+    def event_mapping_collector(self) -> EventMappingCollector:
         from services.event_driven import EventMappingCollector
         return EventMappingCollector(
+            s3_client=self.s3,
+            environment_service=self.environment_service
+        )
+    
+    @cached_property
+    def s3_event_mapping_provider(self) -> S3EventMappingProvider:
+        from services.event_driven import S3EventMappingProvider
+        return S3EventMappingProvider(
             s3_client=self.s3,
             environment_service=self.environment_service
         )

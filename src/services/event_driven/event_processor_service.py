@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from services.clients.sts import StsClient
     from services.environment_service import EnvironmentService
     from services.license_service import LicenseService
-    from services.event_driven.event_mapping_collector import S3EventMappingProvider
+    from services.event_driven import S3EventMappingProvider
     from modular_sdk.services.tenant_service import TenantService
 
 
@@ -128,13 +128,19 @@ class BaseEventProcessor(ABC):
         self._events: List[Dict] = []
 
     def ct_mapping(self, license_key: str, version: Version) -> dict:
-        # TODO: This property should be refactored to use _event_mapping_provider
-        # For now, return empty dict if mappings_collector is not available
-        return self._event_mapping_provider.get_from_s3(
+        data = self._event_mapping_provider.get_from_s3(
             version=version,
             license_key=license_key,
             cloud=Cloud.AWS,
-        ) or {}
+        )
+        if data is None:
+            _LOG.warning(
+                f"No event mapping found for AWS in S3 "
+                f"for license key: {license_key} and version: {version.to_str()} "
+                f"May be metadata is not synced for this license key and version"
+            )
+            return {}
+        return data
 
     @cached_property
     def eb_mapping(self) -> dict:
@@ -320,11 +326,19 @@ class MaestroEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
         )
 
     def azure_mapping(self, version: Version, license_key: str) -> dict:
-        return self._event_mapping_provider.get_from_s3(
+        data = self._event_mapping_provider.get_from_s3(
             version=version,
             license_key=license_key,
             cloud=Cloud.AZURE,
-        ) or {}  # TODO: handle None
+        )
+        if data is None:
+            _LOG.warning(
+                f"No event mapping found for Azure in S3 "
+                f"for license key: {license_key} and version: {version.to_str()} "
+                f"May be metadata is not synced for this license key and version"
+            )
+            return {}
+        return data
 
     @property
     def maestro_azure_mapping(self) -> dict:
@@ -335,11 +349,19 @@ class MaestroEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
         return MAPPING
 
     def google_mapping(self, version: Version, license_key: str) -> dict:
-        return self._event_mapping_provider.get_from_s3(
+        data = self._event_mapping_provider.get_from_s3(
             version=version,
             license_key=license_key,
             cloud=Cloud.GOOGLE,
-        ) or {}  # TODO: handle None
+        )
+        if data is None:
+            _LOG.warning(
+                f"No event mapping found for Google in S3 "
+                f"for license key: {license_key} and version: {version.to_str()} "
+                f"May be metadata is not synced for this license key and version"
+            )
+            return {}
+        return data
 
     @property
     def maestro_google_mapping(self) -> dict:
@@ -514,8 +536,7 @@ class EventBridgeEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
             region = self.get_region(record=event)
             if not account_id or not region:
                 continue
-            
-            # Отримуємо тенант по account_id (який є Tenant.project)
+
             tenant = next(
                 self._tenant_service.i_get_by_acc(
                     acc=account_id,
@@ -527,14 +548,12 @@ class EventBridgeEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
             if not tenant:
                 _LOG.warning(f"No tenant found for account_id: {account_id}")
                 continue
-            
-            # Отримуємо event-driven ліцензію для тенанту
+
             event_driven_license = self.get_allowed_event_driven_license(tenant)
             if not event_driven_license:
                 _LOG.warning(f"No event driven license found for tenant: {tenant.name}")
                 continue
-            
-            # Отримуємо правила з використанням ліцензії
+
             rules = self.get_rules(
                 record=event,
                 license_key=event_driven_license.license_key,

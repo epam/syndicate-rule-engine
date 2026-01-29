@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, TypeVar, cast
 
 from helpers.constants import Cloud
 from helpers.log_helper import get_logger
@@ -143,28 +143,6 @@ class EventMappingCollector(S3EventMappingProvider):
         self._aws_events: EventMapping = {}
         self._azure_events: EventMapping = {}
         self._google_events: EventMapping = {}
-
-    def __getitem__(self, key: str) -> EventMapping:
-        """Dict-like access to event mappings."""
-        if key == "aws_events":
-            return self._aws_events.copy()
-        elif key == "azure_events":
-            return self._azure_events.copy()
-        elif key == "google_events":
-            return self._google_events.copy()
-        else:
-            raise KeyError(f"Unknown mapping key: {key!r}")
-
-    def __contains__(self, key: str) -> bool:
-        """Check if a mapping key exists."""
-        return key in ("aws_events", "azure_events", "google_events")
-
-    def get(self, key: str, default: T = None) -> EventMapping | T:
-        """Dict-like get method for event mappings."""
-        try:
-            return self[key]
-        except KeyError:
-            return default
 
     def on_refresh(
         self,

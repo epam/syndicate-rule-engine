@@ -462,9 +462,9 @@ class MetadataProvider:
             body=data,
             content_encoding='gzip',
         )
-        # print(gzip.decompress(data))
+
         meta = self._dec.decode(gzip.decompress(data))
-        # print(meta.rules)
+
         _LOG.info('Updating cache with refreshed metadata')
         self._save_to_cache(
             license_key=lic.license_key, 
