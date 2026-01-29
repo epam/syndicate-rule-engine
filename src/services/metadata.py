@@ -107,8 +107,7 @@ class RuleMetadata(
     Represents the formation in which per rule metadata is returned from LM and
     is stored
     """
-     
-    cloud: str
+
     source: str
     category: str
     service_section: str
@@ -119,7 +118,6 @@ class RuleMetadata(
     article: str
     impact: str
     remediation: str
-    events: dict | None = msgspec.field(default=None)
     standard: dict[str, dict[str, tuple[str, ...]]] = msgspec.field(
         default_factory=dict
     )
@@ -129,6 +127,8 @@ class RuleMetadata(
         default=RemediationComplexity.UNKNOWN
     )
     deprecation: Deprecation = msgspec.field(default=Deprecation())  # it's immutable so can a default
+    cloud: str
+    events: dict | None = msgspec.field(default=None)
 
     def __repr__(self) -> str:
         return (
