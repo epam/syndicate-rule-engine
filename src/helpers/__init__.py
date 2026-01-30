@@ -606,12 +606,20 @@ class NextToken:
         if not s or not isinstance(s, str):
             return cls()
         decoded = None
+        error = True
         try:
             decoded = msgspec.json.decode(base64.urlsafe_b64decode(s))
+            error = False
         except (binascii.Error, msgspec.DecodeError):
             pass
         except Exception:  # noqa
             pass
+
+        if error:
+            raise ValueError(
+                'Failed to deserialize next_token: invalid or malformed token.'
+            )
+
         return cls(decoded)
 
     def __bool__(self) -> bool:
