@@ -37,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed an issue with resource collection when pod killed during memory limit exceeded
 - Fixed license expiration updating in case of 404 status code returned from the license sync request
 
+## [5.15.1] - 2026-01-02
+- Bump MongoDB Version due to CVE-2025-14847 Vulnerability
+
 ## [5.15.0] - 2025-11-06
 - Added hiding expired resource exceptions
 - Added the parameter `overwrite` to the `POST /rulesets/release` endpoint that allows to overwrite existing ruleset version
