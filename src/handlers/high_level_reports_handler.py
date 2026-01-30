@@ -122,7 +122,7 @@ class MaestroModelBuilder:
     def _operational_overview_custom(rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.OPERATIONAL_OVERVIEW
         inner = data['data']
-        inner['rules_data'] = inner.pop('rules')
+        inner['rules_data'] = inner.pop('rules', [])
         regions_data = {}
         for region, rd in inner.pop('regions', {}).items():
             rd['resources_data'] = rd.pop('resources')
