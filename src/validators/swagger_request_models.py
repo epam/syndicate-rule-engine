@@ -38,7 +38,7 @@ from helpers.constants import (
     TAGS_KEY_VALUE_SEPARATOR,
     ServiceOperationType,
 )
-from helpers import Version
+from helpers import Version, NextToken
 from helpers.regions import AllRegions, AllRegionsWithGlobal
 from helpers.time_helper import utc_datetime
 from services.chronicle_service import ChronicleConverterType
@@ -83,6 +83,12 @@ class BasePaginationModel(BaseModel):
         None,
         description='Provide next_token received from the previous request',
     )
+
+    @field_validator('next_token', mode='after')
+    @classmethod
+    def _validate_next_token(cls, next_token):
+        NextToken.deserialize(next_token)
+        return next_token
 
 
 class TimeRangedMixin:
