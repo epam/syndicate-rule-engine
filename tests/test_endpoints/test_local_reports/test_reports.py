@@ -85,7 +85,7 @@ def test_digest_report_aws_job(system_user_token, sre_client, aws_job):
             'customer_name': 'TEST_CUSTOMER',
             'format': 'json',
             'job_id': aws_job.id,
-            'job_type': 'manual',
+            'job_type': 'standard',
             'obfuscated': False,
             'tenant_name': 'AWS-TESTING',
         }

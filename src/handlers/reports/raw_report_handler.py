@@ -8,12 +8,11 @@ from helpers import flip_dict
 from helpers.constants import Endpoint, HTTPMethod
 from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
-from services import SP
-from services import modular_helpers
-from services import obfuscation
+from services import SP, modular_helpers, obfuscation
 from services.report_service import ReportService
 from validators.swagger_request_models import RawReportGetModel
 from validators.utils import validate_kwargs
+
 
 _LOG = get_logger(__name__)
 

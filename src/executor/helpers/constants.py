@@ -4,6 +4,8 @@ Executor specific constants
 
 from enum import Enum
 
+from typing_extensions import Self
+
 from helpers.constants import Cloud
 
 
@@ -61,14 +63,28 @@ class ExecutorError(str, Enum):
         return obj
 
     METADATA_UPDATE_FAILED = 'Failed to update metadata'
+    TENANT_NOT_FOUND = 'Tenant not found'
     NO_SUCCESSFUL_POLICIES = 'All policies have failed'  # exit code 1
     LM_DID_NOT_ALLOW = 'License manager did not allow this job'  # exit code 2
     NO_CREDENTIALS = 'Could not resolve any credentials'
     TIMEOUT = 'Task timeout exceeded'
     INTERNAL = 'Internal executor error'
 
-    def with_reason(self, why: str | None = None) -> str:
-        reason = why or self.reason
-        if not reason:
+    @classmethod
+    def with_reason(
+        cls,
+        value: Self | str,
+        reason: str,
+    ) -> Self:
+        """
+        Creates a new ExecutorError with the given value and reason.
+        """
+        return cls(value, reason)
+
+    def get_reason(self) -> str:
+        """
+        Returns the reason for the error.
+        """
+        if not self.reason:
             return self.value
-        return f'{self.value}: {reason}'
+        return f'{self.value}: {self.reason}'

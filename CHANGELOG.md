@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed an issue returning internal server error when operational reports are generated
 - Fixed an issue related to rewriting a k8s platform during creation if the type is not SELF_MANAGED
 - Fixed an issue with resource collection when pod killed during memory limit exceeded
+- Removed `SREBatchResults` model and related endpoints and services
+- Added `STANDARD`, `SCHEDULED` to the `JobType` enum
+- Changed the `MANUAL` to alias for `STANDARD` + `SCHEDULED` in the `JobType` enum
+- Added Event-Driven (ED) jobs support for AMI installation
 - Fixed license expiration updating in case of 404 status code returned from the license sync request
 - Updated versions of dependencies:
     - `c7n` from `0.9.46` to `0.9.49`

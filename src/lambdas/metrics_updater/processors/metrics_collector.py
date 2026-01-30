@@ -17,6 +17,7 @@ import msgspec
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.modular import ModularServiceProvider
+from typing_extensions import Self
 
 from helpers import RequestContext
 from helpers.constants import (
@@ -41,8 +42,8 @@ from lambdas.metrics_updater.processors.base import (
 from models.metrics import ReportMetrics
 from models.ruleset import Ruleset
 from services import SP, modular_helpers
-from services.ambiguous_job_service import AmbiguousJobService
 from services.coverage_service import MappingAverageCalculator
+from services.job_service import JobService
 from services.license_service import License, LicenseService
 from services.metadata import Metadata, MitreAttack
 from services.modular_helpers import tenant_cloud
@@ -285,7 +286,7 @@ class MetricsCollector(BaseProcessor):
     def __init__(
         self,
         modular_client: ModularServiceProvider,
-        ambiguous_job_service: AmbiguousJobService,
+        job_service: JobService,
         report_service: ReportService,
         report_metrics_service: ReportMetricsService,
         license_service: LicenseService,
@@ -296,7 +297,7 @@ class MetricsCollector(BaseProcessor):
         tenant_settings_service: 'TenantSettingsService',
     ):
         self._mc = modular_client
-        self._ajs = ambiguous_job_service
+        self._js = job_service
         self._rs = report_service
         self._rms = report_metrics_service
         self._ls = license_service
@@ -369,10 +370,10 @@ class MetricsCollector(BaseProcessor):
         }
 
     @classmethod
-    def build(cls) -> 'MetricsCollector':
+    def build(cls) -> Self:
         return cls(
             modular_client=SP.modular_client,
-            ambiguous_job_service=SP.ambiguous_job_service,
+            job_service=SP.job_service,
             report_service=SP.report_service,
             report_metrics_service=SP.report_metrics_service,
             license_service=SP.license_service,
@@ -688,7 +689,7 @@ class MetricsCollector(BaseProcessor):
             self._tss
         ))
 
-        ls = self._ajs.job_service.get_tenant_last_job_date(tenant.name)
+        ls = self._js.get_tenant_last_job_date(tenant.name)
         if not ls:
             # case when tenant had no scans, so we yield empty reports
             _LOG.warning(f'No jobs for tenant {tenant} found')
@@ -852,13 +853,11 @@ class MetricsCollector(BaseProcessor):
         #  about dates,
 
         start, end = self.whole_period(ctx.now, *ReportType)
-        jobs = self._ajs.to_ambiguous(
-            self._ajs.job_service.get_by_customer_name(
-                customer_name=ctx.customer.name,
-                start=start,
-                end=end,
-                ascending=True,  # important to have jobs in order
-            )
+        jobs = self._js.get_by_customer_name(
+            customer_name=ctx.customer.name,
+            start=start,
+            end=end,
+            ascending=True,  # important to have jobs in order
         )
         js = JobMetricsDataSource(jobs)
         if not js:

@@ -48,7 +48,11 @@
           }
         ]
       },
-      {}
+      {},
+      "Unknown",
+      {},
+      "AWS",
+      null
     ],
     "ecc-aws-150-api_gateway_rest_api_encryption_at_rest": [
       "testing",
@@ -71,7 +75,11 @@
         }
       },
       {},
-      {}
+      {},
+      "Unknown",
+      {},
+      "AWS",
+      null
     ],
     "ecc-k8s-050-default_namespace_should_not_be_used_for_pods": [
       "testing",
@@ -93,7 +101,11 @@
         }
       },
       {},
-      {}
+      {},
+      "Unknown",
+      {},
+      "KUBERNETES",
+      null
     ],
     "ecc-k8s-058-sa_tokens_are_only_mounted_where_necessary": [
       "testing",
@@ -143,7 +155,11 @@
           }
         ]
       },
-      {}
+      {},
+      "Unknown",
+      {},
+      "KUBERNETES",
+      null
     ],
     "ecc-k8s-059-service_account_tokens_are_only_mounted_where_necessary_in_pods": [
       "testing",
@@ -165,7 +181,11 @@
         }
       },
       {},
-      {}
+      {},
+      "Unknown",
+      {},
+      "KUBERNETES",
+      null
     ],
     "ecc-k8s-060-minimize_the_admission_of_hostpath_volumes": [
       "testing",
@@ -185,7 +205,11 @@
         }
       },
       {},
-      {}
+      {},
+      "Unknown",
+      {},
+      "KUBERNETES",
+      null
     ],
     "ecc-azure-096-cis_sec_defender_azure_sql": [
       "testing",
@@ -206,7 +230,9 @@
         "date": "2100-01-27",
         "link": "https://example.com",
         "is_deprecated": true
-      }
+      },
+      "AZURE",
+      null
     ]
   },
   "domains": {

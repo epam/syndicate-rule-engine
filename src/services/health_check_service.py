@@ -14,7 +14,6 @@ from helpers.constants import (
     HOST_ATTR,
     PRIVATE_KEY_SECRET_NAME,
     HealthCheckStatus,
-    S3SettingKey,
     SettingKey,
 )
 from helpers.log_helper import get_logger

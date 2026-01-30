@@ -1,5 +1,5 @@
 from helpers.time_helper import utc_datetime, utc_iso
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 
 
 def test_utc_datetime():
@@ -43,6 +43,13 @@ def test_utc_datetime():
 def test_utc_iso():
     assert utc_iso().endswith('Z')
     assert utc_datetime(utc_iso()).tzinfo == timezone.utc
+
+    date_obj = date(
+        year=2024,
+        month=10,
+        day=24,
+    )
+    assert utc_iso(date_obj) == '2024-10-24'
 
 
 def test_utc_iso_utc_datetime():

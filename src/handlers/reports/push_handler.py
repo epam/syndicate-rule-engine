@@ -6,25 +6,22 @@ from modular_sdk.services.impl.maestro_credentials_service import (
     MaestroCredentialsService,
 )
 from modular_sdk.services.parent_service import ParentService
+from typing_extensions import Self
 
 from handlers import AbstractHandler, Mapping
 from helpers.constants import Cloud, Endpoint, HTTPMethod, JobState
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
-from helpers.time_helper import utc_datetime
+from models.job import Job
 from onprem.tasks import push_to_dojo
 from services import SP, modular_helpers
-from services.ambiguous_job_service import AmbiguousJob, AmbiguousJobService
 from services.chronicle_service import (
     ChronicleConverterType,
     ChronicleInstance,
     ChronicleParentMeta,
 )
 from services.clients.chronicle import ChronicleV2Client
-from services.clients.dojo_client import DojoV2Client
 from services.defect_dojo_service import (
-    DefectDojoConfiguration,
-    DefectDojoParentMeta,
     DefectDojoService,
 )
 from services.integration_service import IntegrationService
@@ -33,7 +30,6 @@ from services.license_service import LicenseService
 from services.metadata import Metadata
 from services.modular_helpers import tenant_cloud
 from services.platform_service import PlatformService
-from services.report_convertors import ShardCollectionDojoConvertor
 from services.report_service import ReportService
 from services.sharding import ShardsCollection
 from services.udm_generator import (
@@ -43,11 +39,11 @@ from services.udm_generator import (
 from validators.swagger_request_models import (
     BaseModel,
     ReportPushByJobIdModel,
-    ReportPushMultipleModel,
     ReportPushDojoByJobIdModel,
     ReportPushDojoMultipleModel,
 )
 from validators.utils import validate_kwargs
+
 
 _LOG = get_logger(__name__)
 
@@ -55,7 +51,6 @@ _LOG = get_logger(__name__)
 class SiemPushHandler(AbstractHandler):
     def __init__(
         self,
-        ambiguous_job_service: AmbiguousJobService,
         job_service: JobService,
         report_service: ReportService,
         modular_client: ModularServiceProvider,
@@ -65,7 +60,6 @@ class SiemPushHandler(AbstractHandler):
         maestro_credentials_service: MaestroCredentialsService,
         license_service: LicenseService,
     ):
-        self._ambiguous_job_service = ambiguous_job_service
         self._job_service = job_service
         self._rs = report_service
         self._modular_client = modular_client
@@ -76,9 +70,8 @@ class SiemPushHandler(AbstractHandler):
         self._ls = license_service
 
     @classmethod
-    def build(cls) -> 'AbstractHandler':
+    def build(cls) -> Self:
         return cls(
-            ambiguous_job_service=SP.ambiguous_job_service,
             job_service=SP.job_service,
             report_service=SP.report_service,
             modular_client=SP.modular_client,
@@ -150,8 +143,13 @@ class SiemPushHandler(AbstractHandler):
         event: ReportPushDojoByJobIdModel,
         job_id: str,
     ):
-        job = self._ambiguous_job_service.get_job(
-            job_id=job_id, typ=event.type, customer=event.customer
+        job = next(
+            self._job_service.get_by_job_types(
+                job_id=job_id,
+                job_types=event.job_types,
+                customer_name=event.customer,
+            ),
+            None,
         )
         if not job:
             return build_response(
@@ -178,7 +176,6 @@ class SiemPushHandler(AbstractHandler):
 
         if event.dojo_structure():
             _LOG.debug('Updating job dojo structure before pushing to Dojo')
-            job = self._job_service.get_nullable(job_id)
             self._job_service.update(
                 job=job,
                 dojo_structure=event.dojo_structure()
@@ -195,7 +192,7 @@ class SiemPushHandler(AbstractHandler):
     def get_chronicle_dto(
         tenant: Tenant,
         chronicle: ChronicleInstance,
-        job: AmbiguousJob | None = None,
+        job: Job | None = None,
         error: str | None = None,
     ) -> dict:
         data = {
@@ -231,7 +228,7 @@ class SiemPushHandler(AbstractHandler):
                 .exc()
             )
 
-        jobs = self._ambiguous_job_service.get_by_tenant_name(
+        jobs = self._job_service.get_by_tenant_name(
             tenant_name=tenant.name,
             job_type=event.type,
             status=JobState.SUCCEEDED,
@@ -249,6 +246,11 @@ class SiemPushHandler(AbstractHandler):
             _LOG.debug('Updating jobs dojo structure before pushing to Dojo')
             for job_id in job_ids:
                 job = self._job_service.get_nullable(job_id)
+                if not job:
+                    _LOG.warning(
+                        f'Job {job_id} not found for updating dojo structure'
+                    )
+                    continue
                 self._job_service.update(
                     job=job,
                     dojo_structure=event.dojo_structure()
@@ -265,8 +267,13 @@ class SiemPushHandler(AbstractHandler):
     def push_chronicle_by_job_id(
         self, event: ReportPushByJobIdModel, job_id: str
     ):
-        job = self._ambiguous_job_service.get_job(
-            job_id=job_id, typ=event.type, customer=event.customer
+        job = next(
+            self._job_service.get_by_job_types(
+                job_id=job_id,
+                job_types=event.job_types,
+                customer_name=event.customer,
+            ),
+            None,
         )
         if not job:
             return build_response(
@@ -314,11 +321,11 @@ class SiemPushHandler(AbstractHandler):
                 return build_response(
                     content='Job platform not found', code=HTTPStatus.NOT_FOUND
                 )
-            collection = self._rs.platform_job_collection(platform, job.job)
+            collection = self._rs.platform_job_collection(platform, job)
             collection.meta = self._rs.fetch_meta(platform)
             cloud = Cloud.KUBERNETES
         else:
-            collection = self._rs.ambiguous_job_collection(tenant, job)
+            collection = self._rs.job_collection(tenant, job)
             collection.meta = self._rs.fetch_meta(tenant)
             cloud = tenant_cloud(tenant)
         collection.fetch_all()

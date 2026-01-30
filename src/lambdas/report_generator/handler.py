@@ -1,25 +1,28 @@
 from functools import cached_property
 
-from handlers.compliance_handler import ComplianceReportHandler
-from handlers.details_handler import DetailedReportHandler
-from handlers.digest_handler import DigestReportHandler
-from handlers.errors_handler import ErrorsReportHandler
-from handlers.findings_handler import FindingsReportHandler
-from handlers.push_handler import SiemPushHandler
-from handlers.high_level_reports_handler import HighLevelReportsHandler
-from handlers.resource_report_handler import ResourceReportHandler
-from handlers.rules_handler import JobsRulesHandler
+from handlers.reports import (
+    ComplianceReportHandler,
+    DetailedReportHandler,
+    DigestReportHandler,
+    ErrorsReportHandler,
+    FindingsReportHandler,
+    HighLevelReportsHandler,
+    JobsRulesHandler,
+    RawReportHandler,
+    ResourceReportHandler,
+    SiemPushHandler,
+)
 from helpers.log_helper import get_logger
-from handlers.raw_report_handler import RawReportHandler
 from services.abs_lambda import (
+    ApiEventProcessorLambdaHandler,
     ApiGatewayEventProcessor,
     CheckPermissionEventProcessor,
-    RestrictCustomerEventProcessor,
     ExpandEnvironmentEventProcessor,
-    ApiEventProcessorLambdaHandler,
-    RestrictTenantEventProcessor
+    RestrictCustomerEventProcessor,
+    RestrictTenantEventProcessor,
 )
 from validators.registry import permissions_mapping
+
 
 _LOG = get_logger(__name__)
 

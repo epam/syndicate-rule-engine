@@ -2,7 +2,7 @@ import operator
 import uuid
 from datetime import timedelta
 from http import HTTPStatus
-from typing import Any, cast, List, Iterable
+from typing import Any, Iterable, List, cast
 
 import msgspec.json
 from botocore.exceptions import ClientError
@@ -38,6 +38,7 @@ from validators.swagger_request_models import (
     ProjectGetReportModel,
 )
 from validators.utils import validate_kwargs
+
 
 _LOG = get_logger(__name__)
 

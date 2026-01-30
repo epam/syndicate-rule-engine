@@ -1623,7 +1623,7 @@
     "customer_name": "TEST_CUSTOMER",
     "format": "json",
     "job_id": "f3ef7c43-8b35-4d9f-aa56-5c7dcf079e85",
-    "job_type": "manual",
+    "job_type": "standard",
     "obfuscated": false,
     "tenant_name": "AWS-TESTING"
   }

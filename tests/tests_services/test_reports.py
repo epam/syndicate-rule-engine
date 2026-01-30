@@ -1,14 +1,14 @@
 from datetime import timedelta
 from pathlib import Path
+from typing import Callable
 
 import msgspec
 import pytest
 
+from helpers.constants import Cloud, JobType
 from helpers.reports import adjust_resource_type
 from helpers.time_helper import utc_datetime
-from helpers.constants import Cloud
 from models.job import Job
-from services.ambiguous_job_service import AmbiguousJob
 from services.metadata import Metadata
 from services.reports import (
     JobMetricsDataSource,
@@ -16,13 +16,14 @@ from services.reports import (
     add_diff,
 )
 from services.sharding import AWSRegionDistributor, ShardPart, ShardsCollection
+
 from ..commons import AWS_ACCOUNT_ID
 
 
 @pytest.fixture
-def create_job():
-    def factory(_id: str, submitted_at: str) -> AmbiguousJob:
-        return AmbiguousJob(Job(id=_id, submitted_at=submitted_at))
+def create_job() -> Callable[[str, str], Job]:
+    def factory(_id: str, submitted_at: str) -> Job:
+        return Job(id=_id, submitted_at=submitted_at, job_type=JobType.STANDARD)
 
     return factory
 

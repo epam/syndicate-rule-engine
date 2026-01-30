@@ -1,404 +1,126 @@
 # maestro pair to Custom Core's google
 # currently UPDATE is copy-pasted to COMMAND, DELETE to DISABLE
-data = {
+MAPPING = {
     "INSTANCE": {
         "COMMAND": [
+            # path: some_mapping["compute.googleapis.com"]["beta.compute.images.setIamPolicy"] => list[str] with rules
+            ["compute.googleapis.com", "beta.compute.images.setIamPolicy"],
             [
                 "compute.googleapis.com",
-                "beta.compute.images.setIamPolicy"
+                "beta.compute.instanceGroupManagers.setAutoHealingPolicies",
             ],
+            ["compute.googleapis.com", "beta.compute.instances.addAccessConfig"],
+            ["compute.googleapis.com", "beta.compute.instances.attachDisk"],
+            ["compute.googleapis.com", "beta.compute.instances.detachDisk"],
+            ["compute.googleapis.com", "beta.compute.instances.setDeletionProtection"],
+            ["compute.googleapis.com", "beta.compute.instances.setDiskAutoDelete"],
+            ["compute.googleapis.com", "beta.compute.instances.setLabels"],
+            ["compute.googleapis.com", "beta.compute.instances.setMetadata"],
+            ["compute.googleapis.com", "beta.compute.instances.setScheduling"],
+            ["compute.googleapis.com", "beta.compute.instances.setServiceAccount"],
+            ["compute.googleapis.com", "beta.compute.instances.setTags"],
+            ["compute.googleapis.com", "beta.compute.instances.updateNetworkInterface"],
             [
                 "compute.googleapis.com",
-                "beta.compute.instanceGroupManagers.setAutoHealingPolicies"
+                "beta.compute.projects.setCommonInstanceMetadata",
             ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.addAccessConfig"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.attachDisk"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.detachDisk"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.setDeletionProtection"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.setDiskAutoDelete"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.setLabels"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.setMetadata"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.setScheduling"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.setServiceAccount"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.setTags"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.updateNetworkInterface"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.projects.setCommonInstanceMetadata"
-            ],
-            [
-                "compute.googleapis.com",
-                "compute.instances.setMetadata"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.images.setIamPolicy"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.addAccessConfig"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.attachDisk"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.detachDisk"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.setDeletionProtection"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.setDiskAutoDelete"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.setLabels"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.setMetadata"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.setScheduling"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.setServiceAccount"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.setTags"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.updateNetworkInterface"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.projects.setCommonInstanceMetadata"
-            ],
-            [
-                "cloudresourcemanager.googleapis.com",
-                "SetIamPolicy"
-            ]
+            ["compute.googleapis.com", "compute.instances.setMetadata"],
+            ["compute.googleapis.com", "v1.compute.images.setIamPolicy"],
+            ["compute.googleapis.com", "v1.compute.instances.addAccessConfig"],
+            ["compute.googleapis.com", "v1.compute.instances.attachDisk"],
+            ["compute.googleapis.com", "v1.compute.instances.detachDisk"],
+            ["compute.googleapis.com", "v1.compute.instances.setDeletionProtection"],
+            ["compute.googleapis.com", "v1.compute.instances.setDiskAutoDelete"],
+            ["compute.googleapis.com", "v1.compute.instances.setLabels"],
+            ["compute.googleapis.com", "v1.compute.instances.setMetadata"],
+            ["compute.googleapis.com", "v1.compute.instances.setScheduling"],
+            ["compute.googleapis.com", "v1.compute.instances.setServiceAccount"],
+            ["compute.googleapis.com", "v1.compute.instances.setTags"],
+            ["compute.googleapis.com", "v1.compute.instances.updateNetworkInterface"],
+            ["compute.googleapis.com", "v1.compute.projects.setCommonInstanceMetadata"],
+            ["cloudresourcemanager.googleapis.com", "SetIamPolicy"],
         ],
         "CREATE": [
-            [
-                "compute.googleapis.com",
-                "beta.compute.disks.insert"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.images.insert"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instanceGroups.insert"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instanceTemplates.insert"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.insert"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.machineImages.insert"
-            ],
-            [
-                "compute.googleapis.com",
-                "compute.instances.insert"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.disks.insert"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.images.insert"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instanceGroups.insert"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instanceTemplates.insert"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.insert"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.machineImages.insert"
-            ],
+            ["compute.googleapis.com", "beta.compute.disks.insert"],
+            ["compute.googleapis.com", "beta.compute.images.insert"],
+            ["compute.googleapis.com", "beta.compute.instanceGroups.insert"],
+            ["compute.googleapis.com", "beta.compute.instanceTemplates.insert"],
+            ["compute.googleapis.com", "beta.compute.instances.insert"],
+            ["compute.googleapis.com", "beta.compute.machineImages.insert"],
+            ["compute.googleapis.com", "compute.instances.insert"],
+            ["compute.googleapis.com", "v1.compute.disks.insert"],
+            ["compute.googleapis.com", "v1.compute.images.insert"],
+            ["compute.googleapis.com", "v1.compute.instanceGroups.insert"],
+            ["compute.googleapis.com", "v1.compute.instanceTemplates.insert"],
+            ["compute.googleapis.com", "v1.compute.instances.insert"],
+            ["compute.googleapis.com", "v1.compute.machineImages.insert"],
         ],
         "DELETE": [
-            [
-                "compute.googleapis.com",
-                "beta.compute.disks.delete"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.images.delete"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instanceTemplates.delete"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.delete"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.deleteAccessConfig"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.machineImages.delete"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.disks.delete"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.images.delete"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instanceGroups.delete"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instanceTemplates.delete"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.delete"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.deleteAccessConfig"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.machineImages.delete"
-            ],
+            ["compute.googleapis.com", "beta.compute.disks.delete"],
+            ["compute.googleapis.com", "beta.compute.images.delete"],
+            ["compute.googleapis.com", "beta.compute.instanceTemplates.delete"],
+            ["compute.googleapis.com", "beta.compute.instances.delete"],
+            ["compute.googleapis.com", "beta.compute.instances.deleteAccessConfig"],
+            ["compute.googleapis.com", "beta.compute.machineImages.delete"],
+            ["compute.googleapis.com", "v1.compute.disks.delete"],
+            ["compute.googleapis.com", "v1.compute.images.delete"],
+            ["compute.googleapis.com", "v1.compute.instanceGroups.delete"],
+            ["compute.googleapis.com", "v1.compute.instanceTemplates.delete"],
+            ["compute.googleapis.com", "v1.compute.instances.delete"],
+            ["compute.googleapis.com", "v1.compute.instances.deleteAccessConfig"],
+            ["compute.googleapis.com", "v1.compute.machineImages.delete"],
         ],
         "DISABLE": [
-            [
-                "compute.googleapis.com",
-                "beta.compute.disks.delete"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.images.delete"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instanceTemplates.delete"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.delete"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.deleteAccessConfig"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.machineImages.delete"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.disks.delete"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.images.delete"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instanceGroups.delete"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instanceTemplates.delete"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.delete"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.deleteAccessConfig"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.machineImages.delete"
-            ],
+            ["compute.googleapis.com", "beta.compute.disks.delete"],
+            ["compute.googleapis.com", "beta.compute.images.delete"],
+            ["compute.googleapis.com", "beta.compute.instanceTemplates.delete"],
+            ["compute.googleapis.com", "beta.compute.instances.delete"],
+            ["compute.googleapis.com", "beta.compute.instances.deleteAccessConfig"],
+            ["compute.googleapis.com", "beta.compute.machineImages.delete"],
+            ["compute.googleapis.com", "v1.compute.disks.delete"],
+            ["compute.googleapis.com", "v1.compute.images.delete"],
+            ["compute.googleapis.com", "v1.compute.instanceGroups.delete"],
+            ["compute.googleapis.com", "v1.compute.instanceTemplates.delete"],
+            ["compute.googleapis.com", "v1.compute.instances.delete"],
+            ["compute.googleapis.com", "v1.compute.instances.deleteAccessConfig"],
+            ["compute.googleapis.com", "v1.compute.machineImages.delete"],
         ],
         "UPDATE": [
+            ["compute.googleapis.com", "beta.compute.images.setIamPolicy"],
             [
                 "compute.googleapis.com",
-                "beta.compute.images.setIamPolicy"
+                "beta.compute.instanceGroupManagers.setAutoHealingPolicies",
             ],
+            ["compute.googleapis.com", "beta.compute.instances.addAccessConfig"],
+            ["compute.googleapis.com", "beta.compute.instances.attachDisk"],
+            ["compute.googleapis.com", "beta.compute.instances.detachDisk"],
+            ["compute.googleapis.com", "beta.compute.instances.setDeletionProtection"],
+            ["compute.googleapis.com", "beta.compute.instances.setDiskAutoDelete"],
+            ["compute.googleapis.com", "beta.compute.instances.setLabels"],
+            ["compute.googleapis.com", "beta.compute.instances.setMetadata"],
+            ["compute.googleapis.com", "beta.compute.instances.setScheduling"],
+            ["compute.googleapis.com", "beta.compute.instances.setServiceAccount"],
+            ["compute.googleapis.com", "beta.compute.instances.setTags"],
+            ["compute.googleapis.com", "beta.compute.instances.updateNetworkInterface"],
             [
                 "compute.googleapis.com",
-                "beta.compute.instanceGroupManagers.setAutoHealingPolicies"
+                "beta.compute.projects.setCommonInstanceMetadata",
             ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.addAccessConfig"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.attachDisk"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.detachDisk"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.setDeletionProtection"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.setDiskAutoDelete"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.setLabels"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.setMetadata"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.setScheduling"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.setServiceAccount"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.setTags"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.instances.updateNetworkInterface"
-            ],
-            [
-                "compute.googleapis.com",
-                "beta.compute.projects.setCommonInstanceMetadata"
-            ],
-            [
-                "compute.googleapis.com",
-                "compute.instances.setMetadata"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.images.setIamPolicy"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.addAccessConfig"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.attachDisk"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.detachDisk"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.setDeletionProtection"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.setDiskAutoDelete"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.setLabels"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.setMetadata"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.setScheduling"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.setServiceAccount"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.setTags"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.instances.updateNetworkInterface"
-            ],
-            [
-                "compute.googleapis.com",
-                "v1.compute.projects.setCommonInstanceMetadata"
-            ],
-            [
-                "cloudresourcemanager.googleapis.com",
-                "SetIamPolicy"
-            ]
-        ]
+            ["compute.googleapis.com", "compute.instances.setMetadata"],
+            ["compute.googleapis.com", "v1.compute.images.setIamPolicy"],
+            ["compute.googleapis.com", "v1.compute.instances.addAccessConfig"],
+            ["compute.googleapis.com", "v1.compute.instances.attachDisk"],
+            ["compute.googleapis.com", "v1.compute.instances.detachDisk"],
+            ["compute.googleapis.com", "v1.compute.instances.setDeletionProtection"],
+            ["compute.googleapis.com", "v1.compute.instances.setDiskAutoDelete"],
+            ["compute.googleapis.com", "v1.compute.instances.setLabels"],
+            ["compute.googleapis.com", "v1.compute.instances.setMetadata"],
+            ["compute.googleapis.com", "v1.compute.instances.setScheduling"],
+            ["compute.googleapis.com", "v1.compute.instances.setServiceAccount"],
+            ["compute.googleapis.com", "v1.compute.instances.setTags"],
+            ["compute.googleapis.com", "v1.compute.instances.updateNetworkInterface"],
+            ["compute.googleapis.com", "v1.compute.projects.setCommonInstanceMetadata"],
+            ["cloudresourcemanager.googleapis.com", "SetIamPolicy"],
+        ],
     }
 }

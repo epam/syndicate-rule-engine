@@ -45,6 +45,16 @@ def prepare_beat_schedule() -> dict[str, dict]:
             'schedule': Env.CELERY_SCAN_RESOURCES_SCHEDULE,
             'args': (),
         },
+        'assemble-events': {
+            'task': 'onprem.tasks.assemble_events',
+            'schedule': Env.CELERY_ASSEMBLE_EVENTS_SCHEDULE,
+            'args': (),
+        },
+        'clear-events': {
+            'task': 'onprem.tasks.clear_events',
+            'schedule': Env.CELERY_CLEAR_EVENTS_SCHEDULE,
+            'args': (),
+        },
     }
     disabled = []
     for name, inner in schedule.items():
@@ -84,6 +94,8 @@ app.conf.task_routes = {
     'onprem.tasks.delete_expired_metrics': {'queue': 'b-scheduled'},
     'onprem.tasks.collect_resources': {'queue': 'b-scheduled'},
     'onprem.tasks.run_update_metadata': {'queue': 'a-jobs'},
+    'onprem.tasks.assemble_events': {'queue': 'b-scheduled'},
+    'onprem.tasks.clear_events': {'queue': 'b-scheduled'},
 }
 app.conf.timezone = Env.CELERY_TIMEZONE.as_str()
 app.conf.broker_connection_retry_on_startup = True

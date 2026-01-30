@@ -30,8 +30,12 @@ class EventService:
             ttl=ttl
         )
 
-    def get_events(self, partition: int, since: Optional[float] = None,
-                   till: Optional[float] = None) -> Iterable[Event]:
+    def get_events(
+        self,
+        partition: int,
+        since: Optional[float] = None,
+        till: Optional[float] = None
+    ) -> Iterable[Event]:
         """
         since < Iterable[Event] <= till
         :param partition:
@@ -41,12 +45,13 @@ class EventService:
         """
         page_size = self._environment_service.event_assembler_pull_item_limit()
         rkc = None
-        if since and till:
+        if since is not None and till is not None:
             rkc = Event.timestamp.between(since, till)
-        elif since:
-            rkc = (Event.timestamp > since)
-        elif till:
-            rkc = (Event.timestamp <= till)
+        elif since is not None:
+            rkc = Event.timestamp > since
+        elif till is not None:
+            rkc = Event.timestamp <= till
+        _LOG.debug(f"Querying partition {partition} with range_key_condition: {rkc}")
         return Event.query(
             hash_key=partition,
             range_key_condition=rkc,
