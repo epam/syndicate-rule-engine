@@ -62,7 +62,7 @@ modular-api:
   modularApiM3adminLogLevel: ERROR
   modularApiModularSdkLogLevel: ERROR
   image:
-    tag: 4.3.5-rule-engine-5.10.0
+    tag: 4.3.16-rule-engine-5.11.0
 
 patch:
   enabled: false
