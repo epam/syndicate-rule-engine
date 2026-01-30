@@ -16,7 +16,11 @@
       "",
       {},
       {},
-      {}
+      {},
+      "Unknown",
+      {},
+      "AWS",
+      null
     ],
     "ecc-aws-515-security_hub_enabled": [
       "testing",
@@ -34,7 +38,11 @@
       "",
       {},
       {},
-      {}
+      {},
+      "Unknown",
+      {},
+      "AWS",
+      null
     ],
     "ecc-aws-531-ebs_default_encryption_enabled": [
       "testing",
@@ -52,7 +60,11 @@
       "",
       {},
       {},
-      {}
+      {},
+      "Unknown",
+      {},
+      "AWS",
+      null
     ],
     "ecc-aws-112-s3_bucket_versioning_mfa_delete_enabled": [
       "testing",
@@ -67,7 +79,11 @@
       "",
       {},
       {},
-      {}
+      {},
+      "Unknown",
+      {},
+      "AWS",
+      null
     ],
     "ecc-aws-516-s3_event_notifications_enabled": [
       "testing",
@@ -82,7 +98,11 @@
       "",
       {},
       {},
-      {}
+      {},
+      "Unknown",
+      {},
+      "AWS",
+      null
     ]
   }
 }
