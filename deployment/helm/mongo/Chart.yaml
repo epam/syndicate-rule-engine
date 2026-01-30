@@ -1,6 +1,6 @@
 apiVersion: v2
-appVersion: "5.0.28"
+appVersion: "5.0.32"
 description: A Helm chart for MongoDB
 name: mongo
 type: application
-version: "1.1.0"
+version: "1.1.1"
