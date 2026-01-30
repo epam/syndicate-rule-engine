@@ -1,6 +1,12 @@
 import click
-
-from srecli.group import ContextObj, ViewCommand, cli_response, response
+from srecli import __version__
+from srecli.group import (
+    ContextObj,
+    ViewCommand,
+    cli_response,
+    response,
+    fetch_and_cache_system_customer_name,
+)
 from srecli.group.customer import customer
 from srecli.group.integrations import integrations
 from srecli.group.job import job
@@ -10,6 +16,7 @@ from srecli.group.metrics import metrics
 from srecli.group.platform import platform
 from srecli.group.policy import policy
 from srecli.group.report import report
+from srecli.group.resource import resource
 from srecli.group.results import results
 from srecli.group.role import role
 from srecli.group.rule import rule
@@ -19,11 +26,11 @@ from srecli.group.service import service
 from srecli.group.setting import setting
 from srecli.group.tenant import tenant
 from srecli.group.users import users
-from srecli.group.resource import resource
-
-from srecli.service.helpers import validate_api_link, check_version_compatibility
+from srecli.service.helpers import (
+    check_version_compatibility,
+    validate_api_link,
+)
 from srecli.service.logger import get_logger
-from srecli import __version__
 
 
 _LOG = get_logger(__name__)
@@ -84,6 +91,17 @@ def login(ctx: ContextObj, username: str, password: str, **kwargs):
     ctx['config'].access_token = resp.data['access_token']
     if rt := resp.data.get('refresh_token'):
         ctx['config'].refresh_token = rt
+
+    try:
+        fetch_and_cache_system_customer_name(
+            adapter,
+            ctx['config'],
+            force_refresh=True  # Force refresh after login
+        )
+    except Exception:
+        # If revalidation fails, continue - cached value will be used
+        _LOG.debug('Could not revalidate system customer name after login', exc_info=True)
+    
     return response('Great! The sre cli tool access token has been saved.')
 
 

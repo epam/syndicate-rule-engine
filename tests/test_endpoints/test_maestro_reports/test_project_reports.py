@@ -286,3 +286,238 @@ def test_project_finops_report(
 
     assert typ == 'CUSTODIAN_PROJECT_FINOPS_REPORT'
     assert dicts_equal(model, load_expected('project/finops_report'))
+
+
+def test_project_overview_include_linked_report(
+    system_user_token,
+    sre_client,
+    project_overview_metrics,
+    mocked_rabbitmq,
+    load_expected,
+):
+    resp = sre_client.request(
+        '/reports/project',
+        'POST',
+        auth=system_user_token,
+        data={
+            'customer_id': 'TEST_CUSTOMER',
+            'tenant_display_names': ['testing'],
+            'types': ['OVERVIEW'],
+            'receivers': ['admin@gmail.com'],
+            'include_linked': True,
+        },
+    )
+    assert resp.status_int == 202
+
+    assert len(mocked_rabbitmq.send_sync.mock_calls) == 1
+
+    kw = mocked_rabbitmq.send_sync.mock_calls[0].kwargs
+    assert kw['command_name'] == 'SEND_MAIL'
+    assert kw['is_flat_request'] is False
+    assert kw['async_request'] is False
+    assert kw['secure_parameters'] is None
+    assert kw['compressed'] is True
+
+    # checking models
+    params = kw['parameters']
+    assert len(params) == 1, 'Only one operational report is sent'
+    typ = params[0]['model']['notificationType']
+    model = json.loads(params[0]['model']['notificationAsJson'])
+
+    expected = load_expected('project/overview_report')
+    expected.update(
+        {
+            'linked_tenants_data':
+                load_expected('project/overview_linked_tenants_data')
+        }
+    )
+    assert typ == 'CUSTODIAN_PROJECT_OVERVIEW_REPORT'
+    assert dicts_equal(model, expected)
+
+
+def test_project_compliance_include_linked_report(
+    system_user_token,
+    sre_client,
+    project_compliance_metrics,
+    mocked_rabbitmq,
+    load_expected,
+):
+    resp = sre_client.request(
+        '/reports/project',
+        'POST',
+        auth=system_user_token,
+        data={
+            'customer_id': 'TEST_CUSTOMER',
+            'tenant_display_names': ['testing'],
+            'types': ['COMPLIANCE'],
+            'receivers': ['admin@gmail.com'],
+            'include_linked': True,
+        },
+    )
+    assert resp.status_int == 202
+
+    assert len(mocked_rabbitmq.send_sync.mock_calls) == 1
+
+    kw = mocked_rabbitmq.send_sync.mock_calls[0].kwargs
+    assert kw['command_name'] == 'SEND_MAIL'
+    assert kw['is_flat_request'] is False
+    assert kw['async_request'] is False
+    assert kw['secure_parameters'] is None
+    assert kw['compressed'] is True
+
+    # checking models
+    params = kw['parameters']
+    assert len(params) == 1, 'Only one operational report is sent'
+    typ = params[0]['model']['notificationType']
+    model = json.loads(params[0]['model']['notificationAsJson'])
+
+    expected = load_expected('project/compliance_report')
+    expected.update(
+        {
+            'linked_tenants_data':
+                load_expected('project/compliance_linked_tenants_data')
+        }
+    )
+    assert typ == 'CUSTODIAN_PROJECT_COMPLIANCE_REPORT'
+    assert dicts_equal(model, expected)
+
+
+def test_project_resources_include_linked_report(
+    system_user_token,
+    sre_client,
+    project_resources_metrics,
+    mocked_rabbitmq,
+    load_expected,
+):
+    resp = sre_client.request(
+        '/reports/project',
+        'POST',
+        auth=system_user_token,
+        data={
+            'customer_id': 'TEST_CUSTOMER',
+            'tenant_display_names': ['testing'],
+            'types': ['RESOURCES'],
+            'receivers': ['admin@gmail.com'],
+            'include_linked': True,
+        },
+    )
+    assert resp.status_int == 202
+
+    assert len(mocked_rabbitmq.send_sync.mock_calls) == 1
+
+    kw = mocked_rabbitmq.send_sync.mock_calls[0].kwargs
+    assert kw['command_name'] == 'SEND_MAIL'
+    assert kw['is_flat_request'] is False
+    assert kw['async_request'] is False
+    assert kw['secure_parameters'] is None
+    assert kw['compressed'] is True
+
+    # checking models
+    params = kw['parameters']
+    assert len(params) == 1, 'Only one operational report is sent'
+    typ = params[0]['model']['notificationType']
+    model = json.loads(params[0]['model']['notificationAsJson'])
+
+    expected = load_expected('project/resources_report')
+    expected.update(
+        {
+            'linked_tenants_data':
+                load_expected('project/resources_linked_tenants_data')
+        }
+    )
+    assert typ == 'CUSTODIAN_PROJECT_RESOURCES_REPORT'
+    assert dicts_equal(model, expected)
+
+
+def test_project_attacks_include_linked_report(
+    system_user_token,
+    sre_client,
+    project_attacks_metrics,
+    mocked_rabbitmq,
+    load_expected,
+):
+    resp = sre_client.request(
+        '/reports/project',
+        'POST',
+        auth=system_user_token,
+        data={
+            'customer_id': 'TEST_CUSTOMER',
+            'tenant_display_names': ['testing'],
+            'types': ['ATTACK_VECTOR'],
+            'receivers': ['admin@gmail.com'],
+            'include_linked': True,
+        },
+    )
+    assert resp.status_int == 202
+
+    assert len(mocked_rabbitmq.send_sync.mock_calls) == 1
+
+    kw = mocked_rabbitmq.send_sync.mock_calls[0].kwargs
+    assert kw['command_name'] == 'SEND_MAIL'
+    assert kw['is_flat_request'] is False
+    assert kw['async_request'] is False
+    assert kw['secure_parameters'] is None
+    assert kw['compressed'] is True
+
+    # checking models
+    params = kw['parameters']
+    assert len(params) == 1, 'Only one operational report is sent'
+    typ = params[0]['model']['notificationType']
+    model = json.loads(params[0]['model']['notificationAsJson'])
+
+    expected = load_expected('project/attacks_report')
+    expected.update(
+        {
+            'linked_tenants_data':
+                load_expected('project/attacks_linked_tenants_data')
+        }
+    )
+    assert typ == 'CUSTODIAN_PROJECT_ATTACKS_REPORT'
+    assert dicts_equal(model, expected)
+
+
+def test_project_finops_include_linked_report(
+    system_user_token,
+    sre_client,
+    project_finops_metrics,
+    mocked_rabbitmq,
+    load_expected,
+):
+    resp = sre_client.request(
+        '/reports/project',
+        'POST',
+        auth=system_user_token,
+        data={
+            'customer_id': 'TEST_CUSTOMER',
+            'tenant_display_names': ['testing'],
+            'types': ['FINOPS'],
+            'receivers': ['admin@gmail.com'],
+            'include_linked': True,
+        },
+    )
+    assert resp.status_int == 202
+
+    assert len(mocked_rabbitmq.send_sync.mock_calls) == 1
+
+    kw = mocked_rabbitmq.send_sync.mock_calls[0].kwargs
+    assert kw['command_name'] == 'SEND_MAIL'
+    assert kw['is_flat_request'] is False
+    assert kw['async_request'] is False
+    assert kw['secure_parameters'] is None
+    assert kw['compressed'] is True
+
+    # checking models
+    params = kw['parameters']
+    assert len(params) == 1, 'Only one operational report is sent'
+    typ = params[0]['model']['notificationType']
+    model = json.loads(params[0]['model']['notificationAsJson'])
+
+    expected = load_expected('project/finops_report')
+    expected.update(
+        {
+            'linked_tenants_data':
+                load_expected('project/finops_linked_tenants_data')
+        }
+    )
+    assert typ == 'CUSTODIAN_PROJECT_FINOPS_REPORT'
+    assert dicts_equal(model, expected)

@@ -4,7 +4,7 @@ from srecli.group import ContextObj, ViewCommand, cli_response
 from srecli.service.adapter_client import SREResponse
 from srecli.service.constants import RULE_CLOUDS
 
-attributes_order = 'name', 'version', 'cloud', 'licensed',
+attributes_order = 'name', 'version', 'cloud', 'licensed', 'description',
 
 
 @click.group(name='ruleset')
@@ -73,11 +73,26 @@ def describe(ctx: ContextObj, name, version, cloud, get_rules,
               help='Rules service section to use')
 @click.option('--source', required=False, type=str, multiple=True,
               help='Rules source to use')
+@click.option('--description', '-d', type=str, required=True,
+              help='Human-readable description of the ruleset')
 @cli_response(attributes_order=attributes_order)
-def add(ctx: ContextObj, name: str, version: str, cloud: str, rule: tuple,
-        exclude_rule: tuple, rule_source_id: str, git_project_id: str, git_ref: str,
-        platform: tuple[str], category: tuple[str], service_section: tuple[str],
-        source: tuple[str], customer_id: str):
+def add(
+    ctx: ContextObj, 
+    name: str,
+    version: str,
+    cloud: str,
+    rule: tuple,
+    exclude_rule: tuple,
+    rule_source_id: str,
+    git_project_id: str,
+    git_ref: str,
+    platform: tuple[str],
+    category: tuple[str],
+    service_section: tuple[str],
+    source: tuple[str],
+    description: str,
+    customer_id: str
+) -> SREResponse:
     """
     Creates Customers ruleset.
     """
@@ -103,6 +118,7 @@ def add(ctx: ContextObj, name: str, version: str, cloud: str, rule: tuple,
         categories=category,
         service_sections=service_section,
         sources=source,
+        description=description,
         customer_id=customer_id
     )
 
@@ -123,9 +139,20 @@ def add(ctx: ContextObj, name: str, version: str, cloud: str, rule: tuple,
 @click.option('--force', '-f', is_flag=True, default=False,
               help='If specified the new version of ruleset will be created '
                    'even if there are no changes')
+@click.option('--description', '-d', type=str, required=False,
+              help='Human-readable description of the ruleset')
 @cli_response(attributes_order=attributes_order)
-def update(ctx: ContextObj, customer_id, name, version, new_version, 
-           attach_rules, detach_rules, force):
+def update(
+    ctx: ContextObj,
+    customer_id: str,
+    name: str,
+    version: str,
+    new_version: str,
+    attach_rules: tuple[str],
+    detach_rules: tuple[str],
+    force: bool,
+    description: str | None,
+) -> SREResponse:
     """
     Updates Customers ruleset.
     """
@@ -136,7 +163,8 @@ def update(ctx: ContextObj, customer_id, name, version, new_version,
         rules_to_attach=attach_rules,
         rules_to_detach=detach_rules,
         customer_id=customer_id,
-        force=force
+        force=force,
+        description=description
     )
 
 

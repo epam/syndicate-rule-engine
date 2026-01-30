@@ -1,8 +1,8 @@
 import operator
 import os
 from enum import Enum
-
 from typing import TypedDict
+
 
 # from http import HTTPMethod  # python3.11+
 
@@ -237,6 +237,7 @@ CONTEXT_MODULAR_ADMIN_USERNAME = 'modular_admin_username'
 
 CONF_ACCESS_TOKEN = 'access_token'
 CONF_REFRESH_TOKEN = 'refresh_token'
+CONF_SYSTEM_CUSTOMER_NAME = 'system_customer_name'
 CONF_API_LINK = 'api_link'
 CONF_ITEMS_PER_COLUMN = 'items_per_column'
 

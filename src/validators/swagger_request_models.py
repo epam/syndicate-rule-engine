@@ -50,6 +50,8 @@ from celery.schedules import (
     crontab as celery_crontab,
 )
 
+DEFAULT_LM_PK_ALGORITHM = 'ECC:p521_DSS_SHA:256'
+
 
 class BaseModel(PydanticBaseModel):
     model_config = ConfigDict(
@@ -380,6 +382,10 @@ class TenantRegionPostModel(BaseModel):
 class RulesetPostModel(BaseModel):
     name: str
     cloud: Literal['AWS', 'AZURE', 'GOOGLE', 'GCP', 'KUBERNETES']
+    description: str = Field(
+        ...,
+        description='Human-readable description of the ruleset',
+    )
     version: str = Field(
         None,
         description='Ruleset version. If not specified, '
@@ -523,6 +529,10 @@ class RulesetPatchModel(BaseModel):
     force: bool = Field(
         None,
         description='Force the creation of a new ruleset version even if no there is no changes',
+    )
+    description: str = Field(
+        None,
+        description='Human-readable description of the ruleset',
     )
 
     @field_validator('name', mode='after')
@@ -685,6 +695,95 @@ class RuleUpdateMetaPostModel(BaseModel):
     rule_source_id: str = Field(None)
 
 
+class RuleSourceValidator:
+    """
+    Reusable validators for RuleSource fields.
+    Can be used both in Pydantic models and in handlers after merging data.
+    """
+
+    @staticmethod
+    def validate(
+        git_project_id: str,
+        type_: RuleSourceType,
+        git_url: HttpUrl | str,
+    ) -> str:
+        """
+        Full validation of rule source state. Returns normalized git_project_id.
+        Validates:
+        - git_project_id format (owner/repo or numeric id)
+        - type compatibility with git_project_id format
+        - git_url for GitHub projects (must contain github.com)
+        """
+        normalized, is_github, is_gitlab = RuleSourceValidator._parse(git_project_id)
+
+        if not is_github and not is_gitlab:
+            raise ValueError(
+                'unknown git_project_id. '
+                'Specify Gitlab project id or Github owner/repo'
+            )
+
+        is_github_type = type_ in (RuleSourceType.GITHUB, RuleSourceType.GITHUB_RELEASE)
+        if is_github_type and not is_github:
+            raise ValueError('GITHUB is only available for GitHub projects')
+        if type_ is RuleSourceType.GITLAB and not is_gitlab:
+            raise ValueError('GITLAB is only available for GitLab projects')
+
+        # NOTE: GitLab URL is not validated because it can be any self-hosted URL
+        git_url_str = str(git_url).strip().strip('/')
+        if is_github and 'github.com' not in git_url_str:
+            raise ValueError('GitHub URL must be a valid GitHub URL')
+
+        return normalized
+
+    @staticmethod
+    def infer_type(git_project_id: str) -> RuleSourceType:
+        """Infer RuleSourceType from git_project_id format."""
+        _, is_github, is_gitlab = RuleSourceValidator._parse(git_project_id)
+        if is_github:
+            return RuleSourceType.GITHUB
+        if is_gitlab:
+            return RuleSourceType.GITLAB
+        raise ValueError(
+            'unknown git_project_id. '
+            'Specify Gitlab project id or Github owner/repo'
+        )
+
+    @staticmethod
+    def infer_git_url(git_project_id: str) -> str:
+        """Infer default git_url from git_project_id format."""
+        _, is_github, is_gitlab = RuleSourceValidator._parse(git_project_id)
+        if is_github:
+            return GITHUB_API_URL_DEFAULT
+        if is_gitlab:
+            return GITLAB_API_URL_DEFAULT
+        raise ValueError(
+            'unknown git_project_id. '
+            'Specify Gitlab project id or Github owner/repo'
+        )
+
+    @staticmethod
+    def _normalize(git_project_id: str) -> str:
+        return git_project_id.strip().strip('/')
+
+    @staticmethod
+    def _is_github(git_project_id: str) -> bool:
+        return git_project_id.count('/') == 1
+
+    @staticmethod
+    def _is_gitlab(git_project_id: str) -> bool:
+        return git_project_id.isdigit()
+
+    @staticmethod
+    def _parse(git_project_id: str) -> tuple[str, bool, bool]:
+        """Returns (normalized, is_github, is_gitlab)."""
+        normalized = RuleSourceValidator._normalize(git_project_id)
+        return (
+            normalized,
+            RuleSourceValidator._is_github(normalized),
+            RuleSourceValidator._is_gitlab(normalized),
+        )
+
+
 class RuleSourcePostModel(BaseModel):
     git_project_id: str  # "141234124" or "epam/ecc"
     description: str
@@ -713,39 +812,58 @@ class RuleSourcePostModel(BaseModel):
 
     @model_validator(mode='after')
     def root(self) -> Self:
-        self.git_project_id = self.git_project_id.strip().strip('/')
-        is_github = self.git_project_id.count('/') == 1
-        is_gitlab = self.git_project_id.isdigit()
-        if not is_github and not is_gitlab:
-            raise ValueError(
-                'unknown git_project_id. '
-                'Specify Gitlab project id or Github owner/repo'
-            )
         if not self.git_url:
-            if is_github:
-                self.git_url = HttpUrl(GITHUB_API_URL_DEFAULT)
-            elif is_gitlab:
-                self.git_url = HttpUrl(GITLAB_API_URL_DEFAULT)
-        if not self.type:
-            if is_github:
-                self.type = RuleSourceType.GITHUB
-            elif is_gitlab:
-                self.type = RuleSourceType.GITLAB
-        if self.type is RuleSourceType.GITHUB_RELEASE and not is_github:
-            raise ValueError(
-                'GITHUB_RELEASES is only available for GitHub projects'
+            self.git_url = HttpUrl(
+                RuleSourceValidator.infer_git_url(self.git_project_id)
             )
+        if not self.type:
+            self.type = RuleSourceValidator.infer_type(self.git_project_id)
+
+        self.git_project_id = RuleSourceValidator.validate(
+            git_project_id=self.git_project_id,
+            type_=self.type,
+            git_url=self.git_url,
+        )
         return self
 
 
 class RuleSourcePatchModel(BaseModel):
     git_access_secret: str = Field(None)
     description: str = Field(None)
+    type: RuleSourceType = Field(None)
+    git_url: HttpUrl = Field(None)
+    git_ref: str = Field(None)
+    git_project_id: str = Field(None)
+    git_rules_prefix: str = Field(None)
+
+    @property
+    def baseurl(self) -> str | None:
+        if self.git_url:
+            return self.git_url.scheme + '://' + self.git_url.host
+        return None
 
     @model_validator(mode='after')
-    def validate_any_to_update(self) -> Self:
-        if not self.git_access_secret and not self.description:
+    def root(self) -> Self:
+        has_update = any([
+            self.git_access_secret,
+            self.description,
+            self.type,
+            self.git_url,
+            self.git_ref,
+            self.git_project_id,
+            self.git_rules_prefix,
+        ])
+        if not has_update:
             raise ValueError('Provide data to update')
+        if self.git_project_id:
+            self.git_url = self.git_url or HttpUrl(
+                RuleSourceValidator.infer_git_url(self.git_project_id)
+            )
+            self.type = self.type or RuleSourceValidator.infer_type(
+                self.git_project_id
+            )
+        # Other fields are validated in the handler
+        # because we need to first merge fields and then validate
         return self
 
 
@@ -787,6 +905,17 @@ class RolePatchModel(BaseModel):
     policies_to_detach: set[str] = Field(default_factory=set)
     expiration: datetime = Field(None)
     description: str = Field(None)
+
+    @field_validator('expiration')
+    @classmethod
+    def _(cls, expiration: datetime | None) -> datetime | None:
+        if not expiration:
+            return expiration
+        if expiration.tzinfo is None:
+            expiration = expiration.replace(tzinfo=timezone.utc)
+        else:
+            expiration.astimezone(timezone.utc)
+        return expiration
 
     @model_validator(mode='after')
     def to_attach_or_to_detach(self) -> Self:
@@ -1264,6 +1393,22 @@ class LicenseManagerConfigSettingPostModel(BaseModel):
     stage: str = Field(None)
 
 
+class LicenseManagerConfigSettingPatchModel(BaseModel):
+    host: str = Field(None)
+    port: int = Field(None)
+    protocol: Annotated[
+        Literal['HTTP', 'HTTPS', 'http', 'https'],
+        StringConstraints(to_upper=True),
+    ] = Field(None)
+    stage: str = Field(None)
+
+    @model_validator(mode='after')
+    def at_least_one_to_update(self) -> Self:
+        if not any((self.host, self.port, self.protocol, self.stage)):
+            raise ValueError('Provide at least one attribute to update')
+        return self
+
+
 class LicenseManagerClientSettingPostModel(BaseModel):
     key_id: str
     algorithm: Annotated[
@@ -1272,10 +1417,38 @@ class LicenseManagerClientSettingPostModel(BaseModel):
             {
                 'type': 'string',
                 'title': 'LM algorithm',
-                'default': 'ECC:p521_DSS_SHA:256',
+                'default': DEFAULT_LM_PK_ALGORITHM,
             }
         ),
-    ] = 'ECC:p521_DSS_SHA:256'
+    ] = DEFAULT_LM_PK_ALGORITHM
+    private_key: str
+    b64_encoded: bool
+
+    @model_validator(mode='after')
+    def check_properly_encoded_key(self) -> Self:
+        if not self.b64_encoded:
+            return self
+        try:
+            self.private_key = standard_b64decode(self.private_key).decode()
+        except (TypeError, BaseException):
+            raise ValueError(
+                "'private_key' must be a safe to decode base64-string."
+            )
+        return self
+
+
+class LicenseManagerClientSettingPatchModel(BaseModel):
+    key_id: str = Field(None)
+    algorithm: Annotated[
+        Literal['ECC:p521_DSS_SHA:256'],
+        WithJsonSchema(
+            {
+                'type': 'string',
+                'title': 'LM algorithm',
+                'default': DEFAULT_LM_PK_ALGORITHM,
+            }
+        ),
+    ] = DEFAULT_LM_PK_ALGORITHM
     private_key: str
     b64_encoded: bool
 
@@ -1460,6 +1633,7 @@ class ProjectGetReportModel(BaseModel):
         ]
     ] = Field(default_factory=set)
     receivers: set[str] = Field(default_factory=set)
+    include_linked: bool = False
     # attempt: SkipJsonSchema[int] = 0
     # execution_job_id: SkipJsonSchema[str] = Field(None)
 
@@ -1937,6 +2111,13 @@ class LicenseActivationPatchModel(BaseModel):
         if not self.add_tenants and not self.remove_tenants:
             raise ValueError('provide either add_tenants or remove_tenants')
         return self
+
+
+class LicenseSyncModel(BaseModel):
+    overwrite_rulesets: bool = Field(
+        default=False,
+        description='Overwrite existing rulesets in S3 even if they already exist',
+    )
 
 
 class DefectDojoPostModel(BaseModel):

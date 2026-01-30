@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 from enum import Enum
 from itertools import chain, filterfalse
-from typing import Callable, Iterator, MutableMapping, TypeVar
+from typing import Callable, Iterator, Literal, MutableMapping, TypeVar
 
 from dateutil.relativedelta import SU, relativedelta
 from typing_extensions import Self
@@ -691,6 +691,12 @@ class Env(EnvEnum):
         '0 14 * * *',  # every day at 14:00 UTC
     )
 
+    SCAN_RESOURCES_PROCESSORS = (
+        'SRE_SCAN_RESOURCES_PROCESSORS',
+        (),
+        '2',  # 2 processors used ~1GB of RAM in the total sum
+    )
+
     # Cloud Custodian
     CC_LOG_LEVEL = 'SRE_CC_LOG_LEVEL', (), 'INFO'
     ENABLE_CUSTOM_CC_PLUGINS = 'SRE_ENABLE_CUSTOM_CC_PLUGINS', ()
@@ -710,7 +716,19 @@ class Env(EnvEnum):
 
     @classmethod
     def is_docker(cls) -> bool:
-        return cls.SERVICE_MODE.get() == 'docker'
+        return cls.SERVICE_MODE.get() == DOCKER_SERVICE_MODE
+
+    @classmethod
+    def is_mongo_db(cls) -> bool:
+        """
+        Determines if MongoDB is being used as the database.
+        Currently based on docker mode.
+        """
+        return cls.is_docker()
+
+    @classmethod
+    def get_db_type(cls) -> Literal['MongoDB', 'DynamoDB']:
+        return 'MongoDB' if cls.is_mongo_db() else 'DynamoDB'
 
 
 class BatchJobEnv(EnvEnum):
@@ -883,9 +901,11 @@ class Permission(str, Enum):
     )  # TODO make PUT
     SETTINGS_DESCRIBE_LM_CONFIG = 'settings:describe_lm_config'
     SETTINGS_CREATE_LM_CONFIG = 'settings:create_lm_config', True
+    SETTINGS_UPDATE_LM_CONFIG = 'settings:update_lm_config', True
     SETTINGS_DELETE_LM_CONFIG = 'settings:delete_lm_config', True
     SETTINGS_DESCRIBE_LM_CLIENT = 'settings:describe_lm_client'
     SETTINGS_CREATE_LM_CLIENT = 'settings:create_lm_client', True
+    SETTINGS_UPDATE_LM_CLIENT = 'settings:update_lm_client', True
     SETTINGS_DELETE_LM_CLIENT = 'settings:delete_lm_client', True
 
     RABBITMQ_DESCRIBE = 'rabbitmq:describe'

@@ -120,11 +120,17 @@ class PlatformService(BaseDataService[Platform]):
             ''.join((tenant_name, region, name)).encode()).digest()
         return str(uuid.UUID(bytes=hs, version=3))
 
-    def create(self, tenant: Tenant, application: Application,
-               name: str, type_: PlatformType, created_by: str,
-               region: str | None,
-               description: str = 'Custodian created native k8s',
-               ) -> Platform:
+    def create(
+        self,
+        tenant: Tenant,
+        application: Application,
+        name: str,
+        type_: PlatformType,
+        created_by: str,
+        region: str | None,
+        description: str = 'Custodian created native k8s',
+    ) -> Platform:
+
         parent = self._ps.build(
             customer_id=tenant.customer_name,
             application_id=application.application_id,
@@ -135,8 +141,7 @@ class PlatformService(BaseDataService[Platform]):
             scope=ParentScope.SPECIFIC,
             tenant_name=tenant.name
         )
-        if type_ != PlatformType.SELF_MANAGED:
-            parent.parent_id = self.generate_id(tenant.name, region, name)
+
         return Platform(parent=parent, application=application)
 
     def query_by_tenant(self, tenant: Tenant) -> Iterator[Platform]:

@@ -5,13 +5,9 @@ from helpers.constants import Env
 from lambdas.license_updater.handler import LicenseUpdater
 from lambdas.metrics_updater.handler import MetricsUpdater
 from lambdas.rule_meta_updater.handler import RuleMetaUpdaterLambdaHandler
-from lambdas.metrics_updater.processors.findings_processor import (
-    FindingsUpdater,
-)
 from lambdas.metrics_updater.processors.expired_metrics_processor import (
     ExpiredMetricsCleaner,
 )
-from services.resources_collector import CustodianResourceCollector
 from onprem.celery import app
 
 
@@ -44,10 +40,13 @@ def make_findings_snapshot():
 
 
 @app.task
-def sync_license(license_keys: list[str] | str | None = None):
+def sync_license(
+    license_keys: list[str] | str | None = None,
+    overwrite_rulesets: bool = False,
+):
     if isinstance(license_keys, str):
         license_keys = [license_keys]
-    event = {}
+    event = {'overwrite_rulesets': overwrite_rulesets}
     if license_keys:
         event['license_keys'] = list(license_keys)
     LicenseUpdater.build().lambda_handler(
@@ -82,8 +81,11 @@ def delete_expired_metrics():
 
 
 @app.task
-def collect_resources():
-    CustodianResourceCollector.build().collect_all_resources()
+def collect_resources() -> None:
+    from executor.job import CustodianResourceCollector
+    
+    collector = CustodianResourceCollector.build()
+    collector.collect_all_resources()
 
 
 @app.task

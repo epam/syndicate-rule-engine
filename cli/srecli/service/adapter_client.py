@@ -704,12 +704,12 @@ class SREApiClient:
             data=sifted(kwargs)
         )
 
-    def license_sync(self, license_key: str, **kwargs):
+    def license_sync(self, license_key: str, overwrite_rulesets: bool = False, **kwargs):
         return self.make_request(
             path=Endpoint.LICENSES_LICENSE_KEY_SYNC,
             path_params={'license_key': license_key},
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted({'overwrite_rulesets': overwrite_rulesets, **kwargs})
         )
 
     def mail_setting_get(self, **kwargs):
@@ -759,6 +759,13 @@ class SREApiClient:
             data=sifted(kwargs)
         )
 
+    def lm_config_setting_patch(self, **kwargs):
+        return self.make_request(
+            path=Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG,
+            method=HTTPMethod.PATCH,
+            data=sifted(kwargs)
+        )
+
     def lm_config_setting_delete(self):
         return self.make_request(
             path=Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG,
@@ -776,6 +783,13 @@ class SREApiClient:
         return self.make_request(
             path=Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
             method=HTTPMethod.POST,
+            data=sifted(kwargs)
+        )
+
+    def lm_client_setting_patch(self, **kwargs):
+        return self.make_request(
+            path=Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
+            method=HTTPMethod.PATCH,
             data=sifted(kwargs)
         )
 
@@ -1013,7 +1027,7 @@ class SREApiClient:
         customer_id: str | None = None,
     ) -> SREResponse:
         return self.make_request(
-            path=Endpoint.RESOURCES_EXCEPTIONS,
+            path=Endpoint.RESOURCES_EXCEPTIONS_ID,
             method=HTTPMethod.GET,
             path_params={'id': exception_id},
             query=sifted({'customer_id': customer_id})

@@ -15,7 +15,7 @@ def exception():
 
 
 @exception.command(cls=ViewCommand, name='describe')
-@click.option('--exception_id', '-excid', type=str,
+@click.option('--exception_id', '-exid', type=str,
               help='Resource exception ID. '
                    'If provided, other filters are ignored')
 @build_tenant_option()
@@ -165,7 +165,7 @@ def _validate_and_prepare_exception_params(
 @click.option('--resource_type', '-rt', type=str,
               help='Resource type (e.g., aws.ec2, azure.vm) - required with '
                    '`resource_id` and `location`')
-@click.option('--location', '-l', type=str,
+@click.option('--location', '-loc', type=str,
               help='Location/region (required with `resource_id` and '
                    '`resource_type`)')
 @click.option('--arn', type=str,
@@ -226,7 +226,7 @@ def add(
 @click.option('--resource_type', '-rt', type=str,
               help='Resource type (e.g., aws.ec2, azure.vm) - required with '
                    'resource_id and location')
-@click.option('--location', '-l', type=str,
+@click.option('--location', '-loc', type=str,
               help='Location/region (required with resource_id and '
                    'resource_type)')
 @click.option('--arn', type=str,

@@ -2,17 +2,24 @@ from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from itertools import chain
 from pathlib import Path
-from typing import Generator, TYPE_CHECKING
+from typing import TYPE_CHECKING, Generator
 
 from botocore.credentials import JSONFileCache
-
-from srecli.service.constants import CONFIG_FOLDER, CONF_ACCESS_TOKEN, \
-    CONF_API_LINK, CONF_ITEMS_PER_COLUMN, CONF_REFRESH_TOKEN
+from srecli.service.constants import (
+    CONF_ACCESS_TOKEN,
+    CONF_API_LINK,
+    CONF_ITEMS_PER_COLUMN,
+    CONF_REFRESH_TOKEN,
+    CONF_SYSTEM_CUSTOMER_NAME,
+    CONFIG_FOLDER,
+)
 from srecli.service.logger import get_logger
+
 
 if TYPE_CHECKING:
     from modular_cli_sdk.services.credentials_manager import (
-        AbstractCredentialsManager)
+        AbstractCredentialsManager,
+    )
 
 SYSTEM_LOG = get_logger(__name__)
 
@@ -58,6 +65,16 @@ class AbstractSREConfig(ABC):
     @items_per_column.setter
     @abstractmethod
     def items_per_column(self, value: int):
+        ...
+
+    @property
+    @abstractmethod
+    def system_customer_name(self) -> str | None:
+        ...
+
+    @system_customer_name.setter
+    @abstractmethod
+    def system_customer_name(self, value: str | None):
         ...
 
     @abstractmethod
@@ -123,12 +140,32 @@ class SRECLIConfig(JSONFileCache, AbstractSREConfig):
 
     @api_link.setter
     def api_link(self, value: str):
+        # Clear system_customer_name when API link changes
+        if CONF_SYSTEM_CUSTOMER_NAME in self:
+            del self[CONF_SYSTEM_CUSTOMER_NAME]
         self[CONF_API_LINK] = value
 
     @api_link.deleter
     def api_link(self):
         if CONF_API_LINK in self:
             del self[CONF_API_LINK]
+
+    @property
+    def system_customer_name(self) -> str | None:
+        return self.get(CONF_SYSTEM_CUSTOMER_NAME)
+
+    @system_customer_name.setter
+    def system_customer_name(self, value: str | None):
+        if value is None:
+            if CONF_SYSTEM_CUSTOMER_NAME in self:
+                del self[CONF_SYSTEM_CUSTOMER_NAME]
+        else:
+            self[CONF_SYSTEM_CUSTOMER_NAME] = value
+
+    @system_customer_name.deleter
+    def system_customer_name(self):
+        if CONF_SYSTEM_CUSTOMER_NAME in self:
+            del self[CONF_SYSTEM_CUSTOMER_NAME]
 
     @property
     def access_token(self) -> str | None:
@@ -192,8 +229,10 @@ class SREWithCliSDKConfig(AbstractSREConfig):
 
     @property
     def config_dict(self) -> dict:
-        from modular_cli_sdk.commons.exception import \
-            ModularCliSdkBaseException
+        from modular_cli_sdk.commons.exception import (
+            ModularCliSdkBaseException,
+        )
+
         # in order to be able to use other classes from this module
         # without cli_sdk installed
         if not self._config_dict:
@@ -220,6 +259,10 @@ class SREWithCliSDKConfig(AbstractSREConfig):
 
     @api_link.setter
     def api_link(self, value: str):
+        # Clear system_customer_name when API link changes
+        if CONF_SYSTEM_CUSTOMER_NAME in self.config_dict:
+            del self.config_dict[CONF_SYSTEM_CUSTOMER_NAME]
+            self._credentials_manager.store(self.config_dict)
         self.set(CONF_API_LINK, value)
 
     @property
@@ -246,6 +289,19 @@ class SREWithCliSDKConfig(AbstractSREConfig):
     def items_per_column(self, value: int):
         assert isinstance(value, (int, type(None)))
         self.set(CONF_ITEMS_PER_COLUMN, value)
+
+    @property
+    def system_customer_name(self) -> str | None:
+        return self.config_dict.get(CONF_SYSTEM_CUSTOMER_NAME)
+
+    @system_customer_name.setter
+    def system_customer_name(self, value: str | None):
+        if value is None:
+            config_dict = self.config_dict
+            config_dict.pop(CONF_SYSTEM_CUSTOMER_NAME, None)
+            self._credentials_manager.store(config_dict)
+        else:
+            self.set(CONF_SYSTEM_CUSTOMER_NAME, value)
 
     def items(self) -> Generator[tuple[str, Json], None, None]:
         yield CONF_API_LINK, self.api_link
