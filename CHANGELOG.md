@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fixed invalid `next_token` handling
+- Fixed issue with double creation of indexes for `SREResources` and `SREResourceExceptions` collections
 
 ## [5.16.0] - 2026-01-05
 - Added validation of downloaded rulesets to ensure they are valid JSON
