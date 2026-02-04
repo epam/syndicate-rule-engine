@@ -20,7 +20,7 @@ def create_resource_exceptions_indexes(db: Database) -> tuple[str, ...]:
     collection = db.get_collection(ResourceException.Meta.table_name)
     indexes = collection.index_information()
 
-    name1 = 'cn_1_tn_1_l_1_rt_1_i_1'
+    name1 = 'cn_1_tn_1_l_1_rt_1_ri_1'
     if name1 not in indexes:
         _LOG.info(f'Index {name1} does not exist yet')
         collection.create_index(
