@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.16.1] - 2026-01-05
+
+### Fixed
+- Fixed invalid `next_token` handling
+
 ## [5.16.0] - 2026-01-05
 - Added validation of downloaded rulesets to ensure they are valid JSON
 - Added the parameter `overwrite_rulesets` for the `POST /licenses/{license_key}/sync` endpoint that allows to overwrite existing ruleset data in S3
@@ -40,6 +45,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `google-api-python-client` from `~=2.176.0` to `~=2.188.0`
     - `google-auth` from `~=2.40.0` to `~=2.47.0`
 - Hidden unused endpoint `GET /reports/diagnostic` from the API
+
+## [5.15.1] - 2026-01-02
+- Bump MongoDB Version due to CVE-2025-14847 Vulnerability
 
 ## [5.15.0] - 2025-11-06
 - Added hiding expired resource exceptions

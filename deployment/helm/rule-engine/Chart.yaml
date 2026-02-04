@@ -15,7 +15,7 @@ dependencies:
     condition: minio.enabled
   - name: mongo
     repository: "s3://charts-repository/syndicate/"
-    version: "^1.1.0"
+    version: "^1.1.1"
     condition: mongo.enabled
   - name: redis
     repository: "s3://charts-repository/syndicate/"

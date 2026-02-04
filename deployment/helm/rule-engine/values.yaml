@@ -65,7 +65,7 @@ modular-api:
     tag: 4.3.5-rule-engine-5.10.0
 
 patch:
-  enabled: true
+  enabled: false
   backoffLimit: 10
   ttlSecondsAfterFinished: 3600
   image:

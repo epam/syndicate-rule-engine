@@ -15,32 +15,31 @@ from helpers.time_helper import utc_iso
 from models import BaseModel
 
 
-JOB_ID = "i"
-JOB_BATCH_JOB_ID = "b"
-JOB_CELERY_TASK_ID = "cti"
-JOB_TENANT_NAME = "t"
-JOB_CUSTOMER_NAME = "c"
-JOB_STATUS = "s"
-JOB_SUBMITTED_AT = "sa"
-JOB_CREATED_AT = "cr"
-JOB_STARTED_AT = "sta"
-JOB_STOPPED_AT = "sto"
-JOB_QUEUE = "q"
-JOB_DEFINITION = "d"
-JOB_OWNER = "o"
-JOB_REGIONS = "rg"
-JOB_RULESETS = "rs"
-JOB_REASON = "r"
-JOB_SCHEDULED_RULE_NAME = "sr"
-JOB_RULES_TO_SCAN = "ru"
-JOB_PLATFORM_ID = "p"
-JOB_TTL = "ttl"
-JOB_AFFECTED_LICENSE = "al"
-JOB_CREDENTIALS_KEY = "ck"
-JOB_APPLICATION_ID = "aid"
-JOB_WARNINGS = "w"
-JOB_DOJO_STRUCTURE = "ds"
-JOB_TYPE = "ty"
+JOB_ID = 'i'
+JOB_BATCH_JOB_ID = 'b'
+JOB_CELERY_TASK_ID = 'cti'
+JOB_TENANT_NAME = 't'
+JOB_CUSTOMER_NAME = 'c'
+JOB_STATUS = 's'
+JOB_SUBMITTED_AT = 'sa'
+JOB_CREATED_AT = 'cr'
+JOB_STARTED_AT = 'sta'
+JOB_STOPPED_AT = 'sto'
+JOB_QUEUE = 'q'
+JOB_DEFINITION = 'd'
+JOB_OWNER = 'o'
+JOB_REGIONS = 'rg'
+JOB_RULESETS = 'rs'
+JOB_REASON = 'r'
+JOB_SCHEDULED_RULE_NAME = 'sr'
+JOB_RULES_TO_SCAN = 'ru'
+JOB_PLATFORM_ID = 'p'
+JOB_TTL = 'ttl'
+JOB_AFFECTED_LICENSE = 'al'
+JOB_CREDENTIALS_KEY = 'ck'
+JOB_APPLICATION_ID = 'aid'
+JOB_WARNINGS = 'w'
+JOB_DOJO_STRUCTURE = 'ds'
 
 
 class TenantNameSubmittedAtIndex(GlobalSecondaryIndex):
@@ -136,8 +135,15 @@ class Job(BaseModel):
 
     scheduled_rule_name = UnicodeAttribute(null=True, attr_name=JOB_SCHEDULED_RULE_NAME)
     platform_id = UnicodeAttribute(null=True, attr_name=JOB_PLATFORM_ID)
-    affected_license = UnicodeAttribute(null=True, attr_name=JOB_AFFECTED_LICENSE)
-    credentials_key = UnicodeAttribute(null=True, attr_name=JOB_CREDENTIALS_KEY)
+    affected_license = UnicodeAttribute(
+        null=True, attr_name=JOB_AFFECTED_LICENSE
+    )
+    credentials_key = UnicodeAttribute(
+        null=True, attr_name=JOB_CREDENTIALS_KEY
+    )
+    application_id = UnicodeAttribute(
+        null=True, attr_name=JOB_APPLICATION_ID
+    )
 
     ttl = TTLAttribute(null=True, attr_name=JOB_TTL)
 

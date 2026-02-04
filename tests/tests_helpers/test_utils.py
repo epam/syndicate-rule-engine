@@ -283,6 +283,8 @@ class TestNextToken:
         assert NextToken.deserialize(NextToken(lak).serialize()).value == lak
         lak = 5
         assert NextToken.deserialize(NextToken(lak).serialize()).value == lak
+        with pytest.raises(ValueError):
+            NextToken.deserialize('INVALID_NEXT_TOKEN')
 
     def test_bool(self):
         assert NextToken({'key': 'value'})
