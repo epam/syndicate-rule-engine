@@ -40,6 +40,7 @@ JOB_CREDENTIALS_KEY = 'ck'
 JOB_APPLICATION_ID = 'aid'
 JOB_WARNINGS = 'w'
 JOB_DOJO_STRUCTURE = 'ds'
+JOB_TYPE = 'ty'
 
 
 class TenantNameSubmittedAtIndex(GlobalSecondaryIndex):
