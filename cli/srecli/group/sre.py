@@ -17,7 +17,6 @@ from srecli.group.platform import platform
 from srecli.group.policy import policy
 from srecli.group.report import report
 from srecli.group.resource import resource
-from srecli.group.results import results
 from srecli.group.role import role
 from srecli.group.rule import rule
 from srecli.group.ruleset import ruleset
