@@ -3,7 +3,9 @@ from celery.schedules import crontab
 from kombu import Queue
 
 from helpers.constants import Env
+from helpers.log_helper import get_logger
 
+_LOG = get_logger(__name__)
 
 def crontab_from_string(ct: str) -> crontab:
     """
@@ -62,12 +64,16 @@ def prepare_beat_schedule() -> dict[str, dict]:
         if not isinstance(s, Env):
             continue
         val = s.get()
+        _LOG.debug(f'Schedule {name}: env={s.name}, value={val!r}')
         if not val:  # can be forced empty from outside
             disabled.append(name)
             continue
         inner['schedule'] = schedule_from_string(val)
     for name in disabled:
         schedule.pop(name)
+    _LOG.debug(f'Celery beat schedule: {schedule}')
+    if disabled:
+        _LOG.warning(f'Disabled tasks: {disabled}')
     return schedule
 
 

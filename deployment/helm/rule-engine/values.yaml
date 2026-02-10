@@ -131,4 +131,6 @@ celery:
     collectMetrics: '0 3,15 * * *'
     removeExpiredMetrics: '0 12 * * *'
     scanResources: ''  # disabled
+    assembleEvents: '*/5 * * * *' # every 5 minutes
+    clearEvents: '0 0 * * *' # every day at 00:00 UTC
 
