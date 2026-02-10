@@ -33,7 +33,7 @@ class SubmitJobToBatchMixin:
         timeout: int | None = None,
     ) -> BatchJob | CeleryJob:
         job_ids = [job.id for job in jobs]
-        job_name = [job.tenant_name for job in jobs]
+        job_name = "-".join(job.tenant_name for job in jobs)
         job_name = "".join(
             ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in job_name
         )

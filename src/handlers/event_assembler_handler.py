@@ -46,7 +46,7 @@ from services.event_driven.event_processor_service import (
 from services.event_driven.event_service import Event, EventService
 from services.job_service import JobService
 from services.license_service import LicenseService
-from services.ruleset_service import Ruleset, RulesetService
+from services.ruleset_service import Ruleset, RulesetName, RulesetService
 from services.setting_service import (
     EVENT_CURSOR_TIMESTAMP_ATTR,
     SettingsService,
@@ -247,7 +247,10 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
             job.rules_to_scan = restricted_rules_to_scan
             job.affected_license = _license.license_key
             # Set rulesets from license
-            job.rulesets = _license.ruleset_ids
+            job.rulesets = [
+                RulesetName(_id, None, _license.license_key).to_str()
+                for _id in _license.ruleset_ids
+            ]
             allowed_jobs.append(job)
 
         if not allowed_jobs:
