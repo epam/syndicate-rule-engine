@@ -4,24 +4,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.11.0] - 2025-12-15
+## [5.11.0] - 2026-01-30
 - Added the `--overwrite_rulesets`, `-or` flag to the `sre license sync` command, enabling overwriting of an existing ruleset data in S3 when syncing a license
 - Added the possibility to update the rulesource `type`, `git_url`, `git_ref`, `git_rules_prefix` and  `git_project_id` parameters in the `sre rulesource update` command
-- Fixed `sre resource exception describe --exception_id` returning all exceptions instead of filtering by the specified ID
-- Changed an alias name from `-excid` to `-exid` for the `--exception_id` parameter in the command `resource exception describe` to unify with other commands
-- Update library `click` from `==7.1.2` to `==8.3.0`
 - Added the flag `--resolve_local_credentials` to the `job submit` command
-- Removed the flag `only_preconfigured_credentials` from the command `job submit`
-- Improved handling of datatime in the command sre role add | update
 - Added command `update` to `setting lm config` and `setting lm client` groups
 - Added the `--description` parameter to the `ruleset add` and `ruleset update` commands
-- Updated `modular-cli-sdk` from `3.0.0` to `3.1.2`
-- Changed the parameter `--description` from not required to required in the command `platform k8s create`
-- Unified alias names for the `--location` to `-loc` across all the commands
 - Added the parameter `--include_linked` to the command `report project`
-- Hidden unused command `sre report diagnostic` from the CLI
 - Added logic for checking integration availability in the CLI for hiding commands that require integrations and that are not available without them
-
+- Updated library `click` from `==7.1.2` to `==8.3.0`
+- Updated `modular-cli-sdk` from `3.0.0` to `3.1.2`
+- Changed an alias name from `-excid` to `-exid` for the `--exception_id` parameter in the command `resource exception describe` to unify with other commands
+- Changed the parameter `--description` from not required to required in the command `platform k8s create`
+- Improved handling of datatime in the command sre role add | update
+- Unified alias names for the `--location` to `-loc` across all the commands
+- Hidden unused command `sre report diagnostic` from the CLI
+- Removed the flag `only_preconfigured_credentials` from the command `job submit`
+- Fixed `sre resource exception describe --exception_id` returning all exceptions instead of filtering by the specified ID
 
 ## [5.10.0] - 2025-10-16
 - Added the flag `--include_expired` to the command `resource exception describe` to allow retrieving expired resource exceptions

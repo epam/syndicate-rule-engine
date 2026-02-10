@@ -303,19 +303,25 @@ class InitMongo(ActionHandler):
             db=PynamoDBToPymongoAdapterSingleton.get_instance().mongo_database
         )
 
-        for model in self.models():
-            _LOG.info(f'Syncing indexes for {model.Meta.table_name}')
-            creator.sync(model, always_keep=('_id_', 'next_run_time_1'))
-        
-        _LOG.info('Syncing indexes for SREResources')
-        create_resources_indexes(
+        _LOG.info('Creating custom indexes for SREResources if not exist')
+        resources_indexes = create_resources_indexes(
             PynamoDBToPymongoAdapterSingleton.get_instance().mongo_database
         )
-        _LOG.info('Syncing indexes for SREResourceExceptions')
-        create_resource_exceptions_indexes(
+        _LOG.info('Creating custom indexes for SREResourceExceptions if not exist')
+        resource_exceptions_indexes = create_resource_exceptions_indexes(
             PynamoDBToPymongoAdapterSingleton.get_instance().mongo_database
         )
 
+        always_keep = (
+            '_id_', 
+            'next_run_time_1',
+            *resources_indexes,
+            *resource_exceptions_indexes,
+        )
+        for model in self.models():
+            _LOG.info(f'Syncing indexes for {model.Meta.table_name}')
+
+            creator.sync(model, always_keep=always_keep)
 
 class Run(ActionHandler):
     def __call__(
