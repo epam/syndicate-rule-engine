@@ -511,17 +511,16 @@ class EventBridgeEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
             (EB_DETAIL_TYPE,): {EB_CLOUDTRAIL_API_CALL_DETAIL_TYPE},
         }
 
-        if not self.environment_service.is_docker():
-            account_id = self.sts_client.get_account_id()
-            if account_id != Env.DEV_ACCOUNT_ID.get():
-                self.skip_where = {
-                    (EB_ACCOUNT_ID,): {
-                        account_id,
-                    },
-                    (EB_DETAIL, CT_USER_IDENTITY, CT_ACCOUNT_ID): {
-                        account_id,
-                    },
-                }
+        account_id = self.sts_client.get_account_id()
+        if account_id != Env.DEV_ACCOUNT_ID.get():
+            self.skip_where = {
+                (EB_ACCOUNT_ID,): {
+                    account_id,
+                },
+                (EB_DETAIL, CT_USER_IDENTITY, CT_ACCOUNT_ID): {
+                    account_id,
+                },
+            }
 
     def account_region_rule_map(self, it: Iterable[Dict]) -> AccountRegionRuleMap:
         ref = {}
