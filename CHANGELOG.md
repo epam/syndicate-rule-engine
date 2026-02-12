@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Changed the `JobType` enum to include `STANDARD`, `SCHEDULED` and `MANUAL`
+- Changed modular-sdk version from `7.1.7` to `7.1.9`
 
 ### Removed
 - Removed `SREBatchResults` model and related endpoints and services
