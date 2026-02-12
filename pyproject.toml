@@ -16,6 +16,7 @@ dependencies = [
     "cryptography~=45.0.7",
     "google-api-python-client~=2.188.0",
     "google-auth~=2.47.0",
+    "google-cloud-container~=2.63.0",
     "gunicorn~=23.0.0",
     "hvac~=2.3.0",
     "jwcrypto~=1.5.6",

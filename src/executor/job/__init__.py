@@ -120,6 +120,7 @@ import os
 import tempfile
 import time
 import traceback
+import base64
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from itertools import chain
@@ -145,9 +146,16 @@ from modular_sdk.commons.constants import (
     ENV_GOOGLE_APPLICATION_CREDENTIALS,
     ENV_KUBECONFIG,
     ParentType,
+    ApplicationType,
 )
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.environment_service import EnvironmentContext
+from modular_sdk.services.impl.maestro_credentials_service import (
+    AWSCredentials,
+    AZURECredentials,
+    AZURECertificate,
+    GOOGLECredentials,
+)
 from msrestazure.azure_exceptions import CloudError
 from typing_extensions import NotRequired, TypedDict
 
@@ -1349,78 +1357,13 @@ def get_job_credentials(job: Job | BatchResults, cloud: Cloud) -> dict | None:
     return creds
 
 
-def get_platform_credentials(job: Job, platform: Platform) -> dict | None:
+def _resolve_eks_kubeconfig(
+    platform: Platform,
+    creds: AWSCredentials,
+) -> dict | None:
     """
-    Credentials for platform (k8s) only. This should be refactored somehow.
-    Raises ExecutorException if not credentials are found
-    :param job:
-    :param platform:
-    :return:
+    Resolve kubeconfig for a EKS cluster.
     """
-    token = None
-    if job.credentials_key:
-        token = BSP.credentials_service.get_credentials_from_ssm(
-            job.credentials_key
-        )
-
-    app = SP.modular_client.application_service().get_application_by_id(
-        platform.parent.application_id
-    )
-    kubeconfig = {}
-    if app.secret:
-        kubeconfig = (
-            SP.modular_client.assume_role_ssm_service().get_parameter(
-                app.secret
-            )
-            or {}
-        )  # noqa
-
-    if kubeconfig and token:
-        _LOG.debug('Kubeconfig and custom token are provided. Combining both')
-        config = Kubeconfig(kubeconfig)
-        session = str(int(time.time()))
-        user = f'user-{session}'
-        context = f'context-{session}'
-        cluster = next(config.cluster_names())  # always should be 1 at least
-
-        config.add_user(user, token)
-        config.add_context(context, cluster, user)
-        config.current_context = context
-        return {ENV_KUBECONFIG: str(config.to_temp_file())}
-    elif kubeconfig:
-        _LOG.debug('Only kubeconfig is provided')
-        config = Kubeconfig(kubeconfig)
-        return {ENV_KUBECONFIG: str(config.to_temp_file())}
-    if platform.type != PlatformType.EKS:
-        _LOG.warning('No kubeconfig provided and platform is not EKS')
-        return
-    _LOG.debug(
-        'Kubeconfig and token are not provided. Using management creds for EKS'
-    )
-    tenant = SP.modular_client.tenant_service().get(platform.tenant_name)
-    parent = SP.modular_client.parent_service().get_linked_parent_by_tenant(
-        tenant=tenant, type_=ParentType.AWS_MANAGEMENT
-    )
-    # TODO: get tenant credentials here somehow
-    if not parent:
-        _LOG.warning('Parent AWS_MANAGEMENT not found')
-        return
-    application = (
-        SP.modular_client.application_service().get_application_by_id(
-            parent.application_id
-        )
-    )
-    if not application:
-        _LOG.warning('Management application is not found')
-        return
-    creds = SP.modular_client.maestro_credentials_service().get_by_application(
-        application, tenant
-    )
-    if not creds:
-        _LOG.warning(
-            f'No credentials in application: {application.application_id}'
-        )
-        return
     cl = EKSClient.build()
     cl.client = Boto3ClientFactory(EKSClient.service_name).build(
         region_name=platform.region,
@@ -1447,6 +1390,256 @@ def get_platform_credentials(job: Job, platform: Platform) -> dict | None:
         token=TokenGenerator(sts).get_token(platform.name),
     )
     return {ENV_KUBECONFIG: str(token_config.to_temp_file())}
+
+
+def _resolve_aks_kubeconfig(
+    tenant: Tenant,
+    platform: Platform,
+    creds: AZURECredentials | AZURECertificate,
+) -> dict | None:
+    """
+    Resolve kubeconfig for an AKS cluster using either Azure client-secret
+    credentials or certificate-based credentials.
+    """
+    from azure.identity import CertificateCredential, ClientSecretCredential
+    from azure.mgmt.containerservice import ContainerServiceClient
+
+    if isinstance(creds, AZURECredentials):
+        subscription_id = creds.AZURE_SUBSCRIPTION_ID or tenant.project
+        tenant_id = creds.AZURE_TENANT_ID
+        client_id = creds.AZURE_CLIENT_ID
+        client_secret = creds.AZURE_CLIENT_SECRET
+
+        _LOG.debug(
+            "Resolving AKS kubeconfig using Azure client-secret credentials"
+        )
+        credential = ClientSecretCredential(
+            tenant_id=tenant_id,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+    elif isinstance(creds, AZURECertificate):
+        subscription_id = creds.AZURE_SUBSCRIPTION_ID or tenant.project
+        tenant_id = creds.AZURE_TENANT_ID
+        client_id = creds.AZURE_CLIENT_ID
+
+        cert_path = str(creds.AZURE_CLIENT_CERTIFICATE_PATH)
+        cert_password = creds.AZURE_CLIENT_CERTIFICATE_PASSWORD
+
+        _LOG.debug(
+            "Resolving AKS kubeconfig using Azure certificate credentials "
+            f"from {cert_path}"
+        )
+        credential = CertificateCredential(
+            tenant_id=tenant_id,
+            client_id=client_id,
+            certificate_path=cert_path,
+            password=cert_password,
+        )
+    else:
+        _LOG.error(
+            "Cannot resolve AKS kubeconfig: unsupported credentials type "
+            f"{type(creds)}"
+        )
+        return
+
+    try:
+        resource_group, cluster_name = platform.name.split("/", 1)
+    except ValueError:
+        _LOG.error(
+            f'Cannot resolve AKS kubeconfig: platform name "{platform.name}" '
+            f'must be in "<resource-group>/<cluster-name>" format'
+        )
+        return
+
+    _LOG.debug(
+        f'Requesting AKS user credentials for cluster "{cluster_name}" in '
+        f'resource group "{resource_group}"'
+    )
+
+    try:
+        client = ContainerServiceClient(credential, subscription_id)
+        kube_result = client.managed_clusters.list_cluster_user_credentials(
+            resource_group_name=resource_group,
+            resource_name=cluster_name,
+        )
+    except Exception:
+        _LOG.exception(
+            f'Failed to fetch AKS user credentials for cluster "{cluster_name}" '
+            f'in resource group "{resource_group}"'
+        )
+        return
+
+    kubeconfigs = getattr(kube_result, "kubeconfigs", None)
+    if not kubeconfigs:
+        _LOG.error(
+            f'Azure did not return any kubeconfigs for AKS cluster '
+            f'"{cluster_name}" in resource group "{resource_group}"'
+        )
+        return
+
+    raw_value = kubeconfigs[0].value
+    kubeconfig_bytes = base64.b64decode(raw_value)
+
+    with tempfile.NamedTemporaryFile(delete=False, mode="wb") as fp:
+        fp.write(kubeconfig_bytes)
+        kubeconfig_path = fp.name
+
+    _LOG.debug(
+        f'AKS kubeconfig for cluster "{cluster_name}" has been written to '
+        f'temporary file'
+    )
+
+    return {ENV_KUBECONFIG: kubeconfig_path}
+
+
+def _resolve_gks_kubeconfig(
+    tenant: Tenant,
+    platform: Platform,
+    creds: GOOGLECredentials,
+) -> dict | None:
+    """
+    Resolve kubeconfig for a GKS cluster.
+    """
+    from google.cloud import container_v1
+    from google.oauth2 import service_account
+    from google.auth.transport.requests import Request
+
+    project_id = tenant.project
+    location = platform.region
+    cluster_name = platform.name
+    sa_path = creds.GOOGLE_APPLICATION_CREDENTIALS
+
+    sa_creds = service_account.Credentials.from_service_account_file(
+        filename=str(sa_path),
+        scopes=["https://www.googleapis.com/auth/cloud-platform"],
+    )
+    sa_creds.refresh(Request())
+    token = sa_creds.token
+
+    client = container_v1.ClusterManagerClient(credentials=sa_creds)
+    cluster_name_full = (
+        f"projects/{project_id}/locations/{location}/clusters/{cluster_name}"
+    )
+    try:
+        cluster = client.get_cluster(name=cluster_name_full)
+    except Exception:
+        _LOG.exception(
+            f'Failed to fetch GKE cluster "{cluster_name}" in project '
+            f'"{project_id}", location "{location}"'
+        )
+        return
+
+    endpoint = f"https://{cluster.endpoint}"
+    ca_cert = cluster.master_auth.cluster_ca_certificate  # base64-encoded
+
+    token_config = K8STokenKubeconfig(
+        endpoint=endpoint,
+        ca=ca_cert,
+        token=f"Bearer {token}",
+    )
+    return {ENV_KUBECONFIG: str(token_config.to_temp_file())}
+
+
+def get_platform_credentials(job: Job, platform: Platform) -> dict | None:
+    """
+    Credentials for platform (k8s) only. This should be refactored somehow.
+    Raises ExecutorException if not credentials are found
+    :param job:
+    :param platform:
+    :return:
+    """
+    token = None
+    if job.credentials_key:
+        token = BSP.credentials_service.get_credentials_from_ssm(
+            job.credentials_key
+        )
+
+    app = SP.modular_client.application_service().get_application_by_id(
+        platform.parent.application_id
+    )
+    kubeconfig = {}
+    if app.type == ApplicationType.K8S_KUBE_CONFIG and app.secret:
+        kubeconfig = (
+            SP.modular_client.assume_role_ssm_service().get_parameter(
+                app.secret
+            )
+            or {}
+        )  # noqa
+
+    if kubeconfig and token:
+        _LOG.debug('Kubeconfig and custom token are provided. Combining both')
+        config = Kubeconfig(kubeconfig)
+        session = str(int(time.time()))
+        user = f'user-{session}'
+        context = f'context-{session}'
+        cluster = next(config.cluster_names())  # always should be 1 at least
+
+        config.add_user(user, token)
+        config.add_context(context, cluster, user)
+        config.current_context = context
+        return {ENV_KUBECONFIG: str(config.to_temp_file())}
+    elif kubeconfig:
+        _LOG.debug('Only kubeconfig is provided')
+        config = Kubeconfig(kubeconfig)
+        return {ENV_KUBECONFIG: str(config.to_temp_file())}
+    if platform.type == PlatformType.SELF_MANAGED:
+        _LOG.warning('No kubeconfig provided and platform is self managed')
+        return
+    # _LOG.debug(
+    #     'Kubeconfig and token are not provided. Using management creds for EKS'
+    # )
+    # tenant = SP.modular_client.tenant_service().get(platform.tenant_name)
+    # parent = SP.modular_client.parent_service().get_linked_parent_by_tenant(
+    #     tenant=tenant, type_=ParentType.AWS_MANAGEMENT
+    # )
+    # # TODO: get tenant credentials here somehow
+    # if not parent:
+    #     _LOG.warning('Parent AWS_MANAGEMENT not found')
+    #     return
+    # application = (
+    #     SP.modular_client.application_service().get_application_by_id(
+    #         parent.application_id
+    #     )
+    # )
+    # if not application:
+    #     _LOG.warning('Management application is not found')
+    #     return
+    # creds = SP.modular_client.maestro_credentials_service().get_by_application(
+    #     application, tenant
+    # )
+    # if not creds:
+    #     _LOG.warning(
+    #         f'No credentials in application: {application.application_id}'
+    #     )
+    #     return
+    _LOG.debug(
+        'Kubeconfig and token are not provided. Using management creds for EKS'
+    )
+    tenant = SP.modular_client.tenant_service().get(platform.tenant_name)
+    creds = SP.modular_client.maestro_credentials_service().get_by_application(
+            app, tenant
+        )
+    if not creds:
+        _LOG.warning(
+                f'No credentials in application: {app.application_id}'
+            )
+        return
+
+    match platform.type:
+        case PlatformType.EKS:
+            return _resolve_eks_kubeconfig(platform, creds)
+        case PlatformType.AKS:
+            return _resolve_aks_kubeconfig(tenant, platform, creds)
+        case PlatformType.GKS:
+            return _resolve_gks_kubeconfig(tenant, platform, creds)
+        case _:
+            _LOG.warning(
+                f'Unsupported platform type {platform.type} for automatic '
+                f'kubeconfig resolution'
+            )
+            return
 
 
 def get_rules_to_exclude(tenant: Tenant) -> set[str]:
