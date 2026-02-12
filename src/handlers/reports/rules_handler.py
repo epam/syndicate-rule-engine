@@ -3,6 +3,7 @@ from http import HTTPStatus
 from typing import Iterator
 
 from modular_sdk.services.tenant_service import TenantService
+from typing_extensions import Self
 from xlsxwriter import Workbook
 from xlsxwriter.worksheet import Worksheet
 
@@ -14,9 +15,8 @@ from helpers.constants import (
     ReportFormat,
 )
 from helpers.lambda_response import build_response
-from services import SP
-from services import modular_helpers
-from services.ambiguous_job_service import AmbiguousJobService
+from services import SP, modular_helpers
+from services.job_service import JobService
 from services.report_service import (
     ReportResponse,
     ReportService,
@@ -120,18 +120,18 @@ class RulesReportXlsxWriter:
 class JobsRulesHandler(AbstractHandler):
     def __init__(
         self,
-        ambiguous_job_service: AmbiguousJobService,
+        job_service: JobService,
         report_service: ReportService,
         tenant_service: TenantService,
     ):
-        self._ambiguous_job_service = ambiguous_job_service
+        self._job_service = job_service
         self._report_service = report_service
         self._tenant_service = tenant_service
 
     @classmethod
-    def build(cls) -> 'AbstractHandler':
+    def build(cls) -> Self:
         return cls(
-            ambiguous_job_service=SP.ambiguous_job_service,
+            job_service=SP.job_service,
             report_service=SP.report_service,
             tenant_service=SP.modular_client.tenant_service(),
         )
@@ -162,14 +162,19 @@ class JobsRulesHandler(AbstractHandler):
 
     @validate_kwargs
     def get_by_job(self, event: JobRuleReportGetModel, job_id: str):
-        job = self._ambiguous_job_service.get_job(
-            job_id=job_id, typ=event.job_type, customer=event.customer
+        job = next(
+            self._job_service.get_by_job_types(
+                job_id=job_id,
+                job_types=event.job_types,
+                customer_name=event.customer,
+            ),
+            None,
         )
         if not job:
             return build_response(
                 content='The request job not found', code=HTTPStatus.NOT_FOUND
             )
-        statistics = self._report_service.job_statistics(job.job)
+        statistics = self._report_service.job_statistics(job)
         data = map(
             self._format_statistics_item, statistics
         )
@@ -205,9 +210,9 @@ class JobsRulesHandler(AbstractHandler):
         tenant = self._tenant_service.get(tenant_name)
         modular_helpers.assert_tenant_valid(tenant)
 
-        jobs = self._ambiguous_job_service.get_by_tenant_name(
+        jobs = self._job_service.get_by_tenant_name(
             tenant_name=tenant_name,
-            job_type=event.job_type,
+            job_types=event.job_types,
             status=JobState.SUCCEEDED,
             start=event.start_iso,
             end=event.end_iso,

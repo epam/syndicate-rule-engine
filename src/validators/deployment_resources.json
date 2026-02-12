@@ -476,9 +476,12 @@
                         "type": "string"
                       },
                       "type": {
+                        "description": "Our inner job type. Used in SREJobs table.",
                         "enum": [
-                          "manual",
-                          "reactive"
+                          "standard",
+                          "reactive",
+                          "scheduled",
+                          "manual"
                         ],
                         "title": "JobType",
                         "type": "string"
@@ -712,9 +715,12 @@
                       "type": "string"
                     },
                     "job_type": {
+                      "description": "Our inner job type. Used in SREJobs table.",
                       "enum": [
-                        "manual",
-                        "reactive"
+                        "standard",
+                        "reactive",
+                        "scheduled",
+                        "manual"
                       ],
                       "title": "JobType",
                       "type": "string"
@@ -1154,9 +1160,12 @@
                       "type": "string"
                     },
                     "job_type": {
+                      "description": "Our inner job type. Used in SREJobs table.",
                       "enum": [
-                        "manual",
-                        "reactive"
+                        "standard",
+                        "reactive",
+                        "scheduled",
+                        "manual"
                       ],
                       "title": "JobType",
                       "type": "string"
@@ -1224,9 +1233,12 @@
                     "type": "string"
                   },
                   "type": {
+                    "description": "Our inner job type. Used in SREJobs table.",
                     "enum": [
-                      "manual",
-                      "reactive"
+                      "standard",
+                      "reactive",
+                      "scheduled",
+                      "manual"
                     ],
                     "title": "JobType",
                     "type": "string"
@@ -1652,75 +1664,6 @@
           "type": "object"
         }
       },
-      "MultipleBatchResultsModel": {
-        "content_type": "application/json",
-        "schema": {
-          "properties": {
-            "items": {
-              "items": {
-                "properties": {
-                  "cloud_identifier": {
-                    "title": "Cloud Identifier",
-                    "type": "string"
-                  },
-                  "customer_name": {
-                    "title": "Customer Name",
-                    "type": "string"
-                  },
-                  "id": {
-                    "title": "Id",
-                    "type": "string"
-                  },
-                  "status": {
-                    "description": "https://docs.aws.amazon.com/batch/latest/userguide/job_states.html",
-                    "enum": [
-                      "SUBMITTED",
-                      "PENDING",
-                      "RUNNABLE",
-                      "STARTING",
-                      "RUNNING",
-                      "FAILED",
-                      "SUCCEEDED"
-                    ],
-                    "title": "JobState",
-                    "type": "string"
-                  },
-                  "stopped_at": {
-                    "title": "Stopped At",
-                    "type": "string"
-                  },
-                  "submitted_at": {
-                    "title": "Submitted At",
-                    "type": "string"
-                  },
-                  "tenant_name": {
-                    "title": "Tenant Name",
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "cloud_identifier",
-                  "customer_name",
-                  "id",
-                  "status",
-                  "stopped_at",
-                  "submitted_at",
-                  "tenant_name"
-                ],
-                "title": "BatchResult",
-                "type": "object"
-              },
-              "title": "Items",
-              "type": "array"
-            }
-          },
-          "required": [
-            "items"
-          ],
-          "title": "MultipleBatchResultsModel",
-          "type": "object"
-        }
-      },
       "MultipleChronicleModel": {
         "content_type": "application/json",
         "schema": {
@@ -2122,9 +2065,12 @@
                     "type": "string"
                   },
                   "job_type": {
+                    "description": "Our inner job type. Used in SREJobs table.",
                     "enum": [
-                      "manual",
-                      "reactive"
+                      "standard",
+                      "reactive",
+                      "scheduled",
+                      "manual"
                     ],
                     "title": "JobType",
                     "type": "string"
@@ -4329,18 +4275,40 @@
         "schema": {
           "description": "/reports/push/dojo/{job_id}/\n/reports/push/security-hub/{job_id}/\n/reports/push/chronicle/{job_id}/",
           "properties": {
+            "job_types": {
+              "description": "Job types to include in the report",
+              "items": {
+                "description": "Our inner job type. Used in SREJobs table.",
+                "enum": [
+                  "standard",
+                  "reactive",
+                  "scheduled",
+                  "manual"
+                ],
+                "title": "JobType",
+                "type": "string"
+              },
+              "title": "Job Types",
+              "type": "array",
+              "uniqueItems": true
+            },
             "type": {
               "allOf": [
                 {
+                  "description": "Our inner job type. Used in SREJobs table.",
                   "enum": [
-                    "manual",
-                    "reactive"
+                    "standard",
+                    "reactive",
+                    "scheduled",
+                    "manual"
                   ],
                   "title": "JobType",
                   "type": "string"
                 }
               ],
-              "default": "manual"
+              "default": "manual",
+              "deprecated": true,
+              "description": "Job type to include in the report (deprecated, use job_types instead)"
             }
           },
           "title": "ReportPushByJobIdModel",
@@ -4370,18 +4338,40 @@
               "title": "Dojo Test",
               "type": "string"
             },
+            "job_types": {
+              "description": "Job types to include in the report",
+              "items": {
+                "description": "Our inner job type. Used in SREJobs table.",
+                "enum": [
+                  "standard",
+                  "reactive",
+                  "scheduled",
+                  "manual"
+                ],
+                "title": "JobType",
+                "type": "string"
+              },
+              "title": "Job Types",
+              "type": "array",
+              "uniqueItems": true
+            },
             "type": {
               "allOf": [
                 {
+                  "description": "Our inner job type. Used in SREJobs table.",
                   "enum": [
-                    "manual",
-                    "reactive"
+                    "standard",
+                    "reactive",
+                    "scheduled",
+                    "manual"
                   ],
                   "title": "JobType",
                   "type": "string"
                 }
               ],
-              "default": "manual"
+              "default": "manual",
+              "deprecated": true,
+              "description": "Job type to include in the report (deprecated, use job_types instead)"
             }
           },
           "title": "ReportPushDojoByJobIdModel",
@@ -4425,6 +4415,23 @@
               "default": null,
               "title": "From"
             },
+            "job_types": {
+              "description": "Job types to include in the report",
+              "items": {
+                "description": "Our inner job type. Used in SREJobs table.",
+                "enum": [
+                  "standard",
+                  "reactive",
+                  "scheduled",
+                  "manual"
+                ],
+                "title": "JobType",
+                "type": "string"
+              },
+              "title": "Job Types",
+              "type": "array",
+              "uniqueItems": true
+            },
             "tenant_name": {
               "title": "Tenant Name",
               "type": "string"
@@ -4444,17 +4451,25 @@
               "title": "To"
             },
             "type": {
-              "allOf": [
+              "anyOf": [
                 {
+                  "description": "Our inner job type. Used in SREJobs table.",
                   "enum": [
-                    "manual",
-                    "reactive"
+                    "standard",
+                    "reactive",
+                    "scheduled",
+                    "manual"
                   ],
                   "title": "JobType",
                   "type": "string"
+                },
+                {
+                  "type": "null"
                 }
               ],
-              "default": null
+              "default": null,
+              "deprecated": true,
+              "description": "Job types to include in the report"
             }
           },
           "required": [
@@ -4506,7 +4521,7 @@
                   "type": "string"
                 }
               ],
-              "default": "2026-01-07T17:15:11.364385",
+              "default": "2026-01-22T15:15:24.918651",
               "description": "Expiration date of the exception",
               "title": "Expire At"
             },
@@ -4712,14 +4727,37 @@
         "content_type": "application/json",
         "schema": {
           "properties": {
+            "description": {
+              "default": null,
+              "title": "Description",
+              "type": "string"
+            },
             "git_access_secret": {
               "default": null,
               "title": "Git Access Secret",
               "type": "string"
             },
-            "description": {
+            "git_project_id": {
               "default": null,
-              "title": "Description",
+              "title": "Git Project Id",
+              "type": "string"
+            },
+            "git_ref": {
+              "default": null,
+              "title": "Git Ref",
+              "type": "string"
+            },
+            "git_rules_prefix": {
+              "default": null,
+              "title": "Git Rules Prefix",
+              "type": "string"
+            },
+            "git_url": {
+              "default": null,
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "title": "Git Url",
               "type": "string"
             },
             "type": {
@@ -4735,29 +4773,6 @@
                 }
               ],
               "default": null
-            },
-            "git_url": {
-              "default": null,
-              "format": "uri",
-              "maxLength": 2083,
-              "minLength": 1,
-              "title": "Git Url",
-              "type": "string"
-            },
-            "git_ref": {
-              "default": null,
-              "title": "Git Ref",
-              "type": "string"
-            },
-            "git_project_id": {
-              "default": null,
-              "title": "Git Project Id",
-              "type": "string"
-            },
-            "git_rules_prefix": {
-              "default": null,
-              "title": "Git Rules Prefix",
-              "type": "string"
             }
           },
           "title": "RuleSourcePatchModel",
@@ -4872,9 +4887,12 @@
                       "type": "string"
                     },
                     "job_type": {
+                      "description": "Our inner job type. Used in SREJobs table.",
                       "enum": [
-                        "manual",
-                        "reactive"
+                        "standard",
+                        "reactive",
+                        "scheduled",
+                        "manual"
                       ],
                       "title": "JobType",
                       "type": "string"
@@ -5461,71 +5479,6 @@
             "customer_display_name"
           ],
           "title": "SignUpModel",
-          "type": "object"
-        }
-      },
-      "SingleBatchResultModel": {
-        "content_type": "application/json",
-        "schema": {
-          "properties": {
-            "data": {
-              "properties": {
-                "cloud_identifier": {
-                  "title": "Cloud Identifier",
-                  "type": "string"
-                },
-                "customer_name": {
-                  "title": "Customer Name",
-                  "type": "string"
-                },
-                "id": {
-                  "title": "Id",
-                  "type": "string"
-                },
-                "status": {
-                  "description": "https://docs.aws.amazon.com/batch/latest/userguide/job_states.html",
-                  "enum": [
-                    "SUBMITTED",
-                    "PENDING",
-                    "RUNNABLE",
-                    "STARTING",
-                    "RUNNING",
-                    "FAILED",
-                    "SUCCEEDED"
-                  ],
-                  "title": "JobState",
-                  "type": "string"
-                },
-                "stopped_at": {
-                  "title": "Stopped At",
-                  "type": "string"
-                },
-                "submitted_at": {
-                  "title": "Submitted At",
-                  "type": "string"
-                },
-                "tenant_name": {
-                  "title": "Tenant Name",
-                  "type": "string"
-                }
-              },
-              "required": [
-                "cloud_identifier",
-                "customer_name",
-                "id",
-                "status",
-                "stopped_at",
-                "submitted_at",
-                "tenant_name"
-              ],
-              "title": "BatchResult",
-              "type": "object"
-            }
-          },
-          "required": [
-            "data"
-          ],
-          "title": "SingleBatchResultModel",
           "type": "object"
         }
       },
@@ -6244,9 +6197,12 @@
                   "type": "string"
                 },
                 "job_type": {
+                  "description": "Our inner job type. Used in SREJobs table.",
                   "enum": [
-                    "manual",
-                    "reactive"
+                    "standard",
+                    "reactive",
+                    "scheduled",
+                    "manual"
                   ],
                   "title": "JobType",
                   "type": "string"

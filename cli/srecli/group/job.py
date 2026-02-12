@@ -2,20 +2,32 @@ import json
 from pathlib import Path
 
 import click
-
 from srecli.group import (
-    ContextObj, ViewCommand, cli_response,
-    DYNAMIC_DATE_ONLY_EXAMPLE, DYNAMIC_DATE_ONLY_PAST_EXAMPLE,
-    dojo_product_option, dojo_engagement_option, dojo_test_option,
+    DYNAMIC_DATE_ONLY_EXAMPLE,
+    DYNAMIC_DATE_ONLY_PAST_EXAMPLE,
+    ContextObj,
+    ViewCommand,
+    build_tenant_option,
+    cli_response,
+    dojo_engagement_option,
+    dojo_product_option,
+    dojo_test_option,
+    limit_option,
+    next_option,
+    response,
+    tenant_option,
+    validate_file_optional,
 )
-from srecli.group import limit_option, next_option, tenant_option, \
-    build_tenant_option, response, validate_file_optional
 from srecli.group.job_scheduled import scheduled
-from srecli.service.constants import Env
-from srecli.service.constants import JobState, TenantModel
-from srecli.service.creds import AWSCredentialsResolver, \
-    AZURECredentialsResolver, GOOGLECredentialsResolver, CredentialsLookupError
+from srecli.service.constants import Env, JobState, TenantModel
+from srecli.service.creds import (
+    AWSCredentialsResolver,
+    AZURECredentialsResolver,
+    CredentialsLookupError,
+    GOOGLECredentialsResolver,
+)
 from srecli.service.logger import get_logger
+
 
 _LOG = get_logger(__name__)
 

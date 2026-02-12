@@ -143,6 +143,10 @@ env:
     value: '{{ .Values.celery.schedule.removeExpiredMetrics }}'
   - name: SRE_CELERY_SCAN_RESOURCES_SCHEDULE
     value: '{{ .Values.celery.schedule.scanResources }}'
+  - name: SRE_CELERY_ASSEMBLE_EVENTS_SCHEDULE
+    value: '{{ .Values.celery.schedule.assembleEvents }}'
+  - name: SRE_CELERY_CLEAR_EVENTS_SCHEDULE
+    value: '{{ .Values.celery.schedule.clearEvents }}'
   - name: SRE_CC_LOG_LEVEL
     value: {{ .Values.executorCCLogLevel }}
   {{- if .Values.executorLogsFilename }}

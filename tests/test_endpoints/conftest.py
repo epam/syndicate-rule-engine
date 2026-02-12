@@ -1,22 +1,25 @@
 import json
 import uuid
-from datetime import timedelta, datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Callable
 
 import boto3
 import pytest
+from modular_sdk.commons.constants import ParentType
 from moto.backends import get_backend
 from webtest import TestApp
 
-from modular_sdk.commons.constants import ParentType
-from helpers.constants import Permission, Env, PolicyEffect, JobState
+from helpers.constants import Env, JobState, JobType, Permission, PolicyEffect
 from helpers.time_helper import utc_iso
 from services import SP  # probably the only safe import we can use in conftest
+
 from ..commons import SOURCE, InMemoryHvacClient, SREClient
 
+
 if TYPE_CHECKING:
-    from modular_sdk.models.tenant import Tenant
     from modular_sdk.models.customer import Customer
+    from modular_sdk.models.tenant import Tenant
+
     from services.license_service import License
     from services.platform_service import Platform
 
@@ -196,6 +199,7 @@ def create_tenant_job():
             tenant_name=tenant.name,
             customer_name=tenant.customer_name,
             status=status.value,
+            job_type=JobType.STANDARD,
             submitted_at=utc_iso(submitted_at),
             created_at=utc_iso(submitted_at + timedelta(minutes=1)),
             started_at=utc_iso(submitted_at + timedelta(minutes=2)),
@@ -216,6 +220,7 @@ def create_k8s_platform_job():
             tenant_name=platform.tenant_name,
             customer_name=platform.customer,
             status=status.value,
+            job_type=JobType.STANDARD,
             submitted_at=utc_iso(submitted_at),
             created_at=utc_iso(submitted_at + timedelta(minutes=1)),
             started_at=utc_iso(submitted_at + timedelta(minutes=2)),
@@ -223,25 +228,6 @@ def create_k8s_platform_job():
             rulesets=['TESTING'],
             platform_id=platform.id
         )
-    return factory
-
-
-@pytest.fixture()
-def create_tenant_br():
-    def factory(tenant, submitted_at,
-                status: JobState = JobState.SUCCEEDED):
-        from models.batch_results import BatchResults
-        return BatchResults(
-            id=str(uuid.uuid4()),
-            job_id='batch_job_id',
-            status=status.value,
-            cloud_identifier=tenant.project,
-            tenant_name=tenant.name,
-            customer_name=tenant.customer_name,
-            submitted_at=utc_iso(submitted_at),
-            stopped_at=utc_iso(submitted_at + timedelta(minutes=5)),
-        )
-
     return factory
 
 

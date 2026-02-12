@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from handlers.high_level_reports_handler import MaestroModelBuilder
+from handlers.reports.high_level_reports_handler import MaestroModelBuilder
 from helpers.constants import COMPOUND_KEYS_SEPARATOR, ReportType
 from models.metrics import ReportMetrics
 

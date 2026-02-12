@@ -213,29 +213,6 @@
       }
     ]
   },
-  "SREBatchResults": {
-    "resource_type": "dynamodb_table",
-    "hash_key_name": "id",
-    "hash_key_type": "S",
-    "read_capacity": 1,
-    "write_capacity": 1,
-    "global_indexes": [
-      {
-        "name": "c-jsa-index",
-        "index_key_name": "c",
-        "index_key_type": "S",
-        "index_sort_key_name": "jsa",
-        "index_sort_key_type": "S"
-      },
-      {
-        "name": "t-jsa-index",
-        "index_key_name": "t",
-        "index_key_type": "S",
-        "index_sort_key_name": "jsa",
-        "index_sort_key_type": "S"
-      }
-    ]
-  },
   "SREJobStatistics": {
     "resource_type": "dynamodb_table",
     "hash_key_name": "id",
@@ -3820,12 +3797,6 @@
           },
           "responses": [
             {
-              "status_code": "200",
-              "response_models": {
-                "application/json": "MultipleBatchResultsModel"
-              }
-            },
-            {
               "status_code": "400",
               "response_models": {
                 "application/json": "ErrorsModel"
@@ -3877,12 +3848,6 @@
             "method.request.querystring.customer_id": false
           },
           "responses": [
-            {
-              "status_code": "200",
-              "response_models": {
-                "application/json": "SingleBatchResultModel"
-              }
-            },
             {
               "status_code": "400",
               "response_models": {
@@ -3941,8 +3906,9 @@
           },
           "lambda_name": "caas-report-generator",
           "method_request_parameters": {
-            "method.request.querystring.customer_id": false,
-            "method.request.querystring.job_type": false
+            "method.request.querystring.job_types": false,
+            "method.request.querystring.job_type": false,
+            "method.request.querystring.customer_id": false
           },
           "responses": [
             {
@@ -4010,9 +3976,10 @@
           "lambda_name": "caas-report-generator",
           "method_request_parameters": {
             "method.request.querystring.customer_id": false,
+            "method.request.querystring.job_types": false,
+            "method.request.querystring.job_type": false,
             "method.request.querystring.start_iso": false,
-            "method.request.querystring.end_iso": false,
-            "method.request.querystring.job_type": false
+            "method.request.querystring.end_iso": false
           },
           "responses": [
             {
@@ -4079,8 +4046,9 @@
           },
           "lambda_name": "caas-report-generator",
           "method_request_parameters": {
-            "method.request.querystring.customer_id": false,
+            "method.request.querystring.job_types": false,
             "method.request.querystring.job_type": false,
+            "method.request.querystring.customer_id": false,
             "method.request.querystring.href": false,
             "method.request.querystring.obfuscated": false
           },
@@ -4150,9 +4118,10 @@
           "lambda_name": "caas-report-generator",
           "method_request_parameters": {
             "method.request.querystring.customer_id": false,
+            "method.request.querystring.job_types": false,
+            "method.request.querystring.job_type": false,
             "method.request.querystring.start_iso": false,
             "method.request.querystring.end_iso": false,
-            "method.request.querystring.job_type": false,
             "method.request.querystring.href": false,
             "method.request.querystring.obfuscated": false
           },
@@ -4221,8 +4190,9 @@
           },
           "lambda_name": "caas-report-generator",
           "method_request_parameters": {
-            "method.request.querystring.customer_id": false,
+            "method.request.querystring.job_types": false,
             "method.request.querystring.job_type": false,
+            "method.request.querystring.customer_id": false,
             "method.request.querystring.href": false,
             "method.request.querystring.obfuscated": false
           },
@@ -4292,9 +4262,10 @@
           "lambda_name": "caas-report-generator",
           "method_request_parameters": {
             "method.request.querystring.customer_id": false,
+            "method.request.querystring.job_types": false,
+            "method.request.querystring.job_type": false,
             "method.request.querystring.start_iso": false,
             "method.request.querystring.end_iso": false,
-            "method.request.querystring.job_type": false,
             "method.request.querystring.href": false,
             "method.request.querystring.obfuscated": false
           },
@@ -4363,8 +4334,9 @@
           },
           "lambda_name": "caas-report-generator",
           "method_request_parameters": {
-            "method.request.querystring.customer_id": false,
+            "method.request.querystring.job_types": false,
             "method.request.querystring.job_type": false,
+            "method.request.querystring.customer_id": false,
             "method.request.querystring.format": false,
             "method.request.querystring.href": false
           },
@@ -4502,8 +4474,9 @@
           },
           "lambda_name": "caas-report-generator",
           "method_request_parameters": {
-            "method.request.querystring.customer_id": false,
+            "method.request.querystring.job_types": false,
             "method.request.querystring.job_type": false,
+            "method.request.querystring.customer_id": false,
             "method.request.querystring.href": false,
             "method.request.querystring.format": false,
             "method.request.querystring.error_type": false
@@ -4573,8 +4546,9 @@
           },
           "lambda_name": "caas-report-generator",
           "method_request_parameters": {
-            "method.request.querystring.customer_id": false,
+            "method.request.querystring.job_types": false,
             "method.request.querystring.job_type": false,
+            "method.request.querystring.customer_id": false,
             "method.request.querystring.href": false,
             "method.request.querystring.format": false
           },
@@ -4644,9 +4618,10 @@
           "lambda_name": "caas-report-generator",
           "method_request_parameters": {
             "method.request.querystring.customer_id": false,
+            "method.request.querystring.job_types": false,
+            "method.request.querystring.job_type": false,
             "method.request.querystring.start_iso": false,
-            "method.request.querystring.end_iso": false,
-            "method.request.querystring.job_type": false
+            "method.request.querystring.end_iso": false
           },
           "responses": [
             {
@@ -5415,9 +5390,10 @@
           "lambda_name": "caas-report-generator",
           "method_request_parameters": {
             "method.request.querystring.customer_id": false,
+            "method.request.querystring.job_types": false,
+            "method.request.querystring.job_type": false,
             "method.request.querystring.start_iso": false,
             "method.request.querystring.end_iso": false,
-            "method.request.querystring.job_type": false,
             "method.request.querystring.resource_type": false,
             "method.request.querystring.region": false,
             "method.request.querystring.full": false,
@@ -5490,6 +5466,7 @@
           "lambda_name": "caas-report-generator",
           "method_request_parameters": {
             "method.request.querystring.customer_id": false,
+            "method.request.querystring.job_types": false,
             "method.request.querystring.job_type": false,
             "method.request.querystring.resource_type": false,
             "method.request.querystring.region": false,

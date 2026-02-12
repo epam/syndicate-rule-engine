@@ -1,27 +1,28 @@
+import json
+import urllib
+import urllib.error
+import urllib.request
 from functools import partial
 from http import HTTPStatus
 from http.client import HTTPResponse
-import json
-from typing import Iterable, Generator
-import urllib
-import urllib.error
+from typing import Generator, Iterable
 from urllib.parse import quote, urlencode
-import urllib.request
 
 from srecli.service.config import AbstractSREConfig
 from srecli.service.constants import (
     CONF_ACCESS_TOKEN,
     CONF_REFRESH_TOKEN,
-    Endpoint,
-    HTTPMethod,
+    DATA_ATTR,
     ITEMS_ATTR,
     LAMBDA_INVOCATION_TRACE_ID_HEADER,
     MESSAGE_ATTR,
     SERVER_VERSION_HEADER,
-    DATA_ATTR
+    Endpoint,
+    HTTPMethod,
 )
 from srecli.service.helpers import JWTToken, catch, sifted, urljoin
 from srecli.service.logger import get_logger
+
 
 _LOG = get_logger(__name__)
 
@@ -805,21 +806,6 @@ class SREApiClient:
             path=Endpoint.EVENT,
             method=HTTPMethod.POST,
             data=sifted(kwargs)
-        )
-
-    def batch_results_get(self, br_id: str, **kwargs):
-        return self.make_request(
-            path=Endpoint.BATCH_RESULTS_JOB_ID,
-            path_params={'batch_results_id': br_id},
-            method=HTTPMethod.GET,
-            query=sifted(kwargs)
-        )
-
-    def batch_results_query(self, **kwargs):
-        return self.make_request(
-            path=Endpoint.BATCH_RESULTS,
-            method=HTTPMethod.GET,
-            query=sifted(kwargs)
         )
 
     def report_digest_jobs(self, job_id, **kwargs):

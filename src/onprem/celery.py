@@ -3,7 +3,9 @@ from celery.schedules import crontab
 from kombu import Queue
 
 from helpers.constants import Env
+from helpers.log_helper import get_logger
 
+_LOG = get_logger(__name__)
 
 def crontab_from_string(ct: str) -> crontab:
     """
@@ -45,6 +47,16 @@ def prepare_beat_schedule() -> dict[str, dict]:
             'schedule': Env.CELERY_SCAN_RESOURCES_SCHEDULE,
             'args': (),
         },
+        'assemble-events': {
+            'task': 'onprem.tasks.assemble_events',
+            'schedule': Env.CELERY_ASSEMBLE_EVENTS_SCHEDULE,
+            'args': (),
+        },
+        'clear-events': {
+            'task': 'onprem.tasks.clear_events',
+            'schedule': Env.CELERY_CLEAR_EVENTS_SCHEDULE,
+            'args': (),
+        },
     }
     disabled = []
     for name, inner in schedule.items():
@@ -52,12 +64,16 @@ def prepare_beat_schedule() -> dict[str, dict]:
         if not isinstance(s, Env):
             continue
         val = s.get()
+        _LOG.debug(f'Schedule {name}: env={s.name}, value={val!r}')
         if not val:  # can be forced empty from outside
             disabled.append(name)
             continue
         inner['schedule'] = schedule_from_string(val)
     for name in disabled:
         schedule.pop(name)
+    _LOG.debug(f'Celery beat schedule: {schedule}')
+    if disabled:
+        _LOG.warning(f'Disabled tasks: {disabled}')
     return schedule
 
 
@@ -84,6 +100,8 @@ app.conf.task_routes = {
     'onprem.tasks.delete_expired_metrics': {'queue': 'b-scheduled'},
     'onprem.tasks.collect_resources': {'queue': 'b-scheduled'},
     'onprem.tasks.run_update_metadata': {'queue': 'a-jobs'},
+    'onprem.tasks.assemble_events': {'queue': 'b-scheduled'},
+    'onprem.tasks.clear_events': {'queue': 'b-scheduled'},
 }
 app.conf.timezone = Env.CELERY_TIMEZONE.as_str()
 app.conf.broker_connection_retry_on_startup = True

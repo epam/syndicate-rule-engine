@@ -20,7 +20,6 @@ from helpers.constants import (
     Endpoint,
     HTTPMethod,
     JobState,
-    JobType,
     ReportFormat,
     Severity,
 )
@@ -28,8 +27,9 @@ from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
 from helpers.reports import severity_cmp
 from helpers.time_helper import utc_iso
+from models.job import Job
 from services import SP, modular_helpers, obfuscation
-from services.ambiguous_job_service import AmbiguousJob, AmbiguousJobService
+from services.job_service import JobService
 from services.license_service import LicenseService
 from services.metadata import Metadata
 from services.modular_helpers import tenant_cloud
@@ -54,6 +54,7 @@ from validators.swagger_request_models import (
     ResourcesReportGetModel,
 )
 from validators.utils import validate_kwargs
+
 
 _LOG = get_logger(__name__)
 
@@ -460,13 +461,13 @@ class ResourceReportXlsxWriter:
 class ResourceReportHandler(AbstractHandler):
     def __init__(
         self,
-        ambiguous_job_service: AmbiguousJobService,
+        job_service: JobService,
         tenant_service: TenantService,
         report_service: ReportService,
         platform_service: PlatformService,
         license_service: LicenseService,
     ):
-        self._ambiguous_job_service = ambiguous_job_service
+        self._job_service = job_service
         self._tenant_service = tenant_service
         self._report_service = report_service
         self._platform_service = platform_service
@@ -476,14 +477,10 @@ class ResourceReportHandler(AbstractHandler):
     def rs(self):
         return self._report_service
 
-    @property
-    def ajs(self):
-        return self._ambiguous_job_service
-
     @classmethod
     def build(cls):
         return cls(
-            ambiguous_job_service=SP.ambiguous_job_service,
+            job_service=SP.job_service,
             tenant_service=SP.modular_client.tenant_service(),
             report_service=SP.report_service,
             platform_service=SP.platform_service,
@@ -674,27 +671,23 @@ class ResourceReportHandler(AbstractHandler):
             tenant_item, event.customer
         )
 
-        jobs = self.ajs.get_by_tenant_name(
+        jobs = self._job_service.get_by_tenant_name(
             tenant_name=tenant_name,
-            job_type=event.job_type,
+            job_types=event.job_types,
             status=JobState.SUCCEEDED,
             start=event.start_iso,
             end=event.end_iso,
         )
         metadata = self._ls.get_customer_metadata(event.customer_id)
 
-        source_response = {}
-        for source in self.ajs.to_ambiguous(jobs):
-            if source.is_platform_job:
+        job_response = {}
+        for job in jobs:
+            if job.is_platform_job:
                 continue
-            if not source.is_ed_job:
-                collection = self._report_service.job_collection(
-                    tenant_item, source.job
-                )
-            else:
-                collection = self._report_service.ed_job_collection(
-                    tenant_item, source.job
-                )
+            collection = self._report_service.job_collection(
+                tenant=tenant_item,
+                job=job,
+            )
             if event.region:
                 _LOG.debug(
                     'Region is provided. Fetching only shard with this region'
@@ -722,20 +715,23 @@ class ResourceReportHandler(AbstractHandler):
                 metadata=metadata,
             ).build()
             if not response:
-                _LOG.debug(f'No resources found for job {source}. Skipping')
+                _LOG.debug(f'No resources found for job {job.id}. Skipping')
                 continue
-            source_response[source] = response
+            job_response[job] = response
         return build_response(
             content=chain.from_iterable(
-                self.dto(s, r) for s, r in source_response.items()
+                self.dto(j, r) for j, r in job_response.items()
             )
         )
 
     @validate_kwargs
     def get_specific_job(self, event: ResourceReportJobGetModel, job_id: str):
-        job = self.ajs.get_job(
-            job_id=job_id, typ=event.job_type, customer=event.customer
+        cursor = self._job_service.get_by_job_types(
+            customer_name=event.customer,
+            job_id=job_id,
+            job_types=event.job_types,
         )
+        job = next(cursor, None)
         if not job:
             return build_response(
                 content=f'Job {job_id} not found', code=HTTPStatus.NOT_FOUND
@@ -748,12 +744,7 @@ class ResourceReportHandler(AbstractHandler):
         tenant = self._tenant_service.get(job.tenant_name)
         tenant = modular_helpers.assert_tenant_valid(tenant, event.customer)
 
-        if job.type == JobType.MANUAL:
-            collection = self._report_service.job_collection(tenant, job.job)
-        else:
-            collection = self._report_service.ed_job_collection(
-                tenant, job.job
-            )
+        collection = self._report_service.job_collection(tenant, job)
         if event.region:
             _LOG.debug(
                 'Region is provided. Fetching only shard with this region'
@@ -802,8 +793,8 @@ class ResourceReportHandler(AbstractHandler):
         return build_response(content=content)
 
     @staticmethod
-    def dto(job: AmbiguousJob, response: list) -> list[dict]:
+    def dto(job: Job, response: list) -> list[dict[str, Any]]:
         return [
-            {JOB_ID_ATTR: job.id, TYPE_ATTR: job.type, **res}
+            {JOB_ID_ATTR: job.id, TYPE_ATTR: job.job_type, **res}
             for res in response
         ]

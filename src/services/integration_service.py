@@ -4,8 +4,7 @@ from modular_sdk.commons.constants import ParentType
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.parent_service import ParentService
 
-from services.ambiguous_job_service import AmbiguousJob
-from services.ruleset_service import RulesetName
+from models.job import Job
 from services.chronicle_service import (
     ChronicleInstance,
     ChronicleInstanceService,
@@ -16,6 +15,7 @@ from services.defect_dojo_service import (
     DefectDojoParentMeta,
     DefectDojoService,
 )
+from services.ruleset_service import RulesetName
 
 
 class IntegrationService:
@@ -69,10 +69,10 @@ class IntegrationService:
         yield dojo, configuration
 
     @staticmethod
-    def job_tags_dojo(job: AmbiguousJob) -> list[str]:
+    def job_tags_dojo(job: Job) -> list[str]:
         return list(filter(None, [
             job.owner,
-            job.type.value,
+            job.job_type.value,
             job.scheduled_rule_name,
 
             *(RulesetName(rs).name for rs in (job.rulesets or ())),

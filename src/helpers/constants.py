@@ -8,7 +8,15 @@ from typing import Callable, Iterator, Literal, MutableMapping, TypeVar
 from dateutil.relativedelta import SU, relativedelta
 from typing_extensions import Self
 
+
 # from http import HTTPMethod  # python3.11+
+
+
+APP_NAME = 'sre'
+"""Application name in lower case."""
+
+APP_NAME_UPPER = APP_NAME.upper()
+"""Application name in upper case."""
 
 
 class HTTPMethod(str, Enum):
@@ -253,8 +261,17 @@ class RuleDomain(str, Enum):
 
 
 class JobType(str, Enum):
-    MANUAL = 'manual'
+    """
+    Our inner job type. Used in SREJobs table.
+    """
+
+    STANDARD = 'standard'
     REACTIVE = 'reactive'
+    SCHEDULED = 'scheduled'
+
+    # TODO: deprecate this type in future releases
+    # MANUAL is an alias for STANDARD + SCHEDULED
+    MANUAL = 'manual'
 
 
 class ServiceOperationType(str, Enum):
@@ -549,13 +566,23 @@ class Env(EnvEnum):
 
     # some deployment options
     ACCOUNT_ID = 'SRE_ACCOUNT_ID', ('CAAS_ACCOUNT_ID',)
+    DEV_ACCOUNT_ID = (
+        'SRE_DEV_ACCOUNT_ID',
+        ('CAAS_DEV_ACCOUNT_ID',),
+        '323549576358',
+    )
     LAMBDA_ALIAS_NAME = 'SRE_LAMBDA_ALIAS_NAME', ('CAAS_LAMBDA_ALIAS_NAME',)
 
     # batch options
-    BATCH_JOB_DEF_NAME = 'SRE_BATCH_JOB_DEF_NAME', ('CAAS_BATCH_JOB_DEF_NAME',)
+    BATCH_JOB_DEF_NAME = (
+        'SRE_BATCH_JOB_DEF_NAME',
+        ('CAAS_BATCH_JOB_DEF_NAME',),
+        'batch-job-definition',
+    )
     BATCH_JOB_QUEUE_NAME = (
         'SRE_BATCH_JOB_QUEUE_NAME',
         ('CAAS_BATCH_JOB_QUEUE_NAME',),
+        'batch-job-queue',
     )
     BATCH_JOB_LOG_LEVEL = (
         'SRE_BATCH_JOB_LOG_LEVEL',
@@ -664,6 +691,11 @@ class Env(EnvEnum):
         (),
         '16',
     )
+    CELERY_RUN_STANDARD_JOB_RATE_LIMIT = (
+        'SRE_CELERY_RUN_STANDARD_JOB_RATE_LIMIT',
+        (),
+        '1/s',  # максимум 1 задача на секунду (обмежує одночасні виконання)
+    )
 
     CELERY_MAKE_FINDINGS_SNAPSHOTS_SCHEDULE = (
         'SRE_CELERY_MAKE_FINDINGS_SNAPSHOTS_SCHEDULE',
@@ -689,6 +721,16 @@ class Env(EnvEnum):
         'SRE_CELERY_SCAN_RESOURCES_SCHEDULE',
         (),
         '0 14 * * *',  # every day at 14:00 UTC
+    )
+    CELERY_ASSEMBLE_EVENTS_SCHEDULE = (
+        'SRE_CELERY_ASSEMBLE_EVENTS_SCHEDULE',
+        (),
+        '*/5 * * * *',  # every 5 minute
+    )
+    CELERY_CLEAR_EVENTS_SCHEDULE = (
+        'SRE_CELERY_CLEAR_EVENTS_SCHEDULE',
+        (),
+        '0 0 * * *',  # every day at 00:00 UTC
     )
 
     SCAN_RESOURCES_PROCESSORS = (
@@ -994,17 +1036,6 @@ MODULAR_IS_DELETED = 'is_deleted'
 MODULAR_DELETION_DATE = 'deletion_date'
 MODULAR_SECRET = 'secret'
 MODULAR_TYPE = 'type'
-
-
-class BatchJobType(str, Enum):
-    """
-    Our inner types
-    """
-
-    STANDARD = 'standard'
-    EVENT_DRIVEN = 'event-driven-multi-account'
-    SCHEDULED = 'scheduled'
-
 
 # event-driven
 AWS_VENDOR = 'AWS'

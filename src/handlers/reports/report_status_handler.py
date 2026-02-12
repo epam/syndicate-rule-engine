@@ -9,6 +9,7 @@ from services.report_statistics_service import ReportStatisticsService
 from validators.swagger_request_models import ReportStatusGetModel
 from validators.utils import validate_kwargs
 
+
 _LOG = get_logger(__name__)
 
 

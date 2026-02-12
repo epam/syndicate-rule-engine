@@ -1,4 +1,4 @@
-from datetime import datetime, timezone, date
+from datetime import date, datetime, timezone
 
 from dateutil.parser import isoparse
 
@@ -15,7 +15,7 @@ def utc_datetime(_from: str | None = None, utc: bool = True) -> datetime:
     return obj.astimezone(timezone.utc) if utc else obj.astimezone()
 
 
-def utc_iso(_from: datetime | None = None) -> str:
+def utc_iso(_from: datetime | date | None = None) -> str:
     """
     Returns time-zone aware datetime ISO string in UTC with military suffix.
     You can optionally pass datetime object. The function will make it
@@ -23,6 +23,8 @@ def utc_iso(_from: datetime | None = None) -> str:
     :param _from: Optional[datetime]
     :returns: str
     """
+    if isinstance(_from, date) and not isinstance(_from, datetime):
+        return _from.isoformat()
     obj = _from or utc_datetime()
     return obj.astimezone(timezone.utc).isoformat().replace('+00:00', 'Z')
 

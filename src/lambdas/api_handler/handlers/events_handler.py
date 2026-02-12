@@ -7,8 +7,7 @@ from helpers.log_helper import get_logger
 from handlers import AbstractHandler, Mapping
 from services import SP
 from services.environment_service import EnvironmentService
-from services.event_processor_service import EventProcessorService
-from services.event_service import EventService
+from services.event_driven import EventProcessorService, EventService
 from validators.swagger_request_models import (
     EventPostModel
 )

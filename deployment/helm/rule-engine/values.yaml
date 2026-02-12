@@ -12,7 +12,7 @@ service:
 
 image:
   repository: public.ecr.aws/x4s4z8e1/syndicate/rule-engine
-  tag: 5.16.0
+  tag: 5.17.0
   pullPolicy: Always
 
 replicas: 1
@@ -70,7 +70,7 @@ patch:
   ttlSecondsAfterFinished: 3600
   image:
     repository: public.ecr.aws/x4s4z8e1/syndicate/patches
-    tag: ''
+    tag: 'rule-engine-5.17.0'
     pullPolicy: Always
 
 modularSdk:
@@ -131,4 +131,6 @@ celery:
     collectMetrics: '0 3,15 * * *'
     removeExpiredMetrics: '0 12 * * *'
     scanResources: ''  # disabled
+    assembleEvents: '*/5 * * * *' # every 5 minutes
+    clearEvents: '0 0 * * *' # every day at 00:00 UTC
 
