@@ -190,9 +190,11 @@ from services import SP
 from services.ambiguous_job_service import AmbiguousJob
 from services.chronicle_service import ChronicleConverterType
 from services.clients import Boto3ClientFactory
+from services.clients.aks import AKSClient
 from services.clients.chronicle import ChronicleV2Client
 from services.clients.dojo_client import DojoV2Client
 from services.clients.eks_client import EKSClient
+from services.clients.gke import GKEClient
 from services.clients.lm_client import LMException
 from services.clients.sts import StsClient, TokenGenerator
 from services.job_lock import TenantSettingJobLock
@@ -1401,97 +1403,30 @@ def _resolve_aks_kubeconfig(
     Resolve kubeconfig for an AKS cluster using either Azure client-secret
     credentials or certificate-based credentials.
     """
-    from azure.identity import CertificateCredential, ClientSecretCredential
-    from azure.mgmt.containerservice import ContainerServiceClient
-
-    if isinstance(creds, AZURECredentials):
-        subscription_id = creds.AZURE_SUBSCRIPTION_ID or tenant.project
-        tenant_id = creds.AZURE_TENANT_ID
-        client_id = creds.AZURE_CLIENT_ID
-        client_secret = creds.AZURE_CLIENT_SECRET
-
-        _LOG.debug(
-            "Resolving AKS kubeconfig using Azure client-secret credentials"
-        )
-        credential = ClientSecretCredential(
-            tenant_id=tenant_id,
-            client_id=client_id,
-            client_secret=client_secret,
-        )
-
-    elif isinstance(creds, AZURECertificate):
-        subscription_id = creds.AZURE_SUBSCRIPTION_ID or tenant.project
-        tenant_id = creds.AZURE_TENANT_ID
-        client_id = creds.AZURE_CLIENT_ID
-
-        cert_path = str(creds.AZURE_CLIENT_CERTIFICATE_PATH)
-        cert_password = creds.AZURE_CLIENT_CERTIFICATE_PASSWORD
-
-        _LOG.debug(
-            "Resolving AKS kubeconfig using Azure certificate credentials "
-            f"from {cert_path}"
-        )
-        credential = CertificateCredential(
-            tenant_id=tenant_id,
-            client_id=client_id,
-            certificate_path=cert_path,
-            password=cert_password,
-        )
-    else:
-        _LOG.error(
-            "Cannot resolve AKS kubeconfig: unsupported credentials type "
-            f"{type(creds)}"
-        )
-        return
-
     try:
-        resource_group, cluster_name = platform.name.split("/", 1)
+        resource_group, cluster_name = platform.name.split('/', 1)
     except ValueError:
-        _LOG.error(
-            f'Cannot resolve AKS kubeconfig: platform name "{platform.name}" '
-            f'must be in "<resource-group>/<cluster-name>" format'
+        _LOG.warning(
+            f'Invalid AKS cluster name format: {platform.name}. '
+            'Expected format: "resource_group/cluster_name"'
         )
         return
 
-    _LOG.debug(
-        f'Requesting AKS user credentials for cluster "{cluster_name}" in '
-        f'resource group "{resource_group}"'
+    cl = AKSClient(creds=creds, subscription_id=tenant.project)
+    config = cl.get_kubeconfig_bytes(
+        resource_group=resource_group,
+        cluster_name=cluster_name
     )
-
-    try:
-        client = ContainerServiceClient(credential, subscription_id)
-        kube_result = client.managed_clusters.list_cluster_user_credentials(
-            resource_group_name=resource_group,
-            resource_name=cluster_name,
-        )
-    except Exception:
-        _LOG.exception(
-            f'Failed to fetch AKS user credentials for cluster "{cluster_name}" '
-            f'in resource group "{resource_group}"'
+    if not config:
+        _LOG.warning(
+            f'No kubeconfig could be retrieved for cluster: {cluster_name} '
+            f'in resource group: {resource_group}'
         )
         return
 
-    kubeconfigs = getattr(kube_result, "kubeconfigs", None)
-    if not kubeconfigs:
-        _LOG.error(
-            f'Azure did not return any kubeconfigs for AKS cluster '
-            f'"{cluster_name}" in resource group "{resource_group}"'
-        )
-        return
+    kubeconfig_path = cl.to_temp_file(config)
 
-    raw_value = kubeconfigs[0].value
-    kubeconfig_bytes = base64.b64decode(raw_value)
-
-    with tempfile.NamedTemporaryFile(delete=False, mode="wb") as fp:
-        fp.write(kubeconfig_bytes)
-        kubeconfig_path = fp.name
-
-    _LOG.debug(
-        f'AKS kubeconfig for cluster "{cluster_name}" has been written to '
-        f'temporary file'
-    )
-
-    return {ENV_KUBECONFIG: kubeconfig_path}
+    return {ENV_KUBECONFIG: str(kubeconfig_path)}
 
 
 def _resolve_gks_kubeconfig(
@@ -1502,35 +1437,23 @@ def _resolve_gks_kubeconfig(
     """
     Resolve kubeconfig for a GKS cluster.
     """
-    from google.cloud import container_v1
-    from google.oauth2 import service_account
-    from google.auth.transport.requests import Request
-
     project_id = tenant.project
     location = platform.region
     cluster_name = platform.name
     sa_path = creds.GOOGLE_APPLICATION_CREDENTIALS
 
-    sa_creds = service_account.Credentials.from_service_account_file(
-        filename=str(sa_path),
-        scopes=["https://www.googleapis.com/auth/cloud-platform"],
-    )
-    sa_creds.refresh(Request())
-    token = sa_creds.token
+    client = GKEClient(credentials_path=sa_path)
 
-    client = container_v1.ClusterManagerClient(credentials=sa_creds)
-    cluster_name_full = (
-        f"projects/{project_id}/locations/{location}/clusters/{cluster_name}"
-    )
-    try:
-        cluster = client.get_cluster(name=cluster_name_full)
-    except Exception:
-        _LOG.exception(
-            f'Failed to fetch GKE cluster "{cluster_name}" in project '
-            f'"{project_id}", location "{location}"'
+    cluster = client.get_cluster(project_id, location, cluster_name)
+
+    if not cluster:
+        _LOG.warning(
+            f'No cluster with name: {cluster_name} '
+            f'in region: {location}'
         )
         return
 
+    token = client.token
     endpoint = f"https://{cluster.endpoint}"
     ca_cert = cluster.master_auth.cluster_ca_certificate  # base64-encoded
 
@@ -1587,35 +1510,10 @@ def get_platform_credentials(job: Job, platform: Platform) -> dict | None:
     if platform.type == PlatformType.SELF_MANAGED:
         _LOG.warning('No kubeconfig provided and platform is self managed')
         return
-    # _LOG.debug(
-    #     'Kubeconfig and token are not provided. Using management creds for EKS'
-    # )
-    # tenant = SP.modular_client.tenant_service().get(platform.tenant_name)
-    # parent = SP.modular_client.parent_service().get_linked_parent_by_tenant(
-    #     tenant=tenant, type_=ParentType.AWS_MANAGEMENT
-    # )
-    # # TODO: get tenant credentials here somehow
-    # if not parent:
-    #     _LOG.warning('Parent AWS_MANAGEMENT not found')
-    #     return
-    # application = (
-    #     SP.modular_client.application_service().get_application_by_id(
-    #         parent.application_id
-    #     )
-    # )
-    # if not application:
-    #     _LOG.warning('Management application is not found')
-    #     return
-    # creds = SP.modular_client.maestro_credentials_service().get_by_application(
-    #     application, tenant
-    # )
-    # if not creds:
-    #     _LOG.warning(
-    #         f'No credentials in application: {application.application_id}'
-    #     )
-    #     return
+
     _LOG.debug(
-        'Kubeconfig and token are not provided. Using management creds for EKS'
+        'Kubeconfig and token are not provided. '
+        'Trying to resolve kubeconfig from cloud credentials'
     )
     tenant = SP.modular_client.tenant_service().get(platform.tenant_name)
     creds = SP.modular_client.maestro_credentials_service().get_by_application(

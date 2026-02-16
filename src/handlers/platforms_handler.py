@@ -68,30 +68,37 @@ class PlatformsHandler(AbstractHandler):
             tenant = None
         modular_helpers.assert_tenant_valid(tenant, event.customer)
 
-        application = self.aps.build(
-            customer_id=tenant.customer_name,
-            type=ApplicationType.K8S_KUBE_CONFIG.value,
-            description='SRE auto created k8s application',
-            created_by=_pe['cognito_user_id'],
-            meta={}
-        )
-        if event.endpoint:
-            _LOG.info('K8s endpoint and ca were given creating kubeconfig')
-            cl = self._modular_client.assume_role_ssm_service()
-            secret_name = cl.safe_name(
-                name=application.customer_id,
-                prefix='m3.sre.k8s',
-                date=True
+        if event.application_id:
+            application = self.aps.get_application_by_id(event.application_id)
+            if not application or application.is_deleted:
+                raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
+                    f'Application with id {event.application_id} is not valid'
+                ).exc()
+        else:
+            application = self.aps.build(
+                customer_id=tenant.customer_name,
+                type=ApplicationType.K8S_KUBE_CONFIG.value,
+                description='SRE auto created k8s application',
+                created_by=_pe['cognito_user_id'],
+                meta={}
             )
-            secret = cl.put_parameter(
-                name=secret_name,
-                value=K8STokenKubeconfig(
-                    endpoint=str(event.endpoint),
-                    ca=event.certificate_authority,
-                    token=event.token
-                ).build_config()
-            )
-            application.secret = secret
+            if event.endpoint:
+                _LOG.info('K8s endpoint and ca were given creating kubeconfig')
+                cl = self._modular_client.assume_role_ssm_service()
+                secret_name = cl.safe_name(
+                    name=application.customer_id,
+                    prefix='m3.sre.k8s',
+                    date=True
+                )
+                secret = cl.put_parameter(
+                    name=secret_name,
+                    value=K8STokenKubeconfig(
+                        endpoint=str(event.endpoint),
+                        ca=event.certificate_authority,
+                        token=event.token
+                    ).build_config()
+                )
+                application.secret = secret
         platform = self._ps.create(
             tenant=tenant,
             application=application,

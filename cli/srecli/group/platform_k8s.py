@@ -12,7 +12,8 @@ def k8s():
 
 @k8s.command(cls=ViewCommand, name='create')
 @build_tenant_option(required=True)
-@click.option('-n', '--name', type=str, required=True, help='Cluster name')
+@click.option('-n', '--name', type=str, required=True,
+              help="Cluster name. 'resource_group/cluster_name' in case of AKS")
 @click.option('-t', '--type', required=True,
               type=click.Choice(('SELF_MANAGED', 'EKS', 'AKS', 'GKS')),
               help='Cluster type')
@@ -27,6 +28,8 @@ def k8s():
 @click.option('-T', '--token', type=str, required=False,
               help='Long lived token. Short-lived tokens will '
                    'be generated base on this one')
+@click.option('-aid', '--application_id', type=str, required=False,
+              help='Id of the cloud credentials application')
 @cli_response()
 def create(
     ctx: ContextObj,
@@ -38,11 +41,19 @@ def create(
     endpoint: Optional[str],
     certificate_authority: Optional[str],
     token: Optional[str],
+    application_id: Optional[str],
     customer_id: str,
 ):
     """
     Register a new K8S Platform within a tenant
     """
+    if type == 'AKS':
+        if not '/' in name:
+            raise click.BadParameter(
+                "For AKS clusters, name should be in format "
+                "'resource_group/cluster_name'"
+            )
+
     return ctx['api_client'].platform_k8s_create(
         tenant_name=tenant_name,
         name=name,
@@ -52,6 +63,7 @@ def create(
         endpoint=endpoint,
         certificate_authority=certificate_authority,
         token=token,
+        application_id=application_id,
         customer_id=customer_id
     )
 

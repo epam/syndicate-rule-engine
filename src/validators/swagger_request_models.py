@@ -1960,6 +1960,7 @@ class PlatformK8SPostModel(BaseModel):
     region: AllRegions = Field(None)
     type: PlatformType
     description: str
+    application_id: str = Field(None)
 
     endpoint: HttpUrl = Field(None)
     certificate_authority: str = Field(None)  # base64 encoded
@@ -1969,8 +1970,14 @@ class PlatformK8SPostModel(BaseModel):
     def root(self) -> Self:
         if self.type != PlatformType.SELF_MANAGED and not self.region:
             raise ValueError('region is required if platform is cloud managed')
-        if self.type != PlatformType.EKS and not self.endpoint:
-            raise ValueError('endpoint must be specified if type is not EKS')
+        if self.type == PlatformType.AKS:
+            try:
+               _, _ = self.name.split('/', 1)
+            except ValueError:
+                raise ValueError(
+                    "For AKS platform name must be in format "
+                    "'resource_group/cluster_name'"
+                )
         return self
 
 
