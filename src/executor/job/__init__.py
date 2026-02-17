@@ -245,6 +245,7 @@ __all__ = (
     "JobExecutionContext",
     "filter_policies",
     "skip_duplicated_policies",
+    "expand_results_to_aliases",
     "run_standard_job",
     "task_standard_job",
     "task_scheduled_job",
@@ -1353,11 +1354,13 @@ def get_tenant_credentials(
 def get_job_credentials(job: Job, cloud: Cloud) -> dict | None:
     _LOG.info('Trying to resolve credentials from job')
     if not job.credentials_key:
+        _LOG.info('No credentials key found for job')
         return
     creds = BSP.credentials_service.get_credentials_from_ssm(
         job.credentials_key, remove=True
     )
     if creds is None:
+        _LOG.info('No credentials found for job')
         return
     if cloud is Cloud.GOOGLE:
         creds = BSP.credentials_service.google_credentials_to_file(creds)
@@ -1655,6 +1658,13 @@ class JobExecutionContext:
 
         self._work_dir = None
         self._exit_code = 0
+
+        # Fingerprint-based deduplication: maps a fingerprint to the list
+        # of policy names that share it.  Populated by
+        # ``skip_duplicated_policies`` so that ``expand_results_to_aliases``
+        # can later replicate results from the executed "primary" policy
+        # to all its aliases.
+        self.fingerprint_aliases: dict[str, list[str]] = {}
     
     def set_lm_job_posted(self, posted: bool, /) -> None:
         if not posted:
@@ -1784,25 +1794,101 @@ def filter_policies(
 
 
 def skip_duplicated_policies(
-    ctx: JobExecutionContext, it: Iterable[dict]
+    ctx: JobExecutionContext,
+    it: Iterable[dict],
+    deduplicate_by_fingerprint: bool = True,
 ) -> Iterable[dict]:
-    emitted = set()
-    duplicated = []
+    """
+    Skip policies that appear more than once.
+
+    First level: exact name deduplication (original behaviour).
+    Second level (``deduplicate_by_fingerprint=True``): if two policies
+    have different names but the same ``fingerprint`` field, only the
+    first one is executed.  The mapping between fingerprint and all
+    skipped aliases is stored in ``ctx.fingerprint_aliases`` so results
+    can later be expanded to all aliases via
+    ``expand_results_to_aliases``.
+    """
+    emitted_names: set[str] = set()
+    emitted_fps: dict[str, str] = {}  # fingerprint -> primary policy name
+    duplicated_names: list[str] = []
+    fp_skipped: list[str] = []
+
     for p in it:
         name = p['name']
-        if name in emitted:
-            _LOG.warning(f'Duplicated policy found {name}. Skipping')
-            duplicated.append(name)
+        fp = p.get('fingerprint') if deduplicate_by_fingerprint else None
+
+        # --- Level 1: exact name dedup ---
+        if name in emitted_names:
+            _LOG.warning(f'Duplicated policy found {name} (fingerprint: {fp}). Skipping')
+            duplicated_names.append(name)
             continue
-        emitted.add(name)
+        emitted_names.add(name)
+
+        # --- Level 2: fingerprint dedup ---
+        if fp:
+            if fp in emitted_fps:
+                primary = emitted_fps[fp]
+                _LOG.info(
+                    f'Policy {name} shares fingerprint {fp} with '
+                    f'{primary}. Skipping execution (will be expanded to aliases later)'
+                )
+                ctx.fingerprint_aliases.setdefault(fp, [primary]).append(name)
+                fp_skipped.append(name)
+                continue
+            emitted_fps[fp] = name
+            # Ensure the primary is in the aliases map
+            ctx.fingerprint_aliases.setdefault(fp, [name])
+            _LOG.debug(f'Policy {name} added with fingerprint {fp}')
+
         yield p
-    if duplicated:
+
+    if duplicated_names:
         ctx.add_warnings(
             *[
                 f'multiple policies with name {name}'
-                for name in sorted(duplicated)
+                for name in sorted(duplicated_names)
             ]
         )
+    if fp_skipped:
+        _LOG.info(
+            f'Fingerprint dedup: skipped {len(fp_skipped)} policies '
+            f'(aliases: {fp_skipped})'
+        )
+
+
+def expand_results_to_aliases(
+    ctx: JobExecutionContext,
+    work_dir: Path,
+) -> None:
+    """
+    After scanning, duplicate the output files of each "primary" policy
+    to all its fingerprint aliases so that reports attribute findings
+    correctly to every rule name.
+
+    Cloud Custodian writes its results to ``<work_dir>/<policy_name>/``.
+    For every fingerprint group that has aliases, this function copies
+    the primary result directory to each alias directory.
+    """
+    import shutil
+
+    for fp, names in ctx.fingerprint_aliases.items():
+        if len(names) <= 1:
+            continue
+        primary = names[0]
+        primary_dir = work_dir / primary
+        if not primary_dir.exists():
+            continue
+        for alias in names[1:]:
+            alias_dir = work_dir / alias
+            if alias_dir.exists():
+                continue
+            _LOG.info(
+                f'Expanding results from {primary} to alias {alias} '
+                f'(fp={fp})'
+            )
+            shutil.copytree(primary_dir, alias_dir)
+    _LOG.info('Finished expanding results to aliases')
 
 
 def run_standard_job(ctx: JobExecutionContext):
@@ -1859,6 +1945,8 @@ def run_standard_job(ctx: JobExecutionContext):
     failed = {}
     warnings = []
 
+    _LOG.debug(f'Fingerprint aliases: {ctx.fingerprint_aliases}')
+
     for region in sorted(regions):
         # NOTE: read the documentation for this module to see why we need
         # this Pool. Basically it isolates rules run for one region and
@@ -1892,6 +1980,11 @@ def run_standard_job(ctx: JobExecutionContext):
     ctx.add_warnings(*warnings)
     del warnings
     del credentials
+
+    # Expand scan results from primary policies to their fingerprint aliases
+    if ctx.fingerprint_aliases:
+        _LOG.info('Expanding scan results to fingerprint aliases')
+        expand_results_to_aliases(ctx, ctx.work_dir)
 
     # NOTE: here we should collect all the data about this scan, but make
     # it failed if number of successful policies is 0

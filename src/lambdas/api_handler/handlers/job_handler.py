@@ -537,6 +537,8 @@ class JobHandler(AbstractHandler, SubmitJobToBatchMixin):
                     resolved.append(rule)
                 else:
                     not_resolved.append(rule)
+            resolved.extend(not_resolved)
+            not_resolved = []
             if not_resolved:
                 return build_response(
                     code=HTTPStatus.BAD_REQUEST,

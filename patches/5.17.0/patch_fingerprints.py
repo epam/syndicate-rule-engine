@@ -10,6 +10,8 @@ The patch is idempotent — running it more than once is safe.  Rules that
 already have the correct fingerprint are skipped.
 """
 
+import sys
+
 from collections import defaultdict
 
 from src.helpers.fingerprint import compute_rule_fingerprint  # TODO: remove src.
@@ -53,8 +55,7 @@ def patch_fingerprints() -> None:
             _LOG.info("Processed %d rules so far ...", total)
 
     _LOG.info(
-        "Backfill complete: %d total, %d updated, %d already up-to-date, "
-        "%d errors",
+        "Backfill complete: %d total, %d updated, %d already up-to-date, " "%d errors",
         total,
         updated,
         skipped,
@@ -78,3 +79,16 @@ def patch_fingerprints() -> None:
         len(fp_groups),
         dup_count,
     )
+
+
+def main() -> int:
+    try:
+        patch_fingerprints()
+        return 0
+    except Exception:
+        _LOG.exception("Unexpected exception")
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

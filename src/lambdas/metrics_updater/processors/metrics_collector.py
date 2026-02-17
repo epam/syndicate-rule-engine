@@ -71,7 +71,9 @@ from services.resources import (
 )
 from services.resources_service import ResourcesService
 from services.ruleset_service import RulesetName, RulesetService
+from services.rule_meta_service import RuleService
 from services.sharding import ShardsCollection
+from services.unified_rule_identity import UnifiedRuleIdentity
 
 
 if TYPE_CHECKING:
@@ -295,6 +297,7 @@ class MetricsCollector(BaseProcessor):
         resource_service: ResourcesService,
         resource_exception_service: ResourceExceptionsService,
         tenant_settings_service: 'TenantSettingsService',
+        rule_service: RuleService | None = None,
     ):
         self._mc = modular_client
         self._js = job_service
@@ -306,6 +309,7 @@ class MetricsCollector(BaseProcessor):
         self._res_ser = resource_service
         self._res_exp_ser = resource_exception_service
         self._tss = tenant_settings_service
+        self._rule_service = rule_service
 
         self._tenants_cache = {}
         self._platforms_cache = {}
@@ -381,6 +385,7 @@ class MetricsCollector(BaseProcessor):
             platform_service=SP.platform_service,
             resource_service=SP.resources_service,
             resource_exception_service=SP.resource_exception_service,
+            rule_service=SP.rule_service,
             tenant_settings_service=\
                 SP.modular_client.tenant_settings_service(),
         )
@@ -1129,24 +1134,46 @@ class MetricsCollector(BaseProcessor):
         ctx: MetricsContext,
         meta: dict | None = None,
         type_resources: dict | None = None,
+        unified_identity: UnifiedRuleIdentity | None = None,
     ) -> Generator['AverageStatisticsItem', None, None]:
         meta = meta or {}
+        unified_identity = unified_identity or UnifiedRuleIdentity()
+        
+        # First pass: collect all items and group by fingerprint
+        items_by_fp: dict[str | None, list['AverageStatisticsItem']] = {}
+        items_without_fp: list['AverageStatisticsItem'] = []
+        
         for item in it:
             p = item.policy
             # Exclude deprecated rules
             if p.endswith(DEPRECATED_RULE_SUFFIX):
                 continue
-            item.id = item.policy
+            
+            # Get fingerprint for this rule
+            fp = unified_identity.get_fingerprint(p) if unified_identity else None
+            
+            # Store original policy ID
+            item.id = p
+            
+            # Set description and resource type
             item.policy = meta.get(p, {}).get('description', p)
             item.resource_type = meta.get(p, {}).get('resource', '')
-
+            
+            # Get metadata
             rm = ctx.metadata.rule(p)
-            item.service = rm.service or service_from_resource_type(
+            resource_type_str = (
                 item.resource_type
+                if isinstance(item.resource_type, str)
+                else ''
+            )
+            item.service = rm.service or service_from_resource_type(
+                resource_type_str
             )
             item.severity = rm.severity
-
-            # TODO: implement average resources scanned
+            # Set category only if it's not empty, otherwise use UNSET to omit from serialization
+            item.category = rm.category if rm.category else None
+            
+            # Calculate resources scanned
             if type_resources:
                 resources = [
                     res for res in type_resources.get(meta[p]['resource'], [])
@@ -1154,7 +1181,45 @@ class MetricsCollector(BaseProcessor):
                 ]
                 item.resources_scanned = len(resources)
                 item.average_resources_scanned = item.resources_scanned
-
+            
+            # Group by fingerprint
+            if fp:
+                items_by_fp.setdefault(fp, []).append(item)
+            else:
+                items_without_fp.append(item)
+        
+        # Second pass: for rules with same fingerprint, merge statistics but keep separate entries
+        # with their own metadata
+        for fp, items in items_by_fp.items():
+            if len(items) > 1:
+                # Multiple rules share the same fingerprint - merge statistics
+                # Use the first item's statistics as base (they all have same stats since
+                # they were executed once)
+                base_item = items[0]
+                
+                # Yield each rule separately with its own metadata
+                for item in items:
+                    # Copy statistics from base (they're the same for all aliases)
+                    item.invocations = base_item.invocations
+                    item.succeeded_invocations = base_item.succeeded_invocations
+                    item.failed_invocations = base_item.failed_invocations
+                    item.total_api_calls = base_item.total_api_calls
+                    item.min_exec = base_item.min_exec
+                    item.max_exec = base_item.max_exec
+                    item.total_exec = base_item.total_exec
+                    item.average_exec = base_item.average_exec
+                    item.resources_failed = base_item.resources_failed
+                    item.resources_scanned = base_item.resources_scanned
+                    item.average_resources_scanned = base_item.average_resources_scanned
+                    item.average_resources_failed = base_item.average_resources_failed
+                    
+                    yield item
+            else:
+                # Single rule with this fingerprint
+                yield items[0]
+        
+        # Yield rules without fingerprint
+        for item in items_without_fp:
             yield item
 
     def operational_rules(
@@ -1182,7 +1247,39 @@ class MetricsCollector(BaseProcessor):
             _, col = exceptions.filter_exception_resources(
                 col, tenant_cloud(tenant), ctx.metadata, tenant.project
             )
-            type_resources = self._res_ser.get_type_resources_for_tenant(tenant, col.meta)
+            type_resources = (
+                self._res_ser.get_type_resources_for_tenant(tenant, col.meta)
+                if col and col.meta
+                else {}
+            )
+
+            # Build UnifiedRuleIdentity for rules in this tenant
+            unified_identity = UnifiedRuleIdentity()
+            if self._rule_service and col and col.meta:
+                # Get all rules that appear in the collection
+                rule_names = set(col.meta.keys())
+                if rule_names:
+                    # Fetch rules from database to get fingerprints
+                    cloud = tenant_cloud(tenant).value
+                    customer = tenant.customer_name
+                    if customer:
+                        try:
+                            rules = list(
+                                self._rule_service.get_by_id_index(
+                                    customer=customer,
+                                    cloud=cloud,
+                                )
+                            )
+                            # Filter to only rules that appear in collection
+                            rules_in_collection = [
+                                r for r in rules
+                                if r.name in rule_names
+                            ]
+                            unified_identity.build_index(rules_in_collection)
+                        except Exception as e:
+                            _LOG.warning(
+                                f'Failed to build UnifiedRuleIdentity for tenant {tenant.name}: {e}'
+                            )
 
             outdated = []
             lsd = tjs.last_succeeded_scan_date
@@ -1206,6 +1303,7 @@ class MetricsCollector(BaseProcessor):
                         ctx=ctx,
                         meta=col.meta if col else {},
                         type_resources=type_resources if type_resources else {},
+                        unified_identity=unified_identity,
                     )
                 ),
                 'outdated_tenants': outdated,

@@ -311,6 +311,8 @@ class LMClient:
             },
             token=self._token_producer.produce(customer=customer),
         )
+        text = resp.text
+        _LOG.info(f'Response text: {text}')
         if resp is None:
             raise LMUnavailable('Cannot access the License manager')
         match resp.status_code:
