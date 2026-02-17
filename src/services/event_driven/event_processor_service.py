@@ -532,7 +532,7 @@ class EventBridgeEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
 
             tenant = next(
                 self._tenant_service.i_get_by_acc(
-                    acc=account_id,
+                    acc=str(account_id),
                     active=True,
                     limit=1,
                 ),
