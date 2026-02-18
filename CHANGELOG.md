@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Fixed invalid `next_token` handling
 - Fixed issue with double creation of indexes for `SREResources` and `SREResourceExceptions` collections
+- Fixed JSON decoding errors when License Manager returns text responses instead of JSON
 
 ### Changed
 - Changed the `JobType` enum to include `STANDARD`, `SCHEDULED` and `MANUAL`
