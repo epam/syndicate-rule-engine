@@ -1,7 +1,7 @@
 import copy
 import heapq
 import statistics
-from datetime import datetime
+from datetime import date, datetime
 from itertools import chain
 from typing import (
     TYPE_CHECKING,
@@ -203,6 +203,13 @@ class RuleCheck(msgspec.Struct, kw_only=True, frozen=True):
     found: int | msgspec.UnsetType = msgspec.UNSET
 
 
+class DeprecatedRule(msgspec.Struct, kw_only=True, frozen=True):
+    id: str
+    description: str | msgspec.UnsetType = msgspec.UNSET
+    deprecation_date: str | None | msgspec.UnsetType = msgspec.UNSET
+    deprecation_reason: str | msgspec.UnsetType = msgspec.UNSET
+
+
 class LicenseMetadata(msgspec.Struct, kw_only=True, frozen=True):
     id: str
     rulesets: tuple[str, ...] = ()
@@ -217,7 +224,7 @@ class LicenseMetadata(msgspec.Struct, kw_only=True, frozen=True):
 class ReportRulesMetadata(msgspec.Struct, kw_only=True, frozen=True):
     total: int = 0
     disabled: tuple[str, ...] = ()
-    deprecated: tuple[str, ...] = ()
+    deprecated: tuple[DeprecatedRule, ...] = ()
     passed: tuple[RuleCheck, ...] = ()
     failed: tuple[RuleCheck, ...] = ()
     violated: tuple[RuleCheck, ...] | msgspec.UnsetType = msgspec.UNSET
@@ -766,7 +773,7 @@ class MetricsCollector(BaseProcessor):
             tenant, collection.meta
         )
 
-        deprecated = tuple(self._iter_deprecated_rules(collection))
+        deprecated = tuple(self._iter_deprecated_rules(collection, ctx.metadata))
 
         for typ in types:
             start = typ.start(ctx.now)
@@ -785,11 +792,18 @@ class MetricsCollector(BaseProcessor):
             # Some selectors can filter disabled and deprecated rules,
             # so we don't want to include them in that report
             disabled_loc = tuple(scope.intersection(disabled))
-            deprecated_loc = tuple(scope.intersection(deprecated))
+            # Extract rule IDs from DeprecatedRule objects for intersection
+            deprecated_ids = {rule.id for rule in deprecated}
+            deprecated_loc = tuple(scope.intersection(deprecated_ids))
 
             scope.difference_update(disabled)
-            scope.difference_update(deprecated)
+            scope.difference_update(deprecated_ids)
 
+            # Filter deprecated rules to only include those in scope (matching original behavior)
+            deprecated_in_scope = tuple(
+                rule for rule in deprecated if rule.id in deprecated_loc
+            )
+            
             meta = TenantReportMetadata(
                 licenses=licenses,
                 is_automatic_scans_enabled=True,
@@ -801,7 +815,7 @@ class MetricsCollector(BaseProcessor):
                 rules=ReportRulesMetadata(
                     total=total,
                     disabled=disabled_loc,
-                    deprecated=deprecated_loc,
+                    deprecated=deprecated_in_scope,
                     passed=tuple(self._iter_passed_checks(collection, scope)),
                     failed=tuple(self._iter_failed_checks(collection, scope)),
                     violated=tuple(
@@ -2650,11 +2664,39 @@ class MetricsCollector(BaseProcessor):
             )
 
     def _iter_deprecated_rules(
-        self, collection: ShardsCollection
-    ) -> Iterable[str]:
+        self, collection: ShardsCollection, metadata: Metadata
+    ) -> Iterable[DeprecatedRule]:
         """
-        Iterates over deprecated rules in the collection.
+        Iterates over deprecated rules in the collection and returns
+        expanded information including description, deprecation date, and reason.
         """
         for policy in collection.meta:
             if policy.endswith(DEPRECATED_RULE_SUFFIX):
-                yield policy
+                # Get rule metadata
+                rule_meta = metadata.rule(policy)
+                deprecation = rule_meta.deprecation
+                
+                # Get description from collection.meta or rule metadata
+                description = collection.meta.get(policy, {}).get("description", "")
+                if not description:
+                    # Fallback to impact if description not available
+                    description = rule_meta.impact if rule_meta.impact else ""
+                
+                # Format deprecation date
+                deprecation_date = None
+                if isinstance(deprecation.date, date):
+                    deprecation_date = deprecation.date.isoformat()
+                
+                # Use link as deprecation reason, or impact as fallback
+                deprecation_reason = ""
+                if isinstance(deprecation.link, str) and deprecation.link:
+                    deprecation_reason = deprecation.link
+                elif rule_meta.impact:
+                    deprecation_reason = rule_meta.impact
+                
+                yield DeprecatedRule(
+                    id=policy,
+                    description=description if description else msgspec.UNSET,
+                    deprecation_date=deprecation_date if deprecation_date else msgspec.UNSET,
+                    deprecation_reason=deprecation_reason if deprecation_reason else msgspec.UNSET,
+                )
