@@ -3,8 +3,8 @@ import sys
 
 from helpers.log_helper import get_logger
 
-from .patch_fingerprints import main as patch_fingerprints
-from .patch_jobs import main as patch_jobs
+from patch_fingerprints import main as patch_fingerprints
+from patch_jobs import main as patch_jobs
 
 
 logging.basicConfig(
