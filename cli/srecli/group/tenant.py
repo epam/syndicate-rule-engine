@@ -42,7 +42,7 @@ def describe(ctx: ContextObj, tenant_name, account_number, active, cloud,
     """
     if tenant_name and account_number:
         raise click.ClickException(
-            'Either --tenant_name or --account_number can be given'
+            'Only one of --tenant_name or --account_number should be given'
         )
     if tenant_name or account_number:
         return ctx['api_client'].tenant_get(tenant_name or account_number,
