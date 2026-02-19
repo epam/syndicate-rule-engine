@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 from google.cloud import container_v1
 from google.oauth2 import service_account
@@ -10,9 +12,9 @@ class GKEClient:
     _scopes = ["https://www.googleapis.com/auth/cloud-platform"]
 
     def __init__(self, credentials_path: str | Path):
-        self.credentials_path = Path(credentials_path)
+        self._credentials_path = Path(credentials_path)
         self._creds = service_account.Credentials.from_service_account_file(
-            filename=str(self.credentials_path),
+            filename=str(self._credentials_path),
             scopes=self._scopes,
         )
         self._creds.refresh(Request())
@@ -41,7 +43,7 @@ class GKEClient:
         try:
             cluster = self._client.get_cluster(name=cluster_name_full)
         except Exception as e:
-            _LOG.exception(
+            _LOG.error(
                 f'Failed to fetch GKE cluster "{cluster_name}" in project '
                 f'"{project_id}", location "{location}". Error: {e}'
             )

@@ -11,6 +11,10 @@ from azure.core.credentials import TokenCredential
 from modular_sdk.services.impl.maestro_credentials_service import \
     AZURECredentials, AZURECertificate
 
+from helpers.log_helper import get_logger
+
+_LOG = get_logger(__name__)
+
 
 class AKSClient:
     """
@@ -82,7 +86,7 @@ class AKSClient:
 
         kubeconfigs = getattr(kube_result, "kubeconfigs", None)
         if not kubeconfigs:
-            raise RuntimeError(
+            _LOG.error(
                 f"Kubeconfigs for AKS cluster '{cluster_name}' in resource "
                 f"group '{resource_group}' not found."
             )
