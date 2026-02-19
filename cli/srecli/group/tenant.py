@@ -44,7 +44,7 @@ def describe(ctx: ContextObj, tenant_name, account_number, active, cloud,
         raise click.ClickException(
             'Either --tenant_name or --account_number can be given'
         )
-    if tenant_name:
+    if tenant_name or account_number:
         return ctx['api_client'].tenant_get(tenant_name or account_number,
                                             customer_id=customer_id)
     return ctx['api_client'].tenant_query(
