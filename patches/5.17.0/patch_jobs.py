@@ -1,8 +1,8 @@
 import sys
 
-from src.helpers.constants import JobType
-from src.helpers.log_helper import get_logger
-from src.models.job import Job
+from helpers.constants import JobType
+from helpers.log_helper import get_logger
+from models.job import Job
 
 
 _LOG = get_logger(__name__)

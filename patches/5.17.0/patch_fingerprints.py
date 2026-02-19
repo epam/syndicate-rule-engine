@@ -14,9 +14,9 @@ import sys
 
 from collections import defaultdict
 
-from src.helpers.fingerprint import compute_rule_fingerprint  # TODO: remove src.
-from src.helpers.log_helper import get_logger  # TODO: remove src.
-from src.models.rule import Rule  # TODO: remove src.
+from helpers.fingerprint import compute_rule_fingerprint
+from helpers.log_helper import get_logger
+from models.rule import Rule
 
 
 _LOG = get_logger(__name__)

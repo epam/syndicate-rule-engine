@@ -1,7 +1,7 @@
 import logging
 import sys
 
-from src.helpers.log_helper import get_logger  # TODO: remove src.
+from helpers.log_helper import get_logger
 
 from .patch_fingerprints import main as patch_fingerprints
 from .patch_jobs import main as patch_jobs
