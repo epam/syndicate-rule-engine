@@ -14,10 +14,12 @@ COPY pyproject.toml uv.lock /src/
 ENV UV_LINK_MODE=copy \
     UV_NO_INSTALLER_METADATA=1 \
     UV_COMPILE_BYTECODE=1
-RUN uv sync --frozen --no-install-project --no-editable --group=c7n --compile-bytecode
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-install-project --no-editable --group=c7n --compile-bytecode
 
 COPY src /src/
 COPY patches/$PATCH_VERSION/main.py /src/main.py
+COPY patches/$PATCH_VERSION/patch_fingerprints.py /src/patch_fingerprints.py
 RUN chmod +x /src/main.py && \
     rm -f /src/executor/Dockerfile* /src/executor/requirements.txt /src/onprem/Dockerfile* /src/onprem/requirements.txt /src/uv.lock /src/pyproject.toml
 

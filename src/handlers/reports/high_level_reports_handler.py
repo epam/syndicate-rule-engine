@@ -119,11 +119,30 @@ class MaestroModelBuilder:
     def __init__(self, receivers: tuple[str, ...] = ()):
         self._receivers = receivers  # base receivers
 
-    @staticmethod
-    def _operational_overview_custom(rep: ReportMetrics, data: dict) -> dict:
-        assert rep.type == ReportType.OPERATIONAL_OVERVIEW
+    @classmethod
+    def _validate_report_type(cls, rep: ReportMetrics, expected_type: ReportType) -> None:
+        """
+        Validate that the report type matches the expected type.
+        
+        Args:
+            rep: The report metrics object to validate
+            expected_type: The expected report type
+            
+        Raises:
+            ValueError: If the report type doesn't match the expected type
+        """
+        if rep.type != expected_type:
+            raise ValueError(
+                f"Expected report type {expected_type}, but got {rep.type}. "
+                f"Report ID: {getattr(rep, 'id', 'unknown')}, "
+                f"Tenant: {getattr(rep, 'tenant', 'unknown')}"
+            )
+
+    @classmethod
+    def _operational_overview_custom(cls, rep: ReportMetrics, data: dict) -> dict:
+        cls._validate_report_type(rep, ReportType.OPERATIONAL_OVERVIEW)
         inner = data['data']
-        inner['rules_data'] = inner.pop('rules', [])
+        inner['rules_data'] = inner.pop('rules', {})
         regions_data = {}
         for region, rd in inner.pop('regions', {}).items():
             rd['resources_data'] = rd.pop('resources')
@@ -148,9 +167,9 @@ class MaestroModelBuilder:
         }
 
 
-    @staticmethod
-    def _operational_resources_custom(rep: ReportMetrics, data: dict) -> dict:
-        assert rep.type == ReportType.OPERATIONAL_RESOURCES
+    @classmethod
+    def _operational_resources_custom(cls, rep: ReportMetrics, data: dict) -> dict:
+        cls._validate_report_type(rep, ReportType.OPERATIONAL_RESOURCES)
         return {
             'tenant_name': rep.tenant,
             'id': data['id'],
@@ -161,9 +180,9 @@ class MaestroModelBuilder:
             'externalData': False,
         }
 
-    @staticmethod
-    def _operational_rules_custom(rep: ReportMetrics, data: dict) -> dict:
-        assert rep.type == ReportType.OPERATIONAL_RULES
+    @classmethod
+    def _operational_rules_custom(cls, rep: ReportMetrics, data: dict) -> dict:
+        cls._validate_report_type(rep, ReportType.OPERATIONAL_RULES)
         return {
             'tenant_name': rep.tenant,
             'id': data['id'],
@@ -177,9 +196,9 @@ class MaestroModelBuilder:
             },
         }
 
-    @staticmethod
-    def _operational_finops_custom(rep: ReportMetrics, data: dict) -> dict:
-        assert rep.type == ReportType.OPERATIONAL_FINOPS
+    @classmethod
+    def _operational_finops_custom(cls, rep: ReportMetrics, data: dict) -> dict:
+        cls._validate_report_type(rep, ReportType.OPERATIONAL_FINOPS)
         for item in data.setdefault('data', []):
             for rules_data in item.setdefault('rules_data', []):
                 rd = {}
@@ -199,11 +218,11 @@ class MaestroModelBuilder:
             'exceptions_data': data.get('exceptions_data', []),
         }
 
-    @staticmethod
+    @classmethod
     def _operational_deprecations_custom(
-        rep: ReportMetrics, data: dict
+        cls, rep: ReportMetrics, data: dict
     ) -> dict:
-        assert rep.type == ReportType.OPERATIONAL_DEPRECATION
+        cls._validate_report_type(rep, ReportType.OPERATIONAL_DEPRECATION)
         for item in data.setdefault('data', []):
             item['regions_data'] = {
                 region: {'resources': res}
@@ -222,9 +241,9 @@ class MaestroModelBuilder:
             'exceptions_data': data.get('exceptions_data', []),
         }
 
-    @staticmethod
-    def _operational_compliance_custom(rep: ReportMetrics, data: dict) -> dict:
-        assert rep.type == ReportType.OPERATIONAL_COMPLIANCE
+    @classmethod
+    def _operational_compliance_custom(cls, rep: ReportMetrics, data: dict) -> dict:
+        cls._validate_report_type(rep, ReportType.OPERATIONAL_COMPLIANCE)
 
         regions_data = [
             {
@@ -246,9 +265,9 @@ class MaestroModelBuilder:
             'data': {'regions_data': regions_data},
         }
 
-    @staticmethod
-    def _operational_attacks_custom(rep: ReportMetrics, data: dict) -> dict:
-        assert rep.type == ReportType.OPERATIONAL_ATTACKS
+    @classmethod
+    def _operational_attacks_custom(cls, rep: ReportMetrics, data: dict) -> dict:
+        cls._validate_report_type(rep, ReportType.OPERATIONAL_ATTACKS)
         for item in data['data']:
             for attack in item.get('attacks', ()):
                 for violation in attack.get('violations', ()):
@@ -266,7 +285,7 @@ class MaestroModelBuilder:
         }
 
     def _operational_k8s_custom(self, rep: ReportMetrics, data: dict) -> dict:
-        assert rep.type == ReportType.OPERATIONAL_KUBERNETES
+        self._validate_report_type(rep, ReportType.OPERATIONAL_KUBERNETES)
         return {
             'metadata': self.build_report_metadata(
                 rep
@@ -332,7 +351,7 @@ class MaestroModelBuilder:
         }
 
     def _project_overview_custom(self, rep: ReportMetrics, data: dict) -> dict:
-        assert rep.type == ReportType.PROJECT_OVERVIEW
+        self._validate_report_type(rep, ReportType.PROJECT_OVERVIEW)
         return {'tenant_display_name': rep.project, **data}
 
 
@@ -342,7 +361,7 @@ class MaestroModelBuilder:
         data: dict,
     ) -> dict:
         new_data = {}
-        assert rep.type == ReportType.PROJECT_OVERVIEW
+        self._validate_report_type(rep, ReportType.PROJECT_OVERVIEW)
         for cloud, c_data in data['data'].items():
             if not c_data:
                 new_data[cloud] = {}
@@ -378,7 +397,7 @@ class MaestroModelBuilder:
     def _project_compliance_custom(
         self, rep: ReportMetrics, data: dict
     ) -> dict:
-        assert rep.type == ReportType.PROJECT_COMPLIANCE
+        self._validate_report_type(rep, ReportType.PROJECT_COMPLIANCE)
         for t in data['data'].values():
             if not t.get('data'):
                 continue
@@ -407,7 +426,7 @@ class MaestroModelBuilder:
         data: dict,
     ) -> dict:
         new_data = {}
-        assert rep.type == ReportType.PROJECT_COMPLIANCE
+        self._validate_report_type(rep, ReportType.PROJECT_COMPLIANCE)
         for cloud, c_data in data['data'].items():
             if not c_data:
                 new_data[cloud] = {}
@@ -421,7 +440,7 @@ class MaestroModelBuilder:
     def _project_resources_custom(
         self, rep: ReportMetrics, data: dict
     ) -> dict:
-        assert rep.type == ReportType.PROJECT_RESOURCES
+        self._validate_report_type(rep, ReportType.PROJECT_RESOURCES)
         return {'tenant_display_name': rep.project, **data}
 
     def _project_resources_linked(
@@ -432,7 +451,7 @@ class MaestroModelBuilder:
         res_count = \
             lambda i: sum(v['total_violated_resources'] for v in i.values())
         new_data = {}
-        assert rep.type == ReportType.PROJECT_RESOURCES
+        self._validate_report_type(rep, ReportType.PROJECT_RESOURCES)
         for cloud, c_data in data['data'].items():
             if not c_data:
                 new_data[cloud] = {}
@@ -479,7 +498,7 @@ class MaestroModelBuilder:
 
 
     def _project_attacks_custom(self, rep: ReportMetrics, data: dict) -> dict:
-        assert rep.type == ReportType.PROJECT_ATTACKS
+        self._validate_report_type(rep, ReportType.PROJECT_ATTACKS)
         for t in data['data'].values():
             for attack in t.setdefault('attacks', []):
                 attack['regions_data'] = [
@@ -495,7 +514,7 @@ class MaestroModelBuilder:
         data: dict,
     ) -> dict:
         new_data = {}
-        assert rep.type == ReportType.PROJECT_ATTACKS
+        self._validate_report_type(rep, ReportType.PROJECT_ATTACKS)
         for cloud, c_data in data['data'].items():
             if not c_data:
                 new_data[cloud] = {}
@@ -523,7 +542,7 @@ class MaestroModelBuilder:
 
 
     def _project_finops_custom(self, rep: ReportMetrics, data: dict) -> dict:
-        assert rep.type == ReportType.PROJECT_FINOPS
+        self._validate_report_type(rep, ReportType.PROJECT_FINOPS)
         for t in data['data'].values():
             for service_data in t.get('service_data', []):
                 for rule_data in service_data.get('rules_data', []):
@@ -540,7 +559,7 @@ class MaestroModelBuilder:
         res_count = \
             lambda i: sum(v['total_violated_resources'] for v in i.values())
         new_data = {}
-        assert rep.type == ReportType.PROJECT_FINOPS
+        self._validate_report_type(rep, ReportType.PROJECT_FINOPS)
         for cloud, c_data in data['data'].items():
             if not c_data:
                 new_data[cloud] = {}
