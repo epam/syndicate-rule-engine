@@ -736,6 +736,10 @@ def require_maestro_integration(
             
             obj: ContextObj = cast(ContextObj, ctx.obj)
             api_client = obj['api_client']
+        
+            if Env.DEVELOPER_MODE.get():
+                click.echo('[WARNING] Developer mode is enabled. Skipping integrations check.\n')
+                return func(*args, **kwargs)
             
             customer_id = kwargs.get('customer_id')
             

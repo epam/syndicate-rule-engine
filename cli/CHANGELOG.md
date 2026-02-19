@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.13.0] - 2026-02-05
 
+### Added
+- Added bypassing of integration checks in developer mode
+
 ### Removed
 - Removed `sre result describe` command
 
