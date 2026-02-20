@@ -521,3 +521,25 @@ def test_project_finops_include_linked_report(
     )
     assert typ == 'CUSTODIAN_PROJECT_FINOPS_REPORT'
     assert dicts_equal(model, expected)
+
+def test_project_unknown_receiver(
+        system_user_token,
+        sre_client,
+        project_overview_metrics,
+        mocked_rabbitmq,
+        load_expected,
+):
+    resp = sre_client.request(
+        '/reports/project',
+        'POST',
+        auth=system_user_token,
+        data={
+            'customer_id': 'TEST_CUSTOMER',
+            'tenant_display_names': ['testing'],
+            'types': ['OVERVIEW'],
+            'receivers': ['admin@gmail.com', "teanant_contact_2@gamil.com", "teanant_contact_3@gamil.com"],
+        },
+    )
+
+    assert resp.status_int == 202
+    assert resp.json_body['message'] == "Successfully sent, except for emails thet do not belong to the customer or tenant: teanant_contact_3@gamil.com"
