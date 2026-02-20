@@ -9,7 +9,6 @@ from botocore.exceptions import ClientError
 from dateutil.relativedelta import relativedelta
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.modular import Modular
-from rsa.cli import verify
 from typing_extensions import NotRequired, TypedDict
 
 from handlers import AbstractHandler, Mapping
@@ -39,7 +38,6 @@ from validators.swagger_request_models import (
     ProjectGetReportModel,
 )
 from validators.utils import validate_kwargs
-
 
 _LOG = get_logger(__name__)
 
@@ -148,7 +146,6 @@ class MaestroModelBuilder:
             'externalData': False,
         }
 
-
     @staticmethod
     def _operational_resources_custom(rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.OPERATIONAL_RESOURCES
@@ -202,7 +199,7 @@ class MaestroModelBuilder:
 
     @staticmethod
     def _operational_deprecations_custom(
-        rep: ReportMetrics, data: dict
+            rep: ReportMetrics, data: dict
     ) -> dict:
         assert rep.type == ReportType.OPERATIONAL_DEPRECATION
         for item in data.setdefault('data', []):
@@ -336,11 +333,10 @@ class MaestroModelBuilder:
         assert rep.type == ReportType.PROJECT_OVERVIEW
         return {'tenant_display_name': rep.project, **data}
 
-
     def _project_overview_linked(
-        self,
-        rep: ReportMetrics,
-        data: dict,
+            self,
+            rep: ReportMetrics,
+            data: dict,
     ) -> dict:
         new_data = {}
         assert rep.type == ReportType.PROJECT_OVERVIEW
@@ -375,9 +371,8 @@ class MaestroModelBuilder:
 
         return {'data': new_data}
 
-
     def _project_compliance_custom(
-        self, rep: ReportMetrics, data: dict
+            self, rep: ReportMetrics, data: dict
     ) -> dict:
         assert rep.type == ReportType.PROJECT_COMPLIANCE
         for t in data['data'].values():
@@ -401,11 +396,10 @@ class MaestroModelBuilder:
 
         return {'tenant_display_name': rep.project, **data}
 
-
     def _project_compliance_linked(
-        self,
-        rep: ReportMetrics,
-        data: dict,
+            self,
+            rep: ReportMetrics,
+            data: dict,
     ) -> dict:
         new_data = {}
         assert rep.type == ReportType.PROJECT_COMPLIANCE
@@ -418,17 +412,16 @@ class MaestroModelBuilder:
 
         return {'data': new_data}
 
-
     def _project_resources_custom(
-        self, rep: ReportMetrics, data: dict
+            self, rep: ReportMetrics, data: dict
     ) -> dict:
         assert rep.type == ReportType.PROJECT_RESOURCES
         return {'tenant_display_name': rep.project, **data}
 
     def _project_resources_linked(
-        self,
-        rep: ReportMetrics,
-        data: dict,
+            self,
+            rep: ReportMetrics,
+            data: dict,
     ) -> dict:
         res_count = \
             lambda i: sum(v['total_violated_resources'] for v in i.values())
@@ -478,7 +471,6 @@ class MaestroModelBuilder:
 
         return {'data': new_data}
 
-
     def _project_attacks_custom(self, rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.PROJECT_ATTACKS
         for t in data['data'].values():
@@ -491,9 +483,9 @@ class MaestroModelBuilder:
         return {'tenant_display_name': rep.project, **data}
 
     def _project_attacks_linked(
-        self,
-        rep: ReportMetrics,
-        data: dict,
+            self,
+            rep: ReportMetrics,
+            data: dict,
     ) -> dict:
         new_data = {}
         assert rep.type == ReportType.PROJECT_ATTACKS
@@ -522,7 +514,6 @@ class MaestroModelBuilder:
 
         return {'data': new_data}
 
-
     def _project_finops_custom(self, rep: ReportMetrics, data: dict) -> dict:
         assert rep.type == ReportType.PROJECT_FINOPS
         for t in data['data'].values():
@@ -532,11 +523,10 @@ class MaestroModelBuilder:
                     # just to replace int leafs with {'value': leaf, 'diff': None}
         return {'tenant_display_name': rep.project, **data}
 
-
     def _project_finops_linked(
-        self,
-        rep: ReportMetrics,
-        data: dict,
+            self,
+            rep: ReportMetrics,
+            data: dict,
     ) -> dict:
         res_count = \
             lambda i: sum(v['total_violated_resources'] for v in i.values())
@@ -587,9 +577,8 @@ class MaestroModelBuilder:
 
         return {'data': new_data}
 
-
     def _top_compliance_by_cloud(
-        self, rep: ReportMetrics, data: dict, previous_data: dict
+            self, rep: ReportMetrics, data: dict, previous_data: dict
     ) -> dict:
         key = operator.itemgetter('tenant_display_name')
 
@@ -611,7 +600,7 @@ class MaestroModelBuilder:
         return data
 
     def _top_resources_by_cloud(
-        self, rep: ReportMetrics, data: dict, previous_data: dict
+            self, rep: ReportMetrics, data: dict, previous_data: dict
     ) -> dict:
         key = operator.itemgetter('tenant_display_name')
 
@@ -626,7 +615,7 @@ class MaestroModelBuilder:
         return data
 
     def _top_attacks_by_cloud(
-        self, rep: ReportMetrics, data: dict, previous_data: dict
+            self, rep: ReportMetrics, data: dict, previous_data: dict
     ) -> dict:
         key = operator.itemgetter('tenant_name')
         key_tactic = operator.itemgetter('tactic_id')
@@ -639,14 +628,14 @@ class MaestroModelBuilder:
 
                 old_tactics = map_by(old_data.get('data', []), key_tactic)
                 for tactic_id, new_tactics_data in map_by(
-                    new_data.get('data', []), key_tactic
+                        new_data.get('data', []), key_tactic
                 ).items():
                     old_tactics_data = old_tactics.get(tactic_id, {})
                     add_diff(new_tactics_data, old_tactics_data)
         return data
 
     def _top_tenants_compliance(
-        self, rep: ReportMetrics, data: dict, previous_data: dict
+            self, rep: ReportMetrics, data: dict, previous_data: dict
     ) -> dict:
         key = operator.itemgetter('tenant_display_name')
         old = map_by(previous_data.get('data', []), key)
@@ -666,7 +655,7 @@ class MaestroModelBuilder:
         return data
 
     def _top_tenants_resources(
-        self, rep: ReportMetrics, data: dict, previous_data: dict
+            self, rep: ReportMetrics, data: dict, previous_data: dict
     ) -> dict:
         key = operator.itemgetter('tenant_display_name')
         old = map_by(previous_data.get('data', []), key)
@@ -679,7 +668,7 @@ class MaestroModelBuilder:
         return data
 
     def _top_tenants_attacks(
-        self, rep: ReportMetrics, data: dict, previous_data: dict
+            self, rep: ReportMetrics, data: dict, previous_data: dict
     ) -> dict:
         key = operator.itemgetter('tenant_display_name')
         key_tactic = operator.itemgetter('tactic_id')
@@ -690,14 +679,14 @@ class MaestroModelBuilder:
             for cl, items in new_data.get('data', {}).items():
                 old_tactics = map_by(old_data.get(cl, []), key_tactic)
                 for tactic_id, new_tactics_data in map_by(
-                    items, key_tactic
+                        items, key_tactic
                 ).items():
                     old_tactics_data = old_tactics.get(tactic_id, {})
                     add_diff(new_tactics_data, old_tactics_data)
         return data
 
     def _c_level_overview_custom(
-        self, rep: ReportMetrics, data: dict, previous_data: dict
+            self, rep: ReportMetrics, data: dict, previous_data: dict
     ) -> dict:
         previous_data = previous_data or {}
         for cl, cl_data in data.get('data', {}).items():
@@ -712,7 +701,7 @@ class MaestroModelBuilder:
         return data
 
     def _c_level_attacks_custom(
-        self, rep: ReportMetrics, data: dict, previous_data: dict
+            self, rep: ReportMetrics, data: dict, previous_data: dict
     ) -> dict:
         key = operator.itemgetter('tactic_id')
         for cl, cl_data in data.get('data', {}).items():
@@ -724,7 +713,7 @@ class MaestroModelBuilder:
         return data
 
     def _c_level_compliance_custom(
-        self, rep: ReportMetrics, data: dict, previous_data: dict
+            self, rep: ReportMetrics, data: dict, previous_data: dict
     ) -> dict:
         for cl, cl_data in data.get('data', {}).items():
             add_diff(
@@ -754,7 +743,7 @@ class MaestroModelBuilder:
         )
 
     def convert(
-        self, rep: ReportMetrics, data: dict, previous_data: dict | None = None
+            self, rep: ReportMetrics, data: dict, previous_data: dict | None = None
     ) -> MaestroReport:
         base = self.build_base(rep)
         previous_data = previous_data or {}
@@ -820,9 +809,9 @@ class MaestroModelBuilder:
         return base
 
     def convert_linked(
-        self,
-        rep: ReportMetrics,
-        data: dict,
+            self,
+            rep: ReportMetrics,
+            data: dict,
     ) -> MaestroLinkedTenantReport:
         base = self.linked_base(rep)
         match rep.type:
@@ -842,7 +831,6 @@ class MaestroModelBuilder:
         return base
 
 
-
 class MaestroReportToS3Packer:
     """
     Holds logic how to compress some large reports to jsonl files specifically
@@ -858,10 +846,10 @@ class MaestroReportToS3Packer:
     __slots__ = '_s3', '_bucket', '_limit', '_mapping'
 
     def __init__(
-        self,
-        s3_client: S3Client,
-        bucket: str,
-        size_limit: int = _default_size_limit,
+            self,
+            s3_client: S3Client,
+            bucket: str,
+            size_limit: int = _default_size_limit,
     ):
         self._s3 = s3_client
         self._bucket = bucket
@@ -930,7 +918,7 @@ class MaestroReportToS3Packer:
         return buf
 
     def _write_line(
-        self, to: bytearray, data: dict | list, tag: bytes | None = None
+            self, to: bytearray, data: dict | list, tag: bytes | None = None
     ) -> None:
         if tag:
             to.extend(tag)
@@ -988,13 +976,13 @@ class MaestroReportToS3Packer:
 
 class HighLevelReportsHandler(AbstractHandler):
     def __init__(
-        self,
-        report_metrics_service: ReportMetricsService,
-        modular_client: Modular,
-        environment_service: EnvironmentService,
-        rabbitmq_service: RabbitMQService,
-        assume_role_s3_client: S3Client,
-        platform_service: PlatformService,
+            self,
+            report_metrics_service: ReportMetricsService,
+            modular_client: Modular,
+            environment_service: EnvironmentService,
+            rabbitmq_service: RabbitMQService,
+            assume_role_s3_client: S3Client,
+            platform_service: PlatformService,
     ):
         self._rms = report_metrics_service
         self._mc = modular_client
@@ -1033,7 +1021,6 @@ class HighLevelReportsHandler(AbstractHandler):
 
     @validate_kwargs
     def post_c_level(self, event: CLevelGetReportModel):
-        # filter receivers
         event.receivers, failed_receivers = self._filter_resievers(event=event)
 
         models = []
@@ -1111,9 +1098,8 @@ class HighLevelReportsHandler(AbstractHandler):
 
     @validate_kwargs
     def post_operational(
-        self, event: OperationalGetReportModel, _tap: TenantsAccessPayload
+            self, event: OperationalGetReportModel, _tap: TenantsAccessPayload
     ):
-        # filter receivers
         event.receivers, failed_receivers = self._filter_resievers(event=event)
         models = []
         rabbitmq = self._rmq.get_customer_rabbitmq(event.customer_id)
@@ -1134,11 +1120,11 @@ class HighLevelReportsHandler(AbstractHandler):
             types = tuple(_types)
 
         only_k8s = (
-            len(types) == 1 and types[0] is ReportType.OPERATIONAL_KUBERNETES
+                len(types) == 1 and types[0] is ReportType.OPERATIONAL_KUBERNETES
         )
         # TODO: temp solution to disable deprecation reports for aws, google, k8s
         only_depr = (
-            len(types) == 1 and types[0] is ReportType.OPERATIONAL_DEPRECATION
+                len(types) == 1 and types[0] is ReportType.OPERATIONAL_DEPRECATION
         )
 
         for tenant_name in event.tenant_names:
@@ -1203,8 +1189,8 @@ class HighLevelReportsHandler(AbstractHandler):
                     continue
 
                 if (
-                    report_type is ReportType.OPERATIONAL_DEPRECATION
-                    and tenant_cloud is not Cloud.AZURE
+                        report_type is ReportType.OPERATIONAL_DEPRECATION
+                        and tenant_cloud is not Cloud.AZURE
                 ):
                     _LOG.info(
                         f'Skipping deprecation report '
@@ -1262,9 +1248,7 @@ class HighLevelReportsHandler(AbstractHandler):
         )
 
     @validate_kwargs
-    def post_project(
-        self, event: ProjectGetReportModel, _tap: TenantsAccessPayload
-    ):
+    def post_project(self, event: ProjectGetReportModel, _tap: TenantsAccessPayload):
         # filter receivers
         event.receivers, failed_receivers = self._filter_resievers(event=event)
         models = []
@@ -1289,11 +1273,11 @@ class HighLevelReportsHandler(AbstractHandler):
                 # for different clouds with the same display name
                 linked_tenants_dntl = {
                     tenant.display_name_to_lower for tenant in
-                        self._mc.tenant_service().i_get_tenant_by_customer(
-                            customer_id=customer_id,
-                            active=True,
-                            linked_to=display_name.upper(),
-                        )
+                    self._mc.tenant_service().i_get_tenant_by_customer(
+                        customer_id=customer_id,
+                        active=True,
+                        linked_to=display_name.upper(),
+                    )
                     if Cloud.parse(tenant.cloud) is not None
                 }
 
@@ -1359,8 +1343,6 @@ class HighLevelReportsHandler(AbstractHandler):
 
     @validate_kwargs
     def post_department(self, event: DepartmentGetReportModel):
-        # filter receivers
-        event.receivers, failed_receivers = self._filter_resievers(event=event)
         models = []
         rabbitmq = self._rmq.get_customer_rabbitmq(event.customer_id)
         if not rabbitmq:
@@ -1431,18 +1413,13 @@ class HighLevelReportsHandler(AbstractHandler):
                 .message('Could not send message to RabbitMQ')
                 .exc()
             )
-        return build_response(
-            code=HTTPStatus.ACCEPTED,
-            content='Successfully sent' if not failed_receivers else
-            f"Successfully sent, except for emails thet do not belong to the customer or tenant: "
-            f"{', '.join(failed_receivers)}"
-        )
+        return build_response(code=HTTPStatus.ACCEPTED, content='Successfully sent')
 
     def _validate_report_exists(
-        self, 
-        rep: ReportMetrics | None,
-        report_type: ReportType,
-        display_name: str,
+            self,
+            rep: ReportMetrics | None,
+            report_type: ReportType,
+            display_name: str,
     ) -> ReportMetrics:
         """Validates that report exists, raises NOT_FOUND if not. Returns validated rep."""
         if not rep:
@@ -1455,10 +1432,10 @@ class HighLevelReportsHandler(AbstractHandler):
         return rep
 
     def _fetch_and_validate_data(
-        self,
-        rep: ReportMetrics,
-        report_type: ReportType,
-        display_name: str,
+            self,
+            rep: ReportMetrics,
+            report_type: ReportType,
+            display_name: str,
     ) -> dict[str, Any]:
         """Fetches data from report and validates it exists, raises NOT_FOUND if not."""
         data = self._rms.fetch_data(rep)
@@ -1472,11 +1449,11 @@ class HighLevelReportsHandler(AbstractHandler):
         return cast(dict[str, Any], data)
 
     def _collect_linked_tenants_data(
-        self,
-        customer_name: str,
-        linked_tenants_dntl: Iterable[str],
-        report_type: ReportType,
-        builder: MaestroModelBuilder,
+            self,
+            customer_name: str,
+            linked_tenants_dntl: Iterable[str],
+            report_type: ReportType,
+            builder: MaestroModelBuilder,
     ) -> List[dict[str, Any]]:
 
         result = []
@@ -1511,21 +1488,33 @@ class HighLevelReportsHandler(AbstractHandler):
 
         return result
 
-    def _filter_resievers(self, event: Any) -> tuple[set[str], set[str]]:
+    def _filter_resievers(
+            self,
+            event: Any
+    ) -> tuple[set[str], set[str]]:
         """Filters emails based on the presence of Customer administrators and Tenant contacts"""
+
         # 1. Aggregate all valid contacts first
         authorized_contacts = set()
-        for tenant_name in event.tenant_names:
-            tenant = self._mc.tenant_service().get(tenant_name)
-            customer = self._mc.customer_service().get(tenant_name)
-            authorized_contacts.update(set(tenant.contacts) | set(customer.admins))
+
+        for customer in self._mc.customer_service().i_get_customer(name=event.customer):
+            authorized_contacts.update(set(customer.admins))
+
+        try:
+            tenant_names = event.tenant_names
+            for tenant_name in tenant_names:
+                tenant = self._mc.tenant_service().get(tenant_name)
+                if tenant:
+                    authorized_contacts.update(set(tenant.contacts))
+        except AttributeError as e:
+            _LOG.warning("No tenant names")
 
         verified_receivers = set()
         failed_receivers = set()
 
         # 2. Single pass over receivers and its division
         for receiver in event.receivers:
-            if receiver.name in authorized_contacts:
+            if receiver in authorized_contacts:
                 verified_receivers.add(receiver)
             else:
                 failed_receivers.add(receiver)
