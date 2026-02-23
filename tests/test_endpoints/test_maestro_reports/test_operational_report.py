@@ -394,3 +394,27 @@ def test_operational_deprecations_report_azure_tenant(
         json.loads(params[0]['model']['notificationAsJson']),
         load_expected('operational/deprecations_report'),
     )
+
+
+def test_operational_unknown_receiver(
+    system_user_token,
+    sre_client,
+    azure_operational_deprecations_metrics,
+    mocked_rabbitmq,
+    load_expected,
+):
+    resp = sre_client.request(
+        '/reports/operational',
+        'POST',
+        auth=system_user_token,
+        data={
+            'customer_id': 'TEST_CUSTOMER',
+            'tenant_names': ['AZURE-TESTING'],
+            'types': ['DEPRECATIONS'],
+            'receivers': ["admin@gmail.com",
+                          "fasle_admin@gmail.com","false_teanant_contact@gamil.com"],
+        },
+    )
+    assert resp.status_int == 202
+    assert resp.json_body['message'] == ("Successfully sent, except for emails thet do not belong to the customer or "
+                                         "tenant: fasle_admin@gmail.com, false_teanant_contact@gamil.com")

@@ -537,9 +537,11 @@ def test_project_unknown_receiver(
             'customer_id': 'TEST_CUSTOMER',
             'tenant_display_names': ['testing'],
             'types': ['OVERVIEW'],
-            'receivers': ['admin@gmail.com', "teanant_contact_2@gamil.com", "teanant_contact_3@gamil.com"],
+            'receivers': ["admin@gmail.com",
+                          "fasle_admin@gmail.com","false_teanant_contact@gamil.com"],
         },
     )
 
     assert resp.status_int == 202
-    assert resp.json_body['message'] == "Successfully sent, except for emails thet do not belong to the customer or tenant: teanant_contact_3@gamil.com"
+    assert resp.json_body['message'] == ("Successfully sent, except for emails thet do not belong to the customer or "
+                                         "tenant: fasle_admin@gmail.com, false_teanant_contact@gamil.com")
