@@ -1021,7 +1021,11 @@ class HighLevelReportsHandler(AbstractHandler):
 
     @validate_kwargs
     def post_c_level(self, event: CLevelGetReportModel):
-        event.receivers, failed_receivers = self._filter_resievers(event=event)
+        # TO DO implement the transfer of tenants
+        verify_receivers, failed_receivers = self._filter_resievers(
+            event=event,
+        )
+        event.receivers = verify_receivers
 
         models = []
         rabbitmq = self._rmq.get_customer_rabbitmq(event.customer_id)
@@ -1097,10 +1101,13 @@ class HighLevelReportsHandler(AbstractHandler):
         )
 
     @validate_kwargs
-    def post_operational(
-            self, event: OperationalGetReportModel, _tap: TenantsAccessPayload
-    ):
-        event.receivers, failed_receivers = self._filter_resievers(event=event)
+    def post_operational(self, event: OperationalGetReportModel, _tap: TenantsAccessPayload):
+        verify_receivers, failed_receivers = self._filter_resievers(
+            event=event,
+            tenant_names=event.tenant_names
+        )
+        event.receivers = verify_receivers
+
         models = []
         rabbitmq = self._rmq.get_customer_rabbitmq(event.customer_id)
         if not rabbitmq:
@@ -1249,8 +1256,12 @@ class HighLevelReportsHandler(AbstractHandler):
 
     @validate_kwargs
     def post_project(self, event: ProjectGetReportModel, _tap: TenantsAccessPayload):
-        # filter receivers
-        event.receivers, failed_receivers = self._filter_resievers(event=event)
+        verify_receivers, failed_receivers = self._filter_resievers(
+            event=event,
+            tenant_display_names=event.tenant_display_names
+        )
+        event.receivers = verify_receivers
+
         models = []
         customer_id = event.customer_id
         rabbitmq = self._rmq.get_customer_rabbitmq(customer_id)
@@ -1490,8 +1501,10 @@ class HighLevelReportsHandler(AbstractHandler):
 
     def _filter_resievers(
             self,
-            event: Any
-    ) -> tuple[set[str], set[str]]:
+            event: Any,
+            tenant_names: set | None = None,
+            tenant_display_names: set | None = None,
+    ) -> tuple[set[str], list[str]]:
         """Filters emails based on the presence of Customer administrators and Tenant contacts"""
 
         # 1. Aggregate all valid contacts first
@@ -1500,24 +1513,31 @@ class HighLevelReportsHandler(AbstractHandler):
         for customer in self._mc.customer_service().i_get_customer(name=event.customer):
             authorized_contacts.update(set(customer.admins))
 
-        try:
-            tenant_names = event.tenant_names
+            # It would be good to find tenants here.
+            # for tenant in self._mc.tenant_service().i_get_tenant_by_customer(
+            #         customer_id=customer.name):
+            #     authorized_contacts.update(set(tenant.contacts))
+
+        if tenant_names:
             for tenant_name in tenant_names:
                 tenant = self._mc.tenant_service().get(tenant_name)
                 if tenant:
                     authorized_contacts.update(set(tenant.contacts))
-        except AttributeError as e:
-            _LOG.warning("No tenant names")
+        elif tenant_display_names:
+            for tenant_display_name in tenant_display_names:
+                for tenant in self._mc.tenant_service().i_get_by_dntl(dntl=tenant_display_name.lower()):
+                    if tenant:
+                        authorized_contacts.update(set(tenant.contacts))
 
         verified_receivers = set()
-        failed_receivers = set()
+        failed_receivers = list()
 
         # 2. Single pass over receivers and its division
         for receiver in event.receivers:
             if receiver in authorized_contacts:
                 verified_receivers.add(receiver)
             else:
-                failed_receivers.add(receiver)
+                failed_receivers.append(receiver)
 
         if failed_receivers:
             _LOG.warning(f"Skipping receivers as unknown: "
