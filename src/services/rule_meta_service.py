@@ -21,6 +21,7 @@ from helpers.constants import (
     RuleDomain,
     LATEST_VERSION_TAG,
 )
+from helpers.fingerprint import compute_rule_fingerprint
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_iso
 from models.rule import Rule
@@ -314,6 +315,7 @@ class RuleService(BaseDataService[Rule]):
     ) -> Rule:
         if isinstance(updated_date, datetime):
             updated_date = utc_iso(updated_date)
+        fp = compute_rule_fingerprint(resource, filters or [])
         return super().create(
             id=self.gen_rule_id(customer, cloud, name, LATEST_VERSION_TAG),
             customer=customer,
@@ -325,6 +327,7 @@ class RuleService(BaseDataService[Rule]):
             commit_hash=commit_hash,
             updated_date=updated_date,
             rule_source_id=rule_source_id,
+            fingerprint=fp,
         )
 
     def get_by_id_index(
@@ -519,6 +522,23 @@ class RuleService(BaseDataService[Rule]):
                 name_rule[_name] = rule  # override with the largest version
         yield from name_rule.values()
 
+    @staticmethod
+    def group_by_fingerprint(
+        rules: Iterable[Rule],
+    ) -> dict[str, list[Rule]]:
+        """
+        Groups the given rules by their fingerprint.
+        Rules with the same fingerprint represent the same logical check
+        across different categories or rulesets.
+        """
+        groups: dict[str, list[Rule]] = {}
+        for rule in rules:
+            fp = rule.fingerprint
+            if not fp:
+                continue
+            groups.setdefault(fp, []).append(rule)
+        return groups
+
     def dto(self, item: Rule) -> dict[str, Any]:
         dct = instance_as_dict(item)
         dct.pop(ID_ATTR, None)
@@ -531,6 +551,8 @@ class RuleService(BaseDataService[Rule]):
             dct[VERSION_ATTR] = item.version
         dct['project'] = item.git_project
         dct['branch'] = item.ref
+        if item.fingerprint:
+            dct['fingerprint'] = item.fingerprint
         return dct
 
     def get_by_location_index(

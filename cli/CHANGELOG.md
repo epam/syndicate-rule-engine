@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.13.0] - 2026-02-05
 
+### Added
+- Added bypassing of integration checks in developer mode
+- Added status hints to `sre rule update` command showing how to check status via `sre rulesource describe -rsid {rulesource_id} -cid "{customer_id}"`
+
+## Fixed
+- Fixed issue when `-acc` filter in `sre tenant describe` command was not working
+
+### Changed
+- Improved error message clarity in `sre tenant describe` command when both `--tenant_name` and `--account_number` are provided
+
 ### Removed
 - Removed `sre result describe` command
 

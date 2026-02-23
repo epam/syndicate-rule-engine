@@ -19,7 +19,7 @@ def test_merge_metadata(load_metadata):
     two = load_metadata('test_collection_data_source', Metadata)
     three = Metadata(domains={'AZURE': EMPTY_DOMAIN_METADATA})
     result = merge_metadata(one, two, three)
-    assert len(result.rules) == 12
+    assert len(result.rules) == 13
     assert len(result.domains) == 3
 
 

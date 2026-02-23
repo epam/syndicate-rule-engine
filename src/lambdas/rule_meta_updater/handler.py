@@ -19,6 +19,7 @@ from services.abs_lambda import EventProcessorLambdaHandler
 from services.clients.git_service_clients import GitHubClient, GitLabClient
 from services.rule_meta_service import RuleModel, RuleService
 from services.rule_source_service import RuleSourceService
+from services.unified_rule_identity import UnifiedRuleIdentity
 
 _LOG = get_logger(__name__)
 
@@ -244,6 +245,10 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
             try:
                 _LOG.info('Going to query git blame for rules')
                 self.expand_with_commit_hash(rules, client)
+
+                # Detect and log fingerprint duplicates
+                self._log_fingerprint_duplicates(rules)
+
                 _LOG.info(
                     f'Saving: {len(rules)} for rule-souce: {rule_source.id}'
                 )
@@ -297,6 +302,26 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
         if not meta:
             return
         rule.commit_hash = meta['last_commit_id']
+
+    @staticmethod
+    def _log_fingerprint_duplicates(rules: list[Rule]) -> None:
+        """
+        Build a unified identity index and log any groups of rules that
+        share the same fingerprint (i.e. the same logical check across
+        different categories).
+        """
+        identity = UnifiedRuleIdentity()
+        identity.build_index(rules)
+        for fp, names in identity.iter_duplicate_groups():
+            _LOG.info(
+                f'Fingerprint {fp} is shared by {len(names)} rules: '
+                f'{sorted(names)}'
+            )
+        _LOG.info(
+            f'Fingerprint summary: {identity.total_rules} total rules, '
+            f'{identity.total_unique} unique fingerprints, '
+            f'{identity.total_duplicates} duplicate groups'
+        )
 
     def expand_with_commit_hash(
         self, rules: Iterable[Rule], client: GitLabClient | GitHubClient

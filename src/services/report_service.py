@@ -60,6 +60,7 @@ class AverageStatisticsItem(msgspec.Struct, kw_only=True, eq=False):
     resource_type: str | msgspec.UnsetType = msgspec.UNSET
     service: str | msgspec.UnsetType = msgspec.UNSET
     severity: Severity = Severity.UNKNOWN
+    category: str | None = None  # Rule category for metadata distinction
     invocations: int
     succeeded_invocations: int
     failed_invocations: int

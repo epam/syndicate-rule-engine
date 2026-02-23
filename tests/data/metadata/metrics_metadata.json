@@ -211,6 +211,29 @@
       "KUBERNETES",
       null
     ],
+    "ecc-aws-123-s3_test_policy-deprecated": [
+      "testing",
+      "Security",
+      "Storage",
+      "S3",
+      "Unknown",
+      [],
+      true,
+      "",
+      "This rule is deprecated and will be removed",
+      "Description for ecc-aws-123-s3_test_policy-deprecated",
+      {},
+      {},
+      {},
+      "Unknown",
+      {
+        "date": "2025-12-31",
+        "link": "https://example.com/deprecation-info",
+        "is_deprecated": false
+      },
+      "AWS",
+      null
+    ],
     "ecc-azure-096-cis_sec_defender_azure_sql": [
       "testing",
       "Deprecation > Runtime version",

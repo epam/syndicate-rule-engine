@@ -24,6 +24,7 @@ R_LOCATION_ATTR = 'l'
 R_COMMIT_HASH_ATTR = 'ch'
 R_UPDATED_DATE_ATTR = 'u'
 R_RULE_SOURCE_ID_ATTR = 's'
+R_FINGERPRINT_ATTR = 'fp'
 
 
 class CustomerIdIndex(GlobalSecondaryIndex):
@@ -254,6 +255,9 @@ class Rule(BaseModel):
     rule_source_id = UnicodeAttribute(
         null=True, attr_name=R_RULE_SOURCE_ID_ATTR
     )
+    fingerprint = UnicodeAttribute(
+        null=False, attr_name=R_FINGERPRINT_ATTR
+    )
 
     # "project#ref#path"
     location = UnicodeAttribute(attr_name=R_LOCATION_ATTR)
@@ -353,10 +357,12 @@ class Rule(BaseModel):
                 value: false
         :return:
         """
-        return {
+        policy = {
             'name': self.name,
             'resource': self.resource,
             'filters': self.filters,
             'description': self.description,
             'comment': self.comment,
+            'fingerprint': self.fingerprint,
         }
+        return policy

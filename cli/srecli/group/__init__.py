@@ -246,9 +246,17 @@ class cli_response:  # noqa
                 'to receive the token'
             )
 
-    def _resolve_hint(self, kwargs: dict) -> str | None:
-        """Resolve hint - call if callable, return as-is if string."""
+    def _resolve_hint(self, kwargs: dict, resp: SREResponse | None = None) -> str | None:
+        """Resolve hint - call if callable, return as-is if string.
+        
+        If hint is callable and accepts 'resp' parameter, it will be called with response.
+        Otherwise, it will be called with kwargs only.
+        """
         if callable(self._hint):
+            import inspect
+            sig = inspect.signature(self._hint)
+            if 'resp' in sig.parameters:
+                return self._hint(resp=resp, **kwargs)
             return self._hint(**kwargs)
         return self._hint
 
@@ -284,8 +292,9 @@ class cli_response:  # noqa
                 self._check_context(ctx)
                 resp: SREResponse = click.pass_obj(func)(*args, **kwargs)
 
-                hint = self._resolve_hint(kwargs)
-                if hint and resp.ok:
+                hint = self._resolve_hint(kwargs, resp)
+                # If hint is None, it might have been processed by the callable (e.g., modified response directly)
+                if hint is not None and resp.ok:
                     data = resp.data or {}
                     if message := data.get(MESSAGE_ATTR):
                         data[MESSAGE_ATTR] = self._format_hint(
@@ -736,6 +745,10 @@ def require_maestro_integration(
             
             obj: ContextObj = cast(ContextObj, ctx.obj)
             api_client = obj['api_client']
+        
+            if Env.DEVELOPER_MODE.get():
+                click.echo('[WARNING] Developer mode is enabled. Skipping integrations check.\n')
+                return func(*args, **kwargs)
             
             customer_id = kwargs.get('customer_id')
             
