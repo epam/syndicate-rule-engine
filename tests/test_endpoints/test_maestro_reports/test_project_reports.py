@@ -529,6 +529,9 @@ def test_project_unknown_receiver(
         mocked_rabbitmq,
         load_expected,
 ):
+    tested_receivers = ["admin@gmail.com", "fasle_admin@gmail.com","false_teanant_contact@gamil.com"]
+    expected_failed_emails = {"fasle_admin@gmail.com","false_teanant_contact@gamil.com"}
+
     resp = sre_client.request(
         '/reports/project',
         'POST',
@@ -537,11 +540,14 @@ def test_project_unknown_receiver(
             'customer_id': 'TEST_CUSTOMER',
             'tenant_display_names': ['testing'],
             'types': ['OVERVIEW'],
-            'receivers': ["admin@gmail.com",
-                          "fasle_admin@gmail.com","false_teanant_contact@gamil.com"],
+            'receivers': tested_receivers,
         },
     )
 
+    prefix = "Successfully sent, except for emails thet do not belong to the customer or tenant: "
+    message = resp.json_body['message']
+    actual_emails = {email for email in message.replace(prefix, "").split(", ")}
+
     assert resp.status_int == 202
-    assert resp.json_body['message'] == ("Successfully sent, except for emails thet do not belong to the customer or "
-                                         "tenant: fasle_admin@gmail.com, false_teanant_contact@gamil.com")
+    assert message.startswith(prefix)
+    assert expected_failed_emails == actual_emails

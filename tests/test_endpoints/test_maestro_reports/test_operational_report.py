@@ -397,12 +397,15 @@ def test_operational_deprecations_report_azure_tenant(
 
 
 def test_operational_unknown_receiver(
-    system_user_token,
-    sre_client,
-    azure_operational_deprecations_metrics,
-    mocked_rabbitmq,
-    load_expected,
+        system_user_token,
+        sre_client,
+        azure_operational_deprecations_metrics,
+        mocked_rabbitmq,
+        load_expected,
 ):
+    tested_receivers = ["admin@gmail.com", "fasle_admin@gmail.com", "false_teanant_contact@gamil.com"]
+    expected_failed_emails = {"fasle_admin@gmail.com", "false_teanant_contact@gamil.com"}
+
     resp = sre_client.request(
         '/reports/operational',
         'POST',
@@ -411,10 +414,14 @@ def test_operational_unknown_receiver(
             'customer_id': 'TEST_CUSTOMER',
             'tenant_names': ['AZURE-TESTING'],
             'types': ['DEPRECATIONS'],
-            'receivers': ["admin@gmail.com",
-                          "fasle_admin@gmail.com","false_teanant_contact@gamil.com"],
+            'receivers': tested_receivers,
         },
     )
+
+    prefix = "Successfully sent, except for emails thet do not belong to the customer or tenant: "
+    message = resp.json_body['message']
+    actual_emails = {email for email in message.replace(prefix, "").split(", ")}
+
     assert resp.status_int == 202
-    assert resp.json_body['message'] == ("Successfully sent, except for emails thet do not belong to the customer or "
-                                         "tenant: fasle_admin@gmail.com, false_teanant_contact@gamil.com")
+    assert message.startswith(prefix)
+    assert expected_failed_emails == actual_emails
