@@ -11,6 +11,7 @@ from modular_sdk.models.tenant import Tenant
 from modular_sdk.modular import Modular
 from typing_extensions import NotRequired, TypedDict
 
+from cli.srecli.group.tenant import tenant
 from handlers import AbstractHandler, Mapping
 from helpers import map_by
 from helpers.constants import (
@@ -1042,7 +1043,6 @@ class HighLevelReportsHandler(AbstractHandler):
 
     @validate_kwargs
     def post_c_level(self, event: CLevelGetReportModel):
-        # TO DO implement the transfer of tenants
         verify_receivers, failed_receivers = self._filter_resievers(
             event=event,
         )
@@ -1536,19 +1536,17 @@ class HighLevelReportsHandler(AbstractHandler):
         for customer in self._mc.customer_service().i_get_customer(name=event.customer):
             authorized_contacts.update(set(customer.admins))
 
-            # It would be good to find tenants here.
-            # for tenant in self._mc.tenant_service().i_get_tenant_by_customer(
-            #         customer_id=customer.name):
-            #     authorized_contacts.update(set(tenant.contacts))
+
+        tenant_service = self._mc.tenant_service()
 
         if tenant_names:
             for tenant_name in tenant_names:
-                tenant = self._mc.tenant_service().get(tenant_name)
+                tenant = tenant_service.get(tenant_name)
                 if tenant:
                     authorized_contacts.update(set(tenant.contacts))
         elif tenant_display_names:
             for tenant_display_name in tenant_display_names:
-                for tenant in self._mc.tenant_service().i_get_by_dntl(dntl=tenant_display_name.lower()):
+                for tenant in tenant_service.i_get_by_dntl(dntl=tenant_display_name.lower()):
                     if tenant:
                         authorized_contacts.update(set(tenant.contacts))
 
