@@ -1,5 +1,5 @@
 {
-  "receivers": [],
+  "receivers": ["admin@gmail.com"],
   "customer": "TEST_CUSTOMER",
   "from": "2025-06-01T00:00:00Z",
   "to": "2025-07-01T00:00:00Z",
