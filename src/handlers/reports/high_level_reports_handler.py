@@ -11,7 +11,6 @@ from modular_sdk.models.tenant import Tenant
 from modular_sdk.modular import Modular
 from typing_extensions import NotRequired, TypedDict
 
-from cli.srecli.group.tenant import tenant
 from handlers import AbstractHandler, Mapping
 from helpers import map_by
 from helpers.constants import (
