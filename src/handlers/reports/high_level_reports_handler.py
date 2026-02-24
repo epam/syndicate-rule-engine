@@ -123,11 +123,11 @@ class MaestroModelBuilder:
     def _validate_report_type(cls, rep: ReportMetrics, expected_type: ReportType) -> None:
         """
         Validate that the report type matches the expected type.
-        
+
         Args:
             rep: The report metrics object to validate
             expected_type: The expected report type
-            
+
         Raises:
             ValueError: If the report type doesn't match the expected type
         """
@@ -354,7 +354,6 @@ class MaestroModelBuilder:
         self._validate_report_type(rep, ReportType.PROJECT_OVERVIEW)
         return {'tenant_display_name': rep.project, **data}
 
-
     def _project_overview_linked(
         self,
         rep: ReportMetrics,
@@ -393,9 +392,8 @@ class MaestroModelBuilder:
 
         return {'data': new_data}
 
-
     def _project_compliance_custom(
-        self, rep: ReportMetrics, data: dict
+            self, rep: ReportMetrics, data: dict
     ) -> dict:
         self._validate_report_type(rep, ReportType.PROJECT_COMPLIANCE)
         for t in data['data'].values():
@@ -419,7 +417,6 @@ class MaestroModelBuilder:
 
         return {'tenant_display_name': rep.project, **data}
 
-
     def _project_compliance_linked(
         self,
         rep: ReportMetrics,
@@ -435,7 +432,6 @@ class MaestroModelBuilder:
             new_data[cloud] = self.linked_base_cloud(c_data)
 
         return {'data': new_data}
-
 
     def _project_resources_custom(
         self, rep: ReportMetrics, data: dict
@@ -496,7 +492,6 @@ class MaestroModelBuilder:
 
         return {'data': new_data}
 
-
     def _project_attacks_custom(self, rep: ReportMetrics, data: dict) -> dict:
         self._validate_report_type(rep, ReportType.PROJECT_ATTACKS)
         for t in data['data'].values():
@@ -540,7 +535,6 @@ class MaestroModelBuilder:
 
         return {'data': new_data}
 
-
     def _project_finops_custom(self, rep: ReportMetrics, data: dict) -> dict:
         self._validate_report_type(rep, ReportType.PROJECT_FINOPS)
         for t in data['data'].values():
@@ -549,7 +543,6 @@ class MaestroModelBuilder:
                     add_diff(rule_data, {})
                     # just to replace int leafs with {'value': leaf, 'diff': None}
         return {'tenant_display_name': rep.project, **data}
-
 
     def _project_finops_linked(
         self,
@@ -604,7 +597,6 @@ class MaestroModelBuilder:
                 }
 
         return {'data': new_data}
-
 
     def _top_compliance_by_cloud(
         self, rep: ReportMetrics, data: dict, previous_data: dict
@@ -860,7 +852,6 @@ class MaestroModelBuilder:
         return base
 
 
-
 class MaestroReportToS3Packer:
     """
     Holds logic how to compress some large reports to jsonl files specifically
@@ -1051,6 +1042,12 @@ class HighLevelReportsHandler(AbstractHandler):
 
     @validate_kwargs
     def post_c_level(self, event: CLevelGetReportModel):
+        # TO DO implement the transfer of tenants
+        verify_receivers, failed_receivers = self._filter_resievers(
+            event=event,
+        )
+        event.receivers = verify_receivers
+
         models = []
         rabbitmq = self._rmq.get_customer_rabbitmq(event.customer_id)
         if not rabbitmq:
@@ -1118,13 +1115,20 @@ class HighLevelReportsHandler(AbstractHandler):
                 .exc()
             )
         return build_response(
-            code=HTTPStatus.ACCEPTED, content='Successfully sent'
+            code=HTTPStatus.ACCEPTED,
+            content='Successfully sent' if not failed_receivers else
+            f"Successfully sent, except for emails thet do not belong to the customer or tenant: "
+            f"{', '.join(failed_receivers)}"
         )
 
     @validate_kwargs
-    def post_operational(
-        self, event: OperationalGetReportModel, _tap: TenantsAccessPayload
-    ):
+    def post_operational(self, event: OperationalGetReportModel, _tap: TenantsAccessPayload):
+        verify_receivers, failed_receivers = self._filter_resievers(
+            event=event,
+            tenant_names=event.tenant_names
+        )
+        event.receivers = verify_receivers
+
         models = []
         rabbitmq = self._rmq.get_customer_rabbitmq(event.customer_id)
         if not rabbitmq:
@@ -1265,13 +1269,20 @@ class HighLevelReportsHandler(AbstractHandler):
                 .exc()
             )
         return build_response(
-            code=HTTPStatus.ACCEPTED, content='Successfully sent'
+            code=HTTPStatus.ACCEPTED,
+            content='Successfully sent' if not failed_receivers else
+            f"Successfully sent, except for emails thet do not belong to the customer or tenant: "
+            f"{', '.join(failed_receivers)}"
         )
 
     @validate_kwargs
-    def post_project(
-        self, event: ProjectGetReportModel, _tap: TenantsAccessPayload
-    ):
+    def post_project(self, event: ProjectGetReportModel, _tap: TenantsAccessPayload):
+        verify_receivers, failed_receivers = self._filter_resievers(
+            event=event,
+            tenant_display_names=event.tenant_display_names
+        )
+        event.receivers = verify_receivers
+
         models = []
         customer_id = event.customer_id
         rabbitmq = self._rmq.get_customer_rabbitmq(customer_id)
@@ -1356,7 +1367,10 @@ class HighLevelReportsHandler(AbstractHandler):
                 .exc()
             )
         return build_response(
-            code=HTTPStatus.ACCEPTED, content='Successfully sent'
+            code=HTTPStatus.ACCEPTED,
+            content='Successfully sent' if not failed_receivers else
+            f"Successfully sent, except for emails thet do not belong to the customer or tenant: "
+            f"{', '.join(failed_receivers)}"
         )
 
     @validate_kwargs
@@ -1507,3 +1521,48 @@ class HighLevelReportsHandler(AbstractHandler):
             result.append(data)
 
         return result
+
+    def _filter_resievers(
+            self,
+            event: Any,
+            tenant_names: set | None = None,
+            tenant_display_names: set | None = None,
+    ) -> tuple[set[str], list[str]]:
+        """Filters emails based on the presence of Customer administrators and Tenant contacts"""
+
+        # 1. Aggregate all valid contacts first
+        authorized_contacts = set()
+
+        for customer in self._mc.customer_service().i_get_customer(name=event.customer):
+            authorized_contacts.update(set(customer.admins))
+
+            # It would be good to find tenants here.
+            # for tenant in self._mc.tenant_service().i_get_tenant_by_customer(
+            #         customer_id=customer.name):
+            #     authorized_contacts.update(set(tenant.contacts))
+
+        if tenant_names:
+            for tenant_name in tenant_names:
+                tenant = self._mc.tenant_service().get(tenant_name)
+                if tenant:
+                    authorized_contacts.update(set(tenant.contacts))
+        elif tenant_display_names:
+            for tenant_display_name in tenant_display_names:
+                for tenant in self._mc.tenant_service().i_get_by_dntl(dntl=tenant_display_name.lower()):
+                    if tenant:
+                        authorized_contacts.update(set(tenant.contacts))
+
+        verified_receivers = set()
+        failed_receivers = list()
+
+        # 2. Single pass over receivers and its division
+        for receiver in event.receivers:
+            if receiver in authorized_contacts:
+                verified_receivers.add(receiver)
+            else:
+                failed_receivers.append(receiver)
+
+        if failed_receivers:
+            _LOG.warning(f"Skipping receivers as unknown: "
+                         f"{', '.join(failed_receivers)}")
+        return verified_receivers, failed_receivers
