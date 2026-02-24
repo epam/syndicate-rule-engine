@@ -1375,12 +1375,15 @@ class HighLevelReportsHandler(AbstractHandler):
 
     @validate_kwargs
     def post_department(self, event: DepartmentGetReportModel):
+        verify_receivers, failed_receivers = self._filter_resievers(event=event)
+        event.receivers = verify_receivers
+
         models = []
         rabbitmq = self._rmq.get_customer_rabbitmq(event.customer_id)
         if not rabbitmq:
             raise self._rmq.no_rabbitmq_response().exc()
 
-        builder = MaestroModelBuilder()
+        builder = MaestroModelBuilder(receivers=tuple(event.receivers))
         now = utc_datetime()
 
         for report_type in event.new_types:
@@ -1446,7 +1449,10 @@ class HighLevelReportsHandler(AbstractHandler):
                 .exc()
             )
         return build_response(
-            code=HTTPStatus.ACCEPTED, content='Successfully sent'
+            code=HTTPStatus.ACCEPTED,
+            content='Successfully sent' if not failed_receivers else
+            f"Successfully sent, except for emails thet do not belong to the customer or tenant: "
+            f"{', '.join(failed_receivers)}"
         )
 
     def _validate_report_exists(
