@@ -9,7 +9,6 @@ from botocore.exceptions import ClientError
 from dateutil.relativedelta import relativedelta
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.modular import Modular
-from pyasn1.type.univ import Boolean
 from typing_extensions import NotRequired, TypedDict
 
 from exeptions import UnknownReceiversException
@@ -40,7 +39,6 @@ from validators.swagger_request_models import (
     ProjectGetReportModel,
 )
 from validators.utils import validate_kwargs
-
 
 _LOG = get_logger(__name__)
 
@@ -167,7 +165,6 @@ class MaestroModelBuilder:
             'exceptions_data': data.get('exceptions_data', []),
             'externalData': False,
         }
-
 
     @classmethod
     def _operational_resources_custom(cls, rep: ReportMetrics, data: dict) -> dict:
@@ -1552,7 +1549,6 @@ class HighLevelReportsHandler(AbstractHandler):
         for customer in self._mc.customer_service().i_get_customer(name=event.customer):
             authorized_contacts.update(set(customer.admins))
 
-
         tenant_service = self._mc.tenant_service()
 
         if tenant_names:
@@ -1580,4 +1576,3 @@ class HighLevelReportsHandler(AbstractHandler):
             _LOG.warning(f"Skipping receivers as unknown: "
                          f"{', '.join(failed_receivers)}")
             raise UnknownReceiversException(unknown_receivers=failed_receivers)
-
