@@ -30,11 +30,10 @@ def exception():
               help='Amazon Resource Name (ARN) of a specific AWS resource to '
                    'filter the results')
 @click.option('--tags_filters', '-tf', type=str, multiple=True,
-              help='Tag filters to apply to the results '
-                   '(e.g., key=value)')
+              help='Tag filters to apply to the results (e.g., key=value)')
 @click.option('--include_expired', '-ie', is_flag=True,
               help='Determines whether to include expired exceptions in the '
-                   'results.')
+                   'results')
 @build_limit_option()
 @next_option
 @cli_response()
@@ -53,7 +52,7 @@ def describe(
     customer_id: str | None = None,
 ) -> SREResponse:
     """
-    Retrieve resource exception(s) with optional filtering and pagination.
+    Retrieves resource exception(s) with optional filtering and pagination.
 
     Can retrieve either:
     - A specific resource exception by ID (when --exception_id is provided)
@@ -187,7 +186,7 @@ def add(
     customer_id: str | None = None,
 ) -> SREResponse:
     """
-    Create a new resource exception to exclude resources from rule execution.
+    Creates a new resource exception to exclude resources from rule execution.
 
     Three types of exceptions are supported:
     1. Resource-specific: requires --resource_id, --resource_type, and --location
@@ -250,7 +249,7 @@ def update(
     customer_id: str | None = None,
 ) -> SREResponse:
     """
-    Update an existing resource exception.
+    Updates an existing resource exception.
 
     The update replaces the entire exception configuration. You must provide
     the complete exception type configuration (not just the fields to update).
@@ -295,7 +294,7 @@ def delete(
     customer_id: str | None = None,
 ) -> SREResponse:
     """
-    Delete a resource exception by its ID
+    Deletes a resource exception by its ID
     """
     return ctx['api_client'].resource_exception_delete(
         exception_id=exception_id,

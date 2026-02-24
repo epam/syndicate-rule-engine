@@ -63,7 +63,7 @@ def describe(ctx: ContextObj, tenant_name, account_number, active, cloud,
 def active_licenses(ctx: ContextObj, tenant_name: str, limit: Optional[int],
                     customer_id):
     """
-    Get tenant active licenses
+    Gets tenant active licenses
     """
     return ctx['api_client'].tenant_get_active_licenses(
         tenant_name,

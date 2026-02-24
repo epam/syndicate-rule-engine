@@ -13,7 +13,6 @@ from srecli.service.constants import AWS, AZURE, GOOGLE, KUBERNETES
 def chronicle():
     """
     Manages chronicle integrations
-    :return:
     """
 
 
