@@ -169,9 +169,9 @@ def test_c_level_unknown_receiver(
     )
 
     message = resp.json_body['message']
-    prefix = "Successfully sent, except for emails thet do not belong to the customer or tenant: "
+    prefix = "The specified user(s) is not allowed to receive the report: "
     actual_emails = {email for email in message.replace(prefix, "").split(", ")}
 
-    assert resp.status_int == 202
+    assert resp.status_int == 422
     assert message.startswith(prefix)
     assert expected_failed_emails == actual_emails

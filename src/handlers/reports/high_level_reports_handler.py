@@ -166,7 +166,6 @@ class MaestroModelBuilder:
             'externalData': False,
         }
 
-
     @classmethod
     def _operational_resources_custom(cls, rep: ReportMetrics, data: dict) -> dict:
         cls._validate_report_type(rep, ReportType.OPERATIONAL_RESOURCES)
@@ -1042,11 +1041,7 @@ class HighLevelReportsHandler(AbstractHandler):
 
     @validate_kwargs
     def post_c_level(self, event: CLevelGetReportModel):
-        # TO DO implement the transfer of tenants
-        verify_receivers, failed_receivers = self._filter_resievers(
-            event=event,
-        )
-        event.receivers = verify_receivers
+        self._validate_receivers(event=event)
 
         models = []
         rabbitmq = self._rmq.get_customer_rabbitmq(event.customer_id)
@@ -1115,19 +1110,13 @@ class HighLevelReportsHandler(AbstractHandler):
                 .exc()
             )
         return build_response(
-            code=HTTPStatus.ACCEPTED,
-            content='Successfully sent' if not failed_receivers else
-            f"Successfully sent, except for emails thet do not belong to the customer or tenant: "
-            f"{', '.join(failed_receivers)}"
+            code=HTTPStatus.ACCEPTED, content='Successfully sent'
         )
 
     @validate_kwargs
     def post_operational(self, event: OperationalGetReportModel, _tap: TenantsAccessPayload):
-        verify_receivers, failed_receivers = self._filter_resievers(
-            event=event,
-            tenant_names=event.tenant_names
-        )
-        event.receivers = verify_receivers
+        self._validate_receivers(event=event,
+                                 tenant_names=event.tenant_names)
 
         models = []
         rabbitmq = self._rmq.get_customer_rabbitmq(event.customer_id)
@@ -1269,19 +1258,13 @@ class HighLevelReportsHandler(AbstractHandler):
                 .exc()
             )
         return build_response(
-            code=HTTPStatus.ACCEPTED,
-            content='Successfully sent' if not failed_receivers else
-            f"Successfully sent, except for emails thet do not belong to the customer or tenant: "
-            f"{', '.join(failed_receivers)}"
+            code=HTTPStatus.ACCEPTED, content='Successfully sent'
         )
 
     @validate_kwargs
     def post_project(self, event: ProjectGetReportModel, _tap: TenantsAccessPayload):
-        verify_receivers, failed_receivers = self._filter_resievers(
-            event=event,
-            tenant_display_names=event.tenant_display_names
-        )
-        event.receivers = verify_receivers
+        self._validate_receivers(event=event,
+                                 tenant_display_names=event.tenant_display_names)
 
         models = []
         customer_id = event.customer_id
@@ -1367,17 +1350,11 @@ class HighLevelReportsHandler(AbstractHandler):
                 .exc()
             )
         return build_response(
-            code=HTTPStatus.ACCEPTED,
-            content='Successfully sent' if not failed_receivers else
-            f"Successfully sent, except for emails thet do not belong to the customer or tenant: "
-            f"{', '.join(failed_receivers)}"
+            code=HTTPStatus.ACCEPTED, content='Successfully sent'
         )
 
     @validate_kwargs
     def post_department(self, event: DepartmentGetReportModel):
-        verify_receivers, failed_receivers = self._filter_resievers(event=event)
-        event.receivers = verify_receivers
-
         models = []
         rabbitmq = self._rmq.get_customer_rabbitmq(event.customer_id)
         if not rabbitmq:
@@ -1449,10 +1426,7 @@ class HighLevelReportsHandler(AbstractHandler):
                 .exc()
             )
         return build_response(
-            code=HTTPStatus.ACCEPTED,
-            content='Successfully sent' if not failed_receivers else
-            f"Successfully sent, except for emails thet do not belong to the customer or tenant: "
-            f"{', '.join(failed_receivers)}"
+            code=HTTPStatus.ACCEPTED, content='Successfully sent'
         )
 
     def _validate_report_exists(
@@ -1528,13 +1502,16 @@ class HighLevelReportsHandler(AbstractHandler):
 
         return result
 
-    def _filter_resievers(
+    def _validate_receivers(
             self,
             event: Any,
             tenant_names: set | None = None,
             tenant_display_names: set | None = None,
-    ) -> tuple[set[str], list[str]]:
-        """Filters emails based on the presence of Customer administrators and Tenant contacts"""
+    ) -> None:
+        """
+        Raise the Exception if there are unknown email addresses among the receivers.
+        Verified receivers are checked by the Customer administrators and Tenant contacts.
+        """
 
         # 1. Aggregate all valid contacts first
         authorized_contacts = set()
@@ -1542,19 +1519,16 @@ class HighLevelReportsHandler(AbstractHandler):
         for customer in self._mc.customer_service().i_get_customer(name=event.customer):
             authorized_contacts.update(set(customer.admins))
 
-            # It would be good to find tenants here.
-            # for tenant in self._mc.tenant_service().i_get_tenant_by_customer(
-            #         customer_id=customer.name):
-            #     authorized_contacts.update(set(tenant.contacts))
+        tenant_service = self._mc.tenant_service()
 
         if tenant_names:
             for tenant_name in tenant_names:
-                tenant = self._mc.tenant_service().get(tenant_name)
+                tenant = tenant_service.get(tenant_name)
                 if tenant:
                     authorized_contacts.update(set(tenant.contacts))
         elif tenant_display_names:
             for tenant_display_name in tenant_display_names:
-                for tenant in self._mc.tenant_service().i_get_by_dntl(dntl=tenant_display_name.lower()):
+                for tenant in tenant_service.i_get_by_dntl(dntl=tenant_display_name.lower()):
                     if tenant:
                         authorized_contacts.update(set(tenant.contacts))
 
@@ -1571,4 +1545,7 @@ class HighLevelReportsHandler(AbstractHandler):
         if failed_receivers:
             _LOG.warning(f"Skipping receivers as unknown: "
                          f"{', '.join(failed_receivers)}")
-        return verified_receivers, failed_receivers
+            raise ResponseFactory(HTTPStatus.UNPROCESSABLE_ENTITY).message(
+                    f"The specified user(s) is not allowed to receive the report: "
+                    f"{', '.join(failed_receivers)}"
+                ).exc()

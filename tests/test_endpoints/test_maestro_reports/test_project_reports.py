@@ -544,10 +544,10 @@ def test_project_unknown_receiver(
         },
     )
 
-    prefix = "Successfully sent, except for emails thet do not belong to the customer or tenant: "
+    prefix = "The specified user(s) is not allowed to receive the report: "
     message = resp.json_body['message']
     actual_emails = {email for email in message.replace(prefix, "").split(", ")}
 
-    assert resp.status_int == 202
+    assert resp.status_int == 422
     assert message.startswith(prefix)
     assert expected_failed_emails == actual_emails
