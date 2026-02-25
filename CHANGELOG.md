@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.17.0] - 2026-02-05
+## [5.17.0] - 2026-02-25
 
 ### Added
 - Added Event-Driven (ED) jobs support for AMI installation
@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed invalid `next_token` handling
 - Fixed issue with double creation of indexes for `SREResources` and `SREResourceExceptions` collections
 - Fixed JSON decoding errors when License Manager returns text responses instead of JSON
+- Fixed an issue related to pushing reports to Defect Dojo
 
 ### Changed
 - Changed the `JobType` enum to include `STANDARD`, `SCHEDULED` and `MANUAL`

@@ -769,7 +769,7 @@ class JobHandler(AbstractHandler, SubmitJobToBatchMixin):
         )
         self._job_service.save(job)
         resp = self._submit_job_to_batch(
-            tenant=tenant,
+            tenant_name=tenant.name,
             job=job,
             timeout=int(event.timeout_minutes * 60)
             if event.timeout_minutes
