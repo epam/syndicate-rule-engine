@@ -78,8 +78,7 @@ def operational(
               required=False, help='Report type')
 @click.option('--receiver', '-r', multiple=True, type=str,
               help='Emails that will receive this notification')
-@click.option('--include_linked', '-il', is_flag=True,
-              default=False,
+@click.option('--include_linked', '-il', is_flag=True, default=False,
               help="Indicates whether to include linked tenants' reports in the report")
 @cli_response()
 @require_maestro_integration(integration_type='rabbitmq')
@@ -94,7 +93,7 @@ def project(
     """
     Retrieves project-level reports for tenants
     
-    Requires RabbitMQ integration to send reports to Maestro.
+    Requires RabbitMQ integration to send reports to Maestro
     """
     res = ctx['api_client'].project_report_post(
         tenant_display_names=[tenant_display_name],
@@ -132,7 +131,7 @@ def department(
     """
     Retrieves department-level reports
     
-    Requires RabbitMQ integration to send reports to Maestro.
+    Requires RabbitMQ integration to send reports to Maestro
     """
     res = ctx['api_client'].department_report_post(
         types=report_types,

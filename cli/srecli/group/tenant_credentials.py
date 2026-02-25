@@ -10,7 +10,6 @@ from srecli.service.adapter_client import SREResponse
 def credentials():
     """
     Allows to bind existing credentials applications to tenants
-    :return:
     """
 
 

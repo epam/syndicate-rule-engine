@@ -170,11 +170,11 @@ _Manages Role Entity_
 
 [`clean-cache`](#role-clean-cache) Cleans cached role from lambda.
 
-[`delete`](#role-delete) Deletes customers role.
+[`delete`](#role-delete) Deletes customers role
 
 [`describe`](#role-describe) Describes a Syndicate Rule Engine roles for the given customer.
 
-[`update`](#role-update) Updates role configuration.
+[`update`](#role-update) Updates role configuration
 
 ----------------------------------------
 
@@ -1096,7 +1096,7 @@ view [Optional]
 
 **Usage:** `sre role delete`
 
-_Deletes customers role._
+_Deletes customers role_
 
 `-cust,--customer` `TEXT` Customer name to delete role from [Optional]
 
@@ -1157,7 +1157,7 @@ view [Optional]
 
 **Usage:** `sre role update`
 
-_Updates role configuration._
+_Updates role configuration_
 
 `-cust,--customer` `TEXT` Customer name to update role from [Required]
 

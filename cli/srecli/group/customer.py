@@ -26,8 +26,8 @@ def describe(ctx: ContextObj, customer_id: str):
 @click.option('--rules', '-r', type=str, multiple=True,
               help='Rules that you want to exclude for a customer. '
                    'They will be excluded for each tenant')
-@click.option('--empty', is_flag=True, help='Whether to reset the '
-                                            'list of excluded rules')
+@click.option('--empty', is_flag=True,
+              help='Whether to reset the list of excluded rules')
 @cli_response()
 def set_excluded_rules(ctx: ContextObj, customer_id: str | None,
                        rules: tuple[str, ...], empty: bool):

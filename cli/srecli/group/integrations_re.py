@@ -14,7 +14,6 @@ from srecli.service.constants import AWS, AZURE, GOOGLE, KUBERNETES
 def re():
     """
     Manages Rule engine integration (self integration for Maestro)
-    :return:
     """
 
 
@@ -39,9 +38,8 @@ def re():
 @click.option('--url', '-U', type=str,
               help='Url to SRE installation')
 @click.option('--auto_resolve_access', '-ara', is_flag=True,
-              help='If specified, SRE will try to '
-                   'resolve access automatically. '
-                   'Otherwise you must specify url')
+              help='If specified, SRE will try to resolve access '
+                   'automatically. Otherwise you must specify url')
 @click.option('--results_storage', '-rs', type=str,
               help='S3 bucket name were to store EC2 recommendations')
 @cli_response()

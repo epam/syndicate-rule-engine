@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Improved error message clarity in `sre tenant describe` command when both `--tenant_name` and `--account_number` are provided
+- Standardize and improve the `re` help text
 
 ### Removed
 - Removed `sre result describe` command

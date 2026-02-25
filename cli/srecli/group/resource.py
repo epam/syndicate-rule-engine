@@ -10,7 +10,7 @@ from srecli.service.adapter_client import SREResponse
 
 @click.group(name='resource')
 def resource():
-    """Manage resources"""
+    """Manages resources"""
 
 
 @resource.command(cls=ViewCommand, name='describe')
@@ -43,7 +43,7 @@ def describe(
     customer_id: str | None = None,
 ) -> SREResponse:
     """
-    Retrieve cloud resource(s) with optional filtering and pagination.
+    Retrieves cloud resource(s) with optional filtering and pagination.
 
     Can retrieve either:
     - A specific AWS resource by ARN (when --arn is provided)
