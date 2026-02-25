@@ -39,6 +39,7 @@ from validators.swagger_request_models import (
 )
 from validators.utils import validate_kwargs
 
+
 _LOG = get_logger(__name__)
 
 SRE_REPORTS_TYPE_TO_M3_MAPPING = {
@@ -1354,12 +1355,13 @@ class HighLevelReportsHandler(AbstractHandler):
 
     @validate_kwargs
     def post_department(self, event: DepartmentGetReportModel):
+        self._validate_receivers(event=event)
         models = []
         rabbitmq = self._rmq.get_customer_rabbitmq(event.customer_id)
         if not rabbitmq:
             raise self._rmq.no_rabbitmq_response().exc()
 
-        builder = MaestroModelBuilder()
+        builder = MaestroModelBuilder(receivers=tuple(event.receivers))
         now = utc_datetime()
 
         for report_type in event.new_types:

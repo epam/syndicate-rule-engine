@@ -295,3 +295,33 @@ def test_top_tenants_resources(
     assert dicts_equal(
         model, load_expected('department/top_tenants_resources_report')
     )
+
+
+def test_project_unknown_receiver(
+        system_user_token,
+        sre_client,
+        top_tenants_resources,
+        mocked_rabbitmq,
+        load_expected,
+):
+    tested_receivers = ["admin@gmail.com", "fasle_admin@gmail.com","false_teanant_contact@gamil.com"]
+    expected_failed_emails = {"fasle_admin@gmail.com","false_teanant_contact@gamil.com"}
+
+    resp = sre_client.request(
+        '/reports/department',
+        'POST',
+        auth=system_user_token,
+        data={
+            'customer_id': 'TEST_CUSTOMER',
+            'types': ['TOP_TENANTS_RESOURCES'],
+            'receivers': tested_receivers,
+        },
+    )
+
+    prefix = "The specified user(s) is not allowed to receive the report: "
+    message = resp.json_body['message']
+    actual_emails = {email for email in message.replace(prefix, "").split(", ")}
+
+    assert resp.status_int == 422
+    assert message.startswith(prefix)
+    assert expected_failed_emails == actual_emails

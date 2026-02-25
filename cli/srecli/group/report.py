@@ -119,11 +119,14 @@ def project(
      'TOP_TENANTS_COMPLIANCE', 'TOP_COMPLIANCE_BY_CLOUD',
      'TOP_TENANTS_ATTACKS', 'TOP_ATTACK_BY_CLOUD')), required=False,
               help='Report type')
+@click.option('--receiver', '-r', multiple=True, type=str,
+              help='Emails that will receive this notification')
 @cli_response()
 @require_maestro_integration(integration_type='rabbitmq')
 def department(
     ctx: ContextObj,
     report_types,
+    receiver: tuple[str, ...],
     customer_id,
 ):
     """
@@ -133,6 +136,7 @@ def department(
     """
     res = ctx['api_client'].department_report_post(
         types=report_types,
+        receivers=receiver,
         customer_id=customer_id
     )
     if not res.ok:
