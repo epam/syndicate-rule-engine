@@ -186,7 +186,9 @@ class DefectDojoParentMeta:
             customer_name=job.customer_name
         )
 
-        product, engagement, test = job.dojo_structure
+        product = job.dojo_structure.product or ''
+        engagement = job.dojo_structure.engagement or ''
+        test = job.dojo_structure.test or ''
 
         return DefectDojoParentMeta(
             scan_type=self.scan_type,
