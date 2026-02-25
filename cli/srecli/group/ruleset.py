@@ -65,7 +65,8 @@ def describe(ctx: ContextObj, name, version, cloud, get_rules,
               help='Project id of git repo to build a ruleset')
 @click.option('--git_ref', '-gr', required=False, type=str,
               help='Branch of git repo to build a ruleset')
-@click.option('--platform', required=False, type=click.Choice(('kubernetes', 'openshift', 'kubernetes and openshift')),
+@click.option('--platform', required=False,
+              type=click.Choice(('kubernetes', 'openshift', 'kubernetes and openshift')),
               multiple=True, help='Platform for k8s')
 @click.option('--category', required=False, type=str, multiple=True,
               help='Rules category to use')
@@ -94,7 +95,7 @@ def add(
     customer_id: str
 ) -> SREResponse:
     """
-    Creates Customers ruleset.
+    Creates Customers ruleset
     """
     if git_ref and not git_project_id:
         raise click.ClickException(
@@ -154,7 +155,7 @@ def update(
     description: str | None,
 ) -> SREResponse:
     """
-    Updates Customers ruleset.
+    Updates Customers ruleset
     """
     return ctx['api_client'].ruleset_update(
         name=name,

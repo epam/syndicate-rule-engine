@@ -5,21 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.17.0] - 2026-02-05
+## [5.17.0] - 2026-02-25
 
 ### Added
 - Added Event-Driven (ED) jobs support for AMI installation
 - Added `STANDARD`, `SCHEDULED` to the `JobType` enum
+- Added recipient validation emails for reports based on the associated Tenant or Customer
 - Added description, deprecation date, and reason to the deprecated rules in the operational reports
 - Added `category` field to `OPERATIONAL RULES` report to distinguish rules with identical fingerprints
 - Added fingerprint to the `Rule` model and `SRERules` collection for rule deduplication, optimizing API requests to cloud providers
-- Added ability to send attacks report to MCC after event-driven job completion
+- Added the ability to send attacks report to MCC after event-driven job completion
+- Added the ability to provide receivers to the endpoint `/report/department/`
 
 ### Fixed
 - Fixed invalid `next_token` handling
 - Fixed issue with double creation of indexes for `SREResources` and `SREResourceExceptions` collections
 - Fixed issue when operational overview report returns `list` instead of `dict` as fallback value for `rules_data` field
 - Fixed JSON decoding errors when License Manager returns text responses instead of JSON
+- Fixed an issue related to pushing reports to Defect Dojo
 
 ### Changed
 - Changed the `JobType` enum to include `STANDARD`, `SCHEDULED` and `MANUAL`

@@ -1775,6 +1775,7 @@ class DepartmentGetReportModel(BaseModel):
             'TOP_ATTACK_BY_CLOUD',
         ]
     ] = Field(default_factory=set)
+    receivers: set[str] = Field(default_factory=set)
     # attempt: SkipJsonSchema[int] = 0
     # execution_job_id: SkipJsonSchema[str] = Field(None)
 

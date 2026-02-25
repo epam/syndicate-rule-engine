@@ -21,22 +21,22 @@ def describe(ctx: ContextObj, display_password: bool, customer_id):
 
 @mail.command(cls=ViewCommand, name='add')
 @click.option('--username', '-u', type=str, required=True,
-              help='Username of mail account.')
+              help='Username of mail account')
 @click.option('--password', '-pd', type=str, required=True,
-              help='Password of mail account.')
+              help='Password of mail account')
 @click.option('--password_label', '-pl', type=str, required=True,
-              help='Name of the parameter to store password under.')
+              help='Name of the parameter to store password under')
 @click.option('--host', '-h', type=str, required=True,
-              help='Host of a mail server.')
+              help='Host of a mail server')
 @click.option('--port', '-pt', type=int, required=True,
-              help='Port of a mail server.')
+              help='Port of a mail server')
 @click.option('--use_tls', '-tls', is_flag=True, default=False,
-              help='Specify to whether utilize TLS.')
+              help='Specify to whether utilize TLS')
 @click.option('--sender_name', '-s', type=str, required=False,
               help='Name to specify as the sender of email(s). '
-                   'Defaults to \'--username\'.')
+                   'Defaults to \'--username\'')
 @click.option('--emails_per_session', '-eps', type=int, default=1,
-              required=False, help='Amount of emails to send per session.')
+              required=False, help='Amount of emails to send per session')
 @cli_response()
 def add(ctx: ContextObj,
         username, password, password_label, host, port,
@@ -62,7 +62,7 @@ def add(ctx: ContextObj,
 
 
 @mail.command(cls=ViewCommand, name='delete')
-@click.option('--confirm', is_flag=True, help='Confirms the action.')
+@click.option('--confirm', is_flag=True, help='Confirms the action')
 @cli_response()
 def delete(ctx: ContextObj, confirm: bool, customer_id):
     """

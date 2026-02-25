@@ -94,7 +94,7 @@ def update(ctx: ContextObj, rule_source_id, customer_id):
               help='Rule id to delete')
 @click.option('--cloud', '-c', type=click.Choice(RULE_CLOUDS),
               required=False,
-              help='Delete only rules of specific cloud.')
+              help='Delete only rules of specific cloud')
 @click.option('--git_project_id', '-pid', required=False, type=str,
               help='Project id of git repo to delete rules')
 @click.option('--git_ref', '-gr', required=False, type=str,

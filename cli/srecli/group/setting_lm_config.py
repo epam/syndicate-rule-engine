@@ -28,7 +28,7 @@ def describe(
               type=str, required=True,
               help='License Manager host. You can specify the full url here')
 @click.option('--port', '-p', type=int,
-              help='License Manager port.', required=False)
+              help='License Manager port', required=False)
 @click.option('--protocol', '-pr', type=click.Choice(('HTTP', 'HTTPS')),
               help='License manager protocol')
 @click.option('--stage', '-st', type=str,
@@ -48,7 +48,7 @@ def add(
 @click.option('--host', '-h', type=str,
               help='License Manager host. You can specify the full url here')
 @click.option('--port', '-p', type=int,
-              help='License Manager port.')
+              help='License Manager port')
 @click.option('--protocol', '-pr', type=click.Choice(('HTTP', 'HTTPS')),
               help='License manager protocol')
 @click.option('--stage', '-st', type=str,
@@ -69,7 +69,7 @@ def update(
 
 
 @config.command(cls=ViewCommand, name='delete')
-@click.option('--confirm', is_flag=True, help='Confirms the action.')
+@click.option('--confirm', is_flag=True, help='Confirms the action')
 @cli_response()
 def delete(
     ctx: ContextObj,
