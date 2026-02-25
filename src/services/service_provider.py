@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from services.platform_service import PlatformService
     from services.rabbitmq_service import RabbitMQService
     from services.rbac_service import PolicyService, RoleService
+    from services.report_delivery_service import ReportDeliveryService
     from services.report_service import ReportService
     from services.reports import ReportMetricsService
     from services.resource_exception_service import ResourceExceptionsService
@@ -251,6 +252,11 @@ class ServiceProvider(metaclass=SingletonMeta):
             modular_client=self.modular_client,
             environment_service=self.environment_service
         )
+
+    @cached_property
+    def report_delivery_service(self) -> ReportDeliveryService:
+        from services.report_delivery_service import ReportDeliveryService
+        return ReportDeliveryService.build()
 
     @cached_property
     def report_statistics_service(self):

@@ -132,3 +132,26 @@ def push_to_dojo(job_ids: list[str] | str):
     if isinstance(job_ids, str):
         job_ids = [job_ids]
     upload_to_dojo(job_ids)
+
+
+@app.task
+def generate_reactive_report(job_id: str) -> bool:
+    """
+    Generate attacks report for a single REACTIVE job and send via RabbitMQ
+    (immediate mode).
+    """
+    from services import SP
+    return SP.report_delivery_service.generate_and_send_report_immediate(
+        job_id
+    )
+
+
+@app.task
+def process_interval_reports() -> None:
+    """
+    Celery Beat task: for each tenant with report_delivery mode=interval,
+    check if interval has elapsed, aggregate attacks from jobs in window,
+    send if any.
+    """
+    from services import SP
+    SP.report_delivery_service.process_interval_reports()
