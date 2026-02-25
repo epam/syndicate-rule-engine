@@ -1355,6 +1355,7 @@ class HighLevelReportsHandler(AbstractHandler):
 
     @validate_kwargs
     def post_department(self, event: DepartmentGetReportModel):
+        self._validate_receivers(event=event)
         models = []
         rabbitmq = self._rmq.get_customer_rabbitmq(event.customer_id)
         if not rabbitmq:
