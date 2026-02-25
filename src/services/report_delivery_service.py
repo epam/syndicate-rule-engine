@@ -3,7 +3,7 @@ Report delivery service for event-driven (REACTIVE) jobs.
 
 Handles:
 - Job completion notification: enqueue report generation for immediate mode
-- Attacks report delivery via RabbitMQ/Maestro
+- Attacks report delivery via Maestro
 - Interval mode: aggregated attacks report per interval window
 """
 
