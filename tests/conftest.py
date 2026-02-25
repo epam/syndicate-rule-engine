@@ -204,7 +204,7 @@ def main_customer() -> 'Customer':
     return Customer(
         name='TEST_CUSTOMER',
         display_name='test customer',
-        admins=[],
+        admins=["admin@gmail.com"],
         is_active=True,
     )
 
@@ -223,7 +223,7 @@ def aws_tenant(main_customer: 'Customer') -> 'Tenant':
         customer_name=main_customer.name,
         cloud='AWS',
         project=AWS_ACCOUNT_ID,
-        contacts={},
+        contacts={"teanant_contact_1@gamil.com","teanant_contact_2@gamil.com"},
         activation_date=utc_iso(utc_datetime() - timedelta(days=30)),
         linked_to='TESTING',
         regions=[
@@ -269,7 +269,7 @@ def azure_tenant(main_customer: 'Customer') -> 'Tenant':
         customer_name=main_customer.name,
         cloud='AZURE',
         project=AZURE_ACCOUNT_ID,
-        contacts={},
+        contacts={"teanant_contact_1@gamil.com","teanant_contact_2@gamil.com"},
         activation_date=utc_iso(utc_datetime() - timedelta(days=30)),
     )
 
@@ -287,7 +287,7 @@ def google_tenant(main_customer: 'Customer') -> 'Tenant':
         customer_name=main_customer.name,
         cloud='GOOGLE',
         project=GOOGLE_ACCOUNT_ID,
-        contacts={},
+        contacts={"teanant_contact_1@gamil.com","teanant_contact_2@gamil.com"},
         activation_date=utc_iso(utc_datetime() - timedelta(days=30)),
     )
 

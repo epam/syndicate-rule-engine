@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added Event-Driven (ED) jobs support for AMI installation
 - Added `STANDARD`, `SCHEDULED` to the `JobType` enum
+- Added recipient validation emails for reports based on the associated Tenant or Customer
 - Added description, deprecation date, and reason to the deprecated rules in the operational reports
 - Added `category` field to `OPERATIONAL RULES` report to distinguish rules with identical fingerprints
 - Added fingerprint to the `Rule` model and `SRERules` collection for rule deduplication, optimizing API requests to cloud providers

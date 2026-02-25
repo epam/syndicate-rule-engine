@@ -39,7 +39,6 @@ from validators.swagger_request_models import (
 )
 from validators.utils import validate_kwargs
 
-
 _LOG = get_logger(__name__)
 
 SRE_REPORTS_TYPE_TO_M3_MAPPING = {
@@ -123,11 +122,11 @@ class MaestroModelBuilder:
     def _validate_report_type(cls, rep: ReportMetrics, expected_type: ReportType) -> None:
         """
         Validate that the report type matches the expected type.
-        
+
         Args:
             rep: The report metrics object to validate
             expected_type: The expected report type
-            
+
         Raises:
             ValueError: If the report type doesn't match the expected type
         """
@@ -165,7 +164,6 @@ class MaestroModelBuilder:
             'exceptions_data': data.get('exceptions_data', []),
             'externalData': False,
         }
-
 
     @classmethod
     def _operational_resources_custom(cls, rep: ReportMetrics, data: dict) -> dict:
@@ -354,7 +352,6 @@ class MaestroModelBuilder:
         self._validate_report_type(rep, ReportType.PROJECT_OVERVIEW)
         return {'tenant_display_name': rep.project, **data}
 
-
     def _project_overview_linked(
         self,
         rep: ReportMetrics,
@@ -393,9 +390,8 @@ class MaestroModelBuilder:
 
         return {'data': new_data}
 
-
     def _project_compliance_custom(
-        self, rep: ReportMetrics, data: dict
+            self, rep: ReportMetrics, data: dict
     ) -> dict:
         self._validate_report_type(rep, ReportType.PROJECT_COMPLIANCE)
         for t in data['data'].values():
@@ -419,7 +415,6 @@ class MaestroModelBuilder:
 
         return {'tenant_display_name': rep.project, **data}
 
-
     def _project_compliance_linked(
         self,
         rep: ReportMetrics,
@@ -435,7 +430,6 @@ class MaestroModelBuilder:
             new_data[cloud] = self.linked_base_cloud(c_data)
 
         return {'data': new_data}
-
 
     def _project_resources_custom(
         self, rep: ReportMetrics, data: dict
@@ -496,7 +490,6 @@ class MaestroModelBuilder:
 
         return {'data': new_data}
 
-
     def _project_attacks_custom(self, rep: ReportMetrics, data: dict) -> dict:
         self._validate_report_type(rep, ReportType.PROJECT_ATTACKS)
         for t in data['data'].values():
@@ -540,7 +533,6 @@ class MaestroModelBuilder:
 
         return {'data': new_data}
 
-
     def _project_finops_custom(self, rep: ReportMetrics, data: dict) -> dict:
         self._validate_report_type(rep, ReportType.PROJECT_FINOPS)
         for t in data['data'].values():
@@ -549,7 +541,6 @@ class MaestroModelBuilder:
                     add_diff(rule_data, {})
                     # just to replace int leafs with {'value': leaf, 'diff': None}
         return {'tenant_display_name': rep.project, **data}
-
 
     def _project_finops_linked(
         self,
@@ -604,7 +595,6 @@ class MaestroModelBuilder:
                 }
 
         return {'data': new_data}
-
 
     def _top_compliance_by_cloud(
         self, rep: ReportMetrics, data: dict, previous_data: dict
@@ -860,7 +850,6 @@ class MaestroModelBuilder:
         return base
 
 
-
 class MaestroReportToS3Packer:
     """
     Holds logic how to compress some large reports to jsonl files specifically
@@ -1051,6 +1040,8 @@ class HighLevelReportsHandler(AbstractHandler):
 
     @validate_kwargs
     def post_c_level(self, event: CLevelGetReportModel):
+        self._validate_receivers(event=event)
+
         models = []
         rabbitmq = self._rmq.get_customer_rabbitmq(event.customer_id)
         if not rabbitmq:
@@ -1122,9 +1113,10 @@ class HighLevelReportsHandler(AbstractHandler):
         )
 
     @validate_kwargs
-    def post_operational(
-        self, event: OperationalGetReportModel, _tap: TenantsAccessPayload
-    ):
+    def post_operational(self, event: OperationalGetReportModel, _tap: TenantsAccessPayload):
+        self._validate_receivers(event=event,
+                                 tenant_names=event.tenant_names)
+
         models = []
         rabbitmq = self._rmq.get_customer_rabbitmq(event.customer_id)
         if not rabbitmq:
@@ -1269,9 +1261,10 @@ class HighLevelReportsHandler(AbstractHandler):
         )
 
     @validate_kwargs
-    def post_project(
-        self, event: ProjectGetReportModel, _tap: TenantsAccessPayload
-    ):
+    def post_project(self, event: ProjectGetReportModel, _tap: TenantsAccessPayload):
+        self._validate_receivers(event=event,
+                                 tenant_display_names=event.tenant_display_names)
+
         models = []
         customer_id = event.customer_id
         rabbitmq = self._rmq.get_customer_rabbitmq(customer_id)
@@ -1507,3 +1500,51 @@ class HighLevelReportsHandler(AbstractHandler):
             result.append(data)
 
         return result
+
+    def _validate_receivers(
+            self,
+            event: Any,
+            tenant_names: set | None = None,
+            tenant_display_names: set | None = None,
+    ) -> None:
+        """
+        Raise the Exception if there are unknown email addresses among the receivers.
+        Verified receivers are checked by the Customer administrators and Tenant contacts.
+        """
+
+        # 1. Aggregate all valid contacts first
+        authorized_contacts = set()
+
+        for customer in self._mc.customer_service().i_get_customer(name=event.customer):
+            authorized_contacts.update(set(customer.admins))
+
+        tenant_service = self._mc.tenant_service()
+
+        if tenant_names:
+            for tenant_name in tenant_names:
+                tenant = tenant_service.get(tenant_name)
+                if tenant:
+                    authorized_contacts.update(set(tenant.contacts))
+        elif tenant_display_names:
+            for tenant_display_name in tenant_display_names:
+                for tenant in tenant_service.i_get_by_dntl(dntl=tenant_display_name.lower()):
+                    if tenant:
+                        authorized_contacts.update(set(tenant.contacts))
+
+        verified_receivers = set()
+        failed_receivers = list()
+
+        # 2. Single pass over receivers and its division
+        for receiver in event.receivers:
+            if receiver in authorized_contacts:
+                verified_receivers.add(receiver)
+            else:
+                failed_receivers.append(receiver)
+
+        if failed_receivers:
+            _LOG.warning(f"Skipping receivers as unknown: "
+                         f"{', '.join(failed_receivers)}")
+            raise ResponseFactory(HTTPStatus.UNPROCESSABLE_ENTITY).message(
+                    f"The specified user(s) is not allowed to receive the report: "
+                    f"{', '.join(failed_receivers)}"
+                ).exc()
