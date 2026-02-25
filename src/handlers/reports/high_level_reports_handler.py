@@ -11,7 +11,6 @@ from modular_sdk.models.tenant import Tenant
 from modular_sdk.modular import Modular
 from typing_extensions import NotRequired, TypedDict
 
-from exeptions import UnknownReceiversException
 from handlers import AbstractHandler, Mapping
 from helpers import map_by
 from helpers.constants import (
@@ -1041,17 +1040,7 @@ class HighLevelReportsHandler(AbstractHandler):
 
     @validate_kwargs
     def post_c_level(self, event: CLevelGetReportModel):
-        try:
-            self._filter_resievers(
-                event=event
-            )
-        except UnknownReceiversException as e:
-            failed_receivers = e.receivers
-            return build_response(
-            code=HTTPStatus.UNPROCESSABLE_ENTITY,
-            content=f"The specified user(s) is not allowed to receive the report: "
-                    f"{', '.join(failed_receivers)}"
-            )
+        self._validate_receivers(event=event)
 
         models = []
         rabbitmq = self._rmq.get_customer_rabbitmq(event.customer_id)
@@ -1125,18 +1114,8 @@ class HighLevelReportsHandler(AbstractHandler):
 
     @validate_kwargs
     def post_operational(self, event: OperationalGetReportModel, _tap: TenantsAccessPayload):
-        try:
-            self._filter_resievers(
-                event=event,
-                tenant_names=event.tenant_names
-            )
-        except UnknownReceiversException as e:
-            failed_receivers = e.receivers
-            return build_response(
-            code=HTTPStatus.UNPROCESSABLE_ENTITY,
-            content=f"The specified user(s) is not allowed to receive the report: "
-                    f"{', '.join(failed_receivers)}"
-            )
+        self._validate_receivers(event=event,
+                                 tenant_names=event.tenant_names)
 
         models = []
         rabbitmq = self._rmq.get_customer_rabbitmq(event.customer_id)
@@ -1283,18 +1262,8 @@ class HighLevelReportsHandler(AbstractHandler):
 
     @validate_kwargs
     def post_project(self, event: ProjectGetReportModel, _tap: TenantsAccessPayload):
-        try:
-            self._filter_resievers(
-                event=event,
-                tenant_display_names=event.tenant_display_names
-            )
-        except UnknownReceiversException as e:
-            failed_receivers = e.receivers
-            return build_response(
-            code=HTTPStatus.UNPROCESSABLE_ENTITY,
-            content=f"The specified user(s) is not allowed to receive the report: "
-                    f"{', '.join(failed_receivers)}"
-            )
+        self._validate_receivers(event=event,
+                                 tenant_display_names=event.tenant_display_names)
 
         models = []
         customer_id = event.customer_id
@@ -1532,7 +1501,7 @@ class HighLevelReportsHandler(AbstractHandler):
 
         return result
 
-    def _filter_resievers(
+    def _validate_receivers(
             self,
             event: Any,
             tenant_names: set | None = None,
@@ -1575,4 +1544,7 @@ class HighLevelReportsHandler(AbstractHandler):
         if failed_receivers:
             _LOG.warning(f"Skipping receivers as unknown: "
                          f"{', '.join(failed_receivers)}")
-            raise UnknownReceiversException(unknown_receivers=failed_receivers)
+            raise (ResponseFactory(HTTPStatus.UNPROCESSABLE_ENTITY)
+                   .message(f"The specified user(s) is not allowed to receive the report: "
+                            f"{', '.join(failed_receivers)}").exc()
+            )
