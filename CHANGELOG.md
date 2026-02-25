@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added description, deprecation date, and reason to the deprecated rules in the operational reports
 - Added `category` field to `OPERATIONAL RULES` report to distinguish rules with identical fingerprints
 - Added fingerprint to the `Rule` model and `SRERules` collection for rule deduplication, optimizing API requests to cloud providers
-- Added the ability to provide recipients to the department report in CLI
+- Added the ability to provide receivers to the endpoint `/report/department/`
 
 ### Fixed
 - Fixed invalid `next_token` handling
