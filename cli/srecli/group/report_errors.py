@@ -30,7 +30,7 @@ def errors():
 def jobs(ctx: ContextObj, job_id: str, job_type: str, href: bool, format: str,
          error_type: Optional[str], customer_id):
     """
-    Describes errors of specific job
+    Describes errors report of a specific job
     """
     return ctx['api_client'].report_errors_job(
         job_id=job_id,
