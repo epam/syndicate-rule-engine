@@ -15,10 +15,9 @@ from typing import TYPE_CHECKING
 from helpers.constants import Cloud, JobState, JobType, RabbitCommand, ReportType
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime, utc_iso
-from services.metadata import Metadata
 from services.modular_helpers import get_tenant_regions, tenant_cloud
-from services.reports import Report, ReportVisitor
-from services.resources import MaestroReportResourceView, iter_rule_resources
+from services.reports import Report, ReportVisitor, strip_attacks_violations_for_maestro
+from services.resources import MaestroReportResourceView, rule_resources_dict
 from typing_extensions import Self
 
 if TYPE_CHECKING:
@@ -30,7 +29,6 @@ if TYPE_CHECKING:
     from services.rabbitmq_service import RabbitMQService
     from services.report_service import ReportService
     from services.setting_service import SettingsService
-    from services.sharding import ShardsCollection
 
 _LOG = get_logger(__name__)
 
@@ -39,20 +37,6 @@ REPORT_DELIVERY_MODE_INTERVAL = 'interval'
 CUSTODIAN_ATTACKS_REPORT = 'CUSTODIAN_ATTACKS_REPORT'
 # Buffer for job completion: jobs may take up to ~4h
 JOB_COMPLETION_BUFFER_MINUTES = 240
-
-# Fields to strip from violations for Maestro (matches _operational_attacks_custom)
-_ATTACKS_VIOLATION_STRIP = frozenset({
-    'description', 'remediation', 'remediation_complexity', 'severity',
-})
-
-
-def _strip_attacks_violations(data: list[dict]) -> None:
-    """Strip Maestro-unwanted fields from violations. Mutates in place."""
-    for item in data:
-        for attack in item.get('attacks', ()):
-            for v in attack.get('violations', ()):
-                for key in _ATTACKS_VIOLATION_STRIP:
-                    v.pop(key, None)
 
 
 def build_attacks_report_payload(
@@ -73,7 +57,7 @@ def build_attacks_report_payload(
     Build attacks report payload for Maestro.
     Minimal, self-contained — no MaestroModelBuilder overhead.
     """
-    _strip_attacks_violations(data)
+    strip_attacks_violations_for_maestro(data)
     payload = {
         'receivers': receivers,
         'customer': customer,
@@ -241,28 +225,6 @@ class ReportDeliveryService:
                 f'Failed to enqueue generate_reactive_report for job {job.id}'
             )
 
-    @staticmethod
-    def _get_rule_resources(
-        collection: 'ShardsCollection',
-        cloud: Cloud,
-        metadata: Metadata,
-        account_id: str = '',
-    ) -> dict[str, set]:
-        """Build rule -> set of CloudResource from collection (same as metrics pipeline)."""
-        from services.resources import CloudResource
-
-        dct: dict[str, set[CloudResource]] = {}
-        for rule, resources_it in iter_rule_resources(
-            collection=collection,
-            cloud=cloud,
-            metadata=metadata,
-            account_id=account_id,
-        ):
-            resources = set(resources_it)
-            if resources:
-                dct[rule] = resources
-        return dct
-
     def _collect_attacks_for_job(
         self,
         job: Job,
@@ -277,7 +239,7 @@ class ReportDeliveryService:
         collection.meta = self._report_service.fetch_meta(tenant)
         collection.fetch_all()
         metadata = self._license_service.get_metadata_for_licenses([lic])
-        rule_resources = self._get_rule_resources(
+        rule_resources = rule_resources_dict(
             collection, cloud, metadata, tenant.project or ''
         )
         if not rule_resources:
@@ -543,7 +505,7 @@ class ReportDeliveryService:
                             )
                             col.meta = self._report_service.fetch_meta(tenant)
                             col.fetch_all()
-                            rr = self._get_rule_resources(
+                            rr = rule_resources_dict(
                                 col, cloud, metadata,
                                 tenant.project or ''
                             )

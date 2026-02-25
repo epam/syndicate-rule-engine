@@ -30,7 +30,11 @@ from services.environment_service import EnvironmentService
 from services.platform_service import PlatformService
 from services.rabbitmq_service import RabbitMQService
 from services.rbac_service import TenantsAccessPayload
-from services.reports import ReportMetricsService, add_diff
+from services.reports import (
+    ReportMetricsService,
+    add_diff,
+    strip_attacks_violations_for_maestro,
+)
 from validators.swagger_request_models import (
     CLevelGetReportModel,
     DepartmentGetReportModel,
@@ -268,13 +272,7 @@ class MaestroModelBuilder:
     @classmethod
     def _operational_attacks_custom(cls, rep: ReportMetrics, data: dict) -> dict:
         cls._validate_report_type(rep, ReportType.OPERATIONAL_ATTACKS)
-        for item in data['data']:
-            for attack in item.get('attacks', ()):
-                for violation in attack.get('violations', ()):
-                    violation.pop('description', None)
-                    violation.pop('remediation', None)
-                    violation.pop('remediation_complexity', None)
-                    violation.pop('severity', None)
+        strip_attacks_violations_for_maestro(data['data'])
         return {
             'tenant_name': rep.tenant,
             'id': data['id'],
