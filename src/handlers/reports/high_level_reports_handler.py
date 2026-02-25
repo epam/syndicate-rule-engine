@@ -1544,7 +1544,7 @@ class HighLevelReportsHandler(AbstractHandler):
         if failed_receivers:
             _LOG.warning(f"Skipping receivers as unknown: "
                          f"{', '.join(failed_receivers)}")
-            raise (ResponseFactory(HTTPStatus.UNPROCESSABLE_ENTITY)
-                   .message(f"The specified user(s) is not allowed to receive the report: "
-                            f"{', '.join(failed_receivers)}").exc()
-            )
+            raise ResponseFactory(HTTPStatus.UNPROCESSABLE_ENTITY).message(
+                    f"The specified user(s) is not allowed to receive the report: "
+                    f"{', '.join(failed_receivers)}"
+                ).exc()
