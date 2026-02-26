@@ -10,7 +10,7 @@ Handles:
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterable, cast
 
 from helpers.constants import Cloud, JobState, JobType, RabbitCommand, ReportType
 from helpers.log_helper import get_logger
@@ -18,12 +18,12 @@ from helpers.time_helper import utc_datetime, utc_iso
 from services.modular_helpers import get_tenant_regions, tenant_cloud
 from services.reports import Report, ReportVisitor, strip_attacks_violations_for_maestro
 from services.resources import MaestroReportResourceView, rule_resources_dict
+from modular_sdk.models.tenant import Tenant
 from typing_extensions import Self
 
 if TYPE_CHECKING:
     from modular_sdk.modular import ModularServiceProvider
     from models.job import Job
-    from modular_sdk.models.tenant import Tenant
     from services.job_service import JobService
     from services.license_service import License, LicenseService
     from services.rabbitmq_service import RabbitMQService
@@ -363,6 +363,7 @@ class ReportDeliveryService:
         tenant_service = self._modular_client.tenant_service()
 
         for customer in customer_service.i_get_customer():
+            _LOG.debug(f"Processing customer {customer.name}")
             rabbitmq = self._rabbitmq_service.get_customer_rabbitmq(
                 customer.name
             )
@@ -374,15 +375,18 @@ class ReportDeliveryService:
                 continue
 
             for lic in self._license_service.iter_customer_licenses(
-                customer.name
+                customer=customer.name,
             ):
+                license_key = lic.license_key
+                _LOG.debug(f"Customer {customer.name} has license {license_key}")
+
                 config = self._get_report_delivery_config(lic)
                 if (
                     not config
                     or config.get('mode') != REPORT_DELIVERY_MODE_INTERVAL
                 ):
                     _LOG.debug(
-                        f"No report delivery config for license {lic.license_key} "
+                        f"No report delivery config for license {license_key} "
                         f"for customer {customer.name}"
                     )
                     continue
@@ -400,41 +404,23 @@ class ReportDeliveryService:
                 else:
                     last_dt = now - timedelta(minutes=interval_min)
 
-                scope = (lic.customers or {}).get(customer.name) or {}
-                tenant_names = list(scope.get('tenants') or [])
-                if not tenant_names:
-                    _LOG.debug(
-                        f"No tenants for license {lic.license_key} "
-                        f"for customer {customer.name}, fetching tenants"
-                    )
-                    tenant_names = [
-                        t.name
-                        for t in tenant_service.i_get_tenant_by_customer(
-                            customer.name
-                        )
-                    ]
-
-                license_key = getattr(lic, 'license_key', None) or getattr(lic, 'key', str(id(lic)))
-                _LOG.debug(
-                    f"License key for license {lic.license_key} "
-                    f"for customer {customer.name}: {license_key}"
+                tenants = cast(
+                    Iterable[Tenant],
+                    tenant_service.i_get_tenant_by_customer(
+                        customer_id=customer.name,
+                        active=True,
+                    ),
                 )
-
-                for tenant_name in tenant_names:
-                    tenant = tenant_service.get(tenant_name)
-                    if not tenant:
-                        _LOG.debug(
-                            f"Tenant {tenant_name} not found for license {lic.license_key} "
-                            f"for customer {customer.name}"
-                        )
-                        continue
+                for tenant in tenants:
+                    tenant_name = tenant.name
+                    _LOG.debug(f"Processing tenant {tenant_name}")
                     if not self._license_service.is_subject_applicable(
                         lic=lic,
                         customer=customer.name,
                         tenant_name=tenant_name,
                     ):
                         _LOG.debug(
-                            f"Tenant {tenant_name} is not applicable for license {lic.license_key} "
+                            f"Tenant {tenant_name} is not applicable for license {license_key} "
                             f"for customer {customer.name}"
                         )
                         continue
