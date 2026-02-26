@@ -485,6 +485,10 @@ class ReportDeliveryService:
                     )
 
                     if not jobs_in_window:
+                        _LOG.debug(
+                            f'No jobs in interval window for tenant '
+                            f'{tenant_name}'
+                        )
                         continue
 
                     all_rule_resources: dict[str, set] = {}
@@ -541,6 +545,10 @@ class ReportDeliveryService:
                         )
                     )
                     if not attacks_data:
+                        _LOG.debug(
+                            f'No attacks data in interval window for tenant '
+                            f'{tenant_name}'
+                        )
                         continue
 
                     assert tenant_lic is not None  # ensured by metadata check above
@@ -587,8 +595,15 @@ class ReportDeliveryService:
                             f'Sent interval attacks report for tenant '
                             f'{tenant_name}, {len(jobs_in_window)} jobs'
                         )
+                    else:
+                        _LOG.warning(
+                            f'Failed to send interval attacks report for tenant '
+                            f'{tenant_name}, {len(jobs_in_window)} jobs'
+                        )
 
                 self._update_last_report_sent_at(lic, now)
 
         if sent_count:
             _LOG.info(f'Processed interval reports: {sent_count} sent')
+        else:
+            _LOG.info('No interval reports sent')
