@@ -3,7 +3,14 @@ Provides some modular sdk helper functions and classes
 """
 
 from http import HTTPStatus
-from typing import Generator, Iterable, Iterator, Literal, cast
+from typing import (
+    Generator,
+    Iterable,
+    Iterator,
+    Literal,
+    cast,
+    overload,
+)
 
 from modular_sdk.commons.constants import ParentScope, ParentType
 from modular_sdk.models.parent import Parent
@@ -439,13 +446,37 @@ def get_tenant_regions(tenant: Tenant, tss: TenantSettingsService) -> set[str]:
     return regions
 
 
-def tenant_cloud(tenant: Tenant) -> Cloud:
+@overload
+def tenant_cloud(
+    tenant: Tenant,
+    safe: Literal[False] = False,
+) -> Cloud: ...
+
+
+@overload
+def tenant_cloud(
+    tenant: Tenant,
+    safe: Literal[True],
+) -> Cloud | None: ...
+
+
+def tenant_cloud(
+    tenant: Tenant,
+    safe: bool = False
+) -> Cloud | None:
     try:
         return Cloud[tenant.cloud.upper()]
-    except KeyError:
-        raise AssertionError(
-            'There is probably a bug if we reach a tenant of not supported cloud'
+    except KeyError as e:
+        base_msg = (
+            'There is probably a bug if we reach a '
+            f'tenant of not supported cloud: {tenant.cloud!r}.'
         )
+        if safe:
+            _LOG.debug(
+                f'{base_msg} Returning None',
+            )
+            return None
+        raise ValueError(base_msg) from e
 
 
 def iter_tenants_by_names(

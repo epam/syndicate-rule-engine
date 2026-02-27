@@ -425,7 +425,12 @@ class ReportDeliveryService:
                         )
                         continue
 
-                    cloud = tenant_cloud(tenant)
+                    cloud = tenant_cloud(tenant, safe=True)
+                    if not cloud:
+                        _LOG.debug(
+                            f"Tenant {tenant_name} has no supported cloud, skip"
+                        )
+                        continue
                     cursor_iso = self._settings_service.get_report_delivery_cursor(
                         customer=customer.name,
                         license_key=license_key,
