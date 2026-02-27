@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed issue when operational overview report returns `list` instead of `dict` as fallback value for `rules_data` field
 - Fixed JSON decoding errors when License Manager returns text responses instead of JSON
 - Fixed an issue related to pushing reports to Defect Dojo
+- Fixed issue with `Attribute "PublicIp" does not exist` during deployment in `private` subnet
 
 ### Changed
 - Changed the `JobType` enum to include `STANDARD`, `SCHEDULED` and `MANUAL`
