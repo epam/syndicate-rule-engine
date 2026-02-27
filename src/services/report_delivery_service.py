@@ -378,9 +378,15 @@ class ReportDeliveryService:
                 )
                 continue
 
-            for lic in self._license_service.iter_customer_licenses(
-                customer=customer.name,
-            ):
+            licenses = list(
+                self._license_service.iter_customer_licenses(
+                    customer=customer.name,
+                )
+            )
+            metadata = self._license_service.get_metadata_for_licenses(
+                licenses=licenses,
+            )
+            for lic in licenses:
                 license_key = lic.license_key
                 _LOG.debug(f"Customer {customer.name} has license {license_key}")
 
@@ -414,9 +420,6 @@ class ReportDeliveryService:
                         customer_id=customer.name,
                         active=True,
                     ),
-                )
-                metadata = self._license_service.get_metadata_for_licenses(
-                    licenses=(lic,),
                 )
                 for tenant in tenants:
                     tenant_name = tenant.name
