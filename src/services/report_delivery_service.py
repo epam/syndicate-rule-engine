@@ -365,7 +365,7 @@ class ReportDeliveryService:
         for customer in customer_service.i_get_customer():
             _LOG.debug(f"Processing customer {customer.name}")
             rabbitmq = self._rabbitmq_service.get_customer_rabbitmq(
-                customer.name
+                customer=customer.name,
             )
             if not rabbitmq:
                 _LOG.warning(
@@ -442,6 +442,10 @@ class ReportDeliveryService:
                     fetch_start = cursor_dt - timedelta(
                         minutes=JOB_COMPLETION_BUFFER_MINUTES
                     )
+                    _LOG.debug(
+                        f'Fetching jobs for tenant {tenant_name} '
+                        f'from {fetch_start} to {now}'
+                    )
 
                     jobs = list(
                         self._job_service.get_by_tenant_name(
@@ -488,6 +492,10 @@ class ReportDeliveryService:
                         else None
                     )
 
+                    _LOG.debug(
+                        f'Processing {len(jobs_in_window)} jobs in '
+                        f'interval window for tenant {tenant_name}'
+                    )
                     for j in jobs_in_window:
                         if metadata and not j.is_platform_job:
                             col = self._report_service.job_collection(

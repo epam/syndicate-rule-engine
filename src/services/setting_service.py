@@ -209,6 +209,10 @@ class SettingsService:
         cursor_iso: str,
     ) -> None:
         """Save processed-up-to cursor for (customer, license, tenant)."""
+        _LOG.debug(
+            f'Saving report delivery cursor for {customer}:{license_key}:{tenant_name} '
+            f'to {cursor_iso}'
+        )
         setting = self.get(
             SettingKey.REPORT_DELIVERY_CURSORS, value=False
         )
@@ -224,6 +228,10 @@ class SettingsService:
         cursors[key] = cursor_iso
         setting.value = cursors
         self.save(setting)
+        _LOG.debug(
+            f'Report delivery cursor for {customer}:{license_key}:{tenant_name} '
+            f'saved to {cursor_iso}'
+        )
 
 
     # metadata
