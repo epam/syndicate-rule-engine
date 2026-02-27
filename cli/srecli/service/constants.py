@@ -28,6 +28,12 @@ class HTTPMethod(str, Enum):
     PUT = 'PUT'
 
 
+class Cloud(str, Enum):
+    AWS = 'AWS'
+    AZURE = 'AZURE'
+    GOOGLE = 'GOOGLE'
+
+
 class Endpoint(str, Enum):
     """
     Should correspond to Api gateway models

@@ -4,7 +4,18 @@ import json
 from abc import ABC
 from typing import TYPE_CHECKING
 from functools import cached_property
-from typing import Optional, Dict, Iterator, List, Generator, Tuple, Set, Iterable
+from typing import (
+    Optional,
+    Dict,
+    Iterator,
+    List,
+    Generator,
+    Tuple,
+    Set,
+    Iterable,
+    Any,
+    cast,
+)
 
 from helpers import deep_get, deep_set
 from helpers.constants import (
@@ -55,6 +66,8 @@ MA_GROUP = "group"
 MA_SUB_GROUP = "subGroup"
 MA_EVENT_METADATA = "eventMetadata"
 MA_CLOUD = "cloud"
+MA_EVENT_SOURCE = "eventSource"
+MA_EVENT_NAME = "eventName"
 MA_TENANT_NAME = "tenantName"
 MA_REGION_NAME = "regionName"
 MA_REQUEST = "request"
@@ -295,6 +308,7 @@ class MaestroEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
         (MA_EVENT_METADATA, MA_REQUEST, MA_CLOUD): {
             Cloud.AZURE.value,
             Cloud.GOOGLE.value,
+            Cloud.AWS.value,
         },
         # (MA_EVENT_METADATA, MA_CLOUD,): {AZURE_CLOUD_ATTR, },
         (MA_GROUP,): {"MANAGEMENT"},
@@ -306,6 +320,8 @@ class MaestroEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
         (MA_SUB_GROUP,),
         (MA_EVENT_METADATA, MA_REQUEST, MA_CLOUD),
         (MA_EVENT_METADATA, MA_CLOUD),
+        (MA_EVENT_METADATA, MA_EVENT_SOURCE),
+        (MA_EVENT_METADATA, MA_EVENT_NAME),
         (MA_TENANT_NAME,),
     )
 
@@ -372,7 +388,8 @@ class MaestroEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
         return MAPPING
 
     def cloud_tenant_region_rules(
-        self, it: Iterable[Dict]
+        self,
+        it: Iterable[dict[str, Any]],
     ) -> Generator[Tuple[str, str, str, Set[str]], None, None]:
         """
         Maestro events does not contain account id or subscription id. They
@@ -415,7 +432,8 @@ class MaestroEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
             yield cloud.upper(), tenant_name, region, rules
 
     def cloud_tenant_region_rules_map(
-        self, it: Iterable[Dict]
+        self,
+        it: Iterable[Dict],
     ) -> CloudTenantRegionRulesMap:
         ref = {}
         for cloud, tenant, region, rules in self.cloud_tenant_region_rules(it):
@@ -434,9 +452,24 @@ class MaestroEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
         cloud_method = {
             Cloud.AZURE.value: self.get_rules_azure,
             Cloud.GOOGLE.value: self.get_rules_google,
+            Cloud.AWS.value: self.get_rules_aws,
         }
         _get_rules = cloud_method.get(cloud) or (lambda e, l, v: set())
         return _get_rules(event, license_key, version)
+    
+    def get_rules_aws(
+        self,
+        event: dict,
+        license_key: str,
+        version: Version = DEFAULT_VERSION
+    ) -> Set[str]:
+        # metadata is like a CloudTrail record with eventSource and eventName
+        record = cast(dict[str, Any], event.get(MA_EVENT_METADATA, {}))
+        ct_mapping = self.ct_mapping(
+            license_key=license_key,
+            version=version,
+        )
+        return CloudTrail.get_rules(record, ct_mapping)
 
     def get_rules_azure(
         self,

@@ -111,19 +111,6 @@ def utc_iso(_from: datetime | None = None) -> str:
     return obj.astimezone(timezone.utc).isoformat().replace('+00:00', 'Z')
 
 
-def build_cloudtrail_record(cloud_identifier: str, region: str,
-                            event_source: str, event_name: str) -> dict:
-    return {
-        "eventTime": utc_iso(),
-        "awsRegion": region,
-        "userIdentity": {
-            "accountId": cloud_identifier
-        },
-        "eventSource": event_source,
-        "eventName": event_name
-    }
-
-
 def normalize_lists(lists: list[list[str]]):
     """
     Changes the given lists in place making them all equal length by
@@ -140,64 +127,6 @@ def normalize_lists(lists: list[list[str]]):
         if l_len < max_len:
             l += [l[-1] for _ in range(max_len - l_len)]
     assert len(set(len(l) for l in lists)) == 1  # equal lens
-
-
-def build_cloudtrail_records(cloud_identifier: list, region: list,
-                             event_source: list, event_name: list) -> list:
-    """
-    Builds CloudTrail log records based on given params. If you still
-    don't get it just execute the function with some random parameters
-    (no validation of parameters content provided) and see the result.
-    """
-    records = []
-    lists = [cloud_identifier, region, event_source, event_name]
-    normalize_lists(lists)
-
-    for i in range(len(lists[0])):
-        records.append(
-            build_cloudtrail_record(cloud_identifier[i], region[i],
-                                    event_source[i], event_name[i]))
-    return records
-
-
-def build_eventbridge_record(detail_type: str, source: str,
-                             account: str, region: str, detail: dict) -> dict:
-    return {
-        "version": "0",
-        "id": str(uuid.uuid4()),
-        "detail-type": detail_type,
-        "source": source,
-        "account": account,
-        "time": utc_iso(),
-        "region": region,
-        "resources": [],
-        "detail": detail
-    }
-
-
-def build_maestro_record(event_action: str, group: str, sub_group: str,
-                         tenant_name: str, cloud: str):
-    """
-    Only necessary attributes are kept
-    :param event_action:
-    :param group:
-    :param sub_group:
-    :param tenant_name:
-    :param cloud:
-    :return:
-    """
-    return {
-        "_id": str(uuid.uuid4()),
-        "eventAction": event_action,
-        "group": group,
-        "subGroup": sub_group,
-        "tenantName": tenant_name,
-        "eventMetadata": {
-            "request": {'cloud': cloud},
-            # todo native maestro events have string here
-            "cloud": cloud
-        }
-    }
 
 
 def validate_api_link(url: str) -> str | None:
