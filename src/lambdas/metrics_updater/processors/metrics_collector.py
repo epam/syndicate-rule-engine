@@ -821,7 +821,7 @@ class MetricsCollector(BaseProcessor):
                     _, collection_prev = exceptions.filter_exception_resources(
                         previous_collection, cloud, ctx.metadata, tenant.project
                     )
-                    rule_resources_prev = rule_resources_dict(
+                    rule_resources_prev = self._get_rule_resources(
                         collection_prev, cloud, ctx.metadata, tenant.project
                     )
                     start_d = (
