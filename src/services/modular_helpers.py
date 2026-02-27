@@ -476,7 +476,7 @@ def tenant_cloud(
                 f'{base_msg} Returning None',
             )
             return None
-        raise ValueError(base_msg) from e
+        raise AssertionError(base_msg) from e
 
 
 def iter_tenants_by_names(
