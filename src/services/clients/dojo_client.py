@@ -5,7 +5,7 @@ from typing import Generator, TYPE_CHECKING
 import msgspec
 import requests
 
-from helpers import encode_into
+from helpers import encode_into, create_requests_session
 from helpers.constants import Env, HTTPMethod
 from helpers.log_helper import get_logger
 
@@ -30,7 +30,7 @@ class DojoV2Client:
             url = url + '/api/v2'
 
         self._url = url
-        self._session = requests.Session()
+        self._session = create_requests_session()
         self._session.headers.update({'Authorization': f'Token {api_key}'})
 
     def __del__(self):

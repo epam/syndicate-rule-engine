@@ -8,6 +8,8 @@ import time
 import uuid
 from contextlib import contextmanager
 from enum import Enum as _Enum
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from functools import reduce
 from itertools import chain, islice
 from types import NoneType
@@ -875,3 +877,31 @@ def from_normalized_version(version: str) -> str:
         return '0.0.0'
     parts = version.split('.')
     return '.'.join([str(int(part)) for part in parts])
+
+
+def create_requests_session(
+    max_retries: int = 3,
+    backoff_factor: float = 1,
+    status_forcelist: list[int] | None = None,
+) -> requests.Session:
+    """
+    Create a requests session with retry capabilities.
+    Retry on connection drops (e.g. NAT idle timeout) and server errors.
+    ProtocolError (RemoteDisconnected) is retried as read error by urllib3.
+
+    :param max_retries: Maximum number of retries
+    :param backoff_factor: Backoff factor
+    :param status_forcelist: List of status codes to force retry
+    :return: requests.Session
+    """
+    status_forcelist = status_forcelist or [500, 502, 503, 504]
+    retry = Retry(
+        total=max_retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=status_forcelist,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session = requests.Session()
+    session.mount('https://', adapter)
+    session.mount('http://', adapter)
+    return session.request
