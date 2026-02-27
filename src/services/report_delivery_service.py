@@ -122,6 +122,8 @@ class ReportDeliveryService:
         ed = license_obj.event_driven
         if not ed:
             return None
+        if not ed.get('active'):
+            return None
         rd = ed.get('report_delivery')
         if not rd or not (rd.get('enabled') if isinstance(rd, dict) else False):
             return None
@@ -135,7 +137,9 @@ class ReportDeliveryService:
         if lic.is_expired():
             return None
         if not self._license_service.is_subject_applicable(
-            lic=lic, customer=tenant.customer_name, tenant_name=tenant.name
+            lic=lic,
+            customer=tenant.customer_name,
+            tenant_name=tenant.name,
         ):
             return None
         if not lic.event_driven.get('active'):
@@ -411,6 +415,9 @@ class ReportDeliveryService:
                         active=True,
                     ),
                 )
+                metadata = self._license_service.get_metadata_for_licenses(
+                    licenses=(lic,),
+                )
                 for tenant in tenants:
                     tenant_name = tenant.name
                     _LOG.debug(f"Processing tenant {tenant_name}")
@@ -488,14 +495,6 @@ class ReportDeliveryService:
 
                     all_rule_resources: dict[str, set] = {}
                     collection_meta = {}
-                    tenant_lic = self._get_event_driven_license(tenant)
-                    metadata = (
-                        self._license_service.get_metadata_for_licenses(
-                            [tenant_lic]
-                        )
-                        if tenant_lic
-                        else None
-                    )
 
                     _LOG.debug(
                         f'Processing {len(jobs_in_window)} jobs in '
@@ -550,15 +549,13 @@ class ReportDeliveryService:
                         )
                         continue
 
-                    assert tenant_lic is not None  # ensured by metadata check above
                     now_ts = utc_datetime()
-                    last_stopped = max(
-                        (utc_datetime(j.stopped_at) for j in jobs_in_window if j.stopped_at),
-                        default=now_ts,
-                    )
+                    stopped_dts = [utc_datetime(j.stopped_at) for j in jobs_in_window if j.stopped_at]
+                    last_stopped = max(stopped_dts, default=now_ts)
+                    first_stopped = min(stopped_dts, default=fetch_start)
                     tenant_metadata = self._build_tenant_metadata(
                         tenant,
-                        tenant_lic,
+                        lic,
                         last_scan_date=utc_iso(last_stopped),
                         finished_scans=len(jobs_in_window),
                         succeeded_scans=len(jobs_in_window),
@@ -570,10 +567,8 @@ class ReportDeliveryService:
                         tenant_id=tenant.project or '',
                         cloud=cloud,
                         receivers=config.get('receivers') or [],
-                        report_from=utc_iso(
-                            now_ts - timedelta(days=7)
-                        ),
-                        report_to=utc_iso(now_ts),
+                        report_from=utc_iso(first_stopped),
+                        report_to=utc_iso(last_stopped),
                         created_at=utc_iso(now_ts),
                         tenant_metadata=tenant_metadata,
                         jobs_count=len(jobs_in_window),
