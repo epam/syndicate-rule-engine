@@ -144,20 +144,13 @@ class SelfIntegrationHandler(AbstractHandler):
                     f'Active tenant(s) {", ".join(missing)} not found'
                 ).exc()
 
-        application = next(self._aps.list(
-            customer=customer,
-            _type=ApplicationType.CUSTODIAN.value,
-            limit=1,
-            deleted=False
-        ), None)
-        if not application:
-            application = self._aps.build(
-                customer_id=event.customer,
-                created_by=_pe['cognito_user_id'],
-                type=ApplicationType.CUSTODIAN.value,
-                description=event.description,
-                is_deleted=False,
-            )
+        application = self._aps.build(
+            customer_id=event.customer,
+            created_by=_pe['cognito_user_id'],
+            type=ApplicationType.CUSTODIAN.value,
+            description=event.description,
+            is_deleted=False,
+        )
 
         self.validate_username(event.username, customer)
         meta = CustodianApplicationMeta.from_dict({})
