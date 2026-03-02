@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Improved error message clarity in `sre tenant describe` command when both `--tenant_name` and `--account_number` are provided
 - Standardize and improve the `re` help text
-- renamed alias -cl to '-c' in commands:
+- renamed alias `-cl` to `-c` for the `--cloud` in commands:
   - `syndicate re integrations chronicle activate`
   - `syndicate re integrations dojo activate`
   - `syndicate re integrations re add`
