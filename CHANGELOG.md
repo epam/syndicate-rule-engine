@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated recommendations processing logic to use all available rules for generating
 - Changed modular-sdk version from `7.1.6` to `7.1.9`
 - Changed the `sre tenant credentials link` command, does not unlink parents, if they linked.
-- Changed the `sre integrations re add` command, does not update the Custodian Management Application and raise Exception if it exists.
+- Changed the `sre integrations re add` command, does not update the Custodian Management Application and return `409 Conflict` if it exists.
 
 ### Removed
 - Removed `SREBatchResults` model and related endpoints and services
