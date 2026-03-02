@@ -3419,6 +3419,12 @@
               "title": "Endpoint",
               "type": "string"
             },
+            "insecure_skip_tls_verify": {
+              "default": null,
+              "description": "Skip TLS certificate verification. If not specified, automatically enabled when certificate_authority is not provided",
+              "title": "Insecure Skip Tls Verify",
+              "type": "boolean"
+            },
             "name": {
               "title": "Name",
               "type": "string"

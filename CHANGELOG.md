@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [5.17.0] - 2026-02-25
 
 ### Added
+- Added support for insecure-skip-tls-verify during Kubernetes platform management
 - Added Event-Driven (ED) jobs support for AMI installation
 - Added `STANDARD`, `SCHEDULED` to the `JobType` enum
 - Added recipient validation emails for reports based on the associated Tenant or Customer
