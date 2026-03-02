@@ -121,7 +121,7 @@ def sync(
 @build_tenant_option(multiple=True)
 @click.option('--all_tenants', is_flag=True,
               help='Whether to activate integration for all tenants')
-@click.option('--clouds', '-cl',
+@click.option('--clouds', '-c',
               type=click.Choice((AWS, AZURE, GOOGLE, KUBERNETES)),
               multiple=True,
               help='Tenant clouds to activate this license for. '
