@@ -30,6 +30,7 @@ from services.resources import MaestroReportResourceView, rule_resources_dict
 from modular_sdk.models.tenant import Tenant
 from typing_extensions import Self
 from services.metadata import Metadata
+from handlers.reports.high_level_reports_handler import SRE_REPORTS_TYPE_TO_M3_MAPPING
 
 
 if TYPE_CHECKING:
@@ -46,7 +47,6 @@ _LOG = get_logger(__name__)
 
 REPORT_DELIVERY_MODE_IMMEDIATE = "immediate"
 REPORT_DELIVERY_MODE_INTERVAL = "interval"
-CUSTODIAN_ATTACKS_REPORT = "CUSTODIAN_ATTACKS_REPORT"
 # Buffer for job completion: jobs may take up to ~4h
 JOB_COMPLETION_BUFFER_MINUTES = 240
 
@@ -550,7 +550,9 @@ class ReportDeliveryService:
             tenant_metadata=tenant_metadata,
         )
         model = self._rabbitmq_service.build_m3_json_model(
-            notification_type=CUSTODIAN_ATTACKS_REPORT,
+            notification_type=SRE_REPORTS_TYPE_TO_M3_MAPPING[
+                ReportType.OPERATIONAL_ATTACKS
+            ],
             data=attacks_payload,
         )
         if not rabbitmq:
@@ -833,7 +835,9 @@ class ReportDeliveryService:
                         jobs_count=len(jobs_in_window),
                     )
                     model = self._rabbitmq_service.build_m3_json_model(
-                        notification_type=CUSTODIAN_ATTACKS_REPORT,
+                        notification_type=SRE_REPORTS_TYPE_TO_M3_MAPPING[
+                            ReportType.OPERATIONAL_ATTACKS
+                        ],
                         data=attacks_payload,
                     )
 
