@@ -1463,6 +1463,7 @@ def get_platform_credentials(job: Job, platform: Platform) -> dict | None:
         endpoint=cluster['endpoint'],
         ca=cluster['certificateAuthority']['data'],
         token=TokenGenerator(sts).get_token(platform.name),
+        insecure_skip_tls_verify=False
     )
     return {ENV_KUBECONFIG: str(token_config.to_temp_file())}
 

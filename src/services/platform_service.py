@@ -200,12 +200,18 @@ class Kubeconfig:
     def user_names(self) -> map:
         return map(operator.itemgetter('name'), self._raw['users'])
 
-    def add_cluster(self, name: str, server: str, ca_data: Optional[str]):
+    def add_cluster(self, name: str, server: str, ca_data: Optional[str],
+                    insecure_skip_tls_verify: bool | None = None):
         if name in self.cluster_names():
             raise ValueError('cluster with such name exists')
         data = {'name': name, 'cluster': {'server': server}}
         if ca_data:
             data['cluster']['certificate-authority-data'] = ca_data
+        # Auto-enable insecure mode if no CA is provided
+        if insecure_skip_tls_verify is None:
+            insecure_skip_tls_verify = not bool(ca_data)
+        if insecure_skip_tls_verify:
+            data['cluster']['insecure-skip-tls-verify'] = True
         self._raw['clusters'].append(data)
 
     def add_user(self, name: str, token: str):
@@ -231,19 +237,26 @@ class Kubeconfig:
 
 
 class K8STokenKubeconfig:
-    __slots__ = ('endpoint', 'ca', 'token')
+    __slots__ = ('endpoint', 'ca', 'token', 'insecure_skip_tls_verify')
 
     def __init__(self, endpoint: str, ca: str | None = None,
-                 token: str | None = None):
+                 token: str | None = None,
+                 insecure_skip_tls_verify: bool | None = None):
         self.endpoint = endpoint
         self.ca = ca
         self.token = token
+        # Auto-enable insecure mode if no CA is provided
+        if insecure_skip_tls_verify is None:
+            self.insecure_skip_tls_verify = not bool(ca)
+        else:
+            self.insecure_skip_tls_verify = insecure_skip_tls_verify
 
     def build_config(self, context: str = 'temp') -> dict:
         config = Kubeconfig()
         cluster = context + '-cluster'
         user = context + '-user'
-        config.add_cluster(cluster, self.endpoint, self.ca)
+        config.add_cluster(cluster, self.endpoint, self.ca,
+                          self.insecure_skip_tls_verify)
         config.add_user(user, self.token)
         config.add_context(context, cluster, user)
         config.current_context = context
@@ -253,7 +266,8 @@ class K8STokenKubeconfig:
         config = Kubeconfig()
         cluster = context + '-cluster'
         user = context + '-user'
-        config.add_cluster(cluster, self.endpoint, self.ca)
+        config.add_cluster(cluster, self.endpoint, self.ca,
+                          self.insecure_skip_tls_verify)
         config.add_user(user, self.token)
         config.add_context(context, cluster, user)
         config.current_context = context
