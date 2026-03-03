@@ -27,7 +27,7 @@ def k8s():
 @click.option('-T', '--token', type=str, required=False,
               help='Long lived token. Short-lived tokens will '
                    'be generated base on this one')
-@click.option('--insecure-skip-tls-verify', is_flag=True, default=None,
+@click.option('--insecure_skip_tls_verify', is_flag=True, default=None,
               help='Skip TLS certificate verification. '
                    'Auto-enabled if --certificate_authority is not provided')
 @cli_response()
@@ -46,7 +46,7 @@ def create(
 ):
     """
     Register a new K8S Platform within a tenant.
-    Note: insecure-skip-tls-verify is automatically enabled if certificate_authority is not provided.
+    Note: insecure_skip_tls_verify is automatically enabled if certificate_authority is not provided.
     """
     return ctx['api_client'].platform_k8s_create(
         tenant_name=tenant_name,
