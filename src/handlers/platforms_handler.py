@@ -83,12 +83,14 @@ class PlatformsHandler(AbstractHandler):
                 prefix='m3.sre.k8s',
                 date=True
             )
+            # insecure_skip_tls_verify auto-enabled if no CA provided
             secret = cl.put_parameter(
                 name=secret_name,
                 value=K8STokenKubeconfig(
                     endpoint=str(event.endpoint),
                     ca=event.certificate_authority,
-                    token=event.token
+                    token=event.token,
+                    insecure_skip_tls_verify=event.insecure_skip_tls_verify
                 ).build_config()
             )
             application.secret = secret
