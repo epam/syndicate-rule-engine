@@ -5,15 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.17.0] - 2026-02-25
+## [5.17.0] - 2026-03-02
 
 ### Added
+- Added support for insecure-skip-tls-verify during Kubernetes platform management
+- Added number of findings from the previous reporting period (`previous_period_findings`) for rules that are now deprecated in the OPERATIONAL_DEPRECATION report
 - Added Event-Driven (ED) jobs support for AMI installation
 - Added `STANDARD`, `SCHEDULED` to the `JobType` enum
 - Added recipient validation emails for reports based on the associated Tenant or Customer
 - Added description, deprecation date, and reason to the deprecated rules in the operational reports
 - Added `category` field to `OPERATIONAL RULES` report to distinguish rules with identical fingerprints
 - Added fingerprint to the `Rule` model and `SRERules` collection for rule deduplication, optimizing API requests to cloud providers
+- Added the ability to send attacks report to MCC after event-driven job completion
 - Added the ability to provide receivers to the endpoint `/report/department/`
 - Added support for AWS events from Maestro vendor for event-driven
 
@@ -23,11 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed issue when operational overview report returns `list` instead of `dict` as fallback value for `rules_data` field
 - Fixed JSON decoding errors when License Manager returns text responses instead of JSON
 - Fixed an issue related to pushing reports to Defect Dojo
+- Fixed issue with `Attribute "PublicIp" does not exist` during deployment in `private` subnet
 
 ### Changed
 - Changed the `JobType` enum to include `STANDARD`, `SCHEDULED` and `MANUAL`
 - Updated recommendations processing logic to use all available rules for generating
 - Changed modular-sdk version from `7.1.6` to `7.1.9`
+- Changed the `sre tenant credentials link` command, does not unlink parents, if they linked.
+- Changed the `sre integrations re add` command, does not update the Custodian Management Application and return `409 Conflict` if it exists.
 
 ### Removed
 - Removed `SREBatchResults` model and related endpoints and services

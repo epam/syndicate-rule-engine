@@ -732,6 +732,11 @@ class Env(EnvEnum):
         (),
         '0 0 * * *',  # every day at 00:00 UTC
     )
+    CELERY_PROCESS_INTERVAL_REPORTS_SCHEDULE = (
+        'SRE_CELERY_PROCESS_INTERVAL_REPORTS_SCHEDULE',
+        (),
+        '*/5 * * * *',  # every 5 minutes
+    )
 
     SCAN_RESOURCES_PROCESSORS = (
         'SRE_SCAN_RESOURCES_PROCESSORS',
@@ -1184,6 +1189,7 @@ class SettingKey(str, Enum):
     MAX_ATTEMPT = 'MAX_ATTEMPT'
     MAX_CRON_NUMBER = 'MAX_CRON_NUMBER'
     MAX_RABBITMQ_REQUEST_SIZE = 'MAX_RABBITMQ_REQUEST_SIZE'
+    REPORT_DELIVERY_CURSORS = 'REPORT_DELIVERY_CURSORS'
 
 
 class PlatformType(str, Enum):

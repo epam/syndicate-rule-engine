@@ -853,6 +853,38 @@ def iter_rule_resources(
         yield rule, chain(*iters)
 
 
+def rule_resources_dict(
+    collection: 'ShardsCollection',
+    cloud: Cloud,
+    metadata: Metadata = EMPTY_METADATA,
+    account_id: str = '',
+) -> dict[str, set[CloudResource]]:
+    # NOTE: Generally we should not expect duplicated resources within one
+    #  rule. Something is definitely wrong if one rule returns multiple
+    #  equal resources within one region. If one rule returns multiple
+    #  equal resources within different regions that rule must be global.
+    #  But, we perform some custom processing of resources which involves
+    #  changing their regions. For example, the same multi-regional
+    #  CloudTrail can be returns multiple times by executing the same rule
+    #  against different regions. So, if we encounter a multi-regional
+    #  trail during processing we manually change ist region to 'global'.
+    #  So, there is a real point here to de-duplicate resources
+    #  WITHIN ONE rule here.
+    it = iter_rule_resources(
+        collection=collection,
+        cloud=cloud,
+        metadata=metadata,
+        account_id=account_id,
+    )
+    dct = {}
+    for k, v in it:
+        resources = set(v)
+        if not resources:
+            continue
+        dct[k] = resources
+    return dct
+
+
 def iter_rule_resource_region_resources(
     collection: 'ShardsCollection',
     cloud: Cloud,

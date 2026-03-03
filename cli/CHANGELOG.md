@@ -4,9 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.12.0] - 2026-02-27
+## [5.12.0] - 2026-03-02
 
 ### Added
+- Added support for insecure-skip-tls-verify in the `sre platform k8s create` command
 - Added bypassing of integration checks in developer mode
 - Added status hints to `sre rule update` command showing how to check status via `sre rulesource describe -rsid {rulesource_id} -cid "{customer_id}"`
 - Added the flag `-r`, `--receiver` to the `sre report department` command
@@ -18,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replaced single `sre job event maestro` command with cloud-specific subcommands: `sre job event maestro aws`, `sre job event maestro azure`, `sre job event maestro google`
 - Improved error message clarity in `sre tenant describe` command when both `--tenant_name` and `--account_number` are provided
 - Standardize and improve the `re` help text
+- renamed alias `-cl` to `-c` for the `--cloud` in commands:
+  - `syndicate re integrations chronicle activate`
+  - `syndicate re integrations dojo activate`
+  - `syndicate re integrations re add`
+  - `syndicate re license activate`
+  - `syndicate re tenant credentials describe`
 
 ### Removed
 - Removed `sre result describe` command

@@ -1463,6 +1463,7 @@ def get_platform_credentials(job: Job, platform: Platform) -> dict | None:
         endpoint=cluster['endpoint'],
         ca=cluster['certificateAuthority']['data'],
         token=TokenGenerator(sts).get_token(platform.name),
+        insecure_skip_tls_verify=False
     )
     return {ENV_KUBECONFIG: str(token_config.to_temp_file())}
 
@@ -2034,7 +2035,16 @@ def run_standard_job(ctx: JobExecutionContext):
     )
     if not successful:
         raise ExecutorException(ExecutorError.NO_SUCCESSFUL_POLICIES)
-    _LOG.info(f"Job '{job.id}' has ended")
+    if job.is_ed_job:
+        try:
+            SP.report_delivery_service.notify_job_completed(
+                job=job, tenant=ctx.tenant
+            )
+        except Exception:
+            _LOG.exception(
+                f'Report delivery notification failed for job {job.id}'
+            )
+    _LOG.info(f"Job {job.id!r} has ended (type={job.job_type!r})")
 
 
 # celery tasks
