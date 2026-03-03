@@ -69,7 +69,7 @@ from services.resource_exception_service import ResourceExceptionsService
 from services.resources import (
     CloudResource,
     MaestroReportResourceView,
-    iter_rule_resources,
+    rule_resources_dict,
 )
 from services.resources_service import ResourcesService
 from services.ruleset_service import RulesetName, RulesetService
@@ -629,38 +629,6 @@ class MetricsCollector(BaseProcessor):
                 when=part.timestamp,
             )
 
-    @staticmethod
-    def _get_rule_resources(
-        collection: 'ShardsCollection',
-        cloud: Cloud,
-        metadata: Metadata,
-        account_id: str = '',
-    ) -> dict[str, set[CloudResource]]:
-        # NOTE: Generally we should not expect duplicated resources within one
-        #  rule. Something is definitely wrong if one rule returns multiple
-        #  equal resources within one region. If one rule returns multiple
-        #  equal resources within different regions that rule must be global.
-        #  But, we perform some custom processing of resources which involves
-        #  changing their regions. For example, the same multi-regional
-        #  CloudTrail can be returns multiple times by executing the same rule
-        #  against different regions. So, if we encounter a multi-regional
-        #  trail during processing we manually change ist region to 'global'.
-        #  So, there is a real point here to de-duplicate resources
-        #  WITHIN ONE rule here.
-        it = iter_rule_resources(
-            collection=collection,
-            cloud=cloud,
-            metadata=metadata,
-            account_id=account_id,
-        )
-        dct = {}
-        for k, v in it:
-            resources = set(v)
-            if not resources:
-                continue
-            dct[k] = resources
-        return dct
-
     def _save_all(self, ctx: MetricsContext, msg: str):
         _LOG.info(msg)
         while ctx.has_reports():
@@ -772,7 +740,7 @@ class MetricsCollector(BaseProcessor):
             collection, cloud, ctx.metadata, tenant.project
         )
 
-        rule_resources = self._get_rule_resources(
+        rule_resources = rule_resources_dict(
             collection, cloud, ctx.metadata, tenant.project
         )
 
@@ -821,7 +789,7 @@ class MetricsCollector(BaseProcessor):
                     _, collection_prev = exceptions.filter_exception_resources(
                         previous_collection, cloud, ctx.metadata, tenant.project
                     )
-                    rule_resources_prev = self._get_rule_resources(
+                    rule_resources_prev = rule_resources_dict(
                         collection_prev, cloud, ctx.metadata, tenant.project
                     )
                     start_d = (
@@ -1506,7 +1474,7 @@ class MetricsCollector(BaseProcessor):
                     platform=platform_id
                 ).last_succeeded_scan_date
 
-            rule_resources = self._get_rule_resources(
+            rule_resources = rule_resources_dict(
                 collection=col, cloud=Cloud.KUBERNETES, metadata=ctx.metadata
             )
 

@@ -337,6 +337,9 @@ Resources:
             DoNotActivateTenantEnv: !If [WhetherToActivateTenant, "", "y"]
 Outputs:
   InstanceId:
+    Description: "ID of the EC2 instance"
     Value: !GetAtt SyndicateRuleEngineInstance.InstanceId
-  PublicIp:
-    Value: !GetAtt SyndicateRuleEngineInstance.PublicIp
+  PrivateIp:
+    Description: "Private IP address of the instance"
+    Value: !GetAtt SyndicateRuleEngineInstance.PrivateIp
+ 

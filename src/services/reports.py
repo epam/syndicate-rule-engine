@@ -69,6 +69,22 @@ if TYPE_CHECKING:
 _LOG = get_logger(__name__)
 
 
+def strip_attacks_violations_for_maestro(data: list[dict]) -> None:
+    """
+    Strip Maestro-unwanted fields from attacks report violations. Mutates in place.
+    Shared by high_level_reports_handler and report_delivery_service.
+    """
+    _MAESTRO_ATTACKS_VIOLATION_STRIP_KEYS = frozenset({
+        'description', 'remediation', 'remediation_complexity', 'severity',
+    })
+
+    for item in data:
+        for attack in item.get('attacks', ()):
+            for v in attack.get('violations', ()):
+                for key in _MAESTRO_ATTACKS_VIOLATION_STRIP_KEYS:
+                    v.pop(key, None)
+
+
 class JobMetricsDataSource:
     """
     Allows to retrieve data from jobs within one customer. Object is immutable
