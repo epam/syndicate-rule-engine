@@ -14,7 +14,7 @@ def credentials():
 
 
 @credentials.command(cls=ViewCommand, name='describe')
-@click.option('--cloud', '-cl', type=click.Choice((AWS, AZURE, GOOGLE)),
+@click.option('--cloud', '-c', type=click.Choice((AWS, AZURE, GOOGLE)),
               help='Cloud to describe credentials by')
 @click.option('--application_id', '-aid', type=str,
               help='Application id to describe a concrete credentials item')

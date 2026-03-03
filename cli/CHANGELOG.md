@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.13.0] - 2026-02-05
+## [5.13.0] - 2026-03-02
 
 ### Added
 - Added bypassing of integration checks in developer mode
@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Improved error message clarity in `sre tenant describe` command when both `--tenant_name` and `--account_number` are provided
 - Standardize and improve the `re` help text
+- renamed alias `-cl` to `-c` for the `--cloud` in commands:
+  - `syndicate re integrations chronicle activate`
+  - `syndicate re integrations dojo activate`
+  - `syndicate re integrations re add`
+  - `syndicate re license activate`
+  - `syndicate re tenant credentials describe`
 
 ### Removed
 - Removed `sre result describe` command
