@@ -674,8 +674,6 @@ class ReportDeliveryService:
                     else:
                         cursor_dt = last_dt
 
-                    cursor_dt = cursor_dt - timedelta(days=5)
-
                     fetch_start = cursor_dt - timedelta(
                         minutes=JOB_COMPLETION_BUFFER_MINUTES
                     )
