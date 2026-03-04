@@ -886,8 +886,8 @@ def create_requests_session(
 ) -> requests.Session:
     """
     Create a requests session with retry capabilities.
-    Retry on connection drops (e.g. NAT idle timeout) and server errors.
-    ProtocolError (RemoteDisconnected) is retried as read error by urllib3.
+    Retries on connection drops (e.g. NAT idle timeout), read errors
+    (e.g. RemoteDisconnected / ProtocolError), and server errors.
 
     :param max_retries: Maximum number of retries
     :param backoff_factor: Backoff factor
@@ -897,6 +897,8 @@ def create_requests_session(
     status_forcelist = status_forcelist or [500, 502, 503, 504]
     retry = Retry(
         total=max_retries,
+        connect=max_retries,
+        read=max_retries,
         backoff_factor=backoff_factor,
         status_forcelist=status_forcelist,
     )
