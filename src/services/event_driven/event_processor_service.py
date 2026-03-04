@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import json
-from abc import ABC
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 from functools import cached_property
 from typing import (
@@ -82,6 +83,75 @@ CloudTenantRegionRulesMap = Dict[str, Dict[str, Dict[str, Set[str]]]]
 # --MAESTRO--
 
 
+@dataclass(frozen=True)
+class FieldMatch:
+    """
+    A class to match a field in a record against a set of values.
+    """
+
+    path: tuple[str, ...]
+    values: frozenset[str]
+
+    def __init__(self, path: tuple[str, ...], values: set[str]):
+        object.__setattr__(self, "path", path)
+        object.__setattr__(self, "values", frozenset(values))
+
+
+@dataclass
+class EventFilter:
+    """
+    This class is used to filter events based on the fields in the record.
+    Reject if any of the fields in the record match the values in the FieldMatch.
+    Require all of the fields in the record to match the values in the FieldMatch.
+    Project the record to the fields in the projection.
+
+    Example:
+    >>> ef = EventFilter(
+    ...     reject_if_any=[FieldMatch(("account",), {"1234567890"})],
+    ...     require_all=[FieldMatch(("event",), {"create"})],
+    ...     projection=[("event",), ("account",), ("metadata", "region",)],
+    ... )
+    >>> record = {"account": "1777", "event": "create", "name": "test", "metadata": {"region": "us-east-1", "name": "test"}}
+    >>> ef.apply(record)
+    {"event": "create", "account": "1777", "metadata": {"region": "us-east-1"}}
+    >>> record2 = {"account": "1234567890", "event": "delete", "metadata": {"region": "us-east-1"}}
+    >>> ef.apply(record2)
+    None
+    """
+
+    reject_if_any: list[FieldMatch] = field(default_factory=list)
+    """If any of the fields in the record match the values in the FieldMatch, reject the record."""
+    require_all: list[FieldMatch] = field(default_factory=list)
+    """Require all of the fields in the record to match the values in the FieldMatch."""
+    projection: list[tuple[str, ...]] = field(default_factory=list)
+    """Project the record to the fields in the projection."""
+
+    def should_reject(self, record: dict) -> bool:
+        return any(deep_get(record, f.path) in f.values for f in self.reject_if_any)
+
+    def should_keep(self, record: dict) -> bool:
+        return all(deep_get(record, f.path) in f.values for f in self.require_all)
+
+    def project(self, record: dict) -> dict:
+        if not self.projection:
+            return record
+        result: dict = {}
+        for path in self.projection:
+            item = deep_get(record, path)
+            if item:
+                deep_set(result, path, item)
+        return result
+
+    def apply(self, record: dict) -> dict | None:
+        if self.should_reject(record):
+            _LOG.warning(f"Filtering out the record by reject condition: {record}")
+            return None
+        if not self.should_keep(record):
+            _LOG.warning(f"Filtering out the record by keep condition: {record}")
+            return None
+        return self.project(record)
+
+
 class EventProcessorService:
 
     def __init__(
@@ -103,7 +173,6 @@ class EventProcessorService:
         }
 
     def get_processor(self, vendor: str) -> BaseEventProcessor:
-        # vendor already validated
         processor_type = self.EVENT_TYPE_PROCESSOR_MAPPING[vendor]
         processor = processor_type(
             self.environment_service,
@@ -119,10 +188,6 @@ class BaseEventProcessor(ABC):
     """
     Base class for all event processors.
     """
-
-    skip_where: Dict[Tuple[str, ...], Set] = {}
-    keep_where: Dict[Tuple[str, ...], Set] = {}
-    params_to_keep: Tuple[Tuple[str, ...], ...] = ()
 
     def __init__(
         self,
@@ -140,15 +205,15 @@ class BaseEventProcessor(ABC):
 
         self._events: List[Dict] = []
 
-    def ct_mapping(self, license_key: str, version: Version) -> dict:
+    def cloud_mapping(self, cloud: Cloud, license_key: str, version: Version) -> dict:
         data = self._event_mapping_provider.get_from_s3(
             version=version,
             license_key=license_key,
-            cloud=Cloud.AWS,
+            cloud=cloud,
         )
         if data is None:
             _LOG.warning(
-                f"No event mapping found for AWS in S3 "
+                f"No event mapping found for {cloud.value} in S3 "
                 f"for license key: {license_key} and version: {version.to_str()} "
                 f"May be metadata is not synced for this license key and version"
             )
@@ -157,10 +222,6 @@ class BaseEventProcessor(ABC):
 
     @cached_property
     def eb_mapping(self) -> dict:
-        """
-        This mapping exists but it is not used
-        :return:
-        """
         from helpers.mappings.event_bridge_event_source_to_rules_mapping import MAPPING
 
         return MAPPING
@@ -185,37 +246,9 @@ class BaseEventProcessor(ABC):
     def i_events(self) -> Iterator[Dict]:
         return iter(self._events)
 
-    @staticmethod
-    def skip_record(record: dict, where: Dict[Tuple[str, ...], Set]) -> bool:
-        for keys, values in where.items():
-            if deep_get(record, keys) in values:
-                return True
-        return False
-
-    @staticmethod
-    def keep_record(record: dict, where: Dict[Tuple[str, ...], Set]) -> bool:
-        if not where or not isinstance(where, dict):
-            return True
-        for keys, values in where.items():
-            if deep_get(record, keys) not in values:
-                return False
-        return True
-
-    @staticmethod
-    def sieved_record(
-        record: dict,
-        to_keep: Optional[Tuple[Tuple[str, ...], ...]],
-        allow_empty: bool = False,
-    ) -> dict:
-        to_keep = to_keep or tuple()
-        if not to_keep and not allow_empty:
-            return record
-        result = {}
-        for path in to_keep:
-            item = deep_get(record, path)
-            if item:
-                deep_set(result, path, item)
-        return result
+    @abstractmethod
+    def get_filter(self, record: dict) -> EventFilter | None:
+        """Return the EventFilter for a given record, or None to skip it."""
 
     @staticmethod
     def digest(dct: dict):
@@ -240,12 +273,13 @@ class BaseEventProcessor(ABC):
     def prepared_events(self) -> Generator[dict, None, int]:
         n = 0
         for record in self.i_events:
-            if self.skip_record(record, self.skip_where) or not self.keep_record(
-                record, self.keep_where
-            ):
-                _LOG.warning(f"Filtering out the record: {record}")
+            ef = self.get_filter(record)
+            if ef is None:
                 continue
-            yield self.sieved_record(record, self.params_to_keep)
+            result = ef.apply(record)
+            if result is None:
+                continue
+            yield result
             n += 1
         return n
 
@@ -303,18 +337,7 @@ class CloudTrail:
 
 
 class MaestroEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
-    skip_where = {}
-    keep_where = {
-        (MA_EVENT_METADATA, MA_REQUEST, MA_CLOUD): {
-            Cloud.AZURE.value,
-            Cloud.GOOGLE.value,
-            Cloud.AWS.value,
-        },
-        # (MA_EVENT_METADATA, MA_CLOUD,): {AZURE_CLOUD_ATTR, },
-        (MA_GROUP,): {"MANAGEMENT"},
-        (MA_SUB_GROUP,): {"INSTANCE"},
-    }
-    params_to_keep = (
+    _MAESTRO_PROJECTION: list[tuple[str, ...]] = [
         (MA_EVENT_ACTION,),
         (MA_GROUP,),
         (MA_SUB_GROUP,),
@@ -323,7 +346,28 @@ class MaestroEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
         (MA_EVENT_METADATA, MA_EVENT_SOURCE),
         (MA_EVENT_METADATA, MA_EVENT_NAME),
         (MA_TENANT_NAME,),
-    )
+    ]
+
+    _MANAGEMENT_INSTANCE_FILTER = [
+        FieldMatch((MA_GROUP,), {"MANAGEMENT"}),
+        FieldMatch((MA_SUB_GROUP,), {"INSTANCE"}),
+    ]
+
+    _FILTERS: dict[str, EventFilter] = {
+        Cloud.AWS.value: EventFilter(
+            projection=_MAESTRO_PROJECTION,
+        ),
+        Cloud.GOOGLE.value: EventFilter(
+            require_all=_MANAGEMENT_INSTANCE_FILTER,
+            projection=_MAESTRO_PROJECTION,
+        ),
+        Cloud.AZURE.value: EventFilter(
+            require_all=_MANAGEMENT_INSTANCE_FILTER,
+            projection=_MAESTRO_PROJECTION,
+        ),
+    }
+
+    _GLOBAL_REGION_CLOUDS = frozenset({Cloud.AZURE.value, Cloud.GOOGLE.value})
 
     def __init__(
         self,
@@ -341,51 +385,30 @@ class MaestroEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
             license_service,
         )
 
-    def azure_mapping(self, version: Version, license_key: str) -> dict:
-        data = self._event_mapping_provider.get_from_s3(
-            version=version,
-            license_key=license_key,
-            cloud=Cloud.AZURE,
-        )
-        if data is None:
+    def get_filter(self, record: dict) -> EventFilter | None:
+        cloud = record.get(MA_EVENT_METADATA, {}).get(MA_REQUEST, {}).get(MA_CLOUD)
+        ef = self._FILTERS.get(cloud)
+        if ef is None:
             _LOG.warning(
-                f"No event mapping found for Azure in S3 "
-                f"for license key: {license_key} and version: {version.to_str()} "
-                f"May be metadata is not synced for this license key and version"
+                f"Skipping record: {record} because cloud is not supported: {cloud}"
             )
-            return {}
-        return data
+        return ef
 
-    @property
-    def maestro_azure_mapping(self) -> dict:
-        from helpers.mappings.maestro_subgroup_action_to_azure_events_mapping import (
-            MAPPING,
-        )
-
-        return MAPPING
-
-    def google_mapping(self, version: Version, license_key: str) -> dict:
-        data = self._event_mapping_provider.get_from_s3(
-            version=version,
-            license_key=license_key,
-            cloud=Cloud.GOOGLE,
-        )
-        if data is None:
-            _LOG.warning(
-                f"No event mapping found for Google in S3 "
-                f"for license key: {license_key} and version: {version.to_str()} "
-                f"May be metadata is not synced for this license key and version"
+    @staticmethod
+    def _maestro_mapping(cloud: str) -> dict:
+        if cloud == Cloud.AZURE.value:
+            from helpers.mappings.maestro_subgroup_action_to_azure_events_mapping import (
+                MAPPING,
             )
-            return {}
-        return data
 
-    @property
-    def maestro_google_mapping(self) -> dict:
-        from helpers.mappings.maestro_subgroup_action_to_google_events_mapping import (
-            MAPPING,
-        )
+            return MAPPING
+        if cloud == Cloud.GOOGLE.value:
+            from helpers.mappings.maestro_subgroup_action_to_google_events_mapping import (
+                MAPPING,
+            )
 
-        return MAPPING
+            return MAPPING
+        return {}
 
     def cloud_tenant_region_rules(
         self,
@@ -398,14 +421,8 @@ class MaestroEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
         """
         for event in it:
             cloud = deep_get(event, (MA_EVENT_METADATA, MA_REQUEST, MA_CLOUD))
-            # cloud = deep_get(event, (MA_EVENT_METADATA, MA_CLOUD))
             tenant_name = deep_get(event, (MA_TENANT_NAME,))
-            # TODO currently only AZURE events are expected. In case we want
-            #  to process AWS maestro audit events we should remap the
-            #  maestro region to native name. For AZURE we can just ignore it
-            if cloud == Cloud.AZURE.value:
-                region = GLOBAL_REGION
-            elif cloud == Cloud.GOOGLE.value:
+            if cloud in self._GLOBAL_REGION_CLOUDS:
                 region = GLOBAL_REGION
             else:
                 region = deep_get(event, (MA_REGION_NAME,))
@@ -428,7 +445,7 @@ class MaestroEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
                 license_key=event_driven_license.license_key,
                 cloud=cloud.upper(),
                 version=DEFAULT_VERSION,
-            ) 
+            )
             yield cloud.upper(), tenant_name, region, rules
 
     def cloud_tenant_region_rules_map(
@@ -447,78 +464,42 @@ class MaestroEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
         event: dict,
         license_key: str,
         cloud: str,
-        version: Version = DEFAULT_VERSION
+        version: Version = DEFAULT_VERSION,
     ) -> Set[str]:
-        cloud_method = {
-            Cloud.AZURE.value: self.get_rules_azure,
-            Cloud.GOOGLE.value: self.get_rules_google,
-            Cloud.AWS.value: self.get_rules_aws,
-        }
-        _get_rules = cloud_method.get(cloud) or (lambda e, l, v: set())
-        return _get_rules(event, license_key, version)
-    
-    def get_rules_aws(
+        if cloud == Cloud.AWS.value:
+            return self._get_rules_aws(event, license_key, version)
+        return self._get_rules_via_maestro_mapping(event, cloud, license_key, version)
+
+    def _get_rules_aws(
         self,
         event: dict,
         license_key: str,
-        version: Version = DEFAULT_VERSION
+        version: Version = DEFAULT_VERSION,
     ) -> Set[str]:
-        # metadata is like a CloudTrail record with eventSource and eventName
         record = cast(dict[str, Any], event.get(MA_EVENT_METADATA, {}))
-        ct_mapping = self.ct_mapping(
-            license_key=license_key,
-            version=version,
-        )
+        ct_mapping = self.cloud_mapping(Cloud.AWS, license_key, version)
         return CloudTrail.get_rules(record, ct_mapping)
 
-    def get_rules_azure(
+    def _get_rules_via_maestro_mapping(
         self,
         event: dict,
+        cloud: str,
         license_key: str,
-        version: Version = DEFAULT_VERSION
-    ) -> Set[str]:
-        """
-        Expected that event's cloud is AZURE. That means that AZURE's
-        mappings will be used to retrieve rules
-        """
-        _maestro_map = self.maestro_azure_mapping
-        _azure_map = self.azure_mapping(version, license_key)
+        version: Version = DEFAULT_VERSION,
+    ) -> set[str]:
+        maestro_map = self._maestro_mapping(cloud)
+        cloud_enum = Cloud(cloud)
+        cloud_map = self.cloud_mapping(cloud_enum, license_key, version)
         sub_group = event.get(MA_SUB_GROUP)
         action = event.get(MA_EVENT_ACTION)
-        azure_events: List[List[str]] = _maestro_map.get(sub_group, {}).get(action, [])
-        rules = set()
-        for e_source, e_name in azure_events:
-            rules.update(_azure_map.get(e_source, {}).get(e_name, []))
-        return rules
-
-    def get_rules_google(
-        self,
-        event: dict,
-        license_key: str,
-        version: Version = DEFAULT_VERSION
-    ) -> Set[str]:
-        _maestro_map = self.maestro_google_mapping
-        _google_map = self.google_mapping(version, license_key)
-        sub_group = event.get(MA_SUB_GROUP)
-        action = event.get(MA_EVENT_ACTION)
-        google_events: List[List[str]] = _maestro_map.get(sub_group, {}).get(action, [])
-        rules = set()
-        for e_source, e_name in google_events:
-            rules.update(_google_map.get(e_source, {}).get(e_name, []))
+        cloud_events: list[list[str]] = maestro_map.get(sub_group, {}).get(action, [])
+        rules: set[str] = set()
+        for e_source, e_name in cloud_events:
+            rules.update(cloud_map.get(e_source, {}).get(e_name, []))
         return rules
 
 
 class EventBridgeEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
-    params_to_keep = (
-        (EB_DETAIL_TYPE,),
-        # (EB_EVENT_SOURCE,),
-        # (EB_ACCOUNT_ID,),
-        # (EB_REGION,),
-        (EB_DETAIL, CT_EVENT_NAME),
-        (EB_DETAIL, CT_EVENT_SOURCE),
-        (EB_DETAIL, CT_USER_IDENTITY, CT_ACCOUNT_ID),
-        (EB_DETAIL, CT_REGION),
-    )
 
     def __init__(
         self,
@@ -529,31 +510,43 @@ class EventBridgeEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
         tenant_service: TenantService,
     ) -> None:
         super().__init__(
-            environment_service, 
-            sts_client, 
+            environment_service,
+            sts_client,
             event_mapping_provider,
             tenant_service,
             license_service,
         )
-        # self.keep_where = {
-        #     (EB_EVENT_SOURCE, ): set(self.eb_mapping.keys())
-        # }
-        # Note: ct_mapping requires license_key and version, so we can't use it here
-        # The filtering will happen later in get_rules method
-        self.keep_where = {
-            (EB_DETAIL_TYPE,): {EB_CLOUDTRAIL_API_CALL_DETAIL_TYPE},
-        }
 
+        reject: list[FieldMatch] = []
         account_id = self.sts_client.get_account_id()
         if account_id != Env.DEV_ACCOUNT_ID.get():
-            self.skip_where = {
-                (EB_ACCOUNT_ID,): {
-                    account_id,
-                },
-                (EB_DETAIL, CT_USER_IDENTITY, CT_ACCOUNT_ID): {
-                    account_id,
-                },
-            }
+            reject = [
+                FieldMatch((EB_ACCOUNT_ID,), {account_id}),
+                FieldMatch(
+                    (EB_DETAIL, CT_USER_IDENTITY, CT_ACCOUNT_ID),
+                    {account_id},
+                ),
+            ]
+
+        self._filter = EventFilter(
+            reject_if_any=reject,
+            require_all=[
+                FieldMatch(
+                    (EB_DETAIL_TYPE,),
+                    {EB_CLOUDTRAIL_API_CALL_DETAIL_TYPE},
+                ),
+            ],
+            projection=[
+                (EB_DETAIL_TYPE,),
+                (EB_DETAIL, CT_EVENT_NAME),
+                (EB_DETAIL, CT_EVENT_SOURCE),
+                (EB_DETAIL, CT_USER_IDENTITY, CT_ACCOUNT_ID),
+                (EB_DETAIL, CT_REGION),
+            ],
+        )
+
+    def get_filter(self, record: dict) -> EventFilter | None:
+        return self._filter
 
     def account_region_rule_map(self, it: Iterable[Dict]) -> AccountRegionRuleMap:
         ref = {}
@@ -587,7 +580,7 @@ class EventBridgeEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
             )
             if not rules:
                 continue
-            
+
             _account_scope = ref.setdefault(account_id, {})
             _account_scope.setdefault(region, set()).update(rules)
         return ref
@@ -616,7 +609,8 @@ class EventBridgeEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
         EventName & EventSource in its "details" attribute, and we
         definitely shall use them to get the rules.
         """
-        ct_mapping = self.ct_mapping(
+        ct_mapping = self.cloud_mapping(
+            Cloud.AWS,
             license_key=license_key,
             version=version,
         )
