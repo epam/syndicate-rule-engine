@@ -904,4 +904,4 @@ def create_requests_session(
     session = requests.Session()
     session.mount('https://', adapter)
     session.mount('http://', adapter)
-    return session.request
+    return session
