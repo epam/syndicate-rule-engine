@@ -173,3 +173,73 @@ def get_activation(ctx: ContextObj, integration_id: str, customer_id):
         id=integration_id,
         customer_id=customer_id
     )
+
+@dojo.command(cls=ViewCommand, name='update')
+@click.option('--integration_id', '-id', type=str, required=True,
+              help='Id of dojo integration')
+@build_tenant_option(multiple=True)
+@click.option('--all_tenants', is_flag=True,
+              help='Whether to update integration for all tenants')
+@click.option('--clouds', '-c',
+              type=click.Choice((AWS, AZURE, GOOGLE, KUBERNETES)),
+              multiple=True,
+              help='Tenant clouds to update this dojo for. '
+                   'Can be specific together with --all_tenants flag')
+@click.option('--exclude_tenant', '-et', type=str, multiple=True,
+              help='Tenants to exclude for this integration. '
+                   'Can be specified together with --all_tenants flag')
+@click.option('--scan_type', '-st', default='Generic Findings Import',
+              show_default=True,
+              type=click.Choice(
+                  ('Generic Findings Import', 'Cloud Custodian Scan')),
+              help='Defect Dojo scan type. Generic Findings Import can be '
+                   'used with open source DefectDojo whereas Cloud '
+                   'Custodian Scan - with EPAM`s fork')
+@click.option('--send_after_job', '-saj', is_flag=True,
+              help='Specify this flag to send results to dojo after each job '
+                   'automatically')
+@click.option('--product_type', type=str, default='Rule Engine',
+              help='Product type to update in Dojo, '
+                   '"Rule Engine" is used by default. "tenant_name", '
+                   '"customer_name" and "job_id" can be used as generic '
+                   'placeholders inside curly brackets')
+@click.option('--product', type=str, default='{tenant_name}',
+              help='Product name to create in Dojo, '
+                   '"{tenant_name}" is used by default')
+@click.option('--engagement', type=str, default='Rule-Engine Main',
+              help='Engagement name to create in Dojo. "Rule-Engine Main" '
+                   'is used by default')
+@click.option('--test', type=str, default='{job_id}',
+              help='Test name to create in Dojo, '
+                   '"{job_id}" is used by default')
+@click.option('--attachment', type=click.Choice(('json', 'xlsx', 'csv')),
+              required=False,
+              help='What type of file with resources to attach to each '
+                   'finding. If not provided, no files will be attached, '
+                   'resources will be displayed in description')
+@cli_response()
+def update(ctx: ContextObj, integration_id: str,
+             tenant_name: tuple[str, ...],
+             all_tenants: bool, clouds: tuple[str],
+             exclude_tenant: tuple[str, ...], scan_type: str,
+             send_after_job: bool, product_type: str | None,
+             product: str | None, engagement: str | None, test: str | None,
+             attachment: str | None, customer_id):
+    if tenant_name and any((all_tenants, clouds, exclude_tenant)):
+        raise click.ClickException(
+            'Do not provide --all_tenants, --clouds or --exclude_'
+            'tenants if --tenant_name given'
+        )
+    if not all_tenants and not tenant_name:
+        raise click.ClickException(
+            'Either --all_tenants or --tenant_name must be given'
+        )
+    if (clouds or exclude_tenant) and not all_tenants:
+        raise click.ClickException(
+            'set --all_tenants if you provide --clouds or --exclude_tenants'
+        )
+    return ctx['api_client'].dojo_update(
+        id=integration_id,
+        customer_id=customer_id
+    )
+

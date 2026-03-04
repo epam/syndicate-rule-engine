@@ -1104,6 +1104,14 @@ class SREApiClient:
             query=sifted(kwargs)
         )
 
+    def dojo_update(self, id: str, **kwargs):
+        return self.make_request(
+            path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION,
+            method=HTTPMethod.PATCH,
+            path_params={'id': id},
+            data=sifted(kwargs)
+        )
+
     def sre_add(self, **kwargs):
         return self.make_request(
             path=Endpoint.INTEGRATIONS_SELF,
