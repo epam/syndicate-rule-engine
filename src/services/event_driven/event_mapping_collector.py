@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, TypeVar, cast
 
+from helpers import Version, urljoin
 from helpers.constants import Cloud
 from helpers.log_helper import get_logger
-from helpers import Version, urljoin
 from services.clients.s3 import S3Client
 from services.environment_service import EnvironmentService
 
 
 if TYPE_CHECKING:
-    from services.metadata import RuleMetadata, Metadata
+    from services.metadata import Metadata, RuleMetadata
 
 
 _LOG = get_logger(__name__)

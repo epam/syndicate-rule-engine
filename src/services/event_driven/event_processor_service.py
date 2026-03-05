@@ -3,26 +3,26 @@ from __future__ import annotations
 import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
 from functools import cached_property
 from typing import (
-    Optional,
+    TYPE_CHECKING,
+    Any,
     Dict,
+    Generator,
+    Iterable,
     Iterator,
     List,
-    Generator,
-    Tuple,
+    Optional,
     Set,
-    Iterable,
-    Any,
+    Tuple,
     cast,
 )
 
 from helpers import deep_get, deep_set
 from helpers.constants import (
     AWS_VENDOR,
-    MAESTRO_VENDOR,
     GLOBAL_REGION,
+    MAESTRO_VENDOR,
     Cloud,
     Env,
 )
@@ -30,48 +30,20 @@ from helpers.log_helper import get_logger
 from helpers.mixins import EventDrivenLicenseMixin
 from services.metadata import DEFAULT_VERSION
 
+from ._constants import *
 
 if TYPE_CHECKING:
+    from modular_sdk.services.tenant_service import TenantService
+
     from helpers import Version
     from services.clients.sts import StsClient
     from services.environment_service import EnvironmentService
-    from services.license_service import LicenseService
     from services.event_driven import S3EventMappingProvider
-    from modular_sdk.services.tenant_service import TenantService
+    from services.license_service import LicenseService
 
 
 _LOG = get_logger(__name__)
 
-# CloudTrail event
-CT_USER_IDENTITY = "userIdentity"
-CT_EVENT_SOURCE = "eventSource"
-CT_EVENT_NAME = "eventName"
-CT_ACCOUNT_ID = "accountId"
-CT_RECORDS = "Records"
-CT_RESOURCES = "resources"
-CT_REGION = "awsRegion"
-CT_EVENT_TIME = "eventTime"
-CT_EVENT_VERSION = "eventVersion"
-
-# EventBridge event
-EB_ACCOUNT_ID = "account"
-EB_EVENT_SOURCE = "source"
-EB_REGION = "region"
-EB_DETAIL_TYPE = "detail-type"
-EB_DETAIL = "detail"
-EB_CLOUDTRAIL_API_CALL_DETAIL_TYPE = "AWS API Call via CloudTrail"
-
-# Maestro event
-MA_EVENT_ACTION = "eventAction"
-MA_GROUP = "group"
-MA_SUB_GROUP = "subGroup"
-MA_EVENT_METADATA = "eventMetadata"
-MA_CLOUD = "cloud"
-MA_EVENT_SOURCE = "eventSource"
-MA_EVENT_NAME = "eventName"
-MA_TENANT_NAME = "tenantName"
-MA_REGION_NAME = "regionName"
-MA_REQUEST = "request"
 
 # --AWS--
 RegionRuleMap = Dict[str, Set[str]]
@@ -222,7 +194,9 @@ class BaseEventProcessor(ABC):
 
     @cached_property
     def eb_mapping(self) -> dict:
-        from helpers.mappings.event_bridge_event_source_to_rules_mapping import MAPPING
+        from helpers.mappings.event_bridge_event_source_to_rules_mapping import (
+            MAPPING,
+        )
 
         return MAPPING
 

@@ -6,6 +6,7 @@ from executor.job import (
 )
 from helpers import RequestContext
 from helpers.constants import ACTION_PARAM, Env
+from helpers.lambda_response import log_lambda_response
 from lambdas.license_updater.handler import LicenseUpdater
 from lambdas.metrics_updater.handler import MetricsUpdater
 from lambdas.metrics_updater.processors.expired_metrics_processor import (
@@ -47,11 +48,13 @@ def assemble_events() -> None:
         ASSEMBLE_EVENTS_ACTION,
         EventHandler,
     )
+
     handler = EventHandler.build()
-    handler.handle_request(
+    resp = handler.handle_request(
         event={ACTION_PARAM: ASSEMBLE_EVENTS_ACTION},
         context=RequestContext(),
     )
+    log_lambda_response(resp, is_debug=True)
 
 
 @app.task
@@ -61,11 +64,13 @@ def clear_events() -> None:
     Runs daily to clean up old events
     """
     from lambdas.event_handler.handler import CLEAR_EVENTS_ACTION, EventHandler
+
     handler = EventHandler.build()
-    handler.handle_request(
+    resp = handler.handle_request(
         event={ACTION_PARAM: CLEAR_EVENTS_ACTION},
         context=RequestContext(),
     )
+    log_lambda_response(resp, is_debug=True)
 
 
 @app.task
@@ -73,7 +78,7 @@ def make_findings_snapshot():
     # After findings are collected, findings trigger recommendations.
     # This feature works only in `MetricsUpdater` lambda.
     MetricsUpdater.build().lambda_handler(
-        event={'data_type': 'findings'},
+        event={"data_type": "findings"},
         context=RequestContext(),
     )
 
@@ -85,12 +90,10 @@ def sync_license(
 ):
     if isinstance(license_keys, str):
         license_keys = [license_keys]
-    event = {'overwrite_rulesets': overwrite_rulesets}
+    event = {"overwrite_rulesets": overwrite_rulesets}
     if license_keys:
-        event['license_keys'] = list(license_keys)
-    LicenseUpdater.build().lambda_handler(
-        event=event, context=RequestContext()
-    )
+        event["license_keys"] = list(license_keys)
+    LicenseUpdater.build().lambda_handler(event=event, context=RequestContext())
 
 
 @app.task
@@ -98,14 +101,14 @@ def sync_rulesource(rule_source_ids: list[str] | str):
     if isinstance(rule_source_ids, str):
         rule_source_ids = [rule_source_ids]
     RuleMetaUpdaterLambdaHandler.build().lambda_handler(
-        event={'rule_source_ids': rule_source_ids}, context=RequestContext()
+        event={"rule_source_ids": rule_source_ids}, context=RequestContext()
     )
 
 
 @app.task
 def collect_metrics():
     MetricsUpdater.build().lambda_handler(
-        event={'data_type': 'metrics'}, context=RequestContext()
+        event={"data_type": "metrics"}, context=RequestContext()
     )
 
 
@@ -122,7 +125,7 @@ def delete_expired_metrics():
 @app.task
 def collect_resources() -> None:
     from executor.job import CustodianResourceCollector
-    
+
     collector = CustodianResourceCollector.build()
     collector.collect_all_resources()
 
@@ -141,9 +144,8 @@ def generate_reactive_report(job_id: str) -> bool:
     (immediate mode).
     """
     from services import SP
-    return SP.report_delivery_service.generate_and_send_report_immediate(
-        job_id
-    )
+
+    return SP.report_delivery_service.generate_and_send_report_immediate(job_id)
 
 
 @app.task
@@ -154,4 +156,5 @@ def process_interval_reports() -> None:
     send if any.
     """
     from services import SP
+
     SP.report_delivery_service.process_interval_reports()

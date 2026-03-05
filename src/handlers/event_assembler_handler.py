@@ -192,6 +192,9 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
         for tenant, job in tenant_jobs:
             _license = self.get_allowed_event_driven_license(tenant)
             if not _license:
+                _LOG.debug(
+                    f"Tenant {tenant.name} does not have event-driven license. Skipping..."
+                )
                 continue
             # by here we have license item which allows event-driven for
             # current tenant. Now we only have to restrict the list or rules

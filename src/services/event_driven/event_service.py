@@ -1,11 +1,12 @@
 import random
 from datetime import timedelta
-from typing import Optional, Iterable
+from typing import Iterable, Optional
 
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime
 from models.event import Event
 from services.environment_service import EnvironmentService
+
 
 _LOG = get_logger(__name__)
 
