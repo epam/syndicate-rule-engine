@@ -314,6 +314,10 @@ class CloudTrail:
         return _id
 
     @staticmethod
+    def is_cloudtrail_api_call(record: dict) -> bool:
+        return record.get(EB_DETAIL_TYPE) == EB_CLOUDTRAIL_API_CALL_DETAIL_TYPE
+
+    @staticmethod
     def _account_id_from_user_identity(record: dict) -> Optional[str]:
         return record.get(CT_USER_IDENTITY, {}).get(CT_ACCOUNT_ID)
 
@@ -331,16 +335,13 @@ class CloudTrail:
             ids.remove(None)
         return ids
 
-    @staticmethod
-    def is_cloudtrail_api_call(record: dict) -> bool:
-        return record.get(EB_DETAIL_TYPE) == EB_CLOUDTRAIL_API_CALL_DETAIL_TYPE
-
 
 class MaestroEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
     _MAESTRO_PROJECTION: list[tuple[str, ...]] = [
         (MA_EVENT_ACTION,),
         (MA_GROUP,),
         (MA_SUB_GROUP,),
+        (MA_REGION_NAME,),
         (MA_EVENT_METADATA, MA_REQUEST, MA_CLOUD),
         (MA_EVENT_METADATA, MA_CLOUD),
         (MA_EVENT_METADATA, MA_EVENT_SOURCE),
@@ -393,22 +394,6 @@ class MaestroEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
                 f"Skipping record: {record} because cloud is not supported: {cloud}"
             )
         return ef
-
-    @staticmethod
-    def _maestro_mapping(cloud: str) -> dict:
-        if cloud == Cloud.AZURE.value:
-            from helpers.mappings.maestro_subgroup_action_to_azure_events_mapping import (
-                MAPPING,
-            )
-
-            return MAPPING
-        if cloud == Cloud.GOOGLE.value:
-            from helpers.mappings.maestro_subgroup_action_to_google_events_mapping import (
-                MAPPING,
-            )
-
-            return MAPPING
-        return {}
 
     def cloud_tenant_region_rules(
         self,
@@ -469,6 +454,22 @@ class MaestroEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
         if cloud == Cloud.AWS.value:
             return self._get_rules_aws(event, license_key, version)
         return self._get_rules_via_maestro_mapping(event, cloud, license_key, version)
+
+    @staticmethod
+    def _maestro_mapping(cloud: str) -> dict:
+        if cloud == Cloud.AZURE.value:
+            from helpers.mappings.maestro_subgroup_action_to_azure_events_mapping import (
+                MAPPING,
+            )
+
+            return MAPPING
+        if cloud == Cloud.GOOGLE.value:
+            from helpers.mappings.maestro_subgroup_action_to_google_events_mapping import (
+                MAPPING,
+            )
+
+            return MAPPING
+        return {}
 
     def _get_rules_aws(
         self,
