@@ -62,11 +62,15 @@ class FieldMatch:
     """
 
     path: tuple[str, ...]
-    values: frozenset[str]
+    values: frozenset[Any]
 
-    def __init__(self, path: tuple[str, ...], values: set[str]):
+    def __init__(self, path: tuple[str, ...], values: set[Any]):
         object.__setattr__(self, "path", path)
         object.__setattr__(self, "values", frozenset(values))
+
+
+RequireAllCriteria = FieldMatch | tuple[str, ...]
+"""Criteria that must be present in the record to keep it."""
 
 
 @dataclass
@@ -93,7 +97,7 @@ class EventFilter:
 
     reject_if_any: list[FieldMatch] = field(default_factory=list)
     """If any of the fields in the record match the values in the FieldMatch, reject the record."""
-    require_all: list[FieldMatch] = field(default_factory=list)
+    require_all: list[RequireAllCriteria] = field(default_factory=list)
     """Require all of the fields in the record to match the values in the FieldMatch."""
     projection: list[tuple[str, ...]] = field(default_factory=list)
     """Project the record to the fields in the projection."""
@@ -102,16 +106,33 @@ class EventFilter:
         return any(deep_get(record, f.path) in f.values for f in self.reject_if_any)
 
     def should_keep(self, record: dict) -> bool:
-        return all(deep_get(record, f.path) in f.values for f in self.require_all)
+        """
+        Should keep record if all require_all criteria are matched.
+        Criteria in require_all may be either FieldMatch (match by value) or tuple[str,...] (just present).
+        """
+        for f in self.require_all:
+            if isinstance(f, FieldMatch):
+                value = deep_get(record, f.path)
+                if value not in f.values:
+                    return False
+            elif isinstance(f, tuple):
+                # Only check that the value is present (not None)
+                if deep_get(record, f) is None:
+                    return False
+            else:
+                raise TypeError(f"Unsupported type in require_all: {type(f)}")
+        return True
 
     def project(self, record: dict) -> dict:
         if not self.projection:
             return record
+        _LOG.debug(f"Projecting record: {record} to paths: {self.projection}")
         result: dict = {}
         for path in self.projection:
             item = deep_get(record, path)
-            if item:
+            if item is not None:
                 deep_set(result, path, item)
+        _LOG.debug(f"Projected record: {result}")
         return result
 
     def apply(self, record: dict) -> dict | None:
@@ -323,13 +344,20 @@ class MaestroEventProcessor(BaseEventProcessor, EventDrivenLicenseMixin):
         (MA_TENANT_NAME,),
     ]
 
-    _MANAGEMENT_INSTANCE_FILTER = [
+    _MANAGEMENT_INSTANCE_FILTER: list[RequireAllCriteria] = [
         FieldMatch((MA_GROUP,), {"MANAGEMENT"}),
         FieldMatch((MA_SUB_GROUP,), {"INSTANCE"}),
     ]
 
     _FILTERS: dict[str, EventFilter] = {
         Cloud.AWS.value: EventFilter(
+            require_all=[
+                (MA_TENANT_NAME,),
+                (MA_REGION_NAME,),
+                (MA_EVENT_METADATA, MA_REQUEST, MA_CLOUD),
+                (MA_EVENT_METADATA, MA_EVENT_SOURCE),
+                (MA_EVENT_METADATA, MA_EVENT_NAME),
+            ],
             projection=_MAESTRO_PROJECTION,
         ),
         Cloud.GOOGLE.value: EventFilter(
