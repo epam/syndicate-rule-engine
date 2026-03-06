@@ -21,7 +21,7 @@ ADDITIONAL_BUILD_PARAMS ?=
 
 SYNDICATE_EXECUTABLE_PATH ?= $(shell which syndicate)
 SYNDICATE_CONFIG_PATH ?= .syndicate-config-main
-SYNDICATE_BUNDLE_NAME := custodian-service
+SYNDICATE_BUNDLE_NAME := syndicate-rule-engine
 
 HELM_REPO_NAME := syndicate
 
@@ -62,7 +62,7 @@ openapi-spec.json: src/validators/registry.py src/validators/swagger_request_mod
 
 
 clean:
-	-rm -rf .pytest_cache .coverage custodian_common_dependencies_layer.zip ./logs htmlcov openapi-spec.json
+	-rm -rf .pytest_cache .coverage sre_common_dependencies_layer.zip ./logs htmlcov openapi-spec.json
 	-if [[ -d "$(SYNDICATE_CONFIG_PATH)/logs" ]]; then rm -rf "$(SYNDICATE_CONFIG_PATH)/logs"; fi
 	-if [[ -d "$(SYNDICATE_CONFIG_PATH)/bundles" ]]; then rm -rf "$(SYNDICATE_CONFIG_PATH)/bundles"; fi
 
@@ -73,7 +73,7 @@ open-source-executor-image:
 
 fork-executor-image:
 	$(DOCKER_EXECUTABLE) build -t $(EXECUTOR_IMAGE_NAME):$(EXECUTOR_IMAGE_TAG) -f src/executor/Dockerfile .
-	# $(DOCKER_EXECUTABLE) build -t $(EXECUTOR_IMAGE_NAME):$(EXECUTOR_IMAGE_TAG) -f src/executor/Dockerfile --build-arg CUSTODIAN_SERVICE_PATH=custodian-as-a-service --build-arg CLOUD_CUSTODIAN_PATH=custodian-custom-core ..
+	# $(DOCKER_EXECUTABLE) build -t $(EXECUTOR_IMAGE_NAME):$(EXECUTOR_IMAGE_TAG) -f src/executor/Dockerfile --build-arg SRE_SERVICE_PATH=custodian-as-a-service --build-arg CLOUD_CUSTODIAN_PATH=custodian-custom-core ..
 
 
 cli-dist:

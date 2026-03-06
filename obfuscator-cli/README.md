@@ -1,6 +1,6 @@
-## Custodian Service Obfuscation Manager
+## Syndicate Rule Engine Obfuscation Manager
 
-Script allows to obfuscate and de-obfuscate data aggregated by Custodian Service while scanning infrastructure. 
+Script allows to obfuscate and de-obfuscate data aggregated by Syndicate Rule Engine while scanning infrastructure. 
 ## Installation
 
 ### Prerequisites
@@ -36,7 +36,7 @@ pip install .
 sreobf obfuscate --dump-directory "$custodian_dump_folder" --to "$target_folder" --dictionary-out "$obfuscation_dictionary.json"
 ```
 Where: 
-* $custodian_dump_folder - is the full path to the folder where Custodian Service dump is stored
+* $custodian_dump_folder - is the full path to the folder where Syndicate Rule Engine dump is stored
 * $target_folder - is the full path to the folder where the obfuscation result will be stored. The folder will be created if does not exist
 * $obfuscation_dictionary.json - is the name of the file where the mapping of resource names to synthetic ids will be stored. Please keep it safe - it is impossible to de-obfuscate data without this file
 
@@ -48,7 +48,7 @@ Where:
 sreobf deobfuscate --dump-directory "$obfuscated_data_folder" --dictionary "$objuscation_dictionary.json" --to "$deobfuscated_data_folder"
 ```
 Where: 
-* $obfuscated_data_folder - is the full path to the folder where Custodian Service obfuscated data is stored
+* $obfuscated_data_folder - is the full path to the folder where Syndicate Rule Engine obfuscated data is stored
 * $obfuscation_dictionary.json - is the name of the file where the mapping of resource names to synthetic ids will be stored
 * $deobfuscated_data_folder - is the full path to the folder where the de-obfuscation result will be stored. The folder will be created if does not exist
 **Note:** A value of parameter `--to` can be omitted. If it's omitted it will become the same as `--dump-directory`
