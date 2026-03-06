@@ -1,8 +1,8 @@
 from pynamodb.attributes import (
-    UnicodeAttribute,
-    MapAttribute,
     ListAttribute,
+    MapAttribute,
     NumberAttribute,
+    UnicodeAttribute,
 )
 
 from helpers.constants import Env
@@ -19,7 +19,7 @@ class EventRecordAttribute(MapAttribute):
     """PynamoDB MapAttribute for storing event records inside Event items."""
 
     cloud = UnicodeAttribute()
-    region_name = UnicodeAttribute(null=True)
+    region_name = UnicodeAttribute()
     source_name = UnicodeAttribute()
     event_name = UnicodeAttribute()
     account_id = UnicodeAttribute(null=True)
@@ -31,7 +31,7 @@ class Event(BaseModel):
     Persistence Model that represents registry of events.
     """
 
-    class Meta:
+    class Meta:  # type: ignore
         table_name = "SREEvents"
         region = Env.AWS_REGION.get()
 

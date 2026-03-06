@@ -2075,17 +2075,17 @@ def task_standard_job(self: 'Task | None', job_id: str):
         run_standard_job(ctx)
 
 
-def task_scheduled_job(self: 'Task | None', customer_name: str, name: str):
+def task_scheduled_job(self: 'Task | None', customer_name: str, name: str) -> None:
     sch_job = SP.scheduled_job_service.get_by_name(
         customer_name=customer_name, name=name
     )
     if not sch_job:
         _LOG.error('Cannot start scheduled job for not existing sch item')
-        return
+        return None
     tenant = SP.modular_client.tenant_service().get(sch_job.tenant_name)
     if not tenant:
         _LOG.error('Task started for not existing tenant')
-        return
+        return None
 
     _LOG.info('Building job item from scheduled')
     rulesets = sch_job.meta.as_dict().get('rulesets', [])

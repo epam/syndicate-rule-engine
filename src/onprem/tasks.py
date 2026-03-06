@@ -1,3 +1,11 @@
+"""
+Main tasks for Celery Worker.
+
+Any task can be wrapped with @safe_call decorator to catch and log any exceptions.
+"""
+
+from typing import Any
+
 from executor.job import (
     task_scheduled_job,
     task_standard_job,
@@ -6,6 +14,7 @@ from executor.job import (
 )
 from helpers import RequestContext
 from helpers.constants import ACTION_PARAM, Env
+from helpers.exceptions import safe_call
 from helpers.lambda_response import log_lambda_response
 from lambdas.license_updater.handler import LicenseUpdater
 from lambdas.metrics_updater.handler import MetricsUpdater
@@ -21,7 +30,8 @@ from onprem.celery import app
     time_limit=3600 * 4,
     soft_time_limit=Env.BATCH_JOB_LIFETIME_MINUTES.as_float() * 60,
 )
-def run_standard_job(self, job_id: str | list[str]):
+@safe_call
+def run_standard_job(self, job_id: str | list[str]) -> None:
     if isinstance(job_id, str):
         job_id = [job_id]
 
@@ -34,11 +44,13 @@ def run_standard_job(self, job_id: str | list[str]):
     time_limit=3600 * 4,
     soft_time_limit=Env.BATCH_JOB_LIFETIME_MINUTES.as_float() * 60,
 )
-def run_scheduled_job(self, customer_name: str, name: str):
-    return task_scheduled_job(self, customer_name, name)
+@safe_call
+def run_scheduled_job(self, customer_name: str, name: str) -> None:
+    task_scheduled_job(self, customer_name, name)
 
 
 @app.task
+@safe_call
 def assemble_events() -> None:
     """
     OnPrem equivalent of event-handler Lambda (assemble-events action)
@@ -58,6 +70,7 @@ def assemble_events() -> None:
 
 
 @app.task
+@safe_call
 def clear_events() -> None:
     """
     OnPrem equivalent of event-handler Lambda (clear-events action)
@@ -74,7 +87,8 @@ def clear_events() -> None:
 
 
 @app.task
-def make_findings_snapshot():
+@safe_call
+def make_findings_snapshot() -> None:
     # After findings are collected, findings trigger recommendations.
     # This feature works only in `MetricsUpdater` lambda.
     MetricsUpdater.build().lambda_handler(
@@ -84,20 +98,22 @@ def make_findings_snapshot():
 
 
 @app.task
+@safe_call
 def sync_license(
     license_keys: list[str] | str | None = None,
     overwrite_rulesets: bool = False,
-):
+) -> None:
     if isinstance(license_keys, str):
         license_keys = [license_keys]
-    event = {"overwrite_rulesets": overwrite_rulesets}
+    event: dict[str, Any] = {"overwrite_rulesets": overwrite_rulesets}
     if license_keys:
         event["license_keys"] = list(license_keys)
     LicenseUpdater.build().lambda_handler(event=event, context=RequestContext())
 
 
 @app.task
-def sync_rulesource(rule_source_ids: list[str] | str):
+@safe_call
+def sync_rulesource(rule_source_ids: list[str] | str) -> None:
     if isinstance(rule_source_ids, str):
         rule_source_ids = [rule_source_ids]
     RuleMetaUpdaterLambdaHandler.build().lambda_handler(
@@ -106,23 +122,27 @@ def sync_rulesource(rule_source_ids: list[str] | str):
 
 
 @app.task
-def collect_metrics():
+@safe_call
+def collect_metrics() -> None:
     MetricsUpdater.build().lambda_handler(
         event={"data_type": "metrics"}, context=RequestContext()
     )
 
 
 @app.task
-def run_update_metadata():
+@safe_call
+def run_update_metadata() -> None:
     update_metadata()
 
 
 @app.task
-def delete_expired_metrics():
+@safe_call
+def delete_expired_metrics() -> None:
     ExpiredMetricsCleaner.build().__call__()
 
 
 @app.task
+@safe_call
 def collect_resources() -> None:
     from executor.job import CustodianResourceCollector
 
@@ -131,24 +151,27 @@ def collect_resources() -> None:
 
 
 @app.task
-def push_to_dojo(job_ids: list[str] | str):
+@safe_call
+def push_to_dojo(job_ids: list[str] | str) -> None:
     if isinstance(job_ids, str):
         job_ids = [job_ids]
     upload_to_dojo(job_ids)
 
 
 @app.task
-def generate_reactive_report(job_id: str) -> bool:
+@safe_call
+def generate_reactive_report(job_id: str) -> None:
     """
     Generate attacks report for a single REACTIVE job and send via RabbitMQ
     (immediate mode).
     """
     from services import SP
 
-    return SP.report_delivery_service.generate_and_send_report_immediate(job_id)
+    SP.report_delivery_service.generate_and_send_report_immediate(job_id)
 
 
 @app.task
+@safe_call
 def process_interval_reports() -> None:
     """
     Celery Beat task: for each tenant with report_delivery mode=interval,

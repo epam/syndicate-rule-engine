@@ -1,3 +1,5 @@
+"""Event-driven domain constants."""
+
 # CloudTrail event
 CT_USER_IDENTITY = "userIdentity"
 CT_EVENT_SOURCE = "eventSource"
