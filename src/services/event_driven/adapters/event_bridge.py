@@ -9,7 +9,9 @@ from services.event_driven.domain import (
     CT_EVENT_SOURCE,
     CT_REGION,
     CT_USER_IDENTITY,
+    EB_CLOUDTRAIL_API_CALL_DETAIL_TYPE,
     EB_DETAIL,
+    EB_DETAIL_TYPE,
     EventRecord,
 )
 
@@ -19,6 +21,12 @@ class EventBridgeEventAdapter(BaseEventAdapter):
         super().__init__(vendor=AWS_VENDOR)
 
     def to_event_record(self, event: dict) -> EventRecord:
+        event_type = deep_get(event, (EB_DETAIL_TYPE,))
+        if event_type != EB_CLOUDTRAIL_API_CALL_DETAIL_TYPE:
+            raise ValueError(
+                f"Expected {EB_DETAIL_TYPE} to be "
+                f"{EB_CLOUDTRAIL_API_CALL_DETAIL_TYPE!r}, but got {event_type!r}"
+            )
         return EventRecord(
             cloud=Cloud.AWS,
             region_name=deep_get(event, (EB_DETAIL, CT_REGION)),

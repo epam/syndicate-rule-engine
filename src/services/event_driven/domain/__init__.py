@@ -21,7 +21,6 @@ from .constants import (
     MA_EVENT_SOURCE,
     MA_GROUP,
     MA_REGION_NAME,
-    MA_REQUEST,
     MA_SUB_GROUP,
     MA_TENANT_NAME,
 )
@@ -35,6 +34,7 @@ from .types import (
     TenantNameType,
     VendorKind,
 )
+
 
 __all__ = (
     "ESourceENameRulesMap",
@@ -69,6 +69,5 @@ __all__ = (
     "MA_EVENT_NAME",
     "MA_TENANT_NAME",
     "MA_REGION_NAME",
-    "MA_REQUEST",
     "VendorKind",
 )
