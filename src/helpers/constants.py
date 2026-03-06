@@ -725,7 +725,7 @@ class Env(EnvEnum):
     CELERY_ASSEMBLE_EVENTS_SCHEDULE = (
         'SRE_CELERY_ASSEMBLE_EVENTS_SCHEDULE',
         (),
-        '*/1 * * * *',  # every 5 minute
+        '*/5 * * * *',  # every 5 minute
     )
     CELERY_CLEAR_EVENTS_SCHEDULE = (
         'SRE_CELERY_CLEAR_EVENTS_SCHEDULE',
