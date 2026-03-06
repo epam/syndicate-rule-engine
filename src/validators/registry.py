@@ -14,6 +14,7 @@ from validators.swagger_request_models import (
     CustomerExcludedRulesPutModel,
     CustomerGetModel,
     DefectDojoActivationPutModel,
+    DefectDojoUpdatePatchModel,
     DefectDojoPostModel,
     DefectDojoQueryModel,
     DepartmentGetReportModel,
@@ -1328,7 +1329,7 @@ data: tuple[EndpointInfo, ...] = (
         path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION,
         method=HTTPMethod.PATCH,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
-        request_model=DefectDojoActivationPutModel,
+        request_model=DefectDojoUpdatePatchModel,
         responses=[(HTTPStatus.CREATED, None, None)],
         permission=Permission.DOJO_INTEGRATION_DELETE_ACTIVATION,
         description='Allows to update Defect Dojo integration'

@@ -25,6 +25,7 @@ from validators.swagger_request_models import (
     DefectDojoActivationPutModel,
     DefectDojoPostModel,
     DefectDojoQueryModel,
+    DefectDojoUpdatePatchModel,
 )
 from validators.utils import validate_kwargs
 
@@ -219,7 +220,7 @@ class DefectDojoHandler(AbstractHandler):
         return build_response(self.get_dto(parents, meta))
 
     @validate_kwargs
-    def patch_activation(self, event: DefectDojoActivationPutModel, id: str,
+    def patch_activation(self, event: DefectDojoUpdatePatchModel, id: str,
                          _pe: ProcessedEvent):
         # Check application existing
         item = self._dds.get_nullable(id)

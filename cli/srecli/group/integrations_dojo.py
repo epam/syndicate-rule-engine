@@ -177,7 +177,7 @@ def get_activation(ctx: ContextObj, integration_id: str, customer_id):
 @dojo.command(cls=ViewCommand, name='update')
 @click.option('--integration_id', '-id', type=str, required=True,
               help='Id of dojo integration')
-@build_tenant_option(multiple=True)
+@click.option('--tenant_name', '-tn', type=str, multiple=True, help='Name of related tenant')
 @click.option('--exclude_tenant', '-et', type=str, multiple=True,
               help='Tenants to exclude for this integration. ')
 @click.option('--scan_type', '-st', show_default=True,
