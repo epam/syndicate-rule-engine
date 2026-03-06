@@ -240,6 +240,16 @@ def update(ctx: ContextObj, integration_id: str,
         )
     return ctx['api_client'].dojo_update(
         id=integration_id,
+        tenant_names=tenant_name,
+        all_tenants=all_tenants,
+        clouds=clouds,
+        exclude_tenants=exclude_tenant,
+        scan_type=scan_type,
+        send_after_job=send_after_job,
+        product_type=product_type,
+        product=product,
+        engagement=engagement,
+        test=test,
+        attachment=attachment,
         customer_id=customer_id
     )
-

@@ -1324,6 +1324,15 @@ data: tuple[EndpointInfo, ...] = (
         permission=Permission.DOJO_INTEGRATION_DELETE_ACTIVATION,
         description='Allows to deactivate Defect Dojo integration'
     ),
+    EndpointInfo(
+        path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION,
+        method=HTTPMethod.PATCH,
+        lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
+        request_model=DefectDojoActivationPutModel,
+        responses=[(HTTPStatus.CREATED, None, None)],
+        permission=Permission.DOJO_INTEGRATION_DELETE_ACTIVATION,
+        description='Allows to update Defect Dojo integration'
+    ),
 
     # self integration
     EndpointInfo(
