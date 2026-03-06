@@ -1,14 +1,29 @@
-from pynamodb.attributes import UnicodeAttribute, MapAttribute, \
-    ListAttribute, NumberAttribute
+from pynamodb.attributes import (
+    UnicodeAttribute,
+    MapAttribute,
+    ListAttribute,
+    NumberAttribute,
+)
 
 from helpers.constants import Env
 from models import BaseModel
 
-E_PARTITION_ATTR = 'p'
-E_TIMESTAMP_ATTR = 't'
-E_EVENTS = 'e'
-E_VENDOR = 'v'
-E_TTL = 'ttl'
+E_PARTITION_ATTR = "p"
+E_TIMESTAMP_ATTR = "t"
+E_EVENTS = "e"
+E_VENDOR = "v"
+E_TTL = "ttl"
+
+
+class EventRecordAttribute(MapAttribute):
+    """PynamoDB MapAttribute for storing event records inside Event items."""
+
+    cloud = UnicodeAttribute()
+    region_name = UnicodeAttribute(null=True)
+    source_name = UnicodeAttribute()
+    event_name = UnicodeAttribute()
+    account_id = UnicodeAttribute(null=True)
+    tenant_name = UnicodeAttribute(null=True)
 
 
 class Event(BaseModel):
@@ -20,9 +35,10 @@ class Event(BaseModel):
         table_name = "SREEvents"
         region = Env.AWS_REGION.get()
 
-    partition = NumberAttribute(hash_key=True,
-                                attr_name=E_PARTITION_ATTR)  # random 0..N
+    partition = NumberAttribute(
+        hash_key=True, attr_name=E_PARTITION_ATTR
+    )  # random 0..N
     timestamp = NumberAttribute(range_key=True, attr_name=E_TIMESTAMP_ATTR)
-    events = ListAttribute(default=list, of=MapAttribute, attr_name=E_EVENTS)
+    events = ListAttribute(default=list, of=EventRecordAttribute, attr_name=E_EVENTS)
     vendor = UnicodeAttribute(attr_name=E_VENDOR)
     ttl = NumberAttribute(null=True, attr_name=E_TTL)

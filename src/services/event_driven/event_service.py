@@ -4,7 +4,7 @@ from typing import Iterable, Optional
 
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_datetime
-from models.event import Event
+from models.event import Event, EventRecordAttribute
 from services.environment_service import EnvironmentService
 
 
@@ -15,7 +15,7 @@ class EventService:
     def __init__(self, environment_service: EnvironmentService):
         self._environment_service = environment_service
 
-    def create(self, events: list, vendor: str) -> Event:
+    def create(self, events: list[EventRecordAttribute], vendor: str) -> Event:
         ttl_hours, ttl = self._environment_service.events_ttl_hours(), None
         now = utc_datetime()
         if ttl_hours:

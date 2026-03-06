@@ -1,3 +1,10 @@
+from .adapters import (
+    BaseEventAdapter,
+    EventBridgeEventAdapter,
+    FailedEvent,
+    MaestroEventAdapter,
+    get_adapter,
+)
 from .event_mapping_collector import (
     EventMappingCollector,
     S3EventMappingProvider,
@@ -11,4 +18,9 @@ __all__ = (
     "EventProcessorService",
     "EventMappingCollector",
     "EventService",
+    "FailedEvent",
+    "BaseEventAdapter",
+    "EventBridgeEventAdapter",
+    "MaestroEventAdapter",
+    "get_adapter",
 )
