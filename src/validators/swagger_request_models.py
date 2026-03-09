@@ -45,6 +45,7 @@ from helpers.constants import (
     RuleDomain,
     RuleSourceType,
     ServiceOperationType,
+    MCPReportType,
 )
 from helpers import Version, NextToken
 from helpers.regions import AllRegions, AllRegionsWithGlobal
@@ -2020,6 +2021,20 @@ class ResourceReportJobGetModel(JobTypesMixin, BaseModel):
                 'Currently obfuscation is supported only if href is true'
             )
         return self
+
+
+class MCPReportJobGetModel(JobTypesMixin, BaseModel):
+    type: MCPReportType = Field(default=MCPReportType.RESOURCES)
+    top: int = Field(default=5, gt=0, le=5,
+                     description='Limits the number of top critical items')
+
+
+class MCPReportCompareJobsGetModel(JobTypesMixin, BaseModel):
+    previous_job_id: str
+    current_job_id: str
+    type: MCPReportType = Field(default=MCPReportType.RESOURCES)
+    top: int = Field(default=5, gt=0, le=5,
+                     description='Limits the number of top critical items')
 
 
 class PlatformK8SPostModel(BaseModel):

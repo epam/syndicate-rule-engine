@@ -153,6 +153,12 @@ class Endpoint(str, Enum):
     REPORTS_RESOURCES_PLATFORMS_K8S_PLATFORM_ID_LATEST = (
         '/reports/resources/platforms/k8s/{platform_id}/state/latest'
     )
+    MCP_REPORTS_JOBS_JOB_ID = (
+        '/mcp/reports/jobs/{job_id}'
+    ),
+    MCP_REPORTS_COMPARE_JOBS = (
+        '/mcp/reports/compare/jobs'
+    ),
 
     @classmethod
     def match(cls, resource: str) -> Self | None:
@@ -863,6 +869,8 @@ class Permission(str, Enum):
         False,
         True,
     )
+    MCP_REPORT_GET_JOBS = 'report:get_mcp_report', False, True
+    MCP_REPORT_COMPARE_JOBS = 'report:get_mcp_compare_report', False, True
     REPORT_RAW_GET_TENANT_LATEST = (
         'report:get_tenant_latest_raw_report',
         False,
@@ -1220,12 +1228,16 @@ class Severity(str, Enum):
 
 
 class RemediationComplexity(str, Enum):
-    UNKNOWN = 'Unknown'
     LOW = 'Low'
     LOW_MEDIUM = 'Low-Medium'
     MEDIUM = 'Medium'
     MEDIUM_HIGH = 'Medium-High'
     HIGH = 'High'
+    UNKNOWN = 'Unknown'
+
+    @classmethod
+    def iter(cls):
+        return map(operator.attrgetter('value'), cls)
 
     @classmethod
     def parse(cls, rem: str | None, /) -> 'RemediationComplexity':
@@ -1461,6 +1473,11 @@ class ReportType(str, Enum):
         _previous_month_start,
         _this_month_start,
     )
+
+
+class MCPReportType(str, Enum):
+    RESOURCES = 'RESOURCES'
+    RULES = 'RULES'
 
 
 class RabbitCommand(str, Enum):

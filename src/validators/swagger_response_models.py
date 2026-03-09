@@ -355,6 +355,36 @@ class ResourcesReportItem(TypedDict):
     violated_rules: ViolatedRule
 
 
+class MCPResourceReport(TypedDict):
+    id: str
+    violated_rules: list[dict]
+
+
+class MCPRulesReport(TypedDict):
+    name: str
+    description: str
+    severity: str
+    remediation: str
+    article: str
+    impact: str
+    remediation_complexity: str
+    violated_resources: list[str]
+
+
+class MCPResourceComparison(TypedDict):
+    id: str
+    new_violated_rules: list[dict]
+    remediated_rules: list[dict]
+    unchanged_violated_rules: list[dict]
+
+
+class MCPRulesComparison(TypedDict):
+    name: str
+    new_violated_resources: list[str]
+    remediated_resources: list[str]
+    unchanged_violated_resources: list[str]
+
+
 class DefectDojo(TypedDict):
     id: str
     description: str
@@ -663,6 +693,18 @@ class EntityResourcesReportModel(BaseModel):
 class JobResourcesReportModel(BaseModel):
     items: list[ResourcesReportItem]
     data: BaseReportJob | None
+
+
+class MCPReportJobsModel(BaseModel):
+    items: list[MCPResourceReport | MCPRulesReport]
+
+
+class MCPReportComparisonModel(BaseModel):
+    items: list[MCPResourceComparison | MCPRulesComparison]
+
+
+class MCPReportCompareJobsModel(BaseModel):
+    items: list[MCPResourceReport | MCPRulesReport]
 
 
 class SingleLicenseActivationModel(BaseModel):
