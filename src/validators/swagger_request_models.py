@@ -2034,6 +2034,7 @@ class PlatformK8SPostModel(BaseModel):
     endpoint: HttpUrl = Field(None)
     certificate_authority: str = Field(None)  # base64 encoded
     token: str = Field(None)
+    insecure_skip_tls_verify: bool = Field(None)
 
     @model_validator(mode='after')
     def root(self) -> Self:
@@ -2041,6 +2042,9 @@ class PlatformK8SPostModel(BaseModel):
             raise ValueError('region is required if platform is cloud managed')
         if self.type != PlatformType.EKS and not self.endpoint:
             raise ValueError('endpoint must be specified if type is not EKS')
+        # Auto-enable insecure mode if no CA is provided
+        if self.insecure_skip_tls_verify is None and self.endpoint:
+            self.insecure_skip_tls_verify = not bool(self.certificate_authority)
         return self
 
 

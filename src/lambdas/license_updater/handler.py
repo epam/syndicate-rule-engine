@@ -183,9 +183,10 @@ class LicenseSync:
             self._store_ruleset(rs)
 
         _LOG.debug('Updating license item')
-        ed = data.get('event_driven') or {}
-        if quota := ed.get('quota'):  # fixing some bug in cslm
-            ed['quota'] = int(quota)
+        ed = dict(data.get('event_driven') or {})
+        # Preserve last_report_sent_at (SRE-managed) when syncing from LM
+        if existing_last := lic.event_driven.get('last_report_sent_at'):
+            ed['last_report_sent_at'] = existing_last
         self._sp.license_service.update(
             item=lic,
             description=data.get('description'),

@@ -34,10 +34,16 @@ class Allowance(TypedDict):
     time_range: Literal['DAY', 'WEEK', 'MONTH']
 
 
+class ReportDelivery(TypedDict, total=False):
+    enabled: bool
+    interval_minutes: int
+    mode: str
+
 class EventDriven(TypedDict, total=False):
     active: bool
-    quota: int
+    report_delivery: ReportDelivery
     last_execution: NotRequired[str]
+    last_report_sent_at: NotRequired[str]
 
 
 class Tenants(TypedDict, total=False):
@@ -456,3 +462,13 @@ class LicenseService(BaseDataService[License]):
             )
         if actions:
             item.application.update(actions=actions)
+
+    def update_event_driven_last_report_sent_at(
+        self, item: License, last_report_sent_at: str
+    ) -> None:
+        """Update last_report_sent_at in event_driven without replacing other fields."""
+        ed = dict(item.event_driven)
+        ed['last_report_sent_at'] = last_report_sent_at
+        item.application.update(
+            actions=[Application.meta[License._event_driven].set(ed)]
+        )

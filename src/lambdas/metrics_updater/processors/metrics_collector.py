@@ -3,6 +3,8 @@ import heapq
 import statistics
 from datetime import date, datetime
 from itertools import chain
+
+from dateutil.relativedelta import relativedelta
 from typing import (
     TYPE_CHECKING,
     Generator,
@@ -67,7 +69,7 @@ from services.resource_exception_service import ResourceExceptionsService
 from services.resources import (
     CloudResource,
     MaestroReportResourceView,
-    iter_rule_resources,
+    rule_resources_dict,
 )
 from services.resources_service import ResourcesService
 from services.ruleset_service import RulesetName, RulesetService
@@ -627,38 +629,6 @@ class MetricsCollector(BaseProcessor):
                 when=part.timestamp,
             )
 
-    @staticmethod
-    def _get_rule_resources(
-        collection: 'ShardsCollection',
-        cloud: Cloud,
-        metadata: Metadata,
-        account_id: str = '',
-    ) -> dict[str, set[CloudResource]]:
-        # NOTE: Generally we should not expect duplicated resources within one
-        #  rule. Something is definitely wrong if one rule returns multiple
-        #  equal resources within one region. If one rule returns multiple
-        #  equal resources within different regions that rule must be global.
-        #  But, we perform some custom processing of resources which involves
-        #  changing their regions. For example, the same multi-regional
-        #  CloudTrail can be returns multiple times by executing the same rule
-        #  against different regions. So, if we encounter a multi-regional
-        #  trail during processing we manually change ist region to 'global'.
-        #  So, there is a real point here to de-duplicate resources
-        #  WITHIN ONE rule here.
-        it = iter_rule_resources(
-            collection=collection,
-            cloud=cloud,
-            metadata=metadata,
-            account_id=account_id,
-        )
-        dct = {}
-        for k, v in it:
-            resources = set(v)
-            if not resources:
-                continue
-            dct[k] = resources
-        return dct
-
     def _save_all(self, ctx: MetricsContext, msg: str):
         _LOG.info(msg)
         while ctx.has_reports():
@@ -770,7 +740,7 @@ class MetricsCollector(BaseProcessor):
             collection, cloud, ctx.metadata, tenant.project
         )
 
-        rule_resources = self._get_rule_resources(
+        rule_resources = rule_resources_dict(
             collection, cloud, ctx.metadata, tenant.project
         )
 
@@ -808,6 +778,41 @@ class MetricsCollector(BaseProcessor):
             deprecated_in_scope = tuple(
                 rule for rule in deprecated if rule.id in deprecated_loc
             )
+
+            # For deprecation report: count findings from previous period for
+            # rules that are deprecated in the current period (first report only).
+            previous_period_findings: dict[str, int] | None = None
+            if typ is ReportType.OPERATIONAL_DEPRECATION:
+                previous_end = end + relativedelta(weeks=-1)
+                previous_collection = scp.get_for_tenant(tenant, previous_end)
+                if previous_collection is not None:
+                    _, collection_prev = exceptions.filter_exception_resources(
+                        previous_collection, cloud, ctx.metadata, tenant.project
+                    )
+                    rule_resources_prev = rule_resources_dict(
+                        collection_prev, cloud, ctx.metadata, tenant.project
+                    )
+                    start_d = (
+                        start.date()
+                        if isinstance(start, datetime)
+                        else start
+                    )
+                    end_d = (
+                        end.date() if isinstance(end, datetime) else end
+                    )
+                    previous_period_findings = {}
+                    for rule in rule_resources:
+                        rm = ctx.metadata.rule(rule)
+                        if not rm.deprecation_category():
+                            continue
+                        if not rm.deprecation.is_deprecated or not isinstance(
+                            rm.deprecation.date, date
+                        ):
+                            continue
+                        if start_d <= rm.deprecation.date <= end_d:
+                            previous_period_findings[rule] = len(
+                                rule_resources_prev.get(rule, set())
+                            )
             
             meta = TenantReportMetadata(
                 licenses=licenses,
@@ -846,6 +851,7 @@ class MetricsCollector(BaseProcessor):
                 end=end,
                 meta=collection.meta,
                 cloud=cloud,
+                previous_period_findings=previous_period_findings,
             )
             if not isinstance(data, dict):
                 # TODO: somehow move this info to visitors abstraction
@@ -1468,7 +1474,7 @@ class MetricsCollector(BaseProcessor):
                     platform=platform_id
                 ).last_succeeded_scan_date
 
-            rule_resources = self._get_rule_resources(
+            rule_resources = rule_resources_dict(
                 collection=col, cloud=Cloud.KUBERNETES, metadata=ctx.metadata
             )
 

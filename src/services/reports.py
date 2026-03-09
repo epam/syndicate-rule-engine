@@ -69,6 +69,22 @@ if TYPE_CHECKING:
 _LOG = get_logger(__name__)
 
 
+def strip_attacks_violations_for_maestro(data: list[dict]) -> None:
+    """
+    Strip Maestro-unwanted fields from attacks report violations. Mutates in place.
+    Shared by high_level_reports_handler and report_delivery_service.
+    """
+    _MAESTRO_ATTACKS_VIOLATION_STRIP_KEYS = frozenset({
+        'description', 'remediation', 'remediation_complexity', 'severity',
+    })
+
+    for item in data:
+        for attack in item.get('attacks', ()):
+            for v in attack.get('violations', ()):
+                for key in _MAESTRO_ATTACKS_VIOLATION_STRIP_KEYS:
+                    v.pop(key, None)
+
+
 class JobMetricsDataSource:
     """
     Allows to retrieve data from jobs within one customer. Object is immutable
@@ -444,6 +460,12 @@ class DeprecationReportGenerator(ReportVisitor[Generator[dict, None, None]]):
         meta: dict[str, RuleMeta],
         **kwargs,
     ) -> Generator[dict, None, None]:
+        start = kwargs.get('start')
+        end = kwargs.get('end')
+        previous_period_findings: dict[str, int] | None = kwargs.get(
+            'previous_period_findings'
+        )
+
         for rule in rule_resources:
             if self.scope is not None and rule not in self.scope:
                 continue
@@ -457,7 +479,7 @@ class DeprecationReportGenerator(ReportVisitor[Generator[dict, None, None]]):
                     r.accept(self._view, report_fields=rm.report_fields)
                 )
 
-            yield {
+            result = {
                 'category': category,
                 'deprecation_date': rm.deprecation.date.isoformat()
                 if isinstance(rm.deprecation.date, date)
@@ -468,6 +490,25 @@ class DeprecationReportGenerator(ReportVisitor[Generator[dict, None, None]]):
                 'policy': rule,
                 'resources': by_region,
             }
+
+            # Add previous period findings count only in the first report
+            # after the rule is deprecated (deprecation date in current period).
+            if (
+                rm.deprecation.is_deprecated
+                and isinstance(rm.deprecation.date, date)
+                and start is not None
+                and end is not None
+                and previous_period_findings is not None
+                and rule in previous_period_findings
+            ):
+                start_d = start.date() if isinstance(start, datetime) else start
+                end_d = end.date() if isinstance(end, datetime) else end
+                if start_d <= rm.deprecation.date <= end_d:
+                    result['previous_period_findings'] = previous_period_findings[
+                        rule
+                    ]
+
+            yield result
 
 
 class FinopsReportGenerator(ReportVisitor[Generator[dict, None, None]]):
