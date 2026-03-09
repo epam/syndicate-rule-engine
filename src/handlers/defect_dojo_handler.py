@@ -250,6 +250,14 @@ class DefectDojoHandler(AbstractHandler):
                 'Do not provide --tenant_name if --all_tenants is enabled'
             )
 
+        # send_after_job flag handling
+        if  event.send_after_job == 'yes':
+            send_after_job_flag = True
+        elif event.no_send_after_job == 'not':
+            send_after_job_flag = False
+        else:
+            send_after_job_flag = old_meta.send_after_job
+
         # Leave old values if new ones are not passed
         new_tenants = (old_info.including | event.tenant_names) - event.exclude_tenants
         exclude_tenants = old_info.excluding
@@ -263,7 +271,7 @@ class DefectDojoHandler(AbstractHandler):
             product=event.product or old_meta.product,
             engagement=event.engagement or old_meta.engagement,
             test=event.test or old_meta.test,
-            send_after_job=old_meta.send_after_job if event.send_after_job is None else event.send_after_job,
+            send_after_job= send_after_job_flag,
             attachment=event.attachment or old_meta.attachment
         )
         to_update = build_parents(

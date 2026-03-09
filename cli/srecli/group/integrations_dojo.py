@@ -190,9 +190,10 @@ def get_activation(ctx: ContextObj, integration_id: str, customer_id):
               help='Defect Dojo scan type. Generic Findings Import can be '
                    'used with open source DefectDojo whereas Cloud '
                    'Custodian Scan - with EPAM`s fork')
-@click.option('--send_after_job', '-saj', is_flag=True,
-              help='Specify this flag to send results to dojo after each job '
-                   'automatically')
+@click.option('--send_after_job', '-saj', show_default=True,
+              type=click.Choice(('yes', 'not')),
+              help='Enter "yes" or "no" to toggle the flag to send results '
+                   'to the dojo after each job automatically')
 @click.option('--product_type', type=str,
               help='Product type to update in Dojo. "tenant_name", '
                    '"customer_name" and "job_id" can be used as generic '
@@ -211,7 +212,7 @@ def get_activation(ctx: ContextObj, integration_id: str, customer_id):
 @cli_response()
 def update(ctx: ContextObj, integration_id: str,
            tenant_name: tuple[str, ...], exclude_tenant: tuple[str, ...],
-           clouds: tuple[str], scan_type: str, send_after_job: bool,
+           clouds: tuple[str], scan_type: str, send_after_job: bool | None,
            product_type: str | None, product: str | None,
            engagement: str | None, test: str | None, attachment: str | None,
            customer_id):
