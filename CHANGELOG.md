@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed JSON decoding errors when License Manager returns text responses instead of JSON
 - Fixed an issue related to pushing reports to Defect Dojo
 - Fixed issue with `Attribute "PublicIp" does not exist` during deployment in `private` subnet
+- Fixed multi-region job failure caused by temporary credential files being removed too early
 
 ### Changed
 - Changed the `JobType` enum to include `STANDARD`, `SCHEDULED` and `MANUAL`
