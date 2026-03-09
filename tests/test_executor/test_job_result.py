@@ -1,6 +1,5 @@
 from pathlib import Path
 
-import pytest
 
 from executor.helpers.constants import Cloud
 from executor.services.report_service import JobResult

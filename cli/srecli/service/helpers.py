@@ -7,7 +7,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
-import uuid
+
 from datetime import datetime, timezone
 from typing import Callable, TypeVar
 

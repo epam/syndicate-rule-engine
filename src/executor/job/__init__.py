@@ -153,11 +153,9 @@ from typing_extensions import NotRequired, TypedDict
 from executor.helpers.constants import (
     ACCESS_DENIED_ERROR_CODE,
     AWS_DEFAULT_REGION,
-    CACHE_FILE,
     INVALID_CREDENTIALS_ERROR_CODES,
     ExecutorError,
 )
-from executor.helpers.profiling import xray_recorder as _XRAY
 from executor.plugins import register_all
 from executor.services import BSP
 from executor.services.report_service import JobResult

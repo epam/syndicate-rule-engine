@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import threading
 from functools import cached_property
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 from helpers import SingletonMeta, get_logger
 

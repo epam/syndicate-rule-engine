@@ -1,6 +1,5 @@
 from functools import wraps
 from typing import Callable, TypeVar, ParamSpec
-import json
 
 from helpers.lambda_response import LambdaForceExit
 from helpers.log_helper import get_logger
