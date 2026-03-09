@@ -21,7 +21,6 @@ from services.modular_helpers import (
     ResolveParentsPayload,
     build_parents,
     get_activation_dto,
-    split_into_to_keep_to_delete,
 )
 from validators.swagger_request_models import (
     BaseModel,

@@ -7,6 +7,7 @@ MAPPING.json.gz -> mapping.py
 CLOUDTRAIL_MAPPING.json.gz -> cloudtrail_mapping.py
 """
 
+# TODO: obsolete, needs to be removed
 if __name__ == "__main__":
     import json
     from pathlib import Path

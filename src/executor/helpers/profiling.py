@@ -2,7 +2,7 @@ import logging
 from typing import BinaryIO
 
 import msgspec
-from aws_xray_sdk.core import patch, xray_recorder
+from aws_xray_sdk.core import xray_recorder
 from aws_xray_sdk.core.emitters.udp_emitter import UDPEmitter
 from aws_xray_sdk.core.models.entity import Entity
 from aws_xray_sdk.core.sampling.local.sampler import LocalSampler

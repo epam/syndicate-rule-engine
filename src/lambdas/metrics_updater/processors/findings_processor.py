@@ -4,7 +4,7 @@ from typing import MutableMapping, Optional
 from typing_extensions import Self
 
 from helpers import RequestContext, get_logger
-from helpers.constants import START_DATE, Env
+from helpers.constants import Env
 from lambdas.metrics_updater.processors.base import (
     BaseProcessor,
     NextLambdaEvent,

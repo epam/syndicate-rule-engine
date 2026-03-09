@@ -67,7 +67,6 @@ from services.reports import (
 )
 from services.resource_exception_service import ResourceExceptionsService
 from services.resources import (
-    CloudResource,
     MaestroReportResourceView,
     rule_resources_dict,
 )

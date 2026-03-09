@@ -153,11 +153,9 @@ from typing_extensions import NotRequired, TypedDict
 from executor.helpers.constants import (
     ACCESS_DENIED_ERROR_CODE,
     AWS_DEFAULT_REGION,
-    CACHE_FILE,
     INVALID_CREDENTIALS_ERROR_CODES,
     ExecutorError,
 )
-from executor.helpers.profiling import xray_recorder as _XRAY
 from executor.plugins import register_all
 from executor.services import BSP
 from executor.services.report_service import JobResult
@@ -1548,23 +1546,9 @@ def process_job_concurrent(
     runner.start()
     _LOG.info('Runner has finished')
 
-    if cloud is Cloud.GOOGLE and (
-        filename := os.environ.get(ENV_GOOGLE_APPLICATION_CREDENTIALS)
-    ):
-        _LOG.debug(f'Removing temporary google credentials file {filename}')
-        Path(filename).unlink(missing_ok=True)
-
-    if cloud is Cloud.AZURE and (
-        filename := os.environ.get(ENV_AZURE_CLIENT_CERTIFICATE_PATH)
-    ):
-        _LOG.debug(f'Removing temporary azure certificate file {filename}')
-        Path(filename).unlink(missing_ok=True)
-
-    if cloud is Cloud.KUBERNETES and (
-        filename := os.environ.get(ENV_KUBECONFIG)
-    ):
-        _LOG.debug(f'Removing temporary kubeconfig file {filename}')
-        Path(filename).unlink(missing_ok=True)
+    # Do not remove temp credential files here: the same file path is reused
+    # for each region's subprocess. Cleanup is done once in the parent after
+    # all regions are processed (see run_standard_job).
 
     return runner.n_successful, runner.failed
 
@@ -1980,6 +1964,24 @@ def run_standard_job(ctx: JobExecutionContext):
 
     ctx.add_warnings(*warnings)
     del warnings
+
+    # Remove temp credential files once; they are shared across all region
+    # subprocesses and must not be deleted inside process_job_concurrent.
+    creds_env = credentials if isinstance(credentials, dict) else {}
+    if cloud is Cloud.GOOGLE and (
+        path := creds_env.get(ENV_GOOGLE_APPLICATION_CREDENTIALS)
+    ):
+        _LOG.debug(f'Removing temporary google credentials file {path}')
+        Path(path).unlink(missing_ok=True)
+    if cloud is Cloud.AZURE and (
+        path := creds_env.get(ENV_AZURE_CLIENT_CERTIFICATE_PATH)
+    ):
+        _LOG.debug(f'Removing temporary azure certificate file {path}')
+        Path(path).unlink(missing_ok=True)
+    if cloud is Cloud.KUBERNETES and (path := creds_env.get(ENV_KUBECONFIG)):
+        _LOG.debug(f'Removing temporary kubeconfig file {path}')
+        Path(path).unlink(missing_ok=True)
+
     del credentials
 
     # Expand scan results from primary policies to their fingerprint aliases
@@ -2075,17 +2077,17 @@ def task_standard_job(self: 'Task | None', job_id: str):
         run_standard_job(ctx)
 
 
-def task_scheduled_job(self: 'Task | None', customer_name: str, name: str):
+def task_scheduled_job(self: 'Task | None', customer_name: str, name: str) -> None:
     sch_job = SP.scheduled_job_service.get_by_name(
         customer_name=customer_name, name=name
     )
     if not sch_job:
         _LOG.error('Cannot start scheduled job for not existing sch item')
-        return
+        return None
     tenant = SP.modular_client.tenant_service().get(sch_job.tenant_name)
     if not tenant:
         _LOG.error('Task started for not existing tenant')
-        return
+        return None
 
     _LOG.info('Building job item from scheduled')
     rulesets = sch_job.meta.as_dict().get('rulesets', [])

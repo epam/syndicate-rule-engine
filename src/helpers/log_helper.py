@@ -21,7 +21,6 @@ class CustomFormatter(logging.Formatter):
             return super().formatTime(record, datefmt)
         return datetime.fromtimestamp(record.created, timezone.utc).isoformat()
 
-from logging import FileHandler
 def build_logging_config():
     config = {
         'version': 1,

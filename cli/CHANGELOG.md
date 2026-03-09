@@ -12,10 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added status hints to `sre rule update` command showing how to check status via `sre rulesource describe -rsid {rulesource_id} -cid "{customer_id}"`
 - Added the flag `-r`, `--receiver` to the `sre report department` command
 
-## Fixed
+### Fixed
 - Fixed issue when `-acc` filter in `sre tenant describe` command was not working
 
 ### Changed
+- Replaced single `sre job event maestro` command with cloud-specific subcommands: `sre job event maestro aws`, `sre job event maestro azure`, `sre job event maestro google`
+- Unified `sre job event maestro {aws|azure|google}` options so `--event_source/-es` and `--event_name/-en` are supported consistently for all cloud subcommands
+- Removed legacy `--event_action/-ea`, `--group`, and `--sub_group` options from `sre job event maestro {aws|azure|google}` commands
 - Improved error message clarity in `sre tenant describe` command when both `--tenant_name` and `--account_number` are provided
 - Standardize and improve the `re` help text
 - renamed alias `-cl` to `-c` for the `--cloud` in commands:

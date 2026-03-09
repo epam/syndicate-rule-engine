@@ -1,7 +1,7 @@
 import hashlib
 import uuid
 from http import HTTPStatus
-from typing import Any, Generator, Iterable, cast
+from typing import Any, Generator, Iterable
 
 from modular_sdk.models.pynamongo.convertors import instance_as_dict
 from pynamodb.pagination import ResultIterator
