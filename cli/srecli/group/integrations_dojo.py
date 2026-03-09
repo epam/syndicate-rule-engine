@@ -180,6 +180,11 @@ def get_activation(ctx: ContextObj, integration_id: str, customer_id):
 @click.option('--tenant_name', '-tn', type=str, multiple=True, help='Name of related tenant')
 @click.option('--exclude_tenant', '-et', type=str, multiple=True,
               help='Tenants to exclude for this integration. ')
+@click.option('--clouds', '-c',
+              type=click.Choice((AWS, AZURE, GOOGLE, KUBERNETES)),
+              multiple=True,
+              help='Tenant clouds to activate this dojo for. '
+                   'Can be specific if --all_tenants flag is on')
 @click.option('--scan_type', '-st', show_default=True,
               type=click.Choice(('Generic Findings Import', 'Cloud Custodian Scan')),
               help='Defect Dojo scan type. Generic Findings Import can be '
@@ -206,13 +211,15 @@ def get_activation(ctx: ContextObj, integration_id: str, customer_id):
 @cli_response()
 def update(ctx: ContextObj, integration_id: str,
            tenant_name: tuple[str, ...], exclude_tenant: tuple[str, ...],
-           scan_type: str, send_after_job: bool, product_type: str | None,
-           product: str | None, engagement: str | None, test: str | None,
-           attachment: str | None, customer_id):
+           clouds: tuple[str], scan_type: str, send_after_job: bool,
+           product_type: str | None, product: str | None,
+           engagement: str | None, test: str | None, attachment: str | None,
+           customer_id):
     return ctx['api_client'].dojo_update(
         id=integration_id,
         tenant_names=tenant_name,
         exclude_tenants=exclude_tenant,
+        clouds=clouds,
         scan_type=scan_type,
         product_type=product_type,
         product=product,
