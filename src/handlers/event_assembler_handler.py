@@ -19,6 +19,7 @@ from typing_extensions import Self
 import services.cache as cache
 from helpers import adjust_cloud
 from helpers.constants import (
+    Cloud,
     JobState,
     JobType,
 )
@@ -388,8 +389,22 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
                     continue
                 cloud = event_record.cloud
                 tenant_name = event_record.tenant_name
-                region_name = event_record.region_name
-                result[vendor][cloud][tenant_name][region_name] = rules
+
+                # NOTE: If we are handling GCP/Azure events, 
+                # we need to set the region name to 'global' 
+                # good to review this logic with scanning 'global' region for GCP/Azure.
+                # maybe we should can optimize this logic by using the region name from the event record.
+                if cloud in {Cloud.GOOGLE.value, Cloud.AZURE.value}:
+                    region_name = 'global'
+                else:
+                    region_name = event_record.region_name
+
+                # Extend the rules set for the region rather than overwriting,
+                # handling the case where multiple events may add to the same region
+                if region_name not in result[vendor][cloud][tenant_name]:
+                    result[vendor][cloud][tenant_name][region_name] = set(rules)
+                else:
+                    result[vendor][cloud][tenant_name][region_name].update(rules)
 
         if not result:
             _LOG.warning("No rules found for any event")
