@@ -8,7 +8,6 @@ from unittest.mock import MagicMock
 import msgspec
 import pytest
 
-from helpers.constants import DEPRECATED_RULE_SUFFIX
 from lambdas.metrics_updater.processors.metrics_collector import (
     DeprecatedRule,
     MetricsCollector,

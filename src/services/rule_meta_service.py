@@ -3,7 +3,6 @@ from typing import Optional, Iterator, Generator, Iterable, Any, Literal
 
 from pydantic import BaseModel, Field, ConfigDict
 from modular_sdk.models.pynamongo.adapter import (
-    ResultIterator,
     EmptyResultIterator,
 )
 from pynamodb.expressions.condition import Condition

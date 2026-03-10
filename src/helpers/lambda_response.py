@@ -234,3 +234,22 @@ def build_response(
         raise resp.exc()
         # return
     return resp.build()
+
+
+def log_lambda_response(
+    response: LambdaOutput,
+    *,
+    is_debug: bool = False
+) -> None:
+    msg = (
+        f"Lambda response: "
+        f"statusCode={response.get('statusCode')}, "
+        f"headers={response.get('headers')}, "
+        f"body={response.get('body')}, "
+        f"isBase64Encoded={response.get('isBase64Encoded')}"
+    )
+    
+    if is_debug:
+        _LOG.debug(msg)
+    else:
+        _LOG.info(msg)

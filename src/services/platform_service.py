@@ -4,7 +4,7 @@ import operator
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Any, Optional, Generator, TYPE_CHECKING, Iterator
+from typing import Any, Optional, TYPE_CHECKING, Iterator
 
 from modular_sdk.commons.constants import ParentScope, ParentType
 from modular_sdk.models.application import Application

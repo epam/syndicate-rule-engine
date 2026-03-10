@@ -2,10 +2,11 @@ import os
 from typing import Mapping
 
 from helpers.constants import (
-    DOCKER_SERVICE_MODE,
     Env,
 )
+from helpers.log_helper import get_logger
 
+_LOG = get_logger(__name__)
 
 class EnvironmentService:
     def override_environment(self, environs: Mapping) -> None:
@@ -107,7 +108,11 @@ class EnvironmentService:
 
     def account_id(self) -> str | None:
         # resolved from lambda context
-        return Env.ACCOUNT_ID.get()
+        _id = Env.ACCOUNT_ID.get()
+        if not _id:
+            _LOG.warning('No account id found in environment variables.')
+            return None
+        return _id
 
     def jobs_time_to_live_days(self) -> int | None:
         """live_days

@@ -65,13 +65,22 @@ class StsClient(Boto3ClientWrapper):
                 **credentials).get_caller_identity()
         return self.client.get_caller_identity()
 
-    def get_account_id(self) -> str:
+    def get_account_id(self) -> str | None:
         _id = SP.tls.__dict__.get('account_id')
         if not _id:
-            _LOG.warning('Valid account id not found in envs. '
-                         'Calling \'get_caller_identity\'')
-            _id = self.get_caller_identity()['Account']
-            SP.tls.account_id = _id
+            try:
+                _LOG.warning(
+                    'Valid account id not found in envs. '
+                    'Calling \'get_caller_identity\''
+                )
+                _id = self.get_caller_identity()['Account']
+                SP.tls.account_id = _id
+            except Exception:
+                _LOG.warning(
+                    'Failed to get caller identity. Getting '
+                    'account id from environment variables.'
+                )
+                _id = self._environment.account_id()
         return _id
 
 

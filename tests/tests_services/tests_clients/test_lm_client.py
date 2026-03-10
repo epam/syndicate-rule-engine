@@ -1,12 +1,10 @@
 import base64
-import json
 from http import HTTPStatus
-from unittest.mock import Mock, MagicMock, patch, PropertyMock
+from unittest.mock import Mock, patch
 
 import pytest
 import requests
 
-from helpers import JWTToken, Version
 from helpers.constants import (
     ALG_ATTR,
     AUTHORIZATION_PARAM,
@@ -21,7 +19,6 @@ from services.clients.lm_client import (
     LMClientAfter3p0,
     LMClientAfter3p3,
     LMClientFactory,
-    LMAccessData,
     LMEndpoint,
     LmTokenProducer,
     LMEmptyBalance,
