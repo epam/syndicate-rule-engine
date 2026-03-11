@@ -220,7 +220,9 @@ class DefectDojoHandler(AbstractHandler):
         return build_response(self.get_dto(parents, meta))
 
     @validate_kwargs
-    def patch_activation(self, event: DefectDojoUpdatePatchModel, id: str,
+    def patch_activation(self,
+                         event: DefectDojoUpdatePatchModel,
+                         id: str,
                          _pe: ProcessedEvent):
         # Check application existing
         item = self._dds.get_nullable(id)
@@ -245,18 +247,9 @@ class DefectDojoHandler(AbstractHandler):
         old_meta = DefectDojoParentMeta.from_dict(parents[0].meta.as_dict())
         old_info = get_activation_info(parents)
 
-        if old_info.is_all and event.tenant_names:
-            raise ResponseFactory(HTTPStatus.CONFLICT).message(
-                'Do not provide --tenant_name if --all_tenants is enabled'
-            )
-
         # send_after_job flag handling
-        if  event.send_after_job == 'yes':
-            send_after_job_flag = True
-        elif event.no_send_after_job == 'not':
-            send_after_job_flag = False
-        else:
-            send_after_job_flag = old_meta.send_after_job
+        if  event.send_after_job is None:
+            event.send_after_job = old_meta.send_after_job
 
         # Leave old values if new ones are not passed
         new_tenants = (old_info.including | event.tenant_names) - event.exclude_tenants
@@ -271,7 +264,7 @@ class DefectDojoHandler(AbstractHandler):
             product=event.product or old_meta.product,
             engagement=event.engagement or old_meta.engagement,
             test=event.test or old_meta.test,
-            send_after_job= send_after_job_flag,
+            send_after_job= event.send_after_job,
             attachment=event.attachment or old_meta.attachment
         )
         to_update = build_parents(

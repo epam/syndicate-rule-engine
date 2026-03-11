@@ -2307,8 +2307,8 @@ class DefectDojoUpdatePatchModel(BaseModel):
     product: str = Field(description='Defect dojo product name')
     engagement: str = Field(description='Defect dojo engagement name')
     test: str = Field(description='Defect dojo test')
-    send_after_job: bool = Field(description='Whether to send the results to '
-                                             'dojo after each scan')
+    send_after_job: bool | None = Field(description='Whether to send the results to '
+                                                    'dojo after each scan')
     attachment: Literal['json', 'xlsx', 'cv'] = Field(None)
 
     @model_validator(mode='after')
