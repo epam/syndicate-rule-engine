@@ -153,11 +153,11 @@ class Endpoint(str, Enum):
     REPORTS_RESOURCES_PLATFORMS_K8S_PLATFORM_ID_LATEST = (
         '/reports/resources/platforms/k8s/{platform_id}/state/latest'
     )
-    MCP_REPORTS_JOBS_JOB_ID = (
-        '/mcp/reports/jobs/{job_id}'
+    REPORTS_TOP_VIOLATIONS_JOBS_JOB_ID = (
+        '/reports/top/violations/jobs/{job_id}'
     ),
-    MCP_REPORTS_COMPARE_JOBS = (
-        '/mcp/reports/compare/jobs'
+    REPORTS_TOP_VIOLATIONS_COMPARE_JOBS = (
+        '/reports/top/violations/compare/jobs'
     ),
 
     @classmethod
@@ -1475,7 +1475,7 @@ class ReportType(str, Enum):
     )
 
 
-class MCPReportType(str, Enum):
+class TopViolationsReportType(str, Enum):
     RESOURCES = 'RESOURCES'
     RULES = 'RULES'
 

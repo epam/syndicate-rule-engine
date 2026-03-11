@@ -355,12 +355,12 @@ class ResourcesReportItem(TypedDict):
     violated_rules: ViolatedRule
 
 
-class MCPResourceReport(TypedDict):
+class TopViolationsResourceReport(TypedDict):
     id: str
     violated_rules: list[dict]
 
 
-class MCPRulesReport(TypedDict):
+class TopViolationsRulesReport(TypedDict):
     name: str
     description: str
     severity: str
@@ -371,14 +371,14 @@ class MCPRulesReport(TypedDict):
     violated_resources: list[str]
 
 
-class MCPResourceComparison(TypedDict):
+class TopViolationsResourceComparison(TypedDict):
     id: str
     new_violated_rules: list[dict]
     remediated_rules: list[dict]
     unchanged_violated_rules: list[dict]
 
 
-class MCPRulesComparison(TypedDict):
+class TopViolationsRulesComparison(TypedDict):
     name: str
     new_violated_resources: list[str]
     remediated_resources: list[str]
@@ -695,16 +695,12 @@ class JobResourcesReportModel(BaseModel):
     data: BaseReportJob | None
 
 
-class MCPReportJobsModel(BaseModel):
-    items: list[MCPResourceReport | MCPRulesReport]
+class TopViolationsReportJobsModel(BaseModel):
+    items: list[TopViolationsResourceReport | TopViolationsRulesReport]
 
 
-class MCPReportComparisonModel(BaseModel):
-    items: list[MCPResourceComparison | MCPRulesComparison]
-
-
-class MCPReportCompareJobsModel(BaseModel):
-    items: list[MCPResourceReport | MCPRulesReport]
+class TopViolationsReportComparisonModel(BaseModel):
+    items: list[TopViolationsResourceComparison | TopViolationsRulesComparison]
 
 
 class SingleLicenseActivationModel(BaseModel):

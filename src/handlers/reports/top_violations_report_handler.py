@@ -5,7 +5,7 @@ from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.tenant_service import TenantService
 
 from handlers import AbstractHandler, Mapping
-from helpers.constants import Endpoint, HTTPMethod, MCPReportType
+from helpers.constants import Endpoint, HTTPMethod, TopViolationsReportType
 from helpers.lambda_response import build_response, ResponseFactory
 from helpers.reports import severity_chain, remediation_complexity_chain
 from helpers.time_helper import utc_datetime
@@ -19,17 +19,17 @@ from services.report_service import ReportService
 from services.resources import iter_rule_resource, InPlaceResourceView, \
     CloudResource
 from services.sharding import ShardsCollection
-from validators.swagger_request_models import MCPReportJobGetModel, \
-    MCPReportCompareJobsGetModel
+from validators.swagger_request_models import TopViolationsReportJobGetModel, \
+    TopViolationsReportCompareJobsGetModel
 from validators.utils import validate_kwargs
 
 
-class MCPReportBuilder:
-    class MCPResourceReport(TypedDict):
+class TopViolationsReportBuilder:
+    class ResourceReport(TypedDict):
         id: str
         violated_rules: list[dict]
 
-    class MCPRulesReport(TypedDict):
+    class RulesReport(TypedDict):
         name: str
         description: str
         severity: str
@@ -73,7 +73,7 @@ class MCPReportBuilder:
             }
 
 
-    def build_resource_report(self) -> list[MCPResourceReport]:
+    def build_resource_report(self) -> list[ResourceReport]:
         datas = {}
         for rule, res in self._it:
             datas.setdefault(res, []).append(rule)
@@ -98,7 +98,7 @@ class MCPReportBuilder:
         return result
 
 
-    def build_rules_report(self) -> list[MCPRulesReport]:
+    def build_rules_report(self) -> list[RulesReport]:
         datas = {}
         for rule, res in self._it:
             datas.setdefault(rule, []).append(res)
@@ -192,14 +192,14 @@ class MCPReportBuilder:
         return severity, violated_resource_count, inverse_complexity
 
 
-class MCPReportComparator:
-    class MCPResourceComparison(TypedDict):
+class TopViolationsReportComparator:
+    class ResourceComparison(TypedDict):
         id: str
         new_violated_rules: list[dict]
         remediated_rules: list[dict]
         unchanged_violated_rules: list[dict]
 
-    class MCPRulesComparison(TypedDict):
+    class RulesComparison(TypedDict):
         name: str
         new_violated_resources: list[str]
         remediated_resources: list[str]
@@ -207,13 +207,13 @@ class MCPReportComparator:
 
     def __init__(
         self,
-        builder1: MCPReportBuilder,
-        builder2: MCPReportBuilder,
+        builder1: TopViolationsReportBuilder,
+        builder2: TopViolationsReportBuilder,
     ):
         self._builder1 = builder1
         self._builder2 = builder2
 
-    def compare_resource_reports(self) -> list[MCPResourceComparison]:
+    def compare_resource_reports(self) -> list[ResourceComparison]:
         report1 = self._builder1.build_resource_report()
         report2 = self._builder2.build_resource_report()
         result = []
@@ -240,7 +240,7 @@ class MCPReportComparator:
     def _compare_resources(
         one: dict,
         two: dict,
-    ) -> MCPResourceComparison:
+    ) -> ResourceComparison:
         violated_rules1 = {r['name'] for r in one['violated_rules']}
         violated_rules2 = {r['name'] for r in two['violated_rules']}
 
@@ -256,7 +256,7 @@ class MCPReportComparator:
         }
 
 
-    def compare_rules_reports(self) -> list[MCPRulesComparison]:
+    def compare_rules_reports(self) -> list[RulesComparison]:
         report1 = self._builder1.build_rules_report()
         report2 = self._builder2.build_rules_report()
         result = []
@@ -289,7 +289,7 @@ class MCPReportComparator:
         return result
 
 
-class MCPReportHandler(AbstractHandler):
+class TopViolationsReportHandler(AbstractHandler):
     def __init__(
         self,
         job_service: JobService,
@@ -321,19 +321,19 @@ class MCPReportHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            Endpoint.MCP_REPORTS_JOBS_JOB_ID: {
-                HTTPMethod.GET: self.mcp_get_specific_job
+            Endpoint.REPORTS_TOP_VIOLATIONS_JOBS_JOB_ID: {
+                HTTPMethod.GET: self.top_violations_get_specific_job
             },
-            Endpoint.MCP_REPORTS_COMPARE_JOBS: {
-                HTTPMethod.GET: self.mcp_compare_jobs
+            Endpoint.REPORTS_TOP_VIOLATIONS_COMPARE_JOBS: {
+                HTTPMethod.GET: self.top_violations_compare_jobs
             },
         }
 
 
     @validate_kwargs
-    def mcp_get_specific_job(
+    def top_violations_get_specific_job(
         self,
-        event: MCPReportJobGetModel,
+        event: TopViolationsReportJobGetModel,
         job_id: str,
     ):
         job = self._ensure_job(job_id)
@@ -345,7 +345,7 @@ class MCPReportHandler(AbstractHandler):
 
         builder = self._get_builder(job, tenant, metadata, event.top)
 
-        if event.type == MCPReportType.RESOURCES:
+        if event.type == TopViolationsReportType.RESOURCES:
             result = builder.build_resource_report()
         else:
             result = builder.build_rules_report()
@@ -354,9 +354,9 @@ class MCPReportHandler(AbstractHandler):
 
 
     @validate_kwargs
-    def mcp_compare_jobs(
+    def top_violations_compare_jobs(
         self,
-        event: MCPReportCompareJobsGetModel,
+        event: TopViolationsReportCompareJobsGetModel,
     ):
         job1 = self._ensure_job(event.previous_job_id)
         job2 = self._ensure_job(event.current_job_id)
@@ -374,9 +374,9 @@ class MCPReportHandler(AbstractHandler):
         builder1 = self._get_builder(job1, tenant, metadata, event.top)
         builder2 = self._get_builder(job2, tenant, metadata)
 
-        comparator = MCPReportComparator(builder1, builder2)
+        comparator = TopViolationsReportComparator(builder1, builder2)
 
-        if event.type == MCPReportType.RESOURCES:
+        if event.type == TopViolationsReportType.RESOURCES:
             result = comparator.compare_resource_reports()
         else:
             result = comparator.compare_rules_reports()
@@ -390,7 +390,7 @@ class MCPReportHandler(AbstractHandler):
         tenant: Tenant,
         metadata: Metadata,
         top: Optional[int] = None,
-    ) -> MCPReportBuilder:
+    ) -> TopViolationsReportBuilder:
 
         collection = self._report_service.job_collection(tenant, job)
         collection.fetch_all()
@@ -403,7 +403,7 @@ class MCPReportHandler(AbstractHandler):
             metadata=metadata,
             account_id=tenant.project,
         )
-        return MCPReportBuilder(
+        return TopViolationsReportBuilder(
             findings_iterator=findings_iterator,
             entity=tenant,
             metadata=metadata,

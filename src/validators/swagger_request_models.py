@@ -45,7 +45,7 @@ from helpers.constants import (
     RuleDomain,
     RuleSourceType,
     ServiceOperationType,
-    MCPReportType,
+    TopViolationsReportType,
 )
 from helpers import Version, NextToken
 from helpers.regions import AllRegions, AllRegionsWithGlobal
@@ -2023,16 +2023,16 @@ class ResourceReportJobGetModel(JobTypesMixin, BaseModel):
         return self
 
 
-class MCPReportJobGetModel(JobTypesMixin, BaseModel):
-    type: MCPReportType = Field(default=MCPReportType.RESOURCES)
+class TopViolationsReportJobGetModel(BaseModel):
+    type: TopViolationsReportType = Field(default=TopViolationsReportType.RESOURCES)
     top: int = Field(default=5, gt=0, le=5,
                      description='Limits the number of top critical items')
 
 
-class MCPReportCompareJobsGetModel(JobTypesMixin, BaseModel):
+class TopViolationsReportCompareJobsGetModel(BaseModel):
     previous_job_id: str
     current_job_id: str
-    type: MCPReportType = Field(default=MCPReportType.RESOURCES)
+    type: TopViolationsReportType = Field(default=TopViolationsReportType.RESOURCES)
     top: int = Field(default=5, gt=0, le=5,
                      description='Limits the number of top critical items')
 

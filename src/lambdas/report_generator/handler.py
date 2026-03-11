@@ -12,7 +12,7 @@ from handlers.reports import (
     ResourceReportHandler,
     SiemPushHandler,
 )
-from handlers.reports.mcp_report_handler import MCPReportHandler
+from handlers.reports.top_violations_report_handler import TopViolationsReportHandler
 from helpers.log_helper import get_logger
 from services.abs_lambda import (
     ApiEventProcessorLambdaHandler,
@@ -47,7 +47,7 @@ class ReportGenerator(ApiEventProcessorLambdaHandler):
         FindingsReportHandler,
         RawReportHandler,
         HighLevelReportsHandler,
-        MCPReportHandler,
+        TopViolationsReportHandler,
     )
 
     @cached_property

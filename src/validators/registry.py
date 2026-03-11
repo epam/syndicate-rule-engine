@@ -94,8 +94,8 @@ from validators.swagger_request_models import (
     UserPatchModel,
     UserPostModel,
     UserResetPasswordModel,
-    MCPReportJobGetModel,
-    MCPReportCompareJobsGetModel,
+    TopViolationsReportJobGetModel,
+    TopViolationsReportCompareJobsGetModel,
 )
 from validators.swagger_response_models import (
     CredentialsActivationModel,
@@ -162,8 +162,8 @@ from validators.swagger_response_models import (
     SingleTenantExcludedRules,
     SingleTenantsModel,
     SingleUserModel,
-    MCPReportJobsModel,
-    MCPReportComparisonModel,
+    TopViolationsReportJobsModel,
+    TopViolationsReportComparisonModel,
 )
 
 
@@ -1226,20 +1226,20 @@ data: tuple[EndpointInfo, ...] = (
         description='Allows to request raw report data by tenant'
     ),
     EndpointInfo(
-        path=Endpoint.MCP_REPORTS_JOBS_JOB_ID,
+        path=Endpoint.REPORTS_TOP_VIOLATIONS_JOBS_JOB_ID,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
-        request_model=MCPReportJobGetModel,
-        responses=[(HTTPStatus.OK, MCPReportJobsModel, None)],
+        request_model=TopViolationsReportJobGetModel,
+        responses=[(HTTPStatus.OK, TopViolationsReportJobsModel, None)],
         permission=Permission.MCP_REPORT_GET_JOBS,
         description='Allows to get MCP report by job id'
     ),
     EndpointInfo(
-        path=Endpoint.MCP_REPORTS_COMPARE_JOBS,
+        path=Endpoint.REPORTS_TOP_VIOLATIONS_COMPARE_JOBS,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
-        request_model=MCPReportCompareJobsGetModel,
-        responses=[(HTTPStatus.OK, MCPReportComparisonModel, None)],
+        request_model=TopViolationsReportCompareJobsGetModel,
+        responses=[(HTTPStatus.OK, TopViolationsReportComparisonModel, None)],
         permission=Permission.MCP_REPORT_COMPARE_JOBS,
         description='Allows to get MCP reports comparison by jobs ids'
     ),
