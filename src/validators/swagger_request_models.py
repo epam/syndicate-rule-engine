@@ -2297,16 +2297,16 @@ class DefectDojoActivationPutModel(BaseModel):
 
 
 class DefectDojoUpdatePatchModel(BaseModel):
-    tenant_names: set[str] = Field(default_factory=set)
-    exclude_tenants: set[str] = Field(default_factory=set)
-    clouds: set[Literal['AWS', 'AZURE', 'GOOGLE']] = Field(default_factory=set)
+    tenant_names: set[str] | None= Field(default_factory=set)
+    exclude_tenants: set[str] | None= Field(default_factory=set)
+    clouds: set[Literal['AWS', 'AZURE', 'GOOGLE']] | None= Field(default_factory=set)
 
-    scan_type: Literal['Generic Findings Import', 'Cloud Custodian Scan'] = (
+    scan_type: Literal['Generic Findings Import', 'Cloud Custodian Scan'] | None= (
         Field(description='Defect dojo scan type'))
-    product_type: str = Field(description='Defect dojo product type name')
-    product: str = Field(description='Defect dojo product name')
-    engagement: str = Field(description='Defect dojo engagement name')
-    test: str = Field(description='Defect dojo test')
+    product_type: str | None= Field(description='Defect dojo product type name')
+    product: str | None= Field(description='Defect dojo product name')
+    engagement: str | None= Field(description='Defect dojo engagement name')
+    test: str | None= Field(description='Defect dojo test')
     send_after_job: bool | None = Field(description='Whether to send the results to '
                                                     'dojo after each scan')
     attachment: Literal['json', 'xlsx', 'cv'] = Field(None)
