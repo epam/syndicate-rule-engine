@@ -880,9 +880,11 @@ def from_normalized_version(version: str) -> str:
 
 
 def create_requests_session(
+    *,
     max_retries: int = 3,
     backoff_factor: float = 1,
     status_forcelist: list[int] | None = None,
+    retry_all_methods: bool = False,
 ) -> requests.Session:
     """
     Create a requests session with retry capabilities.
@@ -892,15 +894,18 @@ def create_requests_session(
     :param max_retries: Maximum number of retries
     :param backoff_factor: Backoff factor
     :param status_forcelist: List of status codes to force retry
+    :param retry_all_methods: Retry all methods, not only GET and POST
     :return: requests.Session
     """
     status_forcelist = status_forcelist or [500, 502, 503, 504]
+    allowed_methods = None if retry_all_methods else Retry.DEFAULT_ALLOWED_METHODS
     retry = Retry(
         total=max_retries,
         connect=max_retries,
         read=max_retries,
         backoff_factor=backoff_factor,
         status_forcelist=status_forcelist,
+        allowed_methods=allowed_methods,
     )
     adapter = HTTPAdapter(max_retries=retry)
     session = requests.Session()

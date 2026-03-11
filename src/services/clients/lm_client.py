@@ -4,7 +4,7 @@ import json
 import re
 from enum import Enum
 from http import HTTPStatus
-
+import uuid
 from typing import Literal, Tuple, Union
 from typing_extensions import TypedDict, NotRequired
 import requests
@@ -15,6 +15,7 @@ from helpers.__version__ import __version__
 from helpers.constants import (
     ALG_ATTR,
     AUTHORIZATION_PARAM,
+    IDEMPOTENCY_KEY_HEADER,
     KID_ATTR,
     TOKEN_ATTR,
     HTTPMethod,
@@ -201,7 +202,7 @@ class LMClient:
         self._baseurl = baseurl
         self._token_producer = token_producer
 
-        self._session = create_requests_session()
+        self._session = create_requests_session(retry_all_methods=True)
 
     def __del__(self):
         self._session.close()
@@ -257,12 +258,18 @@ class LMClient:
         kw = dict(
             method=method.value, url=urljoin(self._baseurl, endpoint.value)
         )
+        headers = {
+            AUTHORIZATION_PARAM: token,
+        }
+        if method == HTTPMethod.POST:
+            headers[IDEMPOTENCY_KEY_HEADER] = str(uuid.uuid4())
+
         if params:
             kw.update(params=params)
         if data:
             kw.update(json=data)
         if token:
-            kw.update(headers={AUTHORIZATION_PARAM: token})
+            kw.update(headers=headers)
         try:
             resp = self._session.request(**kw)
             _LOG.debug(f'Response from {resp}')
