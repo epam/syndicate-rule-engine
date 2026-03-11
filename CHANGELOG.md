@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 - Removed `SREBatchResults` model and related endpoints and services
+- Removed `quota` field from the license `event_driven` payload
 
 ## [5.16.0] - 2026-01-30
 - Added validation of downloaded rulesets to ensure they are valid JSON
