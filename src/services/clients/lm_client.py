@@ -15,7 +15,6 @@ from helpers.__version__ import __version__
 from helpers.constants import (
     ALG_ATTR,
     AUTHORIZATION_PARAM,
-    IDEMPOTENCY_KEY_HEADER,
     KID_ATTR,
     TOKEN_ATTR,
     HTTPMethod,
@@ -261,8 +260,6 @@ class LMClient:
         headers = {
             AUTHORIZATION_PARAM: token,
         }
-        if method == HTTPMethod.POST:
-            headers[IDEMPOTENCY_KEY_HEADER] = str(uuid.uuid4())
 
         if params:
             kw.update(params=params)

@@ -375,7 +375,6 @@ PARAM_USER_ROLE = 'user_role'
 PARAM_USER_CUSTOMER = 'user_customer'
 
 AUTHORIZATION_PARAM = 'authorization'
-IDEMPOTENCY_KEY_HEADER = 'Idempotency-Key'
 
 # on-prem
 DOCKER_SERVICE_MODE, SAAS_SERVICE_MODE = 'docker', 'saas'
