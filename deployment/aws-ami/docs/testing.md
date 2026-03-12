@@ -280,7 +280,6 @@ sudo crictl rmi --prune
 https://github.com/kubernetes/kubeadm/issues/1464
 https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/
 
-
 ## Migrate minikube
 
 ```bash
