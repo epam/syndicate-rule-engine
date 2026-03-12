@@ -4,7 +4,6 @@ import json
 import re
 from enum import Enum
 from http import HTTPStatus
-import uuid
 from typing import Literal, Tuple, Union
 from typing_extensions import TypedDict, NotRequired
 import requests
