@@ -2296,6 +2296,29 @@ class DefectDojoActivationPutModel(BaseModel):
         return self
 
 
+class DefectDojoUpdatePatchModel(BaseModel):
+    tenant_names: set[str] = Field(default_factory=set)
+    exclude_tenants: set[str] = Field(default_factory=set)
+    clouds: set[Literal['AWS', 'AZURE', 'GOOGLE']]= Field(default_factory=set)
+
+    scan_type: Literal['Generic Findings Import', 'Cloud Custodian Scan'] | None= (
+        Field(default=None, description='Defect dojo scan type'))
+    product_type: str | None= Field(default=None, description='Defect dojo product type name')
+    product: str | None= Field(default=None, description='Defect dojo product name')
+    engagement: str | None= Field(default=None, description='Defect dojo engagement name')
+    test: str | None= Field(default=None, description='Defect dojo test')
+    send_after_job: bool | None = Field(default=None, description='Whether to send the results to '
+                                                    'dojo after each scan')
+    attachment: Literal['json', 'xlsx', 'cv'] = Field(None)
+
+    @model_validator(mode='after')
+    def _(self) -> Self:
+        if self.tenant_names and self.clouds:
+            raise ValueError('do not provide all_tenants or clouds '
+                             'if specific tenant names are provided')
+        return self
+
+
 class SelfIntegrationPutModel(BaseModel):
     description: str = 'Custodian access application'
     username: str
