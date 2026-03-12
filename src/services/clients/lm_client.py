@@ -4,13 +4,12 @@ import json
 import re
 from enum import Enum
 from http import HTTPStatus
-
 from typing import Literal, Tuple, Union
 from typing_extensions import TypedDict, NotRequired
 import requests
 from modular_sdk.services.impl.maestro_credentials_service import AccessMeta
 
-from helpers import JWTToken, Version, urljoin
+from helpers import JWTToken, Version, urljoin, create_requests_session
 from helpers.__version__ import __version__
 from helpers.constants import (
     ALG_ATTR,
@@ -97,8 +96,10 @@ class LmTokenProducer:
     __slots__ = '_ss', '_ssm', '_kid', '_alg', '_pem', '_cached'
 
     def __init__(
-        self, settings_service: SettingsService, ssm: AbstractSSMClient
-    ):
+        self,
+        settings_service: SettingsService,
+        ssm: AbstractSSMClient,
+    ) -> None:
         self._ss = settings_service
         self._ssm = ssm
 
@@ -190,11 +191,15 @@ class LMClient:
 
     __slots__ = '_baseurl', '_token_producer', '_session'
 
-    def __init__(self, baseurl: str, token_producer: LmTokenProducer):
+    def __init__(
+        self,
+        baseurl: str,
+        token_producer: LmTokenProducer,
+    ) -> None:
         self._baseurl = baseurl
         self._token_producer = token_producer
 
-        self._session = requests.Session()
+        self._session = create_requests_session(retry_all_methods=True)
 
     def __del__(self):
         self._session.close()
@@ -250,12 +255,16 @@ class LMClient:
         kw = dict(
             method=method.value, url=urljoin(self._baseurl, endpoint.value)
         )
+        headers = {
+            AUTHORIZATION_PARAM: token,
+        }
+
         if params:
             kw.update(params=params)
         if data:
             kw.update(json=data)
         if token:
-            kw.update(headers={AUTHORIZATION_PARAM: token})
+            kw.update(headers=headers)
         try:
             resp = self._session.request(**kw)
             _LOG.debug(f'Response from {resp}')
@@ -524,8 +533,10 @@ class LMClientFactory:
     __slots__ = '_ss', '_ssm'
 
     def __init__(
-        self, settings_service: SettingsService, ssm: AbstractSSMClient
-    ):
+        self,
+        settings_service: SettingsService,
+        ssm: AbstractSSMClient,
+    ) -> None:
         self._ss = settings_service
         self._ssm = ssm
 

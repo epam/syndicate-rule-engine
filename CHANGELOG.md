@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added new API endpoint  `PATCH /integrations/defect-dojo/{id}/activation`
 
 ### Fixed
+- Fixed LM/Dojo/Git clients failing with `RemoteDisconnected` when reusing idle TCP connections (e.g. after NAT gateway timeout) by adding retries
 - Fixed invalid `next_token` handling
 - Fixed issue with double creation of indexes for `SREResources` and `SREResourceExceptions` collections
 - Fixed issue when operational overview report returns `list` instead of `dict` as fallback value for `rules_data` field

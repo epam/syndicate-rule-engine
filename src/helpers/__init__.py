@@ -8,6 +8,8 @@ import time
 import uuid
 from contextlib import contextmanager
 from enum import Enum as _Enum
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from functools import reduce
 from itertools import chain, islice
 from types import NoneType
@@ -875,3 +877,38 @@ def from_normalized_version(version: str) -> str:
         return '0.0.0'
     parts = version.split('.')
     return '.'.join([str(int(part)) for part in parts])
+
+
+def create_requests_session(
+    *,
+    max_retries: int = 3,
+    backoff_factor: float = 1,
+    status_forcelist: list[int] | None = None,
+    retry_all_methods: bool = False,
+) -> requests.Session:
+    """
+    Create a requests session with retry capabilities.
+    Retries on connection drops (e.g. NAT idle timeout), read errors
+    (e.g. RemoteDisconnected / ProtocolError), and server errors.
+
+    :param max_retries: Maximum number of retries
+    :param backoff_factor: Backoff factor
+    :param status_forcelist: List of status codes to force retry
+    :param retry_all_methods: Retry all methods, not only GET and POST
+    :return: requests.Session
+    """
+    status_forcelist = status_forcelist or [500, 502, 503, 504]
+    allowed_methods = None if retry_all_methods else Retry.DEFAULT_ALLOWED_METHODS
+    retry = Retry(
+        total=max_retries,
+        connect=max_retries,
+        read=max_retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=status_forcelist,
+        allowed_methods=allowed_methods,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session = requests.Session()
+    session.mount('https://', adapter)
+    session.mount('http://', adapter)
+    return session
