@@ -1231,7 +1231,7 @@ data: tuple[EndpointInfo, ...] = (
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=TopViolationsReportJobGetModel,
         responses=[(HTTPStatus.OK, TopViolationsReportJobsModel, None)],
-        permission=Permission.MCP_REPORT_GET_JOBS,
+        permission=Permission.REPORT_TOP_VIOLATIONS_GET_JOBS,
         description='Allows to get MCP report by job id'
     ),
     EndpointInfo(
@@ -1240,7 +1240,7 @@ data: tuple[EndpointInfo, ...] = (
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=TopViolationsReportCompareJobsGetModel,
         responses=[(HTTPStatus.OK, TopViolationsReportComparisonModel, None)],
-        permission=Permission.MCP_REPORT_COMPARE_JOBS,
+        permission=Permission.REPORT_TOP_VIOLATIONS_COMPARE_JOBS,
         description='Allows to get MCP reports comparison by jobs ids'
     ),
 

@@ -869,8 +869,16 @@ class Permission(str, Enum):
         False,
         True,
     )
-    MCP_REPORT_GET_JOBS = 'report:get_mcp_report', False, True
-    MCP_REPORT_COMPARE_JOBS = 'report:get_mcp_compare_report', False, True
+    REPORT_TOP_VIOLATIONS_GET_JOBS = (
+        'report:get_top_violations_report',
+        False,
+        True,
+    )
+    REPORT_TOP_VIOLATIONS_COMPARE_JOBS = (
+        'report:get_top_violations_compare_report',
+        False,
+        True,
+    )
     REPORT_RAW_GET_TENANT_LATEST = (
         'report:get_tenant_latest_raw_report',
         False,
