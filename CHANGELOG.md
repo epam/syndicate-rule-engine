@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the ability to send attacks report to MCC after event-driven job completion
 - Added the ability to provide receivers to the endpoint `/report/department/`
 - Added support for AWS events from Maestro vendor for event-driven
+- Added new API endpoint  `PATCH /integrations/defect-dojo/{id}/activation`
 
 ### Fixed
 - Fixed invalid `next_token` handling
@@ -39,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 - Removed `SREBatchResults` model and related endpoints and services
+- Removed `quota` field from the license `event_driven` payload
 
 ## [5.16.0] - 2026-01-30
 - Added validation of downloaded rulesets to ensure they are valid JSON

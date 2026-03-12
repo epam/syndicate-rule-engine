@@ -248,7 +248,6 @@ def main_license(main_customer, aws_rules, azure_rules, google_rules, k8s_rules)
         },
         event_driven={
             'active': False,
-            'quota': 0,
         }
     )
     SP.license_service.save(lic)

@@ -173,3 +173,69 @@ def get_activation(ctx: ContextObj, integration_id: str, customer_id):
         id=integration_id,
         customer_id=customer_id
     )
+
+@dojo.command(cls=ViewCommand, name='update')
+@click.option('--integration_id', '-id', type=str, required=True,
+              help='Id of dojo integration')
+@click.option('--tenant_name', '-tn', type=str, multiple=True,
+              help='Tenants to include for this integration')
+@click.option('--exclude_tenant', '-et', type=str, multiple=True,
+              help='Tenants to exclude for this integration. ')
+@click.option('--clouds', '-c',
+              type=click.Choice((AWS, AZURE, GOOGLE, KUBERNETES)),
+              multiple=True,
+              help='Tenant clouds to activate this dojo for. '
+                   'Can be specific if --all_tenants flag is on at this integration')
+@click.option('--scan_type', '-st', show_default=True,
+              type=click.Choice(('Generic Findings Import', 'Cloud Custodian Scan')),
+              help='Defect Dojo scan type. Generic Findings Import can be '
+                   'used with open source DefectDojo whereas Cloud '
+                   'Custodian Scan - with EPAM`s fork')
+@click.option('--send_after_job', '-saj', show_default=True,
+              type=click.Choice(('yes', 'not')),
+              help='Enter "yes" or "no" to toggle the flag to send results '
+                   'to the dojo after each job automatically')
+@click.option('--product_type', type=str,
+              help='Product type to update in Dojo. "tenant_name", '
+                   '"customer_name" and "job_id" can be used as generic '
+                   'placeholders inside curly brackets')
+@click.option('--product', type=str,
+              help='Product name to update in Dojo.')
+@click.option('--engagement', type=str,
+              help='Engagement name to update in Dojo.')
+@click.option('--test', type=str,
+              help='Test name to create in Dojo.')
+@click.option('--attachment', type=click.Choice(('json', 'xlsx', 'csv')),
+              required=False,
+              help='What type of file with resources to attach to each '
+                   'finding. If not provided, no files will be attached, '
+                   'resources will be displayed in description')
+@cli_response()
+def update(ctx: ContextObj, integration_id: str,
+           tenant_name: tuple[str, ...], exclude_tenant: tuple[str, ...],
+           clouds: tuple[str], scan_type: str, send_after_job: str | None,
+           product_type: str | None, product: str | None, engagement: str | None,
+           test: str | None, attachment: str | None, customer_id):
+    """
+    Update a dojo activation.
+    """
+
+    if send_after_job == 'yes':
+        send_after_job = True
+    elif send_after_job == 'not':
+        send_after_job = False
+
+    return ctx['api_client'].dojo_update(
+        id=integration_id,
+        tenant_names=tenant_name,
+        exclude_tenants=exclude_tenant,
+        clouds=clouds,
+        scan_type=scan_type,
+        product_type=product_type,
+        product=product,
+        engagement=engagement,
+        test=test,
+        send_after_job=send_after_job,
+        attachment=attachment,
+        customer_id=customer_id
+    )

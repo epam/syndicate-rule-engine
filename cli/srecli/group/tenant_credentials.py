@@ -55,7 +55,6 @@ def link(ctx: ContextObj, application_id: str, tenant_name: tuple[str, ...],
          customer_id: str | None):
     """
     Links credentials to a specific set of tenants.
-    Each activation overrides the existing one
     """
     if tenant_name and any((all_tenants, exclude_tenant)):
         return SREResponse.build(

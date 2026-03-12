@@ -48,7 +48,6 @@ class LMAllowanceDTO(TypedDict):
 
 class LMEventDrivenDTO(TypedDict):
     active: bool
-    quota: int
 
 
 class LMLicenseDTO(TypedDict):
