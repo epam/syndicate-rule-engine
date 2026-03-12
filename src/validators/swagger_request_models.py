@@ -2297,9 +2297,9 @@ class DefectDojoActivationPutModel(BaseModel):
 
 
 class DefectDojoUpdatePatchModel(BaseModel):
-    tenant_names: set[str] | None= Field(default_factory=set)
-    exclude_tenants: set[str] | None= Field(default_factory=set)
-    clouds: set[Literal['AWS', 'AZURE', 'GOOGLE']] | None= Field(default_factory=set)
+    tenant_names: set[str] = Field(default_factory=set)
+    exclude_tenants: set[str] = Field(default_factory=set)
+    clouds: set[Literal['AWS', 'AZURE', 'GOOGLE']]= Field(default_factory=set)
 
     scan_type: Literal['Generic Findings Import', 'Cloud Custodian Scan'] | None= (
         Field(description='Defect dojo scan type'))
