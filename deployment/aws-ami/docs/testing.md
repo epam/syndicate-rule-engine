@@ -280,61 +280,6 @@ sudo crictl rmi --prune
 https://github.com/kubernetes/kubeadm/issues/1464
 https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/
 
-## Testing from scratch on Minikube
-
-Use this procedure to deploy and verify Rule Engine (including split Celery workers) on a fresh Minikube cluster.
-
-**Prerequisites:** minikube, kubectl, helm, access to S3 helm repo or local chart.
-
-**Step 1: Start Minikube**
-
-```bash
-minikube start --driver=docker --container-runtime=containerd -n 1 \
-  --memory=max --cpus=2 --profile rule-engine --kubernetes-version=v1.30.0
-minikube profile rule-engine
-```
-
-**Step 2: Add Helm repo**
-
-```bash
-helm repo add syndicate https://charts-repository.s3.eu-west-1.amazonaws.com/syndicate/
-helm repo update
-```
-
-**Step 3: Install rule-engine**
-
-```bash
-helm install rule-engine syndicate/rule-engine --version 5.17.0
-```
-
-**Step 4: Verify deployments**
-
-```bash
-kubectl get deployment | grep rule-engine
-```
-
-Expected: `rule-engine`, `rule-engine-celerybeat`, `rule-engine-celeryworker-jobs`, `rule-engine-celeryworker-scheduled`.
-
-**Step 5: Verify workers**
-
-```bash
-# Jobs worker — logs should show [queues] a-jobs
-kubectl logs -l app.kubernetes.io/name=rule-engine-celeryworker-jobs -f --tail=50
-
-# Scheduled worker — logs should show [queues] b-scheduled
-kubectl logs -l app.kubernetes.io/name=rule-engine-celeryworker-scheduled -f --tail=50
-```
-
-**Step 6: Functional tests**
-
-1. **Jobs worker (a-jobs):** Submit a job via API/CLI and confirm it runs.
-2. **Scheduled worker (b-scheduled):** Wait for beat tasks (e.g. `assemble_events` every 5 min) or adjust schedule for faster verification.
-
-**Step 7 (optional): Install DefectDojo**
-
-```bash
-helm install defectdojo syndicate/defectdojo
-```
 
 ## Migrate minikube
 
