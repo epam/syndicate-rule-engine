@@ -119,8 +119,14 @@ persistence:
 
 celery:
   logLevel: ERROR
-  workerMemoryLimit: "1536Mi"
-  workerMemoryRequest: "128Mi"
+  jobsWorker:
+    replicas: 1
+    memoryLimit: "1536Mi"
+    memoryRequest: "128Mi"
+  scheduledWorker:
+    replicas: 1
+    memoryLimit: "512Mi"
+    memoryRequest: "128Mi"
   beatMemoryLimit: "256Mi"
   beatMemoryRequest: "128Mi"
   enableCustomCcPlugins: ''

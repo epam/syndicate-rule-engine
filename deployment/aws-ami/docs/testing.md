@@ -75,19 +75,34 @@ and other microservices that are required by the main ones. The whole list of de
 
 ```bash
 $ kubectl get deployment
-NAME                      READY   UP-TO-DATE   AVAILABLE   AGE
-defectdojo-celerybeat     1/1     1            1           38m
-defectdojo-celeryworker   1/1     1            1           38m
-defectdojo-nginx          1/1     1            1           38m
-defectdojo-postgres       1/1     1            1           38m
-defectdojo-redis          1/1     1            1           38m
-defectdojo-uwsgi          1/1     1            1           38m
-minio                     1/1     1            1           38m
-modular-api               1/1     1            1           38m
-modular-service           1/1     1            1           38m
-mongo                     1/1     1            1           38m
-rule-engine               1/1     1            1           38m
-vault                     1/1     1            1           38m
+NAME                              READY   UP-TO-DATE   AVAILABLE   AGE
+defectdojo-celerybeat             1/1     1            1           38m
+defectdojo-celeryworker           1/1     1            1           38m
+defectdojo-nginx                  1/1     1            1           38m
+defectdojo-postgres               1/1     1            1           38m
+defectdojo-redis                  1/1     1            1           38m
+defectdojo-uwsgi                  1/1     1            1           38m
+minio                             1/1     1            1           38m
+modular-api                       1/1     1            1           38m
+modular-service                   1/1     1            1           38m
+mongo                             1/1     1            1           38m
+rule-engine                       1/1     1            1           38m
+rule-engine-celerybeat            1/1     1            1           38m
+rule-engine-celeryworker-jobs     1/1     1            1           38m
+rule-engine-celeryworker-scheduled 1/1     1            1           38m
+vault                             1/1     1            1           38m
+```
+
+**Split Celery workers verification**
+
+Rule Engine uses two separate Celery workers: one for regular jobs (a-jobs queue) and one for scheduled tasks (b-scheduled queue). Verify each worker consumes from its designated queue:
+
+```bash
+# Jobs worker — should show [queues] a-jobs
+kubectl logs -l app.kubernetes.io/name=rule-engine-celeryworker-jobs -f --tail=50
+
+# Scheduled worker — should show [queues] b-scheduled
+kubectl logs -l app.kubernetes.io/name=rule-engine-celeryworker-scheduled -f --tail=50
 ```
 
 By default, only `defectdojo`, `modular-api` and `minio` services should be exposed to localhost. You can verify this 
@@ -264,6 +279,62 @@ sudo crictl rmi --prune
 ### Useful links
 https://github.com/kubernetes/kubeadm/issues/1464
 https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/
+
+## Testing from scratch on Minikube
+
+Use this procedure to deploy and verify Rule Engine (including split Celery workers) on a fresh Minikube cluster.
+
+**Prerequisites:** minikube, kubectl, helm, access to S3 helm repo or local chart.
+
+**Step 1: Start Minikube**
+
+```bash
+minikube start --driver=docker --container-runtime=containerd -n 1 \
+  --memory=max --cpus=2 --profile rule-engine --kubernetes-version=v1.30.0
+minikube profile rule-engine
+```
+
+**Step 2: Add Helm repo**
+
+```bash
+helm repo add syndicate https://charts-repository.s3.eu-west-1.amazonaws.com/syndicate/
+helm repo update
+```
+
+**Step 3: Install rule-engine**
+
+```bash
+helm install rule-engine syndicate/rule-engine --version 5.17.0
+```
+
+**Step 4: Verify deployments**
+
+```bash
+kubectl get deployment | grep rule-engine
+```
+
+Expected: `rule-engine`, `rule-engine-celerybeat`, `rule-engine-celeryworker-jobs`, `rule-engine-celeryworker-scheduled`.
+
+**Step 5: Verify workers**
+
+```bash
+# Jobs worker — logs should show [queues] a-jobs
+kubectl logs -l app.kubernetes.io/name=rule-engine-celeryworker-jobs -f --tail=50
+
+# Scheduled worker — logs should show [queues] b-scheduled
+kubectl logs -l app.kubernetes.io/name=rule-engine-celeryworker-scheduled -f --tail=50
+```
+
+**Step 6: Functional tests**
+
+1. **Jobs worker (a-jobs):** Submit a job via API/CLI and confirm it runs.
+2. **Scheduled worker (b-scheduled):** Wait for beat tasks (e.g. `assemble_events` every 5 min) or adjust schedule for faster verification.
+
+**Step 7 (optional): Install DefectDojo**
+
+```bash
+helm install defectdojo syndicate/defectdojo
+```
 
 ## Migrate minikube
 

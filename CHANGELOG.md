@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed multi-region job failure caused by temporary credential files being removed too early
 
 ### Changed
+- Split Celery workers into two separate containers: `celeryworker-jobs` (a-jobs queue) and `celeryworker-scheduled` (b-scheduled queue) for Helm, Docker Compose, and entrypoint
 - Changed the `JobType` enum to include `STANDARD`, `SCHEDULED` and `MANUAL`
 - Updated recommendations processing logic to use all available rules for generating
 - Changed modular-sdk version from `7.1.6` to `7.1.9`
