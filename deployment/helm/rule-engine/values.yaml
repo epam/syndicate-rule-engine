@@ -125,7 +125,7 @@ celery:
     memoryRequest: "128Mi"
   scheduledWorker:
     replicas: 1
-    memoryLimit: "512Mi"
+    memoryLimit: "1024Mi"
     memoryRequest: "128Mi"
   beatMemoryLimit: "256Mi"
   beatMemoryRequest: "128Mi"
