@@ -2302,12 +2302,12 @@ class DefectDojoUpdatePatchModel(BaseModel):
     clouds: set[Literal['AWS', 'AZURE', 'GOOGLE']]= Field(default_factory=set)
 
     scan_type: Literal['Generic Findings Import', 'Cloud Custodian Scan'] | None= (
-        Field(description='Defect dojo scan type'))
-    product_type: str | None= Field(description='Defect dojo product type name')
-    product: str | None= Field(description='Defect dojo product name')
-    engagement: str | None= Field(description='Defect dojo engagement name')
-    test: str | None= Field(description='Defect dojo test')
-    send_after_job: bool | None = Field(description='Whether to send the results to '
+        Field(default=None, description='Defect dojo scan type'))
+    product_type: str | None= Field(default=None, description='Defect dojo product type name')
+    product: str | None= Field(default=None, description='Defect dojo product name')
+    engagement: str | None= Field(default=None, description='Defect dojo engagement name')
+    test: str | None= Field(default=None, description='Defect dojo test')
+    send_after_job: bool | None = Field(default=None, description='Whether to send the results to '
                                                     'dojo after each scan')
     attachment: Literal['json', 'xlsx', 'cv'] = Field(None)
 
