@@ -41,7 +41,7 @@ Other options:
 Run from project root:
 
 ```bash
-# Send to SQS (config: scripts/ed_high_loader/config.qa.yml, events: events.yml)
+# Send to SQS (config: scripts/ed_high_loader/config.yaml, events: scripts/ed_high_loader/events.yml)
 python -m scripts.ed_high_loader
 
 # Different config
@@ -61,7 +61,7 @@ python -m scripts.ed_high_loader -w 4
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-c`, `--config` | Path to config | `scripts/ed_high_loader/config.qa.yml` |
+| `-c`, `--config` | Path to config | `scripts/ed_high_loader/config.yaml` |
 | `-e`, `--events` | Path to events file | `scripts/ed_high_loader/events.yml` |
 | `-n`, `--dry-run` | Do not send to SQS, only print payloads | — |
 | `-w`, `--workers` | Number of worker threads for sending | 1 |

@@ -271,7 +271,7 @@ def main() -> int:
     parser.add_argument(
         "-c",
         "--config",
-        default="scripts/ed_high_loader/config.qa.yml",
+        default="scripts/ed_high_loader/config.yaml",
         help="Path to config (sqs, aws_vendor, maestro_vendor).",
     )
     parser.add_argument(
