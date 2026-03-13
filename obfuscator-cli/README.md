@@ -33,10 +33,10 @@ pip install .
 ## Obfuscation flow
 1. Execute the following command: 
 ```bash
-sreobf obfuscate --dump-directory "$custodian_dump_folder" --to "$target_folder" --dictionary-out "$obfuscation_dictionary.json"
+sreobf obfuscate --dump-directory "$sre_dump_folder" --to "$target_folder" --dictionary-out "$obfuscation_dictionary.json"
 ```
 Where: 
-* $custodian_dump_folder - is the full path to the folder where Syndicate Rule Engine dump is stored
+* $sre_dump_folder - is the full path to the folder where Syndicate Rule Engine dump is stored
 * $target_folder - is the full path to the folder where the obfuscation result will be stored. The folder will be created if does not exist
 * $obfuscation_dictionary.json - is the name of the file where the mapping of resource names to synthetic ids will be stored. Please keep it safe - it is impossible to de-obfuscate data without this file
 
