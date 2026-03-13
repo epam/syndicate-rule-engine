@@ -244,6 +244,7 @@ cython_debug/
 [Ll]ib64
 [Ll]ocal
 [Ss]cripts
+!scripts/
 pyvenv.cfg
 pip-selfcheck.json
 
