@@ -277,7 +277,10 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
             job_ids.append(job.id)
 
         submitted_job_ids = []
-        resp = self._submit_jobs_to_batch(allowed_jobs)
+        resp = self._submit_jobs_to_batch(
+            allowed_jobs,
+            as_event_driven=True,
+        )
         if resp:
             for job in allowed_jobs:
                 self._job_service.update(
@@ -375,9 +378,7 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
         # Ensure proper nested defaultdict structure to prevent KeyError
         # Structure: result[vendor][cloud][tenant_name][region_name] = rules
         result: ByVendorMap = defaultdict(
-            lambda: defaultdict(
-                lambda: defaultdict(dict)
-            )
+            lambda: defaultdict(lambda: defaultdict(dict))
         )
 
         for event in events:
@@ -390,12 +391,12 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
                 cloud = event_record.cloud
                 tenant_name = event_record.tenant_name
 
-                # NOTE: If we are handling GCP/Azure events, 
-                # we need to set the region name to 'global' 
+                # NOTE: If we are handling GCP/Azure events,
+                # we need to set the region name to 'global'
                 # good to review this logic with scanning 'global' region for GCP/Azure.
                 # maybe we should can optimize this logic by using the region name from the event record.
                 if cloud in {Cloud.GOOGLE.value, Cloud.AZURE.value}:
-                    region_name = 'global'
+                    region_name = "global"
                 else:
                     region_name = event_record.region_name
 
