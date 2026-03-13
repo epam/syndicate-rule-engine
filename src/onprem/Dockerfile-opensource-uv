@@ -1,4 +1,4 @@
-FROM public.ecr.aws/docker/library/python:3.10 as builder
+FROM public.ecr.aws/docker/library/python:3.10 AS builder
 COPY --from=ghcr.io/astral-sh/uv:0.6.6 /uv /uvx /bin/
 
 WORKDIR /src
@@ -14,7 +14,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 COPY src /src/
 RUN chmod +x /src/entrypoint.sh /src/main.py && \
-    rm -f /src/executor/Dockerfile* /src/executor/requirements.txt /src/onprem/Dockerfile* /src/onprem/requirements.txt /src/uv.lock /src/pyproject.toml
+    rm -f /src/executor/Dockerfile* /src/executor/requirements.txt /src/onprem/Dockerfile* /src/onprem/requirements.txt /src/uv.lock /src/pyproject.toml && \
+    mv /src/.venv /venv
 
 FROM public.ecr.aws/docker/library/python:3.10-slim
 
@@ -23,6 +24,9 @@ ARG USERNAME=sre
 RUN groupadd --gid=1337 $USERNAME && \
     useradd --system --uid=1001 --gid=1337 --no-create-home $USERNAME
 
+# .venv rarely changes — cached when only app code changes
+COPY --from=builder --chown=$USERNAME:$USERNAME /venv /src/.venv
+# App code — small layer, fast when entrypoint/main.py/etc change
 COPY --from=builder --chown=$USERNAME:$USERNAME /src /src
 
 WORKDIR /src
