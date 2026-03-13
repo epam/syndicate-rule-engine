@@ -31,6 +31,7 @@ class SubmitJobToBatchMixin:
         self,
         jobs: list[Job],
         timeout: int | None = None,
+        as_event_driven: bool = False,
     ) -> BatchJob | CeleryJob:
         job_ids = [job.id for job in jobs]
         job_name = "-".join(job.tenant_name for job in jobs)
@@ -46,6 +47,7 @@ class SubmitJobToBatchMixin:
                 job_id=job_ids,
                 job_name=job_name,
                 timeout=timeout,
+                as_event_driven=as_event_driven,
             )
             _LOG.debug(f"Celery job was submitted: {response}")
         
