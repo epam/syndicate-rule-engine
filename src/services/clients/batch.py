@@ -83,7 +83,7 @@ class BatchClient(Boto3ClientWrapper):
 
     def get_custodian_job_queue_arn(self) -> str:
         """
-        Retrieves Custodian's job queue arn
+        Retrieves SRE's job queue arn
         """
         queue_name = self._environment.get_batch_job_queue()
         if not queue_name:
@@ -92,7 +92,7 @@ class BatchClient(Boto3ClientWrapper):
 
     def get_custodian_job_definition_arn(self) -> str:
         """
-        Retrieves the latest active Custodian's job definition
+        Retrieves the latest active SRE's job definition
         """
         job_definitions = self.get_job_definition_by_name(
             self._environment.get_batch_job_def()
