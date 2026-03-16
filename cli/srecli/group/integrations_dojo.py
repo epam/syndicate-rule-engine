@@ -193,7 +193,7 @@ def get_activation(ctx: ContextObj, integration_id: str, customer_id):
                    'Custodian Scan - with EPAM`s fork')
 @click.option('--send_after_job', '-saj', show_default=True,
               type=click.Choice(('yes', 'not')),
-              help='Enter "yes" or "no" to toggle the flag to send results '
+              help='Enter "yes" or "not" to toggle the flag to send results '
                    'to the dojo after each job automatically')
 @click.option('--product_type', type=str,
               help='Product type to update in Dojo. "tenant_name", '
