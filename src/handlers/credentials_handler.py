@@ -21,7 +21,6 @@ from services.modular_helpers import (
     ResolveParentsPayload,
     build_parents,
     get_activation_dto,
-    split_into_to_keep_to_delete,
 )
 from validators.swagger_request_models import (
     BaseModel,
@@ -169,9 +168,7 @@ class CredentialsHandler(AbstractHandler):
             clouds=clouds,
             all_tenants=event.all_tenants
         )
-        to_keep, to_delete = split_into_to_keep_to_delete(payload)
-        for parent in to_delete:
-            self._ps.force_delete(parent)
+        to_keep = payload.parents
         to_create = build_parents(
             payload=payload,
             parent_service=self._ps,

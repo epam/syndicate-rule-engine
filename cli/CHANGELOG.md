@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.12.0] - 2026-03-02
+
+### Added
+- Added support for insecure-skip-tls-verify in the `sre platform k8s create` command
+- Added bypassing of integration checks in developer mode
+- Added status hints to `sre rule update` command showing how to check status via `sre rulesource describe -rsid {rulesource_id} -cid "{customer_id}"`
+- Added the flag `-r`, `--receiver` to the `sre report department` command
+- Added new CLI `sre integrations dojo update` command
+
+### Fixed
+- Fixed issue when `-acc` filter in `sre tenant describe` command was not working
+
+### Changed
+- Replaced single `sre job event maestro` command with cloud-specific subcommands: `sre job event maestro aws`, `sre job event maestro azure`, `sre job event maestro google`
+- Unified `sre job event maestro {aws|azure|google}` options so `--event_source/-es` and `--event_name/-en` are supported consistently for all cloud subcommands
+- Removed legacy `--event_action/-ea`, `--group`, and `--sub_group` options from `sre job event maestro {aws|azure|google}` commands
+- Improved error message clarity in `sre tenant describe` command when both `--tenant_name` and `--account_number` are provided
+- Standardize and improve the `re` help text
+- renamed alias `-cl` to `-c` for the `--cloud` in commands:
+  - `syndicate re integrations chronicle activate`
+  - `syndicate re integrations dojo activate`
+  - `syndicate re integrations re add`
+  - `syndicate re license activate`
+  - `syndicate re tenant credentials describe`
+
+### Removed
+- Removed `sre result describe` command
+
 ## [5.11.0] - 2026-01-30
 - Added the `--overwrite_rulesets`, `-or` flag to the `sre license sync` command, enabling overwriting of an existing ruleset data in S3 when syncing a license
 - Added the possibility to update the rulesource `type`, `git_url`, `git_ref`, `git_rules_prefix` and  `git_project_id` parameters in the `sre rulesource update` command

@@ -1,15 +1,15 @@
 import base64
 import dataclasses
+import json
 import re
 from enum import Enum
 from http import HTTPStatus
-
 from typing import Literal, Tuple, Union
 from typing_extensions import TypedDict, NotRequired
 import requests
 from modular_sdk.services.impl.maestro_credentials_service import AccessMeta
 
-from helpers import JWTToken, Version, urljoin
+from helpers import JWTToken, Version, urljoin, create_requests_session
 from helpers.__version__ import __version__
 from helpers.constants import (
     ALG_ATTR,
@@ -47,7 +47,6 @@ class LMAllowanceDTO(TypedDict):
 
 class LMEventDrivenDTO(TypedDict):
     active: bool
-    quota: int
 
 
 class LMLicenseDTO(TypedDict):
@@ -97,8 +96,10 @@ class LmTokenProducer:
     __slots__ = '_ss', '_ssm', '_kid', '_alg', '_pem', '_cached'
 
     def __init__(
-        self, settings_service: SettingsService, ssm: AbstractSSMClient
-    ):
+        self,
+        settings_service: SettingsService,
+        ssm: AbstractSSMClient,
+    ) -> None:
         self._ss = settings_service
         self._ssm = ssm
 
@@ -190,11 +191,15 @@ class LMClient:
 
     __slots__ = '_baseurl', '_token_producer', '_session'
 
-    def __init__(self, baseurl: str, token_producer: LmTokenProducer):
+    def __init__(
+        self,
+        baseurl: str,
+        token_producer: LmTokenProducer,
+    ) -> None:
         self._baseurl = baseurl
         self._token_producer = token_producer
 
-        self._session = requests.Session()
+        self._session = create_requests_session(retry_all_methods=True)
 
     def __del__(self):
         self._session.close()
@@ -204,6 +209,39 @@ class LMClient:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._session.close()
+
+    def _safe_json(self, resp: requests.Response) -> dict | None:
+        """
+        Safely parse JSON response. If response is not JSON, returns None.
+        Logs warning if parsing fails.
+        """
+        try:
+            return resp.json()
+        except (json.JSONDecodeError, ValueError) as e:
+            _LOG.warning(
+                f'Failed to parse JSON response from {resp.url}. '
+                f'Response content type: {resp.headers.get("Content-Type", "unknown")}, '
+                f'Status: {resp.status_code}, Error: {e}'
+            )
+            _LOG.debug(f'Response text: {resp.text[:500]}')
+            return None
+
+    def _get_error_message(self, resp: requests.Response, default: str = '') -> str:
+        """
+        Extract error message from response. Tries JSON first, falls back to text.
+        """
+        json_data = self._safe_json(resp)
+        return json_data.get('message', '') if json_data else resp.text or default
+
+    def _get_items_from_response(self, resp: requests.Response) -> list | None:
+        """
+        Safely extract 'items' array from JSON response.
+        Returns None if response is invalid or items are missing.
+        """
+        json_data = self._safe_json(resp)
+        if not json_data or 'items' not in json_data or not json_data['items']:
+            return None
+        return json_data['items']
 
     def _send_request(
         self,
@@ -217,12 +255,16 @@ class LMClient:
         kw = dict(
             method=method.value, url=urljoin(self._baseurl, endpoint.value)
         )
+        headers = {
+            AUTHORIZATION_PARAM: token,
+        }
+
         if params:
             kw.update(params=params)
         if data:
             kw.update(json=data)
         if token:
-            kw.update(headers={AUTHORIZATION_PARAM: token})
+            kw.update(headers=headers)
         try:
             resp = self._session.request(**kw)
             _LOG.debug(f'Response from {resp}')
@@ -254,11 +296,15 @@ class LMClient:
             _LOG.warning('Failed license sync')
             return 'Failed license sync', HTTPStatus.INTERNAL_SERVER_ERROR
         if not resp.ok:
-            err = resp.json().get('message', 'Failed license sync')
+            err = self._get_error_message(resp, 'Failed license sync')
             _LOG.warning(f'Failed license sync: {err}')
             return err, resp.status_code
 
-        return resp.json()['items'].pop(), resp.status_code
+        items = self._get_items_from_response(resp)
+        if not items:
+            _LOG.warning('Invalid response format from license sync')
+            return 'Invalid response format', resp.status_code
+        return items.pop(), resp.status_code
 
     def check_permission(
         self, customer: str, tenant: str, tenant_license_key: str
@@ -287,7 +333,11 @@ class LMClient:
         if resp is None or not resp.ok:
             _LOG.warning('Cannot activate customer')
             return
-        data = resp.json()['items'][0]
+        items = self._get_items_from_response(resp)
+        if not items:
+            _LOG.warning('Invalid response format from activate customer')
+            return
+        data = items[0]
         return data['license_key'], data['tenant_license_key']
 
     def post_job(
@@ -315,13 +365,16 @@ class LMClient:
             raise LMUnavailable('Cannot access the License manager')
         match resp.status_code:
             case HTTPStatus.OK:
-                return resp.json()['items'][0]
+                items = self._get_items_from_response(resp)
+                if not items:
+                    raise LMUnavailable('Invalid response format from post job')
+                return items[0]
             case HTTPStatus.FORBIDDEN:
-                raise LMEmptyBalance(resp.json().get('message') or '')
+                raise LMEmptyBalance(self._get_error_message(resp))
             case HTTPStatus.NOT_FOUND:
-                raise LMInvalidData(resp.json().get('message') or '')
+                raise LMInvalidData(self._get_error_message(resp))
             case _:
-                raise LMUnavailable(resp.json().get('message') or '')
+                raise LMUnavailable(self._get_error_message(resp))
 
     def update_job(
         self,
@@ -364,7 +417,11 @@ class LMClient:
         )
         if resp is None or not resp.ok:
             return None, None
-        return resp.json().get('client_id'), resp.headers.get('Accept-Version')
+        json_data = self._safe_json(resp)
+        if not json_data:
+            _LOG.warning('Invalid response format from whoami')
+            return None, None
+        return json_data.get('client_id'), resp.headers.get('Accept-Version')
 
     def get_all_metadata(
         self,
@@ -395,10 +452,15 @@ class LMClientAfter2p7(LMClient):
         if resp is None or not resp.ok:
             _LOG.warning('Cannot check permission')
             return False
-        return (
-            tenant
-            in resp.json().get('items')[0][tenant_license_key]['allowed']
-        )
+        items = self._get_items_from_response(resp)
+        if not items:
+            _LOG.warning('Invalid response format from check permission')
+            return False
+        item = items[0]
+        if tenant_license_key not in item:
+            _LOG.warning(f'Tenant license key {tenant_license_key} not found in response')
+            return False
+        return tenant in item[tenant_license_key].get('allowed', [])
 
 
 class LMClientAfter3p0(LMClientAfter2p7):
@@ -438,7 +500,7 @@ class LMClientAfter3p0(LMClientAfter2p7):
         )
         if resp is None:
             return
-        return HTTPStatus(resp.status_code), resp.json().get('message', '')
+        return HTTPStatus(resp.status_code), self._get_error_message(resp)
 
 
 class LMClientAfter3p3(LMClientAfter3p0):
@@ -471,8 +533,10 @@ class LMClientFactory:
     __slots__ = '_ss', '_ssm'
 
     def __init__(
-        self, settings_service: SettingsService, ssm: AbstractSSMClient
-    ):
+        self,
+        settings_service: SettingsService,
+        ssm: AbstractSSMClient,
+    ) -> None:
         self._ss = settings_service
         self._ssm = ssm
 

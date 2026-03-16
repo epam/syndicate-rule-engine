@@ -30,6 +30,7 @@ USER $USERNAME
 ENV AWS_REGION=us-east-1 \
     SRE_SERVICE_MODE=docker \
     MODULAR_SDK_SERVICE_MODE=docker \
-    PATH=/src/.venv/bin:$PATH
+    PATH=/src/.venv/bin:$PATH \
+    PYTHONPATH=/src
 EXPOSE 8000
 ENTRYPOINT ["/src/entrypoint.sh"]

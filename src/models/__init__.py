@@ -4,7 +4,7 @@ from modular_sdk.models.pynamongo.adapter import PynamoDBToPymongoAdapter
 from modular_sdk.models.pynamongo.models import Model, SafeUpdateModel
 from modular_sdk.models.pynamongo.patch import patch_attributes
 
-from helpers.constants import DOCKER_SERVICE_MODE, Env
+from helpers.constants import Env
 from helpers.log_helper import get_logger
 
 _LOG = get_logger(__name__)

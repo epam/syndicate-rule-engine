@@ -10,12 +10,11 @@ from srecli.service.adapter_client import SREResponse
 def credentials():
     """
     Allows to bind existing credentials applications to tenants
-    :return:
     """
 
 
 @credentials.command(cls=ViewCommand, name='describe')
-@click.option('--cloud', '-cl', type=click.Choice((AWS, AZURE, GOOGLE)),
+@click.option('--cloud', '-c', type=click.Choice((AWS, AZURE, GOOGLE)),
               help='Cloud to describe credentials by')
 @click.option('--application_id', '-aid', type=str,
               help='Application id to describe a concrete credentials item')
@@ -56,7 +55,6 @@ def link(ctx: ContextObj, application_id: str, tenant_name: tuple[str, ...],
          customer_id: str | None):
     """
     Links credentials to a specific set of tenants.
-    Each activation overrides the existing one
     """
     if tenant_name and any((all_tenants, exclude_tenant)):
         return SREResponse.build(

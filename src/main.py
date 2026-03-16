@@ -13,18 +13,18 @@ from typing import Callable, Literal
 from modular_sdk.models.pynamongo.indexes_creator import IndexesCreator
 
 from helpers import dereference_json
-from helpers.log_helper import setup_logging
 from helpers.__version__ import __version__
 from helpers.constants import (
     DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME,
+    DEFAULT_SYSTEM_CUSTOMER,
     DOCKER_SERVICE_MODE,
     PRIVATE_KEY_SECRET_NAME,
     Env,
     HTTPMethod,
     Permission,
     SettingKey,
-    DEFAULT_SYSTEM_CUSTOMER,
 )
+from helpers.log_helper import setup_logging
 from onprem.api.app import OnPremApiBuilder
 from services import SP
 from services.openapi_spec_generator import OpenApiGenerator
@@ -256,12 +256,12 @@ class InitMinio(ActionHandler):
 class InitMongo(ActionHandler):
     @staticmethod
     def models() -> tuple:
-        from models.batch_results import BatchResults
         from models.event import Event
         from models.job import Job
         from models.metrics import ReportMetrics
         from models.policy import Policy
         from models.report_statistics import ReportStatistics
+        from models.resource import Resource
         from models.retries import Retries
         from models.role import Role
         from models.rule import Rule
@@ -270,10 +270,8 @@ class InitMongo(ActionHandler):
         from models.scheduled_job import ScheduledJob
         from models.setting import Setting
         from models.user import User
-        from models.resource import Resource
 
         return (
-            BatchResults,
             Event,
             Job,
             Policy,
@@ -292,9 +290,11 @@ class InitMongo(ActionHandler):
 
     def __call__(self):
         _LOG.debug('Going to sync indexes with code')
-        from models import PynamoDBToPymongoAdapterSingleton, BaseModel
+        from models import BaseModel, PynamoDBToPymongoAdapterSingleton
         from models.resource import create_resources_indexes
-        from models.resource_exception import create_resource_exceptions_indexes
+        from models.resource_exception import (
+            create_resource_exceptions_indexes,
+        )
 
         if not BaseModel.is_mongo_model():
             _LOG.warning(f'Cannot create indexes for {Env.get_db_type()}')
@@ -303,19 +303,25 @@ class InitMongo(ActionHandler):
             db=PynamoDBToPymongoAdapterSingleton.get_instance().mongo_database
         )
 
-        for model in self.models():
-            _LOG.info(f'Syncing indexes for {model.Meta.table_name}')
-            creator.sync(model, always_keep=('_id_', 'next_run_time_1'))
-        
-        _LOG.info('Syncing indexes for SREResources')
-        create_resources_indexes(
+        _LOG.info('Creating custom indexes for SREResources if not exist')
+        resources_indexes = create_resources_indexes(
             PynamoDBToPymongoAdapterSingleton.get_instance().mongo_database
         )
-        _LOG.info('Syncing indexes for SREResourceExceptions')
-        create_resource_exceptions_indexes(
+        _LOG.info('Creating custom indexes for SREResourceExceptions if not exist')
+        resource_exceptions_indexes = create_resource_exceptions_indexes(
             PynamoDBToPymongoAdapterSingleton.get_instance().mongo_database
         )
 
+        always_keep = (
+            '_id_', 
+            'next_run_time_1',
+            *resources_indexes,
+            *resource_exceptions_indexes,
+        )
+        for model in self.models():
+            _LOG.info(f'Syncing indexes for {model.Meta.table_name}')
+
+            creator.sync(model, always_keep=always_keep)
 
 class Run(ActionHandler):
     def __call__(

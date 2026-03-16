@@ -150,6 +150,7 @@ class SelfIntegrationHandler(AbstractHandler):
             limit=1,
             deleted=False
         ), None)
+
         if not application:
             application = self._aps.build(
                 customer_id=event.customer,
@@ -158,6 +159,10 @@ class SelfIntegrationHandler(AbstractHandler):
                 description=event.description,
                 is_deleted=False,
             )
+        else:
+            raise ResponseFactory(HTTPStatus.CONFLICT).message(
+                "The self-integration exists."
+            ).exc()
 
         self.validate_username(event.username, customer)
         meta = CustodianApplicationMeta.from_dict({})

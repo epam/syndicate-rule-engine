@@ -15,10 +15,6 @@
       "resource_type": "dynamodb_table"
     },
     {
-      "resource_name": "SREBatchResults",
-      "resource_type": "dynamodb_table"
-    },
-    {
       "resource_name": "SRECustomerMetrics",
       "resource_type": "dynamodb_table"
     },

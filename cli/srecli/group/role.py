@@ -24,7 +24,7 @@ def describe(
     name: str | None,
 ):
     """
-    Describes roles for the given customer.
+    Describes roles for the given customer
     """
     if name:
         return ctx['api_client'].role_get(
@@ -100,7 +100,7 @@ def update(
     description: str | None,
 ):
     """
-    Updates role configuration.
+    Updates role configuration
     """
     req_param_names = ('--attach_policy', '--detach_policy', '--expiration')
     required = (attach_policy, detach_policy, expiration)
@@ -136,7 +136,7 @@ def delete(
     name: str,
 ):
     """
-    Deletes customers role.
+    Deletes customers role
     """
     return ctx['api_client'].role_delete(
         name=name,

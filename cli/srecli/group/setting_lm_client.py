@@ -12,7 +12,7 @@ def client():
 @cli_response()
 def describe(ctx: ContextObj, customer_id):
     """
-    Describe current License Manager client-key data
+    Describes current License Manager client-key data
     """
     return ctx['api_client'].lm_client_setting_get(
         customer_id=customer_id
@@ -20,16 +20,15 @@ def describe(ctx: ContextObj, customer_id):
 
 
 @client.command(cls=ViewCommand, name='add')
-@click.option('--key_id', '-kid',
-              type=str, required=True,
-              help='Key-id granted by the License Manager.')
+@click.option('--key_id', '-kid', type=str, required=True,
+              help='Key-id granted by the License Manager')
 @click.option('--algorithm', '-alg', type=str, default='ECC:p521_DSS_SHA:256',
               show_default=True,
-              help='Algorithm granted by the License Manager.', required=True)
+              help='Algorithm granted by the License Manager', required=True)
 @click.option('--private_key', '-prk', type=str, required=True,
-              help='Private-key granted by the License Manager.')
+              help='Private-key granted by the License Manager')
 @click.option('--b64encoded', '-b64', is_flag=True, default=False,
-              help='Specify whether the private is b64encoded.')
+              help='Specify whether the private is b64encoded')
 @cli_response()
 def add(ctx: ContextObj, key_id, algorithm, private_key, b64encoded,
         customer_id):
@@ -47,14 +46,14 @@ def add(ctx: ContextObj, key_id, algorithm, private_key, b64encoded,
 
 @client.command(cls=ViewCommand, name='update')
 @click.option('--key_id', '-kid', type=str,
-              help='Key-id granted by the License Manager.')
+              help='Key-id granted by the License Manager')
 @click.option('--algorithm', '-alg', type=str,
               default='ECC:p521_DSS_SHA:256', show_default=True,
-              help='Algorithm granted by the License Manager.', required=True)
+              help='Algorithm granted by the License Manager', required=True)
 @click.option('--private_key', '-prk', type=str, required=True,
-              help='Private-key granted by the License Manager.')
+              help='Private-key granted by the License Manager')
 @click.option('--b64encoded', '-b64', is_flag=True, default=False,
-              help='Specify whether the private is b64encoded.')
+              help='Specify whether the private is b64encoded')
 @cli_response()
 def update(
     ctx: ContextObj,
@@ -77,9 +76,8 @@ def update(
 
 
 @client.command(cls=ViewCommand, name='delete')
-@click.option('--key_id', '-kid',
-              type=str, required=True,
-              help='Key-id granted by the License Manager.')
+@click.option('--key_id', '-kid', type=str, required=True,
+              help='Key-id granted by the License Manager')
 @cli_response()
 def delete(ctx: ContextObj, key_id: str, customer_id):
     """

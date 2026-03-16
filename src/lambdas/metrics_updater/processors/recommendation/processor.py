@@ -33,9 +33,7 @@ from services.reports_bucket import (
 
 from ._builder import (
     CloudRecommendationBuilder,
-    OldCloudRecommendationBuilder,
     K8SRecommendationBuilder,
-    OldK8SRecommendationBuilder,
     K8SRecommendationItem,
     K8SRecommendationsMapping,
     RecommendationItem,
@@ -54,10 +52,10 @@ class RecommendationProcessor(BaseProcessor):
 
     processor_name = "recommendations"
     _cloud_recommendation_builder_cls: type[CloudRecommendationBuilder] = (
-        OldCloudRecommendationBuilder
+        CloudRecommendationBuilder
     )
     _k8s_recommendation_builder_cls: type[K8SRecommendationBuilder] = (
-        OldK8SRecommendationBuilder
+        K8SRecommendationBuilder
     )
 
     def __init__(

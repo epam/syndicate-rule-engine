@@ -17,7 +17,6 @@ from srecli.group.platform import platform
 from srecli.group.policy import policy
 from srecli.group.report import report
 from srecli.group.resource import resource
-from srecli.group.results import results
 from srecli.group.role import role
 from srecli.group.rule import rule
 from srecli.group.ruleset import ruleset
@@ -44,14 +43,14 @@ def sre():
 
 @sre.command(cls=ViewCommand, name='configure')
 @click.option('--api_link', '-api', type=str,
-              help='Link to the Syndicate Rule Engine host.')
+              help='Link to the Syndicate Rule Engine host')
 @click.option('--items_per_column', '-ipc', type=click.IntRange(min=0),
               help='Specify how many items per table. '
                    'Set `0` to disable the limitation')
 @cli_response(check_api_link=False, check_access_token=False, )
 def configure(ctx: ContextObj, api_link, items_per_column, **kwargs):
     """
-    Configures sre tool to work with Syndicate Rule Engine.
+    Configures sre tool to work with Syndicate Rule Engine
     """
     _is_given = lambda x: x is not None
     if not any(_is_given(param) for param in (api_link, items_per_column)):
@@ -71,16 +70,15 @@ def configure(ctx: ContextObj, api_link, items_per_column, **kwargs):
 
 
 @sre.command(cls=ViewCommand, name='login')
-@click.option('--username', '-u', type=str,
-              required=True,
-              help='Your username.')
+@click.option('--username', '-u', type=str, required=True,
+              help='Your username')
 @click.option('--password', '-p', type=str,
               required=True, hide_input=True, prompt=True,
-              help='Your password.')
+              help='Your password')
 @cli_response(check_access_token=False)
 def login(ctx: ContextObj, username: str, password: str, **kwargs):
     """
-    Authenticates user to work with Syndicate Rule Engine.
+    Authenticates user to work with Syndicate Rule Engine
     """
     adapter = ctx['api_client']
     resp = adapter.login(username=username, password=password)
@@ -102,7 +100,7 @@ def login(ctx: ContextObj, username: str, password: str, **kwargs):
         # If revalidation fails, continue - cached value will be used
         _LOG.debug('Could not revalidate system customer name after login', exc_info=True)
     
-    return response('Great! The sre cli tool access token has been saved.')
+    return response('Great! The sre cli tool access token has been saved')
 
 
 @sre.command(cls=ViewCommand, name='whoami')
@@ -118,10 +116,10 @@ def whoami(ctx: ContextObj, customer_id: str):
 @cli_response(check_access_token=False, check_api_link=False)
 def cleanup(ctx: ContextObj, **kwargs):
     """
-    Removes all the configuration data related to the tool.
+    Removes all the configuration data related to the tool
     """
     ctx['config'].clear()
-    return response('The sre cli tool configuration has been deleted.')
+    return response('The sre cli tool configuration has been deleted')
 
 
 @sre.command(cls=ViewCommand, name='health_check')
@@ -162,7 +160,6 @@ sre.add_command(rulesource)
 sre.add_command(license)
 sre.add_command(service)
 sre.add_command(setting)
-sre.add_command(results)
 sre.add_command(metadata)
 sre.add_command(metrics)
 sre.add_command(platform)

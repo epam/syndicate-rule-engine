@@ -3,14 +3,20 @@
 import ast
 from base64 import standard_b64decode
 from datetime import date, datetime, timedelta, timezone
-from typing import Literal, Generator
-from typing_extensions import Annotated, Self
+from typing import Generator, Literal
 
+from celery.schedules import (
+    BaseSchedule,
+)
+from celery.schedules import crontab as celery_crontab
+from celery.schedules import schedule as celery_schedule
 from modular_sdk.commons.constants import Cloud as ModularCloud
 from pydantic import (
     AmqpDsn,
     AnyUrl,
-    BaseModel as PydanticBaseModel,
+)
+from pydantic import BaseModel as PydanticBaseModel
+from pydantic import (
     ConfigDict,
     Field,
     HttpUrl,
@@ -19,36 +25,34 @@ from pydantic import (
     model_validator,
 )
 from pydantic.json_schema import SkipJsonSchema, WithJsonSchema
+from typing_extensions import Annotated, Self, override
 
+from helpers import Version
 from helpers.constants import (
+    GITHUB_API_URL_DEFAULT,
+    GITLAB_API_URL_DEFAULT,
+    TAGS_KEY_VALUE_SEPARATOR,
+    Env,
     HealthCheckStatus,
     JobState,
     JobType,
     Permission,
     PlatformType,
+    PolicyEffect,
     PolicyErrorType,
     ReportFormat,
+    ReportType,
     RuleDomain,
     RuleSourceType,
-    GITHUB_API_URL_DEFAULT,
-    GITLAB_API_URL_DEFAULT,
-    PolicyEffect,
-    ReportType,
-    Env,
-    TAGS_KEY_VALUE_SEPARATOR,
     ServiceOperationType,
 )
-from helpers import Version
+from helpers import Version, NextToken
 from helpers.regions import AllRegions, AllRegionsWithGlobal
 from helpers.time_helper import utc_datetime
+from models.rule import RuleIndex
 from services.chronicle_service import ChronicleConverterType
 from services.ruleset_service import RulesetName
-from models.rule import RuleIndex
-from celery.schedules import (
-    BaseSchedule,
-    schedule as celery_schedule,
-    crontab as celery_crontab,
-)
+
 
 DEFAULT_LM_PK_ALGORITHM = 'ECC:p521_DSS_SHA:256'
 
@@ -83,6 +87,12 @@ class BasePaginationModel(BaseModel):
         None,
         description='Provide next_token received from the previous request',
     )
+
+    @field_validator('next_token', mode='after')
+    @classmethod
+    def _validate_next_token(cls, next_token):
+        NextToken.deserialize(next_token)
+        return next_token
 
 
 class TimeRangedMixin:
@@ -158,6 +168,75 @@ class TimeRangedMixin:
             )
         self.start_iso = start
         self.end_iso = end
+        return self
+
+
+JobTypeAnnotation = Annotated[
+    JobType, 
+    Field(
+        default=JobType.MANUAL,
+        description=(
+            'Job type to include in the report '
+            '(deprecated, use job_types instead)'
+        ),
+        deprecated=True,
+    )
+]
+JobTypesAnnotation = Annotated[
+    set[JobType],
+    Field(
+        default_factory=lambda: {JobType.STANDARD},
+        description='Job types to include in the report',
+    )
+]
+
+
+class _ValidateJobTypesMixin:
+    """
+    Mixin to validate job types
+    """
+
+    job_types: JobTypesAnnotation
+
+    @field_validator('job_types', mode='after')
+    @classmethod
+    def validate_job_types(cls, value: set[JobType]) -> set[JobType]:
+        """
+        Restrict usage of deprecated JobType.MANUAL
+        """
+        if value and JobType.MANUAL in value:
+            raise ValueError(
+                "'MANUAL' is deprecated, use "
+                "'STANDARD' and 'SCHEDULED' instead"
+            )
+        return value
+    
+    @model_validator(mode='after')
+    def validate_job_type(self) -> Self:
+        if hasattr(self, 'type'):
+            type_ = getattr(self, 'type')
+            if type_.value == JobType.MANUAL.value:
+                self.job_types.update({JobType.STANDARD, JobType.SCHEDULED})
+            else:
+                self.job_types.add(type_)
+        return self
+
+
+class JobTypesMixin(_ValidateJobTypesMixin):
+    """
+    Mixin to validate job types
+    """
+
+    job_type: JobTypeAnnotation
+
+    @model_validator(mode='after')
+    @override
+    def validate_job_type(self) -> Self:
+        if self.job_type:
+            if self.job_type == JobType.MANUAL:
+                self.job_types.update({JobType.STANDARD, JobType.SCHEDULED})
+            else:
+                self.job_types.add(self.job_type)
         return self
 
 
@@ -1469,54 +1548,41 @@ class LicenseManagerClientSettingDeleteModel(BaseModel):
     key_id: str
 
 
-class BatchResultsQueryModel(BasePaginationModel):
-    tenant_name: str = Field(None)
-
-    start: datetime = Field(None)
-    end: datetime = Field(None)
-
-
 # reports
-class JobFindingsReportGetModel(BaseModel):
-    job_type: JobType = JobType.MANUAL
+class JobFindingsReportGetModel(BaseModel, JobTypesMixin):
     href: bool = False
     obfuscated: bool = False
 
 
-class TenantJobsFindingsReportGetModel(TimeRangedMixin, BaseModel):
+class TenantJobsFindingsReportGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
-    job_type: JobType = Field(None)
     href: bool = False
     obfuscated: bool = False
 
 
-class JobDetailsReportGetModel(BaseModel):
-    job_type: JobType = JobType.MANUAL
+class JobDetailsReportGetModel(BaseModel, JobTypesMixin):
     href: bool = False
     obfuscated: bool = False
 
 
-class TenantJobsDetailsReportGetModel(TimeRangedMixin, BaseModel):
+class TenantJobsDetailsReportGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
-    job_type: JobType = Field(None)
     href: bool = False
     obfuscated: bool = False
 
 
-class JobDigestReportGetModel(BaseModel):
-    job_type: JobType = JobType.MANUAL
+class JobDigestReportGetModel(BaseModel, JobTypesMixin):
+    pass
 
 
-class TenantJobsDigestsReportGetModel(TimeRangedMixin, BaseModel):
+class TenantJobsDigestsReportGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
-    job_type: JobType = Field(None)
 
 
-class JobComplianceReportGetModel(BaseModel):
-    job_type: JobType = JobType.MANUAL
+class JobComplianceReportGetModel(BaseModel, JobTypesMixin):
     format: ReportFormat = ReportFormat.JSON
     href: bool = False
 
@@ -1526,33 +1592,30 @@ class TenantComplianceReportGetModel(BaseModel):
     href: bool = False
 
 
-class JobErrorReportGetModel(BaseModel):
-    job_type: JobType = JobType.MANUAL
+class JobErrorReportGetModel(BaseModel, JobTypesMixin):
     href: bool = False
     format: ReportFormat = ReportFormat.JSON
     error_type: PolicyErrorType = Field(None)
 
 
-class JobRuleReportGetModel(BaseModel):
-    job_type: JobType = JobType.MANUAL
+class JobRuleReportGetModel(BaseModel, JobTypesMixin):
     href: bool = False
     format: ReportFormat = ReportFormat.JSON
 
 
-class TenantRuleReportGetModel(TimeRangedMixin, BaseModel):
+class TenantRuleReportGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
-    job_type: JobType = Field(None)
 
 
-class ReportPushByJobIdModel(BaseModel):
+class ReportPushByJobIdModel(_ValidateJobTypesMixin, BaseModel):
     """
     /reports/push/dojo/{job_id}/
     /reports/push/security-hub/{job_id}/
     /reports/push/chronicle/{job_id}/
     """
 
-    type: JobType = JobType.MANUAL
+    type: JobTypeAnnotation
 
 class ReportPushDojoByJobIdModel(ReportPushByJobIdModel):
     """
@@ -1583,7 +1646,7 @@ class ReportPushDojoByJobIdModel(ReportPushByJobIdModel):
         ).model_dump(exclude_none=True)
 
 
-class ReportPushMultipleModel(TimeRangedMixin, BaseModel):
+class ReportPushMultipleModel(TimeRangedMixin, _ValidateJobTypesMixin, BaseModel):
     """
     /reports/push/dojo
     /reports/push/security-hub
@@ -1592,7 +1655,11 @@ class ReportPushMultipleModel(TimeRangedMixin, BaseModel):
     tenant_name: str
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
-    type: JobType = Field(None)
+    type: JobType | None = Field(
+        default=None,
+        description='Job types to include in the report',
+        deprecated=True,
+    )
 
 class ReportPushDojoMultipleModel(ReportPushMultipleModel):
     """
@@ -1708,6 +1775,7 @@ class DepartmentGetReportModel(BaseModel):
             'TOP_ATTACK_BY_CLOUD',
         ]
     ] = Field(default_factory=set)
+    receivers: set[str] = Field(default_factory=set)
     # attempt: SkipJsonSchema[int] = 0
     # execution_job_id: SkipJsonSchema[str] = Field(None)
 
@@ -1877,12 +1945,11 @@ class PlatformK8sResourcesReportGetModel(BaseModel):
     # They are not declared
 
 
-class ResourceReportJobsGetModel(TimeRangedMixin, BaseModel):
+class ResourceReportJobsGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
     model_config = ConfigDict(extra='allow')
 
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
-    job_type: JobType = JobType.MANUAL
 
     resource_type: Annotated[
         str, StringConstraints(to_lower=True, strip_whitespace=True)
@@ -1915,10 +1982,8 @@ class ResourceReportJobsGetModel(TimeRangedMixin, BaseModel):
         return self
 
 
-class ResourceReportJobGetModel(BaseModel):
+class ResourceReportJobGetModel(JobTypesMixin, BaseModel):
     model_config = ConfigDict(extra='allow')
-
-    job_type: JobType = JobType.MANUAL
 
     resource_type: Annotated[
         str, StringConstraints(to_lower=True, strip_whitespace=True)
@@ -1969,6 +2034,7 @@ class PlatformK8SPostModel(BaseModel):
     endpoint: HttpUrl = Field(None)
     certificate_authority: str = Field(None)  # base64 encoded
     token: str = Field(None)
+    insecure_skip_tls_verify: bool = Field(None)
 
     @model_validator(mode='after')
     def root(self) -> Self:
@@ -1976,6 +2042,9 @@ class PlatformK8SPostModel(BaseModel):
             raise ValueError('region is required if platform is cloud managed')
         if self.type != PlatformType.EKS and not self.endpoint:
             raise ValueError('endpoint must be specified if type is not EKS')
+        # Auto-enable insecure mode if no CA is provided
+        if self.insecure_skip_tls_verify is None and self.endpoint:
+            self.insecure_skip_tls_verify = not bool(self.certificate_authority)
         return self
 
 
@@ -2224,6 +2293,29 @@ class DefectDojoActivationPutModel(BaseModel):
             raise ValueError(
                 'set all tenants to true if you provide clouds or excluded'
             )
+        return self
+
+
+class DefectDojoUpdatePatchModel(BaseModel):
+    tenant_names: set[str] = Field(default_factory=set)
+    exclude_tenants: set[str] = Field(default_factory=set)
+    clouds: set[Literal['AWS', 'AZURE', 'GOOGLE']]= Field(default_factory=set)
+
+    scan_type: Literal['Generic Findings Import', 'Cloud Custodian Scan'] | None= (
+        Field(default=None, description='Defect dojo scan type'))
+    product_type: str | None= Field(default=None, description='Defect dojo product type name')
+    product: str | None= Field(default=None, description='Defect dojo product name')
+    engagement: str | None= Field(default=None, description='Defect dojo engagement name')
+    test: str | None= Field(default=None, description='Defect dojo test')
+    send_after_job: bool | None = Field(default=None, description='Whether to send the results to '
+                                                    'dojo after each scan')
+    attachment: Literal['json', 'xlsx', 'cv'] = Field(None)
+
+    @model_validator(mode='after')
+    def _(self) -> Self:
+        if self.tenant_names and self.clouds:
+            raise ValueError('do not provide all_tenants or clouds '
+                             'if specific tenant names are provided')
         return self
 
 

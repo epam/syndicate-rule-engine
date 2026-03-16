@@ -89,8 +89,6 @@ Detailed info about Tenant/Parent/Application model: [Modular SDK Documentation]
 
 #### Syndicate Rule Engine native models
 
-##### SREBatchResults
-
 ##### SREEvents
 
 ##### SREJobs

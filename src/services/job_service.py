@@ -1,16 +1,16 @@
 import uuid
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Callable
 
 from pynamodb.expressions.condition import Condition
 from pynamodb.pagination import ResultIterator
 
-from helpers.constants import JobState
+from helpers.constants import JobState, JobType
 from helpers.time_helper import utc_iso
 from models.job import Job
 from services.base_data_service import BaseDataService
-from services.ruleset_service import RulesetName
 from services.platform_service import Platform
+from services.ruleset_service import RulesetName
 
 
 class JobService(BaseDataService[Job]):
@@ -25,6 +25,7 @@ class JobService(BaseDataService[Job]):
         ttl: timedelta | None = None,
         owner: str | None = None,
         affected_license: str | None = None,
+        job_type: JobType = JobType.STANDARD,
         status: JobState = JobState.SUBMITTED,
         batch_job_id: str | None = None,
         celery_job_id: str | None = None,
@@ -33,6 +34,8 @@ class JobService(BaseDataService[Job]):
         application_id: str | None = None,
         dojo_structure: dict[str, str] | None = None,
     ) -> Job:
+        if not dojo_structure:
+            dojo_structure = {}
         return super().create(
             id=str(uuid.uuid4()),
             customer_name=customer_name,
@@ -44,6 +47,7 @@ class JobService(BaseDataService[Job]):
             ttl=ttl,
             owner=owner,
             affected_license=affected_license,
+            job_type=job_type.value,
             status=status.value,
             batch_job_id=batch_job_id,
             celery_job_id=celery_job_id,
@@ -101,6 +105,9 @@ class JobService(BaseDataService[Job]):
     def get_by_customer_name(
         self,
         customer_name: str,
+        job_id: str | None = None,
+        job_type: JobType | None = None,
+        job_types: set[JobType] | None = None,
         status: JobState | None = None,
         start: datetime | None = None,
         end: datetime | None = None,
@@ -120,6 +127,12 @@ class JobService(BaseDataService[Job]):
             rkc = None
         if status:
             filter_condition &= Job.status == status.value
+        if job_id:
+            filter_condition &= Job.id == job_id
+        if job_type:
+            filter_condition &= Job.job_type == job_type.value
+        if job_types:
+            filter_condition &= Job.job_type.is_in(*job_types)
         return Job.customer_name_submitted_at_index.query(
             hash_key=customer_name,
             range_key_condition=rkc,
@@ -129,12 +142,38 @@ class JobService(BaseDataService[Job]):
             last_evaluated_key=last_evaluated_key,
         )
 
+    def get_by_job_types(
+        self,
+        job_types: set[JobType],
+        job_id: str | None = None,
+        customer_name: str | None = None,
+        status: JobState | None = None,
+        filter_condition: Condition | None = None,
+        limit: int | None = None,
+        last_evaluated_key: dict | None = None,
+    ) -> ResultIterator[Job]:
+        if status:
+            filter_condition &= Job.status == status.value
+        if job_id:
+            filter_condition &= Job.id == job_id
+        if customer_name:
+            filter_condition &= Job.customer_name == customer_name
+        if job_types:
+            filter_condition &= Job.job_type.is_in(*job_types)
+        return Job.scan(
+            filter_condition=filter_condition,
+            limit=limit,
+            last_evaluated_key=last_evaluated_key,
+        )
+
     def get_by_tenant_name(
         self,
         tenant_name: str,
+        job_type: JobType | None = None,
+        job_types: set[JobType] | None = None,
         status: JobState | None = None,
-        start: datetime | None = None,
-        end: datetime | None = None,
+        start: datetime | date | None = None,
+        end: datetime | date | None = None,
         filter_condition: Condition | None = None,
         ascending: bool = False,
         limit: int | None = None,
@@ -150,6 +189,10 @@ class JobService(BaseDataService[Job]):
             rkc = None
         if status:
             filter_condition &= Job.status == status.value
+        if job_type:
+            filter_condition &= Job.job_type == job_type.value
+        if job_types:
+            filter_condition &= Job.job_type.is_in(*job_types)
         return Job.tenant_name_submitted_at_index.query(
             hash_key=tenant_name,
             range_key_condition=rkc,

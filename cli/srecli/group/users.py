@@ -6,7 +6,7 @@ from srecli.group import ContextObj, ViewCommand, cli_response, limit_option, \
 
 @click.group(name='users')
 def users():
-    """Manage Rule Engine users. Only for system customer"""
+    """Manages Rule Engine users. Only for system customer"""
 
 
 @users.command(cls=ViewCommand, name='describe')
@@ -17,7 +17,7 @@ def users():
 @cli_response()
 def describe(ctx: ContextObj, username, limit, next_token, customer_id):
     """
-    Describe users
+    Describes users
     """
     if username:
         return ctx['api_client'].get_user(username)
@@ -34,9 +34,9 @@ def describe(ctx: ContextObj, username, limit, next_token, customer_id):
 @click.option('--password', '-p', type=str,
               required=True, hide_input=True, prompt=True,
               help='New user password')
-@click.option('--role_name', '-rn', type=str,
-              required=True, help='Role to assign to this user. '
-                                  'It should exist inside the customer')
+@click.option('--role_name', '-rn', type=str, required=True,
+              help='Role to assign to this user. It should exist inside the '
+                   'customer')
 @cli_response()
 def create(ctx: ContextObj, username, password, role_name, customer_id):
     """

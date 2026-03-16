@@ -145,3 +145,33 @@ def test_c_level_attacks(
 
     assert typ == 'CUSTODIAN_CUSTOMER_ATTACKS_REPORT'
     assert dicts_equal(model, load_expected('c_level/attacks_report'))
+
+
+def test_c_level_unknown_receiver(
+        system_user_token,
+        sre_client,
+        c_level_overview,
+        mocked_rabbitmq,
+        load_expected,
+):
+    tested_receivers = ["admin@gmail.com", "fasle_admin@gmail.com", "false_teanant_contact@gamil.com"]
+    expected_failed_emails = {"fasle_admin@gmail.com", "false_teanant_contact@gamil.com"}
+
+    resp = sre_client.request(
+        '/reports/clevel',
+        'POST',
+        auth=system_user_token,
+        data={
+            'customer_id': 'TEST_CUSTOMER',
+            'types': ['OVERVIEW'],
+            'receivers': tested_receivers,
+        },
+    )
+
+    message = resp.json_body['message']
+    prefix = "The specified user(s) is not allowed to receive the report: "
+    actual_emails = {email for email in message.replace(prefix, "").split(", ")}
+
+    assert resp.status_int == 422
+    assert message.startswith(prefix)
+    assert expected_failed_emails == actual_emails

@@ -7,7 +7,7 @@ from urllib.parse import urljoin
 import requests
 from urllib3.util import Url, parse_url
 
-from helpers import deep_get
+from helpers import deep_get, create_requests_session
 from helpers.constants import GITHUB_API_URL_DEFAULT, GITLAB_API_URL_DEFAULT
 from helpers.log_helper import get_logger
 
@@ -92,7 +92,7 @@ class GitLabClient:
     @classmethod
     def session(cls) -> requests.Session:
         if cls._session is None:
-            cls._session = requests.Session()
+            cls._session = create_requests_session()
         return cls._session
 
     @classmethod
@@ -229,7 +229,7 @@ class GitHubClient:
     @classmethod
     def session(cls) -> requests.Session:
         if cls._session is None:
-            cls._session = requests.Session()
+            cls._session = create_requests_session()
             cls._session.headers = {
                 'X-GitHub-Api-Version': '2022-11-28',
                 'Accept': 'application/vnd.github+json',

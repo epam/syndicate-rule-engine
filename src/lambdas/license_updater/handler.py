@@ -1,5 +1,6 @@
 import operator
 from http import HTTPStatus
+from io import BytesIO
 from itertools import chain
 from typing import Generator
 
@@ -12,6 +13,7 @@ from modular_sdk.services.parent_service import ParentService
 from helpers.constants import Env
 from helpers import download_url
 from helpers.__version__ import __version__
+from helpers.fingerprint import compute_rule_fingerprint
 from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_iso
@@ -70,18 +72,38 @@ class LicenseSync:
 
         # Validate that downloaded data is valid JSON before storing
         try:
-            msgspec.json.decode(raw_content)
+            content = msgspec.json.decode(raw_content)
         except msgspec.DecodeError as e:
             raise LicenseSyncError(
                 f'Downloaded ruleset {name}:{version} is not valid JSON: {e}'
             ) from e
 
+        # Add fingerprint to policies that don't have it
+        policies = content.get('policies', [])
+        for policy in policies:
+            if 'fingerprint' not in policy:
+                resource = policy.get('resource', '')
+                filters = policy.get('filters', [])
+                if resource:
+                    policy['fingerprint'] = compute_rule_fingerprint(
+                        resource, filters
+                    )
+                    _LOG.debug(
+                        f'Added fingerprint to policy {policy.get("name", "unknown")} '
+                        f'in ruleset {name}:{version}'
+                    )
+
+        # Re-encode the updated content
+        updated_content = msgspec.json.encode(content)
         if self._cache is not None:
-            self._cache[(name, version)] = raw_content
+            self._cache[(name, version)] = updated_content
+        
+        # Create a new BytesIO object with updated content
+        updated_data = BytesIO(updated_content)
         s3.gz_put_object(
             bucket=bucket,
             key=key,
-            body=data,
+            body=updated_data,
             content_type='application/json',
             content_encoding='gzip',
         )
@@ -161,9 +183,10 @@ class LicenseSync:
             self._store_ruleset(rs)
 
         _LOG.debug('Updating license item')
-        ed = data.get('event_driven') or {}
-        if quota := ed.get('quota'):  # fixing some bug in cslm
-            ed['quota'] = int(quota)
+        ed = dict(data.get('event_driven') or {})
+        # Preserve last_report_sent_at (SRE-managed) when syncing from LM
+        if existing_last := lic.event_driven.get('last_report_sent_at'):
+            ed['last_report_sent_at'] = existing_last
         self._sp.license_service.update(
             item=lic,
             description=data.get('description'),

@@ -14,7 +14,9 @@ from handlers.mail_setting_handler import MailSettingHandler
 from handlers.platforms_handler import PlatformsHandler
 from handlers.policy_handler import PolicyHandler
 from handlers.rabbitmq_handler import RabbitMQHandler
-from handlers.report_status_handler import ReportStatusHandlerHandler
+from handlers.reports import ReportStatusHandlerHandler
+from handlers.resource_exception_handler import ResourceExceptionHandler
+from handlers.resource_handler import ResourceHandler
 from handlers.role_handler import RoleHandler
 from handlers.rule_handler import RuleHandler
 from handlers.rule_source_handler import RuleSourceHandler
@@ -22,22 +24,20 @@ from handlers.ruleset_handler import RulesetHandler
 from handlers.self_integration_handler import SelfIntegrationHandler
 from handlers.send_report_setting_handler import ReportsSendingSettingHandler
 from handlers.tenant_handler import TenantHandler
-from handlers.resource_handler import ResourceHandler
-from onprem.tasks import sync_rulesource
-from handlers.resource_exception_handler import ResourceExceptionHandler
 from helpers.constants import (
     CUSTOMER_ATTR,
-    Endpoint,
     GIT_PROJECT_ID_ATTR,
-    HTTPMethod,
     RULE_SOURCE_ID_ATTR,
     STATUS_ATTR,
-    RuleSourceSyncingStatus
+    Endpoint,
+    HTTPMethod,
+    RuleSourceSyncingStatus,
 )
 from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
 from helpers.system_customer import SystemCustomer
 from models.rule_source import RuleSource
+from onprem.tasks import collect_metrics, run_update_metadata, sync_rulesource
 from services import SERVICE_PROVIDER
 from services.abs_lambda import (
     ApiEventProcessorLambdaHandler,
@@ -49,9 +49,12 @@ from services.abs_lambda import (
 )
 from services.rule_source_service import RuleSourceService
 from validators.registry import permissions_mapping
-from validators.swagger_request_models import BaseModel, RuleUpdateMetaPostModel
+from validators.swagger_request_models import (
+    BaseModel,
+    RuleUpdateMetaPostModel,
+)
 from validators.utils import validate_kwargs
-from onprem.tasks import collect_metrics, run_update_metadata
+
 
 _LOG = get_logger(__name__)
 

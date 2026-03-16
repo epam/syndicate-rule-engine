@@ -13,7 +13,6 @@ from srecli.service.constants import AWS, AZURE, GOOGLE, KUBERNETES
 def chronicle():
     """
     Manages chronicle integrations
-    :return:
     """
 
 
@@ -76,7 +75,7 @@ def delete(ctx: ContextObj, integration_id: str, customer_id):
 @build_tenant_option(multiple=True)
 @click.option('--all_tenants', is_flag=True,
               help='Whether to activate integration for all tenants')
-@click.option('--clouds', '-cl',
+@click.option('--clouds', '-c',
               type=click.Choice((AWS, AZURE, GOOGLE, KUBERNETES)),
               multiple=True,
               help='Tenant clouds to activate this dojo for. '

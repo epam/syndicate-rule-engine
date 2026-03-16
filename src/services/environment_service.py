@@ -3,9 +3,10 @@ from typing import Mapping
 
 from helpers.constants import (
     Env,
-    DOCKER_SERVICE_MODE,
 )
+from helpers.log_helper import get_logger
 
+_LOG = get_logger(__name__)
 
 class EnvironmentService:
     def override_environment(self, environs: Mapping) -> None:
@@ -35,21 +36,21 @@ class EnvironmentService:
         """
         return Env.BATCH_JOB_LOG_LEVEL.get()
 
-    def get_batch_job_queue(self) -> str | None:
+    def get_batch_job_queue(self) -> str:
         """
         Lambdas:
         api-handler
         event-handler
         """
-        return Env.BATCH_JOB_QUEUE_NAME.get()
+        return Env.BATCH_JOB_QUEUE_NAME.as_str()
 
-    def get_batch_job_def(self) -> str | None:
+    def get_batch_job_def(self) -> str:
         """
         Lambdas:
         api-handler
         event-handler
         """
-        return Env.BATCH_JOB_DEF_NAME.get()
+        return Env.BATCH_JOB_DEF_NAME.as_str()
 
     def get_rulesets_bucket_name(self) -> str:
         """
@@ -107,7 +108,11 @@ class EnvironmentService:
 
     def account_id(self) -> str | None:
         # resolved from lambda context
-        return Env.ACCOUNT_ID.get()
+        _id = Env.ACCOUNT_ID.get()
+        if not _id:
+            _LOG.warning('No account id found in environment variables.')
+            return None
+        return _id
 
     def jobs_time_to_live_days(self) -> int | None:
         """live_days

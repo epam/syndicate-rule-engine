@@ -1,28 +1,37 @@
-from datetime import timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
-
+from typing import Callable
 import msgspec
 import pytest
 
+from helpers.constants import (
+    Cloud,
+    JobType,
+    ReportType,
+    RemediationComplexity,
+    Severity,
+)
 from helpers.reports import adjust_resource_type
 from helpers.time_helper import utc_datetime
-from helpers.constants import Cloud
 from models.job import Job
-from services.ambiguous_job_service import AmbiguousJob
-from services.metadata import Metadata
+from services.metadata import Deprecation, Metadata, RuleMetadata
 from services.reports import (
+    DeprecationReportGenerator,
     JobMetricsDataSource,
+    Report,
     ShardsCollectionDataSource,
     add_diff,
 )
+from services.resources import AZUREResource, MaestroReportResourceView
 from services.sharding import AWSRegionDistributor, ShardPart, ShardsCollection
-from ..commons import AWS_ACCOUNT_ID
+
+from ..commons import AWS_ACCOUNT_ID, dicts_equal, mock_date_today
 
 
 @pytest.fixture
-def create_job():
-    def factory(_id: str, submitted_at: str) -> AmbiguousJob:
-        return AmbiguousJob(Job(id=_id, submitted_at=submitted_at))
+def create_job() -> Callable[[str, str], Job]:
+    def factory(_id: str, submitted_at: str) -> Job:
+        return Job(id=_id, submitted_at=submitted_at, job_type=JobType.STANDARD)
 
     return factory
 
@@ -307,3 +316,173 @@ def test_add_diff():
             'HIPAA': {'value': 0.1},
         },
     }
+
+
+class TestDeprecationReportGenerator:
+    """Tests for DeprecationReportGenerator and previous_period_findings."""
+
+    @pytest.fixture
+    def deprecation_rule_metadata(self):
+        """Rule metadata for a rule deprecated in report period (2025-07-17)."""
+        return RuleMetadata(
+            source='testing',
+            category='Deprecation > Runtime version',
+            service_section='Compute',
+            service='Defender Pricing',
+            article='',
+            impact='',
+            remediation='Remediation text here',
+            severity=Severity.UNKNOWN,
+            report_fields=(),
+            periodic=False,
+            standard={},
+            mitre={},
+            waf={},
+            remediation_complexity=RemediationComplexity.UNKNOWN,
+            deprecation=Deprecation(
+                date=date(2025, 7, 17), link='https://example.com'
+            ),
+            cloud='AZURE',
+            events=None,
+        )
+
+    @pytest.fixture
+    def deprecation_metadata(self, deprecation_rule_metadata):
+        """Metadata with one deprecation rule."""
+        return Metadata(
+            rules={
+                'ecc-azure-096-cis_sec_defender_azure_sql': deprecation_rule_metadata,
+            },
+        )
+
+    @pytest.fixture
+    def deprecation_rule_resources(self):
+        """One Azure resource for the deprecation rule."""
+        resource = AZUREResource(
+            id='/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/SqlServers',
+            name='SqlServers',
+            location='global',
+            resource_type='azure.defender-pricing',
+            sync_date=1729502334.624495,
+            data={},
+        )
+        return {'ecc-azure-096-cis_sec_defender_azure_sql': {resource}}
+
+    def test_deprecation_report_with_previous_period_findings(
+        self,
+        deprecation_metadata,
+        deprecation_rule_resources,
+        load_expected,
+    ):
+        """Generator adds previous_period_findings when rule is just deprecated."""
+        with mock_date_today('datetime.date', date(2025, 7, 18)):
+            report = Report.derive_report(ReportType.OPERATIONAL_DEPRECATION)
+            generator = DeprecationReportGenerator(
+                metadata=deprecation_metadata,
+                view=MaestroReportResourceView(),
+                scope=None,
+            )
+            start = datetime(2025, 7, 17)
+            end = datetime(2025, 7, 18)
+            result = tuple(
+                report.accept(
+                    generator,
+                    rule_resources=deprecation_rule_resources,
+                    meta={},
+                    start=start,
+                    end=end,
+                    previous_period_findings={
+                        'ecc-azure-096-cis_sec_defender_azure_sql': 3,
+                    },
+                )
+            )
+            expected = [
+                {
+                    "category": "Runtime version",
+                    "deprecation_date": "2025-07-17",
+                    "is_deprecated": True,
+                    "deprecation_severity": "High",
+                    "deprecation_link": "https://example.com",
+                    "policy": "ecc-azure-096-cis_sec_defender_azure_sql",
+                    "resources": {
+                    "global": [
+                        {
+                        "id": "/subscriptions/3d615fa8-05c6-47ea-990d-9d162testing/providers/Microsoft.Security/pricings/SqlServers",
+                        "name": "SqlServers",
+                        "sre:date": 1729502334.624495
+                        }
+                    ]
+                    },
+                    "previous_period_findings": 3
+                }
+            ]
+            assert len(result) == len(expected)
+            assert dicts_equal(list(result), expected)
+
+    def test_deprecation_report_without_previous_period_findings(
+        self,
+        deprecation_metadata,
+        deprecation_rule_resources,
+        load_expected,
+    ):
+        """Generator does not add previous_period_findings when not provided."""
+        with mock_date_today('datetime.date', date(2025, 7, 18)):
+            report = Report.derive_report(ReportType.OPERATIONAL_DEPRECATION)
+            generator = DeprecationReportGenerator(
+                metadata=deprecation_metadata,
+                view=MaestroReportResourceView(),
+                scope=None,
+            )
+            start = datetime(2025, 7, 17)
+            end = datetime(2025, 7, 18)
+            result = tuple(
+                report.accept(
+                    generator,
+                    rule_resources=deprecation_rule_resources,
+                    meta={},
+                    start=start,
+                    end=end,
+                    previous_period_findings=None,
+                )
+            )
+            # Same structure as metrics/azure_operational_deprecations data item,
+            # but without previous_period_findings
+            expected_item = load_expected(
+                'metrics/azure_operational_deprecations'
+            )['data'][0]
+            assert len(result) == 1
+            assert 'previous_period_findings' not in result[0]
+            assert result[0]['policy'] == expected_item['policy']
+            assert result[0]['category'] == expected_item['category']
+            assert result[0]['resources'] == expected_item['resources']
+
+    def test_deprecation_report_deprecation_date_outside_period(
+        self,
+        deprecation_metadata,
+        deprecation_rule_resources,
+    ):
+        """Generator does not add previous_period_findings when deprecation date is outside report period."""
+        with mock_date_today('datetime.date', date(2025, 7, 18)):
+            report = Report.derive_report(ReportType.OPERATIONAL_DEPRECATION)
+            generator = DeprecationReportGenerator(
+                metadata=deprecation_metadata,
+                view=MaestroReportResourceView(),
+                scope=None,
+            )
+            # Period where 2025-07-17 is NOT included (e.g. previous week)
+            start = datetime(2025, 7, 10)
+            end = datetime(2025, 7, 16)
+            result = tuple(
+                report.accept(
+                    generator,
+                    rule_resources=deprecation_rule_resources,
+                    meta={},
+                    start=start,
+                    end=end,
+                    previous_period_findings={
+                        'ecc-azure-096-cis_sec_defender_azure_sql': 3,
+                    },
+                )
+            )
+            assert len(result) == 1
+            assert 'previous_period_findings' not in result[0]

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import tempfile
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
@@ -5,13 +7,13 @@ from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Optional
 
 from helpers import Version, urljoin
-from helpers.constants import COMPOUND_KEYS_SEPARATOR, Cloud
+from helpers.constants import COMPOUND_KEYS_SEPARATOR, Cloud, JobType
 from helpers.time_helper import utc_datetime, week_number
-from models.batch_results import BatchResults
 from models.job import Job
 from models.metrics import ReportMetrics
 from services import SP
 from services.clients.s3 import S3Client
+
 
 if TYPE_CHECKING:
     from modular_sdk.models.tenant import Tenant
@@ -78,22 +80,6 @@ class ReportsBucketKeysBuilder(ABC):
         """
         Builds s3 key for a concrete job
         :param job:
-        :return:
-        """
-
-    @abstractmethod
-    def ed_job_result(self, br: 'BatchResults') -> str:
-        """
-        Builds s3 key for a concrete ed job
-        :param br:
-        :return:
-        """
-
-    @abstractmethod
-    def ed_job_difference(self, br: 'BatchResults') -> str:
-        """
-        Builds s3 key for a concrete ed job difference
-        :param br:
         :return:
         """
 
@@ -172,52 +158,28 @@ class TenantReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
         """
         return Cloud[self._tenant.cloud.upper()]
 
-    def job_result(self, job: 'Job') -> str:
-        assert job.tenant_name == self._tenant.name, (
-            f'Job tenant must be {self._tenant.name}'
-        )
+    def job_result(self, job: Job) -> str:
+        if job.tenant_name != self._tenant.name:
+            raise ValueError(
+                f"Job tenant must be {self._tenant.name!r}, "
+                f"got {job.tenant_name!r}"
+            )
+
+        if job.job_type == JobType.REACTIVE:
+            prefix = self.ed
+        else:
+            prefix = self.standard
+
         return self.urljoin(
             self.prefix,
             self._tenant.customer_name,
             self.cloud.value,
             self._tenant.project,
             self.jobs,
-            self.standard,
+            prefix,
             self.datetime(utc_datetime(job.submitted_at)),
             job.id,
             self.result,
-        )
-
-    def ed_job_result(self, br: 'BatchResults') -> str:
-        assert br.tenant_name == self._tenant.name, (
-            f'Job tenant must be {self._tenant.name}'
-        )
-        return self.urljoin(
-            self.prefix,
-            self._tenant.customer_name,
-            self.cloud.value,
-            self._tenant.project,
-            self.jobs,
-            self.ed,
-            self.datetime(utc_datetime(br.submitted_at)),
-            br.id,
-            self.result,
-        )
-
-    def ed_job_difference(self, br: 'BatchResults') -> str:
-        assert br.tenant_name == self._tenant.name, (
-            f'Job tenant must be {self._tenant.name}'
-        )
-        return self.urljoin(
-            self.prefix,
-            self._tenant.customer_name,
-            self.cloud.value,
-            self._tenant.project,
-            self.jobs,
-            self.ed,
-            self.datetime(utc_datetime(br.submitted_at)),
-            br.id,
-            self.difference,
         )
 
     def latest_key(self) -> str:
@@ -266,12 +228,6 @@ class PlatformReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
             job.id,
         )
 
-    def ed_job_result(self, br: 'BatchResults') -> str:
-        raise NotImplementedError('Event-driven is not available for platform')
-
-    def ed_job_difference(self, br: 'BatchResults') -> str:
-        raise NotImplementedError('Event-driven is not available for platform')
-
     def latest_key(self) -> str:
         return self.urljoin(
             self.prefix,
@@ -303,12 +259,10 @@ class StatisticsBucketKeysBuilder:
     _diagnostic = 'diagnostic/'
 
     @classmethod
-    def job_statistics(cls, job: Job | BatchResults) -> str:
-        if isinstance(job, Job):
-            return urljoin(
-                cls._statistics, cls._standard, job.id, cls._statistics_file
-            )
-        return urljoin(cls._statistics, cls._ed, job.id, cls._statistics_file)
+    def job_statistics(cls, job: Job) -> str:
+        if job.job_type == JobType.REACTIVE:
+            return urljoin(cls._statistics, cls._ed, job.id, cls._statistics_file)
+        return urljoin(cls._statistics, cls._standard, job.id, cls._statistics_file)
 
     @classmethod
     def report_statistics(cls, now: datetime, customer: str) -> str:
@@ -415,12 +369,34 @@ class RulesetsBucketKeys:
     __slots__ = ()
     licensed = 'licensed/'
     standard = 'standard/'
+    events = 'events/'
+    json_suffix = '.json.gz'
     data = 'data.gz'
 
     @classmethod
     def licensed_ruleset_key(cls, name: str, version: str) -> str:
         return S3Client.safe_key(
             urljoin(cls.licensed, name, version, cls.data)
+        )
+
+    @classmethod
+    def licensed_event_mapping_key(
+        cls,
+        name: str,
+        version: str,
+        cloud: Cloud | str,
+    ) -> str:
+        if isinstance(cloud, Cloud):
+                cloud = cloud.value
+        file_name = cloud + cls.json_suffix
+        return S3Client.safe_key(
+            urljoin(
+                cls.licensed,
+                name, 
+                version,
+                cls.events,
+                file_name,
+            )
         )
 
     @classmethod

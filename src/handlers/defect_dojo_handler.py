@@ -18,13 +18,14 @@ from services.modular_helpers import (
     ResolveParentsPayload,
     build_parents,
     get_activation_dto,
-    iter_tenants_by_names
+    iter_tenants_by_names, get_activation_info
 )
 from validators.swagger_request_models import (
     BaseModel,
     DefectDojoActivationPutModel,
     DefectDojoPostModel,
     DefectDojoQueryModel,
+    DefectDojoUpdatePatchModel,
 )
 from validators.utils import validate_kwargs
 
@@ -59,7 +60,8 @@ class DefectDojoHandler(AbstractHandler):
             Endpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION: {
                 HTTPMethod.PUT: self.put_activation,
                 HTTPMethod.DELETE: self.delete_activation,
-                HTTPMethod.GET: self.get_activation
+                HTTPMethod.GET: self.get_activation,
+                HTTPMethod.PATCH: self.patch_activation
             }
         }
 
@@ -216,3 +218,74 @@ class DefectDojoHandler(AbstractHandler):
         # first because they are all equal
         meta = DefectDojoParentMeta.from_dict(parents[0].meta.as_dict())
         return build_response(self.get_dto(parents, meta))
+
+    @validate_kwargs
+    def patch_activation(self,
+                         event: DefectDojoUpdatePatchModel,
+                         id: str,
+                         _pe: ProcessedEvent):
+        # Check application existing
+        item = self._dds.get_nullable(id)
+        if not item or event.customer and item.customer != event.customer:
+            raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                self._dds.not_found_message(id)
+            ).exc()
+        if event.tenant_names:
+            it = iter_tenants_by_names(
+                tenant_service=self._ps.tenant_service,
+                customer=event.customer_id,
+                names=event.tenant_names,
+                attributes_to_get=(Tenant.name, )
+            )
+            tenants = {tenant.name for tenant in it}
+            if missing := event.tenant_names - tenants:
+                raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                    f'Active tenant(s) {", ".join(missing)} not found'
+                ).exc()
+
+        parents = list(self.get_all_activations(item.id, event.customer))
+        old_meta = DefectDojoParentMeta.from_dict(parents[0].meta.as_dict())
+        old_info = get_activation_info(parents)
+
+        # send_after_job flag handling
+        if  event.send_after_job is None:
+            event.send_after_job = old_meta.send_after_job
+
+        # Leave old values if new ones are not passed
+        new_tenants = (old_info.including | event.tenant_names) - event.exclude_tenants
+        exclude_tenants = old_info.excluding
+        clouds = old_info.clouds
+        if old_info.is_all:
+            exclude_tenants = ( exclude_tenants | event.exclude_tenants) - event.tenant_names
+            clouds = event.clouds
+        meta = DefectDojoParentMeta(
+            scan_type=event.scan_type or old_meta.scan_type,
+            product_type=event.product_type or old_meta.product_type,
+            product=event.product or old_meta.product,
+            engagement=event.engagement or old_meta.engagement,
+            test=event.test or old_meta.test,
+            send_after_job= event.send_after_job,
+            attachment=event.attachment or old_meta.attachment
+        )
+        to_update = build_parents(
+            payload=ResolveParentsPayload(
+                parents=[],
+                tenant_names=new_tenants,
+                exclude_tenants=exclude_tenants,
+                clouds= clouds,
+                all_tenants=old_info.is_all
+            ),
+            parent_service=self._ps,
+            application_id=id,
+            customer_id=event.customer,
+            type_=ParentType.CUSTODIAN_SIEM_DEFECT_DOJO,
+            created_by=_pe['cognito_user_id'],
+            meta=meta.dict()
+        )
+
+        # Delete old parent and create new
+        for parent in self.get_all_activations(item.id, event.customer):
+            self._ps.force_delete(parent)
+        for parent in to_update:
+            self._ps.save(parent)
+        return build_response(content=self.get_dto(to_update, meta))

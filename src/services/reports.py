@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import bisect
 import gzip
 import io
@@ -23,16 +25,17 @@ import msgspec
 from modular_sdk.commons.constants import ParentType
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
+from typing_extensions import Self
 
 from helpers import deep_get, iter_key_values
 from helpers.constants import (
     COMPOUND_KEYS_SEPARATOR,
-    Env,
+    GLOBAL_REGION,
     Cloud,
+    Env,
     JobState,
     ReportType,
     Severity,
-    GLOBAL_REGION,
 )
 from helpers.log_helper import get_logger
 from helpers.reports import (
@@ -43,11 +46,10 @@ from helpers.reports import (
 )
 from helpers.system_customer import SystemCustomer
 from helpers.time_helper import utc_datetime, utc_iso
+from models.job import Job
 from models.metrics import ReportMetrics
 from models.resource import Resource
-from models.resource_exception import ResourceException
 from services import modular_helpers
-from services.ambiguous_job_service import AmbiguousJob
 from services.base_data_service import BaseDataService
 from services.clients.s3 import S3Client, S3Url
 from services.metadata import Metadata
@@ -56,6 +58,7 @@ from services.report_service import ReportService
 from services.reports_bucket import ReportMetricsBucketKeysBuilder
 from services.resources import CloudResource, iter_rule_resources
 from services.sharding import RuleMeta, ShardsCollection
+
 
 if TYPE_CHECKING:
     from modular_sdk.modular import ModularServiceProvider
@@ -66,12 +69,28 @@ if TYPE_CHECKING:
 _LOG = get_logger(__name__)
 
 
+def strip_attacks_violations_for_maestro(data: list[dict]) -> None:
+    """
+    Strip Maestro-unwanted fields from attacks report violations. Mutates in place.
+    Shared by high_level_reports_handler and report_delivery_service.
+    """
+    _MAESTRO_ATTACKS_VIOLATION_STRIP_KEYS = frozenset({
+        'description', 'remediation', 'remediation_complexity', 'severity',
+    })
+
+    for item in data:
+        for attack in item.get('attacks', ()):
+            for v in attack.get('violations', ()):
+                for key in _MAESTRO_ATTACKS_VIOLATION_STRIP_KEYS:
+                    v.pop(key, None)
+
+
 class JobMetricsDataSource:
     """
     Allows to retrieve data from jobs within one customer. Object is immutable
     """
 
-    def __init__(self, jobs: Iterable[AmbiguousJob]):
+    def __init__(self, jobs: Iterable[Job]):
         """
         Assumes that jobs will be already sorted in ascending order
         """
@@ -85,13 +104,13 @@ class JobMetricsDataSource:
         platform: str | set[str] | list[str] | tuple[str, ...] | None = None,
         affiliation: Literal['tenant', 'platform', None] = None,
         job_state: JobState | None = None,
-    ) -> 'JobMetricsDataSource':
+    ) -> Self:
         """
         Returns new object with jobs within the range. Including start but
         not including end
         """
 
-        def _key(j: AmbiguousJob):
+        def _key(j: Job):
             return utc_datetime(j.submitted_at)
 
         st = bisect.bisect_left(self._jobs, start, key=_key) if start else 0
@@ -123,10 +142,10 @@ class JobMetricsDataSource:
             case None:
                 pass
         if job_state:
-            jobs = filter(lambda j: j.status is job_state, jobs)
+            jobs = filter(lambda j: j.status == job_state.value, jobs)
         return self.__class__(jobs)
 
-    def __getitem__(self, key) -> 'JobMetricsDataSource':
+    def __getitem__(self, key) -> Self:
         if isinstance(key, slice) and (
             isinstance(key.stop, datetime) or isinstance(key.start, datetime)
         ):
@@ -137,7 +156,7 @@ class JobMetricsDataSource:
             return self.subset(start=key.start, end=key.stop)
         return self.__class__(self._jobs[key])
 
-    def __iter__(self) -> Iterator[AmbiguousJob]:
+    def __iter__(self) -> Iterator[Job]:
         return self._jobs.__iter__()
 
     def __len__(self) -> int:
@@ -207,7 +226,7 @@ class ReportVisitor(ABC, Generic[T]):
         _LOG.warning('Default visitor entered, maybe a bug')
 
     @classmethod
-    def derive_visitor(cls, typ: ReportType, **kwargs) -> 'ReportVisitor':
+    def derive_visitor(cls, typ: ReportType, **kwargs) -> ReportVisitor:
         # NOTE: you should get necessary visitor and report yourself,
         # because there could multiple different visitors for each report type
         # and the needed one depends on context. This method tries to resolve
@@ -244,7 +263,7 @@ class Report(ABC):
         return method(self, **kwargs)
 
     @classmethod
-    def derive_report(cls, typ: ReportType, /) -> 'Report':
+    def derive_report(cls, typ: ReportType, /) -> Report:
         match typ:
             case ReportType.OPERATIONAL_RESOURCES:
                 return ResourcesReport(typ)
@@ -287,11 +306,11 @@ class OverviewReport(Report):
 
 
 class EmptyOperationalReportGenerator(ReportVisitor[tuple | dict]):
-    def visitDefault(self, report: 'Report', /, **kwargs) -> tuple:
+    def visitDefault(self, report: Report, /, **kwargs) -> tuple:
         return ()
 
     def visitOverviewReport(
-        self, report: 'OverviewReport', /, **kwargs
+        self, report: OverviewReport, /, **kwargs
     ) -> dict:
         return {'resources_violated': 0, 'resources_scanned': 0, 'regions': {}}
 
@@ -303,12 +322,12 @@ class ScopedRulesSelector(ReportVisitor[set[str]]):
         self._metadata = metadata
 
     def visitDefault(
-        self, report: 'Report', /, rules: Iterable[str], **kwargs
+        self, report: Report, /, rules: Iterable[str], **kwargs
     ) -> set[str]:
         return set(rules)
 
     def visitResourcesReport(
-        self, report: 'ResourcesReport', /, rules: Iterable[str], **kwargs
+        self, report: ResourcesReport, /, rules: Iterable[str], **kwargs
     ) -> set[str]:
         """
         Resources report contains all rules
@@ -316,25 +335,25 @@ class ScopedRulesSelector(ReportVisitor[set[str]]):
         return set(rules)
 
     def visitDeprecationReport(
-        self, report: 'DeprecationReport', /, rules: Iterable[str], **kwargs
+        self, report: DeprecationReport, /, rules: Iterable[str], **kwargs
     ) -> set[str]:
         meta = self._metadata
         return {rule for rule in rules if meta.rule(rule).is_deprecation()}
 
     def visitFinopsReport(
-        self, report: 'FinopsReport', /, rules: Iterable[str], **kwargs
+        self, report: FinopsReport, /, rules: Iterable[str], **kwargs
     ) -> set[str]:
         meta = self._metadata
         return {rule for rule in rules if meta.rule(rule).is_finops()}
 
     def visitAttacksReport(
-        self, report: 'AttacksReport', /, rules: Iterable[str], **kwargs
+        self, report: AttacksReport, /, rules: Iterable[str], **kwargs
     ) -> set[str]:
         meta = self._metadata
         return {rule for rule in rules if meta.rule(rule).mitre}
 
     def visitOverviewReport(
-        self, report: 'OverviewReport', /, rules: Iterable[str], **kwargs
+        self, report: OverviewReport, /, rules: Iterable[str], **kwargs
     ) -> set[str]:
         return set(rules)
 
@@ -355,7 +374,7 @@ class ResourcesReportGenerator(ReportVisitor[Generator[dict, None, None]]):
 
     def visitDefault(
         self,
-        report: 'ResourcesReport',
+        report: ResourcesReport,
         /,
         rule_resources: dict[str, set[CloudResource]],
         meta: dict[str, RuleMeta],
@@ -404,7 +423,7 @@ class ResourcesReportGenerator(ReportVisitor[Generator[dict, None, None]]):
 
     def visitKubernetesReport(
         self,
-        report: 'KubernetesReport',
+        report: KubernetesReport,
         /,
         rule_resources: dict[str, set[CloudResource]],
         meta: dict[str, RuleMeta],
@@ -435,12 +454,18 @@ class DeprecationReportGenerator(ReportVisitor[Generator[dict, None, None]]):
 
     def visitDefault(
         self,
-        report: 'DeprecationReport',
+        report: DeprecationReport,
         /,
         rule_resources: dict[str, set[CloudResource]],
         meta: dict[str, RuleMeta],
         **kwargs,
     ) -> Generator[dict, None, None]:
+        start = kwargs.get('start')
+        end = kwargs.get('end')
+        previous_period_findings: dict[str, int] | None = kwargs.get(
+            'previous_period_findings'
+        )
+
         for rule in rule_resources:
             if self.scope is not None and rule not in self.scope:
                 continue
@@ -454,7 +479,7 @@ class DeprecationReportGenerator(ReportVisitor[Generator[dict, None, None]]):
                     r.accept(self._view, report_fields=rm.report_fields)
                 )
 
-            yield {
+            result = {
                 'category': category,
                 'deprecation_date': rm.deprecation.date.isoformat()
                 if isinstance(rm.deprecation.date, date)
@@ -465,6 +490,25 @@ class DeprecationReportGenerator(ReportVisitor[Generator[dict, None, None]]):
                 'policy': rule,
                 'resources': by_region,
             }
+
+            # Add previous period findings count only in the first report
+            # after the rule is deprecated (deprecation date in current period).
+            if (
+                rm.deprecation.is_deprecated
+                and isinstance(rm.deprecation.date, date)
+                and start is not None
+                and end is not None
+                and previous_period_findings is not None
+                and rule in previous_period_findings
+            ):
+                start_d = start.date() if isinstance(start, datetime) else start
+                end_d = end.date() if isinstance(end, datetime) else end
+                if start_d <= rm.deprecation.date <= end_d:
+                    result['previous_period_findings'] = previous_period_findings[
+                        rule
+                    ]
+
+            yield result
 
 
 class FinopsReportGenerator(ReportVisitor[Generator[dict, None, None]]):
@@ -487,7 +531,7 @@ class FinopsReportGenerator(ReportVisitor[Generator[dict, None, None]]):
 
     def visitDefault(
         self,
-        report: 'FinopsReport',
+        report: FinopsReport,
         /,
         rule_resources: dict[str, set[CloudResource]],
         meta: dict[str, RuleMeta],
@@ -546,7 +590,7 @@ class AttacksReportGenerator(ReportVisitor[Generator[dict, None, None]]):
 
     def visitDefault(
         self,
-        report: 'AttacksReport',
+        report: AttacksReport,
         /,
         rule_resources: dict[str, set[CloudResource]],
         meta: dict[str, RuleMeta],
@@ -618,7 +662,7 @@ class OverviewReportGenerator(ReportVisitor[dict]):
         self,
         metadata: Metadata,
         scope: set[str],
-        report_service: 'ReportService',
+        report_service: ReportService,
         **kwargs,
     ):
         self._metadata = metadata
@@ -769,7 +813,7 @@ class OverviewReportGenerator(ReportVisitor[dict]):
 
     def visitDefault(
         self,
-        report: 'OverviewReport',
+        report: OverviewReport,
         /,
         rule_resources: dict[str, set[CloudResource]],
         type_resources: dict[str, list[Resource]],
@@ -1476,12 +1520,12 @@ def add_diff(
 class ActivatedTenantsIterator:
     __slots__ = '_mc', '_ls'
 
-    def __init__(self, mc: 'ModularServiceProvider', ls: 'LicenseService'):
+    def __init__(self, mc: ModularServiceProvider, ls: LicenseService):
         self._mc = mc
         self._ls = ls
 
     def _get_license_activation(
-        self, lic: 'License'
+        self, lic: License
     ) -> modular_helpers.ActivationInfo:
         it = self._mc.parent_service().i_list_application_parents(
             application_id=lic.license_key,
@@ -1495,8 +1539,8 @@ class ActivatedTenantsIterator:
         return modular_helpers.get_activation_info(it)
 
     def iter_tenant_licenses(
-        self, customer: Customer, licenses: tuple['License', ...]
-    ) -> Generator[tuple[Tenant, tuple['License', ...]], None, None]:
+        self, customer: Customer, licenses: tuple[License, ...]
+    ) -> Generator[tuple[Tenant, tuple[License, ...]], None, None]:
         if not licenses:
             _LOG.warning(
                 'No licenses exist inside the customer, no metrics will be collected'
@@ -1549,7 +1593,7 @@ class ActivatedTenantsIterator:
 
     def iter_customer_licenses(
         self, allow_empty_licenses: bool = False
-    ) -> Generator[tuple[Customer, tuple['License', ...]], None, None]:
+    ) -> Generator[tuple[Customer, tuple[License, ...]], None, None]:
         for customer in self._mc.customer_service().i_get_customer(
             is_active=True
         ):
@@ -1564,7 +1608,7 @@ class ActivatedTenantsIterator:
 
     def __iter__(
         self,
-    ) -> Generator[tuple[Customer, Tenant, tuple['License', ...]], None, None]:
+    ) -> Generator[tuple[Customer, Tenant, tuple[License, ...]], None, None]:
         for customer, c_licenses in self.iter_customer_licenses(
             allow_empty_licenses=False
         ):

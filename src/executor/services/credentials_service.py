@@ -1,8 +1,5 @@
 import json
 import tempfile
-from pathlib import Path
-
-from modular_sdk.commons.constants import ENV_KUBECONFIG
 
 from executor.helpers.constants import (
     ENV_CLOUDSDK_CORE_PROJECT,

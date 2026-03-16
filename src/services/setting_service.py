@@ -1,10 +1,13 @@
-from typing import Union, Optional
+from typing import Literal, Optional, Union, overload
 
 from pynamodb.exceptions import PynamoDBException
 
 import services.cache as cache
-from helpers.constants import (DEFAULT_SYSTEM_CUSTOMER, SettingKey,
-                               DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME)
+from helpers.constants import (
+    DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME,
+    DEFAULT_SYSTEM_CUSTOMER,
+    SettingKey,
+)
 from helpers.log_helper import get_logger
 from models.setting import Setting
 from services.environment_service import EnvironmentService
@@ -160,9 +163,76 @@ class SettingsService:
             }
         )
 
-    def get_event_assembler_configuration(self, value: bool = True
-                                          ) -> Optional[Union[Setting, dict]]:
-        return self.get(name=SettingKey.EVENT_ASSEMBLER, value=value)
+    @overload
+    def get_event_assembler_configuration(
+        self,
+        value: Literal[True] = True,
+    ) -> dict | None:
+        ...
+    
+    @overload
+    def get_event_assembler_configuration(
+        self,
+        value: Literal[False],
+    ) -> Setting | None:
+        ...
+
+    def get_event_assembler_configuration(
+        self,
+        value: bool = True,
+    ) -> Setting | dict | None:
+        return self.get(
+            name=SettingKey.EVENT_ASSEMBLER,
+            value=value,
+        )
+    
+    def get_report_delivery_cursor(
+        self,
+        customer: str,
+        license_key: str,
+        tenant_name: str,
+    ) -> str | None:
+        """Get processed-up-to cursor for (customer, license, tenant)."""
+        cursors = self.get(SettingKey.REPORT_DELIVERY_CURSORS, value=True)
+        if not isinstance(cursors, dict):
+            return None
+        key = self._report_delivery_cursor_key(
+            customer, license_key, tenant_name
+        )
+        return cursors.get(key)
+
+    def save_report_delivery_cursor(
+        self,
+        customer: str,
+        license_key: str,
+        tenant_name: str,
+        cursor_iso: str,
+    ) -> None:
+        """Save processed-up-to cursor for (customer, license, tenant)."""
+        _LOG.debug(
+            f'Saving report delivery cursor for {customer}:{license_key}:{tenant_name} '
+            f'to {cursor_iso}'
+        )
+        setting = self.get(
+            SettingKey.REPORT_DELIVERY_CURSORS, value=False
+        )
+        if not setting or not isinstance(setting, Setting):
+            setting = self.create(
+                SettingKey.REPORT_DELIVERY_CURSORS, value={}
+            )
+        cursors = setting.value if isinstance(setting.value, dict) else {}
+        cursors = dict(cursors)
+        key = self._report_delivery_cursor_key(
+            customer, license_key, tenant_name
+        )
+        cursors[key] = cursor_iso
+        setting.value = cursors
+        self.save(setting)
+        _LOG.debug(
+            f'Report delivery cursor for {customer}:{license_key}:{tenant_name} '
+            f'saved to {cursor_iso}'
+        )
+
 
     # metadata
     def rules_metadata_repo_access_data(self) -> str:
@@ -217,6 +287,13 @@ class SettingsService:
         value = self.get(name=SettingKey.MAX_RABBITMQ_REQUEST_SIZE)
         return int(value) if value else 5000000  # 5 MB
 
+    @staticmethod
+    def _report_delivery_cursor_key(
+        customer: str,
+        license_key: str,
+        tenant_name: str,
+    ) -> str:
+        return f'{customer}:{license_key}:{tenant_name}'
 
 class CachedSettingsService(SettingsService):
     def __init__(self, *args, **kwargs):

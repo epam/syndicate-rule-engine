@@ -1,8 +1,10 @@
 import copy
 import heapq
 import statistics
-from datetime import datetime
+from datetime import date, datetime
 from itertools import chain
+
+from dateutil.relativedelta import relativedelta
 from typing import (
     TYPE_CHECKING,
     Generator,
@@ -17,6 +19,7 @@ import msgspec
 from modular_sdk.models.customer import Customer
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.modular import ModularServiceProvider
+from typing_extensions import Self
 
 from helpers import RequestContext
 from helpers.constants import (
@@ -41,8 +44,8 @@ from lambdas.metrics_updater.processors.base import (
 from models.metrics import ReportMetrics
 from models.ruleset import Ruleset
 from services import SP, modular_helpers
-from services.ambiguous_job_service import AmbiguousJobService
 from services.coverage_service import MappingAverageCalculator
+from services.job_service import JobService
 from services.license_service import License, LicenseService
 from services.metadata import Metadata, MitreAttack
 from services.modular_helpers import tenant_cloud
@@ -64,13 +67,14 @@ from services.reports import (
 )
 from services.resource_exception_service import ResourceExceptionsService
 from services.resources import (
-    CloudResource,
     MaestroReportResourceView,
-    iter_rule_resources,
+    rule_resources_dict,
 )
 from services.resources_service import ResourcesService
 from services.ruleset_service import RulesetName, RulesetService
+from services.rule_meta_service import RuleService
 from services.sharding import ShardsCollection
+from services.unified_rule_identity import UnifiedRuleIdentity
 
 
 if TYPE_CHECKING:
@@ -202,6 +206,13 @@ class RuleCheck(msgspec.Struct, kw_only=True, frozen=True):
     found: int | msgspec.UnsetType = msgspec.UNSET
 
 
+class DeprecatedRule(msgspec.Struct, kw_only=True, frozen=True):
+    id: str
+    description: str | msgspec.UnsetType = msgspec.UNSET
+    deprecation_date: str | None | msgspec.UnsetType = msgspec.UNSET
+    deprecation_reason: str | msgspec.UnsetType = msgspec.UNSET
+
+
 class LicenseMetadata(msgspec.Struct, kw_only=True, frozen=True):
     id: str
     rulesets: tuple[str, ...] = ()
@@ -216,7 +227,7 @@ class LicenseMetadata(msgspec.Struct, kw_only=True, frozen=True):
 class ReportRulesMetadata(msgspec.Struct, kw_only=True, frozen=True):
     total: int = 0
     disabled: tuple[str, ...] = ()
-    deprecated: tuple[str, ...] = ()
+    deprecated: tuple[DeprecatedRule, ...] = ()
     passed: tuple[RuleCheck, ...] = ()
     failed: tuple[RuleCheck, ...] = ()
     violated: tuple[RuleCheck, ...] | msgspec.UnsetType = msgspec.UNSET
@@ -285,7 +296,7 @@ class MetricsCollector(BaseProcessor):
     def __init__(
         self,
         modular_client: ModularServiceProvider,
-        ambiguous_job_service: AmbiguousJobService,
+        job_service: JobService,
         report_service: ReportService,
         report_metrics_service: ReportMetricsService,
         license_service: LicenseService,
@@ -294,9 +305,10 @@ class MetricsCollector(BaseProcessor):
         resource_service: ResourcesService,
         resource_exception_service: ResourceExceptionsService,
         tenant_settings_service: 'TenantSettingsService',
+        rule_service: RuleService | None = None,
     ):
         self._mc = modular_client
-        self._ajs = ambiguous_job_service
+        self._js = job_service
         self._rs = report_service
         self._rms = report_metrics_service
         self._ls = license_service
@@ -305,6 +317,7 @@ class MetricsCollector(BaseProcessor):
         self._res_ser = resource_service
         self._res_exp_ser = resource_exception_service
         self._tss = tenant_settings_service
+        self._rule_service = rule_service
 
         self._tenants_cache = {}
         self._platforms_cache = {}
@@ -369,10 +382,10 @@ class MetricsCollector(BaseProcessor):
         }
 
     @classmethod
-    def build(cls) -> 'MetricsCollector':
+    def build(cls) -> Self:
         return cls(
             modular_client=SP.modular_client,
-            ambiguous_job_service=SP.ambiguous_job_service,
+            job_service=SP.job_service,
             report_service=SP.report_service,
             report_metrics_service=SP.report_metrics_service,
             license_service=SP.license_service,
@@ -380,6 +393,7 @@ class MetricsCollector(BaseProcessor):
             platform_service=SP.platform_service,
             resource_service=SP.resources_service,
             resource_exception_service=SP.resource_exception_service,
+            rule_service=SP.rule_service,
             tenant_settings_service=\
                 SP.modular_client.tenant_settings_service(),
         )
@@ -614,38 +628,6 @@ class MetricsCollector(BaseProcessor):
                 when=part.timestamp,
             )
 
-    @staticmethod
-    def _get_rule_resources(
-        collection: 'ShardsCollection',
-        cloud: Cloud,
-        metadata: Metadata,
-        account_id: str = '',
-    ) -> dict[str, set[CloudResource]]:
-        # NOTE: Generally we should not expect duplicated resources within one
-        #  rule. Something is definitely wrong if one rule returns multiple
-        #  equal resources within one region. If one rule returns multiple
-        #  equal resources within different regions that rule must be global.
-        #  But, we perform some custom processing of resources which involves
-        #  changing their regions. For example, the same multi-regional
-        #  CloudTrail can be returns multiple times by executing the same rule
-        #  against different regions. So, if we encounter a multi-regional
-        #  trail during processing we manually change ist region to 'global'.
-        #  So, there is a real point here to de-duplicate resources
-        #  WITHIN ONE rule here.
-        it = iter_rule_resources(
-            collection=collection,
-            cloud=cloud,
-            metadata=metadata,
-            account_id=account_id,
-        )
-        dct = {}
-        for k, v in it:
-            resources = set(v)
-            if not resources:
-                continue
-            dct[k] = resources
-        return dct
-
     def _save_all(self, ctx: MetricsContext, msg: str):
         _LOG.info(msg)
         while ctx.has_reports():
@@ -688,7 +670,7 @@ class MetricsCollector(BaseProcessor):
             self._tss
         ))
 
-        ls = self._ajs.job_service.get_tenant_last_job_date(tenant.name)
+        ls = self._js.get_tenant_last_job_date(tenant.name)
         if not ls:
             # case when tenant had no scans, so we yield empty reports
             _LOG.warning(f'No jobs for tenant {tenant} found')
@@ -757,7 +739,7 @@ class MetricsCollector(BaseProcessor):
             collection, cloud, ctx.metadata, tenant.project
         )
 
-        rule_resources = self._get_rule_resources(
+        rule_resources = rule_resources_dict(
             collection, cloud, ctx.metadata, tenant.project
         )
 
@@ -765,7 +747,7 @@ class MetricsCollector(BaseProcessor):
             tenant, collection.meta
         )
 
-        deprecated = tuple(self._iter_deprecated_rules(collection))
+        deprecated = tuple(self._iter_deprecated_rules(collection, ctx.metadata))
 
         for typ in types:
             start = typ.start(ctx.now)
@@ -784,11 +766,53 @@ class MetricsCollector(BaseProcessor):
             # Some selectors can filter disabled and deprecated rules,
             # so we don't want to include them in that report
             disabled_loc = tuple(scope.intersection(disabled))
-            deprecated_loc = tuple(scope.intersection(deprecated))
+            # Extract rule IDs from DeprecatedRule objects for intersection
+            deprecated_ids = {rule.id for rule in deprecated}
+            deprecated_loc = tuple(scope.intersection(deprecated_ids))
 
             scope.difference_update(disabled)
-            scope.difference_update(deprecated)
+            scope.difference_update(deprecated_ids)
 
+            # Filter deprecated rules to only include those in scope (matching original behavior)
+            deprecated_in_scope = tuple(
+                rule for rule in deprecated if rule.id in deprecated_loc
+            )
+
+            # For deprecation report: count findings from previous period for
+            # rules that are deprecated in the current period (first report only).
+            previous_period_findings: dict[str, int] | None = None
+            if typ is ReportType.OPERATIONAL_DEPRECATION:
+                previous_end = end + relativedelta(weeks=-1)
+                previous_collection = scp.get_for_tenant(tenant, previous_end)
+                if previous_collection is not None:
+                    _, collection_prev = exceptions.filter_exception_resources(
+                        previous_collection, cloud, ctx.metadata, tenant.project
+                    )
+                    rule_resources_prev = rule_resources_dict(
+                        collection_prev, cloud, ctx.metadata, tenant.project
+                    )
+                    start_d = (
+                        start.date()
+                        if isinstance(start, datetime)
+                        else start
+                    )
+                    end_d = (
+                        end.date() if isinstance(end, datetime) else end
+                    )
+                    previous_period_findings = {}
+                    for rule in rule_resources:
+                        rm = ctx.metadata.rule(rule)
+                        if not rm.deprecation_category():
+                            continue
+                        if not rm.deprecation.is_deprecated or not isinstance(
+                            rm.deprecation.date, date
+                        ):
+                            continue
+                        if start_d <= rm.deprecation.date <= end_d:
+                            previous_period_findings[rule] = len(
+                                rule_resources_prev.get(rule, set())
+                            )
+            
             meta = TenantReportMetadata(
                 licenses=licenses,
                 is_automatic_scans_enabled=True,
@@ -800,7 +824,7 @@ class MetricsCollector(BaseProcessor):
                 rules=ReportRulesMetadata(
                     total=total,
                     disabled=disabled_loc,
-                    deprecated=deprecated_loc,
+                    deprecated=deprecated_in_scope,
                     passed=tuple(self._iter_passed_checks(collection, scope)),
                     failed=tuple(self._iter_failed_checks(collection, scope)),
                     violated=tuple(
@@ -826,6 +850,7 @@ class MetricsCollector(BaseProcessor):
                 end=end,
                 meta=collection.meta,
                 cloud=cloud,
+                previous_period_findings=previous_period_findings,
             )
             if not isinstance(data, dict):
                 # TODO: somehow move this info to visitors abstraction
@@ -852,13 +877,11 @@ class MetricsCollector(BaseProcessor):
         #  about dates,
 
         start, end = self.whole_period(ctx.now, *ReportType)
-        jobs = self._ajs.to_ambiguous(
-            self._ajs.job_service.get_by_customer_name(
-                customer_name=ctx.customer.name,
-                start=start,
-                end=end,
-                ascending=True,  # important to have jobs in order
-            )
+        jobs = self._js.get_by_customer_name(
+            customer_name=ctx.customer.name,
+            start=start,
+            end=end,
+            ascending=True,  # important to have jobs in order
         )
         js = JobMetricsDataSource(jobs)
         if not js:
@@ -1130,24 +1153,46 @@ class MetricsCollector(BaseProcessor):
         ctx: MetricsContext,
         meta: dict | None = None,
         type_resources: dict | None = None,
+        unified_identity: UnifiedRuleIdentity | None = None,
     ) -> Generator['AverageStatisticsItem', None, None]:
         meta = meta or {}
+        unified_identity = unified_identity or UnifiedRuleIdentity()
+        
+        # First pass: collect all items and group by fingerprint
+        items_by_fp: dict[str | None, list['AverageStatisticsItem']] = {}
+        items_without_fp: list['AverageStatisticsItem'] = []
+        
         for item in it:
             p = item.policy
             # Exclude deprecated rules
             if p.endswith(DEPRECATED_RULE_SUFFIX):
                 continue
-            item.id = item.policy
+            
+            # Get fingerprint for this rule
+            fp = unified_identity.get_fingerprint(p) if unified_identity else None
+            
+            # Store original policy ID
+            item.id = p
+            
+            # Set description and resource type
             item.policy = meta.get(p, {}).get('description', p)
             item.resource_type = meta.get(p, {}).get('resource', '')
-
+            
+            # Get metadata
             rm = ctx.metadata.rule(p)
-            item.service = rm.service or service_from_resource_type(
+            resource_type_str = (
                 item.resource_type
+                if isinstance(item.resource_type, str)
+                else ''
+            )
+            item.service = rm.service or service_from_resource_type(
+                resource_type_str
             )
             item.severity = rm.severity
-
-            # TODO: implement average resources scanned
+            # Set category only if it's not empty, otherwise use UNSET to omit from serialization
+            item.category = rm.category if rm.category else None
+            
+            # Calculate resources scanned
             if type_resources:
                 resources = [
                     res for res in type_resources.get(meta[p]['resource'], [])
@@ -1155,7 +1200,45 @@ class MetricsCollector(BaseProcessor):
                 ]
                 item.resources_scanned = len(resources)
                 item.average_resources_scanned = item.resources_scanned
-
+            
+            # Group by fingerprint
+            if fp:
+                items_by_fp.setdefault(fp, []).append(item)
+            else:
+                items_without_fp.append(item)
+        
+        # Second pass: for rules with same fingerprint, merge statistics but keep separate entries
+        # with their own metadata
+        for fp, items in items_by_fp.items():
+            if len(items) > 1:
+                # Multiple rules share the same fingerprint - merge statistics
+                # Use the first item's statistics as base (they all have same stats since
+                # they were executed once)
+                base_item = items[0]
+                
+                # Yield each rule separately with its own metadata
+                for item in items:
+                    # Copy statistics from base (they're the same for all aliases)
+                    item.invocations = base_item.invocations
+                    item.succeeded_invocations = base_item.succeeded_invocations
+                    item.failed_invocations = base_item.failed_invocations
+                    item.total_api_calls = base_item.total_api_calls
+                    item.min_exec = base_item.min_exec
+                    item.max_exec = base_item.max_exec
+                    item.total_exec = base_item.total_exec
+                    item.average_exec = base_item.average_exec
+                    item.resources_failed = base_item.resources_failed
+                    item.resources_scanned = base_item.resources_scanned
+                    item.average_resources_scanned = base_item.average_resources_scanned
+                    item.average_resources_failed = base_item.average_resources_failed
+                    
+                    yield item
+            else:
+                # Single rule with this fingerprint
+                yield items[0]
+        
+        # Yield rules without fingerprint
+        for item in items_without_fp:
             yield item
 
     def operational_rules(
@@ -1183,7 +1266,39 @@ class MetricsCollector(BaseProcessor):
             _, col = exceptions.filter_exception_resources(
                 col, tenant_cloud(tenant), ctx.metadata, tenant.project
             )
-            type_resources = self._res_ser.get_type_resources_for_tenant(tenant, col.meta)
+            type_resources = (
+                self._res_ser.get_type_resources_for_tenant(tenant, col.meta)
+                if col and col.meta
+                else {}
+            )
+
+            # Build UnifiedRuleIdentity for rules in this tenant
+            unified_identity = UnifiedRuleIdentity()
+            if self._rule_service and col and col.meta:
+                # Get all rules that appear in the collection
+                rule_names = set(col.meta.keys())
+                if rule_names:
+                    # Fetch rules from database to get fingerprints
+                    cloud = tenant_cloud(tenant).value
+                    customer = tenant.customer_name
+                    if customer:
+                        try:
+                            rules = list(
+                                self._rule_service.get_by_id_index(
+                                    customer=customer,
+                                    cloud=cloud,
+                                )
+                            )
+                            # Filter to only rules that appear in collection
+                            rules_in_collection = [
+                                r for r in rules
+                                if r.name in rule_names
+                            ]
+                            unified_identity.build_index(rules_in_collection)
+                        except Exception as e:
+                            _LOG.warning(
+                                f'Failed to build UnifiedRuleIdentity for tenant {tenant.name}: {e}'
+                            )
 
             outdated = []
             lsd = tjs.last_succeeded_scan_date
@@ -1207,6 +1322,7 @@ class MetricsCollector(BaseProcessor):
                         ctx=ctx,
                         meta=col.meta if col else {},
                         type_resources=type_resources if type_resources else {},
+                        unified_identity=unified_identity,
                     )
                 ),
                 'outdated_tenants': outdated,
@@ -1357,7 +1473,7 @@ class MetricsCollector(BaseProcessor):
                     platform=platform_id
                 ).last_succeeded_scan_date
 
-            rule_resources = self._get_rule_resources(
+            rule_resources = rule_resources_dict(
                 collection=col, cloud=Cloud.KUBERNETES, metadata=ctx.metadata
             )
 
@@ -2651,11 +2767,39 @@ class MetricsCollector(BaseProcessor):
             )
 
     def _iter_deprecated_rules(
-        self, collection: ShardsCollection
-    ) -> Iterable[str]:
+        self, collection: ShardsCollection, metadata: Metadata
+    ) -> Iterable[DeprecatedRule]:
         """
-        Iterates over deprecated rules in the collection.
+        Iterates over deprecated rules in the collection and returns
+        expanded information including description, deprecation date, and reason.
         """
         for policy in collection.meta:
             if policy.endswith(DEPRECATED_RULE_SUFFIX):
-                yield policy
+                # Get rule metadata
+                rule_meta = metadata.rule(policy)
+                deprecation = rule_meta.deprecation
+                
+                # Get description from collection.meta or rule metadata
+                description = collection.meta.get(policy, {}).get("description", "")
+                if not description:
+                    # Fallback to impact if description not available
+                    description = rule_meta.impact if rule_meta.impact else ""
+                
+                # Format deprecation date
+                deprecation_date = None
+                if isinstance(deprecation.date, date):
+                    deprecation_date = deprecation.date.isoformat()
+                
+                # Use link as deprecation reason, or impact as fallback
+                deprecation_reason = ""
+                if isinstance(deprecation.link, str) and deprecation.link:
+                    deprecation_reason = deprecation.link
+                elif rule_meta.impact:
+                    deprecation_reason = rule_meta.impact
+                
+                yield DeprecatedRule(
+                    id=policy,
+                    description=description if description else msgspec.UNSET,
+                    deprecation_date=deprecation_date if deprecation_date else msgspec.UNSET,
+                    deprecation_reason=deprecation_reason if deprecation_reason else msgspec.UNSET,
+                )

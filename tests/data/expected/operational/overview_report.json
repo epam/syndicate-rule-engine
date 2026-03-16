@@ -191,7 +191,12 @@
       "total": 15,
       "disabled": [],
       "deprecated": [
-        "ecc-aws-123-s3_test_policy-deprecated"
+        {
+          "id": "ecc-aws-123-s3_test_policy-deprecated",
+          "description": "Description for ecc-aws-123-s3_test_policy-deprecated",
+          "deprecation_date": "2025-12-31",
+          "deprecation_reason": "https://example.com/deprecation-info"
+        }
       ],
       "passed": [
         {

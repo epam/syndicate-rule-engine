@@ -16,28 +16,31 @@ _LOG = get_logger(__name__)
 # NOTE: I don't use pynamodb indexes here because
 # we need sparse indexes in MongoDB
 # because we have a lot of null values in these fields
-def create_resource_exceptions_indexes(db: Database):
+def create_resource_exceptions_indexes(db: Database) -> tuple[str, ...]:
     collection = db.get_collection(ResourceException.Meta.table_name)
     indexes = collection.index_information()
 
-    name = 'cn_1_tn_1_l_1_rt_1_i_1'
-    if name not in indexes:
-        _LOG.info(f'Index {name} does not exist yet')
+    # TODO: need create migration to rename index from 'cn_1_tn_1_l_1_rt_1_i_1' to 'cn_1_tn_1_l_1_rt_1_ri_1'
+    name1 = 'cn_1_tn_1_l_1_rt_1_i_1'
+    if name1 not in indexes:
+        _LOG.info(f'Index {name1} does not exist yet')
         collection.create_index(
             [('cn', 1), ('tn', 1), ('l', 1), ('rt', 1), ('ri', 1)],
-            name=name,
+            name=name1,
             sparse=True,
         )
 
-    name = 'arn_1'
-    if name not in indexes:
-        _LOG.info(f'Index {name} does not exist yet')
-        collection.create_index([('arn', 1)], name=name, sparse=True)
+    name2 = 'arn_1'
+    if name2 not in indexes:
+        _LOG.info(f'Index {name2} does not exist yet')
+        collection.create_index([('arn', 1)], name=name2, sparse=True)
     
-    name = 'tf_1_multikey'
-    if name not in indexes:
-        _LOG.info(f'Index {name} does not exist yet')
-        collection.create_index([('tf', 1)], name=name, sparse=True)
+    name3 = 'tf_1_multikey'
+    if name3 not in indexes:
+        _LOG.info(f'Index {name3} does not exist yet')
+        collection.create_index([('tf', 1)], name=name3, sparse=True)
+    
+    return name1, name2, name3
 
 
 class ResourceException(BaseModel):

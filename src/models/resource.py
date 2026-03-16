@@ -17,24 +17,25 @@ from models import BaseModel
 _LOG = get_logger(__name__)
 
 
-def create_resources_indexes(db: Database):
+def create_resources_indexes(db: Database) -> tuple[str, ...]:
     collection = db.get_collection(Resource.Meta.table_name)
-    name = 'aid_1_l_1_rt_1_i_1'
+    name1 = 'aid_1_l_1_rt_1_i_1'
     indexes = collection.index_information()
-    if name not in indexes:
-        _LOG.info(f'Index {name} does not exist yet')
+    if name1 not in indexes:
+        _LOG.info(f'Index {name1} does not exist yet')
         collection.create_index(
-            [('aid', 1), ('l', 1), ('rt', 1), ('i', 1)], name=name, unique=True
+            [('aid', 1), ('l', 1), ('rt', 1), ('i', 1)], name=name1, unique=True
         )
 
-    name = 'cn_1_tn_1_l_1_rt_1_n_1_i_1'
-    if name not in indexes:
-        _LOG.info(f'Index {name} does not exist yet')
+    name2 = 'cn_1_tn_1_l_1_rt_1_n_1_i_1'
+    if name2 not in indexes:
+        _LOG.info(f'Index {name2} does not exist yet')
         collection.create_index(
             [('cn', 1), ('tn', 1), ('l', 1), ('rt', 1), ('n', 1), ('i', 1)],
-            name=name,
+            name=name2,
         )
 
+    return name1, name2
 
 
 class ResourceARNIndex(GlobalSecondaryIndex):

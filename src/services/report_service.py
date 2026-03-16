@@ -1,25 +1,23 @@
 import statistics
-import msgspec
 from datetime import datetime
 from itertools import chain
 from typing import BinaryIO, Generator, Iterable
 
+import msgspec
 from modular_sdk.models.tenant import Tenant
 
-from helpers.log_helper import get_logger
 from helpers.constants import Cloud, PolicyErrorType, ReportFormat, Severity
+from helpers.log_helper import get_logger
 from helpers.reports import Standard
-from models.batch_results import BatchResults
 from models.job import Job
-from services.ambiguous_job_service import AmbiguousJob
 from services.clients.s3 import Json, S3Client
-from services.environment_service import EnvironmentService
-from services.metadata import Metadata
-from services.platform_service import Platform
 from services.coverage_service import (
     StandardCoverageCalculator,
     calculate_controls_coverages,
 )
+from services.environment_service import EnvironmentService
+from services.metadata import Metadata
+from services.platform_service import Platform
 from services.reports_bucket import (
     PlatformReportsBucketKeysBuilder,
     ReportsBucketKeysBuilder,
@@ -27,11 +25,12 @@ from services.reports_bucket import (
     TenantReportsBucketKeysBuilder,
 )
 from services.sharding import (
+    ShardPart,
     ShardsCollection,
     ShardsCollectionFactory,
     ShardsS3IO,
-    ShardPart
 )
+
 
 _LOG = get_logger(__name__)
 
@@ -61,6 +60,7 @@ class AverageStatisticsItem(msgspec.Struct, kw_only=True, eq=False):
     resource_type: str | msgspec.UnsetType = msgspec.UNSET
     service: str | msgspec.UnsetType = msgspec.UNSET
     severity: Severity = Severity.UNKNOWN
+    category: str | None = None  # Rule category for metadata distinction
     invocations: int
     succeeded_invocations: int
     failed_invocations: int
@@ -96,7 +96,7 @@ class ReportResponse:
 
     def __init__(
         self,
-        entity: AmbiguousJob | Tenant | Platform,
+        entity: Job | Tenant | Platform,
         content: Json | None = None,
         dictionary_url: str | None = None,
         fmt: ReportFormat = ReportFormat.JSON,
@@ -114,9 +114,9 @@ class ReportResponse:
             res['url'] = self.content
         else:
             res['content'] = self.content
-        if isinstance(self.entity, AmbiguousJob):
+        if isinstance(self.entity, Job):
             res['job_id'] = self.entity.id
-            res['job_type'] = self.entity.type
+            res['job_type'] = self.entity.job_type
             res['tenant_name'] = self.entity.tenant_name
             res['customer_name'] = self.entity.customer_name
         elif isinstance(self.entity, Platform):
@@ -143,35 +143,6 @@ class ReportService:
         collection.io = ShardsS3IO(
             bucket=self.environment_service.default_reports_bucket_name(),
             key=TenantReportsBucketKeysBuilder(tenant).job_result(job),
-            client=self.s3_client,
-        )
-        return collection
-
-    def ed_job_collection(
-        self, tenant: Tenant, br: BatchResults
-    ) -> ShardsCollection:
-        collection = ShardsCollectionFactory.from_tenant(tenant)
-        collection.io = ShardsS3IO(
-            bucket=self.environment_service.default_reports_bucket_name(),
-            key=TenantReportsBucketKeysBuilder(tenant).ed_job_result(br),
-            client=self.s3_client,
-        )
-        return collection
-
-    def ambiguous_job_collection(
-        self, tenant: Tenant, job: AmbiguousJob
-    ) -> ShardsCollection:
-        if not job.is_ed_job:
-            return self.job_collection(tenant, job.job)
-        return self.ed_job_collection(tenant, job.job)
-
-    def ed_job_difference_collection(
-        self, tenant: Tenant, br: BatchResults
-    ) -> ShardsCollection:
-        collection = ShardsCollectionFactory.from_tenant(tenant)
-        collection.io = ShardsS3IO(
-            bucket=self.environment_service.default_reports_bucket_name(),
-            key=TenantReportsBucketKeysBuilder(tenant).ed_job_difference(br),
             client=self.s3_client,
         )
         return collection
@@ -245,11 +216,7 @@ class ReportService:
         collection.fetch_meta()
         return collection.meta or {}
 
-    def job_statistics(
-        self, job: Job | BatchResults | AmbiguousJob
-    ) -> list[StatisticsItem]:
-        if isinstance(job, AmbiguousJob):
-            job = job.job
+    def job_statistics(self, job: Job) -> list[StatisticsItem]:
         data = self.s3_client.gz_get_object(
             bucket=self.environment_service.get_statistics_bucket_name(),
             key=StatisticsBucketKeysBuilder.job_statistics(job),
