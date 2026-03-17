@@ -62,10 +62,10 @@ modular-api:
   modularApiM3adminLogLevel: ERROR
   modularApiModularSdkLogLevel: ERROR
   image:
-    tag: 4.3.16-rule-engine-5.12.0
+    tag: 4.3.19-rule-engine-5.12.0
 
 patch:
-  enabled: false
+  enabled: true
   backoffLimit: 10
   ttlSecondsAfterFinished: 3600
   image:
@@ -133,4 +133,3 @@ celery:
     scanResources: ''  # disabled
     assembleEvents: '*/5 * * * *' # every 5 minutes
     clearEvents: '0 0 * * *' # every day at 00:00 UTC
-
