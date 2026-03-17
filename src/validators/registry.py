@@ -1232,7 +1232,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=TopViolationsReportJobGetModel,
         responses=[(HTTPStatus.OK, TopViolationsReportJobsModel, None)],
         permission=Permission.REPORT_TOP_VIOLATIONS_GET_JOBS,
-        description='Allows to get MCP report by job id'
+        description='Allows to get top violation report by job id'
     ),
     EndpointInfo(
         path=Endpoint.REPORTS_TOP_VIOLATIONS_COMPARE_JOBS,
@@ -1241,7 +1241,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=TopViolationsReportCompareJobsGetModel,
         responses=[(HTTPStatus.OK, TopViolationsReportComparisonModel, None)],
         permission=Permission.REPORT_TOP_VIOLATIONS_COMPARE_JOBS,
-        description='Allows to get MCP reports comparison by jobs ids'
+        description='Allows to get top violation comparison report by jobs id'
     ),
 
     # platforms
