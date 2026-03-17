@@ -153,6 +153,12 @@ class Endpoint(str, Enum):
     REPORTS_RESOURCES_PLATFORMS_K8S_PLATFORM_ID_LATEST = (
         '/reports/resources/platforms/k8s/{platform_id}/state/latest'
     )
+    REPORTS_TOP_VIOLATIONS_JOBS_JOB_ID = (
+        '/reports/top/violations/jobs/{job_id}'
+    ),
+    REPORTS_TOP_VIOLATIONS_COMPARE_JOBS = (
+        '/reports/top/violations/compare/jobs'
+    ),
 
     @classmethod
     def match(cls, resource: str) -> Self | None:
@@ -868,6 +874,16 @@ class Permission(str, Enum):
         False,
         True,
     )
+    REPORT_TOP_VIOLATIONS_GET_JOBS = (
+        'report:get_top_violations_report',
+        False,
+        True,
+    )
+    REPORT_TOP_VIOLATIONS_COMPARE_JOBS = (
+        'report:get_top_violations_compare_report',
+        False,
+        True,
+    )
     REPORT_RAW_GET_TENANT_LATEST = (
         'report:get_tenant_latest_raw_report',
         False,
@@ -1226,12 +1242,16 @@ class Severity(str, Enum):
 
 
 class RemediationComplexity(str, Enum):
-    UNKNOWN = 'Unknown'
     LOW = 'Low'
     LOW_MEDIUM = 'Low-Medium'
     MEDIUM = 'Medium'
     MEDIUM_HIGH = 'Medium-High'
     HIGH = 'High'
+    UNKNOWN = 'Unknown'
+
+    @classmethod
+    def iter(cls):
+        return map(operator.attrgetter('value'), cls)
 
     @classmethod
     def parse(cls, rem: str | None, /) -> 'RemediationComplexity':
@@ -1467,6 +1487,11 @@ class ReportType(str, Enum):
         _previous_month_start,
         _this_month_start,
     )
+
+
+class TopViolationsReportType(str, Enum):
+    RESOURCES = 'RESOURCES'
+    RULES = 'RULES'
 
 
 class RabbitCommand(str, Enum):
