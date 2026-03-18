@@ -18,10 +18,7 @@ from .message_processor import process_message
 from . import settings
 
 if TYPE_CHECKING:
-    from services.event_driven import (
-        EventDrivenRulesService,
-        EventIngestService,
-    )
+    from services.event_driven import EventIngestService
     from modular_sdk.services.application_service import ApplicationService
     from modular_sdk.services.ssm_service import SSMClientCachingWrapper
 
@@ -34,7 +31,6 @@ def run_consumer_loop(
     application_service: ApplicationService,
     ssm: SSMClientCachingWrapper,
     event_ingest_service: EventIngestService,
-    ed_rules_service: EventDrivenRulesService,
 ) -> None:
     """
     Supervisor: periodically reload configs, start workers for new configs,
@@ -71,7 +67,6 @@ def run_consumer_loop(
                                 stop_ev,
                                 ssm,
                                 event_ingest_service,
-                                ed_rules_service,
                             ),
                             daemon=True,
                         )
@@ -108,14 +103,11 @@ def _run_worker(
     stop_event: threading.Event,
     ssm,
     event_ingest_service: EventIngestService,
-    ed_rules_service: EventDrivenRulesService,
 ) -> None:
     """
     Run SQS consumer for one config in a loop until stop_event is set.
     """
-    _LOG.info(
-        "Worker started for %s (%s)", config.application_id, config.queue_url
-    )
+    _LOG.info("Worker started for %s (%s)", config.application_id, config.queue_url)
     credentials = get_credentials(ssm, config.secret)
     connector = SQSConnector(config=config, credentials=credentials)
     try:
@@ -125,7 +117,6 @@ def _run_worker(
             process_message(
                 message=msg,
                 event_ingest_service=event_ingest_service,
-                ed_rules_service=ed_rules_service,
             )
 
         while not stop_event.is_set():
