@@ -190,6 +190,14 @@ class RabbitMQ(TypedDict):
     customer: str
 
 
+class EventSource(TypedDict):
+    id: str
+    customer_id: str
+    queue_url: str
+    region: str
+    enabled: bool
+
+
 class ReportStatus(TypedDict):
     id: str
     triggered_at: str
@@ -558,6 +566,14 @@ class SingleHealthCheckModel(BaseModel):
 
 class SingleRabbitMQModel(BaseModel):
     data: RabbitMQ
+
+
+class SingleEventSourceModel(BaseModel):
+    data: EventSource
+
+
+class MultipleEventSourceModel(BaseModel):
+    items: list[EventSource]
 
 
 class MultipleRulesModel(BaseModel):

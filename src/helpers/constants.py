@@ -96,6 +96,8 @@ class Endpoint(str, Enum):
     RESOURCES_EXCEPTIONS_ID = '/resources/exceptions/{id}'
     CUSTOMERS_EXCLUDED_RULES = '/customers/excluded-rules'
     INTEGRATIONS_DEFECT_DOJO = '/integrations/defect-dojo'
+    INTEGRATIONS_EVENT_SOURCES = '/integrations/event-sources'
+    INTEGRATIONS_EVENT_SOURCES_ID = '/integrations/event-sources/{id}'
     REPORTS_PUSH_DOJO_JOB_ID = '/reports/push/dojo/{job_id}'
     INTEGRATIONS_CHRONICLE_ID = '/integrations/chronicle/{id}'
     REPORTS_RULES_JOBS_JOB_ID = '/reports/rules/jobs/{job_id}'
@@ -193,6 +195,7 @@ STANDARD = 'standard'
 
 # Modular:Parent related attributes and types
 CUSTODIAN_TYPE = 'CUSTODIAN'  # application that contains access to CUSTODIAN
+CUSTODIAN_EVENT_SOURCE_TYPE = 'CUSTODIAN_EVENT_SOURCE'
 SCHEDULED_JOB_TYPE = 'SCHEDULED_JOB'
 META_ATTR = 'meta'
 TENANT_ENTITY_TYPE = 'TENANT'
@@ -958,6 +961,11 @@ class Permission(str, Enum):
     RABBITMQ_DESCRIBE = 'rabbitmq:describe'
     RABBITMQ_CREATE = 'rabbitmq:create'
     RABBITMQ_DELETE = 'rabbitmq:delete'
+
+    EVENT_SOURCES_DESCRIBE = 'event_sources:describe'
+    EVENT_SOURCES_CREATE = 'event_sources:create'
+    EVENT_SOURCES_UPDATE = 'event_sources:update'
+    EVENT_SOURCES_DELETE = 'event_sources:delete'
 
     BATCH_RESULTS_GET = 'batch_results:get', False, True
     BATCH_RESULTS_QUERY = 'batch_results:query', False  # True

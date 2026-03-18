@@ -117,6 +117,12 @@ persistence:
   hostPath: /data/rule-engine
 
 
+eventSourcesConsumer:
+  enabled: true
+  replicas: 1
+  memoryLimit: "512Mi"
+  memoryRequest: "128Mi"
+
 celery:
   logLevel: ERROR
   workerMemoryLimit: "1536Mi"

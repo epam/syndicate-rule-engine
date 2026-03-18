@@ -3,7 +3,9 @@
 **/__pycache__
 **/.tmp
 **/*.md
+**/.env.example
 .env
+.env.example
 
 .pytest_cache
 .coverage

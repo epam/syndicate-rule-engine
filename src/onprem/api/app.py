@@ -233,9 +233,8 @@ class OnPremApiBuilder:
                 }
             }
 
-        if method == 'GET':
-            event['queryStringParameters'] = normalize_query_parameters(request.query)
-        else:
+        event['queryStringParameters'] = normalize_query_parameters(request.query)
+        if method != 'GET':
             event['body'] = request.body.read().decode()
             event['isBase64Encoded'] = False
 
