@@ -363,6 +363,36 @@ class ResourcesReportItem(TypedDict):
     violated_rules: ViolatedRule
 
 
+class TopViolationsResourceReport(TypedDict):
+    id: str
+    violated_rules: list[dict]
+
+
+class TopViolationsRulesReport(TypedDict):
+    name: str
+    description: str
+    severity: str
+    remediation: str
+    article: str
+    impact: str
+    remediation_complexity: str
+    violated_resources: list[str]
+
+
+class TopViolationsResourceComparison(TypedDict):
+    id: str
+    new_violated_rules: list[dict]
+    remediated_rules: list[dict]
+    unchanged_violated_rules: list[dict]
+
+
+class TopViolationsRulesComparison(TypedDict):
+    name: str
+    new_violated_resources: list[str]
+    remediated_resources: list[str]
+    unchanged_violated_resources: list[str]
+
+
 class DefectDojo(TypedDict):
     id: str
     description: str
@@ -679,6 +709,14 @@ class EntityResourcesReportModel(BaseModel):
 class JobResourcesReportModel(BaseModel):
     items: list[ResourcesReportItem]
     data: BaseReportJob | None
+
+
+class TopViolationsReportJobsModel(BaseModel):
+    items: list[TopViolationsResourceReport | TopViolationsRulesReport]
+
+
+class TopViolationsReportComparisonModel(BaseModel):
+    items: list[TopViolationsResourceComparison | TopViolationsRulesComparison]
 
 
 class SingleLicenseActivationModel(BaseModel):

@@ -99,6 +99,8 @@ from validators.swagger_request_models import (
     UserPatchModel,
     UserPostModel,
     UserResetPasswordModel,
+    TopViolationsReportJobGetModel,
+    TopViolationsReportCompareJobsGetModel,
 )
 from validators.swagger_response_models import (
     CredentialsActivationModel,
@@ -167,6 +169,8 @@ from validators.swagger_response_models import (
     SingleTenantExcludedRules,
     SingleTenantsModel,
     SingleUserModel,
+    TopViolationsReportJobsModel,
+    TopViolationsReportComparisonModel,
 )
 
 
@@ -1272,6 +1276,24 @@ data: tuple[EndpointInfo, ...] = (
         responses=[(HTTPStatus.OK, RawReportModel, None)],
         permission=Permission.REPORT_RAW_GET_TENANT_LATEST,
         description='Allows to request raw report data by tenant'
+    ),
+    EndpointInfo(
+        path=Endpoint.REPORTS_TOP_VIOLATIONS_JOBS_JOB_ID,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.REPORT_GENERATOR,
+        request_model=TopViolationsReportJobGetModel,
+        responses=[(HTTPStatus.OK, TopViolationsReportJobsModel, None)],
+        permission=Permission.REPORT_TOP_VIOLATIONS_GET_JOBS,
+        description='Allows to get top violation report by job id'
+    ),
+    EndpointInfo(
+        path=Endpoint.REPORTS_TOP_VIOLATIONS_COMPARE_JOBS,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.REPORT_GENERATOR,
+        request_model=TopViolationsReportCompareJobsGetModel,
+        responses=[(HTTPStatus.OK, TopViolationsReportComparisonModel, None)],
+        permission=Permission.REPORT_TOP_VIOLATIONS_COMPARE_JOBS,
+        description='Allows to get top violation comparison report by jobs id'
     ),
 
     # platforms

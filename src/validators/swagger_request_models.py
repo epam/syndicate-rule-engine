@@ -45,6 +45,7 @@ from helpers.constants import (
     RuleDomain,
     RuleSourceType,
     ServiceOperationType,
+    TopViolationsReportType,
 )
 from helpers import Version, NextToken
 from helpers.regions import AllRegions, AllRegionsWithGlobal
@@ -2046,6 +2047,20 @@ class ResourceReportJobGetModel(JobTypesMixin, BaseModel):
                 'Currently obfuscation is supported only if href is true'
             )
         return self
+
+
+class TopViolationsReportJobGetModel(BaseModel):
+    type: TopViolationsReportType = Field(default=TopViolationsReportType.RESOURCES)
+    top: int = Field(default=5, gt=0, le=5,
+                     description='Limits the number of top critical items')
+
+
+class TopViolationsReportCompareJobsGetModel(BaseModel):
+    previous_job_id: str
+    current_job_id: str
+    type: TopViolationsReportType = Field(default=TopViolationsReportType.RESOURCES)
+    top: int = Field(default=5, gt=0, le=5,
+                     description='Limits the number of top critical items')
 
 
 class PlatformK8SPostModel(BaseModel):

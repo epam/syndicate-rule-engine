@@ -12,6 +12,7 @@ from handlers.reports import (
     ResourceReportHandler,
     SiemPushHandler,
 )
+from handlers.reports.top_violations_report_handler import TopViolationsReportHandler
 from helpers.log_helper import get_logger
 from services.abs_lambda import (
     ApiEventProcessorLambdaHandler,
@@ -45,7 +46,8 @@ class ReportGenerator(ApiEventProcessorLambdaHandler):
         SiemPushHandler,
         FindingsReportHandler,
         RawReportHandler,
-        HighLevelReportsHandler
+        HighLevelReportsHandler,
+        TopViolationsReportHandler,
     )
 
     @cached_property

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [5.18.0] - 2026-03-18
 
 ### Added
+- Added top violations and top violations comparison reports
 - Added event sources integration: API and on-prem consumer for SQS queues (event-driven ingestion) in `src/onprem/event_sources_consumer`
 
 ### Fixed
