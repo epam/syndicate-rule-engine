@@ -71,4 +71,10 @@ def load_event_sources(
                 secret=app.secret,
             )
         )
+    if configs:
+        _LOG.info(
+            "Loaded %d event source(s): %s",
+            len(configs),
+            [c.application_id for c in configs],
+        )
     return configs

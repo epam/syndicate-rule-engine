@@ -39,6 +39,8 @@ def run_consumer_loop(
     signal.signal(signal.SIGTERM, _handle_signal)
     signal.signal(signal.SIGINT, _handle_signal)
 
+    _LOG.info("Event sources consumer supervisor started")
+
     workers: dict[str, tuple[threading.Thread, threading.Event]] = {}
     workers_lock = threading.Lock()
 
@@ -46,6 +48,12 @@ def run_consumer_loop(
         try:
             configs = load_event_sources(application_service)
             config_ids = {c.application_id for c in configs}
+
+            if not configs:
+                _LOG.info(
+                    "No event sources configured, waiting (reload in %ds)",
+                    settings.CONFIG_RELOAD_INTERVAL,
+                )
 
             with workers_lock:
                 # Stop workers for removed configs
@@ -107,7 +115,12 @@ def _run_worker(
     """
     Run SQS consumer for one config in a loop until stop_event is set.
     """
-    _LOG.info("Worker started for %s (%s)", config.application_id, config.queue_url)
+    _LOG.info(
+        "Worker started for %s (customer=%s, queue=%s)",
+        config.application_id,
+        config.customer_id,
+        config.queue_url,
+    )
     credentials = get_credentials(ssm, config.secret)
     connector = SQSConnector(config=config, credentials=credentials)
     try:
@@ -119,6 +132,7 @@ def _run_worker(
                 event_ingest_service=event_ingest_service,
             )
 
+        _LOG.info("Polling queue %s (app=%s)", config.queue_url, config.application_id)
         while not stop_event.is_set():
             try:
                 connector.consume(callback=callback)
