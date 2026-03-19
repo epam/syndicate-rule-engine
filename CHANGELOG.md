@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Added top violations and top violations comparison reports
+- Added the ability to get a resource report for a specific platform(K8S) job
 
 ## [5.17.0] - 2026-03-02
 
