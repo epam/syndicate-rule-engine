@@ -9,11 +9,6 @@ import click
 from srecli.group import ContextObj, ViewCommand, cli_response
 
 
-def _env_or(value: str | None, env_key: str) -> str | None:
-    """Return value if set, otherwise env var."""
-    return value or os.environ.get(env_key) or None
-
-
 @click.group(name="event_sources")
 def event_sources():
     """
@@ -33,8 +28,8 @@ def event_sources():
     "--region",
     "-r",
     type=str,
-    default=None,
-    help="AWS region (or AWS_DEFAULT_REGION env)",
+    required=True,
+    help="AWS region",
 )
 @click.option(
     "--enabled/--disabled",
@@ -45,19 +40,19 @@ def event_sources():
     "--aws_access_key_id",
     type=str,
     default=None,
-    help="AWS access key (or AWS_ACCESS_KEY_ID env)",
+    help="AWS access key (optional)",
 )
 @click.option(
     "--aws_secret_access_key",
     type=str,
     default=None,
-    help="AWS secret key (or AWS_SECRET_ACCESS_KEY env)",
+    help="AWS secret key (optional)",
 )
 @click.option(
     "--aws_session_token",
     type=str,
     default=None,
-    help="AWS session token for temporary creds (or AWS_SESSION_TOKEN env)",
+    help="AWS session token for temporary creds (optional)",
 )
 @cli_response()
 def add(
@@ -73,13 +68,6 @@ def add(
     """
     Creates an SQS event source configuration.
     """
-    region = _env_or(region, "AWS_DEFAULT_REGION")
-    if not region:
-        raise click.UsageError("--region / -r is required or set AWS_DEFAULT_REGION")
-    aws_access_key_id = _env_or(aws_access_key_id, "AWS_ACCESS_KEY_ID")
-    aws_secret_access_key = _env_or(aws_secret_access_key, "AWS_SECRET_ACCESS_KEY")
-    aws_session_token = _env_or(aws_session_token, "AWS_SESSION_TOKEN")
-
     data = {
         "queue_url": queue_url,
         "region": region,
