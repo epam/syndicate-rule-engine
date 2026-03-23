@@ -1070,6 +1070,15 @@
             "region": {
               "title": "Region",
               "type": "string"
+            },
+            "role_arn": {
+              "anyOf": [
+                {"type": "string"},
+                {"type": "null"}
+              ],
+              "default": null,
+              "title": "Role Arn",
+              "description": "IAM role ARN to assume for SQS access"
             }
           },
           "required": [
@@ -1155,6 +1164,14 @@
               ],
               "default": null,
               "title": "Region"
+            },
+            "role_arn": {
+              "anyOf": [
+                {"type": "string"},
+                {"type": "null"}
+              ],
+              "default": null,
+              "title": "Role Arn"
             }
           },
           "title": "EventSourcePutModel",

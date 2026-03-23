@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from services.event_driven import EventIngestService
     from modular_sdk.services.application_service import ApplicationService
     from modular_sdk.services.ssm_service import SSMClientCachingWrapper
+    from services.clients.sts import StsClient
 
 _LOG = get_logger(__name__)
 
@@ -31,6 +32,7 @@ def run_consumer_loop(
     application_service: ApplicationService,
     ssm: SSMClientCachingWrapper,
     event_ingest_service: EventIngestService,
+    sts: StsClient | None = None,
 ) -> None:
     """
     Supervisor: periodically reload configs, start workers for new configs,
@@ -84,6 +86,7 @@ def run_consumer_loop(
                                 stop_ev,
                                 ssm,
                                 event_ingest_service,
+                                sts,
                             ),
                             daemon=True,
                         )
@@ -120,9 +123,11 @@ def _run_worker(
     stop_event: threading.Event,
     ssm,
     event_ingest_service: EventIngestService,
+    sts,
 ) -> None:
     """
     Run SQS consumer for one config in a loop until stop_event is set.
+    When using role_arn (assume_role), credentials are refreshed periodically.
     """
     _LOG.info(
         "Worker started for %s (customer=%s, queue=%s)",
@@ -130,7 +135,12 @@ def _run_worker(
         config.customer_id,
         config.queue_url,
     )
-    credentials = get_credentials(ssm, config.secret)
+    credentials = get_credentials(
+        ssm=ssm,
+        secret_name=config.secret,
+        role_arn=config.role_arn,
+        sts=sts,
+    )
     connector = SQSConnector(config=config, credentials=credentials)
     try:
         connector.connect()
@@ -141,8 +151,33 @@ def _run_worker(
                 event_ingest_service=event_ingest_service,
             )
 
+        last_credentials_refresh = time.monotonic()
         _LOG.info("Polling queue %s (app=%s)", config.queue_url, config.application_id)
         while not stop_event.is_set():
+            # Refresh assume_role credentials before they expire
+            if config.role_arn and sts:
+                elapsed = time.monotonic() - last_credentials_refresh
+                if elapsed >= settings.CREDENTIALS_REFRESH_INTERVAL:
+                    fresh = get_credentials(
+                        ssm=ssm,
+                        secret_name=config.secret,
+                        role_arn=config.role_arn,
+                        sts=sts,
+                    )
+                    if fresh:
+                        connector.reconnect(fresh)
+                        last_credentials_refresh = time.monotonic()
+                        _LOG.debug(
+                            "Refreshed credentials for %s (role=%s)",
+                            config.application_id,
+                            config.role_arn,
+                        )
+                    else:
+                        _LOG.warning(
+                            "Failed to refresh credentials for %s, retrying later",
+                            config.application_id,
+                        )
+
             try:
                 connector.consume(callback=callback)
             except Exception as e:

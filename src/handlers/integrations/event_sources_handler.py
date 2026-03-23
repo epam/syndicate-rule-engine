@@ -38,6 +38,7 @@ _LOG = get_logger(__name__)
 META_QUEUE_URL = "queue_url"
 META_REGION = "region"
 META_ENABLED = "enabled"
+META_ROLE_ARN = "role_arn"
 
 
 def _get_dto(application: Application) -> dict:
@@ -48,6 +49,7 @@ def _get_dto(application: Application) -> dict:
         META_QUEUE_URL: meta.get(META_QUEUE_URL),
         META_REGION: meta.get(META_REGION),
         META_ENABLED: meta.get(META_ENABLED, True),
+        META_ROLE_ARN: meta.get(META_ROLE_ARN),
     }
 
 
@@ -97,6 +99,8 @@ class EventSourcesHandler(AbstractHandler):
             META_REGION: event.region,
             META_ENABLED: event.enabled,
         }
+        if event.role_arn is not None:
+            meta[META_ROLE_ARN] = event.role_arn
         secret = None
         if event.aws_access_key_id and event.aws_secret_access_key:
             creds: dict[str, str] = {
@@ -143,7 +147,7 @@ class EventSourcesHandler(AbstractHandler):
             )
         )
         items = [_get_dto(a) for a in applications]
-        return build_response(content={"items": items})
+        return build_response(content=items)
 
     @validate_kwargs
     def get(
@@ -165,7 +169,7 @@ class EventSourcesHandler(AbstractHandler):
             raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
                 "Event source not found"
             ).exc()
-        return build_response(content={"data": _get_dto(application)})
+        return build_response(content=_get_dto(application))
 
     @validate_kwargs
     def put(
@@ -231,4 +235,6 @@ class EventSourcesHandler(AbstractHandler):
             meta[META_REGION] = event.region
         if hasattr(event, "enabled") and event.enabled is not None:
             meta[META_ENABLED] = event.enabled
+        if hasattr(event, "role_arn") and event.role_arn is not None:
+            meta[META_ROLE_ARN] = event.role_arn
         return meta

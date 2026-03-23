@@ -40,16 +40,14 @@ class SQSConnector(BaseConnector):
             "region_name": self._config.region,
         }
         if self._credentials:
-            kwargs["aws_access_key_id"] = self._credentials.get(
-                "aws_access_key_id"
-            )
-            kwargs["aws_secret_access_key"] = self._credentials.get(
-                "aws_secret_access_key"
-            )
-            if self._credentials.get("aws_session_token"):
-                kwargs["aws_session_token"] = self._credentials[
-                    "aws_session_token"
-                ]
+            _creds = {
+                k: v for k, v in self._credentials.items()
+                if not k.startswith("_")
+            }
+            kwargs["aws_access_key_id"] = _creds.get("aws_access_key_id")
+            kwargs["aws_secret_access_key"] = _creds.get("aws_secret_access_key")
+            if _creds.get("aws_session_token"):
+                kwargs["aws_session_token"] = _creds["aws_session_token"]
         self._client = boto3.client(**kwargs)
 
     def consume(
@@ -108,3 +106,9 @@ class SQSConnector(BaseConnector):
 
     def disconnect(self) -> None:
         self._client = None
+
+    def reconnect(self, credentials: dict | None) -> None:
+        """Reconnect with new credentials (e.g. after assume_role refresh)."""
+        self._credentials = credentials
+        self._client = None
+        self.connect()

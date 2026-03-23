@@ -55,6 +55,13 @@ def sources():
     default=None,
     help="AWS session token for temporary creds (optional)",
 )
+@click.option(
+    "--role_arn",
+    "-ra",
+    type=str,
+    default=None,
+    help="IAM role ARN to assume for SQS access (optional, uses instance profile as base)",
+)
 @cli_response()
 def add(
     ctx: ContextObj,
@@ -64,6 +71,7 @@ def add(
     aws_access_key_id: str | None,
     aws_secret_access_key: str | None,
     aws_session_token: str | None,
+    role_arn: str | None,
     customer_id: str | None,
 ):
     """
@@ -82,6 +90,8 @@ def add(
         data["aws_secret_access_key"] = aws_secret_access_key
     if aws_session_token:
         data["aws_session_token"] = aws_session_token
+    if role_arn:
+        data["role_arn"] = role_arn
     return ctx["api_client"].event_sources_post(**data)
 
 
@@ -111,6 +121,72 @@ def describe(
             customer_id=customer_id,
         )
     return ctx["api_client"].event_sources_list(customer_id=customer_id)
+
+
+@sources.command(cls=ViewCommand, name="update")
+@click.option(
+    "--id",
+    "event_source_id",
+    type=str,
+    required=True,
+    help="Event source ID to update",
+)
+@click.option(
+    "--queue_url",
+    "-qu",
+    type=str,
+    required=False,
+    help="SQS queue URL",
+)
+@click.option(
+    "--region",
+    "-r",
+    type=str,
+    required=False,
+    help="AWS region",
+)
+@click.option(
+    "--enabled",
+    "-e",
+    type=bool,
+    required=False,
+    help="Param to enable or disable the event source temporarily",
+)
+@click.option(
+    "--role_arn",
+    "-ra",
+    type=str,
+    required=False,
+    help="IAM role ARN to assume for SQS access",
+)
+@cli_response()
+def update(
+    ctx: ContextObj,
+    event_source_id: str,
+    queue_url: str | None,
+    region: str | None,
+    enabled: bool | None,
+    role_arn: str | None,
+    customer_id: str | None,
+):
+    """
+    Updates an SQS event source configuration.
+    """
+    data: dict = {}
+    if queue_url is not None:
+        data["queue_url"] = queue_url
+    if region is not None:
+        data["region"] = region
+    if enabled is not None:
+        data["enabled"] = enabled
+    if role_arn is not None:
+        data["role_arn"] = role_arn
+    if customer_id:
+        data["customer_id"] = customer_id
+    return ctx["api_client"].event_sources_put(
+        event_source_id=event_source_id,
+        **data,
+    )
 
 
 @sources.command(cls=ViewCommand, name="delete")

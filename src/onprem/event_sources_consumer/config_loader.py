@@ -21,6 +21,7 @@ _LOG = get_logger(__name__)
 META_QUEUE_URL = "queue_url"
 META_REGION = "region"
 META_ENABLED = "enabled"
+META_ROLE_ARN = "role_arn"
 
 
 @dataclass(frozen=True)
@@ -33,6 +34,7 @@ class EventSourceConfig:
     region: str
     enabled: bool
     secret: str | None
+    role_arn: str | None
 
 
 def load_event_sources(
@@ -61,6 +63,11 @@ def load_event_sources(
                 app.application_id,
             )
             continue
+        role_arn = meta.get(META_ROLE_ARN)
+        role_arn = (
+            role_arn.strip() if isinstance(role_arn, str) and role_arn.strip()
+            else None
+        )
         configs.append(
             EventSourceConfig(
                 application_id=app.application_id,
@@ -69,6 +76,7 @@ def load_event_sources(
                 region=region,
                 enabled=enabled,
                 secret=app.secret,
+                role_arn=role_arn,
             )
         )
     if configs:

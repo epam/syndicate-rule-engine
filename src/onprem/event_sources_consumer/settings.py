@@ -1,6 +1,6 @@
 """
 Environment-based configuration for event sources consumer.
-Env prefix: SRE_EVENT_SOURCES_CONSUMER_
+Env prefix: SRE_EVENT_CONSUMER_
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ def _env_int(
         return default
 
 
-PREFIX = "SRE_EVENT_SOURCES_CONSUMER_"
+PREFIX = "SRE_EVENT_CONSUMER_"
 
 
 @dataclass(frozen=True)
@@ -69,3 +69,7 @@ CONFIG_LIMIT = 500
 WORKER_STOP_TIMEOUT = 15
 SHUTDOWN_TIMEOUT = 10
 ERROR_RETRY_SECONDS = 5
+# Refresh assume_role credentials before expiry (assume_role TTL ~3600s)
+CREDENTIALS_REFRESH_INTERVAL = _env_int(
+    f"{PREFIX}CREDENTIALS_REFRESH_INTERVAL", 45 * 60, 60, 3600
+)
