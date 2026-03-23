@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [5.13.0] - 2026-03-18
 
 ### Added
-- Added `sre integrations event_sources` commands: `add`, `list`, `describe`, `delete` for SQS event source management
+- Added `sre integrations event_sources` commands: `add`, `describe`, `delete` for SQS event source management
 
 ## [5.12.0] - 2026-03-02
 

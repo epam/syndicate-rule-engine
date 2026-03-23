@@ -85,36 +85,32 @@ def add(
     return ctx["api_client"].event_sources_post(**data)
 
 
-@sources.command(cls=ViewCommand, name="list")
-@cli_response()
-def list_cmd(ctx: ContextObj, customer_id: str | None):
-    """
-    Lists all SQS event sources for a customer
-    """
-    return ctx["api_client"].event_sources_list(customer_id=customer_id)
-
-
 @sources.command(cls=ViewCommand, name="describe")
 @click.option(
     "--id",
     "event_source_id",
     type=str,
-    required=True,
-    help="Event source ID",
+    required=False,
+    help="Event source ID. If provided, describes a specific event source.",
 )
 @cli_response()
 def describe(
     ctx: ContextObj,
-    event_source_id: str,
+    event_source_id: str | None,
     customer_id: str | None,
 ):
     """
-    Describes an event source by ID
+    Lists SQS event sources or describes one by ID.
+
+    Without --id: lists all event sources for a customer.
+    With --id: describes a specific event source.
     """
-    return ctx["api_client"].event_sources_get(
-        event_source_id=event_source_id,
-        customer_id=customer_id,
-    )
+    if event_source_id:
+        return ctx["api_client"].event_sources_get(
+            event_source_id=event_source_id,
+            customer_id=customer_id,
+        )
+    return ctx["api_client"].event_sources_list(customer_id=customer_id)
 
 
 @sources.command(cls=ViewCommand, name="delete")
