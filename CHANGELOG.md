@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Fixed on-prem API not passing query params (e.g. `customer_id`) for non-GET requests (DELETE, PUT, etc.)
 - Fixed `validate_kwargs` failing when handlers use `from __future__ import annotations`
+- Added the ability to get a resource report for a specific platform(K8S) job
 
 ## [5.17.0] - 2026-03-02
 
