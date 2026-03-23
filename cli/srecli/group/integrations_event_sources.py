@@ -2,21 +2,19 @@
 CLI commands for managing SQS event sources.
 """
 
-import os
-
 import click
 
 from srecli.group import ContextObj, ViewCommand, cli_response
 
 
-@click.group(name="event_sources")
-def event_sources():
+@click.group(name="sources")
+def sources():
     """
-    Manages SQS event source configuration
+    Manages event sources for integrations
     """
 
 
-@event_sources.command(cls=ViewCommand, name="add")
+@sources.command(cls=ViewCommand, name="add")
 @click.option(
     "--queue_url",
     "-qu",
@@ -32,9 +30,12 @@ def event_sources():
     help="AWS region",
 )
 @click.option(
-    "--enabled/--disabled",
+    "--enabled",
+    "-e",
+    type=bool,
+    required=False,
     default=True,
-    help="Whether the event source is enabled (default: enabled)",
+    help="Param to enable or disable the event source temporarily",
 )
 @click.option(
     "--aws_access_key_id",
@@ -84,7 +85,7 @@ def add(
     return ctx["api_client"].event_sources_post(**data)
 
 
-@event_sources.command(cls=ViewCommand, name="list")
+@sources.command(cls=ViewCommand, name="list")
 @cli_response()
 def list_cmd(ctx: ContextObj, customer_id: str | None):
     """
@@ -93,7 +94,7 @@ def list_cmd(ctx: ContextObj, customer_id: str | None):
     return ctx["api_client"].event_sources_list(customer_id=customer_id)
 
 
-@event_sources.command(cls=ViewCommand, name="describe")
+@sources.command(cls=ViewCommand, name="describe")
 @click.option(
     "--id",
     "event_source_id",
@@ -116,7 +117,7 @@ def describe(
     )
 
 
-@event_sources.command(cls=ViewCommand, name="delete")
+@sources.command(cls=ViewCommand, name="delete")
 @click.option(
     "--id",
     "event_source_id",
@@ -137,4 +138,3 @@ def delete(
         event_source_id=event_source_id,
         customer_id=customer_id,
     )
-
