@@ -64,7 +64,16 @@ def run_consumer_loop(
                     _LOG.info("Stopping worker for removed config %s", aid)
                     thread.join(timeout=settings.WORKER_STOP_TIMEOUT)
 
-                # Start workers for new configs
+                # Restart workers that have died (e.g. exited due to exception)
+                for aid in list(workers.keys()):
+                    if aid in config_ids:
+                        thread, _ = workers[aid]
+                        if not thread.is_alive():
+                            _, stop_ev = workers.pop(aid)
+                            stop_ev.set()
+                            _LOG.warning("Restarting dead worker for %s", aid)
+
+                # Start workers for new configs (including restarted)
                 for config in configs:
                     if config.application_id not in workers:
                         stop_ev = threading.Event()
@@ -142,7 +151,7 @@ def _run_worker(
                     config.queue_url,
                     e,
                 )
-                if not stop_event.wait(timeout=settings.ERROR_RETRY_SECONDS):
+                if stop_event.wait(timeout=settings.ERROR_RETRY_SECONDS):
                     break
     finally:
         connector.disconnect()
