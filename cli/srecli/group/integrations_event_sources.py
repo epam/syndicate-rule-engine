@@ -97,8 +97,8 @@ def add(
 
 @sources.command(cls=ViewCommand, name="describe")
 @click.option(
-    "--id",
-    "event_source_id",
+    "--event_source_id",
+    "-esid",
     type=str,
     required=False,
     help="Event source ID. If provided, describes a specific event source.",
@@ -110,10 +110,7 @@ def describe(
     customer_id: str | None,
 ):
     """
-    Lists SQS event sources or describes one by ID.
-
-    Without --id: lists all event sources for a customer.
-    With --id: describes a specific event source.
+    Lists SQS event sources or describes one by event_source_id.
     """
     if event_source_id:
         return ctx["api_client"].event_sources_get(
@@ -125,8 +122,8 @@ def describe(
 
 @sources.command(cls=ViewCommand, name="update")
 @click.option(
-    "--id",
-    "event_source_id",
+    "--event_source_id",
+    "-esid",
     type=str,
     required=True,
     help="Event source ID to update",
@@ -191,8 +188,8 @@ def update(
 
 @sources.command(cls=ViewCommand, name="delete")
 @click.option(
-    "--id",
-    "event_source_id",
+    "--event_source_id",
+    "-esid",
     type=str,
     required=True,
     help="Event source ID",
