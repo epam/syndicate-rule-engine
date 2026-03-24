@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
+import logging
 
 from helpers.constants import CUSTODIAN_EVENT_SOURCE_TYPE
 from helpers.log_helper import get_logger
@@ -79,10 +80,14 @@ def load_event_sources(
                 role_arn=role_arn,
             )
         )
-    if configs:
-        _LOG.info(
+
+    # Use isEnabledFor to avoid unnecessary string formatting 
+    # if logging is not enabled for DEBUG
+    if configs and _LOG.isEnabledFor(logging.DEBUG): 
+        _LOG.debug(
             "Loaded %d event source(s): %s",
             len(configs),
             [c.application_id for c in configs],
         )
+
     return configs

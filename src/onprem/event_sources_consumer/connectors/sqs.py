@@ -8,6 +8,7 @@ import json
 from typing import TYPE_CHECKING, Any, Callable
 
 import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 from helpers.log_helper import get_logger
@@ -48,6 +49,10 @@ class SQSConnector(BaseConnector):
             kwargs["aws_secret_access_key"] = _creds.get("aws_secret_access_key")
             if _creds.get("aws_session_token"):
                 kwargs["aws_session_token"] = _creds["aws_session_token"]
+        kwargs["config"] = Config(
+            connect_timeout=settings.BOTO_CONNECT_TIMEOUT,
+            read_timeout=settings.BOTO_READ_TIMEOUT,
+        )
         self._client = boto3.client(**kwargs)
 
     def consume(

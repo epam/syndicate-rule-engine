@@ -20,7 +20,7 @@ def main() -> None:
     event_ingest_service = SP.event_ingest_service
     sts = SP.sts
 
-    run_health_server(port=settings.port)
+    run_health_server(port=settings.PORT)
     run_consumer_loop(
         application_service=application_service,
         ssm=ssm,
