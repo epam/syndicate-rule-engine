@@ -126,7 +126,7 @@ class EventSourcesHandler(AbstractHandler):
         )
         _LOG.info("Saving event source application item")
         self._application_service.save(application)
-        return build_response(content={"data": _get_dto(application)})
+        return build_response(content=_get_dto(application))
 
     @validate_kwargs
     def list(
