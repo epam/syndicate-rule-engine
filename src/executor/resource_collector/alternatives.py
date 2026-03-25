@@ -25,7 +25,8 @@ from helpers.constants import Cloud, ResourcesCollectorType
 from executor.job import get_tenant_credentials
 from services import SP
 from services.resources_service import ResourcesService
-from executor.job.resource_collector import BaseResourceCollector
+
+from .base import BaseResourceCollector
 
 _LOG = get_logger(__name__)
 
@@ -543,4 +544,3 @@ class AzureFOCUSResourceCollector(BaseResourceCollector):
                 _LOG.error(
                     f'Error collecting FOCUS resources for tenant {tenant.name}: {e}'
                 )
-

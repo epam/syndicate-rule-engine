@@ -18,4 +18,3 @@ __all__ = (
     # Strategies
     "get_resource_iterator",
 )
-
