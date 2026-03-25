@@ -147,6 +147,7 @@ from modular_sdk.commons.constants import (
 )
 from modular_sdk.commons.trace_helper import tracer_decorator
 from modular_sdk.models.tenant import Tenant
+from modular_sdk.services.tenant_service import TenantService
 from msrestazure.azure_exceptions import CloudError
 from typing_extensions import NotRequired, TypedDict
 
@@ -156,6 +157,7 @@ from executor.helpers.constants import (
     INVALID_CREDENTIALS_ERROR_CODES,
     ExecutorError,
 )
+from executor.job.resource_collector import CustodianResourceCollector
 from executor.plugins import register_all
 from executor.services import BSP
 from executor.services.report_service import JobResult
@@ -199,14 +201,13 @@ from services.ruleset_service import RulesetName
 from services.sharding import (
     ShardsCollection,
     ShardsCollectionFactory,
-    ShardsS3IO,
+    ShardsS3IO, ShardPart,
 )
 from services.udm_generator import (
     ShardCollectionUDMEntitiesConvertor,
     ShardCollectionUDMEventsConvertor,
 )
 
-from .resource_collector import CustodianResourceCollector
 
 
 if TYPE_CHECKING:
@@ -2111,3 +2112,36 @@ def task_scheduled_job(self: 'Task | None', customer_name: str, name: str) -> No
     ctx = JobExecutionContext(job=job, tenant=tenant, platform=None)
     with ctx:
         run_standard_job(ctx)
+
+
+def remove_shards(days: int) -> None:
+    customer_service = SP.modular_client.customer_service()
+    tenant_service: TenantService = SP.modular_client.tenant_service()
+
+    for customer in customer_service.i_get_customer():
+        print(customer.name)
+        for tenant in tenant_service.i_get_tenant_by_customer(customer.name):
+            print(tenant.name)
+            keys_builder = TenantReportsBucketKeysBuilder(tenant)
+
+            collection: ShardsCollection = ShardsCollectionFactory.from_tenant(tenant)
+            collection.io = ShardsS3IO(
+                bucket=SP.environment_service.default_reports_bucket_name(),
+                key=keys_builder.latest_key(),
+                client=SP.s3,
+            )
+            collection.fetch_all()
+            parts: Generator[ShardPart] = collection.iter_parts()
+            for part in parts:
+                timestamp: float | None = part.last_successful_timestamp()
+                if not timestamp:
+                    continue
+                elif timestamp < (time.time() - 86400 * days):
+                    collection.drop_part(part)
+
+            collection.write_all()
+
+if __name__=="__main__":
+    print('Starting')
+    remove_shards(days=1)
+    print('Ending')

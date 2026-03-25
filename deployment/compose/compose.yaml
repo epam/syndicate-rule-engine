@@ -1,6 +1,6 @@
 services:
   modular-api:
-    image: public.ecr.aws/x4s4z8e1/syndicate/modular-api:5.4.0-rule-engine
+    image: public.ecr.aws/x4s4z8e1/syndicate/modular-api:4.3.16-rule-engine-5.11.0
     container_name: modular-api
     ports:
       - "8085:8085"
@@ -21,13 +21,13 @@ services:
     networks:
       - rule-engine-net
   modular-service:
-    image: public.ecr.aws/x4s4z8e1/syndicate/modular-service:5.4.0
+    image: public.ecr.aws/x4s4z8e1/syndicate/modular-service:3.3.2
     container_name: modular-service
     ports:
       - "8040:8040"
     environment:
       MODULAR_SERVICE_SYSTEM_USER_PASSWORD: "${MODULAR_SERVICE_SYSTEM_USER_PASSWORD:-systempassword}"
-      MODULAR_SERVICE_VAULT_ENDPOINT: http://vault:8200
+      MODULAR_SERVICE_VAULT_ENDPOINT: "${MODULAR_SERVICE_VAULT_ENDPOINT:-http://vault:8200}"
       MODULAR_SERVICE_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
       MODULAR_SERVICE_MONGO_URI: "${MODULAR_SERVICE_MONGO_URI:-mongodb://mongouser:mongopassword@mongo:27017/}"
       MODULAR_SERVICE_MONGO_DATABASE: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
@@ -35,7 +35,7 @@ services:
       MODULAR_SDK_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
       MODULAR_SDK_MONGO_URI: "${MODULAR_SDK_MONGO_URI:-mongodb://mongouser:$mongopassword@mongo:27017/}"
       MODULAR_SDK_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
-      MODULAR_SDK_VAULT_URL: "http://vault:8200"
+      MODULAR_SDK_VAULT_URL: "${MODULAR_SDK_VAULT_URL:-http://vault:8200}"
       MODULAR_SDK_APPLICATION_NAME: syndicate-rule-engine
     depends_on:
       mongo:
@@ -48,12 +48,13 @@ services:
     networks:
       - rule-engine-net
   rule-engine-celeryworker:
-    image: public.ecr.aws/x4s4z8e1/syndicate/rule-engine:5.7.0
+    image: public.ecr.aws/x4s4z8e1/syndicate/rule-engine:5.16.0
+    user: "root"
     container_name: rule-engine-celeryworker
     restart: always
     entrypoint: ["/src/entrypoint.sh", "celeryworker"]
-#    volumes:
-#      - rule-engine-data:/data
+    volumes:
+      - rule-engine-data:/data
     depends_on:
       mongo:
         condition: service_healthy
@@ -70,15 +71,15 @@ services:
       SRE_MINIO_ENDPOINT: http://minio:9000
       SRE_MINIO_ACCESS_KEY_ID: "${SRE_MINIO_ACCESS_KEY_ID:-miniouser}"
       SRE_MINIO_SECRET_ACCESS_KEY: "${SRE_MINIO_SECRET_ACCESS_KEY:-miniopassword}"
-      SRE_VAULT_ENDPOINT: http://vault:8200
+      SRE_VAULT_ENDPOINT: "${SRE_VAULT_ENDPOINT:-http://vault:8200}"
       SRE_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
-      SRE_MONGO_URI: "${SRE_MONGO_URI:-mongodb://mongouser:$mongopassword@mongo:27017/}"
+      SRE_MONGO_URI: "${SRE_MONGO_URI:-mongodb://MONGO_INITDB_ROOT_USERNAME:MONGO_INITDB_ROOT_PASSWORD@mongo:27017/}"
       SRE_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
       MODULAR_SDK_SERVICE_MODE: docker
       MODULAR_SDK_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
-      MODULAR_SDK_MONGO_URI: "${MODULAR_SDK_MONGO_URI:-mongodb://mongouser:$mongopassword@mongo:27017/}"
+      MODULAR_SDK_MONGO_URI: "${MODULAR_SDK_MONGO_URI:-mongodb://MONGO_INITDB_ROOT_USERNAME:MONGO_INITDB_ROOT_PASSWORD@mongo:27017/}"
       MODULAR_SDK_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
-      MODULAR_SDK_VAULT_URL: "http://vault:8200"
+      MODULAR_SDK_VAULT_URL: "${MODULAR_SDK_VAULT_URL:-http://vault:8200}"
       MODULAR_SDK_APPLICATION_NAME: syndicate-rule-engine
       REDIS_PASSWORD: redispassword
       REDIS_DOMAIN: redis
@@ -88,7 +89,8 @@ services:
     networks:
       - rule-engine-net
   rule-engine-celerybeat:
-    image: public.ecr.aws/x4s4z8e1/syndicate/rule-engine:5.7.0
+    image: public.ecr.aws/x4s4z8e1/syndicate/rule-engine:5.16.0
+    user: "root"
     container_name: rule-engine-celerybeat
     restart: always
     entrypoint: ["/src/entrypoint.sh", "celerybeat"]
@@ -110,15 +112,15 @@ services:
       SRE_MINIO_ENDPOINT: http://minio:9000
       SRE_MINIO_ACCESS_KEY_ID: "${SRE_MINIO_ACCESS_KEY_ID:-miniouser}"
       SRE_MINIO_SECRET_ACCESS_KEY: "${SRE_MINIO_SECRET_ACCESS_KEY:-miniopassword}"
-      SRE_VAULT_ENDPOINT: http://vault:8200
+      SRE_VAULT_ENDPOINT: "${SRE_VAULT_ENDPOINT:-http://vault:8200}"
       SRE_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
-      SRE_MONGO_URI: "${SRE_MONGO_URI:-mongodb://mongouser:$mongopassword@mongo:27017/}"
+      SRE_MONGO_URI: "${SRE_MONGO_URI:-mongodb://MONGO_INITDB_ROOT_USERNAME:MONGO_INITDB_ROOT_PASSWORD@mongo:27017/}"
       SRE_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
       MODULAR_SDK_SERVICE_MODE: docker
       MODULAR_SDK_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
-      MODULAR_SDK_MONGO_URI: "${MODULAR_SDK_MONGO_URI:-mongodb://mongouser:$mongopassword@mongo:27017/}"
+      MODULAR_SDK_MONGO_URI: "${MODULAR_SDK_MONGO_URI:-mongodb://MONGO_INITDB_ROOT_USERNAME:MONGO_INITDB_ROOT_PASSWORD@mongo:27017/}"
       MODULAR_SDK_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
-      MODULAR_SDK_VAULT_URL: "http://vault:8200"
+      MODULAR_SDK_VAULT_URL: "${MODULAR_SDK_VAULT_URL:-http://vault:8200}"
       MODULAR_SDK_APPLICATION_NAME: syndicate-rule-engine
       REDIS_PASSWORD: redispassword
       REDIS_DOMAIN: redis
@@ -127,45 +129,46 @@ services:
       - rule-engine
     networks:
       - rule-engine-net
-  rule-engine:
-    image: public.ecr.aws/x4s4z8e1/syndicate/rule-engine:5.7.0
-    container_name: rule-engine
-    ports:
-      - "8000:8000"
-    restart: always
-    depends_on:
-      mongo:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-      vault:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    environment:
-      SRE_SYSTEM_USER_PASSWORD: "${SRE_SYSTEM_USER_PASSWORD:-systempassword}"
-      SRE_SERVICE_MODE: docker
-      SRE_INNER_CACHE_TTL_SECONDS: 300
-      SRE_MINIO_ENDPOINT: http://minio:9000
-      SRE_MINIO_ACCESS_KEY_ID: "${SRE_MINIO_ACCESS_KEY_ID:-miniouser}"
-      SRE_MINIO_SECRET_ACCESS_KEY: "${SRE_MINIO_SECRET_ACCESS_KEY:-miniopassword}"
-      SRE_VAULT_ENDPOINT: http://vault:8200
-      SRE_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
-      SRE_MONGO_URI: "${SRE_MONGO_URI:-mongodb://mongouser:$mongopassword@mongo:27017/}"
-      SRE_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
-      MODULAR_SDK_SERVICE_MODE: docker
-      MODULAR_SDK_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
-      MODULAR_SDK_MONGO_URI: "${MODULAR_SDK_MONGO_URI:-mongodb://mongouser:$mongopassword@mongo:27017/}"
-      MODULAR_SDK_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
-      MODULAR_SDK_VAULT_URL: "http://vault:8200"
-      MODULAR_SDK_APPLICATION_NAME: syndicate-rule-engine
-      REDIS_PASSWORD: redispassword
-      REDIS_DOMAIN: redis
-      REDIS_PORT: "6379"
-    profiles:
-      - rule-engine
-    networks:
-      - rule-engine-net
+#  rule-engine:
+#    image: public.ecr.aws/x4s4z8e1/syndicate/rule-engine:5.16.0
+##    build: ../../src/onprem/
+#    container_name: rule-engine
+#    ports:
+#      - "8000:8000"
+#    restart: always
+#    depends_on:
+#      mongo:
+#        condition: service_healthy
+#      minio:
+#        condition: service_healthy
+#      vault:
+#        condition: service_healthy
+#      redis:
+#        condition: service_started
+#    environment:
+#      SRE_SYSTEM_USER_PASSWORD: "${SRE_SYSTEM_USER_PASSWORD:-systempassword}"
+#      SRE_SERVICE_MODE: docker
+#      SRE_INNER_CACHE_TTL_SECONDS: 300
+#      SRE_MINIO_ENDPOINT: http://minio:9000
+#      SRE_MINIO_ACCESS_KEY_ID: "${SRE_MINIO_ACCESS_KEY_ID:-miniouser}"
+#      SRE_MINIO_SECRET_ACCESS_KEY: "${SRE_MINIO_SECRET_ACCESS_KEY:-miniopassword}"
+#      SRE_VAULT_ENDPOINT: "${SRE_VAULT_ENDPOINT:-http://vault:8200}"
+#      SRE_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
+#      SRE_MONGO_URI: "${SRE_MONGO_URI:-mongodb://mongouser:$mongopassword@mongo:27017/}"
+#      SRE_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
+#      MODULAR_SDK_SERVICE_MODE: docker
+#      MODULAR_SDK_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
+#      MODULAR_SDK_MONGO_URI: "${MODULAR_SDK_MONGO_URI:-mongodb://mongouser:$mongopassword@mongo:27017/}"
+#      MODULAR_SDK_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
+#      MODULAR_SDK_VAULT_URL: "${MODULAR_SDK_VAULT_URL:-http://vault:8200}"
+#      MODULAR_SDK_APPLICATION_NAME: syndicate-rule-engine
+#      REDIS_PASSWORD: redispassword
+#      REDIS_DOMAIN: redis
+#      REDIS_PORT: "6379"
+#    profiles:
+#      - rule-engine
+#    networks:
+#      - rule-engine-net
   minio:
     image: quay.io/minio/minio:RELEASE.2025-03-12T18-04-18Z
     container_name: minio
@@ -255,7 +258,7 @@ configs:
     content: |
       ui = true
       listener "tcp" {
-        address     = "0.0.0.0:8200"
+        address     = "http://127.0.0.1/:8200"
         tls_disable = 1
       }
       storage "file" {
