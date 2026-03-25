@@ -1851,6 +1851,34 @@ class RabbitMQDeleteModel(BaseModel):
     pass
 
 
+class EventSourcePostModel(BaseModel):
+    queue_url: str
+    region: str
+    enabled: bool = True
+    role_arn: str | None = Field(None, description="IAM role ARN to assume for SQS access")
+    aws_access_key_id: str | None = Field(None)
+    aws_secret_access_key: str | None = Field(None)
+    aws_session_token: str | None = Field(None)
+
+
+class EventSourcePutModel(BaseModel):
+    queue_url: str | None = None
+    region: str | None = None
+    enabled: bool | None = None
+    role_arn: str | None = None
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
+    aws_session_token: str | None = None
+
+
+class EventSourceGetModel(BaseModel):
+    pass
+
+
+class EventSourceDeleteModel(BaseModel):
+    pass
+
+
 class RawReportGetModel(BaseModel):
     obfuscated: bool = False
     meta: bool = False

@@ -5,10 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.18.0] - 2026-03-17
+## [5.18.0] - 2026-03-18
 
 ### Added
 - Added top violations and top violations comparison reports
+- Added event sources integration: API and on-prem consumer for SQS queues (event-driven ingestion) in `src/onprem/event_sources_consumer`
+
+### Fixed
+- Fixed on-prem API not passing query params (e.g. `customer_id`) for non-GET requests (DELETE, PUT, etc.)
+- Fixed `validate_kwargs` failing when handlers use `from __future__ import annotations`
 - Added the ability to get a resource report for a specific platform(K8S) job
 
 ## [5.17.0] - 2026-03-02
