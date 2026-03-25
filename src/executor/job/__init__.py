@@ -2140,8 +2140,3 @@ def remove_shards(days: int) -> None:
                     collection.drop_part(part)
 
             collection.write_all()
-
-if __name__=="__main__":
-    print('Starting')
-    remove_shards(days=1)
-    print('Ending')
