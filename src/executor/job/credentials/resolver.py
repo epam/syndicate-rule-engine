@@ -160,7 +160,7 @@ def get_job_credentials(job: Job, cloud: Cloud) -> dict | None:
 def get_platform_credentials(job: Job, platform: Platform) -> dict | None:
     """
     Credentials for platform (k8s) only.
-    Raises ExecutorException if not credentials are found
+    Returns None if credentials cannot be resolved.
     """
     token = None
     if job.credentials_key:

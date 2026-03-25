@@ -1,6 +1,6 @@
 from typing_extensions import NotRequired, TypedDict
 
-from executor.helpers.constants import ExecutorError
+from executor.job.job_failure import JobFailure
 
 
 class ModeDict(TypedDict):
@@ -15,6 +15,9 @@ class PolicyDict(TypedDict, total=False):
     mode: ModeDict
 
 
-class ExecutorException(Exception):
-    def __init__(self, error: ExecutorError):
-        self.error = error
+class JobExecutionError(Exception):
+    """Raised when a job should fail with a structured :class:`JobFailure`."""
+
+    def __init__(self, failure: JobFailure, /) -> None:
+        self.failure = failure
+        super().__init__(failure.to_reason())

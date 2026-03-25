@@ -13,7 +13,7 @@ from modular_sdk.commons.constants import (
     ENV_KUBECONFIG,
 )
 
-from executor.helpers.constants import ExecutorError
+from executor.job.job_failure import JobFailure, JobErrorCode
 from executor.job.credentials.resolver import (
     get_job_credentials,
     get_platform_credentials,
@@ -33,7 +33,7 @@ from executor.job.policies.filter import (
     skip_duplicated_policies,
 )
 from executor.job.rulesets.resolver import resolve_job_rulesets
-from executor.job.types import ExecutorException
+from executor.job.types import JobExecutionError
 from executor.services.report_service import JobResult
 from helpers.constants import GLOBAL_REGION, Cloud
 from helpers.log_helper import get_logger
@@ -84,7 +84,7 @@ def run_standard_job(ctx: JobExecutionContext):
         keys_builder = TenantReportsBucketKeysBuilder(ctx.tenant)
 
     if credentials is None:
-        raise ExecutorException(ExecutorError.NO_CREDENTIALS)
+        raise JobExecutionError(JobFailure.standard(JobErrorCode.NO_CREDENTIALS))
 
     credentials = {str(k): str(v) for k, v in credentials.items() if v}
 
@@ -114,23 +114,37 @@ def run_standard_job(ctx: JobExecutionContext):
             initializer=job_initializer,
             initargs=(credentials,),
         ) as pool:
-            pair = pool.apply(
+            scan = pool.apply(
                 process_job_concurrent, (policies, ctx.work_dir, cloud, region)
             )
 
-        if pair[1] is None:
-            _LOG.warning(f"Job for region {region} has failed with no policies loaded")
-            warnings.append(f"Could not load policies for region {region}")
+        if scan.load_error_detail is not None:
+            _LOG.warning(
+                "Could not load policies for region %s: %s",
+                region,
+                scan.load_error_detail,
+            )
+            warnings.append(
+                f"Could not load policies for region {region}: "
+                f"{scan.load_error_detail}"
+            )
             continue
 
-        successful += pair[0]
-        if pair[1]:
+        assert scan.failed is not None
+        successful += scan.n_successful
+        if scan.failed:
             if region == GLOBAL_REGION:
-                w = f"{len(pair[1])}/{len(pair[1]) + pair[0]} global policies failed"
+                w = (
+                    f"{len(scan.failed)}/{len(scan.failed) + scan.n_successful} "
+                    "global policies failed"
+                )
             else:
-                w = f"{len(pair[1])}/{len(pair[1]) + pair[0]} policies failed in region {region}"
+                w = (
+                    f"{len(scan.failed)}/{len(scan.failed) + scan.n_successful} "
+                    f"policies failed in region {region}"
+                )
             warnings.append(w)
-        failed.update(pair[1])
+        failed.update(scan.failed)
 
     ctx.add_warnings(*warnings)
     del warnings
@@ -200,7 +214,9 @@ def run_standard_job(ctx: JobExecutionContext):
         obj=result.statistics(ctx.tenant, failed),
     )
     if not successful:
-        raise ExecutorException(ExecutorError.NO_SUCCESSFUL_POLICIES)
+        raise JobExecutionError(
+            JobFailure.standard(JobErrorCode.NO_SUCCESSFUL_POLICIES)
+        )
     if job.is_ed_job:
         try:
             SP.report_delivery_service.notify_job_completed(job=job, tenant=ctx.tenant)

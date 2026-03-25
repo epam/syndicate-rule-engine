@@ -125,8 +125,15 @@ from executor.job.credentials.resolver import (
 from executor.job.execution.context import JobExecutionContext
 from executor.job.execution.orchestrator import run_standard_job
 from executor.job.execution.region_executor import (
+    RegionScanResult,
     job_initializer,
     process_job_concurrent,
+)
+from executor.job.job_failure import (
+    JobFailure,
+    JobErrorCode,
+    classify_exception,
+    default_message_for,
 )
 from executor.job.integration.dojo import upload_to_dojo
 from executor.job.integration.license_manager import post_lm_job
@@ -151,14 +158,16 @@ from executor.job.rulesets.resolver import (
 )
 from executor.job.tasks.metadata import update_metadata
 from executor.job.tasks.standard import task_scheduled_job, task_standard_job
-from executor.job.types import ExecutorException, ModeDict, PolicyDict
+from executor.job.types import JobExecutionError, ModeDict, PolicyDict
 
 __all__ = (
     "AWSRunner",
     "AZURERunner",
-    "ExecutorException",
     "GCPRunner",
     "JobExecutionContext",
+    "JobExecutionError",
+    "JobFailure",
+    "JobErrorCode",
     "K8SRunner",
     "ModeDict",
     "PoliciesLoader",
@@ -170,6 +179,9 @@ __all__ = (
     "get_platform_credentials",
     "get_rules_to_exclude",
     "get_tenant_credentials",
+    "RegionScanResult",
+    "classify_exception",
+    "default_message_for",
     "job_initializer",
     "post_lm_job",
     "process_job_concurrent",

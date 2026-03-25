@@ -1,7 +1,7 @@
 """License Manager integration for job execution."""
 
-from executor.helpers.constants import ExecutorError
-from executor.job.types import ExecutorException
+from executor.job.job_failure import JobFailure, JobErrorCode
+from executor.job.types import JobExecutionError
 from helpers.log_helper import get_logger
 from models.job import Job
 from services import SP
@@ -36,10 +36,10 @@ def post_lm_job(job: Job) -> bool:
             },
         )
     except LMException as e:
-        raise ExecutorException(
-            ExecutorError.with_reason(
-                value=ExecutorError.LM_DID_NOT_ALLOW,
-                reason=str(e),
+        raise JobExecutionError(
+            JobFailure.standard(
+                JobErrorCode.LM_DID_NOT_ALLOW,
+                detail=str(e),
             )
         )
 

@@ -7,8 +7,8 @@ from typing import Optional, cast
 from celery.exceptions import SoftTimeLimitExceeded
 from modular_sdk.models.tenant import Tenant
 
-from executor.helpers.constants import ExecutorError
-from executor.job.types import ExecutorException
+from executor.job.job_failure import JobFailure, JobErrorCode, classify_exception
+from executor.job.types import JobExecutionError
 from helpers.constants import Cloud, Env, JobState
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_iso
@@ -133,21 +133,23 @@ class JobExecutionContext:
         )
         self.updater.status = JobState.FAILED
         self.updater.stopped_at = utc_iso()
-        if isinstance(exc_val, ExecutorException):
-            _LOG.exception(f'Executor exception {exc_val} occurred')
-            self.updater.reason = exc_val.error.get_reason()
-            if exc_val.error.value == ExecutorError.LM_DID_NOT_ALLOW.value:
-                self._exit_code = 2
-            else:
-                self._exit_code = 1
+        if isinstance(exc_val, JobExecutionError):
+            _LOG.exception(
+                'Job execution error occurred',
+                extra=exc_val.failure.log_extras(),
+            )
+            self.updater.reason = exc_val.failure.to_reason()
+            self._exit_code = exc_val.failure.exit_code
         elif isinstance(exc_val, SoftTimeLimitExceeded):
             _LOG.error('Job is terminated because of soft timeout')
-            self.updater.reason = ExecutorError.TIMEOUT.get_reason()
+            timeout_failure = JobFailure.standard(JobErrorCode.TIMEOUT)
+            self.updater.reason = timeout_failure.to_reason()
             self._exit_code = 1
         else:
             _LOG.exception('Unexpected error occurred')
-            self.updater.reason = ExecutorError.INTERNAL.get_reason()
-            self._exit_code = 1
+            classified = classify_exception(exc_val)
+            self.updater.reason = classified.to_reason()
+            self._exit_code = classified.exit_code
 
         _LOG.info('Updating job status')
         self.updater.update()
