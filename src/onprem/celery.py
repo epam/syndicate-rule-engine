@@ -65,7 +65,7 @@ def prepare_beat_schedule() -> dict[str, dict]:
         'remove_old_shards': {
             'task': 'onprem.tasks.remove_old_shards',
             'schedule': Env.CELERY_REMOVE_OLD_SHARDS_SCHEDULE,
-            'args': (Env.CELERY_REMOVE_OLD_SHARDS_DAYS, ),
+            'args': (Env.CELERY_REMOVE_OLD_SHARDS_DAYS.as_int(), ),
         },
     }
     disabled = []

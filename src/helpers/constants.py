@@ -745,7 +745,7 @@ class Env(EnvEnum):
     CELERY_REMOVE_OLD_SHARDS_DAYS = (
         'SRE_REMOVE_OLD_SHARDS_DAYS',
         (),
-        '180'
+        180
     )
 
     SCAN_RESOURCES_PROCESSORS = (
