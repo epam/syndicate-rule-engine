@@ -11,7 +11,7 @@ from executor.job import (
     task_standard_job,
     update_metadata,
     upload_to_dojo,
-    remove_shards,
+    remove_old_shard_parts,
 )
 from helpers import RequestContext
 from helpers.constants import ACTION_PARAM, Env
@@ -203,4 +203,4 @@ def remove_old_shards(days) -> None:
     """
     Remove shard parts that were last updated N days ago
     """
-    remove_shards(days)
+    remove_old_shard_parts(days)
