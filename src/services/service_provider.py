@@ -235,6 +235,7 @@ class ServiceProvider(metaclass=SingletonMeta):
         return EventIngestService(
             event_store_service=self.event_service,
             environment_service=self.environment_service,
+            ed_rules_service=self.ed_rules_service,
         )
 
     @cached_property

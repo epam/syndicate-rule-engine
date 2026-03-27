@@ -98,23 +98,33 @@ app.conf.beat_scheduler = 'onprem.scheduler:MongoScheduler'
 # TODO: celery docs are abstruse but this seems to work. Anyway, we should
 #  pay attention
 app.conf.task_create_missing_queues = True
-app.conf.task_queues = (Queue('a-jobs'), Queue('b-scheduled'))
+# Queue order = priority: a-jobs > b-event-driven > c-scheduled
+app.conf.task_queues = (
+    Queue('a-jobs'),
+    Queue('b-event-driven'),
+    Queue('c-scheduled'),
+)
+# Priority: 0=highest, 9=lowest. Queue order: a-jobs > b-event-driven > c-scheduled
 app.conf.task_routes = {
-    'onprem.tasks.make_findings_snapshot': {'queue': 'b-scheduled'},
-    'onprem.tasks.sync_license': {'queue': 'b-scheduled'},
-    'onprem.tasks.sync_rulesource': {'queue': 'b-scheduled'},
-    'onprem.tasks.collect_metrics': {'queue': 'b-scheduled'},
-    'onprem.tasks.run_standard_job': {'queue': 'a-jobs'},
-    'onprem.tasks.run_scheduled_job': {'queue': 'a-jobs'},
-    'onprem.tasks.push_to_dojo': {'queue': 'a-jobs'},
-    'onprem.tasks.delete_expired_metrics': {'queue': 'b-scheduled'},
-    'onprem.tasks.collect_resources': {'queue': 'b-scheduled'},
-    'onprem.tasks.run_update_metadata': {'queue': 'a-jobs'},
-    'onprem.tasks.assemble_events': {'queue': 'b-scheduled'},
-    'onprem.tasks.clear_events': {'queue': 'b-scheduled'},
-    'onprem.tasks.generate_reactive_report': {'queue': 'a-jobs'},
-    'onprem.tasks.process_interval_reports': {'queue': 'b-scheduled'},
-    'onprem.tasks.remove_old_shards': {'queue': 'b-scheduled'},
+    # a-jobs: user-facing, time-sensitive
+    'onprem.tasks.run_standard_job': {'queue': 'a-jobs', 'priority': 0},
+    'onprem.tasks.run_scheduled_job': {'queue': 'a-jobs', 'priority': 0},
+    'onprem.tasks.push_to_dojo': {'queue': 'a-jobs', 'priority': 0},
+    'onprem.tasks.run_update_metadata': {'queue': 'a-jobs', 'priority': 1},
+    # b-event-driven: event-driven jobs
+    'onprem.tasks.assemble_events': {'queue': 'b-event-driven', 'priority': 0},
+    'onprem.tasks.generate_reactive_report': {'queue': 'b-event-driven', 'priority': 0},
+    'onprem.tasks.process_interval_reports': {'queue': 'b-event-driven', 'priority': 1},
+    'onprem.tasks.run_event_driven_job': {'queue': 'b-event-driven', 'priority': 2},
+    'onprem.tasks.clear_events': {'queue': 'b-event-driven', 'priority': 3},
+    # c-scheduled: maintenance, background
+    'onprem.tasks.sync_license': {'queue': 'c-scheduled', 'priority': 0},
+    'onprem.tasks.sync_rulesource': {'queue': 'c-scheduled', 'priority': 0},
+    'onprem.tasks.make_findings_snapshot': {'queue': 'c-scheduled', 'priority': 0},
+    'onprem.tasks.collect_metrics': {'queue': 'c-scheduled', 'priority': 0},
+    'onprem.tasks.collect_resources': {'queue': 'c-scheduled', 'priority': 0},
+    'onprem.tasks.delete_expired_metrics': {'queue': 'c-scheduled', 'priority': 0},
+    'onprem.tasks.remove_old_shards': {'queue': 'c-scheduled'},
 }
 app.conf.timezone = Env.CELERY_TIMEZONE.as_str()
 app.conf.broker_connection_retry_on_startup = True
@@ -125,7 +135,8 @@ app.conf.worker_log_color = False
 app.conf.worker_send_task_event = False
 app.conf.task_ignore_result = True  # custom results logic
 app.conf.broker_transport_options = {
-    'queue_order_strategy': 'sorted',
+    'queue_order_strategy': 'priority',  # consume queues in task_queues order
+    'priority_steps': list(range(10)),  # 0-9, lower = higher priority
     'visibility_timeout': 3600 * 4
     + 300,  # more than hard task limit because we cannot afford to deliver one task twice
 }

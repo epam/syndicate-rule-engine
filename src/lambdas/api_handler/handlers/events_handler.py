@@ -15,8 +15,6 @@ _LOG = get_logger(__name__)
 
 
 class EventsHandler(AbstractHandler):
-    """Thin API handler over EventIngestService."""
-
     def __init__(self, event_ingest_service: EventIngestService):
         self._event_ingest_service = event_ingest_service
 
@@ -32,10 +30,13 @@ class EventsHandler(AbstractHandler):
     def event_action(self, event: EventPostModel):
         _LOG.info("Starting event ingestion")
         result = self._event_ingest_service.ingest(
-            vendor=event.vendor, events=event.events
+            raw_events=event.events,
+            vendor=event.vendor,
         )
-
         return build_response(
             code=HTTPStatus.ACCEPTED,
-            content={"received": result.received, "saved": result.saved},
+            content={
+                "received": result.received,
+                "saved": result.saved,
+            },
         )

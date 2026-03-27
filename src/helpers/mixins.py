@@ -31,6 +31,7 @@ class SubmitJobToBatchMixin:
         self,
         jobs: list[Job],
         timeout: int | None = None,
+        as_event_driven: bool = False,
     ) -> BatchJob | CeleryJob:
         job_ids = [job.id for job in jobs]
         job_name = "-".join(job.tenant_name for job in jobs)
@@ -46,11 +47,12 @@ class SubmitJobToBatchMixin:
                 job_id=job_ids,
                 job_name=job_name,
                 timeout=timeout,
+                as_event_driven=as_event_driven,
             )
             _LOG.debug(f"Celery job was submitted: {response}")
-        
+
         return response
-   
+
     def _submit_job_to_batch(
         self,
         tenant_name: str,
@@ -106,11 +108,16 @@ class EventDrivenLicenseMixin:
             _LOG.info(f"The license {lic.license_key}has expired")
             return
         if not self._license_service.is_subject_applicable(
-            lic=lic, customer=tenant.customer_name, tenant_name=tenant.name
+            lic=lic,
+            customer=tenant.customer_name,
+            tenant_name=tenant.name,
         ):
             _LOG.info(f"License {lic.license_key} is not applicable")
             return
         if not lic.event_driven.get("active"):
-            _LOG.info(f"Event driven is not active for " f"license {lic.license_key}")
+            _LOG.info(f"Event driven is not active for license {lic.license_key}")
             return
+        _LOG.debug(
+            f"Event driven license {lic.license_key} is allowed for tenant {tenant.name}"
+        )
         return lic

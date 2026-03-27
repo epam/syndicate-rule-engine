@@ -12,7 +12,7 @@ service:
 
 image:
   repository: public.ecr.aws/x4s4z8e1/syndicate/rule-engine
-  tag: 5.17.0
+  tag: 5.18.0-beta.2
   pullPolicy: Always
 
 replicas: 1
@@ -62,7 +62,7 @@ modular-api:
   modularApiM3adminLogLevel: ERROR
   modularApiModularSdkLogLevel: ERROR
   image:
-    tag: 4.3.16-rule-engine-5.12.0
+    tag: 4.3.20-rule-engine-5.12.0-beta.1
 
 patch:
   enabled: false
@@ -70,7 +70,7 @@ patch:
   ttlSecondsAfterFinished: 3600
   image:
     repository: public.ecr.aws/x4s4z8e1/syndicate/patches
-    tag: 'rule-engine-5.17.0'
+    tag: ''
     pullPolicy: Always
 
 modularSdk:
@@ -117,6 +117,12 @@ persistence:
   hostPath: /data/rule-engine
 
 
+eventSourcesConsumer:
+  enabled: true
+  replicas: 1
+  memoryLimit: "512Mi"
+  memoryRequest: "128Mi"
+
 celery:
   logLevel: ERROR
   workerMemoryLimit: "1536Mi"
@@ -133,4 +139,3 @@ celery:
     scanResources: ''  # disabled
     assembleEvents: '*/5 * * * *' # every 5 minutes
     clearEvents: '0 0 * * *' # every day at 00:00 UTC
-

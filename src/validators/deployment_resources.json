@@ -355,10 +355,148 @@
           "type": "object"
         }
       },
+      "DefectDojoUpdatePatchModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "attachment": {
+              "default": null,
+              "enum": [
+                "json",
+                "xlsx",
+                "cv"
+              ],
+              "title": "Attachment",
+              "type": "string"
+            },
+            "clouds": {
+              "items": {
+                "enum": [
+                  "AWS",
+                  "AZURE",
+                  "GOOGLE"
+                ],
+                "type": "string"
+              },
+              "title": "Clouds",
+              "type": "array",
+              "uniqueItems": true
+            },
+            "engagement": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Defect dojo engagement name",
+              "title": "Engagement"
+            },
+            "exclude_tenants": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Exclude Tenants",
+              "type": "array",
+              "uniqueItems": true
+            },
+            "product": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Defect dojo product name",
+              "title": "Product"
+            },
+            "product_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Defect dojo product type name",
+              "title": "Product Type"
+            },
+            "scan_type": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "Generic Findings Import",
+                    "Cloud Custodian Scan"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Defect dojo scan type",
+              "title": "Scan Type"
+            },
+            "send_after_job": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Whether to send the results to dojo after each scan",
+              "title": "Send After Job"
+            },
+            "tenant_names": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Tenant Names",
+              "type": "array",
+              "uniqueItems": true
+            },
+            "test": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Defect dojo test",
+              "title": "Test"
+            }
+          },
+          "title": "DefectDojoUpdatePatchModel",
+          "type": "object"
+        }
+      },
       "DepartmentGetReportModel": {
         "content_type": "application/json",
         "schema": {
           "properties": {
+            "receivers": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Receivers",
+              "type": "array",
+              "uniqueItems": true
+            },
             "types": {
               "items": {
                 "enum": [
@@ -869,6 +1007,174 @@
             "events"
           ],
           "title": "EventPostModel",
+          "type": "object"
+        }
+      },
+      "EventSourceDeleteModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {},
+          "title": "EventSourceDeleteModel",
+          "type": "object"
+        }
+      },
+      "EventSourcePostModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "aws_access_key_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Aws Access Key Id"
+            },
+            "aws_secret_access_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Aws Secret Access Key"
+            },
+            "aws_session_token": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Aws Session Token"
+            },
+            "enabled": {
+              "default": true,
+              "title": "Enabled",
+              "type": "boolean"
+            },
+            "queue_url": {
+              "title": "Queue Url",
+              "type": "string"
+            },
+            "region": {
+              "title": "Region",
+              "type": "string"
+            },
+            "role_arn": {
+              "anyOf": [
+                {"type": "string"},
+                {"type": "null"}
+              ],
+              "default": null,
+              "title": "Role Arn",
+              "description": "IAM role ARN to assume for SQS access"
+            }
+          },
+          "required": [
+            "queue_url",
+            "region"
+          ],
+          "title": "EventSourcePostModel",
+          "type": "object"
+        }
+      },
+      "EventSourcePutModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "aws_access_key_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Aws Access Key Id"
+            },
+            "aws_secret_access_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Aws Secret Access Key"
+            },
+            "aws_session_token": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Aws Session Token"
+            },
+            "enabled": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Enabled"
+            },
+            "queue_url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Queue Url"
+            },
+            "region": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Region"
+            },
+            "role_arn": {
+              "anyOf": [
+                {"type": "string"},
+                {"type": "null"}
+              ],
+              "default": null,
+              "title": "Role Arn"
+            }
+          },
+          "title": "EventSourcePutModel",
           "type": "object"
         }
       },
@@ -1978,6 +2284,55 @@
             "items"
           ],
           "title": "MultipleDefectDojoPushResult",
+          "type": "object"
+        }
+      },
+      "MultipleEventSourceModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "items": {
+              "items": {
+                "properties": {
+                  "customer_id": {
+                    "title": "Customer Id",
+                    "type": "string"
+                  },
+                  "enabled": {
+                    "title": "Enabled",
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "title": "Id",
+                    "type": "string"
+                  },
+                  "queue_url": {
+                    "title": "Queue Url",
+                    "type": "string"
+                  },
+                  "region": {
+                    "title": "Region",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "customer_id",
+                  "queue_url",
+                  "region",
+                  "enabled"
+                ],
+                "title": "EventSource",
+                "type": "object"
+              },
+              "title": "Items",
+              "type": "array"
+            }
+          },
+          "required": [
+            "items"
+          ],
+          "title": "MultipleEventSourceModel",
           "type": "object"
         }
       },
@@ -3421,7 +3776,6 @@
             },
             "insecure_skip_tls_verify": {
               "default": null,
-              "description": "Skip TLS certificate verification. If not specified, automatically enabled when certificate_authority is not provided",
               "title": "Insecure Skip Tls Verify",
               "type": "boolean"
             },
@@ -3722,6 +4076,10 @@
                   "rabbitmq:describe",
                   "rabbitmq:create",
                   "rabbitmq:delete",
+                  "event_sources:describe",
+                  "event_sources:create",
+                  "event_sources:update",
+                  "event_sources:delete",
                   "batch_results:get",
                   "batch_results:query",
                   "platform:get_k8s",
@@ -3863,6 +4221,10 @@
                   "rabbitmq:describe",
                   "rabbitmq:create",
                   "rabbitmq:delete",
+                  "event_sources:describe",
+                  "event_sources:create",
+                  "event_sources:update",
+                  "event_sources:delete",
                   "batch_results:get",
                   "batch_results:query",
                   "platform:get_k8s",
@@ -4045,6 +4407,10 @@
                   "rabbitmq:describe",
                   "rabbitmq:create",
                   "rabbitmq:delete",
+                  "event_sources:describe",
+                  "event_sources:create",
+                  "event_sources:update",
+                  "event_sources:delete",
                   "batch_results:get",
                   "batch_results:query",
                   "platform:get_k8s",
@@ -4117,6 +4483,11 @@
         "content_type": "application/json",
         "schema": {
           "properties": {
+            "include_linked": {
+              "default": false,
+              "title": "Include Linked",
+              "type": "boolean"
+            },
             "receivers": {
               "items": {
                 "type": "string"
@@ -4527,7 +4898,7 @@
                   "type": "string"
                 }
               ],
-              "default": "2026-01-22T15:15:24.918651",
+              "default": "2026-03-19T19:04:41.115931",
               "description": "Expiration date of the exception",
               "title": "Expire At"
             },
@@ -6026,6 +6397,51 @@
             "data"
           ],
           "title": "SingleEntityReportModel",
+          "type": "object"
+        }
+      },
+      "SingleEventSourceModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "data": {
+              "properties": {
+                "customer_id": {
+                  "title": "Customer Id",
+                  "type": "string"
+                },
+                "enabled": {
+                  "title": "Enabled",
+                  "type": "boolean"
+                },
+                "id": {
+                  "title": "Id",
+                  "type": "string"
+                },
+                "queue_url": {
+                  "title": "Queue Url",
+                  "type": "string"
+                },
+                "region": {
+                  "title": "Region",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "customer_id",
+                "queue_url",
+                "region",
+                "enabled"
+              ],
+              "title": "EventSource",
+              "type": "object"
+            }
+          },
+          "required": [
+            "data"
+          ],
+          "title": "SingleEventSourceModel",
           "type": "object"
         }
       },

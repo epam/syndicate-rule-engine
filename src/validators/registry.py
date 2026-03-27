@@ -50,6 +50,10 @@ from validators.swagger_request_models import (
     RabbitMQDeleteModel,
     RabbitMQGetModel,
     RabbitMQPostModel,
+    EventSourceDeleteModel,
+    EventSourceGetModel,
+    EventSourcePostModel,
+    EventSourcePutModel,
     RawReportGetModel,
     RefreshPostModel,
     ReportPushByJobIdModel,
@@ -95,6 +99,8 @@ from validators.swagger_request_models import (
     UserPatchModel,
     UserPostModel,
     UserResetPasswordModel,
+    TopViolationsReportJobGetModel,
+    TopViolationsReportCompareJobsGetModel,
 )
 from validators.swagger_response_models import (
     CredentialsActivationModel,
@@ -151,6 +157,8 @@ from validators.swagger_response_models import (
     SingleMailSettingModel,
     SinglePolicyModel,
     SingleRabbitMQModel,
+    SingleEventSourceModel,
+    MultipleEventSourceModel,
     SingleResourceExceptionModel,
     SingleResourceModel,
     SingleRoleModel,
@@ -161,6 +169,8 @@ from validators.swagger_response_models import (
     SingleTenantExcludedRules,
     SingleTenantsModel,
     SingleUserModel,
+    TopViolationsReportJobsModel,
+    TopViolationsReportComparisonModel,
 )
 
 
@@ -422,6 +432,51 @@ data: tuple[EndpointInfo, ...] = (
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.RABBITMQ_DELETE,
         description='Allows to remove a RabbitMQ configuration'
+    ),
+    EndpointInfo(
+        path=Endpoint.INTEGRATIONS_EVENT_SOURCES,
+        method=HTTPMethod.POST,
+        lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
+        request_model=EventSourcePostModel,
+        responses=[(HTTPStatus.OK, SingleEventSourceModel, None)],
+        permission=Permission.EVENT_SOURCES_CREATE,
+        description='Allows to create an event source configuration'
+    ),
+    EndpointInfo(
+        path=Endpoint.INTEGRATIONS_EVENT_SOURCES,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
+        request_model=EventSourceGetModel,
+        responses=[(HTTPStatus.OK, MultipleEventSourceModel, None)],
+        permission=Permission.EVENT_SOURCES_DESCRIBE,
+        description='Allows to list SQS event sources'
+    ),
+    EndpointInfo(
+        path=Endpoint.INTEGRATIONS_EVENT_SOURCES_ID,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
+        request_model=EventSourceGetModel,
+        responses=[(HTTPStatus.OK, SingleEventSourceModel, None)],
+        permission=Permission.EVENT_SOURCES_DESCRIBE,
+        description='Allows to get an event source by id'
+    ),
+    EndpointInfo(
+        path=Endpoint.INTEGRATIONS_EVENT_SOURCES_ID,
+        method=HTTPMethod.PUT,
+        lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
+        request_model=EventSourcePutModel,
+        responses=[(HTTPStatus.OK, SingleEventSourceModel, None)],
+        permission=Permission.EVENT_SOURCES_UPDATE,
+        description='Allows to update an event source'
+    ),
+    EndpointInfo(
+        path=Endpoint.INTEGRATIONS_EVENT_SOURCES_ID,
+        method=HTTPMethod.DELETE,
+        lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
+        request_model=EventSourceDeleteModel,
+        responses=[(HTTPStatus.NO_CONTENT, None, None)],
+        permission=Permission.EVENT_SOURCES_DELETE,
+        description='Allows to delete an event source'
     ),
     EndpointInfo(
         path=Endpoint.CUSTOMERS_EXCLUDED_RULES,
@@ -1221,6 +1276,24 @@ data: tuple[EndpointInfo, ...] = (
         responses=[(HTTPStatus.OK, RawReportModel, None)],
         permission=Permission.REPORT_RAW_GET_TENANT_LATEST,
         description='Allows to request raw report data by tenant'
+    ),
+    EndpointInfo(
+        path=Endpoint.REPORTS_TOP_VIOLATIONS_JOBS_JOB_ID,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.REPORT_GENERATOR,
+        request_model=TopViolationsReportJobGetModel,
+        responses=[(HTTPStatus.OK, TopViolationsReportJobsModel, None)],
+        permission=Permission.REPORT_TOP_VIOLATIONS_GET_JOBS,
+        description='Allows to get top violation report by job id'
+    ),
+    EndpointInfo(
+        path=Endpoint.REPORTS_TOP_VIOLATIONS_COMPARE_JOBS,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.REPORT_GENERATOR,
+        request_model=TopViolationsReportCompareJobsGetModel,
+        responses=[(HTTPStatus.OK, TopViolationsReportComparisonModel, None)],
+        permission=Permission.REPORT_TOP_VIOLATIONS_COMPARE_JOBS,
+        description='Allows to get top violation comparison report by jobs id'
     ),
 
     # platforms

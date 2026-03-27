@@ -190,6 +190,14 @@ class RabbitMQ(TypedDict):
     customer: str
 
 
+class EventSource(TypedDict):
+    id: str
+    customer_id: str
+    queue_url: str
+    region: str
+    enabled: bool
+
+
 class ReportStatus(TypedDict):
     id: str
     triggered_at: str
@@ -353,6 +361,36 @@ class ResourcesReportItem(TypedDict):
     region: str
     resource_type: str
     violated_rules: ViolatedRule
+
+
+class TopViolationsResourceReport(TypedDict):
+    id: str
+    violated_rules: list[dict]
+
+
+class TopViolationsRulesReport(TypedDict):
+    name: str
+    description: str
+    severity: str
+    remediation: str
+    article: str
+    impact: str
+    remediation_complexity: str
+    violated_resources: list[str]
+
+
+class TopViolationsResourceComparison(TypedDict):
+    id: str
+    new_violated_rules: list[dict]
+    remediated_rules: list[dict]
+    unchanged_violated_rules: list[dict]
+
+
+class TopViolationsRulesComparison(TypedDict):
+    name: str
+    new_violated_resources: list[str]
+    remediated_resources: list[str]
+    unchanged_violated_resources: list[str]
 
 
 class DefectDojo(TypedDict):
@@ -560,6 +598,14 @@ class SingleRabbitMQModel(BaseModel):
     data: RabbitMQ
 
 
+class SingleEventSourceModel(BaseModel):
+    data: EventSource
+
+
+class MultipleEventSourceModel(BaseModel):
+    items: list[EventSource]
+
+
 class MultipleRulesModel(BaseModel):
     items: list[Rule]
     next_token: str | None
@@ -663,6 +709,14 @@ class EntityResourcesReportModel(BaseModel):
 class JobResourcesReportModel(BaseModel):
     items: list[ResourcesReportItem]
     data: BaseReportJob | None
+
+
+class TopViolationsReportJobsModel(BaseModel):
+    items: list[TopViolationsResourceReport | TopViolationsRulesReport]
+
+
+class TopViolationsReportComparisonModel(BaseModel):
+    items: list[TopViolationsResourceComparison | TopViolationsRulesComparison]
 
 
 class SingleLicenseActivationModel(BaseModel):

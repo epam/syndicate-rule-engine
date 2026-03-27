@@ -8,7 +8,7 @@ from helpers import title_keys
 from helpers.constants import JobState
 from helpers.log_helper import get_logger
 from onprem.celery import app as celery_app
-from onprem.tasks import run_standard_job
+from onprem.tasks import run_standard_job, run_event_driven_job
 from services import SP
 from services.clients import Boto3ClientWrapper
 from services.clients.sts import StsClient
@@ -83,7 +83,7 @@ class BatchClient(Boto3ClientWrapper):
 
     def get_custodian_job_queue_arn(self) -> str:
         """
-        Retrieves Custodian's job queue arn
+        Retrieves SRE's job queue arn
         """
         queue_name = self._environment.get_batch_job_queue()
         if not queue_name:
@@ -92,7 +92,7 @@ class BatchClient(Boto3ClientWrapper):
 
     def get_custodian_job_definition_arn(self) -> str:
         """
-        Retrieves the latest active Custodian's job definition
+        Retrieves the latest active SRE's job definition
         """
         job_definitions = self.get_job_definition_by_name(
             self._environment.get_batch_job_def()
@@ -189,9 +189,15 @@ class CeleryJobClient:
         job_id: str | list[str],
         job_name: str,
         timeout: int | None = None,
+        as_event_driven: bool = False,
         **kwargs: Any,
     ) -> CeleryJob:
-        res = run_standard_job.apply_async((job_id,), soft_time_limit=timeout)
+        if as_event_driven:
+            func = run_event_driven_job
+        else:
+            func = run_standard_job
+
+        res = func.apply_async((job_id,), soft_time_limit=timeout)
         return {
             "jobId": None,  # JobID is only available for AWS Batch jobs
             "jobName": job_name,

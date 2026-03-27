@@ -96,6 +96,8 @@ class Endpoint(str, Enum):
     RESOURCES_EXCEPTIONS_ID = '/resources/exceptions/{id}'
     CUSTOMERS_EXCLUDED_RULES = '/customers/excluded-rules'
     INTEGRATIONS_DEFECT_DOJO = '/integrations/defect-dojo'
+    INTEGRATIONS_EVENT_SOURCES = '/integrations/event-sources'
+    INTEGRATIONS_EVENT_SOURCES_ID = '/integrations/event-sources/{id}'
     REPORTS_PUSH_DOJO_JOB_ID = '/reports/push/dojo/{job_id}'
     INTEGRATIONS_CHRONICLE_ID = '/integrations/chronicle/{id}'
     REPORTS_RULES_JOBS_JOB_ID = '/reports/rules/jobs/{job_id}'
@@ -153,6 +155,12 @@ class Endpoint(str, Enum):
     REPORTS_RESOURCES_PLATFORMS_K8S_PLATFORM_ID_LATEST = (
         '/reports/resources/platforms/k8s/{platform_id}/state/latest'
     )
+    REPORTS_TOP_VIOLATIONS_JOBS_JOB_ID = (
+        '/reports/top/violations/jobs/{job_id}'
+    ),
+    REPORTS_TOP_VIOLATIONS_COMPARE_JOBS = (
+        '/reports/top/violations/compare/jobs'
+    ),
 
     @classmethod
     def match(cls, resource: str) -> Self | None:
@@ -193,6 +201,7 @@ STANDARD = 'standard'
 
 # Modular:Parent related attributes and types
 CUSTODIAN_TYPE = 'CUSTODIAN'  # application that contains access to CUSTODIAN
+CUSTODIAN_EVENT_SOURCE_TYPE = 'CUSTODIAN_EVENT_SOURCE'
 SCHEDULED_JOB_TYPE = 'SCHEDULED_JOB'
 META_ATTR = 'meta'
 TENANT_ENTITY_TYPE = 'TENANT'
@@ -878,6 +887,16 @@ class Permission(str, Enum):
         False,
         True,
     )
+    REPORT_TOP_VIOLATIONS_GET_JOBS = (
+        'report:get_top_violations_report',
+        False,
+        True,
+    )
+    REPORT_TOP_VIOLATIONS_COMPARE_JOBS = (
+        'report:get_top_violations_compare_report',
+        False,
+        True,
+    )
     REPORT_RAW_GET_TENANT_LATEST = (
         'report:get_tenant_latest_raw_report',
         False,
@@ -968,6 +987,11 @@ class Permission(str, Enum):
     RABBITMQ_DESCRIBE = 'rabbitmq:describe'
     RABBITMQ_CREATE = 'rabbitmq:create'
     RABBITMQ_DELETE = 'rabbitmq:delete'
+
+    EVENT_SOURCES_DESCRIBE = 'event_sources:describe'
+    EVENT_SOURCES_CREATE = 'event_sources:create'
+    EVENT_SOURCES_UPDATE = 'event_sources:update'
+    EVENT_SOURCES_DELETE = 'event_sources:delete'
 
     BATCH_RESULTS_GET = 'batch_results:get', False, True
     BATCH_RESULTS_QUERY = 'batch_results:query', False  # True
@@ -1236,12 +1260,16 @@ class Severity(str, Enum):
 
 
 class RemediationComplexity(str, Enum):
-    UNKNOWN = 'Unknown'
     LOW = 'Low'
     LOW_MEDIUM = 'Low-Medium'
     MEDIUM = 'Medium'
     MEDIUM_HIGH = 'Medium-High'
     HIGH = 'High'
+    UNKNOWN = 'Unknown'
+
+    @classmethod
+    def iter(cls):
+        return map(operator.attrgetter('value'), cls)
 
     @classmethod
     def parse(cls, rem: str | None, /) -> 'RemediationComplexity':
@@ -1477,6 +1505,11 @@ class ReportType(str, Enum):
         _previous_month_start,
         _this_month_start,
     )
+
+
+class TopViolationsReportType(str, Enum):
+    RESOURCES = 'RESOURCES'
+    RULES = 'RULES'
 
 
 class RabbitCommand(str, Enum):

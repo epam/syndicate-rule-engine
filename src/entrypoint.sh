@@ -27,7 +27,28 @@ start_server() {
 start_celeryworker() {
   log "Going to start celeryworker"
   mkdir -p /data/logs
-  exec celery --app=onprem worker --hostname=worker1@%n --logfile=/data/logs/%n-%i.log --statedb=/data/worker.state --loglevel="${SRE_CELERY_LOG_LEVEL:-INFO}" --without-heartbeat --without-gossip --without-mingle -Ofair --concurrency 1 --prefetch-multiplier 1
+
+  # Queues: from SRE_CELERY_QUEUES or default from celery.py (a-jobs,b-event-driven,c-scheduled)
+  if [ -n "${SRE_CELERY_QUEUES}" ]; then
+    QUEUES_ARG="-Q ${SRE_CELERY_QUEUES}"
+    log "Worker queues: ${SRE_CELERY_QUEUES}"
+  else
+    QUEUES_ARG="-Q a-jobs,b-event-driven,c-scheduled"
+  fi
+
+  # Optional: concurrency (default 1). Higher for CPU-bound queues.
+  CONCURRENCY="${SRE_CELERY_CONCURRENCY:-1}"
+
+  exec celery --app=onprem worker \
+    --hostname=worker1@%n \
+    --logfile=/data/logs/%n-%i.log \
+    --statedb=/data/worker.state \
+    --loglevel="${SRE_CELERY_LOG_LEVEL:-INFO}" \
+    --without-heartbeat --without-gossip --without-mingle \
+    -Ofair \
+    --concurrency "${CONCURRENCY}" \
+    --prefetch-multiplier "${SRE_CELERY_WORKER_PREFETCH_MULTIPLIER:-1}" \
+    ${QUEUES_ARG}
 }
 
 start_celerybeat() {
@@ -42,6 +63,10 @@ case "$1" in
     ;;
   celeryworker)
     start_celeryworker
+    ;;
+  event_sources_consumer)
+    log "Going to start event_sources_consumer"
+    exec python -m onprem.event_sources_consumer
     ;;
   *)
     start_server
