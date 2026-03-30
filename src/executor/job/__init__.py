@@ -2150,9 +2150,8 @@ def _remove_stale_parts_from_collection(
     )
     # Download all shard data from bucket.
     collection.fetch_all()
-
-    parts: Generator[ShardPart] = collection.iter_parts()
-    for part in parts:
+    parts_to_drop = []
+    for part in collection.iter_parts():
         # Timestamp of the most recent successful scan that updated
         # this part.  `None` means the resources was never scanned.
         timestamp: float | None = part.last_successful_timestamp()
@@ -2163,7 +2162,10 @@ def _remove_stale_parts_from_collection(
             # The part has not been refreshed within the retention
             # window, meaning the corresponding rule was likely removed
             # from the ruleset.  Drop it so it doesn't linger forever.
-            collection.drop_part(part)
+            parts_to_drop.append(part)
+
+    for part in parts_to_drop:
+        collection.drop_part(part)
     # Persist the (possibly smaller) collection back to bucket.
     collection.write_all()
 
