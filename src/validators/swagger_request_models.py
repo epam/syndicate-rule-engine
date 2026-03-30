@@ -1212,6 +1212,12 @@ class JobPostModel(BaseModel):
         ).model_dump(exclude_none=True)
 
 
+class JobResumePostModel(BaseModel):
+    """Resume a standard scan job that has partial checkpoint progress."""
+
+    pass
+
+
 def sanitize_schedule(schedule: str) -> str:
     """
     May raise ValueError

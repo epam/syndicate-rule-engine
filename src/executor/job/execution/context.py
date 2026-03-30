@@ -13,6 +13,7 @@ from helpers.constants import Cloud, Env, JobState
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_iso
 from models.job import Job
+from executor.job.scan import scan_is_resumable
 from services import SP
 from services.job_lock import TenantSettingJobLock
 from services.job_service import JobUpdater
@@ -129,9 +130,16 @@ class JobExecutionContext:
             return
 
         _LOG.info(
-            f'Job {self.job.id} finished with exception. Setting FAILED status'
+            f'Job {self.job.id} finished with exception. Setting terminal status'
         )
-        self.updater.status = JobState.FAILED
+        try:
+            self.job.refresh()
+        except Exception:
+            _LOG.exception('Could not refresh job before status update')
+        if scan_is_resumable(self.job):
+            self.updater.status = JobState.INTERRUPTED
+        else:
+            self.updater.status = JobState.FAILED
         self.updater.stopped_at = utc_iso()
         if isinstance(exc_val, JobExecutionError):
             _LOG.exception(

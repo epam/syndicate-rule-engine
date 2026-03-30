@@ -1,12 +1,17 @@
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Generator, TypedDict
+from typing import TYPE_CHECKING, Generator, TypedDict
 
 import msgspec
 from modular_sdk.models.tenant import Tenant
 
 from helpers.constants import Cloud, PolicyErrorType
 from helpers.log_helper import get_logger
-from services.sharding import RuleMeta, ShardPart
+from services.sharding import RuleMeta, ShardPart, ShardsCollection
+
+if TYPE_CHECKING:
+    from executor.job.scan.types import FailedPoliciesMap
 
 _LOG = get_logger(__name__)
 
@@ -93,6 +98,66 @@ class RuleRawMetadata:
         return metric['Value']
 
 
+def statistics_from_shards_collection(
+    tenant: Tenant,
+    failed: FailedPoliciesMap | dict,
+    collection: ShardsCollection,
+) -> list[dict]:
+    """
+    Build per-rule statistics from an in-memory shard collection (e.g. S3
+    scan partial after all regions completed). Used when the local work_dir
+    does not contain every region (job resume).
+    """
+    failed = failed or {}
+    by_key: dict[tuple[str, str], dict] = {}
+
+    for part in collection.iter_all_parts():
+        key = (part.location, part.policy)
+        item: dict = {
+            'policy': part.policy,
+            'region': part.location,
+            'tenant_name': tenant.name,
+            'customer_name': tenant.customer_name,
+            'start_time': part.timestamp,
+            'end_time': part.timestamp,
+            'api_calls': {},
+        }
+        if part.error is None:
+            item['scanned_resources'] = len(part.resources)
+            item['failed_resources'] = 0
+        elif fb := failed.get(key):
+            item['error_type'] = fb[0]
+            item['reason'] = fb[1]
+            item['traceback'] = fb[2]
+        else:
+            et_str, _, msg = (part.error or '').partition(':')
+            try:
+                item['error_type'] = PolicyErrorType(et_str)
+            except ValueError:
+                item['error_type'] = PolicyErrorType.INTERNAL
+            item['reason'] = msg or None
+            item['traceback'] = []
+        by_key[key] = item
+
+    for key, fb in failed.items():
+        if key not in by_key:
+            region, policy = key
+            by_key[key] = {
+                'policy': policy,
+                'region': region,
+                'tenant_name': tenant.name,
+                'customer_name': tenant.customer_name,
+                'start_time': 0.0,
+                'end_time': 0.0,
+                'api_calls': {},
+                'error_type': fb[0],
+                'reason': fb[1],
+                'traceback': fb[2],
+            }
+
+    return list(by_key.values())
+
+
 class JobResult:
     RegionRuleOutput = tuple[str, str, RuleRawMetadata, list[dict] | None]
 
@@ -146,7 +211,7 @@ class JobResult:
                     resources = [] if self._resources_exist(rule) else None
                 yield region.name, rule.name, metadata, resources
 
-    def statistics(self, tenant: Tenant, failed: dict) -> list[dict]:
+    def statistics(self, tenant: Tenant, failed: FailedPoliciesMap | dict) -> list[dict]:
         """
         :param tenant:
         :param failed:
@@ -184,7 +249,7 @@ class JobResult:
         return res
 
     def iter_shard_parts(
-        self, failed: dict
+        self, failed: FailedPoliciesMap | dict
     ) -> Generator[ShardPart, None, None]:
         for region, rule, metadata, resources in self.iter_raw(with_resources=True):
             if resources is None:
@@ -207,6 +272,49 @@ class JobResult:
                     timestamp=metadata.end_time,
                     resources=resources,
                 )
+
+    def iter_shard_parts_for_region(
+        self,
+        region: str,
+        failed: FailedPoliciesMap | dict,
+    ) -> Generator[ShardPart, None, None]:
+        for reg, rule, metadata, resources in self.iter_raw(with_resources=True):
+            if reg != region:
+                continue
+            if resources is None:
+                if er := failed.get((reg, rule)):
+                    error = er[0], er[1]
+                else:
+                    error = PolicyErrorType.INTERNAL, 'Unknown policy error'
+
+                yield ShardPart(
+                    policy=rule,
+                    location=reg,
+                    timestamp=metadata.end_time,
+                    error=':'.join(error),
+                )
+            else:
+                yield ShardPart(
+                    policy=rule,
+                    location=reg,
+                    timestamp=metadata.end_time,
+                    resources=resources,
+                )
+
+    def rules_meta_for_region(self, region: str) -> dict[str, RuleMeta]:
+        result: dict[str, RuleMeta] = {}
+        for reg, rule, metadata, _ in self.iter_raw(with_resources=False):
+            if reg != region:
+                continue
+            meta = {
+                k: v
+                for k, v in metadata.policy.items()
+                if k not in ('filters', 'name')
+            }
+            if 'resource' in meta:
+                meta['resource'] = self.adjust_resource_type(meta['resource'])
+            result.setdefault(rule, {}).update(meta)
+        return result
 
     def rules_meta(self) -> dict[str, RuleMeta]:
         """

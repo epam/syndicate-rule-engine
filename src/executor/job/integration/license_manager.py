@@ -5,7 +5,7 @@ from executor.job.types import JobExecutionError
 from helpers.log_helper import get_logger
 from models.job import Job
 from services import SP
-from services.clients.lm_client import LMException
+from services.clients.lm_client import LMException, LMJobExists
 from services.ruleset_service import RulesetName
 
 _LOG = get_logger(__name__)
@@ -35,6 +35,9 @@ def post_lm_job(job: Job) -> bool:
                 ]
             },
         )
+    except LMJobExists:
+        # for resume jobs
+        return True
     except LMException as e:
         raise JobExecutionError(
             JobFailure.standard(

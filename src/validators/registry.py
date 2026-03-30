@@ -27,6 +27,7 @@ from validators.swagger_request_models import (
     JobFindingsReportGetModel,
     JobGetModel,
     JobPostModel,
+    JobResumePostModel,
     JobRuleReportGetModel,
     K8sJobPostModel,
     LicenseActivationPatchModel,
@@ -274,6 +275,18 @@ data: tuple[EndpointInfo, ...] = (
         responses=[(HTTPStatus.ACCEPTED, MessageModel, None)],
         permission=Permission.JOB_TERMINATE,
         description='Allows to terminate a job that is running'
+    ),
+    EndpointInfo(
+        path=Endpoint.JOBS_JOB_RESUME,
+        method=HTTPMethod.POST,
+        lambda_name=LambdaName.API_HANDLER,
+        request_model=JobResumePostModel,
+        responses=[
+            (HTTPStatus.ACCEPTED, SingleJobModel, None),
+            (HTTPStatus.CONFLICT, MessageModel, 'Another job holds the lock'),
+        ],
+        permission=Permission.JOB_RESUME,
+        description='Resumes a standard scan job using stored checkpoint progress',
     ),
 
     # scheduled jobs

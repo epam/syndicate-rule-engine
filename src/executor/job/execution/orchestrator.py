@@ -3,6 +3,8 @@ Main job orchestration. Runs standard job: resolve rulesets, credentials,
 execute policies per region, write reports, upload to SIEM.
 """
 
+from typing import cast
+
 import billiard as multiprocessing
 from itertools import chain
 from pathlib import Path
@@ -13,6 +15,7 @@ from modular_sdk.commons.constants import (
     ENV_KUBECONFIG,
 )
 
+from executor.job.execution.publish import finalize_standard_job_reports
 from executor.job.job_failure import JobFailure, JobErrorCode
 from executor.job.credentials.resolver import (
     get_job_credentials,
@@ -24,11 +27,10 @@ from executor.job.execution.context import JobExecutionContext
 from executor.job.execution.region_executor import (
     job_initializer,
     process_job_concurrent,
+    RegionScanResult,
 )
 from executor.job.integration.license_manager import post_lm_job
-from executor.job.integration.siem import upload_to_siem
 from executor.job.policies.filter import (
-    expand_results_to_aliases,
     filter_policies,
     skip_duplicated_policies,
 )
@@ -37,16 +39,20 @@ from executor.job.types import JobExecutionError
 from executor.services.report_service import JobResult
 from helpers.constants import GLOBAL_REGION, Cloud
 from helpers.log_helper import get_logger
-from models.job import Job
+from helpers.time_helper import utc_iso
+from executor.job.scan import (
+    FailedPoliciesMap,
+    ScanCheckpoint,
+    ScanPartialStore,
+    pending_scan_regions,
+    scan_checkpoint_from_job,
+)
 from services import SP
-from services.platform_service import Platform
 from services.reports_bucket import (
     PlatformReportsBucketKeysBuilder,
-    StatisticsBucketKeysBuilder,
     TenantReportsBucketKeysBuilder,
 )
 from services.ruleset_service import RulesetName
-from services.sharding import ShardsCollectionFactory, ShardsS3IO
 
 _LOG = get_logger(__name__)
 
@@ -101,21 +107,36 @@ def run_standard_job(ctx: JobExecutionContext):
     _LOG.info(f"Policies are collected: {len(policies)}")
     regions = set(job.regions) | {GLOBAL_REGION}
 
+    cp = scan_checkpoint_from_job(job)
+    failed: FailedPoliciesMap = {}
+    bucket = SP.environment_service.default_reports_bucket_name()
+    partial_key = keys_builder.job_scan_partial(job)
+    scan_partial = ScanPartialStore(SP.s3)
+    if cp:
+        failed = scan_partial.load_failed_policies_sidecar(bucket, partial_key)
+
+    pending = pending_scan_regions(job, cp)
+
     successful = 0
-    failed = {}
     warnings = []
+
+    checkpoint_version = cp['checkpoint_version'] if cp else 0
+    completed_regions = set(cp['completed_regions']) if cp else set()
 
     _LOG.debug(f"Fingerprint aliases: {ctx.fingerprint_aliases}")
 
-    for region in sorted(regions):
+    for region in pending:
         _LOG.info(f"Going to init pool for region {region}")
         with multiprocessing.Pool(
             processes=1,
             initializer=job_initializer,
             initargs=(credentials,),
         ) as pool:
-            scan = pool.apply(
-                process_job_concurrent, (policies, ctx.work_dir, cloud, region)
+            scan = cast(
+                RegionScanResult,
+                pool.apply(
+                    process_job_concurrent, (policies, ctx.work_dir, cloud, region)
+                )
             )
 
         if scan.load_error_detail is not None:
@@ -146,6 +167,27 @@ def run_standard_job(ctx: JobExecutionContext):
             warnings.append(w)
         failed.update(scan.failed)
 
+        result = JobResult(ctx.work_dir, cloud)
+        partial = scan_partial.load_partial_collection(cloud, bucket, partial_key)
+        ScanPartialStore.merge_delta_into_partial(
+            partial,
+            result.iter_shard_parts_for_region(region, failed),
+            result.rules_meta_for_region(region),
+        )
+        partial.write_all()
+        partial.write_meta()
+        scan_partial.write_failed_policies_sidecar(bucket, partial_key, failed)
+        completed_regions.add(region)
+        checkpoint_version += 1
+        checkpoint = ScanCheckpoint(
+            checkpoint_version=checkpoint_version,
+            completed_regions=sorted(completed_regions),
+            updated_at=utc_iso(),
+        )
+        payload = dict(checkpoint)
+        SP.job_service.update(job, scan_checkpoint=payload)
+        job.scan_checkpoint = payload
+
     ctx.add_warnings(*warnings)
     del warnings
 
@@ -166,54 +208,40 @@ def run_standard_job(ctx: JobExecutionContext):
 
     del credentials
 
-    if ctx.fingerprint_aliases:
-        _LOG.info("Expanding scan results to fingerprint aliases")
-        expand_results_to_aliases(ctx, ctx.work_dir)
+    merged_collection = None
+    if completed_regions == regions:
+        merged_collection = scan_partial.load_partial_collection(
+            cloud, bucket, partial_key
+        )
 
-    result = JobResult(ctx.work_dir, cloud)
-
-    collection = ShardsCollectionFactory.from_cloud(cloud)
-    collection.put_parts(result.iter_shard_parts(failed))
-    meta = result.rules_meta()
-    collection.meta = meta
-
-    if successful:
-        _LOG.info("Going to upload to SIEM")
-        upload_to_siem(ctx=ctx, collection=collection)
-
-    collection.io = ShardsS3IO(
-        bucket=SP.environment_service.default_reports_bucket_name(),
-        key=keys_builder.job_result(job),
-        client=SP.s3,
+    finalize_standard_job_reports(
+        ctx=ctx,
+        keys_builder=keys_builder,
+        cloud=cloud,
+        failed=failed,
+        successful=successful,
+        merged_collection=merged_collection,
     )
 
-    _LOG.debug("Writing job report")
-    collection.write_all()
+    if completed_regions == regions:
+        try:
+            scan_partial.delete_partial(bucket, partial_key)
+        except Exception:
+            _LOG.exception(
+                "Could not delete scan partial s3 prefix %s/%s",
+                bucket,
+                partial_key,
+            )
+        SP.job_service.update(job, clear_scan_checkpoint=True)
+        job.scan_checkpoint = None
 
-    latest = ShardsCollectionFactory.from_cloud(cloud)
-    latest.io = ShardsS3IO(
-        bucket=SP.environment_service.default_reports_bucket_name(),
-        key=keys_builder.latest_key(),
-        client=SP.s3,
-    )
-
-    _LOG.debug("Pulling latest state")
-    latest.fetch_by_indexes(collection.shards.keys())
-    latest.fetch_meta()
-
-    _LOG.debug("Writing latest state")
-    latest.update(collection)
-    latest.update_meta(meta)
-    latest.write_all()
-    latest.write_meta()
-
-    _LOG.info("Writing statistics")
-    SP.s3.gz_put_json(
-        bucket=SP.environment_service.get_statistics_bucket_name(),
-        key=StatisticsBucketKeysBuilder.job_statistics(job),
-        obj=result.statistics(ctx.tenant, failed),
-    )
-    if not successful:
+    if completed_regions == regions:
+        assert merged_collection is not None
+        if not any(merged_collection.iter_parts()):
+            raise JobExecutionError(
+                JobFailure.standard(JobErrorCode.NO_SUCCESSFUL_POLICIES)
+            )
+    elif not successful:
         raise JobExecutionError(
             JobFailure.standard(JobErrorCode.NO_SUCCESSFUL_POLICIES)
         )

@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added top violations and top violations comparison reports
 - Added the ability to get a resource report for a specific platform(K8S) job
+- Added the intermediate scan saves and reports (by region)
+- Added the ability to resume stuck jobs using intermediate data by `POST /jobs/{job_id}/resume` endpoint
+- Added the ability to handle stop signals (`SIGTERM` and `SIGINT`) during job execution
+
+### Changed
+- Expanded the list of job error codes and messages
+- Changed terminal job status to `INTERRUPTED` instead of `FAILED`
 
 ## [5.17.0] - 2026-03-02
 

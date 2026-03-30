@@ -45,6 +45,7 @@ class ReportsBucketKeysBuilder(ABC):
     standard = 'standard/'
     ed = 'event-driven/'
     result = 'result/'
+    partial = 'partial/'
     difference = 'difference/'
 
     @staticmethod
@@ -81,6 +82,12 @@ class ReportsBucketKeysBuilder(ABC):
         Builds s3 key for a concrete job
         :param job:
         :return:
+        """
+
+    @abstractmethod
+    def job_scan_partial(self, job: 'Job') -> str:
+        """
+        S3 prefix for incremental scan aggregates (same layout as job_result).
         """
 
     @abstractmethod
@@ -182,6 +189,15 @@ class TenantReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
             self.result,
         )
 
+    def job_scan_partial(self, job: Job) -> str:
+        result_key = self.job_result(job)
+        if not result_key.endswith(self.result):
+            raise ValueError(
+                f'Unexpected job_result key (missing {self.result!r}): '
+                f'{result_key!r}'
+            )
+        return result_key[: -len(self.result)] + self.partial
+
     def latest_key(self) -> str:
         return self.urljoin(
             self.prefix,
@@ -227,6 +243,9 @@ class PlatformReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
             self.datetime(utc_datetime(job.submitted_at)),
             job.id,
         )
+
+    def job_scan_partial(self, job: 'Job') -> str:
+        return self.urljoin(self.job_result(job).rstrip('/'), self.partial)
 
     def latest_key(self) -> str:
         return self.urljoin(
