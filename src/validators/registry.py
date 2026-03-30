@@ -51,6 +51,10 @@ from validators.swagger_request_models import (
     RabbitMQDeleteModel,
     RabbitMQGetModel,
     RabbitMQPostModel,
+    EventSourceDeleteModel,
+    EventSourceGetModel,
+    EventSourcePostModel,
+    EventSourcePutModel,
     RawReportGetModel,
     RefreshPostModel,
     ReportPushByJobIdModel,
@@ -154,6 +158,8 @@ from validators.swagger_response_models import (
     SingleMailSettingModel,
     SinglePolicyModel,
     SingleRabbitMQModel,
+    SingleEventSourceModel,
+    MultipleEventSourceModel,
     SingleResourceExceptionModel,
     SingleResourceModel,
     SingleRoleModel,
@@ -439,6 +445,51 @@ data: tuple[EndpointInfo, ...] = (
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.RABBITMQ_DELETE,
         description='Allows to remove a RabbitMQ configuration'
+    ),
+    EndpointInfo(
+        path=Endpoint.INTEGRATIONS_EVENT_SOURCES,
+        method=HTTPMethod.POST,
+        lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
+        request_model=EventSourcePostModel,
+        responses=[(HTTPStatus.OK, SingleEventSourceModel, None)],
+        permission=Permission.EVENT_SOURCES_CREATE,
+        description='Allows to create an event source configuration'
+    ),
+    EndpointInfo(
+        path=Endpoint.INTEGRATIONS_EVENT_SOURCES,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
+        request_model=EventSourceGetModel,
+        responses=[(HTTPStatus.OK, MultipleEventSourceModel, None)],
+        permission=Permission.EVENT_SOURCES_DESCRIBE,
+        description='Allows to list SQS event sources'
+    ),
+    EndpointInfo(
+        path=Endpoint.INTEGRATIONS_EVENT_SOURCES_ID,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
+        request_model=EventSourceGetModel,
+        responses=[(HTTPStatus.OK, SingleEventSourceModel, None)],
+        permission=Permission.EVENT_SOURCES_DESCRIBE,
+        description='Allows to get an event source by id'
+    ),
+    EndpointInfo(
+        path=Endpoint.INTEGRATIONS_EVENT_SOURCES_ID,
+        method=HTTPMethod.PUT,
+        lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
+        request_model=EventSourcePutModel,
+        responses=[(HTTPStatus.OK, SingleEventSourceModel, None)],
+        permission=Permission.EVENT_SOURCES_UPDATE,
+        description='Allows to update an event source'
+    ),
+    EndpointInfo(
+        path=Endpoint.INTEGRATIONS_EVENT_SOURCES_ID,
+        method=HTTPMethod.DELETE,
+        lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
+        request_model=EventSourceDeleteModel,
+        responses=[(HTTPStatus.NO_CONTENT, None, None)],
+        permission=Permission.EVENT_SOURCES_DELETE,
+        description='Allows to delete an event source'
     ),
     EndpointInfo(
         path=Endpoint.CUSTOMERS_EXCLUDED_RULES,

@@ -5,7 +5,12 @@ from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.tenant_service import TenantService
 
 from handlers import AbstractHandler, Mapping
-from helpers.constants import Endpoint, HTTPMethod, TopViolationsReportType
+from helpers.constants import (
+    Endpoint,
+    HTTPMethod,
+    TopViolationsReportType,
+    Cloud,
+)
 from helpers.lambda_response import build_response, ResponseFactory
 from helpers.reports import severity_chain, remediation_complexity_chain
 from helpers.time_helper import utc_datetime
@@ -26,7 +31,7 @@ from validators.utils import validate_kwargs
 
 class TopViolationsReportBuilder:
     class ResourceReport(TypedDict):
-        id: str
+        resource_data: str
         violated_rules: list[dict]
 
     class RulesReport(TypedDict):
@@ -37,7 +42,7 @@ class TopViolationsReportBuilder:
         article: str
         impact: str
         remediation_complexity: str
-        violated_resources: list[str]
+        violated_resources: list[dict]
 
     def __init__(
         self,
@@ -81,10 +86,9 @@ class TopViolationsReportBuilder:
         result = []
         view = InPlaceResourceView()
         for res, rules in datas.items():
-            res_data = res.accept(view)
             result.append(
                 {
-                    'id': res_data.get('arn') or res_data.get('id'),
+                    'resource_data': self._normalize_dict(res.accept(view)),
                     'violated_rules': [self._build_rule(r) for r in rules],
                 }
             )
@@ -109,9 +113,8 @@ class TopViolationsReportBuilder:
             rule = self._build_rule(rule_name)
             violated_resources = []
             for res in resources:
-                res_data = res.accept(view)
                 violated_resources.append(
-                        res_data.get('arn') or res_data.get('id')
+                        self._normalize_dict(res.accept(view))
                 )
             rule['violated_resources'] = violated_resources
             result.append(rule)
@@ -192,9 +195,14 @@ class TopViolationsReportBuilder:
         return severity, violated_resource_count, inverse_complexity
 
 
+    @staticmethod
+    def _normalize_dict(d: dict) -> dict:
+        return {k: d[k] for k in sorted(d.keys())}
+
+
 class TopViolationsReportComparator:
     class ResourceComparison(TypedDict):
-        id: str
+        resource_data: str
         new_violated_rules: list[dict]
         remediated_rules: list[dict]
         unchanged_violated_rules: list[dict]
@@ -221,13 +229,13 @@ class TopViolationsReportComparator:
         for res in report1:
             remediated = True
             for new_res in report2:
-                if res['id'] == new_res['id']:
+                if res['resource_data'] == new_res['resource_data']:
                     result.append(self._compare_resources(res, new_res))
                     remediated = False
                     break
             if remediated:
                 result.append({
-                    'id': res['id'],
+                    'resource_data': res['resource_data'],
                     'new_violated_rules': [],
                     'remediated_rules': [r['name'] for r in res['violated_rules']],
                     'unchanged_violated_rules': [],
@@ -249,7 +257,7 @@ class TopViolationsReportComparator:
         unchanged_violated_rules = list(violated_rules1 & violated_rules2)
 
         return {
-            'id': one['id'],
+            'resource_data': one['resource_data'],
             'new_violated_rules': new_violated_rules,
             'remediated_rules': remediated_rules,
             'unchanged_violated_rules': unchanged_violated_rules,
@@ -262,17 +270,20 @@ class TopViolationsReportComparator:
         result = []
 
         for rule in report1:
-            v_r = set(rule['violated_resources'])
+            v_r = self._to_set(rule['violated_resources'])
             remediated = True
             for new_rule in report2:
                 if rule['name'] == new_rule['name']:
-                    n_v_r = set(new_rule['violated_resources'])
+                    n_v_r = self._to_set(new_rule['violated_resources'])
                     result.append(
                         {
                             'name': rule['name'],
-                            'new_violated_resources': list(n_v_r - v_r),
-                            'remediated_resources': list(v_r - n_v_r),
-                            'unchanged_violated_resources': list(v_r & n_v_r),
+                            'new_violated_resources':
+                                self._from_set(n_v_r - v_r),
+                            'remediated_resources':
+                                self._from_set(v_r - n_v_r),
+                            'unchanged_violated_resources':
+                                self._from_set(v_r & n_v_r),
                         }
                     )
                     remediated = False
@@ -287,6 +298,16 @@ class TopViolationsReportComparator:
                     }
                 )
         return result
+
+
+    @staticmethod
+    def _to_set(resources: list[dict]) -> set[frozenset]:
+        return set(frozenset(r.items()) for r in resources)
+
+
+    @staticmethod
+    def _from_set(resources: set[frozenset]) -> list[dict]:
+        return [dict(r) for r in resources]
 
 
 class TopViolationsReportHandler(AbstractHandler):
@@ -338,12 +359,26 @@ class TopViolationsReportHandler(AbstractHandler):
     ):
         job = self._ensure_job(job_id)
 
-        tenant = self._tenant_service.get(job.tenant_name)
-        tenant = modular_helpers.assert_tenant_valid(tenant, event.customer)
-
         metadata = self._ls.get_customer_metadata(event.customer_id)
 
-        builder = self._get_builder(job, tenant, metadata, event.top)
+        if job.is_platform_job:
+            platform = self._ensure_platform(
+                platform_id=job.platform_id,
+                customer_id=event.customer_id,
+            )
+            entity = platform
+
+        else:
+            tenant = self._tenant_service.get(job.tenant_name)
+            tenant = modular_helpers.assert_tenant_valid(tenant, event.customer)
+            entity = tenant
+
+        builder = self._get_builder(
+            job=job,
+            entity=entity,
+            metadata=metadata,
+            top=event.top,
+        )
 
         if event.type == TopViolationsReportType.RESOURCES:
             result = builder.build_resource_report()
@@ -366,13 +401,35 @@ class TopViolationsReportHandler(AbstractHandler):
                 content='Jobs are not comparable', code=HTTPStatus.BAD_REQUEST
             )
 
-        tenant = self._tenant_service.get(job1.tenant_name)
-        tenant = modular_helpers.assert_tenant_valid(tenant, event.customer)
+        if job1.is_platform_job:
+            entity1 = self._ensure_platform(
+                platform_id=job1.platform_id,
+                customer_id=event.customer_id,
+            )
+            entity2 = self._ensure_platform(
+                platform_id=job2.platform_id,
+                customer_id=event.customer_id,
+            )
+
+        else:
+            tenant = self._tenant_service.get(job1.tenant_name)
+            tenant = modular_helpers.assert_tenant_valid(tenant, event.customer)
+            entity1 = entity2 = tenant
 
         metadata = self._ls.get_customer_metadata(event.customer_id)
 
-        builder1 = self._get_builder(job1, tenant, metadata, event.top)
-        builder2 = self._get_builder(job2, tenant, metadata)
+        builder1 = self._get_builder(
+            job=job1,
+            entity=entity1,
+            metadata=metadata,
+            top=event.top,
+        )
+
+        builder2 = self._get_builder(
+            job=job2,
+            entity=entity2,
+            metadata=metadata,
+        )
 
         comparator = TopViolationsReportComparator(builder1, builder2)
 
@@ -387,35 +444,50 @@ class TopViolationsReportHandler(AbstractHandler):
     def _get_builder(
         self,
         job: Job,
-        tenant: Tenant,
+        entity: Tenant | Platform,
         metadata: Metadata,
         top: Optional[int] = None,
     ) -> TopViolationsReportBuilder:
 
-        collection = self._report_service.job_collection(tenant, job)
+        if isinstance(entity, Tenant):
+            collection = self._report_service.job_collection(
+                tenant=entity,
+                job=job,
+            )
+            cloud = modular_helpers.tenant_cloud(entity)
+            account_id = entity.project
+        else:
+            collection = self._report_service.platform_job_collection(
+                platform=entity,
+                job=job,
+            )
+            cloud = Cloud.KUBERNETES
+            account_id = ''
+
+        collection.meta = self._report_service.fetch_meta(entity)
         collection.fetch_all()
-
-        collection.meta = self._report_service.fetch_meta(tenant)
-
         findings_iterator = iter_rule_resource(
             collection=collection,
-            cloud=modular_helpers.tenant_cloud(tenant),
+            cloud=cloud,
             metadata=metadata,
-            account_id=tenant.project,
+            account_id=account_id,
         )
+
         return TopViolationsReportBuilder(
             findings_iterator=findings_iterator,
-            entity=tenant,
+            entity=entity,
             metadata=metadata,
             collection=collection,
             top=top,
         )
 
 
-    @staticmethod
-    def _ensure_job(job_id: str) -> Job:
+    def _ensure_job(
+        self,
+        job_id: str,
+    ) -> Job:
         job = next(
-            SP.job_service.get_by_job_types(
+            self._job_service.get_by_job_types(
                 job_id=job_id,
                 job_types=None,
                 customer_name=None,
@@ -428,12 +500,22 @@ class TopViolationsReportHandler(AbstractHandler):
                 f'Job {job_id} not found'
             ).exc()
 
-        if job.is_platform_job:
-            raise ResponseFactory(HTTPStatus.NOT_IMPLEMENTED).message(
-                'Platform job is not available now'
+        return job
+
+
+    def _ensure_platform(
+        self,
+        platform_id: str,
+        customer_id: str | None = None,
+    ) -> Platform:
+        platform = self._platform_service.get_nullable(
+            hash_key=platform_id)
+        if not platform or customer_id and platform.customer != customer_id:
+            raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                f'Platform {platform_id} not found'
             ).exc()
 
-        return job
+        return platform
 
 
     @staticmethod
@@ -445,6 +527,8 @@ class TopViolationsReportHandler(AbstractHandler):
         result = [
             job1.id != job2.id,
             job1.tenant_name == job2.tenant_name,
+            job1.is_platform_job == job2.is_platform_job,
+            job1.platform_id == job2.platform_id,
             job1.rulesets == job2.rulesets,
             utc_datetime(job1.submitted_at) < utc_datetime(job2.stopped_at)
         ]

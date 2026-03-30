@@ -64,6 +64,10 @@ case "$1" in
   celeryworker)
     start_celeryworker
     ;;
+  event_sources_consumer)
+    log "Going to start event_sources_consumer"
+    exec python -m onprem.event_sources_consumer
+    ;;
   *)
     start_server
     ;;

@@ -254,3 +254,7 @@ pip-selfcheck.json
 .tmp/
 **/.DS_Store
 .vscode/
+
+deployment/helm/rule-engine/Chart.lock
+deployment/helm/rule-engine/charts/
+deployment/helm/rule-engine/**.bak

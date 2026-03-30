@@ -965,6 +965,44 @@ class SREApiClient:
             data=sifted(kwargs)
         )
 
+    def event_sources_post(self, **kwargs):
+        return self.make_request(
+            path=Endpoint.INTEGRATIONS_EVENT_SOURCES,
+            method=HTTPMethod.POST,
+            data=sifted(kwargs)
+        )
+
+    def event_sources_list(self, **kwargs):
+        return self.make_request(
+            path=Endpoint.INTEGRATIONS_EVENT_SOURCES,
+            method=HTTPMethod.GET,
+            query=sifted(kwargs)
+        )
+
+    def event_sources_get(self, event_source_id: str, **kwargs):
+        return self.make_request(
+            path=Endpoint.INTEGRATIONS_EVENT_SOURCES_ID,
+            path_params={'id': event_source_id},
+            method=HTTPMethod.GET,
+            query=sifted(kwargs)
+        )
+
+    def event_sources_put(self, event_source_id: str, **kwargs):
+        return self.make_request(
+            path=Endpoint.INTEGRATIONS_EVENT_SOURCES_ID,
+            path_params={'id': event_source_id},
+            method=HTTPMethod.PUT,
+            data=sifted(kwargs)
+        )
+
+    def event_sources_delete(self, event_source_id: str, **kwargs):
+        return self.make_request(
+            path=Endpoint.INTEGRATIONS_EVENT_SOURCES_ID,
+            path_params={'id': event_source_id},
+            method=HTTPMethod.DELETE,
+            query=sifted(kwargs)
+        )
+
     def platform_k8s_create(self, **kwargs):
         return self.make_request(
             path=Endpoint.PLATFORMS_K8S,
