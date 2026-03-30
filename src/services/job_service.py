@@ -5,7 +5,6 @@ from typing import Any, Callable, Mapping
 from pynamodb.expressions.condition import Condition
 from pynamodb.pagination import ResultIterator
 
-from executor.job.scan.progress import new_empty_scan_checkpoint
 from helpers.constants import JobState, JobType
 from helpers.time_helper import utc_iso
 from models.job import Job
@@ -39,6 +38,8 @@ class JobService(BaseDataService[Job]):
         if not dojo_structure:
             dojo_structure = {}
         if scan_checkpoint is None:
+            from executor.job.scan.progress import new_empty_scan_checkpoint
+
             scan_checkpoint = new_empty_scan_checkpoint()
         return super().create(
             id=str(uuid.uuid4()),
