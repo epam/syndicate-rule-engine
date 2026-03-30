@@ -405,7 +405,7 @@ class LMClient:
             token=self._token_producer.produce(customer=customer),
         )
         if resp is None or not resp.ok:
-            _LOG.info(f'Failed to update job in lm: {resp.text if resp else "No response"}')
+            _LOG.error(f'Failed to update job in lm: {resp.text if resp else "No response"}')
             return False
         return True
 
