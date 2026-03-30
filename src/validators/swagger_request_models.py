@@ -1013,7 +1013,7 @@ class PolicyPostModel(BaseModel):
     permissions: set[Permission] = Field(default_factory=set)
     permissions_admin: bool = False
     effect: PolicyEffect
-    tenants: set[str] = Field(default_factory=set)
+    tenants: set[str] = Field(default_factory=lambda: {'*'})
     description: str
     # todo add effect and tenants
 

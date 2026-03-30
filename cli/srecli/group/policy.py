@@ -45,13 +45,23 @@ def describe(ctx: ContextObj, customer_id, name):
 @click.option('--effect', '-ef', type=click.Choice(('allow', 'deny')),
               required=True, help='That this policy will do')
 @click.option('--tenant', '-t', type=str, multiple=True,
+              default=('*',), show_default=True,
               help='Permission will be allowed or denied for these tenants. '
                    'Specify tenant name')
 @click.option('--description', '-d', type=str, required=True,
               help='Description for this policy')
 @cli_response(attributes_order=attributes_order)
-def add(ctx: ContextObj, customer_id, name, permission,
-        path_to_permissions, permissions_admin, effect, tenant, description):
+def add(
+    ctx: ContextObj,
+    customer_id: str,
+    name: str,
+    permission: tuple[str],
+    effect: str,
+    tenant: tuple[str],
+    description: str,
+    permissions_admin: bool,
+    path_to_permissions: str | None,
+):
     """
     Creates a policy for a customer
     """
