@@ -252,7 +252,7 @@ __all__ = (
     "run_standard_job",
     "task_standard_job",
     "task_scheduled_job",
-    "remove_old_shard_parts"
+    "remove_old_shard_parts",
 )
 
 
