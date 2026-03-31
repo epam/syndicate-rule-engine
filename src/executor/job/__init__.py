@@ -252,6 +252,7 @@ __all__ = (
     "run_standard_job",
     "task_standard_job",
     "task_scheduled_job",
+    "remove_old_shard_parts"
 )
 
 
@@ -2156,7 +2157,6 @@ def _remove_stale_parts_from_collection(
         # this part.  `None` means the resources was never scanned.
         timestamp: float | None = part.last_successful_timestamp()
         if timestamp is None:
-            # No scan data — nothing to age-out; skip.
             continue
         if timestamp < cutoff_ts:
             # The part has not been refreshed within the retention
@@ -2201,16 +2201,14 @@ def remove_old_shard_parts(days: int) -> None:
     for customer in customer_service.i_get_customer():
         for tenant in tenant_service.i_get_tenant_by_customer(customer.name):
 
-            # --- Platform-level shards ---
             platforms: Iterator[Platform] = platform_service.query_by_tenant(tenant)
             for platform in platforms:
                 keys_builder = PlatformReportsBucketKeysBuilder(platform)
-                _remove_stale_parts_from_collection(days, tenant, keys_builder)
                 _LOG.info(f"Removing stale shards from tenant {tenant.name}: "
                           f"platform {platform.name}")
+                _remove_stale_parts_from_collection(days, tenant, keys_builder)
 
-            # --- Tenant-level shards ---
             keys_builder = TenantReportsBucketKeysBuilder(tenant)
-            _remove_stale_parts_from_collection(days, tenant, keys_builder)
             _LOG.info(f"Removing stale shards from tenant {tenant.name}: "
                       f"cloud {tenant.cloud}")
+            _remove_stale_parts_from_collection(days, tenant, keys_builder)
