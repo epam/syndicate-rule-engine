@@ -11,6 +11,7 @@ from executor.job import (
     task_standard_job,
     update_metadata,
     upload_to_dojo,
+    remove_old_shard_parts,
 )
 from helpers import RequestContext
 from helpers.constants import ACTION_PARAM, Env
@@ -194,3 +195,12 @@ def process_interval_reports() -> None:
     from services import SP
 
     SP.report_delivery_service.process_interval_reports()
+
+
+@app.task
+@safe_call
+def remove_old_shards(days) -> None:
+    """
+    Remove shard parts that were last updated N days ago
+    """
+    remove_old_shard_parts(days)

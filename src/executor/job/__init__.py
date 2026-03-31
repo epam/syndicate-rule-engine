@@ -122,6 +122,8 @@ import time
 import traceback
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from collections.abc import Iterator
+from datetime import datetime, timedelta, timezone
 from itertools import chain
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Generator, Iterable, Optional, cast
@@ -147,6 +149,8 @@ from modular_sdk.commons.constants import (
 )
 from modular_sdk.commons.trace_helper import tracer_decorator
 from modular_sdk.models.tenant import Tenant
+from modular_sdk.services.customer_service import CustomerService
+from modular_sdk.services.tenant_service import TenantService
 from msrestazure.azure_exceptions import CloudError
 from typing_extensions import NotRequired, TypedDict
 
@@ -156,6 +160,7 @@ from executor.helpers.constants import (
     INVALID_CREDENTIALS_ERROR_CODES,
     ExecutorError,
 )
+from executor.job.resource_collector import CustodianResourceCollector
 from executor.plugins import register_all
 from executor.services import BSP
 from executor.services.report_service import JobResult
@@ -187,26 +192,26 @@ from services.job_lock import TenantSettingJobLock
 from services.job_service import JobUpdater
 from services.metadata import Metadata
 from services.modular_helpers import tenant_cloud
-from services.platform_service import K8STokenKubeconfig, Kubeconfig, Platform
+from services.platform_service import K8STokenKubeconfig, Kubeconfig, Platform, PlatformService
 from services.report_convertors import ShardCollectionDojoConvertor
 from services.reports_bucket import (
     PlatformReportsBucketKeysBuilder,
     RulesetsBucketKeys,
     StatisticsBucketKeysBuilder,
     TenantReportsBucketKeysBuilder,
+    ReportsBucketKeysBuilder,
 )
 from services.ruleset_service import RulesetName
 from services.sharding import (
     ShardsCollection,
     ShardsCollectionFactory,
     ShardsS3IO,
+    ShardPart,
 )
 from services.udm_generator import (
     ShardCollectionUDMEntitiesConvertor,
     ShardCollectionUDMEventsConvertor,
 )
-
-from .resource_collector import CustodianResourceCollector
 
 
 if TYPE_CHECKING:
@@ -247,6 +252,7 @@ __all__ = (
     "run_standard_job",
     "task_standard_job",
     "task_scheduled_job",
+    "remove_old_shard_parts",
 )
 
 
@@ -2111,3 +2117,98 @@ def task_scheduled_job(self: 'Task | None', customer_name: str, name: str) -> No
     ctx = JobExecutionContext(job=job, tenant=tenant, platform=None)
     with ctx:
         run_standard_job(ctx)
+
+
+def _remove_stale_parts_from_collection(
+        days: int,
+        tenant: Tenant,
+        keys_builder: ReportsBucketKeysBuilder,
+) -> None:
+    """Load the latest shards collection for a given tenant/platform,
+    drop every shard part whose last successful scan timestamp is older
+    than *days* days, and persist the pruned collection back to S3/MinIO bucket.
+
+    Parts that have never been scanned successfully (no timestamp) are
+    left untouched — they may still be pending their first scan.
+
+    Args:
+        days: Age threshold in days. Parts older than this are removed.
+        tenant: The tenant whose shard collection is being cleaned.
+        keys_builder: Provides the S3 key path for the latest shards
+            file (platform-level or tenant-level).
+    """
+    cutoff_ts: float = (
+        (datetime.now(timezone.utc) - timedelta(days=days)).timestamp()
+    )
+
+    # Build the collection bound to the tenant and point its I/O at the
+    # "latest" shards object in the reports bucket.
+    collection: ShardsCollection = ShardsCollectionFactory.from_tenant(tenant)
+    collection.io = ShardsS3IO(
+        bucket=SP.environment_service.default_reports_bucket_name(),
+        key=keys_builder.latest_key(),
+        client=SP.s3,
+    )
+    # Download all shard data from bucket.
+    collection.fetch_all()
+    parts_to_drop = []
+    for part in collection.iter_parts():
+        # Timestamp of the most recent successful scan that updated
+        # this part.  `None` means the resources was never scanned.
+        timestamp: float | None = part.last_successful_timestamp()
+        if timestamp is None:
+            continue
+        if timestamp < cutoff_ts:
+            # The part has not been refreshed within the retention
+            # window, meaning the corresponding rule was likely removed
+            # from the ruleset.  Drop it so it doesn't linger forever.
+            parts_to_drop.append(part)
+
+    for part in parts_to_drop:
+        collection.drop_part(part)
+    # Persist the (possibly smaller) collection back to bucket.
+    collection.write_all()
+
+
+def remove_old_shard_parts(days: int) -> None:
+    """Iterate over every tenant and its platforms and purge shard parts
+    that have not been updated within the last *days* days.
+
+    Background
+    ----------
+    When a rule is removed from a ruleset, any shard parts it produced
+    remain in the "latest" shards collection indefinitely because
+    nothing overwrites or deletes them.  This function implements a
+    time-based eviction policy: any shard part whose last successful
+    scan is older than *days* days is dropped.
+
+    Flow
+    ----
+    For each customer → tenant/platform:
+      1. For every **platform** linked to the tenant, clean the
+         platform-level latest shards collection.
+      2. Clean the **tenant-level** latest shards collection.
+
+    Args:
+        days: Retention period in days.  Parts older than this are
+            permanently removed from the latest shards file.
+    """
+    customer_service: CustomerService = SP.modular_client.customer_service()
+    tenant_service: TenantService = SP.modular_client.tenant_service()
+    platform_service: PlatformService = SP.platform_service
+
+    # Walk the full hierarchy: customer → tenant/platform.
+    for customer in customer_service.i_get_customer():
+        for tenant in tenant_service.i_get_tenant_by_customer(customer.name):
+
+            platforms: Iterator[Platform] = platform_service.query_by_tenant(tenant)
+            for platform in platforms:
+                keys_builder = PlatformReportsBucketKeysBuilder(platform)
+                _LOG.info(f"Removing stale shards from tenant {tenant.name}: "
+                          f"platform {platform.name}")
+                _remove_stale_parts_from_collection(days, tenant, keys_builder)
+
+            keys_builder = TenantReportsBucketKeysBuilder(tenant)
+            _LOG.info(f"Removing stale shards from tenant {tenant.name}: "
+                      f"cloud {tenant.cloud}")
+            _remove_stale_parts_from_collection(days, tenant, keys_builder)
