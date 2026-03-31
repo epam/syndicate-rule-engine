@@ -746,6 +746,16 @@ class Env(EnvEnum):
         (),
         '*/5 * * * *',  # every 5 minutes
     )
+    CELERY_REMOVE_OLD_SHARDS_SCHEDULE = (
+        'SRE_CELERY_REMOVE_OLD_SHARDS_SCHEDULE',
+        (),
+        '0 9 1 * *',  # every 1st day in month at 09:00
+    )
+    CELERY_REMOVE_OLD_SHARDS_DAYS = (
+        'SRE_REMOVE_OLD_SHARDS_DAYS',
+        (),
+        180
+    )
 
     SCAN_RESOURCES_PROCESSORS = (
         'SRE_SCAN_RESOURCES_PROCESSORS',

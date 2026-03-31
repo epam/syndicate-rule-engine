@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added top violations and top violations comparison reports
 - Added event sources integration: API and on-prem consumer for SQS queues (event-driven ingestion) in `src/onprem/event_sources_consumer`
+- Added handling obsolete/removed rules in shards
 - Added the ability to get a resource report for a specific platform(K8S) job
 
 ### Fixed
