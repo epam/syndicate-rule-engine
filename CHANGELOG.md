@@ -16,7 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Fixed on-prem API not passing query params (e.g. `customer_id`) for non-GET requests (DELETE, PUT, etc.)
 - Fixed `validate_kwargs` failing when handlers use `from __future__ import annotations`
-- Fixed the default value for the tenants parameter in the policy post model
+
+### Changed
+- The parameter `tenants` of the policy post model changed to required
 
 ## [5.17.0] - 2026-03-02
 

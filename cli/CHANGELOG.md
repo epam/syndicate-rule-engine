@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `sre integrations event_sources` commands: `add`, `describe`, `update`, `delete` for SQS event source management
 - Added default value for the tenant parameter of the command policy add
 
+### Changed
+- The `tenant` parameter of the command `policy add` changed to required
+
 ## [5.12.0] - 2026-03-02
 
 ### Added

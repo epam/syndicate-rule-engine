@@ -45,9 +45,9 @@ def describe(ctx: ContextObj, customer_id, name):
 @click.option('--effect', '-ef', type=click.Choice(('allow', 'deny')),
               required=True, help='That this policy will do')
 @click.option('--tenant', '-t', type=str, multiple=True,
-              default=('*',), show_default=True,
-              help='Permission will be allowed or denied for these tenants. '
-                   'Specify tenant name')
+              required=True,
+              help="Permission will be allowed or denied for these tenants. "
+                   "Specify tenant name. '*' to allow or deny for all tenants")
 @click.option('--description', '-d', type=str, required=True,
               help='Description for this policy')
 @cli_response(attributes_order=attributes_order)
