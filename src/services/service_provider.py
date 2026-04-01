@@ -257,6 +257,7 @@ class ServiceProvider(metaclass=SingletonMeta):
             license_service=self.license_service,
             event_mapping_provider=self.s3_event_mapping_provider,
             tenant_service=self.modular_client.tenant_service(),
+            platform_service=self.platform_service,
         )
 
     @cached_property

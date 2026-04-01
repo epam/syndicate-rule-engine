@@ -1069,6 +1069,7 @@ MODULAR_TYPE = 'type'
 # event-driven
 AWS_VENDOR = 'AWS'
 MAESTRO_VENDOR = 'MAESTRO'
+SRE_K8S_AGENT_VENDOR = 'SRE_K8S_AGENT'
 
 # smtp
 PASSWORD_ATTR = 'password'

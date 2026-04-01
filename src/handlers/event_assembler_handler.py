@@ -66,7 +66,8 @@ DEFAULT_UNRESOLVED_RESPONSE = "Request has run into an unresolvable issue."
 _LOG = get_logger(__name__)
 
 
-RegionRulesMap = dict[RegionNameType, set[RuleNameType]]
+PlatformRegionKey = tuple[str | None, RegionNameType]
+RegionRulesMap = dict[PlatformRegionKey, set[RuleNameType]]
 TenantRegionRulesMap = dict[TenantNameType, RegionRulesMap]
 CloudTenantRegionRulesMap = dict[CloudType, TenantRegionRulesMap]
 ByVendorMap = dict[
@@ -312,12 +313,13 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
         {
             'AZURE': {
                 'TEST_TENANT': {
-                    'global': {'rule1', 'rule2'}
+                    (None, 'global'): {'rule1', 'rule2'}
                 }
             }
         }
         Uses a normalized map:
-        cloud -> tenant_name -> region -> rules
+        cloud -> tenant_name -> (platform_id, region) -> rules
+        For Kubernetes, platform_id is set so each cluster gets its own job.
         """
         for _, tn_rg_rl_map in cl_tn_rg_rl_map.items():
             for tenant_name, rg_rl_map in tn_rg_rl_map.items():
@@ -325,30 +327,35 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
                 if not tenant:
                     _LOG.warning(f"Tenant {tenant_name} not found. Skipping")
                     continue
-                # here we skip restrictions by regions for AZURE because
-                # currently I don't know how it's supposed to work
-
-                # Convert region_rule_map to regions and rules_to_scan
-                regions = list(rg_rl_map.keys())
-                all_rules = set(chain.from_iterable(rg_rl_map.values()))
+                by_platform: dict[str | None, list[tuple[str, set[str]]]] = (
+                    defaultdict(list)
+                )
+                for (plat_id, region_name), rules in rg_rl_map.items():
+                    by_platform[plat_id].append((region_name, rules))
 
                 ttl_days = self._environment_service.jobs_time_to_live_days()
                 ttl = None
                 if ttl_days:
                     ttl = timedelta(days=ttl_days)
 
-                job = self._job_service.create(
-                    customer_name=tenant.customer_name,
-                    tenant_name=tenant.name,
-                    regions=regions,
-                    job_type=JobType.REACTIVE,
-                    rules_to_scan=list(all_rules),
-                    ttl=ttl,
-                    rulesets=[],  # Will be set later based on license
-                    affected_license=None,  # Will be set later based on license
-                    status=JobState.PENDING,
-                )
-                yield tenant, job
+                for plat_id, region_rules_pairs in by_platform.items():
+                    regions = sorted({reg for reg, _ in region_rules_pairs})
+                    all_rules = set(
+                        chain.from_iterable(rules for _, rules in region_rules_pairs)
+                    )
+                    job = self._job_service.create(
+                        customer_name=tenant.customer_name,
+                        tenant_name=tenant.name,
+                        regions=regions,
+                        job_type=JobType.REACTIVE,
+                        rules_to_scan=list(all_rules),
+                        platform_id=plat_id,
+                        ttl=ttl,
+                        rulesets=[],  # Will be set later based on license
+                        affected_license=None,  # Will be set later based on license
+                        status=JobState.PENDING,
+                    )
+                    yield tenant, job
 
     def _obtain_events(self, since: float | None = None) -> list[Event]:
         """
@@ -376,7 +383,7 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
         each vendor differ
         """
         # Ensure proper nested defaultdict structure to prevent KeyError
-        # Structure: result[vendor][cloud][tenant_name][region_name] = rules
+        # Structure: result[vendor][cloud][tenant_name][(platform_id, region)] = rules
         result: ByVendorMap = defaultdict(
             lambda: defaultdict(lambda: defaultdict(dict))
         )
@@ -391,21 +398,28 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
                 cloud = event_record.cloud
                 tenant_name = event_record.tenant_name
 
-                # NOTE: If we are handling GCP/Azure events,
-                # we need to set the region name to 'global'
-                # good to review this logic with scanning 'global' region for GCP/Azure.
-                # maybe we should can optimize this logic by using the region name from the event record.
-                if cloud in {Cloud.GOOGLE.value, Cloud.AZURE.value}:
+                # NOTE: If we are handling GCP/Azure/K8s events,
+                # we use 'global' as region for assembly (scan semantics).
+                if cloud in {
+                    Cloud.GOOGLE.value,
+                    Cloud.AZURE.value,
+                    Cloud.KUBERNETES.value,
+                }:
                     region_name = "global"
                 else:
                     region_name = event_record.region_name
 
-                # Extend the rules set for the region rather than overwriting,
-                # handling the case where multiple events may add to the same region
-                if region_name not in result[vendor][cloud][tenant_name]:
-                    result[vendor][cloud][tenant_name][region_name] = set(rules)
+                platform_id = getattr(event_record, "platform_id", None)
+                if cloud != Cloud.KUBERNETES.value:
+                    platform_id = None
+                bucket_key: PlatformRegionKey = (platform_id, region_name)
+
+                # Extend the rules set for the bucket rather than overwriting,
+                # handling the case where multiple events may add to the same scope
+                if bucket_key not in result[vendor][cloud][tenant_name]:
+                    result[vendor][cloud][tenant_name][bucket_key] = set(rules)
                 else:
-                    result[vendor][cloud][tenant_name][region_name].update(rules)
+                    result[vendor][cloud][tenant_name][bucket_key].update(rules)
 
         if not result:
             _LOG.warning("No rules found for any event")

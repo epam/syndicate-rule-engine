@@ -1395,7 +1395,7 @@ class EventPostModel(BaseModel):
             }
         ),
     ] = '1.0.0'
-    vendor: Literal['AWS', 'MAESTRO']
+    vendor: Literal['AWS', 'MAESTRO', 'SRE_K8S_AGENT']
     events: list[dict]
 
 

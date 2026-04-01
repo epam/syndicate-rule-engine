@@ -991,7 +991,8 @@
             "vendor": {
               "enum": [
                 "AWS",
-                "MAESTRO"
+                "MAESTRO",
+                "SRE_K8S_AGENT"
               ],
               "title": "Vendor",
               "type": "string"

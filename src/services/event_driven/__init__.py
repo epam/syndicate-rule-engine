@@ -1,6 +1,7 @@
 from .adapters import (
     BaseEventAdapter,
     EventBridgeEventAdapter,
+    K8sAgentEventAdapter,
     MaestroEventAdapter,
 )
 from .domain import (
@@ -36,6 +37,7 @@ __all__ = (
     "RuleNameType",
     "BaseEventAdapter",
     "EventBridgeEventAdapter",
+    "K8sAgentEventAdapter",
     "MaestroEventAdapter",
     "EventMappingBucketKeys",
     "S3EventMappingProvider",

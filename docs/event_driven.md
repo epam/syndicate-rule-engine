@@ -76,3 +76,26 @@ Example:
   ]
 }
 ```
+### SRE K8S Agent (`vendor = "SRE_K8S_AGENT"`)
+
+SRE K8S Agent events are expected. Fields used for processing:
+
+- `platformId`
+- `type`
+- `reason`
+
+Example:
+
+```json
+{
+  "version": "1.0.0",
+  "vendor": "SRE_K8S_AGENT",
+  "platformId": "5d18b222-9aa5-454f-8736-587cc39de3f8",
+  "events": [
+    {
+      "type": "Pod",
+      "reason": "PodDeleted",
+    }
+  ]
+}
+```

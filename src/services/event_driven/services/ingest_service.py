@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from helpers.constants import AWS_VENDOR, MAESTRO_VENDOR
+from helpers.constants import AWS_VENDOR, MAESTRO_VENDOR, SRE_K8S_AGENT_VENDOR
 from helpers import batches
 from helpers.log_helper import get_logger
 from models.event import EventRecordAttribute
@@ -48,7 +48,7 @@ class EventIngestService:
     ) -> IngestResult:
         """
         Adapt, filter by rules, save. Single parse pass.
-        vendor: if set, use for all events; else auto-detect per event (AWS, Maestro).
+        vendor: if set, use for all events; else auto-detect per event (AWS, Maestro, SRE_K8S_AGENT).
         """
         events_in_item = (
             self._environment_service.number_of_native_events_in_event_item()
@@ -58,7 +58,11 @@ class EventIngestService:
 
         for raw in raw_events:
             if vendor is not None:
-                adapter = EventRecordsAdapter(vendor, [raw])
+                try:
+                    adapter = EventRecordsAdapter(vendor, [raw])
+                except ValueError:
+                    _LOG.warning("Unsupported vendor %r for event", vendor)
+                    continue
                 attr = adapter.adapt_single(raw)
                 v = vendor
             else:
@@ -96,8 +100,8 @@ class EventIngestService:
         self,
         raw: dict,
     ) -> tuple[str, EventRecordAttribute] | None:
-        """Try AWS then Maestro; return (vendor, event_attr) or None."""
-        for v in (AWS_VENDOR, MAESTRO_VENDOR):
+        """Try AWS, Maestro, then SRE K8s agent; return (vendor, event_attr) or None."""
+        for v in (AWS_VENDOR, MAESTRO_VENDOR, SRE_K8S_AGENT_VENDOR):
             adapter = EventRecordsAdapter(v, [raw])
             attr = adapter.adapt_single(raw)
             if attr is not None:

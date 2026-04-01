@@ -46,8 +46,17 @@ class RulesResolver:
         version: Version,
     ) -> set[str]:
         cloud_enum = Cloud(event.cloud)
-        cloud_map = self.cloud_mapping(cloud_enum, license_key, version)
         event_source = event.source_name
         event_name = event.event_name
 
+        if cloud_enum == Cloud.KUBERNETES:
+            k8s_map = self._event_mapping_provider.get_k8s_mapping_from_s3(
+                license_key=license_key,
+                version=version,
+            )
+            if not k8s_map:
+                return set()
+            return set(k8s_map.get(event_source, []))
+
+        cloud_map = self.cloud_mapping(cloud_enum, license_key, version)
         return set[str](cloud_map.get(event_source, {}).get(event_name, []))

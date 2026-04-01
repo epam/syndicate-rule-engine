@@ -22,6 +22,7 @@ class EventRecordAttribute(MapAttribute):
     region_name = UnicodeAttribute()
     source_name = UnicodeAttribute()
     event_name = UnicodeAttribute()
+    platform_id = UnicodeAttribute(null=True)
     account_id = UnicodeAttribute(null=True)
     tenant_name = UnicodeAttribute(null=True)
 

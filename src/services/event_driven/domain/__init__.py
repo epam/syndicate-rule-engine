@@ -33,10 +33,12 @@ from .types import (
     RuleNameType,
     TenantNameType,
     VendorKind,
+    K8sServiceRulesMap,
 )
 
 
 __all__ = (
+    "K8sServiceRulesMap",
     "ESourceENameRulesMap",
     "CloudType",
     "RegionNameType",
