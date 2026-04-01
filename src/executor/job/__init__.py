@@ -116,6 +116,26 @@ https://stackoverflow.com/questions/54858326/python-multiprocessing-billiard-vs-
 https://github.com/celery/billiard/issues/282
 """
 
+
+from collections.abc import Iterator
+from datetime import datetime, timedelta, timezone
+
+from modular_sdk.models.tenant import Tenant
+from modular_sdk.services.customer_service import CustomerService
+from modular_sdk.services.tenant_service import TenantService
+from helpers.log_helper import get_logger
+from services import SP
+from services.platform_service import Platform, PlatformService
+from services.reports_bucket import (
+    PlatformReportsBucketKeysBuilder,
+    TenantReportsBucketKeysBuilder,
+    ReportsBucketKeysBuilder,
+)
+from services.sharding import (
+    ShardsCollection,
+    ShardsCollectionFactory,
+    ShardsS3IO,
+)
 from executor.job.credentials.resolver import (
     get_job_credentials,
     get_platform_credentials,
@@ -160,6 +180,11 @@ from executor.job.tasks.metadata import update_metadata
 from executor.job.tasks.standard import task_scheduled_job, task_standard_job
 from executor.job.types import JobExecutionError, ModeDict, PolicyDict
 
+
+_LOG = get_logger(__name__)
+
+
+
 __all__ = (
     "AWSRunner",
     "AZURERunner",
@@ -195,4 +220,102 @@ __all__ = (
     "update_metadata",
     "upload_to_dojo",
     "upload_to_siem",
+    "remove_old_shard_parts",
 )
+
+
+# TODO: move to a separate file
+def _remove_stale_parts_from_collection(
+        days: int,
+        tenant: Tenant,
+        keys_builder: ReportsBucketKeysBuilder,
+) -> None:
+    """Load the latest shards collection for a given tenant/platform,
+    drop every shard part whose last successful scan timestamp is older
+    than *days* days, and persist the pruned collection back to S3/MinIO bucket.
+
+    Parts that have never been scanned successfully (no timestamp) are
+    left untouched — they may still be pending their first scan.
+
+    Args:
+        days: Age threshold in days. Parts older than this are removed.
+        tenant: The tenant whose shard collection is being cleaned.
+        keys_builder: Provides the S3 key path for the latest shards
+            file (platform-level or tenant-level).
+    """
+    cutoff_ts: float = (
+        (datetime.now(timezone.utc) - timedelta(days=days)).timestamp()
+    )
+
+    # Build the collection bound to the tenant and point its I/O at the
+    # "latest" shards object in the reports bucket.
+    collection: ShardsCollection = ShardsCollectionFactory.from_tenant(tenant)
+    collection.io = ShardsS3IO(
+        bucket=SP.environment_service.default_reports_bucket_name(),
+        key=keys_builder.latest_key(),
+        client=SP.s3,
+    )
+    # Download all shard data from bucket.
+    collection.fetch_all()
+    parts_to_drop = []
+    for part in collection.iter_parts():
+        # Timestamp of the most recent successful scan that updated
+        # this part.  `None` means the resources was never scanned.
+        timestamp: float | None = part.last_successful_timestamp()
+        if timestamp is None:
+            continue
+        if timestamp < cutoff_ts:
+            # The part has not been refreshed within the retention
+            # window, meaning the corresponding rule was likely removed
+            # from the ruleset.  Drop it so it doesn't linger forever.
+            parts_to_drop.append(part)
+
+    for part in parts_to_drop:
+        collection.drop_part(part)
+    # Persist the (possibly smaller) collection back to bucket.
+    collection.write_all()
+
+
+# TODO: move to a separate file
+def remove_old_shard_parts(days: int) -> None:
+    """Iterate over every tenant and its platforms and purge shard parts
+    that have not been updated within the last *days* days.
+
+    Background
+    ----------
+    When a rule is removed from a ruleset, any shard parts it produced
+    remain in the "latest" shards collection indefinitely because
+    nothing overwrites or deletes them.  This function implements a
+    time-based eviction policy: any shard part whose last successful
+    scan is older than *days* days is dropped.
+
+    Flow
+    ----
+    For each customer → tenant/platform:
+      1. For every **platform** linked to the tenant, clean the
+         platform-level latest shards collection.
+      2. Clean the **tenant-level** latest shards collection.
+
+    Args:
+        days: Retention period in days.  Parts older than this are
+            permanently removed from the latest shards file.
+    """
+    customer_service: CustomerService = SP.modular_client.customer_service()
+    tenant_service: TenantService = SP.modular_client.tenant_service()
+    platform_service: PlatformService = SP.platform_service
+
+    # Walk the full hierarchy: customer → tenant/platform.
+    for customer in customer_service.i_get_customer():
+        for tenant in tenant_service.i_get_tenant_by_customer(customer.name):
+
+            platforms: Iterator[Platform] = platform_service.query_by_tenant(tenant)
+            for platform in platforms:
+                keys_builder = PlatformReportsBucketKeysBuilder(platform)
+                _LOG.info(f"Removing stale shards from tenant {tenant.name}: "
+                          f"platform {platform.name}")
+                _remove_stale_parts_from_collection(days, tenant, keys_builder)
+
+            keys_builder = TenantReportsBucketKeysBuilder(tenant)
+            _LOG.info(f"Removing stale shards from tenant {tenant.name}: "
+                      f"cloud {tenant.cloud}")
+            _remove_stale_parts_from_collection(days, tenant, keys_builder)

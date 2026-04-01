@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added top violations and top violations comparison reports
 - Added event sources integration: API and on-prem consumer for SQS queues (event-driven ingestion) in `src/onprem/event_sources_consumer`
+- Added handling obsolete/removed rules in shards
 - Added the ability to get a resource report for a specific platform(K8S) job
 - Added the intermediate scan saves and reports (by region)
 - Added the ability to resume stuck jobs using intermediate data by `POST /jobs/{job_id}/resume` endpoint
@@ -21,7 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Fixed on-prem API not passing query params (e.g. `customer_id`) for non-GET requests (DELETE, PUT, etc.)
 - Fixed `validate_kwargs` failing when handlers use `from __future__ import annotations`
-- Fixed the default value for the tenants parameter in the policy post model
+
+### Changed
+- The parameter `tenants` of the policy post model changed to required
 
 ## [5.17.0] - 2026-03-02
 
