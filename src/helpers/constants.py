@@ -903,7 +903,7 @@ class Permission(str, Enum):
         True,
     )
 
-    JOB_QUERY = 'job:query', False  # True
+    JOB_QUERY = 'job:query', False, True
     JOB_GET = 'job:get', False, True
     JOB_POST_LICENSED = 'job:post_for_tenant', False, True
     JOB_POST_K8S = 'job:post_for_k8s_platform', False, True
@@ -913,7 +913,7 @@ class Permission(str, Enum):
     CUSTOMER_SET_EXCLUDED_RULES = 'customer:set_excluded_rules'
     CUSTOMER_GET_EXCLUDED_RULES = 'customer:get_excluded_rules'
 
-    TENANT_QUERY = 'tenant:query', False  # True
+    TENANT_QUERY = 'tenant:query', False, True
     TENANT_GET = 'tenant:get', False, True
     TENANT_GET_ACTIVE_LICENSES = 'tenant:get_active_licenses', False, True
     TENANT_SET_EXCLUDED_RULES = 'tenant:set_excluded_rules', False, True
@@ -997,7 +997,7 @@ class Permission(str, Enum):
     BATCH_RESULTS_QUERY = 'batch_results:query', False  # True
 
     PLATFORM_GET_K8S = 'platform:get_k8s', False, True
-    PLATFORM_QUERY_K8S = 'platform:query_k8', False  # True
+    PLATFORM_QUERY_K8S = 'platform:query_k8', False, True
     PLATFORM_CREATE_K8S = 'platform:create_k8s', False, True
     PLATFORM_DELETE_K8S = 'platform:delete_k8s', False, True
 

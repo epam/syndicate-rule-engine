@@ -125,18 +125,23 @@ class JobService(BaseDataService[Job]):
             rkc = Job.submitted_at <= utc_iso(end)
         else:
             rkc = None
+        fc = filter_condition
         if status:
-            filter_condition &= Job.status == status.value
+            st = Job.status == status.value
+            fc = st if fc is None else fc & st
         if job_id:
-            filter_condition &= Job.id == job_id
+            jc = Job.id == job_id
+            fc = jc if fc is None else fc & jc
         if job_type:
-            filter_condition &= Job.job_type == job_type.value
+            jt = Job.job_type == job_type.value
+            fc = jt if fc is None else fc & jt
         if job_types:
-            filter_condition &= Job.job_type.is_in(*job_types)
+            jts = Job.job_type.is_in(*job_types)
+            fc = jts if fc is None else fc & jts
         return Job.customer_name_submitted_at_index.query(
             hash_key=customer_name,
             range_key_condition=rkc,
-            filter_condition=filter_condition,
+            filter_condition=fc,
             scan_index_forward=ascending,
             limit=limit,
             last_evaluated_key=last_evaluated_key,
@@ -187,16 +192,20 @@ class JobService(BaseDataService[Job]):
             rkc = Job.submitted_at <= utc_iso(end)
         else:
             rkc = None
+        fc = filter_condition
         if status:
-            filter_condition &= Job.status == status.value
+            st = Job.status == status.value
+            fc = st if fc is None else fc & st
         if job_type:
-            filter_condition &= Job.job_type == job_type.value
+            jt = Job.job_type == job_type.value
+            fc = jt if fc is None else fc & jt
         if job_types:
-            filter_condition &= Job.job_type.is_in(*job_types)
+            jts = Job.job_type.is_in(*job_types)
+            fc = jts if fc is None else fc & jts
         return Job.tenant_name_submitted_at_index.query(
             hash_key=tenant_name,
             range_key_condition=rkc,
-            filter_condition=filter_condition,
+            filter_condition=fc,
             scan_index_forward=ascending,
             limit=limit,
             last_evaluated_key=last_evaluated_key,

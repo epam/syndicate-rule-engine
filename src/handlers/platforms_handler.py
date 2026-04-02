@@ -131,7 +131,11 @@ class PlatformsHandler(AbstractHandler):
         return build_response(content=self._ps.dto(platform))
 
     @validate_kwargs
-    def list_k8s(self, event: PlatformK8sQueryModel):
+    def list_k8s(
+        self,
+        event: PlatformK8sQueryModel,
+        _tap: TenantsAccessPayload,
+    ):
         ps = self._modular_client.parent_service()
         it = ps.query_by_scope_index(
             customer_id=event.customer,
@@ -140,6 +144,11 @@ class PlatformsHandler(AbstractHandler):
             type_=ParentType.PLATFORM_K8S,
             is_deleted=False
         )
+
+        items = [
+            p for p in  map(Platform, it) if _tap.is_allowed_for(p.tenant_name)
+        ]
+
         return build_response(content=(
-            self._ps.dto(item) for item in map(Platform, it)
+            self._ps.dto(item) for item in items
         ))
