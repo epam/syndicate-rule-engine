@@ -666,7 +666,6 @@ class JobHandler(AbstractHandler, SubmitJobToBatchMixin):
             tap_fc, no_jobs = self._tenant_access_filter_condition(_tap)
             if no_jobs:
                 _LOG.debug('No tenants are allowed, returning empty result')
-                _LOG.info()
                 return (
                     ResponseFactory()
                     .items(it=(), next_token=NextToken())
