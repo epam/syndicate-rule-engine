@@ -75,6 +75,14 @@ class Rule(TypedDict):
     rule_source_id: str
 
 
+class ScanProgress(TypedDict):
+    """Fields included as ``scan_progress`` on job GET when a scan checkpoint exists."""
+
+    checkpoint_version: int
+    completed_regions: list[str]
+    updated_at: str
+    pending_regions: list[str]
+
 class Job(TypedDict):
     created_at: NotRequired[datetime]
     customer_name: str
@@ -88,6 +96,7 @@ class Job(TypedDict):
     tenant_name: str
     scheduled_rule_name: NotRequired[str]
     celery_task_id: NotRequired[str]
+    scan_progress: NotRequired[ScanProgress]
 
 
 class Policy(TypedDict):

@@ -1608,6 +1608,15 @@
           "type": "object"
         }
       },
+      "JobResumePostModel": {
+        "content_type": "application/json",
+        "schema": {
+          "description": "Resume a standard scan job that has partial checkpoint progress.",
+          "properties": {},
+          "title": "JobResumePostModel",
+          "type": "object"
+        }
+      },
       "K8sJobPostModel": {
         "content_type": "application/json",
         "schema": {
@@ -2502,6 +2511,40 @@
                     "title": "Rulesets",
                     "type": "array"
                   },
+                  "scan_progress": {
+                    "properties": {
+                      "checkpoint_version": {
+                        "title": "Checkpoint Version",
+                        "type": "integer"
+                      },
+                      "completed_regions": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "title": "Completed Regions",
+                        "type": "array"
+                      },
+                      "pending_regions": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "title": "Pending Regions",
+                        "type": "array"
+                      },
+                      "updated_at": {
+                        "title": "Updated At",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "checkpoint_version",
+                      "completed_regions",
+                      "updated_at",
+                      "pending_regions"
+                    ],
+                    "title": "ScanProgress",
+                    "type": "object"
+                  },
                   "scheduled_rule_name": {
                     "title": "Scheduled Rule Name",
                     "type": "string"
@@ -2520,7 +2563,8 @@
                       "STARTING",
                       "RUNNING",
                       "FAILED",
-                      "SUCCEEDED"
+                      "SUCCEEDED",
+                      "INTERRUPTED"
                     ],
                     "title": "JobState",
                     "type": "string"
@@ -4008,12 +4052,15 @@
                   "report:get_k8s_platform_latest_resources",
                   "report:get_job_resources",
                   "report:get_job_resources_batch",
+                  "report:get_top_violations_report",
+                  "report:get_top_violations_compare_report",
                   "report:get_tenant_latest_raw_report",
                   "job:query",
                   "job:get",
                   "job:post_for_tenant",
                   "job:post_for_k8s_platform",
                   "job:terminate",
+                  "job:resume",
                   "customer:describe",
                   "customer:set_excluded_rules",
                   "customer:get_excluded_rules",
@@ -4153,12 +4200,15 @@
                   "report:get_k8s_platform_latest_resources",
                   "report:get_job_resources",
                   "report:get_job_resources_batch",
+                  "report:get_top_violations_report",
+                  "report:get_top_violations_compare_report",
                   "report:get_tenant_latest_raw_report",
                   "job:query",
                   "job:get",
                   "job:post_for_tenant",
                   "job:post_for_k8s_platform",
                   "job:terminate",
+                  "job:resume",
                   "customer:describe",
                   "customer:set_excluded_rules",
                   "customer:get_excluded_rules",
@@ -4339,12 +4389,15 @@
                   "report:get_k8s_platform_latest_resources",
                   "report:get_job_resources",
                   "report:get_job_resources_batch",
+                  "report:get_top_violations_report",
+                  "report:get_top_violations_compare_report",
                   "report:get_tenant_latest_raw_report",
                   "job:query",
                   "job:get",
                   "job:post_for_tenant",
                   "job:post_for_k8s_platform",
                   "job:terminate",
+                  "job:resume",
                   "customer:describe",
                   "customer:set_excluded_rules",
                   "customer:get_excluded_rules",
@@ -4898,7 +4951,7 @@
                   "type": "string"
                 }
               ],
-              "default": "2026-03-19T19:04:41.115931",
+              "default": "2026-03-26T16:56:33.888136",
               "description": "Expiration date of the exception",
               "title": "Expire At"
             },
@@ -6531,6 +6584,40 @@
                   "title": "Rulesets",
                   "type": "array"
                 },
+                "scan_progress": {
+                  "properties": {
+                    "checkpoint_version": {
+                      "title": "Checkpoint Version",
+                      "type": "integer"
+                    },
+                    "completed_regions": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "title": "Completed Regions",
+                      "type": "array"
+                    },
+                    "pending_regions": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "title": "Pending Regions",
+                      "type": "array"
+                    },
+                    "updated_at": {
+                      "title": "Updated At",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "checkpoint_version",
+                    "completed_regions",
+                    "updated_at",
+                    "pending_regions"
+                  ],
+                  "title": "ScanProgress",
+                  "type": "object"
+                },
                 "scheduled_rule_name": {
                   "title": "Scheduled Rule Name",
                   "type": "string"
@@ -6549,7 +6636,8 @@
                     "STARTING",
                     "RUNNING",
                     "FAILED",
-                    "SUCCEEDED"
+                    "SUCCEEDED",
+                    "INTERRUPTED"
                   ],
                   "title": "JobState",
                   "type": "string"
@@ -7882,6 +7970,192 @@
             "rules"
           ],
           "title": "TenantExcludedRulesPutModel",
+          "type": "object"
+        }
+      },
+      "TopViolationsReportComparisonModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "items": {
+              "items": {
+                "anyOf": [
+                  {
+                    "properties": {
+                      "id": {
+                        "title": "Id",
+                        "type": "string"
+                      },
+                      "new_violated_rules": {
+                        "items": {
+                          "type": "object"
+                        },
+                        "title": "New Violated Rules",
+                        "type": "array"
+                      },
+                      "remediated_rules": {
+                        "items": {
+                          "type": "object"
+                        },
+                        "title": "Remediated Rules",
+                        "type": "array"
+                      },
+                      "unchanged_violated_rules": {
+                        "items": {
+                          "type": "object"
+                        },
+                        "title": "Unchanged Violated Rules",
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "new_violated_rules",
+                      "remediated_rules",
+                      "unchanged_violated_rules"
+                    ],
+                    "title": "TopViolationsResourceComparison",
+                    "type": "object"
+                  },
+                  {
+                    "properties": {
+                      "name": {
+                        "title": "Name",
+                        "type": "string"
+                      },
+                      "new_violated_resources": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "title": "New Violated Resources",
+                        "type": "array"
+                      },
+                      "remediated_resources": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "title": "Remediated Resources",
+                        "type": "array"
+                      },
+                      "unchanged_violated_resources": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "title": "Unchanged Violated Resources",
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "new_violated_resources",
+                      "remediated_resources",
+                      "unchanged_violated_resources"
+                    ],
+                    "title": "TopViolationsRulesComparison",
+                    "type": "object"
+                  }
+                ]
+              },
+              "title": "Items",
+              "type": "array"
+            }
+          },
+          "required": [
+            "items"
+          ],
+          "title": "TopViolationsReportComparisonModel",
+          "type": "object"
+        }
+      },
+      "TopViolationsReportJobsModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "items": {
+              "items": {
+                "anyOf": [
+                  {
+                    "properties": {
+                      "id": {
+                        "title": "Id",
+                        "type": "string"
+                      },
+                      "violated_rules": {
+                        "items": {
+                          "type": "object"
+                        },
+                        "title": "Violated Rules",
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "violated_rules"
+                    ],
+                    "title": "TopViolationsResourceReport",
+                    "type": "object"
+                  },
+                  {
+                    "properties": {
+                      "article": {
+                        "title": "Article",
+                        "type": "string"
+                      },
+                      "description": {
+                        "title": "Description",
+                        "type": "string"
+                      },
+                      "impact": {
+                        "title": "Impact",
+                        "type": "string"
+                      },
+                      "name": {
+                        "title": "Name",
+                        "type": "string"
+                      },
+                      "remediation": {
+                        "title": "Remediation",
+                        "type": "string"
+                      },
+                      "remediation_complexity": {
+                        "title": "Remediation Complexity",
+                        "type": "string"
+                      },
+                      "severity": {
+                        "title": "Severity",
+                        "type": "string"
+                      },
+                      "violated_resources": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "title": "Violated Resources",
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "description",
+                      "severity",
+                      "remediation",
+                      "article",
+                      "impact",
+                      "remediation_complexity",
+                      "violated_resources"
+                    ],
+                    "title": "TopViolationsRulesReport",
+                    "type": "object"
+                  }
+                ]
+              },
+              "title": "Items",
+              "type": "array"
+            }
+          },
+          "required": [
+            "items"
+          ],
+          "title": "TopViolationsReportJobsModel",
           "type": "object"
         }
       },
