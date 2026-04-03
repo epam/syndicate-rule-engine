@@ -190,6 +190,8 @@ class Endpoint(str, Enum):
 LAMBDA_URL_HEADER_CONTENT_TYPE_UPPER = 'Content-Type'
 JSON_CONTENT_TYPE = 'application/json'
 
+MCP_USER_NAME_HEADER = 'X-Sre-Mcp-User-Name'
+
 DEFAULT_SYSTEM_CUSTOMER: str = 'CUSTODIAN_SYSTEM'
 DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME = (
     'custodian.rules-metadata-repo-access'
