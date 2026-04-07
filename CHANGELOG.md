@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added event sources integration: API and on-prem consumer for SQS queues (event-driven ingestion) in `src/onprem/event_sources_consumer`
 - Added handling obsolete/removed rules in shards
 - Added the ability to get a resource report for a specific platform(K8S) job
+- Added the intermediate scan saves and reports (by region)
+- Added the ability to resume stuck jobs using intermediate data by `POST /jobs/{job_id}/resume` endpoint
 - Added tenant scope restrictions to endpoints `GET /tenants`, `GET /jobs`, and `GET /platforms/k8s`
 - Added resolving of tenant access payload for MCP users (via the header `X-Sre-Mcp-User-Name`)
 
@@ -21,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - The parameter `tenants` of the policy post model changed to required
+- Expanded the list of job error codes and messages
+- Changed terminal job status to `INTERRUPTED` instead of `FAILED`
 - Version of `modular-sdk` updated to `7.1.11`
 
 ## [5.17.0] - 2026-03-02

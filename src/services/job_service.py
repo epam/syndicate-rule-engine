@@ -1,6 +1,6 @@
 import uuid
 from datetime import date, datetime, timedelta
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 from pynamodb.expressions.condition import Condition
 from pynamodb.pagination import ResultIterator
@@ -33,9 +33,14 @@ class JobService(BaseDataService[Job]):
         credentials_key: str | None = None,
         application_id: str | None = None,
         dojo_structure: dict[str, str] | None = None,
+        scan_checkpoint: Mapping[str, Any] | None = None,
     ) -> Job:
         if not dojo_structure:
             dojo_structure = {}
+        if scan_checkpoint is None:
+            from executor.job.scan.progress import new_empty_scan_checkpoint
+
+            scan_checkpoint = new_empty_scan_checkpoint()
         return super().create(
             id=str(uuid.uuid4()),
             customer_name=customer_name,
@@ -56,6 +61,7 @@ class JobService(BaseDataService[Job]):
             credentials_key=credentials_key,
             application_id=application_id,
             dojo_structure=dojo_structure,
+            scan_checkpoint=scan_checkpoint,
         )
 
     def update(
@@ -73,6 +79,9 @@ class JobService(BaseDataService[Job]):
         rulesets: list[str] | None = None,
         warnings: list[str] | None = None,
         dojo_structure: dict[str, str] | None = None,
+        scan_checkpoint: Mapping[str, Any] | None = None,
+        clear_scan_checkpoint: bool = False,
+        clear_terminal_fields: bool = False,
     ):
         actions = []
         if batch_job_id:
@@ -99,6 +108,13 @@ class JobService(BaseDataService[Job]):
             actions.append(Job.warnings.set(warnings))
         if dojo_structure:
             actions.append(Job.dojo_structure.set(dojo_structure))
+        if clear_scan_checkpoint:
+            actions.append(Job.scan_checkpoint.remove())
+        elif scan_checkpoint is not None:
+            actions.append(Job.scan_checkpoint.set(scan_checkpoint))
+        if clear_terminal_fields:
+            actions.append(Job.stopped_at.remove())
+            actions.append(Job.reason.remove())
         if actions:
             job.update(actions)
 
@@ -212,6 +228,8 @@ class JobService(BaseDataService[Job]):
         )
 
     def dto(self, item: Job) -> dict[str, Any]:
+        from executor.job.scan.progress import scan_progress_dto
+
         raw = super().dto(item)
         raw.pop('batch_job_id', None)
         raw.pop('queue', None)
@@ -220,6 +238,7 @@ class JobService(BaseDataService[Job]):
         raw.pop('rules_to_scan', None)
         raw.pop('ttl', None)
         raw.pop('credentials_key', None)
+        raw.pop('scan_checkpoint', None)
         rulesets = []
         for r in item.rulesets:
             rulesets.append(RulesetName(r).to_str(False))
@@ -227,6 +246,8 @@ class JobService(BaseDataService[Job]):
         dojo_structure = raw.pop('dojo_structure').as_dict()
         if dojo_structure:
             raw['dojo_structure'] = dojo_structure
+        if sp := scan_progress_dto(item):
+            raw['scan_progress'] = dict(sp)
         return raw
 
     def get_tenant_last_job_date(self, tenant_name: str) -> str | None:

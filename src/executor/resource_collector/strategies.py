@@ -152,4 +152,3 @@ _RESOURCE_ITERATOR_REGISTRY: dict[Cloud, ResourceIteratorStrategy] = {
 def get_resource_iterator(cloud: Cloud) -> ResourceIteratorStrategy | None:
     """Get the appropriate resource iterator strategy for the given cloud."""
     return _RESOURCE_ITERATOR_REGISTRY.get(cloud)
-

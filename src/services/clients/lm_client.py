@@ -77,6 +77,9 @@ class LMUnavailable(LMException):
     pass
 
 
+class LMJobExists(LMException):
+    pass
+
 class LMEndpoint(str, Enum):
     LICENSE_SYNC = '/license/sync'
     RULESET_REGISTRY = '/registry/ruleset'
@@ -373,6 +376,8 @@ class LMClient:
                 raise LMEmptyBalance(self._get_error_message(resp))
             case HTTPStatus.NOT_FOUND:
                 raise LMInvalidData(self._get_error_message(resp))
+            case HTTPStatus.CONFLICT:
+                raise LMJobExists(self._get_error_message(resp))
             case _:
                 raise LMUnavailable(self._get_error_message(resp))
 
@@ -400,7 +405,7 @@ class LMClient:
             token=self._token_producer.produce(customer=customer),
         )
         if resp is None or not resp.ok:
-            _LOG.info('Failed to update job in lm')
+            _LOG.error(f'Failed to update job in lm: {resp.text if resp else "No response"}')
             return False
         return True
 

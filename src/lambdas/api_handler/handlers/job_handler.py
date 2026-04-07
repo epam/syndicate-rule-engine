@@ -17,6 +17,7 @@ from helpers.constants import (
     Endpoint,
     HTTPMethod,
     JobState,
+    JobType,
     RuleDomain,
     ScheduledJobType,
 )
@@ -24,6 +25,7 @@ from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
 from helpers.mixins import SubmitJobToBatchMixin
 from helpers.system_customer import SystemCustomer
+from executor.job.scan import scan_is_resumable
 from models.job import Job
 from models.ruleset import Ruleset
 from services import SERVICE_PROVIDER, cache, modular_helpers
@@ -48,6 +50,7 @@ from validators.swagger_request_models import (
     BaseModel,
     JobGetModel,
     JobPostModel,
+    JobResumePostModel,
     K8sJobPostModel,
     ScheduledJobGetModel,
     ScheduledJobPatchModel,
@@ -62,6 +65,11 @@ if TYPE_CHECKING:
     )
 
 _LOG = get_logger(__name__)
+
+_STALE_RUNNING_REASON = (
+    'Execution is no longer active (worker unreachable, host restart, or '
+    'batch job finished); status reconciled to allow resume.'
+)
 
 
 class JobHandler(AbstractHandler, SubmitJobToBatchMixin):
@@ -133,6 +141,7 @@ class JobHandler(AbstractHandler, SubmitJobToBatchMixin):
                 HTTPMethod.GET: self.get,
                 HTTPMethod.DELETE: self.delete,
             },
+            Endpoint.JOBS_JOB_RESUME: {HTTPMethod.POST: self.resume},
             Endpoint.SCHEDULED_JOB: {
                 HTTPMethod.POST: self.post_scheduled,
                 HTTPMethod.GET: self.query_scheduled,
@@ -712,7 +721,11 @@ class JobHandler(AbstractHandler, SubmitJobToBatchMixin):
                 code=HTTPStatus.NOT_FOUND,
                 content=self._job_service.not_found_message(job_id),
             )
-        if job.status in (JobState.SUCCEEDED, JobState.FAILED):
+        if job.status in (
+            JobState.SUCCEEDED,
+            JobState.FAILED,
+            JobState.INTERRUPTED,
+        ):
             message = f'Can not terminate job with status {job.status}'
             _LOG.warning(message)
             return build_response(content=message, code=HTTPStatus.BAD_REQUEST)
@@ -726,13 +739,104 @@ class JobHandler(AbstractHandler, SubmitJobToBatchMixin):
         self._batch_client.terminate_job(job=job, reason=reason)
 
         self._job_service.update(
-            job=job, reason=reason, status=JobState.FAILED
+            job=job,
+            reason=reason,
+            status=JobState.INTERRUPTED,
         )
         TenantSettingJobLock(job.tenant_name).release(job.id)
 
         return build_response(
             code=HTTPStatus.ACCEPTED,
             content=f"The job with id '{job.id}' will be terminated",
+        )
+
+    @validate_kwargs
+    def resume(self, event: JobResumePostModel, job_id: str, _tap: TenantsAccessPayload):
+        job = self._job_service.get_nullable(job_id)
+        if not job or event.customer and job.customer_name != event.customer:
+            raise (
+                ResponseFactory(HTTPStatus.NOT_FOUND)
+                .message(self._job_service.not_found_message(job_id))
+                .exc()
+            )
+        tenant = self._obtain_tenant(job.tenant_name, _tap, event.customer)
+        if job.tenant_name != tenant.name:
+            raise (
+                ResponseFactory(HTTPStatus.NOT_FOUND)
+                .message(self._job_service.not_found_message(job_id))
+                .exc()
+            )
+        if job.job_type == JobType.REACTIVE:
+            raise (
+                ResponseFactory(HTTPStatus.BAD_REQUEST)
+                .message('Event-driven jobs cannot be resumed')
+                .exc()
+            )
+        if not scan_is_resumable(job):
+            raise (
+                ResponseFactory(HTTPStatus.BAD_REQUEST)
+                .message('Job is not resumable')
+                .exc()
+            )
+        if job.status == JobState.RUNNING.value:
+            if self._batch_client.is_job_execution_active(job):
+                raise (
+                    ResponseFactory(HTTPStatus.BAD_REQUEST)
+                    .message(
+                        f'Job status {job.status} is not resumable '
+                        f'(execution is still active)'
+                    )
+                    .exc()
+                )
+            _LOG.info(
+                "Reconciling job %s from RUNNING to INTERRUPTED (stale)",
+                job.id,
+            )
+            self._job_service.update(
+                job=job,
+                status=JobState.INTERRUPTED,
+                reason=_STALE_RUNNING_REASON,
+            )
+            job.refresh()
+        elif job.status not in (
+            JobState.INTERRUPTED.value,
+            JobState.FAILED.value,
+        ):
+            raise (
+                ResponseFactory(HTTPStatus.BAD_REQUEST)
+                .message(
+                    f'Job status {job.status} is not resumable '
+                    f'(expected {JobState.INTERRUPTED.value} or '
+                    f'{JobState.FAILED.value})'
+                )
+                .exc()
+            )
+        if jid := TenantSettingJobLock(tenant.name).locked_for(job.regions):
+            if jid != job.id:
+                raise (
+                    ResponseFactory(HTTPStatus.CONFLICT)
+                    .message(
+                        f'Another job ({jid}) is already running for overlapping '
+                        f'regions on tenant {tenant.name}'
+                    )
+                    .exc()
+                )
+
+        resp = self._submit_job_to_batch(
+            tenant_name=tenant.name,
+            job=job,
+        )
+        self._job_service.update(
+            job=job,
+            batch_job_id=resp['jobId'],
+            celery_task_id=resp.get('celeryTaskId'),
+            status=JobState.PENDING,
+            clear_terminal_fields=True,
+        )
+        job.refresh()
+        return build_response(
+            code=HTTPStatus.ACCEPTED,
+            content=self._job_service.dto(job),
         )
 
     @validate_kwargs

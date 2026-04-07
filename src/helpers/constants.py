@@ -52,6 +52,7 @@ class Endpoint(str, Enum):
     CUSTOMERS = '/customers'
     HEALTH_ID = '/health/{id}'
     JOBS_JOB = '/jobs/{job_id}'
+    JOBS_JOB_RESUME = '/jobs/{job_id}/resume'
     DOC_PROXY = '/doc/{proxy+}'
     ROLES_NAME = '/roles/{name}'
     CREDENTIALS = '/credentials'
@@ -910,6 +911,7 @@ class Permission(str, Enum):
     JOB_POST_LICENSED = 'job:post_for_tenant', False, True
     JOB_POST_K8S = 'job:post_for_k8s_platform', False, True
     JOB_TERMINATE = 'job:terminate', False, True
+    JOB_RESUME = 'job:resume', False, True
 
     CUSTOMER_DESCRIBE = 'customer:describe'
     CUSTOMER_SET_EXCLUDED_RULES = 'customer:set_excluded_rules'
@@ -1119,6 +1121,7 @@ class JobState(str, Enum):
     RUNNING = 'RUNNING'
     FAILED = 'FAILED'
     SUCCEEDED = 'SUCCEEDED'
+    INTERRUPTED = 'INTERRUPTED'
 
 
 # Maestro Credentials Applications types

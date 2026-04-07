@@ -31,7 +31,10 @@ def describe(ctx: ContextObj, application_id, limit, next_token, cloud,
             'Provide either --application_id or --cloud'
         )
     if application_id:
-        return ctx['api_client'].get_credentials(application_id)
+        return ctx['api_client'].get_credentials(
+            application_id=application_id,
+            customer_id=customer_id,
+        )
     return ctx['api_client'].query_credentials(
         cloud=cloud,
         limit=limit,

@@ -80,6 +80,17 @@ def describe(ctx: ContextObj, job_id: str, tenant_name: str, customer_id: str,
     return ctx['api_client'].job_list(**dct)
 
 
+@job.command(cls=ViewCommand, name='resume')
+@click.option('--job_id', '-id', type=str, required=True,
+              help='Job id to resume (checkpoint required; INTERRUPTED, FAILED, or stale RUNNING)')
+@cli_response(attributes_order=attributes_order)
+def resume(ctx: ContextObj, job_id: str, customer_id: str | None):
+    """
+    Resubmits a standard scan job that has partial progress stored in S3/DynamoDB.
+    """
+    return ctx['api_client'].job_resume(job_id, customer_id=customer_id)
+
+
 @job.command(cls=ViewCommand, name='submit')
 @build_tenant_option(required=True)
 @click.option('--ruleset', '-rs', type=str, required=False,
