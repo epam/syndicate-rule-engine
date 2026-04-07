@@ -430,6 +430,14 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
                 'Action is allowed only for system user'
             ).exc()
 
+        # if cognito_username exists, cognito_customer & cognito_user_role
+        # exist as well
+        event['tenant_access_payload'] = self._check_permission(
+            customer=cast(str, event['cognito_customer']),
+            role_name=cast(str, event['cognito_user_role']),
+            permission=permission
+        )
+
         # we need to change user role to mcp user role if mcp user is
         # specified in header and exists in Users.
         # It is needed for integration with CodeMie
@@ -441,19 +449,17 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
                     f'permission check'
                 )
                 event['cognito_user_role'] = mcp_user.role
+                event['tenant_access_payload'] = self._check_permission(
+                    customer=cast(str, event['cognito_customer']),
+                    role_name=cast(str, event['cognito_user_role']),
+                    permission=permission
+                )
             else:
                 _LOG.info(
                     f'MCP user with name {mcp_user_name!r} not found. '
-                    f'Using native user role for permission check'
+                    f'Using native user tenant access payload'
                 )
 
-        # if cognito_username exists, cognito_customer & cognito_user_role
-        # exist as well
-        event['tenant_access_payload'] = self._check_permission(
-            customer=cast(str, event['cognito_customer']),
-            role_name=cast(str, event['cognito_user_role']),
-            permission=permission
-        )
         _LOG.debug(f'Resolved tenant access payload: '
                    f'{event["tenant_access_payload"]}')
         return event, context
