@@ -2594,7 +2594,7 @@ wheels = [
 [[package]]
 name = "modular-sdk"
 version = "7.1.11"
-source = { git = "https://github.com/epam/modular-sdk.git?rev=feature%2Ffc-to-tenant-service#36c718a5ab9fe6ccfd33f44a37c1b45471e06b98" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "boto3" },
     { name = "botocore" },
@@ -2603,6 +2603,10 @@ dependencies = [
     { name = "pymongo" },
     { name = "pynamodb" },
     { name = "python-dateutil" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e7/9f/6284c8747976e10bc2c586e141f05bc93de636db4f89bacced447b8074c6/modular_sdk-7.1.11.tar.gz", hash = "sha256:4aa041db19444039c9f7b458f3d1f3bcdabf879d2bbb9649cf605b634a39864c", size = 81691, upload-time = "2026-04-07T14:36:34.288Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/db/c9/8ee4592b0b656503800f391d0479e647fef22fe19a1c7d99d61f9f080cfa/modular_sdk-7.1.11-py3-none-any.whl", hash = "sha256:622c35d5f1424b3545ddb6de3bd574adcd76a0c6381b6ed805709492b70377d2", size = 102503, upload-time = "2026-04-07T14:36:32.487Z" },
 ]
 
 [[package]]
@@ -3652,7 +3656,7 @@ requires-dist = [
     { name = "gunicorn", specifier = "~=23.0.0" },
     { name = "hvac", specifier = "~=2.3.0" },
     { name = "jwcrypto", specifier = "~=1.5.6" },
-    { name = "modular-sdk", git = "https://github.com/epam/modular-sdk.git?rev=feature%2Ffc-to-tenant-service" },
+    { name = "modular-sdk", specifier = "==7.1.11" },
     { name = "msgspec", specifier = "~=0.18.6" },
     { name = "openpyxl", specifier = "~=3.0.10" },
     { name = "pydantic", specifier = "~=2.8.2" },

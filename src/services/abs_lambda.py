@@ -442,6 +442,7 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
         # specified in header and exists in Users.
         # It is needed for integration with CodeMie
         if mcp_user_name := event['headers'].get(MCP_USER_NAME_HEADER):
+            mcp_user_name = mcp_user_name.lower()
             _LOG.info(f'MCP user name from header: {mcp_user_name!r}')
             if mcp_user := self._uc.get_user_by_username(mcp_user_name):
                 _LOG.info(
