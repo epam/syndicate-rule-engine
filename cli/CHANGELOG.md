@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added `sre integrations event_sources` commands: `add`, `describe`, `update`, `delete` for SQS event source management
 - Added default value for the tenant parameter of the command policy add
-- Modular CLI version updated from `3.1.2` to `3.1.4`
+- Version of `modular-cli-sdk` updated from `3.1.2` to `3.1.4`
 
 ### Changed
 - The `tenant` parameter of the command `policy add` changed to required
