@@ -5,9 +5,7 @@ from base64 import standard_b64decode
 from datetime import date, datetime, timedelta, timezone
 from typing import Generator, Literal
 
-from celery.schedules import (
-    BaseSchedule,
-)
+from celery.schedules import BaseSchedule
 from celery.schedules import crontab as celery_crontab
 from celery.schedules import schedule as celery_schedule
 from modular_sdk.commons.constants import Cloud as ModularCloud
@@ -27,7 +25,7 @@ from pydantic import (
 from pydantic.json_schema import SkipJsonSchema, WithJsonSchema
 from typing_extensions import Annotated, Self, override
 
-from helpers import Version
+from helpers import NextToken, Version
 from helpers.constants import (
     GITHUB_API_URL_DEFAULT,
     GITLAB_API_URL_DEFAULT,
@@ -47,7 +45,6 @@ from helpers.constants import (
     ServiceOperationType,
     TopViolationsReportType,
 )
-from helpers import Version, NextToken
 from helpers.regions import AllRegions, AllRegionsWithGlobal
 from helpers.time_helper import utc_datetime
 from models.rule import RuleIndex
@@ -1395,7 +1392,7 @@ class EventPostModel(BaseModel):
             }
         ),
     ] = '1.0.0'
-    vendor: Literal['AWS', 'MAESTRO', 'SRE_K8S_AGENT']
+    vendor: Literal['AWS', 'MAESTRO', 'SRE_K8S_AGENT', 'SRE_K8S_WATCHER']
     events: list[dict]
 
 
@@ -2091,8 +2088,18 @@ class PlatformK8SPostModel(BaseModel):
         return self
 
 
+class PlatformK8SPutModel(BaseModel):
+    event_driven_enabled: bool = Field(
+        description='Enable or disable event-driven processing for platform'
+    )
+
+
 class PlatformK8sQueryModel(BaseModel):
     tenant_name: str = Field(None)
+    event_driven_enabled: bool | None = Field(
+        None,
+        description='Optional filter by platform event-driven status',
+    )
 
 
 class K8sJobPostModel(BaseModel):

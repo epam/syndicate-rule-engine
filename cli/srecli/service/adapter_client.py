@@ -34,6 +34,7 @@ class ApiClient:
     how to build urls and make requests without handling sre-specific
     exceptions
     """
+
     __slots__ = ('_api_link',)
 
     def __init__(self, api_link: str):
@@ -42,8 +43,12 @@ class ApiClient:
         """
         self._api_link = api_link
 
-    def build_url(self, path: str, params: dict | None = None,
-                  query: dict | None = None) -> str:
+    def build_url(
+        self,
+        path: str,
+        params: dict | None = None,
+        query: dict | None = None,
+    ) -> str:
         """
         The methods return full built url which can be used to make request
         :param path: some sre resource. One variable from
@@ -59,8 +64,11 @@ class ApiClient:
         return urljoin(self._api_link, url)
 
     @staticmethod
-    def prepare_request(url: str, method: HTTPMethod, data: dict | None = None
-                        ) -> urllib.request.Request:
+    def prepare_request(
+        url: str,
+        method: HTTPMethod,
+        data: dict | None = None,
+    ) -> urllib.request.Request:
         """
         Prepares request instance. Url must be built beforehand
         :param url:
@@ -73,7 +81,7 @@ class ApiClient:
                 url=url,
                 method=method.value,
                 data=json.dumps(data, separators=(',', ':')).encode(),
-                headers={'Content-Type': 'application/json'}
+                headers={'Content-Type': 'application/json'},
             )
         return urllib.request.Request(url=url, method=method.value)
 
@@ -82,14 +90,26 @@ class ApiClient:
 
 
 class SREResponse:
-    __slots__ = ('method', 'path', 'code', 'data', 'trace_id', 'api_version',
-                 'exc')
+    __slots__ = (
+        'method',
+        'path',
+        'code',
+        'data',
+        'trace_id',
+        'api_version',
+        'exc',
+    )
 
-    def __init__(self, method: HTTPMethod | None = None,
-                 path: Endpoint | None = None,
-                 code: HTTPStatus | None = None, data: dict | None = None,
-                 trace_id: str | None = None, api_version: str | None = None,
-                 exc: Exception | None = None):
+    def __init__(
+        self,
+        method: HTTPMethod | None = None,
+        path: Endpoint | None = None,
+        code: HTTPStatus | None = None,
+        data: dict | None = None,
+        trace_id: str | None = None,
+        api_version: str | None = None,
+        exc: Exception | None = None,
+    ):
         self.method = method
         self.path = path
         self.code = code
@@ -119,9 +139,11 @@ class SREResponse:
         return self.code is not None
 
     @classmethod
-    def build(cls, content: str | list | dict | Iterable,
-              code: HTTPStatus = HTTPStatus.OK
-              ) -> 'SREResponse':
+    def build(
+        cls,
+        content: str | list | dict | Iterable,
+        code: HTTPStatus = HTTPStatus.OK,
+    ) -> 'SREResponse':
         body = {}
         if isinstance(content, str):
             body.update({MESSAGE_ATTR: content})
@@ -143,6 +165,7 @@ class SREApiClient:
     This api client contains sre-specific logic. It uses the ApiClient
     from above for making requests
     """
+
     __slots__ = '_config', '_client', '_auto_refresh'
 
     def __init__(self, config: AbstractSREConfig):
@@ -152,8 +175,11 @@ class SREApiClient:
 
         self._auto_refresh = True
 
-    def add_token(self, rec: urllib.request.Request,
-                  header: str = 'Authorization'):
+    def add_token(
+        self,
+        rec: urllib.request.Request,
+        header: str = 'Authorization',
+    ):
         """
         Adds token to the given request instance. Refreshes the token if needed
         :param header:
@@ -181,8 +207,11 @@ class SREApiClient:
 
         rec.add_header(header, at)
 
-    def _sre_open(self, request: urllib.request.Request,
-                        response: SREResponse) -> None:
+    def _sre_open(
+        self,
+        request: urllib.request.Request,
+        response: SREResponse,
+    ) -> None:
         """
         Sends the given request instance. Fills the response instance with data
         :param request:
@@ -229,7 +258,7 @@ class SREApiClient:
         req = self._client.prepare_request(
             url=self._client.build_url(path.value, path_params, query),
             method=method,
-            data=data
+            data=data,
         )
         self.add_token(req)
         response = SREResponse(method=method, path=path)
@@ -240,10 +269,9 @@ class SREApiClient:
         req = self._client.prepare_request(
             url=self._client.build_url(Endpoint.REFRESH.value),
             method=HTTPMethod.POST,
-            data={'refresh_token': token}
+            data={'refresh_token': token},
         )
-        response = SREResponse(HTTPMethod.POST,
-                                     Endpoint.REFRESH)
+        response = SREResponse(HTTPMethod.POST, Endpoint.REFRESH)
         self._sre_open(req, response)
         return response
 
@@ -251,7 +279,7 @@ class SREApiClient:
         req = self._client.prepare_request(
             url=self._client.build_url(Endpoint.SIGNIN.value),
             method=HTTPMethod.POST,
-            data={'username': username, 'password': password}
+            data={'username': username, 'password': password},
         )
         response = SREResponse(HTTPMethod.POST, Endpoint.SIGNIN)
         self._sre_open(req, response)
@@ -259,22 +287,21 @@ class SREApiClient:
 
     def whoami(self):
         return self.make_request(
-            path=Endpoint.USERS_WHOAMI,
-            method=HTTPMethod.GET
+            path=Endpoint.USERS_WHOAMI, method=HTTPMethod.GET
         )
 
     def customer_get(self, **kwargs):
         return self.make_request(
             path=Endpoint.CUSTOMERS,
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def customer_get_excluded_rules(self, **kwargs):
         return self.make_request(
             path=Endpoint.CUSTOMERS_EXCLUDED_RULES,
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def customer_set_excluded_rules(self, **kwargs):
@@ -283,7 +310,7 @@ class SREApiClient:
         return self.make_request(
             path=Endpoint.CUSTOMERS_EXCLUDED_RULES,
             method=HTTPMethod.PUT,
-            data=dict(kwargs)
+            data=dict(kwargs),
         )
 
     def tenant_get(self, tenant_name: str, **kwargs):
@@ -291,14 +318,12 @@ class SREApiClient:
             path=Endpoint.TENANTS_TENANT_NAME,
             path_params={'tenant_name': tenant_name},
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def tenant_query(self, **kwargs):
         return self.make_request(
-            path=Endpoint.TENANTS,
-            method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            path=Endpoint.TENANTS, method=HTTPMethod.GET, query=sifted(kwargs)
         )
 
     def tenant_get_excluded_rules(self, tenant_name: str, **kwargs):
@@ -306,7 +331,7 @@ class SREApiClient:
             path=Endpoint.TENANTS_TENANT_NAME_EXCLUDED_RULES,
             method=HTTPMethod.GET,
             path_params={'tenant_name': tenant_name},
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def tenant_set_excluded_rules(self, tenant_name: str, **kwargs):
@@ -317,7 +342,7 @@ class SREApiClient:
             path=Endpoint.TENANTS_TENANT_NAME_EXCLUDED_RULES,
             method=HTTPMethod.PUT,
             path_params={'tenant_name': tenant_name},
-            data=dict(kwargs)
+            data=dict(kwargs),
         )
 
     def tenant_get_active_licenses(self, tenant_name: str, **kwargs):
@@ -325,42 +350,38 @@ class SREApiClient:
             path=Endpoint.TENANTS_TENANT_NAME_ACTIVE_LICENSES,
             path_params={'tenant_name': tenant_name},
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def ruleset_get(self, **kwargs):
         return self.make_request(
-            path=Endpoint.RULESETS,
-            method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            path=Endpoint.RULESETS, method=HTTPMethod.GET, query=sifted(kwargs)
         )
 
     def ruleset_post(self, **kwargs):
         return self.make_request(
-            path=Endpoint.RULESETS,
-            method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            path=Endpoint.RULESETS, method=HTTPMethod.POST, data=sifted(kwargs)
         )
 
     def ruleset_update(self, **kwargs):
         return self.make_request(
             path=Endpoint.RULESETS,
             method=HTTPMethod.PATCH,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def ruleset_delete(self, **kwargs):
         return self.make_request(
             path=Endpoint.RULESETS,
             method=HTTPMethod.DELETE,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def ruleset_release(self, **kwargs):
         return self.make_request(
             path=Endpoint.RULESETS_RELEASE,
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def rule_source_get(self, id: str, **kwargs):
@@ -368,21 +389,21 @@ class SREApiClient:
             path=Endpoint.RULE_SOURCES_ID,
             path_params={'id': id},
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def rule_source_query(self, **kwargs):
         return self.make_request(
             path=Endpoint.RULE_SOURCES,
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def rule_source_post(self, **kwargs):
         return self.make_request(
             path=Endpoint.RULE_SOURCES,
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def rule_source_patch(self, id: str, **kwargs):
@@ -390,7 +411,7 @@ class SREApiClient:
             path=Endpoint.RULE_SOURCES_ID,
             path_params={'id': id},
             method=HTTPMethod.PATCH,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def rule_source_delete(self, id: str, **kwargs):
@@ -398,7 +419,7 @@ class SREApiClient:
             path=Endpoint.RULE_SOURCES_ID,
             path_params={'id': id},
             method=HTTPMethod.DELETE,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def rule_source_sync(self, id: str, **kwargs):
@@ -406,21 +427,17 @@ class SREApiClient:
             path=Endpoint.RULE_SOURCES_ID_SYNC,
             path_params={'id': id},
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def rule_get(self, **kwargs):
         return self.make_request(
-            path=Endpoint.RULES,
-            method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            path=Endpoint.RULES, method=HTTPMethod.GET, query=sifted(kwargs)
         )
 
     def rule_delete(self, **kwargs):
         return self.make_request(
-            path=Endpoint.RULES,
-            method=HTTPMethod.DELETE,
-            data=sifted(kwargs)
+            path=Endpoint.RULES, method=HTTPMethod.DELETE, data=sifted(kwargs)
         )
 
     def role_get(self, name, **kwargs):
@@ -428,21 +445,17 @@ class SREApiClient:
             path=Endpoint.ROLES_NAME,
             method=HTTPMethod.GET,
             path_params={'name': name},
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def role_query(self, **kwargs):
         return self.make_request(
-            path=Endpoint.ROLES,
-            method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            path=Endpoint.ROLES, method=HTTPMethod.GET, query=sifted(kwargs)
         )
 
     def role_post(self, **kwargs):
         return self.make_request(
-            path=Endpoint.ROLES,
-            method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            path=Endpoint.ROLES, method=HTTPMethod.POST, data=sifted(kwargs)
         )
 
     def role_patch(self, name, **kwargs):
@@ -450,7 +463,7 @@ class SREApiClient:
             path=Endpoint.ROLES_NAME,
             method=HTTPMethod.PATCH,
             path_params={'name': name},
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def role_delete(self, name, **kwargs):
@@ -458,7 +471,7 @@ class SREApiClient:
             path=Endpoint.ROLES_NAME,
             method=HTTPMethod.DELETE,
             path_params={'name': name},
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def policy_get(self, name, **kwargs):
@@ -466,21 +479,17 @@ class SREApiClient:
             path=Endpoint.POLICIES_NAME,
             method=HTTPMethod.GET,
             path_params={'name': name},
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def policy_query(self, **kwargs):
         return self.make_request(
-            path=Endpoint.POLICIES,
-            method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            path=Endpoint.POLICIES, method=HTTPMethod.GET, query=sifted(kwargs)
         )
 
     def policy_post(self, **kwargs):
         return self.make_request(
-            path=Endpoint.POLICIES,
-            method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            path=Endpoint.POLICIES, method=HTTPMethod.POST, data=sifted(kwargs)
         )
 
     def policy_patch(self, name, **kwargs):
@@ -488,7 +497,7 @@ class SREApiClient:
             path=Endpoint.POLICIES_NAME,
             method=HTTPMethod.PATCH,
             path_params={'name': name},
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def policy_delete(self, name, **kwargs):
@@ -496,21 +505,19 @@ class SREApiClient:
             path=Endpoint.POLICIES_NAME,
             method=HTTPMethod.DELETE,
             path_params={'name': name},
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def service_operations_status(self, service_operation_type: str, **kwargs):
         return self.make_request(
             path=Endpoint.SERVICE_OPERATIONS_STATUS,
             method=HTTPMethod.GET,
-            query=sifted({'type': service_operation_type, **kwargs})
+            query=sifted({'type': service_operation_type, **kwargs}),
         )
 
     def trigger_metrics_update(self):
         return self.make_request(
-            path=Endpoint.METRICS_UPDATE,
-            method=HTTPMethod.POST,
-            data={}
+            path=Endpoint.METRICS_UPDATE, method=HTTPMethod.POST, data={}
         )
 
     def trigger_metadata_update(self, **kwargs):
@@ -524,14 +531,14 @@ class SREApiClient:
         return self.make_request(
             path=Endpoint.RULE_META_UPDATER,
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def job_list(self, **kwargs):
         return self.make_request(
             path=Endpoint.JOBS,
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def job_get(self, job_id: str, **kwargs):
@@ -539,7 +546,7 @@ class SREApiClient:
             path=Endpoint.JOBS_JOB,
             path_params={'job_id': job_id},
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def job_post(self, **kwargs):
@@ -547,7 +554,7 @@ class SREApiClient:
         return self.make_request(
             path=api,
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def job_delete(self, job_id: str, **kwargs):
@@ -555,14 +562,14 @@ class SREApiClient:
             path=Endpoint.JOBS_JOB,
             path_params={'job_id': job_id},
             method=HTTPMethod.DELETE,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def scheduled_job_post(self, **kwargs):
         return self.make_request(
             path=Endpoint.SCHEDULED_JOB,
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def scheduled_job_get(self, name: str, **kwargs):
@@ -570,14 +577,14 @@ class SREApiClient:
             path=Endpoint.SCHEDULED_JOB_NAME,
             path_params={'name': name},
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def scheduled_job_query(self, **kwargs):
         return self.make_request(
             path=Endpoint.SCHEDULED_JOB,
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def scheduled_job_delete(self, name: str, **kwargs):
@@ -585,7 +592,7 @@ class SREApiClient:
             path=Endpoint.SCHEDULED_JOB_NAME,
             path_params={'name': name},
             method=HTTPMethod.DELETE,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def scheduled_job_update(self, name, **kwargs):
@@ -593,49 +600,49 @@ class SREApiClient:
             path=Endpoint.SCHEDULED_JOB_NAME,
             path_params={'name': name},
             method=HTTPMethod.PATCH,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def operational_report_post(self, **kwargs):
         return self.make_request(
             path=Endpoint.REPORTS_OPERATIONAL,
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def project_report_post(self, **kwargs):
         return self.make_request(
             path=Endpoint.REPORTS_PROJECT,
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def department_report_post(self, **kwargs):
         return self.make_request(
             path=Endpoint.REPORTS_DEPARTMENT,
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def c_level_report_post(self, **kwargs):
         return self.make_request(
             path=Endpoint.REPORTS_CLEVEL,
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def diagnostic_report_get(self, **kwargs):
         return self.make_request(
             path=Endpoint.REPORTS_DIAGNOSTIC,
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def report_status_get(self, **kwargs):
         return self.make_request(
             path=Endpoint.REPORTS_STATUS,
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def push_dojo_by_job_id(self, job_id: str, **kwargs):
@@ -643,14 +650,14 @@ class SREApiClient:
             path=Endpoint.REPORTS_PUSH_DOJO_JOB_ID,
             path_params={'job_id': job_id},
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def push_dojo_multiple(self, **kwargs):
         return self.make_request(
             path=Endpoint.REPORTS_PUSH_DOJO,
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def push_chronicle_by_job_id(self, job_id: str, **kwargs):
@@ -658,14 +665,12 @@ class SREApiClient:
             path=Endpoint.REPORTS_PUSH_CHRONICLE_JOB_ID,
             path_params={'job_id': job_id},
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def health_check_list(self, **kwargs):
         return self.make_request(
-            path=Endpoint.HEALTH,
-            method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            path=Endpoint.HEALTH, method=HTTPMethod.GET, query=sifted(kwargs)
         )
 
     def health_check_get(self, _id: str):
@@ -680,21 +685,21 @@ class SREApiClient:
             path=Endpoint.LICENSES_LICENSE_KEY,
             path_params={'license_key': license_key},
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def license_query(self, **kwargs):
         return self.make_request(
             path=Endpoint.LICENSES,
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def license_post(self, **kwargs):
         return self.make_request(
             path=Endpoint.LICENSES,
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def license_delete(self, license_key: str, **kwargs):
@@ -702,29 +707,34 @@ class SREApiClient:
             path=Endpoint.LICENSES_LICENSE_KEY,
             path_params={'license_key': license_key},
             method=HTTPMethod.DELETE,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
-    def license_sync(self, license_key: str, overwrite_rulesets: bool = False, **kwargs):
+    def license_sync(
+        self,
+        license_key: str,
+        overwrite_rulesets: bool = False,
+        **kwargs,
+    ):
         return self.make_request(
             path=Endpoint.LICENSES_LICENSE_KEY_SYNC,
             path_params={'license_key': license_key},
             method=HTTPMethod.POST,
-            data=sifted({'overwrite_rulesets': overwrite_rulesets, **kwargs})
+            data=sifted({'overwrite_rulesets': overwrite_rulesets, **kwargs}),
         )
 
     def mail_setting_get(self, **kwargs):
         return self.make_request(
             path=Endpoint.SETTINGS_MAIL,
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def mail_setting_post(self, **kwargs):
         return self.make_request(
             path=Endpoint.SETTINGS_MAIL,
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def mail_setting_delete(self):
@@ -737,14 +747,14 @@ class SREApiClient:
         return self.make_request(
             path=Endpoint.SETTINGS_SEND_REPORTS,
             method=HTTPMethod.POST,
-            data={'enable': True}
+            data={'enable': True},
         )
 
     def reports_sending_setting_disable(self):
         return self.make_request(
             path=Endpoint.SETTINGS_SEND_REPORTS,
             method=HTTPMethod.POST,
-            data={'enable': False}
+            data={'enable': False},
         )
 
     def lm_config_setting_get(self):
@@ -757,14 +767,14 @@ class SREApiClient:
         return self.make_request(
             path=Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG,
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def lm_config_setting_patch(self, **kwargs):
         return self.make_request(
             path=Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG,
             method=HTTPMethod.PATCH,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def lm_config_setting_delete(self):
@@ -777,35 +787,35 @@ class SREApiClient:
         return self.make_request(
             path=Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def lm_client_setting_post(self, **kwargs):
         return self.make_request(
             path=Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def lm_client_setting_patch(self, **kwargs):
         return self.make_request(
             path=Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
             method=HTTPMethod.PATCH,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def lm_client_setting_delete(self, **kwargs):
         return self.make_request(
             path=Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
             method=HTTPMethod.DELETE,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def event_action(self, **kwargs):
         return self.make_request(
             path=Endpoint.EVENT,
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def report_digest_jobs(self, job_id, **kwargs):
@@ -813,7 +823,7 @@ class SREApiClient:
             path=Endpoint.REPORTS_DIGESTS_JOBS_JOB_ID,
             path_params={'job_id': job_id},
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def report_digest_tenants(self, tenant_name, **kwargs):
@@ -821,7 +831,7 @@ class SREApiClient:
             path=Endpoint.REPORTS_DIGESTS_TENANTS_TENANT_NAME_JOBS,
             path_params={'tenant_name': tenant_name},
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def report_details_jobs(self, job_id, **kwargs):
@@ -829,7 +839,7 @@ class SREApiClient:
             path=Endpoint.REPORTS_DETAILS_JOBS_JOB_ID,
             path_params={'job_id': job_id},
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def report_details_tenants(self, tenant_name, **kwargs):
@@ -837,7 +847,7 @@ class SREApiClient:
             path=Endpoint.REPORTS_DETAILS_TENANTS_TENANT_NAME_JOBS,
             path_params={'tenant_name': tenant_name},
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def report_findings_jobs(self, job_id, **kwargs):
@@ -845,7 +855,7 @@ class SREApiClient:
             path=Endpoint.REPORTS_FINDINGS_JOBS_JOB_ID,
             path_params={'job_id': job_id},
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def report_findings_tenants(self, tenant_name, **kwargs):
@@ -853,7 +863,7 @@ class SREApiClient:
             path=Endpoint.REPORTS_FINDINGS_TENANTS_TENANT_NAME_JOBS,
             path_params={'tenant_name': tenant_name},
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def report_compliance_jobs(self, job_id, **kwargs):
@@ -861,7 +871,7 @@ class SREApiClient:
             path=Endpoint.REPORTS_COMPLIANCE_JOBS_JOB_ID,
             path_params={'job_id': job_id},
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def report_compliance_tenants(self, tenant_name, **kwargs):
@@ -869,7 +879,7 @@ class SREApiClient:
             path=Endpoint.REPORTS_COMPLIANCE_TENANTS_TENANT_NAME,
             path_params={'tenant_name': tenant_name},
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def report_errors_job(self, job_id, **kwargs):
@@ -877,7 +887,7 @@ class SREApiClient:
             path=Endpoint.REPORTS_ERRORS_JOBS_JOB_ID,
             path_params={'job_id': job_id},
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def report_rules_get(self, job_id, **kwargs):
@@ -885,7 +895,7 @@ class SREApiClient:
             path=Endpoint.REPORTS_RULES_JOBS_JOB_ID,
             path_params={'job_id': job_id},
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def report_rules_query(self, tenant_name, **kwargs):
@@ -893,7 +903,7 @@ class SREApiClient:
             path=Endpoint.REPORTS_RULES_TENANTS_TENANT_NAME,
             path_params={'tenant_name': tenant_name},
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def report_resource_latest(self, tenant_name, **kwargs):
@@ -901,7 +911,7 @@ class SREApiClient:
             path=Endpoint.REPORTS_RESOURCES_TENANTS_TENANT_NAME_LATEST,
             path_params={'tenant_name': tenant_name},
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def platform_report_resource_latest(self, platform_id, **kwargs):
@@ -909,7 +919,7 @@ class SREApiClient:
             path=Endpoint.REPORTS_RESOURCES_PLATFORMS_K8S_PLATFORM_ID_LATEST,
             path_params={'platform_id': platform_id},
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def report_resource_jobs(self, tenant_name, **kwargs):
@@ -917,7 +927,7 @@ class SREApiClient:
             path=Endpoint.REPORTS_RESOURCES_TENANTS_TENANT_NAME_JOBS,
             path_params={'tenant_name': tenant_name},
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def report_resource_job(self, job_id, **kwargs):
@@ -925,7 +935,7 @@ class SREApiClient:
             path=Endpoint.REPORTS_RESOURCES_JOBS_JOB_ID,
             path_params={'job_id': job_id},
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def report_raw_tenant(self, tenant_name, **kwargs):
@@ -933,42 +943,42 @@ class SREApiClient:
             path=Endpoint.REPORTS_RAW_TENANTS_TENANT_NAME_STATE_LATEST,
             path_params={'tenant_name': tenant_name},
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def rabbitmq_get(self, **kwargs):
         return self.make_request(
             path=Endpoint.CUSTOMERS_RABBITMQ,
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def rabbitmq_post(self, **kwargs):
         return self.make_request(
             path=Endpoint.CUSTOMERS_RABBITMQ,
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def rabbitmq_delete(self, **kwargs):
         return self.make_request(
             path=Endpoint.CUSTOMERS_RABBITMQ,
             method=HTTPMethod.DELETE,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def event_sources_post(self, **kwargs):
         return self.make_request(
             path=Endpoint.INTEGRATIONS_EVENT_SOURCES,
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def event_sources_list(self, **kwargs):
         return self.make_request(
             path=Endpoint.INTEGRATIONS_EVENT_SOURCES,
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def event_sources_get(self, event_source_id: str, **kwargs):
@@ -976,7 +986,7 @@ class SREApiClient:
             path=Endpoint.INTEGRATIONS_EVENT_SOURCES_ID,
             path_params={'id': event_source_id},
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def event_sources_put(self, event_source_id: str, **kwargs):
@@ -984,7 +994,7 @@ class SREApiClient:
             path=Endpoint.INTEGRATIONS_EVENT_SOURCES_ID,
             path_params={'id': event_source_id},
             method=HTTPMethod.PUT,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def event_sources_delete(self, event_source_id: str, **kwargs):
@@ -992,14 +1002,14 @@ class SREApiClient:
             path=Endpoint.INTEGRATIONS_EVENT_SOURCES_ID,
             path_params={'id': event_source_id},
             method=HTTPMethod.DELETE,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def platform_k8s_create(self, **kwargs):
         return self.make_request(
             path=Endpoint.PLATFORMS_K8S,
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def platform_k8s_delete(self, platform_id: str, **kwargs):
@@ -1007,42 +1017,50 @@ class SREApiClient:
             path=Endpoint.PLATFORMS_K8S_ID,
             path_params={'platform_id': platform_id},
             method=HTTPMethod.DELETE,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def platform_k8s_list(self, **kwargs):
         return self.make_request(
             path=Endpoint.PLATFORMS_K8S,
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
+        )
+
+    def platform_k8s_update(self, platform_id: str, **kwargs):
+        return self.make_request(
+            path=Endpoint.PLATFORMS_K8S_ID,
+            path_params={'platform_id': platform_id},
+            method=HTTPMethod.PUT,
+            data=sifted(kwargs),
         )
 
     def k8s_job_post(self, **kwargs):
         return self.make_request(
             path=Endpoint.JOBS_K8S,
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def resources_get(self, **kwargs) -> SREResponse:
         return self.make_request(
             path=Endpoint.RESOURCES,
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def resources_by_arn_get(self, **kwargs) -> SREResponse:
         return self.make_request(
             path=Endpoint.RESOURCES_ARN,
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def resource_exception_get(self, **kwargs) -> SREResponse:
         return self.make_request(
             path=Endpoint.RESOURCES_EXCEPTIONS,
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def resource_exception_get_by_id(
@@ -1054,14 +1072,14 @@ class SREApiClient:
             path=Endpoint.RESOURCES_EXCEPTIONS_ID,
             method=HTTPMethod.GET,
             path_params={'id': exception_id},
-            query=sifted({'customer_id': customer_id})
+            query=sifted({'customer_id': customer_id}),
         )
 
     def resource_exception_add(self, **kwargs) -> SREResponse:
         return self.make_request(
             path=Endpoint.RESOURCES_EXCEPTIONS,
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def resource_exception_update(
@@ -1073,7 +1091,7 @@ class SREApiClient:
             path=Endpoint.RESOURCES_EXCEPTIONS_ID,
             method=HTTPMethod.PUT,
             path_params={'id': exception_id},
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def resource_exception_delete(
@@ -1092,7 +1110,7 @@ class SREApiClient:
         return self.make_request(
             path=Endpoint.INTEGRATIONS_DEFECT_DOJO,
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def dojo_delete(self, id: str, **kwargs):
@@ -1100,7 +1118,7 @@ class SREApiClient:
             path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID,
             method=HTTPMethod.DELETE,
             path_params={'id': id},
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def dojo_get(self, id: str, **kwargs):
@@ -1108,14 +1126,14 @@ class SREApiClient:
             path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID,
             method=HTTPMethod.GET,
             path_params={'id': id},
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def dojo_query(self, **kwargs):
         return self.make_request(
             path=Endpoint.INTEGRATIONS_DEFECT_DOJO,
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def dojo_activate(self, id: str, **kwargs):
@@ -1123,7 +1141,7 @@ class SREApiClient:
             path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION,
             method=HTTPMethod.PUT,
             path_params={'id': id},
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def dojo_deactivate(self, id: str, **kwargs):
@@ -1131,7 +1149,7 @@ class SREApiClient:
             path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION,
             method=HTTPMethod.DELETE,
             path_params={'id': id},
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def dojo_get_activation(self, id: str, **kwargs):
@@ -1139,7 +1157,7 @@ class SREApiClient:
             path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION,
             method=HTTPMethod.GET,
             path_params={'id': id},
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def dojo_update(self, id: str, **kwargs):
@@ -1147,35 +1165,35 @@ class SREApiClient:
             path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION,
             method=HTTPMethod.PATCH,
             path_params={'id': id},
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def sre_add(self, **kwargs):
         return self.make_request(
             path=Endpoint.INTEGRATIONS_SELF,
             method=HTTPMethod.PUT,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def sre_update(self, **kwargs):
         return self.make_request(
             path=Endpoint.INTEGRATIONS_SELF,
             method=HTTPMethod.PATCH,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def sre_describe(self, **kwargs):
         return self.make_request(
             path=Endpoint.INTEGRATIONS_SELF,
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def sre_delete(self, **kwargs):
         return self.make_request(
             path=Endpoint.INTEGRATIONS_SELF,
             method=HTTPMethod.DELETE,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def license_activate(self, license_key: str, **kwargs):
@@ -1183,7 +1201,7 @@ class SREApiClient:
             path=Endpoint.LICENSE_LICENSE_KEY_ACTIVATION,
             method=HTTPMethod.PUT,
             path_params={'license_key': license_key},
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def license_deactivate(self, license_key: str, **kwargs):
@@ -1191,7 +1209,7 @@ class SREApiClient:
             path=Endpoint.LICENSE_LICENSE_KEY_ACTIVATION,
             method=HTTPMethod.DELETE,
             path_params={'license_key': license_key},
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def license_get_activation(self, license_key: str, **kwargs):
@@ -1199,7 +1217,7 @@ class SREApiClient:
             path=Endpoint.LICENSE_LICENSE_KEY_ACTIVATION,
             method=HTTPMethod.GET,
             path_params={'license_key': license_key},
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def license_update_activation(self, license_key: str, **kwargs):
@@ -1207,7 +1225,7 @@ class SREApiClient:
             path=Endpoint.LICENSE_LICENSE_KEY_ACTIVATION,
             method=HTTPMethod.PATCH,
             path_params={'license_key': license_key},
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def get_credentials(self, application_id: str, **kwargs):
@@ -1215,14 +1233,14 @@ class SREApiClient:
             path=Endpoint.CREDENTIALS_ID,
             method=HTTPMethod.GET,
             path_params={'id': application_id},
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def query_credentials(self, **kwargs):
         return self.make_request(
             path=Endpoint.CREDENTIALS,
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def credentials_bind(self, application_id: str, **kwargs):
@@ -1230,7 +1248,7 @@ class SREApiClient:
             path=Endpoint.CREDENTIALS_ID_BINDING,
             method=HTTPMethod.PUT,
             path_params={'id': application_id},
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def credentials_unbind(self, application_id: str, **kwargs):
@@ -1238,7 +1256,7 @@ class SREApiClient:
             path=Endpoint.CREDENTIALS_ID_BINDING,
             method=HTTPMethod.DELETE,
             path_params={'id': application_id},
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def credentials_get_binding(self, application_id: str, **kwargs):
@@ -1246,7 +1264,7 @@ class SREApiClient:
             path=Endpoint.CREDENTIALS_ID_BINDING,
             method=HTTPMethod.GET,
             path_params={'id': application_id},
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def get_user(self, username: str):
@@ -1261,7 +1279,7 @@ class SREApiClient:
             path=Endpoint.USERS_USERNAME,
             path_params={'username': username},
             method=HTTPMethod.PATCH,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def delete_user(self, username: str, **kwargs):
@@ -1269,35 +1287,35 @@ class SREApiClient:
             path=Endpoint.USERS_USERNAME,
             path_params={'username': username},
             method=HTTPMethod.DELETE,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def query_user(self, **kwargs):
         return self.make_request(
             path=Endpoint.USERS,
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def create_user(self, **kwargs):
         return self.make_request(
             path=Endpoint.USERS,
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def reset_password(self, **kwargs):
         return self.make_request(
             path=Endpoint.USERS_RESET_PASSWORD,
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def chronicle_add(self, **kwargs):
         return self.make_request(
             path=Endpoint.INTEGRATIONS_CHRONICLE,
             method=HTTPMethod.POST,
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def chronicle_delete(self, id: str, **kwargs):
@@ -1305,7 +1323,7 @@ class SREApiClient:
             path=Endpoint.INTEGRATIONS_CHRONICLE_ID,
             method=HTTPMethod.DELETE,
             path_params={'id': id},
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def chronicle_get(self, id: str, **kwargs):
@@ -1313,14 +1331,14 @@ class SREApiClient:
             path=Endpoint.INTEGRATIONS_CHRONICLE_ID,
             method=HTTPMethod.GET,
             path_params={'id': id},
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def chronicle_query(self, **kwargs):
         return self.make_request(
             path=Endpoint.INTEGRATIONS_CHRONICLE,
             method=HTTPMethod.GET,
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )
 
     def chronicle_activate(self, id: str, **kwargs):
@@ -1328,7 +1346,7 @@ class SREApiClient:
             path=Endpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION,
             method=HTTPMethod.PUT,
             path_params={'id': id},
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def chronicle_deactivate(self, id: str, **kwargs):
@@ -1336,7 +1354,7 @@ class SREApiClient:
             path=Endpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION,
             method=HTTPMethod.DELETE,
             path_params={'id': id},
-            data=sifted(kwargs)
+            data=sifted(kwargs),
         )
 
     def chronicle_get_activation(self, id: str, **kwargs):
@@ -1344,5 +1362,5 @@ class SREApiClient:
             path=Endpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION,
             method=HTTPMethod.GET,
             path_params={'id': id},
-            query=sifted(kwargs)
+            query=sifted(kwargs),
         )

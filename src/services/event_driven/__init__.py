@@ -1,7 +1,7 @@
 from .adapters import (
     BaseEventAdapter,
     EventBridgeEventAdapter,
-    K8sAgentEventAdapter,
+    K8sNativeEventAdapter,
     MaestroEventAdapter,
 )
 from .domain import (
@@ -26,24 +26,25 @@ from .services import (
     IngestResult,
 )
 
+
 __all__ = (
-    "EventRecord",
-    "FailedEvent",
-    "EventGenericRecord",
-    "VendorKind",
-    "CloudType",
-    "RegionNameType",
-    "TenantNameType",
-    "RuleNameType",
-    "BaseEventAdapter",
-    "EventBridgeEventAdapter",
-    "K8sAgentEventAdapter",
-    "MaestroEventAdapter",
-    "EventMappingBucketKeys",
-    "S3EventMappingProvider",
-    "EventMappingCollector",
-    "EventStoreService",
-    "EventIngestService",
-    "IngestResult",
-    "EventDrivenRulesService",
+    'EventRecord',
+    'FailedEvent',
+    'EventGenericRecord',
+    'VendorKind',
+    'CloudType',
+    'RegionNameType',
+    'TenantNameType',
+    'RuleNameType',
+    'BaseEventAdapter',
+    'EventBridgeEventAdapter',
+    'K8sNativeEventAdapter',
+    'MaestroEventAdapter',
+    'EventMappingBucketKeys',
+    'S3EventMappingProvider',
+    'EventMappingCollector',
+    'EventStoreService',
+    'EventIngestService',
+    'IngestResult',
+    'EventDrivenRulesService',
 )

@@ -11,7 +11,7 @@ Minimal request wrapper:
 ```json
 {
   "version": "1.0.0",
-  "vendor": "AWS | MAESTRO",
+  "vendor": "AWS | MAESTRO | SRE_K8S_AGENT | SRE_K8S_WATCHER",
   "events": [ ... ]
 }
 ```
@@ -90,11 +90,40 @@ Example:
 {
   "version": "1.0.0",
   "vendor": "SRE_K8S_AGENT",
-  "platformId": "5d18b222-9aa5-454f-8736-587cc39de3f8",
   "events": [
     {
       "type": "Pod",
       "reason": "PodDeleted",
+      "platformId": "5d18b222-9aa5-454f-8736-587cc39de3f8"
+    }
+  ]
+}
+```
+
+### SRE K8S Watcher (`vendor = "SRE_K8S_WATCHER"`)
+
+Events produced by the built-in K8s watch connector (pull model). The
+`event_sources_consumer` opens a persistent `GET /api/v1/events?watch=true`
+connection to each registered K8s cluster and translates the raw watch stream
+into the same shape as `SRE_K8S_AGENT` events.
+
+Fields used for processing:
+
+- `platformId` — resolved from the event source configuration
+- `type` — `involvedObject.kind` from the K8s watch event
+- `reason` — `reason` from the K8s watch event
+
+Example:
+
+```json
+{
+  "version": "1.0.0",
+  "vendor": "SRE_K8S_WATCHER",
+  "events": [
+    {
+      "type": "Pod",
+      "reason": "Scheduled",
+      "platformId": "5d18b222-9aa5-454f-8736-587cc39de3f8"
     }
   ]
 }

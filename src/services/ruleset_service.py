@@ -15,6 +15,7 @@ from helpers.constants import (
     RULES_NUMBER,
     VERSION_ATTR,
 )
+from helpers.log_helper import get_logger
 from helpers.system_customer import SystemCustomer
 from helpers.time_helper import utc_iso
 from models.ruleset import (
@@ -24,6 +25,9 @@ from models.ruleset import (
 )
 from services.base_data_service import BaseDataService
 from services.clients.s3 import S3Client
+
+
+_LOG = get_logger(__name__)
 
 
 class RulesetService(BaseDataService[Ruleset]):
@@ -36,6 +40,7 @@ class RulesetService(BaseDataService[Ruleset]):
         base = f'{SystemCustomer.get_name()}{COMPOUND_KEYS_SEPARATOR}{RULESET_LICENSES}{COMPOUND_KEYS_SEPARATOR}'
         if name:
             base += f'{name}{COMPOUND_KEYS_SEPARATOR}'
+        _LOG.debug('Build licensed ID: %s with name: %s', base, name)
         return base
 
     def iter_licensed(

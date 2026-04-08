@@ -3627,6 +3627,9 @@ c7n = [
     { name = "c7n-gcp" },
     { name = "c7n-kube" },
 ]
+event-sources-consumer = [
+    { name = "kubernetes" },
+]
 lint = [
     { name = "mypy" },
 ]
@@ -3680,6 +3683,7 @@ c7n = [
     { name = "c7n-gcp", specifier = "==0.4.48" },
     { name = "c7n-kube", specifier = "==0.2.48" },
 ]
+event-sources-consumer = [{ name = "kubernetes", specifier = "~=33.1.0" }]
 lint = [{ name = "mypy", specifier = ">=1.19.1" }]
 test = [
     { name = "coverage", specifier = ">=7.6.12" },

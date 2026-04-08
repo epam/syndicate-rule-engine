@@ -10,7 +10,7 @@ ENV UV_LINK_MODE=copy \
     UV_NO_INSTALLER_METADATA=1 \
     UV_COMPILE_BYTECODE=1
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-install-project --no-editable --group=c7n --compile-bytecode
+    uv sync --frozen --no-install-project --no-editable --group=c7n --group=event-sources-consumer --compile-bytecode
 
 COPY src /src/
 RUN chmod +x /src/entrypoint.sh /src/main.py && \
