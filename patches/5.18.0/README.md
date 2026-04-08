@@ -1,4 +1,4 @@
-# Patch 5.13.0 - Reports Path Migration
+# Patch 5.18.0 - Reports Path Migration
 
 ## Purpose
 
@@ -6,9 +6,9 @@ This patch migrates existing reports in the S3/MinIO bucket from the old path st
 
 ### Path Structure Change
 
-**Old path:** `reports/{customer}/{cloud}/{platform.platform_id}/...`
+**Old path:** `reports/raw/{customer}/KUBERNETES/{platform.platform_id}/...`
 
-**New path:** `reports/{customer}/{cloud}/{platform.id}/...`
+**New path:** `reports/raw/{customer}/KUBERNETES/{platform.id}/...`
 
 ## Prerequisites
 
@@ -21,7 +21,7 @@ This patch migrates existing reports in the S3/MinIO bucket from the old path st
 This patch requires access to the main SRE codebase. Build from the ROOT sre context:
 
 ```bash
-export PATCH_VERSION=5.13.0
+export PATCH_VERSION=5.18.0
 
 # For AMD64
 podman build --platform linux/amd64 \
