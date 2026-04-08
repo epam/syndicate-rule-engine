@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Expanded the list of job error codes and messages
 - Changed terminal job status to `INTERRUPTED` instead of `FAILED`
+- Changed the platforms reports storing 
 
 ### Fixed
 - Fixed on-prem API not passing query params (e.g. `customer_id`) for non-GET requests (DELETE, PUT, etc.)
