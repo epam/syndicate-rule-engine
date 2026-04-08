@@ -146,7 +146,6 @@ class K8sWatchConnector(BaseConnector):
         finally:
             self._active_watch = None
             w.stop()
-            buf.shutdown()
             buf.flush_all_pending(flush_callback=flush_callback)
 
     def _handle_watch_event(

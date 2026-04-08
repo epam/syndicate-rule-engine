@@ -21,8 +21,6 @@ class K8sWatchIngestBuffer:
     __slots__ = (
         '_batch_max',
         '_batch_wait',
-        '_cursor_key',
-        '_cursor_storage',
         '_queue',
         '_lock',
         '_wake',
