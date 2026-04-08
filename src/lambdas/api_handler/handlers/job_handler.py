@@ -1,11 +1,12 @@
 from datetime import timedelta
 from http import HTTPStatus
 from itertools import chain
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from botocore.exceptions import ClientError
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.tenant_service import TenantService
+from pynamodb.expressions.condition import Condition
 from typing_extensions import Self
 
 from handlers import AbstractHandler, Mapping
@@ -25,6 +26,7 @@ from helpers.log_helper import get_logger
 from helpers.mixins import SubmitJobToBatchMixin
 from helpers.system_customer import SystemCustomer
 from executor.job.scan import scan_is_resumable
+from models.job import Job
 from models.ruleset import Ruleset
 from services import SERVICE_PROVIDER, cache, modular_helpers
 from services.abs_lambda import ProcessedEvent
@@ -166,6 +168,23 @@ class JobHandler(AbstractHandler, SubmitJobToBatchMixin):
                 .exc()
             )
         return tenant
+
+    @staticmethod
+    def _tenant_access_filter_condition(
+        tap: TenantsAccessPayload,
+    ) -> tuple[Condition | None, bool]:
+        """
+        Build a filter for jobs visible under tap.
+        """
+        allowed, denied = tap.allowed_denied()
+        if allowed is not TenantsAccessPayload.ALL:
+            if not allowed:
+                return None, True
+            allow_names = cast(tuple[str, ...], allowed)
+            return Job.tenant_name.is_in(*allow_names), False
+        if denied:
+            return ~Job.tenant_name.is_in(*denied), False
+        return None, False
 
     def _get_tenant_licenses(self, tenant: Tenant) -> tuple[License, ...]:
         if tenant.name in self._tenant_licenses:
@@ -638,8 +657,9 @@ class JobHandler(AbstractHandler, SubmitJobToBatchMixin):
         return target_regions
 
     @validate_kwargs
-    def query(self, event: JobGetModel):
+    def query(self, event: JobGetModel, _tap: TenantsAccessPayload):
         if event.tenant_name:
+            self._obtain_tenant(event.tenant_name, _tap, event.customer)
             cursor = self._job_service.get_by_tenant_name(
                 tenant_name=event.tenant_name,
                 status=event.status,
@@ -650,7 +670,16 @@ class JobHandler(AbstractHandler, SubmitJobToBatchMixin):
                     event.next_token
                 ).value,
             )
+            jobs = list(cursor)
         else:
+            tap_fc, no_jobs = self._tenant_access_filter_condition(_tap)
+            if no_jobs:
+                _LOG.debug('No tenants are allowed, returning empty result')
+                return (
+                    ResponseFactory()
+                    .items(it=(), next_token=NextToken())
+                    .build()
+                )
             cursor = self._job_service.get_by_customer_name(
                 customer_name=event.customer,
                 status=event.status,
@@ -660,8 +689,9 @@ class JobHandler(AbstractHandler, SubmitJobToBatchMixin):
                 last_evaluated_key=NextToken.deserialize(
                     event.next_token
                 ).value,
+                filter_condition=tap_fc,
             )
-        jobs = list(cursor)
+            jobs = list(cursor)
         return (
             ResponseFactory()
             .items(
