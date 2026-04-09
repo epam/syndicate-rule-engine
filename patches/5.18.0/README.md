@@ -20,6 +20,22 @@ This patch migrates existing Kubernetes platform reports in the S3/MinIO bucket 
 - Access to MongoDB with `Parents` collection containing `PLATFORM_K8S` documents
 - Environment variables properly configured (see below)
 
+| Argument  | Description                                                |
+|:----------|:-----------------------------------------------------------|
+| --dry-run | Preview changes without making any modifications           |
+| --force   | Process platforms with duplicate names (see warning below) |
+
+
+| Variable                    | Required | Description                                    |
+|:----------------------------|:---------|:-----------------------------------------------|
+| REPORTS_BUCKET_NAME         | Yes      | Name of the S3/MinIO bucket containing reports |
+| SRE_MINIO_ENDPOINT          | Yes      | MinIO/S3 endpoint URL                          |
+| SRE_MINIO_ACCESS_KEY_ID     | Yes      | MinIO/S3 access key                            |
+| SRE_MINIO_SECRET_ACCESS_KEY | Yes      | MinIO/S3 secret key                            |
+| SRE_MONGO_URI               | Yes      | MongoDB connection URI                         |
+| SRE_MONGO_DB_NAME           | Yes      | MongoDB database name                          |
+
+
 ## Building
 
 This patch requires access to the main SRE codebase. Build from the **ROOT** SRE context:
