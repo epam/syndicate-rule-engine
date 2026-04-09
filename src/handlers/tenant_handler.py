@@ -1,12 +1,13 @@
 from http import HTTPStatus
 from itertools import islice
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 import uuid
 
 from botocore.exceptions import ClientError
 from modular_sdk.models.parent import Parent
 from modular_sdk.models.region import RegionModel
 from modular_sdk.models.tenant import Tenant
+from pynamodb.expressions.condition import Condition
 
 from handlers import AbstractHandler, Mapping
 from helpers import NextToken
@@ -27,6 +28,7 @@ from helpers.time_helper import utc_iso
 from services import SP
 from services import modular_helpers
 from services.license_service import License, LicenseService
+from services.rbac_service import TenantsAccessPayload
 from validators.swagger_request_models import (
     BaseModel,
     MultipleTenantsGetModel,
@@ -121,13 +123,27 @@ class TenantHandler(AbstractHandler):
         return build_response(self.get_dto(tenant))
 
     @validate_kwargs
-    def query(self, event: MultipleTenantsGetModel):
+    def query(
+        self,
+        event: MultipleTenantsGetModel,
+        _tap: TenantsAccessPayload,
+    ):
+        tap_fc, no_tn = self._tenant_access_filter_condition(_tap)
+        if no_tn:
+            _LOG.debug('No tenants are allowed, returning empty result')
+            return (
+                ResponseFactory()
+                .items(it=(), next_token=NextToken())
+                .build()
+            )
+
         cursor = self._ts.i_get_tenant_by_customer(
             customer_id=event.customer,
             active=event.active,
             cloud=event.cloud.value if event.cloud else None,
+            filter_condition=tap_fc,
             limit=event.limit,
-            last_evaluated_key=NextToken.deserialize(event.next_token).value
+            last_evaluated_key=NextToken.deserialize(event.next_token).value,
         )
         items = list(cursor)
         return ResponseFactory(HTTPStatus.OK).items(
@@ -290,3 +306,19 @@ class TenantHandler(AbstractHandler):
         data['tenant_name'] = tenant.name
         return build_response(data)
 
+    @staticmethod
+    def _tenant_access_filter_condition(
+        tap: TenantsAccessPayload,
+    ) -> tuple[Condition | None, bool]:
+        """
+        Build a filter for tenants visible under tap.
+        """
+        allowed, denied = tap.allowed_denied()
+        if allowed is not TenantsAccessPayload.ALL:
+            if not allowed:
+                return None, True
+            allow_names = cast(tuple[str, ...], allowed)
+            return Tenant.name.is_in(*allow_names), False
+        if denied:
+            return ~Tenant.name.is_in(*denied), False
+        return None, False
