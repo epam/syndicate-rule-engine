@@ -1,7 +1,7 @@
 import logging
 import os
 import sys
-from collections import defaultdict
+from typing import Iterator
 
 import pymongo
 from pymongo import MongoClient
@@ -33,7 +33,7 @@ def _init_minio_s3():
     assert access_key, 'minio access key is required'
     assert secret_key, 'minio secret key is required'
 
-    client = SP.s3.client()
+    client = SP.s3.client
     _LOG.info('MinIO connection was successfully initialized')
     return client
 
@@ -48,31 +48,24 @@ def _init_mongo() -> Database:
     return client.get_database(db)
 
 
-def iter_bucket_objects(client, bucket: str, key: str) -> Iterator[str]:
-    """Iterate over all object keys with given key."""
-    paginator = client.client.get_paginator('list_objects_v2')
-    for page in paginator.paginate(Bucket=bucket, Prefix=key):
-        for obj in page.get('Contents', []):
-            yield obj['Key']
-
-
-def check_key_exists(client, bucket: str, source_key: str) -> tuple[bool, int]:
+def check_key_exists(client, bucket: str, source_key: str) -> bool:
     """
-    Check if any objects exist under the given key.
-    Returns (exists: bool, count: int)
+    Check if any objects exist under the given prefix.
+    Returns True if at least one object exists, False otherwise.
     """
-    count = 0
-    for _ in iter_bucket_objects(client, bucket, source_key):
-        count += 1
-        if count > 0:
-            # We found at least one object
-            break
-
-    # Get full count if exists
-    if count > 0:
-        count = sum(1 for _ in iter_bucket_objects(client, bucket, source_key))
-
-    return count > 0, count
+    try:
+        response = client.list_objects_v2(
+            Bucket=bucket,
+            Prefix=source_key,
+            MaxKeys=1  # We only need to know if at least one exists
+        )
+        if response.get('KeyCount', 0) > 0:
+            return True
+        else:
+            return False
+    except Exception as e:
+        _LOG.error(f'Error checking if key exists {source_key}: {e}')
+        return False
 
 
 def find_duplicate_platform_ids(platform_documents: list) -> set:
@@ -80,7 +73,7 @@ def find_duplicate_platform_ids(platform_documents: list) -> set:
     Find platforms with duplicate platform_id (name-region combinations).
     Returns a set of document PIDs that duplicated.
     """
-    checked_platform = defaultdict("")
+    checked_platform: dict[str, str] = dict()
     duplicates = set()
 
     for doc in platform_documents:
@@ -133,11 +126,6 @@ def migrate_platform_reports(client: S3Client,
 
     _LOG.info(f'Found {len(platform_parent_collection)} platform(s) that may need migration')
 
-    if not platform_parent_collection:
-        _LOG.info('No platforms require path migration (platform_id == id for all)')
-        return False
-    _LOG.info(f'Found {len(platform_parent_collection)} platform(s) that may need migration')
-
     # Check for duplicate platform_ids
     duplicates = find_duplicate_platform_ids(platform_parent_collection)
 
@@ -174,18 +162,16 @@ def migrate_platform_reports(client: S3Client,
             stats['duplicate_skipped'] += 1
             continue
 
-        source_key = f'{base_prefix}/{customer}/KUBERNETES/{platform_id}/'
-        dest_key = f'{base_prefix}/{customer}/KUBERNETES/{pid}/'
+        source_key = f'{base_prefix}{customer}/KUBERNETES/{platform_id}/'
+        dest_key = f'{base_prefix}{customer}/KUBERNETES/{pid}/'
         try:
-
             # Check if source key has any objects
-            exists, obj_count = check_key_exists(client, target_bucket, source_key)
+            exists = check_key_exists(client, target_bucket, source_key)
 
             if not exists:
                 _LOG.info(f'No objects found at source: {source_key}, skipping')
                 stats['no_source'] += 1
                 continue
-            _LOG.info(f'Found {obj_count} object(s) at source: {source_key}')
 
             if dry_run:
                 _LOG.info(f'[DRY RUN] Would move: {source_key} -> {dest_key}')
@@ -204,7 +190,6 @@ def migrate_platform_reports(client: S3Client,
                 key=source_key
             )
             stats['migrated'] += 1
-
         except Exception as e:
             _LOG.error(f'Failed to move 0{source_key}: {e}')
             stats['errors'] += 1

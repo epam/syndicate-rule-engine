@@ -41,7 +41,7 @@ This patch migrates existing Kubernetes platform reports in the S3/MinIO bucket 
 This patch requires access to the main SRE codebase. Build from the **ROOT** SRE context:
 
 ```bash
-export PATCH_VERSION=5.13.0
+export PATCH_VERSION=5.18.0
 
 # For AMD64
 podman build --platform linux/amd64 \
@@ -54,3 +54,16 @@ podman build --platform linux/arm64 \
   -f ./patches/${PATCH_VERSION}/Dockerfile .
 
 
+$env:PYTHONPATH = "C:\Users\DemianDiakulych\PycharmProjects\syndicate-rule-engine\src".
+# Set environment variables first
+$env:REPORTS_BUCKET_NAME = "reports"
+$env:SRE_MINIO_ENDPOINT = "http://localhost:9000"
+$env:SRE_MINIO_ACCESS_KEY_ID = "minioadmin"
+$env:SRE_MINIO_SECRET_ACCESS_KEY = "minioadmin"
+$env:SRE_MONGO_URI = "mongodb://localhost:27017"
+$env:SRE_MONGO_DB_NAME = "sre_db"
+
+# Then run
+python patches\5.18.0\main.py --dry-run
+
+python .\patches\5.18.0\main.py --dry-run
