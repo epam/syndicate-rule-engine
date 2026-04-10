@@ -66,7 +66,7 @@ class EventConsumerEnv(EnvEnum):
     K8S_BATCH_WAIT_SECONDS = (
         f'{PREFIX}_K8S_BATCH_WAIT_SECONDS',
         (),
-        '2',
+        '3',
     )
 
     # Redis (K8s event dedupe)
