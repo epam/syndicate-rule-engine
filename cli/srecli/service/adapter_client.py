@@ -323,7 +323,9 @@ class SREApiClient:
 
     def tenant_query(self, **kwargs):
         return self.make_request(
-            path=Endpoint.TENANTS, method=HTTPMethod.GET, query=sifted(kwargs)
+            path=Endpoint.TENANTS,
+            method=HTTPMethod.GET,
+            query=sifted(kwargs),
         )
 
     def tenant_get_excluded_rules(self, tenant_name: str, **kwargs):
@@ -355,12 +357,16 @@ class SREApiClient:
 
     def ruleset_get(self, **kwargs):
         return self.make_request(
-            path=Endpoint.RULESETS, method=HTTPMethod.GET, query=sifted(kwargs)
+            path=Endpoint.RULESETS,
+            method=HTTPMethod.GET,
+            query=sifted(kwargs),
         )
 
     def ruleset_post(self, **kwargs):
         return self.make_request(
-            path=Endpoint.RULESETS, method=HTTPMethod.POST, data=sifted(kwargs)
+            path=Endpoint.RULESETS,
+            method=HTTPMethod.POST,
+            data=sifted(kwargs),
         )
 
     def ruleset_update(self, **kwargs):
@@ -432,12 +438,16 @@ class SREApiClient:
 
     def rule_get(self, **kwargs):
         return self.make_request(
-            path=Endpoint.RULES, method=HTTPMethod.GET, query=sifted(kwargs)
+            path=Endpoint.RULES,
+            method=HTTPMethod.GET,
+            query=sifted(kwargs),
         )
 
     def rule_delete(self, **kwargs):
         return self.make_request(
-            path=Endpoint.RULES, method=HTTPMethod.DELETE, data=sifted(kwargs)
+            path=Endpoint.RULES,
+            method=HTTPMethod.DELETE,
+            data=sifted(kwargs),
         )
 
     def role_get(self, name, **kwargs):
@@ -450,12 +460,16 @@ class SREApiClient:
 
     def role_query(self, **kwargs):
         return self.make_request(
-            path=Endpoint.ROLES, method=HTTPMethod.GET, query=sifted(kwargs)
+            path=Endpoint.ROLES,
+            method=HTTPMethod.GET,
+            query=sifted(kwargs),
         )
 
     def role_post(self, **kwargs):
         return self.make_request(
-            path=Endpoint.ROLES, method=HTTPMethod.POST, data=sifted(kwargs)
+            path=Endpoint.ROLES,
+            method=HTTPMethod.POST,
+            data=sifted(kwargs),
         )
 
     def role_patch(self, name, **kwargs):
@@ -484,12 +498,16 @@ class SREApiClient:
 
     def policy_query(self, **kwargs):
         return self.make_request(
-            path=Endpoint.POLICIES, method=HTTPMethod.GET, query=sifted(kwargs)
+            path=Endpoint.POLICIES,
+            method=HTTPMethod.GET,
+            query=sifted(kwargs),
         )
 
     def policy_post(self, **kwargs):
         return self.make_request(
-            path=Endpoint.POLICIES, method=HTTPMethod.POST, data=sifted(kwargs)
+            path=Endpoint.POLICIES,
+            method=HTTPMethod.POST,
+            data=sifted(kwargs),
         )
 
     def policy_patch(self, name, **kwargs):
@@ -517,7 +535,9 @@ class SREApiClient:
 
     def trigger_metrics_update(self):
         return self.make_request(
-            path=Endpoint.METRICS_UPDATE, method=HTTPMethod.POST, data={}
+            path=Endpoint.METRICS_UPDATE,
+            method=HTTPMethod.POST,
+            data={},
         )
 
     def trigger_metadata_update(self, **kwargs):
@@ -678,7 +698,9 @@ class SREApiClient:
 
     def health_check_list(self, **kwargs):
         return self.make_request(
-            path=Endpoint.HEALTH, method=HTTPMethod.GET, query=sifted(kwargs)
+            path=Endpoint.HEALTH,
+            method=HTTPMethod.GET,
+            query=sifted(kwargs),
         )
 
     def health_check_get(self, _id: str):
@@ -1039,7 +1061,7 @@ class SREApiClient:
         return self.make_request(
             path=Endpoint.PLATFORMS_K8S_ID,
             path_params={'platform_id': platform_id},
-            method=HTTPMethod.PUT,
+            method=HTTPMethod.PATCH,
             data=sifted(kwargs),
         )
 

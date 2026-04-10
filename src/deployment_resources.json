@@ -6084,7 +6084,7 @@
             }
           ]
         },
-        "PUT": {
+        "PATCH": {
           "integration_type": "lambda",
           "enable_proxy": true,
           "lambda_alias": "${lambdas_alias_name}",

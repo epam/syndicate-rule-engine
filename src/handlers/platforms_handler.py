@@ -72,7 +72,7 @@ class PlatformsHandler(AbstractHandler):
             },
             Endpoint.PLATFORMS_K8S_ID: {
                 HTTPMethod.GET: self.get_k8s,
-                HTTPMethod.PUT: self.put_k8s,
+                HTTPMethod.PATCH: self.patch_k8s,
                 HTTPMethod.DELETE: self.delete_k8s,
             },
         }
@@ -153,7 +153,7 @@ class PlatformsHandler(AbstractHandler):
         return build_response(content=self._ps.dto(platform))
 
     @validate_kwargs
-    def put_k8s(self, event: PlatformK8SPutModel, platform_id: str):
+    def patch_k8s(self, event: PlatformK8SPutModel, platform_id: str):
         platform = self._ps.get_nullable(hash_key=platform_id)
         if not platform:
             raise (

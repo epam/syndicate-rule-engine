@@ -78,13 +78,6 @@ class K8sWatchConnector(BaseConnector):
         else:
             raw_kubeconfig = kubeconfig.raw
 
-        # TODO: remove after after testing
-        # try:
-        #     cluster = raw_kubeconfig['clusters'][0]['cluster']
-        #     cluster['server'] = 'https://127.0.0.1:6443'
-        # except (KeyError, IndexError, TypeError) as e:
-        #     _LOG.warning('Could not patch kubeconfig server URL: %s', e)
-
         self._api_client = config.new_client_from_config_dict(raw_kubeconfig)
         self._core_v1 = client.CoreV1Api(self._api_client)
 

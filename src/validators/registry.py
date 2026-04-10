@@ -1317,7 +1317,7 @@ data: tuple[EndpointInfo, ...] = (
     ),
     EndpointInfo(
         path=Endpoint.PLATFORMS_K8S_ID,
-        method=HTTPMethod.PUT,
+        method=HTTPMethod.PATCH,
         lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
         request_model=PlatformK8SPutModel,
         responses=[(HTTPStatus.OK, SingleK8SPlatformModel, None)],
