@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the ability to resume stuck jobs using intermediate data by `POST /jobs/{job_id}/resume` endpoint
 - Added tenant scope restrictions to endpoints `GET /tenants`, `GET /jobs`, and `GET /platforms/k8s`
 - Added resolving of tenant access payload for MCP users (via the header `X-Sre-Mcp-User-Name`)
+- Added support for K8S event-driven
+- Added two new vendors for K8S `SRE_K8S_AGENT` and `SRE_K8S_WATCHER` (see `docs/event_driven.md` for more details)
+- Added new endpoint `PUT /platforms/k8s/{platform_id}` to enable/disable K8S event-driven
 
 ### Fixed
 - Fixed on-prem API not passing query params (e.g. `customer_id`) for non-GET requests (DELETE, PUT, etc.)
