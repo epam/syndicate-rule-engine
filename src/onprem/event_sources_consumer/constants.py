@@ -71,7 +71,7 @@ class EventConsumerEnv(EnvEnum):
 
     # Redis (K8s event dedupe)
     REDIS_HOST = (
-        'REDIS_HOST',
+        'REDIS_DOMAIN',  # for compatibility with existing config
         (),
         'localhost',
     )
