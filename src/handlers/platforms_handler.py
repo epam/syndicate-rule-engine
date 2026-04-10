@@ -168,7 +168,11 @@ class PlatformsHandler(AbstractHandler):
         return build_response(content=self._ps.dto(platform))
 
     @validate_kwargs
-    def list_k8s(self, event: PlatformK8sQueryModel):
+    def list_k8s(
+        self,
+        event: PlatformK8sQueryModel,
+        _tap: TenantsAccessPayload,
+    ):
         if event.event_driven_enabled is None:
             ps = self._modular_client.parent_service()
             it = map(
@@ -188,4 +192,10 @@ class PlatformsHandler(AbstractHandler):
                 tenant_name=event.tenant_name,
             )
 
-        return build_response(content=(self._ps.dto(item) for item in it))
+        return build_response(
+            content=(
+                self._ps.dto(p)
+                for p in it
+                if _tap.is_allowed_for(p.tenant_name)
+            )
+        )

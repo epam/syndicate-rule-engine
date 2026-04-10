@@ -12,10 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `sre job event k8s` to send `SRE_K8S_AGENT` payloads to `POST /event` (`--event-type/-t`, `--reason/-R`, `--platform-id/-p`)
 - Added `sre platform k8s update` command to enable/disable K8S event-driven for a platform
 - Added `--event_driven_enabled` `-ede` flag to the `sre platform k8s add` command
+- Version of `modular-cli-sdk` updated from `3.1.2` to `3.1.4`
+
+### Fixed
+- Fixed `sre tenant credentials describe --application_id` ignoring `-cid` / `--customer_id`
+
+### Changed
+- The `tenant` parameter of the command `policy add` changed to required
 
 ## [5.12.0] - 2026-03-02
 
 ### Added
+- Added `sre job resume --job_id` for resubmitting standard jobs with checkpoint progress
 - Added support for insecure-skip-tls-verify in the `sre platform k8s create` command
 - Added bypassing of integration checks in developer mode
 - Added status hints to `sre rule update` command showing how to check status via `sre rulesource describe -rsid {rulesource_id} -cid "{customer_id}"`

@@ -565,6 +565,14 @@ class SREApiClient:
             data=sifted(kwargs),
         )
 
+    def job_resume(self, job_id: str, **kwargs):
+        return self.make_request(
+            path=Endpoint.JOBS_JOB_RESUME,
+            path_params={'job_id': job_id},
+            method=HTTPMethod.POST,
+            data=sifted(kwargs),
+        )
+
     def scheduled_job_post(self, **kwargs):
         return self.make_request(
             path=Endpoint.SCHEDULED_JOB,

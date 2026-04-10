@@ -1010,7 +1010,7 @@ class PolicyPostModel(BaseModel):
     permissions: set[Permission] = Field(default_factory=set)
     permissions_admin: bool = False
     effect: PolicyEffect
-    tenants: set[str] = Field(default_factory=lambda: {'*'})
+    tenants: set[str]
     description: str
     # todo add effect and tenants
 
@@ -1207,6 +1207,12 @@ class JobPostModel(BaseModel):
             engagement=self.dojo_engagement,
             test=self.dojo_test,
         ).model_dump(exclude_none=True)
+
+
+class JobResumePostModel(BaseModel):
+    """Resume a standard scan job that has partial checkpoint progress."""
+
+    pass
 
 
 def sanitize_schedule(schedule: str) -> str:

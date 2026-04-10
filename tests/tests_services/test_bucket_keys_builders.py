@@ -60,7 +60,14 @@ class TestTenantReportsBucketKeyBuilder:
             res
             == 'raw/TEST_CUSTOMER/AWS/123456789012/jobs/standard/2023-11-27-14/job_id/result/'
         )
-    
+
+    def test_job_scan_partial(self, tenant_reports_builder, standard_job):
+        res = tenant_reports_builder.job_scan_partial(standard_job)
+        assert (
+            res
+            == 'raw/TEST_CUSTOMER/AWS/123456789012/jobs/standard/2023-11-27-14/job_id/partial/'
+        )
+
     # TODO: add tests for event-driven job
     # def test_ed_job_result(self, tenant_reports_builder, ed_job):
     #     res = tenant_reports_builder.ed_job_result(ed_job)
@@ -106,6 +113,13 @@ class TestPlatformReportsBucketKeyBuilder:
         assert (
             res
             == 'raw/TEST_CUSTOMER/KUBERNETES/test-eu-west-1/jobs/standard/2023-11-27-14/job_id/'
+        )
+
+    def test_job_scan_partial(self, platform_reports_builder, platform_job):
+        res = platform_reports_builder.job_scan_partial(platform_job)
+        assert (
+            res
+            == 'raw/TEST_CUSTOMER/KUBERNETES/test-eu-west-1/jobs/standard/2023-11-27-14/job_id/partial/'
         )
 
     # TODO: add tests for event-driven job

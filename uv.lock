@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.10.2, <4.0.0"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -2593,7 +2593,7 @@ wheels = [
 
 [[package]]
 name = "modular-sdk"
-version = "7.1.9"
+version = "7.1.11"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "boto3" },
@@ -2604,9 +2604,9 @@ dependencies = [
     { name = "pynamodb" },
     { name = "python-dateutil" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/10/2a/ba64e5ba84819a0600c09581cbca45a7844415596f5a32e213f5362f4a22/modular_sdk-7.1.9.tar.gz", hash = "sha256:24ac94d18f7a2fd1441c57c8b7eb8f1f88874fc1dc77b98b58b4389fc4750559", size = 81558, upload-time = "2026-02-12T15:07:20.048Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e7/9f/6284c8747976e10bc2c586e141f05bc93de636db4f89bacced447b8074c6/modular_sdk-7.1.11.tar.gz", hash = "sha256:4aa041db19444039c9f7b458f3d1f3bcdabf879d2bbb9649cf605b634a39864c", size = 81691, upload-time = "2026-04-07T14:36:34.288Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/05/f4/e46828fff9e2e60075a7eaa46ee753d32487a116a707fc31d7609864cc6d/modular_sdk-7.1.9-py3-none-any.whl", hash = "sha256:d09625511a35f49d9bb849d23b9ce6f5893d40bc76479b5a598a6423759ea791", size = 102415, upload-time = "2026-02-12T15:07:18.673Z" },
+    { url = "https://files.pythonhosted.org/packages/db/c9/8ee4592b0b656503800f391d0479e647fef22fe19a1c7d99d61f9f080cfa/modular_sdk-7.1.11-py3-none-any.whl", hash = "sha256:622c35d5f1424b3545ddb6de3bd574adcd76a0c6381b6ed805709492b70377d2", size = 102503, upload-time = "2026-04-07T14:36:32.487Z" },
 ]
 
 [[package]]
@@ -3659,7 +3659,7 @@ requires-dist = [
     { name = "gunicorn", specifier = "~=23.0.0" },
     { name = "hvac", specifier = "~=2.3.0" },
     { name = "jwcrypto", specifier = "~=1.5.6" },
-    { name = "modular-sdk", specifier = "==7.1.9" },
+    { name = "modular-sdk", specifier = "==7.1.11" },
     { name = "msgspec", specifier = "~=0.18.6" },
     { name = "openpyxl", specifier = "~=3.0.10" },
     { name = "pydantic", specifier = "~=2.8.2" },

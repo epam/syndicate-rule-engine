@@ -52,6 +52,7 @@ class Endpoint(str, Enum):
     CUSTOMERS = '/customers'
     HEALTH_ID = '/health/{id}'
     JOBS_JOB = '/jobs/{job_id}'
+    JOBS_JOB_RESUME = '/jobs/{job_id}/resume'
     DOC_PROXY = '/doc/{proxy+}'
     ROLES_NAME = '/roles/{name}'
     CREDENTIALS = '/credentials'
@@ -189,6 +190,8 @@ class Endpoint(str, Enum):
 
 LAMBDA_URL_HEADER_CONTENT_TYPE_UPPER = 'Content-Type'
 JSON_CONTENT_TYPE = 'application/json'
+
+MCP_USER_NAME_HEADER = 'X-Sre-Mcp-User-Name'
 
 DEFAULT_SYSTEM_CUSTOMER: str = 'CUSTODIAN_SYSTEM'
 DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME = (
@@ -746,6 +749,16 @@ class Env(EnvEnum):
         (),
         '*/5 * * * *',  # every 5 minutes
     )
+    CELERY_REMOVE_OLD_SHARDS_SCHEDULE = (
+        'SRE_CELERY_REMOVE_OLD_SHARDS_SCHEDULE',
+        (),
+        '0 9 1 * *',  # every 1st day in month at 09:00
+    )
+    CELERY_REMOVE_OLD_SHARDS_DAYS = (
+        'SRE_REMOVE_OLD_SHARDS_DAYS',
+        (),
+        180
+    )
 
     SCAN_RESOURCES_PROCESSORS = (
         'SRE_SCAN_RESOURCES_PROCESSORS',
@@ -893,17 +906,18 @@ class Permission(str, Enum):
         True,
     )
 
-    JOB_QUERY = 'job:query', False  # True
+    JOB_QUERY = 'job:query', False, True
     JOB_GET = 'job:get', False, True
     JOB_POST_LICENSED = 'job:post_for_tenant', False, True
     JOB_POST_K8S = 'job:post_for_k8s_platform', False, True
     JOB_TERMINATE = 'job:terminate', False, True
+    JOB_RESUME = 'job:resume', False, True
 
     CUSTOMER_DESCRIBE = 'customer:describe'
     CUSTOMER_SET_EXCLUDED_RULES = 'customer:set_excluded_rules'
     CUSTOMER_GET_EXCLUDED_RULES = 'customer:get_excluded_rules'
 
-    TENANT_QUERY = 'tenant:query', False  # True
+    TENANT_QUERY = 'tenant:query', False, True
     TENANT_GET = 'tenant:get', False, True
     TENANT_GET_ACTIVE_LICENSES = 'tenant:get_active_licenses', False, True
     TENANT_SET_EXCLUDED_RULES = 'tenant:set_excluded_rules', False, True
@@ -987,7 +1001,7 @@ class Permission(str, Enum):
     BATCH_RESULTS_QUERY = 'batch_results:query', False  # True
 
     PLATFORM_GET_K8S = 'platform:get_k8s', False, True
-    PLATFORM_QUERY_K8S = 'platform:query_k8', False  # True
+    PLATFORM_QUERY_K8S = 'platform:query_k8', False, True
     PLATFORM_CREATE_K8S = 'platform:create_k8s', False, True
     PLATFORM_UPDATE_K8S = 'platform:update_k8s', False, True
     PLATFORM_DELETE_K8S = 'platform:delete_k8s', False, True
@@ -1111,6 +1125,7 @@ class JobState(str, Enum):
     RUNNING = 'RUNNING'
     FAILED = 'FAILED'
     SUCCEEDED = 'SUCCEEDED'
+    INTERRUPTED = 'INTERRUPTED'
 
 
 # Maestro Credentials Applications types

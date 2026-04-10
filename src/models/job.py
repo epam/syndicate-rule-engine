@@ -1,9 +1,12 @@
+import json
 import warnings
+from typing import Any
 
 from pynamodb.attributes import (
     Attribute,
     ListAttribute,
     MapAttribute,
+    NumberAttribute,
     TTLAttribute,
     UnicodeAttribute,
 )
@@ -41,6 +44,11 @@ JOB_APPLICATION_ID = 'aid'
 JOB_WARNINGS = 'w'
 JOB_DOJO_STRUCTURE = 'ds'
 JOB_TYPE = 'ty'
+JOB_SCAN_CHECKPOINT = 'sc'
+# Short keys inside ``scan_checkpoint`` map
+SCAN_CP_VERSION = 'v'
+SCAN_CP_COMPLETED_REGIONS = 'cr'
+SCAN_CP_UPDATED_AT = 'u'
 
 
 class TenantNameSubmittedAtIndex(GlobalSecondaryIndex):
@@ -69,6 +77,32 @@ class DojoStructureAttribute(MapAttribute):
     product = UnicodeAttribute(null=True)
     engagement = UnicodeAttribute(null=True)
     test = UnicodeAttribute(null=True)
+
+
+class ScanCheckpointAttribute(MapAttribute):
+    checkpoint_version = NumberAttribute(attr_name=SCAN_CP_VERSION)
+    completed_regions = ListAttribute(
+        of=UnicodeAttribute, default=list, attr_name=SCAN_CP_COMPLETED_REGIONS
+    )
+    updated_at = UnicodeAttribute(attr_name=SCAN_CP_UPDATED_AT)
+
+    def get_value(self, value: dict[str, Any]) -> Any:
+        if STRING in value:
+            return json.loads(value[STRING])
+        return super().get_value(value)
+
+    def deserialize(self, values: Any) -> Any:
+        if isinstance(values, dict) and values.get('checkpoint_version') is not None:
+            cv = values['checkpoint_version']
+            if not isinstance(cv, dict):
+                values = {
+                    SCAN_CP_VERSION: {'N': str(int(values['checkpoint_version']))},
+                    SCAN_CP_COMPLETED_REGIONS: {
+                        'L': [{'S': s} for s in values['completed_regions']]
+                    },
+                    SCAN_CP_UPDATED_AT: {'S': str(values['updated_at'])},
+                }
+        return super().deserialize(values)
 
 
 class JobTypeAttribute(Attribute[JobType]):
@@ -150,6 +184,8 @@ class Job(BaseModel):
 
     dojo_structure = DojoStructureAttribute(default=dict, attr_name=JOB_DOJO_STRUCTURE)
 
+    scan_checkpoint = ScanCheckpointAttribute(null=True, attr_name=JOB_SCAN_CHECKPOINT)
+
     customer_name_submitted_at_index = CustomerNameSubmittedAtIndex()
     tenant_name_submitted_at_index = TenantNameSubmittedAtIndex()
 
@@ -177,4 +213,5 @@ class Job(BaseModel):
         return bool(self.stopped_at) and self.status in (
             JobState.SUCCEEDED,
             JobState.FAILED,
+            JobState.INTERRUPTED,
         )

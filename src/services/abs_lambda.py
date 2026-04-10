@@ -11,7 +11,12 @@ from pynamodb.exceptions import PynamoDBConnectionError
 from typing_extensions import Self
 
 from helpers import RequestContext, deep_get
-from helpers.constants import Endpoint, HTTPMethod, Permission
+from helpers.constants import (
+    Endpoint,
+    HTTPMethod,
+    Permission,
+    MCP_USER_NAME_HEADER,
+)
 from helpers.lambda_response import (
     LambdaOutput,
     MetricsUpdateException,
@@ -21,6 +26,7 @@ from helpers.lambda_response import (
 from helpers.log_helper import get_logger, hide_secret_values
 from helpers.system_customer import SystemCustomer
 from services import SP
+from services.clients.cognito import BaseAuthClient
 from services.environment_service import EnvironmentService
 from services.job_service import JobService
 from services.license_service import LicenseService
@@ -337,24 +343,27 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
     """
     Processor that restricts rbac permission
     """
-    __slots__ = '_rs', '_ps', '_env'
+    __slots__ = '_rs', '_ps', '_env', '_uc'
 
     def __init__(
         self,
         role_service: RoleService,
         policy_service: PolicyService,
         environment_service: EnvironmentService,
+        user_client: BaseAuthClient,
     ) -> None:
         self._rs = role_service
         self._ps = policy_service
         self._env = environment_service
+        self._uc = user_client
 
     @classmethod
     def build(cls) -> 'CheckPermissionEventProcessor':
         return cls(
             role_service=SP.role_service,
             policy_service=SP.policy_service,
-            environment_service=SP.environment_service
+            environment_service=SP.environment_service,
+            user_client=SP.users_client,
         )
 
     @staticmethod
@@ -428,6 +437,30 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
             role_name=cast(str, event['cognito_user_role']),
             permission=permission
         )
+
+        # we need to change user role to mcp user role if mcp user is
+        # specified in header and exists in Users.
+        # It is needed for integration with CodeMie
+        if mcp_user_name := event['headers'].get(MCP_USER_NAME_HEADER):
+            mcp_user_name = mcp_user_name.lower()
+            _LOG.info(f'MCP user name from header: {mcp_user_name!r}')
+            if mcp_user := self._uc.get_user_by_username(mcp_user_name):
+                _LOG.info(
+                    f'MCP user found. Using his role {mcp_user.role!r} for '
+                    f'permission check'
+                )
+                event['cognito_user_role'] = mcp_user.role
+                event['tenant_access_payload'] = self._check_permission(
+                    customer=cast(str, event['cognito_customer']),
+                    role_name=cast(str, event['cognito_user_role']),
+                    permission=permission
+                )
+            else:
+                _LOG.info(
+                    f'MCP user with name {mcp_user_name!r} not found. '
+                    f'Using native user tenant access payload'
+                )
+
         _LOG.debug(f'Resolved tenant access payload: '
                    f'{event["tenant_access_payload"]}')
         return event, context
