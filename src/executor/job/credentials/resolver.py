@@ -1,7 +1,5 @@
 """Credential resolution for job execution (tenant, job, platform)."""
 
-import time
-
 from botocore.exceptions import ClientError
 from modular_sdk.commons.constants import (
     ENV_KUBECONFIG,
@@ -9,16 +7,14 @@ from modular_sdk.commons.constants import (
 )
 from modular_sdk.models.tenant import Tenant
 
-from executor.helpers.constants import AWS_DEFAULT_REGION
 from executor.services import BSP
-from helpers.constants import BatchJobEnv, Cloud, PlatformType, TS_EXCLUDED_RULES_KEY
+from helpers.constants import BatchJobEnv, Cloud, TS_EXCLUDED_RULES_KEY
 from helpers.log_helper import get_logger
 from models.job import Job
 from services import SP
-from services.clients import Boto3ClientFactory
-from services.clients.eks_client import EKSClient
-from services.clients.sts import StsClient, TokenGenerator
-from services.platform_service import K8STokenKubeconfig, Kubeconfig, Platform
+from services.clients.sts import StsClient
+from services.k8s.credentials_service import K8sCredentialsService
+from services.platform_service import Platform
 
 _LOG = get_logger(__name__)
 
@@ -162,96 +158,21 @@ def get_platform_credentials(job: Job, platform: Platform) -> dict | None:
     Credentials for platform (k8s) only.
     Returns None if credentials cannot be resolved.
     """
-    token = None
+    token: str | None = None
     if job.credentials_key:
-        token = BSP.credentials_service.get_credentials_from_ssm(
+        raw = BSP.credentials_service.get_credentials_from_ssm(
             job.credentials_key
         )
+        if isinstance(raw, str):
+            token = raw
 
-    app = SP.modular_client.application_service().get_application_by_id(
-        platform.parent.application_id
+    config = K8sCredentialsService.build().get_kubeconfig(
+        platform=platform,
+        token=token,
     )
-    kubeconfig = {}
-    if app.secret:
-        kubeconfig = (
-            SP.modular_client.assume_role_ssm_service().get_parameter(
-                app.secret
-            )
-            or {}
-        )
-
-    if kubeconfig and token:
-        _LOG.debug('Kubeconfig and custom token are provided. Combining both')
-        config = Kubeconfig(kubeconfig)
-        session = str(int(time.time()))
-        user = f'user-{session}'
-        context = f'context-{session}'
-        cluster = next(config.cluster_names())
-
-        config.add_user(user, token)
-        config.add_context(context, cluster, user)
-        config.current_context = context
-        return {ENV_KUBECONFIG: str(config.to_temp_file())}
-    elif kubeconfig:
-        _LOG.debug('Only kubeconfig is provided')
-        config = Kubeconfig(kubeconfig)
-        return {ENV_KUBECONFIG: str(config.to_temp_file())}
-    if platform.type != PlatformType.EKS:
-        _LOG.warning('No kubeconfig provided and platform is not EKS')
-        return
-    _LOG.debug(
-        'Kubeconfig and token are not provided. Using management creds for EKS'
-    )
-    tenant = SP.modular_client.tenant_service().get(platform.tenant_name)
-    parent = SP.modular_client.parent_service().get_linked_parent_by_tenant(
-        tenant=tenant, type_=ParentType.AWS_MANAGEMENT
-    )
-    if not parent:
-        _LOG.warning('Parent AWS_MANAGEMENT not found')
-        return
-    application = (
-        SP.modular_client.application_service().get_application_by_id(
-            parent.application_id
-        )
-    )
-    if not application:
-        _LOG.warning('Management application is not found')
-        return
-    creds = SP.modular_client.maestro_credentials_service().get_by_application(
-        application, tenant
-    )
-    if not creds:
-        _LOG.warning(
-            f'No credentials in application: {application.application_id}'
-        )
-        return
-    cl = EKSClient.build()
-    cl.client = Boto3ClientFactory(EKSClient.service_name).build(
-        region_name=platform.region,
-        aws_access_key_id=creds.AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=creds.AWS_SECRET_ACCESS_KEY,
-        aws_session_token=creds.AWS_SESSION_TOKEN,
-    )
-    cluster = cl.describe_cluster(platform.name)
-    if not cluster:
-        _LOG.error(
-            f'No cluster with name: {platform.name} '
-            f'in region: {platform.region}'
-        )
-        return
-    sts = Boto3ClientFactory('sts').from_keys(
-        aws_access_key_id=creds.AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=creds.AWS_SECRET_ACCESS_KEY,
-        aws_session_token=creds.AWS_SESSION_TOKEN,
-        region_name=AWS_DEFAULT_REGION,
-    )
-    token_config = K8STokenKubeconfig(
-        endpoint=cluster['endpoint'],
-        ca=cluster['certificateAuthority']['data'],
-        token=TokenGenerator(sts).get_token(platform.name),
-        insecure_skip_tls_verify=False,
-    )
-    return {ENV_KUBECONFIG: str(token_config.to_temp_file())}
+    if not config:
+        return None
+    return {ENV_KUBECONFIG: str(config.to_temp_file())}
 
 
 def get_rules_to_exclude(tenant: Tenant) -> set[str]:

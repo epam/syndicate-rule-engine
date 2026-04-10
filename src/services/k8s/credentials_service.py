@@ -5,10 +5,6 @@ from typing import TYPE_CHECKING, Any, cast, overload
 
 from modular_sdk.commons.constants import ParentType
 
-# TODO: not good practice to import from executor, because it`s specific scope of executor
-from executor.helpers.constants import (
-    AWS_DEFAULT_REGION,
-)
 from helpers.log_helper import get_logger
 from services.clients import Boto3ClientFactory
 from services.clients.eks_client import EKSClient
@@ -82,6 +78,11 @@ class K8sCredentialsService:
         platform: Platform | None = None,
         token: str | None = None,
     ) -> Kubeconfig | K8STokenKubeconfig | None:
+        # TODO: not good practice to import from executor, because it`s specific scope of executor, but we need to use AWS_DEFAULT_REGION here
+        from executor.helpers.constants import (
+            AWS_DEFAULT_REGION,
+        )
+
         app_service = self._msp.application_service()
 
         platform = self._resolve_platform(platform_id, platform)
