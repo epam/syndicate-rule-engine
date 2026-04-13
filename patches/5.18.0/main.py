@@ -183,13 +183,13 @@ def migrate_platform_reports(client: S3Client,
             pages = paginator.paginate(Bucket=target_bucket, Prefix=source_key)
 
             _LOG.info(f'Moving: {source_key} -> {destination_key}')
+
             for page in pages:
                 for obj in page.get('Contents', []):
                     old_key = obj['Key']
                     new_key = old_key.replace(source_key, destination_key, 1)
 
                     if dry_run:
-                        _LOG.info(f'[DRY RUN] Would move: {source_key} -> {destination_key}')
                         continue
                     copy_source = {
                         'Bucket': target_bucket,
@@ -198,7 +198,12 @@ def migrate_platform_reports(client: S3Client,
                     client.copy(copy_source, target_bucket, new_key)
                     client.delete_object(Bucket=target_bucket, Key=old_key)
 
-            stats['migrated'] += 1
+            if not dry_run:
+                stats['migrated'] += 1
+            else:
+                stats['skipped'] += 1
+
+
         except Exception as e:
             _LOG.error(f'Failed to move 0{source_key}: {e}')
             stats['errors'] += 1
