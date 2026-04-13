@@ -1,7 +1,7 @@
 import logging
 import os
 import sys
-from typing import Iterator
+from urllib.parse import quote, unquote
 
 import pymongo
 from pymongo import MongoClient
@@ -16,13 +16,11 @@ from services.clients.s3 import S3Client
 from services.reports_bucket import ReportsBucketKeysBuilder
 
 
-
 logging.basicConfig(
     format='%(asctime)s %(levelname)s %(name)s.%(funcName)s:%(lineno)d %(message)s',
     level=logging.INFO,
 )
 _LOG = logging.getLogger(__name__)
-
 
 
 def _init_minio_s3():
@@ -54,15 +52,20 @@ def check_key_exists(client, bucket: str, source_key: str) -> bool:
     Returns True if at least one object exists, False otherwise.
     """
     try:
+        _LOG.debug(f'Checking if objects exist at: bucket={bucket}, prefix={source_key}')
+
         response = client.list_objects_v2(
             Bucket=bucket,
             Prefix=source_key,
-            MaxKeys=1  # We only need to know if at least one exists
+            MaxKeys=5
         )
-        if response.get('KeyCount', 0) > 0:
+
+        contents = response.get('Contents', [])
+        if contents:
+            _LOG.debug(f'Found object: {contents[0].get("Key")}')
             return True
-        else:
-            return False
+        return False
+
     except Exception as e:
         _LOG.error(f'Error checking if key exists {source_key}: {e}')
         return False
@@ -77,7 +80,7 @@ def find_duplicate_platform_ids(platform_documents: list) -> set:
     duplicates = set()
 
     for doc in platform_documents:
-        pid = doc.get("id")
+        pid = doc.get("pid")
         meta = doc.get("meta", {})
         name = meta.get('name')
         region = meta.get('region') or GLOBAL_REGION
@@ -92,14 +95,13 @@ def find_duplicate_platform_ids(platform_documents: list) -> set:
             duplicates.update(duble)
             continue
         checked_platform[pid] = platform_id
-
     return duplicates
 
 
 def migrate_platform_reports(client: S3Client,
-                            database: Database,
-                            dry_run: bool = False,
-                            force: bool = False) -> bool | None:
+                             database: Database,
+                             dry_run: bool = False,
+                             force: bool = False) -> bool | None:
     """Main migration function to move reports from old path structure to new."""
     target_bucket = Env.REPORTS_BUCKET_NAME.as_str()
     base_prefix = ReportsBucketKeysBuilder.prefix
@@ -115,7 +117,7 @@ def migrate_platform_reports(client: S3Client,
         _LOG.warning('Running with --force flag - duplicate platform names will be processed')
 
     # Track statistics
-    stats = {'migrated': 0, 'skipped': 0, 'errors': 0, 'no_source': 0, 'duplicate_skipped': 0}
+    stats = {'migrated': 0, 'no_source': 0, 'skipped': 0, 'duplicate_skipped': 0, 'errors': 0}
 
     # Get all parent objects with type "PLATFORM_K8S" from the MongoDB
     platform_parent_collection = list(database.get_collection('Parents').find({"t": ParentType.PLATFORM_K8S}))
@@ -143,7 +145,7 @@ def migrate_platform_reports(client: S3Client,
 
     for platform_document in platform_parent_collection:
 
-        pid = platform_document.get("id")
+        pid = platform_document.get("pid")
         meta = platform_document.get("meta", {})
         name = meta.get('name')
         region = meta.get('region') or GLOBAL_REGION
@@ -163,7 +165,11 @@ def migrate_platform_reports(client: S3Client,
             continue
 
         source_key = f'{base_prefix}{customer}/KUBERNETES/{platform_id}/'
-        dest_key = f'{base_prefix}{customer}/KUBERNETES/{pid}/'
+        # First, fully decode any percent-encoded characters
+        decoded = unquote(source_key)
+        # Then re-encode only special characters (keep / and spaces as-is)
+        source_key = quote(decoded, safe='/ ')
+        destination_key = f'{base_prefix}{customer}/KUBERNETES/{pid}/'
         try:
             # Check if source key has any objects
             exists = check_key_exists(client, target_bucket, source_key)
@@ -173,22 +179,25 @@ def migrate_platform_reports(client: S3Client,
                 stats['no_source'] += 1
                 continue
 
-            if dry_run:
-                _LOG.info(f'[DRY RUN] Would move: {source_key} -> {dest_key}')
-                return True
+            paginator = client.get_paginator('list_objects_v2')
+            pages = paginator.paginate(Bucket=target_bucket, Prefix=source_key)
 
-            _LOG.info(f'Moving: {source_key} -> {dest_key}')
+            _LOG.info(f'Moving: {source_key} -> {destination_key}')
+            for page in pages:
+                for obj in page.get('Contents', []):
+                    old_key = obj['Key']
+                    new_key = old_key.replace(source_key, destination_key, 1)
 
-            client.copy(
-                bucket=target_bucket,
-                key=source_key,
-                destination_bucket=target_bucket,
-                destination_key=dest_key
-            )
-            client.delete_object(
-                bucket=target_bucket,
-                key=source_key
-            )
+                    if dry_run:
+                        _LOG.info(f'[DRY RUN] Would move: {source_key} -> {destination_key}')
+                        continue
+                    copy_source = {
+                        'Bucket': target_bucket,
+                        'Key': old_key
+                    }
+                    client.copy(copy_source, target_bucket, new_key)
+                    client.delete_object(Bucket=target_bucket, Key=old_key)
+
             stats['migrated'] += 1
         except Exception as e:
             _LOG.error(f'Failed to move 0{source_key}: {e}')
