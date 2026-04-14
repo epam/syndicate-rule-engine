@@ -3,9 +3,8 @@ import os
 import sys
 from urllib.parse import quote, unquote
 
-import pymongo
-from pymongo import MongoClient
-from pymongo.database import Database
+from modular_sdk.models.parent import Parent
+from modular_sdk.services.customer_service import CustomerService
 
 from modular_sdk.commons.constants import ParentType
 
@@ -13,6 +12,7 @@ from helpers.constants import Env, GLOBAL_REGION
 
 from services import SP
 from services.clients.s3 import S3Client
+from services.platform_service import PlatformService
 from services.reports_bucket import ReportsBucketKeysBuilder
 
 
@@ -31,19 +31,10 @@ def _init_minio_s3():
     assert access_key, 'minio access key is required'
     assert secret_key, 'minio secret key is required'
 
-    client = SP.s3.client
+    client = SP.s3
     _LOG.info('MinIO connection was successfully initialized')
     return client
 
-
-def _init_mongo() -> Database:
-    host = os.environ.get('SRE_MONGO_URI')
-    db = os.environ.get('SRE_MONGO_DB_NAME')
-    assert host, 'Host is required'
-    assert db, 'db name is required'
-
-    client: MongoClient = pymongo.MongoClient(host=host)
-    return client.get_database(db)
 
 
 def check_key_exists(client, bucket: str, source_key: str) -> bool:
@@ -54,7 +45,7 @@ def check_key_exists(client, bucket: str, source_key: str) -> bool:
     try:
         _LOG.debug(f'Checking if objects exist at: bucket={bucket}, prefix={source_key}')
 
-        response = client.list_objects_v2(
+        response = client.client.list_objects_v2(
             Bucket=bucket,
             Prefix=source_key,
             MaxKeys=5
@@ -71,7 +62,7 @@ def check_key_exists(client, bucket: str, source_key: str) -> bool:
         return False
 
 
-def find_duplicate_platform_ids(platform_documents: list) -> set:
+def find_duplicate_platform_ids(platforms: list[Parent]) -> set[str]:
     """
     Find platforms with duplicate platform_id (name-region combinations).
     Returns a set of document PIDs that duplicated.
@@ -79,9 +70,9 @@ def find_duplicate_platform_ids(platform_documents: list) -> set:
     checked_platform: dict[str, str] = dict()
     duplicates = set()
 
-    for doc in platform_documents:
-        pid = doc.get("pid")
-        meta = doc.get("meta", {})
+    for platform in platforms:
+        pid = platform.parent_id
+        meta = platform.meta.as_dict()
         name = meta.get('name')
         region = meta.get('region') or GLOBAL_REGION
 
@@ -99,7 +90,6 @@ def find_duplicate_platform_ids(platform_documents: list) -> set:
 
 
 def migrate_platform_reports(client: S3Client,
-                             database: Database,
                              dry_run: bool = False,
                              force: bool = False) -> bool | None:
     """Main migration function to move reports from old path structure to new."""
@@ -120,16 +110,29 @@ def migrate_platform_reports(client: S3Client,
     stats = {'migrated': 0, 'no_source': 0, 'skipped': 0, 'duplicate_skipped': 0, 'errors': 0}
 
     # Get all parent objects with type "PLATFORM_K8S" from the MongoDB
-    platform_parent_collection = list(database.get_collection('Parents').find({"t": ParentType.PLATFORM_K8S}))
+    platform_service: PlatformService = SP.platform_service
+    platforms: list[Parent] = list()
 
-    if not platform_parent_collection:
+    cs = CustomerService()
+
+    for customer in cs.i_get_customer(is_active=True):
+        for platform in platform_service._ps.query_by_scope_index(
+                customer_id=customer.name,
+                type_=ParentType.PLATFORM_K8S,
+                is_deleted=False):
+            platforms.append(platform)
+
+
+    # platform_parent_collection = list(database.get_collection('Parents').find({"t": ParentType.PLATFORM_K8S}))
+
+    if not platforms:
         _LOG.info('No platforms found for migration')
         return False
 
-    _LOG.info(f'Found {len(platform_parent_collection)} platform(s) that may need migration')
+    _LOG.info(f'Found {len(platforms)} platform(s) that may need migration')
 
     # Check for duplicate platform_ids
-    duplicates = find_duplicate_platform_ids(platform_parent_collection)
+    duplicates = find_duplicate_platform_ids(platforms)
 
     if duplicates:
         _LOG.warning('=' * 50)
@@ -143,13 +146,13 @@ def migrate_platform_reports(client: S3Client,
         else:
             _LOG.warning('--force flag is set. These platforms will be processed (may cause issues).')
 
-    for platform_document in platform_parent_collection:
+    for platform in platforms:
 
-        pid = platform_document.get("pid")
-        meta = platform_document.get("meta", {})
+        pid = platform.parent_id
+        meta = platform.meta.as_dict()
         name = meta.get('name')
         region = meta.get('region') or GLOBAL_REGION
-        customer = platform_document.get("cid")
+        customer = platform.customer_id
 
         if not name:
             _LOG.warning(f'Platform {pid} has no name in meta, skipping')
@@ -178,8 +181,7 @@ def migrate_platform_reports(client: S3Client,
                 _LOG.info(f'No objects found at source: {source_key}, skipping')
                 stats['no_source'] += 1
                 continue
-
-            paginator = client.get_paginator('list_objects_v2')
+            paginator = client.client.get_paginator('list_objects_v2')
             pages = paginator.paginate(Bucket=target_bucket, Prefix=source_key)
 
             _LOG.info(f'Moving: {source_key} -> {destination_key}')
@@ -191,12 +193,16 @@ def migrate_platform_reports(client: S3Client,
 
                     if dry_run:
                         continue
-                    copy_source = {
-                        'Bucket': target_bucket,
-                        'Key': old_key
-                    }
-                    client.copy(copy_source, target_bucket, new_key)
-                    client.delete_object(Bucket=target_bucket, Key=old_key)
+
+                    client.copy(
+                        bucket=target_bucket,
+                        key=old_key,
+                        destination_bucket=target_bucket,
+                        destination_key=new_key
+                    )
+                    client.delete_object(target_bucket, old_key)
+                    # client.copy(copy_source, target_bucket, new_key)
+                    # client.delete_object(Bucket=target_bucket, Key=old_key)
 
             if not dry_run:
                 stats['migrated'] += 1
@@ -232,11 +238,9 @@ def main() -> int:
 
     try:
         client = _init_minio_s3()
-        database = _init_mongo()
 
         success = migrate_platform_reports(
             client=client,
-            database=database,
             dry_run=args.dry_run,
             force=args.force
         )
