@@ -5,16 +5,13 @@ from urllib.parse import quote, unquote
 
 from modular_sdk.models.parent import Parent
 from modular_sdk.services.customer_service import CustomerService
-
 from modular_sdk.commons.constants import ParentType
 
 from helpers.constants import Env, GLOBAL_REGION
-
 from services import SP
 from services.clients.s3 import S3Client
 from services.platform_service import PlatformService
 from services.reports_bucket import ReportsBucketKeysBuilder
-
 
 logging.basicConfig(
     format='%(asctime)s %(levelname)s %(name)s.%(funcName)s:%(lineno)d %(message)s',
@@ -34,7 +31,6 @@ def _init_minio_s3():
     client = SP.s3
     _LOG.info('MinIO connection was successfully initialized')
     return client
-
 
 
 def check_key_exists(client, bucket: str, source_key: str) -> bool:
@@ -99,7 +95,6 @@ def migrate_platform_reports(client: S3Client,
     _LOG.info(f'Starting reports path migration in bucket: {target_bucket}')
     _LOG.info(f'Base prefix: {base_prefix}')
 
-
     if dry_run:
         _LOG.info('Running in DRY RUN mode - no changes will be made')
 
@@ -122,12 +117,9 @@ def migrate_platform_reports(client: S3Client,
                 is_deleted=False):
             platforms.append(platform)
 
-
-    # platform_parent_collection = list(database.get_collection('Parents').find({"t": ParentType.PLATFORM_K8S}))
-
     if not platforms:
         _LOG.info('No platforms found for migration')
-        return False
+        return True
 
     _LOG.info(f'Found {len(platforms)} platform(s) that may need migration')
 

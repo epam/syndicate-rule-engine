@@ -36,6 +36,14 @@ This patch migrates existing Kubernetes platform reports in the S3/MinIO bucket 
 | SRE_MONGO_DB_NAME           | Yes      | MongoDB database name                          |
 
 
+## Stats
+- migrated - platforms whose reports have been successfully migrated
+- no_source - platforms with empty reports
+- skipped - platforms that were skipped during the `--dry-run`
+- duplicate_skipped - platforms with the same name that were skipped without using `--force`
+- errors - platforms that could not be migrated
+
+
 ## Building
 
 This patch requires access to the main SRE codebase. Build from the **ROOT** SRE context:
