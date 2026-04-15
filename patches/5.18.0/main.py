@@ -193,8 +193,6 @@ def migrate_platform_reports(client: S3Client,
                         destination_key=new_key
                     )
                     client.delete_object(target_bucket, old_key)
-                    # client.copy(copy_source, target_bucket, new_key)
-                    # client.delete_object(Bucket=target_bucket, Key=old_key)
 
             if not dry_run:
                 stats['migrated'] += 1
