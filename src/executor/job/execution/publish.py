@@ -24,15 +24,19 @@ def _expand_collection_fingerprint_aliases(
     collection: ShardsCollection,
 ) -> None:
     """Mirror filesystem alias expansion for S3-merged collections (resume path)."""
-    if not ctx.fingerprint_aliases:
-        return
     parts = list(collection.iter_all_parts())
     extra_parts: list[ShardPart] = []
-    for _fp, names in ctx.fingerprint_aliases.items():
+    for fp, names in ctx.fingerprint_aliases.items():
         if len(names) <= 1:
             continue
         primary = names[0]
+        if not any(p.policy == primary for p in parts) and primary not in collection.meta:
+            continue
         for alias in names[1:]:
+            _LOG.info(
+                f'Expanding results from {primary} to alias {alias} '
+                f'(fp={fp})'
+            )
             for part in parts:
                 if part.policy != primary:
                     continue
@@ -52,6 +56,7 @@ def _expand_collection_fingerprint_aliases(
                 )
     if extra_parts:
         collection.put_parts(extra_parts)
+    _LOG.info('Finished expanding results to aliases')
 
 
 def finalize_standard_job_reports(
@@ -74,14 +79,20 @@ def finalize_standard_job_reports(
     if merged_collection is not None:
         collection = merged_collection
         if ctx.fingerprint_aliases:
-            _LOG.info('Expanding merged scan shards to fingerprint aliases')
-        _expand_collection_fingerprint_aliases(ctx, collection)
+            _LOG.info(
+                'Expanding merged scan shards to fingerprint aliases (count: %d)',
+                len(ctx.fingerprint_aliases),
+            )
+            _expand_collection_fingerprint_aliases(ctx, collection)
         has_successful = any(collection.iter_parts())
         stats = statistics_from_shards_collection(ctx.tenant, failed, collection)
         meta = collection.meta
     else:
         if ctx.fingerprint_aliases:
-            _LOG.info('Expanding scan results to fingerprint aliases')
+            _LOG.info(
+                'Expanding scan results to fingerprint aliases (count: %d)',
+                len(ctx.fingerprint_aliases),
+            )
             from executor.job.policies.filter import expand_results_to_aliases
 
             expand_results_to_aliases(ctx, ctx.work_dir)
