@@ -154,6 +154,14 @@ class ReportsBucketKeysBuilder(ABC):
             return PurePosixPath(file.name).name
 
     @classmethod
+    def job_type(cls, job: Job) -> str:
+        if job.job_type == JobType.REACTIVE:
+            job_type = cls.ed
+        else:
+            job_type = cls.standard
+        return job_type
+
+    @classmethod
     def one_time_on_demand(cls) -> str:
         """
         Generates random one time
@@ -175,10 +183,10 @@ class TenantReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
         return Cloud[self._tenant.cloud.upper()]
 
     def job_result(self, job: Job) -> str:
-        return self.urljoin(self._base_job(job), self.result)
+        return self.urljoin(self.base_job(job), self.result)
 
     def job_scan_partial(self, job: Job) -> str:
-        return self.urljoin(self._base_job(job), self.partial)
+        return self.urljoin(self.base_job(job), self.partial)
 
     def latest_key(self) -> str:
         return self.urljoin(
@@ -201,14 +209,10 @@ class TenantReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
     def base_job(self, job: Job) -> str:
         if job.tenant_name != self._tenant.name:
             raise ValueError(
-                f"Job tenant must be {self._tenant.name!r}, "
-                f"got {job.tenant_name!r}"
+                f'Job tenant must be {self._tenant.name!r}, '
+                f'got {job.tenant_name!r}'
             )
-
-        if job.job_type == JobType.REACTIVE:
-            prefix = self.ed
-        else:
-            prefix = self.standard
+        job_type = self.job_type(job)
 
         return self.urljoin(
             self.prefix,
@@ -216,7 +220,7 @@ class TenantReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
             self.cloud.value,
             self._tenant.project,
             self.jobs,
-            prefix,
+            job_type,
             self.datetime(utc_datetime(job.submitted_at)),
             job.id,
         )
@@ -232,7 +236,7 @@ class PlatformReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
         Currently, the only platform that we support is KUBERNETES
         """
         return Cloud.KUBERNETES
-    
+
     def base_job(self, job: Job) -> str:
         return self.job_result(job)
 
@@ -240,6 +244,7 @@ class PlatformReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
         assert job.platform_id == self._platform.id, (
             f'Job platform must be {self._platform.id}'
         )
+        job_type = self.job_type(job)
 
         return self.urljoin(
             self.prefix,
@@ -247,7 +252,7 @@ class PlatformReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
             self.cloud.value,
             self._platform.id,
             self.jobs,
-            self.standard,
+            job_type,
             self.datetime(utc_datetime(job.submitted_at)),
             job.id,
         )
@@ -288,8 +293,18 @@ class StatisticsBucketKeysBuilder:
     @classmethod
     def job_statistics(cls, job: Job) -> str:
         if job.job_type == JobType.REACTIVE:
-            return urljoin(cls._statistics, cls._ed, job.id, cls._statistics_file)
-        return urljoin(cls._statistics, cls._standard, job.id, cls._statistics_file)
+            return urljoin(
+                cls._statistics,
+                cls._ed,
+                job.id,
+                cls._statistics_file,
+            )
+        return urljoin(
+            cls._statistics,
+            cls._standard,
+            job.id,
+            cls._statistics_file,
+        )
 
     @classmethod
     def report_statistics(cls, now: datetime, customer: str) -> str:
@@ -414,12 +429,12 @@ class RulesetsBucketKeys:
         cloud: Cloud | str,
     ) -> str:
         if isinstance(cloud, Cloud):
-                cloud = cloud.value
+            cloud = cloud.value
         file_name = cloud + cls.json_suffix
         return S3Client.safe_key(
             urljoin(
                 cls.licensed,
-                name, 
+                name,
                 version,
                 cls.events,
                 file_name,
