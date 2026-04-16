@@ -30,6 +30,7 @@ class ReportsBucketKeysBuilder(ABC):
     raw/EPAM Systems/AWS/31231231231/snapshots/2023-12-10-14/
 
     raw/EPAM Systems/AWS/31231231231/jobs/standard/2023-12-10-14/b00649c9-2657-4ade-bd6b-f0f5924f6a50/result/  #  noqa
+    raw/EPAM Systems/AWS/31231231231/jobs/standard/2023-12-10-14/b00649c9-2657-4ade-bd6b-f0f5924f6a50/partial/  # noqa
 
     raw/EPAM Systems/AWS/31231231231/jobs/event-driven/2023-12-10-14/b00649c9-2657-4ade-bd6b-f0f5924f6a50/result/  # noqa
     raw/EPAM Systems/AWS/31231231231/jobs/event-driven/2023-12-10-14/b00649c9-2657-4ade-bd6b-f0f5924f6a50/difference/  # noqa
@@ -73,6 +74,14 @@ class ReportsBucketKeysBuilder(ABC):
     @abstractmethod
     def cloud(self) -> Cloud:
         """
+        :return:
+        """
+
+    @abstractmethod
+    def base_job(self, job: Job) -> str:
+        """
+        Builds the base job prefix for the given job
+        :param job:
         :return:
         """
 
@@ -166,6 +175,30 @@ class TenantReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
         return Cloud[self._tenant.cloud.upper()]
 
     def job_result(self, job: Job) -> str:
+        return self.urljoin(self._base_job(job), self.result)
+
+    def job_scan_partial(self, job: Job) -> str:
+        return self.urljoin(self._base_job(job), self.partial)
+
+    def latest_key(self) -> str:
+        return self.urljoin(
+            self.prefix,
+            self._tenant.customer_name,
+            self.cloud.value,
+            self._tenant.project,
+            self.latest,
+        )
+
+    def snapshots_folder(self) -> str:
+        return self.urljoin(
+            self.prefix,
+            self._tenant.customer_name,
+            self.cloud.value,
+            self._tenant.project,
+            self.snapshots,
+        )
+
+    def base_job(self, job: Job) -> str:
         if job.tenant_name != self._tenant.name:
             raise ValueError(
                 f"Job tenant must be {self._tenant.name!r}, "
@@ -186,34 +219,6 @@ class TenantReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
             prefix,
             self.datetime(utc_datetime(job.submitted_at)),
             job.id,
-            self.result,
-        )
-
-    def job_scan_partial(self, job: Job) -> str:
-        result_key = self.job_result(job)
-        if not result_key.endswith(self.result):
-            raise ValueError(
-                f'Unexpected job_result key (missing {self.result!r}): '
-                f'{result_key!r}'
-            )
-        return result_key[: -len(self.result)] + self.partial
-
-    def latest_key(self) -> str:
-        return self.urljoin(
-            self.prefix,
-            self._tenant.customer_name,
-            self.cloud.value,
-            self._tenant.project,
-            self.latest,
-        )
-
-    def snapshots_folder(self) -> str:
-        return self.urljoin(
-            self.prefix,
-            self._tenant.customer_name,
-            self.cloud.value,
-            self._tenant.project,
-            self.snapshots,
         )
 
 
@@ -227,6 +232,9 @@ class PlatformReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
         Currently, the only platform that we support is KUBERNETES
         """
         return Cloud.KUBERNETES
+    
+    def base_job(self, job: Job) -> str:
+        return self.job_result(job)
 
     def job_result(self, job: 'Job') -> str:
         assert job.platform_id == self._platform.id, (

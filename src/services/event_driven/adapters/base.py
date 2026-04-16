@@ -6,7 +6,7 @@ from typing import Any, Iterable
 from pydantic import ValidationError
 
 from models.event import EventRecordAttribute
-from services.event_driven.domain import EventRecord, FailedEvent
+from services.event_driven.domain import EventRecordUnion, FailedEvent
 
 
 class BaseEventAdapter(ABC):
@@ -14,7 +14,7 @@ class BaseEventAdapter(ABC):
         self.vendor = vendor
 
     @abstractmethod
-    def to_event_record(self, event: dict[str, Any]) -> EventRecord:
+    def to_event_record(self, event: dict[str, Any]) -> EventRecordUnion:
         raise NotImplementedError
 
     def adapt(

@@ -4,7 +4,7 @@ from enum import Enum
 
 from models.event import EventRecordAttribute
 
-from .models import EventRecord
+from .models import EventRecordUnion
 
 
 class VendorKind(str, Enum):
@@ -25,5 +25,5 @@ EventNameType = str
 ESourceENameRulesMap = dict[
     EventSourceType, dict[EventNameType, list[RuleNameType]]
 ]
-EventGenericRecord = EventRecordAttribute | EventRecord
+EventGenericRecord = EventRecordAttribute | EventRecordUnion
 K8sServiceRulesMap = dict[str, list[RuleNameType]]

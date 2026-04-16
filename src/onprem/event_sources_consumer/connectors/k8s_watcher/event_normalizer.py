@@ -40,12 +40,32 @@ class WatchEventNormalizer:
             _LOG.warning('Skipping duplicate event %s', uid)
             return None
         involved = obj.get('involvedObject')
-        kind = (
-            involved.get('kind') if isinstance(involved, dict) else None
-        ) or 'Unknown'
+        if not isinstance(involved, dict):
+            _LOG.warning('Skipping event with missing involvedObject: %s', obj)
+            return None
+        resource_uid = involved.get('uid')
+        name = involved.get('name')
+        namespace = involved.get('namespace')
+        if not name:
+            _LOG.warning(
+                'Skipping event with missing involvedObject.name: %s', obj
+            )
+            return None
+        if not resource_uid:
+            _LOG.warning(
+                'Skipping event with missing involvedObject.uid: %s', obj
+            )
+            return None
+        kind = involved.get('kind') or 'Unknown'
         reason = obj.get('reason') or ''
         return {
             'type': kind,
             'reason': reason,
             'platformId': self._platform_id,
+            'metadata': {
+                'resourceUid': str(resource_uid),
+                'kind': kind,
+                'name': name,
+                'namespace': namespace,
+            },
         }

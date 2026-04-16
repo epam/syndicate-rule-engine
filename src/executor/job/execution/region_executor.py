@@ -24,6 +24,7 @@ from executor.job.types import PolicyDict
 from executor.plugins import register_all
 from helpers.constants import Cloud, Env
 from helpers.log_helper import get_logger
+from services.job_policy_filters.types import BundleFilters
 
 _LOG = get_logger(__name__)
 
@@ -49,6 +50,7 @@ def process_job_concurrent(
     work_dir: Path,
     cloud: Cloud,
     region: str,
+    policy_bundle: BundleFilters | None = None,
 ) -> RegionScanResult:
     if Env.ENABLE_CUSTOM_CC_PLUGINS.is_set():
         register_all()
@@ -74,7 +76,11 @@ def process_job_concurrent(
         f'to be executed (one policy instance per available region)'
     )
     _LOG.info('Starting runner')
-    runner = Runner.factory(cloud, policies)
+    runner = Runner.factory(
+        cloud=cloud,
+        policies=policies,
+        policy_bundle=policy_bundle,
+    )
     runner.start()
     _LOG.info('Runner has finished')
 

@@ -83,6 +83,10 @@ SRE K8S Agent events are expected. Fields used for processing:
 - `platformId`
 - `type`
 - `reason`
+- `metadata.resourceUid` (from `involvedObject.uid`)
+- `metadata.kind` (from `involvedObject.kind`)
+- `metadata.name` (from `involvedObject.name`)
+- `metadata.namespace` (from `involvedObject.namespace`)
 
 Example:
 
@@ -94,7 +98,13 @@ Example:
     {
       "type": "Pod",
       "reason": "PodDeleted",
-      "platformId": "5d18b222-9aa5-454f-8736-587cc39de3f8"
+      "platformId": "5d18b222-9aa5-454f-8736-587cc39de3f8",
+      "metadata": {
+        "resourceUid": "5d18b222-9aa5-454f-8736-587cc39de3f8",
+        "kind": "Pod",
+        "name": "pod-123",
+        "namespace": "default"  // optional for specific resources
+      }
     }
   ]
 }
@@ -112,6 +122,10 @@ Fields used for processing:
 - `platformId` — resolved from the event source configuration
 - `type` — `involvedObject.kind` from the K8s watch event
 - `reason` — `reason` from the K8s watch event
+- `metadata.resourceUid` (from `involvedObject.uid`)
+- `metadata.kind` (from `involvedObject.kind`)
+- `metadata.name` (from `involvedObject.name`)
+- `metadata.namespace` (from `involvedObject.namespace`)
 
 Example:
 
@@ -123,7 +137,13 @@ Example:
     {
       "type": "Pod",
       "reason": "Scheduled",
-      "platformId": "5d18b222-9aa5-454f-8736-587cc39de3f8"
+      "platformId": "5d18b222-9aa5-454f-8736-587cc39de3f8",
+      "metadata": {
+        "resourceUid": "5d18b222-9aa5-454f-8736-587cc39de3f8",
+        "kind": "Pod",
+        "name": "pod-123",
+        "namespace": "default"  // optional for specific resources
+      }
     }
   ]
 }
