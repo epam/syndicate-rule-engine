@@ -245,7 +245,7 @@ class PlatformReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
             self.prefix,
             self._platform.customer,
             self.cloud.value,
-            self._platform.platform_id,
+            self._platform.id,
             self.jobs,
             self.standard,
             self.datetime(utc_datetime(job.submitted_at)),
@@ -260,7 +260,7 @@ class PlatformReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
             self.prefix,
             self._platform.customer,
             self.cloud.value,
-            self._platform.platform_id,
+            self._platform.id,
             self.latest,
         )
 
@@ -269,7 +269,7 @@ class PlatformReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
             self.prefix,
             self._platform.customer,
             self.cloud.value,
-            self._platform.platform_id,
+            self._platform.id,
             self.snapshots,
         )
 

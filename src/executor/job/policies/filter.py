@@ -77,10 +77,8 @@ def skip_duplicated_policies(
             ]
         )
     if fp_skipped:
-        _LOG.info(
-            f'Fingerprint dedup: skipped {len(fp_skipped)} policies '
-            f'(aliases: {fp_skipped})'
-        )
+        _LOG.info(f'Fingerprint dedup: skipped {len(fp_skipped)} policies')
+        _LOG.debug(f'Fingerprint dedup: skipped policies: {fp_skipped}')
 
 
 def expand_results_to_aliases(

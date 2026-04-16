@@ -112,14 +112,14 @@ class TestPlatformReportsBucketKeyBuilder:
         res = platform_reports_builder.job_result(platform_job)
         assert (
             res
-            == 'raw/TEST_CUSTOMER/KUBERNETES/test-eu-west-1/jobs/standard/2023-11-27-14/job_id/'
+            == 'raw/TEST_CUSTOMER/KUBERNETES/platform_id/jobs/standard/2023-11-27-14/job_id/'
         )
 
     def test_job_scan_partial(self, platform_reports_builder, platform_job):
         res = platform_reports_builder.job_scan_partial(platform_job)
         assert (
             res
-            == 'raw/TEST_CUSTOMER/KUBERNETES/test-eu-west-1/jobs/standard/2023-11-27-14/job_id/partial/'
+            == 'raw/TEST_CUSTOMER/KUBERNETES/platform_id/jobs/standard/2023-11-27-14/job_id/partial/'
         )
 
     # TODO: add tests for event-driven job
@@ -131,11 +131,11 @@ class TestPlatformReportsBucketKeyBuilder:
 
     def test_latest_key(self, platform_reports_builder):
         res = platform_reports_builder.latest_key()
-        assert res == 'raw/TEST_CUSTOMER/KUBERNETES/test-eu-west-1/latest/'
+        assert res == 'raw/TEST_CUSTOMER/KUBERNETES/platform_id/latest/'
 
     def test_snapshots_folder(self, platform_reports_builder):
         res = platform_reports_builder.snapshots_folder()
-        assert res == 'raw/TEST_CUSTOMER/KUBERNETES/test-eu-west-1/snapshots/'
+        assert res == 'raw/TEST_CUSTOMER/KUBERNETES/platform_id/snapshots/'
 
 
 class TestStatisticsBucketKeyBuilder:
