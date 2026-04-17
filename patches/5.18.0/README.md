@@ -22,7 +22,7 @@ Phase 1 uses MongoDB (`Parents` / `PLATFORM_K8S`). Phase 2 needs S3/MinIO access
 ### Phase 2: Reactive path segments (`event-driven` → `reactive`)
 
 | Bucket | Old segment / prefix | New segment / prefix |
-|----------------------|------------------------|
+|--------|-------------|------------------------|
 | reports | `.../jobs/event-driven/...` | `.../jobs/reactive/...` |
 | statistics | `job-statistics/event-driven/...` | `job-statistics/reactive/...` |
 
