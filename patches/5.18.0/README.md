@@ -1,10 +1,15 @@
-# Patch 5.18.0 - Kubernetes Platform Reports Path Migration
+# Patch 5.18.0 - Reports bucket path migration
 
 ## Purpose
 
-This patch migrates existing Kubernetes platform reports in the S3/MinIO bucket from the old path structure (using `platform_id` derived from `name-region`) to the new path structure (using platform `id`).
+A single run performs **two phases** in order (both honor `--dry-run`):
 
-### Path Structure Change
+1. **Kubernetes platform reports** — move objects under `raw/{customer}/KUBERNETES/{name}-{region}/` to `raw/{customer}/KUBERNETES/{platform_document_id}/` (same as before).
+2. **Reactive job path rename** — rename legacy path segments `event-driven` to `reactive` for job results and statistics anywhere in the bucket (see below).
+
+Phase 1 uses MongoDB (`Parents` / `PLATFORM_K8S`). Phase 2 only needs S3/MinIO access to `REPORTS_BUCKET_NAME`.
+
+### Phase 1: Kubernetes platform path
 
 | Old Path                                                | New Path                                      |
 |---------------------------------------------------------|-----------------------------------------------|
@@ -13,6 +18,17 @@ This patch migrates existing Kubernetes platform reports in the S3/MinIO bucket 
 **Example:**
 - **Before:** `reports/raw/CUSTOMER1/KUBERNETES/my-cluster-eu-west-1/latest/...`
 - **After:** `reports/raw/CUSTOMER1/KUBERNETES/abc1-23de-f456-asd1/latest/...`
+
+### Phase 2: Reactive path segments (`event-driven` → `reactive`)
+
+| Old segment / prefix | New segment / prefix |
+|----------------------|------------------------|
+| `.../jobs/event-driven/...` | `.../jobs/reactive/...` |
+| `job-statistics/event-driven/...` | `job-statistics/reactive/...` |
+
+Phase 2 runs **after** phase 1 so objects already moved under `.../KUBERNETES/{pid}/...` are included when scanning the `raw/` prefix.
+
+If the destination key already exists, that object is **skipped** (logged as a warning) to avoid overwriting data.
 
 ## Prerequisites
 
@@ -37,11 +53,21 @@ This patch migrates existing Kubernetes platform reports in the S3/MinIO bucket 
 
 
 ## Stats
-- migrated - platforms whose reports have been successfully migrated
-- no_source - platforms with empty reports
-- skipped - platforms that were skipped during the `--dry-run`
-- duplicate_skipped - platforms with the same name that were skipped without using `--force`
-- errors - platforms that could not be migrated
+
+**Phase 1 (Kubernetes)**
+
+- migrated — platforms whose reports have been successfully migrated
+- no_source — platforms with empty reports
+- skipped — platforms that were skipped during `--dry-run`
+- duplicate_skipped — platforms with the same name that were skipped without `--force`
+- errors — platforms that could not be migrated
+
+**Phase 2 (reactive paths)** — after `Reactive path migration finished`:
+
+- **`--dry-run`:** `Would move: N object(s)` (nothing copied or deleted)
+- **Live run:** `Moved: N`
+- `Skipped (destination exists): …` — target key already present
+- `Errors: …` — per-object failures
 
 
 ## Building

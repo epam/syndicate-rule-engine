@@ -68,19 +68,19 @@ class TestTenantReportsBucketKeyBuilder:
             == 'raw/TEST_CUSTOMER/AWS/123456789012/jobs/standard/2023-11-27-14/job_id/partial/'
         )
 
-    # TODO: add tests for event-driven job
+    # TODO: add tests for reactive job
     # def test_ed_job_result(self, tenant_reports_builder, ed_job):
     #     res = tenant_reports_builder.ed_job_result(ed_job)
     #     assert (
     #         res
-    #         == 'raw/TEST_CUSTOMER/AWS/123456789012/jobs/event-driven/2023-11-27-14/job_id/result/'
+    #         == 'raw/TEST_CUSTOMER/AWS/123456789012/jobs/reactive/2023-11-27-14/job_id/result/'
     #     )
 
     # def test_ed_job_difference(self, tenant_reports_builder, ed_job):
     #     res = tenant_reports_builder.ed_job_difference(ed_job)
     #     assert (
     #         res
-    #         == 'raw/TEST_CUSTOMER/AWS/123456789012/jobs/event-driven/2023-11-27-14/job_id/difference/'
+    #         == 'raw/TEST_CUSTOMER/AWS/123456789012/jobs/reactive/2023-11-27-14/job_id/difference/'
     #     )
 
     def test_latest_key(self, tenant_reports_builder):
@@ -122,7 +122,7 @@ class TestPlatformReportsBucketKeyBuilder:
             == 'raw/TEST_CUSTOMER/KUBERNETES/platform_id/jobs/standard/2023-11-27-14/job_id/partial/'
         )
 
-    # TODO: add tests for event-driven job
+    # TODO: add tests for reactive job
     # def test_ed_job(self, platform_reports_builder, ed_job):
     #     with pytest.raises(NotImplementedError):
     #         platform_reports_builder.ed_job_result(ed_job)
@@ -143,10 +143,10 @@ class TestStatisticsBucketKeyBuilder:
         res = StatisticsBucketKeysBuilder.job_statistics(standard_job)
         assert res == 'job-statistics/standard/job_id/statistics.json'
 
-    # TODO: add tests for event-driven job
+    # TODO: add tests for reactive job
     # def test_ed_job_statistics(self, ed_job):
     #     res = StatisticsBucketKeysBuilder.job_statistics(ed_job)
-    #     assert res == 'job-statistics/event-driven/job_id/statistics.json'
+    #     assert res == 'job-statistics/reactive/job_id/statistics.json'
 
     def test_report_statistics(self):
         now = datetime.now(timezone.utc)

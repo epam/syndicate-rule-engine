@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed `validate_kwargs` failing when handlers use `from __future__ import annotations`
 
 ### Changed
+- Reports bucket: Kubernetes paths use platform id instead of the legacy `name-region` segment
+- Reports bucket: `jobs/…` paths use `reactive` instead of `event-driven`
+- Statistics bucket: `job-statistics/…` paths use `reactive` instead of `event-driven`
 - The parameter `tenants` of the policy post model changed to required
 - Expanded the list of job error codes and messages
 - Changed terminal job status to `INTERRUPTED` instead of `FAILED`
