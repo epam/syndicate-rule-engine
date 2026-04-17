@@ -82,7 +82,7 @@ class EventConsumerEnv(EnvEnum):
     )
     REDIS_PASSWORD = (
         'REDIS_PASSWORD',
-        (),
+        ('MODULAR_SDK_MONGO_PASSWORD',),  # NOTE: this is a workaround, needs to be resolved
         '',
     )
 
