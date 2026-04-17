@@ -51,10 +51,11 @@ def _reactive_migration_new_key(key: str) -> str | None:
 
 def migrate_reactive_bucket_paths(client: S3Client, dry_run: bool = False) -> bool:
     """
-    Rename S3 path segments event-driven -> reactive under raw/.../jobs/ and
-    job-statistics/....
+    Rename S3 path segments event-driven -> reactive under raw/.../jobs/ in the
+    reports bucket, and under job-statistics/... in the statistics bucket.
     """
-    target_bucket = Env.REPORTS_BUCKET_NAME.as_str()
+    reports_bucket = Env.REPORTS_BUCKET_NAME.as_str()
+    statistics_bucket = Env.STATISTICS_BUCKET_NAME.as_str()
     stats = {
         'moved': 0,
         'would_move': 0,
@@ -67,8 +68,8 @@ def migrate_reactive_bucket_paths(client: S3Client, dry_run: bool = False) -> bo
 
     paginator = client.client.get_paginator('list_objects_v2')
 
-    def scan_prefix(prefix: str, need_substring: bool) -> None:
-        for page in paginator.paginate(Bucket=target_bucket, Prefix=prefix):
+    def scan_prefix(prefix: str, bucket: str, need_substring: bool) -> None:
+        for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
             for obj in page.get('Contents', []) or []:
                 old_key = obj['Key']
                 if need_substring and _JOBS_EVENT_DRIVEN not in old_key:
@@ -77,7 +78,7 @@ def migrate_reactive_bucket_paths(client: S3Client, dry_run: bool = False) -> bo
                 if not new_key or new_key == old_key:
                     continue
                 try:
-                    if client.object_exists(target_bucket, new_key):
+                    if client.object_exists(bucket, new_key):
                         _LOG.warning(
                             'Skipping reactive migration (destination exists): '
                             f'{old_key!r} -> {new_key!r}'
@@ -88,12 +89,12 @@ def migrate_reactive_bucket_paths(client: S3Client, dry_run: bool = False) -> bo
                         stats['would_move'] += 1
                         continue
                     client.copy(
-                        bucket=target_bucket,
+                        bucket=bucket,
                         key=old_key,
-                        destination_bucket=target_bucket,
+                        destination_bucket=bucket,
                         destination_key=new_key,
                     )
-                    client.delete_object(target_bucket, old_key)
+                    client.delete_object(bucket, old_key)
                     stats['moved'] += 1
                 except Exception as e:
                     _LOG.error(
@@ -102,8 +103,8 @@ def migrate_reactive_bucket_paths(client: S3Client, dry_run: bool = False) -> bo
                     stats['errors'] += 1
 
     try:
-        scan_prefix(_STATS_EVENT_DRIVEN_PREFIX, need_substring=False)
-        scan_prefix(ReportsBucketKeysBuilder.prefix, need_substring=True)
+        scan_prefix(_STATS_EVENT_DRIVEN_PREFIX, statistics_bucket, need_substring=False)
+        scan_prefix(ReportsBucketKeysBuilder.prefix, reports_bucket, need_substring=True)
     except Exception as e:
         _LOG.error(f'Reactive path migration failed: {e}')
         stats['errors'] += 1

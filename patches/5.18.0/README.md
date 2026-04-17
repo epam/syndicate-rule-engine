@@ -4,10 +4,10 @@
 
 A single run performs **two phases** in order (both honor `--dry-run`):
 
-1. **Kubernetes platform reports** — move objects under `raw/{customer}/KUBERNETES/{name}-{region}/` to `raw/{customer}/KUBERNETES/{platform_document_id}/` (same as before).
-2. **Reactive job path rename** — rename legacy path segments `event-driven` to `reactive` for job results and statistics anywhere in the bucket (see below).
+1. **Kubernetes platform reports** — move objects under `raw/{customer}/KUBERNETES/{name}-{region}/` to `raw/{customer}/KUBERNETES/{platform_document_id}/`.
+2. **Reactive job path rename** — rename legacy path segments `event-driven` to `reactive` for job results and statistics anywhere in the reports and statistics buckets.
 
-Phase 1 uses MongoDB (`Parents` / `PLATFORM_K8S`). Phase 2 only needs S3/MinIO access to `REPORTS_BUCKET_NAME`.
+Phase 1 uses MongoDB (`Parents` / `PLATFORM_K8S`). Phase 2 needs S3/MinIO access to both `REPORTS_BUCKET_NAME` and `STATISTICS_BUCKET_NAME`.
 
 ### Phase 1: Kubernetes platform path
 
@@ -21,18 +21,18 @@ Phase 1 uses MongoDB (`Parents` / `PLATFORM_K8S`). Phase 2 only needs S3/MinIO a
 
 ### Phase 2: Reactive path segments (`event-driven` → `reactive`)
 
-| Old segment / prefix | New segment / prefix |
+| Bucket | Old segment / prefix | New segment / prefix |
 |----------------------|------------------------|
-| `.../jobs/event-driven/...` | `.../jobs/reactive/...` |
-| `job-statistics/event-driven/...` | `job-statistics/reactive/...` |
+| reports | `.../jobs/event-driven/...` | `.../jobs/reactive/...` |
+| statistics | `job-statistics/event-driven/...` | `job-statistics/reactive/...` |
 
-Phase 2 runs **after** phase 1 so objects already moved under `.../KUBERNETES/{pid}/...` are included when scanning the `raw/` prefix.
+Phase 2 runs **after** phase 1 so objects already moved under `.../KUBERNETES/{pid}/...` are included when scanning the `raw/` prefix in the reports bucket.
 
 If the destination key already exists, that object is **skipped** (logged as a warning) to avoid overwriting data.
 
 ## Prerequisites
 
-- Access to the reports S3/MinIO bucket
+- Access to the reports S3/MinIO bucket and the statistics bucket (for phase 2 `job-statistics/`)
 - Access to MongoDB with `Parents` collection containing `PLATFORM_K8S` documents
 - Environment variables properly configured (see below)
 
@@ -42,14 +42,15 @@ If the destination key already exists, that object is **skipped** (logged as a w
 | --force   | Process platforms with duplicate names (see warning below) |
 
 
-| Variable                    | Required | Description                                    |
-|:----------------------------|:---------|:-----------------------------------------------|
-| REPORTS_BUCKET_NAME         | Yes      | Name of the S3/MinIO bucket containing reports |
-| SRE_MINIO_ENDPOINT          | Yes      | MinIO/S3 endpoint URL                          |
-| SRE_MINIO_ACCESS_KEY_ID     | Yes      | MinIO/S3 access key                            |
-| SRE_MINIO_SECRET_ACCESS_KEY | Yes      | MinIO/S3 secret key                            |
-| SRE_MONGO_URI               | Yes      | MongoDB connection URI                         |
-| SRE_MONGO_DB_NAME           | Yes      | MongoDB database name                          |
+| Variable                    | Required | Description                                       |
+|:----------------------------|:---------|:--------------------------------------------------|
+| REPORTS_BUCKET_NAME         | Yes      | Name of the S3/MinIO bucket containing reports    |
+| STATISTICS_BUCKET_NAME      | Yes      | Name of the S3/MinIO bucket containing statistics |
+| SRE_MINIO_ENDPOINT          | Yes      | MinIO/S3 endpoint URL                             |
+| SRE_MINIO_ACCESS_KEY_ID     | Yes      | MinIO/S3 access key                               |
+| SRE_MINIO_SECRET_ACCESS_KEY | Yes      | MinIO/S3 secret key                               |
+| SRE_MONGO_URI               | Yes      | MongoDB connection URI                            |
+| SRE_MONGO_DB_NAME           | Yes      | MongoDB database name                             |
 
 
 ## Stats
@@ -88,7 +89,9 @@ podman build --platform linux/arm64 \
   -f ./patches/${PATCH_VERSION}/Dockerfile .
 
 
-$env:PYTHONPATH = "C:\Users\DemianDiakulych\PycharmProjects\syndicate-rule-engine\src".
+# From repo root (Windows PowerShell): point PYTHONPATH at `src` so `services` / `helpers` resolve
+$env:PYTHONPATH = "$PWD\src"
+
 # Set environment variables first
 $env:REPORTS_BUCKET_NAME = "reports"
 $env:SRE_MINIO_ENDPOINT = "http://localhost:9000"
