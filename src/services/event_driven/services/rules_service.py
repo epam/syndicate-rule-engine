@@ -9,6 +9,7 @@ from services.event_driven.domain import (
 )
 from services.event_driven.resolvers import RulesResolver, TenantResolver
 from services.metadata import DEFAULT_VERSION
+from services.platform_service import PlatformService
 
 if TYPE_CHECKING:
     from modular_sdk.services.tenant_service import TenantService
@@ -30,9 +31,13 @@ class EventDrivenRulesService(EventDrivenLicenseMixin):
         license_service: LicenseService,
         event_mapping_provider: S3EventMappingProvider,
         tenant_service: TenantService,
+        platform_service: PlatformService,
     ) -> None:
         self._license_service = license_service
-        self._tenant_resolver = TenantResolver(tenant_service=tenant_service)
+        self._tenant_resolver = TenantResolver(
+            tenant_service=tenant_service,
+            platform_service=platform_service,
+        )
         self._rules_resolver = RulesResolver(
             event_mapping_provider=event_mapping_provider
         )
@@ -43,20 +48,25 @@ class EventDrivenRulesService(EventDrivenLicenseMixin):
     ) -> set[str] | None:
         tenant_name = event.tenant_name
         account_id = event.account_id
+        platform_id = getattr(event, "platform_id", None)
 
         tenant = self._tenant_resolver.resolve(
             tenant_name=tenant_name,
             account_id=account_id,
+            platform_id=platform_id,
         )
         if not tenant:
             _LOG.warning(
-                f"No tenant found for name: {tenant_name} or account id: {account_id}"
+                "No tenant found for name: %s, account_id: %s, platform_id: %s",
+                tenant_name,
+                account_id,
+                platform_id,
             )
             return None
 
         event_driven_license = self.get_allowed_event_driven_license(tenant)
         if not event_driven_license:
-            _LOG.warning(f"No event driven license found for tenant: {tenant_name}")
+            _LOG.warning("No event driven license found for tenant: %s", tenant.name)
             return None
 
         rules = self._rules_resolver.get_rules(

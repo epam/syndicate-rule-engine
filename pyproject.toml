@@ -56,6 +56,9 @@ c7n = [
     "c7n-gcp==0.4.48",
     "c7n-kube==0.2.48",
 ]
+event-sources-consumer = [
+    "kubernetes~=33.1.0",
+]
 
 
 [tool.pyright]
@@ -74,7 +77,6 @@ src = ["src", "tests"]
 [tool.ruff.format]
 quote-style = "single"
 indent-style = "space"
-skip-magic-trailing-comma = true
 
 
 [tool.pytest.ini_options]

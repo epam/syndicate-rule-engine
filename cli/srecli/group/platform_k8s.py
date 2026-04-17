@@ -1,8 +1,12 @@
 from typing import Optional
 
 import click
-
-from srecli.group import ContextObj, ViewCommand, build_tenant_option, cli_response
+from srecli.group import (
+    ContextObj,
+    ViewCommand,
+    build_tenant_option,
+    cli_response,
+)
 
 
 @click.group(name='k8s')
@@ -58,16 +62,24 @@ def create(
         certificate_authority=certificate_authority,
         token=token,
         insecure_skip_tls_verify=insecure_skip_tls_verify,
-        customer_id=customer_id
+        customer_id=customer_id,
     )
 
 
 @k8s.command(cls=ViewCommand, name='describe')
 @build_tenant_option()
+@click.option(
+    '--event_driven_enabled',
+    '-ede',
+    type=bool,
+    required=False,
+    help='Optional filter by event-driven status',
+)
 @cli_response()
 def describe(
     ctx: ContextObj,
     tenant_name: Optional[str],
+    event_driven_enabled: Optional[bool],
     customer_id: str,
 ):
     """
@@ -75,7 +87,36 @@ def describe(
     """
     return ctx['api_client'].platform_k8s_list(
         tenant_name=tenant_name,
-        customer_id=customer_id
+        event_driven_enabled=event_driven_enabled,
+        customer_id=customer_id,
+    )
+
+
+@k8s.command(cls=ViewCommand, name='update')
+@click.option(
+    '-pid', '--platform_id', type=str, required=True, help='Platform id'
+)
+@click.option(
+    '--event_driven_enabled',
+    '-ede',
+    type=bool,
+    required=True,
+    help='Enable or disable event-driven for this platform',
+)
+@cli_response()
+def update(
+    ctx: ContextObj,
+    platform_id: str,
+    event_driven_enabled: bool,
+    customer_id: str,
+):
+    """
+    Update K8S platform event-driven settings.
+    """
+    return ctx['api_client'].platform_k8s_update(
+        platform_id=platform_id,
+        event_driven_enabled=event_driven_enabled,
+        customer_id=customer_id,
     )
 
 
@@ -91,5 +132,7 @@ def delete(
     """
     Deregister a platform
     """
-    return ctx['api_client'].platform_k8s_delete(platform_id,
-                                                 customer_id=customer_id)
+    return ctx['api_client'].platform_k8s_delete(
+        platform_id,
+        customer_id=customer_id,
+    )

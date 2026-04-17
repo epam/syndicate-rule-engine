@@ -4,14 +4,21 @@ from typing import Any, Callable, Dict, List
 
 from pydantic import ValidationError
 
-from helpers.constants import AWS_VENDOR, MAESTRO_VENDOR
+from helpers.constants import (
+    AWS_VENDOR,
+    MAESTRO_VENDOR,
+    SRE_K8S_AGENT_VENDOR,
+    SRE_K8S_WATCHER_VENDOR,
+)
 from helpers.log_helper import get_logger
 from models.event import EventRecordAttribute
 from services.event_driven.adapters.base import BaseEventAdapter
 from services.event_driven.adapters.event_bridge import EventBridgeEventAdapter
+from services.event_driven.adapters.k8s_native import K8sNativeEventAdapter
 from services.event_driven.adapters.maestro import MaestroEventAdapter
 
 from ..domain import FailedEvent
+
 
 _LOG = get_logger(__name__)
 
@@ -24,12 +31,21 @@ class EventRecordsAdapter:
     _ADAPTERS: dict[str, Callable[[], BaseEventAdapter]] = {
         AWS_VENDOR: EventBridgeEventAdapter,
         MAESTRO_VENDOR: MaestroEventAdapter,
+        SRE_K8S_AGENT_VENDOR: lambda: K8sNativeEventAdapter(
+            SRE_K8S_AGENT_VENDOR
+        ),
+        SRE_K8S_WATCHER_VENDOR: lambda: K8sNativeEventAdapter(
+            SRE_K8S_WATCHER_VENDOR
+        ),
     }
 
     def __init__(self, vendor: str, events: List[Dict[str, Any]]) -> None:
         self._events = events
         self._vendor = vendor
-        self._adapter = self._ADAPTERS[vendor]()
+        factory = self._ADAPTERS.get(vendor)
+        if factory is None:
+            raise ValueError(f'Unsupported event vendor: {vendor!r}')
+        self._adapter = factory()
 
     @property
     def events(self) -> List[Dict[str, Any]]:
@@ -39,8 +55,7 @@ class EventRecordsAdapter:
         return len(self._events)
 
     def adapt_single(
-        self,
-        raw_event: Dict[str, Any],
+        self, raw_event: Dict[str, Any]
     ) -> EventRecordAttribute | None:
         """
         Adapt a single raw event to EventRecordAttribute.

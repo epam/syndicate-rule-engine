@@ -991,7 +991,9 @@
             "vendor": {
               "enum": [
                 "AWS",
-                "MAESTRO"
+                "MAESTRO",
+                "SRE_K8S_AGENT",
+                "SRE_K8S_WATCHER"
               ],
               "title": "Vendor",
               "type": "string"
@@ -1064,27 +1066,52 @@
               "type": "boolean"
             },
             "queue_url": {
-              "title": "Queue Url",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Queue Url"
             },
             "region": {
-              "title": "Region",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Region"
             },
             "role_arn": {
               "anyOf": [
-                {"type": "string"},
-                {"type": "null"}
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
               ],
               "default": null,
-              "title": "Role Arn",
-              "description": "IAM role ARN to assume for SQS access"
+              "description": "IAM role ARN to assume for SQS access",
+              "title": "Role Arn"
+            },
+            "source_type": {
+              "const": "SQS",
+              "default": "SQS",
+              "enum": [
+                "SQS"
+              ],
+              "title": "Source Type",
+              "type": "string"
             }
           },
-          "required": [
-            "queue_url",
-            "region"
-          ],
           "title": "EventSourcePostModel",
           "type": "object"
         }
@@ -1167,8 +1194,12 @@
             },
             "role_arn": {
               "anyOf": [
-                {"type": "string"},
-                {"type": "null"}
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
               ],
               "default": null,
               "title": "Role Arn"
@@ -2322,13 +2353,16 @@
                   "region": {
                     "title": "Region",
                     "type": "string"
+                  },
+                  "source_type": {
+                    "title": "Source Type",
+                    "type": "string"
                   }
                 },
                 "required": [
                   "id",
                   "customer_id",
-                  "queue_url",
-                  "region",
+                  "source_type",
                   "enabled"
                 ],
                 "title": "EventSource",
@@ -2632,6 +2666,10 @@
                   "description": {
                     "title": "Description",
                     "type": "string"
+                  },
+                  "event_driven_enabled": {
+                    "title": "Event Driven Enabled",
+                    "type": "boolean"
                   },
                   "id": {
                     "title": "Id",
@@ -4002,6 +4040,23 @@
           "type": "object"
         }
       },
+      "PlatformK8SPutModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "event_driven_enabled": {
+              "description": "Enable or disable event-driven processing for platform",
+              "title": "Event Driven Enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "event_driven_enabled"
+          ],
+          "title": "PlatformK8SPutModel",
+          "type": "object"
+        }
+      },
       "PolicyPatchModel": {
         "content_type": "application/json",
         "schema": {
@@ -4132,6 +4187,7 @@
                   "platform:get_k8s",
                   "platform:query_k8",
                   "platform:create_k8s",
+                  "platform:update_k8s",
                   "platform:delete_k8s",
                   "self_integration:create",
                   "self_integration:update",
@@ -4280,6 +4336,7 @@
                   "platform:get_k8s",
                   "platform:query_k8",
                   "platform:create_k8s",
+                  "platform:update_k8s",
                   "platform:delete_k8s",
                   "self_integration:create",
                   "self_integration:update",
@@ -4469,6 +4526,7 @@
                   "platform:get_k8s",
                   "platform:query_k8",
                   "platform:create_k8s",
+                  "platform:update_k8s",
                   "platform:delete_k8s",
                   "self_integration:create",
                   "self_integration:update",
@@ -4951,7 +5009,7 @@
                   "type": "string"
                 }
               ],
-              "default": "2026-03-26T16:56:33.888136",
+              "default": "2026-04-07T16:41:26.171550",
               "description": "Expiration date of the exception",
               "title": "Expire At"
             },
@@ -6478,13 +6536,16 @@
                 "region": {
                   "title": "Region",
                   "type": "string"
+                },
+                "source_type": {
+                  "title": "Source Type",
+                  "type": "string"
                 }
               },
               "required": [
                 "id",
                 "customer_id",
-                "queue_url",
-                "region",
+                "source_type",
                 "enabled"
               ],
               "title": "EventSource",
@@ -6760,6 +6821,10 @@
                 "description": {
                   "title": "Description",
                   "type": "string"
+                },
+                "event_driven_enabled": {
+                  "title": "Event Driven Enabled",
+                  "type": "boolean"
                 },
                 "id": {
                   "title": "Id",

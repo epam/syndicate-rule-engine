@@ -14,7 +14,7 @@ class Message:
     """A single message from a queue."""
 
     message_id: str
-    body: str | bytes | dict
+    body: str | bytes | dict | list
     receipt_handle: str | None = None  # for SQS ack
     raw: Any = None
 
@@ -31,7 +31,6 @@ class BaseConnector(ABC):
     def consume(
         self,
         callback: Callable[[Message], None],
-        max_messages: int = 10,
     ) -> None:
         """
         Consume messages and invoke callback for each.
@@ -41,11 +40,10 @@ class BaseConnector(ABC):
         ...
 
     @abstractmethod
-    def ack(self, message: Message) -> None:
-        """Acknowledge successful processing of a message."""
-        ...
-
-    @abstractmethod
     def disconnect(self) -> None:
         """Close the connection."""
         ...
+
+    def ack(self, message: Message) -> None:
+        """Acknowledge successful processing of a message."""
+        pass

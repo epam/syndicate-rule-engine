@@ -30,6 +30,7 @@ class ReportsBucketKeysBuilder(ABC):
     raw/EPAM Systems/AWS/31231231231/snapshots/2023-12-10-14/
 
     raw/EPAM Systems/AWS/31231231231/jobs/standard/2023-12-10-14/b00649c9-2657-4ade-bd6b-f0f5924f6a50/result/  #  noqa
+    raw/EPAM Systems/AWS/31231231231/jobs/standard/2023-12-10-14/b00649c9-2657-4ade-bd6b-f0f5924f6a50/partial/  # noqa
 
     raw/EPAM Systems/AWS/31231231231/jobs/event-driven/2023-12-10-14/b00649c9-2657-4ade-bd6b-f0f5924f6a50/result/  # noqa
     raw/EPAM Systems/AWS/31231231231/jobs/event-driven/2023-12-10-14/b00649c9-2657-4ade-bd6b-f0f5924f6a50/difference/  # noqa
@@ -73,6 +74,14 @@ class ReportsBucketKeysBuilder(ABC):
     @abstractmethod
     def cloud(self) -> Cloud:
         """
+        :return:
+        """
+
+    @abstractmethod
+    def base_job(self, job: Job) -> str:
+        """
+        Builds the base job prefix for the given job
+        :param job:
         :return:
         """
 
@@ -145,6 +154,14 @@ class ReportsBucketKeysBuilder(ABC):
             return PurePosixPath(file.name).name
 
     @classmethod
+    def job_type(cls, job: Job) -> str:
+        if job.job_type == JobType.REACTIVE:
+            job_type = cls.ed
+        else:
+            job_type = cls.standard
+        return job_type
+
+    @classmethod
     def one_time_on_demand(cls) -> str:
         """
         Generates random one time
@@ -166,37 +183,10 @@ class TenantReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
         return Cloud[self._tenant.cloud.upper()]
 
     def job_result(self, job: Job) -> str:
-        if job.tenant_name != self._tenant.name:
-            raise ValueError(
-                f"Job tenant must be {self._tenant.name!r}, "
-                f"got {job.tenant_name!r}"
-            )
-
-        if job.job_type == JobType.REACTIVE:
-            prefix = self.ed
-        else:
-            prefix = self.standard
-
-        return self.urljoin(
-            self.prefix,
-            self._tenant.customer_name,
-            self.cloud.value,
-            self._tenant.project,
-            self.jobs,
-            prefix,
-            self.datetime(utc_datetime(job.submitted_at)),
-            job.id,
-            self.result,
-        )
+        return self.urljoin(self.base_job(job), self.result)
 
     def job_scan_partial(self, job: Job) -> str:
-        result_key = self.job_result(job)
-        if not result_key.endswith(self.result):
-            raise ValueError(
-                f'Unexpected job_result key (missing {self.result!r}): '
-                f'{result_key!r}'
-            )
-        return result_key[: -len(self.result)] + self.partial
+        return self.urljoin(self.base_job(job), self.partial)
 
     def latest_key(self) -> str:
         return self.urljoin(
@@ -216,6 +206,25 @@ class TenantReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
             self.snapshots,
         )
 
+    def base_job(self, job: Job) -> str:
+        if job.tenant_name != self._tenant.name:
+            raise ValueError(
+                f'Job tenant must be {self._tenant.name!r}, '
+                f'got {job.tenant_name!r}'
+            )
+        job_type = self.job_type(job)
+
+        return self.urljoin(
+            self.prefix,
+            self._tenant.customer_name,
+            self.cloud.value,
+            self._tenant.project,
+            self.jobs,
+            job_type,
+            self.datetime(utc_datetime(job.submitted_at)),
+            job.id,
+        )
+
 
 class PlatformReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
     def __init__(self, platform: 'Platform'):
@@ -228,10 +237,14 @@ class PlatformReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
         """
         return Cloud.KUBERNETES
 
+    def base_job(self, job: Job) -> str:
+        return self.job_result(job)
+
     def job_result(self, job: 'Job') -> str:
         assert job.platform_id == self._platform.id, (
             f'Job platform must be {self._platform.id}'
         )
+        job_type = self.job_type(job)
 
         return self.urljoin(
             self.prefix,
@@ -239,7 +252,7 @@ class PlatformReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
             self.cloud.value,
             self._platform.id,
             self.jobs,
-            self.standard,
+            job_type,
             self.datetime(utc_datetime(job.submitted_at)),
             job.id,
         )
@@ -280,8 +293,18 @@ class StatisticsBucketKeysBuilder:
     @classmethod
     def job_statistics(cls, job: Job) -> str:
         if job.job_type == JobType.REACTIVE:
-            return urljoin(cls._statistics, cls._ed, job.id, cls._statistics_file)
-        return urljoin(cls._statistics, cls._standard, job.id, cls._statistics_file)
+            return urljoin(
+                cls._statistics,
+                cls._ed,
+                job.id,
+                cls._statistics_file,
+            )
+        return urljoin(
+            cls._statistics,
+            cls._standard,
+            job.id,
+            cls._statistics_file,
+        )
 
     @classmethod
     def report_statistics(cls, now: datetime, customer: str) -> str:
@@ -406,12 +429,12 @@ class RulesetsBucketKeys:
         cloud: Cloud | str,
     ) -> str:
         if isinstance(cloud, Cloud):
-                cloud = cloud.value
+            cloud = cloud.value
         file_name = cloud + cls.json_suffix
         return S3Client.safe_key(
             urljoin(
                 cls.licensed,
-                name, 
+                name,
                 version,
                 cls.events,
                 file_name,

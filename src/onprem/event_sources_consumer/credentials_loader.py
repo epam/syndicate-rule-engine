@@ -36,7 +36,7 @@ def get_credentials(
                 return value
         except Exception as e:
             _LOG.warning(
-                "Failed to load credentials from %s: %s",
+                'Failed to load credentials from %s: %s',
                 secret_name,
                 e,
             )
@@ -46,18 +46,18 @@ def get_credentials(
         try:
             result = sts.assume_role(
                 role_arn=role_arn,
-                role_session_name="sre-event-sources-consumer",
+                role_session_name='sre-event-sources-consumer',
             )
-            creds = result.get("Credentials", {})
+            creds = result.get('Credentials', {})
             return {
-                "aws_access_key_id": creds.get("AccessKeyId"),
-                "aws_secret_access_key": creds.get("SecretAccessKey"),
-                "aws_session_token": creds.get("SessionToken"),
-                "_expires_at": creds.get("Expiration"),  # for refresh logic
+                'aws_access_key_id': creds.get('AccessKeyId'),
+                'aws_secret_access_key': creds.get('SecretAccessKey'),
+                'aws_session_token': creds.get('SessionToken'),
+                '_expires_at': creds.get('Expiration'),  # for refresh logic
             }
         except Exception as e:
             _LOG.warning(
-                "Failed to assume role %s: %s",
+                'Failed to assume role %s: %s',
                 role_arn,
                 e,
             )

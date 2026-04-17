@@ -158,10 +158,10 @@ class Endpoint(str, Enum):
     )
     REPORTS_TOP_VIOLATIONS_JOBS_JOB_ID = (
         '/reports/top/violations/jobs/{job_id}'
-    ),
+    )
     REPORTS_TOP_VIOLATIONS_COMPARE_JOBS = (
         '/reports/top/violations/compare/jobs'
-    ),
+    )
 
     @classmethod
     def match(cls, resource: str) -> Self | None:
@@ -1003,6 +1003,7 @@ class Permission(str, Enum):
     PLATFORM_GET_K8S = 'platform:get_k8s', False, True
     PLATFORM_QUERY_K8S = 'platform:query_k8', False, True
     PLATFORM_CREATE_K8S = 'platform:create_k8s', False, True
+    PLATFORM_UPDATE_K8S = 'platform:update_k8s', False, True
     PLATFORM_DELETE_K8S = 'platform:delete_k8s', False, True
 
     SRE_INTEGRATION_CREATE = 'self_integration:create'
@@ -1083,6 +1084,9 @@ MODULAR_TYPE = 'type'
 # event-driven
 AWS_VENDOR = 'AWS'
 MAESTRO_VENDOR = 'MAESTRO'
+SRE_K8S_AGENT_VENDOR = 'SRE_K8S_AGENT'
+SRE_K8S_WATCHER_VENDOR = 'SRE_K8S_WATCHER'
+PLATFORM_EVENT_DRIVEN_ENABLED_META = 'event_driven_enabled'
 
 # smtp
 PASSWORD_ATTR = 'password'

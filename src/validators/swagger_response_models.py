@@ -24,6 +24,7 @@ class BaseActivation(TypedDict):
     excluding: list[str]
     activated_for: NotRequired[list[str]]
 
+
 class Resource(TypedDict):
     id: str
     name: str
@@ -34,6 +35,7 @@ class Resource(TypedDict):
     data: dict
     sync_date: datetime
     hash: str
+
 
 class ResourceException(TypedDict):
     id: str
@@ -48,6 +50,7 @@ class ResourceException(TypedDict):
     created_at: float
     updated_at: float
     expire_at: float
+
 
 class Customer(TypedDict):
     name: str
@@ -228,12 +231,14 @@ class K8sPlatform(TypedDict):
     region: NotRequired[str]
     tenant_name: str
     type: PlatformType
+    event_driven_enabled: NotRequired[bool]
 
 
 class Event(TypedDict):
     """
     202 POST /event
     """
+
     received: int
     saved: int
 
@@ -280,7 +285,7 @@ class Credentials(TypedDict):
         'AZURE_CREDENTIALS',
         'AZURE_CERTIFICATE',
         'GCP_SERVICE_ACCOUNT',
-        'GCP_COMPUTE_ACCOUNT'
+        'GCP_COMPUTE_ACCOUNT',
     ]
     description: str
     has_secret: bool
@@ -516,6 +521,7 @@ class ErrorsModel(BaseModel):
     """
     400 Validation error
     """
+
     errors: list[ErrorData]
 
 
@@ -523,6 +529,7 @@ class MultipleJobsModel(BaseModel):
     """
     200 GET /jobs
     """
+
     items: list[Job]
     next_token: str | None
 
@@ -534,6 +541,7 @@ class SingleJobModel(BaseModel):
     201 POST /jobs/standard
     200 GET /jobs/{job_id}
     """
+
     data: Job
 
 
@@ -541,6 +549,7 @@ class MultipleScheduledJobsModel(BaseModel):
     """
     200 GET /jobs
     """
+
     items: list[ScheduledJob]
 
 
@@ -551,6 +560,7 @@ class SingleScheduledJobModel(BaseModel):
     201 POST /jobs/standard
     200 GET /jobs/{job_id}
     """
+
     data: ScheduledJob
 
 
@@ -561,6 +571,7 @@ class MultipleK8SPlatformsModel(BaseModel):
 class SingleK8SPlatformModel(BaseModel):
     data: K8sPlatform
 
+
 class SignInModel(BaseModel):
     access_token: str  # actually it's Congito's id_token
     refresh_token: str
@@ -570,14 +581,18 @@ class SignInModel(BaseModel):
 class MultipleResourcesModel(BaseModel):
     items: list[Resource]
 
+
 class SingleResourceModel(BaseModel):
     data: Resource
+
 
 class MultipleResourcesExceptionsModel(BaseModel):
     items: list[ResourceException]
 
+
 class SingleResourceExceptionModel(BaseModel):
     data: ResourceException
+
 
 class MultipleCustomersModel(BaseModel):
     items: list[Customer]

@@ -27,7 +27,7 @@ vaultService: vault
 vaultPort: 8200
 minioService: minio
 minioPort: 9000
-# for celery
+# for celery and event-sources-consumer
 redisService: redis
 redisPort: 6380
 

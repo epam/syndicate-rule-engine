@@ -7,7 +7,7 @@ from helpers.constants import Cloud
 from helpers.log_helper import get_logger
 from services.clients.s3 import S3Client
 from services.environment_service import EnvironmentService
-from services.event_driven.domain import ESourceENameRulesMap
+from services.event_driven.domain import ESourceENameRulesMap, K8sServiceRulesMap
 from services.event_driven.mappings.provider import S3EventMappingProvider
 
 if TYPE_CHECKING:
@@ -31,6 +31,7 @@ class EventMappingCollector(S3EventMappingProvider):
         self._aws_events: ESourceENameRulesMap = {}
         self._azure_events: ESourceENameRulesMap = {}
         self._google_events: ESourceENameRulesMap = {}
+        self._k8s_events: K8sServiceRulesMap = {}
 
     def on_refresh(
         self,
@@ -66,11 +67,18 @@ class EventMappingCollector(S3EventMappingProvider):
                 cloud=Cloud.GOOGLE,
                 data=self._google_events,
             )
+        if self._k8s_events:
+            self.set_k8s_mapping_to_s3(
+                license_key=license_key,
+                version=version,
+                data=self._k8s_events,
+            )
         _LOG.info(
             f"Event mappings saved to S3: "
             f"AWS={len(self._aws_events)} sources, "
             f"Azure={len(self._azure_events)} sources, "
-            f"Google={len(self._google_events)} sources.",
+            f"Google={len(self._google_events)} sources, "
+            f"K8s={len(self._k8s_events)} services.",
         )
         self.reset()
 
@@ -78,6 +86,7 @@ class EventMappingCollector(S3EventMappingProvider):
         self._aws_events.clear()
         self._azure_events.clear()
         self._google_events.clear()
+        self._k8s_events.clear()
         _LOG.info("Event mappings reset")
 
     def _add_meta(
@@ -85,6 +94,14 @@ class EventMappingCollector(S3EventMappingProvider):
         rule_name: str,
         meta: RuleMetadata,
     ) -> None:
+        cloud = meta.cloud
+        parsed = cloud if isinstance(cloud, Cloud) else Cloud.parse(cloud)
+        if parsed == Cloud.KUBERNETES:
+            rules = self._k8s_events.setdefault(meta.service, [])
+            if rule_name not in rules:
+                rules.append(rule_name)
+            return
+
         if not meta.events:
             _LOG.warning(
                 f"No events found for {meta.cloud!r} with source {meta.source!r}. "
@@ -109,7 +126,9 @@ class EventMappingCollector(S3EventMappingProvider):
                 continue
             event_map.setdefault(source, {})
             for event_name in event_names:
-                event_map[source].setdefault(event_name, []).append(rule_name)
+                rules_for_event = event_map[source].setdefault(event_name, [])
+                if rule_name not in rules_for_event:
+                    rules_for_event.append(rule_name)
 
     def _event_map(self, cloud: str | Cloud) -> ESourceENameRulesMap | None:
         if not isinstance(cloud, Cloud):

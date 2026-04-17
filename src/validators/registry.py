@@ -14,11 +14,15 @@ from validators.swagger_request_models import (
     CustomerExcludedRulesPutModel,
     CustomerGetModel,
     DefectDojoActivationPutModel,
-    DefectDojoUpdatePatchModel,
     DefectDojoPostModel,
     DefectDojoQueryModel,
+    DefectDojoUpdatePatchModel,
     DepartmentGetReportModel,
     EventPostModel,
+    EventSourceDeleteModel,
+    EventSourceGetModel,
+    EventSourcePostModel,
+    EventSourcePutModel,
     HealthCheckQueryModel,
     JobComplianceReportGetModel,
     JobDetailsReportGetModel,
@@ -43,6 +47,7 @@ from validators.swagger_request_models import (
     MultipleTenantsGetModel,
     OperationalGetReportModel,
     PlatformK8SPostModel,
+    PlatformK8SPutModel,
     PlatformK8sQueryModel,
     PlatformK8sResourcesReportGetModel,
     PolicyPatchModel,
@@ -51,10 +56,6 @@ from validators.swagger_request_models import (
     RabbitMQDeleteModel,
     RabbitMQGetModel,
     RabbitMQPostModel,
-    EventSourceDeleteModel,
-    EventSourceGetModel,
-    EventSourcePostModel,
-    EventSourcePutModel,
     RawReportGetModel,
     RefreshPostModel,
     ReportPushByJobIdModel,
@@ -97,11 +98,11 @@ from validators.swagger_request_models import (
     TenantJobsDigestsReportGetModel,
     TenantJobsFindingsReportGetModel,
     TenantRuleReportGetModel,
+    TopViolationsReportCompareJobsGetModel,
+    TopViolationsReportJobGetModel,
     UserPatchModel,
     UserPostModel,
     UserResetPasswordModel,
-    TopViolationsReportJobGetModel,
-    TopViolationsReportCompareJobsGetModel,
 )
 from validators.swagger_response_models import (
     CredentialsActivationModel,
@@ -117,6 +118,7 @@ from validators.swagger_response_models import (
     MultipleCustomersModel,
     MultipleDefectDojoModel,
     MultipleDefectDojoPushResult,
+    MultipleEventSourceModel,
     MultipleHealthChecksModel,
     MultipleJobReportModel,
     MultipleJobsModel,
@@ -147,6 +149,7 @@ from validators.swagger_response_models import (
     SingleDefectDojoPushResult,
     SingleDefeDojoModel,
     SingleEntityReportModel,
+    SingleEventSourceModel,
     SingleHealthCheckModel,
     SingleJobModel,
     SingleJobReportModel,
@@ -158,8 +161,6 @@ from validators.swagger_response_models import (
     SingleMailSettingModel,
     SinglePolicyModel,
     SingleRabbitMQModel,
-    SingleEventSourceModel,
-    MultipleEventSourceModel,
     SingleResourceExceptionModel,
     SingleResourceModel,
     SingleRoleModel,
@@ -170,8 +171,8 @@ from validators.swagger_response_models import (
     SingleTenantExcludedRules,
     SingleTenantsModel,
     SingleUserModel,
-    TopViolationsReportJobsModel,
     TopViolationsReportComparisonModel,
+    TopViolationsReportJobsModel,
 )
 
 
@@ -182,11 +183,13 @@ data: tuple[EndpointInfo, ...] = (
         method=HTTPMethod.POST,
         lambda_name=LambdaName.API_HANDLER,
         request_model=SignUpModel,
-        responses=[(HTTPStatus.CREATED, MessageModel, None),
-                   (HTTPStatus.CONFLICT, MessageModel, None)],
+        responses=[
+            (HTTPStatus.CREATED, MessageModel, None),
+            (HTTPStatus.CONFLICT, MessageModel, None),
+        ],
         auth=False,
         description='Registers a new API user, creates a new customer '
-                    'and admin role for that user'
+        'and admin role for that user',
     ),
     EndpointInfo(
         path=Endpoint.SIGNIN,
@@ -195,7 +198,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=SignInPostModel,
         responses=[(HTTPStatus.OK, SignInModel, None)],
         auth=False,
-        description='Allows log in and receive access and refresh tokens'
+        description='Allows log in and receive access and refresh tokens',
     ),
     EndpointInfo(
         path=Endpoint.REFRESH,
@@ -204,7 +207,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=RefreshPostModel,
         responses=[(HTTPStatus.OK, SignInModel, None)],
         auth=False,
-        description='Allows to refresh the access token'
+        description='Allows to refresh the access token',
     ),
     # event
     EndpointInfo(
@@ -214,9 +217,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=EventPostModel,
         responses=[(HTTPStatus.ACCEPTED, EventModel, None)],
         permission=Permission.EVENT_POST,
-        description='Receives event-driven events'
+        description='Receives event-driven events',
     ),
-
     # health
     EndpointInfo(
         path=Endpoint.HEALTH,
@@ -225,7 +227,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=HealthCheckQueryModel,
         responses=[(HTTPStatus.OK, MultipleHealthChecksModel, None)],
         description='Performs all available health checks',
-        auth=False
+        auth=False,
     ),
     EndpointInfo(
         path=Endpoint.HEALTH_ID,
@@ -234,9 +236,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleHealthCheckModel, None)],
         description='Performs a specific health check by its id',
-        auth=False
+        auth=False,
     ),
-
     EndpointInfo(
         path=Endpoint.JOBS_K8S,
         method=HTTPMethod.POST,
@@ -244,7 +245,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=K8sJobPostModel,
         responses=[(HTTPStatus.ACCEPTED, SingleJobModel, None)],
         permission=Permission.JOB_POST_K8S,
-        description='Allows to submit a licensed job for a K8S cluster'
+        description='Allows to submit a licensed job for a K8S cluster',
     ),
     EndpointInfo(
         path=Endpoint.JOBS,
@@ -253,7 +254,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=JobGetModel,
         responses=[(HTTPStatus.OK, MultipleJobsModel, None)],
         permission=Permission.JOB_QUERY,
-        description='Allows to query jobs'
+        description='Allows to query jobs',
     ),
     EndpointInfo(
         path=Endpoint.JOBS,
@@ -262,7 +263,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=JobPostModel,
         responses=[(HTTPStatus.ACCEPTED, SingleJobModel, None)],
         permission=Permission.JOB_POST_LICENSED,
-        description='Allows to submit a licensed job for a cloud'
+        description='Allows to submit a licensed job for a cloud',
     ),
     EndpointInfo(
         path=Endpoint.JOBS_JOB,
@@ -271,7 +272,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleJobModel, None)],
         permission=Permission.JOB_GET,
-        description='Allows to get a specific job by id'
+        description='Allows to get a specific job by id',
     ),
     EndpointInfo(
         path=Endpoint.JOBS_JOB,
@@ -280,7 +281,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.ACCEPTED, MessageModel, None)],
         permission=Permission.JOB_TERMINATE,
-        description='Allows to terminate a job that is running'
+        description='Allows to terminate a job that is running',
     ),
     EndpointInfo(
         path=Endpoint.JOBS_JOB_RESUME,
@@ -303,7 +304,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=ScheduledJobGetModel,
         responses=[(HTTPStatus.OK, MultipleScheduledJobsModel, None)],
         permission=Permission.SCHEDULED_JOB_QUERY,
-        description='Allows to query registered scheduled jobs'
+        description='Allows to query registered scheduled jobs',
     ),
     EndpointInfo(
         path=Endpoint.SCHEDULED_JOB,
@@ -312,7 +313,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=ScheduledJobPostModel,
         responses=[(HTTPStatus.CREATED, SingleScheduledJobModel, None)],
         permission=Permission.SCHEDULED_JOB_CREATE,
-        description='Allows to register a scheduled job'
+        description='Allows to register a scheduled job',
     ),
     EndpointInfo(
         path=Endpoint.SCHEDULED_JOB_NAME,
@@ -321,7 +322,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleScheduledJobModel, None)],
         permission=Permission.SCHEDULED_JOB_GET,
-        description='Allows to get a registered scheduled job by its name'
+        description='Allows to get a registered scheduled job by its name',
     ),
     EndpointInfo(
         path=Endpoint.SCHEDULED_JOB_NAME,
@@ -330,7 +331,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=ScheduledJobPatchModel,
         responses=[(HTTPStatus.OK, SingleScheduledJobModel, None)],
         permission=Permission.SCHEDULED_JOB_UPDATE,
-        description='Allows to update a registered scheduled job by name'
+        description='Allows to update a registered scheduled job by name',
     ),
     EndpointInfo(
         path=Endpoint.SCHEDULED_JOB_NAME,
@@ -339,9 +340,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.SCHEDULED_JOB_DELETE,
-        description='Allows to deregister a scheduled job'
+        description='Allows to deregister a scheduled job',
     ),
-
     # resources
     EndpointInfo(
         path=Endpoint.RESOURCES,
@@ -350,7 +350,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=ResourcesGetModel,
         responses=[(HTTPStatus.OK, MultipleResourcesModel, None)],
         permission=Permission.RESOURCES_GET,
-        description='Allows to get resources information'
+        description='Allows to get resources information',
     ),
     EndpointInfo(
         path=Endpoint.RESOURCES_ARN,
@@ -359,9 +359,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=ResourcesArnGetModel,
         responses=[(HTTPStatus.OK, SingleResourceModel, None)],
         permission=Permission.RESOURCES_GET,
-        description='Allows to get a resource by its ARN'
+        description='Allows to get a resource by its ARN',
     ),
-
     # resources exceptions
     EndpointInfo(
         path=Endpoint.RESOURCES_EXCEPTIONS,
@@ -370,7 +369,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=ResourcesExceptionsGetModel,
         responses=[(HTTPStatus.OK, MultipleResourcesExceptionsModel, None)],
         permission=Permission.RESOURCES_EXCEPTIONS_GET,
-        description='Allows to get resource exceptions'
+        description='Allows to get resource exceptions',
     ),
     EndpointInfo(
         path=Endpoint.RESOURCES_EXCEPTIONS,
@@ -379,7 +378,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=ResourcesExceptionsPostModel,
         responses=[(HTTPStatus.CREATED, SingleResourceExceptionModel, None)],
         permission=Permission.RESOURCES_EXCEPTIONS_CREATE,
-        description='Allows to create a resource exception'
+        description='Allows to create a resource exception',
     ),
     EndpointInfo(
         path=Endpoint.RESOURCES_EXCEPTIONS_ID,
@@ -388,7 +387,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=ResourcesExceptionsPostModel,
         responses=[(HTTPStatus.OK, SingleResourceExceptionModel, None)],
         permission=Permission.RESOURCES_EXCEPTIONS_UPDATE,
-        description='Allows to update a resource exception'
+        description='Allows to update a resource exception',
     ),
     EndpointInfo(
         path=Endpoint.RESOURCES_EXCEPTIONS_ID,
@@ -397,7 +396,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.RESOURCES_EXCEPTIONS_DELETE,
-        description='Allows to delete a resource exception'
+        description='Allows to delete a resource exception',
     ),
     EndpointInfo(
         path=Endpoint.RESOURCES_EXCEPTIONS_ID,
@@ -406,9 +405,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleResourceExceptionModel, None)],
         permission=Permission.RESOURCES_EXCEPTIONS_GET,
-        description='Allows to get a resource exception by ID'
+        description='Allows to get a resource exception by ID',
     ),
-
     # customers
     EndpointInfo(
         path=Endpoint.CUSTOMERS,
@@ -417,7 +415,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=CustomerGetModel,
         responses=[(HTTPStatus.OK, MultipleCustomersModel, None)],
         permission=Permission.CUSTOMER_DESCRIBE,
-        description='Allows to describe customers'
+        description='Allows to describe customers',
     ),
     EndpointInfo(
         path=Endpoint.CUSTOMERS_RABBITMQ,
@@ -426,7 +424,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=RabbitMQGetModel,
         responses=[(HTTPStatus.OK, SingleRabbitMQModel, None)],
         permission=Permission.RABBITMQ_DESCRIBE,
-        description='Allows to describe RabbitMQ configuration'
+        description='Allows to describe RabbitMQ configuration',
     ),
     EndpointInfo(
         path=Endpoint.CUSTOMERS_RABBITMQ,
@@ -435,7 +433,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=RabbitMQPostModel,
         responses=[(HTTPStatus.OK, SingleRabbitMQModel, None)],
         permission=Permission.RABBITMQ_CREATE,
-        description='Allows to create a RabbitMQ configuration for customer'
+        description='Allows to create a RabbitMQ configuration for customer',
     ),
     EndpointInfo(
         path=Endpoint.CUSTOMERS_RABBITMQ,
@@ -444,7 +442,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=RabbitMQDeleteModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.RABBITMQ_DELETE,
-        description='Allows to remove a RabbitMQ configuration'
+        description='Allows to remove a RabbitMQ configuration',
     ),
     EndpointInfo(
         path=Endpoint.INTEGRATIONS_EVENT_SOURCES,
@@ -453,7 +451,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=EventSourcePostModel,
         responses=[(HTTPStatus.OK, SingleEventSourceModel, None)],
         permission=Permission.EVENT_SOURCES_CREATE,
-        description='Allows to create an event source configuration'
+        description='Allows to create an event source configuration',
     ),
     EndpointInfo(
         path=Endpoint.INTEGRATIONS_EVENT_SOURCES,
@@ -462,7 +460,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=EventSourceGetModel,
         responses=[(HTTPStatus.OK, MultipleEventSourceModel, None)],
         permission=Permission.EVENT_SOURCES_DESCRIBE,
-        description='Allows to list SQS event sources'
+        description='Allows to list SQS event sources',
     ),
     EndpointInfo(
         path=Endpoint.INTEGRATIONS_EVENT_SOURCES_ID,
@@ -471,7 +469,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=EventSourceGetModel,
         responses=[(HTTPStatus.OK, SingleEventSourceModel, None)],
         permission=Permission.EVENT_SOURCES_DESCRIBE,
-        description='Allows to get an event source by id'
+        description='Allows to get an event source by id',
     ),
     EndpointInfo(
         path=Endpoint.INTEGRATIONS_EVENT_SOURCES_ID,
@@ -480,7 +478,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=EventSourcePutModel,
         responses=[(HTTPStatus.OK, SingleEventSourceModel, None)],
         permission=Permission.EVENT_SOURCES_UPDATE,
-        description='Allows to update an event source'
+        description='Allows to update an event source',
     ),
     EndpointInfo(
         path=Endpoint.INTEGRATIONS_EVENT_SOURCES_ID,
@@ -489,7 +487,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=EventSourceDeleteModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.EVENT_SOURCES_DELETE,
-        description='Allows to delete an event source'
+        description='Allows to delete an event source',
     ),
     EndpointInfo(
         path=Endpoint.CUSTOMERS_EXCLUDED_RULES,
@@ -498,7 +496,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=CustomerExcludedRulesPutModel,
         responses=[(HTTPStatus.OK, SingleCustomerExcludedRules, None)],
         permission=Permission.CUSTOMER_SET_EXCLUDED_RULES,
-        description='Allows to exclude rules for customer'
+        description='Allows to exclude rules for customer',
     ),
     EndpointInfo(
         path=Endpoint.CUSTOMERS_EXCLUDED_RULES,
@@ -507,9 +505,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleCustomerExcludedRules, None)],
         permission=Permission.CUSTOMER_GET_EXCLUDED_RULES,
-        description='Allows to get customer`s excluded rules'
+        description='Allows to get customer`s excluded rules',
     ),
-
     # tenants
     EndpointInfo(
         path=Endpoint.TENANTS,
@@ -518,7 +515,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=MultipleTenantsGetModel,
         responses=[(HTTPStatus.OK, MultipleTenantsModel, None)],
         permission=Permission.TENANT_QUERY,
-        description='Allows to query tenants'
+        description='Allows to query tenants',
     ),
     EndpointInfo(
         path=Endpoint.TENANTS_TENANT_NAME,
@@ -527,7 +524,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleTenantsModel, None)],
         permission=Permission.TENANT_GET,
-        description='Allows to get a tenant by name'
+        description='Allows to get a tenant by name',
     ),
     EndpointInfo(
         path=Endpoint.TENANTS_TENANT_NAME_ACTIVE_LICENSES,
@@ -536,7 +533,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=TenantGetActiveLicensesModel,
         responses=[(HTTPStatus.OK, MultipleLicensesModel, None)],
         permission=Permission.TENANT_GET_ACTIVE_LICENSES,
-        description='Allows to get licenses that are activated for a specific tenant'
+        description='Allows to get licenses that are activated for a specific tenant',
     ),
     EndpointInfo(
         path=Endpoint.TENANTS_TENANT_NAME_EXCLUDED_RULES,
@@ -545,7 +542,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=TenantExcludedRulesPutModel,
         responses=[(HTTPStatus.OK, SingleTenantExcludedRules, None)],
         permission=Permission.TENANT_SET_EXCLUDED_RULES,
-        description='Allows to exclude rules for tenant'
+        description='Allows to exclude rules for tenant',
     ),
     EndpointInfo(
         path=Endpoint.TENANTS_TENANT_NAME_EXCLUDED_RULES,
@@ -554,9 +551,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleTenantExcludedRules, None)],
         permission=Permission.TENANT_GET_EXCLUDED_RULES,
-        description='Allows to get rules that are excluded for tenant'
+        description='Allows to get rules that are excluded for tenant',
     ),
-
     # credentials
     EndpointInfo(
         path=Endpoint.CREDENTIALS,
@@ -565,7 +561,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=CredentialsQueryModel,
         responses=[(HTTPStatus.OK, MultipleCredentialsModel, None)],
         permission=Permission.CREDENTIALS_DESCRIBE,
-        description='Allows to get credentials configurations within a customer'
+        description='Allows to get credentials configurations within a customer',
     ),
     EndpointInfo(
         path=Endpoint.CREDENTIALS_ID,
@@ -574,7 +570,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleCredentialsModel, None)],
         permission=Permission.CREDENTIALS_DESCRIBE,
-        description='Allows to get a credentials configuration by id'
+        description='Allows to get a credentials configuration by id',
     ),
     EndpointInfo(
         path=Endpoint.CREDENTIALS_ID_BINDING,
@@ -583,7 +579,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, CredentialsActivationModel, None)],
         permission=Permission.CREDENTIALS_GET_BINDING,
-        description='Allows to show tenants that are linked to specific credentials configuration'
+        description='Allows to show tenants that are linked to specific credentials configuration',
     ),
     EndpointInfo(
         path=Endpoint.CREDENTIALS_ID_BINDING,
@@ -592,7 +588,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=CredentialsBindModel,
         responses=[(HTTPStatus.OK, CredentialsActivationModel, None)],
         permission=Permission.CREDENTIALS_BIND,
-        description='Allows to link tenants to a specific credentials configuration'
+        description='Allows to link tenants to a specific credentials configuration',
     ),
     EndpointInfo(
         path=Endpoint.CREDENTIALS_ID_BINDING,
@@ -601,9 +597,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.CREDENTIALS_UNBIND,
-        description='Allows to unlink a specific credentials configuration from all tenants'
+        description='Allows to unlink a specific credentials configuration from all tenants',
     ),
-
     # rules
     EndpointInfo(
         path=Endpoint.RULES,
@@ -612,7 +607,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=RuleGetModel,
         responses=[(HTTPStatus.OK, MultipleRulesModel, None)],
         permission=Permission.RULE_DESCRIBE,
-        description='Allows to describe locally available rules'
+        description='Allows to describe locally available rules',
     ),
     EndpointInfo(
         path=Endpoint.RULES,
@@ -621,7 +616,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=RuleDeleteModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.RULE_DELETE,
-        description='Allows to delete local rules content'
+        description='Allows to delete local rules content',
     ),
     EndpointInfo(
         path=Endpoint.RULE_META_UPDATER,
@@ -630,9 +625,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=RuleUpdateMetaPostModel,
         responses=[(HTTPStatus.ACCEPTED, MultipleRuleMetaUpdateModel, None)],
         permission=Permission.RULE_UPDATE_META,
-        description='Allows to submit a job that will pull latest rules content'
+        description='Allows to submit a job that will pull latest rules content',
     ),
-
     # metrics
     EndpointInfo(
         path=Endpoint.METRICS_UPDATE,
@@ -641,9 +635,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.ACCEPTED, MessageModel, None)],
         permission=Permission.METRICS_UPDATE,
-        description='Allows to submit a job that will update metrics'
+        description='Allows to submit a job that will update metrics',
     ),
-
     # metadata
     EndpointInfo(
         path=Endpoint.METADATA_UPDATE,
@@ -654,18 +647,18 @@ data: tuple[EndpointInfo, ...] = (
         permission=Permission.METADATA_UPDATE,
         description='Allows to submit a job that will update locally stored metadata',
     ),
-
     # service operation status
     EndpointInfo(
         path=Endpoint.SERVICE_OPERATIONS_STATUS,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.API_HANDLER,
         request_model=BaseModel,
-        responses=[(HTTPStatus.OK, MultipleServiceOperationStatusesModel, None)],
+        responses=[
+            (HTTPStatus.OK, MultipleServiceOperationStatusesModel, None)
+        ],
         permission=Permission.SERVICE_OPERATIONS_STATUS,
-        description='Allows to get the status of service operations'
+        description='Allows to get the status of service operations',
     ),
-
     # rulesets
     EndpointInfo(
         path=Endpoint.RULESETS,
@@ -674,7 +667,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=RulesetGetModel,
         responses=[(HTTPStatus.OK, MultipleRulesetsModel, None)],
         permission=Permission.RULESET_DESCRIBE,
-        description='Allows to query available rulesets'
+        description='Allows to query available rulesets',
     ),
     EndpointInfo(
         path=Endpoint.RULESETS,
@@ -683,7 +676,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=RulesetPostModel,
         responses=[(HTTPStatus.CREATED, SingleRulesetModel, None)],
         permission=Permission.RULESET_CREATE,
-        description='Allows to create a local ruleset from local rules'
+        description='Allows to create a local ruleset from local rules',
     ),
     EndpointInfo(
         path=Endpoint.RULESETS,
@@ -692,7 +685,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=RulesetPatchModel,
         responses=[(HTTPStatus.OK, SingleRulesetModel, None)],
         permission=Permission.RULESET_UPDATE,
-        description='Allows to update a local ruleset'
+        description='Allows to update a local ruleset',
     ),
     EndpointInfo(
         path=Endpoint.RULESETS,
@@ -701,7 +694,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=RulesetDeleteModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.RULESET_DELETE,
-        description='Allows to delete a local ruleset'
+        description='Allows to delete a local ruleset',
     ),
     EndpointInfo(
         path=Endpoint.RULESETS_RELEASE,
@@ -710,9 +703,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=RulesetReleasePostModel,
         responses=[(HTTPStatus.OK, None, None)],
         permission=Permission.RULESET_RELEASE,
-        description='Allows to release a ruleset to the license manager'
+        description='Allows to release a ruleset to the license manager',
     ),
-
     # rulesources
     EndpointInfo(
         path=Endpoint.RULE_SOURCES,
@@ -721,7 +713,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=RuleSourcesListModel,
         responses=[(HTTPStatus.OK, MultipleRuleSourceModel, None)],
         permission=Permission.RULE_SOURCE_DESCRIBE,
-        description='Allows to list all locally added rule sources'
+        description='Allows to list all locally added rule sources',
     ),
     EndpointInfo(
         path=Endpoint.RULE_SOURCES,
@@ -730,7 +722,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=RuleSourcePostModel,
         responses=[(HTTPStatus.CREATED, SingleRuleSourceModel, None)],
         permission=Permission.RULE_SOURCE_CREATE,
-        description='Allows to add a rule-source locally'
+        description='Allows to add a rule-source locally',
     ),
     EndpointInfo(
         path=Endpoint.RULE_SOURCES_ID,
@@ -739,7 +731,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleRuleSourceModel, None)],
         permission=Permission.RULE_SOURCE_DESCRIBE,
-        description='Allows to get a single rule source item'
+        description='Allows to get a single rule source item',
     ),
     EndpointInfo(
         path=Endpoint.RULE_SOURCES_ID,
@@ -748,7 +740,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=RuleSourcePatchModel,
         responses=[(HTTPStatus.OK, SingleRuleSourceModel, None)],
         permission=Permission.RULE_SOURCE_UPDATE,
-        description='Allows to update a local rule-source'
+        description='Allows to update a local rule-source',
     ),
     EndpointInfo(
         path=Endpoint.RULE_SOURCES_ID,
@@ -757,7 +749,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=RuleSourceDeleteModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.RULE_SOURCE_DELETE,
-        description='Allows to delete a local rule-source'
+        description='Allows to delete a local rule-source',
     ),
     EndpointInfo(
         path=Endpoint.RULE_SOURCES_ID_SYNC,
@@ -766,9 +758,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.ACCEPTED, None, None)],
         permission=Permission.RULE_SOURCE_SYNC,
-        description='Allows to pull latest meta for rule source'
+        description='Allows to pull latest meta for rule source',
     ),
-
     # policies
     EndpointInfo(
         path=Endpoint.POLICIES,
@@ -777,7 +768,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BasePaginationModel,
         responses=[(HTTPStatus.OK, MultiplePoliciesModel, None)],
         permission=Permission.POLICY_DESCRIBE,
-        description='Allows to list rbac policies'
+        description='Allows to list rbac policies',
     ),
     EndpointInfo(
         path=Endpoint.POLICIES_NAME,
@@ -786,7 +777,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SinglePolicyModel, None)],
         permission=Permission.POLICY_DESCRIBE,
-        description='Allows to get a policy by name'
+        description='Allows to get a policy by name',
     ),
     EndpointInfo(
         path=Endpoint.POLICIES,
@@ -795,7 +786,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=PolicyPostModel,
         responses=[(HTTPStatus.CREATED, SinglePolicyModel, None)],
         permission=Permission.POLICY_CREATE,
-        description='Allows to create a policy'
+        description='Allows to create a policy',
     ),
     EndpointInfo(
         path=Endpoint.POLICIES_NAME,
@@ -804,7 +795,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=PolicyPatchModel,
         responses=[(HTTPStatus.OK, SinglePolicyModel, None)],
         permission=Permission.POLICY_UPDATE,
-        description='Allows to update a policy name'
+        description='Allows to update a policy name',
     ),
     EndpointInfo(
         path=Endpoint.POLICIES_NAME,
@@ -813,9 +804,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.POLICY_DELETE,
-        description='Allows to delete a policy by name'
+        description='Allows to delete a policy by name',
     ),
-
     # roles
     EndpointInfo(
         path=Endpoint.ROLES,
@@ -824,7 +814,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BasePaginationModel,
         responses=[(HTTPStatus.OK, MultipleRoleModel, None)],
         permission=Permission.ROLE_DESCRIBE,
-        description='Allows to list rbac roles'
+        description='Allows to list rbac roles',
     ),
     EndpointInfo(
         path=Endpoint.ROLES_NAME,
@@ -833,7 +823,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleRoleModel, None)],
         permission=Permission.ROLE_DESCRIBE,
-        description='Allows to get a role by name'
+        description='Allows to get a role by name',
     ),
     EndpointInfo(
         path=Endpoint.ROLES,
@@ -842,7 +832,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=RolePostModel,
         responses=[(HTTPStatus.CREATED, SingleRoleModel, None)],
         permission=Permission.ROLE_CREATE,
-        description='Allows to create a role'
+        description='Allows to create a role',
     ),
     EndpointInfo(
         path=Endpoint.ROLES_NAME,
@@ -851,7 +841,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=RolePatchModel,
         responses=[(HTTPStatus.OK, SingleRoleModel, None)],
         permission=Permission.ROLE_UPDATE,
-        description='Allows to update a role by name'
+        description='Allows to update a role by name',
     ),
     EndpointInfo(
         path=Endpoint.ROLES_NAME,
@@ -860,9 +850,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.ROLE_DELETE,
-        description='Allows to delete a role by name'
+        description='Allows to delete a role by name',
     ),
-
     # licenses
     EndpointInfo(
         path=Endpoint.LICENSES,
@@ -871,7 +860,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=LicensePostModel,
         responses=[(HTTPStatus.ACCEPTED, None, None)],
         permission=Permission.LICENSE_ADD,
-        description='Allows to add a license from LM by tenant license key'
+        description='Allows to add a license from LM by tenant license key',
     ),
     EndpointInfo(
         path=Endpoint.LICENSES,
@@ -880,7 +869,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, MultipleLicensesModel, None)],
         permission=Permission.LICENSE_QUERY,
-        description='Allows to list locally added licenses'
+        description='Allows to list locally added licenses',
     ),
     EndpointInfo(
         path=Endpoint.LICENSES_LICENSE_KEY,
@@ -889,7 +878,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleLicenseModel, None)],
         permission=Permission.LICENSE_GET,
-        description='Allows to describe a specific license by license key'
+        description='Allows to describe a specific license by license key',
     ),
     EndpointInfo(
         path=Endpoint.LICENSES_LICENSE_KEY,
@@ -898,7 +887,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.LICENSE_DELETE,
-        description='Allows to delete a specific license'
+        description='Allows to delete a specific license',
     ),
     EndpointInfo(
         path=Endpoint.LICENSES_LICENSE_KEY_SYNC,
@@ -907,7 +896,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.ACCEPTED, MessageModel, None)],
         permission=Permission.LICENSE_SYNC,
-        description='Allows to trigger license sync'
+        description='Allows to trigger license sync',
     ),
     EndpointInfo(
         path=Endpoint.LICENSE_LICENSE_KEY_ACTIVATION,
@@ -916,7 +905,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.LICENSE_DELETE_ACTIVATION,
-        description='Allows to deactivate a specific license'
+        description='Allows to deactivate a specific license',
     ),
     EndpointInfo(
         path=Endpoint.LICENSE_LICENSE_KEY_ACTIVATION,
@@ -925,7 +914,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleLicenseActivationModel, None)],
         permission=Permission.LICENSE_GET_ACTIVATION,
-        description='Allows to list tenants a license is activated for'
+        description='Allows to list tenants a license is activated for',
     ),
     EndpointInfo(
         path=Endpoint.LICENSE_LICENSE_KEY_ACTIVATION,
@@ -934,7 +923,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=LicenseActivationPutModel,
         responses=[(HTTPStatus.OK, SingleLicenseActivationModel, None)],
         permission=Permission.LICENSE_ACTIVATE,
-        description='Allows to activate a specific license for some tenants'
+        description='Allows to activate a specific license for some tenants',
     ),
     EndpointInfo(
         path=Endpoint.LICENSE_LICENSE_KEY_ACTIVATION,
@@ -943,9 +932,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=LicenseActivationPatchModel,
         responses=[(HTTPStatus.OK, SingleLicenseActivationModel, None)],
         permission=Permission.LICENSE_UPDATE_ACTIVATION,
-        description='Allows to update tenants the license is activated for'
+        description='Allows to update tenants the license is activated for',
     ),
-
     # settings
     EndpointInfo(
         path=Endpoint.SETTINGS_MAIL,
@@ -954,7 +942,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=MailSettingGetModel,
         responses=[(HTTPStatus.OK, SingleMailSettingModel, None)],
         permission=Permission.SETTINGS_DESCRIBE_MAIL,
-        description='Allows to describe mail configuration'
+        description='Allows to describe mail configuration',
     ),
     EndpointInfo(
         path=Endpoint.SETTINGS_MAIL,
@@ -963,7 +951,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=MailSettingPostModel,
         responses=[(HTTPStatus.CREATED, SingleMailSettingModel, None)],
         permission=Permission.SETTINGS_CREATE_MAIL,
-        description='Allows to set mail configuration'
+        description='Allows to set mail configuration',
     ),
     EndpointInfo(
         path=Endpoint.SETTINGS_MAIL,
@@ -972,7 +960,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.SETTINGS_DELETE_MAIL,
-        description='Allows to delete mail configuration'
+        description='Allows to delete mail configuration',
     ),
     EndpointInfo(
         path=Endpoint.SETTINGS_SEND_REPORTS,
@@ -981,7 +969,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=ReportsSendingSettingPostModel,
         responses=[(HTTPStatus.OK, MessageModel, None)],
         permission=Permission.SETTINGS_CHANGE_SET_REPORTS,
-        description='Allows to enable or disable high-level reports sending'
+        description='Allows to enable or disable high-level reports sending',
     ),
     EndpointInfo(
         path=Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG,
@@ -990,7 +978,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleLMConfigModel, None)],
         permission=Permission.SETTINGS_DESCRIBE_LM_CONFIG,
-        description='Allows to get license manager configuration'
+        description='Allows to get license manager configuration',
     ),
     EndpointInfo(
         path=Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG,
@@ -999,7 +987,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=LicenseManagerConfigSettingPostModel,
         responses=[(HTTPStatus.CREATED, SingleLMConfigModel, None)],
         permission=Permission.SETTINGS_CREATE_LM_CONFIG,
-        description='Allows to set license manager configuration'
+        description='Allows to set license manager configuration',
     ),
     EndpointInfo(
         path=Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG,
@@ -1008,7 +996,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=LicenseManagerConfigSettingPatchModel,
         responses=[(HTTPStatus.OK, SingleLMConfigModel, None)],
         permission=Permission.SETTINGS_UPDATE_LM_CONFIG,
-        description='Allows to update license manager configuration'
+        description='Allows to update license manager configuration',
     ),
     EndpointInfo(
         path=Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG,
@@ -1017,7 +1005,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.SETTINGS_DELETE_LM_CONFIG,
-        description='Allows to delete license manager configuration'
+        description='Allows to delete license manager configuration',
     ),
     EndpointInfo(
         path=Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
@@ -1026,7 +1014,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleLMClientModel, None)],
         permission=Permission.SETTINGS_DESCRIBE_LM_CLIENT,
-        description='Allows to describe license manager client'
+        description='Allows to describe license manager client',
     ),
     EndpointInfo(
         path=Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
@@ -1035,7 +1023,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=LicenseManagerClientSettingPostModel,
         responses=[(HTTPStatus.CREATED, SingleLMClientModel, None)],
         permission=Permission.SETTINGS_CREATE_LM_CLIENT,
-        description='Allows to add license manager client'
+        description='Allows to add license manager client',
     ),
     EndpointInfo(
         path=Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
@@ -1044,7 +1032,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=LicenseManagerClientSettingPatchModel,
         responses=[(HTTPStatus.OK, SingleLMClientModel, None)],
         permission=Permission.SETTINGS_UPDATE_LM_CLIENT,
-        description='Allows to update license manager client'
+        description='Allows to update license manager client',
     ),
     EndpointInfo(
         path=Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT,
@@ -1053,9 +1041,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=LicenseManagerClientSettingDeleteModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.SETTINGS_DELETE_LM_CLIENT,
-        description='Allows to delete license manager client'
+        description='Allows to delete license manager client',
     ),
-
     # digest reports
     EndpointInfo(
         path=Endpoint.REPORTS_DIGESTS_JOBS_JOB_ID,
@@ -1064,7 +1051,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=JobDigestReportGetModel,
         responses=[(HTTPStatus.OK, SingleJobReportModel, None)],
         permission=Permission.REPORT_DIGEST_DESCRIBE,
-        description='Allows to get a digest report by job id'
+        description='Allows to get a digest report by job id',
     ),
     EndpointInfo(
         path=Endpoint.REPORTS_DIGESTS_TENANTS_TENANT_NAME_JOBS,
@@ -1073,9 +1060,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=TenantJobsDigestsReportGetModel,
         responses=[(HTTPStatus.OK, MultipleJobReportModel, None)],
         permission=Permission.REPORT_DIGEST_DESCRIBE,
-        description='Allows to get multiple digest reports by tenant latest jobs'
+        description='Allows to get multiple digest reports by tenant latest jobs',
     ),
-
     # details reports
     EndpointInfo(
         path=Endpoint.REPORTS_DETAILS_JOBS_JOB_ID,
@@ -1084,7 +1070,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=JobDetailsReportGetModel,
         responses=[(HTTPStatus.OK, SingleJobReportModel, None)],
         permission=Permission.REPORT_DETAILS_DESCRIBE,
-        description='Allows to get a detailed report by job id'
+        description='Allows to get a detailed report by job id',
     ),
     EndpointInfo(
         path=Endpoint.REPORTS_DETAILS_TENANTS_TENANT_NAME_JOBS,
@@ -1093,9 +1079,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=TenantJobsDetailsReportGetModel,
         responses=[(HTTPStatus.OK, MultipleJobReportModel, None)],
         permission=Permission.REPORT_DETAILS_DESCRIBE,
-        description='Allows to get multiple detailed reports by tenant latest jobs'
+        description='Allows to get multiple detailed reports by tenant latest jobs',
     ),
-
     # findings reports
     EndpointInfo(
         path=Endpoint.REPORTS_FINDINGS_JOBS_JOB_ID,
@@ -1104,7 +1089,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=JobFindingsReportGetModel,
         responses=[(HTTPStatus.OK, SingleJobReportModel, None)],
         permission=Permission.REPORT_FINDINGS_DESCRIBE,
-        description='Allows to get findings by job id'
+        description='Allows to get findings by job id',
     ),
     EndpointInfo(
         path=Endpoint.REPORTS_FINDINGS_TENANTS_TENANT_NAME_JOBS,
@@ -1113,9 +1098,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=TenantJobsFindingsReportGetModel,
         responses=[(HTTPStatus.OK, MultipleJobReportModel, None)],
         permission=Permission.REPORT_FINDINGS_DESCRIBE,
-        description='Allows to get findings by latest jobs of a tenant'
+        description='Allows to get findings by latest jobs of a tenant',
     ),
-
     # compliance reports
     EndpointInfo(
         path=Endpoint.REPORTS_COMPLIANCE_JOBS_JOB_ID,
@@ -1124,7 +1108,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=JobComplianceReportGetModel,
         responses=[(HTTPStatus.OK, SingleJobReportModel, None)],
         permission=Permission.REPORT_COMPLIANCE_DESCRIBE_JOB,
-        description='Allows to get compliance report by a job'
+        description='Allows to get compliance report by a job',
     ),
     EndpointInfo(
         path=Endpoint.REPORTS_COMPLIANCE_TENANTS_TENANT_NAME,
@@ -1133,9 +1117,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=TenantComplianceReportGetModel,
         responses=[(HTTPStatus.OK, SingleEntityReportModel, None)],
         permission=Permission.REPORT_COMPLIANCE_DESCRIBE_TENANT,
-        description='Allows to get a compliance report by tenant'
+        description='Allows to get a compliance report by tenant',
     ),
-
     # errors report
     EndpointInfo(
         path=Endpoint.REPORTS_ERRORS_JOBS_JOB_ID,
@@ -1144,9 +1127,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=JobErrorReportGetModel,
         responses=[(HTTPStatus.OK, ErrorsReportModel, None)],
         permission=Permission.REPORT_ERRORS_DESCRIBE,
-        description='Allows to get errors occurred during a job'
+        description='Allows to get errors occurred during a job',
     ),
-
     # rules report
     EndpointInfo(
         path=Endpoint.REPORTS_RULES_JOBS_JOB_ID,
@@ -1155,7 +1137,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=JobRuleReportGetModel,
         responses=[(HTTPStatus.OK, RulesReportModel, None)],
         permission=Permission.REPORT_RULES_DESCRIBE_JOB,
-        description='Allows to get information about rules executed during a job'
+        description='Allows to get information about rules executed during a job',
     ),
     EndpointInfo(
         path=Endpoint.REPORTS_RULES_TENANTS_TENANT_NAME,
@@ -1164,9 +1146,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=TenantRuleReportGetModel,
         responses=[(HTTPStatus.OK, EntityRulesReportModel, None)],
         permission=Permission.REPORT_RULES_DESCRIBE_TENANT,
-        description='Allows to get average rules data by latest tenant jobs'
+        description='Allows to get average rules data by latest tenant jobs',
     ),
-
     # push to dojo report
     EndpointInfo(
         path=Endpoint.REPORTS_PUSH_DOJO_JOB_ID,
@@ -1175,7 +1156,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=ReportPushDojoByJobIdModel,
         responses=[(HTTPStatus.OK, SingleDefectDojoPushResult, None)],
         permission=Permission.REPORT_PUSH_TO_DOJO,
-        description='Allows to push a specific job to Defect Dojo'
+        description='Allows to push a specific job to Defect Dojo',
     ),
     EndpointInfo(
         path=Endpoint.REPORTS_PUSH_DOJO,
@@ -1184,9 +1165,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=ReportPushDojoMultipleModel,
         responses=[(HTTPStatus.OK, MultipleDefectDojoPushResult, None)],
         permission=Permission.REPORT_PUSH_TO_DOJO_BATCH,
-        description='Allows to push multiple jobs to Defect Dojo'
+        description='Allows to push multiple jobs to Defect Dojo',
     ),
-
     # high level reports
     EndpointInfo(
         path=Endpoint.REPORTS_OPERATIONAL,
@@ -1195,7 +1175,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=OperationalGetReportModel,
         responses=[(HTTPStatus.OK, MessageModel, None)],
         permission=Permission.REPORT_OPERATIONAL,
-        description='Allows to request operational report'
+        description='Allows to request operational report',
     ),
     EndpointInfo(
         path=Endpoint.REPORTS_PROJECT,
@@ -1204,7 +1184,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=ProjectGetReportModel,
         responses=[(HTTPStatus.OK, MessageModel, None)],
         permission=Permission.REPORT_PROJECT,
-        description='Allows to request project report'
+        description='Allows to request project report',
     ),
     EndpointInfo(
         path=Endpoint.REPORTS_DEPARTMENT,
@@ -1213,7 +1193,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=DepartmentGetReportModel,
         responses=[(HTTPStatus.OK, MessageModel, None)],
         permission=Permission.REPORT_DEPARTMENT,
-        description='Allows to request department report'
+        description='Allows to request department report',
     ),
     EndpointInfo(
         path=Endpoint.REPORTS_CLEVEL,
@@ -1222,7 +1202,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=CLevelGetReportModel,
         responses=[(HTTPStatus.OK, MessageModel, None)],
         permission=Permission.REPORT_CLEVEL,
-        description='Allows to request clevel report'
+        description='Allows to request clevel report',
     ),
     # TODO: currently not supported
     # EndpointInfo(
@@ -1241,9 +1221,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=ReportStatusGetModel,
         responses=[(HTTPStatus.OK, MultipleReportStatusModel, None)],
         permission=Permission.REPORT_STATUS,
-        description='Allows to get a status of report by id'
+        description='Allows to get a status of report by id',
     ),
-
     # resources reports
     EndpointInfo(
         path=Endpoint.REPORTS_RESOURCES_PLATFORMS_K8S_PLATFORM_ID_LATEST,
@@ -1252,7 +1231,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=PlatformK8sResourcesReportGetModel,
         responses=[(HTTPStatus.OK, EntityResourcesReportModel, None)],
         permission=Permission.REPORT_RESOURCES_GET_K8S_PLATFORM_LATEST,
-        description='Allows to get latest resources report by K8S platform'
+        description='Allows to get latest resources report by K8S platform',
     ),
     EndpointInfo(
         path=Endpoint.REPORTS_RESOURCES_TENANTS_TENANT_NAME_LATEST,
@@ -1261,7 +1240,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=ResourcesReportGetModel,
         responses=[(HTTPStatus.OK, EntityResourcesReportModel, None)],
         permission=Permission.REPORT_RESOURCES_GET_TENANT_LATEST,
-        description='Allows to get latest resources report by tenant'
+        description='Allows to get latest resources report by tenant',
     ),
     EndpointInfo(
         path=Endpoint.REPORTS_RESOURCES_TENANTS_TENANT_NAME_JOBS,
@@ -1270,7 +1249,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=ResourceReportJobsGetModel,
         responses=[(HTTPStatus.OK, JobResourcesReportModel, None)],
         permission=Permission.REPORT_RESOURCES_GET_JOBS_BATCH,
-        description='Allows to get latest resources report by latest tenant jobs'
+        description='Allows to get latest resources report by latest tenant jobs',
     ),
     EndpointInfo(
         path=Endpoint.REPORTS_RESOURCES_JOBS_JOB_ID,
@@ -1279,7 +1258,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=ResourceReportJobGetModel,
         responses=[(HTTPStatus.OK, JobResourcesReportModel, None)],
         permission=Permission.REPORT_RESOURCES_GET_JOBS,
-        description='Allows to get latest resources report by job'
+        description='Allows to get latest resources report by job',
     ),
     EndpointInfo(
         path=Endpoint.REPORTS_RAW_TENANTS_TENANT_NAME_STATE_LATEST,
@@ -1288,7 +1267,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=RawReportGetModel,
         responses=[(HTTPStatus.OK, RawReportModel, None)],
         permission=Permission.REPORT_RAW_GET_TENANT_LATEST,
-        description='Allows to request raw report data by tenant'
+        description='Allows to request raw report data by tenant',
     ),
     EndpointInfo(
         path=Endpoint.REPORTS_TOP_VIOLATIONS_JOBS_JOB_ID,
@@ -1297,7 +1276,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=TopViolationsReportJobGetModel,
         responses=[(HTTPStatus.OK, TopViolationsReportJobsModel, None)],
         permission=Permission.REPORT_TOP_VIOLATIONS_GET_JOBS,
-        description='Allows to get top violation report by job id'
+        description='Allows to get top violation report by job id',
     ),
     EndpointInfo(
         path=Endpoint.REPORTS_TOP_VIOLATIONS_COMPARE_JOBS,
@@ -1306,9 +1285,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=TopViolationsReportCompareJobsGetModel,
         responses=[(HTTPStatus.OK, TopViolationsReportComparisonModel, None)],
         permission=Permission.REPORT_TOP_VIOLATIONS_COMPARE_JOBS,
-        description='Allows to get top violation comparison report by jobs id'
+        description='Allows to get top violation comparison report by jobs id',
     ),
-
     # platforms
     EndpointInfo(
         path=Endpoint.PLATFORMS_K8S,
@@ -1317,7 +1295,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=PlatformK8sQueryModel,
         responses=[(HTTPStatus.OK, MultipleK8SPlatformsModel, None)],
         permission=Permission.PLATFORM_QUERY_K8S,
-        description='Allows to query registered K8S platforms'
+        description='Allows to query registered K8S platforms',
     ),
     EndpointInfo(
         path=Endpoint.PLATFORMS_K8S,
@@ -1326,7 +1304,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=PlatformK8SPostModel,
         responses=[(HTTPStatus.OK, SingleK8SPlatformModel, None)],
         permission=Permission.PLATFORM_CREATE_K8S,
-        description='Allows to register K8S platform'
+        description='Allows to register K8S platform',
     ),
     EndpointInfo(
         path=Endpoint.PLATFORMS_K8S_ID,
@@ -1335,7 +1313,16 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleK8SPlatformModel, None)],
         permission=Permission.PLATFORM_GET_K8S,
-        description='Allows to register K8S platform'
+        description='Allows to register K8S platform',
+    ),
+    EndpointInfo(
+        path=Endpoint.PLATFORMS_K8S_ID,
+        method=HTTPMethod.PATCH,
+        lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
+        request_model=PlatformK8SPutModel,
+        responses=[(HTTPStatus.OK, SingleK8SPlatformModel, None)],
+        permission=Permission.PLATFORM_UPDATE_K8S,
+        description='Allows to update K8S platform event-driven state',
     ),
     EndpointInfo(
         path=Endpoint.PLATFORMS_K8S_ID,
@@ -1344,9 +1331,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.PLATFORM_DELETE_K8S,
-        description='Allows to deregister a K8S platform'
+        description='Allows to deregister a K8S platform',
     ),
-
     # dojo integrations
     EndpointInfo(
         path=Endpoint.INTEGRATIONS_DEFECT_DOJO,
@@ -1355,7 +1341,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=DefectDojoPostModel,
         responses=[(HTTPStatus.CREATED, SingleDefeDojoModel, None)],
         permission=Permission.DOJO_INTEGRATION_CREATE,
-        description='Allows to register Defect Dojo integration'
+        description='Allows to register Defect Dojo integration',
     ),
     EndpointInfo(
         path=Endpoint.INTEGRATIONS_DEFECT_DOJO,
@@ -1364,7 +1350,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=DefectDojoQueryModel,
         responses=[(HTTPStatus.OK, MultipleDefectDojoModel, None)],
         permission=Permission.DOJO_INTEGRATION_DESCRIBE,
-        description='Allows to list registered Defect Dojo integrations'
+        description='Allows to list registered Defect Dojo integrations',
     ),
     EndpointInfo(
         path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID,
@@ -1373,7 +1359,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.DOJO_INTEGRATION_DELETE,
-        description='Allows to delete Defect Dojo integration by id'
+        description='Allows to delete Defect Dojo integration by id',
     ),
     EndpointInfo(
         path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID,
@@ -1382,7 +1368,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleDefeDojoModel, None)],
         permission=Permission.DOJO_INTEGRATION_DESCRIBE,
-        description='Allows to describe Defect Dojo integration by id'
+        description='Allows to describe Defect Dojo integration by id',
     ),
     EndpointInfo(
         path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION,
@@ -1391,7 +1377,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=DefectDojoActivationPutModel,
         responses=[(HTTPStatus.CREATED, SingleDefectDojoActivation, None)],
         permission=Permission.DOJO_INTEGRATION_ACTIVATE,
-        description='Allows to activate Defect Dojo integration for tenants'
+        description='Allows to activate Defect Dojo integration for tenants',
     ),
     EndpointInfo(
         path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION,
@@ -1400,7 +1386,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleDefectDojoActivation, None)],
         permission=Permission.DOJO_INTEGRATION_ACTIVATE,
-        description='Allows to get tenants Defect Dojo integration is activated for'
+        description='Allows to get tenants Defect Dojo integration is activated for',
     ),
     EndpointInfo(
         path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION,
@@ -1409,7 +1395,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.DOJO_INTEGRATION_DELETE_ACTIVATION,
-        description='Allows to deactivate Defect Dojo integration'
+        description='Allows to deactivate Defect Dojo integration',
     ),
     EndpointInfo(
         path=Endpoint.INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION,
@@ -1418,9 +1404,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=DefectDojoUpdatePatchModel,
         responses=[(HTTPStatus.CREATED, None, None)],
         permission=Permission.DOJO_INTEGRATION_DELETE_ACTIVATION,
-        description='Allows to update Defect Dojo integration'
+        description='Allows to update Defect Dojo integration',
     ),
-
     # self integration
     EndpointInfo(
         path=Endpoint.INTEGRATIONS_SELF,
@@ -1429,7 +1414,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=SelfIntegrationPutModel,
         responses=[(HTTPStatus.CREATED, SingleSelfIntegration, None)],
         permission=Permission.SRE_INTEGRATION_CREATE,
-        description='Allows to create an application with type CUSTODIAN for integration with Maestro'
+        description='Allows to create an application with type CUSTODIAN for integration with Maestro',
     ),
     EndpointInfo(
         path=Endpoint.INTEGRATIONS_SELF,
@@ -1438,7 +1423,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=SelfIntegrationPatchModel,
         responses=[(HTTPStatus.OK, SingleSelfIntegration, None)],
         permission=Permission.SRE_INTEGRATION_UPDATE,
-        description='Allows to change tenants that are active for integrations with Maestro'
+        description='Allows to change tenants that are active for integrations with Maestro',
     ),
     EndpointInfo(
         path=Endpoint.INTEGRATIONS_SELF,
@@ -1447,7 +1432,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleSelfIntegration, None)],
         permission=Permission.SRE_INTEGRATION_DESCRIBE,
-        description='Allows to get integration with Maestro'
+        description='Allows to get integration with Maestro',
     ),
     EndpointInfo(
         path=Endpoint.INTEGRATIONS_SELF,
@@ -1456,9 +1441,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.SRE_INTEGRATION_DELETE,
-        description='Allows to delete an integration with Maestro'
+        description='Allows to delete an integration with Maestro',
     ),
-
     # Users
     EndpointInfo(
         path=Endpoint.USERS_USERNAME,
@@ -1467,17 +1451,19 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleUserModel, None)],
         permission=Permission.USERS_DESCRIBE,
-        description='Allows to get an API user by name'
+        description='Allows to get an API user by name',
     ),
     EndpointInfo(
         path=Endpoint.USERS,
         method=HTTPMethod.POST,
         lambda_name=LambdaName.API_HANDLER,
         request_model=UserPostModel,
-        responses=[(HTTPStatus.OK, SingleUserModel, None),
-                   (HTTPStatus.CONFLICT, MessageModel, None)],
+        responses=[
+            (HTTPStatus.OK, SingleUserModel, None),
+            (HTTPStatus.CONFLICT, MessageModel, None),
+        ],
         permission=Permission.USERS_CREATE,
-        description='Allows to create a new API user'
+        description='Allows to create a new API user',
     ),
     EndpointInfo(
         path=Endpoint.USERS_USERNAME,
@@ -1486,7 +1472,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=UserPatchModel,
         responses=[(HTTPStatus.OK, SingleUserModel, None)],
         permission=Permission.USERS_UPDATE,
-        description='Allows to update a specific user'
+        description='Allows to update a specific user',
     ),
     EndpointInfo(
         path=Endpoint.USERS_USERNAME,
@@ -1495,7 +1481,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.USERS_DELETE,
-        description='Allows to delete a specific user'
+        description='Allows to delete a specific user',
     ),
     EndpointInfo(
         path=Endpoint.USERS,
@@ -1504,7 +1490,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BasePaginationModel,
         responses=[(HTTPStatus.OK, MultipleUsersModel, None)],
         permission=Permission.USERS_DESCRIBE,
-        description='Allows to list API users'
+        description='Allows to list API users',
     ),
     EndpointInfo(
         path=Endpoint.USERS_WHOAMI,
@@ -1513,7 +1499,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleUserModel, None)],
         permission=Permission.USERS_GET_CALLER,
-        description='Allows to describe the user making this call'
+        description='Allows to describe the user making this call',
     ),
     EndpointInfo(
         path=Endpoint.USERS_RESET_PASSWORD,
@@ -1522,9 +1508,8 @@ data: tuple[EndpointInfo, ...] = (
         request_model=UserResetPasswordModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.USERS_RESET_PASSWORD,
-        description='Allows to change you password'
+        description='Allows to change you password',
     ),
-
     EndpointInfo(
         path=Endpoint.INTEGRATIONS_CHRONICLE,
         method=HTTPMethod.POST,
@@ -1532,7 +1517,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=ChroniclePostModel,
         responses=[(HTTPStatus.CREATED, SingleChronicleModel, None)],
         permission=Permission.CHRONICLE_INTEGRATION_CREATE,
-        description='Registers a google Chronicle instance'
+        description='Registers a google Chronicle instance',
     ),
     EndpointInfo(
         path=Endpoint.INTEGRATIONS_CHRONICLE,
@@ -1541,7 +1526,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BasePaginationModel,
         responses=[(HTTPStatus.OK, MultipleChronicleModel, None)],
         permission=Permission.CHRONICLE_INTEGRATION_DESCRIBE,
-        description='Queries google Chronicle instances'
+        description='Queries google Chronicle instances',
     ),
     EndpointInfo(
         path=Endpoint.INTEGRATIONS_CHRONICLE_ID,
@@ -1550,7 +1535,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleChronicleModel, None)],
         permission=Permission.CHRONICLE_INTEGRATION_DESCRIBE,
-        description='Retrieves a specific google Chronicle instance'
+        description='Retrieves a specific google Chronicle instance',
     ),
     EndpointInfo(
         path=Endpoint.INTEGRATIONS_CHRONICLE_ID,
@@ -1559,7 +1544,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.CHRONICLE_INTEGRATION_DELETE,
-        description='Deregisters a specific google Chronicle instance'
+        description='Deregisters a specific google Chronicle instance',
     ),
     EndpointInfo(
         path=Endpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION,
@@ -1568,7 +1553,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=ChronicleActivationPutModel,
         responses=[(HTTPStatus.CREATED, SingleChronicleActivationModel, None)],
         permission=Permission.CHRONICLE_INTEGRATION_ACTIVATE,
-        description='Allows to activate Chronicle integration for tenants'
+        description='Allows to activate Chronicle integration for tenants',
     ),
     EndpointInfo(
         path=Endpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION,
@@ -1577,7 +1562,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleDefectDojoActivation, None)],
         permission=Permission.CHRONICLE_INTEGRATION_GET_ACTIVATION,
-        description='Allows to get tenants Chronicle integration is activated for'
+        description='Allows to get tenants Chronicle integration is activated for',
     ),
     EndpointInfo(
         path=Endpoint.INTEGRATIONS_CHRONICLE_ID_ACTIVATION,
@@ -1586,7 +1571,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.NO_CONTENT, None, None)],
         permission=Permission.CHRONICLE_INTEGRATION_DELETE_ACTIVATION,
-        description='Allows to deactivate Chronicle integration'
+        description='Allows to deactivate Chronicle integration',
     ),
     EndpointInfo(
         path=Endpoint.REPORTS_PUSH_CHRONICLE_JOB_ID,
@@ -1595,7 +1580,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=ReportPushByJobIdModel,
         responses=[(HTTPStatus.OK, SingleChroniclePushResult, None)],
         permission=Permission.REPORT_PUSH_TO_CHRONICLE,
-        description='Allows to push a specific job to Chronicle'
+        description='Allows to push a specific job to Chronicle',
     ),
     EndpointInfo(
         path=Endpoint.REPORTS_PUSH_CHRONICLE_TENANTS_TENANT_NAME,
@@ -1604,7 +1589,7 @@ data: tuple[EndpointInfo, ...] = (
         request_model=BaseModel,
         responses=[(HTTPStatus.OK, SingleChroniclePushResult, None)],
         permission=Permission.REPORT_PUSH_TO_CHRONICLE_TENANT,
-        description='Allows to push tenant data to Chronicle'
+        description='Allows to push tenant data to Chronicle',
     ),
     EndpointInfo(
         path=Endpoint.DOC,

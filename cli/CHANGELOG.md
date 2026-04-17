@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added `sre integrations event_sources` commands: `add`, `describe`, `update`, `delete` for SQS event source management
 - Added default value for the tenant parameter of the command policy add
+- Added `sre job event k8s` to send `SRE_K8S_AGENT` payloads to `POST /event` (`--event-type/-t`, `--reason/-R`, `--platform-id/-p`)
+- Added `sre platform k8s update` command to enable/disable K8S event-driven for a platform
+- Added `--event_driven_enabled` `-ede` flag to the `sre platform k8s add` command
 - Version of `modular-cli-sdk` updated from `3.1.2` to `3.1.4`
 
 ### Fixed
