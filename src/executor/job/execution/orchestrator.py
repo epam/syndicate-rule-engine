@@ -38,6 +38,7 @@ from executor.job.rulesets.resolver import resolve_job_rulesets
 from executor.job.types import JobExecutionError
 from executor.services.report_service import JobResult
 from helpers.constants import GLOBAL_REGION, Cloud
+from services.job_policy_filters.types import BundleFilters
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_iso
 from executor.job.scan import (
@@ -107,6 +108,19 @@ def run_standard_job(ctx: JobExecutionContext):
     _LOG.info(f"Policies are collected: {len(policies)}")
     regions = set(job.regions) | {GLOBAL_REGION}
 
+    policy_bundle: BundleFilters | None = None
+    if cloud is Cloud.KUBERNETES and ctx.platform is not None:
+        policy_bundle = SP.job_policy_bundle_service.load_bundle(
+            platform=ctx.platform,
+            job=job,
+        )
+        if policy_bundle:
+            _LOG.info(
+                "Loaded policy filters bundle with %d policy key(s) for job %s",
+                len(policy_bundle),
+                job.id,
+            )
+
     cp = scan_checkpoint_from_job(job)
     failed: FailedPoliciesMap = {}
     bucket = SP.environment_service.default_reports_bucket_name()
@@ -135,7 +149,8 @@ def run_standard_job(ctx: JobExecutionContext):
             scan = cast(
                 RegionScanResult,
                 pool.apply(
-                    process_job_concurrent, (policies, ctx.work_dir, cloud, region)
+                    process_job_concurrent,
+                    (policies, ctx.work_dir, cloud, region, policy_bundle),
                 )
             )
 

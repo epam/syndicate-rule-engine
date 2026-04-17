@@ -61,12 +61,12 @@ class EventConsumerEnv(EnvEnum):
     K8S_BATCH_MAX_SIZE = (
         f'{PREFIX}_K8S_BATCH_MAX_SIZE',
         (),
-        '8',
+        '25',
     )
     K8S_BATCH_WAIT_SECONDS = (
         f'{PREFIX}_K8S_BATCH_WAIT_SECONDS',
         (),
-        '3',
+        '5',
     )
 
     # Redis (K8s event dedupe)

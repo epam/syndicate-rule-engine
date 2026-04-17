@@ -8,7 +8,10 @@ from .domain import (
     CloudType,
     EventGenericRecord,
     EventRecord,
+    EventRecordUnion,
     FailedEvent,
+    KubernetesEventRecord,
+    KubernetesMetadata,
     RegionNameType,
     RuleNameType,
     TenantNameType,
@@ -29,6 +32,9 @@ from .services import (
 
 __all__ = (
     'EventRecord',
+    'EventRecordUnion',
+    'KubernetesEventRecord',
+    'KubernetesMetadata',
     'FailedEvent',
     'EventGenericRecord',
     'VendorKind',

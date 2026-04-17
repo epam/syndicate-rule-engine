@@ -1,5 +1,10 @@
 """
 Event assembler handler.
+
+TODO: This file like a "god object", need to refactor it. 
+    It's too complex and hard to understand. 
+    It's a good candidate for refactoring.
+    Before adding new functionality, we need to refactor this file.
 """
 
 from __future__ import annotations
@@ -7,6 +12,7 @@ from __future__ import annotations
 import heapq
 import operator
 from collections import defaultdict
+from collections.abc import Iterable, Mapping
 from datetime import timedelta
 from http import HTTPStatus
 from itertools import chain
@@ -43,6 +49,13 @@ from services.event_driven import (
     TenantNameType,
     VendorKind,
 )
+from services.event_driven.domain.models import KubernetesMetadata
+from services.job_policy_filters import (
+    JobPolicyBundleService,
+    K8sBuildData,
+    K8sBuildRequest,
+    PolicyFiltersBundleBuilder,
+)
 from services.job_service import JobService
 from services.license_service import LicenseService
 from services.ruleset_service import Ruleset, RulesetName, RulesetService
@@ -70,13 +83,68 @@ _LOG = get_logger(__name__)
 
 
 PlatformRegionKey = tuple[str | None, RegionNameType]
-RegionRulesMap = dict[PlatformRegionKey, set[RuleNameType]]
+# Per scope: rule ids plus, for K8s, each rule's involvedObject metadata (non-K8s: empty dict).
+RegionRulesMap = dict[
+    PlatformRegionKey,
+    tuple[set[RuleNameType], dict[RuleNameType, set[KubernetesMetadata]]],
+]
 TenantRegionRulesMap = dict[TenantNameType, RegionRulesMap]
 CloudTenantRegionRulesMap = dict[CloudType, TenantRegionRulesMap]
 ByVendorMap = dict[
     VendorKind,
     CloudTenantRegionRulesMap,
 ]
+
+# K8s-only: ``None`` when the job has no Kubernetes involved-object metadata (e.g. non-K8s clouds).
+K8sRuleRefMap = dict[RuleNameType, frozenset[KubernetesMetadata]]
+
+
+def entries_from_involved_refs(
+    refs: Iterable[KubernetesMetadata],
+) -> list[K8sBuildData]:
+    """Group by namespace; one resource → narrow query; several → namespace scope + ``uid in``."""
+    by_uid: dict[str, tuple[str, str | None]] = {}
+    for ref in refs:
+        uid = ref.resource_uid
+        if not uid:
+            continue
+        if uid not in by_uid:
+            by_uid[uid] = (ref.name, ref.namespace)
+
+    ns_map: dict[str | None, list[tuple[str, str]]] = defaultdict(list)
+    for uid, (name, ns) in by_uid.items():
+        ns_map[ns].append((name, uid))
+
+    entries: list[K8sBuildData] = []
+    for ns in sorted(ns_map.keys(), key=lambda x: (x is None, x or '')):
+        pairs = sorted(ns_map[ns], key=lambda t: t[1])
+        if len(pairs) == 1:
+            name, uid = pairs[0]
+            entries.append(
+                K8sBuildData(
+                    namespace=ns,
+                    name=name or None,
+                    uids=uid,
+                )
+            )
+        else:
+            uids = [u for _, u in pairs]
+            entries.append(K8sBuildData(namespace=ns, name=None, uids=uids))
+
+    return entries
+
+
+def k8s_build_request_for_scanned_rules(
+    rules_to_scan: Iterable[RuleNameType],
+    rule_to_refs: Mapping[RuleNameType, Iterable[KubernetesMetadata]],
+) -> K8sBuildRequest:
+    """Build :class:`K8sBuildRequest` for exactly ``rules_to_scan``; missing rules get no scan rows."""
+    return K8sBuildRequest(
+        policies={
+            rule: entries_from_involved_refs(rule_to_refs.get(rule, ()))
+            for rule in rules_to_scan
+        }
+    )
 
 
 class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
@@ -95,6 +163,7 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
         job_service: JobService,
         tenant_settings_service: TenantSettingsService,
         ed_rules_service: EventDrivenRulesService,
+        job_policy_bundle_service: JobPolicyBundleService,
     ) -> None:
         self._event_service = event_service
         self._settings_service = settings_service
@@ -107,6 +176,7 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
         self._batch_client = batch_client
         self._tss = tenant_settings_service
         self._ed_rules_service = ed_rules_service
+        self._bundle_service = job_policy_bundle_service
         # this cache does not affect user directly, so we can put custom
         # ttl that does not depend on env
         self._rulesets_cache = cache.factory(ttu=lambda k, v, now: now + 900)
@@ -143,6 +213,7 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
             job_service=SERVICE_PROVIDER.job_service,
             tenant_settings_service=SERVICE_PROVIDER.modular_client.tenant_settings_service(),
             ed_rules_service=SERVICE_PROVIDER.ed_rules_service,
+            job_policy_bundle_service=SERVICE_PROVIDER.job_policy_bundle_service,
         )
 
     def handler(
@@ -187,7 +258,7 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
         )
 
         vendor_maps = self.vendor_rule_map(events)
-        tenant_jobs: list[tuple[Tenant, Job]] = []
+        tenant_jobs: list[tuple[Tenant, Job, K8sRuleRefMap | None]] = []
         for vendor, mapping in vendor_maps.items():
             if not mapping:
                 _LOG.warning(f'{vendor}`s mapping is empty. Skipping')
@@ -203,8 +274,8 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
         # here we leave only jobs of tenants for which ed is
         # enabled by license. And also leave only rules that available by
         # that license.
-        allowed_jobs: list[Job] = []
-        for tenant, job in tenant_jobs:
+        allowed_jobs: list[tuple[Job, K8sRuleRefMap | None]] = []
+        for tenant, job, rule_ref_map in tenant_jobs:
             _license = self.get_allowed_event_driven_license(tenant)
             if not _license:
                 _LOG.debug(
@@ -282,7 +353,15 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
                 RulesetName(_id, None, _license.license_key).to_str()
                 for _id in _license.ruleset_ids
             ]
-            allowed_jobs.append(job)
+            filtered_rule_ref_map: K8sRuleRefMap | None = (
+                None
+                if rule_ref_map is None
+                else {
+                    r: rule_ref_map.get(r, frozenset())
+                    for r in restricted_rules_to_scan
+                }
+            )
+            allowed_jobs.append((job, filtered_rule_ref_map))
 
         if not allowed_jobs:
             return build_response(
@@ -292,19 +371,49 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
 
         # Save all jobs and submit them to batch
         job_ids = []
-        for job in allowed_jobs:
+        policy_filters_builder = PolicyFiltersBundleBuilder()
+        jobs_only = [j for j, _ in allowed_jobs]
+        for job, rule_ref_map in allowed_jobs:
             # job_type and ttl are set during creation or update
             # ttl is handled by JobService.create if passed
             self._job_service.save(job)
             job_ids.append(job.id)
+            if job.platform_id:
+                if rule_ref_map is None or not any(rule_ref_map.values()):
+                    _LOG.warning(
+                        'Kubernetes event-driven job %s has no involvedObject '
+                        'UIDs in aggregated events; skipping policy filters bundle',
+                        job.id,
+                    )
+                else:
+                    platform = self._platform_service.get_nullable(
+                        hash_key=job.platform_id
+                    )
+                    if not platform:
+                        _LOG.error(
+                            'Cannot save policy filters bundle: platform %s not found',
+                            job.platform_id,
+                        )
+                    else:
+                        bundle = policy_filters_builder.build_k8s_bundle(
+                            k8s_build_request_for_scanned_rules(
+                                job.rules_to_scan,
+                                rule_ref_map,
+                            ),
+                        )
+                        self._bundle_service.save_bundle(
+                            platform=platform,
+                            job=job,
+                            bundle=bundle,
+                        )
 
         submitted_job_ids = []
         resp = self._submit_jobs_to_batch(
-            allowed_jobs,
+            jobs_only,
             as_event_driven=True,
         )
         if resp:
-            for job in allowed_jobs:
+            for job in jobs_only:
                 self._job_service.update(
                     job=job,
                     batch_job_id=resp.get('jobId'),
@@ -328,19 +437,21 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
     def handle_vendor(
         self,
         cl_tn_rg_rl_map: CloudTenantRegionRulesMap,
-    ) -> Generator[tuple[Tenant, Job], None, None]:
+    ) -> Generator[tuple[Tenant, Job, K8sRuleRefMap | None], None, None]:
         """
         Generic logic for vendor audit events
         {
             'AZURE': {
                 'TEST_TENANT': {
-                    (None, 'global'): {'rule1', 'rule2'}
+                    (None, 'global'): ({'rule1', 'rule2'}, set())
                 }
             }
         }
         Uses a normalized map:
-        cloud -> tenant_name -> (platform_id, region) -> rules
+        cloud -> tenant_name -> (platform_id, region) -> (rules, k8s_involved_refs)
         For Kubernetes, platform_id is set so each cluster gets its own job.
+        The third value maps each rule name to involvedObject metadata for K8s, or
+        ``None`` when there is no K8s metadata (e.g. non-Kubernetes jobs).
         """
         for _, tn_rg_rl_map in cl_tn_rg_rl_map.items():
             for tenant_name, rg_rl_map in tn_rg_rl_map.items():
@@ -348,11 +459,20 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
                 if not tenant:
                     _LOG.warning(f'Tenant {tenant_name} not found. Skipping')
                     continue
-                by_platform: dict[str | None, list[tuple[str, set[str]]]] = (
-                    defaultdict(list)
-                )
-                for (plat_id, region_name), rules in rg_rl_map.items():
-                    by_platform[plat_id].append((region_name, rules))
+                by_platform: dict[
+                    str | None,
+                    list[
+                        tuple[
+                            str,
+                            tuple[
+                                set[RuleNameType],
+                                dict[RuleNameType, set[KubernetesMetadata]],
+                            ],
+                        ]
+                    ],
+                ] = defaultdict(list)
+                for (plat_id, region_name), bucket in rg_rl_map.items():
+                    by_platform[plat_id].append((region_name, bucket))
 
                 ttl_days = self._environment_service.jobs_time_to_live_days()
                 ttl = None
@@ -363,8 +483,23 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
                     regions = sorted({reg for reg, _ in region_rules_pairs})
                     all_rules = set(
                         chain.from_iterable(
-                            rules for _, rules in region_rules_pairs
+                            bucket[0] for _, bucket in region_rules_pairs
                         )
+                    )
+                    merged_rule_to_refs: dict[
+                        RuleNameType,
+                        set[KubernetesMetadata],
+                    ] = defaultdict(set)
+                    for _, bucket in region_rules_pairs:
+                        for rule, refs in bucket[1].items():
+                            merged_rule_to_refs[rule].update(refs)
+                    resource_ref_map: K8sRuleRefMap | None = (
+                        {
+                            r: frozenset(refs)
+                            for r, refs in merged_rule_to_refs.items()
+                        }
+                        if merged_rule_to_refs
+                        else None
                     )
                     job = self._job_service.create(
                         customer_name=tenant.customer_name,
@@ -378,7 +513,7 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
                         affected_license=None,  # Will be set later based on license
                         status=JobState.PENDING,
                     )
-                    yield tenant, job
+                    yield tenant, job, resource_ref_map
 
     def _obtain_events(self, since: float | None = None) -> list[Event]:
         """
@@ -400,6 +535,27 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
         # actually, there is no need to merge all the lists, we just need to
         # first and last timestamp. But this "merge" must be fast
         return list(heapq.merge(*iters, key=lambda e: e.timestamp))
+
+    @staticmethod
+    def _k8s_metadata(
+        cloud: str,
+        event_record: EventRecordAttribute,
+    ) -> KubernetesMetadata | None:
+        """
+        Kubernetes event metadata from watcher/agent ingest (see :class:`KubernetesMetadata`).
+
+        Accepts ``resource_uid`` or ``resourceUid`` in ``metadata``.
+        """
+        _LOG.info(f'K8s involved object: {event_record}')
+        if cloud != Cloud.KUBERNETES.value:
+            return None
+        md = event_record.metadata
+        if md is None:
+            return None
+        mapping = md.as_dict() if hasattr(md, 'as_dict') else md
+        if not isinstance(mapping, dict):
+            return None
+        return KubernetesMetadata.model_validate(mapping)
 
     def vendor_rule_map(
         self,
@@ -447,14 +603,28 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
                     platform_id = None
                 bucket_key: PlatformRegionKey = (platform_id, region_name)
 
+                metadata_ref = self._k8s_metadata(cloud, event_record)
                 # Extend the rules set for the bucket rather than overwriting,
                 # handling the case where multiple events may add to the same scope
                 if bucket_key not in result[vendor][cloud][tenant_name]:
-                    result[vendor][cloud][tenant_name][bucket_key] = set(rules)
-                else:
-                    result[vendor][cloud][tenant_name][bucket_key].update(
-                        rules
+                    rule_to_refs: dict[
+                        RuleNameType, set[KubernetesMetadata]
+                    ] = {}
+                    for r in rules:
+                        if metadata_ref:
+                            rule_to_refs.setdefault(r, set()).add(metadata_ref)
+                    result[vendor][cloud][tenant_name][bucket_key] = (
+                        set(rules),
+                        rule_to_refs,
                     )
+                else:
+                    rule_set, rule_to_refs = result[vendor][cloud][
+                        tenant_name
+                    ][bucket_key]
+                    rule_set.update(rules)
+                    for r in rules:
+                        if metadata_ref:
+                            rule_to_refs.setdefault(r, set()).add(metadata_ref)
 
         if not result:
             _LOG.warning('No rules found for any event')

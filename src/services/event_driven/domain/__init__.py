@@ -24,16 +24,22 @@ from .constants import (
     MA_SUB_GROUP,
     MA_TENANT_NAME,
 )
-from .models import EventRecord, FailedEvent
+from .models import (
+    EventRecord,
+    EventRecordUnion,
+    FailedEvent,
+    KubernetesEventRecord,
+    KubernetesMetadata,
+)
 from .types import (
     CloudType,
     ESourceENameRulesMap,
     EventGenericRecord,
+    K8sServiceRulesMap,
     RegionNameType,
     RuleNameType,
     TenantNameType,
     VendorKind,
-    K8sServiceRulesMap,
 )
 
 
@@ -45,6 +51,9 @@ __all__ = (
     "TenantNameType",
     "RuleNameType",
     "EventRecord",
+    "EventRecordUnion",
+    "KubernetesEventRecord",
+    "KubernetesMetadata",
     "FailedEvent",
     "EventGenericRecord",
     "CT_USER_IDENTITY",
