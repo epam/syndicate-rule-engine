@@ -10,7 +10,7 @@ from services.resources import iter_rule_region_resources, service_to_resource_t
 from services.sharding import ShardPart, ShardsCollection
 from ._constants import (
     SOURCE,
-    RESOURCE_TYPE_MAPPING,
+    MCC_RESOURCE_TYPE_MAPPING,
     MCCResourceType,
     K8SMCCResourceType,
     DEFAULT_DESCRIPTION,
@@ -135,14 +135,15 @@ class CloudRecommendationBuilder(BaseRecommendationBuilder[RecommendationsMappin
                 )
                 continue
             description = self._get_description(policy)
-            resource_type_mapping = RESOURCE_TYPE_MAPPING.get(cloud, {})
+            mcc_resource_type_mapping = MCC_RESOURCE_TYPE_MAPPING.get(cloud, {})
             for resource in resources:
-                resource_type = resource_type_mapping.get(
-                    resource.resource_type, MCCResourceType.UNKNOWN
+                mcc_resource_type = mcc_resource_type_mapping.get(
+                    resource.resource_type,
+                    MCCResourceType.UNKNOWN,
                 )
                 item = RecommendationItem(
                     resource_id=resource.id or "unknown",
-                    resource_type=resource_type,
+                    resource_type=mcc_resource_type,
                     source=SOURCE,
                     severity=rule_meta.severity,
                     stats=RecommendationStats(
@@ -152,7 +153,7 @@ class CloudRecommendationBuilder(BaseRecommendationBuilder[RecommendationsMappin
                         status="OK",
                         message="Processed successfully",
                     ),
-                    general_actions=[resource_type],
+                    general_actions=[mcc_resource_type],
                     recommendation=Recommendation(
                         article=rule_meta.article,
                         impact=rule_meta.impact,
@@ -194,9 +195,10 @@ class K8SRecommendationBuilder(BaseRecommendationBuilder[K8SRecommendationsMappi
                     f"Cloud not found for rule metadata: {rule_meta.cloud}, skipping..."
                 )
                 continue
-            rt_mapping = RESOURCE_TYPE_MAPPING.get(cloud, {})
-            resource_type = rt_mapping.get(
-                service_to_resource_type(rule_meta.service, cloud),
+            mcc_resource_type_mapping = MCC_RESOURCE_TYPE_MAPPING.get(cloud, {})
+            resource_type = service_to_resource_type(rule_meta.service, cloud)
+            k8s_mcc_resource_type = mcc_resource_type_mapping.get(
+                resource_type,
                 K8SMCCResourceType.UNKNOWN,
             )
             for resource in part.resources:
@@ -210,10 +212,10 @@ class K8SRecommendationBuilder(BaseRecommendationBuilder[K8SRecommendationsMappi
                         status="OK",
                         message="Processed successfully",
                     ),
-                    general_actions=[resource_type],
+                    general_actions=[k8s_mcc_resource_type],
                     recommendation=K8SRecommendation(
                         resource_id=resource.get("id", "unknown"),
-                        resource_type=resource_type,
+                        resource_type=k8s_mcc_resource_type,
                         article=rule_meta.article,
                         impact=rule_meta.impact,
                         description=description,
