@@ -12,6 +12,7 @@ from typing import (
     TypeVar,
     cast,
 )
+import re
 
 from typing_extensions import Self
 
@@ -448,7 +449,7 @@ def prepare_resource_type(rt: str, cloud: Cloud) -> str:
             return 'k8s.' + rt
 
 def service_to_resource_type(service: str, cloud: Cloud) -> str:
-    rt = service.replace(' ', '-').lower()
+    rt = re.sub(r'(?<!^)(?=[A-Z])', '-', service).lower()
     return prepare_resource_type(rt, cloud)
 
 def load_manager(rt: str) -> type['ResourceManager'] | None:

@@ -6,7 +6,7 @@ from modular_sdk.models.tenant import Tenant
 from helpers import get_logger
 from helpers.constants import Cloud, RemediationComplexity
 from services.metadata import Metadata, RuleMetadata
-from services.resources import iter_rule_region_resources
+from services.resources import iter_rule_region_resources, service_to_resource_type
 from services.sharding import ShardPart, ShardsCollection
 from ._constants import (
     SOURCE,
@@ -194,11 +194,12 @@ class K8SRecommendationBuilder(BaseRecommendationBuilder[K8SRecommendationsMappi
                     f"Cloud not found for rule metadata: {rule_meta.cloud}, skipping..."
                 )
                 continue
-            resource_type_mapping = RESOURCE_TYPE_MAPPING.get(cloud, {})
+            rt_mapping = RESOURCE_TYPE_MAPPING.get(cloud, {})
+            resource_type = rt_mapping.get(
+                service_to_resource_type(rule_meta.service, cloud),
+                K8SMCCResourceType.UNKNOWN,
+            )
             for resource in part.resources:
-                resource_type = resource_type_mapping.get(
-                    resource["resource_type"], K8SMCCResourceType.UNKNOWN
-                )
                 item = K8SRecommendationItem(
                     resource_id=self._application_uuid,
                     resource_type=MCCResourceType.K8S_CLUSTER,
