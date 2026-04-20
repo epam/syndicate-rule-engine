@@ -32,8 +32,8 @@ class ReportsBucketKeysBuilder(ABC):
     raw/EPAM Systems/AWS/31231231231/jobs/standard/2023-12-10-14/b00649c9-2657-4ade-bd6b-f0f5924f6a50/result/  #  noqa
     raw/EPAM Systems/AWS/31231231231/jobs/standard/2023-12-10-14/b00649c9-2657-4ade-bd6b-f0f5924f6a50/partial/  # noqa
 
-    raw/EPAM Systems/AWS/31231231231/jobs/event-driven/2023-12-10-14/b00649c9-2657-4ade-bd6b-f0f5924f6a50/result/  # noqa
-    raw/EPAM Systems/AWS/31231231231/jobs/event-driven/2023-12-10-14/b00649c9-2657-4ade-bd6b-f0f5924f6a50/difference/  # noqa
+    raw/EPAM Systems/AWS/31231231231/jobs/reactive/2023-12-10-14/b00649c9-2657-4ade-bd6b-f0f5924f6a50/result/  # noqa
+    raw/EPAM Systems/AWS/31231231231/jobs/reactive/2023-12-10-14/b00649c9-2657-4ade-bd6b-f0f5924f6a50/difference/  # noqa
     """
 
     date_delimiter = '-'
@@ -44,7 +44,7 @@ class ReportsBucketKeysBuilder(ABC):
     latest = 'latest/'
     jobs = 'jobs/'
     standard = 'standard/'
-    ed = 'event-driven/'
+    reactive = 'reactive/'
     result = 'result/'
     partial = 'partial/'
     difference = 'difference/'
@@ -156,7 +156,7 @@ class ReportsBucketKeysBuilder(ABC):
     @classmethod
     def job_type(cls, job: Job) -> str:
         if job.job_type == JobType.REACTIVE:
-            job_type = cls.ed
+            job_type = cls.reactive
         else:
             job_type = cls.standard
         return job_type
@@ -282,7 +282,7 @@ class PlatformReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
 class StatisticsBucketKeysBuilder:
     _statistics = 'job-statistics/'
     _standard = 'standard/'
-    _ed = 'event-driven/'
+    _reactive = 'reactive/'
     _statistics_file = 'statistics.json'
     _diagnostic_report_file = 'diagnostic_report.json'
     _report_statistics = 'report-statistics/'
@@ -295,7 +295,7 @@ class StatisticsBucketKeysBuilder:
         if job.job_type == JobType.REACTIVE:
             return urljoin(
                 cls._statistics,
-                cls._ed,
+                cls._reactive,
                 job.id,
                 cls._statistics_file,
             )
