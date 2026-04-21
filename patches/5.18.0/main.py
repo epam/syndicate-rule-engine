@@ -5,7 +5,7 @@ from urllib.parse import quote, unquote
 
 from modular_sdk.models.parent import Parent
 from modular_sdk.services.customer_service import CustomerService
-from modular_sdk.commons.constants import ParentType
+from modular_sdk.commons.constants import ParentType, ParentScope
 
 from helpers.constants import Env, GLOBAL_REGION
 from services import SP
@@ -202,7 +202,9 @@ def migrate_platform_reports(client: S3Client,
         for platform in platform_service._ps.query_by_scope_index(
                 customer_id=customer.name,
                 type_=ParentType.PLATFORM_K8S,
-                is_deleted=False):
+                scope=ParentScope.SPECIFIC,
+                is_deleted=False,
+            ):
             platforms.append(platform)
 
     if not platforms:
