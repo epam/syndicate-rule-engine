@@ -202,6 +202,14 @@ class K8SRecommendationBuilder(BaseRecommendationBuilder[K8SRecommendationsMappi
                 K8SMCCResourceType.UNKNOWN,
             )
             for resource in part.resources:
+                try:
+                    resource_id = resource.get("metadata", {}).get("name", "unknown")
+                except Exception as e:
+                    _LOG.warning(
+                        f"Error getting resource id: {e}. resource={resource!r}"
+                    )
+                    resource_id = "unknown"
+
                 item = K8SRecommendationItem(
                     resource_id=self._application_uuid,
                     resource_type=MCCResourceType.K8S_CLUSTER,
@@ -214,7 +222,7 @@ class K8SRecommendationBuilder(BaseRecommendationBuilder[K8SRecommendationsMappi
                     ),
                     general_actions=[k8s_mcc_resource_type],
                     recommendation=K8SRecommendation(
-                        resource_id=resource.get("id", "unknown"),
+                        resource_id=resource_id,
                         resource_type=k8s_mcc_resource_type,
                         article=rule_meta.article,
                         impact=rule_meta.impact,
