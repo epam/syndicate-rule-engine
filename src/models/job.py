@@ -191,7 +191,7 @@ class Job(BaseModel):
 
     @property
     def is_platform_job(self) -> bool:
-        return not self.is_ed_job and bool(self.platform_id)  # Copy from AmbiguousJob
+        return bool(self.platform_id)
 
     @property
     def is_ed_job(self) -> bool:
