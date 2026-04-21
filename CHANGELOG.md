@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed policy failure messages carrying a trailing newline (from traceback formatting) before they are joined into shard `error` strings
 - Fixed on-prem API not passing query params (e.g. `customer_id`) for non-GET requests (DELETE, PUT, etc.)
 - Fixed `validate_kwargs` failing when handlers use `from __future__ import annotations`
+- Fixed an issue with generating recommendations for K8S resources due to incorrect resource type parse
+- Fixed an issue with metrics update when rule not found in metadata for latest collection
 
 ### Changed
 - Reports bucket: Kubernetes paths use platform id instead of the legacy `name-region` segment
