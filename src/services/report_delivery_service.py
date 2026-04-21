@@ -10,7 +10,6 @@ Handles:
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
-from re import I
 from typing import TYPE_CHECKING, Any, Iterable, cast
 
 from helpers.constants import (
