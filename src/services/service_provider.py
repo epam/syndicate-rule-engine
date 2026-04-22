@@ -48,6 +48,7 @@ if TYPE_CHECKING:
     from services.scheduled_job_service import ScheduledJobService
     from services.service_operation_service import ServiceOperationService
     from services.setting_service import CachedSettingsService
+    from services.job_policy_filters.service import JobPolicyBundleService
 
 
 _LOG = get_logger(__name__)
@@ -235,6 +236,7 @@ class ServiceProvider(metaclass=SingletonMeta):
         return EventIngestService(
             event_store_service=self.event_service,
             environment_service=self.environment_service,
+            ed_rules_service=self.ed_rules_service,
         )
 
     @cached_property
@@ -256,6 +258,7 @@ class ServiceProvider(metaclass=SingletonMeta):
             license_service=self.license_service,
             event_mapping_provider=self.s3_event_mapping_provider,
             tenant_service=self.modular_client.tenant_service(),
+            platform_service=self.platform_service,
         )
 
     @cached_property
@@ -393,3 +396,9 @@ class ServiceProvider(metaclass=SingletonMeta):
         from services.cadf_event_sender import CadfEventSender
 
         return CadfEventSender(rabbitmq_service=self.rabbitmq_service)
+
+    @cached_property
+    def job_policy_bundle_service(self) -> JobPolicyBundleService:
+        from services.job_policy_filters.service import JobPolicyBundleService
+
+        return JobPolicyBundleService(s3_client=self.s3)

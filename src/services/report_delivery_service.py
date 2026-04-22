@@ -25,6 +25,7 @@ from helpers.log_helper import get_logger
 from helpers.reports import service_from_resource_type
 from helpers.time_helper import utc_datetime, utc_iso
 from services.modular_helpers import get_tenant_regions, tenant_cloud
+from services.platform_service import PlatformService
 from services.reports import Report, ReportVisitor, strip_attacks_violations_for_maestro
 from services.resources import MaestroReportResourceView, rule_resources_dict
 from modular_sdk.models.tenant import Tenant
@@ -128,6 +129,7 @@ class ReportDeliveryService:
         rabbitmq_service: RabbitMQService,
         modular_client: ModularServiceProvider,
         settings_service: SettingsService,
+        platform_service: PlatformService,
     ) -> None:
         self._license_service = license_service
         self._job_service = job_service
@@ -135,6 +137,7 @@ class ReportDeliveryService:
         self._rabbitmq_service = rabbitmq_service
         self._modular_client = modular_client
         self._settings_service = settings_service
+        self._platform_service = platform_service
 
     @classmethod
     def build(cls) -> Self:
@@ -147,6 +150,7 @@ class ReportDeliveryService:
             rabbitmq_service=SERVICE_PROVIDER.rabbitmq_service,
             modular_client=SERVICE_PROVIDER.modular_client,
             settings_service=SERVICE_PROVIDER.settings_service,
+            platform_service=SERVICE_PROVIDER.platform_service,
         )
 
     def _get_report_delivery_config(self, license_obj: License) -> dict | None:
@@ -207,7 +211,7 @@ class ReportDeliveryService:
             "valid_until": utc_iso(lic.expiration) if lic.expiration else None,
             "valid_from": utc_iso(lic.valid_from) if lic.valid_from else None,
         }
-        return {
+        meta = {
             "licenses": [license_meta],
             "is_automatic_scans_enabled": True,
             "in_progress_scans": 0,
@@ -217,6 +221,7 @@ class ReportDeliveryService:
             "activated_regions": list(activated_regions),
             "rules": rules,
         }
+        return meta
 
     @staticmethod
     def _rule_check_to_dict(
@@ -440,25 +445,61 @@ class ReportDeliveryService:
                 f"Failed to enqueue generate_reactive_report for job {job.id}"
             )
 
+    def _open_job_report_collection(
+        self,
+        job: Job,
+        tenant: Tenant,
+        default_tenant_cloud: Cloud,
+    ) -> tuple["ShardsCollection", Cloud, str] | None:
+        """
+        Resolve S3 shards for a job: tenant path (cloud accounts) or K8s platform path.
+        Returns (collection, effective_cloud, account_id_for_rule_resources).
+        """
+        if not job.platform_id:
+            collection = self._report_service.job_collection(tenant, job)
+            collection.meta = self._report_service.fetch_meta(tenant)
+            return collection, default_tenant_cloud, tenant.project or ""
+
+        platform = self._platform_service.get_nullable(hash_key=job.platform_id)
+        if not platform:
+            _LOG.warning(
+                f"Platform {job.platform_id!r} not found for job {job.id}, "
+                "skip report data"
+            )
+            return None
+        if platform.customer != job.customer_name:
+            _LOG.warning(
+                f"Platform customer mismatch for job {job.id}: "
+                f"{platform.customer!r} vs {job.customer_name!r}"
+            )
+            return None
+
+        collection = self._report_service.platform_job_collection(platform, job)
+        collection.meta = self._report_service.fetch_meta(platform)
+        return collection, Cloud.KUBERNETES, ""
+
     def _collect_attacks_for_job(
         self,
         job: Job,
         tenant: Tenant,
-        cloud: Cloud,
         lic: License,
-    ) -> tuple[list[dict], dict] | None:
+    ) -> tuple[list[dict], dict, Cloud] | None:
         """
         Load collection and generate attacks report data plus rules summary.
-        Returns None if platform job or no rule_resources; else (attacks_data, rules_data).
+        Returns None if collection cannot be resolved or no rule_resources;
+        else (attacks_data, rules_data, effective_cloud for Maestro payload).
         """
-        if job.is_platform_job:
+        default_tenant_cloud = tenant_cloud(tenant)
+        opened = self._open_job_report_collection(
+            job, tenant, default_tenant_cloud
+        )
+        if not opened:
             return None
-        collection = self._report_service.job_collection(tenant, job)
-        collection.meta = self._report_service.fetch_meta(tenant)
+        collection, effective_cloud, account_id = opened
         collection.fetch_all()
         metadata = self._license_service.get_metadata_for_licenses([lic])
         rule_resources = rule_resources_dict(
-            collection, cloud, metadata, tenant.project or ""
+            collection, effective_cloud, metadata, account_id
         )
         if not rule_resources:
             return None
@@ -483,7 +524,7 @@ class ReportDeliveryService:
         rules_data = self._build_rules_from_collection(
             collection, metadata, scope, tenant
         )
-        return (attacks_data, rules_data)
+        return (attacks_data, rules_data, effective_cloud)
 
     def generate_and_send_report_immediate(self, job_id: str) -> bool:
         """
@@ -512,12 +553,11 @@ class ReportDeliveryService:
         if not config or config.get("mode") != REPORT_DELIVERY_MODE_IMMEDIATE:
             return False
 
-        cloud = tenant_cloud(tenant)
-        result = self._collect_attacks_for_job(job, tenant, cloud, lic)
+        result = self._collect_attacks_for_job(job, tenant, lic)
         if not result:
             _LOG.info(f"No attacks for job {job_id}, skip report send")
             return False
-        attacks_data, rules_data = result
+        attacks_data, rules_data, cloud = result
 
         rabbitmq = self._rabbitmq_service.get_customer_rabbitmq(job.customer_name)
         now = utc_datetime()
@@ -728,40 +768,43 @@ class ReportDeliveryService:
                         f"interval window for tenant {tenant_name}"
                     )
                     for j in jobs_in_window:
-                        if metadata and not j.is_platform_job:
-                            col = self._report_service.job_collection(tenant, j)
-                            col.meta = self._report_service.fetch_meta(tenant)
-                            col.fetch_all()
-                            rr = rule_resources_dict(
-                                col, cloud, metadata, tenant.project or ""
+                        if not metadata:
+                            continue
+                        opened = self._open_job_report_collection(j, tenant, cloud)
+                        if not opened:
+                            continue
+                        col, job_cloud, account_id = opened
+                        col.fetch_all()
+                        rr = rule_resources_dict(
+                            col, job_cloud, metadata, account_id
+                        )
+                        for rule, resources in rr.items():
+                            all_rule_resources.setdefault(rule, set()).update(
+                                resources
                             )
-                            for rule, resources in rr.items():
-                                all_rule_resources.setdefault(rule, set()).update(
-                                    resources
-                                )
-                            if col.meta:
-                                collection_meta.update(col.meta)
-                            scope = {part.policy for part in col.iter_all_parts()}
-                            if scope:
-                                job_rules = self._build_rules_from_collection(
-                                    col, metadata, scope, tenant
-                                )
-                                for item in job_rules.get("violated", []):
-                                    violated_by_id[item["id"]] = item
-                                for item in job_rules.get("failed", []):
-                                    if item["id"] not in violated_by_id:
-                                        failed_by_id[item["id"]] = item
-                                for item in job_rules.get("passed", []):
-                                    rid = item["id"]
-                                    if (
-                                        rid not in violated_by_id
-                                        and rid not in failed_by_id
-                                    ):
-                                        passed_by_id[rid] = item
-                                for rid in job_rules.get("disabled", []):
-                                    disabled_merged.add(rid)
-                                for d in job_rules.get("deprecated", []):
-                                    deprecated_by_id[d["id"]] = d
+                        if col.meta:
+                            collection_meta.update(col.meta)
+                        scope = {part.policy for part in col.iter_all_parts()}
+                        if scope:
+                            job_rules = self._build_rules_from_collection(
+                                col, metadata, scope, tenant
+                            )
+                            for item in job_rules.get("violated", []):
+                                violated_by_id[item["id"]] = item
+                            for item in job_rules.get("failed", []):
+                                if item["id"] not in violated_by_id:
+                                    failed_by_id[item["id"]] = item
+                            for item in job_rules.get("passed", []):
+                                rid = item["id"]
+                                if (
+                                    rid not in violated_by_id
+                                    and rid not in failed_by_id
+                                ):
+                                    passed_by_id[rid] = item
+                            for rid in job_rules.get("disabled", []):
+                                disabled_merged.add(rid)
+                            for d in job_rules.get("deprecated", []):
+                                deprecated_by_id[d["id"]] = d
 
                     if not metadata or not all_rule_resources or not collection_meta:
                         _LOG.debug(

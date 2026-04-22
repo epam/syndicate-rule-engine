@@ -11,6 +11,7 @@ from executor.job import (
     task_standard_job,
     update_metadata,
     upload_to_dojo,
+    remove_old_shard_parts,
 )
 from helpers import RequestContext
 from helpers.constants import ACTION_PARAM, Env
@@ -25,6 +26,13 @@ from lambdas.rule_meta_updater.handler import RuleMetaUpdaterLambdaHandler
 from onprem.celery import app
 
 
+def _run_job(self, job_id: str | list[str]) -> None:
+    if isinstance(job_id, str):
+        job_id = [job_id]
+    for jid in job_id:
+        task_standard_job(self, jid)
+
+
 @app.task(
     bind=True,
     time_limit=3600 * 4,
@@ -32,11 +40,17 @@ from onprem.celery import app
 )
 @safe_call
 def run_standard_job(self, job_id: str | list[str]) -> None:
-    if isinstance(job_id, str):
-        job_id = [job_id]
+    return _run_job(self, job_id)
 
-    for jid in job_id:
-        task_standard_job(self, jid)
+
+@app.task(
+    bind=True,
+    time_limit=3600 * 4,
+    soft_time_limit=Env.BATCH_JOB_LIFETIME_MINUTES.as_float() * 60,
+)
+@safe_call
+def run_event_driven_job(self, job_id: str | list[str]) -> None:
+    return _run_job(self, job_id)
 
 
 @app.task(
@@ -144,7 +158,7 @@ def delete_expired_metrics() -> None:
 @app.task
 @safe_call
 def collect_resources() -> None:
-    from executor.job import CustodianResourceCollector
+    from executor.resource_collector import CustodianResourceCollector
 
     collector = CustodianResourceCollector.build()
     collector.collect_all_resources()
@@ -181,3 +195,12 @@ def process_interval_reports() -> None:
     from services import SP
 
     SP.report_delivery_service.process_interval_reports()
+
+
+@app.task
+@safe_call
+def remove_old_shards(days) -> None:
+    """
+    Remove shard parts that were last updated N days ago
+    """
+    remove_old_shard_parts(days)

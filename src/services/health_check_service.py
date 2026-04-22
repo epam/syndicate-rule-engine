@@ -197,7 +197,7 @@ class LicenseManagerClientKeyCheck(AbstractHealthCheck):
     @classmethod
     def impact(cls) -> str | None:
         return (
-            'License manager does not know about this custodian '
+            'License manager does not know about this SRE '
             'installation. It will no allow to sync licenses'
         )
 

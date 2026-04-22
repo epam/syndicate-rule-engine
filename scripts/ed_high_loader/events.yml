@@ -1,0 +1,1179 @@
+events:
+  AWS:
+  - access-analyzer.amazonaws.com:
+    - CreateAnalyzer
+    - DeleteAnalyzer
+    - StartResourceScan
+    - UpdateFindings
+    acm.amazonaws.com:
+    - AddTagsToCertificate
+    - DeleteCertificate
+    - ImportCertificate
+    - RemoveTagsFromCertificate
+    - RenewCertificate
+    - RequestCertificate
+    airflow.amazonaws.com:
+    - CreateEnvironment
+    - DeleteEnvironment
+    - TagResource
+    - UntagResource
+    - UpdateEnvironment
+    amazonmq.amazonaws.com:
+    - CreateBroker
+    - CreateTags
+    - DeleteBroker
+    - DeleteTags
+    - UpdateBroker
+    apigateway.amazonaws.com:
+    - CreateApi
+    - CreateRestApi
+    - CreateStage
+    - DeleteApi
+    - DeleteClientCertificate
+    - DeleteMethod
+    - DeleteRestApi
+    - DeleteStage
+    - GenerateClientCertificate
+    - PutMethod
+    - UpdateClientCertificate
+    - UpdateMethod
+    - UpdateRestApi
+    - UpdateStage
+    appflow.amazonaws.com:
+    - CreateFlow
+    - DeleteFlow
+    - TagResource
+    - UntagResource
+    appsync.amazonaws.com:
+    - CreateApiCache
+    - CreateGraphqlApi
+    - DeleteApiCache
+    - DeleteGraphqlApi
+    - UpdateGraphqlApi
+    autoscaling.amazonaws.com:
+    - AttachLoadBalancerTargetGroups
+    - AttachLoadBalancers
+    - CreateAutoScalingGroup
+    - CreateLaunchConfiguration
+    - CreateOrUpdateTags
+    - DeleteAutoScalingGroup
+    - DeleteLaunchConfiguration
+    - DeleteTags
+    - DetachLoadBalancerTargetGroups
+    - DetachLoadBalancers
+    - UpdateAutoScalingGroup
+    backup.amazonaws.com:
+    - CreateBackupPlan
+    - CreateBackupVault
+    - DeleteBackupPlan
+    - DeleteBackupVault
+    - UpdateBackupPlan
+    cloudformation.amazonaws.com:
+    - CreateStack
+    - DeleteStack
+    - DetectStackDrift
+    - DetectStackResourceDrift
+    - UpdateStack
+    cloudfront.amazonaws.com:
+    - AssociateWebACL
+    - CreateDistribution
+    - CreateDistributionWithTags
+    - CreateWebACL
+    - DeleteDistribution
+    - DeleteWebACL
+    - DisassociateWebACL
+    - TagResource
+    - UntagResource
+    - UpdateDistribution
+    cloudtrail.amazonaws.com:
+    - AddTags
+    - CreateTrail
+    - DeleteTrail
+    - PutEventSelectors
+    - RemoveTags
+    - StartLogging
+    - StopLogging
+    - UpdateTrail
+    codebuild.amazonaws.com:
+    - CreateProject
+    - DeleteProject
+    - DeleteSourceCredentials
+    - ImportSourceCredentials
+    - UpdateProject
+    - UpdateProjects
+    codedeploy.amazonaws.com:
+    - CreateDeploymentGroup
+    - DeleteDeploymentGroup
+    - UpdateDeploymentGroup
+    codepipeline.amazonaws.com:
+    - CreatePipeline
+    - DeletePipeline
+    - UpdatePipeline
+    config.amazonaws.com:
+    - DeleteConfigurationRecorder
+    - DeleteDeliveryChannel
+    - PutDeliveryChannel
+    - StartConfigurationRecorder
+    - StopConfigurationRecorder
+    dax.amazonaws.com:
+    - CreateCluster
+    - DeleteCluster
+    - TagResource
+    - UntagResource
+    dlm.amazonaws.com:
+    - CreateLifecyclePolicy
+    - DeleteLifecyclePolicy
+    - TagResource
+    - UntagResource
+    dms.amazonaws.com:
+    - AddTagsToResource
+    - CreateReplicationInstance
+    - CreateTable
+    - DeleteReplicationInstance
+    - DeleteTable
+    - ModifyReplicationInstance
+    - RemoveTagsFromResource
+    - UpdateTable
+    ds.amazonaws.com:
+    - CreateDirectory
+    - DeleteDirectory
+    - DisableRadius
+    - EnableRadius
+    - UpdateRadius
+    dynamodb.amazonaws.com:
+    - CreateTable
+    - DeleteTable
+    - UpdateTable
+    ebs.amazonaws.com:
+    - CreateTags
+    - CreateVolume
+    - DeleteTags
+    - DeleteVolume
+    ec2.amazonaws.com:
+    - AllocateAddress
+    - AssociateIamInstanceProfile
+    - AttachInternetGateway
+    - AttachNetworkInterface
+    - AttachVolume
+    - AttachVpnGateway
+    - AuthorizeSecurityGroupIngress
+    - CreateDBInstance
+    - CreateDefaultSubnet
+    - CreateDefaultVpc
+    - CreateFlowLogs
+    - CreateImage
+    - CreateInternetGateway
+    - CreateKeyPair
+    - CreateNatGateway
+    - CreateNetworkAcl
+    - CreateNetworkAclEntry
+    - CreateNetworkInterface
+    - CreateRouteTable
+    - CreateSecurityGroup
+    - CreateSnapshot
+    - CreateSnapshots
+    - CreateSubnet
+    - CreateTags
+    - CreateTransitGateway
+    - CreateTransitGatewayVpcAttachment
+    - CreateVolume
+    - CreateVpc
+    - CreateVpcEndpoint
+    - CreateVpcEndpointServiceConfiguration
+    - CreateVpcPeeringConnection
+    - CreateVpnGateway
+    - DeleteDBInstance
+    - DeleteFlowLogs
+    - DeleteInternetGateway
+    - DeleteKeyPair
+    - DeleteNatGateway
+    - DeleteNetworkAcl
+    - DeleteNetworkAclEntry
+    - DeleteNetworkInterface
+    - DeleteRouteTable
+    - DeleteSecurityGroup
+    - DeleteSnapshot
+    - DeleteSubnet
+    - DeleteTags
+    - DeleteTransitGateway
+    - DeleteTransitGatewayVpcAttachment
+    - DeleteVolume
+    - DeleteVpc
+    - DeleteVpcEndpointServiceConfigurations
+    - DeleteVpcEndpoints
+    - DeleteVpcPeeringConnection
+    - DeleteVpnGateway
+    - DeregisterImage
+    - DetachInternetGateway
+    - DetachNetworkInterface
+    - DetachVolume
+    - DetachVpnGateway
+    - DisableEbsEncryptionByDefault
+    - DisassociateAddress
+    - DisassociateIamInstanceProfile
+    - DisassociateRouteTableAssociateRouteTable
+    - EnableEbsEncryptionByDefault
+    - ImportKeyPair
+    - ModifyDBInstance
+    - ModifyImageAttribute
+    - ModifyInstanceAttribute
+    - ModifyInstanceMetadataOptions
+    - ModifyInstancePlacement
+    - ModifyNetworkInterfaceAttribute
+    - ModifySecurityGroupRules
+    - ModifySnapshotAttribute
+    - ModifySubnetAttribute
+    - ModifyTransitGateway
+    - ModifyVolume
+    - ModifyVpcAttribute
+    - ModifyVpcEndpoint
+    - ModifyVpcEndpointServiceConfiguration
+    - MonitorInstances
+    - PurchaseReservedDBInstancesOffering
+    - PurchaseReservedInstancesOffering
+    - RegisterImage
+    - ReleaseAddress
+    - ReplaceNetworkAclAssociation
+    - ReplaceNetworkAclEntry
+    - ReplaceRouteTableAssociation
+    - ResetImageAttribute
+    - RestoreImageFromRecycleBin
+    - RevokeSecurityGroupIngress
+    - RunInstances
+    - SharedSnapshotVolumeCreated
+    - StopInstances
+    - TerminateInstances
+    - UnmonitorInstances
+    - UpdateVolume
+    ecr.amazonaws.com:
+    - CreateRepository
+    - DeleteLifecyclePolicy
+    - DeleteRepository
+    - PutImageScanningConfiguration
+    - PutImageTagMutability
+    - PutLifecyclePolicy
+    ecs.amazonaws.com:
+    - CreateCluster
+    - CreateService
+    - DeleteCluster
+    - DeleteService
+    - DeregisterTaskDefinition
+    - RegisterTaskDefinition
+    - TagResource
+    - UntagResource
+    - UpdateCluster
+    - UpdateService
+    eks.amazonaws.com:
+    - CreateCluster
+    - DeleteCluster
+    - TagResource
+    - UntagResource
+    - UpdateClusterConfig
+    - UpdateClusterVersion
+    elasticache.amazonaws.com:
+    - AddTagsToResource
+    - CreateCacheCluster
+    - CreateReplicationGroup
+    - DeleteCacheCluster
+    - DeleteReplicationGroup
+    - ModifyCacheCluster
+    - ModifyReplicationGroup
+    - RemoveTagsFromResource
+    elasticbeanstalk.amazonaws.com:
+    - AddTags
+    - CreateEnvironment
+    - RemoveTags
+    - TerminateEnvironment
+    - UpdateEnvironment
+    elasticfilesystem.amazonaws.com:
+    - CreateFileSystem
+    - CreateMountTarget
+    - DeleteFileSystem
+    - DeleteMountTarget
+    - PutLifecycleConfiguration
+    - TagResource
+    - UntagResource
+    - UpdateFileSystem
+    elasticloadbalancing.amazonaws.com:
+    - AddTags
+    - CreateListener
+    - CreateLoadBalancer
+    - CreateLoadBalancerListeners
+    - DeleteBucket
+    - DeleteBucketPolicy
+    - DeleteListener
+    - DeleteLoadBalancer
+    - DeleteLoadBalancerListeners
+    - DeregisterInstancesFromLoadBalancer
+    - ModifyListener
+    - ModifyLoadBalancerAttributes
+    - PutBucketPolicy
+    - RegisterInstancesWithLoadBalancer
+    - RemoveTags
+    - SetLoadBalancerListenerSSLCertificate
+    elasticmapreduce.amazonaws.com:
+    - AddTags
+    - CreateCluster
+    - DeleteCluster
+    - RemoveTags
+    - RunJobFlow
+    - SetTerminationProtection
+    - TerminateJobFlows
+    es.amazonaws.com:
+    - AddTags
+    - CreateDomain
+    - CreateElasticsearchDomain
+    - DeleteDomain
+    - DeleteElasticsearchDomain
+    - RemoveTags
+    - UpdateDomainConfig
+    - UpdateElasticsearchDomainConfig
+    - UpgradeDomain
+    - UpgradeElasticsearchDomain
+    events.amazonaws.com:
+    - CreateEventBus
+    - DeleteEventBus
+    - DeleteRule
+    - PutPermission
+    - PutRule
+    firehose.amazonaws.com:
+    - CreateDeliveryStream
+    - DeleteDeliveryStream
+    - StartDeliveryStreamEncryption
+    - StopDeliveryStreamEncryption
+    fsx.amazonaws.com:
+    - CreateBackup
+    - CreateFileSystem
+    - CreateVolume
+    - DeleteBackup
+    - DeleteFileSystem
+    - DeleteVolume
+    - TagResource
+    - UntagResource
+    - UpdateFileSystem
+    glacier.amazonaws.com:
+    - AddTagsToVault
+    - CreateVault
+    - DeleteVault
+    - DeleteVaultAccessPolicy
+    - RemoveTagsFromVault
+    - SetVaultAccessPolicy
+    glue.amazonaws.com:
+    - CreateJob
+    - CreateSecurityConfiguration
+    - DeleteJob
+    - DeleteSecurityConfiguration
+    - PutDataCatalogEncryptionSettings
+    - TagResource
+    - UntagResource
+    - UpdateJob
+    guardduty.amazonaws.com:
+    - CreateDetector
+    - DeleteDetector
+    - UpdateDetector
+    iam.amazonaws.com:
+    - AddUserToGroup
+    - AddUsersToGroup
+    - AttachGroupPolicy
+    - AttachRolePolicy
+    - AttachUserPolicy
+    - ChangePassword
+    - CreateAccessKey
+    - CreateGroup
+    - CreatePolicy
+    - CreatePolicyVersion
+    - CreateRole
+    - CreateUser
+    - DeactivateMFADevice
+    - DeleteAccessKey
+    - DeleteAccountPasswordPolicy
+    - DeleteGroup
+    - DeletePolicy
+    - DeletePolicyVersion
+    - DeleteRole
+    - DeleteRolePermissionsBoundary
+    - DeleteRolePolicy
+    - DeleteUser
+    - DeleteUserPermissionsBoundary
+    - DeleteUserPolicy
+    - DeleteVirtualMFADevice
+    - DetachGroupPolicy
+    - DetachRolePolicy
+    - DetachUserPolicy
+    - EnableMFADevice
+    - PutRolePermissionsBoundary
+    - PutRolePolicy
+    - PutUserPermissionsBoundary
+    - PutUserPolicy
+    - RemoveUserFromGroup
+    - SetDefaultPolicyVersion
+    - TagRole
+    - TagUser
+    - UntagRole
+    - UntagUser
+    - UpdateAccessKey
+    - UpdateAccountPasswordPolicy
+    kafka.amazonaws.com:
+    - CreateCluster
+    - CreateClusterV2
+    - DeleteCluster
+    - TagResource
+    - UntagResource
+    - UpdateMonitoring
+    - UpdateSecurity
+    kinesis.amazonaws.com:
+    - AddTagsToStream
+    - CreateKey
+    - CreateStream
+    - DecreaseStreamRetentionPeriod
+    - DeleteStream
+    - DisableEnhancedMonitoring
+    - DisableKey
+    - DisableKeyRotation
+    - EnableEnhancedMonitoring
+    - EnableKey
+    - EnableKeyRotation
+    - IncreaseStreamRetentionPeriod
+    - RemoveTagsFromStream
+    - StartStreamEncryption
+    - StopStreamEncryption
+    kinesisvideo.amazonaws.com:
+    - CreateStream
+    - DeleteStream
+    - TagResource
+    - UntagResource
+    kms.amazonaws.com:
+    - CancelKeyDeletion
+    - CreateKey
+    - DeleteKey
+    - DisableKey
+    - EnableKey
+    - EnableKeyRotation
+    - ScheduleKeyDeletion
+    - TagResource
+    - UntagResource
+    lambda.amazonaws.com:
+    - CreateFunction20150331
+    - DeleteFunction20150331
+    - DeleteFunctionCodeSigningConfig
+    - DeleteFunctionConcurrency20171031
+    - PutFunctionCodeSigningConfig
+    - PutFunctionConcurrency20171031
+    - TagResource20170331v2
+    - UntagResource20170331v2
+    - UpdateFunctionConfiguration20150331
+    - UpdateFunctionConfiguration20150331v2
+    lightsail.amazonaws.com:
+    - CreateInstances
+    - DeleteInstance
+    - TagResource
+    - UntagResource
+    logs.amazonaws.com:
+    - AssociateKmsKey
+    - CreateLogGroup
+    - CreateLogStream
+    - DeleteLogGroup
+    - DeleteLogStream
+    - DeleteMetricFilter
+    - DisassociateKmsKey
+    - PutMetricFilter
+    - PutRetentionPolicy
+    - TagLogGroup
+    - UntagLogGroup
+    monitoring.amazonaws.com:
+    - PutMetricAlarm
+    organizations.amazonaws.com:
+    - CreateOrganization
+    - DeleteOrganization
+    qldb.amazonaws.com:
+    - CreateLedger
+    - DeleteLedger
+    - TagResource
+    - UntagResource
+    - UpdateLedger
+    rds.amazonaws.com:
+    - AddTagsToResource
+    - CopyDBClusterSnapshot
+    - CopyDBSnapshot
+    - CreateDBCluster
+    - CreateDBClusterSnapshot
+    - CreateDBInstance
+    - CreateDBInstanceReadReplica
+    - CreateDBParameterGroup
+    - CreateDBSnapshot
+    - CreateEventSubscription
+    - CreateOptionGroup
+    - DeleteDBCluster
+    - DeleteDBClusterSnapshot
+    - DeleteDBInstance
+    - DeleteDBParameterGroup
+    - DeleteDBSnapshot
+    - DeleteEventSubscription
+    - DeleteOptionGroup
+    - ModifyDBCluster
+    - ModifyDBClusterParameterGroup
+    - ModifyDBInstance
+    - ModifyDBParameterGroup
+    - ModifyDBSnapshot
+    - ModifyDBSnapshotAttribute
+    - ModifyDBSubnetGroup
+    - ModifyEventSubscription
+    - ModifyOptionGroup
+    - RemoveTagsFromResource
+    - ResetDBParameterGroup
+    - StartDBCluster
+    - StartDBInstance
+    redshift.amazonaws.com:
+    - CreateCluster
+    - CreateClusterParameterGroup
+    - CreateTags
+    - DeleteCluster
+    - DeleteClusterParameterGroup
+    - DeleteTags
+    - DisableLogging
+    - EnableLogging
+    - ModifyCluster
+    - ModifyClusterParameterGroup
+    - PurchaseReservedNodeOffering
+    - ResetClusterParameterGroup
+    - ResizeCluster
+    route53.amazonaws.com:
+    - ChangeResourceRecordSets
+    - CreateHostedZone
+    - CreateQueryLoggingConfig
+    - DeleteHostedZone
+    - DeleteQueryLoggingConfig
+    route53domains.amazonaws.com:
+    - DeleteDomain
+    - DisableDomainAutoRenew
+    - DisableDomainTransferLock
+    - EnableDomainAutoRenew
+    - EnableDomainTransferLock
+    - RegisterDomain
+    - RenewDomain
+    - TransferDomain
+    - TransferDomainToAnotherAwsAccount
+    s3.amazonaws.com:
+    - CreateBucket
+    - DeleteBucket
+    - DeleteBucketEncryption
+    - DeleteBucketLifecycle
+    - DeleteBucketOwnershipControls
+    - DeleteBucketPolicy
+    - DeleteBucketReplication
+    - DeleteBucketTagging
+    - DeletePublicAccessBlock
+    - PutBucketEncryption
+    - PutBucketLifecycle
+    - PutBucketLogging
+    - PutBucketNotification
+    - PutBucketOwnershipControls
+    - PutBucketPolicy
+    - PutBucketReplication
+    - PutBucketTagging
+    - PutBucketVersioning
+    - PutPublicAccessBlock
+    sagemaker.amazonaws.com:
+    - AddTags
+    - CreateEndpointConfig
+    - CreateModel
+    - CreateNotebookInstance
+    - DeleteEndpointConfig
+    - DeleteModel
+    - DeleteNotebookInstance
+    - DeleteTags
+    - UpdateNotebookInstance
+    secretsmanager.amazonaws.com:
+    - CreateSecret
+    - DeleteSecret
+    - RestoreSecret
+    - RotateSecret
+    - UpdateSecret
+    securityhub.amazonaws.com:
+    - DisableSecurityHub
+    - EnableSecurityHub
+    sns.amazonaws.com:
+    - ConfirmSubscription
+    - CreateRouteTable
+    - CreateTags
+    - CreateTopic
+    - DeleteRouteTable
+    - DeleteTags
+    - DeleteTopic
+    - SetTopicAttributes
+    - Subscribe
+    - TagResource
+    - Unsubscribe
+    - UntagResource
+    sqs.amazonaws.com:
+    - CreateQueue
+    - DeleteQueue
+    - SetQueueAttributes
+    - TagQueue
+    - UntagQueue
+    ssm.amazonaws.com:
+    - CreateAssociation
+    - CreateDocument
+    - CreatePatchBaseline
+    - DeleteAssociation
+    - DeleteDocument
+    - DeletePatchBaseline
+    - StartAutomationExecution
+    - StopAutomationExecution
+    - UpdateAssociation
+    - UpdateDocument
+    - UpdateInstanceInformation
+    - UpdatePatchBaseline
+    states.amazonaws.com:
+    - CreateStateMachine
+    - DeleteStateMachine
+    - UpdateStateMachine
+    waf-regional.amazonaws.com:
+    - AssociateWebACL
+    - CreateWebACL
+    - DeleteWebACL
+    - DisassociateWebACL
+    - UpdateWebACL
+    waf.amazonaws.com:
+    - CreateRule
+    - CreateRuleGroup
+    - CreateWebACL
+    - DeleteRule
+    - DeleteRuleGroup
+    - DeleteWebACL
+    - UpdateRule
+    - UpdateRuleGroup
+    - UpdateWebACL
+    wafv2.amazonaws.com:
+    - AssociateWebACL
+    - CreateWebACL
+    - DeleteWebACL
+    - DisassociateWebACL
+    workspaces.amazonaws.com:
+    - CreateWorkspaces
+    - DeregisterWorkspaceDirectory
+    - ModifyClientProperties
+    - ModifyWorkspaceCreationProperties
+    - RebuildWorkspaces
+    - RegisterWorkspaceDirectory
+    - TerminateWorkspaces
+    xray.amazonaws.com:
+    - PutEncryptionConfig
+  AZURE:
+  - Microsoft.ApiManagement:
+    - Microsoft.ApiManagement/service/certificates/delete
+    - Microsoft.ApiManagement/service/certificates/write
+    - Microsoft.ApiManagement/service/delete
+    - Microsoft.ApiManagement/service/tags/delete
+    - Microsoft.ApiManagement/service/tags/write
+    - Microsoft.ApiManagement/service/write
+    Microsoft.AppConfiguration:
+    - Microsoft.AppConfiguration/configurationStores/delete
+    - Microsoft.AppConfiguration/configurationStores/privateEndpointConnections/delete
+    - Microsoft.AppConfiguration/configurationStores/privateEndpointConnections/write
+    - Microsoft.AppConfiguration/configurationStores/write
+    Microsoft.AppPlatform:
+    - Microsoft.AppPlatform/Spring/delete
+    - Microsoft.AppPlatform/Spring/write
+    Microsoft.Authorization:
+    - Microsoft.Authorization/roleDefinitions/delete
+    - Microsoft.Authorization/roleDefinitions/write
+    Microsoft.Automation:
+    - Microsoft.Automation/automationAccounts/variables/delete
+    - Microsoft.Automation/automationAccounts/variables/write
+    Microsoft.Batch:
+    - Microsoft.Batch/batchAccounts/delete
+    - Microsoft.Batch/batchAccounts/providers/Microsoft.Insights/diagnosticSettings/write
+    - Microsoft.Batch/batchAccounts/write
+    Microsoft.Cache:
+    - Microsoft.Cache/redis/delete
+    - Microsoft.Cache/redis/firewallRules/delete
+    - Microsoft.Cache/redis/firewallRules/write
+    - Microsoft.Cache/redis/write
+    Microsoft.ClassicStorage:
+    - Microsoft.ClassicStorage/storageAccounts/delete
+    - Microsoft.ClassicStorage/storageAccounts/write
+    Microsoft.CognitiveServices:
+    - Microsoft.CognitiveServices/accounts/delete
+    - Microsoft.CognitiveServices/accounts/write
+    Microsoft.Compute:
+    - Microsoft.Compute/availabilitySets/delete
+    - Microsoft.Compute/availabilitySets/write
+    - Microsoft.Compute/disks/delete
+    - Microsoft.Compute/disks/write
+    - Microsoft.Compute/snapshots/delete
+    - Microsoft.Compute/snapshots/write
+    - Microsoft.Compute/sshPublicKeys/delete
+    - Microsoft.Compute/sshPublicKeys/write
+    - Microsoft.Compute/virtualMachineScaleSets/delete
+    - Microsoft.Compute/virtualMachineScaleSets/extensions/delete
+    - Microsoft.Compute/virtualMachineScaleSets/extensions/write
+    - Microsoft.Compute/virtualMachineScaleSets/providers/Microsoft.Insights/diagnosticSettings/write
+    - Microsoft.Compute/virtualMachineScaleSets/write
+    - Microsoft.Compute/virtualMachines/delete
+    - Microsoft.Compute/virtualMachines/extensions/delete
+    - Microsoft.Compute/virtualMachines/extensions/write
+    - Microsoft.Compute/virtualMachines/write
+    Microsoft.ContainerRegistry:
+    - Microsoft.ContainerRegistry/registries/delete
+    - Microsoft.ContainerRegistry/registries/privateEndpointConnections/delete
+    - Microsoft.ContainerRegistry/registries/privateEndpointConnections/write
+    - Microsoft.ContainerRegistry/registries/write
+    Microsoft.ContainerService:
+    - Microsoft.ContainerService/containerServices/delete
+    - Microsoft.ContainerService/containerServices/write
+    - Microsoft.ContainerService/managedClusters/providers/Microsoft.Insights/diagnosticSettings/write
+    Microsoft.DBforMySQL:
+    - Microsoft.AppPlatform/Spring/delete
+    - Microsoft.AppPlatform/Spring/write
+    - Microsoft.DBforMariaDB/servers/delete
+    - Microsoft.DBforMariaDB/servers/write
+    - Microsoft.DBforMySQL/flexibleServers/delete
+    - Microsoft.DBforMySQL/flexibleServers/write
+    - Microsoft.DBforMySQL/servers/delete
+    - Microsoft.DBforMySQL/servers/privateEndpointConnections/delete
+    - Microsoft.DBforMySQL/servers/privateEndpointConnections/write
+    - Microsoft.DBforMySQL/servers/securityAlertPolicies/write
+    - Microsoft.DBforMySQL/servers/write
+    - Microsoft.DBforPostgreSQL/flexibleServers/configurations/write
+    - Microsoft.DBforPostgreSQL/servers/delete
+    - Microsoft.DBforPostgreSQL/servers/write
+    Microsoft.DBforPostgreSQL:
+    - Microsoft.DBforPostgreSQL/flexibleServers/delete
+    - Microsoft.DBforPostgreSQL/flexibleServers/write
+    - Microsoft.DBforPostgreSQL/servers/configurations/write
+    - Microsoft.DBforPostgreSQL/servers/delete
+    - Microsoft.DBforPostgreSQL/servers/firewallRules/delete
+    - Microsoft.DBforPostgreSQL/servers/firewallRules/write
+    - Microsoft.DBforPostgreSQL/servers/privateEndpointConnections/delete
+    - Microsoft.DBforPostgreSQL/servers/privateEndpointConnections/write
+    - Microsoft.DBforPostgreSQL/servers/securityAlertPolicies/write
+    - Microsoft.DBforPostgreSQL/servers/write
+    - Microsoft.Resources/subscriptions/delete
+    - Microsoft.Resources/subscriptions/write
+    Microsoft.DataFactory:
+    - Microsoft.DataFactory/datafactories/delete
+    - Microsoft.DataFactory/datafactories/write
+    Microsoft.Databricks:
+    - Microsoft.Databricks/workspaces/delete
+    - Microsoft.Databricks/workspaces/write
+    - Microsoft.EventHub/Namespaces/delete
+    - Microsoft.EventHub/Namespaces/write
+    - Microsoft.RecoveryServices/Vaults/delete
+    - Microsoft.RecoveryServices/Vaults/write
+    Microsoft.Devices:
+    - Microsoft.Devices/IotHubs/diagnosticSettings/write
+    - Microsoft.Devices/iotHubs/Delete
+    - Microsoft.Devices/iotHubs/Write
+    Microsoft.DocumentDB:
+    - Microsoft.DocumentDB/databaseAccounts/delete
+    - Microsoft.DocumentDB/databaseAccounts/privateEndpointConnections/delete
+    - Microsoft.DocumentDB/databaseAccounts/privateEndpointConnections/write
+    - Microsoft.DocumentDB/databaseAccounts/write
+    Microsoft.EventGrid:
+    - Microsoft.EventGrid/domains/delete
+    - Microsoft.EventGrid/domains/privateEndpointConnections/delete
+    - Microsoft.EventGrid/domains/privateEndpointConnections/write
+    - Microsoft.EventGrid/domains/write
+    - Microsoft.EventGrid/topics/delete
+    - Microsoft.EventGrid/topics/privateEndpointConnections/delete
+    - Microsoft.EventGrid/topics/privateEndpointConnections/write
+    - Microsoft.EventGrid/topics/write
+    Microsoft.Insights:
+    - Microsoft.Insights/ActivityLogAlerts/Delete
+    - Microsoft.Insights/ActivityLogAlerts/Write
+    - Microsoft.Insights/LogProfiles/Delete
+    - Microsoft.Insights/LogProfiles/Write
+    Microsoft.KeyVault:
+    - Microsoft.KeyVault/vaults/delete
+    - Microsoft.KeyVault/vaults/keys/create/action
+    - Microsoft.KeyVault/vaults/keys/delete
+    - Microsoft.KeyVault/vaults/keys/import/action
+    - Microsoft.KeyVault/vaults/keys/purge/action
+    - Microsoft.KeyVault/vaults/keys/recover/action
+    - Microsoft.KeyVault/vaults/keys/restore/action
+    - Microsoft.KeyVault/vaults/keys/update/action
+    - Microsoft.KeyVault/vaults/keys/write
+    - Microsoft.KeyVault/vaults/privateEndpointConnections/delete
+    - Microsoft.KeyVault/vaults/privateEndpointConnections/write
+    - Microsoft.KeyVault/vaults/providers/Microsoft.Insights/diagnosticSettings/Write
+    - Microsoft.KeyVault/vaults/secrets/delete
+    - Microsoft.KeyVault/vaults/secrets/purge/action
+    - Microsoft.KeyVault/vaults/secrets/recover/action
+    - Microsoft.KeyVault/vaults/secrets/restore/action
+    - Microsoft.KeyVault/vaults/secrets/update/action
+    - Microsoft.KeyVault/vaults/secrets/write
+    - Microsoft.KeyVault/vaults/write
+    Microsoft.Kusto:
+    - Microsoft.Kusto/Clusters/delete
+    - Microsoft.Kusto/Clusters/write
+    Microsoft.Logic:
+    - Microsoft.Logic/workflows/providers/Microsoft.Insights/diagnosticSettings/write
+    Microsoft.MachineLearningServices:
+    - Microsoft.MachineLearningServices/workspaces/computes/delete
+    - Microsoft.MachineLearningServices/workspaces/computes/write
+    - Microsoft.MachineLearningServices/workspaces/delete
+    - Microsoft.MachineLearningServices/workspaces/privateEndpointConnections/delete
+    - Microsoft.MachineLearningServices/workspaces/privateEndpointConnections/write
+    - Microsoft.MachineLearningServices/workspaces/write
+    Microsoft.Network:
+    - Microsoft.Cdn/profiles/customdomains/delete
+    - Microsoft.Cdn/profiles/customdomains/write
+    - Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies/delete
+    - Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies/write
+    - Microsoft.Network/applicationGateways/delete
+    - Microsoft.Network/applicationGateways/write
+    - Microsoft.Network/applicationgatewaywebapplicationfirewallpolicies/delete
+    - Microsoft.Network/applicationgatewaywebapplicationfirewallpolicies/write
+    - Microsoft.Network/frontDoorWebApplicationFirewallPolicies/delete
+    - Microsoft.Network/frontDoorWebApplicationFirewallPolicies/write
+    - Microsoft.Network/frontDoors/delete
+    - Microsoft.Network/frontDoors/write
+    - Microsoft.Network/loadBalancers/delete
+    - Microsoft.Network/loadBalancers/write
+    - Microsoft.Network/networkInterfaces/delete
+    - Microsoft.Network/networkInterfaces/join/action
+    - Microsoft.Network/networkInterfaces/write
+    - Microsoft.Network/networkSecurityGroups/delete
+    - Microsoft.Network/networkSecurityGroups/join/action
+    - Microsoft.Network/networkSecurityGroups/securityRules/delete
+    - Microsoft.Network/networkSecurityGroups/securityRules/write
+    - Microsoft.Network/networkSecurityGroups/write
+    - Microsoft.Network/networkWatchers/configureFlowLog/action
+    - Microsoft.Network/networkWatchers/delete
+    - Microsoft.Network/networkWatchers/flowLogs/delete
+    - Microsoft.Network/networkWatchers/flowLogs/write
+    - Microsoft.Network/networkWatchers/write
+    - Microsoft.Network/publicIPAddresses/delete
+    - Microsoft.Network/publicIPAddresses/write
+    - Microsoft.Network/virtualNetworks/delete
+    - Microsoft.Network/virtualNetworks/write
+    - virtualNetworks/delete
+    Microsoft.RecoveryServices:
+    - Microsoft.RecoveryServices/Locations/backupProtectedItem/write
+    Microsoft.Resources:
+    - Microsoft.Resources/subscriptions/resourceGroup/delete
+    - Microsoft.Resources/subscriptions/resourceGroups/write
+    Microsoft.Search:
+    - Microsoft.Search/searchServices/diagnosticSettings/write
+    Microsoft.Security:
+    - Microsoft.Security/autoProvisioningSettings/write
+    - Microsoft.Security/locations/jitNetworkAccessPolicies/delete
+    - Microsoft.Security/locations/jitNetworkAccessPolicies/write
+    - Microsoft.Security/pricings/delete
+    - Microsoft.Security/pricings/write
+    - Microsoft.Security/securityContacts/delete
+    - Microsoft.Security/securityContacts/write
+    - Microsoft.Security/settings/write
+    Microsoft.ServiceBus:
+    - Microsoft.ServiceBus/namespaces/providers/Microsoft.Insights/diagnosticSettings/write
+    Microsoft.ServiceFabric:
+    - Microsoft.ServiceFabric/clusters/delete
+    - Microsoft.ServiceFabric/clusters/write
+    Microsoft.SignalRService:
+    - Microsoft.SignalRService/SignalR/delete
+    - Microsoft.SignalRService/SignalR/privateEndpointConnections/delete
+    - Microsoft.SignalRService/SignalR/privateEndpointConnections/write
+    - Microsoft.SignalRService/SignalR/write
+    Microsoft.Sql:
+    - Microsoft.Sql/managedInstances/delete
+    - Microsoft.Sql/managedInstances/encryptionProtector/write
+    - Microsoft.Sql/managedInstances/securityAlertPolicies/write
+    - Microsoft.Sql/managedInstances/vulnerabilityAssessments/delete
+    - Microsoft.Sql/managedInstances/vulnerabilityAssessments/write
+    - Microsoft.Sql/managedInstances/write
+    - Microsoft.Sql/servers/administrators/delete
+    - Microsoft.Sql/servers/administrators/write
+    - Microsoft.Sql/servers/advancedThreatProtectionSettings/write
+    - Microsoft.Sql/servers/auditingSettings/write
+    - Microsoft.Sql/servers/databases/delete
+    - Microsoft.Sql/servers/databases/transparentDataEncryption/write
+    - Microsoft.Sql/servers/databases/write
+    - Microsoft.Sql/servers/delete
+    - Microsoft.Sql/servers/encryptionProtector/write
+    - Microsoft.Sql/servers/failoverGroups/delete
+    - Microsoft.Sql/servers/failoverGroups/write
+    - Microsoft.Sql/servers/write
+    Microsoft.Storage:
+    - Microsoft.Storage/storageAccounts/blobServices/delete
+    - Microsoft.Storage/storageAccounts/blobServices/providers/Microsoft.Insights/diagnosticSettings/write
+    - Microsoft.Storage/storageAccounts/blobServices/write
+    - Microsoft.Storage/storageAccounts/delete
+    - Microsoft.Storage/storageAccounts/privateEndpointConnections/delete
+    - Microsoft.Storage/storageAccounts/privateEndpointConnections/write
+    - Microsoft.Storage/storageAccounts/queueServices/providers/Microsoft.Insights/diagnosticSettings/write
+    - Microsoft.Storage/storageAccounts/queueServices/write
+    - Microsoft.Storage/storageAccounts/tableServices/providers/Microsoft.Insights/diagnosticSettings/write
+    - Microsoft.Storage/storageAccounts/tableServices/write
+    - Microsoft.Storage/storageAccounts/write
+    Microsoft.StreamAnalytics:
+    - Microsoft.StreamAnalytics/streamingjobs/providers/Microsoft.Insights/diagnosticSettings/write
+    Microsoft.Synapse:
+    - Microsoft.Synapse/workspaces/delete
+    - Microsoft.Synapse/workspaces/providers/Microsoft.Insights/diagnosticSettings/write
+    - Microsoft.Synapse/workspaces/write
+    Microsoft.Web:
+    - Microsoft.Web/hostingEnvironments/Delete
+    - Microsoft.Web/hostingEnvironments/Write
+    - Microsoft.Web/sites/Delete
+    - Microsoft.Web/sites/Write
+    - Microsoft.Web/sites/config/Write
+    - Microsoft.web/sites/functions/delete
+    - Microsoft.web/sites/functions/write
+    - microsoft.web/sites/config/delete
+    - microsoft.web/sites/config/web/appsettings/delete
+    - microsoft.web/sites/config/web/appsettings/write
+    - microsoft.web/sites/functions/delete
+    - microsoft.web/sites/functions/write
+    - microsoft.web/sites/providers/Microsoft.Insights/diagnosticSettings/write
+  GOOGLE:
+  - accessapproval.googleapis.com:
+    - google.cloud.accessapproval.v1.AccessApproval.DeleteAccessApprovalSettings
+    - google.cloud.accessapproval.v1.AccessApproval.UpdateAccessApprovalSettings
+    apikeys.googleapis.com:
+    - google.api.apikeys.v2.ApiKeys.CreateKey
+    - google.api.apikeys.v2.ApiKeys.DeleteKey
+    - google.api.apikeys.v2.ApiKeys.UpdateKey
+    appengine.googleapis.com:
+    - google.appengine.v1.Applications.CreateApplication
+    - google.appengine.v1.Applications.RepairApplication
+    - google.appengine.v1.Applications.UpdateApplication
+    - google.appengine.v1.Firewall.CreateIngressRule
+    - google.appengine.v1.Firewall.DeleteIngressRule
+    - google.appengine.v1.Firewall.UpdateIngressRule
+    artifactregistry.googleapis.com:
+    - google.devtools.artifactregistry.v1.ArtifactRegistry.CreateRepository
+    - google.devtools.artifactregistry.v1.ArtifactRegistry.DeleteRepository
+    - google.devtools.artifactregistry.v1.ArtifactRegistry.SetIamPolicy
+    bigquery.googleapis.com:
+    - datasetservice.delete
+    - datasetservice.update
+    - google.cloud.bigquery.v2.DatasetService.DeleteDataset
+    - google.cloud.bigquery.v2.DatasetService.InsertDataset
+    - google.cloud.bigquery.v2.DatasetService.PatchDataset
+    - google.cloud.bigquery.v2.JobService.InsertJob
+    - google.cloud.bigquery.v2.TableService.DeleteTable
+    - google.cloud.bigquery.v2.TableService.InsertTable
+    - google.cloud.bigquery.v2.TableService.UpdateTable
+    - google.iam.v1.IAMPolicy.SetIamPolicy
+    - tableservice.delete
+    - tableservice.insert
+    - tableservice.update
+    bigtableadmin.googleapis.com:
+    - google.bigtable.admin.v2.BigtableInstanceAdmin.CreateInstance
+    - google.bigtable.admin.v2.BigtableInstanceAdmin.DeleteInstance
+    - google.bigtable.admin.v2.BigtableTableAdmin.CreateBackup
+    - google.bigtable.admin.v2.BigtableTableAdmin.CreateTable
+    - google.bigtable.admin.v2.BigtableTableAdmin.DeleteBackup
+    - google.bigtable.admin.v2.BigtableTableAdmin.DeleteTable
+    - google.bigtable.admin.v2.BigtableTableAdmin.SetIamPolicy
+    cloudfunctions.googleapis.com:
+    - SetIamPolicy
+    - google.cloud.functions.v1.CloudFunctionsService.CreateFunction
+    - google.cloud.functions.v1.CloudFunctionsService.DeleteFunction
+    - google.cloud.functions.v1.CloudFunctionsService.UpdateFunction
+    cloudkms.googleapis.com:
+    - CreateCryptoKey
+    - DestroyCryptoKeyVersion
+    - SetIamPolicy
+    - UpdateCryptoKey
+    cloudresourcemanager.googleapis.com:
+    - SetIamPolicy
+    cloudsql.googleapis.com:
+    - cloudsql.instances.create
+    - cloudsql.instances.delete
+    - cloudsql.instances.update
+    - cloudsql.users.create
+    - cloudsql.users.update
+    compute.googleapis.com:
+    - beta.compute.disks.delete
+    - beta.compute.disks.insert
+    - beta.compute.disks.setLabels
+    - beta.compute.images.delete
+    - beta.compute.images.insert
+    - beta.compute.images.setIamPolicy
+    - beta.compute.instanceGroupManagers.setAutoHealingPolicies
+    - beta.compute.instanceGroups.insert
+    - beta.compute.instanceTemplates.delete
+    - beta.compute.instanceTemplates.insert
+    - beta.compute.instances.addAccessConfig
+    - beta.compute.instances.attachDisk
+    - beta.compute.instances.delete
+    - beta.compute.instances.deleteAccessConfig
+    - beta.compute.instances.detachDisk
+    - beta.compute.instances.insert
+    - beta.compute.instances.setDeletionProtection
+    - beta.compute.instances.setDiskAutoDelete
+    - beta.compute.instances.setLabels
+    - beta.compute.instances.setMetadata
+    - beta.compute.instances.setScheduling
+    - beta.compute.instances.setServiceAccount
+    - beta.compute.instances.setTags
+    - beta.compute.instances.updateNetworkInterface
+    - beta.compute.machineImages.delete
+    - beta.compute.machineImages.insert
+    - beta.compute.projects.setCommonInstanceMetadata
+    - beta.compute.snapshots.delete
+    - beta.compute.snapshots.insert
+    - beta.compute.snapshots.setLabels
+    - compute.instances.insert
+    - compute.instances.setMetadata
+    - v1.compute.backendServices.delete
+    - v1.compute.backendServices.insert
+    - v1.compute.backendServices.setSecurityPolicy
+    - v1.compute.backendServices.update
+    - v1.compute.disks.createSnapshot
+    - v1.compute.disks.delete
+    - v1.compute.disks.insert
+    - v1.compute.disks.setLabels
+    - v1.compute.firewalls.delete
+    - v1.compute.firewalls.insert
+    - v1.compute.firewalls.patch
+    - v1.compute.firewalls.update
+    - v1.compute.images.delete
+    - v1.compute.images.insert
+    - v1.compute.images.setIamPolicy
+    - v1.compute.instanceGroupManagers.delete
+    - v1.compute.instanceGroupManagers.patch
+    - v1.compute.instanceGroups.delete
+    - v1.compute.instanceGroups.insert
+    - v1.compute.instanceTemplates.delete
+    - v1.compute.instanceTemplates.insert
+    - v1.compute.instances.addAccessConfig
+    - v1.compute.instances.attachDisk
+    - v1.compute.instances.delete
+    - v1.compute.instances.deleteAccessConfig
+    - v1.compute.instances.detachDisk
+    - v1.compute.instances.insert
+    - v1.compute.instances.resume
+    - v1.compute.instances.setDeletionProtection
+    - v1.compute.instances.setDiskAutoDelete
+    - v1.compute.instances.setLabels
+    - v1.compute.instances.setMetadata
+    - v1.compute.instances.setScheduling
+    - v1.compute.instances.setServiceAccount
+    - v1.compute.instances.setTags
+    - v1.compute.instances.stop
+    - v1.compute.instances.suspend
+    - v1.compute.instances.updateNetworkInterface
+    - v1.compute.machineImages.delete
+    - v1.compute.machineImages.insert
+    - v1.compute.networks.addPeering
+    - v1.compute.networks.delete
+    - v1.compute.networks.insert
+    - v1.compute.networks.removePeering
+    - v1.compute.projects.setCommonInstanceMetadata
+    - v1.compute.securityPolicies.addRule
+    - v1.compute.securityPolicies.delete
+    - v1.compute.securityPolicies.insert
+    - v1.compute.securityPolicies.patch
+    - v1.compute.securityPolicies.patchRule
+    - v1.compute.securityPolicies.removeRule
+    - v1.compute.snapshots.delete
+    - v1.compute.snapshots.insert
+    - v1.compute.snapshots.setLabels
+    - v1.compute.sslPolicies.delete
+    - v1.compute.sslPolicies.insert
+    - v1.compute.sslPolicies.patch
+    - v1.compute.subnetworks.delete
+    - v1.compute.subnetworks.insert
+    - v1.compute.subnetworks.patch
+    - v1.compute.subnetworks.setPrivateIpGoogleAccess
+    - v1.compute.targetHttpsProxies.delete
+    - v1.compute.targetHttpsProxies.insert
+    - v1.compute.targetHttpsProxies.setQuicOverride
+    - v1.compute.targetHttpsProxies.setSslPolicy
+    container.googleapis.com:
+    - google.container.v1.ClusterManager.CreateCluster
+    - google.container.v1.ClusterManager.CreateNodePool
+    - google.container.v1.ClusterManager.DeleteCluster
+    - google.container.v1.ClusterManager.DeleteNodePool
+    - google.container.v1.ClusterManager.UpdateCluster
+    dataflow.googleapis.com:
+    - dataflow.jobs.cancel
+    - dataflow.jobs.create
+    datafusion.googleapis.com:
+    - google.cloud.datafusion.v1.DataFusion.CreateInstance
+    - google.cloud.datafusion.v1.DataFusion.DeleteInstance
+    - google.cloud.datafusion.v1.DataFusion.UpdateInstance
+    dataproc.googleapis.com:
+    - google.cloud.dataproc.v1.ClusterController.CreateCluster
+    - google.cloud.dataproc.v1.ClusterController.DeleteCluster
+    dns.googleapis.com:
+    - dns.changes.create
+    - dns.managedZones.create
+    - dns.managedZones.delete
+    - dns.managedZones.patch
+    - dns.managedZones.update
+    - dns.policies.create
+    - dns.policies.patch
+    - dns.policies.update
+    iam.googleapis.com:
+    - google.iam.admin.v1.CreateServiceAccount
+    - google.iam.admin.v1.CreateServiceAccountKey
+    - google.iam.admin.v1.DeleteServiceAccount
+    - google.iam.admin.v1.DeleteServiceAccountKey
+    - google.iam.admin.v1.SetIAMPolicy
+    logging.googleapis.com:
+    - google.logging.v2.ConfigServiceV2.CreateSink
+    - google.logging.v2.ConfigServiceV2.DeleteSink
+    - google.logging.v2.ConfigServiceV2.UpdateSink
+    - google.logging.v2.MetricsServiceV2.CreateLogMetric
+    - google.logging.v2.MetricsServiceV2.DeleteLogMetric
+    - google.logging.v2.MetricsServiceV2.UpdateLogMetric
+    notebooks.googleapis.com:
+    - google.cloud.notebooks.v1.NotebookService.CreateInstance
+    - google.cloud.notebooks.v1.NotebookService.DeleteInstance
+    osconfig.googleapis.com:
+    - google.cloud.osconfig.v1.OsConfigService.CreatePatchDeployment
+    - google.cloud.osconfig.v1.OsConfigService.DeletePatchDeployment
+    - google.cloud.osconfig.v1.OsConfigService.UpdatePatchDeployment
+    - google.cloud.osconfig.v1beta.OsConfigService.CreatePatchDeployment
+    - google.cloud.osconfig.v1beta.OsConfigService.DeletePatchDeployment
+    - google.cloud.osconfig.v1beta.OsConfigService.UpdatePatchDeployment
+    pubsub.googleapis.com:
+    - google.iam.v1.IAMPolicy.SetIamPolicy
+    - google.pubsub.v1.Publisher.CreateTopic
+    - google.pubsub.v1.Publisher.DeleteTopic
+    - google.pubsub.v1.Publisher.UpdateTopic
+    - google.pubsub.v1.Subscriber.CreateSubscription
+    - google.pubsub.v1.Subscriber.DeleteSubscription
+    - google.pubsub.v1.Subscriber.UpdateSubscription
+    - google.pubsub.v1beta2.Publisher.CreateTopic
+    - google.pubsub.v1beta2.Publisher.DeleteTopic
+    - google.pubsub.v1beta2.Subscriber.CreateSubscription
+    - google.pubsub.v1beta2.Subscriber.DeleteSubscription
+    redis.googleapis.com:
+    - google.cloud.redis.v1.CloudRedis.CreateInstance
+    - google.cloud.redis.v1.CloudRedis.DeleteInstance
+    - google.cloud.redis.v1.CloudRedis.UpdateInstance
+    - google.cloud.redis.v1beta1.CloudRedis.CreateInstance
+    - google.cloud.redis.v1beta1.CloudRedis.DeleteInstance
+    - google.cloud.redis.v1beta1.CloudRedis.UpdateInstance
+    run.googleapis.com:
+    - google.cloud.run.v1.Services.CreateService
+    - google.cloud.run.v1.Services.DeleteService
+    - google.cloud.run.v1.Services.ReplaceService
+    - google.cloud.run.v1.Services.SetIamPolicy
+    secretmanager.googleapis.com:
+    - google.cloud.secretmanager.v1.SecretManagerService.CreateSecret
+    - google.cloud.secretmanager.v1.SecretManagerService.DeleteSecret
+    - google.cloud.secretmanager.v1.SecretManagerService.UpdateSecret
+    - google.cloud.secrets.v1beta1.SecretManagerService.CreateSecret
+    - google.cloud.secrets.v1beta1.SecretManagerService.DeleteSecret
+    serviceusage.googleapis.com:
+    - google.api.serviceusage.v1.ServiceUsage.DisableService
+    - google.api.serviceusage.v1.ServiceUsage.EnableService
+    - google.api.serviceusage.v1beta1.ServiceUsage.DisableService
+    - google.api.serviceusage.v1beta1.ServiceUsage.EnableService
+    spanner.googleapis.com:
+    - google.spanner.admin.database.v1.DatabaseAdmin.CreateBackup
+    - google.spanner.admin.database.v1.DatabaseAdmin.UpdateBackup
+    - google.spanner.admin.instance.v1.InstanceAdmin.CreateInstance
+    - google.spanner.admin.instance.v1.InstanceAdmin.DeleteInstance
+    storage.googleapis.com:
+    - storage.buckets.create
+    - storage.buckets.delete
+    - storage.buckets.update
+    - storage.setIamPermissions
+  KUBERNETES: []

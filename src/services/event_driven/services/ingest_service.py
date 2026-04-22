@@ -1,15 +1,25 @@
+"""
+Ingest events: adapt, filter by rules, save.
+Single place for parsing and rules filtering.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from helpers import batches
 from helpers.log_helper import get_logger
+from models.event import EventRecordAttribute
 from services.environment_service import EnvironmentService
 from services.event_driven.adapters import EventRecordsAdapter
 from services.event_driven.services.event_store_service import (
     EventStoreService,
 )
 from services.event_driven.utils import without_duplicates
+
+from .rules_service import EventDrivenRulesService
+
 
 _LOG = get_logger(__name__)
 
@@ -26,46 +36,56 @@ class EventIngestService:
         self,
         event_store_service: EventStoreService,
         environment_service: EnvironmentService,
+        ed_rules_service: EventDrivenRulesService,
     ):
         self._event_store_service = event_store_service
         self._environment_service = environment_service
+        self._ed_rules_service = ed_rules_service
 
-    def ingest(self, vendor: str, events: list[dict]) -> IngestResult:
+    def ingest(
+        self,
+        raw_events: list[dict[Any, Any]],
+        vendor: str,
+    ) -> IngestResult:
+        """
+        Adapt, filter by rules, save. Single parse pass.
+        vendor: if set, use for all events; else auto-detect per event (AWS, Maestro, SRE_K8S_AGENT).
+        """
         events_in_item = (
             self._environment_service.number_of_native_events_in_event_item()
         )
-        adapter = EventRecordsAdapter(vendor, events)
-        adapted_events, failed_events = adapter.adapt()
-        adapted_events = list(without_duplicates(adapted_events))
+        received = len(raw_events)
+        by_vendor: dict[str, list[EventRecordAttribute]] = {}
 
-        if failed_events:
-            _LOG.warning(
-                "Failed to adapt %s events for vendor %s. "
-                "These records are skipped from persistence and logged for debug.",
-                len(failed_events),
-                vendor,
-            )
-            _LOG.debug(
-                "Rejected events payload for vendor %s: %s",
-                vendor,
-                [
-                    {
-                        "error": failed_event.error,
-                        "event": failed_event.event,
-                    }
-                    for failed_event in failed_events
-                ],
-            )
+        for raw in raw_events:
+            try:
+                adapter = EventRecordsAdapter(vendor, [raw])
+            except ValueError:
+                _LOG.warning('Unsupported vendor %r for event', vendor)
+                continue
+            event = adapter.adapt_single(raw)
+            v = vendor
 
-        entities = (
-            self._event_store_service.create(events=batch, vendor=vendor)
-            for batch in batches(adapted_events, events_in_item)
-        )
-        if adapted_events:
+            if event is None:
+                _LOG.debug('Could not adapt event %s', raw)
+                continue
+            if not self._ed_rules_service.get_rules(event):
+                _LOG.debug('Event %s does not match any rules', event)
+                continue
+            by_vendor.setdefault(v, []).append(event)
+
+        total_saved = 0
+        for v, adapted in by_vendor.items():
+            adapted = list(without_duplicates(adapted))
+            entities = (
+                self._event_store_service.create(events=batch, vendor=v)
+                for batch in batches(adapted, events_in_item)
+            )
             self._event_store_service.batch_save(entities)
+            total_saved += len(adapted)
 
         return IngestResult(
-            received=adapter.number_of_received(),
-            saved=len(adapted_events),
-            rejected=len(failed_events),
+            received=received,
+            saved=total_saved,
+            rejected=received - total_saved,
         )

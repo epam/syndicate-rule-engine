@@ -5,7 +5,7 @@ class TestCustodianResourceCollector:
 
     def test_collector_type(self):
         """Collector has correct type."""
-        from executor.job.resource_collector import CustodianResourceCollector
+        from executor.resource_collector import CustodianResourceCollector
         from helpers.constants import ResourcesCollectorType
 
         assert (
@@ -13,10 +13,10 @@ class TestCustodianResourceCollector:
             == ResourcesCollectorType.CUSTODIAN
         )
 
-    @patch("executor.job.resource_collector.collector.SP")
+    @patch("executor.resource_collector.collector.SP")
     def test_build_creates_instance(self, mock_sp):
         """build() creates a properly configured instance."""
-        from executor.job.resource_collector import CustodianResourceCollector
+        from executor.resource_collector import CustodianResourceCollector
 
         mock_sp.modular_client = MagicMock()
         mock_sp.resources_service = MagicMock()

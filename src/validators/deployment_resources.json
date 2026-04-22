@@ -355,10 +355,148 @@
           "type": "object"
         }
       },
+      "DefectDojoUpdatePatchModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "attachment": {
+              "default": null,
+              "enum": [
+                "json",
+                "xlsx",
+                "cv"
+              ],
+              "title": "Attachment",
+              "type": "string"
+            },
+            "clouds": {
+              "items": {
+                "enum": [
+                  "AWS",
+                  "AZURE",
+                  "GOOGLE"
+                ],
+                "type": "string"
+              },
+              "title": "Clouds",
+              "type": "array",
+              "uniqueItems": true
+            },
+            "engagement": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Defect dojo engagement name",
+              "title": "Engagement"
+            },
+            "exclude_tenants": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Exclude Tenants",
+              "type": "array",
+              "uniqueItems": true
+            },
+            "product": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Defect dojo product name",
+              "title": "Product"
+            },
+            "product_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Defect dojo product type name",
+              "title": "Product Type"
+            },
+            "scan_type": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "Generic Findings Import",
+                    "Cloud Custodian Scan"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Defect dojo scan type",
+              "title": "Scan Type"
+            },
+            "send_after_job": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Whether to send the results to dojo after each scan",
+              "title": "Send After Job"
+            },
+            "tenant_names": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Tenant Names",
+              "type": "array",
+              "uniqueItems": true
+            },
+            "test": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Defect dojo test",
+              "title": "Test"
+            }
+          },
+          "title": "DefectDojoUpdatePatchModel",
+          "type": "object"
+        }
+      },
       "DepartmentGetReportModel": {
         "content_type": "application/json",
         "schema": {
           "properties": {
+            "receivers": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Receivers",
+              "type": "array",
+              "uniqueItems": true
+            },
             "types": {
               "items": {
                 "enum": [
@@ -853,7 +991,9 @@
             "vendor": {
               "enum": [
                 "AWS",
-                "MAESTRO"
+                "MAESTRO",
+                "SRE_K8S_AGENT",
+                "SRE_K8S_WATCHER"
               ],
               "title": "Vendor",
               "type": "string"
@@ -869,6 +1009,203 @@
             "events"
           ],
           "title": "EventPostModel",
+          "type": "object"
+        }
+      },
+      "EventSourceDeleteModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {},
+          "title": "EventSourceDeleteModel",
+          "type": "object"
+        }
+      },
+      "EventSourcePostModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "aws_access_key_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Aws Access Key Id"
+            },
+            "aws_secret_access_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Aws Secret Access Key"
+            },
+            "aws_session_token": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Aws Session Token"
+            },
+            "enabled": {
+              "default": true,
+              "title": "Enabled",
+              "type": "boolean"
+            },
+            "queue_url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Queue Url"
+            },
+            "region": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Region"
+            },
+            "role_arn": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "IAM role ARN to assume for SQS access",
+              "title": "Role Arn"
+            },
+            "source_type": {
+              "const": "SQS",
+              "default": "SQS",
+              "enum": [
+                "SQS"
+              ],
+              "title": "Source Type",
+              "type": "string"
+            }
+          },
+          "title": "EventSourcePostModel",
+          "type": "object"
+        }
+      },
+      "EventSourcePutModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "aws_access_key_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Aws Access Key Id"
+            },
+            "aws_secret_access_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Aws Secret Access Key"
+            },
+            "aws_session_token": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Aws Session Token"
+            },
+            "enabled": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Enabled"
+            },
+            "queue_url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Queue Url"
+            },
+            "region": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Region"
+            },
+            "role_arn": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Role Arn"
+            }
+          },
+          "title": "EventSourcePutModel",
           "type": "object"
         }
       },
@@ -1299,6 +1636,15 @@
             "data"
           ],
           "title": "JobResourcesReportModel",
+          "type": "object"
+        }
+      },
+      "JobResumePostModel": {
+        "content_type": "application/json",
+        "schema": {
+          "description": "Resume a standard scan job that has partial checkpoint progress.",
+          "properties": {},
+          "title": "JobResumePostModel",
           "type": "object"
         }
       },
@@ -1981,6 +2327,58 @@
           "type": "object"
         }
       },
+      "MultipleEventSourceModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "items": {
+              "items": {
+                "properties": {
+                  "customer_id": {
+                    "title": "Customer Id",
+                    "type": "string"
+                  },
+                  "enabled": {
+                    "title": "Enabled",
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "title": "Id",
+                    "type": "string"
+                  },
+                  "queue_url": {
+                    "title": "Queue Url",
+                    "type": "string"
+                  },
+                  "region": {
+                    "title": "Region",
+                    "type": "string"
+                  },
+                  "source_type": {
+                    "title": "Source Type",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "customer_id",
+                  "source_type",
+                  "enabled"
+                ],
+                "title": "EventSource",
+                "type": "object"
+              },
+              "title": "Items",
+              "type": "array"
+            }
+          },
+          "required": [
+            "items"
+          ],
+          "title": "MultipleEventSourceModel",
+          "type": "object"
+        }
+      },
       "MultipleHealthChecksModel": {
         "content_type": "application/json",
         "schema": {
@@ -2147,6 +2545,40 @@
                     "title": "Rulesets",
                     "type": "array"
                   },
+                  "scan_progress": {
+                    "properties": {
+                      "checkpoint_version": {
+                        "title": "Checkpoint Version",
+                        "type": "integer"
+                      },
+                      "completed_regions": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "title": "Completed Regions",
+                        "type": "array"
+                      },
+                      "pending_regions": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "title": "Pending Regions",
+                        "type": "array"
+                      },
+                      "updated_at": {
+                        "title": "Updated At",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "checkpoint_version",
+                      "completed_regions",
+                      "updated_at",
+                      "pending_regions"
+                    ],
+                    "title": "ScanProgress",
+                    "type": "object"
+                  },
                   "scheduled_rule_name": {
                     "title": "Scheduled Rule Name",
                     "type": "string"
@@ -2165,7 +2597,8 @@
                       "STARTING",
                       "RUNNING",
                       "FAILED",
-                      "SUCCEEDED"
+                      "SUCCEEDED",
+                      "INTERRUPTED"
                     ],
                     "title": "JobState",
                     "type": "string"
@@ -2233,6 +2666,10 @@
                   "description": {
                     "title": "Description",
                     "type": "string"
+                  },
+                  "event_driven_enabled": {
+                    "title": "Event Driven Enabled",
+                    "type": "boolean"
                   },
                   "id": {
                     "title": "Id",
@@ -3421,7 +3858,6 @@
             },
             "insecure_skip_tls_verify": {
               "default": null,
-              "description": "Skip TLS certificate verification. If not specified, automatically enabled when certificate_authority is not provided",
               "title": "Insecure Skip Tls Verify",
               "type": "boolean"
             },
@@ -3604,6 +4040,23 @@
           "type": "object"
         }
       },
+      "PlatformK8SPutModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "event_driven_enabled": {
+              "description": "Enable or disable event-driven processing for platform",
+              "title": "Event Driven Enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "event_driven_enabled"
+          ],
+          "title": "PlatformK8SPutModel",
+          "type": "object"
+        }
+      },
       "PolicyPatchModel": {
         "content_type": "application/json",
         "schema": {
@@ -3654,12 +4107,15 @@
                   "report:get_k8s_platform_latest_resources",
                   "report:get_job_resources",
                   "report:get_job_resources_batch",
+                  "report:get_top_violations_report",
+                  "report:get_top_violations_compare_report",
                   "report:get_tenant_latest_raw_report",
                   "job:query",
                   "job:get",
                   "job:post_for_tenant",
                   "job:post_for_k8s_platform",
                   "job:terminate",
+                  "job:resume",
                   "customer:describe",
                   "customer:set_excluded_rules",
                   "customer:get_excluded_rules",
@@ -3722,11 +4178,16 @@
                   "rabbitmq:describe",
                   "rabbitmq:create",
                   "rabbitmq:delete",
+                  "event_sources:describe",
+                  "event_sources:create",
+                  "event_sources:update",
+                  "event_sources:delete",
                   "batch_results:get",
                   "batch_results:query",
                   "platform:get_k8s",
                   "platform:query_k8",
                   "platform:create_k8s",
+                  "platform:update_k8s",
                   "platform:delete_k8s",
                   "self_integration:create",
                   "self_integration:update",
@@ -3795,12 +4256,15 @@
                   "report:get_k8s_platform_latest_resources",
                   "report:get_job_resources",
                   "report:get_job_resources_batch",
+                  "report:get_top_violations_report",
+                  "report:get_top_violations_compare_report",
                   "report:get_tenant_latest_raw_report",
                   "job:query",
                   "job:get",
                   "job:post_for_tenant",
                   "job:post_for_k8s_platform",
                   "job:terminate",
+                  "job:resume",
                   "customer:describe",
                   "customer:set_excluded_rules",
                   "customer:get_excluded_rules",
@@ -3863,11 +4327,16 @@
                   "rabbitmq:describe",
                   "rabbitmq:create",
                   "rabbitmq:delete",
+                  "event_sources:describe",
+                  "event_sources:create",
+                  "event_sources:update",
+                  "event_sources:delete",
                   "batch_results:get",
                   "batch_results:query",
                   "platform:get_k8s",
                   "platform:query_k8",
                   "platform:create_k8s",
+                  "platform:update_k8s",
                   "platform:delete_k8s",
                   "self_integration:create",
                   "self_integration:update",
@@ -3977,12 +4446,15 @@
                   "report:get_k8s_platform_latest_resources",
                   "report:get_job_resources",
                   "report:get_job_resources_batch",
+                  "report:get_top_violations_report",
+                  "report:get_top_violations_compare_report",
                   "report:get_tenant_latest_raw_report",
                   "job:query",
                   "job:get",
                   "job:post_for_tenant",
                   "job:post_for_k8s_platform",
                   "job:terminate",
+                  "job:resume",
                   "customer:describe",
                   "customer:set_excluded_rules",
                   "customer:get_excluded_rules",
@@ -4045,11 +4517,16 @@
                   "rabbitmq:describe",
                   "rabbitmq:create",
                   "rabbitmq:delete",
+                  "event_sources:describe",
+                  "event_sources:create",
+                  "event_sources:update",
+                  "event_sources:delete",
                   "batch_results:get",
                   "batch_results:query",
                   "platform:get_k8s",
                   "platform:query_k8",
                   "platform:create_k8s",
+                  "platform:update_k8s",
                   "platform:delete_k8s",
                   "self_integration:create",
                   "self_integration:update",
@@ -4117,6 +4594,11 @@
         "content_type": "application/json",
         "schema": {
           "properties": {
+            "include_linked": {
+              "default": false,
+              "title": "Include Linked",
+              "type": "boolean"
+            },
             "receivers": {
               "items": {
                 "type": "string"
@@ -4527,7 +5009,7 @@
                   "type": "string"
                 }
               ],
-              "default": "2026-01-22T15:15:24.918651",
+              "default": "2026-04-07T16:41:26.171550",
               "description": "Expiration date of the exception",
               "title": "Expire At"
             },
@@ -6029,6 +6511,54 @@
           "type": "object"
         }
       },
+      "SingleEventSourceModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "data": {
+              "properties": {
+                "customer_id": {
+                  "title": "Customer Id",
+                  "type": "string"
+                },
+                "enabled": {
+                  "title": "Enabled",
+                  "type": "boolean"
+                },
+                "id": {
+                  "title": "Id",
+                  "type": "string"
+                },
+                "queue_url": {
+                  "title": "Queue Url",
+                  "type": "string"
+                },
+                "region": {
+                  "title": "Region",
+                  "type": "string"
+                },
+                "source_type": {
+                  "title": "Source Type",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "customer_id",
+                "source_type",
+                "enabled"
+              ],
+              "title": "EventSource",
+              "type": "object"
+            }
+          },
+          "required": [
+            "data"
+          ],
+          "title": "SingleEventSourceModel",
+          "type": "object"
+        }
+      },
       "SingleHealthCheckModel": {
         "content_type": "application/json",
         "schema": {
@@ -6115,6 +6645,40 @@
                   "title": "Rulesets",
                   "type": "array"
                 },
+                "scan_progress": {
+                  "properties": {
+                    "checkpoint_version": {
+                      "title": "Checkpoint Version",
+                      "type": "integer"
+                    },
+                    "completed_regions": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "title": "Completed Regions",
+                      "type": "array"
+                    },
+                    "pending_regions": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "title": "Pending Regions",
+                      "type": "array"
+                    },
+                    "updated_at": {
+                      "title": "Updated At",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "checkpoint_version",
+                    "completed_regions",
+                    "updated_at",
+                    "pending_regions"
+                  ],
+                  "title": "ScanProgress",
+                  "type": "object"
+                },
                 "scheduled_rule_name": {
                   "title": "Scheduled Rule Name",
                   "type": "string"
@@ -6133,7 +6697,8 @@
                     "STARTING",
                     "RUNNING",
                     "FAILED",
-                    "SUCCEEDED"
+                    "SUCCEEDED",
+                    "INTERRUPTED"
                   ],
                   "title": "JobState",
                   "type": "string"
@@ -6256,6 +6821,10 @@
                 "description": {
                   "title": "Description",
                   "type": "string"
+                },
+                "event_driven_enabled": {
+                  "title": "Event Driven Enabled",
+                  "type": "boolean"
                 },
                 "id": {
                   "title": "Id",
@@ -7466,6 +8035,192 @@
             "rules"
           ],
           "title": "TenantExcludedRulesPutModel",
+          "type": "object"
+        }
+      },
+      "TopViolationsReportComparisonModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "items": {
+              "items": {
+                "anyOf": [
+                  {
+                    "properties": {
+                      "id": {
+                        "title": "Id",
+                        "type": "string"
+                      },
+                      "new_violated_rules": {
+                        "items": {
+                          "type": "object"
+                        },
+                        "title": "New Violated Rules",
+                        "type": "array"
+                      },
+                      "remediated_rules": {
+                        "items": {
+                          "type": "object"
+                        },
+                        "title": "Remediated Rules",
+                        "type": "array"
+                      },
+                      "unchanged_violated_rules": {
+                        "items": {
+                          "type": "object"
+                        },
+                        "title": "Unchanged Violated Rules",
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "new_violated_rules",
+                      "remediated_rules",
+                      "unchanged_violated_rules"
+                    ],
+                    "title": "TopViolationsResourceComparison",
+                    "type": "object"
+                  },
+                  {
+                    "properties": {
+                      "name": {
+                        "title": "Name",
+                        "type": "string"
+                      },
+                      "new_violated_resources": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "title": "New Violated Resources",
+                        "type": "array"
+                      },
+                      "remediated_resources": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "title": "Remediated Resources",
+                        "type": "array"
+                      },
+                      "unchanged_violated_resources": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "title": "Unchanged Violated Resources",
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "new_violated_resources",
+                      "remediated_resources",
+                      "unchanged_violated_resources"
+                    ],
+                    "title": "TopViolationsRulesComparison",
+                    "type": "object"
+                  }
+                ]
+              },
+              "title": "Items",
+              "type": "array"
+            }
+          },
+          "required": [
+            "items"
+          ],
+          "title": "TopViolationsReportComparisonModel",
+          "type": "object"
+        }
+      },
+      "TopViolationsReportJobsModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "items": {
+              "items": {
+                "anyOf": [
+                  {
+                    "properties": {
+                      "id": {
+                        "title": "Id",
+                        "type": "string"
+                      },
+                      "violated_rules": {
+                        "items": {
+                          "type": "object"
+                        },
+                        "title": "Violated Rules",
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "violated_rules"
+                    ],
+                    "title": "TopViolationsResourceReport",
+                    "type": "object"
+                  },
+                  {
+                    "properties": {
+                      "article": {
+                        "title": "Article",
+                        "type": "string"
+                      },
+                      "description": {
+                        "title": "Description",
+                        "type": "string"
+                      },
+                      "impact": {
+                        "title": "Impact",
+                        "type": "string"
+                      },
+                      "name": {
+                        "title": "Name",
+                        "type": "string"
+                      },
+                      "remediation": {
+                        "title": "Remediation",
+                        "type": "string"
+                      },
+                      "remediation_complexity": {
+                        "title": "Remediation Complexity",
+                        "type": "string"
+                      },
+                      "severity": {
+                        "title": "Severity",
+                        "type": "string"
+                      },
+                      "violated_resources": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "title": "Violated Resources",
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "description",
+                      "severity",
+                      "remediation",
+                      "article",
+                      "impact",
+                      "remediation_complexity",
+                      "violated_resources"
+                    ],
+                    "title": "TopViolationsRulesReport",
+                    "type": "object"
+                  }
+                ]
+              },
+              "title": "Items",
+              "type": "array"
+            }
+          },
+          "required": [
+            "items"
+          ],
+          "title": "TopViolationsReportJobsModel",
           "type": "object"
         }
       },

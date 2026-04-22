@@ -8,6 +8,7 @@ from pynamodb.attributes import (
 from helpers.constants import Env
 from models import BaseModel
 
+
 E_PARTITION_ATTR = "p"
 E_TIMESTAMP_ATTR = "t"
 E_EVENTS = "e"
@@ -22,8 +23,10 @@ class EventRecordAttribute(MapAttribute):
     region_name = UnicodeAttribute()
     source_name = UnicodeAttribute()
     event_name = UnicodeAttribute()
+    platform_id = UnicodeAttribute(null=True)
     account_id = UnicodeAttribute(null=True)
     tenant_name = UnicodeAttribute(null=True)
+    metadata = MapAttribute(null=True)
 
 
 class Event(BaseModel):

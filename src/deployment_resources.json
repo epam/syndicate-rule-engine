@@ -1805,6 +1805,316 @@
           ]
         }
       },
+      "/integrations/event-sources": {
+        "policy_statement_singleton": true,
+        "enable_cors": true,
+        "GET": {
+          "integration_type": "lambda",
+          "enable_proxy": true,
+          "lambda_alias": "${lambdas_alias_name}",
+          "authorization_type": "authorizer",
+          "request_validator": {
+            "validate_request_parameters": false
+          },
+          "lambda_name": "caas-configuration-api-handler",
+          "method_request_parameters": {
+            "method.request.querystring.customer_id": false
+          },
+          "responses": [
+            {
+              "status_code": "200",
+              "response_models": {
+                "application/json": "MultipleEventSourceModel"
+              }
+            },
+            {
+              "status_code": "400",
+              "response_models": {
+                "application/json": "ErrorsModel"
+              }
+            },
+            {
+              "status_code": "401",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "403",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "500",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "503",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "504",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            }
+          ]
+        },
+        "POST": {
+          "integration_type": "lambda",
+          "enable_proxy": true,
+          "lambda_alias": "${lambdas_alias_name}",
+          "authorization_type": "authorizer",
+          "request_validator": {
+            "validate_request_body": false,
+            "validate_request_parameters": false
+          },
+          "lambda_name": "caas-configuration-api-handler",
+          "method_request_models": {
+            "application/json": "EventSourcePostModel"
+          },
+          "responses": [
+            {
+              "status_code": "200",
+              "response_models": {
+                "application/json": "SingleEventSourceModel"
+              }
+            },
+            {
+              "status_code": "400",
+              "response_models": {
+                "application/json": "ErrorsModel"
+              }
+            },
+            {
+              "status_code": "401",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "403",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "500",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "503",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "504",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            }
+          ]
+        }
+      },
+      "/integrations/event-sources/{id}": {
+        "policy_statement_singleton": true,
+        "enable_cors": true,
+        "GET": {
+          "integration_type": "lambda",
+          "enable_proxy": true,
+          "lambda_alias": "${lambdas_alias_name}",
+          "authorization_type": "authorizer",
+          "request_validator": {
+            "validate_request_parameters": false
+          },
+          "lambda_name": "caas-configuration-api-handler",
+          "method_request_parameters": {
+            "method.request.querystring.customer_id": false
+          },
+          "responses": [
+            {
+              "status_code": "200",
+              "response_models": {
+                "application/json": "SingleEventSourceModel"
+              }
+            },
+            {
+              "status_code": "400",
+              "response_models": {
+                "application/json": "ErrorsModel"
+              }
+            },
+            {
+              "status_code": "401",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "403",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "404",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "500",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "503",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "504",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            }
+          ]
+        },
+        "PUT": {
+          "integration_type": "lambda",
+          "enable_proxy": true,
+          "lambda_alias": "${lambdas_alias_name}",
+          "authorization_type": "authorizer",
+          "request_validator": {
+            "validate_request_body": false,
+            "validate_request_parameters": false
+          },
+          "lambda_name": "caas-configuration-api-handler",
+          "method_request_models": {
+            "application/json": "EventSourcePutModel"
+          },
+          "responses": [
+            {
+              "status_code": "200",
+              "response_models": {
+                "application/json": "SingleEventSourceModel"
+              }
+            },
+            {
+              "status_code": "400",
+              "response_models": {
+                "application/json": "ErrorsModel"
+              }
+            },
+            {
+              "status_code": "401",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "403",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "404",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "500",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "503",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "504",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            }
+          ]
+        },
+        "DELETE": {
+          "integration_type": "lambda",
+          "enable_proxy": true,
+          "lambda_alias": "${lambdas_alias_name}",
+          "authorization_type": "authorizer",
+          "request_validator": {
+            "validate_request_body": false
+          },
+          "lambda_name": "caas-configuration-api-handler",
+          "method_request_models": {
+            "application/json": "EventSourceDeleteModel"
+          },
+          "responses": [
+            {
+              "status_code": "204"
+            },
+            {
+              "status_code": "400",
+              "response_models": {
+                "application/json": "ErrorsModel"
+              }
+            },
+            {
+              "status_code": "401",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "403",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "404",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "500",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "503",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "504",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            }
+          ]
+        }
+      },
       "/tenants": {
         "policy_statement_singleton": true,
         "enable_cors": true,
@@ -5542,7 +5852,8 @@
           "lambda_name": "caas-configuration-api-handler",
           "method_request_parameters": {
             "method.request.querystring.customer_id": false,
-            "method.request.querystring.tenant_name": false
+            "method.request.querystring.tenant_name": false,
+            "method.request.querystring.event_driven_enabled": false
           },
           "responses": [
             {
@@ -5728,6 +6039,66 @@
           "responses": [
             {
               "status_code": "204"
+            },
+            {
+              "status_code": "400",
+              "response_models": {
+                "application/json": "ErrorsModel"
+              }
+            },
+            {
+              "status_code": "401",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "403",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "404",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "500",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "503",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "504",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            }
+          ]
+        },
+        "PATCH": {
+          "integration_type": "lambda",
+          "enable_proxy": true,
+          "lambda_alias": "${lambdas_alias_name}",
+          "authorization_type": "authorizer",
+          "lambda_name": "caas-configuration-api-handler",
+          "method_request_models": {
+            "application/json": "PlatformK8SPutModel"
+          },
+          "responses": [
+            {
+              "status_code": "200",
+              "response_models": {
+                "application/json": "SingleK8SPlatformModel"
+              }
             },
             {
               "status_code": "400",
@@ -6154,6 +6525,63 @@
           "responses": [
             {
               "status_code": "204"
+            },
+            {
+              "status_code": "400",
+              "response_models": {
+                "application/json": "ErrorsModel"
+              }
+            },
+            {
+              "status_code": "401",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "403",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "404",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "500",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "503",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "504",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            }
+          ]
+        },
+        "PATCH": {
+          "integration_type": "lambda",
+          "enable_proxy": true,
+          "lambda_alias": "${lambdas_alias_name}",
+          "authorization_type": "authorizer",
+          "lambda_name": "caas-configuration-api-handler",
+          "method_request_models": {
+            "application/json": "DefectDojoUpdatePatchModel"
+          },
+          "responses": [
+            {
+              "status_code": "201"
             },
             {
               "status_code": "400",
@@ -9591,6 +10019,204 @@
               "status_code": "200",
               "response_models": {
                 "application/json": "MultipleServiceOperationStatusesModel"
+              }
+            },
+            {
+              "status_code": "400",
+              "response_models": {
+                "application/json": "ErrorsModel"
+              }
+            },
+            {
+              "status_code": "401",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "403",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "500",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "503",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "504",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            }
+          ]
+        }
+      },
+      "/jobs/{job_id}/resume": {
+        "policy_statement_singleton": true,
+        "enable_cors": true,
+        "POST": {
+          "integration_type": "lambda",
+          "enable_proxy": true,
+          "lambda_alias": "${lambdas_alias_name}",
+          "authorization_type": "authorizer",
+          "lambda_name": "caas-api-handler",
+          "method_request_models": {
+            "application/json": "JobResumePostModel"
+          },
+          "responses": [
+            {
+              "status_code": "202",
+              "response_models": {
+                "application/json": "SingleJobModel"
+              }
+            },
+            {
+              "status_code": "400",
+              "response_models": {
+                "application/json": "ErrorsModel"
+              }
+            },
+            {
+              "status_code": "401",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "403",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "404",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "409",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "500",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "503",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "504",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            }
+          ]
+        }
+      },
+      "/reports/top/violations/jobs/{job_id}": {
+        "policy_statement_singleton": true,
+        "enable_cors": true,
+        "GET": {
+          "integration_type": "lambda",
+          "enable_proxy": true,
+          "lambda_alias": "${lambdas_alias_name}",
+          "authorization_type": "authorizer",
+          "lambda_name": "caas-configuration-api-handler",
+          "method_request_parameters": {
+            "method.request.querystring.customer_id": false,
+            "method.request.querystring.type": false,
+            "method.request.querystring.top": false
+          },
+          "responses": [
+            {
+              "status_code": "200",
+              "response_models": {
+                "application/json": "TopViolationsReportJobsModel"
+              }
+            },
+            {
+              "status_code": "400",
+              "response_models": {
+                "application/json": "ErrorsModel"
+              }
+            },
+            {
+              "status_code": "401",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "403",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "404",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "500",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "503",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "504",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            }
+          ]
+        }
+      },
+      "/reports/top/violations/compare/jobs": {
+        "policy_statement_singleton": true,
+        "enable_cors": true,
+        "GET": {
+          "integration_type": "lambda",
+          "enable_proxy": true,
+          "lambda_alias": "${lambdas_alias_name}",
+          "authorization_type": "authorizer",
+          "lambda_name": "caas-configuration-api-handler",
+          "method_request_parameters": {
+            "method.request.querystring.customer_id": false,
+            "method.request.querystring.previous_job_id": true,
+            "method.request.querystring.current_job_id": true,
+            "method.request.querystring.type": false,
+            "method.request.querystring.top": false
+          },
+          "responses": [
+            {
+              "status_code": "200",
+              "response_models": {
+                "application/json": "TopViolationsReportComparisonModel"
               }
             },
             {

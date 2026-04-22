@@ -1,0 +1,73 @@
+{{- if .Values.eventSourcesConsumer.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rule-engine.fullname" . }}-event-sources-consumer
+  labels:
+    app.kubernetes.io/name: {{ include "rule-engine.name" . }}-event-sources-consumer
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ include "rule-engine.chart" . }}
+spec:
+  replicas: {{ .Values.eventSourcesConsumer.replicas }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "rule-engine.name" . }}-event-sources-consumer
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "rule-engine.name" . }}-event-sources-consumer
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        helm.sh/chart: {{ include "rule-engine.chart" . }}
+      annotations:
+        rollme: {{ randAlphaNum 5 | quote }}
+    spec:
+      volumes:
+        - name: rule-engine-storage
+          persistentVolumeClaim:
+            claimName: {{ include "rule-engine.fullname" . }}
+      initContainers:
+        - name: volume-permissions
+          image: busybox:1.28
+          imagePullPolicy: IfNotPresent
+          command: [ "chown", "-R", "1001:1337", "/data" ]
+          volumeMounts:
+            - name: rule-engine-storage
+              mountPath: /data
+      containers:
+        - name: rule-engine-event-sources-consumer
+          args: ["event_sources_consumer"]
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
+          ports:
+            - name: health
+              containerPort: 8081
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+              scheme: HTTP
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            limits:
+              memory: "{{ .Values.eventSourcesConsumer.memoryLimit }}"
+            requests:
+              memory: "{{ .Values.eventSourcesConsumer.memoryRequest }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1337
+          volumeMounts:
+            - name: rule-engine-storage
+              mountPath: "/data"
+          {{- include "rule-engine.envs" . | nindent 10 }}
+      restartPolicy: Always
+{{- end }}

@@ -1192,10 +1192,12 @@ class MetricsCollector(BaseProcessor):
             # Set category only if it's not empty, otherwise use UNSET to omit from serialization
             item.category = rm.category if rm.category else None
             
-            # Calculate resources scanned
-            if type_resources:
+            # Calculate resources scanned (use resource_type_str: meta may omit
+            # policies still present in aggregated job statistics vs latest/meta.json)
+            if type_resources and resource_type_str:
                 resources = [
-                    res for res in type_resources.get(meta[p]['resource'], [])
+                    res
+                    for res in type_resources.get(resource_type_str, [])
                     if res.location == item.region or res.location == GLOBAL_REGION
                 ]
                 item.resources_scanned = len(resources)

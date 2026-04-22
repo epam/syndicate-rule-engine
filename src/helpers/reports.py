@@ -1,6 +1,6 @@
 from typing import Generator, Iterable
 
-from helpers.constants import Severity
+from helpers.constants import Severity, RemediationComplexity
 
 
 class Standard(tuple):
@@ -119,6 +119,10 @@ def keep_highest(*args: set):
                     to_remove.append(item)
             cur.difference_update(to_remove)
 
+
+remediation_complexity_chain = {
+    v: i for i, v in enumerate(RemediationComplexity.iter())
+}
 
 severity_chain = {v: i for i, v in enumerate(Severity.iter())}
 

@@ -43,4 +43,3 @@ class ResourceIteratorStrategy(ABC):
     ) -> Generator[Resource, None, None]:
         """Iterate over resources and yield Resource models."""
         ...
-

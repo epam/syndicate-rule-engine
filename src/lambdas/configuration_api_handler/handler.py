@@ -1,10 +1,14 @@
 from functools import cached_property
 from http import HTTPStatus
 
-from handlers.chronicle_handler import ChronicleHandler
+from handlers.integrations import (
+    ChronicleHandler, 
+    DefectDojoHandler, 
+    EventSourcesHandler, 
+    SelfIntegrationHandler
+)
 from handlers.credentials_handler import CredentialsHandler
 from handlers.customer_handler import CustomerHandler
-from handlers.defect_dojo_handler import DefectDojoHandler
 from handlers.license_handler import LicenseHandler
 from handlers.license_manager_setting_handler import (
     LicenseManagerClientHandler,
@@ -21,7 +25,6 @@ from handlers.role_handler import RoleHandler
 from handlers.rule_handler import RuleHandler
 from handlers.rule_source_handler import RuleSourceHandler
 from handlers.ruleset_handler import RulesetHandler
-from handlers.self_integration_handler import SelfIntegrationHandler
 from handlers.send_report_setting_handler import ReportsSendingSettingHandler
 from handlers.tenant_handler import TenantHandler
 from helpers.constants import (
@@ -82,6 +85,7 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
         MailSettingHandler,
         CustomerHandler,
         RabbitMQHandler,
+        EventSourcesHandler,
         DefectDojoHandler,
         ReportsSendingSettingHandler,
         TenantHandler,

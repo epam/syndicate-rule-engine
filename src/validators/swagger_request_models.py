@@ -5,9 +5,7 @@ from base64 import standard_b64decode
 from datetime import date, datetime, timedelta, timezone
 from typing import Generator, Literal
 
-from celery.schedules import (
-    BaseSchedule,
-)
+from celery.schedules import BaseSchedule
 from celery.schedules import crontab as celery_crontab
 from celery.schedules import schedule as celery_schedule
 from modular_sdk.commons.constants import Cloud as ModularCloud
@@ -27,7 +25,7 @@ from pydantic import (
 from pydantic.json_schema import SkipJsonSchema, WithJsonSchema
 from typing_extensions import Annotated, Self, override
 
-from helpers import Version
+from helpers import NextToken, Version
 from helpers.constants import (
     GITHUB_API_URL_DEFAULT,
     GITLAB_API_URL_DEFAULT,
@@ -45,8 +43,8 @@ from helpers.constants import (
     RuleDomain,
     RuleSourceType,
     ServiceOperationType,
+    TopViolationsReportType,
 )
-from helpers import Version, NextToken
 from helpers.regions import AllRegions, AllRegionsWithGlobal
 from helpers.time_helper import utc_datetime
 from models.rule import RuleIndex
@@ -1012,7 +1010,7 @@ class PolicyPostModel(BaseModel):
     permissions: set[Permission] = Field(default_factory=set)
     permissions_admin: bool = False
     effect: PolicyEffect
-    tenants: set[str] = Field(default_factory=set)
+    tenants: set[str]
     description: str
     # todo add effect and tenants
 
@@ -1211,6 +1209,12 @@ class JobPostModel(BaseModel):
         ).model_dump(exclude_none=True)
 
 
+class JobResumePostModel(BaseModel):
+    """Resume a standard scan job that has partial checkpoint progress."""
+
+    pass
+
+
 def sanitize_schedule(schedule: str) -> str:
     """
     May raise ValueError
@@ -1394,7 +1398,7 @@ class EventPostModel(BaseModel):
             }
         ),
     ] = '1.0.0'
-    vendor: Literal['AWS', 'MAESTRO']
+    vendor: Literal['AWS', 'MAESTRO', 'SRE_K8S_AGENT', 'SRE_K8S_WATCHER']
     events: list[dict]
 
 
@@ -1850,6 +1854,34 @@ class RabbitMQDeleteModel(BaseModel):
     pass
 
 
+class EventSourcePostModel(BaseModel):
+    queue_url: str
+    region: str
+    enabled: bool = True
+    role_arn: str | None = Field(None, description="IAM role ARN to assume for SQS access")
+    aws_access_key_id: str | None = Field(None)
+    aws_secret_access_key: str | None = Field(None)
+    aws_session_token: str | None = Field(None)
+
+
+class EventSourcePutModel(BaseModel):
+    queue_url: str | None = None
+    region: str | None = None
+    enabled: bool | None = None
+    role_arn: str | None = None
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
+    aws_session_token: str | None = None
+
+
+class EventSourceGetModel(BaseModel):
+    pass
+
+
+class EventSourceDeleteModel(BaseModel):
+    pass
+
+
 class RawReportGetModel(BaseModel):
     obfuscated: bool = False
     meta: bool = False
@@ -2022,6 +2054,20 @@ class ResourceReportJobGetModel(JobTypesMixin, BaseModel):
         return self
 
 
+class TopViolationsReportJobGetModel(BaseModel):
+    type: TopViolationsReportType = Field(default=TopViolationsReportType.RESOURCES)
+    top: int = Field(default=5, gt=0, le=5,
+                     description='Limits the number of top critical items')
+
+
+class TopViolationsReportCompareJobsGetModel(BaseModel):
+    previous_job_id: str
+    current_job_id: str
+    type: TopViolationsReportType = Field(default=TopViolationsReportType.RESOURCES)
+    top: int = Field(default=5, gt=0, le=5,
+                     description='Limits the number of top critical items')
+
+
 class PlatformK8SPostModel(BaseModel):
     tenant_name: Annotated[
         str, StringConstraints(to_upper=True, strip_whitespace=True)
@@ -2048,8 +2094,18 @@ class PlatformK8SPostModel(BaseModel):
         return self
 
 
+class PlatformK8SPutModel(BaseModel):
+    event_driven_enabled: bool = Field(
+        description='Enable or disable event-driven processing for platform'
+    )
+
+
 class PlatformK8sQueryModel(BaseModel):
     tenant_name: str = Field(None)
+    event_driven_enabled: bool | None = Field(
+        None,
+        description='Optional filter by platform event-driven status',
+    )
 
 
 class K8sJobPostModel(BaseModel):

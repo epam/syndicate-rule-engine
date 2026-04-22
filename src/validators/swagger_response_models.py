@@ -24,6 +24,7 @@ class BaseActivation(TypedDict):
     excluding: list[str]
     activated_for: NotRequired[list[str]]
 
+
 class Resource(TypedDict):
     id: str
     name: str
@@ -34,6 +35,7 @@ class Resource(TypedDict):
     data: dict
     sync_date: datetime
     hash: str
+
 
 class ResourceException(TypedDict):
     id: str
@@ -48,6 +50,7 @@ class ResourceException(TypedDict):
     created_at: float
     updated_at: float
     expire_at: float
+
 
 class Customer(TypedDict):
     name: str
@@ -75,6 +78,14 @@ class Rule(TypedDict):
     rule_source_id: str
 
 
+class ScanProgress(TypedDict):
+    """Fields included as ``scan_progress`` on job GET when a scan checkpoint exists."""
+
+    checkpoint_version: int
+    completed_regions: list[str]
+    updated_at: str
+    pending_regions: list[str]
+
 class Job(TypedDict):
     created_at: NotRequired[datetime]
     customer_name: str
@@ -88,6 +99,7 @@ class Job(TypedDict):
     tenant_name: str
     scheduled_rule_name: NotRequired[str]
     celery_task_id: NotRequired[str]
+    scan_progress: NotRequired[ScanProgress]
 
 
 class Policy(TypedDict):
@@ -190,6 +202,14 @@ class RabbitMQ(TypedDict):
     customer: str
 
 
+class EventSource(TypedDict):
+    id: str
+    customer_id: str
+    queue_url: str
+    region: str
+    enabled: bool
+
+
 class ReportStatus(TypedDict):
     id: str
     triggered_at: str
@@ -211,12 +231,14 @@ class K8sPlatform(TypedDict):
     region: NotRequired[str]
     tenant_name: str
     type: PlatformType
+    event_driven_enabled: NotRequired[bool]
 
 
 class Event(TypedDict):
     """
     202 POST /event
     """
+
     received: int
     saved: int
 
@@ -263,7 +285,7 @@ class Credentials(TypedDict):
         'AZURE_CREDENTIALS',
         'AZURE_CERTIFICATE',
         'GCP_SERVICE_ACCOUNT',
-        'GCP_COMPUTE_ACCOUNT'
+        'GCP_COMPUTE_ACCOUNT',
     ]
     description: str
     has_secret: bool
@@ -353,6 +375,36 @@ class ResourcesReportItem(TypedDict):
     region: str
     resource_type: str
     violated_rules: ViolatedRule
+
+
+class TopViolationsResourceReport(TypedDict):
+    id: str
+    violated_rules: list[dict]
+
+
+class TopViolationsRulesReport(TypedDict):
+    name: str
+    description: str
+    severity: str
+    remediation: str
+    article: str
+    impact: str
+    remediation_complexity: str
+    violated_resources: list[str]
+
+
+class TopViolationsResourceComparison(TypedDict):
+    id: str
+    new_violated_rules: list[dict]
+    remediated_rules: list[dict]
+    unchanged_violated_rules: list[dict]
+
+
+class TopViolationsRulesComparison(TypedDict):
+    name: str
+    new_violated_resources: list[str]
+    remediated_resources: list[str]
+    unchanged_violated_resources: list[str]
 
 
 class DefectDojo(TypedDict):
@@ -469,6 +521,7 @@ class ErrorsModel(BaseModel):
     """
     400 Validation error
     """
+
     errors: list[ErrorData]
 
 
@@ -476,6 +529,7 @@ class MultipleJobsModel(BaseModel):
     """
     200 GET /jobs
     """
+
     items: list[Job]
     next_token: str | None
 
@@ -487,6 +541,7 @@ class SingleJobModel(BaseModel):
     201 POST /jobs/standard
     200 GET /jobs/{job_id}
     """
+
     data: Job
 
 
@@ -494,6 +549,7 @@ class MultipleScheduledJobsModel(BaseModel):
     """
     200 GET /jobs
     """
+
     items: list[ScheduledJob]
 
 
@@ -504,6 +560,7 @@ class SingleScheduledJobModel(BaseModel):
     201 POST /jobs/standard
     200 GET /jobs/{job_id}
     """
+
     data: ScheduledJob
 
 
@@ -514,6 +571,7 @@ class MultipleK8SPlatformsModel(BaseModel):
 class SingleK8SPlatformModel(BaseModel):
     data: K8sPlatform
 
+
 class SignInModel(BaseModel):
     access_token: str  # actually it's Congito's id_token
     refresh_token: str
@@ -523,14 +581,18 @@ class SignInModel(BaseModel):
 class MultipleResourcesModel(BaseModel):
     items: list[Resource]
 
+
 class SingleResourceModel(BaseModel):
     data: Resource
+
 
 class MultipleResourcesExceptionsModel(BaseModel):
     items: list[ResourceException]
 
+
 class SingleResourceExceptionModel(BaseModel):
     data: ResourceException
+
 
 class MultipleCustomersModel(BaseModel):
     items: list[Customer]
@@ -558,6 +620,14 @@ class SingleHealthCheckModel(BaseModel):
 
 class SingleRabbitMQModel(BaseModel):
     data: RabbitMQ
+
+
+class SingleEventSourceModel(BaseModel):
+    data: EventSource
+
+
+class MultipleEventSourceModel(BaseModel):
+    items: list[EventSource]
 
 
 class MultipleRulesModel(BaseModel):
@@ -663,6 +733,14 @@ class EntityResourcesReportModel(BaseModel):
 class JobResourcesReportModel(BaseModel):
     items: list[ResourcesReportItem]
     data: BaseReportJob | None
+
+
+class TopViolationsReportJobsModel(BaseModel):
+    items: list[TopViolationsResourceReport | TopViolationsRulesReport]
+
+
+class TopViolationsReportComparisonModel(BaseModel):
+    items: list[TopViolationsResourceComparison | TopViolationsRulesComparison]
 
 
 class SingleLicenseActivationModel(BaseModel):

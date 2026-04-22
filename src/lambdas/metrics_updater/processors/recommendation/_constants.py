@@ -114,7 +114,7 @@ _K8S_MAP: dict[str, K8SMCCResourceType] = {
     "k8s.cronjob": K8SMCCResourceType.DEPLOYMENT,
 }
 
-RESOURCE_TYPE_MAPPING: dict[Cloud, dict[str, MCCResourceType] | dict[str, K8SMCCResourceType]] = {
+MCC_RESOURCE_TYPE_MAPPING: dict[Cloud, dict[str, MCCResourceType] | dict[str, K8SMCCResourceType]] = {
     Cloud.AWS: {
         # Account & Organization
         "account": MCCResourceType.TENANT,

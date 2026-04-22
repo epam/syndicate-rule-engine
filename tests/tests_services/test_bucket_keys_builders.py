@@ -60,20 +60,27 @@ class TestTenantReportsBucketKeyBuilder:
             res
             == 'raw/TEST_CUSTOMER/AWS/123456789012/jobs/standard/2023-11-27-14/job_id/result/'
         )
-    
-    # TODO: add tests for event-driven job
+
+    def test_job_scan_partial(self, tenant_reports_builder, standard_job):
+        res = tenant_reports_builder.job_scan_partial(standard_job)
+        assert (
+            res
+            == 'raw/TEST_CUSTOMER/AWS/123456789012/jobs/standard/2023-11-27-14/job_id/partial/'
+        )
+
+    # TODO: add tests for reactive job
     # def test_ed_job_result(self, tenant_reports_builder, ed_job):
     #     res = tenant_reports_builder.ed_job_result(ed_job)
     #     assert (
     #         res
-    #         == 'raw/TEST_CUSTOMER/AWS/123456789012/jobs/event-driven/2023-11-27-14/job_id/result/'
+    #         == 'raw/TEST_CUSTOMER/AWS/123456789012/jobs/reactive/2023-11-27-14/job_id/result/'
     #     )
 
     # def test_ed_job_difference(self, tenant_reports_builder, ed_job):
     #     res = tenant_reports_builder.ed_job_difference(ed_job)
     #     assert (
     #         res
-    #         == 'raw/TEST_CUSTOMER/AWS/123456789012/jobs/event-driven/2023-11-27-14/job_id/difference/'
+    #         == 'raw/TEST_CUSTOMER/AWS/123456789012/jobs/reactive/2023-11-27-14/job_id/difference/'
     #     )
 
     def test_latest_key(self, tenant_reports_builder):
@@ -105,10 +112,17 @@ class TestPlatformReportsBucketKeyBuilder:
         res = platform_reports_builder.job_result(platform_job)
         assert (
             res
-            == 'raw/TEST_CUSTOMER/KUBERNETES/test-eu-west-1/jobs/standard/2023-11-27-14/job_id/'
+            == 'raw/TEST_CUSTOMER/KUBERNETES/platform_id/jobs/standard/2023-11-27-14/job_id/'
         )
 
-    # TODO: add tests for event-driven job
+    def test_job_scan_partial(self, platform_reports_builder, platform_job):
+        res = platform_reports_builder.job_scan_partial(platform_job)
+        assert (
+            res
+            == 'raw/TEST_CUSTOMER/KUBERNETES/platform_id/jobs/standard/2023-11-27-14/job_id/partial/'
+        )
+
+    # TODO: add tests for reactive job
     # def test_ed_job(self, platform_reports_builder, ed_job):
     #     with pytest.raises(NotImplementedError):
     #         platform_reports_builder.ed_job_result(ed_job)
@@ -117,11 +131,11 @@ class TestPlatformReportsBucketKeyBuilder:
 
     def test_latest_key(self, platform_reports_builder):
         res = platform_reports_builder.latest_key()
-        assert res == 'raw/TEST_CUSTOMER/KUBERNETES/test-eu-west-1/latest/'
+        assert res == 'raw/TEST_CUSTOMER/KUBERNETES/platform_id/latest/'
 
     def test_snapshots_folder(self, platform_reports_builder):
         res = platform_reports_builder.snapshots_folder()
-        assert res == 'raw/TEST_CUSTOMER/KUBERNETES/test-eu-west-1/snapshots/'
+        assert res == 'raw/TEST_CUSTOMER/KUBERNETES/platform_id/snapshots/'
 
 
 class TestStatisticsBucketKeyBuilder:
@@ -129,10 +143,10 @@ class TestStatisticsBucketKeyBuilder:
         res = StatisticsBucketKeysBuilder.job_statistics(standard_job)
         assert res == 'job-statistics/standard/job_id/statistics.json'
 
-    # TODO: add tests for event-driven job
+    # TODO: add tests for reactive job
     # def test_ed_job_statistics(self, ed_job):
     #     res = StatisticsBucketKeysBuilder.job_statistics(ed_job)
-    #     assert res == 'job-statistics/event-driven/job_id/statistics.json'
+    #     assert res == 'job-statistics/reactive/job_id/statistics.json'
 
     def test_report_statistics(self):
         now = datetime.now(timezone.utc)

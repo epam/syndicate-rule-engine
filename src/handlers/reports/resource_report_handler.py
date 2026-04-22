@@ -734,48 +734,78 @@ class ResourceReportHandler(AbstractHandler):
         job = next(cursor, None)
         if not job:
             return build_response(
-                content=f'Job {job_id} not found', code=HTTPStatus.NOT_FOUND
+                code=HTTPStatus.NOT_FOUND,
+                content=f'Job {job_id} not found',
             )
-        if job.is_platform_job:
-            return build_response(
-                code=HTTPStatus.NOT_IMPLEMENTED,
-                content='Platform job resources report is not available now',
-            )
-        tenant = self._tenant_service.get(job.tenant_name)
-        tenant = modular_helpers.assert_tenant_valid(tenant, event.customer)
 
-        collection = self._report_service.job_collection(tenant, job)
-        if event.region:
-            _LOG.debug(
-                'Region is provided. Fetching only shard with this region'
-            )
-            collection.fetch(region=event.region)
-        else:
-            _LOG.debug('Region is not provided. Fetching all shards')
-            collection.fetch_all()
-        collection.meta = self._report_service.fetch_meta(tenant)
         metadata = self._ls.get_customer_metadata(event.customer_id)
 
-        dictionary_url = None
-        dictionary = {}
+        if job.is_platform_job:
+            platform = self._platform_service.get_nullable(
+                hash_key=job.platform_id)
+            if (
+                not platform or
+                    event.customer and platform.customer != event.customer
+            ):
+                return build_response(
+                    code=HTTPStatus.NOT_FOUND,
+                    content='Platform not found',
+                )
+
+            entity = platform
+            cloud = Cloud.KUBERNETES
+            account_id = ''
+            region = None
+
+            collection = self._report_service.platform_job_collection(
+                platform=platform,
+                job=job,
+            )
+            _LOG.debug('Fetching collection')
+            collection.fetch_all()
+
+        else:
+
+            tenant = self._tenant_service.get(job.tenant_name)
+            tenant = modular_helpers.assert_tenant_valid(tenant, event.customer)
+            entity = tenant
+            cloud = tenant_cloud(tenant)
+            account_id = tenant.project
+
+            collection = self._report_service.job_collection(tenant, job)
+            region = event.region
+            if region:
+                _LOG.debug(
+                    'Region is provided. Fetching only shard with this region'
+                )
+                collection.fetch(region=region)
+            else:
+                _LOG.debug('Region is not provided. Fetching all shards')
+                collection.fetch_all()
+
+        collection.meta = self._report_service.fetch_meta(entity)
         matched = MatchedResourcesIterator(
             collection=collection,
-            cloud=tenant_cloud(tenant),
+            cloud=cloud,
             metadata=metadata,
-            account_id=tenant.project,
+            account_id=account_id,
             resource_type=event.resource_type,
-            region=event.region,
+            region=region,
             exact_match=event.exact_match,
             search_by_all=event.search_by_all,
             search_by=event.extras,
         )
+
+        dictionary_url = None
+        dictionary = {}
         response = ResourceReportBuilder(
             matched_findings_iterator=matched,
-            entity=tenant,
+            entity=entity,
             full=event.full,
             metadata=metadata,
             dictionary_out=dictionary if event.obfuscated else None,
         ).build()
+
         if event.obfuscated:
             flip_dict(dictionary)
             dictionary_url = self._report_service.one_time_url_json(

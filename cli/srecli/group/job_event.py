@@ -7,7 +7,7 @@ from srecli.service.helpers import normalize_lists, utc_iso
 
 
 def _build_cloudtrail_record(
-    cloud_identifier: str, 
+    cloud_identifier: str,
     region: str,
     event_source: str,
     event_name: str,
@@ -15,13 +15,10 @@ def _build_cloudtrail_record(
     return {
         "eventTime": utc_iso(),
         "awsRegion": region,
-        "userIdentity": {
-            "accountId": cloud_identifier
-        },
+        "userIdentity": {"accountId": cloud_identifier},
         "eventSource": event_source,
-        "eventName": event_name
+        "eventName": event_name,
     }
-
 
 
 def _build_cloudtrail_records(
@@ -42,7 +39,7 @@ def _build_cloudtrail_records(
     for i in range(len(lists[0])):
         records.append(
             _build_cloudtrail_record(
-            cloud_identifier=cloud_identifier[i],
+                cloud_identifier=cloud_identifier[i],
                 region=region[i],
                 event_source=event_source[i],
                 event_name=event_name[i],
@@ -67,56 +64,147 @@ def _build_eventbridge_record(
         "time": utc_iso(),
         "region": region,
         "resources": [],
-        "detail": detail
+        "detail": detail,
     }
 
 
-@click.group(name='event')
+def _build_k8s_agent_events(
+    event_type: list[str],
+    reason: list[str],
+    platform_id: list[str],
+) -> list[dict]:
+    lists = [event_type, reason, platform_id]
+    normalize_lists(lists)
+    return [
+        {
+            "type": event_type[i],
+            "reason": reason[i],
+            "platformId": platform_id[i],
+        }
+        for i in range(len(lists[0]))
+    ]
+
+
+@click.group(name="event")
 def event():
     """Manages Job submit action"""
 
 
-@event.command(cls=ViewCommand, name='cloudtrail')
-@click.option('--cloud_identifier', '-cid', type=str, required=True,
-              multiple=True, help='Account id to build event payload with')
-@click.option('--region', '-r', type=str, default=['eu-central-1'],
-              multiple=True,
-              show_default=True, help='Region which the event came from')
-@click.option('--event_source', '-es', type=str, default=['ssm.amazonaws.com'],
-              show_default=True, help='CloudTrail event source to simulate',
-              multiple=True)
-@click.option('--event_name', '-en', type=str,
-              default=['UpdateInstanceInformation'], show_default=True,
-              help='CloudTrail event name to simulate', multiple=True)
+@event.command(cls=ViewCommand, name="cloudtrail")
+@click.option(
+    "--cloud_identifier",
+    "-cid",
+    type=str,
+    required=True,
+    multiple=True,
+    help="Account id to build event payload with",
+)
+@click.option(
+    "--region",
+    "-r",
+    type=str,
+    default=["eu-central-1"],
+    multiple=True,
+    show_default=True,
+    help="Region which the event came from",
+)
+@click.option(
+    "--event_source",
+    "-es",
+    type=str,
+    default=["ssm.amazonaws.com"],
+    show_default=True,
+    help="CloudTrail event source to simulate",
+    multiple=True,
+)
+@click.option(
+    "--event_name",
+    "-en",
+    type=str,
+    default=["UpdateInstanceInformation"],
+    show_default=True,
+    help="CloudTrail event name to simulate",
+    multiple=True,
+)
 @cli_response()
-def cloudtrail(ctx: ContextObj, cloud_identifier: tuple, region: tuple,
-               event_source: tuple, event_name: tuple, customer_id):
+def cloudtrail(
+    ctx: ContextObj,
+    cloud_identifier: tuple,
+    region: tuple,
+    event_source: tuple,
+    event_name: tuple,
+    customer_id,
+):
     """
     Command to simulate event-driven request from CloudTrail-based
     event-listener. Use it just to check whether
     event-driven jobs work properly
     """
     events = _build_cloudtrail_records(
-        list(cloud_identifier), list(region),
-        list(event_source), list(event_name)
+        list(cloud_identifier), list(region), list(event_source), list(event_name)
     )
     _temp = events
     events = []
     for rec in _temp:
         events.append(
             _build_eventbridge_record(
-                detail_type='AWS API Call via CloudTrail',
-                source='aws.resource-groups',  # not important here
+                detail_type="AWS API Call via CloudTrail",
+                source="aws.resource-groups",  # not important here
                 account=cloud_identifier[0],
                 region=region[0],
-                detail=rec
+                detail=rec,
             )
         )
-    return ctx['api_client'].event_action(
-        version='1.0.0',
-        vendor='AWS',
-        events=events,
-        customer_id=customer_id
+    return ctx["api_client"].event_action(
+        version="1.0.0", vendor="AWS", events=events, customer_id=customer_id
     )
+
+
+@event.command(cls=ViewCommand, name="k8s")
+@click.option(
+    "--event-type",
+    "-t",
+    type=str,
+    required=True,
+    multiple=True,
+    help="Kubernetes resource type (maps to rule metadata service), e.g. Pod",
+)
+@click.option(
+    "--reason",
+    "-R",
+    type=str,
+    required=True,
+    multiple=True,
+    help="Event reason, e.g. PodDeleted",
+)
+@click.option(
+    "--platform-id",
+    "-p",
+    type=str,
+    required=True,
+    multiple=True,
+    help="K8s platform id (Modular parent id for the cluster)",
+)
+@cli_response()
+def k8s(
+    ctx: ContextObj,
+    event_type: tuple[str, ...],
+    reason: tuple[str, ...],
+    platform_id: tuple[str, ...],
+    customer_id,
+):
+    """Send SRE_K8S_AGENT events to POST /event (event-driven ingest)."""
+    events = _build_k8s_agent_events(
+        list(event_type),
+        list(reason),
+        list(platform_id),
+    )
+    return ctx["api_client"].event_action(
+        version="1.0.0",
+        vendor="SRE_K8S_AGENT",
+        events=events,
+        customer_id=customer_id,
+    )
+
 
 event.add_command(maestro)

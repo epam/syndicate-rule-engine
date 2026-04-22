@@ -1,0 +1,5 @@
+config.*.yaml
+config.*.yml
+!config.example.yaml
+config.yaml
+config.yml

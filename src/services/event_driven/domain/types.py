@@ -1,12 +1,18 @@
 """Shared domain types for event-driven flow."""
 
-from typing import Literal
+from enum import Enum
 
 from models.event import EventRecordAttribute
 
-from .models import EventRecord
+from .models import EventRecordUnion
 
-VendorKind = Literal["AWS", "MAESTRO"]
+
+class VendorKind(str, Enum):
+    AWS = 'AWS'
+    MAESTRO = 'MAESTRO'
+    SRE_K8S_AGENT = 'SRE_K8S_AGENT'
+    SRE_K8S_WATCHER = 'SRE_K8S_WATCHER'
+
 
 # Type aliases
 RegionNameType = str
@@ -16,5 +22,8 @@ RuleNameType = str
 EventSourceType = str
 EventNameType = str
 
-ESourceENameRulesMap = dict[EventSourceType, dict[EventNameType, list[RuleNameType]]]
-EventGenericRecord = EventRecordAttribute | EventRecord
+ESourceENameRulesMap = dict[
+    EventSourceType, dict[EventNameType, list[RuleNameType]]
+]
+EventGenericRecord = EventRecordAttribute | EventRecordUnion
+K8sServiceRulesMap = dict[str, list[RuleNameType]]

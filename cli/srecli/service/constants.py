@@ -57,6 +57,7 @@ class Endpoint(str, Enum):
     CUSTOMERS = '/customers'
     HEALTH_ID = '/health/{id}'
     JOBS_JOB = '/jobs/{job_id}'
+    JOBS_JOB_RESUME = '/jobs/{job_id}/resume'
     DOC_PROXY = '/doc/{proxy+}'
     ROLES_NAME = '/roles/{name}'
     CREDENTIALS = '/credentials'
@@ -83,6 +84,8 @@ class Endpoint(str, Enum):
     RULE_META_UPDATER = '/rules/update-meta'
     REPORTS_PUSH_DOJO = '/reports/push/dojo'
     CUSTOMERS_RABBITMQ = '/customers/rabbitmq'
+    INTEGRATIONS_EVENT_SOURCES = '/integrations/event-sources'
+    INTEGRATIONS_EVENT_SOURCES_ID = '/integrations/event-sources/{id}'
     REPORTS_DIAGNOSTIC = '/reports/diagnostic'
     REPORTS_DEPARTMENT = '/reports/department'
     INTEGRATIONS_SELF = '/integrations/temp/sre'
@@ -259,6 +262,7 @@ class JobState(str, Enum):
     RUNNING = 'RUNNING'
     FAILED = 'FAILED'
     SUCCEEDED = 'SUCCEEDED'
+    INTERRUPTED = 'INTERRUPTED'
 
     @classmethod
     def iter(cls):

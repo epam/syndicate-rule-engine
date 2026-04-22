@@ -1,6 +1,6 @@
 from functools import wraps
 from http import HTTPStatus
-from typing import Callable, Any, TypeVar, TypedDict as TypedDict1
+from typing import Callable, Any, TypeVar, TypedDict as TypedDict1, get_type_hints
 from typing_extensions import TypedDict as TypedDict2
 
 from pydantic import BaseModel, ValidationError
@@ -54,7 +54,7 @@ def _validate(kwargs: dict[str, Any], types: dict[str, type],
             validated[key] = value
             continue
         _type = types[key]
-        if issubclass(_type, BaseModel):
+        if isinstance(_type, type) and issubclass(_type, BaseModel):
             valid = validate_pydantic(_type, value)
             if not cast:
                 valid = valid.dict()
@@ -80,7 +80,11 @@ def validate_kwargs(func: Callable) -> Callable:
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        validated = _validate(kwargs, func.__annotations__)
+        try:
+            types = get_type_hints(func)
+        except Exception:
+            types = getattr(func, '__annotations__', {})
+        validated = _validate(kwargs, types)
         result = func(*args, **validated)
         # _return = func.__annotations__.get('return')
         # if issubclass(_return, BaseModel):

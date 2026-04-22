@@ -68,7 +68,7 @@
     "${lambda_security_group_1}"
   ],
   "layers": [
-    "custodian_common_dependencies_layer"
+    "sre_common_dependencies_layer"
   ],
   "platforms": [
     "manylinux2014_x86_64"

@@ -52,6 +52,7 @@ class Endpoint(str, Enum):
     CUSTOMERS = '/customers'
     HEALTH_ID = '/health/{id}'
     JOBS_JOB = '/jobs/{job_id}'
+    JOBS_JOB_RESUME = '/jobs/{job_id}/resume'
     DOC_PROXY = '/doc/{proxy+}'
     ROLES_NAME = '/roles/{name}'
     CREDENTIALS = '/credentials'
@@ -96,6 +97,8 @@ class Endpoint(str, Enum):
     RESOURCES_EXCEPTIONS_ID = '/resources/exceptions/{id}'
     CUSTOMERS_EXCLUDED_RULES = '/customers/excluded-rules'
     INTEGRATIONS_DEFECT_DOJO = '/integrations/defect-dojo'
+    INTEGRATIONS_EVENT_SOURCES = '/integrations/event-sources'
+    INTEGRATIONS_EVENT_SOURCES_ID = '/integrations/event-sources/{id}'
     REPORTS_PUSH_DOJO_JOB_ID = '/reports/push/dojo/{job_id}'
     INTEGRATIONS_CHRONICLE_ID = '/integrations/chronicle/{id}'
     REPORTS_RULES_JOBS_JOB_ID = '/reports/rules/jobs/{job_id}'
@@ -153,6 +156,12 @@ class Endpoint(str, Enum):
     REPORTS_RESOURCES_PLATFORMS_K8S_PLATFORM_ID_LATEST = (
         '/reports/resources/platforms/k8s/{platform_id}/state/latest'
     )
+    REPORTS_TOP_VIOLATIONS_JOBS_JOB_ID = (
+        '/reports/top/violations/jobs/{job_id}'
+    )
+    REPORTS_TOP_VIOLATIONS_COMPARE_JOBS = (
+        '/reports/top/violations/compare/jobs'
+    )
 
     @classmethod
     def match(cls, resource: str) -> Self | None:
@@ -182,6 +191,8 @@ class Endpoint(str, Enum):
 LAMBDA_URL_HEADER_CONTENT_TYPE_UPPER = 'Content-Type'
 JSON_CONTENT_TYPE = 'application/json'
 
+MCP_USER_NAME_HEADER = 'X-Sre-Mcp-User-Name'
+
 DEFAULT_SYSTEM_CUSTOMER: str = 'CUSTODIAN_SYSTEM'
 DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME = (
     'custodian.rules-metadata-repo-access'
@@ -193,6 +204,7 @@ STANDARD = 'standard'
 
 # Modular:Parent related attributes and types
 CUSTODIAN_TYPE = 'CUSTODIAN'  # application that contains access to CUSTODIAN
+CUSTODIAN_EVENT_SOURCE_TYPE = 'CUSTODIAN_EVENT_SOURCE'
 SCHEDULED_JOB_TYPE = 'SCHEDULED_JOB'
 META_ATTR = 'meta'
 TENANT_ENTITY_TYPE = 'TENANT'
@@ -737,6 +749,16 @@ class Env(EnvEnum):
         (),
         '*/5 * * * *',  # every 5 minutes
     )
+    CELERY_REMOVE_OLD_SHARDS_SCHEDULE = (
+        'SRE_CELERY_REMOVE_OLD_SHARDS_SCHEDULE',
+        (),
+        '0 9 1 * *',  # every 1st day in month at 09:00
+    )
+    CELERY_REMOVE_OLD_SHARDS_DAYS = (
+        'SRE_REMOVE_OLD_SHARDS_DAYS',
+        (),
+        180
+    )
 
     SCAN_RESOURCES_PROCESSORS = (
         'SRE_SCAN_RESOURCES_PROCESSORS',
@@ -868,23 +890,34 @@ class Permission(str, Enum):
         False,
         True,
     )
+    REPORT_TOP_VIOLATIONS_GET_JOBS = (
+        'report:get_top_violations_report',
+        False,
+        True,
+    )
+    REPORT_TOP_VIOLATIONS_COMPARE_JOBS = (
+        'report:get_top_violations_compare_report',
+        False,
+        True,
+    )
     REPORT_RAW_GET_TENANT_LATEST = (
         'report:get_tenant_latest_raw_report',
         False,
         True,
     )
 
-    JOB_QUERY = 'job:query', False  # True
+    JOB_QUERY = 'job:query', False, True
     JOB_GET = 'job:get', False, True
     JOB_POST_LICENSED = 'job:post_for_tenant', False, True
     JOB_POST_K8S = 'job:post_for_k8s_platform', False, True
     JOB_TERMINATE = 'job:terminate', False, True
+    JOB_RESUME = 'job:resume', False, True
 
     CUSTOMER_DESCRIBE = 'customer:describe'
     CUSTOMER_SET_EXCLUDED_RULES = 'customer:set_excluded_rules'
     CUSTOMER_GET_EXCLUDED_RULES = 'customer:get_excluded_rules'
 
-    TENANT_QUERY = 'tenant:query', False  # True
+    TENANT_QUERY = 'tenant:query', False, True
     TENANT_GET = 'tenant:get', False, True
     TENANT_GET_ACTIVE_LICENSES = 'tenant:get_active_licenses', False, True
     TENANT_SET_EXCLUDED_RULES = 'tenant:set_excluded_rules', False, True
@@ -959,12 +992,18 @@ class Permission(str, Enum):
     RABBITMQ_CREATE = 'rabbitmq:create'
     RABBITMQ_DELETE = 'rabbitmq:delete'
 
+    EVENT_SOURCES_DESCRIBE = 'event_sources:describe'
+    EVENT_SOURCES_CREATE = 'event_sources:create'
+    EVENT_SOURCES_UPDATE = 'event_sources:update'
+    EVENT_SOURCES_DELETE = 'event_sources:delete'
+
     BATCH_RESULTS_GET = 'batch_results:get', False, True
     BATCH_RESULTS_QUERY = 'batch_results:query', False  # True
 
     PLATFORM_GET_K8S = 'platform:get_k8s', False, True
-    PLATFORM_QUERY_K8S = 'platform:query_k8', False  # True
+    PLATFORM_QUERY_K8S = 'platform:query_k8', False, True
     PLATFORM_CREATE_K8S = 'platform:create_k8s', False, True
+    PLATFORM_UPDATE_K8S = 'platform:update_k8s', False, True
     PLATFORM_DELETE_K8S = 'platform:delete_k8s', False, True
 
     SRE_INTEGRATION_CREATE = 'self_integration:create'
@@ -1045,6 +1084,9 @@ MODULAR_TYPE = 'type'
 # event-driven
 AWS_VENDOR = 'AWS'
 MAESTRO_VENDOR = 'MAESTRO'
+SRE_K8S_AGENT_VENDOR = 'SRE_K8S_AGENT'
+SRE_K8S_WATCHER_VENDOR = 'SRE_K8S_WATCHER'
+PLATFORM_EVENT_DRIVEN_ENABLED_META = 'event_driven_enabled'
 
 # smtp
 PASSWORD_ATTR = 'password'
@@ -1083,6 +1125,7 @@ class JobState(str, Enum):
     RUNNING = 'RUNNING'
     FAILED = 'FAILED'
     SUCCEEDED = 'SUCCEEDED'
+    INTERRUPTED = 'INTERRUPTED'
 
 
 # Maestro Credentials Applications types
@@ -1226,12 +1269,16 @@ class Severity(str, Enum):
 
 
 class RemediationComplexity(str, Enum):
-    UNKNOWN = 'Unknown'
     LOW = 'Low'
     LOW_MEDIUM = 'Low-Medium'
     MEDIUM = 'Medium'
     MEDIUM_HIGH = 'Medium-High'
     HIGH = 'High'
+    UNKNOWN = 'Unknown'
+
+    @classmethod
+    def iter(cls):
+        return map(operator.attrgetter('value'), cls)
 
     @classmethod
     def parse(cls, rem: str | None, /) -> 'RemediationComplexity':
@@ -1467,6 +1514,11 @@ class ReportType(str, Enum):
         _previous_month_start,
         _this_month_start,
     )
+
+
+class TopViolationsReportType(str, Enum):
+    RESOURCES = 'RESOURCES'
+    RULES = 'RULES'
 
 
 class RabbitCommand(str, Enum):

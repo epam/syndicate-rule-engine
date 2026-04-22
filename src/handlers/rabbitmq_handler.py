@@ -106,7 +106,7 @@ class RabbitMQHandler(AbstractHandler):
             type=ApplicationType.CUSTODIAN_RABBITMQ,
             created_by=_pe['cognito_user_id'],
             is_deleted=False,
-            description='RabbitMQ configuration for Custodian',
+            description='RabbitMQ configuration for Syndicate Rule Engine',
             meta=meta.dict(),
             secret=name,
         )

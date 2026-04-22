@@ -4,11 +4,13 @@ from typing import Optional
 
 from typing_extensions import TYPE_CHECKING, Any, NotRequired, Self, TypedDict
 
+from botocore.exceptions import ClientError
+
 from helpers import title_keys
 from helpers.constants import JobState
 from helpers.log_helper import get_logger
 from onprem.celery import app as celery_app
-from onprem.tasks import run_standard_job
+from onprem.tasks import run_standard_job, run_event_driven_job
 from services import SP
 from services.clients import Boto3ClientWrapper
 from services.clients.sts import StsClient
@@ -83,7 +85,7 @@ class BatchClient(Boto3ClientWrapper):
 
     def get_custodian_job_queue_arn(self) -> str:
         """
-        Retrieves Custodian's job queue arn
+        Retrieves SRE's job queue arn
         """
         queue_name = self._environment.get_batch_job_queue()
         if not queue_name:
@@ -92,7 +94,7 @@ class BatchClient(Boto3ClientWrapper):
 
     def get_custodian_job_definition_arn(self) -> str:
         """
-        Retrieves the latest active Custodian's job definition
+        Retrieves the latest active SRE's job definition
         """
         job_definitions = self.get_job_definition_by_name(
             self._environment.get_batch_job_def()
@@ -172,6 +174,33 @@ class BatchClient(Boto3ClientWrapper):
         params.update(container_overrides)
         return self.client.submit_job(**params)
 
+    def is_job_execution_active(self, job: Job) -> bool:
+        return self.is_batch_job_running(job.batch_job_id)
+
+    def is_batch_job_running(self, batch_job_id: str | None) -> bool:
+        if not batch_job_id:
+            return False
+        try:
+            resp = self.client.describe_jobs(jobs=[batch_job_id])
+        except ClientError as e:
+            _LOG.warning(
+                'describe_jobs failed for %s: %s; treating as not running',
+                batch_job_id,
+                e,
+            )
+            return False
+        jobs = resp.get('jobs') or []
+        if not jobs:
+            return False
+        status = jobs[0].get('status')
+        return status in (
+            'SUBMITTED',
+            'PENDING',
+            'RUNNABLE',
+            'STARTING',
+            'RUNNING',
+        )
+
 
 class CeleryJobClient:
     """
@@ -189,9 +218,15 @@ class CeleryJobClient:
         job_id: str | list[str],
         job_name: str,
         timeout: int | None = None,
+        as_event_driven: bool = False,
         **kwargs: Any,
     ) -> CeleryJob:
-        res = run_standard_job.apply_async((job_id,), soft_time_limit=timeout)
+        if as_event_driven:
+            func = run_event_driven_job
+        else:
+            func = run_standard_job
+
+        res = func.apply_async((job_id,), soft_time_limit=timeout)
         return {
             "jobId": None,  # JobID is only available for AWS Batch jobs
             "jobName": job_name,
@@ -206,3 +241,90 @@ class CeleryJobClient:
             )
             return
         celery_app.control.revoke(job.celery_task_id, terminate=True)
+
+    def is_job_execution_active(self, job: Job) -> bool:
+        return self.is_celery_task_active(job.celery_task_id)
+
+    @staticmethod
+    def _celery_task_in_inspect(
+        task_id: str,
+        insp: Any,
+        workers_up: bool,
+    ) -> bool:
+        if not insp or not workers_up:
+            _LOG.warning(
+                'Celery inspect: no reachable workers; assuming task %s not active',
+                task_id,
+            )
+            return False
+        for payload in (
+            insp.active() or {},
+            insp.reserved() or {},
+            insp.scheduled() or {},
+        ):
+            for tasks in payload.values():
+                for task in tasks:
+                    if not isinstance(task, dict):
+                        continue
+                    if task.get('id') == task_id:
+                        return True
+                    req = task.get('request')
+                    if isinstance(req, dict) and req.get('id') == task_id:
+                        return True
+        return False
+
+    @staticmethod
+    def is_celery_task_active(task_id: str | None) -> bool:
+        """
+        True if the task is still in-flight on some worker (active, reserved, or
+        scheduled). If inspect cannot reach any worker, returns False so hosts
+        that restarted can reconcile stuck RUNNING jobs.
+
+        When ``task_ignore_result`` is enabled, Celery uses :class:`~celery.backends.base.DisabledBackend`
+        and :class:`~celery.result.AsyncResult` cannot read status; this path uses
+        broker inspect only.
+        """
+        from celery.backends.base import DisabledBackend
+        from celery.result import AsyncResult
+
+        timeout = 0.5
+
+        if not task_id:
+            return False
+        if isinstance(celery_app.backend, DisabledBackend):
+            insp = celery_app.control.inspect(timeout=timeout)
+            workers_up = bool(
+                insp and (insp.stats() or insp.ping()),
+            )
+            return CeleryJobClient._celery_task_in_inspect(
+                task_id, insp, workers_up
+            )
+
+        result = AsyncResult(task_id, app=celery_app)
+        try:
+            if result.ready():
+                return False
+        except (AttributeError, NotImplementedError) as e:
+            _LOG.warning(
+                'Celery result backend cannot read task %s status (%s); '
+                'using inspect only',
+                task_id,
+                e,
+            )
+            insp = celery_app.control.inspect(timeout=timeout)
+            workers_up = bool(
+                insp and (insp.stats() or insp.ping()),
+            )
+            return CeleryJobClient._celery_task_in_inspect(
+                task_id, insp, workers_up
+            )
+
+        insp = celery_app.control.inspect(timeout=timeout)
+        workers_up = bool(
+            insp and (insp.stats() or insp.ping()),
+        )
+        if result.state == 'PENDING' and workers_up:
+            return True
+        return CeleryJobClient._celery_task_in_inspect(
+            task_id, insp, workers_up
+        )
