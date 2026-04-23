@@ -17,77 +17,100 @@ from collections import defaultdict
 from helpers.fingerprint import compute_rule_fingerprint
 from helpers.log_helper import get_logger
 from models.rule import Rule
+from common.base import BasePatch
 
 
 _LOG = get_logger(__name__)
 
 
-def patch_fingerprints() -> None:
-    total = 0
-    updated = 0
-    skipped = 0
-    errors = 0
+class PatchFingerprints(BasePatch):
+    """Patch for backfilling rule fingerprints."""
 
-    # fingerprint -> list of rule names (for duplicate detection)
-    fp_groups: dict[str, list[str]] = defaultdict(list)
+    @property
+    def name(self) -> str:
+        """Return the name of the patch."""
+        return "fingerprints"
 
-    _LOG.info("Starting fingerprint backfill for Rule model")
+    def _execute(self) -> int:
+        """Execute the patch logic. Returns 0 on success, 1 on failure."""
+        try:
+            total = 0
+            updated = 0
+            skipped = 0
+            errors = 0
 
-    for rule in Rule.scan():
-        total += 1
-        name = rule.name
+            # fingerprint -> list of rule names (for duplicate detection)
+            fp_groups: dict[str, list[str]] = defaultdict(list)
 
-        if not rule.resource:
-            _LOG.warning("Rule %s has no resource field — skipping", name)
-            errors += 1
-            continue
+            _LOG.info("Starting fingerprint backfill for Rule model")
+            if self.dry_run:
+                _LOG.info("DRY RUN mode: no changes will be written")
 
-        fp = compute_rule_fingerprint(rule.resource, rule.filters or [])
-        fp_groups[fp].append(name)
+            for rule in Rule.scan():
+                total += 1
+                name = rule.name
 
-        if rule.fingerprint == fp:
-            skipped += 1
-        else:
-            rule.update(actions=[Rule.fingerprint.set(fp)])
-            updated += 1
+                if not rule.resource:
+                    _LOG.warning("Rule %s has no resource field — skipping", name)
+                    errors += 1
+                    continue
 
-        if total % 500 == 0:
-            _LOG.info("Processed %d rules so far ...", total)
+                fp = compute_rule_fingerprint(rule.resource, rule.filters or [])
+                fp_groups[fp].append(name)
 
-    _LOG.info(
-        "Backfill complete: %d total, %d updated, %d already up-to-date, " "%d errors",
-        total,
-        updated,
-        skipped,
-        errors,
-    )
+                if rule.fingerprint == fp:
+                    skipped += 1
+                else:
+                    if not self.dry_run:
+                        rule.update(actions=[Rule.fingerprint.set(fp)])
+                        updated += 1
+                    else:
+                        _LOG.info(
+                            "DRY RUN: Would update rule %s with fingerprint %s",
+                            name,
+                            fp,
+                        )
+                        updated += 1
 
-    # Report duplicate groups
-    dup_count = 0
-    for fp, names in sorted(fp_groups.items()):
-        if len(names) > 1:
-            dup_count += 1
+                if total % 500 == 0:
+                    _LOG.info("Processed %d rules so far ...", total)
+
             _LOG.info(
-                "  Duplicate group (fp=%s, count=%d): %s",
-                fp,
-                len(names),
-                sorted(names),
+                "Backfill complete: %d total, %d updated, %d already up-to-date, %d errors",
+                total,
+                updated,
+                skipped,
+                errors,
             )
 
-    _LOG.info(
-        "Summary: %d unique fingerprints, %d duplicate groups",
-        len(fp_groups),
-        dup_count,
-    )
+            # Report duplicate groups
+            dup_count = 0
+            for fp, names in sorted(fp_groups.items()):
+                if len(names) > 1:
+                    dup_count += 1
+                    _LOG.info(
+                        "  Duplicate group (fp=%s, count=%d): %s",
+                        fp,
+                        len(names),
+                        sorted(names),
+                    )
+
+            _LOG.info(
+                "Summary: %d unique fingerprints, %d duplicate groups",
+                len(fp_groups),
+                dup_count,
+            )
+
+            return 0
+        except Exception:
+            _LOG.exception("Unexpected exception")
+            return 1
 
 
 def main() -> int:
-    try:
-        patch_fingerprints()
-        return 0
-    except Exception:
-        _LOG.exception("Unexpected exception")
-        return 1
+    """Main function for standalone execution."""
+    patch = PatchFingerprints()
+    return patch.run()
 
 
 if __name__ == "__main__":
