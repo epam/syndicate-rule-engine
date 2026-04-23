@@ -75,14 +75,19 @@ class EventIngestService:
             by_vendor.setdefault(v, []).append(event)
 
         total_saved = 0
+        batch_jobs: list[tuple[str, list[EventRecordAttribute]]] = []
         for v, adapted in by_vendor.items():
             adapted = list(without_duplicates(adapted))
+            total_saved += len(adapted)
+            for batch in batches(adapted, events_in_item):
+                batch_jobs.append((v, batch))
+
+        if batch_jobs:
             entities = (
                 self._event_store_service.create(events=batch, vendor=v)
-                for batch in batches(adapted, events_in_item)
+                for v, batch in batch_jobs
             )
             self._event_store_service.batch_save(entities)
-            total_saved += len(adapted)
 
         return IngestResult(
             received=received,
