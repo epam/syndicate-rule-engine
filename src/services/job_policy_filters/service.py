@@ -3,22 +3,24 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, overload
+
 from typing_extensions import Self
 
 from helpers.constants import Env
 from services.reports_bucket import (
     PlatformReportsBucketKeysBuilder,
     TenantReportsBucketKeysBuilder,
-    ReportsBucketKeysBuilder,
 )
-from .builders.k8s import ResourceUidFilterBuilder, K8sQueryBuilder
+
+from .builders.k8s import K8sQueryBuilder, ResourceUidFilterBuilder
 from .keys import JobPolicyFiltersKeysBuilder
 from .types import APPEND_TYPE, BundleFilters, PolicyName, PolicyScanEntry
 
 if TYPE_CHECKING:
+    from modular_sdk.models.tenant import Tenant
+
     from services.clients.s3 import S3Client
     from services.job_service import Job
-    from modular_sdk.models.tenant import Tenant
     from services.platform_service import Platform
 
 
@@ -53,6 +55,10 @@ class PolicyFiltersBundleBuilder:
     """
     Builds a bundle of filters.
     """
+
+    @classmethod
+    def build(cls) -> Self:
+        return cls()
 
     def build_k8s_bundle(
         self,

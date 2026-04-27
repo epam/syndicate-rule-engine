@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.19.0] - 2026-XX-XX
+
+### Changed
+- Refactored event-driven assembly service to use a new index structure and strategies
+- Changed logging level from `info` to `debug` for Cloud Custodian providers loading for avoiding noise in logs
+
 ## [5.18.0] - 2026-03-18
 
 ### Added
