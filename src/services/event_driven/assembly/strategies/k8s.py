@@ -7,6 +7,7 @@ from collections.abc import Iterable, Mapping
 
 from typing_extensions import Self
 
+from helpers.constants import Cloud
 from helpers.log_helper import get_logger
 from models.event import EventRecordAttribute
 from models.job import Job
@@ -35,7 +36,11 @@ _LOG = get_logger(__name__)
 class KubernetesResourceRefStrategy(ResourceRefExtractionStrategy):
     """Involved object from watcher / agent ingest."""
 
-    def try_extract(
+    @property
+    def _cloud(self) -> Cloud:
+        return Cloud.KUBERNETES
+
+    def _try_extract(
         self,
         event_record: EventRecordAttribute,
     ) -> ResourceRef | None:

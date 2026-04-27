@@ -5,6 +5,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, ClassVar
 
+from typing_extensions import override
+
+from helpers.constants import Cloud
 from helpers.log_helper import get_logger
 from models.event import EventRecordAttribute
 from services.event_driven.assembly.job_rule_refs import JobRuleRefs
@@ -58,8 +61,25 @@ class NullPolicyBundleStrategy(PolicyBundlePersistenceStrategy):
 class ResourceRefExtractionStrategy(ABC):
     """Extract a resource handle for narrow scan, if the event carries one."""
 
-    @abstractmethod
     def try_extract(
+        self,
+        event_record: EventRecordAttribute,
+    ) -> ResourceRef | None:
+        if not self.can_be_extracted(event_record):
+            _LOG.debug('Event record %s is not supported', event_record)
+            return None
+        return self._try_extract(event_record)
+
+    def can_be_extracted(self, event_record: EventRecordAttribute) -> bool:
+        return event_record.cloud == self._cloud
+
+    @property
+    @abstractmethod
+    def _cloud(self) -> Cloud:
+        raise NotImplementedError
+
+    @abstractmethod
+    def _try_extract(
         self,
         event_record: EventRecordAttribute,
     ) -> ResourceRef | None:
@@ -69,8 +89,16 @@ class ResourceRefExtractionStrategy(ABC):
 class NullResourceRefStrategy(ResourceRefExtractionStrategy):
     """Public clouds (until narrow-scan metadata exists)."""
 
-    def try_extract(
+    @property
+    def _cloud(self) -> Cloud:
+        raise NotImplementedError
+
+    def _try_extract(
         self,
         event_record: EventRecordAttribute,
     ) -> ResourceRef | None:
         return None
+
+    @override
+    def can_be_extracted(self, event_record: EventRecordAttribute) -> bool:
+        return True
