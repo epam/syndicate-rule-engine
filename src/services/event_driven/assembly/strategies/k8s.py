@@ -92,14 +92,10 @@ class KubernetesPlatformPolicyBundleStrategy(PolicyBundlePersistenceStrategy):
                 job.platform_id,
             )
             return
-        k8s_only = {
-            name: [r for r in fset if isinstance(r, K8sResourceRef)]
-            for name, fset in rule_refs.by_rule.items()
-        }
         bundle = self._filters_builder.build_k8s_bundle(
             self._build_request_for_scanned_rules(
                 job.rules_to_scan,
-                k8s_only,
+                rule_refs.by_rule,
             ),
         )
         self._bundle_service.save_bundle(
@@ -112,13 +108,15 @@ class KubernetesPlatformPolicyBundleStrategy(PolicyBundlePersistenceStrategy):
     def _build_request_for_scanned_rules(
         cls,
         rules_to_scan: Iterable[RuleNameType],
-        rule_to_refs: Mapping[RuleNameType, Iterable[K8sResourceRef]],
+        by_rule: Mapping[RuleNameType, Iterable[ResourceRef]],
     ) -> K8sBuildRequest:
         """One policy entry per rule in ``rules_to_scan``; missing rules → empty rows."""
         return K8sBuildRequest(
             policies={
                 rule: cls._scan_rows_for_rule_refs(
-                    refs=rule_to_refs.get(rule, ())
+                    r
+                    for r in by_rule.get(rule, ())
+                    if isinstance(r, K8sResourceRef)
                 )
                 for rule in rules_to_scan
             }
