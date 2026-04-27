@@ -89,6 +89,15 @@ class ResourceRefExtractionStrategy(ABC):
 class NullResourceRefStrategy(ResourceRefExtractionStrategy):
     """Public clouds (until narrow-scan metadata exists)."""
 
+    _instance: ClassVar[NullResourceRefStrategy | None] = None
+
+    def __new__(cls) -> NullResourceRefStrategy:
+        if cls is not NullResourceRefStrategy:
+            return super().__new__(cls)
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
     @property
     def _cloud(self) -> Cloud:
         raise NotImplementedError
