@@ -72,7 +72,7 @@ class KubernetesPlatformPolicyBundleStrategy(PolicyBundlePersistenceStrategy):
     def build(cls) -> Self:
         return cls(
             bundle_service=JobPolicyBundleService.build(),
-            filters_builder=PolicyFiltersBundleBuilder.build(),
+            filters_builder=PolicyFiltersBundleBuilder(),
         )
 
     def maybe_persist(

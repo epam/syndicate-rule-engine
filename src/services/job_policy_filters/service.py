@@ -56,10 +56,6 @@ class PolicyFiltersBundleBuilder:
     Builds a bundle of filters.
     """
 
-    @classmethod
-    def build(cls) -> Self:
-        return cls()
-
     def build_k8s_bundle(
         self,
         req: K8sBuildRequest,
