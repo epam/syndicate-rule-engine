@@ -129,15 +129,9 @@ class EventDrivenAssemblyService:
         for job, rule_refs in allowed_jobs:
             self._job_service.save(job)
             strategy = self._bundle_router.strategy_for_job(job)
-            platform = (
-                self._platform_service.get_nullable(hash_key=job.platform_id)
-                if job.platform_id
-                else None
-            )
             strategy.maybe_persist(
                 job=job,
                 rule_refs=rule_refs,
-                platform=platform,
             )
 
         submitted_job_ids: list[str] = []

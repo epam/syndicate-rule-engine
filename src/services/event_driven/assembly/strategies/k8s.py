@@ -23,7 +23,7 @@ from services.job_policy_filters.service import (
     JobPolicyBundleService,
     PolicyFiltersBundleBuilder,
 )
-from services.platform_service import Platform
+from services.platform_service import PlatformService
 
 from .base import (
     PolicyBundlePersistenceStrategy,
@@ -64,15 +64,20 @@ class KubernetesPlatformPolicyBundleStrategy(PolicyBundlePersistenceStrategy):
         *,
         bundle_service: JobPolicyBundleService,
         filters_builder: PolicyFiltersBundleBuilder,
+        platform_service: PlatformService,
     ) -> None:
         self._bundle_service = bundle_service
         self._filters_builder = filters_builder
+        self._platform_service = platform_service
 
     @classmethod
     def build(cls) -> Self:
+        from services import SP
+
         return cls(
             bundle_service=JobPolicyBundleService.build(),
             filters_builder=PolicyFiltersBundleBuilder(),
+            platform_service=SP.platform_service,
         )
 
     def maybe_persist(
@@ -80,7 +85,6 @@ class KubernetesPlatformPolicyBundleStrategy(PolicyBundlePersistenceStrategy):
         *,
         job: Job,
         rule_refs: JobRuleRefs | None,
-        platform: Platform | None,
     ) -> None:
         if not job.platform_id:
             return
@@ -91,6 +95,9 @@ class KubernetesPlatformPolicyBundleStrategy(PolicyBundlePersistenceStrategy):
                 job.id,
             )
             return
+        platform = self._platform_service.get_nullable(
+            hash_key=job.platform_id
+        )
         if not platform:
             _LOG.error(
                 'Cannot save policy filters bundle: platform %s not found',

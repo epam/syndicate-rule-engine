@@ -31,7 +31,6 @@ class PolicyBundlePersistenceStrategy(ABC):
         *,
         job: Job,
         rule_refs: JobRuleRefs | None,
-        platform: Platform | None,
     ) -> None:
         raise NotImplementedError
 
@@ -53,7 +52,6 @@ class NullPolicyBundleStrategy(PolicyBundlePersistenceStrategy):
         *,
         job: Job,
         rule_refs: JobRuleRefs | None,
-        platform: Platform | None,
     ) -> None:
         return None
 
