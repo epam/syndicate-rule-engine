@@ -7,12 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.19.0] - 2026-XX-XX
 
+### Added
+- [11970] Added tests ensuring policy bundle scans merge all `resources.json` chunks into one output for the same rule (AWS, Azure, GCP, Kubernetes runners).
+
 ### Changed
 - [11970] Refactored event-driven assembly service to use a new index structure and strategies
 - [11970] Changed logging level from `info` to `debug` for Cloud Custodian providers loading for avoiding noise in logs
 
 ### Fixed
-- Fixed issue with event sources handler returning `data` key in the response
+- [11950] Fixed issue with event sources handler returning `data` key in the response
+
 
 ## [5.18.0] - 2026-03-18
 
