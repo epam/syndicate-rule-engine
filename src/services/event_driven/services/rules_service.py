@@ -46,9 +46,9 @@ class EventDrivenRulesService(EventDrivenLicenseMixin):
         self,
         event: EventGenericRecord,
     ) -> set[str] | None:
-        tenant_name = event.tenant_name
-        account_id = event.account_id
-        platform_id = getattr(event, "platform_id", None)
+        tenant_name = getattr(event, 'tenant_name', None)
+        account_id = getattr(event, 'account_id', None)
+        platform_id = getattr(event, 'platform_id', None)
 
         tenant = self._tenant_resolver.resolve(
             tenant_name=tenant_name,
@@ -57,7 +57,7 @@ class EventDrivenRulesService(EventDrivenLicenseMixin):
         )
         if not tenant:
             _LOG.warning(
-                "No tenant found for name: %s, account_id: %s, platform_id: %s",
+                'No tenant found for name: %s, account_id: %s, platform_id: %s',
                 tenant_name,
                 account_id,
                 platform_id,
@@ -66,7 +66,9 @@ class EventDrivenRulesService(EventDrivenLicenseMixin):
 
         event_driven_license = self.get_allowed_event_driven_license(tenant)
         if not event_driven_license:
-            _LOG.warning("No event driven license found for tenant: %s", tenant.name)
+            _LOG.warning(
+                'No event driven license found for tenant: %s', tenant.name
+            )
             return None
 
         rules = self._rules_resolver.get_rules(
@@ -75,7 +77,7 @@ class EventDrivenRulesService(EventDrivenLicenseMixin):
             version=DEFAULT_VERSION,
         )
         if not rules:
-            _LOG.warning(f"No rules found for event: {event}")
+            _LOG.debug(f'No rules found for event: {event}')
             return None
 
         return rules
