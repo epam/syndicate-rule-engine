@@ -960,11 +960,16 @@
                 "saved": {
                   "title": "Saved",
                   "type": "integer"
+                },
+                "rejected": {
+                  "title": "Rejected",
+                  "type": "integer"
                 }
               },
               "required": [
                 "received",
-                "saved"
+                "saved",
+                "rejected"
               ],
               "title": "Event",
               "type": "object"

@@ -28,7 +28,7 @@ class EventsHandler(AbstractHandler):
 
     @validate_kwargs
     def event_action(self, event: EventPostModel):
-        _LOG.info("Starting event ingestion")
+        _LOG.info('Starting event ingestion')
         result = self._event_ingest_service.ingest(
             raw_events=event.events,
             vendor=event.vendor,
@@ -36,7 +36,8 @@ class EventsHandler(AbstractHandler):
         return build_response(
             code=HTTPStatus.ACCEPTED,
             content={
-                "received": result.received,
-                "saved": result.saved,
+                'received': result.received,
+                'saved': result.saved,
+                'rejected': result.rejected,
             },
         )

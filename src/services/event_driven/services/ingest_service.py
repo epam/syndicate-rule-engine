@@ -20,7 +20,6 @@ from services.event_driven.utils import without_duplicates
 
 from .rules_service import EventDrivenRulesService
 
-
 _LOG = get_logger(__name__)
 
 
@@ -67,10 +66,20 @@ class EventIngestService:
             v = vendor
 
             if event is None:
-                _LOG.debug('Could not adapt event %s', raw)
+                _LOG.warning(
+                    'Ingest: adapt produced no event for raw payload (see adapter logs).'
+                )
                 continue
-            if not self._ed_rules_service.get_rules(event):
-                _LOG.debug('Event %s does not match any rules', event)
+            rules = self._ed_rules_service.get_rules(event)
+            if not rules:
+                _LOG.warning(
+                    'Ingest: skip (no tenant, license, or S3 event mapping) '
+                    'source_name=%r event_name=%r cloud=%r account_id=%r',
+                    getattr(event, 'source_name', None),
+                    getattr(event, 'event_name', None),
+                    getattr(event, 'cloud', None),
+                    getattr(event, 'account_id', None),
+                )
                 continue
             by_vendor.setdefault(v, []).append(event)
 
