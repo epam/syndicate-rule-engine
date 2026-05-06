@@ -180,7 +180,7 @@ class TenantReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
         Only AWS|AZURE|GOOGLE currently
         :return:
         """
-        return Cloud[self._tenant.cloud.upper()]
+        return Cloud.parse(self._tenant.cloud, safe=False)
 
     def job_result(self, job: Job) -> str:
         return self.urljoin(self.base_job(job), self.result)

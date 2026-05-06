@@ -123,6 +123,7 @@ from datetime import datetime, timedelta, timezone
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.customer_service import CustomerService
 from modular_sdk.services.tenant_service import TenantService
+from helpers.exceptions import CloudNotSupportedError
 from helpers.log_helper import get_logger
 from services import SP
 from services.platform_service import Platform, PlatformService
@@ -307,15 +308,20 @@ def remove_old_shard_parts(days: int) -> None:
     # Walk the full hierarchy: customer → tenant/platform.
     for customer in customer_service.i_get_customer():
         for tenant in tenant_service.i_get_tenant_by_customer(customer.name):
+            try:
+                platforms: Iterator[Platform] = platform_service.query_by_tenant(tenant)
+                for platform in platforms:
+                    keys_builder = PlatformReportsBucketKeysBuilder(platform)
+                    _LOG.info(f"Removing stale shards from tenant {tenant.name}: "
+                              f"platform {platform.name}")
+                    _remove_stale_parts_from_collection(days, tenant, keys_builder)
 
-            platforms: Iterator[Platform] = platform_service.query_by_tenant(tenant)
-            for platform in platforms:
-                keys_builder = PlatformReportsBucketKeysBuilder(platform)
+                keys_builder = TenantReportsBucketKeysBuilder(tenant)
                 _LOG.info(f"Removing stale shards from tenant {tenant.name}: "
-                          f"platform {platform.name}")
+                          f"cloud {tenant.cloud}")
                 _remove_stale_parts_from_collection(days, tenant, keys_builder)
-
-            keys_builder = TenantReportsBucketKeysBuilder(tenant)
-            _LOG.info(f"Removing stale shards from tenant {tenant.name}: "
-                      f"cloud {tenant.cloud}")
-            _remove_stale_parts_from_collection(days, tenant, keys_builder)
+            except CloudNotSupportedError as e:
+                _LOG.warning(
+                    f"Skipping stale shards cleanup for tenant {tenant.name}: "
+                    f"cloud type {tenant.cloud} is not supported"
+                )

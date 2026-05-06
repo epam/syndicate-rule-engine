@@ -80,9 +80,9 @@ class ResourceHandler(AbstractHandler):
             )
 
         if resource_cloud:
-            cloud = Cloud[resource_cloud]
+            cloud = Cloud.parse(resource_cloud, safe=False)
         elif tenant_cloud:
-            cloud = Cloud[tenant_cloud]
+            cloud = Cloud.parse(tenant_cloud, safe=False)
         else:
             cloud = Cloud.AWS
 
@@ -132,7 +132,7 @@ class ResourceHandler(AbstractHandler):
 
             event.resource_type = pair[0] if pair else None
             cloud = (pair[1] if pair else None) or (
-                Cloud[tenant.cloud] if tenant else None
+                Cloud.parse(tenant.cloud, safe=False) if tenant else None
             )
 
             self._validate_location(event.location, cloud=cloud)
