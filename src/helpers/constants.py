@@ -9,7 +9,6 @@ from typing import Callable, Iterator, Literal, MutableMapping, TypeVar, \
 from dateutil.relativedelta import SU, relativedelta
 from typing_extensions import Self
 
-from helpers.exceptions import CloudNotSupportedError
 
 # from http import HTTPMethod  # python3.11+
 
@@ -258,6 +257,8 @@ class Cloud(str, Enum):
 
     @classmethod
     def parse(cls, cloud: str, *, safe: bool = True) -> Self | None:
+
+        from helpers.exceptions import CloudNotSupportedError
         try:
             return cls[cloud.upper()]
         except KeyError:
