@@ -10,6 +10,10 @@ T = TypeVar("T")
 P = ParamSpec("P")
 
 
+class CloudNotSupportedError(KeyError):
+    pass
+
+
 def safe_call(func: Callable[P, T]) -> Callable[P, T | None]:
     @wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> T | None:

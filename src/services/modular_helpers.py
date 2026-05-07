@@ -23,6 +23,7 @@ from typing_extensions import Self
 from helpers import MultipleCursorsWithOneLimitIterator
 from helpers.constants import TENANTS_QUERY_THRESHOLD, Cloud, \
     TS_SCAN_HIDDEN_REGIONS, ENABLED
+from helpers.exceptions import CloudNotSupportedError
 from helpers.lambda_response import ResponseFactory
 from helpers.log_helper import get_logger
 
@@ -459,14 +460,14 @@ def tenant_cloud(
     safe: Literal[True],
 ) -> Cloud | None: ...
 
-
+# TODO to deprecate this function. KeyError handled in the Cloud class.
 def tenant_cloud(
     tenant: Tenant,
     safe: bool = False
 ) -> Cloud | None:
     try:
-        return Cloud[tenant.cloud.upper()]
-    except KeyError as e:
+        return Cloud.parse(tenant.cloud, safe=safe)
+    except CloudNotSupportedError as e:
         base_msg = (
             'There is probably a bug if we reach a '
             f'tenant of not supported cloud: {tenant.cloud!r}.'
