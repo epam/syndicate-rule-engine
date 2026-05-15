@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fixed issue with event sources handler returning `data` key in the response
+- Fixed KeyError with unknown/deprecated clouds.
 
 ## [5.18.0] - 2026-03-18
 
