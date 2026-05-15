@@ -31,7 +31,7 @@ check-syndicate:
 
 
 test:
-	pytest --verbose tests/
+	pytest --verbose tests/ cli/srecli_tests/
 
 
 test-coverage:
