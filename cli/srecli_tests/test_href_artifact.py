@@ -169,22 +169,10 @@ def test_save_presigned_sidecar_dictionary_and_meta(
     assert 'meta_url' not in inner
 
 
-def test_save_presigned_items_to_directory(
-    monkeypatch: pytest.MonkeyPatch,
+def test_save_presigned_items_unsupported_multi_report_to_directory(
     tmp_path: Path,
 ) -> None:
-    bodies = {
-        'https://example.invalid/one': gzip.compress(b'{"n":1}'),
-        'https://example.invalid/two': gzip.compress(b'{"n":2}'),
-    }
-
-    def fake_fetch(url: str, *, label: str = 'Downloading') -> bytes:
-        del label
-        return bodies[url]
-
-    monkeypatch.setattr(download, '_fetch_presigned_bytes', fake_fetch)
-    out_dir = tmp_path / 'reports'
-    out_dir.mkdir()
+    """``items`` batch responses are rejected at save time (use CLI guidance)."""
     resp = SREResponse(
         data={
             'items': [
@@ -202,73 +190,10 @@ def test_save_presigned_items_to_directory(
         },
         code=HTTPStatus.OK,
     )
-    saved = download.save_presigned_payloads(resp, out_dir)
-    assert len(saved) == 2
-    f_a = out_dir / 'job-a.json'
-    f_b = out_dir / 'job-b.json'
-    assert f_a.read_bytes() == b'{"n":1}'
-    assert f_b.read_bytes() == b'{"n":2}'
-    assert 'url' not in resp.data['items'][0]
-
-
-def test_save_presigned_items_single_file_one_item(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    def fake_fetch(url: str, *, label: str = 'Downloading') -> bytes:
-        assert url == 'https://example.invalid/single'
-        del label
-        return gzip.compress(b'{"only": true}')
-
-    monkeypatch.setattr(download, '_fetch_presigned_bytes', fake_fetch)
-    out = tmp_path / 'single.json'
-    resp = SREResponse(
-        data={
-            'items': [
-                {
-                    'job_id': 'solo',
-                    'url': 'https://example.invalid/single',
-                    'format': 'json',
-                },
-            ]
-        },
-        code=HTTPStatus.OK,
-    )
-    saved = download.save_presigned_payloads(resp, out)
-    assert saved == [out.resolve()]
-    assert out.read_bytes() == b'{"only": true}'
-
-
-def test_save_presigned_items_single_path_multiple_reports_raises(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    monkeypatch.setattr(
-        download,
-        '_fetch_presigned_bytes',
-        lambda url, *, label='Downloading': gzip.compress(b'{}'),
-    )
-    out = tmp_path / 'only.json'
-    resp = SREResponse(
-        data={
-            'items': [
-                {'job_id': 'a', 'url': 'https://u1', 'format': 'json'},
-                {'job_id': 'b', 'url': 'https://u2', 'format': 'json'},
-            ]
-        },
-        code=HTTPStatus.OK,
-    )
-    with pytest.raises(click.UsageError, match='Multiple reports'):
-        download.save_presigned_payloads(resp, out)
-
-
-def test_save_presigned_items_missing_urls_raises(tmp_path: Path) -> None:
-    resp = SREResponse(
-        data={'items': [{'job_id': 'x', 'format': 'json'}]},
-        code=HTTPStatus.OK,
-    )
-    with pytest.raises(click.UsageError, match='No response item includes a presigned url'):
-        download.save_presigned_payloads(resp, tmp_path)
+    out_dir = tmp_path / 'reports'
+    out_dir.mkdir()
+    with pytest.raises(click.UsageError, match='Unsupported multi-report'):
+        download.save_presigned_payloads(resp, out_dir)
 
 
 def test_download_unsupported_pack_rejects_flag(tmp_path: Path) -> None:
