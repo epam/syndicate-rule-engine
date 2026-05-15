@@ -26,7 +26,7 @@ version = {attr = "srecli.__version__"}
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["srecli*"]
-exclude = ["tests*"]
+exclude = ["srecli_tests*"]
 namespaces = false
 
 [tool.pyright]
