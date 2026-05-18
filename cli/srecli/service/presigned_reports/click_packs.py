@@ -81,15 +81,7 @@ def _download_unavailable_callback(
     param: click.Parameter,
     value: Any,
 ) -> None:
-    if value:
-        raw = getattr(ctx, 'command_path', None)
-        if isinstance(raw, (list, tuple)) and raw:
-            cmd = ' '.join(str(p) for p in raw)
-        elif isinstance(raw, str) and raw.strip():
-            cmd = raw.strip()
-        else:
-            cmd = ctx.command.name if ctx.command else 'this command'
-        raise click.UsageError(
-            f"'--download' is not available for `{cmd}` yet. "
-            'Use --href to get presigned URLs.'
-        )
+    raise click.UsageError(
+        "'--download' is not available for this command yet. "
+        'Use --href to get presigned URLs.'
+    )
