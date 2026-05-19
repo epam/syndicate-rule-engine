@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from typing import cast
 
 from helpers import Version, urljoin
@@ -50,8 +51,8 @@ class S3EventMappingProvider:
     ) -> None:
         self._s3 = s3_client
         self._env = environment_service
-        self._nested_cache: dict[str, ESourceENameRulesMap] = {}
-        self._k8s_cache: dict[str, K8sServiceRulesMap] = {}
+        self._nested_cache: dict[str, tuple[ESourceENameRulesMap, float]] = {}
+        self._k8s_cache: dict[str, tuple[K8sServiceRulesMap, float]] = {}
 
     @property
     def bucket_name(self) -> str:
@@ -68,16 +69,18 @@ class S3EventMappingProvider:
             version=version,
             cloud=cloud,
         )
-        if key in self._nested_cache:
-            return self._nested_cache[key]
+        cached = self._get_cached_nested(key)
+        if cached is not None:
+            return cached
         data = self._s3.gz_get_json(
             bucket=self.bucket_name,
             key=key,
         )
         if data is None:
             return None
-        self._nested_cache[key] = cast(ESourceENameRulesMap, data)
-        return self._nested_cache[key]
+        nested = cast(ESourceENameRulesMap, data)
+        self._nested_cache[key] = (nested, time.monotonic())
+        return nested
 
     def get_k8s_mapping_from_s3(
         self,
@@ -89,16 +92,18 @@ class S3EventMappingProvider:
             version=version,
             cloud=Cloud.KUBERNETES,
         )
-        if key in self._k8s_cache:
-            return self._k8s_cache[key]
+        cached = self._get_cached_k8s(key)
+        if cached is not None:
+            return cached
         data = self._s3.gz_get_json(
             bucket=self.bucket_name,
             key=key,
         )
         if data is None:
             return None
-        self._k8s_cache[key] = cast(K8sServiceRulesMap, data)
-        return self._k8s_cache[key]
+        k8s_map = cast(K8sServiceRulesMap, data)
+        self._k8s_cache[key] = (k8s_map, time.monotonic())
+        return k8s_map
 
     def set_to_s3(
         self,
@@ -112,7 +117,7 @@ class S3EventMappingProvider:
             version=version,
             cloud=cloud,
         )
-        self._nested_cache[key] = data
+        self._set_cached_nested(key, data)
         self._s3.gz_put_json(
             bucket=self.bucket_name,
             key=key,
@@ -130,9 +135,41 @@ class S3EventMappingProvider:
             version=version,
             cloud=Cloud.KUBERNETES,
         )
-        self._k8s_cache[key] = data
+        self._set_cached_k8s(key, data)
         self._s3.gz_put_json(
             bucket=self.bucket_name,
             key=key,
             obj=data,
         )
+
+    def _cache_entry_fresh(self, loaded_at_monotonic: float) -> bool:
+        ttl = self._env.event_mapping_cache_ttl_seconds()
+        if ttl <= 0:
+            return True
+        return (time.monotonic() - loaded_at_monotonic) < ttl
+
+    def _get_cached_nested(self, key: str) -> ESourceENameRulesMap | None:
+        entry = self._nested_cache.get(key)
+        if entry is None:
+            return None
+        data, loaded_at = entry
+        if self._cache_entry_fresh(loaded_at):
+            return data
+        del self._nested_cache[key]
+        return None
+
+    def _get_cached_k8s(self, key: str) -> K8sServiceRulesMap | None:
+        entry = self._k8s_cache.get(key)
+        if entry is None:
+            return None
+        data, loaded_at = entry
+        if self._cache_entry_fresh(loaded_at):
+            return data
+        del self._k8s_cache[key]
+        return None
+
+    def _set_cached_nested(self, key: str, data: ESourceENameRulesMap) -> None:
+        self._nested_cache[key] = (data, time.monotonic())
+    
+    def _set_cached_k8s(self, key: str, data: K8sServiceRulesMap) -> None:
+        self._k8s_cache[key] = (data, time.monotonic())
