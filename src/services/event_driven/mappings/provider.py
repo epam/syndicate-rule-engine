@@ -169,7 +169,11 @@ class S3EventMappingProvider:
         return None
 
     def _set_cached_nested(self, key: str, data: ESourceENameRulesMap) -> None:
+        if not data:
+            return
         self._nested_cache[key] = (data, time.monotonic())
     
     def _set_cached_k8s(self, key: str, data: K8sServiceRulesMap) -> None:
+        if not data:
+            return
         self._k8s_cache[key] = (data, time.monotonic())
