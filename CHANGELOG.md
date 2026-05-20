@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [5.19.0] - 2026-XX-XX
 
 ### Added
-- Added ttl for caching events mappings
+- Added ttl for caching events mappings <!-- TODO: Add ticket number -->
 
 ### Changed
 - [11970] Refactored event-driven assembly service to use a new index structure and strategies
