@@ -641,6 +641,13 @@ class Env(EnvEnum):
         ('CAAS_NUMBER_OF_PARTITIONS_FOR_EVENTS',),
         '10',
     )
+    # In-process cache for gzip JSON event mappings loaded from rulesets bucket (ingest,
+    # rules resolution). 0 = never expire until process restart; >0 = seconds per key.
+    EVENT_MAPPING_CACHE_TTL_SECONDS = (
+        'SRE_EVENT_MAPPING_CACHE_TTL_SECONDS',
+        ('CAAS_EVENT_MAPPING_CACHE_TTL_SECONDS',),
+        '1800',
+    )
 
     # jobs
     JOBS_TIME_TO_LIVE_DAYS = (
