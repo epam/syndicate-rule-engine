@@ -21,6 +21,7 @@ COPY src /src/
 COPY patches/$PATCH_VERSION/main.py /src/main.py
 COPY patches/$PATCH_VERSION/patch_fingerprints.py /src/patch_fingerprints.py
 COPY patches/$PATCH_VERSION/patch_jobs.py /src/patch_jobs.py
+COPY patches/common/ /src/common/
 RUN chmod +x /src/main.py && \
     rm -f /src/executor/Dockerfile* /src/executor/requirements.txt /src/onprem/Dockerfile* /src/onprem/requirements.txt /src/uv.lock /src/pyproject.toml
 
