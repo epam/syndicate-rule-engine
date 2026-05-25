@@ -8,7 +8,7 @@ SYNDICATE_HELM_REPOSITORY="${SYNDICATE_HELM_REPOSITORY:-https://charts-repositor
 HELM_RELEASE_NAME="${HELM_RELEASE_NAME:-rule-engine}"
 DEFECTDOJO_HELM_RELEASE_NAME="${DEFECTDOJO_HELM_RELEASE_NAME:-defectdojo}"
 
-DOCKER_VERSION="${DOCKER_VERSION:-5:27.1.1-1~debian.12~bookworm}"
+DOCKER_VERSION="${DOCKER_VERSION:-5:27.1.1-1~ubuntu.26.04~$(. /etc/os-release && echo "$VERSION_CODENAME")}"
 MINIKUBE_VERSION="${MINIKUBE_VERSION:-v1.33.1}"
 KUBERNETES_VERSION="${KUBERNETES_VERSION:-v1.30.0}"
 KUBECTL_VERSION="${KUBECTL_VERSION:-v1.30.3}"
@@ -97,14 +97,14 @@ upgrade_and_install_packages() {
   sudo DEBIAN_FRONTEND=noninteractive apt-get install -y jq curl python3-pip locales-all nginx pipx
 }
 install_docker() {
-  # Add Docker's official GPG key: from https://docs.docker.com/engine/install/debian/
+  # Add Docker's official GPG key: from https://docs.docker.com/engine/install/ubuntu/
   sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl
   sudo install -m 0755 -d /etc/apt/keyrings
-  sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+  sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
   sudo chmod a+r /etc/apt/keyrings/docker.asc
   # Add git apt repo
   echo \
-    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
     $(. /etc/os-release && echo "$VERSION_CODENAME") stable" |
     sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
   sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
@@ -126,7 +126,7 @@ install_helm() {
   # https://helm.sh/docs/intro/install/
   sudo apt-get install curl gpg apt-transport-https --yes
   curl -fsSL https://packages.buildkite.com/helm-linux/helm-debian/gpgkey | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
-  echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" | sudo tee /etc/apt/sources.list.d/helm-stable-ubuntu.list
   sudo apt-get update
   sudo apt-get install helm="$1"
 }
