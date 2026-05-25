@@ -115,7 +115,7 @@ app.conf.task_routes = {
     'onprem.tasks.assemble_events': {'queue': 'b-event-driven', 'priority': 0},
     'onprem.tasks.generate_reactive_report': {'queue': 'b-event-driven', 'priority': 0},
     'onprem.tasks.process_interval_reports': {'queue': 'b-event-driven', 'priority': 1},
-    'onprem.tasks.run_event_driven_job': {'queue': 'b-event-driven', 'priority': 2},
+    'onprem.tasks.run_reactive_job': {'queue': 'b-event-driven', 'priority': 2},
     'onprem.tasks.clear_events': {'queue': 'b-event-driven', 'priority': 3},
     # c-scheduled: maintenance, background
     'onprem.tasks.sync_license': {'queue': 'c-scheduled', 'priority': 0},

@@ -7,6 +7,7 @@ Any task can be wrapped with @safe_call decorator to catch and log any exception
 from typing import Any
 
 from executor.job import (
+    task_reactive_job,
     task_scheduled_job,
     task_standard_job,
     update_metadata,
@@ -26,11 +27,10 @@ from lambdas.rule_meta_updater.handler import RuleMetaUpdaterLambdaHandler
 from onprem.celery import app
 
 
-def _run_job(self, job_id: str | list[str]) -> None:
+def _job_ids(job_id: str | list[str]) -> list[str]:
     if isinstance(job_id, str):
-        job_id = [job_id]
-    for jid in job_id:
-        task_standard_job(self, jid)
+        return [job_id]
+    return list(job_id)
 
 
 @app.task(
@@ -40,7 +40,8 @@ def _run_job(self, job_id: str | list[str]) -> None:
 )
 @safe_call
 def run_standard_job(self, job_id: str | list[str]) -> None:
-    return _run_job(self, job_id)
+    for jid in _job_ids(job_id):
+        task_standard_job(self, jid)
 
 
 @app.task(
@@ -49,8 +50,9 @@ def run_standard_job(self, job_id: str | list[str]) -> None:
     soft_time_limit=Env.BATCH_JOB_LIFETIME_MINUTES.as_float() * 60,
 )
 @safe_call
-def run_event_driven_job(self, job_id: str | list[str]) -> None:
-    return _run_job(self, job_id)
+def run_reactive_job(self, job_id: str | list[str]) -> None:
+    for jid in _job_ids(job_id):
+        task_reactive_job(self, jid)
 
 
 @app.task(

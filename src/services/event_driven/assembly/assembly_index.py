@@ -69,17 +69,30 @@ class BucketRulesAndRefs:
 
     rules: set[str] = field(default_factory=set)
     refs_by_rule: dict[str, set[ResourceRef]] = field(default_factory=dict)
+    events_by_rule: dict[str, list[EventRecordAttribute]] = field(
+        default_factory=dict
+    )
 
     def merge_event_rules(
         self,
         rule_names: set[str],
         resource_ref: ResourceRef | None,
+        event_record: EventRecordAttribute | None = None,
     ) -> None:
         self.rules.update(rule_names)
-        if resource_ref is None:
+        if resource_ref is not None:
+            for r in rule_names:
+                self.refs_by_rule.setdefault(r, set()).add(resource_ref)
+        if event_record is None:
             return
+        from services.event_driven.utils import digest_
+
+        digest = digest_(event_record)
         for r in rule_names:
-            self.refs_by_rule.setdefault(r, set()).add(resource_ref)
+            bucket = self.events_by_rule.setdefault(r, [])
+            if any(digest_(existing) == digest for existing in bucket):
+                continue
+            bucket.append(event_record)
 
 
 # Per vendor: cloud → tenant → assembly bucket → merged rules/refs (nested dicts)
@@ -115,13 +128,14 @@ class VendorRuleIndex:
         bucket_key: AssemblyBucketKey,
         rule_names: set[str],
         resource_ref: ResourceRef | None,
+        event_record: EventRecordAttribute | None = None,
     ) -> None:
         tenant_map = self._root[vendor][cloud][tenant_name]
         bucket = tenant_map.get(bucket_key)
         if bucket is None:
             bucket = BucketRulesAndRefs()
             tenant_map[bucket_key] = bucket
-        bucket.merge_event_rules(rule_names, resource_ref)
+        bucket.merge_event_rules(rule_names, resource_ref, event_record)
 
     def iter_vendors(self) -> Iterator[VendorKind]:
         """Vendors present in the index (insertion order)."""

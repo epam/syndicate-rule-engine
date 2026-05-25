@@ -16,7 +16,6 @@ from services.event_driven.mappings.provider import S3EventMappingProvider
 if TYPE_CHECKING:
     from services.metadata import Metadata, RuleMetadata
 
-
 _LOG = get_logger(__name__)
 
 
@@ -118,6 +117,23 @@ class EventMappingCollector(S3EventMappingProvider):
                 f'Unknown cloud {meta.cloud!r} for rule {rule_name!r}. '
                 'Skipping event mapping.'
             )
+            return
+
+        if isinstance(meta.events, list):
+            for entry in meta.events:
+                source = entry.get('source')
+                event_name = entry.get('event')
+                if not source or not event_name:
+                    _LOG.warning(
+                        'Invalid list event entry for rule %r: %r',
+                        rule_name,
+                        entry,
+                    )
+                    continue
+                event_map.setdefault(source, {})
+                rules_for_event = event_map[source].setdefault(event_name, [])
+                if rule_name not in rules_for_event:
+                    rules_for_event.append(rule_name)
             return
 
         for source, event_names in meta.events.items():

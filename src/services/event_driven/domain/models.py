@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Literal, TypeAlias
 
 from pydantic import BaseModel as PydanticBaseModel, ConfigDict
-from pydantic import model_validator
+from pydantic import Field, model_validator
 
 from helpers.constants import Cloud
 from models.event import EventRecordAttribute
@@ -28,12 +28,12 @@ class EventRecord(_EventRecordCore):
     account_id: str | None = None
     tenant_name: str | None = None
 
-    @model_validator(mode="before")
+    @model_validator(mode='before')
     def at_least_one_tenant_identifier(cls, values: Any) -> Any:
         if not isinstance(values, dict):
-            raise ValueError(f"Expected dict, got {type(values)}")
-        account_id = values.get("account_id")
-        tenant_name = values.get("tenant_name")
+            raise ValueError(f'Expected dict, got {type(values)}')
+        account_id = values.get('account_id')
+        tenant_name = values.get('tenant_name')
         if not account_id and not tenant_name:
             raise ValueError(
                 "At least one of 'account_id' or 'tenant_name' must be provided"
@@ -50,6 +50,43 @@ class EventRecord(_EventRecordCore):
             account_id=self.account_id,
             tenant_name=self.tenant_name,
             metadata=None,
+        )
+
+
+class AwsMetadata(PydanticBaseModel):
+    """AWS metadata."""
+
+    requestParameters: dict[str, Any] = Field(default_factory=dict)
+    responseElements: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode='before')
+    def replace_none_with_dict(cls, values):
+        if not isinstance(values, dict):
+            return values
+        if values.get('requestParameters') is None:
+            values['requestParameters'] = {}
+        if values.get('responseElements') is None:
+            values['responseElements'] = {}
+        return values
+
+class AwsEventRecord(_EventRecordCore):
+    """AWS event."""
+
+    cloud: Literal[Cloud.AWS]
+    account_id: str | None = None
+    tenant_name: str | None = None
+    metadata: AwsMetadata
+
+    def to_event_record_attribute(self) -> EventRecordAttribute:
+        return EventRecordAttribute(
+            cloud=self.cloud,
+            region_name=self.region_name,
+            source_name=self.source_name,
+            event_name=self.event_name,
+            platform_id=None,
+            account_id=self.account_id,
+            tenant_name=self.tenant_name,
+            metadata=self.metadata.model_dump(),
         )
 
 
@@ -88,7 +125,9 @@ class KubernetesEventRecord(_EventRecordCore):
         )
 
 
-EventRecordUnion: TypeAlias = EventRecord | KubernetesEventRecord
+EventRecordUnion: TypeAlias = (
+    EventRecord | KubernetesEventRecord | AwsEventRecord
+)
 
 
 @dataclass(frozen=True)

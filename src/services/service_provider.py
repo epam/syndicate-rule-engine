@@ -49,6 +49,7 @@ if TYPE_CHECKING:
     from services.service_operation_service import ServiceOperationService
     from services.setting_service import CachedSettingsService
     from services.job_policy_filters.service import JobPolicyBundleService
+    from services.event_driven.events.service import JobEventsService
 
 
 _LOG = get_logger(__name__)
@@ -168,7 +169,9 @@ class ServiceProvider(metaclass=SingletonMeta):
     def settings_service(self) -> CachedSettingsService:
         from services.setting_service import CachedSettingsService
 
-        return CachedSettingsService(environment_service=self.environment_service)
+        return CachedSettingsService(
+            environment_service=self.environment_service
+        )
 
     @cached_property
     def role_service(self) -> RoleService:
@@ -328,7 +331,9 @@ class ServiceProvider(metaclass=SingletonMeta):
         if self.environment_service.is_docker():
             return ScriptClient(environment_service=self.environment_service)
         else:
-            return StepFunctionClient(environment_service=self.environment_service)
+            return StepFunctionClient(
+                environment_service=self.environment_service
+            )
 
     @cached_property
     def defect_dojo_service(self) -> DefectDojoService:
@@ -402,3 +407,9 @@ class ServiceProvider(metaclass=SingletonMeta):
         from services.job_policy_filters.service import JobPolicyBundleService
 
         return JobPolicyBundleService(s3_client=self.s3)
+
+    @cached_property
+    def job_events_service(self) -> JobEventsService:
+        from services.event_driven.events.service import JobEventsService
+
+        return JobEventsService(s3_client=self.s3)
