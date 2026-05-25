@@ -72,17 +72,38 @@ def _build_k8s_agent_events(
     event_type: list[str],
     reason: list[str],
     platform_id: list[str],
+    involved_name: list[str],
+    resource_uid: list[str],
+    namespace: list[str],
 ) -> list[dict]:
-    lists = [event_type, reason, platform_id]
+    """Shape matches ingest ``K8sNativeEventAdapter`` and k8s watcher normalizer."""
+    lists = [event_type, reason, platform_id, involved_name]
+    has_uid = bool(resource_uid)
+    has_ns = bool(namespace)
+    if has_uid:
+        lists.append(resource_uid)
+    if has_ns:
+        lists.append(namespace)
     normalize_lists(lists)
-    return [
-        {
-            "type": event_type[i],
-            "reason": reason[i],
-            "platformId": platform_id[i],
+    out: list[dict] = []
+    for i in range(len(event_type)):
+        kind = event_type[i]
+        meta: dict = {
+            "name": involved_name[i],
+            "kind": kind,
+            "resourceUid": resource_uid[i] if has_uid else str(uuid.uuid4()),
         }
-        for i in range(len(lists[0]))
-    ]
+        if has_ns:
+            meta["namespace"] = namespace[i]
+        out.append(
+            {
+                "type": kind,
+                "reason": reason[i],
+                "platformId": platform_id[i],
+                "metadata": meta,
+            }
+        )
+    return out
 
 
 @click.group(name="event")
@@ -185,12 +206,42 @@ def cloudtrail(
     multiple=True,
     help="K8s platform id (Modular parent id for the cluster)",
 )
+@click.option(
+    "--involved-object-name",
+    "--resource-name",
+    "-rn",
+    type=str,
+    default=["sre-cli"],
+    multiple=True,
+    show_default=True,
+    help="involved object name (metadata.name); default for quick local simulation",
+)
+@click.option(
+    "--resource-uid",
+    "-u",
+    default=["12345678-9012-3456-7890-123456789012"],
+    type=str,
+    multiple=True,
+    help="Kubernetes involved object UID (metadata.resourceUid); "
+    "if omitted a random UUID is used per event",
+)
+@click.option(
+    "--namespace",
+    "-ns",
+    default=["default"],
+    type=str,
+    multiple=True,
+    help="Involved object namespace (metadata.namespace)",
+)
 @cli_response()
 def k8s(
     ctx: ContextObj,
     event_type: tuple[str, ...],
     reason: tuple[str, ...],
     platform_id: tuple[str, ...],
+    involved_object_name: tuple[str, ...],
+    resource_uid: tuple[str, ...],
+    namespace: tuple[str, ...],
     customer_id,
 ):
     """Send SRE_K8S_AGENT events to POST /event (event-driven ingest)."""
@@ -198,6 +249,9 @@ def k8s(
         list(event_type),
         list(reason),
         list(platform_id),
+        list(involved_object_name),
+        list(resource_uid),
+        list(namespace),
     )
     return ctx["api_client"].event_action(
         version="1.0.0",

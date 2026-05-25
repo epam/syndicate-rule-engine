@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - [11772] Added AWS reactive execution when scans are constrained to concrete resource identifiers
+- [12033] Added ttl for caching events mappings
 
 ### Changed
 - [11970] Refactored event-driven assembly service to use a new index structure and strategies
