@@ -9,8 +9,7 @@ from srecli.group import (
     optional_job_type_option,
     SREResponse,
 )
-from srecli.service.presigned_reports import report_presigned_download_pack
-
+from srecli.service.presigned_hints_pack import presigned_url_hints_pack
 
 @click.group(name='compliance')
 def compliance():
@@ -32,17 +31,16 @@ def compliance():
     '--href',
     '-hf',
     is_flag=True,
-    help='Return presigned URL instead of inline payload (set automatically with --download)',
+    help='Return presigned URL instead of inline payload',
 )
 @cli_response()
-@report_presigned_download_pack
+@presigned_url_hints_pack
 def jobs(
     ctx: ContextObj,
     job_id: str,
     job_type: str,
     href: bool,
     format: str,
-    download: str | None,
     customer_id,
 ) -> SREResponse:
     """
@@ -71,16 +69,15 @@ def jobs(
     '--href',
     '-hf',
     is_flag=True,
-    help='Return presigned URL instead of inline payload (set automatically with --download)',
+    help='Return presigned URL instead of inline payload',
 )
 @cli_response()
-@report_presigned_download_pack
+@presigned_url_hints_pack
 def accumulated(
     ctx: ContextObj,
     tenant_name: str,
     href: bool,
     format: str,
-    download: str | None,
     customer_id,
 ) -> SREResponse:
     """

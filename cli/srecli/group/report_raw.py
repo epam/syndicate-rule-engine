@@ -2,8 +2,8 @@ import click
 
 from srecli.group import ContextObj, ViewCommand, cli_response
 from srecli.group import build_tenant_option
-from srecli.service.presigned_reports import report_presigned_download_pack
 from srecli.group import SREResponse
+from srecli.service.presigned_hints_pack import presigned_url_hints_pack
 
 
 @click.group(name='raw')
@@ -21,10 +21,10 @@ def raw():
     '--href',
     '-hf',
     is_flag=True,
-    help='Return presigned URL instead of inline payload (set automatically with --download)',
+    help='Return presigned URL instead of inline payload',
 )
 @cli_response()
-@report_presigned_download_pack
+@presigned_url_hints_pack
 def latest(
     ctx: ContextObj,
     tenant_name,
@@ -32,7 +32,6 @@ def latest(
     meta,
     href: bool,
     customer_id,
-    download: str | None,
 ) -> SREResponse:
     """
     Returns latest raw report

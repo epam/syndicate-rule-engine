@@ -10,8 +10,8 @@ from srecli.group import (
     cli_response,
     SREResponse,
 )
-from srecli.service.presigned_reports import report_presigned_download_pack
 from srecli.service.constants import PolicyErrorType
+from srecli.service.presigned_hints_pack import presigned_url_hints_pack
 
 
 @click.group(name='errors')
@@ -35,10 +35,10 @@ def errors():
     '--href',
     '-hf',
     is_flag=True,
-    help='Return presigned URL instead of inline payload (set automatically with --download)',
+    help='Return presigned URL instead of inline payload',
 )
 @cli_response()
-@report_presigned_download_pack
+@presigned_url_hints_pack
 def jobs(
     ctx: ContextObj,
     job_id: str,
@@ -46,7 +46,6 @@ def jobs(
     error_type: Optional[str],
     href: bool,
     format: str,
-    download: str | None,
     customer_id,
 ) -> SREResponse:
     """

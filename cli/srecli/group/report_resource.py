@@ -14,8 +14,7 @@ from srecli.group import (
     optional_job_type_option,
     to_date_report_option,
 )
-from srecli.service.presigned_reports import report_presigned_download_pack
-
+from srecli.service.presigned_hints_pack import presigned_url_hints_pack
 
 @click.group(name='resource')
 def resource():
@@ -40,8 +39,7 @@ def resource():
 @click.option('--format', '-ft', type=click.Choice(('json', 'xlsx')),
               help='Report format')
 @click.option('--href', '-hf', is_flag=True,
-              help='Whether to return raw data or URL to the data '
-                   '(set automatically with --download)')
+              help='Whether to return raw data or URL to the data')
 @click.option('--obfuscated', is_flag=True,
               help='Whether to obfuscate the data and return also a dictionary')
 @click.option('--id', required=False, type=str,
@@ -51,7 +49,7 @@ def resource():
 @click.option('--arn', required=False, type=str,
               help='Resource arn, only for aws')
 @cli_response()
-@report_presigned_download_pack
+@presigned_url_hints_pack
 def latest(
     ctx: ContextObj,
     tenant_name: str,
@@ -66,7 +64,6 @@ def latest(
     name: Optional[str], arn: Optional[str],
     customer_id,
     obfuscated,
-    download: str | None,
 ) -> SREResponse:
     """
     Resource report for tenant
@@ -104,8 +101,7 @@ def latest(
 @click.option('--format', '-ft', type=click.Choice(('json', 'xlsx')),
               help='Report format')
 @click.option('--href', '-hf', is_flag=True,
-              help='Whether to return raw data or URL to the data '
-                   '(set automatically with --download)')
+              help='Whether to return raw data or URL to the data')
 @click.option('--obfuscated', is_flag=True,
               help='Whether to obfuscate the data and return also a dictionary')
 @click.option('--id', required=False, type=str,
@@ -113,7 +109,7 @@ def latest(
 @click.option('--name', required=False, type=str,
               help='Resource name')
 @cli_response()
-@report_presigned_download_pack
+@presigned_url_hints_pack
 def platform_latest(
     ctx: ContextObj, 
     platform_id: str,
@@ -127,7 +123,6 @@ def platform_latest(
     name: Optional[str],
     customer_id,
     obfuscated,
-    download: str | None,
 ) -> SREResponse:
     """
     Resource report for platform
@@ -228,8 +223,7 @@ def jobs(
 @click.option('--search_by_all', '-sba', is_flag=True,
               help='If specified, all the fields will be checked')
 @click.option('--href', '-hf', is_flag=True,
-              help='Whether to return raw data or URL to the data '
-                   '(set automatically with --download)')
+              help='Whether to return raw data or URL to the data')
 @click.option('--obfuscated', is_flag=True,
               help='Whether to obfuscate the data and return also a dictionary')
 @click.option('--id', required=False, type=str,
@@ -239,7 +233,7 @@ def jobs(
 @click.option('--arn', required=False, type=str,
               help='Resource arn, only for aws')
 @cli_response()
-@report_presigned_download_pack
+@presigned_url_hints_pack
 def job(
     ctx: ContextObj,
     job_id: str,
@@ -254,7 +248,6 @@ def job(
     href: bool,
     customer_id,
     obfuscated,
-    download: str | None,
 ) -> SREResponse:
     """
     Resource report for concrete job

@@ -12,16 +12,13 @@ from srecli.group import (
 )
 from srecli.group import ContextObj, ViewCommand, cli_response
 from srecli.group import tenant_option
-from srecli.service.presigned_reports import download_unsupported_pack
-
+from srecli.service.presigned_hints_pack import presigned_url_hints_pack
 
 @click.group(name='details')
 def details():
     """Describes detailed undigested reports"""
 
 
-# TODO: Swap ``download_unsupported_pack`` for ``report_presigned_download_pack``
-# when batch ``items`` + ``--download`` UX is defined.
 @details.command(cls=ViewCommand, name='jobs')
 @build_job_id_option(required=False)
 @optional_job_type_option
@@ -37,7 +34,7 @@ def details():
     help='Return presigned URL instead of inline payload.',
 )
 @cli_response()
-@download_unsupported_pack
+@presigned_url_hints_pack
 def jobs(
     ctx: ContextObj,
     job_id: Optional[str],
