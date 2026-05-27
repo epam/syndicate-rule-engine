@@ -143,14 +143,17 @@ class EventDrivenAssemblyService:
                 rule_refs=rule_refs,
             )
             tenant = self._obtain_tenant(job.tenant_name)
-            license = self._get_license(tenant) if tenant else None
-            if license and events_by_rule and tenant:
-                self._persist_job_events(
-                    job=job,
-                    tenant=tenant,
-                    license=license,
-                    events_by_rule=events_by_rule,
-                )
+
+            # NOTE: Currently we only persist events for AWS jobs.
+            if tenant and tenant.cloud == Cloud.AWS.value and job.platform_id is None:
+                license = self._get_license(tenant) if tenant else None
+                if license and events_by_rule:
+                    self._persist_job_events(
+                        job=job,
+                        tenant=tenant,
+                        license=license,
+                        events_by_rule=events_by_rule,
+                    )
 
         submitted_job_ids: list[str] = []
         resp = self._submit_event_driven_jobs(jobs_only)
