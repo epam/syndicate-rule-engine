@@ -10,7 +10,6 @@ from helpers import title_keys
 from helpers.constants import JobState
 from helpers.log_helper import get_logger
 from onprem.celery import app as celery_app
-from onprem.tasks import run_standard_job, run_event_driven_job
 from services import SP
 from services.clients import Boto3ClientWrapper
 from services.clients.sts import StsClient
@@ -222,8 +221,12 @@ class CeleryJobClient:
         **kwargs: Any,
     ) -> CeleryJob:
         if as_event_driven:
-            func = run_event_driven_job
+            from onprem.tasks import run_reactive_job
+
+            func = run_reactive_job
         else:
+            from onprem.tasks import run_standard_job
+
             func = run_standard_job
 
         res = func.apply_async((job_id,), soft_time_limit=timeout)

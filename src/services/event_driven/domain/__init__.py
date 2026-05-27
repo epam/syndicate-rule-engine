@@ -15,6 +15,8 @@ from .constants import (
     EB_EVENT_SOURCE,
     EB_REGION,
     MA_CLOUD,
+    MA_AWS_REQUEST_PARAMETERS,
+    MA_AWS_RESPONSE_ELEMENTS,
     MA_EVENT_ACTION,
     MA_EVENT_METADATA,
     MA_EVENT_NAME,
@@ -30,6 +32,8 @@ from .models import (
     FailedEvent,
     KubernetesEventRecord,
     KubernetesMetadata,
+    AwsEventRecord,
+    AwsMetadata,
 )
 from .types import (
     CloudType,
@@ -77,5 +81,9 @@ __all__ = (
     'MA_EVENT_NAME',
     'MA_TENANT_NAME',
     'MA_REGION_NAME',
+    'MA_AWS_REQUEST_PARAMETERS',
+    'MA_AWS_RESPONSE_ELEMENTS',
     'VendorKind',
+    'AwsEventRecord',
+    'AwsMetadata',
 )

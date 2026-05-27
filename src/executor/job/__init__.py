@@ -144,7 +144,7 @@ from executor.job.credentials.resolver import (
     get_tenant_credentials,
 )
 from executor.job.execution.context import JobExecutionContext
-from executor.job.execution.orchestrator import run_standard_job
+from executor.job.execution.orchestrator import run_reactive_job, run_standard_job
 from executor.job.execution.region_executor import (
     RegionScanResult,
     job_initializer,
@@ -178,6 +178,7 @@ from executor.job.rulesets.resolver import (
     resolve_standard_ruleset,
 )
 from executor.job.tasks.metadata import update_metadata
+from executor.job.tasks.reactive import task_reactive_job
 from executor.job.tasks.standard import task_scheduled_job, task_standard_job
 from executor.job.types import JobExecutionError, ModeDict, PolicyDict
 
@@ -214,8 +215,10 @@ __all__ = (
     "resolve_job_rulesets",
     "resolve_licensed_ruleset",
     "resolve_standard_ruleset",
+    "run_reactive_job",
     "run_standard_job",
     "skip_duplicated_policies",
+    "task_reactive_job",
     "task_scheduled_job",
     "task_standard_job",
     "update_metadata",

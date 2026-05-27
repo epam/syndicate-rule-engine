@@ -1,7 +1,7 @@
 import c7n_kube.query as c7n_kube_query
 
 from executor.job.execution.context import JobExecutionContext
-from executor.job.execution.orchestrator import run_standard_job
+from executor.job.execution.orchestrator import run_reactive_job, run_standard_job
 from executor.job.execution.region_executor import (
     RegionScanResult,
     job_initializer,
@@ -13,6 +13,7 @@ __all__ = (
     "RegionScanResult",
     "job_initializer",
     "process_job_concurrent",
+    "run_reactive_job",
     "run_standard_job",
 )
 

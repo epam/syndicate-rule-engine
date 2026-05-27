@@ -21,21 +21,27 @@ def scan_checkpoint_from_job(job: Job) -> ScanCheckpoint | None:
         return None
     return ScanCheckpoint(
         checkpoint_version=int(job.scan_checkpoint.checkpoint_version),
-        completed_regions=[str(r) for r in job.scan_checkpoint.completed_regions],
+        completed_regions=[
+            str(r) for r in job.scan_checkpoint.completed_regions
+        ],
         updated_at=job.scan_checkpoint.updated_at,
     )
 
 
-def all_scan_regions(job: Job) -> list[str]:
-    return sorted(set(job.regions) | {GLOBAL_REGION})
+def all_scan_regions(job: Job) -> set[str]:
+    return set(job.regions) | {GLOBAL_REGION}
 
 
-def pending_scan_regions(job: Job, checkpoint: ScanCheckpoint | None) -> list[str]:
-    all_r = all_scan_regions(job)
+def pending_scan_regions(
+    job: Job,
+    checkpoint: ScanCheckpoint | None,
+    all_regions: set[str] | None = None,
+) -> list[str]:
+    all_r = all_regions or all_scan_regions(job)
     if not checkpoint:
-        return list(all_r)
-    done = set(checkpoint["completed_regions"])
-    return [r for r in all_r if r not in done]
+        return sorted(all_r)
+    done = set(checkpoint['completed_regions'])
+    return sorted(r for r in all_r if r not in done)
 
 
 def scan_is_resumable(job: Job) -> bool:
@@ -50,8 +56,8 @@ def scan_progress_dto(job: Job) -> ScanProgress | None:
     if not cp:
         return None
     return ScanProgress(
-        checkpoint_version=cp["checkpoint_version"],
-        completed_regions=list(cp["completed_regions"]),
-        updated_at=cp["updated_at"],
+        checkpoint_version=cp['checkpoint_version'],
+        completed_regions=list(cp['completed_regions']),
+        updated_at=cp['updated_at'],
         pending_regions=pending_scan_regions(job, cp),
     )

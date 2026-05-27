@@ -18,7 +18,7 @@ from helpers.constants import Cloud, JobState, JobType
 from helpers.log_helper import get_logger
 from models.event import Event, EventRecordAttribute
 from models.job import Job
-from services import modular_helpers
+from services import SP, modular_helpers
 from services.environment_service import EnvironmentService
 from services.event_driven.assembly.assembly_index import (
     AssemblyBucketKey,
@@ -41,8 +41,10 @@ from services.event_driven.resolvers.tenant_resolver import TenantResolver
 from services.event_driven.services.rules_service import (
     EventDrivenRulesService,
 )
+from services.event_driven.events.rule_events_mode import resource_scoped_rule_names
 from services.job_service import JobService
 from services.license_service import License
+from services.metadata import DEFAULT_VERSION
 from services.platform_service import PlatformService
 from services.ruleset_service import Ruleset, RulesetName
 
@@ -104,7 +106,14 @@ class EventDrivenAssemblyService:
         if index.is_empty():
             _LOG.warning('No rules found for any event')
 
-        tenant_jobs: list[tuple[Tenant, Job, JobRuleRefs | None]] = []
+        tenant_jobs: list[
+            tuple[
+                Tenant,
+                Job,
+                JobRuleRefs | None,
+                dict[str, list[EventRecordAttribute]],
+            ]
+        ] = []
         for vendor in index.iter_vendors():
             by_cloud = index.cloud_assembly_map(vendor)
             if not by_cloud:
@@ -125,14 +134,23 @@ class EventDrivenAssemblyService:
                 body='No jobs left after checking licenses',
             )
 
-        jobs_only = [j for j, _ in allowed_jobs]
-        for job, rule_refs in allowed_jobs:
+        jobs_only = [j for j, _, _ in allowed_jobs]
+        for job, rule_refs, events_by_rule in allowed_jobs:
             self._job_service.save(job)
             strategy = self._bundle_router.strategy_for_job(job)
             strategy.maybe_persist(
                 job=job,
                 rule_refs=rule_refs,
             )
+            tenant = self._obtain_tenant(job.tenant_name)
+            license = self._get_license(tenant) if tenant else None
+            if license and events_by_rule and tenant:
+                self._persist_job_events(
+                    job=job,
+                    tenant=tenant,
+                    license=license,
+                    events_by_rule=events_by_rule,
+                )
 
         submitted_job_ids: list[str] = []
         resp = self._submit_event_driven_jobs(jobs_only)
@@ -188,13 +206,23 @@ class EventDrivenAssemblyService:
                     bucket_key=bucket_key,
                     rule_names=set(rules),
                     resource_ref=resource_ref,
+                    event_record=event_record,
                 )
         return index
 
     def materialize_tenant_jobs(
         self,
         by_cloud: CloudAssemblyMap,
-    ) -> Generator[tuple[Tenant, Job, JobRuleRefs | None], None, None]:
+    ) -> Generator[
+        tuple[
+            Tenant,
+            Job,
+            JobRuleRefs | None,
+            dict[str, list[EventRecordAttribute]],
+        ],
+        None,
+        None,
+    ]:
         """One job per tenant/platform aggregate with merged rules and refs."""
         for _, tn_rg_rl_map in by_cloud.items():
             for tenant_name, rg_rl_map in tn_rg_rl_map.items():
@@ -227,10 +255,15 @@ class EventDrivenAssemblyService:
                     merged_rule_to_refs: dict[
                         RuleNameType, set[ResourceRef]
                     ] = defaultdict(set)
+                    merged_events_by_rule: dict[
+                        RuleNameType, list[EventRecordAttribute]
+                    ] = defaultdict(list)
                     for _, bucket in region_rules_pairs:
                         all_rules.update(bucket.rules)
                         for rule, refs in bucket.refs_by_rule.items():
                             merged_rule_to_refs[rule].update(refs)
+                        for rule, evs in bucket.events_by_rule.items():
+                            merged_events_by_rule[rule].extend(evs)
                     job_rule_refs: JobRuleRefs | None = (
                         JobRuleRefs.from_mutable_sets(merged_rule_to_refs)
                         if merged_rule_to_refs
@@ -248,7 +281,7 @@ class EventDrivenAssemblyService:
                         affected_license=None,
                         status=JobState.PENDING,
                     )
-                    yield tenant, job, job_rule_refs
+                    yield tenant, job, job_rule_refs, dict(merged_events_by_rule)
 
     def resolve_tenant_name(
         self,
@@ -280,6 +313,66 @@ class EventDrivenAssemblyService:
             return None
         return tenant.name
 
+    def _persist_job_events(
+        self,
+        *,
+        job: Job,
+        tenant: Tenant,
+        license: License,
+        events_by_rule: dict[str, list[EventRecordAttribute]],
+    ) -> None:
+        metadata = SP.metadata_provider.get(license, version=DEFAULT_VERSION)
+        persist_names = resource_scoped_rule_names(job, metadata)
+        to_save = {
+            rule: evs
+            for rule, evs in events_by_rule.items()
+            if rule in persist_names and evs
+        }
+        if not to_save and events_by_rule:
+            to_save = {
+                rule: evs
+                for rule, evs in events_by_rule.items()
+                if rule in job.rules_to_scan and evs
+            }
+            _LOG.info(
+                'Job %s: persisting events for %d rule(s) without '
+                'resource-scoped LM metadata (dict events meta only)',
+                job.id,
+                len(to_save),
+            )
+        elif not to_save:
+            _LOG.debug(
+                'Job %s: skip events persist (no event records per rule)',
+                job.id,
+            )
+            return
+        else:
+            _LOG.info(
+                'Job %s: persisting events for %d resource-scoped rule(s)',
+                job.id,
+                len(to_save),
+            )
+
+        if job.platform_id:
+            platform = self._platform_service.get_nullable(job.platform_id)
+            if platform:
+                SP.job_events_service.save(
+                    platform=platform,
+                    job=job,
+                    events_by_rule=to_save,
+                    license=license,
+                    metadata=metadata,
+                )
+            return
+
+        SP.job_events_service.save(
+            tenant=tenant,
+            job=job,
+            events_by_rule=to_save,
+            license=license,
+            metadata=metadata,
+        )
+
     def _obtain_tenant(self, name: str) -> Tenant | None:
         _LOG.debug("Going to retrieve Tenant by '%s' name.", name)
         _head = f"Tenant:'{name}'"
@@ -291,8 +384,17 @@ class EventDrivenAssemblyService:
 
     def _apply_licenses_and_filter_rule_refs(
         self,
-        tenant_jobs: list[tuple[Tenant, Job, JobRuleRefs | None]],
-    ) -> list[tuple[Job, JobRuleRefs | None]]:
+        tenant_jobs: list[
+            tuple[
+                Tenant,
+                Job,
+                JobRuleRefs | None,
+                dict[str, list[EventRecordAttribute]],
+            ]
+        ],
+    ) -> list[
+        tuple[Job, JobRuleRefs | None, dict[str, list[EventRecordAttribute]]]
+    ]:
         """
         Filter by event-driven license and ruleset cloud.
 
@@ -300,8 +402,10 @@ class EventDrivenAssemblyService:
         Kubernetes, even when ``tenant.cloud`` is a public cloud—otherwise K8s
         rulesets would be dropped.
         """
-        allowed_jobs: list[tuple[Job, JobRuleRefs | None]] = []
-        for tenant, job, rule_refs in tenant_jobs:
+        allowed_jobs: list[
+            tuple[Job, JobRuleRefs | None, dict[str, list[EventRecordAttribute]]]
+        ] = []
+        for tenant, job, rule_refs, events_by_rule in tenant_jobs:
             _license = self._get_license(tenant)
             if not _license:
                 _LOG.debug(
@@ -373,7 +477,13 @@ class EventDrivenAssemblyService:
                 if rule_refs is None
                 else rule_refs.filtered_to_scan(restricted_rules_to_scan)
             )
-            allowed_jobs.append((job, filtered_refs))
+            restricted_set = set(restricted_rules_to_scan)
+            filtered_events = {
+                rule: evs
+                for rule, evs in events_by_rule.items()
+                if rule in restricted_set
+            }
+            allowed_jobs.append((job, filtered_refs, filtered_events))
 
         return allowed_jobs
 
