@@ -6,9 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.14.0] - 2026-04-28
 
-### Fixed
-- [11950] Fixed issue when `sre integrations event_sources update` command was returning `data` key in the response
-- Added hints for downloading presigned report artifacts for the following commands:
+### Added
+- [12056] Added hints for downloading presigned report artifacts for the following commands:
   - `sre report rules jobs`
   - `sre report errors jobs`
   - `sre report compliance jobs`
@@ -17,7 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `sre report resource platform_latest`
   - `sre report resource job`
   - `sre report raw latest`
-- Added `--href` flag to `sre report raw latest` command
+- [12056] Added `--href` flag to `sre report raw latest` command
+
+### Fixed
+- [11950] Fixed issue when `sre integrations event_sources update` command was returning `data` key in the response
 
 ## [5.13.0] - 2026-03-18
 
