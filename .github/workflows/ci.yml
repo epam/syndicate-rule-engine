@@ -65,6 +65,24 @@ jobs:
         echo "changes_found=false" >>$GITHUB_OUTPUT
         echo "dist=/tmp/bavp/dist" >>$GITHUB_OUTPUT
 
+  cli_tests:
+    name: Run CLI tests
+    needs: check_modified_files
+    if: ${{ needs.check_modified_files.outputs.cli_files_changes_found == 'true' }}
+    strategy:
+      matrix:
+        python-version:
+          - "3.10"
+    uses: ./.github/workflows/pytest-with-coverage-artifacts.yml
+    with:
+      python-version: ${{ matrix.python-version }}
+      pytest-path: cli/srecli_tests
+      cov-path: cli/srecli
+      coverage-xml-filename: cli-coverage.xml
+      junit-xml-filename: cli-report.xml
+      coverage-artifact-name: cli-coverage-report
+      test-report-artifact-name: cli-test-report
+
   build_package:
     name: Build CLI package
     needs: check_modified_files
@@ -77,37 +95,17 @@ jobs:
     name: Run Python tests
     needs: check_modified_files
     if: ${{ needs.check_modified_files.outputs.src_files_changes_found == 'true' }}
-    runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version:
           - "3.10"
 #          - "3.11"  # TODO: if it's uncommented the pipeline fails because it tries to upload coverage.xml twice for each version and there is a conflict. Should be fixed
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        ref: ${{ github.event.pull_request.head.sha }}
-    - name: Install uv and set the python version
-      uses: astral-sh/setup-uv@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-        enable-cache: true
-        cache-dependency-glob: "uv.lock"
-    - name: Install dependencies
-      run: |
-        uv sync --all-extras --all-groups --prerelease=allow
-    - name: Run tests with Python ${{ matrix.python-version }}
-      run: |
-        uv run --frozen pytest --verbose --cov=src/ --cov-report=term --cov-report=xml:coverage.xml --junitxml=report.xml -n auto
-    - name: Upload coverage report
-      uses: actions/upload-artifact@v4
-      with:
-        name: coverage-report
-        path: coverage.xml
-        retention-days: 1
-    - name: Upload test report
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-report
-        path: report.xml
-        retention-days: 1
+    uses: ./.github/workflows/pytest-with-coverage-artifacts.yml
+    with:
+      python-version: ${{ matrix.python-version }}
+      pytest-path: tests
+      cov-path: src/
+      coverage-xml-filename: coverage.xml
+      junit-xml-filename: report.xml
+      coverage-artifact-name: coverage-report
+      test-report-artifact-name: test-report

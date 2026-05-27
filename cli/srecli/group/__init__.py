@@ -19,6 +19,9 @@ from dateutil.parser import isoparse
 from tabulate import tabulate
 
 from srecli.service.adapter_client import SREApiClient, SREResponse
+from srecli.service.hints import (
+    format_hints
+)
 from srecli.service.config import (
     AbstractSREConfig,
     SRECLIConfig,
@@ -30,6 +33,7 @@ if TYPE_CHECKING:
 from srecli.service.constants import (
     CONTEXT_MODULAR_ADMIN_USERNAME,
     DATA_ATTR,
+    HINTS_ATTR,
     ITEMS_ATTR,
     ERRORS_ATTR,
     MESSAGE_ATTR,
@@ -351,11 +355,17 @@ class cli_response:  # noqa
                         click.echo(f'Next token: \'{next_token}\'')
                     click.echo(table)
                     _LOG.info(f'Finished request: \'{trace_id}\'')
+                if resp.hints:
+                    click.echo()
+                    click.echo(format_hints(resp.hints))
 
             if json_view:
                 _LOG.info('Returning json view')
                 data = JsonResponseProcessor().format(resp)
                 click.echo(json.dumps(data, indent=4))
+                if resp.hints:
+                    click.echo()
+                    click.echo(format_hints(resp.hints))
             sys.exit(self.to_exit_code(resp.code))
 
         return wrapper
@@ -454,6 +464,8 @@ class ModularResponseProcessor(JsonResponseProcessor):
             base[MESSAGE_ATTR] = message
         else:
             base[ITEMS_ATTR] = [dct]
+        if resp.hints:
+            base[HINTS_ATTR] = resp.hints
         return base
 
 
