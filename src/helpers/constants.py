@@ -1,12 +1,24 @@
 import operator
+import os
+from datetime import datetime
 from enum import Enum
-from itertools import filterfalse
-from typing import Iterator
+from itertools import chain, filterfalse
+from typing import Callable, Iterator, Literal, MutableMapping, TypeVar, \
+    overload
 
+from dateutil.relativedelta import SU, relativedelta
 from typing_extensions import Self
 
 
 # from http import HTTPMethod  # python3.11+
+
+
+APP_NAME = 'sre'
+"""Application name in lower case."""
+
+APP_NAME_UPPER = APP_NAME.upper()
+"""Application name in upper case."""
+
 
 class HTTPMethod(str, Enum):
     HEAD = 'HEAD'
@@ -17,10 +29,11 @@ class HTTPMethod(str, Enum):
     PUT = 'PUT'
 
 
-class CustodianEndpoint(str, Enum):
+class Endpoint(str, Enum):
     """
     Should correspond to Api gateway models
     """
+
     DOC = '/doc'
     JOBS = '/jobs'
     ROLES = '/roles'
@@ -36,34 +49,34 @@ class CustodianEndpoint(str, Enum):
     LICENSES = '/licenses'
     POLICIES = '/policies'
     JOBS_K8S = '/jobs/k8s'
+    RESOURCES = '/resources'
     CUSTOMERS = '/customers'
     HEALTH_ID = '/health/{id}'
     JOBS_JOB = '/jobs/{job_id}'
+    JOBS_JOB_RESUME = '/jobs/{job_id}/resume'
     DOC_PROXY = '/doc/{proxy+}'
     ROLES_NAME = '/roles/{name}'
     CREDENTIALS = '/credentials'
-    META_META = '/rule-meta/meta'
     RULE_SOURCES = '/rule-sources'
     USERS_WHOAMI = '/users/whoami'
+    RESOURCES_ARN = '/resources/arn'
     SCHEDULED_JOB = '/scheduled-job'
     PLATFORMS_K8S = '/platforms/k8s'
     SETTINGS_MAIL = '/settings/mail'
-    JOBS_STANDARD = '/jobs/standard'
     BATCH_RESULTS = '/batch-results'
     REPORTS_RETRY = '/reports/retry'
     POLICIES_NAME = '/policies/{name}'
-    METRICS_STATUS = '/metrics/status'
+    SERVICE_OPERATIONS_STATUS = '/service-operations/status'
     REPORTS_CLEVEL = '/reports/clevel'
     METRICS_UPDATE = '/metrics/update'
+    METADATA_UPDATE = '/metadata/update'
     REPORTS_STATUS = '/reports/status'
     REPORTS_PROJECT = '/reports/project'
     USERS_USERNAME = '/users/{username}'
     CREDENTIALS_ID = '/credentials/{id}'
-    META_MAPPINGS = '/rule-meta/mappings'
-    RULESETS_CONTENT = '/rulesets/content'
-    ED_RULESETS = '/rulesets/event-driven'
+    RULE_SOURCES_ID = '/rule-sources/{id}'
+    RULESETS_RELEASE = '/rulesets/release'
     DOC_SWAGGER_JSON = '/doc/swagger.json'
-    META_STANDARDS = '/rule-meta/standards'
     RULE_META_UPDATER = '/rules/update-meta'
     REPORTS_PUSH_DOJO = '/reports/push/dojo'
     CUSTOMERS_RABBITMQ = '/customers/rabbitmq'
@@ -75,13 +88,20 @@ class CustodianEndpoint(str, Enum):
     TENANTS_TENANT_NAME = '/tenants/{tenant_name}'
     USERS_RESET_PASSWORD = '/users/reset-password'
     REPORTS_EVENT_DRIVEN = '/reports/event_driven'
+    RESOURCES_EXCEPTIONS = '/resources/exceptions'
+    RULE_SOURCES_ID_SYNC = '/rule-sources/{id}/sync'
     LICENSES_LICENSE_KEY = '/licenses/{license_key}'
     SETTINGS_SEND_REPORTS = '/settings/send_reports'
     PLATFORMS_K8S_ID = '/platforms/k8s/{platform_id}'
+    INTEGRATIONS_CHRONICLE = '/integrations/chronicle'
     CREDENTIALS_ID_BINDING = '/credentials/{id}/binding'
+    RESOURCES_EXCEPTIONS_ID = '/resources/exceptions/{id}'
     CUSTOMERS_EXCLUDED_RULES = '/customers/excluded-rules'
     INTEGRATIONS_DEFECT_DOJO = '/integrations/defect-dojo'
+    INTEGRATIONS_EVENT_SOURCES = '/integrations/event-sources'
+    INTEGRATIONS_EVENT_SOURCES_ID = '/integrations/event-sources/{id}'
     REPORTS_PUSH_DOJO_JOB_ID = '/reports/push/dojo/{job_id}'
+    INTEGRATIONS_CHRONICLE_ID = '/integrations/chronicle/{id}'
     REPORTS_RULES_JOBS_JOB_ID = '/reports/rules/jobs/{job_id}'
     BATCH_RESULTS_JOB_ID = '/batch-results/{batch_results_id}'
     LICENSES_LICENSE_KEY_SYNC = '/licenses/{license_key}/sync'
@@ -91,23 +111,58 @@ class CustodianEndpoint(str, Enum):
     REPORTS_DETAILS_JOBS_JOB_ID = '/reports/details/jobs/{job_id}'
     TENANTS_TENANT_NAME_REGIONS = '/tenants/{tenant_name}/regions'
     REPORTS_FINDINGS_JOBS_JOB_ID = '/reports/findings/jobs/{job_id}'
+    REPORTS_PUSH_CHRONICLE_JOB_ID = '/reports/push/chronicle/{job_id}'
     REPORTS_RESOURCES_JOBS_JOB_ID = '/reports/resources/jobs/{job_id}'
     REPORTS_COMPLIANCE_JOBS_JOB_ID = '/reports/compliance/jobs/{job_id}'
     SETTINGS_LICENSE_MANAGER_CLIENT = '/settings/license-manager/client'
     SETTINGS_LICENSE_MANAGER_CONFIG = '/settings/license-manager/config'
     LICENSE_LICENSE_KEY_ACTIVATION = '/licenses/{license_key}/activation'
     REPORTS_RULES_TENANTS_TENANT_NAME = '/reports/rules/tenants/{tenant_name}'
-    TENANTS_TENANT_NAME_EXCLUDED_RULES = '/tenants/{tenant_name}/excluded-rules'
-    TENANTS_TENANT_NAME_ACTIVE_LICENSES = '/tenants/{tenant_name}/active-licenses'
-    REPORTS_COMPLIANCE_TENANTS_TENANT_NAME = '/reports/compliance/tenants/{tenant_name}'
-    INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION = '/integrations/defect-dojo/{id}/activation'
-    REPORTS_DETAILS_TENANTS_TENANT_NAME_JOBS = '/reports/details/tenants/{tenant_name}/jobs'
-    REPORTS_DIGESTS_TENANTS_TENANT_NAME_JOBS = '/reports/digests/tenants/{tenant_name}/jobs'
-    REPORTS_FINDINGS_TENANTS_TENANT_NAME_JOBS = '/reports/findings/tenants/{tenant_name}/jobs'
-    REPORTS_RESOURCES_TENANTS_TENANT_NAME_JOBS = '/reports/resources/tenants/{tenant_name}/jobs'
-    REPORTS_RAW_TENANTS_TENANT_NAME_STATE_LATEST = '/reports/raw/tenants/{tenant_name}/state/latest'
-    REPORTS_RESOURCES_TENANTS_TENANT_NAME_LATEST = '/reports/resources/tenants/{tenant_name}/state/latest'
-    REPORTS_RESOURCES_PLATFORMS_K8S_PLATFORM_ID_LATEST = '/reports/resources/platforms/k8s/{platform_id}/state/latest'
+    TENANTS_TENANT_NAME_EXCLUDED_RULES = (
+        '/tenants/{tenant_name}/excluded-rules'
+    )
+    TENANTS_TENANT_NAME_ACTIVE_LICENSES = (
+        '/tenants/{tenant_name}/active-licenses'
+    )
+    INTEGRATIONS_CHRONICLE_ID_ACTIVATION = (
+        '/integrations/chronicle/{id}/activation'
+    )
+    REPORTS_COMPLIANCE_TENANTS_TENANT_NAME = (
+        '/reports/compliance/tenants/{tenant_name}'
+    )
+    INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION = (
+        '/integrations/defect-dojo/{id}/activation'
+    )
+    REPORTS_DETAILS_TENANTS_TENANT_NAME_JOBS = (
+        '/reports/details/tenants/{tenant_name}/jobs'
+    )
+    REPORTS_DIGESTS_TENANTS_TENANT_NAME_JOBS = (
+        '/reports/digests/tenants/{tenant_name}/jobs'
+    )
+    REPORTS_FINDINGS_TENANTS_TENANT_NAME_JOBS = (
+        '/reports/findings/tenants/{tenant_name}/jobs'
+    )
+    REPORTS_PUSH_CHRONICLE_TENANTS_TENANT_NAME = (
+        '/reports/push/chronicle/tenants/{tenant_name}'
+    )
+    REPORTS_RESOURCES_TENANTS_TENANT_NAME_JOBS = (
+        '/reports/resources/tenants/{tenant_name}/jobs'
+    )
+    REPORTS_RAW_TENANTS_TENANT_NAME_STATE_LATEST = (
+        '/reports/raw/tenants/{tenant_name}/state/latest'
+    )
+    REPORTS_RESOURCES_TENANTS_TENANT_NAME_LATEST = (
+        '/reports/resources/tenants/{tenant_name}/state/latest'
+    )
+    REPORTS_RESOURCES_PLATFORMS_K8S_PLATFORM_ID_LATEST = (
+        '/reports/resources/platforms/k8s/{platform_id}/state/latest'
+    )
+    REPORTS_TOP_VIOLATIONS_JOBS_JOB_ID = (
+        '/reports/top/violations/jobs/{job_id}'
+    )
+    REPORTS_TOP_VIOLATIONS_COMPARE_JOBS = (
+        '/reports/top/violations/compare/jobs'
+    )
 
     @classmethod
     def match(cls, resource: str) -> Self | None:
@@ -119,9 +174,9 @@ class CustodianEndpoint(str, Enum):
         - /path/to/resource
         - /path/to/resource/
         This method does the following:
-        >>> CustodianEndpoint.match('/jobs/{job_id}') == CustodianEndpoint.JOBS_JOB
-        >>> CustodianEndpoint.match('jobs/{job_id}') == CustodianEndpoint.JOBS_JOB
-        >>> CustodianEndpoint.match('jobs/{job_id}/') == CustodianEndpoint.JOBS_JOB
+        >>> Endpoint.match('/jobs/{job_id}') == Endpoint.JOBS_JOB
+        >>> Endpoint.match('jobs/{job_id}') == Endpoint.JOBS_JOB
+        >>> Endpoint.match('jobs/{job_id}/') == Endpoint.JOBS_JOB
         :param resource:
         :return:
         """
@@ -137,10 +192,12 @@ class CustodianEndpoint(str, Enum):
 LAMBDA_URL_HEADER_CONTENT_TYPE_UPPER = 'Content-Type'
 JSON_CONTENT_TYPE = 'application/json'
 
+MCP_USER_NAME_HEADER = 'X-Sre-Mcp-User-Name'
 
-DEFAULT_SYSTEM_CUSTOMER: str = 'SYSTEM'
-DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME = \
+DEFAULT_SYSTEM_CUSTOMER: str = 'CUSTODIAN_SYSTEM'
+DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME = (
     'custodian.rules-metadata-repo-access'
+)
 
 ACTION_PARAM = 'action'
 
@@ -148,6 +205,7 @@ STANDARD = 'standard'
 
 # Modular:Parent related attributes and types
 CUSTODIAN_TYPE = 'CUSTODIAN'  # application that contains access to CUSTODIAN
+CUSTODIAN_EVENT_SOURCE_TYPE = 'CUSTODIAN_EVENT_SOURCE'
 SCHEDULED_JOB_TYPE = 'SCHEDULED_JOB'
 META_ATTR = 'meta'
 TENANT_ENTITY_TYPE = 'TENANT'
@@ -172,46 +230,83 @@ CLOUD_ATTR = 'cloud'
 CLOUD_IDENTIFIER_ATTR = 'cloud_identifier'
 REGION_ATTR = 'region'
 JOB_ID_ATTR = 'job_id'
-AWS_CLOUD_ATTR = 'AWS'
-AZURE_CLOUD_ATTR = 'AZURE'
-# the same, but first is obsolete, second is the one from Maestro's tenants
-GCP_CLOUD_ATTR, GOOGLE_CLOUD_ATTR = 'GCP', 'GOOGLE'
-KUBERNETES_CLOUD_ATTR = 'KUBERNETES'  # from rules metadata
+DOJO_PRODUCT_ATTR = 'product'
+DOJO_ENGAGEMENT_ATTR = 'engagement'
+DOJO_TEST_ATTR = 'test'
 
 
 class Cloud(str, Enum):
     """
     More like provider. "Cloud" is just a name that happen to be used
     """
+
     AWS = 'AWS'
     AZURE = 'AZURE'
     GOOGLE = 'GOOGLE'
     GCP = 'GOOGLE'  # alias
+    K8S = 'KUBERNETES'  # alis
     KUBERNETES = 'KUBERNETES'
+
+    @overload
+    @classmethod
+    def parse(cls, cloud: str, *, safe: Literal[True] = True) -> Self | None: ...
+
+    @overload
+    @classmethod
+    def parse(cls, cloud: str, *, safe: Literal[False]) -> Self: ...
+
+    @classmethod
+    def parse(cls, cloud: str, *, safe: bool = True) -> Self | None:
+
+        from helpers.exceptions import CloudNotSupportedError
+        try:
+            return cls[cloud.upper()]
+        except KeyError:
+            if safe:
+                return None
+            raise CloudNotSupportedError(f"Cloud {cloud} is not supported")
 
 
 # The values of this enum represent what Custom core can scan, i.e. what
 # type of rules and ruleset(s) we can have. These are not tenant clouds
 class RuleDomain(str, Enum):
-    AWS = AWS_CLOUD_ATTR
-    AZURE = AZURE_CLOUD_ATTR
-    GCP = GCP_CLOUD_ATTR
-    KUBERNETES = KUBERNETES_CLOUD_ATTR
+    AWS = 'AWS'
+    AZURE = 'AZURE'
+    GCP = 'GCP'
+    GOOGLE = 'GCP'
+    KUBERNETES = 'KUBERNETES'
+    K8S = 'KUBERNETES'
 
     @classmethod
     def from_tenant_cloud(cls, cloud: str) -> Self | None:
-        match cloud:
-            case 'AWS':
-                return cls.AWS
-            case 'AZURE':
-                return cls.AZURE
-            case 'GOOGLE':
-                return cls.GCP
+        try:
+            return cls[cloud.upper()]
+        except KeyError:
+            return
 
 
 class JobType(str, Enum):
-    MANUAL = 'manual'
+    """
+    Our inner job type. Used in SREJobs table.
+    """
+
+    STANDARD = 'standard'
     REACTIVE = 'reactive'
+    SCHEDULED = 'scheduled'
+
+    # TODO: deprecate this type in future releases
+    # MANUAL is an alias for STANDARD + SCHEDULED
+    MANUAL = 'manual'
+
+
+class ServiceOperationType(str, Enum):
+    """
+    Allowed service operation types for status tracking endpoint
+    """
+
+    UPDATE_METRICS = 'metrics-update'
+    UPDATE_METADATA = 'metadata-update'
+    PUSH_DOJO = 'push-dojo'
 
 
 class ReportFormat(str, Enum):
@@ -231,6 +326,7 @@ class PolicyErrorType(str, Enum):
     """
     For statistics
     """
+
     SKIPPED = 'SKIPPED'
     ACCESS = 'ACCESS'  # not enough permissions
     CREDENTIALS = 'CREDENTIALS'  # invalid credentials
@@ -264,9 +360,12 @@ GIT_REF_ATTR = 'git_ref'
 GIT_RULES_PREFIX_ATTR = 'git_rules_prefix'
 GIT_URL_ATTR = 'git_url'
 
-STATUS_SYNCING = 'SYNCING'
-STATUS_SYNCED = 'SYNCED'
-STATUS_SYNCING_FAILED = 'SYNCING_FAILED'
+
+class RuleSourceSyncingStatus(str, Enum):
+    SYNCING = 'SYNCING'
+    SYNCED = 'SYNCED'
+    FAILED = 'SYNCING_FAILED'
+
 
 EVENT_DRIVEN_ATTR = 'event_driven'
 
@@ -283,7 +382,6 @@ LICENSE_KEYS_ATTR = 'license_keys'
 TENANT_LICENSE_KEY_ATTR = 'tenant_license_key'
 TENANT_LICENSE_KEYS_ATTR = 'tenant_license_keys'
 CUSTOMERS_ATTR = 'customers'
-
 
 # License Manager[Setting].Config:
 HOST_ATTR = 'host'
@@ -306,131 +404,445 @@ AUTHORIZATION_PARAM = 'authorization'
 # on-prem
 DOCKER_SERVICE_MODE, SAAS_SERVICE_MODE = 'docker', 'saas'
 
-ENV_TRUE = {'1', 'true', 'yes', 'y'}
-
 # RabbitMQ request
 EXTERNAL_DATA_ATTR = 'externalData'
 EXTERNAL_DATA_KEY_ATTR = 'externalDataKey'
 EXTERNAL_DATA_BUCKET_ATTR = 'externalDataBucket'
 
-LOG_FORMAT = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
+
+_SENTINEL = object()
+_E = TypeVar('_E')
 
 
-class CAASEnv:
+class EnvEnum(str, Enum):
     """
-    Envs that can be set for lambdas of custodian service
+    Abstract enumeration class for holding environment variables
     """
-    # modes
-    SERVICE_MODE = 'CAAS_SERVICE_MODE'
-    TESTING_MODE = 'CAAS_TESTING'
-    MOCKED_RABBIT_MQ_S3 = 'CAAS_MOCK_RABBIT_MQ_S3'
-    SYSTEM_CUSTOMER_NAME = 'SYSTEM_CUSTOMER_NAME'
-    LOG_LEVEL = 'CAAS_LOG_LEVEL'
 
-    # inner envs (they are set automatically when request comes)
-    API_GATEWAY_HOST = '_CAAS_API_GATEWAY_HOST'
-    API_GATEWAY_STAGE = '_CAAS_API_GATEWAY_STAGE'
-    INVOCATION_REQUEST_ID = '_INVOCATION_REQUEST_ID'
+    _default: str | Callable[[type['EnvEnum']], str | None] | None
+    aliases: tuple[str, ...]
+
+    @staticmethod
+    def source() -> MutableMapping:
+        return os.environ
+
+    def __new__(
+        cls,
+        value: str,
+        aliases: tuple[str, ...] | str = (),
+        default: str | Callable[[type['EnvEnum']], str | None] = None,  # pyright: ignore
+    ):
+        """
+        All environment variables and optionally their default values.
+        Since envs always have string type the default value also should be
+        of string type and then converted to the necessary type in code.
+        There is no default value if not specified (default equal to unset)
+        """
+        obj = str.__new__(cls, value)
+        obj._value_ = value
+
+        obj._default = default
+        obj.aliases = (aliases,) if isinstance(aliases, str) else aliases
+        return obj
+
+    def __str__(self) -> str:
+        return self.value
+
+    @property
+    def default(self) -> str | None:
+        if self._default is None:
+            return
+        if callable(self._default):
+            return self._default(self.__class__)
+        return self._default
+
+    def get(self, default=_SENTINEL, /) -> str | None:
+        # TODO: improve typing
+        source = self.source()
+        for k in chain((self.value,), self.aliases):
+            if k in source:
+                return source[k]
+
+        # returning a default value
+        if default is _SENTINEL:
+            default = self.default
+        if default is not None:
+            default = str(default)
+        return default
+
+    def discard(self) -> None:
+        self.source().pop(self.value, None)
+
+    def set(self, val: str | None, /):
+        if val is None:
+            self.discard()
+        else:
+            self.source()[self.value] = str(val)
+
+    def alias(self, n: int = 0, /) -> str | None:
+        try:
+            return self.aliases[n]
+        except IndexError:
+            return
+
+    def is_set(self) -> bool:
+        """
+        Checks whether this environment variable is set
+        """
+        return self.get() is not None
+
+    def as_bool(
+        self, allowed: str | tuple[str, ...] = ('y', 'yes', 'true', '1'), /
+    ) -> bool:
+        """
+        Treats env as boolean variable
+        """
+        allowed = (allowed,) if isinstance(allowed, str) else tuple(allowed)
+        return str(self.get()).lower() in allowed
+
+    def as_str(self) -> str:
+        """
+        Makes sure that the env exists. Supposed to be used with envs
+        that are requires to be set otherwise there's no even need to start
+        the server
+        """
+        val = self.get()
+        if val is None:
+            raise RuntimeError(f'Env {self.value} is required')
+        return val
+
+    def as_int(self) -> int:
+        val = self.as_str()
+        try:
+            return int(float(val))
+        except (ValueError, OverflowError):
+            raise RuntimeError(f'Env {self.value} must contain integer')
+
+    def as_float(self) -> float:
+        val = self.as_str()
+        try:
+            return float(val)
+        except ValueError:
+            raise RuntimeError(f'Env {self.value} must contain float')
+
+    def as_enum(self, typ: type[_E], /) -> _E:
+        val = self.as_str()
+        try:
+            return typ(val)
+        except ValueError:
+            raise RuntimeError(
+                f'Env {self.value} must be one of: {[i.value for i in typ]}'
+            )
+
+
+class Env(EnvEnum):
+    SERVICE_MODE = 'SRE_SERVICE_MODE', ('CAAS_SERVICE_MODE',)
+    SYSTEM_CUSTOMER_NAME = (
+        'SRE_SYSTEM_CUSTOMER_NAME',
+        ('SYSTEM_CUSTOMER_NAME',),
+        DEFAULT_SYSTEM_CUSTOMER,
+    )
+    LOG_LEVEL = 'SRE_LOG_LEVEL', ('CAAS_LOG_LEVEL',), 'INFO'
+    EXECUTOR_LOGS_FILENAME = 'SRE_EXECUTOR_LOGS_FILENAME', ()
 
     # buckets
-    RULESETS_BUCKET_NAME = 'CAAS_RULESETS_BUCKET_NAME'
-    REPORTS_BUCKET_NAME = 'CAAS_REPORTS_BUCKET_NAME'
-    METRICS_BUCKET_NAME = 'CAAS_METRICS_BUCKET_NAME'
-    STATISTICS_BUCKET_NAME = 'CAAS_STATISTICS_BUCKET_NAME'
-    RECOMMENDATIONS_BUCKET_NAME = 'CAAS_RECOMMENDATIONS_BUCKET_NAME'
+    RULESETS_BUCKET_NAME = (
+        'SRE_RULESETS_BUCKET_NAME',
+        ('CAAS_RULESETS_BUCKET_NAME',),
+        'rulesets',
+    )
+    REPORTS_BUCKET_NAME = (
+        'SRE_REPORTS_BUCKET_NAME',
+        ('CAAS_REPORTS_BUCKET_NAME',),
+        'reports',
+    )
+    STATISTICS_BUCKET_NAME = (
+        'SRE_STATISTICS_BUCKET_NAME',
+        ('CAAS_STATISTICS_BUCKET_NAME',),
+        'statistics',
+    )
+    RECOMMENDATIONS_BUCKET_NAME = (
+        'SRE_RECOMMENDATIONS_BUCKET_NAME',
+        ('CAAS_RECOMMENDATIONS_BUCKET_NAME',),
+        'recommendation',
+    )
+    REPORTS_SNAPSHOTS_LIFETIME_DAYS = (
+        'SRE_REPORTS_SNAPSHOTS_LIFETIME_DAYS',
+        (),
+        '65',
+    )
 
     # Cognito either one will work, but ID faster and safer
-    USER_POOL_NAME = 'CAAS_USER_POOL_NAME'
-    USER_POOL_ID = 'CAAS_USER_POOL_ID'
+    USER_POOL_NAME = 'SRE_USER_POOL_NAME', ('CAAS_USER_POOL_NAME',)
+    USER_POOL_ID = 'SRE_USER_POOL_ID', ('CAAS_USER_POOL_ID',)
 
     # rbac
-    ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS = 'CAAS_ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS'  # noqa, can be useful for QA
+    ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS = (
+        'SRE_ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS',
+        ('CAAS_ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS',),
+    )
 
     # lm
-    LM_TOKEN_LIFETIME_MINUTES = 'CAAS_LM_TOKEN_LIFETIME_MINUTES'
+    LM_TOKEN_LIFETIME_MINUTES = (
+        'SRE_LM_TOKEN_LIFETIME_MINUTES',
+        ('CAAS_LM_TOKEN_LIFETIME_MINUTES',),
+        '120',
+    )
 
     # some deployment options
-    ACCOUNT_ID = 'CAAS_ACCOUNT_ID'
-    LAMBDA_ALIAS_NAME = 'CAAS_LAMBDA_ALIAS_NAME'
+    ACCOUNT_ID = 'SRE_ACCOUNT_ID', ('CAAS_ACCOUNT_ID',)
+    DEV_ACCOUNT_ID = (
+        'SRE_DEV_ACCOUNT_ID',
+        ('CAAS_DEV_ACCOUNT_ID',),
+        '323549576358',
+    )
+    LAMBDA_ALIAS_NAME = 'SRE_LAMBDA_ALIAS_NAME', ('CAAS_LAMBDA_ALIAS_NAME',)
 
     # batch options
-    BATCH_JOB_DEF_NAME = 'CAAS_BATCH_JOB_DEF_NAME'
-    BATCH_JOB_QUEUE_NAME = 'CAAS_BATCH_JOB_QUEUE_NAME'
-    BATCH_JOB_LOG_LEVEL = 'CAAS_BATCH_JOB_LOG_LEVEL'
-    BATCH_JOB_LIFETIME_MINUTES = 'CAAS_BATCH_JOB_LIFETIME_MINUTES'
-    EB_SERVICE_ROLE_TO_INVOKE_BATCH = 'CAAS_EB_SERVICE_ROLE_TO_INVOKE_BATCH'
+    BATCH_JOB_DEF_NAME = (
+        'SRE_BATCH_JOB_DEF_NAME',
+        ('CAAS_BATCH_JOB_DEF_NAME',),
+        'batch-job-definition',
+    )
+    BATCH_JOB_QUEUE_NAME = (
+        'SRE_BATCH_JOB_QUEUE_NAME',
+        ('CAAS_BATCH_JOB_QUEUE_NAME',),
+        'batch-job-queue',
+    )
+    BATCH_JOB_LOG_LEVEL = (
+        'SRE_BATCH_JOB_LOG_LEVEL',
+        ('CAAS_BATCH_JOB_LOG_LEVEL',),
+        'DEBUG',
+    )
+    BATCH_JOB_LIFETIME_MINUTES = (
+        'SRE_BATCH_JOB_LIFETIME_MINUTES',
+        ('CAAS_BATCH_JOB_LIFETIME_MINUTES',),
+        '180',
+    )
+    EB_SERVICE_ROLE_TO_INVOKE_BATCH = (
+        'SRE_EB_SERVICE_ROLE_TO_INVOKE_BATCH',
+        ('CAAS_EB_SERVICE_ROLE_TO_INVOKE_BATCH',),
+    )
 
     # events
-    EVENTS_TTL_HOURS = 'CAAS_EVENTS_TTL_HOURS'
-    NATIVE_EVENTS_PER_ITEM = 'CAAS_NATIVE_EVENTS_PER_ITEM'
-    EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE = 'CAAS_EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE'  # noqa
-    NUMBER_OF_PARTITIONS_FOR_EVENTS = 'CAAS_NUMBER_OF_PARTITIONS_FOR_EVENTS'
+    EVENTS_TTL_HOURS = 'SRE_EVENTS_TTL_HOURS', ('CAAS_EVENTS_TTL_HOURS',), '48'
+    NATIVE_EVENTS_PER_ITEM = (
+        'SRE_NATIVE_EVENTS_PER_ITEM',
+        ('CAAS_NATIVE_EVENTS_PER_ITEM',),
+        '100',
+    )
+    EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE = (
+        'SRE_EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE',
+        ('CAAS_EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE',),
+        '100',
+    )
+    NUMBER_OF_PARTITIONS_FOR_EVENTS = (
+        'SRE_NUMBER_OF_PARTITIONS_FOR_EVENTS',
+        ('CAAS_NUMBER_OF_PARTITIONS_FOR_EVENTS',),
+        '10',
+    )
+    # In-process cache for gzip JSON event mappings loaded from rulesets bucket (ingest,
+    # rules resolution). 0 = never expire until process restart; >0 = seconds per key.
+    EVENT_MAPPING_CACHE_TTL_SECONDS = (
+        'SRE_EVENT_MAPPING_CACHE_TTL_SECONDS',
+        ('CAAS_EVENT_MAPPING_CACHE_TTL_SECONDS',),
+        '1800',
+    )
 
     # jobs
-    JOBS_TIME_TO_LIVE_DAYS = 'CAAS_JOBS_TIME_TO_LIVE_DAYS'
+    JOBS_TIME_TO_LIVE_DAYS = (
+        'SRE_JOBS_TIME_TO_LIVE_DAYS',
+        ('CAAS_JOBS_TIME_TO_LIVE_DAYS',),
+    )
 
     # some logic setting
-    SKIP_CLOUD_IDENTIFIER_VALIDATION = 'CAAS_SKIP_CLOUD_IDENTIFIER_VALIDATION'
-    ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT = 'CAAS_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT'  # noqa
+    SKIP_CLOUD_IDENTIFIER_VALIDATION = (
+        'SRE_SKIP_CLOUD_IDENTIFIER_VALIDATION',
+        ('CAAS_SKIP_CLOUD_IDENTIFIER_VALIDATION',),
+    )
+    ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT = (
+        'SRE_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT',
+        ('CAAS_ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT',),
+    )
 
     # cache
-    INNER_CACHE_TTL_SECONDS = 'CAAS_INNER_CACHE_TTL_SECONDS'
+    INNER_CACHE_TTL_SECONDS = (
+        'SRE_INNER_CACHE_TTL_SECONDS',
+        ('CAAS_INNER_CACHE_TTL_SECONDS',),
+        '300',
+    )
 
     # on-prem access
-    MINIO_ENDPOINT = 'CAAS_MINIO_ENDPOINT'
-    MINIO_ACCESS_KEY_ID = 'CAAS_MINIO_ACCESS_KEY_ID'
-    MINIO_SECRET_ACCESS_KEY = 'CAAS_MINIO_SECRET_ACCESS_KEY'
+    MINIO_ENDPOINT = 'SRE_MINIO_ENDPOINT', ('CAAS_MINIO_ENDPOINT',)
+    MINIO_ACCESS_KEY_ID = (
+        'SRE_MINIO_ACCESS_KEY_ID',
+        ('CAAS_MINIO_ACCESS_KEY_ID',),
+    )
+    MINIO_SECRET_ACCESS_KEY = (
+        'SRE_MINIO_SECRET_ACCESS_KEY',
+        ('CAAS_MINIO_SECRET_ACCESS_KEY',),
+    )
+    MINIO_PRESIGNED_URL_HOST = (
+        'SRE_MINIO_PRESIGNED_URL_HOST',
+        ('CAAS_MINIO_PRESIGNED_URL_HOST',),
+    )
+    MINIO_PRESIGNED_URL_PUBLIC_IPV4 = ('SRE_MINIO_PRESIGNED_URL_PUBLIC_IPV4',)
+    MINIO_PRESIGNED_URL_PRIVATE_IPV4 = (
+        'SRE_MINIO_PRESIGNED_URL_PRIVATE_IPV4',
+    )
 
-    VAULT_ENDPOINT = 'CAAS_VAULT_ENDPOINT'
-    VAULT_TOKEN = 'CAAS_VAULT_TOKEN'
+    VAULT_ENDPOINT = 'SRE_VAULT_ENDPOINT', ('CAAS_VAULT_ENDPOINT',)
+    VAULT_TOKEN = 'SRE_VAULT_TOKEN', ('CAAS_VAULT_TOKEN',)
 
-    MONGO_URI = 'CAAS_MONGO_URI'
-    MONGO_DATABASE = 'CAAS_MONGO_DATABASE'
+    MONGO_URI = 'SRE_MONGO_URI', ('CAAS_MONGO_URI',)
+    MONGO_DATABASE = (
+        'SRE_MONGO_DB_NAME',
+        ('CAAS_MONGO_DATABASE',),
+        'syndicate_rule_engine',
+    )
 
-    AWS_REGION = 'AWS_REGION'
+    AWS_REGION = 'AWS_REGION', 'us-east-1'  # default lambda env so without SRE
 
     # init envs
-    SYSTEM_USER_PASSWORD = 'CAAS_SYSTEM_USER_PASSWORD'
+    SYSTEM_USER_PASSWORD = (
+        'SRE_SYSTEM_USER_PASSWORD',
+        ('CAAS_SYSTEM_USER_PASSWORD',),
+    )
+
+    # Celery
+    CELERY_BROKER_URL = 'SRE_CELERY_BROKER_URL', ('CAAS_CELERY_BROKER_URL',)
+    CELERY_TIMEZONE = 'SRE_CELERY_TIMEZONE', (), 'UTC'
+    CELERY_TASK_COMPRESSION = 'SRE_CELERY_TASK_COMPRESSION', (), 'gzip'
+    CELERY_WORKER_PREFETCH_MULTIPLIER = (
+        'SRE_CELERY_WORKER_PREFETCH_MULTIPLIER',
+        (),
+        '1',
+    )
+    CELERY_WORKER_MAX_TASK_PER_CHILD = (
+        'SRE_CELERY_WORKER_MAX_TASK_PER_CHILD',
+        (),
+        '16',
+    )
+    CELERY_RUN_STANDARD_JOB_RATE_LIMIT = (
+        'SRE_CELERY_RUN_STANDARD_JOB_RATE_LIMIT',
+        (),
+        '1/s',  # максимум 1 задача на секунду (обмежує одночасні виконання)
+    )
+
+    CELERY_MAKE_FINDINGS_SNAPSHOTS_SCHEDULE = (
+        'SRE_CELERY_MAKE_FINDINGS_SNAPSHOTS_SCHEDULE',
+        (),
+        '0 */12 * * *',  # every 12 hours
+    )
+    CELERY_SYNC_LICENSE_SCHEDULE = (
+        'SRE_CELERY_SYNC_LICENSE_SCHEDULE',
+        (),
+        '14400',  # every 4 hours
+    )
+    CELERY_COLLECT_METRICS_SCHEDULE = (
+        'SRE_CELERY_COLLECT_METRICS_SCHEDULE',
+        (),
+        '0 3,15 * * *',  # every day at 03:00 and 15:00 UTC
+    )
+    CELERY_REMOVE_EXPIRED_METRICS_SCHEDULE = (
+        'SRE_CELERY_REMOVE_EXPIRED_METRICS_SCHEDULE',
+        (),
+        '0 12 * * *',  # every day at 12:00 UTC
+    )
+    CELERY_SCAN_RESOURCES_SCHEDULE = (
+        'SRE_CELERY_SCAN_RESOURCES_SCHEDULE',
+        (),
+        '0 14 * * *',  # every day at 14:00 UTC
+    )
+    CELERY_ASSEMBLE_EVENTS_SCHEDULE = (
+        'SRE_CELERY_ASSEMBLE_EVENTS_SCHEDULE',
+        (),
+        '*/5 * * * *',  # every 5 minute
+    )
+    CELERY_CLEAR_EVENTS_SCHEDULE = (
+        'SRE_CELERY_CLEAR_EVENTS_SCHEDULE',
+        (),
+        '0 0 * * *',  # every day at 00:00 UTC
+    )
+    CELERY_PROCESS_INTERVAL_REPORTS_SCHEDULE = (
+        'SRE_CELERY_PROCESS_INTERVAL_REPORTS_SCHEDULE',
+        (),
+        '*/5 * * * *',  # every 5 minutes
+    )
+    CELERY_REMOVE_OLD_SHARDS_SCHEDULE = (
+        'SRE_CELERY_REMOVE_OLD_SHARDS_SCHEDULE',
+        (),
+        '0 9 1 * *',  # every 1st day in month at 09:00
+    )
+    CELERY_REMOVE_OLD_SHARDS_DAYS = (
+        'SRE_REMOVE_OLD_SHARDS_DAYS',
+        (),
+        180
+    )
+
+    SCAN_RESOURCES_PROCESSORS = (
+        'SRE_SCAN_RESOURCES_PROCESSORS',
+        (),
+        '2',  # 2 processors used ~1GB of RAM in the total sum
+    )
+
+    # Cloud Custodian
+    CC_LOG_LEVEL = 'SRE_CC_LOG_LEVEL', (), 'INFO'
+    ENABLE_CUSTOM_CC_PLUGINS = 'SRE_ENABLE_CUSTOM_CC_PLUGINS', ()
+
+    # Dojo
+    DOJO_PAYLOAD_SIZE_LIMIT_BYTES = 'SRE_DOJO_PAYLOAD_SIZE_LIMIT_BYTES', ()
+
+    # Metrics
+    METRICS_EXPIRATION_DAYS = 'SRE_METRICS_EXPIRATION_DAYS', ()
+
+    # Resources Exceptions
+    RESOURCES_EXCEPTIONS_MAX_EXPIRATION_DAYS = (
+        'SRE_RESOURCES_EXCEPTIONS_MAX_EXPIRATION_DAYS',
+        (),
+        '90',
+    )
+
+    @classmethod
+    def is_docker(cls) -> bool:
+        return cls.SERVICE_MODE.get() == DOCKER_SERVICE_MODE
+
+    @classmethod
+    def is_mongo_db(cls) -> bool:
+        """
+        Determines if MongoDB is being used as the database.
+        Currently based on docker mode.
+        """
+        return cls.is_docker()
+
+    @classmethod
+    def get_db_type(cls) -> Literal['MongoDB', 'DynamoDB']:
+        return 'MongoDB' if cls.is_mongo_db() else 'DynamoDB'
 
 
-class BatchJobEnv(CAASEnv):
+class BatchJobEnv(EnvEnum):
     """
     Batch executor specific envs. Note that batch can contain some envs from
     lambdas, but these that are listed here -> only for batch
     """
+
+    AWS_REGION = 'AWS_REGION', 'us-east-1'
     JOB_ID = 'AWS_BATCH_JOB_ID'
-    CUSTODIAN_JOB_ID = 'CUSTODIAN_JOB_ID'
-    BATCH_RESULTS_IDS = 'BATCH_RESULTS_IDS'
+    AWS_DEFAULT_REGION = 'AWS_DEFAULT_REGION', 'us-east-1'
 
-    TARGET_RULESETS = 'TARGET_RULESETS'
-    TARGET_REGIONS = 'TARGET_REGIONS'
-    LICENSED_RULESETS = 'LICENSED_RULESETS'
-    AFFECTED_LICENSES = 'AFFECTED_LICENSES'
-
-    EXECUTOR_MODE = 'EXECUTOR_MODE'
-    JOB_TYPE = 'JOB_TYPE'
-    SUBMITTED_AT = 'SUBMITTED_AT'
-
-    AWS_DEFAULT_REGION = 'AWS_DEFAULT_REGION'
-    CREDENTIALS_KEY = 'CREDENTIALS_KEY'
-
-    SCHEDULED_JOB_NAME = 'SCHEDULED_JOB_NAME'
-    TENANT_NAME = 'TENANT_NAME'
-    PLATFORM_ID = 'PLATFORM_ID'
     ALLOW_MANAGEMENT_CREDS = 'ALLOW_MANAGEMENT_CREDENTIALS'
-
-
-class JobComponentName(CAASEnv):
-    RECOMMENDATIONS = 'custodian-service-recommendations'
-    METRICS = 'custodian-service-metrics'
 
 
 class Permission(str, Enum):
     is_disabled: bool
     depends_on_tenant: bool
 
-    def __new__(cls, value: str, is_disabled: bool = False,
-                depends_on_tenant: bool = False):
+    def __new__(
+        cls,
+        value: str,
+        is_disabled: bool = False,
+        depends_on_tenant: bool = False,
+    ):
         """
         Hidden permissions are those that currently cannot be used by standard
         users even if the user has one. Those endpoints are available only for
@@ -453,10 +865,16 @@ class Permission(str, Enum):
 
     # todo implement tenant restrictions where the True is commented
     REPORT_PUSH_TO_DOJO = 'report:push_report_to_dojo', False, True
-    REPORT_PUSH_TO_DOJO_BATCH = 'report:push_to_dojo_batch', False,  # True
+    REPORT_PUSH_TO_DOJO_BATCH = 'report:push_to_dojo_batch', False  # True
+    REPORT_PUSH_TO_CHRONICLE = 'report:push_report_to_chronicle', False, True
+    REPORT_PUSH_TO_CHRONICLE_TENANT = (
+        'report:push_report_to_chronicle_tenant',
+        False,
+        True,
+    )
     REPORT_OPERATIONAL = 'report:post_operational', False, True
-    REPORT_PROJECT = 'report:post_project', False,  # True
-    REPORT_DEPARTMENT = 'report:post_department', False,  # True
+    REPORT_PROJECT = 'report:post_project', False  # True
+    REPORT_DEPARTMENT = 'report:post_department', False  # True
     REPORT_CLEVEL = 'report:post_clevel'
     REPORT_DIAGNOSTIC = 'report:get_diagnostic'
     REPORT_STATUS = 'report:get_status'
@@ -468,28 +886,58 @@ class Permission(str, Enum):
     REPORT_FINDINGS_DESCRIBE = 'report:get_findings', False, True
     REPORT_FINDINGS_DESCRIBE_BATCH = 'report:get_findings_batch', False, True
     REPORT_COMPLIANCE_DESCRIBE_JOB = 'report:get_job_compliance', False, True
-    REPORT_COMPLIANCE_DESCRIBE_TENANT = 'report:get_tenant_compliance', False, True
+    REPORT_COMPLIANCE_DESCRIBE_TENANT = (
+        'report:get_tenant_compliance',
+        False,
+        True,
+    )
     REPORT_ERRORS_DESCRIBE = 'report:get_job_errors', False, True
     REPORT_RULES_DESCRIBE_JOB = 'report:get_job_rules', False, True
     REPORT_RULES_DESCRIBE_TENANT = 'report:get_tenant_rules', False, True
-    REPORT_RESOURCES_GET_TENANT_LATEST = 'report:get_tenant_latest_resources', False, True
-    REPORT_RESOURCES_GET_K8S_PLATFORM_LATEST = 'report:get_k8s_platform_latest_resources', False, True
+    REPORT_RESOURCES_GET_TENANT_LATEST = (
+        'report:get_tenant_latest_resources',
+        False,
+        True,
+    )
+    REPORT_RESOURCES_GET_K8S_PLATFORM_LATEST = (
+        'report:get_k8s_platform_latest_resources',
+        False,
+        True,
+    )
     REPORT_RESOURCES_GET_JOBS = 'report:get_job_resources', False, True
-    REPORT_RESOURCES_GET_JOBS_BATCH = 'report:get_job_resources_batch', False, True
-    REPORT_RAW_GET_TENANT_LATEST = 'report:get_tenant_latest_raw_report', False, True
+    REPORT_RESOURCES_GET_JOBS_BATCH = (
+        'report:get_job_resources_batch',
+        False,
+        True,
+    )
+    REPORT_TOP_VIOLATIONS_GET_JOBS = (
+        'report:get_top_violations_report',
+        False,
+        True,
+    )
+    REPORT_TOP_VIOLATIONS_COMPARE_JOBS = (
+        'report:get_top_violations_compare_report',
+        False,
+        True,
+    )
+    REPORT_RAW_GET_TENANT_LATEST = (
+        'report:get_tenant_latest_raw_report',
+        False,
+        True,
+    )
 
-    JOB_POST_STANDARD = 'job:post_for_tenant_standard', False, True
-    JOB_QUERY = 'job:query', False,  # True
+    JOB_QUERY = 'job:query', False, True
     JOB_GET = 'job:get', False, True
     JOB_POST_LICENSED = 'job:post_for_tenant', False, True
     JOB_POST_K8S = 'job:post_for_k8s_platform', False, True
     JOB_TERMINATE = 'job:terminate', False, True
+    JOB_RESUME = 'job:resume', False, True
 
     CUSTOMER_DESCRIBE = 'customer:describe'
     CUSTOMER_SET_EXCLUDED_RULES = 'customer:set_excluded_rules'
     CUSTOMER_GET_EXCLUDED_RULES = 'customer:get_excluded_rules'
 
-    TENANT_QUERY = 'tenant:query', False,  # True
+    TENANT_QUERY = 'tenant:query', False, True
     TENANT_GET = 'tenant:get', False, True
     TENANT_GET_ACTIVE_LICENSES = 'tenant:get_active_licenses', False, True
     TENANT_SET_EXCLUDED_RULES = 'tenant:set_excluded_rules', False, True
@@ -510,65 +958,72 @@ class Permission(str, Enum):
     RULE_UPDATE_META = 'system:update_meta'
 
     METRICS_UPDATE = 'system:update_metrics', True
-    METRICS_STATUS = 'system:metrics_status'
+    METADATA_UPDATE = 'system:update_metadata', True
 
-    META_UPDATE_STANDARDS = 'meta:update_standards', True
-    META_UPDATE_MAPPINGS = 'meta:update_mappings', True
-    META_UPDATE_META = 'meta:update_meta', True
+    SERVICE_OPERATIONS_STATUS = 'service_operations:status'
 
-    RULESET_DESCRIBE = 'ruleset:describe', False,  # True
+    RULESET_DESCRIBE = 'ruleset:describe', False  # True
     RULESET_CREATE = 'ruleset:create'
     RULESET_UPDATE = 'ruleset:update'
     RULESET_DELETE = 'ruleset:delete'
-    RULESET_GET_CONTENT = 'ruleset:get_content'
-    RULESET_DESCRIBE_ED = 'ruleset:describe_event_driven', True
-    RULESET_CREATE_ED = 'ruleset:create_event_driven', True
-    RULESET_DELETE_ED = 'ruleset:delete_event_driven', True
+    RULESET_RELEASE = 'ruleset:release', False
 
     RULE_SOURCE_DESCRIBE = 'rule_source:describe'
     RULE_SOURCE_CREATE = 'rule_source:create'
     RULE_SOURCE_UPDATE = 'rule_source:update'
     RULE_SOURCE_DELETE = 'rule_source:delete'
+    RULE_SOURCE_SYNC = 'rule_source:sync'
 
     EVENT_POST = 'event:post'
 
     LICENSE_ADD = 'license:add_license'
-    LICENSE_QUERY = 'license:query', False,  # True
-    LICENSE_GET = 'license:get', False,  # True
-    LICENSE_DELETE = 'license:delete_license', False,  # True
+    LICENSE_QUERY = 'license:query', False  # True
+    LICENSE_GET = 'license:get', False  # True
+    LICENSE_DELETE = 'license:delete_license', False  # True
     LICENSE_SYNC = 'license:sync', True
     LICENSE_ACTIVATE = 'license:activate'
-    LICENSE_GET_ACTIVATION = 'license:get_activation', False,  # True
-    LICENSE_DELETE_ACTIVATION = 'license:delete_activation', False,
-    LICENSE_UPDATE_ACTIVATION = 'license:update_activation', False,
+    LICENSE_GET_ACTIVATION = 'license:get_activation', False  # True
+    LICENSE_DELETE_ACTIVATION = 'license:delete_activation', False
+    LICENSE_UPDATE_ACTIVATION = 'license:update_activation', False
 
-    SCHEDULED_JOB_GET = 'scheduled-job:get', False,  # True
-    SCHEDULED_JOB_QUERY = 'scheduled-job:query', False,  # True
-    SCHEDULED_JOB_CREATE = 'scheduled-job:register', False,  # True
-    SCHEDULED_JOB_DELETE = 'scheduled-job:deregister', False,  # True
-    SCHEDULED_JOB_UPDATE = 'scheduled-job:update', False,  # True
+    SCHEDULED_JOB_GET = 'scheduled-job:get', False  # True
+    SCHEDULED_JOB_QUERY = 'scheduled-job:query', False  # True
+    SCHEDULED_JOB_CREATE = 'scheduled-job:register', False, True
+    SCHEDULED_JOB_DELETE = 'scheduled-job:deregister', False  # True
+    SCHEDULED_JOB_UPDATE = 'scheduled-job:update', False  # True
 
     SETTINGS_DESCRIBE_MAIL = 'settings:describe_mail', True
     SETTINGS_CREATE_MAIL = 'settings:create_mail', True
     SETTINGS_DELETE_MAIL = 'settings:delete_mail', True
-    SETTINGS_CHANGE_SET_REPORTS = 'settings:change_send_reports', True  # TODO make PUT
+    SETTINGS_CHANGE_SET_REPORTS = (
+        'settings:change_send_reports',
+        True,
+    )  # TODO make PUT
     SETTINGS_DESCRIBE_LM_CONFIG = 'settings:describe_lm_config'
     SETTINGS_CREATE_LM_CONFIG = 'settings:create_lm_config', True
+    SETTINGS_UPDATE_LM_CONFIG = 'settings:update_lm_config', True
     SETTINGS_DELETE_LM_CONFIG = 'settings:delete_lm_config', True
     SETTINGS_DESCRIBE_LM_CLIENT = 'settings:describe_lm_client'
     SETTINGS_CREATE_LM_CLIENT = 'settings:create_lm_client', True
+    SETTINGS_UPDATE_LM_CLIENT = 'settings:update_lm_client', True
     SETTINGS_DELETE_LM_CLIENT = 'settings:delete_lm_client', True
 
     RABBITMQ_DESCRIBE = 'rabbitmq:describe'
     RABBITMQ_CREATE = 'rabbitmq:create'
     RABBITMQ_DELETE = 'rabbitmq:delete'
 
+    EVENT_SOURCES_DESCRIBE = 'event_sources:describe'
+    EVENT_SOURCES_CREATE = 'event_sources:create'
+    EVENT_SOURCES_UPDATE = 'event_sources:update'
+    EVENT_SOURCES_DELETE = 'event_sources:delete'
+
     BATCH_RESULTS_GET = 'batch_results:get', False, True
-    BATCH_RESULTS_QUERY = 'batch_results:query', False,  # True
+    BATCH_RESULTS_QUERY = 'batch_results:query', False  # True
 
     PLATFORM_GET_K8S = 'platform:get_k8s', False, True
-    PLATFORM_QUERY_K8S = 'platform:query_k8', False,  # True
+    PLATFORM_QUERY_K8S = 'platform:query_k8', False, True
     PLATFORM_CREATE_K8S = 'platform:create_k8s', False, True
+    PLATFORM_UPDATE_K8S = 'platform:update_k8s', False, True
     PLATFORM_DELETE_K8S = 'platform:delete_k8s', False, True
 
     SRE_INTEGRATION_CREATE = 'self_integration:create'
@@ -583,6 +1038,17 @@ class Permission(str, Enum):
     DOJO_INTEGRATION_GET_ACTIVATION = 'dojo_integration:get_activation'
     DOJO_INTEGRATION_DELETE_ACTIVATION = 'dojo_integration:delete_activation'
 
+    CHRONICLE_INTEGRATION_CREATE = 'chronicle_integration:create'
+    CHRONICLE_INTEGRATION_DESCRIBE = 'chronicle_integration:describe'
+    CHRONICLE_INTEGRATION_DELETE = 'chronicle_integration:delete'
+    CHRONICLE_INTEGRATION_ACTIVATE = 'chronicle_integration:activate'
+    CHRONICLE_INTEGRATION_GET_ACTIVATION = (
+        'chronicle_integration:get_activation'
+    )
+    CHRONICLE_INTEGRATION_DELETE_ACTIVATION = (
+        'chronicle_integration:delete_activation'
+    )
+
     CREDENTIALS_DESCRIBE = 'credentials:describe'
     CREDENTIALS_BIND = 'credentials:bind'
     CREDENTIALS_UNBIND = 'credentials:unbind'
@@ -595,6 +1061,13 @@ class Permission(str, Enum):
     USERS_GET_CALLER = 'users:get_caller'
     USERS_RESET_PASSWORD = 'users:reset_password'
 
+    RESOURCES_GET = 'resources:get'
+
+    RESOURCES_EXCEPTIONS_GET = 'resources_exceptions:get'
+    RESOURCES_EXCEPTIONS_CREATE = 'resources_exceptions:create'
+    RESOURCES_EXCEPTIONS_UPDATE = 'resources_exceptions:update'
+    RESOURCES_EXCEPTIONS_DELETE = 'resources_exceptions:delete'
+
     @classmethod
     def iter_enabled(cls) -> Iterator[Self]:
         """
@@ -606,6 +1079,11 @@ class Permission(str, Enum):
     @classmethod
     def iter_disabled(cls) -> Iterator[Self]:
         return filter(operator.attrgetter('is_disabled'), cls)
+
+
+class PolicyEffect(str, Enum):
+    ALLOW = 'allow'
+    DENY = 'deny'
 
 
 # Modular
@@ -623,36 +1101,15 @@ MODULAR_DELETION_DATE = 'deletion_date'
 MODULAR_SECRET = 'secret'
 MODULAR_TYPE = 'type'
 
-
-class BatchJobType(str, Enum):
-    """
-    Our inner types
-    """
-    STANDARD = 'standard'
-    EVENT_DRIVEN = 'event-driven-multi-account'
-    SCHEDULED = 'scheduled'
-
-
-DEFAULT_NUMBER_OF_PARTITIONS_FOR_EVENTS = 10
-
-DEFAULT_NUMBER_OF_EVENTS_IN_EVENT_ITEM: int = 100
-DEFAULT_EVENTS_TTL_HOURS = 48
-DEFAULT_INNER_CACHE_TTL_SECONDS: int = 300
-
-DEFAULT_LM_TOKEN_LIFETIME_MINUTES = 120
-
 # event-driven
 AWS_VENDOR = 'AWS'
 MAESTRO_VENDOR = 'MAESTRO'
+SRE_K8S_AGENT_VENDOR = 'SRE_K8S_AGENT'
+SRE_K8S_WATCHER_VENDOR = 'SRE_K8S_WATCHER'
+PLATFORM_EVENT_DRIVEN_ENABLED_META = 'event_driven_enabled'
 
 # smtp
 PASSWORD_ATTR = 'password'
-
-DEFAULT_REPORTS_BUCKET_NAME = 'reports'
-DEFAULT_RULESETS_BUCKET_NAME = 'rulesets'
-DEFAULT_STATISTICS_BUCKET_NAME = 'statistics'
-DEFAULT_METRICS_BUCKET_NAME = 'metrics'
-DEFAULT_RECOMMENDATION_BUCKET_NAME = 'recommendation'
 
 # reports
 DATA_TYPE = 'data_type'
@@ -680,6 +1137,7 @@ class JobState(str, Enum):
     """
     https://docs.aws.amazon.com/batch/latest/userguide/job_states.html
     """
+
     SUBMITTED = 'SUBMITTED'
     PENDING = 'PENDING'
     RUNNABLE = 'RUNNABLE'
@@ -687,6 +1145,7 @@ class JobState(str, Enum):
     RUNNING = 'RUNNING'
     FAILED = 'FAILED'
     SUCCEEDED = 'SUCCEEDED'
+    INTERRUPTED = 'INTERRUPTED'
 
 
 # Maestro Credentials Applications types
@@ -728,7 +1187,7 @@ TACTICS_ID_MAPPING = {  # rules do not have tactic IDs
     'Collection': 'TA0009',
     'Exfiltration': 'TA0010',
     'Command and Control': 'TA0011',
-    'Impact': 'TA0040'
+    'Impact': 'TA0040',
 }
 
 RETRY_REPORT_STATE_MACHINE = 'retry_send_reports'
@@ -738,16 +1197,13 @@ START_DATE = 'start_date'
 ARTICLE_ATTR = 'article'
 
 COMPOUND_KEYS_SEPARATOR = '#'
-
-ED_AWS_RULESET_NAME = '_ED_AWS'
-ED_AZURE_RULESET_NAME = '_ED_AZURE'
-ED_GOOGLE_RULESET_NAME = '_ED_GOOGLE'
-ED_KUBERNETES_RULESET_NAME = '_ED_KUBERNETES'
+TAGS_KEY_VALUE_SEPARATOR = '='
 
 
 class RuleSourceType(str, Enum):
     GITHUB = 'GITHUB'
     GITLAB = 'GITLAB'
+    GITHUB_RELEASE = 'GITHUB_RELEASE'  # means that rules from the latest release will be used
 
 
 class S3SettingKey(str, Enum):
@@ -768,12 +1224,15 @@ class S3SettingKey(str, Enum):
     AZURE_EVENTS = 'AZURE_EVENTS'
     GOOGLE_EVENTS = 'GOOGLE_EVENTS'
 
-    EVENT_BRIDGE_EVENT_SOURCE_TO_RULES_MAPPING = \
+    EVENT_BRIDGE_EVENT_SOURCE_TO_RULES_MAPPING = (
         'EVENT_BRIDGE_EVENT_SOURCE_TO_RULES_MAPPING'
-    MAESTRO_SUBGROUP_ACTION_TO_AZURE_EVENTS_MAPPING = \
+    )
+    MAESTRO_SUBGROUP_ACTION_TO_AZURE_EVENTS_MAPPING = (
         'MAESTRO_SUBGROUP_ACTION_TO_AZURE_EVENTS_MAPPING'
-    MAESTRO_SUBGROUP_ACTION_TO_GOOGLE_EVENTS_MAPPING = \
+    )
+    MAESTRO_SUBGROUP_ACTION_TO_GOOGLE_EVENTS_MAPPING = (
         'MAESTRO_SUBGROUP_ACTION_TO_GOOGLE_EVENTS_MAPPING'
+    )
 
 
 class SettingKey(str, Enum):
@@ -783,7 +1242,6 @@ class SettingKey(str, Enum):
     TEMPLATE_BUCKET = 'TEMPLATES_S3_BUCKET_NAME'
     SYSTEM_CUSTOMER = 'SYSTEM_CUSTOMER_NAME'
     EVENT_ASSEMBLER = 'EVENT_ASSEMBLER'
-    REPORT_DATE_MARKER = 'REPORT_DATE_MARKER'
     RULES_METADATA_REPO_ACCESS_SSM_NAME = 'RULES_METADATA_REPO_ACCESS_SSM_NAME'
 
     AWS_STANDARDS_COVERAGE = 'AWS_STANDARDS_COVERAGE'
@@ -794,6 +1252,7 @@ class SettingKey(str, Enum):
     MAX_ATTEMPT = 'MAX_ATTEMPT'
     MAX_CRON_NUMBER = 'MAX_CRON_NUMBER'
     MAX_RABBITMQ_REQUEST_SIZE = 'MAX_RABBITMQ_REQUEST_SIZE'
+    REPORT_DELIVERY_CURSORS = 'REPORT_DELIVERY_CURSORS'
 
 
 class PlatformType(str, Enum):
@@ -807,27 +1266,317 @@ class Severity(str, Enum):
     """
     Low to High
     """
+
     INFO = 'Info'
     LOW = 'Low'
     MEDIUM = 'Medium'
     HIGH = 'High'
+    # CRITICAL = 'Critical'
+    UNKNOWN = 'Unknown'
 
     @classmethod
     def iter(cls):
         return map(operator.attrgetter('value'), cls)
+
+    @classmethod
+    def parse(cls, sev: str | None, /) -> 'Severity':
+        if not sev:
+            return cls.UNKNOWN
+        try:
+            return cls(sev.strip().capitalize())
+        except ValueError:
+            return cls.UNKNOWN
+
+
+class RemediationComplexity(str, Enum):
+    LOW = 'Low'
+    LOW_MEDIUM = 'Low-Medium'
+    MEDIUM = 'Medium'
+    MEDIUM_HIGH = 'Medium-High'
+    HIGH = 'High'
+    UNKNOWN = 'Unknown'
+
+    @classmethod
+    def iter(cls):
+        return map(operator.attrgetter('value'), cls)
+
+    @classmethod
+    def parse(cls, rem: str | None, /) -> 'RemediationComplexity':
+        if not rem:
+            return cls.UNKNOWN
+        try:
+            return cls(rem.strip().title())
+        except ValueError:
+            return cls.UNKNOWN
 
 
 REPORT_FIELDS = {
     'id',
     'name',
     'arn',  # aws specific
-    'namespace'  # k8s specific
+    'namespace',  # k8s specific
 }  # from Cloud Custodian
 
-
 PRIVATE_KEY_SECRET_NAME = 'rule-engine-private-key'
-
 
 # tenant setting keys
 TS_EXCLUDED_RULES_KEY = 'CUSTODIAN_EXCLUDED_RULES'
 TS_JOB_LOCK_KEY = 'CUSTODIAN_JOB_LOCK'
+TS_SCAN_HIDDEN_REGIONS = 'SCAN_HIDDEN_REGIONS'
+
+GITHUB_API_URL_DEFAULT = 'https://api.github.com'
+GITLAB_API_URL_DEFAULT = 'https://git.epam.com'
+
+
+class LambdaName(str, Enum):
+    API_HANDLER = 'api-handler'
+    CONFIGURATION_API_HANDLER = 'configuration-api-handler'
+    EVENT_HANDLER = 'event-handler'
+    LICENSE_UPDATER = 'license-updater'
+    METRICS_UPDATER = 'metrics-updater'
+    REPORT_GENERATOR = 'report-generator'
+    RULE_META_UPDATER = 'rule-meta-updater'
+
+
+# some common deltas for reports
+_last_sunday = relativedelta(
+    hour=0, minute=0, second=0, microsecond=0, weekday=SU(-1)
+)
+
+_previous_month_start = relativedelta(
+    hour=0, minute=0, second=0, microsecond=0, months=-1, day=1
+)
+_this_month_start = relativedelta(
+    hour=0, minute=0, second=0, microsecond=0, day=1
+)
+_relative_now = relativedelta()
+
+
+class ReportType(str, Enum):
+    """
+    Each member of the enum represents a specific type of report that can
+    be generated and sent (currently they could be sent only by using Maestro).
+    Each member holds a value of enum, a description that is not used
+    externally but only for developers and two time deltas: relative start
+    date and a relative end date. These dates represent the reporting period
+    for that concrete type relatively to now.
+    If start date is omitted it means that either start date is not important
+    for this type of report (for example report as of specific date) or
+    the report needs all historical data available without lower bound. It
+    depends on report type but currently there are no those
+    "without lower bound" (fortunately).
+    Also, the principal entity for any report depends on report type.
+
+    Currently, it can be described as:
+    - Operational = one tenant scope;
+    - Project = one tenant group scope (multiple tenants with different
+      clouds that belong to the same Maestro project);
+    - Department = one customer scope
+    - Clevel = one customer scope
+    """
+
+    description: str
+    r_end: relativedelta  # relatively to now
+    r_start: relativedelta | None
+
+    def __new__(
+        cls,
+        value: str,
+        description: str,
+        r_start: relativedelta | None = None,
+        r_end: relativedelta | None = None,
+    ):
+        obj = str.__new__(cls, value)
+        obj._value_ = value
+
+        obj.description = description
+        obj.r_end = r_end or _relative_now
+        obj.r_start = r_start
+        return obj
+
+    def end(self, now: datetime) -> datetime:
+        """
+        This data
+        """
+        return now + self.r_end
+
+    def start(self, now: datetime) -> datetime | None:
+        if not self.r_start:
+            return
+        return now + self.r_start
+
+    def is_as_of_now(self) -> bool:
+        return self.r_end == _relative_now
+
+    # Operational, kind of for one tenant
+    OPERATIONAL_OVERVIEW = (
+        'OPERATIONAL_OVERVIEW',
+        'Data for a specific tenant of any cloud for a week period from Sunday till Sunday. Contains number of different jobs, total number of resources by region and by severities',
+        _last_sunday,
+    )
+    OPERATIONAL_RESOURCES = (
+        'OPERATIONAL_RESOURCES',
+        'All resources for a specific tenant as of date of generation',
+        _last_sunday,
+    )
+    OPERATIONAL_RULES = (
+        'OPERATIONAL_RULES',
+        'Average rules usage statistics for tenant within this week',
+        _last_sunday,
+    )
+    OPERATIONAL_COMPLIANCE = (
+        'OPERATIONAL_COMPLIANCE',
+        'Compliance per tenant as of date of generation',
+        _last_sunday,
+    )
+    OPERATIONAL_FINOPS = (
+        'OPERATIONAL_FINOPS',
+        'Finops report per tenant as of date of generation',
+        _last_sunday,
+    )
+    OPERATIONAL_ATTACKS = (
+        'OPERATIONAL_ATTACKS',
+        'MITRE Attacks report per tenant as of date of generation',
+        _last_sunday,
+    )
+    OPERATIONAL_KUBERNETES = (
+        'OPERATIONAL_KUBERNETES',
+        'Just old K8S report as of date of generation. It contains both MITRE and Resources data',
+        _last_sunday,
+    )
+    OPERATIONAL_DEPRECATION = (
+        'OPERATIONAL_DEPRECATION',
+        'Displays resources that will be soon deprecated',
+        _last_sunday,
+    )
+
+    # Project, for a group of tenants within one project
+    PROJECT_OVERVIEW = (
+        'PROJECT_OVERVIEW',
+        'Overview data per group of tenants',
+        _last_sunday,
+    )
+    PROJECT_COMPLIANCE = (
+        'PROJECT_COMPLIANCE',
+        'Compliance data per group of tenants',
+        _last_sunday,
+    )
+    PROJECT_RESOURCES = (
+        'PROJECT_RESOURCES',
+        'Resources data per group of tenants',
+        _last_sunday,
+    )
+    PROJECT_ATTACKS = (
+        'PROJECT_ATTACKS',
+        'Attacks data per group of tenants',
+        _last_sunday,
+    )
+    PROJECT_FINOPS = (
+        'PROJECT_FINOPS',
+        'Finops data per group of tenants',
+        _last_sunday,
+    )
+
+    # Department, tops by tenants
+    DEPARTMENT_TOP_RESOURCES_BY_CLOUD = (
+        'DEPARTMENT_TOP_RESOURCES_BY_CLOUD',
+        'Top resources in tenants by cloud',
+        _previous_month_start,
+        _this_month_start,
+    )
+    DEPARTMENT_TOP_TENANTS_RESOURCES = (
+        'DEPARTMENT_TOP_TENANTS_RESOURCES',
+        'As the name suggests',
+        _previous_month_start,
+        _this_month_start,
+    )
+    DEPARTMENT_TOP_TENANTS_COMPLIANCE = (
+        'DEPARTMENT_TOP_TENANTS_COMPLIANCE',
+        'As the name suggests',
+        _previous_month_start,
+        _this_month_start,
+    )
+    DEPARTMENT_TOP_COMPLIANCE_BY_CLOUD = (
+        'DEPARTMENT_TOP_COMPLIANCE_BY_CLOUD',
+        'As the name suggests',
+        _previous_month_start,
+        _this_month_start,
+    )
+    DEPARTMENT_TOP_TENANTS_ATTACKS = (
+        'DEPARTMENT_TOP_TENANTS_ATTACKS',
+        'As the name suggests',
+        _previous_month_start,
+        _this_month_start,
+    )
+    DEPARTMENT_TOP_ATTACK_BY_CLOUD = (
+        'DEPARTMENT_TOP_ATTACK_BY_CLOUD',
+        'As the name suggests',
+        _previous_month_start,
+        _this_month_start,
+    )
+
+    # C-Level, kind of for the whole customer
+    C_LEVEL_OVERVIEW = (
+        'C_LEVEL_OVERVIEW',
+        'Data across all tenants within clouds for a previous month',
+        _previous_month_start,
+        _this_month_start,
+    )
+    C_LEVEL_COMPLIANCE = (
+        'C_LEVEL_COMPLIANCE',
+        'Standards coverage across all tenants within customer ...?',
+        _previous_month_start,
+        _this_month_start,
+    )
+    C_LEVEL_ATTACKS = (
+        'C_LEVEL_ATTACKS',
+        'Attacks across all tenants within customer ...?',
+        _previous_month_start,
+        _this_month_start,
+    )
+
+
+class TopViolationsReportType(str, Enum):
+    RESOURCES = 'RESOURCES'
+    RULES = 'RULES'
+
+
+class RabbitCommand(str, Enum):
+    SEND_MAIL = 'SEND_MAIL'
+
+
+class ScheduledJobType(str, Enum):
+    STANDARD = 'standard'
+    SYSTEM = 'system'
+
+
+VERSION_NORM_LENGTH = 6
+TENANTS_QUERY_THRESHOLD = 20
+LATEST_VERSION_TAG = ':'  # ':' > '999999.999999.999999'
+
+EXCLUDE_RESOURCE_TYPES = {
+    'aws.service-quota',
+    'aws.codedeploy-config',
+    'azure.roledefinition',  # there is huge number (~700 in my subscription) of these and I'm not sure how useful they are
+    'gcp.region',
+}
+
+
+class ResourcesCollectorType(str, Enum):
+    AWS_RESOURCE_EXPLORER = 'aws_resource_explorer'
+    AZURE_RESOURCE_GRAPH = 'azure_resource_graph'
+    FOCUS = 'focus'
+    CUSTODIAN = 'cloud_custodian'
+
+
+DEPRECATED_RULE_SUFFIX = '-deprecated'
+
+
+class ResourceExceptionType(str, Enum):
+    """
+    Types of resource exceptions
+    """
+
+    TAG_FILTER = 'tag_filter'
+    RESOURCE = 'resource'
+    ARN = 'arn'

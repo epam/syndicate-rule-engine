@@ -1,0 +1,147 @@
+{
+  "receivers": [
+    "admin@gmail.com"
+  ],
+  "customer": "TEST_CUSTOMER",
+  "from": "2025-06-01T00:00:00Z",
+  "to": "2025-07-01T00:00:00Z",
+  "outdated_tenants": [],
+  "externalData": false,
+  "data": {
+    "AWS": {
+      "failed_scans": {
+        "value": 1
+      },
+      "last_scan_date": "2025-07-28T00:59:27.298066Z",
+      "resources_violated": {
+        "value": 23
+      },
+      "resource_types_data": {
+        "aws.security-group": {
+          "value": 3
+        },
+        "aws.sns": {
+          "value": 3
+        },
+        "aws.s3": {
+          "value": 7
+        },
+        "aws.cloudtrail": {
+          "value": 1
+        },
+        "aws.iam-group": {
+          "value": 3
+        },
+        "aws.ebs": {
+          "value": 2
+        },
+        "aws.ec2": {
+          "value": 2
+        },
+        "aws.ecr": {
+          "value": 2
+        }
+      },
+      "severity_data": {
+        "Unknown": {
+          "value": 23
+        }
+      },
+      "succeeded_scans": {
+        "value": 1
+      },
+      "total_scanned_tenants": 1,
+      "total_scans": {
+        "value": 2
+      },
+      "activated": true,
+      "license_properties": {
+        "Rulesets": [
+          "AWS 1.0.0"
+        ],
+        "Number of licenses": 1,
+        "Event-Driven mode": "On",
+        "Scans frequency": "10 scans per DAY",
+        "Expiration": "Feb 01, 2100 15:24:26 UTC"
+      }
+    },
+    "AZURE": {
+      "failed_scans": {
+        "value": 1
+      },
+      "last_scan_date": "2025-07-28T00:59:27.298066Z",
+      "resources_violated": {
+        "value": 5
+      },
+      "resource_types_data": {
+        "azure.defender-pricing": {
+          "value": 5
+        }
+      },
+      "severity_data": {
+        "Unknown": {
+          "value": 5
+        }
+      },
+      "succeeded_scans": {
+        "value": 1
+      },
+      "total_scanned_tenants": 1,
+      "total_scans": {
+        "value": 2
+      },
+      "activated": true,
+      "license_properties": {
+        "Rulesets": [
+          "AZURE 1.0.0"
+        ],
+        "Number of licenses": 1,
+        "Event-Driven mode": "On",
+        "Scans frequency": "10 scans per DAY",
+        "Expiration": "Feb 01, 2100 15:24:26 UTC"
+      }
+    },
+    "GOOGLE": {
+      "failed_scans": {
+        "value": 1
+      },
+      "last_scan_date": "2025-07-28T00:59:27.298066Z",
+      "resources_violated": {
+        "value": 9
+      },
+      "resource_types_data": {
+        "gcp.vpc": {
+          "value": 1
+        },
+        "gcp.firewall": {
+          "value": 4
+        },
+        "gcp.subnet": {
+          "value": 4
+        }
+      },
+      "severity_data": {
+        "Unknown": {
+          "value": 9
+        }
+      },
+      "succeeded_scans": {
+        "value": 1
+      },
+      "total_scanned_tenants": 1,
+      "total_scans": {
+        "value": 2
+      },
+      "activated": true,
+      "license_properties": {
+        "Rulesets": [
+          "GOOGLE 1.0.0"
+        ],
+        "Number of licenses": 1,
+        "Event-Driven mode": "On",
+        "Scans frequency": "10 scans per DAY",
+        "Expiration": "Feb 01, 2100 15:24:26 UTC"
+      }
+    }
+  }
+}

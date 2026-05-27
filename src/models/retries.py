@@ -1,15 +1,13 @@
-import os
-
 from pynamodb.attributes import UnicodeAttribute, ListAttribute
 
+from helpers.constants import Env
 from models import BaseModel
-from helpers.constants import CAASEnv
 
 
 class Retries(BaseModel):
     class Meta:
-        table_name = 'CaaSRetries'
-        region = os.environ.get(CAASEnv.AWS_REGION)
+        table_name = 'SRERetries'
+        region = Env.AWS_REGION.get()
 
     id = UnicodeAttribute(hash_key=True)
     name = UnicodeAttribute(range_key=True)

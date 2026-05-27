@@ -4,16 +4,44 @@ from modular_sdk.commons.constants import ParentType
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.parent_service import ParentService
 
-from services.ambiguous_job_service import AmbiguousJob
-from services.defect_dojo_service import DefectDojoConfiguration, \
-    DefectDojoParentMeta, DefectDojoService
+from models.job import Job
+from services.chronicle_service import (
+    ChronicleInstance,
+    ChronicleInstanceService,
+    ChronicleParentMeta,
+)
+from services.defect_dojo_service import (
+    DefectDojoConfiguration,
+    DefectDojoParentMeta,
+    DefectDojoService,
+)
+from services.ruleset_service import RulesetName
 
 
 class IntegrationService:
     def __init__(self, parent_service: ParentService,
-                 defect_dojo_service: DefectDojoService):
+                 defect_dojo_service: DefectDojoService,
+                 chronicle_instance_service: ChronicleInstanceService):
         self._ps = parent_service
         self._dds = defect_dojo_service
+        self._chr = chronicle_instance_service
+
+    def get_chronicle_adapters(self, tenant: Tenant,
+                               send_after_job: bool | None = None
+                               ) -> Generator[tuple[ChronicleInstance, ChronicleParentMeta], None, None]:
+        parent = self._ps.get_linked_parent_by_tenant(
+            tenant=tenant, type_=ParentType.GCP_CHRONICLE_INSTANCE
+        )
+        if not parent:
+            return
+        configuration = ChronicleParentMeta.from_parent(parent)
+        if (isinstance(send_after_job, bool) and
+                configuration.send_after_job != send_after_job):
+            return
+        chronicle = self._chr.get_nullable(parent.application_id)
+        if not chronicle or chronicle.is_deleted:
+            return
+        yield chronicle, configuration
 
     def get_dojo_adapters(self, tenant: Tenant,
                           send_after_job: bool | None = None
@@ -26,7 +54,7 @@ class IntegrationService:
         :return:
         """
         parent = self._ps.get_linked_parent_by_tenant(
-            tenant=tenant, type_=ParentType.SIEM_DEFECT_DOJO
+            tenant=tenant, type_=ParentType.CUSTODIAN_SIEM_DEFECT_DOJO
         )
         if not parent:
             return
@@ -41,10 +69,11 @@ class IntegrationService:
         yield dojo, configuration
 
     @staticmethod
-    def job_tags_dojo(job: AmbiguousJob) -> list[str]:
+    def job_tags_dojo(job: Job) -> list[str]:
         return list(filter(None, [
             job.owner,
-            job.type.value,
+            job.job_type.value,
             job.scheduled_rule_name,
-            *(job.rulesets or []),
+
+            *(RulesetName(rs).name for rs in (job.rulesets or ())),
         ]))

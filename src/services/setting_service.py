@@ -1,10 +1,13 @@
-from typing import Union, Optional
+from typing import Literal, Optional, Union, overload
 
 from pynamodb.exceptions import PynamoDBException
 
 import services.cache as cache
-from helpers.constants import (DEFAULT_SYSTEM_CUSTOMER, SettingKey,
-                               DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME)
+from helpers.constants import (
+    DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME,
+    DEFAULT_SYSTEM_CUSTOMER,
+    SettingKey,
+)
 from helpers.log_helper import get_logger
 from models.setting import Setting
 from services.environment_service import EnvironmentService
@@ -60,18 +63,37 @@ class SettingsService:
         return self.get(name=SettingKey.ACCESS_DATA_LM, value=value)
 
     def create_license_manager_access_data_configuration(
-            self, host: str,
-            port: Optional[int] = None,
-            protocol: Optional[str] = None,
-            stage: Optional[str] = None,
-            api_version: Optional[str] = None) -> Setting:
-        from services.clients.license_manager import LMAccessData
+        self,
+        host: str,
+        port: Optional[int] = None,
+        protocol: Optional[str] = None,
+        stage: Optional[str] = None,
+    ) -> Setting:
+        from services.clients.lm_client import LMAccessData
         model = LMAccessData.from_dict({})
         model.update_host(host=host, port=port, protocol=protocol, stage=stage)
-        model.api_version = api_version
         return self.create(
             name=SettingKey.ACCESS_DATA_LM.value, value=model.dict()
         )
+
+    @staticmethod
+    def update_license_manager_access_data_configuration(
+        setting: Setting,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        protocol: Optional[str] = None,
+        stage: Optional[str] = None,
+    ) -> Setting:
+        from services.clients.lm_client import LMAccessData
+        model = LMAccessData.from_dict(setting.value)
+        model.update_host(
+            host=host,
+            port=port,
+            protocol=protocol,
+            stage=stage,
+        )
+        setting.value = model.dict()
+        return setting
 
     def get_license_manager_client_key_data(self, value: bool = True):
         return self.get(name=SettingKey.LM_CLIENT_KEY, value=value)
@@ -120,10 +142,7 @@ class SettingsService:
         Returns the name of SYSTEM customer. If the setting is not found,
         default system customer name is returned.
         """
-        if self._environment.is_testing():
-            _LOG.info('Testing mode. Returning default system customer name')
-            return DEFAULT_SYSTEM_CUSTOMER
-        _LOG.info('Querying CaaSSettings in order to get SYSTEM Customer name')
+        _LOG.info('Querying SRESettings in order to get SYSTEM Customer name')
         name: Optional[str] = None
         try:
             name = self.get(SettingKey.SYSTEM_CUSTOMER)
@@ -144,24 +163,76 @@ class SettingsService:
             }
         )
 
-    def get_event_assembler_configuration(self, value: bool = True
-                                          ) -> Optional[Union[Setting, dict]]:
-        return self.get(name=SettingKey.EVENT_ASSEMBLER, value=value)
+    @overload
+    def get_event_assembler_configuration(
+        self,
+        value: Literal[True] = True,
+    ) -> dict | None:
+        ...
+    
+    @overload
+    def get_event_assembler_configuration(
+        self,
+        value: Literal[False],
+    ) -> Setting | None:
+        ...
 
-    def get_report_date_marker(self) -> dict:
-        marker = self.get(name=SettingKey.REPORT_DATE_MARKER)
-        return marker or {}
+    def get_event_assembler_configuration(
+        self,
+        value: bool = True,
+    ) -> Setting | dict | None:
+        return self.get(
+            name=SettingKey.EVENT_ASSEMBLER,
+            value=value,
+        )
+    
+    def get_report_delivery_cursor(
+        self,
+        customer: str,
+        license_key: str,
+        tenant_name: str,
+    ) -> str | None:
+        """Get processed-up-to cursor for (customer, license, tenant)."""
+        cursors = self.get(SettingKey.REPORT_DELIVERY_CURSORS, value=True)
+        if not isinstance(cursors, dict):
+            return None
+        key = self._report_delivery_cursor_key(
+            customer, license_key, tenant_name
+        )
+        return cursors.get(key)
 
-    def set_report_date_marker(self, current_week_date: str = None,
-                               last_week_date: str = None):
-        marker = self.get(name=SettingKey.REPORT_DATE_MARKER)
-        if current_week_date:
-            marker.update({'current_week_date': current_week_date})
-        if last_week_date:
-            marker.update({'last_week_date': last_week_date})
-        new_marker = self.create(name=SettingKey.REPORT_DATE_MARKER,
-                                 value=marker)
-        new_marker.save()
+    def save_report_delivery_cursor(
+        self,
+        customer: str,
+        license_key: str,
+        tenant_name: str,
+        cursor_iso: str,
+    ) -> None:
+        """Save processed-up-to cursor for (customer, license, tenant)."""
+        _LOG.debug(
+            f'Saving report delivery cursor for {customer}:{license_key}:{tenant_name} '
+            f'to {cursor_iso}'
+        )
+        setting = self.get(
+            SettingKey.REPORT_DELIVERY_CURSORS, value=False
+        )
+        if not setting or not isinstance(setting, Setting):
+            setting = self.create(
+                SettingKey.REPORT_DELIVERY_CURSORS, value={}
+            )
+        cursors = setting.value if isinstance(setting.value, dict) else {}
+        cursors = dict(cursors)
+        key = self._report_delivery_cursor_key(
+            customer, license_key, tenant_name
+        )
+        cursors[key] = cursor_iso
+        setting.value = cursors
+        self.save(setting)
+        _LOG.debug(
+            f'Report delivery cursor for {customer}:{license_key}:{tenant_name} '
+            f'saved to {cursor_iso}'
+        )
+
 
     # metadata
     def rules_metadata_repo_access_data(self) -> str:
@@ -198,14 +269,10 @@ class SettingsService:
         return 30
 
     def disable_send_reports(self):
-        value = self.get(name=SettingKey.SEND_REPORTS, value=False)
-        value.value = False
-        value.save()
+        self.create(name=SettingKey.SEND_REPORTS, value=False).save()
 
     def enable_send_reports(self):
-        value = self.get(name=SettingKey.SEND_REPORTS, value=False)
-        value.value = True
-        value.save()
+        self.create(name=SettingKey.SEND_REPORTS, value=True).save()
 
     def get_send_reports(self) -> bool:
         value = self.get(name=SettingKey.SEND_REPORTS,
@@ -220,6 +287,13 @@ class SettingsService:
         value = self.get(name=SettingKey.MAX_RABBITMQ_REQUEST_SIZE)
         return int(value) if value else 5000000  # 5 MB
 
+    @staticmethod
+    def _report_delivery_cursor_key(
+        customer: str,
+        license_key: str,
+        tenant_name: str,
+    ) -> str:
+        return f'{customer}:{license_key}:{tenant_name}'
 
 class CachedSettingsService(SettingsService):
     def __init__(self, *args, **kwargs):

@@ -1,0 +1,36 @@
+redisImage: redis
+redisTag: 7.2.3-alpine
+postgresImage: postgres
+postgresTag: 16.1-alpine
+nginxImage: public.ecr.aws/x4s4z8e1/defectdojo/defectdojo-nginx
+nginxTag: 2.34.2
+djangoImage: public.ecr.aws/x4s4z8e1/defectdojo/defectdojo-django
+djangoTag: 2.34.2-alpine
+
+imagePullPolicy: IfNotPresent
+
+
+persistence:
+  dataVolume:
+    accessMode: ReadWriteOnce
+    size: 4Gi
+    storageClass: standard
+    hostPath: /data/defectdojo/data
+  mediaVolume:
+    accessMode: ReadWriteOnce
+    size: 2Gi
+    storageClass: standard
+    hostPath: /data/defectdojo/media
+  cacheVolume:
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    storageClass: standard
+    hostPath: /data/defectdojo/cache
+
+
+service:
+  type: NodePort
+  port: 8080
+  nodePort: 32107
+
+initializerJobTTLSecondsAfterFinished: 7200

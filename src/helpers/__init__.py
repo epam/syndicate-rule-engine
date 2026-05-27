@@ -1,16 +1,17 @@
 import base64
 import binascii
-from contextlib import contextmanager
-from enum import Enum as _Enum
-import json
-import functools
-from functools import reduce
 import io
-from itertools import chain, islice
+import json
 import math
 import re
-import msgspec
 import time
+import uuid
+from contextlib import contextmanager
+from enum import Enum as _Enum
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+from functools import reduce
+from itertools import chain, islice
 from types import NoneType
 from typing import (
     Any,
@@ -22,27 +23,19 @@ from typing import (
     Iterator,
     Optional,
     TypeVar,
-    TYPE_CHECKING
 )
-from typing_extensions import Self
-import uuid
 
+import msgspec
 import requests
+from dateutil.parser import isoparse
+from typing_extensions import Self
 
-from helpers.constants import GCP_CLOUD_ATTR, GOOGLE_CLOUD_ATTR
+from helpers.constants import VERSION_NORM_LENGTH, Cloud, RuleDomain
 from helpers.log_helper import get_logger
-if TYPE_CHECKING:
-    from services.abs_lambda import ProcessedEvent
 
 T = TypeVar('T')
 
 _LOG = get_logger(__name__)
-
-PARAM_USER_ID = 'user_id'
-
-
-BAD_REQUEST_MISSING_PARAMETERS = 'Bad Request. The following parameters ' \
-                                 'are missing: {0}'
 
 
 class RequestContext:
@@ -56,13 +49,9 @@ class RequestContext:
     def get_remaining_time_in_millis():
         return math.inf
 
-
-def get_missing_parameters(event, required_params_list):
-    missing_params_list = []
-    for param in required_params_list:
-        if not event.get(param):
-            missing_params_list.append(param)
-    return missing_params_list
+    @staticmethod
+    def extract_account_id(invoked_function_arn: str) -> str:
+        return invoked_function_arn.split(':')[4]
 
 
 def deep_get(dct: dict, path: list | tuple) -> Any:
@@ -75,7 +64,8 @@ def deep_get(dct: dict, path: list | tuple) -> Any:
     """
     return reduce(
         lambda d, key: d.get(key, None) if isinstance(d, dict) else None,
-        path, dct
+        path,
+        dct,
     )
 
 
@@ -93,8 +83,9 @@ def title_keys(item: dict | list) -> dict | list:
     if isinstance(item, dict):
         titled = {}
         for k, v in item.items():
-            titled[k[0].upper() + k[1:] if isinstance(k, str) else k] = \
+            titled[k[0].upper() + k[1:] if isinstance(k, str) else k] = (
                 title_keys(v)
+            )
         return titled
     elif isinstance(item, list):
         return [title_keys(i) for i in item]
@@ -123,15 +114,53 @@ def batches(iterable: Iterable, n: int) -> Generator[list, None, None]:
         batch = list(islice(it, n))
 
 
-def filter_dict(d: dict, keys: set | list | tuple) -> dict:
-    if keys:
-        return {k: v for k, v in d.items() if k in keys}
-    return d
+def batches_with_critic(
+    iterable: Iterable[T],
+    critic: Callable[[T], int],
+    limit: int,
+    drop_violating_items: bool = False,
+) -> Generator[list[T], None, None]:
+    """
+    Batch data into lists based on their value.
+    Sum of items in batch can't be bigger than `limit`.
+    :param iterable:
+    :param critic:
+    :param limit:
+    :param drop_violating_items:
+    :return:
+    """
+    current_batch = []
+    current_sum = 0
+
+    for item in iterable:
+        item_value = critic(item)
+        if item_value > limit:
+            if drop_violating_items:
+                _LOG.warning(f'Violating item was droped. Value: {item_value}')
+                continue
+            else:
+                raise ValueError(
+                    f'One of the items have value: {item_value} that is bigger then limit'
+                )
+        if current_sum + item_value <= limit:
+            current_batch.append(item)
+            current_sum += item_value
+        else:
+            yield current_batch
+            current_batch = [item]
+            current_sum = item_value
+
+    if current_batch:
+        yield current_batch
 
 
 class HashableDict(dict):
     def __hash__(self) -> int:
-        return hash(frozenset(self.items()))
+        if hasattr(self, '__calculated_hash'):
+            return getattr(self, '__calculated_hash')
+        h = hash(frozenset(self.items()))
+        setattr(self, '__calculated_hash', h)
+        return h
 
 
 def hashable(item: dict | list | tuple | set | str | float | int | None):
@@ -148,6 +177,46 @@ def hashable(item: dict | list | tuple | set | str | float | int | None):
         return tuple(map(hashable, item))
     else:  # str, int, bool, None (all hashable)
         return item
+
+
+_SENTINEL = object()
+
+
+def comparable(
+    item: dict | list | tuple | set | str | float | int | None,
+    *,
+    replace_dates_with=_SENTINEL,
+):
+    """
+    >>> d = [{'key1': [1,2,3]}, {'key2': [4,5,6]}]
+    >>> d1 = [{'key2': [6,5,4]}, {'key1': [3,2,1]}]
+    >>> comparable(d) == comparable(d1)
+    Order of items inside inner collections is not important.
+    The result of this function cannot be dumped to json without default=list.
+    Currently is used primarily for tests.
+    """
+    if isinstance(item, dict):
+        return HashableDict(
+            [
+                (k, comparable(v, replace_dates_with=replace_dates_with))
+                for k, v in item.items()
+            ]
+        )
+    elif isinstance(item, (tuple, list, set)):
+        return frozenset(
+            [
+                comparable(i, replace_dates_with=replace_dates_with)
+                for i in item
+            ]
+        )
+    else:
+        if replace_dates_with is _SENTINEL:
+            return item
+        try:
+            isoparse(str(item))
+            return replace_dates_with
+        except ValueError:
+            return item
 
 
 class KeepValueGenerator:
@@ -216,41 +285,10 @@ def adjust_cloud(cloud: str) -> str:
     Backward compatibility. We use GCP everywhere, but Maestro
     Tenants use GOOGLE
     """
-    return GCP_CLOUD_ATTR if cloud.upper() == GOOGLE_CLOUD_ATTR else cloud.upper()
-
-
-def coroutine(func):
-    @functools.wraps(func)
-    def start(*args, **kwargs):
-        gen = func(*args, **kwargs)
-        next(gen)
-        return gen
-
-    return start
-
-
-def nested_items(item: dict | list | str | float | int | None
-                 ) -> Generator[tuple[str, Any], None, bool]:
-    """
-    Recursively iterates over nested key-values
-    >>> d = {'key': 'value', 'key2': [{1: 2, 3: 4, 'k': 'v'}, {5: 6}, 1, 2, 3]}
-    >>> print(list(nested_items(d)))
-    [('key', 'value'), (1, 2), (3, 4), ('k', 'v'), (5, 6)]
-    :param item:
-    :return:
-    """
-    if isinstance(item, (str, float, int, NoneType)):
-        return False  # means not iterated, because it's a leaf
-    # list or dict -> can be iterated over
-    if isinstance(item, dict):
-        for k, v in item.items():
-            # if iterated over nested, we don't need to yield it
-            if not (yield from nested_items(v)):
-                yield k, v
-    else:  # isinstance(item, list)
-        for i in item:
-            yield from nested_items(i)
-    return True
+    u = cloud.upper()
+    if u == Cloud.GOOGLE.value:
+        return RuleDomain.GCP.value
+    return u
 
 
 def peek(iterable) -> Optional[tuple[Any, chain]]:
@@ -258,10 +296,10 @@ def peek(iterable) -> Optional[tuple[Any, chain]]:
         first = next(iterable)
     except StopIteration:
         return
-    return first, chain([first], iterable)
+    return first, chain((first,), iterable)
 
 
-def urljoin(*args: str) -> str:
+def urljoin(*args: str | int) -> str:
     """
     Joins all the parts with one "/"
     :param args:
@@ -270,8 +308,9 @@ def urljoin(*args: str) -> str:
     return '/'.join(map(lambda x: str(x).strip('/'), args))
 
 
-def skip_indexes(iterable: Iterable[T], skip: set[int]
-                 ) -> Generator[T, None, None]:
+def skip_indexes(
+    iterable: Iterable[T], skip: set[int]
+) -> Generator[T, None, None]:
     """
     Iterates over the collection skipping specific indexes
     :param iterable:
@@ -283,10 +322,6 @@ def skip_indexes(iterable: Iterable[T], skip: set[int]
         if i in skip:
             continue
         yield item
-
-
-def get_last_element(string: str, delimiter: str) -> str:
-    return string.split(delimiter)[-1]
 
 
 def catchdefault(method: Callable, default: Any = None):
@@ -307,35 +342,14 @@ class NotHereDescriptor:
         raise AttributeError
 
 
-JSON_PATH_LIST_INDEXES = re.compile(r'\w*\[(-?\d+)\]')
-
-
-def json_path_get(d: dict | list, path: str) -> Any:
-    """
-    Simple json paths with only basic operations supported
-    >>> json_path_get({'a': 'b', 'c': [1,2,3, [{'b': 'c'}]]}, 'c[-1][0].b')
-    'c'
-    >>> json_path_get([-1, {'one': 'two'}], 'c[-1][0].b') is None
-    True
-    >>> json_path_get([-1, {'one': 'two'}], '[-1].one')
-    'two'
-    """
-    if path.startswith('$'):
-        path = path[1:]
-    if path.startswith('.'):
-        path = path[1:]
-    parts = path.split('.')
-
+def get_path(d: dict, path: str) -> Any:
+    if '.' not in path:
+        return d.get(path)
     item = d
-    for part in parts:
+    for part in path.split('.'):
         try:
-            _key = part.split('[')[0]
-            _indexes = re.findall(JSON_PATH_LIST_INDEXES, part)
-            if _key:
-                item = item.get(_key)
-            for i in _indexes:
-                item = item[int(i)]
-        except (IndexError, TypeError, AttributeError):
+            item = item.get(part)
+        except (TypeError, AttributeError):
             item = None
             break
     return item
@@ -356,6 +370,14 @@ def download_url(url: str, out: FT | None = None) -> FT | io.BytesIO | None:
         out = io.BytesIO()
     try:
         with requests.get(url, stream=True) as resp:
+            if not resp.ok:
+                status_code = resp.status_code
+                reason = resp.reason or resp.text or "Unknown error"
+                _LOG.warning(
+                    f"Failed to download from url: {url}, "
+                    f"status code: {status_code}, reason: {reason}"
+                )
+                return
             for chunk in resp.raw.stream(decode_content=True):
                 out.write(chunk)
         out.seek(0)
@@ -367,8 +389,7 @@ def download_url(url: str, out: FT | None = None) -> FT | io.BytesIO | None:
 
 def sifted(request: dict) -> dict:
     return {
-        k: v for k, v in request.items()
-        if isinstance(v, (bool, int)) or v
+        k: v for k, v in request.items() if isinstance(v, (bool, int)) or v
     }
 
 
@@ -394,8 +415,11 @@ CT = TypeVar('CT')
 
 
 class MultipleCursorsWithOneLimitIterator(Iterable[CT]):
-    def __init__(self, limit: int | None,
-                 *factories: Callable[[int | None], Iterator[CT]]):
+    def __init__(
+        self,
+        limit: int | None,
+        *factories: Callable[[int | None], Iterator[CT]],
+    ):
         """
         This class will consider the number of yielded items and won't query
         more. See tests for this thing to understand better
@@ -431,72 +455,16 @@ class MultipleCursorsWithOneLimitIterator(Iterable[CT]):
                 self._it = factory(self._current_limit)
 
 
-# todo test
-def to_api_gateway_event(processed_event: 'ProcessedEvent') -> dict:
-    """
-    Converts our ProcessedEvent back to api gateway event. It does not
-    contain all the fields only some that are necessary for high level reports
-    endpoints
-    :param processed_event:
-    :return:
-    """
-    assert processed_event['resource'], \
-        'Only event with existing resource supported'
-
-    # values can be just strings in case we get this event from a database
-    resource = processed_event['resource']
-    if isinstance(resource, Enum):
-        resource = resource.value
-    method = processed_event['method']
-    if isinstance(method, Enum):
-        method = method.value
-    return {
-        'resource': resource,
-        'path': resource,
-        'httpMethod': method,
-        'headers': {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Accept-Encoding': 'gzip,deflate',
-        },
-        'multiValueHeaders': {
-            'Accept': ['application/json'],
-            'Accept-Encoding': ['gzip,deflate'],
-            'Content-Type': ['application/json'],
-        },
-        'queryStringParameters': processed_event['query'],
-        'pathParameters': processed_event['path_params'],
-        'requestContext': {
-            'path': processed_event['fullpath'],
-            'resourcePath': resource,
-            'httpMethod': method,
-            'requestTimeEpoch': time.time() * 1e3,
-            'protocol': 'HTTP/1.1',
-            'authorizer': {
-                'claims': {
-                    'sub': processed_event['cognito_user_id'],
-                    'custom:customer': processed_event['cognito_customer'],
-                    'cognito:username': processed_event['cognito_username'],
-                    'custom:role': processed_event['cognito_user_role']
-                }
-            }
-        },
-        'body': json.dumps(processed_event['body'], separators=(',', ':')),
-        'isBase64Encoded': False
-    }
-
-
 JT = TypeVar('JT')  # json type
-IT = TypeVar('IT')  # item type
 
 
-def _default_hook(x):
+def _default_hook(x: Any) -> bool:
     return isinstance(x, (str, int, bool, NoneType))
 
 
-def iter_values(finding: JT,
-                hook: Callable[[IT], bool] = _default_hook
-                ) -> Generator[IT, Any, JT]:
+def iter_values(
+    finding: JT, hook: Callable[[Any], bool] = _default_hook
+) -> Generator[Any, Any, JT]:
     """
     Yields values from the given finding with an ability to send back
     the desired values. I proudly think this is cool, because we can put
@@ -533,6 +501,31 @@ def iter_values(finding: JT,
         return finding
 
 
+def iter_key_values(
+    finding: JT,
+    hook: Callable[[Any], bool] = _default_hook,
+    keys: tuple[str, ...] = (),
+) -> Generator[tuple[tuple[str, ...], Any], Any, JT]:
+    """
+    Slightly changed version of the function above. Iterates over dict
+    and yields tuples where the first element is tuple of keys and the second
+    is a value. Skips lists entirely for now.
+    """
+    if hook(finding):
+        new = yield keys, finding
+        return new
+    elif _default_hook(finding):
+        return finding
+    if isinstance(finding, dict):
+        for k, v in finding.items():
+            finding[k] = yield from iter_key_values(v, hook, keys + (k,))
+        return finding
+    if isinstance(finding, list):
+        # TODO: maybe yield list indexes here, but they can be confused
+        # with dict keys of type int. Currently, we don't need this block
+        return finding
+
+
 def dereference_json(obj: dict) -> None:
     """
     Changes the given dict in place de-referencing all $ref. Does not support
@@ -550,6 +543,7 @@ def dereference_json(obj: dict) -> None:
     :param obj:
     :return:
     """
+
     def _inner(o):
         if isinstance(o, (str, int, float, bool, NoneType)):
             return
@@ -568,6 +562,7 @@ def dereference_json(obj: dict) -> None:
                     o[i] = deep_get(obj, _path)
                 else:
                     _inner(v)
+
     _inner(obj)
 
 
@@ -583,7 +578,7 @@ def measure_time():
 class NextToken:
     __slots__ = ('_lak',)
 
-    def __init__(self, lak: dict | int | str | None = None):
+    def __init__(self, lak: dict | int | None = None):
         """
         Wrapper over dynamodb last_evaluated_key and pymongo offset
         :param lak:
@@ -600,7 +595,9 @@ class NextToken:
     def serialize(self) -> str | None:
         if not self:
             return
-        return base64.urlsafe_b64encode(msgspec.json.encode(self._lak)).decode()
+        return base64.urlsafe_b64encode(
+            msgspec.json.encode(self._lak)
+        ).decode()
 
     @property
     def value(self) -> dict | int | str | None:
@@ -611,53 +608,24 @@ class NextToken:
         if not s or not isinstance(s, str):
             return cls()
         decoded = None
+        error = True
         try:
             decoded = msgspec.json.decode(base64.urlsafe_b64decode(s))
+            error = False
         except (binascii.Error, msgspec.DecodeError):
             pass
         except Exception:  # noqa
             pass
+
+        if error:
+            raise ValueError(
+                'Failed to deserialize next_token: invalid or malformed token.'
+            )
+
         return cls(decoded)
 
     def __bool__(self) -> bool:
         return not not self._lak  # 0 and empty dict are None
-
-
-class TermColor:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    DEBUG = '\033[90m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-
-    @classmethod
-    def blue(cls, st: str) -> str:
-        return f'{cls.OKBLUE}{st}{cls.ENDC}'
-
-    @classmethod
-    def cyan(cls, st: str) -> str:
-        return f'{cls.OKCYAN}{st}{cls.ENDC}'
-
-    @classmethod
-    def green(cls, st: str) -> str:
-        return f'{cls.OKGREEN}{st}{cls.ENDC}'
-
-    @classmethod
-    def yellow(cls, st: str) -> str:
-        return f'{cls.WARNING}{st}{cls.ENDC}'
-
-    @classmethod
-    def red(cls, st: str) -> str:
-        return f'{cls.FAIL}{st}{cls.ENDC}'
-
-    @classmethod
-    def gray(cls, st: str) -> str:
-        return f'{cls.DEBUG}{st}{cls.DEBUG}'
 
 
 def flip_dict(d: dict):
@@ -668,3 +636,279 @@ def flip_dict(d: dict):
     """
     for k in tuple(d.keys()):
         d[d.pop(k)] = k
+
+
+class Version(tuple):
+    """
+    Limited version. Additional labels, pre-release labels and build metadata
+    are not supported.
+    Tuple with three elements (integers): (Major, Minor, Patch).
+    Minor and Patch can be missing. It that case they are 0. This class is
+    supposed to be used primarily by rulesets versioning
+    """
+
+    _not_allowed = re.compile(r'[^.0-9]')
+
+    def __new__(cls, seq: str | tuple[int, int, int] = (0, 0, 0)) -> 'Version':
+        if isinstance(seq, Version):
+            return seq
+        if isinstance(seq, str):
+            seq = cls._parse(seq)
+        return tuple.__new__(Version, seq)
+
+    @classmethod
+    def _parse(cls, version: str) -> tuple[int, int, int]:
+        """
+        Raises ValueError
+        """
+        prepared = re.sub(cls._not_allowed, '', version).strip('.')
+
+        try:
+            items = tuple(map(int, prepared.split('.')))
+        except ValueError:
+            items = tuple()
+
+        match len(items):
+            case 3:
+                return items
+            case 2:
+                return items[0], items[1], 0
+            case 1:
+                return items[0], 0, 0
+            case _:
+                raise ValueError(
+                    f"Cannot parse '{version}'. Version must have one "
+                    "of formats: 1, 2.3, 4.5.6"
+                )
+
+    @property
+    def major(self) -> int:
+        return self[0]
+
+    @property
+    def minor(self) -> int:
+        return self[1]
+
+    @property
+    def patch(self) -> int | None:
+        return self[2]
+
+    @classmethod
+    def first_version(cls) -> 'Version':
+        return cls((1, 0, 0))
+
+    def to_str(self) -> str:
+        return '.'.join(map(str, self))
+
+    def __str__(self) -> str:
+        return self.to_str()
+
+    def next_major(self) -> 'Version':
+        return Version((self.major + 1, 0, 0))
+
+    def next_minor(self) -> 'Version':
+        return Version((self.major, self.minor + 1, 0))
+
+    def next_patch(self) -> 'Version':
+        return Version((self.major, self.minor, self.patch + 1))
+
+
+class JWTToken:
+    """
+    A simple wrapper over jwt token
+    """
+
+    EXP_THRESHOLD = 300  # in seconds
+    __slots__ = '_token', '_exp_threshold'
+
+    def __init__(self, token: str, exp_threshold: int = EXP_THRESHOLD):
+        self._token = token
+        self._exp_threshold = exp_threshold
+
+    @property
+    def raw(self) -> str:
+        return self._token
+
+    @property
+    def payload(self) -> dict | None:
+        try:
+            return json.loads(
+                base64.b64decode(self._token.split('.')[1] + '==').decode()
+            )
+        except Exception:
+            return
+
+    def is_expired(self) -> bool:
+        p = self.payload
+        if not p:
+            return True
+        exp = p.get('exp')
+        if not exp:
+            return False
+        return exp < time.time() + self._exp_threshold
+
+
+def group_by(
+    it: Iterable[T], key: Callable[[T], Hashable]
+) -> dict[Hashable, list[T]]:
+    res = {}
+    for item in it:
+        res.setdefault(key(item), []).append(item)
+    return res
+
+
+def map_by(it: Iterable[T], key: Callable[[T], Hashable]) -> dict[Hashable, T]:
+    res = {}
+    for item in it:
+        res.setdefault(key(item), item)
+    return res
+
+
+def encode_into(
+    it: Iterable[T],
+    encode: Callable[[T, bytearray, int], None],
+    limit: int,
+    new: Callable[[], bytearray] = bytearray,
+    sep: bytes = b',',
+) -> Generator[bytearray, None, None]:
+    """
+    This is a hell of a function.
+
+    It is useful if we have a list of entities that we want to send to some
+    external API, and we know that API has payload limit of N bytes. This
+    function encodes entities into bytearrays respecting the limit. It also
+    handles separators and some initial data inside bytearrays
+    """
+    sep_len = len(sep)
+    if sep_len >= limit:
+        raise ValueError('separator len exceeds limit')
+
+    buf = new()
+    len_orig = len(buf)
+
+    for item in it:
+        len_before = len(buf)
+        encode(item, buf, len_before)
+        len_after = len(buf)
+        if (len_after - len_before) > limit:
+            raise ValueError('One encoded item exceeds the limit')
+
+        # by here we are sure that one item by itself does not exceed limit,
+        # but we cannot be sure that the total len of buffer does not
+        size = len_after - len_orig
+        if size == limit or (size < limit <= size + sep_len):
+            # fast yield since we know that we already reached the limit
+            # or will reach if add a separator
+            yield buf
+            buf = new()
+            len_orig = len(buf)
+            continue
+
+        buf.extend(sep)
+        size += sep_len
+
+        if size > limit:
+            # NOTE: if we got here it means that we were within limit
+            # in the previous iteration but this one exceeded the limit.
+            # So, we need to get previous and move this new encoded to the next
+            # buffer
+            to_yield = buf
+
+            buf = new()
+            len_orig = len(buf)
+
+            # NOTE: here seems like the only place we make a copy here
+            # though I hope it's optimized internally to be fast and not
+            # produce intermediate slice
+            buf[len_orig:] = to_yield[len_before:]  # with a separator
+
+            # NOTE, here you need to be aware that the whole buffer will
+            # be removed if len_before-sep_len is equal to 0. We can get here
+            # if the current size with a separator is bigger that limit.
+            # It means that ... it's kind of difficult to explain, but
+            # we should not get here if len_before-sep_len == 0
+            del to_yield[len_before - sep_len :]
+            yield to_yield
+
+    if len(buf) > len_orig:
+        if sep_len > 0:
+            # NOTE: buf[-0:] will remove whole buffer so need to handle
+            del buf[-sep_len:]
+        yield buf
+
+
+def to_normalized_version(
+    version: str, length: int = VERSION_NORM_LENGTH, parts: int | None = None
+) -> str:
+    """
+    Convert plain version string to normalized version:
+    1.12.3 -> 000001.000012.000003
+    :param version:
+    :param length:
+    :param parts:
+    :return:
+    """
+    if not version:
+        version = '0.0.0'
+    items = version.strip().split('.')
+    if parts is not None:
+        if len(items) > parts:
+            items = items[:parts]
+        elif len(items) < parts:
+            items.extend(['0' for _ in range(parts - len(items))])
+
+    if any([len(item) > length for item in items]):
+        raise ValueError(
+            f'Cannot normalize version {version}. '
+            f'One of the parts is longer than {length} characters'
+        )
+
+    return '.'.join([item.zfill(length) for item in items])
+
+
+def from_normalized_version(version: str) -> str:
+    """
+    Convert normalized version string to plain version:
+    01.000012.003 -> 1.12.3
+    :param version:
+    :return:
+    """
+    if not version:
+        return '0.0.0'
+    parts = version.split('.')
+    return '.'.join([str(int(part)) for part in parts])
+
+
+def create_requests_session(
+    *,
+    max_retries: int = 3,
+    backoff_factor: float = 1,
+    status_forcelist: list[int] | None = None,
+    retry_all_methods: bool = False,
+) -> requests.Session:
+    """
+    Create a requests session with retry capabilities.
+    Retries on connection drops (e.g. NAT idle timeout), read errors
+    (e.g. RemoteDisconnected / ProtocolError), and server errors.
+
+    :param max_retries: Maximum number of retries
+    :param backoff_factor: Backoff factor
+    :param status_forcelist: List of status codes to force retry
+    :param retry_all_methods: Retry all methods, not only GET and POST
+    :return: requests.Session
+    """
+    status_forcelist = status_forcelist or [500, 502, 503, 504]
+    allowed_methods = None if retry_all_methods else Retry.DEFAULT_ALLOWED_METHODS
+    retry = Retry(
+        total=max_retries,
+        connect=max_retries,
+        read=max_retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=status_forcelist,
+        allowed_methods=allowed_methods,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session = requests.Session()
+    session.mount('https://', adapter)
+    session.mount('http://', adapter)
+    return session

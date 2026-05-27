@@ -1,0 +1,44 @@
+[
+  {
+    "TopicArn": "arn:aws:sns:eu-central-1:123456789012:dead",
+    "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"__default_policy_ID\",\"Statement\":[{\"Sid\":\"__default_statement_ID\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":[\"SNS:GetTopicAttributes\",\"SNS:SetTopicAttributes\",\"SNS:AddPermission\",\"SNS:RemovePermission\",\"SNS:DeleteTopic\",\"SNS:Subscribe\",\"SNS:ListSubscriptionsByTopic\",\"SNS:Publish\",\"SNS:Receive\"],\"Resource\":\"arn:aws:sns:eu-central-1:123456789012:dead\",\"Condition\":{\"StringEquals\":{\"AWS:SourceOwner\":\"123456789012\"}}}]}",
+    "Owner": "123456789012",
+    "SubscriptionsPending": "0",
+    "EffectiveDeliveryPolicy": "{\"http\":{\"defaultHealthyRetryPolicy\":{\"minDelayTarget\":20,\"maxDelayTarget\":20,\"numRetries\":3,\"numMaxDelayRetries\":0,\"numNoDelayRetries\":0,\"numMinDelayRetries\":0,\"backoffFunction\":\"linear\"},\"disableSubscriptionOverrides\":false,\"defaultRequestPolicy\":{\"headerContentType\":\"text/plain; charset=UTF-8\"}}}",
+    "SubscriptionsConfirmed": "1",
+    "DisplayName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+    "SubscriptionsDeleted": "0",
+    "Tags": [],
+    "c7n:MatchedFilters": [
+      "KmsMasterKeyId"
+    ]
+  },
+  {
+    "TopicArn": "arn:aws:sns:eu-central-1:123456789012:testing-guard-duty-topic",
+    "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"__default_policy_ID\",\"Statement\":[{\"Sid\":\"__default_statement_ID\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":[\"SNS:GetTopicAttributes\",\"SNS:SetTopicAttributes\",\"SNS:AddPermission\",\"SNS:RemovePermission\",\"SNS:DeleteTopic\",\"SNS:Subscribe\",\"SNS:ListSubscriptionsByTopic\",\"SNS:Publish\",\"SNS:Receive\"],\"Resource\":\"arn:aws:sns:eu-central-1:123456789012:testing-guard-duty-topic\",\"Condition\":{\"StringEquals\":{\"AWS:SourceOwner\":\"123456789012\"}}},{\"Sid\":\"15c86ff9-b139-11ea-b98f-02c2a2ced469\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"events.amazonaws.com\"},\"Action\":\"sns:Publish\",\"Resource\":\"arn:aws:sns:eu-central-1:123456789012:testing-guard-duty-topic\"}]}",
+    "Owner": "123456789012",
+    "SubscriptionsPending": "0",
+    "EffectiveDeliveryPolicy": "{\"http\":{\"defaultHealthyRetryPolicy\":{\"minDelayTarget\":20,\"maxDelayTarget\":20,\"numRetries\":3,\"numMaxDelayRetries\":0,\"numNoDelayRetries\":0,\"numMinDelayRetries\":0,\"backoffFunction\":\"linear\"},\"disableSubscriptionOverrides\":false,\"defaultRequestPolicy\":{\"headerContentType\":\"text/plain; charset=UTF-8\"}}}",
+    "SubscriptionsConfirmed": "1",
+    "DisplayName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+    "SubscriptionsDeleted": "0",
+    "Tags": [],
+    "c7n:MatchedFilters": [
+      "KmsMasterKeyId"
+    ]
+  },
+  {
+    "TopicArn": "arn:aws:sns:eu-central-1:123456789012:m3-inspector-topic",
+    "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"__default_policy_ID\",\"Statement\":[{\"Sid\":\"__default_statement_ID\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":[\"SNS:GetTopicAttributes\",\"SNS:SetTopicAttributes\",\"SNS:AddPermission\",\"SNS:RemovePermission\",\"SNS:DeleteTopic\",\"SNS:Subscribe\",\"SNS:ListSubscriptionsByTopic\",\"SNS:Publish\",\"SNS:Receive\"],\"Resource\":\"arn:aws:sns:eu-central-1:123456789012:m3-inspector-topic\",\"Condition\":{\"StringEquals\":{\"AWS:SourceOwner\":\"123456789012\"}}}]}",
+    "Owner": "123456789012",
+    "SubscriptionsPending": "0",
+    "EffectiveDeliveryPolicy": "{\"http\":{\"defaultHealthyRetryPolicy\":{\"minDelayTarget\":20,\"maxDelayTarget\":20,\"numRetries\":3,\"numMaxDelayRetries\":0,\"numNoDelayRetries\":0,\"numMinDelayRetries\":0,\"backoffFunction\":\"linear\"},\"disableSubscriptionOverrides\":false,\"defaultRequestPolicy\":{\"headerContentType\":\"text/plain; charset=UTF-8\"}}}",
+    "SubscriptionsConfirmed": "1",
+    "DisplayName": "9cd23c4a-9970-4adf-97f9-9d74fb5f9673",
+    "SubscriptionsDeleted": "0",
+    "Tags": [],
+    "c7n:MatchedFilters": [
+      "KmsMasterKeyId"
+    ]
+  }
+]

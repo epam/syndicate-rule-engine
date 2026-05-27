@@ -1,0 +1,35 @@
+memoryLimit: 768Mi
+memoryRequest: 128Mi
+
+service:
+  type: ClusterIP
+  port: 9000
+  nodePort: 32102
+
+
+consoleService:
+  type: ClusterIP
+  port: 9001
+  nodePort: 32103
+
+console:
+  enabled: false
+
+# previous RELEASE.2025-03-12T18-04-18Z
+image:
+  repository: quay.io/minio/minio
+  tag: RELEASE.2025-05-24T17-08-30Z
+  pullPolicy: IfNotPresent
+
+
+persistence:
+  accessMode: ReadWriteOnce
+  size: 4Gi
+  storageClass: standard
+  hostPath: /data/minio
+
+replicas: 1
+strategy:
+  type: Recreate
+  maxUnavailable: 0
+  maxSurge: 100%

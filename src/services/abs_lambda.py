@@ -1,29 +1,36 @@
-from abc import ABC, abstractmethod
-from http import HTTPStatus
 import inspect
 import json
-import msgspec
-from typing import MutableMapping, TypedDict, cast, TYPE_CHECKING
+from abc import ABC, abstractmethod
+from http import HTTPStatus
+from typing import TYPE_CHECKING, MutableMapping, TypedDict, cast
 
+import msgspec
 from modular_sdk.commons.exception import ModularException
 from modular_sdk.services.customer_service import CustomerService
+from pynamodb.exceptions import PynamoDBConnectionError
+from typing_extensions import Self
 
 from helpers import RequestContext, deep_get
-from helpers.constants import CAASEnv, CustodianEndpoint, HTTPMethod, Permission
+from helpers.constants import (
+    Endpoint,
+    HTTPMethod,
+    Permission,
+    MCP_USER_NAME_HEADER,
+)
 from helpers.lambda_response import (
-    CustodianException,
     LambdaOutput,
     MetricsUpdateException,
     ResponseFactory,
+    SREException,
 )
 from helpers.log_helper import get_logger, hide_secret_values
-from helpers.system_customer import SYSTEM_CUSTOMER
+from helpers.system_customer import SystemCustomer
+from services import SP
+from services.clients.cognito import BaseAuthClient
 from services.environment_service import EnvironmentService
 from services.job_service import JobService
-from services.batch_results_service import BatchResultsService
-from services.platform_service import PlatformService
 from services.license_service import LicenseService
-from services import SP
+from services.platform_service import PlatformService
 from services.rbac_service import (
     PolicyService,
     PolicyStruct,
@@ -31,6 +38,8 @@ from services.rbac_service import (
     TenantAccess,
     TenantsAccessPayload,
 )
+
+
 if TYPE_CHECKING:
     from handlers import Mapping
 
@@ -55,7 +64,7 @@ class ProcessedEvent(TypedDict):
     kwargs and all the path params as other kwargs.
     """
     method: HTTPMethod
-    resource: CustodianEndpoint | None  # our resource if it can be matched: /jobs/{id}
+    resource: Endpoint | None  # our resource if it can be matched: /jobs/{id}
     path: str  # real path without stage: /jobs/123 or /jobs/123/
     fullpath: str  # full real path with stage /dev/jobs/123
     cognito_username: str | None
@@ -69,6 +78,7 @@ class ProcessedEvent(TypedDict):
     path_params: dict
     tenant_access_payload: TenantsAccessPayload
     additional_kwargs: dict  # additional kwargs to path to a handler
+    headers: dict
 
 
 class ExpandEnvironmentEventProcessor(AbstractEventProcessor):
@@ -83,25 +93,47 @@ class ExpandEnvironmentEventProcessor(AbstractEventProcessor):
             environment_service=SP.environment_service
         )
 
+    @staticmethod
+    def _resolve_stage(event: dict) -> str | None:
+        # nginx reverse proxy gives this header. It also can contain query
+        original = event.get('headers', {}).get('X-Original-Uri')
+        path = event.get('path')
+        if original and path:  # nginx reverse proxy gives this header
+            # event['path'] here contains full path without stage
+            try:
+                return original[:original.index(path)].strip('/')
+            except ValueError:
+                pass
+        # we could've got stage from requestContext.stage, but it always points
+        # to api gw stage. That value if wrong for us in case we use a domain
+        # name with prefix. So we should resolve stage as difference between
+        # requestContext.path and requestContext.resourcePath
+        path = deep_get(event, ('requestContext', 'path'))
+        resource = deep_get(event, ('requestContext', 'resourcePath'))
+        if path and resource:
+            return path[:-len(resource)].strip('/')
+
     def __call__(self, event: dict, context: RequestContext
                  ) -> tuple[dict, RequestContext]:
         """
         Adds some useful data to internal environment variables
         """
-        envs = {CAASEnv.INVOCATION_REQUEST_ID: context.aws_request_id}
-        if host := deep_get(event, ('headers', 'Host')):
-            envs[CAASEnv.API_GATEWAY_HOST] = host
-        # we could've got stage from requestContext.stage, but it always points
-        # to api gw stage. That value if wrong for us in case we use a domain
-        # name with prefix. So we should resolve stage as difference between
-        # requestContext.path and requestContext.resourcePath
-        _path = deep_get(event, ('requestContext', 'path'))
-        _resource = deep_get(event, ('requestContext', 'resourcePath'))
-        envs[CAASEnv.API_GATEWAY_STAGE] = _path[:-len(_resource)].strip('/')
 
-        if arn := context.invoked_function_arn:
-            envs[CAASEnv.ACCOUNT_ID] = arn.split(':')[4]
-        self._env.override_environment(envs)
+        tls = SP.tls
+
+        tls.aws_request_id = context.aws_request_id
+        if host := deep_get(event, ('headers', 'Host')):
+            _LOG.debug(f'Resolved host from header: {host}')
+            tls.host = host
+
+        stage = self._resolve_stage(event)
+        if stage:
+            _LOG.debug(f'Resolved stage: {stage}')
+            tls.stage = stage
+
+        if context.invoked_function_arn:
+            tls.account_id = RequestContext.extract_account_id(context.invoked_function_arn)
+
         return event, context
 
 
@@ -109,7 +141,7 @@ class ApiGatewayEventProcessor(AbstractEventProcessor):
     __slots__ = '_mapping',
     _decoder = msgspec.json.Decoder(type=dict)
 
-    def __init__(self, mapping: dict[tuple[CustodianEndpoint, HTTPMethod], Permission | None]):
+    def __init__(self, mapping: dict[tuple[Endpoint, HTTPMethod], Permission | None]):
         """
         :param mapping: permissions mapping. Currently, we have one inside
         validators.registry
@@ -157,19 +189,19 @@ class ApiGatewayEventProcessor(AbstractEventProcessor):
             try:
                 body = self._decoder.decode(body)
             except msgspec.ValidationError as e:
-                _LOG.info('Invalid body type came. Returning 400')
+                _LOG.warning('Invalid body type came. Returning 400')
                 raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
                     str(e)
                 ).exc()
             except msgspec.DecodeError as e:
-                _LOG.info('Invalid incoming json. Returning 400')
+                _LOG.warning('Invalid incoming json. Returning 400')
                 raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
                     str(e)
                 ).exc()
         rc = event.get('requestContext') or {}
         return {
             'method': (method := HTTPMethod(event['httpMethod'])),
-            'resource': (res := CustodianEndpoint.match(rc['resourcePath'])),
+            'resource': (res := Endpoint.match(rc['resourcePath'])),
             'path': event['path'],  # todo may be wrong if we use custom domain
             'fullpath': rc['path'],
             'cognito_username': deep_get(rc, ('authorizer', 'claims',
@@ -180,12 +212,13 @@ class ApiGatewayEventProcessor(AbstractEventProcessor):
             'cognito_user_role': deep_get(rc, ('authorizer', 'claims',
                                                'custom:role')),
             'permission': self._mapping.get((res, method)),
-            'is_system': cst == SYSTEM_CUSTOMER,
+            'is_system': cst == SystemCustomer.get_name(),
             'body': body,
             'query': dict(event.get('queryStringParameters') or {}),
             'path_params': dict(event.get('pathParameters') or {}),
             'tenant_access_payload': TenantsAccessPayload.build_denying_all(),
-            'additional_kwargs': dict()
+            'additional_kwargs': dict(),
+            'headers': event['headers']
         }, context
 
 
@@ -201,54 +234,54 @@ class RestrictCustomerEventProcessor(AbstractEventProcessor):
 
     # TODO organize this collection somehow else
     can_work_without_customer_id = {
-        (CustodianEndpoint.CUSTOMERS, HTTPMethod.GET),
+        (Endpoint.CUSTOMERS, HTTPMethod.GET),
 
-        (CustodianEndpoint.METRICS_UPDATE, HTTPMethod.POST),
-        (CustodianEndpoint.METRICS_STATUS, HTTPMethod.GET),
+        (Endpoint.METRICS_UPDATE, HTTPMethod.POST),
+        (Endpoint.METADATA_UPDATE, HTTPMethod.POST),
 
-        (CustodianEndpoint.META_STANDARDS, HTTPMethod.POST),
-        (CustodianEndpoint.META_MAPPINGS, HTTPMethod.POST),
-        (CustodianEndpoint.META_META, HTTPMethod.POST),
+        (Endpoint.RULESETS, HTTPMethod.GET),
+        (Endpoint.RULESETS, HTTPMethod.POST),
+        (Endpoint.RULESETS, HTTPMethod.PATCH),
+        (Endpoint.RULESETS, HTTPMethod.DELETE),
+        (Endpoint.RULESETS_RELEASE, HTTPMethod.POST),
 
-        (CustodianEndpoint.ED_RULESETS, HTTPMethod.GET),
-        (CustodianEndpoint.ED_RULESETS, HTTPMethod.POST),
-        (CustodianEndpoint.ED_RULESETS, HTTPMethod.DELETE),
-        (CustodianEndpoint.RULESETS, HTTPMethod.GET),
-        (CustodianEndpoint.RULESETS, HTTPMethod.POST),
-        (CustodianEndpoint.RULESETS, HTTPMethod.PATCH),
-        (CustodianEndpoint.RULESETS, HTTPMethod.DELETE),
-        (CustodianEndpoint.RULESETS_CONTENT, HTTPMethod.GET),
+        (Endpoint.RULE_SOURCES_ID, HTTPMethod.GET),
+        (Endpoint.RULE_SOURCES, HTTPMethod.GET),
+        (Endpoint.RULE_SOURCES, HTTPMethod.POST),
+        (Endpoint.RULE_SOURCES_ID, HTTPMethod.DELETE),
+        (Endpoint.RULE_SOURCES_ID, HTTPMethod.PATCH),
+        (Endpoint.RULE_SOURCES_ID_SYNC, HTTPMethod.POST),
 
-        (CustodianEndpoint.RULE_SOURCES, HTTPMethod.GET),
-        (CustodianEndpoint.RULE_SOURCES, HTTPMethod.POST),
-        (CustodianEndpoint.RULE_SOURCES, HTTPMethod.DELETE),
-        (CustodianEndpoint.RULE_SOURCES, HTTPMethod.PATCH),
+        (Endpoint.RULES, HTTPMethod.GET),
+        (Endpoint.RULES, HTTPMethod.DELETE),
+        (Endpoint.RULE_META_UPDATER, HTTPMethod.POST),
 
-        (CustodianEndpoint.RULES, HTTPMethod.GET),
-        (CustodianEndpoint.RULES, HTTPMethod.DELETE),
-        (CustodianEndpoint.RULE_META_UPDATER, HTTPMethod.POST),
+        (Endpoint.LICENSES_LICENSE_KEY_SYNC, HTTPMethod.POST),
 
-        (CustodianEndpoint.LICENSES_LICENSE_KEY_SYNC, HTTPMethod.POST),
+        (Endpoint.SETTINGS_MAIL, HTTPMethod.GET),
+        (Endpoint.SETTINGS_MAIL, HTTPMethod.POST),
+        (Endpoint.SETTINGS_MAIL, HTTPMethod.DELETE),
+        (Endpoint.SETTINGS_SEND_REPORTS, HTTPMethod.POST),
+        (Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT, HTTPMethod.POST),
+        (Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT, HTTPMethod.GET),
+        (Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT, HTTPMethod.DELETE),
+        (Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG, HTTPMethod.POST),
+        (Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG, HTTPMethod.GET),
+        (Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG, HTTPMethod.DELETE),
 
-        (CustodianEndpoint.SETTINGS_MAIL, HTTPMethod.GET),
-        (CustodianEndpoint.SETTINGS_MAIL, HTTPMethod.POST),
-        (CustodianEndpoint.SETTINGS_MAIL, HTTPMethod.DELETE),
-        (CustodianEndpoint.SETTINGS_SEND_REPORTS, HTTPMethod.POST),
-        (CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CLIENT, HTTPMethod.POST),
-        (CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CLIENT, HTTPMethod.GET),
-        (CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CLIENT, HTTPMethod.DELETE),
-        (CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CONFIG, HTTPMethod.POST),
-        (CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CONFIG, HTTPMethod.GET),
-        (CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CONFIG, HTTPMethod.DELETE),
+        (Endpoint.EVENT, HTTPMethod.POST),
 
-        (CustodianEndpoint.EVENT, HTTPMethod.POST),
+        (Endpoint.USERS_WHOAMI, HTTPMethod.GET),
+        (Endpoint.USERS_RESET_PASSWORD, HTTPMethod.POST),
+        (Endpoint.USERS, HTTPMethod.GET),
+        (Endpoint.USERS_USERNAME, HTTPMethod.PATCH),
+        (Endpoint.USERS_USERNAME, HTTPMethod.DELETE),
+        (Endpoint.USERS_USERNAME, HTTPMethod.GET),
 
-        (CustodianEndpoint.USERS_WHOAMI, HTTPMethod.GET),
-        (CustodianEndpoint.USERS_RESET_PASSWORD, HTTPMethod.POST),
-        (CustodianEndpoint.USERS, HTTPMethod.GET),
-        (CustodianEndpoint.USERS_USERNAME, HTTPMethod.PATCH),
-        (CustodianEndpoint.USERS_USERNAME, HTTPMethod.DELETE),
-        (CustodianEndpoint.USERS_USERNAME, HTTPMethod.GET),
+        (Endpoint.SCHEDULED_JOB, HTTPMethod.GET),
+        (Endpoint.SCHEDULED_JOB_NAME, HTTPMethod.GET),
+
+        (Endpoint.SERVICE_OPERATIONS_STATUS, HTTPMethod.GET),
     }
 
     def __init__(self, customer_service: CustomerService):
@@ -278,7 +311,7 @@ class RestrictCustomerEventProcessor(AbstractEventProcessor):
             # if system user is making a request he should provide customer_id
             # as a parameter to make a request on that customer's behalf.
             cid = self._get_cid(event)
-            if cid and cid != SYSTEM_CUSTOMER and not self._cs.get(cid):
+            if cid and cid != SystemCustomer.get_name() and not self._cs.get(cid):
                 raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
                     f'Customer {cid} does not exist. You cannot make a request'
                     f' on his behalf'
@@ -286,12 +319,15 @@ class RestrictCustomerEventProcessor(AbstractEventProcessor):
             event['tenant_access_payload'] = TenantsAccessPayload.build_allowing_all()
 
             if (event['resource'], event['method']) in self.can_work_without_customer_id:  # noqa
+                _LOG.info(f'System is making request that can be done without '
+                          f'customer_id')
                 return event, context
             if not cid:
                 raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
                     'Please, provide customer_id param to make a request on '
                     'his behalf'
                 ).exc()
+            _LOG.info(f'System is making request on behalf of {cid}')
             return event, context
         # override customer attribute for standard users with their customer
         cust = event['cognito_customer']
@@ -307,21 +343,27 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
     """
     Processor that restricts rbac permission
     """
-    __slots__ = '_rs', '_ps', '_env'
+    __slots__ = '_rs', '_ps', '_env', '_uc'
 
-    def __init__(self, role_service: RoleService,
-                 policy_service: PolicyService,
-                 environment_service: EnvironmentService):
+    def __init__(
+        self,
+        role_service: RoleService,
+        policy_service: PolicyService,
+        environment_service: EnvironmentService,
+        user_client: BaseAuthClient,
+    ) -> None:
         self._rs = role_service
         self._ps = policy_service
         self._env = environment_service
+        self._uc = user_client
 
     @classmethod
     def build(cls) -> 'CheckPermissionEventProcessor':
         return cls(
             role_service=SP.role_service,
             policy_service=SP.policy_service,
-            environment_service=SP.environment_service
+            environment_service=SP.environment_service,
+            user_client=SP.users_client,
         )
 
     @staticmethod
@@ -344,6 +386,7 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
         :param permission:
         :return: TenantAccessPayload
         """
+        _LOG.info(f'Checking permission: {permission}')
         factory = ResponseFactory(HTTPStatus.FORBIDDEN).message
         # todo cache role and policies?
         role = self._rs.get_nullable(customer, role_name)
@@ -356,7 +399,9 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
         ta = TenantAccess()
         is_allowed = False
         for policy in it:
+            _LOG.info(f'Checking permission for policy: {policy.name}')
             if policy.forbids(permission):
+                _LOG.debug('Policy explicitly forbids')
                 raise factory(self._not_allowed_message(permission)).exc()
             is_allowed |= policy.allows(permission)
             ta.add(policy)
@@ -392,6 +437,32 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
             role_name=cast(str, event['cognito_user_role']),
             permission=permission
         )
+
+        # we need to change user role to mcp user role if mcp user is
+        # specified in header and exists in Users.
+        # It is needed for integration with CodeMie
+        if mcp_user_name := event['headers'].get(MCP_USER_NAME_HEADER):
+            mcp_user_name = mcp_user_name.lower()
+            _LOG.info(f'MCP user name from header: {mcp_user_name!r}')
+            if mcp_user := self._uc.get_user_by_username(mcp_user_name):
+                _LOG.info(
+                    f'MCP user found. Using his role {mcp_user.role!r} for '
+                    f'permission check'
+                )
+                event['cognito_user_role'] = mcp_user.role
+                event['tenant_access_payload'] = self._check_permission(
+                    customer=cast(str, event['cognito_customer']),
+                    role_name=cast(str, event['cognito_user_role']),
+                    permission=permission
+                )
+            else:
+                _LOG.info(
+                    f'MCP user with name {mcp_user_name!r} not found. '
+                    f'Using native user tenant access payload'
+                )
+
+        _LOG.debug(f'Resolved tenant access payload: '
+                   f'{event["tenant_access_payload"]}')
         return event, context
 
 
@@ -423,20 +494,41 @@ class RestrictTenantEventProcessor(AbstractEventProcessor):
     """
     __slots__ = '_js', '_brs', '_ps', '_ls'
 
-    def __init__(self, job_service: JobService,
-                 batch_results_service: BatchResultsService,
-                 platform_service: PlatformService,
-                 license_service: LicenseService):
+    def __init__(
+        self,
+        job_service: JobService,
+        platform_service: PlatformService,
+        license_service: LicenseService,
+    ) -> None:
         self._js = job_service
-        self._brs = batch_results_service
         self._ps = platform_service
         self._ls = license_service
 
+    def __call__(
+        self,
+        event: ProcessedEvent,
+        context: RequestContext,
+    ) -> tuple[ProcessedEvent, RequestContext]:
+        res = event['resource']
+        perm = event['permission']
+        
+        if not res or not perm or not perm.depends_on_tenant:
+            return event, context
+
+        if '{tenant_name}' in res:
+            return self._restrict_tenant_name(event, context)
+        if '{job_id}' in res:
+            return self._restrict_job_id(event, context)
+        if '{platform_id}' in res:
+            return self._restrict_platform_id(event, context)
+        if '{license_key}' in res:
+            return self._restrict_license_key(event, context)
+        return event, context
+
     @classmethod
-    def build(cls) -> 'RestrictTenantEventProcessor':
+    def build(cls) -> Self:
         return cls(
             job_service=SP.job_service,
-            batch_results_service=SP.batch_results_service,
             platform_service=SP.platform_service,
             license_service=SP.license_service
         )
@@ -462,18 +554,6 @@ class RestrictTenantEventProcessor(AbstractEventProcessor):
         event['additional_kwargs']['job_obj'] = job
         return event, context
 
-    def _restrict_batch_results(self, event: ProcessedEvent,
-                                context: RequestContext
-                                ) -> tuple[ProcessedEvent, RequestContext]:
-        br_id = cast(str, event['path_params'].get('batch_results_id'))
-        job = self._brs.get_nullable(hash_key=br_id)
-        if not job or not event['tenant_access_payload'].is_allowed_for(job.tenant_name):
-            raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
-                self._brs.not_found_message(br_id)
-            ).exc()
-        event['additional_kwargs']['br_obj'] = job
-        return event, context
-
     def _restrict_platform_id(self, event: ProcessedEvent,
                               context: RequestContext
                               ) -> tuple[ProcessedEvent, RequestContext]:
@@ -490,25 +570,6 @@ class RestrictTenantEventProcessor(AbstractEventProcessor):
                               context: RequestContext
                               ) -> tuple[ProcessedEvent, RequestContext]:
         # todo check if license is applicable at least for one allowed tenant
-        return event, context
-
-    def __call__(self, event: ProcessedEvent, context: RequestContext
-                 ) -> tuple[ProcessedEvent, RequestContext]:
-        res = event['resource']
-        perm = event['permission']
-        if not res or not perm or not perm.depends_on_tenant:
-            return event, context
-
-        if '{tenant_name}' in res:
-            return self._restrict_tenant_name(event, context)
-        if '{job_id}' in res:
-            return self._restrict_job_id(event, context)
-        if '{batch_results_id}' in res:
-            return self._restrict_batch_results(event, context)
-        if '{platform_id}' in res:
-            return self._restrict_platform_id(event, context)
-        if '{license_key}' in res:
-            return self._restrict_license_key(event, context)
         return event, context
 
 
@@ -559,12 +620,24 @@ class EventProcessorLambdaHandler(AbstractLambdaHandler):
             #  from here
             _LOG.warning('Metrics update exception occurred', exc_info=True)
             raise e  # needed for ModularJobs to track failed jobs
-        except CustodianException as e:
+        except SREException as e:
             _LOG.warning(f'Application exception occurred: {e}')
             return e.build()
         except ModularException as e:
             _LOG.warning('Modular exception occurred', exc_info=True)
             return ResponseFactory(int(e.code)).message(e.content).build()
+        except PynamoDBConnectionError as e:
+            if e.cause_response_code not in (
+                    'ProvisionedThroughputExceededException',
+                    'ThrottlingException'):
+                _LOG.exception('Unexpected pynamodb exception occurred')
+                return ResponseFactory(
+                    HTTPStatus.INTERNAL_SERVER_ERROR
+                ).default().build()
+            _LOG.exception(f'{e.cause_response_code} occurred. Returning 429')
+            return ResponseFactory(
+                HTTPStatus.TOO_MANY_REQUESTS
+            ).default().build()
         except Exception:  # noqa
             _LOG.exception('Unexpected exception occurred')
             return ResponseFactory(
@@ -595,6 +668,8 @@ class ApiEventProcessorLambdaHandler(EventProcessorLambdaHandler):
                 body = event['query']
             case _:
                 body = event['body']
+        # EVENT is not a good name for this param (use 'body', 'model' instead)
+        #  params = dict(body=body, **event['path_params'])
         params = dict(event=body, **event['path_params'])
         parameters = inspect.signature(handler).parameters
         if '_pe' in parameters:

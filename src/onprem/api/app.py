@@ -1,5 +1,4 @@
 import inspect
-import json
 import re
 from http import HTTPStatus
 from typing import Callable
@@ -7,25 +6,57 @@ from typing import Callable
 from bottle import Bottle, HTTPResponse, request
 
 from helpers import RequestContext
-from helpers.lambda_response import CustodianException, LambdaResponse, \
+from helpers.constants import LambdaName
+from helpers.lambda_response import SREException, LambdaResponse, \
     ResponseFactory
 from helpers.log_helper import get_logger
-from lambdas.custodian_api_handler.handler import \
+from lambdas.api_handler.handler import \
     lambda_handler as api_handler_lambda
-from lambdas.custodian_configuration_api_handler.handler import (
+from lambdas.configuration_api_handler.handler import (
     lambda_handler as configuration_api_handler_lambda,
 )
-from lambdas.custodian_report_generation_handler.handler import (
-    lambda_handler as report_generation_handler,
-)
-from lambdas.custodian_report_generator.handler import (
+from lambdas.report_generator.handler import (
     lambda_handler as report_generator_lambda,
 )
-from onprem.api.deployment_resources_parser import DeploymentResourcesApiGatewayWrapper
+from validators import registry
 from services import SERVICE_PROVIDER
 from services.clients.mongo_ssm_auth_client import UNAUTHORIZED_MESSAGE
 
 _LOG = get_logger(__name__)
+
+
+def normalize_query_parameters(query_items):
+    """
+    Normalize query parameters to handle multiple values for the same parameter.
+    
+    When multiple values are provided for the same query parameter 
+    (like ?tag=value1&tag=value2), this function ensures all values are 
+    captured instead of only keeping the last one.
+    
+    :param query_items: Query items from request (e.g., request.query from Bottle framework)
+    :return: Dict where keys with single values remain as strings, 
+             and keys with multiple values become lists of strings.
+    """
+    result = {}
+    
+    if hasattr(query_items, 'allitems'):
+        items = query_items.allitems()
+    elif hasattr(query_items, 'items'):
+        items = query_items.items()
+    else:
+        items = query_items
+    
+    for key, value in items:
+        if key in result:
+            existing = result[key]
+            if isinstance(existing, list):
+                existing.append(value)
+            else:
+                result[key] = [existing, value]
+        else:
+            result[key] = value
+    
+    return result
 
 
 class AuthPlugin:
@@ -35,7 +66,7 @@ class AuthPlugin:
     __slots__ = 'name',
 
     def __init__(self):
-        self.name = 'custodian-auth'
+        self.name = 'sre-auth'
 
     @staticmethod
     def get_token_from_header(header: str) -> str | None:
@@ -58,11 +89,13 @@ class AuthPlugin:
 
     def __call__(self, callback: Callable):
         def wrapper(*args, **kwargs):
+            _LOG.info('Checking whether request is authorized in AuthPlugin')
             header = (request.headers.get('Authorization') or
                       request.headers.get('authorization'))
             token = self.get_token_from_header(header)
 
             if not token:
+                _LOG.warning('Token not found in header')
                 resp = ResponseFactory(HTTPStatus.UNAUTHORIZED).message(
                     UNAUTHORIZED_MESSAGE
                 )
@@ -72,9 +105,10 @@ class AuthPlugin:
                 decoded = SERVICE_PROVIDER.onprem_users_client.decode_token(
                     token
                 )
-            except CustodianException as e:
+            except SREException as e:
                 return self._to_bottle_resp(e.response)
 
+            _LOG.info('Token decoded successfully')
             sign = inspect.signature(callback)
             if 'decoded_token' in sign.parameters:
                 _LOG.debug('Expanding callback with decoded token')
@@ -87,16 +121,15 @@ class AuthPlugin:
 class OnPremApiBuilder:
     dynamic_resource_regex = re.compile(r'([^{/]+)(?=})')
     lambda_name_to_handler = {
-        'caas-api-handler': api_handler_lambda,
-        'caas-configuration-api-handler': configuration_api_handler_lambda,
-        'caas-report-generator': report_generator_lambda,
-        'caas-report-generation-handler': report_generation_handler
+        LambdaName.API_HANDLER: api_handler_lambda,
+        LambdaName.CONFIGURATION_API_HANDLER: configuration_api_handler_lambda,
+        LambdaName.REPORT_GENERATOR: report_generator_lambda,
     }
+    __slots__ = ('_endpoint_to_lambda', '_stage',)
 
-    def __init__(self, dp_wrapper: DeploymentResourcesApiGatewayWrapper):
-        self._dp_wrapper = dp_wrapper
-
+    def __init__(self, stage: str = 'caas'):
         self._endpoint_to_lambda = {}
+        self._stage = stage.strip('/')
 
     @staticmethod
     def _build_generic_error_handler(code: HTTPStatus) -> Callable:
@@ -106,7 +139,7 @@ class OnPremApiBuilder:
         :return:
         """
         def f(error):
-            return json.dumps({'message': code.phrase}, separators=(',', ':'))
+            return '{"message":"%s"}' % code.phrase
         return f
 
     def _register_errors(self, application: Bottle) -> None:
@@ -131,25 +164,21 @@ class OnPremApiBuilder:
         app = Bottle()
         self._add_hooks(app)
 
-        custodian_app = Bottle()
-        self._register_errors(custodian_app)
-        it = self._dp_wrapper.iter_path_method_lambda()
-        auth_plugin = AuthPlugin()
-        for path, method, ln, has_auth in it:
-            path = self.to_bottle_route(path)
-            method = method.value
-
-            self._endpoint_to_lambda[(path, method)] = ln
+        sre_app = Bottle()
+        self._register_errors(sre_app)
+        auth_plugin = (AuthPlugin(), )
+        for info in registry.iter_all():
             params = dict(
-                path=path,
-                method=method,
+                path=self.to_bottle_route(info.path),
+                method=info.method.value,
                 callback=self._callback
             )
-            if has_auth:
-                params['apply'] = [auth_plugin]
-            custodian_app.route(**params)
+            if info.auth:
+                params.update(apply=auth_plugin)
+            self._endpoint_to_lambda[(params['path'], params['method'])] = info.lambda_name
+            sre_app.route(**params)
 
-        app.mount(self._dp_wrapper.stage.strip('/'), custodian_app)
+        app.mount(self._stage, sre_app)
         return app
 
     @classmethod
@@ -174,13 +203,20 @@ class OnPremApiBuilder:
         method = request.method
         path = request.route.rule
         ln = self._endpoint_to_lambda[(path, method)]
-        handler = self.lambda_name_to_handler[ln]
+        handler = self.lambda_name_to_handler.get(ln)
+        if not handler:
+            resp = ResponseFactory(HTTPStatus.NOT_FOUND).default().build()
+            return HTTPResponse(
+                status=resp['statusCode'],
+                body=resp['body'],
+                headers=resp['headers']
+            )
         event = {
             'httpMethod': request.method,
             'path': request.path,
             'headers': dict(request.headers),
             'requestContext': {
-                'stage': self._dp_wrapper.stage,
+                'stage': self._stage,
                 'resourcePath': path.replace('<', '{').replace('>', '}').replace('proxy', 'proxy+'),  # kludge
                 'path': request.fullpath
             },
@@ -191,23 +227,31 @@ class OnPremApiBuilder:
                 'claims': {
                     'cognito:username': decoded_token.get('cognito:username'),
                     'sub': decoded_token.get('sub'),
-                    'custom:customer': decoded_token.get(
-                        'custom:customer'),
+                    'custom:customer': decoded_token.get('custom:customer'),
                     'custom:role': decoded_token.get('custom:role'),
                     'custom:tenants': decoded_token.get('custom:tenants') or ''
                 }
             }
 
-        if method == 'GET':
-            event['queryStringParameters'] = dict(request.query)
-        else:
+        event['queryStringParameters'] = normalize_query_parameters(request.query)
+        if method != 'GET':
             event['body'] = request.body.read().decode()
             event['isBase64Encoded'] = False
 
+        _LOG.info(f'Handling request: {request.method}:{request.path}')
         response = handler(event, RequestContext())
+        _LOG.info('Request was handled. Returning response')
 
         return HTTPResponse(
             body=response['body'],
             status=response['statusCode'],
             headers=response['headers']
         )
+
+
+def make_app():
+    """
+    Creates a Bottle application with all routes and handlers.
+    :return: Bottle application
+    """
+    return OnPremApiBuilder('caas').build()

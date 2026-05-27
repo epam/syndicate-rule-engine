@@ -1,0 +1,29 @@
+memoryLimit: 512Mi
+memoryRequest: 128Mi
+
+service:
+  type: ClusterIP
+  port: 8200
+  nodePort: 32100
+
+ui:
+  enabled: 'false'
+
+# previous 1.17.2
+image:
+  repository: hashicorp/vault
+  tag: 1.19.5
+  pullPolicy: IfNotPresent
+
+
+persistence:
+  accessMode: ReadWriteOnce
+  size: 2Gi
+  storageClass: standard
+  hostPath: /data/vault
+
+replicas: 1
+strategy:
+  type: Recreate
+  maxUnavailable: 0
+  maxSurge: 100%

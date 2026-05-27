@@ -1,0 +1,75 @@
+{
+  "policy": {
+    "name": "ecc-azure-099-cis_sec_defender_aks",
+    "resource": "azure.defender-pricing",
+    "description": "Description for ecc-azure-099-cis_sec_defender_aks",
+    "comment": "020032182700"
+  },
+  "version": "0.9.40",
+  "execution": {
+    "id": "2c4b2b10-cdcf-422c-a4ad-8f825000a736",
+    "start": 1729502334.6291041,
+    "end_time": 1729502334.630253,
+    "duration": 0.0011489391326904297
+  },
+  "config": {
+    "region": "AzureCloud",
+    "regions": [
+      "AzureCloud"
+    ],
+    "cache": "memory",
+    "profile": null,
+    "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
+    "assume_role": null,
+    "session_policy": null,
+    "external_id": null,
+    "log_group": null,
+    "tracer": "default",
+    "metrics_enabled": false,
+    "metrics": null,
+    "output_dir": "./global",
+    "cache_period": 120,
+    "dryrun": false,
+    "authorization_file": null,
+    "command": "c7n.commands.run",
+    "config": null,
+    "configs": [],
+    "subparser": "run",
+    "policy_filters": [],
+    "resource_types": [],
+    "verbose": null,
+    "quiet": false,
+    "debug": false,
+    "skip_validation": false,
+    "vars": null
+  },
+  "sys-stats": {
+    "snapshot_time": 0.001138925552368164,
+    "num_fds": 1,
+    "cpu_user": 0.0005880320000000161,
+    "cpu_system": 0.00041702399999998807,
+    "num_ctx_switches_voluntary": 1,
+    "pfaults": 1
+  },
+  "api-stats": {},
+  "metrics": [
+    {
+      "MetricName": "ResourceCount",
+      "Timestamp": "2024-10-21T12:18:54.629919",
+      "Value": 1,
+      "Unit": "Count"
+    },
+    {
+      "MetricName": "ResourceTime",
+      "Timestamp": "2024-10-21T12:18:54.629925",
+      "Value": 0.00029206275939941406,
+      "Unit": "Seconds"
+    },
+    {
+      "MetricName": "ActionTime",
+      "Timestamp": "2024-10-21T12:18:54.630248",
+      "Value": 9.5367431640625e-07,
+      "Unit": "Seconds"
+    }
+  ]
+}

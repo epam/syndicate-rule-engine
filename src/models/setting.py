@@ -1,20 +1,15 @@
-import os
-
-from modular_sdk.models.pynamodb_extension.base_model import DynamicAttribute
 from pynamodb.attributes import UnicodeAttribute
+from modular_sdk.models.pynamongo.attributes import DynamicAttribute
 
-from helpers.constants import CAASEnv
+from helpers.constants import Env
 from models import BaseModel
 
 
 class Setting(BaseModel):
     class Meta:
-        table_name = 'CaaSSettings'
-        region = os.environ.get(CAASEnv.AWS_REGION)
+        table_name = 'SRESettings'
+        region = Env.AWS_REGION.get()
         max_retry_attempts = 5
 
     name = UnicodeAttribute(hash_key=True)
     value = DynamicAttribute()
-    # this attribute has a problem. It does not perform deserialization
-    # for binary data it causes a problem when the returned data is not
-    # base64 decoded

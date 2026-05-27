@@ -13,19 +13,15 @@ def standards_dict() -> dict:
     :return:
     """
     return {
-        'HIPAA': [
-            'v1 (point1,sub-point1,point2)',
-            'v2'
-        ],
-        'Cis Controls': [
-            '(sub-point1,sub-point2)'
-        ],
+        'HIPAA': ['v1 (point1,sub-point1,point2)', 'v2'],
+        'Cis Controls': ['(sub-point1,sub-point2)'],
     }
 
 
 class TestStandard:
     def test_hash_eq(self):
-        st1 = Standard(name='HIPAA', version='1.0', points={'1.1', '1.2'})
+        st1 = Standard(name='HIPAA', version='1.0')
+        st1.set_points({'1.1', '1.2'})
         st2 = Standard(name='HIPAA', version='1.0')
 
         assert st1 == st2
@@ -39,28 +35,19 @@ class TestStandard:
         assert Standard(name='HIPAA').full_name == 'HIPAA'
 
     def test_deserialize(self, standards_dict: dict):
-        standards = Standard.deserialize(standards_dict)
-        assert isinstance(standards, set)
+        standards = set(Standard.deserialize(standards_dict))
         assert len(standards) == 3
         cis, h1, h2 = sorted(standards, key=operator.attrgetter('full_name'))
         assert cis.name == 'Cis Controls'
-        assert cis.version == 'null'
-        assert cis.points == {'sub-point1', 'sub-point2'}
+        assert cis.version is None
+        assert cis.version_str == 'null'
+        assert cis.get_points() == {'sub-point1', 'sub-point2'}
         assert h1.name == 'HIPAA'
         assert h1.version == 'v1'
-        assert h1.points == {'point1', 'sub-point1', 'point2'}
+        assert h1.get_points() == {'point1', 'sub-point1', 'point2'}
         assert h2.name == 'HIPAA'
         assert h2.version == 'v2'
-        assert h2.points == set()
-
-    def test_deserialize_to_str(self, standards_dict: dict):
-        standards = Standard.deserialize_to_strs(standards_dict)
-        assert isinstance(standards, set)
-        assert len(standards) == 3
-        cis, h1, h2 = sorted(standards)
-        assert cis == 'Cis Controls'
-        assert h1 == 'HIPAA v1'
-        assert h2 == 'HIPAA v2'
+        assert h2.get_points() == set()
 
 
 def test_keep_highest():
@@ -100,5 +87,6 @@ def test_severity_cmp():
     assert severity_cmp('High', 'Not existing') < 0
     assert severity_cmp('Not existing', 'High') > 0
 
-    assert (sorted(['High', 'Medium', 'Info'], key=cmp_to_key(severity_cmp)) ==
-            ['Info', 'Medium', 'High'])
+    assert sorted(
+        ['High', 'Medium', 'Info'], key=cmp_to_key(severity_cmp)
+    ) == ['Info', 'Medium', 'High']

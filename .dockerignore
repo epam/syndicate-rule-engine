@@ -3,7 +3,9 @@
 **/__pycache__
 **/.tmp
 **/*.md
-**/.env
+**/.env.example
+.env
+.env.example
 
 .pytest_cache
 .coverage
@@ -15,13 +17,16 @@ dist
 build
 **/*.egg-info
 .idea
+.venv
 .vscode
 
 
 *syndicate*
-c7n
+cli
 docs
 deployment
 patch_scripts
 tests
-obfuscation_manager
+obfuscator-cli
+!**/README.md
+!**/readme.md

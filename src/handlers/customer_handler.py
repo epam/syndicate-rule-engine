@@ -1,9 +1,8 @@
-from functools import cached_property
 from typing import TYPE_CHECKING
 
 from handlers import AbstractHandler, Mapping
 from helpers.constants import (
-    CustodianEndpoint,
+    Endpoint,
     HTTPMethod,
     TS_EXCLUDED_RULES_KEY,
 )
@@ -34,13 +33,13 @@ class CustomerHandler(AbstractHandler):
             customer_settings_service=SP.modular_client.customer_settings_service(),
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.CUSTOMERS: {
+            Endpoint.CUSTOMERS: {
                 HTTPMethod.GET: self.query
             },
-            CustodianEndpoint.CUSTOMERS_EXCLUDED_RULES: {
+            Endpoint.CUSTOMERS_EXCLUDED_RULES: {
                 HTTPMethod.PUT: self.set_excluded_rules,
                 HTTPMethod.GET: self.get_excluded_rules
             }

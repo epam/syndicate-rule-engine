@@ -1,25 +1,46 @@
 import uuid
-from datetime import timedelta, datetime
-from typing import Optional, Any
+from datetime import date, datetime, timedelta
+from typing import Any, Callable, Mapping
 
 from pynamodb.expressions.condition import Condition
 from pynamodb.pagination import ResultIterator
 
-from helpers.constants import JobState, BatchJobEnv, ALL_ATTR
-from helpers.log_helper import get_logger
-from helpers.time_helper import utc_iso, utc_datetime
+from helpers.constants import JobState, JobType
+from helpers.time_helper import utc_iso
 from models.job import Job
-from services import SP
 from services.base_data_service import BaseDataService
-
-_LOG = get_logger(__name__)
+from services.platform_service import Platform
+from services.ruleset_service import RulesetName
 
 
 class JobService(BaseDataService[Job]):
-    def create(self, customer_name: str, tenant_name: str, regions: list[str],
-               rulesets: list[str], rules_to_scan: list[str] | None = None,
-               platform_id: str | None = None, ttl: timedelta | None = None,
-               owner: str | None = None) -> Job:
+    def create(
+        self,
+        customer_name: str,
+        tenant_name: str,
+        regions: list[str],
+        rulesets: list[str],
+        rules_to_scan: list[str] | None = None,
+        platform_id: str | None = None,
+        ttl: timedelta | None = None,
+        owner: str | None = None,
+        affected_license: str | None = None,
+        job_type: JobType = JobType.STANDARD,
+        status: JobState = JobState.SUBMITTED,
+        batch_job_id: str | None = None,
+        celery_job_id: str | None = None,
+        scheduled_rule_name: str | None = None,
+        credentials_key: str | None = None,
+        application_id: str | None = None,
+        dojo_structure: dict[str, str] | None = None,
+        scan_checkpoint: Mapping[str, Any] | None = None,
+    ) -> Job:
+        if not dojo_structure:
+            dojo_structure = {}
+        if scan_checkpoint is None:
+            from executor.job.scan.progress import new_empty_scan_checkpoint
+
+            scan_checkpoint = new_empty_scan_checkpoint()
         return super().create(
             id=str(uuid.uuid4()),
             customer_name=customer_name,
@@ -29,16 +50,44 @@ class JobService(BaseDataService[Job]):
             rules_to_scan=rules_to_scan or [],
             platform_id=platform_id,
             ttl=ttl,
-            owner=owner
+            owner=owner,
+            affected_license=affected_license,
+            job_type=job_type.value,
+            status=status.value,
+            batch_job_id=batch_job_id,
+            celery_job_id=celery_job_id,
+            scheduled_rule_name=scheduled_rule_name,
+            created_at=utc_iso(),
+            credentials_key=credentials_key,
+            application_id=application_id,
+            dojo_structure=dojo_structure,
+            scan_checkpoint=scan_checkpoint,
         )
 
-    def update(self, job: Job, batch_job_id: str = None, reason: str = None,
-               status: JobState = None, created_at: str = None,
-               started_at: str = None, stopped_at: str = None,
-               queue: str = None, definition: str = None):
+    def update(
+        self,
+        job: Job,
+        batch_job_id: str | None = None,
+        celery_task_id: str | None = None,
+        reason: str | None = None,
+        status: JobState | None = None,
+        created_at: str | None = None,
+        started_at: str | None = None,
+        stopped_at: str | None = None,
+        queue: str | None = None,
+        definition: str | None = None,
+        rulesets: list[str] | None = None,
+        warnings: list[str] | None = None,
+        dojo_structure: dict[str, str] | None = None,
+        scan_checkpoint: Mapping[str, Any] | None = None,
+        clear_scan_checkpoint: bool = False,
+        clear_terminal_fields: bool = False,
+    ):
         actions = []
         if batch_job_id:
             actions.append(Job.batch_job_id.set(batch_job_id))
+        if celery_task_id:
+            actions.append(Job.celery_task_id.set(celery_task_id))
         if reason:
             actions.append(Job.reason.set(reason))
         if status:
@@ -53,66 +102,134 @@ class JobService(BaseDataService[Job]):
             actions.append(Job.queue.set(queue))
         if definition:
             actions.append(Job.definition.set(definition))
+        if rulesets:
+            actions.append(Job.rulesets.set(rulesets))
+        if warnings:
+            actions.append(Job.warnings.set(warnings))
+        if dojo_structure:
+            actions.append(Job.dojo_structure.set(dojo_structure))
+        if clear_scan_checkpoint:
+            actions.append(Job.scan_checkpoint.remove())
+        elif scan_checkpoint is not None:
+            actions.append(Job.scan_checkpoint.set(scan_checkpoint))
+        if clear_terminal_fields:
+            actions.append(Job.stopped_at.remove())
+            actions.append(Job.reason.remove())
         if actions:
             job.update(actions)
 
-    def get_by_customer_name(self, customer_name: str, status: JobState = None,
-                             start: datetime = None, end: datetime = None,
-                             filter_condition: Optional[Condition] = None,
-                             ascending: bool = False, limit: int = None,
-                             last_evaluated_key: dict = None,
-                             ) -> ResultIterator[Job]:
+    def get_by_customer_name(
+        self,
+        customer_name: str,
+        job_id: str | None = None,
+        job_type: JobType | None = None,
+        job_types: set[JobType] | None = None,
+        status: JobState | None = None,
+        start: datetime | None = None,
+        end: datetime | None = None,
+        filter_condition: Condition | None = None,
+        ascending: bool = False,
+        limit: int | None = None,
+        last_evaluated_key: dict | None = None,
+    ) -> ResultIterator[Job]:
+
         if start and end:
-            rkc = Job.submitted_at.between(
-                lower=utc_iso(start),
-                upper=utc_iso(end)
-            )
+            rkc = Job.submitted_at.between(utc_iso(start), utc_iso(end))
         elif start:
-            rkc = (Job.submitted_at >= utc_iso(start))
+            rkc = Job.submitted_at >= utc_iso(start)
         elif end:
-            rkc = (Job.submitted_at < utc_iso(end))
+            rkc = Job.submitted_at <= utc_iso(end)
         else:
             rkc = None
+        fc = filter_condition
         if status:
-            filter_condition &= (Job.status == status.value)
+            st = Job.status == status.value
+            fc = st if fc is None else fc & st
+        if job_id:
+            jc = Job.id == job_id
+            fc = jc if fc is None else fc & jc
+        if job_type:
+            jt = Job.job_type == job_type.value
+            fc = jt if fc is None else fc & jt
+        if job_types:
+            jts = Job.job_type.is_in(*job_types)
+            fc = jts if fc is None else fc & jts
         return Job.customer_name_submitted_at_index.query(
             hash_key=customer_name,
             range_key_condition=rkc,
-            filter_condition=filter_condition,
+            filter_condition=fc,
             scan_index_forward=ascending,
             limit=limit,
-            last_evaluated_key=last_evaluated_key
+            last_evaluated_key=last_evaluated_key,
         )
 
-    def get_by_tenant_name(self, tenant_name: str, status: JobState = None,
-                           start: datetime = None, end: datetime = None,
-                           filter_condition: Optional[Condition] = None,
-                           ascending: bool = False, limit: int = None,
-                           last_evaluated_key: dict = None,
-                           ) -> ResultIterator[Job]:
+    def get_by_job_types(
+        self,
+        job_types: set[JobType],
+        job_id: str | None = None,
+        customer_name: str | None = None,
+        status: JobState | None = None,
+        filter_condition: Condition | None = None,
+        limit: int | None = None,
+        last_evaluated_key: dict | None = None,
+    ) -> ResultIterator[Job]:
+        if status:
+            filter_condition &= Job.status == status.value
+        if job_id:
+            filter_condition &= Job.id == job_id
+        if customer_name:
+            filter_condition &= Job.customer_name == customer_name
+        if job_types:
+            filter_condition &= Job.job_type.is_in(*job_types)
+        return Job.scan(
+            filter_condition=filter_condition,
+            limit=limit,
+            last_evaluated_key=last_evaluated_key,
+        )
+
+    def get_by_tenant_name(
+        self,
+        tenant_name: str,
+        job_type: JobType | None = None,
+        job_types: set[JobType] | None = None,
+        status: JobState | None = None,
+        start: datetime | date | None = None,
+        end: datetime | date | None = None,
+        filter_condition: Condition | None = None,
+        ascending: bool = False,
+        limit: int | None = None,
+        last_evaluated_key: dict | None = None,
+    ) -> ResultIterator[Job]:
         if start and end:
-            rkc = Job.submitted_at.between(
-                lower=utc_iso(start),
-                upper=utc_iso(end)
-            )
+            rkc = Job.submitted_at.between(utc_iso(start), utc_iso(end))
         elif start:
-            rkc = (Job.submitted_at >= utc_iso(start))
+            rkc = Job.submitted_at >= utc_iso(start)
         elif end:
-            rkc = (Job.submitted_at < utc_iso(end))
+            rkc = Job.submitted_at <= utc_iso(end)
         else:
             rkc = None
+        fc = filter_condition
         if status:
-            filter_condition &= (Job.status == status.value)
+            st = Job.status == status.value
+            fc = st if fc is None else fc & st
+        if job_type:
+            jt = Job.job_type == job_type.value
+            fc = jt if fc is None else fc & jt
+        if job_types:
+            jts = Job.job_type.is_in(*job_types)
+            fc = jts if fc is None else fc & jts
         return Job.tenant_name_submitted_at_index.query(
             hash_key=tenant_name,
             range_key_condition=rkc,
-            filter_condition=filter_condition,
+            filter_condition=fc,
             scan_index_forward=ascending,
             limit=limit,
-            last_evaluated_key=last_evaluated_key
+            last_evaluated_key=last_evaluated_key,
         )
 
     def dto(self, item: Job) -> dict[str, Any]:
+        from executor.job.scan.progress import scan_progress_dto
+
         raw = super().dto(item)
         raw.pop('batch_job_id', None)
         raw.pop('queue', None)
@@ -120,33 +237,63 @@ class JobService(BaseDataService[Job]):
         raw.pop('owner', None)
         raw.pop('rules_to_scan', None)
         raw.pop('ttl', None)
+        raw.pop('credentials_key', None)
+        raw.pop('scan_checkpoint', None)
+        rulesets = []
+        for r in item.rulesets:
+            rulesets.append(RulesetName(r).to_str(False))
+        raw['rulesets'] = rulesets
+        dojo_structure = raw.pop('dojo_structure').as_dict()
+        if dojo_structure:
+            raw['dojo_structure'] = dojo_structure
+        if sp := scan_progress_dto(item):
+            raw['scan_progress'] = dict(sp)
         return raw
 
+    def get_tenant_last_job_date(self, tenant_name: str) -> str | None:
+        job = next(Job.tenant_name_submitted_at_index.query(
+            hash_key=tenant_name,
+            filter_condition=(Job.status == JobState.SUCCEEDED.value) & Job.platform_id.does_not_exist(),
+            scan_index_forward=False,
+            limit=1,
+            attributes_to_get=(Job.submitted_at, )
+        ), None)
+        if not job:
+            return
+        return job.submitted_at
 
-class NullJobUpdater:
-    """
-    For standard jobs (not scheduled and not event-driven). Standard jobs
-    are updated by caas-job-updater
-    """
-    def __init__(self, job: Job):
-        self._job = job
+    def get_platform_last_job_date(self, platform: Platform) -> str | None:
+        job = next(Job.tenant_name_submitted_at_index.query(
+            hash_key=platform.tenant_name,
+            filter_condition=(Job.status == JobState.SUCCEEDED.value) & Job.platform_id.exists(),
+            scan_index_forward=False,
+            limit=1,
+            attributes_to_get=(Job.submitted_at, )
+        ), None)
+        if not job:
+            return
+        return job.submitted_at
 
-    def save(self):
-        pass
 
-    def update(self):
-        pass
+class JobAttributeSetterDescriptor:
+    __slots__ = ('_cb', '_name')
 
-    @property
-    def job(self) -> Job:
-        return self._job
+    def __init__(self, callback: Callable | None = None):
+        self._cb = callback
+
+    def __set_name__(self, owner, name):
+        self._name = name
+
+    def __set__(self, instance: 'JobUpdater', value):
+        if self._cb:
+            value = self._cb(value)
+        instance._actions.append(getattr(Job, self._name).set(value))
 
 
 class JobUpdater:
     """
     Allows to update job attributes more easily
     """
-    __slots__ = ('_job', '_actions')
 
     def __init__(self, job: Job):
         self._job = job
@@ -154,53 +301,8 @@ class JobUpdater:
         self._actions = []
 
     @classmethod
-    def from_batch_env(cls, environment: dict[str, str]) -> 'JobUpdater':
-        """
-        A situation when the job does not exist in db is possible
-        :param environment:
-        :return:
-        """
-        tenant = SP.modular_client.tenant_service().get(
-            environment[BatchJobEnv.TENANT_NAME]
-        )
-        submitted_at = utc_iso()
-        if BatchJobEnv.SUBMITTED_AT in environment:
-            submitted_at = utc_iso(
-                utc_datetime(environment[BatchJobEnv.SUBMITTED_AT]))
-
-        rule_sets = []
-        standard = environment.get(BatchJobEnv.TARGET_RULESETS)
-        if standard and isinstance(standard, str):
-            rule_sets.extend(standard.split(','))
-        licensed = environment.get(BatchJobEnv.LICENSED_RULESETS)
-        if licensed and isinstance(licensed, str):
-            rule_sets.extend(
-                each.split(':', maxsplit=1)[-1]
-                for each in licensed.split(',') if ':' in each
-            )
-        if not rule_sets:
-            rule_sets.append(ALL_ATTR)
-        return JobUpdater(Job(
-            id=environment.get(BatchJobEnv.CUSTODIAN_JOB_ID) or str(
-                uuid.uuid4()),
-            batch_job_id=environment.get(BatchJobEnv.JOB_ID),
-            tenant_name=tenant.name,
-            customer_name=tenant.customer_name,
-            submitted_at=submitted_at,
-            status=JobState.SUBMITTED.value,
-            owner=tenant.customer_name,
-            regions=environment.get(BatchJobEnv.TARGET_REGIONS, '').split(','),
-            rulesets=rule_sets,
-            scheduled_rule_name=environment.get(
-                BatchJobEnv.SCHEDULED_JOB_NAME),
-        ))
-
-    @classmethod
     def from_job_id(cls, job_id) -> 'JobUpdater':
         return JobUpdater(Job(id=job_id))
-
-    def save(self):
-        self._job.save()
 
     def update(self):
         if not self._actions:
@@ -212,39 +314,27 @@ class JobUpdater:
     def job(self) -> Job:
         return self._job
 
-    def status(self, status: str | JobState):
-        if isinstance(status, str):
-            status = JobState(status)
-        self._actions.append(Job.status.set(status.value))
+    @staticmethod
+    def _dt_callback(dt: datetime | str):
+        if isinstance(dt, datetime):
+            dt = utc_iso(dt)
+        return dt
 
-    def reason(self, reason: str | None):
-        self._actions.append(Job.reason.set(reason))
+    status = JobAttributeSetterDescriptor(
+        lambda x: x.value if isinstance(x, JobState) else x
+    )
+    reason = JobAttributeSetterDescriptor()
+    created_at = JobAttributeSetterDescriptor(_dt_callback)
+    started_at = JobAttributeSetterDescriptor(_dt_callback)
+    stopped_at = JobAttributeSetterDescriptor(_dt_callback)
+    queue = JobAttributeSetterDescriptor()
+    definition = JobAttributeSetterDescriptor()
+    rulesets = JobAttributeSetterDescriptor(lambda x: sorted(x))
+    celery_task_id = JobAttributeSetterDescriptor()
+    batch_job_id = JobAttributeSetterDescriptor()
+    warnings = JobAttributeSetterDescriptor(lambda x: sorted(x))
 
-    def created_at(self, created_at: datetime | str):
-        if isinstance(created_at, datetime):
-            created_at = utc_iso(created_at)
-        self._actions.append(Job.created_at.set(created_at))
-
-    def started_at(self, started_at: datetime | str):
-        if isinstance(started_at, datetime):
-            started_at = utc_iso(started_at)
-        self._actions.append(Job.started_at.set(started_at))
-
-    def stopped_at(self, stopped_at: datetime | str):
-        if isinstance(stopped_at, datetime):
-            stopped_at = utc_iso(stopped_at)
-        self._actions.append(Job.stopped_at.set(stopped_at))
-
-    def queue(self, queue: str):
-        self._actions.append(Job.queue.set(queue))
-
-    def definition(self, definition: str):
-        self._actions.append(Job.definition.set(definition))
-
-    status = property(None, status)
-    reason = property(None, reason)
-    created_at = property(None, created_at)
-    started_at = property(None, started_at)
-    stopped_at = property(None, stopped_at)
-    queue = property(None, queue)
-    definition = property(None, definition)
+    def add_warnings(self, *warns):
+        self._actions.append(
+            Job.warnings.set(Job.warnings.append(list(warns)))
+        )

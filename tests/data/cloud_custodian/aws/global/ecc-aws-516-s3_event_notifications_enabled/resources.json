@@ -1,0 +1,216 @@
+[
+  {
+    "Name": "example-reports-dev",
+    "CreationDate": "2022-06-20T10:54:56+00:00",
+    "Location": {
+      "LocationConstraint": "eu-west-1"
+    },
+    "Tags": [
+      {
+        "Key": "environment",
+        "Value": "example"
+      }
+    ],
+    "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::example-reports-dev\",\"arn:aws:s3:::example-reports-dev/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
+    "Acl": {
+      "Owner": {
+        "DisplayName": "Special-AWS",
+        "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+      },
+      "Grants": [
+        {
+          "Grantee": {
+            "DisplayName": "Special-AWS",
+            "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+            "Type": "CanonicalUser"
+          },
+          "Permission": "FULL_CONTROL"
+        }
+      ]
+    },
+    "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+    "Versioning": {},
+    "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+    "Logging": {
+      "TargetBucket": "s3-access-logs-123456789012-eu-west-1",
+      "TargetPrefix": "123456789012/eu-west-1/example-reports-dev/"
+    },
+    "Notification": {},
+    "Lifecycle": {
+      "Rules": [
+        {
+          "Expiration": {
+            "Days": true
+          },
+          "ID": "Remove old",
+          "Filter": {
+            "Prefix": "on-demand/"
+          },
+          "Status": "Enabled"
+        }
+      ]
+    }
+  },
+  {
+    "Name": "appcomposer-4bzknnwy0n3wuuhd-eu-west-1",
+    "CreationDate": "2024-05-30T08:05:41+00:00",
+    "Location": {
+      "LocationConstraint": "eu-west-1"
+    },
+    "Tags": [],
+    "Policy": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+    "Acl": {
+      "Owner": {
+        "DisplayName": "Special-AWS",
+        "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+      },
+      "Grants": [
+        {
+          "Grantee": {
+            "DisplayName": "Special-AWS",
+            "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+            "Type": "CanonicalUser"
+          },
+          "Permission": "FULL_CONTROL"
+        }
+      ]
+    },
+    "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+    "Versioning": {},
+    "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+    "Logging": {
+      "TargetBucket": "s3-access-logs-123456789012-eu-west-1",
+      "TargetPrefix": "123456789012/eu-west-1/appcomposer-4bzknnwy0n3wuuhd-eu-west-1/"
+    },
+    "Notification": {},
+    "Lifecycle": "7ac2e51b-1a38-44f1-9c3e-da1297934799"
+  },
+  {
+    "Name": "example-meta-storage-eu-west-1-tmp",
+    "CreationDate": "2019-05-08T15:03:20+00:00",
+    "Location": {
+      "LocationConstraint": "eu-west-1"
+    },
+    "Tags": [],
+    "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::example-meta-storage-eu-west-1-tmp\",\"arn:aws:s3:::example-meta-storage-eu-west-1-tmp/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
+    "Acl": {
+      "Owner": {
+        "DisplayName": "Special-AWS",
+        "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+      },
+      "Grants": [
+        {
+          "Grantee": {
+            "DisplayName": "Special-AWS",
+            "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+            "Type": "CanonicalUser"
+          },
+          "Permission": "FULL_CONTROL"
+        }
+      ]
+    },
+    "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+    "Versioning": {},
+    "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+    "Logging": {
+      "TargetBucket": "s3-access-logs-123456789012-eu-west-1",
+      "TargetPrefix": "123456789012/eu-west-1/example-meta-storage-eu-west-1-tmp/"
+    },
+    "Notification": {},
+    "Lifecycle": "7ac2e51b-1a38-44f1-9c3e-da1297934799"
+  },
+  {
+    "Name": "example-artifacts",
+    "CreationDate": "2024-07-16T13:24:02+00:00",
+    "Location": {
+      "LocationConstraint": "eu-central-1"
+    },
+    "Tags": [
+      {
+        "Key": "owner",
+        "Value": "some_email@gmail.com"
+      },
+      {
+        "Key": "aws:cloudformation:stack-name",
+        "Value": "APP-s3-repository"
+      },
+      {
+        "Key": "aws:cloudformation:logical-id",
+        "Value": "APPArtifacts"
+      },
+      {
+        "Key": "environment",
+        "Value": "develop"
+      },
+      {
+        "Key": "application",
+        "Value": "APP"
+      },
+      {
+        "Key": "aws:cloudformation:stack-id",
+        "Value": "arn:aws:cloudformation:eu-central-1:123456789012:stack/APP-s3-repository/a740f9f0-4376-11ef-98b5-02f06973e781"
+      }
+    ],
+    "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"S3BucketPolicy\",\"Statement\":[{\"Sid\":\"DenyInsecureTransport\",\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"*\",\"Resource\":[\"arn:aws:s3:::example-artifacts\",\"arn:aws:s3:::example-artifacts/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}]}",
+    "Acl": {
+      "Owner": {
+        "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca"
+      },
+      "Grants": [
+        {
+          "Grantee": {
+            "ID": "1015c45693347de5ea84471f593bac37217b460112f52df0e20734acb6a2cbca",
+            "Type": "CanonicalUser"
+          },
+          "Permission": "FULL_CONTROL"
+        }
+      ]
+    },
+    "Replication": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+    "Versioning": {
+      "Status": "Suspended"
+    },
+    "Website": "7ac2e51b-1a38-44f1-9c3e-da1297934799",
+    "Logging": {
+      "TargetBucket": "s3-access-logs-123456789012-eu-central-1",
+      "TargetPrefix": "123456789012/eu-central-1/example-artifacts/"
+    },
+    "Notification": {},
+    "Lifecycle": {
+      "Rules": [
+        {
+          "Expiration": {
+            "Days": 14
+          },
+          "ID": "devExpiration",
+          "Filter": {
+            "Prefix": "DEV/"
+          },
+          "Status": "Enabled",
+          "NoncurrentVersionExpiration": {
+            "NoncurrentDays": 14
+          },
+          "AbortIncompleteMultipartUpload": {
+            "DaysAfterInitiation": true
+          }
+        },
+        {
+          "Expiration": {
+            "Days": 90
+          },
+          "ID": "qaExpiration",
+          "Filter": {
+            "Prefix": "QA/"
+          },
+          "Status": "Enabled",
+          "NoncurrentVersionExpiration": {
+            "NoncurrentDays": 90
+          },
+          "AbortIncompleteMultipartUpload": {
+            "DaysAfterInitiation": true
+          }
+        }
+      ]
+    }
+  }
+]

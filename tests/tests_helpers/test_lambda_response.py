@@ -3,11 +3,13 @@ from http import HTTPStatus
 import pytest
 from helpers.__version__ import __version__
 
-from helpers.lambda_response import LambdaResponse, CustodianException, \
+from helpers.lambda_response import LambdaResponse, SREException, \
     JsonLambdaResponse, ResponseFactory, build_response
+from services import SP
 
 
 def test_ok_lambda_response():
+    SP.tls.aws_request_id = 'mock'
     resp = LambdaResponse(
         code=HTTPStatus.OK,
         content='<h1>Hello, world!</h1>',
@@ -22,7 +24,8 @@ def test_ok_lambda_response():
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': '*',
             'Accept-Version': __version__,
-            'Content-Type': 'text/html'
+            'Content-Type': 'text/html',
+            'Lambda-Invocation-Trace-Id': 'mock'
         },
         'isBase64Encoded': False,
         'body': '<h1>Hello, world!</h1>'
@@ -32,7 +35,7 @@ def test_ok_lambda_response():
 def test_not_ok_lambda_response():
     resp = LambdaResponse(code=HTTPStatus.NOT_FOUND)
     assert not resp.ok
-    with pytest.raises(CustodianException):
+    with pytest.raises(SREException):
         raise resp.exc()
 
 
@@ -41,7 +44,7 @@ def test_too_large_lambda_response():
         code=HTTPStatus.OK,
         content={'data': (b'a' * (6291456 - 11)).decode()}
     )  # 11 for {"data":""}
-    with pytest.raises(CustodianException):
+    with pytest.raises(SREException):
         resp.build()
     resp = JsonLambdaResponse(
         code=HTTPStatus.OK,
@@ -51,6 +54,7 @@ def test_too_large_lambda_response():
 
 
 def test_json_lambda_response():
+    SP.tls.aws_request_id = 'mock'
     resp = JsonLambdaResponse(
         code=HTTPStatus.OK,
         content={'str': 'value', 'list': [1, 2, 3]},
@@ -62,49 +66,50 @@ def test_json_lambda_response():
             'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
             'Access-Control-Allow-Methods': '*',
             'Access-Control-Allow-Origin': '*',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Lambda-Invocation-Trace-Id': 'mock'
         },
         'isBase64Encoded': False,
-        'body': '{"list":[1,2,3],"str":"value"}',
+        'body': b'{"list":[1,2,3],"str":"value"}',
     }
 
 
 class TestResponseFactory:
     def test_build_items(self):
         data = ResponseFactory(HTTPStatus.OK).items([1, 2, 3]).build()
-        assert data['body'] == '{"items":[1,2,3]}'
+        assert data['body'] == b'{"items":[1,2,3]}'
         data = ResponseFactory(HTTPStatus.OK).items(range(5)).build()
-        assert data['body'] == '{"items":[0,1,2,3,4]}'
+        assert data['body'] == b'{"items":[0,1,2,3,4]}'
 
     def test_build_data(self):
         data = ResponseFactory(HTTPStatus.OK).data({'key': 'value'}).build()
-        assert data['body'] == '{"data":{"key":"value"}}'
+        assert data['body'] == b'{"data":{"key":"value"}}'
 
     def test_build_message(self):
         data = ResponseFactory(HTTPStatus.OK).message('hello world').build()
-        assert data['body'] == '{"message":"hello world"}'
+        assert data['body'] == b'{"message":"hello world"}'
 
     def test_build_errors(self):
         data = ResponseFactory(HTTPStatus.OK).errors(
             [{'key': 'value'}]).build()
-        assert data['body'] == '{"errors":[{"key":"value"}]}'
+        assert data['body'] == b'{"errors":[{"key":"value"}]}'
 
     def test_build_raw(self):
         data = ResponseFactory(HTTPStatus.OK).raw({'token': '123'}).build()
-        assert data['body'] == '{"token":"123"}'
+        assert data['body'] == b'{"token":"123"}'
 
     def test_build_default(self):
         data = ResponseFactory(
             HTTPStatus.INSUFFICIENT_STORAGE).default().build()
-        assert data['body'] == '{"message":"Insufficient Storage"}'
+        assert data['body'] == b'{"message":"Insufficient Storage"}'
 
 
 def test_build_response():
-    assert build_response('hello')['body'] == '{"message":"hello"}'
+    assert build_response('hello')['body'] == b'{"message":"hello"}'
     assert (build_response({'key': 'value'})['body'] ==
-            '{"data":{"key":"value"}}')
+            b'{"data":{"key":"value"}}')
     assert (build_response([{'key': 'value'}])['body'] ==
-            '{"items":[{"key":"value"}]}')
+            b'{"items":[{"key":"value"}]}')
 
     def gen():
         yield {'k1': 'v1'}
@@ -112,7 +117,7 @@ def test_build_response():
         yield {'k3': 'v3'}
 
     assert (build_response(gen())['body'] ==
-            '{"items":[{"k1":"v1"},{"k2":"v2"},{"k3":"v3"}]}')
+            b'{"items":[{"k1":"v1"},{"k2":"v2"},{"k3":"v3"}]}')
 
-    with pytest.raises(CustodianException):
+    with pytest.raises(SREException):
         build_response(code=HTTPStatus.NOT_FOUND)

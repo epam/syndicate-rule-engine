@@ -1,4 +1,4 @@
-from functools import cached_property, partial
+from functools import partial
 from http import HTTPStatus
 from itertools import chain
 from typing import Iterable
@@ -6,22 +6,20 @@ from typing import Iterable
 from modular_sdk.commons.constants import ApplicationType, ParentType, \
     ParentScope
 from modular_sdk.models.parent import Parent
+from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.application_service import ApplicationService
 from modular_sdk.services.parent_service import ParentService
 
 from handlers import AbstractHandler, Mapping
 from helpers.constants import (
-    CustodianEndpoint,
+    Endpoint,
     HTTPMethod,
-    LICENSE_KEY_ATTR,
-    TENANT_LICENSE_KEY_ATTR,
 )
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
+from onprem.tasks import sync_license
 from services import SP
 from services.abs_lambda import ProcessedEvent
-from services.clients.lambda_func import LICENSE_UPDATER_LAMBDA_NAME, \
-    LambdaClient
 from services.license_manager_service import LicenseManagerService
 from services.license_service import LicenseService
 from services.modular_helpers import (
@@ -29,14 +27,16 @@ from services.modular_helpers import (
     build_parents,
     get_activation_dto,
     split_into_to_keep_to_delete,
-    get_main_scope
+    get_main_scope,
+    iter_tenants_by_names
 )
 from services.ruleset_service import RulesetService
 from validators.swagger_request_models import (
     BaseModel,
     LicenseActivationPutModel,
     LicensePostModel,
-    LicenseActivationPatchModel
+    LicenseActivationPatchModel,
+    LicenseSyncModel,
 )
 from validators.utils import validate_kwargs
 
@@ -52,12 +52,10 @@ class LicenseHandler(AbstractHandler):
                  self_service: LicenseService,
                  ruleset_service: RulesetService,
                  license_manager_service: LicenseManagerService,
-                 lambda_client: LambdaClient,
                  application_service: ApplicationService,
                  parent_service: ParentService):
         self.service = self_service
         self.ruleset_service = ruleset_service
-        self.lambda_client = lambda_client
         self.license_manager_service = license_manager_service
         self.aps = application_service
         self.ps = parent_service
@@ -68,29 +66,28 @@ class LicenseHandler(AbstractHandler):
             self_service=SP.license_service,
             ruleset_service=SP.ruleset_service,
             license_manager_service=SP.license_manager_service,
-            lambda_client=SP.lambda_client,
             application_service=SP.modular_client.application_service(),
             parent_service=SP.modular_client.parent_service()
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.LICENSES: {
+            Endpoint.LICENSES: {
                 HTTPMethod.POST: self.post_license,
                 HTTPMethod.GET: self.query_licenses
             },
-            CustodianEndpoint.LICENSES_LICENSE_KEY: {
+            Endpoint.LICENSES_LICENSE_KEY: {
                 HTTPMethod.GET: self.get_license,
                 HTTPMethod.DELETE: self.delete_license
             },
-            CustodianEndpoint.LICENSE_LICENSE_KEY_ACTIVATION: {
+            Endpoint.LICENSE_LICENSE_KEY_ACTIVATION: {
                 HTTPMethod.PUT: self.activate_license,
                 HTTPMethod.PATCH: self.update_activation,
                 HTTPMethod.DELETE: self.deactivate_license,
                 HTTPMethod.GET: self.get_activation
             },
-            CustodianEndpoint.LICENSES_LICENSE_KEY_SYNC: {
+            Endpoint.LICENSES_LICENSE_KEY_SYNC: {
                 HTTPMethod.POST: self.license_sync
             },
         }
@@ -107,17 +104,31 @@ class LicenseHandler(AbstractHandler):
         return it
 
     @validate_kwargs
-    def activate_license(self, event: LicenseActivationPutModel, 
+    def activate_license(self, event: LicenseActivationPutModel,
                          license_key: str, _pe: ProcessedEvent):
         lic = self.service.get_nullable(license_key)
         if not lic:
             raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
                 f'License {license_key} not found'
             ).exc()
+        if event.tenant_names:
+            it = iter_tenants_by_names(
+                tenant_service=self.ps.tenant_service,
+                customer=event.customer_id,
+                names=event.tenant_names,
+                attributes_to_get=(Tenant.name, )
+            )
+            tenants = {tenant.name for tenant in it}
+            if missing := event.tenant_names - tenants:
+                raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                    f'Active tenant(s) {", ".join(missing)} not found'
+                ).exc()
+
         # either ALL & [cloud] & [exclude] or tenant_names
         # Should not be many
         payload = ResolveParentsPayload(
-            parents=list(self.get_all_activations(license_key, event.customer)),
+            parents=list(
+                self.get_all_activations(license_key, event.customer)),
             tenant_names=event.tenant_names,
             exclude_tenants=event.exclude_tenants,
             clouds=event.clouds,
@@ -231,18 +242,15 @@ class LicenseHandler(AbstractHandler):
         license_obj = self.service.get_nullable(license_key)
         if license_obj:
             _LOG.info(f'License object {license_key} already exists')
-            if event.description:
-                license_obj.description = event.description
         else:
             _LOG.info('License object does not exist. Creating')
             license_obj = self.service.create(
                 license_key=license_key,
-                description=event.description or 'Custodian license',
                 customer=event.customer,
                 created_by=_pe['cognito_user_id'],
             )
         self.service.save(license_obj)
-        self._execute_license_sync([license_key])
+        sync_license.apply_async(([license_key],), countdown=3)
 
         return build_response(
             code=HTTPStatus.ACCEPTED,
@@ -256,27 +264,29 @@ class LicenseHandler(AbstractHandler):
             code=HTTPStatus.NO_CONTENT
         )
         lic = self.service.get_nullable(license_key)
-        if not lic or event.customer and event.customer not in lic.customers:
+        if not lic or event.customer and event.customer != lic.customer:
             return _success()
-        if not event.customer or len(
-                lic.customers) == 1 and event.customer in lic.customers:
-            self.service.delete(lic)
-            self.service.remove_rulesets_for_license(lic)
-            # TODO remove parents
-            return _success()
-
-        lic.customers.pop(event.customer)
-        self.service.save(lic)
+        self.service.delete(lic)
+        self.service.remove_rulesets_for_license(lic)
+        activations = self.get_all_activations(
+            license_key=lic.license_key,
+            customer=event.customer
+        )
+        for parent in activations:
+            self.ps.force_delete(parent)
         return _success()
 
     @validate_kwargs
-    def license_sync(self, event: BaseModel, license_key: str):
+    def license_sync(self, event: LicenseSyncModel, license_key: str):
         """
         Returns a response from an asynchronously invoked
         sync-concerned lambda, `license-updater`.
         :return:Dict[code=202]
         """
-        _response = self._execute_license_sync([license_key])
+        sync_license.delay(
+            license_keys=[license_key],
+            overwrite_rulesets=event.overwrite_rulesets,
+        )
         return build_response(
             code=HTTPStatus.ACCEPTED,
             content='License is being synchronized'
@@ -287,31 +297,10 @@ class LicenseHandler(AbstractHandler):
         forbid = ResponseFactory(HTTPStatus.FORBIDDEN).message(
             'License manager does not allow to active the license'
         )
-        response = self.license_manager_service.activate_customer(
+        response = self.license_manager_service.cl.activate_customer(
             customer, tenant_license_key
         )
         if not response:
             _LOG.info('Not successful response from LM')
             raise forbid.exc()
-
-        lk = response.get(LICENSE_KEY_ATTR)
-        tlk = response.get(TENANT_LICENSE_KEY_ATTR)
-        if not all((lk, tlk)):
-            _LOG.warning('Invalid response from LM')
-            raise forbid.exc()
-        return lk
-
-    def _execute_license_sync(self, license_keys: list[str]) -> dict:
-        """
-        Returns a response from an asynchronously invoked
-        sync-concerned lambda, `license-updater`.
-        :return:Dict[code=202]
-        """
-        _LOG.info('Invoking license updater lambda')
-        response = self.lambda_client.invoke_function_async(
-            LICENSE_UPDATER_LAMBDA_NAME, event={
-                LICENSE_KEY_ATTR: license_keys
-            }
-        )
-        _LOG.info(f'License updater lambda was invoked: {response}')
-        return response
+        return response[0]

@@ -1,2 +1,0 @@
-XlsxWriter==3.0.3
-cryptography==42.0.2

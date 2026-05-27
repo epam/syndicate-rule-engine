@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "srecli"
+description = "Syndicate Rule engine CLI"
+requires-python = ">=3.10"
+readme = "README.md"
+dynamic = ["version"]
+dependencies = [
+    "click==8.3.0",
+    "tabulate==0.9.0",
+    "boto3>=1.26.80,<2",
+    "python-dateutil==2.9.0.post0",
+    "modular-cli-sdk[hvac]==3.1.4",
+]
+
+[project.scripts]
+sre = "srecli.group.sre:sre"
+
+[tool.setuptools.dynamic]
+version = {attr = "srecli.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["srecli*"]
+namespaces = false
+
+[tool.pyright]
+include = ["srecli"]
+exclude = [
+    "**/__pycache__",
+]
+pythonVersion = "3.10"
+reportIncompatibleMethodOverride = "warning"

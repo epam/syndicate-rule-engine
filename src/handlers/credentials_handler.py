@@ -1,8 +1,6 @@
 """
 Maestro applications with credentials and CUSTODIAN_ACCESS parent
 """
-
-from functools import cached_property
 from http import HTTPStatus
 from itertools import chain
 from typing import Iterable, Literal
@@ -15,7 +13,7 @@ from modular_sdk.services.parent_service import ParentService
 
 from handlers import AbstractHandler, Mapping
 from helpers import NextToken
-from helpers.constants import Cloud, CustodianEndpoint, HTTPMethod
+from helpers.constants import Cloud, Endpoint, HTTPMethod
 from helpers.lambda_response import ResponseFactory, build_response
 from services import SP
 from services.abs_lambda import ProcessedEvent
@@ -23,7 +21,6 @@ from services.modular_helpers import (
     ResolveParentsPayload,
     build_parents,
     get_activation_dto,
-    split_into_to_keep_to_delete,
 )
 from validators.swagger_request_models import (
     BaseModel,
@@ -61,16 +58,16 @@ class CredentialsHandler(AbstractHandler):
             parent_service=SP.modular_client.parent_service()
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.CREDENTIALS: {
+            Endpoint.CREDENTIALS: {
                 HTTPMethod.GET: self.query
             },
-            CustodianEndpoint.CREDENTIALS_ID: {
+            Endpoint.CREDENTIALS_ID: {
                 HTTPMethod.GET: self.get
             },
-            CustodianEndpoint.CREDENTIALS_ID_BINDING: {
+            Endpoint.CREDENTIALS_ID_BINDING: {
                 HTTPMethod.PUT: self.bind,
                 HTTPMethod.DELETE: self.unbind,
                 HTTPMethod.GET: self.get_binding
@@ -171,9 +168,7 @@ class CredentialsHandler(AbstractHandler):
             clouds=clouds,
             all_tenants=event.all_tenants
         )
-        to_keep, to_delete = split_into_to_keep_to_delete(payload)
-        for parent in to_delete:
-            self._ps.force_delete(parent)
+        to_keep = payload.parents
         to_create = build_parents(
             payload=payload,
             parent_service=self._ps,

@@ -1,26 +1,22 @@
-from abc import ABC, abstractmethod
-from collections import ChainMap, defaultdict
 import io
-from pathlib import PurePosixPath
-import pickle
 import tempfile
 import time
+from abc import ABC, abstractmethod
+from collections import defaultdict
+from pathlib import PurePosixPath
 from typing import (
-    BinaryIO,
+    TYPE_CHECKING,
     Generator,
     Iterable,
     Iterator,
-    Literal,
-    TYPE_CHECKING,
     TypedDict,
     cast,
 )
 
 import msgspec
 
-from helpers import hashable, urljoin
-from helpers.constants import Cloud, GLOBAL_REGION
-from services import SP
+from helpers import hashable
+from helpers.constants import GLOBAL_REGION, Cloud, PolicyErrorType
 from services.clients.s3 import S3Client
 
 if TYPE_CHECKING:
@@ -29,125 +25,137 @@ if TYPE_CHECKING:
 # do not change the order, just append new regions. This collection is only
 # for shards distributor
 AWS_REGIONS = (
-    'us-east-1', 'us-east-2', 'us-west-1', 'us-west-2',
-    'ap-south-1', 'ap-northeast-1', 'ap-northeast-2', 'ap-northeast-3',
-    'ap-southeast-1', 'ap-southeast-2', 'ca-central-1', 'eu-central-1',
-    'eu-west-1', 'eu-west-2', 'eu-west-3', 'eu-north-1', 'sa-east-1',
-    'ap-southeast-3', 'ap-southeast-4', 'af-south-1', 'ap-east-1',
-    'ap-south-2', 'eu-south-1', 'eu-south-2', 'eu-central-2',
-    'il-central-1', 'me-south-1', 'me-central-1', 'us-gov-east-1',
-    'us-gov-west-1'
+    'us-east-1',
+    'us-east-2',
+    'us-west-1',
+    'us-west-2',
+    'ap-south-1',
+    'ap-northeast-1',
+    'ap-northeast-2',
+    'ap-northeast-3',
+    'ap-southeast-1',
+    'ap-southeast-2',
+    'ca-central-1',
+    'eu-central-1',
+    'eu-west-1',
+    'eu-west-2',
+    'eu-west-3',
+    'eu-north-1',
+    'sa-east-1',
+    'ap-southeast-3',
+    'ap-southeast-4',
+    'af-south-1',
+    'ap-east-1',
+    'ap-south-2',
+    'eu-south-1',
+    'eu-south-2',
+    'eu-central-2',
+    'il-central-1',
+    'me-south-1',
+    'me-central-1',
+    'us-gov-east-1',
+    'us-gov-west-1',
 )
 
 
-class ShardPartDict(TypedDict):
-    p: str  # policy name
-    l: str  # region
-    r: list[dict]  # resources
-    t: float  # timestamp
+class RuleMeta(TypedDict):
+    description: str
+    resource: str
+    comment: str
 
 
-class BaseShardPart:
+class ShardPart(
+    msgspec.Struct, frozen=True, eq=False, kw_only=True, omit_defaults=True
+):
     """
-    Keeps a list of resources and some attributes that define the belonging
-    of these resources. Can be region, namespace, group - something that
-    differentiate these resources from some others
-    Each part has policy attribute. We assume that if some policy (policy
-    in a region in case of AWS) was scanned its output can safely be
-    considered true and the previous output can be overriden by the new one.
-    This class is just an interface
+    "policy" & "location" & "timestamp" always exist. They indicate that the
+    "policy" was executed against the "location" last at the "timestamp".
+
+    If error is None it means that the latest execution was successful,
+    it happened at the "timestamp" and "resources" were found (no
+    vulns found if "resources" is empty").
+
+    If error is not None, it means that latest execution failed, it happened
+    at the "timestamp". In this case if "resources_timestamp" exists, it means
+    that this policy used to find resources and that is the last time in
+    executed successfully. If "resources_timestamp" is None, you can ignore
+    "resources" field
+
     """
-    policy: str
-    location: str
-    resources: list[dict]
-    timestamp: float
 
-    def drop(self): ...
-
-    def __repr__(self) -> str:
-        return f'<{self.__class__.__name__} {self.policy}:{self.location}>'
-
-    def serialize(self) -> ShardPartDict:
-        return {
-            'p': self.policy,
-            'l': self.location,
-            'r': self.resources,
-            't': self.timestamp
-        }
-
-
-class ShardPart(msgspec.Struct, BaseShardPart, frozen=True):
     policy: str = msgspec.field(name='p')
     location: str = msgspec.field(name='l', default=GLOBAL_REGION)
     timestamp: float = msgspec.field(default_factory=time.time, name='t')
     resources: list[dict] = msgspec.field(default_factory=list, name='r')
 
+    error: str | None = msgspec.field(default=None, name='e')
+    # resources timestamp should be always be None if error is None
+    previous_timestamp: float | None = msgspec.field(default=None, name='T')
 
-class LazyPickleShardPart(BaseShardPart):
-    __slots__ = 'policy', 'location', '_resources', 'timestamp', 'filepath'
+    def has_error(self) -> bool:
+        return self.error is not None
 
-    def __init__(self, filepath: str, policy: str,
-                 location: str = GLOBAL_REGION,
-                 timestamp: float | None = None):
-        self.policy: str = policy
-        self.location: str = location
-        self.timestamp: float = timestamp or time.time()
-        self._resources: list[dict] | None = None
-        self.filepath: str = filepath
-
-    @classmethod
-    def from_resources(cls, resources: list[dict], policy: str,
-                       location: str = GLOBAL_REGION):
+    def last_successful_timestamp(self) -> float | None:
         """
-        Creates shard part with given resources but immediately dumps them
-        to inner file storage
-        :param resources:
-        :param policy:
-        :param location:
-        :return:
+        If this method returns None it means that this policy never
+        executed successfully and "resources" may be ignored. If it returns
+        a timestamp - that will be time of its latest successful execution
+        and "resources" can be considered valid as of that date
         """
-        with tempfile.NamedTemporaryFile(delete=False) as fp:
-            pickle.dump(resources, fp, protocol=pickle.HIGHEST_PROTOCOL)
-        return cls(
-            filepath=fp.name,
-            policy=policy,
-            location=location
-        )
+        if self.error is None:
+            return self.timestamp
+        # error exists
+        return self.previous_timestamp
+    
+    def empty(self) -> bool:
+        """
+        Returns True if this part has no resources
+        """
+        return not self.resources
 
     @property
-    def resources(self) -> list[dict]:
-        if self._resources is None:
-            with open(self.filepath, 'rb') as fp:
-                self._resources = pickle.load(fp)
-        return self._resources
+    def error_type(self) -> PolicyErrorType | None:
+        if not self.error:
+            return
+        return PolicyErrorType(self.error.split(':', maxsplit=1)[0])
 
-    def drop(self) -> None:
-        self._resources = None  # not sure if it can help
+    @property
+    def error_message(self) -> None:
+        if not self.error:
+            return
+        return self.error.split(':', maxsplit=1)[1]
+
+    def __repr__(self) -> str:
+        return f'<{self.__class__.__name__} {self.policy}:{self.location}>'
 
 
-class Shard(Iterable[BaseShardPart]):
+class Shard(Iterable[ShardPart]):
     """
     Shard store shard parts. This shard implementation uses policy and
     location as a key to a shard part. This means that we can update
     resources within policy & region. Maybe we will need some other
     implementations in the future
     """
+
     __slots__ = ('_data',)
 
     def __init__(self, data: dict | None = None):
-        self._data: dict[tuple[str, str], BaseShardPart] = data or dict()
+        self._data: dict[tuple[str, str], ShardPart] = data or dict()
 
-    def __iter__(self) -> Iterator[BaseShardPart]:
+    def __iter__(self) -> Iterator[ShardPart]:
         return self._data.values().__iter__()
 
     def __len__(self) -> int:
         return self._data.__len__()
 
+    def __bool__(self) -> bool:
+        return bool(self._data)
+
     @property
-    def raw(self) -> dict[tuple[str, str], BaseShardPart]:
+    def raw(self) -> dict[tuple[str, str], ShardPart]:
         return self._data
 
-    def put(self, part: BaseShardPart) -> None:
+    def put(self, part: ShardPart) -> None:
         """
         Adds a part to the shard in case such part does not exist yet.
         Each part contains its timestamp. In case we try to put a part and
@@ -157,10 +165,38 @@ class Shard(Iterable[BaseShardPart]):
         :return:
         """
         key = (part.policy, part.location)
-        existing = self._data.get(key)
-        if existing and existing.timestamp > part.timestamp:
+        if key not in self._data:
+            self._data[key] = part
             return
+        existing = self._data[key]
+        if existing.timestamp > part.timestamp:
+            # existing part is newer so ignoring that one
+            return
+        # here existing is older, so need to replace with a new one properly
+        if part.error is not None:
+            # new one with error
+            if existing.error is None:
+                ts = existing.timestamp
+            else:
+                ts = existing.previous_timestamp
+            part = ShardPart(
+                policy=part.policy,
+                location=part.location,
+                timestamp=part.timestamp,
+                resources=existing.resources,
+                error=part.error,
+                previous_timestamp=ts,
+            )
         self._data[key] = part
+
+    def pop(self, policy: str, location: str) -> ShardPart | None:
+        """
+        Removes part from this shard
+        """
+        return self._data.pop((policy, location), None)
+
+    def get(self, policy: str, location: str) -> ShardPart | None:
+        return self._data.get((policy, location), None)
 
     def update(self, shard: 'Shard') -> None:
         """
@@ -199,7 +235,7 @@ class ShardDataDistributor(ABC):
         """
 
     @abstractmethod
-    def key(self, part: BaseShardPart) -> dict:
+    def key(self, part: ShardPart) -> dict:
         """
         Must retrieve data from the given part based on which the
         distribution happens
@@ -207,7 +243,7 @@ class ShardDataDistributor(ABC):
         :return:
         """
 
-    def distribute_part(self, part: BaseShardPart) -> int:
+    def distribute_part(self, part: ShardPart) -> int:
         """
         Must return shard for a concrete shard part
         :param part:
@@ -224,7 +260,7 @@ class SingleShardDistributor(ShardDataDistributor):
     will spend more money on S3 requests than could save on traffic
     """
 
-    def key(self, part: BaseShardPart) -> dict:
+    def key(self, part: ShardPart) -> dict:
         return {}
 
     def distribute(self, **kwargs) -> int:
@@ -239,9 +275,10 @@ class AWSRegionDistributor(ShardDataDistributor):
     consistent must update it each time. So in order not to download the
     whole data from S3 each time - we can make this distribution.
     """
+
     regions = {r: i for i, r in enumerate([GLOBAL_REGION, *AWS_REGIONS])}
 
-    def key(self, part: BaseShardPart) -> dict:
+    def key(self, part: ShardPart) -> dict:
         return dict(region=part.location)
 
     def distribute(self, region: str) -> int:
@@ -260,6 +297,7 @@ class ShardsIO(ABC):
     """
     Defines an interface for shards writer
     """
+
     __slots__ = ()
 
     @abstractmethod
@@ -275,12 +313,13 @@ class ShardsIO(ABC):
         for n, shard in pairs:
             self.write(n, shard)
 
-    def read_raw_many(self, numbers: Iterable[int]
-                      ) -> Iterator[list[BaseShardPart]]:
+    def read_raw_many(
+        self, numbers: Iterable[int]
+    ) -> Iterator[list[ShardPart]]:
         return filter(lambda x: x is not None, map(self.read_raw, numbers))
 
     @abstractmethod
-    def read_raw(self, n: int) -> list[BaseShardPart] | None:
+    def read_raw(self, n: int) -> list[ShardPart] | None:
         """
         Reads a specific shard but returns raw json
         :param n:
@@ -288,19 +327,19 @@ class ShardsIO(ABC):
         """
 
     @abstractmethod
-    def write_meta(self, meta: dict):
-        ...
+    def write_meta(self, meta: dict): ...
 
     @abstractmethod
-    def read_meta(self) -> dict:
-        ...
+    def read_meta(self) -> dict: ...
 
 
 class ShardsS3IO(ShardsIO):
     """
     Writer V1
     """
+
     __slots__ = '_bucket', '_root', '_client'
+    _encoder = msgspec.json.Encoder()
 
     def __init__(self, bucket: str, key: str, client: S3Client):
         """
@@ -310,23 +349,6 @@ class ShardsS3IO(ShardsIO):
         self._bucket = bucket
         self._root = key
         self._client = client
-
-    @staticmethod
-    def shard_to_filelike(shard: Shard) -> BinaryIO:
-        encoder = msgspec.json.Encoder()
-        buf = tempfile.TemporaryFile()
-        _first = True
-        for part in shard:
-            if _first:
-                s = b'['
-                _first = False
-            else:
-                s = b','
-            buf.write(s)
-            buf.write(encoder.encode(part.serialize()))
-        buf.write(b']')
-        buf.seek(0)
-        return buf
 
     @property
     def key(self) -> str:
@@ -343,10 +365,11 @@ class ShardsS3IO(ShardsIO):
         self._client.gz_put_object(
             bucket=self._bucket,
             key=self._key(n),
-            body=self.shard_to_filelike(shard),
+            body=self._encoder.encode(tuple(shard)),
+            gz_buffer=tempfile.TemporaryFile(),
         )
 
-    def read_raw(self, n: int) -> list[BaseShardPart] | None:
+    def read_raw(self, n: int) -> list[ShardPart] | None:
         obj = self._client.gz_get_object(
             bucket=self._bucket,
             key=self._key(n),
@@ -354,40 +377,25 @@ class ShardsS3IO(ShardsIO):
         )
         if not obj:
             return
-        return msgspec.json.decode(cast(io.BytesIO, obj).getvalue(),
-                                   type=list[ShardPart])
+        return msgspec.json.decode(
+            cast(io.BytesIO, obj).getvalue(), type=list[ShardPart]
+        )
 
     def write_meta(self, meta: dict):
         self._client.gz_put_json(
             bucket=self._bucket,
             key=str((PurePosixPath(self._root) / 'meta.json')),
-            obj=meta
+            obj=meta,
         )
 
     def read_meta(self) -> dict:
-        return self._client.gz_get_json(
-            bucket=self._bucket,
-            key=str((PurePosixPath(self._root) / 'meta.json'))
-        ) or {}
-
-
-class ShardsS3IOV2(ShardsS3IO):
-    """
-    Writer v2. Writes shard parts as json lines
-    """
-    @staticmethod
-    def shard_to_filelike(shard: Shard) -> BinaryIO:
-        encoder = msgspec.json.Encoder()
-        buf = tempfile.TemporaryFile()
-        first = True
-        for part in shard:
-            if not first:
-                buf.write(b'\n')
-            else:
-                first = False
-            buf.write(encoder.encode(part.serialize()))
-        buf.seek(0)
-        return buf
+        return (
+            self._client.gz_get_json(
+                bucket=self._bucket,
+                key=str((PurePosixPath(self._root) / 'meta.json')),
+            )
+            or {}
+        )
 
 
 class ShardsIterator(Iterator[tuple[int, Shard]]):
@@ -415,15 +423,17 @@ class ShardsCollection(Iterable[tuple[int, Shard]]):
     """
     Light abstraction over shards, shards writer and distributor
     """
-    __slots__ = '_distributor', '_io', 'shards', 'meta'
 
-    def __init__(self, distributor: ShardDataDistributor,
-                 io: ShardsIO | None = None):
+    __slots__ = '_distributor', 'io', 'shards', 'meta'
+
+    def __init__(
+        self, distributor: ShardDataDistributor, io: ShardsIO | None = None
+    ):
         self._distributor = distributor
-        self._io = io
+        self.io = io
 
         self.shards: defaultdict[int, Shard] = defaultdict(Shard)
-        self.meta = {}
+        self.meta: dict[str, RuleMeta] = {}
 
     def __iter__(self) -> Iterator[tuple[int, Shard]]:
         """
@@ -431,16 +441,37 @@ class ShardsCollection(Iterable[tuple[int, Shard]]):
         :return:
         """
         return ShardsIterator(
-            shards=self.shards,
-            n=self._distributor.shards_number
+            shards=self.shards, n=self._distributor.shards_number
         )
 
     def __len__(self) -> int:
         return self.shards.__len__()
 
-    def iter_parts(self) -> Generator[BaseShardPart, None, None]:
+    def __bool__(self) -> bool:
+        return any([bool(shard) for shard in self.shards.values()])
+
+    def iter_parts(self) -> Generator[ShardPart, None, None]:
+        """
+        Yields only parts that executed successfully at least once.
+        """
+        for _, shard in self:
+            for part in shard:
+                # if part.last_successful_timestamp()
+                if part.error is None or part.previous_timestamp:
+                    yield part
+
+    def iter_all_parts(self) -> Generator[ShardPart, None, None]:
+        """
+        Yields all parts even those without resources. So, you should handle
+        """
         for _, shard in self:
             yield from shard
+
+    def iter_error_parts(self) -> Generator[ShardPart, None, None]:
+        for _, shard in self:
+            for part in shard:
+                if part.error is not None:
+                    yield part
 
     def update(self, other: 'ShardsCollection'):
         """
@@ -455,38 +486,52 @@ class ShardsCollection(Iterable[tuple[int, Shard]]):
         Returns a difference between two collections. Uses
         SingleShardDistributor for the new collection
         """
-        # todo rewrite
         new = ShardsCollectionFactory.difference()
-
-        current = ChainMap(*[shard.raw for _, shard in self])
-        other = ChainMap(*[shard.raw for _, shard in other])
-        for key, part in current.items():
-            other_part = other.get(key)
-            if not other_part:  # definitely new
+        for part in self.iter_parts():
+            existing = None
+            for _, shard in other:
+                p = shard.get(part.policy, part.location)
+                if p:
+                    existing = p
+                    break
+            if not existing:  # keeping the current one without changes
                 new.put_part(part)
                 continue
-            current_res = set(hashable(res) for res in part.resources)
-            other_res = set(hashable(res) for res in other_part.resources)
-            new.put_part(ShardPart(
-                policy=part.policy,
-                location=part.location,
-                resources=list(current_res - other_res)
-            ))
+            # other similar part exist, need to get difference
+            if part.error is not None:
+                # current part with error, just keep it
+                new.put_part(part)
+                continue
+            # current part without error, getting difference
+            if not existing.last_successful_timestamp():
+                # existing newer executed successfully
+                new.put_part(part)
+                continue
+            # current without error and existing has some resources
+            # here need to get difference between two resources lists
+            # TODO: maybe add resource type to shard parts,
+            #  find difference based on ids instead of hashable
+
+            _new = {hashable(item) for item in part.resources}
+            _old = {hashable(item) for item in existing.resources}
+
+            new.put_part(
+                ShardPart(
+                    policy=part.policy,
+                    location=part.location,
+                    timestamp=part.timestamp,
+                    resources=list(_new - _old),
+                    error=None,
+                    previous_timestamp=None,
+                )
+            )
         return new
 
     @property
     def distributor(self) -> ShardDataDistributor:
         return self._distributor
 
-    @property
-    def io(self) -> ShardsIO:
-        return self._io
-
-    @io.setter
-    def io(self, value: ShardsIO):
-        self._io = value
-
-    def put_part(self, part: BaseShardPart) -> None:
+    def put_part(self, part: ShardPart) -> None:
         """
         Distribute the given shard part to its shard
         :param part:
@@ -495,7 +540,19 @@ class ShardsCollection(Iterable[tuple[int, Shard]]):
         n = self._distributor.distribute_part(part)
         self.shards[n].put(part)
 
-    def put_parts(self, parts: Iterable[BaseShardPart]) -> None:
+    def drop_part(self, part: ShardPart | str, location: str | None = None, /):
+        """
+        Removes a part from this collection
+        """
+        if isinstance(part, str):
+            if not location:
+                raise ValueError('provide location as second parameter')
+            # just for distributor
+            part = ShardPart(policy=part, location=location)
+        n = self._distributor.distribute_part(part)
+        self.shards[n].pop(part.policy, part.location)
+
+    def put_parts(self, parts: Iterable[ShardPart]) -> None:
         """
         Puts multiple parts. It distributes the given parts to their right
         shards according to the current distributor.
@@ -511,13 +568,13 @@ class ShardsCollection(Iterable[tuple[int, Shard]]):
         Writes all the shards that are currently in memory
         :return:
         """
-        self._io.write_many(iter(self))
+        self.io.write_many(iter(self))
 
     def fetch_by_indexes(self, it: Iterable[int]):
         """
         Fetches shards by specified indexes
         """
-        for parts in self._io.read_raw_many(set(it)):
+        for parts in self.io.read_raw_many(set(it)):
             self.put_parts(parts)
 
     def fetch_all(self):
@@ -549,64 +606,22 @@ class ShardsCollection(Iterable[tuple[int, Shard]]):
         """
         self.fetch_by_indexes(self.shards.keys())
 
-    def update_meta(self, other: dict):
+    def update_meta(self, other: dict[str, RuleMeta]):
         for rule, data in other.items():
             self.meta.setdefault(rule, {}).update(data)
 
     def fetch_meta(self):
-        self.update_meta(self._io.read_meta())
+        self.update_meta(self.io.read_meta())
 
     def write_meta(self):
         if self.meta:
-            self._io.write_meta(self.meta)
-
-
-class ShardingConfig:
-    filename = '.conf'
-
-    __slots__ = 'version',
-
-    def __init__(self, version: Literal[1, 2]):
-        """
-        :param version:
-        1 - one shard is a json - list of dits
-        2 - one shard is a bunch of JSONs separated by newline
-        """
-        self.version = version
-        # todo add distributor, and maybe smt else here
-
-    @classmethod
-    def from_raw(cls, dct: dict) -> 'ShardingConfig':
-        return cls(**dct)
-
-    @classmethod
-    def build_default(cls) -> 'ShardingConfig':
-        return cls(version=1)
+            self.io.write_meta(self.meta)
 
 
 class ShardsCollectionFactory:
     """
     Builds distributors but without writers
     """
-    @staticmethod
-    def from_s3_key(cloud: Cloud, key: str) -> ShardsCollection:
-        bucket = SP.environment_service.default_reports_bucket_name()
-        item = SP.s3.gz_get_json(bucket, urljoin(key, ShardingConfig.filename))
-        if item:
-            conf = ShardingConfig(item)
-        else:
-            conf = ShardingConfig.build_default()
-        col = ShardsCollection(
-            distributor=ShardsCollectionFactory._cloud_distributor(cloud)
-        )
-        match conf.version:
-            case 1:
-                col.io = ShardsS3IO(bucket=bucket, key=key, client=SP.s3)
-            case 2:
-                col.io = ShardsS3IOV2(bucket=bucket, key=key, client=SP.s3)
-            case _:
-                raise RuntimeError('Invalid shards version')
-        return col
 
     @staticmethod
     def _cloud_distributor(cloud: Cloud) -> ShardDataDistributor:
@@ -624,7 +639,7 @@ class ShardsCollectionFactory:
 
     @staticmethod
     def from_tenant(tenant: 'Tenant') -> ShardsCollection:
-        cloud = Cloud[tenant.cloud.upper()]
+        cloud = Cloud.parse(tenant.cloud, safe=False)
         return ShardsCollectionFactory.from_cloud(cloud)
 
     @staticmethod

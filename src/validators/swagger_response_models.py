@@ -3,17 +3,18 @@ from typing import Literal
 
 from pydantic import BaseModel
 from typing_extensions import NotRequired, TypedDict
-from models.policy import PolicyEffect
 
 from helpers.constants import (
     HealthCheckStatus,
     JobState,
     JobType,
     PlatformType,
+    PolicyEffect,
     PolicyErrorType,
     ReportFormat,
+    RuleDomain,
+    RuleSourceSyncingStatus,
     RuleSourceType,
-    RuleDomain
 )
 
 
@@ -22,6 +23,33 @@ class BaseActivation(TypedDict):
     within_clouds: NotRequired[list[str]]
     excluding: list[str]
     activated_for: NotRequired[list[str]]
+
+
+class Resource(TypedDict):
+    id: str
+    name: str
+    location: str
+    resource_type: str
+    tenant_name: str
+    customer_name: str
+    data: dict
+    sync_date: datetime
+    hash: str
+
+
+class ResourceException(TypedDict):
+    id: str
+    type: str
+    resource_id: str | None
+    location: str | None
+    resource_type: str | None
+    arn: str | None
+    tags_filters: list[str] | None
+    tenant_name: str
+    customer_name: str
+    created_at: float
+    updated_at: float
+    expire_at: float
 
 
 class Customer(TypedDict):
@@ -47,6 +75,16 @@ class Rule(TypedDict):
     customer: str
     project: str
     resource: str
+    rule_source_id: str
+
+
+class ScanProgress(TypedDict):
+    """Fields included as ``scan_progress`` on job GET when a scan checkpoint exists."""
+
+    checkpoint_version: int
+    completed_regions: list[str]
+    updated_at: str
+    pending_regions: list[str]
 
 
 class Job(TypedDict):
@@ -61,6 +99,8 @@ class Job(TypedDict):
     submitted_at: str
     tenant_name: str
     scheduled_rule_name: NotRequired[str]
+    celery_task_id: NotRequired[str]
+    scan_progress: NotRequired[ScanProgress]
 
 
 class Policy(TypedDict):
@@ -86,7 +126,6 @@ class Ruleset(TypedDict):
     customer: str
     last_update_time: datetime
     license_keys: list[str]
-    license_manager_id: NotRequired[str]
     licensed: bool
     name: str
     rules_number: int
@@ -95,8 +134,9 @@ class Ruleset(TypedDict):
 
 
 class RuleSourceLatestSync(TypedDict):
-    current_status: Literal['SYNCED', 'SYNCING', 'SYNCING_FAILED']
+    current_status: RuleSourceSyncingStatus
     sync_date: datetime
+    release_tag: NotRequired[str]
 
 
 class RuleSource(TypedDict):
@@ -163,6 +203,14 @@ class RabbitMQ(TypedDict):
     customer: str
 
 
+class EventSource(TypedDict):
+    id: str
+    customer_id: str
+    queue_url: str
+    region: str
+    enabled: bool
+
+
 class ReportStatus(TypedDict):
     id: str
     triggered_at: str
@@ -184,27 +232,20 @@ class K8sPlatform(TypedDict):
     region: NotRequired[str]
     tenant_name: str
     type: PlatformType
-
-
-class BatchResult(TypedDict):
-    cloud_identifier: str
-    customer_name: str
-    id: str
-    status: JobState
-    stopped_at: str
-    submitted_at: str
-    tenant_name: str
+    event_driven_enabled: NotRequired[bool]
 
 
 class Event(TypedDict):
     """
     202 POST /event
     """
+
     received: int
     saved: int
+    rejected: int
 
 
-class MetricsStatus(TypedDict):
+class ServiceOperationStatus(TypedDict):
     started_at: datetime
     state: str
 
@@ -246,7 +287,7 @@ class Credentials(TypedDict):
         'AZURE_CREDENTIALS',
         'AZURE_CERTIFICATE',
         'GCP_SERVICE_ACCOUNT',
-        'GCP_COMPUTE_ACCOUNT'
+        'GCP_COMPUTE_ACCOUNT',
     ]
     description: str
     has_secret: bool
@@ -338,6 +379,36 @@ class ResourcesReportItem(TypedDict):
     violated_rules: ViolatedRule
 
 
+class TopViolationsResourceReport(TypedDict):
+    id: str
+    violated_rules: list[dict]
+
+
+class TopViolationsRulesReport(TypedDict):
+    name: str
+    description: str
+    severity: str
+    remediation: str
+    article: str
+    impact: str
+    remediation_complexity: str
+    violated_resources: list[str]
+
+
+class TopViolationsResourceComparison(TypedDict):
+    id: str
+    new_violated_rules: list[dict]
+    remediated_rules: list[dict]
+    unchanged_violated_rules: list[dict]
+
+
+class TopViolationsRulesComparison(TypedDict):
+    name: str
+    new_violated_resources: list[str]
+    remediated_resources: list[str]
+    unchanged_violated_resources: list[str]
+
+
 class DefectDojo(TypedDict):
     id: str
     description: str
@@ -345,6 +416,15 @@ class DefectDojo(TypedDict):
     port: int
     stage: str
     protocol: Literal['HTTP', 'HTTPS']
+
+
+class Chronicle(TypedDict):
+    id: str
+    description: str
+    endpoint: str
+    credentials_application_id: str
+    instance_customer_id: str
+    customer: str
 
 
 class DefectDojoActivation(BaseActivation):
@@ -355,6 +435,10 @@ class DefectDojoActivation(BaseActivation):
     test: str
     send_after_job: bool
     attachment: Literal['json', 'xlsx', 'csv'] | None
+
+
+class ChronicleActivation(BaseActivation):
+    send_after_job: bool
 
 
 class DojoPushResult(TypedDict):
@@ -368,6 +452,15 @@ class DojoPushResult(TypedDict):
     dojo_integration_id: str
     success: bool
     attachment: Literal['json', 'xlsx', 'csv'] | None
+    platform_id: NotRequired[str]
+    error: NotRequired[str]
+
+
+class ChroniclePushResult(TypedDict):
+    job_id: str
+    tenant_name: str
+    chronicle_integration_id: str
+    success: bool
     platform_id: NotRequired[str]
     error: NotRequired[str]
 
@@ -430,6 +523,7 @@ class ErrorsModel(BaseModel):
     """
     400 Validation error
     """
+
     errors: list[ErrorData]
 
 
@@ -437,6 +531,7 @@ class MultipleJobsModel(BaseModel):
     """
     200 GET /jobs
     """
+
     items: list[Job]
     next_token: str | None
 
@@ -448,6 +543,7 @@ class SingleJobModel(BaseModel):
     201 POST /jobs/standard
     200 GET /jobs/{job_id}
     """
+
     data: Job
 
 
@@ -455,6 +551,7 @@ class MultipleScheduledJobsModel(BaseModel):
     """
     200 GET /jobs
     """
+
     items: list[ScheduledJob]
 
 
@@ -465,6 +562,7 @@ class SingleScheduledJobModel(BaseModel):
     201 POST /jobs/standard
     200 GET /jobs/{job_id}
     """
+
     data: ScheduledJob
 
 
@@ -476,18 +574,26 @@ class SingleK8SPlatformModel(BaseModel):
     data: K8sPlatform
 
 
-class MultipleBatchResultsModel(BaseModel):
-    items: list[BatchResult]
-
-
-class SingleBatchResultModel(BaseModel):
-    data: BatchResult
-
-
 class SignInModel(BaseModel):
     access_token: str  # actually it's Congito's id_token
     refresh_token: str
     expires_in: int
+
+
+class MultipleResourcesModel(BaseModel):
+    items: list[Resource]
+
+
+class SingleResourceModel(BaseModel):
+    data: Resource
+
+
+class MultipleResourcesExceptionsModel(BaseModel):
+    items: list[ResourceException]
+
+
+class SingleResourceExceptionModel(BaseModel):
+    data: ResourceException
 
 
 class MultipleCustomersModel(BaseModel):
@@ -518,6 +624,14 @@ class SingleRabbitMQModel(BaseModel):
     data: RabbitMQ
 
 
+class SingleEventSourceModel(BaseModel):
+    data: EventSource
+
+
+class MultipleEventSourceModel(BaseModel):
+    items: list[EventSource]
+
+
 class MultipleRulesModel(BaseModel):
     items: list[Rule]
     next_token: str | None
@@ -527,8 +641,8 @@ class MultipleRuleMetaUpdateModel(BaseModel):
     items: list[RuleMetaUpdate]
 
 
-class MultipleMetricsStatusesModel(BaseModel):
-    items: list[MetricsStatus]
+class MultipleServiceOperationStatusesModel(BaseModel):
+    items: list[ServiceOperationStatus]
 
 
 class SingleRulesetModel(BaseModel):
@@ -623,6 +737,14 @@ class JobResourcesReportModel(BaseModel):
     data: BaseReportJob | None
 
 
+class TopViolationsReportJobsModel(BaseModel):
+    items: list[TopViolationsResourceReport | TopViolationsRulesReport]
+
+
+class TopViolationsReportComparisonModel(BaseModel):
+    items: list[TopViolationsResourceComparison | TopViolationsRulesComparison]
+
+
 class SingleLicenseActivationModel(BaseModel):
     data: BaseActivation
 
@@ -635,6 +757,18 @@ class MultipleDefectDojoModel(BaseModel):
     items: DefectDojo
 
 
+class SingleChronicleModel(BaseModel):
+    data: Chronicle
+
+
+class SingleChronicleActivationModel(BaseModel):
+    data: ChronicleActivation
+
+
+class MultipleChronicleModel(BaseModel):
+    items: list[Chronicle]
+
+
 class SingleDefectDojoActivation(BaseModel):
     data: DefectDojoActivation
 
@@ -645,6 +779,10 @@ class SingleDefectDojoPushResult(BaseModel):
 
 class MultipleDefectDojoPushResult(BaseModel):
     items: list[DojoPushResult]
+
+
+class SingleChroniclePushResult(BaseModel):
+    data: ChroniclePushResult
 
 
 class SingleSelfIntegration(BaseModel):

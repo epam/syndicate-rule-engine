@@ -1,0 +1,296 @@
+{
+  "metadata": {
+    "licenses": [
+      {
+        "id": "license-key",
+        "rulesets": [
+          "GOOGLE"
+        ],
+        "total_rules": 10,
+        "jobs": 10,
+        "per": "DAY",
+        "description": "Testing license",
+        "valid_until": "2100-02-01T15:24:26.175778Z",
+        "valid_from": "2025-07-28T13:48:08.461548Z"
+      }
+    ],
+    "is_automatic_scans_enabled": true,
+    "in_progress_scans": 0,
+    "finished_scans": 2,
+    "succeeded_scans": 1,
+    "last_scan_date": "2025-07-28T00:48:07.120839Z",
+    "activated_regions": [],
+    "rules": {
+      "total": 10,
+      "disabled": [],
+      "deprecated": [],
+      "passed": [
+        {
+          "id": "ecc-gcp-240-slow_query_log_database_flag_for_cloud_sql_mysql",
+          "description": "Description for ecc-gcp-240-slow_query_log_database_flag_for_cloud_sql_mysql",
+          "region": "global",
+          "when": 1729502743.8048089
+        },
+        {
+          "id": "ecc-gcp-237-postgresql_use_the_latest_major_version",
+          "description": "Description for ecc-gcp-237-postgresql_use_the_latest_major_version",
+          "region": "global",
+          "when": 1729502743.8026721
+        },
+        {
+          "id": "ecc-gcp-153-vm_instances_without_any_label_information",
+          "description": "Description for ecc-gcp-153-vm_instances_without_any_label_information",
+          "region": "global",
+          "when": 1729502743.730919
+        }
+      ],
+      "failed": [
+        {
+          "id": "ecc-gcp-027-dnssec_for_cloud_dns",
+          "description": "Description for ecc-gcp-027-dnssec_for_cloud_dns",
+          "region": "global",
+          "when": 1729502743.6555269,
+          "error_type": "ACCESS",
+          "error": "AccessDenied exception"
+        },
+        {
+          "id": "ecc-gcp-101-load_balancer_access_logging_disabled",
+          "description": "Description for ecc-gcp-101-load_balancer_access_logging_disabled",
+          "region": "global",
+          "when": 1729502743.7062569,
+          "error_type": "ACCESS",
+          "error": "AccessDenied exception"
+        }
+      ],
+      "violated": [
+        {
+          "id": "ecc-gcp-025-no_default_network",
+          "description": "Description for ecc-gcp-025-no_default_network",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "severity": "Unknown",
+          "service": "Vpc",
+          "resource_type": "gcp.vpc",
+          "when": 1729502743.654542
+        },
+        {
+          "id": "ecc-gcp-272-firewall_logging_enabled",
+          "description": "Description for ecc-gcp-272-firewall_logging_enabled",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "severity": "Unknown",
+          "service": "Firewall",
+          "resource_type": "gcp.firewall",
+          "when": 1729502744.540606
+        },
+        {
+          "id": "ecc-gcp-109-prevent_allow_all_ingress",
+          "description": "Description for ecc-gcp-109-prevent_allow_all_ingress",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "severity": "Unknown",
+          "service": "Firewall",
+          "resource_type": "gcp.firewall",
+          "when": 1729502743.7096498
+        },
+        {
+          "id": "ecc-gcp-104-default_firewall_rule_in_use",
+          "description": "Description for ecc-gcp-104-default_firewall_rule_in_use",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "severity": "Unknown",
+          "service": "Firewall",
+          "resource_type": "gcp.firewall",
+          "when": 1729502743.708413
+        },
+        {
+          "id": "ecc-gcp-033-vpc_flow_logs_for_every_subnet",
+          "description": "Description for ecc-gcp-033-vpc_flow_logs_for_every_subnet",
+          "remediation": "",
+          "remediation_complexity": "Unknown",
+          "severity": "Unknown",
+          "service": "Subnet",
+          "resource_type": "gcp.subnet",
+          "when": 1729502743.66139
+        }
+      ]
+    }
+  },
+  "data": [
+    {
+      "region": "global",
+      "resource_type": "gcp.vpc",
+      "service": "Vpc",
+      "resource": {
+        "id": "877139587449282054",
+        "name": "default",
+        "urn": "gcp:compute::testing-project-123:vpc/default"
+      },
+      "severity": "Unknown",
+      "violations": [
+        {
+          "policy": "ecc-gcp-025-no_default_network",
+          "sre:date": 1729502743.654542
+        }
+      ]
+    },
+    {
+      "region": "global",
+      "resource_type": "gcp.firewall",
+      "service": "Firewall",
+      "resource": {
+        "id": "1227136820292673506",
+        "name": "default-allow-icmp",
+        "urn": "gcp:compute::testing-project-123:firewall/default-allow-icmp"
+      },
+      "severity": "Unknown",
+      "violations": [
+        {
+          "policy": "ecc-gcp-272-firewall_logging_enabled",
+          "sre:date": 1729502744.540606
+        },
+        {
+          "policy": "ecc-gcp-104-default_firewall_rule_in_use",
+          "sre:date": 1729502743.708413
+        }
+      ]
+    },
+    {
+      "region": "global",
+      "resource_type": "gcp.firewall",
+      "service": "Firewall",
+      "resource": {
+        "id": "2342562096469303266",
+        "name": "default-allow-rdp",
+        "urn": "gcp:compute::testing-project-123:firewall/default-allow-rdp"
+      },
+      "severity": "Unknown",
+      "violations": [
+        {
+          "policy": "ecc-gcp-272-firewall_logging_enabled",
+          "sre:date": 1729502744.540606
+        },
+        {
+          "policy": "ecc-gcp-104-default_firewall_rule_in_use",
+          "sre:date": 1729502743.708413
+        }
+      ]
+    },
+    {
+      "region": "global",
+      "resource_type": "gcp.firewall",
+      "service": "Firewall",
+      "resource": {
+        "id": "2007825320515264482",
+        "name": "default-allow-ssh",
+        "urn": "gcp:compute::testing-project-123:firewall/default-allow-ssh"
+      },
+      "severity": "Unknown",
+      "violations": [
+        {
+          "policy": "ecc-gcp-272-firewall_logging_enabled",
+          "sre:date": 1729502744.540606
+        },
+        {
+          "policy": "ecc-gcp-104-default_firewall_rule_in_use",
+          "sre:date": 1729502743.708413
+        }
+      ]
+    },
+    {
+      "region": "global",
+      "resource_type": "gcp.firewall",
+      "service": "Firewall",
+      "resource": {
+        "id": "3339756659677913058",
+        "name": "default-allow-internal",
+        "urn": "gcp:compute::testing-project-123:firewall/default-allow-internal"
+      },
+      "severity": "Unknown",
+      "violations": [
+        {
+          "policy": "ecc-gcp-272-firewall_logging_enabled",
+          "sre:date": 1729502744.540606
+        },
+        {
+          "policy": "ecc-gcp-109-prevent_allow_all_ingress",
+          "sre:date": 1729502743.7096498
+        },
+        {
+          "policy": "ecc-gcp-104-default_firewall_rule_in_use",
+          "sre:date": 1729502743.708413
+        }
+      ]
+    },
+    {
+      "region": "northamerica-south1",
+      "resource_type": "gcp.subnet",
+      "service": "Subnet",
+      "resource": {
+        "id": "816596276746100793",
+        "name": "default",
+        "urn": "gcp:compute:northamerica-south1:testing-project-123:subnet/default"
+      },
+      "severity": "Unknown",
+      "violations": [
+        {
+          "policy": "ecc-gcp-033-vpc_flow_logs_for_every_subnet",
+          "sre:date": 1729502743.66139
+        }
+      ]
+    },
+    {
+      "region": "us-west8",
+      "resource_type": "gcp.subnet",
+      "service": "Subnet",
+      "resource": {
+        "id": "3115367106910640951",
+        "name": "default",
+        "urn": "gcp:compute:us-west8:testing-project-123:subnet/default"
+      },
+      "severity": "Unknown",
+      "violations": [
+        {
+          "policy": "ecc-gcp-033-vpc_flow_logs_for_every_subnet",
+          "sre:date": 1729502743.66139
+        }
+      ]
+    },
+    {
+      "region": "europe-west10",
+      "resource_type": "gcp.subnet",
+      "service": "Subnet",
+      "resource": {
+        "id": "2708525157271002654",
+        "name": "default",
+        "urn": "gcp:compute:europe-west10:testing-project-123:subnet/default"
+      },
+      "severity": "Unknown",
+      "violations": [
+        {
+          "policy": "ecc-gcp-033-vpc_flow_logs_for_every_subnet",
+          "sre:date": 1729502743.66139
+        }
+      ]
+    },
+    {
+      "region": "africa-south1",
+      "resource_type": "gcp.subnet",
+      "service": "Subnet",
+      "resource": {
+        "id": "80118305852546590",
+        "name": "default",
+        "urn": "gcp:compute:africa-south1:testing-project-123:subnet/default"
+      },
+      "severity": "Unknown",
+      "violations": [
+        {
+          "policy": "ecc-gcp-033-vpc_flow_logs_for_every_subnet",
+          "sre:date": 1729502743.66139
+        }
+      ]
+    }
+  ],
+  "exceptions_data": [],
+  "id": "testing-project-123"
+}

@@ -56,7 +56,7 @@ class Cell:
 class CellContent:
     __slots__ = ('dt', 'ft')
 
-    def __init__(self, dt: int | str | dict | list | None = None,
+    def __init__(self, dt: int | float | str | dict | list | None = None,
                  ft: Format | None = None):
         self.dt = dt
         self.ft = ft

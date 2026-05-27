@@ -5,7 +5,312 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.1.2] - 2024-05-10
+## [5.19.0] - 2026-XX-XX
+
+### Added
+- Added ttl for caching events mappings <!-- TODO: Add ticket number -->
+
+### Changed
+- [11970] Refactored event-driven assembly service to use a new index structure and strategies
+- [11970] Changed logging level from `info` to `debug` for Cloud Custodian providers loading for avoiding noise in logs
+
+### Fixed
+- Fixed issue with event sources handler returning `data` key in the response
+- Fixed KeyError with unknown/deprecated clouds.
+
+## [5.18.0] - 2026-03-18
+
+### Added
+- Added top violations and top violations comparison reports
+- Added event sources integration: API and on-prem consumer for SQS queues (event-driven ingestion) in `src/onprem/event_sources_consumer`
+- Added handling obsolete/removed rules in shards
+- Added the ability to get a resource report for a specific platform(K8S) job
+- Added the intermediate scan saves and reports (by region)
+- Added the ability to resume stuck jobs using intermediate data by `POST /jobs/{job_id}/resume` endpoint
+- Added tenant scope restrictions to endpoints `GET /tenants`, `GET /jobs`, and `GET /platforms/k8s`
+- Added resolving of tenant access payload for MCP users (via the header `X-Sre-Mcp-User-Name`)
+- Added support for K8S event-driven
+- Added two new vendors for K8S `SRE_K8S_AGENT` and `SRE_K8S_WATCHER` (see `docs/event_driven.md` for more details)
+- Added new endpoint `PATCH /platforms/k8s/{platform_id}` to enable/disable K8S event-driven
+
+### Fixed
+- Fixed policy failure messages carrying a trailing newline (from traceback formatting) before they are joined into shard `error` strings
+- Fixed on-prem API not passing query params (e.g. `customer_id`) for non-GET requests (DELETE, PUT, etc.)
+- Fixed `validate_kwargs` failing when handlers use `from __future__ import annotations`
+- Fixed an issue with generating recommendations for K8S resources due to incorrect resource type parse
+- Fixed an issue with metrics update when rule not found in metadata for latest collection
+
+### Changed
+- Reports bucket: Kubernetes paths use platform id instead of the legacy `name-region` segment
+- Reports bucket: `jobs/…` paths use `reactive` instead of `event-driven`
+- Statistics bucket: `job-statistics/…` paths use `reactive` instead of `event-driven`
+- The parameter `tenants` of the policy post model changed to required
+- Expanded the list of job error codes and messages
+- Changed terminal job status to `INTERRUPTED` instead of `FAILED`
+- Version of `modular-sdk` updated to `7.1.11`
+
+## [5.17.0] - 2026-03-02
+
+### Added
+- Added support for insecure-skip-tls-verify during Kubernetes platform management
+- Added number of findings from the previous reporting period (`previous_period_findings`) for rules that are now deprecated in the OPERATIONAL_DEPRECATION report
+- Added Event-Driven (ED) jobs support for AMI installation
+- Added `STANDARD`, `SCHEDULED` to the `JobType` enum
+- Added recipient validation emails for reports based on the associated Tenant or Customer
+- Added description, deprecation date, and reason to the deprecated rules in the operational reports
+- Added `category` field to `OPERATIONAL RULES` report to distinguish rules with identical fingerprints
+- Added fingerprint to the `Rule` model and `SRERules` collection for rule deduplication, optimizing API requests to cloud providers
+- Added the ability to send attacks report to MCC after event-driven job completion
+- Added the ability to provide receivers to the endpoint `/report/department/`
+- Added support for AWS events from Maestro vendor for event-driven
+- Added new API endpoint  `PATCH /integrations/defect-dojo/{id}/activation`
+
+### Fixed
+- Fixed LM/Dojo/Git clients failing with `RemoteDisconnected` when reusing idle TCP connections (e.g. after NAT gateway timeout) by adding retries
+- Fixed invalid `next_token` handling
+- Fixed issue with double creation of indexes for `SREResources` and `SREResourceExceptions` collections
+- Fixed issue when operational overview report returns `list` instead of `dict` as fallback value for `rules_data` field
+- Fixed JSON decoding errors when License Manager returns text responses instead of JSON
+- Fixed an issue related to pushing reports to Defect Dojo
+- Fixed issue with `Attribute "PublicIp" does not exist` during deployment in `private` subnet
+- Fixed multi-region job failure caused by temporary credential files being removed too early
+
+### Changed
+- Changed the `JobType` enum to include `STANDARD`, `SCHEDULED` and `MANUAL`
+- Updated recommendations processing logic to use all available rules for generating
+- Changed modular-sdk version from `7.1.6` to `7.1.9`
+- Changed the `sre tenant credentials link` command, does not unlink parents, if they linked.
+- Changed the `sre integrations re add` command, does not update the Custodian Management Application and return `409 Conflict` if it exists.
+
+### Removed
+- Removed `SREBatchResults` model and related endpoints and services
+- Removed `quota` field from the license `event_driven` payload
+
+## [5.16.0] - 2026-01-30
+- Added validation of downloaded rulesets to ensure they are valid JSON
+- Added the parameter `overwrite_rulesets` for the `POST /licenses/{license_key}/sync` endpoint that allows to overwrite existing ruleset data in S3
+- Added the possibility to update the rulesource `type`, `git_url`, `git_ref`, `git_rules_prefix` and  `git_project_id` parameters in the `PATCH /rule-sources/{id}` endpoint
+- Added PATCH method to the endpoints `/settings/license-manager/config` and `/settings/license-manager/client`
+- Added the parameter `description` to the `POST /rulesets` and `PATCH /rulesets/{name}/{version}` endpoints
+- Added the possibility to scan linked tenants
+- Added the possibility to get project-level reports with linked tenants' reports included
+- Updated `sre-init.sh` and `ami-initialize.sh` scripts
+  - Added support contact email to critical error messages (License Manager, Helm failures)
+  - Added success message after backup retry operations
+  - Fixed typo in `ami-initialize.sh`: `error_log` → `log_err`
+- Changed the log message in the report metrics to use dynamic database terminology based on the database type
+- Fixed an issue returning internal server error when operational reports are generated
+- Fixed an issue related to rewriting a k8s platform during creation if the type is not SELF_MANAGED
+- Fixed an issue with resource collection when pod killed during memory limit exceeded
+
+- Fixed license expiration updating in case of 404 status code returned from the license sync request
+- Updated versions of dependencies:
+    - `c7n` from `0.9.46` to `0.9.49`
+    - `c7n-azure` from `0.7.45` to `0.7.48`
+    - `c7n-gcp` from `0.4.45` to `0.4.48`
+    - `c7n-kube` from `0.2.45` to `0.2.48`
+    - `boto3` from `~=1.39.4` to `~=1.42.27`
+    - `botocore` from `~=1.39.4` to `~=1.42.27`
+    - `cryptography` from `~=44.0.2` to `~=45.0.7`
+    - `google-api-python-client` from `~=2.176.0` to `~=2.188.0`
+    - `google-auth` from `~=2.40.0` to `~=2.47.0`
+- Hidden unused endpoint `GET /reports/diagnostic` from the API
+- Changed `created_at`, `updated_at`, and `expire_at` fields in resource exception responses to return human-readable ISO format dates instead of Unix timestamps
+- Changed the logic of validating ARNs in resource exception creation to check if the ARN exists in the resources database for the specific tenant
+- Changed the log message in the report metrics to use dynamic database terminology based on the database type
+- Fixed an issue with credentials environment variables when using PosixPath objects instead of strings for AZURE credentials
+- Fixed an issue returning internal server error when operational reports are generated
+- Fixed an issue related to rewriting a k8s platform during creation if the type is not SELF_MANAGED
+- Fixed an issue with resource collection when pod killed during memory limit exceeded
+- Fixed license expiration updating in case of 404 status code returned from the license sync request
+
+## [5.15.1] - 2026-01-02
+- Bump MongoDB Version due to CVE-2025-14847 Vulnerability
+
+## [5.15.0] - 2025-11-06
+- Added hiding expired resource exceptions
+- Added the parameter `overwrite` to the `POST /rulesets/release` endpoint that allows to overwrite existing ruleset version
+- Added the possibility to configure gunicorn workers timeout via the `SRE_GUNICORN_WORKERS_TIMEOUT` env variable
+- Added user guide and commands reference guide to the documentation
+- Added `/metadata/update` endpoint to updating locally stored metadata
+- Added `/service-operations/status?type={service_operation_type}` endpoint to get the status of service operations where `service_operation_type` is one of:
+  - `metrics-update`
+  - `metadata-update`
+  - `push-dojo`
+- Added `Permission.SERVICE_OPERATIONS_STATUS` permission for getting the status of service operations
+- Added exceptions information (`exceptions_data`) to project-level reports: 
+  - Project Overview
+  - Project Compliance
+  - Project Resources
+  - Project Attacks
+  - Project FinOps
+- Added violated rules information (`cluster_metadata.rules.violated`) to operational Kubernetes report
+- Added the possibility to submit jobs and push reports to dojo with custom `product`, `engagement`, and `test` names
+- Added optional parameter `application_id` to the endpoint ` POST /jobs`
+- Push to Defect Dojo changed from synchronous to asynchronous
+- Restored recommendations processing flow in `metrics_updater` lambda
+- `Permission.METRICS_STATUS` permission replaced with `Permission.SERVICE_OPERATIONS_STATUS`
+- Disabled the plugin `gcp_cloudrun`
+- Resolved a problem caused by the license manager being temporarily unavailable.
+- Fixed plugin `aws.workspaces-directory.filter.check-vpc-endpoints-availability`
+- Fixed an issue with filtering resource exceptions by `--tags_filters`
+- Fixed issue with kube-confid file during k8s scan
+- Fixed an issue with describing rules by the cloud name
+- Fixed an issue with handling the `expiration` parameter in `sre role add/update` commands
+- Fixed an issue with creating resource exceptions with the same parameters
+- Fixed an issue with inaccurate K8S scan results
+- Fixed rulesets double compression issue
+
+
+## [5.14.0] - 2025-10-03
+- Updated the ami-initialize.sh script
+  - Updated the ami-initialize.sh script to migrate the Helm APT repository to Buildkite as per the changes detailed in https://helm.sh/blog/debian-helm-repository-move/
+  - Fixed an issue during generate password for Modular
+  - Fixed issue with running patches during initial configuration of Syndicate Rule Engine
+- Added tenant settings key `SCAN_HIDDEN_REGIONS` that enables scanning of hidden regions
+- Implemented the division of findings by resource for pushing to Defect Dojo
+- Updated `modular-sdk` version to `7.1.3`
+- Fixed role deletion issue when the role is still attached to user(s)
+- Fixed policy deletion issue when the policy is still attached to role(s)
+- Fixed an issue with updating role policies
+- Fixed validation for GOOGLE/GCP cloud alias in `GET /resources`
+- Fixed tests for metrics and resources
+
+## [5.13.0] - 2025-08-05
+- added endpoints for interacting with resource exceptions: `GET /resources/exceptions`, `GET /resources/exceptions/{id}`, `POST /resources/exceptions`, `PUT /resources/exceptions/{id}`, `DELETE /resources/exceptions/{id}`.
+- changed operational overview, resources, deprecations, finops, and attacks reports to add exceptions information.
+- changed operational overview report to include total resources scanned.
+- renamed database, collections and other occurrences from `custodian_as_a_service` to `syndicate_rule_engine`.
+- update modular-related environment variables in the HELM chart
+- Rename CAAS/custodian to SRE
+- Update README.md
+- Update QUICKSTART.md
+
+## [5.12.2] - 2025-08-19 (hotfix)
+- moved cron configurations outside
+- disabled scan resources job by default
+
+## [5.12.1] - 2025-08-08 (hotfix)
+- fixed a bug with small number of executed google policies
+- fixed a bug with inconsistent shards collection
+
+
+## [5.12.0] - 2025-07-17
+- added severity, service and resource type to operational rules report
+- changed operational overview report to new format
+- changed operational resources to correspond to overview
+- added `GET /resources` and `GET /resources/arn/{arn}` endpoints to retrieve resources with optional filtering and pagination.
+- added `ResourceCollector` class for retrieving resources using Cloud Custodian filters.
+- updated `c7n` to 0.9.46
+- filter out deprecated rules when generating reports
+
+
+## [5.11.0] - 2025-06-13
+- updated `modular-sdk` version to `7.1.0`
+- updated minio server inside chart to `RELEASE.2025-05-24T17-08-30Z`
+- updated vault server inside chart to `1.19.5`
+- updated Cloud Custodian to `0.9.45`.
+- [EPMCEOOS-5765] added validations whether tenants exists for all "activation" endpoints
+- [EPMCEOOS-6545] make `describe regions` AWS permission not required for job to start; fail a job if all its rules have failed.
+- store normalized versions of standard rulesets instead of just semver
+- updated `sre-init` so that it first fetch a newer version of itself and then perform update of sre
+- [EPMCEOOS-7745] created a separate application type for DEFECT_DOJO and RABBIT_MQ applications for Syndicate Rule Engine
+
+
+## [5.10.0] - 2025-05-14
+- changed dojo client to import scans in batches
+- added 65 days ttl for findings snapshots
+- added a cron job that will remove old metrics
+- added errors information to internal shard parts
+- fixed versions comparing issue inside `sre-init`
+- changed format of OPERATIONAL ATTACKS, DEPRECATIONS, FINOPS, RESOURCES reports.
+  Added tenant licenses, rules and errors metadata
+
+## [5.9.0] - 2025-04-29
+- added warnings to jobs
+- moved onprem scheduler and scheduled jobs to celery
+- cache rulesets retrieved from LM locally
+- lock jobs when they start running
+- removed old event-driven rulesets
+
+## [5.8.0] - 2025-02-27
+- changed modular sdk envs
+- changed Operational and Project Attacks reports
+- refactored MongoClient and Boto clients/session creation to create separate items per processes
+- improved Operational deprecations report
+
+## [5.7.0] - 2025-01-14
+- moved to modular-sdk 7.0.0
+- fixed a bug when ruleset name containing a number was considered to be rulesset version
+- added Celery as jobs queue
+- refactor such inner reports
+  - PROJECT_*
+  - DEPARTMENT_*
+  - C_LEVEL_*
+- added OPERATIONAL_DEPRECATIONS report
+- added tests for all reports
+- removed python-dotenv
+- added soft limit for job tasks
+
+## [5.6.0] - 2024-11-05
+- refactor metrics collector
+- refactor such inner reports
+  - OPERATIONAL OVERVIERW
+  - OPERATIONAL RESOURCES
+  - OPERATIONAL RULES
+  - OPERATIONAL FINOPS
+  - C LEVEL OVERVIEW
+- refactor suc inner reports and metrics
+- allow to use metadata provided by the license manager
+- write tests for new metrics and existing reports
+
+## [5.6.0b1] - 2024-11-05
+- refactor metrics pipeline a bit
+- allow maestro reports without license
+
+## [5.5.1] - 2024-10-22
+- fixed Internal error if cannot resolve public ip from metadata
+- added logic to that validates whether the installation is successful to sre-init
+- improved sre-run so that it fails if any command in ami-initialize fails. Also it outputs all logs to log file
+
+## [5.5.0] - 2024-08-07
+- return 429 status code if dynamodb provisioned capacity exceeded error
+- remove `accN` index from usage
+- scan each region in a separate process in order to reduce RAM usage
+- change `create_indexes` command. Now it ensures that indexes are up-to-date instead of recreating them
+- allow to build rulesets using rule comment field
+
+## [5.4.0] - 2024-07-09
+- added `rule_source_id` and `excluded_rules` parameters to `POST /rulestets`.
+- added auto version resolving to all the `/rulesets` endpoints. Version parameters is optional
+- added `POST /rulestes/release` endpoint to release new rulesets to LM
+- added a new type of rulesource - `GITHUB_RELEASE`
+- removed `/jobs/standard` endpoint
+- refactored a bit
+
+## [5.3.0] - 2024-06-09
+- added endpoints for Google Chronicle integration:
+  - `POST /integrations/chronicle`
+  - `GET /integrations/chronicle`
+  - `GET /integrations/chronicle/{id}`
+  - `DELETE /integrations/chronicle/{id}`
+  - `PUT /integrations/chronicle/{id}/activation`
+  - `GET /integrations/chronicle/{id}/activation`
+  - `DELETE /integrations/chronicle/{id}/activation`
+- added logic that converts shards collection to UDM entities and UDM events
+- added an endpoint to push job to Google Chronicle `POST /reports/push/chronicle/{job_id}`
+- resolve License Manager API version from LM API
+
+## [5.2.0] - 2024-06-03
+- removed `POST /rule-meta/mappings` endpoint
+- improve scheduled job cron validator
+- Improve ruleset name resolving for `POST /jobs`
+
+## [5.1.3] - 2024-05-23
+- fix issue with adding scheduled jobs
+- remove rabbitmq check from on-prem health checks. 
+
+## [5.1.2] - 2024-05-21
 - treat endpoints with trailing slashes the same as without (/jobs, /jobs/ are equal)
 
 ## [5.1.1] - 2024-05-10

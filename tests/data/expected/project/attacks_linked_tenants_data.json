@@ -1,0 +1,43 @@
+[
+  {
+    "data": {
+      "AWS": {
+        "account_id": "123456789012",
+        "attacks_data": {
+          "High": 0,
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "Unknown": 9
+        },
+        "last_scan_date": "2025-03-05T00:47:08.089396Z",
+        "tenant_name": "AWS-TESTING"
+      },
+      "AZURE": {
+        "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
+        "attacks_data": {
+          "High": 0,
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "Unknown": 0
+        },
+        "last_scan_date": "2025-03-05T00:47:08.089396Z",
+        "tenant_name": "AZURE-TESTING"
+      },
+      "GOOGLE": {
+        "account_id": "testing-project-123",
+        "attacks_data": {
+          "High": 0,
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "Unknown": 0
+        },
+        "last_scan_date": "2025-03-05T00:47:08.089396Z",
+        "tenant_name": "GOOGLE-TESTING"
+      }
+    },
+    "tenant_display_name": "testing"
+  }
+]

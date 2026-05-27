@@ -1,0 +1,23 @@
+[
+  {
+    "Path": "/",
+    "GroupName": "example-dev-extended-group",
+    "GroupId": "AGPAUWVIOXSTGO46LZR77",
+    "Arn": "arn:aws:iam::123456789012:group/example-dev-extended-group",
+    "CreateDate": "2022-06-06T07:35:04+00:00"
+  },
+  {
+    "Path": "/",
+    "GroupName": "example-dev-group",
+    "GroupId": "AGPAUWIOXSTCNCHB3RX",
+    "Arn": "arn:aws:iam::123456789012:group/example-dev-group",
+    "CreateDate": "2022-05-24T12:47:26+00:00"
+  },
+  {
+    "Path": "/",
+    "GroupName": "DeployGroupWithoutIAM",
+    "GroupId": "AGPAIVA7CCC6ONKEHHI2",
+    "Arn": "arn:aws:iam::123456789012:group/DeployGroupWithoutIAM",
+    "CreateDate": "2017-07-10T11:39:45+00:00"
+  }
+]

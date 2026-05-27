@@ -14,6 +14,14 @@
         "content_type": "application/json",
         "schema": {
           "properties": {
+            "receivers": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Receivers",
+              "type": "array",
+              "uniqueItems": true
+            },
             "types": {
               "items": {
                 "enum": [
@@ -29,6 +37,103 @@
             }
           },
           "title": "CLevelGetReportModel",
+          "type": "object"
+        }
+      },
+      "ChronicleActivationPutModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "all_tenants": {
+              "default": false,
+              "title": "All Tenants",
+              "type": "boolean"
+            },
+            "clouds": {
+              "items": {
+                "enum": [
+                  "AWS",
+                  "AZURE",
+                  "GOOGLE"
+                ],
+                "type": "string"
+              },
+              "title": "Clouds",
+              "type": "array",
+              "uniqueItems": true
+            },
+            "convert_to": {
+              "allOf": [
+                {
+                  "enum": [
+                    "ENTITIES",
+                    "EVENTS"
+                  ],
+                  "title": "ChronicleConverterType",
+                  "type": "string"
+                }
+              ],
+              "default": "EVENTS",
+              "description": "How to convert Rule Engine data before sending to Chronicle"
+            },
+            "exclude_tenants": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Exclude Tenants",
+              "type": "array",
+              "uniqueItems": true
+            },
+            "send_after_job": {
+              "default": false,
+              "description": "Whether to send the results to dojo after each scan",
+              "title": "Send After Job",
+              "type": "boolean"
+            },
+            "tenant_names": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Tenant Names",
+              "type": "array",
+              "uniqueItems": true
+            }
+          },
+          "title": "ChronicleActivationPutModel",
+          "type": "object"
+        }
+      },
+      "ChroniclePostModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "credentials_application_id": {
+              "title": "Credentials Application Id",
+              "type": "string"
+            },
+            "description": {
+              "title": "Description",
+              "type": "string"
+            },
+            "endpoint": {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "title": "Endpoint",
+              "type": "string"
+            },
+            "instance_customer_id": {
+              "title": "Instance Customer Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "endpoint",
+            "description",
+            "credentials_application_id",
+            "instance_customer_id"
+          ],
+          "title": "ChroniclePostModel",
           "type": "object"
         }
       },
@@ -250,10 +355,148 @@
           "type": "object"
         }
       },
+      "DefectDojoUpdatePatchModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "attachment": {
+              "default": null,
+              "enum": [
+                "json",
+                "xlsx",
+                "cv"
+              ],
+              "title": "Attachment",
+              "type": "string"
+            },
+            "clouds": {
+              "items": {
+                "enum": [
+                  "AWS",
+                  "AZURE",
+                  "GOOGLE"
+                ],
+                "type": "string"
+              },
+              "title": "Clouds",
+              "type": "array",
+              "uniqueItems": true
+            },
+            "engagement": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Defect dojo engagement name",
+              "title": "Engagement"
+            },
+            "exclude_tenants": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Exclude Tenants",
+              "type": "array",
+              "uniqueItems": true
+            },
+            "product": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Defect dojo product name",
+              "title": "Product"
+            },
+            "product_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Defect dojo product type name",
+              "title": "Product Type"
+            },
+            "scan_type": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "Generic Findings Import",
+                    "Cloud Custodian Scan"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Defect dojo scan type",
+              "title": "Scan Type"
+            },
+            "send_after_job": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Whether to send the results to dojo after each scan",
+              "title": "Send After Job"
+            },
+            "tenant_names": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Tenant Names",
+              "type": "array",
+              "uniqueItems": true
+            },
+            "test": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Defect dojo test",
+              "title": "Test"
+            }
+          },
+          "title": "DefectDojoUpdatePatchModel",
+          "type": "object"
+        }
+      },
       "DepartmentGetReportModel": {
         "content_type": "application/json",
         "schema": {
           "properties": {
+            "receivers": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Receivers",
+              "type": "array",
+              "uniqueItems": true
+            },
             "types": {
               "items": {
                 "enum": [
@@ -291,6 +534,10 @@
                       "title": "Customer Name",
                       "type": "string"
                     },
+                    "dictionary_url": {
+                      "title": "Dictionary Url",
+                      "type": "string"
+                    },
                     "format": {
                       "enum": [
                         "json",
@@ -298,6 +545,10 @@
                       ],
                       "title": "ReportFormat",
                       "type": "string"
+                    },
+                    "obfuscated": {
+                      "title": "Obfuscated",
+                      "type": "boolean"
                     },
                     "platform_id": {
                       "title": "Platform Id",
@@ -314,6 +565,7 @@
                   },
                   "required": [
                     "format",
+                    "obfuscated",
                     "customer_name"
                   ],
                   "title": "BaseReportEntity",
@@ -362,9 +614,12 @@
                         "type": "string"
                       },
                       "type": {
+                        "description": "Our inner job type. Used in SREJobs table.",
                         "enum": [
-                          "manual",
-                          "reactive"
+                          "standard",
+                          "reactive",
+                          "scheduled",
+                          "manual"
                         ],
                         "title": "JobType",
                         "type": "string"
@@ -581,6 +836,10 @@
                       "title": "Customer Name",
                       "type": "string"
                     },
+                    "dictionary_url": {
+                      "title": "Dictionary Url",
+                      "type": "string"
+                    },
                     "format": {
                       "enum": [
                         "json",
@@ -594,12 +853,19 @@
                       "type": "string"
                     },
                     "job_type": {
+                      "description": "Our inner job type. Used in SREJobs table.",
                       "enum": [
-                        "manual",
-                        "reactive"
+                        "standard",
+                        "reactive",
+                        "scheduled",
+                        "manual"
                       ],
                       "title": "JobType",
                       "type": "string"
+                    },
+                    "obfuscated": {
+                      "title": "Obfuscated",
+                      "type": "boolean"
                     },
                     "tenant_name": {
                       "title": "Tenant Name",
@@ -612,6 +878,7 @@
                   },
                   "required": [
                     "format",
+                    "obfuscated",
                     "tenant_name",
                     "customer_name"
                   ],
@@ -679,65 +946,6 @@
           "type": "object"
         }
       },
-      "EventDrivenRulesetDeleteModel": {
-        "content_type": "application/json",
-        "schema": {
-          "properties": {
-            "cloud": {
-              "enum": [
-                "AWS",
-                "AZURE",
-                "GCP",
-                "KUBERNETES"
-              ],
-              "title": "RuleDomain",
-              "type": "string"
-            },
-            "version": {
-              "title": "Version",
-              "type": "number"
-            }
-          },
-          "required": [
-            "cloud",
-            "version"
-          ],
-          "title": "EventDrivenRulesetDeleteModel",
-          "type": "object"
-        }
-      },
-      "EventDrivenRulesetPostModel": {
-        "content_type": "application/json",
-        "schema": {
-          "properties": {
-            "cloud": {
-              "enum": [
-                "AWS",
-                "AZURE",
-                "GCP",
-                "KUBERNETES"
-              ],
-              "title": "RuleDomain",
-              "type": "string"
-            },
-            "rules": {
-              "items": {},
-              "title": "Rules",
-              "type": "array"
-            },
-            "version": {
-              "title": "Version",
-              "type": "number"
-            }
-          },
-          "required": [
-            "cloud",
-            "version"
-          ],
-          "title": "EventDrivenRulesetPostModel",
-          "type": "object"
-        }
-      },
       "EventModel": {
         "content_type": "application/json",
         "schema": {
@@ -752,11 +960,16 @@
                 "saved": {
                   "title": "Saved",
                   "type": "integer"
+                },
+                "rejected": {
+                  "title": "Rejected",
+                  "type": "integer"
                 }
               },
               "required": [
                 "received",
-                "saved"
+                "saved",
+                "rejected"
               ],
               "title": "Event",
               "type": "object"
@@ -783,7 +996,9 @@
             "vendor": {
               "enum": [
                 "AWS",
-                "MAESTRO"
+                "MAESTRO",
+                "SRE_K8S_AGENT",
+                "SRE_K8S_WATCHER"
               ],
               "title": "Vendor",
               "type": "string"
@@ -802,10 +1017,213 @@
           "type": "object"
         }
       },
+      "EventSourceDeleteModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {},
+          "title": "EventSourceDeleteModel",
+          "type": "object"
+        }
+      },
+      "EventSourcePostModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "aws_access_key_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Aws Access Key Id"
+            },
+            "aws_secret_access_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Aws Secret Access Key"
+            },
+            "aws_session_token": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Aws Session Token"
+            },
+            "enabled": {
+              "default": true,
+              "title": "Enabled",
+              "type": "boolean"
+            },
+            "queue_url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Queue Url"
+            },
+            "region": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Region"
+            },
+            "role_arn": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "IAM role ARN to assume for SQS access",
+              "title": "Role Arn"
+            },
+            "source_type": {
+              "const": "SQS",
+              "default": "SQS",
+              "enum": [
+                "SQS"
+              ],
+              "title": "Source Type",
+              "type": "string"
+            }
+          },
+          "title": "EventSourcePostModel",
+          "type": "object"
+        }
+      },
+      "EventSourcePutModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "aws_access_key_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Aws Access Key Id"
+            },
+            "aws_secret_access_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Aws Secret Access Key"
+            },
+            "aws_session_token": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Aws Session Token"
+            },
+            "enabled": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Enabled"
+            },
+            "queue_url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Queue Url"
+            },
+            "region": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Region"
+            },
+            "role_arn": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Role Arn"
+            }
+          },
+          "title": "EventSourcePutModel",
+          "type": "object"
+        }
+      },
       "JobPostModel": {
         "content_type": "application/json",
         "schema": {
           "properties": {
+            "application_id": {
+              "default": null,
+              "description": "Application ID with credentials for this job",
+              "title": "Application Id",
+              "type": "string"
+            },
             "credentials": {
               "anyOf": [
                 {
@@ -865,6 +1283,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": true,
                   "properties": {
                     "auth_provider_x509_cert_url": {
                       "title": "Auth Provider X509 Cert Url",
@@ -923,6 +1342,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": true,
                   "properties": {
                     "access_token": {
                       "title": "Access Token",
@@ -961,6 +1381,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": true,
                   "properties": {
                     "access_token": {
                       "title": "Access Token",
@@ -982,33 +1403,63 @@
               "default": null,
               "title": "Credentials"
             },
-            "rules_to_scan": {
+            "dojo_engagement": {
+              "default": null,
+              "description": "Defect Dojo engagement name to which the results will be uploaded",
+              "title": "Dojo Engagement",
+              "type": "string"
+            },
+            "dojo_product": {
+              "default": null,
+              "description": "Defect Dojo product name to which the results will be uploaded",
+              "title": "Dojo Product",
+              "type": "string"
+            },
+            "dojo_test": {
+              "default": null,
+              "description": "Defect Dojo test name to which the results will be uploaded",
+              "title": "Dojo Test",
+              "type": "string"
+            },
+            "license_key": {
+              "default": null,
+              "description": "License to exhaust for this job. Will be resolved automatically unless an ambiguous occurs",
+              "title": "License Key",
+              "type": "string"
+            },
+            "regions": {
               "items": {
                 "type": "string"
               },
-              "title": "Rules To Scan",
+              "title": "Regions",
               "type": "array",
               "uniqueItems": true
             },
-            "target_regions": {
+            "rules": {
               "items": {
                 "type": "string"
               },
-              "title": "Target Regions",
+              "title": "Rules",
               "type": "array",
               "uniqueItems": true
             },
-            "target_rulesets": {
+            "rulesets": {
               "items": {
                 "type": "string"
               },
-              "title": "Target Rulesets",
+              "title": "Rulesets",
               "type": "array",
               "uniqueItems": true
             },
             "tenant_name": {
               "title": "Tenant Name",
               "type": "string"
+            },
+            "timeout_minutes": {
+              "default": null,
+              "description": "Job timeout in minutes. This timeout is soft meaning that when the desired number of minutes have passed job termination will be triggered",
+              "title": "Timeout Minutes",
+              "type": "number"
             }
           },
           "required": [
@@ -1034,6 +1485,10 @@
                       "title": "Customer Name",
                       "type": "string"
                     },
+                    "dictionary_url": {
+                      "title": "Dictionary Url",
+                      "type": "string"
+                    },
                     "format": {
                       "enum": [
                         "json",
@@ -1047,12 +1502,19 @@
                       "type": "string"
                     },
                     "job_type": {
+                      "description": "Our inner job type. Used in SREJobs table.",
                       "enum": [
-                        "manual",
-                        "reactive"
+                        "standard",
+                        "reactive",
+                        "scheduled",
+                        "manual"
                       ],
                       "title": "JobType",
                       "type": "string"
+                    },
+                    "obfuscated": {
+                      "title": "Obfuscated",
+                      "type": "boolean"
                     },
                     "tenant_name": {
                       "title": "Tenant Name",
@@ -1065,6 +1527,7 @@
                   },
                   "required": [
                     "format",
+                    "obfuscated",
                     "tenant_name",
                     "customer_name"
                   ],
@@ -1112,9 +1575,12 @@
                     "type": "string"
                   },
                   "type": {
+                    "description": "Our inner job type. Used in SREJobs table.",
                     "enum": [
-                      "manual",
-                      "reactive"
+                      "standard",
+                      "reactive",
+                      "scheduled",
+                      "manual"
                     ],
                     "title": "JobType",
                     "type": "string"
@@ -1178,22 +1644,61 @@
           "type": "object"
         }
       },
+      "JobResumePostModel": {
+        "content_type": "application/json",
+        "schema": {
+          "description": "Resume a standard scan job that has partial checkpoint progress.",
+          "properties": {},
+          "title": "JobResumePostModel",
+          "type": "object"
+        }
+      },
       "K8sJobPostModel": {
         "content_type": "application/json",
         "schema": {
           "description": "K8s platform job",
           "properties": {
+            "dojo_engagement": {
+              "default": null,
+              "description": "Defect Dojo engagement name to which the results will be uploaded",
+              "title": "Dojo Engagement",
+              "type": "string"
+            },
+            "dojo_product": {
+              "default": null,
+              "description": "Defect Dojo product name to which the results will be uploaded",
+              "title": "Dojo Product",
+              "type": "string"
+            },
+            "dojo_test": {
+              "default": null,
+              "description": "Defect Dojo test name to which the results will be uploaded",
+              "title": "Dojo Test",
+              "type": "string"
+            },
+            "license_key": {
+              "default": null,
+              "description": "License to exhaust for this job. Will be resolved automatically unless an ambiguous occurs",
+              "title": "License Key",
+              "type": "string"
+            },
             "platform_id": {
               "title": "Platform Id",
               "type": "string"
             },
-            "target_rulesets": {
+            "rulesets": {
               "items": {
                 "type": "string"
               },
-              "title": "Target Rulesets",
+              "title": "Rulesets",
               "type": "array",
               "uniqueItems": true
+            },
+            "timeout_minutes": {
+              "default": null,
+              "description": "Job timeout in minutes. This timeout is soft meaning that when the desired number of minutes have passed job termination will be triggered",
+              "title": "Timeout Minutes",
+              "type": "number"
             },
             "token": {
               "default": null,
@@ -1293,6 +1798,37 @@
           "type": "object"
         }
       },
+      "LicenseManagerClientSettingPatchModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "algorithm": {
+              "default": "ECC:p521_DSS_SHA:256",
+              "title": "LM algorithm",
+              "type": "string"
+            },
+            "b64_encoded": {
+              "title": "B64 Encoded",
+              "type": "boolean"
+            },
+            "key_id": {
+              "default": null,
+              "title": "Key Id",
+              "type": "string"
+            },
+            "private_key": {
+              "title": "Private Key",
+              "type": "string"
+            }
+          },
+          "required": [
+            "private_key",
+            "b64_encoded"
+          ],
+          "title": "LicenseManagerClientSettingPatchModel",
+          "type": "object"
+        }
+      },
       "LicenseManagerClientSettingPostModel": {
         "content_type": "application/json",
         "schema": {
@@ -1324,15 +1860,45 @@
           "type": "object"
         }
       },
+      "LicenseManagerConfigSettingPatchModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "host": {
+              "default": null,
+              "title": "Host",
+              "type": "string"
+            },
+            "port": {
+              "default": null,
+              "title": "Port",
+              "type": "integer"
+            },
+            "protocol": {
+              "default": null,
+              "enum": [
+                "HTTP",
+                "HTTPS",
+                "http",
+                "https"
+              ],
+              "title": "Protocol",
+              "type": "string"
+            },
+            "stage": {
+              "default": null,
+              "title": "Stage",
+              "type": "string"
+            }
+          },
+          "title": "LicenseManagerConfigSettingPatchModel",
+          "type": "object"
+        }
+      },
       "LicenseManagerConfigSettingPostModel": {
         "content_type": "application/json",
         "schema": {
           "properties": {
-            "api_version": {
-              "default": null,
-              "title": "Api Version",
-              "type": "string"
-            },
             "host": {
               "title": "Host",
               "type": "string"
@@ -1370,11 +1936,6 @@
         "content_type": "application/json",
         "schema": {
           "properties": {
-            "description": {
-              "default": "Custodian license",
-              "title": "Description",
-              "type": "string"
-            },
             "license_key": {
               "title": "License Key",
               "type": "string"
@@ -1454,62 +2015,47 @@
           "type": "object"
         }
       },
-      "MultipleBatchResultsModel": {
+      "MultipleChronicleModel": {
         "content_type": "application/json",
         "schema": {
           "properties": {
             "items": {
               "items": {
                 "properties": {
-                  "cloud_identifier": {
-                    "title": "Cloud Identifier",
+                  "credentials_application_id": {
+                    "title": "Credentials Application Id",
                     "type": "string"
                   },
-                  "customer_name": {
-                    "title": "Customer Name",
+                  "customer": {
+                    "title": "Customer",
+                    "type": "string"
+                  },
+                  "description": {
+                    "title": "Description",
+                    "type": "string"
+                  },
+                  "endpoint": {
+                    "title": "Endpoint",
                     "type": "string"
                   },
                   "id": {
                     "title": "Id",
                     "type": "string"
                   },
-                  "status": {
-                    "description": "https://docs.aws.amazon.com/batch/latest/userguide/job_states.html",
-                    "enum": [
-                      "SUBMITTED",
-                      "PENDING",
-                      "RUNNABLE",
-                      "STARTING",
-                      "RUNNING",
-                      "FAILED",
-                      "SUCCEEDED"
-                    ],
-                    "title": "JobState",
-                    "type": "string"
-                  },
-                  "stopped_at": {
-                    "title": "Stopped At",
-                    "type": "string"
-                  },
-                  "submitted_at": {
-                    "title": "Submitted At",
-                    "type": "string"
-                  },
-                  "tenant_name": {
-                    "title": "Tenant Name",
+                  "instance_customer_id": {
+                    "title": "Instance Customer Id",
                     "type": "string"
                   }
                 },
                 "required": [
-                  "cloud_identifier",
-                  "customer_name",
                   "id",
-                  "status",
-                  "stopped_at",
-                  "submitted_at",
-                  "tenant_name"
+                  "description",
+                  "endpoint",
+                  "credentials_application_id",
+                  "instance_customer_id",
+                  "customer"
                 ],
-                "title": "BatchResult",
+                "title": "Chronicle",
                 "type": "object"
               },
               "title": "Items",
@@ -1519,7 +2065,7 @@
           "required": [
             "items"
           ],
-          "title": "MultipleBatchResultsModel",
+          "title": "MultipleChronicleModel",
           "type": "object"
         }
       },
@@ -1786,6 +2332,58 @@
           "type": "object"
         }
       },
+      "MultipleEventSourceModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "items": {
+              "items": {
+                "properties": {
+                  "customer_id": {
+                    "title": "Customer Id",
+                    "type": "string"
+                  },
+                  "enabled": {
+                    "title": "Enabled",
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "title": "Id",
+                    "type": "string"
+                  },
+                  "queue_url": {
+                    "title": "Queue Url",
+                    "type": "string"
+                  },
+                  "region": {
+                    "title": "Region",
+                    "type": "string"
+                  },
+                  "source_type": {
+                    "title": "Source Type",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "customer_id",
+                  "source_type",
+                  "enabled"
+                ],
+                "title": "EventSource",
+                "type": "object"
+              },
+              "title": "Items",
+              "type": "array"
+            }
+          },
+          "required": [
+            "items"
+          ],
+          "title": "MultipleEventSourceModel",
+          "type": "object"
+        }
+      },
       "MultipleHealthChecksModel": {
         "content_type": "application/json",
         "schema": {
@@ -1853,6 +2451,10 @@
                     "title": "Customer Name",
                     "type": "string"
                   },
+                  "dictionary_url": {
+                    "title": "Dictionary Url",
+                    "type": "string"
+                  },
                   "format": {
                     "enum": [
                       "json",
@@ -1866,12 +2468,19 @@
                     "type": "string"
                   },
                   "job_type": {
+                    "description": "Our inner job type. Used in SREJobs table.",
                     "enum": [
-                      "manual",
-                      "reactive"
+                      "standard",
+                      "reactive",
+                      "scheduled",
+                      "manual"
                     ],
                     "title": "JobType",
                     "type": "string"
+                  },
+                  "obfuscated": {
+                    "title": "Obfuscated",
+                    "type": "boolean"
                   },
                   "tenant_name": {
                     "title": "Tenant Name",
@@ -1884,6 +2493,7 @@
                 },
                 "required": [
                   "format",
+                  "obfuscated",
                   "tenant_name",
                   "customer_name"
                 ],
@@ -1909,6 +2519,10 @@
             "items": {
               "items": {
                 "properties": {
+                  "celery_task_id": {
+                    "title": "Celery Task Id",
+                    "type": "string"
+                  },
                   "created_at": {
                     "format": "date-time",
                     "title": "Created At",
@@ -1936,6 +2550,40 @@
                     "title": "Rulesets",
                     "type": "array"
                   },
+                  "scan_progress": {
+                    "properties": {
+                      "checkpoint_version": {
+                        "title": "Checkpoint Version",
+                        "type": "integer"
+                      },
+                      "completed_regions": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "title": "Completed Regions",
+                        "type": "array"
+                      },
+                      "pending_regions": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "title": "Pending Regions",
+                        "type": "array"
+                      },
+                      "updated_at": {
+                        "title": "Updated At",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "checkpoint_version",
+                      "completed_regions",
+                      "updated_at",
+                      "pending_regions"
+                    ],
+                    "title": "ScanProgress",
+                    "type": "object"
+                  },
                   "scheduled_rule_name": {
                     "title": "Scheduled Rule Name",
                     "type": "string"
@@ -1954,7 +2602,8 @@
                       "STARTING",
                       "RUNNING",
                       "FAILED",
-                      "SUCCEEDED"
+                      "SUCCEEDED",
+                      "INTERRUPTED"
                     ],
                     "title": "JobState",
                     "type": "string"
@@ -2022,6 +2671,10 @@
                   "description": {
                     "title": "Description",
                     "type": "string"
+                  },
+                  "event_driven_enabled": {
+                    "title": "Event Driven Enabled",
+                    "type": "boolean"
                   },
                   "id": {
                     "title": "Id",
@@ -2168,41 +2821,6 @@
           "type": "object"
         }
       },
-      "MultipleMetricsStatusesModel": {
-        "content_type": "application/json",
-        "schema": {
-          "properties": {
-            "items": {
-              "items": {
-                "properties": {
-                  "started_at": {
-                    "format": "date-time",
-                    "title": "Started At",
-                    "type": "string"
-                  },
-                  "state": {
-                    "title": "State",
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "started_at",
-                  "state"
-                ],
-                "title": "MetricsStatus",
-                "type": "object"
-              },
-              "title": "Items",
-              "type": "array"
-            }
-          },
-          "required": [
-            "items"
-          ],
-          "title": "MultipleMetricsStatusesModel",
-          "type": "object"
-        }
-      },
       "MultiplePoliciesModel": {
         "content_type": "application/json",
         "schema": {
@@ -2342,6 +2960,198 @@
             "items"
           ],
           "title": "MultipleReportStatusModel",
+          "type": "object"
+        }
+      },
+      "MultipleResourcesExceptionsModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "items": {
+              "items": {
+                "properties": {
+                  "arn": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Arn"
+                  },
+                  "created_at": {
+                    "title": "Created At",
+                    "type": "number"
+                  },
+                  "customer_name": {
+                    "title": "Customer Name",
+                    "type": "string"
+                  },
+                  "expire_at": {
+                    "title": "Expire At",
+                    "type": "number"
+                  },
+                  "id": {
+                    "title": "Id",
+                    "type": "string"
+                  },
+                  "location": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Location"
+                  },
+                  "resource_id": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Resource Id"
+                  },
+                  "resource_type": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Resource Type"
+                  },
+                  "tags_filters": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Tags Filters"
+                  },
+                  "tenant_name": {
+                    "title": "Tenant Name",
+                    "type": "string"
+                  },
+                  "type": {
+                    "title": "Type",
+                    "type": "string"
+                  },
+                  "updated_at": {
+                    "title": "Updated At",
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "id",
+                  "type",
+                  "resource_id",
+                  "location",
+                  "resource_type",
+                  "arn",
+                  "tags_filters",
+                  "tenant_name",
+                  "customer_name",
+                  "created_at",
+                  "updated_at",
+                  "expire_at"
+                ],
+                "title": "ResourceException",
+                "type": "object"
+              },
+              "title": "Items",
+              "type": "array"
+            }
+          },
+          "required": [
+            "items"
+          ],
+          "title": "MultipleResourcesExceptionsModel",
+          "type": "object"
+        }
+      },
+      "MultipleResourcesModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "items": {
+              "items": {
+                "properties": {
+                  "customer_name": {
+                    "title": "Customer Name",
+                    "type": "string"
+                  },
+                  "data": {
+                    "title": "Data",
+                    "type": "object"
+                  },
+                  "hash": {
+                    "title": "Hash",
+                    "type": "string"
+                  },
+                  "id": {
+                    "title": "Id",
+                    "type": "string"
+                  },
+                  "location": {
+                    "title": "Location",
+                    "type": "string"
+                  },
+                  "name": {
+                    "title": "Name",
+                    "type": "string"
+                  },
+                  "resource_type": {
+                    "title": "Resource Type",
+                    "type": "string"
+                  },
+                  "sync_date": {
+                    "format": "date-time",
+                    "title": "Sync Date",
+                    "type": "string"
+                  },
+                  "tenant_name": {
+                    "title": "Tenant Name",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "location",
+                  "resource_type",
+                  "tenant_name",
+                  "customer_name",
+                  "data",
+                  "sync_date",
+                  "hash"
+                ],
+                "title": "Resource",
+                "type": "object"
+              },
+              "title": "Items",
+              "type": "array"
+            }
+          },
+          "required": [
+            "items"
+          ],
+          "title": "MultipleResourcesModel",
           "type": "object"
         }
       },
@@ -2492,11 +3302,15 @@
                     "properties": {
                       "current_status": {
                         "enum": [
-                          "SYNCED",
                           "SYNCING",
+                          "SYNCED",
                           "SYNCING_FAILED"
                         ],
-                        "title": "Current Status",
+                        "title": "RuleSourceSyncingStatus",
+                        "type": "string"
+                      },
+                      "release_tag": {
+                        "title": "Release Tag",
                         "type": "string"
                       },
                       "sync_date": {
@@ -2515,7 +3329,8 @@
                   "type": {
                     "enum": [
                       "GITHUB",
-                      "GITLAB"
+                      "GITLAB",
+                      "GITHUB_RELEASE"
                     ],
                     "title": "RuleSourceType",
                     "type": "string"
@@ -2562,6 +3377,8 @@
                       "AWS",
                       "AZURE",
                       "GCP",
+                      "GCP",
+                      "KUBERNETES",
                       "KUBERNETES"
                     ],
                     "title": "RuleDomain",
@@ -2586,6 +3403,10 @@
                   "resource": {
                     "title": "Resource",
                     "type": "string"
+                  },
+                  "rule_source_id": {
+                    "title": "Rule Source Id",
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -2595,7 +3416,8 @@
                   "branch",
                   "customer",
                   "project",
-                  "resource"
+                  "resource",
+                  "rule_source_id"
                 ],
                 "title": "Rule",
                 "type": "object"
@@ -2639,6 +3461,8 @@
                       "AWS",
                       "AZURE",
                       "GCP",
+                      "GCP",
+                      "KUBERNETES",
                       "KUBERNETES"
                     ],
                     "title": "RuleDomain",
@@ -2659,10 +3483,6 @@
                     },
                     "title": "License Keys",
                     "type": "array"
-                  },
-                  "license_manager_id": {
-                    "title": "License Manager Id",
-                    "type": "string"
                   },
                   "licensed": {
                     "title": "Licensed",
@@ -2787,6 +3607,41 @@
             "items"
           ],
           "title": "MultipleScheduledJobsModel",
+          "type": "object"
+        }
+      },
+      "MultipleServiceOperationStatusesModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "items": {
+              "items": {
+                "properties": {
+                  "started_at": {
+                    "format": "date-time",
+                    "title": "Started At",
+                    "type": "string"
+                  },
+                  "state": {
+                    "title": "State",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "started_at",
+                  "state"
+                ],
+                "title": "ServiceOperationStatus",
+                "type": "object"
+              },
+              "title": "Items",
+              "type": "array"
+            }
+          },
+          "required": [
+            "items"
+          ],
+          "title": "MultipleServiceOperationStatusesModel",
           "type": "object"
         }
       },
@@ -2968,7 +3823,8 @@
                   "RULE",
                   "ATTACK_VECTOR",
                   "FINOPS",
-                  "KUBERNETES"
+                  "KUBERNETES",
+                  "DEPRECATIONS"
                 ],
                 "type": "string"
               },
@@ -3005,6 +3861,11 @@
               "title": "Endpoint",
               "type": "string"
             },
+            "insecure_skip_tls_verify": {
+              "default": null,
+              "title": "Insecure Skip Tls Verify",
+              "type": "boolean"
+            },
             "name": {
               "title": "Name",
               "type": "string"
@@ -3013,22 +3874,35 @@
               "allOf": [
                 {
                   "enum": [
+                    "af-south-1",
+                    "ap-east-1",
                     "ap-northeast-1",
                     "ap-northeast-2",
                     "ap-northeast-3",
                     "ap-south-1",
+                    "ap-south-2",
                     "ap-southeast-1",
                     "ap-southeast-2",
                     "ap-southeast-3",
+                    "ap-southeast-4",
                     "ca-central-1",
+                    "ca-west-1",
                     "eu-central-1",
+                    "eu-central-2",
                     "eu-north-1",
+                    "eu-south-1",
+                    "eu-south-2",
                     "eu-west-1",
                     "eu-west-2",
                     "eu-west-3",
+                    "il-central-1",
+                    "me-central-1",
+                    "me-south-1",
                     "sa-east-1",
                     "us-east-1",
                     "us-east-2",
+                    "us-gov-east-1",
+                    "us-gov-west-1",
                     "us-west-1",
                     "us-west-2",
                     "asia",
@@ -3171,6 +4045,23 @@
           "type": "object"
         }
       },
+      "PlatformK8SPutModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "event_driven_enabled": {
+              "description": "Enable or disable event-driven processing for platform",
+              "title": "Event Driven Enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "event_driven_enabled"
+          ],
+          "title": "PlatformK8SPutModel",
+          "type": "object"
+        }
+      },
       "PolicyPatchModel": {
         "content_type": "application/json",
         "schema": {
@@ -3198,6 +4089,8 @@
                 "enum": [
                   "report:push_report_to_dojo",
                   "report:push_to_dojo_batch",
+                  "report:push_report_to_chronicle",
+                  "report:push_report_to_chronicle_tenant",
                   "report:post_operational",
                   "report:post_project",
                   "report:post_department",
@@ -3219,13 +4112,15 @@
                   "report:get_k8s_platform_latest_resources",
                   "report:get_job_resources",
                   "report:get_job_resources_batch",
+                  "report:get_top_violations_report",
+                  "report:get_top_violations_compare_report",
                   "report:get_tenant_latest_raw_report",
-                  "job:post_for_tenant_standard",
                   "job:query",
                   "job:get",
                   "job:post_for_tenant",
                   "job:post_for_k8s_platform",
                   "job:terminate",
+                  "job:resume",
                   "customer:describe",
                   "customer:set_excluded_rules",
                   "customer:get_excluded_rules",
@@ -3246,22 +4141,18 @@
                   "rule:delete",
                   "system:update_meta",
                   "system:update_metrics",
-                  "system:metrics_status",
-                  "meta:update_standards",
-                  "meta:update_mappings",
-                  "meta:update_meta",
+                  "system:update_metadata",
+                  "service_operations:status",
                   "ruleset:describe",
                   "ruleset:create",
                   "ruleset:update",
                   "ruleset:delete",
-                  "ruleset:get_content",
-                  "ruleset:describe_event_driven",
-                  "ruleset:create_event_driven",
-                  "ruleset:delete_event_driven",
+                  "ruleset:release",
                   "rule_source:describe",
                   "rule_source:create",
                   "rule_source:update",
                   "rule_source:delete",
+                  "rule_source:sync",
                   "event:post",
                   "license:add_license",
                   "license:query",
@@ -3283,18 +4174,25 @@
                   "settings:change_send_reports",
                   "settings:describe_lm_config",
                   "settings:create_lm_config",
+                  "settings:update_lm_config",
                   "settings:delete_lm_config",
                   "settings:describe_lm_client",
                   "settings:create_lm_client",
+                  "settings:update_lm_client",
                   "settings:delete_lm_client",
                   "rabbitmq:describe",
                   "rabbitmq:create",
                   "rabbitmq:delete",
+                  "event_sources:describe",
+                  "event_sources:create",
+                  "event_sources:update",
+                  "event_sources:delete",
                   "batch_results:get",
                   "batch_results:query",
                   "platform:get_k8s",
                   "platform:query_k8",
                   "platform:create_k8s",
+                  "platform:update_k8s",
                   "platform:delete_k8s",
                   "self_integration:create",
                   "self_integration:update",
@@ -3306,6 +4204,12 @@
                   "dojo_integration:activate",
                   "dojo_integration:get_activation",
                   "dojo_integration:delete_activation",
+                  "chronicle_integration:create",
+                  "chronicle_integration:describe",
+                  "chronicle_integration:delete",
+                  "chronicle_integration:activate",
+                  "chronicle_integration:get_activation",
+                  "chronicle_integration:delete_activation",
                   "credentials:describe",
                   "credentials:bind",
                   "credentials:unbind",
@@ -3315,7 +4219,12 @@
                   "users:update",
                   "users:delete",
                   "users:get_caller",
-                  "users:reset_password"
+                  "users:reset_password",
+                  "resources:get",
+                  "resources_exceptions:get",
+                  "resources_exceptions:create",
+                  "resources_exceptions:update",
+                  "resources_exceptions:delete"
                 ],
                 "title": "Permission",
                 "type": "string"
@@ -3329,6 +4238,8 @@
                 "enum": [
                   "report:push_report_to_dojo",
                   "report:push_to_dojo_batch",
+                  "report:push_report_to_chronicle",
+                  "report:push_report_to_chronicle_tenant",
                   "report:post_operational",
                   "report:post_project",
                   "report:post_department",
@@ -3350,13 +4261,15 @@
                   "report:get_k8s_platform_latest_resources",
                   "report:get_job_resources",
                   "report:get_job_resources_batch",
+                  "report:get_top_violations_report",
+                  "report:get_top_violations_compare_report",
                   "report:get_tenant_latest_raw_report",
-                  "job:post_for_tenant_standard",
                   "job:query",
                   "job:get",
                   "job:post_for_tenant",
                   "job:post_for_k8s_platform",
                   "job:terminate",
+                  "job:resume",
                   "customer:describe",
                   "customer:set_excluded_rules",
                   "customer:get_excluded_rules",
@@ -3377,22 +4290,18 @@
                   "rule:delete",
                   "system:update_meta",
                   "system:update_metrics",
-                  "system:metrics_status",
-                  "meta:update_standards",
-                  "meta:update_mappings",
-                  "meta:update_meta",
+                  "system:update_metadata",
+                  "service_operations:status",
                   "ruleset:describe",
                   "ruleset:create",
                   "ruleset:update",
                   "ruleset:delete",
-                  "ruleset:get_content",
-                  "ruleset:describe_event_driven",
-                  "ruleset:create_event_driven",
-                  "ruleset:delete_event_driven",
+                  "ruleset:release",
                   "rule_source:describe",
                   "rule_source:create",
                   "rule_source:update",
                   "rule_source:delete",
+                  "rule_source:sync",
                   "event:post",
                   "license:add_license",
                   "license:query",
@@ -3414,18 +4323,25 @@
                   "settings:change_send_reports",
                   "settings:describe_lm_config",
                   "settings:create_lm_config",
+                  "settings:update_lm_config",
                   "settings:delete_lm_config",
                   "settings:describe_lm_client",
                   "settings:create_lm_client",
+                  "settings:update_lm_client",
                   "settings:delete_lm_client",
                   "rabbitmq:describe",
                   "rabbitmq:create",
                   "rabbitmq:delete",
+                  "event_sources:describe",
+                  "event_sources:create",
+                  "event_sources:update",
+                  "event_sources:delete",
                   "batch_results:get",
                   "batch_results:query",
                   "platform:get_k8s",
                   "platform:query_k8",
                   "platform:create_k8s",
+                  "platform:update_k8s",
                   "platform:delete_k8s",
                   "self_integration:create",
                   "self_integration:update",
@@ -3437,6 +4353,12 @@
                   "dojo_integration:activate",
                   "dojo_integration:get_activation",
                   "dojo_integration:delete_activation",
+                  "chronicle_integration:create",
+                  "chronicle_integration:describe",
+                  "chronicle_integration:delete",
+                  "chronicle_integration:activate",
+                  "chronicle_integration:get_activation",
+                  "chronicle_integration:delete_activation",
                   "credentials:describe",
                   "credentials:bind",
                   "credentials:unbind",
@@ -3446,7 +4368,12 @@
                   "users:update",
                   "users:delete",
                   "users:get_caller",
-                  "users:reset_password"
+                  "users:reset_password",
+                  "resources:get",
+                  "resources_exceptions:get",
+                  "resources_exceptions:create",
+                  "resources_exceptions:update",
+                  "resources_exceptions:delete"
                 ],
                 "title": "Permission",
                 "type": "string"
@@ -3501,6 +4428,8 @@
                 "enum": [
                   "report:push_report_to_dojo",
                   "report:push_to_dojo_batch",
+                  "report:push_report_to_chronicle",
+                  "report:push_report_to_chronicle_tenant",
                   "report:post_operational",
                   "report:post_project",
                   "report:post_department",
@@ -3522,13 +4451,15 @@
                   "report:get_k8s_platform_latest_resources",
                   "report:get_job_resources",
                   "report:get_job_resources_batch",
+                  "report:get_top_violations_report",
+                  "report:get_top_violations_compare_report",
                   "report:get_tenant_latest_raw_report",
-                  "job:post_for_tenant_standard",
                   "job:query",
                   "job:get",
                   "job:post_for_tenant",
                   "job:post_for_k8s_platform",
                   "job:terminate",
+                  "job:resume",
                   "customer:describe",
                   "customer:set_excluded_rules",
                   "customer:get_excluded_rules",
@@ -3549,22 +4480,18 @@
                   "rule:delete",
                   "system:update_meta",
                   "system:update_metrics",
-                  "system:metrics_status",
-                  "meta:update_standards",
-                  "meta:update_mappings",
-                  "meta:update_meta",
+                  "system:update_metadata",
+                  "service_operations:status",
                   "ruleset:describe",
                   "ruleset:create",
                   "ruleset:update",
                   "ruleset:delete",
-                  "ruleset:get_content",
-                  "ruleset:describe_event_driven",
-                  "ruleset:create_event_driven",
-                  "ruleset:delete_event_driven",
+                  "ruleset:release",
                   "rule_source:describe",
                   "rule_source:create",
                   "rule_source:update",
                   "rule_source:delete",
+                  "rule_source:sync",
                   "event:post",
                   "license:add_license",
                   "license:query",
@@ -3586,18 +4513,25 @@
                   "settings:change_send_reports",
                   "settings:describe_lm_config",
                   "settings:create_lm_config",
+                  "settings:update_lm_config",
                   "settings:delete_lm_config",
                   "settings:describe_lm_client",
                   "settings:create_lm_client",
+                  "settings:update_lm_client",
                   "settings:delete_lm_client",
                   "rabbitmq:describe",
                   "rabbitmq:create",
                   "rabbitmq:delete",
+                  "event_sources:describe",
+                  "event_sources:create",
+                  "event_sources:update",
+                  "event_sources:delete",
                   "batch_results:get",
                   "batch_results:query",
                   "platform:get_k8s",
                   "platform:query_k8",
                   "platform:create_k8s",
+                  "platform:update_k8s",
                   "platform:delete_k8s",
                   "self_integration:create",
                   "self_integration:update",
@@ -3609,6 +4543,12 @@
                   "dojo_integration:activate",
                   "dojo_integration:get_activation",
                   "dojo_integration:delete_activation",
+                  "chronicle_integration:create",
+                  "chronicle_integration:describe",
+                  "chronicle_integration:delete",
+                  "chronicle_integration:activate",
+                  "chronicle_integration:get_activation",
+                  "chronicle_integration:delete_activation",
                   "credentials:describe",
                   "credentials:bind",
                   "credentials:unbind",
@@ -3618,7 +4558,12 @@
                   "users:update",
                   "users:delete",
                   "users:get_caller",
-                  "users:reset_password"
+                  "users:reset_password",
+                  "resources:get",
+                  "resources_exceptions:get",
+                  "resources_exceptions:create",
+                  "resources_exceptions:update",
+                  "resources_exceptions:delete"
                 ],
                 "title": "Permission",
                 "type": "string"
@@ -3654,6 +4599,11 @@
         "content_type": "application/json",
         "schema": {
           "properties": {
+            "include_linked": {
+              "default": false,
+              "title": "Include Linked",
+              "type": "boolean"
+            },
             "receivers": {
               "items": {
                 "type": "string"
@@ -3816,31 +4766,134 @@
       "ReportPushByJobIdModel": {
         "content_type": "application/json",
         "schema": {
-          "description": "/reports/push/dojo/{job_id}/\n/reports/push/security-hub/{job_id}/",
+          "description": "/reports/push/dojo/{job_id}/\n/reports/push/security-hub/{job_id}/\n/reports/push/chronicle/{job_id}/",
           "properties": {
+            "job_types": {
+              "description": "Job types to include in the report",
+              "items": {
+                "description": "Our inner job type. Used in SREJobs table.",
+                "enum": [
+                  "standard",
+                  "reactive",
+                  "scheduled",
+                  "manual"
+                ],
+                "title": "JobType",
+                "type": "string"
+              },
+              "title": "Job Types",
+              "type": "array",
+              "uniqueItems": true
+            },
             "type": {
               "allOf": [
                 {
+                  "description": "Our inner job type. Used in SREJobs table.",
                   "enum": [
-                    "manual",
-                    "reactive"
+                    "standard",
+                    "reactive",
+                    "scheduled",
+                    "manual"
                   ],
                   "title": "JobType",
                   "type": "string"
                 }
               ],
-              "default": "manual"
+              "default": "manual",
+              "deprecated": true,
+              "description": "Job type to include in the report (deprecated, use job_types instead)"
             }
           },
           "title": "ReportPushByJobIdModel",
           "type": "object"
         }
       },
-      "ReportPushMultipleModel": {
+      "ReportPushDojoByJobIdModel": {
         "content_type": "application/json",
         "schema": {
-          "description": "/reports/push/dojo\n/reports/push/security-hub",
+          "description": "/reports/push/dojo/{job_id}/",
           "properties": {
+            "dojo_engagement": {
+              "default": null,
+              "description": "Defect Dojo engagement name to which the results will be uploaded",
+              "title": "Dojo Engagement",
+              "type": "string"
+            },
+            "dojo_product": {
+              "default": null,
+              "description": "Defect Dojo product name to which the results will be uploaded",
+              "title": "Dojo Product",
+              "type": "string"
+            },
+            "dojo_test": {
+              "default": null,
+              "description": "Defect Dojo test name to which the results will be uploaded",
+              "title": "Dojo Test",
+              "type": "string"
+            },
+            "job_types": {
+              "description": "Job types to include in the report",
+              "items": {
+                "description": "Our inner job type. Used in SREJobs table.",
+                "enum": [
+                  "standard",
+                  "reactive",
+                  "scheduled",
+                  "manual"
+                ],
+                "title": "JobType",
+                "type": "string"
+              },
+              "title": "Job Types",
+              "type": "array",
+              "uniqueItems": true
+            },
+            "type": {
+              "allOf": [
+                {
+                  "description": "Our inner job type. Used in SREJobs table.",
+                  "enum": [
+                    "standard",
+                    "reactive",
+                    "scheduled",
+                    "manual"
+                  ],
+                  "title": "JobType",
+                  "type": "string"
+                }
+              ],
+              "default": "manual",
+              "deprecated": true,
+              "description": "Job type to include in the report (deprecated, use job_types instead)"
+            }
+          },
+          "title": "ReportPushDojoByJobIdModel",
+          "type": "object"
+        }
+      },
+      "ReportPushDojoMultipleModel": {
+        "content_type": "application/json",
+        "schema": {
+          "description": "/reports/push/dojo",
+          "properties": {
+            "dojo_engagement": {
+              "default": null,
+              "description": "Defect Dojo engagement name to which the results will be uploaded",
+              "title": "Dojo Engagement",
+              "type": "string"
+            },
+            "dojo_product": {
+              "default": null,
+              "description": "Defect Dojo product name to which the results will be uploaded",
+              "title": "Dojo Product",
+              "type": "string"
+            },
+            "dojo_test": {
+              "default": null,
+              "description": "Defect Dojo test name to which the results will be uploaded",
+              "title": "Dojo Test",
+              "type": "string"
+            },
             "from": {
               "anyOf": [
                 {
@@ -3854,6 +4907,23 @@
               ],
               "default": null,
               "title": "From"
+            },
+            "job_types": {
+              "description": "Job types to include in the report",
+              "items": {
+                "description": "Our inner job type. Used in SREJobs table.",
+                "enum": [
+                  "standard",
+                  "reactive",
+                  "scheduled",
+                  "manual"
+                ],
+                "title": "JobType",
+                "type": "string"
+              },
+              "title": "Job Types",
+              "type": "array",
+              "uniqueItems": true
             },
             "tenant_name": {
               "title": "Tenant Name",
@@ -3874,23 +4944,31 @@
               "title": "To"
             },
             "type": {
-              "allOf": [
+              "anyOf": [
                 {
+                  "description": "Our inner job type. Used in SREJobs table.",
                   "enum": [
-                    "manual",
-                    "reactive"
+                    "standard",
+                    "reactive",
+                    "scheduled",
+                    "manual"
                   ],
                   "title": "JobType",
                   "type": "string"
+                },
+                {
+                  "type": "null"
                 }
               ],
-              "default": null
+              "default": null,
+              "deprecated": true,
+              "description": "Job types to include in the report"
             }
           },
           "required": [
             "tenant_name"
           ],
-          "title": "ReportPushMultipleModel",
+          "title": "ReportPushDojoMultipleModel",
           "type": "object"
         }
       },
@@ -3905,6 +4983,109 @@
             }
           },
           "title": "ReportsSendingSettingPostModel",
+          "type": "object"
+        }
+      },
+      "ResourcesExceptionsPostModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "arn": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "ARN for AWS, URN for GOOGLE and ID for AZURE or K8S",
+              "title": "Arn"
+            },
+            "expire_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "format": "date",
+                  "type": "string"
+                }
+              ],
+              "default": "2026-04-07T16:41:26.171550",
+              "description": "Expiration date of the exception",
+              "title": "Expire At"
+            },
+            "location": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Location"
+            },
+            "resource_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Resource Id"
+            },
+            "resource_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Resource Type"
+            },
+            "tags_filters": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "uniqueItems": true
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "List of tags to filter resources by.",
+              "examples": [
+                [
+                  "tag1=value1",
+                  "tag2=value2"
+                ]
+              ],
+              "title": "Tags Filters"
+            },
+            "tenant_name": {
+              "title": "Tenant Name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "tenant_name"
+          ],
+          "title": "ResourcesExceptionsPostModel",
           "type": "object"
         }
       },
@@ -3953,6 +5134,7 @@
               "type": "string"
             },
             "expiration": {
+              "default": null,
               "format": "date-time",
               "title": "Expiration",
               "type": "string"
@@ -3990,6 +5172,8 @@
                     "AWS",
                     "AZURE",
                     "GCP",
+                    "GCP",
+                    "KUBERNETES",
                     "KUBERNETES"
                   ],
                   "title": "RuleDomain",
@@ -4022,14 +5206,12 @@
         "content_type": "application/json",
         "schema": {
           "properties": {
-            "id": {
-              "title": "Id",
-              "type": "string"
+            "delete_rules": {
+              "default": false,
+              "title": "Delete Rules",
+              "type": "boolean"
             }
           },
-          "required": [
-            "id"
-          ],
           "title": "RuleSourceDeleteModel",
           "type": "object"
         }
@@ -4048,19 +5230,44 @@
               "title": "Git Access Secret",
               "type": "string"
             },
-            "git_access_type": {
-              "default": "TOKEN",
-              "title": "Git access type",
+            "git_project_id": {
+              "default": null,
+              "title": "Git Project Id",
               "type": "string"
             },
-            "id": {
-              "title": "Id",
+            "git_ref": {
+              "default": null,
+              "title": "Git Ref",
               "type": "string"
+            },
+            "git_rules_prefix": {
+              "default": null,
+              "title": "Git Rules Prefix",
+              "type": "string"
+            },
+            "git_url": {
+              "default": null,
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "title": "Git Url",
+              "type": "string"
+            },
+            "type": {
+              "allOf": [
+                {
+                  "enum": [
+                    "GITHUB",
+                    "GITLAB",
+                    "GITHUB_RELEASE"
+                  ],
+                  "title": "RuleSourceType",
+                  "type": "string"
+                }
+              ],
+              "default": null
             }
           },
-          "required": [
-            "id"
-          ],
           "title": "RuleSourcePatchModel",
           "type": "object"
         }
@@ -4078,17 +5285,13 @@
               "title": "Git Access Secret",
               "type": "string"
             },
-            "git_access_type": {
-              "default": "TOKEN",
-              "title": "Git access type",
-              "type": "string"
-            },
             "git_project_id": {
               "title": "Git Project Id",
               "type": "string"
             },
             "git_ref": {
               "default": "main",
+              "description": "Git branch to pull rules from. Not used for GITHUB_RELEASE",
               "title": "Git Ref",
               "type": "string"
             },
@@ -4099,9 +5302,27 @@
             },
             "git_url": {
               "default": null,
-              "pattern": "^https?:\\/\\/[^\\/]+$",
+              "description": "If not specified will be inferred from git_project_id. \"https://api.github.com\" will be used for GitHub, \"https://git.epam.com\" will be used for GitLab",
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
               "title": "Git Url",
               "type": "string"
+            },
+            "type": {
+              "allOf": [
+                {
+                  "enum": [
+                    "GITHUB",
+                    "GITLAB",
+                    "GITHUB_RELEASE"
+                  ],
+                  "title": "RuleSourceType",
+                  "type": "string"
+                }
+              ],
+              "default": null,
+              "description": "If not specified will be inferred from git_project_id."
             }
           },
           "required": [
@@ -4142,6 +5363,10 @@
                       "title": "Customer Name",
                       "type": "string"
                     },
+                    "dictionary_url": {
+                      "title": "Dictionary Url",
+                      "type": "string"
+                    },
                     "format": {
                       "enum": [
                         "json",
@@ -4155,12 +5380,19 @@
                       "type": "string"
                     },
                     "job_type": {
+                      "description": "Our inner job type. Used in SREJobs table.",
                       "enum": [
-                        "manual",
-                        "reactive"
+                        "standard",
+                        "reactive",
+                        "scheduled",
+                        "manual"
                       ],
                       "title": "JobType",
                       "type": "string"
+                    },
+                    "obfuscated": {
+                      "title": "Obfuscated",
+                      "type": "boolean"
                     },
                     "tenant_name": {
                       "title": "Tenant Name",
@@ -4173,6 +5405,7 @@
                   },
                   "required": [
                     "format",
+                    "obfuscated",
                     "tenant_name",
                     "customer_name"
                   ],
@@ -4256,6 +5489,7 @@
               "type": "string"
             },
             "version": {
+              "description": "Specific version to remove. * can be specified to remove all the versions of a specific ruleset",
               "title": "Version",
               "type": "string"
             }
@@ -4272,13 +5506,24 @@
         "content_type": "application/json",
         "schema": {
           "properties": {
-            "active": {
+            "description": {
               "default": null,
-              "title": "Active",
+              "description": "Human-readable description of the ruleset",
+              "title": "Description",
+              "type": "string"
+            },
+            "force": {
+              "default": null,
+              "description": "Force the creation of a new ruleset version even if no there is no changes",
+              "title": "Force",
               "type": "boolean"
             },
             "name": {
               "title": "Name",
+              "type": "string"
+            },
+            "new_version": {
+              "title": "New Version",
               "type": "string"
             },
             "rules_to_attach": {
@@ -4294,13 +5539,15 @@
               "uniqueItems": true
             },
             "version": {
+              "default": null,
+              "description": "A version of the ruleset you want to update. If not specified, the latest previous ruleset will be used as base to update",
               "title": "Version",
               "type": "string"
             }
           },
           "required": [
             "name",
-            "version"
+            "new_version"
           ],
           "title": "RulesetPatchModel",
           "type": "object"
@@ -4310,20 +5557,36 @@
         "content_type": "application/json",
         "schema": {
           "properties": {
-            "active": {
-              "default": true,
-              "title": "Active",
-              "type": "boolean"
+            "categories": {
+              "description": "Rules category to use",
+              "items": {
+                "type": "string"
+              },
+              "title": "Categories",
+              "type": "array",
+              "uniqueItems": true
             },
             "cloud": {
               "enum": [
                 "AWS",
                 "AZURE",
+                "GOOGLE",
                 "GCP",
                 "KUBERNETES"
               ],
-              "title": "RuleDomain",
+              "title": "Cloud",
               "type": "string"
+            },
+            "description": {
+              "description": "Human-readable description of the ruleset",
+              "title": "Description",
+              "type": "string"
+            },
+            "excluded_rules": {
+              "items": {},
+              "title": "Excluded Rules",
+              "type": "array",
+              "uniqueItems": true
             },
             "git_project_id": {
               "default": null,
@@ -4335,16 +5598,23 @@
               "title": "Git Ref",
               "type": "string"
             },
-            "mitre": {
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "platforms": {
+              "description": "Platform for k8s rules to filter based on",
               "items": {
                 "type": "string"
               },
-              "title": "Mitre",
+              "title": "Platforms",
               "type": "array",
               "uniqueItems": true
             },
-            "name": {
-              "title": "Name",
+            "rule_source_id": {
+              "default": null,
+              "description": "Id of rule source object to get rules from. If the type of that source is GITHUB_RELEASE, the version from release tag will be used",
+              "title": "Rule Source Id",
               "type": "string"
             },
             "rules": {
@@ -4353,35 +5623,75 @@
               "type": "array",
               "uniqueItems": true
             },
-            "service_section": {
-              "default": null,
-              "title": "Service Section",
-              "type": "string"
-            },
-            "severity": {
-              "default": null,
-              "title": "Severity",
-              "type": "string"
-            },
-            "standard": {
+            "service_sections": {
+              "description": "Service section to use",
               "items": {
                 "type": "string"
               },
-              "title": "Standard",
+              "title": "Service Sections",
+              "type": "array",
+              "uniqueItems": true
+            },
+            "sources": {
+              "description": "Sources to use",
+              "items": {
+                "type": "string"
+              },
+              "title": "Sources",
               "type": "array",
               "uniqueItems": true
             },
             "version": {
+              "default": null,
+              "description": "Ruleset version. If not specified, will be generated automatically based on github release of rules or based on the previous ruleset version",
               "title": "Version",
               "type": "string"
             }
           },
           "required": [
             "name",
-            "version",
-            "cloud"
+            "cloud",
+            "description"
           ],
           "title": "RulesetPostModel",
+          "type": "object"
+        }
+      },
+      "RulesetReleasePostModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "description": {
+              "title": "Description",
+              "type": "string"
+            },
+            "display_name": {
+              "title": "Display Name",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "overwrite": {
+              "default": false,
+              "description": "Determines whether to overwrite an existing ruleset version",
+              "title": "Overwrite",
+              "type": "boolean"
+            },
+            "version": {
+              "default": null,
+              "description": "Specific version to release to LM. * can be specified to release all the versions of a specific ruleset. If not specified, the latest version will be released",
+              "title": "Version",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "description",
+            "display_name"
+          ],
+          "title": "RulesetReleasePostModel",
           "type": "object"
         }
       },
@@ -4389,15 +5699,27 @@
         "content_type": "application/json",
         "schema": {
           "properties": {
+            "description": {
+              "default": null,
+              "title": "Description",
+              "type": "string"
+            },
             "enabled": {
               "default": null,
               "title": "Enabled",
               "type": "boolean"
             },
             "schedule": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ],
               "default": null,
-              "title": "Schedule",
-              "type": "string"
+              "title": "Schedule"
             }
           },
           "title": "ScheduledJobPatchModel",
@@ -4408,39 +5730,58 @@
         "content_type": "application/json",
         "schema": {
           "properties": {
+            "description": {
+              "title": "Description",
+              "type": "string"
+            },
+            "license_key": {
+              "default": null,
+              "description": "License to exhaust for this job. Will be resolved automatically unless an ambiguous occurs",
+              "title": "License Key",
+              "type": "string"
+            },
             "name": {
               "default": null,
+              "description": "Name for this scheduled entry. Will be generated if not provided. Must be unique within a customer",
               "title": "Name",
               "type": "string"
             },
+            "regions": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Regions",
+              "type": "array",
+              "uniqueItems": true
+            },
+            "rulesets": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Rulesets",
+              "type": "array",
+              "uniqueItems": true
+            },
             "schedule": {
-              "title": "Schedule",
-              "type": "string"
-            },
-            "target_regions": {
-              "items": {
-                "type": "string"
-              },
-              "title": "Target Regions",
-              "type": "array",
-              "uniqueItems": true
-            },
-            "target_rulesets": {
-              "items": {
-                "type": "string"
-              },
-              "title": "Target Rulesets",
-              "type": "array",
-              "uniqueItems": true
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "title": "Schedule"
             },
             "tenant_name": {
-              "default": null,
               "title": "Tenant Name",
               "type": "string"
             }
           },
           "required": [
-            "schedule"
+            "schedule",
+            "tenant_name",
+            "description"
           ],
           "title": "ScheduledJobPostModel",
           "type": "object"
@@ -4634,45 +5975,133 @@
           "type": "object"
         }
       },
-      "SingleBatchResultModel": {
+      "SingleChronicleActivationModel": {
         "content_type": "application/json",
         "schema": {
           "properties": {
             "data": {
               "properties": {
-                "cloud_identifier": {
-                  "title": "Cloud Identifier",
+                "activated_for": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Activated For",
+                  "type": "array"
+                },
+                "activated_for_all": {
+                  "title": "Activated For All",
+                  "type": "boolean"
+                },
+                "excluding": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Excluding",
+                  "type": "array"
+                },
+                "send_after_job": {
+                  "title": "Send After Job",
+                  "type": "boolean"
+                },
+                "within_clouds": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Within Clouds",
+                  "type": "array"
+                }
+              },
+              "required": [
+                "activated_for_all",
+                "excluding",
+                "send_after_job"
+              ],
+              "title": "ChronicleActivation",
+              "type": "object"
+            }
+          },
+          "required": [
+            "data"
+          ],
+          "title": "SingleChronicleActivationModel",
+          "type": "object"
+        }
+      },
+      "SingleChronicleModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "data": {
+              "properties": {
+                "credentials_application_id": {
+                  "title": "Credentials Application Id",
                   "type": "string"
                 },
-                "customer_name": {
-                  "title": "Customer Name",
+                "customer": {
+                  "title": "Customer",
+                  "type": "string"
+                },
+                "description": {
+                  "title": "Description",
+                  "type": "string"
+                },
+                "endpoint": {
+                  "title": "Endpoint",
                   "type": "string"
                 },
                 "id": {
                   "title": "Id",
                   "type": "string"
                 },
-                "status": {
-                  "description": "https://docs.aws.amazon.com/batch/latest/userguide/job_states.html",
-                  "enum": [
-                    "SUBMITTED",
-                    "PENDING",
-                    "RUNNABLE",
-                    "STARTING",
-                    "RUNNING",
-                    "FAILED",
-                    "SUCCEEDED"
-                  ],
-                  "title": "JobState",
+                "instance_customer_id": {
+                  "title": "Instance Customer Id",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "description",
+                "endpoint",
+                "credentials_application_id",
+                "instance_customer_id",
+                "customer"
+              ],
+              "title": "Chronicle",
+              "type": "object"
+            }
+          },
+          "required": [
+            "data"
+          ],
+          "title": "SingleChronicleModel",
+          "type": "object"
+        }
+      },
+      "SingleChroniclePushResult": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "data": {
+              "properties": {
+                "chronicle_integration_id": {
+                  "title": "Chronicle Integration Id",
                   "type": "string"
                 },
-                "stopped_at": {
-                  "title": "Stopped At",
+                "error": {
+                  "title": "Error",
                   "type": "string"
                 },
-                "submitted_at": {
-                  "title": "Submitted At",
+                "job_id": {
+                  "title": "Job Id",
                   "type": "string"
+                },
+                "platform_id": {
+                  "title": "Platform Id",
+                  "type": "string"
+                },
+                "success": {
+                  "title": "Success",
+                  "type": "boolean"
                 },
                 "tenant_name": {
                   "title": "Tenant Name",
@@ -4680,22 +6109,19 @@
                 }
               },
               "required": [
-                "cloud_identifier",
-                "customer_name",
-                "id",
-                "status",
-                "stopped_at",
-                "submitted_at",
-                "tenant_name"
+                "job_id",
+                "tenant_name",
+                "chronicle_integration_id",
+                "success"
               ],
-              "title": "BatchResult",
+              "title": "ChroniclePushResult",
               "type": "object"
             }
           },
           "required": [
             "data"
           ],
-          "title": "SingleBatchResultModel",
+          "title": "SingleChroniclePushResult",
           "type": "object"
         }
       },
@@ -5045,6 +6471,10 @@
                   "title": "Customer Name",
                   "type": "string"
                 },
+                "dictionary_url": {
+                  "title": "Dictionary Url",
+                  "type": "string"
+                },
                 "format": {
                   "enum": [
                     "json",
@@ -5052,6 +6482,10 @@
                   ],
                   "title": "ReportFormat",
                   "type": "string"
+                },
+                "obfuscated": {
+                  "title": "Obfuscated",
+                  "type": "boolean"
                 },
                 "platform_id": {
                   "title": "Platform Id",
@@ -5068,6 +6502,7 @@
               },
               "required": [
                 "format",
+                "obfuscated",
                 "customer_name"
               ],
               "title": "BaseReportEntity",
@@ -5078,6 +6513,54 @@
             "data"
           ],
           "title": "SingleEntityReportModel",
+          "type": "object"
+        }
+      },
+      "SingleEventSourceModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "data": {
+              "properties": {
+                "customer_id": {
+                  "title": "Customer Id",
+                  "type": "string"
+                },
+                "enabled": {
+                  "title": "Enabled",
+                  "type": "boolean"
+                },
+                "id": {
+                  "title": "Id",
+                  "type": "string"
+                },
+                "queue_url": {
+                  "title": "Queue Url",
+                  "type": "string"
+                },
+                "region": {
+                  "title": "Region",
+                  "type": "string"
+                },
+                "source_type": {
+                  "title": "Source Type",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "customer_id",
+                "source_type",
+                "enabled"
+              ],
+              "title": "EventSource",
+              "type": "object"
+            }
+          },
+          "required": [
+            "data"
+          ],
+          "title": "SingleEventSourceModel",
           "type": "object"
         }
       },
@@ -5136,6 +6619,10 @@
           "properties": {
             "data": {
               "properties": {
+                "celery_task_id": {
+                  "title": "Celery Task Id",
+                  "type": "string"
+                },
                 "created_at": {
                   "format": "date-time",
                   "title": "Created At",
@@ -5163,6 +6650,40 @@
                   "title": "Rulesets",
                   "type": "array"
                 },
+                "scan_progress": {
+                  "properties": {
+                    "checkpoint_version": {
+                      "title": "Checkpoint Version",
+                      "type": "integer"
+                    },
+                    "completed_regions": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "title": "Completed Regions",
+                      "type": "array"
+                    },
+                    "pending_regions": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "title": "Pending Regions",
+                      "type": "array"
+                    },
+                    "updated_at": {
+                      "title": "Updated At",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "checkpoint_version",
+                    "completed_regions",
+                    "updated_at",
+                    "pending_regions"
+                  ],
+                  "title": "ScanProgress",
+                  "type": "object"
+                },
                 "scheduled_rule_name": {
                   "title": "Scheduled Rule Name",
                   "type": "string"
@@ -5181,7 +6702,8 @@
                     "STARTING",
                     "RUNNING",
                     "FAILED",
-                    "SUCCEEDED"
+                    "SUCCEEDED",
+                    "INTERRUPTED"
                   ],
                   "title": "JobState",
                   "type": "string"
@@ -5234,6 +6756,10 @@
                   "title": "Customer Name",
                   "type": "string"
                 },
+                "dictionary_url": {
+                  "title": "Dictionary Url",
+                  "type": "string"
+                },
                 "format": {
                   "enum": [
                     "json",
@@ -5247,12 +6773,19 @@
                   "type": "string"
                 },
                 "job_type": {
+                  "description": "Our inner job type. Used in SREJobs table.",
                   "enum": [
-                    "manual",
-                    "reactive"
+                    "standard",
+                    "reactive",
+                    "scheduled",
+                    "manual"
                   ],
                   "title": "JobType",
                   "type": "string"
+                },
+                "obfuscated": {
+                  "title": "Obfuscated",
+                  "type": "boolean"
                 },
                 "tenant_name": {
                   "title": "Tenant Name",
@@ -5265,6 +6798,7 @@
               },
               "required": [
                 "format",
+                "obfuscated",
                 "tenant_name",
                 "customer_name"
               ],
@@ -5292,6 +6826,10 @@
                 "description": {
                   "title": "Description",
                   "type": "string"
+                },
+                "event_driven_enabled": {
+                  "title": "Event Driven Enabled",
+                  "type": "boolean"
                 },
                 "id": {
                   "title": "Id",
@@ -5738,6 +7276,190 @@
           "type": "object"
         }
       },
+      "SingleResourceExceptionModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "data": {
+              "properties": {
+                "arn": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Arn"
+                },
+                "created_at": {
+                  "title": "Created At",
+                  "type": "number"
+                },
+                "customer_name": {
+                  "title": "Customer Name",
+                  "type": "string"
+                },
+                "expire_at": {
+                  "title": "Expire At",
+                  "type": "number"
+                },
+                "id": {
+                  "title": "Id",
+                  "type": "string"
+                },
+                "location": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Location"
+                },
+                "resource_id": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Resource Id"
+                },
+                "resource_type": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Resource Type"
+                },
+                "tags_filters": {
+                  "anyOf": [
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Tags Filters"
+                },
+                "tenant_name": {
+                  "title": "Tenant Name",
+                  "type": "string"
+                },
+                "type": {
+                  "title": "Type",
+                  "type": "string"
+                },
+                "updated_at": {
+                  "title": "Updated At",
+                  "type": "number"
+                }
+              },
+              "required": [
+                "id",
+                "type",
+                "resource_id",
+                "location",
+                "resource_type",
+                "arn",
+                "tags_filters",
+                "tenant_name",
+                "customer_name",
+                "created_at",
+                "updated_at",
+                "expire_at"
+              ],
+              "title": "ResourceException",
+              "type": "object"
+            }
+          },
+          "required": [
+            "data"
+          ],
+          "title": "SingleResourceExceptionModel",
+          "type": "object"
+        }
+      },
+      "SingleResourceModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "data": {
+              "properties": {
+                "customer_name": {
+                  "title": "Customer Name",
+                  "type": "string"
+                },
+                "data": {
+                  "title": "Data",
+                  "type": "object"
+                },
+                "hash": {
+                  "title": "Hash",
+                  "type": "string"
+                },
+                "id": {
+                  "title": "Id",
+                  "type": "string"
+                },
+                "location": {
+                  "title": "Location",
+                  "type": "string"
+                },
+                "name": {
+                  "title": "Name",
+                  "type": "string"
+                },
+                "resource_type": {
+                  "title": "Resource Type",
+                  "type": "string"
+                },
+                "sync_date": {
+                  "format": "date-time",
+                  "title": "Sync Date",
+                  "type": "string"
+                },
+                "tenant_name": {
+                  "title": "Tenant Name",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "location",
+                "resource_type",
+                "tenant_name",
+                "customer_name",
+                "data",
+                "sync_date",
+                "hash"
+              ],
+              "title": "Resource",
+              "type": "object"
+            }
+          },
+          "required": [
+            "data"
+          ],
+          "title": "SingleResourceModel",
+          "type": "object"
+        }
+      },
       "SingleRoleModel": {
         "content_type": "application/json",
         "schema": {
@@ -5836,11 +7558,15 @@
                   "properties": {
                     "current_status": {
                       "enum": [
-                        "SYNCED",
                         "SYNCING",
+                        "SYNCED",
                         "SYNCING_FAILED"
                       ],
-                      "title": "Current Status",
+                      "title": "RuleSourceSyncingStatus",
+                      "type": "string"
+                    },
+                    "release_tag": {
+                      "title": "Release Tag",
                       "type": "string"
                     },
                     "sync_date": {
@@ -5859,7 +7585,8 @@
                 "type": {
                   "enum": [
                     "GITHUB",
-                    "GITLAB"
+                    "GITLAB",
+                    "GITHUB_RELEASE"
                   ],
                   "title": "RuleSourceType",
                   "type": "string"
@@ -5902,6 +7629,8 @@
                     "AWS",
                     "AZURE",
                     "GCP",
+                    "GCP",
+                    "KUBERNETES",
                     "KUBERNETES"
                   ],
                   "title": "RuleDomain",
@@ -5922,10 +7651,6 @@
                   },
                   "title": "License Keys",
                   "type": "array"
-                },
-                "license_manager_id": {
-                  "title": "License Manager Id",
-                  "type": "string"
                 },
                 "licensed": {
                   "title": "Licensed",
@@ -6298,215 +8023,6 @@
           "type": "object"
         }
       },
-      "StandardJobPostModel": {
-        "content_type": "application/json",
-        "schema": {
-          "description": "standard jobs means not licensed job -> without licensed rule-sets",
-          "properties": {
-            "credentials": {
-              "anyOf": [
-                {
-                  "properties": {
-                    "AWS_ACCESS_KEY_ID": {
-                      "title": "Aws Access Key Id",
-                      "type": "string"
-                    },
-                    "AWS_DEFAULT_REGION": {
-                      "default": "us-east-1",
-                      "title": "Aws Default Region",
-                      "type": "string"
-                    },
-                    "AWS_SECRET_ACCESS_KEY": {
-                      "title": "Aws Secret Access Key",
-                      "type": "string"
-                    },
-                    "AWS_SESSION_TOKEN": {
-                      "default": null,
-                      "title": "Aws Session Token",
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "AWS_ACCESS_KEY_ID",
-                    "AWS_SECRET_ACCESS_KEY"
-                  ],
-                  "title": "AWSCredentials",
-                  "type": "object"
-                },
-                {
-                  "properties": {
-                    "AZURE_CLIENT_ID": {
-                      "title": "Azure Client Id",
-                      "type": "string"
-                    },
-                    "AZURE_CLIENT_SECRET": {
-                      "title": "Azure Client Secret",
-                      "type": "string"
-                    },
-                    "AZURE_SUBSCRIPTION_ID": {
-                      "default": null,
-                      "title": "Azure Subscription Id",
-                      "type": "string"
-                    },
-                    "AZURE_TENANT_ID": {
-                      "title": "Azure Tenant Id",
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "AZURE_TENANT_ID",
-                    "AZURE_CLIENT_ID",
-                    "AZURE_CLIENT_SECRET"
-                  ],
-                  "title": "AZURECredentials",
-                  "type": "object"
-                },
-                {
-                  "properties": {
-                    "auth_provider_x509_cert_url": {
-                      "title": "Auth Provider X509 Cert Url",
-                      "type": "string"
-                    },
-                    "auth_uri": {
-                      "title": "Auth Uri",
-                      "type": "string"
-                    },
-                    "client_email": {
-                      "title": "Client Email",
-                      "type": "string"
-                    },
-                    "client_id": {
-                      "title": "Client Id",
-                      "type": "string"
-                    },
-                    "client_x509_cert_url": {
-                      "title": "Client X509 Cert Url",
-                      "type": "string"
-                    },
-                    "private_key": {
-                      "title": "Private Key",
-                      "type": "string"
-                    },
-                    "private_key_id": {
-                      "title": "Private Key Id",
-                      "type": "string"
-                    },
-                    "project_id": {
-                      "title": "Project Id",
-                      "type": "string"
-                    },
-                    "token_uri": {
-                      "title": "Token Uri",
-                      "type": "string"
-                    },
-                    "type": {
-                      "title": "Type",
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "type",
-                    "project_id",
-                    "private_key_id",
-                    "private_key",
-                    "client_email",
-                    "client_id",
-                    "auth_uri",
-                    "token_uri",
-                    "auth_provider_x509_cert_url",
-                    "client_x509_cert_url"
-                  ],
-                  "title": "GOOGLECredentials1",
-                  "type": "object"
-                },
-                {
-                  "properties": {
-                    "access_token": {
-                      "title": "Access Token",
-                      "type": "string"
-                    },
-                    "client_id": {
-                      "title": "Client Id",
-                      "type": "string"
-                    },
-                    "client_secret": {
-                      "title": "Client Secret",
-                      "type": "string"
-                    },
-                    "project_id": {
-                      "title": "Project Id",
-                      "type": "string"
-                    },
-                    "refresh_token": {
-                      "title": "Refresh Token",
-                      "type": "string"
-                    },
-                    "type": {
-                      "title": "Type",
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "type",
-                    "access_token",
-                    "refresh_token",
-                    "client_id",
-                    "client_secret",
-                    "project_id"
-                  ],
-                  "title": "GOOGLECredentials2",
-                  "type": "object"
-                },
-                {
-                  "properties": {
-                    "access_token": {
-                      "title": "Access Token",
-                      "type": "string"
-                    },
-                    "project_id": {
-                      "title": "Project Id",
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "access_token",
-                    "project_id"
-                  ],
-                  "title": "GOOGLECredentials3",
-                  "type": "object"
-                }
-              ],
-              "default": null,
-              "title": "Credentials"
-            },
-            "target_regions": {
-              "items": {
-                "type": "string"
-              },
-              "title": "Target Regions",
-              "type": "array",
-              "uniqueItems": true
-            },
-            "target_rulesets": {
-              "items": {
-                "type": "string"
-              },
-              "title": "Target Rulesets",
-              "type": "array",
-              "uniqueItems": true
-            },
-            "tenant_name": {
-              "title": "Tenant Name",
-              "type": "string"
-            }
-          },
-          "required": [
-            "tenant_name"
-          ],
-          "title": "StandardJobPostModel",
-          "type": "object"
-        }
-      },
       "TenantExcludedRulesPutModel": {
         "content_type": "application/json",
         "schema": {
@@ -6524,6 +8040,192 @@
             "rules"
           ],
           "title": "TenantExcludedRulesPutModel",
+          "type": "object"
+        }
+      },
+      "TopViolationsReportComparisonModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "items": {
+              "items": {
+                "anyOf": [
+                  {
+                    "properties": {
+                      "id": {
+                        "title": "Id",
+                        "type": "string"
+                      },
+                      "new_violated_rules": {
+                        "items": {
+                          "type": "object"
+                        },
+                        "title": "New Violated Rules",
+                        "type": "array"
+                      },
+                      "remediated_rules": {
+                        "items": {
+                          "type": "object"
+                        },
+                        "title": "Remediated Rules",
+                        "type": "array"
+                      },
+                      "unchanged_violated_rules": {
+                        "items": {
+                          "type": "object"
+                        },
+                        "title": "Unchanged Violated Rules",
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "new_violated_rules",
+                      "remediated_rules",
+                      "unchanged_violated_rules"
+                    ],
+                    "title": "TopViolationsResourceComparison",
+                    "type": "object"
+                  },
+                  {
+                    "properties": {
+                      "name": {
+                        "title": "Name",
+                        "type": "string"
+                      },
+                      "new_violated_resources": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "title": "New Violated Resources",
+                        "type": "array"
+                      },
+                      "remediated_resources": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "title": "Remediated Resources",
+                        "type": "array"
+                      },
+                      "unchanged_violated_resources": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "title": "Unchanged Violated Resources",
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "new_violated_resources",
+                      "remediated_resources",
+                      "unchanged_violated_resources"
+                    ],
+                    "title": "TopViolationsRulesComparison",
+                    "type": "object"
+                  }
+                ]
+              },
+              "title": "Items",
+              "type": "array"
+            }
+          },
+          "required": [
+            "items"
+          ],
+          "title": "TopViolationsReportComparisonModel",
+          "type": "object"
+        }
+      },
+      "TopViolationsReportJobsModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "items": {
+              "items": {
+                "anyOf": [
+                  {
+                    "properties": {
+                      "id": {
+                        "title": "Id",
+                        "type": "string"
+                      },
+                      "violated_rules": {
+                        "items": {
+                          "type": "object"
+                        },
+                        "title": "Violated Rules",
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "violated_rules"
+                    ],
+                    "title": "TopViolationsResourceReport",
+                    "type": "object"
+                  },
+                  {
+                    "properties": {
+                      "article": {
+                        "title": "Article",
+                        "type": "string"
+                      },
+                      "description": {
+                        "title": "Description",
+                        "type": "string"
+                      },
+                      "impact": {
+                        "title": "Impact",
+                        "type": "string"
+                      },
+                      "name": {
+                        "title": "Name",
+                        "type": "string"
+                      },
+                      "remediation": {
+                        "title": "Remediation",
+                        "type": "string"
+                      },
+                      "remediation_complexity": {
+                        "title": "Remediation Complexity",
+                        "type": "string"
+                      },
+                      "severity": {
+                        "title": "Severity",
+                        "type": "string"
+                      },
+                      "violated_resources": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "title": "Violated Resources",
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "description",
+                      "severity",
+                      "remediation",
+                      "article",
+                      "impact",
+                      "remediation_complexity",
+                      "violated_resources"
+                    ],
+                    "title": "TopViolationsRulesReport",
+                    "type": "object"
+                  }
+                ]
+              },
+              "title": "Items",
+              "type": "array"
+            }
+          },
+          "required": [
+            "items"
+          ],
+          "title": "TopViolationsReportJobsModel",
           "type": "object"
         }
       },
@@ -6556,7 +8258,6 @@
               "type": "string"
             },
             "role_name": {
-              "default": null,
               "title": "Role Name",
               "type": "string"
             },
@@ -6567,6 +8268,7 @@
           },
           "required": [
             "username",
+            "role_name",
             "password"
           ],
           "title": "UserPostModel",

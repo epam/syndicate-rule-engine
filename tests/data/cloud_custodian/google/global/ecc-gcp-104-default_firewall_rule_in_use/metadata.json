@@ -1,0 +1,73 @@
+{
+  "policy": {
+    "name": "ecc-gcp-104-default_firewall_rule_in_use",
+    "resource": "gcp.firewall",
+    "description": "Description for ecc-gcp-104-default_firewall_rule_in_use",
+    "comment": "030018022000"
+  },
+  "version": "0.9.40",
+  "execution": {
+    "id": "4a06b5eb-007c-4c4c-996c-cff346d46acd",
+    "start": 1729502743.707629,
+    "end_time": 1729502743.708413,
+    "duration": 0.0007839202880859375
+  },
+  "config": {
+    "region": "",
+    "regions": [],
+    "cache": "cloud-custodian.cache",
+    "profile": null,
+    "account_id": null,
+    "assume_role": null,
+    "session_policy": null,
+    "external_id": null,
+    "log_group": null,
+    "tracer": "default",
+    "metrics_enabled": false,
+    "metrics": null,
+    "output_dir": "./global",
+    "cache_period": 120,
+    "dryrun": false,
+    "authorization_file": null,
+    "command": "c7n.commands.run",
+    "config": null,
+    "configs": [],
+    "subparser": "run",
+    "policy_filters": [],
+    "resource_types": [],
+    "verbose": null,
+    "quiet": false,
+    "debug": false,
+    "skip_validation": false,
+    "vars": null
+  },
+  "sys-stats": {
+    "snapshot_time": 0.0007750988006591797,
+    "num_fds": 1,
+    "cpu_user": 0.00045094400000000867,
+    "cpu_system": 0.00025880000000000347,
+    "num_ctx_switches_voluntary": 1,
+    "pfaults": 8
+  },
+  "api-stats": {},
+  "metrics": [
+    {
+      "MetricName": "ResourceCount",
+      "Timestamp": "2024-10-21T12:25:43.708215",
+      "Value": 4,
+      "Unit": "Count"
+    },
+    {
+      "MetricName": "ResourceTime",
+      "Timestamp": "2024-10-21T12:25:43.708217",
+      "Value": 0.0003292560577392578,
+      "Unit": "Seconds"
+    },
+    {
+      "MetricName": "ActionTime",
+      "Timestamp": "2024-10-21T12:25:43.708410",
+      "Value": 9.5367431640625e-07,
+      "Unit": "Seconds"
+    }
+  ]
+}

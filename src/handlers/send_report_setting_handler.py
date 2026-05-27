@@ -1,13 +1,12 @@
-from functools import cached_property
 from http import HTTPStatus
 
 from modular_sdk.services.customer_service import CustomerService
 
 from handlers import AbstractHandler, Mapping
-from helpers.constants import CustodianEndpoint, HTTPMethod
+from helpers.constants import Endpoint, HTTPMethod
 from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
-from helpers.system_customer import SYSTEM_CUSTOMER
+from helpers.system_customer import SystemCustomer
 from services import SP
 from services.clients.step_function import ScriptClient, StepFunctionClient
 from services.health_check_service import RabbitMQConnectionCheck
@@ -31,10 +30,10 @@ class ReportsSendingSettingHandler(AbstractHandler):
         self.step_function_client = step_function_client
         self.customer_service = customer_service
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.SETTINGS_SEND_REPORTS: {
+            Endpoint.SETTINGS_SEND_REPORTS: {
                 HTTPMethod.POST: self.post
             }
         }
@@ -49,7 +48,7 @@ class ReportsSendingSettingHandler(AbstractHandler):
 
     @staticmethod
     def build_retry_event() -> dict:
-        res = CustodianEndpoint.REPORTS_RETRY.value
+        res = Endpoint.REPORTS_RETRY.value
         return {
             'resource': res,
             'path': res,
@@ -63,7 +62,7 @@ class ReportsSendingSettingHandler(AbstractHandler):
                 'protocol': 'HTTP/1.1',
                 'authorizer': {
                     'claims': {
-                        'custom:customer': SYSTEM_CUSTOMER,
+                        'custom:customer': SystemCustomer.get_name(),
                     }
                 }
             },

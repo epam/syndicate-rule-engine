@@ -1,15 +1,17 @@
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Generator, TypedDict, Iterable, cast
+from typing import TYPE_CHECKING, Generator, TypedDict
 
 import msgspec
-from c7n.provider import get_resource_class
-from c7n.resources import load_resources
 from modular_sdk.models.tenant import Tenant
 
-from helpers import json_path_get
-from helpers.constants import (Cloud, GLOBAL_REGION, PolicyErrorType)
+from helpers.constants import Cloud, PolicyErrorType
 from helpers.log_helper import get_logger
-from services.sharding import LazyPickleShardPart
+from services.sharding import RuleMeta, ShardPart, ShardsCollection
+
+if TYPE_CHECKING:
+    from executor.job.scan.types import FailedPoliciesMap
 
 _LOG = get_logger(__name__)
 
@@ -35,81 +37,12 @@ class StatisticsItemSuccess(StatisticsItem):
     failed_resources: int
 
 
-class ReportFieldsLoader:
-    """
-    What you need to understand is that each resource type has its unique
-    json representation of its instances. We cannot know what field inside
-    that json is considered to be a logical ID, name (or arn in case AWS) of
-    that resource. Fortunately, this information is present inside Cloud
-    Custodian and we get get it.
-    For k8s name is always inside "metadata.name", id - "metadata.uid",
-    namespace - "metadata.namespace".
-    For azure they are also always the same due to consistent api.
-    For AWS, GOOGLE we must retrieve these values for each resource type
-    """
-    class Fields(TypedDict, total=False):
-        id: str
-        name: str
-        arn: str | None
-        namespace: str | None
-
-    _mapping: dict[str, Fields] = {}
-
-    @classmethod
-    def _load_for_resource_type(cls, rt: str) -> Fields | None:
-        """
-        Updates mapping for the given resource type.
-        It must be loaded beforehand
-        :param rt:
-        :return:
-        """
-        _LOG.debug(f'Loading meta for resource type: {rt}')
-        try:
-            factory = get_resource_class(rt)
-        except (KeyError, AssertionError):
-            _LOG.warning(f'Could not load resource type: {rt}')
-            return
-        resource_type = getattr(factory, 'resource_type')
-        _id = getattr(resource_type, 'id', None)
-        _name = getattr(resource_type, 'name', None)
-        if not _id:
-            _LOG.warning('Resource type has no id')
-        if not _name:
-            _LOG.warning('Resource type has no name')
-
-        return {
-            'id': cast(str, _id),
-            'name': cast(str, _name),
-            'arn': getattr(resource_type, 'arn', None),
-            'namespace': 'metadata.namespace'  # for k8s always this way
-        }
-
-    @classmethod
-    def get(cls, rt: str) -> Fields:
-        if rt not in cls._mapping:
-            fields = cls._load_for_resource_type(rt)
-            if not isinstance(fields, dict):
-                return {}
-            cls._mapping[rt] = fields
-        return cls._mapping[rt]
-
-    @classmethod
-    def load(cls, resource_types: tuple = ('*',)):
-        """
-        Loads all the modules. In theory, we must use this class after
-        performing scan. Till that moment all the necessary resources must be
-        already loaded
-        :param resource_types:
-        :return:
-        """
-        load_resources(set(resource_types))
-
-
 class RuleRawMetadata:
     """
     Simple wrapper over metadata.json that is returned by Cloud Custodian.
     Allows to extract some data
     """
+
     __slots__ = ('data',)
 
     class MetricItem(TypedDict):
@@ -132,10 +65,6 @@ class RuleRawMetadata:
     @property
     def resource_type(self) -> str:
         return self.policy['resource']
-
-    @property
-    def description(self) -> str | None:
-        return self.policy.get('description')
 
     @property
     def start_time(self) -> float:
@@ -169,38 +98,74 @@ class RuleRawMetadata:
         return metric['Value']
 
 
-class RuleRawOutput:
-    __slots__ = ('metadata', 'resources')
+def statistics_from_shards_collection(
+    tenant: Tenant,
+    failed: FailedPoliciesMap | dict,
+    collection: ShardsCollection,
+) -> list[dict]:
+    """
+    Build per-rule statistics from an in-memory shard collection (e.g. S3
+    scan partial after all regions completed). Used when the local work_dir
+    does not contain every region (job resume).
+    """
+    failed = failed or {}
+    by_key: dict[tuple[str, str], dict] = {}
 
-    def __init__(self, metadata: RuleRawMetadata,
-                 resources: list[dict] | None):
-        self.metadata = metadata
-        self.resources = resources  # if None, the rule wasn't executed at all
-        # custodian_run: str
+    for part in collection.iter_all_parts():
+        key = (part.location, part.policy)
+        item: dict = {
+            'policy': part.policy,
+            'region': part.location,
+            'tenant_name': tenant.name,
+            'customer_name': tenant.customer_name,
+            'start_time': part.timestamp,
+            'end_time': part.timestamp,
+            'api_calls': {},
+        }
+        if part.error is None:
+            item['scanned_resources'] = len(part.resources)
+            item['failed_resources'] = 0
+        elif fb := failed.get(key):
+            item['error_type'] = fb[0]
+            item['reason'] = fb[1]
+            item['traceback'] = fb[2]
+        else:
+            et_str, _, msg = (part.error or '').partition(':')
+            try:
+                item['error_type'] = PolicyErrorType(et_str)
+            except ValueError:
+                item['error_type'] = PolicyErrorType.INTERNAL
+            item['reason'] = msg or None
+            item['traceback'] = []
+        by_key[key] = item
 
-    @property
-    def was_executed(self) -> bool:
-        """
-        Tells whether this policy was executed at all. Policy was not
-        executed in case some internal exception or ClientError or
-        something else. Either way resources.json is not created for such
-        policies, PolicyException metric is present
-        :return:
-        """
-        return self.resources is not None
+    for key, fb in failed.items():
+        if key not in by_key:
+            region, policy = key
+            by_key[key] = {
+                'policy': policy,
+                'region': region,
+                'tenant_name': tenant.name,
+                'customer_name': tenant.customer_name,
+                'start_time': 0.0,
+                'end_time': 0.0,
+                'api_calls': {},
+                'error_type': fb[0],
+                'reason': fb[1],
+                'traceback': fb[2],
+            }
+
+    return list(by_key.values())
 
 
 class JobResult:
-    class FormattedItem(TypedDict):  # our detailed report item
-        policy: dict
-        resources: list[dict]
-
-    RegionRuleOutput = tuple[str, str, RuleRawOutput]
+    RegionRuleOutput = tuple[str, str, RuleRawMetadata, list[dict] | None]
 
     def __init__(self, work_dir: Path, cloud: Cloud):
         self._work_dir = work_dir
         self._cloud = cloud
 
+        self._metadata_decoder = msgspec.json.Decoder(type=dict)
         self._res_decoded = msgspec.json.Decoder(type=list[dict])
 
     @staticmethod
@@ -209,114 +174,44 @@ class JobResult:
             Cloud.AWS: 'aws',
             Cloud.AZURE: 'azure',
             Cloud.GOOGLE: 'gcp',
-            Cloud.KUBERNETES: 'k8s'
+            Cloud.KUBERNETES: 'k8s',
         }
 
     def adjust_resource_type(self, rt: str) -> str:
         rt = rt.split('.', maxsplit=1)[-1]
-        return '.'.join((
-            self.cloud_to_resource_type_prefix()[self._cloud], rt
-        ))
-
-    def _load_raw_rule_output(self, root: Path) -> RuleRawOutput | None:
-        """
-        Folder with rule output contains three files:
-        'custodian-run.log' -> logs in text
-        'metadata.json' -> dict
-        'resources.json' -> list or resources
-        In case resources.json files does not exist this execution did
-        not happen due to some exception
-        :param root:
-        :return:
-        """
-        # logs = root / 'custodian-run.log'
-        metadata = root / 'metadata.json'
-        resources = root / 'resources.json'
-
-        with open(metadata, 'r') as file:
-            metadata_data = msgspec.json.decode(file.read(), type=dict)
-        resources_data = None
-        if resources.exists():
-            with open(resources, 'r') as file:
-                resources_data = self._res_decoded.decode(file.read())
-        return RuleRawOutput(
-            metadata=RuleRawMetadata(metadata_data),
-            resources=resources_data
+        return '.'.join(
+            (self.cloud_to_resource_type_prefix()[self._cloud], rt)
         )
 
-    def _extend_resources(self, output: RuleRawOutput):
-        """
-        Adds some report fields (id, name, arn, namespace) to each resource
-        """
-        assert output.was_executed, 'You must provide this method only with policies that was executed without exceptions'  # noqa
-        rt = self.adjust_resource_type(output.metadata.resource_type)
-        ReportFieldsLoader.load((rt,))  # should be loaded before
-        fields = ReportFieldsLoader.get(rt)
-        for res in output.resources:
-            for field, path in fields.items():
-                if not path:
-                    continue
-                val = json_path_get(res, path)
-                if not val:
-                    continue
-                res[field] = val
+    @staticmethod
+    def _resources_exist(root: Path) -> bool:
+        return (root / 'resources.json').exists()
 
-    def iter_raw(self) -> Generator[RegionRuleOutput, None, None]:
+    def _load_resources(self, root: Path) -> list[dict] | None:
+        resources = root / 'resources.json'
+        if not resources.exists():
+            return
+        with open(resources, 'rb') as fp:
+            return self._res_decoded.decode(fp.read())
+
+    def _load_metadata(self, root: Path) -> RuleRawMetadata:
+        with open(root / 'metadata.json', 'rb') as fp:
+            return RuleRawMetadata(self._metadata_decoder.decode(fp.read()))
+
+    def iter_raw(
+        self, with_resources: bool = False
+    ) -> Generator[RegionRuleOutput, None, None]:
         dirs = filter(Path.is_dir, self._work_dir.iterdir())
         for region in dirs:
             for rule in filter(Path.is_dir, region.iterdir()):
-                loaded = self._load_raw_rule_output(rule)
-                if not loaded:
-                    continue
-                yield region.name, rule.name, loaded
+                metadata = self._load_metadata(rule)
+                if with_resources:
+                    resources = self._load_resources(rule)
+                else:
+                    resources = [] if self._resources_exist(rule) else None
+                yield region.name, rule.name, metadata, resources
 
-    @staticmethod
-    def resolve_azure_locations(it: Iterable[RegionRuleOutput]
-                                ) -> Generator[RegionRuleOutput, None, None]:
-        """
-        The thing is: Custodian Custom Core cannot scan Azure
-        region-dependently. A rule covers the whole subscription
-        (or whatever, I don't know) and then each found resource has
-        'location' field with its real location.
-        In order to adhere to AWS logic, when a user wants to receive
-        reports only for regions he activated, we need to filter out only
-        appropriate resources.
-        Also note that Custom Core has such a thing as `AzureCloud`. From
-        my point of view it's like a mock for every region (because,
-        I believe, in the beginning Core was designed for AWS and therefore
-        there are regions). With the current scanner implementation
-        (3.3.1) incoming `detailed_report` will always have one key:
-        `AzureCloud` with a list of all the scanned rules. We must remap it.
-        All the resources that does not contain
-        'location' will be congested to 'multiregion' region.
-        :return:
-        """
-        for _, rule, item in it:
-            if not item.was_executed:
-                yield GLOBAL_REGION, rule, item
-                continue
-            # was executed
-            if not item.resources:  # we cannot know
-                yield GLOBAL_REGION, rule, item
-                continue
-            # resources exist
-            _loc_res = {}
-            for res in item.resources:
-                loc = res.get('location') or GLOBAL_REGION
-                _loc_res.setdefault(loc, []).append(res)
-            for location, resources in _loc_res.items():
-                yield location, rule, RuleRawOutput(
-                    metadata=item.metadata,
-                    resources=resources
-                )
-
-    def build_default_iterator(self) -> Iterable[RegionRuleOutput]:
-        it = self.iter_raw()
-        if self._cloud == Cloud.AZURE:
-            it = self.resolve_azure_locations(it)
-        return it
-
-    def statistics(self, tenant: Tenant, failed: dict) -> list[dict]:
+    def statistics(self, tenant: Tenant, failed: FailedPoliciesMap | dict) -> list[dict]:
         """
         :param tenant:
         :param failed:
@@ -325,8 +220,9 @@ class JobResult:
         """
         failed = failed or {}
         res = []
-        for region, rule, output in self.iter_raw():
-            metadata = output.metadata
+        for region, rule, metadata, resources in self.iter_raw(
+            with_resources=False
+        ):
             item = {
                 'policy': rule,
                 'region': region,
@@ -336,7 +232,7 @@ class JobResult:
                 'end_time': metadata.end_time,
                 'api_calls': metadata.api_calls,
             }
-            if output.was_executed:
+            if resources is not None:
                 item['scanned_resources'] = metadata.all_resources_count
                 item['failed_resources'] = metadata.failed_resources_count
             elif _failed := failed.get((region, rule)):
@@ -344,33 +240,93 @@ class JobResult:
                 item['reason'] = _failed[1]
                 item['traceback'] = _failed[2]
             else:
-                _LOG.warning(f'Rule {rule}:{region} has was not executed but '
-                             f'failed map does not contain its info')
+                _LOG.warning(
+                    f'Rule {rule}:{region} has was not executed but '
+                    f'failed map does not contain its info'
+                )
                 item['error_type'] = PolicyErrorType.INTERNAL
             res.append(item)
         return res
 
-    def iter_shard_parts(self) -> Generator[LazyPickleShardPart, None, None]:
-        for region, rule, output in self.build_default_iterator():
-            if not output.was_executed:
-                continue
-            self._extend_resources(output)  # todo use ijson
-            yield LazyPickleShardPart.from_resources(
-                resources=output.resources,
-                policy=rule,
-                location=region
-            )
+    def iter_shard_parts(
+        self, failed: FailedPoliciesMap | dict
+    ) -> Generator[ShardPart, None, None]:
+        for region, rule, metadata, resources in self.iter_raw(with_resources=True):
+            if resources is None:
+                # policy error occurred
+                if er := failed.get((region, rule)):
+                    error = er[0], er[1]
+                else:
+                    error = PolicyErrorType.INTERNAL, 'Unknown policy error'
 
-    def rules_meta(self) -> dict[str, dict]:
+                yield ShardPart(
+                    policy=rule,
+                    location=region,
+                    timestamp=metadata.end_time,
+                    error=':'.join(error),
+                )
+            else:
+                yield ShardPart(
+                    policy=rule,
+                    location=region,
+                    timestamp=metadata.end_time,
+                    resources=resources,
+                )
+
+    def iter_shard_parts_for_region(
+        self,
+        region: str,
+        failed: FailedPoliciesMap | dict,
+    ) -> Generator[ShardPart, None, None]:
+        for reg, rule, metadata, resources in self.iter_raw(with_resources=True):
+            if reg != region:
+                continue
+            if resources is None:
+                if er := failed.get((reg, rule)):
+                    error = er[0], er[1]
+                else:
+                    error = PolicyErrorType.INTERNAL, 'Unknown policy error'
+
+                yield ShardPart(
+                    policy=rule,
+                    location=reg,
+                    timestamp=metadata.end_time,
+                    error=':'.join(error),
+                )
+            else:
+                yield ShardPart(
+                    policy=rule,
+                    location=reg,
+                    timestamp=metadata.end_time,
+                    resources=resources,
+                )
+
+    def rules_meta_for_region(self, region: str) -> dict[str, RuleMeta]:
+        result: dict[str, RuleMeta] = {}
+        for reg, rule, metadata, _ in self.iter_raw(with_resources=False):
+            if reg != region:
+                continue
+            meta = {
+                k: v
+                for k, v in metadata.policy.items()
+                if k not in ('filters', 'name')
+            }
+            if 'resource' in meta:
+                meta['resource'] = self.adjust_resource_type(meta['resource'])
+            result.setdefault(rule, {}).update(meta)
+        return result
+
+    def rules_meta(self) -> dict[str, RuleMeta]:
         """
         Collect some meta for each policy, currently it's everything that
         policy has except filters
         :return:
         """
         result = {}
-        for _, rule, output in self.iter_raw():
+        for _, rule, metadata, _ in self.iter_raw(with_resources=False):
             meta = {
-                k: v for k, v in output.metadata.policy.items()
+                k: v
+                for k, v in metadata.policy.items()
                 if k not in ('filters', 'name')
             }
             if 'resource' in meta:

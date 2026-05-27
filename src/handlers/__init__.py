@@ -1,9 +1,8 @@
 from abc import ABC, abstractmethod
-from functools import cached_property
 from typing import Callable
-from helpers.constants import CustodianEndpoint
+from helpers.constants import Endpoint
 
-Mapping = dict[CustodianEndpoint, dict[str, Callable]]
+Mapping = dict[Endpoint, dict[str, Callable]]
 
 
 class AbstractHandler(ABC):
@@ -14,11 +13,11 @@ class AbstractHandler(ABC):
         Builds the instance of the class
         """
 
-    @cached_property
+    @property
     @abstractmethod
     def mapping(self) -> Mapping:
         """
         {
-            CustodianEndpoint.JOBS: {HTTPMethod.GET: self.get_jobs}
+            Endpoint.JOBS: {HTTPMethod.GET: self.get_jobs}
         }
         """

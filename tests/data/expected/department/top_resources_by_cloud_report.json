@@ -1,0 +1,141 @@
+{
+  "receivers": ["admin@gmail.com"],
+  "customer": "TEST_CUSTOMER",
+  "from": "2025-06-01T00:00:00Z",
+  "to": "2025-07-01T00:00:00Z",
+  "outdated_tenants": [],
+  "externalData": false,
+  "data": {
+    "AWS": [
+      {
+        "tenant_display_name": "testing",
+        "sort_by": 23,
+        "data": {
+          "activated_regions": [
+            "eu-central-1",
+            "eu-north-1",
+            "eu-west-1",
+            "eu-west-3"
+          ],
+          "tenant_name": "AWS-TESTING",
+          "last_scan_date": "2025-07-28T00:59:27.298066Z",
+          "total_scans": {
+            "value": 2
+          },
+          "failed_scans": {
+            "value": 1
+          },
+          "succeeded_scans": {
+            "value": 1
+          },
+          "resources_violated": {
+            "value": 23
+          },
+          "resource_types_data": {
+            "aws.security-group": {
+              "value": 3
+            },
+            "aws.sns": {
+              "value": 3
+            },
+            "aws.s3": {
+              "value": 7
+            },
+            "aws.cloudtrail": {
+              "value": 1
+            },
+            "aws.iam-group": {
+              "value": 3
+            },
+            "aws.ebs": {
+              "value": 2
+            },
+            "aws.ec2": {
+              "value": 2
+            },
+            "aws.ecr": {
+              "value": 2
+            }
+          },
+          "severity_data": {
+            "Unknown": {
+              "value": 23
+            }
+          }
+        }
+      }
+    ],
+    "AZURE": [
+      {
+        "tenant_display_name": "testing",
+        "sort_by": 5,
+        "data": {
+          "activated_regions": [],
+          "tenant_name": "AZURE-TESTING",
+          "last_scan_date": "2025-07-28T00:59:27.298066Z",
+          "total_scans": {
+            "value": 2
+          },
+          "failed_scans": {
+            "value": 1
+          },
+          "succeeded_scans": {
+            "value": 1
+          },
+          "resources_violated": {
+            "value": 5
+          },
+          "resource_types_data": {
+            "azure.defender-pricing": {
+              "value": 5
+            }
+          },
+          "severity_data": {
+            "Unknown": {
+              "value": 5
+            }
+          }
+        }
+      }
+    ],
+    "GOOGLE": [
+      {
+        "tenant_display_name": "testing",
+        "sort_by": 9,
+        "data": {
+          "activated_regions": [],
+          "tenant_name": "GOOGLE-TESTING",
+          "last_scan_date": "2025-07-28T00:59:27.298066Z",
+          "total_scans": {
+            "value": 2
+          },
+          "failed_scans": {
+            "value": 1
+          },
+          "succeeded_scans": {
+            "value": 1
+          },
+          "resources_violated": {
+            "value": 9
+          },
+          "resource_types_data": {
+            "gcp.vpc": {
+              "value": 1
+            },
+            "gcp.firewall": {
+              "value": 4
+            },
+            "gcp.subnet": {
+              "value": 4
+            }
+          },
+          "severity_data": {
+            "Unknown": {
+              "value": 9
+            }
+          }
+        }
+      }
+    ]
+  }
+}

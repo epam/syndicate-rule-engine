@@ -1,0 +1,64 @@
+[
+  {
+    "data": {
+      "AWS": {
+        "account_id": "123456789012",
+        "last_scan_date": "2025-07-28T00:56:25.770636Z",
+        "rules_violated": {
+          "High": 0,
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "Unknown": 9
+        },
+        "tenant_name": "AWS-TESTING",
+        "violations_data": {
+          "High": 0,
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "Unknown": 2
+        }
+      },
+      "AZURE": {
+        "account_id": "3d615fa8-05c6-47ea-990d-9d162testing",
+        "last_scan_date": "2025-07-28T00:56:25.770636Z",
+        "rules_violated": {
+          "High": 0,
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "Unknown": 5
+        },
+        "tenant_name": "AZURE-TESTING",
+        "violations_data": {
+          "High": 0,
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "Unknown": 1
+        }
+      },
+      "GOOGLE": {
+        "account_id": "testing-project-123",
+        "last_scan_date": "2025-07-28T00:56:25.770636Z",
+        "rules_violated": {
+          "High": 0,
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "Unknown": 5
+        },
+        "tenant_name": "GOOGLE-TESTING",
+        "violations_data": {
+          "High": 0,
+          "Info": 0,
+          "Low": 0,
+          "Medium": 0,
+          "Unknown": 4
+        }
+      }
+    },
+    "tenant_display_name": "testing"
+  }
+]

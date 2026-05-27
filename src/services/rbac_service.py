@@ -1,9 +1,11 @@
-from helpers.constants import Permission
-from models.policy import PolicyEffect, Policy
-from helpers.time_helper import utc_iso
 from datetime import datetime
 from typing import Generator
+
 from pynamodb.pagination import ResultIterator
+
+from helpers.constants import Permission, PolicyEffect
+from helpers.time_helper import utc_iso
+from models.policy import Policy
 from models.role import Role
 from services.base_data_service import BaseDataService
 

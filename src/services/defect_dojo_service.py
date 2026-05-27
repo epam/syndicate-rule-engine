@@ -1,5 +1,4 @@
 from typing import Any, Iterable, Iterator, Literal
-from typing_extensions import Self
 
 from modular_sdk.commons.constants import ApplicationType
 from modular_sdk.models.application import Application
@@ -10,13 +9,18 @@ from modular_sdk.services.impl.maestro_credentials_service import (
     DefectDojoApplicationSecret,
 )
 from modular_sdk.services.ssm_service import SSMService
+from typing_extensions import Self
 
 from helpers.log_helper import get_logger
-from services.ambiguous_job_service import AmbiguousJob
+from models.job import Job
 from services.base_data_service import BaseDataService
 from services.platform_service import Platform
 
+
 _LOG = get_logger(__name__)
+
+
+AttachmentType = Literal['json', 'xlsx', 'csv']
 
 
 class DefectDojoConfiguration:
@@ -101,16 +105,23 @@ class DefectDojoParentMeta:
     __slots__ = ('scan_type', 'product_type', 'product', 'engagement',
                  'test', 'send_after_job', 'attachment')
 
-    def __init__(self, scan_type: str, product_type: str, product: str,
-                 engagement: str, test: str, send_after_job: bool,
-                 attachment: Literal['json', 'xlsx', 'csv'] | None = None):
+    def __init__(
+        self,
+        scan_type: str,
+        product_type: str,
+        product: str,
+        engagement: str,
+        test: str,
+        send_after_job: bool,
+        attachment: AttachmentType | None = None,
+    ) -> None:
         self.scan_type = scan_type
         self.product_type = product_type
         self.product = product
         self.engagement = engagement
         self.test = test
         self.send_after_job = send_after_job
-        self.attachment = attachment
+        self.attachment: AttachmentType | None = attachment
 
     def dto(self) -> dict:
         """
@@ -150,9 +161,11 @@ class DefectDojoParentMeta:
     def from_parent(cls, parent: Parent):
         return cls.from_dict(parent.meta.as_dict())
 
-    def substitute_fields(self, job: AmbiguousJob,
-                          platform: Platform | None = None
-                          ) -> 'DefectDojoParentMeta':
+    def substitute_fields(
+        self,
+        job: Job,
+        platform: Platform | None = None,
+        ) -> 'DefectDojoParentMeta':
         """
         Changes this dict in place.
         Available keys:
@@ -166,20 +179,25 @@ class DefectDojoParentMeta:
         tenant_name = job.tenant_name
         if job.is_platform_job and platform:
             tenant_name = platform.name
+
         dct = DefectDojoParentMeta.SkipKeyErrorDict(
             tenant_name=tenant_name,
             job_id=job.id,
             customer_name=job.customer_name
         )
 
+        product = job.dojo_structure.product or ''
+        engagement = job.dojo_structure.engagement or ''
+        test = job.dojo_structure.test or ''
+
         return DefectDojoParentMeta(
             scan_type=self.scan_type,
             product_type=self.product_type.format_map(dct),
-            product=self.product.format_map(dct),
-            engagement=self.engagement.format_map(dct),
-            test=self.test.format_map(dct),
+            product=product.format_map(dct) or self.product.format_map(dct),
+            engagement=engagement.format_map(dct) or self.engagement.format_map(dct),
+            test= test.format_map(dct) or self.test.format_map(dct),
             send_after_job=self.send_after_job,
-            attachment=self.attachment
+            attachment=self.attachment,
         )
 
 
@@ -210,7 +228,7 @@ class DefectDojoService(BaseDataService[DefectDojoConfiguration]):
         app = self._aps.build(
             customer_id=customer,
             description=description,
-            type=ApplicationType.DEFECT_DOJO.value,
+            type=ApplicationType.CUSTODIAN_DEFECT_DOJO.value,
             created_by=created_by,
             is_deleted=False,
             meta={},
@@ -219,8 +237,11 @@ class DefectDojoService(BaseDataService[DefectDojoConfiguration]):
 
     def get_nullable(self, id: str) -> DefectDojoConfiguration | None:
         app = self._aps.get_application_by_id(id)
-        if not app:
+        if not app or app.is_deleted or \
+            app.type not in (ApplicationType.CUSTODIAN_DEFECT_DOJO, ApplicationType.DEFECT_DOJO):
             return
+        if app.type == ApplicationType.DEFECT_DOJO:
+            _LOG.warning('Using legacy Defect Dojo application type.')
         return DefectDojoConfiguration(app)
 
     def save(self, item: DefectDojoConfiguration):

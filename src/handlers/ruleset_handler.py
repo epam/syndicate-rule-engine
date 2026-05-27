@@ -1,73 +1,62 @@
-from functools import cached_property
+import operator
+from concurrent.futures import ThreadPoolExecutor
 from http import HTTPStatus
 from itertools import chain
-from typing import Generator, Optional
+from typing import Generator, Optional, cast
+
 from modular_sdk.commons.constants import ApplicationType
+from modular_sdk.services.application_service import ApplicationService
 
 from handlers import AbstractHandler, Mapping
+from helpers import Version
 from helpers.constants import (
-    CustodianEndpoint,
-    ED_AWS_RULESET_NAME,
-    ED_AZURE_RULESET_NAME,
-    ED_GOOGLE_RULESET_NAME,
-    ED_KUBERNETES_RULESET_NAME,
     EVENT_DRIVEN_ATTR,
-    HTTPMethod,
-    ID_ATTR,
     RULES_ATTR,
-    RuleDomain,
     S3_PATH_ATTR,
+    Endpoint,
+    HTTPMethod,
 )
 from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
-from helpers.reports import Standard
-from helpers.system_customer import SYSTEM_CUSTOMER
+from helpers.system_customer import SystemCustomer
 from helpers.time_helper import utc_iso
-from models.rule import Rule
+from models.rule import Rule, RuleIndex
+from models.rule_source import RuleSource
 from models.ruleset import Ruleset
 from services import SERVICE_PROVIDER
+from services.clients.lm_client import LMClientAfter3p0
 from services.clients.s3 import S3Client
 from services.environment_service import EnvironmentService
+from services.license_manager_service import LicenseManagerService
 from services.license_service import LicenseService
-from services.mappings_collector import LazyLoadedMappingsCollector
-from services.rule_meta_service import RuleService
+from services.rule_meta_service import RuleNamesResolver, RuleService
 from services.rule_source_service import RuleSourceService
+from services.reports_bucket import RulesetsBucketKeys
 from services.ruleset_service import RulesetService
-from services.setting_service import SettingsService
 from validators.swagger_request_models import (
-    EventDrivenRulesetDeleteModel,
-    EventDrivenRulesetGetModel,
-    EventDrivenRulesetPostModel,
-    RulesetContentGetModel,
     RulesetDeleteModel,
     RulesetGetModel,
     RulesetPatchModel,
     RulesetPostModel,
+    RulesetReleasePostModel,
 )
-from modular_sdk.services.application_service import ApplicationService
 from validators.utils import validate_kwargs
 
 _LOG = get_logger(__name__)
 
-CONCRETE_RULESET_NOT_FOUND_MESSAGE = \
-    'The ruleset \'{name}\' version \'{version}\' ' \
-    'in the customer \'{customer}\' does not exist'
-RULESET_FOUND_MESSAGE = \
-    'The ruleset \'{name}\' version \'{version}\' for ' \
-    'in the customer \'{customer}\' already exists'
-
 
 class RulesetHandler(AbstractHandler):
-
-    def __init__(self, ruleset_service: RulesetService,
-                 application_service: ApplicationService,
-                 rule_service: RuleService,
-                 s3_client: S3Client,
-                 environment_service: EnvironmentService,
-                 rule_source_service: RuleSourceService,
-                 license_service: LicenseService,
-                 settings_service: SettingsService,
-                 mappings_collector: LazyLoadedMappingsCollector):
+    def __init__(
+        self,
+        ruleset_service: RulesetService,
+        application_service: ApplicationService,
+        rule_service: RuleService,
+        s3_client: S3Client,
+        environment_service: EnvironmentService,
+        rule_source_service: RuleSourceService,
+        license_service: LicenseService,
+        license_manager_service: LicenseManagerService,
+    ):
         self.ruleset_service = ruleset_service
         self.application_service = application_service
         self.rule_service = rule_service
@@ -75,8 +64,7 @@ class RulesetHandler(AbstractHandler):
         self.environment_service = environment_service
         self.rule_source_service = rule_source_service
         self.license_service = license_service
-        self.settings_service = settings_service
-        self.mappings_collector = mappings_collector
+        self.license_manager_service = license_manager_service
 
     @classmethod
     def build(cls) -> 'RulesetHandler':
@@ -88,146 +76,69 @@ class RulesetHandler(AbstractHandler):
             environment_service=SERVICE_PROVIDER.environment_service,
             rule_source_service=SERVICE_PROVIDER.rule_source_service,
             license_service=SERVICE_PROVIDER.license_service,
-            settings_service=SERVICE_PROVIDER.settings_service,
-            mappings_collector=SERVICE_PROVIDER.mappings_collector
+            license_manager_service=SERVICE_PROVIDER.license_manager_service,
         )
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.RULESETS: {
+            Endpoint.RULESETS: {
                 HTTPMethod.GET: self.get_ruleset,
                 HTTPMethod.POST: self.create_ruleset,
                 HTTPMethod.PATCH: self.update_ruleset,
-                HTTPMethod.DELETE: self.delete_ruleset
+                HTTPMethod.DELETE: self.delete_ruleset,
             },
-            CustodianEndpoint.RULESETS_CONTENT: {
-                HTTPMethod.GET: self.pull_ruleset_content
+            Endpoint.RULESETS_RELEASE: {
+                HTTPMethod.POST: self.release_ruleset
             },
-            CustodianEndpoint.ED_RULESETS: {
-                HTTPMethod.GET: self.get_event_driven_ruleset,
-                HTTPMethod.POST: self.post_event_driven_ruleset,
-                HTTPMethod.DELETE: self.delete_event_driven_ruleset
-            }
         }
 
-    @cached_property
-    def cloud_to_ed_ruleset_name(self) -> dict:
-        return {
-            RuleDomain.AWS.value: ED_AWS_RULESET_NAME,
-            RuleDomain.AZURE.value: ED_AZURE_RULESET_NAME,
-            RuleDomain.GCP.value: ED_GOOGLE_RULESET_NAME,
-            RuleDomain.KUBERNETES.value: ED_KUBERNETES_RULESET_NAME
-        }
-
-    @validate_kwargs
-    def get_event_driven_ruleset(self, event: EventDrivenRulesetGetModel):
-        _LOG.debug('Get event-driven rulesets')
-        items = self.ruleset_service.iter_standard(
-            customer=SYSTEM_CUSTOMER,
-            event_driven=True,
-            cloud=event.cloud,
-        )
-        params_to_exclude = {S3_PATH_ATTR, ID_ATTR}
-        if not event.get_rules:
-            params_to_exclude.add(RULES_ATTR)
-        return build_response(
-            code=HTTPStatus.OK,
-            content=(self.ruleset_service.dto(
-                item, params_to_exclude) for item in items)
-        )
-
-    @validate_kwargs
-    def post_event_driven_ruleset(self, event: EventDrivenRulesetPostModel):
-        _LOG.debug('Create event-driven rulesets')
-        name = self.cloud_to_ed_ruleset_name[event.cloud]
-        version = str(event.version)
-
-        maybe_ruleset = self.ruleset_service.get_standard(
-            customer=SYSTEM_CUSTOMER, name=name, version=version,
-        )
-        if maybe_ruleset:
-            raise ResponseFactory(HTTPStatus.CONFLICT).message(
-                f'Ruleset {name}:{version} already exists'
-            ).exc()
-        if event.rules:
-            rules = (
-                self.rule_service.get_latest_rule(SYSTEM_CUSTOMER,
-                                                  event.cloud, name)
-                for name in event.rules
-            )
-        else:
-            rules = self.rule_service.get_by_id_index(
-                customer=SYSTEM_CUSTOMER, cloud=event.cloud
-            )
-        rules = list(self.rule_service.without_duplicates(rules=rules))
-
-        if not rules:
-            _LOG.warning('No rules by given parameters were found')
-            return build_response(
-                code=HTTPStatus.NOT_FOUND,
-                content='No rules found'
-            )
-        ruleset = self.ruleset_service.create(
-            customer=SYSTEM_CUSTOMER,
-            name=name,
-            version=version,
-            cloud=event.cloud,
-            rules=[rule.name for rule in rules],
-            active=True,
-            event_driven=True,
-            status={
-                "code": "READY_TO_SCAN",
-                "last_update_time": utc_iso(),
-                "reason": "Assembled successfully"
-            },
-            licensed=False,
-        )
-        self.upload_ruleset(ruleset, self.build_policy(rules))
-        self.ruleset_service.save(ruleset)
-        return build_response(self.ruleset_service.dto(
-            ruleset, params_to_exclude={RULES_ATTR, S3_PATH_ATTR}
-        ), code=HTTPStatus.CREATED)
-
-    @validate_kwargs
-    def delete_event_driven_ruleset(self, event: EventDrivenRulesetDeleteModel):
-        _LOG.debug('Delete event-driven rulesets')
-        cloud = event.cloud
-        name = self.cloud_to_ed_ruleset_name[cloud]
-        version = str(event.version)
-        item = self.ruleset_service.get_standard(
-            customer=SYSTEM_CUSTOMER,
-            name=name,
-            version=version
-        )
-        if not item or not item.event_driven:
-            return build_response(
-                code=HTTPStatus.NO_CONTENT,
-            )
-        self.ruleset_service.delete(item)
-        return build_response(
-            code=HTTPStatus.NO_CONTENT,
-        )
-
-    def yield_standard_rulesets(self, customer: str,
-                                name: Optional[str] = None,
-                                version: Optional[str] = None,
-                                cloud: Optional[str] = None,
-                                active: Optional[bool] = None
-                                ) -> Generator[Ruleset, None, None]:
-        yield from self.ruleset_service.iter_standard(
+    def yield_standard_rulesets(
+        self,
+        customer: str,
+        name: Optional[str] = None,
+        version: Optional[str] = None,
+        cloud: Optional[str] = None,
+    ) -> Generator[Ruleset, None, None]:
+        """
+        Not to be saved after this method
+        :param customer:
+        :param name:
+        :param version:
+        :param cloud:
+        :return:
+        """
+        mapping = {}  # name to list of two elements: Ruleset and its versions
+        it = self.ruleset_service.iter_standard(
             customer=customer,
             name=name,
             version=version,
             cloud=cloud,
-            active=active
+            ascending=False,
         )
+        for rs in it:
+            version = rs.version
+            assert version, 'Standard ruleset must have a version'
+            if rs.name not in mapping:
+                mapping[rs.name] = [
+                    rs, {version}
+                ]
+            else:
+                pair = mapping[rs.name]
+                if rs.normalized_version > pair[0].normalized_version:
+                    pair[0] = rs
+                pair[1].add(version)
+        for name, (rs, versions) in mapping.items():
+            rs.versions = sorted(versions, key=Version, reverse=True)
+            yield rs
 
     def yield_licensed_rulesets(
-            self, customer: Optional[str] = None, name: Optional[str] = None,
-            version: Optional[str] = None, cloud: Optional[str] = None,
-            active: Optional[bool] = None) -> Generator[Ruleset, None, None]:
-
+        self,
+        customer: Optional[str] = None,
+        name: Optional[str] = None,
+        version: Optional[str] = None,
+        cloud: Optional[str] = None,
+    ) -> Generator[Ruleset, None, None]:
         def _check(ruleset: Ruleset) -> bool:
             """
             We currently don't have names and version for licensed
@@ -237,36 +148,31 @@ class RulesetHandler(AbstractHandler):
             """
             if name and ruleset.name != name:
                 return False
-            if version and ruleset.version != version:
+            if version and version not in ruleset.versions:
                 return False
             if cloud and ruleset.cloud != cloud.upper():
-                return False
-            if isinstance(active, bool) and ruleset.active != active:
                 return False
             return True
 
         if not customer:  # SYSTEM
             # TODO probably remove
             yield from self.ruleset_service.iter_licensed(
-                name=name,
-                version=version,
-                cloud=cloud,
-                active=active
+                name=name, cloud=cloud
             )
             return
         applications = self.application_service.list(
             customer=customer,
             _type=ApplicationType.CUSTODIAN_LICENSES.value,
-            deleted=False
+            deleted=False,
         )
 
         licenses = tuple(self.license_service.to_licenses(applications))
         license_keys = {_license.license_key for _license in licenses}
 
-        ids = chain.from_iterable(
+        names = chain.from_iterable(
             _license.ruleset_ids for _license in licenses
         )
-        source = self.ruleset_service.iter_by_lm_id(ids)
+        source = self.ruleset_service.iter_licensed_by_names(names)
         # source contains rule-sets from applications, now we
         # just filter them by input params
         for rs in filter(_check, source):
@@ -278,167 +184,251 @@ class RulesetHandler(AbstractHandler):
         # maybe filter licensed rule-sets by tenants.
 
         params = dict(
-            customer=event.customer or SYSTEM_CUSTOMER,
+            customer=event.customer or SystemCustomer.get_name(),
             name=event.name,
-            version=event.version,
+            version=Version(event.version).to_str() if event.version else None,
             cloud=event.cloud,
-            active=event.active
         )
         _standard = self.yield_standard_rulesets(**params)
         _licensed = self.yield_licensed_rulesets(**params)
         # generators, by here they are not executed
         if not isinstance(event.licensed, bool):
-            items = chain(_standard, _licensed)
+            items = chain(_licensed, _standard)
         elif event.licensed:  # True
-            items = chain(_licensed)
+            items = _licensed
         else:  # False
-            items = chain(_standard)
+            items = _standard
 
-        params_to_exclude = {S3_PATH_ATTR, EVENT_DRIVEN_ATTR}
+        params_to_exclude = {EVENT_DRIVEN_ATTR}
         if not event.get_rules:
             params_to_exclude.add(RULES_ATTR)
         return build_response(
-            content=(self.ruleset_service.dto(
-                item, params_to_exclude) for item in items)
+            content=(
+                self.ruleset_service.dto(item, params_to_exclude)
+                for item in items
+            )
         )
 
-    def _filtered_rules(self, rules: list[Rule], severity: Optional[str],
-                        service_section: Optional[str], standard: set,
-                        mitre: set) -> Generator[Rule, None, None]:
-        mappings = self.mappings_collector
+    @staticmethod
+    def _filtered_rules(
+        rules: list[Rule],
+        platforms: set[str],
+        categories: set[str],
+        service_sections: set[str],
+        sources: set[str],
+    ) -> Generator[Rule, None, None]:
         for rule in rules:
+            comment = RuleIndex(rule.comment)
             name = rule.name
-            if severity and mappings.severity.get(name) != severity:
-                _LOG.debug(f'Skipping rule {name}. Severity does not match')
+            if platforms and (
+                not comment.raw_platform
+                or comment.raw_platform.lower() not in platforms
+            ):
+                _LOG.debug(f'Skipping rule {name}. Platform does not match')
                 continue
-            if service_section and \
-                    (mappings.service_section.get(name) != service_section):
-                _LOG.debug(f'Skipping rule {name}. Service '
-                           f'section does not match')
+            if categories and (
+                not comment.category
+                or comment.category.lower() not in categories
+            ):
+                _LOG.debug(f'Skipping rule {name}. Category does not match')
                 continue
-            if standard:  # list
-                st = mappings.standard.get(name) or {}
-                available = (Standard.deserialize_to_strs(st) | st.keys())
-                if not all(item in available for item in standard):
-                    _LOG.debug(f'Skipping rule {name}. '
-                               f'Standard does not match')
-                    continue
-            if mitre:  # list
-                available = mappings.mitre.get(name) or {}
-                if not all(item in available for item in mitre):
-                    _LOG.debug(f'Skipping rule: {name}. Mitre does not match')
-                    continue
+            if service_sections and (
+                not comment.service_section
+                or comment.service_section.lower() not in service_sections
+            ):
+                _LOG.debug(
+                    f'Skipping rule {name}. Service section does not match'
+                )
+                continue
+            if sources and (
+                not comment.source or comment.source.lower() not in sources
+            ):
+                _LOG.debug(f'Skipping rule {name}. Source does not match')
+                continue
             yield rule
 
     @validate_kwargs
     def create_ruleset(self, event: RulesetPostModel):
-        """
-        Filtering the rules by standards, severity, mitre and service
-        section is performed in python after the rules were queried from DB.
-        (Also, we can implement filtering by resource if needed).
-        But first, we must query some rules. We have four criteria to query by:
-        - cloud: str          [required] ---------+
-                                                  |---> Customer Rule Id GSI
-        - rules: list         [optional] ---------+
-        - git_project_id: str [optional] ---------+
-                                                  |---> Customer Location GSI
-        - git_ref: str        [optional] ---------+
-        So, if concrete rules are provided, we just query each of them using
-        the first index and then filter by git_project_id (and maybe git_ref)
-        locally. If concrete names are not provided, we query by
-        git_project_id & git_ref or by cloud.
-        It seems efficient.
-        :param event:
-        :return:
-        """
-        customer = event.customer or SYSTEM_CUSTOMER
+        customer = event.customer or SystemCustomer.get_name()
 
-        ruleset = self.ruleset_service.get_standard(
-            customer=customer, name=event.name, version=event.version,
+        rs: RuleSource | None = None
+        desired_version: Version
+        if event.rule_source_id:
+            rs = self.rule_source_service.get_nullable(event.rule_source_id)
+            if not rs or rs.customer != customer:
+                raise (
+                    ResponseFactory(HTTPStatus.NOT_FOUND)
+                    .message(
+                        self.rule_source_service.not_found_message(
+                            event.rule_source_id
+                        )
+                    )
+                    .exc()
+                )
+
+        if event.version:
+            _LOG.debug(
+                'User specified the version of ruleset '
+                'he wants to create. Checking whether we can'
+            )
+            desired_version = Version(event.version)  # validated
+            ruleset = self.ruleset_service.get_standard(
+                customer=customer,
+                name=event.name,
+                version=desired_version.to_str(),
+            )
+            if ruleset:
+                raise (
+                    ResponseFactory(HTTPStatus.CONFLICT)
+                    .message(
+                        f'Ruleset {event.name} {desired_version} already exists'
+                    )
+                    .exc()
+                )
+        else:
+            _LOG.debug('User did not provide the version.')
+            release_version: Version | None = None
+            if rs:
+                release_version = self.rule_source_service.get_ruleset_version(
+                    rs
+                )
+
+            if release_version:
+                ruleset = self.ruleset_service.get_standard(
+                    customer=customer,
+                    name=event.name,
+                    version=release_version.to_str(),
+                )
+                if ruleset:
+                    raise (
+                        ResponseFactory(HTTPStatus.CONFLICT)
+                        .message(
+                            f'Ruleset {event.name} for rules release '
+                            f'{release_version} already exists'
+                        )
+                        .exc()
+                    )
+                desired_version = release_version
+            else:
+                raise (
+                    ResponseFactory(HTTPStatus.BAD_REQUEST)
+                    .message(
+                        'Cannot resolve new ruleset version. Please specify one in format: major.minor.patch'
+                    )
+                    .exc()
+                )
+        # The logic above feels a little congested. It just resolves the
+        # version for the next ruleset and checks whether this version is
+        # allowed
+
+        _LOG.info(f'Resolved version for the next ruleset: {desired_version}')
+        _LOG.info('Going to check ruleset cloud')
+        latest = self.ruleset_service.get_latest(
+            customer=customer, name=event.name
         )
-        if ruleset:
-            raise ResponseFactory(HTTPStatus.CONFLICT).message(
-                f'Ruleset {event.name}:{event.version} already exists'
-            ).exc()
-        # here we must collect a list of Rule items using incoming params
+        if latest:
+            if latest.cloud != event.cloud:
+                raise (
+                    ResponseFactory(HTTPStatus.BAD_REQUEST)
+                    .message(
+                        f'Cannot create a new version of ruleset {event.name} for a different cloud'
+                    )
+                    .exc()
+                )
+
+        _LOG.debug('Collecting the list of rules based on incoming params')
         if event.rules:
-            _LOG.info('Concrete rules were provided. '
-                      'Assembling the ruleset using them')
+            _LOG.info(
+                'Concrete rules were provided. '
+                'Assembling the ruleset using them'
+            )
             rules = []
             for rule_name in event.rules:
                 rule = self.rule_service.resolve_rule(
-                    customer=customer,
-                    name_prefix=rule_name,
-                    cloud=event.cloud
+                    customer=customer, name_prefix=rule_name, cloud=event.cloud
                 )
                 if not rule:
-                    raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
-                        self.rule_service.not_found_message(rule_name)
-                    ).exc()
+                    raise (
+                        ResponseFactory(HTTPStatus.NOT_FOUND)
+                        .message(
+                            self.rule_service.not_found_message(rule_name)
+                        )
+                        .exc()
+                    )
                 rules.append(rule)
             rules = self.rule_service.filter_by(
                 rules=rules,
                 git_project=event.git_project_id,
-                ref=event.git_ref
+                rule_source_id=event.rule_source_id,
+                ref=event.git_ref,
+            )
+        elif event.rule_source_id:
+            _LOG.debug('Querying rules by rule source')
+            rs = cast(RuleSource, rs)
+            rules = self.rule_service.get_by_rule_source(
+                rule_source=rs, cloud=event.cloud
             )
         elif event.git_project_id:
-            _LOG.debug('Git project id is provided. Querying rules by it')
+            _LOG.debug('Querying rules by location index')
             rules = self.rule_service.get_by(
                 customer=customer,
                 project=event.git_project_id,
                 ref=event.git_ref,
-                cloud=event.cloud
+                cloud=event.cloud,
             )
         else:
-            _LOG.debug('Concrete names and project id are not provided. '
-                       'Querying all the rules for cloud')
+            _LOG.debug('Querying all the rules for cloud')
             rules = self.rule_service.get_by_id_index(customer, event.cloud)
-        _LOG.info('Removing rules duplicates')
+        _LOG.debug('Removing duplicates')
         rules = list(self.rule_service.without_duplicates(rules=rules))
+        if event.excluded_rules:
+            _LOG.debug('Removing excluded rules')
+            resolver = RuleNamesResolver(
+                resolve_from=map(operator.attrgetter('name'), rules)
+            )
+            resolved = set(resolver.resolved_names(event.excluded_rules))
+            rules = [rule for rule in rules if rule.name not in resolved]
 
-        # here we filter by standards, service_section, mitre and severity
         _LOG.debug('Filtering rules by mappings')
-        rules = list(self._filtered_rules(
-            rules=rules,
-            severity=event.severity,
-            service_section=event.service_section,
-            standard=event.standard,
-            mitre=event.mitre
-        ))
-
+        rules = list(
+            self._filtered_rules(
+                rules=rules,
+                platforms=event.platforms,
+                categories=event.categories,
+                service_sections=event.service_sections,
+                sources=event.sources,
+            )
+        )
         if not rules:
             _LOG.warning('No rules found by filters')
-            raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
-                'No rules left after filtering'
-            ).exc()
+            raise (
+                ResponseFactory(HTTPStatus.BAD_REQUEST)
+                .message('No rules left after filtering')
+                .exc()
+            )
 
         ruleset = self.ruleset_service.create(
             customer=customer,
             name=event.name,
-            version=event.version,
+            version=desired_version.to_str(),
             cloud=event.cloud,
             rules=[rule.name for rule in rules],
-            active=event.active,
-            event_driven=False,
-            status={
-                "code": "READY_TO_SCAN",
-                "last_update_time": utc_iso(),
-                "reason": "Assembled successfully"
-            },
-            allowed_for=[],
             licensed=False,
+            description=event.description,
         )
+        # TODO: add changelog or metadata from release
         self.upload_ruleset(ruleset, self.build_policy(rules))
         self.ruleset_service.save(ruleset)
-        return build_response(self.ruleset_service.dto(
-            ruleset, params_to_exclude={RULES_ATTR, S3_PATH_ATTR}
-        ), code=HTTPStatus.CREATED)
+        return build_response(
+            self.ruleset_service.dto(
+                ruleset, params_to_exclude={RULES_ATTR, S3_PATH_ATTR}
+            ),
+            code=HTTPStatus.CREATED,
+        )
 
     @staticmethod
     def build_policy(rules: list[Rule]) -> dict:
-        return {'policies': [
-            rule.build_policy() for rule in rules
-        ]}
+        return {'policies': [rule.build_policy() for rule in rules]}
 
     def upload_ruleset(self, ruleset: Ruleset, content: dict) -> None:
         """
@@ -448,140 +438,243 @@ class RulesetHandler(AbstractHandler):
         :return:
         """
         bucket = self.environment_service.get_rulesets_bucket_name()
-        key = self.ruleset_service.build_s3_key(ruleset)
-        self.s3_client.gz_put_json(
-            bucket=bucket,
-            key=key,
-            obj=content
+        version = ruleset.version
+        assert version, 'Ruleset version must be set'
+        key = RulesetsBucketKeys.standard_ruleset_key(
+            customer=ruleset.customer,
+            name=ruleset.name,
+            version=version
         )
-        self.ruleset_service.set_s3_path(ruleset, bucket=bucket,
-                                         key=key)
+        self.s3_client.gz_put_json(bucket=bucket, key=key, obj=content)
+        self.ruleset_service.set_s3_path(ruleset, bucket=bucket, key=key)
 
     @validate_kwargs
     def update_ruleset(self, event: RulesetPatchModel):
-        customer = event.customer or SYSTEM_CUSTOMER
-
-        ruleset_to_update = self.ruleset_service.get_standard(
-            customer=customer,
-            name=event.name,
-            version=event.version
-        )
-        if not ruleset_to_update:
-            raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
-                f'Ruleset {event.name}:{event.version} not found'
-            ).exc()
-        s3_path = ruleset_to_update.s3_path.as_dict()
-        if not s3_path:
-            return build_response(code=HTTPStatus.BAD_REQUEST,
-                                  content='Cannot update empty ruleset')
-
-        if event.rules_to_attach or event.rules_to_detach:
-            content = self.s3_client.gz_get_json(
-                bucket=s3_path.get('bucket_name'),
-                key=s3_path.get('path')
-            )
-            name_body = self.rule_name_to_body(content)
-            for to_detach in event.rules_to_detach:
-                name_body.pop(to_detach, None)
-
-            for rule in event.rules_to_attach:
-                item = self.rule_service.get_latest_rule(
-                    customer, ruleset_to_update.cloud, rule
+        customer = event.customer or SystemCustomer.get_name()
+        if not event.force and self.ruleset_service.get_standard(
+            customer=customer, name=event.name, version=event.new_version
+        ):
+            raise (
+                ResponseFactory(HTTPStatus.CONFLICT)
+                .message(
+                    f'Ruleset {event.name} with version {event.new_version} already exists'
                 )
-                if not item:
-                    return build_response(
-                        code=HTTPStatus.NOT_FOUND,
-                        content=self.rule_service.not_found_message(rule)
-                    )
-                name_body[item.name] = item.build_policy()
-            ruleset_to_update.rules = list(name_body.keys())
-            self.upload_ruleset(ruleset_to_update,
-                                {'policies': list(name_body.values())})
+                .exc()
+            )
 
-        was_active = ruleset_to_update.active
-        if isinstance(event.active, bool):
-            ruleset_to_update.active = event.active
-        if not was_active and ruleset_to_update.active:
-            _LOG.debug('Ruleset to update became active. Deactivation '
-                       'previous rulesets')
-            previous = self.ruleset_service.get_previous_ruleset(
-                ruleset_to_update)
-            for item in previous:
-                item.active = False
-                self.ruleset_service.save(item)
-        self.ruleset_service.set_ruleset_status(ruleset_to_update)
-        self.ruleset_service.save(ruleset_to_update)
+        if not event.version:
+            _LOG.debug(
+                'Ruleset version was not specified. Updating the latest one'
+            )
+            ruleset = self.ruleset_service.get_latest(
+                customer=customer, name=event.name
+            )
+            if not ruleset:
+                raise (
+                    ResponseFactory(HTTPStatus.NOT_FOUND)
+                    .message(f'There not any rulesets with name {event.name}')
+                    .exc()
+                )
+        else:
+            _LOG.debug('Ruleset version was provided. Trying to resolve')
+            ruleset = self.ruleset_service.get_standard(
+                customer=customer,
+                name=event.name,
+                version=Version(event.version).to_str(),
+            )
+            if not ruleset:
+                raise (
+                    ResponseFactory(HTTPStatus.NOT_FOUND)
+                    .message(
+                        f'Ruleset {event.name} with version '
+                        f'{event.version} not found'
+                    )
+                    .exc()
+                )
+
+        # by here we have the ruleset we want to update
+        s3_path = ruleset.s3_path.as_dict()
+        if not s3_path:
+            # should never happen
+            raise (
+                ResponseFactory(HTTPStatus.BAD_REQUEST)
+                .message('Cannot update an empty ruleset')
+                .exc()
+            )
+
+        content = self.s3_client.gz_get_json(
+            bucket=s3_path['bucket_name'], key=s3_path['path']
+        )
+        name_body = self._rule_name_to_body(cast(dict, content))
+        hash_before = self.ruleset_service.hash_from_name_to_body(name_body)
+
+        # updated versions of needed rules must be present in a new ruleset
+        needed_rules = set(ruleset.rules)
+        new_name_body = {}
+
+        if event.rules_to_detach:
+            resolved = RuleNamesResolver(name_body.keys()).resolved_names(
+                event.rules_to_detach
+            )
+            for to_detach in resolved:
+                needed_rules.discard(to_detach)
+
+        # TODO: can be optimized for only one rules query
+        for rule in event.rules_to_attach:
+            item = self.rule_service.resolve_rule(
+                customer=customer, name_prefix=rule, cloud=ruleset.cloud
+            )
+            if not item:
+                raise (
+                    ResponseFactory(HTTPStatus.NOT_FOUND)
+                    .message(self.rule_service.not_found_message(rule))
+                    .exc()
+                )
+            new_name_body[item.name] = item.build_policy()
+            needed_rules.discard(item.name)
+
+        _LOG.debug(f'Querying all the rules for cloud {ruleset.cloud}')
+        for rule_item in self.rule_service.get_by_id_index(
+            customer, ruleset.cloud
+        ):
+            if rule_item.name in needed_rules:
+                new_name_body[rule_item.name] = rule_item.build_policy()
+                needed_rules.discard(rule_item.name)
+        if needed_rules:
+            _LOG.warning(
+                'Some missing rules has left. It means that these rules '
+                'were probably removed from the rulesource so the one '
+                'ruleset does not contain them after being updated'
+            )
+
+        hash_after = self.ruleset_service.hash_from_name_to_body(new_name_body)
+        if not event.force and hash_before == hash_after:
+            raise (
+                ResponseFactory(HTTPStatus.CONFLICT)
+                .message(
+                    'No changes detected in rules. Use force update if you still want to create a new version'
+                )
+                .exc()
+            )
+
+        ruleset.version = Version(event.new_version).to_str()
+        ruleset.rules = list(new_name_body)
+        ruleset.created_at = utc_iso()
+        if event.description is not None:
+            ruleset.description = event.description
+
+        self.upload_ruleset(ruleset, {'policies': list(new_name_body.values())})
+
+        self.ruleset_service.save(ruleset)
 
         return build_response(
             code=HTTPStatus.OK,
             content=self.ruleset_service.dto(
-                ruleset_to_update,
-                {S3_PATH_ATTR, RULES_ATTR, EVENT_DRIVEN_ATTR}
-            )
+                ruleset, {S3_PATH_ATTR, RULES_ATTR, EVENT_DRIVEN_ATTR}
+            ),
         )
 
     @staticmethod
-    def rule_name_to_body(content: dict) -> dict:
-        res = {}
-        for item in content.get('policies', []):
-            res[item.get('name')] = item
-        return res
+    def _rule_name_to_body(content: dict) -> dict:
+        return {p['name']: p for p in content.get('policies') or ()}
 
     @validate_kwargs
     def delete_ruleset(self, event: RulesetDeleteModel):
-        customer = event.customer or SYSTEM_CUSTOMER
+        customer = event.customer or SystemCustomer.get_name()
 
-        ruleset = self.ruleset_service.get_standard(
-            customer=customer,
-            name=event.name,
-            version=event.version
-        )
-        if not ruleset:
-            raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
-                f'Ruleset {event.name}:{event.version} not found'
-            ).exc()
-        previous = next(
-            self.ruleset_service.get_previous_ruleset(ruleset, limit=1), None
-        )
-        if previous:
-            _LOG.info('Previous version of ruleset is found. Making it active')
-            if not previous.active:
-                previous.active = True
-            self.ruleset_service.save(previous)
-
-        self.ruleset_service.delete(ruleset)
+        if event.is_all_versions:
+            _LOG.debug('Removing all versions of a specific ruleset')
+            items = self.ruleset_service.iter_standard(
+                customer=customer, name=event.name
+            )
+            with ThreadPoolExecutor() as ex:
+                ex.map(self.ruleset_service.delete, items)
+        else:
+            _LOG.debug('Removing a specific version of a ruleset')
+            item = self.ruleset_service.get_standard(
+                customer=customer,
+                name=event.name,
+                version=Version(event.version).to_str(),
+            )
+            if item:
+                self.ruleset_service.delete(item)
         return build_response(code=HTTPStatus.NO_CONTENT)
 
     @validate_kwargs
-    def pull_ruleset_content(self, event: RulesetContentGetModel):
-
-        customer = event.customer or SYSTEM_CUSTOMER
-        name = event.name
-        version = event.version
-
-        ruleset = self.ruleset_service.get_standard(
-            customer=customer, name=name, version=version
-        )
-        if not ruleset:
-            _LOG.info(f'No rulesets with the name \'{name}\', version '
-                      f'{version} in the customer {customer}')
-            return build_response(
-                code=HTTPStatus.NOT_FOUND,
-                content=f'The ruleset \'{name}\' version {version} '
-                        f'in the customer {customer} does not exist'
+    def release_ruleset(self, event: RulesetReleasePostModel):
+        customer = event.customer or SystemCustomer.get_name()
+        client = self.license_manager_service.cl
+        if not isinstance(client, LMClientAfter3p0):
+            raise (
+                ResponseFactory(HTTPStatus.NOT_IMPLEMENTED)
+                .message(
+                    'The linked License Manager does not support this operation'
+                )
+                .exc()
             )
-        s3_path = ruleset.s3_path.as_dict()
-        if not s3_path:
-            return build_response(
-                code=HTTPStatus.NOT_FOUND,
-                content=f'The ruleset \'{name}\' version {version} '
-                        f'in the customer {customer} has not yet been '
-                        f'successfully assembled'
+        if event.is_all_versions:
+            rulesets = list(
+                self.ruleset_service.iter_standard(
+                    customer=customer, name=event.name
+                )
             )
-        # by default all new files have this header in metadata. But some
-        # old gzipped files can have octet-stream type, so
-        # I forcefully set the right encoding for response
-        return build_response(
-            code=HTTPStatus.OK,
-            content=self.ruleset_service.download_url(ruleset)
-        )
+        elif event.version:
+            ruleset = self.ruleset_service.get_standard(
+                customer=customer,
+                name=event.name,
+                version=Version(event.version).to_str(),
+            )
+            if not ruleset:
+                raise (
+                    ResponseFactory(HTTPStatus.NOT_FOUND)
+                    .message(
+                        f'Ruleset with name {event.name} and '
+                        f'version {event.version} not found'
+                    )
+                    .exc()
+                )
+            rulesets = [ruleset]
+        else:
+            ruleset = self.ruleset_service.get_latest(
+                customer=customer, name=event.name
+            )
+            if not ruleset:
+                raise (
+                    ResponseFactory(HTTPStatus.NOT_FOUND)
+                    .message(f'No rulesets with name {event.name} exist')
+                    .exc()
+                )
+            rulesets = [ruleset]
+        responses = []
+        for rs in rulesets:
+            result = client.post_ruleset(
+                name=rs.name,
+                version=rs.version,
+                cloud=rs.cloud,
+                description=event.description,
+                display_name=event.display_name,
+                download_url=self.ruleset_service.download_url(rs),
+                rules=rs.rules,
+                overwrite=event.overwrite,
+            )
+            if not result:
+                code = HTTPStatus.SERVICE_UNAVAILABLE
+                released = False
+                message = 'Problem with the License Manager occurred'
+            else:
+                code, message = result
+                released = code is HTTPStatus.CREATED
+            responses.append(
+                dict(
+                    name=rs.name,
+                    version=rs.version,
+                    released=released,
+                    message=message,
+                    code=code,
+                )
+            )
+        if all([item['released'] for item in responses]):
+            result_code = HTTPStatus.CREATED
+        else:
+            result_code = HTTPStatus.MULTI_STATUS
+        return build_response(code=result_code, content=responses)

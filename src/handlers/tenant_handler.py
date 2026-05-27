@@ -1,18 +1,18 @@
-from functools import cached_property
 from http import HTTPStatus
 from itertools import islice
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 import uuid
 
 from botocore.exceptions import ClientError
 from modular_sdk.models.parent import Parent
-from modular_sdk.models.pynamodb_extension.base_model import LastEvaluatedKey as Lek
 from modular_sdk.models.region import RegionModel
 from modular_sdk.models.tenant import Tenant
+from pynamodb.expressions.condition import Condition
 
 from handlers import AbstractHandler, Mapping
+from helpers import NextToken
 from helpers.constants import (
-    CustodianEndpoint,
+    Endpoint,
     DEFAULT_OWNER_ATTR,
     HTTPMethod,
     PRIMARY_CONTACTS_ATTR,
@@ -28,6 +28,7 @@ from helpers.time_helper import utc_iso
 from services import SP
 from services import modular_helpers
 from services.license_service import License, LicenseService
+from services.rbac_service import TenantsAccessPayload
 from validators.swagger_request_models import (
     BaseModel,
     MultipleTenantsGetModel,
@@ -82,24 +83,24 @@ class TenantHandler(AbstractHandler):
         dct.pop('read_only', None)
         return dct
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.TENANTS: {
+            Endpoint.TENANTS: {
                 HTTPMethod.GET: self.query,
                 # HTTPMethod.POST: self.post
             },
-            CustodianEndpoint.TENANTS_TENANT_NAME: {
+            Endpoint.TENANTS_TENANT_NAME: {
                 HTTPMethod.GET: self.get,
                 # HTTPMethod.DELETE: self.delete
             },
-            # CustodianEndpoint.TENANTS_TENANT_NAME_REGIONS: {
+            # Endpoint.TENANTS_TENANT_NAME_REGIONS: {
             #     HTTPMethod.POST: self.add_region
             # },
-            CustodianEndpoint.TENANTS_TENANT_NAME_ACTIVE_LICENSES: {
+            Endpoint.TENANTS_TENANT_NAME_ACTIVE_LICENSES: {
                 HTTPMethod.GET: self.get_tenant_active_license
             },
-            CustodianEndpoint.TENANTS_TENANT_NAME_EXCLUDED_RULES: {
+            Endpoint.TENANTS_TENANT_NAME_EXCLUDED_RULES: {
                 HTTPMethod.PUT: self.set_excluded_rules,
                 HTTPMethod.GET: self.get_excluded_rules
             }
@@ -122,22 +123,32 @@ class TenantHandler(AbstractHandler):
         return build_response(self.get_dto(tenant))
 
     @validate_kwargs
-    def query(self, event: MultipleTenantsGetModel):
-        old_lek = Lek.deserialize(event.next_token)
-        new_lek = Lek()
+    def query(
+        self,
+        event: MultipleTenantsGetModel,
+        _tap: TenantsAccessPayload,
+    ):
+        tap_fc, no_tn = self._tenant_access_filter_condition(_tap)
+        if no_tn:
+            _LOG.debug('No tenants are allowed, returning empty result')
+            return (
+                ResponseFactory()
+                .items(it=(), next_token=NextToken())
+                .build()
+            )
 
         cursor = self._ts.i_get_tenant_by_customer(
             customer_id=event.customer,
             active=event.active,
             cloud=event.cloud.value if event.cloud else None,
+            filter_condition=tap_fc,
             limit=event.limit,
-            last_evaluated_key=old_lek.value
+            last_evaluated_key=NextToken.deserialize(event.next_token).value,
         )
         items = list(cursor)
-        new_lek.value = cursor.last_evaluated_key
         return ResponseFactory(HTTPStatus.OK).items(
             it=map(self.get_dto, items),
-            next_token=new_lek.serialize() if new_lek else None
+            next_token=NextToken(cursor.last_evaluated_key)
         ).build()
 
     @validate_kwargs
@@ -201,7 +212,10 @@ class TenantHandler(AbstractHandler):
         if not tenant:
             raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
                 'Tenant not found').exc()
-        if event.region in modular_helpers.get_tenant_regions(tenant):
+        if event.region in modular_helpers.get_tenant_regions(
+            tenant,
+            self._tss
+        ):
             return build_response(
                 code=HTTPStatus.CONFLICT,
                 content=f'Region: {event.region} already active for tenant'
@@ -292,3 +306,19 @@ class TenantHandler(AbstractHandler):
         data['tenant_name'] = tenant.name
         return build_response(data)
 
+    @staticmethod
+    def _tenant_access_filter_condition(
+        tap: TenantsAccessPayload,
+    ) -> tuple[Condition | None, bool]:
+        """
+        Build a filter for tenants visible under tap.
+        """
+        allowed, denied = tap.allowed_denied()
+        if allowed is not TenantsAccessPayload.ALL:
+            if not allowed:
+                return None, True
+            allow_names = cast(tuple[str, ...], allowed)
+            return Tenant.name.is_in(*allow_names), False
+        if denied:
+            return ~Tenant.name.is_in(*denied), False
+        return None, False

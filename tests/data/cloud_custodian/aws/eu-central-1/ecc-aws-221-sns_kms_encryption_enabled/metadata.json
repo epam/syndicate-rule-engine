@@ -1,0 +1,81 @@
+{
+  "policy": {
+    "name": "ecc-aws-221-sns_kms_encryption_enabled",
+    "resource": "sns",
+    "description": "Description for ecc-aws-221-sns_kms_encryption_enabled",
+    "comment": "010042022000"
+  },
+  "version": "0.9.40",
+  "execution": {
+    "id": "92ff30b6-84e1-4857-bae5-b74449984cce",
+    "start": 1729253768.087648,
+    "end_time": 1729253769.274071,
+    "duration": 1.1864230632781982
+  },
+  "config": {
+    "region": "eu-central-1",
+    "regions": [
+      "all"
+    ],
+    "cache": "cloud-custodian.cache",
+    "profile": null,
+    "account_id": "123456789012",
+    "assume_role": null,
+    "session_policy": null,
+    "external_id": null,
+    "log_group": null,
+    "tracer": "default",
+    "metrics_enabled": false,
+    "metrics": null,
+    "output_dir": "./eu-central-1",
+    "cache_period": 120,
+    "dryrun": false,
+    "authorization_file": null,
+    "command": "c7n.commands.run",
+    "config": null,
+    "configs": [],
+    "subparser": "run",
+    "policy_filters": [],
+    "resource_types": [],
+    "verbose": null,
+    "quiet": false,
+    "debug": false,
+    "skip_validation": false,
+    "vars": null
+  },
+  "sys-stats": {
+    "snapshot_time": 1.1863980293273926,
+    "cache_size": 8192,
+    "num_fds": 1,
+    "cpu_user": 0.0876067840000001,
+    "cpu_system": 0.01279193600000017,
+    "num_ctx_switches_voluntary": 588,
+    "rss": 65536,
+    "pfaults": 69
+  },
+  "api-stats": {
+    "sns.ListTopics": 1,
+    "sns.GetTopicAttributes": 7,
+    "tagging.GetResources": 1
+  },
+  "metrics": [
+    {
+      "MetricName": "ResourceCount",
+      "Timestamp": "2024-10-18T15:16:09.273087",
+      "Value": 3,
+      "Unit": "Count"
+    },
+    {
+      "MetricName": "ResourceTime",
+      "Timestamp": "2024-10-18T15:16:09.273098",
+      "Value": 1.1834468841552734,
+      "Unit": "Seconds"
+    },
+    {
+      "MetricName": "ActionTime",
+      "Timestamp": "2024-10-18T15:16:09.274058",
+      "Value": 3.814697265625e-06,
+      "Unit": "Seconds"
+    }
+  ]
+}

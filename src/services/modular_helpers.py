@@ -3,26 +3,50 @@ Provides some modular sdk helper functions and classes
 """
 
 from http import HTTPStatus
-from typing import Iterable, Iterator, Literal
-from typing_extensions import Self
+from typing import (
+    Generator,
+    Iterable,
+    Iterator,
+    Literal,
+    cast,
+    overload,
+)
 
 from modular_sdk.commons.constants import ParentScope, ParentType
 from modular_sdk.models.parent import Parent
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.parent_service import ParentService
+from modular_sdk.services.tenant_service import TenantService
+from modular_sdk.services.tenant_settings_service import TenantSettingsService
+from typing_extensions import Self
 
-from helpers.constants import Cloud
 from helpers import MultipleCursorsWithOneLimitIterator
+from helpers.constants import TENANTS_QUERY_THRESHOLD, Cloud, \
+    TS_SCAN_HIDDEN_REGIONS, ENABLED
+from helpers.exceptions import CloudNotSupportedError
 from helpers.lambda_response import ResponseFactory
+from helpers.log_helper import get_logger
+
+_LOG = get_logger(__name__)
 
 
 class ResolveParentsPayload:
-    __slots__ = ('parents', 'tenant_names', 'exclude_tenants', 'clouds',
-                 'all_tenants')
+    __slots__ = (
+        'parents',
+        'tenant_names',
+        'exclude_tenants',
+        'clouds',
+        'all_tenants',
+    )
 
-    def __init__(self, parents: list[Parent], tenant_names: set[str],
-                 exclude_tenants: set[str], clouds: set[str],
-                 all_tenants: bool):
+    def __init__(
+        self,
+        parents: list[Parent],
+        tenant_names: set[str],
+        exclude_tenants: set[str],
+        clouds: set[str],
+        all_tenants: bool,
+    ):
         self.parents = parents
         self.tenant_names = tenant_names
         self.exclude_tenants = exclude_tenants
@@ -32,7 +56,8 @@ class ResolveParentsPayload:
     def __repr__(self) -> str:
         inner = ', '.join(
             f'{sl}={getattr(self, sl)}'
-            for sl in self.__slots__ if sl not in ('parents', )
+            for sl in self.__slots__
+            if sl not in ('parents',)
         )
         return f'{self.__class__.__name__}({inner})'
 
@@ -67,12 +92,13 @@ class ResolveParentsPayload:
             tenant_names=tenant_names,
             exclude_tenants=exclude_tenants,
             clouds=clouds,
-            all_tenants=all_tenants
+            all_tenants=all_tenants,
         )
 
 
-def get_main_scope(parents: list[Parent]
-                   ) -> Literal[ParentScope.ALL, ParentScope.SPECIFIC]:
+def get_main_scope(
+    parents: list[Parent],
+) -> Literal[ParentScope.ALL, ParentScope.SPECIFIC]:
     """
     Currently we can have either ALL with disabled or SPECIFIC.
     """
@@ -85,8 +111,9 @@ def get_main_scope(parents: list[Parent]
             return ParentScope.SPECIFIC
 
 
-def split_into_to_keep_to_delete(payload: ResolveParentsPayload
-                                 ) -> tuple[set[Parent], set[Parent]]:
+def split_into_to_keep_to_delete(
+    payload: ResolveParentsPayload,
+) -> tuple[set[Parent], set[Parent]]:
     """
     It distributes the given parents list into two groups: parents that should
     be kept and parents that should be removed (based on provided params).
@@ -101,16 +128,31 @@ def split_into_to_keep_to_delete(payload: ResolveParentsPayload
 
     while payload.parents:
         parent = payload.parents.pop()
-        if parent.scope == ParentScope.SPECIFIC and parent.tenant_name in payload.tenant_names:
+        if (
+            parent.scope == ParentScope.SPECIFIC
+            and parent.tenant_name in payload.tenant_names
+        ):
             to_keep.add(parent)
             payload.tenant_names.remove(parent.tenant_name)
-        elif parent.scope == ParentScope.DISABLED and parent.tenant_name in payload.exclude_tenants:
+        elif (
+            parent.scope == ParentScope.DISABLED
+            and parent.tenant_name in payload.exclude_tenants
+        ):
             to_keep.add(parent)
             payload.exclude_tenants.remove(parent.tenant_name)
-        elif parent.scope == ParentScope.ALL and not parent.cloud and payload.all_tenants and not payload.clouds:
+        elif (
+            parent.scope == ParentScope.ALL
+            and not parent.cloud
+            and payload.all_tenants
+            and not payload.clouds
+        ):
             to_keep.add(parent)
             payload.all_tenants = False
-        elif parent.scope == ParentScope.ALL and parent.cloud in payload.clouds and payload.all_tenants:
+        elif (
+            parent.scope == ParentScope.ALL
+            and parent.cloud in payload.clouds
+            and payload.all_tenants
+        ):
             to_keep.add(parent)
             payload.clouds.remove(parent.cloud)
             if not payload.clouds:
@@ -120,11 +162,16 @@ def split_into_to_keep_to_delete(payload: ResolveParentsPayload
     return to_keep, to_delete
 
 
-def build_parents(payload: ResolveParentsPayload,
-                  parent_service: ParentService, application_id: str,
-                  customer_id: str, type_: ParentType, created_by: str,
-                  description: str = 'Rule Engine auto-created parent',
-                  meta: dict | None = None) -> set[Parent]:
+def build_parents(
+    payload: ResolveParentsPayload,
+    parent_service: ParentService,
+    application_id: str,
+    customer_id: str,
+    type_: ParentType,
+    created_by: str,
+    description: str = 'Rule Engine auto-created parent',
+    meta: dict | None = None,
+) -> set[Parent]:
     """
 
     :param payload:
@@ -142,33 +189,51 @@ def build_parents(payload: ResolveParentsPayload,
 
     to_create = set()
     for tenant in payload.tenant_names:
-        to_create.add(ps.create_tenant_scope(
-            application_id=application_id,
-            customer_id=customer_id,
-            type_=type_,
-            tenant_name=tenant,
-            disabled=False,
-            created_by=created_by,
-            is_deleted=False,
-            description=description,
-            meta=meta,
-        ))
+        to_create.add(
+            ps.create_tenant_scope(
+                application_id=application_id,
+                customer_id=customer_id,
+                type_=type_,
+                tenant_name=tenant,
+                disabled=False,
+                created_by=created_by,
+                is_deleted=False,
+                description=description,
+                meta=meta,
+            )
+        )
     for tenant in payload.exclude_tenants:
-        to_create.add(ps.create_tenant_scope(
-            application_id=application_id,
-            customer_id=customer_id,
-            type_=type_,
-            tenant_name=tenant,
-            disabled=True,
-            created_by=created_by,
-            is_deleted=False,
-            description=description,
-            meta=meta,
-        ))
+        to_create.add(
+            ps.create_tenant_scope(
+                application_id=application_id,
+                customer_id=customer_id,
+                type_=type_,
+                tenant_name=tenant,
+                disabled=True,
+                created_by=created_by,
+                is_deleted=False,
+                description=description,
+                meta=meta,
+            )
+        )
     if payload.all_tenants:
         if payload.clouds:
             for cloud in payload.clouds:
-                to_create.add(ps.create_all_scope(
+                to_create.add(
+                    ps.create_all_scope(
+                        application_id=application_id,
+                        customer_id=customer_id,
+                        type_=type_,
+                        created_by=created_by,
+                        is_deleted=False,
+                        description=description,
+                        meta=meta,
+                        cloud=cloud,
+                    )
+                )
+        else:
+            to_create.add(
+                ps.create_all_scope(
                     application_id=application_id,
                     customer_id=customer_id,
                     type_=type_,
@@ -176,38 +241,71 @@ def build_parents(payload: ResolveParentsPayload,
                     is_deleted=False,
                     description=description,
                     meta=meta,
-                    cloud=cloud
-                ))
-        else:
-            to_create.add(ps.create_all_scope(
-                application_id=application_id,
-                customer_id=customer_id,
-                type_=type_,
-                created_by=created_by,
-                is_deleted=False,
-                description=description,
-                meta=meta,
-            ))
+                )
+            )
     return to_create
 
 
-def get_activation_dto(parents: Iterable[Parent]) -> dict:
-    result = {
-        'activated_for_all': False,
-        'within_clouds': [],
-        'excluding': [],
-        'activated_for': []
-    }
+class ActivationInfo:
+    __slots__ = 'is_all', 'clouds', 'including', 'excluding'
+
+    def __init__(
+        self,
+        is_all: bool,
+        clouds: set[str],
+        including: set[str],
+        excluding: set[str],
+    ):
+        self.is_all = is_all
+        self.clouds = clouds
+        self.including = including
+        self.excluding = excluding
+
+    def is_active_for(self, tenant: 'Tenant') -> bool:
+        if tenant.name in self.excluding:
+            return False
+        # definitely not excluded
+        if not self.is_all:
+            return tenant.name in self.including
+        # is all
+        if self.clouds and tenant.cloud not in self.clouds:
+            return False
+        return True
+
+
+def get_activation_info(parents: Iterable[Parent]) -> ActivationInfo:
+    """
+    Given a collection of scoped parents of the same type, this function gives information whether:
+    - logic is activated for all tenants (optionally within some clouds)
+    - for specific tenants (optionally excluding some)
+    """
+    is_all = False
+    clouds = set()
+    including = set()
+    excluding = set()
     for parent in parents:
         match parent.scope:
             case ParentScope.SPECIFIC:
-                result['activated_for'].append(parent.tenant_name)
+                including.add(parent.tenant_name)
             case ParentScope.DISABLED:
-                result['excluding'].append(parent.tenant_name)
+                excluding.add(parent.tenant_name)
             case _:  # ALL
-                result['activated_for_all'] = True
-                if parent.cloud:
-                    result['within_clouds'].append(parent.cloud)
+                is_all = True
+                if cl := parent.cloud:
+                    clouds.add(cl)
+    return ActivationInfo(
+        is_all=is_all, clouds=clouds, including=including, excluding=excluding
+    )
+
+
+def get_activation_dto(parents: Iterable[Parent]) -> dict:
+    info = get_activation_info(parents)
+    result = {
+        'activated_for_all': info.is_all,
+        'within_clouds': sorted(info.clouds),
+        'excluding': sorted(info.excluding),
+        'activated_for': sorted(info.including),
+    }
     if result['activated_for_all']:
         result.pop('activated_for')
     if not result['within_clouds']:
@@ -224,9 +322,14 @@ class LinkedParentsIterator(Iterator[Parent]):
 
     # TODO, maybe move to modular sdk
 
-    def __init__(self, parent_service: ParentService, tenant: Tenant,
-                 type_: ParentType, limit: int | None = None,
-                 check_disabled_for_specific: bool = False):
+    def __init__(
+        self,
+        parent_service: ParentService,
+        tenant: Tenant,
+        type_: ParentType,
+        limit: int | None = None,
+        check_disabled_for_specific: bool = False,
+    ):
         self._ps = parent_service
         self._tenant = tenant
         self._type = type_
@@ -245,7 +348,7 @@ class LinkedParentsIterator(Iterator[Parent]):
                 type_=self._type,
                 tenant_name=self._tenant.name,
                 disabled=False,
-                limit=limit
+                limit=limit,
             )
 
         def i_cloud(limit):
@@ -253,79 +356,168 @@ class LinkedParentsIterator(Iterator[Parent]):
                 customer_id=self._tenant.customer_name,
                 type_=self._type,
                 cloud=self._tenant.cloud,
-                limit=limit
+                limit=limit,
             )
 
         def i_all(limit):
             return self._ps.get_by_all_scope(
                 customer_id=self._tenant.customer_name,
                 type_=self._type,
-                limit=limit
+                limit=limit,
             )
 
-        self._it = iter(MultipleCursorsWithOneLimitIterator(
-            self._limit, i_specific, i_cloud, i_all
-        ))
+        self._it = iter(
+            MultipleCursorsWithOneLimitIterator(
+                self._limit, i_specific, i_cloud, i_all
+            )
+        )
         return self
 
     def __next__(self) -> Parent:
         _applications = self._applications
         while True:
             parent = next(self._it)
-            if (parent.scope == ParentScope.SPECIFIC.value
-                    and not self._check_disabled_for_specific):
+            if (
+                parent.scope == ParentScope.SPECIFIC.value
+                and not self._check_disabled_for_specific
+            ):
                 # return immediately ignoring disabled
                 return parent
 
             application_id = parent.application_id
             if application_id not in _applications:
                 # looking for disabled
-                disabled = next(self._ps.i_list_application_parents(
-                    application_id=application_id,
-                    type_=self._type,
-                    scope=ParentScope.DISABLED,
-                    tenant_or_cloud=self._tenant.name,
-                    limit=1
-                ), None)
+                disabled = next(
+                    self._ps.i_list_application_parents(
+                        application_id=application_id,
+                        type_=self._type,
+                        scope=ParentScope.DISABLED,
+                        tenant_or_cloud=self._tenant.name,
+                        limit=1,
+                    ),
+                    None,
+                )
                 _applications[application_id] = not disabled
             if _applications[application_id]:  # if enabled
                 return parent
 
 
-def is_tenant_valid(tenant: Tenant | None = None,
-                    customer: str | None = None) -> bool:
-    if not tenant or (customer and tenant.customer_name != customer
-                      or not tenant.is_active):
+def is_tenant_valid(
+    tenant: Tenant | None = None,
+    customer: str | None = None,
+) -> bool:
+    if not tenant or (
+        customer and tenant.customer_name != customer or not tenant.is_active
+    ):
         return False
     return True
 
 
-def assert_tenant_valid(tenant: Tenant | None = None,
-                        customer: str | None = None):
+def assert_tenant_valid(
+    tenant: Tenant | None = None, customer: str | None = None
+) -> Tenant:
     if not is_tenant_valid(tenant, customer):
         generic = 'No active tenant could be found.'
-        template = 'Active tenant \'{tdn}\' not found'
-        issue = template.format(
-            tdn=tenant.name) if tenant else generic
+        template = "Active tenant '{tdn}' not found"
+        issue = template.format(tdn=tenant.name) if tenant else generic
         raise ResponseFactory(HTTPStatus.NOT_FOUND).message(issue).exc()
+    return cast(Tenant, tenant)
 
 
-def get_tenant_regions(tenant: Tenant) -> set[str]:
+def get_tenant_regions(tenant: Tenant, tss: TenantSettingsService) -> set[str]:
     """
     Returns active tenant's regions
     """
     # Maestro's regions in tenants have attribute "is_active" ("act").
     # But currently (22.06.2023) they ignore it. They deem all the
     # regions listed in an active tenant to be active as well. So do we
-    tenant_json = tenant.get_json()
-    return {
-        r.get('native_name') for r in tenant_json.get('regions') or []
-        if r.get('is_hidden') is not True
-    }
+    scan_hidden_setting = tss.get(
+        tenant_name=tenant.name, key=TS_SCAN_HIDDEN_REGIONS
+    )
+    scan_hidden = bool(
+        scan_hidden_setting.value.as_dict().get(ENABLED)
+        if scan_hidden_setting else False
+    )
+    _LOG.debug(f'SCAN_HIDDEN_REGIONS is resolved as {scan_hidden}')
+    regions = set()
+    for region in tenant.regions:
+        if bool(region.is_hidden) and not scan_hidden:
+            continue
+        regions.add(region.native_name)
+    return regions
 
 
-def tenant_cloud(tenant: Tenant) -> Cloud | None:
+@overload
+def tenant_cloud(
+    tenant: Tenant,
+    safe: Literal[False] = False,
+) -> Cloud: ...
+
+
+@overload
+def tenant_cloud(
+    tenant: Tenant,
+    safe: Literal[True],
+) -> Cloud | None: ...
+
+# TODO to deprecate this function. KeyError handled in the Cloud class.
+def tenant_cloud(
+    tenant: Tenant,
+    safe: bool = False
+) -> Cloud | None:
     try:
-        return Cloud[tenant.cloud.upper()]
-    except KeyError:
+        return Cloud.parse(tenant.cloud, safe=safe)
+    except CloudNotSupportedError as e:
+        base_msg = (
+            'There is probably a bug if we reach a '
+            f'tenant of not supported cloud: {tenant.cloud!r}.'
+        )
+        if safe:
+            _LOG.debug(
+                f'{base_msg} Returning None',
+            )
+            return None
+        raise AssertionError(base_msg) from e
+
+
+def iter_tenants_by_names(
+    tenant_service: TenantService,
+    customer: str,
+    names: Iterable[str],
+    attributes_to_get: list | tuple | None = None,
+) -> Generator[Tenant, None, None]:
+    names = set(names)
+    if not names:
         return
+
+    if len(names) > TENANTS_QUERY_THRESHOLD:
+        if attributes_to_get:
+            attributes_to_get = [*attributes_to_get, Tenant.name]
+        _LOG.debug(f'Need to fetch {len(names)} tenants. Querying')
+        it = tenant_service.i_get_tenant_by_customer(
+            customer_id=customer,
+            active=True,
+            attributes_to_get=attributes_to_get,
+        )
+        for tenant in it:
+            if tenant.name in names:
+                yield tenant
+    else:
+        _LOG.debug(f'Need to fetch {len(names)} tenants. Using get')
+        if attributes_to_get:
+            attributes_to_get = [
+                *attributes_to_get,
+                Tenant.name,
+                Tenant.is_active,
+                Tenant.customer_name,
+            ]
+        for name in names:
+            tenant = tenant_service.get(
+                name, attributes_to_get=attributes_to_get
+            )
+            if (
+                tenant
+                and tenant.is_active
+                and tenant.customer_name == customer
+            ):
+                yield tenant

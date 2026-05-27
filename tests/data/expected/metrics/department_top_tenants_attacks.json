@@ -1,0 +1,22 @@
+{
+  "data": [
+    {
+      "tenant_display_name": "testing",
+      "sort_by": 37,
+      "data": {
+        "GOOGLE": [],
+        "AWS": [
+          {
+            "tactic_id": "TA0009",
+            "tactic": "Collection",
+            "severity_data": {
+              "Unknown": 3
+            }
+          }
+        ],
+        "AZURE": []
+      }
+    }
+  ],
+  "outdated_tenants": []
+}

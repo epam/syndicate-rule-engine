@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "sre-obfuscator"
+description = "Syndicate Rule Engine data obfuscator"
+dynamic = ["version"]
+requires-python = ">=3.8"
+readme = "README.md"
+dependencies = []
+
+[project.optional-dependencies]
+xlsx = ["openpyxl==3.0.10"]
+
+
+[project.scripts]
+sreobf = "obfuscation_manager:main"
+
+
+[tool.setuptools.dynamic]
+version = {attr = "obfuscation_manager.__version__"}
+
+
+[tool.setuptools]
+py-modules = ["obfuscation_manager"]
+
+
+[tool.pyright]
+include = ["obfuscation_manager.py"]
+exclude = [
+    "**/__pycache__",
+]
+pythonVersion = "3.8"
+reportIncompatibleMethodOverride = "warning"

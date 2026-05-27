@@ -1,0 +1,160 @@
+{
+  "tenant_name": "AWS-TESTING",
+  "last_scan_date": "2025-05-25T00:15:40.754806Z",
+  "region": "eu-west-1",
+  "name": "test",
+  "type": "EKS",
+  "resources": [
+    {
+      "policy": "ecc-k8s-060-minimize_the_admission_of_hostpath_volumes",
+      "resource_type": "Pod",
+      "description": "Description for ecc-k8s-060-minimize_the_admission_of_hostpath_volumes",
+      "severity": "Medium",
+      "resources": [
+        {
+          "id": "3f287bc9-94dc-47b1-96a1-827dce683a92",
+          "name": "test-node-58cm6",
+          "sre:date": 1736955267.6884868,
+          "namespace": "kube-system"
+        }
+      ]
+    },
+    {
+      "policy": "ecc-k8s-058-sa_tokens_are_only_mounted_where_necessary",
+      "resource_type": "Service Account",
+      "description": "Description for ecc-k8s-058-sa_tokens_are_only_mounted_where_necessary",
+      "severity": "High",
+      "resources": [
+        {
+          "id": "337c51cd-35f0-4f47-b27e-55e61ab14921",
+          "name": "test-opertor-77hwxcq",
+          "sre:date": 1736955267.080916,
+          "namespace": "09c64sffas"
+        }
+      ]
+    },
+    {
+      "policy": "ecc-k8s-059-service_account_tokens_are_only_mounted_where_necessary_in_pods",
+      "resource_type": "Pod",
+      "description": "Description for ecc-k8s-059-service_account_tokens_are_only_mounted_where_necessary_in_pods",
+      "severity": "Info",
+      "resources": [
+        {
+          "id": "ae55fb56-619a-49af-b282-8e63cdee6b24",
+          "name": "test-pod-123l2hxk",
+          "sre:date": 1736955267.572546,
+          "namespace": "acf0f67f"
+        },
+        {
+          "id": "67d19da5-f0fe-4083-bf7e-7584127cb5a3",
+          "name": "frontend-app-7dfc594f8f-ch966",
+          "sre:date": 1736955267.572546,
+          "namespace": "team3-frontend-app-develop"
+        }
+      ]
+    }
+  ],
+  "compliance": {
+    "Standard1 v2.0.0": 0.25,
+    "Standard2": 0.125
+  },
+  "mitre": [
+    {
+      "region": "global",
+      "service": "Service Account",
+      "resource_type": "k8s.service-account",
+      "resource": {
+        "id": "337c51cd-35f0-4f47-b27e-55e61ab14921",
+        "name": "test-opertor-77hwxcq",
+        "sre:date": 1736955267.080916,
+        "namespace": "09c64sffas"
+      },
+      "attacks": [
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing0",
+          "technique_id": "T0",
+          "sub_technique_name": "sub0",
+          "sub_technique_id": "T0.0",
+          "severity": "High",
+          "violations": [
+            {
+              "description": "Description for ecc-k8s-058-sa_tokens_are_only_mounted_where_necessary",
+              "remediation": "",
+              "remediation_complexity": "Unknown",
+              "severity": "High"
+            }
+          ]
+        },
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing0",
+          "technique_id": "T0",
+          "sub_technique_name": "sub1",
+          "sub_technique_id": "T0.1",
+          "severity": "High",
+          "violations": [
+            {
+              "description": "Description for ecc-k8s-058-sa_tokens_are_only_mounted_where_necessary",
+              "remediation": "",
+              "remediation_complexity": "Unknown",
+              "severity": "High"
+            }
+          ]
+        },
+        {
+          "tactic_name": "Collection",
+          "tactic_id": "TA0009",
+          "technique_name": "testing1",
+          "technique_id": "T1",
+          "sub_technique_name": "sub0",
+          "sub_technique_id": "T1.0",
+          "severity": "High",
+          "violations": [
+            {
+              "description": "Description for ecc-k8s-058-sa_tokens_are_only_mounted_where_necessary",
+              "remediation": "",
+              "remediation_complexity": "Unknown",
+              "severity": "High"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "outdated_tenants": [],
+  "violated_rules": [
+    {
+      "id": "ecc-k8s-058-sa_tokens_are_only_mounted_where_necessary",
+      "description": "Description for ecc-k8s-058-sa_tokens_are_only_mounted_where_necessary",
+      "remediation": "",
+      "remediation_complexity": "Unknown",
+      "severity": "High",
+      "service": "Service Account",
+      "resource_type": "k8s.service-account",
+      "when": 1736955267.080916
+    },
+    {
+      "id": "ecc-k8s-059-service_account_tokens_are_only_mounted_where_necessary_in_pods",
+      "description": "Description for ecc-k8s-059-service_account_tokens_are_only_mounted_where_necessary_in_pods",
+      "remediation": "",
+      "remediation_complexity": "Unknown",
+      "severity": "Info",
+      "service": "Pod",
+      "resource_type": "k8s.pod",
+      "when": 1736955267.572546
+    },
+    {
+      "id": "ecc-k8s-060-minimize_the_admission_of_hostpath_volumes",
+      "description": "Description for ecc-k8s-060-minimize_the_admission_of_hostpath_volumes",
+      "remediation": "",
+      "remediation_complexity": "Unknown",
+      "severity": "Medium",
+      "service": "Pod",
+      "resource_type": "k8s.pod",
+      "when": 1736955267.6884868
+    }
+  ]
+}

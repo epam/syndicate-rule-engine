@@ -4,17 +4,29 @@ import operator
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Iterator, Optional
 
-from modular_sdk.commons.constants import ParentScope, ParentType
+from modular_sdk.commons.constants import (
+    ApplicationType,
+    ParentScope,
+    ParentType,
+)
 from modular_sdk.models.application import Application
 from modular_sdk.models.parent import Parent
 from modular_sdk.models.tenant import Tenant
 
 from helpers import NotHereDescriptor
-from helpers.constants import PlatformType, GLOBAL_REGION
-from services import SP
+from helpers.constants import (
+    GLOBAL_REGION,
+    PLATFORM_EVENT_DRIVEN_ENABLED_META,
+    PlatformType,
+)
 from services.base_data_service import BaseDataService
+
+
+if TYPE_CHECKING:
+    from modular_sdk.services.application_service import ApplicationService
+    from modular_sdk.services.parent_service import ParentService
 
 
 class Platform:
@@ -79,6 +91,15 @@ class PlatformService(BaseDataService[Platform]):
     batch_delete = NotHereDescriptor()
     batch_write = NotHereDescriptor()
 
+    def __init__(
+        self,
+        parent_service: 'ParentService',
+        application_service: 'ApplicationService',
+    ):
+        super().__init__()
+        self._ps = parent_service
+        self._aps = application_service
+
     def save(self, item: Platform):
         """
         Application secret must be saved beforehand
@@ -90,21 +111,76 @@ class PlatformService(BaseDataService[Platform]):
             item.application.save()
 
     def delete(self, item: Platform):
-        SP.modular_client.parent_service().mark_deleted(item.parent)
+        self._ps.mark_deleted(item.parent)
         app = item.application
         if app:
-            SP.modular_client.application_service().mark_deleted(app)
+            self._aps.mark_deleted(app)
 
-    def dto(self, item: Platform) -> dict[str, Any]:
-        return {
+    def dto(
+        self,
+        item: Platform,
+        event_driven_enabled: bool | None = None,
+    ) -> dict[str, Any]:
+        d: dict[str, Any] = {
             'id': item.id,
             'name': item.name,
             'tenant_name': item.tenant_name,
             'type': item.type,
             'description': item.description,
             'region': item.region,
-            'customer': item.customer
+            'customer': item.customer,
         }
+        if event_driven_enabled is None:
+            event_driven_enabled = self.get_event_driven_enabled(item)
+        d[PLATFORM_EVENT_DRIVEN_ENABLED_META] = event_driven_enabled
+        return d
+
+    def get_event_driven_enabled(self, platform: Platform) -> bool:
+        self.fetch_application(platform)
+        return self._event_driven_enabled_from_app(platform.application)
+
+    def set_event_driven_enabled(
+        self, platform: Platform, enabled: bool
+    ) -> None:
+        self.fetch_application(platform)
+        app = platform.application
+        if not app:
+            raise RuntimeError(f'Platform {platform.id} has no application')
+        meta = app.meta.as_dict() if app.meta else {}
+        meta[PLATFORM_EVENT_DRIVEN_ENABLED_META] = enabled
+        app.meta = meta
+        app.save()
+
+    def iter_by_event_driven_enabled(
+        self,
+        enabled: bool,
+        customer: str | None = None,
+        tenant_name: str | None = None,
+        limit: int | None = None,
+    ) -> Iterator[Platform]:
+        yielded = 0
+        for app in self._iter_k8s_apps_by_event_driven(
+            enabled=enabled, customer=customer, limit=limit
+        ):
+            if not self._is_k8s_app_type(app.type):
+                continue
+            parent = next(
+                self._ps.i_list_application_parents(
+                    application_id=app.application_id,
+                    type_=ParentType.PLATFORM_K8S,
+                    scope=ParentScope.SPECIFIC,
+                    tenant_or_cloud=tenant_name,
+                    by_prefix=False,
+                    limit=1,
+                ),
+                None,
+            )
+            if not parent:
+                continue
+            yield Platform(parent=parent, application=app)
+            yielded += 1
+            if limit and yielded >= limit:
+                break
 
     @staticmethod
     def generate_id(tenant_name: str, region: str, name: str) -> str:
@@ -112,12 +188,18 @@ class PlatformService(BaseDataService[Platform]):
             ''.join((tenant_name, region, name)).encode()).digest()
         return str(uuid.UUID(bytes=hs, version=3))
 
-    def create(self, tenant: Tenant, application: Application,
-               name: str, type_: PlatformType, created_by: str,
-               region: str | None,
-               description: str = 'Custodian created native k8s',
-               ) -> Platform:
-        parent = SP.modular_client.parent_service().build(
+    def create(
+        self,
+        tenant: Tenant,
+        application: Application,
+        name: str,
+        type_: PlatformType,
+        created_by: str,
+        region: str | None,
+        description: str = 'Custodian created native k8s',
+    ) -> Platform:
+
+        parent = self._ps.build(
             customer_id=tenant.customer_name,
             application_id=application.application_id,
             parent_type=ParentType.PLATFORM_K8S,
@@ -125,11 +207,18 @@ class PlatformService(BaseDataService[Platform]):
             description=description,
             meta={'name': name, 'region': region, 'type': type_.value},
             scope=ParentScope.SPECIFIC,
-            tenant_name=tenant.name
+            tenant_name=tenant.name,
         )
-        if type_ != PlatformType.SELF_MANAGED:
-            parent.parent_id = self.generate_id(tenant.name, region, name)
+
         return Platform(parent=parent, application=application)
+
+    def query_by_tenant(self, tenant: Tenant) -> Iterator[Platform]:
+        it = self._ps.get_by_tenant_scope(
+            customer_id=tenant.customer_name,
+            type_=ParentType.PLATFORM_K8S,
+            tenant_name=tenant.name,
+        )
+        return map(Platform, it)
 
     def get_nullable(self, *args, **kwargs) -> Optional[Platform]:
         parent = Parent.get_nullable(*args, **kwargs)
@@ -137,14 +226,55 @@ class PlatformService(BaseDataService[Platform]):
             return
         return Platform(parent=parent)
 
-    @staticmethod
-    def fetch_application(platform: Platform):
+    def fetch_application(self, platform: Platform):
         if platform.application:
             return
-        platform.application = SP.modular_client.application_service().get_application_by_id(
+        platform.application = self._aps.get_application_by_id(
             platform.parent.application_id
         )
 
+    @staticmethod
+    def _is_k8s_app_type(_type: str | None) -> bool:
+        return _type == ApplicationType.K8S_KUBE_CONFIG.value
+
+    def _iter_k8s_apps_by_event_driven(
+        self,
+        enabled: bool,
+        customer: str | None = None,
+        limit: int | None = None,
+    ) -> Iterator[Application]:
+        condition = (Application.is_deleted == False) & (
+            Application.meta[PLATFORM_EVENT_DRIVEN_ENABLED_META] == enabled
+        )
+        if customer:
+            yield from Application.customer_id_type_index.query(
+                hash_key=customer,
+                range_key_condition=(
+                    Application.type == ApplicationType.K8S_KUBE_CONFIG.value
+                ),
+                filter_condition=condition,
+                limit=limit,
+            )
+            return
+        # DB-side filtering for all customers (global scan with conditions)
+        yield from Application.scan(
+            filter_condition=(
+                condition
+                & (Application.type == ApplicationType.K8S_KUBE_CONFIG.value)
+            ),
+            limit=limit,
+        )
+
+    @staticmethod
+    def _event_driven_enabled_from_app(
+        application: Application | None,
+    ) -> bool:
+        meta = (
+            application.meta.as_dict()
+            if application and application.meta
+            else {}
+        )
+        return bool(meta.get(PLATFORM_EVENT_DRIVEN_ENABLED_META, False))
 
 class Kubeconfig:
     __slots__ = ('_raw',)
@@ -180,12 +310,23 @@ class Kubeconfig:
     def user_names(self) -> map:
         return map(operator.itemgetter('name'), self._raw['users'])
 
-    def add_cluster(self, name: str, server: str, ca_data: Optional[str]):
+    def add_cluster(
+        self,
+        name: str,
+        server: str,
+        ca_data: Optional[str],
+        insecure_skip_tls_verify: bool | None = None,
+    ):
         if name in self.cluster_names():
             raise ValueError('cluster with such name exists')
         data = {'name': name, 'cluster': {'server': server}}
         if ca_data:
             data['cluster']['certificate-authority-data'] = ca_data
+        # Auto-enable insecure mode if no CA is provided
+        if insecure_skip_tls_verify is None:
+            insecure_skip_tls_verify = not bool(ca_data)
+        if insecure_skip_tls_verify:
+            data['cluster']['insecure-skip-tls-verify'] = True
         self._raw['clusters'].append(data)
 
     def add_user(self, name: str, token: str):
@@ -211,19 +352,30 @@ class Kubeconfig:
 
 
 class K8STokenKubeconfig:
-    __slots__ = ('endpoint', 'ca', 'token')
+    __slots__ = ('endpoint', 'ca', 'token', 'insecure_skip_tls_verify')
 
-    def __init__(self, endpoint: str, ca: str | None = None,
-                 token: str | None = None):
+    def __init__(
+        self,
+        endpoint: str,
+        ca: str | None = None,
+        token: str | None = None,
+        insecure_skip_tls_verify: bool | None = None,
+    ):
         self.endpoint = endpoint
         self.ca = ca
         self.token = token
+        # Auto-enable insecure mode if no CA is provided
+        if insecure_skip_tls_verify is None:
+            self.insecure_skip_tls_verify = not bool(ca)
+        else:
+            self.insecure_skip_tls_verify = insecure_skip_tls_verify
 
     def build_config(self, context: str = 'temp') -> dict:
         config = Kubeconfig()
         cluster = context + '-cluster'
         user = context + '-user'
-        config.add_cluster(cluster, self.endpoint, self.ca)
+        config.add_cluster(cluster, self.endpoint, self.ca,
+                          self.insecure_skip_tls_verify)
         config.add_user(user, self.token)
         config.add_context(context, cluster, user)
         config.current_context = context
@@ -233,7 +385,8 @@ class K8STokenKubeconfig:
         config = Kubeconfig()
         cluster = context + '-cluster'
         user = context + '-user'
-        config.add_cluster(cluster, self.endpoint, self.ca)
+        config.add_cluster(cluster, self.endpoint, self.ca,
+                          self.insecure_skip_tls_verify)
         config.add_user(user, self.token)
         config.add_context(context, cluster, user)
         config.current_context = context

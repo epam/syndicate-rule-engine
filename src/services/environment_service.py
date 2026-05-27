@@ -1,275 +1,187 @@
 import os
-import re
 from typing import Mapping
 
 from helpers.constants import (
-    CAASEnv,
-    DEFAULT_EVENTS_TTL_HOURS,
-    DEFAULT_INNER_CACHE_TTL_SECONDS,
-    DEFAULT_LM_TOKEN_LIFETIME_MINUTES,
-    DEFAULT_METRICS_BUCKET_NAME,
-    DEFAULT_NUMBER_OF_EVENTS_IN_EVENT_ITEM,
-    DEFAULT_NUMBER_OF_PARTITIONS_FOR_EVENTS,
-    DEFAULT_RECOMMENDATION_BUCKET_NAME,
-    DEFAULT_REPORTS_BUCKET_NAME,
-    DEFAULT_RULESETS_BUCKET_NAME,
-    DEFAULT_STATISTICS_BUCKET_NAME,
-    DOCKER_SERVICE_MODE,
-    ENV_TRUE,
+    Env,
 )
+from helpers.log_helper import get_logger
 
+_LOG = get_logger(__name__)
 
 class EnvironmentService:
-    def __init__(self):
-        self._environment = os.environ
-
-    def ensure_env(self, env_name: str) -> str:
-        env = self._environment.get(env_name)
-        if not env:
-            raise RuntimeError(
-                f'Environment variable {env_name} is required for '
-                f'service to work properly'
-            )
-        return env
-
-    @property
-    def environment(self):
-        return self._environment
-
     def override_environment(self, environs: Mapping) -> None:
-        self._environment.update(environs)
+        os.environ.update(environs)
 
     def aws_region(self) -> str:
         """
-        caas-api-handler, caas-event-handler to build envs for jobs.
+        api-handler, event-handler to build envs for jobs.
         All the lambdas to init connections to clients.
         """
-        return self._environment.get(CAASEnv.AWS_REGION)
-
-    def system_customer(self) -> str | None:
-        """
-        Currently used only for event-driven scans in order to retrieve
-        ED system rulesets.
-        """
-        return self._environment.get(CAASEnv.SYSTEM_CUSTOMER_NAME)
+        return Env.AWS_REGION.get()
 
     def default_reports_bucket_name(self) -> str:
         """
         Lambdas:
-        - caas-event-handler
-        - caas-api-handler
-        - caas-report-generator
+        - event-handler
+        - api-handler
+        - report-generator
         """
-        return (self._environment.get(CAASEnv.REPORTS_BUCKET_NAME) or
-                DEFAULT_REPORTS_BUCKET_NAME)
+        return Env.REPORTS_BUCKET_NAME.as_str()
 
     def batch_job_log_level(self) -> str:
         """
         Lambdas:
-        caas-api-handler
-        caas-event-handler
+        api-handler
+        event-handler
         """
-        return self._environment.get(CAASEnv.BATCH_JOB_LOG_LEVEL) or 'DEBUG'
+        return Env.BATCH_JOB_LOG_LEVEL.get()
 
-    def get_batch_job_queue(self) -> str | None:
+    def get_batch_job_queue(self) -> str:
         """
         Lambdas:
-        caas-api-handler
-        caas-event-handler
+        api-handler
+        event-handler
         """
-        return self._environment.get(CAASEnv.BATCH_JOB_QUEUE_NAME)
+        return Env.BATCH_JOB_QUEUE_NAME.as_str()
 
-    def get_batch_job_def(self) -> str | None:
+    def get_batch_job_def(self) -> str:
         """
         Lambdas:
-        caas-api-handler
-        caas-event-handler
+        api-handler
+        event-handler
         """
-        return self._environment.get(CAASEnv.BATCH_JOB_DEF_NAME)
+        return Env.BATCH_JOB_DEF_NAME.as_str()
 
     def get_rulesets_bucket_name(self) -> str:
         """
         Lambdas:
-        caas-api-handler
-        caas-configuration-api-handler
-        caas-configuration-updater
-        caas-event-handler
-        caas-license-updater
-        caas-report-generator
-        caas-ruleset-compiler
+        api-handler
+        configuration-api-handler
+        configuration-updater
+        event-handler
+        license-updater
+        report-generator
+        ruleset-compiler
         """
-        return (self._environment.get(CAASEnv.RULESETS_BUCKET_NAME) or
-                DEFAULT_RULESETS_BUCKET_NAME)
-
-    def get_metrics_bucket_name(self) -> str:
-        """
-        Lambdas:
-        caas-metrics-updater
-        caas-report-generator-handler
-        """
-        return (self._environment.get(CAASEnv.METRICS_BUCKET_NAME) or
-                DEFAULT_METRICS_BUCKET_NAME)
+        return Env.RULESETS_BUCKET_NAME.as_str()
 
     def get_user_pool_name(self) -> str | None:
         """
         Api lambdas:
-        caas-api-handler
-        caas-configuration-api-handler
-        caas-report-generator
+        api-handler
+        configuration-api-handler
+        report-generator
         """
-        return self._environment.get(CAASEnv.USER_POOL_NAME)
+        return Env.USER_POOL_NAME.get()
 
     def get_user_pool_id(self) -> str | None:
         """
         It's optional but is preferred to use this instead of user_pool_name
         Api lambdas:
-        caas-api-handler
-        caas-configuration-api-handler
-        caas-report-generator
+        api-handler
+        configuration-api-handler
+        report-generator
         """
-        return self._environment.get(CAASEnv.USER_POOL_ID)
-
-    def get_job_lifetime_min(self) -> str:
-        return (self._environment.get(CAASEnv.BATCH_JOB_LIFETIME_MINUTES) or
-                '120')
+        return Env.USER_POOL_ID.get()
 
     def get_statistics_bucket_name(self) -> str:
-        return (self._environment.get(CAASEnv.STATISTICS_BUCKET_NAME) or
-                DEFAULT_STATISTICS_BUCKET_NAME)
+        return Env.STATISTICS_BUCKET_NAME.as_str()
 
     def skip_cloud_identifier_validation(self) -> bool:
         """
-        caas-api-handler
+        api-handler
         """
-        from_env = str(
-            self._environment.get(CAASEnv.SKIP_CLOUD_IDENTIFIER_VALIDATION))
-        return from_env.lower() in ENV_TRUE
+        return Env.SKIP_CLOUD_IDENTIFIER_VALIDATION.as_bool()
 
     def is_docker(self) -> bool:
-        return (self._environment.get(CAASEnv.SERVICE_MODE) ==
-                DOCKER_SERVICE_MODE)
+        return Env.is_docker()
 
     def event_bridge_service_role(self) -> str | None:
-        return self._environment.get(CAASEnv.EB_SERVICE_ROLE_TO_INVOKE_BATCH)
+        return Env.EB_SERVICE_ROLE_TO_INVOKE_BATCH.get()
 
     def lambdas_alias_name(self) -> str | None:
         """
         To be able to trigger the valid lambda
         :return:
         """
-        return self._environment.get(CAASEnv.LAMBDA_ALIAS_NAME)
+        return Env.LAMBDA_ALIAS_NAME.get()
 
     def account_id(self) -> str | None:
         # resolved from lambda context
-        return self._environment.get(CAASEnv.ACCOUNT_ID)
-
-    def is_testing(self) -> bool:
-        return (str(self._environment.get(CAASEnv.TESTING_MODE)).lower() in
-                ENV_TRUE)
-
-    def mock_rabbitmq_s3_url(self) -> tuple[str, float] | None:
-        data = self._environment.get(CAASEnv.MOCKED_RABBIT_MQ_S3)
-        if not data:
-            return
-        url, rate = data.split(',')
-        return url, float(rate)
+        _id = Env.ACCOUNT_ID.get()
+        if not _id:
+            _LOG.warning('No account id found in environment variables.')
+            return None
+        return _id
 
     def jobs_time_to_live_days(self) -> int | None:
         """live_days
         Lambdas:
-        - caas-api-handler
+        - api-handler
         """
-        from_env = str(self._environment.get(CAASEnv.JOBS_TIME_TO_LIVE_DAYS))
+        from_env = Env.JOBS_TIME_TO_LIVE_DAYS.get('')
         if from_env.isdigit():
             return int(from_env)
         return
 
-    def events_ttl_hours(self) -> int | None:
+    def events_ttl_hours(self) -> int:
         """
         Lambdas:
-        - caas-api-handler
+        - api-handler
         """
-        from_env = self._environment.get(CAASEnv.EVENTS_TTL_HOURS)
-        if from_env:
-            return int(from_env)
-        return DEFAULT_EVENTS_TTL_HOURS
+        return Env.EVENTS_TTL_HOURS.as_int()
 
     def event_assembler_pull_item_limit(self) -> int:
         """
         Lambdas:
-        - caas-event-handler
+        - event-handler
         """
-        env = self._environment.get(
-            CAASEnv.EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE)
-        if env:
-            return int(env)
-        return 100
+        return Env.EVENT_ASSEMBLER_PULL_EVENTS_PAGE_SIZE.as_int()
 
     def number_of_native_events_in_event_item(self) -> int:
         """
         Lambdas:
-        - caas-api-handler
+        - api-handler
         """
-        from_env = self._environment.get(CAASEnv.NATIVE_EVENTS_PER_ITEM)
-        if from_env:
-            return int(from_env)
-        return DEFAULT_NUMBER_OF_EVENTS_IN_EVENT_ITEM
+        return Env.NATIVE_EVENTS_PER_ITEM.as_int()
 
-    def api_gateway_host(self) -> str | None:
-        return self._environment.get(CAASEnv.API_GATEWAY_HOST)
-
-    def api_gateway_stage(self) -> str | None:
-        return self._environment.get(CAASEnv.API_GATEWAY_STAGE)
-
-    def get_recommendation_bucket(self) -> str | None:
-        return (self._environment.get(CAASEnv.RECOMMENDATIONS_BUCKET_NAME) or
-                DEFAULT_RECOMMENDATION_BUCKET_NAME)
+    def get_recommendation_bucket(self) -> str:
+        return Env.RECOMMENDATIONS_BUCKET_NAME.as_str()
 
     def allow_simultaneous_jobs_for_one_tenant(self) -> bool:
         """
-        caas-api-handler. Here we are talking about standard licensed
+        api-handler. Here we are talking about standard licensed
         jobs, not event-driven.
         :return:
         """
-        return str(
-            self._environment.get(
-                CAASEnv.ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT)
-        ).lower() in ENV_TRUE
+        return Env.ALLOW_SIMULTANEOUS_JOBS_FOR_ONE_TENANT.as_bool()
 
     def number_of_partitions_for_events(self) -> int:
         """
         https://aws.amazon.com/blogs/database/choosing-the-right-dynamodb-partition-key/
-        We must be able to query CaaSEvents starting from some date. We
+        We must be able to query SREEvents starting from some date. We
         cannot just scan the table, and also we cannot use one Partition key
         for all the events. So this setting defines the number of partitions.
         The more of them, the better will be writing throughput and harder read
         :return:
         """
-        from_env = self._environment.get(
-            CAASEnv.NUMBER_OF_PARTITIONS_FOR_EVENTS)
-        if from_env:
-            return int(from_env)
-        return DEFAULT_NUMBER_OF_PARTITIONS_FOR_EVENTS
+        return Env.NUMBER_OF_PARTITIONS_FOR_EVENTS.as_int()
 
-    def inner_cache_ttl_seconds(self) -> int:
+    def event_mapping_cache_ttl_seconds(self) -> int:
         """
-        Used for time to live cache
-        :return:
+        TTL for S3-backed event mapping payloads kept in memory (per license/version/cloud).
+        0 means entries never expire until process restart. Applies to API and consumers.
         """
-        from_env = str(self._environment.get(CAASEnv.INNER_CACHE_TTL_SECONDS))
-        if from_env.isdigit():
-            return int(from_env)
-        return DEFAULT_INNER_CACHE_TTL_SECONDS
+        ttl = Env.EVENT_MAPPING_CACHE_TTL_SECONDS.as_int()
+        return ttl if ttl > 0 else 0
 
-    def lm_token_lifetime_minutes(self):
-        try:
-            return int(self._environment.get(
-                CAASEnv.LM_TOKEN_LIFETIME_MINUTES))
-        except (TypeError, ValueError):
-            return DEFAULT_LM_TOKEN_LIFETIME_MINUTES
+    def lm_token_lifetime_minutes(self) -> int:
+        return Env.LM_TOKEN_LIFETIME_MINUTES.as_int()
 
     def allow_disabled_permissions(self) -> bool:
-        env = str(self._environment.get(
-            CAASEnv.ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS
-        ))
-        return env.lower() in ENV_TRUE
+        return Env.ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS.as_bool()
+
+    def minio_presigned_url_host(self) -> str | None:
+        host = Env.MINIO_PRESIGNED_URL_HOST.get()
+        if host:
+            return host.strip().strip('/')

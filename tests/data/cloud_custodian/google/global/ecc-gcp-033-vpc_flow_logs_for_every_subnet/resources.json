@@ -1,0 +1,80 @@
+[
+  {
+    "kind": "compute#subnetwork",
+    "id": "2708525157271002654",
+    "creationTimestamp": "2024-09-26T06:26:09.230-07:00",
+    "name": "default",
+    "network": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/networks/default",
+    "ipCidrRange": "10.214.0.0/20",
+    "gatewayAddress": "10.214.0.1",
+    "region": "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-west10",
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/europe-west10/subnetworks/default",
+    "privateIpGoogleAccess": false,
+    "fingerprint": "JK5-4lOXoEI=",
+    "privateIpv6GoogleAccess": "DISABLE_GOOGLE_ACCESS",
+    "purpose": "PRIVATE",
+    "stackType": "IPV4_ONLY",
+    "c7n:MatchedFilters": [
+      "purpose",
+      "enableFlowLogs"
+    ]
+  },
+  {
+    "kind": "compute#subnetwork",
+    "id": "80118305852546590",
+    "creationTimestamp": "2024-09-26T06:26:09.500-07:00",
+    "name": "default",
+    "network": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/networks/default",
+    "ipCidrRange": "10.218.0.0/20",
+    "gatewayAddress": "10.218.0.1",
+    "region": "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/africa-south1",
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/africa-south1/subnetworks/default",
+    "privateIpGoogleAccess": false,
+    "fingerprint": "CEy_lCx0uBQ=",
+    "privateIpv6GoogleAccess": "DISABLE_GOOGLE_ACCESS",
+    "purpose": "PRIVATE",
+    "stackType": "IPV4_ONLY",
+    "c7n:MatchedFilters": [
+      "purpose",
+      "enableFlowLogs"
+    ]
+  },
+  {
+    "kind": "compute#subnetwork",
+    "id": "3115367106910640951",
+    "creationTimestamp": "2024-09-26T15:53:12.433-07:00",
+    "name": "default",
+    "network": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/networks/default",
+    "ipCidrRange": "10.220.0.0/20",
+    "gatewayAddress": "10.220.0.1",
+    "region": "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-west8",
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/us-west8/subnetworks/default",
+    "privateIpGoogleAccess": false,
+    "fingerprint": "m-Dy8RmfB7U=",
+    "purpose": "PRIVATE",
+    "stackType": "IPV4_ONLY",
+    "c7n:MatchedFilters": [
+      "purpose",
+      "enableFlowLogs"
+    ]
+  },
+  {
+    "kind": "compute#subnetwork",
+    "id": "816596276746100793",
+    "creationTimestamp": "2024-09-26T19:56:22.083-07:00",
+    "name": "default",
+    "network": "https://www.googleapis.com/compute/v1/projects/testing-project-123/global/networks/default",
+    "ipCidrRange": "10.224.0.0/20",
+    "gatewayAddress": "10.224.0.1",
+    "region": "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/northamerica-south1",
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/testing-project-123/regions/northamerica-south1/subnetworks/default",
+    "privateIpGoogleAccess": false,
+    "fingerprint": "0SkfP8rL-Lo=",
+    "purpose": "PRIVATE",
+    "stackType": "IPV4_ONLY",
+    "c7n:MatchedFilters": [
+      "purpose",
+      "enableFlowLogs"
+    ]
+  }
+]

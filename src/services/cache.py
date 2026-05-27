@@ -2,7 +2,7 @@ from typing import Callable, Any
 
 from cachetools import TLRUCache, TTLCache, cachedmethod  # noqa
 
-from services import SP
+from helpers.constants import Env
 
 
 def _expiration(key: Any, value: Any, now: float) -> float:
@@ -14,9 +14,10 @@ def _expiration(key: Any, value: Any, now: float) -> float:
     :param now:
     :return:
     """
-    return now + SP.environment_service.inner_cache_ttl_seconds()
+    return now + Env.INNER_CACHE_TTL_SECONDS.as_float()
 
 
-def factory(maxsize=50, ttu: Callable[[Any, Any, float], float] = _expiration
-            ) -> TLRUCache:
+def factory(
+    maxsize=50, ttu: Callable[[Any, Any, float], float] = _expiration
+) -> TLRUCache:
     return TLRUCache(maxsize=maxsize, ttu=ttu)

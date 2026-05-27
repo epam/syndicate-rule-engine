@@ -1,0 +1,138 @@
+from typing import Optional
+
+import click
+from srecli.group import (
+    ContextObj,
+    ViewCommand,
+    build_tenant_option,
+    cli_response,
+)
+
+
+@click.group(name='k8s')
+def k8s():
+    """Manages kubernetes platforms"""
+
+
+@k8s.command(cls=ViewCommand, name='create')
+@build_tenant_option(required=True)
+@click.option('-n', '--name', type=str, required=True, help='Cluster name')
+@click.option('-t', '--type', required=True,
+              type=click.Choice(('SELF_MANAGED', 'EKS', 'AKS', 'GKS')),
+              help='Cluster type')
+@click.option('-r', '--region', type=str, required=False,
+              help='Cluster region in case the cluster is bound to a cloud')
+@click.option('-d', '--description', type=str, required=True,
+              help='K8s platform description')
+@click.option('-e', '--endpoint', type=str, required=False,
+              help='K8s endpoint')
+@click.option('-ca', '--certificate_authority', type=str, required=False,
+              help='Certificate authority base64 encoded string')
+@click.option('-T', '--token', type=str, required=False,
+              help='Long lived token. Short-lived tokens will '
+                   'be generated base on this one')
+@click.option('--insecure_skip_tls_verify', is_flag=True, default=None,
+              help='Skip TLS certificate verification. '
+                   'Auto-enabled if --certificate_authority is not provided')
+@cli_response()
+def create(
+    ctx: ContextObj,
+    tenant_name: str,
+    name: str,
+    region: Optional[str],
+    description: str,
+    type: str,
+    endpoint: Optional[str],
+    certificate_authority: Optional[str],
+    token: Optional[str],
+    insecure_skip_tls_verify: Optional[bool],
+    customer_id: str,
+):
+    """
+    Register a new K8S Platform within a tenant.
+    Note: insecure_skip_tls_verify is automatically enabled if certificate_authority is not provided.
+    """
+    return ctx['api_client'].platform_k8s_create(
+        tenant_name=tenant_name,
+        name=name,
+        region=region,
+        type=type,
+        description=description,
+        endpoint=endpoint,
+        certificate_authority=certificate_authority,
+        token=token,
+        insecure_skip_tls_verify=insecure_skip_tls_verify,
+        customer_id=customer_id,
+    )
+
+
+@k8s.command(cls=ViewCommand, name='describe')
+@build_tenant_option()
+@click.option(
+    '--event_driven_enabled',
+    '-ede',
+    type=bool,
+    required=False,
+    help='Optional filter by event-driven status',
+)
+@cli_response()
+def describe(
+    ctx: ContextObj,
+    tenant_name: Optional[str],
+    event_driven_enabled: Optional[bool],
+    customer_id: str,
+):
+    """
+    List registered K8S platforms
+    """
+    return ctx['api_client'].platform_k8s_list(
+        tenant_name=tenant_name,
+        event_driven_enabled=event_driven_enabled,
+        customer_id=customer_id,
+    )
+
+
+@k8s.command(cls=ViewCommand, name='update')
+@click.option(
+    '-pid', '--platform_id', type=str, required=True, help='Platform id'
+)
+@click.option(
+    '--event_driven_enabled',
+    '-ede',
+    type=bool,
+    required=True,
+    help='Enable or disable event-driven for this platform',
+)
+@cli_response()
+def update(
+    ctx: ContextObj,
+    platform_id: str,
+    event_driven_enabled: bool,
+    customer_id: str,
+):
+    """
+    Update K8S platform event-driven settings.
+    """
+    return ctx['api_client'].platform_k8s_update(
+        platform_id=platform_id,
+        event_driven_enabled=event_driven_enabled,
+        customer_id=customer_id,
+    )
+
+
+@k8s.command(cls=ViewCommand, name='delete')
+@click.option('-pid', '--platform_id', type=str, required=True,
+              help='Platform id')
+@cli_response()
+def delete(
+    ctx: ContextObj,
+    platform_id: str,
+    customer_id: str,
+):
+    """
+    Deregister a platform
+    """
+    return ctx['api_client'].platform_k8s_delete(
+        platform_id,
+        customer_id=customer_id,
+    )

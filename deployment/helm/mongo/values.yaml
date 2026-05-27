@@ -1,0 +1,25 @@
+memoryLimit: 512Mi
+memoryRequest: 128Mi
+
+service:
+  type: ClusterIP
+  port: 27017
+  nodePort: 32101
+
+image:
+  repository: mongo
+  tag: 5.0.32
+  pullPolicy: IfNotPresent
+
+
+persistence:
+  accessMode: ReadWriteOnce
+  size: 4Gi
+  storageClass: standard
+  hostPath: /data/mongo
+
+replicas: 1
+strategy:
+  type: Recreate
+  maxUnavailable: 0
+  maxSurge: 100%

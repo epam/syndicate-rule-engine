@@ -1,0 +1,69 @@
+{
+  "policy": {
+    "name": "ecc-k8s-050-default_namespace_should_not_be_used_for_pods",
+    "resource": "k8s.pod",
+    "description": "Description for ecc-k8s-050-default_namespace_should_not_be_used_for_pods",
+    "comment": "000323222300"
+  },
+  "version": "0.9.40",
+  "execution": {
+    "id": "d83488c0-60ed-4903-8b2d-e133bc86433e",
+    "start": 1736955265.570204,
+    "end_time": 1736955265.648745,
+    "duration": 0.07854104042053223
+  },
+  "config": {
+    "region": "",
+    "regions": [],
+    "cache": "cloud-custodian.cache",
+    "profile": null,
+    "account_id": null,
+    "assume_role": null,
+    "session_policy": null,
+    "external_id": null,
+    "log_group": null,
+    "tracer": "default",
+    "metrics_enabled": false,
+    "metrics": null,
+    "output_dir": "./global",
+    "cache_period": 120,
+    "dryrun": false,
+    "authorization_file": null,
+    "command": "c7n.commands.run",
+    "config": null,
+    "configs": [],
+    "subparser": "run",
+    "policy_filters": [],
+    "resource_types": [],
+    "verbose": null,
+    "quiet": false,
+    "debug": false,
+    "skip_validation": false,
+    "vars": null
+  },
+  "sys-stats": {
+    "snapshot_time": 0.07852792739868164,
+    "num_fds": 1,
+    "cpu_user": 0.0743383040000003,
+    "cpu_system": 0.003983423999999958,
+    "num_ctx_switches_voluntary": 31,
+    "rss": -1048576,
+    "vms": -1048576,
+    "pfaults": 370
+  },
+  "api-stats": {},
+  "metrics": [
+    {
+      "MetricName": "ResourceCount",
+      "Timestamp": "2025-01-15T17:34:25.648461",
+      "Value": 0,
+      "Unit": "Count"
+    },
+    {
+      "MetricName": "ResourceTime",
+      "Timestamp": "2025-01-15T17:34:25.648466",
+      "Value": 0.0777590274810791,
+      "Unit": "Seconds"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{{- if and .Values.patch.enabled (not (empty .Values.patch.image.tag)) -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "rule-engine.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "rule-engine.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ include "rule-engine.chart" . }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  ttlSecondsAfterFinished: {{ .Values.patch.ttlSecondsAfterFinished }}
+  backoffLimit: {{ .Values.patch.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "rule-engine.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        helm.sh/chart: {{ include "rule-engine.chart" . }}
+    spec:
+      containers:
+        - name: rule-engine-patch
+          image: "{{ .Values.patch.image.repository }}:{{ .Values.patch.image.tag }}"
+          imagePullPolicy: {{ .Values.patch.image.pullPolicy }}
+          {{- include "rule-engine.envs" . | nindent 10 }}
+      restartPolicy: OnFailure
+{{- end }}

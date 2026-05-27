@@ -1,4 +1,3 @@
-from functools import cached_property
 from http import HTTPStatus
 
 from cryptography.hazmat.primitives.serialization import (
@@ -12,7 +11,7 @@ from cryptography.hazmat.primitives.serialization import (
 from handlers import AbstractHandler, Mapping
 from helpers.constants import (
     ALG_ATTR,
-    CustodianEndpoint,
+    Endpoint,
     HTTPMethod,
     KID_ATTR,
     VALUE_ATTR,
@@ -22,12 +21,15 @@ from helpers.log_helper import get_logger
 from services import SP
 from services.clients.ssm import AbstractSSMClient
 from services.license_manager_service import LicenseManagerService
+from services.clients.lm_client import LmTokenProducer
 from services.setting_service import Setting, SettingsService
 from validators.swagger_request_models import (
     BaseModel,
     LicenseManagerClientSettingDeleteModel,
     LicenseManagerClientSettingPostModel,
     LicenseManagerConfigSettingPostModel,
+    LicenseManagerConfigSettingPatchModel,
+    LicenseManagerClientSettingPatchModel,
 )
 from validators.utils import validate_kwargs 
 
@@ -48,12 +50,13 @@ class LicenseManagerClientHandler(AbstractHandler):
         self.license_manager_service = license_manager_service
         self._ssm_client = ssm_client
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CLIENT: {
+            Endpoint.SETTINGS_LICENSE_MANAGER_CLIENT: {
                 HTTPMethod.GET: self.get,
                 HTTPMethod.POST: self.post,
+                HTTPMethod.PATCH: self.patch,
                 HTTPMethod.DELETE: self.delete,
             }
         }
@@ -76,9 +79,7 @@ class LicenseManagerClientHandler(AbstractHandler):
 
         kid = configuration.get(KID_ATTR)
         alg = configuration.get(ALG_ATTR)
-        name = self.license_manager_service.derive_client_private_key_id(
-            kid=kid
-        )
+        name = LmTokenProducer.derive_client_private_key_id(kid=kid)
         data = self._ssm_client.get_secret_value(name)
         pem = data['value']
         key = load_pem_private_key(pem.encode(), None)
@@ -116,9 +117,7 @@ class LicenseManagerClientHandler(AbstractHandler):
             raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
                 'Invalid private key'
             ).exc()
-        name = self.license_manager_service.derive_client_private_key_id(
-            kid=kid
-        )
+        name = LmTokenProducer.derive_client_private_key_id(kid=kid)
         self._ssm_client.create_secret(
             secret_name=name,
             secret_value={
@@ -126,7 +125,7 @@ class LicenseManagerClientHandler(AbstractHandler):
                     Encoding.PEM,
                     PrivateFormat.PKCS8,
                     NoEncryption()
-                )
+                ).decode('utf-8')
             }
         )
         _LOG.info('Private key was saved to SSM')
@@ -145,6 +144,85 @@ class LicenseManagerClientHandler(AbstractHandler):
                 alg=alg,
                 kid=kid,
                 public_key=self.get_public(prk)
+            )
+        )
+
+    @validate_kwargs
+    def patch(
+        self,
+        event: LicenseManagerClientSettingPatchModel,
+    ):
+        new_kid = event.key_id
+        new_alg = event.algorithm
+        new_raw_prk: str = event.private_key
+
+        setting = self.settings_service. \
+            get_license_manager_client_key_data(value=False)
+
+        if not setting:
+            return build_response(
+                code=HTTPStatus.NOT_FOUND,
+                content='License Manager Client-Key does not exist.'
+            )
+
+        configuration = setting.value
+        kid = configuration.get(KID_ATTR)
+        alg = configuration.get(ALG_ATTR)
+
+        if not (kid and alg):
+            msg = (
+                "License Manager Client-Key does not contain 'kid' or 'alg' data."
+            )
+            _LOG.warning(msg)
+            return build_response(
+                code=HTTPStatus.NOT_FOUND,
+                content=msg,
+            )
+
+        try:
+            new_prk = load_pem_private_key(new_raw_prk.encode(), None)
+        except (ValueError, Exception):
+            raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
+                'Invalid private key'
+            ).exc()
+
+        if new_kid is not None and new_kid != kid:
+            name_to_del = LmTokenProducer.derive_client_private_key_id(kid=kid)
+            name = LmTokenProducer.derive_client_private_key_id(kid=new_kid)
+            kid = new_kid
+        else:
+            name = name_to_del = LmTokenProducer. \
+                derive_client_private_key_id(kid=kid)
+
+        _LOG.debug(f"Deleting old private key with name '{name_to_del}'")
+        self._ssm_client.delete_parameter(name_to_del)
+
+        self._ssm_client.create_secret(
+            secret_name=name,
+            secret_value={
+                VALUE_ATTR: new_prk.private_bytes(
+                    Encoding.PEM,
+                    PrivateFormat.PKCS8,
+                    NoEncryption()
+                ).decode('utf-8')
+            }
+        )
+        _LOG.info('Private key was saved to SSM')
+
+        # Update existing configuration
+        configuration[KID_ATTR] = kid
+        configuration[ALG_ATTR] = new_alg
+        setting.value = configuration
+
+        _LOG.info(f'Updating License Manager Client-Key data: {setting.value}.')
+        self.settings_service.save(setting=setting)
+
+        return build_response(
+            code=HTTPStatus.OK,
+            content=self.get_dto(
+                alg=new_alg,
+                kid=kid,
+                public_key=self.get_public(new_prk)
             )
         )
 
@@ -191,9 +269,7 @@ class LicenseManagerClientHandler(AbstractHandler):
                 head + f' does not contain {requested_kid} \'kid\' data.')
             return build_response(code=code, content=content)
 
-        name = self.license_manager_service.derive_client_private_key_id(
-            kid=kid
-        )
+        name = LmTokenProducer.derive_client_private_key_id(kid=kid)
         self._ssm_client.delete_parameter(name)
         self.settings_service.delete(setting=setting)
         return build_response(code=HTTPStatus.NO_CONTENT)
@@ -207,12 +283,13 @@ class LicenseManagerConfigHandler(AbstractHandler):
     def __init__(self, settings_service: SettingsService):
         self.settings_service = settings_service
 
-    @cached_property
+    @property
     def mapping(self) -> Mapping:
         return {
-            CustodianEndpoint.SETTINGS_LICENSE_MANAGER_CONFIG: {
+            Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG: {
                 HTTPMethod.GET: self.get,
                 HTTPMethod.POST: self.post,
+                HTTPMethod.PATCH: self.patch,
                 HTTPMethod.DELETE: self.delete,
             }
         }
@@ -243,12 +320,39 @@ class LicenseManagerConfigHandler(AbstractHandler):
             port=event.port,
             protocol=event.protocol,
             stage=event.stage,
-            api_version=event.api_version
         )
 
         _LOG.info(f'Persisting License Manager config-data: {setting.value}.')
         self.settings_service.save(setting=setting)
         return build_response(code=HTTPStatus.CREATED, content=setting.value)
+
+    @validate_kwargs
+    def patch(
+        self,
+        event: LicenseManagerConfigSettingPatchModel,
+    ):
+        configuration: Setting = self.settings_service. \
+            get_license_manager_access_data(value=False)
+        if not configuration:
+            return build_response(
+                code=HTTPStatus.NOT_FOUND,
+                content='License Manager config-data does not exist.'
+            )
+        # Update existing configuration
+        _LOG.info('Updating License Manager config-data.')
+        updated_configuration = self.settings_service. \
+            update_license_manager_access_data_configuration(
+                setting=configuration,
+                host=event.host,
+                port=event.port,
+                protocol=event.protocol,
+                stage=event.stage,
+            )
+
+        self.settings_service.save(setting=updated_configuration)
+
+        _LOG.info(f'Updated License Manager config-data: {configuration.value}.')
+        return build_response(code=HTTPStatus.OK, content=configuration.value)
 
     @validate_kwargs
     def delete(self, event: BaseModel):

@@ -582,5 +582,5 @@ def write_cases(cases: list[Case], name: Optional[str] = None):
     date = datetime.date.today().isoformat()
     name = name or f'smoke-report-{date}.md'
     with open(name, 'w') as file:
-        file.write(f'## Custodian smoke report {date}\n\n')
+        file.write(f'## SRE smoke report {date}\n\n')
         [file.write(case.report()) for case in cases]

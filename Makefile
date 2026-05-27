@@ -5,22 +5,25 @@
 
 COVERAGE_TYPE := html
 DOCKER_EXECUTABLE := podman
-CLI_VENV_NAME := c7n_venv
+CLI_VENV_NAME := venv
 
 # assuming that python is more likely to be installed than jq
 AWS_ACCOUNT_ID = $(shell aws sts get-caller-identity | python3 -c "import sys,json;print(json.load(sys.stdin)['Account'])")
 AWS_REGION = $(shell aws configure get region)
 
-EXECUTOR_IMAGE_NAME := caas-custodian-service-dev
+EXECUTOR_IMAGE_NAME := rule-engine-executor  # just dev image name
 EXECUTOR_IMAGE_TAG := latest
-SERVER_IMAGE_NAME := caas-custodian-k8s-dev
-SERVER_IMAGE_TAG := latest
+SERVER_IMAGE_NAME := public.ecr.aws/x4s4z8e1/syndicate/rule-engine
+SERVER_IMAGE_TAG ?= $(shell PYTHONPATH=./src python -B -c "from src.helpers.__version__ import __version__; print(__version__)")
 
+DOCKERFILE_NAME := Dockerfile-opensource-uv
+ADDITIONAL_BUILD_PARAMS ?=
 
 SYNDICATE_EXECUTABLE_PATH ?= $(shell which syndicate)
 SYNDICATE_CONFIG_PATH ?= .syndicate-config-main
-SYNDICATE_BUNDLE_NAME := custodian-service
+SYNDICATE_BUNDLE_NAME := syndicate-rule-engine
 
+HELM_REPO_NAME := syndicate
 
 check-syndicate:
 	@if [[ -z "$(SYNDICATE_EXECUTABLE_PATH)" ]]; then echo "No syndicate executable found"; exit 1; fi
@@ -36,21 +39,14 @@ test-coverage:
 
 
 install:
-	# install for local usage
-	@if [[ -z "$(VIRTUAL_ENV)" ]]; then echo "Creating python virtual env"; python -m venv venv; fi
-	venv/bin/pip install c7n
-	venv/bin/pip install c7n-azure
-	venv/bin/pip install c7n-gcp
-	venv/bin/pip install c7n-kube
-	venv/bin/pip install -r src/onprem/requirements.txt
-	venv/bin/pip install -r src/executor/requirements.txt
-	@echo "Execute:\nsource ./venv/bin/activate"
+	@if ! command -v uv >/dev/null 2>&1; then echo "Please, install uv"; exit 1; fi
+	uv sync --all-groups --all-extras --prerelease=allow
 
 
 install-cli:
 	# installing CLI in editable mode
 	python -m venv $(CLI_VENV_NAME)
-	$(CLI_VENV_NAME)/bin/pip install -e ./c7n
+	$(CLI_VENV_NAME)/bin/pip install -e ./cli
 	@echo "Execute:\nsource ./$(CLI_VENV_NAME)/bin/activate"
 
 
@@ -66,7 +62,7 @@ openapi-spec.json: src/validators/registry.py src/validators/swagger_request_mod
 
 
 clean:
-	-rm -rf .pytest_cache .coverage custodian_common_dependencies_layer.zip ./logs htmlcov openapi-spec.json
+	-rm -rf .pytest_cache .coverage sre_common_dependencies_layer.zip ./logs htmlcov openapi-spec.json
 	-if [[ -d "$(SYNDICATE_CONFIG_PATH)/logs" ]]; then rm -rf "$(SYNDICATE_CONFIG_PATH)/logs"; fi
 	-if [[ -d "$(SYNDICATE_CONFIG_PATH)/bundles" ]]; then rm -rf "$(SYNDICATE_CONFIG_PATH)/bundles"; fi
 
@@ -77,22 +73,16 @@ open-source-executor-image:
 
 fork-executor-image:
 	$(DOCKER_EXECUTABLE) build -t $(EXECUTOR_IMAGE_NAME):$(EXECUTOR_IMAGE_TAG) -f src/executor/Dockerfile .
-	# $(DOCKER_EXECUTABLE) build -t $(EXECUTOR_IMAGE_NAME):$(EXECUTOR_IMAGE_TAG) -f src/executor/Dockerfile --build-arg CUSTODIAN_SERVICE_PATH=custodian-as-a-service --build-arg CLOUD_CUSTODIAN_PATH=custodian-custom-core ..
+	# $(DOCKER_EXECUTABLE) build -t $(EXECUTOR_IMAGE_NAME):$(EXECUTOR_IMAGE_TAG) -f src/executor/Dockerfile --build-arg SRE_SERVICE_PATH=custodian-as-a-service --build-arg CLOUD_CUSTODIAN_PATH=custodian-custom-core ..
 
-
-open-source-server-image:
-	$(DOCKER_EXECUTABLE) build -t $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG) -f src/onprem/Dockerfile-opensource .
-
-
-open-source-server-image-to-minikube:
-	eval $(minikube -p minikube docker-env) && \
-	$(DOCKER_EXECUTABLE) build -t $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG) -f src/onprem/Dockerfile-opensource .
 
 cli-dist:
-	python -m build --sdist c7n/
+	python -m pip install --upgrade build
+	python -m build --sdist cli/
 
 obfuscation-manager-dist:
-	python -m build --sdist obfuscation_manager/
+	python -m pip install --upgrade build
+	python -m build --sdist obfuscator-cli/
 
 aws-ecr-login:
 	@if ! aws --version; then echo "Error: install awscli"; exit 1; fi
@@ -103,12 +93,6 @@ aws-ecr-push-executor:
 	export AWS_REGION=$(AWS_REGION) AWS_ACCOUNT_ID=$(AWS_ACCOUNT_ID); \
 	$(DOCKER_EXECUTABLE) tag $(EXECUTOR_IMAGE_NAME):$(EXECUTOR_IMAGE_TAG) $$AWS_ACCOUNT_ID.dkr.ecr.$$AWS_REGION.amazonaws.com/$(EXECUTOR_IMAGE_NAME):$(EXECUTOR_IMAGE_TAG); \
 	$(DOCKER_EXECUTABLE) push $$AWS_ACCOUNT_ID.dkr.ecr.$$AWS_REGION.amazonaws.com/$(EXECUTOR_IMAGE_NAME):$(EXECUTOR_IMAGE_TAG)
-
-
-aws-ecr-push-server:
-	export AWS_REGION=$(AWS_REGION) AWS_ACCOUNT_ID=$(AWS_ACCOUNT_ID); \
-	$(DOCKER_EXECUTABLE) tag $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG) $$AWS_ACCOUNT_ID.dkr.ecr.$$AWS_REGION.amazonaws.com/$(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG); \
-	$(DOCKER_EXECUTABLE) push $$AWS_ACCOUNT_ID.dkr.ecr.$$AWS_REGION.amazonaws.com/$(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)
 
 
 syndicate-update-lambdas: check-syndicate
@@ -130,3 +114,39 @@ syndicate-update-api-gateway: check-syndicate
 syndicate-update-step-functions: check-syndicate
 	# it does not remove the old api gateway
 	SDCT_CONF=$(SYNDICATE_CONFIG_PATH) $(SYNDICATE_EXECUTABLE_PATH) deploy --deploy_only_types step_functions --replace_output --bundle_name $(SYNDICATE_BUNDLE_NAME)
+
+
+#make image-arm64
+#make image-amd64
+#make push-arm64
+#make push-amd64
+#make image-manifest
+#make push-manifest
+image-arm64:
+	$(DOCKER_EXECUTABLE) build $(ADDITIONAL_BUILD_PARAMS) --platform linux/arm64 -t $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)-arm64 -f src/onprem/$(DOCKERFILE_NAME) .
+
+image-amd64:
+	$(DOCKER_EXECUTABLE) build $(ADDITIONAL_BUILD_PARAMS) --platform linux/amd64 -t $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)-amd64 -f src/onprem/$(DOCKERFILE_NAME) .
+
+
+image-manifest:
+	-$(DOCKER_EXECUTABLE) manifest rm $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)
+	$(DOCKER_EXECUTABLE) manifest create $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG) $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)-arm64 $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)-amd64
+	$(DOCKER_EXECUTABLE) manifest annotate $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG) $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)-arm64 --arch arm64
+	$(DOCKER_EXECUTABLE) manifest annotate $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG) $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)-amd64 --arch amd64
+
+push-arm64:
+	$(DOCKER_EXECUTABLE) push $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)-arm64
+
+
+push-amd64:
+	$(DOCKER_EXECUTABLE) push $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)-amd64
+
+push-manifest:
+	$(DOCKER_EXECUTABLE) manifest push $(SERVER_IMAGE_NAME):$(SERVER_IMAGE_TAG)
+
+
+push-helm-chart:
+	helm package --dependency-update deployment/helm/rule-engine
+	helm s3 push rule-engine-$(SERVER_IMAGE_TAG).tgz $(HELM_REPO_NAME) --relative
+	-rm rule-engine-$(SERVER_IMAGE_TAG).tgz

@@ -1,0 +1,26 @@
+[
+  {
+    "Name": "testing-org",
+    "S3BucketName": "testing-org-csup6",
+    "IncludeGlobalServiceEvents": true,
+    "IsMultiRegionTrail": true,
+    "HomeRegion": "eu-central-1",
+    "TrailARN": "arn:aws:cloudtrail:eu-central-1:111111111111:trail/testing-org",
+    "LogFileValidationEnabled": true,
+    "HasCustomEventSelectors": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+    "HasInsightSelectors": "ec47f3e8-3f01-460f-a086-f45df83fd152",
+    "IsOrganizationTrail": true,
+    "Tags": [],
+    "c7n:TrailEventSelectors": {
+      "TrailARN": "arn:aws:cloudtrail:eu-central-1:111111111111:trail/testing-org",
+      "EventSelectors": [
+        {
+          "ReadWriteType": "All",
+          "IncludeManagementEvents": true,
+          "DataResources": [],
+          "ExcludeManagementEventSources": []
+        }
+      ]
+    }
+  }
+]
