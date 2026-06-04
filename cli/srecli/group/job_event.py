@@ -9,7 +9,7 @@ from srecli.service.event_files import (
 )
 
 
-@click.group(name='event')
+@click.group(name='event', hidden=True)
 def event():
     """Manages Job submit action"""
 

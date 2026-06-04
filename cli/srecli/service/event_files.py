@@ -8,7 +8,7 @@ import click
 def events_file_option(*, help: str):
     def decorator(f):
         return click.option(
-            '--events-file',
+            '--events_file',
             '-f',
             required=True,
             type=click.Path(exists=True, dir_okay=False, readable=True),
