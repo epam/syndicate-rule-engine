@@ -160,6 +160,6 @@ def _shell_quote(value: str) -> str:
 def _download_description(url: str, file_name: str) -> str:
     gz_name = _gz_basename(url)
     return (
-        f'curl -O {_shell_quote(url)} && '
+        f'curl -fS -O {_shell_quote(url)} && '
         f'gunzip -c {_shell_quote(gz_name)} > {_shell_quote(file_name)}'
     )
