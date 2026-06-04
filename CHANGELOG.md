@@ -5,10 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.19.0] - 2026-XX-XX
+## [5.19.0] - 2026-06-04
 
 ### Added
 - [11772] Added AWS reactive execution when scans are constrained to concrete resource identifiers
+- [11772] Added `requestParameters` and `responseElements` to events from AWS/MAESTRO vendors
 - [12033] Added ttl for caching events mappings
 
 ### Changed

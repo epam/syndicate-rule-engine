@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.14.0] - 2026-04-28
+## [5.14.0] - 2026-06-04
 
 ### Added
 - [12056] Added hints for downloading presigned report artifacts for the following commands:
@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [12056] Added `--href` flag to `sre report raw latest` command
 
 ### Fixed
-- [11950] Fixed issue when `sre integrations event_sources update` command was returning `data` key in the response
+- [11950] Fixed issue when `sre integrations event sources update` command was returning `data` key in the response
 
 ### Changed
 - [12105] Refactored `sre job event` command to use `-f`, `--events_file` option for all subcommands

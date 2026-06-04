@@ -70,7 +70,11 @@ Example:
       "eventMetadata": {
         "cloud": "GOOGLE",
         "eventSource": "container.googleapis.com",
-        "eventName": "google.container.v1.ClusterManager.CreateNodePool"
+        "eventName": "google.container.v1.ClusterManager.CreateNodePool",
+
+        // additional fields for AWS:
+        "requestParameters": { ... },
+        "responseElements": { ... }
       }
     }
   ]
