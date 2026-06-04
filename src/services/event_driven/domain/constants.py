@@ -8,6 +8,8 @@ CT_ACCOUNT_ID = "accountId"
 CT_RECORDS = "Records"
 CT_RESOURCES = "resources"
 CT_REGION = "awsRegion"
+CT_REQUEST_PARAMETERS = "requestParameters"
+CT_RESPONSE_ELEMENTS = "responseElements"
 CT_EVENT_TIME = "eventTime"
 CT_EVENT_VERSION = "eventVersion"
 
