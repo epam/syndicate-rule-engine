@@ -316,10 +316,11 @@ class TestApplyLicensesFiltersRefs:
         )
 
         allowed = svc._apply_licenses_and_filter_rule_refs(
-            [(tenant, job, ref_map)]
+            [(tenant, job, ref_map, {'r_keep': [], 'r_drop': []})]
         )
         assert len(allowed) == 1
-        out_job, out_refs = allowed[0]
+        out_job, out_refs, out_events = allowed[0]
+        assert out_events == {'r_keep': []}
         assert set(out_job.rules_to_scan) == {'r_keep'}
         assert out_refs is not None
         assert set(out_refs.by_rule.keys()) == {'r_keep'}

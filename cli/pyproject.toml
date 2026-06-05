@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "srecli"
-description = "Syndicate Rule engine CLI"
+description = "Syndicate Rule Engine CLI"
 requires-python = ">=3.10"
 readme = "README.md"
 dynamic = ["version"]
@@ -26,6 +26,7 @@ version = {attr = "srecli.__version__"}
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["srecli*"]
+exclude = ["srecli_tests*"]
 namespaces = false
 
 [tool.pyright]

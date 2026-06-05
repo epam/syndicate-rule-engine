@@ -5,18 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.19.0] - 2026-XX-XX
+## [5.19.0] - 2026-06-04
 
 ### Added
-- Added ttl for caching events mappings <!-- TODO: Add ticket number -->
+- [11772] Added AWS reactive execution when scans are constrained to concrete resource identifiers
+- [11772] Added `requestParameters` and `responseElements` to events from AWS/MAESTRO vendors
+- [12033] Added ttl for caching events mappings
 
 ### Changed
 - [11970] Refactored event-driven assembly service to use a new index structure and strategies
 - [11970] Changed logging level from `info` to `debug` for Cloud Custodian providers loading for avoiding noise in logs
 
 ### Fixed
-- Fixed issue with event sources handler returning `data` key in the response
-- Fixed KeyError with unknown/deprecated clouds.
+- [11950] Fixed issue with event sources handler returning `data` key in the response
+- [9845] Fixed KeyError with unknown/deprecated clouds.
 
 ## [5.18.0] - 2026-03-18
 

@@ -66,13 +66,14 @@ pythonVersion = "3.10"
 reportIncompatibleMethodOverride = "warning"
 executionEnvironments = [
     {root = "src/", pythonVersion = "3.10"},
-    {root = "tests/", pythonVersion = "3.10", extraPaths = ["src/"]}
+    {root = "tests/", pythonVersion = "3.10", extraPaths = ["src/"]},
+    {root = "cli/", pythonVersion = "3.10", extraPaths = ["cli/", "src/"]}
 ]
 
 
 [tool.ruff]
 line-length = 79
-src = ["src", "tests"]
+src = ["src", "tests", "cli"]
 
 [tool.ruff.format]
 quote-style = "single"
@@ -80,7 +81,7 @@ indent-style = "space"
 
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "cli"]
 testpaths = ["tests"]
 
 
