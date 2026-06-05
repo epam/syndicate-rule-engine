@@ -4,7 +4,7 @@ description = "Service that allows to perform security scans on your infrastruct
 readme = "README.md"
 requires-python = ">=3.10.2,<4.0.0"
 license = {file = "LICENSE"}
-version = "5.18.0"
+version = "5.19.0"
 dependencies = [
     "aws-xray-sdk~=2.14.0",
     "bcrypt~=4.0.1",
@@ -66,13 +66,14 @@ pythonVersion = "3.10"
 reportIncompatibleMethodOverride = "warning"
 executionEnvironments = [
     {root = "src/", pythonVersion = "3.10"},
-    {root = "tests/", pythonVersion = "3.10", extraPaths = ["src/"]}
+    {root = "tests/", pythonVersion = "3.10", extraPaths = ["src/"]},
+    {root = "cli/", pythonVersion = "3.10", extraPaths = ["cli/", "src/"]}
 ]
 
 
 [tool.ruff]
 line-length = 79
-src = ["src", "tests"]
+src = ["src", "tests", "cli"]
 
 [tool.ruff.format]
 quote-style = "single"
@@ -80,7 +81,7 @@ indent-style = "space"
 
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "cli"]
 testpaths = ["tests"]
 
 

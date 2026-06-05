@@ -5,11 +5,12 @@ from typing import TYPE_CHECKING
 from helpers.constants import BatchJobEnv, JobState
 from helpers.log_helper import get_logger
 from services import SP
-from services.platform_service import Platform
 from services.ruleset_service import RulesetName
 
 from executor.job.execution.context import JobExecutionContext
 from executor.job.execution.orchestrator import run_standard_job
+
+from ._common import setup_job_execution_context
 
 if TYPE_CHECKING:
     from celery import Task
@@ -21,25 +22,9 @@ def task_standard_job(self: 'Task | None', job_id: str):
     """
     Runs a single job by the given id
     """
-    job = SP.job_service.get_nullable(job_id)
-    if not job:
-        _LOG.error('Task started for not existing job')
+    ctx = setup_job_execution_context(job_id)
+    if not ctx:
         return
-
-    tenant = SP.modular_client.tenant_service().get(job.tenant_name)
-    if not tenant:
-        _LOG.error('Task started for not existing tenant')
-        return
-    platform = None
-    if job.platform_id:
-        parent = SP.modular_client.parent_service().get_parent_by_id(
-            job.platform_id
-        )
-        if not parent:
-            _LOG.error('Task started for not existing parent')
-            return
-        platform = Platform(parent)
-    ctx = JobExecutionContext(job=job, tenant=tenant, platform=platform)
     with ctx:
         run_standard_job(ctx)
 

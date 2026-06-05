@@ -19,7 +19,6 @@ from services.event_driven.adapters.maestro import MaestroEventAdapter
 
 from ..domain import FailedEvent
 
-
 _LOG = get_logger(__name__)
 
 
@@ -64,7 +63,10 @@ class EventRecordsAdapter:
         try:
             record = self._adapter.to_event_record(raw_event)
             return record.to_event_record_attribute()
-        except (ValidationError, ValueError, TypeError):
+        except (ValidationError, ValueError, TypeError) as e:
+            _LOG.warning(
+                'Ingest: adapt_single failed (vendor=%s): %s', self._vendor, e
+            )
             return None
 
     def adapt(self) -> tuple[list[EventRecordAttribute], list[FailedEvent]]:

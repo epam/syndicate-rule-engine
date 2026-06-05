@@ -14,16 +14,15 @@ class VendorKind(str, Enum):
     SRE_K8S_WATCHER = 'SRE_K8S_WATCHER'
 
 
-# Type aliases
-RegionNameType = str
-TenantNameType = str
-CloudType = str
-RuleNameType = str
+# Aliases only for nested event-mapping shapes (S3 JSON), not for general annotations
 EventSourceType = str
 EventNameType = str
+RuleNameType = str
+CloudType = str
+TenantNameType = str
 
 ESourceENameRulesMap = dict[
     EventSourceType, dict[EventNameType, list[RuleNameType]]
 ]
 EventGenericRecord = EventRecordAttribute | EventRecordUnion
-K8sServiceRulesMap = dict[str, list[RuleNameType]]
+K8sServiceRulesMap = dict[EventSourceType, list[RuleNameType]]

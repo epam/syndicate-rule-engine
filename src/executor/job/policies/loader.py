@@ -15,15 +15,15 @@ from c7n.policy import Policy, PolicyCollection
 from c7n.provider import clouds
 from c7n.resources import load_resources
 from c7n_kube.query import DescribeSource, sources
+from modular_sdk.commons.constants import ENV_KUBECONFIG
 
+import executor.job.policies.modes  # noqa: F401
 from executor.helpers.constants import AWS_DEFAULT_REGION
 from executor.job.types import PolicyDict
-from helpers.constants import Cloud, GLOBAL_REGION
+from helpers.constants import GLOBAL_REGION, Cloud
 from helpers.log_helper import get_logger
 from helpers.regions import AWS_REGIONS
 from models.rule import RuleIndex
-
-from modular_sdk.commons.constants import ENV_KUBECONFIG
 
 _LOG = get_logger(__name__)
 

@@ -17,7 +17,7 @@ Parameters:
   InstanceType:
     Description: "Choose a type for the instance"
     Type: String
-    Default: c7g.large
+    Default: m7g.large
     ConstraintDescription: "must be ARM-based instance type, c7g.large is a minimal required type"
     AllowedValues:
       - m7g.large
@@ -41,43 +41,9 @@ Parameters:
     AllowedPattern: "^$|^[A-Z0-9_-]*$"
     ConstraintDescription: "must contain only uppercase letters, digits, underscores and dashes. If the field is empty Rule Engine will try to resolve Account Alias"
   TenantRegionsToActivate:
-    Description: "What tenant regions should be activated by default"
+    Description: "Comma-separated list of AWS regions to activate for the tenant (e.g. us-east-1,eu-west-1). Leave empty to activate all available regions"
     Type: CommaDelimitedList
-    AllowedValues:
-      - "us-east-1"
-      - "us-east-2"
-      - "us-west-1"
-      - "us-west-2"
-      - "ca-central-1"
-      - "ca-west-1"
-      - "eu-north-1"
-      - "eu-west-1"
-      - "eu-west-2"
-      - "eu-west-3"
-      - "eu-central-1"
-      - "eu-south-1"
-      - "eu-south-2"
-      - "eu-central-2"
-      - "ap-south-1"
-      - "ap-northeast-3"
-      - "ap-northeast-2"
-      - "ap-northeast-1"
-      - "ap-southeast-1"
-      - "ap-southeast-2"
-      - "ap-southeast-3"
-      - "ap-east-1"
-      - "sa-east-1"
-      - "cn-north-1"
-      - "cn-northwest-1"
-      - "me-south-1"
-      - "af-south-1"
-      - "me-central-1"
-      - "ap-south-2"
-      - "ap-southeast-4"
-      - "il-central-1"
-      - "ap-southeast-5"
-      - "ap-southeast-7"
-      - "mx-central-1"
+    Default: ""
   ActivateTenant:
     Description: "Whether to activate the default tenant the represents this account"
     Default: "true"
@@ -177,8 +143,8 @@ Parameters:
     Type: String
     AllowedValues:
       - "$LATEST"
-      - "5.7.0"
-      - "5.8.0"
+      - "5.17.0"
+      - "5.18.0"
   RuleEngineInstanceLaunchTemplateName:
     Description: "Name of EC2 launch template to be created"
     Default: "syndicate-rule-engine-imdsv2-launch-template"
@@ -297,10 +263,7 @@ Resources:
         Count: 1
         Timeout: PT20M
     Properties:
-      ImageId: !FindInMap
-        - RegionMap
-        - !Ref AWS::Region
-        - ImageId
+      ImageId: !Ref ImageId
       InstanceType: !Ref InstanceType
       IamInstanceProfile: !If [AttachRole, !Ref SyndicateRuleEngineInstanceProfile, !Ref "AWS::NoValue"]
       KeyName: !Ref KeyName
@@ -342,4 +305,3 @@ Outputs:
   PrivateIp:
     Description: "Private IP address of the instance"
     Value: !GetAtt SyndicateRuleEngineInstance.PrivateIp
- 

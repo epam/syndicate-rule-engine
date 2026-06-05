@@ -195,7 +195,7 @@ class EventSourcesHandler(AbstractHandler):
         meta.update(self._get_meta(event))
         application.meta = meta
         self._application_service.save(application)
-        return build_response(content={"data": _get_dto(application)})
+        return build_response(content=_get_dto(application))
 
     @validate_kwargs
     def delete(

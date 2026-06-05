@@ -1,16 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
+from helpers import Version
 from helpers.constants import Cloud
 from helpers.log_helper import get_logger
+from services.event_driven.mappings.provider import S3EventMappingProvider
 
-if TYPE_CHECKING:
-    from helpers import Version
-    from services.event_driven.mappings.provider import S3EventMappingProvider
-
-    from ..domain.types import EventGenericRecord
-
+from ..domain.types import EventGenericRecord
 
 _LOG = get_logger(__name__)
 
@@ -32,9 +27,9 @@ class RulesResolver:
         )
         if data is None:
             _LOG.warning(
-                f"No event mapping found for {cloud.value} in S3 "
-                f"for license key: {license_key} and version: {version.to_str()} "
-                f"May be metadata is not synced for this license key and version"
+                f'No event mapping found for {cloud.value} in S3 '
+                f'for license key: {license_key} and version: {version.to_str()} '
+                f'May be metadata is not synced for this license key and version'
             )
             return {}
         return data
@@ -59,4 +54,4 @@ class RulesResolver:
             return set(k8s_map.get(event_source, []))
 
         cloud_map = self.cloud_mapping(cloud_enum, license_key, version)
-        return set[str](cloud_map.get(event_source, {}).get(event_name, []))
+        return set(cloud_map.get(event_source, {}).get(event_name, []))

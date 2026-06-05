@@ -3,7 +3,7 @@ import io
 import tempfile
 import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Generator, Protocol, cast
+from typing import TYPE_CHECKING, Generator, Protocol, TypedDict, cast
 from dateutil.relativedelta import relativedelta
 
 import msgspec
@@ -100,6 +100,21 @@ class Deprecation(msgspec.Struct, frozen=True, kw_only=True):
             return Severity.LOW
 
 
+class EventMetadata(TypedDict):
+    """
+    Represents the formation in which per event metadata is returned from LM and
+    is stored
+
+    :param event: Event name
+    :param source: Event source
+    :param ids: JMESPath query to extract resource ids from event payload
+    """
+
+    event: str
+    source: str
+    ids: str
+
+
 class RuleMetadata(
     msgspec.Struct, kw_only=True, array_like=True, frozen=True, eq=False
 ):
@@ -128,7 +143,7 @@ class RuleMetadata(
     )
     deprecation: Deprecation = msgspec.field(default=Deprecation())  # it's immutable so can a default
     cloud: str
-    events: dict | None = msgspec.field(default=None)
+    events: list[EventMetadata] | dict[str, list[str]] | None = msgspec.field(default=None)
 
     def __repr__(self) -> str:
         return (

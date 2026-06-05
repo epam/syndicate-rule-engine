@@ -15,7 +15,6 @@ from executor.helpers.constants import (
     ACCESS_DENIED_ERROR_CODE,
     INVALID_CREDENTIALS_ERROR_CODES,
 )
-from helpers.constants import Cloud
 
 _DETAIL_MAX_LEN = 480
 
@@ -34,6 +33,8 @@ class JobErrorCode(str, Enum):
     CLOUD_ACCESS_DENIED = "CLOUD_ACCESS_DENIED"
     CLOUD_PROVIDER_ERROR = "CLOUD_PROVIDER_ERROR"
     WORKER_LOST = "WORKER_LOST"
+    NO_VALID_LICENSE = "NO_VALID_LICENSE"
+    INVALID_JOB_TYPE = "INVALID_JOB_TYPE"
 
 
 @dataclass(slots=True)
@@ -141,6 +142,8 @@ _DEFAULT_MESSAGES: dict[JobErrorCode, str] = {
     JobErrorCode.CLOUD_ACCESS_DENIED: "Access denied by cloud provider",
     JobErrorCode.CLOUD_PROVIDER_ERROR: "Cloud provider API error",
     JobErrorCode.WORKER_LOST: "Job worker was lost or terminated unexpectedly",
+    JobErrorCode.NO_VALID_LICENSE: "No valid license found",
+    JobErrorCode.INVALID_JOB_TYPE: "Invalid job type",
 }
 
 

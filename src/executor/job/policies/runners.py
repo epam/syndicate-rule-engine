@@ -4,6 +4,7 @@ import traceback
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 from typing_extensions import Self
 
 import msgspec.json
@@ -20,6 +21,10 @@ from executor.helpers.constants import (
     INVALID_CREDENTIALS_ERROR_CODES,
 )
 from executor.job.policies.loader import PoliciesLoader
+from executor.job.policies.modes import (
+    filter_events_for_policy_mode,
+    is_resource_scoped_policy,
+)
 from services.job_policy_filters import apply_scan_entry
 from helpers.constants import Cloud, PolicyErrorType
 from helpers.log_helper import get_logger
@@ -37,12 +42,14 @@ class Runner(ABC):
         failed: dict | None = None,
         *,
         policy_bundle: BundleFilters | None = None,
+        rule_events: dict[str, list[dict[str, Any]]] | None = None,
     ) -> None:
         self._policies = policies
 
         self.failed = failed if isinstance(failed, dict) else {}
         self.n_successful = 0
         self._policy_bundle = policy_bundle
+        self._rule_events = rule_events
 
         self._err = None
         self._err_msg = None
@@ -56,11 +63,17 @@ class Runner(ABC):
         failed: dict | None = None,
         *,
         policy_bundle: BundleFilters | None = None,
+        rule_events: dict[str, list[dict[str, Any]]] | None = None,
     ) -> Self:
         _class = next(
             filter(lambda sub: sub.cloud == cloud, cls.__subclasses__())
         )
-        return _class(policies, failed, policy_bundle=policy_bundle)
+        return _class(
+            policies,
+            failed,
+            policy_bundle=policy_bundle,
+            rule_events=rule_events,
+        )
 
     def start(self) -> None:
         while self._policies:
@@ -90,11 +103,52 @@ class Runner(ABC):
             self._run_with_bundle_entries(policy, bundle_entries)
             return
 
+        if self._run_with_pushed_events(policy):
+            return
+
         success = self._handle_errors(policy)
         if not success:
             return
 
         self.n_successful += 1
+
+    def _run_with_pushed_events(self, policy: Policy) -> bool:
+        """Run sre-aws-event-driven mode when job events are available."""
+        if self._rule_events is None or not is_resource_scoped_policy(policy):
+            return False
+        raw = self._rule_events.get(policy.name)
+        if not raw:
+            return False
+        mode = policy.data.get('mode') or {}
+        events = filter_events_for_policy_mode(raw, mode)
+        if not events:
+            _LOG.warning(
+                'Policy %s: no job events matched mode subscriptions',
+                policy.name,
+            )
+            return False
+        region = PoliciesLoader.get_policy_region(policy)
+        try:
+            # c7n: ``execution_mode`` is the mode *type string*;
+            # ``get_execution_mode()`` returns the runnable PolicyExecutionMode.
+            exec_mode = policy.get_execution_mode()
+            if exec_mode is None:
+                raise ValueError(
+                    f'Unknown execution mode {policy.execution_mode!r} for '
+                    f'policy {policy.name}'
+                )
+            exec_mode.run(events)
+        except Exception as error:
+            _LOG.exception('Policy %s event-driven run failed', policy.name)
+            self._add_failed(
+                region=region,
+                policy=policy.name,
+                error_type=PolicyErrorType.INTERNAL,
+                exception=error,
+            )
+            return True
+        self.n_successful += 1
+        return True
 
     @staticmethod
     def add_failed(

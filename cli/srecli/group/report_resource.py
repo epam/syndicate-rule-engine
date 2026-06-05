@@ -4,6 +4,7 @@ from typing import Optional
 import click
 
 from srecli.group import (
+    SREResponse,
     ContextObj,
     ViewCommand,
     build_job_id_option,
@@ -13,7 +14,7 @@ from srecli.group import (
     optional_job_type_option,
     to_date_report_option,
 )
-
+from srecli.service.presigned_hints_pack import presigned_url_hints_pack
 
 @click.group(name='resource')
 def resource():
@@ -38,7 +39,7 @@ def resource():
 @click.option('--format', '-ft', type=click.Choice(('json', 'xlsx')),
               help='Report format')
 @click.option('--href', '-hf', is_flag=True,
-              help='Whether to return raw data of url to the data')
+              help='Whether to return raw data or URL to the data')
 @click.option('--obfuscated', is_flag=True,
               help='Whether to obfuscate the data and return also a dictionary')
 @click.option('--id', required=False, type=str,
@@ -48,10 +49,22 @@ def resource():
 @click.option('--arn', required=False, type=str,
               help='Resource arn, only for aws')
 @cli_response()
-def latest(ctx: ContextObj, tenant_name: str, resource_type: Optional[str],
-           region: Optional[str], full: bool, exact_match: bool,
-           search_by_all: bool, format: str, href: bool, id: Optional[str],
-           name: Optional[str], arn: Optional[str], customer_id, obfuscated):
+@presigned_url_hints_pack
+def latest(
+    ctx: ContextObj,
+    tenant_name: str,
+    resource_type: Optional[str],
+    region: Optional[str],
+    full: bool,
+    exact_match: bool,
+    search_by_all: bool,
+    format: str,
+    href: bool,
+    id: Optional[str],
+    name: Optional[str], arn: Optional[str],
+    customer_id,
+    obfuscated,
+) -> SREResponse:
     """
     Resource report for tenant
     """
@@ -88,7 +101,7 @@ def latest(ctx: ContextObj, tenant_name: str, resource_type: Optional[str],
 @click.option('--format', '-ft', type=click.Choice(('json', 'xlsx')),
               help='Report format')
 @click.option('--href', '-hf', is_flag=True,
-              help='Whether to return raw data of url to the data')
+              help='Whether to return raw data or URL to the data')
 @click.option('--obfuscated', is_flag=True,
               help='Whether to obfuscate the data and return also a dictionary')
 @click.option('--id', required=False, type=str,
@@ -96,11 +109,21 @@ def latest(ctx: ContextObj, tenant_name: str, resource_type: Optional[str],
 @click.option('--name', required=False, type=str,
               help='Resource name')
 @cli_response()
-def platform_latest(ctx: ContextObj, platform_id: str,
-                    resource_type: Optional[str], full: bool,
-                    exact_match: bool, search_by_all: bool,
-                    format: str, href: bool, id: Optional[str],
-                    name: Optional[str], customer_id, obfuscated):
+@presigned_url_hints_pack
+def platform_latest(
+    ctx: ContextObj, 
+    platform_id: str,
+    resource_type: Optional[str],
+    full: bool,
+    exact_match: bool,
+    search_by_all: bool,
+    format: str,
+    href: bool,
+    id: Optional[str],
+    name: Optional[str],
+    customer_id,
+    obfuscated,
+) -> SREResponse:
     """
     Resource report for platform
     """
@@ -144,11 +167,22 @@ def platform_latest(ctx: ContextObj, platform_id: str,
 @click.option('--arn', required=False, type=str,
               help='Resource arn, only for aws')
 @cli_response()
-def jobs(ctx: ContextObj, tenant_name: str, job_type: str,
-         from_date: datetime, to_date: datetime, resource_type: Optional[str],
-         region: Optional[str], full: bool, exact_match: bool,
-         search_by_all: bool, id: Optional[str], name: Optional[str],
-         arn: Optional[str], customer_id):
+def jobs(
+    ctx: ContextObj,
+    tenant_name: str,
+    job_type: str,
+    from_date: datetime,
+    to_date: datetime,
+    resource_type: Optional[str],
+    region: Optional[str],
+    full: bool,
+    exact_match: bool,
+    search_by_all: bool,
+    id: Optional[str],
+    name: Optional[str],
+    arn: Optional[str],
+    customer_id,
+) -> SREResponse:
     """
     Resource report for tenant jobs
     """
@@ -189,7 +223,7 @@ def jobs(ctx: ContextObj, tenant_name: str, job_type: str,
 @click.option('--search_by_all', '-sba', is_flag=True,
               help='If specified, all the fields will be checked')
 @click.option('--href', '-hf', is_flag=True,
-              help='Whether to return raw data of url to the data')
+              help='Whether to return raw data or URL to the data')
 @click.option('--obfuscated', is_flag=True,
               help='Whether to obfuscate the data and return also a dictionary')
 @click.option('--id', required=False, type=str,
@@ -199,11 +233,22 @@ def jobs(ctx: ContextObj, tenant_name: str, job_type: str,
 @click.option('--arn', required=False, type=str,
               help='Resource arn, only for aws')
 @cli_response()
-def job(ctx: ContextObj, job_id: str, job_type: str,
-        resource_type: Optional[str], region: Optional[str], full: bool,
-        exact_match: bool, search_by_all: bool, id: Optional[str],
-        name: Optional[str], arn: Optional[str], href: bool, customer_id,
-        obfuscated):
+@presigned_url_hints_pack
+def job(
+    ctx: ContextObj,
+    job_id: str,
+    job_type: str,
+    resource_type: Optional[str],
+    region: Optional[str], full: bool,
+    exact_match: bool,
+    search_by_all: bool,
+    id: Optional[str],
+    name: Optional[str],
+    arn: Optional[str],
+    href: bool,
+    customer_id,
+    obfuscated,
+) -> SREResponse:
     """
     Resource report for concrete job
     """

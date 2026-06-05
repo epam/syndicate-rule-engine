@@ -8,10 +8,11 @@ from srecli.group import (
     from_date_report_option,
     optional_job_type_option,
     to_date_report_option,
+    SREResponse,
 )
 from srecli.group import ContextObj, ViewCommand, cli_response
 from srecli.group import tenant_option
-
+from srecli.service.presigned_hints_pack import presigned_url_hints_pack
 
 @click.group(name='details')
 def details():
@@ -24,13 +25,27 @@ def details():
 @tenant_option
 @from_date_report_option
 @to_date_report_option
-@click.option('--href', '-hf', is_flag=True, help='Return hypertext reference')
 @click.option('--obfuscated', is_flag=True,
               help='Whether to obfuscate the data and return also a dictionary')
+@click.option(
+    '--href',
+    '-hf',
+    is_flag=True,
+    help='Return presigned URL instead of inline payload.',
+)
 @cli_response()
-def jobs(ctx: ContextObj, job_id: Optional[str], tenant_name: Optional[str],
-         from_date: Optional[datetime], to_date: Optional[datetime],
-         job_type: str, href: bool, obfuscated, customer_id):
+@presigned_url_hints_pack
+def jobs(
+    ctx: ContextObj,
+    job_id: Optional[str],
+    tenant_name: Optional[str],
+    from_date: Optional[datetime],
+    to_date: Optional[datetime],
+    job_type: str,
+    href: bool,
+    obfuscated,
+    customer_id,
+) -> SREResponse:
     """
     Describes detailed reports of jobs
     """

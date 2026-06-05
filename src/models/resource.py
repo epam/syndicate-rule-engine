@@ -120,7 +120,7 @@ class Resource(BaseModel):
 
     @property
     def cloud(self) -> Cloud:
-        return Cloud[self.resource_type.split('.')[0].upper()]
+        return Cloud.parse(self.resource_type.split('.')[0].upper(), safe=False)
 
     @property
     def collector_type(self) -> ResourcesCollectorType:
