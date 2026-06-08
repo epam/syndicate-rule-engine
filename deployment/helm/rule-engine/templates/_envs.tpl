@@ -152,7 +152,9 @@ env:
   {{- if .Values.executorLogsFilename }}
   - name: SRE_EXECUTOR_LOGS_FILENAME
     value: {{ .Values.executorLogsFilename }}
-  - name: SRE_ENABLE_CUSTOM_CC_PLUGINS # TODO Unset if value is empty
+  {{- end }}
+  {{- if .Values.celery.enableCustomCcPlugins }}
+  - name: SRE_ENABLE_CUSTOM_CC_PLUGINS
     value: {{ default "" .Values.celery.enableCustomCcPlugins | quote }}
-{{- end }}
+  {{- end }}
 {{- end -}}

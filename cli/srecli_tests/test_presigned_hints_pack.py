@@ -32,7 +32,7 @@ def test_build_hints_many_urls_combined():
     hints = _build_hints_from_urls([_url(i) for i in range(6)])
     assert len(hints) == 1
     assert hints[0]['title'] == 'Download reports'
-    assert hints[0]['description'].count('curl -O') == 6
+    assert hints[0]['description'].count('curl -fS -O') == 6
 
 
 def test_format_hints_multiline_description():
@@ -40,11 +40,11 @@ def test_format_hints_multiline_description():
         {
             'index': 0,
             'title': 'Download reports',
-            'description': "curl -O 'a'\ncurl -O 'b'",
+            'description': "curl -fS -O 'a'\ncurl -fS -O 'b'",
         },
     ])
-    assert '    curl -O' in text
-    assert text.count('    curl -O') == 2
+    assert '    curl -fS -O' in text
+    assert text.count('    curl -fS -O') == 2
 
 
 def test_attach_presigned_hints_many_items_one_hint():

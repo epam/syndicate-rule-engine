@@ -27,7 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [12056] Added `--href` flag to `sre report raw latest` command
 
 ### Fixed
-- [11950] Fixed issue when `sre integrations event_sources update` command was returning `data` key in the response
+- [11950] Fixed issue when `sre integrations event sources update` command was returning `data` key in the response
+
+### Changed
+- [12105] Refactored `sre job event` command to use `-f`, `--events_file` option for all subcommands
 
 ## [5.13.0] - 2026-03-18
 
