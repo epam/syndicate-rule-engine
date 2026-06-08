@@ -4,10 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.14.1] - 2026-06-03
-* Add Python 3.14 support (`requires-python = ">=3.14,<4"`)
-* Update library `modular-cli-sdk` from `==3.1.4` to `==3.1.5`
-* Replace pinned dependency versions with compatible ranges to allow broader Python 3.14 resolution:
+## [5.15.0] - 2026-06-03
+
+### Added
+- Added Python 3.14 support (`requires-python = ">=3.14,<4"`)
+
+### Changed
+- Updated library `modular-cli-sdk` from `==3.1.4` to `==3.1.5`
+- Replaced pinned dependency versions with compatible ranges to allow broader Python 3.14 resolution:
   - `click==8.3.0` -> `click>=8.3,<9`
   - `tabulate==0.9.0` -> `tabulate>=0.10,<1`
   - `python-dateutil==2.9.0.post0` -> `python-dateutil>=2.9,<3`
