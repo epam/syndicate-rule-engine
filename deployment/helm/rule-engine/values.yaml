@@ -129,7 +129,7 @@ celery:
   workerMemoryRequest: "128Mi"
   beatMemoryLimit: "256Mi"
   beatMemoryRequest: "128Mi"
-  enableCustomCcPlugins: ''
+  enableCustomCcPlugins: true
   schedule:
     timezone: UTC
     makeFindingsSnapshots: '0 */12 * * *'
