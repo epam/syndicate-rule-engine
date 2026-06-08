@@ -2,7 +2,7 @@
   "name": "sre_common_dependencies_layer",
   "resource_type": "lambda_layer",
   "runtimes": [
-    "python3.10"
+    "python3.14"
   ],
   "deployment_package": "sre_common_dependencies_layer.zip"
 }
