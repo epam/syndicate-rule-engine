@@ -12,7 +12,7 @@ SYNDICATE_HELM_REPOSITORY="${SYNDICATE_HELM_REPOSITORY:-https://charts-repositor
 HELM_RELEASE_NAME="${HELM_RELEASE_NAME:-rule-engine}"
 DEFECTDOJO_HELM_RELEASE_NAME="${DEFECTDOJO_HELM_RELEASE_NAME:-defectdojo}"
 
-DOCKER_VERSION="${DOCKER_VERSION:-5:27.1.1-1~${ID}.${VERSION_ID}~${VERSION_CODENAME}}"
+DOCKER_VERSION="${DOCKER_VERSION:-5:29.5.3-1~${ID}.${VERSION_ID}~${VERSION_CODENAME}}"
 MINIKUBE_VERSION="${MINIKUBE_VERSION:-v1.33.1}"
 KUBERNETES_VERSION="${KUBERNETES_VERSION:-v1.30.0}"
 KUBECTL_VERSION="${KUBECTL_VERSION:-v1.30.3}"
@@ -124,7 +124,10 @@ install_docker() {
     ${VERSION_CODENAME} stable" |
     sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
   sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
-  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce="$1" docker-ce-cli="$1" containerd.io
+  if ! sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce="$1" docker-ce-cli="$1" containerd.io 2>/dev/null; then
+    log_err "Docker version '$1' not found in repository, falling back to latest available version"
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce docker-ce-cli containerd.io
+  fi
 }
 install_minikube() {
   # https://minikube.sigs.k8s.io/docs/start
@@ -395,6 +398,17 @@ helm repo update syndicate
 
 helm install "$HELM_RELEASE_NAME" syndicate/rule-engine --version $RULE_ENGINE_RELEASE $(build_helm_values)
 helm install "$DEFECTDOJO_HELM_RELEASE_NAME" syndicate/defectdojo
+
+# Temporary workaround: Docker 29+ sets RLIM_INFINITY for containerd pods which crashes uWSGI during prefork.
+# Patch defectdojo deployments to wrap entrypoints with `ulimit -n 65536`.
+# TODO: remove once defectdojo helm chart embeds ulimit in container commands and a new chart version is released.
+for deploy in defectdojo-uwsgi defectdojo-celeryworker defectdojo-celerybeat; do
+  cmd=\$(kubectl get deployment \$deploy -o jsonpath='{.spec.template.spec.containers[0].command}' 2>/dev/null || true)
+  if [ -n "\$cmd" ] && echo "\$cmd" | grep -qv 'ulimit'; then
+    entrypoint=\$(kubectl get deployment \$deploy -o jsonpath='{.spec.template.spec.containers[0].command[-1]}')
+    kubectl patch deployment \$deploy --type=json -p="[{\"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/command\",\"value\":[\"/bin/sh\",\"-c\",\"ulimit -n 65536 && exec \$entrypoint\"]}]"
+  fi
+done
 EOF
 
 if [ -z "$lm_response" ]; then
