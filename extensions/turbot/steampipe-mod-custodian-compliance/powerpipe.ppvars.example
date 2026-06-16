@@ -1,0 +1,5 @@
+# Copy to powerpipe.ppvars and set your scan job.
+# Or export SRE_JOB_ID before starting Powerpipe.
+
+job_id      = "00000000-0000-0000-0000-000000000000"
+customer_id = ""
