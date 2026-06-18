@@ -574,7 +574,11 @@ initialize_system() {
   fi
 
   echo "Getting Defect dojo token"
+  local _dojo_deadline=$(( $(date +%s) + 900 ))
   while [ -z "$dojo_token" ]; do
+    if [ "$(date +%s)" -ge "$_dojo_deadline" ]; then
+      die_with_support "Timed out waiting for Defect Dojo token after 15 minutes"
+    fi
     sleep 2
     dojo_token=$(curl -X POST -H 'content-type: application/json' "http://127.0.0.1:80/api/v2/api-token-auth/" -d "{\"username\":\"admin\",\"password\":\"$(get_kubectl_secret "$DEFECTDOJO_SECRET_NAME" system-password)\"}" | jq ".token" -r || true)
   done
@@ -826,6 +830,10 @@ make_update_notification() {
   # file exists
   local period passed
   IFS=':' read -r period passed <"$UPDATE_NOTIFICATION_FILE"
+  if [ -z "$period" ] || [ "$period" -eq 0 ] 2>/dev/null; then
+    rm -f "$UPDATE_NOTIFICATION_FILE"
+    return 0
+  fi
   if [ "$(($(date +%s) / period))" -ne "$passed" ]; then
     warn_if_update_available || return 1
     echo "$UPDATE_NOTIFICATION_PERIOD:$(($(date +%s) / UPDATE_NOTIFICATION_PERIOD))" >"$UPDATE_NOTIFICATION_FILE"
@@ -1561,7 +1569,7 @@ verify_installation() {
 }
 
 # Start
-VERSION="1.2.0"
+VERSION="1.2.1"
 PROGRAM="${0##*/}"
 COMMAND="$1"
 SELF_PATH=/usr/local/bin/sre-init # TODO: resolve dynamically?
