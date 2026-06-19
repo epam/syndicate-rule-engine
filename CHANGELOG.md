@@ -5,12 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.20.0] - 2026-06-10
+## [5.20.0] - 2026-XX-XX
 
 ### Fixed
 - Fixed division by zero error in `sre-init` when the update notification file (`$UPDATE_NOTIFICATION_FILE`) is empty or malformed
 - Added 15-minute deadline to DefectDojo token polling loop to prevent
   infinite hang on initialization failure
+
+### Changed
+- Recovery smoke tests for common use cases of Syndicate Rule Engine CLI
 
 ## [5.19.0] - 2026-06-04
 
