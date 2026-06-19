@@ -5,25 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-<<<<<<< feature/python_314
-## [5.20.0] - 2026-06-08
+## [5.20.0] - 2026-XX-XX
 
 ### Added
 - Added Python 3.14 support (`requires-python = ">=3.14,<4"`)
 
 ### Fixed
+- Fixed division by zero error in `sre-init` when the update notification file (`$UPDATE_NOTIFICATION_FILE`) is empty or malformed
+- Added 15-minute deadline to DefectDojo token polling loop to prevent
+  infinite hang on initialization failure
+
 - Fixed on-prem API startup with Bottle 0.13+ by using a slash-prefixed mount path and stripping the stage prefix from mounted route rules
 
 ### Removed
 - Removed unused `aws-xray-sdk` and `pytz-deprecation-shim` dependencies along with dead code
-=======
-## [5.20.0] - 2026-06-10
-
-### Fixed
-- Fixed division by zero error in `sre-init` when the update notification file (`$UPDATE_NOTIFICATION_FILE`) is empty or malformed
-- Added 15-minute deadline to DefectDojo token polling loop to prevent
-  infinite hang on initialization failure
->>>>>>> develop
 
 ## [5.19.0] - 2026-06-04
 
