@@ -178,7 +178,7 @@ class OnPremApiBuilder:
             self._endpoint_to_lambda[(params['path'], params['method'])] = info.lambda_name
             sre_app.route(**params)
 
-        app.mount(self._stage, sre_app)
+        app.mount(f'/{self._stage}/', sre_app)
         return app
 
     @classmethod
@@ -199,9 +199,15 @@ class OnPremApiBuilder:
             resource += f'<{path_input}>' + suffix
         return resource
 
+    def _resolve_route_rule(self, route_rule: str) -> str:
+        stage_prefix = f'/{self._stage}'
+        if route_rule.startswith(stage_prefix):
+            return route_rule[len(stage_prefix):] or '/'
+        return route_rule
+
     def _callback(self, decoded_token: dict | None = None, **path_params):
         method = request.method
-        path = request.route.rule
+        path = self._resolve_route_rule(request.route.rule)
         ln = self._endpoint_to_lambda[(path, method)]
         handler = self.lambda_name_to_handler.get(ln)
         if not handler:

@@ -31,11 +31,11 @@ check-syndicate:
 
 
 test:
-	pytest --verbose tests/ cli/srecli_tests/
+	uv run pytest --verbose tests/ cli/srecli_tests/
 
 
 test-coverage:
-	pytest --cov=src/ --cov-report=$(COVERAGE_TYPE) tests/
+	uv run pytest --cov=src/ --cov-report=$(COVERAGE_TYPE) tests/
 
 
 install:

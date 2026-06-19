@@ -6,8 +6,6 @@ requires-python = ">=3.14,<4"
 license = {file = "LICENSE"}
 version = "5.19.0"
 dependencies = [
-    # TODO: point py314
-    "aws-xray-sdk~=2.15.0",
     "bcrypt>=4,<6",
     "boto3>=1.42,<2",
     "botocore>=1.42,<2",
@@ -27,8 +25,6 @@ dependencies = [
     "pymongo~=4.11.2",
     "pynamodb==6.1.0",
     "python-dateutil>=2.9,<3",
-    # TODO: point py314
-    "pytz-deprecation-shim~=0.1.0.post0",
     "redis~=5.2.1",
     "requests>=2.32,<3",
     "ruamel-yaml>=0.18,<0.21",

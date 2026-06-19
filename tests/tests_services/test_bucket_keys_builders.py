@@ -158,13 +158,6 @@ class TestStatisticsBucketKeyBuilder:
             == f'report-statistics/diagnostic/TEST_CUSTOMER/{now.strftime("%Y-%m")}/diagnostic_report.json'
         )
 
-    def test_xray_log(self):
-        now = datetime.now(timezone.utc)
-        res = StatisticsBucketKeysBuilder.xray_log('job_id')
-        assert (
-            res == f'xray/executor/{now.year}/{now.month}/{now.day}/job_id.log'
-        )
-
 
 def test_s3_url():
     url = S3Url('s3://bucket/path/to/file')

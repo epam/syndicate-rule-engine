@@ -4,8 +4,6 @@ amqp==5.3.1
     # via kombu
 annotated-types==0.7.0
     # via pydantic
-aws-xray-sdk==2.15.0
-    # via syndicate-rule-engine (pyproject.toml)
 bcrypt==5.0.0
     # via syndicate-rule-engine (pyproject.toml)
 billiard==4.3.0rc1
@@ -19,7 +17,6 @@ boto3==1.43.33
 botocore==1.43.33
     # via
     #   syndicate-rule-engine (pyproject.toml)
-    #   aws-xray-sdk
     #   boto3
     #   modular-sdk
     #   pynamodb
@@ -38,7 +35,7 @@ cffi==2.0.0
     # via cryptography
 charset-normalizer==3.4.7
     # via requests
-click==8.4.1
+click==8.3.3
     # via
     #   celery
     #   click-didyoumean
@@ -52,7 +49,7 @@ click-repl==0.3.0
     # via celery
 colorama==0.4.6
     # via click
-cryptography==49.0.0
+cryptography==46.0.7
     # via
     #   syndicate-rule-engine (pyproject.toml)
     #   google-auth
@@ -63,7 +60,7 @@ et-xmlfile==2.0.0
     # via openpyxl
 google-api-core==2.31.0
     # via google-api-python-client
-google-api-python-client==2.197.0
+google-api-python-client==2.194.0
     # via syndicate-rule-engine (pyproject.toml)
 google-auth==2.55.0
     # via
@@ -140,11 +137,9 @@ python-dateutil==2.9.0.post0
     #   botocore
     #   celery
     #   modular-sdk
-pytz-deprecation-shim==0.1.0.post0
-    # via syndicate-rule-engine (pyproject.toml)
 redis==5.2.1
     # via syndicate-rule-engine (pyproject.toml)
-requests==2.34.2
+requests==2.33.1
     # via
     #   syndicate-rule-engine (pyproject.toml)
     #   google-api-core
@@ -188,7 +183,5 @@ vine==5.1.0
     #   kombu
 wcwidth==0.8.1
     # via prompt-toolkit
-wrapt==2.2.2rc3
-    # via aws-xray-sdk
 xlsxwriter==3.2.9
     # via syndicate-rule-engine (pyproject.toml)

@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added Python 3.14 support (`requires-python = ">=3.14,<4"`)
 
+### Fixed
+- Fixed on-prem API startup with Bottle 0.13+ by using a slash-prefixed mount path and stripping the stage prefix from mounted route rules
+
+### Removed
+- Removed unused `aws-xray-sdk` and `pytz-deprecation-shim` dependencies along with dead code
+
 ## [5.19.0] - 2026-06-04
 
 ### Added
