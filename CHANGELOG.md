@@ -14,7 +14,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed division by zero error in `sre-init` when the update notification file (`$UPDATE_NOTIFICATION_FILE`) is empty or malformed
 - Added 15-minute deadline to DefectDojo token polling loop to prevent
   infinite hang on initialization failure
-
 - Fixed on-prem API startup with Bottle 0.13+ by using a slash-prefixed mount path and stripping the stage prefix from mounted route rules
 
 ### Removed
