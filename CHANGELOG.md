@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - Removed unused `aws-xray-sdk` and `pytz-deprecation-shim` dependencies along with dead code
 
+### Changed
+- Recovery smoke tests for common use cases of Syndicate Rule Engine CLI
+
 ## [5.19.0] - 2026-06-04
 
 ### Added
