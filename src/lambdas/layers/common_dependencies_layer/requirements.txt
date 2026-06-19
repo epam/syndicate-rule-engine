@@ -13,5 +13,5 @@ pydantic>=2.8,<3
 typing-extensions>=4.13,<5
 msgspec>=0.18,<0.23
 cachetools>=6,<8
-python-dateutil>=2.9,<3.0
-modular-sdk @ git+https://github.com/epam/modular-sdk@feature/python_314#egg=modular-sdk==7.1.12
+python-dateut>=2.9,<3
+modular-sdk>=8,<9

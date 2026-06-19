@@ -14,7 +14,7 @@ dependencies = [
     "tabulate>=0.10,<1",
     "boto3>=1.26.80,<2",
     "python-dateutil>=2.9,<3",
-    "modular-cli-sdk[hvac] @ git+https://github.com/epam/modular-cli-sdk@feature/python_314#egg=modular-cli-sdk==3.1.5",
+    "modular-cli-sdk[hvac]>=4,<5",
 ]
 
 [project.scripts]
