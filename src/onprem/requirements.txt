@@ -35,7 +35,7 @@ cffi==2.0.0
     # via cryptography
 charset-normalizer==3.4.7
     # via requests
-click==8.3.3
+click==8.4.1
     # via
     #   celery
     #   click-didyoumean
@@ -47,9 +47,7 @@ click-plugins==1.1.1.2
     # via celery
 click-repl==0.3.0
     # via celery
-colorama==0.4.6
-    # via click
-cryptography==46.0.7
+cryptography==49.0.0
     # via
     #   syndicate-rule-engine (pyproject.toml)
     #   google-auth
@@ -60,7 +58,7 @@ et-xmlfile==2.0.0
     # via openpyxl
 google-api-core==2.31.0
     # via google-api-python-client
-google-api-python-client==2.194.0
+google-api-python-client==2.197.0
     # via syndicate-rule-engine (pyproject.toml)
 google-auth==2.55.0
     # via
@@ -139,7 +137,7 @@ python-dateutil==2.9.0.post0
     #   modular-sdk
 redis==5.2.1
     # via syndicate-rule-engine (pyproject.toml)
-requests==2.33.1
+requests==2.34.2
     # via
     #   syndicate-rule-engine (pyproject.toml)
     #   google-api-core
@@ -164,10 +162,7 @@ typing-extensions==4.15.0
 typing-inspection==0.4.2
     # via pydantic
 tzdata==2026.2
-    # via
-    #   kombu
-    #   pytz-deprecation-shim
-    #   tzlocal
+    # via kombu
 tzlocal==5.4.3
     # via celery
 uritemplate==4.2.0
