@@ -6,7 +6,7 @@ annotated-types==0.7.0
     # via pydantic
 bcrypt==5.0.0
     # via syndicate-rule-engine (pyproject.toml)
-billiard==4.3.0rc1
+billiard==4.2.4
     # via
     #   syndicate-rule-engine (pyproject.toml)
     #   celery
@@ -47,7 +47,7 @@ click-plugins==1.1.1.2
     # via celery
 click-repl==0.3.0
     # via celery
-cryptography==49.0.0
+cryptography==46.0.7
     # via
     #   syndicate-rule-engine (pyproject.toml)
     #   google-auth
@@ -58,9 +58,9 @@ et-xmlfile==2.0.0
     # via openpyxl
 google-api-core==2.31.0
     # via google-api-python-client
-google-api-python-client==2.197.0
+google-api-python-client==2.194.0
     # via syndicate-rule-engine (pyproject.toml)
-google-auth==2.55.0
+google-auth==2.49.2
     # via
     #   syndicate-rule-engine (pyproject.toml)
     #   google-api-core
@@ -115,9 +115,9 @@ pyasn1-modules==0.4.2
     # via google-auth
 pycparser==3.0
     # via cffi
-pydantic==2.14.0a1
+pydantic==2.13.4
     # via syndicate-rule-engine (pyproject.toml)
-pydantic-core==2.47.0
+pydantic-core==2.46.4
     # via pydantic
 pymongo==4.11.3
     # via
@@ -137,7 +137,7 @@ python-dateutil==2.9.0.post0
     #   modular-sdk
 redis==5.2.1
     # via syndicate-rule-engine (pyproject.toml)
-requests==2.34.2
+requests==2.33.1
     # via
     #   syndicate-rule-engine (pyproject.toml)
     #   google-api-core
