@@ -4,7 +4,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.14.0] - 2026-06-04
+## [5.20.0] - 2026-XX-XX
+
+### Added
+- Added Python 3.14 support (`requires-python = ">=3.14,<4"`)
+
+### Changed
+- Updated library `modular-cli-sdk` from `==3.1.4` to `>=4,<5`
+- Replaced pinned dependency versions with compatible ranges to allow broader Python 3.14 resolution:
+  - `click==8.3.0` -> `click>=8.3,<9`
+  - `tabulate==0.9.0` -> `tabulate>=0.10,<1`
+  - `python-dateutil==2.9.0.post0` -> `python-dateutil>=2.9,<3`
+
+## [5.14.0] - 2026-04-28
 
 ### Added
 - [12056] Added hints for downloading presigned report artifacts for the following commands:
