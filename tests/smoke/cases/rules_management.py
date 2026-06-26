@@ -98,6 +98,27 @@ def case_for_source(
         },
         depends_on=(rs_resolve_step,),
     )
+    wait_rule_source_syncing_step = WaitUntil(
+        cmd(
+            'rulesource describe -rsid $.[0].items[0].rule_source_id',
+            customer,
+        ),
+        {
+            '$.data.latest_sync.current_status': Equal('SYNCING'),
+        },
+        depends_on=(rule_update_step,),
+        sleep=2,
+        timeout=120,
+    )
+    rule_update_while_syncing_step = Step(
+        cmd('rule update -rsid $.[0].items[0].rule_source_id', customer),
+        {
+            '$.items[0].status': Contains('Rule source is currently being updated. Rule update event has not been submitted'),
+            '$.items[0].customer': Equal(customer),
+            '$.items[0].git_project_id': Equal(s.pid),
+        },
+        depends_on=(rule_update_step, wait_rule_source_syncing_step),
+    )
     wait_rule_update_step = WaitUntil(
         cmd('rulesource describe -rsid $.[0].items[0].id', customer),
         {
@@ -295,6 +316,8 @@ def case_for_source(
             rs_add_step,
             rs_resolve_step,
             rule_update_step,
+            wait_rule_source_syncing_step,
+            rule_update_while_syncing_step,
             wait_rule_update_step,
             rule_describe_step,
             rule_describe_concrete_step,

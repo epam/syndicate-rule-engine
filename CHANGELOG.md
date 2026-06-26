@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Python 3.14 support (`requires-python = ">=3.14,<4"`)
 
 ### Fixed
+- [12128] Fixed `sre rule update` returning `No rule sources were found` response when the requested rule source is already `SYNCING`
 - Fixed division by zero error in `sre-init` when the update notification file (`$UPDATE_NOTIFICATION_FILE`) is empty or malformed
 - Added 15-minute deadline to DefectDojo token polling loop to prevent
   infinite hang on initialization failure
