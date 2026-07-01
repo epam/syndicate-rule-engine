@@ -48,12 +48,11 @@ class SettingsService:
 
     def delete(self, setting: Union[Setting, str, SettingKey]) -> bool:
         if isinstance(setting, Setting):
-            name = setting.name
+            setting.delete()
         elif isinstance(setting, SettingKey):
-            name = setting.value
+            Setting(name=setting.value).delete()
         else:
-            name = setting
-        Setting(name=name).delete()
+            Setting(name=setting).delete()
         return True
 
     def save(self, setting: Setting):
@@ -95,8 +94,16 @@ class SettingsService:
         setting.value = model.dict()
         return setting
 
-    def get_license_manager_client_key_data(self, value: bool = True):
-        return self.get(name=SettingKey.LM_CLIENT_KEY, value=value)
+    def get_license_manager_client_key_data(
+        self,
+        value: bool = True,
+        consistent_read: bool = False,
+    ):
+        return self.get(
+            name=SettingKey.LM_CLIENT_KEY,
+            value=value,
+            consistent_read=consistent_read,
+        )
 
     def create_license_manager_client_key_data(self, kid: str, alg: str
                                                ) -> Setting:
@@ -301,27 +308,47 @@ class CachedSettingsService(SettingsService):
         # name to Setting instance
         self._cache = cache.factory()
 
-    def get(self, name: str, value: bool = True, consistent_read: bool = False
-            ) -> Optional[Union[Setting, dict]]:
-        if name in self._cache and not consistent_read:
-            setting = self._cache[name]
-            _LOG.debug(f'Getting setting {name} from cache')
+    # TODO: think about invalidating across all containers
+    def invalidate(self, name: SettingKey | str) -> None:
+        self._cache.pop(self._cache_key(name), None)
+
+    def get(
+        self,
+        name: SettingKey | str,
+        value: bool = True,
+        consistent_read: bool = False,
+    ) -> Optional[Union[Setting, dict]]:
+        cache_key = self._cache_key(name)
+        if cache_key in self._cache and not consistent_read:
+            setting = self._cache[cache_key]
+            _LOG.debug(f'Getting setting {cache_key} from cache')
             return setting.value if value else setting
         # not in cache
-        _LOG.debug(f'{name} setting value is missing from cache')
-        setting = super().get(name, value=False,
-                              consistent_read=consistent_read)
+        _LOG.debug(f'{cache_key} setting value is missing from cache')
+        setting = super().get(
+            name,
+            value=False,
+            consistent_read=consistent_read,
+        )
         if not setting:
             return
-        self._cache[name] = setting
+        self._cache[cache_key] = setting
         return setting.value if value else setting
 
-    def delete(self, setting: Union[Setting, str]) -> bool:
-        name = setting if isinstance(setting, str) else setting.name
-        self._cache.pop(name, None)
+    def delete(self, setting: Union[Setting, str, SettingKey]) -> bool:
+        if isinstance(setting, Setting):
+            self.invalidate(setting.name)
+        else:
+            self.invalidate(setting)
         return super().delete(setting)
 
     def save(self, setting: Setting):
-        self._cache[setting.name] = setting
+        self._cache[self._cache_key(setting.name)] = setting
         _LOG.debug(f'{setting.name} setting was saved to cache')
         return super().save(setting)
+
+    @staticmethod
+    def _cache_key(name: SettingKey | str) -> str:
+        if isinstance(name, SettingKey):
+            return name.value
+        return name
