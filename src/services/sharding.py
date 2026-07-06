@@ -639,7 +639,7 @@ class ShardsCollectionFactory:
 
     @staticmethod
     def from_tenant(tenant: 'Tenant') -> ShardsCollection:
-        cloud = Cloud[tenant.cloud.upper()]
+        cloud = Cloud.parse(tenant.cloud, safe=False)
         return ShardsCollectionFactory.from_cloud(cloud)
 
     @staticmethod

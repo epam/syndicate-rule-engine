@@ -3,7 +3,8 @@ import os
 from datetime import datetime
 from enum import Enum
 from itertools import chain, filterfalse
-from typing import Callable, Iterator, Literal, MutableMapping, TypeVar
+from typing import Callable, Iterator, Literal, MutableMapping, TypeVar, \
+    overload
 
 from dateutil.relativedelta import SU, relativedelta
 from typing_extensions import Self
@@ -246,12 +247,24 @@ class Cloud(str, Enum):
     K8S = 'KUBERNETES'  # alis
     KUBERNETES = 'KUBERNETES'
 
+    @overload
     @classmethod
-    def parse(cls, cloud: str) -> Self | None:
+    def parse(cls, cloud: str, *, safe: Literal[True] = True) -> Self | None: ...
+
+    @overload
+    @classmethod
+    def parse(cls, cloud: str, *, safe: Literal[False]) -> Self: ...
+
+    @classmethod
+    def parse(cls, cloud: str, *, safe: bool = True) -> Self | None:
+
+        from helpers.exceptions import CloudNotSupportedError
         try:
             return cls[cloud.upper()]
         except KeyError:
-            return
+            if safe:
+                return None
+            raise CloudNotSupportedError(f"Cloud {cloud} is not supported")
 
 
 # The values of this enum represent what Custom core can scan, i.e. what
@@ -627,6 +640,13 @@ class Env(EnvEnum):
         'SRE_NUMBER_OF_PARTITIONS_FOR_EVENTS',
         ('CAAS_NUMBER_OF_PARTITIONS_FOR_EVENTS',),
         '10',
+    )
+    # In-process cache for gzip JSON event mappings loaded from rulesets bucket (ingest,
+    # rules resolution). 0 = never expire until process restart; >0 = seconds per key.
+    EVENT_MAPPING_CACHE_TTL_SECONDS = (
+        'SRE_EVENT_MAPPING_CACHE_TTL_SECONDS',
+        ('CAAS_EVENT_MAPPING_CACHE_TTL_SECONDS',),
+        '1800',
     )
 
     # jobs

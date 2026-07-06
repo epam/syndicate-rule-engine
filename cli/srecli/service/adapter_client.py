@@ -5,7 +5,7 @@ import urllib.request
 from functools import partial
 from http import HTTPStatus
 from http.client import HTTPResponse
-from typing import Generator, Iterable
+from typing import Generator, Iterable, TypedDict
 from urllib.parse import quote, urlencode
 
 from srecli.service.config import AbstractSREConfig
@@ -89,12 +89,19 @@ class ApiClient:
         return urllib.request.urlopen(*args, **kwargs)
 
 
+class HintType(TypedDict):
+    index: int
+    title: str
+    description: str
+
+
 class SREResponse:
     __slots__ = (
         'method',
         'path',
         'code',
         'data',
+        'hints',
         'trace_id',
         'api_version',
         'exc',
@@ -106,6 +113,7 @@ class SREResponse:
         path: Endpoint | None = None,
         code: HTTPStatus | None = None,
         data: dict | None = None,
+        hints: list[HintType] | None = None,
         trace_id: str | None = None,
         api_version: str | None = None,
         exc: Exception | None = None,
@@ -114,6 +122,7 @@ class SREResponse:
         self.path = path
         self.code = code
         self.data = data
+        self.hints = hints
         self.trace_id = trace_id
         self.api_version = api_version
 

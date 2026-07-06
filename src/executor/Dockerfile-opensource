@@ -1,4 +1,4 @@
-FROM public.ecr.aws/docker/library/python:3.10 as compile-image
+FROM public.ecr.aws/docker/library/python:3.14 as compile-image
 
 ARG SRE_SERVICE_PATH=.
 ARG CLOUD_CUSTODIAN_PACKAGE="c7n~=0.9.43"
@@ -18,7 +18,7 @@ COPY $SRE_SERVICE_PATH/src/services /src/services
 COPY $SRE_SERVICE_PATH/src/run.py /src/
 
 
-FROM public.ecr.aws/docker/library/python:3.10-slim AS build-image
+FROM public.ecr.aws/docker/library/python:3.14-slim AS build-image
 
 COPY --from=compile-image /root/.local /root/.local
 COPY --from=compile-image /src /src

@@ -180,7 +180,7 @@ class TenantReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
         Only AWS|AZURE|GOOGLE currently
         :return:
         """
-        return Cloud[self._tenant.cloud.upper()]
+        return Cloud.parse(self._tenant.cloud, safe=False)
 
     def job_result(self, job: Job) -> str:
         return self.urljoin(self.base_job(job), self.result)
@@ -350,13 +350,6 @@ class StatisticsBucketKeysBuilder:
                 str(week_number(now)) + '.json',
             )
         return urljoin(cls._tenant_statistics, cls._rules)
-
-    @classmethod
-    def xray_log(cls, job_id: str) -> str:
-        now = utc_datetime()
-        return urljoin(
-            'xray', 'executor', now.year, now.month, now.day, f'{job_id}.log'
-        )
 
 
 class ReportMetricsBucketKeysBuilder:

@@ -1,0 +1,76 @@
+---
+name: pytest with coverage and junit artifacts
+
+# Shared by CI jobs that only differ in pytest target, --cov source, and artifact names.
+
+on:
+  workflow_call:
+    inputs:
+      pytest-path:
+        description: Arguments to pytest (paths or node ids), e.g. "tests" or "cli/srecli_tests"
+        type: string
+        required: true
+      cov-path:
+        description: Value for --cov (e.g. "src/" or "cli/srecli")
+        type: string
+        required: true
+      coverage-xml-filename:
+        type: string
+        required: false
+        default: coverage.xml
+      junit-xml-filename:
+        type: string
+        required: false
+        default: report.xml
+      coverage-artifact-name:
+        type: string
+        required: false
+        default: coverage-report
+      test-report-artifact-name:
+        type: string
+        required: false
+        default: test-report
+      python-version:
+        type: string
+        required: false
+        default: '3.14'
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install dependencies
+        run: |
+          uv sync --all-extras --all-groups --prerelease=allow
+
+      - name: Run pytest (${{ inputs.pytest-path }})
+        run: |
+          uv run --frozen pytest ${{ inputs.pytest-path }} --verbose --tb=short \
+            --cov=${{ inputs.cov-path }} --cov-report=term \
+            --cov-report=xml:${{ inputs.coverage-xml-filename }} \
+            --junitxml=${{ inputs.junit-xml-filename }} -n auto
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.coverage-artifact-name }}
+          path: ${{ inputs.coverage-xml-filename }}
+          retention-days: 1
+
+      - name: Upload test report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.test-report-artifact-name }}
+          path: ${{ inputs.junit-xml-filename }}
+          retention-days: 1

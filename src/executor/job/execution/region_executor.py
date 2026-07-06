@@ -12,7 +12,7 @@ to spawn child processes.
 
 import os
 from pathlib import Path
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 import billiard as multiprocessing
 
@@ -51,6 +51,7 @@ def process_job_concurrent(
     cloud: Cloud,
     region: str,
     policy_bundle: BundleFilters | None = None,
+    rule_events: dict[str, list[dict[str, Any]]] | None = None,
 ) -> RegionScanResult:
     if Env.ENABLE_CUSTOM_CC_PLUGINS.is_set():
         register_all()
@@ -80,6 +81,7 @@ def process_job_concurrent(
         cloud=cloud,
         policies=policies,
         policy_bundle=policy_bundle,
+        rule_events=rule_events,
     )
     runner.start()
     _LOG.info('Runner has finished')

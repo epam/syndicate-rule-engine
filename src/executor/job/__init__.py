@@ -123,6 +123,7 @@ from datetime import datetime, timedelta, timezone
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.customer_service import CustomerService
 from modular_sdk.services.tenant_service import TenantService
+from helpers.exceptions import CloudNotSupportedError
 from helpers.log_helper import get_logger
 from services import SP
 from services.platform_service import Platform, PlatformService
@@ -143,7 +144,7 @@ from executor.job.credentials.resolver import (
     get_tenant_credentials,
 )
 from executor.job.execution.context import JobExecutionContext
-from executor.job.execution.orchestrator import run_standard_job
+from executor.job.execution.orchestrator import run_reactive_job, run_standard_job
 from executor.job.execution.region_executor import (
     RegionScanResult,
     job_initializer,
@@ -177,6 +178,7 @@ from executor.job.rulesets.resolver import (
     resolve_standard_ruleset,
 )
 from executor.job.tasks.metadata import update_metadata
+from executor.job.tasks.reactive import task_reactive_job
 from executor.job.tasks.standard import task_scheduled_job, task_standard_job
 from executor.job.types import JobExecutionError, ModeDict, PolicyDict
 
@@ -213,8 +215,10 @@ __all__ = (
     "resolve_job_rulesets",
     "resolve_licensed_ruleset",
     "resolve_standard_ruleset",
+    "run_reactive_job",
     "run_standard_job",
     "skip_duplicated_policies",
+    "task_reactive_job",
     "task_scheduled_job",
     "task_standard_job",
     "update_metadata",
@@ -307,15 +311,20 @@ def remove_old_shard_parts(days: int) -> None:
     # Walk the full hierarchy: customer → tenant/platform.
     for customer in customer_service.i_get_customer():
         for tenant in tenant_service.i_get_tenant_by_customer(customer.name):
+            try:
+                platforms: Iterator[Platform] = platform_service.query_by_tenant(tenant)
+                for platform in platforms:
+                    keys_builder = PlatformReportsBucketKeysBuilder(platform)
+                    _LOG.info(f"Removing stale shards from tenant {tenant.name}: "
+                              f"platform {platform.name}")
+                    _remove_stale_parts_from_collection(days, tenant, keys_builder)
 
-            platforms: Iterator[Platform] = platform_service.query_by_tenant(tenant)
-            for platform in platforms:
-                keys_builder = PlatformReportsBucketKeysBuilder(platform)
+                keys_builder = TenantReportsBucketKeysBuilder(tenant)
                 _LOG.info(f"Removing stale shards from tenant {tenant.name}: "
-                          f"platform {platform.name}")
+                          f"cloud {tenant.cloud}")
                 _remove_stale_parts_from_collection(days, tenant, keys_builder)
-
-            keys_builder = TenantReportsBucketKeysBuilder(tenant)
-            _LOG.info(f"Removing stale shards from tenant {tenant.name}: "
-                      f"cloud {tenant.cloud}")
-            _remove_stale_parts_from_collection(days, tenant, keys_builder)
+            except CloudNotSupportedError as e:
+                _LOG.warning(
+                    f"Skipping stale shards cleanup for tenant {tenant.name}: "
+                    f"cloud type {tenant.cloud} is not supported"
+                )

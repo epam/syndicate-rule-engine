@@ -167,6 +167,14 @@ class EnvironmentService:
         """
         return Env.NUMBER_OF_PARTITIONS_FOR_EVENTS.as_int()
 
+    def event_mapping_cache_ttl_seconds(self) -> int:
+        """
+        TTL for S3-backed event mapping payloads kept in memory (per license/version/cloud).
+        0 means entries never expire until process restart. Applies to API and consumers.
+        """
+        ttl = Env.EVENT_MAPPING_CACHE_TTL_SECONDS.as_int()
+        return ttl if ttl > 0 else 0
+
     def lm_token_lifetime_minutes(self) -> int:
         return Env.LM_TOKEN_LIFETIME_MINUTES.as_int()
 

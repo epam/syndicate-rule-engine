@@ -165,8 +165,8 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
 
         if ids_to_sync:
             sync_rulesource.delay(ids_to_sync)
-        else:
-            _LOG.warning('No rule-sources allowed to update')
+        elif not responses:
+            _LOG.warning('No rule-sources found to update')
             return build_response(
                 code=HTTPStatus.NOT_FOUND,
                 content='No rule sources were found'

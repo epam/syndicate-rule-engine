@@ -7,8 +7,9 @@ from srecli.group import (
     build_tenant_option,
     cli_response,
     optional_job_type_option,
+    SREResponse,
 )
-
+from srecli.service.presigned_hints_pack import presigned_url_hints_pack
 
 @click.group(name='compliance')
 def compliance():
@@ -18,13 +19,30 @@ def compliance():
 @compliance.command(cls=ViewCommand, name='jobs')
 @build_job_id_option(required=True)
 @optional_job_type_option
-@click.option('--href', '-hf', is_flag=True, help='Return hypertext reference')
-@click.option('--format', '-ft', type=click.Choice(('json', 'xlsx')),
-              default='json', show_default=True,
-              help='Format of the file within the hypertext reference')
+@click.option(
+    '--format',
+    '-ft',
+    type=click.Choice(('json', 'xlsx')),
+    default='json',
+    show_default=True,
+    help='Format of the file behind the presigned reference',
+)
+@click.option(
+    '--href',
+    '-hf',
+    is_flag=True,
+    help='Return presigned URL instead of inline payload',
+)
 @cli_response()
-def jobs(ctx: ContextObj, job_id: str, job_type: str, href: bool, format: str,
-         customer_id):
+@presigned_url_hints_pack
+def jobs(
+    ctx: ContextObj,
+    job_id: str,
+    job_type: str,
+    href: bool,
+    format: str,
+    customer_id,
+) -> SREResponse:
     """
     Describes job compliance reports
     """
@@ -39,13 +57,29 @@ def jobs(ctx: ContextObj, job_id: str, job_type: str, href: bool, format: str,
 
 @compliance.command(cls=ViewCommand, name='accumulated')
 @build_tenant_option(required=True)
-@click.option('--href', '-hf', is_flag=True, help='Return hypertext reference')
-@click.option('--format', '-ft', type=click.Choice(('json', 'xlsx')),
-              default='json', show_default=True,
-              help='Format of the file within the hypertext reference')
+@click.option(
+    '--format',
+    '-ft',
+    type=click.Choice(('json', 'xlsx')),
+    default='json',
+    show_default=True,
+    help='Format of the file behind the presigned reference',
+)
+@click.option(
+    '--href',
+    '-hf',
+    is_flag=True,
+    help='Return presigned URL instead of inline payload',
+)
 @cli_response()
-def accumulated(ctx: ContextObj, tenant_name: str, href: bool, format: str,
-                customer_id):
+@presigned_url_hints_pack
+def accumulated(
+    ctx: ContextObj,
+    tenant_name: str,
+    href: bool,
+    format: str,
+    customer_id,
+) -> SREResponse:
     """
     Describes tenant-specific compliance report
     """

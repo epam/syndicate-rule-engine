@@ -86,6 +86,7 @@ class ScanProgress(TypedDict):
     updated_at: str
     pending_regions: list[str]
 
+
 class Job(TypedDict):
     created_at: NotRequired[datetime]
     customer_name: str
@@ -241,6 +242,7 @@ class Event(TypedDict):
 
     received: int
     saved: int
+    rejected: int
 
 
 class ServiceOperationStatus(TypedDict):

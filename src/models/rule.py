@@ -235,7 +235,7 @@ class RuleIndex:
         if pl:
             # K8S or OpenShift
             return Cloud.KUBERNETES
-        return Cloud[cast(str, self.raw_cloud)]
+        return Cloud.parse(cast(str, self.raw_cloud), safe=False)
 
 
 class Rule(BaseModel):

@@ -1,4 +1,4 @@
-FROM public.ecr.aws/docker/library/python:3.10 as executor-compile-image
+FROM public.ecr.aws/docker/library/python:3.14 as executor-compile-image
 
 # default values expect that user has cloned core to the SRE's
 # root and execute build with build context pointing to SRE's root:
@@ -53,8 +53,8 @@ COPY $SRE_SERVICE_PATH/src ../src
 # by here we have executor built in /root/.local
 
 
-# 3.10-alpine 3.10-slim both work
-FROM public.ecr.aws/docker/library/python:3.10-slim AS build-image
+# 3.14-alpine 3.14-slim both work
+FROM public.ecr.aws/docker/library/python:3.14-slim AS build-image
 
 COPY --from=executor-compile-image /root/.local /root/.local
 COPY --from=executor-compile-image /build/src/executor/helpers /src/executor/helpers

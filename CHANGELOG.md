@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.20.0] - 2026-XX-XX
+
+### Added
+- Added Python 3.14 support (`requires-python = ">=3.14,<4"`)
+
+### Fixed
+- [12128] Fixed `sre rule update` returning `No rule sources were found` response when the requested rule source is already `SYNCING`
+- Fixed division by zero error in `sre-init` when the update notification file (`$UPDATE_NOTIFICATION_FILE`) is empty or malformed
+- Fixed `setting lm client describe` returning LM client data after `setting lm client delete`
+- Added 15-minute deadline to DefectDojo token polling loop to prevent
+  infinite hang on initialization failure
+- Fixed on-prem API startup with Bottle 0.13+ by using a slash-prefixed mount path and stripping the stage prefix from mounted route rules
+
+### Removed
+- Removed unused `aws-xray-sdk` and `pytz-deprecation-shim` dependencies along with dead code
+
+### Changed
+- Recovery smoke tests for common use cases of Syndicate Rule Engine CLI
+
+## [5.19.0] - 2026-06-04
+
+### Added
+- [11772] Added AWS reactive execution when scans are constrained to concrete resource identifiers
+- [11772] Added `requestParameters` and `responseElements` to events from AWS/MAESTRO vendors
+- [12033] Added ttl for caching events mappings
+
+### Changed
+- [11970] Refactored event-driven assembly service to use a new index structure and strategies
+- [11970] Changed logging level from `info` to `debug` for Cloud Custodian providers loading for avoiding noise in logs
+
+### Fixed
+- [11950] Fixed issue with event sources handler returning `data` key in the response
+- [9845] Fixed KeyError with unknown/deprecated clouds.
+
 ## [5.18.0] - 2026-03-18
 
 ### Added

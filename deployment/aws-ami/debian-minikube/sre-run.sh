@@ -87,12 +87,26 @@ log "Installing jq and curl"
 sudo apt update -y && sudo apt install -y jq curl
 
 # this one is required for ami-initialize.sh, so we must resolve it if not provided
-log "Going to resolve latest release from Github api"
-export RULE_ENGINE_RELEASE="${RULE_ENGINE_RELEASE:-$(curl -fLs "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | jq -r '.tag_name')}"
 if [ -z "$RULE_ENGINE_RELEASE" ]; then
-  log_err "Could not find latest release"
+  log "Going to resolve latest release from GitHub api"
+  _retries=5
+  _delay=5
+  for _i in $(seq 1 "$_retries"); do
+    _tag="$(curl -fLs "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | jq -r '.tag_name // empty')"
+    if [ -n "$_tag" ] && [ "$_tag" != "null" ]; then
+      export RULE_ENGINE_RELEASE="$_tag"
+      break
+    fi
+    log "Could not resolve latest release (attempt $_i/$_retries). Retrying in ${_delay}s..."
+    sleep "$_delay"
+    _delay=$((_delay * 2))
+  done
+fi
+if [ -z "$RULE_ENGINE_RELEASE" ] || [ "$RULE_ENGINE_RELEASE" = "null" ]; then
+  log_err "Could not find latest release after retries. GitHub API may be rate-limited"
   exit 1
 fi
+log "Using Rule Engine release: $RULE_ENGINE_RELEASE"
 
 log "Downloading ami-initialize.sh from release $RULE_ENGINE_RELEASE"
 ami_initialize="$(mktemp)"

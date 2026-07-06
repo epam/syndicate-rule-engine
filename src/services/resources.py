@@ -432,7 +432,7 @@ def load_cc_providers():
         _CC_PROVIDERS_LOADED = True
         _LOG.info('Loaded providers: ' + ', '.join(loaded))
     else:
-        _LOG.info('Cloud Custodian providers were already loaded')
+        _LOG.debug('Cloud Custodian providers were already loaded')
 
 
 def prepare_resource_type(rt: str, cloud: Cloud) -> str:
