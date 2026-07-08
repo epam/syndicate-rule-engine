@@ -9,9 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Added Python 3.14 support (`requires-python = ">=3.14,<4"`)
+- Added new custom resource type `k8s.cluster-role-binding`, `k8s.role-binding` for K8S cluster role bindings
+- Added new custom filter `role-ref` for K8S cluster role bindings
 
 ### Fixed
-- Fixed an issue where findings for custom resource types were not included in reports
 - [12128] Fixed `sre rule update` returning `No rule sources were found` response when the requested rule source is already `SYNCING`
 - Fixed division by zero error in `sre-init` when the update notification file (`$UPDATE_NOTIFICATION_FILE`) is empty or malformed
 - Fixed `setting lm client describe` returning LM client data after `setting lm client delete`
@@ -20,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed on-prem API startup with Bottle 0.13+ by using a slash-prefixed mount path and stripping the stage prefix from mounted route rules
 - Fixed rule source sync failing when the git repository contains an empty rule file
 - Fixed rule source sync status staying as `SYNCING` instead of `FAILED` after a sync error
+- Fixed an issue where findings for custom resource types were not included in reports
 
 ### Removed
 - Removed unused `aws-xray-sdk` and `pytz-deprecation-shim` dependencies along with dead code
