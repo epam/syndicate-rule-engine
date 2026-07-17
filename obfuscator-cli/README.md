@@ -5,7 +5,7 @@ Script allows to obfuscate and de-obfuscate data aggregated by Syndicate Rule En
 
 ### Prerequisites
 1. The following software must be installed in order to complete the guide: 
-* python3.8 or higher
+* python3.14 or higher
 * pip (installation guide: https://pip.pypa.io/en/stable/installation/)
 * virtualenv (to install: `pip install virtualenv`)
 

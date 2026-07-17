@@ -429,6 +429,21 @@ def load_cc_providers():
 
         _LOG.info('Going to load all available Cloud Custodian providers')
         loaded = load_available(resources=True)
+
+        from helpers.constants import Env
+
+        if Env.ENABLE_CUSTOM_CC_PLUGINS.is_set():
+            # Custom resource types (e.g. k8s.cluster-role-binding) are
+            # registered dynamically by the executor via
+            # executor.plugins.register_all(). Without this, load_manager()
+            # cannot resolve those resource types here (report/digest
+            # generation), even though the scan itself found matches.
+            try:
+                from executor.plugins import register_all
+                register_all()
+            except Exception:
+                _LOG.exception('Could not register custom CC plugins')
+
         _CC_PROVIDERS_LOADED = True
         _LOG.info('Loaded providers: ' + ', '.join(loaded))
     else:
