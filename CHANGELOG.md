@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Added Python 3.14 support (`requires-python = ">=3.14,<4"`)
+- Improved sre-init initialization flow:
+  - Fixed artifact resolution in get_latest_local_release during user addition.
+  - Improved local release artifact detection to ensure the correct SRE artifacts are selected when installing CLI tools for a user.
+  - Added support for explicitly specifying the Python interpreter used during CLI installation.
+  - This change prepares the installation flow for future Modular CLI requirements, where Modular CLI will support only Python 3.14 and later versions.
+  - Added Python version validation before Modular CLI installation/update.
+  - Added support for reading Modular CLI Python requirements from release metadata.
+  - Added a doctor / check command to validate local environment readiness.
+  - Added user-facing warnings/errors for Python compatibility changes.
+  - Avoided changing or relying on the system default /usr/bin/python3.
+  - Resolved the latest local release only once during CLI installation to avoid inconsistent artifact resolution during user initialization.
 
 ### Fixed
 - [12128] Fixed `sre rule update` returning `No rule sources were found` response when the requested rule source is already `SYNCING`
