@@ -1078,23 +1078,37 @@ warn_if_update_available() {
     warn "new $(get_release_type "$release_data") $(jq -r '.tag_name' <<<"$release_data") is available. Use 'sre-init update'"
   fi
 }
+_write_update_notification() {
+  echo "$UPDATE_NOTIFICATION_PERIOD:$(($(date +%s) / UPDATE_NOTIFICATION_PERIOD))" >"$UPDATE_NOTIFICATION_FILE"
+}
+
+_reset_update_notification() {
+  rm -f "$UPDATE_NOTIFICATION_FILE"
+  warn_if_update_available || return 1
+  _write_update_notification
+}
 make_update_notification() {
   if [ ! -f "$UPDATE_NOTIFICATION_FILE" ]; then
-    warn_if_update_available || return 1
-    echo "$UPDATE_NOTIFICATION_PERIOD:$(($(date +%s) / UPDATE_NOTIFICATION_PERIOD))" >"$UPDATE_NOTIFICATION_FILE"
+    _reset_update_notification
     return
   fi
-  # file exists
-  local period passed
-  IFS=':' read -r period passed <"$UPDATE_NOTIFICATION_FILE"
-  if [ -z "$period" ] || [ "$period" -eq 0 ] 2>/dev/null; then
-    rm -f "$UPDATE_NOTIFICATION_FILE"
-    return 0
-  fi
-  if [ "$(($(date +%s) / period))" -ne "$passed" ]; then
-    warn_if_update_available || return 1
-    echo "$UPDATE_NOTIFICATION_PERIOD:$(($(date +%s) / UPDATE_NOTIFICATION_PERIOD))" >"$UPDATE_NOTIFICATION_FILE"
+
+  local period passed current_bucket
+  IFS=':' read -r period passed <"$UPDATE_NOTIFICATION_FILE" || {
+    _reset_update_notification  # I/O error
     return
+  }
+
+  if ! [[ "$period" =~ ^[1-9][0-9]*$ ]]; then
+    _reset_update_notification  # invalid data
+    return
+  fi
+
+  current_bucket=$(($(date +%s) / period))
+  if [ "$current_bucket" -ne "$passed" ]; then
+    # File valid, just new time interval — check and overwrite
+    warn_if_update_available || return 1
+    _write_update_notification
   fi
 }
 
