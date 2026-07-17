@@ -56,3 +56,48 @@ def test_attach_presigned_hints_many_items_one_hint():
     assert resp.hints is not None
     assert len(resp.hints) == 1
     assert resp.hints[0]['title'] == 'Download reports'
+
+
+def test_attach_presigned_hints_ignores_urls_inside_findings_content():
+    resp = SREResponse(
+        data={
+            'format': 'json',
+            'obfuscated': False,
+            'content': {
+                'ecc-aws-001': {
+                    'resources': {
+                        'eu-west-1': [
+                            {
+                                'url': 'https://example.com/resource-url',
+                                'Policy': 'https://sqs.eu-west-1.amazonaws.com/123/queue',
+                                'Endpoint': 'https://api.dev.sdct.tools/v1',
+                            }
+                        ]
+                    }
+                }
+            },
+        },
+        code=HTTPStatus.OK,
+    )
+    attach_presigned_hints_to_response(resp)
+    assert resp.hints is None
+
+
+def test_attach_presigned_hints_keeps_known_report_urls_with_content():
+    resp = SREResponse(
+        data={
+            'url': _MAIN,
+            'dictionary_url': _url(2),
+            'content': {
+                'finding': {
+                    # Same key name as the report field — must not become a hint.
+                    'url': 'https://example.com/should-not-become-a-hint',
+                }
+            },
+        },
+        code=HTTPStatus.OK,
+    )
+    attach_presigned_hints_to_response(resp)
+    assert resp.hints is not None
+    assert len(resp.hints) == 2
+    assert all('example.com' not in h['description'] for h in resp.hints)
