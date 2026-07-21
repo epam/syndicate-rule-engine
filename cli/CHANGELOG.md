@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added Python 3.14 support (`requires-python = ">=3.14,<4"`)
 
+### Fixed
+- Fixed issue when presigned download hints were built from arbitrary http(s) links inside findings/resource payloads instead of only report fields (`url`, `dictionary_url`, `meta_url`)
+
 ### Changed
 - Updated library `modular-cli-sdk` from `==3.1.4` to `>=4,<5`
 - Replaced pinned dependency versions with compatible ranges to allow broader Python 3.14 resolution:
