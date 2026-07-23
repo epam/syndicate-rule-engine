@@ -475,7 +475,7 @@ Interpreter: $python_bin
 
 To avoid installation or update failures, install Python $required_version+ and explicitly pass it to sre-init:
 
-  SRE_PYTHON_BIN=/usr/local/bin/python${required_version} sre-init init --user <username>
+  SRE_PYTHON_BIN=/usr/local/bin/python${required_version} sre-init ...
 
 Do not replace the system default /usr/bin/python3, as it may break OS-level tools.
 EOF
@@ -726,7 +726,7 @@ initialize_system() {
   release_path="$SRE_RELEASES_PATH/$latest_local_release"
 
   echo "Installing obfuscation manager"
-  pipx_install_artifact "$python_bin" "$release_path/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]" "sre-obfuscator" || die_with_support "Failed to install obfuscation manager"
+  pipx_install_artifact "$python_bin" "sre-obfuscator" "$release_path/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]" || die_with_support "Failed to install obfuscation manager"
 
   echo "Installing modular-cli"
   MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT  pipx_install_artifact "$python_bin" "modular-cli" "$release_path/$MODULAR_CLI_ARTIFACT_NAME" || die_with_support "Failed to install modular-cli"
@@ -1317,12 +1317,12 @@ cmd_update() {
   cli_python_bin="$(check_modular_cli_python_compatibility "$latest_tag")"
   if [ -f "$SRE_RELEASES_PATH/$latest_tag/$OBFUSCATOR_ARTIFACT_NAME" ]; then
     echo "Upgrading obfuscation manager"
-    pipx_install_artifact "$cli_python_bin" "$SRE_RELEASES_PATH/$latest_tag/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]" "sre-obfuscator" >/dev/null
+    pipx_install_artifact "$cli_python_bin" "sre-obfuscator" "$SRE_RELEASES_PATH/$latest_tag/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]" >/dev/null
   fi
 
   if [ -f "$SRE_RELEASES_PATH/$latest_tag/$MODULAR_CLI_ARTIFACT_NAME" ]; then
     echo "Upgrading modular CLI"
-    MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pipx_install_artifact "$cli_python_bin" "$SRE_RELEASES_PATH/$latest_tag/${MODULAR_CLI_ARTIFACT_NAME}" "modular-cli" >/dev/null
+    MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pipx_install_artifact "$cli_python_bin" "modular-cli" "$SRE_RELEASES_PATH/$latest_tag/${MODULAR_CLI_ARTIFACT_NAME}" >/dev/null
   fi
   if [ -f "$SRE_RELEASES_PATH/$latest_tag/$SRE_INIT_ARTIFACT_NAME" ]; then
     echo "Updating sre-init"
