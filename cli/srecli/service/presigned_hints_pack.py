@@ -29,6 +29,8 @@ _DISPOSITION_PARAMS = (
     'ResponseContentDisposition',
 )
 _HTTP_PREFIXES = ('http://', 'https://')
+# Report payload body — may contain resource attributes named ``url``.
+_SKIP_NESTED_KEYS: frozenset[str] = frozenset({'content'})
 
 
 def presigned_url_hints_pack(func: Callable) -> Callable:
@@ -46,11 +48,12 @@ def presigned_url_hints_pack(func: Callable) -> Callable:
 
 def _extract_presigned_urls(data: dict[str, Any] | None) -> list[str]:
     """
-    Collect presigned (http/https) URLs from an API response body.
+    Collect presigned report URLs from an API response body.
 
-    Walks ``data``, nested ``data`` envelopes, ``items`` lists, and dict values.
-    Known report fields (``url``, ``dictionary_url``, ``meta_url``) are collected
-    first per object; other http(s) strings are included without duplicates.
+    Walks ``data``, nested envelopes, and ``items`` lists, but only collects
+    known report fields (``url``, ``dictionary_url``, ``meta_url``). Does not
+    descend into ``content`` (findings/resource payload), so nested keys like
+    ``url`` there are ignored.
     """
     if not data:
         return []
@@ -71,12 +74,9 @@ def _extract_presigned_urls(data: dict[str, Any] | None) -> list[str]:
                 if isinstance(value, str):
                     add(value)
             for key, value in node.items():
-                if key in _KNOWN_URL_KEYS:
+                if key in _KNOWN_URL_KEYS or key in _SKIP_NESTED_KEYS:
                     continue
-                if isinstance(value, str):
-                    if _is_http_url(value):
-                        add(value)
-                else:
+                if not isinstance(value, str):
                     walk(value)
         elif isinstance(node, list):
             for item in node:
