@@ -116,6 +116,9 @@ def execute_job_region_scan(
                         region,
                         scan_options.policy_bundle,
                         scan_options.rule_events,
+                        # TODO: DELETE cache/cache_period — temporary local debug for CC API cache dump
+                        ctx.cache,
+                        ctx.cache_period if ctx.cache_period else 120,
                     ),
                 ),
             )

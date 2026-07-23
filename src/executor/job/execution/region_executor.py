@@ -52,16 +52,28 @@ def process_job_concurrent(
     region: str,
     policy_bundle: BundleFilters | None = None,
     rule_events: dict[str, list[dict[str, Any]]] | None = None,
+    # TODO: DELETE cache/cache_period params — temporary local debug for CC API cache dump
+    cache: str | None = 'memory',
+    cache_period: int = 120,
 ) -> RegionScanResult:
     if Env.ENABLE_CUSTOM_CC_PLUGINS.is_set():
         register_all()
 
     _LOG.debug(f'Running scan process for region {region}')
+    # TODO: DELETE this log — temporary local debug for CC API cache dump
+    _LOG.info(
+        'Using Cloud Custodian cache=%s cache_period=%s for region %s',
+        cache,
+        cache_period,
+        region,
+    )
     loader = PoliciesLoader(
         cloud=cloud,
         output_dir=work_dir,
         regions={region},
-        cache_period=120,
+        # TODO: DELETE explicit cache/cache_period — restore cache_period=120 only
+        cache=cache,
+        cache_period=cache_period,
     )
     try:
         _LOG.debug(f'Going to load {len(items)} policies dicts')

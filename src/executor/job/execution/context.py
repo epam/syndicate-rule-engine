@@ -7,6 +7,12 @@ from typing import Optional, cast
 from celery.exceptions import SoftTimeLimitExceeded
 from modular_sdk.models.tenant import Tenant
 
+# TODO: DELETE — temporary local debug for CC API cache dump
+from executor.job.execution.cc_cache_debug import (
+    cache_file_for_job,
+    dump_cc_cache,
+    dump_path_for_job,
+)
 from executor.job.job_failure import JobFailure, JobErrorCode, classify_exception
 from executor.job.types import JobExecutionError
 from helpers.constants import Cloud, Env, JobState
@@ -42,6 +48,8 @@ class JobExecutionContext:
 
         self._work_dir = None
         self._exit_code = 0
+        # TODO: DELETE — temporary local debug for CC API cache dump
+        self._debug_keep_cc_cache = True
 
         self.fingerprint_aliases: dict[str, list[str]] = {}
 
@@ -84,6 +92,20 @@ class JobExecutionContext:
         _LOG.info('Creating a working dir')
         self._work_dir = tempfile.TemporaryDirectory()
 
+        # TODO: DELETE — temporary local debug for CC API cache dump
+        if self._debug_keep_cc_cache:
+            cache_path = cache_file_for_job(self.job.id)
+            self.cache = str(cache_path)
+            self.cache_period = max(self.cache_period, 120)
+            _LOG.info(
+                'DEBUG: Cloud Custodian cache will be written to %s',
+                cache_path,
+            )
+            _LOG.info(
+                'DEBUG: readable API dump will be written to %s',
+                dump_path_for_job(self.job.id),
+            )
+
     def _cleanup_cache(self) -> None:
         if self.cache is None or self.cache == 'memory':
             return
@@ -96,6 +118,28 @@ class JobExecutionContext:
             return
         self._work_dir.cleanup()
         self._work_dir = None
+
+    def _dump_cc_cache_for_debug(self) -> None:
+        # TODO: DELETE — temporary local debug for CC API cache dump
+        if not self._debug_keep_cc_cache:
+            return
+        if self.cache is None or self.cache == 'memory':
+            return
+        cache_path = Path(self.cache)
+        dump_path = dump_path_for_job(self.job.id)
+        try:
+            dump_cc_cache(cache_path, dump_path)
+        except Exception:
+            _LOG.exception(
+                'DEBUG: failed to dump Cloud Custodian cache from %s',
+                cache_path,
+            )
+        _LOG.info(
+            'DEBUG: keep CC cache artifacts for job %s: cache=%s dump=%s',
+            self.job.id,
+            cache_path,
+            dump_path,
+        )
 
     def _update_lm_job(self):
         if not self.job.affected_license or not Env.is_docker():
@@ -111,8 +155,14 @@ class JobExecutionContext:
         )
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        _LOG.info('Cleaning cache after job')
-        self._cleanup_cache()
+        # TODO: DELETE debug dump/skip-cleanup branch — restore unconditional
+        # `_cleanup_cache()` call after local CC API cache debugging is done.
+        self._dump_cc_cache_for_debug()
+        if self._debug_keep_cc_cache:
+            _LOG.info('DEBUG: skipping CC cache cleanup after job')
+        else:
+            _LOG.info('Cleaning cache after job')
+            self._cleanup_cache()
         _LOG.info('Cleaning work dir')
         self._cleanup_work_dir()
         _LOG.info('Releasing job lock')
