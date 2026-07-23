@@ -241,6 +241,13 @@ def delete(ctx: ContextObj, rule_source_id, delete_rules, customer_id):
 
 @rulesource.command(cls=ViewCommand, name="sync")
 @build_rule_source_id_option(required=True)
+@click.option(
+    '--force',
+    '-f',
+    is_flag=True,
+    default=False,
+    help='Force sync even if the rule source is already SYNCING.'
+)
 @cli_response(
     hint=lambda rule_source_id, **kwargs: (
         f"Use 'sre rulesource describe -rsid {rule_source_id}' to check status."
@@ -250,6 +257,7 @@ def sync(
     ctx: ContextObj,
     rule_source_id: str,
     customer_id: str | None,
+    force: bool,
 ) -> SREResponse:
     """
     Updates rules for this rule source
@@ -257,4 +265,5 @@ def sync(
     return ctx["api_client"].rule_source_sync(
         id=rule_source_id,
         customer_id=customer_id,
+        force=force,
     )

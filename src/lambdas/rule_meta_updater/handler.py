@@ -219,7 +219,9 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
                     f'rule source: {rule_source}'
                 )
                 self._rule_source_service.update_latest_sync(
-                    rule_source, RuleSourceSyncingStatus.FAILED
+                    rule_source,
+                    RuleSourceSyncingStatus.FAILED,
+                    clear_celery_task_id=True,
                 )
                 continue
 
@@ -233,6 +235,7 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
                         self._rule_source_service.update_latest_sync(
                             rule_source,
                             current_status=RuleSourceSyncingStatus.FAILED,
+                            clear_celery_task_id=True,
                         )
                         continue
                     rules = list(self._load_rules(rule_source, root))
@@ -244,6 +247,7 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
                 self._rule_source_service.update_latest_sync(
                     rule_source,
                     current_status=RuleSourceSyncingStatus.FAILED,
+                    clear_celery_task_id=True,
                 )
                 continue
 
@@ -277,11 +281,16 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
                     f'Unexpected error occurred trying ' f'to save rules: {e}'
                 )
                 self._rule_source_service.update_latest_sync(
-                    rule_source, RuleSourceSyncingStatus.FAILED
+                    rule_source,
+                    RuleSourceSyncingStatus.FAILED,
+                    clear_celery_task_id=True,
                 )
             else:
                 self._rule_source_service.update_latest_sync(
-                    rule_source, RuleSourceSyncingStatus.SYNCED, utc_iso()
+                    rule_source,
+                    RuleSourceSyncingStatus.SYNCED,
+                    utc_iso(),
+                    clear_celery_task_id=True,
                 )
 
     @staticmethod

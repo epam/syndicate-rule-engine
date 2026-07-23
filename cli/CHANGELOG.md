@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Added Python 3.14 support (`requires-python = ">=3.14,<4"`)
+- Added `--force` / `-f` flag to `sre rulesource sync` to re-run sync for a rule source stuck in `SYNCING` status without operational overhead
 
 ### Fixed
 - Fixed issue when presigned download hints were built from arbitrary http(s) links inside findings/resource payloads instead of only report fields (`url`, `dictionary_url`, `meta_url`)

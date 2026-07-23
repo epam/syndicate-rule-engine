@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Python 3.14 support (`requires-python = ">=3.14,<4"`)
 - Added new custom resource type `k8s.cluster-role-binding`, `k8s.role-binding` for K8S cluster role bindings
 - Added new custom filter `role-ref` for K8S cluster role bindings
+- Added `force` parameter to `POST /rule-sources/{id}/sync` to re-run sync for a rule source stuck in `SYNCING` status without operational overhead
 
 ### Fixed
 - [12128] Fixed `sre rule update` returning `No rule sources were found` response when the requested rule source is already `SYNCING`

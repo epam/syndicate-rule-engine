@@ -7,20 +7,22 @@ from helpers.constants import (
     HTTPMethod,
     RuleSourceSyncingStatus,
 )
-from helpers.lambda_response import ResponseFactory, build_response
+from helpers.lambda_response import LambdaOutput, ResponseFactory, build_response
 from helpers.log_helper import get_logger
 from helpers.system_customer import SystemCustomer
 from models.rule_source import RuleSource
+from onprem.celery import app as celery_app
+from onprem.tasks import sync_rulesource
 from services import SP
 from services.rule_meta_service import RuleService
 from services.rule_source_service import RuleSourceService
-from onprem.tasks import sync_rulesource
 from validators.swagger_request_models import (
     BaseModel,
     RuleSourceDeleteModel,
     RuleSourcePatchModel,
     RuleSourcePostModel,
     RuleSourcesListModel,
+    RuleSourceSyncModel,
     RuleSourceValidator,
 )
 from validators.utils import validate_kwargs
@@ -222,19 +224,45 @@ class RuleSourceHandler(AbstractHandler):
         )
 
     @validate_kwargs
-    def sync_rule_source(self, event: BaseModel, id: str):
+    def sync_rule_source(
+        self,
+        event: RuleSourceSyncModel,
+        id: str,
+    ) -> LambdaOutput:
         customer = event.customer or SystemCustomer.get_name()
         entity = self._ensure_rule_source(id, customer)
 
         if not self._rule_source_service.is_allowed_to_sync(entity):
-            raise ResponseFactory(HTTPStatus.CONFLICT).message(
-                'Rule source is already being synced'
-            ).exc()
+            if not event.force:
+                raise ResponseFactory(HTTPStatus.CONFLICT).message(
+                    'Rule source is already being synced'
+                ).exc()
+            old_task_id = (entity.latest_sync.as_dict() or {}).get(
+                'celery_task_id'
+            )
+            if old_task_id:
+                try:
+                    celery_app.control.revoke(old_task_id, terminate=True)
+                    _LOG.info(
+                        'Revoked previous sync Celery task %s for rule '
+                        'source %s',
+                        old_task_id,
+                        id,
+                    )
+                except Exception:
+                    _LOG.exception(
+                        'Failed to revoke Celery task %s for rule source %s; '
+                        'continuing with force sync',
+                        old_task_id,
+                        id,
+                    )
+
+        result = sync_rulesource.apply_async(args=([entity.id],))
         self._rule_source_service.update_latest_sync(
             item=entity,
-            current_status=RuleSourceSyncingStatus.SYNCING
+            current_status=RuleSourceSyncingStatus.SYNCING,
+            celery_task_id=result.id,
         )
-        sync_rulesource.delay([entity.id])
 
         return build_response(
             code=HTTPStatus.ACCEPTED,
