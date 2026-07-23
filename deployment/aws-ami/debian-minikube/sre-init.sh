@@ -1287,7 +1287,7 @@ cmd_update() {
     # TODO: check artifacts from previous release? and copy if totally the same
     pull_artifacts "$release_data"
   fi
-  if [ -f "$SRE_RELEASES_PATH/$latest_tag/$MODULAR_CLI_ARTIFACT_NAME" ]; then
+  if [[ -f "$SRE_RELEASES_PATH/$latest_tag/$MODULAR_CLI_ARTIFACT_NAME" || -f "$SRE_RELEASES_PATH/$latest_tag/$OBFUSCATOR_ARTIFACT_NAME" ]]; then
     check_modular_cli_python_compatibility "$latest_tag" >/dev/null
   fi
   if [ "$do_backup" -eq 1 ]; then
