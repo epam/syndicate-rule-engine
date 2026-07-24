@@ -172,7 +172,6 @@ class TimeRangedMixin:
 JobTypeAnnotation = Annotated[
     JobType, 
     Field(
-        default=JobType.MANUAL,
         description=(
             'Job type to include in the report '
             '(deprecated, use job_types instead)'
@@ -183,7 +182,6 @@ JobTypeAnnotation = Annotated[
 JobTypesAnnotation = Annotated[
     set[JobType],
     Field(
-        default_factory=lambda: {JobType.STANDARD},
         description='Job types to include in the report',
     )
 ]

@@ -41,10 +41,10 @@ def jobs(
     tenant_name: Optional[str],
     from_date: Optional[datetime], 
     to_date: Optional[datetime],
-    job_type: str,
+    job_type: tuple[str, ...],
     href: bool,
-    customer_id,
-    obfuscated,
+    customer_id: str | None,
+    obfuscated: bool,
 ) -> SREResponse:
     """
     Describes detailed reports of jobs
@@ -53,21 +53,20 @@ def jobs(
         raise click.ClickException(
             'Either --job_id or --tenant_name must be given'
         )
-    dates = from_date, to_date
-    i_iso = map(lambda d: d.isoformat() if d else None, dates)
-    from_date, to_date = tuple(i_iso)
+
+    from_date = from_date.isoformat() if from_date else None
+    to_date = to_date.isoformat() if to_date else None
 
     if job_id:
         return ctx['api_client'].report_findings_jobs(
             job_id=job_id,
-            job_type=job_type,
             href=href,
             customer_id=customer_id,
             obfuscated=obfuscated
         )
     return ctx['api_client'].report_findings_tenants(
         tenant_name=tenant_name,
-        job_type=job_type,
+        job_types=job_type,
         href=href,
         start_iso=from_date,
         end_iso=to_date,

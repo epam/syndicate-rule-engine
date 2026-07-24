@@ -5,7 +5,6 @@ import click
 
 from srecli.group import (
     build_job_id_option,
-    build_job_type_option,
     optional_job_type_option,
     SREResponse,
 )
@@ -28,7 +27,6 @@ def rules():
 
 @rules.command(cls=ViewCommand, name='jobs')
 @build_job_id_option(required=True)
-@build_job_type_option(default=JobType.MANUAL.value, show_default=True)
 @click.option(
     '--format',
     '-ft',
@@ -48,7 +46,6 @@ def rules():
 def jobs(
     ctx: ContextObj,
     job_id: str,
-    job_type: str,
     href: bool,
     format: str,
     customer_id,
@@ -59,7 +56,6 @@ def jobs(
 
     return ctx['api_client'].report_rules_get(
         job_id=job_id,
-        job_type=job_type,
         href=href,
         format=format,
         customer_id=customer_id
@@ -72,21 +68,24 @@ def jobs(
 @to_date_report_option
 @optional_job_type_option
 @cli_response()
-def accumulated(ctx: ContextObj, tenant_name: str,
-                from_date: Optional[datetime],
-                to_date: Optional[datetime],
-                job_type: Optional[str], customer_id):
+def accumulated(
+    ctx: ContextObj,
+    tenant_name: str,
+    from_date: Optional[datetime],
+    to_date: Optional[datetime],
+    job_type: tuple[str, ...],
+    customer_id: str | None,
+):
     """
     Describes tenant-specific rule statistic reports, based on relevant jobs
     """
 
-    dates = from_date, to_date
-    i_iso = map(lambda d: d.isoformat() if d else None, dates)
-    from_date, to_date = tuple(i_iso)
+    from_date = from_date.isoformat() if from_date else None
+    to_date = to_date.isoformat() if to_date else None
     return ctx['api_client'].report_rules_query(
         start_iso=from_date,
         end_iso=to_date,
         tenant_name=tenant_name,
-        job_type=job_type,
+        job_types=job_type,
         customer_id=customer_id
     )

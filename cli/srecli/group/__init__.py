@@ -27,6 +27,7 @@ from srecli.service.config import (
     SRECLIConfig,
     SREWithCliSDKConfig,
 )
+from srecli.service.helpers import renew_job_type
 
 if TYPE_CHECKING:
     from srecli.service.adapter_client import SREApiClient
@@ -871,8 +872,11 @@ def build_job_id_option(*args, **kwargs) -> Callable:
 def build_job_type_option(*args, **kwargs) -> Callable:
     params = dict(
         type=click.Choice(tuple(map(operator.attrgetter('value'), JobType))),
-        help='Specify type of jobs to retrieve.',
-        required=False
+        help='Specify type of jobs to retrieve '
+             '(manual type is deprecated and it will be removed).',
+        callback=renew_job_type,
+        multiple=True,
+        required=False,
     )
     params.update(kwargs)
     return click.option('--job_type', '-jt', *args, **params)

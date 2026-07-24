@@ -230,7 +230,7 @@ class SiemPushHandler(AbstractHandler):
 
         jobs = self._job_service.get_by_tenant_name(
             tenant_name=tenant.name,
-            job_type=event.type,
+            job_types=event.job_types,
             status=JobState.SUCCEEDED,
             start=event.start_iso,
             end=event.end_iso,
