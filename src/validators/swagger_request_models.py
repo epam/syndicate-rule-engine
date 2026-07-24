@@ -948,6 +948,15 @@ class RuleSourceDeleteModel(BaseModel):
     delete_rules: bool = False
 
 
+class RuleSourceSyncModel(BaseModel):
+    force: bool = Field(
+        False,
+        description=(
+            'Force sync even if the rule source is already SYNCING.'
+        ),
+    )
+
+
 class RuleSourcesListModel(BasePaginationModel):
     type: RuleSourceType = Field(None)
     project_id: str = Field(

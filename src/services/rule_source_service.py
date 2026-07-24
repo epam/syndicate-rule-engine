@@ -46,6 +46,7 @@ class RuleSourceService(BaseDataService[RuleSource]):
         (data.get(LATEST_SYNC_ATTR) or {}).pop(COMMIT_HASH_ATTR, None)
         (data.get(LATEST_SYNC_ATTR) or {}).pop(COMMIT_TIME_ATTR, None)
         (data.get(LATEST_SYNC_ATTR) or {}).pop('cc_version', None)
+        (data.get(LATEST_SYNC_ATTR) or {}).pop('celery_task_id', None)
         data[TYPE_ATTR] = item.type
         data['has_secret'] = item.has_secret
         return data
@@ -222,6 +223,8 @@ class RuleSourceService(BaseDataService[RuleSource]):
         release_tag: str | None = None,
         version: str | None = None,
         cc_version: str | None = None,
+        celery_task_id: str | None = None,
+        clear_celery_task_id: bool = False,
     ):
         actions = []
         if current_status:
@@ -240,6 +243,12 @@ class RuleSourceService(BaseDataService[RuleSource]):
             actions.append(RuleSource.latest_sync.version.set(version))
         if cc_version:
             actions.append(RuleSource.latest_sync.cc_version.set(cc_version))
+        if clear_celery_task_id:
+            actions.append(RuleSource.latest_sync.celery_task_id.remove())
+        elif celery_task_id is not None:
+            actions.append(
+                RuleSource.latest_sync.celery_task_id.set(celery_task_id)
+            )
         if actions:
             item.update(actions=actions)
 

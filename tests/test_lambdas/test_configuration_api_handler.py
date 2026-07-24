@@ -38,6 +38,7 @@ def test_invoke_rule_meta_updater_syncing_rule_source(handler):
         response = handler.invoke_rule_meta_updater(event)
 
     mock_sync.delay.assert_not_called()
+    mock_sync.apply_async.assert_not_called()
     body = json.loads(response['body'])
     assert response['statusCode'] == HTTPStatus.ACCEPTED
     assert len(body['items']) == 1
@@ -58,4 +59,5 @@ def test_invoke_rule_meta_updater_no_rule_sources(handler):
             handler.invoke_rule_meta_updater(event)
 
     mock_sync.delay.assert_not_called()
+    mock_sync.apply_async.assert_not_called()
     assert 'No rule sources were found' in str(exc_info.value)
