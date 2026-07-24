@@ -266,5 +266,5 @@ class RuleSourceHandler(AbstractHandler):
 
         return build_response(
             code=HTTPStatus.ACCEPTED,
-            content=f'Rule source {id} is being synced'
+            content='Rule source is being synced'
         )
