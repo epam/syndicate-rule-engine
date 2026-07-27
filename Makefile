@@ -1,6 +1,6 @@
 
 .DEFAULT_GOAL := test
-.PHONY: check-syndicate test test-coverage install install-cli update-meta clean open-source-executor-image fork-executor-image aws-ecr-login aws-ecr-push syndicate-update-lambdas syndicate-update-api-gateway syndicate-update-meta
+.PHONY: check-syndicate test test-coverage install install-cli install-modular-cli update-meta clean open-source-executor-image fork-executor-image aws-ecr-login aws-ecr-push syndicate-update-lambdas syndicate-update-api-gateway syndicate-update-meta compose-up compose-down compose-build compose-ps compose-logs
 
 
 COVERAGE_TYPE := html
@@ -24,6 +24,26 @@ SYNDICATE_CONFIG_PATH ?= .syndicate-config-main
 SYNDICATE_BUNDLE_NAME := syndicate-rule-engine
 
 HELM_REPO_NAME := syndicate
+
+DOCKER_COMPOSE ?= docker-compose
+COMPOSE_FILE ?= deployment/compose/compose.yaml
+COMPOSE_ENV_FILE ?= $(wildcard deployment/compose/.env)
+COMPOSE_PROFILES ?= rule-engine modular-api modular-service
+# BUILD=1 enables --build (local Dockerfile for rule-engine services)
+BUILD ?= 0
+
+COMPOSE_PROFILE_ARGS := $(foreach p,$(COMPOSE_PROFILES),--profile $(p))
+COMPOSE_ENV_ARGS := $(if $(COMPOSE_ENV_FILE),--env-file $(firstword $(COMPOSE_ENV_FILE)),)
+COMPOSE_BUILD_ARGS := $(if $(filter 1 true yes,$(BUILD)),--build,)
+
+# --- modular-cli ---
+MODULAR_CLI_SOURCE ?= pypi
+MODULAR_CLI_PACKAGE ?= modular-cli
+MODULAR_CLI_GIT_URL ?= git+https://git.epam.com/epmc-eoos/m3-modular-cli.git
+MODULAR_CLI_GIT_REF ?= main
+MODULAR_CLI_PATH ?= ./modular-cli
+MODULAR_CLI_ENTRY_POINT = syndicate
+MODULAR_CLI_VENV ?= .modular-cli-venv
 
 check-syndicate:
 	@if [[ -z "$(SYNDICATE_EXECUTABLE_PATH)" ]]; then echo "No syndicate executable found"; exit 1; fi
@@ -49,6 +69,37 @@ install-cli:
 	$(CLI_VENV_NAME)/bin/pip install -e ./cli
 	@echo "Execute:\nsource ./$(CLI_VENV_NAME)/bin/activate"
 
+install-modular-cli:
+	@if ! command -v uv >/dev/null 2>&1; then echo "Please, install uv (https://docs.astral.sh/uv/)"; exit 1; fi
+	@if [[ ! -x "$(MODULAR_CLI_VENV)/bin/python" ]]; then uv venv "$(MODULAR_CLI_VENV)"; fi
+	@if [[ "$(MODULAR_CLI_SOURCE)" == "pypi" ]]; then \
+		uv pip install --python "$(MODULAR_CLI_VENV)/bin/python" "$(MODULAR_CLI_PACKAGE)"; \
+		if [[ "$(MODULAR_CLI_ENTRY_POINT)" != "modular-cli" && -x "$(MODULAR_CLI_VENV)/bin/modular-cli" ]]; then \
+			ln -sfn modular-cli "$(MODULAR_CLI_VENV)/bin/$(MODULAR_CLI_ENTRY_POINT)"; \
+		fi; \
+	elif [[ "$(MODULAR_CLI_SOURCE)" == "git" ]]; then \
+		MODULAR_CLI_ENTRY_POINT="$(MODULAR_CLI_ENTRY_POINT)" uv pip install --python "$(MODULAR_CLI_VENV)/bin/python" --no-cache "$(MODULAR_CLI_GIT_URL)@$(MODULAR_CLI_GIT_REF)"; \
+	elif [[ "$(MODULAR_CLI_SOURCE)" == "path" ]]; then \
+		MODULAR_CLI_ENTRY_POINT="$(MODULAR_CLI_ENTRY_POINT)" uv pip install --python "$(MODULAR_CLI_VENV)/bin/python" --no-cache "$(MODULAR_CLI_PATH)"; \
+	else \
+		echo "Unknown MODULAR_CLI_SOURCE=$(MODULAR_CLI_SOURCE). Use pypi|git|path"; exit 1; \
+	fi
+	@echo "Installed. Activate and run:"; echo "source ./$(MODULAR_CLI_VENV)/bin/activate"; echo "$(MODULAR_CLI_ENTRY_POINT) --help"
+
+compose-up:
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) $(COMPOSE_PROFILE_ARGS) $(COMPOSE_ENV_ARGS) up -d $(COMPOSE_BUILD_ARGS)
+
+compose-down:
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) $(COMPOSE_PROFILE_ARGS) $(COMPOSE_ENV_ARGS) down
+
+compose-build:
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) $(COMPOSE_PROFILE_ARGS) $(COMPOSE_ENV_ARGS) build
+
+compose-ps:
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) $(COMPOSE_PROFILE_ARGS) $(COMPOSE_ENV_ARGS) ps
+
+compose-logs:
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) $(COMPOSE_PROFILE_ARGS) $(COMPOSE_ENV_ARGS) logs -f --tail=200
 
 update-meta:
 	# updating src/deployment_resources.json (may need to adjust manually after that)
