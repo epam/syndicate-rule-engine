@@ -170,8 +170,9 @@ class TimeRangedMixin:
 
 
 JobTypeAnnotation = Annotated[
-    JobType, 
+    JobType | None,
     Field(
+        default=None,
         description=(
             'Job type to include in the report '
             '(deprecated, use job_types instead)'
@@ -180,8 +181,9 @@ JobTypeAnnotation = Annotated[
     )
 ]
 JobTypesAnnotation = Annotated[
-    set[JobType],
+    set[JobType] | None,
     Field(
+        default=None,
         description='Job types to include in the report',
     )
 ]
@@ -193,6 +195,16 @@ class _ValidateJobTypesMixin:
     """
 
     job_types: JobTypesAnnotation
+
+    @field_validator('job_types', mode='before')
+    @classmethod
+    def coerce_job_types_to_set(cls, value) -> set[JobType] | None:
+        if value is None:
+            return value
+
+        if not isinstance(value, (list, set, tuple)):
+            return {value}
+        return set(value)
 
     @field_validator('job_types', mode='after')
     @classmethod
