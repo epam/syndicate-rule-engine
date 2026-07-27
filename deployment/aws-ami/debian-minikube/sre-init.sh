@@ -48,6 +48,8 @@ Available Commands:
   secrets  Allow to retrieve some secrets generated on startup. They are located inside k8s cluster
   update   Update the installation
   version  Print versions information
+  doctor   Check local environment and CLI compatibility
+  check    Alias for doctor
 EOF
 }
 
@@ -64,6 +66,15 @@ Usage:
 Examples:
   $PROGRAM $COMMAND --system
   $PROGRAM $COMMAND --user example --public-ssh-key "ssh-rsa AAA..."
+
+Environment variables:
+
+  SRE_PYTHON_BIN
+      Optional Python interpreter used by pipx to install SRE CLI applications.
+      Example: SRE_PYTHON_BIN=python3.14 ./sre-init.sh init --user <username> ...
+
+      If not provided, the script uses system python3.
+      The script does not modify /usr/bin/python3.
 
 Options:
   -h, --help        Show this message and exit
@@ -264,6 +275,28 @@ Options
 EOF
 }
 
+cmd_doctor_usage() {
+  cat <<EOF
+Usage:
+  $PROGRAM doctor [OPTIONS]
+  $PROGRAM check [OPTIONS]
+
+Checks local environment and SRE CLI installation compatibility.
+
+Options:
+  --release <version>    Check compatibility against a specific local release
+  -h, --help             Show this help message
+
+Environment variables:
+  SRE_PYTHON_BIN         Optional Python interpreter used by pipx to install SRE CLI applications.
+                         Example:
+                           SRE_PYTHON_BIN=/usr/local/bin/python3.14 $PROGRAM doctor
+
+  SRE_PYTHON_COMPAT_MODE Compatibility behavior when Python requirement is not satisfied.
+                         Supported values: warn, error
+EOF
+}
+
 cmd_version() {
   echo "$PROGRAM: $VERSION"
 }
@@ -291,8 +324,188 @@ EOF
 }
 
 # helper functions
+resolve_python_bin() {
+  if [ -n "$SRE_PYTHON_BIN" ]; then
+    if command -v "$SRE_PYTHON_BIN" >/dev/null 2>&1; then
+      command -v "$SRE_PYTHON_BIN"
+      return 0
+    fi
 
-get_latest_local_release() { ls "$SRE_RELEASES_PATH" | sort -r | head -n 1; }
+    if [ -x "$SRE_PYTHON_BIN" ]; then
+      echo "$SRE_PYTHON_BIN"
+      return 0
+    fi
+
+    die "Requested Python interpreter '$SRE_PYTHON_BIN' was not found or is not executable"
+  fi
+
+  for candidate in python3.14 /usr/local/bin/python3.14 /opt/python/3.14/bin/python3.14; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      command -v "$candidate"
+      return 0
+    fi
+
+    if [ -x "$candidate" ]; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+
+  command -v python3 || die "python3 was not found"
+}
+python_version() {
+  "$1" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")'
+}
+
+python_satisfies() {
+  local python_bin="$1"
+  local required_version="$2"
+
+  "$python_bin" - "$required_version" <<'PY'
+import sys
+required = tuple(map(int, sys.argv[1].split(".")[:2]))
+current = sys.version_info[:2]
+sys.exit(0 if current >= required else 1)
+PY
+}
+
+release_metadata_path() {
+  local release="$1"
+  echo "$SRE_RELEASES_PATH/$release/$SRE_RELEASE_METADATA_NAME"
+}
+
+release_metadata_exists() {
+  local release="$1"
+  local metadata_file
+
+  metadata_file="$(release_metadata_path "$release")"
+
+  [ -f "$metadata_file" ]
+}
+
+get_release_metadata_value() {
+  local release="$1"
+  local jq_filter="$2"
+  local metadata_file
+
+  metadata_file="$(release_metadata_path "$release")"
+
+  if [ ! -f "$metadata_file" ]; then
+    return 1
+  fi
+
+  jq -er "$jq_filter" "$metadata_file" 2>/dev/null
+}
+
+get_modular_cli_min_python() {
+  local release="$1"
+
+  if ! release_metadata_exists "$release"; then
+    echo "${SRE_LEGACY_MODULAR_CLI_MIN_PYTHON:-3.10}"
+    return 0
+  fi
+
+  get_release_metadata_value "$release" '.components.modular_cli.python_min_version' \
+    || echo "$SRE_DEFAULT_MODULAR_CLI_MIN_PYTHON"
+}
+
+get_modular_cli_compat_mode() {
+  local release="$1"
+
+  if ! release_metadata_exists "$release"; then
+    echo "${SRE_LEGACY_PYTHON_COMPAT_MODE:-warn}"
+    return 0
+  fi
+
+  get_release_metadata_value "$release" '.components.modular_cli.compatibility_mode' \
+    || echo "$SRE_PYTHON_COMPAT_MODE"
+}
+
+get_modular_cli_breaking_change() {
+  local release="$1"
+
+  if ! release_metadata_exists "$release"; then
+    echo "false"
+    return 0
+  fi
+
+  get_release_metadata_value "$release" '.components.modular_cli.breaking_change' \
+    || echo "false"
+}
+
+get_modular_cli_compat_message() {
+  local release="$1"
+
+  if ! release_metadata_exists "$release"; then
+    echo "Legacy release metadata is missing. Using backward-compatible Python requirements."
+    return 0
+  fi
+
+  get_release_metadata_value "$release" '.components.modular_cli.message' \
+    || echo "Modular CLI requires Python $(get_modular_cli_min_python "$release") or later."
+}
+
+check_modular_cli_python_compatibility() {
+  local release="$1"
+  local python_bin
+  local required_version
+  local current_version
+  local compat_mode
+  local message
+
+  python_bin="$(resolve_python_bin)"
+  required_version="$(get_modular_cli_min_python "$release")"
+  current_version="$(python_version "$python_bin")"
+  compat_mode="$(get_modular_cli_compat_mode "$release")"
+  message="$(get_modular_cli_compat_message "$release")"
+
+  if python_satisfies "$python_bin" "$required_version"; then
+    echo "$python_bin"
+    return 0
+  fi
+
+  cat >&2 <<EOF
+WARNING: Python compatibility change detected.
+
+$message
+
+Required: Python $required_version or later
+Detected: Python $current_version
+Interpreter: $python_bin
+
+To avoid installation or update failures, install Python $required_version+ and explicitly pass it to sre-init:
+
+  SRE_PYTHON_BIN=/usr/local/bin/python${required_version} sre-init ...
+
+Do not replace the system default /usr/bin/python3, as it may break OS-level tools.
+EOF
+
+  if [ "$compat_mode" = "warn" ]; then
+    echo "$python_bin"
+    return 0
+  fi
+
+  if [ -t 0 ]; then
+    yesno "Continue anyway?"
+    echo "$python_bin"
+    return 0
+  fi
+
+  die "Unsupported Python version for Modular CLI installation"
+}
+
+validate_cli_artifacts() {
+  local release="$1"
+  local release_path="$SRE_RELEASES_PATH/$release"
+
+  [ -f "$release_path/$OBFUSCATOR_ARTIFACT_NAME" ] \
+    || die_with_support "Obfuscator artifact was not found: $release_path/$OBFUSCATOR_ARTIFACT_NAME"
+
+  [ -f "$release_path/$MODULAR_CLI_ARTIFACT_NAME" ] \
+    || die_with_support "Modular CLI artifact was not found: $release_path/$MODULAR_CLI_ARTIFACT_NAME"
+}
+
+get_latest_local_release() { ls "$SRE_RELEASES_PATH" | sort -Vr | head -n 1; }
 get_helm_release_version() {
   # currently the version of rule engine chart corresponds to the version of app inside
   helm get metadata "$1" -o json 2>/dev/null | jq -r '.version'
@@ -471,6 +684,30 @@ build_multiple_params() {
   done
 }
 
+resolve_sre_python() {
+  if [ -n "$SRE_PYTHON_BIN" ]; then
+    command -v "$SRE_PYTHON_BIN" >/dev/null 2>&1 || die "Requested Python interpreter '$SRE_PYTHON_BIN' was not found"
+    "$SRE_PYTHON_BIN" --version >&2
+    echo "$SRE_PYTHON_BIN"
+    return 0
+  fi
+
+  echo "python3"
+}
+pipx_install_artifact() {
+  local python_bin="$1"
+  local app_name="$2"
+  shift 2
+
+  if pipx list | grep -q "package ${app_name} "; then
+    echo "Existing pipx package '${app_name}' found. Removing it before reinstall..."
+    pipx uninstall "$app_name" || true
+  fi
+
+  echo "Installing '${app_name}' using Python interpreter: ${python_bin}"
+  pipx install --force --python "$python_bin" "$@"
+}
+
 initialize_system() {
   # creates:
   # - non-system admin users for Rule Engine & Modular Service
@@ -479,13 +716,21 @@ initialize_system() {
   # - tenant within the customer which represents this AWS account
   # - entity that represents defect dojo installation
   local lm_response customer_name tenant_name modular_service_password rule_engine_password license_key dojo_token="" activation_id
+  local latest_local_release python_bin release_path
 
-  export PATH="$PATH:/home/$FIRST_USER/.local/bin"
+  latest_local_release="$(get_latest_local_release)" || die_with_support "Failed to resolve latest local release"
+
+  validate_cli_artifacts "$latest_local_release"
+
+  python_bin="$(check_modular_cli_python_compatibility "$latest_local_release")"
+  release_path="$SRE_RELEASES_PATH/$latest_local_release"
 
   echo "Installing obfuscation manager"
-  pipx install --force "$SRE_RELEASES_PATH/$(get_latest_local_release)/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]" || die_with_support "Failed to install obfuscation manager"
+  pipx_install_artifact "$python_bin" "sre-obfuscator" "$release_path/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]" || die_with_support "Failed to install obfuscation manager"
+
   echo "Installing modular-cli"
-  MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pipx install --force "$SRE_RELEASES_PATH/$(get_latest_local_release)/$MODULAR_CLI_ARTIFACT_NAME" || die_with_support "Failed to install modular-cli"
+  MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT  pipx_install_artifact "$python_bin" "modular-cli" "$release_path/$MODULAR_CLI_ARTIFACT_NAME" || die_with_support "Failed to install modular-cli"
+  export PATH="$PATH:/home/$FIRST_USER/.local/bin"
 
   echo "Logging in to modular-cli"
   syndicate setup --username admin --password "$(get_kubectl_secret modular-api-secret system-password)" --api_path "http://127.0.0.1:8085" --json
@@ -685,10 +930,22 @@ cmd_init() {
     chmod 600 .ssh/authorized_keys
 EOF
   fi
+
+  local latest_local_release python_bin release_path
+
+  latest_local_release="$(get_latest_local_release)" || die_with_support "Failed to resolve latest local release"
+
+  validate_cli_artifacts "$latest_local_release"
+
+  python_bin="$(check_modular_cli_python_compatibility "$latest_local_release")"
+  release_path="$SRE_RELEASES_PATH/$latest_local_release"
+
   echo "Installing CLIs for $target_user"
-  sudo su - "$target_user" <<EOF >/dev/null
-  pipx install --force "$SRE_RELEASES_PATH/$(get_latest_local_release)/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]"
-  MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pipx install --force "$SRE_RELEASES_PATH/$(get_latest_local_release)/$MODULAR_CLI_ARTIFACT_NAME"
+  sudo su - "$target_user" <<EOF >/dev/null || die_with_support "Failed to install CLIs for user $target_user"
+  pipx uninstall modular-cli || true
+  pipx uninstall sre-obfuscator || true
+  pipx install --force --python "$python_bin" "$release_path/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]"
+  MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pipx install --force --python "$python_bin" "$release_path/$MODULAR_CLI_ARTIFACT_NAME"
 EOF
 
   local err=0
@@ -821,23 +1078,37 @@ warn_if_update_available() {
     warn "new $(get_release_type "$release_data") $(jq -r '.tag_name' <<<"$release_data") is available. Use 'sre-init update'"
   fi
 }
+_write_update_notification() {
+  echo "$UPDATE_NOTIFICATION_PERIOD:$(($(date +%s) / UPDATE_NOTIFICATION_PERIOD))" >"$UPDATE_NOTIFICATION_FILE"
+}
+
+_reset_update_notification() {
+  rm -f "$UPDATE_NOTIFICATION_FILE"
+  warn_if_update_available || return 1
+  _write_update_notification
+}
 make_update_notification() {
   if [ ! -f "$UPDATE_NOTIFICATION_FILE" ]; then
-    warn_if_update_available || return 1
-    echo "$UPDATE_NOTIFICATION_PERIOD:$(($(date +%s) / UPDATE_NOTIFICATION_PERIOD))" >"$UPDATE_NOTIFICATION_FILE"
+    _reset_update_notification
     return
   fi
-  # file exists
-  local period passed
-  IFS=':' read -r period passed <"$UPDATE_NOTIFICATION_FILE"
-  if [ -z "$period" ] || [ "$period" -eq 0 ] 2>/dev/null; then
-    rm -f "$UPDATE_NOTIFICATION_FILE"
-    return 0
-  fi
-  if [ "$(($(date +%s) / period))" -ne "$passed" ]; then
-    warn_if_update_available || return 1
-    echo "$UPDATE_NOTIFICATION_PERIOD:$(($(date +%s) / UPDATE_NOTIFICATION_PERIOD))" >"$UPDATE_NOTIFICATION_FILE"
+
+  local period passed current_bucket
+  IFS=':' read -r period passed <"$UPDATE_NOTIFICATION_FILE" || {
+    _reset_update_notification  # I/O error
     return
+  }
+
+  if ! [[ "$period" =~ ^[1-9][0-9]*$ ]]; then
+    _reset_update_notification  # invalid data
+    return
+  fi
+
+  current_bucket=$(($(date +%s) / period))
+  if [ "$current_bucket" -ne "$passed" ]; then
+    # File valid, just new time interval — check and overwrite
+    warn_if_update_available || return 1
+    _write_update_notification
   fi
 }
 
@@ -1011,16 +1282,20 @@ cmd_update() {
   echo "Going to update to $latest_tag"
   [[ $auto_yes -eq 1 ]] || yesno "Do you want to update?"
   echo "Updating to $latest_tag"
-  if [ "$do_backup" -eq 1 ]; then
-    [ -z "$backup_name" ] && backup_name="$AUTO_BACKUP_PREFIX$(date +%s)"
-    echo "Making backup $backup_name"
-    cmd_backup_create --name "$backup_name" --volumes=minio,mongo,vault
-  fi
   if [ -n "$release_data" ]; then
     echo "Pulling new artifacts"
     # TODO: check artifacts from previous release? and copy if totally the same
     pull_artifacts "$release_data"
   fi
+  if [[ -f "$SRE_RELEASES_PATH/$latest_tag/$MODULAR_CLI_ARTIFACT_NAME" || -f "$SRE_RELEASES_PATH/$latest_tag/$OBFUSCATOR_ARTIFACT_NAME" ]]; then
+    check_modular_cli_python_compatibility "$latest_tag" >/dev/null
+  fi
+  if [ "$do_backup" -eq 1 ]; then
+    [ -z "$backup_name" ] && backup_name="$AUTO_BACKUP_PREFIX$(date +%s)"
+    echo "Making backup $backup_name"
+    cmd_backup_create --name "$backup_name" --volumes=minio,mongo,vault
+  fi
+
   echo "Verifying that necessary helm chart exists"
   helm repo update syndicate || die_with_support "helm repo update failed"
   helm search repo syndicate/rule-engine --version "$latest_tag" --fail-on-no-result >/dev/null 2>&1 || die_with_support "$latest_tag version $HELM_RELEASE_NAME chart not found. Cannot update"
@@ -1038,13 +1313,16 @@ cmd_update() {
     echo "helm upgrade was successful"
   fi
 
+  local cli_python_bin=""
+  cli_python_bin="$(check_modular_cli_python_compatibility "$latest_tag")"
   if [ -f "$SRE_RELEASES_PATH/$latest_tag/$OBFUSCATOR_ARTIFACT_NAME" ]; then
     echo "Upgrading obfuscation manager"
-    pipx install --force "$SRE_RELEASES_PATH/$latest_tag/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]" >/dev/null
+    pipx_install_artifact "$cli_python_bin" "sre-obfuscator" "$SRE_RELEASES_PATH/$latest_tag/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]" >/dev/null
   fi
+
   if [ -f "$SRE_RELEASES_PATH/$latest_tag/$MODULAR_CLI_ARTIFACT_NAME" ]; then
     echo "Upgrading modular CLI"
-    MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pipx install --force "$SRE_RELEASES_PATH/$latest_tag/${MODULAR_CLI_ARTIFACT_NAME}" >/dev/null
+    MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pipx_install_artifact "$cli_python_bin" "modular-cli" "$SRE_RELEASES_PATH/$latest_tag/${MODULAR_CLI_ARTIFACT_NAME}" >/dev/null
   fi
   if [ -f "$SRE_RELEASES_PATH/$latest_tag/$SRE_INIT_ARTIFACT_NAME" ]; then
     echo "Updating sre-init"
@@ -1549,6 +1827,116 @@ cmd_health() {
   done < <(printf "%s\n" "${!checks[@]}" | sort) | column --table -s "|" --table-columns "№,CHECK,STATUS"
 }
 
+cmd_doctor() {
+  local opts release="" latest_local_release="" release_path=""
+  local python_bin="" required_version="" current_version=""
+  local status=0
+
+  opts="$(getopt -o "h" --long "help,release:" -n "$PROGRAM doctor" -- "$@")" \
+    || die "$(cmd_unrecognized)"
+
+  eval set -- "$opts"
+
+  while true; do
+    case "$1" in
+      -h | --help)
+        cmd_doctor_usage
+        exit 0
+        ;;
+      --release)
+        release="$2"
+        shift 2
+        ;;
+      --)
+        shift
+        break
+        ;;
+      *)
+        die "$(cmd_unrecognized)"
+        ;;
+    esac
+  done
+
+  if [ -n "$release" ]; then
+    latest_local_release="$release"
+  else
+    latest_local_release="$(get_latest_local_release 2>/dev/null || true)"
+  fi
+
+  echo "SRE init environment check"
+  echo
+
+  if command -v pipx >/dev/null 2>&1; then
+    echo "[OK] pipx found: $(command -v pipx)"
+  else
+    echo "[ERROR] pipx was not found"
+    status=1
+  fi
+
+  if [ -n "$latest_local_release" ]; then
+    release_path="$SRE_RELEASES_PATH/$latest_local_release"
+    echo "[OK] Local release resolved: $latest_local_release"
+
+    if release_metadata_exists "$latest_local_release"; then
+      echo "[OK] Release metadata found: $(release_metadata_path "$latest_local_release")"
+    else
+      echo "[WARN] Release metadata not found. Treating release as legacy."
+    fi
+
+    if [ -d "$release_path" ]; then
+      echo "[OK] Release directory found: $release_path"
+    else
+      echo "[ERROR] Release directory was not found: $release_path"
+      status=1
+    fi
+
+    if [ -f "$release_path/$MODULAR_CLI_ARTIFACT_NAME" ]; then
+      echo "[OK] Modular CLI artifact found"
+    else
+      echo "[ERROR] Modular CLI artifact not found: $release_path/$MODULAR_CLI_ARTIFACT_NAME"
+      status=1
+    fi
+
+    if [ -f "$release_path/$OBFUSCATOR_ARTIFACT_NAME" ]; then
+      echo "[OK] Obfuscator artifact found"
+    else
+      echo "[ERROR] Obfuscator artifact not found: $release_path/$OBFUSCATOR_ARTIFACT_NAME"
+      status=1
+    fi
+
+    required_version="$(get_modular_cli_min_python "$latest_local_release")"
+    echo "[INFO] Modular CLI Python requirement: >=$required_version"
+  else
+    echo "[WARN] Could not resolve latest local release from $SRE_RELEASES_PATH"
+    required_version="$SRE_DEFAULT_MODULAR_CLI_MIN_PYTHON"
+    status=1
+  fi
+
+  python_bin="$(resolve_python_bin 2>/dev/null || true)"
+
+  if [ -n "$python_bin" ]; then
+    current_version="$(python_version "$python_bin")"
+
+    echo "[INFO] Resolved Python interpreter: $python_bin"
+    echo "[INFO] Resolved Python version: $current_version"
+
+    if python_satisfies "$python_bin" "$required_version"; then
+      echo "[OK] Python requirement satisfied"
+    else
+      echo "[WARN] Python requirement is not satisfied"
+      echo
+      echo "Recommended command:"
+      echo "  SRE_PYTHON_BIN=/usr/local/bin/python${required_version} $PROGRAM init --user <username>"
+      status=1
+    fi
+  else
+    echo "[ERROR] Could not resolve Python interpreter"
+    status=1
+  fi
+
+  return "$status"
+}
+
 verify_installation() {
   if [ -f "$SRE_LOCAL_PATH/.success" ]; then
     return 0
@@ -1569,13 +1957,22 @@ verify_installation() {
 }
 
 # Start
-VERSION="1.2.1"
+VERSION="1.3.0"
 PROGRAM="${0##*/}"
 COMMAND="$1"
 SELF_PATH=/usr/local/bin/sre-init # TODO: resolve dynamically?
 readonly _ORIGINAL_ARGS=("$@")
 
 # Some variables that configure how cli behaves
+SRE_PYTHON_BIN="${SRE_PYTHON_BIN:-}"
+SRE_RELEASE_METADATA_NAME="${SRE_RELEASE_METADATA_NAME:-release.json}"
+# Defaults for new releases when release.json exists but some fields are missing
+SRE_DEFAULT_MODULAR_CLI_MIN_PYTHON="${SRE_DEFAULT_MODULAR_CLI_MIN_PYTHON:-3.14}"
+SRE_PYTHON_COMPAT_MODE="${SRE_PYTHON_COMPAT_MODE:-error}"
+# Defaults for old releases without release.json
+SRE_LEGACY_MODULAR_CLI_MIN_PYTHON="${SRE_LEGACY_MODULAR_CLI_MIN_PYTHON:-3.10}"
+SRE_LEGACY_PYTHON_COMPAT_MODE="${SRE_LEGACY_PYTHON_COMPAT_MODE:-warn}"
+
 AUTO_BACKUP_PREFIX="${AUTO_BACKUP_PREFIX:-autobackup-}"
 SRE_LOCAL_PATH="${SRE_LOCAL_PATH:-/usr/local/sre}"
 SRE_RELEASES_PATH="${SRE_RELEASES_PATH:-$SRE_LOCAL_PATH/releases}"
@@ -1702,6 +2099,14 @@ case "$1" in
   health)
     shift
     cmd_health "$@"
+    ;;
+  doctor)
+    shift
+    cmd_doctor "$@"
+    ;;
+  check)
+    shift
+    cmd_doctor "$@"
     ;;
   --system | --user) cmd_init "$@" ;; # redirect to init as default one
   '') cmd_usage ;;

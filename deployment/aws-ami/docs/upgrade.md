@@ -1,59 +1,128 @@
 # Update Guide
 
-The flow of product update is fully automated.
+The update process is fully automated. EPAM Syndicate Rule Engine uses an **incremental upgrade flow** — it is only possible to update through each successive version; skipping intermediate versions is not supported.
 
-EPAM Syndicate Rule Engine implements the incremental upgrades flow - it's only
-possible to update software through each successive version without skipping any intermediate versions.
+All commands must be executed **directly on the SRE AMI instance** via SSH.
 
-Please follow the following step to update the product:
+---
 
-### 1. Connect to instance via SSH:
-Connect to the product instance using the SSH key using this command: 
-`ssh -i $SSH_KEY_NAME admin@$INSTANCE_PUBLIC_DNS` where:
-   - `$SSH_KEY_NAME` is the actual name of the key file;
-   - `$INSTANCE_PUBLIC_DNS` is the actual public DNS of the instance.
+### 1. Connect to the instance via SSH
 
-### 2. List releases
-Once log in to instance, please execute the following command in order to list all the releases available starting from the current version:
+```bash
+ssh -i $SSH_KEY_NAME admin@$INSTANCE_PUBLIC_DNS
+```
 
-`sre-init list`
+- `$SSH_KEY_NAME` — the name of your SSH key file
+- `$INSTANCE_PUBLIC_DNS` — the public DNS of the instance
 
-Here is the command output sample: 
+---
 
-| Version | Release Date         | URL                                                                                                                                  | Prerelease | Draft |
-|---------|----------------------|--------------------------------------------------------------------------------------------------------------------------------------|------------|-------|
-| 5.5.1   | NEW RELEASE DATE     | [NEW RELEASE LINK](https://github.com/epam/syndicate-rule-engine/releases/tag/5.5.0)                                                 | false      | false |
-| 5.5.0*  | 2024-10-16T09:01:13Z | [https://github.com/epam/syndicate-rule-engine/releases/tag/5.5.0](https://github.com/epam/syndicate-rule-engine/releases/tag/5.5.0) | false      | false |
+### 2. List available releases
 
-The installed version is marked with asteriks `*` nearby the version number: `5.5.0*`.
+Run the following command to see all releases available from the currently installed version:
 
-This command is integrated with [GitHub releases of the product](https://github.com/epam/syndicate-rule-engine/releases).
+```bash
+sre-init list
+```
 
-### 3. Check if update available
-To check if new release is available please execute the following command:
+Expected output:
 
-`sre-init update --check`
+| Version | Release Date         | URL                                                                 | Prerelease | Draft |
+|---------|----------------------|---------------------------------------------------------------------|------------|-------|
+| 5.5.1   | 2024-11-01T10:00:00Z | https://github.com/epam/syndicate-rule-engine/releases/tag/5.5.1   | false      | false |
+| 5.5.0*  | 2024-10-16T09:01:13Z | https://github.com/epam/syndicate-rule-engine/releases/tag/5.5.0   | false      | false |
 
-The command will return the `Up-to-date` response with the `0` status code if update is not available and `1` status code 
-otherwise - this may be useful for any automation build atop of `sre-init` tool. 
+The currently installed version is marked with an asterisk `*`.
 
-### 4. Syndicate Rule Engine Update
-To initiate the update to the next version please execute the following command:
+---
 
-`sre-init update --yes`
+### 3. Check whether an update is available
 
-**Note:** no prompt will be shown if you specify `--yes` flag.
+```bash
+sre-init update --check
+```
 
-The command produces logs to console notifying the user about the update progress.  
-> The command is fail-safe. The 'sre-init' tool will rollback all the changes made to the software in case of failure.
-> 
-> This allows to return the product to the previous state. 
+- Returns `Up-to-date` with exit code `0` if no update is available.
+- Returns exit code `1` if a new release is found — useful for automation.
 
-In case update successfully ended - the following message will be diplayed: `Done`;
+---
 
-### 5. Defect Dojo Update
+### 4. Refresh the update manager
 
-To update Defect Dojo use:
+Before performing the upgrade, ensure `sre-init` itself is up to date:
+
+```bash
+sre-init update --same-version --no-backup --no-patch
+```
+
+Expected output:
+
+```
+Automatically updated sre-init from <current_version> to <new_version>
+```
+
+---
+
+### 5. Perform the update
+
+```bash
+sre-init update
+```
+
+When prompted, confirm by typing `y`:
+
+```
+Do you want to update? [y/N] y
+```
+
+> Use `sre-init update --yes` to skip the confirmation prompt.
+
+The command logs progress to the console. Expected output upon successful completion:
+
+```
+The current installed version is <previous_version>
+New github release <new_version> is available
+Going to update to <new_version>
+Pulling new artifacts
+Verifying that necessary helm chart exists
+Making helm upgrade. It should not take more than 20 minutes
+helm upgrade was successful
+Upgrading obfuscation manager
+Upgrading modular CLI
+Updating sre-init
+Done
+```
+
+> **Note:** The helm upgrade step may take up to 20 minutes. Do not interrupt the process.  
+> The update is fail-safe — if anything goes wrong, `sre-init` will automatically roll back all changes to the previous state.
+
+---
+
+### 6. Verify the installation health
+
+After the update completes, confirm all components are running correctly:
+
+```bash
+sre-init health
+```
+
+Expected output — all checks should show `ok`:
+
+```
+№  CHECK                               STATUS
+1  /usr/local/sre/.success             ok
+2  Syndicate Rule Engine helm release  ok
+3  Syndicate entrypoint                ok
+4  Syndicate Rule Engine health check  ok
+5  Obfuscation manager entrypoint      ok
+6  Defect Dojo helm release            ok
+```
+
+---
+
+### 7. Defect Dojo update (optional)
+
+To update Defect Dojo separately:
 
 ```bash
 sre-init update --defectdojo
@@ -61,6 +130,14 @@ sre-init update --defectdojo
 
 > This update is fail-safe as well.
 
+---
 
-### Support
-In case of any issues please contact [SupportSyndicateTeam@epam.com](mailto:SupportSyndicateTeam@epam.com)
+### Troubleshooting
+
+If the update fails or any health check reports `failed`, collect the log file from the instance and contact our support team:
+
+```bash
+scp -i $SSH_KEY_NAME admin@$INSTANCE_PUBLIC_DNS:/var/log/sre-init.log /your/local/directory/
+```
+
+Contact: [SupportSyndicateTeam@epam.com](mailto:SupportSyndicateTeam@epam.com)
