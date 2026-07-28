@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added new custom resource type `k8s.cluster-role-binding`, `k8s.role-binding` for K8S cluster role bindings
 - Added new custom filter `role-ref` for K8S cluster role bindings
 - Added `force` parameter to `POST /rule-sources/{id}/sync` to re-run sync for a rule source stuck in `SYNCING` status without operational overhead
+- Added resolving of tenant access payload for MCP users from MCP user context (header `X-Mcp-User-Context`)
 
 ### Fixed
 - Improved `POST /rule-sources/{id}/sync` conflict message when a rule source is already `SYNCING` to include the rule source id
