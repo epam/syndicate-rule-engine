@@ -1,14 +1,21 @@
+import base64
+import binascii
+import json
 from datetime import datetime
-from typing import Generator
+from typing import Generator, Any
 
+from pycparser.c_ast import Assignment
 from pynamodb.pagination import ResultIterator
 
+from helpers import get_logger
 from helpers.constants import Permission, PolicyEffect
 from helpers.time_helper import utc_iso
 from models.policy import Policy
 from models.role import Role
 from services.base_data_service import BaseDataService
 
+
+_LOG = get_logger(__name__)
 
 class PolicyStruct:
     __slots__ = ('customer', 'name', 'effect', 'permissions', 'tenants',
@@ -243,6 +250,52 @@ class TenantAccess:
                 else:
                     names.update(policy.tenants)
         return TenantsAccessPayload(tuple(names), flag)
+
+
+class MCPUserContext:
+    __slots__ = '_token'
+
+    def __init__(self, token: str):
+        self._token =  token
+
+    def __repr__(self) -> str:
+        return (
+            f'{self.__class__.__name__}(token={self._token})'
+        )
+
+    __str__ = __repr__
+
+    def _decode(self) -> dict:
+        try:
+            return json.loads(base64.b64decode(self._token))
+        except binascii.Error:
+            _LOG.warning(f'Failed to decode token {self._token!r}')
+        except json.decoder.JSONDecodeError:
+            _LOG.warning(f'Failed to decode token: {self._token}')
+        return {}
+
+    def _body(self) -> dict:
+        return self._decode()
+
+    @property
+    def email(self) -> str | None:
+        return self._decode().get('email')
+
+    @property
+    def customer_id(self) -> str | None:
+        return self._decode().get('customer_id')
+
+    @property
+    def assignments(self) -> list[dict[str, Any]]:
+        return self._decode().get('assignments', [])
+
+    @property
+    def tenants(self) -> tuple[str]:
+        tenants = set()
+        for assignment in self.assignments:
+            if tenant := assignment.get('tenant'):
+                tenants.add(tenant)
+        return tuple(tenants)
 
 
 class PolicyService(BaseDataService[Policy]):

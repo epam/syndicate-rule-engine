@@ -16,6 +16,7 @@ from helpers.constants import (
     HTTPMethod,
     Permission,
     MCP_USER_NAME_HEADER,
+    MCP_USER_CONTEXT_HEADER,
 )
 from helpers.lambda_response import (
     LambdaOutput,
@@ -37,6 +38,7 @@ from services.rbac_service import (
     RoleService,
     TenantAccess,
     TenantsAccessPayload,
+    MCPUserContext,
 )
 
 
@@ -439,9 +441,23 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
         )
 
         # we need to change user role to mcp user role if mcp user is
-        # specified in header and exists in Users.
+        # specified in header and exists in Users. If specific user does not
+        # exist but there is Mcp-User-Context header we change tenant access
+        # payload to tenants from that header. If both headers are missing we
+        # use cognito user role and tenant access payload
         # It is needed for integration with CodeMie
-        if mcp_user_name := event['headers'].get(MCP_USER_NAME_HEADER):
+        headers = event.get('headers') or {}
+        mcp_user_name = next(
+            (v for k, v in headers.items()
+             if k.lower() == MCP_USER_NAME_HEADER.lower()),
+            None
+        )
+        mcp_user_context = next(
+            (v for k, v in headers.items()
+             if k.lower() == MCP_USER_CONTEXT_HEADER.lower()),
+            None
+        )
+        if mcp_user_name:
             mcp_user_name = mcp_user_name.lower()
             _LOG.info(f'MCP user name from header: {mcp_user_name!r}')
             if mcp_user := self._uc.get_user_by_username(mcp_user_name):
@@ -455,12 +471,21 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
                     role_name=cast(str, event['cognito_user_role']),
                     permission=permission
                 )
+            elif mcp_user_context:
+                _LOG.info(
+                    'MCP user context header found. Resolving tenants from it'
+                )
+                mcp_uc = MCPUserContext(mcp_user_context)
+                mcp_user_tenants = mcp_uc.tenants
+                event['tenant_access_payload'] = TenantsAccessPayload(
+                    names=mcp_user_tenants,
+                    allowed=True
+                )
             else:
                 _LOG.info(
-                    f'MCP user with name {mcp_user_name!r} not found. '
-                    f'Using native user tenant access payload'
+                    f'MCP user with name {mcp_user_name!r} and MCP user '
+                    f'context not found. Using native user tenant access payload'
                 )
-
         _LOG.debug(f'Resolved tenant access payload: '
                    f'{event["tenant_access_payload"]}')
         return event, context
