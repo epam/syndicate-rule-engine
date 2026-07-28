@@ -1,3 +1,27 @@
+x-rule-engine-env: &rule-engine-env
+  SRE_LOG_LEVEL: "${SRE_LOG_LEVEL:-DEBUG}"
+  SRE_CELERY_LOG_LEVEL: "${SRE_CELERY_LOG_LEVEL:-DEBUG}"
+  SRE_SYSTEM_USER_PASSWORD: "${SRE_SYSTEM_USER_PASSWORD:-systempassword}"
+  SRE_SERVICE_MODE: docker
+  SRE_INNER_CACHE_TTL_SECONDS: 300
+  SRE_MINIO_ENDPOINT: http://minio:9000
+  SRE_MINIO_ACCESS_KEY_ID: "${SRE_MINIO_ACCESS_KEY_ID:-miniouser}"
+  SRE_MINIO_SECRET_ACCESS_KEY: "${SRE_MINIO_SECRET_ACCESS_KEY:-miniopassword}"
+  SRE_VAULT_ENDPOINT: http://vault:8200
+  SRE_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
+  SRE_MONGO_URI: "${SRE_MONGO_URI:-mongodb://mongouser:${MONGO_INITDB_ROOT_PASSWORD:-mongopassword}@mongo:27017/}"
+  SRE_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
+  SRE_ENABLE_CUSTOM_CC_PLUGINS: "${SRE_ENABLE_CUSTOM_CC_PLUGINS:-true}"
+  MODULAR_SDK_SERVICE_MODE: docker
+  MODULAR_SDK_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
+  MODULAR_SDK_MONGO_URI: "${MODULAR_SDK_MONGO_URI:-mongodb://mongouser:${MONGO_INITDB_ROOT_PASSWORD:-mongopassword}@mongo:27017/}"
+  MODULAR_SDK_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
+  MODULAR_SDK_VAULT_URL: "http://vault:8200"
+  MODULAR_SDK_APPLICATION_NAME: syndicate-rule-engine
+  REDIS_PASSWORD: redispassword
+  REDIS_DOMAIN: redis
+  REDIS_PORT: "6379"
+
 services:
   modular-api:
     image: ${MODULAR_API_IMAGE:-public.ecr.aws/x4s4z8e1/syndicate/modular-api:${MODULAR_API_VERSION:-4.3.26-rule-engine-5.14.0}}
@@ -79,29 +103,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-    environment: &rule-engine-env
-      SRE_LOG_LEVEL: "${SRE_LOG_LEVEL:-DEBUG}"
-      SRE_CELERY_LOG_LEVEL: "${SRE_CELERY_LOG_LEVEL:-DEBUG}"
-      SRE_SYSTEM_USER_PASSWORD: "${SRE_SYSTEM_USER_PASSWORD:-systempassword}"
-      SRE_SERVICE_MODE: docker
-      SRE_INNER_CACHE_TTL_SECONDS: 300
-      SRE_MINIO_ENDPOINT: http://minio:9000
-      SRE_MINIO_ACCESS_KEY_ID: "${SRE_MINIO_ACCESS_KEY_ID:-miniouser}"
-      SRE_MINIO_SECRET_ACCESS_KEY: "${SRE_MINIO_SECRET_ACCESS_KEY:-miniopassword}"
-      SRE_VAULT_ENDPOINT: http://vault:8200
-      SRE_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
-      SRE_MONGO_URI: "${SRE_MONGO_URI:-mongodb://mongouser:${MONGO_INITDB_ROOT_PASSWORD:-mongopassword}@mongo:27017/}"
-      SRE_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
-      SRE_ENABLE_CUSTOM_CC_PLUGINS: "${SRE_ENABLE_CUSTOM_CC_PLUGINS:-true}"
-      MODULAR_SDK_SERVICE_MODE: docker
-      MODULAR_SDK_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
-      MODULAR_SDK_MONGO_URI: "${MODULAR_SDK_MONGO_URI:-mongodb://mongouser:${MONGO_INITDB_ROOT_PASSWORD:-mongopassword}@mongo:27017/}"
-      MODULAR_SDK_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
-      MODULAR_SDK_VAULT_URL: "http://vault:8200"
-      MODULAR_SDK_APPLICATION_NAME: syndicate-rule-engine
-      REDIS_PASSWORD: redispassword
-      REDIS_DOMAIN: redis
-      REDIS_PORT: "6379"
+    environment:
+      <<: *rule-engine-env
     # Host machine (e.g. Minikube API https://host.docker.internal:6443)
     extra_hosts:
       - "host.docker.internal:host-gateway"
