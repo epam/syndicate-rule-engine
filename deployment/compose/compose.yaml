@@ -135,8 +135,6 @@ services:
         condition: service_started
     environment:
       <<: *rule-engine-env
-      SRE_CELERY_ASSEMBLE_EVENTS_SCHEDULE: "${SRE_CELERY_ASSEMBLE_EVENTS_SCHEDULE:-*/1 * * * *}"
-      SRE_CELERY_SCAN_RESOURCES_SCHEDULE: "${SRE_CELERY_SCAN_RESOURCES_SCHEDULE:-0 14 * * *}"
       SRE_CELERY_TIMEZONE: "${SRE_CELERY_TIMEZONE:-UTC}"
     extra_hosts:
       - "host.docker.internal:host-gateway"
