@@ -4,7 +4,6 @@ import json
 from datetime import datetime
 from typing import Generator, Any, Iterable
 
-from pycparser.c_ast import Assignment
 from pynamodb.pagination import ResultIterator
 
 from helpers import get_logger

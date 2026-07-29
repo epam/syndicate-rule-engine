@@ -5,14 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.20.0] - 2026-XX-XX
+## [5.21.0] - 2026-XX-XX
+
+### Added
+- Added resolving of tenant access payload for MCP users from MCP user context (header `X-Mcp-User-Context`)
+
+## [5.20.0] - 2026-07-29
 
 ### Added
 - Added Python 3.14 support (`requires-python = ">=3.14,<4"`)
 - Added new custom resource type `k8s.cluster-role-binding`, `k8s.role-binding` for K8S cluster role bindings
 - Added new custom filter `role-ref` for K8S cluster role bindings
 - Added `force` parameter to `POST /rule-sources/{id}/sync` to re-run sync for a rule source stuck in `SYNCING` status without operational overhead
-- Added resolving of tenant access payload for MCP users from MCP user context (header `X-Mcp-User-Context`)
 
 ### Fixed
 - Improved `POST /rule-sources/{id}/sync` conflict message when a rule source is already `SYNCING` to include the rule source id
