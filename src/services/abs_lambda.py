@@ -442,8 +442,8 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
 
         # we need to change user role to mcp user role if mcp user is
         # specified in header and exists in Users. If specific user does not
-        # exist but there is Mcp-User-Context header we change tenant access
-        # payload to tenants from that header. If both headers are missing we
+        # exist but there is Mcp-User-Context header we extend tenant access
+        # payload with tenants from that header. If both headers are missing we
         # use cognito user role and tenant access payload
         # It is needed for integration with CodeMie
         headers = event.get('headers') or {}
@@ -477,10 +477,7 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
                 )
                 mcp_uc = MCPUserContext(mcp_user_context)
                 mcp_user_tenants = mcp_uc.tenants
-                event['tenant_access_payload'] = TenantsAccessPayload(
-                    names=mcp_user_tenants,
-                    allowed=True
-                )
+                event['tenant_access_payload'].allow_tenants(mcp_user_tenants)
             else:
                 _LOG.info(
                     f'MCP user with name {mcp_user_name!r} and MCP user '

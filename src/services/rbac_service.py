@@ -2,7 +2,7 @@ import base64
 import binascii
 import json
 from datetime import datetime
-from typing import Generator, Any
+from typing import Generator, Any, Iterable
 
 from pycparser.c_ast import Assignment
 from pynamodb.pagination import ResultIterator
@@ -197,6 +197,13 @@ class TenantsAccessPayload:
             return self._names, ()
         # allowed for all
         return self.ALL, self._names
+
+    def allow_tenants(self, names: Iterable[str]):
+        if self._allowed_flag:
+            self._names += tuple(names)
+        else:
+            # if allowed for all, removing specific tenants
+            self._names = tuple(t for t in self._names if t not in names)
 
 
 class TenantAccess:
