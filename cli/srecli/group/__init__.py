@@ -298,14 +298,15 @@ class cli_response:  # noqa
 
                 hint = self._resolve_hint(kwargs, resp)
                 # If hint is None, it might have been processed by the callable (e.g., modified response directly)
-                if hint is not None and resp.ok:
+                # Apply to both success and error message responses (e.g. sync conflict)
+                if hint is not None:
                     data = resp.data or {}
                     if message := data.get(MESSAGE_ATTR):
                         data[MESSAGE_ATTR] = self._format_hint(
                             message=message,
                             hint=hint,
                         )
-                    resp.data = data
+                        resp.data = data
 
             except click.ClickException as e:
                 _LOG.info('Click exception has occurred')

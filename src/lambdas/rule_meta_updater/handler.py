@@ -92,7 +92,8 @@ class RulesRepo:
                     _LOG.warning(f'Failed to load {file}')
 
     def iter_policies(
-        self, prefix: str | None = None
+        self,
+        prefix: str | None = None,
     ) -> Generator[tuple[Path, dict], None, None]:
         """
         Yield tuples where first elements are paths relative to self.root
@@ -103,6 +104,12 @@ class RulesRepo:
 
         for file, data in self.iter_yaml_files(_root, self.yaml_exceptions):
             relative = file.relative_to(self._root)
+            if not isinstance(data, dict):
+                _LOG.warning(
+                    f'Skipping {file} because it does not contain a yaml '
+                    f'mapping (empty file or invalid content)'
+                )
+                continue
             for policy in data.get(self.policies_key, []):
                 if not isinstance(policy, dict):
                     _LOG.warning(f'Some invalid policy came: {policy}')
@@ -212,21 +219,37 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
                     f'rule source: {rule_source}'
                 )
                 self._rule_source_service.update_latest_sync(
-                    rule_source, RuleSourceSyncingStatus.FAILED
+                    rule_source,
+                    RuleSourceSyncingStatus.FAILED,
+                    clear_celery_task_id=True,
                 )
                 continue
 
-            with tempfile.TemporaryDirectory() as folder:
-                root = self._download_rule_source(
-                    item=rule_source, client=client, buffer=folder
-                )
-                if not root:
-                    _LOG.warning('Could not clone repo')
-                    self._rule_source_service.update_latest_sync(
-                        rule_source, RuleSourceSyncingStatus.FAILED
+            try:
+                with tempfile.TemporaryDirectory() as folder:
+                    root = self._download_rule_source(
+                        item=rule_source, client=client, buffer=folder
                     )
-                    continue
-                rules = list(self._load_rules(rule_source, root))
+                    if not root:
+                        _LOG.warning('Could not clone repo')
+                        self._rule_source_service.update_latest_sync(
+                            rule_source,
+                            current_status=RuleSourceSyncingStatus.FAILED,
+                            clear_celery_task_id=True,
+                        )
+                        continue
+                    rules = list(self._load_rules(rule_source, root))
+            except Exception as e:
+                _LOG.exception(
+                    f'Unexpected error occurred trying to load rules for '
+                    f'rule-source {rule_source.id}: {e}'
+                )
+                self._rule_source_service.update_latest_sync(
+                    rule_source,
+                    current_status=RuleSourceSyncingStatus.FAILED,
+                    clear_celery_task_id=True,
+                )
+                continue
 
             # because otherwise we cannot detect whether some rules were
             # removed from GitHub
@@ -258,11 +281,16 @@ class RuleMetaUpdaterLambdaHandler(EventProcessorLambdaHandler):
                     f'Unexpected error occurred trying ' f'to save rules: {e}'
                 )
                 self._rule_source_service.update_latest_sync(
-                    rule_source, RuleSourceSyncingStatus.FAILED
+                    rule_source,
+                    RuleSourceSyncingStatus.FAILED,
+                    clear_celery_task_id=True,
                 )
             else:
                 self._rule_source_service.update_latest_sync(
-                    rule_source, RuleSourceSyncingStatus.SYNCED, utc_iso()
+                    rule_source,
+                    RuleSourceSyncingStatus.SYNCED,
+                    utc_iso(),
+                    clear_celery_task_id=True,
                 )
 
     @staticmethod

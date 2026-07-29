@@ -4,11 +4,15 @@
 LOG_PATH="${LOG_PATH:-/var/log/sre-init.log}"
 ERROR_LOG_PATH="${ERROR_LOG_PATH:-/var/log/sre-init.log}"
 
+# Detect OS distribution and version: provides $ID, $VERSION_ID, $VERSION_CODENAME, etc.
+# shellcheck disable=SC1091
+. /etc/os-release
+
 SYNDICATE_HELM_REPOSITORY="${SYNDICATE_HELM_REPOSITORY:-https://charts-repository.s3.eu-west-1.amazonaws.com/syndicate/}"
 HELM_RELEASE_NAME="${HELM_RELEASE_NAME:-rule-engine}"
 DEFECTDOJO_HELM_RELEASE_NAME="${DEFECTDOJO_HELM_RELEASE_NAME:-defectdojo}"
 
-DOCKER_VERSION="${DOCKER_VERSION:-5:27.1.1-1~debian.12~bookworm}"
+DOCKER_VERSION="${DOCKER_VERSION:-5:29.5.3-1~${ID}.${VERSION_ID}~${VERSION_CODENAME}}"
 MINIKUBE_VERSION="${MINIKUBE_VERSION:-v1.33.1}"
 KUBERNETES_VERSION="${KUBERNETES_VERSION:-v1.30.0}"
 KUBECTL_VERSION="${KUBECTL_VERSION:-v1.30.3}"
@@ -30,6 +34,17 @@ log_err_with_support() {
   echo "[ERROR] $(date) $1" >>"$ERROR_LOG_PATH"
   echo "[ERROR] $(date) Please contact our support team at $SUPPORT_EMAIL for further assistance." >>"$ERROR_LOG_PATH"
 }
+# Returns a normalised CPU architecture string understood by Docker/minikube/kubectl download URLs.
+sys_arch() {
+  local arch
+  arch="$(uname -m)"
+  case "$arch" in
+    x86_64)  echo "amd64" ;;
+    aarch64) echo "arm64" ;;
+    armv7l)  echo "arm"   ;;
+    *)       echo "$arch" ;;
+  esac
+}
 # shellcheck disable=SC2120
 get_imds_token() {
   duration="10" # must be an integer
@@ -42,7 +57,7 @@ get_from_metadata() { curl -sf -H "X-aws-ec2-metadata-token: $(get_imds_token)" 
 identity_document() { get_from_metadata "/dynamic/instance-identity/document"; }
 document_signature() { get_from_metadata "/dynamic/instance-identity/signature" | tr -d '\n'; }
 region() { get_from_metadata "/dynamic/instance-identity/document" | jq -r ".region"; }
-request_to_lm() { curl -sf -X POST -d "{\"signature\":\"$(document_signature)\",\"document\":\"$(identity_document | base64 -w 0)\"}" "$LM_API_LINK/marketplace/rule-engine/init"; }
+request_to_lm() { curl -sf -X POST -H "Content-Type: application/json" -d "{\"signature\":\"$(document_signature)\",\"document\":\"$(identity_document | base64 -w 0)\"}" "$LM_API_LINK/marketplace/rule-engine/init"; }
 generate_password() {
   chars="20"
   typ='-base64'
@@ -97,28 +112,36 @@ upgrade_and_install_packages() {
   sudo DEBIAN_FRONTEND=noninteractive apt-get install -y jq curl python3-pip locales-all nginx pipx
 }
 install_docker() {
-  # Add Docker's official GPG key: from https://docs.docker.com/engine/install/debian/
+  # Add Docker's official GPG key: https://docs.docker.com/engine/install/
+  # $ID is sourced from /etc/os-release and equals 'debian' or 'ubuntu'
   sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl
   sudo install -m 0755 -d /etc/apt/keyrings
-  sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+  sudo curl -fsSL "https://download.docker.com/linux/${ID}/gpg" -o /etc/apt/keyrings/docker.asc
   sudo chmod a+r /etc/apt/keyrings/docker.asc
-  # Add git apt repo
+  # Add apt repo
   echo \
-    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
-    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" |
+    "deb [arch=$(sys_arch) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/${ID} \
+    ${VERSION_CODENAME} stable" |
     sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
   sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
-  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce="$1" docker-ce-cli="$1" containerd.io
+  if ! sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce="$1" docker-ce-cli="$1" containerd.io 2>/dev/null; then
+    log_err "Docker version '$1' not found in repository, falling back to latest available version"
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce docker-ce-cli containerd.io
+  fi
 }
 install_minikube() {
   # https://minikube.sigs.k8s.io/docs/start
-  curl -LO "https://storage.googleapis.com/minikube/releases/$1/minikube_latest_$(dpkg --print-architecture).deb"
-  sudo dpkg -i "minikube_latest_$(dpkg --print-architecture).deb" && rm "minikube_latest_$(dpkg --print-architecture).deb"
+  local arch
+  arch="$(sys_arch)"
+  curl -LO "https://storage.googleapis.com/minikube/releases/$1/minikube_latest_${arch}.deb"
+  sudo dpkg -i "minikube_latest_${arch}.deb" && rm "minikube_latest_${arch}.deb"
 }
 install_kubectl() {
   # https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/#install-kubectl-binary-with-curl-on-linux
-  curl -LO "https://dl.k8s.io/release/$1/bin/linux/$(dpkg --print-architecture)/kubectl"
-  curl -LO "https://dl.k8s.io/release/$1/bin/linux/$(dpkg --print-architecture)/kubectl.sha256"
+  local arch
+  arch="$(sys_arch)"
+  curl -LO "https://dl.k8s.io/release/$1/bin/linux/${arch}/kubectl"
+  curl -LO "https://dl.k8s.io/release/$1/bin/linux/${arch}/kubectl.sha256"
   echo "$(cat kubectl.sha256) kubectl" | sha256sum --check || exit 1
   sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && rm kubectl kubectl.sha256
 }
@@ -126,7 +149,7 @@ install_helm() {
   # https://helm.sh/docs/intro/install/
   sudo apt-get install curl gpg apt-transport-https --yes
   curl -fsSL https://packages.buildkite.com/helm-linux/helm-debian/gpgkey | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
-  echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+  echo "deb [arch=$(sys_arch) signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" | sudo tee /etc/apt/sources.list.d/helm-stable-ubuntu.list
   sudo apt-get update
   sudo apt-get install helm="$1"
 }

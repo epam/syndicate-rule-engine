@@ -1,4 +1,4 @@
-FROM public.ecr.aws/docker/library/python:3.10 AS builder
+FROM public.ecr.aws/docker/library/python:3.14 AS builder
 COPY --from=ghcr.io/astral-sh/uv:0.6.6 /uv /uvx /bin/
 
 WORKDIR /src
@@ -17,7 +17,7 @@ RUN chmod +x /src/entrypoint.sh /src/main.py && \
     rm -f /src/executor/Dockerfile* /src/executor/requirements.txt /src/onprem/Dockerfile* /src/onprem/requirements.txt /src/uv.lock /src/pyproject.toml && \
     mv /src/.venv /venv
 
-FROM public.ecr.aws/docker/library/python:3.10-slim
+FROM public.ecr.aws/docker/library/python:3.14-slim
 
 ARG USERNAME=sre
 

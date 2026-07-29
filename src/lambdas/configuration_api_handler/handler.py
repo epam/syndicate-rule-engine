@@ -142,6 +142,7 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
             rule_sources = rs_service.query(customer=customer)
 
         ids_to_sync = []
+        items_to_sync = []
         responses = []
         for rule_source in rule_sources:
             log_head = f'RuleSource:{rule_source.id!r} of ' \
@@ -149,12 +150,9 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
             if rs_service.is_allowed_to_sync(rule_source):
                 _LOG.debug(f'{log_head} is allowed to update')
                 ids_to_sync.append(rule_source.id)
+                items_to_sync.append(rule_source)
                 response = self.build_update_event_response(
                     rule_source=rule_source
-                )
-                self.rule_source_service.update_latest_sync(
-                    item=rule_source,
-                    current_status=RuleSourceSyncingStatus.SYNCING
                 )
             else:
                 _LOG.warning(f'{log_head} is not allowed to update')
@@ -164,9 +162,15 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
             responses.append(response)
 
         if ids_to_sync:
-            sync_rulesource.delay(ids_to_sync)
-        else:
-            _LOG.warning('No rule-sources allowed to update')
+            result = sync_rulesource.apply_async(args=(ids_to_sync,))
+            for rule_source in items_to_sync:
+                self.rule_source_service.update_latest_sync(
+                    item=rule_source,
+                    current_status=RuleSourceSyncingStatus.SYNCING,
+                    celery_task_id=result.id,
+                )
+        elif not responses:
+            _LOG.warning('No rule-sources found to update')
             return build_response(
                 code=HTTPStatus.NOT_FOUND,
                 content='No rule sources were found'

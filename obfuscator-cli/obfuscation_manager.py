@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from openpyxl.worksheet.worksheet import Worksheet
 
 
-__version__ = '1.0.0'
+__version__ = '1.1.0'
 
 
 REPORT_FIELDS = {'id', 'name', 'arn', 'namespace'}

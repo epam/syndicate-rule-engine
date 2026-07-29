@@ -71,7 +71,7 @@ class LicenseManagerClientHandler(AbstractHandler):
 
     @validate_kwargs
     def get(self, event: BaseModel):
-        configuration: dict = self.settings_service.get_license_manager_client_key_data() or {}
+        configuration: dict = self._get_lm_client_setting(value=True) or {}
         if not configuration:
             raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
                 'Configuration is not found'
@@ -104,8 +104,7 @@ class LicenseManagerClientHandler(AbstractHandler):
 
         # Decoding is taking care of within the validation layer.
 
-        if self.settings_service. \
-                get_license_manager_client_key_data(value=False):
+        if self._get_lm_client_setting(value=False):
             return build_response(
                 code=HTTPStatus.CONFLICT,
                 content='License Manager Client-Key already exists.'
@@ -156,8 +155,7 @@ class LicenseManagerClientHandler(AbstractHandler):
         new_alg = event.algorithm
         new_raw_prk: str = event.private_key
 
-        setting = self.settings_service. \
-            get_license_manager_client_key_data(value=False)
+        setting = self._get_lm_client_setting(value=False)
 
         if not setting:
             return build_response(
@@ -248,7 +246,7 @@ class LicenseManagerClientHandler(AbstractHandler):
         # Default 404 error-response.
         content = head + unretained
 
-        setting = self.settings_service.get_license_manager_client_key_data(value=False)
+        setting = self._get_lm_client_setting(value=False)
 
         if not setting:
             return build_response(
@@ -270,10 +268,23 @@ class LicenseManagerClientHandler(AbstractHandler):
             return build_response(code=code, content=content)
 
         name = LmTokenProducer.derive_client_private_key_id(kid=kid)
-        self._ssm_client.delete_parameter(name)
         self.settings_service.delete(setting=setting)
+        self._ssm_client.delete_parameter(name)
+
+        if self._get_lm_client_setting(value=False):
+            _LOG.error(head + ' could not be removed from persistence.')
+            return build_response(
+                code=HTTPStatus.INTERNAL_SERVER_ERROR,
+                content=head + ' could not be removed.',
+            )
+
         return build_response(code=HTTPStatus.NO_CONTENT)
 
+    def _get_lm_client_setting(self, value: bool = False):
+        return self.settings_service.get_license_manager_client_key_data(
+            value=value,
+            consistent_read=True,
+        )
 
 class LicenseManagerConfigHandler(AbstractHandler):
     """

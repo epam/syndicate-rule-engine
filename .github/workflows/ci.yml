@@ -72,7 +72,7 @@ jobs:
     strategy:
       matrix:
         python-version:
-          - "3.10"
+          - "3.14"
     uses: ./.github/workflows/pytest-with-coverage-artifacts.yml
     with:
       python-version: ${{ matrix.python-version }}
@@ -98,7 +98,7 @@ jobs:
     strategy:
       matrix:
         python-version:
-          - "3.10"
+          - "3.14"
 #          - "3.11"  # TODO: if it's uncommented the pipeline fails because it tries to upload coverage.xml twice for each version and there is a conflict. Should be fixed
     uses: ./.github/workflows/pytest-with-coverage-artifacts.yml
     with:

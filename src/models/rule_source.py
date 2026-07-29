@@ -14,6 +14,7 @@ class LatestSyncAttribute(MapAttribute):
     release_tag = UnicodeAttribute(null=True)
     version = UnicodeAttribute(null=True)
     cc_version = UnicodeAttribute(null=True)
+    celery_task_id = UnicodeAttribute(null=True)
 
 
 class CustomerGitProjectIdIndex(GlobalSecondaryIndex):

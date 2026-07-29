@@ -351,13 +351,6 @@ class StatisticsBucketKeysBuilder:
             )
         return urljoin(cls._tenant_statistics, cls._rules)
 
-    @classmethod
-    def xray_log(cls, job_id: str) -> str:
-        now = utc_datetime()
-        return urljoin(
-            'xray', 'executor', now.year, now.month, now.day, f'{job_id}.log'
-        )
-
 
 class ReportMetricsBucketKeysBuilder:
     __slots__ = ()
