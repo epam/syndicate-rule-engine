@@ -143,14 +143,7 @@ class SiemPushHandler(AbstractHandler):
         event: ReportPushDojoByJobIdModel,
         job_id: str,
     ):
-        job = next(
-            self._job_service.get_by_job_types(
-                job_id=job_id,
-                job_types=event.job_types,
-                customer_name=event.customer,
-            ),
-            None,
-        )
+        job = self._job_service.get_nullable(job_id)
         if not job:
             return build_response(
                 content='The request job not found', code=HTTPStatus.NOT_FOUND
@@ -267,14 +260,7 @@ class SiemPushHandler(AbstractHandler):
     def push_chronicle_by_job_id(
         self, event: ReportPushByJobIdModel, job_id: str
     ):
-        job = next(
-            self._job_service.get_by_job_types(
-                job_id=job_id,
-                job_types=event.job_types,
-                customer_name=event.customer,
-            ),
-            None,
-        )
+        job = self._job_service.get_nullable(hash_key=job_id)
         if not job:
             return build_response(
                 content='The request job not found', code=HTTPStatus.NOT_FOUND
