@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added resolving of tenant access payload for MCP users from MCP user context (header `X-Mcp-User-Context`)
 
+### Changed
+- Changed jobs retrieval from DB to use `job_types` instead of `job_type` in `GET /reports/push/dojo`
+
+### Removed 
+- Removed `job_type` request field from report endpoints that already target a specific `job_id`
+
 ## [5.20.0] - 2026-07-29
 
 ### Added
