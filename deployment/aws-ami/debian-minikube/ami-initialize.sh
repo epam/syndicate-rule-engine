@@ -398,17 +398,6 @@ helm repo update syndicate
 
 helm install "$HELM_RELEASE_NAME" syndicate/rule-engine --version $RULE_ENGINE_RELEASE $(build_helm_values)
 helm install "$DEFECTDOJO_HELM_RELEASE_NAME" syndicate/defectdojo
-
-# Temporary workaround: Docker 29+ sets RLIM_INFINITY for containerd pods which crashes uWSGI during prefork.
-# Patch defectdojo deployments to wrap entrypoints with `ulimit -n 65536`.
-# TODO: remove once defectdojo helm chart embeds ulimit in container commands and a new chart version is released.
-for deploy in defectdojo-uwsgi defectdojo-celeryworker defectdojo-celerybeat; do
-  cmd=\$(kubectl get deployment \$deploy -o jsonpath='{.spec.template.spec.containers[0].command}' 2>/dev/null || true)
-  if [ -n "\$cmd" ] && echo "\$cmd" | grep -qv 'ulimit'; then
-    entrypoint=\$(kubectl get deployment \$deploy -o jsonpath='{.spec.template.spec.containers[0].command[-1]}')
-    kubectl patch deployment \$deploy --type=json -p="[{\"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/command\",\"value\":[\"/bin/sh\",\"-c\",\"ulimit -n 65536 && exec \$entrypoint\"]}]"
-  fi
-done
 EOF
 
 if [ -z "$lm_response" ]; then

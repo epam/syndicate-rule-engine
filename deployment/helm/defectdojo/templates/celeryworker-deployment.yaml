@@ -24,7 +24,11 @@ spec:
         helm.sh/chart: {{ include "defectdojo.chart" . }}
     spec:
       containers:
-        - command: ["/wait-for-it.sh", '{{ include "defectdojo.fullname" . }}-postgres:5432', "-t", "30", "--", "/entrypoint-celery-worker.sh"]
+        - command:
+            - "/bin/sh"
+            - "-c"
+            - >-
+              ulimit -n 65536 && exec /wait-for-it.sh {{ include "defectdojo.fullname" . }}-postgres:5432 -t 30 -- /entrypoint-celery-worker.sh
           resources:
             requests:
               memory: "128Mi"
