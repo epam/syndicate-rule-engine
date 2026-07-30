@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [5.21.0] - 2026-XX-XX
 
 ### Added
-- Added support for passing multiple `--job_type` / `-jt` options to report commands
+- Added support for passing multiple `--job_type` / `-jt` options to report commands:
+  - `sre report details jobs`
+  - `sre report digests jobs`
+  - `sre report findings jobs`
+  - `sre report push dojo`
+  - `sre report resource jobs`
+  - `sre report rules accumulated`
 
 ### Removed
 - Removed `--job_type` option from commands because `--job_id` is required:
