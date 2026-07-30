@@ -726,12 +726,7 @@ class ResourceReportHandler(AbstractHandler):
 
     @validate_kwargs
     def get_specific_job(self, event: ResourceReportJobGetModel, job_id: str):
-        cursor = self._job_service.get_by_job_types(
-            customer_name=event.customer,
-            job_id=job_id,
-            job_types=event.job_types,
-        )
-        job = next(cursor, None)
+        job = self._job_service.get_nullable(job_id)
         if not job:
             return build_response(
                 code=HTTPStatus.NOT_FOUND,

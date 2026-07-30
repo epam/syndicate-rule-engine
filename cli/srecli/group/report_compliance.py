@@ -6,7 +6,6 @@ from srecli.group import (
     build_job_id_option,
     build_tenant_option,
     cli_response,
-    optional_job_type_option,
     SREResponse,
 )
 from srecli.service.presigned_hints_pack import presigned_url_hints_pack
@@ -18,7 +17,6 @@ def compliance():
 
 @compliance.command(cls=ViewCommand, name='jobs')
 @build_job_id_option(required=True)
-@optional_job_type_option
 @click.option(
     '--format',
     '-ft',
@@ -38,20 +36,18 @@ def compliance():
 def jobs(
     ctx: ContextObj,
     job_id: str,
-    job_type: str,
     href: bool,
     format: str,
-    customer_id,
+    customer_id: str | None,
 ) -> SREResponse:
     """
     Describes job compliance reports
     """
     return ctx['api_client'].report_compliance_jobs(
         job_id=job_id,
-        job_type=job_type,
         href=href,
         format=format,
-        customer_id=customer_id
+        customer_id=customer_id,
     )
 
 
