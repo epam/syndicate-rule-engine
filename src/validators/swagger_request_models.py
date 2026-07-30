@@ -183,7 +183,7 @@ JobTypeAnnotation = Annotated[
 JobTypesAnnotation = Annotated[
     set[JobType],
     Field(
-        default_factory=set,
+        default_factory=lambda: {JobType.STANDARD},
         description='Job types to include in the report',
     )
 ]
