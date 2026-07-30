@@ -180,6 +180,7 @@ from executor.job.rulesets.resolver import (
 from executor.job.tasks.metadata import update_metadata
 from executor.job.tasks.reactive import task_reactive_job
 from executor.job.tasks.standard import task_scheduled_job, task_standard_job
+from executor.job.tasks.periodic_rules import run_periodic_rules
 from executor.job.types import JobExecutionError, ModeDict, PolicyDict
 
 
@@ -219,6 +220,7 @@ __all__ = (
     "run_standard_job",
     "skip_duplicated_policies",
     "task_reactive_job",
+    "run_periodic_rules",
     "task_scheduled_job",
     "task_standard_job",
     "update_metadata",

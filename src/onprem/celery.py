@@ -67,6 +67,11 @@ def prepare_beat_schedule() -> dict[str, dict]:
             'schedule': Env.CELERY_REMOVE_OLD_SHARDS_SCHEDULE,
             'args': (Env.CELERY_REMOVE_OLD_SHARDS_DAYS.as_int(), ),
         },
+        'process-periodic-rules': {
+            'task': 'onprem.tasks.process_periodic_rules',
+            'schedule': Env.CELERY_PROCESS_PERIODIC_RULES_SCHEDULE,
+            'args': (),
+        },
     }
     disabled = []
     for name, inner in schedule.items():
@@ -125,6 +130,7 @@ app.conf.task_routes = {
     'onprem.tasks.collect_resources': {'queue': 'c-scheduled', 'priority': 0},
     'onprem.tasks.delete_expired_metrics': {'queue': 'c-scheduled', 'priority': 0},
     'onprem.tasks.remove_old_shards': {'queue': 'c-scheduled'},
+    'onprem.tasks.process_periodic_rules': {'queue': 'c-scheduled', 'priority': 0},
 }
 app.conf.timezone = Env.CELERY_TIMEZONE.as_str()
 app.conf.broker_connection_retry_on_startup = True

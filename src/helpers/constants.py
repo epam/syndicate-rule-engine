@@ -769,6 +769,11 @@ class Env(EnvEnum):
         (),
         '*/5 * * * *',  # every 5 minutes
     )
+    CELERY_PROCESS_PERIODIC_RULES_SCHEDULE = (
+        'SRE_CELERY_PROCESS_PERIODIC_RULES_SCHEDULE',
+        (),
+        '0 10 * * *',  # every day at 10:00 UTC
+    )
     CELERY_REMOVE_OLD_SHARDS_SCHEDULE = (
         'SRE_CELERY_REMOVE_OLD_SHARDS_SCHEDULE',
         (),
