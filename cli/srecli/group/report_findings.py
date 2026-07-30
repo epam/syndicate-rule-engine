@@ -41,7 +41,7 @@ def jobs(
     tenant_name: Optional[str],
     from_date: Optional[datetime], 
     to_date: Optional[datetime],
-    job_type: tuple[str, ...],
+    job_types: tuple[str, ...],
     href: bool,
     customer_id: str | None,
     obfuscated: bool,
@@ -66,7 +66,7 @@ def jobs(
         )
     return ctx['api_client'].report_findings_tenants(
         tenant_name=tenant_name,
-        job_types=job_type,
+        job_types=job_types,
         href=href,
         start_iso=from_date,
         end_iso=to_date,

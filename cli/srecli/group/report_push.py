@@ -56,7 +56,7 @@ def push():
 def dojo(
     ctx: ContextObj,
     job_id: Optional[str],
-    job_type: tuple[str, ...],
+    job_types: tuple[str, ...],
     from_date: Optional[datetime],
     to_date: Optional[datetime],
     customer_id: Optional[str],
@@ -83,7 +83,7 @@ def dojo(
         end_date=to_date.isoformat() if to_date else None,
         customer_id=customer_id,
         tenant_name=tenant_name,
-        job_types=job_type,
+        job_types=job_types,
         dojo_product=dojo_product,
         dojo_engagement=dojo_engagement,
         dojo_test=dojo_test,

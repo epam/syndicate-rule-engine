@@ -879,7 +879,7 @@ def build_job_type_option(*args, **kwargs) -> Callable:
         required=False,
     )
     params.update(kwargs)
-    return click.option('--job_type', '-jt', *args, **params)
+    return click.option('--job_type', '-jt', 'job_types', *args, **params)
 
 
 def build_rule_source_id_option(**kwargs) -> Callable:

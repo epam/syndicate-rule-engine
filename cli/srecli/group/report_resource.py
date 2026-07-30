@@ -170,7 +170,7 @@ def platform_latest(
 def jobs(
     ctx: ContextObj,
     tenant_name: str,
-    job_type: tuple[str, ...],
+    job_types: tuple[str, ...],
     from_date: datetime,
     to_date: datetime,
     resource_type: Optional[str],
@@ -190,7 +190,7 @@ def jobs(
     to_date = to_date.isoformat() if to_date else None
     return ctx['api_client'].report_resource_jobs(
         tenant_name=tenant_name,
-        job_types=job_type,
+        job_types=job_types,
         start_iso=from_date,
         end_iso=to_date,
         resource_type=resource_type,

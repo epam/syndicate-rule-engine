@@ -31,7 +31,7 @@ def jobs(
     tenant_name: Optional[str],
     from_date: Optional[datetime],
     to_date: Optional[datetime],
-    job_type: tuple[str, ...],
+    job_types: tuple[str, ...],
     customer_id: str | None,
 ):
     """
@@ -51,7 +51,7 @@ def jobs(
         )
     return ctx['api_client'].report_digest_tenants(
         tenant_name=tenant_name,
-        job_types=job_type,
+        job_types=job_types,
         start_iso=from_date,
         end_iso=to_date,
         customer_id=customer_id
