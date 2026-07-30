@@ -240,7 +240,7 @@ class JobTypesMixin(_ValidateJobTypesMixin):
     @model_validator(mode='after')
     @override
     def validate_job_type(self) -> Self:
-        if self.job_type and not self.job_types:
+        if self.job_type:
             if self.job_type == JobType.MANUAL:
                 self.job_types.update({JobType.STANDARD, JobType.SCHEDULED})
             else:
