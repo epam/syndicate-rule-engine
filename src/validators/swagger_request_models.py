@@ -170,7 +170,7 @@ class TimeRangedMixin:
 
 
 JobTypeAnnotation = Annotated[
-    JobType | None,
+    JobType,
     Field(
         default=JobType.MANUAL,
         description=(
@@ -181,9 +181,9 @@ JobTypeAnnotation = Annotated[
     )
 ]
 JobTypesAnnotation = Annotated[
-    set[JobType] | None,
+    set[JobType],
     Field(
-        default=None,
+        default_factory=set,
         description='Job types to include in the report',
     )
 ]
@@ -198,11 +198,11 @@ class _ValidateJobTypesMixin:
 
     @field_validator('job_types', mode='before')
     @classmethod
-    def coerce_job_types_to_set(cls, value) -> set[JobType] | None:
-        if value is None:
+    def coerce_job_types_to_set(cls, value) -> set[JobType]:
+        if not value or isinstance(value, set):
             return value
 
-        if not isinstance(value, (list, set, tuple)):
+        if not isinstance(value, (list, tuple)):
             return {value}
         return set(value)
 
@@ -240,7 +240,7 @@ class JobTypesMixin(_ValidateJobTypesMixin):
     @model_validator(mode='after')
     @override
     def validate_job_type(self) -> Self:
-        if self.job_type:
+        if self.job_type and not self.job_types:
             if self.job_type == JobType.MANUAL:
                 self.job_types.update({JobType.STANDARD, JobType.SCHEDULED})
             else:
