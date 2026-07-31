@@ -26,7 +26,7 @@ ACTIVE_SCHEDULED_STATES = (
 )
 
 
-def run_periodic_rules() -> list[str]:
+def create_periodic_rules_jobs() -> list[str]:
 
     tenant_service = SP.modular_client.tenant_service()
     tss = SP.modular_client.tenant_settings_service()
