@@ -24,7 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `sre report rules jobs`
 
 ### Fixed
-- Fixed hint for `sre rule update` command if a caller is system user
+- Fixed hint for `sre rule update` command if the caller is a system user
+- Fixed a typo in the help message for `--username` option in user-related commands:
+  - `sre users update`
+  - `sre users delete`
 
 ## [5.20.0] - 2026-07-29
 
