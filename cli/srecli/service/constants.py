@@ -231,6 +231,8 @@ class Env(str, Enum):
 class JobType(str, Enum):
     MANUAL = 'manual'
     REACTIVE = 'reactive'
+    SCHEDULED = 'scheduled'
+    STANDARD = 'standard'
 
 
 DEFAULT_AWS_REGION = 'us-east-1'

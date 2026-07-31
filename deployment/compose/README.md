@@ -1,32 +1,93 @@
 ## Starting compose locally
 
-Move to the folder containing `compose.yaml`:
+From the repository root (recommended via Makefile):
 
 ```bash
-cd deployment/aws-ami/debian-compose/artifacts  # or specify your folder
+# Pull published images (defaults from deployment/compose/compose.yaml)
+make compose-up
+
+# Build rule-engine services from local Dockerfile
+make compose-up BUILD=1
+
+# Override any image version defined in compose.yaml
+make compose-up RULE_ENGINE_VERSION=5.20.0 MODULAR_SERVICE_VERSION=local
+
+# Custom profiles / env file
+make compose-up COMPOSE_PROFILES="rule-engine modular-api" COMPOSE_ENV_FILE=deployment/compose/.env
+```
+
+Equivalent docker-compose:
+
+```bash
+cd deployment/compose
+docker compose --profile modular-service --profile rule-engine --profile modular-api up -d
+# with build:
+docker compose --profile rule-engine --profile modular-api --profile modular-service up -d --build
 ```
 
 Optionally generate random envs:
 
 ```bash
-python generate_random_envs.py --rule-engine >> .env  # optionally
-```
-
-Start docker compose. Do not specify `--env-file` parameter in case you've skipped the previous step
-
-```bash
-docker compose --profile modular-service --profile rule-engine --profile modular-api --env-file .env up -d
+python generate_random_envs.py --rule-engine >> .env
 ```
 
 If all profiles are included those API will be available:
 - vault: [http://127.0.0.1:8200](http://127.0.0.1:8200)
 - mongo: [http://127.0.0.1:27017](http://127.0.0.1:27017)
 - minio console: [http://127.0.0.1:9001](http://127.0.0.1:9001)
-- rule-engine: [http://127.0.0.1:8000/api/doc](http://127.0.0.1:8000/api/doc)
+- rule-engine: [http://127.0.0.1:8000/caas/doc](http://127.0.0.1:8000/caas/doc)
 - modular-service: [http://127.0.0.1:8040/api/doc](http://127.0.0.1:8040/api/doc)
 - modular-api: [http://127.0.0.1:8085](http://127.0.0.1:8085)
 
-In case you didn't generate random envs the default ones you can peek inside `compose.yaml`. Only for development
+Default image tags live only in `compose.yaml` (`*_VERSION` / optional `*_IMAGE`). Examples:
+
+| Variable | Affects |
+|---|---|
+| `RULE_ENGINE_VERSION` / `RULE_ENGINE_IMAGE` | rule-engine, celeryworker, celerybeat, event-sources-consumer |
+| `MODULAR_API_VERSION` / `MODULAR_API_IMAGE` | modular-api |
+| `MODULAR_SERVICE_VERSION` / `MODULAR_SERVICE_IMAGE` | modular-service |
+| `MONGO_VERSION` / `MONGO_IMAGE` | mongo |
+| `MINIO_VERSION` / `MINIO_IMAGE` | minio |
+| `REDIS_VERSION` / `REDIS_IMAGE` | redis |
+| `VAULT_VERSION` / `VAULT_IMAGE` | vault |
+
+### Develop with a local image (e.g. modular-service)
+
+1. Build and tag so the tag matches compose interpolation:
+
+```bash
+# from modular-service repo
+docker build -t public.ecr.aws/x4s4z8e1/syndicate/modular-service:local .
+```
+
+2. Start compose with that version (defaults stay in compose.yaml; only override what you need):
+
+```bash
+make compose-up MODULAR_SERVICE_VERSION=local
+# or full image override:
+make compose-up MODULAR_SERVICE_IMAGE=public.ecr.aws/x4s4z8e1/syndicate/modular-service:local
+```
+
+Same pattern for rule-engine (or use `BUILD=1` to build from this repo's Dockerfile).
+
+### Install modular-cli (syndicate)
+
+```bash
+# from PyPI (default entrypoint: syndicate)
+make install-modular-cli
+
+# from GitHub
+make install-modular-cli MODULAR_CLI_SOURCE=git MODULAR_CLI_GIT_REF=main
+
+# from local checkout
+make install-modular-cli MODULAR_CLI_SOURCE=path MODULAR_CLI_PATH=./modular-cli
+
+# custom CLI name
+make install-modular-cli MODULAR_CLI_ENTRY_POINT=syndicate
+source .m3venv/bin/activate
+syndicate setup --api_path http://127.0.0.1:8085 --username admin --password systempassword
+syndicate re configure --api_link http://rule-engine:8000/caas
+```
 
 ## Starting defect dojo
 

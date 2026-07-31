@@ -5,7 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.20.0] - 2026-XX-XX
+## [5.21.0] - 2026-XX-XX
+
+### Added
+- Added resolving of tenant access payload for MCP users from MCP user context (header `X-Mcp-User-Context`)
+
+### Changed
+- Changed jobs retrieval from DB to use `job_types` instead of `job_type` in `GET /reports/push/dojo`
+
+### Removed 
+- Removed `job_type` request field from report endpoints that already target a specific `job_id`:
+  - `GET /reports/digests/jobs/{job_id}`
+  - `GET /reports/details/jobs/{job_id}`
+  - `GET /reports/findings/jobs/{job_id}`
+  - `GET /reports/compliance/jobs/{job_id}`
+  - `GET /reports/errors/jobs/{job_id}`
+  - `GET /reports/rules/jobs/{job_id}`
+  - `POST /reports/push/dojo/{job_id}`
+  - `POST /reports/push/chronicle/{job_id}`
+
+## [5.20.0] - 2026-07-29
 
 ### Added
 - Added Python 3.14 support (`requires-python = ">=3.14,<4"`)

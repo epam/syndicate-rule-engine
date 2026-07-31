@@ -1,6 +1,30 @@
+x-rule-engine-env: &rule-engine-env
+  SRE_LOG_LEVEL: "${SRE_LOG_LEVEL:-DEBUG}"
+  SRE_CELERY_LOG_LEVEL: "${SRE_CELERY_LOG_LEVEL:-DEBUG}"
+  SRE_SYSTEM_USER_PASSWORD: "${SRE_SYSTEM_USER_PASSWORD:-systempassword}"
+  SRE_SERVICE_MODE: docker
+  SRE_INNER_CACHE_TTL_SECONDS: 300
+  SRE_MINIO_ENDPOINT: http://minio:9000
+  SRE_MINIO_ACCESS_KEY_ID: "${SRE_MINIO_ACCESS_KEY_ID:-miniouser}"
+  SRE_MINIO_SECRET_ACCESS_KEY: "${SRE_MINIO_SECRET_ACCESS_KEY:-miniopassword}"
+  SRE_VAULT_ENDPOINT: http://vault:8200
+  SRE_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
+  SRE_MONGO_URI: "${SRE_MONGO_URI:-mongodb://mongouser:${MONGO_INITDB_ROOT_PASSWORD:-mongopassword}@mongo:27017/}"
+  SRE_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
+  SRE_ENABLE_CUSTOM_CC_PLUGINS: "${SRE_ENABLE_CUSTOM_CC_PLUGINS:-true}"
+  MODULAR_SDK_SERVICE_MODE: docker
+  MODULAR_SDK_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
+  MODULAR_SDK_MONGO_URI: "${MODULAR_SDK_MONGO_URI:-mongodb://mongouser:${MONGO_INITDB_ROOT_PASSWORD:-mongopassword}@mongo:27017/}"
+  MODULAR_SDK_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
+  MODULAR_SDK_VAULT_URL: "http://vault:8200"
+  MODULAR_SDK_APPLICATION_NAME: syndicate-rule-engine
+  REDIS_PASSWORD: redispassword
+  REDIS_DOMAIN: redis
+  REDIS_PORT: "6379"
+
 services:
   modular-api:
-    image: public.ecr.aws/x4s4z8e1/syndicate/modular-api:5.4.0-rule-engine
+    image: ${MODULAR_API_IMAGE:-public.ecr.aws/x4s4z8e1/syndicate/modular-api:${MODULAR_API_VERSION:-4.3.26-rule-engine-5.14.0}}
     container_name: modular-api
     ports:
       - "8085:8085"
@@ -21,7 +45,7 @@ services:
     networks:
       - rule-engine-net
   modular-service:
-    image: public.ecr.aws/x4s4z8e1/syndicate/modular-service:5.4.0
+    image: ${MODULAR_SERVICE_IMAGE:-public.ecr.aws/x4s4z8e1/syndicate/modular-service:${MODULAR_SERVICE_VERSION:-3.3.2}}
     container_name: modular-service
     ports:
       - "8040:8040"
@@ -33,7 +57,7 @@ services:
       MODULAR_SERVICE_MONGO_DATABASE: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
       MODULAR_SDK_SERVICE_MODE: docker
       MODULAR_SDK_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
-      MODULAR_SDK_MONGO_URI: "${MODULAR_SDK_MONGO_URI:-mongodb://mongouser:$mongopassword@mongo:27017/}"
+      MODULAR_SDK_MONGO_URI: "${MODULAR_SDK_MONGO_URI:-mongodb://mongouser:${MONGO_INITDB_ROOT_PASSWORD:-mongopassword}@mongo:27017/}"
       MODULAR_SDK_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
       MODULAR_SDK_VAULT_URL: "http://vault:8200"
       MODULAR_SDK_APPLICATION_NAME: syndicate-rule-engine
@@ -47,14 +71,30 @@ services:
       - modular-service
     networks:
       - rule-engine-net
+  rule-engine-data-init:
+    image: ${BUSYBOX_IMAGE:-busybox:${BUSYBOX_VERSION:-1.28}}
+    container_name: rule-engine-data-init
+    volumes:
+      - rule-engine-data:/data
+    command: ["chown", "-R", "1001:1337", "/data"]
+    restart: "no"
+    profiles:
+      - rule-engine
+    networks:
+      - rule-engine-net
   rule-engine-celeryworker:
-    image: public.ecr.aws/x4s4z8e1/syndicate/rule-engine:5.7.0
+    image: ${RULE_ENGINE_IMAGE:-public.ecr.aws/x4s4z8e1/syndicate/rule-engine:${RULE_ENGINE_VERSION:-5.19.0}}
+    build:
+      context: ../..
+      dockerfile: src/onprem/Dockerfile-opensource-uv
     container_name: rule-engine-celeryworker
     restart: always
     entrypoint: ["/src/entrypoint.sh", "celeryworker"]
-#    volumes:
-#      - rule-engine-data:/data
+    volumes:
+      - rule-engine-data:/data
     depends_on:
+      rule-engine-data-init:
+        condition: service_completed_successfully
       mongo:
         condition: service_healthy
       minio:
@@ -64,37 +104,27 @@ services:
       redis:
         condition: service_started
     environment:
-      SRE_SYSTEM_USER_PASSWORD: "${SRE_SYSTEM_USER_PASSWORD:-systempassword}"
-      SRE_SERVICE_MODE: docker
-      SRE_INNER_CACHE_TTL_SECONDS: 300
-      SRE_MINIO_ENDPOINT: http://minio:9000
-      SRE_MINIO_ACCESS_KEY_ID: "${SRE_MINIO_ACCESS_KEY_ID:-miniouser}"
-      SRE_MINIO_SECRET_ACCESS_KEY: "${SRE_MINIO_SECRET_ACCESS_KEY:-miniopassword}"
-      SRE_VAULT_ENDPOINT: http://vault:8200
-      SRE_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
-      SRE_MONGO_URI: "${SRE_MONGO_URI:-mongodb://mongouser:$mongopassword@mongo:27017/}"
-      SRE_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
-      MODULAR_SDK_SERVICE_MODE: docker
-      MODULAR_SDK_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
-      MODULAR_SDK_MONGO_URI: "${MODULAR_SDK_MONGO_URI:-mongodb://mongouser:$mongopassword@mongo:27017/}"
-      MODULAR_SDK_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
-      MODULAR_SDK_VAULT_URL: "http://vault:8200"
-      MODULAR_SDK_APPLICATION_NAME: syndicate-rule-engine
-      REDIS_PASSWORD: redispassword
-      REDIS_DOMAIN: redis
-      REDIS_PORT: "6379"
+      <<: *rule-engine-env
+    # Host machine (e.g. Minikube API https://host.docker.internal:6443)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     profiles:
       - rule-engine
     networks:
       - rule-engine-net
   rule-engine-celerybeat:
-    image: public.ecr.aws/x4s4z8e1/syndicate/rule-engine:5.7.0
+    image: ${RULE_ENGINE_IMAGE:-public.ecr.aws/x4s4z8e1/syndicate/rule-engine:${RULE_ENGINE_VERSION:-5.19.0}}
+    build:
+      context: ../..
+      dockerfile: src/onprem/Dockerfile-opensource-uv
     container_name: rule-engine-celerybeat
     restart: always
     entrypoint: ["/src/entrypoint.sh", "celerybeat"]
-#    volumes:
-#      - rule-engine-data:/data
+    volumes:
+      - rule-engine-data:/data
     depends_on:
+      rule-engine-data-init:
+        condition: service_completed_successfully
       mongo:
         condition: service_healthy
       minio:
@@ -104,36 +134,29 @@ services:
       redis:
         condition: service_started
     environment:
-      SRE_SYSTEM_USER_PASSWORD: "${SRE_SYSTEM_USER_PASSWORD:-systempassword}"
-      SRE_SERVICE_MODE: docker
-      SRE_INNER_CACHE_TTL_SECONDS: 300
-      SRE_MINIO_ENDPOINT: http://minio:9000
-      SRE_MINIO_ACCESS_KEY_ID: "${SRE_MINIO_ACCESS_KEY_ID:-miniouser}"
-      SRE_MINIO_SECRET_ACCESS_KEY: "${SRE_MINIO_SECRET_ACCESS_KEY:-miniopassword}"
-      SRE_VAULT_ENDPOINT: http://vault:8200
-      SRE_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
-      SRE_MONGO_URI: "${SRE_MONGO_URI:-mongodb://mongouser:$mongopassword@mongo:27017/}"
-      SRE_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
-      MODULAR_SDK_SERVICE_MODE: docker
-      MODULAR_SDK_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
-      MODULAR_SDK_MONGO_URI: "${MODULAR_SDK_MONGO_URI:-mongodb://mongouser:$mongopassword@mongo:27017/}"
-      MODULAR_SDK_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
-      MODULAR_SDK_VAULT_URL: "http://vault:8200"
-      MODULAR_SDK_APPLICATION_NAME: syndicate-rule-engine
-      REDIS_PASSWORD: redispassword
-      REDIS_DOMAIN: redis
-      REDIS_PORT: "6379"
+      <<: *rule-engine-env
+      SRE_CELERY_TIMEZONE: "${SRE_CELERY_TIMEZONE:-UTC}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     profiles:
       - rule-engine
     networks:
       - rule-engine-net
   rule-engine:
-    image: public.ecr.aws/x4s4z8e1/syndicate/rule-engine:5.7.0
+    image: ${RULE_ENGINE_IMAGE:-public.ecr.aws/x4s4z8e1/syndicate/rule-engine:${RULE_ENGINE_VERSION:-5.19.0}}
+    build:
+      context: ../..
+      dockerfile: src/onprem/Dockerfile-opensource-uv
     container_name: rule-engine
     ports:
       - "8000:8000"
     restart: always
+    entrypoint: ["/src/entrypoint.sh", "api"]
+    volumes:
+      - rule-engine-data:/data
     depends_on:
+      rule-engine-data-init:
+        condition: service_completed_successfully
       mongo:
         condition: service_healthy
       minio:
@@ -143,37 +166,28 @@ services:
       redis:
         condition: service_started
     environment:
-      SRE_SYSTEM_USER_PASSWORD: "${SRE_SYSTEM_USER_PASSWORD:-systempassword}"
-      SRE_SERVICE_MODE: docker
-      SRE_INNER_CACHE_TTL_SECONDS: 300
-      SRE_MINIO_ENDPOINT: http://minio:9000
-      SRE_MINIO_ACCESS_KEY_ID: "${SRE_MINIO_ACCESS_KEY_ID:-miniouser}"
-      SRE_MINIO_SECRET_ACCESS_KEY: "${SRE_MINIO_SECRET_ACCESS_KEY:-miniopassword}"
-      SRE_VAULT_ENDPOINT: http://vault:8200
-      SRE_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
-      SRE_MONGO_URI: "${SRE_MONGO_URI:-mongodb://mongouser:$mongopassword@mongo:27017/}"
-      SRE_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
-      MODULAR_SDK_SERVICE_MODE: docker
-      MODULAR_SDK_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
-      MODULAR_SDK_MONGO_URI: "${MODULAR_SDK_MONGO_URI:-mongodb://mongouser:$mongopassword@mongo:27017/}"
-      MODULAR_SDK_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
-      MODULAR_SDK_VAULT_URL: "http://vault:8200"
-      MODULAR_SDK_APPLICATION_NAME: syndicate-rule-engine
-      REDIS_PASSWORD: redispassword
-      REDIS_DOMAIN: redis
-      REDIS_PORT: "6379"
+      <<: *rule-engine-env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     profiles:
       - rule-engine
     networks:
       - rule-engine-net
   rule-engine-event-sources-consumer:
-    image: public.ecr.aws/x4s4z8e1/syndicate/rule-engine:5.7.0
+    image: ${RULE_ENGINE_IMAGE:-public.ecr.aws/x4s4z8e1/syndicate/rule-engine:${RULE_ENGINE_VERSION:-5.19.0}}
+    build:
+      context: ../..
+      dockerfile: src/onprem/Dockerfile-opensource-uv
     container_name: rule-engine-event-sources-consumer
     restart: always
     entrypoint: ["/src/entrypoint.sh", "event_sources_consumer"]
     ports:
       - "8081:8081"
+    volumes:
+      - rule-engine-data:/data
     depends_on:
+      rule-engine-data-init:
+        condition: service_completed_successfully
       mongo:
         condition: service_healthy
       minio:
@@ -181,28 +195,15 @@ services:
       vault:
         condition: service_healthy
     environment:
-      SRE_SYSTEM_USER_PASSWORD: "${SRE_SYSTEM_USER_PASSWORD:-systempassword}"
-      SRE_SERVICE_MODE: docker
-      SRE_INNER_CACHE_TTL_SECONDS: 300
-      SRE_MINIO_ENDPOINT: http://minio:9000
-      SRE_MINIO_ACCESS_KEY_ID: "${SRE_MINIO_ACCESS_KEY_ID:-miniouser}"
-      SRE_MINIO_SECRET_ACCESS_KEY: "${SRE_MINIO_SECRET_ACCESS_KEY:-miniopassword}"
-      SRE_VAULT_ENDPOINT: http://vault:8200
-      SRE_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
-      SRE_MONGO_URI: "${SRE_MONGO_URI:-mongodb://mongouser:$mongopassword@mongo:27017/}"
-      SRE_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
-      MODULAR_SDK_SERVICE_MODE: docker
-      MODULAR_SDK_MONGO_DB_NAME: "${SRE_MONGO_DB_NAME:-syndicate-rule-engine}"
-      MODULAR_SDK_MONGO_URI: "${MODULAR_SDK_MONGO_URI:-mongodb://mongouser:$mongopassword@mongo:27017/}"
-      MODULAR_SDK_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
-      MODULAR_SDK_VAULT_URL: "http://vault:8200"
-      MODULAR_SDK_APPLICATION_NAME: syndicate-rule-engine
+      <<: *rule-engine-env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     profiles:
       - rule-engine
     networks:
       - rule-engine-net
   minio:
-    image: quay.io/minio/minio:RELEASE.2025-03-12T18-04-18Z
+    image: ${MINIO_IMAGE:-quay.io/minio/minio:${MINIO_VERSION:-RELEASE.2025-05-24T17-08-30Z}}
     container_name: minio
     ports:  # for presigned urls
       - "9000:9000"
@@ -220,7 +221,7 @@ services:
     networks:
       - rule-engine-net
   mongo:
-    image: mongo:5.0.28
+    image: ${MONGO_IMAGE:-mongo:${MONGO_VERSION:-5.0.32}}
     container_name: mongo
     healthcheck:
       test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
@@ -240,7 +241,7 @@ services:
     networks:
       - rule-engine-net
   redis:
-    image: redis:7.2.3-alpine
+    image: ${REDIS_IMAGE:-redis:${REDIS_VERSION:-7.2.3-alpine}}
     container_name: redis
     ports:
       - "6379:6379"
@@ -251,7 +252,7 @@ services:
     networks:
       - rule-engine-net
   vault:
-    image: hashicorp/vault:1.17.2
+    image: ${VAULT_IMAGE:-hashicorp/vault:${VAULT_VERSION:-1.19.5}}
     container_name: vault
     ports:
       - "8200:8200"
@@ -284,7 +285,7 @@ volumes:
   mongo-data:
   minio-data:
   redis-data:
-#  rule-engine-data:
+  rule-engine-data:
 configs:
   vault_config:
     content: |
@@ -313,10 +314,18 @@ configs:
         vault login "$$ROOT_TOKEN"
       }
       create_token () { vault token create -id "$$MY_VAULT_TOKEN"; }
+      ensure_token () {
+        # Existing vault volumes skip init/create_token; recreate app token if missing/invalid.
+        log_in
+        if ! vault token lookup "$$MY_VAULT_TOKEN" >/dev/null 2>&1; then
+          create_token
+        fi
+      }
       vault server -config=/vault/config/config.hcl &
       sleep 1
       if [ -s /vault/file/keys ]; then
         unseal
+        ensure_token
       else
         init
         unseal
