@@ -240,6 +240,12 @@ class JobTypesMixin(_ValidateJobTypesMixin):
     @model_validator(mode='after')
     @override
     def validate_job_type(self) -> Self:
+        # ignore backward-compatible job_type if job_types is set
+        # because it's main field now
+        model_fields_set = getattr(self, 'model_fields_set', set())
+        if 'job_types' in model_fields_set:
+            return self
+
         if self.job_type:
             if self.job_type == JobType.MANUAL:
                 self.job_types.update({JobType.STANDARD, JobType.SCHEDULED})
