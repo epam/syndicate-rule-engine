@@ -1172,6 +1172,7 @@ CUSTOM_ROLE_ATTR = 'custom:role'
 CUSTOM_CUSTOMER_ATTR = 'custom:customer'
 CUSTOM_LATEST_LOGIN_ATTR = 'custom:latest_login'
 CUSTOM_TENANTS_ATTR = 'custom:tenants'
+CUSTOM_IS_SERVICE_ACCOUNT_ATTR = 'custom:is_service_account'
 
 TACTICS_ID_MAPPING = {  # rules do not have tactic IDs
     'Reconnaissance': 'TA0043',

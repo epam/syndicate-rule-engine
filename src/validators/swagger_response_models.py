@@ -492,6 +492,7 @@ class User(TypedDict):
     role: str | None
     latest_login: datetime | None
     created_at: datetime | None
+    is_service_account: bool
 
 
 class RawReportItem(TypedDict):

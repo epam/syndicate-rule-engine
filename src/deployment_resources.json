@@ -464,6 +464,10 @@
       {
         "name": "latest_login",
         "type": "String"
+      },
+      {
+        "name": "is_service_account",
+        "type": "String"
       }
     ],
     "client": {
@@ -9411,7 +9415,7 @@
           "authorization_type": "authorizer",
           "lambda_name": "caas-configuration-api-handler",
           "method_request_models": {
-            "application/json": "BaseModel"
+            "application/json": "RuleSourceSyncModel"
           },
           "responses": [
             {

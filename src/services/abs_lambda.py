@@ -440,11 +440,23 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
 
         # we need to change user role to mcp user role if mcp user is
         # specified in header and exists in Users.
-        # It is needed for integration with CodeMie
+        # It is needed for integration with CodeMie.
+        # Only service account users are allowed to use this header.
         if mcp_user_name := event['headers'].get(MCP_USER_NAME_HEADER):
+            caller = self._uc.get_user_by_username(username)
+            if not caller or not caller.is_service_account:
+                _LOG.warning(
+                    f'User {username!r} is not a service account but sent '
+                    f'{MCP_USER_NAME_HEADER}'
+                )
+                raise ResponseFactory(HTTPStatus.FORBIDDEN).message(
+                    f'Header {MCP_USER_NAME_HEADER} can be used only by '
+                    f'service account'
+                ).exc()
             mcp_user_name = mcp_user_name.lower()
             _LOG.info(f'MCP user name from header: {mcp_user_name!r}')
-            if mcp_user := self._uc.get_user_by_username(mcp_user_name):
+            mcp_user = self._uc.get_user_by_username(mcp_user_name)
+            if mcp_user and mcp_user.customer == event['cognito_customer']:
                 _LOG.info(
                     f'MCP user found. Using his role {mcp_user.role!r} for '
                     f'permission check'
@@ -457,7 +469,8 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
                 )
             else:
                 _LOG.info(
-                    f'MCP user with name {mcp_user_name!r} not found. '
+                    f'MCP user with name {mcp_user_name!r} not found or '
+                    f'belongs to another customer. '
                     f'Using native user tenant access payload'
                 )
 
