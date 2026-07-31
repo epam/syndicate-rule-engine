@@ -65,14 +65,7 @@ class DigestReportHandler(AbstractHandler):
 
     @validate_kwargs
     def get_by_job(self, event: JobDigestReportGetModel, job_id: str):
-        job = next(
-            self._js.get_by_job_types(
-                job_id=job_id,
-                job_types=event.job_types,
-                customer_name=event.customer,
-            ),
-            None,
-        )
+        job = self._js.get_nullable(job_id)
         if not job:
             return build_response(
                 content="The request job not found", code=HTTPStatus.NOT_FOUND
