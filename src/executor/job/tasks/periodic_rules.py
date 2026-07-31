@@ -11,6 +11,7 @@ from services.metadata import DEFAULT_VERSION
 from services.job_lock import TenantSettingJobLock
 
 from helpers.constants import Cloud, GLOBAL_REGION, JobType
+from services.ruleset_service import RulesetName
 
 _LOG = get_logger(__name__)
 
@@ -67,12 +68,16 @@ def run_periodic_rules() -> list[str]:
 
         ttl_days = SP.environment_service.jobs_time_to_live_days()
         ttl = timedelta(days=ttl_days) if ttl_days else None
-
+        rulesets = [
+            RulesetName(_id, None, lic.license_key).to_str()
+            for _id in lic.ruleset_ids
+        ]
         job = SP.job_service.create(
             customer_name=tenant.customer_name,
             tenant_name=tenant.name,
             regions=regions,
             rules_to_scan=periodic_rules,
+            rulesets=rulesets,
             ttl=ttl,
             affected_license=lic.license_key,
             job_type=JobType.SCHEDULED,
