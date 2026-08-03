@@ -445,7 +445,8 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
         # exist but there is Mcp-User-Context header we extend tenant access
         # payload with tenants from that header. If both headers are missing we
         # use cognito user role and tenant access payload
-        # It is needed for integration with CodeMie
+        # It is needed for integration with CodeMie.
+        # Only service account users are allowed to use these headers.
         headers = event.get('headers') or {}
         mcp_user_name = next(
             (v for k, v in headers.items()
@@ -458,9 +459,20 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
             None
         )
         if mcp_user_name:
+            caller = self._uc.get_user_by_username(username)
+            if not caller or not caller.is_service_account:
+                _LOG.warning(
+                    f'User {username!r} is not a service account but sent '
+                    f'{MCP_USER_NAME_HEADER}'
+                )
+                raise ResponseFactory(HTTPStatus.FORBIDDEN).message(
+                    f'Header {MCP_USER_NAME_HEADER} can be used only by '
+                    f'service account'
+                ).exc()
             mcp_user_name = mcp_user_name.lower()
             _LOG.info(f'MCP user name from header: {mcp_user_name!r}')
-            if mcp_user := self._uc.get_user_by_username(mcp_user_name):
+            mcp_user = self._uc.get_user_by_username(mcp_user_name)
+            if mcp_user and mcp_user.customer == event['cognito_customer']:
                 _LOG.info(
                     f'MCP user found. Using his role {mcp_user.role!r} for '
                     f'permission check'
@@ -480,13 +492,13 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
                 event['tenant_access_payload'].allow_tenants(mcp_user_tenants)
             else:
                 _LOG.info(
-                    f'MCP user with name {mcp_user_name!r} and MCP user '
-                    f'context not found. Using native user tenant access payload'
+                    f'MCP user with name {mcp_user_name!r} not found or '
+                    f'belongs to another customer and MCP user context not '
+                    f'found. Using native user tenant access payload'
                 )
         _LOG.debug(f'Resolved tenant access payload: '
                    f'{event["tenant_access_payload"]}')
         return event, context
-
 
 class RestrictTenantEventProcessor(AbstractEventProcessor):
     """

@@ -117,7 +117,8 @@ class UsersHandler(AbstractHandler):
             username=event.username,
             password=event.password,
             customer=event.customer_id,
-            role=event.role_name
+            role=event.role_name,
+            is_service_account=event.is_service_account,
         )
         # seems like we need this additional step for cognito
         self._user_client.set_user_password(event.username, event.password)
@@ -134,6 +135,9 @@ class UsersHandler(AbstractHandler):
         if event.role_name:
             params['role'] = event.role_name
             item.role = event.role_name
+        if event.is_service_account is not None:
+            params['is_service_account'] = event.is_service_account
+            item.is_service_account = event.is_service_account
         to_update = UserWrapper(
             username=username,
             **params
