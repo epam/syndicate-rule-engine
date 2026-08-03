@@ -28,6 +28,8 @@ if TYPE_CHECKING:
         EventMappingCollector,
         EventStoreService,
         S3EventMappingProvider,
+        S3PeriodicMappingProvider,
+        PeriodicMappingCollector,
     )
     from services.integration_service import IntegrationService
     from services.job_service import JobService
@@ -252,6 +254,15 @@ class ServiceProvider(metaclass=SingletonMeta):
         )
 
     @cached_property
+    def periodic_mapping_collector(self) -> PeriodicMappingCollector:
+        from services.event_driven import PeriodicMappingCollector
+
+        return PeriodicMappingCollector(
+            s3_client=self.s3,
+            environment_service=self.environment_service,
+        )
+
+    @cached_property
     def ed_rules_service(self) -> EventDrivenRulesService:
         from services.event_driven.services.rules_service import (
             EventDrivenRulesService,
@@ -269,6 +280,14 @@ class ServiceProvider(metaclass=SingletonMeta):
         from services.event_driven import S3EventMappingProvider
 
         return S3EventMappingProvider(
+            s3_client=self.s3, environment_service=self.environment_service
+        )
+
+    @cached_property
+    def s3_periodic_mapping_provider(self) -> S3PeriodicMappingProvider:
+        from services.event_driven import S3PeriodicMappingProvider
+
+        return S3PeriodicMappingProvider(
             s3_client=self.s3, environment_service=self.environment_service
         )
 
@@ -369,7 +388,7 @@ class ServiceProvider(metaclass=SingletonMeta):
             lm_service=self.license_manager_service,
             s3_client=self.s3,
             environment_service=self.environment_service,
-            hooks=[self.event_mapping_collector],
+            hooks=[self.event_mapping_collector, self.periodic_mapping_collector],
         )
 
     @cached_property
