@@ -1,6 +1,7 @@
 """Run periodic rules job Celery tasks."""
 
 from datetime import timedelta
+from typing import TYPE_CHECKING
 
 from helpers.constants import JobState
 from helpers.log_helper import get_logger
@@ -12,6 +13,11 @@ from services.job_lock import TenantSettingJobLock
 
 from helpers.constants import Cloud, GLOBAL_REGION, JobType
 from services.ruleset_service import RulesetName
+
+if TYPE_CHECKING:
+    from modular_sdk.models.tenant import Tenant
+    from modular_sdk.services.tenant_settings_service import TenantSettingsService
+    from services.license_service import License
 
 _LOG = get_logger(__name__)
 
@@ -94,7 +100,7 @@ def create_periodic_rules_jobs() -> list[str]:
     return created_job_ids
 
 
-def _is_valid_license_for_tenant(tenant, lic) -> bool:
+def _is_valid_license_for_tenant(tenant: Tenant, lic: License) -> bool:
     if not lic:
         _LOG.debug(f'Skipping tenant {tenant.name}: no license found')
         return False
@@ -117,12 +123,19 @@ def _is_valid_license_for_tenant(tenant, lic) -> bool:
         )
         return False
 
+    if not lic.event_driven.get('active'):
+        _LOG.debug(
+            f'Skipping tenant {tenant.name}: '
+            f'event-driven is not active for license {lic.license_key}'
+        )
+        return False
+
     return True
 
 
 def _regions_to_scan(
-    tenant,
-    tenant_settings_service,
+    tenant: Tenant,
+    tenant_settings_service: TenantSettingsService,
 ) -> list[str]:
     cloud = Cloud.parse(tenant.cloud)
     if cloud in (Cloud.AZURE, Cloud.GOOGLE):
