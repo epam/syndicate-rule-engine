@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a new system scheduler `process-periodic-rules` to run specific rules with `periodic=True` in their metadata
 
 ### Changed
-- DefectDojo integration now tags the product with the tenant (project) name and ensures `enable_product_tag_inheritance` is enabled, so all findings inherit the tenant tag automatically (needed for Modular MCP DDojo)
+- DefectDojo integration now tags the product with the tenant name and ensures `enable_product_tag_inheritance` is enabled, so all findings inherit the tenant tag automatically
 - Changed jobs retrieval from DB to use `job_types` instead of `job_type` in `GET /reports/push/dojo`
 
 ### Removed 
