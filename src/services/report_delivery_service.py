@@ -20,6 +20,7 @@ from helpers.constants import (
     RabbitCommand,
     ReportType,
     TS_EXCLUDED_RULES_KEY,
+    GLOBAL_REGION,
 )
 from helpers.log_helper import get_logger
 from helpers.reports import service_from_resource_type
@@ -85,6 +86,7 @@ def build_attacks_report_payload(
     created_at: str,
     tenant_metadata: dict | None = None,
     jobs_count: int | None = None,
+    platforms_data: list[dict] | None = None,
 ) -> dict:
     """
     Build attacks report payload for Maestro.
@@ -109,10 +111,37 @@ def build_attacks_report_payload(
         "id": tenant_id,
         "cloud": cloud.value,
         "tenant_metadata": tenant_metadata or {},
+        "platforms_data": platforms_data or [],
     }
     if jobs_count is not None:
         payload["jobs_count"] = jobs_count
     return payload
+
+
+def build_attacks_data(
+    metadata: Metadata,
+    rule_resources: dict,
+    collection_meta: dict,
+) -> list[dict]:
+    """
+    Build attacks data for Maestro report payload.
+    """
+    report = Report.derive_report(ReportType.OPERATIONAL_ATTACKS)
+    view = MaestroReportResourceView()
+
+    generator = ReportVisitor.derive_visitor(
+        ReportType.OPERATIONAL_ATTACKS,
+        metadata=metadata,
+        view=view,
+        scope=None,
+    )
+
+    report_it = report.accept(
+        generator,
+        rule_resources=rule_resources,
+        meta=collection_meta,
+    )
+    return list(report_it)
 
 
 class ReportDeliveryService:
@@ -478,6 +507,25 @@ class ReportDeliveryService:
         collection.meta = self._report_service.fetch_meta(platform)
         return collection, Cloud.KUBERNETES, ""
 
+    def _build_platforms_data(
+        self,
+        tenant: Tenant,
+        platform_attacks: dict[str, list[dict]] | None = None,
+    ) -> list[dict]:
+        attacks = platform_attacks or {}
+        platforms = self._platform_service.query_by_tenant(tenant)
+        return [
+            {
+                "platform": {
+                    "type": platform.type,
+                    "id": platform.id,
+                    "name": platform.name,
+                    "region": platform.region or GLOBAL_REGION,
+                },
+                "data": attacks.get(platform.id, []),
+            } for platform in platforms
+        ]
+
     def _collect_attacks_for_job(
         self,
         job: Job,
@@ -503,20 +551,10 @@ class ReportDeliveryService:
         )
         if not rule_resources:
             return None
-        report = Report.derive_report(ReportType.OPERATIONAL_ATTACKS)
-        view = MaestroReportResourceView()
-        generator = ReportVisitor.derive_visitor(
-            ReportType.OPERATIONAL_ATTACKS,
+        attacks_data = build_attacks_data(
             metadata=metadata,
-            view=view,
-            scope=None,
-        )
-        attacks_data = list(
-            report.accept(
-                generator,
-                rule_resources=rule_resources,
-                meta=collection.meta,
-            )
+            rule_resources=rule_resources,
+            collection_meta=collection.meta,
         )
         if not attacks_data:
             return None
@@ -559,6 +597,14 @@ class ReportDeliveryService:
             return False
         attacks_data, rules_data, cloud = result
 
+        if job.platform_id:
+            platforms_data = self._build_platforms_data(
+                tenant,
+                {job.platform_id: attacks_data}
+            )
+        else:
+            platforms_data = []
+
         rabbitmq = self._rabbitmq_service.get_customer_rabbitmq(job.customer_name)
         now = utc_datetime()
         report_end = (
@@ -588,6 +634,7 @@ class ReportDeliveryService:
             report_to=report_end,
             created_at=utc_iso(now),
             tenant_metadata=tenant_metadata,
+            platforms_data=platforms_data,
         )
         model = self._rabbitmq_service.build_m3_json_model(
             notification_type=SRE_REPORTS_TYPE_TO_M3_MAPPING[
@@ -626,6 +673,7 @@ class ReportDeliveryService:
         Uses cursor for window: if 10-12 had nothing, next run checks 12-13, not 10-13.
         last_report_sent_at still used for throttle.
         """
+        # TODO: decomposite this method into smaller ones
         now = utc_datetime()
         sent_count = 0
         customer_service = self._modular_client.customer_service()
@@ -756,6 +804,8 @@ class ReportDeliveryService:
                         continue
 
                     all_rule_resources: dict[str, set] = {}
+                    platform_rule_resources: dict[str, dict[str, set]] = {}
+                    platform_collection_meta: dict[str, dict] = {}
                     collection_meta = {}
                     violated_by_id: dict[str, dict] = {}
                     passed_by_id: dict[str, dict] = {}
@@ -784,6 +834,20 @@ class ReportDeliveryService:
                             )
                         if col.meta:
                             collection_meta.update(col.meta)
+                        if j.platform_id:
+                            by_platform = platform_rule_resources.setdefault(
+                                j.platform_id, {}
+                            )
+                            for rule, resources in rr.items():
+                                by_platform.setdefault(rule, set()).update(
+                                    resources
+                                )
+
+                            if col.meta:
+                                platform_collection_meta.setdefault(
+                                    j.platform_id, {}
+                                ).update(col.meta)
+
                         scope = {part.policy for part in col.iter_all_parts()}
                         if scope:
                             job_rules = self._build_rules_from_collection(
@@ -813,20 +877,10 @@ class ReportDeliveryService:
                         )
                         continue
 
-                    report = Report.derive_report(ReportType.OPERATIONAL_ATTACKS)
-                    view = MaestroReportResourceView()
-                    generator = ReportVisitor.derive_visitor(
-                        ReportType.OPERATIONAL_ATTACKS,
+                    attacks_data = build_attacks_data(
                         metadata=metadata,
-                        view=view,
-                        scope=None,
-                    )
-                    attacks_data = list(
-                        report.accept(
-                            generator,
-                            rule_resources=all_rule_resources,
-                            meta=collection_meta,
-                        )
+                        rule_resources=all_rule_resources,
+                        collection_meta=collection_meta,
                     )
                     if not attacks_data:
                         _LOG.debug(
@@ -834,6 +888,40 @@ class ReportDeliveryService:
                             f"{tenant_name}"
                         )
                         continue
+
+                    platform_attacks_data = {}
+                    for platform_id, rule_resources in (
+                        platform_rule_resources.items()
+                    ):
+                        platform_col_meta = platform_collection_meta.get(
+                            platform_id
+                        )
+                        if not rule_resources or not platform_col_meta:
+                            _LOG.debug(
+                                f'No rule resources in interval window for '
+                                f'platform {platform_id} '
+                                f'in tenant {tenant_name}'
+                            )
+                            continue
+
+                        platform_data = build_attacks_data(
+                            metadata=metadata,
+                            rule_resources=rule_resources,
+                            collection_meta=platform_col_meta,
+                        )
+                        if not platform_data:
+                            _LOG.debug(
+                                f'No attacks data in interval window for '
+                                f'platform {platform_id} '
+                                f'in tenant {tenant_name}'
+                            )
+                            continue
+
+                        platform_attacks_data[platform_id] = platform_data
+
+                    platforms_data = self._build_platforms_data(
+                        tenant, platform_attacks_data
+                    )
 
                     now_ts = utc_datetime()
                     stopped_dts = [
@@ -874,6 +962,7 @@ class ReportDeliveryService:
                         created_at=utc_iso(now_ts),
                         tenant_metadata=tenant_metadata,
                         jobs_count=len(jobs_in_window),
+                        platforms_data=platforms_data,
                     )
                     model = self._rabbitmq_service.build_m3_json_model(
                         notification_type=SRE_REPORTS_TYPE_TO_M3_MAPPING[

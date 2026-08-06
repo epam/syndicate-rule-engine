@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added resolving of tenant access payload for MCP users from MCP user context (header `X-Mcp-User-Context`)
 - Added a new system scheduler `process-periodic-rules` to run specific rules with `periodic=True` in their metadata
+- Added `platforms_data` field to Maestro reactive-related report with attack data separated by platform (k8s cluster)
 
 ### Changed
 - Changed jobs retrieval from DB to use `job_types` instead of `job_type` in `GET /reports/push/dojo`
