@@ -26,7 +26,10 @@ def _add_rule_source_hints(resp: SREResponse, customer_id: str) -> None:
                 status = item.get(STATUS_ATTR, '')
                 if 'currently being updated' in status:
                     continue
-                item[STATUS_ATTR] = f"""To check: 'sre rulesource describe -rsid {rule_source_id} -cid "{customer_id}"'"""
+                cmd = f'sre rulesource describe -rsid {rule_source_id}'
+                if customer_id:
+                    cmd += f' -cid "{customer_id}"'
+                item[STATUS_ATTR] = f"To check: '{cmd}'"
         resp.data = data
 
 

@@ -60,7 +60,7 @@ class ApiClient:
         url = path.format(**(params or {}))
         url = quote(urljoin(url))  # to remove /
         if query:
-            url += f'?{urlencode(sifted(query))}'
+            url += f'?{urlencode(sifted(query), doseq=True)}'
         return urljoin(self._api_link, url)
 
     @staticmethod

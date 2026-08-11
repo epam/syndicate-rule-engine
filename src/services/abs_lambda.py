@@ -16,6 +16,7 @@ from helpers.constants import (
     HTTPMethod,
     Permission,
     MCP_USER_NAME_HEADER,
+    MCP_USER_CONTEXT_HEADER,
 )
 from helpers.lambda_response import (
     LambdaOutput,
@@ -37,6 +38,7 @@ from services.rbac_service import (
     RoleService,
     TenantAccess,
     TenantsAccessPayload,
+    MCPUserContext,
 )
 
 
@@ -439,12 +441,38 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
         )
 
         # we need to change user role to mcp user role if mcp user is
-        # specified in header and exists in Users.
-        # It is needed for integration with CodeMie
-        if mcp_user_name := event['headers'].get(MCP_USER_NAME_HEADER):
+        # specified in header and exists in Users. If specific user does not
+        # exist but there is Mcp-User-Context header we extend tenant access
+        # payload with tenants from that header. If both headers are missing we
+        # use cognito user role and tenant access payload
+        # It is needed for integration with CodeMie.
+        # Only service account users are allowed to use these headers.
+        headers = event.get('headers') or {}
+        mcp_user_name = next(
+            (v for k, v in headers.items()
+             if k.lower() == MCP_USER_NAME_HEADER.lower()),
+            None
+        )
+        mcp_user_context = next(
+            (v for k, v in headers.items()
+             if k.lower() == MCP_USER_CONTEXT_HEADER.lower()),
+            None
+        )
+        if mcp_user_name:
+            caller = self._uc.get_user_by_username(username)
+            if not caller or not caller.is_service_account:
+                _LOG.warning(
+                    f'User {username!r} is not a service account but sent '
+                    f'{MCP_USER_NAME_HEADER}'
+                )
+                raise ResponseFactory(HTTPStatus.FORBIDDEN).message(
+                    f'Header {MCP_USER_NAME_HEADER} can be used only by '
+                    f'service account'
+                ).exc()
             mcp_user_name = mcp_user_name.lower()
             _LOG.info(f'MCP user name from header: {mcp_user_name!r}')
-            if mcp_user := self._uc.get_user_by_username(mcp_user_name):
+            mcp_user = self._uc.get_user_by_username(mcp_user_name)
+            if mcp_user and mcp_user.customer == event['cognito_customer']:
                 _LOG.info(
                     f'MCP user found. Using his role {mcp_user.role!r} for '
                     f'permission check'
@@ -455,16 +483,22 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
                     role_name=cast(str, event['cognito_user_role']),
                     permission=permission
                 )
+            elif mcp_user_context:
+                _LOG.info(
+                    'MCP user context header found. Resolving tenants from it'
+                )
+                mcp_uc = MCPUserContext(mcp_user_context)
+                mcp_user_tenants = mcp_uc.tenants
+                event['tenant_access_payload'].allow_tenants(mcp_user_tenants)
             else:
                 _LOG.info(
-                    f'MCP user with name {mcp_user_name!r} not found. '
-                    f'Using native user tenant access payload'
+                    f'MCP user with name {mcp_user_name!r} not found or '
+                    f'belongs to another customer and MCP user context not '
+                    f'found. Using native user tenant access payload'
                 )
-
         _LOG.debug(f'Resolved tenant access payload: '
                    f'{event["tenant_access_payload"]}')
         return event, context
-
 
 class RestrictTenantEventProcessor(AbstractEventProcessor):
     """

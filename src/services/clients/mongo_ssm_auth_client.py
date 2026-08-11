@@ -128,6 +128,10 @@ class MongoAndSSMAuthClient(BaseAuthClient):
             actions.append(User.role.set(user.role))
         if user.latest_login:
             actions.append(User.latest_login.set(utc_iso(user.latest_login)))
+        if user.is_service_account is not None:
+            actions.append(
+                User.is_service_account.set(user.is_service_account)
+            )
         if actions:
             User(user_id=user.username).update(actions=actions)
 
@@ -244,6 +248,7 @@ class MongoAndSSMAuthClient(BaseAuthClient):
         password: str,
         customer: str | None = None,
         role: str | None = None,
+        is_service_account: bool = False,
     ) -> UserWrapper:
         created_at = utc_datetime()
         user = User(
@@ -251,6 +256,7 @@ class MongoAndSSMAuthClient(BaseAuthClient):
             customer=customer,
             role=role,
             created_at=utc_iso(created_at),
+            is_service_account=is_service_account,
         )
         self._update_password_attr(user, password)
         user.save()
@@ -259,6 +265,7 @@ class MongoAndSSMAuthClient(BaseAuthClient):
             customer=customer,
             role=role,
             created_at=created_at,
+            is_service_account=is_service_account,
         )
 
     def decode_token(self, token: str) -> dict:

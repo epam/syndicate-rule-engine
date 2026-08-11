@@ -5,7 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.21.0] - 2026-08-XX
+
+## [5.21.0] - 2026-XX-XX
+
+### Added
+- Added resolving of tenant access payload for MCP users from MCP user context (header `X-Mcp-User-Context`)
+- Added a new system scheduler `process-periodic-rules` to run specific rules with `periodic=True` in their metadata
+
+### Changed
+- DefectDojo integration now tags the product with the tenant name and ensures `enable_product_tag_inheritance` is enabled, so all findings inherit the tenant tag automatically
+- Changed jobs retrieval from DB to use `job_types` instead of `job_type` in `GET /reports/push/dojo`
+
+### Removed 
+- Removed `job_type` request field from report endpoints that already target a specific `job_id`:
+  - `GET /reports/digests/jobs/{job_id}`
+  - `GET /reports/details/jobs/{job_id}`
+  - `GET /reports/findings/jobs/{job_id}`
+  - `GET /reports/compliance/jobs/{job_id}`
+  - `GET /reports/errors/jobs/{job_id}`
+  - `GET /reports/rules/jobs/{job_id}`
+  - `POST /reports/push/dojo/{job_id}`
+  - `POST /reports/push/chronicle/{job_id}`
 
 ### Fixed
 - Fixed AWS policy runs that hit Lambda `Environment.Error` (KMS decrypt AccessDenied) being reported as `INTERNAL` instead of `ACCESS`

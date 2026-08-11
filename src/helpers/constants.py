@@ -193,6 +193,7 @@ LAMBDA_URL_HEADER_CONTENT_TYPE_UPPER = 'Content-Type'
 JSON_CONTENT_TYPE = 'application/json'
 
 MCP_USER_NAME_HEADER = 'X-Sre-Mcp-User-Name'
+MCP_USER_CONTEXT_HEADER = 'X-Mcp-User-Context'
 
 DEFAULT_SYSTEM_CUSTOMER: str = 'CUSTODIAN_SYSTEM'
 DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME = (
@@ -769,6 +770,11 @@ class Env(EnvEnum):
         (),
         '*/5 * * * *',  # every 5 minutes
     )
+    CELERY_PROCESS_PERIODIC_RULES_SCHEDULE = (
+        'SRE_CELERY_PROCESS_PERIODIC_RULES_SCHEDULE',
+        (),
+        '0 10 * * *',  # every day at 10:00 UTC
+    )
     CELERY_REMOVE_OLD_SHARDS_SCHEDULE = (
         'SRE_CELERY_REMOVE_OLD_SHARDS_SCHEDULE',
         (),
@@ -1172,6 +1178,7 @@ CUSTOM_ROLE_ATTR = 'custom:role'
 CUSTOM_CUSTOMER_ATTR = 'custom:customer'
 CUSTOM_LATEST_LOGIN_ATTR = 'custom:latest_login'
 CUSTOM_TENANTS_ATTR = 'custom:tenants'
+CUSTOM_IS_SERVICE_ACCOUNT_ATTR = 'custom:is_service_account'
 
 TACTICS_ID_MAPPING = {  # rules do not have tactic IDs
     'Reconnaissance': 'TA0043',

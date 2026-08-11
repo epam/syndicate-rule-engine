@@ -170,7 +170,7 @@ def platform_latest(
 def jobs(
     ctx: ContextObj,
     tenant_name: str,
-    job_type: str,
+    job_types: tuple[str, ...],
     from_date: datetime,
     to_date: datetime,
     resource_type: Optional[str],
@@ -186,12 +186,11 @@ def jobs(
     """
     Resource report for tenant jobs
     """
-    dates = from_date, to_date
-    i_iso = map(lambda d: d.isoformat() if d else None, dates)
-    from_date, to_date = tuple(i_iso)
+    from_date = from_date.isoformat() if from_date else None
+    to_date = to_date.isoformat() if to_date else None
     return ctx['api_client'].report_resource_jobs(
         tenant_name=tenant_name,
-        job_type=job_type,
+        job_types=job_types,
         start_iso=from_date,
         end_iso=to_date,
         resource_type=resource_type,
@@ -208,7 +207,6 @@ def jobs(
 
 @resource.command(cls=ViewCommand, name='job')
 @build_job_id_option(required=True)
-@optional_job_type_option
 @click.option('--resource_type', '-rt', type=str,
               help='Resource type to filter the result (lambda, s3, ...)')
 @click.option('--region', '-r', type=str,
@@ -237,7 +235,6 @@ def jobs(
 def job(
     ctx: ContextObj,
     job_id: str,
-    job_type: str,
     resource_type: Optional[str],
     region: Optional[str], full: bool,
     exact_match: bool,
@@ -254,7 +251,6 @@ def job(
     """
     return ctx['api_client'].report_resource_job(
         job_id=job_id,
-        type=job_type,
         resource_type=resource_type,
         region=region,
         full=full,
