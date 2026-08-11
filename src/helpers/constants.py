@@ -192,7 +192,7 @@ class Endpoint(str, Enum):
 LAMBDA_URL_HEADER_CONTENT_TYPE_UPPER = 'Content-Type'
 JSON_CONTENT_TYPE = 'application/json'
 
-MCP_USER_NAME_HEADER = 'X-Sre-Mcp-User-Name'
+MCP_USER_CONTEXT_HEADER = 'X-Mcp-User-Context'
 
 DEFAULT_SYSTEM_CUSTOMER: str = 'CUSTODIAN_SYSTEM'
 DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME = (
@@ -588,6 +588,10 @@ class Env(EnvEnum):
         ('CAAS_LM_TOKEN_LIFETIME_MINUTES',),
         '120',
     )
+
+    # mcp
+    MCP_JWT_ALGORITHM = 'SRE_MCP_JWT_ALGORITHM', (), 'RS256'
+    MCP_JWT_SSM_PARAMETER_NAME = 'SRE_MCP_JWT_SSM_PARAMETER_NAME', ()
 
     # some deployment options
     ACCOUNT_ID = 'SRE_ACCOUNT_ID', ('CAAS_ACCOUNT_ID',)
@@ -1543,6 +1547,7 @@ class TopViolationsReportType(str, Enum):
 
 class RabbitCommand(str, Enum):
     SEND_MAIL = 'SEND_MAIL'
+    GET_USER_POSITIONS = 'GET_USER_POSITIONS'
 
 
 class ScheduledJobType(str, Enum):

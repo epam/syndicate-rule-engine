@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.21.0] - 2026-08-XX
 
+### Added
+- Added support for MCP user context JWT validation and tenant access payload restriction
+
 ### Fixed
 - Fixed AWS policy runs that hit Lambda `Environment.Error` (KMS decrypt AccessDenied) being reported as `INTERNAL` instead of `ACCESS`
 
