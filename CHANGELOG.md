@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
 ## [5.21.0] - 2026-XX-XX
 
 ### Added
@@ -25,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `GET /reports/rules/jobs/{job_id}`
   - `POST /reports/push/dojo/{job_id}`
   - `POST /reports/push/chronicle/{job_id}`
+
+### Fixed
+- Fixed AWS policy runs that hit Lambda `Environment.Error` (KMS decrypt AccessDenied) being reported as `INTERNAL` instead of `ACCESS`
 
 ## [5.20.0] - 2026-07-29
 
