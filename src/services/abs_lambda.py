@@ -13,10 +13,10 @@ from typing_extensions import Self
 from helpers import RequestContext, deep_get
 from helpers.constants import (
     Endpoint,
-    Env,
     HTTPMethod,
-    Permission,
+    MCP_JWT_KEY_SSM_NAME,
     MCP_USER_CONTEXT_HEADER,
+    Permission,
 )
 from helpers.lambda_response import (
     LambdaOutput,
@@ -27,8 +27,9 @@ from helpers.lambda_response import (
 from helpers.log_helper import get_logger, hide_secret_values
 from helpers.system_customer import SystemCustomer
 from services import SP
+from services import cache as cache_service
 from services.clients.cognito import BaseAuthClient
-from services.clients.ssm import AbstractSSMClient
+from services.clients.ssm import AbstractSSMClient, SecretValue
 from services.environment_service import EnvironmentService
 from services.job_service import JobService
 from services.license_service import LicenseService
@@ -41,6 +42,7 @@ from services.rbac_service import (
     TenantAccess,
     TenantsAccessPayload,
 )
+from services.setting_service import SettingsService
 
 
 if TYPE_CHECKING:
@@ -49,6 +51,14 @@ if TYPE_CHECKING:
     from handlers import Mapping
 
 _LOG = get_logger(__name__)
+
+_MCP_JWT_CACHE_KEY = 'mcp_jwt_auth'
+
+
+def _extract_ssm_string(value: SecretValue | None) -> str | None:
+    if isinstance(value, dict):
+        value = value.get('value')
+    return value if isinstance(value, str) else None
 
 
 class AbstractEventProcessor(ABC):
@@ -274,6 +284,11 @@ class RestrictCustomerEventProcessor(AbstractEventProcessor):
         (Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG, HTTPMethod.GET),
         (Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG, HTTPMethod.DELETE),
 
+        (Endpoint.INTEGRATIONS_MCP_AUTH, HTTPMethod.GET),
+        (Endpoint.INTEGRATIONS_MCP_AUTH, HTTPMethod.POST),
+        (Endpoint.INTEGRATIONS_MCP_AUTH, HTTPMethod.PATCH),
+        (Endpoint.INTEGRATIONS_MCP_AUTH, HTTPMethod.DELETE),
+
         (Endpoint.EVENT, HTTPMethod.POST),
 
         (Endpoint.USERS_WHOAMI, HTTPMethod.GET),
@@ -349,7 +364,8 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
     Processor that restricts rbac permission
     """
     __slots__ = (
-        '_env', '_modular_client', '_ps', '_rabbitmq', '_rs', '_ssm', '_uc',
+        '_cache', '_env', '_modular_client', '_ps', '_rabbitmq',
+        '_rs', '_settings', '_ssm', '_uc',
     )
 
     def __init__(
@@ -361,6 +377,7 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
         ssm_client: AbstractSSMClient,
         modular_client: 'ModularServiceProvider',
         rabbitmq_service: RabbitMQService,
+        settings_service: SettingsService,
     ) -> None:
         self._rs = role_service
         self._ps = policy_service
@@ -369,6 +386,9 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
         self._ssm = ssm_client
         self._modular_client = modular_client
         self._rabbitmq = rabbitmq_service
+        self._settings = settings_service
+        # caches the resolved (key, algorithm) tuple under _MCP_JWT_CACHE_KEY
+        self._cache = cache_service.factory(maxsize=1)
 
     @classmethod
     def build(cls) -> 'CheckPermissionEventProcessor':
@@ -380,6 +400,7 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
             ssm_client=SP.ssm,
             modular_client=SP.modular_client,
             rabbitmq_service=SP.rabbitmq_service,
+            settings_service=SP.settings_service,
         )
 
     @staticmethod
@@ -425,19 +446,41 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
             raise factory(self._not_allowed_message(permission)).exc()
         return ta.resolve_payload(permission)
 
+    def _load_mcp_jwt_key_and_algorithm(self) -> tuple[str | None, str]:
+        configuration = self._settings.get_mcp_jwt_auth_configuration(
+            value=True
+        )
+        if not isinstance(configuration, dict) or not configuration:
+            _LOG.warning('MCP JWT Setting is not configured')
+            return None, 'RS256'
+
+        algorithm = configuration.get('algorithm') or 'RS256'
+        key = _extract_ssm_string(
+            self._ssm.get_secret_value(MCP_JWT_KEY_SSM_NAME)
+        )
+        return key, algorithm
+
+    def _resolve_mcp_jwt_key_and_algorithm(self) -> tuple[str | None, str]:
+        cached = self._cache.get(_MCP_JWT_CACHE_KEY)
+        if cached is not None:
+            return cached
+
+        resolved = self._load_mcp_jwt_key_and_algorithm()
+        if resolved[0]:
+            self._cache[_MCP_JWT_CACHE_KEY] = resolved
+        return resolved
+
     def _validate_mcp_context_token(self, token: str) -> dict:
         factory = ResponseFactory(HTTPStatus.FORBIDDEN).message
         if not token:
             raise factory('MCP user context token is missing').exc()
-        parameter_name = Env.MCP_JWT_SSM_PARAMETER_NAME.get()
-        key = parameter_name and self._ssm.get_secret_value(parameter_name)
-        if not key or not isinstance(key, str):
+        key, algorithm = self._resolve_mcp_jwt_key_and_algorithm()
+        if not key:
             _LOG.warning(
                 'MCP JWT key is not configured, cannot validate MCP user '
                 'context tokens'
             )
             raise factory('MCP user context token is invalid').exc()
-        algorithm = Env.MCP_JWT_ALGORITHM.get()
         is_asymmetric = bool(algorithm) and algorithm.upper().startswith(
             ('RS', 'ES', 'PS')
         )
@@ -454,7 +497,7 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
         except (service.jwt.DecodeError, service.jwt.InvalidTokenError) as e:
             _LOG.warning(f'MCP user context token is invalid: {e}')
             raise factory('MCP user context token is invalid').exc()
-        if not claims.get('customer'):
+        if not claims.get('customer_id'):
             _LOG.warning('MCP user context token does not contain customer')
             raise factory('MCP user context token is invalid').exc()
         return claims
