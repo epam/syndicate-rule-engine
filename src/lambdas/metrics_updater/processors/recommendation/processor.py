@@ -118,12 +118,85 @@ class RecommendationProcessor(BaseProcessor):
         buffer.close()
         return content
 
+    @staticmethod
+    def _merge_k8s_recommendations(
+        target: K8SRecommendationsMapping,
+        source: K8SRecommendationsMapping,
+    ) -> None:
+        """Extend target mapping with source recommendations per region."""
+        for region, items in source.items():
+            target.setdefault(region, []).extend(items)
+
+    def _save_tenant_recommendations(
+        self,
+        tenant: Tenant,
+        cloud_recommendations: RecommendationsMapping,
+        k8s_recommendations: K8SRecommendationsMapping,
+        timestamp: int,
+        now: datetime,
+    ) -> None:
+        """Merge cloud and K8s recommendations and persist once per region."""
+        if not cloud_recommendations and not k8s_recommendations:
+            _LOG.debug(
+                f"No recommendations to save for tenant {tenant.name}"
+            )
+            return
+
+        if not cloud_recommendations:
+            _LOG.info(
+                f"Saving K8s-only recommendations for tenant {tenant.name}"
+            )
+            for region, recommend in k8s_recommendations.items():
+                content = self._json_to_jsonl(recommend)
+                self._save_recommendation(
+                    region=region,
+                    tenant=tenant,
+                    content=content,
+                    timestamp=timestamp,
+                )
+                _LOG.debug(
+                    f"Saved {len(recommend)} K8s recommendations "
+                    f"for tenant {tenant.name}, region {region}"
+                )
+        else:
+            _LOG.info(
+                f"Merging K8s and cloud recommendations for tenant {tenant.name}"
+            )
+            all_regions = set(cloud_recommendations.keys()) | set(
+                k8s_recommendations.keys()
+            )
+            for region in all_regions:
+                cloud_recs = cloud_recommendations.get(region, [])
+                k8s_recs = k8s_recommendations.get(region, [])
+                merged = cloud_recs + k8s_recs
+                content = self._json_to_jsonl(merged)
+                self._save_recommendation(
+                    region=region,
+                    tenant=tenant,
+                    content=content,
+                    timestamp=timestamp,
+                )
+                _LOG.debug(
+                    f"Saved {len(merged)} recommendations "
+                    f"(cloud: {len(cloud_recs)}, k8s: {len(k8s_recs)}) "
+                    f"for tenant {tenant.name}, region {region}"
+                )
+
+        self._send_event_to_maestro(
+            tenant=tenant,
+            timestamp=timestamp,
+            now=now,
+        )
+
     def _process_data(self) -> None:
         now = datetime.now(timezone.utc)
         timestamp = as_milliseconds(now.timestamp())
         cluster_platform_mapping = self._get_cluster_parents()
         tenant_service = self._modular_client.tenant_service()
         tenant_obj_mapping: dict[str, Tenant] = {}
+        # Accumulate K8s recommendations across all platforms of a tenant
+        # before saving, so multiple platforms do not overwrite each other.
+        tenant_k8s_recommendations: dict[str, K8SRecommendationsMapping] = {}
 
         _LOG.info(
             f"Starting platform-level processing. "
@@ -164,62 +237,27 @@ class RecommendationProcessor(BaseProcessor):
             )
             if not k8s_recommendations:
                 _LOG.debug(f"No k8s recommendations based on findings {file}")
+            else:
+                self._merge_k8s_recommendations(
+                    tenant_k8s_recommendations.setdefault(tenant.project, {}),
+                    k8s_recommendations,
+                )
 
+        for project_id, tenant in tenant_obj_mapping.items():
             tenant_key_builder = TenantReportsBucketKeysBuilder(tenant)
             latest_key = tenant_key_builder.latest_key()
             _LOG.debug(f"Get file {latest_key} content")
-            recommendations = self._get_tenant_recommendations(
+            cloud_recommendations = self._get_tenant_recommendations(
                 tenant=tenant,
             )
-
-            if not recommendations:
-                _LOG.info(
-                    f"Platform {platform.name}: no cloud recommendations, "
-                    f"saving K8s-only recommendations for tenant {tenant.name}"
-                )
-                for region, recommend in k8s_recommendations.items():
-                    content = self._json_to_jsonl(recommend)
-                    self._save_recommendation(
-                        region=region,
-                        tenant=tenant,
-                        content=content,
-                        timestamp=timestamp,
-                    )
-                    _LOG.debug(
-                        f"Saved {len(recommend)} K8s recommendations "
-                        f"for tenant {tenant.name}, region {region}"
-                    )
-                self._send_event_to_maestro(
-                    tenant=tenant,
-                    timestamp=timestamp,
-                    now=now,
-                )
-            else:
-                _LOG.info(
-                    f"Platform {platform.name}: merging K8s and cloud recommendations "
-                    f"for tenant {tenant.name}"
-                )
-                all_regions = set(recommendations.keys()) | set(k8s_recommendations.keys())
-                for region in all_regions:
-                    cloud_recs = recommendations.get(region, [])
-                    k8s_recs = k8s_recommendations.get(region, [])
-                    merged = cloud_recs + k8s_recs
-                    content = self._json_to_jsonl(merged)
-                    self._save_recommendation(
-                        region=region,
-                        tenant=tenant,
-                        content=content,
-                        timestamp=timestamp,
-                    )
-                    _LOG.debug(
-                        f"Saved {len(merged)} recommendations (cloud: {len(cloud_recs)}, "
-                        f"k8s: {len(k8s_recs)}) for tenant {tenant.name}, region {region}"
-                    )
-                self._send_event_to_maestro(
-                    tenant=tenant,
-                    timestamp=timestamp,
-                    now=now,
-                )
+            k8s_recommendations = tenant_k8s_recommendations.get(project_id, {})
+            self._save_tenant_recommendations(
+                tenant=tenant,
+                cloud_recommendations=cloud_recommendations,
+                k8s_recommendations=k8s_recommendations,
+                timestamp=timestamp,
+                now=now,
+            )
 
         _LOG.info(
             f"Platform-level processing complete. "
