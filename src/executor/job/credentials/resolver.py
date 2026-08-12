@@ -6,6 +6,8 @@ from modular_sdk.commons.constants import (
     ParentType,
 )
 from modular_sdk.models.tenant import Tenant
+from modular_sdk.models.parent import Parent
+from modular_sdk.services.impl.maestro_credentials_service import Credentials
 
 from executor.services import BSP
 from helpers.constants import BatchJobEnv, Cloud, TS_EXCLUDED_RULES_KEY
@@ -19,75 +21,75 @@ from services.platform_service import Platform
 _LOG = get_logger(__name__)
 
 
-def get_tenant_credentials(tenant: Tenant) -> dict | None:
-    """
-    If dict is returned it means that we should export that dict to envs
-    and start the scan even if the dict is empty
-    """
+def _get_parent(tenant: Tenant) -> Parent | None:
+    parent_service = SP.modular_client.parent_service()
+    tenant_service = SP.modular_client.tenant_service()
 
-    def _get_parent():
-        parent_service = SP.modular_client.parent_service()
-        tenant_service = SP.modular_client.tenant_service()
+    disabled = next(
+        parent_service.get_by_tenant_scope(
+            customer_id=tenant.customer_name,
+            type_=ParentType.CUSTODIAN_ACCESS,
+            tenant_name=tenant.name,
+            disabled=True,
+            limit=1,
+        ),
+        None,
+    )
+    if disabled:
+        _LOG.info('Disabled parent is found. Returning None')
+        return None
 
-        disabled = next(
-            parent_service.get_by_tenant_scope(
-                customer_id=tenant.customer_name,
-                type_=ParentType.CUSTODIAN_ACCESS,
-                tenant_name=tenant.name,
-                disabled=True,
+    specific = next(
+        parent_service.get_by_tenant_scope(
+            customer_id=tenant.customer_name,
+            type_=ParentType.CUSTODIAN_ACCESS,
+            tenant_name=tenant.name,
+            disabled=False,
+            limit=1,
+        ),
+        None,
+    )
+    if specific:
+        _LOG.info('Specific parent is found. Returning it')
+        return specific
+
+    if tenant.linked_to:
+        _LOG.debug('Trying to get parent_tenant')
+        parent_tenant = next(
+            tenant_service.i_get_by_dntl(
+                dntl=tenant.linked_to.lower(),
+                cloud=tenant.cloud,
                 limit=1,
             ),
             None,
         )
-        if disabled:
-            _LOG.info('Disabled parent is found. Returning None')
-            return None
 
-        specific = next(
-            parent_service.get_by_tenant_scope(
-                customer_id=tenant.customer_name,
+        if parent_tenant:
+            _LOG.info('Getting parent linked to parent_tenant')
+            return parent_service.get_linked_parent_by_tenant(
+                tenant=parent_tenant,
                 type_=ParentType.CUSTODIAN_ACCESS,
-                tenant_name=tenant.name,
-                disabled=False,
-                limit=1,
-            ),
-            None,
-        )
-        if specific:
-            _LOG.info('Specific parent is found. Returning it')
-            return specific
-
-        if tenant.linked_to:
-            _LOG.debug('Trying to get parent_tenant')
-            parent_tenant = next(
-                tenant_service.i_get_by_dntl(
-                    dntl=tenant.linked_to.lower(),
-                    cloud=tenant.cloud,
-                    limit=1,
-                ),
-                None,
             )
 
-            if parent_tenant:
-                _LOG.info('Getting parent linked to parent_tenant')
-                return parent_service.get_linked_parent_by_tenant(
-                    tenant=parent_tenant,
-                    type_=ParentType.CUSTODIAN_ACCESS,
-                )
+    _LOG.info('Getting parent with scope ALL')
+    return next(parent_service.get_by_all_scope(
+        customer_id=tenant.customer_name,
+        type_=ParentType.CUSTODIAN_ACCESS,
+    ), None)
 
-        _LOG.info('Getting parent with scope ALL')
-        return parent_service.get_linked_parent_by_tenant(
-            tenant=tenant,
-            type_=ParentType.CUSTODIAN_ACCESS,
-        )
+
+def _get_tenant_credentials(tenant: Tenant) -> Credentials | None:
+    """
+    Returns `Credentials` for the given tenant.
+    """
 
     mcs = SP.modular_client.maestro_credentials_service()
     application_service = SP.modular_client.application_service()
-    credentials = None
+
     application = None
 
     _LOG.info('Trying to get creds from `CUSTODIAN_ACCESS` parent')
-    parent = _get_parent()
+    parent = _get_parent(tenant)
 
     if parent:
         application = application_service.get_application_by_id(
@@ -95,16 +97,29 @@ def get_tenant_credentials(tenant: Tenant) -> dict | None:
         )
 
     if application:
-        _creds = mcs.get_by_application(application, tenant)
-        if _creds:
-            credentials = _creds.dict()
-    if credentials is None and BatchJobEnv.ALLOW_MANAGEMENT_CREDS.as_bool():
+        return mcs.get_by_application(application, tenant)
+
+    if BatchJobEnv.ALLOW_MANAGEMENT_CREDS.as_bool():
         _LOG.info(
             'Trying to get creds from maestro management parent & application'
         )
-        _creds = mcs.get_by_tenant(tenant=tenant)
-        if _creds:
-            credentials = _creds.dict()
+        return mcs.get_by_tenant(tenant=tenant)
+
+    return None
+
+
+def get_tenant_credentials(tenant: Tenant) -> dict | None:
+    """
+    If dict is returned it means that we should export that dict to envs
+    and start the scan even if the dict is empty
+    """
+
+    mcs = SP.modular_client.maestro_credentials_service()
+    credentials = None
+
+    _creds = _get_tenant_credentials(tenant)
+    if _creds:
+        credentials = _creds.dict()
     if credentials is None:
         _LOG.info('Trying to get creds from instance profile')
         match tenant.cloud:
@@ -169,6 +184,7 @@ def get_platform_credentials(job: Job, platform: Platform) -> dict | None:
     config = K8sCredentialsService.build().get_kubeconfig(
         platform=platform,
         token=token,
+        tenant_creds_resolver=_get_tenant_credentials,
     )
     if not config:
         return None
