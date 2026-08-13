@@ -25,7 +25,10 @@ def describe(ctx: ContextObj, customer_id):
     '-j',
     type=str,
     required=True,
-    help='JWT verification key',
+    hide_input=True,
+    prompt=True,
+    help='JWT verification key. If not provided, will be prompted for '
+         'securely',
 )
 @click.option(
     '--algorithm',
@@ -53,7 +56,16 @@ def add(ctx: ContextObj, jwt: str, algorithm: str, customer_id):
     '-j',
     type=str,
     required=False,
-    help='JWT verification key',
+    help='JWT verification key. Use --prompt_jwt instead of this option '
+         'to enter the key securely without exposing it in the command',
+)
+@click.option(
+    '--prompt_jwt',
+    '-pj',
+    is_flag=True,
+    default=False,
+    help='Prompt for the JWT verification key securely (input hidden) '
+         'instead of passing it via --jwt',
 )
 @click.option(
     '--algorithm',
@@ -66,12 +78,19 @@ def add(ctx: ContextObj, jwt: str, algorithm: str, customer_id):
 def update(
     ctx: ContextObj,
     jwt: str | None,
+    prompt_jwt: bool,
     algorithm: str | None,
     customer_id,
 ):
     """
     Updates existing MCP JWT auth configuration
     """
+    if jwt and prompt_jwt:
+        raise click.ClickException(
+            'Provide either --jwt or --prompt_jwt, not both'
+        )
+    if prompt_jwt:
+        jwt = click.prompt('JWT verification key', hide_input=True)
     if jwt is None and algorithm is None:
         raise click.ClickException(
             'Provide at least one of --jwt or --algorithm'
