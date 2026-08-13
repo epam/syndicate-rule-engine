@@ -28,7 +28,7 @@ from helpers.log_helper import get_logger, hide_secret_values
 from helpers.system_customer import SystemCustomer
 from services import SP
 from services import cache as cache_service
-from services.clients.cognito import BaseAuthClient
+from services.clients.cognito import BaseAuthClient, UserWrapper
 from services.clients.ssm import AbstractSSMClient, SecretValue
 from services.environment_service import EnvironmentService
 from services.job_service import JobService
@@ -502,6 +502,28 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
             raise factory('MCP user context token is invalid').exc()
         return claims
 
+    def _resolve_local_mcp_user(self, claims: dict) -> UserWrapper | None:
+        """
+        MCP user context claims carry an email. If a local SRE user with
+        that email (username) exists, we should act on his behalf (under
+        his role) instead of restricting scope via Maestro positions.
+        """
+        email = claims.get('email')
+        if not email:
+            return None
+        user = self._uc.get_user_by_username(email)
+        if not user or not user.customer or not user.role:
+            return None
+        customer_id = claims.get('customer_id')
+        if customer_id and user.customer != customer_id:
+            _LOG.warning(
+                f'Local SRE user {email!r} belongs to customer '
+                f'{user.customer!r} which differs from MCP token customer '
+                f'{customer_id!r}. Ignoring local user'
+            )
+            return None
+        return user
+
     def __call__(self, event: ProcessedEvent, context: RequestContext
                  ) -> tuple[ProcessedEvent, RequestContext]:
         if event['is_system']:  # do not check any permissions for system
@@ -523,6 +545,30 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
                 'Action is allowed only for system user'
             ).exc()
 
+        mcp_context_token = event['headers'].get(MCP_USER_CONTEXT_HEADER)
+        claims: dict | None = None
+        if mcp_context_token:
+            claims = self._validate_mcp_context_token(mcp_context_token)
+            local_user = self._resolve_local_mcp_user(claims)
+            if local_user:
+                _LOG.info(
+                    f'MCP user context maps to local SRE user '
+                    f'{local_user.username!r}. Checking permission under '
+                    f'his role instead of the service account'
+                )
+                event['tenant_access_payload'] = self._check_permission(
+                    customer=cast(str, local_user.customer),
+                    role_name=cast(str, local_user.role),
+                    permission=permission
+                )
+                _LOG.debug(f'Resolved tenant access payload: '
+                           f'{event["tenant_access_payload"]}')
+                return event, context
+            _LOG.info(
+                'MCP user context does not map to any local SRE user. '
+                'Proceeding as usual with the service account permissions'
+            )
+
         # if cognito_username exists, cognito_customer & cognito_user_role
         # exist as well
         event['tenant_access_payload'] = self._check_permission(
@@ -531,8 +577,7 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
             permission=permission
         )
 
-        if mcp_context_token := event['headers'].get(MCP_USER_CONTEXT_HEADER):
-            claims = self._validate_mcp_context_token(mcp_context_token)
+        if claims is not None:
             customer = cast(str, event['cognito_customer'])
             _LOG.info(
                 f'MCP user context token is valid for customer {customer!r}.'
