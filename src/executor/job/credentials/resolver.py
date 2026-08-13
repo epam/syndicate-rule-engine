@@ -72,10 +72,10 @@ def _get_parent(tenant: Tenant) -> Parent | None:
             )
 
     _LOG.info('Getting parent with scope ALL')
-    return next(parent_service.get_by_all_scope(
-        customer_id=tenant.customer_name,
+    return parent_service.get_linked_parent_by_tenant(
+        tenant=tenant,
         type_=ParentType.CUSTODIAN_ACCESS,
-    ), None)
+    )
 
 
 def _get_tenant_credentials(tenant: Tenant) -> Credentials | None:
