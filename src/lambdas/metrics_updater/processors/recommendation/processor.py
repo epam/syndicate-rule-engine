@@ -146,8 +146,8 @@ class RecommendationProcessor(BaseProcessor):
             _LOG.info(
                 f"Saving K8s-only recommendations for tenant {tenant.name}"
             )
-            for region, recommend in k8s_recommendations.items():
-                content = self._json_to_jsonl(recommend)
+            for region, recommendations in k8s_recommendations.items():
+                content = self._json_to_jsonl(recommendations)
                 self._save_recommendation(
                     region=region,
                     tenant=tenant,
@@ -155,16 +155,14 @@ class RecommendationProcessor(BaseProcessor):
                     timestamp=timestamp,
                 )
                 _LOG.debug(
-                    f"Saved {len(recommend)} K8s recommendations "
+                    f"Saved {len(recommendations)} K8s recommendations "
                     f"for tenant {tenant.name}, region {region}"
                 )
         else:
             _LOG.info(
                 f"Merging K8s and cloud recommendations for tenant {tenant.name}"
             )
-            all_regions = set(cloud_recommendations.keys()) | set(
-                k8s_recommendations.keys()
-            )
+            all_regions = cloud_recommendations.keys() | k8s_recommendations.keys()
             for region in all_regions:
                 cloud_recs = cloud_recommendations.get(region, [])
                 k8s_recs = k8s_recommendations.get(region, [])
