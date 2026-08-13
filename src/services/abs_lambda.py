@@ -545,7 +545,12 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
                 'Action is allowed only for system user'
             ).exc()
 
-        mcp_context_token = event['headers'].get(MCP_USER_CONTEXT_HEADER)
+        headers = event.get('headers') or {}
+        mcp_context_token = next(
+            (v for k, v in headers.items()
+             if k.lower() == MCP_USER_CONTEXT_HEADER.lower()),
+            None
+        )
         claims: dict | None = None
         if mcp_context_token:
             claims = self._validate_mcp_context_token(mcp_context_token)
