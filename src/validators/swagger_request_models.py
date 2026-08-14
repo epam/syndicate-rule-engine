@@ -1614,11 +1614,13 @@ class TenantJobsDigestsReportGetModel(TimeRangedMixin, JobTypesMixin, BaseModel)
 class JobComplianceReportGetModel(BaseModel):
     format: ReportFormat = ReportFormat.JSON
     href: bool = False
+    detailed: bool = False
 
 
 class TenantComplianceReportGetModel(BaseModel):
     format: ReportFormat = ReportFormat.JSON
     href: bool = False
+    detailed: bool = False
 
 
 class JobErrorReportGetModel(BaseModel):

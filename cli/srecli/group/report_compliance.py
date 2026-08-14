@@ -31,12 +31,19 @@ def compliance():
     is_flag=True,
     help='Return presigned URL instead of inline payload',
 )
+@click.option(
+    '--detailed',
+    '-d',
+    is_flag=True,
+    help='Include per control information in the report',
+)
 @cli_response()
 @presigned_url_hints_pack
 def jobs(
     ctx: ContextObj,
     job_id: str,
     href: bool,
+    detailed: bool,
     format: str,
     customer_id: str | None,
 ) -> SREResponse:
@@ -46,6 +53,7 @@ def jobs(
     return ctx['api_client'].report_compliance_jobs(
         job_id=job_id,
         href=href,
+        detailed=detailed,
         format=format,
         customer_id=customer_id,
     )
@@ -67,12 +75,19 @@ def jobs(
     is_flag=True,
     help='Return presigned URL instead of inline payload',
 )
+@click.option(
+    '--detailed',
+    '-d',
+    is_flag=True,
+    help='Include per control information in the report',
+)
 @cli_response()
 @presigned_url_hints_pack
 def accumulated(
     ctx: ContextObj,
     tenant_name: str,
     href: bool,
+    detailed: bool,
     format: str,
     customer_id,
 ) -> SREResponse:
@@ -83,6 +98,7 @@ def accumulated(
     return ctx['api_client'].report_compliance_tenants(
         tenant_name=tenant_name,
         href=href,
+        detailed=detailed,
         format=format,
         customer_id=customer_id
     )
