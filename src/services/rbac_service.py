@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Generator
+from typing import Generator, Iterable
 
 from pynamodb.pagination import ResultIterator
 
@@ -191,6 +191,12 @@ class TenantsAccessPayload:
         # allowed for all
         return self.ALL, self._names
 
+    def allow_tenants(self, names: Iterable[str]):
+        if self._allowed_flag:
+            self._names += tuple(names)
+        else:
+            # if allowed for all, removing specific tenants
+            self._names = tuple(t for t in self._names if t not in names)
 
 class TenantAccess:
     __slots__ = '_allow_policies', '_deny_policies'

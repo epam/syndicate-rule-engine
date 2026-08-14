@@ -589,35 +589,17 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
                 f' Fetching live scope from Maestro'
             )
             positions = self._rabbitmq.get_user_positions(customer, claims)
-            event['tenant_access_payload'] = self._restrict_by_positions(
-                event['tenant_access_payload'], positions
-            )
+            if positions:
+                tenant_names = tuple(
+                    m['tenant']
+                    for m in positions
+                    if isinstance(m, dict) and m.get('tenant')
+                )
+                event['tenant_access_payload'].allow_tenants(tenant_names)
 
         _LOG.debug(f'Resolved tenant access payload: '
                    f'{event["tenant_access_payload"]}')
         return event, context
-
-    @staticmethod
-    def _restrict_by_positions(
-        current: TenantsAccessPayload,
-        mappings: list[UserPositionMapping] | None,
-    ) -> TenantsAccessPayload:
-        if mappings is None:
-            _LOG.warning(
-                'Could not retrieve user positions from Maestro. Denying '
-                'access to be on the safe side'
-            )
-            raise ResponseFactory(HTTPStatus.FORBIDDEN).message(
-                'Could not verify user scope with Maestro'
-            ).exc()
-        tenant_names = tuple(
-            m['tenant']
-            for m in mappings
-            if isinstance(m, dict) and m.get('tenant')
-        )
-        allowed = tuple(t for t in tenant_names if current.is_allowed_for(t))
-        return TenantsAccessPayload(names=allowed, allowed=True)
-
 
 class RestrictTenantEventProcessor(AbstractEventProcessor):
     """
