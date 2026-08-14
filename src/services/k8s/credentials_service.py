@@ -189,7 +189,11 @@ class K8sCredentialsService:
         if creds:
             return creds
 
-        # trying to resolve local credentials
+        creds = self._resolve_aws_management_credentials(tenant)
+        if creds:
+            return creds
+
+        # trying to resolve instance credentials
         session = Boto3ClientFactory.get_session()
         local_creds = session.get_credentials()
         if local_creds:
@@ -200,9 +204,16 @@ class K8sCredentialsService:
                 AWS_SESSION_TOKEN=local_creds.token,
                 AWS_DEFAULT_REGION=session.region_name,
             )
-            return creds
 
-        # keep old way to resolve credentials as fallback
+        return creds
+
+    def _resolve_aws_management_credentials(
+        self,
+        tenant: Tenant,
+    ) -> Credentials | None:
+        """
+        Resolves credentials from parent AWS_MANAGEMENT application
+        """
         parent = self._msp.parent_service().get_linked_parent_by_tenant(
             tenant=tenant,
             type_=ParentType.AWS_MANAGEMENT,
