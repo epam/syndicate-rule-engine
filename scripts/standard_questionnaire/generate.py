@@ -497,7 +497,7 @@ def generate_excel(
 
     wb = Workbook()
     ws = wb.active
-    ws.title = 'Standard Questionnaire'
+    ws.title = f'{standard_name} {version}'
 
     # ── Header row ────────────────────────────────────────────────────────────
     for col_idx, header in enumerate(headers, start=1):
