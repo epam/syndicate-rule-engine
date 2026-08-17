@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - DefectDojo integration now tags the product with the tenant name and ensures `enable_product_tag_inheritance` is enabled, so all findings inherit the tenant tag automatically
 - Changed jobs retrieval from DB to use `job_types` instead of `job_type` in `GET /reports/push/dojo`
+- Use the same AWS credential resolution chain for EKS scans as for standard AWS scans
 
 ### Removed 
 - Removed `job_type` request field from report endpoints that already target a specific `job_id`:
