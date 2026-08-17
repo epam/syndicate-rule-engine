@@ -121,9 +121,14 @@ _ALIGN_HEADER        = Alignment(horizontal='center', vertical='center', wrap_te
 # ── Data classes ──────────────────────────────────────────────────────────────
 
 def _short_id(rule_id: str) -> str:
-    """Return the last numeric group of a rule ID ('ecc-k8s-001-...' → '001')."""
-    matches = re.findall(r'\d+', rule_id)
-    return matches[-1] if matches else rule_id
+    """
+    Return the short numeric value of a rule ID
+    e.g. ('ecc-<cloud>-001-<name>' → '001').
+    """
+    parts = rule_id.split('-')
+    if len(parts) >= 3 and parts[2].isdigit():
+        return parts[2]
+    return rule_id
 
 
 @dataclass
