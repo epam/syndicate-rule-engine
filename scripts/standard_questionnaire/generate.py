@@ -54,8 +54,6 @@ Status logic
 The control coverage is not recalculated by this script.  It uses the
 ``total`` value already present in the detailed compliance report.
 """
-from __future__ import annotations
-
 import argparse
 import json
 import re
@@ -466,6 +464,7 @@ def generate_excel(
 ) -> None:
     """Write the questionnaire workbook to *output_path*."""
 
+    total_rows = len(rows)
     max_sub_depth = max((len(r.sub_sections) for r in rows), default=0)
 
     if max_sub_depth == 0:
@@ -546,7 +545,7 @@ def generate_excel(
         c = ws.cell(row=data_idx, column=COL_RULES, value=row.rule_short_ids or None)
         c.alignment = _ALIGN_TOP_LEFT
 
-    last_data_row = len(rows) + 1
+    last_data_row = total_rows + 1
 
     # ── White fill + light-blue borders + alignment ───────────────────────────
     for r in range(1, last_data_row + 1):
@@ -634,24 +633,32 @@ def generate_excel(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(output_path)
 
-    evaluated = sum(1 for r in rows if r.status != 'Not Evaluated')
-    passed    = sum(1 for r in rows if r.status == 'Pass')
-    applicable_coverages = [
-        r.coverage for r in rows if r.status != 'Not Evaluated'
-    ]
+    evaluated = 0
+    passed = 0
+    applicable_coverages = []
+    total_coverage_sum = 0.0
+
+    for r in rows:
+        total_coverage_sum += r.coverage
+        if r.status != 'Not Evaluated':
+            evaluated += 1
+            applicable_coverages.append(r.coverage)
+        if r.status == 'Pass':
+            passed += 1
+
     sre_applicable_coverage = (
         sum(applicable_coverages) / len(applicable_coverages)
         if applicable_coverages else 0.0
     )
     total_coverage = (
-        sum(r.coverage for r in rows) / len(rows)
+        total_coverage_sum / total_rows
         if rows else 0.0
     )
     print(
-        f'✓ Saved: {output_path}  ({len(rows)} controls)\n'
+        f'✓ Saved: {output_path}  ({total_rows} controls)\n'
         f'  Pass          : {passed}\n'
         f'  Fail          : {evaluated - passed}\n'
-        f'  Not Evaluated : {len(rows) - evaluated}\n'
+        f'  Not Evaluated : {total_rows - evaluated}\n'
         f'  SRE Applicable Coverage : {sre_applicable_coverage:.0%}\n'
         f'  Total Coverage          : {total_coverage:.0%}'
     )
