@@ -5,7 +5,6 @@ Env keys live in :class:`onprem.event_sources_consumer.settings.EventConsumerEnv
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 
 from helpers.constants import EnvEnum
 
@@ -69,19 +68,19 @@ class EventConsumerEnv(EnvEnum):
         '5',
     )
 
-    # Redis (K8s event dedupe)
-    REDIS_HOST = (
-        'REDIS_DOMAIN',  # for compatibility with existing config
-        (),
+    # Valkey (K8s event dedupe)
+    VALKEY_HOST = (
+        'VALKEY_DOMAIN',
+        ('VALKEY_HOST',),
         'localhost',
     )
-    REDIS_PORT = (
-        'REDIS_PORT',
+    VALKEY_PORT = (
+        'VALKEY_PORT',
         (),
         '6379',
     )
-    REDIS_PASSWORD = (
-        'REDIS_PASSWORD',
+    VALKEY_PASSWORD = (
+        'VALKEY_PASSWORD',
         ('MODULAR_SDK_MONGO_PASSWORD',),  # NOTE: this is a workaround, needs to be resolved
         '',
     )

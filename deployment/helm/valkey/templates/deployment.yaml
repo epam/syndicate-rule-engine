@@ -1,12 +1,12 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "redis.fullname" . }}
+  name: {{ include "valkey.fullname" . }}
   labels:
-    app.kubernetes.io/name: {{ include "redis.name" . }}
+    app.kubernetes.io/name: {{ include "valkey.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
-    helm.sh/chart: {{ include "redis.chart" . }}
+    helm.sh/chart: {{ include "valkey.chart" . }}
 spec:
   replicas: {{ .Values.replicas }}
   strategy:
@@ -18,22 +18,22 @@ spec:
     {{- end}}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "redis.name" . }}
+      app.kubernetes.io/name: {{ include "valkey.name" . }}
       app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "redis.name" . }}
+        app.kubernetes.io/name: {{ include "valkey.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/managed-by: {{ .Release.Service }}
-        helm.sh/chart: {{ include "redis.chart" . }}
+        helm.sh/chart: {{ include "valkey.chart" . }}
     spec:
       volumes:
-        - name: redis-storage
+        - name: valkey-storage
           persistentVolumeClaim:
-            claimName: {{ include "redis.fullname" . }}
+            claimName: {{ include "valkey.persistenceName" . }}
       containers:
-        - name: redis
+        - name: valkey
           image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           resources:
@@ -47,22 +47,22 @@ spec:
                 secretKeyRef:
                   name: mongo-secret
                   key: password
-            - name: REDIS_PASSWORD
+            - name: VALKEY_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: redis-secret
+                  name: valkey-secret
                   key: password
                   optional: true
           command: ["/bin/sh"]
           args:
             - "-c"
             - |
-              exec redis-server --save 20 1 --loglevel warning --requirepass ${REDIS_PASSWORD:-$MONGO_PASSWORD}
+              exec valkey-server --save 20 1 --loglevel warning --requirepass ${VALKEY_PASSWORD:-$MONGO_PASSWORD}
           ports:
             - containerPort: 6379
-              name: redis-socket
+              name: valkey-socket
               protocol: TCP
           volumeMounts:
-            - name: redis-storage
+            - name: valkey-storage
               mountPath: "/data"
       restartPolicy: Always
