@@ -28,8 +28,8 @@ vaultPort: 8200
 minioService: minio
 minioPort: 9000
 # for celery and event-sources-consumer
-redisService: redis
-redisPort: 6380
+valkeyService: valkey
+valkeyPort: 6380
 
 vault:
   enabled: true
@@ -42,9 +42,9 @@ minio:
 mongo:
   enabled: true
   fullnameOverride: mongo
-redis:
+valkey:
   enabled: true
-  fullnameOverride: redis
+  fullnameOverride: valkey
 modular-service:
   enabled: true
   fullnameOverride: modular-service

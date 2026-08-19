@@ -36,7 +36,7 @@ kubectl config use-context rule-engine
 kubectl create secret generic minio-secret --from-literal=username=miniouser --from-literal=password=$(openssl rand -base64 20)
 kubectl create secret generic mongo-secret --from-literal=username=mongouser --from-literal=password=$(openssl rand -hex 30)
 kubectl create secret generic vault-secret --from-literal=token=$(openssl rand -base64 30)
-kubectl create secret generic redis-secret --from-literal=password=$(openssl rand -hex 30)
+kubectl create secret generic valkey-secret --from-literal=password=$(openssl rand -hex 30)
 kubectl create secret generic rule-engine-secret --from-literal=system-password=$(openssl rand -base64 30)
 ```
 
@@ -63,4 +63,8 @@ The script will: build the image, load it into Minikube (profile `rule-engine`),
 kubectl get pods
 ```
 
-All pods (rule-engine, celerybeat, celeryworker, event-sources-consumer, vault, minio, mongo, redis) should reach `Running` status.
+All pods (rule-engine, celerybeat, celeryworker, event-sources-consumer, vault, minio, mongo, valkey) should reach `Running` status.
+
+The Valkey 8.x release provides the Celery broker/result backend and the
+event-deduplication cache. Celery/Kombu connection strings intentionally use
+the Redis-compatible `redis://` protocol scheme while connecting to Valkey.

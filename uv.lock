@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.14, <4"
 resolution-markers = [
     "python_full_version >= '3.15'",
@@ -3057,6 +3057,7 @@ dependencies = [
     { name = "ruamel-yaml-clib" },
     { name = "tabulate" },
     { name = "typing-extensions" },
+    { name = "valkey" },
     { name = "xlsxwriter" },
 ]
 
@@ -3113,6 +3114,7 @@ requires-dist = [
     { name = "ruamel-yaml-clib", specifier = ">=0.2.12,<0.3" },
     { name = "tabulate", specifier = "~=0.10.0" },
     { name = "typing-extensions", specifier = ">=4.13,<5" },
+    { name = "valkey", specifier = "~=6.1.1" },
     { name = "xlsxwriter", specifier = ">=3.2,<4" },
 ]
 
@@ -3206,6 +3208,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/53/0c/06f8b233b8fd13b9e5ee11424ef85419ba0d8ba0b3138bf360be2ff56953/urllib3-2.7.0.tar.gz", hash = "sha256:231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c", size = 433602, upload-time = "2026-05-07T16:13:18.596Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7f/3e/5db95bcf282c52709639744ca2a8b149baccf648e39c8cc87553df9eae0c/urllib3-2.7.0-py3-none-any.whl", hash = "sha256:9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897", size = 131087, upload-time = "2026-05-07T16:13:17.151Z" },
+]
+
+[[package]]
+name = "valkey"
+version = "6.1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c3/ee/7fd930fc712275084722ddd464a0ea296abdb997d2da396320507968daeb/valkey-6.1.1.tar.gz", hash = "sha256:5880792990c6c2b5eb604a5ed5f98f300880b6dd92d123819b66ed54bb259731", size = 4601372, upload-time = "2025-08-11T06:41:10.63Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d0/a2/252afa4da08c714460f49e943070f86a02931f99f886182765194002fe33/valkey-6.1.1-py3-none-any.whl", hash = "sha256:e2691541c6e1503b53c714ad9a35551ac9b7c0bbac93865f063dbc859a46de92", size = 259474, upload-time = "2025-08-11T06:41:08.769Z" },
 ]
 
 [[package]]

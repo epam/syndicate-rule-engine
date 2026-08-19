@@ -1,20 +1,20 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "redis.fullname" . }}
+  name: {{ include "valkey.fullname" . }}
   labels:
-    app.kubernetes.io/name: {{ include "redis.name" . }}
+    app.kubernetes.io/name: {{ include "valkey.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
-    helm.sh/chart: {{ include "redis.chart" . }}
+    helm.sh/chart: {{ include "valkey.chart" . }}
 spec:
   selector:
-    app.kubernetes.io/name: {{ include "redis.name" . }}
+    app.kubernetes.io/name: {{ include "valkey.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
   type: {{ .Values.service.type }}
   ports:
     - protocol: TCP
-      targetPort: redis-socket
+      targetPort: valkey-socket
       port: {{ .Values.service.port }}
       {{- if (and (eq .Values.service.type "NodePort") ( .Values.service.nodePort)) }}
       nodePort: {{ .Values.service.nodePort }}

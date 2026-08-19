@@ -18,9 +18,9 @@ x-rule-engine-env: &rule-engine-env
   MODULAR_SDK_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
   MODULAR_SDK_VAULT_URL: "http://vault:8200"
   MODULAR_SDK_APPLICATION_NAME: syndicate-rule-engine
-  REDIS_PASSWORD: redispassword
-  REDIS_DOMAIN: redis
-  REDIS_PORT: "6379"
+  VALKEY_PASSWORD: valkeypassword
+  VALKEY_DOMAIN: valkey
+  VALKEY_PORT: "6379"
 
 services:
   modular-api:
@@ -101,7 +101,7 @@ services:
         condition: service_healthy
       vault:
         condition: service_healthy
-      redis:
+      valkey:
         condition: service_started
     environment:
       <<: *rule-engine-env
@@ -131,7 +131,7 @@ services:
         condition: service_healthy
       vault:
         condition: service_healthy
-      redis:
+      valkey:
         condition: service_started
     environment:
       <<: *rule-engine-env
@@ -163,7 +163,7 @@ services:
         condition: service_healthy
       vault:
         condition: service_healthy
-      redis:
+      valkey:
         condition: service_started
     environment:
       <<: *rule-engine-env
@@ -240,15 +240,15 @@ services:
     restart: always
     networks:
       - rule-engine-net
-  redis:
-    image: ${REDIS_IMAGE:-redis:${REDIS_VERSION:-7.2.3-alpine}}
-    container_name: redis
+  valkey:
+    image: ${VALKEY_IMAGE:-valkey/valkey:${VALKEY_VERSION:-8.0-alpine}}
+    container_name: valkey
     ports:
       - "6379:6379"
     volumes:
       - redis-data:/data
     restart: always
-    command: redis-server --save 20 1 --loglevel warning --requirepass redispassword
+    command: valkey-server --save 20 1 --loglevel warning --requirepass valkeypassword
     networks:
       - rule-engine-net
   vault:

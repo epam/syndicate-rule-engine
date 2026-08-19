@@ -1,14 +1,14 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "redis.fullname" . }}
+  name: {{ include "valkey.persistenceName" . }}
   labels:
-    app.kubernetes.io/name: {{ include "redis.name" . }}
+    app.kubernetes.io/name: {{ include "valkey.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
-    helm.sh/chart: {{ include "redis.chart" . }}
+    helm.sh/chart: {{ include "valkey.chart" . }}
 spec:
-  volumeName: {{ include "redis.fullname" . }}
+  volumeName: {{ include "valkey.persistenceName" . }}
   accessModes:
     - {{ .Values.persistence.accessMode | quote }}
   storageClassName: {{ .Values.persistence.storageClass | quote }}

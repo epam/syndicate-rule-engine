@@ -1,5 +1,5 @@
-redisImage: redis
-redisTag: 7.2.3-alpine
+valkeyImage: valkey/valkey
+valkeyTag: 8.0-alpine
 postgresImage: postgres
 postgresTag: 16.1-alpine
 nginxImage: public.ecr.aws/x4s4z8e1/defectdojo/defectdojo-nginx

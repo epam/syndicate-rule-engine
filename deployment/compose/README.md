@@ -48,7 +48,7 @@ Default image tags live only in `compose.yaml` (`*_VERSION` / optional `*_IMAGE`
 | `MODULAR_SERVICE_VERSION` / `MODULAR_SERVICE_IMAGE` | modular-service |
 | `MONGO_VERSION` / `MONGO_IMAGE` | mongo |
 | `MINIO_VERSION` / `MINIO_IMAGE` | minio |
-| `REDIS_VERSION` / `REDIS_IMAGE` | redis |
+| `VALKEY_VERSION` / `VALKEY_IMAGE` | valkey |
 | `VAULT_VERSION` / `VAULT_IMAGE` | vault |
 
 ### Develop with a local image (e.g. modular-service)
@@ -69,6 +69,11 @@ make compose-up MODULAR_SERVICE_IMAGE=public.ecr.aws/x4s4z8e1/syndicate/modular-
 ```
 
 Same pattern for rule-engine (or use `BUILD=1` to build from this repo's Dockerfile).
+
+The rule-engine Compose stack runs Valkey 8.x for the Celery broker/result
+backend and event-deduplication cache. Celery/Kombu currently uses the
+Redis-compatible `redis://` URL scheme for Valkey; this does not require a
+Redis server or Redis-specific deployment variables.
 
 ### Install modular-cli (syndicate)
 
