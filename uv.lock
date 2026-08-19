@@ -2251,7 +2251,7 @@ wheels = [
 
 [[package]]
 name = "modular-sdk"
-version = "8.0.0"
+version = "8.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "boto3" },
@@ -2262,9 +2262,9 @@ dependencies = [
     { name = "pynamodb" },
     { name = "python-dateutil" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/2c/90/e730c3bb694efa21d69a435c347626dfef1259c4bf8c60af925543024fe6/modular_sdk-8.0.0.tar.gz", hash = "sha256:a2cde74e005e616001e63142ead804ed5cc5ddd12f4847b67e5c0133d1a601e9", size = 82403, upload-time = "2026-06-18T14:54:14.82Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8f/3a/affda7e83d4186762a7a6a567d6cb4bc968de99aa7a8973b213df40072de/modular_sdk-8.1.0.tar.gz", hash = "sha256:8b4ae2dc3a7682fcc15481f0305877cbc3911f0d4ac956e9409f7d8f4a84de31", size = 84027, upload-time = "2026-08-10T12:53:14.085Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/62/79/cb71ce29e9c39e3dbdf1d691b0e5bc6682d14fdfa7e1e07867265ce94f65/modular_sdk-8.0.0-py3-none-any.whl", hash = "sha256:675a9b580f6d11c8060203fd43b0647f7df30a48c4e13ff6f4f170c80b192530", size = 102587, upload-time = "2026-06-18T14:54:13.393Z" },
+    { url = "https://files.pythonhosted.org/packages/1e/d7/05622246b06d1b0e3b5e3654749466d052a1d59869684bcdc07aa7f4709f/modular_sdk-8.1.0-py3-none-any.whl", hash = "sha256:98da12ee604c442f995e181dc2ab690ae828e7d05fdca062442e4a9bde934218", size = 104426, upload-time = "2026-08-10T12:53:12.708Z" },
 ]
 
 [[package]]
@@ -3100,7 +3100,7 @@ requires-dist = [
     { name = "gunicorn", specifier = "~=26.0.0" },
     { name = "hvac", specifier = ">=2.3,<3" },
     { name = "jwcrypto", specifier = ">=1.5.6,<2" },
-    { name = "modular-sdk", specifier = "~=8.0.0" },
+    { name = "modular-sdk", specifier = "~=8.1.0" },
     { name = "msgspec", specifier = "~=0.21.1" },
     { name = "openpyxl", specifier = ">=3,<4" },
     { name = "pydantic", specifier = "~=2.13.4" },

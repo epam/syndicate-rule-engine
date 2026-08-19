@@ -4,6 +4,7 @@ from srecli.group.integrations_dojo import dojo
 from srecli.group.integrations_event import event
 from srecli.group.integrations_re import re
 from srecli.group.integrations_chronicle import chronicle
+from srecli.group.integrations_mcp import mcp
 
 
 @click.group(name='integrations')
@@ -15,3 +16,4 @@ integrations.add_command(dojo)
 integrations.add_command(event)
 integrations.add_command(re)
 integrations.add_command(chronicle)
+integrations.add_command(mcp)

@@ -89,6 +89,7 @@ class Endpoint(str, Enum):
     REPORTS_DIAGNOSTIC = '/reports/diagnostic'
     REPORTS_DEPARTMENT = '/reports/department'
     INTEGRATIONS_SELF = '/integrations/temp/sre'
+    INTEGRATIONS_MCP_AUTH = '/integrations/mcp/auth'
     SCHEDULED_JOB_NAME = '/scheduled-job/{name}'
     REPORTS_OPERATIONAL = '/reports/operational'
     TENANTS_TENANT_NAME = '/tenants/{tenant_name}'

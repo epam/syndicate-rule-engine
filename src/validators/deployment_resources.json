@@ -63,18 +63,12 @@
               "uniqueItems": true
             },
             "convert_to": {
-              "allOf": [
-                {
-                  "enum": [
-                    "ENTITIES",
-                    "EVENTS"
-                  ],
-                  "title": "ChronicleConverterType",
-                  "type": "string"
-                }
+              "enum": [
+                "ENTITIES",
+                "EVENTS"
               ],
-              "default": "EVENTS",
-              "description": "How to convert Rule Engine data before sending to Chronicle"
+              "title": "ChronicleConverterType",
+              "type": "string"
             },
             "exclude_tenants": {
               "items": {
@@ -527,6 +521,7 @@
                 {
                   "properties": {
                     "content": {
+                      "additionalProperties": true,
                       "title": "Content",
                       "type": "object"
                     },
@@ -586,6 +581,7 @@
                         "type": "string"
                       },
                       "data": {
+                        "additionalProperties": true,
                         "title": "Data",
                         "type": "object"
                       },
@@ -598,6 +594,7 @@
                         "type": "number"
                       },
                       "matched_by": {
+                        "additionalProperties": true,
                         "title": "Matched By",
                         "type": "object"
                       },
@@ -744,6 +741,7 @@
                     "type": "integer"
                   },
                   "total_api_calls": {
+                    "additionalProperties": true,
                     "title": "Total Api Calls",
                     "type": "object"
                   },
@@ -829,6 +827,7 @@
                 {
                   "properties": {
                     "content": {
+                      "additionalProperties": true,
                       "title": "Content",
                       "type": "object"
                     },
@@ -957,12 +956,12 @@
                   "title": "Received",
                   "type": "integer"
                 },
-                "saved": {
-                  "title": "Saved",
-                  "type": "integer"
-                },
                 "rejected": {
                   "title": "Rejected",
+                  "type": "integer"
+                },
+                "saved": {
+                  "title": "Saved",
                   "type": "integer"
                 }
               },
@@ -988,6 +987,7 @@
           "properties": {
             "events": {
               "items": {
+                "additionalProperties": true,
                 "type": "object"
               },
               "title": "Events",
@@ -1071,28 +1071,12 @@
               "type": "boolean"
             },
             "queue_url": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Queue Url"
+              "title": "Queue Url",
+              "type": "string"
             },
             "region": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Region"
+              "title": "Region",
+              "type": "string"
             },
             "role_arn": {
               "anyOf": [
@@ -1106,17 +1090,12 @@
               "default": null,
               "description": "IAM role ARN to assume for SQS access",
               "title": "Role Arn"
-            },
-            "source_type": {
-              "const": "SQS",
-              "default": "SQS",
-              "enum": [
-                "SQS"
-              ],
-              "title": "Source Type",
-              "type": "string"
             }
           },
+          "required": [
+            "queue_url",
+            "region"
+          ],
           "title": "EventSourcePostModel",
           "type": "object"
         }
@@ -1478,6 +1457,7 @@
                 {
                   "properties": {
                     "content": {
+                      "additionalProperties": true,
                       "title": "Content",
                       "type": "object"
                     },
@@ -1547,6 +1527,7 @@
                     "type": "string"
                   },
                   "data": {
+                    "additionalProperties": true,
                     "title": "Data",
                     "type": "object"
                   },
@@ -1559,6 +1540,7 @@
                     "type": "number"
                   },
                   "matched_by": {
+                    "additionalProperties": true,
                     "title": "Matched By",
                     "type": "object"
                   },
@@ -1999,6 +1981,60 @@
           "type": "object"
         }
       },
+      "McpAuthSettingPatchModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "algorithm": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Algorithm"
+            },
+            "jwt": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Jwt"
+            }
+          },
+          "title": "McpAuthSettingPatchModel",
+          "type": "object"
+        }
+      },
+      "McpAuthSettingPostModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "algorithm": {
+              "default": "RS256",
+              "title": "Algorithm",
+              "type": "string"
+            },
+            "jwt": {
+              "title": "Jwt",
+              "type": "string"
+            }
+          },
+          "required": [
+            "jwt"
+          ],
+          "title": "McpAuthSettingPostModel",
+          "type": "object"
+        }
+      },
       "MessageModel": {
         "content_type": "application/json",
         "schema": {
@@ -2077,6 +2113,7 @@
               "items": {
                 "properties": {
                   "credentials": {
+                    "additionalProperties": true,
                     "title": "Credentials",
                     "type": "object"
                   },
@@ -2358,16 +2395,13 @@
                   "region": {
                     "title": "Region",
                     "type": "string"
-                  },
-                  "source_type": {
-                    "title": "Source Type",
-                    "type": "string"
                   }
                 },
                 "required": [
                   "id",
                   "customer_id",
-                  "source_type",
+                  "queue_url",
+                  "region",
                   "enabled"
                 ],
                 "title": "EventSource",
@@ -2392,6 +2426,7 @@
               "items": {
                 "properties": {
                   "details": {
+                    "additionalProperties": true,
                     "title": "Details",
                     "type": "object"
                   },
@@ -2444,6 +2479,7 @@
               "items": {
                 "properties": {
                   "content": {
+                    "additionalProperties": true,
                     "title": "Content",
                     "type": "object"
                   },
@@ -2551,6 +2587,7 @@
                     "type": "array"
                   },
                   "scan_progress": {
+                    "description": "Fields included as ``scan_progress`` on job GET when a scan checkpoint exists.",
                     "properties": {
                       "checkpoint_version": {
                         "title": "Checkpoint Version",
@@ -3097,6 +3134,7 @@
                     "type": "string"
                   },
                   "data": {
+                    "additionalProperties": true,
                     "title": "Data",
                     "type": "object"
                   },
@@ -3871,149 +3909,144 @@
               "type": "string"
             },
             "region": {
-              "allOf": [
-                {
-                  "enum": [
-                    "af-south-1",
-                    "ap-east-1",
-                    "ap-northeast-1",
-                    "ap-northeast-2",
-                    "ap-northeast-3",
-                    "ap-south-1",
-                    "ap-south-2",
-                    "ap-southeast-1",
-                    "ap-southeast-2",
-                    "ap-southeast-3",
-                    "ap-southeast-4",
-                    "ca-central-1",
-                    "ca-west-1",
-                    "eu-central-1",
-                    "eu-central-2",
-                    "eu-north-1",
-                    "eu-south-1",
-                    "eu-south-2",
-                    "eu-west-1",
-                    "eu-west-2",
-                    "eu-west-3",
-                    "il-central-1",
-                    "me-central-1",
-                    "me-south-1",
-                    "sa-east-1",
-                    "us-east-1",
-                    "us-east-2",
-                    "us-gov-east-1",
-                    "us-gov-west-1",
-                    "us-west-1",
-                    "us-west-2",
-                    "asia",
-                    "asiapacific",
-                    "australia",
-                    "australiacentral",
-                    "australiacentral2",
-                    "australiaeast",
-                    "australiasoutheast",
-                    "brazil",
-                    "brazilsouth",
-                    "brazilsoutheast",
-                    "canada",
-                    "canadacentral",
-                    "canadaeast",
-                    "centralindia",
-                    "centralus",
-                    "centraluseuap",
-                    "centralusstage",
-                    "eastasia",
-                    "eastasiastage",
-                    "eastus",
-                    "eastus2",
-                    "eastus2euap",
-                    "eastus2stage",
-                    "eastusstage",
-                    "eastusstg",
-                    "europe",
-                    "france",
-                    "francecentral",
-                    "francesouth",
-                    "germany",
-                    "germanynorth",
-                    "germanywestcentral",
-                    "global",
-                    "india",
-                    "japan",
-                    "japaneast",
-                    "japanwest",
-                    "jioindiacentral",
-                    "jioindiawest",
-                    "korea",
-                    "koreacentral",
-                    "koreasouth",
-                    "northcentralus",
-                    "northcentralusstage",
-                    "northeurope",
-                    "norway",
-                    "norwayeast",
-                    "norwaywest",
-                    "qatarcentral",
-                    "singapore",
-                    "southafrica",
-                    "southafricanorth",
-                    "southafricawest",
-                    "southcentralus",
-                    "southcentralusstage",
-                    "southcentralusstg",
-                    "southeastasia",
-                    "southeastasiastage",
-                    "southindia",
-                    "swedencentral",
-                    "switzerland",
-                    "switzerlandnorth",
-                    "switzerlandwest",
-                    "uae",
-                    "uaecentral",
-                    "uaenorth",
-                    "uk",
-                    "uksouth",
-                    "ukwest",
-                    "unitedstates",
-                    "unitedstateseuap",
-                    "westcentralus",
-                    "westeurope",
-                    "westindia",
-                    "westus",
-                    "westus2",
-                    "westus2stage",
-                    "westus3",
-                    "westusstage",
-                    "asia-east1",
-                    "asia-east2",
-                    "asia-northeast1",
-                    "asia-northeast2",
-                    "asia-northeast3",
-                    "asia-south1",
-                    "asia-southeast1",
-                    "asia-southeast2",
-                    "australia-southeast1",
-                    "europe-north1",
-                    "europe-west1",
-                    "europe-west2",
-                    "europe-west3",
-                    "europe-west4",
-                    "europe-west6",
-                    "northamerica-northeast1",
-                    "southamerica-east1",
-                    "us-central1",
-                    "us-east1",
-                    "us-east4",
-                    "us-west1",
-                    "us-west2",
-                    "us-west3",
-                    "us-west4"
-                  ],
-                  "title": "AllRegions",
-                  "type": "string"
-                }
+              "enum": [
+                "af-south-1",
+                "ap-east-1",
+                "ap-northeast-1",
+                "ap-northeast-2",
+                "ap-northeast-3",
+                "ap-south-1",
+                "ap-south-2",
+                "ap-southeast-1",
+                "ap-southeast-2",
+                "ap-southeast-3",
+                "ap-southeast-4",
+                "ca-central-1",
+                "ca-west-1",
+                "eu-central-1",
+                "eu-central-2",
+                "eu-north-1",
+                "eu-south-1",
+                "eu-south-2",
+                "eu-west-1",
+                "eu-west-2",
+                "eu-west-3",
+                "il-central-1",
+                "me-central-1",
+                "me-south-1",
+                "sa-east-1",
+                "us-east-1",
+                "us-east-2",
+                "us-gov-east-1",
+                "us-gov-west-1",
+                "us-west-1",
+                "us-west-2",
+                "asia",
+                "asiapacific",
+                "australia",
+                "australiacentral",
+                "australiacentral2",
+                "australiaeast",
+                "australiasoutheast",
+                "brazil",
+                "brazilsouth",
+                "brazilsoutheast",
+                "canada",
+                "canadacentral",
+                "canadaeast",
+                "centralindia",
+                "centralus",
+                "centraluseuap",
+                "centralusstage",
+                "eastasia",
+                "eastasiastage",
+                "eastus",
+                "eastus2",
+                "eastus2euap",
+                "eastus2stage",
+                "eastusstage",
+                "eastusstg",
+                "europe",
+                "france",
+                "francecentral",
+                "francesouth",
+                "germany",
+                "germanynorth",
+                "germanywestcentral",
+                "global",
+                "india",
+                "japan",
+                "japaneast",
+                "japanwest",
+                "jioindiacentral",
+                "jioindiawest",
+                "korea",
+                "koreacentral",
+                "koreasouth",
+                "northcentralus",
+                "northcentralusstage",
+                "northeurope",
+                "norway",
+                "norwayeast",
+                "norwaywest",
+                "qatarcentral",
+                "singapore",
+                "southafrica",
+                "southafricanorth",
+                "southafricawest",
+                "southcentralus",
+                "southcentralusstage",
+                "southcentralusstg",
+                "southeastasia",
+                "southeastasiastage",
+                "southindia",
+                "swedencentral",
+                "switzerland",
+                "switzerlandnorth",
+                "switzerlandwest",
+                "uae",
+                "uaecentral",
+                "uaenorth",
+                "uk",
+                "uksouth",
+                "ukwest",
+                "unitedstates",
+                "unitedstateseuap",
+                "westcentralus",
+                "westeurope",
+                "westindia",
+                "westus",
+                "westus2",
+                "westus2stage",
+                "westus3",
+                "westusstage",
+                "asia-east1",
+                "asia-east2",
+                "asia-northeast1",
+                "asia-northeast2",
+                "asia-northeast3",
+                "asia-south1",
+                "asia-southeast1",
+                "asia-southeast2",
+                "australia-southeast1",
+                "europe-north1",
+                "europe-west1",
+                "europe-west2",
+                "europe-west3",
+                "europe-west4",
+                "europe-west6",
+                "northamerica-northeast1",
+                "southamerica-east1",
+                "us-central1",
+                "us-east1",
+                "us-east4",
+                "us-west1",
+                "us-west2",
+                "us-west3",
+                "us-west4"
               ],
-              "default": null
+              "title": "AllRegions",
+              "type": "string"
             },
             "tenant_name": {
               "title": "Tenant Name",
@@ -4072,17 +4105,12 @@
               "type": "string"
             },
             "effect": {
-              "allOf": [
-                {
-                  "enum": [
-                    "allow",
-                    "deny"
-                  ],
-                  "title": "PolicyEffect",
-                  "type": "string"
-                }
+              "enum": [
+                "allow",
+                "deny"
               ],
-              "default": null
+              "title": "PolicyEffect",
+              "type": "string"
             },
             "permissions_to_attach": {
               "items": {
@@ -4198,6 +4226,10 @@
                   "self_integration:update",
                   "self_integration:describe",
                   "self_integration:delete",
+                  "mcp_auth:describe",
+                  "mcp_auth:create",
+                  "mcp_auth:update",
+                  "mcp_auth:delete",
                   "dojo_integration:create",
                   "dojo_integration:describe",
                   "dojo_integration:delete",
@@ -4347,6 +4379,10 @@
                   "self_integration:update",
                   "self_integration:describe",
                   "self_integration:delete",
+                  "mcp_auth:describe",
+                  "mcp_auth:create",
+                  "mcp_auth:update",
+                  "mcp_auth:delete",
                   "dojo_integration:create",
                   "dojo_integration:describe",
                   "dojo_integration:delete",
@@ -4537,6 +4573,10 @@
                   "self_integration:update",
                   "self_integration:describe",
                   "self_integration:delete",
+                  "mcp_auth:describe",
+                  "mcp_auth:create",
+                  "mcp_auth:update",
+                  "mcp_auth:delete",
                   "dojo_integration:create",
                   "dojo_integration:describe",
                   "dojo_integration:delete",
@@ -4589,6 +4629,7 @@
           "required": [
             "name",
             "effect",
+            "tenants",
             "description"
           ],
           "title": "PolicyPostModel",
@@ -4786,22 +4827,15 @@
               "uniqueItems": true
             },
             "type": {
-              "allOf": [
-                {
-                  "description": "Our inner job type. Used in SREJobs table.",
-                  "enum": [
-                    "standard",
-                    "reactive",
-                    "scheduled",
-                    "manual"
-                  ],
-                  "title": "JobType",
-                  "type": "string"
-                }
+              "description": "Our inner job type. Used in SREJobs table.",
+              "enum": [
+                "standard",
+                "reactive",
+                "scheduled",
+                "manual"
               ],
-              "default": "manual",
-              "deprecated": true,
-              "description": "Job type to include in the report (deprecated, use job_types instead)"
+              "title": "JobType",
+              "type": "string"
             }
           },
           "title": "ReportPushByJobIdModel",
@@ -4849,22 +4883,15 @@
               "uniqueItems": true
             },
             "type": {
-              "allOf": [
-                {
-                  "description": "Our inner job type. Used in SREJobs table.",
-                  "enum": [
-                    "standard",
-                    "reactive",
-                    "scheduled",
-                    "manual"
-                  ],
-                  "title": "JobType",
-                  "type": "string"
-                }
+              "description": "Our inner job type. Used in SREJobs table.",
+              "enum": [
+                "standard",
+                "reactive",
+                "scheduled",
+                "manual"
               ],
-              "default": "manual",
-              "deprecated": true,
-              "description": "Job type to include in the report (deprecated, use job_types instead)"
+              "title": "JobType",
+              "type": "string"
             }
           },
           "title": "ReportPushDojoByJobIdModel",
@@ -5014,7 +5041,7 @@
                   "type": "string"
                 }
               ],
-              "default": "2026-04-07T16:41:26.171550",
+              "default": "2026-08-13T17:35:01.205463",
               "description": "Expiration date of the exception",
               "title": "Expire At"
             },
@@ -5166,21 +5193,16 @@
         "schema": {
           "properties": {
             "cloud": {
-              "allOf": [
-                {
-                  "enum": [
-                    "AWS",
-                    "AZURE",
-                    "GCP",
-                    "GCP",
-                    "KUBERNETES",
-                    "KUBERNETES"
-                  ],
-                  "title": "RuleDomain",
-                  "type": "string"
-                }
+              "enum": [
+                "AWS",
+                "AZURE",
+                "GCP",
+                "GCP",
+                "KUBERNETES",
+                "KUBERNETES"
               ],
-              "default": null
+              "title": "RuleDomain",
+              "type": "string"
             },
             "git_project_id": {
               "default": null,
@@ -5254,18 +5276,13 @@
               "type": "string"
             },
             "type": {
-              "allOf": [
-                {
-                  "enum": [
-                    "GITHUB",
-                    "GITLAB",
-                    "GITHUB_RELEASE"
-                  ],
-                  "title": "RuleSourceType",
-                  "type": "string"
-                }
+              "enum": [
+                "GITHUB",
+                "GITLAB",
+                "GITHUB_RELEASE"
               ],
-              "default": null
+              "title": "RuleSourceType",
+              "type": "string"
             }
           },
           "title": "RuleSourcePatchModel",
@@ -5310,19 +5327,13 @@
               "type": "string"
             },
             "type": {
-              "allOf": [
-                {
-                  "enum": [
-                    "GITHUB",
-                    "GITLAB",
-                    "GITHUB_RELEASE"
-                  ],
-                  "title": "RuleSourceType",
-                  "type": "string"
-                }
+              "enum": [
+                "GITHUB",
+                "GITLAB",
+                "GITHUB_RELEASE"
               ],
-              "default": null,
-              "description": "If not specified will be inferred from git_project_id."
+              "title": "RuleSourceType",
+              "type": "string"
             }
           },
           "required": [
@@ -5330,6 +5341,21 @@
             "description"
           ],
           "title": "RuleSourcePostModel",
+          "type": "object"
+        }
+      },
+      "RuleSourceSyncModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "force": {
+              "default": false,
+              "description": "Force sync even if the rule source is already SYNCING.",
+              "title": "Force",
+              "type": "boolean"
+            }
+          },
+          "title": "RuleSourceSyncModel",
           "type": "object"
         }
       },
@@ -5356,6 +5382,7 @@
                 {
                   "properties": {
                     "content": {
+                      "additionalProperties": true,
                       "title": "Content",
                       "type": "object"
                     },
@@ -5423,6 +5450,7 @@
                   "items": {
                     "properties": {
                       "api_calls": {
+                        "additionalProperties": true,
                         "title": "Api Calls",
                         "type": "object"
                       },
@@ -6132,6 +6160,7 @@
             "data": {
               "properties": {
                 "credentials": {
+                  "additionalProperties": true,
                   "title": "Credentials",
                   "type": "object"
                 },
@@ -6464,6 +6493,7 @@
             "data": {
               "properties": {
                 "content": {
+                  "additionalProperties": true,
                   "title": "Content",
                   "type": "object"
                 },
@@ -6541,16 +6571,13 @@
                 "region": {
                   "title": "Region",
                   "type": "string"
-                },
-                "source_type": {
-                  "title": "Source Type",
-                  "type": "string"
                 }
               },
               "required": [
                 "id",
                 "customer_id",
-                "source_type",
+                "queue_url",
+                "region",
                 "enabled"
               ],
               "title": "EventSource",
@@ -6571,6 +6598,7 @@
             "data": {
               "properties": {
                 "details": {
+                  "additionalProperties": true,
                   "title": "Details",
                   "type": "object"
                 },
@@ -6651,6 +6679,7 @@
                   "type": "array"
                 },
                 "scan_progress": {
+                  "description": "Fields included as ``scan_progress`` on job GET when a scan checkpoint exists.",
                   "properties": {
                     "checkpoint_version": {
                       "title": "Checkpoint Version",
@@ -6749,6 +6778,7 @@
             "data": {
               "properties": {
                 "content": {
+                  "additionalProperties": true,
                   "title": "Content",
                   "type": "object"
                 },
@@ -7160,6 +7190,36 @@
           "type": "object"
         }
       },
+      "SingleMcpAuthModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "data": {
+              "properties": {
+                "algorithm": {
+                  "title": "Algorithm",
+                  "type": "string"
+                },
+                "configured": {
+                  "title": "Configured",
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "algorithm",
+                "configured"
+              ],
+              "title": "McpAuth",
+              "type": "object"
+            }
+          },
+          "required": [
+            "data"
+          ],
+          "title": "SingleMcpAuthModel",
+          "type": "object"
+        }
+      },
       "SinglePolicyModel": {
         "content_type": "application/json",
         "schema": {
@@ -7405,6 +7465,7 @@
                   "type": "string"
                 },
                 "data": {
+                  "additionalProperties": true,
                   "title": "Data",
                   "type": "object"
                 },
@@ -8058,6 +8119,7 @@
                       },
                       "new_violated_rules": {
                         "items": {
+                          "additionalProperties": true,
                           "type": "object"
                         },
                         "title": "New Violated Rules",
@@ -8065,6 +8127,7 @@
                       },
                       "remediated_rules": {
                         "items": {
+                          "additionalProperties": true,
                           "type": "object"
                         },
                         "title": "Remediated Rules",
@@ -8072,6 +8135,7 @@
                       },
                       "unchanged_violated_rules": {
                         "items": {
+                          "additionalProperties": true,
                           "type": "object"
                         },
                         "title": "Unchanged Violated Rules",
@@ -8152,6 +8216,7 @@
                       },
                       "violated_rules": {
                         "items": {
+                          "additionalProperties": true,
                           "type": "object"
                         },
                         "title": "Violated Rules",

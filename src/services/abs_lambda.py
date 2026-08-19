@@ -14,8 +14,9 @@ from helpers import RequestContext, deep_get
 from helpers.constants import (
     Endpoint,
     HTTPMethod,
+    MCP_JWT_KEY_SSM_NAME,
+    MCP_USER_CONTEXT_HEADER,
     Permission,
-    MCP_USER_NAME_HEADER,
 )
 from helpers.lambda_response import (
     LambdaOutput,
@@ -26,11 +27,14 @@ from helpers.lambda_response import (
 from helpers.log_helper import get_logger, hide_secret_values
 from helpers.system_customer import SystemCustomer
 from services import SP
-from services.clients.cognito import BaseAuthClient
+from services import cache as cache_service
+from services.clients.cognito import BaseAuthClient, UserWrapper
+from services.clients.ssm import AbstractSSMClient, SecretValue
 from services.environment_service import EnvironmentService
 from services.job_service import JobService
 from services.license_service import LicenseService
 from services.platform_service import PlatformService
+from services.rabbitmq_service import RabbitMQService, UserPositionMapping
 from services.rbac_service import (
     PolicyService,
     PolicyStruct,
@@ -38,12 +42,23 @@ from services.rbac_service import (
     TenantAccess,
     TenantsAccessPayload,
 )
+from services.setting_service import SettingsService
 
 
 if TYPE_CHECKING:
+    from modular_sdk.modular import ModularServiceProvider
+
     from handlers import Mapping
 
 _LOG = get_logger(__name__)
+
+_MCP_JWT_CACHE_KEY = 'mcp_jwt_auth'
+
+
+def _extract_ssm_string(value: SecretValue | None) -> str | None:
+    if isinstance(value, dict):
+        value = value.get('value')
+    return value if isinstance(value, str) else None
 
 
 class AbstractEventProcessor(ABC):
@@ -269,6 +284,11 @@ class RestrictCustomerEventProcessor(AbstractEventProcessor):
         (Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG, HTTPMethod.GET),
         (Endpoint.SETTINGS_LICENSE_MANAGER_CONFIG, HTTPMethod.DELETE),
 
+        (Endpoint.INTEGRATIONS_MCP_AUTH, HTTPMethod.GET),
+        (Endpoint.INTEGRATIONS_MCP_AUTH, HTTPMethod.POST),
+        (Endpoint.INTEGRATIONS_MCP_AUTH, HTTPMethod.PATCH),
+        (Endpoint.INTEGRATIONS_MCP_AUTH, HTTPMethod.DELETE),
+
         (Endpoint.EVENT, HTTPMethod.POST),
 
         (Endpoint.USERS_WHOAMI, HTTPMethod.GET),
@@ -319,8 +339,8 @@ class RestrictCustomerEventProcessor(AbstractEventProcessor):
             event['tenant_access_payload'] = TenantsAccessPayload.build_allowing_all()
 
             if (event['resource'], event['method']) in self.can_work_without_customer_id:  # noqa
-                _LOG.info(f'System is making request that can be done without '
-                          f'customer_id')
+                _LOG.info('System is making request that can be done without '
+                          'customer_id')
                 return event, context
             if not cid:
                 raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
@@ -343,7 +363,10 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
     """
     Processor that restricts rbac permission
     """
-    __slots__ = '_rs', '_ps', '_env', '_uc'
+    __slots__ = (
+        '_cache', '_env', '_modular_client', '_ps', '_rabbitmq',
+        '_rs', '_settings', '_ssm', '_uc',
+    )
 
     def __init__(
         self,
@@ -351,11 +374,21 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
         policy_service: PolicyService,
         environment_service: EnvironmentService,
         user_client: BaseAuthClient,
+        ssm_client: AbstractSSMClient,
+        modular_client: 'ModularServiceProvider',
+        rabbitmq_service: RabbitMQService,
+        settings_service: SettingsService,
     ) -> None:
         self._rs = role_service
         self._ps = policy_service
         self._env = environment_service
         self._uc = user_client
+        self._ssm = ssm_client
+        self._modular_client = modular_client
+        self._rabbitmq = rabbitmq_service
+        self._settings = settings_service
+        # caches the resolved (key, algorithm) tuple under _MCP_JWT_CACHE_KEY
+        self._cache = cache_service.factory(maxsize=1)
 
     @classmethod
     def build(cls) -> 'CheckPermissionEventProcessor':
@@ -364,6 +397,10 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
             policy_service=SP.policy_service,
             environment_service=SP.environment_service,
             user_client=SP.users_client,
+            ssm_client=SP.ssm,
+            modular_client=SP.modular_client,
+            rabbitmq_service=SP.rabbitmq_service,
+            settings_service=SP.settings_service,
         )
 
     @staticmethod
@@ -409,6 +446,84 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
             raise factory(self._not_allowed_message(permission)).exc()
         return ta.resolve_payload(permission)
 
+    def _load_mcp_jwt_key_and_algorithm(self) -> tuple[str | None, str]:
+        configuration = self._settings.get_mcp_jwt_auth_configuration(
+            value=True
+        )
+        if not isinstance(configuration, dict) or not configuration:
+            _LOG.warning('MCP JWT Setting is not configured')
+            return None, 'RS256'
+
+        algorithm = configuration.get('algorithm') or 'RS256'
+        key = _extract_ssm_string(
+            self._ssm.get_secret_value(MCP_JWT_KEY_SSM_NAME)
+        )
+        return key, algorithm
+
+    def _resolve_mcp_jwt_key_and_algorithm(self) -> tuple[str | None, str]:
+        cached = self._cache.get(_MCP_JWT_CACHE_KEY)
+        if cached is not None:
+            return cached
+
+        resolved = self._load_mcp_jwt_key_and_algorithm()
+        if resolved[0]:
+            self._cache[_MCP_JWT_CACHE_KEY] = resolved
+        return resolved
+
+    def _validate_mcp_context_token(self, token: str) -> dict:
+        factory = ResponseFactory(HTTPStatus.FORBIDDEN).message
+        if not token:
+            raise factory('MCP user context token is missing').exc()
+        key, algorithm = self._resolve_mcp_jwt_key_and_algorithm()
+        if not key:
+            _LOG.warning(
+                'MCP JWT key is not configured, cannot validate MCP user '
+                'context tokens'
+            )
+            raise factory('MCP user context token is invalid').exc()
+        is_asymmetric = bool(algorithm) and algorithm.upper().startswith(
+            ('RS', 'ES', 'PS')
+        )
+        service = self._modular_client.jwt_token_service(
+            secret_key=key,
+            algorithm=algorithm,
+            public_key=key if is_asymmetric else None,
+        )
+        try:
+            claims: dict = service.decode(token, verify_exp=True)
+        except service.jwt.ExpiredSignatureError:
+            _LOG.warning('MCP user context token has expired')
+            raise factory('MCP user context token is invalid').exc()
+        except (service.jwt.DecodeError, service.jwt.InvalidTokenError) as e:
+            _LOG.warning(f'MCP user context token is invalid: {e}')
+            raise factory('MCP user context token is invalid').exc()
+        if not claims.get('customer_id'):
+            _LOG.warning('MCP user context token does not contain customer')
+            raise factory('MCP user context token is invalid').exc()
+        return claims
+
+    def _resolve_local_mcp_user(self, claims: dict) -> UserWrapper | None:
+        """
+        MCP user context claims carry an email. If a local SRE user with
+        that email (username) exists, we should act on his behalf (under
+        his role) instead of restricting scope via Maestro positions.
+        """
+        email = claims.get('email')
+        if not email:
+            return None
+        user = self._uc.get_user_by_username(email)
+        if not user or not user.customer or not user.role:
+            return None
+        customer_id = claims.get('customer_id')
+        if customer_id and user.customer != customer_id:
+            _LOG.warning(
+                f'Local SRE user {email!r} belongs to customer '
+                f'{user.customer!r} which differs from MCP token customer '
+                f'{customer_id!r}. Ignoring local user'
+            )
+            return None
+        return user
+
     def __call__(self, event: ProcessedEvent, context: RequestContext
                  ) -> tuple[ProcessedEvent, RequestContext]:
         if event['is_system']:  # do not check any permissions for system
@@ -430,6 +545,35 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
                 'Action is allowed only for system user'
             ).exc()
 
+        headers = event.get('headers') or {}
+        mcp_context_token = next(
+            (v for k, v in headers.items()
+             if k.lower() == MCP_USER_CONTEXT_HEADER.lower()),
+            None
+        )
+        claims: dict | None = None
+        if mcp_context_token:
+            claims = self._validate_mcp_context_token(mcp_context_token)
+            local_user = self._resolve_local_mcp_user(claims)
+            if local_user:
+                _LOG.info(
+                    f'MCP user context maps to local SRE user '
+                    f'{local_user.username!r}. Checking permission under '
+                    f'his role instead of the service account'
+                )
+                event['tenant_access_payload'] = self._check_permission(
+                    customer=cast(str, local_user.customer),
+                    role_name=cast(str, local_user.role),
+                    permission=permission
+                )
+                _LOG.debug(f'Resolved tenant access payload: '
+                           f'{event["tenant_access_payload"]}')
+                return event, context
+            _LOG.info(
+                'MCP user context does not map to any local SRE user. '
+                'Proceeding as usual with the service account permissions'
+            )
+
         # if cognito_username exists, cognito_customer & cognito_user_role
         # exist as well
         event['tenant_access_payload'] = self._check_permission(
@@ -438,33 +582,24 @@ class CheckPermissionEventProcessor(AbstractEventProcessor):
             permission=permission
         )
 
-        # we need to change user role to mcp user role if mcp user is
-        # specified in header and exists in Users.
-        # It is needed for integration with CodeMie
-        if mcp_user_name := event['headers'].get(MCP_USER_NAME_HEADER):
-            mcp_user_name = mcp_user_name.lower()
-            _LOG.info(f'MCP user name from header: {mcp_user_name!r}')
-            if mcp_user := self._uc.get_user_by_username(mcp_user_name):
-                _LOG.info(
-                    f'MCP user found. Using his role {mcp_user.role!r} for '
-                    f'permission check'
+        if claims is not None:
+            customer = cast(str, event['cognito_customer'])
+            _LOG.info(
+                f'MCP user context token is valid for customer {customer!r}.'
+                f' Fetching live scope from Maestro'
+            )
+            positions = self._rabbitmq.get_user_positions(customer, claims)
+            if positions:
+                tenant_names = tuple(
+                    m['tenant']
+                    for m in positions
+                    if isinstance(m, dict) and m.get('tenant')
                 )
-                event['cognito_user_role'] = mcp_user.role
-                event['tenant_access_payload'] = self._check_permission(
-                    customer=cast(str, event['cognito_customer']),
-                    role_name=cast(str, event['cognito_user_role']),
-                    permission=permission
-                )
-            else:
-                _LOG.info(
-                    f'MCP user with name {mcp_user_name!r} not found. '
-                    f'Using native user tenant access payload'
-                )
+                event['tenant_access_payload'].allow_tenants(tenant_names)
 
         _LOG.debug(f'Resolved tenant access payload: '
                    f'{event["tenant_access_payload"]}')
         return event, context
-
 
 class RestrictTenantEventProcessor(AbstractEventProcessor):
     """
