@@ -6,6 +6,16 @@
       "compatibility_mode": "warning",
       "breaking_change": false,
       "message": "Modular CLI requires Python 3.14 or later starting from this release."
+    },
+    "mongodb_migration": {
+      "compatibility_mode": "error",
+      "breaking_change": true,
+      "message": "This release requires a mandatory MongoDB major version migration with temporary write downtime.",
+      "steps": [
+        { "image_tag": "6.0.26", "fcv": "6.0" },
+        { "image_tag": "7.0.21", "fcv": "7.0" },
+        { "image_tag": "8.0.28", "fcv": "8.0" }
+      ]
     }
   }
 }
