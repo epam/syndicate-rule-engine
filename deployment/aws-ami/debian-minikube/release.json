@@ -1,11 +1,11 @@
 {
-  "version": "5.20.0",
+  "version": "5.20.1",
   "components": {
     "modular_cli": {
       "python_min_version": "3.14",
-      "compatibility_mode": "error",
-      "breaking_change": true,
-      "message": "Modular CLI requires Python 3.14 or later starting from this release."
+      "compatibility_mode": "warn",
+      "breaking_change": false,
+      "message": "No compatibility-breaking changes in this release."
     }
   }
 }
