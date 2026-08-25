@@ -11,7 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added resolving of tenant access payload for MCP users from MCP user context (header `X-Mcp-User-Context`)
 - Added a new system scheduler `process-periodic-rules` to run specific rules with `periodic=True` in their metadata
-- Added `celery-types` to the `lint` dependency group for type checking
 
 ### Fixed
 - Fixed K8s recommendations being overwritten when a tenant has multiple platforms by aggregating all platforms recommendations before saving
