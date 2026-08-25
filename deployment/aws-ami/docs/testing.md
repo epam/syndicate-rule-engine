@@ -80,7 +80,7 @@ defectdojo-celerybeat     1/1     1            1           38m
 defectdojo-celeryworker   1/1     1            1           38m
 defectdojo-nginx          1/1     1            1           38m
 defectdojo-postgres       1/1     1            1           38m
-defectdojo-valkey         1/1     1            1           38m
+defectdojo-redis          1/1     1            1           38m
 defectdojo-uwsgi          1/1     1            1           38m
 minio                     1/1     1            1           38m
 modular-api               1/1     1            1           38m
@@ -268,7 +268,7 @@ https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/
 ## Migrate minikube
 
 ```bash
-# TODO: do not include Valkey volume
+# TODO: do not include redis volume
 sre-init backup create --name main --volumes=all --secrets=all --helm-values
 ```
 

@@ -127,6 +127,13 @@ env:
         name: valkey-secret
         key: password
         optional: true
+  # Deprecated upgrade fallback for releases that still have redis-secret.
+  - name: REDIS_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: redis-secret
+        key: password
+        optional: true
   - name: VALKEY_DOMAIN
     value: {{ .Values.valkeyService }}
   - name: VALKEY_PORT

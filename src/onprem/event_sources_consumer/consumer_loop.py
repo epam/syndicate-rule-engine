@@ -240,9 +240,9 @@ def _run_k8s_worker(
         source_config=config,
         credentials_service=K8sCredentialsService.build(),
         storage=ValkeyStorage(
-            host=EventConsumerEnv.VALKEY_HOST.as_str(),
+            host=EventConsumerEnv.VALKEY_DOMAIN.as_str(),
             port=EventConsumerEnv.VALKEY_PORT.as_int(),
-            password=EventConsumerEnv.VALKEY_PASSWORD.get() or '',
+            password=EventConsumerEnv.VALKEY_PASSWORD.get() or None,
         ),
     )
     processor = EventMessageProcessor(

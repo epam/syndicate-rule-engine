@@ -2031,7 +2031,7 @@ declare -rA PV_TO_DEPLOYMENTS=(
   ["minio"]="minio"
   ["vault"]="vault"
   ["mongo"]="mongo"
-  ["defectdojo-cache"]="defectdojo-valkey"
+  ["defectdojo-cache"]="defectdojo-redis"
   ["defectdojo-data"]="defectdojo-postgres"
   ["defectdojo-media"]="defectdojo-nginx,defectdojo-uwsgi,defectdojo-celeryworker"
 )

@@ -68,3 +68,10 @@ All pods (rule-engine, celerybeat, celeryworker, event-sources-consumer, vault, 
 The Valkey 8.x release provides the Celery broker/result backend and the
 event-deduplication cache. Celery/Kombu connection strings intentionally use
 the Redis-compatible `redis://` protocol scheme while connecting to Valkey.
+
+For a new installation, create `valkey-secret` as shown above. During an
+upgrade from the Redis-based release, the chart also accepts the existing
+`redis-secret` as a temporary fallback when `valkey-secret` is absent. The
+rule-engine pods and the Valkey pod use the same precedence: `valkey-secret`
+first, then `redis-secret`. Create the new secret and remove the old one after
+the upgrade has been verified.

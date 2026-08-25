@@ -40,7 +40,7 @@ spec:
             - name: DD_ALLOWED_HOSTS
               value: '*'
             - name: DD_CELERY_BROKER_URL
-              value: redis://{{ include "defectdojo.fullname" . }}-valkey:6379/0
+              value: redis://{{ include "defectdojo.fullname" . }}-redis:6379/0
             - name: _DD_DB_USERNAME
               valueFrom:
                 secretKeyRef:

@@ -1,6 +1,6 @@
 """
 Fixed limits and SQS :class:`QueueConfig` helpers for the event sources consumer.
-Env keys live in :class:`onprem.event_sources_consumer.settings.EventConsumerEnv`.
+Env keys live in :class:`onprem.event_sources_consumer.constants.EventConsumerEnv`.
 """
 
 from __future__ import annotations
@@ -68,20 +68,22 @@ class EventConsumerEnv(EnvEnum):
         '5',
     )
 
-    # Valkey (K8s event dedupe)
-    VALKEY_HOST = (
+    # Valkey (K8s event dedupe). REDIS_* aliases support existing installs.
+    VALKEY_DOMAIN = (
         'VALKEY_DOMAIN',
-        ('VALKEY_HOST',),
+        ('VALKEY_HOST', 'REDIS_DOMAIN'),
         'localhost',
     )
+    # Keep the intermediate VALKEY_HOST name available during upgrades.
+    VALKEY_HOST = VALKEY_DOMAIN
     VALKEY_PORT = (
         'VALKEY_PORT',
-        (),
+        ('REDIS_PORT',),
         '6379',
     )
     VALKEY_PASSWORD = (
         'VALKEY_PASSWORD',
-        ('MODULAR_SDK_MONGO_PASSWORD',),  # NOTE: this is a workaround, needs to be resolved
+        ('REDIS_PASSWORD',),
         '',
     )
 

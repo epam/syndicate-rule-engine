@@ -18,9 +18,10 @@ x-rule-engine-env: &rule-engine-env
   MODULAR_SDK_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
   MODULAR_SDK_VAULT_URL: "http://vault:8200"
   MODULAR_SDK_APPLICATION_NAME: syndicate-rule-engine
-  VALKEY_PASSWORD: valkeypassword
-  VALKEY_DOMAIN: valkey
-  VALKEY_PORT: "6379"
+  # VALKEY_* are canonical; REDIS_* and VALKEY_HOST are upgrade aliases.
+  VALKEY_PASSWORD: "${VALKEY_PASSWORD-${REDIS_PASSWORD-valkeypassword}}"
+  VALKEY_DOMAIN: "${VALKEY_DOMAIN-${VALKEY_HOST-${REDIS_DOMAIN-valkey}}}"
+  VALKEY_PORT: "${VALKEY_PORT-${REDIS_PORT-6379}}"
 
 services:
   modular-api:
@@ -194,6 +195,8 @@ services:
         condition: service_healthy
       vault:
         condition: service_healthy
+      valkey:
+        condition: service_started
     environment:
       <<: *rule-engine-env
     extra_hosts:
@@ -241,14 +244,25 @@ services:
     networks:
       - rule-engine-net
   valkey:
-    image: ${VALKEY_IMAGE:-valkey/valkey:${VALKEY_VERSION:-8.0-alpine}}
+    image: ${VALKEY_IMAGE:-valkey/valkey:${VALKEY_VERSION:-8.0.10-alpine}}
     container_name: valkey
     ports:
       - "6379:6379"
     volumes:
+      # Keep the existing volume name so upgrades retain the Redis-compatible cache data.
       - redis-data:/data
+    environment:
+      VALKEY_PASSWORD: "${VALKEY_PASSWORD-${REDIS_PASSWORD-valkeypassword}}"
     restart: always
-    command: valkey-server --save 20 1 --loglevel warning --requirepass valkeypassword
+    command:
+      - sh
+      - -c
+      - >-
+        if [ -n "$${VALKEY_PASSWORD}" ]; then
+          exec valkey-server --save 20 1 --loglevel warning --requirepass "$${VALKEY_PASSWORD}";
+        else
+          exec valkey-server --save 20 1 --loglevel warning;
+        fi
     networks:
       - rule-engine-net
   vault:
@@ -284,6 +298,7 @@ volumes:
   vault-data:
   mongo-data:
   minio-data:
+  # Retained for upgrades from the former Redis service.
   redis-data:
   rule-engine-data:
 configs:

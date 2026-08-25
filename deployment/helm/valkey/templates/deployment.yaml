@@ -42,22 +42,29 @@ spec:
             limits:
               memory: "{{ .Values.memoryLimit }}"
           env:
-            - name: MONGO_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: mongo-secret
-                  key: password
             - name: VALKEY_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: valkey-secret
                   key: password
                   optional: true
+            # Deprecated upgrade fallback for releases that still have redis-secret.
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-secret
+                  key: password
+                  optional: true
           command: ["/bin/sh"]
           args:
             - "-c"
             - |
-              exec valkey-server --save 20 1 --loglevel warning --requirepass ${VALKEY_PASSWORD:-$MONGO_PASSWORD}
+              EFFECTIVE_PASSWORD="${VALKEY_PASSWORD-${REDIS_PASSWORD-}}"
+              if [ -n "${EFFECTIVE_PASSWORD}" ]; then
+                exec valkey-server --save 20 1 --loglevel warning --requirepass "${EFFECTIVE_PASSWORD}"
+              else
+                exec valkey-server --save 20 1 --loglevel warning
+              fi
           ports:
             - containerPort: 6379
               name: valkey-socket

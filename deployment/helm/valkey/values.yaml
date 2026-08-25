@@ -8,13 +8,14 @@ service:
 
 image:
   repository: valkey/valkey
-  tag: "8.0-alpine"
+  tag: "8.0.10-alpine"
   pullPolicy: IfNotPresent
 
 persistence:
   accessMode: ReadWriteOnce
   size: 1Gi
   storageClass: standard
+  # Retain the former Redis data path and resource name during upgrades.
   hostPath: /data/redis
   existingName: "redis"
 
