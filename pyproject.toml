@@ -11,7 +11,7 @@ dependencies = [
     "boto3~=1.43.3",
     "botocore~=1.43.3",
     "bottle~=0.13.4",
-    "cachetools~=7.1.4",
+    "cachetools~=7.1.6",
     "celery~=5.6.3",
     "cryptography~=46.0.7",
     "google-api-python-client~=2.194.0",
@@ -37,6 +37,7 @@ dependencies = [
 
 [dependency-groups]
 lint = [
+    "celery-types>=0.26.0",
     "mypy>=1.19.1",
     "ruff>=0.9.0",
 ]
