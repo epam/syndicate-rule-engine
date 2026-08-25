@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added resolving of tenant access payload for MCP users from MCP user context (header `X-Mcp-User-Context`)
 - Added a new system scheduler `process-periodic-rules` to run specific rules with `periodic=True` in their metadata
+- Added `celery-types` to the `lint` dependency group for type checking
 
 ### Fixed
 - Fixed K8s recommendations being overwritten when a tenant has multiple platforms by aggregating all platforms recommendations before saving
@@ -20,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed jobs retrieval from DB to use `job_types` instead of `job_type` in `GET /reports/push/dojo`
 - Use the same AWS credential resolution chain for EKS scans as for standard AWS scans
 - Split reactive-related reports by type, using `OPERATIONAL_ATTACK` for clouds and `OPERATIONAL_KUBERNETES` for platforms
+- Updated versions of dependencies:
+    - `"cachetools"` from `~=7.1.4` to `~=7.1.6`
 
 ### Removed 
 - Removed `job_type` request field from report endpoints that already target a specific `job_id`:
