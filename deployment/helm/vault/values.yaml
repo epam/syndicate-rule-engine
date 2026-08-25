@@ -12,7 +12,7 @@ ui:
 # previous 1.17.2
 image:
   repository: hashicorp/vault
-  tag: 1.19.5
+  tag: 1.21.4
   pullPolicy: IfNotPresent
 
 

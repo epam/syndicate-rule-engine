@@ -252,7 +252,7 @@ services:
     networks:
       - rule-engine-net
   vault:
-    image: ${VAULT_IMAGE:-hashicorp/vault:${VAULT_VERSION:-1.19.5}}
+    image: ${VAULT_IMAGE:-hashicorp/vault:${VAULT_VERSION:-1.21.4}}
     container_name: vault
     ports:
       - "8200:8200"
