@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use the same AWS credential resolution chain for EKS scans as for standard AWS scans
 - Split reactive-related reports by type, using `OPERATIONAL_ATTACK` for clouds and `OPERATIONAL_KUBERNETES` for platforms
 - Updated versions of dependencies:
-    - `"cachetools"` from `~=7.1.4` to `~=7.1.6`
+    - `cachetools` from `~=7.1.4` to `~=7.1.6`
 
 ### Removed 
 - Removed `job_type` request field from report endpoints that already target a specific `job_id`:
