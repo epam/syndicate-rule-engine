@@ -17,11 +17,6 @@ from helpers.constants import (
     MCP_JWT_KEY_SSM_NAME,
     MCP_USER_CONTEXT_HEADER,
     Permission,
-<<<<<<< HEAD
-    MCP_USER_NAME_HEADER,
-    MCP_USER_CONTEXT_HEADER,
-=======
->>>>>>> origin
 )
 from helpers.lambda_response import (
     LambdaOutput,
