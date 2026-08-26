@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Split reactive-related reports by type, using `OPERATIONAL_ATTACK` for clouds and `OPERATIONAL_KUBERNETES` for platforms
 - Updated versions of dependencies:
     - `cachetools` from `~=7.1.4` to `~=7.1.6`
+- Upgraded Vault version from `1.19.5` to `1.21.4`
 
 ### Removed 
 - Removed `job_type` request field from report endpoints that already target a specific `job_id`:
