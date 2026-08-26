@@ -83,6 +83,7 @@ class Endpoint(str, Enum):
     REPORTS_DIAGNOSTIC = '/reports/diagnostic'
     REPORTS_DEPARTMENT = '/reports/department'
     INTEGRATIONS_SELF = '/integrations/temp/sre'
+    INTEGRATIONS_MCP_AUTH = '/integrations/mcp/auth'
     SCHEDULED_JOB_NAME = '/scheduled-job/{name}'
     REPORTS_OPERATIONAL = '/reports/operational'
     TENANTS_TENANT_NAME = '/tenants/{tenant_name}'
@@ -192,8 +193,8 @@ class Endpoint(str, Enum):
 LAMBDA_URL_HEADER_CONTENT_TYPE_UPPER = 'Content-Type'
 JSON_CONTENT_TYPE = 'application/json'
 
-MCP_USER_NAME_HEADER = 'X-Sre-Mcp-User-Name'
 MCP_USER_CONTEXT_HEADER = 'X-Mcp-User-Context'
+MCP_JWT_KEY_SSM_NAME = 'cs_mcp_jwt_key'
 
 DEFAULT_SYSTEM_CUSTOMER: str = 'CUSTODIAN_SYSTEM'
 DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME = (
@@ -1037,6 +1038,11 @@ class Permission(str, Enum):
     SRE_INTEGRATION_DESCRIBE = 'self_integration:describe'
     SRE_INTEGRATION_DELETE = 'self_integration:delete'
 
+    INTEGRATIONS_MCP_DESCRIBE_AUTH = 'mcp_auth:describe', True
+    INTEGRATIONS_MCP_CREATE_AUTH = 'mcp_auth:create', True
+    INTEGRATIONS_MCP_UPDATE_AUTH = 'mcp_auth:update', True
+    INTEGRATIONS_MCP_DELETE_AUTH = 'mcp_auth:delete', True
+
     DOJO_INTEGRATION_CREATE = 'dojo_integration:create'
     DOJO_INTEGRATION_DESCRIBE = 'dojo_integration:describe'
     DOJO_INTEGRATION_DELETE = 'dojo_integration:delete'
@@ -1245,6 +1251,7 @@ class S3SettingKey(str, Enum):
 class SettingKey(str, Enum):
     MAIL_CONFIGURATION = 'MAIL_CONFIGURATION'
     LM_CLIENT_KEY = 'LM_CLIENT_KEY'
+    MCP_JWT_AUTH = 'MCP_JWT_AUTH'
     ACCESS_DATA_LM = 'ACCESS_DATA_LM'
     TEMPLATE_BUCKET = 'TEMPLATES_S3_BUCKET_NAME'
     SYSTEM_CUSTOMER = 'SYSTEM_CUSTOMER_NAME'
@@ -1580,6 +1587,7 @@ class TopViolationsReportType(str, Enum):
 
 class RabbitCommand(str, Enum):
     SEND_MAIL = 'SEND_MAIL'
+    GET_USER_POSITIONS = 'GET_USER_POSITIONS'
 
 
 class ScheduledJobType(str, Enum):

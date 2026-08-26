@@ -1577,6 +1577,22 @@ class LicenseManagerClientSettingDeleteModel(BaseModel):
     key_id: str
 
 
+class McpAuthSettingPostModel(BaseModel):
+    jwt: str
+    algorithm: str = 'RS256'
+
+
+class McpAuthSettingPatchModel(BaseModel):
+    jwt: str | None = Field(None)
+    algorithm: str | None = Field(None)
+
+    @model_validator(mode='after')
+    def at_least_one_to_update(self) -> Self:
+        if not any((self.jwt, self.algorithm)):
+            raise ValueError('Provide at least one attribute to update')
+        return self
+
+
 # reports
 class JobFindingsReportGetModel(BaseModel):
     href: bool = False

@@ -3,9 +3,9 @@
   "components": {
     "modular_cli": {
       "python_min_version": "3.14",
-      "compatibility_mode": "warning",
+      "compatibility_mode": "warn",
       "breaking_change": false,
-      "message": "Modular CLI requires Python 3.14 or later starting from this release."
+      "message": "No compatibility-breaking changes in this release."
     }
   }
 }
