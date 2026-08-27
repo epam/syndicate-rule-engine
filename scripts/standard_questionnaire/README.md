@@ -5,8 +5,10 @@
 - the **control hierarchy and titles** from the standards-schema repository; and
 - the **coverage, severity, rule IDs, and rule results** from an SRE detailed compliance report.
 
-The generated workbook contains one row for every control defined by the selected schema, plus two
-formula-driven dashboard sheets (**Summary** and **Checks**) with pie and stacked-bar charts.
+The generated workbook starts with an explanatory **Introduction** sheet, followed by a **Compliance**
+sheet containing one row for every control defined by the selected schema and a `StandardQuestionnaire`
+Excel table. A formula-driven **Summary** dashboard contains the source statistics table and pie and
+stacked-bar charts.
 
 ## Requirements
 
@@ -170,11 +172,15 @@ coverage.
 
 The workbook contains three visible sheets and one hidden helper sheet.
 
-### 1. Questionnaire sheet
+### 1. `Introduction` sheet
 
-The first sheet is named after the standard and version, for example `CIS Controls v7`. The name is
-sanitized for Excel: characters `\ / * ? : [ ]` are replaced with `-` and the name is truncated to 31
-characters.
+The first and active sheet explains the workbook structure, the selected standard and version, the
+meaning of report fields, status and coverage calculations, and multi-region aggregation behavior.
+
+### 2. `Compliance` sheet
+
+The second sheet is always named `Compliance` and contains the control hierarchy and compliance values
+for the selected standard and version.
 
 Columns:
 
@@ -205,19 +211,14 @@ Behavior:
   - **Total Coverage**: average of all control coverage values (`AVERAGE`), with not-evaluated controls
     contributing their report value (normally `0%`).
 
-### 2. `Summary` sheet
+### 3. `Summary` sheet
 
-- A statistics table (`Fail` / `Pass` / `Not Applicable` / `Total`) broken down by `High`, `Medium`,
-  and `Low` severity.
+- A source statistics table near the top (`Fail` / `Pass` / `Not Applicable` / `Total`) broken down by
+  `High`, `Medium`, and `Low` severity.
 - **Total Coverage** pie chart: Fail / Pass / Not Applicable control counts.
 - **Applicable Coverage** bar-of-pie chart: passing controls versus failing controls split by severity.
-
-### 3. `Checks` sheet
-
-- Total / failed / passed check counts.
-- A severity × status table.
-- **Failed checks statistics** pie chart (failures by severity).
-- **Severity vs Status** and **Status vs Severity** horizontal stacked bar charts.
+- **Severity vs Status** and **Status vs Severity** horizontal stacked-bar charts below the coverage
+  charts.
 
 ### 4. `_ChartData` (hidden)
 
@@ -226,14 +227,14 @@ ignored; do not delete it while the `Summary` charts are in use.
 
 ### Reactivity
 
-Every value on the `Summary` and `Checks` sheets is a structured-reference formula
+Every formula-driven value on the `Summary` sheet is a structured-reference formula
 (`COUNTIF`/`COUNTIFS`/`ROWS` over `StandardQuestionnaire[...]`), and the workbook is configured for
 full recalculation on load and on save. Editing a control's `Status`, `Severity`, or `Coverage` in the
-questionnaire sheet therefore updates both summary tables, both coverage totals, and all charts as soon
-as Excel recalculates.
+`Compliance` sheet therefore updates the Summary statistics table, both coverage charts, both horizontal
+bar charts, and the coverage totals as soon as Excel recalculates.
 
-Only `High`, `Medium`, and `Low` appear in the dashboard tables and charts. `Info` severity is
-color-coded in the questionnaire sheet but is not charted, so severity breakdown rows may not add up
+Only `High`, `Medium`, and `Low` appear in the dashboard table and charts. `Info` severity is
+color-coded in the `Compliance` sheet but is not charted, so severity breakdown rows may not add up
 to the control totals if the report uses `Info`.
 
 ## Terminal output
@@ -254,4 +255,4 @@ Compliance : 46 controls found in report
 ```
 
 The printed percentages are calculated from the report-provided control values and match the two
-summary rows written to the questionnaire sheet.
+summary rows written to the `Compliance` sheet.

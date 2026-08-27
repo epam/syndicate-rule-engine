@@ -6,10 +6,11 @@ audit status, coverage and the rules that evaluate it.
 
 Sheets
 ------
-  1. '<Standard> <version>' - one row per control (Excel table + conditional
+  1. 'Introduction'         - report explanation and workbook guide.
+  2. 'Compliance'           - one row per control (Excel table + conditional
      formatting, so manual edits stay color-coded).
-  2. 'Summary'              - formula-driven statistics table + two pie charts.
-  3. 'Checks'              - formula-driven statistics + pie and stacked bars.
+  3. 'Summary'              - formula-driven statistics table + two pie charts
+     and two stacked charts.
   ('_ChartData' is a hidden helper sheet feeding the bar-of-pie chart.)
 
 Data sources
@@ -60,8 +61,10 @@ from typing import Any
 
 from openpyxl import Workbook
 from openpyxl.chart import BarChart, PieChart, ProjectedPieChart, Reference
+from openpyxl.chart.data_source import StrRef
 from openpyxl.chart.label import DataLabelList
-from openpyxl.chart.series import DataPoint
+from openpyxl.chart.marker import DataPoint
+from openpyxl.chart.series import SeriesLabel
 from openpyxl.chart.shapes import GraphicalProperties
 from openpyxl.chart.text import RichText
 from openpyxl.drawing.line import LineProperties
@@ -133,6 +136,7 @@ MAX_SHEET_TITLE = 31
 INVALID_SHEET_CHARS = re.compile(r'[\\/*?:\[\]]')
 
 TABLE_NAME = 'StandardQuestionnaire'
+COMPLIANCE_SHEET = 'Compliance'
 CHART_DATA_SHEET = '_ChartData'
 CHART_FONT = 'Aptos Narrow'
 CHART_TITLE_SIZE = 1600
@@ -430,7 +434,7 @@ def stat_cell(
     font: Font | None = None,
     align: Alignment = ALIGN_CENTER,
 ):
-    """Bordered cell used by the statistics tables of Summary/Checks."""
+    """Bordered cell used by the Summary statistics table."""
     cell = ws.cell(row=row, column=column, value=value)
     cell.border = THIN_BORDER
     cell.alignment = align
@@ -543,6 +547,174 @@ def style_value_axes(chart) -> None:
         axis.delete = False
         axis.txPr = _chart_text(CHART_LEGEND_SIZE)
     chart.y_axis.tickLblPos = 'low'
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Introduction sheet
+# ─────────────────────────────────────────────────────────────────────────────
+
+INTRODUCTION_SHEET = 'Introduction'
+INTRODUCTION_LAST_COL = 6
+INTRODUCTION_HEADER_BG = 'FF00549F'
+INTRODUCTION_NOTICE_BG = 'FF7F7F7F'
+INTRODUCTION_HEADER_FONT = 'Gill Sans MT'
+INTRODUCTION_BODY_FONT = 'Aptos Narrow'
+
+
+def _write_intro_block(
+    ws: Worksheet,
+    first_row: int,
+    last_row: int,
+    text: str,
+    *,
+    font: Font,
+    alignment: Alignment,
+    background: str | None = None,
+) -> None:
+    ws.merge_cells(
+        start_row=first_row,
+        start_column=1,
+        end_row=last_row,
+        end_column=INTRODUCTION_LAST_COL,
+    )
+    cell = ws.cell(row=first_row, column=1, value=text)
+    cell.font = font
+    cell.alignment = alignment
+    if background:
+        cell.fill = fill(background)
+
+
+def _write_intro_section(ws: Worksheet, row: int, text: str, *, background: str) -> None:
+    _write_intro_block(
+        ws,
+        row,
+        row,
+        text,
+        font=Font(name=INTRODUCTION_HEADER_FONT, size=13, bold=True, color=HEX_HEADER_FONT),
+        alignment=ALIGN_HEADER,
+        background=background,
+    )
+
+
+def _write_intro_body(ws: Worksheet, first_row: int, last_row: int, text: str) -> None:
+    _write_intro_block(
+        ws,
+        first_row,
+        last_row,
+        text,
+        font=Font(name=INTRODUCTION_BODY_FONT, size=11),
+        alignment=Alignment(horizontal='left', vertical='center', wrap_text=True),
+    )
+
+
+def build_introduction_sheet(wb: Workbook, standard_name: str, version: str) -> None:
+    """Create the report guide shown before the Compliance and Summary sheets."""
+    ws = wb.create_sheet(INTRODUCTION_SHEET, 0)
+
+    _write_intro_section(ws, 1, 'Introduction', background=INTRODUCTION_HEADER_BG)
+    _write_intro_body(
+        ws,
+        2,
+        4,
+        f'This workbook is a detailed compliance questionnaire for {standard_name} {version}. '
+        'It maps every control from the selected security standard to the coverage, severity, '
+        'evaluation status, and rules reported by SRE. The workbook combines the standard schema '
+        'with a detailed compliance report to support control coverage and rule-result review.',
+    )
+
+    _write_intro_section(ws, 6, 'I. Structure', background=INTRODUCTION_HEADER_BG)
+    _write_intro_body(ws, 7, 7, 'The spreadsheet includes three visible sheets and one hidden helper sheet:')
+    _write_intro_body(
+        ws,
+        8,
+        8,
+        f'•  {COMPLIANCE_SHEET} - one row per control, including its hierarchy, severity, '
+        'status, coverage, and associated rule IDs.',
+    )
+    _write_intro_body(
+        ws,
+        9,
+        9,
+        '•  Summary - formula-driven status and severity statistics, coverage metrics, and charts.',
+    )
+    _write_intro_body(
+        ws,
+        10,
+        10,
+        '•  _ChartData - hidden helper cells used by the Applicable Coverage chart.',
+    )
+
+    _write_intro_section(ws, 12, 'II. Description', background=INTRODUCTION_HEADER_BG)
+    _write_intro_body(
+        ws,
+        13,
+        14,
+        f'{COMPLIANCE_SHEET} contains the control hierarchy from the selected schema. '
+        'Compliance values are copied from the report: coverage and severity are shown alongside '
+        'the rule IDs that passed, failed, or were not evaluated.',
+    )
+    _write_intro_body(
+        ws,
+        15,
+        16,
+        'Summary contains the Total Coverage and Applicable Coverage pies, plus Severity vs Status '
+        'and Status vs Severity stacked-bar charts. Its statistics table is formula-driven and '
+        'updates from the StandardQuestionnaire table when Excel recalculates the workbook.',
+    )
+    _write_intro_body(
+        ws,
+        17,
+        18,
+        'Status is derived from rule results, not from the coverage number: Fail means at least one '
+        'rule failed; Pass means every rule succeeded; Not Evaluated means there was no failure but '
+        'at least one rule was unevaluated or no rule succeeded.',
+    )
+    _write_intro_body(
+        ws,
+        19,
+        20,
+        'Coverage is supplied by the report and is never recalculated. SRE Applicable Coverage '
+        'excludes Not Evaluated controls, while Total Coverage averages all controls.',
+    )
+
+    _write_intro_section(ws, 22, 'Notice', background=INTRODUCTION_NOTICE_BG)
+    _write_intro_body(
+        ws,
+        23,
+        25,
+        'When a report contains multiple regions, rule lists are unioned across regions and failed '
+        'rules take precedence over successful or unevaluated results. The first non-null coverage '
+        'and severity values are retained for each control. Review the source report when values '
+        'differ between regions, and do not delete the hidden _ChartData sheet while charts are in use.',
+    )
+
+    set_column_widths(ws, {'A': 22.3, 'B': 35.6, 'C': 15.6, 'D': 80.0})
+    for row, height in {
+        1: 30.0,
+        2: 14.45,
+        3: 14.45,
+        4: 13.15,
+        6: 25.15,
+        7: 24.6,
+        8: 16.9,
+        9: 16.9,
+        10: 16.9,
+        12: 19.9,
+        13: 34.15,
+        14: 34.15,
+        15: 34.15,
+        16: 34.15,
+        17: 34.15,
+        18: 34.15,
+        19: 34.15,
+        20: 34.15,
+        22: 19.9,
+        23: 31.0,
+        24: 31.0,
+        25: 31.0,
+    }.items():
+        ws.row_dimensions[row].height = height
+    ws.sheet_properties.tabColor = INTRODUCTION_HEADER_BG
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -707,17 +879,22 @@ def _add_coverage_totals(ws: Worksheet, layout: SheetLayout, last_row: int) -> N
 # Summary sheet
 # ─────────────────────────────────────────────────────────────────────────────
 
-SUMMARY_TABLE_ROW = 15
+SUMMARY_TABLE_ROW = 3
 #: (label, status, fill, font color, split by severity)
 SUMMARY_ROWS: tuple[tuple[str, Status, str, str, bool], ...] = (
     ('Fail', Status.FAIL, HEX_RED_PASTEL, HEX_RED_FONT, True),
     ('Pass', Status.PASS, HEX_GREEN_PASTEL, HEX_GREEN_FONT, True),
     ('Not Applicable', Status.NOT_EVALUATED, HEX_GRAY, HEX_GRAY_FONT, False),
 )
+SUMMARY_FIRST_DATA_ROW = SUMMARY_TABLE_ROW + 1
+SUMMARY_LAST_STATUS_ROW = SUMMARY_FIRST_DATA_ROW + 1
+SUMMARY_FIRST_SEVERITY_COL = 3
+SUMMARY_LAST_SEVERITY_COL = SUMMARY_FIRST_SEVERITY_COL + len(REPORT_SEVERITIES) - 1
+SUMMARY_COVERAGE_CHART_ROW = SUMMARY_TABLE_ROW + len(SUMMARY_ROWS) + 3
 
 
 def build_summary_sheet(wb: Workbook, standard_name: str, version: str) -> None:
-    """Formula-driven statistics table plus two pie charts."""
+    """Formula-driven statistics table plus four charts."""
     ws = wb.create_sheet('Summary')
     helper = wb.create_sheet(CHART_DATA_SHEET)
     helper.sheet_state = 'hidden'
@@ -726,8 +903,10 @@ def build_summary_sheet(wb: Workbook, standard_name: str, version: str) -> None:
     _write_summary_table(ws)
     _write_bar_of_pie_data(helper)
 
-    ws.add_chart(_total_coverage_pie(ws), 'A2')
-    ws.add_chart(_applicable_coverage_pie(helper), 'F2')
+    ws.add_chart(_total_coverage_pie(ws), f'A{SUMMARY_COVERAGE_CHART_ROW}')
+    ws.add_chart(_applicable_coverage_pie(helper), f'F{SUMMARY_COVERAGE_CHART_ROW}')
+    ws.add_chart(_severity_vs_status_bar(ws), 'A22')
+    ws.add_chart(_status_vs_severity_bar(ws), 'A34')
 
     set_column_widths(ws, {'A': 18, 'B': 12, 'C': 10, 'D': 10, 'E': 10, 'F': 3})
 
@@ -770,7 +949,7 @@ def _write_bar_of_pie_data(helper: Worksheet) -> None:
 
 
 def _total_coverage_pie(ws: Worksheet) -> PieChart:
-    first, last = SUMMARY_TABLE_ROW + 1, SUMMARY_TABLE_ROW + len(SUMMARY_ROWS)
+    first, last = SUMMARY_FIRST_DATA_ROW, SUMMARY_TABLE_ROW + len(SUMMARY_ROWS)
     chart = PieChart()
     chart.add_data(Reference(ws, min_col=2, min_row=first, max_row=last), titles_from_data=False)
     chart.set_categories(Reference(ws, min_col=1, min_row=first, max_row=last))
@@ -800,78 +979,14 @@ def _applicable_coverage_pie(helper: Worksheet) -> ProjectedPieChart:
     return chart
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Checks sheet
-# ─────────────────────────────────────────────────────────────────────────────
-
-CHECKS_HEADER_ROW = 9
-#: (label, status, fill, font color) - one data row per status
-CHECKS_ROWS: tuple[tuple[str, Status, str, str], ...] = (
-    ('Fail', Status.FAIL, HEX_RED_PASTEL, HEX_RED_FONT),
-    ('Pass', Status.PASS, HEX_GREEN_PASTEL, HEX_GREEN_FONT),
-)
-CHECKS_FIRST_DATA_ROW = CHECKS_HEADER_ROW + 1
-CHECKS_LAST_DATA_ROW = CHECKS_HEADER_ROW + len(CHECKS_ROWS)
-CHECKS_LAST_COL = 1 + len(REPORT_SEVERITIES)
-
-
-def build_checks_sheet(wb: Workbook) -> None:
-    """Summary stats, a failed-by-severity pie and two stacked bar charts."""
-    ws = wb.create_sheet('Checks')
-    write_sheet_title(ws, 'Summary by Checks')
-
-    stats = (
-        ('Total checks:', f'=ROWS({STATUS_REF})'),
-        ('Failed:', count_status(Status.FAIL)),
-        ('Passed:', count_status(Status.PASS)),
-    )
-    for excel_row, (label, formula) in enumerate(stats, start=4):
-        ws.cell(row=excel_row, column=1, value=label).font = Font(bold=True)
-        ws.cell(row=excel_row, column=2, value=formula)
-
-    _write_checks_table(ws)
-    ws.add_chart(_failed_by_severity_pie(ws), 'G3')
-    ws.add_chart(_severity_vs_status_bar(ws), 'A14')
-    ws.add_chart(_status_vs_severity_bar(ws), 'A24')
-
-    set_column_widths(ws, {'A': 16, 'B': 12, 'C': 12, 'D': 12})
-
-
-def _write_checks_table(ws: Worksheet) -> None:
-    stat_cell(ws, CHECKS_HEADER_ROW, 1)
-    for offset, severity in enumerate(REPORT_SEVERITIES):
-        stat_cell(
-            ws,
-            CHECKS_HEADER_ROW,
-            2 + offset,
-            severity,
-            bg=SEVERITY_CHART_COLORS[severity],
-            font=Font(color=SEVERITY_LABEL_FONTS[severity], bold=True),
-        )
-
-    for index, (label, status, bg, font_color) in enumerate(CHECKS_ROWS):
-        excel_row = CHECKS_FIRST_DATA_ROW + index
-        stat_cell(ws, excel_row, 1, label, bg=bg, font=Font(color=font_color, bold=True))
-        for offset, severity in enumerate(REPORT_SEVERITIES):
-            stat_cell(ws, excel_row, 2 + offset, count_status_severity(status, severity))
-
-
 def _severity_categories(ws: Worksheet) -> Reference:
-    return Reference(ws, min_col=2, max_col=CHECKS_LAST_COL, min_row=CHECKS_HEADER_ROW)
-
-
-def _failed_by_severity_pie(ws: Worksheet) -> PieChart:
-    chart = PieChart()
-    chart.add_data(
-        Reference(ws, min_col=2, max_col=CHECKS_LAST_COL, min_row=CHECKS_FIRST_DATA_ROW),
-        from_rows=True,
-        titles_from_data=False,
+    return Reference(
+        ws,
+        min_col=SUMMARY_FIRST_SEVERITY_COL,
+        max_col=SUMMARY_LAST_SEVERITY_COL,
+        min_row=SUMMARY_TABLE_ROW,
     )
-    chart.set_categories(_severity_categories(ws))
-    color_points(chart.series[0], [SEVERITY_CHART_COLORS[s] for s in REPORT_SEVERITIES])
-    set_data_labels(chart, show_value=True, position='ctr')
-    style_chart(chart, title='Failed checks statistics', width=8, height=7)
-    return chart
+
 
 
 def _stacked_bar(title: str) -> BarChart:
@@ -890,16 +1005,21 @@ def _severity_vs_status_bar(ws: Worksheet) -> BarChart:
     chart.add_data(
         Reference(
             ws,
-            min_col=1,
-            max_col=CHECKS_LAST_COL,
-            min_row=CHECKS_FIRST_DATA_ROW,
-            max_row=CHECKS_LAST_DATA_ROW,
+            min_col=SUMMARY_FIRST_SEVERITY_COL,
+            max_col=SUMMARY_LAST_SEVERITY_COL,
+            min_row=SUMMARY_FIRST_DATA_ROW,
+            max_row=SUMMARY_LAST_STATUS_ROW,
         ),
         from_rows=True,
-        titles_from_data=True,
+        titles_from_data=False,
     )
     chart.set_categories(_severity_categories(ws))
-    for series, color in zip(chart.series, (CHART_FAIL_COLOR, CHART_PASS_COLOR)):
+    for row, series, color in zip(
+        range(SUMMARY_FIRST_DATA_ROW, SUMMARY_LAST_STATUS_ROW + 1),
+        chart.series,
+        (CHART_FAIL_COLOR, CHART_PASS_COLOR),
+    ):
+        series.title = SeriesLabel(strRef=StrRef(f=f"'{ws.title}'!$A${row}"))
         color_series(series, color)
     style_value_axes(chart)
     return chart
@@ -911,16 +1031,16 @@ def _status_vs_severity_bar(ws: Worksheet) -> BarChart:
     chart.add_data(
         Reference(
             ws,
-            min_col=2,
-            max_col=CHECKS_LAST_COL,
-            min_row=CHECKS_HEADER_ROW,
-            max_row=CHECKS_LAST_DATA_ROW,
+            min_col=SUMMARY_FIRST_SEVERITY_COL,
+            max_col=SUMMARY_LAST_SEVERITY_COL,
+            min_row=SUMMARY_TABLE_ROW,
+            max_row=SUMMARY_LAST_STATUS_ROW,
         ),
         from_rows=False,
         titles_from_data=True,
     )
     chart.set_categories(
-        Reference(ws, min_col=1, min_row=CHECKS_FIRST_DATA_ROW, max_row=CHECKS_LAST_DATA_ROW)
+        Reference(ws, min_col=1, min_row=SUMMARY_FIRST_DATA_ROW, max_row=SUMMARY_LAST_STATUS_ROW)
     )
     for series, severity in zip(chart.series, REPORT_SEVERITIES):
         color_series(series, SEVERITY_CHART_COLORS[severity])
@@ -938,10 +1058,11 @@ def build_workbook(rows: Sequence[ControlRow], standard_name: str, version: str)
 
     layout = SheetLayout.for_rows(rows)
     wb = Workbook()
-    wb.active.title = sheet_title(f'{standard_name} {version}')
-    build_questionnaire_sheet(wb.active, rows, layout)
+    compliance_ws = wb.active
+    compliance_ws.title = COMPLIANCE_SHEET
+    build_questionnaire_sheet(compliance_ws, rows, layout)
+    build_introduction_sheet(wb, standard_name, version)
     build_summary_sheet(wb, standard_name, version)
-    build_checks_sheet(wb)
 
     # Structured-reference formulas must be evaluated by Excel on open.
     wb.calculation.calcMode = 'auto'
