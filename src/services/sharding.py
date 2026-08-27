@@ -64,6 +64,22 @@ class RuleMeta(TypedDict):
     comment: str
 
 
+class ExecutionStats(msgspec.Struct, omit_defaults=True):
+    """
+    Execution metadata used to reconstruct complete statistics from partial
+    shards during resume/fallback flows.
+
+    This payload is transient for final/common reports and can be dropped
+    after statistics are built to reduce shard size and transfer cost.
+    """
+    start_time: float = msgspec.field(name='s')
+    end_time: float = msgspec.field(name='e')
+    api_calls: dict = msgspec.field(default_factory=dict, name='a')
+    scanned_resources: int | None = msgspec.field(default=None, name='r')
+    failed_resources: int | None = msgspec.field(default=None, name='f')
+    traceback: list[str] = msgspec.field(default_factory=list, name='t')
+
+
 class ShardPart(
     msgspec.Struct, frozen=True, eq=False, kw_only=True, omit_defaults=True
 ):
@@ -91,6 +107,8 @@ class ShardPart(
     error: str | None = msgspec.field(default=None, name='e')
     # resources timestamp should be always be None if error is None
     previous_timestamp: float | None = msgspec.field(default=None, name='T')
+    # may be removed from non-partial report shards after statistics are persisted
+    execution_stats: ExecutionStats | None = msgspec.field(default=None, name='es')
 
     def has_error(self) -> bool:
         return self.error is not None
@@ -186,6 +204,7 @@ class Shard(Iterable[ShardPart]):
                 resources=existing.resources,
                 error=part.error,
                 previous_timestamp=ts,
+                execution_stats=part.execution_stats,
             )
         self._data[key] = part
 

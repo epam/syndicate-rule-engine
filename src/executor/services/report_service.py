@@ -8,7 +8,7 @@ from modular_sdk.models.tenant import Tenant
 
 from helpers.constants import Cloud, PolicyErrorType
 from helpers.log_helper import get_logger
-from services.sharding import RuleMeta, ShardPart, ShardsCollection
+from services.sharding import ExecutionStats, RuleMeta, ShardPart, ShardsCollection
 
 if TYPE_CHECKING:
     from executor.job.scan.types import FailedPoliciesMap
@@ -113,18 +113,20 @@ def statistics_from_shards_collection(
 
     for part in collection.iter_all_parts():
         key = (part.location, part.policy)
+        es = part.execution_stats or ExecutionStats(start_time=0, end_time=0)
+
         item: dict = {
             'policy': part.policy,
             'region': part.location,
             'tenant_name': tenant.name,
             'customer_name': tenant.customer_name,
-            'start_time': part.timestamp,
-            'end_time': part.timestamp,
-            'api_calls': {},
+            'start_time': es.start_time or part.timestamp,
+            'end_time': es.end_time or part.timestamp,
+            'api_calls': es.api_calls or {},
         }
         if part.error is None:
-            item['scanned_resources'] = len(part.resources)
-            item['failed_resources'] = 0
+            item['scanned_resources'] = es.scanned_resources or len(part.resources)
+            item['failed_resources'] = es.failed_resources or 0
         elif fb := failed.get(key):
             item['error_type'] = fb[0]
             item['reason'] = fb[1]
@@ -136,7 +138,7 @@ def statistics_from_shards_collection(
             except ValueError:
                 item['error_type'] = PolicyErrorType.INTERNAL
             item['reason'] = msg or None
-            item['traceback'] = []
+            item['traceback'] = es.traceback or []
         by_key[key] = item
 
     for key, fb in failed.items():
@@ -256,14 +258,24 @@ class JobResult:
                 # policy error occurred
                 if er := failed.get((region, rule)):
                     error = er[0], er[1]
+                    tb = er[2]
                 else:
                     error = PolicyErrorType.INTERNAL, 'Unknown policy error'
+                    tb = []
 
                 yield ShardPart(
                     policy=rule,
                     location=region,
                     timestamp=metadata.end_time,
                     error=':'.join(error),
+                    execution_stats=ExecutionStats(
+                        start_time=metadata.start_time,
+                        end_time=metadata.end_time,
+                        api_calls=metadata.api_calls,
+                        scanned_resources=metadata.all_resources_count,
+                        failed_resources=metadata.failed_resources_count,
+                        traceback=tb,
+                    ),
                 )
             else:
                 yield ShardPart(
@@ -271,6 +283,13 @@ class JobResult:
                     location=region,
                     timestamp=metadata.end_time,
                     resources=resources,
+                    execution_stats=ExecutionStats(
+                        start_time=metadata.start_time,
+                        end_time=metadata.end_time,
+                        api_calls=metadata.api_calls,
+                        scanned_resources=metadata.all_resources_count,
+                        failed_resources=metadata.failed_resources_count,
+                    ),
                 )
 
     def iter_shard_parts_for_region(
@@ -284,14 +303,24 @@ class JobResult:
             if resources is None:
                 if er := failed.get((reg, rule)):
                     error = er[0], er[1]
+                    tb = er[2]
                 else:
                     error = PolicyErrorType.INTERNAL, 'Unknown policy error'
+                    tb = []
 
                 yield ShardPart(
                     policy=rule,
                     location=reg,
                     timestamp=metadata.end_time,
                     error=':'.join(error),
+                    execution_stats=ExecutionStats(
+                        start_time=metadata.start_time,
+                        end_time=metadata.end_time,
+                        api_calls=metadata.api_calls,
+                        scanned_resources=metadata.all_resources_count,
+                        failed_resources=metadata.failed_resources_count,
+                        traceback=tb,
+                    ),
                 )
             else:
                 yield ShardPart(
@@ -299,6 +328,13 @@ class JobResult:
                     location=reg,
                     timestamp=metadata.end_time,
                     resources=resources,
+                    execution_stats=ExecutionStats(
+                        start_time=metadata.start_time,
+                        end_time=metadata.end_time,
+                        api_calls=metadata.api_calls,
+                        scanned_resources=metadata.all_resources_count,
+                        failed_resources=metadata.failed_resources_count,
+                    ),
                 )
 
     def rules_meta_for_region(self, region: str) -> dict[str, RuleMeta]:

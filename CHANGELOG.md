@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fixed K8s recommendations being overwritten when a tenant has multiple platforms by aggregating all platforms recommendations before saving
+- Fixed the statistics generation during the scan report finalization step
 
 ### Changed
 - DefectDojo integration now tags the product with the tenant name and ensures `enable_product_tag_inheritance` is enabled, so all findings inherit the tenant tag automatically
