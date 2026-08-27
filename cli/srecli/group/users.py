@@ -37,13 +37,8 @@ def describe(ctx: ContextObj, username, limit, next_token, customer_id):
 @click.option('--role_name', '-rn', type=str, required=True,
               help='Role to assign to this user. It should exist inside the '
                    'customer')
-@click.option('--service_account', '-sa', type=click.BOOL, default=False,
-              help='Whether the user is a service account allowed to use '
-                   'MCP user-related headers. Allowed values: true, false. '
-                   'Default: false')
 @cli_response()
-def create(ctx: ContextObj, username, password, role_name, customer_id,
-           service_account):
+def create(ctx: ContextObj, username, password, role_name, customer_id):
     """
     Creates a new user
     """
@@ -52,7 +47,6 @@ def create(ctx: ContextObj, username, password, role_name, customer_id,
         password=password,
         customer_id=customer_id,
         role_name=role_name,
-        is_service_account=service_account,
     )
 
 
@@ -63,9 +57,6 @@ def create(ctx: ContextObj, username, password, role_name, customer_id,
 @click.option('--role_name', '-rn', type=str,
               help='Role to assign to this user. '
                    'It should exist inside the customer')
-@click.option('--service_account', '-sa', type=click.BOOL, default=None,
-              help='Whether the user is a service account allowed to use '
-                   'MCP user-related headers. Allowed values: true, false')
 @cli_response()
 def update(
     ctx: ContextObj,
@@ -73,7 +64,6 @@ def update(
     customer_id: str,
     password: str | None,
     role_name: str | None,
-    service_account: bool | None,
 ):
     """
     Updates some user's attributes
@@ -83,7 +73,6 @@ def update(
         customer_id=customer_id,
         password=password,
         role_name=role_name,
-        is_service_account=service_account,
     )
 
 

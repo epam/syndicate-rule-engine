@@ -9,7 +9,6 @@ from botocore.exceptions import ClientError
 
 from helpers.constants import (
     CUSTOM_CUSTOMER_ATTR,
-    CUSTOM_IS_SERVICE_ACCOUNT_ATTR,
     CUSTOM_LATEST_LOGIN_ATTR,
     CUSTOM_ROLE_ATTR,
 )
@@ -53,8 +52,7 @@ class UserWrapper:
 
     def __init__(self, username: str, customer: str | None = None,
                  role: str | None = None, latest_login: datetime | None = None,
-                 created_at: datetime | None = None, sub: str | None = None,
-                 is_service_account: bool | None = None):
+                 created_at: datetime | None = None, sub: str | None = None):
         """
         Sub is not used currently, so it's not important. Username represents
         user id
@@ -64,7 +62,6 @@ class UserWrapper:
         :param latest_login:
         :param created_at:
         :param sub:
-        :param is_service_account: None means not specified / do not update
         """
         self.username = username
         self.customer = customer
@@ -72,7 +69,6 @@ class UserWrapper:
         self.latest_login = latest_login
         self.created_at = created_at
         self.id = sub
-        self.is_service_account = is_service_account
 
     @classmethod
     def from_user_model(cls, user: 'User') -> Self:
@@ -89,7 +85,6 @@ class UserWrapper:
             role=user.role,
             latest_login=ll,
             created_at=ca,
-            is_service_account=user.is_service_account,
         )
 
     @classmethod
@@ -99,7 +94,6 @@ class UserWrapper:
         ll = None
         if item := attributes.get(CUSTOM_LATEST_LOGIN_ATTR):
             ll = utc_datetime(item)
-        is_sa = attributes.get(CUSTOM_IS_SERVICE_ACCOUNT_ATTR)
         return cls(
             sub=attributes.get('sub'),  # valid for onprem
             username=model['Username'],
@@ -107,9 +101,6 @@ class UserWrapper:
             role=attributes.get(CUSTOM_ROLE_ATTR),
             latest_login=ll,
             created_at=model['UserCreateDate'],
-            is_service_account=(
-                is_sa.lower() == 'true' if is_sa is not None else False
-            ),
         )
 
     def get_dto(self) -> dict:
@@ -120,7 +111,6 @@ class UserWrapper:
             'latest_login': utc_iso(
                 self.latest_login) if self.latest_login else None,
             'created_at': utc_iso(self.created_at) if self.created_at else None,
-            'is_service_account': bool(self.is_service_account),
         }
 
 
@@ -225,7 +215,7 @@ class BaseAuthClient(ABC):
     @abstractmethod
     def signup_user(self, username: str, password: str,
                     customer: str | None = None, role: str | None = None,
-                    is_service_account: bool = False) -> UserWrapper:
+                    ) -> UserWrapper:
         pass
 
     def does_user_exist(self, username: str) -> bool:
@@ -347,11 +337,6 @@ class CognitoClient(BaseAuthClient):
         if user.latest_login:
             attributes.append(attr(CUSTOM_LATEST_LOGIN_ATTR,
                                    utc_iso(user.latest_login)))
-        if user.is_service_account is not None:
-            attributes.append(attr(
-                CUSTOM_IS_SERVICE_ACCOUNT_ATTR,
-                str(user.is_service_account).lower(),
-            ))
         if attributes:
             self.client.admin_update_user_attributes(
                 UserPoolId=self.user_pool_id,
@@ -406,10 +391,13 @@ class CognitoClient(BaseAuthClient):
             _LOG.warning('Client error occurred trying to refresh token',
                          exc_info=True)
 
-    def signup_user(self, username: str, password: str,
-                    customer: str | None = None, role: str | None = None,
-                    is_service_account: bool = False
-                    ) -> UserWrapper:
+    def signup_user(
+        self,
+        username: str,
+        password: str,
+        customer: str | None = None,
+        role: str | None = None,
+    ) -> UserWrapper:
         def attr(n, v):
             return dict(Name=n, Value=v)
 
@@ -418,10 +406,6 @@ class CognitoClient(BaseAuthClient):
             attrs.append(attr(CUSTOM_CUSTOMER_ATTR, customer))
         if role:
             attrs.append(attr(CUSTOM_ROLE_ATTR, role))
-        attrs.append(attr(
-            CUSTOM_IS_SERVICE_ACCOUNT_ATTR,
-            str(is_service_account).lower(),
-        ))
         validation_data = [attr('name', username)]
         res = self.client.sign_up(
             ClientId=self.client_id,
@@ -442,5 +426,4 @@ class CognitoClient(BaseAuthClient):
             role=role,
             created_at=utc_datetime(),
             sub=res['UserSub'],
-            is_service_account=is_service_account,
         )
