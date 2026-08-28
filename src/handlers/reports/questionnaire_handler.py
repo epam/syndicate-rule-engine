@@ -88,6 +88,7 @@ from services.coverage_service import calculate_controls_coverages
 from services.job_service import JobService
 from services.license_service import LicenseService
 from services.metadata import Metadata
+from services.platform_service import PlatformService
 from services.report_service import ReportResponse, ReportService
 from services.sharding import ShardsCollection
 from validators.swagger_request_models import (
@@ -1064,11 +1065,13 @@ class QuestionnaireHandler(AbstractHandler):
         job_service: JobService,
         report_service: ReportService,
         license_service: LicenseService,
+        platform_service: PlatformService,
     ):
         self._tenant_service = tenant_service
         self._job_service = job_service
         self._report_service = report_service
         self._license_service = license_service
+        self._platform_service = platform_service
 
     @classmethod
     def build(cls) -> Self:
@@ -1077,6 +1080,7 @@ class QuestionnaireHandler(AbstractHandler):
             job_service=SP.job_service,
             report_service=SP.report_service,
             license_service=SP.license_service,
+            platform_service=SP.platform_service,
         )
 
     @property
@@ -1098,29 +1102,39 @@ class QuestionnaireHandler(AbstractHandler):
                 content='The request job not found',
                 code=HTTPStatus.NOT_FOUND,
             )
-        tenant = self._tenant_service.get(job.tenant_name)
-        tenant = modular_helpers.assert_tenant_valid(tenant, event.customer)
-        if not tenant:
-            return build_response(
-                code=HTTPStatus.NOT_FOUND, content='Job tenant not found'
+
+        if job.is_platform_job:
+            platform = self._platform_service.get_nullable(job.platform_id)
+            if not platform or (
+                event.customer and platform.customer != event.customer
+            ):
+                return build_response(
+                    content='Job platform not found',
+                    code=HTTPStatus.NOT_FOUND,
+                )
+            collection = self._report_service.platform_job_collection(
+                platform, job
             )
-        cloud = modular_helpers.tenant_cloud(tenant)
-        if not cloud:
-            return build_response(
-                content=f'Not allowed cloud: {tenant.cloud}',
-                code=HTTPStatus.BAD_REQUEST,
-            )
-        collection = self._report_service.job_collection(tenant, job)
+            collection.meta = self._report_service.fetch_meta(platform)
+            cloud = Cloud.KUBERNETES
+        else:
+            tenant = self._tenant_service.get(job.tenant_name)
+            tenant = modular_helpers.assert_tenant_valid(tenant, event.customer)
+            collection = self._report_service.job_collection(tenant, job)
+            collection.meta = self._report_service.fetch_meta(tenant)
+            cloud = modular_helpers.tenant_cloud(tenant)
+
         metadata = self._license_service.get_customer_metadata(
-            tenant.customer_name
+            event.customer_id
         )
-        full_cov = metadata.domain(tenant.cloud).full_cov
+        full_cov = metadata.domain(cloud).full_cov
         standard = self.resolve_standard(full_cov, event.standard)
         if standard is None:
             return build_response(
                 content=f'Standard {event.standard} not found in metadata',
                 code=HTTPStatus.NOT_FOUND,
             )
+
         buffer = self._build_questionnaire(
             collection=collection,
             metadata=metadata,
@@ -1128,6 +1142,7 @@ class QuestionnaireHandler(AbstractHandler):
             standard=standard,
             full_controls=full_cov[standard],
         )
+
         url = self._report_service.one_time_url(
             buffer, f'{job.id}-questionnaire.xlsx'
         )
@@ -1139,24 +1154,25 @@ class QuestionnaireHandler(AbstractHandler):
         self, event: TenantQuestionnaireReportGetModel, tenant_name: str
     ):
         tenant = self._tenant_service.get(tenant_name)
-        tenant = modular_helpers.assert_tenant_valid(tenant, event.customer)
-        cloud = modular_helpers.tenant_cloud(tenant)
-        if not cloud:
+        if not tenant:
             return build_response(
-                content=f'Not allowed cloud: {tenant.cloud}',
-                code=HTTPStatus.BAD_REQUEST,
+                content=f"Tenant {tenant_name!r} not found", code=HTTPStatus.NOT_FOUND
             )
+        modular_helpers.assert_tenant_valid(tenant, event.customer)
+        cloud = modular_helpers.tenant_cloud(tenant)
         collection = self._report_service.tenant_latest_collection(tenant)
+        collection.meta = self._report_service.fetch_meta(tenant)
         metadata = self._license_service.get_customer_metadata(
-            tenant.customer_name
+            event.customer_id
         )
-        full_cov = metadata.domain(tenant.cloud).full_cov
+        full_cov = metadata.domain(cloud).full_cov
         standard = self.resolve_standard(full_cov, event.standard)
         if standard is None:
             return build_response(
                 content=f'Standard {event.standard} not found in metadata',
                 code=HTTPStatus.NOT_FOUND,
             )
+
         buffer = self._build_questionnaire(
             collection=collection,
             metadata=metadata,
@@ -1164,6 +1180,7 @@ class QuestionnaireHandler(AbstractHandler):
             standard=standard,
             full_controls=full_cov[standard],
         )
+
         url = self._report_service.one_time_url(
             buffer, f'{tenant_name}-questionnaire.xlsx'
         )
