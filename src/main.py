@@ -12,7 +12,6 @@ from typing import Callable, Literal
 
 from modular_sdk.models.pynamongo.indexes_creator import IndexesCreator
 
-from helpers import dereference_json
 from helpers.__version__ import __version__
 from helpers.constants import (
     DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME,
@@ -20,7 +19,6 @@ from helpers.constants import (
     DOCKER_SERVICE_MODE,
     PRIVATE_KEY_SECRET_NAME,
     Env,
-    HTTPMethod,
     Permission,
     SettingKey,
 )
@@ -32,8 +30,6 @@ from services.openapi_spec_generator import OpenApiGenerator
 
 SRC = Path(__file__).parent.resolve()
 
-DEPLOYMENT_RESOURCES_FILENAME = 'deployment_resources.json'
-
 ACTION_DEST = 'action'
 ENV_ACTION_DEST = 'env_action'
 ALL_NESTING: tuple[str, ...] = (ACTION_DEST, ENV_ACTION_DEST)  # important
@@ -44,7 +40,6 @@ CREATE_BUCKETS_ACTION = 'create_buckets'
 GENERATE_OPENAPI_ACTION = 'generate_openapi'
 INIT_VAULT_ACTION = 'init_vault'
 SET_META_REPOS_ACTION = 'set_meta_repos'
-UPDATE_API_GATEWAY_MODELS_ACTION = 'update_api_models'
 SHOW_PERMISSIONS_ACTION = 'show_permissions'
 INIT_ACTION = 'init'
 
@@ -126,10 +121,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _ = sub_parsers.add_parser(
         CREATE_BUCKETS_ACTION, help='Creates necessary buckets in Minio'
-    )
-    _ = sub_parsers.add_parser(
-        UPDATE_API_GATEWAY_MODELS_ACTION,
-        help='Regenerates API Gateway models from existing pydantic validators',
     )
     _ = sub_parsers.add_parser(
         SHOW_PERMISSIONS_ACTION,
@@ -342,122 +333,6 @@ class Run(ActionHandler):
         app.run(host=host, port=port)
 
 
-class UpdateApiGatewayModels(ActionHandler):
-    """
-    Updates ./validators/deployment_resources.json and
-    ./deployment_resources.json
-    """
-
-    @property
-    def validators_module(self) -> str:
-        return 'validators'
-
-    @property
-    def models_deployment_resources(self) -> Path:
-        return SRC / self.validators_module / DEPLOYMENT_RESOURCES_FILENAME
-
-    @property
-    def mail_deployment_resources(self) -> Path:
-        return SRC / DEPLOYMENT_RESOURCES_FILENAME
-
-    @property
-    def sre_api_gateway_name(self) -> str:
-        return 'custodian-as-a-service-api'
-
-    @property
-    def sre_api_definition(self) -> dict:
-        return {
-            self.sre_api_gateway_name: {
-                'resource_type': 'api_gateway',
-                'dependencies': [],
-                'resources': {},
-                'models': {},
-            }
-        }
-
-    def __call__(self, **kwargs):
-        from validators import registry
-
-        api_def = self.sre_api_definition
-        for model in registry.iter_models(without_get=True):
-            schema = model.model_json_schema()
-            dereference_json(schema)
-            schema.pop('$defs', None)
-            api_def[self.sre_api_gateway_name]['models'].update(
-                {
-                    model.__name__: {
-                        'content_type': 'application/json',
-                        'schema': schema,
-                    }
-                }
-            )
-        path = self.models_deployment_resources
-        _LOG.info(f'Updating {path}')
-        with open(path, 'w') as file:
-            json.dump(api_def, file, indent=2, sort_keys=True)
-        _LOG.info(f'{path} has been updated')
-
-        # here we update api gateway inside main deployment resources.
-        # We don't remove existing endpoints, only add new in case they are
-        # defined in RequestModelRegistry and are absent inside deployment
-        # resources. Also, we update request and response models. Default
-        # lambda is configuration-api-handler. Change it if it's wrong
-        path = self.mail_deployment_resources
-        _LOG.info(f'Updating {path}')
-        with open(path, 'r') as file:
-            deployment_resources = json.load(file)
-        api = deployment_resources.get(self.sre_api_gateway_name)
-        if not api:
-            _LOG.warning('Api gateway not found in deployment_resources')
-            return
-        resources = api.setdefault('resources', {})
-        for item in registry.iter_all():
-            # if endpoint & method are defined, just update models.
-            # otherwise add configuration
-            data = resources.setdefault(
-                item.path,
-                {'policy_statement_singleton': True, 'enable_cors': True},
-            ).setdefault(
-                item.method.value,
-                {
-                    'integration_type': 'lambda',
-                    'enable_proxy': True,
-                    'lambda_alias': '${lambdas_alias_name}',
-                    'authorization_type': 'authorizer'
-                    if item.auth
-                    else 'NONE',
-                    'lambda_name': 'caas-configuration-api-handler',
-                },
-            )
-            data.pop('method_request_models', None)
-            data.pop('responses', None)
-            data.pop('method_request_parameters', None)
-            if model := item.request_model:
-                match item.method:
-                    case HTTPMethod.GET:
-                        params = {}
-                        for name, info in model.model_fields.items():
-                            params[f'method.request.querystring.{name}'] = (
-                                info.is_required()
-                            )
-                        data['method_request_parameters'] = params
-                    case _:
-                        data['method_request_models'] = {
-                            'application/json': model.__name__
-                        }
-            responses = []
-            for st, m, description in item.responses:
-                resp = {'status_code': str(st.value)}
-                if m:
-                    resp['response_models'] = {'application/json': m.__name__}
-                responses.append(resp)
-            data['responses'] = responses
-
-        with open(path, 'w') as file:
-            json.dump(deployment_resources, file, indent=2)
-        _LOG.info(f'{path} has been updated')
-
-
 class InitAction(ActionHandler):
     def __call__(self):
         from models.setting import Setting
@@ -543,7 +418,6 @@ def main(args: list[str] | None = None):
         (CREATE_BUCKETS_ACTION,): InitMinio(),
         (GENERATE_OPENAPI_ACTION,): GenerateOpenApi(),
         (RUN_ACTION,): Run(),
-        (UPDATE_API_GATEWAY_MODELS_ACTION,): UpdateApiGatewayModels(),
         (SHOW_PERMISSIONS_ACTION,): ShowPermissions(),
         (INIT_ACTION,): InitAction(),
     }

@@ -1,2 +1,0 @@
-xlsxwriter>=3.2.0,<4
-tabulate>=0.9,<0.12

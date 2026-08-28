@@ -1,4 +1,3 @@
-import json
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Callable
@@ -13,7 +12,7 @@ from helpers.constants import Env, JobState, JobType, Permission, PolicyEffect
 from helpers.time_helper import utc_iso
 from services import SP  # probably the only safe import we can use in conftest
 
-from ..commons import SOURCE, InMemoryHvacClient, SREClient
+from ..commons import InMemoryHvacClient, SREClient
 
 
 if TYPE_CHECKING:
@@ -122,20 +121,9 @@ def system_user_token(system_user) -> str:
     )['id_token']
 
 
-@pytest.fixture(scope='session')
-def deployment_resources():
-    name = 'deployment_resources.json'
-    with open(SOURCE / name, 'r') as f:
-        data1 = json.load(f).get('custodian-as-a-service-api') or {}
-    with open(SOURCE / 'validators' / name, 'r') as f:
-        data2 = json.load(f).get('custodian-as-a-service-api') or {}
-    data1['models'] = data2.get('models') or {}
-    return data1
-
-
 @pytest.fixture(
     scope='session')  # todo think about scope and look at the performance
-def wsgi_app(deployment_resources):
+def wsgi_app():
     from onprem.api.app import OnPremApiBuilder
     builder = OnPremApiBuilder('caas')
     return builder.build()
