@@ -47,7 +47,6 @@ class UserWrapper:
         'role',
         'latest_login',
         'created_at',
-        'is_service_account',
     )
 
     def __init__(self, username: str, customer: str | None = None,
