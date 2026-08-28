@@ -31,6 +31,30 @@ Optionally generate random envs:
 python generate_random_envs.py --rule-engine >> .env
 ```
 
+### Where to find system passwords
+
+All "system" credentials (`SRE_SYSTEM_USER_PASSWORD`, `MODULAR_API_INIT_PASSWORD`,
+`MODULAR_SERVICE_SYSTEM_USER_PASSWORD`, mongo/minio/redis/vault credentials) are plain
+environment variables with hardcoded fallback values baked into `compose.yaml`
+(`${SRE_SYSTEM_USER_PASSWORD:-systempassword}` and similar). There is no password
+printed to container logs on first start — the value is whatever the variable
+resolves to:
+
+- **You did not generate random envs** — every system password is the literal
+  default from `compose.yaml`, e.g. `SRE_SYSTEM_USER_PASSWORD` /
+  `MODULAR_SERVICE_SYSTEM_USER_PASSWORD` / `MODULAR_API_INIT_PASSWORD` all default
+  to `systempassword`. You can log in right away with that password (see
+  "Log in as system users" below).
+- **You ran `generate_random_envs.py --rule-engine >> .env`** — random values were
+  written to your `.env` file before `up`. Read them back with:
+
+  ```bash
+  grep -E "SRE_SYSTEM_USER_PASSWORD|MODULAR_SERVICE_SYSTEM_USER_PASSWORD|MODULAR_API_INIT_PASSWORD" .env
+  ```
+
+  and export them (or source the file) before running the `sre login` / `ms login`
+  commands further down.
+
 If all profiles are included those API will be available:
 - vault: [http://127.0.0.1:8200](http://127.0.0.1:8200)
 - mongo: [http://127.0.0.1:27017](http://127.0.0.1:27017)
@@ -153,13 +177,14 @@ sre configure --api_link http://0.0.0.0:8000/caas
 ms configure --api_link http://0.0.0.0:8040/dev
 ```
 
-Login as system users:
+Login as system users (see "Where to find system passwords" above — defaults to
+`systempassword` for both if you didn't generate random envs):
 ```bash
-sre login --username system_user --password "$SRE_SYSTEM_USER_PASSWORD"
+sre login --username system_user --password "${SRE_SYSTEM_USER_PASSWORD:-systempassword}"
 ```
 
 ```bash
-ms login --username system_user --password "$MODULAR_SERVICE_SYSTEM_USER_PASSWORD"
+ms login --username system_user --password "${MODULAR_SERVICE_SYSTEM_USER_PASSWORD:-systempassword}"
 ```
 
 
