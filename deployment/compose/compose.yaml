@@ -1,6 +1,10 @@
+# Shared by every rule-engine service — the compose counterpart of
+# deployment/helm/rule-engine/templates/_envs.tpl
 x-rule-engine-env: &rule-engine-env
   SRE_LOG_LEVEL: "${SRE_LOG_LEVEL:-DEBUG}"
   SRE_CELERY_LOG_LEVEL: "${SRE_CELERY_LOG_LEVEL:-DEBUG}"
+  SRE_BATCH_JOB_LOG_LEVEL: "${SRE_BATCH_JOB_LOG_LEVEL:-ERROR}"
+  SRE_CC_LOG_LEVEL: "${SRE_CC_LOG_LEVEL:-ERROR}"
   SRE_SYSTEM_USER_PASSWORD: "${SRE_SYSTEM_USER_PASSWORD:-systempassword}"
   SRE_SERVICE_MODE: docker
   SRE_INNER_CACHE_TTL_SECONDS: 300
@@ -18,13 +22,18 @@ x-rule-engine-env: &rule-engine-env
   MODULAR_SDK_VAULT_TOKEN: "${SRE_VAULT_TOKEN:-token}"
   MODULAR_SDK_VAULT_URL: "http://vault:8200"
   MODULAR_SDK_APPLICATION_NAME: syndicate-rule-engine
-  REDIS_PASSWORD: redispassword
+  MODULAR_SDK_LOG_LEVEL: "${MODULAR_SDK_LOG_LEVEL:-ERROR}"
+  REDIS_PASSWORD: "${REDIS_PASSWORD:-redispassword}"
   REDIS_DOMAIN: redis
   REDIS_PORT: "6379"
+  # outbound proxy for cloud APIs, License Manager and DefectDojo
+  HTTP_PROXY: "${HTTP_PROXY:-}"
+  HTTPS_PROXY: "${HTTPS_PROXY:-}"
+  NO_PROXY: "${NO_PROXY:-localhost,127.0.0.1,169.254.169.254,mongo,vault,minio,redis,modular-api,modular-service,nginx}"
 
 services:
   modular-api:
-    image: ${MODULAR_API_IMAGE:-public.ecr.aws/x4s4z8e1/syndicate/modular-api:${MODULAR_API_VERSION:-4.3.26-rule-engine-5.14.0}}
+    image: ${MODULAR_API_IMAGE:-public.ecr.aws/x4s4z8e1/syndicate/modular-api:${MODULAR_API_VERSION:-4.4.0-rule-engine-5.20.0}}
     container_name: modular-api
     ports:
       - "8085:8085"
@@ -45,7 +54,7 @@ services:
     networks:
       - rule-engine-net
   modular-service:
-    image: ${MODULAR_SERVICE_IMAGE:-public.ecr.aws/x4s4z8e1/syndicate/modular-service:${MODULAR_SERVICE_VERSION:-3.3.2}}
+    image: ${MODULAR_SERVICE_IMAGE:-public.ecr.aws/x4s4z8e1/syndicate/modular-service:${MODULAR_SERVICE_VERSION:-3.4.0}}
     container_name: modular-service
     ports:
       - "8040:8040"
@@ -83,7 +92,7 @@ services:
     networks:
       - rule-engine-net
   rule-engine-celeryworker:
-    image: ${RULE_ENGINE_IMAGE:-public.ecr.aws/x4s4z8e1/syndicate/rule-engine:${RULE_ENGINE_VERSION:-5.19.0}}
+    image: ${RULE_ENGINE_IMAGE:-public.ecr.aws/x4s4z8e1/syndicate/rule-engine:${RULE_ENGINE_VERSION:-5.20.0}}
     build:
       context: ../..
       dockerfile: src/onprem/Dockerfile-opensource-uv
@@ -113,7 +122,7 @@ services:
     networks:
       - rule-engine-net
   rule-engine-celerybeat:
-    image: ${RULE_ENGINE_IMAGE:-public.ecr.aws/x4s4z8e1/syndicate/rule-engine:${RULE_ENGINE_VERSION:-5.19.0}}
+    image: ${RULE_ENGINE_IMAGE:-public.ecr.aws/x4s4z8e1/syndicate/rule-engine:${RULE_ENGINE_VERSION:-5.20.0}}
     build:
       context: ../..
       dockerfile: src/onprem/Dockerfile-opensource-uv
@@ -136,6 +145,16 @@ services:
     environment:
       <<: *rule-engine-env
       SRE_CELERY_TIMEZONE: "${SRE_CELERY_TIMEZONE:-UTC}"
+      # beat schedules; an empty value disables the task
+      SRE_CELERY_MAKE_FINDINGS_SNAPSHOTS_SCHEDULE: "${SRE_CELERY_MAKE_FINDINGS_SNAPSHOTS_SCHEDULE:-0 */12 * * *}"
+      SRE_CELERY_SYNC_LICENSE_SCHEDULE: "${SRE_CELERY_SYNC_LICENSE_SCHEDULE:-14400}"
+      SRE_CELERY_COLLECT_METRICS_SCHEDULE: "${SRE_CELERY_COLLECT_METRICS_SCHEDULE:-0 3,15 * * *}"
+      SRE_CELERY_REMOVE_EXPIRED_METRICS_SCHEDULE: "${SRE_CELERY_REMOVE_EXPIRED_METRICS_SCHEDULE:-0 12 * * *}"
+      SRE_CELERY_SCAN_RESOURCES_SCHEDULE: "${SRE_CELERY_SCAN_RESOURCES_SCHEDULE:-}"
+      SRE_CELERY_ASSEMBLE_EVENTS_SCHEDULE: "${SRE_CELERY_ASSEMBLE_EVENTS_SCHEDULE:-*/5 * * * *}"
+      SRE_CELERY_CLEAR_EVENTS_SCHEDULE: "${SRE_CELERY_CLEAR_EVENTS_SCHEDULE:-0 0 * * *}"
+      SRE_CELERY_PROCESS_INTERVAL_REPORTS_SCHEDULE: "${SRE_CELERY_PROCESS_INTERVAL_REPORTS_SCHEDULE:-*/5 * * * *}"
+      SRE_CELERY_REMOVE_OLD_SHARDS_SCHEDULE: "${SRE_CELERY_REMOVE_OLD_SHARDS_SCHEDULE:-0 9 1 * *}"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     profiles:
@@ -143,7 +162,7 @@ services:
     networks:
       - rule-engine-net
   rule-engine:
-    image: ${RULE_ENGINE_IMAGE:-public.ecr.aws/x4s4z8e1/syndicate/rule-engine:${RULE_ENGINE_VERSION:-5.19.0}}
+    image: ${RULE_ENGINE_IMAGE:-public.ecr.aws/x4s4z8e1/syndicate/rule-engine:${RULE_ENGINE_VERSION:-5.20.0}}
     build:
       context: ../..
       dockerfile: src/onprem/Dockerfile-opensource-uv
@@ -167,6 +186,13 @@ services:
         condition: service_started
     environment:
       <<: *rule-engine-env
+      SRE_GUNICORN_WORKERS: "${SRE_GUNICORN_WORKERS:-2}"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/caas/health/live', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     extra_hosts:
       - "host.docker.internal:host-gateway"
     profiles:
@@ -174,7 +200,7 @@ services:
     networks:
       - rule-engine-net
   rule-engine-event-sources-consumer:
-    image: ${RULE_ENGINE_IMAGE:-public.ecr.aws/x4s4z8e1/syndicate/rule-engine:${RULE_ENGINE_VERSION:-5.19.0}}
+    image: ${RULE_ENGINE_IMAGE:-public.ecr.aws/x4s4z8e1/syndicate/rule-engine:${RULE_ENGINE_VERSION:-5.20.0}}
     build:
       context: ../..
       dockerfile: src/onprem/Dockerfile-opensource-uv
@@ -182,7 +208,7 @@ services:
     restart: always
     entrypoint: ["/src/entrypoint.sh", "event_sources_consumer"]
     ports:
-      - "8081:8081"
+      - "${SRE_EVENT_CONSUMER_PORT:-8081}:${SRE_EVENT_CONSUMER_PORT:-8081}"
     volumes:
       - rule-engine-data:/data
     depends_on:
@@ -196,6 +222,13 @@ services:
         condition: service_healthy
     environment:
       <<: *rule-engine-env
+      SRE_EVENT_CONSUMER_PORT: "${SRE_EVENT_CONSUMER_PORT:-8081}"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/healthz' % os.environ.get('SRE_EVENT_CONSUMER_PORT', '8081'), timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     extra_hosts:
       - "host.docker.internal:host-gateway"
     profiles:
@@ -248,7 +281,9 @@ services:
     volumes:
       - redis-data:/data
     restart: always
-    command: redis-server --save 20 1 --loglevel warning --requirepass redispassword
+    command: ["redis-server", "--save", "20", "1", "--loglevel", "warning", "--requirepass", "${REDIS_PASSWORD:-redispassword}"]
+    environment:
+      REDIS_PASSWORD: "${REDIS_PASSWORD:-redispassword}"
     networks:
       - rule-engine-net
   vault:
