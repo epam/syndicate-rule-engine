@@ -28,7 +28,7 @@ def _drop_execution_stats(collection: ShardsCollection) -> None:
     """
     parts: list[ShardPart] = []
     for part in collection.iter_all_parts():
-        if part.execution_stats is None:
+        if part.temp_execution_stats is None:
             continue
         parts.append(
             ShardPart(
@@ -38,7 +38,7 @@ def _drop_execution_stats(collection: ShardsCollection) -> None:
                 resources=part.resources,
                 error=part.error,
                 previous_timestamp=part.previous_timestamp,
-                execution_stats=None,
+                temp_execution_stats=None,
             )
         )
     if parts:
@@ -74,7 +74,7 @@ def _expand_collection_fingerprint_aliases(
                         resources=list(part.resources),
                         error=part.error,
                         previous_timestamp=part.previous_timestamp,
-                        execution_stats=part.execution_stats,
+                        temp_execution_stats=part.temp_execution_stats,
                     )
                 )
             if primary in collection.meta:

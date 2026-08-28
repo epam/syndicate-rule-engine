@@ -113,7 +113,7 @@ def statistics_from_shards_collection(
 
     for part in collection.iter_all_parts():
         key = (part.location, part.policy)
-        es = part.execution_stats or ExecutionStats(start_time=0, end_time=0)
+        es = part.temp_execution_stats or ExecutionStats(start_time=0, end_time=0)
 
         item: dict = {
             'policy': part.policy,
@@ -268,7 +268,7 @@ class JobResult:
                     location=region,
                     timestamp=metadata.end_time,
                     error=':'.join(error),
-                    execution_stats=ExecutionStats(
+                    temp_execution_stats=ExecutionStats(
                         start_time=metadata.start_time,
                         end_time=metadata.end_time,
                         api_calls=metadata.api_calls,
@@ -283,7 +283,7 @@ class JobResult:
                     location=region,
                     timestamp=metadata.end_time,
                     resources=resources,
-                    execution_stats=ExecutionStats(
+                    temp_execution_stats=ExecutionStats(
                         start_time=metadata.start_time,
                         end_time=metadata.end_time,
                         api_calls=metadata.api_calls,
@@ -313,7 +313,7 @@ class JobResult:
                     location=reg,
                     timestamp=metadata.end_time,
                     error=':'.join(error),
-                    execution_stats=ExecutionStats(
+                    temp_execution_stats=ExecutionStats(
                         start_time=metadata.start_time,
                         end_time=metadata.end_time,
                         api_calls=metadata.api_calls,
@@ -328,7 +328,7 @@ class JobResult:
                     location=reg,
                     timestamp=metadata.end_time,
                     resources=resources,
-                    execution_stats=ExecutionStats(
+                    temp_execution_stats=ExecutionStats(
                         start_time=metadata.start_time,
                         end_time=metadata.end_time,
                         api_calls=metadata.api_calls,

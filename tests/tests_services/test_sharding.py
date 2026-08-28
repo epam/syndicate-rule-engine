@@ -30,7 +30,7 @@ def make_shard_part():
             resources=resources or [],
             error=error,
             previous_timestamp=previous_timestamp,
-            execution_stats=execution_stats,
+            temp_execution_stats=execution_stats,
         )
 
     return _make_shard_part
@@ -179,7 +179,7 @@ class TestShardsS3IO:
         assert res.resources == []
         assert res.error is None
         assert res.previous_timestamp is None
-        assert res.execution_stats == ExecutionStats(start_time=1, end_time=2)
+        assert res.temp_execution_stats == ExecutionStats(start_time=1, end_time=2)
 
         client.gz_get_object.assert_called()
 

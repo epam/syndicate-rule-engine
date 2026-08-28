@@ -108,7 +108,8 @@ class ShardPart(
     # resources timestamp should be always be None if error is None
     previous_timestamp: float | None = msgspec.field(default=None, name='T')
     # may be removed from non-partial report shards after statistics are persisted
-    execution_stats: ExecutionStats | None = msgspec.field(default=None, name='es')
+    temp_execution_stats: ExecutionStats | None = msgspec.field(default=None, name='es')
+    """temporary execution stats that are used to build statistics"""
 
     def has_error(self) -> bool:
         return self.error is not None
@@ -204,7 +205,7 @@ class Shard(Iterable[ShardPart]):
                 resources=existing.resources,
                 error=part.error,
                 previous_timestamp=ts,
-                execution_stats=part.execution_stats,
+                temp_execution_stats=part.temp_execution_stats,
             )
         self._data[key] = part
 
