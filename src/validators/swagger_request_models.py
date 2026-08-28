@@ -2509,16 +2509,10 @@ class UserPatchModel(BaseModel):
 
     role_name: str = Field(None)
     password: str = Field(None)
-    is_service_account: bool | None = Field(
-        None,
-        description='Whether this user is a service account allowed to use '
-                    'MCP user-related headers',
-    )
 
     @model_validator(mode='after')
     def at_least_one(self) -> Self:
-        if not any((self.role_name, self.password,
-                    self.is_service_account is not None)):
+        if not any((self.role_name, self.password)):
             raise ValueError('provide at least one attribute to update')
         return self
 
@@ -2534,11 +2528,6 @@ class UserPostModel(BaseModel):
     username: str
     role_name: str
     password: str
-    is_service_account: bool = Field(
-        False,
-        description='Whether this user is a service account allowed to use '
-                    'MCP user-related headers',
-    )
 
     @field_validator('username', mode='after')
     @classmethod
