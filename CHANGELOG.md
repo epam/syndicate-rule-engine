@@ -11,8 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added resolving of tenant access payload for MCP users from MCP user context (header `X-Mcp-User-Context`)
 - Added a new system scheduler `process-periodic-rules` to run specific rules with `periodic=True` in their metadata
-- Added detailed compliance reports for job and tenant endpoints, including per-region standard/control coverage, severity, status, rule lists, and JSON/XLSX output
-- Added the standards questionnaire generator at `scripts/standard_questionnaire/generate.py`, which creates an Excel questionnaire from a selected standard, detailed compliance report, and standards-schema repository
+- Added standard questionnaire report endpoints that return a presigned url to an xlsx workbook with charts:
+  - `GET /reports/questionnaire/jobs/{job_id}`
+  - `GET /reports/questionnaire/tenants/{tenant_name}`
+  - new CLI group `sre report questionnaire`
 
 ### Fixed
 - Fixed K8s recommendations being overwritten when a tenant has multiple platforms by aggregating all platforms recommendations before saving

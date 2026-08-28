@@ -31,6 +31,7 @@ from validators.swagger_request_models import (
     JobFindingsReportGetModel,
     JobGetModel,
     JobPostModel,
+    JobQuestionnaireReportGetModel,
     JobResumePostModel,
     JobRuleReportGetModel,
     K8sJobPostModel,
@@ -98,6 +99,7 @@ from validators.swagger_request_models import (
     TenantJobsDetailsReportGetModel,
     TenantJobsDigestsReportGetModel,
     TenantJobsFindingsReportGetModel,
+    TenantQuestionnaireReportGetModel,
     TenantRuleReportGetModel,
     TopViolationsReportCompareJobsGetModel,
     TopViolationsReportJobGetModel,
@@ -1119,6 +1121,25 @@ data: tuple[EndpointInfo, ...] = (
         responses=[(HTTPStatus.OK, SingleEntityReportModel, None)],
         permission=Permission.REPORT_COMPLIANCE_DESCRIBE_TENANT,
         description='Allows to get a compliance report by tenant',
+    ),
+    # questionnaire reports
+    EndpointInfo(
+        path=Endpoint.REPORTS_QUESTIONNAIRE_JOBS_JOB_ID,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.REPORT_GENERATOR,
+        request_model=JobQuestionnaireReportGetModel,
+        responses=[(HTTPStatus.OK, SingleJobReportModel, None)],
+        permission=Permission.REPORT_QUESTIONNAIRE_DESCRIBE_JOB,
+        description='Allows to get a standard questionnaire xlsx by a job',
+    ),
+    EndpointInfo(
+        path=Endpoint.REPORTS_QUESTIONNAIRE_TENANTS_TENANT_NAME,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.REPORT_GENERATOR,
+        request_model=TenantQuestionnaireReportGetModel,
+        responses=[(HTTPStatus.OK, SingleEntityReportModel, None)],
+        permission=Permission.REPORT_QUESTIONNAIRE_DESCRIBE_TENANT,
+        description='Allows to get a standard questionnaire xlsx by a tenant',
     ),
     # errors report
     EndpointInfo(

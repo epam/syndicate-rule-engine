@@ -401,8 +401,7 @@ class ReportService:
     def calculate_coverages(
         successful: dict[Standard, dict[str, int]],
         full: dict[Standard, dict[str, int]],
-        detailed: bool = False,
-    ) -> dict[Standard, float | dict[str, float | dict[str, float]]]:
+    ) -> dict[Standard, float]:
         res = {}
         for st in successful:
             total_controls = full.get(st)
@@ -411,21 +410,15 @@ class ReportService:
                     f'Metadata does not contain controls-rules mapping for {st}'
                 )
                 continue
-            controls_coverages = calculate_controls_coverages(
-                successful[st], total_controls
-            )
-            standard_coverage = (
+            res[st] = (
                 StandardCoverageCalculator()
-                .update(controls_coverages)
+                .update(
+                    calculate_controls_coverages(
+                        successful[st], total_controls
+                    )
+                )
                 .produce()
             )
-            if detailed:
-                res[st] = {
-                    'total': standard_coverage,
-                    'controls': controls_coverages,
-                }
-            else:
-                res[st] = standard_coverage
         return res
 
     def calculate_tenant_full_coverage(

@@ -1614,13 +1614,25 @@ class TenantJobsDigestsReportGetModel(TimeRangedMixin, JobTypesMixin, BaseModel)
 class JobComplianceReportGetModel(BaseModel):
     format: ReportFormat = ReportFormat.JSON
     href: bool = False
-    detailed: bool = False
 
 
 class TenantComplianceReportGetModel(BaseModel):
     format: ReportFormat = ReportFormat.JSON
     href: bool = False
-    detailed: bool = False
+
+
+class JobQuestionnaireReportGetModel(BaseModel):
+    standard: str = Field(
+        description='Full name of the standard as it is returned by the '
+        'compliance report, i.e. "CIS Controls v7"'
+    )
+
+
+class TenantQuestionnaireReportGetModel(BaseModel):
+    standard: str = Field(
+        description='Full name of the standard as it is returned by the '
+        'compliance report, i.e. "CIS Controls v7"'
+    )
 
 
 class JobErrorReportGetModel(BaseModel):

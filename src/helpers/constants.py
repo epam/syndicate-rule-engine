@@ -130,6 +130,12 @@ class Endpoint(str, Enum):
     REPORTS_COMPLIANCE_TENANTS_TENANT_NAME = (
         '/reports/compliance/tenants/{tenant_name}'
     )
+    REPORTS_QUESTIONNAIRE_JOBS_JOB_ID = (
+        '/reports/questionnaire/jobs/{job_id}'
+    )
+    REPORTS_QUESTIONNAIRE_TENANTS_TENANT_NAME = (
+        '/reports/questionnaire/tenants/{tenant_name}'
+    )
     INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION = (
         '/integrations/defect-dojo/{id}/activation'
     )
@@ -894,6 +900,16 @@ class Permission(str, Enum):
     REPORT_COMPLIANCE_DESCRIBE_JOB = 'report:get_job_compliance', False, True
     REPORT_COMPLIANCE_DESCRIBE_TENANT = (
         'report:get_tenant_compliance',
+        False,
+        True,
+    )
+    REPORT_QUESTIONNAIRE_DESCRIBE_JOB = (
+        'report:get_job_questionnaire',
+        False,
+        True,
+    )
+    REPORT_QUESTIONNAIRE_DESCRIBE_TENANT = (
+        'report:get_tenant_questionnaire',
         False,
         True,
     )

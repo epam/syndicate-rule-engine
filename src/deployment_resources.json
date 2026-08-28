@@ -4775,6 +4775,142 @@
           ]
         }
       },
+      "/reports/questionnaire/jobs/{job_id}": {
+        "policy_statement_singleton": true,
+        "enable_cors": true,
+        "GET": {
+          "integration_type": "lambda",
+          "enable_proxy": true,
+          "lambda_alias": "${lambdas_alias_name}",
+          "authorization_type": "authorizer",
+          "request_validator": {
+            "validate_request_parameters": false
+          },
+          "lambda_name": "caas-report-generator",
+          "method_request_parameters": {
+            "method.request.querystring.customer_id": false,
+            "method.request.querystring.standard": true
+          },
+          "responses": [
+            {
+              "status_code": "200",
+              "response_models": {
+                "application/json": "SingleJobReportModel"
+              }
+            },
+            {
+              "status_code": "400",
+              "response_models": {
+                "application/json": "ErrorsModel"
+              }
+            },
+            {
+              "status_code": "401",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "403",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "404",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "500",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "503",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "504",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            }
+          ]
+        }
+      },
+      "/reports/questionnaire/tenants/{tenant_name}": {
+        "policy_statement_singleton": true,
+        "enable_cors": true,
+        "GET": {
+          "integration_type": "lambda",
+          "enable_proxy": true,
+          "lambda_alias": "${lambdas_alias_name}",
+          "authorization_type": "authorizer",
+          "request_validator": {
+            "validate_request_parameters": false
+          },
+          "lambda_name": "caas-report-generator",
+          "method_request_parameters": {
+            "method.request.querystring.customer_id": false,
+            "method.request.querystring.standard": true
+          },
+          "responses": [
+            {
+              "status_code": "200",
+              "response_models": {
+                "application/json": "SingleEntityReportModel"
+              }
+            },
+            {
+              "status_code": "400",
+              "response_models": {
+                "application/json": "ErrorsModel"
+              }
+            },
+            {
+              "status_code": "401",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "403",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "404",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "500",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "503",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            },
+            {
+              "status_code": "504",
+              "response_models": {
+                "application/json": "MessageModel"
+              }
+            }
+          ]
+        }
+      },
       "/reports/errors/jobs/{job_id}": {
         "policy_statement_singleton": true,
         "enable_cors": true,
