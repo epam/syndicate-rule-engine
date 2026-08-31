@@ -6,12 +6,25 @@ audit status, coverage and the rules that evaluate it.
 
 Sheets
 ------
-  1. 'Introduction'         - report explanation and workbook guide.
+  1. 'Introduction'         - report explanation, scope and workbook guide.
   2. 'Compliance'           - one row per control (Excel table + conditional
      formatting, so manual edits stay color-coded).
   3. 'Summary'              - formula-driven statistics table + two pie charts
      and two stacked charts.
   ('_ChartData' is a hidden helper sheet feeding the bar-of-pie chart.)
+
+Scope
+-----
+  jobs        - results of one single scan job.
+  accumulated - the latest accumulated state of a tenant.
+
+File names
+----------
+  jobs-<standard>-<job id>-questionnaire.xlsx
+  accumulated-<standard>-<tenant name>-questionnaire.xlsx
+
+  <standard> is the standard name with its version slugified with
+  underscores, <job id> is the last segment of the job UUID.
 
 Data sources
 ------------
@@ -74,6 +87,7 @@ from typing_extensions import Self
 from handlers import AbstractHandler, Mapping
 from helpers import deep_get
 from helpers.constants import (
+    DEPRECATED_RULE_SUFFIX,
     Cloud,
     Endpoint,
     HTTPMethod,
@@ -181,6 +195,78 @@ class Status(str, Enum):
     PASS = 'Pass'
     FAIL = 'Fail'
     NOT_EVALUATED = 'Not Evaluated'
+
+
+def slugify(value: str) -> str:
+    """'CIS Kubernetes Benchmark v1.7.0' -> 'cis_kubernetes_benchmark_v1_7_0'."""
+    return re.sub(r'[^a-z0-9]+', '_', value.lower()).strip('_')
+
+
+def short_job_id(job_id: str) -> str:
+    """Last segment of the job UUID, i.e. '...-9f2c1d4e' -> '9f2c1d4e'."""
+    return job_id.rsplit('-', maxsplit=1)[-1]
+
+
+def is_deprecated_rule(rule_name: str) -> bool:
+    return rule_name.endswith(DEPRECATED_RULE_SUFFIX)
+
+
+class ReportScope(str, Enum):
+    """Which questionnaire flavour is being built."""
+
+    JOB = 'jobs'
+    ACCUMULATED = 'accumulated'
+
+    @property
+    def label(self) -> str:
+        match self:
+            case ReportScope.JOB:
+                return 'Job questionnaire'
+            case _:
+                return 'Accumulated (tenant) questionnaire'
+
+    @property
+    def description(self) -> str:
+        match self:
+            case ReportScope.JOB:
+                return (
+                    'This workbook is a job questionnaire. It reflects the '
+                    'results of one single scan job of one tenant or '
+                    'Kubernetes platform. Controls that the job did not '
+                    'evaluate are reported as Not Evaluated even if another '
+                    'job has already covered them.'
+                )
+            case _:
+                return (
+                    'This workbook is an accumulated (tenant) questionnaire. '
+                    'It reflects the latest accumulated state of the tenant, '
+                    'meaning the most recent result of every rule collected '
+                    'over all of the scans of that tenant rather than a '
+                    'single scan job.'
+                )
+
+    @property
+    def filename_note(self) -> str:
+        match self:
+            case ReportScope.JOB:
+                return (
+                    'The file is named '
+                    'jobs-<standard>-<job id>-questionnaire.xlsx, where '
+                    '<standard> is the standard name with its version and '
+                    '<job id> is the last segment of the job UUID.'
+                )
+            case _:
+                return (
+                    'The file is named '
+                    'accumulated-<standard>-<tenant name>-questionnaire.xlsx, '
+                    'where <standard> is the standard name with its version.'
+                )
+
+    def filename(self, standard: Standard, entity: str) -> str:
+        return (
+            f'{self.value}-{slugify(standard.full_name)}-{entity}'
+            f'-questionnaire.xlsx'
+        )
 
 
 STATUS_FILL_COLORS = {
@@ -457,187 +543,175 @@ INTRODUCTION_NOTICE_BG = 'FF7F7F7F'
 INTRODUCTION_HEADER_FONT = 'Gill Sans MT'
 INTRODUCTION_BODY_FONT = 'Aptos Narrow'
 
-
-def _write_intro_block(
-    ws: Worksheet,
-    first_row: int,
-    last_row: int,
-    text: str,
-    *,
-    font: Font,
-    alignment: Alignment,
-    background: str | None = None,
-) -> None:
-    ws.merge_cells(
-        start_row=first_row,
-        start_column=1,
-        end_row=last_row,
-        end_column=INTRODUCTION_LAST_COL,
-    )
-    cell = ws.cell(row=first_row, column=1, value=text)
-    cell.font = font
-    cell.alignment = alignment
-    if background:
-        cell.fill = fill(background)
+INTRO_TITLE_HEIGHT = 30.0
+INTRO_SECTION_HEIGHT = 19.9
+INTRO_LEAD_HEIGHT = 14.45
+INTRO_BODY_HEIGHT = 34.15
+INTRO_BULLET_HEIGHT = 16.9
+INTRO_NOTICE_HEIGHT = 31.0
 
 
-def _write_intro_section(
-    ws: Worksheet, row: int, text: str, *, background: str
-) -> None:
-    _write_intro_block(
-        ws,
-        row,
-        row,
-        text,
-        font=Font(
-            name=INTRODUCTION_HEADER_FONT,
-            size=13,
-            bold=True,
-            color=HEX_HEADER_FONT,
-        ),
-        alignment=ALIGN_HEADER,
-        background=background,
-    )
+class _IntroSheetWriter:
+    """Sequential writer: sections can be added without fixed row numbers."""
 
+    def __init__(self, ws: Worksheet) -> None:
+        self._ws = ws
+        self._row = 1
 
-def _write_intro_body(
-    ws: Worksheet, first_row: int, last_row: int, text: str
-) -> None:
-    _write_intro_block(
-        ws,
-        first_row,
-        last_row,
-        text,
-        font=Font(name=INTRODUCTION_BODY_FONT, size=11),
-        alignment=Alignment(
-            horizontal='left', vertical='center', wrap_text=True
-        ),
-    )
+    def _write(
+        self,
+        text: str,
+        *,
+        span: int,
+        height: float,
+        font: Font,
+        alignment: Alignment,
+        background: str | None = None,
+    ) -> None:
+        first, last = self._row, self._row + span - 1
+        self._ws.merge_cells(
+            start_row=first,
+            start_column=1,
+            end_row=last,
+            end_column=INTRODUCTION_LAST_COL,
+        )
+        cell = self._ws.cell(row=first, column=1, value=text)
+        cell.font = font
+        cell.alignment = alignment
+        if background:
+            cell.fill = fill(background)
+        for row in range(first, last + 1):
+            self._ws.row_dimensions[row].height = height
+        self._row = last + 1
+
+    def section(
+        self,
+        text: str,
+        *,
+        background: str = INTRODUCTION_HEADER_BG,
+        height: float = INTRO_SECTION_HEIGHT,
+    ) -> None:
+        self._write(
+            text,
+            span=1,
+            height=height,
+            font=Font(
+                name=INTRODUCTION_HEADER_FONT,
+                size=13,
+                bold=True,
+                color=HEX_HEADER_FONT,
+            ),
+            alignment=ALIGN_HEADER,
+            background=background,
+        )
+
+    def title(self, text: str) -> None:
+        self.section(text, height=INTRO_TITLE_HEIGHT)
+
+    def body(
+        self, text: str, *, span: int = 2, height: float = INTRO_BODY_HEIGHT
+    ) -> None:
+        self._write(
+            text,
+            span=span,
+            height=height,
+            font=Font(name=INTRODUCTION_BODY_FONT, size=11),
+            alignment=Alignment(
+                horizontal='left', vertical='center', wrap_text=True
+            ),
+        )
+
+    def bullet(self, text: str) -> None:
+        self.body(f'\u2022  {text}', span=1, height=INTRO_BULLET_HEIGHT)
+
+    def blank(self) -> None:
+        self._row += 1
 
 
 def build_introduction_sheet(
-    wb: Workbook, standard_name: str, version: str
+    wb: Workbook, standard: Standard, scope: ReportScope
 ) -> None:
     """Create the report guide shown before the Compliance and Summary sheets."""
     ws = wb.create_sheet(INTRODUCTION_SHEET, 0)
+    writer = _IntroSheetWriter(ws)
 
-    _write_intro_section(ws, 1, 'Introduction', background=INTRODUCTION_HEADER_BG)
-    _write_intro_body(
-        ws,
-        2,
-        4,
+    writer.title('Introduction')
+    writer.body(
         f'This workbook is a detailed compliance questionnaire for '
-        f'{standard_name} {version}. It maps every control of the selected '
+        f'{standard.full_name}. It maps every control of the selected '
         'security standard to the coverage, severity, evaluation status, and '
         'rules reported by SRE to support control coverage and rule-result '
         'review.',
+        span=3,
+        height=INTRO_LEAD_HEIGHT,
     )
+    writer.blank()
 
-    _write_intro_section(ws, 6, 'I. Structure', background=INTRODUCTION_HEADER_BG)
-    _write_intro_body(
-        ws,
-        7,
-        7,
+    writer.section('I. Scope')
+    writer.body(
+        f'Report type: {scope.label}.', span=1, height=INTRO_BULLET_HEIGHT
+    )
+    writer.body(scope.description)
+    writer.body(scope.filename_note)
+    writer.blank()
+
+    writer.section('II. Structure', height=25.15)
+    writer.body(
         'The spreadsheet includes three visible sheets and one hidden helper '
         'sheet:',
+        span=1,
+        height=24.6,
     )
-    _write_intro_body(
-        ws,
-        8,
-        8,
-        f'\u2022  {COMPLIANCE_SHEET} - one row per control, including its '
-        'severity, status, coverage, and associated rule IDs.',
+    writer.bullet(
+        f'{COMPLIANCE_SHEET} - one row per control, including its severity, '
+        'status, coverage, and associated rule IDs.'
     )
-    _write_intro_body(
-        ws,
-        9,
-        9,
-        '\u2022  Summary - formula-driven status and severity statistics, '
-        'coverage metrics, and charts.',
+    writer.bullet(
+        'Summary - formula-driven status and severity statistics, coverage '
+        'metrics, and charts.'
     )
-    _write_intro_body(
-        ws,
-        10,
-        10,
-        '\u2022  _ChartData - hidden helper cells used by the Applicable '
-        'Coverage chart.',
+    writer.bullet(
+        '_ChartData - hidden helper cells used by the Applicable Coverage '
+        'chart.'
     )
+    writer.blank()
 
-    _write_intro_section(
-        ws, 12, 'II. Description', background=INTRODUCTION_HEADER_BG
-    )
-    _write_intro_body(
-        ws,
-        13,
-        14,
+    writer.section('III. Description')
+    writer.body(
         f'{COMPLIANCE_SHEET} contains the full list of the standard controls '
         'taken from the customer metadata. Coverage and severity are shown '
-        'alongside the rule IDs that passed, failed, or were not evaluated.',
+        'alongside the rule IDs that passed, failed, or were not evaluated.'
     )
-    _write_intro_body(
-        ws,
-        15,
-        16,
+    writer.body(
         'Summary contains the Total Coverage and Applicable Coverage pies, '
         'plus Severity vs Status and Status vs Severity stacked-bar charts. '
         'Its statistics table is formula-driven and updates from the '
-        'StandardQuestionnaire table when Excel recalculates the workbook.',
+        'StandardQuestionnaire table when Excel recalculates the workbook.'
     )
-    _write_intro_body(
-        ws,
-        17,
-        18,
+    writer.body(
         'Status is derived from rule results, not from the coverage number: '
         'Fail means at least one rule failed; Pass means every rule succeeded; '
         'Not Evaluated means there was no failure but at least one rule was '
-        'unevaluated or no rule succeeded.',
+        'unevaluated or no rule succeeded.'
     )
-    _write_intro_body(
-        ws,
-        19,
-        20,
+    writer.body(
         'SRE Applicable Coverage excludes Not Evaluated controls, while Total '
-        'Coverage averages all controls.',
+        'Coverage averages all controls.'
     )
+    writer.blank()
 
-    _write_intro_section(ws, 22, 'Notice', background=INTRODUCTION_NOTICE_BG)
-    _write_intro_body(
-        ws,
-        23,
-        25,
+    writer.section('Notice', background=INTRODUCTION_NOTICE_BG)
+    writer.body(
         'When a scan contains multiple regions, rule lists are unioned across '
         'regions and failed rules take precedence over successful or '
-        'unevaluated results. The first non-null coverage and severity values '
-        'are retained for each control. Do not delete the hidden _ChartData '
-        'sheet while charts are in use.',
+        'unevaluated results. Coverage is calculated once for the whole '
+        'account. Do not delete the hidden _ChartData sheet while charts are '
+        'in use.',
+        span=3,
+        height=INTRO_NOTICE_HEIGHT,
     )
 
     set_column_widths(ws, {'A': 22.3, 'B': 35.6, 'C': 15.6, 'D': 80.0})
-    for row, height in {
-        1: 30.0,
-        2: 14.45,
-        3: 14.45,
-        4: 13.15,
-        6: 25.15,
-        7: 24.6,
-        8: 16.9,
-        9: 16.9,
-        10: 16.9,
-        12: 19.9,
-        13: 34.15,
-        14: 34.15,
-        15: 34.15,
-        16: 34.15,
-        17: 34.15,
-        18: 34.15,
-        19: 34.15,
-        20: 34.15,
-        22: 19.9,
-        23: 31.0,
-        24: 31.0,
-        25: 31.0,
-    }.items():
-        ws.row_dimensions[row].height = height
     ws.sheet_properties.tabColor = INTRODUCTION_HEADER_BG
 
 
@@ -1035,15 +1109,15 @@ def _status_vs_severity_bar(ws: Worksheet) -> BarChart:
 
 
 def build_workbook(
-    rows: Sequence[ControlRow], standard_name: str, version: str
+    rows: Sequence[ControlRow], standard: Standard, scope: ReportScope
 ) -> Workbook:
     layout = SheetLayout.for_rows(rows)
     wb = Workbook()
     compliance_ws = wb.active
     compliance_ws.title = COMPLIANCE_SHEET
     build_questionnaire_sheet(compliance_ws, rows, layout)
-    build_introduction_sheet(wb, standard_name, version)
-    build_summary_sheet(wb, standard_name, version)
+    build_introduction_sheet(wb, standard, scope)
+    build_summary_sheet(wb, standard.name, standard.version or '')
 
     # Structured-reference formulas must be evaluated by Excel on open.
     wb.calculation.calcMode = 'auto'
@@ -1141,10 +1215,11 @@ class QuestionnaireHandler(AbstractHandler):
             cloud=cloud,
             standard=standard,
             full_controls=full_cov[standard],
+            scope=ReportScope.JOB,
         )
 
         url = self._report_service.one_time_url(
-            buffer, f'{job.id}-questionnaire.xlsx'
+            buffer, ReportScope.JOB.filename(standard, short_job_id(job.id))
         )
         response = ReportResponse(job, url, fmt=ReportFormat.XLSX)
         return build_response(content=response.dict())
@@ -1179,10 +1254,11 @@ class QuestionnaireHandler(AbstractHandler):
             cloud=cloud,
             standard=standard,
             full_controls=full_cov[standard],
+            scope=ReportScope.ACCUMULATED,
         )
 
         url = self._report_service.one_time_url(
-            buffer, f'{tenant_name}-questionnaire.xlsx'
+            buffer, ReportScope.ACCUMULATED.filename(standard, tenant_name)
         )
         response = ReportResponse(tenant, url, fmt=ReportFormat.XLSX)
         return build_response(content=response.dict())
@@ -1194,6 +1270,7 @@ class QuestionnaireHandler(AbstractHandler):
         cloud: Cloud,
         standard: Standard,
         full_controls: dict[str, int],
+        scope: ReportScope,
     ) -> io.BytesIO:
         """Build a questionnaire workbook without constructing an HTTP response."""
         collection.fetch_all()
@@ -1205,7 +1282,7 @@ class QuestionnaireHandler(AbstractHandler):
             full_controls=full_controls,
         )
         buffer = io.BytesIO()
-        build_workbook(rows, standard.name, standard.version or '').save(buffer)
+        build_workbook(rows, standard, scope).save(buffer)
         buffer.seek(0)
         return buffer
 
@@ -1228,7 +1305,10 @@ class QuestionnaireHandler(AbstractHandler):
     ) -> dict:
         """
         standard name -> version -> control -> {'rules': [...],
-        'severity': Severity}
+        'deprecated': [...], 'severity': Severity}
+
+        Deprecated rules are kept apart: they are excluded from the reported
+        rules and from the control severity.
         """
         result = {}
         order = list(Severity)
@@ -1244,6 +1324,7 @@ class QuestionnaireHandler(AbstractHandler):
         for rule_name, rule_metadata in metadata.rules.items():
             if rule_metadata.cloud != cloud:
                 continue
+            deprecated = is_deprecated_rule(rule_name)
             rule_sev = rule_metadata.severity
             for standard, versions in rule_metadata.standard.items():
                 std_map = result.setdefault(standard, {})
@@ -1251,8 +1332,12 @@ class QuestionnaireHandler(AbstractHandler):
                     ver_map = std_map.setdefault(version, {})
                     for control in controls:
                         ctrl_data = ver_map.setdefault(
-                            control, {'rules': [], 'severity': None}
+                            control,
+                            {'rules': [], 'deprecated': [], 'severity': None},
                         )
+                        if deprecated:
+                            ctrl_data['deprecated'].append(rule_name)
+                            continue
                         ctrl_data['rules'].append(rule_name)
                         if ctrl_data['severity'] is None or _sev_rank(
                             rule_sev

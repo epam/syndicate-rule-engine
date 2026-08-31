@@ -7,10 +7,13 @@ from openpyxl import load_workbook
 from handlers.reports.questionnaire_handler import (
     ControlRow,
     QuestionnaireHandler,
+    ReportScope,
     SheetLayout,
     Status,
     build_workbook,
     natural_key,
+    short_job_id,
+    slugify,
 )
 from helpers.constants import Cloud, Severity
 from helpers.reports import Standard
@@ -44,6 +47,7 @@ def _handler() -> QuestionnaireHandler:
         job_service=None,  # type: ignore[arg-type]
         report_service=ReportService(None, None),  # type: ignore[arg-type]
         license_service=None,  # type: ignore[arg-type]
+        platform_service=None,  # type: ignore[arg-type]
     )
 
 
@@ -65,11 +69,34 @@ def test_mapping_keeps_rules_and_selects_highest_cloud_severity():
             _STANDARD.version_str: {
                 '1.1': {
                     'rules': ['rule-low', 'rule-high'],
+                    'deprecated': [],
                     'severity': Severity.HIGH,
                 },
             },
         },
     }
+
+
+def test_mapping_sets_deprecated_rules_apart():
+    metadata = _metadata(
+        {
+            'rule-low': _rule(Cloud.AWS, Severity.LOW, ['1.1']),
+            'rule-high-deprecated': _rule(Cloud.AWS, Severity.HIGH, ['1.1']),
+            # only looks for deprecated things, the suffix check must keep it
+            'rule-deprecated-runtime': _rule(
+                Cloud.AWS, Severity.MEDIUM, ['1.1']
+            ),
+        }
+    )
+
+    control = QuestionnaireHandler.build_standard_control_to_rule_names(
+        metadata=metadata, cloud=Cloud.AWS
+    )[_STANDARD.name][_STANDARD.version_str]['1.1']
+
+    assert control['rules'] == ['rule-low', 'rule-deprecated-runtime']
+    assert control['deprecated'] == ['rule-high-deprecated']
+    # the severity of a deprecated rule must not leak into the control
+    assert control['severity'] is Severity.MEDIUM
 
 
 def test_resolve_standard_by_full_name():
@@ -124,6 +151,47 @@ def test_build_rows_aggregates_regions_with_failure_precedence():
     assert second.not_evaluated_rules == ['rule-d']
     assert second.status is Status.NOT_EVALUATED
     assert second.coverage == 0.0
+
+
+def test_build_rows_drops_deprecated_rules_from_status_and_rule_ids():
+    collection = ShardsCollectionFactory.from_cloud(Cloud.AWS)
+    collection.put_parts(
+        [
+            ShardPart(policy='rule-a', location='eu-west-1', resources=[]),
+            # deprecated and failing: must not turn the control into Fail
+            ShardPart(
+                policy='rule-b-deprecated',
+                location='eu-west-1',
+                resources=[{}],
+            ),
+        ]
+    )
+    metadata = _metadata(
+        {
+            'rule-a': _rule(Cloud.AWS, Severity.LOW, ['1.1']),
+            'rule-b-deprecated': _rule(Cloud.AWS, Severity.HIGH, ['1.1']),
+        }
+    )
+
+    # full_cov comes from LM and counts the deprecated rule as well
+    (row,) = _handler().build_rows(
+        collection=collection,
+        metadata=metadata,
+        cloud=Cloud.AWS,
+        standard=_STANDARD,
+        full_controls={'1.1': 2},
+    )
+
+    assert row.successful_rules == ['rule-a']
+    assert row.failed_rules == []
+    assert row.not_evaluated_rules == []
+    assert row.status is Status.PASS
+    assert row.rule_short_ids == 'rule-a'
+    # the severity of the deprecated rule is not reported either
+    assert row.severity == Severity.LOW.value
+    # Coverage still uses the unmodified `full_cov` denominator, so it does not
+    # reach 100% even though every reported rule passed.
+    assert row.coverage == 0.5
 
 
 def test_natural_key_sorts_controls_naturally():
@@ -190,7 +258,7 @@ def test_build_workbook_contains_all_sheets():
         )
     ]
     buffer = BytesIO()
-    build_workbook(rows, _STANDARD.name, _STANDARD.version or '').save(buffer)
+    build_workbook(rows, _STANDARD, ReportScope.JOB).save(buffer)
     buffer.seek(0)
 
     wb = load_workbook(buffer)
@@ -215,6 +283,71 @@ def test_build_workbook_contains_all_sheets():
         1.0,
         '001',
     ]
+
+
+def _intro_texts(scope: ReportScope) -> list[str]:
+    buffer = BytesIO()
+    build_workbook([ControlRow(control_id='1.1')], _STANDARD, scope).save(
+        buffer
+    )
+    buffer.seek(0)
+    ws = load_workbook(buffer)['Introduction']
+    return [
+        cell.value
+        for row in ws.iter_rows()
+        for cell in row
+        if isinstance(cell.value, str)
+    ]
+
+
+def test_introduction_describes_job_scope():
+    texts = _intro_texts(ReportScope.JOB)
+
+    assert 'I. Scope' in texts
+    assert 'Report type: Job questionnaire.' in texts
+    assert any('one single scan job' in text for text in texts)
+    assert any(
+        'jobs-<standard>-<job id>-questionnaire.xlsx' in text
+        and 'last segment of the job UUID' in text
+        for text in texts
+    )
+    # sections are renumbered once Scope is inserted
+    assert 'II. Structure' in texts
+    assert 'III. Description' in texts
+    assert 'Notice' in texts
+
+
+def test_introduction_describes_accumulated_scope():
+    texts = _intro_texts(ReportScope.ACCUMULATED)
+
+    assert 'Report type: Accumulated (tenant) questionnaire.' in texts
+    assert any('latest accumulated state of the tenant' in t for t in texts)
+    assert any(
+        'accumulated-<standard>-<tenant name>-questionnaire.xlsx' in text
+        for text in texts
+    )
+
+
+def test_slugify_standard_full_name():
+    assert slugify('CIS Kubernetes Benchmark v1.7.0') == (
+        'cis_kubernetes_benchmark_v1_7_0'
+    )
+    assert slugify('CIS Controls') == 'cis_controls'
+
+
+def test_short_job_id_takes_last_uuid_segment():
+    assert short_job_id('20d3a4e1-6a0f-4c0e-9c11-1f2d3e4f5a6b') == '1f2d3e4f5a6b'
+    assert short_job_id('plain') == 'plain'
+
+
+def test_filenames_follow_the_agreed_format():
+    assert ReportScope.JOB.filename(_STANDARD, '1f2d3e4f5a6b') == (
+        'jobs-cis_kubernetes_benchmark_v1_7_0-1f2d3e4f5a6b-questionnaire.xlsx'
+    )
+    assert ReportScope.ACCUMULATED.filename(_STANDARD, 'MY-TENANT') == (
+        'accumulated-cis_kubernetes_benchmark_v1_7_0-MY-TENANT'
+        '-questionnaire.xlsx'
+    )
 
 
 
