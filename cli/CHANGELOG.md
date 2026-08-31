@@ -14,8 +14,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `sre report push dojo`
   - `sre report resource jobs`
   - `sre report rules accumulated`
-- Added `--service_account` / `-sa` option (`true`/`false`) to `sre users create` to create a service account user allowed to use MCP user-related headers
-- Added `--service_account` / `-sa` option (`true`/`false`) to `sre users update` to mark or unmark a user as a service account
 
 ### Removed
 - Removed `--job_type` option from commands because `--job_id` is required:
