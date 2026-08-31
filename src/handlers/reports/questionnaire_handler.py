@@ -208,6 +208,7 @@ def short_job_id(job_id: str) -> str:
 
 
 def is_deprecated_rule(rule_name: str) -> bool:
+    # TODO: update when rule deprecation logic changes
     return rule_name.endswith(DEPRECATED_RULE_SUFFIX)
 
 
