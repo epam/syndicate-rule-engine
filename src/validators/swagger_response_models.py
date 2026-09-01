@@ -194,6 +194,11 @@ class LicenseManagerClient(TypedDict):
     public_key: str
 
 
+class McpAuth(TypedDict):
+    algorithm: str
+    configured: bool
+
+
 class RabbitMQ(TypedDict):
     maestro_user: str
     rabbit_exchange: NotRequired[str]
@@ -492,7 +497,6 @@ class User(TypedDict):
     role: str | None
     latest_login: datetime | None
     created_at: datetime | None
-    is_service_account: bool
 
 
 class RawReportItem(TypedDict):
@@ -692,6 +696,10 @@ class SingleMailSettingModel(BaseModel):
 
 class SingleLMClientModel(BaseModel):
     data: LicenseManagerClient
+
+
+class SingleMcpAuthModel(BaseModel):
+    data: McpAuth
 
 
 class SingleLMConfigModel(BaseModel):
