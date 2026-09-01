@@ -19,4 +19,3 @@ class ValkeyStorage(Storage):
 
     def has(self, key: str) -> bool:
         return bool(self._client.exists(key))
-
