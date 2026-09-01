@@ -3,4 +3,4 @@ appVersion: "8.0.10"
 description: A Helm chart for Valkey
 name: valkey
 type: application
-version: "1.1.0"
+version: "1.0.0"

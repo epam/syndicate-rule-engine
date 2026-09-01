@@ -18,8 +18,8 @@ dependencies:
     version: "^1.1.1"
     condition: mongo.enabled
   - name: valkey
-    repository: "file://../valkey"
-    version: "^1.1.0"
+    repository: "s3://charts-repository/syndicate/"
+    version: "^1.0.0"
     condition: valkey.enabled
   - name: modular-service
     repository: "s3://charts-repository/syndicate/"
