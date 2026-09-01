@@ -850,6 +850,34 @@ class SREApiClient:
             data=sifted(kwargs),
         )
 
+    def mcp_auth_setting_get(self, **kwargs):
+        return self.make_request(
+            path=Endpoint.INTEGRATIONS_MCP_AUTH,
+            method=HTTPMethod.GET,
+            query=sifted(kwargs),
+        )
+
+    def mcp_auth_setting_post(self, **kwargs):
+        return self.make_request(
+            path=Endpoint.INTEGRATIONS_MCP_AUTH,
+            method=HTTPMethod.POST,
+            data=sifted(kwargs),
+        )
+
+    def mcp_auth_setting_patch(self, **kwargs):
+        return self.make_request(
+            path=Endpoint.INTEGRATIONS_MCP_AUTH,
+            method=HTTPMethod.PATCH,
+            data=sifted(kwargs),
+        )
+
+    def mcp_auth_setting_delete(self, **kwargs):
+        return self.make_request(
+            path=Endpoint.INTEGRATIONS_MCP_AUTH,
+            method=HTTPMethod.DELETE,
+            data=sifted(kwargs),
+        )
+
     def event_action(self, **kwargs):
         return self.make_request(
             path=Endpoint.EVENT,

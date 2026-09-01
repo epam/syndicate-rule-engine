@@ -1981,6 +1981,60 @@
           "type": "object"
         }
       },
+      "McpAuthSettingPatchModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "algorithm": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Algorithm"
+            },
+            "jwt": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Jwt"
+            }
+          },
+          "title": "McpAuthSettingPatchModel",
+          "type": "object"
+        }
+      },
+      "McpAuthSettingPostModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "algorithm": {
+              "default": "RS256",
+              "title": "Algorithm",
+              "type": "string"
+            },
+            "jwt": {
+              "title": "Jwt",
+              "type": "string"
+            }
+          },
+          "required": [
+            "jwt"
+          ],
+          "title": "McpAuthSettingPostModel",
+          "type": "object"
+        }
+      },
       "MessageModel": {
         "content_type": "application/json",
         "schema": {
@@ -4180,6 +4234,10 @@
                   "self_integration:update",
                   "self_integration:describe",
                   "self_integration:delete",
+                  "mcp_auth:describe",
+                  "mcp_auth:create",
+                  "mcp_auth:update",
+                  "mcp_auth:delete",
                   "dojo_integration:create",
                   "dojo_integration:describe",
                   "dojo_integration:delete",
@@ -4332,6 +4390,10 @@
                   "self_integration:update",
                   "self_integration:describe",
                   "self_integration:delete",
+                  "mcp_auth:describe",
+                  "mcp_auth:create",
+                  "mcp_auth:update",
+                  "mcp_auth:delete",
                   "dojo_integration:create",
                   "dojo_integration:describe",
                   "dojo_integration:delete",
@@ -4525,6 +4587,10 @@
                   "self_integration:update",
                   "self_integration:describe",
                   "self_integration:delete",
+                  "mcp_auth:describe",
+                  "mcp_auth:create",
+                  "mcp_auth:update",
+                  "mcp_auth:delete",
                   "dojo_integration:create",
                   "dojo_integration:describe",
                   "dojo_integration:delete",
@@ -7135,6 +7201,36 @@
             "data"
           ],
           "title": "SingleMailSettingModel",
+          "type": "object"
+        }
+      },
+      "SingleMcpAuthModel": {
+        "content_type": "application/json",
+        "schema": {
+          "properties": {
+            "data": {
+              "properties": {
+                "algorithm": {
+                  "title": "Algorithm",
+                  "type": "string"
+                },
+                "configured": {
+                  "title": "Configured",
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "algorithm",
+                "configured"
+              ],
+              "title": "McpAuth",
+              "type": "object"
+            }
+          },
+          "required": [
+            "data"
+          ],
+          "title": "SingleMcpAuthModel",
           "type": "object"
         }
       },

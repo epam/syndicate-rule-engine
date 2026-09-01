@@ -7,7 +7,7 @@ version: "5.21.0"
 dependencies:
   - name: vault
     repository: "s3://charts-repository/syndicate/"
-    version: "^1.2.1"
+    version: "^1.3.0"
     condition: vault.enabled
   - name: minio
     repository: "s3://charts-repository/syndicate/"
