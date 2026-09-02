@@ -2,7 +2,7 @@
 
 ## Overall Architecture / Context Diagram
 
-As the solution offers 2 deployment options (Container-based one), the Overall Architecture Diagram displays the components 
+The Overall Architecture Diagram displays the components 
 of the Syndicate Rule Engine that brings the solution to life without any specifics of the software or managed services utilized.
 
 ![Context Diagram](./assets/context_diagram.png)
