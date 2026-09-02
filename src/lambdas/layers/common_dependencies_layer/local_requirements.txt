@@ -1,5 +1,0 @@
-services
-helpers
-models
-validators
-handlers

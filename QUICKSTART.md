@@ -4,7 +4,7 @@
 
 ### What is Syndicate Rule Engine
 
-Syndicate Rule Engine is a serverless service-wrapper over another opensource tool - [Cloud Custodian](https://cloudcustodian.io/). This quickstart guide is written assuming that you are familiar with it. 
+Syndicate Rule Engine is a service-wrapper, deployable as a container, over another opensource tool - [Cloud Custodian](https://cloudcustodian.io/). This quickstart guide is written assuming that you are familiar with it. 
 
 ### What does Syndicate Rule Engine do?
 

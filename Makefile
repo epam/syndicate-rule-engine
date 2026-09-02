@@ -1,6 +1,6 @@
 
 .DEFAULT_GOAL := help
-.PHONY: help check-syndicate test test-coverage install install-cli install-modular-cli update-meta clean open-source-executor-image fork-executor-image aws-ecr-login aws-ecr-push-executor syndicate-update-lambdas syndicate-update-api-gateway syndicate-update-meta syndicate-update-step-functions compose-up compose-down compose-build compose-ps compose-logs cli-dist obfuscation-manager-dist image-arm64 image-amd64 image-manifest push-arm64 push-amd64 push-manifest push-helm-chart
+.PHONY: help test test-coverage install install-cli install-modular-cli update-meta clean open-source-executor-image fork-executor-image aws-ecr-login aws-ecr-push-executor compose-up compose-down compose-build compose-ps compose-logs cli-dist obfuscation-manager-dist image-arm64 image-amd64 image-manifest push-arm64 push-amd64 push-manifest push-helm-chart
 
 # Targets with a trailing `## description` are listed by `make help`.
 # Section headers use `##@ Section name`.
@@ -26,10 +26,6 @@ SERVER_IMAGE_TAG ?= $(shell PYTHONPATH=./src python -B -c "from src.helpers.__ve
 DOCKERFILE_NAME := Dockerfile-opensource-uv
 ADDITIONAL_BUILD_PARAMS ?=
 
-SYNDICATE_EXECUTABLE_PATH ?= $(shell which syndicate)
-SYNDICATE_CONFIG_PATH ?= .syndicate-config-main
-SYNDICATE_BUNDLE_NAME := syndicate-rule-engine
-
 HELM_REPO_NAME := syndicate
 
 DOCKER_COMPOSE ?= docker-compose
@@ -53,11 +49,6 @@ MODULAR_CLI_ENTRY_POINT = syndicate
 MODULAR_CLI_VENV ?= .modular-cli-venv
 
 ##@ Development
-
-check-syndicate: ## Verify syndicate executable and config are present
-	@if [[ -z "$(SYNDICATE_EXECUTABLE_PATH)" ]]; then echo "No syndicate executable found"; exit 1; fi
-	@if [[ ! -d "$(SYNDICATE_CONFIG_PATH)" ]]; then echo "Syndicate config directory $(SYNDICATE_CONFIG_PATH) not found"; exit 1; fi
-
 
 test: ## Run unit tests
 	uv run pytest --verbose tests/ cli/srecli_tests/
@@ -114,9 +105,7 @@ compose-logs: ## Tail compose logs
 
 ##@ Meta & cleanup
 
-update-meta: ## Regenerate deployment_resources.json and admin_policy.json
-	# updating src/deployment_resources.json (may need to adjust manually after that)
-	python src/main.py update_api_models
+update-meta: ## Regenerate admin_policy.json
 	# updating src/admin_policy.json
 	python src/main.py show_permissions | python -c "import sys,json;json.dump({'customer':'', 'name':'admin_policy','permissions': json.load(sys.stdin)},sys.stdout,indent=2)" > src/admin_policy.json
 
@@ -125,10 +114,8 @@ openapi-spec.json: src/validators/registry.py src/validators/swagger_request_mod
 	python src/main.py generate_openapi > openapi-spec.json
 
 
-clean: ## Remove caches, coverage, logs, and local syndicate artifacts
-	-rm -rf .pytest_cache .coverage sre_common_dependencies_layer.zip ./logs htmlcov openapi-spec.json
-	-if [[ -d "$(SYNDICATE_CONFIG_PATH)/logs" ]]; then rm -rf "$(SYNDICATE_CONFIG_PATH)/logs"; fi
-	-if [[ -d "$(SYNDICATE_CONFIG_PATH)/bundles" ]]; then rm -rf "$(SYNDICATE_CONFIG_PATH)/bundles"; fi
+clean: ## Remove caches, coverage, and logs
+	-rm -rf .pytest_cache .coverage ./logs htmlcov openapi-spec.json
 
 
 ##@ Images & packages
@@ -159,29 +146,6 @@ aws-ecr-push-executor: ## Tag and push executor image to ECR
 	export AWS_REGION=$(AWS_REGION) AWS_ACCOUNT_ID=$(AWS_ACCOUNT_ID); \
 	$(DOCKER_EXECUTABLE) tag $(EXECUTOR_IMAGE_NAME):$(EXECUTOR_IMAGE_TAG) $$AWS_ACCOUNT_ID.dkr.ecr.$$AWS_REGION.amazonaws.com/$(EXECUTOR_IMAGE_NAME):$(EXECUTOR_IMAGE_TAG); \
 	$(DOCKER_EXECUTABLE) push $$AWS_ACCOUNT_ID.dkr.ecr.$$AWS_REGION.amazonaws.com/$(EXECUTOR_IMAGE_NAME):$(EXECUTOR_IMAGE_TAG)
-
-
-##@ Syndicate
-
-syndicate-update-lambdas: check-syndicate ## Build and update lambda/lambda_layer resources
-	SDCT_CONF=$(SYNDICATE_CONFIG_PATH) $(SYNDICATE_EXECUTABLE_PATH) build --errors_allowed --bundle_name $(SYNDICATE_BUNDLE_NAME) -F
-	SDCT_CONF=$(SYNDICATE_CONFIG_PATH) $(SYNDICATE_EXECUTABLE_PATH) update --update_only_types lambda --update_only_types lambda_layer --bundle_name $(SYNDICATE_BUNDLE_NAME) --replace_output
-
-
-syndicate-update-meta: check-syndicate ## Package and upload syndicate meta
-	-rm .$(SYNDICATE_CONFIG_PATH)/bundles/$(SYNDICATE_BUNDLE_NAME)/build_meta.json
-	SDCT_CONF=$(SYNDICATE_CONFIG_PATH) $(SYNDICATE_EXECUTABLE_PATH) package_meta -b $(SYNDICATE_BUNDLE_NAME)
-	SDCT_CONF=$(SYNDICATE_CONFIG_PATH) $(SYNDICATE_EXECUTABLE_PATH) upload -b $(SYNDICATE_BUNDLE_NAME) -F
-
-
-syndicate-update-api-gateway: check-syndicate ## Deploy api_gateway resources
-	# it does not remove the old api gateway
-	SDCT_CONF=$(SYNDICATE_CONFIG_PATH) $(SYNDICATE_EXECUTABLE_PATH) deploy --deploy_only_types api_gateway --replace_output --bundle_name $(SYNDICATE_BUNDLE_NAME)
-
-
-syndicate-update-step-functions: check-syndicate ## Deploy step_functions resources
-	# it does not remove the old api gateway
-	SDCT_CONF=$(SYNDICATE_CONFIG_PATH) $(SYNDICATE_EXECUTABLE_PATH) deploy --deploy_only_types step_functions --replace_output --bundle_name $(SYNDICATE_BUNDLE_NAME)
 
 
 ##@ Server image & Helm
