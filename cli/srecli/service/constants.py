@@ -126,6 +126,8 @@ class Endpoint(str, Enum):
     TENANTS_TENANT_NAME_ACTIVE_LICENSES = '/tenants/{tenant_name}/active-licenses'
     INTEGRATIONS_CHRONICLE_ID_ACTIVATION = '/integrations/chronicle/{id}/activation'
     REPORTS_COMPLIANCE_TENANTS_TENANT_NAME = '/reports/compliance/tenants/{tenant_name}'
+    REPORTS_QUESTIONNAIRE_JOBS_JOB_ID = '/reports/questionnaire/jobs/{job_id}'
+    REPORTS_QUESTIONNAIRE_TENANTS_TENANT_NAME = '/reports/questionnaire/tenants/{tenant_name}'
     INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION = '/integrations/defect-dojo/{id}/activation'
     REPORTS_DETAILS_TENANTS_TENANT_NAME_JOBS = '/reports/details/tenants/{tenant_name}/jobs'
     REPORTS_DIGESTS_TENANTS_TENANT_NAME_JOBS = '/reports/digests/tenants/{tenant_name}/jobs'

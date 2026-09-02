@@ -23,9 +23,10 @@ x-rule-engine-env: &rule-engine-env
   MODULAR_SDK_VAULT_URL: "http://vault:8200"
   MODULAR_SDK_APPLICATION_NAME: syndicate-rule-engine
   MODULAR_SDK_LOG_LEVEL: "${MODULAR_SDK_LOG_LEVEL:-ERROR}"
-  REDIS_PASSWORD: "${REDIS_PASSWORD:-redispassword}"
-  REDIS_DOMAIN: redis
-  REDIS_PORT: "6379"
+  # VALKEY_* are canonical; REDIS_* and VALKEY_HOST are upgrade aliases.
+  VALKEY_PASSWORD: "${VALKEY_PASSWORD-${REDIS_PASSWORD-valkeypassword}}"
+  VALKEY_DOMAIN: "${VALKEY_DOMAIN-${VALKEY_HOST-${REDIS_DOMAIN-valkey}}}"
+  VALKEY_PORT: "${VALKEY_PORT-${REDIS_PORT-6379}}"
   # outbound proxy for cloud APIs, License Manager and DefectDojo
   HTTP_PROXY: "${HTTP_PROXY:-}"
   HTTPS_PROXY: "${HTTPS_PROXY:-}"
@@ -110,7 +111,7 @@ services:
         condition: service_healthy
       vault:
         condition: service_healthy
-      redis:
+      valkey:
         condition: service_started
     environment:
       <<: *rule-engine-env
@@ -140,7 +141,7 @@ services:
         condition: service_healthy
       vault:
         condition: service_healthy
-      redis:
+      valkey:
         condition: service_started
     environment:
       <<: *rule-engine-env
@@ -182,7 +183,7 @@ services:
         condition: service_healthy
       vault:
         condition: service_healthy
-      redis:
+      valkey:
         condition: service_started
     environment:
       <<: *rule-engine-env
@@ -220,6 +221,8 @@ services:
         condition: service_healthy
       vault:
         condition: service_healthy
+      valkey:
+        condition: service_started
     environment:
       <<: *rule-engine-env
       SRE_EVENT_CONSUMER_PORT: "${SRE_EVENT_CONSUMER_PORT:-8081}"
@@ -273,17 +276,26 @@ services:
     restart: always
     networks:
       - rule-engine-net
-  redis:
-    image: ${REDIS_IMAGE:-redis:${REDIS_VERSION:-7.2.3-alpine}}
-    container_name: redis
+  valkey:
+    image: ${VALKEY_IMAGE:-valkey/valkey:${VALKEY_VERSION:-8.0.10-alpine}}
+    container_name: valkey
     ports:
       - "6379:6379"
     volumes:
+      # Keep the existing volume name so upgrades retain the Redis-compatible cache data.
       - redis-data:/data
-    restart: always
-    command: ["redis-server", "--save", "20", "1", "--loglevel", "warning", "--requirepass", "${REDIS_PASSWORD:-redispassword}"]
     environment:
-      REDIS_PASSWORD: "${REDIS_PASSWORD:-redispassword}"
+      VALKEY_PASSWORD: "${VALKEY_PASSWORD-${REDIS_PASSWORD-valkeypassword}}"
+    restart: always
+    command:
+      - sh
+      - -c
+      - >-
+        if [ -n "$${VALKEY_PASSWORD}" ]; then
+          exec valkey-server --save 20 1 --loglevel warning --requirepass "$${VALKEY_PASSWORD}";
+        else
+          exec valkey-server --save 20 1 --loglevel warning;
+        fi
     networks:
       - rule-engine-net
   vault:
@@ -319,6 +331,7 @@ volumes:
   vault-data:
   mongo-data:
   minio-data:
+  # Retained for upgrades from the former Redis service.
   redis-data:
   rule-engine-data:
 configs:

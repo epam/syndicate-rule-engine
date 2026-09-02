@@ -1637,6 +1637,20 @@ class TenantComplianceReportGetModel(BaseModel):
     href: bool = False
 
 
+class JobQuestionnaireReportGetModel(BaseModel):
+    standard: str = Field(
+        description='Full name of the standard as it is returned by the '
+        'compliance report, i.e. "CIS Controls v7"'
+    )
+
+
+class TenantQuestionnaireReportGetModel(BaseModel):
+    standard: str = Field(
+        description='Full name of the standard as it is returned by the '
+        'compliance report, i.e. "CIS Controls v7"'
+    )
+
+
 class JobErrorReportGetModel(BaseModel):
     href: bool = False
     format: ReportFormat = ReportFormat.JSON

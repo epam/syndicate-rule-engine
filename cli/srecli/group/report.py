@@ -15,6 +15,7 @@ from srecli.group.report_digests import digests
 from srecli.group.report_errors import errors
 from srecli.group.report_findings import findings
 from srecli.group.report_push import push
+from srecli.group.report_questionnaire import questionnaire
 from srecli.group.report_raw import raw
 from srecli.group.report_resource import resource
 from srecli.group.report_rules import rules
@@ -214,6 +215,7 @@ def status(ctx: ContextObj, job_id, full, customer_id):
 report.add_command(digests)
 report.add_command(details)
 report.add_command(compliance)
+report.add_command(questionnaire)
 report.add_command(errors)
 report.add_command(rules)
 report.add_command(push)

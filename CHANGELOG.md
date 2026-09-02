@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added resolving of tenant access payload for MCP users from MCP user context (header `X-Mcp-User-Context`)
 - Added a new system scheduler `process-periodic-rules` to run specific rules with `periodic=True` in their metadata
+- Added standard questionnaire report endpoints that return a presigned url to an xlsx workbook with charts:
+  - `GET /reports/questionnaire/jobs/{job_id}`
+  - `GET /reports/questionnaire/tenants/{tenant_name}`
+  - new CLI group `sre report questionnaire`
 
 ### Fixed
 - Fixed K8s recommendations being overwritten when a tenant has multiple platforms by aggregating all platforms recommendations before saving
@@ -23,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated versions of dependencies:
     - `cachetools` from `~=7.1.4` to `~=7.1.6`
 - Upgraded Vault version from `1.19.5` to `1.21.4`
+- Migrated `redis` to `valkey` as Celery broker/result backend and cache
 
 ### Removed 
 - Removed `job_type` request field from report endpoints that already target a specific `job_id`:
