@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -30,7 +31,7 @@ from executor.job.scan import (
 )
 from executor.job.types import JobExecutionError
 from executor.services.report_service import JobResult
-from helpers.constants import GLOBAL_REGION, Cloud
+from helpers.constants import GLOBAL_REGION, Cloud, PolicyErrorType
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_iso
 from services import SP
@@ -38,6 +39,45 @@ from services.job_policy_filters.types import BundleFilters
 from services.reports_bucket import ReportsBucketKeysBuilder
 
 _LOG = get_logger(__name__)
+
+_POLICY_ERROR_TYPE_TO_JOB_CODE = {
+    PolicyErrorType.ACCESS: JobErrorCode.CLOUD_ACCESS_DENIED,
+    PolicyErrorType.CREDENTIALS: JobErrorCode.INVALID_CLOUD_CREDENTIALS,
+}
+
+
+def build_failure_for_zero_success(failed: FailedPoliciesMap) -> JobFailure:
+    """
+    Build a JobFailure for the case where no policies succeeded.
+    If all failures are of the same type, use the corresponding JobErrorCode.
+    Otherwise, use JobErrorCode.NO_SUCCESSFUL_POLICIES with
+    a summary of the failure types.
+    """
+    if not failed:
+        return JobFailure.standard(JobErrorCode.NO_SUCCESSFUL_POLICIES)
+
+    failed_types = set(i[0] for i in failed.values())
+    if len(failed_types) == 1:
+        error_type = failed_types.pop()
+        job_code = _POLICY_ERROR_TYPE_TO_JOB_CODE.get(
+            error_type, JobErrorCode.NO_SUCCESSFUL_POLICIES
+        )
+        return JobFailure.standard(job_code)
+
+    failed_stat = build_failure_statistics(failed)
+    details = ', '.join(f'{k} - {v}' for k, v in failed_stat.items())
+    return JobFailure.standard(
+        JobErrorCode.NO_SUCCESSFUL_POLICIES, detail=f'Error types: {details}'
+    )
+
+
+def build_failure_statistics(failed: FailedPoliciesMap) -> dict[str, int]:
+    """
+    Build a statistics dictionary for the failed policies.
+
+    Returns a dictionary with the count of each error type.
+    """
+    return dict(Counter(i[0].value for i in failed.values()))
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,16 +174,23 @@ def execute_job_region_scan(
 
         assert scan.failed is not None
         successful += scan.n_successful
-        if scan.failed:
+        if scan.failed is not None:
+            failed_len = len(scan.failed)
+            total = failed_len + scan.n_successful
+
+            failed_stat = build_failure_statistics(scan.failed)
+            failed_stat_msg = ', '.join(
+                f'{k} - {v}' for k, v in failed_stat.items()
+            )
             if region == GLOBAL_REGION:
                 w = (
-                    f'{len(scan.failed)}/{len(scan.failed) + scan.n_successful} '
-                    'global policies failed'
+                    f'{failed_len}/{total} global policies failed. '
+                    f'Error types: {failed_stat_msg}'
                 )
             else:
                 w = (
-                    f'{len(scan.failed)}/{len(scan.failed) + scan.n_successful} '
-                    f'policies failed in region {region}'
+                    f'{failed_len}/{total} policies failed in region {region}. '
+                    f'Error types: {failed_stat_msg}'
                 )
             warnings.append(w)
         failed.update(scan.failed)
@@ -224,9 +271,9 @@ def finalize_job_scan(
         assert merged_collection is not None
         if not any(merged_collection.iter_parts()):
             raise JobExecutionError(
-                JobFailure.standard(JobErrorCode.NO_SUCCESSFUL_POLICIES)
+                build_failure_for_zero_success(failed)
             )
     elif not successful:
         raise JobExecutionError(
-            JobFailure.standard(JobErrorCode.NO_SUCCESSFUL_POLICIES)
+            build_failure_for_zero_success(failed)
         )
