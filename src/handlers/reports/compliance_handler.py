@@ -16,7 +16,6 @@ from helpers.constants import (
     ReportFormat,
 )
 from helpers.lambda_response import build_response
-from helpers.system_customer import SystemCustomer
 from services import SP, modular_helpers
 from services.environment_service import EnvironmentService
 from services.job_service import JobService

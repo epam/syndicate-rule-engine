@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING
 
 from helpers.constants import SRE_K8S_WATCHER_VENDOR
 from helpers.log_helper import get_logger
-from onprem.event_sources_consumer.connectors.k8s_watcher.storage.redis import (
-    RedisStorage,
+from onprem.event_sources_consumer.connectors.k8s_watcher.storage.valkey import (
+    ValkeyStorage,
 )
 from services.k8s.credentials_service import K8sCredentialsService
 
@@ -239,10 +239,10 @@ def _run_k8s_worker(
     connector = K8sWatchConnector(
         source_config=config,
         credentials_service=K8sCredentialsService.build(),
-        storage=RedisStorage(
-            host=EventConsumerEnv.REDIS_HOST.as_str(),
-            port=EventConsumerEnv.REDIS_PORT.as_int(),
-            password=EventConsumerEnv.REDIS_PASSWORD.get() or '',
+        storage=ValkeyStorage(
+            host=EventConsumerEnv.VALKEY_DOMAIN.as_str(),
+            port=EventConsumerEnv.VALKEY_PORT.as_int(),
+            password=EventConsumerEnv.VALKEY_PASSWORD.get() or None,
         ),
     )
     processor = EventMessageProcessor(

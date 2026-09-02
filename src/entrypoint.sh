@@ -2,8 +2,20 @@
 
 set -e
 
-# Kludge:
-export SRE_CELERY_BROKER_URL="${SRE_CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:-$MODULAR_SDK_MONGO_PASSWORD}@${REDIS_DOMAIN}:${REDIS_PORT}/0}"
+# Celery's Redis transport speaks the Redis-compatible protocol, so its URL
+# scheme remains redis:// while the server and application key/value client
+# are Valkey. VALKEY_* are canonical; the other names are upgrade aliases.
+VALKEY_PASSWORD="${VALKEY_PASSWORD-${REDIS_PASSWORD-}}"
+VALKEY_DOMAIN="${VALKEY_DOMAIN-${VALKEY_HOST-${REDIS_DOMAIN-localhost}}}"
+VALKEY_PORT="${VALKEY_PORT-${REDIS_PORT-6379}}"
+export VALKEY_PASSWORD VALKEY_DOMAIN VALKEY_PORT
+if [ -n "${VALKEY_PASSWORD}" ]; then
+  VALKEY_AUTH=":${VALKEY_PASSWORD}@"
+else
+  VALKEY_AUTH=''
+fi
+export SRE_CELERY_BROKER_URL="${SRE_CELERY_BROKER_URL:-redis://${VALKEY_AUTH}${VALKEY_DOMAIN}:${VALKEY_PORT}/0}"
+export SRE_CELERY_RESULT_BACKEND="${SRE_CELERY_RESULT_BACKEND:-redis://${VALKEY_AUTH}${VALKEY_DOMAIN}:${VALKEY_PORT}/1}"
 
 log() { echo "[INFO] $(date) $1" >&2; }
 

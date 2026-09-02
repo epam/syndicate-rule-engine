@@ -21,28 +21,38 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
     )
 
-    main_flow = subparsers.add_parser(
-        'main_flow',
-        help='Describe entities and optionally submit scan jobs',
-    )
     settings = get_settings()
-    main_flow.add_argument(
+
+    common_args = argparse.ArgumentParser(add_help=False)
+    common_args.add_argument(
         '--username',
         default=settings.username,
         type=str,
         help='SRE username (default: SMOKE_SRE_USERNAME)',
     )
-    main_flow.add_argument(
+    common_args.add_argument(
         '--password',
         default=settings.password,
         type=str,
         help='SRE password (default: SMOKE_SRE_PASSWORD)',
     )
-    main_flow.add_argument(
+    common_args.add_argument(
         '--api_link',
         default=settings.api_link,
         type=str,
         help='SRE API link (default: SMOKE_SRE_API_LINK)',
+    )
+    common_args.add_argument(
+        '--customer',
+        default=settings.customer,
+        type=str,
+        help='Customer name for -cid (default: SMOKE_SRE_CUSTOMER)',
+    )
+
+    main_flow = subparsers.add_parser(
+        'main_flow',
+        help='Describe entities and optionally submit scan jobs',
+        parents=[common_args],
     )
     main_flow.add_argument(
         '--tenants',
@@ -51,13 +61,6 @@ def build_parser() -> argparse.ArgumentParser:
         type=TenantRegionsType(),
         help='Tenant to list of regions: '
         '--tenants EOOS:eu-central-1,eu-west-1 CIT2:eu-west-1',
-    )
-    main_flow.add_argument(
-        '--customer',
-        default=settings.customer,
-        required=True,
-        type=str,
-        help='Customer name for -cid (default: SMOKE_SRE_CUSTOMER)',
     )
 
     def markdown(value: str) -> Path:
@@ -75,6 +78,7 @@ def build_parser() -> argparse.ArgumentParser:
     rules_management = subparsers.add_parser(
         'rules_management',
         help='Rules and rulesets management flow',
+        parents=[common_args],
     )
     rules_management.add_argument(
         '--filename',
@@ -90,14 +94,17 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
+    if not all(
+        (args.username, args.password, args.api_link, args.customer)
+    ):
+        parser.error(
+            'username, password, api_link and customer must be provided '
+            'via CLI flags or SMOKE_SRE_* environment variables'
+        )
+
     if args.suite == 'main_flow':
-        if not all(
-            (args.username, args.password, args.api_link, args.customer)
-        ):
-            parser.error(
-                'username, password, api_link and customer must be provided '
-                'via CLI flags or SMOKE_SRE_* environment variables'
-            )
+        if not args.tenants:
+            parser.error('Tenants must be provided via --tenants or SMOKE_SRE_TENANTS environment variable')
         cases = run_main_flow(
             username=args.username,
             password=args.password,
@@ -110,7 +117,13 @@ def main() -> None:
         return
 
     if args.suite == 'rules_management':
-        cases = run_rules_management(report_name=args.filename)
+        cases = run_rules_management(
+            username=args.username,
+            password=args.password,
+            api_link=args.api_link,
+            customer=args.customer,
+            report_name=args.filename,
+        )
         sys.exit(_exit_code(cases))
         return
 

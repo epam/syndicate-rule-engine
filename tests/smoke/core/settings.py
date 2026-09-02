@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Any
 from typing import Literal
 from typing_extensions import Self
 
@@ -23,6 +24,7 @@ class SmokeSettings(BaseSettings):
     username: str | None = None
     password: str | None = None
     customer: str | None = None
+    tenants: str | None = None
     api_link: str = 'http://0.0.0.0:8000/caas'
     system_customer: str = 'CUSTODIAN_SYSTEM'
     step_delay: int = Field(default=0, validation_alias='TEST_DELAY')
@@ -73,6 +75,15 @@ class RuleSourceSettings(BaseModel):
 @lru_cache
 def get_settings() -> SmokeSettings:
     return SmokeSettings()
+
+
+def build_settings(**kwargs: Any) -> SmokeSettings:
+    overrides = {
+        key: value
+        for key, value in kwargs.items()
+        if value is not None and key in SmokeSettings.model_fields
+    }
+    return SmokeSettings(**overrides)
 
 
 def get_rule_source(cloud: CloudName) -> RuleSourceSettings | None:
