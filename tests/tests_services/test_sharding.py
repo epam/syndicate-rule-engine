@@ -6,22 +6,31 @@ import pytest
 
 from helpers.constants import PolicyErrorType
 from services.clients.s3 import S3Client
-from services.sharding import (SingleShardDistributor, ShardPart,
-                               AWSRegionDistributor, Shard, ShardsIterator,
-                               ShardsS3IO, ShardsCollection)
+from services.sharding import (
+    SingleShardDistributor,
+    ShardPart,
+    AWSRegionDistributor,
+    Shard,
+    ShardsIterator,
+    ShardsS3IO,
+    ShardsCollection,
+    ExecutionStats,
+)
 
 
 @pytest.fixture
 def make_shard_part():
     def _make_shard_part(location='global',
                          policy='example-policy', resources=None,
-                         error=None, previous_timestamp: float | None = None):
+                         error=None, previous_timestamp: float | None = None,
+                         execution_stats=None):
         return ShardPart(
             policy=policy,
             location=location,
             resources=resources or [],
             error=error,
-            previous_timestamp=previous_timestamp
+            previous_timestamp=previous_timestamp,
+            temp_execution_stats=execution_stats,
         )
 
     return _make_shard_part
@@ -160,7 +169,8 @@ class TestShardsS3IO:
     def test_read_raw(self):
         writer, client = self.create_writer()
         client.gz_get_object.return_value = io.BytesIO(
-            b'[{"p":"policy","l":"global","t":1711309249.0,"r":[]}]'
+            b'[{"p":"policy","l":"global","t":1711309249.0,"r":[],'
+            b'"es":{"s":1,"e":2}}]'
         )
         res = writer.read_raw(1)[0]
         assert res.policy == 'policy'
@@ -169,6 +179,7 @@ class TestShardsS3IO:
         assert res.resources == []
         assert res.error is None
         assert res.previous_timestamp is None
+        assert res.temp_execution_stats == ExecutionStats(start_time=1, end_time=2)
 
         client.gz_get_object.assert_called()
 
