@@ -1426,7 +1426,7 @@ class ReportMetricsService(BaseDataService[ReportMetrics]):
         else:
             _LOG.info(
                 'Compressed data size is within limits. '
-                f'Setting as {Env.get_db_type()} binary attribute'
+                'Setting as MongoDB binary attribute'
             )
             item.data = buf.getvalue()
         item.content_type = content_type

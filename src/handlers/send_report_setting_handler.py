@@ -8,7 +8,7 @@ from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
 from helpers.system_customer import SystemCustomer
 from services import SP
-from services.clients.step_function import ScriptClient, StepFunctionClient
+from services.clients.step_function import ScriptClient
 from services.health_check_service import RabbitMQConnectionCheck
 from services.setting_service import SettingsService
 from validators.swagger_request_models import ReportsSendingSettingPostModel
@@ -24,7 +24,7 @@ class ReportsSendingSettingHandler(AbstractHandler):
     """
 
     def __init__(self, settings_service: SettingsService,
-                 step_function_client: ScriptClient | StepFunctionClient,
+                 step_function_client: ScriptClient,
                  customer_service: CustomerService):
         self.settings_service = settings_service
         self.step_function_client = step_function_client
