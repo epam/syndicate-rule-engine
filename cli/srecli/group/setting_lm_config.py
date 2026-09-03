@@ -29,7 +29,8 @@ def describe(
               help='License Manager host. You can specify the full url here')
 @click.option('--port', '-p', type=int,
               help='License Manager port', required=False)
-@click.option('--protocol', '-pr', type=click.Choice(('HTTP', 'HTTPS')),
+@click.option('--protocol', '-pr',
+              type=click.Choice(('HTTP', 'HTTPS'), case_sensitive=False),
               help='License manager protocol')
 @click.option('--stage', '-st', type=str,
               help='Path prefix')
@@ -49,7 +50,8 @@ def add(
               help='License Manager host. You can specify the full url here')
 @click.option('--port', '-p', type=int,
               help='License Manager port')
-@click.option('--protocol', '-pr', type=click.Choice(('HTTP', 'HTTPS')),
+@click.option('--protocol', '-pr',
+              type=click.Choice(('HTTP', 'HTTPS'), case_sensitive=False),
               help='License manager protocol')
 @click.option('--stage', '-st', type=str,
               help='Path prefix')
