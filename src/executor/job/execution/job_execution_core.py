@@ -174,7 +174,7 @@ def execute_job_region_scan(
 
         assert scan.failed is not None
         successful += scan.n_successful
-        if scan.failed is not None:
+        if scan.failed:
             failed_len = len(scan.failed)
             total = failed_len + scan.n_successful
 
