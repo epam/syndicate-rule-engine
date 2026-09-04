@@ -1202,11 +1202,6 @@ class QuestionnaireHandler(AbstractHandler):
         metadata = self._license_service.get_customer_metadata(
             event.customer_id
         )
-        for standard in metadata.domains['AWS'].full_cov.keys():
-            print(standard.full_name)
-        print()
-        for standard in metadata.domains['KUBERNETES'].full_cov.keys():
-            print(standard.full_name)
         full_cov = metadata.domain(cloud).full_cov
         standard = self.resolve_standard(full_cov, event.standard)
         if standard is None:
