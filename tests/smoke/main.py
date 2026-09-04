@@ -4,7 +4,7 @@ from pathlib import Path
 
 from smoke.cases.main_flow import TenantRegionsType, run_main_flow
 from smoke.cases.rules_management import run_rules_management
-from smoke.core.commons import Case
+from smoke.core.commons import Case, set_debug
 from smoke.core.settings import get_settings
 
 
@@ -47,6 +47,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=settings.customer,
         type=str,
         help='Customer name for -cid (default: SMOKE_SRE_CUSTOMER)',
+    )
+    common_args.add_argument(
+        '--debug',
+        action='store_true',
+        help='Log raw stdout/stderr and exit code of each CLI command',
     )
 
     main_flow = subparsers.add_parser(
@@ -94,6 +99,8 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
+    set_debug(args.debug)
+
     if not all(
         (args.username, args.password, args.api_link, args.customer)
     ):
@@ -105,11 +112,12 @@ def main() -> None:
     if args.suite == 'main_flow':
         if not args.tenants:
             parser.error('Tenants must be provided via --tenants or SMOKE_SRE_TENANTS environment variable')
+        tenants = [tenant for group in args.tenants for tenant in group]
         cases = run_main_flow(
             username=args.username,
             password=args.password,
             api_link=args.api_link,
-            tenants=args.tenants,
+            tenants=tenants,
             customer=args.customer,
             filename=args.filename,
         )
