@@ -4,12 +4,7 @@ from typing import TYPE_CHECKING
 
 from helpers.log_helper import get_logger
 from models.job import Job
-from services.clients.batch import (
-    BatchClient,
-    BatchJob,
-    CeleryJob,
-    CeleryJobClient,
-)
+from services.clients.batch import CeleryJob, CeleryJobClient
 from services.environment_service import EnvironmentService
 
 if TYPE_CHECKING:
@@ -24,7 +19,7 @@ class SubmitJobToBatchMixin:
     Mixin for submitting jobs to batch
     """
 
-    _batch_client: BatchClient | CeleryJobClient
+    _batch_client: CeleryJobClient
     _environment_service: EnvironmentService
 
     def _submit_jobs_to_batch(
@@ -32,24 +27,21 @@ class SubmitJobToBatchMixin:
         jobs: list[Job],
         timeout: int | None = None,
         as_event_driven: bool = False,
-    ) -> BatchJob | CeleryJob:
+    ) -> CeleryJob:
         job_ids = [job.id for job in jobs]
         job_name = "-".join(job.tenant_name for job in jobs)
         job_name = "".join(
             ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in job_name
         )
 
-        if isinstance(self._batch_client, BatchClient):
-            raise NotImplementedError("Batch client is not supported")
-        else:
-            _LOG.debug(f"Going to submit Celery job with name {job_name}")
-            response = self._batch_client.submit_job(
-                job_id=job_ids,
-                job_name=job_name,
-                timeout=timeout,
-                as_event_driven=as_event_driven,
-            )
-            _LOG.debug(f"Celery job was submitted: {response}")
+        _LOG.debug(f"Going to submit Celery job with name {job_name}")
+        response = self._batch_client.submit_job(
+            job_id=job_ids,
+            job_name=job_name,
+            timeout=timeout,
+            as_event_driven=as_event_driven,
+        )
+        _LOG.debug(f"Celery job was submitted: {response}")
 
         return response
 
@@ -58,31 +50,19 @@ class SubmitJobToBatchMixin:
         tenant_name: str,
         job: Job,
         timeout: int | None = None,
-    ) -> BatchJob | CeleryJob:
+    ) -> CeleryJob:
         job_name = f"{tenant_name}-{job.submitted_at}"
         job_name = "".join(
             ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in job_name
         )
 
-        response: BatchJob | CeleryJob
-        if isinstance(self._batch_client, BatchClient):
-            _LOG.debug(f"Going to submit AWS Batch job with name {job_name}")
-            response = self._batch_client.submit_job(
-                job_id=job.id,
-                job_name=job_name,
-                job_queue=self._environment_service.get_batch_job_queue(),
-                job_definition=self._environment_service.get_batch_job_def(),
-                timeout=timeout,
-            )
-            _LOG.debug(f"AWS Batch job was submitted: {response}")
-        else:
-            _LOG.debug(f"Going to submit Celery job with name {job_name}")
-            response = self._batch_client.submit_job(
-                job_id=job.id,
-                job_name=job_name,
-                timeout=timeout,
-            )
-            _LOG.debug(f"Celery job was submitted: {response}")
+        _LOG.debug(f"Going to submit Celery job with name {job_name}")
+        response = self._batch_client.submit_job(
+            job_id=job.id,
+            job_name=job_name,
+            timeout=timeout,
+        )
+        _LOG.debug(f"Celery job was submitted: {response}")
 
         return response
 

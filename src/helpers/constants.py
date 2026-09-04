@@ -409,9 +409,6 @@ PARAM_USER_CUSTOMER = 'user_customer'
 
 AUTHORIZATION_PARAM = 'authorization'
 
-# on-prem
-DOCKER_SERVICE_MODE, SAAS_SERVICE_MODE = 'docker', 'saas'
-
 # RabbitMQ request
 EXTERNAL_DATA_ATTR = 'externalData'
 EXTERNAL_DATA_KEY_ATTR = 'externalDataKey'
@@ -544,7 +541,6 @@ class EnvEnum(str, Enum):
 
 
 class Env(EnvEnum):
-    SERVICE_MODE = 'SRE_SERVICE_MODE', ('CAAS_SERVICE_MODE',)
     SYSTEM_CUSTOMER_NAME = (
         'SRE_SYSTEM_CUSTOMER_NAME',
         ('SYSTEM_CUSTOMER_NAME',),
@@ -579,10 +575,6 @@ class Env(EnvEnum):
         (),
         '65',
     )
-
-    # Cognito either one will work, but ID faster and safer
-    USER_POOL_NAME = 'SRE_USER_POOL_NAME', ('CAAS_USER_POOL_NAME',)
-    USER_POOL_ID = 'SRE_USER_POOL_ID', ('CAAS_USER_POOL_ID',)
 
     # rbac
     ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS = (
@@ -626,10 +618,6 @@ class Env(EnvEnum):
         'SRE_BATCH_JOB_LIFETIME_MINUTES',
         ('CAAS_BATCH_JOB_LIFETIME_MINUTES',),
         '180',
-    )
-    EB_SERVICE_ROLE_TO_INVOKE_BATCH = (
-        'SRE_EB_SERVICE_ROLE_TO_INVOKE_BATCH',
-        ('CAAS_EB_SERVICE_ROLE_TO_INVOKE_BATCH',),
     )
 
     # events
@@ -819,22 +807,6 @@ class Env(EnvEnum):
         (),
         '90',
     )
-
-    @classmethod
-    def is_docker(cls) -> bool:
-        return cls.SERVICE_MODE.get() == DOCKER_SERVICE_MODE
-
-    @classmethod
-    def is_mongo_db(cls) -> bool:
-        """
-        Determines if MongoDB is being used as the database.
-        Currently based on docker mode.
-        """
-        return cls.is_docker()
-
-    @classmethod
-    def get_db_type(cls) -> Literal['MongoDB', 'DynamoDB']:
-        return 'MongoDB' if cls.is_mongo_db() else 'DynamoDB'
 
 
 class BatchJobEnv(EnvEnum):
