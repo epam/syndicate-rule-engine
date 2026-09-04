@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `GET /reports/questionnaire/jobs/{job_id}`
   - `GET /reports/questionnaire/tenants/{tenant_name}`
   - new CLI group `sre report questionnaire`
+- Added an account level `total` coverage that combines all the regions to compliance reports:
+  - `GET /reports/compliance/jobs/{job_id}`
+  - `GET /reports/compliance/tenants/{tenant_name}`
 
 ### Fixed
 - Fixed K8s recommendations being overwritten when a tenant has multiple platforms by aggregating all platforms recommendations before saving
