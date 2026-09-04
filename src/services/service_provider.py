@@ -17,7 +17,6 @@ if TYPE_CHECKING:
     from services.clients.mongo_ssm_auth_client import MongoAndSSMAuthClient
     from services.clients.s3 import ModularAssumeRoleS3Service, S3Client
     from services.clients.ssm import CachedSSMClient
-    from services.clients.step_function import ScriptClient
     from services.clients.sts import StsClient
     from services.defect_dojo_service import DefectDojoService
     from services.environment_service import EnvironmentService
@@ -309,12 +308,6 @@ class ServiceProvider(metaclass=SingletonMeta):
             defect_dojo_service=self.defect_dojo_service,
             chronicle_instance_service=self.chronicle_instance_service,
         )
-
-    @cached_property
-    def step_function(self) -> ScriptClient:
-        from services.clients.step_function import ScriptClient
-
-        return ScriptClient(environment_service=self.environment_service)
 
     @cached_property
     def defect_dojo_service(self) -> DefectDojoService:
