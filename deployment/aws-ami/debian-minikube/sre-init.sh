@@ -1382,27 +1382,35 @@ find_asset_by_name() {
 
 perform_self_update() {
   local tag asset new_version
+  tag="$(jq -r '.tag_name' << max_attempts delay attempt err
   tag="$(jq -r '.tag_name' <<<"$1")"
 
   if ! asset="$(find_asset_by_name "$1" "$SRE_INIT_ARTIFACT_NAME")"; then
-    return 1
+    # release ships no self-update artifact: nothing to swap, keep running current script
+    return 2
   fi
   if check_asset_digest "$SELF_PATH" "$asset"; then
+    # already running the target version
     return 0
   fi
 
-  pull_artifact "$SRE_RELEASES_PATH/$tag" "$asset" || {
-    warn "could not pull self update artifact $SRE_INIT_ARTIFACT_NAME"
-    return 1
-  }
-  update_sre_init "$tag" || {
-    warn "could not update sre-init to $tag"
-    return 1
-  }
-  new_version=$("$SELF_PATH" --version | awk '{print $2}')
-  echo "Automatically updated sre-init from $VERSION to $new_version"
-  exec "$SELF_PATH" "${_ORIGINAL_ARGS[@]}"
-}
+  max_attempts="${SRE_SELF_UPDATE_MAX_ATTEMPTS:-3}"
+  delay="${SRE_SELF_UPDATE_RETRY_DELAY:-5}"
+  attempt=1
+  while [ "$attempt" -le "$max_attempts" ]; do
+    if err="$(pull_artifact "$SRE_RELEASES_PATH/$tag" "$asset" 2>&1)" \
+      && err="$(update_sre_init "$tag" 2>&1)"; then
+      new_version=$("$SELF_PATH" --version | awk '{print $2}')
+      echo "Automatically updated sre-init from $VERSION to $new_version"
+      exec "$SELF_PATH" "${_ORIGINAL_ARGS[@]}"
+    fi
+    warn "sre-init self-update to $tag failed (attempt $attempt/$max_attempts): ${err:-unknown error}"
+    attempt=$((attempt + 1))
+    if [ "$attempt" -le "$max_attempts" ]; then
+      sleep "$delay"
+    fi
+  done
+  return 1
 
 cmd_update() {
   local opts auto_yes=0 current_release release_data latest_tag backup_name="" iter_params=() check=0 same_version=0 do_backup=1 do_patch='true' helm_values update_defectdojo=0 confirm_migration_token=""
@@ -1499,9 +1507,15 @@ cmd_update() {
 
   if [ -n "$release_data" ] && [ -z "$FORBID_SELF_UPDATE" ]; then
     # if release data is available here then we can self update
-    # if it fails we just try to update using the current version of sre-init
-    perform_self_update "$release_data" || true
-  fi
+    # self-update swaps this script for the target one (via exec) so newly added
+    # critical logic (e.g. mandatory MongoDB migration) actually runs; do not skip it silently
+    perform_self_update "$release_data"
+    case "$?" in
+      0 | 2) : ;; # already current, or release ships no self-update artifact: continue with current script
+      *)
+        die_with_support "sre-init self-update to $latest_tag failed after retries. Aborting so the update does not run with an outdated script that may miss mandatory migration steps. Fix connectivity/permissions and re-run, or set FORBID_SELF_UPDATE=1 to bypass at your own risk"
+        ;;
+    esac
 
   echo "The current installed version is $current_release"
   echo "New github $(get_release_type "$release_data") $latest_tag is available"
@@ -2226,7 +2240,7 @@ verify_installation() {
 }
 
 # Start
-VERSION="1.3.0"
+VERSION="1.4.0"
 PROGRAM="${0##*/}"
 COMMAND="$1"
 SELF_PATH=/usr/local/bin/sre-init # TODO: resolve dynamically?
