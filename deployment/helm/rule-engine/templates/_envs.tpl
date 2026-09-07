@@ -121,16 +121,23 @@ env:
   - name: SRE_MINIO_PRESIGNED_URL_PRIVATE_IPV4
     value: {{ .Values.minioPresignedUrlPrivateIpv4 | quote }}
   {{- end }}
+  - name: VALKEY_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: valkey-secret
+        key: password
+        optional: true
+  # Deprecated upgrade fallback for releases that still have redis-secret.
   - name: REDIS_PASSWORD
     valueFrom:
       secretKeyRef:
         name: redis-secret
         key: password
         optional: true
-  - name: REDIS_DOMAIN
-    value: {{ .Values.redisService }}
-  - name: REDIS_PORT
-    value: "{{ .Values.redisPort }}"
+  - name: VALKEY_DOMAIN
+    value: {{ .Values.valkeyService }}
+  - name: VALKEY_PORT
+    value: "{{ .Values.valkeyPort }}"
   - name: SRE_CELERY_LOG_LEVEL
     value: {{ .Values.celery.logLevel }}
   - name: SRE_CELERY_MAKE_FINDINGS_SNAPSHOTS_SCHEDULE

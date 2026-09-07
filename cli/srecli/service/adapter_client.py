@@ -850,6 +850,34 @@ class SREApiClient:
             data=sifted(kwargs),
         )
 
+    def mcp_auth_setting_get(self, **kwargs):
+        return self.make_request(
+            path=Endpoint.INTEGRATIONS_MCP_AUTH,
+            method=HTTPMethod.GET,
+            query=sifted(kwargs),
+        )
+
+    def mcp_auth_setting_post(self, **kwargs):
+        return self.make_request(
+            path=Endpoint.INTEGRATIONS_MCP_AUTH,
+            method=HTTPMethod.POST,
+            data=sifted(kwargs),
+        )
+
+    def mcp_auth_setting_patch(self, **kwargs):
+        return self.make_request(
+            path=Endpoint.INTEGRATIONS_MCP_AUTH,
+            method=HTTPMethod.PATCH,
+            data=sifted(kwargs),
+        )
+
+    def mcp_auth_setting_delete(self, **kwargs):
+        return self.make_request(
+            path=Endpoint.INTEGRATIONS_MCP_AUTH,
+            method=HTTPMethod.DELETE,
+            data=sifted(kwargs),
+        )
+
     def event_action(self, **kwargs):
         return self.make_request(
             path=Endpoint.EVENT,
@@ -916,6 +944,22 @@ class SREApiClient:
     def report_compliance_tenants(self, tenant_name, **kwargs):
         return self.make_request(
             path=Endpoint.REPORTS_COMPLIANCE_TENANTS_TENANT_NAME,
+            path_params={'tenant_name': tenant_name},
+            method=HTTPMethod.GET,
+            query=sifted(kwargs),
+        )
+
+    def report_questionnaire_jobs(self, job_id, **kwargs):
+        return self.make_request(
+            path=Endpoint.REPORTS_QUESTIONNAIRE_JOBS_JOB_ID,
+            path_params={'job_id': job_id},
+            method=HTTPMethod.GET,
+            query=sifted(kwargs),
+        )
+
+    def report_questionnaire_tenants(self, tenant_name, **kwargs):
+        return self.make_request(
+            path=Endpoint.REPORTS_QUESTIONNAIRE_TENANTS_TENANT_NAME,
             path_params={'tenant_name': tenant_name},
             method=HTTPMethod.GET,
             query=sifted(kwargs),

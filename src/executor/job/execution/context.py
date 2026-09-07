@@ -124,6 +124,7 @@ class JobExecutionContext:
             )
             self.updater.status = JobState.SUCCEEDED
             self.updater.stopped_at = utc_iso()
+            self.updater.reason = None
             self.updater.update()
             if self._lm_job_posted:
                 self._update_lm_job()

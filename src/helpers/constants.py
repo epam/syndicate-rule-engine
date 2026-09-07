@@ -83,6 +83,7 @@ class Endpoint(str, Enum):
     REPORTS_DIAGNOSTIC = '/reports/diagnostic'
     REPORTS_DEPARTMENT = '/reports/department'
     INTEGRATIONS_SELF = '/integrations/temp/sre'
+    INTEGRATIONS_MCP_AUTH = '/integrations/mcp/auth'
     SCHEDULED_JOB_NAME = '/scheduled-job/{name}'
     REPORTS_OPERATIONAL = '/reports/operational'
     TENANTS_TENANT_NAME = '/tenants/{tenant_name}'
@@ -129,6 +130,12 @@ class Endpoint(str, Enum):
     )
     REPORTS_COMPLIANCE_TENANTS_TENANT_NAME = (
         '/reports/compliance/tenants/{tenant_name}'
+    )
+    REPORTS_QUESTIONNAIRE_JOBS_JOB_ID = (
+        '/reports/questionnaire/jobs/{job_id}'
+    )
+    REPORTS_QUESTIONNAIRE_TENANTS_TENANT_NAME = (
+        '/reports/questionnaire/tenants/{tenant_name}'
     )
     INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION = (
         '/integrations/defect-dojo/{id}/activation'
@@ -192,8 +199,8 @@ class Endpoint(str, Enum):
 LAMBDA_URL_HEADER_CONTENT_TYPE_UPPER = 'Content-Type'
 JSON_CONTENT_TYPE = 'application/json'
 
-MCP_USER_NAME_HEADER = 'X-Sre-Mcp-User-Name'
 MCP_USER_CONTEXT_HEADER = 'X-Mcp-User-Context'
+MCP_JWT_KEY_SSM_NAME = 'cs_mcp_jwt_key'
 
 DEFAULT_SYSTEM_CUSTOMER: str = 'CUSTODIAN_SYSTEM'
 DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME = (
@@ -712,6 +719,10 @@ class Env(EnvEnum):
 
     # Celery
     CELERY_BROKER_URL = 'SRE_CELERY_BROKER_URL', ('CAAS_CELERY_BROKER_URL',)
+    CELERY_RESULT_BACKEND = (
+        'SRE_CELERY_RESULT_BACKEND',
+        ('CAAS_CELERY_RESULT_BACKEND', 'CELERY_RESULT_BACKEND'),
+    )
     CELERY_TIMEZONE = 'SRE_CELERY_TIMEZONE', (), 'UTC'
     CELERY_TASK_COMPRESSION = 'SRE_CELERY_TASK_COMPRESSION', (), 'gzip'
     CELERY_WORKER_PREFETCH_MULTIPLIER = (
@@ -897,6 +908,16 @@ class Permission(str, Enum):
         False,
         True,
     )
+    REPORT_QUESTIONNAIRE_DESCRIBE_JOB = (
+        'report:get_job_questionnaire',
+        False,
+        True,
+    )
+    REPORT_QUESTIONNAIRE_DESCRIBE_TENANT = (
+        'report:get_tenant_questionnaire',
+        False,
+        True,
+    )
     REPORT_ERRORS_DESCRIBE = 'report:get_job_errors', False, True
     REPORT_RULES_DESCRIBE_JOB = 'report:get_job_rules', False, True
     REPORT_RULES_DESCRIBE_TENANT = 'report:get_tenant_rules', False, True
@@ -1036,6 +1057,11 @@ class Permission(str, Enum):
     SRE_INTEGRATION_UPDATE = 'self_integration:update'
     SRE_INTEGRATION_DESCRIBE = 'self_integration:describe'
     SRE_INTEGRATION_DELETE = 'self_integration:delete'
+
+    INTEGRATIONS_MCP_DESCRIBE_AUTH = 'mcp_auth:describe', True
+    INTEGRATIONS_MCP_CREATE_AUTH = 'mcp_auth:create', True
+    INTEGRATIONS_MCP_UPDATE_AUTH = 'mcp_auth:update', True
+    INTEGRATIONS_MCP_DELETE_AUTH = 'mcp_auth:delete', True
 
     DOJO_INTEGRATION_CREATE = 'dojo_integration:create'
     DOJO_INTEGRATION_DESCRIBE = 'dojo_integration:describe'
@@ -1178,7 +1204,6 @@ CUSTOM_ROLE_ATTR = 'custom:role'
 CUSTOM_CUSTOMER_ATTR = 'custom:customer'
 CUSTOM_LATEST_LOGIN_ATTR = 'custom:latest_login'
 CUSTOM_TENANTS_ATTR = 'custom:tenants'
-CUSTOM_IS_SERVICE_ACCOUNT_ATTR = 'custom:is_service_account'
 
 TACTICS_ID_MAPPING = {  # rules do not have tactic IDs
     'Reconnaissance': 'TA0043',
@@ -1245,6 +1270,7 @@ class S3SettingKey(str, Enum):
 class SettingKey(str, Enum):
     MAIL_CONFIGURATION = 'MAIL_CONFIGURATION'
     LM_CLIENT_KEY = 'LM_CLIENT_KEY'
+    MCP_JWT_AUTH = 'MCP_JWT_AUTH'
     ACCESS_DATA_LM = 'ACCESS_DATA_LM'
     TEMPLATE_BUCKET = 'TEMPLATES_S3_BUCKET_NAME'
     SYSTEM_CUSTOMER = 'SYSTEM_CUSTOMER_NAME'
@@ -1543,6 +1569,36 @@ class ReportType(str, Enum):
     )
 
 
+SRE_REPORTS_TYPE_TO_M3_MAPPING = {
+    # Operational
+    ReportType.OPERATIONAL_RESOURCES: 'CUSTODIAN_RESOURCES_REPORT',
+    ReportType.OPERATIONAL_OVERVIEW: 'CUSTODIAN_OVERVIEW_REPORT',
+    ReportType.OPERATIONAL_RULES: 'CUSTODIAN_RULES_REPORT',
+    ReportType.OPERATIONAL_FINOPS: 'CUSTODIAN_FINOPS_REPORT',
+    ReportType.OPERATIONAL_COMPLIANCE: 'CUSTODIAN_COMPLIANCE_REPORT',
+    ReportType.OPERATIONAL_ATTACKS: 'CUSTODIAN_ATTACKS_REPORT',
+    ReportType.OPERATIONAL_KUBERNETES: 'CUSTODIAN_K8S_CLUSTER_REPORT',
+    ReportType.OPERATIONAL_DEPRECATION: 'CUSTODIAN_DEPRECATIONS_REPORT',
+    # Project
+    ReportType.PROJECT_OVERVIEW: 'CUSTODIAN_PROJECT_OVERVIEW_REPORT',
+    ReportType.PROJECT_COMPLIANCE: 'CUSTODIAN_PROJECT_COMPLIANCE_REPORT',
+    ReportType.PROJECT_RESOURCES: 'CUSTODIAN_PROJECT_RESOURCES_REPORT',
+    ReportType.PROJECT_FINOPS: 'CUSTODIAN_PROJECT_FINOPS_REPORT',
+    ReportType.PROJECT_ATTACKS: 'CUSTODIAN_PROJECT_ATTACKS_REPORT',
+    # Department
+    ReportType.DEPARTMENT_TOP_RESOURCES_BY_CLOUD: 'CUSTODIAN_TOP_RESOURCES_BY_CLOUD_REPORT',
+    ReportType.DEPARTMENT_TOP_TENANTS_RESOURCES: 'CUSTODIAN_TOP_TENANTS_VIOLATED_RESOURCES_REPORT',
+    ReportType.DEPARTMENT_TOP_TENANTS_COMPLIANCE: 'CUSTODIAN_TOP_TENANTS_COMPLIANCE_REPORT',
+    ReportType.DEPARTMENT_TOP_COMPLIANCE_BY_CLOUD: 'CUSTODIAN_TOP_COMPLIANCE_BY_CLOUD_REPORT',
+    ReportType.DEPARTMENT_TOP_TENANTS_ATTACKS: 'CUSTODIAN_TOP_TENANTS_ATTACKS_REPORT',
+    ReportType.DEPARTMENT_TOP_ATTACK_BY_CLOUD: 'CUSTODIAN_TOP_TENANTS_BY_CLOUD_ATTACKS_REPORT',
+    # C-Level
+    ReportType.C_LEVEL_OVERVIEW: 'CUSTODIAN_CUSTOMER_OVERVIEW_REPORT',
+    ReportType.C_LEVEL_COMPLIANCE: 'CUSTODIAN_CUSTOMER_COMPLIANCE_REPORT',
+    ReportType.C_LEVEL_ATTACKS: 'CUSTODIAN_CUSTOMER_ATTACKS_REPORT',
+}
+
+
 class TopViolationsReportType(str, Enum):
     RESOURCES = 'RESOURCES'
     RULES = 'RULES'
@@ -1550,6 +1606,7 @@ class TopViolationsReportType(str, Enum):
 
 class RabbitCommand(str, Enum):
     SEND_MAIL = 'SEND_MAIL'
+    GET_USER_POSITIONS = 'GET_USER_POSITIONS'
 
 
 class ScheduledJobType(str, Enum):

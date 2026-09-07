@@ -8,6 +8,7 @@ from handlers.reports import (
     FindingsReportHandler,
     HighLevelReportsHandler,
     JobsRulesHandler,
+    QuestionnaireHandler,
     RawReportHandler,
     ResourceReportHandler,
     SiemPushHandler,
@@ -38,6 +39,7 @@ class ReportGenerator(ApiEventProcessorLambdaHandler):
     )
     handlers = (
         ComplianceReportHandler,
+        QuestionnaireHandler,
         ResourceReportHandler,
         JobsRulesHandler,
         DetailedReportHandler,

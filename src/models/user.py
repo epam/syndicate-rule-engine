@@ -1,4 +1,4 @@
-from pynamodb.attributes import BooleanAttribute, UnicodeAttribute
+from pynamodb.attributes import UnicodeAttribute
 
 from modular_sdk.models.pynamongo.attributes import BinaryAttribute
 from helpers.constants import Env
@@ -18,5 +18,4 @@ class User(BaseModel):
     password = BinaryAttribute(null=True)
     latest_login = UnicodeAttribute(null=True)
     created_at = UnicodeAttribute(null=True)
-    is_service_account = BooleanAttribute(null=True)
 

@@ -11,7 +11,7 @@ dependencies = [
     "boto3~=1.43.3",
     "botocore~=1.43.3",
     "bottle~=0.13.4",
-    "cachetools~=7.1.4",
+    "cachetools~=7.1.6",
     "celery~=5.6.3",
     "cryptography~=46.0.7",
     "google-api-python-client~=2.194.0",
@@ -19,24 +19,27 @@ dependencies = [
     "gunicorn~=26.0.0",
     "hvac>=2.3,<3",
     "jwcrypto>=1.5.6,<2",
-    "modular-sdk~=8.0.0",
+    "modular-sdk~=8.1.0",
     "msgspec~=0.21.1",
     "openpyxl>=3,<4",
     "pydantic~=2.13.4",
     "pymongo~=4.11.2",
     "pynamodb==6.1.0",
     "python-dateutil~=2.9.0.post0",
+    # Kombu's Redis transport imports redis-py when the server is Valkey.
     "redis~=5.2.1",
     "requests~=2.33.1",
     "ruamel-yaml>=0.18,<0.21",
     "ruamel-yaml-clib>=0.2.12,<0.3",
     "tabulate~=0.10.0",
     "typing-extensions>=4.13,<5",
+    "valkey~=6.1.1",
     "xlsxwriter>=3.2,<4",
 ]
 
 [dependency-groups]
 lint = [
+    "celery-types>=0.26.0",
     "mypy>=1.19.1",
     "ruff>=0.9.0",
 ]

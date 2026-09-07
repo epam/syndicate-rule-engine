@@ -1,9 +1,11 @@
+import json
 from http import HTTPStatus
+from typing import TypedDict
 from uuid import uuid4
 
 import msgspec
 from modular_sdk.commons import ModularException
-from modular_sdk.commons.constants import ApplicationType
+from modular_sdk.commons.constants import ApplicationType, SUCCESS_STATUS
 from modular_sdk.models.application import Application
 from modular_sdk.modular import Modular
 from modular_sdk.services.impl.maestro_credentials_service import (
@@ -22,6 +24,11 @@ from services import cache
 from services.environment_service import EnvironmentService
 
 _LOG = get_logger(__name__)
+
+
+class UserPositionMapping(TypedDict):
+    tenant: str
+    positions: list[str]
 
 
 class RabbitMQService:
@@ -111,6 +118,67 @@ class RabbitMQService:
             return
         _LOG.info(f'Response from rabbit: {code}, {status}, {response}')
         return int(code)
+
+    def get_user_positions(
+        self,
+        customer: str,
+        claims: dict,
+    ) -> list[UserPositionMapping] | None:
+        rabbitmq = self.get_customer_rabbitmq(customer)
+        if not rabbitmq:
+            _LOG.warning(
+                f'No RabbitMQ configured for customer {customer}, cannot '
+                f'fetch user positions from Maestro'
+            )
+            return
+        email = claims.get('email')
+        if not email:
+            _LOG.warning(
+                'MCP user context token does not contain email, cannot '
+                'fetch user positions from Maestro'
+            )
+            return
+        _LOG.info(f'Going to send {RabbitCommand.GET_USER_POSITIONS.value} '
+                  f'command to rabbitMQ')
+        try:
+            code, status, data = rabbitmq.send_sync(
+                command_name=RabbitCommand.GET_USER_POSITIONS.value,
+                parameters={'email': email},
+                is_flat_request=False,
+                async_request=False,
+                secure_parameters=None,
+            )
+        except ModularException:
+            _LOG.exception(
+                f'Could not send {RabbitCommand.GET_USER_POSITIONS.value} '
+                f'to m3'
+            )
+            return
+        _LOG.debug(f'{RabbitCommand.GET_USER_POSITIONS.value} response: '
+                   f'code={code}, status={status}, data={data}')
+        if status != SUCCESS_STATUS:
+            _LOG.warning(
+                f'Non-successful response from m3 for '
+                f'{RabbitCommand.GET_USER_POSITIONS.value}: {code} {status}'
+            )
+            return
+        try:
+            raw = json.loads(data) if isinstance(data, str) else data
+        except json.JSONDecodeError:
+            _LOG.warning(
+                f'{RabbitCommand.GET_USER_POSITIONS.value} for user '
+                f'{email!r} returned invalid JSON: {data}'
+            )
+            return
+        mappings = raw.get('mappings') if isinstance(raw, dict) else None
+        if not isinstance(mappings, list):
+            _LOG.warning(
+                f'{RabbitCommand.GET_USER_POSITIONS.value} for user '
+                f'{email!r} returned unexpected type in mappings: '
+                f'{type(mappings).__name__}'
+            )
+            return
+        return mappings
 
     def build_m3_json_model(self, notification_type: str, data: dict):
         return {

@@ -20,6 +20,7 @@ from executor.helpers.constants import AWS_DEFAULT_REGION
 from executor.job.job_failure import failure_detail_from_exception
 from executor.job.policies.loader import PoliciesLoader
 from executor.job.policies.runners import Runner
+from executor.job.scan.types import FailedPoliciesMap
 from executor.job.types import PolicyDict
 from executor.plugins import register_all
 from helpers.constants import Cloud, Env
@@ -33,7 +34,7 @@ class RegionScanResult(NamedTuple):
     """Pickle-friendly result from :func:`process_job_concurrent`."""
 
     n_successful: int
-    failed: dict | None
+    failed: FailedPoliciesMap | None
     load_error_detail: str | None
 
 

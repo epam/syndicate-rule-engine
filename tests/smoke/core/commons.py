@@ -19,6 +19,13 @@ _LOG = logging.getLogger()
 _LOG.setLevel(logging.INFO)
 _LOG.addHandler(_handler)
 
+
+def set_debug(enabled: bool) -> None:
+    """Enable verbose logging of raw CLI command output."""
+    level = logging.DEBUG if enabled else logging.INFO
+    _LOG.setLevel(level)
+    _handler.setLevel(level)
+
 JSON_PATH_LIST_INDEXES = re.compile(r'\w*\[(-?\d+)\]')
 JSON_PATH_PATTERN = re.compile(r'(\$\.[\w\d\[\]\.]+)')
 OPTIONS_TO_HIDE = {
@@ -142,16 +149,25 @@ def resolve_dynamic_params(string: str, data: Sequence) -> str:
 def parse_cli_json(raw: str) -> dict[str, Any]:
     """Parse the first JSON object from CLI stdout.
 
-    The SRE CLI may append a non-JSON hints block after ``--json`` output
-    (e.g. presigned download curl commands for large reports).
+    The SRE CLI may prepend log lines (e.g. when ``LOG_LEVEL=DEBUG``) and
+    append a non-JSON hints block after ``--json`` output (e.g. presigned
+    download curl commands for large reports).
     """
     stripped = raw.strip()
     if not stripped:
         return {}
-    payload, _ = json.JSONDecoder().raw_decode(stripped)
-    if isinstance(payload, dict):
-        return payload
-    return {'data': payload}
+    decoder = json.JSONDecoder()
+    for index, char in enumerate(stripped):
+        if char not in '{[':
+            continue
+        try:
+            payload, _ = decoder.raw_decode(stripped[index:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            return payload
+        return {'data': payload}
+    return {}
 
 
 class Condition(ABC):
@@ -354,12 +370,14 @@ class AbstractStep(ABC):
         expectations: Expectations | None = None,
         depends_on: Sequence['AbstractStep'] | None = None,
         delay: int | None = None,
+        label: str | None = None,
     ):
         self._expectations = expectations or {}
         self._output: dict = {}
         self._is_finished: bool = False
         self._is_succeeded: bool | None = None
         self._depends_on: tuple['AbstractStep', ...] = tuple(depends_on or [])
+        self._label = label
         settings = get_settings()
         default_delay = settings.step_delay
         self._delay = delay if delay is not None else default_delay
@@ -442,8 +460,9 @@ class Step(AbstractStep):
         expectations: Expectations | None = None,
         depends_on: Sequence[AbstractStep] | None = None,
         json_flag: bool = True,
+        label: str | None = None,
     ):
-        super().__init__(expectations, depends_on)
+        super().__init__(expectations, depends_on, label=label)
         self._json_flag = json_flag
         self._command = self._adjust_command(command)
 
@@ -461,7 +480,14 @@ class Step(AbstractStep):
             capture_output=True,
             check=False,
         )
-        return process.stdout.decode()
+        stdout = process.stdout.decode()
+        if _LOG.isEnabledFor(logging.DEBUG):
+            stderr = process.stderr.decode()
+            _LOG.debug(f'Exit code: {process.returncode}')
+            _LOG.debug(f'stdout:\n{stdout}')
+            if stderr:
+                _LOG.debug(f'stderr:\n{stderr}')
+        return stdout
 
     def execute(self) -> None:
         self._command = self._resolve_dynamic(self._command)
@@ -481,7 +507,7 @@ class Step(AbstractStep):
                 i += 2
             else:
                 i += 1
-        return ' '.join(result)
+        return shlex.join(result)
 
     def report(self) -> str:
         _succeeded = self.succeeded
@@ -489,6 +515,8 @@ class Step(AbstractStep):
             f'`{self.command}` - '
             f'{PASSED_MARKDOWN if _succeeded else FAILED_MARKDOWN};'
         )
+        if self._label:
+            s += f' _{self._label}_'
         if not _succeeded:
             s += '\n' + FAILED_EXPLANATION_TEMPLATE.format(
                 output=json.dumps(self._output, indent=4),
@@ -507,8 +535,9 @@ class WaitUntil(Step):
         timeout: int = 900,
         sleep: int = 15,
         break_if: Expectations | None = None,
+        label: str | None = None,
     ):
-        super().__init__(command, expectations, depends_on)
+        super().__init__(command, expectations, depends_on, label=label)
         self._timeout = timeout
         self._sleep = sleep
         self._timed_out = False

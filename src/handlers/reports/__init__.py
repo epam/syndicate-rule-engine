@@ -11,6 +11,7 @@ from .errors_handler import ErrorsReportHandler
 from .findings_handler import FindingsReportHandler
 from .high_level_reports_handler import HighLevelReportsHandler
 from .push_handler import SiemPushHandler
+from .questionnaire_handler import QuestionnaireHandler
 from .raw_report_handler import RawReportHandler
 from .report_status_handler import ReportStatusHandlerHandler
 from .resource_report_handler import ResourceReportHandler
@@ -22,6 +23,7 @@ __all__ = (
     "DigestReportHandler",
     "FindingsReportHandler",
     "ComplianceReportHandler",
+    "QuestionnaireHandler",
     "ErrorsReportHandler",
     "ResourceReportHandler",
     "JobsRulesHandler",

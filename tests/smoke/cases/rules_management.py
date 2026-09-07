@@ -19,6 +19,7 @@ from smoke.core.settings import (
     SmokeSettings,
     get_rule_source,
     get_settings,
+    build_settings,
 )
 
 
@@ -345,22 +346,18 @@ def case_for_source(
 
 def run_rules_management(
     *,
+    username: str | None = None,
+    password: str | None = None,
+    api_link: str | None = None,
+    customer: str | None = None,
     report_name: str = 'smoke-rules-management.md',
 ) -> list[Case]:
-    settings = get_settings()
-    if not all(
-        (
-            settings.username,
-            settings.password,
-            settings.customer,
-            settings.api_link,
-        )
-    ):
-        raise RuntimeError(
-            'SMOKE_SRE_USERNAME, SMOKE_SRE_PASSWORD, SMOKE_SRE_CUSTOMER and '
-            'SMOKE_SRE_API_LINK must be provided'
-        )
-
+    settings = build_settings(
+        username=username,
+        password=password,
+        api_link=api_link,
+        customer=customer,
+    )
     cases: list[Case] = [build_authentication_case(settings=settings)]
     for cloud in ('AWS', 'AZURE', 'GCP'):
         source = get_rule_source(cloud)

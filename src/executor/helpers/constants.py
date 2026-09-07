@@ -20,7 +20,8 @@ INVALID_CREDENTIALS_ERROR_CODES = {
         "UnrecognizedClientException",
         "ExpiredToken",
         "ExpiredTokenException",
-    },  # add 'InvalidClientTokenId'
+        "InvalidClientTokenId",
+    },
     Cloud.AZURE: {
         "InvalidAuthenticationTokenTenant",
         "AuthorizationFailed",

@@ -4,7 +4,8 @@ from http import HTTPStatus
 from handlers.integrations import (
     ChronicleHandler, 
     DefectDojoHandler, 
-    EventSourcesHandler, 
+    EventSourcesHandler,
+    McpAuthSettingHandler,
     SelfIntegrationHandler
 )
 from handlers.credentials_handler import CredentialsHandler
@@ -92,6 +93,7 @@ class ConfigurationApiHandler(ApiEventProcessorLambdaHandler):
         LicenseHandler,
         ReportStatusHandlerHandler,
         SelfIntegrationHandler,
+        McpAuthSettingHandler,
         LicenseManagerClientHandler,
         LicenseManagerConfigHandler,
         RuleSourceHandler,

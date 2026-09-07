@@ -74,7 +74,7 @@ def accumulated(
     tenant_name: str,
     href: bool,
     format: str,
-    customer_id,
+    customer_id: str | None,
 ) -> SREResponse:
     """
     Describes tenant-specific compliance report

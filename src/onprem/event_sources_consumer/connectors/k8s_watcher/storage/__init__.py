@@ -1,5 +1,5 @@
 from .base import Storage
-from .redis import RedisStorage
+from .valkey import ValkeyStorage
 
 
-__all__ = ('Storage', 'RedisStorage')
+__all__ = ('Storage', 'ValkeyStorage')

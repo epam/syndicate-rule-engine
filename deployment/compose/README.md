@@ -31,6 +31,30 @@ Optionally generate random envs:
 python generate_random_envs.py --rule-engine >> .env
 ```
 
+### Where to find system passwords
+
+All "system" credentials (`SRE_SYSTEM_USER_PASSWORD`, `MODULAR_API_INIT_PASSWORD`,
+`MODULAR_SERVICE_SYSTEM_USER_PASSWORD`, mongo/minio/redis/vault credentials) are plain
+environment variables with hardcoded fallback values baked into `compose.yaml`
+(`${SRE_SYSTEM_USER_PASSWORD:-systempassword}` and similar). There is no password
+printed to container logs on first start — the value is whatever the variable
+resolves to:
+
+- **You did not generate random envs** — every system password is the literal
+  default from `compose.yaml`, e.g. `SRE_SYSTEM_USER_PASSWORD` /
+  `MODULAR_SERVICE_SYSTEM_USER_PASSWORD` / `MODULAR_API_INIT_PASSWORD` all default
+  to `systempassword`. You can log in right away with that password (see
+  "Log in as system users" below).
+- **You ran `generate_random_envs.py --rule-engine >> .env`** — random values were
+  written to your `.env` file before `up`. Read them back with:
+
+  ```bash
+  grep -E "SRE_SYSTEM_USER_PASSWORD|MODULAR_SERVICE_SYSTEM_USER_PASSWORD|MODULAR_API_INIT_PASSWORD" .env
+  ```
+
+  and export them (or source the file) before running the `sre login` / `ms login`
+  commands further down.
+
 If all profiles are included those API will be available:
 - vault: [http://127.0.0.1:8200](http://127.0.0.1:8200)
 - mongo: [http://127.0.0.1:27017](http://127.0.0.1:27017)
@@ -48,7 +72,7 @@ Default image tags live only in `compose.yaml` (`*_VERSION` / optional `*_IMAGE`
 | `MODULAR_SERVICE_VERSION` / `MODULAR_SERVICE_IMAGE` | modular-service |
 | `MONGO_VERSION` / `MONGO_IMAGE` | mongo |
 | `MINIO_VERSION` / `MINIO_IMAGE` | minio |
-| `REDIS_VERSION` / `REDIS_IMAGE` | redis |
+| `VALKEY_VERSION` / `VALKEY_IMAGE` | valkey |
 | `VAULT_VERSION` / `VAULT_IMAGE` | vault |
 
 ### Develop with a local image (e.g. modular-service)
@@ -69,6 +93,19 @@ make compose-up MODULAR_SERVICE_IMAGE=public.ecr.aws/x4s4z8e1/syndicate/modular-
 ```
 
 Same pattern for rule-engine (or use `BUILD=1` to build from this repo's Dockerfile).
+
+The rule-engine Compose stack runs Valkey 8.x for the Celery broker/result
+backend and event-deduplication cache. Celery/Kombu currently uses the
+Redis-compatible `redis://` URL scheme for Valkey; this does not require a
+Redis server or Redis-specific deployment variables.
+
+`VALKEY_PASSWORD` defaults to `valkeypassword`; set it to an empty value to
+run Valkey without authentication. `VALKEY_DOMAIN` and `VALKEY_PORT` control
+the address used by the rule-engine containers. The old `REDIS_PASSWORD`,
+`REDIS_DOMAIN`, `REDIS_PORT`, and `VALKEY_HOST` names are accepted as
+transitional fallbacks when their corresponding `VALKEY_*` value is unset.
+The `redis-data` volume name is retained so existing Compose installations
+keep their data during the Redis-to-Valkey service migration.
 
 ### Install modular-cli (syndicate)
 
@@ -153,13 +190,14 @@ sre configure --api_link http://0.0.0.0:8000/caas
 ms configure --api_link http://0.0.0.0:8040/dev
 ```
 
-Login as system users:
+Login as system users (see "Where to find system passwords" above — defaults to
+`systempassword` for both if you didn't generate random envs):
 ```bash
-sre login --username system_user --password "$SRE_SYSTEM_USER_PASSWORD"
+sre login --username system_user --password "${SRE_SYSTEM_USER_PASSWORD:-systempassword}"
 ```
 
 ```bash
-ms login --username system_user --password "$MODULAR_SERVICE_SYSTEM_USER_PASSWORD"
+ms login --username system_user --password "${MODULAR_SERVICE_SYSTEM_USER_PASSWORD:-systempassword}"
 ```
 
 

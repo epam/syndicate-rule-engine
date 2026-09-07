@@ -105,6 +105,23 @@ class SettingsService:
             consistent_read=consistent_read,
         )
 
+    def get_mcp_jwt_auth_configuration(
+        self,
+        value: bool = True,
+        consistent_read: bool = False,
+    ):
+        return self.get(
+            name=SettingKey.MCP_JWT_AUTH,
+            value=value,
+            consistent_read=consistent_read,
+        )
+
+    def create_mcp_jwt_auth_configuration(self, algorithm: str) -> Setting:
+        return self.create(
+            name=SettingKey.MCP_JWT_AUTH,
+            value={'algorithm': algorithm},
+        )
+
     def create_license_manager_client_key_data(self, kid: str, alg: str
                                                ) -> Setting:
         """
