@@ -1518,7 +1518,7 @@ cmd_update() {
     check_modular_cli_python_compatibility "$latest_tag" >/dev/null
   fi
 
-  local mongo_migration_needed=0
+  local mongo_migration_needed=0 mongo_migrated=0
   if mongodb_migration_defined "$latest_tag" && mongodb_migration_required "$latest_tag"; then
     mongo_migration_needed=1
     if [ "$do_backup" -eq 0 ]; then
@@ -1543,6 +1543,9 @@ cmd_update() {
     helm repo update syndicate || die_with_support "helm repo update failed"
     run_mongodb_migration "$latest_tag" "$confirm_migration_token" "$auto_yes" "$backup_name"
     case "$?" in
+      0)
+        mongo_migrated=1
+        ;;
       1)
         warn "MongoDB migration failed. Rolling back to revision $mongo_migration_pre_revision (the exact state before the migration started)..."
         helm rollback "$HELM_RELEASE_NAME" "$mongo_migration_pre_revision" --wait || die_with_support "Helm rollback failed"
@@ -1563,6 +1566,10 @@ cmd_update() {
   helm search repo syndicate/rule-engine --version "$latest_tag" --fail-on-no-result >/dev/null 2>&1 || die_with_support "$latest_tag version $HELM_RELEASE_NAME chart not found. Cannot update"
   echo "Making helm upgrade. It should not take more than $((HELM_UPGRADE_TIMEOUT / 60)) minutes"
   helm_values="$(helm get values "$HELM_RELEASE_NAME" -o json)" # preserve only user-set values
+  if [ "$mongo_migrated" -eq 1 ]; then
+    # drop the mongo.image.tag override injected by the migration steps so the chart default drives it again
+    helm_values="$(echo "$helm_values" | jq 'if .mongo.image then .mongo.image |= del(.tag) else . end')"
+  fi
   if ! helm upgrade "$HELM_RELEASE_NAME" syndicate/rule-engine --timeout "${HELM_UPGRADE_TIMEOUT}s" --wait --wait-for-jobs --version "$latest_tag" --reset-values --values <(echo "$helm_values") --set=patch.enabled="$do_patch"; then
     warn "helm upgrade failed. Rolling back to the previous version..."
     helm rollback "$HELM_RELEASE_NAME" 0 --wait || die_with_support "Helm rollback failed"
