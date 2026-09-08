@@ -647,10 +647,15 @@ scale_mongo_migration_writers() {
 }
 
 run_mongodb_migration_step() {
-  local image_tag="$1" fcv="$2" confirm_arg="" actual_version actual_fcv
+  local image_tag="$1" fcv="$2" confirm_arg="" actual_version actual_fcv mongo_repo
 
   echo "Upgrading MongoDB image to $image_tag"
-  helm upgrade "$HELM_RELEASE_NAME" syndicate/rule-engine --reuse-values --set "mongo.image.tag=$image_tag" --timeout "${HELM_UPGRADE_TIMEOUT}s" --wait || return 1
+  # patch only the mongo deployment instead of running a full `helm upgrade` per step: a full
+  # upgrade re-renders every workload and brings the writer deployments (scaled to 0 before the
+  # loop) back up on each step. Keep the current repository, swap just the tag.
+  mongo_repo="$(kubectl get deployment mongo -o jsonpath='{.spec.template.spec.containers[?(@.name=="mongodb")].image}')" || return 1
+  mongo_repo="${mongo_repo%%:*}"
+  kubectl set image deployment/mongo "mongodb=${mongo_repo}:${image_tag}" || return 1
   kubectl rollout status deployment/mongo --timeout="${HELM_UPGRADE_TIMEOUT}s" || return 1
 
   echo "Setting MongoDB featureCompatibilityVersion to $fcv"
