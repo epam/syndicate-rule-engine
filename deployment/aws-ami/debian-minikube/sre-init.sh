@@ -1381,8 +1381,7 @@ find_asset_by_name() {
 }
 
 perform_self_update() {
-  local tag asset new_version
-  tag="$(jq -r '.tag_name' << max_attempts delay attempt err
+  local tag asset new_version max_attempts delay attempt err
   tag="$(jq -r '.tag_name' <<<"$1")"
 
   if ! asset="$(find_asset_by_name "$1" "$SRE_INIT_ARTIFACT_NAME")"; then
@@ -1411,6 +1410,7 @@ perform_self_update() {
     fi
   done
   return 1
+}
 
 cmd_update() {
   local opts auto_yes=0 current_release release_data latest_tag backup_name="" iter_params=() check=0 same_version=0 do_backup=1 do_patch='true' helm_values update_defectdojo=0 confirm_migration_token=""
@@ -1516,6 +1516,7 @@ cmd_update() {
         die_with_support "sre-init self-update to $latest_tag failed after retries. Aborting so the update does not run with an outdated script that may miss mandatory migration steps. Fix connectivity/permissions and re-run, or set FORBID_SELF_UPDATE=1 to bypass at your own risk"
         ;;
     esac
+  fi
 
   echo "The current installed version is $current_release"
   echo "New github $(get_release_type "$release_data") $latest_tag is available"
