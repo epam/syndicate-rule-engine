@@ -1,8 +1,14 @@
-from .collector import EventMappingCollector
-from .provider import EventMappingBucketKeys, S3EventMappingProvider
+from .collector import EventMappingCollector, PeriodicMappingCollector
+from .provider import (
+    MappingBucketKeys,
+    S3EventMappingProvider,
+    S3PeriodicMappingProvider,
+)
 
 __all__ = (
-    "EventMappingBucketKeys",
+    "MappingBucketKeys",
     "S3EventMappingProvider",
+    "S3PeriodicMappingProvider",
     "EventMappingCollector",
+    "PeriodicMappingCollector",
 )

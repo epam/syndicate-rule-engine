@@ -61,14 +61,7 @@ class DetailedReportHandler(AbstractHandler):
 
     @validate_kwargs
     def get_by_job(self, event: JobDetailsReportGetModel, job_id: str):
-        job = next(
-            self._js.get_by_job_types(
-                job_types=event.job_types,
-                job_id=job_id,
-                customer_name=event.customer,
-            ),
-            None,
-        )
+        job = self._js.get_nullable(job_id)
         if not job:
             return build_response(
                 content="The request job not found", code=HTTPStatus.NOT_FOUND

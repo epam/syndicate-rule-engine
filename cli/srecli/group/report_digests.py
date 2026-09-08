@@ -25,9 +25,15 @@ def digests():
 @from_date_report_option
 @to_date_report_option
 @cli_response()
-def jobs(ctx: ContextObj, job_id: Optional[str], tenant_name: Optional[str],
-         from_date: Optional[datetime], to_date: Optional[datetime],
-         job_type: Optional[str], customer_id):
+def jobs(
+    ctx: ContextObj,
+    job_id: Optional[str],
+    tenant_name: Optional[str],
+    from_date: Optional[datetime],
+    to_date: Optional[datetime],
+    job_types: tuple[str, ...],
+    customer_id: str | None,
+):
     """
     Describes summary reports of jobs
     """
@@ -35,19 +41,17 @@ def jobs(ctx: ContextObj, job_id: Optional[str], tenant_name: Optional[str],
         raise click.ClickException(
             'Either --job_id or --tenant_name must be given'
         )
-    dates = from_date, to_date
-    i_iso = map(lambda d: d.isoformat() if d else None, dates)
-    from_date, to_date = tuple(i_iso)
+    from_date = from_date.isoformat() if from_date else None
+    to_date = to_date.isoformat() if to_date else None
 
     if job_id:
         return ctx['api_client'].report_digest_jobs(
             job_id=job_id,
-            job_type=job_type,
             customer_id=customer_id
         )
     return ctx['api_client'].report_digest_tenants(
         tenant_name=tenant_name,
-        job_type=job_type,
+        job_types=job_types,
         start_iso=from_date,
         end_iso=to_date,
         customer_id=customer_id

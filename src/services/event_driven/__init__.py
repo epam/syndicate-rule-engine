@@ -1,4 +1,9 @@
-from .mappings import EventMappingCollector, S3EventMappingProvider
+from .mappings import (
+    EventMappingCollector,
+    S3EventMappingProvider,
+    S3PeriodicMappingProvider,
+    PeriodicMappingCollector,
+)
 from .services import (
     EventDrivenRulesService,
     EventIngestService,
@@ -11,4 +16,6 @@ __all__ = (
     'EventStoreService',
     'EventMappingCollector',
     'S3EventMappingProvider',
+    'S3PeriodicMappingProvider',
+    'PeriodicMappingCollector',
 )

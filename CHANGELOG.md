@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.21.0] - 2026-09-08
+
+### Added
+- Added resolving of tenant access payload for MCP users from MCP user context (header `X-Mcp-User-Context`)
+- Added a new system scheduler `process-periodic-rules` to run specific rules with `periodic=True` in their metadata
+- Added standard questionnaire report endpoints that return a presigned url to an xlsx workbook with charts:
+  - `GET /reports/questionnaire/jobs/{job_id}`
+  - `GET /reports/questionnaire/tenants/{tenant_name}`
+  - new CLI group `sre report questionnaire`
+
+### Fixed
+- Fixed K8s recommendations being overwritten when a tenant has multiple platforms by aggregating all platforms recommendations before saving
+- Fixed the statistics generation during the scan report finalization step
+
+### Changed
+- DefectDojo integration now tags the product with the tenant name and ensures `enable_product_tag_inheritance` is enabled, so all findings inherit the tenant tag automatically
+- Changed jobs retrieval from DB to use `job_types` instead of `job_type` in `GET /reports/push/dojo`
+- Use the same AWS credential resolution chain for EKS scans as for standard AWS scans
+- Split reactive-related reports by type, using `OPERATIONAL_ATTACK` for clouds and `OPERATIONAL_KUBERNETES` for platforms
+- Updated versions of dependencies:
+    - `cachetools` from `~=7.1.4` to `~=7.1.6`
+- Upgraded Vault version from `1.19.5` to `1.21.4`
+- Migrated `redis` to `valkey` as Celery broker/result backend and cache
+- Add error types statistics to job warnings 
+- Clarify the job failure reason when all policies failed with the same error type
+
+### Removed 
+- Removed `job_type` request field from report endpoints that already target a specific `job_id`:
+  - `GET /reports/digests/jobs/{job_id}`
+  - `GET /reports/details/jobs/{job_id}`
+  - `GET /reports/findings/jobs/{job_id}`
+  - `GET /reports/compliance/jobs/{job_id}`
+  - `GET /reports/errors/jobs/{job_id}`
+  - `GET /reports/rules/jobs/{job_id}`
+  - `POST /reports/push/dojo/{job_id}`
+  - `POST /reports/push/chronicle/{job_id}`
+
+### Fixed
+- Fixed AWS policy runs that hit Lambda `Environment.Error` (KMS decrypt AccessDenied) being reported as `INTERNAL` instead of `ACCESS`
+
 ## [5.20.1] - 2026-08-12
 
 ### Changed

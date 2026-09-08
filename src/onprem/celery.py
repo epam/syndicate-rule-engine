@@ -67,6 +67,11 @@ def prepare_beat_schedule() -> dict[str, dict]:
             'schedule': Env.CELERY_REMOVE_OLD_SHARDS_SCHEDULE,
             'args': (Env.CELERY_REMOVE_OLD_SHARDS_DAYS.as_int(), ),
         },
+        'process-periodic-rules': {
+            'task': 'onprem.tasks.process_periodic_rules',
+            'schedule': Env.CELERY_PROCESS_PERIODIC_RULES_SCHEDULE,
+            'args': (),
+        },
     }
     disabled = []
     for name, inner in schedule.items():
@@ -87,9 +92,14 @@ def prepare_beat_schedule() -> dict[str, dict]:
     return schedule
 
 
-redis = Env.CELERY_BROKER_URL.get()
+broker_url = Env.CELERY_BROKER_URL.get()
+result_backend = Env.CELERY_RESULT_BACKEND.get()
 
-app = Celery(broker=redis, include=['onprem.tasks'])
+app = Celery(
+    broker=broker_url,
+    backend=result_backend or None,
+    include=['onprem.tasks'],
+)
 
 
 app.conf.beat_schedule = prepare_beat_schedule()
@@ -125,6 +135,7 @@ app.conf.task_routes = {
     'onprem.tasks.collect_resources': {'queue': 'c-scheduled', 'priority': 0},
     'onprem.tasks.delete_expired_metrics': {'queue': 'c-scheduled', 'priority': 0},
     'onprem.tasks.remove_old_shards': {'queue': 'c-scheduled'},
+    'onprem.tasks.process_periodic_rules': {'queue': 'c-scheduled', 'priority': 0},
 }
 app.conf.timezone = Env.CELERY_TIMEZONE.as_str()
 app.conf.broker_connection_retry_on_startup = True
@@ -133,7 +144,9 @@ app.conf.task_compression = Env.CELERY_TASK_COMPRESSION.as_str()
 app.conf.worker_max_tasks_per_child = Env.CELERY_WORKER_MAX_TASK_PER_CHILD.as_int()
 app.conf.worker_log_color = False
 app.conf.worker_send_task_event = False
-app.conf.task_ignore_result = True  # custom results logic
+# Job lifecycle/status is persisted in the application database and inspected
+# through Celery, so task return values are still intentionally ignored.
+app.conf.task_ignore_result = True
 app.conf.broker_transport_options = {
     'queue_order_strategy': 'priority',  # consume queues in task_queues order
     'priority_steps': list(range(10)),  # 0-9, lower = higher priority

@@ -20,6 +20,7 @@ from executor.helpers.constants import (
     ACCESS_DENIED_ERROR_CODE,
     INVALID_CREDENTIALS_ERROR_CODES,
 )
+from executor.helpers.embedded_access import find_embedded_env_access_denied
 from executor.job.policies.loader import PoliciesLoader
 from executor.job.policies.modes import (
     filter_events_for_policy_mode,
@@ -298,15 +299,27 @@ class AWSRunner(Runner):
                     exception=error,
                 )
         except Exception as error:
-            _LOG.exception(
-                f'Policy {policy.name} has failed with unexpected error'
-            )
-            self._add_failed(
-                region=PoliciesLoader.get_policy_region(policy),
-                policy=policy.name,
-                error_type=PolicyErrorType.INTERNAL,
-                exception=error,
-            )
+            access_msg = find_embedded_env_access_denied(policy)
+            if access_msg:
+                _LOG.warning(
+                    f"Policy '{policy.name}' is skipped. Reason: '{access_msg}'"
+                )
+                self._add_failed(
+                    region=PoliciesLoader.get_policy_region(policy),
+                    policy=policy.name,
+                    error_type=PolicyErrorType.ACCESS,
+                    message=access_msg,
+                )
+            else:
+                _LOG.exception(
+                    f'Policy {policy.name} has failed with unexpected error'
+                )
+                self._add_failed(
+                    region=PoliciesLoader.get_policy_region(policy),
+                    policy=policy.name,
+                    error_type=PolicyErrorType.INTERNAL,
+                    exception=error,
+                )
         return False
 
 

@@ -12,7 +12,7 @@ service:
 
 image:
   repository: public.ecr.aws/x4s4z8e1/syndicate/rule-engine
-  tag: 5.20.1
+  tag: 5.21.0
   pullPolicy: Always
 
 replicas: 1
@@ -28,8 +28,8 @@ vaultPort: 8200
 minioService: minio
 minioPort: 9000
 # for celery and event-sources-consumer
-redisService: redis
-redisPort: 6380
+valkeyService: valkey
+valkeyPort: 6380
 
 vault:
   enabled: true
@@ -42,9 +42,9 @@ minio:
 mongo:
   enabled: true
   fullnameOverride: mongo
-redis:
+valkey:
   enabled: true
-  fullnameOverride: redis
+  fullnameOverride: valkey
 modular-service:
   enabled: true
   fullnameOverride: modular-service
@@ -62,7 +62,7 @@ modular-api:
   modularApiM3adminLogLevel: ERROR
   modularApiModularSdkLogLevel: ERROR
   image:
-    tag: 4.4.0-rule-engine-5.20.1
+    tag: 4.4.2-rule-engine-5.21.0
 
 patch:
   enabled: false

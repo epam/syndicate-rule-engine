@@ -16,7 +16,6 @@ from helpers.constants import (
     ReportFormat,
 )
 from helpers.lambda_response import build_response
-from helpers.system_customer import SystemCustomer
 from services import SP, modular_helpers
 from services.environment_service import EnvironmentService
 from services.job_service import JobService
@@ -90,13 +89,7 @@ class ComplianceReportHandler(AbstractHandler):
 
     @validate_kwargs
     def get_by_job(self, event: JobComplianceReportGetModel, job_id: str):
-        customer_name = event.customer or SystemCustomer.get_name()
-        job = self._job_service.get_by_customer_name(
-            customer_name=customer_name,
-            job_id=job_id,
-            job_types=event.job_types,
-        )
-        job = next(job, None)
+        job = self._job_service.get_nullable(job_id)
         if not job:
             return build_response(
                 content="The request job not found",

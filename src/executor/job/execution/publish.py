@@ -19,6 +19,32 @@ from services.sharding import (
 _LOG = get_logger(__name__)
 
 
+def _drop_execution_stats(collection: ShardsCollection) -> None:
+    """
+    Strip transient execution stats from shard parts.
+
+    Statistics are already persisted separately, so common report
+    shards can stay lean to reduce storage and traffic costs.
+    """
+    parts: list[ShardPart] = []
+    for part in collection.iter_all_parts():
+        if part.temp_execution_stats is None:
+            continue
+        parts.append(
+            ShardPart(
+                policy=part.policy,
+                location=part.location,
+                timestamp=part.timestamp,
+                resources=part.resources,
+                error=part.error,
+                previous_timestamp=part.previous_timestamp,
+                temp_execution_stats=None,
+            )
+        )
+    if parts:
+        collection.put_parts(parts)
+
+
 def _expand_collection_fingerprint_aliases(
     ctx: JobExecutionContext,
     collection: ShardsCollection,
@@ -48,6 +74,7 @@ def _expand_collection_fingerprint_aliases(
                         resources=list(part.resources),
                         error=part.error,
                         previous_timestamp=part.previous_timestamp,
+                        temp_execution_stats=part.temp_execution_stats,
                     )
                 )
             if primary in collection.meta:
@@ -106,6 +133,8 @@ def finalize_standard_job_reports(
 
         has_successful = bool(successful)
         stats = result.statistics(ctx.tenant, failed)
+
+    _drop_execution_stats(collection)
 
     if has_successful:
         _LOG.info('Going to upload to SIEM')

@@ -10,7 +10,7 @@ Handles:
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
-from typing import TYPE_CHECKING, Any, Iterable, cast
+from typing import TYPE_CHECKING, Any, Iterable, cast, NamedTuple
 
 from helpers.constants import (
     Cloud,
@@ -20,19 +20,19 @@ from helpers.constants import (
     RabbitCommand,
     ReportType,
     TS_EXCLUDED_RULES_KEY,
+    SRE_REPORTS_TYPE_TO_M3_MAPPING,
 )
 from helpers.log_helper import get_logger
 from helpers.reports import service_from_resource_type
 from helpers.time_helper import utc_datetime, utc_iso
 from services.modular_helpers import get_tenant_regions, tenant_cloud
-from services.platform_service import PlatformService
+from services.platform_service import Platform, PlatformService
 from services.reports import Report, ReportVisitor, strip_attacks_violations_for_maestro
 from services.resources import MaestroReportResourceView, rule_resources_dict
 from modular_sdk.models.tenant import Tenant
 from typing_extensions import Self
 from services.metadata import Metadata
-from handlers.reports.high_level_reports_handler import SRE_REPORTS_TYPE_TO_M3_MAPPING
-
+from services.sharding import ShardsCollection, ShardPart
 
 if TYPE_CHECKING:
     from modular_sdk.modular import ModularServiceProvider
@@ -42,7 +42,6 @@ if TYPE_CHECKING:
     from services.rabbitmq_service import RabbitMQService
     from services.report_service import ReportService
     from services.setting_service import SettingsService
-    from services.sharding import ShardsCollection
 
 _LOG = get_logger(__name__)
 
@@ -113,6 +112,74 @@ def build_attacks_report_payload(
     if jobs_count is not None:
         payload["jobs_count"] = jobs_count
     return payload
+
+
+def build_platform_report(
+    *,
+    tenant: Tenant,
+    receivers: list[str],
+    data: dict,
+    rules_data: dict,
+    platform: Platform,
+    report_from: str,
+    report_to: str,
+) -> dict:
+    """
+    Build OPERATIONAL_KUBERNETES report payload for Maestro
+    """
+
+    return {
+        "receivers": receivers,
+        "customer": tenant.customer_name,
+        "from": report_from,
+        "to": report_to,
+        "outdated_tenants": [],
+        "externalData": False,
+        "data": data,
+        "tenant_name": tenant.name,
+        "last_scan_date": report_to,
+        "cluster_id": platform.id,
+        "cloud": tenant.cloud.upper(),
+        "region": platform.region,
+        "cluster_metadata": {
+            "rules": {
+                "violated": list(rules_data.get("violated", [])),
+            },
+        },
+    }
+
+
+def build_attacks_data(
+    metadata: Metadata,
+    rule_resources: dict,
+    collection_meta: dict,
+    report_type: ReportType = ReportType.OPERATIONAL_ATTACKS,
+) -> list[dict]:
+    """
+    Build attacks data for Maestro report payload.
+    """
+    report = Report.derive_report(report_type)
+    view = MaestroReportResourceView()
+
+    generator = ReportVisitor.derive_visitor(
+        ReportType.OPERATIONAL_ATTACKS,
+        metadata=metadata,
+        view=view,
+        scope=None,
+    )
+
+    report_it = report.accept(
+        generator,
+        rule_resources=rule_resources,
+        meta=collection_meta,
+    )
+    return list(report_it)
+
+
+class AggregatedResources(NamedTuple):
+    all_rule_resources: dict[str, set]
+    rules_data: dict[str, dict]
+    collections_meta: dict
 
 
 class ReportDeliveryService:
@@ -503,20 +570,10 @@ class ReportDeliveryService:
         )
         if not rule_resources:
             return None
-        report = Report.derive_report(ReportType.OPERATIONAL_ATTACKS)
-        view = MaestroReportResourceView()
-        generator = ReportVisitor.derive_visitor(
-            ReportType.OPERATIONAL_ATTACKS,
+        attacks_data = build_attacks_data(
             metadata=metadata,
-            view=view,
-            scope=None,
-        )
-        attacks_data = list(
-            report.accept(
-                generator,
-                rule_resources=rule_resources,
-                meta=collection.meta,
-            )
+            rule_resources=rule_resources,
+            collection_meta=collection.meta,
         )
         if not attacks_data:
             return None
@@ -524,12 +581,111 @@ class ReportDeliveryService:
         rules_data = self._build_rules_from_collection(
             collection, metadata, scope, tenant
         )
-        return (attacks_data, rules_data, effective_cloud)
+        return attacks_data, rules_data, effective_cloud
+
+    def _build_platform_data(
+        self,
+        metadata: Metadata,
+        rule_resources: dict,
+        collection_meta: dict,
+        collection: ShardsCollection,
+    ) -> dict | None:
+        """
+        Build KUBERNETES data for Maestro report payload.
+        """
+
+        view = MaestroReportResourceView()
+        report = Report.derive_report(ReportType.OPERATIONAL_KUBERNETES)
+        resources_gen = ReportVisitor.derive_visitor(
+            ReportType.OPERATIONAL_RESOURCES,
+            metadata=metadata,
+            view=view,
+        )
+
+        policy_data = list(
+            report.accept(
+                resources_gen,
+                rule_resources=rule_resources,
+                meta=collection_meta,
+            )
+        )
+        if not policy_data:
+            return None
+
+        mitre_data = build_attacks_data(
+            metadata=metadata,
+            rule_resources=rule_resources,
+            collection_meta=collection_meta,
+            report_type=ReportType.OPERATIONAL_KUBERNETES,
+        )
+        if not mitre_data:
+            return None
+
+        compliance = self._report_service.calculate_tenant_full_coverage(
+            col=collection, metadata=metadata, cloud=Cloud.KUBERNETES
+        )
+        compliance_data = [
+            {"name": st.full_name, "value": round(cov * 100, 2)}
+            for st, cov in compliance.items()
+        ]
+
+        return {
+            "policy_data": policy_data,
+            "mitre_data": mitre_data,
+            "compliance_data": compliance_data,
+        }
+    
+    def _collect_platform_data_for_job(
+        self,
+        job: Job,
+        tenant: Tenant,
+        lic: License,
+    ) -> tuple[dict, Platform, Metadata, dict] | None:
+        """
+        Load platform collection and derived rule data for immediate delivery.
+        """
+        platform = self._platform_service.get_nullable(hash_key=job.platform_id)
+        if not platform:
+            _LOG.warning(f"Platform {job.platform_id} not found for job {job.id}")
+            return None
+
+        default_tenant_cloud = tenant_cloud(tenant)
+        opened = self._open_job_report_collection(
+            job, tenant, default_tenant_cloud
+        )
+        if not opened:
+            return None
+
+        collection, effective_cloud, account_id = opened
+        collection.fetch_all()
+
+        metadata = self._license_service.get_metadata_for_licenses([lic])
+        rule_resources = rule_resources_dict(
+            collection, effective_cloud, metadata, account_id
+        )
+        if not rule_resources:
+            return None
+        
+        platform_data = self._build_platform_data(
+            metadata=metadata,
+            rule_resources=rule_resources,
+            collection_meta=collection.meta,
+            collection=collection,
+        )
+        if not platform_data:
+            return None
+        scope = set(rule_resources.keys())
+        rules_data = self._build_rules_from_collection(
+            collection, metadata, scope, tenant
+        )
+        return platform_data, platform, metadata, rules_data
 
     def generate_and_send_report_immediate(self, job_id: str) -> bool:
         """
         Generate attacks report for a single job and send via RabbitMQ.
         Returns True if sent, False if skipped (no attacks, no config, etc).
+        For platform jobs, generates OPERATIONAL_KUBERNETES; for tenant jobs, OPERATIONAL_ATTACKS.
+        Delegates to separate methods for tenant and platform job handling.
         """
         job = self._job_service.get_nullable(job_id)
         if not job:
@@ -553,13 +709,17 @@ class ReportDeliveryService:
         if not config or config.get("mode") != REPORT_DELIVERY_MODE_IMMEDIATE:
             return False
 
-        result = self._collect_attacks_for_job(job, tenant, lic)
-        if not result:
-            _LOG.info(f"No attacks for job {job_id}, skip report send")
+        rabbitmq = self._rabbitmq_service.get_customer_rabbitmq(
+            job.customer_name
+        )
+        if not rabbitmq:
+            _LOG.warning(
+                f"No RabbitMQ for customer {job.customer_name} "
+                "for event-driven report delivery"
+            )
             return False
-        attacks_data, rules_data, cloud = result
 
-        rabbitmq = self._rabbitmq_service.get_customer_rabbitmq(job.customer_name)
+        receivers = config.get("receivers") or []
         now = utc_datetime()
         report_end = (
             job.stopped_at and utc_iso(utc_datetime(job.stopped_at)) or utc_iso(now)
@@ -569,38 +729,61 @@ class ReportDeliveryService:
             and utc_iso(utc_datetime(job.submitted_at))
             or utc_iso(now - timedelta(days=7))
         )
-        tenant_metadata = self._build_tenant_metadata(
-            tenant,
-            lic,
-            last_scan_date=report_end,
-            finished_scans=1,
-            succeeded_scans=1,
-            rules_data=rules_data,
-        )
-        attacks_payload = build_attacks_report_payload(
-            data=attacks_data,
-            customer=job.customer_name,
-            tenant_name=job.tenant_name,
-            tenant_id=tenant.project or "",
-            cloud=cloud,
-            receivers=config.get("receivers") or [],
-            report_from=report_from,
-            report_to=report_end,
-            created_at=utc_iso(now),
-            tenant_metadata=tenant_metadata,
-        )
-        model = self._rabbitmq_service.build_m3_json_model(
-            notification_type=SRE_REPORTS_TYPE_TO_M3_MAPPING[
-                ReportType.OPERATIONAL_ATTACKS
-            ],
-            data=attacks_payload,
-        )
-        if not rabbitmq:
-            _LOG.warning(
-                f"No RabbitMQ for customer {job.customer_name} "
-                "for event-driven report delivery"
+
+        if job.platform_id:
+            report_type = ReportType.OPERATIONAL_KUBERNETES
+
+            result = self._collect_platform_data_for_job(
+                job, tenant, lic
             )
-            return False
+            if not result:
+                _LOG.info(f"No k8s data for job {job_id}, skip report send")
+                return False
+            platform_data, platform, metadata, rules_data = result
+
+            payload = build_platform_report(
+                tenant=tenant,
+                receivers=receivers,
+                data=platform_data,
+                rules_data=rules_data,
+                platform=platform,
+                report_from=report_from,
+                report_to=report_end,
+            )
+        else:
+            report_type = ReportType.OPERATIONAL_ATTACKS
+
+            result = self._collect_attacks_for_job(job, tenant, lic)
+            if not result:
+                _LOG.info(f"No attacks for job {job_id}, skip report send")
+                return False
+            attacks_data, rules_data, cloud = result
+
+            tenant_metadata = self._build_tenant_metadata(
+                tenant,
+                lic,
+                last_scan_date=report_end,
+                finished_scans=1,
+                succeeded_scans=1,
+                rules_data=rules_data,
+            )
+            payload = build_attacks_report_payload(
+                data=attacks_data,
+                customer=job.customer_name,
+                tenant_name=job.tenant_name,
+                tenant_id=tenant.project or "",
+                cloud=cloud,
+                receivers=receivers,
+                report_from=report_from,
+                report_to=report_end,
+                created_at=utc_iso(now),
+                tenant_metadata=tenant_metadata,
+            )
+
+        model = self._rabbitmq_service.build_m3_json_model(
+            notification_type=SRE_REPORTS_TYPE_TO_M3_MAPPING[report_type],
+            data=payload,
+        )
 
         code = self._rabbitmq_service.send_to_m3(
             rabbitmq=rabbitmq,
@@ -610,7 +793,7 @@ class ReportDeliveryService:
         if code != 200:
             _LOG.warning(f"RabbitMQ send returned {code}")
             return False
-        _LOG.info(f"Sent attacks report for job {job_id}")
+        _LOG.info(f"Sent {report_type.value} report for job {job_id}")
         return True
 
     def _update_last_report_sent_at(self, lic: License, now: datetime) -> None:
@@ -619,10 +802,307 @@ class ReportDeliveryService:
             item=lic, last_report_sent_at=utc_iso(now)
         )
 
+    def _aggregate_resources_for_jobs(
+        self,
+        jobs: list[Job],
+        tenant: Tenant,
+        metadata: Metadata,
+    ) -> AggregatedResources | None:
+        """
+        Aggregate rules from multiple jobs.
+        """
+        if not metadata:
+            _LOG.warning(f"No metadata for tenant {tenant.name}, skip aggregation")
+            return None
+
+        all_rule_resources: dict[str, set] = {}
+        violated_by_id: dict[str, dict] = {}
+        passed_by_id: dict[str, dict] = {}
+        failed_by_id: dict[str, dict] = {}
+        deprecated_by_id: dict[str, dict] = {}
+        disabled_merged: set[str] = set()
+        collections_meta = {}
+
+        _LOG.debug(
+            f"Processing {len(jobs)} jobs in "
+            f"interval window for tenant {tenant.name}"
+        )
+
+        cloud = Cloud.parse(tenant.cloud, safe=False)
+        for j in jobs:
+            opened = self._open_job_report_collection(j, tenant, cloud)
+            if not opened:
+                continue
+
+            col, job_cloud, account_id = opened
+            col.fetch_all()
+
+            rr = rule_resources_dict(col, job_cloud, metadata, account_id)
+            for rule, resources in rr.items():
+                all_rule_resources.setdefault(rule, set()).update(resources)
+            if col.meta:
+                collections_meta.update(col.meta)
+
+            scope = {part.policy for part in col.iter_all_parts()}
+            if scope:
+                job_rules = self._build_rules_from_collection(
+                    col, metadata, scope, tenant
+                )
+                for item in job_rules.get("violated", []):
+                    violated_by_id[item["id"]] = item
+                for item in job_rules.get("failed", []):
+                    if item["id"] not in violated_by_id:
+                        failed_by_id[item["id"]] = item
+                for item in job_rules.get("passed", []):
+                    rid = item["id"]
+                    if rid not in violated_by_id and rid not in failed_by_id:
+                        passed_by_id[rid] = item
+                for rid in job_rules.get("disabled", []):
+                    disabled_merged.add(rid)
+                for d in job_rules.get("deprecated", []):
+                    deprecated_by_id[d["id"]] = d
+
+        all_rule_ids = (
+            set(violated_by_id) | set(passed_by_id) | set(failed_by_id)
+        )
+
+        rules_data = create_rules_metadata(
+            total=len(all_rule_ids) or len(all_rule_resources),
+            disabled=sorted(disabled_merged),
+            deprecated=list(deprecated_by_id.values()),
+            violated=list(violated_by_id.values()),
+            failed=list(failed_by_id.values()),
+            passed=list(passed_by_id.values()),
+        )
+
+        return AggregatedResources(
+            all_rule_resources=all_rule_resources,
+            rules_data=rules_data,
+            collections_meta=collections_meta,
+        )
+
+    def _send_interval_tenant_report(
+        self,
+        tenant_jobs: list[Job],
+        tenant: Tenant,
+        customer_name: str,
+        lic: License,
+        config: dict,
+        metadata: Metadata,
+        rabbitmq,
+        fetch_start: datetime,
+        now: datetime,
+    ) -> bool:
+        """
+        Aggregate and send OPERATIONAL_ATTACKS report for tenant jobs in interval window.
+        Returns True if sent, False if skipped (no data, no RabbitMQ, etc).
+        """
+        if not (tenant_jobs and metadata):
+            return False
+
+        aggregated = self._aggregate_resources_for_jobs(
+            tenant_jobs, tenant, metadata
+        )
+        if not aggregated:
+            _LOG.debug(
+                f"No rule resources in interval window for tenant {tenant.name}"
+            )
+            return False
+        
+        all_rule_resources = aggregated.all_rule_resources
+        collections_meta = aggregated.collections_meta
+        rules_data = aggregated.rules_data
+
+        if not (all_rule_resources and collections_meta):
+            _LOG.debug(
+                f"No rule resources in interval window for tenant {tenant.name}"
+            )
+            return False
+
+        attacks_data = build_attacks_data(
+            metadata=metadata,
+            rule_resources=all_rule_resources,
+            collection_meta=collections_meta,
+        )
+        if not attacks_data:
+            _LOG.debug(f"No attacks data in interval window for tenant {tenant.name}")
+            return False
+
+        stopped_dts = [
+            utc_datetime(j.stopped_at) for j in tenant_jobs if j.stopped_at
+        ]
+        last_stopped = max(stopped_dts, default=now)
+        first_stopped = min(stopped_dts, default=fetch_start)
+
+        tenant_metadata = self._build_tenant_metadata(
+            tenant,
+            lic,
+            last_scan_date=utc_iso(last_stopped),
+            finished_scans=len(tenant_jobs),
+            succeeded_scans=len(tenant_jobs),
+            rules_data=rules_data,
+        )
+
+        cloud = tenant_cloud(tenant)
+        payload = build_attacks_report_payload(
+            data=attacks_data,
+            customer=customer_name,
+            tenant_name=tenant.name,
+            tenant_id=tenant.project or "",
+            cloud=cloud,
+            receivers=config.get("receivers") or [],
+            report_from=utc_iso(first_stopped),
+            report_to=utc_iso(last_stopped),
+            created_at=utc_iso(now),
+            tenant_metadata=tenant_metadata,
+            jobs_count=len(tenant_jobs),
+        )
+
+        model = self._rabbitmq_service.build_m3_json_model(
+            notification_type=SRE_REPORTS_TYPE_TO_M3_MAPPING[
+                ReportType.OPERATIONAL_ATTACKS
+            ],
+            data=payload,
+        )
+
+        code = self._rabbitmq_service.send_to_m3(
+            rabbitmq=rabbitmq,
+            command=RabbitCommand.SEND_MAIL,
+            models=[model],
+        )
+        if code == 200:
+            _LOG.info(
+                f"Sent interval attacks report for tenant {tenant.name}, "
+                f"{len(tenant_jobs)} jobs"
+            )
+            return True
+
+        _LOG.warning(
+            f"Failed to send interval attacks report for tenant {tenant.name}, "
+            f"{len(tenant_jobs)} jobs"
+        )
+        return False
+
+    def _send_interval_platform_report(
+        self,
+        platform_jobs: list[Job],
+        tenant: Tenant,
+        receivers: list[str],
+        metadata: Metadata,
+        rabbitmq,
+        fetch_start: datetime,
+        now: datetime,
+    ) -> bool:
+        """
+        Aggregate and send OPERATIONAL_KUBERNETES report for platform jobs in
+        interval window.
+        Returns True if sent, False if skipped (no data, no RabbitMQ, etc).
+        """
+        if not (platform_jobs and metadata):
+            return False
+
+        platform_id = platform_jobs[0].platform_id
+        if not platform_id:
+            return False
+
+        platform = self._platform_service.get_nullable(hash_key=platform_id)
+        if not platform:
+            _LOG.warning(
+                f"Platform {platform_id} not found for tenant {tenant.name}"
+            )
+            return False
+
+        aggregated = self._aggregate_resources_for_jobs(
+            platform_jobs, tenant, metadata
+        )
+        if not aggregated:
+            _LOG.debug(
+                f"No rule resources in interval window for "
+                f"platform {platform_id} in tenant {tenant.name}"
+            )
+            return False
+
+        all_rule_resources = aggregated.all_rule_resources
+        collections_meta = aggregated.collections_meta
+        rules_data = aggregated.rules_data
+
+        if not (all_rule_resources and collections_meta):
+            _LOG.debug(
+                f"No rule resources in interval window for "
+                f"platform {platform_id} in tenant {tenant.name}"
+            )
+            return False
+
+        # collection to aggregate policy for coverage calculation
+        collection = self._report_service.platform_latest_collection(
+            platform=platform
+        )
+
+        collection.put_parts(
+            ShardPart(policy=rule['id']) for rule in rules_data["passed"]
+        )
+
+        platform_data = self._build_platform_data(
+            metadata=metadata,
+            rule_resources=all_rule_resources,
+            collection_meta=collections_meta,
+            collection=collection,
+        )
+        if not platform_data:
+            _LOG.debug(
+                f"No platform data in interval window for "
+                f"platform {platform_id} in tenant {tenant.name}"
+            )
+            return False
+        
+        stopped_dts = [
+            utc_datetime(j.stopped_at) for j in platform_jobs if j.stopped_at
+        ]
+        last_stopped = max(stopped_dts, default=now)
+        first_stopped = min(stopped_dts, default=fetch_start)
+
+        k8s_payload = build_platform_report(
+            tenant=tenant,
+            receivers=receivers,
+            data=platform_data,
+            rules_data=rules_data,
+            platform=platform,
+            report_from=utc_iso(first_stopped),
+            report_to=utc_iso(last_stopped),
+        )
+
+        model = self._rabbitmq_service.build_m3_json_model(
+            notification_type=SRE_REPORTS_TYPE_TO_M3_MAPPING[
+                ReportType.OPERATIONAL_KUBERNETES
+            ],
+            data=k8s_payload,
+        )
+
+        code = self._rabbitmq_service.send_to_m3(
+            rabbitmq=rabbitmq,
+            command=RabbitCommand.SEND_MAIL,
+            models=[model],
+        )
+        if code == 200:
+            _LOG.info(
+                f"Sent interval kubernetes report for "
+                f"platform {platform_id} in tenant {tenant.name}, "
+                f"{len(platform_jobs)} jobs"
+            )
+            return True
+
+        _LOG.warning(
+            f"Failed to send interval kubernetes report for "
+            f"platform {platform_id} in tenant {tenant.name}, "
+            f"{len(platform_jobs)} jobs"
+        )
+        return False
+
     def process_interval_reports(self) -> None:
         """
         For each tenant with report_delivery mode=interval,
         check if interval has elapsed, aggregate attacks from jobs in window, send if any.
+        Separates tenant jobs (OPERATIONAL_ATTACKS) from platform jobs (OPERATIONAL_KUBERNETES).
         Uses cursor for window: if 10-12 had nothing, next run checks 12-13, not 10-13.
         last_report_sent_at still used for throttle.
         """
@@ -651,6 +1131,9 @@ class ReportDeliveryService:
             metadata = self._license_service.get_metadata_for_licenses(
                 licenses=licenses,
             )
+            if not metadata:
+                continue
+
             for lic in licenses:
                 license_key = lic.license_key
                 _LOG.debug(f"Customer {customer.name} has license {license_key}")
@@ -662,6 +1145,7 @@ class ReportDeliveryService:
                         f"for customer {customer.name}"
                     )
                     continue
+                receivers = config.get("receivers") or []
 
                 interval_min = config.get("interval_minutes") or 60
                 last_sent = lic.event_driven.get("last_report_sent_at")
@@ -755,149 +1239,57 @@ class ReportDeliveryService:
                         )
                         continue
 
-                    all_rule_resources: dict[str, set] = {}
-                    collection_meta = {}
-                    violated_by_id: dict[str, dict] = {}
-                    passed_by_id: dict[str, dict] = {}
-                    failed_by_id: dict[str, dict] = {}
-                    deprecated_by_id: dict[str, dict] = {}
-                    disabled_merged: set[str] = set()
-
-                    _LOG.debug(
-                        f"Processing {len(jobs_in_window)} jobs in "
-                        f"interval window for tenant {tenant_name}"
-                    )
+                    tenant_jobs = []
+                    platform_jobs = []
                     for j in jobs_in_window:
-                        if not metadata:
-                            continue
-                        opened = self._open_job_report_collection(j, tenant, cloud)
-                        if not opened:
-                            continue
-                        col, job_cloud, account_id = opened
-                        col.fetch_all()
-                        rr = rule_resources_dict(
-                            col, job_cloud, metadata, account_id
-                        )
-                        for rule, resources in rr.items():
-                            all_rule_resources.setdefault(rule, set()).update(
-                                resources
-                            )
-                        if col.meta:
-                            collection_meta.update(col.meta)
-                        scope = {part.policy for part in col.iter_all_parts()}
-                        if scope:
-                            job_rules = self._build_rules_from_collection(
-                                col, metadata, scope, tenant
-                            )
-                            for item in job_rules.get("violated", []):
-                                violated_by_id[item["id"]] = item
-                            for item in job_rules.get("failed", []):
-                                if item["id"] not in violated_by_id:
-                                    failed_by_id[item["id"]] = item
-                            for item in job_rules.get("passed", []):
-                                rid = item["id"]
-                                if (
-                                    rid not in violated_by_id
-                                    and rid not in failed_by_id
-                                ):
-                                    passed_by_id[rid] = item
-                            for rid in job_rules.get("disabled", []):
-                                disabled_merged.add(rid)
-                            for d in job_rules.get("deprecated", []):
-                                deprecated_by_id[d["id"]] = d
+                        if j.platform_id:
+                            platform_jobs.append(j)
+                        else:
+                            tenant_jobs.append(j)
 
-                    if not metadata or not all_rule_resources or not collection_meta:
+                    if tenant_jobs:
                         _LOG.debug(
-                            f"No rule resources in interval window for tenant "
-                            f"{tenant_name}"
+                            f"Processing {len(tenant_jobs)} tenant jobs in "
+                            f"interval window for tenant {tenant_name}"
                         )
-                        continue
+                        sent = self._send_interval_tenant_report(
+                            tenant_jobs=tenant_jobs,
+                            tenant=tenant,
+                            customer_name=customer.name,
+                            lic=lic,
+                            config=config,
+                            metadata=metadata,
+                            rabbitmq=rabbitmq,
+                            fetch_start=fetch_start,
+                            now=now,
+                        )
+                        if sent:
+                            sent_count += 1
 
-                    report = Report.derive_report(ReportType.OPERATIONAL_ATTACKS)
-                    view = MaestroReportResourceView()
-                    generator = ReportVisitor.derive_visitor(
-                        ReportType.OPERATIONAL_ATTACKS,
-                        metadata=metadata,
-                        view=view,
-                        scope=None,
-                    )
-                    attacks_data = list(
-                        report.accept(
-                            generator,
-                            rule_resources=all_rule_resources,
-                            meta=collection_meta,
-                        )
-                    )
-                    if not attacks_data:
-                        _LOG.debug(
-                            f"No attacks data in interval window for tenant "
-                            f"{tenant_name}"
-                        )
-                        continue
+                    if platform_jobs:
+                        platform_jobs_by_id = {}
+                        for job in platform_jobs:
+                            platform_jobs_by_id.setdefault(
+                                job.platform_id, []
+                            ).append(job)
 
-                    now_ts = utc_datetime()
-                    stopped_dts = [
-                        utc_datetime(j.stopped_at)
-                        for j in jobs_in_window
-                        if j.stopped_at
-                    ]
-                    last_stopped = max(stopped_dts, default=now_ts)
-                    first_stopped = min(stopped_dts, default=fetch_start)
-                    all_rule_ids = (
-                        set(violated_by_id) | set(passed_by_id) | set(failed_by_id)
-                    )
-                    rules_data = create_rules_metadata(
-                        total=len(all_rule_ids) or len(all_rule_resources),
-                        disabled=sorted(disabled_merged),
-                        deprecated=list(deprecated_by_id.values()),
-                        violated=list(violated_by_id.values()),
-                        failed=list(failed_by_id.values()),
-                        passed=list(passed_by_id.values()),
-                    )
-                    tenant_metadata = self._build_tenant_metadata(
-                        tenant,
-                        lic,
-                        last_scan_date=utc_iso(last_stopped),
-                        finished_scans=len(jobs_in_window),
-                        succeeded_scans=len(jobs_in_window),
-                        rules_data=rules_data,
-                    )
-                    attacks_payload = build_attacks_report_payload(
-                        data=attacks_data,
-                        customer=customer.name,
-                        tenant_name=tenant_name,
-                        tenant_id=tenant.project or "",
-                        cloud=cloud,
-                        receivers=config.get("receivers") or [],
-                        report_from=utc_iso(first_stopped),
-                        report_to=utc_iso(last_stopped),
-                        created_at=utc_iso(now_ts),
-                        tenant_metadata=tenant_metadata,
-                        jobs_count=len(jobs_in_window),
-                    )
-                    model = self._rabbitmq_service.build_m3_json_model(
-                        notification_type=SRE_REPORTS_TYPE_TO_M3_MAPPING[
-                            ReportType.OPERATIONAL_ATTACKS
-                        ],
-                        data=attacks_payload,
-                    )
-
-                    code = self._rabbitmq_service.send_to_m3(
-                        rabbitmq=rabbitmq,
-                        command=RabbitCommand.SEND_MAIL,
-                        models=[model],
-                    )
-                    if code == 200:
-                        sent_count += 1
-                        _LOG.info(
-                            f"Sent interval attacks report for tenant "
-                            f"{tenant_name}, {len(jobs_in_window)} jobs"
-                        )
-                    else:
-                        _LOG.warning(
-                            f"Failed to send interval attacks report for tenant "
-                            f"{tenant_name}, {len(jobs_in_window)} jobs"
-                        )
+                        for platform_id, jobs_group in platform_jobs_by_id.items():
+                            _LOG.debug(
+                                f"Processing {len(jobs_group)} platform jobs for "
+                                f"platform {platform_id} in interval window "
+                                f"for tenant {tenant_name}"
+                            )
+                            sent = self._send_interval_platform_report(
+                                platform_jobs=jobs_group,
+                                tenant=tenant,
+                                receivers=receivers,
+                                metadata=metadata,
+                                rabbitmq=rabbitmq,
+                                fetch_start=fetch_start,
+                                now=now,
+                            )
+                            if sent:
+                                sent_count += 1
 
                 self._update_last_report_sent_at(lic, now)
 

@@ -6,7 +6,6 @@ from srecli.group import (
     ContextObj,
     ViewCommand,
     build_job_id_option,
-    build_job_type_option,
     cli_response,
     SREResponse,
 )
@@ -21,7 +20,6 @@ def errors():
 
 @errors.command(cls=ViewCommand, name='jobs')
 @build_job_id_option(required=True)
-@build_job_type_option()
 @click.option('--error_type', '-et', type=click.Choice(tuple(PolicyErrorType.iter())))
 @click.option(
     '--format',
@@ -42,18 +40,16 @@ def errors():
 def jobs(
     ctx: ContextObj,
     job_id: str,
-    job_type: str,
     error_type: Optional[str],
     href: bool,
     format: str,
-    customer_id,
+    customer_id: str | None,
 ) -> SREResponse:
     """
     Describes errors report of a specific job
     """
     return ctx['api_client'].report_errors_job(
         job_id=job_id,
-        job_type=job_type,
         href=href,
         format=format,
         error_type=error_type,

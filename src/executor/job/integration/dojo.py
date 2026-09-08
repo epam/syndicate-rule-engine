@@ -20,6 +20,37 @@ from services.sharding import ShardsCollection
 _LOG = get_logger(__name__)
 
 
+def _ensure_product_tag_inheritance(
+    client: DojoV2Client,
+    product_name: str,
+    tenant_name: str,
+) -> None:
+    """
+    Tag the DDojo product with the tenant name and enable tag inheritance.
+    """
+    product = client.get_product(name=product_name)
+    if not product:
+        _LOG.warning(
+            f"Could not find DDojo product '{product_name}' "
+            f'to verify tag inheritance'
+        )
+        return
+    existing_tags = product.get('tags') or []
+    needs_tag = tenant_name not in existing_tags
+    needs_inheritance = not product.get('enable_product_tag_inheritance')
+    if needs_tag or needs_inheritance:
+        _LOG.debug(
+            f"Updating product '{product_name}': "
+            f'tag={needs_tag}, inheritance={needs_inheritance}'
+        )
+        updated_tags = list(set(existing_tags) | {tenant_name})
+        client.update_product(
+            product_id=product['id'],
+            tags=updated_tags,
+            enable_product_tag_inheritance=True,
+        )
+
+
 def import_to_dojo(
     job: Job,
     tenant: Tenant,
@@ -30,6 +61,7 @@ def import_to_dojo(
     send_after_job: bool | None = None,
 ) -> list:
     warnings = []
+    tenant_name = tenant.name
 
     for dojo, configuration in SP.integration_service.get_dojo_adapters(
         tenant=tenant,
@@ -53,6 +85,12 @@ def import_to_dojo(
                 test_title=configuration.test,
                 data=convertor.convert(collection),
                 tags=SP.integration_service.job_tags_dojo(job),
+                product_tags=[tenant_name],
+            )
+            _ensure_product_tag_inheritance(
+                client=client,
+                product_name=configuration.product,
+                tenant_name=tenant_name,
             )
         except Exception as e:
             _LOG.exception(f'Unexpected error occurred pushing to dojo: {e}')

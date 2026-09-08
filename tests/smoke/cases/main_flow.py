@@ -25,12 +25,18 @@ JOB_TYPE = In('manual', 'standard')
 
 
 class TenantRegionsType:
-    def __call__(self, item: str) -> TenantPayload:
-        res = item.split(':', maxsplit=1)
-        if len(res) == 1:
-            return TenantPayload(name=res[0], regions=[])
-        name, regions = res
-        return TenantPayload(name=name, regions=regions.split(','))
+    def __call__(self, item: str) -> list[TenantPayload]:
+        payloads: list[TenantPayload] = []
+        for spec in item.split():
+            res = spec.split(':', maxsplit=1)
+            if len(res) == 1:
+                payloads.append(TenantPayload(name=res[0], regions=[]))
+                continue
+            name, regions = res
+            payloads.append(
+                TenantPayload(name=name, regions=regions.split(','))
+            )
+        return payloads
 
 
 def build_authentication_case(
@@ -192,10 +198,11 @@ def build_executing_scans_cases(
                     WaitUntil(
                         cmd('job describe -id $.[0].data.id', customer),
                         {'$.data.status': Equal('SUCCEEDED')},
-                        break_if={'$.data.status': Equal('FAILED')},
+                        break_if={'$.data.status': In('FAILED', 'INTERRUPTED')},
                         depends_on=(job_submit_step,),
                         sleep=15,
                         timeout=1800,
+                        label='wait for job to reach SUCCEEDED status',
                     ),
                     Step(
                         cmd('job describe -id $.[0].data.id', customer),
@@ -204,6 +211,7 @@ def build_executing_scans_cases(
                             '$.data.stopped_at': NotEmpty(),
                         },
                         depends_on=(job_submit_step,),
+                        label='check rulesets and stopped_at on finished job',
                     ),
                 ),
                 name=f'Executing scans for tenant: {tenant.name}',

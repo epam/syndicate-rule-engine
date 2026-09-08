@@ -117,7 +117,7 @@ class UsersHandler(AbstractHandler):
             username=event.username,
             password=event.password,
             customer=event.customer_id,
-            role=event.role_name
+            role=event.role_name,
         )
         # seems like we need this additional step for cognito
         self._user_client.set_user_password(event.username, event.password)

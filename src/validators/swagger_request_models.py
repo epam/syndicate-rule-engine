@@ -170,7 +170,7 @@ class TimeRangedMixin:
 
 
 JobTypeAnnotation = Annotated[
-    JobType, 
+    JobType,
     Field(
         default=JobType.MANUAL,
         description=(
@@ -195,6 +195,16 @@ class _ValidateJobTypesMixin:
     """
 
     job_types: JobTypesAnnotation
+
+    @field_validator('job_types', mode='before')
+    @classmethod
+    def coerce_job_types_to_set(cls, value) -> set[JobType]:
+        if not value or isinstance(value, set):
+            return value
+
+        if not isinstance(value, (list, tuple)):
+            return {value}
+        return set(value)
 
     @field_validator('job_types', mode='after')
     @classmethod
@@ -230,6 +240,12 @@ class JobTypesMixin(_ValidateJobTypesMixin):
     @model_validator(mode='after')
     @override
     def validate_job_type(self) -> Self:
+        # ignore backward-compatible job_type if job_types is set
+        # because it's main field now
+        model_fields_set = getattr(self, 'model_fields_set', set())
+        if 'job_types' in model_fields_set:
+            return self
+
         if self.job_type:
             if self.job_type == JobType.MANUAL:
                 self.job_types.update({JobType.STANDARD, JobType.SCHEDULED})
@@ -1578,7 +1594,7 @@ class McpAuthSettingPatchModel(BaseModel):
 
 
 # reports
-class JobFindingsReportGetModel(BaseModel, JobTypesMixin):
+class JobFindingsReportGetModel(BaseModel):
     href: bool = False
     obfuscated: bool = False
 
@@ -1590,7 +1606,7 @@ class TenantJobsFindingsReportGetModel(TimeRangedMixin, JobTypesMixin, BaseModel
     obfuscated: bool = False
 
 
-class JobDetailsReportGetModel(BaseModel, JobTypesMixin):
+class JobDetailsReportGetModel(BaseModel):
     href: bool = False
     obfuscated: bool = False
 
@@ -1602,7 +1618,7 @@ class TenantJobsDetailsReportGetModel(TimeRangedMixin, JobTypesMixin, BaseModel)
     obfuscated: bool = False
 
 
-class JobDigestReportGetModel(BaseModel, JobTypesMixin):
+class JobDigestReportGetModel(BaseModel):
     pass
 
 
@@ -1611,7 +1627,7 @@ class TenantJobsDigestsReportGetModel(TimeRangedMixin, JobTypesMixin, BaseModel)
     end_iso: datetime | date = Field(None, alias='to')
 
 
-class JobComplianceReportGetModel(BaseModel, JobTypesMixin):
+class JobComplianceReportGetModel(BaseModel):
     format: ReportFormat = ReportFormat.JSON
     href: bool = False
 
@@ -1621,13 +1637,27 @@ class TenantComplianceReportGetModel(BaseModel):
     href: bool = False
 
 
-class JobErrorReportGetModel(BaseModel, JobTypesMixin):
+class JobQuestionnaireReportGetModel(BaseModel):
+    standard: str = Field(
+        description='Full name of the standard as it is returned by the '
+        'compliance report, i.e. "CIS Controls v7"'
+    )
+
+
+class TenantQuestionnaireReportGetModel(BaseModel):
+    standard: str = Field(
+        description='Full name of the standard as it is returned by the '
+        'compliance report, i.e. "CIS Controls v7"'
+    )
+
+
+class JobErrorReportGetModel(BaseModel):
     href: bool = False
     format: ReportFormat = ReportFormat.JSON
     error_type: PolicyErrorType = Field(None)
 
 
-class JobRuleReportGetModel(BaseModel, JobTypesMixin):
+class JobRuleReportGetModel(BaseModel):
     href: bool = False
     format: ReportFormat = ReportFormat.JSON
 
@@ -1637,14 +1667,13 @@ class TenantRuleReportGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
     end_iso: datetime | date = Field(None, alias='to')
 
 
-class ReportPushByJobIdModel(_ValidateJobTypesMixin, BaseModel):
+class ReportPushByJobIdModel(BaseModel):
     """
     /reports/push/dojo/{job_id}/
     /reports/push/security-hub/{job_id}/
     /reports/push/chronicle/{job_id}/
     """
 
-    type: JobTypeAnnotation
 
 class ReportPushDojoByJobIdModel(ReportPushByJobIdModel):
     """
@@ -2039,7 +2068,7 @@ class ResourceReportJobsGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
         return self
 
 
-class ResourceReportJobGetModel(JobTypesMixin, BaseModel):
+class ResourceReportJobGetModel(BaseModel):
     model_config = ConfigDict(extra='allow')
 
     resource_type: Annotated[

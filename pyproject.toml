@@ -4,14 +4,14 @@ description = "Service that allows to perform security scans on your infrastruct
 readme = "README.md"
 requires-python = ">=3.14,<4"
 license = {file = "LICENSE"}
-version = "5.20.1"
+version = "5.21.0"
 dependencies = [
     "bcrypt>=4,<6",
     "billiard~=4.2.4",
     "boto3~=1.43.3",
     "botocore~=1.43.3",
     "bottle~=0.13.4",
-    "cachetools~=7.1.4",
+    "cachetools~=7.1.6",
     "celery~=5.6.3",
     "cryptography~=46.0.7",
     "google-api-python-client~=2.194.0",
@@ -26,17 +26,20 @@ dependencies = [
     "pymongo~=4.11.2",
     "pynamodb==6.1.0",
     "python-dateutil~=2.9.0.post0",
+    # Kombu's Redis transport imports redis-py when the server is Valkey.
     "redis~=5.2.1",
     "requests~=2.33.1",
     "ruamel-yaml>=0.18,<0.21",
     "ruamel-yaml-clib>=0.2.12,<0.3",
     "tabulate~=0.10.0",
     "typing-extensions>=4.13,<5",
+    "valkey~=6.1.1",
     "xlsxwriter>=3.2,<4",
 ]
 
 [dependency-groups]
 lint = [
+    "celery-types>=0.26.0",
     "mypy>=1.19.1",
     "ruff>=0.9.0",
 ]

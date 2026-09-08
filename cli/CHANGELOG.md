@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.21.0] - 2026-09-08
+
+### Added
+- Added support for passing multiple `--job_type` / `-jt` options to report commands:
+  - `sre report details jobs`
+  - `sre report digests jobs`
+  - `sre report findings jobs`
+  - `sre report push dojo`
+  - `sre report resource jobs`
+  - `sre report rules accumulated`
+- Added standard questionnaire reports with visual charts:
+  - `sre report questionnaire jobs`
+  - `sre report questionnaire accumulated`
+
+### Removed
+- Removed `--job_type` option from commands because `--job_id` is required:
+  - `sre report compliance jobs`
+  - `sre report errors jobs`
+  - `sre report push chronicle`
+  - `sre report resource job`
+  - `sre report rules jobs`
+
+### Fixed
+- Fixed hint for `sre rule update` command if the caller is a system user
+- Fixed a typo in the help message for `--username` option in user-related commands:
+  - `sre users update`
+  - `sre users delete`
+
 ## [5.20.1] - 2026-08-12
 
 ### Added

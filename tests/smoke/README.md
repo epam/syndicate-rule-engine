@@ -12,6 +12,7 @@ environment before running the suite.
 ```
 tests/smoke/
   main.py                 # unified entry point
+  requirements.txt         # dependencies for smoke tests
   core/
     commons.py            # Case / Step / Condition framework
     settings.py           # pydantic-settings configuration
@@ -51,6 +52,12 @@ Rule source variables per cloud:
 
 Smoke modules import the package as `smoke.*`. Add `tests/` to `PYTHONPATH`
 (do not add a `tests/__init__.py` — that would break the rest of the test suite).
+
+Install required dependencies:
+
+```bash
+pip install -r tests/smoke/requirements.txt
+```
 
 ## Main flow
 

@@ -60,7 +60,7 @@ class ApiClient:
         url = path.format(**(params or {}))
         url = quote(urljoin(url))  # to remove /
         if query:
-            url += f'?{urlencode(sifted(query))}'
+            url += f'?{urlencode(sifted(query), doseq=True)}'
         return urljoin(self._api_link, url)
 
     @staticmethod
@@ -944,6 +944,22 @@ class SREApiClient:
     def report_compliance_tenants(self, tenant_name, **kwargs):
         return self.make_request(
             path=Endpoint.REPORTS_COMPLIANCE_TENANTS_TENANT_NAME,
+            path_params={'tenant_name': tenant_name},
+            method=HTTPMethod.GET,
+            query=sifted(kwargs),
+        )
+
+    def report_questionnaire_jobs(self, job_id, **kwargs):
+        return self.make_request(
+            path=Endpoint.REPORTS_QUESTIONNAIRE_JOBS_JOB_ID,
+            path_params={'job_id': job_id},
+            method=HTTPMethod.GET,
+            query=sifted(kwargs),
+        )
+
+    def report_questionnaire_tenants(self, tenant_name, **kwargs):
+        return self.make_request(
+            path=Endpoint.REPORTS_QUESTIONNAIRE_TENANTS_TENANT_NAME,
             path_params={'tenant_name': tenant_name},
             method=HTTPMethod.GET,
             query=sifted(kwargs),

@@ -14,6 +14,7 @@ from typing import Callable, TypeVar
 from dateutil.parser import isoparse
 from urllib3.exceptions import LocationParseError
 from urllib3.util import parse_url
+from srecli.service.constants import JobType
 
 
 def urljoin(*args: str) -> str:
@@ -224,6 +225,22 @@ class Version(tuple):
 
     def __str__(self) -> str:
         return self.to_str()
+
+
+def renew_job_type(ctx, param, value) -> tuple[str, ...]:
+    """
+    Updates job_types tuple by replacing deprecated MANUAL with STANDARD and SCHEDULED.
+    """
+    if not value:
+        return value
+
+    if JobType.MANUAL not in value:
+        return value
+
+    job_types = {t for t in value if t != JobType.MANUAL}
+    job_types.update({JobType.STANDARD.value, JobType.SCHEDULED.value})
+
+    return tuple(job_types)
 
 
 def check_version_compatibility(api: str, cli: str, /) -> None:

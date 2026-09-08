@@ -12,6 +12,7 @@ from services.event_driven.domain import (
     K8sServiceRulesMap,
 )
 from services.event_driven.mappings.provider import S3EventMappingProvider
+from services.event_driven.mappings.provider import S3PeriodicMappingProvider
 
 if TYPE_CHECKING:
     from services.metadata import Metadata, RuleMetadata
@@ -163,3 +164,65 @@ class EventMappingCollector(S3EventMappingProvider):
         if cloud == Cloud.GOOGLE:
             return self._google_events
         return None
+
+
+class PeriodicMappingCollector(S3PeriodicMappingProvider):
+    """
+    Collector for periodic rules mappings.
+    """
+
+    def __init__(
+        self,
+        s3_client: S3Client,
+        environment_service: EnvironmentService,
+    ) -> None:
+        super().__init__(s3_client, environment_service)
+        self._periodic_rules: dict[Cloud, set[str]] = {}
+
+    def on_refresh(
+        self,
+        metadata: Metadata,
+        license_key: str,
+        version: Version,
+    ) -> None:
+        _LOG.info(
+            'Refreshing periodic rules from metadata '
+            f'(license_key={license_key}, version={version})'
+        )
+
+        for rule_name, rule_meta in metadata.rules.items():
+            if not rule_meta.periodic:
+                continue
+
+            m_cloud = rule_meta.cloud
+            cloud = (
+                m_cloud
+                if isinstance(m_cloud, Cloud)
+                else Cloud.parse(m_cloud, safe=False)
+            )
+            self._periodic_rules.setdefault(cloud, set()).add(rule_name)
+
+        self._save_to_s3(license_key, version)
+
+        self.reset()
+
+    def reset(self) -> None:
+        self._periodic_rules.clear()
+        _LOG.info('Periodic rules mappings reset')
+
+    def _save_to_s3(
+        self,
+        license_key: str,
+        version: Version,
+    ) -> None:
+        msgs = []
+        for cloud, rules in self._periodic_rules.items():
+            self.set_to_s3(
+                license_key=license_key,
+                version=version,
+                cloud=cloud,
+                data=list(rules),
+            )
+            msgs.append(f'{cloud}: {len(rules)}')
+        msg = ', '.join(msgs)
+        _LOG.info(f'Periodic rules saved to S3: {msg}.')

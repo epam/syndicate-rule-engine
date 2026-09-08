@@ -40,8 +40,14 @@ class CognitoUserModel(TypedDict):
 
 
 class UserWrapper:
-    __slots__ = ('id', 'username', 'customer', 'role', 'latest_login',
-                 'created_at')
+    __slots__ = (
+        'id',
+        'username',
+        'customer',
+        'role',
+        'latest_login',
+        'created_at',
+    )
 
     def __init__(self, username: str, customer: str | None = None,
                  role: str | None = None, latest_login: datetime | None = None,
@@ -77,7 +83,7 @@ class UserWrapper:
             customer=user.customer,
             role=user.role,
             latest_login=ll,
-            created_at=ca
+            created_at=ca,
         )
 
     @classmethod
@@ -93,7 +99,7 @@ class UserWrapper:
             customer=attributes.get(CUSTOM_CUSTOMER_ATTR),
             role=attributes.get(CUSTOM_ROLE_ATTR),
             latest_login=ll,
-            created_at=model['UserCreateDate']
+            created_at=model['UserCreateDate'],
         )
 
     def get_dto(self) -> dict:
@@ -103,7 +109,7 @@ class UserWrapper:
             'role': self.role,
             'latest_login': utc_iso(
                 self.latest_login) if self.latest_login else None,
-            'created_at': utc_iso(self.created_at) if self.created_at else None
+            'created_at': utc_iso(self.created_at) if self.created_at else None,
         }
 
 
@@ -207,7 +213,8 @@ class BaseAuthClient(ABC):
 
     @abstractmethod
     def signup_user(self, username: str, password: str,
-                    customer: str | None = None, role: str | None = None) -> UserWrapper:
+                    customer: str | None = None, role: str | None = None,
+                    ) -> UserWrapper:
         pass
 
     def does_user_exist(self, username: str) -> bool:
@@ -383,9 +390,13 @@ class CognitoClient(BaseAuthClient):
             _LOG.warning('Client error occurred trying to refresh token',
                          exc_info=True)
 
-    def signup_user(self, username: str, password: str,
-                    customer: str | None = None, role: str | None = None
-                    ) -> UserWrapper:
+    def signup_user(
+        self,
+        username: str,
+        password: str,
+        customer: str | None = None,
+        role: str | None = None,
+    ) -> UserWrapper:
         def attr(n, v):
             return dict(Name=n, Value=v)
 

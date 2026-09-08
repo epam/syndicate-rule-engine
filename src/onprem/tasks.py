@@ -7,6 +7,7 @@ Any task can be wrapped with @safe_call decorator to catch and log any exception
 from typing import Any
 
 from executor.job import (
+    create_periodic_rules_jobs,
     task_reactive_job,
     task_scheduled_job,
     task_standard_job,
@@ -206,3 +207,10 @@ def remove_old_shards(days) -> None:
     Remove shard parts that were last updated N days ago
     """
     remove_old_shard_parts(days)
+
+
+@app.task
+@safe_call
+def process_periodic_rules() -> None:
+    for job_id in create_periodic_rules_jobs():
+        run_standard_job.delay(job_id)
