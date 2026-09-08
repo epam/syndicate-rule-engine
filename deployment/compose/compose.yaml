@@ -257,7 +257,7 @@ services:
     networks:
       - rule-engine-net
   mongo:
-    image: ${MONGO_IMAGE:-mongo:${MONGO_VERSION:-5.0.32}}
+    image: ${MONGO_IMAGE:-mongo:${MONGO_VERSION:-8.0.28}}
     container_name: mongo
     healthcheck:
       test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
