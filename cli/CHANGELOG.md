@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.22.0] - 2026-XX-XX
+### Changed
+- Add the confirmation flag to all destructive CLI commands:
+  - `sre rule delete`
+  - `sre integrations mcp auth delete`
+  - `sre integrations re delete`
+  - `sre integrations event sources delete`
+  - `sre integrations dojo delete`
+  - `sre integrations chronicle delete`
+  - `sre customer rabbitmq delete`
+  - `sre job scheduled delete`
+  - `sre license delete`
+  - `sre policy delete`
+  - `sre platform k8s delete`
+  - `sre role delete`
+  - `sre ruleset delete`
+  - `sre users delete`
+  - `sre rulesource delete`
+  - `sre resource exception delete`
+  - `sre setting lm client delete`
+  - `sre setting lm config delete`
+  - `sre setting mail delete`
+  - `sre setting report disable_sending`
+  - `sre cleanup`
+
 ## [5.21.0] - 2026-09-08
 
 ### Added
