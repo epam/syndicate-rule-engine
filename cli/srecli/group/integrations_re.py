@@ -105,7 +105,7 @@ def delete(
     Deletes self integration
     """
     if not confirm:
-        raise click.ClickException('Please, specify `--confirm` flag')
+        raise click.UsageError('Please, specify `--confirm` flag')
     return ctx['api_client'].sre_delete(customer_id=customer_id)
 
 

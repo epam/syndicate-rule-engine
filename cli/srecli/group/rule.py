@@ -113,7 +113,7 @@ def delete(ctx: ContextObj, customer_id, rule_name, cloud,
     Deletes rules within your customer
     """
     if not confirm:
-        raise click.ClickException('Please, specify `--confirm` flag')
+        raise click.UsageError('Please, specify `--confirm` flag')
     return ctx['api_client'].rule_delete(
         customer_id=customer_id,
         rule=rule_name,

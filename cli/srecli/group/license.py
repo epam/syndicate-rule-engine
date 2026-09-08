@@ -70,11 +70,14 @@ def add(ctx: ContextObj, tenant_license_key: str,
 @license.command(cls=ViewCommand, name='delete')
 @click.option('--license_key', '-lk', type=str, required=True,
               help='License key to delete')
+@click.option('--confirm', is_flag=True, help='Confirms the action')
 @cli_response()
-def delete(ctx: ContextObj, license_key, customer_id):
+def delete(ctx: ContextObj, license_key, confirm: bool, customer_id):
     """
     Deletes Licenses
     """
+    if not confirm:
+        raise click.UsageError('Please, specify `--confirm` flag')
     return ctx['api_client'].license_delete(license_key=license_key,
                                             customer_id=customer_id)
 

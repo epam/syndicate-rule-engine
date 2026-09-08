@@ -56,5 +56,5 @@ def delete(ctx: ContextObj, confirm: bool, **kwargs):
     Removes rabbitMQ configuration for your customer
     """
     if not confirm:
-        raise click.ClickException('Please, specify `--confirm` flag')
+        raise click.UsageError('Please, specify `--confirm` flag')
     return ctx['api_client'].rabbitmq_delete(**kwargs)
