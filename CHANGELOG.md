@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Add the confirmation flag to all destructive CLI commands
 
-## [5.21.0] - 2026-XX-XX
+## [5.21.0] - 2026-09-08
 
 ### Added
 - Added resolving of tenant access payload for MCP users from MCP user context (header `X-Mcp-User-Context`)
