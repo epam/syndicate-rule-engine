@@ -113,11 +113,14 @@ def whoami(ctx: ContextObj, customer_id: str):
 
 
 @sre.command(cls=ViewCommand, name='cleanup')
+@click.option('--confirm', is_flag=True, help='Confirms the action')
 @cli_response(check_access_token=False, check_api_link=False)
-def cleanup(ctx: ContextObj, **kwargs):
+def cleanup(ctx: ContextObj, confirm: bool, **kwargs):
     """
     Removes all the configuration data related to the tool
     """
+    if not confirm:
+        raise click.UsageError('Please, specify `--confirm` flag')
     ctx['config'].clear()
     return response('The sre cli tool configuration has been deleted')
 
