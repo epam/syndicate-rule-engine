@@ -9,14 +9,11 @@ def report():
 
 
 @report.command(cls=ViewCommand, name='enable_sending')
-@click.option('--confirm', is_flag=True, help='Confirms the action')
 @cli_response()
-def enable_sending(ctx: ContextObj, confirm: bool, customer_id):
+def enable_sending(ctx: ContextObj, customer_id):
     """
     Enables Syndicate Rule Engine report sending mechanism
     """
-    if not confirm:
-        raise click.UsageError('Please, specify `--confirm` flag')
     return ctx['api_client'].reports_sending_setting_enable()
 
 
