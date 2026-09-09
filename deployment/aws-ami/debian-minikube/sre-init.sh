@@ -558,17 +558,44 @@ mongo_credentials() {
 
 mongo_eval() {
   # accepts a mongosh javascript expression as the first parameter, evaluates it against the mongo deployment
-  local creds username password
+  # retries a few times to ride out transient kubectl exec/mongosh connectivity blips (e.g. pod not Ready yet)
+  local creds username password attempt max_attempts="${MONGO_EVAL_MAX_ATTEMPTS:-3}" delay="${MONGO_EVAL_RETRY_DELAY:-2}" out rc
   creds="$(mongo_credentials)" || {
     warn "could not resolve MongoDB credentials"
     return 1
   }
   read -r username password <<<"$creds"
-  kubectl exec deployment/mongo -- mongosh --quiet -u "$username" -p "$password" --authenticationDatabase admin --eval "$1"
+  for ((attempt = 1; attempt <= max_attempts; attempt++)); do
+    if out="$(kubectl exec deployment/mongo -- mongosh --quiet -u "$username" -p "$password" --authenticationDatabase admin --eval "$1" 2>&1)"; then
+      printf '%s\n' "$out"
+      return 0
+    fi
+    rc=$?
+    _debug "mongo_eval attempt $attempt/$max_attempts failed (rc=$rc): $out"
+    [ "$attempt" -lt "$max_attempts" ] && sleep "$delay"
+  done
+  echo "$out" >&2
+  return "$rc"
 }
 
 get_mongo_db_version() { mongo_eval 'db.version()' 2>/dev/null; }
 get_mongo_fcv() { mongo_eval 'db.adminCommand({getParameter:1, featureCompatibilityVersion:1}).featureCompatibilityVersion.version' 2>/dev/null; }
+
+wait_for_mongo_ready() {
+  # kubectl rollout status can report the pod Ready before mongod actually accepts connections
+  # (e.g. it is still upgrading on-disk WiredTiger metadata after a binary version bump), so poll
+  # with a longer timeout than mongo_eval's own built-in retries before giving up
+  local timeout="${MONGO_READY_TIMEOUT:-180}" interval="${MONGO_READY_POLL_INTERVAL:-5}" waited=0
+  while [ "$waited" -lt "$timeout" ]; do
+    if mongo_eval 'db.adminCommand({ping:1})' >/dev/null 2>&1; then
+      return 0
+    fi
+    _debug "MongoDB not accepting connections yet, waited ${waited}s/${timeout}s"
+    sleep "$interval"
+    waited=$((waited + interval))
+  done
+  return 1
+}
 
 mongodb_migration_required() {
   # true (0) if current MongoDB FCV is behind the migration target FCV declared for the release
@@ -657,6 +684,12 @@ run_mongodb_migration_step() {
   mongo_repo="${mongo_repo%%:*}"
   kubectl set image deployment/mongo "mongodb=${mongo_repo}:${image_tag}" || return 1
   kubectl rollout status deployment/mongo --timeout="${HELM_UPGRADE_TIMEOUT}s" || return 1
+
+  echo "Waiting for MongoDB to accept connections after the image upgrade"
+  wait_for_mongo_ready || {
+    warn "MongoDB did not start accepting connections within ${MONGO_READY_TIMEOUT:-180}s after upgrading to $image_tag"
+    return 1
+  }
 
   echo "Setting MongoDB featureCompatibilityVersion to $fcv"
   # confirm:true has been required by MongoDB for FCV transitions from 7.0 onward
@@ -1510,6 +1543,12 @@ cmd_update() {
     exit 1
   fi
 
+  # fail fast, before any destructive/irreversible step (backup, self-update, mandatory MongoDB migration)
+  # is performed, if the target release cannot actually be installed via helm
+  echo "Verifying that necessary helm chart exists"
+  helm repo update syndicate || die_with_support "helm repo update failed"
+  helm search repo syndicate/rule-engine --version "$latest_tag" --fail-on-no-result >/dev/null 2>&1 || die_with_support "$latest_tag version $HELM_RELEASE_NAME chart not found. Cannot update"
+
   if [ -n "$release_data" ] && [ -z "$FORBID_SELF_UPDATE" ]; then
     # if release data is available here then we can self update
     # self-update swaps this script for the target one (via exec) so newly added
@@ -1581,9 +1620,7 @@ cmd_update() {
     esac
   fi
 
-  echo "Verifying that necessary helm chart exists"
   helm repo update syndicate || die_with_support "helm repo update failed"
-  helm search repo syndicate/rule-engine --version "$latest_tag" --fail-on-no-result >/dev/null 2>&1 || die_with_support "$latest_tag version $HELM_RELEASE_NAME chart not found. Cannot update"
   echo "Making helm upgrade. It should not take more than $((HELM_UPGRADE_TIMEOUT / 60)) minutes"
   helm_values="$(helm get values "$HELM_RELEASE_NAME" -o json)" # preserve only user-set values
   if [ "$mongo_migrated" -eq 1 ]; then
