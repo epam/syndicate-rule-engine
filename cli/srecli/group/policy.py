@@ -134,11 +134,14 @@ def update(ctx: ContextObj, customer_id, name, attach_permission,
 @policy.command(cls=ViewCommand, name='delete')
 @click.option('--name', '-n', type=str, required=True,
               help='Policy name to delete')
+@click.option('--confirm', is_flag=True, help='Confirms the action')
 @cli_response()
-def delete(ctx: ContextObj, customer_id, name):
+def delete(ctx: ContextObj, customer_id, name, confirm: bool):
     """
     Deletes a policy of a customer
     """
+    if not confirm:
+        raise click.UsageError('Please, specify `--confirm` flag')
     return ctx['api_client'].policy_delete(
         name=name,
         customer_id=customer_id,

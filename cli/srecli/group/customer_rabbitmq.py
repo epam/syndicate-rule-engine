@@ -48,10 +48,13 @@ def describe(ctx: ContextObj, **kwargs):
 
 
 @rabbitmq.command(cls=ViewCommand, name='delete')
+@click.option('--confirm', is_flag=True, help='Confirms the action')
 @cli_response()
 @require_maestro_integration(integration_type='rabbitmq')
-def delete(ctx: ContextObj, **kwargs):
+def delete(ctx: ContextObj, confirm: bool, **kwargs):
     """
     Removes rabbitMQ configuration for your customer
     """
+    if not confirm:
+        raise click.UsageError('Please, specify `--confirm` flag')
     return ctx['api_client'].rabbitmq_delete(**kwargs)

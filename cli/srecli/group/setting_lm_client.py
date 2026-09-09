@@ -78,11 +78,14 @@ def update(
 @client.command(cls=ViewCommand, name='delete')
 @click.option('--key_id', '-kid', type=str, required=True,
               help='Key-id granted by the License Manager')
+@click.option('--confirm', is_flag=True, help='Confirms the action')
 @cli_response()
-def delete(ctx: ContextObj, key_id: str, customer_id):
+def delete(ctx: ContextObj, key_id: str, confirm: bool, customer_id):
     """
     Removes current License Manager client-key data
     """
+    if not confirm:
+        raise click.UsageError('Please, specify `--confirm` flag')
     return ctx['api_client'].lm_client_setting_delete(
         key_id=key_id,
         customer_id=customer_id

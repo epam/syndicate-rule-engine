@@ -105,12 +105,15 @@ def update(ctx: ContextObj, rule_source_id, customer_id):
               help='Project id of git repo to delete rules')
 @click.option('--git_ref', '-gr', required=False, type=str,
               help='Branch of git repo to delete rules')
+@click.option('--confirm', is_flag=True, help='Confirms the action')
 @cli_response()
 def delete(ctx: ContextObj, customer_id, rule_name, cloud,
-           git_project_id, git_ref):
+           git_project_id, git_ref, confirm: bool):
     """
     Deletes rules within your customer
     """
+    if not confirm:
+        raise click.UsageError('Please, specify `--confirm` flag')
     return ctx['api_client'].rule_delete(
         customer_id=customer_id,
         rule=rule_name,
