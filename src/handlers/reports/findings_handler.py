@@ -122,7 +122,7 @@ class FindingsReportHandler(AbstractHandler):
         if href:
             return ReportResponse(
                 job,
-                self._rs.one_time_url_json(report, f"{job.id}.json"),
+                self._rs.one_time_url_json(report, f"{job.id}-findings.json"),
                 dictionary_url,
                 ReportFormat.JSON,
             ).dict()

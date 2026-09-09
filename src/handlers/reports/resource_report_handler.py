@@ -552,7 +552,7 @@ class ResourceReportHandler(AbstractHandler):
                     )
                 if event.href:
                     url = self._report_service.one_time_url_json(
-                        content, f'{platform.id}-latest.json'
+                        content, f'{platform.id}-latest-resources.json'
                     )
                     content = ReportResponse(
                         platform, url, dictionary_url, event.format
@@ -576,7 +576,7 @@ class ResourceReportHandler(AbstractHandler):
                     )
                 buffer.seek(0)
                 url = self._report_service.one_time_url(
-                    buffer, f'{platform.id}-latest.xlsx'
+                    buffer, f'{platform.id}-latest-resources.xlsx'
                 )
                 content = ReportResponse(
                     platform, url, dictionary_url, event.format
@@ -633,7 +633,7 @@ class ResourceReportHandler(AbstractHandler):
                     )
                 if event.href:
                     url = self._report_service.one_time_url_json(
-                        content, f'{tenant_name}-latest.json'
+                        content, f'{tenant_name}-latest-resources.json'
                     )
                     content = ReportResponse(
                         tenant_item, url, dictionary_url, event.format
@@ -657,7 +657,7 @@ class ResourceReportHandler(AbstractHandler):
                     )
                 buffer.seek(0)
                 url = self._report_service.one_time_url(
-                    buffer, f'{tenant_name}-latest.xlsx'
+                    buffer, f'{tenant_name}-latest-resources.xlsx'
                 )
                 content = ReportResponse(
                     tenant_item, url, dictionary_url, event.format
