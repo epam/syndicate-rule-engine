@@ -6,8 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [5.22.0] - 2026-XX-XX
+
+### Added
+- Added an account level `total` coverage that combines all the regions to compliance reports:
+  - `GET /reports/compliance/jobs/{job_id}`
+  - `GET /reports/compliance/tenants/{tenant_name}`
+
 ### Changed
 - Add a report type suffix to presigned report download filenames
+- Upgraded Mongo version from `5.0.32` to `8.0.28`
 
 ## [5.21.0] - 2026-09-08
 
@@ -18,9 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `GET /reports/questionnaire/jobs/{job_id}`
   - `GET /reports/questionnaire/tenants/{tenant_name}`
   - new CLI group `sre report questionnaire`
-- Added an account level `total` coverage that combines all the regions to compliance reports:
-  - `GET /reports/compliance/jobs/{job_id}`
-  - `GET /reports/compliance/tenants/{tenant_name}`
 
 ### Fixed
 - Fixed K8s recommendations being overwritten when a tenant has multiple platforms by aggregating all platforms recommendations before saving
