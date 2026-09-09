@@ -30,10 +30,7 @@ from models.job import Job
 from models.ruleset import Ruleset
 from services import SERVICE_PROVIDER, cache, modular_helpers
 from services.abs_lambda import ProcessedEvent
-from services.clients.batch import (
-    BatchClient,
-    CeleryJobClient,
-)
+from services.clients.batch import CeleryJobClient
 from services.clients.ssm import AbstractSSMClient
 from services.clients.sts import StsClient
 from services.environment_service import EnvironmentService
@@ -81,7 +78,7 @@ class JobHandler(AbstractHandler, SubmitJobToBatchMixin):
         license_service: LicenseService,
         license_manager_service: LicenseManagerService,
         ruleset_service: RulesetService,
-        batch_client: BatchClient | CeleryJobClient,
+        batch_client: CeleryJobClient,
         sts_client: StsClient,
         ssm: AbstractSSMClient,
         scheduled_job_service: ScheduledJobService,

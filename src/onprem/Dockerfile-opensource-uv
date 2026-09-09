@@ -32,7 +32,6 @@ COPY --from=builder --chown=$USERNAME:$USERNAME /src /src
 WORKDIR /src
 USER $USERNAME
 ENV AWS_REGION=us-east-1 \
-    SRE_SERVICE_MODE=docker \
     MODULAR_SDK_SERVICE_MODE=docker \
     PATH=/src/.venv/bin:$PATH \
     PYTHONPATH=/src

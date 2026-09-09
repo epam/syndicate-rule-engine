@@ -16,7 +16,6 @@ from helpers.__version__ import __version__
 from helpers.constants import (
     DEFAULT_RULES_METADATA_REPO_ACCESS_SSM_NAME,
     DEFAULT_SYSTEM_CUSTOMER,
-    DOCKER_SERVICE_MODE,
     PRIVATE_KEY_SECRET_NAME,
     Env,
     Permission,
@@ -281,15 +280,12 @@ class InitMongo(ActionHandler):
 
     def __call__(self):
         _LOG.debug('Going to sync indexes with code')
-        from models import BaseModel, PynamoDBToPymongoAdapterSingleton
+        from models import PynamoDBToPymongoAdapterSingleton
         from models.resource import create_resources_indexes
         from models.resource_exception import (
             create_resource_exceptions_indexes,
         )
 
-        if not BaseModel.is_mongo_model():
-            _LOG.warning(f'Cannot create indexes for {Env.get_db_type()}')
-            return
         creator = IndexesCreator(
             db=PynamoDBToPymongoAdapterSingleton.get_instance().mongo_database
         )
@@ -325,9 +321,6 @@ class Run(ActionHandler):
 
         self._host = host
         self._port = port
-
-        if not Env.is_docker():
-            Env.SERVICE_MODE.set(DOCKER_SERVICE_MODE)
 
         app = OnPremApiBuilder('caas').build()
         app.run(host=host, port=port)
