@@ -28,6 +28,9 @@ from validators.swagger_request_models import (
 )
 from validators.utils import validate_kwargs
 
+# Synthetic location with the account level coverage that combines all regions
+TOTAL_LOCATION = "total"
+
 
 class ComplianceReportXlsxWriter:
     def __init__(self, coverages: dict[str, dict[str, float]]):
@@ -133,6 +136,15 @@ class ComplianceReportHandler(AbstractHandler):
             region_coverages[location] = {
                 st.full_name: cov for st, cov in coverages.items()
             }
+        # the account level total must be calculated against the whole
+        # collection because a standard coverage is a mean of its controls
+        # coverages and such percentages cannot be averaged across regions
+        total = self._report_service.calculate_tenant_full_coverage(
+            col=collection, metadata=metadata, cloud=cloud
+        )
+        region_coverages[TOTAL_LOCATION] = {
+            st.full_name: cov for st, cov in total.items()
+        }
 
         response = ReportResponse(job, region_coverages, fmt=event.format)
         match event.format:
@@ -190,6 +202,15 @@ class ComplianceReportHandler(AbstractHandler):
             region_coverages[location] = {
                 st.full_name: cov for st, cov in coverages.items()
             }
+        # the account level total must be calculated against the whole
+        # collection because a standard coverage is a mean of its controls
+        # coverages and such percentages cannot be averaged across regions
+        total = self._report_service.calculate_tenant_full_coverage(
+            col=collection, metadata=metadata, cloud=cloud
+        )
+        region_coverages[TOTAL_LOCATION] = {
+            st.full_name: cov for st, cov in total.items()
+        }
 
         response = ReportResponse(tenant, region_coverages, fmt=event.format)
         match event.format:
