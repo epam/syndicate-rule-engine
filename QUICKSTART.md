@@ -150,14 +150,10 @@ cp .env.example .env
 Set all the necessary envs:
 
 ```bash
-# exclusively on-prem envs
+# on-prem envs
 # name=value  # [syndicate alias name]
 # if alias name is not specified, it's the same as env name.
-# Commented envs are necessary only for saas
-_service_mode=saas  # saas | docker
 _db_name=syndicate_rule_engine
-
-SERVICE_MODE=${_service_mode}
 
 # <buckets>
 SRE_REPORTS_BUCKET_NAME=reports
@@ -167,7 +163,7 @@ SRE_METRICS_BUCKET_NAME=metrics
 ...
 ```
 
-**Note**, for AWS installation you need to set `SERVICE_MODE` equal to `saas`. For on-prem installation you need to set `SERVICE_MODE` equal to `docker` and also set Minio, Mongo and Vault (see `.env.example`).
+**Note**, the on-prem installation also requires Minio, Mongo and Vault to be set up (see `.env.example`).
 
 ##### On-prem specific steps
 

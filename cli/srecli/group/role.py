@@ -129,15 +129,19 @@ def update(
 @role.command(cls=ViewCommand, name='delete')
 @click.option('--name', '-n', type=str, required=True,
               help='Role name to delete')
+@click.option('--confirm', is_flag=True, help='Confirms the action')
 @cli_response()
 def delete(
     ctx: ContextObj,
     customer_id: str,
     name: str,
+    confirm: bool,
 ):
     """
     Deletes customers role
     """
+    if not confirm:
+        raise click.UsageError('Please, specify `--confirm` flag')
     return ctx['api_client'].role_delete(
         name=name,
         customer_id=customer_id,

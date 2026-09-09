@@ -45,8 +45,6 @@ env:
       secretKeyRef:
         name: {{ default "vault-secret" .Values.modularSdk.vaultSecretName }}
         key: token
-  - name: SRE_SERVICE_MODE
-    value: docker
   - name: SRE_MONGO_URI
   {{- if .Values.mongoUri }}
     value: "{{ .Values.mongoUri }}"

@@ -1287,11 +1287,8 @@ def sanitize_schedule(schedule: str) -> str:
             raise ValueError(_rate_error_message)
         return f'rate({value} {unit})'
     # considering it to be a cron expression.
-    # Currently, on-prem and saas cron expressions differ. On-prem only
-    # accepts standard crontab that contains five fields without year
-    # (https://en.wikipedia.org/wiki/Cron),
-    # whereas saas accepts expressions that are valid for EventBridge
-    # rule (https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-cron-expressions.html).
+    # On-prem only accepts standard crontab that contains five fields
+    # without year (https://en.wikipedia.org/wiki/Cron).
     # The validator below does not 100% ensure that the expression if
     # valid, but it does some things to make the difference less visible
     raw = schedule.replace('cron', '').strip(' ()').split()
@@ -1301,15 +1298,10 @@ def sanitize_schedule(schedule: str) -> str:
             'Must contain 5 fields: '
             '(minute hour day-of-month month day-of-week)'
         )
-    if Env.is_docker():
-        # on-prem supports only 5 fields and does not support "?"
-        raw = ['*' if i == '?' else i for i in raw]
-        if len(raw) == 6:
-            raw.pop()
-    else:
-        # saas supports only 6 fields
-        if len(raw) == 5:
-            raw.append('*')
+    # on-prem supports only 5 fields and does not support "?"
+    raw = ['*' if i == '?' else i for i in raw]
+    if len(raw) == 6:
+        raw.pop()
     return f'cron({" ".join(raw)})'
 
 

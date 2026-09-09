@@ -5,9 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.22.0] - 2026-xx-xx
+## [5.22.0] - 2026-XX-XX
+
+### Added
+- Added an account level `total` coverage that combines all the regions to compliance reports:
+  - `GET /reports/compliance/jobs/{job_id}`
+  - `GET /reports/compliance/tenants/{tenant_name}`
 
 ### Changed
+- Add a report type suffix to presigned report download filenames
 - Upgraded Mongo version from `5.0.32` to `8.0.28`
 
 ## [5.21.0] - 2026-09-08

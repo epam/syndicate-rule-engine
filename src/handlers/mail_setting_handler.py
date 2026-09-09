@@ -11,7 +11,7 @@ from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
 from services import SP
 from services.clients.smtp import SMTPClient
-from services.clients.ssm import SSMClient
+from services.clients.ssm import AbstractSSMClient
 from services.setting_service import Setting, SettingsService
 from validators.swagger_request_models import (
     BaseModel,
@@ -32,7 +32,7 @@ class MailSettingHandler(AbstractHandler):
     """
 
     def __init__(self, settings_service: SettingsService,
-                 smtp_client: SMTPClient, ssm_client: SSMClient):
+                 smtp_client: SMTPClient, ssm_client: AbstractSSMClient):
         self.settings_service = settings_service
         self.smtp_client = smtp_client
         self.ssm_client = ssm_client
