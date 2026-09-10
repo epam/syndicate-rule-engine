@@ -12,8 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `GET /reports/compliance/jobs/{job_id}`
   - `GET /reports/compliance/tenants/{tenant_name}`
 
+### Fixed
+- Fixed the request validation for `POST /reports/push/dojo` endpoint
+
 ### Changed
-- Add a report type suffix to presigned report download filenames
+- Added a report type suffix to presigned report download filenames
 - Upgraded Mongo version from `5.0.32` to `8.0.28`
 
 ## [5.21.0] - 2026-09-08
