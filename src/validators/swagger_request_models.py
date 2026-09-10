@@ -221,12 +221,14 @@ class _ValidateJobTypesMixin:
     
     @model_validator(mode='after')
     def validate_job_type(self) -> Self:
-        if hasattr(self, 'type'):
-            type_ = getattr(self, 'type')
-            if type_.value == JobType.MANUAL.value:
-                self.job_types.update({JobType.STANDARD, JobType.SCHEDULED})
-            else:
-                self.job_types.add(type_)
+        type_ = getattr(self, 'type')
+        if not type_:
+            return self
+
+        if type_.value == JobType.MANUAL.value:
+            self.job_types.update({JobType.STANDARD, JobType.SCHEDULED})
+        else:
+            self.job_types.add(type_)
         return self
 
 
