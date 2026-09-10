@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.22.0] - 2026-XX-XX
 ### Changed
-- Add the confirmation flag to all destructive CLI commands:
+- Added the confirmation flag to all destructive CLI commands:
   - `sre rule delete`
   - `sre integrations mcp auth delete`
   - `sre integrations re delete`
@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `sre setting mail delete`
   - `sre setting report disable_sending`
   - `sre cleanup`
+- Improved the help message for the `--job_type/-jt` option
 
 ## [5.21.0] - 2026-09-08
 
