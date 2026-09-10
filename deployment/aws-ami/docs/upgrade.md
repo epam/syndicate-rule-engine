@@ -6,6 +6,23 @@ All commands must be executed **directly on the SRE AMI instance** via SSH.
 
 ---
 
+## Prerequisites
+
+Before starting the upgrade, ensure the following conditions are met:
+
+- **Instance is healthy** — run `sre-init health` and confirm all checks show `ok`
+- **Disk space** — at least 5 GB of free disk space available (`df -h /`)
+- **GitHub connectivity** — the instance must be able to reach `https://github.com` to pull release artifacts
+- **Active SSH session** — do not close the SSH session during the upgrade; consider using `screen` or `tmux` to protect against disconnection:
+  ```bash
+  screen -S sre-update
+  ```
+  To reattach after disconnection: `screen -r sre-update`
+
+> **Downtime notice:** The helm upgrade step causes a brief service interruption (typically under 5 minutes). Plan accordingly.
+
+---
+
 ### 1. Connect to the instance via SSH
 
 ```bash
@@ -14,6 +31,8 @@ ssh -i $SSH_KEY_NAME admin@$INSTANCE_PUBLIC_DNS
 
 - `$SSH_KEY_NAME` — the name of your SSH key file
 - `$INSTANCE_PUBLIC_DNS` — the public DNS of the instance
+
+See the [Access Guide](access.md) for detailed SSH setup instructions.
 
 ---
 
@@ -34,6 +53,8 @@ Expected output:
 
 The currently installed version is marked with an asterisk `*`.
 
+> **Multiple versions behind?** If several versions are listed, run `sre-init update` once per version in order. Each run upgrades exactly one version.
+
 ---
 
 ### 3. Check whether an update is available
@@ -47,7 +68,23 @@ sre-init update --check
 
 ---
 
-### 4. Refresh the update manager
+### 4. Create a backup
+
+Although the update is fail-safe, it is strongly recommended to create a manual backup before proceeding:
+
+```bash
+sre-init backup create --name pre-upgrade-$(date +%Y%m%d)
+```
+
+To list existing backups:
+
+```bash
+sre-init backup ls
+```
+
+---
+
+### 5. Refresh the update manager
 
 Before performing the upgrade, ensure `sre-init` itself is up to date:
 
@@ -63,7 +100,7 @@ Automatically updated sre-init from <current_version> to <new_version>
 
 ---
 
-### 5. Perform the update
+### 6. Perform the update
 
 ```bash
 sre-init update
@@ -89,16 +126,21 @@ Making helm upgrade. It should not take more than 20 minutes
 helm upgrade was successful
 Upgrading obfuscation manager
 Upgrading modular CLI
+Refreshing CLIs for other onboarded users: user1 userN
 Updating sre-init
 Done
 ```
 
 > **Note:** The helm upgrade step may take up to 20 minutes. Do not interrupt the process.  
-> The update is fail-safe — if anything goes wrong, `sre-init` will automatically roll back all changes to the previous state.
+> The update is fail-safe — if anything goes wrong, `sre-init` will automatically roll back all changes to the previous state.  
+> In addition to the current user, `sre-init update` also refreshes `modular-cli`/`sre-obfuscator` for every other
+> linux user onboarded via [`sre-init init --user`](main.md#213-initialize-ami-for-another-linux-user) (auto-detected).
+> A refresh failure for one user only warns and does not fail the update. Use `--no-secondary-user-clis` to skip this
+> step, or run `sre-init update cli` at any time to refresh CLIs independently of a full update.
 
 ---
 
-### 6. Verify the installation health
+### 7. Verify the installation health
 
 After the update completes, confirm all components are running correctly:
 
@@ -118,9 +160,15 @@ Expected output — all checks should show `ok`:
 6  Defect Dojo helm release            ok
 ```
 
+To confirm the installed version after the upgrade:
+
+```bash
+sre-init version
+```
+
 ---
 
-### 7. Defect Dojo update (optional)
+### 8. Defect Dojo update (optional)
 
 To update Defect Dojo separately:
 
@@ -132,7 +180,23 @@ sre-init update --defectdojo
 
 ---
 
-### Troubleshooting
+## Rollback
+
+The update process performs an automatic rollback if the helm upgrade fails. If the automatic rollback does not resolve the issue, restore from the backup you created in Step 4:
+
+```bash
+sre-init backup restore --name pre-upgrade-<date>
+```
+
+To list available backups:
+
+```bash
+sre-init backup ls
+```
+
+---
+
+## Troubleshooting
 
 If the update fails or any health check reports `failed`, collect the log file from the instance and contact our support team:
 
