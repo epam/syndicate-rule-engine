@@ -21,13 +21,13 @@ log() { echo "[INFO] $(date) $1" >&2; }
 
 start_server() {
   log "Creating the necessary buckets in Minio"
-  python main.py create_buckets
+  python main.py create-buckets
 
   log "Creating indexes in MongoDB"
-  python main.py create_indexes
+  python main.py create-indexes
 
   log "Creating the necessary engine and token in Vault"
-  python main.py init_vault
+  python main.py init-vault
 
   log "Initializing"
   python main.py init

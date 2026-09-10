@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Add a report type suffix to presigned report download filenames
 - Upgraded Mongo version from `5.0.32` to `8.0.28`
+- Use dashes instead of underscores in main.py arguments
 
 ## [5.21.0] - 2026-09-08
 
