@@ -221,7 +221,7 @@ class _ValidateJobTypesMixin:
     
     @model_validator(mode='after')
     def validate_job_type(self) -> Self:
-        type_ = getattr(self, 'type')
+        type_ = getattr(self, 'type', None)
         if not type_:
             return self
 
