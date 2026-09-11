@@ -168,15 +168,15 @@ SRE_METRICS_BUCKET_NAME=metrics
 ##### On-prem specific steps
 
 ```bash
-python main.py create_buckets  # creates buckets in Minio
+python main.py create-buckets  # creates buckets in Minio
 ```
 
 ```bash
-python main.py init_vault  # initialize vault token
+python main.py init-vault  # initialize vault token
 ```
 
 ```bash
-python main.py create_indexes  # creates mongodb indexes
+python main.py create-indexes  # creates mongodb indexes
 ```
 
 ##### Saas & on-prem common steps
