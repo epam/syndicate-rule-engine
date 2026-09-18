@@ -40,6 +40,7 @@ class ResourceIteratorStrategy(ABC):
         tenant_name: str,
         resources_service: ResourcesService,
         collector_type: ResourcesCollectorType,
+        platform_id: str | None = None,
     ) -> Generator[Resource, None, None]:
         """Iterate over resources and yield Resource models."""
         ...

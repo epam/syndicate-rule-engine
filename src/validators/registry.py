@@ -71,6 +71,7 @@ from validators.swagger_request_models import (
     ResourcesArnGetModel,
     ResourcesExceptionsGetModel,
     ResourcesExceptionsPostModel,
+    PlatformK8sResourcesGetModel,
     ResourcesGetModel,
     ResourcesReportGetModel,
     RolePatchModel,
@@ -366,6 +367,15 @@ data: tuple[EndpointInfo, ...] = (
         responses=[(HTTPStatus.OK, SingleResourceModel, None)],
         permission=Permission.RESOURCES_GET,
         description='Allows to get a resource by its ARN',
+    ),
+    EndpointInfo(
+        path=Endpoint.PLATFORMS_K8S_ID_RESOURCES,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
+        request_model=PlatformK8sResourcesGetModel,
+        responses=[(HTTPStatus.OK, MultipleResourcesModel, None)],
+        permission=Permission.PLATFORM_RESOURCES_GET,
+        description='Allows to get the collected inventory of a K8S platform',
     ),
     # resources exceptions
     EndpointInfo(

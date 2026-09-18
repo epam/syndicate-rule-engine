@@ -35,6 +35,8 @@ class Resource(TypedDict):
     data: dict
     sync_date: datetime
     hash: str
+    platform_id: NotRequired[str]
+    namespace: NotRequired[str]
 
 
 class ResourceException(TypedDict):

@@ -97,6 +97,7 @@ class Endpoint(str, Enum):
     INTEGRATIONS_CHRONICLE = '/integrations/chronicle'
     CREDENTIALS_ID_BINDING = '/credentials/{id}/binding'
     RESOURCES_EXCEPTIONS_ID = '/resources/exceptions/{id}'
+    PLATFORMS_K8S_ID_RESOURCES = '/platforms/k8s/{platform_id}/resources'
     CUSTOMERS_EXCLUDED_RULES = '/customers/excluded-rules'
     INTEGRATIONS_DEFECT_DOJO = '/integrations/defect-dojo'
     INTEGRATIONS_EVENT_SOURCES = '/integrations/event-sources'
@@ -1066,6 +1067,7 @@ class Permission(str, Enum):
     USERS_RESET_PASSWORD = 'users:reset_password'
 
     RESOURCES_GET = 'resources:get'
+    PLATFORM_RESOURCES_GET = 'platform_resources:get', False, True
 
     RESOURCES_EXCEPTIONS_GET = 'resources_exceptions:get'
     RESOURCES_EXCEPTIONS_CREATE = 'resources_exceptions:create'
@@ -1595,6 +1597,11 @@ EXCLUDE_RESOURCE_TYPES = {
     'aws.codedeploy-config',
     'azure.roledefinition',  # there is huge number (~700 in my subscription) of these and I'm not sure how useful they are
     'gcp.region',
+    # these require group/version/plural to be set in the policy query
+    # so they cannot be collected by a generic "describe everything" policy
+    'k8s.custom-cluster-resource',
+    'k8s.custom-namespaced-resource',
+    'k8s.secret',  # do not persist secret material in the inventory
 }
 
 

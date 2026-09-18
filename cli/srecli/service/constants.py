@@ -100,6 +100,7 @@ class Endpoint(str, Enum):
     LICENSES_LICENSE_KEY = '/licenses/{license_key}'
     SETTINGS_SEND_REPORTS = '/settings/send_reports'
     PLATFORMS_K8S_ID = '/platforms/k8s/{platform_id}'
+    PLATFORMS_K8S_ID_RESOURCES = '/platforms/k8s/{platform_id}/resources'
     INTEGRATIONS_CHRONICLE = '/integrations/chronicle'
     CREDENTIALS_ID_BINDING = '/credentials/{id}/binding'
     RESOURCES_EXCEPTIONS_ID = '/resources/exceptions/{id}'

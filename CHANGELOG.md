@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added an account level `total` coverage that combines all the regions to compliance reports:
   - `GET /reports/compliance/jobs/{job_id}`
   - `GET /reports/compliance/tenants/{tenant_name}`
+- Added Kubernetes resources inventory collection: the inventory of each registered K8S
+  platform is now collected alongside tenants' cloud resources by the resource collector
+- Added a new endpoint `GET /platforms/k8s/{platform_id}/resources` that returns the
+  collected inventory of a K8S platform (permission `platform_resources:get`).
+  It is the only way to query K8S resources: `GET /resources` accepts no
+  `platform_id`/`namespace` filters because those are indexed per platform
 
 ### Fixed
 - Fixed the request validation for `POST /reports/push/dojo` endpoint

@@ -71,6 +71,26 @@ class ResourcesService(BaseDataService[Resource]):
             f'Removed {res.deleted_count} resources {account_id=}:{location=}:{resource_type=}'
         )
 
+    def remove_platform_resources(
+        self, platform_id: str, resource_type: str
+    ) -> None:
+        """
+        Removes all the previously collected resources of the given type that
+        belong to the given k8s platform
+        """
+        assert self.model_class.is_mongo_model(), 'only MongoDB is supported'
+        col = self.model_class.mongo_adapter().get_collection(self.model_class)
+        res = col.delete_many(
+            {
+                Resource.platform_id.attr_name: platform_id,
+                Resource.resource_type.attr_name: resource_type,
+            }
+        )
+        _LOG.info(
+            f'Removed {res.deleted_count} resources '
+            f'{platform_id=}:{resource_type=}'
+        )
+
     def create(
         self,
         account_id: str,
@@ -84,6 +104,8 @@ class ResourcesService(BaseDataService[Resource]):
         collector_type: ResourcesCollectorType,
         tenant_name: str,
         customer_name: str,
+        platform_id: str | None = None,
+        namespace: str | None = None,
     ) -> Resource:
         return Resource(
             account_id=account_id,
@@ -97,6 +119,8 @@ class ResourcesService(BaseDataService[Resource]):
             _collector_type=collector_type.value,
             tenant_name=tenant_name,
             customer_name=customer_name,
+            platform_id=platform_id,
+            namespace=namespace,
         )
 
     def get_resource_by_id(
@@ -132,6 +156,8 @@ class ResourcesService(BaseDataService[Resource]):
         resource_type: str | None = None,
         tenant_name: str | None = None,
         customer_name: str | None = None,
+        platform_id: str | None = None,
+        namespace: str | None = None,
         limit: int = 50,
         last_evaluated_key: dict | None = None,
     ) -> ResultIterator[Resource]:
@@ -152,6 +178,10 @@ class ResourcesService(BaseDataService[Resource]):
             filter_condition &= Resource.tenant_name == tenant_name
         if customer_name:
             filter_condition &= Resource.customer_name == customer_name
+        if platform_id:
+            filter_condition &= Resource.platform_id == platform_id
+        if namespace:
+            filter_condition &= Resource.namespace == namespace
 
         kwargs = {'limit': limit}
         if last_evaluated_key:

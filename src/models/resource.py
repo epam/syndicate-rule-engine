@@ -35,7 +35,14 @@ def create_resources_indexes(db: Database) -> tuple[str, ...]:
             name=name2,
         )
 
-    return name1, name2
+    name3 = 'p_1_rt_1_i_1'
+    if name3 not in indexes:
+        _LOG.info(f'Index {name3} does not exist yet')
+        collection.create_index(
+            [('p', 1), ('rt', 1), ('i', 1)], name=name3, sparse=True
+        )
+
+    return name1, name2, name3
 
 
 class ResourceARNIndex(GlobalSecondaryIndex):
@@ -57,7 +64,8 @@ class Resource(BaseModel):
     # just to please our DynamoDB's inheritance. It looks like:
     # account_id#location#resource_type#id
     # where:
-    # - account id is AWS account id or Azure subscription id or GCP project id
+    # - account id is AWS account id or Azure subscription id or GCP project id.
+    #   For KUBERNETES it is an id of the platform the resource belongs to
     # - location is SRE's entity that represents region against which Cloud Custodian policy was executed.
     #   For AZURE/GOOGLE/KUBERNETES it is literally "global". For AWS it's either a real region name or "global" for S3, IAM and other    global services
     # - resource_type is resource type of Cloud Custodian containing cloud prefix
@@ -83,6 +91,12 @@ class Resource(BaseModel):
 
     tenant_name = UnicodeAttribute(attr_name='tn')
     customer_name = UnicodeAttribute(attr_name='cn')
+
+    # KUBERNETES-only attributes. `platform_id` is an id of Maestro's
+    # PLATFORM_K8S parent the resource was collected from. For such resources
+    # `account_id` == `platform_id` and `location` is always "global"
+    platform_id = UnicodeAttribute(attr_name='p', null=True)
+    namespace = UnicodeAttribute(attr_name='ns', null=True)
 
     arn_index = ResourceARNIndex()
 

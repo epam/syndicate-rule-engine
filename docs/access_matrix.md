@@ -52,6 +52,7 @@ Here is a list of all permissions available in the Syndicate Rule Engine:
 "platform:create_k8s",
 "platform:delete_k8s",
 "platform:list_k8s",
+"platform_resources:get",
 "rabbitmq:create",
 "rabbitmq:delete",
 "rabbitmq:describe",
