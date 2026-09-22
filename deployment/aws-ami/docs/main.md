@@ -203,7 +203,7 @@ actions over API, so you can flexibly configure access to the system
 Let's create a new user, but first we should create a separate policy and role for him. Create a policy:
 
 ```bash
-syndicate re policy add --name run_scan_for_all_tenants --permission "job:post_for_tenant" --effect allow --description "Allows to submit jobs for all tenants"
+syndicate re policy add --name run_scan_for_all_tenants --permission "job:post_for_tenant" --effect allow --description "Allows to submit jobs for all tenants" --tenant '*'
 ```
 **Note:** list of all permission can be found in `Attachment 2`
 
@@ -257,15 +257,55 @@ syndicate re license activate --license_key <License key from previous command> 
 
 ### 2.1.3. Initialize AMI for another linux user
 
-Ami has a script called `sre-init` that allows to init Rule engine for a new linux user. By default, only the first non-root 
-linux user has sre installed. If you want to initialize rule engine for other linux execute the command:
+The AMI has a script called `sre-init` that allows to configure `syndicate` CLI access for an additional linux user. 
+By default, only the first non-root linux user has `syndicate` installed. Use the `init` subcommand to add another one:
 
 ```bash
-sre-init --user "username" --public-ssh-key "ssh-..." --re-username job_submitter --re-password $SECRET_PASSWORD
+sre-init init --user "username" --public-ssh-key "ssh-ed25519 AAAA..."
 ```
-A user with name `username` will be created if it does not exist yet. If `--public-ssh-key` is specified it will be added to
-`~/.ssh/authorized_keys` of that user. You can also provide `--re-username` & `--re-password` of a Rule Engine user 
-created before to configure set these credentials.
+**Note:** must be run directly by a user with `sudo` rights (normally the first, already initialized user) — do **not**
+prefix the whole command with `sudo` yourself; `sre-init` escalates internally (via `sudo useradd`/`sudo su -`) only
+for the specific steps that need it. Running the whole command as `sudo`/`root` breaks `kubectl`/`minikube` access,
+since their config only exists under the first user's home directory. You do **not** need to create the linux user
+beforehand either — `sre-init init --user` creates it automatically (via `useradd`) if it does not exist yet.
+
+What this command does for `username`:
+- creates the linux user if it does not already exist;
+- if `--public-ssh-key` is given, appends it to `~/.ssh/authorized_keys` so the user can log in over SSH;
+- installs `modular-cli` and `sre-obfuscator` CLIs for that user (via `pipx`);
+- creates a corresponding `modular-api` user (if one does not exist yet) and logs `syndicate` in automatically.
+
+Required parameters:
+- either `--system` (first-time, system-wide init; only possible for the very first user) or `--user <username>` must
+  be specified — exactly one of these flows must be chosen.
+
+Optional parameters:
+- `--public-ssh-key "<key>"` — public SSH key to add to the target user's `authorized_keys`.
+- `--re-username` & `--re-password` — must be given **together**. That Rule Engine user must **already exist** —
+  `sre-init` only logs the linux user into it (`syndicate re login`), it does not create it. Create the user
+  beforehand (see [2.1.2.2.1](#21221-users-registration)).
+- `--admin-username` & `--admin-password` — must be given **together**. That Modular Service user must likewise
+  **already exist** — `sre-init` only logs in (`syndicate admin login`), it does not create it. Create it beforehand,
+  e.g.:
+  ```bash
+  syndicate admin policy add --name admin_policy --permissions_admin --customer_id "$CUSTOMER_NAME"
+  syndicate admin role add --name admin_role --policies admin_policy --customer_id "$CUSTOMER_NAME"
+  syndicate admin users create --username user1 --password "$SECRET_PASSWORD" --role_name admin_role --customer_id "$CUSTOMER_NAME"
+  ```
+
+Example: onboarding a User1 user with an SSH key and an existing Rule Engine user:
+
+```bash
+sre-init init --user user1 \
+  --public-ssh-key "ssh-ed25519 AAAA... user1@example" \
+  --re-username user1 --re-password "$SECRET_PASSWORD"
+```
+
+> **Note:** `modular-cli`/`sre-obfuscator` are installed per linux user via `pipx`. Every `sre-init update` also
+> auto-detects other onboarded users (those with either CLI installed via `pipx`) and refreshes their CLIs to the
+> new release; a refresh failure for one user only prints a warning and does not fail the whole update. Pass
+> `--no-secondary-user-clis` to `sre-init update` to skip this step. You can also refresh CLIs independently at any
+> time with `sre-init update cli` (see `sre-init update cli --help`).
 
 # 3. Scanning Guide
 
