@@ -79,8 +79,8 @@ def dojo(
     if not tenant_name:
         raise click.UsageError("Missing option '--tenant_name' / '-tn'.")
     return ctx['api_client'].push_dojo_multiple(
-        start_date=from_date.isoformat() if from_date else None,
-        end_date=to_date.isoformat() if to_date else None,
+        start_iso=from_date.isoformat() if from_date else None,
+        end_iso=to_date.isoformat() if to_date else None,
         customer_id=customer_id,
         tenant_name=tenant_name,
         job_types=job_types,
