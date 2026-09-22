@@ -29,6 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `sre setting report disable_sending`
   - `sre cleanup`
 - Improved the help message for the `--job_type/-jt` option
+- Added a dedicated `sre resource describe_platform` command that returns the
+  collected inventory of a single K8S platform (`--platform_id`/`-pid` is
+  required)
 
 ## [5.21.0] - 2026-09-08
 

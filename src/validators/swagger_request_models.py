@@ -274,6 +274,21 @@ class ResourcesArnGetModel(BaseModel):
     arn: str
 
 
+class PlatformK8sResourcesGetModel(BasePaginationModel):
+    """
+    GET /platforms/k8s/{platform_id}/resources
+    """
+
+    resource_type: str = Field(
+        None,
+        description='Cloud Custodian resource type with or without cloud '
+        'prefix, e.g. k8s.pod or pod',
+    )
+    name: str = Field(None)
+    id: str = Field(None)
+    namespace: str = Field(None, description='K8S namespace')
+
+
 class ResourcesExceptionsGetModel(BasePaginationModel):
     """
     GET

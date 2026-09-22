@@ -1139,6 +1139,16 @@ class SREApiClient:
             query=sifted(kwargs),
         )
 
+    def platform_k8s_resources_get(
+        self, platform_id: str, **kwargs
+    ) -> SREResponse:
+        return self.make_request(
+            path=Endpoint.PLATFORMS_K8S_ID_RESOURCES,
+            path_params={'platform_id': platform_id},
+            method=HTTPMethod.GET,
+            query=sifted(kwargs),
+        )
+
     def resource_exception_get(self, **kwargs) -> SREResponse:
         return self.make_request(
             path=Endpoint.RESOURCES_EXCEPTIONS,

@@ -8,24 +8,28 @@
   - [Get Resource by ARN](#get-resource-by-arn)
     - [Parameters](#parameters-1)
     - [Response](#response-1)
-- [Resource Exceptions Endpoints](#resource-exceptions-endpoints)
-  - [List Resource Exceptions](#list-resource-exceptions)
+  - [Get K8S Platform Resources](#get-k8s-platform-resources)
+    - [Path Parameters](#path-parameters)
     - [Parameters](#parameters-2)
     - [Response](#response-2)
-  - [Create Resource Exception](#create-resource-exception)
-    - [Request Body](#request-body)
+- [Resource Exceptions Endpoints](#resource-exceptions-endpoints)
+  - [List Resource Exceptions](#list-resource-exceptions)
     - [Parameters](#parameters-3)
     - [Response](#response-3)
-  - [Get Resource Exception by ID](#get-resource-exception-by-id)
-    - [Path Parameters](#path-parameters)
+  - [Create Resource Exception](#create-resource-exception)
+    - [Request Body](#request-body)
+    - [Parameters](#parameters-4)
     - [Response](#response-4)
-  - [Update Resource Exception](#update-resource-exception)
+  - [Get Resource Exception by ID](#get-resource-exception-by-id)
     - [Path Parameters](#path-parameters-1)
-    - [Request Body](#request-body-1)
     - [Response](#response-5)
-  - [Delete Resource Exception](#delete-resource-exception)
+  - [Update Resource Exception](#update-resource-exception)
     - [Path Parameters](#path-parameters-2)
+    - [Request Body](#request-body-1)
     - [Response](#response-6)
+  - [Delete Resource Exception](#delete-resource-exception)
+    - [Path Parameters](#path-parameters-3)
+    - [Response](#response-7)
 - [Resource Exception Types](#resource-exception-types)
   - [1. Resource-Specific Exceptions](#1-resource-specific-exceptions)
   - [2. ARN-Based Exceptions](#2-arn-based-exceptions)
@@ -54,7 +58,7 @@
 | `tenant_name`   | string  | No       | Filter by specific tenant                             |
 | `resource_type` | string  | No       | Filter by resource type (e.g., 'aws.ec2', 'azure.vm') |
 | `location`      | string  | No       | Filter by resource location/region                    |
-| `resource_id`   | string  | No       | Filter by specific resource ID                        |
+| `id`            | string  | No       | Filter by specific resource ID                        |
 | `name`          | string  | No       | Filter by resource name                               |
 | `limit`         | integer | No       | Maximum number of results to return                   |
 | `next_token`    | string  | No       | Token for pagination                                  |
@@ -125,6 +129,79 @@ Returns detailed information about the specific resource.
   }
 }
 ```
+
+---
+
+### Get K8S Platform Resources
+
+**Endpoint:** `GET /platforms/k8s/{platform_id}/resources`  
+**Permission Required:** `platform_resources:get`  
+**Description:** Retrieve the collected inventory of a single registered K8S platform.
+
+Kubernetes has no regions, so its resources are collected per platform rather than
+per region: they are stored with `location` set to `global` and are keyed by the
+platform they belong to. This endpoint is the only way to filter the inventory by
+platform or by namespace.
+
+#### Path Parameters
+
+| Parameter     | Type   | Required | Description                        |
+| ------------- | ------ | -------- | ---------------------------------- |
+| `platform_id` | string | Yes      | Id of the registered K8S platform  |
+
+#### Parameters
+
+| Parameter       | Type    | Required | Description                                                             |
+| --------------- | ------- | -------- | ----------------------------------------------------------------------- |
+| `resource_type` | string  | No       | Filter by K8S resource type, with or without the prefix: `k8s.pod`, `pod` |
+| `id`            | string  | No       | Filter by specific resource ID                                           |
+| `name`          | string  | No       | Filter by resource name                                                  |
+| `namespace`     | string  | No       | Filter by K8S namespace                                                  |
+| `limit`         | integer | No       | Maximum number of results to return                                      |
+| `next_token`    | string  | No       | Token for pagination                                                     |
+
+A `resource_type` that does not belong to the `k8s.` provider is rejected with
+`422 Unprocessable Entity`. An unknown platform, or one that belongs to another
+customer, returns `404 Not Found`.
+
+#### Response
+
+Returns a paginated list of the platform's resources. Kubernetes resources carry
+two fields that cloud resources do not have: `platform_id`, and `namespace` for
+namespaced resources. Cluster-scoped resources such as `k8s.node` or
+`k8s.namespace` have no `namespace` field at all.
+
+```json
+{
+  "items": [
+    {
+      "id": "8f14e45f-ceea-467a-9f0a-1c2d3e4f5a6b",
+      "name": "coredns-5d78c9869d-abcde",
+      "arn": "8f14e45f-ceea-467a-9f0a-1c2d3e4f5a6b",
+      "resource_type": "k8s.pod",
+      "location": "global",
+      "namespace": "kube-system",
+      "platform_id": "98f924be-395a-41ab-996f-50ba8865c67d",
+      "tenant_name": "production",
+      "customer_name": "EPAM Systems",
+      "sync_date": 1692451200.0,
+      "data": {
+        "metadata": {
+          "name": "coredns-5d78c9869d-abcde",
+          "namespace": "kube-system"
+        },
+        "spec": {"nodeName": "ip-10-0-1-23.eu-west-1.compute.internal"},
+        "status": {"phase": "Running"}
+      }
+    }
+  ],
+  "next_token": "eyJ0aW1lc3RhbXAiOjE2OTI0NTEyMDB9"
+}
+```
+
+The inventory is populated by the `scan-resources` periodic task, which is
+controlled by `SRE_CELERY_SCAN_RESOURCES_SCHEDULE` and is disabled by default.
+Until it has run at least once for a platform, this endpoint returns an empty list.
 
 ---
 
@@ -418,6 +495,7 @@ curl -X GET "/resources/arn?arn=arn:aws:ec2:us-east-1:123456789012:instance/i-12
 | Permission                    | Description                         |
 | ----------------------------- | ----------------------------------- |
 | `resources:get`               | View cloud resources                |
+| `platform_resources:get`      | View the inventory of a K8S platform |
 | `resources_exceptions:get`    | View resource exceptions            |
 | `resources_exceptions:create` | Create new resource exceptions      |
 | `resources_exceptions:update` | Modify existing resource exceptions |
