@@ -7,7 +7,7 @@ from c7n.utils import jmespath_search
 from c7n_gcp.query import ChildResourceManager, ChildTypeInfo
 
 
-class LoadBalancerTargetHttpsProxyBackend(ChildResourceManager):
+class LoadBalancerBackendTargetHttpsProxy(ChildResourceManager):
 
     class resource_type(ChildTypeInfo):
         service = 'compute'
@@ -44,7 +44,7 @@ class LoadBalancerBackendSslPolicy(ChildResourceManager):
         id = name = 'name'
         default_report_fields = [id, 'profile', 'minTlsVersion']
         parent_spec = {
-            'resource': 'loadbalancer-target-https-proxy-backend',
+            'resource': 'loadbalancer-backend-target-https-proxy',
         }
         asset_type = "compute.googleapis.com/SslPolicy"
 
@@ -65,7 +65,7 @@ class LoadBalancerBackendSslPolicy(ChildResourceManager):
         return []
 
 
-class LoadBalancerSslPolicy(ChildResourceManager):
+class LoadBalancerTargetHttpsProxySslPolicy(ChildResourceManager):
     """
     GC resource: https://cloud.google.com/compute/docs/reference/rest/v1/sslPolicies
     Unlike loadbalancer-ssl-policy, returns only policies that are tied to
@@ -115,20 +115,19 @@ class LoadBalancerSslPolicy(ChildResourceManager):
         return {'project_id': child_instance['project_id'],
                 'resourceName': child_instance['parent_resource_name']}
 
+
 def register() -> None:
     from c7n_gcp.provider import resources
     from c7n_gcp.resources.resource_map import ResourceMap
 
-    resources.register('loadbalancer-target-https-proxy-backend', LoadBalancerTargetHttpsProxyBackend)
-    # resources.register('loadbalancer-backend-ssl-policy', LoadBalancerBackendSslPolicy)
-    resources.register('loadbalancer-backend-frontend-ssl', LoadBalancerBackendSslPolicy)
+    resources.register('loadbalancer-backend-target-https-proxy', LoadBalancerBackendTargetHttpsProxy)
+    resources.register('loadbalancer-backend-ssl-policy', LoadBalancerBackendSslPolicy)
     resources.register(
-        'loadbalancer-target-https-proxy-ssl-policy', LoadBalancerSslPolicy
+        'loadbalancer-target-https-proxy-ssl-policy', LoadBalancerTargetHttpsProxySslPolicy
     )
 
-    ResourceMap['gcp.loadbalancer-target-https-proxy-backend'] = f'{__name__}.{LoadBalancerTargetHttpsProxyBackend.__name__}'
-    # ResourceMap['gcp.loadbalancer-backend-ssl-policy'] = f'{__name__}.{LoadBalancerBackendSslPolicy.__name__}'
-    ResourceMap['gcp.loadbalancer-backend-frontend-ssl'] = f'{__name__}.{LoadBalancerBackendSslPolicy.__name__}'
+    ResourceMap['gcp.loadbalancer-backend-target-https-proxy'] = f'{__name__}.{LoadBalancerBackendTargetHttpsProxy.__name__}'
+    ResourceMap['gcp.loadbalancer-backend-ssl-policy'] = f'{__name__}.{LoadBalancerBackendSslPolicy.__name__}'
     ResourceMap['gcp.loadbalancer-target-https-proxy-ssl-policy'] = (
-        f'{__name__}.{LoadBalancerSslPolicy.__name__}'
+        f'{__name__}.{LoadBalancerTargetHttpsProxySslPolicy.__name__}'
     )
