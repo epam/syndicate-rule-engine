@@ -276,7 +276,7 @@ services:
     networks:
       - rule-engine-net
   valkey:
-    image: ${VALKEY_IMAGE:-valkey/valkey:${VALKEY_VERSION:-8.0.10-alpine}}
+    image: ${VALKEY_IMAGE:-valkey/valkey:${VALKEY_VERSION:-8.0.11-alpine}}
     container_name: valkey
     ports:
       - "6379:6379"

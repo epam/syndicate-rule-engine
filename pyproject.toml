@@ -8,27 +8,27 @@ version = "5.22.0"
 dependencies = [
     "bcrypt>=4,<6",
     "billiard~=4.2.4",
-    "boto3~=1.43.3",
-    "botocore~=1.43.3",
+    "boto3~=1.43.78",
+    "botocore~=1.43.78",
     "bottle~=0.13.4",
-    "cachetools~=7.1.6",
+    "cachetools~=7.1.8",
     "celery~=5.6.3",
-    "cryptography~=46.0.7",
-    "google-api-python-client~=2.194.0",
-    "google-auth~=2.49.2",
+    "cryptography~=50.0.0",
+    "google-api-python-client~=2.199.0",
+    "google-auth~=2.56.3",
     "gunicorn~=26.0.0",
     "hvac>=2.3,<3",
     "jwcrypto>=1.5.6,<2",
     "modular-sdk~=8.1.0",
     "msgspec~=0.21.1",
     "openpyxl>=3,<4",
-    "pydantic~=2.13.4",
+    "pydantic~=2.13.5",
     "pymongo~=4.11.2",
     "pynamodb==6.1.0",
     "python-dateutil~=2.9.0.post0",
     # Kombu's Redis transport imports redis-py when the server is Valkey.
     "redis~=5.2.1",
-    "requests~=2.33.1",
+    "requests~=2.34.2",
     "ruamel-yaml>=0.18,<0.21",
     "ruamel-yaml-clib>=0.2.12,<0.3",
     "tabulate~=0.10.0",
@@ -54,13 +54,13 @@ test = [
     "webtest>=3.0.4",
 ]
 c7n = [
-    "c7n==0.9.51",
-    "c7n-azure==0.7.50",
-    "c7n-gcp==0.4.50",
-    "c7n-kube==0.2.50",
+    "c7n==0.9.52",
+    "c7n-azure==0.7.51",
+    "c7n-gcp==0.4.51",
+    "c7n-kube==0.2.51",
 ]
 event-sources-consumer = [
-    "kubernetes>=35,<36",
+    "kubernetes>=36,<37",
 ]
 
 
