@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [5.22.0] - 2026-XX-XX
-### Changed
+### Added
 - Added the confirmation flag to all destructive CLI commands:
   - `sre rule delete`
   - `sre integrations mcp auth delete`
@@ -28,11 +28,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `sre setting mail delete`
   - `sre setting report disable_sending`
   - `sre cleanup`
-- Improved the help message for the `--job_type/-jt` option
 - Added a dedicated `sre resource describe_platform` command that returns the
   collected inventory of a single K8S platform (`--platform_id`/`-pid` is
   required)
 - Split job submission command by cloud provider
+
+### Changed
+- Improved the help message for the `--job_type/-jt` option
+- Updated versions of dependencies:
+    - `boto3` from `~=1.43.3` to `~=1.43.78`
+    - `botocore` from `~=1.43.3` to `~=1.43.78`
 
 ## [5.21.0] - 2026-09-08
 

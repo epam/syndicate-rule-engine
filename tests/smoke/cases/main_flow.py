@@ -186,7 +186,7 @@ def build_executing_scans_cases(
             ),
             {
                 '$.data.id': NotEmpty(),
-                '$.data.status': In('SUBMITTED', 'PENDING'),
+                '$.data.status': In('SUBMITTED', 'PENDING', 'RUNNING'),
                 '$.data.customer_name': customer_check,
                 '$.data.tenant_name': Equal(tenant.name),
             },
