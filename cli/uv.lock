@@ -214,7 +214,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "boto3", specifier = "~=1.43.78" },
+    { name = "boto3", specifier = ">=1.43.78,<2" },
     { name = "click", specifier = ">=8.3,<9" },
     { name = "modular-cli-sdk", extras = ["hvac"], specifier = ">=4,<5" },
     { name = "python-dateutil", specifier = ">=2.9,<3" },
