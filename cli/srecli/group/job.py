@@ -1,7 +1,6 @@
-import json
-from pathlib import Path
-
 import click
+
+from modular_cli_sdk.utils.view_utils import deprecated_command
 from srecli.group import (
     DYNAMIC_DATE_ONLY_EXAMPLE,
     DYNAMIC_DATE_ONLY_PAST_EXAMPLE,
@@ -19,6 +18,7 @@ from srecli.group import (
     validate_file_optional,
 )
 from srecli.group.job_scheduled import scheduled
+from srecli.group.job_scan import scan, load_rules_to_scan
 from srecli.service.constants import Env, JobState, TenantModel
 from srecli.service.creds import (
     AWSCredentialsResolver,
@@ -91,6 +91,8 @@ def resume(ctx: ContextObj, job_id: str, customer_id: str | None):
     return ctx['api_client'].job_resume(job_id, customer_id=customer_id)
 
 
+@deprecated_command(removal_date='2027-01-20', version='5.24.0',
+                    alternative='sre job scan aws|azure|gcp')
 @job.command(cls=ViewCommand, name='submit')
 @build_tenant_option(required=True)
 @click.option('--ruleset', '-rs', type=str, required=False,
@@ -199,6 +201,8 @@ def submit(
     )
 
 
+@deprecated_command(removal_date='2027-01-20', version='5.24.0',
+                    alternative='sre job scan k8s')
 @job.command(cls=ViewCommand, name='submit_k8s')
 @click.option('-pid', '--platform_id', required=True, type=str)
 @click.option('--ruleset', '-rs', type=str, required=False,
@@ -252,34 +256,7 @@ def terminate(ctx: ContextObj, job_id: str, customer_id):
 
 
 job.add_command(scheduled)
-
-
-def load_rules_to_scan(rules_to_scan: tuple[str, ...]) -> list:
-    """
-    Each item of the tuple can be either a raw rule id, or path to a file
-    containing json with ids or just a JSON string. This method resolves it
-    :param rules_to_scan:
-    :return:
-    """
-    rules = set()
-    for item in rules_to_scan:
-        path = Path(item)
-        if path.exists():
-            try:
-                with open(path, 'r') as fp:
-                    content = fp.read()
-            except Exception as e:  # file read error
-                content = '[]'  # todo raise
-        else:
-            content = item
-        try:
-            loaded = json.loads(content)
-            if isinstance(loaded, list):
-                rules.update(loaded)
-        except json.JSONDecodeError as e:
-            rules.add(content)
-    return list(rules)
-
+job.add_command(scan)
 
 if Env.DEVELOPER_MODE.get():
     from srecli.group.job_event import event
