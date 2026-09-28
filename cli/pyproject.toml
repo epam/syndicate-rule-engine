@@ -12,7 +12,7 @@ dynamic = ["version"]
 dependencies = [
     "click>=8.3,<9",
     "tabulate>=0.10,<1",
-    "boto3>=1.26.80,<2",
+    "boto3~=1.43.78",
     "python-dateutil>=2.9,<3",
     "modular-cli-sdk[hvac]>=4,<5",
 ]
