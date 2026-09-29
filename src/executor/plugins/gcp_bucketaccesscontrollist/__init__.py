@@ -18,7 +18,7 @@ class BucketAccessControlList(ChildResourceManager):
                 ('name', 'bucket',),
             ]}
 
-    def _get_child_enum_args_list(self, parent_instance):
+    def _get_child_enum_args(self, parent_instance):
         if parent_instance['destination'].startswith('storage'):
             bucket = parent_instance['destination'].split('/')[1]
             return [{'bucket': bucket}]

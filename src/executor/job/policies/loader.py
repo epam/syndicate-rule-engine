@@ -36,6 +36,7 @@ class PoliciesLoader:
         '_cache',
         '_cache_period',
         '_load_global',
+        '_load_errors',
     )
 
     def __init__(
@@ -64,6 +65,11 @@ class PoliciesLoader:
         self._cache = cache
         self._cache_period = cache_period
         self._load_global = not self._regions or GLOBAL_REGION in self._regions
+        self._load_errors: dict[str, Exception] = {}
+
+    @property
+    def load_errors(self) -> dict[str, Exception]:
+        return self._load_errors
 
     @staticmethod
     def cc_provider_name(cloud: Cloud) -> str:
@@ -274,6 +280,12 @@ class PoliciesLoader:
                     f'Cannot load {policy["name"]}. Skipping'
                 )
                 continue
+            except Exception as e:
+                name = policy["name"]
+                self._load_errors[name] = e
+                _LOG.warning('Cannot load policy %s', name, exc_info=True)
+                continue
+
             provider_policies[pol.provider_name].append(pol)
 
         if not provider_policies:
@@ -324,6 +336,7 @@ class PoliciesLoader:
 
     def load_from_policies(self, policies: list[PolicyDict]) -> list[Policy]:
         _LOG.info('Loading policies')
+        self._load_errors.clear()
         items = self._load(policies)
         match self._cloud:
             case Cloud.AWS:
