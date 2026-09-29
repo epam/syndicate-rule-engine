@@ -257,6 +257,11 @@ class ProjectIamPolicyBindings(QueryResourceManager):
                 'getIamPolicy', {'resource': resource_info['project_id']})
             return iam_policy['bindings'] if 'bindings' in iam_policy else []
 
+    def get_cache_key(self, query):
+        cache_key = super().get_cache_key(query)
+        cache_key['component'] += '.iam-policy.bindings.role'
+        return cache_key
+
 
 class ProjectIamPolicyBindingsByMembers(QueryResourceManager):
     """GCP resource: https://cloud.google.com/resource-manager/reference/
@@ -292,6 +297,11 @@ class ProjectIamPolicyBindingsByMembers(QueryResourceManager):
                          'roles': [fetched_resource['role']]})
                     remapped_members.append(member)
         return remapped_resources
+
+    def get_cache_key(self, query):
+        cache_key = super().get_cache_key(query)
+        cache_key['component'] += '.iam-policy.bindings.member'
+        return cache_key
 
 
 class NewRolesFilter(Filter):
