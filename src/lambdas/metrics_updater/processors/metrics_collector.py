@@ -743,7 +743,7 @@ class MetricsCollector(BaseProcessor):
             collection, cloud, ctx.metadata, tenant.project
         )
 
-        type_resources = self._res_ser.get_type_resources_for_tenant(
+        type_resources = self._res_ser.count_type_resources_for_tenant(
             tenant, collection.meta
         )
 
@@ -1152,7 +1152,7 @@ class MetricsCollector(BaseProcessor):
         it: Iterable['AverageStatisticsItem'],
         ctx: MetricsContext,
         meta: dict | None = None,
-        type_resources: dict | None = None,
+        type_resources: dict[str, dict[str, int]] | None = None,
         unified_identity: UnifiedRuleIdentity | None = None,
     ) -> Generator['AverageStatisticsItem', None, None]:
         meta = meta or {}
@@ -1195,13 +1195,11 @@ class MetricsCollector(BaseProcessor):
             # Calculate resources scanned (use resource_type_str: meta may omit
             # policies still present in aggregated job statistics vs latest/meta.json)
             if type_resources and resource_type_str:
-                resources = [
-                    res
-                    for res in type_resources.get(resource_type_str, [])
-                    if res.location == item.region or res.location == GLOBAL_REGION
-                ]
-                item.resources_scanned = len(resources)
-                item.average_resources_scanned = item.resources_scanned
+                scanned = ResourcesService.resources_scanned_for_region(
+                    type_resources, resource_type_str, item.region
+                )
+                item.resources_scanned = scanned
+                item.average_resources_scanned = scanned
             
             # Group by fingerprint
             if fp:
@@ -1269,7 +1267,7 @@ class MetricsCollector(BaseProcessor):
                 col, tenant_cloud(tenant), ctx.metadata, tenant.project
             )
             type_resources = (
-                self._res_ser.get_type_resources_for_tenant(tenant, col.meta)
+                self._res_ser.count_type_resources_for_tenant(tenant, col.meta)
                 if col and col.meta
                 else {}
             )
