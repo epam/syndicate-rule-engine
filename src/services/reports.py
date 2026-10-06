@@ -48,7 +48,6 @@ from helpers.system_customer import SystemCustomer
 from helpers.time_helper import utc_datetime, utc_iso
 from models.job import Job
 from models.metrics import ReportMetrics
-from models.resource import Resource
 from services import modular_helpers
 from services.base_data_service import BaseDataService
 from services.clients.s3 import S3Client, S3Url
@@ -816,7 +815,7 @@ class OverviewReportGenerator(ReportVisitor[dict]):
         report: OverviewReport,
         /,
         rule_resources: dict[str, set[CloudResource]],
-        type_resources: dict[str, list[Resource]],
+        type_resources: dict[str, dict[str, int]],
         collection: ShardsCollection,
         start: datetime,
         end: datetime,
@@ -862,7 +861,10 @@ class OverviewReportGenerator(ReportVisitor[dict]):
                     )
                 )
             ),
-            'resources_scanned': sum(map(len, type_resources.values())),
+            'resources_scanned': sum(
+                sum(locations.values())
+                for locations in type_resources.values()
+            ),
             'regions': regions,
             'rules': self.collect_rules_info(
                 collection, start.timestamp(), end.timestamp()

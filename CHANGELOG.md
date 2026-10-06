@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fixed the request validation for `POST /reports/push/dojo` endpoint
+- Reduced the MongoDB disk I/O produced by the scheduled `collect_metrics` task, which could saturate disk I/O on the node
 
 ### Changed
 - Added a report type suffix to presigned report download filenames

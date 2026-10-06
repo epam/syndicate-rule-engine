@@ -6,6 +6,7 @@ from modular_sdk.models.tenant import Tenant
 
 from helpers.constants import (
     COMPOUND_KEYS_SEPARATOR,
+    GLOBAL_REGION,
     Cloud,
     ResourcesCollectorType,
 )
@@ -227,21 +228,69 @@ class ResourcesService(BaseDataService[Resource]):
         else:
             raise ValueError(f'Unsupported cloud: {cloud}')
 
-    def get_type_resources_for_tenant(
-        self, tenant: 'Tenant', metadata: dict[str, RuleMeta]
-    ) -> dict[str, list[Resource]]:
+    def count_type_resources_for_tenant(
+        self, tenant: Tenant, metadata: dict[str, RuleMeta]
+    ) -> dict[str, dict[str, int]]:
         """
-        Returns a dictionary with resource types as keys and their counts as values
-        for the specified tenant.
+        Returns the number of collected resources of the given tenant grouped
+        by resource type and location:
+        {'aws.ec2': {'eu-west-1': 10, 'global': 2}, ...}
+
+        Only resource types that are mentioned in the given shards collection
+        meta are taken into account. The whole thing is done within one
+        aggregation that is fully covered by the `cn_1_tn_1_rt_1_l_1` index,
+        so MongoDB does not have to fetch the documents themselves.
         """
-        types = {rule['resource'] for rule in metadata.values()}
+        types = {
+            res for rule in metadata.values() if (res := rule.get('resource'))
+        }
+        if not types:
+            return {}
 
-        type_resources = {}
-        for type_ in types:
-            type_resources[type_] = list(self.get_resources(
-                resource_type=type_,
-                tenant_name=tenant.name,
-                customer_name=tenant.customer_name,
-            ))
+        assert self.model_class.is_mongo_model(), 'only MongoDB is supported'
+        col = self.model_class.mongo_adapter().get_collection(self.model_class)
 
-        return type_resources
+        rt = Resource.resource_type.attr_name
+        loc = Resource.location.attr_name
+        cursor = col.aggregate(
+            [
+                {
+                    '$match': {
+                        Resource.customer_name.attr_name: tenant.customer_name,
+                        Resource.tenant_name.attr_name: tenant.name,
+                        rt: {'$in': sorted(types)},
+                    }
+                },
+                {
+                    '$group': {
+                        '_id': {'rt': f'${rt}', 'loc': f'${loc}'},
+                        'count': {'$sum': 1},
+                    }
+                },
+            ]
+        )
+
+        result: dict[str, dict[str, int]] = {}
+        for item in cursor:
+            _id = item['_id']
+            result.setdefault(_id['rt'], {})[_id['loc']] = item['count']
+        return result
+
+    @staticmethod
+    def resources_scanned_for_region(
+        type_resources: dict[str, dict[str, int]],
+        resource_type: str,
+        region: str,
+    ) -> int:
+        """
+        Number of collected resources of the given type that a policy
+        executed against the given region could have scanned. Global resources
+        are always included.
+        """
+        locations = type_resources.get(resource_type)
+        if not locations:
+            return 0
+        count = locations.get(region, 0)
+        if region != GLOBAL_REGION:
+            count += locations.get(GLOBAL_REGION, 0)
+        return count
