@@ -148,8 +148,7 @@ def _regions_to_scan(
 
 
 def _has_active_periodic_job(tenant_name: str) -> bool:
-
-    query = Job.status.is_in(ACTIVE_SCHEDULED_STATES)
+    query = Job.status.is_in(*ACTIVE_SCHEDULED_STATES)
     query &= Job.scheduled_rule_name == PERIODIC_RULES_MARKER
 
     jobs = SP.job_service.get_by_tenant_name(
