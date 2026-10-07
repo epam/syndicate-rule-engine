@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a dedicated `sre resource describe_platform` command that returns the
   collected inventory of a single K8S platform (`--platform_id`/`-pid` is
   required)
+- Split job submission command by cloud provider
 - Removed token validation from the command `show_config`
 
 ## [5.21.0] - 2026-09-08
