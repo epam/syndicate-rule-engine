@@ -4,7 +4,7 @@
 
 ### What is Syndicate Rule Engine
 
-Syndicate Rule Engine is a service-wrapper, deployable as a container, over another opensource tool - [Cloud Custodian](https://cloudcustodian.io/). This quickstart guide is written assuming that you are familiar with it. 
+Syndicate Rule Engine is a service-wrapper, deployable as a set of containers (AWS AMI, Kubernetes Helm chart or Docker Compose), over another opensource tool - [Cloud Custodian](https://cloudcustodian.io/). This quickstart guide is written assuming that you are familiar with it. 
 
 ### What does Syndicate Rule Engine do?
 
@@ -22,13 +22,12 @@ It allows to manage such repositories, pull rules from them, build rule-sets fro
 
 ## Architecture
 
-### AWS infrastructure
-The API of the service is built on AWS Lambdas and API Gateway (or K8s and bottle/gunicorn server). DynamoDB (or MongoDB) is the primary database. Together with S3 (or MinIO) they are used to keep data. 
-AWS Batch (or K8s) is used to perform scans. Here is a superficial diagram:
+### Infrastructure
+The API of the service is a Bottle application served by gunicorn. Scans and background tasks are executed by Celery workers, periodic tasks are triggered by Celery beat. MongoDB is the primary database, S3-compatible storage keeps reports and rulesets, Vault keeps secrets and Valkey serves as a Celery broker and cache. Here is a superficial diagram:
 
 ![Syndicate Rule Engine](./docs/assets/context_diagram.png)
 
-Detailed info with diagrams inside `.syndicate-rule-engine/docs` folder
+Detailed info with diagrams inside the [docs](./docs) folder: [architecture](./docs/architecture.md), [data flows](./docs/data_flows.md).
 
 ### Core data classes
 
@@ -46,7 +45,7 @@ Customer is a top-level entity. It bounds all the sub-models to one logical clie
 
 ##### Tenants
 
-Each tenant represents one account on any cloud infrastructure. Syndicate Rule Engine currently supports only `AWS`, `AZURE` and `GOOGLE` tenants:
+Each tenant represents one account on any cloud infrastructure. Syndicate Rule Engine currently supports `AWS`, `AZURE` and `GOOGLE` tenants (Kubernetes clusters are registered separately as platforms, see [Kubernetes](#kubernetes)):
 
 - **AWS** account_id
   Represents one AWS account;
@@ -63,8 +62,8 @@ Auxiliary model, can contain some settings specific for certain tenants. Inherit
 
 ##### Applications
 
-Applications represent access to external services and accounts. Actual sensitive data (passwords, secret keys, certificates) are stored in AWS SSM Secure String Parameter Store. 
-Applications can contain names of SSM Parameters, api links if necessary and other data required to access an external service. Each application is bound to one customer.
+Applications represent access to external services and accounts. Actual sensitive data (passwords, secret keys, certificates) are stored in the secrets storage (Vault). 
+Applications can contain names of secrets, api links if necessary and other data required to access an external service. Each application is bound to one customer.
 
 Syndicate Rule Engine uses applications to:
 
@@ -91,145 +90,125 @@ Detailed info about Tenant/Parent/Application model: [Modular SDK Documentation]
 
 ##### SREEvents
 
+Registry of events received for event-driven scans (see [Event-driven scans](#event-driven-scans)).
+
 ##### SREJobs
+
+Scan jobs: status, tenant, regions, rulesets, timestamps.
 
 ##### SREReportMetrics
 
+Pre-calculated metrics that are used to build reports.
+
 ##### SREPolicies
+
+RBAC policies - sets of permissions.
 
 ##### SREReportStatistics
 
+Statistics of generated reports.
+
 ##### SREResources
+
+Inventory of cloud resources collected by the resource collector.
 
 ##### SREResourceExceptions
 
+Resources that are excluded (muted) from reports.
+
 ##### SRERetries
+
+Retry attempts of jobs.
 
 ##### SRERoles
 
+RBAC roles - sets of policies that are assigned to users.
+
 ##### SRERules
+
+Metadata of rules pulled from rule sources.
 
 ##### SRERuleSources
 
+Git-based sources (GitHub, GitLab, GitHub releases) from which rules are pulled.
+
 ##### SRERulesets
+
+Rulesets: sets of rules assembled for scanning (own or licensed).
 
 ##### SREScheduledJobs
 
+Jobs that are executed periodically according to a schedule.
+
 ##### SRESettings
 
+Service-wide settings.
+
 ##### SREUsers
+
+Users of the service.
 
 What you should understand is that SRE was designed as a Maestro3 pluggable service. That is why it uses Modular SDK models under hood (which are basically maestro models). 
 So, all the customers and tenants are supposed to be managed (created, deleted) by Maestro and not by SRE itself. SRE should be installed near Maestro and then just use its existing customers and tenants to scan them. 
 
-Of course, SRE can be a standalone installation without a need to have Maestro. You can actually create some customers using `src/main.py` script (see [Configuration](#configuration) chapter).
+Of course, SRE can be a standalone installation without a need to have Maestro (see [Configuration](#configuration) chapter).
 
 ## Installation
 
-Detailed installation guide available in the [installation documentation](./docs/esre01_user_guide.pdf).
+Available deployment options:
+
+| Option | Purpose | Documentation |
+|--------|---------|---------------|
+| **AWS AMI** (Minikube on EC2) | Main deployment flow | [AMI documentation](./deployment/aws-ami/docs/main.md), [user guide](./docs/sre_user_guide.md) |
+| **Kubernetes Helm** | Custom deployments | [Helm chart](./deployment/helm/README.md) |
+| **Docker Compose** | Evaluation / development purposes | [Compose](./deployment/compose/README.md) (`make compose-up`) |
 
 ## Configuration
 
-### main.py script
+### Initialization
 
-Once the service has been deployed (either on AWS or locally), it must be initially configured using `src/main.py` script. The purpose of this configuration is to create SYSTEM customer and user & your target customer and user. 
-Also, during the configuration some necessary settings will be set. To begin the configuration process, follow the steps:
-
-Move to `src` folder in Syndicate Rule Engine's root folder
+All the deployment options above run the initial configuration automatically on the first start of the `rule-engine` container (see `src/entrypoint.sh`). It consists of the following steps, which you can also execute manually (from the `src` folder) when running the service locally:
 
 ```bash
-cd /path/to/syndicate-rule-engine/src
+python main.py create-buckets  # creates buckets in MinIO
+python main.py create-indexes  # creates MongoDB indexes
+python main.py init-vault      # enables the secrets engine and generates a private key in Vault
+python main.py init            # sets the system customer name and creates the system user
+python main.py run             # runs the API server
 ```
 
-Create `.env` file from `.env.example`:
+The environment variables are described in [.env.example](./.env.example) (`SRE_*`, `MODULAR_SDK_*`, `VALKEY_*`). If `SRE_SYSTEM_USER_PASSWORD` is not set, `python main.py init` generates a password for the system user and prints it.
+
+Other `main.py` commands: `set-meta-repos` (sets rules metadata repositories to Vault), `show-permissions`, `generate-openapi`.
+
+### Users, customers and tenants
+
+SRE was designed as a Maestro3 pluggable service, so customers and tenants are managed by Maestro or by Modular Service (`syndicate admin ...`), not by SRE itself. Users of SRE are created via the API/CLI: create a policy, a role that includes the policy, and a user with this role (see User Registration in the [User Guide](./docs/sre_user_guide.md)):
 
 ```bash
-cp .env.example .env
+sre users create --username $YOUR_USER --password $PASSWORD --role_name $ROLE_NAME
 ```
-
-Set all the necessary envs:
-
-```bash
-# on-prem envs
-# name=value  # [syndicate alias name]
-# if alias name is not specified, it's the same as env name.
-_db_name=syndicate_rule_engine
-
-# <buckets>
-SRE_REPORTS_BUCKET_NAME=reports
-SRE_RULESETS_BUCKET_NAME=rulesets
-SRE_STATISTICS_BUCKET_NAME=statistics
-SRE_METRICS_BUCKET_NAME=metrics
-...
-```
-
-**Note**, the on-prem installation also requires Minio, Mongo and Vault to be set up (see `.env.example`).
-
-##### On-prem specific steps
-
-```bash
-python main.py create-buckets  # creates buckets in Minio
-```
-
-```bash
-python main.py init-vault  # initialize vault token
-```
-
-```bash
-python main.py create-indexes  # creates mongodb indexes
-```
-
-##### Saas & on-prem common steps
-
-Before configuring the environment you can optionally parse rule sources to retrieve all the available rule ids and parse standards from Excel tables:
-
-```bash
-python main.py parse_rule_source ...
-```
-
-```bash
-python main.py parse_standards ...
-```
-
-**Note:** the commands above will save the parsed data to `.tmp` folder in your working directory. Other `main.py` commands by default will look into settings data to `.tmp` in your workdir as well. 
-If the folder or necessary setting is missing, it will be skipped.
-
-The following command will set some basic settings to `Settings` table in MongoDB and some settings to rulesets bucket.
-
-```bash 
-python main.py env update_settings --lm_api_link $LM_API_LINK
-```
-
-The next command will create a system user. You will receive system user's username and password
-
-```bash
-python main.py env create_system_user --username admin
-```
-
-Create a standard customer:
-
-```bash
-python main.py env create_customer --customer_name $YOUR_CUSTOMER_NAME
-```
-
-Create a standard user. This command will give username and password
-
-```bash
-python main.py env create_user --username $YOUR_CUSTOMER_USER --customer_name $YOUR_CUSTOMER_NAME
-```
-
-The configuration is finished if SYSTEM customer & user and at least one standard customer & user are created, necessary settings are set.
 
 ## Usage
 
-To use the tool you must own an API link (received in [Installation](#installation) section) and username & password from your user. You can use the api directly ([link to api documentation](docs/api/README.md)) or use the CLI tool. Here we will demonstrate basic CLI actions.
+To use the tool you must own an API link and username & password from your user. **Note:** on the AWS AMI the same CLI is available as `syndicate re ...`. You can use the api directly or use the CLI tool. Here we will demonstrate basic CLI actions.
 
+
+### Swagger UI
+
+The API is self-documented: Swagger UI is available at `<api_link>/doc` (for example, `http://127.0.0.1:8000/re/doc` for a local Docker Compose installation). Endpoint does not require authentication, but the requests sent from the UI do. To try the API from Swagger UI:
+
+1. Get a token right in the UI: expand `POST /signin`, click **Try it out**, fill the request body with your credentials (`{"username": "...", "password": "..."}`) and click **Execute**. Copy the `access_token` value from the response (the token is valid for one hour; `refresh_token` is not needed here).
+2. Click **Authorize** and paste the copied token to the `access_token` field (it is sent in the `Authorization` header).
+3. Expand any resource, click **Try it out** and **Execute**.
+
+**Note:** the page loads the Swagger UI assets from `unpkg.com`, so your browser needs access to the internet. The specification can also be generated offline with `python main.py generate-openapi` (from the `src` folder).
 
 ### Initialization
 First, make sure you have `sre` CLI installed:
 ```bash
 $ sre --version
-sre, version 5.8.1
+sre, version <xx.yy.zz>
 ```
 
 Before executing any valuable commands you must configure the tool (specifying a link to the API) and log in using the credentials you've been supplied with. In the case below `$SRE_API_LINK` contains the link to the API, 
@@ -243,28 +222,12 @@ sre login --username $USERNAME --password $PASSWORD
 Execute health check to make sure everything is OK:
 ```bash
 $ sre health_check
-+-----------------------------+--------+---------------------------------------------------------+
-|             Id              | Status |                         Details                         |
-+-----------------------------+--------+---------------------------------------------------------+
-|        buckets_exist        |   OK   |                            —                            |
-|      coverages_setting      |   OK   |            AWS: True; AZURE: True; GCP: True            |
-|    event_driven_rulesets    |   OK   |            AWS: True; AZURE: True; GCP: True            |
-| license_manager_client_key  |   OK   | kid: 46e94303-480f-4cbc-8998-dff8251100f4; secret: True |
-| license_manager_integration |   OK   |                host: http://0.0.0.0:8050                |
-|      minio_connection       |   OK   |                            —                            |
-|     mongodb_connection      |   OK   |                            —                            |
-| report_date_marker_setting  |   OK   |                            —                            |
-|      rule_ids_setting       |   OK   |            AWS: True; AZURE: True; GCP: True            |
-|   system_customer_setting   |   OK   |                    name: SRE_SYSTEM                     |
-|      vault_auth_token       |   OK   |            token: True; secrets_engine: True            |
-|      vault_connection       |   OK   |                            —                            |
-+-----------------------------+--------+---------------------------------------------------------+
 ```
+It checks, among others, the connections to MongoDB, MinIO and Vault, the existence of the buckets, the system customer setting, the Vault auth token and the License Manager integration. Use `--status NOT_OK` to show only failed checks.
 
 ### Basics
 
-Now you have your customer and a user, which is connected to this customer, under control! You've been given a policy `admin_policy` which has all the available permissions except 
-`customer:create_customer`, `customer:remove_customer` and a role `admin_role` which has `admin_policy` attached and is used by your customer by default.
+Now you have your customer and a user, which is connected to this customer, under control! The actions you can perform are defined by the policies and roles attached to your user (for example, the default `admin_policy` and `admin_role`).
 
 Describe your customer by executing the command:
 ```bash
@@ -320,36 +283,27 @@ $ sre ruleset describe
 +---------------------+
 ```
 
-Activate application for your customer specifying tenant-license-key:
+Add the license specifying tenant-license-key:
 
 ```bash
-$ sre application add --cloud AWS --tenant_license_key $TENANT_LICENSE_KEY --cloud_application_id 9fsdfsdf-01b3-4554-8ba3-4b427f20730f --json
-{
-    "trace_id": "bfe6c17a-a55e-4f1e-a4d9-b02a875c08f7",
-    "items": [
-        {
-            "application_id": "9035e4dd-a413-41de-94b6-4bb02a9cca89",
-            "customer_id": "EXAMPLE_CUSTOMER",
-            "description": "SRE application",
-            "meta": {
-                "username": null,
-                "host": "0.0.0.0",
-                "port": 8000,
-                "protocol": "HTTP",
-                "stage": "caas",
-                "awsAid": "9fsdfsdf-01b3-4554-8ba3-4b427f20730f",
-                "azureAid": null,
-                "googleAid": null,
-                "awsLk": "bba7a90b-0c4d-4eed-81fc-5653a160bc30",
-                "azureLk": null,
-                "googleLk": null
-            }
-        }
-    ]
-}
+$ sre license add --tenant_license_key $TENANT_LICENSE_KEY --json
 ```
 
-Describe rule-sets to make sure they appear after adding the license:
+Describe licenses to get the license key (it is not the same as the tenant license key):
+
+```bash
+$ sre license describe --json
+```
+
+Activate the license for the tenant (each activation overrides the existing one):
+
+```bash
+$ sre license activate --license_key $LICENSE_KEY --tenant_name EXAMPLE_TENANT_AWS
+```
+
+Use `--all_tenants` (optionally with `--clouds` and `--exclude_tenant`) to activate the license for many tenants at once.
+
+Describe rule-sets to make sure they appear after adding and activating the license:
 
 ```bash
 $ sre ruleset describe
@@ -473,15 +427,11 @@ $ sre report errors jobs access -id 4f3e6d98-1614-45a0-aedc-2f3afd068327 --json
 }
 ```
 
-Also, you can remove the application in case you need:
+Also, you can deactivate or remove the license in case you need:
 
 ```bash
-$ sre application delete --application_id 9035e4dd-a413-41de-94b6-4bb02a9cca89
-+--------------------------------------------+
-|                  Message                   |
-+--------------------------------------------+
-| Request is successful. No content returned |
-+--------------------------------------------+
+$ sre license deactivate --license_key $LICENSE_KEY --tenant_name EXAMPLE_TENANT_AWS
+$ sre license delete --license_key $LICENSE_KEY --confirm
 ```
 
 ## Standard flow
@@ -490,54 +440,33 @@ $ sre application delete --application_id 9035e4dd-a413-41de-94b6-4bb02a9cca89
 
 **Add your own rule-source:**
 ```bash
-$ sre rulesource add -gsecret $RULE_SOURCE_SECRET -gpid $RULE_SOURCE_PROJECT_ID -gref master -gprefix policies/ -gurl https://git.epam.com
+$ sre rulesource add --git_project_id $RULE_SOURCE_PROJECT_ID --type GITLAB --git_ref master --git_rules_prefix policies/ --git_url https://git.epam.com --git_access_secret $RULE_SOURCE_SECRET --description "My rules"
 ```
-**Update rules from the added rule-source:**
+Supported types: `GITHUB`, `GITLAB`, `GITHUB_RELEASE`.
+
+**Pull rules from the added rule-source:**
 ```bash
-$ sre rule update -gpid $RULE_SOURCE_PROJECT_ID
+$ sre rulesource sync --rule_source_id $RULE_SOURCE_ID
 ```
-Updating rules will take some time, you will have to wait a bit. You can see the status of updating by describing the rule-source. If the status is `SYNCING`, the rule-source is still updating:
+Syncing rules will take some time, you will have to wait a bit. You can see the status of syncing by describing the rule-source. If the status is `SYNCING`, the rule-source is still updating:
 ```bash
-$ sre rulesource describe -gpid $RULE_SOURCE_PROJECT_ID
-+-------+------------------+----------------------+---------+------------------+-------------+-------------------------+
-|  Id   |     Customer     |       Git url        | Git ref | Git rules prefix | Allowed for |       Latest sync       |
-+-------+------------------+----------------------+---------+------------------+-------------+-------------------------+
-| 94960 | EXAMPLE_CUSTOMER | https://git.epam.com | master  |    policies/     |     ALL     | current_status: SYNCING |
-+-------+------------------+----------------------+---------+------------------+-------------+-------------------------+
+$ sre rulesource describe
 ```
 
-After the rule-source has updated you can describe the fetched rules:
+After the rule-source has been synced you can describe the fetched rules:
 ```bash
 $ sre rule describe --json
-{
-    "trace_id": "873c1ba9-d75c-41e5-a6e7-c96551a53db0",
-    "next_token": "eyJrZXkiOiAxfQ==",
-    "items": [
-        {
-            "id": "epam-aws-364-redshift_cluster_enhanced_vpc_routing_enabled_1.2",
-            "description": "Amazon Redshift clusters are not using enhanced VPC routing\n",
-            "service_section": "Analytics",
-            "cloud": "AWS",
-            "customer": "EXAMPLE_CUSTOMER"
-        }
-    ]
-
 ```
-When the process of updating has finished, you can assemble rulesets using your own rules.
+When the process of syncing has finished, you can assemble rulesets using your own rules.
 
 
 **Compile some ruleset:**
 
-To create a ruleset use `sre ruleset add` command:
+To create a ruleset use `sre ruleset add` command. Rules can be selected by ids (`--rule`, `--exclude_rule`) or by criteria (`--category`, `--service_section`, `--source`, `--platform` for Kubernetes) from the rule source specified by `--rule_source_id` (or `--git_project_id` with `--git_ref`):
 ```bash
-$ sre ruleset add --name FULL_AWS --version 1 --cloud AWS --active --all_rules
-+------------------+----------+---------+-------+--------------+--------+-------------+--------------+----------+
-|     Customer     |   Name   | Version | Cloud | Rules number | Active | Allowed for | License keys | Licensed |
-+------------------+----------+---------+-------+--------------+--------+-------------+--------------+----------+
-| EXAMPLE_CUSTOMER | FULL_AWS |   1.0   |  AWS  |     536      |  True  |     ALL     |      —       |  False   |
-+------------------+----------+---------+-------+--------------+--------+-------------+--------------+----------+
+$ sre ruleset add --name FULL_AWS --version 1.0 --cloud AWS --rule_source_id $RULE_SOURCE_ID --description "All AWS rules"
 ```
-The process of compiling a ruleset is going to take some time. You will have to wait a bit before you can use the ruleset. The parameter `--all_rules` tells the SRE to use all the available rules for the selected cloud.
+The process of compiling a ruleset is going to take some time. You will have to wait a bit before you can use the ruleset.
 
 **To watch the current status of the assembling process and, incidentally, see all the rulesets, use:**
 
@@ -547,22 +476,13 @@ $ sre ruleset describe
 
 When the status is `READY_TO_SCAN`, the ruleset has been compiled successfully.
 
-**Compile a ruleset with rules which cover `HIPAA` standard:**
-
-```bash
-$ sre ruleset add --name "HIPAA" --version 1 --cloud AWS --active --standard "HIPAA"
-+------------------+-------+---------+-------+--------------+--------+-------------+--------------+----------+
-|     Customer     | Name  | Version | Cloud | Rules number | Active | Allowed for | License keys | Licensed |
-+------------------+-------+---------+-------+--------------+--------+-------------+--------------+----------+
-| EXAMPLE_CUSTOMER | HIPAA |   1.0   |  AWS  |     261      |  True  |     ALL     |      —       |  False   |
-+------------------+-------+---------+-------+--------------+--------+-------------+--------------+----------+
-```
 **To trigger scan on AWS account, execute:**
 
-Since standard scans don't use applications, you must specify custom credentials for the scan.
+Since standard scans don't use licenses, you must specify credentials for the scan (or use `--resolve_local_credentials`):
 
 ```bash
-sre job submit --tenant_name EXAMPLE_TENANT_AWS --ruleset HIPAA --region eu-west-1 --cloud AWS
+sre job submit --tenant_name EXAMPLE_TENANT_AWS --ruleset FULL_AWS --region eu-west-1 \
+  --aws_access_key_id $AWS_ACCESS_KEY_ID --aws_secret_access_key $AWS_SECRET_ACCESS_KEY
 ```
 
 **To watch all the executed jobs and their status use:**
@@ -575,7 +495,18 @@ If the job has finished its status becomes `SUCCEEDED`. Now you can generate rep
 To clean up the resources you need to remove ruleset and rule-source:
 
 ```bash
-$ sre ruleset delete -n HIPAA -v 1
-$ sre ruleset delete -n FULL_AWS -v 1
-$ sre rulesource delete -gpid 94960
+$ sre ruleset delete -n FULL_AWS -v 1.0 --confirm
+$ sre rulesource delete --rule_source_id $RULE_SOURCE_ID --confirm
 ```
+
+## Kubernetes
+
+Kubernetes clusters are registered as platforms (`sre platform k8s create|describe|update|delete`). To scan a cluster use:
+
+```bash
+$ sre job submit_k8s --platform_id $PLATFORM_ID --ruleset $K8S_RULESET
+```
+
+## Event-driven scans
+
+Event-driven scans check only the resources affected by cloud or cluster events (`POST /event` or event sources such as SQS queues and Kubernetes clusters, managed by `sre integrations event sources ...`). See the [README](./README.md#event-driven-scans) and [User Guide](./docs/sre_user_guide.md).
