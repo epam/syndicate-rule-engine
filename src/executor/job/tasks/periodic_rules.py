@@ -3,20 +3,23 @@
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
-from helpers.constants import JobState
+from executor.job.credentials.resolver import (
+    get_tenant_credentials_application,
+)
+from helpers.constants import GLOBAL_REGION, Cloud, JobState, JobType
 from helpers.log_helper import get_logger
 from models.job import Job
-from services import SP
-from services import modular_helpers
-from services.metadata import DEFAULT_VERSION
+from services import SP, modular_helpers
 from services.job_lock import TenantSettingJobLock
-
-from helpers.constants import Cloud, GLOBAL_REGION, JobType
+from services.metadata import DEFAULT_VERSION
 from services.ruleset_service import RulesetName
 
 if TYPE_CHECKING:
     from modular_sdk.models.tenant import Tenant
-    from modular_sdk.services.tenant_settings_service import TenantSettingsService
+    from modular_sdk.services.tenant_settings_service import (
+        TenantSettingsService,
+    )
+
     from services.license_service import License
 
 _LOG = get_logger(__name__)
@@ -39,6 +42,13 @@ def create_periodic_rules_jobs() -> list[str]:
 
     created_job_ids: list[str] = []
     for tenant in tenant_service.i_scan_tenants(only_active=True):
+        if not get_tenant_credentials_application(tenant):
+            _LOG.debug(
+                f'Skipping tenant {tenant.name}: no usable '
+                'CUSTODIAN_ACCESS application found'
+            )
+            continue
+
         lic = SP.license_service.get_tenant_license(tenant)
 
         if not _is_valid_license_for_tenant(tenant, lic):
