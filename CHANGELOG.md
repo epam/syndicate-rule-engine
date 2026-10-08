@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Reduced the MongoDB disk I/O produced by the scheduled `collect_metrics` task, which could saturate disk I/O on the node
+- Fixed periodic job query to exclude tenants with unfinished jobs
 
 ## [5.21.0] - 2026-09-08
 
