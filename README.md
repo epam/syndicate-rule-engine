@@ -1,77 +1,35 @@
 ### Syndicate Rule Engine
 
-Syndicate Rule Engine is a solution that allows checking and assessing virtual infrastructures in AWS, Azure, GCP infrastructures against different types of standards, requirements and rulesets.
+Syndicate Rule Engine is a solution that allows checking and assessing virtual infrastructures in AWS, Azure, GCP clouds and Kubernetes clusters against different types of standards, requirements and rulesets.
 By default, the solution covers hundreds of security, compliance, utilization and cost-effectiveness rules, which cover world-known standards like GDPR, PCI DSS, CIS Benchmark, and a bunch of others.
 
 ### Notice
 
 All the technical details described below are actual for the particular version, or a range of versions of the software.
 
-### Actual for versions: 5.0.0
+### Actual for versions: 5.22.0
 
-## Lambdas description
+## Deployment options
 
-### Lambda `api-handler` 
+| Option | Purpose | Documentation |
+|--------|---------|---------------|
+| **AWS AMI** (Minikube on EC2) | Main deployment flow | [deployment/aws-ami](deployment/aws-ami/docs/main.md) |
+| **Kubernetes Helm** | Custom deployments | [deployment/helm](deployment/helm/README.md) |
+| **Docker Compose** | Evaluation / development purposes | [deployment/compose](deployment/compose/README.md) |
 
-This lambda is designed as a handler for all API resources:
+See also [QUICKSTART](QUICKSTART.md), [architecture diagrams](docs/architecture.md)
+and [data flow diagrams](docs/data_flows.md).
 
-* `/jobs POST` - initiates the SRE scan for the requested account;
-* `/jobs GET` - returns job details for the requested query with the paths to
-  result reports (if any);
-* `/jobs DELETE` - terminates the SRE scan;
-* `/signin POST` - returns access and refresh tokens for specific user. This
-  user must be in Cognito user pool
-  (first go through the signup resource);
-* `/signup POST` - resource for registering a new SRE user. Saves the user
-  in Cognito user pool;
-* `/scheduled-job GET|POST|PATCH|DELETE` - resource for retrieving/registering/updating/unregistering a scheduled job
-  which will be executed according to the given cron;
-* `/event POST` - resource for starting job in event-driven;
+## Components
 
-Additionally: This lambda can update Jobs state in `SREJobs` DynamoDB table.
-Triggered by CloudWatch Rule `sre-job-state-update`.
-
-Refer to [api-handler](src/lambdas/api_handler/README.md)
-for more details.
-
-### Lambda `rule-meta-updater`
-
-This lambda is designed to pull the latest data from rules GIT repository and
-store the data in `SRERules` DynamoDB table. The Rule model:
-
-* `id (str)`. Format: `name_version`
-* `name (str)`
-* `description (str)`
-* `cloud (str)`. Possible values: `AWS/GCP/AZURE`
-* `version (str)`
-* `creator (str)`
-* `updated_date (str)`
-* `source (str)`
-
-Refer
-to [rule-meta-updater](src/lambdas/rule_meta_updater/README.md)
-for more details.
-
----
-
-### Lambda `report-generator`
-
-This lambda generates statistics reports based on a Batch jobs result.
-
-Refer
-to [report-generator](src/lambdas/report_generator/README.md)
-for more details.
-
----
-
-### Lambda `configuration-api-handler`
-
-This lambda is designed to handle the API for Accounts,
-Rulesets, Rule Sources and Account Regions configurations
-
-Refer
-to [configuration-api-handler](src/lambdas/configuration_api_handler/README.md)
-for more details.
+| Component | Description |
+|-----------|-------------|
+| `rule-engine` (API) | Gunicorn-based REST API (`src/main.py`) that handles all API resources: jobs, scheduled jobs, events, accounts/tenants, rulesets, rule sources, reports, integrations, etc. |
+| `celeryworker` | Celery worker that executes scan jobs and background tasks |
+| `celerybeat` | Celery beat that triggers periodic tasks: `assemble-events`, `clear-events`, `sync-license`, `collect-metrics`, `make-findings-snapshots`, `scan-resources`, `process-interval-reports`, `process-periodic-rules`, etc. Schedules are configured with `SRE_CELERY_*_SCHEDULE` environment variables |
+| `event-sources-consumer` | Pulls events from the configured event sources (AWS SQS, Kubernetes watch) and ingests them for event-driven scans |
+| MongoDB, MinIO, Vault, Valkey | Database, object storage, secrets storage and cache/broker |
+| `sre` CLI | Command line client for the API ([cli](cli/README.md)) |
 
 ## Rules format
 Each rule file in the repository must be in the following format:
@@ -110,16 +68,26 @@ pytest tests/
 
 ## Event-Driven scans
 If there is no need to scan the entire cloud account, but only certain resources and only after their changes
-(for example, an ec2 instance was created, the content of an s3 bucket was updated, etc.), then the solution is
-event-driven scans.
+(for example, an EC2 instance was created, the content of an S3 bucket was updated, a Kubernetes pod was deleted, etc.),
+then the solution is event-driven scans. Event-driven scans use rulesets that have the `event_driven` field set to `true`
+and require the Event-Driven feature to be enabled in the license.
 
+### Flow
+1. **Ingestion.** Events reach SRE in one of two ways:
+   * **Push** - a client sends events to the `POST /event` endpoint in the format
+     `{"version": "1.0.0", "vendor": "...", "events": [...]}`. Supported vendors: `AWS`, `MAESTRO`,
+     `SRE_K8S_AGENT`, `SRE_K8S_WATCHER`. The response (`202 Accepted`) contains the number of
+     `received`, `saved` and `rejected` events.
+   * **Pull** - the `event-sources-consumer` service reads events from the registered event sources:
+     an **AWS SQS** queue (the queue is accessed using the `role_arn` of the source, if specified) or a
+     **Kubernetes** cluster (a watch on cluster events). Event sources are managed via the
+     `/integrations/event-sources` API resource or the `sre integrations event sources add|describe|update|delete` commands.
+2. **Storage.** Normalized events are saved to the `SREEvents` collection.
+3. **Assembling.** The periodic task `assemble-events` (every 5 minutes by default,
+   `SRE_CELERY_ASSEMBLE_EVENTS_SCHEDULE`) groups the accumulated events by tenant/platform and region,
+   maps them to rules and submits event-driven jobs that scan only the affected resources.
+4. **Cleaning.** The periodic task `clear-events` (daily at 00:00 UTC by default,
+   `SRE_CELERY_CLEAR_EVENTS_SCHEDULE`) removes events that have already been assembled.
 
-Using `/account/credentials-manager` endpoint or `sre account credentials-manager add` command add credentials
-configuration: cloud name, cloud identifier, trusted role ARN using which service can get temporary credits from
-specified account for event-driven scan.
-Temporary credentials are stored in the `SRECredentials` table along with their expiration. If expiration time is
-less than 15 minutes, the new credentials will be obtained from the assumed role, otherwise the existing credentials
-will be used.
-
-The trigger for executing event-driven scans is a request from the client lambda received at the /event endpoint.
-Event-driven scans use rulesets that have the `event_driven` field set to `true`.
+Refer to [Syndicate Rule Engine User Guide](docs/sre_user_guide.md) for the supported event formats and to the
+[Event Driven Scan DFD](docs/assets/dfd_event_driven_scan.png) for the data flow.
