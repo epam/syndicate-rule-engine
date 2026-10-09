@@ -15,12 +15,11 @@ consoleService:
 console:
   enabled: false
 
-# previous RELEASE.2025-03-12T18-04-18Z
+# previous quay.io/minio/minio:RELEASE.2025-05-24T17-08-30Z (unsupported, no longer available on quay.io)
 image:
-  repository: quay.io/minio/minio
-  tag: RELEASE.2025-05-24T17-08-30Z
+  repository: public.ecr.aws/x4s4z8e1/syndicate/minio
+  tag: RELEASE.2025-10-15T17-29-55Z
   pullPolicy: IfNotPresent
-
 
 persistence:
   accessMode: ReadWriteOnce

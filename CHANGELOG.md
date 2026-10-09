@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed periodic job query to exclude tenants with unfinished jobs
 - Skip periodic job for tenants without `CUSTODIAN_ACCESS` parent
 
+
+## [5.21.1] - 2026-10-08
+
+### Fixed
+- Replaced unsupported quay.io MinIO image with public.ecr.aws mirror before migration on other service
+
 ## [5.21.0] - 2026-09-08
 
 ### Added
