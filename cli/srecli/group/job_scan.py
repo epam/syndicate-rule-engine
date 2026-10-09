@@ -145,7 +145,7 @@ def resolve_credentials(
 @click.group(name='scan')
 def scan():
     """
-    Submits a job to scan Cloud or K8S account
+    Submits a job to scan Cloud or K8S cluster
     """
 
 
@@ -174,7 +174,7 @@ def aws(
     resolve_local_credentials: bool,
     customer_id: str | None,
 ):
-    """Submit a job to scan an AWS tenant."""
+    """Submit a job to scan an AWS tenant"""
     tenant = get_tenant(ctx, tenant_name, customer_id)
     if isinstance(tenant, SREResponse):
         return tenant
@@ -237,7 +237,7 @@ def azure(
     resolve_local_credentials: bool,
     customer_id: str | None,
 ):
-    """Submit a job to scan an Azure tenant."""
+    """Submit a job to scan an Azure tenant"""
     tenant = get_tenant(ctx, tenant_name, customer_id)
     if isinstance(tenant, SREResponse):
         return tenant
@@ -296,7 +296,7 @@ def gcp(
     resolve_local_credentials: bool,
     customer_id: str | None,
 ):
-    """Submit a job to scan a Google Cloud tenant."""
+    """Submit a job to scan a Google Cloud tenant"""
     tenant = get_tenant(ctx, tenant_name, customer_id)
     if isinstance(tenant, SREResponse):
         return tenant
@@ -332,7 +332,8 @@ def gcp(
 
 
 @scan.command(cls=ViewCommand, name='k8s')
-@click.option('-pid', '--platform_id', required=True, type=str)
+@click.option('-pid', '--platform_id', required=True, type=str,
+              help='Platform id to scan')
 @click.option('--ruleset', '-rs', type=str, required=False,
               multiple=True,
               help='Rulesets to scan. If not specified, all available by '
@@ -357,7 +358,7 @@ def k8s(
     dojo_engagement: str | None,
     dojo_test: str | None,
 ):
-    """Submit a job to scan a Kubernetes cluster."""
+    """Submit a job to scan a Kubernetes cluster"""
     return ctx['api_client'].k8s_job_post(
         platform_id=platform_id,
         target_rulesets=ruleset,
