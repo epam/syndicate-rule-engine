@@ -11,25 +11,47 @@ where the following list of parameters should be specified.
 
 ## 2. Specify AWS CloudFormation stack parameters
 
-Required parameters:
-- **AWS Subnet id:** сhoose a subnet to launch the instance in;
-- **AWS Security groups ids:** specify security groups to be attached to the instance. By default, 
+Required parameters (no default value):
+- **Subnet to launch the instance in:** choose a subnet;
+- **Security groups to attach to instance:** specify security groups to be attached to the instance. By default, 
 the following ports are used: 80 (Defect dojo), 8085 (API), 9000 (Minio API).
 Consider to select Security Group with the ports opened if these services should be available outside the instance;
-- **EC2 Instance Type:** choose a type for the instance;
-- **SSH Key pair name:** choose key pair. Make sure you have access to the selected key. 
+- **SSH Key pair name:** choose key pair. Make sure you have access to the selected key;
+- **Image ID:** ID of the Syndicate Rule Engine AMI to launch the instance from.
 
-Optional parameters:
-- **Instance Name:** name for the instance. Stack name will be used as instance name if custom value is not specified;
+Instance parameters:
+- **Instance Type:** only ARM-based types are allowed: `m7g`, `r7g` and `c7g` in `large` and `xlarge` sizes.
+  Default is `m7g.large`;
+- **Instance name:** name for the instance. Default is `EPAM Syndicate Rule Engine`;
 - **IAM Role Name:** name of AWS IAM Role to be attached to the instance. The role is used by EPAM Syndicate Rule Engine to access accounts resources.
   The service does not mutate resources state by design so the role must be readonly. [Follow this link to access the full list of permissions required by Rules.](https://github.com/epam/ecc-aws-rulepack/tree/main/iam) 
   The role must be created beforehand and must allow EC2 Service to assume it.
-  Keep the field empty if you do not want any role to be attached;
+  Keep the field empty if you do not want any role to be attached (no Instance Profile is created in this case);
+- **Name of EC2 launch template that will be created:** default is `syndicate-rule-engine-imdsv2-launch-template`.
+  The name must be unique within a region of an account, so change it if you deploy more than one stack
+  in the same region. The launch template enforces IMDSv2 (hop limit 3);
+- **Version of Rule Engine release:** `$LATEST` by default. Pins the release the instance is initialized with.
+
+Tenant and customer parameters:
 - **Tenant Name:** name for the tenant to be activated during service configuration. The 
   tenant represents the AWS Account where the instance is launched. The name can contain ONLY uppercase letters, digits, dashes and underscores.
-  If the value is not specified, the default `TENANT_1` will be used;
-- **Admin Emails:** list of emails of administrators split by a space. Example: `admin1@yourcorp.com admin2@yourcorp.com`.
-  Keep the field empty to not configure any emails.
+  The default is `TENANT_1`. If the field is empty, Rule Engine tries to resolve the AWS Account Alias;
+- **Should we activate a tenant for this AWS account?** (`ActivateTenant`, default `true`);
+- **Tenant regions to activate:** comma-separated list of regions, for example `us-east-1,eu-west-1`.
+  Keep empty to activate all available regions;
+- **Should we activate an available license for your customer?** (`ActivateLicense`, default `true`, highly recommended).
+  The customer is created from the license;
+- **Customer name** (`CustomerName`, default `CUSTOMER_1`): used only if the license is not activated;
+- **Custom License Manager link:** keep empty to use the default one;
+- **Syndicate Rule Engine admin username** and **Syndicate Modular Service admin username:** default is `admin` for both.
+  Passwords are generated during initialization, see the [user guide](../../../docs/sre_user_guide.md) on how to read them.
+
+Integration parameters (optional):
+- **Name of an AWS S3 bucket for Maestro recommendations:** bucket where recommendations are posted;
+- **Name of an existing SSM parameter which contains Mongo URI**, **Name of MongoDB database for Modular tables**
+  (default `modular-common-domain`), **AWS IAM Role(s) to access Modular tables in DynamoDB** and
+  **AWS Region where DynamoDB Modular tables are located**: use them to connect the instance to an existing Modular
+  installation. Keep them empty/default for a standalone installation.
 
 Click `Next` if all parameters are set.
 
@@ -48,6 +70,8 @@ Configure AWS CloudFormation options provided by AWS:
   if You specified IAM Role in the previous section. No custom role will be created but the one You have specified will 
   be attached to the instance profile.
 
+![Stack options](./images/cf-aws-options.png)
+
 Click `Next` if all options are set.
 
 ## 4. Create stack
@@ -58,11 +82,13 @@ Review all the parameters and options and click `Submit`.
 
 The stack will create such resources:
 - EC2 Launch Template
-- EC2 Instance Profile
+- EC2 Instance Profile (only if `IAM Role Name` is specified)
 - EC2 Instance
 
+The stack outputs the `InstanceId` and `PrivateIp` of the instance.
+
 The stack will be in `CREATE_IN_PROGRESS` status for as long as it takes the EPAM Syndicate Rule Engine instance be created and initially configured.
-Usually it takes up to 10 minutes. 
+Usually it takes 10-15 minutes; the stack fails if the instance does not signal success within 20 minutes.
 
 ### In case of success
 The `CREATE_COMPLETE` status indicates the creation, configuration and healthcheck are successfully finished and the EPAM Syndicate Rule Engine is ready to be used.
@@ -71,6 +97,8 @@ To begin the EPAM Syndicate Rule Engine usage please follow the steps described 
 ### In case of issues
 If something goes wrong during the setup, the AWS CloudFormation stack will change its status to `CREATE_FAILED`.
 In case the `Preserve successfully provisioned resources` option was enabled on parameters section it is possible to provide instance initialization log to the EPAM Syndicate Team.
+
+![Failed stack](./images/cf-failed.png)
 
 Please follow these steps to download the initialization log file and share it with the support team:
 1. Make sure the instance's port 22 is open for your IP address;

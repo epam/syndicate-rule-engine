@@ -19,20 +19,21 @@ ssh -i $SSH_KEY_NAME admin@$INSTANCE_PUBLIC_DNS
 
 ### 2. List available releases
 
-Run the following command to see all releases available from the currently installed version:
+Run the following command to see the releases newer than the currently installed one (the installed release itself is also shown):
 
 ```bash
 sre-init list
 ```
 
-Expected output:
+Expected output (versions and dates are examples):
 
-| Version | Release Date         | URL                                                                 | Prerelease | Draft |
-|---------|----------------------|---------------------------------------------------------------------|------------|-------|
-| 5.5.1   | 2024-11-01T10:00:00Z | https://github.com/epam/syndicate-rule-engine/releases/tag/5.5.1   | false      | false |
-| 5.5.0*  | 2024-10-16T09:01:13Z | https://github.com/epam/syndicate-rule-engine/releases/tag/5.5.0   | false      | false |
+| RELEASE | DATE                 | URL                                                                | PRERELEASE | DRAFT |
+|---------|----------------------|--------------------------------------------------------------------|------------|-------|
+| 5.22.0  | 2026-XX-XXT10:00:00Z | https://github.com/epam/syndicate-rule-engine/releases/tag/5.22.0  | false      | false |
+| 5.21.0* | 2026-XX-XXT09:01:13Z | https://github.com/epam/syndicate-rule-engine/releases/tag/5.21.0  | false      | false |
 
-The currently installed version is marked with an asterisk `*`.
+The currently installed version is marked with an asterisk `*`. Pre-releases are hidden unless
+`--allow-prereleases` is passed.
 
 ---
 
@@ -85,6 +86,7 @@ New github release <new_version> is available
 Going to update to <new_version>
 Pulling new artifacts
 Verifying that necessary helm chart exists
+Making backup autobackup-<timestamp>
 Making helm upgrade. It should not take more than 20 minutes
 helm upgrade was successful
 Upgrading obfuscation manager
