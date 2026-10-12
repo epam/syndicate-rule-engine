@@ -69,8 +69,9 @@ pytest tests/
 ## Event-Driven scans
 If there is no need to scan the entire cloud account, but only certain resources and only after their changes
 (for example, an EC2 instance was created, the content of an S3 bucket was updated, a Kubernetes pod was deleted, etc.),
-then the solution is event-driven scans. Event-driven scans use rulesets that have the `event_driven` field set to `true`
-and require the Event-Driven feature to be enabled in the license.
+then the solution is event-driven scans. Event-driven scans require the Event-Driven feature to be enabled in the license.
+The rules to run for an event are taken from the license rulesets of the tenant's cloud, and the event-to-rule mapping
+is built from the license metadata during the license synchronization.
 
 ### Flow
 1. **Ingestion.** Events reach SRE in one of two ways:
@@ -89,5 +90,6 @@ and require the Event-Driven feature to be enabled in the license.
 4. **Cleaning.** The periodic task `clear-events` (daily at 00:00 UTC by default,
    `SRE_CELERY_CLEAR_EVENTS_SCHEDULE`) removes events that have already been assembled.
 
-Refer to [Syndicate Rule Engine User Guide](docs/sre_user_guide.md) for the supported event formats and to the
+Refer to the [Event-Driven Scanning](docs/sre_user_guide.md#event-driven-scanning) section of the Syndicate Rule Engine User Guide
+for the supported event formats, prerequisites and configuration, and to the
 [Event Driven Scan DFD](docs/assets/dfd_event_driven_scan.png) for the data flow.

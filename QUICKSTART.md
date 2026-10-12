@@ -335,7 +335,7 @@ $ sre ruleset describe
 Execute scan for your tenant:
 
 ```bash
-$ sre job submit --tenant_name EXAMPLE_TENANT_AWS
+$ sre job scan aws --tenant_name EXAMPLE_TENANT_AWS
 +--------------------------------------+-----------+----------------------------------+-----------------------+---------------------+
 |                Job id                | Job owner |           Submitted at           | Customer display name | Tenant display name |
 +--------------------------------------+-----------+----------------------------------+-----------------------+---------------------+
@@ -481,8 +481,8 @@ When the status is `READY_TO_SCAN`, the ruleset has been compiled successfully.
 Since standard scans don't use licenses, you must specify credentials for the scan (or use `--resolve_local_credentials`):
 
 ```bash
-sre job submit --tenant_name EXAMPLE_TENANT_AWS --ruleset FULL_AWS --region eu-west-1 \
-  --aws_access_key_id $AWS_ACCESS_KEY_ID --aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+sre job scan aws --tenant_name EXAMPLE_TENANT_AWS --ruleset FULL_AWS --region eu-west-1 \
+  --access_key_id $AWS_ACCESS_KEY_ID --secret_access_key $AWS_SECRET_ACCESS_KEY
 ```
 
 **To watch all the executed jobs and their status use:**
@@ -504,9 +504,9 @@ $ sre rulesource delete --rule_source_id $RULE_SOURCE_ID --confirm
 Kubernetes clusters are registered as platforms (`sre platform k8s create|describe|update|delete`). To scan a cluster use:
 
 ```bash
-$ sre job submit_k8s --platform_id $PLATFORM_ID --ruleset $K8S_RULESET
+$ sre job scan k8s --platform_id $PLATFORM_ID --ruleset $K8S_RULESET
 ```
 
 ## Event-driven scans
 
-Event-driven scans check only the resources affected by cloud or cluster events (`POST /event` or event sources such as SQS queues and Kubernetes clusters, managed by `sre integrations event sources ...`). See the [README](./README.md#event-driven-scans) and [User Guide](./docs/sre_user_guide.md).
+Event-driven scans check only the resources affected by cloud or cluster events (`POST /event` or event sources such as SQS queues and Kubernetes clusters, managed by `sre integrations event sources ...`). See the [README](./README.md#event-driven-scans) and the [Event-Driven Scanning](./docs/sre_user_guide.md#event-driven-scanning) section of the User Guide.
