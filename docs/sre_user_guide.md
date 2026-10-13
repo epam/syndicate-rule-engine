@@ -6,6 +6,8 @@ This allows an enterprise to be sure that the environments used for production o
 
 For existing businesses, it helps inventory and assessment for their legacy infrastructure and planned updates. For new businesses, it can help make sure their processes and infrastructure match standards and are effective and safe.
 
+{{ pagebreak }}
+
 ## Table of Contents
 
 1. [Introduction](#introduction)
@@ -142,13 +144,17 @@ The Architecture diagram below provides the view on the main components of the o
 
 ![Reference Diagram](assets/context_diagram.png)
 
-*Figure 1 - Reference Diagram*
+```{=openxml}
+<w:p><w:pPr><w:pStyle w:val="ImageCaption"/><w:jc w:val="center"/></w:pPr><w:r><w:t>Figure 1 - Reference Diagram</w:t></w:r></w:p>
+```
 
 ### Containers Diagram using AMI on EC2
 
 ![Containers Diagram using AMI on EC2](assets/architecture_diagram_k8s.png)
 
-*Figure 2 - Containers Diagram*
+```{=openxml}
+<w:p><w:pPr><w:pStyle w:val="ImageCaption"/><w:jc w:val="center"/></w:pPr><w:r><w:t>Figure 2 - Containers Diagram</w:t></w:r></w:p>
+```
 
 {{ pagebreak }}
 
@@ -827,6 +833,10 @@ Besides full scans, S.RE can react to events that happen in the cloud or in a Ku
 ### How It Works
 
 ![Event-driven flow](assets/dfd_event_driven_scan.png)
+
+```{=openxml}
+<w:p><w:pPr><w:pStyle w:val="ImageCaption"/><w:jc w:val="center"/></w:pPr><w:r><w:t>Figure 3 - Event-driven flow</w:t></w:r></w:p>
+```
 
 1. **Ingest.** Events are received by `POST /event` (permission `event:post`) or pulled by the *event sources consumer* (from SQS queues and from Kubernetes clusters). Each event is resolved to a tenant. The event is dropped if the tenant is not found, if the tenant has no active license with event-driven scans enabled, or if none of the rules of the license is related to the event (the event-to-rule mapping is built from the license metadata during the license synchronization). Duplicate events are removed.
 2. **Store.** Accepted events are saved and kept for `SRE_EVENTS_TTL_HOURS` hours (48 by default).
