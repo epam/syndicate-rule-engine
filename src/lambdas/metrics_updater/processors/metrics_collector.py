@@ -882,6 +882,7 @@ class MetricsCollector(BaseProcessor):
             start=start,
             end=end,
             ascending=True,  # important to have jobs in order
+            attributes_to_get=JobService.METRICS_ATTRIBUTES,
         )
         js = JobMetricsDataSource(jobs)
         if not js:
