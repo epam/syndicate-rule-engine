@@ -102,7 +102,7 @@ executorCCLogLevel: ERROR
 executorLogsFilename:
 allowSimultaneousJobsForOneTenant: false
 dojoPayloadSizeLimitBytes:
-metricsExpirationDays:
+metricsExpirationDays: 90
 recommendationsBucket:
 
 # minio presigned url configuration (any value is considered as true)

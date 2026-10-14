@@ -15,6 +15,9 @@ _LOG = get_logger(__name__)
 
 
 class ExpiredMetricsCleaner:
+    # how many items are deleted per batch_write round trip
+    batch_size = 500
+
     def __init__(
         self,
         mc: ModularServiceProvider,
@@ -41,7 +44,7 @@ class ExpiredMetricsCleaner:
         """
         expiration = Env.METRICS_EXPIRATION_DAYS.get()
         if expiration is None or not expiration.isalnum():
-            _LOG.info('Expiration env is not set. Metrics won`t be removed')
+            _LOG.warning('Expiration env is not set. Metrics won`t be removed')
             return
         till = utc_datetime() - timedelta(days=int(expiration))
 
@@ -56,16 +59,20 @@ class ExpiredMetricsCleaner:
                 till=till,
                 attributes_to_get=[ReportMetrics.s3_url],
             )
-            to_remove = []
+            batch = []
             for metric in metrics:
                 if metric.s3_url:
                     u = S3Url(metric.s3_url)
                     self._s3_client.delete_object(bucket=u.bucket, key=u.key)
                     deleted_obj += 1
-                to_remove.append(metric)
-
-            self._rms.batch_delete(to_remove)
-            deleted_metrics += len(to_remove)
+                batch.append(metric)
+                if len(batch) >= self.batch_size:
+                    self._rms.batch_delete(batch)
+                    deleted_metrics += len(batch)
+                    batch.clear()
+            if batch:
+                self._rms.batch_delete(batch)
+                deleted_metrics += len(batch)
         _LOG.info(
             f'Cleaning finished. '
             f'Deleted metrics: {deleted_metrics}. '
